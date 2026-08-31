@@ -519,6 +519,20 @@
 			"when": 1785690002000,
 			"tag": "0073_drop_team_functions",
 			"breakpoints": true
+		},
+		{
+			"idx": 74,
+			"version": "7",
+			"when": 1785690003000,
+			"tag": "0074_retire_builtin_harness",
+			"breakpoints": true
+		},
+		{
+			"idx": 75,
+			"version": "7",
+			"when": 1785690004000,
+			"tag": "0075_drop_model_tier_preference",
+			"breakpoints": true
 		}
 	]
 }

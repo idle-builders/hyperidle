@@ -82,7 +82,6 @@ After promoting, document your triage decision in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -193,7 +192,6 @@ Document the promotion decision in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -294,7 +292,6 @@ When this happens:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -381,7 +378,6 @@ Document your archival decision in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

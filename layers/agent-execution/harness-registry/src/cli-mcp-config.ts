@@ -249,12 +249,33 @@ function writeCursorJson(params: {
 }): HarnessMcpConfigResult {
 	const { sandboxPath, mcpUrl, token } = params;
 
+	// @lore cursor-workspace-root (verified live 2026-08-31, cursor-agent
+	// 2026.08.25): cursor-agent reads `.cursor/mcp.json` from the root of the
+	// enclosing GIT REPOSITORY, not from its working directory. A session sandbox
+	// is `<base>/local-sb-N-<ts>/` and `<base>` is itself a git repo, so cursor
+	// resolved the root to `<base>`, found no `.cursor/` there, and started with
+	// no MCP server at all. The agent then said so in its own transcript ("there's
+	// no `hyperidle` MCP server registered") and answered in plain text — a turn
+	// that never calls `reply`, so `not_returned`, every time.
+	//
+	// Reproduced three ways to pin the cause: the same sandbox one directory up
+	// (a repo root) connects; the same sandbox as a plain subdirectory does not;
+	// `git init` inside it makes it connect again. `--workspace <sandbox>` does
+	// NOT fix it — cursor takes the workspace from the repo root regardless, so
+	// the flag is not the lever it looks like. Writing `.cursor/mcp.json` at the
+	// real repo root instead was rejected: that root can be the user's own
+	// checkout, and a per-session bridge token has no business being written there.
+	//
+	// Nothing is done about it HERE. `ensureSandboxGitRepo`
+	// (run-orchestration/mounter.ts) already makes every session sandbox a git
+	// repo, unconditionally and well before this runs, so the precondition this
+	// dialect needs is already met by the time the file lands.
 	const cursorDir = path.join(sandboxPath, ".cursor");
 	fs.mkdirSync(cursorDir, { recursive: true });
 	const mcpJsonPath = path.join(cursorDir, "mcp.json");
 
 	// @lore AW1 cursor-json: cursor-agent reads MCP servers from .cursor/mcp.json
-	// in the workspace (same shape as Cursor IDE). Token is inline in headers.
+	// at the git-repo root (same shape as Cursor IDE). Token is inline in headers.
 	const config = {
 		mcpServers: {
 			hyperidle: {

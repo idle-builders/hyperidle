@@ -44,7 +44,6 @@ describe("AM2 HarnessCapabilityDescriptor", () => {
 					provider: "openrouter",
 					contextWindow: 128_000,
 					selectable: true,
-					inheritedFromGateway: true,
 					options: [selectOption()],
 				},
 				{
@@ -53,7 +52,6 @@ describe("AM2 HarnessCapabilityDescriptor", () => {
 					provider: "openrouter",
 					contextWindow: 64_000,
 					selectable: true,
-					inheritedFromGateway: true,
 					options: [selectOption({ defaultValue: "high" })],
 				},
 			],

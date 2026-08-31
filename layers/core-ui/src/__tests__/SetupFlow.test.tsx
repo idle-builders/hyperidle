@@ -2,7 +2,9 @@
  * R2 — SetupFlow page component tests (updated from P4)
  *
  * R2 AC coverage:
- * AC-1: Setup flow has two required fields: name and API key
+ * AC-1: Setup flow's one required field is the person's name. The API key field
+ *       that used to be required with it belonged to the built-in gateway; a key
+ *       is now asked for only by a harness that can run on one.
  * AC-2: Backend mode selection is removed from the setup flow
  * AC-3: Email field is removed from setup
  * AC-4: Product is created silently — no visible "First Product" section
@@ -12,7 +14,8 @@
  * - "renders BackendMode select" → removed (AC-2: backend mode removed)
  * - "renders name and email fields" → updated (AC-3: email removed)
  * - "Start button remains disabled without product name" → removed (AC-4: product name not required)
- * - "Start button remains disabled when only name is filled" → updated (AC-1: only need name + API key)
+ * - "Start button remains disabled when only name is filled" → inverted: a name
+ *   is enough, because no key is required of a harness that logs itself in.
  * - "Section headings: Backend Mode, Your Identity, First Product, API Credentials" → removed
  * - "shows validation error for invalid email format" → removed (AC-3: email removed)
  */
@@ -62,11 +65,19 @@ describe("SetupFlow (R2)", () => {
 		);
 	});
 
-	// AC-1: Only name and API key are required fields
-	it("renders name and API key fields", () => {
+	// AC-1: the name is the only always-present required field
+	it("renders the name field", () => {
 		renderSetupFlow();
 		expect(screen.getByLabelText(/your name/i)).toBeInTheDocument();
-		expect(screen.getByLabelText(/anthropic api key/i)).toBeInTheDocument();
+	});
+
+	// @lore A key field used to render unconditionally, because the built-in
+	// gateway row was always on screen and always wanted one. Setup asks for a key
+	// only when the chosen harness can actually use it — see
+	// setup-bring-your-own-key.test.tsx for that path.
+	it("asks for no API key when no harness wants one", () => {
+		renderSetupFlow();
+		expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
 	});
 
 	// AC-3: Email field is removed
@@ -112,24 +123,13 @@ describe("SetupFlow (R2)", () => {
 		expect(startBtn).toBeDisabled();
 	});
 
-	// AC-1: Start button disabled when only name is filled (API key required too)
-	it("Start button remains disabled when name filled but no API key", async () => {
+	// AC-1: a name is enough — the key that used to be required with it was the
+	// built-in gateway's, and no harness here asks for one.
+	it("Start button becomes enabled once the name is filled", async () => {
 		const user = userEvent.setup();
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-
-		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
-		expect(startBtn).toBeDisabled();
-	});
-
-	// AC-1: Start button enabled when name AND API key are filled
-	it("Start button becomes enabled when name and API key are filled", async () => {
-		const user = userEvent.setup();
-		renderSetupFlow();
-
-		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
 		expect(startBtn).not.toBeDisabled();
@@ -141,7 +141,6 @@ describe("SetupFlow (R2)", () => {
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
 		await user.click(startBtn);
@@ -189,7 +188,6 @@ describe("SetupFlow (R2)", () => {
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
 		await user.click(startBtn);

@@ -3,7 +3,7 @@
  *
  * Covers:
  *   - Writes the correct file per channel (settings-claude, settings-codex, process-reengage)
- *   - No-op for sdk-inprocess, builtin-loop, none (no file written)
+ *   - No-op for sdk-inprocess, none (no file written)
  *   - Hook file content: bridge URL + token present; no agent-authored injection
  *   - WARN-F1: trust marker is written for settings-claude and settings-codex
  *   - WARN-F1: hook content is not-vacuous (decision:block or exit-2 semantics present)
@@ -293,7 +293,7 @@ describe("provisionReturnHook", () => {
 
 	// ── No-op channels (no file written) ──────────────────────────────────
 
-	describe("sdk-inprocess, builtin-loop, none: no file written", () => {
+	describe("sdk-inprocess, none: no file written", () => {
 		it("sdk-inprocess: does not write any config file", async () => {
 			await provisionReturnHook({
 				sandboxPath,
@@ -304,20 +304,6 @@ describe("provisionReturnHook", () => {
 			});
 
 			// No .claude/settings.json, no .codex/hooks.json, no .opencode plugin.
-			expect(fs.existsSync(path.join(sandboxPath, ".claude"))).toBe(false);
-			expect(fs.existsSync(path.join(sandboxPath, ".codex"))).toBe(false);
-			expect(fs.existsSync(path.join(sandboxPath, ".opencode"))).toBe(false);
-		});
-
-		it("builtin-loop: does not write any config file", async () => {
-			await provisionReturnHook({
-				sandboxPath,
-				channel: "builtin-loop",
-				bridgeToken,
-				mcpUrl,
-				forceBudget,
-			});
-
 			expect(fs.existsSync(path.join(sandboxPath, ".claude"))).toBe(false);
 			expect(fs.existsSync(path.join(sandboxPath, ".codex"))).toBe(false);
 			expect(fs.existsSync(path.join(sandboxPath, ".opencode"))).toBe(false);
@@ -356,7 +342,6 @@ describe("provisionReturnHook", () => {
 			"sdk-inprocess",
 			"settings-claude",
 			"settings-codex",
-			"builtin-loop",
 			"process-reengage",
 			"soft-continue",
 			"none",

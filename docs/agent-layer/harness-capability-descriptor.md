@@ -7,7 +7,7 @@ The descriptor exposes models, access mode, auth action, discovery state, runtim
 ```ts
 // framework/harness-capability/src/harness/harness-capability-descriptor.ts (authoritative)
 interface HarnessCapabilityDescriptor {
-  type: string;              // "builtin", "codex", "claude-code", "opencode", "cursor-agent"
+  type: string;              // "codex", "claude-code", "opencode", "cursor-agent"
   name: string;
   kind: "local" | "remote";
   accessMode: "api-gateway" | "provider-subscription-cli" | "external-byo";
@@ -21,7 +21,7 @@ interface HarnessCapabilityDescriptor {
 
 One additive field postdates the original AM2 shape:
 
-- **`discovery.disabled?: boolean`** (AM4) — stamped by the route handler (not the pool, which is DB-free) from `server_config.harnessDisabled`. `builtin` is always exempt. See [Enable/Disable](#enabledisable-and-adapterpoolselect).
+- **`discovery.disabled?: boolean`** (AM4) — stamped by the route handler (not the pool, which is DB-free) from `server_config.harnessDisabled`. No harness is exempt. See [Enable/Disable](#enabledisable-and-adapterpoolselect).
 
 `inheritedTools?` (AN1) was DELETED by AU36 — reach moved into the connections domain (`InheritedConnectionFact`, probed and cached by `@hyperidle/connections`). No compatibility field remains. The held/inherited Connection split lives in [connection-model](../architecture/connection-model.md).
 
@@ -36,27 +36,19 @@ One additive field postdates the original AM2 shape:
 | `missing` | Binary not found on PATH |
 | `installed` | Binary present; auth/readiness unknown |
 | `unauthenticated` | Binary present; user must run the CLI login flow |
-| `ready` | Binary present and authenticated (or credential present for builtin) |
+| `ready` | Binary present and authenticated |
 | `unavailable` | Cannot be used; explicit reason provided |
 
 ---
 
 ## First-Class Families
 
-### `builtin` (API-gateway harness)
-
-**Access mode:** `api-gateway`. Users make it ready by storing a model gateway credential in HyperIdle.
-
-**Discovery:** `probeBuiltinGateway` (`harness-discovery.ts`) checks the ordered gateway-usable credential set:
-1. `ANTHROPIC_API_KEY` → `anthropic_api_key`
-2. `OPENAI_API_KEY` → `openai_compatible_api_key`
-3. `OPENROUTER_API_KEY` → `openrouter_api_key`
-
-Reports `ready` when any credential is present, with the matched credential name in the auth action. Reports `unauthenticated` with the full checked-key list otherwise.
-
-**Real gateway call proven:** `AM2-builtin-gateway.integration.test.ts` drives one harmless turn through `BuiltinHarnessAdapter` via the `openai-compatible` path (live OpenRouter call — no stub, no cassette) and asserts real normalized `token_usage` and `completion` events with a non-empty `completion.text` differing from the probe prompt. (`cost_update` was removed — harness telemetry is token usage only.)
-
-**Runtime caps:** `fileEditing`/`toolUse` resolve `true` via the `?? true` defaults in `runtimeFromCapabilities` (`harness-capability-descriptors.ts`) — the builtin adapter does not declare them itself, and it declares `mcpSupport: false`. Builtin does not use the session-probe gate.
+> **Removed: the `builtin` family.** A built-in "API-gateway harness" used to lead this list. It was
+> the only family made ready by a stored credential rather than an installed binary, the only one
+> whose model list came off the network rather than out of the tool, the only one exempt from
+> enable/disable, and the only harness-type literal the descriptor-driven lint rule allowed. It is
+> gone, and every exemption went with it — the surface is now what it always claimed to be:
+> entirely descriptor-driven.
 
 ### `codex` (OpenAI Codex CLI)
 
@@ -138,7 +130,7 @@ If any link is missing for a claimed-ready family, the descriptor must report `u
 - `returnEnforcement` — non-optional per-harness channel; mechanism owned by [return-gate-enforcement](./return-gate-enforcement.md)
 - `mcpConfig` dialect — which per-session MCP config file the CLI needs (see MCP bridge below)
 
-**Pre-compaction:** adapters with `preCompactionTrigger: true` emit a `pre_compaction` event (`PreCompactionEvent { type: "pre_compaction", contextTokens, maxTokens }`, `framework/harness-protocol/src/harness/harness-events.ts`) when context pressure crosses a threshold. The correct signal is the **latest call's** `inputTokens` against the model context window — not a cumulative sum, which over-counts by the number of calls (`layers/agent-execution/harness-registry/src/context-window.ts`). The builtin adapter emits it (`layers/agent-execution/harness-registry/src/builtin-harness-adapter.ts`); normalization passes it through unchanged. What a session does with the trigger (final note-writing pass) is a session-boundary concern — see [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
+**Pre-compaction:** adapters with `preCompactionTrigger: true` emit a `pre_compaction` event (`PreCompactionEvent { type: "pre_compaction", contextTokens, maxTokens }`, `framework/harness-protocol/src/harness/harness-events.ts`) when context pressure crosses a threshold. The correct signal is the **latest call's** `inputTokens` against the model context window — not a cumulative sum, which over-counts by the number of calls. No adapter emits it today: the built-in one did, and the `context-window.ts` sizing it used went with it. Normalization passes the event through unchanged if a harness ever produces one. What a session does with the trigger (final note-writing pass) is a session-boundary concern — see [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
 
 ---
 
@@ -164,7 +156,7 @@ Per-CLI config delivery is listed under each family above. The gate that routes 
 
 Two code paths converge on the `HarnessEvent` union — consumers cannot tell which path produced an event:
 
-**Path 1: `builtin`** — `BuiltinHarnessAdapter` emits `token_usage`, `completion` directly in union shape. No pre-normalizer. (`cost_update` was removed — harness telemetry is token usage only; see `layers/agent-execution/harness-registry/src/__testing__/llm-cassette.ts` lore.)
+**Path 1: adapters already in union shape** — an adapter may emit `token_usage` and `completion` directly, needing no pre-normalizer. (`cost_update` was removed — harness telemetry is token usage only.)
 
 **Path 2: CLI families** — everything flows through `normalizeHarnessEvent` (`framework/harness-protocol/src/harness/harness-event-normalization.ts`) with per-family pre-maps:
 
@@ -175,7 +167,7 @@ Two code paths converge on the `HarnessEvent` union — consumers cannot tell wh
 
 **Production caller:** `cli-harness-adapter.ts` — the production event loop calls `normalizeHarnessEvent` on every parsed line.
 
-**Locked in CI:** three-way field equivalence (codex ≡ claude-code ≡ builtin all produce `{ type: "token_usage", inputTokens, outputTokens }`, no native snake_case downstream) and the opencode pre-map, in `framework/harness-protocol/src/harness/__tests__/harness-event-normalization.test.ts` + `harness-event-normalization-codex.test.ts`. Harness test enforcement (locked models, and the symmetry expectation that no longer has an enforcer) is owned by [harness-coverage-enforcement](./harness-coverage-enforcement.md).
+**Locked in CI:** field equivalence across harnesses (codex ≡ claude-code both produce `{ type: "token_usage", inputTokens, outputTokens }`, no native snake_case downstream) and the opencode pre-map, in `framework/harness-protocol/src/harness/__tests__/harness-event-normalization.test.ts` + `harness-event-normalization-codex.test.ts`. Harness test enforcement (locked models, and the symmetry expectation that no longer has an enforcer) is owned by [harness-coverage-enforcement](./harness-coverage-enforcement.md).
 
 ---
 
@@ -185,7 +177,7 @@ Two code paths converge on the `HarnessEvent` union — consumers cannot tell wh
 
 The route handler (`layers/core-api/src/routes/harnesses.ts`):
 1. Calls `pool.describe()` — descriptors for all registered adapters (deduped by type) plus `missingKnownHarnessDescriptors()` for unregistered first-class families (`adapter-pool.ts`).
-2. Stamps `discovery.disabled: true` from `readServerConfig(db).harnessDisabled`; `builtin` is never stamped.
+2. Stamps `discovery.disabled: true` from `readServerConfig(db).harnessDisabled`, with no exemptions.
 3. Returns the stamped list. The response never includes API keys, base URLs, subscription tokens, or credential file contents.
 
 ### `POST /api/harnesses/redetect` → `HarnessCapabilityDescriptor[]`
@@ -202,7 +194,6 @@ Persists per-harness disabled state to `server_config.harnessDisabled: string[]`
 
 - Body: `{ disabled: boolean }`
 - Unknown `:type` → 400 (prevents arbitrary key injection into the config blob).
-- `{ disabled: true }` for `builtin` → **409** (the always-present fallback cannot be disabled; enforced as a write-boundary trust check independent of the UI).
 - Returns the fresh descriptor list with `discovery.disabled` re-stamped.
 - Auth boundary: same as GET. Rate limit: global (single DB write, no CLI spawns).
 
@@ -214,7 +205,7 @@ When a backend is disabled:
 
 1. **UI:** the backend row renders dimmed with the toggle off; the capabilities fold hides (`layers/core-ui/src/settings/SettingsHarnesses.tsx`, `layers/core-ui/src/settings/harness-presentation.ts`).
 2. **Session selection:** `AdapterPool.select()` skips it via `SelectRequirements.disabledTypes` (`adapter-pool.ts`). The pool is DB-free and synchronous — the **caller** supplies the set: `admitSession` (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`) reads `readServerConfig(db).harnessDisabled` and spreads it into the requirements.
-3. **Builtin hard-exemption:** `select()` HARD-EXEMPTS `type === "builtin"` from the disabled filter regardless of the persisted set — a back-stop against hand-edited or stale config stranding the fallback.
+3. **No exemption.** `select()` used to hard-exempt `type === "builtin"` from the disabled filter, as a back-stop against a stale config stranding the always-present fallback. There is no always-present harness now — every one is installed by the user, and every one can be turned off, including the last.
 
 The `builtin` exemption is enforced in two independent places: the `select()` filter (back-stop) and the `POST /:type/disabled` 409 (front-door) — both, not either/or. In the web UI the single allowed `harnessType` literal check is `"builtin"` in `showsToggle`, ESLint-enforced (`layers/core-ui/src/settings/harness-presentation.ts`).
 

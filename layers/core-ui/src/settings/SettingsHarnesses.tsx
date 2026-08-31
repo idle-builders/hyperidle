@@ -3,8 +3,8 @@
  *
  * AV2: Converted from HarnessCard list to ItemList/Row + SplitView.
  * - Left pane: ItemList of harness rows (one Row per descriptor)
- * - Right pane (destination): builtin → SettingsModels tier rows + CredentialsTab;
- *   non-builtin configurable → auth/capability detail; empty caps+models → no pane
+ * - Right pane (destination): a configurable harness → auth/capability detail;
+ *   empty caps+models → no pane
  * - SplitView ratio persisted via useUiPreference("settings.backends", 0.42)
  *
  * Row sort order: actionable states first (unauthenticated → installed → ready → missing → unavailable)
@@ -22,7 +22,6 @@
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useState } from "react";
-import { CredentialsTab } from "../components/CredentialsTab.js";
 import type { FoldMode } from "../ds";
 import {
 	Button,
@@ -39,7 +38,6 @@ import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { hasCaps, statusLine } from "./harness-presentation.js";
-import { SettingsModels } from "./SettingsModels.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,7 +72,7 @@ function sortDescriptors(
  */
 function hasDetail(d: HarnessCapabilityDescriptor): boolean {
 	const hasLoginCommand = d.authAction.kind === "native_cli_login" && !!d.authAction.command;
-	return hasCaps(d) || d.models.length > 0 || d.type === "builtin" || hasLoginCommand;
+	return hasCaps(d) || d.models.length > 0 || hasLoginCommand;
 }
 
 /** Map discovery state to StatusChip status. */
@@ -94,27 +92,15 @@ function discoveryStateToStatus(
 	}
 }
 
-// ---------------------------------------------------------------------------
-// BuiltinDetail — tiers + credentials in the split pane
-// ---------------------------------------------------------------------------
-
-function BuiltinDetail(): JSX.Element {
-	return (
-		<div className="flex flex-col gap-[18px] p-[18px] overflow-y-auto h-full">
-			<div>
-				<p className="type-label   uppercase  text-[var(--text-tertiary)] mb-[12px]">Model Tiers</p>
-				<SettingsModels />
-			</div>
-			<div>
-				<p className="type-label   uppercase  text-[var(--text-tertiary)] mb-[12px]">Credentials</p>
-				<CredentialsTab />
-			</div>
-		</div>
-	);
-}
+// @lore The built-in gateway had its own detail pane here — the three model-tier
+// rows plus the credentials editor — because it was the one harness whose
+// configuration was a model choice and an API key rather than a login. Every
+// harness left resolves its own models and authenticates itself, so there is one
+// detail pane now, and it is the same one for all of them. The credentials
+// editor still has its own "Provider keys" section on the Settings page.
 
 // ---------------------------------------------------------------------------
-// HarnessDetail — generic harness detail for non-builtin
+// HarnessDetail — the detail pane, same for every harness
 // ---------------------------------------------------------------------------
 
 interface HarnessDetailProps {
@@ -253,7 +239,7 @@ export function SettingsHarnesses(): JSX.Element {
 		return (
 			<EmptyState
 				title="No agent backends detected"
-				description="The built-in backend is always available as a fallback."
+				description="HyperIdle runs your agents through a coding CLI you install and sign into. Install one, sign in, then re-detect."
 			/>
 		);
 	}
@@ -348,11 +334,7 @@ export function SettingsHarnesses(): JSX.Element {
 							</Button>
 						</div>
 						<div className="flex-1 min-h-0 overflow-y-auto">
-							{selectedDescriptor.type === "builtin" ? (
-								<BuiltinDetail />
-							) : (
-								<HarnessDetail descriptor={selectedDescriptor} />
-							)}
+							<HarnessDetail descriptor={selectedDescriptor} />
 						</div>
 					</div>
 				) : (

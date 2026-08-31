@@ -41,8 +41,7 @@ One row per agent, primary-keyed on `agent_user_id`.
 
 | Field | Column | Purpose |
 |---|---|---|
-| Harness type | `harness_type` (text, nullable) | Preferred adapter (`builtin`, `claude-code`, `codex`, `opencode`, `cursor-agent`); null means any available adapter. |
-| Model tier | `model_tier_preference` (text, nullable) | Preferred tier (`reasoning` \| `workhorse` \| `fast`); null means system default. Tier vocabulary is owned by [model-routing-and-cost](./model-routing-and-cost.md). |
+| Harness type | `harness_type` (text, nullable) | Preferred adapter (`claude-code`, `codex`, `opencode`, `cursor-agent`); null means any available adapter. |
 | Model | `model_id`, `model_provider` (text, nullable) | Per-agent model override. Resolution order is owned by [model-routing-and-cost](./model-routing-and-cost.md). |
 | Concurrency | `max_concurrent_sessions` (int, not null, default 1) | Max parallel sessions. Every agent starts at 1; the operator raises it. |
 

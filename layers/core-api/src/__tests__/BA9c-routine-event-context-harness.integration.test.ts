@@ -50,7 +50,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
+import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import {
 	createContextAssembler,
 	type RoutineSessionContextData,
@@ -222,32 +222,10 @@ async function spawnWithClosedStdin(
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("BA9c AC6: routine event context reaches the agent's running prompt — real harnesses", () => {
-	// ── builtin ───────────────────────────────────────────────────────────────
-	//
-	// builtin is a direct LLM call through OpenRouter; context reaches it via
-	// AGENTS.md injection (system-prompt assembly). File presence on AGENTS.md
-	// and CLAUDE.md is the right assertion — goes RED when buildRoutineTaskSection
-	// omits the triggerEvent block. No binary to spawn.
-	describe("builtin — triggerEvent rendering proof (file-presence; no binary to interrogate)", () => {
-		requireHarness("builtin");
-
-		test("AGENTS.md and CLAUDE.md contain the probe task title after routine assembly", {
-			retry: 0,
-		}, async () => {
-			const agentsMdPath = path.join(sandboxPath, "AGENTS.md");
-			const claudeMdPath = path.join(sandboxPath, "CLAUDE.md");
-			expect(fs.existsSync(agentsMdPath)).toBe(false);
-			expect(fs.existsSync(claudeMdPath)).toBe(false);
-
-			await assembleRoutineContextIntoSandbox();
-
-			expect(fs.existsSync(agentsMdPath)).toBe(true);
-			expect(fs.existsSync(claudeMdPath)).toBe(true);
-			expect(fs.readFileSync(agentsMdPath, "utf8")).toContain(probeTitle);
-			expect(fs.readFileSync(claudeMdPath, "utf8")).toContain(probeTitle);
-		});
-	});
-
+	// @lore The built-in harness had a lane here, asserting only that
+	// buildRoutineTaskSection rendered the triggerEvent block into AGENTS.md and
+	// CLAUDE.md — it had no binary to ask. Every lane below makes that same
+	// file-presence assertion first, so the proof survives its deletion.
 	// ── claude ────────────────────────────────────────────────────────────────
 	describe("claude — reads AGENTS.md + CLAUDE.md, names the trigger task", () => {
 		requireHarness("claude");
@@ -263,7 +241,7 @@ describe("BA9c AC6: routine event context reaches the agent's running prompt —
 			expect(fs.readFileSync(claudeMdPath, "utf8")).toContain(probeTitle);
 
 			// Injection check: spawn and assert model output contains probe title.
-			const { model } = harnessTestResolvedModel("claude");
+			const { model } = HARNESS_TEST_MODELS.claude;
 			const { stdout } = await spawnWithClosedStdin(
 				"claude",
 				[
@@ -278,6 +256,10 @@ describe("BA9c AC6: routine event context reaches the agent's running prompt —
 				{
 					cwd: sandboxPath,
 					env: {
+						// opencode authenticates itself. The locked matrix used to hand this
+						// spawn an OPENROUTER_API_KEY it had resolved; the matrix carries no
+						// key any more, and the inherited environment is where opencode looks
+						// for one anyway.
 						...process.env,
 						// @lore BA9b-pwd: pin PWD to sandbox.
 						PWD: sandboxPath,
@@ -316,7 +298,7 @@ describe("BA9c AC6: routine event context reaches the agent's running prompt —
 			expect(fs.readFileSync(agentsMdPath, "utf8")).toContain(probeTitle);
 
 			// Injection check: spawn and assert model output.
-			const { model } = harnessTestResolvedModel("codex");
+			const { model } = HARNESS_TEST_MODELS.codex;
 			const { stdout } = await spawnWithClosedStdin(
 				"codex",
 				[
@@ -358,7 +340,6 @@ describe("BA9c AC6: routine event context reaches the agent's running prompt —
 			expect(fs.readFileSync(agentsMdPath, "utf8")).toContain(probeTitle);
 
 			// Injection check: spawn and assert model output.
-			const { apiKey } = harnessTestResolvedModel("opencode");
 			// @lore BA9c-opencode-model: follows BA9b-opencode-model precedent.
 			// qwen3-8b handles explicit context lookup requests reliably.
 			const opencodeModel = "openrouter/qwen/qwen3-8b";
@@ -370,7 +351,6 @@ describe("BA9c AC6: routine event context reaches the agent's running prompt —
 					cwd: sandboxPath,
 					env: {
 						...process.env,
-						OPENROUTER_API_KEY: apiKey,
 						// @lore BA9b-opencode-pwd: opencode uses process.env.PWD for
 						// project-root skill scanning.
 						PWD: sandboxPath,
@@ -402,7 +382,7 @@ describe("BA9c AC6: routine event context reaches the agent's running prompt —
 			expect(fs.readFileSync(agentsMdPath, "utf8")).toContain(probeTitle);
 
 			// Injection check: spawn and assert model output.
-			const { model } = harnessTestResolvedModel("cursor-agent");
+			const { model } = HARNESS_TEST_MODELS["cursor-agent"];
 			const { stdout } = await spawnWithClosedStdin(
 				"cursor-agent",
 				["-p", PROBE_PROMPT, "--print", "--model", model, "--trust"],

@@ -323,10 +323,7 @@ async function runClaimedRequest(
 	request: AgentSessionRequest,
 	provisionParams: RunContextBundle,
 	ports: ExecutionPorts,
-	options: Pick<
-		Extract<RunOptions, { mode: "durable" }>,
-		"completion" | "enforceResolvedModelGuard"
-	>,
+	options: Pick<Extract<RunOptions, { mode: "durable" }>, "completion">,
 ): Promise<RunResult> {
 	let admitted: AdmittedRun | null = null;
 	try {
@@ -346,9 +343,7 @@ async function runClaimedRequest(
 			{ requestId: request.id, claimToken: request.claimToken },
 			ports,
 		);
-		admitted = options.enforceResolvedModelGuard
-			? await ports.sessionProvisioner.admitSession(deps, provisionParams, true)
-			: await ports.sessionProvisioner.admitSession(deps, provisionParams);
+		admitted = await ports.sessionProvisioner.admitSession(deps, provisionParams);
 		await ports.sessionRequests.transitionSessionRequest(deps.db, {
 			to: "running",
 			requestId: request.id,
@@ -386,13 +381,32 @@ async function runClaimedRequest(
 					// insert). A prior markRequestTerminal-then-transitionAgentRunLifecycle
 					// double-write left the second CAS matching zero rows (status already
 					// "failed"), losing the inbox row and the lifecycle publish entirely.
-					await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
-						requestId: request.id,
-						state: "failed",
-						sessionId: admitted?.sessionId,
-						failureCode: err instanceof Error ? err.name : "Error",
-						errorMessage: err instanceof Error ? err.message : String(err),
-					});
+					//
+					// @lore This transition can itself fail, and it is the last thing in a
+					// DETACHED chain — a throw here becomes an unhandled rejection with no
+					// caller to see it. The common cause is benign: the CAS matches no row
+					// because the request already reached a terminal state, so there is
+					// nothing left to transition. It surfaced as "Unknown agent request"
+					// noise on the harness lane, where a file whose tests all passed was
+					// still reported as failed.
+					try {
+						await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
+							requestId: request.id,
+							state: "failed",
+							sessionId: admitted?.sessionId,
+							failureCode: err instanceof Error ? err.name : "Error",
+							errorMessage: err instanceof Error ? err.message : String(err),
+						});
+					} catch (transitionErr) {
+						// Say so rather than swallowing it: the run already failed, and this
+						// was the attempt to record that. Losing it silently would leave the
+						// request looking un-terminated with no trace of why.
+						// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+						console.warn(
+							`[run-orchestration] could not record terminal failure for request ${request.id}:`,
+							transitionErr,
+						);
+					}
 				})
 				.finally(() => {
 					signalStarted();
@@ -490,7 +504,7 @@ async function consumeAgentSessionRequest(
 		productId: claimedRequest.teamId ?? "task-free",
 		sandboxBasePath: options.sandboxBasePath,
 		...(options.modelTier ? { modelTier: options.modelTier } : {}),
-		...(options.resolvedModel ? { resolvedModel: options.resolvedModel } : {}),
+		...(options.sessionWorkflow ? { sessionWorkflow: options.sessionWorkflow } : {}),
 		...(claimedRequest.sourceKind === "routine" && "routineId" in sourceCorrelation
 			? { routineId: sourceCorrelation.routineId }
 			: {}),
@@ -552,9 +566,7 @@ export function runSession(deps: RuntimeDeps, options: RunOptions): Promise<RunR
 		return consumeAgentSessionRequest(runtime, options.request, options, ports);
 	}
 	return (async () => {
-		const admitted = options.enforceResolvedModelGuard
-			? await ports.sessionProvisioner.admitSession(runtime, options.input, true)
-			: await ports.sessionProvisioner.admitSession(runtime, options.input);
+		const admitted = await ports.sessionProvisioner.admitSession(runtime, options.input);
 		if (options.completion === "admit") {
 			void ports.sessionProvisioner
 				.runSession(runtime, options.input, admitted, runtime.onHarnessStarted)

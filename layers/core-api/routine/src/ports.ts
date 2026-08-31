@@ -7,11 +7,7 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type {
-	BakedWorkIntentRequest,
-	ModelGatewayConfig,
-	SessionKnowledgeItemLike,
-} from "@hyperidle/domain-model";
+import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
 /**
@@ -173,7 +169,6 @@ export interface RoutineSchedulerPorts {
 	};
 	readonly settings: {
 		readServerConfig(db: HyperIdleDb): Promise<{
-			readonly modelGateway?: ModelGatewayConfig;
 			/**
 			 * AU21 §9 Increment 12 (Decision H3), Wave E — widened so
 			 * `fireGenericRoutine` can forward this SAME read into

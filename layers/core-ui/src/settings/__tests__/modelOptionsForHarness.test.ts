@@ -15,9 +15,17 @@ import { modelOptionsForHarness } from "../model-options-for-harness.js";
 // Fixtures — realistic HarnessCapabilityDescriptor shapes
 // ---------------------------------------------------------------------------
 
-const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
-	type: "builtin",
-	name: "Built-in",
+/**
+ * A harness listing models across several providers.
+ *
+ * @lore This was the built-in gateway — the one harness whose catalogue spanned
+ * every ModelProvider, because it made the model call itself. `cursor-agent`
+ * stands in: the shape under test is "many models, mixed providers", which is a
+ * property of the list, not of who published it.
+ */
+const MULTI_PROVIDER_DESCRIPTOR: HarnessCapabilityDescriptor = {
+	type: "cursor-agent",
+	name: "Cursor Agent",
 	kind: "local",
 	models: [
 		{
@@ -26,7 +34,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openrouter",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: true,
 			options: [],
 		},
 		{
@@ -35,7 +42,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "anthropic",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: true,
 			options: [],
 		},
 		{
@@ -44,13 +50,16 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openai-compatible",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: true,
 			options: [],
 		},
 	],
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	discovery: { state: "ready" },
-	authAction: { kind: "enter_api_key", label: "Enter API key" },
+	authAction: {
+		kind: "native_cli_login",
+		label: "Log in to Cursor",
+		command: ["cursor-agent", "login"],
+	},
 };
 
 const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
@@ -75,7 +84,6 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openrouter",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 		{
@@ -83,7 +91,6 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			label: "Big Pickle",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],
@@ -101,8 +108,8 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 // ---------------------------------------------------------------------------
 
 describe("modelOptionsForHarness", () => {
-	it("returns discovered model ids as options for builtin", () => {
-		const result = modelOptionsForHarness(BUILTIN_DESCRIPTOR);
+	it("returns discovered model ids as options for a harness that lists them", () => {
+		const result = modelOptionsForHarness(MULTI_PROVIDER_DESCRIPTOR);
 		expect(result.hasModels).toBe(true);
 		const ids = result.options.map((o) => o.value);
 		expect(ids).toContain("deepseek/deepseek-v4-flash");
@@ -111,7 +118,7 @@ describe("modelOptionsForHarness", () => {
 	});
 
 	it("includes a system default (empty string) option first", () => {
-		const result = modelOptionsForHarness(BUILTIN_DESCRIPTOR);
+		const result = modelOptionsForHarness(MULTI_PROVIDER_DESCRIPTOR);
 		expect(result.options[0]?.value).toBe("");
 		expect(result.options[0]?.label).toMatch(/default/i);
 	});
@@ -134,13 +141,13 @@ describe("modelOptionsForHarness", () => {
 	it("does NOT import or reference MODEL_CATALOG (verified by test contract)", () => {
 		// The helper's contract: options are derived ONLY from descriptor.models
 		// A descriptor with 2 models → exactly 2 + 1 default options
-		const result = modelOptionsForHarness(BUILTIN_DESCRIPTOR);
+		const result = modelOptionsForHarness(MULTI_PROVIDER_DESCRIPTOR);
 		// Builtin descriptor has 3 models; if MODEL_CATALOG were used it would have many more
 		expect(result.options.filter((o) => o.value !== "")).toHaveLength(3);
 	});
 
 	it("labels use the descriptor model's label field", () => {
-		const result = modelOptionsForHarness(BUILTIN_DESCRIPTOR);
+		const result = modelOptionsForHarness(MULTI_PROVIDER_DESCRIPTOR);
 		const flashOption = result.options.find((o) => o.value === "deepseek/deepseek-v4-flash");
 		expect(flashOption?.label).toBe("DeepSeek V4 Flash");
 	});

@@ -26,16 +26,16 @@
 
 // -- Cipher (2) — AES-256-GCM encrypt/decrypt (moved from @hyperidle/credential-access) --
 export { decryptCredentialValue, encryptCredentialValue } from "./credential-encryption.js";
+// -- CredentialResolver (1) — port interface (moved from @hyperidle/credential-access) --
+export type { CredentialResolver } from "./credential-resolver.js";
 // -- CredentialStore (5) — server_credentials read/write/delete/resolve + seed --
 export {
 	type CredentialWrite,
 	deleteCredential,
 	readCredentials,
 	resolveCredential,
-	seedAnthropicKeyFromEnv,
 	writeCredential,
 } from "./credential-store.js";
-// -- CredentialResolver (1) — port interface (moved from @hyperidle/credential-access) --
-export type { CredentialResolver } from "./resolve-model.js";
-// -- Model resolution (1) — resolveModel (moved from @hyperidle/credential-access) --
-export { resolveModel } from "./resolve-model.js";
+// @lore A `resolveModel` was exported here — the model gateway's answer to
+// "which provider, which model, which key". No harness makes a provider call any
+// more, so the resolution and the gateway behind it are gone.

@@ -149,7 +149,6 @@ vi.mock("../src/client-config.js", () => ({
 import {
 	checkSingleInstanceLock,
 	getBeforeQuitHandler,
-	readAnthropicKeyFromStore,
 	readOrGenerateApiKey,
 	resolveDataDir,
 	waitForRemoteHealth,
@@ -329,69 +328,10 @@ describe("getBeforeQuitHandler", () => {
 });
 
 // ---------------------------------------------------------------------------
-// P3 AC-12: readAnthropicKeyFromStore
-// ---------------------------------------------------------------------------
-describe("readAnthropicKeyFromStore (P3 AC-12)", () => {
-	it("returns null when credentials file does not exist", () => {
-		const mockSafeStorage = {
-			isEncryptionAvailable: vi.fn(() => true),
-			decryptString: vi.fn(() => "decrypted"),
-		};
-		const nonExistent = path.join(tmpDir, "nofile.json");
-		const result = readAnthropicKeyFromStore(nonExistent, mockSafeStorage);
-		expect(result).toBeNull();
-	});
-
-	it("returns null when anthropic_api_key is not in the store", () => {
-		const mockSafeStorage = {
-			isEncryptionAvailable: vi.fn(() => true),
-			decryptString: vi.fn(() => "decrypted"),
-		};
-		const credPath = path.join(tmpDir, "credentials.json");
-		fs.writeFileSync(credPath, JSON.stringify({ openrouter_api_key: "somevalue" }), {
-			mode: 0o600,
-		});
-		const result = readAnthropicKeyFromStore(credPath, mockSafeStorage);
-		expect(result).toBeNull();
-	});
-
-	it("returns null when encryption is not available", () => {
-		const mockSafeStorage = {
-			isEncryptionAvailable: vi.fn(() => false),
-			decryptString: vi.fn(() => "decrypted"),
-		};
-		const credPath = path.join(tmpDir, "credentials.json");
-		const encoded = Buffer.from("fake-encrypted-value").toString("base64");
-		fs.writeFileSync(credPath, JSON.stringify({ anthropic_api_key: encoded }), { mode: 0o600 });
-		const result = readAnthropicKeyFromStore(credPath, mockSafeStorage);
-		expect(result).toBeNull();
-	});
-
-	it("decrypts and returns the anthropic_api_key when available", () => {
-		const expectedKey = "sk-ant-api03-test-decrypted-key";
-		const mockSafeStorage = {
-			isEncryptionAvailable: vi.fn(() => true),
-			decryptString: vi.fn(() => expectedKey),
-		};
-		const credPath = path.join(tmpDir, "credentials.json");
-		const encoded = Buffer.from("fake-encrypted-value").toString("base64");
-		fs.writeFileSync(credPath, JSON.stringify({ anthropic_api_key: encoded }), { mode: 0o600 });
-		const result = readAnthropicKeyFromStore(credPath, mockSafeStorage);
-		expect(result).toBe(expectedKey);
-		expect(mockSafeStorage.decryptString).toHaveBeenCalledWith(Buffer.from(encoded, "base64"));
-	});
-
-	it("returns null on corrupt credentials.json", () => {
-		const mockSafeStorage = {
-			isEncryptionAvailable: vi.fn(() => true),
-			decryptString: vi.fn(() => "decrypted"),
-		};
-		const credPath = path.join(tmpDir, "credentials.json");
-		fs.writeFileSync(credPath, "NOTJSON", { mode: 0o600 });
-		const result = readAnthropicKeyFromStore(credPath, mockSafeStorage);
-		expect(result).toBeNull();
-	});
-});
+// @lore A `readAnthropicKeyFromStore` block stood here, proving the desktop app
+// decrypted the stored Anthropic key at boot and put it in the environment for
+// the built-in harness to pick up. The app stores no model credential now — a
+// harness authenticates with its own login — so there is nothing to read.
 
 // ---------------------------------------------------------------------------
 // P3 AC-4: waitForRemoteHealth

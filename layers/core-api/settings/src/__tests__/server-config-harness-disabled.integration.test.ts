@@ -45,7 +45,10 @@ describe("server_config.harnessDisabled key", () => {
 			const config = await readServerConfig(db);
 			const disabled = (config as { harnessDisabled?: string[] }).harnessDisabled ?? [];
 			expect(disabled).toContain("claude-code");
-			expect(disabled).not.toContain("builtin");
+			// @lore A `not.toContain("builtin")` sat here, guarding that the built-in
+			// harness could never be disabled. That harness is gone and no harness is
+			// exempt now, so the assertion guarded nothing.
+			expect(disabled).toHaveLength(1);
 		});
 
 		test("round-trips multiple disabled types", async ({ db }) => {

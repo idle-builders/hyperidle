@@ -51,9 +51,7 @@ function descriptorWith(
 		kind: "local",
 		authAction: { kind: "none", label: "" },
 		discovery: { state: "ready" },
-		models: [
-			{ id: modelId, label: modelId, selectable: true, inheritedFromGateway: false, options },
-		],
+		models: [{ id: modelId, label: modelId, selectable: true, options }],
 		modelProviders: [],
 	};
 }

@@ -129,7 +129,7 @@ No script or lint rule currently checks Settings files against this contract by 
 
 ## Agent backends section — descriptor-driven contract
 
-`SettingsHarnesses.tsx` and `HarnessCard.tsx` are governed by an additional ESLint rule (`no-restricted-syntax`, `eslint.config.ts:943-969`) that bans string-literal comparisons against harness type names (`claude-code|codex|opencode|cursor-agent|aider|goose|cline|continue|avante`) inside those files and `harness-presentation.ts`. `"builtin"` is the one allowed literal — built-in is not disableable (founder rule), so the single `builtin` carve-out in `showsToggle`/`select()` is intentional, not per-family branching.
+`SettingsHarnesses.tsx` and `HarnessCard.tsx` are governed by an additional ESLint rule (`no-restricted-syntax`, `eslint.config.ts:943-969`) that bans string-literal comparisons against harness type names (`claude-code|codex|opencode|cursor-agent|aider|goose|cline|continue|avante`) inside those files and `harness-presentation.ts`. There are **no** allowed literals. `"builtin"` used to be the one carve-out — the built-in harness was the always-present fallback and could not be disabled — and it went with that harness, along with the matching hard-exemption in `select()`.
 
 All status dot tone, toggle visibility, auth zone visibility, and capabilities fold visibility are computed from `discovery.state`, `discovery.disabled`, and `authAction.kind` via pure mappers in `layers/core-ui/src/settings/harness-presentation.ts:35-84`. No per-family switch statement is permitted in the rendered surface.
 

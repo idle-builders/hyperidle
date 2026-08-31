@@ -30,10 +30,6 @@ export async function validateCredential(
 ): Promise<ValidationResult> {
 	try {
 		switch (name) {
-			case "anthropic_api_key":
-				return await validateAnthropicKey(value);
-			case "openrouter_api_key":
-				return await validateOpenRouterKey(value);
 			case "shared_backend_key":
 				return await validateSharedBackendKey(value, serverUrl);
 			default: {
@@ -56,45 +52,10 @@ export async function validateCredential(
 	}
 }
 
-async function validateAnthropicKey(apiKey: string): Promise<ValidationResult> {
-	try {
-		const response = await fetch("https://api.anthropic.com/v1/models", {
-			headers: {
-				"x-api-key": apiKey,
-				"anthropic-version": "2023-06-01",
-			},
-		});
-		// Any non-401 response means the key authenticated (even 400 = bad request, not bad key)
-		if (response.status === 401) {
-			return { valid: false, error: "Invalid API key" };
-		}
-		return { valid: true };
-	} catch (err) {
-		return {
-			valid: false,
-			error: err instanceof Error ? err.message : "Network error",
-		};
-	}
-}
-
-async function validateOpenRouterKey(apiKey: string): Promise<ValidationResult> {
-	try {
-		const response = await fetch("https://openrouter.ai/api/v1/auth/key", {
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-			},
-		});
-		if (response.status === 401 || response.status === 403) {
-			return { valid: false, error: "Invalid API key" };
-		}
-		return { valid: true };
-	} catch (err) {
-		return {
-			valid: false,
-			error: err instanceof Error ? err.message : "Network error",
-		};
-	}
-}
+// @lore Two validators stood here, pinging Anthropic's and OpenRouter's APIs
+// to check a model key. HyperIdle stores no model credential any more — a
+// harness brings its own login — so the shared-backend key below is the only
+// thing left to validate.
 
 async function validateSharedBackendKey(
 	apiKey: string,

@@ -4,15 +4,13 @@
  * Tests runtime behavior of the requireHarness() hard-fail helper against the
  * STRICT harness model:
  *
- *   HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "builtin"
+ *   HarnessName = "claude" | "codex" | "opencode" | "cursor-agent"
  *     - claude/codex/opencode/cursor-agent → binary-on-PATH (keychain/inherited login, NO API key)
- *     - builtin                  → OPENROUTER_API_KEY present (.env). The ONLY key. Never
  *                                  OpenAI, never Anthropic.
  *
  * Hard prohibitions enforced here:
  *   - NO "anthropic-key" / "openai-key" / "any-gateway-key" token is a valid HarnessName.
  *   - ANTHROPIC_API_KEY / OPENAI_API_KEY are NOT honored as a presence gate by ANY name.
- *   - builtin's presence is OPENROUTER_API_KEY and nothing else.
  *
  * Behavior:
  *   - absent harness → THROWS (never skips), message names the missing harness +
@@ -94,40 +92,10 @@ describe("requireHarness — binary absent (claude/codex/opencode/cursor-agent)"
 	});
 });
 
-// ── builtin: OPENROUTER_API_KEY presence is the ONLY gate ─────────────────────
-
-describe("requireHarness — builtin gates on OPENROUTER_API_KEY only", () => {
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("throws when OPENROUTER_API_KEY absent", () => {
-		vi.stubEnv("OPENROUTER_API_KEY", "");
-		expect(() => requireHarness("builtin")).toThrow();
-	});
-
-	test("throw message names 'builtin' when absent", () => {
-		vi.stubEnv("OPENROUTER_API_KEY", "");
-		expect(() => requireHarness("builtin")).toThrowError(/builtin/i);
-	});
-
-	test("does NOT throw when OPENROUTER_API_KEY is set", () => {
-		vi.stubEnv("OPENROUTER_API_KEY", "sk-or-test-value");
-		expect(() => requireHarness("builtin")).not.toThrow();
-	});
-
-	test("ANTHROPIC_API_KEY does NOT satisfy builtin (OpenRouter is the only key)", () => {
-		vi.stubEnv("OPENROUTER_API_KEY", "");
-		vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-present");
-		expect(() => requireHarness("builtin")).toThrow();
-	});
-
-	test("OPENAI_API_KEY does NOT satisfy builtin", () => {
-		vi.stubEnv("OPENROUTER_API_KEY", "");
-		vi.stubEnv("OPENAI_API_KEY", "sk-openai-present");
-		expect(() => requireHarness("builtin")).toThrow();
-	});
-});
+// @lore The built-in harness used to be gated here on `OPENROUTER_API_KEY` —
+// the one key that gated any harness at all. It is gone, and with it the idea
+// that a harness can be "available" because a credential exists. Availability is
+// now a question about installed binaries, and nothing else.
 
 // ── STRICT VOCABULARY: forbidden key-named tokens are NOT valid HarnessNames ──
 //
@@ -170,22 +138,21 @@ describe("requireHarness — partial presence still throws", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("throws when one of two required is absent (builtin present, claude binary absent)", () => {
-		vi.stubEnv("OPENROUTER_API_KEY", "sk-or-value");
+	test("throws when one of two required harnesses is absent", () => {
 		vi.stubEnv("PATH", "/dev/null");
-		expect(() => requireHarness("builtin", "claude")).toThrow();
+		expect(() => requireHarness("codex", "claude")).toThrow();
 	});
 
-	test("message names the absent harness, not the present one", () => {
-		vi.stubEnv("OPENROUTER_API_KEY", "sk-or-value");
+	test("message names every absent harness", () => {
 		vi.stubEnv("PATH", "/dev/null");
 		let msg = "";
 		try {
-			requireHarness("builtin", "claude");
+			requireHarness("codex", "claude");
 		} catch (e) {
 			if (e instanceof Error) msg = e.message;
 		}
 		expect(msg).toMatch(/claude/i);
+		expect(msg).toMatch(/codex/i);
 	});
 });
 

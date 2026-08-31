@@ -58,7 +58,7 @@ describe("AH1 AC3 — fail-loud root secret (route boundary)", () => {
 			// requireServerSecret() at the write boundary must throw MISSING_ROOT_SECRET.
 			// Fails today: getServerSecret() returns "" and encryptCredentialValue("key","")
 			// produces ciphertext (plaintext-equivalent), and the route returns 200.
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "sk-ant-should-be-refused" }),
@@ -73,7 +73,7 @@ describe("AH1 AC3 — fail-loud root secret (route boundary)", () => {
 			app,
 			db,
 		}) => {
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "sk-ant-should-not-be-stored" }),
@@ -84,7 +84,7 @@ describe("AH1 AC3 — fail-loud root secret (route boundary)", () => {
 			const rows = await db
 				.select()
 				.from(serverCredentials)
-				.where(eq(serverCredentials.name, "anthropic_api_key"));
+				.where(eq(serverCredentials.name, "shared_backend_key"));
 			expect(rows).toHaveLength(0);
 		});
 	});
@@ -96,7 +96,7 @@ describe("AH1 AC3 — fail-loud root secret (route boundary)", () => {
 			// The validate boundary must NOT throw an uncaught 500 when the secret is missing.
 			// Fails today: decryptCredentialValue(row, "") can produce odd results when secret="",
 			// and with AH1 getServerSecret()→null, deriveKey(null) throws an uncaught error.
-			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
+			const res = await app.request("/api/credentials/shared_backend_key/validate", {
 				method: "POST",
 				headers: authHeaders(),
 			});

@@ -338,10 +338,11 @@ export function createTeamRoutes(
 				// @lore AV1: The assistant stub may already exist (created by user registration
 				// via persistScaffoldedAgents WITHOUT a harness). When team creation supplies a
 				// primaryHarness, we must UPDATE the existing stub — the stub was created
-				// before the user picked a harness so it defaults to builtin. The UPDATE
-				// overwrites that with the team default so the auto-opened overlay opens READY.
+				// before the user picked a harness, so it carries none. The UPDATE writes
+				// the team default so the auto-opened overlay opens READY.
 				// @lore AU20 Am7: resolveTeamAgentHarness removed from barrel; when primaryHarness
-				// is supplied it IS the resolved harness; when absent, undefined (builtin fallback).
+				// is supplied it IS the resolved harness; when absent, the stub stores none
+				// and the adapter pool selects at admission.
 				const stubHarness = primaryHarness ?? undefined;
 
 				if (!existingAssistant) {
@@ -366,9 +367,10 @@ export function createTeamRoutes(
 						createdAt: now,
 					});
 					await agentOrchestration.runConfig.write(assistantId, {
-						harnessType: stubHarness?.harnessType ?? "builtin",
-						modelId: stubHarness?.modelId ?? "claude-sonnet-4-6",
-						modelProvider: stubHarness?.modelProvider ?? "anthropic",
+						// No team harness chosen means none is stored — see the agents route.
+						harnessType: stubHarness?.harnessType ?? null,
+						modelId: stubHarness?.modelId ?? null,
+						modelProvider: stubHarness?.modelProvider ?? null,
 					});
 				} else if (stubHarness !== undefined) {
 					// Assistant already exists (created at user registration with no harness).

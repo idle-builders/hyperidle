@@ -11,7 +11,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from "electron";
 
 // @lore N5: CJS output (esbuild) has __dirname; ESM (dev/tsx) has import.meta.url.
 const Dirname =
@@ -257,44 +257,15 @@ if (isEntrypoint) {
 }
 /* c8 ignore stop */
 
-/**
- * Interface for safeStorage operations — extracted for testability.
- * In production, this is the Electron safeStorage module.
- */
-export interface SafeStorageLike {
-	isEncryptionAvailable(): boolean;
-	decryptString(buffer: Buffer): string;
-}
+// @lore A `SafeStorageLike` interface stood here so the Anthropic-key reader
+// could be tested against a stub. That reader is gone; the one credential the
+// desktop still stores is read through `readCredentialFromStore` below.
 
-/**
- * Read anthropic_api_key from safeStorage credential store if available.
- * Returns the key value or null if not stored.
- * Used during boot to set process.env.ANTHROPIC_API_KEY before the server starts.
- *
- * @lore P3 AC-12: Local mode sets ANTHROPIC_API_KEY from safeStorage before
- * server boot so the harness adapter picks it up via env (existing pattern).
- * The credentialResolver injection (Decision 4) is for shared mode.
- */
-export function readAnthropicKeyFromStore(
-	credentialsPath: string,
-	safeStorageImpl: SafeStorageLike = safeStorage,
-): string | null {
-	try {
-		const raw = fs.readFileSync(credentialsPath, "utf-8");
-		const store = JSON.parse(raw) as Record<string, string>;
-		const encoded = store.anthropic_api_key;
-		if (!encoded) return null;
-
-		if (!safeStorageImpl.isEncryptionAvailable()) {
-			// Encryption not available — value may have been stored in memory only
-			return null;
-		}
-		const buf = Buffer.from(encoded, "base64");
-		return safeStorageImpl.decryptString(buf);
-	} catch {
-		return null;
-	}
-}
+// @lore A `readAnthropicKeyFromStore` stood here, decrypting the stored
+// Anthropic key at boot and putting it into `process.env.ANTHROPIC_API_KEY` so
+// the built-in harness would pick it up. No harness reads a key HyperIdle
+// supplies — each authenticates with its own login — and the desktop app stores
+// no model credential to read.
 
 /** Parameters shared by local and shared mode boot paths. */
 interface BootContext {
@@ -417,7 +388,6 @@ async function runMigrationsWithRetry(
  * Boot sequence for local mode: migrate DB, start embedded server, open window.
  *
  * @lore P3 AC-3/AC-5: local mode (including null/unset backendMode) boots the embedded server.
- * AC-12: anthropic_api_key is read from safeStorage before server boot.
  */
 async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	log("boot:local start", { userDataDir: ctx.userDataDir, isDev: IS_DEV });
@@ -425,13 +395,6 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	const dbPath = resolveDataDir(ctx.userDataDir);
 	log("boot:local db", { dbPath });
 	const clientConfig = loadClientConfig(ctx.configPath);
-
-	// P3 AC-12: Read anthropic_api_key from safeStorage before server boot
-	const anthropicKey = readAnthropicKeyFromStore(ctx.credentialsPath);
-	if (anthropicKey) {
-		process.env.ANTHROPIC_API_KEY = anthropicKey;
-		log("boot:local anthropic key loaded from safeStorage");
-	}
 
 	const migrationsFolder = resolveMigrationsFolder();
 	log("boot:local migrations", { migrationsFolder, exists: fs.existsSync(migrationsFolder) });
@@ -446,18 +409,17 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	// @lore AF17: factory bootstrap must run before the server starts so system:propagation
 	// and facilitator agents are present when the first request arrives. The call is
 	// idempotent (onConflictDoNothing) so repeated launches are safe.
-	// @lore AU29 §2.5.4: `applyFactoryBootstrap` (framework/db) dissolved into two layer
+	// @lore AU29 §2.5.4: `applyFactoryBootstrap` (framework/db) dissolved into layer
 	// faces — `framework/db` may not import a layer, so first-boot composition moved to
-	// this composition root. Ordering is load-bearing: `agent_run_config.agentUserId` has
-	// an FK to `users.id`, so the core-state face must complete before the run-config face.
+	// this composition root. Only the core-state face is left: the run-config face wrote
+	// the built-in harness and a hardcoded Anthropic model, and once the built-in harness
+	// was retired it had nothing left to write that an absent row does not already resolve.
 	try {
 		const { createPgliteDb } = await import("@hyperidle/db");
 		const { applyFactoryCoreState } = await import("@hyperidle/core-api");
-		const { applyFactoryRunConfigDefaults } = await import("@hyperidle/agent-orchestration");
 		const handle = await createPgliteDb(dbPath);
 		try {
-			const rosterAgents = await applyFactoryCoreState(handle.db);
-			await applyFactoryRunConfigDefaults(handle.db, rosterAgents);
+			await applyFactoryCoreState(handle.db);
 			log("boot:local factory bootstrap complete");
 		} finally {
 			await handle.close();
@@ -711,18 +673,10 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 			saveClientConfig(ctx.configPath, { workerDeviceId: deviceId });
 		}
 
-		// Detect model providers from stored credentials.
-		// @lore S4: Map credential names to provider identifiers — anthropic_api_key →
-		// "anthropic", openrouter_api_key → "openrouter". If no keys found, the
-		// worker advertises no providers and the server will not dispatch sessions to it.
+		// @lore This read the stored model keys to advertise which providers this
+		// worker could serve. There are no stored model keys: a worker runs the
+		// harnesses installed on its own machine, and each authenticates itself.
 		const modelProviders: string[] = [];
-		if (readCredentialFromStore("anthropic_api_key") !== null) {
-			modelProviders.push("anthropic");
-		}
-		if (readCredentialFromStore("openrouter_api_key") !== null) {
-			modelProviders.push("openrouter");
-		}
-
 		const client = new RemoteWorkerClient({
 			serverUrl,
 			credentialsPath: ctx.credentialsPath,

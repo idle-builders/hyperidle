@@ -53,7 +53,6 @@ const AGENT_CONFIG: AgentConfig = {
 	role: "builder",
 	identityKnowledgeId: "ki_af_demo",
 	harnessType: "claude-code",
-	modelTierPreference: "workhorse",
 	modelId: null,
 	modelProvider: null,
 	maxConcurrentSessions: 2,

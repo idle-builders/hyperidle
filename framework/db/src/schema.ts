@@ -89,7 +89,7 @@ export const users = pgTable(
  * AU26 G1 — one agent's run configuration, keyed on its `users` row.
  *
  * @lore AU26 G1 (architecture §D-L): `users` used to carry agent-execution
- * configuration (`harness_type`, `model_tier_preference`,
+ * configuration (`harness_type`,
  * `model_id`, `model_provider`, `max_concurrent_sessions`) on the same row as
  * human identity. Core administers those fields but never operationally
  * consumes them — only an agent's session does — so they relocate here, owned
@@ -119,7 +119,6 @@ export const agentRunConfig = pgTable("agent_run_config", {
 		.primaryKey()
 		.references(() => users.id, { onDelete: "cascade" }),
 	harnessType: text("harness_type"),
-	modelTierPreference: text("model_tier_preference"),
 	modelId: text("model_id"),
 	modelProvider: text("model_provider"),
 	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),

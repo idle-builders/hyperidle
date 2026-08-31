@@ -89,7 +89,6 @@ export interface AgentProfileResponse {
 	 */
 	readonly identityKnowledgeId: string | null;
 	readonly harnessType: string | null;
-	readonly modelTierPreference: string | null;
 	readonly maxConcurrentSessions: number;
 	/** MCP connection info (if configured). null in most cases. */
 	readonly mcpSetup: null;

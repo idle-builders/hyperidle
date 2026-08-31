@@ -71,7 +71,7 @@ import { serve } from "@hono/node-server";
 import type { EnforcementRegistry } from "@hyperidle/harness-registry";
 import { createReturnEnforcement, provisionHarnessEnvironment } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
+import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
@@ -395,14 +395,22 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// Spawn the REAL claude binary headless.
 					// --dangerously-skip-permissions: required for non-interactive mode.
 					// --output-format json: machine-readable; no TTY required.
-					// --model: locked to AR7 matrix (harnessTestResolvedModel("claude").model → haiku).
+					// --model: locked to AR7 matrix (HARNESS_TEST_MODELS.claude.model → haiku).
 					// detached: true (inside spawnDetached): own process group → CC's
 					//   SIGTERM cascade does not reach the child before hook fires.
 					//
 					// @lore Real-claude-full-binary: The prompt MUST be short and
 					// trivial so the LLM call completes quickly (~3s). The Stop hook
 					// fires when the session ends — before the claude process exits.
-					// @lore AR7: model is AR7-locked via harnessTestResolvedModel("claude") — never hardcode.
+					// @lore AR7: model is AR7-locked via HARNESS_TEST_MODELS.claude — never hardcode.
+					//
+					// @lore codex-force-budget-timing: "~3s" is one turn, and this spawn
+					// absorbs three — `forceBudget: 2` blocks the stop twice, and each block
+					// costs a full extra LLM round trip before the process may exit. The
+					// budget below is the kill timer for all three, and at 30s it was thin
+					// enough to flake. The failure reads as `exitCode: null`, which looks
+					// like "the binary never completed" long after the hook assertions have
+					// already passed. Same measurement and same fix as the codex lane.
 					const result = await spawnDetached(
 						"claude",
 						[
@@ -412,12 +420,12 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 							"--output-format",
 							"json",
 							"--model",
-							harnessTestResolvedModel("claude").model,
+							HARNESS_TEST_MODELS.claude.model,
 						],
 						{
 							cwd: sandboxPath,
 							env: cleanEnv,
-							timeoutMs: 30_000,
+							timeoutMs: 120_000,
 						},
 					);
 
@@ -449,7 +457,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			} finally {
 				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
-		}, 60_000);
+		}, 180_000);
 
 		test("LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-claude-live-"));
@@ -891,13 +899,24 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					const cleanEnv = buildCleanEnv();
 					cleanEnv.CODEX_HOME = codexHomeDir;
 
+					// @lore codex-force-budget-timing (measured live 2026-08-31, codex
+					// 0.150.1): this run takes ~29s against a 30s budget, and the failure
+					// mode is `exitCode: null` — the timeout SIGKILLs the process group
+					// mid-turn, which reads as "the binary never completed" while the hook
+					// assertions above have already passed.
+					//
+					// It is slow BECAUSE enforcement works. `forceBudget: 2` means the Stop
+					// hook blocks twice, and each block costs codex a full extra LLM round
+					// trip before it may stop. Three turns, not one. A budget an inch above
+					// the measured time is a coin flip; this one has real headroom, and the
+					// assertions it protects are unchanged.
 					const result = await spawnDetached(
 						"codex",
 						["exec", "say: HOOK_TEST_DONE", "--json", "--dangerously-bypass-hook-trust"],
 						{
 							cwd: sandboxPath,
 							env: cleanEnv,
-							timeoutMs: 30_000,
+							timeoutMs: 120_000,
 						},
 					);
 
@@ -919,7 +938,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					}
 					expect(entry.forceCount).toBeGreaterThanOrEqual(1);
 
-					// The binary must have completed (non-null exit code, turn.completed in stdout).
+					// The binary must have completed of its own accord. A null exitCode is
+					// the spawn timeout's SIGKILL, never a real exit — see the timing lore
+					// above the spawn.
 					expect(result.exitCode).not.toBeNull();
 					expect(result.stdout).toContain("turn.completed");
 				} finally {
@@ -928,7 +949,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			} finally {
 				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
-		}, 60_000);
+		}, 180_000);
 
 		test("LIVE: codex binary is reachable, auth present, and version is valid", async () => {
 			const { stdout: versionOut } = await execFileAsync("codex", ["--version"], {
@@ -1017,9 +1038,15 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
 			//
-			// @lore Opencode-full-binary: Uses AR7-locked model (harnessTestResolvedModel("opencode").model
+			// @lore Opencode-full-binary: Uses AR7-locked model (HARNESS_TEST_MODELS.opencode.model
 			// → openrouter/z-ai/glm-4.7-flash). Pure mode (--pure) skips external plugin loading. JSON
 			// output streamed per-event; step_finish proves turn completed.
+			// @lore The spawn budget was 30s, and this exact invocation takes ~42s
+			// against that model — measured live, exit 0 with step_finish present. The
+			// lane read as "opencode never completes a turn" when what actually
+			// happened was the kill timer firing mid-turn: stdout held step_start and
+			// nothing after it, and exitCode was null rather than a real code. Same
+			// shape as the codex lane's own budget. 120s is the claude/codex figure.
 			// @lore AR7: model replaced from openrouter/~anthropic/claude-haiku-latest to AR7 matrix model.
 			const result = await spawnDetached(
 				"opencode",
@@ -1030,12 +1057,12 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					"json",
 					"--pure",
 					"--model",
-					harnessTestResolvedModel("opencode").model,
+					HARNESS_TEST_MODELS.opencode.model,
 				],
 				{
 					cwd: os.tmpdir(),
 					env: buildCleanEnv(),
-					timeoutMs: 30_000,
+					timeoutMs: 120_000,
 				},
 			);
 
@@ -1055,7 +1082,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			const hasCompletion =
 				result.stdout.includes("step_finish") || result.stdout.includes("turn.completed");
 			expect(hasCompletion).toBe(true);
-		}, 60_000);
+		}, 180_000);
 
 		test("provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-opencode-"));
@@ -1132,9 +1159,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 			const FORCING_MESSAGE =
 				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
-			// @lore AR7: model AR7-locked via harnessTestResolvedModel("opencode") → openrouter/z-ai/glm-4.7-flash.
+			// @lore AR7: model AR7-locked via HARNESS_TEST_MODELS.opencode → openrouter/z-ai/glm-4.7-flash.
 			// Old value was openrouter/~anthropic/claude-haiku-latest (hardcoded, demoted by AR7).
-			const MODEL = harnessTestResolvedModel("opencode").model;
+			const MODEL = HARNESS_TEST_MODELS.opencode.model;
 
 			// First spawn: trivial no-return prompt (agent just says something, doesn't return).
 			// We detect step_finish and treat it as a no-return turn.
@@ -1144,7 +1171,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				{
 					cwd: os.tmpdir(),
 					env: buildCleanEnv(),
-					timeoutMs: 30_000,
+					timeoutMs: 120_000,
 				},
 			);
 
@@ -1170,7 +1197,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				{
 					cwd: os.tmpdir(),
 					env: buildCleanEnv(),
-					timeoutMs: 30_000,
+					timeoutMs: 120_000,
 				},
 			);
 
@@ -1190,7 +1217,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// Both spawns must have exited cleanly (exit code 0).
 			expect(firstResult.exitCode).toBe(0);
 			expect(reEngageResult.exitCode).toBe(0);
-		}, 90_000);
+		}, 300_000);
 	});
 
 	// ── CURSOR-AGENT CLI (soft-continue channel) ────────────────────────────
@@ -1240,130 +1267,10 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 	// file (not a shell script). The adapter polls it between turns. The OS hook path
 	// (settings-claude/settings-codex/process-reengage) is not used for builtin.
 
-	describe("[harness:builtin] builtin in-process (builtin-loop channel, real route)", () => {
-		requireHarness("builtin");
-
-		test("provisionReturnHook dispatches builtin-loop channel → no-op (no file artifact, in-process enforcement)", async () => {
-			// The builtin-loop channel is a no-op in provisionReturnHook: the in-process
-			// BuiltinHarnessAdapter loop enforces return without any filesystem artifact.
-			// This proves the channel dispatch completes without throwing and leaves no file.
-			//
-			// @lore AR6 builtin-lane: builtin-loop = no file artifact; the loop enforcement
-			// is wired directly in BuiltinHarnessAdapter.streamEvents, not via a hook script.
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-builtin-"));
-
-			try {
-				const bridgeToken = `builtin-test-token-${Math.random().toString(36).slice(2)}`;
-				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
-
-				// Must resolve without throwing.
-				await expect(
-					provisionReturnHook({
-						sandboxPath,
-						channel: "builtin-loop",
-						bridgeToken,
-						mcpUrl,
-						forceBudget: 2,
-					}),
-				).resolves.not.toThrow();
-
-				// builtin-loop writes no file artifact — the sandbox dir must be empty.
-				const files = fs.readdirSync(sandboxPath);
-				expect(files).toHaveLength(0);
-			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
-			}
-		});
-
-		test("real enforcement route returns forcing message when gate.returned=false (real server, builtin path)", async () => {
-			const testSessionId = `builtin-session-${Math.random().toString(36).slice(2)}`;
-
-			// Start the real HyperIdle server (same as claude/codex/opencode lanes).
-			// This proves the real route is reachable from the builtin adapter's poll.
-			//
-			// @lore AR6 builtin-lane: The /return-status route requires Authorization: Bearer <token>
-			// in the header — the hook script always sends it. We include it here to simulate
-			// a real adapter poll (without it the route returns 401).
-			const realServer = await startRealServer(testSessionId);
-			// The bridge mints the token — a fabricated one is not an issued credential.
-			const bridgeToken = realServer.token;
-
-			try {
-				// POST to the real /return-status endpoint — simulating the BuiltinHarnessAdapter poll.
-				const returnStatusUrl = `${realServer.url}/api/mcp/${bridgeToken}/return-status`;
-				const res = await fetch(returnStatusUrl, {
-					method: "POST",
-					headers: {
-						// Route requires Authorization header containing the token (belt-and-suspenders).
-						Authorization: `Bearer ${bridgeToken}`,
-					},
-				});
-
-				// The real route returns 200 with a forcing message when gate.returned=false.
-				expect(res.status).toBe(200);
-				const body = await res.text();
-				// The enforcement registry entry was registered with gate.returned=false,
-				// so shouldForceReturn returns the FORCE_RETURN_MESSAGE.
-				expect(body.length).toBeGreaterThan(0);
-
-				// The forceCount must have been incremented by the real route.
-				const entry = realServer.enforcementReg.get(testSessionId);
-				expect(entry?.forceCount).toBeGreaterThanOrEqual(1);
-			} finally {
-				await realServer.close();
-			}
-		});
-
-		test("registered builtin harness capabilities declare builtin-loop return enforcement", async () => {
-			const { createLocalAdapterPool } = await import("@hyperidle/harness-registry");
-			const pool = await createLocalAdapterPool();
-			const caps = pool.describe({ type: "builtin", includeKnownMissing: false })[0];
-
-			expect(caps?.returnEnforcement).toBe("builtin-loop");
-		});
-
-		test("real enforcement route rejects missing bearer token before accepting bearer token", async () => {
-			const testSessionId = `builtin-auth-session-${Math.random().toString(36).slice(2)}`;
-			const realServer = await startRealServer(testSessionId);
-			// The bridge mints the token — a fabricated one is not an issued credential.
-			const bridgeToken = realServer.token;
-
-			try {
-				const returnStatusUrl = `${realServer.url}/api/mcp/${bridgeToken}/return-status`;
-				const rejected = await fetch(returnStatusUrl, { method: "POST" });
-				expect(rejected.status).toBe(401);
-
-				const accepted = await fetch(returnStatusUrl, {
-					method: "POST",
-					headers: { Authorization: `Bearer ${bridgeToken}` },
-				});
-				expect(accepted.status).toBe(200);
-			} finally {
-				await realServer.close();
-			}
-		});
-
-		test("builtin-loop provisioning is idempotent and leaves no filesystem hook artifact", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-builtin-idem-"));
-
-			try {
-				const bridgeToken = `builtin-idem-token-${Math.random().toString(36).slice(2)}`;
-				const mcpUrl = `http://localhost:3001/api/mcp/${bridgeToken}`;
-				const opts = {
-					sandboxPath,
-					channel: "builtin-loop" as const,
-					bridgeToken,
-					mcpUrl,
-					forceBudget: 2,
-				};
-
-				await provisionReturnHook(opts);
-				await provisionReturnHook(opts);
-
-				expect(fs.readdirSync(sandboxPath)).toHaveLength(0);
-			} finally {
-				fs.rmSync(sandboxPath, { recursive: true, force: true });
-			}
-		});
-	});
+	// @lore The `[harness:builtin]` lane that lived here is gone with the harness
+	// it drove. It proved the `builtin-loop` enforcement channel, which was a
+	// no-op by construction — an in-process loop writes no hook file and spawns
+	// no process, so the "live proof" was that nothing happened. What that
+	// channel does is still covered where it belongs, as a unit case in
+	// `provision-return-hook.test.ts`.
 });

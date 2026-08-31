@@ -1,8 +1,9 @@
 /**
  * AV2 — SettingsHarnesses SplitView component tests (AC-4)
  *
- * AC-4: Built-in harness models + credentials grouped in SplitView;
- * configurable harness also opens a destination pane; no fold for empty caps/models.
+ * AC-4: a configurable harness opens a destination pane; no fold for empty
+ * caps/models. The built-in harness's own pane — model tiers plus a credentials
+ * editor — is gone with that harness; every harness now shares one detail pane.
  *
  * Build order: (b) is the backend list / SplitView conversion.
  */
@@ -31,9 +32,9 @@ vi.mock("../../components/CredentialsTab.js", () => ({
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
-	type: "builtin",
-	name: "Built-in",
+const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
+	type: "opencode",
+	name: "OpenCode",
 	kind: "local",
 	models: [
 		{
@@ -42,7 +43,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openrouter",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: true,
 			options: [],
 		},
 	],
@@ -62,7 +62,6 @@ const CLAUDE_CODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "anthropic",
 			contextWindow: 1000000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],
@@ -115,7 +114,7 @@ const MODEL_GATEWAY_RESPONSE = {
 // ---------------------------------------------------------------------------
 
 function setupFetch(
-	descriptors = [BUILTIN_DESCRIPTOR, CLAUDE_CODE_DESCRIPTOR, CODEX_DESCRIPTOR],
+	descriptors = [OPENCODE_DESCRIPTOR, CLAUDE_CODE_DESCRIPTOR, CODEX_DESCRIPTOR],
 ): void {
 	vi.stubGlobal(
 		"fetch",
@@ -173,38 +172,41 @@ describe("SettingsHarnesses SplitView", () => {
 		render(<SettingsHarnesses />);
 
 		await waitFor(() => {
-			expect(screen.getByText("Built-in")).toBeInTheDocument();
+			expect(screen.getByText("OpenCode")).toBeInTheDocument();
 			expect(screen.getByText("Claude Code")).toBeInTheDocument();
 		});
 	});
 
-	it("selecting the builtin row opens the SplitView destination with tier rows", async () => {
+	// @lore This used to assert that selecting the built-in row opened a detail
+	// pane made of model-tier rows and a credentials editor — its own pane, unlike
+	// every other harness. That pane went with the gateway it configured; there is
+	// one detail pane now and every harness gets the same one.
+	it("selecting a key-accepting harness opens the same detail pane as any other", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
 		setupFetch();
 		render(<SettingsHarnesses />);
 
-		await waitFor(() => expect(screen.getByText("Built-in")).toBeInTheDocument());
+		await waitFor(() => expect(screen.getByText("OpenCode")).toBeInTheDocument());
 
-		// Click the builtin row
-		await user.click(screen.getByText("Built-in"));
+		await user.click(screen.getByText("OpenCode"));
 
-		// The detail pane should show tier configuration content
 		await waitFor(() => {
-			// Tier rows from SettingsModels: Reasoning, Workhorse, Fast
-			const tierLabels = ["Reasoning", "Workhorse", "Fast"];
-			const found = tierLabels.some((t) => screen.queryByText(t));
-			expect(found).toBe(true);
+			// The detail pane is visible — the selected harness name appears there too.
+			expect(screen.getAllByText("OpenCode").length).toBeGreaterThanOrEqual(2);
 		});
+		// The tier rows that only the built-in pane ever rendered are gone.
+		for (const tier of ["Reasoning", "Workhorse", "Fast"]) {
+			expect(screen.queryByText(tier)).not.toBeInTheDocument();
+		}
 	});
 
-	it("selecting a non-builtin configurable harness also opens a destination pane", async () => {
+	it("selecting a login-only harness also opens a destination pane", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync });
 		setupFetch();
 		render(<SettingsHarnesses />);
 
 		await waitFor(() => expect(screen.getByText("Claude Code")).toBeInTheDocument());
 
-		// Click a non-builtin harness
 		await user.click(screen.getByText("Claude Code"));
 
 		// Some destination pane content should appear (auth action / harness name / status)
@@ -220,8 +222,8 @@ describe("SettingsHarnesses SplitView", () => {
 		setupFetch();
 		const { container } = render(<SettingsHarnesses />);
 
-		await waitFor(() => expect(screen.getByText("Built-in")).toBeInTheDocument());
-		await user.click(screen.getByText("Built-in"));
+		await waitFor(() => expect(screen.getByText("OpenCode")).toBeInTheDocument());
+		await user.click(screen.getByText("OpenCode"));
 
 		// SplitView destination pane present means the component wired split mode
 		await waitFor(() => {

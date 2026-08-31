@@ -24,94 +24,131 @@ function stripAnsi(value: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse `claude models` Markdown table output into HarnessModelDescriptors.
+ * The models claude can run, from claude's own `/model` command.
  *
- * Real-captured format (2026-07-06, /opt/homebrew/bin/claude models):
- *   | Model | ID | Context | In $/1M | Out $/1M |
- *   |---|---|---|---|---|
- *   | **Fable 5** | `claude-fable-5` | 1M | $10 | $50 |
+ * `claude -p "/model" --output-format json` is answered locally by the CLI: the
+ * captured response carries `total_cost_usd: 0`, `duration_api_ms: 0` and an
+ * empty `modelUsage`, so listing costs nothing and needs no key. Its `result`
+ * text names the current model and then the names `--model` accepts:
  *
- * Columns: Model (friendly label) | ID (backtick-wrapped) | Context | ...
- * Context values: "1M" → 1_000_000, "200K" → 200_000, numeric string → parseInt.
+ *   Current model: Opus 5 (1M context) (effort: high)
+ *   Usage: /model <name>. Available: sonnet, opus, haiku, fable, best,
+ *   sonnet[1m], opus[1m], fable[1m], opusplan, default, or a full model ID.
  *
- * @lore AV2: The claude CLI's `models` subcommand outputs a Markdown table with
- * the harness's OWN bundled catalog. This is honest discovery (the harness tells
- * us what models it supports), NOT a relabelling of MODEL_CATALOG.
- * Real output captured 2026-07-06 from /opt/homebrew/bin/claude models.
+ * @lore The predecessor ran `claude models` and parsed a Markdown table.
+ * `claude` has no `models` subcommand — its `Commands:` list is agents, auth,
+ * auto-mode, doctor, gateway, import, install, mcp, plugin, project,
+ * setup-token, ultrareview, update — so the binary took `models` as a PROMPT and
+ * answered it with a model turn. That cost money on every probe, returned prose
+ * that varied with whatever CLAUDE.md sat in the working directory, and parsed
+ * to zero models every time. The unit test passed throughout, because its
+ * fixture was a hand-written table nobody had ever seen the binary produce.
+ * Verified 2026-08-27 against claude 2.1.x.
+ *
+ * `default` is dropped: it is the absence of a choice, the editor already has an
+ * empty option for that, and a model that hands the decision back to the harness
+ * can never satisfy "the model you picked is the model that ran".
+ *
+ * Every failure degrades to no models, never to a guessed list — the same rule
+ * the codex cache reader follows, and for the same reason.
  */
-function parseClaudeCatalog(output: string): HarnessModelDescriptor[] {
+function parseClaudeModelCommand(output: string): HarnessModelDescriptor[] {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(output);
+	} catch {
+		return [];
+	}
+	if (typeof parsed !== "object" || parsed === null) return [];
+	const result = (parsed as { result?: unknown }).result;
+	if (typeof result !== "string") return [];
+
+	// "… Available: a, b, c, or a full model ID." — the trailing prose after the
+	// last comma is claude telling the reader a raw id also works, not a name.
+	const available = /Available:\s*([^.]*)/.exec(result);
+	const list = available?.[1];
+	if (!list) return [];
+
+	const seen = new Set<string>();
 	const models: HarnessModelDescriptor[] = [];
-	const lines = output.split("\n");
-
-	// Find the table header line: | Model | ID | Context | ...
-	let tableStarted = false;
-	let headerSkipped = false;
-
-	for (const rawLine of lines) {
-		const line = rawLine.trim();
-		if (!line.startsWith("|")) continue;
-
-		// Detect header row (contains "Model" and "ID" columns)
-		if (!tableStarted) {
-			if (/\|\s*Model\s*\|/.test(line) && /\|\s*ID\s*\|/.test(line)) {
-				tableStarted = true;
-			}
-			continue;
-		}
-
-		// Skip separator row (|---|---|---|...)
-		if (!headerSkipped) {
-			if (/^\|[-\s|]+\|$/.test(line)) {
-				headerSkipped = true;
-			}
-			continue;
-		}
-
-		// Skip empty or separator rows
-		if (/^\|[-\s|]+\|$/.test(line)) continue;
-
-		// Parse data row: | Model | `id` | Context | ... |
-		const cells = line
-			.split("|")
-			.filter((_, i) => i > 0) // remove leading empty from split
-			.slice(0, -1) // remove trailing empty
-			.map((c) => c.trim());
-
-		if (cells.length < 3) continue;
-
-		// Column 0: friendly label (strip ** bold markers)
-		const rawLabel = cells[0] ?? "";
-		const label = rawLabel.replace(/\*\*/g, "").trim();
-		if (!label) continue;
-
-		// Column 1: model ID (strip backticks)
-		const rawId = cells[1] ?? "";
-		const id = rawId.replace(/`/g, "").trim();
-		if (!id) continue;
-
-		// Column 2: context window
-		const rawContext = (cells[2] ?? "").trim();
-		const contextWindow = parseContextWindow(rawContext);
-
+	for (const raw of list.split(",")) {
+		const name = raw.trim();
+		if (!name) continue;
+		if (name.includes(" ")) continue; // "or a full model ID"
+		if (name === "default") continue;
+		if (seen.has(name)) continue;
+		seen.add(name);
 		models.push({
-			id,
-			label,
+			id: name,
+			label: name,
 			provider: "anthropic",
-			contextWindow,
+			// claude publishes no per-model context window here. Zero means unknown,
+			// the same value the codex reader uses when its cache omits one.
+			contextWindow: 0,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [CLAUDE_EFFORT_OPTION],
 		});
 	}
+	return models;
+}
 
+/**
+ * The models cursor-agent can run, from `cursor-agent --list-models`.
+ *
+ * The answer is account-scoped and plain text — `--list-models` ignores
+ * `--output-format`, so there is no JSON form to prefer:
+ *
+ *   Available models
+ *
+ *   auto - Auto (default)
+ *   composer-2.5 - Composer 2.5
+ *   gpt-5.2 - GPT-5.2 (current)
+ *   …
+ *   Tip: use --model <id> …
+ *
+ * Two details this has to survive. The ` (current)` / ` (default)` suffix marks
+ * whichever model the last run selected, so it MOVES between probes and is
+ * stripped from the label rather than stored. And `auto` is dropped for the same
+ * reason claude's `default` is: it hands the choice back to the harness, so a
+ * session started on it can never prove which model ran.
+ *
+ * Cursor states its per-model options only as prose in the closing tip
+ * (`claude-opus-4-8[context=1m,effort=high,fast=false]`) and publishes no
+ * machine-readable list of which model takes which. Nothing is invented here.
+ *
+ * Verified 2026-08-27 against a signed-in account.
+ */
+function parseCursorModelList(output: string): HarnessModelDescriptor[] {
+	const models: HarnessModelDescriptor[] = [];
+	const seen = new Set<string>();
+	for (const rawLine of output.split("\n")) {
+		const line = rawLine.trim();
+		const match = /^([^\s]+)\s+-\s+(.+)$/.exec(line);
+		if (!match) continue;
+		const id = match[1];
+		const rawLabel = match[2];
+		if (!(id && rawLabel)) continue;
+		if (id === "auto") continue;
+		if (seen.has(id)) continue;
+		const label = rawLabel.replace(/\s*\((?:current|default)\)\s*$/, "").trim();
+		if (!label) continue;
+		seen.add(id);
+		models.push({
+			id,
+			label,
+			contextWindow: 0,
+			selectable: true,
+			options: [],
+		});
+	}
 	return models;
 }
 
 /**
  * The effort levels `claude --effort` accepts, from `claude --help` (2.1.220).
  *
- * A compile-time list, unlike every other harness here: `claude models` does not
- * publish per-model options, and the flag is session-level rather than
+ * A compile-time list, unlike every other harness here: claude's `/model` answer
+ * names models and nothing else, and the flag is session-level rather than
  * per-model, so every discovered claude model declares the same set.
  *
  * @lore An older `claude` treats `--effort` as an unknown option and exits
@@ -200,7 +237,6 @@ function parseOpencodeModelJson(raw: string): HarnessModelDescriptor | null {
 			...(provider !== undefined ? { provider } : {}),
 			contextWindow,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: opencodeModelOptions(parsed),
 		};
 	} catch {
@@ -254,30 +290,6 @@ function parseOpenCodeCatalog(output: string): HarnessModelDescriptor[] {
 	return models;
 }
 
-/** Parse a context window string like "1M", "200K", "128000" into an integer. */
-function parseContextWindow(raw: string): number {
-	const s = raw.trim().toUpperCase();
-	if (s.endsWith("M")) {
-		const n = Number.parseFloat(s.slice(0, -1));
-		return Number.isNaN(n) ? 0 : Math.round(n * 1_000_000);
-	}
-	if (s.endsWith("K")) {
-		const n = Number.parseFloat(s.slice(0, -1));
-		return Number.isNaN(n) ? 0 : Math.round(n * 1_000);
-	}
-	const n = Number.parseInt(s, 10);
-	return Number.isNaN(n) ? 0 : n;
-}
-
-/**
- * Timeout (ms) for the builtin /models network fetch.
- *
- * @lore AV2 Build Obligation 1: The fetch runs inside discoverLocalHarnesses's
- * Promise.all. A gateway reject/hang MUST degrade to models:[] without rejecting
- * the whole discovery batch. Wrap in AbortController with this timeout.
- */
-const BUILTIN_MODELS_FETCH_TIMEOUT_MS = 10_000;
-
 /**
  * AC5 result of the harmless real one-shot session probe.
  * `runtimeFromDiscovery` only sets fileEditing/toolUse `true` when
@@ -313,7 +325,6 @@ interface HarnessDiscoveryInput {
 }
 
 interface HarnessDiscoveryResult {
-	readonly builtin: HarnessDiscoveryInput;
 	readonly codex: HarnessDiscoveryInput;
 	readonly "claude-code": HarnessDiscoveryInput;
 	readonly opencode: HarnessDiscoveryInput;
@@ -343,18 +354,6 @@ interface HarnessProbeDeps {
 	 * reach probes (now `@hyperidle/connections`' `createInheritedReach`).
 	 */
 	readonly cwd?: string;
-	/**
-	 * AV2 Build Obligation 1: Injectable fetch for the builtin /models HTTP call.
-	 * Real code uses `globalThis.fetch`; unit tests inject a stub.
-	 * Signature compatible with the browser/Node Fetch API.
-	 *
-	 * @lore AV2: The fetch is isolated here so unit tests never need a live gateway.
-	 * The production path uses the globally available fetch (Node 18+).
-	 */
-	readonly fetchModels?: (
-		url: string,
-		opts: { signal: AbortSignal },
-	) => Promise<{ ok: boolean; json: () => Promise<unknown> }>;
 	/**
 	 * Injectable reader for codex's own model cache, so unit tests never read the
 	 * real home directory. Returns the file's text, or null when there is none.
@@ -497,7 +496,6 @@ function parseCodexModelCache(raw: string): readonly HarnessModelDescriptor[] {
 				label: typeof m.display_name === "string" ? m.display_name : slug,
 				contextWindow: typeof m.context_window === "number" ? m.context_window : 0,
 				selectable: true,
-				inheritedFromGateway: false,
 				options,
 			} satisfies HarnessModelDescriptor,
 		];
@@ -587,14 +585,16 @@ const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfi
 				try {
 					const parsed = JSON.parse(stdout) as { loggedIn?: boolean };
 					if (parsed.loggedIn === true) {
-						// AV2: run `claude models` to discover available models.
-						// ⚠️ UNVERIFIED — `claude models` exits 0 with a Markdown table
-						// (captured 2026-07-06 from /opt/homebrew/bin/claude models).
+						// Ask claude itself what it accepts. `/model` is answered locally —
+						// no tokens, no cost, no key — see `parseClaudeModelCommand`.
 						let models: readonly HarnessModelDescriptor[] = [];
 						try {
-							const modelsResult = await runCommand(["claude", "models"], d);
+							const modelsResult = await runCommand(
+								["claude", "-p", "/model", "--output-format", "json"],
+								d,
+							);
 							if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
-								models = parseClaudeCatalog(modelsResult.stdout);
+								models = parseClaudeModelCommand(modelsResult.stdout);
 							}
 						} catch {
 							// degraded gracefully — models stays []
@@ -669,9 +669,22 @@ const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfi
 			loginLabel: "Log in to Cursor",
 			loginCmd: ["cursor-agent", "login"],
 			authCmd: ["cursor-agent", "status"],
-			async interpretAuth(stdout, stderr, exitCode, _d, version, authAction) {
+			async interpretAuth(stdout, stderr, exitCode, d, version, authAction) {
 				const authText = stdout.trim() || stderr.trim();
-				if (authText.includes("Logged in")) return { state: "ready", version, authAction };
+				if (authText.includes("Logged in")) {
+					// Ask cursor for the models this account may run. Plain text is the
+					// only form it offers — see `parseCursorModelList`.
+					let models: readonly HarnessModelDescriptor[] = [];
+					try {
+						const modelsResult = await runCommand(["cursor-agent", "--list-models"], d);
+						if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
+							models = parseCursorModelList(modelsResult.stdout);
+						}
+					} catch {
+						// degraded gracefully — models stays []
+					}
+					return { state: "ready", version, models, authAction };
+				}
 				if (exitCode !== 0 || authText.includes("Not logged in")) {
 					return {
 						state: "unauthenticated",
@@ -718,228 +731,13 @@ async function probeCli(
 }
 
 /**
- * @lore AM2 AC3/AC5 CRITICAL FIX: `probeBuiltinGateway` now checks the full
- * ordered gateway-usable credential set instead of only ANTHROPIC_API_KEY.
- * The gateway's callLlm() supports three provider paths:
- *   - "anthropic"         → ANTHROPIC_API_KEY (direct Anthropic Messages API)
- *   - "openai-compatible" → OPENAI_API_KEY / openai_compatible_api_key
- *   - "openrouter"        → OPENROUTER_API_KEY
- * On this machine OPENAI_API_KEY is present — the original single-key check
- * always returned `unauthenticated` here, breaking AC3/AC5 discovery.
- *
- * AV2: Now async — fetches the provider's /models endpoint when a key is present.
- * Build Obligation 1: the fetch is timeout-bounded (BUILTIN_MODELS_FETCH_TIMEOUT_MS)
- * and failure-isolated (try/catch → models:[]). `fetchModels` is injectable for
- * unit tests so no live HTTP hit is required in tests.
- *
- * ⚠️ UNVERIFIED endpoint response shapes — confirmed against:
- * - OpenRouter: https://openrouter.ai/docs/api-reference/list-available-models (no auth)
- * - Anthropic: https://docs.anthropic.com/en/api/models-list (x-api-key + anthropic-version)
- * - openai-compatible: standard OpenAI /v1/models (bearer auth, data[].id only)
+ * @lore The built-in gateway had its own probe here, plus catalogue fetches
+ * against Anthropic's and OpenRouter's /models endpoints. It was the one
+ * "harness" whose readiness was a credential rather than an installed binary,
+ * and the one whose model list came off the network rather than out of the tool
+ * itself. Both are gone with it: every harness now reports its own models, and
+ * readiness means the binary is installed and logged in.
  */
-async function probeBuiltinGateway(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
-	const env = d?.env ?? process.env;
-
-	// Ordered set of gateway-usable credentials (priority: Anthropic → OpenAI-compatible → OpenRouter)
-	const credentialCandidates: Array<{
-		envKey: string;
-		credentialName: string;
-		label: string;
-		provider: "anthropic" | "openrouter" | "openai-compatible";
-		fetchModels: (
-			apiKey: string,
-			fetchFn: HarnessProbeDeps["fetchModels"],
-		) => Promise<readonly HarnessModelDescriptor[]>;
-	}> = [
-		{
-			envKey: "ANTHROPIC_API_KEY",
-			credentialName: "anthropic_api_key",
-			label: "Enter Anthropic API key",
-			provider: "anthropic",
-			fetchModels: async (apiKey, fetchFn) => fetchAnthropicModels(apiKey, fetchFn),
-		},
-		{
-			envKey: "OPENAI_API_KEY",
-			credentialName: "openai_compatible_api_key",
-			label: "Enter OpenAI-compatible API key",
-			provider: "openai-compatible",
-			fetchModels: async () => [],
-		},
-		{
-			envKey: "OPENROUTER_API_KEY",
-			credentialName: "openrouter_api_key",
-			label: "Enter OpenRouter API key",
-			provider: "openrouter",
-			fetchModels: async (_apiKey, fetchFn) => fetchOpenRouterModels(fetchFn),
-		},
-	];
-
-	const matched = credentialCandidates.find((c) => Boolean(env[c.envKey]));
-
-	if (matched) {
-		// AV2: failure-isolated model fetch (Build Obligation 1)
-		let models: readonly HarnessModelDescriptor[] = [];
-		try {
-			const apiKey = env[matched.envKey] ?? "";
-			models = await matched.fetchModels(apiKey, d?.fetchModels);
-		} catch {
-			// degraded gracefully — models stays []
-		}
-
-		return {
-			state: "ready",
-			models,
-			authAction: {
-				kind: "enter_api_key",
-				label: matched.label,
-				description: "Store a model gateway API key in HyperIdle.",
-				credentialNames: [
-					matched.credentialName,
-					"openrouter_api_key",
-					"openai_compatible_api_key",
-				],
-			},
-		};
-	}
-
-	const checkedList = credentialCandidates.map((c) => c.envKey).join(", ");
-	return {
-		state: "unauthenticated",
-		reason: `Built-in gateway has no usable credential. Checked: ${checkedList}.`,
-		authAction: {
-			kind: "enter_api_key",
-			label: "Enter API key",
-			description: "Store a model gateway API key in HyperIdle.",
-			credentialNames: ["anthropic_api_key", "openai_compatible_api_key", "openrouter_api_key"],
-		},
-	};
-}
-
-/** AV2: Fetch Anthropic model list via GET https://api.anthropic.com/v1/models */
-async function fetchAnthropicModels(
-	_apiKey: string,
-	fetchFn?: HarnessProbeDeps["fetchModels"],
-): Promise<readonly HarnessModelDescriptor[]> {
-	const doFetch = fetchFn ?? defaultFetch;
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), BUILTIN_MODELS_FETCH_TIMEOUT_MS);
-	try {
-		const resp = await doFetch("https://api.anthropic.com/v1/models", {
-			signal: controller.signal,
-		});
-		if (!resp.ok) return [];
-		const body = await resp.json();
-		const data = (body as { data?: unknown[] }).data;
-		if (!Array.isArray(data)) return [];
-		return data.flatMap((item) => {
-			if (typeof item !== "object" || item === null) return [];
-			const m = item as Record<string, unknown>;
-			const id = typeof m.id === "string" ? m.id : undefined;
-			if (!id) return [];
-			const label = typeof m.display_name === "string" ? m.display_name : id;
-			const contextWindow = typeof m.max_input_tokens === "number" ? m.max_input_tokens : 0;
-			return [
-				{
-					id,
-					label,
-					provider: "anthropic" as const,
-					contextWindow,
-					selectable: true,
-					inheritedFromGateway: true,
-					options: [],
-				} satisfies HarnessModelDescriptor,
-			];
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-}
-
-/** AV2: Fetch OpenRouter model list via GET https://openrouter.ai/api/v1/models (no auth) */
-/**
- * The reasoning-effort option a model declares, from OpenRouter's own catalogue.
- *
- * The catalogue publishes each model's `reasoning.supported_efforts` and its
- * `reasoning.default_effort`. A model that publishes no efforts declares no
- * option — most do not — and the editor then shows nothing for it.
- *
- * @lore Verified live 2026-08-25: of 418 catalogued models, 143 publish
- * `reasoning_effort`. The value carries through to OpenRouter's native endpoint,
- * which rejects an invalid one with HTTP 400 naming the parameter — see
- * `builtin-model-options.integration.test.ts`.
- */
-function openRouterModelOptions(
-	model: Record<string, unknown>,
-): readonly HarnessModelOptionDescriptor[] {
-	const reasoning = model.reasoning as Record<string, unknown> | undefined;
-	const efforts = reasoning?.supported_efforts;
-	if (!Array.isArray(efforts) || efforts.length === 0) return [];
-	const choices = efforts
-		.filter((effort): effort is string => typeof effort === "string")
-		.map((effort) => ({ value: effort, label: effort }));
-	if (choices.length === 0) return [];
-	const defaultEffort = reasoning?.default_effort;
-	return [
-		{
-			key: "reasoning_effort",
-			label: "Reasoning effort",
-			helpText: "How much the model thinks before answering.",
-			control: { kind: "select", choices },
-			required: false,
-			...(typeof defaultEffort === "string" ? { defaultValue: defaultEffort } : {}),
-		},
-	];
-}
-
-async function fetchOpenRouterModels(
-	fetchFn?: HarnessProbeDeps["fetchModels"],
-): Promise<readonly HarnessModelDescriptor[]> {
-	const doFetch = fetchFn ?? defaultFetch;
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), BUILTIN_MODELS_FETCH_TIMEOUT_MS);
-	try {
-		const resp = await doFetch("https://openrouter.ai/api/v1/models", {
-			signal: controller.signal,
-		});
-		if (!resp.ok) return [];
-		const body = await resp.json();
-		const data = (body as { data?: unknown[] }).data;
-		if (!Array.isArray(data)) return [];
-		return data.flatMap((item) => {
-			if (typeof item !== "object" || item === null) return [];
-			const m = item as Record<string, unknown>;
-			const id = typeof m.id === "string" ? m.id : undefined;
-			if (!id) return [];
-			const label = typeof m.name === "string" ? m.name : id;
-			const contextWindow = typeof m.context_length === "number" ? m.context_length : 0;
-			return [
-				{
-					id,
-					label,
-					provider: "openrouter" as const,
-					contextWindow,
-					selectable: true,
-					inheritedFromGateway: true,
-					options: openRouterModelOptions(m),
-				} satisfies HarnessModelDescriptor,
-			];
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-}
-
-/** Default fetch implementation — uses globalThis.fetch (Node 18+). */
-function defaultFetch(
-	url: string,
-	opts: { signal: AbortSignal },
-): Promise<{ ok: boolean; json: () => Promise<unknown> }> {
-	// @lore AV2: globalThis.fetch is Node 18+ built-in. We do not import node-fetch
-	// to stay zero-new-dep. The injectable fetchModels in HarnessProbeDeps lets unit
-	// tests avoid live HTTP without mocking globalThis.
-	return globalThis.fetch(url, opts) as Promise<{ ok: boolean; json: () => Promise<unknown> }>;
-}
-
 /**
  * Probe the local environment for the first-class harness families AM2 cares about.
  *
@@ -957,8 +755,7 @@ export async function discoverLocalHarnesses(
 	d?: HarnessProbeDeps,
 ): Promise<HarnessDiscoveryResult> {
 	// Run probes concurrently — they are independent filesystem probes.
-	const [builtin, codex, claudeCode, opencode, cursorAgent] = await Promise.all([
-		probeBuiltinGateway(d),
+	const [codex, claudeCode, opencode, cursorAgent] = await Promise.all([
 		probeCli(CLI_PROBE_CONFIGS[0], d), // codex
 		probeCli(CLI_PROBE_CONFIGS[1], d), // claude-code
 		probeCli(CLI_PROBE_CONFIGS[2], d), // opencode
@@ -966,7 +763,6 @@ export async function discoverLocalHarnesses(
 	]);
 
 	return {
-		builtin,
 		codex,
 		"claude-code": claudeCode,
 		opencode,

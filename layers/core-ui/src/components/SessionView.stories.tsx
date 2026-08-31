@@ -270,7 +270,6 @@ const DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "anthropic",
 			contextWindow: 1_000_000,
 			selectable: true,
-			inheritedFromGateway: false,
 			// The composer never rendered per-message option pills, and that path is
 			// gone. Options are configured on the agent now, so this fixture no
 			// longer describes anything this view shows.
@@ -282,7 +281,6 @@ const DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "anthropic",
 			contextWindow: 1_000_000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],

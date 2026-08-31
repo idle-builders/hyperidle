@@ -87,13 +87,13 @@ The web app is at [http://localhost:5173](http://localhost:5173). The API runs o
 
 Open [http://localhost:5173](http://localhost:5173). HyperIdle detects a fresh install and redirects to `/setup`.
 
-Fill in the four fields:
+Fill in the fields:
 
 1. **Your name** (required) — for example, `Sam Chen`.
-2. **Agent harness** (required) — the engine every agent on your team thinks with. HyperIdle lists the built-in gateway plus whichever coding CLIs it found on this device.
-   - Pick a CLI that shows **Ready** and there is nothing else to fill in — it uses the login you already have.
-   - Pick **Built-in gateway** and the row opens for a credential: choose your **Provider** (Anthropic, OpenRouter, or any OpenAI-compatible endpoint) and paste that provider's key. OpenRouter offers its live model list to choose from; an OpenAI-compatible provider also asks for its base URL and model ID. Your key stays on this device.
-   - A CLI that isn't installed appears greyed with a hint rather than a dead option.
+2. **Agent harness** (required) — the coding CLI every agent on your team runs through. HyperIdle lists whichever it found on this device.
+   - Pick one that shows **Ready** and there is nothing else to fill in — it uses the login you already have.
+   - A CLI that isn't installed, or isn't signed in, appears greyed with the command to fix it rather than as a dead option.
+   - **HyperIdle never asks for an API key.** The harness is what you bring, and your key lives in that harness's own login. If nothing on this device is ready, setup stops and tells you what to install — it will not hand you a workspace whose agents silently fail.
 3. **Project folder** (optional) — a local git repository path for agents to work in, for example `/Users/sam/projects/my-app`. Leave blank for now.
 4. **What are you building?** — pick a team type. The default preset is **software**; each preset determines which agent roles your team starts with. Picking **custom** requires selecting at least one function.
 
@@ -101,11 +101,9 @@ Click **Start HyperIdle**. A user record and Team are created; you land on **Wor
 
 ### Check your agent backends
 
-After setup, open **Settings → Agent backends** to see which execution environments HyperIdle detected on this device. Each backend (Built-in, Claude Code, Codex, OpenCode, Cursor) gets a row with a status dot, version, and status line.
+After setup, open **Settings → Agent backends** to see which execution environments HyperIdle detected on this device. Each backend (Claude Code, Codex, OpenCode, Cursor Agent) gets a row with a status dot, version, and status line.
 
-- **Built-in** shows ready once a gateway credential is stored for every provider your model tiers point at — an Anthropic key, an OpenAI-compatible key, or an OpenRouter key all work. A key you entered during setup counts here; you do not need to also set an environment variable. This is sufficient to run agents immediately.
-- CLI backends (Claude Code, Codex, OpenCode) show a warning state if the CLI is present but not signed in; the row shows the sign-in command to run in a terminal (for example `codex login`). After signing in, click **Refresh** to re-run detection.
-- **Cursor** appears as unavailable — it has no headless CLI.
+- A backend shows a warning state if the CLI is present but not signed in; the row shows the sign-in command to run in a terminal (for example `codex login`). After signing in, click **Refresh** to re-run detection.
 
 You do not need to enable additional backends to get started. The other backends become useful when you want to route specific agents through a locally-authenticated CLI. See [Connections](./connections.md) for the full credential and backend walkthrough.
 

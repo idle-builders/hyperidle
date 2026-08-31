@@ -25,7 +25,6 @@ export { bootAgentOrchestration } from "./boot.js";
 // AU29 §2.5.3: the first-boot run-config face — the composition roots call this
 // AFTER core-api's applyFactoryCoreState (agent_run_config.agentUserId has an FK
 // to users.id), instead of a database package writing an orchestration-owned table.
-export { applyFactoryRunConfigDefaults } from "./factory-run-config.js";
 /**
  * AU31 §2.5/§5/§12: the `CoreApiPort` seam's outbound client construction —
  * relocated here from core-api with the tool stack that is its real

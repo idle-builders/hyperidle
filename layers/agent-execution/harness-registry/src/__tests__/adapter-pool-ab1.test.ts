@@ -136,9 +136,9 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 		// This tests that getCapabilitiesByType handles the case where
 		// no adapters with matching type exist
 		const pool = new AdapterPool();
-		pool.register("local-builtin", makeAdapter(), {
+		pool.register("local-opencode", makeAdapter(), {
 			...BASE_META,
-			type: "builtin",
+			type: "opencode",
 		});
 
 		// Search for a different type that isn't registered

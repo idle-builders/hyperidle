@@ -12,11 +12,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveModel } from "@hyperidle/credentials";
 import { applyMigrations, createPgliteDb, type HyperIdleDb } from "@hyperidle/db";
-import type { ModelGatewayConfig, ResolvedModel } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import { EnvCredentialResolver } from "./env-credential-resolver.js";
+import { type EvalHarnessName, evalHarnessName, selectEvalHarness } from "./eval-harness.js";
 import { scoreScenario } from "./scoring.js";
 import type {
 	EvalReport,
@@ -82,50 +80,48 @@ export async function createEvalDb(): Promise<{ db: HyperIdleDb; close: () => Pr
 }
 
 // ---------------------------------------------------------------------------
-// Model resolution
+// Judge model resolution
 // ---------------------------------------------------------------------------
 
 /**
- * Build a ModelGatewayConfig for the given model override.
+ * The judge's model, resolved straight from the environment.
  *
- * Provider is inferred from the model ID:
- * - Contains "/" → openrouter provider (e.g. "moonshotai/kimi-k2")
- * - Starts with "claude-" → anthropic provider
- * - Otherwise → openai-compatible provider (requires baseUrl in env)
+ * @lore This used to go through `resolveModel` and a `ModelGatewayConfig` built
+ * from the CLI flag. The gateway is gone with the built-in harness, and the
+ * judge never needed it: it makes one Anthropic-SDK call against an
+ * OpenAI-compatible base URL, so a provider, a key and a model id are the whole
+ * of what it wants. Reading them here keeps the judge working without a gateway
+ * to configure.
+ *
+ * The judge is deliberately NOT the harness under measurement — it scores what
+ * the harness produced, so it resolves its own model on its own axis.
  */
-function buildGatewayConfig(modelOverride?: string): ModelGatewayConfig {
-	if (!modelOverride) {
-		// @lore X7: Default to OpenRouter because OPENROUTER_API_KEY is the
-		// configured provider. Anthropic models require ANTHROPIC_API_KEY which
-		// may not be set. OpenRouter routes to many models including Anthropic.
-		return {
-			reasoning: { provider: "openrouter", model: "deepseek/deepseek-v4-pro" },
-			workhorse: { provider: "openrouter", model: "deepseek/deepseek-v4-pro" },
-			fast: { provider: "openrouter", model: "deepseek/deepseek-v4-flash" },
-		};
-	}
-
-	let provider: "anthropic" | "openrouter" | "openai-compatible";
-
-	if (modelOverride.includes("/")) {
-		provider = "openrouter";
-	} else if (modelOverride.startsWith("claude-")) {
-		provider = "anthropic";
-	} else {
-		provider = "openai-compatible";
-	}
-
-	return {
-		reasoning: { provider, model: modelOverride },
-		workhorse: { provider, model: modelOverride },
-		fast: { provider, model: modelOverride },
-	};
+/** What the LLM-as-judge needs to make its scoring call. */
+export interface JudgeModel {
+	readonly model: string;
+	readonly apiKey: string;
+	readonly baseUrl: string;
 }
 
-async function resolveEvalModel(modelOverride?: string): Promise<ResolvedModel> {
-	const config = buildGatewayConfig(modelOverride);
-	const resolver = new EnvCredentialResolver();
-	return await resolveModel({ kind: "tier", tier: "workhorse" }, config, resolver);
+/** The judge's default when `--judge-model` is not given. */
+const DEFAULT_JUDGE_MODEL = "deepseek/deepseek-v4-pro";
+
+function resolveJudgeModel(modelOverride?: string): JudgeModel {
+	const model = modelOverride ?? DEFAULT_JUDGE_MODEL;
+	// An id with a "/" is an OpenRouter route; "claude-*" is Anthropic direct.
+	// Anything else is an endpoint the operator is pointing us at themselves.
+	if (model.startsWith("claude-")) {
+		return {
+			model,
+			apiKey: process.env.ANTHROPIC_API_KEY ?? "",
+			baseUrl: "https://api.anthropic.com",
+		};
+	}
+	return {
+		model,
+		apiKey: process.env.OPENROUTER_API_KEY ?? "",
+		baseUrl: "https://openrouter.ai/api/v1",
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -208,8 +204,13 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	const runId = randomUUID();
 	const timestamp = new Date().toISOString();
 
-	const resolvedModel = await resolveEvalModel(options.model);
-	const modelLabel = resolvedModel.model;
+	// Fix the harness before anything is seeded — a seeded agent's `harness_type`
+	// and `model_id` come from this selection, and an absent binary hard-fails
+	// here rather than mid-suite.
+	selectEvalHarness((options.harness ?? "codex") as EvalHarnessName, options.model ?? null);
+	const harnessLabel = evalHarnessName();
+	const judgeModel = resolveJudgeModel(options.judgeModel);
+	const modelLabel = options.model ?? "(harness default)";
 
 	let scenarios = await discoverScenarios();
 
@@ -258,7 +259,6 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 				db,
 				eventBus,
 				seedResult,
-				resolvedModel,
 			};
 			triggerResult = await scenario.trigger(triggerCtx);
 
@@ -271,7 +271,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 				db,
 				seedResult,
 				triggerResult,
-				resolvedModel,
+				judgeModel,
 			};
 			const { dimensions, aggregateScore } = await scoreScenario(scenario.rubric, judgeCtx);
 
@@ -357,6 +357,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	const report: EvalReport = {
 		runId,
 		timestamp,
+		harness: harnessLabel,
 		model: modelLabel,
 		mode: options.quick ? "quick" : "full",
 		scenarios: scenarioReports,
@@ -371,7 +372,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf-8");
 	process.stderr.write(`\n[eval] Report written to ${outputPath}\n`);
 	process.stderr.write(
-		`[eval] Overall score: ${overallScore.toFixed(3)} (${scenarioReports.length} scenarios)\n`,
+		`[eval] Overall score: ${overallScore.toFixed(3)} (${scenarioReports.length} scenarios) on ${harnessLabel}\n`,
 	);
 
 	return report;

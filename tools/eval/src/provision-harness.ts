@@ -17,12 +17,10 @@ import {
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ResolvedModel } from "@hyperidle/domain-model";
 import { bakeAgentRunnableConfig } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
-	AdapterPool,
-	BuiltinHarnessAdapter,
+	createLocalAdapterPool,
 	createReturnEnforcement,
 	createSandboxAdapter,
 	provisionHarnessEnvironment,
@@ -31,7 +29,6 @@ import {
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
-import { DirectHarnessAdapter } from "./direct-harness-adapter.js";
 import type { TriggerResult } from "./types.js";
 
 /**
@@ -72,39 +69,36 @@ const evalReturnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter = {
 	forRegistry: (registry) => returnStatusTool.forRegistry(registry),
 };
 
-/** @internal The eval-builtin adapter name. */
-const EVAL_BUILTIN_NAME = "eval-builtin";
-/** @internal The eval-external adapter name. */
-const EVAL_EXTERNAL_NAME = "eval-external";
 export interface EvalProvisionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	readonly resolvedModel: ResolvedModel;
 	readonly sandboxBasePath: string;
 }
 
 /**
  * Run provisionSession for an eval scenario.
  *
- * Assembles AdapterPool (with BuiltinHarnessAdapter or external adapter),
- * LocalSandboxAdapter, and calls provisionSession directly.
+ * Builds the SAME adapter pool production builds (`createLocalAdapterPool`),
+ * so the harness an eval measures is the harness a user gets. The agent's own
+ * `harness_type`/`model_id` — seeded from the run's `--harness`/`--model` —
+ * pick the adapter and the model, through the ordinary provisioner path.
+ *
  * MCP bridge is omitted (optional in ProvisionSessionDeps).
  *
  * Returns the ProvisionSessionResult mapped to TriggerResult with wall-clock
  * duration.
  *
- * @lore X7: maxIterations is set to 20 for eval to limit cost per scenario.
- * The default of 50 would be too expensive for automated eval runs.
- *
  * @lore X7: "stopped" SessionOutcome is mapped to "crashed" because eval
  * sessions cannot be manually stopped. This narrowing satisfies the
  * TriggerResult.outcome type ("completed" | "crashed").
  *
- * @lore T10: harnessKind:"external" registers the ExternalShapedAdapter
- * (returnEnforcement:"none" — Layer-B re-prompt loop only). Adapter selection:
- * 1. If the `claude` CLI binary is available: use CliHarnessAdapter (real subprocess).
- * 2. Else: use ExternalShapedAdapter (direct LLM call, reads AGENTS.md from sandbox).
- * Both prove the Layer-B re-prompt loop — neither uses Layer-A in-turn forcing.
+ * @lore The eval used to assemble its own two-adapter pool: an in-process
+ * `BuiltinHarnessAdapter` by default, and a direct single-call LLM adapter
+ * under `harnessKind:"external"`. Both were direct model calls wearing the
+ * adapter interface, so an eval score said something about the model and
+ * almost nothing about HyperIdle's harness wiring — the MCP bridge, the
+ * `.mcp.json` dialects, the return hook, none of it was exercised. Both are
+ * gone; every eval session now spawns a real CLI.
  */
 export async function runEvalSession(
 	deps: EvalProvisionDeps,
@@ -113,54 +107,10 @@ export async function runEvalSession(
 		readonly agentId: string;
 		/** The teamId value — mapped to productId in ProvisionSessionParams. */
 		readonly teamId: string;
-		/**
-		 * T10: Select the harness kind.
-		 * "builtin" (default): uses BuiltinHarnessAdapter (Layer-A, in-turn hook).
-		 * "external": uses external-shaped adapter (Layer-B, re-prompt loop only).
-		 */
-		readonly harnessKind?: "builtin" | "external";
 	},
 ): Promise<TriggerResult> {
 	const workspace = createSandboxAdapter("local");
-	const pool = new AdapterPool();
-
-	const harnessKind = params.harnessKind ?? "builtin";
-
-	if (harnessKind === "external") {
-		const externalAdapter = new DirectHarnessAdapter({
-			model: deps.resolvedModel,
-			returnEnforcement: "none",
-			maxTokens: 1024,
-			tools: [
-				{
-					name: "submit_review",
-					description: "Submit completed work for review.",
-					inputSchema: {
-						type: "object",
-						properties: { message: { type: "string" } },
-						required: ["message"],
-					},
-				},
-			],
-		});
-		pool.register(EVAL_EXTERNAL_NAME, externalAdapter, {
-			name: "Eval External Real-Model Adapter",
-			kind: "local",
-			type: "builtin",
-			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-			maxConcurrent: 1,
-		});
-	} else {
-		// Default: Register a BuiltinHarnessAdapter with maxIterations: 20 to limit eval cost.
-		const builtinAdapter = new BuiltinHarnessAdapter({ maxIterations: 20 });
-		pool.register(EVAL_BUILTIN_NAME, builtinAdapter, {
-			name: "Eval Built-in Harness",
-			kind: "local",
-			type: "builtin",
-			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-			maxConcurrent: 1,
-		});
-	}
+	const pool = await createLocalAdapterPool();
 
 	const startMs = Date.now();
 
@@ -200,7 +150,12 @@ export async function runEvalSession(
 				// compat) but the value is always a teams.id (which IS the teamId).
 				productId: params.teamId,
 				sandboxBasePath: deps.sandboxBasePath,
-				resolvedModel: deps.resolvedModel,
+				// @lore No `resolvedModel`. It carried a gateway credential into the
+				// session, and a CLI adapter forwards that key to its subprocess under
+				// its own provider's variable name — handing codex an OpenRouter key as
+				// OPENAI_API_KEY shadows the ChatGPT login it actually authenticates
+				// with. A CLI harness brings its own auth; the model it should run
+				// arrives as `selectedModel`, off the agent's own `model_id`.
 				agentConfig: bakeAgentRunnableConfig(agent),
 				harnessDisabled,
 				// No cost cap during eval — cost is tracked but not capped.
@@ -224,7 +179,6 @@ export async function runEvalSession(
 
 	// T10: Surface forceReturnCount from ProvisionSessionResult directly.
 	// result.forceReturnCount is the unified Layer-A + Layer-B count set by runSession.
-	// This works for ALL adapter types (builtin, cli, external) — not just builtin.
 	const forceReturnCount = result.forceReturnCount;
 
 	return {

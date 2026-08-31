@@ -130,12 +130,7 @@ function makeSessionConfig() {
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse" as const,
 		tools: [],
-		resolvedModel: {
-			provider: "anthropic" as const,
-			model: "claude-sonnet-4-6",
-			apiKey: "sk-test",
-			baseUrl: "https://api.anthropic.com",
-		},
+		selectedModel: "claude-sonnet-4-6",
 		mcpConnectionInfo: undefined,
 	};
 }
@@ -165,6 +160,40 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		expect(args).toContain("--model");
 		// {{model}} resolved to the session's model
 		expect(args[args.indexOf("--model") + 1]).toBe("claude-sonnet-4-6");
+	});
+
+	it("passes the model the agent chose", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+		// The shape a subscription-authenticated machine actually has: an agent
+		// configured with a model, and NO credential anywhere to resolve one.
+		const sessionP = adapter.startSession({ ...makeSessionConfig(), selectedModel: "haiku" });
+		await Promise.resolve();
+		fakeChild.emitExit(0, null);
+		await sessionP;
+
+		const [, args] = spawnSpy.mock.calls[0] as [string, string[], unknown];
+		expect(args[args.indexOf("--model") + 1]).toBe("haiku");
+	});
+
+	it("prefers the agent's chosen model over a gateway-resolved one", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+		// makeSessionConfig resolves to claude-sonnet-4-6 through the gateway; the
+		// agent's own choice is what the person picked and what must win.
+		const sessionP = adapter.startSession({ ...makeSessionConfig(), selectedModel: "opus" });
+		await Promise.resolve();
+		fakeChild.emitExit(0, null);
+		await sessionP;
+
+		const [, args] = spawnSpy.mock.calls[0] as [string, string[], unknown];
+		expect(args[args.indexOf("--model") + 1]).toBe("opus");
 	});
 
 	it("forwards only PATH, HOME, LANG, USER, LOGNAME from process.env (not DATABASE_URL, ANTHROPIC_API_KEY etc)", async () => {

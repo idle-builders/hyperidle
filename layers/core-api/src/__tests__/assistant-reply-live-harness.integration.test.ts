@@ -3,26 +3,19 @@
  *
  * A real-harness test that an assistant turn's reply reaches the calling
  * thread through the agent's OWN `reply` tool call — not an orchestration-
- * side write. Per harness (builtin / claude-code / codex / opencode),
+ * side write. Per harness (claude-code / codex / opencode / cursor-agent),
  * `requireHarness(...)`, zero stubs, hard-fail if absent — never `skipIf` to
  * green (CLAUDE.md, testing.md).
  *
- * @lore AU27 Increment 8: model resolution for every harness here goes
- * through the SANCTIONED test seam (`harnessTestResolvedModel`), supplied
- * directly to `runSession`'s `resolvedModel` override — never the
- * credential-resolving `resolveModel({kind:"agent"|"tier"})` path. This is
- * not a stub of the harness (the adapter/model call is 100% real, same
- * pattern every other real-harness test in this repo already uses) — it
- * avoids a genuine, pre-existing hazard unrelated to AU27: `codex`'s CLI
- * adapter config forwards `resolvedModel.apiKey` verbatim as `OPENAI_API_KEY`
- * (`CLI_TOOL_CONFIGS.codex.envMap`), and this machine's codex authenticates
- * via ChatGPT/keychain login, not an API key — injecting ANY non-empty fake
- * key risks shadowing that native auth. The real per-agent/tier credential
- * pipeline can never produce an empty `apiKey` (`resolveProvider` rejects a
- * falsy resolved credential as `MissingCredentialError`), so only the seam's
- * intentionally-empty `apiKeyEnv: null` entries are safe here. Applying the
- * same seam uniformly to all four harnesses (rather than only codex) keeps
- * one code path and sidesteps the identical-shaped risk for claude too.
+ * @lore The model each lane runs is seeded onto the agent's own run config, the
+ * same place production puts it, and reaches the harness as
+ * `SessionConfig.selectedModel`. There is no override to supply and no seam to
+ * go through: `runSession` used to take a `resolvedModel`, and this file passed
+ * one from `harnessTestResolvedModel` specifically to avoid handing a harness a
+ * credential it did not want — codex's config forwarded `resolvedModel.apiKey`
+ * as `OPENAI_API_KEY`, which would shadow the ChatGPT login it actually uses.
+ * No key travels to a harness at all now, so the hazard and the seam that
+ * dodged it are both gone.
  *
  * The rest of the path is 100% production: `POST /threads/:id/messages`
  * bakes the real `assistant_turn` intent (`resolveAssistantTurnRequest`),
@@ -73,7 +66,7 @@ import {
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
 import {
-	harnessTestResolvedModel,
+	HARNESS_TEST_MODELS,
 	requireHarness,
 	type SupportedHarnessName,
 } from "@hyperidle/harness-registry/test-utils";
@@ -127,7 +120,6 @@ const TEST_API_KEY = "au27-inc8-live-harness-key";
 
 /** Test-vocabulary harness name -> the exact `users.harness_type` the adapter pool registers under. */
 const HARNESS_TYPE: Partial<Record<SupportedHarnessName, string>> = {
-	builtin: "builtin",
 	claude: "claude-code",
 	codex: "codex",
 	opencode: "opencode",
@@ -202,7 +194,12 @@ async function startLiveServer(db: HyperIdleDb): Promise<LiveServer> {
 
 async function seedFounderAndAssistant(
 	db: HyperIdleDb,
-	opts: { readonly founderId: string; readonly threadId: string; readonly harnessType: string },
+	opts: {
+		readonly founderId: string;
+		readonly threadId: string;
+		readonly harnessType: string;
+		readonly modelId: string;
+	},
 ): Promise<{ readonly assistantId: string }> {
 	const assistantId = `ast-${opts.founderId}`;
 	await db.insert(users).values({
@@ -229,6 +226,7 @@ async function seedFounderAndAssistant(
 	await db.insert(agentRunConfig).values({
 		agentUserId: assistantId,
 		harnessType: opts.harnessType,
+		modelId: opts.modelId,
 		maxConcurrentSessions: 1,
 	});
 	await db.insert(threads).values({
@@ -341,6 +339,9 @@ describe("the assistant reply reaches the calling thread via a real harness's ow
 			founderId,
 			threadId,
 			harnessType,
+			// The locked test model, seeded where production puts it — on the
+			// agent's own run config. It reaches the harness as `selectedModel`.
+			modelId: HARNESS_TEST_MODELS[harness].model,
 		});
 
 		const server = await startLiveServer(db);
@@ -374,7 +375,6 @@ describe("the assistant reply reaches the calling thread via a real harness's ow
 				mode: "durable",
 				request,
 				sandboxBasePath,
-				resolvedModel: harnessTestResolvedModel(harness),
 				completion: "await",
 			});
 
@@ -414,14 +414,9 @@ describe("the assistant reply reaches the calling thread via a real harness's ow
 		}
 	}
 
-	describe("[harness:builtin]", () => {
-		requireHarness("builtin");
-		dbTest(
-			"an assistant turn on builtin ends with a real reply() call landing in the calling thread",
-			async ({ db }) => runReplyProof("builtin", db),
-			180_000,
-		);
-	});
+	// @lore The `[harness:builtin]` lane is gone with the harness it drove. The
+	// property it proved — an assistant turn ends with a real `reply()` landing in
+	// the calling thread — is proven on every harness that remains.
 
 	describe("[harness:claude]", () => {
 		requireHarness("claude");

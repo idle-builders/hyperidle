@@ -45,14 +45,19 @@ function makeAdapter(): HarnessAdapter {
 }
 
 describe("harness type vocabulary", () => {
-	it("registers builtin under a name the vocabulary contains", async () => {
-		// builtin is the one adapter registered unconditionally — no binary, no
-		// PATH, no host assumptions — so it is the only registration this test
-		// can assert without depending on what is installed.
+	it("accounts for every vocabulary entry, installed or not", async () => {
+		// @lore This used to assert the pool registers `builtin`, which worked
+		// because that adapter was registered unconditionally — no binary, no PATH,
+		// no host assumptions. Nothing is unconditional now: every harness is a CLI
+		// someone installed, so a test that asserts any *registration* is a test
+		// that depends on the host. The default `describe()` includes the
+		// known-missing families too, and that full set is host-independent — so
+		// the claim becomes the stronger, bidirectional one: what the pool can
+		// account for and what the vocabulary offers are the same set.
 		const pool = await createLocalAdapterPool();
-		const types = pool.describe({ includeKnownMissing: false }).map((d) => d.type);
+		const accounted = new Set(pool.describe().map((d) => d.type));
 
-		expect(types).toContain("builtin");
+		expect([...accounted].sort()).toEqual([...HARNESS_TYPES].sort());
 	});
 
 	it("registers nothing under a type outside the vocabulary", async () => {

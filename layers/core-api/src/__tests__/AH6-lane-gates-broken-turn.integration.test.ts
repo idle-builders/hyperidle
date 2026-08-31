@@ -88,7 +88,7 @@ async function seedFounderAndThread(
 	// AU26 G1: the run config lives in `agent_run_config` now.
 	await db.insert(agentRunConfig).values({
 		agentUserId: assistantId,
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: PER_AGENT_MODEL_ID,
 		modelProvider: "openrouter",
 	});

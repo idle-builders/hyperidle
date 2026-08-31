@@ -156,7 +156,6 @@ export interface AgentOrchestrationRunConfigView {
 	// like any other document. Run config is how an agent runs; the identity is
 	// who it is, and it stopped being a column so a plugin could contribute one.
 	readonly harnessType: string | null;
-	readonly modelTierPreference: string | null;
 	readonly modelId: string | null;
 	readonly modelProvider: string | null;
 	readonly maxConcurrentSessions: number;

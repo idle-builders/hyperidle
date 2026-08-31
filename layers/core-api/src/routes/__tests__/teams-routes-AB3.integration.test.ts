@@ -3,7 +3,6 @@
  *
  * AC coverage:
  * AC-1: GET /api/teams/:id roster members include `agentCategory` field.
- * AC-4: PATCH /api/agents/:id with modelTierPreference returns updated value.
  * AC-5: POST /api/agents creates agent with teamId (teamMembers.id), returns 201.
  *
  * These tests FAIL until:
@@ -184,39 +183,10 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 		});
 	});
 
-	// AC-4: PATCH /api/agents/:id with modelTierPreference returns 200 + updated value
-	describe("PATCH /api/agents/:id — modelTierPreference update (AC-4)", () => {
-		test("returns 200 with updated modelTierPreference", async ({ db, app }) => {
-			const { teamMembersId } = await seedTeamWithCategorizedAgents(db);
-
-			// First seed an agent directly accessible to the agents endpoint
-			await db.insert(users).values({
-				id: "ab3-patch-agent",
-				kind: "ai",
-				name: "Patch Test Agent",
-				role: "builder",
-				status: "active",
-				teamId: teamMembersId,
-				createdAt: NOW,
-			});
-			// @lore AU26 G1: the run config left `users` for `agent_run_config`.
-			await db.insert(agentRunConfig).values({
-				agentUserId: "ab3-patch-agent",
-				maxConcurrentSessions: 1,
-				modelTierPreference: null,
-			});
-
-			const res = await app.request("/api/agents/ab3-patch-agent", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ modelTierPreference: "reasoning" }),
-			});
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as { modelTierPreference: string | null };
-			expect(body.modelTierPreference).toBe("reasoning");
-		});
-	});
+	// @lore An AC-4 block here PATCHed `modelTierPreference` and asserted the
+	// updated value came back. That dial is gone: it named a model-gateway entry,
+	// selected nothing once the gateway went, and was unreachable on the path every
+	// real session takes. A model is chosen per agent instead.
 
 	// AC-5: POST /api/agents creates agent with teamMembersId, returns 201
 	describe("POST /api/agents — create with teamId (AC-5)", () => {

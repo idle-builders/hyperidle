@@ -32,7 +32,6 @@ const BASE_PROFILE: AgentProfileResponse = {
 	createdAt: "2024-01-15T08:00:00.000Z",
 	identityKnowledgeId: "ki_af_agent-1",
 	harnessType: "claude-code",
-	modelTierPreference: "workhorse",
 	maxConcurrentSessions: 2,
 	mcpSetup: null,
 	harnessAvailable: true,

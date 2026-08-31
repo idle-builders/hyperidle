@@ -16,17 +16,14 @@ Harness/session error classes live in `framework/domain-model/src/errors.ts`.
 
 ## Supported harness matrix
 
-`SUPPORTED_HARNESSES` in `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` is the single source of truth — **five** harnesses:
+`SUPPORTED_HARNESSES` in `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` is the single source of truth — **four** harnesses:
 
 ```ts
-export const SUPPORTED_HARNESSES = [
-	"builtin",
-	"claude",
-	"codex",
-	"opencode",
-	"cursor-agent",
-] as const;
+export const SUPPORTED_HARNESSES = ["claude", "codex", "opencode", "cursor-agent"] as const;
 ```
+
+There were five. `builtin` was an in-process model-calling harness, and it is gone — every entry
+here is now a real binary a person installs and signs into.
 
 `gh` is a tool, not an agent harness, and is deliberately outside the matrix.
 
@@ -47,7 +44,6 @@ The rule it encoded is still the rule — **every supported harness, equal count
 Each harness lane's describe title carries its tag:
 
 ```ts
-describe("[harness:builtin]", () => { … })
 describe("[harness:claude]", () => { … })
 describe("[harness:codex]", () => { … })
 describe("[harness:opencode]", () => { … })
@@ -83,17 +79,20 @@ So these remain true as rules and are enforced by review alone:
 
 ## Locked test models (AR7)
 
-`HARNESS_TEST_MODELS` in `require-harness.ts` is the founder-set, tiny-baseline model matrix — locked at the seam, never bumped to pass a flake:
+`HARNESS_TEST_MODELS` in `require-harness.ts` is the founder-set, tiny-baseline model matrix — locked
+at the seam, never bumped to pass a flake. Each entry locks a **model and nothing else**: it used to
+carry a provider, a base URL and the env var naming the key that billed for the run, all of which
+described the model gateway. A lane seeds its locked model onto the agent's own run config, where
+production puts it, and it reaches the harness as `SessionConfig.selectedModel`:
 
 | Harness | Model | Notes |
 |---|---|---|
-| builtin | `deepseek/deepseek-v4-flash` | OpenRouter, `OPENROUTER_API_KEY` |
 | claude | `haiku` | Smallest claude tier; inherited keychain login |
 | codex | `gpt-5.4-mini` | ChatGPT-account floor — nano is API-key-only and rejected; enforced via `--model {{model}}` in `CLI_TOOL_CONFIGS.codex.args` |
 | opencode | `openrouter/z-ai/glm-4.7-flash` | Provider-prefixed; `--model` requires the `openrouter/` prefix |
 | cursor-agent | `auto` | Cursor's default/cheapest routing tier |
 
-All five are argument/request-enforced. Consume via `harnessTestResolvedModel(harness)`, which resolves provider, model, base URL, and key from this map. `apiKeyEnv: null` entries (claude, codex, cursor-agent) authenticate through the installed CLI's own keychain login and resolve an empty `apiKey` on purpose — a non-empty placeholder would inject a garbage env var into the subprocess and risk overriding native auth.
+All four are argument-enforced: each receives its model via `--model {{model}}` in its adapter config, resolved from `SessionConfig.selectedModel`. Consume via `HARNESS_TEST_MODELS[harness].model` and seed it onto the agent's run config. No key travels with it — every harness authenticates through its own login, and injecting one would risk overriding that native auth.
 
 Nothing statically prevents a test from hand-writing a raw `resolvedModel` literal. That gap is accepted: catching it would need brittle model-id string-matching. An off-matrix literal is an obvious, isolated red flag in review.
 
@@ -105,40 +104,34 @@ Twelve files call `requireHarness`. What each covers:
 
 | File | Harnesses |
 |---|---|
-| `layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` | all five |
-| `layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` | all five |
-| `layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts` | all five |
-| `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts` | all five |
+| `layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` | all four |
+| `layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` | all four |
+| `layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts` | all four |
+| `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts` | all four |
 | `layers/agent-execution/harness-registry/src/__tests__/cli-adapter-real-binary.integration.test.ts` | claude, codex, opencode, cursor-agent |
 | `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-session-probe.integration.test.ts` | claude, codex, opencode |
 | `layers/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
 | `layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
-| `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts` | builtin |
-| `layers/agent-execution/harness-registry/src/__tests__/AM2-builtin-gateway.integration.test.ts` | builtin |
+| `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts` | all four |
 | `layers/agent-execution/harness-registry/src/__tests__/opencode-model-probe.integration.test.ts` | opencode |
 | `layers/agent-execution/harness-registry/src/__tests__/ar1-require-harness.test.ts` | none — it is the unit test *of* `requireHarness` |
 
-Four of them emit `[harness:X]` tags: the two `core-api` five-harness files, `AL7-two-session-trust-first`, and `AU9-assistant-handoff-realbinary` (builtin only). The rest do not, so their per-harness breadth is only visible by reading the file.
+Four of them emit `[harness:X]` tags: the two `core-api` all-harness files, `AL7-two-session-trust-first`, and `AU9-assistant-handoff-realbinary`. The rest do not, so their per-harness breadth is only visible by reading the file.
 
 ### Adoption pattern
 
 There is no shared lane table and no loop. A matrix test writes **one explicit tagged describe per harness**, each gating itself with `requireHarness` at describe scope, and all delegating to one shared proof function that takes the harness name:
 
 ```ts
-import { harnessTestResolvedModel, requireHarness } from "…/__tests__/require-harness.js";
+import { HARNESS_TEST_MODELS, requireHarness } from "…/__tests__/require-harness.js";
 
 async function runProof(harness: SupportedHarnessName, db: HyperIdleDb) {
-  const result = await runSession({
-    …deps,
-    resolvedModel: harnessTestResolvedModel(harness),
-  });
+  // The locked model is seeded onto the agent, not handed to the session — there
+  // is no resolvedModel override any more.
+  await seedAgent(db, { harnessType: harness, modelId: HARNESS_TEST_MODELS[harness].model });
+  const result = await runSession({ …deps });
   expect(["completed", "not_returned"]).toContain(result.outcome);
 }
-
-describe("[harness:builtin]", () => {
-  requireHarness("builtin");
-  dbTest("… on builtin …", async ({ db }) => runProof("builtin", db), 180_000);
-});
 
 describe("[harness:claude]", () => {
   requireHarness("claude");
@@ -154,11 +147,12 @@ Spelling the lanes out is deliberate: the tag makes per-harness breadth legible 
 
 ---
 
-## `BUILTIN_ONLY_INTEGRATION` carve-out
+## No harness-only carve-out
 
-Some files' production paths are genuinely builtin-only by construction, and those are exempt from the full-matrix expectation. This used to be a registry — `BUILTIN_ONLY_INTEGRATION` in the deleted predicate — and is now a judgement recorded in the test itself. Such a file must still declare `requireHarness("builtin")`, carry zero stubs, and use no `skipIf`-on-absent gate; state the builtin-only reason in a comment at the top so the exemption is arguable rather than assumed.
-
-**The list is empty — keep it empty** unless a future production path structurally cannot run CLI harnesses and still must be tested as a harness-facing integration. The assistant turn is not such a case: it runs through the same durable poller as every other agent kind and is proven across all five harnesses by `assistant-reply-live-harness.integration.test.ts`.
+A `BUILTIN_ONLY_INTEGRATION` carve-out used to live here: a list of files whose production paths were
+genuinely builtin-only by construction and therefore exempt from the full-matrix expectation. The
+list was already empty, and the harness it exempted is gone. **Every harness-facing integration test
+covers the full matrix.** There is no exemption to claim.
 
 ---
 
@@ -166,9 +160,9 @@ Some files' production paths are genuinely builtin-only by construction, and tho
 
 Findings surfaced by real matrix runs.
 
-### `builtin` + `claude` → `completed`; `codex` + `opencode` → `not_returned` (on file-write tasks)
+### `claude` → `completed`; `codex` + `opencode` → `not_returned` (on file-write tasks)
 
-`builtin` and `claude` fire the MCP return tool (`send_message`) in response to the task prompt — outcome `"completed"`. `codex` and `opencode` do real billable work on the file task but do not call the MCP return tool — outcome `"not_returned"` (the return-gate enforcer triggers but they exhaust the force budget). Honest harness behaviour, not a test gap. The correct assertion:
+`claude` fires the MCP return tool (`send_message`) in response to the task prompt — outcome `"completed"`. `codex` and `opencode` do real billable work on the file task but do not call the MCP return tool — outcome `"not_returned"` (the return-gate enforcer triggers but they exhaust the force budget). Honest harness behaviour, not a test gap. The correct assertion:
 
 ```ts
 expect(["completed", "not_returned"]).toContain(result.outcome);

@@ -70,11 +70,9 @@ export {
 } from "./connection.js";
 export type { CredentialName, CredentialState } from "./credential.js";
 export {
-	CREDENTIAL_BY_PROVIDER,
 	CREDENTIAL_CATALOG,
 	CREDENTIAL_NAMES,
 	CREDENTIAL_STATES,
-	credentialNameForProvider,
 	isCredentialName,
 } from "./credential.js";
 export {
@@ -127,23 +125,13 @@ export {
 	resolveMentions,
 	// segmentMentions MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 } from "./mention.js";
-export type {
-	ModelGatewayConfig,
-	ModelProvider,
-	ModelRequest,
-	ModelTierConfig,
-	ResolvedModel,
-} from "./model-gateway.js";
-// ModelCatalogEntry unexported (SIMPLIFY): element type of MODEL_CATALOG; no external consumer names it directly.
-// catalogEntry, isCatalogModel moved to layers/core-api/src/model-utils.ts (AU44-b8).
-export {
-	BUILT_IN_GATEWAY_CONFIG,
-	DEFAULT_AGENT_HARNESS,
-	DEFAULT_AGENT_MODEL_ID,
-	DEFAULT_AGENT_MODEL_PROVIDER,
-	MODEL_CATALOG,
-	MODEL_PROVIDERS,
-} from "./model-gateway.js";
+// @lore `model-gateway.js` exported a resolution layer — ModelGatewayConfig,
+// ModelTierConfig, ResolvedModel, ModelRequest, MODEL_CATALOG,
+// BUILT_IN_GATEWAY_CONFIG and the DEFAULT_AGENT_MODEL_* pair. All of it served
+// the built-in harness, which made provider API calls itself. It is now
+// `model-provider.js`, and the provider names are all that is left.
+export type { ModelProvider } from "./model-provider.js";
+export { MODEL_PROVIDERS } from "./model-provider.js";
 export type { NotificationType, NotificationTypeKey } from "./notifications.js";
 // NotificationUrgency unexported (SIMPLIFY): member of registry entry; no external consumer names it directly.
 // shortLabelForType MERGE → core-ui/shell/notification-display.ts (AU44 batch 8)

@@ -1,6 +1,6 @@
 /** Harness adapter interface — the boundary between meta-layer and agent runtime (D1). */
 
-import type { ModelTier, ResolvedModel, TokenUsage } from "@hyperidle/domain-model";
+import type { ModelTier, TokenUsage } from "@hyperidle/domain-model";
 import type {
 	HarnessAuthActionDescriptor,
 	HarnessDiscoveryStatus,
@@ -56,11 +56,24 @@ export interface SessionConfig {
 	readonly modelTier: ModelTier;
 	readonly tools: readonly string[];
 	/**
-	 * X4: Resolved model configuration from the gateway.
-	 * When present, adapters use this instead of looking up by modelTier.
-	 * Optional for backward compatibility during migration.
+	 * The model this agent was configured to run on, in the harness's own
+	 * vocabulary — `haiku`, `gpt-5.6-sol`, `composer-2.5`,
+	 * `openrouter/z-ai/glm-4.7-flash`. Set from the agent's own configuration,
+	 * with no credential resolved to produce it.
+	 *
+	 * Absent means the person chose nothing, and the harness runs on its own
+	 * default. That is a stated outcome, not the accident of an empty string.
+	 *
+	 * Carries only the model name — no provider, no credential.
+	 * an API key and a base URL because the built-in harness calls a model API
+	 * itself. A spawned CLI authenticates on its own and needs none of that — it
+	 * needs the name to put after `--model`, which is this.
 	 */
-	readonly resolvedModel?: ResolvedModel;
+	readonly selectedModel?: string;
+	// @lore A `resolvedModel` sat here — provider, model, apiKey and baseUrl, as
+	// answered by the model gateway. Only the built-in adapter ever made the call
+	// it described. A CLI harness authenticates itself and runs `selectedModel`,
+	// so the gateway, its credentials and this field are all gone.
 	/**
 	 * The harness options this agent's model runs with, set once when the agent
 	 * was configured rather than chosen per message.
@@ -74,28 +87,21 @@ export interface SessionConfig {
 	/**
 	 * X5: MCP bridge connection info for this session.
 	 * When present, adapters that support MCP can use this to configure
-	 * their harness's MCP client connection. Optional because:
-	 * - Bridge creation is best-effort (fails gracefully)
-	 * - BuiltinHarnessAdapter calls tool registry directly (no MCP needed)
+	 * their harness's MCP client connection. Optional because bridge creation is
+	 * best-effort (it fails gracefully).
 	 */
 	readonly mcpConnectionInfo?: McpConnectionInfo;
-	/**
-	 * AH3 §1.4: Message history from a session's calling-thread transcript.
-	 * When present, the builtin adapter runs a single chat completion seeded with
-	 * these messages instead of the task-planning loop. The caller's triggering
-	 * message is always the last entry. Absent for task sessions (planning loop).
-	 * Generic — set for any kind that bakes a `transcript` (AU27 Increment 4),
-	 * not assistant-only.
-	 *
-	 * @lore AH3 H3: This field is the mechanism that delivers "what the caller
-	 * typed" to the model. Without it, the adapter starts with messages:[] and
-	 * responds to PLANNING_PROMPT, never the caller's actual question.
-	 */
-	readonly messages?: readonly ConversationMessage[];
+	// @lore A `messages` field carried the calling thread's transcript here, and
+	// the built-in adapter was its only reader: their presence is what selected its
+	// chat completion over its task-planning loop. A CLI harness never read it —
+	// it takes the same transcript from the `## Conversation` section of the
+	// assembled prompt, which every harness reads out of AGENTS.md/CLAUDE.md. The
+	// field went with the adapter that read it; the prompt section is now the
+	// single delivery.
 	/**
 	 * Per-session return-hook configuration.
-	 * SDK/builtin closures + process wrapper read this to reach the enforcement
-	 * registry and bridge callback. settings-* adapters use bridgeToken/mcpUrl
+	 * The process wrapper reads this to reach the enforcement registry and bridge
+	 * callback. settings-* adapters use bridgeToken/mcpUrl
 	 * when writing their hook config files (handled by provisionReturnHook, not startSession).
 	 * Optional for backward compatibility; omitted for non-task sessions.
 	 */
@@ -213,7 +219,7 @@ export interface HarnessCapabilities {
 	/**
 	 * AL7 delta: Per-session MCP config dialect for CLI harnesses that need a
 	 * config file written into the sandbox for the binary to discover the bridge.
-	 * Absent for non-CLI harnesses (builtin, SDK adapters).
+	 * Absent for a harness that discovers the bridge some other way.
 	 *
 	 * "codex-toml"    — appends [mcp_servers.hyperidle] to .codex-home/config.toml.
 	 * "opencode-json" — writes opencode.json to sandbox cwd.
@@ -264,7 +270,7 @@ export interface AdapterInfo {
  * @lore BA2: Session resumption is per-harness. The native session id is what
  * each harness assigned (or we assigned, for claude) when the session first ran.
  * sandboxPath is required for claude and cursor-agent (their sessions are bound
- * to the directory they started in). resolvedModel and mcpTokenEnv mirror the
+ * to the directory they started in). selectedModel and mcpTokenEnv mirror the
  * fields used in SessionConfig that affect the resume invocation.
  */
 export interface SessionResumeConfig {
@@ -272,8 +278,8 @@ export interface SessionResumeConfig {
 	readonly sandboxPath: string;
 	/** Model tier for metrics tracking. */
 	readonly modelTier: ModelTier;
-	/** Resolved model; same shape as SessionConfig.resolvedModel. */
-	readonly resolvedModel?: ResolvedModel;
+	/** The model this agent runs; same shape as SessionConfig.selectedModel. */
+	readonly selectedModel?: string;
 	/** Per-session MCP token env vars; same shape as SessionConfig.mcpTokenEnv. */
 	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
 }

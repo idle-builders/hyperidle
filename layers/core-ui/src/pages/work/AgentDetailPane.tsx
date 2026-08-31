@@ -12,11 +12,11 @@
  */
 
 import type { RosterMember } from "@hyperidle/domain-model";
-import { roleLabel as deriveRoleLabel, MODEL_TIERS } from "@hyperidle/domain-model";
+import { roleLabel as deriveRoleLabel } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink } from "react-router-dom";
 // hearth-internal-padding
-import { Avatar, Button, Input, PageHeader, PageScaffold, Select } from "../../ds";
+import { Avatar, Button, Input, PageHeader, PageScaffold } from "../../ds";
 import { apiFetch } from "../../services/api-fetch.js";
 import type { AgentConfig } from "../../settings/settings-types.js";
 import { useToast } from "../../shell/ToastRegion.js";
@@ -34,14 +34,12 @@ export interface AgentDetailPaneProps {
 
 interface EditFormValues {
 	harnessType: string;
-	modelTierPreference: string;
 	maxConcurrentSessions: number;
 }
 
 function agentToForm(agent: AgentConfig): EditFormValues {
 	return {
 		harnessType: agent.harnessType ?? "",
-		modelTierPreference: agent.modelTierPreference ?? "",
 		maxConcurrentSessions: agent.maxConcurrentSessions,
 	};
 }
@@ -55,12 +53,10 @@ export function AgentDetailPane({
 	const { showToast } = useToast();
 	const [formValues, setFormValues] = useState<EditFormValues>({
 		harnessType: "",
-		modelTierPreference: "",
 		maxConcurrentSessions: 1,
 	});
 	const [initialForm, setInitialForm] = useState<EditFormValues>({
 		harnessType: "",
-		modelTierPreference: "",
 		maxConcurrentSessions: 1,
 	});
 	const [configVisible, setConfigVisible] = useState(false);
@@ -78,7 +74,6 @@ export function AgentDetailPane({
 
 	const isDirty =
 		formValues.harnessType !== initialForm.harnessType ||
-		formValues.modelTierPreference !== initialForm.modelTierPreference ||
 		formValues.maxConcurrentSessions !== initialForm.maxConcurrentSessions;
 
 	const handleSave = useCallback(async (): Promise<void> => {
@@ -90,7 +85,6 @@ export function AgentDetailPane({
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					harnessType: formValues.harnessType || null,
-					modelTierPreference: formValues.modelTierPreference || null,
 					maxConcurrentSessions: formValues.maxConcurrentSessions,
 				}),
 			});
@@ -217,29 +211,6 @@ export function AgentDetailPane({
 									}
 									placeholder="e.g. claude-code"
 									disabled={saving}
-								/>
-							</div>
-
-							<div className="form-control min-w-[140px] flex-1">
-								<label className="label" htmlFor="pane-dialog-tier">
-									<span className="label-text text-[var(--text-secondary)]">Model tier</span>
-								</label>
-								<Select
-									id="pane-dialog-tier"
-									aria-label="Model tier"
-									size="sm"
-									value={formValues.modelTierPreference}
-									onChange={(e) =>
-										setFormValues((prev) => ({
-											...prev,
-											modelTierPreference: e.target.value,
-										}))
-									}
-									disabled={saving}
-									options={[
-										{ value: "", label: "Default" },
-										...MODEL_TIERS.map((t) => ({ value: t, label: t })),
-									]}
 								/>
 							</div>
 

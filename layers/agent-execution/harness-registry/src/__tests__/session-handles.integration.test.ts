@@ -36,7 +36,7 @@ import { describe, expect, test } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
-import { requireHarness } from "./require-harness.js";
+import { HARNESS_TEST_MODELS, requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -200,12 +200,7 @@ describe("session handles — claude-code", () => {
 				assembledPrompt: PHASE1_PROMPT,
 				modelTier: "workhorse",
 				tools: [],
-				resolvedModel: {
-					provider: "anthropic",
-					model: "haiku",
-					apiKey: "",
-					baseUrl: "https://api.anthropic.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS.claude.model,
 			};
 
 			const handleP1 = await adapter.startSession(configPhase1);
@@ -234,12 +229,7 @@ describe("session handles — claude-code", () => {
 			const resumeConfigA: SessionResumeConfig = {
 				sandboxPath: sandboxA,
 				modelTier: "workhorse",
-				resolvedModel: {
-					provider: "anthropic",
-					model: "haiku",
-					apiKey: "",
-					baseUrl: "https://api.anthropic.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS.claude.model,
 			};
 
 			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigA);
@@ -333,12 +323,7 @@ describe("session handles — codex", () => {
 				assembledPrompt: PHASE1_PROMPT,
 				modelTier: "workhorse",
 				tools: [],
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "gpt-5.4-mini",
-					apiKey: "",
-					baseUrl: "https://api.openai.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS.codex.model,
 			};
 
 			const handleP1 = await adapter.startSession(configP1);
@@ -365,12 +350,7 @@ describe("session handles — codex", () => {
 			const resumeConfig: SessionResumeConfig = {
 				sandboxPath,
 				modelTier: "workhorse",
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "gpt-5.4-mini",
-					apiKey: "",
-					baseUrl: "https://api.openai.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS.codex.model,
 			};
 
 			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfig);
@@ -455,12 +435,7 @@ describe("session handles — codex", () => {
 					"Reply with exactly: PHASE1_DONE",
 				modelTier: "workhorse",
 				tools: [],
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "gpt-5.4-mini",
-					apiKey: "",
-					baseUrl: "https://api.openai.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS.codex.model,
 			};
 
 			const handleP1 = await adapter.startSession(configP1);
@@ -485,12 +460,7 @@ describe("session handles — codex", () => {
 			const resumeConfig: import("@hyperidle/harness-protocol").SessionResumeConfig = {
 				sandboxPath,
 				modelTier: "workhorse",
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "gpt-5.4-mini",
-					apiKey: "",
-					baseUrl: "https://api.openai.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS.codex.model,
 			};
 
 			const handleP2 = await adapter.resumeSession?.(
@@ -551,12 +521,7 @@ describe("session handles — cursor-agent", () => {
 				assembledPrompt: PHASE1_PROMPT,
 				modelTier: "workhorse",
 				tools: [],
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "auto",
-					apiKey: "",
-					baseUrl: "https://api.cursor.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS["cursor-agent"].model,
 			};
 
 			const handleP1 = await adapter.startSession(configP1);
@@ -580,12 +545,7 @@ describe("session handles — cursor-agent", () => {
 			const resumeConfigA: SessionResumeConfig = {
 				sandboxPath: sandboxA,
 				modelTier: "workhorse",
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "auto",
-					apiKey: "",
-					baseUrl: "https://api.cursor.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS["cursor-agent"].model,
 			};
 
 			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigA);
@@ -609,12 +569,7 @@ describe("session handles — cursor-agent", () => {
 			const resumeConfigB: SessionResumeConfig = {
 				sandboxPath: sandboxB, // WRONG directory — cursor-agent won't find sandboxA's session
 				modelTier: "workhorse",
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "auto",
-					apiKey: "",
-					baseUrl: "https://api.cursor.com",
-				},
+				selectedModel: HARNESS_TEST_MODELS["cursor-agent"].model,
 			};
 
 			const handleWrong = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigB);
@@ -667,13 +622,7 @@ describe("session handles — opencode", () => {
 				assembledPrompt: PHASE1_PROMPT,
 				modelTier: "workhorse",
 				tools: [],
-				resolvedModel: {
-					provider: "openai-compatible",
-					// Provider-prefixed model id required by opencode's OpenRouter route.
-					model: "openrouter/z-ai/glm-4.7-flash",
-					apiKey: process.env.OPENROUTER_API_KEY ?? "",
-					baseUrl: "https://openrouter.ai/api",
-				},
+				selectedModel: HARNESS_TEST_MODELS.opencode.model,
 			};
 
 			const handleP1 = await adapter.startSession(configP1);
@@ -697,12 +646,7 @@ describe("session handles — opencode", () => {
 			const resumeConfig: SessionResumeConfig = {
 				sandboxPath,
 				modelTier: "workhorse",
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "openrouter/z-ai/glm-4.7-flash",
-					apiKey: process.env.OPENROUTER_API_KEY ?? "",
-					baseUrl: "https://openrouter.ai/api",
-				},
+				selectedModel: HARNESS_TEST_MODELS.opencode.model,
 			};
 
 			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfig);

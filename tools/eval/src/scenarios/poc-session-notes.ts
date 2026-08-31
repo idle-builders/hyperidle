@@ -63,7 +63,6 @@ async function trigger(ctx: TriggerContext): Promise<TriggerResult> {
 		{
 			db: ctx.db,
 			eventBus: ctx.eventBus,
-			resolvedModel: ctx.resolvedModel,
 			sandboxBasePath: ctx.seedResult.sandboxBasePath,
 		},
 		{

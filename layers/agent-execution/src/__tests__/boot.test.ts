@@ -36,13 +36,27 @@ describe("bootAgentExecution", () => {
 			await expect(boot.adapters.sandbox.spawn("/tmp/anything")).rejects.toThrow();
 		});
 
-		it("local topology: pre-registers the always-present builtin adapter", async () => {
+		// @lore This used to assert `pool.has("local-builtin")` — the built-in
+		// adapter was registered unconditionally, so a local pool was never empty
+		// and every machine could always run a session. Nothing is always-present
+		// now: the pool holds the CLI harnesses whose binaries this machine has, so
+		// what it contains is a fact about the machine, not about the code. What
+		// the code still owes is that it registers nothing else — no adapter that
+		// is not a real, installed harness.
+		it("local topology: registers only real CLI harnesses, nothing always-present", async () => {
 			const boot = await bootAgentExecution({
 				topology: "local",
 				mcpBaseUrl: "http://localhost:9999",
 			});
 
-			expect(boot.adapters.pool.has("local-builtin")).toBe(true);
+			expect(boot.adapters.pool.has("local-builtin")).toBe(false);
+
+			const registered = boot.adapters.pool
+				.describe({ includeKnownMissing: false })
+				.map((d) => d.type);
+			for (const type of registered) {
+				expect(["claude-code", "codex", "opencode", "cursor-agent"]).toContain(type);
+			}
 		});
 	});
 

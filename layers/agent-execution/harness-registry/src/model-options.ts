@@ -32,18 +32,11 @@ export type ModelOptionValue = string | number | boolean;
  * effort levels are part of model identity (it lists ~200 flat model ids like
  * `-low` / `-high` / `-fast`), and the bracket-override form its own help text
  * advertises is rejected by the binary.
- *
- * `builtin` carries OpenRouter's `reasoning_effort`, and only became able to
- * once OpenRouter moved onto its own native endpoint — see the routing `@lore`
- * in `llm-client.ts`. On the Anthropic-compatible endpoint it used to use, the
- * parameter was accepted and silently discarded, which would have made this
- * declaration a control that does nothing.
  */
 export const OPTION_KEYS = {
 	"claude-code": ["effort"],
 	codex: ["model_reasoning_effort"],
 	opencode: ["variant"],
-	builtin: ["reasoning_effort"],
 	"cursor-agent": [],
 } as const satisfies Readonly<Record<string, readonly string[]>>;
 
@@ -52,16 +45,17 @@ export type OptionCarryingHarness = keyof typeof OPTION_KEYS;
 type OptionKeyOf<H extends OptionCarryingHarness> = (typeof OPTION_KEYS)[H][number];
 
 /**
- * How one option value reaches its harness.
+ * How one option value reaches its harness: appended to its command line.
  *
- * `argv` appends to a command line; `request-field` names a field on the
- * outgoing request body. Both exist because the harnesses genuinely differ —
- * codex takes a config override rather than a flag, and builtin has no command
- * line at all.
+ * @lore There used to be a second shape, `request-field`, naming a field on an
+ * outgoing request body — the built-in harness had no command line to append to,
+ * because it called the model API itself. Every harness is a spawned process
+ * now, so every option is an argument.
  */
-export type OptionCarrier =
-	| { readonly kind: "argv"; readonly toArgv: (value: ModelOptionValue) => readonly string[] }
-	| { readonly kind: "request-field"; readonly field: string };
+export type OptionCarrier = {
+	readonly kind: "argv";
+	readonly toArgv: (value: ModelOptionValue) => readonly string[];
+};
 
 /**
  * Every declared key's carrier. Typed from {@link OPTION_KEYS}, so this map
@@ -84,11 +78,6 @@ export const OPTION_CARRIERS: {
 	},
 	opencode: {
 		variant: { kind: "argv", toArgv: (value) => ["--variant", String(value)] },
-	},
-	builtin: {
-		// No command line — this rides the outgoing request body, which
-		// `callOpenRouter` puts on OpenRouter's native endpoint.
-		reasoning_effort: { kind: "request-field", field: "reasoning_effort" },
 	},
 	"cursor-agent": {},
 };
@@ -172,24 +161,4 @@ export function modelOptionArgv(
 		if (carrier?.kind === "argv") argv.push(...carrier.toArgv(value));
 	}
 	return argv;
-}
-
-/**
- * The request-body fields this agent's options add, for a harness with no
- * command line. Empty when the agent has no usable options — which is what keeps
- * an unconfigured agent's request identical to today's.
- */
-export function modelOptionRequestFields(
-	harnessType: string,
-	options: Readonly<Record<string, ModelOptionValue>> | undefined,
-): Readonly<Record<string, ModelOptionValue>> {
-	if (!isCarryingHarness(harnessType)) return {};
-	const usable = reconcileModelOptions(harnessType, options);
-	const carriers: Readonly<Record<string, OptionCarrier>> = OPTION_CARRIERS[harnessType];
-	const fields: Record<string, ModelOptionValue> = {};
-	for (const [key, value] of Object.entries(usable)) {
-		const carrier = carriers[key];
-		if (carrier?.kind === "request-field") fields[carrier.field] = value;
-	}
-	return fields;
 }

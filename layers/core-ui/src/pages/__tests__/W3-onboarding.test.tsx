@@ -2,8 +2,10 @@
  * W3 — Onboarding AC-53 through AC-56: Red phase tests.
  *
  * AC-53: Card container with shadow, brand + tagline, illustration.
- * AC-54: Three fields: Your name (required), API key (required), Project folder (optional).
- * AC-55: "Start HyperIdle" button — disabled until name + API key filled.
+ * AC-54: Two always-present fields: Your name (required), Project folder
+ *        (optional). The API key that was the third belonged to the built-in
+ *        gateway; it now appears only under a harness that can run on one.
+ * AC-55: "Start HyperIdle" button — disabled until the name is filled.
  * AC-56: No step indicator, no email field, no team name field.
  */
 
@@ -79,10 +81,9 @@ describe("W3 AC-54 — Three fields in onboarding", () => {
 		expect(nameInput).toHaveAttribute("required");
 	});
 
-	it("renders Anthropic API key field (required)", () => {
+	it("renders no API key field when no harness asks for one", () => {
 		renderSetupFlow();
-		const apiKeyInput = screen.getByLabelText(/anthropic api key/i);
-		expect(apiKeyInput).toBeInTheDocument();
+		expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
 	});
 
 	it("renders Project folder field (optional)", () => {
@@ -93,12 +94,12 @@ describe("W3 AC-54 — Three fields in onboarding", () => {
 		expect(folderInput).not.toHaveAttribute("required");
 	});
 
-	it("renders exactly 3 text/password form fields (name, API key, folder — harness radio buttons excluded)", () => {
+	it("renders exactly 2 text/password form fields (name, folder — harness radios excluded)", () => {
 		renderSetupFlow();
-		// AC-54: three text/password/file fields: name, API key, folder.
+		// AC-54: two always-present text/password/file fields: name and folder.
 		// Harness picker adds radio buttons — exclude them from this AC count.
 		const inputs = document.querySelectorAll("input:not([type='radio']), textarea");
-		expect(inputs.length).toBe(3);
+		expect(inputs.length).toBe(2);
 	});
 
 	it("name field placeholder is 'Your name' (C1)", () => {
@@ -118,33 +119,16 @@ describe("W3 AC-55 — Start HyperIdle button", () => {
 		expect(btn.textContent?.trim()).toBe("Start HyperIdle");
 	});
 
-	it("button is disabled when name and API key are empty", () => {
+	it("button is disabled when the name is empty", () => {
 		renderSetupFlow();
 		const btn = screen.getByRole("button", { name: /start hyperidle/i });
 		expect(btn).toBeDisabled();
 	});
 
-	it("button is disabled when name is filled but API key is empty", async () => {
+	it("button is enabled once the name is filled", async () => {
 		const user = userEvent.setup();
 		renderSetupFlow();
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		const btn = screen.getByRole("button", { name: /start hyperidle/i });
-		expect(btn).toBeDisabled();
-	});
-
-	it("button is disabled when API key is filled but name is empty", async () => {
-		const user = userEvent.setup();
-		renderSetupFlow();
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
-		const btn = screen.getByRole("button", { name: /start hyperidle/i });
-		expect(btn).toBeDisabled();
-	});
-
-	it("button is enabled when both name and API key are filled", async () => {
-		const user = userEvent.setup();
-		renderSetupFlow();
-		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 		const btn = screen.getByRole("button", { name: /start hyperidle/i });
 		expect(btn).toBeEnabled();
 	});

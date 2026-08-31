@@ -1,66 +1,92 @@
 # Credential model
 
-How a provider credential is stored, encrypted, read by the runtime, and shown to the user. The **configuration-and-lifecycle** companion to [authorization-model.md](authorization-model.md) — that doc owns *how a secret is protected* (Principal, access boundary, Hard Rule 4 "no plaintext"); this doc owns *where the credential lives, who reads it, and whether the user sees the truth*. On any conflict, `authorization-model.md` wins.
+How a credential is stored, encrypted, read by the runtime, and shown to the user. The
+**configuration-and-lifecycle** companion to [authorization-model.md](authorization-model.md) — that
+doc owns *how a secret is protected* (Principal, access boundary, Hard Rule 4 "no plaintext"); this
+doc owns *where the credential lives, who reads it, and whether the user sees the truth*. On any
+conflict, `authorization-model.md` wins.
 
 ## The noun
 
-A **Credential** is a named, provider-scoped secret value (ciphertext at rest) plus its non-secret validation state — the durable record of "the user gave us the key for provider P." Every Credential value is a Managed secret; not every Managed secret is a Credential. A Credential whose value is plaintext anywhere is a defect, not a Credential.
+A **Credential** is a named secret value (ciphertext at rest) plus its non-secret validation state.
+Every Credential value is a Managed secret; not every Managed secret is a Credential. A Credential
+whose value is plaintext anywhere is a defect, not a Credential.
 
-- **Name** — from a closed, non-user-extensible catalog (`framework/domain-model/src/credential.ts:11`): `anthropic_api_key`, `openrouter_api_key`, `shared_backend_key`, `openai_compatible_api_key` (AH1 promoted it from a `server_config` field to a catalog credential).
-- **Provider** — closed set `{anthropic, openrouter, openai-compatible}` (`MODEL_PROVIDERS`, `framework/domain-model/src/model-gateway.ts`).
+- **Name** — from a closed, non-user-extensible catalog (`framework/domain-model/src/credential.ts`).
+  There is exactly one: **`shared_backend_key`** — what a remote worker presents to reach this
+  server.
 - **Value** — AES-256-GCM ciphertext at rest; never persisted, logged, or returned in plaintext.
-- **Validation state** — `absent | present_untested | valid | invalid` (`CREDENTIAL_STATES`, `credential.ts:21`).
+- **Validation state** — `absent | present_untested | valid | invalid` (`CREDENTIAL_STATES`).
+
+> **HyperIdle holds no model credential.** The catalog once carried three more —
+> `anthropic_api_key`, `openrouter_api_key`, `openai_compatible_api_key` — so the built-in harness
+> could call a provider API, and later so a stored key could be injected into a harness subprocess.
+> Neither happens: **a harness is what a person brings, and the key lives in that harness's own
+> login.** An injected key is worse than none, because it shadows the auth the person already has
+> (codex's ChatGPT login in particular). Setup collects no key at all — a harness arrives logged in
+> or it is not choosable. See
+> [`docs/agent-layer/model-routing-and-cost.md`](../agent-layer/model-routing-and-cost.md).
 
 ## One store
 
-There is **exactly one canonical credential store**: the encrypted `server_credentials` table (`framework/db/src/schema.ts:1319`) — server-side, env-independent, addressed by credential name. It is the single source of truth for credential *values* the runtime uses.
+There is **exactly one canonical credential store**: the encrypted `server_credentials` table
+(`framework/db/src/schema.ts`) — server-side, env-independent, addressed by credential name.
 
-- Not the `server_config` JSON blob — AH1 removed keys from it; stripping from GET is not protection.
+- Not the `server_config` JSON blob.
 - Not process env. Env may still hold the *Root-of-trust secret* — a different noun.
-- Not desktop safeStorage as the runtime's truth. safeStorage holds the Root-of-trust secret and a local UI mirror only (`applications/desktop/src/safe-credentials.ts`).
-
-Legacy plaintext (env-sourced values, `server_config` blob keys) is migrated to ciphertext in this store by `migrateCredentialsToStore` (`layers/core-api/settings/src/server-config.ts:368`) — idempotent, strips legacy tier `apiKey` fields from the blob, seeds absent slots only, never overwrites, never seeds empty strings.
+- Not desktop safeStorage as the runtime's truth. safeStorage holds the Root-of-trust secret and a
+  local UI mirror only (`applications/desktop/src/safe-credentials.ts`).
 
 ## Encryption
 
-Values are AES-256-GCM encrypted with a key derived from the Root-of-trust secret (`HYPERIDLE_API_KEY`) via HKDF-SHA256 with a fixed application salt (`framework/credential-access/src/crypto/credential-encryption.ts`). Stored format: `base64(iv[12] + ciphertext + authTag[16])`; every encrypt call uses a fresh random IV. The API key is the root of trust — an attacker who has it already has full API access, so no separate file-stored key exists.
+Values are AES-256-GCM encrypted with a key derived from the Root-of-trust secret
+(`HYPERIDLE_API_KEY`) via HKDF-SHA256 with a fixed application salt
+(`layers/core-api/credentials/src/credential-encryption.ts`). Stored format:
+`base64(iv[12] + ciphertext + authTag[16])`; every encrypt call uses a fresh random IV. The API key
+is the root of trust — an attacker who has it already has full API access, so no separate
+file-stored key exists.
 
-Two access levels: `getServerSecret()` is nullable and non-fatal (boot path); `requireServerSecret()` throws `MISSING_ROOT_SECRET` (write/validate boundaries).
+Two access levels: `getServerSecret()` is nullable and non-fatal (boot path); `requireServerSecret()`
+throws `MISSING_ROOT_SECRET` (write/validate boundaries).
 
 ## One resolver
 
-There is **exactly one production Credential resolver** wired into the Application composition root (`applications/remote-server/src/create-server.ts`): `DbCredentialResolver` (`layers/core-api/credentials/src/credential-resolver.ts`), `resolve(name) → plaintext | null`, reading the one store. The LLM client obtains keys only through it.
+Reads go through one function — `resolveCredential(db, name) → plaintext | null`
+(`layers/core-api/credentials/src/credential-store.ts`), wired at the composition root as the
+`CredentialResolver` port (`credential-resolver.ts`). The port outlived the model resolution it was
+written beside: something still has to fetch that one key.
 
-- No second read path (`resolveTierApiKey` is removed — zero matches in the repo).
-- No fallback chain that masks absence. `null` ⇒ a surfaced `MissingCredentialError` (`framework/domain-model/src/errors.ts:42`), never a silent dead call.
-- `EnvCredentialResolver` survives for the eval lane only (`tools/eval/src/env-credential-resolver.ts` — CI-secret env var, no DB); no production code path instantiates it (AH1 §3).
-- `ServerHandle` exposes `credentialResolver` so integration tests assert the production wiring is `instanceof DbCredentialResolver` (`applications/remote-server/src/create-server.ts`).
+- No fallback chain that masks absence. `null` is surfaced, never a silent dead call.
+- No production path reads a credential from the environment.
 
 ## Onboarding ↔ Settings parity
 
-The providers offered at onboarding are exactly the providers manageable in Settings — both surfaces read the one shared `CREDENTIAL_CATALOG` (`credential.ts:35`), so no orphaned or contradictory slots. A key set once at onboarding is afterward shown as set/valid in Settings (same record, no re-entry) and is the key the runtime resolves. `routes/credentials.ts` returns `{name, state, lastValidatedAt}` per catalog name, synthesizing `absent` for unset slots.
+Both surfaces read the one shared `CREDENTIAL_CATALOG`, so no orphaned or contradictory slots.
+`routes/credentials.ts` returns `{name, state, lastValidatedAt}` per catalog name, synthesizing
+`absent` for unset slots. **Onboarding asks for no credential**, which satisfies the parity rule
+trivially: it offers nothing, and everything offered in Settings is manageable there.
 
 ## Fail loud on no root secret
 
-A credential write with no Root-of-trust secret available is **rejected** with a clear startup/runtime error — never silently written as plaintext. `migrateCredentialsToStore` never writes a row when `getServerSecret()` is null; write/validate routes go through `requireServerSecret()`.
+A credential write with no Root-of-trust secret available is **rejected** with a clear error — never
+silently written as plaintext. Write and validate routes go through `requireServerSecret()`.
 
 ## Hard rules
 
-1. **No plaintext credential** persisted or logged anywhere — DB row, config row, file — except the OS-protected Root-of-trust secret (authorization-model Hard Rule 4, inherited).
+1. **No plaintext credential** persisted or logged anywhere — DB row, config row, file — except the
+   OS-protected Root-of-trust secret (authorization-model Hard Rule 4, inherited).
 2. **Fail loud on no root secret** — no silent plaintext write.
 3. **One store, one resolver** — the credential the user set is the credential the runtime resolves.
-4. **Bridge-independent** — store and resolver work without the desktop bridge; the web/E2E test servers reach a real key end-to-end (`layers/core-ui/__scripts__/ah5-test-server.ts`, `ah6-test-server.ts`).
-5. **Onboarding↔Settings parity** — offered providers = manageable providers; set-once shows as set, no re-entry.
-6. **State only in responses** — never return a credential value; expose `hasApiKey`/`validationState` only (`routes/credentials.ts`).
+4. **No credential is injected into a harness.** A harness authenticates itself.
+5. **State only in responses** — never return a credential value; expose the validation state only
+   (`routes/credentials.ts`).
 
 ## Credentials ≠ Connections
 
-`server_credentials` is the **closed infra-secret catalog**. User service connections are an open, user-driven set stored in `service_connections`, which reuses only the encryption primitive (`schema.ts:1735`). Writing one into the other violates the connection-model hard rule. See [connection-model.md](connection-model.md).
+`server_credentials` is the **closed infra-secret catalog**. User service connections are an open,
+user-driven set stored in `service_connections`, which reuses only the encryption primitive. Writing
+one into the other violates the connection-model hard rule. See [connection-model.md](connection-model.md).
 
-## Recorded answers (formerly open questions)
-
-- **The concrete store** — settled: the encrypted `server_credentials` table (`schema.ts:1319`).
-- **openai-compatible keying** — settled: a single global catalog slot, `openai_compatible_api_key` (`credential.ts:16`), not composite by endpoint/baseUrl. Invariant held either way: ciphertext in the one store, never in `server_config`.
-- **Migration + resolver rewiring** — shipped: `migrateCredentialsToStore` (`server-config.ts:368`) plus exclusive `DbCredentialResolver` wiring in `applications/remote-server/src/create-server.ts`.
-
-See also: [authorization-model.md](authorization-model.md) (Secrets, Hard Rule 4), [connection-model.md](connection-model.md) (held/inherited Connections). `MissingCredentialError` is defined in `framework/domain-model/src/errors.ts`.
+See also: [authorization-model.md](authorization-model.md) (Secrets, Hard Rule 4),
+[connection-model.md](connection-model.md) (held/inherited Connections). `MissingCredentialError` is
+defined in `framework/domain-model/src/errors.ts`.

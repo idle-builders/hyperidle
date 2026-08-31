@@ -2,7 +2,6 @@ import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { ModelTier } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
-import { readAgentRunConfig } from "./agent-run-config-store.js";
 import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
 import { createProvisioner } from "./provisioner.js";
@@ -122,51 +121,22 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			}
 			// AU27 Increment 6 (Decision 4, C11): the target agent's per-agent
 			// model override applies uniformly for all six kinds, not just the
-			// assistant. `deps.resolveModel` (`makeResolveModel`) applies the
-			// `openai-compatible` guard — request `{kind:"agent"}` only when the
-			// provider supports it, else `{kind:"tier"}` — so this call site
-			// stays a plain pass-through, no branch here.
+			// @lore A model was resolved here, through the model gateway, so the
+			// built-in adapter could make its own provider API call. It came with a
+			// live read of `agent_run_config` for the per-agent override, and a
+			// tolerance for MissingCredentialError so a subscription-CLI harness
+			// would not be killed before adapter selection by a key it never uses.
 			//
-			// @lore AU26 G1 (architecture §D-L): AU27 rode the override on the
-			// emit-time `agentConfig` bake because `modelId`/`modelProvider`
-			// were `users` columns — CORE state orchestration may not read.
-			// AU26 relocated them into `agent_run_config`, a table
-			// agent-orchestration OWNS, so the bake is gone and this is an
-			// IN-LAYER live read of the SAME source `admitSession` reads
-			// (`ports.agentRunConfig`). An all-null row is not a branch: the
-			// gateway's agent path falls through to `tierFallback` when
-			// `modelId` is null, exactly as the absent-bake case did. Net effect
-			// for a founder: an override edited between emit and drain applies
-			// to that turn instead of being one turn stale.
-			const runConfig = await readAgentRunConfig(deps.db, request.agentId);
-			// `resolvedModel` is consumed ONLY by the builtin (api-gateway) adapter,
-			// which makes direct provider API calls. A subscription-CLI (claude-code,
-			// cursor-agent) or external harness authenticates itself and needs no
-			// model/credential resolved here — resolving eagerly would throw
-			// MISSING_CREDENTIAL for a provider key that harness never uses, killing
-			// the session before adapter selection ever runs. Credential enforcement
-			// is the provisioner's builtin guard (`meta.type === "builtin" &&
-			// !resolvedModel`) — the single point that knows the SELECTED adapter. A
-			// missing credential is an expected condition with that designated
-			// handler, so tolerate it here and proceed with no resolved model; the
-			// guard still rejects a builtin selection that genuinely lacks one.
-			const resolvedModel = await (async () => {
-				try {
-					return await deps.resolveModel?.(tier, {
-						modelId: runConfig.modelId,
-						modelProvider: runConfig.modelProvider,
-					});
-				} catch (error) {
-					if (error instanceof Error && error.name === "MissingCredentialError") return undefined;
-					throw error;
-				}
-			})();
+			// No harness makes that call now. Each authenticates itself and runs the
+			// model the agent named, which reaches it as `SessionConfig.selectedModel`
+			// — read where the session is admitted, not here. The resolution, the
+			// read, the error tolerance and the gateway behind them are all gone.
+
 			const result = await runSession(deps, {
 				mode: "durable",
 				request,
 				sandboxBasePath: deps.sandboxBasePath ?? "/tmp/hyperidle-workspaces",
 				modelTier: tier,
-				resolvedModel,
 				completion: "admit",
 			});
 			if (explicitStartId) {
@@ -380,11 +350,10 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 	const ports: RuntimePorts = {
 		...deps.ports,
 		sessionProvisioner: deps.ports.sessionProvisioner ?? {
-			admitSession: (runtimeDeps, bundle, enforceGuard) =>
+			admitSession: (runtimeDeps, bundle) =>
 				provisioner.admit(
 					runtimeDeps as Parameters<typeof provisioner.admit>[0],
 					bundle as AdmitInput,
-					enforceGuard,
 				),
 			runSession: (runtimeDeps, bundle, admitted, onStarted) =>
 				provisioner.run(

@@ -115,7 +115,8 @@ async function codexAuthed(): Promise<boolean> {
 
 async function opencodeAuthed(): Promise<boolean> {
 	try {
-		// The builtin/OpenRouter key is the only key in the strict harness model.
+		// opencode's own auth: it reads OPENROUTER_API_KEY from its environment.
+		// Nothing here supplies it — HyperIdle holds no model credential.
 		const key = process.env.OPENROUTER_API_KEY;
 		if (!key) return false;
 		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
@@ -237,16 +238,7 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],
-				resolvedModel: {
-					provider: "anthropic" as const,
-					// apiKey is intentionally empty: CLAUDE_CLI_CONFIG.envMap is {} so nothing
-					// is injected. claude authenticates via the macOS keychain through the
-					// forwarded HOME/USER/LOGNAME env vars (envAllowlist).
-					// The allowlist excludes CLAUDECODE etc — no nested-session detection fires.
-					model: "haiku",
-					apiKey: "",
-					baseUrl: "https://api.anthropic.com",
-				},
+				selectedModel: "haiku",
 				mcpConnectionInfo: undefined,
 			};
 
@@ -407,18 +399,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 			modelTier: "workhorse" as const,
 			tools: [],
-			resolvedModel: {
-				// codex uses OpenAI API — "openai-compatible" is the correct provider.
-				// CLI_TOOL_CONFIGS.codex.envMap injects OPENAI_API_KEY from apiKey.
-				// The codex binary reads its own auth from CODEX_HOME/auth.json (not apiKey).
-				provider: "openai-compatible" as const,
-				// AR7: codex now receives --model {{model}}, so this must be a model the
-				// ChatGPT-account codex login accepts. "codex-mini-latest" is rejected (400);
-				// gpt-5.4-mini is the valid floor (matches HARNESS_TEST_MODELS.codex).
-				model: "gpt-5.4-mini",
-				apiKey: "",
-				baseUrl: "https://api.openai.com",
-			},
+			selectedModel: "gpt-5.4-mini",
 			mcpConnectionInfo: undefined,
 		};
 
@@ -505,23 +486,21 @@ describe("codex CLI adapter (real binary, production CliHarnessAdapter path)", (
 
 // ── OPENCODE CLI adapter (production path, real binary) ───────────────────────
 //
-// opencode is driven through its OpenRouter (openai-compatible) provider — the only
-// key in the strict harness model is OPENROUTER_API_KEY. The model id is provider-
-// prefixed for OpenRouter.
+// opencode is driven through its OpenRouter provider, authenticating itself from
+// OPENROUTER_API_KEY in its own environment. The model id is provider-prefixed.
 //
 // @lore cli-adapter-real-binary opencode: Uses CLI_TOOL_CONFIGS.opencode which has
 // args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--pure",
 // "--model", "{{model}}"]. The model must be provider-prefixed.
-// @lore AR1 opencode-key: the strict harness model forbids ANTHROPIC_API_KEY entirely;
-// opencode here is keyed from OPENROUTER_API_KEY (the single allowed key) through the
-// openai-compatible OpenRouter endpoint.
+// @lore AR1 opencode-key: opencode authenticates from OPENROUTER_API_KEY in its own
+// environment. HyperIdle injects nothing — it holds no model credential to inject.
 
 describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)", () => {
 	requireHarness("opencode");
 	test("drives CliHarnessAdapter(CLI_TOOL_CONFIGS.opencode) against real opencode → completion + outcome completed", async ({
 		skip,
 	}) => {
-		// The builtin/OpenRouter key is the only key — do NOT fabricate a key.
+		// opencode's own key, read from its environment — never fabricated here.
 		const apiKey = process.env.OPENROUTER_API_KEY ?? "";
 		if (!apiKey) {
 			skip();
@@ -545,14 +524,7 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],
-				resolvedModel: {
-					provider: "openai-compatible" as const,
-					// Provider-prefixed model id required by opencode (OpenRouter route).
-					// @lore Opencode uses provider-prefixed model IDs.
-					model: "openrouter/openai/gpt-4o-mini",
-					apiKey,
-					baseUrl: "https://openrouter.ai/api",
-				},
+				selectedModel: "openrouter/openai/gpt-4o-mini",
 				mcpConnectionInfo: undefined,
 			};
 
@@ -601,12 +573,7 @@ describe("cursor-agent CLI adapter (real binary, production CliHarnessAdapter pa
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],
-				resolvedModel: {
-					provider: "openai-compatible" as const,
-					model: "auto",
-					apiKey: "",
-					baseUrl: "https://api.cursor.com",
-				},
+				selectedModel: "auto",
 				mcpConnectionInfo: undefined,
 			};
 

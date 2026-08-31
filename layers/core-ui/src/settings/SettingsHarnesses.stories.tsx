@@ -27,11 +27,15 @@ const ALL_CAPS_FALSE = {
 
 const MOCK_DESCRIPTORS = [
 	{
-		type: "builtin",
-		name: "Built-in",
+		type: "opencode",
+		name: "OpenCode",
 		kind: "local",
-		accessMode: "api-gateway",
-		authAction: { kind: "enter_api_key", label: "Enter API key" },
+		accessMode: "provider-subscription-cli",
+		authAction: {
+			kind: "native_cli_login",
+			label: "Log in to OpenCode",
+			command: ["opencode", "providers", "login"],
+		},
 		discovery: { state: "ready" },
 		models: [
 			{
@@ -39,7 +43,6 @@ const MOCK_DESCRIPTORS = [
 				label: "Claude Opus 4.8",
 				provider: "anthropic",
 				selectable: true,
-				inheritedFromGateway: true,
 				options: [],
 			},
 		],
@@ -63,7 +66,6 @@ const MOCK_DESCRIPTORS = [
 				label: "Claude Sonnet 4.6",
 				provider: "anthropic",
 				selectable: true,
-				inheritedFromGateway: false,
 				options: [],
 			},
 		],

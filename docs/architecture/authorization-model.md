@@ -53,7 +53,7 @@ A **Worker** is a capability-bounded session-execution endpoint — **not** a Pr
 | **Root-of-trust secret** | The single bootstrap key (`HYPERIDLE_API_KEY`, OS-protected `secrets.json` / desktop safeStorage). | OS file permissions. *Not* encrypted-with-itself. |
 | **Managed secret** | Every other secret (provider/credential values). | Encrypted at rest, key derived from the root — mechanism owned by [credential-model.md](credential-model.md). **Never plaintext, persisted or logged, anywhere.** |
 
-Hiding a field from GET responses is **not** protection. Model-tier API keys accordingly never live in the `server_config` blob at all — AH1 removed `apiKey` from `ModelTierConfig` (`framework/domain-model/src/model-gateway.ts:38`); keys live exclusively in the `server_credentials` store, with a forward-only boot migration relocating legacy blob keys (`layers/core-api/settings/src/server-config.ts`).
+Hiding a field from GET responses is **not** protection. Every credential lives in the `server_credentials` store, never in the `server_config` blob. The model-tier keys this rule was written for are gone entirely — HyperIdle holds no model credential, because a harness authenticates through its own login. See [credential-model.md](credential-model.md).
 
 ## Enforcement layer & default posture
 

@@ -8,8 +8,6 @@
  */
 
 import { type HyperIdleDb, serverConfig, type WriteExecutor } from "@hyperidle/db";
-import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/domain-model";
-import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -47,17 +45,10 @@ const NotificationsSchema = z.object({
 	delivery: NotificationsDeliverySchema.optional(),
 });
 
-const ModelTierConfigSchema = z.object({
-	provider: z.enum(MODEL_PROVIDERS),
-	model: z.string().min(1),
-	baseUrl: z.string().url().optional(),
-});
-
-const ModelGatewayConfigSchema = z.object({
-	reasoning: ModelTierConfigSchema,
-	workhorse: ModelTierConfigSchema,
-	fast: ModelTierConfigSchema,
-});
+// @lore A ModelTierConfigSchema and a ModelGatewayConfigSchema stood here — a
+// provider, model and baseUrl per tier, for the built-in harness to call with.
+// No harness makes that call any more; each authenticates itself and runs the
+// model its agent named.
 
 /**
  * @lore P3: notifications is optional in the raw DB JSON schema. We handle
@@ -70,8 +61,6 @@ const ModelGatewayConfigSchema = z.object({
 const ServerConfigSchema = z.object({
 	/** Notification preferences (migrated from factorySettings). */
 	notifications: NotificationsSchema.optional(),
-	/** X4: Model gateway configuration (provider per tier). Optional — defaults to BUILT_IN_GATEWAY_CONFIG. */
-	modelGateway: ModelGatewayConfigSchema.optional(),
 	harnessDisabled: z.array(z.string()).default([]),
 });
 
@@ -82,7 +71,6 @@ export type ServerConfig = {
 		delivery: z.infer<typeof NotificationsDeliverySchema>;
 	};
 	/** X4: Fully-typed model gateway config (always present, defaults applied). */
-	modelGateway: ModelGatewayConfig;
 	/** AM4: List of harness types the user has disabled. Defaults to []. */
 	harnessDisabled: string[];
 };
@@ -94,28 +82,8 @@ type DeepPartialNotifications = {
 	delivery?: Partial<z.infer<typeof NotificationsDeliverySchema>>;
 };
 
-type DeepPartialModelTier = {
-	provider?: ModelTierConfig["provider"];
-	model?: string;
-	baseUrl?: string;
-};
-
-type DeepPartialModelGateway = {
-	reasoning?: DeepPartialModelTier;
-	workhorse?: DeepPartialModelTier;
-	fast?: DeepPartialModelTier;
-};
-
 export type ServerConfigPatch = {
 	notifications?: DeepPartialNotifications;
-	/**
-	 * AF15: Deep-partial — each tier is optional; within a present tier, every field is optional.
-	 *
-	 * @lore AF15: Changed from full-replacement (ModelGatewayConfig) to deep-partial so a
-	 * PATCH of only one tier does not clobber adjacent tiers.
-	 * @lore AH1 §2: apiKey removed from patch. Keys go to server_credentials via PUT /api/credentials.
-	 */
-	modelGateway?: DeepPartialModelGateway;
 	/**
 	 * AM4: Full-replacement write — the caller supplies the complete new list.
 	 * Use updateServerConfig to add/remove a type atomically (read-modify-write).
@@ -150,7 +118,6 @@ function applyNotificationsDefaults(
  */
 const DEFAULTS: ServerConfig = {
 	notifications: applyNotificationsDefaults(undefined),
-	modelGateway: BUILT_IN_GATEWAY_CONFIG,
 	harnessDisabled: [],
 };
 
@@ -162,9 +129,6 @@ const DEFAULTS: ServerConfig = {
 function applyDefaults(raw: RawServerConfig): ServerConfig {
 	return {
 		notifications: applyNotificationsDefaults(raw.notifications),
-		modelGateway: raw.modelGateway
-			? (ModelGatewayConfigSchema.parse(raw.modelGateway) as ModelGatewayConfig)
-			: BUILT_IN_GATEWAY_CONFIG,
 		// AM4: default to empty array when absent (legacy rows have no harnessDisabled key)
 		harnessDisabled: Array.isArray(raw.harnessDisabled) ? raw.harnessDisabled : [],
 	};
@@ -196,20 +160,6 @@ function parseServerConfig(configJson: string | undefined): ServerConfig {
 		// Corrupt JSON — fall back to defaults
 		return DEFAULTS;
 	}
-}
-
-/**
- * Merge a partial tier patch with the current stored tier.
- *
- * @lore AH1 §2: apiKey removed from tiers — keys live in server_credentials.
- * baseUrl (non-secret) merges normally.
- */
-function mergeTier(current: ModelTierConfig, patch: DeepPartialModelTier): ModelTierConfig {
-	return {
-		provider: patch.provider ?? current.provider,
-		model: patch.model ?? current.model,
-		baseUrl: patch.baseUrl ?? current.baseUrl,
-	};
 }
 
 /**
@@ -265,14 +215,6 @@ async function patchServerConfig(
 								: current.notifications.delivery,
 					}
 				: current.notifications,
-		// Per-tier merge preserves adjacent tier configuration when patch omits it.
-		modelGateway: patch.modelGateway
-			? {
-					reasoning: mergeTier(current.modelGateway.reasoning, patch.modelGateway.reasoning ?? {}),
-					workhorse: mergeTier(current.modelGateway.workhorse, patch.modelGateway.workhorse ?? {}),
-					fast: mergeTier(current.modelGateway.fast, patch.modelGateway.fast ?? {}),
-				}
-			: current.modelGateway,
 		// AM4: Full-replacement — the patch supplies the complete new list of disabled types.
 		harnessDisabled:
 			patch.harnessDisabled !== undefined ? patch.harnessDisabled : current.harnessDisabled,
@@ -288,6 +230,6 @@ async function patchServerConfig(
 	return merged;
 }
 
-// @lore AU20 Am6: ServerConfigSchema / NotificationsSchema / ModelGatewayConfigSchema /
-// ModelTierConfigSchema are validation internals — zero census demand from callers;
+// @lore AU20 Am6: ServerConfigSchema / NotificationsSchema are validation
+// internals — zero census demand from callers;
 // dropped from the public barrel. Not re-exported here.

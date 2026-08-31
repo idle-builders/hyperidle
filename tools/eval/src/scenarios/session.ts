@@ -40,7 +40,6 @@ const sessLifecycleGrowthSales: EvalScenario = {
 			systemPrompt: `You are a growth agent analyzing sales pipeline data.
 Your job is to review the sales context and document key findings in session notes.
 Write substantive session notes covering: what you analyzed, key findings, and next steps.`,
-			harnessType: "builtin",
 		});
 
 		const { betId } = await seedBet(ctx.db, {
@@ -77,7 +76,6 @@ Use write_session_notes to document your analysis.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -141,7 +139,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			role: "builder",
 			teamId,
 			systemPrompt: "You are a DevOps builder. Complete the task and write session notes.",
-			harnessType: "builtin",
 		});
 
 		const { betId } = await seedBet(ctx.db, {
@@ -173,7 +170,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -191,7 +187,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 				label: "Session Completed with a Model Tier Set",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					// The session was created and completed — the model tier is resolved
-					// by the harness from the resolvedModel provided. We verify the session completed.
+					// by the harness the agent is configured with. We verify the session completed.
 					const [session] = await ctx.db
 						.select({ outcome: sessions.outcome })
 						.from(sessions)
@@ -228,7 +224,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			role: "builder",
 			teamId,
 			systemPrompt: "You are a frontend builder. Complete the task and write session notes.",
-			harnessType: "builtin",
 		});
 
 		const { betId } = await seedBet(ctx.db, {
@@ -260,7 +255,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

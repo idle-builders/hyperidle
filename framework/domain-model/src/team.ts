@@ -131,8 +131,18 @@ export interface TeamListResponse {
  */
 export interface PrimaryHarnessConfig {
 	readonly harnessType: string;
-	readonly modelId: string;
-	readonly modelProvider: string;
+	/**
+	 * The model to run, when one was chosen. Absent leaves the harness on its own
+	 * default — which is a real answer, not a missing one: a CLI that was never
+	 * told a model runs whatever it is configured to run.
+	 *
+	 * @lore These used to be required, defaulted to a hardcoded Anthropic model
+	 * whenever nothing was chosen. That default was invented, not observed: it
+	 * named a model the selected harness might not serve, and it was written into
+	 * every scaffolded agent's run config as though the user had picked it.
+	 */
+	readonly modelId?: string;
+	readonly modelProvider?: string;
 }
 
 export interface CreateTeamRequest {
@@ -143,9 +153,13 @@ export interface CreateTeamRequest {
 	/** AE2: human user id — seeds welcome message in thr-ast-{userId} when provided. */
 	userId?: string;
 	/**
-	 * POLISH-060 B3: When set, all scaffolded agents use this harness/model instead of
-	 * the builtin/sonnet-4-6 default. Supplied by the onboarding flow after the user
-	 * selects a primary harness. Omitting preserves the existing fallback behavior.
+	 * POLISH-060 B3: When set, all scaffolded agents carry this harness/model.
+	 * Supplied by the onboarding flow after the user selects a primary harness.
+	 * Omitting it stores none, and the adapter pool selects at admission.
+	 *
+	 * @lore This used to say "instead of the builtin/sonnet-4-6 default". There is
+	 * no such default: the built-in harness is gone, and the model half of that
+	 * pair was a hardcoded id nobody chose.
 	 */
 	primaryHarness?: PrimaryHarnessConfig;
 }

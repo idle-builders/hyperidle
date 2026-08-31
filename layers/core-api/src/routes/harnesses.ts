@@ -23,36 +23,28 @@
  * @lore AM4 CHANGE 3 (Seam 3): discovery.disabled is stamped in the ROUTE HANDLER,
  * not in the pool. listCapabilityDescriptors() is sync + DB-free — it cannot read
  * server_config. The handler reads readServerConfig(db).harnessDisabled and maps
- * discovery.disabled per descriptor by type. "builtin" is exempt even if wrongly
- * in the persisted list (belt-and-suspenders with the select() exemption, CHANGE 2).
+ * discovery.disabled per descriptor by type. Every harness is disableable — the
+ * built-in one was the only exemption, and it is gone.
  *
  * @lore AM4: POST /redetect spawns ~10 CLI probes (5 families x version+auth), each with a
  * 15s timeout. Its dedicated rate limiter was removed with the rest of the limiter in the AU20
  * delete pass; nothing throttles this route now.
  */
 
-import { readCredentials } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ModelGatewayConfig } from "@hyperidle/domain-model";
-import { credentialNameForProvider } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 
-/**
- * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.
- * "builtin" is ALWAYS exempt — guarded here independently of the persisted list.
- */
+/** Helper: stamp discovery.disabled per descriptor based on harnessDisabled config. */
 function stampDisabled(
 	descriptors: HarnessCapabilityDescriptor[],
 	harnessDisabled: readonly string[],
 ): HarnessCapabilityDescriptor[] {
 	if (harnessDisabled.length === 0) return descriptors;
 	return descriptors.map((d) => {
-		// builtin is hard-exempt — never stamp disabled=true regardless of config
-		const isDisabled = d.type !== "builtin" && harnessDisabled.includes(d.type);
-		if (!isDisabled) return d;
+		if (!harnessDisabled.includes(d.type)) return d;
 		return {
 			...d,
 			discovery: { ...d.discovery, disabled: true },
@@ -60,46 +52,12 @@ function stampDisabled(
 	});
 }
 
-/**
- * Helper: correct the built-in gateway's readiness against stored credentials.
- *
- * `probeBuiltinGateway` reads `process.env` only — it cannot see the credential
- * table. A key entered through setup or the Credentials tab therefore leaves the
- * built-in row reporting "unauthenticated" while the runtime resolves it fine,
- * telling the user to add a key they already added.
- *
- * Readiness here means what it means at call time (`resolveProvider`): every
- * provider the tiers point at has a credential stored. A partially-configured
- * gateway stays unauthenticated, because a session on the uncovered tier would
- * still fail.
- *
- * @lore AW1: stamped in the ROUTE, not the pool — same seam and same reason as
- * `stampDisabled`. The pool is sync + DB-free by design (AM4 CHANGE 3).
- */
-async function stampBuiltinCredential(
-	descriptors: HarnessCapabilityDescriptor[],
-	db: HyperIdleDb,
-	modelGateway: ModelGatewayConfig,
-): Promise<HarnessCapabilityDescriptor[]> {
-	const builtin = descriptors.find((d) => d.type === "builtin");
-	// Only an unauthenticated gateway can be upgraded — a probe that already found
-	// an env credential is right, and no stored key can make a "missing" harness present.
-	if (builtin?.discovery.state !== "unauthenticated") return descriptors;
-
-	const required = new Set(
-		Object.values(modelGateway).map((tier) => credentialNameForProvider(tier.provider)),
-	);
-	const stored = await readCredentials(db);
-	const present = new Set(stored.filter((c) => c.validationState !== "absent").map((c) => c.name));
-	const covered = [...required].every((name) => present.has(name));
-	if (!covered) return descriptors;
-
-	return descriptors.map((d) =>
-		d.type === "builtin"
-			? { ...d, discovery: { ...d.discovery, state: "ready", reason: undefined } }
-			: d,
-	);
-}
+// @lore A second stamping pass used to sit here, correcting the built-in
+// gateway's readiness against the credential table: its probe read `process.env`
+// only, so a key entered through setup left the row saying "unauthenticated"
+// while the runtime resolved it fine. No harness reports readiness from a stored
+// credential any more — a CLI is ready when its binary is installed and logged
+// in, which its own probe can see — so the pass has nothing left to correct.
 
 /**
  * Create a Hono router that exposes the harness management endpoints.
@@ -120,14 +78,9 @@ export function createHarnessRoutes(
 
 	// GET / — list all known harness descriptors with discovery.disabled stamped
 	router.get("/", async (c) => {
-		const { harnessDisabled, modelGateway } = await readServerConfig(db);
+		const { harnessDisabled } = await readServerConfig(db);
 		const raw: HarnessCapabilityDescriptor[] = pool.describe();
-		const entries = await stampBuiltinCredential(
-			stampDisabled(raw, harnessDisabled),
-			db,
-			modelGateway,
-		);
-		return c.json(entries);
+		return c.json(stampDisabled(raw, harnessDisabled));
 	});
 
 	// POST /redetect — re-run discovery and return fresh descriptors (with disabled stamped).
@@ -135,14 +88,9 @@ export function createHarnessRoutes(
 		// AU36 D5: the reach re-probe rides the SAME bounded moment — awaited
 		// alongside the discovery refresh BEFORE responding.
 		await Promise.all([pool.refresh(), onHarnessRedetect?.()]);
-		const { harnessDisabled, modelGateway } = await readServerConfig(db);
+		const { harnessDisabled } = await readServerConfig(db);
 		const raw: HarnessCapabilityDescriptor[] = pool.describe();
-		const entries = await stampBuiltinCredential(
-			stampDisabled(raw, harnessDisabled),
-			db,
-			modelGateway,
-		);
-		return c.json(entries);
+		return c.json(stampDisabled(raw, harnessDisabled));
 	});
 
 	return router;

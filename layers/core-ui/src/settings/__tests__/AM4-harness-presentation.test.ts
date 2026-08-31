@@ -4,7 +4,7 @@
  * Tests all mappers in harness-presentation.ts:
  *  - statusLine(d) per readiness state
  *  - hasActionableNextStep(d) per state
- *  - showsToggle(d): true for ready/installed/unauthenticated, false for builtin/missing/unavailable
+ *  - showsToggle(d): true for ready/installed/unauthenticated, false for missing/unavailable
  *  - isEnabled(d): !discovery.disabled
  *  - provenCapabilities(d): only true runtime caps; empty when all-false
  *  - capabilitySummary(d): "confirmed after first run" when no proven caps
@@ -64,7 +64,6 @@ function makeDescriptor(
 				label: "Claude Sonnet 4.6",
 				provider: "anthropic",
 				selectable: true,
-				inheritedFromGateway: false,
 				options: [],
 			},
 		],
@@ -108,13 +107,14 @@ const UNAVAILABLE_DESCRIPTOR = makeDescriptor({
 	authAction: { kind: "none", label: "Configured in Cursor app" },
 });
 
-const BUILTIN_DESCRIPTOR = makeDescriptor({
-	type: "builtin",
-	name: "Built-in",
+/** A key-accepting harness: ready, no login command, several providers. */
+const KEY_ACCEPTING_DESCRIPTOR = makeDescriptor({
+	type: "opencode",
+	name: "OpenCode",
 	authAction: {
 		kind: "enter_api_key",
 		label: "Enter API key",
-		credentialNames: ["anthropic_api_key"],
+		credentialNames: ["openrouter_api_key"],
 	},
 	discovery: { state: "ready" },
 	modelProviders: ["anthropic", "openrouter"],
@@ -223,10 +223,12 @@ describe("AM4 harness-presentation — showsToggle() (AC2 key contract)", () => 
 		expect(showsToggle(UNAVAILABLE_DESCRIPTOR)).toBe(false);
 	});
 
-	it("false for builtin regardless of state (founder rule: NOT disableable)", () => {
-		// This is the sole intentional type check — builtin is not per-family branching,
-		// it's the hard guard that pairs with the select() exemption.
-		expect(showsToggle(BUILTIN_DESCRIPTOR)).toBe(false);
+	// @lore The built-in harness was exempt here: it was the always-present
+	// fallback, so disabling it would have left a session with nothing to run on.
+	// Every harness is installed by the user now, and every one can be turned off —
+	// including a key-accepting one, which has no special standing any more.
+	it("true for a ready key-accepting harness (no exemptions left)", () => {
+		expect(showsToggle(KEY_ACCEPTING_DESCRIPTOR)).toBe(true);
 	});
 
 	it("ready+disabled still shows toggle (toggle is off, but it's visible)", () => {
@@ -252,7 +254,7 @@ describe("AM4 harness-presentation — isEnabled()", () => {
 describe("AM4 harness-presentation — provenCapabilities()", () => {
 	it("returns empty array (runtime caps removed from descriptor)", () => {
 		expect(provenCapabilities(READY_DESCRIPTOR)).toHaveLength(0);
-		expect(provenCapabilities(BUILTIN_DESCRIPTOR)).toHaveLength(0);
+		expect(provenCapabilities(KEY_ACCEPTING_DESCRIPTOR)).toHaveLength(0);
 	});
 });
 
@@ -267,7 +269,7 @@ describe("AM4 harness-presentation — capabilitySummary() (AC2-production-shape
 
 	it("always returns 'confirmed after first run' (runtime caps removed from descriptor)", () => {
 		// provenCapabilities() always returns [] now — capabilitySummary always uses fallback
-		const summary = capabilitySummary(BUILTIN_DESCRIPTOR);
+		const summary = capabilitySummary(KEY_ACCEPTING_DESCRIPTOR);
 		expect(summary).toMatch(/confirmed after first run/i);
 	});
 });
@@ -301,7 +303,7 @@ describe("AM4 harness-presentation — commandText()", () => {
 	});
 
 	it("returns null for enter_api_key auth (no command)", () => {
-		expect(commandText(BUILTIN_DESCRIPTOR)).toBeNull();
+		expect(commandText(KEY_ACCEPTING_DESCRIPTOR)).toBeNull();
 	});
 
 	it("returns null for authAction.kind='none'", () => {
@@ -313,7 +315,7 @@ describe("AM4 harness-presentation — commandText()", () => {
 
 describe("AM4 Contract — descriptor-driven / no per-backend branching (two-descriptor structural test)", () => {
 	/**
-	 * Two structurally-different `ready` descriptors (builtin API-gateway vs claude-code CLI).
+	 * Two structurally-different `ready` descriptors (a key-accepting harness vs a login-only CLI).
 	 * The mapper functions produce the same OUTPUT STRUCTURE from the same INPUT SHAPE —
 	 * proving one code path handles both without branching on family type.
 	 *
@@ -323,7 +325,7 @@ describe("AM4 Contract — descriptor-driven / no per-backend branching (two-des
 	 *
 	 * The ESLint no-restricted-syntax rule (task 12) guards the code; this test guards the runtime.
 	 */
-	it("showsToggle returns same boolean for two different ready non-builtin descriptors", () => {
+	it("showsToggle returns the same boolean for two structurally different ready descriptors", () => {
 		const claudeCodeReady = makeDescriptor({ type: "claude-code" });
 		const codexReady = makeDescriptor({
 			type: "codex",
@@ -335,7 +337,7 @@ describe("AM4 Contract — descriptor-driven / no per-backend branching (two-des
 			},
 		});
 
-		// Both are ready, non-builtin → showsToggle must be the same for both
+		// Both are ready → showsToggle must be the same for both
 		expect(showsToggle(claudeCodeReady)).toBe(showsToggle(codexReady));
 	});
 

@@ -21,7 +21,7 @@
  * cap predicate) is REMOVED — it had no real call site (only its own test
  * imported it) and the founder ruling narrowed harness-adjacent telemetry to
  * token usage only. The AH5/AH6 local smoke-lane real-money guard now gates
- * on accumulated tokens (`AH6_MAX_TOKENS`) instead — see llm-cassette.ts.
+ * on accumulated tokens (`AH6_MAX_TOKENS`) instead.
  */
 
 import type { ModelEndpoints, OpenRouterModel } from "./openrouter-catalog.js";

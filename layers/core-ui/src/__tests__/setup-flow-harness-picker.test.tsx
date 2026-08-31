@@ -3,7 +3,12 @@
  *
  * AC1: Harness picker renders all descriptors; choosability gated on discovery.state.
  * AC4b: key PUT precedes nav + nav target /work?onboarding=true (ordering kept).
- * AC5: graceful degrade — builtin-only when discovery fails.
+ * AC5: graceful degrade — discovery failing must not block setup.
+ *
+ * @lore The always-present built-in gateway row this file was written around is
+ * gone. It used to be the default selection, the fallback when discovery failed,
+ * and the reason primaryHarness could be omitted from the team POST. All three
+ * are now answered by the discovered harnesses themselves.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -32,24 +37,21 @@ function makeDescriptor(
 	};
 }
 
-const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
-	type: "builtin",
-	name: "Built-in gateway",
-	kind: "remote",
-	authAction: { kind: "enter_api_key", label: "Add API key" },
-	discovery: { state: "unauthenticated" },
-	models: [
+/** A second ready harness, so "the first choosable row" is a real choice. */
+const OPENCODE_READY: HarnessCapabilityDescriptor = makeDescriptor(
+	"opencode",
+	"OpenCode",
+	"ready",
+	[
 		{
-			id: "anthropic/claude-sonnet-4-6",
-			label: "Claude Sonnet 4.6",
-			provider: "anthropic",
+			id: "openrouter/z-ai/glm-4.7-flash",
+			label: "GLM 4.7 Flash",
+			provider: "openrouter",
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],
-	modelProviders: ["anthropic"],
-};
+);
 
 const CLAUDE_CODE_READY: HarnessCapabilityDescriptor = makeDescriptor(
 	"claude-code",
@@ -61,7 +63,6 @@ const CLAUDE_CODE_READY: HarnessCapabilityDescriptor = makeDescriptor(
 			label: "Haiku",
 			provider: "anthropic",
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],
@@ -110,7 +111,7 @@ function setupFetchMock(opts: MockOptions = {}): {
 			if (opts.discoveryFails) {
 				return Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
 			}
-			const descriptors = opts.descriptors ?? [BUILTIN_DESCRIPTOR];
+			const descriptors = opts.descriptors ?? [OPENCODE_READY];
 			return Promise.resolve({
 				ok: true,
 				status: 200,
@@ -151,15 +152,15 @@ describe("harness picker renders all descriptors", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders a choosable built-in row + choosable ready row + greyed missing row", async () => {
+	it("renders two choosable ready rows + a greyed missing row", async () => {
 		setupFetchMock({
-			descriptors: [BUILTIN_DESCRIPTOR, CLAUDE_CODE_READY, CODEX_MISSING],
+			descriptors: [OPENCODE_READY, CLAUDE_CODE_READY, CODEX_MISSING],
 		});
 		renderSetupFlow();
 
 		// All three rows must appear
 		await waitFor(() => {
-			expect(screen.getByText("Built-in gateway")).toBeInTheDocument();
+			expect(screen.getByText("OpenCode")).toBeInTheDocument();
 			expect(screen.getByText("Claude Code")).toBeInTheDocument();
 			expect(screen.getByText("Codex")).toBeInTheDocument();
 		});
@@ -167,7 +168,7 @@ describe("harness picker renders all descriptors", () => {
 
 	it("greyed missing row is NOT selectable (codex)", async () => {
 		setupFetchMock({
-			descriptors: [BUILTIN_DESCRIPTOR, CLAUDE_CODE_READY, CODEX_MISSING],
+			descriptors: [OPENCODE_READY, CLAUDE_CODE_READY, CODEX_MISSING],
 		});
 		renderSetupFlow();
 
@@ -182,7 +183,7 @@ describe("harness picker renders all descriptors", () => {
 
 	it("greyed missing row shows install hint", async () => {
 		setupFetchMock({
-			descriptors: [BUILTIN_DESCRIPTOR, CODEX_MISSING],
+			descriptors: [OPENCODE_READY, CODEX_MISSING],
 		});
 		renderSetupFlow();
 
@@ -194,24 +195,26 @@ describe("harness picker renders all descriptors", () => {
 		expect(screen.getByTestId("harness-row-codex")).toHaveTextContent(/install/i);
 	});
 
-	it("built-in is default-selected (radio)", async () => {
+	// @lore The default used to be the built-in gateway — the one row guaranteed
+	// to be there. Discovery now decides: the form opens on the first harness this
+	// machine can actually run, so it never opens on a name that is not here.
+	it("the first choosable row is default-selected (radio)", async () => {
 		setupFetchMock({
-			descriptors: [BUILTIN_DESCRIPTOR, CLAUDE_CODE_READY],
+			descriptors: [OPENCODE_READY, CLAUDE_CODE_READY],
 		});
 		renderSetupFlow();
 
 		await waitFor(() => {
-			expect(screen.getByText("Built-in gateway")).toBeInTheDocument();
+			expect(screen.getByText("OpenCode")).toBeInTheDocument();
 		});
 
-		const builtinRadio = screen.getByTestId("harness-radio-builtin");
-		expect(builtinRadio).toBeChecked();
+		expect(screen.getByTestId("harness-radio-opencode")).toBeChecked();
 	});
 
 	it("clicking a choosable row selects it as primary", async () => {
 		const user = userEvent.setup();
 		setupFetchMock({
-			descriptors: [BUILTIN_DESCRIPTOR, CLAUDE_CODE_READY],
+			descriptors: [OPENCODE_READY, CLAUDE_CODE_READY],
 		});
 		renderSetupFlow();
 
@@ -221,13 +224,13 @@ describe("harness picker renders all descriptors", () => {
 
 		await user.click(screen.getByTestId("harness-radio-claude-code"));
 		expect(screen.getByTestId("harness-radio-claude-code")).toBeChecked();
-		expect(screen.getByTestId("harness-radio-builtin")).not.toBeChecked();
+		expect(screen.getByTestId("harness-radio-opencode")).not.toBeChecked();
 	});
 
 	it("clicking a greyed row does NOT select it", async () => {
 		const user = userEvent.setup();
 		setupFetchMock({
-			descriptors: [BUILTIN_DESCRIPTOR, CODEX_MISSING],
+			descriptors: [OPENCODE_READY, CODEX_MISSING],
 		});
 		renderSetupFlow();
 
@@ -235,9 +238,9 @@ describe("harness picker renders all descriptors", () => {
 			expect(screen.getByText("Codex")).toBeInTheDocument();
 		});
 
-		// Click on the codex row — built-in should remain selected
+		// Click on the codex row — the ready harness should remain selected
 		await user.click(screen.getByText("Codex"));
-		expect(screen.getByTestId("harness-radio-builtin")).toBeChecked();
+		expect(screen.getByTestId("harness-radio-opencode")).toBeChecked();
 	});
 });
 
@@ -248,24 +251,29 @@ describe("harness picker graceful degrade", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("collapses to just the built-in row when GET /api/harnesses fails", async () => {
+	// @lore A failed probe is not the same fact as "no harness is installed", and
+	// setup must not treat it as one. There is no row to fall back to any more, so
+	// the degrade is: render no rows, block nothing, and let the person continue —
+	// the alternative would strand someone over a probe error. The genuine
+	// "nothing can run here" case is a populated list with nothing choosable in it,
+	// covered in setup-blocks-with-no-harness.test.tsx.
+	it("renders no harness rows when GET /api/harnesses fails", async () => {
 		setupFetchMock({ discoveryFails: true });
 		renderSetupFlow();
 
 		await waitFor(() => {
-			// Built-in row must still appear even on discovery failure
-			expect(screen.getByText("Built-in gateway")).toBeInTheDocument();
+			expect(screen.getByLabelText(/your name/i)).toBeInTheDocument();
 		});
+		expect(screen.queryByTestId("harness-radio-opencode")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("no-harness-available")).not.toBeInTheDocument();
 	});
 
-	it("Start button enabled with builtin default even when discovery fails", async () => {
+	it("Start button still enables on a name alone when discovery fails", async () => {
 		const user = userEvent.setup();
 		setupFetchMock({ discoveryFails: true });
 		renderSetupFlow();
 
-		// Fill required fields
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
 		expect(startBtn).not.toBeDisabled();
@@ -282,16 +290,17 @@ describe("setup submit ordering — key write before nav", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("PUT /api/credentials call precedes navigate to /work?onboarding=true", async () => {
+	// @lore This asserted a PUT /api/credentials landed before the navigate, back
+	// when setup collected an API key and stored it for a harness to run on. Setup
+	// asks for no credential now — the harness holds its own — so the ordering
+	// guarantee is that the team is created before we leave the screen, and the
+	// credential write is asserted absent.
+	it("creates the team before navigating, and writes no credential", async () => {
 		const user = userEvent.setup();
-		const { getCallOrder } = setupFetchMock({
-			descriptors: [BUILTIN_DESCRIPTOR],
-		});
+		const { getCallOrder } = setupFetchMock({ descriptors: [OPENCODE_READY] });
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
-
 		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
 
 		await waitFor(() => {
@@ -302,16 +311,9 @@ describe("setup submit ordering — key write before nav", () => {
 		const searchEl = screen.getByTestId("current-search");
 		expect(searchEl.textContent).toContain("onboarding=true");
 
-		// Verify PUT /api/credentials is in call sequence before nav (which triggers work-page render)
 		const calls = getCallOrder();
-		const credIndex = calls.findIndex(
-			(c) => c.method === "PUT" && c.url.includes("/api/credentials"),
-		);
-		const teamsIndex = calls.findIndex((c) => c.method === "POST" && c.url.includes("/api/teams"));
-		expect(credIndex).toBeGreaterThan(-1);
-		expect(teamsIndex).toBeGreaterThan(-1);
-		// credentials must come after teams (teams first, then creds, then nav)
-		expect(credIndex).toBeGreaterThan(teamsIndex);
+		expect(calls.some((c) => c.method === "POST" && c.url.includes("/api/teams"))).toBe(true);
+		expect(calls.some((c) => c.url.includes("/api/credentials"))).toBe(false);
 	});
 
 	it("primaryHarness is included in POST /api/teams body when a ready harness is selected", async () => {
@@ -323,7 +325,7 @@ describe("setup submit ordering — key write before nav", () => {
 				return Promise.resolve({
 					ok: true,
 					status: 200,
-					json: async () => [BUILTIN_DESCRIPTOR, CLAUDE_CODE_READY],
+					json: async () => [OPENCODE_READY, CLAUDE_CODE_READY],
 				});
 			}
 			if ((options?.method?.toUpperCase() ?? "") === "POST" && url.includes("/api/teams")) {
@@ -347,7 +349,6 @@ describe("setup submit ordering — key write before nav", () => {
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		// Select the claude-code row
 		await waitFor(() => {
@@ -368,7 +369,10 @@ describe("setup submit ordering — key write before nav", () => {
 		expect(ph.harnessType).toBe("claude-code");
 	});
 
-	it("primaryHarness is omitted from POST /api/teams body when builtin is selected", async () => {
+	// @lore This used to assert the opposite: builtin was the server-side default,
+	// so choosing it meant sending nothing and letting the server fill it in. There
+	// is no default harness to fall back to now, so the chosen one is always named.
+	it("primaryHarness names the chosen harness even when it is the only one", async () => {
 		const user = userEvent.setup();
 		let capturedTeamsBody: Record<string, unknown> | null = null;
 
@@ -377,7 +381,7 @@ describe("setup submit ordering — key write before nav", () => {
 				return Promise.resolve({
 					ok: true,
 					status: 200,
-					json: async () => [BUILTIN_DESCRIPTOR],
+					json: async () => [OPENCODE_READY],
 				});
 			}
 			if ((options?.method?.toUpperCase() ?? "") === "POST" && url.includes("/api/teams")) {
@@ -401,10 +405,9 @@ describe("setup submit ordering — key write before nav", () => {
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		await waitFor(() => {
-			expect(screen.getByTestId("harness-row-builtin")).toBeInTheDocument();
+			expect(screen.getByTestId("harness-row-opencode")).toBeInTheDocument();
 		});
 
 		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
@@ -414,8 +417,8 @@ describe("setup submit ordering — key write before nav", () => {
 		});
 
 		expect(capturedTeamsBody).not.toBeNull();
-		// builtin → omit primaryHarness
-		expect(capturedTeamsBody?.["primaryHarness"]).toBeUndefined();
+		const ph = capturedTeamsBody?.["primaryHarness"] as Record<string, unknown> | undefined;
+		expect(ph?.harnessType).toBe("opencode");
 	});
 });
 
@@ -431,7 +434,7 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 
 	/**
 	 * Build a fetch mock that:
-	 * - GET /api/harnesses → single builtin descriptor
+	 * - GET /api/harnesses → a single ready harness descriptor
 	 * - POST /api/filesystems/inspect-path → the provided inspect result
 	 * - POST /api/users, POST /api/teams, PUT /api/credentials → success stubs
 	 * - POST /api/filesystems → success + captures the request body
@@ -447,7 +450,7 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 				return Promise.resolve({
 					ok: true,
 					status: 200,
-					json: async () => [BUILTIN_DESCRIPTOR],
+					json: async () => [OPENCODE_READY],
 				});
 			}
 
@@ -494,7 +497,6 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		// Type a folder path — SetupFlow re-inspects on submit if folderInfo is null/stale
 		await user.type(screen.getByRole("textbox", { name: /folder/i }), "/home/alice/myrepo");
@@ -523,7 +525,6 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		await user.type(screen.getByRole("textbox", { name: /folder/i }), "/home/alice/empty-repo");
 

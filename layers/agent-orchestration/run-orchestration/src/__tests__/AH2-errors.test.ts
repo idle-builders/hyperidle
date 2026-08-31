@@ -10,7 +10,7 @@ import { NoEligibleHarnessError } from "../errors.js";
 
 describe("AH2: NoEligibleHarnessError", () => {
 	it("is an Error instance", () => {
-		const err = new NoEligibleHarnessError("builtin");
+		const err = new NoEligibleHarnessError("opencode");
 		expect(err).toBeInstanceOf(Error);
 	});
 
@@ -30,7 +30,7 @@ describe("AH2: NoEligibleHarnessError", () => {
 	});
 
 	it("message mentions Settings → Agents or registration", () => {
-		const err = new NoEligibleHarnessError("builtin");
+		const err = new NoEligibleHarnessError("opencode");
 		expect(err.message.toLowerCase()).toMatch(/settings|register|adapter/i);
 	});
 });

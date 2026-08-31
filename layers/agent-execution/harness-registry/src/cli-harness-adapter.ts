@@ -63,13 +63,7 @@ function createIsolatedEnforcementRegistry(): EnforcementRegistry {
  * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
  * @lore {{prompt}} added for per-session seed prompt carrier (codex exec).
  */
-type TemplateVar =
-	| "{{sandbox}}"
-	| "{{model}}"
-	| "{{apiKey}}"
-	| "{{baseUrl}}"
-	| "{{mcpUrl}}"
-	| "{{prompt}}";
+type TemplateVar = "{{sandbox}}" | "{{model}}" | "{{mcpUrl}}" | "{{prompt}}";
 
 function isExecutableFile(filePath: string): boolean {
 	try {
@@ -92,7 +86,7 @@ interface CliAdapterConfig {
 	readonly binary: string;
 	/**
 	 * CLI arguments with template variables:
-	 * {{sandbox}}, {{model}}, {{apiKey}}, {{baseUrl}}, {{mcpUrl}}.
+	 * {{sandbox}}, {{model}}, {{mcpUrl}}.
 	 */
 	readonly args: readonly string[];
 	/**
@@ -100,6 +94,14 @@ interface CliAdapterConfig {
 	 * These are merged with the allowlisted host env vars.
 	 */
 	readonly envMap: Readonly<Record<string, string>>;
+	// @lore Two fields stood here: `credentialEnvByProvider`, which put a stored
+	// API key into the subprocess under its own provider's variable name, and
+	// `customEndpointProvider`, which declared a brought OpenAI-compatible
+	// endpoint in the harness's own config file. Both existed so someone could
+	// bring a key and have a harness run on it. That is not a thing any more —
+	// the harness is what you bring, and the key lives in its own login. HyperIdle
+	// stores no model credential, so there is nothing left to inject.
+
 	/**
 	 * How to interpret stdout lines.
 	 * "ndjson" — each line is parsed as JSON; valid HarnessEvent objects are
@@ -526,9 +528,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			: "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
-			"{{model}}": config.resolvedModel?.model ?? "",
-			"{{apiKey}}": config.resolvedModel?.apiKey ?? "",
-			"{{baseUrl}}": config.resolvedModel?.baseUrl ?? "",
+			// The agent's own choice, and nothing else. A fallback to the model
+			// gateway's answer used to sit here, and on a subscription-authenticated
+			// machine it was absent — which is how the person's chosen model got
+			// silently discarded.
+			"{{model}}": config.selectedModel ?? "",
 			"{{mcpUrl}}": config.mcpConnectionInfo?.url ?? "",
 			"{{prompt}}": promptSeed,
 		};
@@ -536,8 +540,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Resolve args
 		let resolvedArgs = this.config.args.map((arg) => resolveTemplates(arg, templateVars));
 
-		// @lore AR4 WARNING-D1 conditional-model: When resolvedModel is absent or model is
-		// empty (e.g. builtin adapter path, or a CLI lane provisioned without a model), the
+		// @lore AR4 WARNING-D1 conditional-model: When the agent named no model, the
 		// {{model}} template resolves to "". Passing --model "" to codex sends an empty string
 		// to the OpenAI API → 400 invalid_request_error. Before AR4 codex had no --model flag
 		// and used its CLI default. Preserve pre-AR4 behavior: drop --model + the following
@@ -570,6 +573,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		for (const [key, value] of Object.entries(this.config.envMap)) {
 			resolvedEnvMap[key] = resolveTemplates(value, templateVars);
 		}
+
+		// @lore No API key is injected into a harness, ever. Two blocks stood here —
+		// one putting a stored key under its provider's variable name, one writing a
+		// brought endpoint into the harness's own config file. A harness
+		// authenticates itself, and an injected key can shadow the login the person
+		// already has rather than help it.
 
 		// ── Per-session CODEX_HOME injection.
 		//
@@ -685,7 +694,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			reEngageCarrier: this.config.reEngageCarrier,
 			spawnEnv: sandboxedEnv,
 			// store resolved model for re-engage spawn (opencode --model flag).
-			reEngageResolvedModel: config.resolvedModel?.model,
+			reEngageResolvedModel: config.selectedModel,
 			reEngageOptionArgv: optionArgv,
 			// for claude, we assigned this at start time; for all other harnesses
 			// it is captured from the event stream (set in parseStdoutLine).
@@ -1050,7 +1059,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	): Promise<SessionHandle> {
 		// @lore BA2: Per-harness resume invocations, measured against real installed
 		// binaries. See harness-research/session-continuation.md for full evidence.
-		const model = config.resolvedModel?.model ?? "";
+		const model = config.selectedModel ?? "";
 		const sandboxPath = config.sandboxPath;
 
 		let args: string[];
@@ -1171,20 +1180,16 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// ── Resolve envMap the same way startSession does.
 		//
 		// startSession builds resolvedEnvMap from this.config.envMap with template
-		// vars resolved against config.resolvedModel. resumeSession was previously
-		// passing only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping
-		// envMap entries — most critically OPENAI_API_KEY for codex and
-		// ANTHROPIC_API_KEY for opencode in any deployment that resolves a real
-		// apiKey. extraEnv entries override (they are per-session specifics that
-		// take precedence over the template-based credential).
+		// vars resolved against the session's config. resumeSession was previously
+		// passing only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping envMap
+		// entries. extraEnv entries override (they are per-session specifics that
+		// take precedence over the template).
 		//
 		// {{mcpUrl}} and {{prompt}} are not meaningful at resume time and resolve
 		// to empty string, which is safe — neither appears in any production envMap.
 		const resumeTemplateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
-			"{{model}}": config.resolvedModel?.model ?? "",
-			"{{apiKey}}": config.resolvedModel?.apiKey ?? "",
-			"{{baseUrl}}": config.resolvedModel?.baseUrl ?? "",
+			"{{model}}": config.selectedModel ?? "",
 			"{{mcpUrl}}": "",
 			"{{prompt}}": "",
 		};
