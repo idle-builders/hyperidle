@@ -44,8 +44,20 @@ export interface TaskStateMachineDeps {
  * own parent, or reparented under one of its own descendants.
  *
  * Called before any write that sets `parentTaskId`. The read and the write must
- * share a transaction, or two concurrent reparents can each see an acyclic tree
- * and together produce a cycle.
+ * share a transaction.
+ *
+ * @lore BB1 — KNOWN, ACCEPTED LIMIT: this is not proof against two SIMULTANEOUS
+ * reparents. The subtree is read with a plain SELECT — no row locks, no
+ * SERIALIZABLE — so on real Postgres under READ COMMITTED, "reparent A under B"
+ * and "reparent B under A" at the same instant can each observe an acyclic tree,
+ * both pass, and together form a detached `A → B → A` loop. PGlite serialises
+ * locally, so it cannot happen on a laptop, and MAX_TASK_DEPTH keeps such a loop
+ * degrading reads rather than hanging them. Founder ruling (2026-08-31): "we can
+ * fix that edge case when it becomes a problem" — one shared backend, two people
+ * reparenting the same two tasks in the same instant, is not a real scenario yet.
+ * When it is, the fix is to lock the subtree or raise the isolation level. It is
+ * NOT a retry loop: retrying a check that can pass wrongly just passes wrongly
+ * again.
  */
 export async function assertNoCycle(
 	exec: WriteExecutor,
