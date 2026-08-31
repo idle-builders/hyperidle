@@ -160,11 +160,16 @@ export const ATTACK_ANCHORS = {
 /**
  * A table the ATTACKING package does not own, and one it does.
  *
- * `bets` is owned by `work`; `teams` is owned by `org`. An attack from inside `work` writing `teams`
- * is a foreign write; the same file writing `bets` is the control.
+ * `tasks` is owned by `work`; `teams` is owned by `org`. An attack from inside `work` writing `teams`
+ * is a foreign write; the same file writing `tasks` is the control.
+ *
+ * @lore BB1: the own-table example was `bets` until that table was deleted and folded into `tasks`.
+ * A fixture naming a table the schema no longer declares is not a neutral placeholder — it made
+ * `one-work-primitive` fire on the synthetic files, which polluted the expected findings of the
+ * rules these cases actually test. Keep this pointed at a table that really exists.
  */
 const FOREIGN_TABLE = { symbol: "teams", physical: "teams" } as const;
-const OWN_TABLE = { symbol: "bets", physical: "bets" } as const;
+const OWN_TABLE = { symbol: "tasks", physical: "tasks" } as const;
 
 const KEY = {
 	serviceForeignWrite: "service → db:table (other) [table:write] production",
@@ -440,11 +445,47 @@ export const ATTACKS: readonly Attack[] = [
 
 	// --- C1: re-export laundering -------------------------------------------------------------
 	{
+		/**
+		 * BB1 — the bet vocabulary must not creep back into production code.
+		 *
+		 * The rule scans the PRODUCTION world with comments stripped, so the
+		 * attack is a live reference in a shipping file. The control below proves
+		 * it does not simply match the word anywhere: the same token inside a
+		 * comment is the historical record of why the merge happened, and must
+		 * stay legal.
+		 */
+		id: "one-work-primitive-live-reference",
+		detail: "a production file reintroducing the deleted bet vocabulary as live code",
+		rules: ["one-work-primitive"],
+		overlay: {
+			[`${a.serviceDir}/attack-bet-vocabulary.ts`]: `export function findBet(betId: string): string {\n\treturn betId;\n}\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.serviceDir}/attack-bet-vocabulary.ts`,
+			ruleId: "one-work-primitive",
+			messageContains: "parentTaskId",
+		},
+	},
+	{
+		id: "one-work-primitive-comment-control",
+		detail:
+			"the same token inside a COMMENT — the record of what a bet was — is prose, not a live reference, and must stay legal",
+		rules: ["one-work-primitive"],
+		overlay: {
+			[`${a.serviceDir}/attack-bet-comment.ts`]: `// A task with no parent is what used to be called a bet (betId is gone).\nexport const parentIsRoot = null;\n`,
+		},
+		// Scoped to the file, like every other control here: adding any synthetic
+		// file shifts a declared population floor, and an unscoped "clean" would
+		// be asserting something this case is not about.
+		expect: { sort: "clean", file: `${a.serviceDir}/attack-bet-comment.ts` },
+	},
+	{
 		id: "reexport-table",
 		detail: "a service barrel re-exporting its own table, so its layer can obtain it transitively",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.serviceDir}/attack-reexport-table.ts`]: `export { ${OWN_TABLE.symbol} as betsTable } from "@hyperidle/db";\n`,
+			[`${a.serviceDir}/attack-reexport-table.ts`]: `export { ${OWN_TABLE.symbol} as tasksTable } from "@hyperidle/db";\n`,
 		},
 		expect: {
 			sort: "finding",
@@ -456,12 +497,12 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "reexport-table-as-a-value",
 		detail:
-			"the same republication written as a VALUE — `import { bets }; export const betsTable = bets`, which `export … from` detection never sees",
+			"the same republication written as a VALUE — `import { tasks }; export const tasksTable = tasks`, which `export … from` detection never sees",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
 			[`${a.serviceDir}/attack-reexport-table-value.ts`]:
 				`import { ${OWN_TABLE.symbol} } from "@hyperidle/db";\n` +
-				`export const betsTable = ${OWN_TABLE.symbol};\n`,
+				`export const tasksTable = ${OWN_TABLE.symbol};\n`,
 		},
 		expect: {
 			sort: "finding",
@@ -525,7 +566,11 @@ export const ATTACKS: readonly Attack[] = [
 			"re-exporting a row type (reach `everyone`) launders nothing — any consumer could import it directly. Without this control the rule dies of noise.",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.serviceDir}/attack-reexport-rowtype.ts`]: `export type { Bet } from "@hyperidle/db";\n`,
+			// @lore BB1: was `Bet`, a row type deleted with the bets table. A fixture
+			// naming a symbol the database package no longer exports resolves to
+			// `db:unknown`, which made this control report the very finding it
+			// exists to prove absent.
+			[`${a.serviceDir}/attack-reexport-rowtype.ts`]: `export type { Task } from "@hyperidle/db";\n`,
 		},
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-reexport-rowtype.ts` },
 	},
