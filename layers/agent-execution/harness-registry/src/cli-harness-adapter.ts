@@ -485,7 +485,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly enforcement: EnforcementRegistry;
 	private readonly sessions = new Map<string, CliSession>();
 	/**
-	 * BA2: Persists harness-native session ids even after a session is removed
+	 * Persists harness-native session ids even after a session is removed
 	 * from `sessions` by stopSession. Keyed by the adapter's internal sessionId.
 	 * This lets the caller read the native id after the session has completed.
 	 */
@@ -608,7 +608,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			}
 		}
 
-		// ── BA2: claude session-id assignment.
+		// ── claude session-id assignment.
 		//
 		// claude supports --session-id <uuid> which lets the caller NAME the session
 		// rather than capturing an opaque id from the stream after the fact. We assign
@@ -687,14 +687,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// store resolved model for re-engage spawn (opencode --model flag).
 			reEngageResolvedModel: config.resolvedModel?.model,
 			reEngageOptionArgv: optionArgv,
-			// BA2: for claude, we assigned this at start time; for all other harnesses
+			// for claude, we assigned this at start time; for all other harnesses
 			// it is captured from the event stream (set in parseStdoutLine).
 			nativeSessionId: claudeAssignedSessionId,
 		};
 
 		this.sessions.set(sessionId, session);
 
-		// BA2: for claude, persist the assigned id immediately so getNativeSessionId
+		// for claude, persist the assigned id immediately so getNativeSessionId
 		// works even after stopSession removes the session from `sessions`.
 		if (claudeAssignedSessionId !== undefined) {
 			this.nativeSessionIds.set(sessionId, claudeAssignedSessionId);
@@ -1316,7 +1316,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			) {
 				const obj = parsed as Record<string, unknown>;
 
-				// ── BA2: native session id capture per harness dialect.
+				// ── native session id capture per harness dialect.
 				//
 				// Extract the harness's own session id from the first relevant event so that
 				// getNativeSessionId() can return it after streaming has started.
