@@ -1041,6 +1041,12 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// @lore Opencode-full-binary: Uses AR7-locked model (HARNESS_TEST_MODELS.opencode.model
 			// → openrouter/z-ai/glm-4.7-flash). Pure mode (--pure) skips external plugin loading. JSON
 			// output streamed per-event; step_finish proves turn completed.
+			// @lore The spawn budget was 30s, and this exact invocation takes ~42s
+			// against that model — measured live, exit 0 with step_finish present. The
+			// lane read as "opencode never completes a turn" when what actually
+			// happened was the kill timer firing mid-turn: stdout held step_start and
+			// nothing after it, and exitCode was null rather than a real code. Same
+			// shape as the codex lane's own budget. 120s is the claude/codex figure.
 			// @lore AR7: model replaced from openrouter/~anthropic/claude-haiku-latest to AR7 matrix model.
 			const result = await spawnDetached(
 				"opencode",
@@ -1056,7 +1062,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				{
 					cwd: os.tmpdir(),
 					env: buildCleanEnv(),
-					timeoutMs: 30_000,
+					timeoutMs: 120_000,
 				},
 			);
 
@@ -1076,7 +1082,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			const hasCompletion =
 				result.stdout.includes("step_finish") || result.stdout.includes("turn.completed");
 			expect(hasCompletion).toBe(true);
-		}, 60_000);
+		}, 180_000);
 
 		test("provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-opencode-"));
@@ -1165,7 +1171,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				{
 					cwd: os.tmpdir(),
 					env: buildCleanEnv(),
-					timeoutMs: 30_000,
+					timeoutMs: 120_000,
 				},
 			);
 
@@ -1191,7 +1197,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				{
 					cwd: os.tmpdir(),
 					env: buildCleanEnv(),
-					timeoutMs: 30_000,
+					timeoutMs: 120_000,
 				},
 			);
 
@@ -1211,7 +1217,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// Both spawns must have exited cleanly (exit code 0).
 			expect(firstResult.exitCode).toBe(0);
 			expect(reEngageResult.exitCode).toBe(0);
-		}, 90_000);
+		}, 300_000);
 	});
 
 	// ── CURSOR-AGENT CLI (soft-continue channel) ────────────────────────────
