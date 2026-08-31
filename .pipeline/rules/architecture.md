@@ -31,9 +31,12 @@ dial, so a new rule lands with its violations cleared in the same pull request.
 
 Never hardcode a package path in a script, guard or config — discover by scanning the role roots
 (`layers/`, `framework/`, `applications/`, `tools/`), and **hard-fail when a scan finds nothing.** A
-guard wired to zero files prints nothing and reads as passing forever. This repo has shipped that bug
-more than once: three design rules exported by the plugin but named in no config block, and a harness
-guard whose path predicate matched 1 of 12 candidate files after the packages moved.
+guard wired to zero files prints nothing and reads as passing forever. This repo keeps shipping that
+bug: a harness guard whose path predicate matched 1 of 12 candidate files after the packages moved;
+three design rules exported by the plugin but named in no config block; and, live today,
+`require-ds-attribute`, wired at `error` while its filename predicate matches only a package that was
+deleted — so it fires on nothing and has read as green ever since. When you move files, check what
+was pointing at them.
 
 ## Migrations are full
 
