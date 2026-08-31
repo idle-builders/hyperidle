@@ -103,7 +103,6 @@
 		"defaultMode": "auto"
 	},
 	"includeGitInstructions": false,
-	"plansDirectory": "./plans",
 	"hooks": {
 		"PreToolUse": [
 			{

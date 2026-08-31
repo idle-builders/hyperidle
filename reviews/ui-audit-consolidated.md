@@ -11,8 +11,6 @@ Two independent passes, merged and reconciled:
 
 The two passes disagreed in seven places. **Every disagreement was settled by driving the running app**, not by preferring one document. Three of pass A's claims and two of pass B's were wrong; the corrections are recorded below in full, because a couple of them produced better findings than either pass had alone.
 
-Screenshots: all 99 in `ui-audit-shots/`. Pass A's are numbered (`01-work-team.png`, `r375-thread.png`); pass B's are theme-prefixed (`light-03-work-team.png`, `dark-03-work-team.png`).
-
 Tags: **[A]** found live · **[B]** found in code · **[A+B]** both · **[corrected]** a claim that changed after verification.
 
 ---
@@ -39,11 +37,7 @@ Pass B's §6 "non-modal overlays behave correctly" **checked out**: notification
 
 538 px clipped at 1440×900, 706 px at 1024×768, with **zero scroll containers on the page**. No scrollbar, wheel does nothing, `scrollTop` stays 0. The AGENTS heading is visible; its roster and the entire ARTIFACTS section below are unreachable.
 
-![work team clipped](ui-audit-shots/01-work-team.png)
-
 What is down there, revealed by forcing `overflow: visible`:
-
-![work team full](ui-audit-shots/40-team-full.png)
 
 **Cause** — [WorkTeam.tsx:709](../../layers/core-ui/src/pages/WorkTeam.tsx#L709) wraps the body in `<div className="flex-1 overflow-hidden">`. That wrapper is a *block*, not a flex container, so `flex-1` on the scroll child ([WorkTeam.tsx:294](../../layers/core-ui/src/pages/WorkTeam.tsx#L294)) does nothing and the child grows to its content height (1281 px) inside a 743 px clipping parent. Introduced with the AV4 SplitView work. `/work` short-circuits to the team page for a 1-team org, so both routes are dead.
 
@@ -55,8 +49,6 @@ What is down there, revealed by forcing `overflow: visible`:
 
 The panel renders inline inside `#root` ([GlobalSearchPanel.tsx:141-313](../../layers/core-ui/src/components/GlobalSearchPanel.tsx#L141)) while using `useDialogBehavior({ modal: true })`, and that hook sets `inert` on `#root` ([useDialogBehavior.ts:117-126](../../framework/design-system/src/useDialogBehavior.ts#L117)). The panel inerts itself: no typing, no clickable results, no Escape, no scrim-click. Only a second ⌘K closes it, via a document-level listener.
 
-![cmdk](ui-audit-shots/25-search-palette.png)
-
 **Fix:** portal panel + scrim into `#overlay-root` the way [Dialog.tsx:288](../../framework/design-system/src/Dialog.tsx#L288) does, or exclude the active overlay from the inert target.
 
 ### 3. Mobile drawer is the same dead overlay **[B, confirmed live]**
@@ -67,8 +59,6 @@ Same inline-in-`#root` + `modal: true` shape at [AppShell.tsx:778-795](../../lay
 
 With every `/api/**` returning 500, Knowledge shows a confident empty state — *"Your knowledge base is empty · Create first item"* — and the whole header toolbar vanishes.
 
-![error as empty](ui-audit-shots/63-error-knowledge.png)
-
 The sidebar tells the same lie while **loading** ("No teams yet", "No knowledge yet") and after a 429 ("No threads yet"). Three wrong stories told with total confidence.
 
 **Fix:** `empty ≠ loading ≠ failed` as three branches everywhere, with an inline retry on failure. This is a trust bug: telling a founder their knowledge base is empty when the server is down can end a trial.
@@ -76,8 +66,6 @@ The sidebar tells the same lie while **loading** ("No teams yet", "No knowledge 
 ### 5. Thread headline is a raw database ID **[A+B]**
 
 The largest text on a conversation is `demo-task-pricing-page`; on a team thread the eyebrow *and* the `<h1>` both read `demo-team-acme`. [Conversations.tsx:442](../../layers/core-ui/src/pages/Conversations.tsx#L442) falls back to `hostId` when the identity lookup misses — and it always misses for teams.
-
-![thread](ui-audit-shots/10-thread.png)
 
 Same leak in: the in-thread artifact chip, the artifact page's top-right corner, ORG CHART row subtitles, task session subtitles (`demo-agent-pm`, named "Session 1/2/3"), knowledge Editor (`seed-age…`), and agent role enums (`product_manager`, `builtin` — the setup flow already has display labels for these).
 
@@ -92,8 +80,6 @@ Avoiding a dead URL is right; rendering a full-contrast primary that does nothin
 ### 7. Artifact viewer uppercases and mono-cases its own content **[A+B]**
 
 HTML artifacts render `UNSUPPORTED BLOCK — PARSER-UNRECOGNISED` plus their source **shouted in uppercase**:
-
-![artifact](ui-audit-shots/43-artifact.png)
 
 Two problems. **The product bug [B]:** the flagship artifact kind doesn't render; it should be a sandboxed preview or a designed `ErrorState` with "Open raw" — never a source dump. **The cosmetic bug [A], confirmed in the DOM:** the source is lowercase in the DOM but painted uppercase, because [ArtifactPreviewSurface.tsx:27](../../framework/design-system/src/ArtifactPreviewSurface.tsx#L27) applies `font-mono text-[11px] tracking-caps-sm uppercase text-tertiary justify-center` to the **whole preview container**. Those styles were written for a placeholder label ("IMAGE PREVIEW") and now cascade onto real content — anything inside a preview surface is uppercased, centred and greyed.
 
@@ -206,8 +192,6 @@ Measured widths: `max-w-[800px]` (conversations, knowledge, bet), `max-w-[960px]
 
 Circular back button + `Work/Acme` (detail pages), plain `Work / New bet` (create pages), ALL-CAPS MONO chain (artifact permalink). Spacing around the separator is inconsistent between the first two.
 
-![overlap](ui-audit-shots/02-bet-detail.png)
-
 The chevron overlaps the first character of the breadcrumb on every Work and Knowledge page. On task detail the *middle* crumb truncates while the longest last crumb doesn't, with a stray space before the final separator: `Work/Acme/Pricing page over… /Interview trial users about pricing confusion`. And the last crumb always duplicates the `<h1>` beneath it — on the bet page a **third** time under PITCH, which the DOM confirms is a genuine second `<h1>`.
 
 ### 15. Coach-mark banners are the first thing on three pages **[A]**
@@ -254,17 +238,11 @@ Under the three nav items sits a second unlabeled list of the same threads, trun
 ### Colour, theme & state
 - **Border tokens collapse in dark.** `--border-subtle` sits **8.9 L\*** from the card surface in light but only **2.0 L\*** in dark, so dividers and card edges dissolve. The surface ladder itself is fine and near-identical in both themes (5.3 vs 5.2 L\*). This single token pair is the whole "dark feels flat" complaint. **[A+B, corrected]**
 
-  ![dark](ui-audit-shots/31-dark-team.png)
-
 - **Native blue on the first screen a user ever sees.** Setup shows the browser's default blue focus ring and a blue OS radio ([SetupFlow.tsx:633,762,837](../../layers/core-ui/src/pages/SetupFlow.tsx#L633)) in a cream/lemon UI — the only cold colour in the app. Native `<select>` chrome in Setup and the routine panel too. The selected harness row also gets no selected treatment beyond the radio dot. **[A+B]**
-
-  ![setup](ui-audit-shots/42-setup.png)
 
 - **Disabled = `opacity: 0.5`** on primaries (Create bet, Create knowledge, Send, Save profile, Start HyperIdle) — a half-transparent lemon fill still shouts while its label drops to ~3:1. DS `Button` has a proper disabled treatment. **[A+B]**
 - **A disabled control that looks enabled:** the `Team` scope pill on `/knowledge/new` is `disabled` yet renders identically to its siblings and keeps `cursor: pointer`. **[A]**
 - **Destructive actions are the loudest thing in Settings** — 13 red Delete buttons, styled two different ways on one page (filled red in ORG CHART, outlined red in AGENTS). **[A+B]**
-
-  ![settings](ui-audit-shots/41-settings-tall.png)
 
 - **Unread uses `--status-error` red** in the notification popover. Unread is not an error. **[A]**
 - **All five team agents share "AC" avatar initials** — derived from the team name, not the agent — and each avatar's status dot is clipped by its own edge. Overlapping avatar stacks clip their initials in every thread header. **[A]**

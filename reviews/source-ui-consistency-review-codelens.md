@@ -2,8 +2,7 @@
 > [ui-audit-consolidated.md](ui-audit-consolidated.md), which merges this with the live pass and
 > records where the two disagreed. Kept for provenance; read the consolidated doc first.
 >
-> Its original worktree (`.worktrees/ui-review`) and shot folder (`/tmp/ui-review-shots`) are gone —
-> the screenshots referenced in Method below now live in `ui-audit-shots/` with `light-`/`dark-` prefixes.
+> Its original worktree and screenshots are gone.
 > Findings #10 (`0mo` cause), #50 and §6 (dark theme, heading contract) were corrected on live
 > verification — see the conflict ledger in the consolidated doc.
 

@@ -132,7 +132,7 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 - `work/<id>/` — per-item folder: `plan.md`, the item's durable account, 50–100 lines; and `retro.jsonl`, its retro observations.
 - `audits/` — product and security audit ledgers, read by `product-deep-review` and `security-audit`.
 
-**Reviews** — `reviews/` — cross-cutting UI and consistency review notes, with their screenshots under `ui-audit-shots/`.
+**Reviews** — `reviews/` — cross-cutting UI and consistency review notes.
 
 ---
 
