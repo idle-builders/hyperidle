@@ -445,8 +445,11 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 						id: routinePromptDocId,
 						pluginId: plugin.id,
 						title: `${routineSpec.name || "Routine"} — prompt`,
-						scopeKind: "factory",
-						scopeId: null,
+						// @lore BA9g: was hardcoded `factory`. A plugin installed at team
+						// scope contributes a team's routine; its instruction is that
+						// team's knowledge, not the whole org's.
+						scopeKind,
+						scopeId,
 						topic: null,
 						body: routineSpec.prompt,
 						ts: installTs,

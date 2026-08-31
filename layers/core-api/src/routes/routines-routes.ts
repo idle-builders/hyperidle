@@ -148,15 +148,27 @@ async function readRoutinePrompt(
 	return doc?.body ?? null;
 }
 
-/** Create the document a new routine's prompt lives in. Returns its id, or null for no prompt. */
+/**
+ * Create the document a new routine's prompt lives in. Returns its id.
+ *
+ * @lore BA9g: the scope was hardcoded `factory` — org-wide — so a routine owned
+ * by one team's agent published its instruction to everybody. A prompt is
+ * knowledge; it takes the scope of whoever the routine belongs to. An agent with
+ * a team scopes to that team; a factory-wide agent stays factory.
+ */
 async function createRoutinePromptDocument(
 	db: HyperIdleDb,
-	input: { readonly routineName: string; readonly prompt: string; readonly updatedBy: string },
+	input: {
+		readonly routineName: string;
+		readonly prompt: string;
+		readonly updatedBy: string;
+		readonly ownerTeamId: string | null;
+	},
 ): Promise<string> {
 	const created = await createKnowledgeItem(db, {
-		layer: "L4",
-		scopeKind: "factory",
-		scopeId: null,
+		layer: input.ownerTeamId ? "L2" : "L4",
+		scopeKind: input.ownerTeamId ? "team" : "factory",
+		scopeId: input.ownerTeamId,
 		title: `${input.routineName || "Routine"} — prompt`,
 		body: input.prompt,
 		format: "markdown",
@@ -272,6 +284,7 @@ export function createRoutineRoutes(
 					routineName: body.name,
 					prompt: body.prompt,
 					updatedBy: c.get("userId"),
+					ownerTeamId: (await findUser(db, { id: body.ownerAgentId }))?.teamId ?? null,
 				})
 			: null;
 
@@ -472,6 +485,7 @@ export function createRoutineRoutes(
 					routineName: body.name ?? existing.name,
 					prompt: body.prompt,
 					updatedBy: c.get("userId"),
+					ownerTeamId: (await findUser(db, { id: existing.ownerAgentId }))?.teamId ?? null,
 				});
 			}
 		}
