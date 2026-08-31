@@ -43,7 +43,7 @@ rules:
   frontend: .claude/rules/frontend.md         # → design, write-code, review
   visual: .claude/rules/visual-regression.md  # → design, review
   aesthetics: .claude/rules/aesthetic-quality.md  # → design
-  # architecture: <none yet>                  # → architecture, architecture-critique, review
+  architecture: .claude/rules/architecture.md  # → architecture, architecture-critique, review
   # security: <none yet>                      # → review
   # docs: <none yet>                          # → write-docs
   taste: .claude/rules/taste.md          # → refine, program-design, pipeline
