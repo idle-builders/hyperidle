@@ -12,7 +12,8 @@
  * harnesses by running the suite once per harness.
  */
 
-import { execFileSync } from "node:child_process";
+import { accessSync, constants } from "node:fs";
+import { delimiter, join } from "node:path";
 
 /** The CLI harnesses an eval can run against. */
 export const EVAL_HARNESSES = ["claude", "codex", "opencode", "cursor-agent"] as const;
@@ -54,11 +55,30 @@ let selection: EvalHarnessSelection | null = null;
  * that cannot spawn its harness cannot produce a score, and a skipped run that
  * reports green is worse than no run at all.
  */
+/**
+ * True when `binary` is executable somewhere on PATH.
+ *
+ * @lore Scans PATH rather than shelling out to `which`. A subprocess for this
+ * is a whole extra binary the eval would depend on — and `which` is not
+ * guaranteed to be present, which would turn "harness missing" into "which
+ * missing" and report the wrong problem.
+ */
+function isOnPath(binary: string): boolean {
+	for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+		if (!dir) continue;
+		try {
+			accessSync(join(dir, binary), constants.X_OK);
+			return true;
+		} catch {
+			// not here — keep looking
+		}
+	}
+	return false;
+}
+
 export function selectEvalHarness(harness: EvalHarnessName, model: string | null): void {
 	const binary = HARNESS_BINARY[harness];
-	try {
-		execFileSync("which", [binary], { stdio: "ignore" });
-	} catch {
+	if (!isOnPath(binary)) {
 		throw new Error(
 			`[eval] harness "${harness}" is not installed — \`${binary}\` is not on PATH. ` +
 				"Install it (or pick another with --harness); the eval cannot complete without it.",

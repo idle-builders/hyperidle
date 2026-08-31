@@ -18,7 +18,6 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
