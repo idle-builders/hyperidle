@@ -46,8 +46,17 @@ export interface Task {
 	completedAt: string | null;
 }
 
-export interface TaskNode {
-	task: Task;
+/**
+ * A task in the subtree, with its own children nested underneath.
+ *
+ * @lore BB1: this is the task's own fields FLATTENED, with `children` alongside
+ * them — NOT `{ task, children }`. That is the shape `GET /api/tasks/:id/tree`
+ * actually returns. The wrapped variant was built here once against an
+ * ambiguous contract; both sides' tests passed because each mocked its own
+ * assumption, and the real page threw `Cannot read properties of undefined
+ * (reading 'id')` the first time anyone opened it.
+ */
+export interface TaskNode extends Task {
 	children: TaskNode[];
 }
 

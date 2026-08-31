@@ -192,9 +192,7 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 				task: root,
 				ancestors: [],
 				children: [
-					{
-						task: child,
-						children: [{ task: grandchild, children: [] }],
+					{ ...child, children: [{ ...grandchild, children: [] }],
 					},
 				],
 				tokensActualRollup: null,
@@ -227,9 +225,7 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 				task: root,
 				ancestors: [],
 				children: [
-					{
-						task: child,
-						children: [{ task: grandchild, children: [] }],
+					{ ...child, children: [{ ...grandchild, children: [] }],
 					},
 				],
 				tokensActualRollup: null,

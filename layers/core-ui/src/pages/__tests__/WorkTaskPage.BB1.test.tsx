@@ -107,15 +107,13 @@ const INITIAL_TREE = {
 	ancestors: [],
 	tokensActualRollup: null,
 	children: [
-		{
-			task: childA,
-			children: [
-				{ task: grandchildX, children: [] },
-				{ task: grandchildY, children: [] },
+		{ ...childA, children: [
+				{ ...grandchildX, children: [] },
+				{ ...grandchildY, children: [] },
 			],
 		},
-		{ task: childB, children: [] },
-		{ task: childC, children: [] },
+		{ ...childB, children: [] },
+		{ ...childC, children: [] },
 	],
 };
 
@@ -123,15 +121,13 @@ const INITIAL_TREE = {
 const AFTER_MOVE_A_DOWN = {
 	...INITIAL_TREE,
 	children: [
-		{ task: childB, children: [] },
-		{
-			task: childA,
-			children: [
-				{ task: grandchildX, children: [] },
-				{ task: grandchildY, children: [] },
+		{ ...childB, children: [] },
+		{ ...childA, children: [
+				{ ...grandchildX, children: [] },
+				{ ...grandchildY, children: [] },
 			],
 		},
-		{ task: childC, children: [] },
+		{ ...childC, children: [] },
 	],
 };
 
@@ -139,15 +135,13 @@ const AFTER_MOVE_A_DOWN = {
 const AFTER_MOVE_X_DOWN = {
 	...INITIAL_TREE,
 	children: [
-		{
-			task: childA,
-			children: [
-				{ task: grandchildY, children: [] },
-				{ task: grandchildX, children: [] },
+		{ ...childA, children: [
+				{ ...grandchildY, children: [] },
+				{ ...grandchildX, children: [] },
 			],
 		},
-		{ task: childB, children: [] },
-		{ task: childC, children: [] },
+		{ ...childB, children: [] },
+		{ ...childC, children: [] },
 	],
 };
 

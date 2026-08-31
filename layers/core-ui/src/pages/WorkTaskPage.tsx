@@ -147,7 +147,7 @@ function SubtaskTree({
 			style={depth > 0 ? { paddingLeft: "18px" } : undefined}
 		>
 			{nodes.map((node, idx) => (
-				<li key={node.task.id}>
+				<li key={node.id}>
 					<SubtaskRow
 						node={node}
 						depth={depth}
@@ -174,7 +174,10 @@ function SubtaskRow({
 	totalSiblings: number;
 	onReorder?: (taskId: string, newPosition: number) => void;
 }): JSX.Element {
-	const { task, children } = node;
+	// @lore BB1: the node IS the task, with `children` alongside — the tree
+	// endpoint flattens each row rather than wrapping it in `{ task, children }`.
+	const { children } = node;
+	const task = node;
 	const isFirst = index === 0;
 	const isLast = index === totalSiblings - 1;
 

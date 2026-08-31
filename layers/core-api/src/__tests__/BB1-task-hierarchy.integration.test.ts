@@ -32,6 +32,71 @@ describe("BB1 — task hierarchy", () => {
 	});
 
 	// -------------------------------------------------------------------------
+	// Regression — found by clicking through the real app, not by a test.
+	describe("PATCH with an unchanged state is a no-op, not a conflict", () => {
+		test("saving a field while resubmitting the current state succeeds", async ({ db, app }) => {
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "bb1-team-nostate", name: "NoState", phase: "build", createdAt: now });
+			const created = await app.request("/api/tasks", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({ teamId: "bb1-team-nostate", title: "before" }),
+			});
+			const task = (await created.json()) as { id: string; state: string };
+
+			// The edit form submits every field it renders, including the state
+			// dropdown — so an unchanged state arrives on every save. This used to
+			// 409 with `proposed -> proposed`, which killed the whole save.
+			const res = await app.request(`/api/tasks/${task.id}`, {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ title: "after", state: task.state }),
+			});
+			expect(res.status).toBe(200);
+			const updated = (await res.json()) as { title: string; state: string };
+			expect(updated.title).toBe("after");
+			expect(updated.state).toBe(task.state);
+		});
+
+		test("a genuine state change still goes through the state machine", async ({ db, app }) => {
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "bb1-team-realstate", name: "RealState", phase: "build", createdAt: now });
+			const created = await app.request("/api/tasks", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({ teamId: "bb1-team-realstate", title: "t" }),
+			});
+			const task = (await created.json()) as { id: string };
+
+			const ok = await app.request(`/api/tasks/${task.id}`, {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "accepted" }),
+			});
+			expect(ok.status).toBe(200);
+			expect(((await ok.json()) as { state: string }).state).toBe("accepted");
+
+			// And an ILLEGAL change is still refused — the no-op shortcut must not
+			// have become a way around the machine.
+			const bad = await app.request(`/api/tasks/${task.id}`, {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "killed" }),
+			});
+			expect(bad.status).toBe(200); // accepted -> killed is legal
+			const illegal = await app.request(`/api/tasks/${task.id}`, {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "in_progress" }),
+			});
+			expect(illegal.status).toBe(409); // killed -> in_progress is not
+		});
+	});
+
 	// AC5 — token rollup, THROUGH THE ROUTE
 	//
 	// @lore BB1: the service-level AC5 test reimplemented the summation in its

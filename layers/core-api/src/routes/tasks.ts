@@ -444,7 +444,15 @@ export function createTaskRoutes(
 			}
 
 			// -- state transition (after plain writes so the task is already in its new shape) --
-			if (state !== undefined) {
+			//
+			// @lore BB1: a `state` equal to the one the task already has is a NO-OP,
+			// not an error. The edit form submits every field it renders, including
+			// the state dropdown, so a user changing only the title sends the
+			// current state back unchanged — and `in_progress -> in_progress` is not
+			// a member of TASK_STATE_TRANSITIONS, so the whole save died with a 409.
+			// Setting a field to the value it already holds is not an invalid
+			// transition; only an actual CHANGE of state goes through the machine.
+			if (state !== undefined && state !== existing.state) {
 				const deps = buildTaskDeps(agentOrchestration);
 				await transitionTask(db, eventBus, taskId, state, deps);
 			}
