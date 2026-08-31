@@ -45,28 +45,23 @@ import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type {
 	EventBus,
 	EventType,
-	ProposedCallGrantedEvent,
 	ThreadCreatedEvent,
 	ThreadMessageAppendedEvent,
 	ThreadReopenedEvent,
 	ThreadResolvedEvent,
 } from "@hyperidle/event-bus";
 import {
-	assembleSessionKnowledge,
+	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 } from "@hyperidle/knowledge";
-import { getTeam } from "@hyperidle/org";
-import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { deriveTitle } from "@hyperidle/work";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
-import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
-import { resolveOrCreateCallingThread } from "../services/calling-thread-bindings.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -1491,6 +1486,7 @@ export function createThreadRoutes(
 				// message is already committed, so a plain (non-tx) read sees it.
 				const bakedRequest = await resolveAssistantTurnRequest(db, messageId, {
 					requireRunnableAgent,
+					getAgentIdentity,
 					readServerConfig,
 				});
 				await agentWorkIntentRecorder({
@@ -1530,11 +1526,6 @@ export function createThreadRoutes(
 					timestamp: Date.now(),
 				};
 				eventBus.emit(resolvedEvent);
-
-				const decision = input.payload.decision;
-				// AL7 trust-first: approve verdict handled by proposed-call workflow (Task 8).
-				// Tailored grant composed + proposed_call_granted emitted there.
-				void decision; // will be used by Task 8 implementation
 			}
 			if (willReopen) {
 				const reopenedEvent: ThreadReopenedEvent = {
@@ -1579,133 +1570,6 @@ export function createThreadRoutes(
 			);
 		},
 	);
-
-	// --- POST /api/threads/:threadId/messages/:messageId/verdict ---------
-	// AL7 Task 8: verdict → tailored grant + proposed_call_granted event.
-	// On approve: compose tailored grant (captured → granted) + emit event.
-	// On non-approve: transition PC to held (never executed).
-	//
-	// @lore AL7 Task 8: SEPARATE from POST …/messages. This endpoint processes
-	// the human decision on a review message that backs a Proposed Call —
-	// it does NOT append a message itself.
-	const verdictInputSchema = zod.object({
-		decision: zod.enum(["approve", "request-changes", "reject"]),
-		rationale: zod.string().optional(),
-	});
-	router.post("/:threadId/messages/:messageId/verdict", async (c) => {
-		const threadId = c.req.param("threadId");
-		const messageId = c.req.param("messageId");
-		let body: unknown;
-		try {
-			body = await c.req.json();
-		} catch {
-			return c.json({ error: "Invalid JSON", code: "invalid_json" }, 400);
-		}
-		const parsed = verdictInputSchema.safeParse(body);
-		if (!parsed.success) {
-			return c.json({ error: "Validation error", code: "validation_error" }, 400);
-		}
-		const { decision } = parsed.data;
-
-		// Authz: load thread to validate the caller has write access.
-		// @lore AL7 Task 8: authorizeWrite guards the verdict action — only
-		// thread participants (team members on the host) can approve/reject.
-		const threadRow = await findThread(db, { id: threadId });
-		if (!threadRow) {
-			return c.json({ error: "Thread not found", code: "not_found" }, 404);
-		}
-		const participants = (() => {
-			try {
-				return JSON.parse(threadRow.participants) as string[];
-			} catch {
-				return [];
-			}
-		})();
-		const writeDenial = authorizeWrite(c, {
-			hostKind: threadRow.hostKind as HostKind,
-			hostId: threadRow.hostId,
-			participants,
-		});
-		if (writeDenial) return writeDenial;
-
-		// Find the Proposed Call anchored to this review message
-		const pcView = await findProposedCall(db, { by: { reviewMessageId: messageId } });
-
-		if (!pcView) {
-			// No PC anchored to this review message — verdict accepted but nothing to do
-			return c.json({ ok: true }, 200);
-		}
-
-		if (decision === "approve") {
-			// Resolve task + agent scope via the artifact → task chain
-			const art = await work.get(db, "artifact", pcView.call.artifactId);
-			const taskId = art?.producingTaskId;
-			if (!taskId) {
-				return c.json({ error: "Artifact not found", code: "not_found" }, 404);
-			}
-
-			const task = await work.get(db, "task", taskId);
-			const agentId = task?.ownerAgentId;
-			if (!agentId) {
-				return c.json({ error: "Task not found", code: "not_found" }, 404);
-			}
-
-			await transitionProposedCall(
-				db,
-				{
-					to: "granted",
-					id: pcView.call.id,
-					taskScope: taskId,
-					agentScope: agentId,
-					approvedToolId: pcView.call.toolId,
-					approvedArgs: pcView.call.args,
-					identityHash: pcView.call.identityHash,
-				},
-				{
-					// AU31 §3.1 site 9 (caller side) — reuse the same seam-backed
-					// recorder site 5 uses above, instead of importing
-					// `@hyperidle/session-requests`' `enqueueWorkIntent` directly.
-					// `transitionProposedCall` already runs the record call AFTER
-					// its own inner transaction commits (see that function's
-					// `@lore`), so no additional relinquishment is needed here —
-					// this call site was never itself inside an open transaction.
-					intentRecorder: agentWorkIntentRecorder,
-					// AU21 §6 Decision B: resolve + validate the reengagement run AT
-					// EMIT TIME (this Service's own domain state, plus the shared
-					// ast-<userId> runnability invariant) and bake the full request
-					// onto the intent — the drain dispatches it directly, with zero
-					// domain reads.
-					getTaskById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "task", id),
-					requireRunnableAgent,
-					// AU21 §9 Increment 12 (Decision H3): also bake the contextBundle
-					// (task/bet/agent/team + ranked knowledge) this reengagement
-					// session's sandbox needs, so `run-orchestration` never reads it
-					// back.
-					getBetById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "bet", id),
-					getTeamById: (execDb: HyperIdleDb, id: string) => getTeam(execDb, { id }),
-					assembleSessionKnowledge,
-					readServerConfig,
-					// AU27 Increment 1 (Decision 0): also bake callingThreadId.
-					resolveOrCreateCallingThread,
-				},
-			);
-
-			const event: ProposedCallGrantedEvent = {
-				type: "proposed_call_granted",
-				streamId: threadId,
-				proposedCallId: pcView.call.id,
-				taskId,
-				agentId,
-				timestamp: Date.now(),
-			};
-			eventBus.emit(event);
-		} else {
-			// Non-approve: hold the Proposed Call (never executed)
-			await transitionProposedCall(db, { to: "held", id: pcView.call.id });
-		}
-
-		return c.json({ ok: true }, 200);
-	});
 
 	return router;
 }

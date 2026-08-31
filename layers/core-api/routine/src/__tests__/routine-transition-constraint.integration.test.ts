@@ -24,6 +24,7 @@
 import { routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { describe, vi } from "vitest";
 import type { RoutineSchedulerPorts } from "../ports.js";
 import { startRoutineScheduler } from "../routine-scheduler.js";
@@ -47,6 +48,7 @@ function makePorts(
 	requireRunnableAgent: RoutineSchedulerPorts["requireRunnableAgent"],
 ): RoutineSchedulerPorts {
 	return {
+		getAgentIdentity,
 		work: {
 			getBetById: unreachable("work.getBetById"),
 			// Returns undefined so assembleTriggerEvent falls through to generic subject
@@ -202,7 +204,6 @@ describe("routine transition constraint filter", () => {
 				streamId: "stream-tcc-notransition",
 				teamId: "tcc-notransition-team",
 				teamMembersId: "tcc-notransition-members",
-				functions: [],
 				agentIds: [],
 				at: NOW,
 			});

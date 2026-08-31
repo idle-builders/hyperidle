@@ -15,6 +15,7 @@
 
 import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/event-bus";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { InvalidTransitionError, transitionTask } from "@hyperidle/work";
@@ -25,7 +26,7 @@ import { test } from "../__testing__/test-fixtures.js";
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent },
+	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 };
 
 async function seed(db: HyperIdleDb, taskState = "accepted"): Promise<void> {

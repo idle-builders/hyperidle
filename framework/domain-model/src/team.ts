@@ -138,8 +138,6 @@ export interface PrimaryHarnessConfig {
 export interface CreateTeamRequest {
 	name: string;
 	repoPath?: string;
-	/** AE2: team functions for defaultRoster(). Defaults to ["development","product"] if omitted. */
-	functions?: string[];
 	/** AE2: optional free-text context about what is being built. */
 	buildingContext?: string;
 	/** AE2: human user id — seeds welcome message in thr-ast-{userId} when provided. */

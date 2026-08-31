@@ -445,10 +445,17 @@ export async function installPlugin(
 			return { ok: false, reason: 'scope.kind is "team" but scope.teamId is missing' };
 		}
 
-		// Persist plugin files if a base directory is provided.
-		// This is required for ${PLUGIN_ROOT} expansion in command-based MCP servers.
+		// Persist plugin files whenever we have somewhere to put them.
+		//
+		// @lore BA9g: this used to require `skills.length > 0 || mcpServers.length
+		// > 0`, on the reasoning that only those two need files on disk. That became
+		// wrong the moment an agent could carry an `identity` file: the shipped
+		// `role-personas` plugin has seven agents, no skills and no MCP servers, so
+		// it got NO install_path — and restore answered NO_INSTALL_PATH forever for
+		// the one plugin the batch added. Restore reads the plugin's files for any
+		// contributed document, so the condition is simply "can we persist".
 		let installPath: string | null = null;
-		if (input.pluginsBaseDir && (manifest.skills.length > 0 || manifest.mcpServers.length > 0)) {
+		if (input.pluginsBaseDir) {
 			try {
 				installPath = persistPlugin(fetched.rootDir, input.pluginsBaseDir, pluginId);
 			} catch {

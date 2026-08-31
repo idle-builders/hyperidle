@@ -1,9 +1,14 @@
 /**
  * O2: Knowledge routes rewritten for kernel purity.
  * Q2: scope_kind + scope_id fields added to creation, list, and detail endpoints.
- *     PATCH /:id/scope endpoint added for scope mutation with version tracking.
  *     User-scoped items filtered by userId at GET / and GET /:id.
- *     App projection layer assigned (via knowledgeAppProjection) on creation and scope change.
+ *     App projection layer assigned (via knowledgeAppProjection) on creation.
+ *
+ * Scope is edited through `PATCH /:id` like every other field. The separate
+ * `PATCH /:id/scope` endpoint is DELETED: it demanded a `reason` that was
+ * concatenated into an edit-log value and read by nothing, and it wrote the
+ * kernel scopeId while the generic update wrote the projection's — two writers,
+ * two tables, free to disagree.
  *
  * URL shape simplified from /:layer/... to /:id and /.
  * Layer guard, createRelevanceService, and computeSignals removed.
@@ -28,6 +33,7 @@ import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
 	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_ROLES,
 	roleLabel,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
@@ -58,6 +64,7 @@ import {
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
+import { markDetached } from "@hyperidle/settings";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -202,6 +209,12 @@ const createKnowledgeSchema = z.object({
 	// layer stays derived from scopeToLayer(scopeKind)).
 	kind: z.enum(KNOWLEDGE_ITEM_KINDS).optional(),
 	layer: z.enum(KNOWLEDGE_LAYERS).optional(),
+	/**
+	 * The document's role — what context assembly does with it. Absent means
+	 * `ordinary`, which is the column default and what every existing caller
+	 * has always produced.
+	 */
+	role: z.enum(KNOWLEDGE_ROLES).optional(),
 });
 
 const updateKnowledgeSchema = z.object({
@@ -212,6 +225,17 @@ const updateKnowledgeSchema = z.object({
 	topic: z.string().optional(),
 	format: z.string().optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
+	/** An ordinary note becomes a skill, or a skill goes back to being one. */
+	role: z.enum(KNOWLEDGE_ROLES).optional(),
+	/**
+	 * Scope is a field on the document like any other. It had its own endpoint
+	 * demanding a `reason`, which was concatenated into an edit-log value and
+	 * read by nothing; that endpoint and that string are gone. Changing scope
+	 * alongside role or content is now one edit under one version bump instead
+	 * of two round trips that can half-fail.
+	 */
+	scopeKind: z.enum(SCOPE_KINDS).optional(),
+	scopeId: z.string().nullable().optional(),
 });
 
 // BA9d: agent-reachable merge/split doors (recovered from AU44 scope breach,
@@ -295,18 +319,6 @@ async function recomputeAttentionScoreForKnowledgeItem(
 }
 
 /**
- * Q2: Schema for PATCH /:id/scope — change scope_kind and scope_id with version tracking.
- * `reason` is required (min 1 char) so scope changes always have an audit trail.
- */
-const changeScopeSchema = z.object({
-	scopeKind: z.enum(SCOPE_KINDS),
-	scopeId: z.string().optional(),
-	reason: z.string().min(1),
-	updatedBy: z.string(),
-	version: z.number(),
-});
-
-/**
  * Create Hono routes for knowledge endpoints.
  * Q2: upgraded to Hono<HyperIdleEnv> to read userId from auth middleware.
  */
@@ -372,8 +384,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
-		// Q2: user-scoped items are private — return 404 (not 403) to avoid leaking existence.
-		if (row.scopeKind === "user" && row.updatedBy !== userId) {
+		// Q2: a person's private note is private — 404 (not 403) so its existence
+		// does not leak. An `agent_file`/`skill`/`rule` with user scope is a
+		// BINDING to an agent, not a private note: it is ordinary team knowledge,
+		// and this endpoint is the only place its identity can be edited.
+		if (row.scopeKind === "user" && row.role === "ordinary" && row.updatedBy !== userId) {
 			const response: ApiErrorResponse = {
 				error: "Knowledge item not found",
 				code: API_ERROR_CODES.NOT_FOUND,
@@ -463,6 +478,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			format: body.format,
 			// O2: default status is "draft" (was "captured" in old implementation)
 			status: body.status ?? "draft",
+			role: body.role,
 			updatedBy: body.updatedBy,
 		});
 
@@ -481,64 +497,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		eventBus.emit(createdEvent);
 
 		return c.json(row, 201);
-	});
-
-	// PATCH /:id/scope — Q2: change scope_kind and scope_id with version tracking.
-	// Bumps version, logs change in knowledgeEditLog, updates app projection layer.
-	router.patch("/:id/scope", validateBody(changeScopeSchema), async (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
-
-		const existing = await getKnowledgeItem(db, id);
-
-		if (!existing) {
-			const response: ApiErrorResponse = {
-				error: "Knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		// Optimistic locking: check version
-		if (existing.version !== body.version) {
-			const response: ApiErrorResponse = {
-				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
-				code: API_ERROR_CODES.CONFLICT,
-				details: { currentVersion: existing.version },
-			};
-			return c.json(response, 409);
-		}
-
-		// Q2: scopeId validation for the new scope kind
-		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
-			const response: ApiErrorResponse = {
-				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-
-		// @lore AU20 K2-writes: changeScope folded into transition({target:"changeScope"}).
-		// transition() fetches the item internally by id (no need to pass `existing`).
-		const updated = await knowledgeTransition(db, id, {
-			target: "changeScope",
-			scopeKind: body.scopeKind,
-			scopeId: body.scopeId ?? null,
-			reason: body.reason,
-			updatedBy: body.updatedBy,
-		});
-
-		// Emit knowledge_updated event for scope change
-		const updatedEvent: KnowledgeUpdatedEvent = {
-			type: "knowledge_updated",
-			streamId: `knowledge:${id}`,
-			itemId: id,
-			action: "updated",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(updatedEvent);
-
-		return c.json(updated);
 	});
 
 	// PATCH /:id — update (optimistic locking)
@@ -570,6 +528,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 409);
 		}
 
+		// The guard the deleted `/scope` route carried: a scope that names an
+		// external entity needs that entity's id.
+		if (body.scopeKind !== undefined && requiresScopeId(body.scopeKind) && !body.scopeId) {
+			const response: ApiErrorResponse = {
+				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
 		try {
 			await updateKnowledgeItem(
 				db,
@@ -580,6 +548,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					topic: body.topic,
 					format: body.format,
 					status: body.status,
+					role: body.role,
+					scopeKind: body.scopeKind,
+					scopeId: body.scopeId,
 					updatedBy: body.updatedBy,
 				},
 				body.version,
@@ -601,6 +572,18 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 			throw error;
+		}
+
+		// @lore BA9g: a plugin-contributed document a person edits becomes theirs,
+		// so a reinstall leaves their version alone (D5: your edit wins) and the
+		// plugin's contributions view says which rows they have taken over. The
+		// route is the legal bridge — knowledge does not know about plugins, and
+		// the plugin service does not write `knowledge_items`.
+		//
+		// This replaces `updated_by <> 'plugin:<id>'`, which carried the same
+		// meaning and was never read by anything.
+		if (body.body !== undefined) {
+			await markDetached(db, { kind: "knowledge", entityId: id, ts: new Date().toISOString() });
 		}
 
 		const updated = await getKnowledgeItem(db, id);

@@ -382,7 +382,6 @@ export interface CreateOrgTeamRequest {
 	readonly id: string;
 	readonly name: string;
 	readonly phase: string;
-	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
 	readonly teamMembersId: string;
@@ -426,7 +425,6 @@ export interface ScaffoldFromRequestInput {
 	readonly teamMembersId: string | null;
 	readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
 	readonly teamName: string | null;
-	readonly functions: readonly string[] | null;
 	readonly role: string | null;
 	readonly name: string | null;
 	readonly ownerUserId: string | null;
@@ -720,60 +718,6 @@ export interface CoreApiKnowledgePort {
  */
 
 /**
- * AU31 §2.5 — the AL7 trust-first proposed-call workflow, crossing the seam.
- * `@hyperidle/review` (core-api's owned Service for `proposedCalls`/
- * `tailoredGrants`/`operationOutcomes`) backs these three ops; the caller is
- * `tool-handlers`' relocated dispatch (`@hyperidle/tool-handlers`'s
- * `buildToolRegistry`, agent-orchestration's own Service now) reaching a
- * core-owned table through the seam's one legal door — the workflow's own
- * "held"/"granted" transitions stay core-side (core's `threads.ts` verdict
- * handler), never crossing.
- *
- * `ProposedCallOutcomeResult` mirrors `@hyperidle/shared`'s `ToolResult`
- * shape without importing it — `api-contract` declares no dependencies
- * (deliberately: see `core-api-port.ts`'s own architecture note,
- * `.pipeline/work/AU31/architecture.md` §2.8), so a wire type it exposes is
- * a structural mirror, never an import of the layer-side type.
- */
-export interface CaptureProposedCallRequest {
-	readonly originSessionId: string;
-	readonly taskId: string;
-	readonly agentId: string;
-	readonly toolId: string;
-	readonly args: Record<string, unknown>;
-	readonly hash: string;
-	readonly reviewMessageId: string;
-	readonly subjectThreadId: string;
-	readonly artifactId: string;
-}
-
-export interface CaptureProposedCallResponse {
-	readonly firstCapture: boolean;
-}
-
-export interface ConsumeTailoredGrantRequest {
-	readonly taskId: string;
-	readonly agentId: string;
-	readonly toolId: string;
-}
-
-export interface ConsumeTailoredGrantResponse {
-	readonly proposedCallId: string;
-}
-
-export type ProposedCallOutcomeResult =
-	| { readonly success: true; readonly data: unknown }
-	| { readonly success: false; readonly error: string; readonly code: string };
-
-export interface CoreApiReviewPort {
-	captureProposedCall(input: CaptureProposedCallRequest): Promise<CaptureProposedCallResponse>;
-	consumeTailoredGrant(
-		input: ConsumeTailoredGrantRequest,
-	): Promise<ConsumeTailoredGrantResponse | null>;
-	recordOutcome(proposedCallId: string, result: ProposedCallOutcomeResult): Promise<void>;
-}
-
-/**
  * `CoreApiPort` — a per-core-Service family of narrow hand-typed method
  * groups, each Application-adapted onto the `hc<AppType>` client
  * (`buildCoreApiPort`, `layers/agent-orchestration/src/services/
@@ -788,7 +732,6 @@ export interface CoreApiPort {
 	readonly org: CoreApiOrgPort;
 	readonly routine: CoreApiRoutinePort;
 	readonly knowledge: CoreApiKnowledgePort;
-	readonly review: CoreApiReviewPort;
 }
 
 /**

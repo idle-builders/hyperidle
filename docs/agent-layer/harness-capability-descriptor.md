@@ -156,7 +156,7 @@ CLI binary → [HTTP POST /api/mcp/:token] → createMcpRoute → bridgeRegistry
 
 **Proven in tests:** `mcp-bridge-stateful.integration.test.ts` drives the production factory+route through init→list→call via the SDK `Client` + `StreamableHTTPClientTransport`; sanity-break: POST without `mcp-session-id` → 400/404.
 
-Per-CLI config delivery is listed under each family above. The staged-operation gate that rides this bridge (`registry.invoke`, never harness-native) is owned by [staged-operation](../process-layer/staged-operation.md).
+Per-CLI config delivery is listed under each family above. The gate that routes a consequential action to a human is being rebuilt; no document describes a live mechanism for it until it lands.
 
 ---
 

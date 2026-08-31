@@ -262,23 +262,23 @@ describe("agent session request repository", () => {
 
 	test("concurrent intent drains process one durable attempt", async ({ db }) => {
 		const intent = await enqueueWorkIntent(db, {
-			kind: "reengagement",
-			sourceKind: "proposed_call",
-			sourceId: "review-intent-lease",
+			kind: "assistant_turn",
+			sourceKind: "thread_message",
+			sourceId: "thread:intent-lease",
 			requestedBy: "agent-intent-lease",
-			idempotencyKey: "reengagement:intent-lease",
-			// AU44: bakedRequest now required; provide minimal valid payload.
+			idempotencyKey: "assistant_turn:intent-lease",
 			// The drain will fail (no real FKs) — that's fine, test only proves
 			// claim-exclusivity (one attempt despite two concurrent drains).
 			bakedRequest: {
 				defaultAgentId: "agent-intent-lease",
-				sourceKind: "proposed_call",
-				sourceId: "review-intent-lease",
-				streamId: "proposed_call:review-intent-lease",
+				sourceKind: "assistant",
+				sourceId: "thread:intent-lease",
+				streamId: "thread:intent-lease",
 				sourceCorrelation: {
-					taskId: "t",
-					proposedCallId: "review-intent-lease",
-					grantedAgentId: "a",
+					threadId: "thread:intent-lease",
+					messageId: "msg-1",
+					userId: "user-1",
+					assistantAgentId: "agent-intent-lease",
 				},
 			},
 		});

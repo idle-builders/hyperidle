@@ -10,7 +10,6 @@
 		"check": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@hyperidle/harness-protocol": "*",
 		"vitest": "^4.1.9"
 	},
 	"dependencies": {

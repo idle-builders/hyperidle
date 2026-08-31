@@ -5,7 +5,6 @@
  * POST   /api/agents              — create new agent (founder-only)
  * PATCH  /api/agents/:id         — update agent config (founder-only)
  * DELETE /api/agents/:id         — soft-delete to "retired" (founder-only)
- * GET    /api/agents/templates/:role — fetch system prompt template (docs-backed, AU18)
  *
  * @lore X3: Separate from /api/users because the self-edit guard on PATCH /api/users/:id
  * returns 403 when the authenticated user tries to edit another user. Agent management
@@ -31,11 +30,11 @@ import {
 	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
-	findRoleCatalogEntry,
 	MODEL_TIERS,
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { getTeam, readSystemPromptTemplateForRole } from "@hyperidle/org";
+import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
@@ -52,6 +51,7 @@ const createAgentSchema = z.object({
 	name: z.string().min(1).max(200),
 	role: z.string().min(1).max(100),
 	agentCategory: z.enum(AGENT_CATEGORIES).optional(),
+	/** Seed text for the agent's identity document. Editing it afterwards happens on the document. */
 	systemPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
 	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
@@ -67,9 +67,12 @@ const createAgentSchema = z.object({
 });
 
 const patchAgentSchema = z.object({
+	// No `systemPrompt`. An agent's identity is the `agent_file` knowledge
+	// document bound to it, edited through the one knowledge edit endpoint. This
+	// route used to carry it, which is why it also carried a whole duplicate
+	// handler branch to stop assistants from using it.
 	name: z.string().min(1).max(200).optional(),
 	role: z.string().min(1).max(100).optional(),
-	systemPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
 	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
 	modelId: z.string().max(200).nullable().optional(),
@@ -97,7 +100,6 @@ type PatchAgentData = z.infer<typeof patchAgentSchema>;
  * mirror, not an import.
  */
 const EMPTY_RUN_CONFIG_VIEW = {
-	systemPrompt: null,
 	harnessType: null,
 	modelTierPreference: null,
 	modelId: null,
@@ -129,7 +131,6 @@ function buildIdentityUpdateSet(data: PatchAgentData): Record<string, unknown> {
 /** Build the `agent_run_config` half of a PATCH — same "present key wins, explicit null clears" semantics. */
 function buildRunConfigPatch(data: PatchAgentData): AgentOrchestrationRunConfigPatch {
 	const patch: AgentOrchestrationRunConfigPatch = {};
-	if ("systemPrompt" in data) patch.systemPrompt = data.systemPrompt ?? null;
 	if ("harnessType" in data) patch.harnessType = data.harnessType ?? null;
 	if ("modelTierPreference" in data) patch.modelTierPreference = data.modelTierPreference ?? null;
 	if ("modelId" in data) patch.modelId = data.modelId ?? null;
@@ -166,29 +167,11 @@ export function createAgentRoutes(
 		return handleAgentProfile(c, db, adapterPool, agentOrchestration);
 	});
 
-	// ── GET /templates/:role — MUST come before /:id to avoid route collision ──
-	// @lore X3: Hono matches routes in registration order. If /:id was registered
-	// first, "templates" would be captured as the id param. Register the static
-	// path prefix first.
-	//
-	// @lore AU18 (round 3 CRITICAL fix): previously a DB-key lookup against
-	// `factorySettings.system_template:<role>` (traversal-safe by construction —
-	// a table key lookup, not a filesystem path). Now resolves via
-	// `readSystemPromptTemplateForRole`, which maps `role` through the
-	// canonical `SYSTEM_PROMPT_TEMPLATE_FILES` map BEFORE any filesystem
-	// access — an untrusted `role` that isn't an exact map key returns `null`
-	// (404) without ever touching `fs`, so traversal stays closed by
-	// construction. See system-prompt-templates.ts for the full rationale.
-	router.get("/templates/:role", async (c) => {
-		const role = c.req.param("role");
-		const content = readSystemPromptTemplateForRole(role);
-
-		if (content === null) {
-			return c.json({ error: "No template for role", code: "NOT_FOUND" }, 404);
-		}
-
-		return c.json({ role, content });
-	});
+	// @lore BA9g: `GET /templates/:role` is DELETED. It served
+	// `docs/system-prompts/*.md`, which moved into the `role-personas` plugin —
+	// HyperIdle ships a single agent with a bare AGENTS.md and holds no opinion
+	// about what a "builder" is. A plugin's agent brings its own identity, and an
+	// agent you create starts empty until you write one.
 
 	// ── GET / — list AI agents (excludes system role and retired) ──
 	router.get("/", async (c) => {
@@ -211,6 +194,12 @@ export function createAgentRoutes(
 		// AU26 G1 / AU31 §2.2: the run-config half of each agent comes from
 		// `agent_run_config` in ONE batched seam read — the wire shape stays flat.
 		const runConfigs = await agentOrchestration.runConfig.readBatch(agentRows.map((a) => a.id));
+		// The identity document each agent is bound to — the list links to it, it
+		// does not carry its text.
+		const identityIds = await getAgentIdentityIds(
+			db,
+			agentRows.map((a) => a.id),
+		);
 
 		const result = agentRows.map((agent) => {
 			const runConfig = runConfigs.get(agent.id) ?? EMPTY_RUN_CONFIG_VIEW;
@@ -219,7 +208,7 @@ export function createAgentRoutes(
 				name: agent.name,
 				role: agent.role,
 				agentCategory: agent.agentCategory ?? null,
-				systemPrompt: runConfig.systemPrompt,
+				identityKnowledgeId: identityIds.get(agent.id) ?? null,
 				harnessType: runConfig.harnessType,
 				modelTierPreference: runConfig.modelTierPreference,
 				modelId: runConfig.modelId,
@@ -278,8 +267,7 @@ export function createAgentRoutes(
 		}
 
 		// Derive agentCategory: explicit field > catalog lookup > default "team"
-		const agentCatalogEntry = findRoleCatalogEntry(data.role);
-		const agentCategory = data.agentCategory ?? agentCatalogEntry?.category ?? "team";
+		const agentCategory = data.agentCategory ?? "team";
 
 		const id = randomUUID();
 		const now = new Date().toISOString();
@@ -303,8 +291,13 @@ export function createAgentRoutes(
 			teamId: data.teamId ?? null,
 			createdAt: now,
 		});
+		const identityKnowledgeId = await upsertAgentIdentity(db, {
+			agentId: id,
+			agentName: data.name,
+			body: data.systemPrompt ?? "",
+			updatedBy: c.get("userId") ?? id,
+		});
 		await agentOrchestration.runConfig.write(id, {
-			systemPrompt: data.systemPrompt ?? null,
 			harnessType: effectiveHarnessType,
 			modelTierPreference: data.modelTierPreference ?? null,
 			modelId: effectiveModelId,
@@ -319,7 +312,7 @@ export function createAgentRoutes(
 				name: data.name,
 				role: data.role,
 				agentCategory,
-				systemPrompt: data.systemPrompt ?? null,
+				identityKnowledgeId,
 				harnessType: effectiveHarnessType,
 				modelTierPreference: data.modelTierPreference ?? null,
 				modelId: effectiveModelId,
@@ -342,95 +335,6 @@ export function createAgentRoutes(
 		}
 		if (existing.kind !== "ai" || existing.role === "system") {
 			return c.json({ error: "Cannot modify system agents", code: "FORBIDDEN" }, 403);
-		}
-
-		// AH3 §4: MANDATORY server-side reject of systemPrompt writes to ast-* agents.
-		// The canonical edit surface is PATCH /api/users/:id/assistant.
-		// UI omission alone is insufficient — a raw API call could bypass it.
-		//
-		// @lore AH3 §4: We check the body BEFORE full parse to catch this early.
-		// We need to read the body to check for systemPrompt, then re-use it below.
-		// We do this check inside the parsed data block below.
-		if (id.startsWith("ast-")) {
-			// We must parse the body first to check if systemPrompt is being written.
-			// Parse it here and check; if systemPrompt is present, reject.
-			let earlyBody: unknown;
-			try {
-				earlyBody = await c.req.json();
-			} catch {
-				return c.json({ error: "Invalid JSON", code: "VALIDATION_ERROR" }, 400);
-			}
-			// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-			if (typeof earlyBody === "object" && earlyBody !== null && "systemPrompt" in earlyBody) {
-				return c.json(
-					{
-						error:
-							"Cannot edit assistant persona via the Agents API. Use PATCH /api/users/:id/assistant instead.",
-						code: "ASSISTANT_SOUL_EDIT_FORBIDDEN",
-					},
-					403,
-				);
-			}
-			// Non-systemPrompt fields: allow through (other config changes ok)
-			// Re-parse with schema
-			const parsed = patchAgentSchema.safeParse(earlyBody);
-			if (!parsed.success) {
-				return c.json(
-					{ error: "Validation error", code: "VALIDATION_ERROR", issues: parsed.error.issues },
-					400,
-				);
-			}
-
-			const data = parsed.data;
-			// AU26 G1: the "?? existing" half of the effective triple now comes
-			// from `agent_run_config`, not the `users` row.
-			const existingRunConfig = await agentOrchestration.runConfig.read(id);
-			const effectiveHarnessType =
-				"harnessType" in data ? (data.harnessType ?? null) : existingRunConfig.harnessType;
-			const effectiveProvider =
-				"modelProvider" in data ? (data.modelProvider ?? null) : existingRunConfig.modelProvider;
-			const effectiveModelId =
-				"modelId" in data ? (data.modelId ?? null) : existingRunConfig.modelId;
-
-			const validationError = validateAgentConfig(
-				effectiveHarnessType,
-				effectiveProvider,
-				effectiveModelId,
-				adapterPool ?? null,
-			);
-			if (validationError) {
-				return c.json(validationError, 422);
-			}
-
-			const updateSet = buildIdentityUpdateSet(data);
-			if (Object.keys(updateSet).length > 0) {
-				await updateUser(db, id, updateSet);
-			}
-			const runConfigPatch = buildRunConfigPatch(data);
-			if (Object.keys(runConfigPatch).length > 0) {
-				await agentOrchestration.runConfig.write(id, runConfigPatch);
-			}
-
-			const updated = await findUser(db, { id });
-			if (!updated) {
-				return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
-			}
-			const updatedRunConfig = await agentOrchestration.runConfig.read(id);
-
-			return c.json({
-				id: updated.id,
-				name: updated.name,
-				role: updated.role,
-				agentCategory: updated.agentCategory ?? null,
-				// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-				systemPrompt: updatedRunConfig.systemPrompt,
-				harnessType: updatedRunConfig.harnessType,
-				modelTierPreference: updatedRunConfig.modelTierPreference,
-				modelId: updatedRunConfig.modelId,
-				modelProvider: updatedRunConfig.modelProvider,
-				maxConcurrentSessions: updatedRunConfig.maxConcurrentSessions,
-				status: updated.status,
-			});
 		}
 
 		let rawBody: unknown;
@@ -493,11 +397,15 @@ export function createAgentRoutes(
 			name: updated.name,
 			role: updated.role,
 			agentCategory: updated.agentCategory ?? null,
-			systemPrompt: updatedRunConfig.systemPrompt,
+			identityKnowledgeId: (await getAgentIdentityIds(db, [id])).get(id) ?? null,
 			harnessType: updatedRunConfig.harnessType,
 			modelTierPreference: updatedRunConfig.modelTierPreference,
 			modelId: updatedRunConfig.modelId,
 			modelProvider: updatedRunConfig.modelProvider,
+			// The editor sets these, so the editor's save has to hand them back —
+			// otherwise the client splices a response with no options over the row
+			// it just saved options to.
+			modelOptions: updatedRunConfig.modelOptions,
 			maxConcurrentSessions: updatedRunConfig.maxConcurrentSessions,
 			status: updated.status,
 		});

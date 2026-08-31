@@ -10,7 +10,7 @@ export type {
 	SessionHandle,
 	SessionMetrics,
 	SessionResult,
-	SessionWorkflow,
+	SessionResumeConfig,
 } from "./harness/harness-adapter.js";
 export type {
 	CompletionEvent,

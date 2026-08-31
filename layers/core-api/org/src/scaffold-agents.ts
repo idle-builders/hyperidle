@@ -151,7 +151,6 @@ export async function persistScaffoldedAgents(
 	const now = new Date().toISOString();
 	const agentIds: string[] = [];
 	let leadAgentId: string | null = null;
-	let firstProductManagerId: string | null = null;
 
 	for (const spec of specs) {
 		const agentId = await resolveAgentId(db, users, spec.idHint);
@@ -169,18 +168,30 @@ export async function persistScaffoldedAgents(
 			createdAt: now,
 		});
 		await users.writeAgentRunConfig(db, agentId, {
-			systemPrompt: spec.systemPrompt,
 			harnessType: resolvedHarness?.harnessType ?? "builtin",
 			modelId: resolvedHarness?.modelId ?? "claude-sonnet-4-6",
 			modelProvider: resolvedHarness?.modelProvider ?? "anthropic",
-			maxConcurrentSessions: spec.role === "builder" ? 3 : 1,
+			// @lore BA9g: this used to be `spec.role === "builder" ? 3 : 1` — a
+			// concurrency dial keyed to a role the core no longer knows anything
+			// about. Every scaffolded agent starts at 1 and the operator raises it.
+			maxConcurrentSessions: 1,
 		});
-
-		if (spec.role === "product_manager" && firstProductManagerId === null) {
-			firstProductManagerId = agentId;
+		// The agent's identity is a knowledge document, seeded once here — the one
+		// place an agent comes into existence — and edited like any other document
+		// afterwards. Absent when the role has no template; the agent then has no
+		// persona section, which is a valid state.
+		if (spec.systemPrompt) {
+			await users.upsertAgentIdentity(db, {
+				agentId,
+				agentName: spec.name,
+				body: spec.systemPrompt,
+				updatedBy: "scaffold",
+			});
 		}
 	}
 
-	leadAgentId = firstProductManagerId ?? agentIds[0] ?? null;
+	// @lore BA9g: lead used to be "the first product_manager, else the first
+	// agent" — an election among a roster the core no longer composes.
+	leadAgentId = agentIds[0] ?? null;
 	return { agentIds, leadAgentId };
 }

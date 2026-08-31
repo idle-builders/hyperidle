@@ -166,11 +166,14 @@ export async function fireGenericRoutine(
 			});
 			bakedRequest = await resolveRoutineRunRequest(tx as HyperIdleDb, runId, {
 				requireRunnableAgent: ports.requireRunnableAgent,
+				getAgentIdentity: ports.getAgentIdentity,
 				// AU21 §9 Increment 12 (Decision H3): forward the optional
 				// contextBundle deps (present once the composition root wires
 				// them — `routine-scheduler-bindings.ts`).
 				getTeamById: ports.getTeamById,
 				assembleSessionKnowledge: ports.assembleSessionKnowledge,
+				// The routine's instruction lives in a knowledge document.
+				getKnowledgeBody: ports.getKnowledgeBody,
 				// AU21 §9 Increment 12 (Decision H3), Wave E: forward the SAME
 				// `settings.readServerConfig` for the `harnessDisabled` bake — no
 				// second `settings` read.

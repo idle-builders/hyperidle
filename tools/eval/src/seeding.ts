@@ -36,7 +36,6 @@ import type {
 	ScopeKind,
 	TaskState,
 } from "@hyperidle/domain-model";
-import { findRoleCatalogEntry } from "@hyperidle/domain-model";
 import type { ScenarioSeedResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -124,7 +123,6 @@ export async function seedAgent(
 	// Services, this one included.
 	await db.insert(agentRunConfig).values({
 		agentUserId: agentId,
-		systemPrompt: opts.systemPrompt ?? null,
 		harnessType: opts.harnessType ?? "builtin",
 		modelTierPreference: opts.modelTierPreference ?? null,
 	});
@@ -278,8 +276,9 @@ export async function seedMinimalWorld(
 	const { founderId } = await seedFounder(db);
 	const agentRole = opts?.agentRole ?? "builder";
 	// AB0: derive agentCategory from role catalog so seeded agents match production behavior.
-	const catalogEntry = findRoleCatalogEntry(agentRole);
-	const agentCategory: AgentCategory = catalogEntry?.category ?? "team";
+	// @lore BA9g: the role catalog is gone — a role is a string on an agent. An
+	// eval's agents are team agents.
+	const agentCategory: AgentCategory = "team";
 	const { agentId } = await seedAgent(db, {
 		name: "Eval Agent",
 		role: agentRole,
@@ -570,9 +569,7 @@ export async function seedMultiAgentWorld(
 	});
 
 	const secondRole = opts?.secondAgentRole ?? "product_manager";
-	// AB0: derive agentCategory from role catalog for second agent.
-	const secondCatalogEntry = findRoleCatalogEntry(secondRole);
-	const secondAgentCategory: AgentCategory = secondCatalogEntry?.category ?? "team";
+	const secondAgentCategory: AgentCategory = "team";
 	const { agentId: secondAgentId } = await seedAgent(db, {
 		name: opts?.secondAgentName ?? "Eval Agent 2",
 		role: secondRole,

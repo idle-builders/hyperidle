@@ -58,10 +58,7 @@ export type {
 	RunOrchestrationHarnessRuntimeAdapter,
 	RunOrchestrationReturnStatusToolAdapter,
 } from "./services/run-orchestration-composition.js";
-export {
-	buildProposedCallWorkflowPort,
-	buildRunOrchestrationComposition,
-} from "./services/run-orchestration-composition.js";
+export { buildRunOrchestrationComposition } from "./services/run-orchestration-composition.js";
 /**
  * AU31 §2.5: the tool stack's own composition — `buildToolHandlersPorts`/
  * `buildToolDefinitions` wire `@hyperidle/tool-handlers`' domain ports to a

@@ -19,7 +19,6 @@
  *   task_run          -> work marks the taskDispatchAttempts row failed
  *   session_start     -> work marks the explicitSessionStarts row failed (no retry)
  *   knowledge_action  -> a review-flagged item is created (no run-record mutation)
- *   reengagement      -> review's existing retry-count liveness-net pattern
  *   assistant_turn     -> informational only, no mutation
  *
  * All seven are currently RED: the event isn't even emitted yet (see the
@@ -41,8 +40,6 @@
  */
 
 import {
-	agentWorkIntents,
-	artifacts,
 	bets,
 	explicitSessionStarts,
 	type HyperIdleDb,
@@ -50,10 +47,8 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 	messages,
-	proposedCalls,
 	routineRuns,
 	routines,
-	tailoredGrants,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -62,7 +57,7 @@ import {
 } from "@hyperidle/db";
 import { attentionReviewReasoningMarker } from "@hyperidle/knowledge";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
@@ -387,122 +382,6 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, item?.id ?? ""));
 		expect(reloadedItem?.status).toBe("archived");
-	});
-
-	test("reengagement: reuses the existing retry-count liveness-net pattern", async ({
-		db,
-		eventBus,
-	}) => {
-		const { teamId } = await seedTeam(db, "w0-sub-reengage");
-		await seedAgent(db, "w0-sub-reengage-agent", { teamId });
-		await db.insert(bets).values({
-			id: "w0-sub-reengage-bet",
-			teamId,
-			description: "Wave 0 subscriber reengagement bet",
-			status: "active",
-			createdAt: NOW,
-		});
-		await db.insert(tasks).values({
-			id: "w0-sub-reengage-task",
-			betId: "w0-sub-reengage-bet",
-			teamId,
-			title: "Wave 0 subscriber task",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-		await db.insert(threads).values({
-			id: "w0-sub-reengage-thread",
-			hostKind: "task",
-			hostId: "w0-sub-reengage-task",
-			initiatorId: "w0-sub-reengage-agent",
-			participants: JSON.stringify(["w0-sub-reengage-agent"]),
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		});
-		await db.insert(messages).values({
-			id: "w0-sub-reengage-message",
-			senderId: "w0-sub-reengage-agent",
-			threadId: "w0-sub-reengage-thread",
-			type: "review",
-			payload: JSON.stringify({ title: "Approve", reasoning: ["needed"] }),
-			clientKey: "w0-sub-reengage-message",
-			createdAt: NOW,
-		});
-		await db.insert(artifacts).values({
-			id: "w0-sub-reengage-artifact",
-			producingTaskId: "w0-sub-reengage-task",
-			kind: "action_operation",
-			createdAt: NOW,
-		});
-		await db.insert(proposedCalls).values({
-			id: "w0-sub-reengage-call",
-			reviewMessageId: "w0-sub-reengage-message",
-			subjectThreadId: "w0-sub-reengage-thread",
-			artifactId: "w0-sub-reengage-artifact",
-			originSessionId: "w0-sub-reengage-origin",
-			toolId: "commit_file",
-			args: JSON.stringify({ path: "result.txt" }),
-			identityHash: "w0-sub-reengage-hash",
-			reversibility: "irreversible",
-			// held — forces "Proposed call grant is not eligible" (call.status !== "granted").
-			status: "held",
-			stagedByAgentId: "w0-sub-reengage-agent",
-			createdAt: NOW,
-		});
-		await db.insert(tailoredGrants).values({
-			proposedCallId: "w0-sub-reengage-call",
-			taskScope: "w0-sub-reengage-task",
-			agentScope: "w0-sub-reengage-agent",
-			approvedToolId: "commit_file",
-			approvedArgs: JSON.stringify({ path: "result.txt" }),
-			retryCount: 0,
-			mintedAt: NOW,
-		});
-
-		const deps = { ...queueDeps(db), eventBus };
-		// AU44: baked intent + trigger forces terminal failure.
-		// The liveness retry subscriber still fires, increments retryCount,
-		// and records a fresh reengagement intent via the seam.
-		await rejectSessionRequestWrites(db);
-		await enqueueWorkIntent(db, {
-			kind: "reengagement",
-			sourceKind: "proposed_call",
-			sourceId: "w0-sub-reengage-call",
-			idempotencyKey: "w0-sub-reengage-intent",
-			bakedRequest: {
-				defaultAgentId: "w0-sub-reengage-agent",
-				sourceKind: "proposed_call",
-				sourceId: "w0-sub-reengage-call",
-				streamId: "proposed_call:w0-sub-reengage-call",
-				taskId: "w0-sub-reengage-task",
-				sourceCorrelation: {
-					taskId: "w0-sub-reengage-task",
-					proposedCallId: "w0-sub-reengage-call",
-					grantedAgentId: "w0-sub-reengage-agent",
-				},
-			},
-		});
-		await drainIntents(deps, { maxAttempts: 1 });
-
-		await vi.waitFor(async () => {
-			const [grant] = await db
-				.select()
-				.from(tailoredGrants)
-				.where(eq(tailoredGrants.proposedCallId, "w0-sub-reengage-call"));
-			expect(grant?.retryCount).toBe(1);
-			const retryIntents = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(
-					and(
-						eq(agentWorkIntents.kind, "reengagement"),
-						eq(agentWorkIntents.sourceId, "w0-sub-reengage-call"),
-					),
-				);
-			// The original + a fresh re-provision intent recorded by the liveness net.
-			expect(retryIntents.length).toBeGreaterThanOrEqual(2);
-		});
 	});
 
 	test("assistant_turn: informational only — no mutation of the source message", async ({

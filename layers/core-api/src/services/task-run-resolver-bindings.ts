@@ -12,7 +12,7 @@
  * real `task_run` emit site from ONE place, instead of five independently
  * drifting copies.
  */
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -25,6 +25,9 @@ import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";
 // escapes through an exported binding.
 export const taskRunResolverDeps: TaskRunResolverDeps = {
 	requireRunnableAgent: (db, agentId) => requireRunnableAgent(db, agentId),
+	// The agent's identity document. It was missing here while the port was
+	// optional, so every real `task_run` baked an empty identity.
+	getAgentIdentity: (db, agentId) => getAgentIdentity(db, agentId),
 	getTeamById: (db, id) => getTeam(db, { id }),
 	assembleSessionKnowledge: (...args: Parameters<typeof assembleSessionKnowledge>) =>
 		assembleSessionKnowledge(...args),

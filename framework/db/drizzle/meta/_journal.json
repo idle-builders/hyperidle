@@ -477,6 +477,48 @@
 			"when": 1785675600000,
 			"tag": "0067_repair_claude_harness_type",
 			"breakpoints": true
+		},
+		{
+			"idx": 68,
+			"version": "7",
+			"when": 1785679200000,
+			"tag": "0068_routine_prompt_is_a_document",
+			"breakpoints": true
+		},
+		{
+			"idx": 69,
+			"version": "7",
+			"when": 1785682800000,
+			"tag": "0069_agent_persona_is_a_document",
+			"breakpoints": true
+		},
+		{
+			"idx": 70,
+			"version": "7",
+			"when": 1785686400000,
+			"tag": "0070_drop_al7_capture_tables",
+			"breakpoints": true
+		},
+		{
+			"idx": 71,
+			"version": "7",
+			"when": 1785690000000,
+			"tag": "0071_action_rules",
+			"breakpoints": true
+		},
+		{
+			"idx": 72,
+			"version": "7",
+			"when": 1785690001000,
+			"tag": "0072_plugin_ownership_registry",
+			"breakpoints": true
+		},
+		{
+			"idx": 73,
+			"version": "7",
+			"when": 1785690002000,
+			"tag": "0073_drop_team_functions",
+			"breakpoints": true
 		}
 	]
 }

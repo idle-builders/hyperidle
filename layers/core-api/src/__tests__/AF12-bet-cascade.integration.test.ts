@@ -19,6 +19,7 @@ import {
 } from "@hyperidle/conversation";
 import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import type { PropagationAppliedEvent } from "@hyperidle/event-bus";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
@@ -97,7 +98,7 @@ const testDeps: BetKillCascadeDeps = {
 	workIntents: vi
 		.fn()
 		.mockResolvedValue({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent },
+	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 	runOrchestration: { requestRunStopForTasks },
 };
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired

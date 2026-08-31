@@ -4,13 +4,13 @@ Who agents are: composition principles, identity, the categories, lifecycle, and
 
 ## 1. Principles
 
-1. **Agent = system prompt + context + skills.** The system prompt defines who they are (`agent_run_config.system_prompt`, injected as the first section of every session prompt — `layers/agent-orchestration/run-orchestration/src/context.ts`). Context is what they know, assembled just-in-time by the knowledge fabric. Skills are what they can do (tools injected separately at session start). All three are composable and independently swappable.
+1. **Agent = identity + context + skills.** The identity says who they are — an `agent_file` knowledge document bound to the agent, injected as the `## Identity` section of every session prompt (`layers/agent-orchestration/run-orchestration/src/context.ts`). Context is what they know, assembled just-in-time by the knowledge fabric. Skills are what they can do (tools injected separately at session start). All three are composable and independently swappable.
 
-2. **Process first, agents second.** Design how work flows, then staff it. An agent exists because a role exists in the process — rosters derive from team functions (`defaultFactoryRoster`, `framework/factory-defaults/src/factory-roster.ts`), agents are never free-floating creations.
+2. **Process first, agents second.** Design how work flows, then staff it. HyperIdle ships no opinion about what roles a process needs: a new team is one empty agent, and you shape it — or install a plugin that brings a shaped team.
 
-3. **Context is the product.** Agents are disposable; context survives. The company's real asset is its accumulated context — product knowledge, practice patterns, brand, decisions, customer insights. Replace every agent tomorrow and the new ones are productive within one session, because persona is data (`agent_run_config.system_prompt`, seeded from the `docs/system-prompts/*.md` templates) and identity survives replacement.
+3. **Context is the product.** Agents are disposable; context survives. The company's real asset is its accumulated context — product knowledge, practice patterns, brand, decisions, customer insights. Replace every agent tomorrow and the new ones are productive within one session, because an identity is a knowledge document like any other, and identity survives replacement.
 
-4. **Hire and fire freely.** Agents spin up and down with the work. A new team gets a default roster; agents leave only when their work is done (see [teams](../process-layer/teams.md)).
+4. **Hire and fire freely.** Agents spin up and down with the work. A new team starts with one agent; you add the rest, or a plugin does (see [teams](../process-layer/teams.md)).
 
 5. **Trust agents; humans own the consequential.** Agents hold their own credentials, run their own tools, and work with broad self-permission. We design to give agents *more* power, not less — never for paranoia or a hypothetical rogue agent (`ETHOS.md` §2). Humans step in at consequential moments via review — a collaboration checkpoint, not a cage. The gate fades as trust is earned: autonomy graduates off the review track record (verdict-history approval rate in `layers/core-api/policy/src/policy-engine.ts`, per AD4 — never a manually-set per-skill dial). Review routing surfaces are described in [review-primitive](../human-interface-layer/review-primitive.md).
 
@@ -19,7 +19,7 @@ Who agents are: composition principles, identity, the categories, lifecycle, and
 Agent identity has two parts, and they live in two different tables:
 
 - **Who the agent is to the org** — `users`: the stable `users.id` (kind = `'ai'`) every session attaches to, plus `role`, `status`, `teamId`, `agentCategory`.
-- **How the agent runs** — `agent_run_config`: the system prompt, harness, model, and concurrency. Keyed one row per `agent_user_id`.
+- **How the agent runs** — `agent_run_config`: harness, model, and concurrency. Keyed one row per `agent_user_id`. **Not** the identity — that is a knowledge document (§2.1).
 
 Which table a field belongs in is a package-boundary question, and the boundary is machine-enforced — see [`tools/governance/README.md`](../../tools/governance/README.md). Do not infer it from surrounding code.
 
@@ -41,19 +41,38 @@ One row per agent, primary-keyed on `agent_user_id`.
 
 | Field | Column | Purpose |
 |---|---|---|
-| System prompt | `system_prompt` (text, nullable) | Injected at session start — who this agent is. |
 | Harness type | `harness_type` (text, nullable) | Preferred adapter (`builtin`, `claude-code`, `codex`, `opencode`, `cursor-agent`); null means any available adapter. |
 | Model tier | `model_tier_preference` (text, nullable) | Preferred tier (`reasoning` \| `workhorse` \| `fast`); null means system default. Tier vocabulary is owned by [model-routing-and-cost](./model-routing-and-cost.md). |
 | Model | `model_id`, `model_provider` (text, nullable) | Per-agent model override. Resolution order is owned by [model-routing-and-cost](./model-routing-and-cost.md). |
-| Concurrency | `max_concurrent_sessions` (int, not null, default 1) | Max parallel sessions. Set by role: builder 3, all others 1. |
+| Concurrency | `max_concurrent_sessions` (int, not null, default 1) | Max parallel sessions. Every agent starts at 1; the operator raises it. |
 
 **An absent row is identical to an all-null row.** `max_concurrent_sessions` is the one NOT NULL DEFAULT column; every other field is nullable with no default, and the effective defaults live in the resolvers, not the columns. `readAgentRunConfig` returns `DEFAULT_AGENT_RUN_CONFIG` for an agent with no row, so an agent whose config was never written resolves exactly what an all-null row resolves.
 
-System prompts stay short — ideally under 500 tokens (guidance, not enforced) — because they load into every session.
+### 2.1 Identity is a knowledge document
 
-Templates for standard roles are read straight from `docs/system-prompts/*.md` at setup, via the shared `SYSTEM_PROMPT_TEMPLATE_FILES` map + `readSystemPromptTemplateForRole` (`framework/factory-defaults/src/system-prompt-templates.ts`, called from the agent-orchestration first-boot face at `layers/agent-orchestration/src/factory-run-config.ts`). One role-to-filename source, consumed by bootstrap and at request time alike. The template is only a starting point; `agent_run_config.system_prompt` is the single runtime source of truth, and founders can edit it after creation. Template content lives in [system-prompts](../system-prompts/index.md).
+Who an agent is lives where every other piece of knowledge lives: an
+`agent_file` document bound to the agent — `scope_kind='user'` with `scope_id`
+the agent's id, which is what that role has always meant. It is read, edited,
+versioned and reviewed like any document, through the one knowledge edit
+endpoint. Editing it changes what the agent's next session runs with.
 
-At session start the run orchestrator loads the system prompt, queries the knowledge layers, and packs the result into TOON. The agent doesn't know about layers; it gets a context pack.
+The identity is seeded once, where an agent comes into existence, and is the
+person's from then on. An agent with no identity document runs with no `##
+Identity` section at all — a valid state, and the state a new team's agent
+starts in.
+
+HyperIdle ships no role personas. A Builder, a Designer, a Product Manager are
+things a plugin brings: a plugin's agent declares an `identity` file, and
+installing it materialises that document. See
+[plugins](../architecture/plugins.md).
+
+Identities stay short — ideally under 500 tokens (guidance, not enforced) —
+because they load into every session, and the prompt assembler truncates to the
+token budget rather than overflowing it.
+
+At session start the run orchestrator loads the identity, queries the knowledge
+layers, and packs the result into TOON. The agent doesn't know about layers; it
+gets a context pack.
 
 ## 3. The Three Categories
 
@@ -63,20 +82,35 @@ Every AI agent belongs to exactly one structural category. Category determines s
 
 | Category | Binding | Provisioned by | Editability | Roles in catalog |
 |---|---|---|---|---|
-| **Team** | Bound to a team (`teamId` non-null) | Default roster per team function | Fully user-controlled | 11 roles: builder, designer, product_manager, qa_engineer, growth, ops, brand_voice, support, sales, content, data_analyst |
-| **Individual** | Bound to a human user (`ownerUserId` non-null, `teamId` null) OR factory-wide facilitator/plugin agent | Per-user at registration, or plugin bootstrap | Fully user-controlled | assistant, facilitator, scout, infra, platform |
+| **Team** | Bound to a team (`teamId` non-null) | One at team creation; the rest by you or a plugin | Fully user-controlled | Any role — a role is a string, not a list |
+| **Individual** | Bound to a human user (`ownerUserId` non-null, `teamId` null) OR a factory-wide plugin agent | Per-user at registration, or plugin install | Fully user-controlled | `assistant` for the per-human one; any role for a plugin's |
 
 ### 3.1 Team agents
 
 The visible workforce — prominent in the Work view, session activity, and review threads. They do the work that ships. The roster is not fixed: role is an open string, and the roster flexes with the work.
 
-### 3.2 Strategy agents
+### 3.2 Plugin agents
 
-Knowledge-scoped; users rarely interact with them directly. They curate knowledge, surface cross-domain patterns, and maintain taxonomy health — they facilitate, never build. Facilitators are seeded one per practice community (`PRACTICE_COMMUNITIES` — `build`, `product`, `growth`, `ops`, `facilitation` — `framework/factory-defaults/src/factory-roster.ts`); their duties are detailed in [facilitators](../knowledge-architecture/facilitators.md). Strategy agents are never part of a team roster — they are provisioned at factory setup from `defaultFactoryRoster` (`framework/factory-defaults/src/factory-roster.ts`, consumed by the two first-boot layer faces — `applyFactoryCoreState` + `applyFactoryRunConfigDefaults`) and serve all teams.
+A plugin can contribute agents that serve the whole factory or one team. They
+arrive with their own identity (an `identity` file in the plugin), and the
+plugin service records every one in its ownership registry, so disabling or
+uninstalling the plugin takes its agents down with it.
+
+The factory itself provisions none of them. The old `defaultFactoryRoster` —
+five facilitators, one per practice community — is gone: the facilitator
+personas never worked and were retired in BA9d, and the roster concept left the
+core entirely in BA9g. What survives of that idea is
+[facilitators](../knowledge-architecture/facilitators.md), which describes a
+plugin's shape, not something HyperIdle ships.
 
 ### 3.3 Individual agents — the Assistant
 
-Each human gets exactly one assistant: a personal operator scoped to that user. It sees what the user can see and does what the user can do — no factory-wide omniscience. Each user's assistant has its own system prompt (GET/PATCH `/api/users/:userId/assistant`), its own pinned thread, and its own session history.
+Each human gets exactly one assistant: a personal operator scoped to that user. It sees what the user can see and does what the user can do — no factory-wide omniscience. Each user's assistant has its own identity document, its own pinned thread, and
+its own session history. **The assistant is the one agent HyperIdle ships with a
+persona** — it is what you talk to on a fresh install, and it carries extra
+rights. It is edited through `/api/agents/:id` and the one knowledge edit
+endpoint, like every other agent; the `GET/PATCH /api/users/:userId/assistant`
+pair that used to be its private editor was deleted in BA9f.
 
 **Lifecycle.** Created at user registration (`layers/core-api/src/routes/users.ts`) or lazily via resolve-or-create (GET `/api/threads/assistant`). The thread starts unpinned, pins after the first real AI response, and stays pinned.
 
@@ -86,13 +120,31 @@ Each human gets exactly one assistant: a personal operator scoped to that user. 
 
 ### 3.4 Category is not role
 
-Category is structural: scope + visibility. Role is functional: what the agent does within its category. Role is an **open string** (`UserRole = string`); `AGENT_ROLE_CATALOG` (`framework/domain-model/src/agent-roles.ts`) supplies metadata for known roles (label, category, template flag, team-function mapping). Unknown roles are valid — they get base tools, no template, and default to category `team`.
+Category is structural: scope + visibility. Role is functional: what the agent
+does within its category.
+
+**A role is data, not a list.** It is an open string on an agent
+(`UserRole = string`). The roles that exist are the distinct roles among the
+agents you can see — that is what the role pickers offer — and typing a new one
+introduces it. A plugin introduces one by declaring an agent with it.
+`roleLabel` (`framework/domain-model/src/agent-roles.ts`) derives a display name
+from any string, so nothing needs a registry to render.
+
+The hardcoded `AGENT_ROLE_CATALOG` — 17 roles with labels, categories, template
+flags and team-function mappings — was deleted in BA9g.
 
 Category is not a permission system — tool authorization is role-based filtering, never a category check. Category is not a UI grouping: team agents are prominent in Work, individual agents (including facilitators) are visible per role. Whether category is immutable after creation is unverified in code (`users.ts` update route).
 
-### 3.5 Team functions and the default roster
+### 3.5 A new team is one agent
 
-A team function is a domain label determining which roles appear in the default roster. Known functions: `development`, `product`, `design`, `marketing`, `sales`, `operations`, `support`, `research` (`TEAM_FUNCTIONS`, `agent-roles.ts:21-30`) — the catalog is open. On team creation the system auto-provisions the union of catalog roles across the team's functions (`defaultRoster()`, `agent-roles.ts`). Whether provisioning is idempotent (skips roles that already have an agent) is unverified in code.
+Creating a team creates one agent, with no identity, carrying the neutral role
+`agent`. You shape it, or install a plugin that brings a shaped team.
+
+There is no roster and no team "functions". A team used to declare functions
+(`development`, `product`, …) that mapped through the role catalog to
+auto-provision a Builder, a Product Manager and a QA Engineer, and a team that
+produced no agents was rejected. All of it — the mapping, the `functions`
+column, the rejection — was removed in BA9g.
 
 ### 3.6 Rename lore (AD8)
 

@@ -48,6 +48,7 @@ import {
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
+	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
@@ -136,6 +137,7 @@ function makePorts(): RoutineSchedulerPorts {
 		},
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
+		getAgentIdentity,
 	};
 }
 

@@ -40,8 +40,20 @@ type SourceKind = "git" | "zip" | "folder";
 type ScopeKind = "factory" | "team";
 type PluginState = "enabled" | "disabled";
 
+/**
+ * One thing a plugin contributed.
+ *
+ * @lore BA9g: `kind` covers the registry's kinds (agent, routine, knowledge) as
+ * well as configuration kinds. The shipped plugin contributes an agent, three
+ * routines and three skills and NONE of them are configuration defaults, so
+ * this list used to render empty for it.
+ */
 interface ContributionView {
 	kind: string;
+	/** The contributed row's id, or the namespaced configuration key. */
+	entityId: string;
+	/** What a person calls it — an id is not a name. */
+	label: string;
 	key: string;
 	manifestKey: string;
 	detached: boolean;
@@ -197,6 +209,18 @@ function InstallForm({ onInstalled }: InstallFormProps): JSX.Element {
 // Contribution list (shown expanded below a plugin row)
 // ---------------------------------------------------------------------------
 
+/** What each contribution kind is called in the list. */
+const KIND_LABEL: Record<string, string> = {
+	agent: "agent",
+	routine: "routine",
+	knowledge: "knowledge",
+	mcp_server: "MCP server",
+	harness_descriptor: "harness",
+};
+
+/** Kinds the registry names by row id rather than by manifest key. */
+const REGISTRY_KINDS = new Set(["agent", "routine", "knowledge"]);
+
 interface ContributionListProps {
 	pluginId: string;
 	contributions: ContributionView[];
@@ -217,13 +241,13 @@ function ContributionList({
 			data-testid={`plugin-contributions-${pluginId}`}
 		>
 			{contributions.map((c) => {
-				const key = `${pluginId}/${c.manifestKey}`;
+				const key = `${pluginId}/${c.entityId}`;
 				const isRestoring = restoring === key;
 				return (
-					<li key={c.key} className="flex items-center gap-[9px]">
+					<li key={c.entityId} className="flex items-center gap-[9px]">
 						<span className="type-small text-[var(--text-secondary)] flex-1">
-							<span className="type-label text-[var(--text-primary)]">{c.manifestKey}</span>·
-							<span className="text-[var(--text-tertiary)]">{c.kind}</span>
+							<span className="type-label text-[var(--text-primary)]">{c.label}</span>·
+							<span className="text-[var(--text-tertiary)]">{KIND_LABEL[c.kind] ?? c.kind}</span>
 						</span>
 						{c.detached && (
 							<>
@@ -233,7 +257,7 @@ function ContributionList({
 									size="sm"
 									disabled={isRestoring}
 									onClick={() => void onRestore(pluginId, c)}
-									data-testid={`btn-restore-${c.key}`}
+									data-testid={`btn-restore-${c.entityId}`}
 								>
 									{isRestoring ? "Restoring…" : "Restore"}
 								</Button>
@@ -320,20 +344,26 @@ export function SettingsPlugins(): JSX.Element {
 	}
 
 	async function restore(pluginId: string, contribution: ContributionView): Promise<void> {
-		const key = `${pluginId}/${contribution.manifestKey}`;
+		const key = `${pluginId}/${contribution.entityId}`;
 		setRestoring(key);
 		try {
 			const res = await apiFetch(`/api/plugins/${pluginId}/contributions/restore`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ kind: contribution.kind, manifestKey: contribution.manifestKey }),
+				// A registry-backed contribution is named by the row it points at; a
+				// configuration default by its manifest key.
+				body: JSON.stringify(
+					REGISTRY_KINDS.has(contribution.kind)
+						? { kind: contribution.kind, entityId: contribution.entityId }
+						: { kind: contribution.kind, manifestKey: contribution.manifestKey },
+				),
 			});
 			if (!res.ok) {
 				const body = (await res.json().catch(() => ({}))) as { error?: string };
 				showToast(body.error ?? "Restore failed");
 				return;
 			}
-			showToast(`${contribution.manifestKey} restored to plugin default.`);
+			showToast(`${contribution.label} restored to plugin default.`);
 			await load();
 		} catch {
 			showToast("Network error.");

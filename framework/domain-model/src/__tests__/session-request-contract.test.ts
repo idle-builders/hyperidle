@@ -55,20 +55,6 @@ describe("agent session request contract", () => {
 				idempotencyKey: "knowledge:ki-1:review",
 				sourceCorrelation: { knowledgeItemId: "ki-1", action: "review", teamId: "team-1" },
 			},
-			{
-				sourceKind: "proposed_call",
-				sourceId: "pc-1",
-				streamId: "task:task-1",
-				taskId: "task-1",
-				agentId: "agent-2",
-				promptMode: "proposed_call",
-				idempotencyKey: "proposed_call:pc-1:granted",
-				sourceCorrelation: {
-					taskId: "task-1",
-					proposedCallId: "pc-1",
-					grantedAgentId: "agent-2",
-				},
-			},
 		];
 
 		for (const example of examples) {

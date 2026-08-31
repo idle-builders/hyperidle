@@ -1,7 +1,7 @@
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave C (RED) — architecture.md's
  * Increment 12 test (a): "a launched task_run/routine_run/knowledge_action/
- * reengagement session assembles its sandbox context from the baked bundle
+ * session assembles its sandbox context from the baked bundle
  * with ZERO run-orchestration -> core read."
  *
  * This is the function-level half of that proof obligation: `context.ts`'s

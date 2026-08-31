@@ -11,7 +11,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 
@@ -102,6 +102,15 @@ export interface ParsedPluginAgent {
 	readonly name: string;
 	readonly role: string;
 	readonly agentCategory: string;
+	/**
+	 * Who this agent is, read from the file the manifest's `identity` names.
+	 *
+	 * @lore BA9g: the gap BA9f named — "a plugin contributing an agent had
+	 * nothing to contribute its identity to". It does now: the identity is a
+	 * knowledge document, and this is the plugin's copy of it. Absent → the agent
+	 * installs bare, which is what HyperIdle itself ships.
+	 */
+	readonly identity: string | null;
 }
 
 /**
@@ -254,7 +263,7 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 			}
 			if (Array.isArray(ext.agents)) {
 				for (const item of ext.agents) {
-					const agent = parsePluginAgent(item, warnings);
+					const agent = parsePluginAgent(item, warnings, pluginRoot);
 					if (agent) agents.push(agent);
 				}
 			}
@@ -452,7 +461,11 @@ function parseContribution(item: unknown, warnings: ManifestWarning[]): ParsedCo
 	};
 }
 
-function parsePluginAgent(item: unknown, warnings: ManifestWarning[]): ParsedPluginAgent | null {
+function parsePluginAgent(
+	item: unknown,
+	warnings: ManifestWarning[],
+	pluginRoot: string,
+): ParsedPluginAgent | null {
 	if (typeof item !== "object" || item === null || Array.isArray(item)) {
 		warnings.push({
 			code: "INVALID_CONTRIBUTION",
@@ -494,12 +507,47 @@ function parsePluginAgent(item: unknown, warnings: ManifestWarning[]): ParsedPlu
 	// but plugin agents are installed server-side and trusted; gating them at the
 	// parse layer would break forward-compat (a new category would silently skip
 	// every existing agent). The API guard is the right choke-point.
+	// `identity` names a file inside the plugin, the way a skill's body is a
+	// file. A path that escapes the plugin root, or names a file that is not
+	// there, drops the identity and keeps the agent — a bare agent is a valid
+	// agent, so a typo must not cost you the whole contribution.
+	let identity: string | null = null;
+	if (typeof obj.identity === "string" && obj.identity) {
+		identity = readPluginFile(pluginRoot, obj.identity);
+		if (identity === null) {
+			warnings.push({
+				code: "INVALID_CONTRIBUTION",
+				message: `Agent "${obj.id}" identity file "${obj.identity}" is missing or outside the plugin — agent installed without one`,
+			});
+		}
+	}
+
 	return {
 		id: obj.id,
 		name: obj.name,
 		role: obj.role,
 		agentCategory: obj.agentCategory,
+		identity,
 	};
+}
+
+/**
+ * Read a plugin-relative file, refusing anything that escapes the plugin root.
+ *
+ * A manifest is data from outside, so `../../../etc/passwd` is a path it can
+ * ask for; resolving and re-checking the prefix is what stops it.
+ */
+function readPluginFile(pluginRoot: string, relativePath: string): string | null {
+	const resolvedRoot = resolve(pluginRoot);
+	const target = resolve(resolvedRoot, relativePath);
+	if (target !== resolvedRoot && !target.startsWith(resolvedRoot + sep)) {
+		return null;
+	}
+	try {
+		return readFileSync(target, "utf8");
+	} catch {
+		return null;
+	}
 }
 
 function parsePluginRoutine(

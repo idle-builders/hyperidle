@@ -62,7 +62,6 @@ const ports: ToolHandlersPorts = {
 				id: input.id,
 				name: input.name,
 				phase: input.phase,
-				functions: input.functions,
 				factoryDbPath: input.factoryDbPath,
 				createdAt: input.createdAt,
 				capacity: 5,
@@ -101,7 +100,6 @@ const ports: ToolHandlersPorts = {
 
 			const configRow: NewAgentRunConfigRow = {
 				agentUserId: agentId,
-				systemPrompt: null,
 				harnessType: "builtin",
 				modelId: "claude-sonnet-4-6",
 				modelProvider: "anthropic",

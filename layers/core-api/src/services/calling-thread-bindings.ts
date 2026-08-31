@@ -1,6 +1,6 @@
 /**
  * AU27 Increment 1 (Decision 0) — resolve-or-create the calling thread a
- * `task_run`/`session_start`/`reengagement`/`knowledge_action` session's
+ * `task_run`/`session_start`/`knowledge_action` session's
  * `reply` tool (Increment 2) needs somewhere real to post. Threads resolve by
  * `(hostKind, hostId)` lookup, never by an FK column (`conversation-store.ts`'s
  * `findThread`/`insertThread`, mirroring `web/src/services/host-threads.ts`'s

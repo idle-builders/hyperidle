@@ -43,7 +43,7 @@ The `Filesystem`, `FilesystemInjection`, and `FilesystemCapture` shapes are owne
 - `connection_id` is a **reference by id, deliberately not a DB FK** (AO1 ⟂ AN; AN may add the FK in its own migration).
 - There is **no `agent_user_id` column on the filesystem** — single-owner was replaced by the injection mapping. Mount resolves `sessions.agentId → filesystem_injections → filesystems`, never a global path.
 
-> **Agents work *with* their credentials.** For a code filesystem with a forge, the repo is checked out **and** the forge auth (from the bound Connection) is provisioned into the sandbox so the agent's own `git`/`gh` tools fetch/push/PR — like a real employee. We do **not** withhold credentials. The review gate (AL7) checkpoints chosen consequential provider actions, not access — see [Proposed Call](./staged-operation.md).
+> **Agents work *with* their credentials.** For a code filesystem with a forge, the repo is checked out **and** the forge auth (from the bound Connection) is provisioned into the sandbox so the agent's own `git`/`gh` tools fetch/push/PR — like a real employee. We do **not** withhold credentials. The review gate checkpoints chosen consequential provider actions, not access.
 
 ## What it is not
 

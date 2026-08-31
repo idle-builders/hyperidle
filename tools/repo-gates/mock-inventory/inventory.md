@@ -19,7 +19,7 @@ Total offenders: **10**
 | path | line | symbol | kind | shape |
 |---|---|---|---|---|
 | `layers/core-ui/src/fixtures/knowledge-data.ts` | 72 | `MOCK_KNOWLEDGE_ITEMS` | symbol | array |
-| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 69 | `../fixtures/knowledge-data` | import | import |
-| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 131 | `LEGACY_DETAILS` | symbol | object |
-| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 209 | `LEGACY_SOURCES` | symbol | object |
-| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 215 | `FALLBACK_DETAIL` | symbol | object |
+| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 76 | `../fixtures/knowledge-data` | import | import |
+| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 140 | `LEGACY_DETAILS` | symbol | object |
+| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 218 | `LEGACY_SOURCES` | symbol | object |
+| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 224 | `FALLBACK_DETAIL` | symbol | object |

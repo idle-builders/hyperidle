@@ -18,7 +18,6 @@
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	Reversibility,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -95,11 +94,6 @@ export interface RegisteredTool<TDb = unknown> {
 	readonly inputSchema: AnySchema;
 	readonly handler: (args: unknown, ctx: ToolContext<TDb>) => Promise<ToolResult>;
 	readonly roles?: readonly string[];
-	readonly reversibility?: Reversibility;
-	readonly annotations?: {
-		readonly destructiveHint?: boolean;
-		readonly idempotentHint?: boolean;
-	};
 }
 
 /** Anthropic Messages API tool spec — see https://docs.anthropic.com/en/api/messages. */

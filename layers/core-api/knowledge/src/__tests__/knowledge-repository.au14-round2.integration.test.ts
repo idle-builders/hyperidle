@@ -10,11 +10,16 @@
  * phase: written before the corresponding repo functions exist, so they
  * fail to import/compile against pre-round-2 code.
  */
-import { type HyperIdleDb, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeEditLog,
+	knowledgeItems,
+} from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
-import { create as createKnowledgeItem, remove, transition } from "../knowledge-repository.js";
+import { create as createKnowledgeItem, remove, update } from "../knowledge-repository.js";
 import type { KnowledgeStatus } from "../types.js";
 
 async function seedItem(
@@ -76,33 +81,57 @@ describe("archiveItem exact-behavior lock", () => {
 	});
 });
 
-describe("changeScope exact-behavior lock", () => {
-	test("writes editType scope_change rows with the exact newValue format", async ({ db }) => {
+describe("scope is an ordinary edited field", () => {
+	/**
+	 * Scope used to move through its own `changeScope` transition, which demanded
+	 * a `reason` and glued it into the edit-log value as
+	 * `"product (reason: …)"`. Nothing ever parsed that string. Scope is now a
+	 * field on the document, edited through `update()`, and logged the way every
+	 * other field is: the field name, the old value, the new value.
+	 */
+	test("records a scope change in the edit log like any other field", async ({ db }) => {
 		const existing = await seedItem(db, { scopeKind: "user", scopeId: "u-founder" });
-		const reason = "Promoted to product knowledge";
 
-		await transition(db, existing.id, {
-			target: "changeScope",
-			scopeKind: "product",
-			scopeId: "prod-123",
-			reason,
-			updatedBy: "u-founder",
-		});
+		await update(
+			db,
+			existing.id,
+			{ scopeKind: "product", scopeId: "prod-123", updatedBy: "u-founder" },
+			existing.version,
+		);
 
 		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
 			.where(eq(knowledgeEditLog.itemId, existing.id));
 
-		const scopeKindLog = logs.find((l) => l.field === "scope_kind");
-		const scopeIdLog = logs.find((l) => l.field === "scope_id");
+		const scopeKindLog = logs.find((l) => l.field === "scopeKind");
+		const scopeIdLog = logs.find((l) => l.field === "scopeId");
 
-		expect(scopeKindLog).toBeDefined();
-		expect(scopeKindLog?.editType).toBe("scope_change");
-		expect(scopeKindLog?.newValue).toBe(`product (reason: ${reason})`);
-
-		expect(scopeIdLog).toBeDefined();
-		expect(scopeIdLog?.editType).toBe("scope_change");
+		expect(scopeKindLog?.oldValue).toBe("user");
+		expect(scopeKindLog?.newValue).toBe("product");
+		expect(scopeIdLog?.oldValue).toBe("u-founder");
 		expect(scopeIdLog?.newValue).toBe("prod-123");
+		// No reason is smuggled into the value any more.
+		expect(scopeKindLog?.newValue).not.toContain("reason:");
+	});
+
+	test("moves the kernel and the projection together", async ({ db }) => {
+		const existing = await seedItem(db, { scopeKind: "user", scopeId: "u-founder" });
+
+		await update(
+			db,
+			existing.id,
+			{ scopeKind: "product", scopeId: "prod-123", updatedBy: "u-founder" },
+			existing.version,
+		);
+
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, existing.id));
+		const [proj] = await db
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, existing.id));
+
+		expect(row?.scopeId).toBe("prod-123");
+		expect(proj?.scopeId).toBe("prod-123");
 	});
 });
