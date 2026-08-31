@@ -209,3 +209,76 @@ teardown path.
 - **A verdict on an ordinary review must not mint a gate clearance.** The first attempt registered on
   every `submit_review`, so approving a normal design review granted a bypass. Only a review that a gate
   actually caused may clear anything.
+
+---
+
+## The per-harness architecture, measured
+
+Every row below was proven against the installed binary. Details and the commands that produced them are
+in `../BA2/harness-research/interception-*.md`.
+
+### Where the gate lives, per harness
+
+| Harness | Mechanism | Where it is written | How a call is blocked | How the reason reaches the model |
+|---|---|---|---|---|
+| **claude-code** 2.1.247 | `PreToolUse` command hook | `--settings` (file or inline JSON) + `--setting-sources user` — **nothing in the workspace, nothing in `~/.claude`** | `permissionDecision: "deny"`, or **`"defer"`** (see below) | `permissionDecisionReason`, verbatim |
+| **codex** 0.150.1 | `PreToolUse` hook **and** execpolicy `.rules` | `$CODEX_HOME/hooks.json` and `$CODEX_HOME/rules/*.rules` | hook: `permissionDecision: "deny"` or exit 2 + stderr · rules: `decision="forbidden"` | reason verbatim · rule `justification` |
+| **cursor-agent** 2026.08.25 | `preToolUse` command hook | `<sandbox>/.cursor/hooks.json` (project level) | `{"permission":"deny","user_message":"…"}` | `user_message` (**`agent_message` is silently dropped on the CLI path**) |
+| **opencode** 1.18.x | `OPENCODE_PERMISSION` env var — **no plugin needed** | process env; JSON merged into resolved config | config `deny` | fixed prose + the matched rule pattern (the plugin route gives exact text, at the cost of a plugin) |
+
+codex's `PreToolUse` is **not** a Claude-ism: codex has deliberately adopted the Claude-compatible wire
+format. cursor and opencode have entirely their own vocabularies.
+
+### What is true on every harness
+
+- **The matcher only sees the tool NAME.** Verified separately on claude, codex and cursor. Command text
+  must be discriminated inside our own script — which is what we wanted anyway, since the decision is ours.
+- **The mutable deny set must live in a sidecar data file, never in the hook config.** On codex, editing
+  `hooks.json` invalidates its trusted hash and the hook is then skipped **with zero output**. On cursor,
+  registration freezes at process start but the script re-runs per call — so a sidecar makes the gate live
+  mid-session, which is better than the per-run behaviour this plan asked for.
+- **Fail-open is the default nearly everywhere**, and it is silent. codex hooks fail open on error,
+  malformed JSON or timeout. cursor fails open unless `"failClosed": true` is set per entry. An opencode
+  plugin that fails to load is fail-open, and its only signal is a stderr line the adapter currently
+  discards. Every gate must be fail-closed by construction and proven so.
+
+### The one place a harness is better than the plan
+
+**claude has `permissionDecision: "defer"`** — present in 2.1.247, absent from the binary's own embedded
+docs. The run stops with `stop_reason: "tool_deferred"` and hands back the exact pending call; resuming
+with **no prompt** re-runs the gate on that stored call and executes it, in one turn, with no model
+decision involved.
+
+That is strictly better than persuading the agent to retry, and it removes the resume-compliance risk on
+claude rather than mitigating it — approval never enters the conversation as text a model might distrust.
+One model complied while explicitly objecting that in-band approval was unverifiable; it was right to.
+
+The other three have no equivalent, so they keep the design in this plan: the verdict resumes the session
+as a user message and the agent retries. Measured compliance with wording that names the gate fact was
+**5 of 5** on claude and **8 of 8** on cursor-agent. Same product behaviour, different mechanism — which
+is what a per-harness design means.
+
+### Corrections to what this repo believed
+
+- **`--pure` is pure downside for opencode.** It does exactly one thing: empties the plugin origin list,
+  silently killing the sandbox's own plugin. It provides **zero** config isolation — the user's global MCP
+  server still resolves through it. `XDG_CONFIG_HOME=<sandbox>/.xdg_config` is the real isolation lever.
+- **Workspace trust is not required on claude** in print mode; the `enableAllProjectMcpServers` rationale
+  does not hold for 2.1.247.
+- **codex is not limited to tool names** — the hook body receives `tool_input.command`, and `.rules`
+  matches command text natively.
+- **cursor-agent also reads `<cwd>/.claude/settings.json`** and maps its `PreToolUse` hooks onto its own.
+  HyperIdle's own repo settings could fire inside a cursor session. Audit before shipping.
+
+### An honest limit, worth stating in the product
+
+`sh -c 'git push origin main'` defeats a name-matched deny on claude, and `bash -lc '…'` slips past
+codex's `.rules` (though its hook catches that form). **This gates a cooperative agent, not a determined
+one.** That is the right shape for a collaboration checkpoint and consistent with the ethos — security is
+earned, not preemptive — but it should be said plainly rather than implied.
+
+### Operational finding, unrelated to the gate
+
+`opencode run` intermittently stalls at `message=init` for 150–300s, reproducing with no plugin, no deny
+config, a fresh data dir and healthy network; identical invocations succeed in 20–30s at other times.
+Cause unidentified. The harness needs a hard per-run timeout regardless of what the gate does.
