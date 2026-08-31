@@ -482,21 +482,25 @@ export function createTaskRoutes(
 			// a member of TASK_STATE_TRANSITIONS, so the whole save died with a 409.
 			// Setting a field to the value it already holds is not an invalid
 			// transition; only an actual CHANGE of state goes through the machine.
-			if (state !== undefined && state !== existing.state) {
-				if (state === "killed") {
-					// @lore BB1: killing is a SUBTREE operation, and this is the door the
-					// interface actually uses. It used to call `transitionTask`, which kills
-					// exactly one task — so killing a parent from the UI left its children
-					// alive underneath a killed parent. The cascade existed and was tested,
-					// but its only caller had been the bet overflow menu, which BB1 deleted;
-					// it shipped unreachable. Routing the one edit door through
-					// `cascadeTaskKill` is what makes the two agree, rather than adding a
-					// second door that behaves differently from this one.
-					await cascadeTaskKill(db, eventBus, taskId, buildKillDeps(agentOrchestration));
-				} else {
-					const deps = buildTaskDeps(agentOrchestration);
-					await transitionTask(db, eventBus, taskId, state, deps);
-				}
+			//
+			// @lore BB1: `killed` deliberately escapes that guard. For every
+			// other state, asking for the state a task already has is nothing to do.
+			// A kill is not just about this task: re-issuing it on an already-killed
+			// parent is how you finish off a subtree that was half-killed, and the
+			// guard would swallow that request whole.
+			// @lore BB1: killing is a SUBTREE operation, and this is the door the
+			// interface actually uses. It used to call `transitionTask`, which kills
+			// exactly one task — so killing a parent from the UI left its children
+			// alive underneath a killed parent. The cascade existed and was tested,
+			// but its only caller had been the bet overflow menu that BB1 deleted, so
+			// it shipped unreachable. Routing the one edit door through
+			// `cascadeTaskKill` is what makes the two agree, rather than adding a
+			// second door that behaves differently from this one.
+			if (state === "killed") {
+				await cascadeTaskKill(db, eventBus, taskId, buildKillDeps(agentOrchestration));
+			} else if (state !== undefined && state !== existing.state) {
+				const deps = buildTaskDeps(agentOrchestration);
+				await transitionTask(db, eventBus, taskId, state, deps);
 			}
 		} catch (err) {
 			if (err instanceof TaskCycleError) {

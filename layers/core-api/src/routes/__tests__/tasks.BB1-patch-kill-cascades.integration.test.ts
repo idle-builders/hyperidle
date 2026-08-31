@@ -111,4 +111,131 @@ describe("BB1 — PATCH state=killed cascades to the whole subtree", () => {
 		expect(await state(root)).not.toBe("killed");
 		expect(await state(b)).not.toBe("killed");
 	});
+
+	// @lore BB1: both of these come from the independent review of the cascade fix,
+	// which caught that routing PATCH through `cascadeTaskKill` had quietly taken
+	// the root's own kill away. The cascade skips terminal tasks — correct for
+	// descendants, wrong for the task someone explicitly asked to kill.
+	test("killing a `done` task still kills it — the root is an explicit decision", async ({
+		db,
+		app,
+	}) => {
+		const now = new Date().toISOString();
+		await db
+			.insert(teams)
+			.values({ id: `${TEAM}-3`, name: "Done Kill", phase: "build", createdAt: now });
+
+		const created = await app.request("/api/tasks", {
+			method: "POST",
+			headers: auth(),
+			body: JSON.stringify({ teamId: `${TEAM}-3`, title: "finished container" }),
+		});
+		const { id } = (await created.json()) as { id: string };
+
+		// `done` is reachable from any non-terminal state, and parent
+		// auto-completion is what normally puts a container task there.
+		const toDone = await app.request(`/api/tasks/${id}`, {
+			method: "PATCH",
+			headers: auth(),
+			body: JSON.stringify({ state: "done" }),
+		});
+		expect(toDone.status).toBe(200);
+
+		const res = await app.request(`/api/tasks/${id}`, {
+			method: "PATCH",
+			headers: auth(),
+			body: JSON.stringify({ state: "killed" }),
+		});
+		expect(res.status).toBe(200);
+
+		const [row] = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+		// The regression this pins returned 200 with the task still `done` — a
+		// silent success that changed nothing.
+		expect(row?.state).toBe("killed");
+	});
+
+	test("re-killing an already-killed parent finishes off children left alive", async ({
+		db,
+		app,
+	}) => {
+		const now = new Date().toISOString();
+		await db
+			.insert(teams)
+			.values({ id: `${TEAM}-4`, name: "Half Killed", phase: "build", createdAt: now });
+
+		const mk = async (title: string, parent: string | null) => {
+			const res = await app.request("/api/tasks", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify(
+					parent === null ? { teamId: `${TEAM}-4`, title } : { parentTaskId: parent, title },
+				),
+			});
+			return ((await res.json()) as { id: string }).id;
+		};
+
+		const root = await mk("root", null);
+		// The half-killed shape the ORIGINAL bug produced: a killed parent with a
+		// live child. Reproduced here by killing the parent first, then attaching a
+		// child — `POST /tasks` does not refuse a killed parent.
+		await app.request(`/api/tasks/${root}`, {
+			method: "PATCH",
+			headers: auth(),
+			body: JSON.stringify({ state: "killed" }),
+		});
+		const orphan = await mk("left alive under a dead parent", root);
+
+		const res = await app.request(`/api/tasks/${root}`, {
+			method: "PATCH",
+			headers: auth(),
+			body: JSON.stringify({ state: "killed" }),
+		});
+		expect(res.status).toBe(200);
+
+		const [child] = await db.select().from(tasks).where(eq(tasks.id, orphan)).limit(1);
+		expect(child?.state, "re-killing the parent must reach the live child").toBe("killed");
+	});
+
+	test("a kill never un-finishes a `done` DESCENDANT", async ({ db, app }) => {
+		const now = new Date().toISOString();
+		await db
+			.insert(teams)
+			.values({ id: `${TEAM}-5`, name: "Done Child", phase: "build", createdAt: now });
+
+		const mk = async (title: string, parent: string | null) => {
+			const res = await app.request("/api/tasks", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify(
+					parent === null ? { teamId: `${TEAM}-5`, title } : { parentTaskId: parent, title },
+				),
+			});
+			return ((await res.json()) as { id: string }).id;
+		};
+
+		const root = await mk("root", null);
+		const finished = await mk("already finished", root);
+		const live = await mk("still going", root);
+
+		await app.request(`/api/tasks/${finished}`, {
+			method: "PATCH",
+			headers: auth(),
+			body: JSON.stringify({ state: "done" }),
+		});
+
+		await app.request(`/api/tasks/${root}`, {
+			method: "PATCH",
+			headers: auth(),
+			body: JSON.stringify({ state: "killed" }),
+		});
+
+		const state = async (id: string) => {
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+			return row?.state;
+		};
+		// Collateral is not a decision: work completed on purpose stays done.
+		expect(await state(finished), "a done descendant must survive the cascade").toBe("done");
+		expect(await state(live)).toBe("killed");
+		expect(await state(root)).toBe("killed");
+	});
 });

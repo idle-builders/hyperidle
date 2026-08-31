@@ -22,7 +22,13 @@ export interface TaskKillCascadeDeps extends TaskStateMachineDeps {
 	};
 }
 
-/** Task states that are terminal — never re-killed by the cascade. */
+/**
+ * Task states the cascade never touches when it meets them BENEATH the root.
+ *
+ * @lore BB1: the root is deliberately not judged by this list — see
+ * `cascadeTaskKill`. Killing work you finished on purpose is a decision; having
+ * it killed as collateral because an ancestor died is not.
+ */
 const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
 
 /**
@@ -69,7 +75,30 @@ export async function cascadeTaskKill(
 	if (subtreeIds.length === 0) return { tasksKilled, sessionsStopped };
 
 	const subtree = await work.list(db, "task", { ids: subtreeIds });
-	const nonTerminal = subtree.filter((t) => !TERMINAL_TASK_STATES.includes(t.state));
+
+	// @lore BB1: the ROOT is the task someone explicitly asked to kill; everything
+	// below it dies as collateral. The two are not the same decision, so they do
+	// not get the same rule.
+	//
+	// A `done` root IS killed: `TASK_STATE_TRANSITIONS` allows `done -> killed`,
+	// and before the one edit door routed through this cascade, PATCHing a
+	// finished task to `killed` did exactly that. Judging the root by the
+	// terminal list turned that into a silent no-op — HTTP 200, state unchanged —
+	// and `done` roots are the common case, since parent auto-completion is what
+	// puts container tasks there.
+	//
+	// An already-`killed` root is skipped instead of erroring, because re-killing
+	// is how you finish a subtree that was half-killed: the parent stays as it is
+	// and the live descendants below it still die.
+	//
+	// Descendants keep the full terminal filter: a kill must never un-finish
+	// work that was completed on purpose.
+	const doomed = subtree.filter((t) =>
+		t.id === rootTaskId ? t.state !== "killed" : !TERMINAL_TASK_STATES.includes(t.state),
+	);
+	// Runs are only stopped for tasks that were actually running; a `done` root
+	// has none, so this stays the non-terminal set.
+	const nonTerminal = doomed.filter((t) => !TERMINAL_TASK_STATES.includes(t.state));
 
 	// 2. Stop the active runs on those tasks. `run-orchestration` owns the
 	// select, the CAS and the `session_ended` suppression; it returns only the
@@ -83,7 +112,7 @@ export async function cascadeTaskKill(
 	// index 0), so reversing walks the leaves up — a parent is never killed
 	// while a live child still hangs off it.
 	const depthOrder = new Map(subtreeIds.map((id, i) => [id, i]));
-	const deepestFirst = [...nonTerminal].sort(
+	const deepestFirst = [...doomed].sort(
 		(a, b) => (depthOrder.get(b.id) ?? 0) - (depthOrder.get(a.id) ?? 0),
 	);
 
