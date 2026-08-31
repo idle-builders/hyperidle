@@ -16,17 +16,11 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { type CrossingsResult, type DetectorFloor, detectCrossings } from "./lib/crossings.js";
+import { type CrossingsResult, type DetectorKind, detectCrossings } from "./lib/crossings.js";
 import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./lib/db-surfaces.js";
-import type { Architecture, Kind } from "./lib/governance-model.js";
+import type { Architecture } from "./lib/governance-model.js";
 import type { MisplacedFiles, TableOwners } from "./lib/governance-registry.js";
-import {
-	buildCensus,
-	type Census,
-	CLASSIFICATION_PATTERNS,
-	type WorkspaceRoleRule,
-} from "./lib/repo-census.js";
-import type { FloorRecord } from "./rules/floors-tight.js";
+import { buildCensus, type Census, type WorkspaceRoleRule } from "./lib/repo-census.js";
 
 export const REPO_ROOT = path.resolve(
 	path.dirname(fileURLToPath(import.meta.url)),
@@ -58,89 +52,38 @@ export const readRepoFile = (rel: string): string =>
  * tells no one what to fix except "write a bigger number here".
  *
  * It was also redundant. Its stated job was catching a census that came back near-empty — a wrong
- * cwd, a broken git invocation — so that no rule passes vacuously. But every detector floor already
- * catches that, and harder: on an empty census `detector:import` reports 0 live against a floor of
- * 3637 and fails immediately. The repo-wide count added no detection on top, while `floors-tight`
- * required it to be re-measured every time the repository grew a fifth. That is a maintained number
- * whose only effect was turning ordinary growth red.
+ * cwd, a broken git invocation — so that no rule passes vacuously. But the detectors already catch
+ * that, and harder: on an empty census every detector finds zero crossings and `detectCrossings`
+ * throws immediately. The repo-wide count added no detection on top, while requiring re-measurement
+ * every time the repository grew a fifth — a maintained number whose only effect was turning
+ * ordinary growth red.
  *
  * What survives is the boolean the floor was standing in for: `governance-lint` refuses to report a
  * verdict over an EMPTY census. Empty is the real failure; any other count is architecture's job.
  */
 
 /**
- * Minimum crossings each detector must find, MEASURED against the live tree and set in the MIDDLE of
- * the `floors-tight` band — close enough to fail on a real loss, loose enough to survive churn.
+ * The crossing kinds the build expects a detector to find — one rule per kind.
  *
- * @lore AU28: this is the direct `au6` fix, one level up from where it was applied — `au6` scanned a
- * deleted directory and printed PASS over zero files for months. A floor is never lowered to make a
- * run go green: a drop means the detector broke, not that the repo got cleaner.
- *
- * @lore AU28: RECOMPUTE these whenever the tree moves under them, and do it in the same commit —
- * `npm run governance:floors` prints the live count, the slack, the allowed slack, the band verdict
- * and the value to write for every floor in the build. A stale floor is not a harmless leftover: it
- * still passes, so nobody notices it has stopped measuring anything. That is exactly how one detector
- * floor sat far enough below live for a dozen deleted crossings to go unremarked.
- *
- * @lore AU28 — THIS COMMENT CARRIES NO MEASURED COUNTS, ON PURPOSE, AND NEITHER SHOULD ITS
- * REPLACEMENT. Three separate commits transcribed the live census and detector totals into prose
- * here and in `repo-census.ts`; all three were stale within days, and the third was written by the
- * commit that fixed the second. A number in prose has no gate — nothing recomputes it, nothing fails
- * when it drifts, and the next reader trusts it precisely because it looks measured. The floors below
- * ARE the record: they are enforced, they are recomputed by one command, and `floors-tight` fails the
- * build when they stop matching the tree. Keep the reasoning here; get the numbers from
- * `npm run governance:floors`.
+ * @lore BB1: this was `DETECTOR_FLOORS`, each kind carrying a hand-measured minimum re-set whenever
+ * the tree moved ("Floor re-measured after AU44 B7+fd: live 1046, suggested 941"). Those magnitudes
+ * are gone, along with the `floors-tight` band that policed them and the `governance:floors` command
+ * that printed the next number to write. What remains is the enumeration and the zero check in
+ * `detectCrossings`: a detector that finds NONE of its kind is broken and fails the build, which is
+ * the `au6` defect the floors were built for. A detector finding fewer than last week is churn, and
+ * a build that goes red on churn teaches people to edit the number rather than read the diff.
  */
-// @lore AU34: `import` and `manifest` are the two floors the substrate split moved, and they moved
-// for a reason that has to be said out loud before a floor is ever raised: the POPULATION grew and no
-// violation was absorbed. One framework package with thirty declarers became eighteen with the same
-// consumers declaring a subset each, so both counts rise mechanically. Floors are magnitude trackers
-// — violations are reported separately, by the `crossing-<kind>` rules — so raising one cannot hide
-// one. The value written is the tool's `write` column (the middle of the band), never the live count:
-// a floor at the edge is one removed crossing from red. Only these two were touched; every other
-// floor stayed inside its band, and one going red is a finding rather than a bump.
-export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
-	{ kind: "import", min: 2754, floorKind: "magnitude" },
-	// Floor re-measured after AU44 B7+fd: factory-defaults dissolved. Live: 3060, suggested: 2754.
-	{ kind: "manifest", min: 141, floorKind: "magnitude" },
-	// Floor re-measured after AU44 fd: factory-defaults dissolved. Live: 157, suggested: 141.
-	// Floor re-measured after the capture machinery was deleted: the workflow port, the review
-	// subscriptions and their injected deps went with it. Live: 182, suggested: 163.
-	{ kind: "di", min: 163, floorKind: "magnitude" },
-	{ kind: "api", min: 167, floorKind: "magnitude" },
-	{ kind: "mcp", min: 29, floorKind: "magnitude" },
-	{ kind: "event", min: 192, floorKind: "magnitude" },
-	// The thinnest detector in the set, and the one most able to lose half its coverage without
-	// tripping. Treat it as a tripwire, not a boundary. It is the one floor NOT moved to the middle of
-	// its band: the band's `max(…, 5)` term puts the midpoint BELOW where this already sits, and a
-	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
-	{ kind: "capability", min: 14, floorKind: "magnitude" },
-	// Floor re-measured after AU44 B7+fd: factory-defaults dissolved. Live: 1046, suggested: 941.
-	{ kind: "table:read", min: 1066, floorKind: "magnitude" },
-	// Floor re-measured after AU44 B7+fd. Live: 1711, suggested: 1539.
-	{ kind: "table:write", min: 1539, floorKind: "magnitude" },
+export const CROSSING_KINDS: readonly DetectorKind[] = [
+	{ kind: "import" },
+	{ kind: "manifest" },
+	{ kind: "di" },
+	{ kind: "api" },
+	{ kind: "mcp" },
+	{ kind: "event" },
+	{ kind: "capability" },
+	{ kind: "table:read" },
+	{ kind: "table:write" },
 ];
-
-/** Every floor the build declares, live counts attached — the population `floors-tight` checks. */
-export function declaredFloors(
-	census: Census,
-	countsByKind: ReadonlyMap<Kind, number>,
-): FloorRecord[] {
-	return [
-		...DETECTOR_FLOORS.map((floor) => ({
-			id: `detector:${floor.kind}`,
-			live: countsByKind.get(floor.kind) ?? 0,
-			floor: floor.min,
-			floorKind: floor.floorKind,
-		})),
-		...CLASSIFICATION_PATTERNS.map((pattern) => ({
-			id: `pattern:${pattern.id}`,
-			live: census.patternCounts.get(pattern.id) ?? 0,
-			floor: pattern.minFiles,
-			floorKind: pattern.floorKind,
-		})),
-	];
-}
 
 /**
  * The files the repo actually consists of.
@@ -203,7 +146,7 @@ export function presentToolingFiles(): string[] {
  * missing four not-yet-staged rule files, the run was green, and the commit that followed was red —
  * the floor's slack had gone out of band the moment those files became tracked. The reviewer had
  * already named this exact divergence; the fix was not applied, and then it happened. That floor is
- * gone now (see the note above `declaredFloors`), but the staged/unstaged divergence it exposed is
+ * gone now, along with every other declared floor, but the staged/unstaged divergence it exposed is
  * real for every rule, which is why this reads the working tree and not just the index.
  *
  * The cost is that a scratch file you never intend to commit is now linted. That is the correct
@@ -272,6 +215,6 @@ export function buildCrossings(census: Census, architecture: LoadedArchitecture)
 			tableOwners: loadTableOwners(),
 			frameworkSurfaces: frameworkSurfacesOf(census),
 		},
-		DETECTOR_FLOORS,
+		CROSSING_KINDS,
 	);
 }

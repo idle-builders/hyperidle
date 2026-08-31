@@ -99,11 +99,7 @@
 			"entry": ["src/judges.ts!", "src/cli.ts!"]
 		},
 		"tools/governance": {
-			"entry": [
-				"src/governance-lint.ts!",
-				"src/governance-floors.ts!",
-				"src/governance-new-cells.ts!"
-			]
+			"entry": ["src/governance-lint.ts!", "src/governance-new-cells.ts!"]
 		},
 		"tools/repo-gates": {
 			"entry": [

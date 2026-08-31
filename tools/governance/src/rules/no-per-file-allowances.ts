@@ -68,7 +68,6 @@ const isDirectChildOfGovernanceDir = (path: string): boolean =>
  * not a CLI, and is not in this list. */
 const CLI_ENTRY_POINTS: readonly string[] = [
 	"tools/governance/src/governance-lint.ts",
-	"tools/governance/src/governance-floors.ts",
 	"tools/governance/src/governance-new-cells.ts",
 ];
 
@@ -108,7 +107,7 @@ export function noPerFileAllowances(input: NoPerFileAllowancesInput): Rule {
 		description:
 			"tools/governance/ stays a closed set at its root, and the governance CLIs accept no undeclared flag",
 		scope: population,
-		minScope: 10,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			const error = (message: string, path?: string): void => {

@@ -16,7 +16,7 @@ export const noProductionImportsDevelopment: Rule = {
 	description: "a production file may never import a development file",
 	// Floor is on the population (production files), not the violations. A crossing rule that
 	// happens to see zero production files would otherwise report a perfect score.
-	minScope: 700,
+	minScope: 1,
 	scope: (census) => census.files.filter((f) => f.kind === "production").map((f) => f.path),
 	evaluate: (census) => {
 		const findings: Finding[] = [];

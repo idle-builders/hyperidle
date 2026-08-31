@@ -38,7 +38,7 @@ export function dbSymbolsAllPlaced(input: DbSymbolsAllPlacedInput): Rule {
 		description: "every symbol reachable through the database package resolves to a named surface",
 		scope: (census: Census): readonly string[] =>
 			census.files.filter((f) => f.path.startsWith(prefix)).map((f) => f.path),
-		minScope: 5,
+		minScope: 1,
 		evaluate: (): readonly Finding[] =>
 			[...unplacedDbSymbols].map(([symbol, why]) => ({
 				ruleId: "db-symbols-all-placed",

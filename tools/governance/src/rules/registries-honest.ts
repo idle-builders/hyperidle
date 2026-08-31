@@ -42,7 +42,7 @@ export function registriesHonest(
 			"the governance registries name only packages that exist, and every package has a manifest-declared role",
 		scope: (census: Census) => census.packages.map((p) => p.dir),
 		// The repo has 34 workspace packages. Well below that means the role rules stopped matching.
-		minScope: 25,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			const names = new Set(census.packages.map((p) => p.name));

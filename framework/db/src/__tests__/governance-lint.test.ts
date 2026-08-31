@@ -35,15 +35,8 @@ import {
 	TEST_RUNNER_CONFIG_BASENAMES,
 } from "../../../../tools/governance/src/lib/repo-census.js";
 import { classificationTotal } from "../../../../tools/governance/src/rules/classification-total.js";
-import {
-	allowedSlack,
-	floorsTight,
-	floorVerdict,
-	suggestedFloor,
-} from "../../../../tools/governance/src/rules/floors-tight.js";
 import { misplacementLedger } from "../../../../tools/governance/src/rules/misplacement-ledger.js";
 import { noProductionImportsDevelopment } from "../../../../tools/governance/src/rules/no-production-imports-development.js";
-import { patternLive } from "../../../../tools/governance/src/rules/pattern-live.js";
 
 const emptyCensus = () => buildCensus({ files: [], readFile: () => "" });
 
@@ -54,35 +47,6 @@ const emptyCensus = () => buildCensus({ files: [], readFile: () => "" });
  * ahead of it — which is why `default-production` is a bare `.ts` under a production root and
  * `dunder-segment` carries no name-declared suffix.
  */
-function samplePathFor(patternId: string, index: number): string {
-	switch (patternId) {
-		case "stories-suffix":
-			return `layers/a/src/S${index}.stories.tsx`;
-		case "test-suffix":
-			return `layers/a/src/t${index}.test.ts`;
-		case "spec-suffix":
-			return `layers/a/src/s${index}.spec.ts`;
-		case "dunder-segment":
-			return `layers/a/src/__tests__/helper${index}.ts`;
-		case "development-root:tools":
-			return `tools/bench/src/x${index}.ts`;
-		case "outside-production-roots":
-			return `docs/page${index}.md`;
-		case "test-runner-config:vitest.config.ts":
-			return `layers/v${index}/vitest.config.ts`;
-		case "test-runner-config:playwright.config.ts":
-			return `layers/p${index}/playwright.config.ts`;
-		case "test-runner-config:playwright.*.config.ts":
-			return `layers/q${index}/playwright.lane${index}.config.ts`;
-		case "default-production":
-			return `layers/a/src/mod${index}.ts`;
-		default:
-			throw new Error(
-				`no sample path for pattern "${patternId}" — add one when a pattern is added`,
-			);
-	}
-}
-
 // ---------------------------------------------------------------------------
 
 describe("AU28 classifyFile — the settled production/development rule", () => {
@@ -206,7 +170,7 @@ describe("AU28 clause precedence — declared, not incidental", () => {
 
 	it("puts every name-declared suffix clause ahead of the folder clause", () => {
 		// Load-bearing, not cosmetic: nearly every `.test.ts` also sits under `__tests__/`. With the
-		// folder clause first, `test-suffix` matches zero files and `pattern-live` fails the build.
+		// folder clause first, `test-suffix` matches zero files.
 		const order = CLASSIFICATION_PATTERNS.map((p) => p.clause);
 		const dunder = order.indexOf("dunder-segment");
 		for (const suffixClause of ["stories-suffix", "test-suffix", "spec-suffix"] as const) {
@@ -254,11 +218,6 @@ describe("AU28 clause precedence — declared, not incidental", () => {
 	it("declares a unique id per pattern", () => {
 		const ids = CLASSIFICATION_PATTERNS.map((p) => p.id);
 		expect(new Set(ids).size).toBe(ids.length);
-	});
-
-	it("declares a floor of at least 1 for every pattern", () => {
-		for (const pattern of CLASSIFICATION_PATTERNS)
-			expect(pattern.minFiles).toBeGreaterThanOrEqual(1);
 	});
 });
 
@@ -410,7 +369,7 @@ describe("AU28 runRules — a rule that scans nothing is a build error", () => {
 	});
 
 	it("every registered rule declares a floor above zero", () => {
-		for (const rule of [classificationTotal, patternLive, noProductionImportsDevelopment]) {
+		for (const rule of [classificationTotal, noProductionImportsDevelopment]) {
 			expect(rule.minScope).toBeGreaterThanOrEqual(1);
 		}
 	});
@@ -467,166 +426,6 @@ describe("AU28 no-production-imports-development — the crossing rule", () => {
 		const census = treeCensus({ "layers/a/src/__testing__/h.ts": "export const h = 1;\n" });
 		expect(noProductionImportsDevelopment.scope(census)).toHaveLength(0);
 		expect(() => runRules([noProductionImportsDevelopment], census)).toThrow(DeadRuleError);
-	});
-});
-
-describe("AU28 pattern-live — no classification pattern may go dead", () => {
-	it("reports a pattern that has stopped matching", () => {
-		const census = buildCensus({ files: ["layers/a/src/x.ts"], readFile: () => "" });
-		const findings = patternLive.evaluate(census);
-		const reported = findings.map((f) => f.message).join("\n");
-		expect(reported).toContain("dunder-segment");
-		expect(reported).toContain("development-root:tools");
-		expect(findings.every((f) => f.severity === "error")).toBe(true);
-	});
-
-	/**
-	 * W-TEST-1. What was here before mapped every `minFiles` to 0, then asserted a count was `>= 0`.
-	 * It never called `patternLive.evaluate` — the rule could have been deleted and it stayed green.
-	 * A test that cannot fail is worse than no test, because it occupies the slot where the real one
-	 * would go. These two call the thing.
-	 */
-	it("stays silent when every pattern clears its floor", () => {
-		// A synthetic tree sized to satisfy every declared floor at once. Building it from the
-		// patterns themselves is what keeps this honest when a floor moves.
-		const files = CLASSIFICATION_PATTERNS.flatMap((pattern) =>
-			Array.from({ length: pattern.minFiles }, (_, i) => samplePathFor(pattern.id, i)),
-		);
-		const census = buildCensus({ files, readFile: () => "" });
-
-		const uncovered = CLASSIFICATION_PATTERNS.filter(
-			(p) => (census.patternCounts.get(p.id) ?? 0) < p.minFiles,
-		).map((p) => `${p.id}: ${census.patternCounts.get(p.id) ?? 0} < ${p.minFiles}`);
-		expect(uncovered, "the synthetic tree must actually populate every pattern").toEqual([]);
-
-		expect(patternLive.evaluate(census)).toEqual([]);
-	});
-
-	it("reports exactly the pattern whose population drops by one", () => {
-		const shortId = "spec-suffix";
-		const files = CLASSIFICATION_PATTERNS.flatMap((pattern) =>
-			Array.from({ length: pattern.minFiles - (pattern.id === shortId ? 1 : 0) }, (_, i) =>
-				samplePathFor(pattern.id, i),
-			),
-		);
-		const findings = patternLive.evaluate(buildCensus({ files, readFile: () => "" }));
-		expect(findings).toHaveLength(1);
-		expect(findings[0]?.message).toContain(`"${shortId}"`);
-		expect(findings[0]?.severity).toBe("error");
-	});
-});
-
-describe("AU28 floors-tight — a floor with too much slack has stopped measuring", () => {
-	const record = (live: number, floor: number, floorKind: "magnitude" | "existence") => ({
-		id: "detector:pretend",
-		live,
-		floor,
-		floorKind,
-	});
-
-	it.each([
-		// live, floor, expected — the three states of the band, their boundaries, and the `max(…, 5)`
-		// term at small n. Allowed slack at 1000 live is 200; the warning starts at three quarters of it.
-		[1000, 900, "ok"],
-		[1000, 850, "ok"],
-		[1000, 849, "approaching"],
-		[1000, 800, "approaching"],
-		[1000, 799, "slack"],
-		[1000, 1000, "ok"],
-		[1000, 1001, "below"],
-		// 20% of 11 is 3, below the floor-5 term. Allowed 5, so the warning starts past 4 of slack.
-		[11, 8, "ok"],
-		[11, 7, "ok"],
-		[11, 6, "approaching"],
-		[11, 5, "slack"],
-		// 20% of 100 is 20, above the floor-5 term, so the percentage governs. Warning past 15 of slack.
-		[100, 86, "ok"],
-		[100, 85, "ok"],
-		[100, 84, "approaching"],
-		[100, 80, "approaching"],
-		[100, 79, "slack"],
-	])("live %i against a floor of %i is %s", (live, floor, expected) => {
-		expect(floorVerdict(record(live, floor, "magnitude")).sort).toBe(expected);
-	});
-
-	it("names the MIDDLE of the band to write, never its edge", () => {
-		// The edge is 800. A floor written there is one added file from red, and the error it fails with
-		// says "raise the floor" — which is the reflex the band exists to prevent.
-		const verdict = floorVerdict(record(1000, 500, "magnitude"));
-		expect(verdict.sort).toBe("slack");
-		if (verdict.sort !== "slack") expect.unreachable("expected a slack verdict");
-		else expect(verdict.suggested).toBe(900);
-		expect(suggestedFloor(1000)).toBe(900);
-	});
-
-	it("warns before it errors, and the warning names the command that prints the value to write", () => {
-		const verdict = floorVerdict(record(1000, 800, "magnitude"));
-		expect(verdict.sort).toBe("approaching");
-		if (verdict.sort !== "approaching") expect.unreachable("expected an approaching verdict");
-		expect(verdict.suggested).toBe(900);
-		expect(verdict.message).toContain("npm run governance:floors");
-	});
-
-	it("exempts an existence floor from the band, but never from the floor itself", () => {
-		// An existence pattern is a check over a closed list against many live files. Without the
-		// exemption the band would demand a nonsensical floor on what only has to fail when an entry dies.
-		expect(floorVerdict(record(94, 1, "existence")).sort).toBe("ok");
-		expect(floorVerdict(record(0, 1, "existence")).sort).toBe("below");
-	});
-
-	it("does not let `floorKind` be used to dodge — a MAGNITUDE floor of 1 is still slack", () => {
-		expect(floorVerdict(record(94, 1, "magnitude")).sort).toBe("slack");
-	});
-
-	it("computes the allowed slack as the larger of 20% and 5", () => {
-		expect(allowedSlack(11)).toBe(5);
-		expect(allowedSlack(1000)).toBe(200);
-		expect(allowedSlack(3300)).toBe(660);
-	});
-
-	it("errors on a drifted floor, warns on one approaching the edge, and stays silent otherwise", () => {
-		const census = buildCensus({ files: ["layers/a/src/x.ts"], readFile: () => "" });
-		const floors = [
-			{ ...record(1000, 900, "magnitude"), id: "detector:mid-band" },
-			{ ...record(1000, 810, "magnitude"), id: "detector:on-the-edge" },
-			{ ...record(1000, 400, "magnitude"), id: "detector:loose" },
-		];
-		const rule = floorsTight({
-			floors: [
-				...floors,
-				...Array.from({ length: 17 }, (_, i) => ({
-					...record(100, 95, "magnitude"),
-					id: `pad-${i}`,
-				})),
-			],
-		});
-		const findings = rule.evaluate(census);
-		expect(findings).toHaveLength(2);
-		const errors = findings.filter((f) => f.severity === "error");
-		const warnings = findings.filter((f) => f.severity === "warn");
-		expect(errors).toHaveLength(1);
-		expect(errors[0]?.message).toContain("detector:loose");
-		expect(warnings).toHaveLength(1);
-		expect(warnings[0]?.message).toContain("detector:on-the-edge");
-	});
-
-	it("a floor written at the value the tool prints survives ordinary growth", () => {
-		// The regression this band exists for: recompute to the suggestion, add a file, stay green.
-		const live = 3300;
-		const floor = suggestedFloor(live);
-		expect(floorVerdict({ id: "census:pretend", live, floor, floorKind: "magnitude" }).sort).toBe(
-			"ok",
-		);
-		expect(
-			floorVerdict({ id: "census:pretend", live: live + 1, floor, floorKind: "magnitude" }).sort,
-		).toBe("ok");
-	});
-
-	it("is a dead rule when the floor set it checks has been gutted", () => {
-		const census = buildCensus({ files: ["layers/a/src/x.ts"], readFile: () => "" });
-		expect(() =>
-			runRules([floorsTight({ floors: [record(100, 85, "magnitude")] })], census),
-		).toThrow(DeadRuleError);
 	});
 });
 

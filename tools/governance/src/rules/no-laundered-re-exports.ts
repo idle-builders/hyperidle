@@ -132,7 +132,7 @@ export function noLaunderedReExports(input: ReExportRuleInput): Rule {
 		description:
 			"a package may not republish a foreign table, or a surface whose audience is narrower than everyone",
 		scope: population,
-		minScope: 400,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			const report = (

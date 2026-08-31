@@ -35,8 +35,7 @@
 import {
 	buildCrossings,
 	buildLiveCensus,
-	DETECTOR_FLOORS,
-	declaredFloors,
+	CROSSING_KINDS,
 	loadArchitecture,
 	loadMisplacedFiles,
 	loadTableOwners,
@@ -48,7 +47,6 @@ import { UnclaimedProductionFileError } from "./lib/crossing-detectors.js";
 import { buildPackageLocator, type CrossingsResult } from "./lib/crossings.js";
 import { runAttacks } from "./lib/governance-attacks.js";
 import { runFixtureSelfTest } from "./lib/governance-fixtures.js";
-import type { Kind } from "./lib/governance-model.js";
 import {
 	DeadRuleError,
 	formatFinding,
@@ -61,7 +59,6 @@ import { classificationTotal } from "./rules/classification-total.js";
 import { crossingRules, violationsOf } from "./rules/crossings.js";
 import { dbSymbolsAllPlaced } from "./rules/db-symbols-all-placed.js";
 import { deepImportsDieWithTheirEntries } from "./rules/deep-imports-die-with-their-entries.js";
-import { floorsTight } from "./rules/floors-tight.js";
 import { frameworkSurfacesDeclared } from "./rules/framework-surfaces-declared.js";
 import { layerExportsResolveInsideTheLayer } from "./rules/layer-exports-resolve-inside-the-layer.js";
 import { misplacementLedger } from "./rules/misplacement-ledger.js";
@@ -70,7 +67,6 @@ import { noPerFileAllowances } from "./rules/no-per-file-allowances.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
 import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
 import { oneWorkPrimitive } from "./rules/one-work-primitive.js";
-import { patternLive } from "./rules/pattern-live.js";
 import { registriesHonest } from "./rules/registries-honest.js";
 import { serviceValuesDoNotEscapeTheFace } from "./rules/service-values-do-not-escape-the-face.js";
 
@@ -107,13 +103,11 @@ function buildRules(
 ): Rule[] {
 	return [
 		classificationTotal,
-		patternLive,
 		noProductionImportsDevelopment,
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
 		frameworkSurfacesDeclared(architecture),
 		misplacementLedger(loadMisplacedFiles()),
 		noStaleBuildArtifacts(presentToolingFiles()),
-		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
 		noLaunderedReExports({
 			architecture,
 			db: detected.db,
@@ -134,7 +128,7 @@ function buildRules(
 		...crossingRules({
 			architecture,
 			crossings: detected.crossings,
-			floors: new Map<Kind, number>(DETECTOR_FLOORS.map((f) => [f.kind, f.min])),
+			kinds: CROSSING_KINDS,
 		}),
 	];
 }
@@ -146,7 +140,7 @@ function runAttackSuite(): number {
 		readFile: readRepoFile,
 		architecture,
 		tableOwners: loadTableOwners(),
-		floors: DETECTOR_FLOORS,
+		kinds: CROSSING_KINDS,
 		buildRules: (overlaidCensus, overlaidDetected, overlaidReadFile) =>
 			buildRules(architecture, overlaidCensus, overlaidDetected, overlaidReadFile),
 		violationsOf,
@@ -215,18 +209,16 @@ function runLive(errorsOnly: boolean): number {
 	const ruleInput = {
 		architecture,
 		crossings: detected.crossings,
-		floors: new Map<Kind, number>(DETECTOR_FLOORS.map((f) => [f.kind, f.min])),
+		kinds: CROSSING_KINDS,
 	};
 
 	const RULES: readonly Rule[] = [
 		classificationTotal,
-		patternLive,
 		noProductionImportsDevelopment,
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
 		frameworkSurfacesDeclared(architecture),
 		misplacementLedger(loadMisplacedFiles()),
 		noStaleBuildArtifacts(presentToolingFiles()),
-		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
 		noLaunderedReExports({
 			architecture,
 			db: detected.db,

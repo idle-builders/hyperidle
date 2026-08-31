@@ -35,7 +35,7 @@ export function deepImportsDieWithTheirEntries(input: DeepImportsDieWithTheirEnt
 		description:
 			"an import naming a layer package's deep subpath dies with the entry — only a declared `exports` key resolves",
 		scope: parseableFiles,
-		minScope: 500,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 

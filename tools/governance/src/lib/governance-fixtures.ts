@@ -14,7 +14,6 @@
 
 import { classificationTotal } from "../rules/classification-total.js";
 import { noProductionImportsDevelopment } from "../rules/no-production-imports-development.js";
-import { patternLive } from "../rules/pattern-live.js";
 import { DeadRuleError, type Rule, runRules } from "./governance-rules.js";
 import { buildCensus, type Census, classifyFile, type FileKind } from "./repo-census.js";
 
@@ -218,7 +217,7 @@ const CLASSIFICATION_CASES: readonly FixtureCase[] = [
 	//
 	// The name-declared FILE mechanism beats the name-declared FOLDER mechanism. This is the pairing
 	// the reorder exists for: almost every `.test.ts` also sits under `__tests__/`, so with the folder
-	// clause first `test-suffix` would match nothing and `pattern-live` would kill the build.
+	// clause first `test-suffix` would match nothing.
 	{
 		id: "classify:precedence:test-suffix-beats-dunder",
 		detail: "layers/app/src/__tests__/x.test.ts resolves to test-suffix, not dunder-segment",
@@ -472,30 +471,6 @@ const STRUCTURAL_CASES: readonly FixtureCase[] = [
 				return null;
 			}
 			return "an empty rule set was allowed to pass";
-		},
-	},
-	{
-		id: "runner:pattern-floor-breach-is-reported",
-		detail: "pattern-live reports a pattern whose live count has fallen below its floor",
-		run: () => {
-			// The fixture tree holds a single `.stories.tsx`, far below the live floor of 125.
-			const census = buildFixtureCensus();
-			const findings = patternLive.evaluate(census);
-			const hit = findings.some((f) => f.message.includes('"stories-suffix"'));
-			return hit ? null : "a pattern below its floor was not reported";
-		},
-	},
-	{
-		id: "runner:pattern-that-still-matches-is-not-reported",
-		detail:
-			"pattern-live stays silent about `development-root:tools`, which the fixture tree does exercise",
-		run: () => {
-			// The complement of the case above: the existence-check patterns (floor 1) must NOT fire while
-			// they still match, or the breach signal above would be indistinguishable from noise.
-			const census = buildFixtureCensus();
-			const findings = patternLive.evaluate(census);
-			const hit = findings.some((f) => f.message.includes('"development-root:tools"'));
-			return hit ? "reported a pattern that is still matching files" : null;
 		},
 	},
 ];

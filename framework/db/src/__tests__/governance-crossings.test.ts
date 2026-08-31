@@ -977,7 +977,7 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 			detail: "writes knowledgeItems without knowledgeAppProjection",
 		};
 
-		const floors = new Map<Kind, number>([["table:write", 1]]);
+		const kinds = [{ kind: "table:write" as Kind }];
 
 		// `Rule.evaluate` is typed to take a Census — these rules never read it (the violations are
 		// already closed over), but the call site still has to pass one.
@@ -986,7 +986,7 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 		const findings = crossingRules({
 			architecture,
 			crossings: [crossing],
-			floors,
+			kinds,
 		}).flatMap((rule) => rule.evaluate(unusedCensus));
 		expect(findings).toHaveLength(1);
 		expect(findings[0]?.severity).toBe("error");

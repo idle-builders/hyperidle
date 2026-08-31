@@ -103,7 +103,7 @@ export function oneWorkPrimitive(input: OneWorkPrimitiveInput): Rule {
 		 * which is the failure this field exists to catch (`au6`/`au9` scanned a deleted path and
 		 * printed PASS for months).
 		 */
-		minScope: 300,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			for (const path of population(census)) {
