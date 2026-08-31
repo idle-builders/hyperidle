@@ -111,9 +111,6 @@ const patchTaskSchema = z
 	})
 	.strict();
 
-/** POST /tasks/:id/kill body. */
-const killTaskSchema = z.object({ reason: z.string().min(1) });
-
 /**
  * BB1 POST /tasks/:id/outcome — the surviving learning half of the deleted
  * bet retro. The plugin skill `post-task-retro` is the structured-learning half.
@@ -486,8 +483,20 @@ export function createTaskRoutes(
 			// Setting a field to the value it already holds is not an invalid
 			// transition; only an actual CHANGE of state goes through the machine.
 			if (state !== undefined && state !== existing.state) {
-				const deps = buildTaskDeps(agentOrchestration);
-				await transitionTask(db, eventBus, taskId, state, deps);
+				if (state === "killed") {
+					// @lore BB1: killing is a SUBTREE operation, and this is the door the
+					// interface actually uses. It used to call `transitionTask`, which kills
+					// exactly one task — so killing a parent from the UI left its children
+					// alive underneath a killed parent. The cascade existed and was tested,
+					// but its only caller had been the bet overflow menu, which BB1 deleted;
+					// it shipped unreachable. Routing the one edit door through
+					// `cascadeTaskKill` is what makes the two agree, rather than adding a
+					// second door that behaves differently from this one.
+					await cascadeTaskKill(db, eventBus, taskId, buildKillDeps(agentOrchestration));
+				} else {
+					const deps = buildTaskDeps(agentOrchestration);
+					await transitionTask(db, eventBus, taskId, state, deps);
+				}
 			}
 		} catch (err) {
 			if (err instanceof TaskCycleError) {
@@ -507,30 +516,6 @@ export function createTaskRoutes(
 			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 		return c.json(updated);
-	});
-
-	// -------------------------------------------------------------------------
-	// POST /tasks/:id/kill — recursive cascade kill
-	// -------------------------------------------------------------------------
-	router.post("/:id/kill", validateBody(killTaskSchema), async (c) => {
-		const taskId = c.req.param("id");
-		c.req.valid("json" as never);
-
-		const task = await work.get(db, "task", taskId);
-		if (!task) {
-			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
-
-		try {
-			const deps = buildKillDeps(agentOrchestration);
-			const result = await cascadeTaskKill(db, eventBus, taskId, deps);
-			return c.json(result);
-		} catch (err) {
-			if (err instanceof InvalidTransitionError) {
-				return c.json({ error: err.message, code: "INVALID_TRANSITION" }, 409);
-			}
-			throw err;
-		}
 	});
 
 	// -------------------------------------------------------------------------

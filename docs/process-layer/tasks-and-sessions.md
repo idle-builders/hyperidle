@@ -14,7 +14,10 @@ Tasks move through a small state machine — the eight states of `TASK_STATES` (
 - `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they surface in the WorkTeam AgentRow health indicators.
 - `review` — the task is awaiting a human verdict. A task reaches `review` only if it **asked** to, via `needsReview` (see §1.1); otherwise finished work closes straight to `done`.
 - `done` — the work is finished. Reached either because the task closed on its own (the ordinary case) or because a reviewer accepted it.
-- `killed` — abandoned. Reasoning logged.
+- `killed` — abandoned. Reasoning logged. Killing is a **subtree** operation: moving a
+  task to `killed` through `PATCH /api/tasks/:id` kills every task beneath it and stops
+  their running sessions (`cascadeTaskKill`). A kill only ever travels DOWN — it never
+  climbs to the parent, and never touches a sibling.
 
 ## 1.1 How a task finishes: `done` by default, `review` on request
 

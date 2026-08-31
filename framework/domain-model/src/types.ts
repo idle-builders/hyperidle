@@ -30,7 +30,12 @@ export type TaskState = (typeof TASK_STATES)[number];
  */
 export const TASK_STATE_LABEL: Record<TaskState, string> = {
 	proposed: "Planned",
-	accepted: "Planned",
+	// @lore BB1: `accepted` used to read "Planned" too, so the State dropdown
+	// listed "Planned" twice and the two states were indistinguishable — picking
+	// the wrong one silently set a different state. They are genuinely different:
+	// `proposed` is drafted and not yet picked up, `accepted` is committed to an
+	// owner and counts against the team's concurrent-task limit.
+	accepted: "Accepted",
 	hold: "On hold",
 	in_progress: "In progress",
 	blocked: "Blocked",

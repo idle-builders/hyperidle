@@ -41,9 +41,22 @@ describe("TASK_STATE_LABEL (AI4 AC2)", () => {
 		expect(TASK_STATE_LABEL["proposed"]).toBe("Planned");
 	});
 
-	it("maps accepted to 'Planned'", () => {
-		// Both proposed+accepted are pre-work states that read "Planned"
-		expect(TASK_STATE_LABEL["accepted"]).toBe("Planned");
+	it("maps accepted to 'Accepted', distinctly from proposed", () => {
+		// @lore BB1: these both read "Planned", so the State dropdown listed
+		// "Planned" twice and the two states could not be told apart. They are
+		// different states — `proposed` is drafted and unclaimed, `accepted` is
+		// committed to an owner and counts against the concurrent-task limit.
+		expect(TASK_STATE_LABEL["accepted"]).toBe("Accepted");
+		expect(TASK_STATE_LABEL["accepted"]).not.toBe(TASK_STATE_LABEL["proposed"]);
+	});
+
+	it("gives every state a DISTINCT label", () => {
+		// @lore BB1: the duplicate that made this worth asserting was
+		// proposed/accepted both reading "Planned". A shared label is not a
+		// cosmetic issue — it makes two states indistinguishable in the State
+		// dropdown, so picking one silently sets the other.
+		const labels = Object.values(TASK_STATE_LABEL);
+		expect(new Set(labels).size).toBe(labels.length);
 	});
 
 	it("maps hold to 'On hold'", () => {

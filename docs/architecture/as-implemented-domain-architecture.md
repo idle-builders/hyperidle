@@ -155,7 +155,7 @@ flowchart TB
   Routine -- "trigger" --> SessionRequest
 ```
 
-Task endpoints: `POST /api/tasks` (create, with optional `parentTaskId`), `GET /api/tasks/:id` (returns full subtree), `PATCH /api/tasks/:id` (edit — same door for humans and agents, no gate), `POST /api/tasks/:id/handoff`, `POST /api/tasks/:id/kill` (`layers/core-api/src/routes/tasks.ts`) via the handoff protocol. Lifecycle semantics: [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
+Task endpoints: `POST /api/tasks` (create, with optional `parentTaskId`), `GET /api/tasks/:id` (returns full subtree), `PATCH /api/tasks/:id` (edit — same door for humans and agents, no gate; `state: "killed"` cascades to the whole subtree), `POST /api/tasks/:id/handoff` (`layers/core-api/src/routes/tasks.ts`) via the handoff protocol. Lifecycle semantics: [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
 
 ## L2 - Conversation Domain
 
@@ -397,7 +397,7 @@ See the L2 Knowledge Domain paragraph above; full design in [knowledge-architect
 
 ### API layer
 
-Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `/:id/kill`, `PATCH /:id`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
+Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `PATCH /:id`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
 
 Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 
