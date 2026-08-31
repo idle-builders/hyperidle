@@ -1,5 +1,5 @@
 /**
- * BA2 — session handles: native id capture and session resumption.
+ * Session handles: native id capture and session resumption.
  *
  * LOCAL-ONLY LANE — runs via test:integration (harness project). Needs real CLI
  * binaries and real LLM credentials. Never a GitHub Actions job.
@@ -174,7 +174,7 @@ function provisionCodexHome(sandboxPath: string): boolean {
 // claude-code
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe("BA2 session handles — claude-code", () => {
+describe("session handles — claude-code", () => {
 	requireHarness("claude");
 
 	test("assigns session id immediately at start, resumes with prior context, bogus-id resume detected", async ({
@@ -185,7 +185,7 @@ describe("BA2 session handles — claude-code", () => {
 			return;
 		}
 
-		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-claude-a-"));
+		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "sh-claude-a-"));
 
 		try {
 			provisionClaudeSandbox(sandboxA);
@@ -195,7 +195,7 @@ describe("BA2 session handles — claude-code", () => {
 
 			// ── Proof 1: native id is assigned BEFORE any stream event ───────
 			const configPhase1: SessionConfig = {
-				sessionId: `ba2-claude-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sessionId: `sh-claude-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath: sandboxA,
 				assembledPrompt: PHASE1_PROMPT,
 				modelTier: "workhorse",
@@ -298,7 +298,7 @@ describe("BA2 session handles — claude-code", () => {
 // codex
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe("BA2 session handles — codex", () => {
+describe("session handles — codex", () => {
 	requireHarness("codex");
 
 	test("captures thread_id from thread.started, resumes with prior context, wrong-id fails loudly", async ({
@@ -309,7 +309,7 @@ describe("BA2 session handles — codex", () => {
 			return;
 		}
 
-		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-codex-base-"));
+		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "sh-codex-base-"));
 		const sandboxAdapter = new LocalSandboxAdapter();
 		const sandboxHandle = await sandboxAdapter.spawn(baseDir);
 		const sandboxPath = sandboxHandle.path;
@@ -328,7 +328,7 @@ describe("BA2 session handles — codex", () => {
 
 			// ── Phase 1: run session, capture native thread id ────────────────
 			const configP1: SessionConfig = {
-				sessionId: `ba2-codex-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sessionId: `sh-codex-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath,
 				assembledPrompt: PHASE1_PROMPT,
 				modelTier: "workhorse",
@@ -412,13 +412,121 @@ describe("BA2 session handles — codex", () => {
 			await rmSandbox(baseDir);
 		}
 	}, 120_000);
+
+	test("resumed codex session can write files — sandbox mode is thread-scoped not config-scoped", async ({
+		skip,
+	}) => {
+		// @lore BA2 codex-sandbox-inherit: `exec resume` has no --sandbox flag.
+		// The original thread's sandbox mode (workspace-write) is INHERITED by the
+		// resumed session. This test proves it by having the resumed session create
+		// a new file and asserting the file exists on disk.
+		//
+		// If codex resume defaulted to read-only, the file write would silently
+		// fail or produce an error event, and the file would not exist — failing
+		// this assertion. A guard you cannot show red is a passenger; this test
+		// goes red if sandbox mode stops being inherited.
+		if (!(await codexAuthed())) {
+			skip();
+			return;
+		}
+
+		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-sbox-"));
+		const sandboxAdapter = new LocalSandboxAdapter();
+		const sandboxHandle = await sandboxAdapter.spawn(baseDir);
+		const sandboxPath = sandboxHandle.path;
+
+		try {
+			ensureSandboxGitRepo(sandboxPath);
+			const authFound = provisionCodexHome(sandboxPath);
+			if (!authFound) {
+				skip();
+				return;
+			}
+
+			const codexConfig = cliAdapterFixture("codex");
+			const adapter = new CliHarnessAdapter(codexConfig);
+
+			// Phase 1: write a sentinel file, capture thread id.
+			const configP1: SessionConfig = {
+				sessionId: `codex-sbox-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sandboxPath,
+				assembledPrompt:
+					"Write the text 'phase1' to a new file called sandbox-phase1.txt. " +
+					"Reply with exactly: PHASE1_DONE",
+				modelTier: "workhorse",
+				tools: [],
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "gpt-5.4-mini",
+					apiKey: "",
+					baseUrl: "https://api.openai.com",
+				},
+			};
+
+			const handleP1 = await adapter.startSession(configP1);
+			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
+			const r1 = await adapter.stopSession(handleP1);
+			expect(r1.outcome).toBe("completed");
+			expect(
+				p1Texts.some((t) => t.includes("PHASE1_DONE")),
+				`Phase 1 must produce PHASE1_DONE. Got: ${p1Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			const nativeId = adapter.getNativeSessionId?.(handleP1);
+			expect(nativeId, "codex thread_id must be captured").toBeTruthy();
+
+			// Verify phase 1 actually wrote the file.
+			expect(
+				fs.existsSync(path.join(sandboxPath, "sandbox-phase1.txt")),
+				"Phase 1 must have written sandbox-phase1.txt",
+			).toBe(true);
+
+			// Phase 2: resume and write a SECOND file.
+			const resumeConfig: import("@hyperidle/harness-protocol").SessionResumeConfig = {
+				sandboxPath,
+				modelTier: "workhorse",
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "gpt-5.4-mini",
+					apiKey: "",
+					baseUrl: "https://api.openai.com",
+				},
+			};
+
+			const handleP2 = await adapter.resumeSession?.(
+				nativeId!,
+				"Write the text 'phase2' to a new file called sandbox-phase2.txt. " +
+					"Reply with exactly: PHASE2_DONE",
+				resumeConfig,
+			);
+			expect(handleP2, "resumeSession must return a handle").toBeDefined();
+			if (!handleP2) return;
+
+			const { completionTexts: p2Texts } = await drainEvents(adapter, handleP2);
+			const r2 = await adapter.stopSession(handleP2);
+			expect(r2.outcome).toBe("completed");
+			expect(
+				p2Texts.some((t) => t.includes("PHASE2_DONE")),
+				`Phase 2 resume must produce PHASE2_DONE. Got: ${p2Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// Key assertion: resumed session wrote the file.
+			expect(
+				fs.existsSync(path.join(sandboxPath, "sandbox-phase2.txt")),
+				"Resumed codex session must be able to write files (sandbox mode is thread-scoped)",
+			).toBe(true);
+		} finally {
+			await sandboxAdapter.destroy(sandboxHandle);
+			await rmSandbox(baseDir);
+		}
+	}, 180_000);
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
 // cursor-agent
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe("BA2 session handles — cursor-agent", () => {
+describe("session handles — cursor-agent", () => {
 	requireHarness("cursor-agent");
 
 	test("captures session_id from system/init, resumes with prior context, wrong-dir resume detected as context-free", async ({
@@ -429,8 +537,8 @@ describe("BA2 session handles — cursor-agent", () => {
 			return;
 		}
 
-		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-cursor-a-"));
-		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-cursor-b-"));
+		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "sh-cursor-a-"));
+		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "sh-cursor-b-"));
 
 		try {
 			const cursorConfig = cliAdapterFixture("cursor-agent");
@@ -438,7 +546,7 @@ describe("BA2 session handles — cursor-agent", () => {
 
 			// ── Phase 1: run session, plant codeword ──────────────────────────
 			const configP1: SessionConfig = {
-				sessionId: `ba2-cursor-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sessionId: `sh-cursor-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath: sandboxA,
 				assembledPrompt: PHASE1_PROMPT,
 				modelTier: "workhorse",
@@ -535,7 +643,7 @@ describe("BA2 session handles — cursor-agent", () => {
 // opencode
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe("BA2 session handles — opencode", () => {
+describe("session handles — opencode", () => {
 	requireHarness("opencode");
 
 	test("captures sessionID from first event, resumes with prior context, wrong-id fails loudly", async ({
@@ -546,7 +654,7 @@ describe("BA2 session handles — opencode", () => {
 			return;
 		}
 
-		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-opencode-"));
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "sh-opencode-"));
 
 		try {
 			const opencodeConfig = cliAdapterFixture("opencode");
@@ -554,7 +662,7 @@ describe("BA2 session handles — opencode", () => {
 
 			// ── Phase 1: run session, plant codeword ──────────────────────────
 			const configP1: SessionConfig = {
-				sessionId: `ba2-oc-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sessionId: `sh-oc-p1-${Math.random().toString(36).slice(2, 8)}`,
 				sandboxPath,
 				assembledPrompt: PHASE1_PROMPT,
 				modelTier: "workhorse",

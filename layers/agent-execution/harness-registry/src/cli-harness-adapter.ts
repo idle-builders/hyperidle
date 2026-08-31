@@ -1088,6 +1088,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				// thread-id is captured from thread.started at session start.
 				// CODEX_HOME must point to the per-session .codex-home/ so the hook
 				// runs on the resumed session too.
+				//
+				// @lore BA2 codex-sandbox-inherit: `exec resume` has no --sandbox flag.
+				// The original thread's sandbox mode (workspace-write) is INHERITED by
+				// the resumed session — codex stores it with the thread. Proved by running
+				// a two-phase session (phase 1: exec --sandbox workspace-write, phase 2:
+				// exec resume) and verifying the resumed turn could create new files in
+				// the sandbox. This holds whether or not sandbox_mode appears in
+				// config.toml — the flag is thread-scoped, not config-scoped.
 				args = [
 					"exec",
 					"resume",
@@ -1160,8 +1168,38 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			}
 		}
 
+		// ── Resolve envMap the same way startSession does.
+		//
+		// startSession builds resolvedEnvMap from this.config.envMap with template
+		// vars resolved against config.resolvedModel. resumeSession was previously
+		// passing only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping
+		// envMap entries — most critically OPENAI_API_KEY for codex and
+		// ANTHROPIC_API_KEY for opencode in any deployment that resolves a real
+		// apiKey. extraEnv entries override (they are per-session specifics that
+		// take precedence over the template-based credential).
+		//
+		// {{mcpUrl}} and {{prompt}} are not meaningful at resume time and resolve
+		// to empty string, which is safe — neither appears in any production envMap.
+		const resumeTemplateVars: Record<TemplateVar, string> = {
+			"{{sandbox}}": config.sandboxPath,
+			"{{model}}": config.resolvedModel?.model ?? "",
+			"{{apiKey}}": config.resolvedModel?.apiKey ?? "",
+			"{{baseUrl}}": config.resolvedModel?.baseUrl ?? "",
+			"{{mcpUrl}}": "",
+			"{{prompt}}": "",
+		};
+		const resolvedEnvMap: Record<string, string> = {};
+		for (const [key, value] of Object.entries(this.config.envMap)) {
+			resolvedEnvMap[key] = resolveTemplates(value, resumeTemplateVars);
+		}
+		// extraEnv (CODEX_HOME, mcpTokenEnv) takes precedence over the template-resolved
+		// envMap entries — per-session specifics win over the credential template.
+		for (const [k, v] of Object.entries(extraEnv)) {
+			resolvedEnvMap[k] = v;
+		}
+
 		const finalArgs = [...args, ...extraArgs];
-		const sandboxedEnv = buildSandboxedEnv(this.config.envAllowlist, extraEnv);
+		const sandboxedEnv = buildSandboxedEnv(this.config.envAllowlist, resolvedEnvMap);
 
 		const child = this.spawnFn(this.config.binary, finalArgs, {
 			cwd: sandboxPath,
