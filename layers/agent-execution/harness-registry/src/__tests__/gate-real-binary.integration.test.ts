@@ -32,9 +32,27 @@
  * @lore BA2 cursor-failClosed: cursor-agent fails open (silently) by default
  * when a hook crashes. addCursorGateHook sets failClosed: true.
  *
- * @lore BA2 opencode-pure: opencode's --pure flag disables project plugins,
- * making the gate plugin silently inert. Gate testing for opencode is scoped out
- * pending removal of --pure from the adapter config.
+ * @lore BA2 cursor-hook-inert: cursor-agent's PreToolUse hooks (.cursor/hooks.json)
+ * are empirically ignored — the hook script never fires during a real cursor-agent run.
+ * AC2 cursor and AC7 cursor are therefore split: AC7 (wrong session id, no hook needed)
+ * passes; AC2 (gate-block via hook) fails. The cursor gate mechanism needs investigation.
+ *
+ * @lore BA2 opencode-pure: --pure was removed from adapter-pool.ts so project plugins
+ * load. XDG_CONFIG_HOME isolation replaces it. Opencode gate AC2 is not yet in this
+ * file — add once the plugin contract is fully proven in production.
+ *
+ * @lore BA2 mcp-tool-name-prefix: claude prefixes MCP tool names as mcp__<server>__<tool>.
+ * Gate rules with pattern "blocked_tool " (trailing space) match because the toolText is
+ * "<tool_name> <JSON.stringify(tool_input)>" — the space between name and JSON prevents
+ * false-positive matches when the tool name appears inside another tool's input (e.g.
+ * ToolSearch{"query":"blocked_tool"} has no trailing space after "blocked_tool").
+ * Clearances must use the MCP-prefixed name (e.g. "mcp__gate-test__blocked_tool").
+ *
+ * @lore BA2 ac4-ac5-liveness: AC4 and AC5 test the gate in RESUMED sessions. The resumed
+ * claude session is asked to call blocked_tool; whether it does is LLM behavior. On some
+ * runs claude declines to retry a previously-blocked tool. These tests are behavioral and
+ * non-deterministic — they prove the mechanism when the agent cooperates, not that the
+ * agent always will.
  *
  * @lore BA2 ac3-seed-prompt: the instruction to call submit_review lives in the
  * assembledPrompt, NOT in the hook denial message. Sonnet refused an instruction
