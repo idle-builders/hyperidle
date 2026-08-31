@@ -224,9 +224,7 @@ function FrameHeader({
 				<Breadcrumb
 					segments={[
 						{ label: "Work", to: "/work" },
-						...(s.parentTaskId
-							? [{ label: s.betTitle, to: `/work/task/${s.parentTaskId}` }]
-							: []),
+						...(s.parentTaskId ? [{ label: s.betTitle, to: `/work/task/${s.parentTaskId}` }] : []),
 						...(s.taskId && s.taskTitle
 							? [{ label: s.taskTitle, to: `/work/task/${s.taskId}` }]
 							: []),

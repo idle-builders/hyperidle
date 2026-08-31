@@ -65,7 +65,11 @@ describe("GET /api/tasks?ids= reads many tasks in one request", () => {
 
 		expect(res.status).toBe(200);
 		// BB1: API returns parentTaskId (not rootTaskId); for 1-level deep tasks these are the same.
-		const body = (await res.json()) as ReadonlyArray<{ id: string; title: string; parentTaskId: string }>;
+		const body = (await res.json()) as ReadonlyArray<{
+			id: string;
+			title: string;
+			parentTaskId: string;
+		}>;
 		expect(body.map((t) => t.id).sort()).toEqual(["task-w4-a", "task-w4-c"]);
 		// The two fields the run-state composition needs come back whole.
 		expect(body.every((t) => t.title.startsWith("Title "))).toBe(true);

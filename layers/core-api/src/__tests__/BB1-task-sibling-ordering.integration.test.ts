@@ -35,7 +35,10 @@ describe("BB1 AC12 — sibling ordering", () => {
 	// every task defaults to 0. The test fails on `expect(positions).toEqual([0,1,2])`.
 	// -------------------------------------------------------------------------
 	describe("create three siblings → positions 0, 1, 2", () => {
-		test("each new subtask appends — position increases by one per sibling", async ({ db, app }) => {
+		test("each new subtask appends — position increases by one per sibling", async ({
+			db,
+			app,
+		}) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({
 				id: "ac12-team-create",
@@ -44,7 +47,9 @@ describe("BB1 AC12 — sibling ordering", () => {
 				createdAt: now,
 			});
 
-			const post = async (body: Record<string, unknown>): Promise<{ id: string; position: number }> => {
+			const post = async (
+				body: Record<string, unknown>,
+			): Promise<{ id: string; position: number }> => {
 				const r = await app.request("/api/tasks", {
 					method: "POST",
 					headers: authHeaders(),
@@ -91,7 +96,9 @@ describe("BB1 AC12 — sibling ordering", () => {
 				createdAt: now,
 			});
 
-			const post = async (body: Record<string, unknown>): Promise<{ id: string; position: number }> => {
+			const post = async (
+				body: Record<string, unknown>,
+			): Promise<{ id: string; position: number }> => {
 				const r = await app.request("/api/tasks", {
 					method: "POST",
 					headers: authHeaders(),
@@ -146,7 +153,9 @@ describe("BB1 AC12 — sibling ordering", () => {
 				createdAt: now,
 			});
 
-			const post = async (body: Record<string, unknown>): Promise<{ id: string; position: number }> => {
+			const post = async (
+				body: Record<string, unknown>,
+			): Promise<{ id: string; position: number }> => {
 				const r = await app.request("/api/tasks", {
 					method: "POST",
 					headers: authHeaders(),
@@ -175,7 +184,11 @@ describe("BB1 AC12 — sibling ordering", () => {
 				body: JSON.stringify({ parentTaskId: parentB.id }),
 			});
 			expect(patchRes.status).toBe(200);
-			const moved = (await patchRes.json()) as { id: string; position: number; parentTaskId: string };
+			const moved = (await patchRes.json()) as {
+				id: string;
+				position: number;
+				parentTaskId: string;
+			};
 			expect(moved.parentTaskId).toBe(parentB.id);
 
 			// The moved task must be last under Parent B
@@ -215,7 +228,9 @@ describe("BB1 AC12 — sibling ordering", () => {
 				createdAt: now,
 			});
 
-			const post = async (body: Record<string, unknown>): Promise<{ id: string; position: number }> => {
+			const post = async (
+				body: Record<string, unknown>,
+			): Promise<{ id: string; position: number }> => {
 				const r = await app.request("/api/tasks", {
 					method: "POST",
 					headers: authHeaders(),
@@ -254,9 +269,13 @@ describe("BB1 AC12 — sibling ordering", () => {
 			expect(agentPatch.status).toBe(200);
 
 			// Read both lists and assert identical position sequences
-			const humanListRes = await app.request(`/api/tasks?parent_id=${rH.id}`, { headers: authHeaders() });
+			const humanListRes = await app.request(`/api/tasks?parent_id=${rH.id}`, {
+				headers: authHeaders(),
+			});
 			const humanList = (await humanListRes.json()) as Array<{ id: string; position: number }>;
-			const agentListRes = await app.request(`/api/tasks?parent_id=${rAg.id}`, { headers: authHeaders() });
+			const agentListRes = await app.request(`/api/tasks?parent_id=${rAg.id}`, {
+				headers: authHeaders(),
+			});
 			const agentList = (await agentListRes.json()) as Array<{ id: string; position: number }>;
 
 			// Human: [hC, hA, hB] at positions [0, 1, 2]
@@ -360,7 +379,11 @@ describe("BB1 AC12 — sibling ordering", () => {
 			const createRes = await app.request("/api/tasks", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ teamId: "ac12-team-nr-create", title: "Review task", needsReview: true }),
+				body: JSON.stringify({
+					teamId: "ac12-team-nr-create",
+					title: "Review task",
+					needsReview: true,
+				}),
 			});
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as { id: string; needsReview: boolean };

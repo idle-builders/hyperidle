@@ -565,9 +565,7 @@ function isNullGuard(guard: TransitionGuard): guard is TransitionFieldIsNullGuar
  * distinction matters — `undefined` is absence, `null` is a value.
  */
 function parentCond(parentTaskId: string | null): SQL {
-	return parentTaskId === null
-		? isNull(tasks.parentTaskId)
-		: eq(tasks.parentTaskId, parentTaskId);
+	return parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId);
 }
 
 /**

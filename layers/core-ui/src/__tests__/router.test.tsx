@@ -57,9 +57,9 @@ import { Conversations } from "../pages/Conversations";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
 import { KnowledgeList } from "../pages/KnowledgeList";
 import { NotFound } from "../pages/NotFound";
-import { WorkTaskPage } from "../pages/WorkTaskPage";
 // AD9: WorkPortfolio retired; WorkOverview is the new /work route
 import { WorkOverview } from "../pages/WorkOverview";
+import { WorkTaskPage } from "../pages/WorkTaskPage";
 
 afterEach(() => {
 	vi.restoreAllMocks();

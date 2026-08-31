@@ -26,14 +26,7 @@
  * nothing, ever.
  */
 
-import {
-	agentRunConfig,
-	type HyperIdleDb,
-	sessions,
-	tasks,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { listNotifications } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

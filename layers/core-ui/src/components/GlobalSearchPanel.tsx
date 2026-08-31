@@ -4,11 +4,11 @@ import { createPortal } from "react-dom";
 import {
 	EmptyState,
 	ErrorState,
+	ensureOverlayRoot,
 	KnowledgeRow,
 	SearchField,
 	TaskCard,
 	ThreadRow,
-	ensureOverlayRoot,
 	useDialogBehavior,
 } from "../ds";
 import { useGlobalSearch } from "../hooks/useGlobalSearch";

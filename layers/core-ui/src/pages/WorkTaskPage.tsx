@@ -26,6 +26,7 @@ import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import {
 	Breadcrumb,
+	type BreadcrumbSegment,
 	Button,
 	ErrorState,
 	Input,
@@ -136,9 +137,7 @@ function SubtaskTree({
 	onReorder?: (taskId: string, newPosition: number) => void;
 }): JSX.Element {
 	if (nodes.length === 0) {
-		return (
-			<p className="type-metadata text-[var(--text-tertiary)] py-[6px]">No subtasks yet.</p>
-		);
+		return <p className="type-metadata text-[var(--text-tertiary)] py-[6px]">No subtasks yet.</p>;
 	}
 	return (
 		<ul
@@ -195,10 +194,7 @@ function SubtaskRow({
 					{task.title}
 				</RRLink>
 				{task.state === "in_progress" && <LiveDot />}
-				<StatusChip
-					status={taskStateToStatus(task.state)}
-					label={TASK_STATE_LABEL[task.state]}
-				/>
+				<StatusChip status={taskStateToStatus(task.state)} label={TASK_STATE_LABEL[task.state]} />
 				{/* Reorder controls — only rendered when a reorder handler is wired */}
 				{onReorder !== undefined && (
 					<div className="flex items-center gap-[3px] shrink-0">
@@ -297,13 +293,7 @@ function SessionRow({
  * Title, description, goal, owner, and state are all editable — no approval
  * step, no role gate (AC7).
  */
-function EditPanel({
-	task,
-	onSaved,
-}: {
-	task: Task;
-	onSaved: () => void;
-}): JSX.Element {
+function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.Element {
 	const [fields, setFields] = useState<EditState>(() => taskToEditState(task));
 	const { status, patch } = useTaskPatch(onSaved);
 
@@ -313,7 +303,7 @@ function EditPanel({
 	}, [task]);
 
 	const isDirty =
-		fields.title !== (task.title) ||
+		fields.title !== task.title ||
 		fields.description !== (task.description ?? "") ||
 		fields.doneCondition !== (task.doneCondition ?? "") ||
 		fields.ownerAgentId !== (task.ownerAgentId ?? "") ||
@@ -355,9 +345,7 @@ function EditPanel({
 						label="Description"
 						textarea
 						value={fields.description}
-						onChange={(e) =>
-							setFields((f) => ({ ...f, description: e.target.value }))
-						}
+						onChange={(e) => setFields((f) => ({ ...f, description: e.target.value }))}
 						placeholder="Describe the task…"
 						rows={4}
 						data-testid="task-description-input"
@@ -370,9 +358,7 @@ function EditPanel({
 						label="Goal (done when…)"
 						textarea
 						value={fields.doneCondition}
-						onChange={(e) =>
-							setFields((f) => ({ ...f, doneCondition: e.target.value }))
-						}
+						onChange={(e) => setFields((f) => ({ ...f, doneCondition: e.target.value }))}
 						placeholder="Describe the acceptance condition…"
 						rows={2}
 						data-testid="task-done-condition-input"
@@ -492,11 +478,7 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 
 	if (error) {
 		return (
-			<PageScaffold
-				frame="page"
-				header={<PageHeader title="Task" />}
-				data-testid="task-page-error"
-			>
+			<PageScaffold frame="page" header={<PageHeader title="Task" />} data-testid="task-page-error">
 				<div role="alert" className="p-[24px]">
 					<ErrorState
 						title="Failed to load task"
@@ -532,7 +514,14 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 
 	// Build breadcrumb from ancestors root-first + the current task as the
 	// non-linked final segment. ancestors[0] is the root task.
-	const breadcrumbSegments: Array<{ label: string; to?: string }> = [
+	// @lore BB1: typed as a NON-EMPTY tuple, which is what `Breadcrumb` asks for.
+	// This was `Array<…>` plus an `as unknown as` cast at the call site — a
+	// double assertion that launders the value past the type checker (and that
+	// `design/no-unknown-cast` rightly rejects). The array is non-empty by
+	// construction: the "Work" root and the current task always exist, and the
+	// ancestors spread in between. Saying so in the type costs nothing and means
+	// the compiler checks the shape instead of being told to trust it.
+	const breadcrumbSegments: readonly [BreadcrumbSegment, ...BreadcrumbSegment[]] = [
 		{ label: "Work", to: "/work" },
 		...ancestors.map((a) => ({ label: a.title, to: `/work/task/${encodeURIComponent(a.id)}` })),
 		{ label: task.title },
@@ -548,13 +537,10 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 					leading={
 						<div data-testid="task-breadcrumb">
 							<Breadcrumb
-								segments={breadcrumbSegments as unknown as Parameters<typeof Breadcrumb>[0]["segments"]}
+								segments={breadcrumbSegments}
 								leading={
 									!sidebarMobile ? (
-										<NavHistoryCluster
-											onBack={() => navigate(-1)}
-											onForward={() => navigate(1)}
-										/>
+										<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
 									) : undefined
 								}
 								LinkComponent={RRLink}

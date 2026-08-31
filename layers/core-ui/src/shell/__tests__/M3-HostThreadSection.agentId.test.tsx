@@ -40,7 +40,9 @@ describe("M3 — HostThreadSection: accepts agentId prop (D3)", () => {
 	});
 
 	it("renders without error when agentId is null", () => {
-		render(<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" agentId={null} />);
+		render(
+			<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" agentId={null} />,
+		);
 
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
 	});

@@ -19,7 +19,9 @@ const assembler = createContextAssembler({
 function sessionContext() {
 	return {
 		task: { id: "t1", title: "Ship the thing", description: "Do the work", state: "in_progress" },
-		ancestors: [{ id: "b1", title: "Root goal", description: "Ship it fast", doneCondition: "It ships" }],
+		ancestors: [
+			{ id: "b1", title: "Root goal", description: "Ship it fast", doneCondition: "It ships" },
+		],
 		agent: { id: "a1", name: "Ada", role: "builder" },
 		team: { id: "team1", name: "Alpha" },
 	};

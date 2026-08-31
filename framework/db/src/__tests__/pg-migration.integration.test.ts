@@ -69,7 +69,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// @lore BB1: bets table dropped — parentTaskId self-FK on tasks replaces it.
 			expect(tableNames).not.toContain("bets");
 			// @lore BB1: bets table dropped — was 18, now 17.
-		expect(tableNames.length).toBeGreaterThanOrEqual(17);
+			expect(tableNames.length).toBeGreaterThanOrEqual(17);
 		} finally {
 			await close();
 		}

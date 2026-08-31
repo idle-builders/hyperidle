@@ -20,7 +20,6 @@
  * `in_progress` as parent states to surface the actual regression.
  */
 
-import { and, eq } from "drizzle-orm";
 import {
 	type HyperIdleDb,
 	type Item,
@@ -34,6 +33,7 @@ import {
 import { test as dbTest, describe, expect } from "@hyperidle/db/test-fixtures";
 import type { TaskState } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
+import { and, eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { type PolicyDeps, registerPolicy } from "../index.js";
 
@@ -453,55 +453,52 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 	 *   `accepted` → test times out.
 	 * Restore and test is green.
 	 */
-	dbTest(
-		"mixed done+killed children count as all-terminal → parent advances",
-		async ({ db }) => {
-			const teamId = "bb1-p6a-team";
-			await seedTeam(db, teamId);
+	dbTest("mixed done+killed children count as all-terminal → parent advances", async ({ db }) => {
+		const teamId = "bb1-p6a-team";
+		await seedTeam(db, teamId);
 
-			await seedTask(db, {
-				id: "bb1-p6a-root",
-				teamId,
-				parentTaskId: null,
-				state: "accepted",
-				needsReview: false,
-			});
-			// child-a was killed; child-b will be done — both are terminal.
-			await seedTask(db, {
-				id: "bb1-p6a-child-a",
-				teamId,
-				parentTaskId: "bb1-p6a-root",
-				state: "killed",
-			});
-			await seedTask(db, {
-				id: "bb1-p6a-child-b",
-				teamId,
-				parentTaskId: "bb1-p6a-root",
-				state: "in_progress",
-			});
+		await seedTask(db, {
+			id: "bb1-p6a-root",
+			teamId,
+			parentTaskId: null,
+			state: "accepted",
+			needsReview: false,
+		});
+		// child-a was killed; child-b will be done — both are terminal.
+		await seedTask(db, {
+			id: "bb1-p6a-child-a",
+			teamId,
+			parentTaskId: "bb1-p6a-root",
+			state: "killed",
+		});
+		await seedTask(db, {
+			id: "bb1-p6a-child-b",
+			teamId,
+			parentTaskId: "bb1-p6a-root",
+			state: "in_progress",
+		});
 
-			const eventBus = new EventBus();
-			const policyDeps: PolicyDeps = {
-				work: makeWorkPort(),
-				conversation: conversationStub,
-				users: usersStub,
-			};
-			const unregister = registerPolicy(db, eventBus, policyDeps);
+		const eventBus = new EventBus();
+		const policyDeps: PolicyDeps = {
+			work: makeWorkPort(),
+			conversation: conversationStub,
+			users: usersStub,
+		};
+		const unregister = registerPolicy(db, eventBus, policyDeps);
 
-			try {
-				await completeTask(db, eventBus, policyDeps, "bb1-p6a-child-b", "in_progress", "done");
+		try {
+			await completeTask(db, eventBus, policyDeps, "bb1-p6a-child-b", "in_progress", "done");
 
-				await vi.waitFor(
-					async () => {
-						expect(await getTaskState(db, "bb1-p6a-root")).toBe("done");
-					},
-					{ timeout: 5000 },
-				);
-			} finally {
-				unregister();
-			}
-		},
-	);
+			await vi.waitFor(
+				async () => {
+					expect(await getTaskState(db, "bb1-p6a-root")).toBe("done");
+				},
+				{ timeout: 5000 },
+			);
+		} finally {
+			unregister();
+		}
+	});
 
 	/**
 	 * TEST 6b: one live child → parent does NOT advance.

@@ -23,7 +23,6 @@ export { AGENT_CATEGORIES, type AgentCategory } from "./types.js";
  * fuzzy role-substring branch did all the work. The practice is the role.
  */
 
-
 /**
  * Map a role id to a human-readable display label.
  *

@@ -159,7 +159,7 @@ describe("A2: Migration", () => {
 			);
 			const rows = (result as { rows: Array<{ n: string | number }> }).rows;
 			// @lore BB1: bets table dropped — was 15, now 14.
-		expect(Number(rows[0]?.n)).toBeGreaterThanOrEqual(14);
+			expect(Number(rows[0]?.n)).toBeGreaterThanOrEqual(14);
 		} finally {
 			await handle.close();
 		}

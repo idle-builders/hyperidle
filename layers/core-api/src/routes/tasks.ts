@@ -1,10 +1,6 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import {
-	API_ERROR_CODES,
-	TASK_OUTCOME_VERDICTS,
-	TASK_STATES,
-} from "@hyperidle/domain-model";
+import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { getTeam } from "@hyperidle/org";
@@ -48,8 +44,7 @@ function buildKillDeps(agentOrchestration: AgentOrchestrationPort): TaskKillCasc
 	return {
 		...buildTaskDeps(agentOrchestration),
 		runOrchestration: {
-			requestRunStopForTasks: (_exec, taskIds) =>
-				agentOrchestration.runs.stopForTasks(taskIds),
+			requestRunStopForTasks: (_exec, taskIds) => agentOrchestration.runs.stopForTasks(taskIds),
 		},
 	};
 }
@@ -228,11 +223,7 @@ export function createTaskRoutes(
 
 		// `parent_id=root` means tasks with no parent (NULL parent_task_id).
 		const parentTaskId: string | null | undefined =
-			parentIdParam === "root"
-				? null
-				: parentIdParam !== undefined
-					? parentIdParam
-					: undefined;
+			parentIdParam === "root" ? null : parentIdParam !== undefined ? parentIdParam : undefined;
 
 		const result = await work.list(db, "task", {
 			...(parentTaskId !== undefined ? { parentTaskId } : {}),
@@ -275,9 +266,7 @@ export function createTaskRoutes(
 		// Ancestors: nearest-first from listAncestorIds, reversed for root-first.
 		const ancestorIds = await work.listAncestorIds(db, taskId);
 		const ancestorTasks =
-			ancestorIds.length > 0
-				? await work.list(db, "task", { ids: ancestorIds })
-				: [];
+			ancestorIds.length > 0 ? await work.list(db, "task", { ids: ancestorIds }) : [];
 		// Re-sort root-first: listAncestorIds returns nearest-first (depth 1, 2, …).
 		const ancestorById = new Map(ancestorTasks.map((t) => [t.id, t]));
 		const ancestors: Task[] = [...ancestorIds].reverse().flatMap((id) => {
@@ -288,9 +277,7 @@ export function createTaskRoutes(
 		// Subtree: all descendants (inclusive of root).
 		const subtreeIds = await work.listSubtreeIds(db, taskId);
 		const subtreeTasks =
-			subtreeIds.length > 0
-				? await work.list(db, "task", { ids: subtreeIds })
-				: [task];
+			subtreeIds.length > 0 ? await work.list(db, "task", { ids: subtreeIds }) : [task];
 
 		// Build nested children structure (excluding root itself).
 		const children = buildChildren(subtreeTasks, taskId);

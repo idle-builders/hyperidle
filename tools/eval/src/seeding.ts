@@ -28,12 +28,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type {
-	AgentCategory,
-	ModelTier,
-	ScopeKind,
-	TaskState,
-} from "@hyperidle/domain-model";
+import type { AgentCategory, ModelTier, ScopeKind, TaskState } from "@hyperidle/domain-model";
 import type { ScenarioSeedResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -152,7 +147,8 @@ export async function seedRootTask(
 		id: rootTaskId,
 		parentTaskId: null,
 		teamId: opts.teamId,
-		title: opts.description.length > 120 ? `${opts.description.slice(0, 117)}...` : opts.description,
+		title:
+			opts.description.length > 120 ? `${opts.description.slice(0, 117)}...` : opts.description,
 		description: opts.description,
 		doneCondition: opts.doneCondition ?? null,
 		state: opts.state ?? "in_progress",

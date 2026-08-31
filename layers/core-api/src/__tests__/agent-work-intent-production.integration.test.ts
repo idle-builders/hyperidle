@@ -224,7 +224,10 @@ describe("atomic production handoffs", () => {
 		const localDeps = {
 			workIntents: workIntentsImpl,
 			taskRunResolver: { requireRunnableAgent, getAgentIdentity },
-			teamCapacity: { getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) => getTeam(exec, { id: teamId }) },
+			teamCapacity: {
+				getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) =>
+					getTeam(exec, { id: teamId }),
+			},
 		};
 		await checkAndUnblockDependents(db, eventBus, "au9-production-task", localDeps);
 

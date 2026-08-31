@@ -140,7 +140,7 @@ describe("closed enums (AC-4)", () => {
 		);
 	});
 
-	it("HOST_KINDS has exactly 7 entries (BB1: \"bet\" removed)", () => {
+	it('HOST_KINDS has exactly 7 entries (BB1: "bet" removed)', () => {
 		expect(HOST_KINDS.length).toBe(7);
 		expect(new Set(HOST_KINDS)).toEqual(
 			new Set(["task", "knowledge_item", "artifact", "agent", "user", "team", "factory"]),

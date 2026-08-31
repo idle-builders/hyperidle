@@ -15,15 +15,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	artifacts,
-	type HyperIdleDb,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -44,7 +36,9 @@ const ports: ToolHandlersPorts = {
 		...STUB_TOOL_HANDLERS_PORTS.coreApi,
 		getTaskById: async (id: string) => {
 			const [row] = await sharedDb.select().from(tasks).where(eq(tasks.id, id));
-			return row ? { parentTaskId: row.parentTaskId ?? null, teamId: row.teamId, notes: row.notes ?? null } : undefined;
+			return row
+				? { parentTaskId: row.parentTaskId ?? null, teamId: row.teamId, notes: row.notes ?? null }
+				: undefined;
 		},
 		getArtifactById: async (id: string) => {
 			const row = await work.get(sharedDb, "artifact", id);

@@ -14,14 +14,7 @@
 
 import { type JSX, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
-import {
-	Breadcrumb,
-	Button,
-	Input,
-	PageHeader,
-	PageScaffold,
-	Select,
-} from "../ds/index.js";
+import { Breadcrumb, Button, Input, PageHeader, PageScaffold, Select } from "../ds/index.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -44,7 +37,10 @@ export function WorkTaskCreate(): JSX.Element {
 
 	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
 	// parentTaskId path: teamId is inherited server-side; only title is required
-	const canCreate = title.trim().length > 0 && (parentTaskId != null || resolvedTeamId.trim().length > 0) && !submitting;
+	const canCreate =
+		title.trim().length > 0 &&
+		(parentTaskId != null || resolvedTeamId.trim().length > 0) &&
+		!submitting;
 
 	const handleCreate = async (): Promise<void> => {
 		if (!canCreate) return;
@@ -98,13 +94,14 @@ export function WorkTaskCreate(): JSX.Element {
 		}
 	};
 
-	const breadcrumbSegments = parentTaskId != null
-		? ([
-				{ label: "Work", to: "/work" },
-				{ label: "Task", to: `/work/task/${encodeURIComponent(parentTaskId)}` },
-				{ label: "New subtask" },
-			] as const)
-		: ([{ label: "Work", to: "/work" }, { label: "New task" }] as const);
+	const breadcrumbSegments =
+		parentTaskId != null
+			? ([
+					{ label: "Work", to: "/work" },
+					{ label: "Task", to: `/work/task/${encodeURIComponent(parentTaskId)}` },
+					{ label: "New subtask" },
+				] as const)
+			: ([{ label: "Work", to: "/work" }, { label: "New task" }] as const);
 
 	return (
 		<PageScaffold
@@ -113,12 +110,7 @@ export function WorkTaskCreate(): JSX.Element {
 			header={
 				<PageHeader
 					title={parentTaskId != null ? "New subtask" : "New task"}
-					leading={
-						<Breadcrumb
-							segments={breadcrumbSegments}
-							LinkComponent={RRLink}
-						/>
-					}
+					leading={<Breadcrumb segments={breadcrumbSegments} LinkComponent={RRLink} />}
 					actions={
 						<>
 							<Button variant="secondary" size="sm" onClick={handleCancel} disabled={submitting}>

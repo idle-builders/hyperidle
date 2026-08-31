@@ -79,13 +79,11 @@ async function fetchTaskRefs(
 	const rows = (await res.json()) as ReadonlyArray<{
 		id?: unknown;
 		title?: unknown;
-
 	}>;
 	for (const row of rows) {
 		if (typeof row.id !== "string") continue;
 		refs.set(row.id, {
 			title: typeof row.title === "string" ? row.title : row.id,
-
 		});
 	}
 	return refs;
@@ -102,7 +100,7 @@ export interface RosterRunState {
 	readonly healthDetail: string;
 	readonly activeTaskTitle: string | null;
 	readonly activeTaskId: string | null;
-// @lore BB1: activeBetId removed — use activeTaskId + /work/task/:taskId
+	// @lore BB1: activeBetId removed — use activeTaskId + /work/task/:taskId
 }
 
 export interface RosterMemberRef {
@@ -199,7 +197,7 @@ export const DEFAULT_ROSTER_RUN_STATE: RosterRunState = {
 	healthDetail: "Healthy",
 	activeTaskTitle: null,
 	activeTaskId: null,
-// @lore BB1: activeBetId removed
+	// @lore BB1: activeBetId removed
 };
 
 // ---------------------------------------------------------------------------

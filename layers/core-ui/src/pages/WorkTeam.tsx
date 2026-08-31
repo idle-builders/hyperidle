@@ -25,8 +25,8 @@
 import type { TaskCardSummary, TeamDetail } from "@hyperidle/domain-model";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
-	TASK_STATE_LABEL,
 	roleLabel,
+	TASK_STATE_LABEL,
 } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -37,7 +37,6 @@ import {
 	agentOperationalStatusToStatus,
 	Breadcrumb,
 	Button,
-	taskStateToStatus,
 	EmptyState,
 	ErrorState,
 	ItemList,
@@ -52,6 +51,7 @@ import {
 	SplitView,
 	StatusChip,
 	Tag,
+	taskStateToStatus,
 } from "../ds";
 import { DEFAULT_ROSTER_RUN_STATE, useRosterRunState } from "../hooks/useAgentRunState.js";
 import { useTeam } from "../hooks/useTeam";
@@ -431,7 +431,11 @@ function WorkTeamLoaded({
 				) : (
 					<ItemList variant="flush" isEmpty={false}>
 						{tasksInProgress.map((task) => (
-							<TaskRow key={task.id} task={task} href={`/work/task/${encodeURIComponent(task.id)}`} />
+							<TaskRow
+								key={task.id}
+								task={task}
+								href={`/work/task/${encodeURIComponent(task.id)}`}
+							/>
 						))}
 					</ItemList>
 				)}

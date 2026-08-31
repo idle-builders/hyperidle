@@ -14,15 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	artifacts,
-	type HyperIdleDb,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";

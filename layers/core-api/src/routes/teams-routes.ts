@@ -22,12 +22,12 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
-	TaskCardSummary,
 	CreateTeamRequest,
 	CreateTeamResponse,
 	RosterMember,
 	RoutineCardSummary,
 	RoutineRunOutcome,
+	TaskCardSummary,
 	TeamDetail,
 	TeamListItem,
 } from "@hyperidle/domain-model";

@@ -46,8 +46,6 @@ import {
 	type CoreApiTransport,
 	type CreateArtifactRequest,
 	type CreateArtifactResponse,
-	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
-	type UpdateTaskRequest,
 	type CreateItemRequest,
 	type CreateItemResponse,
 	type CreateKnowledgeConflictRequest,
@@ -84,6 +82,8 @@ import {
 	type UpdateKnowledgeItemContentResult,
 	type UpdateOrgTeamRequest,
 	type UpdateRoutineRequest,
+	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
+	type UpdateTaskRequest,
 	type UpdateThreadRequest,
 	type UserView,
 } from "@hyperidle/api-contract";

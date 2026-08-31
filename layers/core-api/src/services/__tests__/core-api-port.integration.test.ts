@@ -88,7 +88,6 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		const port = buildCoreApiPort(transport) as unknown as SeamCoreApiPort;
 
 		const created = await port.work.createTask({
-			
 			teamId,
 			title: "Created through the in-process seam",
 		});
@@ -135,7 +134,6 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 			const coreApiPort = buildCoreApiPort(transport) as unknown as SeamCoreApiPort;
 
 			const created = await coreApiPort.work.createTask({
-				
 				teamId,
 				title: "Created through the real network seam",
 			});
@@ -165,7 +163,7 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		) as unknown as SeamCoreApiPort;
 
 		await expect(
-			port.work.createTask({  teamId, title: "Should never be created" }),
+			port.work.createTask({ teamId, title: "Should never be created" }),
 		).rejects.toThrow();
 	});
 
@@ -206,7 +204,6 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		// X-Actor-Override header or auth fails for non-human actors in local mode.
 		// The task creation succeeds → the seam threaded "agent-seam-actor" correctly.
 		const created = await port.work.createTask({
-			
 			teamId,
 			title: "Actor-attributed task",
 		});

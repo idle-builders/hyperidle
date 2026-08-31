@@ -280,16 +280,14 @@ export async function resolveTaskRunRequest(
 			.reverse()
 			.map((id) => byId.get(id))
 			.filter((a): a is Task => a !== undefined);
-		{
-			contextBundle = await bakeTaskContextBundle(
-				db,
-				task,
-				ancestors,
-				agent,
-				getTeamById,
-				assembleSessionKnowledge,
-			);
-		}
+		contextBundle = await bakeTaskContextBundle(
+			db,
+			task,
+			ancestors,
+			agent,
+			getTeamById,
+			assembleSessionKnowledge,
+		);
 	}
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled

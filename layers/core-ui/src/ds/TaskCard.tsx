@@ -62,9 +62,7 @@ export function TaskCard({
 				<StatusChip status={taskStateToStatus(state)} />
 			</div>
 			{(owner ?? team) !== undefined && (
-				<span className="type-metadata  text-[var(--text-primary)]">
-					{owner ?? `Team ${team}`}
-				</span>
+				<span className="type-metadata  text-[var(--text-primary)]">{owner ?? `Team ${team}`}</span>
 			)}
 			{actions}
 		</div>

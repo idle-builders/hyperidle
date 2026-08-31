@@ -1,12 +1,4 @@
-import {
-	type HyperIdleDb,
-	items,
-	routines,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, items, routines, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -211,7 +203,10 @@ describe("E2E API Integration (I5)", () => {
 			expect(list.some((t) => t.id === created.id)).toBe(true);
 		});
 
-		test("POST /api/tasks returns 400 when neither teamId nor parentTaskId is supplied", async ({ db, app }) => {
+		test("POST /api/tasks returns 400 when neither teamId nor parentTaskId is supplied", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
 			const res = await app.request("/api/tasks", {
 				method: "POST",

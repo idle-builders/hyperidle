@@ -86,14 +86,7 @@ export async function checkAndUnblockDependents(
 		if (!allDone) continue;
 
 		// Auto-transition hold -> accepted
-		await transitionTask(
-			db,
-			eventBus,
-			task.id,
-			"accepted",
-			deps,
-			"accepted",
-		);
+		await transitionTask(db, eventBus, task.id, "accepted", deps, "accepted");
 
 		// Emit ambient event — NOT a notification (concept hard rule #6: auto-unblock is ambient)
 		// AF8: kind="auto_unblock" → the notification listener filters this out entirely

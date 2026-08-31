@@ -95,12 +95,7 @@ describe("buildToolDefinitions — role filtering", () => {
 		"create_artifact",
 	] as const;
 
-	const ASSISTANT_ONLY = [
-		"create_team",
-		"add_agent",
-		"create_routine",
-		"update_routine",
-	] as const;
+	const ASSISTANT_ONLY = ["create_team", "add_agent", "create_routine", "update_routine"] as const;
 
 	const MULTI_ROLE = [
 		"run_knowledge_sweep",

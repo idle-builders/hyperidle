@@ -15,7 +15,10 @@ import { describe, expect, test } from "../__testing__/test-fixtures.js";
 const depWatcherDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
-	teamCapacity: { getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) => getTeam(exec, { id: teamId }) },
+	teamCapacity: {
+		getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) =>
+			getTeam(exec, { id: teamId }),
+	},
 };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {

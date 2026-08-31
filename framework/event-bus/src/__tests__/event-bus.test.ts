@@ -31,11 +31,7 @@ vi.mock("@hyperidle/diagnostics", () => ({
 }));
 
 // @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
-import type {
-	DomainEvent,
-	NotificationEvent,
-	TaskStateChangedEvent,
-} from "@hyperidle/event-bus";
+import type { DomainEvent, NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "../event-bus.js";
 
 function makeTaskEvent(taskId: string, seq: number): TaskStateChangedEvent {

@@ -184,8 +184,7 @@ const policyDeps: PolicyDeps = {
 			}),
 		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
 			work.list(exec, "task", { parentTaskId }),
-		listAncestorIds: (exec: WriteExecutor, taskId: string) =>
-			work.listAncestorIds(exec, taskId),
+		listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
 	},
 	conversation: {
 		insertMessage,
@@ -363,7 +362,6 @@ export function registerCoreDomainServices(ctx: {
 
 	disposers.push(
 		identifyBootstrapOwner(
-
 			registerPolicy(db, eventBus, policyDeps),
 			"policy registration",
 			"unsubscribe",

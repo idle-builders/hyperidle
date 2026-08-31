@@ -159,8 +159,8 @@ describe("O1 event split", () => {
 			// here, `bun run check` fails with "Not all code paths return a value."
 			// Add the case and update the count in the comment above.
 			// @lore BB1: "bet_state_changed" and "bet_revised" removed from KernelEvent.
-		// Count drops from 16 to 14.
-		type KernelEvent = Extract<
+			// Count drops from 16 to 14.
+			type KernelEvent = Extract<
 				DomainEvent,
 				{
 					type:

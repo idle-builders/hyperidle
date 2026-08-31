@@ -153,14 +153,7 @@ export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
  * re-scoped every `"bet"` row to `"task"`; the scope_id did not change, because
  * each bet became a root task keeping its own id.
  */
-export const SCOPE_KINDS = [
-	"factory",
-	"product",
-	"practice",
-	"team",
-	"task",
-	"user",
-] as const;
+export const SCOPE_KINDS = ["factory", "product", "practice", "team", "task", "user"] as const;
 
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
 

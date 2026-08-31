@@ -26,7 +26,9 @@ export interface ArtifactThreadsSummaryProps {
 	taskId: string;
 }
 
-export function ArtifactThreadsSummary({ taskId }: ArtifactThreadsSummaryProps): JSX.Element | null {
+export function ArtifactThreadsSummary({
+	taskId,
+}: ArtifactThreadsSummaryProps): JSX.Element | null {
 	const { data, error, isLoading } = useArtifactThreadSummary(taskId);
 
 	if (isLoading) {

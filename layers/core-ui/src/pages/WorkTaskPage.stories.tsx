@@ -58,10 +58,7 @@ function makeTask(
 	};
 }
 
-function setupFetchMock(
-	treePayload: object,
-	sessions: object[] = [],
-): void {
+function setupFetchMock(treePayload: object, sessions: object[] = []): void {
 	if (typeof window === "undefined") return;
 
 	window.fetch = async (url: RequestInfo | URL): Promise<Response> => {
@@ -100,7 +97,11 @@ function setupFetchMock(
 		}
 
 		// PATCH /api/tasks/:id — return 200
-		if (urlStr.includes("/api/tasks/") && !urlStr.includes("/tree") && !urlStr.includes("/sessions")) {
+		if (
+			urlStr.includes("/api/tasks/") &&
+			!urlStr.includes("/tree") &&
+			!urlStr.includes("/sessions")
+		) {
 			return {
 				ok: true,
 				json: async () => ({}),
@@ -115,10 +116,7 @@ function PageWrapper({ taskId }: { taskId: string }): React.JSX.Element {
 	return (
 		<MemoryRouter initialEntries={[`/work/task/${taskId}`]}>
 			<Routes>
-				<Route
-					path="/work/task/:taskId"
-					element={<WorkTaskPage overrideTaskId={taskId} />}
-				/>
+				<Route path="/work/task/:taskId" element={<WorkTaskPage overrideTaskId={taskId} />} />
 			</Routes>
 		</MemoryRouter>
 	);

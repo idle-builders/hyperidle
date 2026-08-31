@@ -38,8 +38,6 @@ export type {
 	ArtifactWithTaskTitle,
 	CreateArtifactInput,
 } from "./artifact-store.js";
-// -- task kill cascade (AF12; BB1 made it recursive over the subtree) --
-export { cascadeTaskKill, type TaskKillCascadeDeps } from "./task-kill-cascade.js";
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
 export { checkAndUnblockDependents } from "./dependency-watcher.js";
 export {
@@ -48,6 +46,8 @@ export {
 	TaskCycleError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
+// -- task kill cascade (AF12; BB1 made it recursive over the subtree) --
+export { cascadeTaskKill, type TaskKillCascadeDeps } from "./task-kill-cascade.js";
 // -- unified emit-time resolver (AU21 §6 Decision B; AU44 B3 merge) --
 // resolveSessionStartRequest (session_start) merged into resolveTaskRunRequest
 // as the `{ kind: "session_start" }` discriminated path. SessionStartResolverDeps

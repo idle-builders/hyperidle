@@ -68,12 +68,12 @@ export type {
 	TaskView,
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
 	UpdateItemRequest,
-	UpdateTaskRequest,
 	UpdateKnowledgeItemContentRequest,
 	UpdateKnowledgeItemContentResponse,
 	UpdateKnowledgeItemContentResult,
 	UpdateOrgTeamRequest,
 	UpdateRoutineRequest,
+	UpdateTaskRequest,
 	UpdateThreadRequest,
 	UserView,
 } from "./core-api-port.js";

@@ -156,7 +156,9 @@ describe("BB1 — task hierarchy", () => {
 	describe("AC1 — 4-level nested tasks, subtree read", () => {
 		test("creates 4-deep chain and reads the full subtree from root", async ({ db, app }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "bb1-team", name: "BB1 Team", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: "bb1-team", name: "BB1 Team", phase: "build", createdAt: now });
 
 			// Level 1 — root (no parentTaskId)
 			const l1Res = await app.request("/api/tasks", {
@@ -221,7 +223,9 @@ describe("BB1 — task hierarchy", () => {
 
 		test("teamId is inherited from parent when omitted", async ({ db, app }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "bb1-team-inh", name: "Inherit Team", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: "bb1-team-inh", name: "Inherit Team", phase: "build", createdAt: now });
 
 			const rootRes = await app.request("/api/tasks", {
 				method: "POST",
@@ -249,7 +253,9 @@ describe("BB1 — task hierarchy", () => {
 	describe("AC7 — PATCH /tasks/:id has no actor gate", () => {
 		test("human actor can PATCH any editable field", async ({ db, app }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "bb1-team-ac7", name: "AC7 Team", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: "bb1-team-ac7", name: "AC7 Team", phase: "build", createdAt: now });
 			await db.insert(tasks).values({
 				id: "ac7-task-human",
 				parentTaskId: null,
@@ -329,7 +335,10 @@ describe("BB1 — task hierarchy", () => {
 			expect(updated.state).toBe("in_progress");
 		});
 
-		test("human and agent actor get identical 200 results for the same PATCH", async ({ db, app }) => {
+		test("human and agent actor get identical 200 results for the same PATCH", async ({
+			db,
+			app,
+		}) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({
 				id: "bb1-team-ac7c",

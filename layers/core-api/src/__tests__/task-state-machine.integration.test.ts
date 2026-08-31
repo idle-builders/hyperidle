@@ -142,9 +142,9 @@ describe("Task State Machine", () => {
 		test("throws InvalidTransitionError for done -> in_progress", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "task-1", "done");
-			await expect(
-				transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
-			).rejects.toThrow(InvalidTransitionError);
+			await expect(transitionTask(db, eventBus, "task-1", "in_progress", testDeps)).rejects.toThrow(
+				InvalidTransitionError,
+			);
 		});
 
 		test("throws InvalidTransitionError for done -> proposed", async ({ db, eventBus }) => {
@@ -281,9 +281,9 @@ describe("Task State Machine", () => {
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			await expect(
-				transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
-			).rejects.toThrow(InvalidTransitionError);
+			await expect(transitionTask(db, eventBus, "task-1", "in_progress", testDeps)).rejects.toThrow(
+				InvalidTransitionError,
+			);
 			expect(events).toHaveLength(0);
 		});
 	});

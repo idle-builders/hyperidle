@@ -39,8 +39,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			}),
 		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
 			work.list(exec, "task", { parentTaskId }),
-		listAncestorIds: (exec: WriteExecutor, taskId: string) =>
-			work.listAncestorIds(exec, taskId),
+		listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 		updateItemById: (exec: WriteExecutor, id: string, patch) =>
 			work.update(exec, "item", id, patch),

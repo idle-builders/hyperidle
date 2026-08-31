@@ -15,12 +15,8 @@
 import { type HyperIdleDb, taskDispatchAttempts, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { CapacityExceededError, TaskCycleError } from "../errors.js";
-import { type TaskKillCascadeDeps, cascadeTaskKill } from "../task-kill-cascade.js";
-import {
-	assertNoCycle,
-	type TaskStateMachineDeps,
-	transitionTask,
-} from "../task-state-machine.js";
+import { cascadeTaskKill, type TaskKillCascadeDeps } from "../task-kill-cascade.js";
+import { assertNoCycle, type TaskStateMachineDeps, transitionTask } from "../task-state-machine.js";
 import { list, listSubtreeIds, update } from "../work-service.js";
 import { describe, expect, test } from "./test-fixtures.js";
 
@@ -36,11 +32,7 @@ const NOW = "2026-08-30T00:00:00.000Z";
  */
 const teamCapacity: TaskStateMachineDeps["teamCapacity"] = {
 	getByTeamId: async (exec, teamId) => {
-		const [team] = await exec
-			.select()
-			.from(teams)
-			.where(eq(teams.id, teamId))
-			.limit(1);
+		const [team] = await exec.select().from(teams).where(eq(teams.id, teamId)).limit(1);
 		return team;
 	},
 };
@@ -121,18 +113,16 @@ async function insertTask(
 	parentTaskId: string | null = null,
 	ownerAgentId: string | null = null,
 ): Promise<void> {
-	await db
-		.insert(tasks)
-		.values({
-			id,
-			parentTaskId,
-			teamId,
-			title: id,
-			state,
-			ownerAgentId,
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
+	await db.insert(tasks).values({
+		id,
+		parentTaskId,
+		teamId,
+		title: id,
+		state,
+		ownerAgentId,
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
 }
 
 async function insertAgent(db: HyperIdleDb, id: string): Promise<void> {
@@ -174,9 +164,9 @@ describe("AC2 — cycle rejection", () => {
 		await insertTask(db, "great-grandchild", "team", "proposed", "grandchild");
 
 		// Act + Assert — great-grandchild is in root's own subtree → cycle
-		await expect(
-			assertNoCycle(db, "root", "great-grandchild"),
-		).rejects.toBeInstanceOf(TaskCycleError);
+		await expect(assertNoCycle(db, "root", "great-grandchild")).rejects.toBeInstanceOf(
+			TaskCycleError,
+		);
 
 		// Row unchanged: root still has no parent
 		const [row] = await db
@@ -205,10 +195,7 @@ describe("AC2 — cycle rejection", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC4 — recursive kill cascade", () => {
-	test("killing root kills its entire 3-level subtree (none missed)", async ({
-		db,
-		eventBus,
-	}) => {
+	test("killing root kills its entire 3-level subtree (none missed)", async ({ db, eventBus }) => {
 		// Arrange: root → [child1 → [grandchild1, grandchild2], child2]
 		await insertTeam(db, "team");
 		await insertTask(db, "root", "team", "accepted", null);
@@ -231,10 +218,7 @@ describe("AC4 — recursive kill cascade", () => {
 		expect(rows).toHaveLength(5); // none missed
 	});
 
-	test("already-terminal tasks are not re-killed by the cascade", async ({
-		db,
-		eventBus,
-	}) => {
+	test("already-terminal tasks are not re-killed by the cascade", async ({ db, eventBus }) => {
 		// Arrange: root with one live child, one done child, one already-killed child
 		await insertTeam(db, "team");
 		await insertTask(db, "root", "team", "accepted", null);
@@ -272,9 +256,7 @@ describe("AC4 — recursive kill cascade", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC5 — read-time token rollup", () => {
-	test("leaf tokens are visible in the subtree sum; no ancestor row is written", async ({
-		db,
-	}) => {
+	test("leaf tokens are visible in the subtree sum; no ancestor row is written", async ({ db }) => {
 		// Arrange: root → parent → leaf
 		await insertTeam(db, "team");
 		await insertTask(db, "root", "team", "in_progress", null);
@@ -313,11 +295,7 @@ describe("AC5 — read-time token rollup", () => {
 			if (!t.tokensActualJson) return acc;
 			const parsed = JSON.parse(t.tokensActualJson) as TokenJson;
 			return (
-				acc +
-				Object.values(parsed.byTier).reduce(
-					(s, tier) => s + tier.prompt + tier.completion,
-					0,
-				)
+				acc + Object.values(parsed.byTier).reduce((s, tier) => s + tier.prompt + tier.completion, 0)
 			);
 		}, 0);
 		expect(subtreeSum).toBe(150); // leaf: 100 prompt + 50 completion

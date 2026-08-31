@@ -23,15 +23,7 @@
  * concern and is not exercised here.
  */
 
-import {
-	artifacts,
-	type HyperIdleDb,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 

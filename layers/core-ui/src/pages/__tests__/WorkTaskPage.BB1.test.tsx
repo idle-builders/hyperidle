@@ -52,14 +52,16 @@ vi.mock("../../hooks/useViewportBreakpoint.js", () => ({
 // Fixtures
 // ---------------------------------------------------------------------------
 
-function makeTask(overrides: Partial<{
-	id: string;
-	parentTaskId: string | null;
-	title: string;
-	state: string;
-	teamId: string;
-	position: number;
-}> = {}): object {
+function makeTask(
+	overrides: Partial<{
+		id: string;
+		parentTaskId: string | null;
+		title: string;
+		state: string;
+		teamId: string;
+		position: number;
+	}> = {},
+): object {
 	return {
 		id: overrides.id ?? "task-1",
 		parentTaskId: overrides.parentTaskId ?? null,
@@ -98,8 +100,16 @@ const rootTask = makeTask({ id: ROOT_ID, title: "Root task" });
 const childA = makeTask({ id: CHILD_A_ID, parentTaskId: ROOT_ID, title: "Child A" });
 const childB = makeTask({ id: CHILD_B_ID, parentTaskId: ROOT_ID, title: "Child B" });
 const childC = makeTask({ id: CHILD_C_ID, parentTaskId: ROOT_ID, title: "Child C" });
-const grandchildX = makeTask({ id: GRANDCHILD_X_ID, parentTaskId: CHILD_A_ID, title: "Grandchild X" });
-const grandchildY = makeTask({ id: GRANDCHILD_Y_ID, parentTaskId: CHILD_A_ID, title: "Grandchild Y" });
+const grandchildX = makeTask({
+	id: GRANDCHILD_X_ID,
+	parentTaskId: CHILD_A_ID,
+	title: "Grandchild X",
+});
+const grandchildY = makeTask({
+	id: GRANDCHILD_Y_ID,
+	parentTaskId: CHILD_A_ID,
+	title: "Grandchild Y",
+});
 
 // Initial tree: root → [A, B, C]; A → [X, Y]
 const INITIAL_TREE = {
@@ -107,7 +117,9 @@ const INITIAL_TREE = {
 	ancestors: [],
 	tokensActualRollup: null,
 	children: [
-		{ ...childA, children: [
+		{
+			...childA,
+			children: [
 				{ ...grandchildX, children: [] },
 				{ ...grandchildY, children: [] },
 			],
@@ -122,7 +134,9 @@ const AFTER_MOVE_A_DOWN = {
 	...INITIAL_TREE,
 	children: [
 		{ ...childB, children: [] },
-		{ ...childA, children: [
+		{
+			...childA,
+			children: [
 				{ ...grandchildX, children: [] },
 				{ ...grandchildY, children: [] },
 			],
@@ -135,7 +149,9 @@ const AFTER_MOVE_A_DOWN = {
 const AFTER_MOVE_X_DOWN = {
 	...INITIAL_TREE,
 	children: [
-		{ ...childA, children: [
+		{
+			...childA,
+			children: [
 				{ ...grandchildY, children: [] },
 				{ ...grandchildX, children: [] },
 			],
@@ -158,10 +174,7 @@ const AFTER_MOVE_X_DOWN = {
  *
  * Returns an array that captures every PATCH call's [url, body].
  */
-function setupFetch(
-	initialTree: object,
-	afterTree: object,
-): Array<{ url: string; body: unknown }> {
+function setupFetch(initialTree: object, afterTree: object): Array<{ url: string; body: unknown }> {
 	const patchCalls: Array<{ url: string; body: unknown }> = [];
 	let treeCallCount = 0;
 

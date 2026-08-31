@@ -19,8 +19,8 @@
  * package).
  */
 
-import { EventBus } from "@hyperidle/event-bus";
 import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
+import { EventBus } from "@hyperidle/event-bus";
 
 export interface WorkIntegrationFixtures extends DbFixtures {
 	eventBus: EventBus;

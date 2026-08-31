@@ -40,7 +40,6 @@
  */
 
 import {
-
 	explicitSessionStarts,
 	type HyperIdleDb,
 	items,

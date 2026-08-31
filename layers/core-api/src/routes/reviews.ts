@@ -12,7 +12,6 @@ import { Hono } from "hono";
  * Returns 404 if the review message doesn't exist.
  */
 
-
 export function createReviewRoutes(db: HyperIdleDb): Hono {
 	const app = new Hono();
 

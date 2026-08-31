@@ -20,15 +20,7 @@
  * faked by an empty fixture.
  */
 
-import {
-	type HyperIdleDb,
-	messages,
-	sessions,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, messages, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
 

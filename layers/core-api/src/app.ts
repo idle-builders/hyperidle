@@ -425,7 +425,9 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
 					workIntents: defaultAgentWorkIntentRecorder,
 					taskRunResolver: taskRunResolverDeps,
-					teamCapacity: { getByTeamId: (exec: WriteExecutor, teamId: string) => getTeam(exec, { id: teamId }) },
+					teamCapacity: {
+						getByTeamId: (exec: WriteExecutor, teamId: string) => getTeam(exec, { id: teamId }),
+					},
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,

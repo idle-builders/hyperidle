@@ -38,7 +38,10 @@ const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 	// @lore BB1: `betIds?` not `betId` — the plural slipped a stale `const betIds`
 	// past the first version of this rule, because \b after "betId" does not match
 	// before "s". Any new token here should be checked for the same trap.
-	{ token: /\bbetIds?\b/, why: "`betId` is replaced by `parentTaskId` (nullable — null means root)" },
+	{
+		token: /\bbetIds?\b/,
+		why: "`betId` is replaced by `parentTaskId` (nullable — null means root)",
+	},
 	{ token: /\bbet_id\b/, why: "`bet_id` is replaced by `parent_task_id`" },
 	{ token: /\bappetite\b/, why: "`appetite` was dead before BB1 and is deleted" },
 	{ token: /\batRisk\b|\bat_risk\b/, why: "`at_risk` was never written to true in production" },
@@ -51,7 +54,10 @@ const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 		token: /\bactiveBets\b|\bactive_bets\b/,
 		why: "the stored WIP tally is gone — capacity is counted live from tasks in `in_progress`",
 	},
-	{ token: /\bBetStatus\b|\bBET_STATUSES\b/, why: "the bet status vocabulary folded into TASK_STATES" },
+	{
+		token: /\bBetStatus\b|\bBET_STATUSES\b/,
+		why: "the bet status vocabulary folded into TASK_STATES",
+	},
 	{
 		token: /\btransitionBet\b|\bcascadeBetKill\b/,
 		why: "the bet state machine is deleted; `transitionTask` and `cascadeTaskKill` replace it",

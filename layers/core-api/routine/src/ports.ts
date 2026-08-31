@@ -1,12 +1,5 @@
 // @lore BB1: Bet import removed — bet is now a root task; getBetById deleted.
-import type {
-	HyperIdleDb,
-	NewItem,
-	NewThread,
-	Team,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
+import type { HyperIdleDb, NewItem, NewThread, Team, User, WriteExecutor } from "@hyperidle/db";
 import type {
 	BakedWorkIntentRequest,
 	ModelGatewayConfig,

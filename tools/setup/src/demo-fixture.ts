@@ -251,7 +251,8 @@ export async function seedDemoWorld(
 
 	// Daily digest bet (disabled by default — operator enables)
 	await db
-		.insert(tasks).values({
+		.insert(tasks)
+		.values({
 			id: "demo-bet-daily-digest",
 			parentTaskId: null,
 			teamId: teamId,

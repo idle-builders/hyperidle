@@ -73,10 +73,7 @@ describe("AJ3: MockProviders mounts a real data-fed page in isolation, no backen
 		render(
 			<MockProviders route={`/work/task/${TASK.id}`}>
 				<Routes>
-					<Route
-						path="/work/task/:taskId"
-						element={<WorkTaskPage overrideTaskId={TASK.id} />}
-					/>
+					<Route path="/work/task/:taskId" element={<WorkTaskPage overrideTaskId={TASK.id} />} />
 				</Routes>
 			</MockProviders>,
 		);

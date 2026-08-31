@@ -95,7 +95,13 @@ function makePorts(): RoutineSchedulerPorts & {
 			getTaskById: async (db: HyperIdleDb, id: string) => {
 				const row = await work.get(db, "task", id);
 				if (!row) return undefined;
-				return { id: row.id, title: row.title, description: row.description, state: row.state, parentTaskId: row.parentTaskId };
+				return {
+					id: row.id,
+					title: row.title,
+					description: row.description,
+					state: row.state,
+					parentTaskId: row.parentTaskId,
+				};
 			},
 			getItemById: (db, id) => work.get(db, "item", id),
 			getArtifactById: (db, id) => work.get(db, "artifact", id),
