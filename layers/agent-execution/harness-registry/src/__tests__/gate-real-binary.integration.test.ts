@@ -447,7 +447,7 @@ describe("action gate — claude real binary", () => {
 
 			// Register gate rule blocking "blocked_tool".
 			actionServer.gateRegistry.register(sessionId, {
-				rules: [{ id: RULE_ID, pattern: "blocked_tool", description: RULE_DESC }],
+				rules: [{ id: RULE_ID, pattern: "blocked_tool ", description: RULE_DESC }],
 				sandboxPath,
 			});
 
@@ -502,7 +502,11 @@ describe("action gate — claude real binary", () => {
 				entry?.pendingBlock?.ruleId,
 				"AC2 claude: pendingBlock must be set after gate denial",
 			).toBe(RULE_ID);
-			expect(entry?.pendingBlock?.blockedTool).toBe("blocked_tool");
+			// The MCP tool name is prefixed by claude (mcp__<server>__<tool>).
+			expect(
+				entry?.pendingBlock?.blockedTool,
+				"AC2 claude: blockedTool must contain tool name",
+			).toContain("blocked_tool");
 
 			// The tool must NOT have been executed (gate blocked it).
 			expect(
@@ -538,7 +542,7 @@ describe("action gate — claude real binary", () => {
 			const token = await actionServer.openSession(sessionId);
 
 			actionServer.gateRegistry.register(sessionId, {
-				rules: [{ id: RULE_ID, pattern: "blocked_tool", description: RULE_DESC }],
+				rules: [{ id: RULE_ID, pattern: "blocked_tool ", description: RULE_DESC }],
 				sandboxPath,
 			});
 
@@ -631,7 +635,7 @@ describe("action gate — claude real binary", () => {
 			const token = await actionServer.openSession(sessionId);
 
 			actionServer.gateRegistry.register(sessionId, {
-				rules: [{ id: RULE_ID, pattern: "blocked_tool", description: RULE_DESC }],
+				rules: [{ id: RULE_ID, pattern: "blocked_tool ", description: RULE_DESC }],
 				sandboxPath,
 			});
 
@@ -680,8 +684,11 @@ describe("action gate — claude real binary", () => {
 				"AC4: pendingBlock must be set after session 1",
 			).toBe(RULE_ID);
 
-			// ── Approval: add clearance for blocked_tool ──────────────────
-			actionServer.gateRegistry.addClearance(sessionId, "blocked_tool");
+			// ── Approval: add clearance for the MCP-prefixed tool name ──────────────────
+			// Claude prefixes MCP tool names as mcp__<server>__<tool>; clearance must match.
+			const blockedToolName =
+				actionServer.gateRegistry.get(sessionId)?.pendingBlock?.blockedTool ?? "blocked_tool";
+			actionServer.gateRegistry.addClearance(sessionId, blockedToolName);
 			// Also clear the pending block so the entry is clean for resume.
 			actionServer.gateRegistry.clearPendingBlock(sessionId);
 
@@ -742,7 +749,7 @@ describe("action gate — claude real binary", () => {
 			const token = await actionServer.openSession(sessionId);
 
 			actionServer.gateRegistry.register(sessionId, {
-				rules: [{ id: RULE_ID, pattern: "blocked_tool", description: RULE_DESC }],
+				rules: [{ id: RULE_ID, pattern: "blocked_tool ", description: RULE_DESC }],
 				sandboxPath,
 			});
 
@@ -1022,7 +1029,7 @@ describe("action gate — cursor-agent real binary", () => {
 				rules: [
 					{
 						id: RULE_ID_CURSOR,
-						pattern: "blocked_tool",
+						pattern: "blocked_tool ",
 						description: RULE_DESC_CURSOR,
 					},
 				],
