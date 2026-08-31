@@ -79,7 +79,7 @@ hyperidle/
 │   ├── cron/                  # Cron-expression parsing and next-run computation
 │   ├── diagnostics/           # Structured logger, secret scrubber, observability contract + console sink
 │   ├── event-bus/             # The in-process publish/subscribe object
-│   ├── factory-defaults/      # The roster and system-prompt templates a fresh install is seeded with
+│   ├── domain-model/         # The product's nouns — the one package everyone may name
 │   ├── filesystem-contract/   # The Filesystem vocabulary and its mount, auth and capture seams
 │   ├── harness-capability/    # What an installed harness IS — readiness, models, tools, auth action
 │   ├── harness-protocol/      # How a run is dispatched to a harness and how its output comes back

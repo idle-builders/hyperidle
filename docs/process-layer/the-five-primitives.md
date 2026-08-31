@@ -111,7 +111,7 @@ Shipped shape:
 
 A persistent group of agents. Teams are the most important deviation from frameworks that form a crew per task: **teams that ship together accumulate context**, and that accumulated context is the entire reason a tenured agent beats a fresh one. Dissolving a team after one bet throws it away.
 
-Shipped as two tables (U1): `teams` is the domain entity — name, phase, knowledge paths, open-vocabulary `functions` that drive the default roster (AB0); `team_members` is the agent-membership group — `members`, `leadAgentId` (escalations route there first), integer `capacity`, `activeBets` count, `formedAt`/`dissolvedAt`. Deep doc: [teams.md](teams.md).
+Shipped as two tables (U1): `teams` is the domain entity — name, phase, knowledge paths; `team_members` is the agent-membership group — `members`, `leadAgentId` (escalations route there first), integer `capacity`, `activeBets` count, `formedAt`/`dissolvedAt`. Deep doc: [teams.md](teams.md).
 
 ### 3.5 Routine
 
