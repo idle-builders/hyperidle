@@ -202,14 +202,21 @@ interface BakedTranscriptRow {
  */
 function parseGateResume(
 	request: AgentSessionRequest,
-): { readonly nativeSessionId: string; readonly blockedTool: string; readonly ruleId: string } | undefined {
+):
+	| { readonly nativeSessionId: string; readonly blockedTool: string; readonly ruleId: string }
+	| undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
 	if (!payload || typeof payload !== "object" || !("gateResume" in payload)) return undefined;
 	const gr = (payload as { gateResume?: unknown }).gateResume;
 	if (!gr || typeof gr !== "object") return undefined;
 	const { nativeSessionId, blockedTool, ruleId } = gr as Record<string, unknown>;
-	if (typeof nativeSessionId !== "string" || typeof blockedTool !== "string" || typeof ruleId !== "string") return undefined;
+	if (
+		typeof nativeSessionId !== "string" ||
+		typeof blockedTool !== "string" ||
+		typeof ruleId !== "string"
+	)
+		return undefined;
 	return { nativeSessionId, blockedTool, ruleId };
 }
 
