@@ -31,6 +31,7 @@ const PROJECTS = [
 	"layers/core-api/notifications",
 	"layers/core-api/credentials",
 	"layers/agent-orchestration",
+	"layers/agent-orchestration/session-requests",
 	"layers/agent-orchestration/connections",
 	"layers/agent-orchestration/run-orchestration",
 	"layers/agent-orchestration/filesystems",

@@ -56,4 +56,4 @@ USER 1000
 
 # Exec form so the server is PID 1 and receives SIGTERM for graceful shutdown.
 # DATABASE_URL and HYPERIDLE_API_KEY are injected from Kubernetes secrets.
-CMD ["node", "--import", "tsx", "packages/server/src/index.ts"]
+CMD ["node", "--import", "tsx", "applications/remote-server/src/index.ts"]

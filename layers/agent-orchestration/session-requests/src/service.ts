@@ -16,6 +16,7 @@ import type {
 import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
 import { and, asc, eq, gt, inArray, lt, lte, or, sql } from "drizzle-orm";
+import { executeRows } from "./execute-rows.js";
 import { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./guards.js";
 
 type IntentOptions = {
@@ -786,8 +787,10 @@ async function reapIntentsInternal(db: HyperIdleDb, options: ReapOptions = {}) {
 			  and (i.request_id is null or r.status in ('completed', 'failed', 'cancelled'))
 			order by i.updated_at, i.id
 			limit ${batchSize}
-		`)) as { readonly rows: ReadonlyArray<{ readonly id: string }> };
-		const ids = candidates.rows.map((row) => row.id);
+		`)) as unknown as
+			| ReadonlyArray<{ readonly id: string }>
+			| { readonly rows: ReadonlyArray<{ readonly id: string }> };
+		const ids = executeRows(candidates).map((row) => row.id);
 		if (ids.length > 0) {
 			await tx.delete(agentWorkIntents).where(inArray(agentWorkIntents.id, ids));
 		}
