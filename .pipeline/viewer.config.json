@@ -1,0 +1,5 @@
+{
+  "storyGlobs": ["layers/core-ui/src/**/*.stories.tsx"],
+  "css": ["layers/core-ui/src/index.css"],
+  "toolchain": "tailwind-v4"
+}

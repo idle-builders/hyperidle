@@ -8,6 +8,7 @@
 		"applications/website/.astro/**",
 		"tools/eslint-plugin-design/test-fixtures/**",
 		".pipeline/**",
+		"viewer/**",
 		"layers/core-ui/src/**/*.stories.tsx",
 		"**/vitest-setup.ts",
 		"**/vitest-integration-setup.ts",

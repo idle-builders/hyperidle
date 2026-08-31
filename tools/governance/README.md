@@ -30,7 +30,7 @@ Three things, and the split between them is the whole design:
 |---|---|---|
 | **`src/lib/governance-model.ts`** | 15 clauses, checked in order, first match wins, default `forbidden` | the founder rules on the architecture |
 | **`architecture.json` · `table-owners.json`** | the registries the clauses read — roles, surfaces, endpoints, table owners | packages, surfaces or owners change |
-| **`decided-rules.json`** | 195 verdicts the founder decided one at a time | never, except by founder ruling |
+| **`decided-rules.json`** | 139 verdicts the founder decided one at a time | never, except by founder ruling |
 
 **A clause is a principle. A registry is a fact. A decided rule is a decision.** Putting a fact in a
 clause means a new package needs a code change; putting a principle in a registry means it can be
@@ -42,15 +42,15 @@ bulk migration of rules onto this model across several merges. That migration is
 now lands at `error` directly, with its violations fixed in the same pull request, and the file and the
 loader that read it are gone.
 
-## Why 15 clauses and not 195 rules
+## Why 15 clauses and not 139 rules
 
 `decided-rules.json` is the **decision artifact** — every role pair × crossing kind, ruled on
-separately for the production and development worlds. It is not the implementation. 195 hand-written
+separately for the production and development worlds. It is not the implementation. 139 hand-written
 rules would each be free to disagree with their neighbours, and a single founder ruling would land as
-a 195-way diff.
+a 139-way diff.
 
-Instead the 195 rows are the **acceptance test**: the model is correct if and only if it reproduces
-all 390 verdicts (195 rows × 2 worlds) exactly. `framework/db/src/__tests__/governance-model.test.ts`
+Instead the 139 rows are the **acceptance test**: the model is correct if and only if it reproduces
+all 278 verdicts (139 rows × 2 worlds) exactly. `framework/db/src/__tests__/governance-model.test.ts`
 asserts that, so a clause tuned to fix one crossing and silently breaking another cannot land.
 
 ## Totality, and its price

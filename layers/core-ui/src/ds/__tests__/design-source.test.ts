@@ -115,8 +115,12 @@ const FORBIDDEN_PATTERNS: ForbiddenPattern[] = [
 	},
 ];
 
-/** Directories to scan for forbidden string patterns (relative to repo root). */
-const STRING_SCAN_DIRS = [".claude/skills", ".claude/rules"];
+/**
+ * Directories to scan for forbidden string patterns (relative to repo root).
+ * `.pipeline/rules` holds the pipeline rule slots; the file-scoped ones are symlinks
+ * back into `.claude/rules`, so a dual-purpose file is simply scanned twice.
+ */
+const STRING_SCAN_DIRS = [".claude/skills", ".claude/rules", ".pipeline/rules"];
 
 /** Extensions to scan for forbidden string patterns. */
 const STRING_SCAN_EXTS = new Set([".md", ".txt"]);
@@ -251,7 +255,7 @@ describe("AC1 — TSX is the single design source of truth", () => {
 		expect(
 			filesScanned.length,
 			`No skill/rule markdown files found to scan. ` +
-				`Expected .claude/skills/*.md and .claude/rules/*.md under repo root: ${REPO_ROOT}. ` +
+				`Expected .claude/skills/*.md, .claude/rules/*.md and .pipeline/rules/*.md under repo root: ${REPO_ROOT}. ` +
 				`Glob returned 0 files — the scan is vacuously passing and the invariant is NOT enforced.`,
 		).toBeGreaterThan(0);
 

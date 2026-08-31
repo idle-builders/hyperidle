@@ -4,12 +4,27 @@ paths:
   - "layers/core-ui/**/*.ts"
 ---
 
-# Frontend Rules
+# Frontend
 
-- Design-system components first (`framework/design-system/src/index.ts` is the live inventory; catalogued in `DESIGN.md`). Use DaisyUI primitives directly only where the design system deliberately doesn't own the shape — never wrap them, never hand-roll an equivalent of an existing component.
-- Tailwind utility classes with Hearth theme tokens. Use Hearth spacing tokens (`--space-*`) for all padding. Card padding: `--space-6` (18px). Small element padding: `--space-4` (12px). Component padding uses the 6px grid: `{3, 6, 9, 12, 18, 24, 36, 48}` px.
-- Handle all states: empty, loading, error, populated.
-- Each layer hosts its own Hono app and owns its routes under `<layer>/src/routes/`. RESTful naming. Consistent error response format.
-- Hono routes follow the project's established patterns — read existing routes before writing new ones.
-- Every custom component must have a `.stories.tsx` file next to it rendering key states.
-- Avoid the AI Aesthetic: no arbitrary purple/indigo palettes, no excessive gradients, no `rounded-3xl` or arbitrary large radii beyond the Hearth 4-value scale, no `p-8`/`p-12` oversized padding, no stock 3-column card grids, no hero sections, no decorative icons on every element. Note: 16px IS the Hearth default card radius — do not avoid it — but spell it `rounded-[var(--r-default)]`, never `rounded-2xl` (AQ-011's one-spelling-per-value rule, AZ7). HyperIdle uses the Crème Lemon token system on the Hearth design system — warm lemon-cream tones, lemon drop fill accent (`--accent-primary`), cocoa text accent (`--accent-deep`), system-ui fonts. No forest green (replaced by CL1). Dense, purposeful, distinctive.
+- **Design-system components first.** The live inventory is `layers/core-ui/src/ds/index.ts` — read it
+  before writing a component. Use DaisyUI primitives directly only where the design system
+  deliberately does not own the shape; never wrap them, never hand-roll an equivalent of something
+  that already exists.
+- **Spacing** uses the numeric vocabulary `{0, 3, 6, 9, 12, 18, 24, 36, 48}` px, spelled as a
+  `--space-*` token or a supported Tailwind alias. Card padding `--space-6` (18px); small element
+  padding `--space-4` (12px).
+- **States.** A shipping implementation handles empty, loading, error and populated. A *design* does
+  not: an initial design renders the populated real state only — no skeletons, no error variants
+  invented before the real one is agreed.
+- **Never fabricate the data.** An empty list renders an honest empty state, never sample rows.
+- **Routes.** Each layer hosts its own Hono app and owns its routes under `<layer>/src/routes/`.
+  RESTful naming, consistent error shape. Read the existing routes in that layer before adding one.
+- **Every custom component has a `.stories.tsx`** next to it rendering its key states.
+- **Avoid the AI aesthetic** — no arbitrary purple/indigo palettes, no gradient chrome, no oversized
+  `p-8`/`p-12` padding, no stock 3-column card grids, no hero sections in the work pages, no
+  decorative icon on every element. Note 16px IS the default card radius — do not avoid it, but spell
+  it `rounded-[var(--r-default)]`, never `rounded-2xl`. The full catalogue and what the linter
+  actually blocks: `.claude/rules/aesthetic-quality.md`.
+- **Palette.** Crème Lemon on Hearth geometry: warm lemon-cream surfaces, lemon-drop fill accent
+  (`--accent-primary`), cocoa text accent (`--accent-deep`), system fonts. No forest green — the earlier palette
+  is gone. Dense, purposeful, distinctive.

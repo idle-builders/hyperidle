@@ -6,31 +6,63 @@ paths:
 
 # Design System
 
-Components live in `layers/core-ui/src/ds/` (57 components today). Shell / region components stay in `layers/core-ui/src/shell/`.
+Components live in `layers/core-ui/src/ds/` — 57 at the top level plus nested parts in subfolders,
+re-exported from `layers/core-ui/src/ds/index.ts` along with their prop types and helpers. Shell and
+region components stay in `layers/core-ui/src/shell/`. There is no separate design-system package — it
+was dissolved into `ds/`, and `design-source.test.ts` fails if one comes back.
 
-**Single source of truth.** Each component has exactly one `.tsx` (production, Tailwind). TSX is the design source of truth — there are no `.html` reference files; the `.tsx` story IS the design artifact. Every custom component must have a `.stories.tsx` — stories are a required deliverable, not optional documentation.
+**Single source of truth.** Each component has exactly one `.tsx` (production, Tailwind). TSX is the
+design source of truth — there are no `.html` reference files, and the `.stories.tsx` story IS the
+design artifact. Every custom component must have a story; it is a deliverable, not documentation.
 
-**Story format.** default export `{ title: "Name", group?: GroupName }`; named exports are React components, one variant each. `group` is optional — most stories classify automatically from their path; use it only for area-less page stories that have no folder signal (e.g. `group: "Work"`).
+**Nothing enforces that inside `ds/` right now.** `require-stories-sibling` looks at
+`layers/core-ui/src/components/` and at a design-system directory that no longer exists — never at
+`ds/`. 18 of the 74 component files under `ds/` have no story today. Writing one is on you until the
+rule's target directories are corrected. The same goes for the `data-ds-component` marker:
+`require-ds-attribute` only fires on filenames matching the deleted package's path, so it currently
+fires nowhere at all.
+
+**Story format.** Default export `{ title: "Name", group?: GroupName }`; named exports are React
+components, one variant each. `group` is optional — most stories classify from their path; use it only
+for area-less page stories with no folder signal (e.g. `group: "Work"`).
 
 ## Reuse before build (CRITICAL)
 
-Before adding any component, hook, or helper, read `layers/core-ui/src/ds/index.ts` (and the `@hyperidle/domain-model` registry + `utils/`). If an existing export already does the job, **adopt or extend it — never fork a polished parallel copy.** A new thing whose job an existing design-system export, shared registry, or util already does is a CRITICAL review finding; the fix is adoption or extension, not a nicer fork. A deliberate exception needs a `@lore` comment naming the reason.
+Before adding any component, hook or helper, read `layers/core-ui/src/ds/index.ts` (and the
+`@hyperidle/domain-model` registry + `utils/`). If an existing export already does the job, **adopt or
+extend it — never fork a polished parallel copy.** A new thing whose job an existing design-system
+export, shared registry or util already does is a CRITICAL review finding; the fix is adoption or
+extension, not a nicer fork. A deliberate exception needs a `@lore` comment naming the reason.
 
 ## Component budget & promotion
 
-- **Budget.** Only the components already exported from `layers/core-ui/src/ds/index.ts`. Any addition needs a written reason.
-- **Promotion.** A component consumed by 2+ pages belongs in `layers/core-ui/src/ds/`, not page-local.
+- **Budget.** Only what is already exported from `ds/index.ts`. Any addition needs a written reason.
+- **Promotion.** A component consumed by 2+ pages belongs in `ds/`, not page-local.
 
 ## Tokens
 
-- **Source of truth:** `layers/core-ui/src/ds/tokens.css`. Two theme modes (`hearth-dark` / `hearth-light`), light-first, default `hearth-light`; with no `data-theme` set, `prefers-color-scheme` decides.
-- Every `var(--…)` a component references MUST exist in `tokens.css`. A dangling token reference renders as silent breakage — CRITICAL.
-- **Design principles:** `.claude/rules/aesthetic-quality.md`.
+- **Source of truth:** `layers/core-ui/src/ds/tokens.css` — the Crème Lemon palette on Hearth
+  geometry. Two theme modes (`hearth-dark` / `hearth-light`), light-first, default `hearth-light`;
+  with no `data-theme` set, `prefers-color-scheme` decides.
+- Every `var(--…)` a component references MUST exist in `tokens.css`. A dangling token renders as
+  silent breakage — CRITICAL.
+- The hard token rules and what the linter actually enforces: `.claude/rules/aesthetic-quality.md`.
 
-## Visual review & annotation
+## Two lint scopes, and they are not the same
 
-Live story rendering and browser annotation come from the design viewer that ships with `/design` (`skills/design/viewer/launch.mjs`). For a high-stakes change the founder annotates the live render there and the real TSX is revised until approval. The nine design dimensions — hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop, premium polish — are the bar `/design` works to; see `aesthetic-quality.md`. For the visual-regression policy, see `visual-regression.md`.
+The design rule set splits `layers/core-ui/src` in two: `ds/**` is where the design system is BUILT,
+everything else is code that USES it. Rules are wired per scope in
+`tools/eslint-plugin-design/src/hearth-config.ts` — a rule can be `error` inside `ds/` and `warn` or
+`off` outside it, or the reverse. Read that table before assuming a rule covers the file you are in.
 
-**Data attributes** on components — `data-ds-component` (shell components use `data-ds-shell`), `data-ds-tier`, `data-uses`, `data-daisyui`, `data-used-by` on the outermost element; inner sub-components also carry `data-ds-component` + `data-ds-tier`. These DOM markers carry component identity and drive the skill's annotation overlay.
+## Data attributes
+
+Add them by hand — see the dead-rule note above. `data-ds-component` (shell components use
+`data-ds-shell`), `data-ds-tier`, `data-uses`, `data-daisyui`, `data-used-by` on the outermost element; inner sub-components also carry
+`data-ds-component` + `data-ds-tier`. These DOM markers carry component identity and drive the design
+viewer's annotation overlay, and they are what a review cites when a claim about the render needs a
+number behind it.
 
 **Layout** must match the approved design and the app-shell structure in `docs/information-architecture/`.
+
+For how a visual change is proven, see `.pipeline/rules/visual-regression.md`.

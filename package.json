@@ -41,7 +41,7 @@
 		"lint:governance": "npx tsx tools/governance/src/governance-lint.ts",
 		"lint:governance:attacks": "npx tsx tools/governance/src/governance-lint.ts --attacks",
 		"lint:governance:fixtures": "npx tsx tools/governance/src/governance-lint.ts --fixtures",
-		"lint:design": "npx eslint --no-config-lookup --config eslint.design.config.ts 'layers/core-ui/src/**/*.{ts,tsx}' 'framework/design-system/src/**/*.{ts,tsx}'",
+		"lint:design": "npx eslint --no-config-lookup --config eslint.design.config.ts 'layers/core-ui/src/**/*.{ts,tsx}'",
 		"lint:design-css": "npx tsx tools/repo-gates/src/design-css-gate.ts",
 		"lint:design-profiles": "npx tsx tools/repo-gates/src/design-profile-census.ts",
 		"lint:fix": "biome check --write .",

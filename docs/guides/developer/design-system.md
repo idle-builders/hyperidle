@@ -1,16 +1,22 @@
 # Design System — Developer Guide
 
-Story format, catalog groups, and the component budget are owned by [`.claude/rules/design-system.md`](../../../.claude/rules/design-system.md). Visual gates and the TSX-single-source-of-truth rule are owned by [`.claude/rules/visual-regression.md`](../../../.claude/rules/visual-regression.md). Theme, tokens, and stack live in [`docs/ui-design/foundation.md`](../../ui-design/foundation.md). This guide keeps only what those don't: how stories are enforced and rendered here, and how to mount data-fed surfaces in isolation.
+Story format, catalog groups, and the component budget are owned by [`.claude/rules/design-system.md`](../../../.claude/rules/design-system.md). Visual gates and the TSX-single-source-of-truth rule are owned by [`.pipeline/rules/visual-regression.md`](../../../.pipeline/rules/visual-regression.md). Theme, tokens, and stack live in [`docs/ui-design/foundation.md`](../../ui-design/foundation.md). This guide keeps only what those don't: how stories are enforced and rendered here, and how to mount data-fed surfaces in isolation.
 
 ## Stories are the design artifact
 
-Each component's `.stories.tsx` is the design source of truth. The `require-stories-sibling` lint rule enforces the sibling story — **error** in `framework/design-system/src/**` (eslint.config.ts:283), **warn** in `layers/core-ui/src/**` (eslint.config.ts:112).
+Each component's `.stories.tsx` is the design source of truth. The `require-stories-sibling` lint rule is wired at **error** for `layers/core-ui/src/ds/**` and **warn** elsewhere in `layers/core-ui/src/**` (`tools/eslint-plugin-design/src/hearth-config.ts`), but its own `TARGET_DIRS` are `layers/core-ui/src/components/` and a design-system directory that no longer exists — so inside `ds/`, where the components actually live, it never fires. 18 of 74 `ds/` component files have no story. `require-ds-attribute` has the same problem and currently fires nowhere: its filename predicate matches only the deleted package's path. Both want their targets corrected; until then the story and the marker attributes are a manual obligation. Note also that `npm run lint` runs ESLint with `--quiet`, which drops warn-level rules entirely — use `npm run lint:design` to see them.
 
-There is **no story browser in the repo**. The old in-app `/designsystem` route and the `ds:serve` standalone viewer were both removed; nothing in the app or build depends on a viewer being installed. Stories are rendered by the pipeline plugin's component viewer during `/pipeline:design` and `/pipeline:human-concept-review`, which discovers `framework/design-system/src/**/*.stories.tsx` via `pipeline.config.yml` (`designSystem.path: "framework/design-system"`).
+There is **no story browser in the repo**. The old in-app `/designsystem` route and the `ds:serve` standalone viewer were both removed; nothing in the app or build depends on a viewer being installed. Stories are rendered by the pipeline plugin's component viewer during `/pipeline:design`:
 
-There is **no story-rendering snapshot net**. Visual fidelity is gated by `eslint-plugin-design` (`npm run lint` / `npm run lint:design`), type-check, and the human concept review — see [`.claude/rules/visual-regression.md`](../../../.claude/rules/visual-regression.md).
+```
+node "$CLAUDE_PLUGIN_ROOT/skills/design/viewer/launch.mjs" . --port 6006
+```
 
-Themes are `hearth-light` / `hearth-dark`, light-first via `prefers-color-scheme` (`framework/design-system/src/tokens.css`); spacing is the 6px grid (`--space-N` = 3N px). See [`docs/ui-design/foundation.md`](../../ui-design/foundation.md).
+It discovers the stories under `layers/core-ui/src/**` from `.pipeline/viewer.config.json`, which also points it at `layers/core-ui/src/index.css` and the Tailwind v4 toolchain. Without that file the viewer falls back to generic globs, finds nothing, and renders unstyled.
+
+There is **no story-rendering snapshot net**. Visual fidelity is gated by `eslint-plugin-design` (`npm run lint` / `npm run lint:design`), type-check, and the human concept review — see [`.pipeline/rules/visual-regression.md`](../../../.pipeline/rules/visual-regression.md).
+
+Themes are `hearth-light` / `hearth-dark`, light-first via `prefers-color-scheme` (`layers/core-ui/src/ds/tokens.css`); spacing is the 6px grid (`--space-N` = 3N px). See [`docs/ui-design/foundation.md`](../../ui-design/foundation.md).
 
 ## Rendering data-fed surfaces in isolation
 

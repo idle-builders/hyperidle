@@ -12,20 +12,20 @@ engineering:
   tier: mvp
 
 # Where the code lives. Monorepo: source + tests live under the role roots
-# (layers/, framework/, applications/, tools/).
+# (layers/, framework/, applications/, tools/). Run `ls` on those roots for the
+# live package set — never work from a remembered list.
 paths:
   source:
     - "layers/*/src/**"
     - "layers/*/*/src/**"
     - "framework/*/src/**"
-    - "framework/*/viewer/**"
     - "applications/*/src/**"
     - "tools/*/src/**"
-  tests: ["**/*.test.ts", "**/*.test.tsx"]
+  tests: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts"]
   docs: ["docs/**"]
 
-# The design system that /design and
-# /visual-polish render and score against.
+# The design system /design and /visual-polish render and score against.
+# AU44 dissolved framework/design-system into layers/core-ui/src/ds.
 designSystem:
   path: "layers/core-ui/src/ds"
   tokens: "layers/core-ui/src/ds/tokens.css"
@@ -33,17 +33,52 @@ designSystem:
 # Version control + where /ship opens PRs and waits for CI.
 vcs: github
 
+# Run once before a reviewer or builder spawn; the result is injected into the
+# brief so agents judge it instead of re-running it. Deliberately NOT `verify`
+# (the default when this is absent): verify adds knip, the dependency manifest
+# lint, the mock inventory and two full builds, which is minutes of work per
+# spawn. check + lint is the pair that names a real error fast.
+checks:
+  preSpawn: "npm run check && npm run lint"
+
+# Worktree lifecycle. `bootstrap` is deliberately unset — this repo pins Node 24
+# (.node-version) while the default shell node is older, so there is no install
+# command that is correct on every machine. Reinstall by hand after a rebase
+# before trusting check or test.
+worktree:
+  forbiddenArtifacts:
+    - "core"
+    - "**/*.tsbuildinfo"
+    - "**/*.node"
+    - "layers/**/src/**/*.js"
+    - "layers/**/src/**/*.d.ts"
+    - "framework/**/src/**/*.js"
+    - "framework/**/src/**/*.d.ts"
+    - "applications/**/src/**/*.js"
+    - "applications/**/src/**/*.d.ts"
+    - "viewer/**"
+
 # Project rules — repo-specific guidance the generic plugin skills read as
 # BINDING (a project rule overrides the skill's generic advice on conflict).
-# This is where HyperIdle's conventions live now that the skills are unforked.
+#
+# Where the files live is not cosmetic. `.claude/rules/*.md` is Claude Code's own
+# path-scoped loader: a file there with `paths:` frontmatter is injected whenever
+# a matching file is touched, in any session, pipeline or not. It does NOT follow
+# symlinks — a symlinked rules dir, or a symlinked file inside it, is silently
+# skipped. So:
+#   - a rule that is file-scoped is a REAL file in .claude/rules/ with `paths:`
+#     frontmatter, symlinked into .pipeline/rules/ for the slot below;
+#   - a rule that is not file-scoped (a policy, a posture) is a REAL file in
+#     .pipeline/rules/ and nothing else.
+# Either way there is exactly one copy, and .pipeline/rules/ lists them all.
 rules:
-  code: .claude/rules/typescript.md          # → write-code, architecture, review
-  testing: .claude/rules/testing.md           # → write-tests, review
-  design-system: .claude/rules/design-system.md  # → design, write-code, review
-  frontend: .claude/rules/frontend.md         # → design, write-code, review
-  visual: .claude/rules/visual-regression.md  # → design, review
-  aesthetics: .claude/rules/aesthetic-quality.md  # → design
-  # architecture: <none yet>                  # → architecture, architecture-critique, review
-  # security: <none yet>                      # → review
-  # docs: <none yet>                          # → write-docs
-  taste: .claude/rules/taste.md          # → refine, program-design, pipeline
+  code: .pipeline/rules/typescript.md              # → write-code, architecture, review
+  testing: .pipeline/rules/testing.md              # → write-tests, review
+  architecture: .pipeline/rules/architecture.md    # → architecture, architecture-critique, review
+  security: .pipeline/rules/security.md            # → architecture, write-code, review
+  design-system: .pipeline/rules/design-system.md  # → design, write-code, review
+  frontend: .pipeline/rules/frontend.md            # → design, write-code, review
+  visual: .pipeline/rules/visual-regression.md     # → design, review
+  aesthetics: .pipeline/rules/aesthetic-quality.md # → design
+  docs: .pipeline/rules/docs.md                    # → write-docs, review
+  taste: .pipeline/rules/taste.md                  # → refine, program-design, pipeline

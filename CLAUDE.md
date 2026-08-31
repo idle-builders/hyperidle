@@ -81,7 +81,7 @@ A file is **development** if its name declares it (`.test.ts(x)`, `.spec.ts(x)`,
 
 A few production-path files are really development and cannot move yet. Each is recorded with its reason in `tools/governance/misplaced-files.json`, warns on every lint run, and the count only shrinks — adding an entry is a diff review will challenge.
 
-**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness`. **The harness lane has no CI job at all** — it needs four real CLI binaries and real LLM credentials, so it stays a local command in the `verify:release` checklist. Nothing mechanically blocks a release whose harness lane never ran; that is a deliberate trade, not an oversight. Per-merge CI runs the service integration project only.
+**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; there are four, and `builtin` was retired) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness`. **The harness lane has no CI job at all** — it needs four real CLI binaries and real LLM credentials, so it stays a local command in the `verify:release` checklist. Nothing mechanically blocks a release whose harness lane never ran; that is a deliberate trade, not an oversight. Per-merge CI runs the service integration project only.
 
 `verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Every per-merge gate runs live in GitHub Actions (`.github/workflows/ci.yml`); nothing is trusted from a local machine, and no signed attestation exists.
 
@@ -131,6 +131,7 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 - `<track>.md` — per-track coordination file (item registry table + dependency graph). An item that has not been refined yet has only its registry row.
 - `work/<id>/` — per-item folder: `plan.md`, the item's durable account, 50–100 lines; and `retro.jsonl`, its retro observations.
 - `audits/` — product and security audit ledgers, read by `product-deep-review` and `security-audit`.
+- `rules/` — the pipeline rule slots named in `pipeline.config.yml`. Files with no `paths:` frontmatter are real files here; file-scoped rules are real files in `.claude/rules/` and symlinked in. Maintainer-authored — a pipeline run may not edit them.
 
 **Reviews** — `reviews/` — cross-cutting UI and consistency review notes.
 
