@@ -362,13 +362,32 @@ async function runClaimedRequest(
 					// insert). A prior markRequestTerminal-then-transitionAgentRunLifecycle
 					// double-write left the second CAS matching zero rows (status already
 					// "failed"), losing the inbox row and the lifecycle publish entirely.
-					await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
-						requestId: request.id,
-						state: "failed",
-						sessionId: admitted?.sessionId,
-						failureCode: err instanceof Error ? err.name : "Error",
-						errorMessage: err instanceof Error ? err.message : String(err),
-					});
+					//
+					// @lore This transition can itself fail, and it is the last thing in a
+					// DETACHED chain — a throw here becomes an unhandled rejection with no
+					// caller to see it. The common cause is benign: the CAS matches no row
+					// because the request already reached a terminal state, so there is
+					// nothing left to transition. It surfaced as "Unknown agent request"
+					// noise on the harness lane, where a file whose tests all passed was
+					// still reported as failed.
+					try {
+						await ports.sessionLifecycle.transitionAgentRunLifecycle(deps.db, deps.eventBus, {
+							requestId: request.id,
+							state: "failed",
+							sessionId: admitted?.sessionId,
+							failureCode: err instanceof Error ? err.name : "Error",
+							errorMessage: err instanceof Error ? err.message : String(err),
+						});
+					} catch (transitionErr) {
+						// Say so rather than swallowing it: the run already failed, and this
+						// was the attempt to record that. Losing it silently would leave the
+						// request looking un-terminated with no trace of why.
+						// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+						console.warn(
+							`[run-orchestration] could not record terminal failure for request ${request.id}:`,
+							transitionErr,
+						);
+					}
 				})
 				.finally(() => {
 					signalStarted();

@@ -113,7 +113,8 @@ async function codexAuthed(): Promise<boolean> {
 
 async function opencodeAuthed(): Promise<boolean> {
 	try {
-		// The builtin/OpenRouter key is the only key in the strict harness model.
+		// opencode's own auth: it reads OPENROUTER_API_KEY from its environment.
+		// Nothing here supplies it — HyperIdle holds no model credential.
 		const key = process.env.OPENROUTER_API_KEY;
 		if (!key) return false;
 		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
@@ -465,23 +466,21 @@ describe("codex CLI adapter (real binary, production CliHarnessAdapter path)", (
 
 // ── OPENCODE CLI adapter (production path, real binary) ───────────────────────
 //
-// opencode is driven through its OpenRouter (openai-compatible) provider — the only
-// key in the strict harness model is OPENROUTER_API_KEY. The model id is provider-
-// prefixed for OpenRouter.
+// opencode is driven through its OpenRouter provider, authenticating itself from
+// OPENROUTER_API_KEY in its own environment. The model id is provider-prefixed.
 //
 // @lore cli-adapter-real-binary opencode: Uses CLI_TOOL_CONFIGS.opencode which has
 // args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--pure",
 // "--model", "{{model}}"]. The model must be provider-prefixed.
-// @lore AR1 opencode-key: the strict harness model forbids ANTHROPIC_API_KEY entirely;
-// opencode here is keyed from OPENROUTER_API_KEY (the single allowed key) through the
-// openai-compatible OpenRouter endpoint.
+// @lore AR1 opencode-key: opencode authenticates from OPENROUTER_API_KEY in its own
+// environment. HyperIdle injects nothing — it holds no model credential to inject.
 
 describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)", () => {
 	requireHarness("opencode");
 	test("drives CliHarnessAdapter(CLI_TOOL_CONFIGS.opencode) against real opencode → completion + outcome completed", async ({
 		skip,
 	}) => {
-		// The builtin/OpenRouter key is the only key — do NOT fabricate a key.
+		// opencode's own key, read from its environment — never fabricated here.
 		const apiKey = process.env.OPENROUTER_API_KEY ?? "";
 		if (!apiKey) {
 			skip();
