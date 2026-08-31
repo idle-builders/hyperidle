@@ -1,16 +1,16 @@
 /**
- * BB1 AC9 — brownfield migration test for 0068 (one work primitive).
+ * BB1 AC9 — brownfield migration test for 0074 (one work primitive).
  *
  * A database seeded before this carries `bets` rows and `tasks.bet_id`. The
  * migration turns every bet into a ROOT task, reparents its tasks under it,
  * re-points the rows that referenced a bet by id, and drops the old shape. This
- * applies 0..67 against a populated database, applies 0068, and asserts the data
+ * applies 0..73 against a populated database, applies 0074, and asserts the data
  * actually survived — counts, parentage, the derived title, the state and
  * verdict mappings, and zero orphans.
  *
  * @lore BB1: the trap this exists for is the one BA1 hit — a migration test that
  * hand-writes its own pre-migration schema can pass while every real upgrade
- * aborts. So the pre-state here is produced by running the REAL migrations 0..67,
+ * aborts. So the pre-state here is produced by running the REAL migrations 0..73,
  * never by hand-rolled DDL.
  */
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -27,7 +27,7 @@ const DIRNAME = fileURLToPath(new URL(".", import.meta.url));
 const DRIZZLE_FOLDER = resolve(DIRNAME, "../../drizzle");
 
 function makeTempMigrationsFolder(upToIdx: number): string {
-	const tmpDir = mkdtempSync(join(tmpdir(), "drizzle-brownfield-0068-"));
+	const tmpDir = mkdtempSync(join(tmpdir(), "drizzle-brownfield-0074-"));
 	cpSync(DRIZZLE_FOLDER, tmpDir, { recursive: true });
 	const journal = JSON.parse(readFileSync(join(DRIZZLE_FOLDER, "meta/_journal.json"), "utf-8")) as {
 		entries: Array<{ idx: number }>;
@@ -39,7 +39,7 @@ function makeTempMigrationsFolder(upToIdx: number): string {
 
 const NOW = "2026-01-01T00:00:00.000Z";
 
-describe("migration 0068: bets become root tasks — brownfield", () => {
+describe("migration 0074: bets become root tasks — brownfield", () => {
 	const clients: PGlite[] = [];
 	const tempDirs: string[] = [];
 
@@ -59,9 +59,9 @@ describe("migration 0068: bets become root tasks — brownfield", () => {
 			await client.waitReady;
 			const db = drizzle(client);
 
-			const folder67 = makeTempMigrationsFolder(67);
-			tempDirs.push(folder67);
-			await migrate(db, { migrationsFolder: folder67 });
+			const folder73 = makeTempMigrationsFolder(73);
+			tempDirs.push(folder73);
+			await migrate(db, { migrationsFolder: folder73 });
 
 			await db.execute(sql`
 				INSERT INTO teams (id, name, phase, capacity, active_bets, created_at)
@@ -110,7 +110,7 @@ describe("migration 0068: bets become root tasks — brownfield", () => {
 				VALUES ('th-1', 'bet', 'b-1', 'u-1', '["u-1"]', ${NOW}, ${NOW})
 			`);
 
-			// --- apply 0068 ---
+			// --- apply 0074 ---
 			const folder68 = makeTempMigrationsFolder(68);
 			tempDirs.push(folder68);
 			await migrate(db, { migrationsFolder: folder68 });
@@ -214,9 +214,9 @@ describe("migration 0068: bets become root tasks — brownfield", () => {
 		await client.waitReady;
 		const db = drizzle(client);
 
-		const folder67 = makeTempMigrationsFolder(67);
-		tempDirs.push(folder67);
-		await migrate(db, { migrationsFolder: folder67 });
+		const folder73 = makeTempMigrationsFolder(73);
+		tempDirs.push(folder73);
+		await migrate(db, { migrationsFolder: folder73 });
 
 		const folder68 = makeTempMigrationsFolder(68);
 		tempDirs.push(folder68);
