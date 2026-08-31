@@ -246,7 +246,6 @@ export type {
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
 export type {
 	AgentCategory,
-	BetOutcomeVerdict,
 	HarnessType,
 	HealthResponse,
 	KernelKnowledgeStatus,
@@ -266,8 +265,6 @@ export type {
 export {
 	AGENT_CATEGORIES,
 	AGENT_OPERATIONAL_STATUS_LABEL,
-	BET_OUTCOME_VERDICT_LABEL,
-	BET_OUTCOME_VERDICTS,
 	HARNESS_TYPES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	MODEL_TIERS,

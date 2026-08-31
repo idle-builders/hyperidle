@@ -1,30 +1,14 @@
 /**
  * AC1 RED — Shared outcome types tests.
  *
- * AC-13: BetOutcomeVerdict and TaskOutcomeVerdict types export from @hyperidle/domain-model.
- *        BET_OUTCOME_VERDICTS and TASK_OUTCOME_VERDICTS consts are correct.
+ * AC-13: TaskOutcomeVerdict exports from @hyperidle/domain-model and
+ *        TASK_OUTCOME_VERDICTS is correct.
  */
 
 import { describe, expect, it } from "vitest";
-import { BET_OUTCOME_VERDICTS, TASK_OUTCOME_VERDICTS } from "../types.js";
+import { TASK_OUTCOME_VERDICTS } from "../types.js";
 
 describe("AC1 AC-13: Outcome verdict enums export from @hyperidle/domain-model", () => {
-	it("BET_OUTCOME_VERDICTS exports exactly 4 values", () => {
-		expect(BET_OUTCOME_VERDICTS).toHaveLength(4);
-	});
-
-	it("BET_OUTCOME_VERDICTS contains validated, refuted, partial, inconclusive", () => {
-		const verdicts = BET_OUTCOME_VERDICTS as readonly string[];
-		expect(verdicts).toContain("validated");
-		expect(verdicts).toContain("refuted");
-		expect(verdicts).toContain("partial");
-		expect(verdicts).toContain("inconclusive");
-	});
-
-	it("BET_OUTCOME_VERDICTS is a readonly const tuple", () => {
-		expect(Array.isArray(BET_OUTCOME_VERDICTS)).toBe(true);
-	});
-
 	it("TASK_OUTCOME_VERDICTS exports exactly 4 values", () => {
 		expect(TASK_OUTCOME_VERDICTS).toHaveLength(4);
 	});

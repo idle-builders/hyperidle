@@ -58,7 +58,7 @@ export type KnowledgeAccessorKind = "human" | "agent";
 export const KNOWLEDGE_SORT_OPTIONS = ["relevance", "recency", "frequency"] as const;
 export type KnowledgeSortOption = (typeof KNOWLEDGE_SORT_OPTIONS)[number];
 
-export type PropagationLevel = "session" | "task" | "bet" | "team" | "portfolio";
+export type PropagationLevel = "session" | "task" | "team" | "portfolio";
 
 /**
  * @lore BA9b: Role of a knowledge item — determines how context assembly

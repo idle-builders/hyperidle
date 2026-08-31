@@ -191,28 +191,6 @@ export function scopeKindToLabel(scopeKind: string): string {
 }
 
 /**
- * AC1: Closed enum of bet outcome verdicts.
- * Adding a fifth value is a concept change, not a type change.
- *
- * @lore AC1: "validated" means the hypothesis held; "refuted" means it didn't;
- * "partial" means mixed results; "inconclusive" means insufficient evidence.
- * These are retrospective evaluations of hypothesis quality, distinct from the
- * thread `VerdictDecision` type (approve/reject) which is a conversational action.
- */
-export const BET_OUTCOME_VERDICTS = ["validated", "refuted", "partial", "inconclusive"] as const;
-export type BetOutcomeVerdict = (typeof BET_OUTCOME_VERDICTS)[number];
-
-/**
- * AI4: Human-readable labels for each BetOutcomeVerdict (AC2, AC5).
- */
-export const BET_OUTCOME_VERDICT_LABEL: Record<BetOutcomeVerdict, string> = {
-	validated: "Validated",
-	refuted: "Refuted",
-	partial: "Partial",
-	inconclusive: "Inconclusive",
-};
-
-/**
  * AC1: Closed enum of task outcome verdicts.
  * Adding a fifth value is a concept change, not a type change.
  *

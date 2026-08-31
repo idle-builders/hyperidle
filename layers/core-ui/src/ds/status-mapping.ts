@@ -1,7 +1,6 @@
 // @lore BB1: BetStatus removed — bet vocabulary folded into TASK_STATES.
 import type {
 	AgentOperationalStatus,
-	BetOutcomeVerdict,
 	KnowledgeStatus,
 	RoutineState,
 	SessionOutcome,
@@ -93,26 +92,6 @@ export const ROUTINE_STATE_MAP: Record<RoutineState, Status> = {
 
 export function routineStateToStatus(state: RoutineState): Status {
 	return ROUTINE_STATE_MAP[state] as Status;
-}
-
-/**
- * AI4 Decision 6: Bet outcome verdict → presentation Status. Exhaustive.
- *
- * Color rationale (reviewer-approved):
- *   validated → healthy (green) — hypothesis held
- *   refuted → error (red) — hypothesis failed
- *   partial → behind (amber) — "not a clean win, look closer"
- *   inconclusive → paused (blue) — insufficient evidence
- */
-export const BET_OUTCOME_VERDICT_STATUS: Record<BetOutcomeVerdict, Status> = {
-	validated: "healthy",
-	refuted: "error",
-	partial: "behind",
-	inconclusive: "paused",
-};
-
-export function betOutcomeVerdictToStatus(v: BetOutcomeVerdict): Status {
-	return BET_OUTCOME_VERDICT_STATUS[v] as Status;
 }
 
 /**

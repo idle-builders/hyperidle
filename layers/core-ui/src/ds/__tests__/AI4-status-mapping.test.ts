@@ -2,7 +2,6 @@
  * AI4 — One status language: verdict + agent-operational status mapping tests (red phase)
  *
  * Extends the design-system status-mapping.ts with:
- *   - BET_OUTCOME_VERDICT_STATUS + betOutcomeVerdictToStatus (Decision 6, AC5)
  *   - TASK_OUTCOME_VERDICT_STATUS + taskOutcomeVerdictToStatus (Decision 6, AC5)
  *   - AgentOperationalStatus + AGENT_OPERATIONAL_STATUS_MAP + agentOperationalStatusToStatus
  *     (Decision 3a)
@@ -19,8 +18,6 @@ import {
 	AGENT_OPERATIONAL_STATUS_MAP,
 	type AgentOperationalStatus,
 	agentOperationalStatusToStatus,
-	BET_OUTCOME_VERDICT_STATUS,
-	betOutcomeVerdictToStatus,
 	type Status,
 	TASK_OUTCOME_VERDICT_STATUS,
 	taskOutcomeVerdictToStatus,
@@ -35,91 +32,6 @@ const VALID_STATUSES: readonly Status[] = [
 	"done",
 	"error",
 ];
-
-// --- BET_OUTCOME_VERDICT_STATUS ---
-
-describe("BET_OUTCOME_VERDICT_STATUS (AI4 AC5, Decision 6)", () => {
-	it("is exported and is a non-null object", () => {
-		expect(BET_OUTCOME_VERDICT_STATUS).toBeDefined();
-		expect(typeof BET_OUTCOME_VERDICT_STATUS).toBe("object");
-	});
-
-	it("maps validated to 'healthy' (hypothesis held = green)", () => {
-		expect(BET_OUTCOME_VERDICT_STATUS["validated"]).toBe("healthy" satisfies Status);
-	});
-
-	it("maps refuted to 'error' (hypothesis failed = red)", () => {
-		expect(BET_OUTCOME_VERDICT_STATUS["refuted"]).toBe("error" satisfies Status);
-	});
-
-	it("maps partial to 'behind' (mixed result = amber, reviewer-approved)", () => {
-		// @lore AI4 Decision 6: partial → behind (amber). "Not a clean win, look closer."
-		expect(BET_OUTCOME_VERDICT_STATUS["partial"]).toBe("behind" satisfies Status);
-	});
-
-	it("maps inconclusive to 'paused' (insufficient evidence = info/blue)", () => {
-		expect(BET_OUTCOME_VERDICT_STATUS["inconclusive"]).toBe("paused" satisfies Status);
-	});
-
-	it("every value maps to a valid Status", () => {
-		for (const [, status] of Object.entries(BET_OUTCOME_VERDICT_STATUS)) {
-			expect(VALID_STATUSES).toContain(status);
-		}
-	});
-
-	it("has exactly 4 entries covering all BetOutcomeVerdict values", () => {
-		const keys = Object.keys(BET_OUTCOME_VERDICT_STATUS);
-		expect(keys).toHaveLength(4);
-		expect(keys).toContain("validated");
-		expect(keys).toContain("refuted");
-		expect(keys).toContain("partial");
-		expect(keys).toContain("inconclusive");
-	});
-
-	it("no verdict maps to the neutral 'done' status (AC5: not neutral gray)", () => {
-		// AC5 explicitly calls out "neutral gray" as the wrong status quo.
-		// done maps to --status-success which is green, not gray — but we want
-		// to assert no verdict accidentally ends up invisible.
-		const values = Object.values(BET_OUTCOME_VERDICT_STATUS);
-		// validated→healthy is intentional green; refuted→error is intentional red.
-		// Just assert all are in VALID_STATUSES and none is an empty string.
-		for (const v of values) {
-			expect(v).toBeTruthy();
-			expect(VALID_STATUSES).toContain(v);
-		}
-	});
-});
-
-// --- betOutcomeVerdictToStatus ---
-
-describe("betOutcomeVerdictToStatus (AI4 Decision 6)", () => {
-	it("is exported as a function", () => {
-		expect(typeof betOutcomeVerdictToStatus).toBe("function");
-	});
-
-	it("returns 'healthy' for validated", () => {
-		expect(betOutcomeVerdictToStatus("validated")).toBe("healthy" satisfies Status);
-	});
-
-	it("returns 'error' for refuted", () => {
-		expect(betOutcomeVerdictToStatus("refuted")).toBe("error" satisfies Status);
-	});
-
-	it("returns 'behind' for partial", () => {
-		expect(betOutcomeVerdictToStatus("partial")).toBe("behind" satisfies Status);
-	});
-
-	it("returns 'paused' for inconclusive", () => {
-		expect(betOutcomeVerdictToStatus("inconclusive")).toBe("paused" satisfies Status);
-	});
-
-	it("returns a valid Status for all verdicts", () => {
-		const verdicts = ["validated", "refuted", "partial", "inconclusive"] as const;
-		for (const v of verdicts) {
-			expect(VALID_STATUSES).toContain(betOutcomeVerdictToStatus(v));
-		}
-	});
-});
 
 // --- TASK_OUTCOME_VERDICT_STATUS ---
 

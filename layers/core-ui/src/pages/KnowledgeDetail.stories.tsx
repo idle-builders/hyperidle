@@ -53,7 +53,7 @@ export const UnknownItem = (): JSX.Element => (
 );
 
 /**
- * AK5: ArchivedItem — the overflow menu should show "Promote to bet" as disabled
+ * AK5: ArchivedItem — the overflow menu should show "Promote to task" as disabled
  * when the knowledge item's status is "archived".
  */
 export const ArchivedItem = (): JSX.Element => (

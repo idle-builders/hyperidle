@@ -354,11 +354,6 @@ async function resolveHostTitle(
 	hostId: string,
 ): Promise<string | null> {
 	switch (hostKind) {
-		case "bet": {
-			// BB1: bets are now root tasks — look up by task id, return title.
-			const row = await work.get(db, "task", hostId);
-			return row?.title ?? null;
-		}
 		case "task": {
 			const row = await work.get(db, "task", hostId);
 			return row?.title ?? null;

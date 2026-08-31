@@ -10,11 +10,17 @@
  * @lore BB1: replaces WorkBetCreate. POST /api/tasks instead of POST /api/bets.
  * The parentTaskId query-param path is the subtask creation path — the "Add
  * subtask" button on WorkTaskPage passes it here.
+ *
+ * @lore AK5: ?fromKnowledge=<id> is the multi-team promote path. KnowledgeDetail
+ * auto-creates when there is exactly one team and sends the user here otherwise,
+ * so this page is the ONLY other place that carries sourceKnowledgeItemId into
+ * the POST. Dropping it here silently loses the provenance FK.
  */
 
-import { type JSX, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
 import { Breadcrumb, Button, Input, PageHeader, PageScaffold, Select } from "../ds/index.js";
+import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -23,6 +29,8 @@ export function WorkTaskCreate(): JSX.Element {
 	const [searchParams] = useSearchParams();
 
 	const parentTaskId = searchParams.get("parentTaskId") ?? undefined;
+	// AK5: provenance carrier for the multi-team promote path.
+	const fromKnowledgeId = searchParams.get("fromKnowledge") ?? undefined;
 
 	const { data: teamsData } = useTeams();
 	const teams = teamsData?.teams ?? [];
@@ -34,6 +42,15 @@ export function WorkTaskCreate(): JSX.Element {
 	const [teamId, setTeamId] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// AK5: pre-fill title/description from the promoted knowledge item.
+	const { data: knowledgeData } = useKnowledgeItem(fromKnowledgeId);
+	const knowledgeItem = knowledgeData ?? null;
+	useEffect(() => {
+		if (knowledgeItem === null) return;
+		setTitle((t) => (t === "" ? knowledgeItem.title : t));
+		setDescription((d) => (d === "" ? knowledgeItem.body : d));
+	}, [knowledgeItem]);
 
 	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
 	// parentTaskId path: teamId is inherited server-side; only title is required
@@ -53,6 +70,7 @@ export function WorkTaskCreate(): JSX.Element {
 			doneCondition: doneCondition.trim() || undefined,
 			parentTaskId,
 			teamId: parentTaskId != null ? undefined : resolvedTeamId,
+			sourceKnowledgeItemId: fromKnowledgeId,
 		};
 
 		// Remove undefined keys

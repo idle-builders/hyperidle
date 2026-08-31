@@ -11,9 +11,6 @@
 import { describe, expect, it } from "vitest";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
-	BET_OUTCOME_VERDICT_LABEL,
-	BET_OUTCOME_VERDICTS,
-	type BetOutcomeVerdict,
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_OUTCOME_VERDICTS,
 	TASK_STATE_LABEL,
@@ -86,49 +83,6 @@ describe("TASK_STATE_LABEL (AI4 AC2)", () => {
 });
 
 // @lore BB1: BET_STATUS_LABEL tests removed — BET_STATUSES/BetStatus/BET_STATUS_LABEL deleted.
-
-// --- BET_OUTCOME_VERDICT_LABEL ---
-
-describe("BET_OUTCOME_VERDICT_LABEL (AI4 AC2, AC5)", () => {
-	it("is exported as a non-null object", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL).toBeDefined();
-	});
-
-	it("covers all 4 BetOutcomeVerdict values with non-empty strings", () => {
-		for (const verdict of BET_OUTCOME_VERDICTS) {
-			const label = BET_OUTCOME_VERDICT_LABEL[verdict];
-			expect(
-				label,
-				`BET_OUTCOME_VERDICT_LABEL["${verdict}"] must be a non-empty string`,
-			).toBeTruthy();
-		}
-	});
-
-	it("maps validated to 'Validated'", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL["validated"]).toBe("Validated");
-	});
-
-	it("maps refuted to 'Refuted'", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL["refuted"]).toBe("Refuted");
-	});
-
-	it("maps partial to 'Partial'", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL["partial"]).toBe("Partial");
-	});
-
-	it("maps inconclusive to 'Inconclusive'", () => {
-		expect(BET_OUTCOME_VERDICT_LABEL["inconclusive"]).toBe("Inconclusive");
-	});
-
-	it("exhaustively covers all BET_OUTCOME_VERDICTS values", () => {
-		const keys = Object.keys(BET_OUTCOME_VERDICT_LABEL) as BetOutcomeVerdict[];
-		for (const verdict of BET_OUTCOME_VERDICTS) {
-			expect(keys).toContain(verdict);
-		}
-	});
-});
-
-// --- TASK_OUTCOME_VERDICT_LABEL ---
 
 describe("TASK_OUTCOME_VERDICT_LABEL (AI4 AC2, AC5)", () => {
 	it("is exported as a non-null object", () => {

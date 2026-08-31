@@ -170,8 +170,6 @@ export { StatusChip } from "./StatusChip.js";
 export {
 	AGENT_OPERATIONAL_STATUS_MAP,
 	agentOperationalStatusToStatus,
-	BET_OUTCOME_VERDICT_STATUS,
-	betOutcomeVerdictToStatus,
 	KNOWLEDGE_STATUS_MAP,
 	knowledgeStatusToStatus,
 	ROUTINE_STATE_MAP,

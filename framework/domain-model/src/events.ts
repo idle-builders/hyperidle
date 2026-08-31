@@ -441,7 +441,7 @@ export interface ArtifactCreatedEvent {
  * hierarchy is: session -> task -> bet -> team -> portfolio.
  * Note: "product" scope kind in knowledge_items is UNCHANGED (different taxonomy).
  */
-type PropagationLevelLiteral = "session" | "task" | "bet" | "team" | "portfolio";
+type PropagationLevelLiteral = "session" | "task" | "team" | "portfolio";
 
 /** L20: Emitted when lifecycle propagation successfully applies a transition. */
 export interface PropagationAppliedEvent {

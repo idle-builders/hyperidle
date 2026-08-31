@@ -3,6 +3,7 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
+import { get as getKnowledgeItem } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import type { PolicySessionContext } from "@hyperidle/policy";
 import type { Task, TaskKillCascadeDeps, TaskStateMachineDeps } from "@hyperidle/work";
@@ -67,7 +68,20 @@ const createTaskSchema = z
 		ownerAgentId: z.string().nullish(),
 		/** When true, finishing this task sends it to `review` rather than `done`. */
 		needsReview: z.boolean().optional(),
+		/**
+		 * AK5 provenance — the knowledge item this task was promoted from.
+		 * When present: validated to exist (unknown id -> 400); stored as FK on the row.
+		 * When absent: null (hand-typed / assistant-drafted task).
+		 *
+		 * @lore BB1: carried over from the deleted `POST /bets`. A bet is a root
+		 * task now, and "Promote to task" is the same door it always was.
+		 */
+		sourceKnowledgeItemId: z.string().optional(),
 	})
+	// @lore BB1: `.strict()` carried over from the deleted POST /bets. Without it
+	// Zod silently STRIPS unknown keys, which is how a caller sending a field the
+	// schema forgot (sourceKnowledgeItemId) got a 201 and no provenance.
+	.strict()
 	.refine((b) => b.teamId !== undefined || b.parentTaskId !== undefined, {
 		message: "teamId is required when parentTaskId is omitted",
 		path: ["teamId"],
@@ -245,7 +259,14 @@ export function createTaskRoutes(
 		if (!task) {
 			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
-		return c.json(task);
+		// AK5: enrich with sourceKnowledge:{id,title} when the provenance FK is set.
+		// Lookup happens per-task (already on the PK path) — no index needed.
+		let sourceKnowledge: { id: string; title: string } | null = null;
+		if (task.sourceKnowledgeItemId != null) {
+			const srcItem = await getKnowledgeItem(db, task.sourceKnowledgeItemId);
+			sourceKnowledge = srcItem ? { id: srcItem.id, title: srcItem.title } : null;
+		}
+		return c.json({ ...task, sourceKnowledge });
 	});
 
 	// -------------------------------------------------------------------------
@@ -313,6 +334,21 @@ export function createTaskRoutes(
 			return c.json({ error: "teamId is required", code: API_ERROR_CODES.VALIDATION_ERROR }, 400);
 		}
 
+		// AK5: validate sourceKnowledgeItemId refers to an existing knowledge item.
+		// Guards a dangling provenance FK — the column is ON DELETE RESTRICT.
+		if (body.sourceKnowledgeItemId !== undefined) {
+			const srcItem = await getKnowledgeItem(db, body.sourceKnowledgeItemId);
+			if (!srcItem) {
+				return c.json(
+					{
+						error: `Knowledge item '${body.sourceKnowledgeItemId}' not found`,
+						code: API_ERROR_CODES.VALIDATION_ERROR,
+					},
+					400,
+				);
+			}
+		}
+
 		// Assign position as last among current siblings so new tasks append
 		// rather than all landing on the schema default 0.
 		// @lore BB1: `work.maxSiblingPosition` returns -1 for an empty group so the
@@ -337,6 +373,7 @@ export function createTaskRoutes(
 			state: "proposed",
 			position: siblingMax + 1,
 			needsReview: body.needsReview ?? false,
+			sourceKnowledgeItemId: body.sourceKnowledgeItemId ?? null,
 			createdAt: now,
 			updatedAt: now,
 		});
