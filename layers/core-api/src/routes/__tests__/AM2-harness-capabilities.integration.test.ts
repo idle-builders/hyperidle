@@ -14,15 +14,6 @@ type HarnessDiscoveryInput = SnapshotValue<
  *  `discoverLocalHarnesses()`; here we use a deterministic map so assertions are
  *  independent of the CI environment. */
 const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
-	builtin: {
-		state: "ready",
-		authAction: {
-			kind: "enter_api_key",
-			label: "Enter API key",
-			description: "Store a model gateway API key in HyperIdle.",
-			credentialNames: ["anthropic_api_key"],
-		},
-	},
 	codex: {
 		state: "ready",
 		version: "0.141.0",
@@ -49,6 +40,16 @@ const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
 			label: "Log in to OpenCode",
 			command: ["opencode", "providers", "login"],
 		},
+		// A model the harness reported for itself — `opencode models` output.
+		models: [
+			{
+				id: "openrouter/z-ai/glm-4.7-flash",
+				label: "GLM 4.7 Flash",
+				provider: "openrouter",
+				selectable: true,
+				options: [],
+			},
+		],
 	},
 	"cursor-agent": {
 		state: "unavailable",
@@ -84,15 +85,20 @@ describe("AM2 GET /api/harnesses capability descriptors", () => {
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Array<Record<string, unknown>>;
-		const builtin = body.find((entry) => entry.type === "builtin");
+		// @lore The subject used to be the built-in gateway — the one descriptor
+		// guaranteed to be in every response, whose auth action was an API key and
+		// whose models came off the model-gateway catalog. It is gone; opencode
+		// carries the same shape, with an auth action and a model list that are
+		// its own.
+		const opencode = body.find((entry) => entry.type === "opencode");
 
-		expect(builtin).toBeDefined();
-		expect(typeof builtin?.name).toBe("string");
-		expect(Array.isArray(builtin?.modelProviders)).toBe(true);
-		expect(builtin?.authAction).toMatchObject({ kind: "enter_api_key" });
-		expect(builtin?.discovery).toMatchObject({ state: "ready" });
-		expect(Array.isArray(builtin?.models)).toBe(true);
-		expect((builtin!.models as unknown[]).length).toBeGreaterThan(0);
+		expect(opencode).toBeDefined();
+		expect(typeof opencode?.name).toBe("string");
+		expect(Array.isArray(opencode?.modelProviders)).toBe(true);
+		expect(opencode?.authAction).toMatchObject({ kind: "native_cli_login" });
+		expect(opencode?.discovery).toMatchObject({ state: "ready" });
+		expect(Array.isArray(opencode?.models)).toBe(true);
+		expect((opencode?.models as unknown[] | undefined)?.length ?? 0).toBeGreaterThan(0);
 	});
 
 	test("includes evidence-backed readiness entries for first-class CLI harnesses", async ({

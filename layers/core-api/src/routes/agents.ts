@@ -288,8 +288,9 @@ export function createAgentRoutes(
 		// seam write can never join a caller's transaction (§3.2), so `insertUser`
 		// commits alone and `runConfig.write` follows. On a failed write, the
 		// agent exists with `DEFAULT_AGENT_RUN_CONFIG` semantics (the read path
-		// already defaults) — it runs on builtin instead of the harness the
-		// caller asked for. The admin edit path repairs it.
+		// already defaults) — it stores no harness, so the pool picks one at
+		// admission rather than the harness the caller asked for. The admin edit
+		// path repairs it.
 		await insertUser(db, {
 			id,
 			kind: "ai",

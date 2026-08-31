@@ -39,7 +39,6 @@ const OPENCODE_DESCRIPTOR = {
 			provider: "openrouter" as const,
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 		{
@@ -48,7 +47,6 @@ const OPENCODE_DESCRIPTOR = {
 			provider: "openrouter" as const,
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],
@@ -106,7 +104,6 @@ const CLAUDE_CODE_DESCRIPTOR = {
 			provider: "anthropic" as const,
 			contextWindow: 1000000,
 			selectable: true,
-			inheritedFromGateway: false,
 			// What `claude --help` actually declares — see harness-discovery.
 			options: [
 				{
@@ -133,7 +130,6 @@ const CLAUDE_CODE_DESCRIPTOR = {
 			provider: "anthropic" as const,
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],

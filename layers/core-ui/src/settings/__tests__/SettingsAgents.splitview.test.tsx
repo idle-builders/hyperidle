@@ -27,7 +27,6 @@ const MOCK_HARNESSES_WITH_MODELS = [
 				provider: "openrouter",
 				contextWindow: 128000,
 				selectable: true,
-				inheritedFromGateway: true,
 				options: [],
 			},
 		],

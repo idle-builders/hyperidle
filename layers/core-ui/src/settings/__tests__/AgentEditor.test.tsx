@@ -24,8 +24,7 @@ import { AgentEditor } from "../AgentEditor.js";
 // ---------------------------------------------------------------------------
 
 // The key-accepting harness. Its models are its own — `opencode models` reports
-// them — so `inheritedFromGateway` is false throughout: there is no gateway left
-// for anything to inherit from.
+// them.
 const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "opencode",
 	name: "OpenCode",
@@ -37,7 +36,6 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openrouter",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 		{
@@ -46,7 +44,6 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openrouter",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],
@@ -86,7 +83,6 @@ const CLAUDE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "anthropic",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],
@@ -139,7 +135,6 @@ const DECLARING_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "anthropic",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [
 				{
 					key: "effort",
@@ -169,7 +164,6 @@ const DECLARING_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "anthropic",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],

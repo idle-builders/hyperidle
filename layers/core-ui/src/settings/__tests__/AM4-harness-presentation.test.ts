@@ -64,7 +64,6 @@ function makeDescriptor(
 				label: "Claude Sonnet 4.6",
 				provider: "anthropic",
 				selectable: true,
-				inheritedFromGateway: false,
 				options: [],
 			},
 		],

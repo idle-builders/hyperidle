@@ -7,7 +7,7 @@
  *
  * @lore AV1: Only called on a choosable (installed/ready) descriptor — greyed rows
  * never produce a primaryHarness. The .selectable filter is essential: CLI harnesses
- * list non-selectable models (inheritedFromGateway) that must not become the primary.
+ * list non-selectable models that must not become the primary.
  */
 
 import type { PrimaryHarnessConfig } from "@hyperidle/domain-model";

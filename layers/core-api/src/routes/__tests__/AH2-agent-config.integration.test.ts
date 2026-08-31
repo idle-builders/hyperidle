@@ -26,9 +26,33 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-/** Minimal adapter pool for AH2 validation tests (builtin + claude-code only). */
+/**
+ * Minimal adapter pool for AH2 validation tests: one anthropic-only harness and
+ * one multi-provider harness, which is all the cross-axis rules need.
+ *
+ * @lore The multi-provider slot used to be the built-in harness — the one that
+ * spoke all three ModelProviders because it made the model call itself. opencode
+ * takes that role: it is provider-agnostic, and the same rules apply to it.
+ */
 function makeAH2Pool(): AdapterPool {
 	const pool = new AdapterPool();
+	pool.register(
+		"local-opencode",
+		new CliHarnessAdapter({
+			binary: "opencode",
+			args: [],
+			envMap: {},
+			eventFormat: "ndjson",
+			envAllowlist: [],
+		}),
+		{
+			name: "OpenCode",
+			kind: "local",
+			type: "opencode",
+			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
+			maxConcurrent: 4,
+		},
+	);
 	pool.register(
 		"local-claude-code",
 		new CliHarnessAdapter({
@@ -92,7 +116,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			body: JSON.stringify({
 				name: "Agent One",
 				role: "builder",
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "claude-opus-4-8",
 				modelProvider: "anthropic",
 			}),
@@ -114,7 +138,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			body: JSON.stringify({
 				name: "Opus Agent",
 				role: "builder",
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "claude-opus-4-8",
 				modelProvider: "anthropic",
 			}),
@@ -125,7 +149,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			body: JSON.stringify({
 				name: "Sonnet Agent",
 				role: "builder",
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "claude-sonnet-4-6",
 				modelProvider: "anthropic",
 			}),
@@ -160,7 +184,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		await db.insert(agentRunConfig).values({
 			agentUserId: "ah2-builder",
 			maxConcurrentSessions: 1,
-			harnessType: "builtin",
+			harnessType: "opencode",
 			modelTierPreference: "workhorse",
 		});
 
@@ -192,7 +216,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		await db.insert(agentRunConfig).values({
 			agentUserId: "ah2-patchable",
 			maxConcurrentSessions: 1,
-			harnessType: "builtin",
+			harnessType: "opencode",
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
@@ -262,7 +286,7 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		await db.insert(agentRunConfig).values({
 			agentUserId: "ah2-harness-patch",
 			maxConcurrentSessions: 1,
-			harnessType: "builtin",
+			harnessType: "opencode",
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
@@ -277,10 +301,7 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		expect(body.code).toBe("UNKNOWN_HARNESS");
 	});
 
-	test("POST with registered harnessType 'builtin' succeeds (200/201)", async ({
-		db,
-		eventBus,
-	}) => {
+	test("POST with a registered harnessType succeeds (200/201)", async ({ db, eventBus }) => {
 		await seedPrereqs(db);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
@@ -290,7 +311,7 @@ describe("AH2 AC2: unknown harness rejected", () => {
 			body: JSON.stringify({
 				name: "Good Harness Agent",
 				role: "builder",
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "claude-sonnet-4-6",
 				modelProvider: "anthropic",
 			}),
@@ -299,7 +320,14 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		expect(res.status).toBe(201);
 	});
 
-	test("POST with unknown anthropic model returns 422 UNKNOWN_MODEL", async ({ db, eventBus }) => {
+	// @lore This asserted a stale Anthropic model id was rejected against
+	// MODEL_CATALOG, a static list of four gateway ids. That check existed for the
+	// built-in harness, which called a model API itself and got a run-time 404 for
+	// a retired id, and it went with that harness. A harness that publishes no
+	// model list now accepts anything: an empty list means either "this harness
+	// manages its own models" or "the probe failed", and rejecting on it would let
+	// a network hiccup block someone's save.
+	test("a harness that states no models accepts any model id", async ({ db, eventBus }) => {
 		await seedPrereqs(db);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
@@ -307,17 +335,15 @@ describe("AH2 AC2: unknown harness rejected", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Stale Model Agent",
+				name: "Unlisted Model Agent",
 				role: "builder",
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "claude-sonnet-4-20250514",
 				modelProvider: "anthropic",
 			}),
 		});
 
-		expect(res.status).toBe(422);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.code).toBe("UNKNOWN_MODEL");
+		expect(res.status).toBe(201);
 	});
 });
 
@@ -358,7 +384,7 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 		expect(body.code).toBe("INCOMPATIBLE_HARNESS_MODEL");
 	});
 
-	test("POST with builtin harness + openrouter provider succeeds (builtin is multi-provider)", async ({
+	test("POST with a multi-provider harness + openrouter provider succeeds", async ({
 		db,
 		eventBus,
 	}) => {
@@ -369,9 +395,9 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Builtin+Openrouter Agent",
+				name: "Opencode+Openrouter Agent",
 				role: "builder",
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "anthropic/claude-sonnet-4",
 				modelProvider: "openrouter",
 			}),
@@ -423,7 +449,7 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 		await seedPrereqs(db);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
-		// Start with builtin + openrouter (valid)
+		// Start with opencode + openrouter (valid)
 		await db.insert(users).values({
 			id: "ah2-cross-patch2",
 			kind: "ai",
@@ -436,7 +462,7 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 		await db.insert(agentRunConfig).values({
 			agentUserId: "ah2-cross-patch2",
 			maxConcurrentSessions: 1,
-			harnessType: "builtin",
+			harnessType: "opencode",
 		});
 		// First set openrouter provider
 		await app.request("/api/agents/ah2-cross-patch2", {
@@ -484,7 +510,7 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 			body: JSON.stringify({
 				name: "OAI Agent",
 				role: "builder",
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "some-model",
 				modelProvider: "openai-compatible",
 			}),
@@ -512,7 +538,7 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 		await db.insert(agentRunConfig).values({
 			agentUserId: "ah2-oai-patch",
 			maxConcurrentSessions: 1,
-			harnessType: "builtin",
+			harnessType: "opencode",
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });

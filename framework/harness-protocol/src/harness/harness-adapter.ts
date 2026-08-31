@@ -119,28 +119,21 @@ export interface SessionConfig {
 	/**
 	 * X5: MCP bridge connection info for this session.
 	 * When present, adapters that support MCP can use this to configure
-	 * their harness's MCP client connection. Optional because:
-	 * - Bridge creation is best-effort (fails gracefully)
-	 * - BuiltinHarnessAdapter calls tool registry directly (no MCP needed)
+	 * their harness's MCP client connection. Optional because bridge creation is
+	 * best-effort (it fails gracefully).
 	 */
 	readonly mcpConnectionInfo?: McpConnectionInfo;
-	/**
-	 * AH3 §1.4: Message history from a session's calling-thread transcript.
-	 * When present, the builtin adapter runs a single chat completion seeded with
-	 * these messages instead of the task-planning loop. The caller's triggering
-	 * message is always the last entry. Absent for task sessions (planning loop).
-	 * Generic — set for any kind that bakes a `transcript` (AU27 Increment 4),
-	 * not assistant-only.
-	 *
-	 * @lore AH3 H3: This field is the mechanism that delivers "what the caller
-	 * typed" to the model. Without it, the adapter starts with messages:[] and
-	 * responds to PLANNING_PROMPT, never the caller's actual question.
-	 */
-	readonly messages?: readonly ConversationMessage[];
+	// @lore A `messages` field carried the calling thread's transcript here, and
+	// the built-in adapter was its only reader: their presence is what selected its
+	// chat completion over its task-planning loop. A CLI harness never read it —
+	// it takes the same transcript from the `## Conversation` section of the
+	// assembled prompt, which every harness reads out of AGENTS.md/CLAUDE.md. The
+	// field went with the adapter that read it; the prompt section is now the
+	// single delivery.
 	/**
 	 * Per-session return-hook configuration.
-	 * SDK/builtin closures + process wrapper read this to reach the enforcement
-	 * registry and bridge callback. settings-* adapters use bridgeToken/mcpUrl
+	 * The process wrapper reads this to reach the enforcement registry and bridge
+	 * callback. settings-* adapters use bridgeToken/mcpUrl
 	 * when writing their hook config files (handled by provisionReturnHook, not startSession).
 	 * Optional for backward compatibility; omitted for non-task sessions.
 	 */

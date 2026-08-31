@@ -27,7 +27,6 @@ function makeDescriptor(
 			label: m.id,
 			provider: m.provider as never,
 			selectable: m.selectable,
-			inheritedFromGateway: false,
 			options: [],
 		})),
 		modelProviders: modelProviders ?? [],

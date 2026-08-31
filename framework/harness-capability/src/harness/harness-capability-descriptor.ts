@@ -80,7 +80,6 @@ export interface HarnessModelDescriptor {
 	readonly provider?: ModelProvider;
 	readonly contextWindow?: number;
 	readonly selectable: boolean;
-	readonly inheritedFromGateway: boolean;
 	readonly options: readonly HarnessModelOptionDescriptor[];
 }
 

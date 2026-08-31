@@ -59,7 +59,6 @@ import { absoluteDate } from "../utils/time.js";
 // UI-041: static display names for known harness families. Matches
 // KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts.
 const HARNESS_DISPLAY: Record<string, string> = {
-	builtin: "Built-in",
 	"claude-code": "Claude Code",
 	codex: "Codex",
 	"cursor-agent": "Cursor Agent",

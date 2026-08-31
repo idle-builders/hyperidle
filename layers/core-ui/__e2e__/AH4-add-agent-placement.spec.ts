@@ -42,7 +42,7 @@ function makeAgentsResponse(extra: unknown[] = []) {
 			name: "Existing Agent",
 			role: "builder",
 			agentCategory: "team",
-			harnessType: "builtin",
+			harnessType: "claude-code",
 			modelTierPreference: null,
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",
@@ -55,7 +55,7 @@ function makeAgentsResponse(extra: unknown[] = []) {
 }
 
 function makeHarnessesResponse() {
-	return [{ type: "builtin", name: "Built-in", modelProviders: ["anthropic"] }];
+	return [{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] }];
 }
 
 function makeTeamDetailResponse() {
@@ -140,7 +140,7 @@ test.describe("AH4 AC6 — Settings Agents add form shows team placement", () =>
 			name: "AH4 New Agent",
 			role: "builder",
 			agentCategory: "team",
-			harnessType: "builtin",
+			harnessType: "claude-code",
 			modelTierPreference: null,
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",

@@ -269,7 +269,6 @@ describe("AdapterPool capability catalog merge", () => {
 						provider: "openrouter",
 						contextWindow: 128_000,
 						selectable: true,
-						inheritedFromGateway: true,
 						options: [],
 					},
 				],

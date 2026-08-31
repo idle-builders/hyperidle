@@ -45,7 +45,6 @@ function descriptorWith(
 			label: id,
 			contextWindow: 0,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		})),
 		returnEnforcement: "none",

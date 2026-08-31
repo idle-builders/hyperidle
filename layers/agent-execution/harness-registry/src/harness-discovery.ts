@@ -86,7 +86,6 @@ function parseClaudeModelCommand(output: string): HarnessModelDescriptor[] {
 			// the same value the codex reader uses when its cache omits one.
 			contextWindow: 0,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [CLAUDE_EFFORT_OPTION],
 		});
 	}
@@ -139,7 +138,6 @@ function parseCursorModelList(output: string): HarnessModelDescriptor[] {
 			label,
 			contextWindow: 0,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		});
 	}
@@ -239,7 +237,6 @@ function parseOpencodeModelJson(raw: string): HarnessModelDescriptor | null {
 			...(provider !== undefined ? { provider } : {}),
 			contextWindow,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: opencodeModelOptions(parsed),
 		};
 	} catch {
@@ -499,7 +496,6 @@ function parseCodexModelCache(raw: string): readonly HarnessModelDescriptor[] {
 				label: typeof m.display_name === "string" ? m.display_name : slug,
 				contextWindow: typeof m.context_window === "number" ? m.context_window : 0,
 				selectable: true,
-				inheritedFromGateway: false,
 				options,
 			} satisfies HarnessModelDescriptor,
 		];

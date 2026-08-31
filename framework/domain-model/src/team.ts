@@ -156,9 +156,13 @@ export interface CreateTeamRequest {
 	/** AE2: human user id — seeds welcome message in thr-ast-{userId} when provided. */
 	userId?: string;
 	/**
-	 * POLISH-060 B3: When set, all scaffolded agents use this harness/model instead of
-	 * the builtin/sonnet-4-6 default. Supplied by the onboarding flow after the user
-	 * selects a primary harness. Omitting preserves the existing fallback behavior.
+	 * POLISH-060 B3: When set, all scaffolded agents carry this harness/model.
+	 * Supplied by the onboarding flow after the user selects a primary harness.
+	 * Omitting it stores none, and the adapter pool selects at admission.
+	 *
+	 * @lore This used to say "instead of the builtin/sonnet-4-6 default". There is
+	 * no such default: the built-in harness is gone, and the model half of that
+	 * pair was a hardcoded id nobody chose.
 	 */
 	primaryHarness?: PrimaryHarnessConfig;
 }

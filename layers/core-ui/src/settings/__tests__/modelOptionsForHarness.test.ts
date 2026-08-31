@@ -27,7 +27,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openrouter",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: true,
 			options: [],
 		},
 		{
@@ -36,7 +35,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "anthropic",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: true,
 			options: [],
 		},
 		{
@@ -45,7 +43,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openai-compatible",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: true,
 			options: [],
 		},
 	],
@@ -78,7 +75,6 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			provider: "openrouter",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 		{
@@ -86,7 +82,6 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			label: "Big Pickle",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: false,
 			options: [],
 		},
 	],

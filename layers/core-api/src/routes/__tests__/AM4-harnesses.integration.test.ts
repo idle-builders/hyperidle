@@ -10,15 +10,13 @@
  * AC2: POST /api/harnesses/:type/disabled
  *   - persists to harnessDisabled and reflects in next GET's discovery.disabled
  *   - 400 on unknown :type
- *   - 400/409 on { disabled: true } for :type === "builtin"
- *   - { disabled: false } for builtin is allowed (no-op / safe)
  *   - response does NOT contain apiKey|baseUrl|sk-|subscriptionToken (secret-leak)
  *
  * FAILS until:
  *  - createHarnessRoutes(pool, db) signature change (Seam 3)
  *  - GET handler reads readServerConfig(db) and stamps discovery.disabled
  *  - POST /redetect endpoint with dedicated rate-limiter
- *  - POST /:type/disabled endpoint with :type validation + builtin-reject
+ *  - POST /:type/disabled endpoint with :type validation
  */
 
 import { AdapterPool, CliHarnessAdapter } from "@hyperidle/harness-registry";
@@ -47,7 +45,6 @@ function authHeaders(): Record<string, string> {
 }
 
 const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
-	builtin: { state: "ready" },
 	"claude-code": { state: "ready", version: "2.1.170" },
 	codex: { state: "unauthenticated", version: "0.141.0" },
 	opencode: { state: "installed", version: "1.17.8" },
@@ -125,23 +122,30 @@ describe("AM4 AC1 — GET /api/harnesses stamps discovery.disabled from config",
 		expect(discovery?.disabled).toBe(true);
 	});
 
-	test("builtin discovery.disabled is never true even if wrongly in harnessDisabled", async ({
+	// @lore This asserted the built-in harness was never stamped disabled, even
+	// when a hand-edited config named it — it was the always-present fallback, so
+	// disabling it would have left a session with nothing to run on. That
+	// exemption is gone with the harness. Every harness in the disabled set is now
+	// stamped, with no carve-out, which is what this asserts instead.
+	test("every harness named in harnessDisabled is stamped — no exemptions", async ({
 		db,
 		eventBus,
 	}) => {
-		// Wrongly put builtin into the disabled set (hand-edited / stale config)
-		await updateServerConfig(db, { harnessDisabled: ["builtin"] } as AM4ServerConfigPatch);
+		await updateServerConfig(db, {
+			harnessDisabled: ["claude-code", "codex", "opencode", "cursor-agent"],
+		} as AM4ServerConfigPatch);
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Array<Record<string, unknown>>;
-		const builtin = body.find((e) => e.type === "builtin");
-		expect(builtin).toBeDefined();
-		// Builtin must NOT be stamped disabled — it's always exempt
-		const discovery = builtin?.discovery as { disabled?: boolean } | undefined;
-		expect(discovery?.disabled).not.toBe(true);
+		for (const type of ["claude-code", "codex", "opencode", "cursor-agent"]) {
+			const entry = body.find((e) => e.type === type);
+			expect(entry, `${type} should be in the response`).toBeDefined();
+			const discovery = entry?.discovery as { disabled?: boolean } | undefined;
+			expect(discovery?.disabled, `${type} should be stamped disabled`).toBe(true);
+		}
 	});
 });
 
@@ -179,10 +183,10 @@ describe("AM4 AC2 — POST /api/harnesses/redetect", () => {
 		});
 
 		const body = (await res.json()) as Array<Record<string, unknown>>;
-		const builtin = body.find((e) => e.type === "builtin");
-		expect(builtin).toBeDefined();
-		expect(typeof (builtin?.discovery as Record<string, unknown>)?.state).toBe("string");
-		expect(typeof (builtin?.authAction as Record<string, unknown>)?.kind).toBe("string");
+		const claudeCode = body.find((e) => e.type === "claude-code");
+		expect(claudeCode).toBeDefined();
+		expect(typeof (claudeCode?.discovery as Record<string, unknown>)?.state).toBe("string");
+		expect(typeof (claudeCode?.authAction as Record<string, unknown>)?.kind).toBe("string");
 	});
 
 	test("redetect stamps discovery.disabled for a config-disabled type", async ({
