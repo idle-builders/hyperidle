@@ -28,7 +28,6 @@ import {
 	type SessionHandle,
 	type SessionMetrics,
 	type SessionResult,
-	type SessionWorkflow,
 } from "@hyperidle/harness-protocol";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
@@ -319,13 +318,6 @@ interface SessionLifecycleToolContext {
 	readonly threadId?: string;
 }
 
-/** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/harness-protocol`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
-interface SessionLifecycleRegistrySessionWorkflow extends SessionWorkflow {
-	readonly reviewMessageId: string;
-	readonly subjectThreadId: string;
-	readonly artifactId: string;
-}
-
 interface SessionLifecycleToolRegistry {
 	invoke(name: string, rawArgs: unknown): Promise<unknown>;
 }
@@ -336,7 +328,6 @@ interface SessionLifecycleToolProvider {
 		options: {
 			readonly role: string;
 			readonly extraTools?: readonly unknown[];
-			readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
 			readonly useOnlyExtraTools?: boolean;
 		},
 	): SessionLifecycleToolRegistry;
@@ -868,7 +859,7 @@ interface ProvisionSessionParams {
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle
 	 * this session's sandbox context (Phase 6) and prompt persona (Phase 8.5)
-	 * are built from — `kind:"task"` for `task_run`/`reengagement`,
+	 * are built from — `kind:"task"` for `task_run`,
 	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
 	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
 	 * Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
@@ -919,7 +910,7 @@ interface ProvisionSessionParams {
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
 	 * the triggering message's thread; `task_run`/`session_start`/
-	 * `reengagement` from Decision 0's resolve-or-create). Absent for
+	 * resolve-or-create). Absent for
 	 * `routine_run`/`knowledge_action`. Forwarded verbatim onto
 	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
 	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
@@ -934,11 +925,6 @@ interface ProvisionSessionParams {
 	 * transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
-	/**
-	 * AL7 Task 6: When set, the registry invoke router participates in the
-	 * trust-first review workflow for this session.
-	 */
-	readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
 }
 
 interface ProvisionSessionResult {
@@ -1052,8 +1038,11 @@ async function admitSession(
 	// is exactly what an all-null `users` row resolved before the move.
 	const runConfig = await readAgentRunConfig(db, params.agentId);
 
-	// X3: system prompt from the agent's run config. No file read required.
-	const systemPromptText = runConfig.systemPrompt ?? "";
+	// The agent's identity is the `agent_file` knowledge document bound to it,
+	// baked onto the request core-side. It cannot be read here: `knowledge_items`
+	// belongs to the knowledge service, while `agent_run_config` — read just above
+	// — is orchestration's own.
+	const systemPromptText = agentConfig.persona ?? "";
 
 	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
 	const rawPreference = runConfig.modelTierPreference;
@@ -1363,15 +1352,6 @@ async function runSession(
 		...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
 		sandboxPath,
 		ingestion,
-		// AL7 Task 6: inject abort callback so the workflow router can end session 1
-		// after capturing the first irreversible call. Fire-and-forget is intentional.
-		onAbortSession: params.sessionWorkflow
-			? (abortedSessionId) => {
-					void ports.sessionRequests.abortSessionRun(abortedSessionId).catch(() => {
-						// Non-fatal: the harness may have already exited.
-					});
-				}
-			: undefined,
 	};
 	// Every session, assistant included, gets the ordinary role-scoped tool
 	// registry — the assistant's tool surface spans every `roles: undefined`
@@ -1381,7 +1361,6 @@ async function runSession(
 		extraTools: [
 			ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
 		],
-		sessionWorkflow: params.sessionWorkflow,
 	});
 
 	// ── Phase 8.5a: inject registry into builtin harness before startSession.
@@ -1477,7 +1456,7 @@ async function runSession(
 	// A session whose output belongs in a calling thread and has no task (the
 	// assistant, and now knowledge_action too) must call `reply`, not the
 	// trio — purely structural, no `sourceKind` check anywhere. A task-bound
-	// session (task_run/session_start/reengagement/proposed_call) also bakes
+	// session (task_run/session_start) also bakes
 	// a calling thread but keeps the trio available (`reply` still lands in
 	// the same thread, but so does e.g. `handoff_to`).
 	const requiredReturnActions: readonly string[] | undefined =
@@ -1677,7 +1656,6 @@ async function runSession(
 		mcpConnectionInfo:
 			mcpBridgeToken && mcpUrl ? { url: mcpUrl, token: mcpBridgeToken } : undefined,
 		returnHook: returnHookConfig,
-		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
 		...(chatMessages ? { messages: chatMessages } : {}),
 		...(requiredReturnActions ? { requiredReturnActions } : {}),

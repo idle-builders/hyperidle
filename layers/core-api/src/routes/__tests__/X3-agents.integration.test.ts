@@ -15,7 +15,8 @@
  *  - framework/db/src/seed.ts inserts system_template:* factorySettings rows
  */
 
-import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, knowledgeItems, teams, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -127,7 +128,7 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("id");
 		expect(agent).toHaveProperty("name");
 		expect(agent).toHaveProperty("role");
-		expect(agent).toHaveProperty("systemPrompt");
+		expect(agent).toHaveProperty("identityKnowledgeId");
 		expect(agent).toHaveProperty("harnessType");
 		expect(agent).toHaveProperty("modelTierPreference");
 		expect(agent).toHaveProperty("maxConcurrentSessions");
@@ -267,7 +268,7 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when systemPrompt exceeds 50,000 characters", async ({ db, app }) => {
+	test("returns 400 when the seed identity exceeds 50,000 characters", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -279,6 +280,32 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 			}),
 		});
 		expect(res.status).toBe(400);
+	});
+
+	test("a created agent gets an identity document of its own", async ({ db, app }) => {
+		await seedPrereqs(db);
+		const res = await app.request("/api/agents", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				name: "Identity Bot",
+				role: "builder",
+				systemPrompt: "You are Identity Bot.",
+			}),
+		});
+		expect(res.status).toBe(201);
+		const body = (await res.json()) as { id: string; identityKnowledgeId: string };
+		expect(body.identityKnowledgeId).toBeTruthy();
+
+		// Bound to the agent, and an agent file — the binding session assembly reads.
+		const [doc] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, body.identityKnowledgeId));
+		expect(doc?.body).toBe("You are Identity Bot.");
+		expect(doc?.role).toBe("agent_file");
+		expect(doc?.scopeKind).toBe("user");
+		expect(doc?.scopeId).toBe(body.id);
 	});
 
 	test("returns 400 when maxConcurrentSessions exceeds 20", async ({ db, app }) => {
@@ -360,12 +387,12 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		const res = await app.request("/api/agents/x3-agent-builder", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ systemPrompt: "New persona text", modelTierPreference: "reasoning" }),
+			body: JSON.stringify({ name: "Renamed Builder", modelTierPreference: "reasoning" }),
 		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.systemPrompt).toBe("New persona text");
+		expect(body.name).toBe("Renamed Builder");
 		expect(body.modelTierPreference).toBe("reasoning");
 	});
 
@@ -374,7 +401,7 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		const res = await app.request("/api/agents/x3-agent-builder", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ systemPrompt: "Updated prompt" }),
+			body: JSON.stringify({ modelTierPreference: "reasoning" }),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
 		// name should be unchanged
@@ -402,16 +429,6 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(res.status).toBe(404);
 	});
 
-	test("returns 400 when systemPrompt exceeds 50,000 characters", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-agent-builder", {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({ systemPrompt: "x".repeat(50_001) }),
-		});
-		expect(res.status).toBe(400);
-	});
-
 	test("can set harnessType", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/x3-agent-builder", {
@@ -424,17 +441,10 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(body.harnessType).toBe("aider");
 	});
 
-	test("can set systemPrompt to null (removes persona)", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-agent-builder", {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({ systemPrompt: null }),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.systemPrompt).toBeNull();
-	});
+	// The two persona tests that lived here — a 50,000-char cap and clearing it
+	// with null — are gone with the field. Editing an agent's identity is editing
+	// its knowledge document, so those belong to the knowledge edit endpoint, not
+	// to a second copy of it on this route.
 });
 
 // ---------------------------------------------------------------------------
@@ -515,84 +525,9 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 // AC-8: GET /api/agents/templates/:role returns template content
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-8: GET /api/agents/templates/:role returns template content", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("returns 200 with { role, content } for product_manager", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/product_manager", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.role).toBe("product_manager");
-		expect(typeof body.content).toBe("string");
-		expect((body.content as string).length).toBeGreaterThan(0);
-	});
-
-	// @lore AU18: template content now comes from the real
-	// docs/system-prompts/product-manager.md file on disk (no seeded fixture).
-	test("template content matches the real docs/system-prompts/product-manager.md file", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/product_manager", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-
-		expect(body.content).toMatch(/Product Manager|PM|#/i);
-	});
-
-	// @lore AU18: `builder` now HAS a real template file
-	// (docs/system-prompts/builder.md, added by AB0) and is one of the 7
-	// canonical roles in SYSTEM_PROMPT_TEMPLATE_FILES — it resolves 200, not
-	// 404. `assistant` is the role that stays 404 by design: it has a
-	// docs/system-prompts/assistant.md file but is intentionally excluded
-	// from the canonical map because bootstrap never seeded it historically
-	// (@lore AD8a) — preserving today's 404 exactly (round 3 CRITICAL fix).
-	test("returns 200 for builder role (has a real template file, AB0)", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/builder", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(typeof body.content).toBe("string");
-		expect((body.content as string).length).toBeGreaterThan(0);
-	});
-
-	test("returns 404 for assistant role (excluded from the canonical map by design)", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/assistant", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(404);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.code).toBe("NOT_FOUND");
-	});
-
-	test("returns 404 for nonexistent role", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/nonexistent_role", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(404);
-	});
-
-	test("returns 401 without auth header", async ({ requestWithoutAuth }) => {
-		const res = await requestWithoutAuth("/api/agents/templates/product_manager");
-		expect(res.status).toBe(401);
-	});
-});
+// @lore BA9g: AC-8 covered `GET /api/agents/templates/:role`, which served
+// `docs/system-prompts/*.md`. Both the route and those files are gone — the
+// personas are the `role-personas` plugin's, and HyperIdle ships a single agent
+// with a bare AGENTS.md rather than a built-in idea of what a "builder" is. A
+// plugin's agent brings its own identity (`BA9g-plugin-agent-identity`), and an
+// agent you create starts empty until you write one.

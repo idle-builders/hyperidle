@@ -263,4 +263,98 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 
 		expect(admitted).toBeDefined();
 	});
+	// @lore BA9f: the link between "an agent's identity is a knowledge document"
+	// and what the agent actually reads. `getAgentIdentity` bakes the document's
+	// body onto the request as `agentConfig.persona`; `admitSession` resolves it
+	// into `systemPromptText`, which `runSession` hands the prompt assembler to
+	// become the "## Identity" section of the sandbox AGENTS.md.
+	//
+	// This asserts the half `admitSession` owns. The other half —
+	// `systemPromptText` becoming "## Identity" — is
+	// `context-assembly-prompt.test.ts`; the whole chain against a real harness
+	// writing a real sandbox is the harness lane.
+	test("the baked persona becomes the session's systemPromptText", async ({ db }) => {
+		const now = new Date().toISOString();
+		await db.insert(users).values({
+			id: "ba9f-agent",
+			kind: "ai",
+			name: "Atlas",
+			role: "builder",
+			status: "active",
+			createdAt: now,
+		});
+
+		const ports = buildHarnessPorts({});
+		const provisioner = createProvisioner(ports);
+
+		const params: ProvisionSessionParams = {
+			taskId: null,
+			agentId: "ba9f-agent",
+			productId: "team-1",
+			sandboxBasePath: "/tmp/ba9f-identity-seam",
+			routineId: "routine-1",
+			agentConfig: {
+				kind: "ai",
+				status: "active",
+				role: "builder",
+				teamId: "team-1",
+				persona: "You are Atlas. You never ship broken builds.",
+			},
+			harnessDisabled: [],
+			contextBundle: {
+				kind: "routine",
+				routine: {
+					id: "routine-1",
+					name: "Nightly sweep",
+					prompt: null,
+					lastRunSummary: null,
+				},
+				agent: { id: "ba9f-agent", name: "Atlas", role: "builder" },
+				team: { id: "team-1", name: "Team" },
+				knowledge: [],
+			},
+		};
+
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
+
+		expect(admitted.systemPromptText).toBe("You are Atlas. You never ship broken builds.");
+	});
+
+	test("an agent with no identity document runs with no persona, not a broken one", async ({
+		db,
+	}) => {
+		const now = new Date().toISOString();
+		await db.insert(users).values({
+			id: "ba9f-agent-none",
+			kind: "ai",
+			name: "Nameless",
+			role: "builder",
+			status: "active",
+			createdAt: now,
+		});
+
+		const ports = buildHarnessPorts({});
+		const provisioner = createProvisioner(ports);
+
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), {
+			taskId: null,
+			agentId: "ba9f-agent-none",
+			productId: "team-1",
+			sandboxBasePath: "/tmp/ba9f-identity-none",
+			routineId: "routine-1",
+			agentConfig: { kind: "ai", status: "active", role: "builder", teamId: "team-1" },
+			harnessDisabled: [],
+			contextBundle: {
+				kind: "routine",
+				routine: { id: "routine-1", name: "Nightly sweep", prompt: null, lastRunSummary: null },
+				agent: { id: "ba9f-agent-none", name: "Nameless", role: "builder" },
+				team: { id: "team-1", name: "Team" },
+				knowledge: [],
+			},
+		});
+
+		// Empty, so `assemblePrompt` emits no "## Identity" section at all —
+		// proven by `context-assembly-prompt.test.ts`.
+		expect(admitted.systemPromptText).toBe("");
+	});
 });

@@ -242,8 +242,12 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "outside-production-roots",
 		kind: "development",
 		description: `anything outside the production role roots (${PRODUCTION_ROOTS.map((r) => `\`${r}/\``).join(", ")}) is repo tooling, deployment assets, docs or pipeline state`,
-		minFiles: 1386,
-		floorKind: "magnitude",
+		minFiles: 1,
+		// The unconditional default: every file the earlier patterns did not claim lands here, so its
+		// size is whatever the repo happens to be. Deleting docs or pipeline state legitimately shrinks
+		// it, so a count floor here only ever fires on intended cleanup. The job is to fail when the
+		// default stops matching at all.
+		floorKind: "existence",
 		matches: (p) => !PRODUCTION_ROOTS.some((root) => p.startsWith(`${root}/`)),
 	},
 	...TEST_RUNNER_CONFIG_BASENAMES.map(

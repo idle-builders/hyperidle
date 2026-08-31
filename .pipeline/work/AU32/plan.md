@@ -1,60 +1,100 @@
 # AU32 — Tests arrange worlds production can actually produce
 
-## Work package
+## What we need
 
-**Work package.** As a maintainer, I want every test fixture to build a database state the running application could itself produce, and no test to go around a door production has only one of — so that a green suite means the code works on states that can occur, not on states only a test can construct. Sixty-three fixtures today write one row of a pair the owning service always writes together: 34 insert a `knowledgeItems` row with no `knowledgeAppProjection`, 27 insert a `teams` row with no `teamMembers`. Six more reach past a single-door surface — four importing the whole schema namespace, one importing an undecided database export, one constructing a vendor SDK directly instead of going through the one recorded runtime path. When this ships, the development world holds zero known violations and the two development rules that survived Ruling 13 fail the build like any other.
+As a maintainer, I want every test fixture to build a database state the running application could
+itself produce, and no test to go around a door production has only one of — so that a green suite
+means the code works on states that can occur, not on states only a test can construct.
 
-**Why this matters.** Ruling 13 already made this rule narrow and real: a test may write any foreign table directly, because 63% of those writes would otherwise route through a function that is literally `insert(X).values(v)`. What survived is the part that bites — where the owner writes two rows in one call it is enforcing a cross-row invariant, and a fixture writing one of them builds a world the application cannot reach. `team-lookup.ts` documents in a comment that callers must use `createTeam`; the fixtures ignore it. The maintainer's cost of not fixing this is silent: a test asserting behaviour on a team with no members proves nothing about the product, and nobody finds out until the invariant is relied upon. The one-door breaches are worse in kind — a test that constructs a vendor SDK directly exercises a path the recording, pricing and replay machinery cannot see.
+The bite is narrow and real. Where an owning service writes two rows in one call it is enforcing a
+cross-row invariant, so a fixture writing one of them builds a world the application cannot reach: a
+test asserting behaviour on a team with no members proves nothing about the product, and nobody finds
+out until the invariant is relied upon. Sixty-odd fixtures did exactly that — a `knowledgeItems` row
+with no `knowledgeAppProjection`, or a `teams` row with no `teamMembers`. Six more reached past a
+single-door surface, importing the whole schema namespace or an undecided database export.
 
-**Type.** backend / test infrastructure.
+What had to hold when this shipped: no test fixture writes one row of a pair the owning service
+always writes together, with **no** exception for any file (the plan's own carve-out clause was
+withdrawn by the founder who would have signed it); no development file reaches past the database
+door; no assertion weakens, and a test is deleted only where it depended on an unreachable arrangement
+or probed an operation production has no path to perform; the development world holds zero known
+violations and its rules fail the build on reappearance. Boundary: the development world only — the
+221 production violations stay with AU29/AU30/AU31, and consolidating the ~135 hand-rolled base worlds
+beyond the files this package touched is a developer-guide matter, not an access rule.
 
-**What exists today.** `governance/baseline.json` holds 69 development-world entries across 46 files, a median of one per file. `_helpers.ts:58-83` already exposes `seedBase`, which establishes exactly the base world 135 files hand-roll; 38 files use it. `layers/core-api/work/src/__tests__/`, `layers/core-api/src/routes/__tests__/` and `layers/core-api/src/services/__tests__/` hold most of the `teams` cases; the `knowledgeItems` cases are spread across `core-api`'s knowledge, promotion and relevance suites. Ruling 13a already removed 51 false positives by deriving the criterion from the owners' own code — a companion the owner never *revises* is history, not state — so `knowledgeEditLog` and `knowledgeAccessLog` are correctly no longer reported. The remaining rule is derived, never listed: `buildCompanionGroups` reads the owning services' writers, so a service that starts revising a log picks up a companion automatically.
+## How it works
 
-**What's genuinely missing.** Nothing conceptual — the rule is settled and the sites are named. The one real judgement is that roughly six of the 46 files are tests **of the schema itself**: `foreign-keys.integration.test.ts`, `schema.integration.test.ts`, `migration.integration.test.ts` and `seed-then-migrate.integration.test.ts` in `framework/db` insert deliberately minimal rows to prove a constraint fires or an old-shape row migrates. Adding a companion there changes what is under test and, in the foreign-key cases, could mask the very constraint being probed. Those need a decision, not a codemod.
+Five founder rulings (A–E, recorded at the concept gate) settled the shape and supersede the earlier plan text wherever they collide.
 
-**Depends on.** None. Independent of AU29 and AU31 — no shared files. Interacts with AU30 (assigning an owner can create new companion groups), but AU30 clears any development entries it creates, so neither blocks the other.
+**The one-seam requirement for AI requests is production-only (A).** The reasons the AI door exists —
+recording, pricing, replay, provider-agnosticism — are properties the shipped product must have. So
+the raw-runtime rule relaxes in the development world: a rule change derived from the world, not a
+per-file exception. `tools/eval/src/judges.ts` stays as it is. The database door is *not* relaxed —
+it is about migrations and connection handling, so development still routes through the database
+package's own factory.
 
-**Complexity.** M
+**Tests arrange only producible states, with no exceptions at all (C).** The exception mechanism was
+refused outright on the grounds that one becomes twenty. Every arranged entity in every touched file
+gets its companion. Where completing an entity over-determines an assertion, the resolution is
+honest, never an exemption: make the assertion prove its own constraint alone, or — if production has
+no path performing the probed operation — delete the test. **A dead test is deleted, never repointed
+(B)**, and the touched files were swept for others that could not fail.
 
-**Engineering tier.** production — the suite is the proof the shipped system works.
+**An unreachable operation is dead code — delete the feature, not just the test (D).** Safety comes
+from absence of the capability, not from a constraint guarding a capability nobody has. The mandated
+investigation returned an **empty removal branch**: no deletion mechanism exists in any shape for
+`users`, `threads`, `knowledgeItems` or `items`. The two that exist — `deleteTeam` and the knowledge
+soft-archive — are production-reachable and stay, with their tests. Zero production files changed;
+the schema was not touched, no FK dropped, no `onDelete` altered.
 
-**Pre-build gates.**
-- **Refinement:** Not required — the rule is locked by Rulings 13 and 13a and the sites are enumerated in `governance/baseline.json`. The schema-test question is a decision to record, not a noun to sharpen.
-- **Design:** Not required — no UI surface.
+**The lint is a standard linter (E).** A rule carries one severity, `error` or `warn`, and nothing
+keeps books. The shrink-only baseline, the `baseline-ratchet` rule, the generator script and the
+`--adopt` escape hatch are deleted unconditionally — a red build as the reward for fixing violations
+names no architectural fact. Severity lives in `governance/rule-severity.json`, keyed by the group
+key the lint already prints (`<source> → <target> [<kind>] <world>`); an absent key means `error`, so
+the file lists only what is not yet clean. Coarser keys were rejected from live data: the same rule is
+clean in development and dirty in production, and the production cells span sibling packages, so no
+sibling could flip anything until the last one landed. `severityOf(ruleKey)` sees the key and nothing
+else, so restoring a per-file allowance means widening a signature at every call site; the
+clean-but-`warn` report returns `readonly string[]` and prints as a NOTE, never a `Finding`, because a
+`Finding` is the only thing that can carry a severity. Explicitly forbidden as the likeliest
+regression: a check that a `warn` rule with zero live violations is an error — the stale baseline
+reborn.
 
-**Human review gates.** Yes — mandatory for every work package. Specifically needed on the schema-test carve-out: if any of those six files keeps a partial-state fixture, that is a founder decision recorded in `founder-rulings.md`, never an agent's judgement call.
+The companion groups are derived from the owning services' writers, never listed, so a service that
+starts writing a pair picks up a group automatically. The detector credits a **file**, not an entity:
+one companion write anywhere silences every site in that file. That is a laundering hazard, and this
+work deliberately does not exploit it — completion is per arranged entity, and the review checks it
+that way. In `core-api` the sites converge on `seedTeam` / `seedKnowledgeItem` in the package's own
+test helpers, mirroring the owners' writers and their defaults; elsewhere the companion is inline.
+No production export exists only for tests.
 
-**Plan calls.** Standard pass, but plan the schema-test question **first** and separately — decide whether those files change, get an explicit exception, or have the rule refined to exclude tests whose subject is the constraint itself, before touching the ~35 mechanical cases. The mechanical cases should converge on `seedBase` rather than each growing its own companion insert; that is a real duplication win the plan should take while it is in there, and 38 files already show the shape.
+The single-door fixes compose two existing database-client exports — `applyMigrations` then
+`createPgliteDb` over the same directory — in the ah1/ah5/ah6 test servers and the eval runner,
+replacing hand-rolled schema-bound clients. That moved PGlite from in-memory to a per-boot temporary
+directory. One rework carries the rulings' logic visibly: the team in the bets-FK rejection test
+receives its membership companion, then the membership is removed in the owner's own order before the
+act, so the bets FK is again the sole cause of the rejection — `deleteTeam` is non-transactional, so
+production durably produces exactly that member-less-team state.
 
-**Contracts / constraints.**
-- A test's assertions must not weaken to accommodate a fixture change. If adding a companion row changes what a test proves, that is a finding to report, not a diff to land.
-- No exception is added to the rule to make a file pass. If a file genuinely needs one, it is a founder ruling in `founder-rulings.md` with a written reason, and it is named — never a pattern or a directory.
-- No production export may be added that only tests consume — `knip:production` deletes it as dead code.
-- The companion groups stay derived from the owning services' writers; no hand-maintained list of table pairs.
-- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
-- Every baseline entry cleared is deleted from `governance/baseline.json`, never re-tagged.
+Accepted costs, on the record: a rule at `warn` warns for all its violations, new ones included, so
+nothing blocks new debt on a rule that is not yet clean — the trade for a lint that never fails on
+bookkeeping. The nine deleted constraint tests remove the only executable guard on those foreign keys,
+and "the desktop migration path writes no seed data" becomes untested; it never actually was. Real
+tests for either are separate work, not a repoint smuggled in here.
 
-**Out of scope.**
-- The production world entirely — AU29, AU30, AU31.
-- Consolidating the 135 hand-rolled base worlds onto `seedBase` beyond the files this work package already touches; the wider convention is a developer-guide matter, not an access rule.
+## How we work on this
 
-**Effort.** M (~1d)
+`governance/misplaced-files.json` is a second shrink-only record whose rule can still fail the build
+on a stale `resolvedFiles` count — the same shape Ruling E removed from the baseline. It is an open
+founder decision, deliberately not actioned: the count and its two branches are byte-identical to
+`origin/main`, and only the stale prose describing the deleted baseline was fixed. The recommendation
+on record is to keep the four prose rows (each states an architectural judgement nothing can derive)
+and delete the count; it also needs one sentence of `CLAUDE.md`, outside the bounds the rulings
+authorize.
 
-## Acceptance criteria
-
-- No test fixture writes one row of a pair the owning service always writes together, except where a founder ruling names the file and the reason.
-- No development file reaches past a single-door surface — no whole-schema import, no undecided database export, no directly-constructed vendor runtime.
-- Every test whose fixture changed still proves what it proved before, with its assertions intact.
-- `governance/baseline.json` holds zero development-world entries, and the development rules fail the build on reappearance.
-- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
-- `npm run test:all` is green and the integration suite's pass count is unchanged or higher.
-
-## Validation scenarios
-
-**Given** the governance lint runs over the live tree, **when** it reports, **then** the development world shows zero known violations.
-
-**Given** a developer adds a test that inserts a `teams` row without a `teamMembers` row, **when** `npm run lint` runs, **then** the build fails naming the file and line.
-
-**Given** the owning service stops writing two rows together, **when** the lint runs, **then** the companion rule stops reporting that pair — proving the groups are derived from the owner's code and not from a list.
-
-**Given** the full test suite runs before and after, **when** the results are compared, **then** no test that passed now fails and no test that asserted a behaviour now asserts less.
+The per-boot PGlite temporary directories are removed on the graceful shutdown path only; a throw
+between `mkdtemp` and signal registration leaks one. Development tooling, no acceptance criterion
+governs it. Left as future work: `hint-progress.integration.test.ts`, `P2-org-edges.integration.test.ts`
+and `O2-schema-migration.integration.test.ts` also delete rows the rulings would reach, but those files
+carry no violation and were not touched here.

@@ -63,9 +63,10 @@ The **factory bootstrap** (`applyFactoryCoreState` +
 `layers/core-api/src/bootstrap/factory-state.ts` and
 `layers/agent-orchestration/src/factory-run-config.ts`) is the team-agnostic
 baseline row-set every HyperIdle instance needs to function: the
-`system:propagation` identity, the system-assistant singleton, the
-roster-driven **facilitator** agents, the AH2 runnable defaults + system-prompt
-backfill, and the `scope_kind="factory"` principle. It is **idempotent** (safe
+`system:propagation` identity, the System Agent singleton, the AH2 runnable
+defaults, and the `scope_kind="factory"` principle. It seeds no roster and no
+personas — those come from plugins (BA9d retired the facilitator agents; BA9g
+removed the roster concept from the core). It is **idempotent** (safe
 to re-run) and **carries no user-facing `team_id`**. It runs on every desktop
 launch after the desktop migrate step (`applications/desktop/src/main.ts`),
 which calls the two faces directly, in order.

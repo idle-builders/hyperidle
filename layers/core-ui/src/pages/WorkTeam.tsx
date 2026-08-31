@@ -9,7 +9,7 @@
  *   Artifact slot (placeholder for L12)
  *
  * @lore L13: Product = Team 1:1 invariant. The page is addressed by teamId
- * (the public identifier). See plans/L13/concept.md.
+ * (the public identifier).
  *
  * @lore L13: The `overrideData` / `overrideLoading` / `overrideError` props
  * mirror WorkBet's `overrideBet` / `loading` props — used by stories and tests
@@ -26,7 +26,7 @@ import type { TaskCardSummary, TeamDetail } from "@hyperidle/domain-model";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	TASK_STATE_LABEL,
-	findRoleCatalogEntry,
+	roleLabel,
 } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -329,8 +329,7 @@ function WorkTeamLoaded({
 				{/*
 				 * @lore AG1: stat tiles (Capacity/Status) replace the KeyValue
 				 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
-				 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
-				 * plans/AG1/design/approved.md §2 + §4a.
+				 * mandatory — empty roster → "—"/"No agents", never "Healthy".
 				 */}
 				{/* @lore UI-065: StatTile replaced with KpiStat (design-system primitive) +
 				    a border card wrapper. KpiStat is the canonical metric-display primitive
@@ -553,8 +552,10 @@ function WorkTeamLoaded({
 							: healthDetail;
 
 						let contextText = (() => {
-							const catalogEntry = findRoleCatalogEntry(member.role);
-							return catalogEntry?.description ?? member.role;
+							// @lore BA9g: the catalog's one-line description went with the
+							// catalog. What an agent is for is its identity document, not a
+							// sentence the product wrote about its role.
+							return roleLabel(member.role);
 						})();
 						let contextIsError = false;
 						if (memberStatus === "active" && runState.activeTaskTitle) {
@@ -808,6 +809,7 @@ function WorkTeamLoaded({
 			{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
 			{addDialogOpen && (
 				<AgentAddDialog
+					rolesInUse={(data?.roster ?? []).map((m) => m.role)}
 					open={addDialogOpen}
 					teamMembersId={data.teamMembers.id}
 					teamName={data.team.name}

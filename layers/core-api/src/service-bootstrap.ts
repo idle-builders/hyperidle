@@ -29,21 +29,16 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/notifications";
-import { getTeam, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
-import { registerReviewSubscriptions } from "@hyperidle/review";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
-import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
-import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
@@ -368,44 +363,7 @@ export function registerCoreDomainServices(ctx: {
 
 	disposers.push(
 		identifyBootstrapOwner(
-			registerReviewSubscriptions(db, eventBus, {
-				work: {
-					getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-				},
-				org: {
-					resolveReviewRecipients: (db2, ctx) =>
-						resolveReviewRecipients(db2, ctx, {
-							listHumans: (db3, teamId) =>
-								listUsers(db3, {
-									kind: "human",
-									...(teamId !== undefined ? { teamIds: [teamId] } : {}),
-								}),
-						}),
-				},
-				// AU31 §3.1 site 9 / §3.2: seam-backed — `proposed-call-workflow.ts`'s
-				// own transaction is restructured to relinquish atomicity with this
-				// write (grant commits, the reengagement intent follows post-commit).
-				intentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-				requireRunnableAgent,
-				// AU21 §9 Increment 12 (Decision H3): the liveness-net reengagement
-				// re-provision (`applyLivenessRetry`) also bakes a contextBundle now.
-				// `getTaskById` is already forwarded from `ports.work.getTaskById`
-				// inside `session-review-creator.ts`'s liveness handler — only
-				// `getBetById`/`getTeamById`/`assembleSessionKnowledge` are new.
-				getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
-				assembleSessionKnowledge,
-				readServerConfig,
-				// AU27 Increment 1 (Decision 0): also bake callingThreadId for the
-				// liveness-net re-provision.
-				resolveOrCreateCallingThread,
-			}),
-			"review subscriptions",
-			"unsubscribe",
-			["review creation subscription", "review liveness subscription"],
-		),
-	);
-	disposers.push(
-		identifyBootstrapOwner(
+
 			registerPolicy(db, eventBus, policyDeps),
 			"policy registration",
 			"unsubscribe",

@@ -50,6 +50,7 @@ import { findMessage, resolveAssistantTurnRequest } from "@hyperidle/conversatio
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/event-bus";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 
@@ -77,7 +78,8 @@ async function rebakePendingSiblingsForThread(
 			// contextBundle deps the real `POST /threads/:id/messages` route
 			// bakes (threads.ts:1372-1375) so a re-baked stale sibling still
 			// carries harnessDisabled + the agent's injected filesystems —
-			// consistent with the "granted" reengagement path's forwarding.
+			// consistent with the resumed-session path's forwarding.
+			getAgentIdentity,
 			readServerConfig,
 		});
 		await agentOrchestration.intents.submit({

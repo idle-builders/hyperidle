@@ -51,7 +51,6 @@ const WORK_INTENT_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_run",
-	"reengagement",
 ] as const;
 
 function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentKind {
@@ -213,7 +212,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		"/run-config/:agentId",
 		validateBody(
 			z.object({
-				systemPrompt: z.string().nullable().optional(),
 				harnessType: z.string().nullable().optional(),
 				modelTierPreference: z.string().nullable().optional(),
 				modelId: z.string().nullable().optional(),

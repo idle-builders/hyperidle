@@ -24,6 +24,7 @@
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { requireRunnableAgent } from "@hyperidle/users";
 
 async function seedThread(
@@ -116,6 +117,7 @@ describe("resolveAssistantTurnRequest — bakes the thread's conversational tran
 
 		const baked = await resolveAssistantTurnRequest(db, "msg-transcript-bake-1c", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			readServerConfig: async () => ({ harnessDisabled: [] }),
 		});
 
@@ -171,6 +173,7 @@ describe("resolveAssistantTurnRequest — bakes the thread's conversational tran
 
 		const baked = await resolveAssistantTurnRequest(db, "msg-transcript-bake-2-trigger", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			readServerConfig: async () => ({ harnessDisabled: [] }),
 		});
 

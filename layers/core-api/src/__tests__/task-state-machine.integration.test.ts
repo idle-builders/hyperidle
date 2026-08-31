@@ -1,6 +1,7 @@
 import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
@@ -16,14 +17,14 @@ const teamCapacity: TaskStateMachineDeps["teamCapacity"] = {
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent },
+	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 	teamCapacity,
 };
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps: TaskStateMachineDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent },
+	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 	teamCapacity,
 };
 

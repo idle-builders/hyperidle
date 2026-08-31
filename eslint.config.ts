@@ -516,7 +516,7 @@ export default [
 	//
 	// Two orthogonal mechanisms, neither substituting for the other:
 	//
-	// (a) no-restricted-imports bans `defaultRoster` from @hyperidle/factory-defaults in these
+	// (a) [removed in BA9g — `defaultRoster` no longer exists]
 	//     surfaces. Roster composition belongs to `framework/factory-defaults/src/agent-scaffold.ts`,
 	//     its one legitimate caller. Not vacuous: `teams-routes.ts` and `create-team.ts`
 	//     genuinely imported it before the ban landed.
@@ -554,19 +554,11 @@ export default [
 			parser: tsParser,
 		},
 		rules: {
-			"no-restricted-imports": [
-				"error",
-				{
-					paths: [
-						{
-							name: "@hyperidle/domain-model",
-							importNames: ["defaultRoster"],
-							message:
-								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (layers/core-api/org/src/resolve-scaffold-specs.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster(). AU44: this rule named @hyperidle/factory-defaults until that package was dissolved; defaultRoster now lives in domain-model, which these surfaces already import, so the old spelling banned nothing.",
-						},
-					],
-				},
-			],
+			// @lore BA9g: the `no-restricted-imports` clause banning `defaultRoster`
+			// is DELETED with the function. You cannot restrict an import of a symbol
+			// that does not exist: the rule would match nothing and pass forever —
+			// which is exactly the failure plans/AK6/retro.md records this repo being
+			// burned by. There is no roster to compose any more.
 			"no-restricted-syntax": [
 				"error",
 				{
@@ -601,7 +593,7 @@ export default [
 	// @lore AI3: The arithmetic half of AC-2 ("no surface computes time for display locally")
 	// is NOT statically expressible — Date-diff arithmetic and sort/group/timer arithmetic
 	// share the same AST. The ban covers only what is architecturally distinguishable:
-	// toLocale* rendering on a Date receiver. See plans/AI3/architecture.md §"AC-2/AC-5 static gate (split)".
+	// toLocale* rendering on a Date receiver.
 	{
 		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
 		ignores: [

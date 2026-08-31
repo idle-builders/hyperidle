@@ -16,7 +16,11 @@ Ask the Assistant to draft a task in plain language. It uses `create_task` to pl
 
 Two categories — `team` and `individual`:
 
-**Team agents** — do the work on tasks. A team's roster is derived from its functions (development, design, product, marketing, sales, support, operations, research), so you only get the roles your team needs. The full catalog: Builder, Designer, Product Manager (team lead — shapes tasks, coordinates handoffs), QA Engineer, Growth, Brand Voice, Ops, Support, Sales, Content Writer, Data Analyst.
+**Team agents** — do the work on tasks. A new team starts with **one** agent and
+nothing decided about it. You give it an identity, add more agents in whatever
+roles your work needs, or install a plugin that brings a shaped team. A role is
+just a name you type; the picker offers the ones already in use so you can reuse
+them.
 
 **Individual agents** — your Assistant (above). Scoped to one user, not a team.
 

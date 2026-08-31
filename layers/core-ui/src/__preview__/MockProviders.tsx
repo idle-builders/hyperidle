@@ -18,8 +18,7 @@
  * AssistantContext are first-party), NOT framework/design-system. Importing
  * MemoryRouter/AssistantContext into design-system would break `npm run check`
  * from DS (no react-router-dom dep there) and violate @lore AG4 (DS is
- * router-agnostic) + @lore AJ1-W3 (DS snapshot net is DS-scoped). See
- * plans/AJ3/architecture.md §0.5.
+ * router-agnostic) + @lore AJ1-W3 (DS snapshot net is DS-scoped).
  *
  * A surface needing a route param wraps its children in
  * `<Routes><Route path=… element=… /></Routes>` itself — MockProviders

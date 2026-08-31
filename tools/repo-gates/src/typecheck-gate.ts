@@ -43,7 +43,7 @@
  * payload, "OR add a CI step that re-runs this script". The latter was done, and
  * the attestation mechanism has since been deleted outright — this gate now runs
  * live in .github/workflows/ci.yml on every PR and push, so its verdict cannot be
- * asserted from anywhere but an actual run. See Z8-166 in plans/Z8/master-flag-register.md.
+ * asserted from anywhere but an actual run.
  */
 
 import { execFile, execSync } from "node:child_process";
@@ -346,7 +346,7 @@ function printSummary(
  * fabric is intentionally NOT built: building it exposes a real pre-existing eval
  * bug (AD8c — `clearBuiltinCostSentinelCache` removed from fabric, unpropagated to
  * eval scenarios) that is out of scope here. fabric stays source-resolved, exactly
- * as on origin/main. See plans/Z8/master-flag-register.md Z8-170.
+ * as on origin/main.
  */
 function buildLeafDeclarations(root: string, tscBin: string): void {
 	// @lore AF5: design-system added after shared — web typechecks import from
@@ -529,7 +529,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"layers/core-api/notifications",
 		"layers/core-api/credentials",
 		"layers/core-api/routine",
-		"layers/core-api/review",
 		"layers/core-api/policy",
 		// @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
 		// (users/knowledge/notifications) + propagation_log reaper co-located at composition root.

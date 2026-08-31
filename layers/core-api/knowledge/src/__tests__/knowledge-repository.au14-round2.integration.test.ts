@@ -1,7 +1,6 @@
 /**
  * AU14 round 2 — net-new exact-behavior lock tests for the 5 new write
- * repository functions (mergeItems/splitItem/archiveItem/flagItem/changeScope),
- * per plans/AU14/architecture-round2.md §11 tests 2, 3, 4, 5a, 5c, 6.
+ * repository functions (mergeItems/splitItem/archiveItem/flagItem/changeScope).
  *
  * Test 1 (searchByText LIKE-vs-FTS) and test 5b (route-level flag atomic
  * positive path) live in routes/__tests__/knowledge.au14-round2.integration.test.ts

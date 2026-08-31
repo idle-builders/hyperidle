@@ -60,7 +60,7 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 | `npm run knip` | Find unused files/exports/dependencies |
 | `npm run knip:production` | Same, restricted to production files (test/story-only reachability doesn't count) |
 | `npm run deps:check` | Import-vs-manifest gate — fails when a package imports something undeclared or declares something it never reaches (`tools/repo-gates/src/dep-manifest-lint.ts`) |
-| `npm run mock-inventory` | Write the mock-data inventory (`inventory.json`/`inventory.md`/`queue.md`) |
+| `npm run mock-inventory` | Write the mock-data inventory into `tools/repo-gates/mock-inventory/` |
 | `npm run mock-inventory:check` | CI mode — compare inventory, exit 1 on diff |
 | `npm run check:native` | Native-module ABI check ahead of `electron .` (no-op — PGlite is pure WASM) |
 

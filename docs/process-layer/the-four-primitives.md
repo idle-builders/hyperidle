@@ -123,7 +123,7 @@ Shipped shape:
 
 A persistent group of agents. Teams are the most important deviation from frameworks that form a crew per task: **teams that ship together accumulate context**, and that accumulated context is the entire reason a tenured agent beats a fresh one. Dissolving a team after one piece of work throws it away.
 
-Shipped as one table (AU44 B1 folded `team_members` back in): name, phase, knowledge paths, open-vocabulary `functions` that drive the default roster (AB0), `members`, `leadAgentId` (escalations route there first), integer `capacity` — the WIP ceiling — and `formedAt`. The `activeBets` tally is gone (BB1): capacity is counted live against tasks that are `in_progress`. Deep doc: [teams.md](teams.md).
+Shipped as one table (AU44 B1 folded `team_members` back in): name, phase, knowledge paths, `members`, `leadAgentId` (escalations route there first), integer `capacity` — the WIP ceiling — and `formedAt`. The `activeBets` tally is gone (BB1): capacity is counted live against tasks that are `in_progress`. Deep doc: [teams.md](teams.md).
 
 ### 3.4 Routine
 

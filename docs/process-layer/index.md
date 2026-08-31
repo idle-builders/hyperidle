@@ -11,6 +11,5 @@ The primitives that structure how teams and agents do work — Task, Session, Te
 - [routines-and-retros.md](./routines-and-retros.md) — recurring work and retros: trigger shapes, owner/stateKey, humanReview flag. Retros are a **plugin**, not core machinery.
 - [artifact-primitive.md](./artifact-primitive.md) — Artifact contract, five ArtifactView embed shapes, permalinks, and AM5 composition. Path frozen (code-cited).
 - [filesystem-primitive.md](./filesystem-primitive.md) — registered team-scoped file source: the filesystem-vs-tool-vs-knowledge decision rule, injection model, and lifecycle.
-- [staged-operation.md](./staged-operation.md) — the Proposed Call (AL7): MCP-bridge carrier, opt-in gate machinery, and the executes-nothing boundary. Path frozen (code-cited).
 - [wip-and-cost-limits.md](./wip-and-cost-limits.md) — owns the WIP ceiling at agent and team level (concurrent `in_progress` tasks, counted live), the duration-is-not-a-budget-axis doctrine, and the record of the deleted cost-cap feature.
 - [canonical-shapes.md](./canonical-shapes.md) — cross-primitive conventions: RevisionLogEntry, Money/TokenUsage as shipped, outcome-verdict meanings, ModelTierUnknownWarning, no-FK/trust-first invariants.

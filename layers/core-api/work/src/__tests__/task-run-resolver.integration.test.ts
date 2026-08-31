@@ -43,7 +43,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
@@ -150,7 +150,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		const baked = await resolveTaskRunRequest(
 			db,
 			{ kind: "task_run", attemptId: "attempt-trun-1" },
-			{ requireRunnableAgent },
+			{ requireRunnableAgent, getAgentIdentity },
 		);
 
 		expect(baked).toMatchObject({
@@ -170,7 +170,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 			resolveTaskRunRequest(
 				db,
 				{ kind: "task_run", attemptId: "attempt-does-not-exist" },
-				{ requireRunnableAgent },
+				{ requireRunnableAgent, getAgentIdentity },
 			),
 		).rejects.toThrow();
 	});
@@ -196,7 +196,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 			resolveTaskRunRequest(
 				db,
 				{ kind: "task_run", attemptId: "attempt-trun-2" },
-				{ requireRunnableAgent },
+				{ requireRunnableAgent, getAgentIdentity },
 			),
 		).rejects.toThrow();
 	});
@@ -222,7 +222,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 			resolveTaskRunRequest(
 				db,
 				{ kind: "task_run", attemptId: "attempt-trun-3" },
-				{ requireRunnableAgent },
+				{ requireRunnableAgent, getAgentIdentity },
 			),
 		).rejects.toThrow();
 	});
@@ -251,7 +251,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 			resolveTaskRunRequest(
 				db,
 				{ kind: "task_run", attemptId: "attempt-trun-4" },
-				{ requireRunnableAgent },
+				{ requireRunnableAgent, getAgentIdentity },
 			),
 		).rejects.toThrow();
 	});
@@ -288,7 +288,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 			resolveTaskRunRequest(
 				db,
 				{ kind: "task_run", attemptId: "attempt-trun-5" },
-				{ requireRunnableAgent },
+				{ requireRunnableAgent, getAgentIdentity },
 			),
 		).rejects.toThrow();
 	});
@@ -387,6 +387,7 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 			{ kind: "task_run", attemptId: "attempt-trun-ctx-1" },
 			{
 				requireRunnableAgent,
+				getAgentIdentity,
 				getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 				assembleSessionKnowledge,
 			},
@@ -479,6 +480,7 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 			{ kind: "task_run", attemptId: "attempt-trun-thread-1" },
 			{
 				requireRunnableAgent,
+				getAgentIdentity,
 				resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
 			},
 		);
@@ -512,6 +514,7 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 			{ kind: "task_run", attemptId: "attempt-trun-thread-2a" },
 			{
 				requireRunnableAgent,
+				getAgentIdentity,
 				resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
 			},
 		);
@@ -551,6 +554,7 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 			{ kind: "task_run", attemptId: "attempt-trun-thread-3" },
 			{
 				requireRunnableAgent,
+				getAgentIdentity,
 			},
 		);
 
@@ -583,7 +587,7 @@ describe("resolveTaskRunRequest — session_start path", () => {
 		const baked = await resolveTaskRunRequest(
 			db,
 			{ kind: "session_start", taskId: "task-sstart-1", requestedAgentId: "agent-sstart-1" },
-			{ requireRunnableAgent },
+			{ requireRunnableAgent, getAgentIdentity },
 		);
 
 		expect(baked).toMatchObject({
@@ -609,7 +613,7 @@ describe("resolveTaskRunRequest — session_start path", () => {
 					taskId: "task-does-not-exist",
 					requestedAgentId: "agent-sstart-missing-task",
 				},
-				{ requireRunnableAgent },
+				{ requireRunnableAgent, getAgentIdentity },
 			),
 		).rejects.toThrow();
 	});
@@ -630,7 +634,7 @@ describe("resolveTaskRunRequest — session_start path", () => {
 					taskId: "task-sstart-2",
 					requestedAgentId: "agent-sstart-2-unrunnable",
 				},
-				{ requireRunnableAgent },
+				{ requireRunnableAgent, getAgentIdentity },
 			),
 		).rejects.toThrow();
 	});
@@ -654,7 +658,7 @@ describe("resolveTaskRunRequest — session_start path", () => {
 					taskId: "task-sstart-3",
 					requestedAgentId: "agent-sstart-3-retired",
 				},
-				{ requireRunnableAgent },
+				{ requireRunnableAgent, getAgentIdentity },
 			),
 		).rejects.toThrow();
 	});
@@ -701,7 +705,11 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 				taskId: "task-sstart-thread-1",
 				requestedAgentId: "agent-sstart-thread-1",
 			},
-			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
+			{
+				requireRunnableAgent,
+				getAgentIdentity,
+				resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
+			},
 		);
 
 		expect(baked.callingThreadId).toBeDefined();
@@ -729,7 +737,11 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 				taskId: "task-sstart-thread-2",
 				requestedAgentId: "agent-sstart-thread-2",
 			},
-			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
+			{
+				requireRunnableAgent,
+				getAgentIdentity,
+				resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
+			},
 		);
 		const second = await resolveTaskRunRequest(
 			db,
@@ -738,7 +750,11 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 				taskId: "task-sstart-thread-2",
 				requestedAgentId: "agent-sstart-thread-2",
 			},
-			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
+			{
+				requireRunnableAgent,
+				getAgentIdentity,
+				resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
+			},
 		);
 
 		expect(second.callingThreadId).toBe(first.callingThreadId);
@@ -762,7 +778,7 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 				taskId: "task-sstart-thread-3",
 				requestedAgentId: "agent-sstart-thread-3",
 			},
-			{ requireRunnableAgent },
+			{ requireRunnableAgent, getAgentIdentity },
 		);
 
 		expect(baked.callingThreadId).toBeUndefined();

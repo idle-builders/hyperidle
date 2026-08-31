@@ -139,11 +139,6 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// whole relevance engine goes; the knowledge_accessed event stays as
 			// an extension surface for plugins.
 			{
-				owner: "review subscriptions",
-				cleanupEffect: "unsubscribe",
-				constituents: ["review creation subscription", "review liveness subscription"],
-			},
-			{
 				owner: "policy registration",
 				cleanupEffect: "unsubscribe",
 				// @lore AU44 batch6: "retry interval" removed — 30s heartbeat deleted with propagation_log.
@@ -279,10 +274,6 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// ({ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 })
 				// is removed here — the listener itself was deleted with the
 				// whole relevance engine.
-				// One `session_ended` subscription, not two: the risk-tier session-review
-				// subscriber was deleted with the gate it served (nothing ever wrote a risk
-				// tier, so it always returned early). The liveness subscriber beside it stays.
-				{ unsubscribedEvents: ["session_ended"], clearedIntervals: 0 },
 				{
 					// @lore AU44 batch6: clearedIntervals 1→0 — the 30s retry
 					// heartbeat (retryFailedPropagations) is deleted with propagation_log.

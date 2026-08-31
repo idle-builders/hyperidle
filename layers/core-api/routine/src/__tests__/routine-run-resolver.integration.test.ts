@@ -36,9 +36,10 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { BakedContextBundle } from "@hyperidle/domain-model";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
+import { eq } from "drizzle-orm";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const createdAt = new Date().toISOString();
@@ -72,16 +73,49 @@ async function seedRoutine(
 		readonly prompt?: string | null;
 	},
 ): Promise<void> {
+	// The instruction is a knowledge document the routine points at.
+	let promptKnowledgeId: string | null = null;
+	if (options.prompt) {
+		promptKnowledgeId = `ki-${options.routineId}-prompt`;
+		const ts = new Date().toISOString();
+		await db.insert(knowledgeItems).values({
+			id: promptKnowledgeId,
+			scopeKind: "factory",
+			scopeId: null,
+			topic: null,
+			title: `${options.routineId} — prompt`,
+			body: options.prompt,
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "test",
+			createdAt: ts,
+			updatedAt: ts,
+		});
+		// Kernel row and projection travel together, as knowledge always writes them.
+		await db.insert(knowledgeAppProjection).values({
+			id: `kp-${options.routineId}-prompt`,
+			knowledgeItemId: promptKnowledgeId,
+			layer: "L4",
+			scopeId: null,
+		});
+	}
 	await db.insert(routines).values({
 		id: options.routineId,
 		name: options.routineId,
-		prompt: options.prompt ?? null,
+		promptKnowledgeId,
 		ownerAgentId: options.ownerAgentId,
 		triggerType: "manual",
 		active: options.active ?? true,
 		state: options.state ?? "active",
 		deletedAt: options.deletedAt ?? null,
 	});
+}
+
+/** The resolver reads the prompt document through this port (Mechanism C). */
+async function readKnowledgeBody(db: HyperIdleDb, id: string): Promise<string | null> {
+	const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+	return row?.body ?? null;
 }
 
 async function seedRun(
@@ -107,7 +141,7 @@ async function seedRun(
  * enumerate this file's cases by hand; the compiler will not do it for you.
  */
 function buildDeps() {
-	return { requireRunnableAgent };
+	return { requireRunnableAgent, getAgentIdentity };
 }
 
 describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)", () => {
@@ -279,6 +313,8 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
 			requireRunnableAgent,
+			getAgentIdentity,
+			getKnowledgeBody: readKnowledgeBody,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,
 		});
@@ -326,6 +362,8 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		let receivedTeamId: string | undefined = "unset";
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-noteam", {
 			requireRunnableAgent,
+			getAgentIdentity,
+			getKnowledgeBody: readKnowledgeBody,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge: async (_db, input) => {
 				assembleCalled = true;

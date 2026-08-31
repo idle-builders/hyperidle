@@ -46,6 +46,6 @@ Float in [0, 1]; null means the session has not been evaluated.
 ## Cross-primitive invariants
 
 - **No-FK convention for cross-track references.** A column referencing another track's primitive ships as plain text, not a DB FK, so tracks stay independent — `filesystems.connectionId` (`schema.ts`) is deliberately not an FK (`service_connections` reverted in migration 0038; @lore AO1 — Track AN may add the FK in its own migration).
-- **Trust-first.** HyperIdle executes nothing of its own — the agent's own session, tools, and credentials run every call; HyperIdle classifies, routes to review, and records. `identityHash`/arg-pin is convenience metadata, never a guard; nothing gates on a hash match. Full Proposed Call spec: [staged-operation.md](staged-operation.md).
+- **Trust-first.** HyperIdle executes nothing of its own — the agent's own session, tools, and credentials run every call; HyperIdle classifies, routes to review, and records. Nothing gates on a hash match.
 - **Filesystem primitive** — semantics owned by [filesystem-primitive.md](filesystem-primitive.md); shape owned by `framework/db/src/schema.ts`.
 - **No duration budget axis** — duration is never a budget; canonical statement in [wip-and-cost-limits.md](wip-and-cost-limits.md).

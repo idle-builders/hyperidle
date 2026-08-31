@@ -7,7 +7,7 @@ import type { RouteObject } from "react-router-dom";
  *
  * @lore L9: /conversations/review and /conversations/chat are legacy routes;
  * they now mount RedirectLegacyConversation which redirects to the canonical
- * /conversations or /conversations/:threadId shape. See plans/L9/architecture.md §3.
+ * /conversations or /conversations/:threadId shape.
  */
 import { createBrowserRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";

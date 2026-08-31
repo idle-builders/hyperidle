@@ -201,113 +201,14 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 // AC2 — System-prompt guard from Principal, not header (Hard Rule 2)
 // ---------------------------------------------------------------------------
 
-describe("AC2: System-prompt — authorization from Principal, not X-Identity header", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("GET /api/users/:userId/assistant: X-Identity cannot grant access to another user's assistant", async ({
-		db,
-		app,
-	}) => {
-		const now = new Date().toISOString();
-
-		// Seed user-a (the auth principal) and user-b (the target)
-		await db.insert(users).values({
-			id: "u-authA",
-			kind: "human",
-			name: "Auth A",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		});
-		await db.insert(users).values({
-			id: "u-targetB",
-			kind: "human",
-			name: "Target B",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		});
-
-		// Auth as u-authA (API key sets userId=u-authA), try to access u-targetB's assistant
-		// with X-Identity: u-targetB header (the live exploit path)
-		const res = await app.request("/api/users/u-targetB/assistant", {
-			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-targetB" }),
-		});
-
-		// The authenticated principal is u-authA (from API key lookup), not u-targetB
-		// Even with X-Identity: u-targetB, the guard must use the real principal
-		// Result: 403 (u-authA !== u-targetB)
-		expect(res.status).toBe(403);
-	});
-
-	test("GET /api/users/:userId/assistant: authenticated as the target user gets 200", async ({
-		db,
-		app,
-	}) => {
-		const now = new Date().toISOString();
-
-		await db.insert(users).values([
-			{
-				id: "u-selfAccess",
-				kind: "human",
-				name: "Self",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			},
-		]);
-
-		// Auth as u-selfAccess, access their own assistant (X-Identity matches principal)
-		const res = await app.request("/api/users/u-selfAccess/assistant", {
-			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-selfAccess" }),
-		});
-
-		// The principal IS the target — should get 200
-		expect(res.status).toBe(200);
-	});
-
-	test("PATCH /api/users/:userId/assistant: X-Identity spoofing gets 403", async ({ db, app }) => {
-		const now = new Date().toISOString();
-
-		await db.insert(users).values({
-			id: "u-patchA",
-			kind: "human",
-			name: "PatchA",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		});
-		await db.insert(users).values({
-			id: "u-patchB",
-			kind: "human",
-			name: "PatchB",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		});
-
-		// Auth as u-patchA, supply X-Identity: u-patchB, target u-patchB's system prompt
-		const res = await app.request("/api/users/u-patchB/assistant", {
-			method: "PATCH",
-			headers: authHeaders({ "X-Identity": "u-patchB" }),
-			body: JSON.stringify({ systemPrompt: "Hacked prompt" }),
-		});
-
-		expect(res.status).toBe(403);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC3 — Worker token confinement (Hard Rule 3)
-// ---------------------------------------------------------------------------
+// AC2 covered `GET`/`PATCH /api/users/:userId/assistant` — that a caller could
+// not read or write another user's assistant persona by spoofing X-Identity.
+// Both routes are DELETED (BA9f): the persona is a knowledge document, and an
+// assistant is edited at `/api/agents/:id` like every other agent, so there is
+// no assistant-shaped route left to spoof against. The property AC2 protected —
+// authorization derives from the authenticated Principal, never from the
+// X-Identity header — is still proven on live routes by AC1 (thread
+// participant scope) and AC5 (cross-principal participant scope).
 
 describe("AC3: Worker token cannot access credentials or admin routes", () => {
 	beforeEach(() => {

@@ -51,7 +51,6 @@ flowchart TB
     Thread["Threads and messages"]
     Review["Review items"]
     Artifact["Artifacts"]
-    ProposedCall["Proposed calls and grants"]
     ConversationAPI["Interface\nthreads, conversations, reviews,\nartifacts APIs\nmessage/item events"]
   end
 
@@ -167,31 +166,23 @@ flowchart TB
   Item["Item\nreview/notification surface"]
   Review["Review"]
   Artifact["Artifact"]
-  ProposedCall["Proposed call"]
-  Grant["Tailored grant"]
-  Outcome["Operation outcome"]
 
   Thread --> Message
   Thread --> Item
   Item --> Review
   Artifact --> Thread
-  Message --> ProposedCall
-  ProposedCall --> Grant
-  ProposedCall --> Outcome
 
   AssistantTurn["Assistant turn"] --> Thread
   AssistantTurn --> SessionRequest["Conversational session request"]
   SessionResult["Session completion"] --> Message
   ToolRegistry["Tool registry"] --> Artifact
   ToolRegistry --> Item
-  ToolRegistry --> ProposedCall
 
   Thread -- "thread_* events" --> Events["EventBus"]
   Item -- "item_created" --> Events
-  ProposedCall -- "proposed_call_granted" --> Events
 ```
 
-Thread/Message primitive (HOST_KINDS, MESSAGE_TYPES, verdict grammar, idempotency) is owned by the [Thread primitive](../human-interface-layer/thread-primitive.md). Proposed calls / staged operations: [staged operation](../process-layer/staged-operation.md). Artifact contract and embed shapes: [Artifact primitive](../process-layer/artifact-primitive.md).
+Thread/Message primitive (HOST_KINDS, MESSAGE_TYPES, verdict grammar, idempotency) is owned by the [Thread primitive](../human-interface-layer/thread-primitive.md). Artifact contract and embed shapes: [Artifact primitive](../process-layer/artifact-primitive.md).
 
 ## L2 - Knowledge Domain
 
@@ -340,7 +331,7 @@ flowchart TB
 
   CoordinationEvents["Coordination events\ntask_state_changed\nroutine_fired"] --> EventBus
   SessionEvents["Session events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"] --> EventBus
-  ConversationEvents["Conversation events\nthread_created\nthread_message_appended\nitem_created\nproposed_call_granted"] --> EventBus
+  ConversationEvents["Conversation events\nthread_created\nthread_message_appended\nitem_created"] --> EventBus
   KnowledgeEvents["Knowledge events\nknowledge_accessed\nknowledge_updated\nknowledge_created\nknowledge_archived"] --> EventBus
   NotificationEvents["Notification events\nnotification"] --> EventBus
 

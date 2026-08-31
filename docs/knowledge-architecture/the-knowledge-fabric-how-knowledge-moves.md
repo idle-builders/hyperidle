@@ -44,7 +44,7 @@ There is no live WebSocket push for this event today — the generic `knowledge_
 
 ## 3. Projection for agents (session sandbox)
 
-Selection, ranking, and budgeting are done **before** a session starts, not at provisioning time. A per-kind resolver (`@hyperidle/work`'s `task-run-resolver.ts`, `@hyperidle/knowledge`'s `knowledge-action-resolver.ts`, the routine resolver, `@hyperidle/review`'s `proposed-call-workflow.ts`) calls the shared `assembleSessionKnowledge` (`layers/core-api/knowledge/src/session-knowledge-assembler.ts`) to fetch L4/L2/L3 items and rank+budget them (`rank()`, `relevance-scoring.ts`) into a baked `contextBundle`. That bundle rides along on the session request. `assembleAgentContext` (`AssembleAgentContextInput.sandboxPath`, `layers/agent-orchestration/run-orchestration/src/context.ts`) then does zero DB reads — it only writes the already-baked bundle into files in the agent's sandbox.
+Selection, ranking, and budgeting are done **before** a session starts, not at provisioning time. A per-kind resolver (`@hyperidle/work`'s `task-run-resolver.ts`, `@hyperidle/knowledge`'s `knowledge-action-resolver.ts`, the routine resolver) calls the shared `assembleSessionKnowledge` (`layers/core-api/knowledge/src/session-knowledge-assembler.ts`) to fetch L4/L2/L3 items and rank+budget them (`rank()`, `relevance-scoring.ts`) into a baked `contextBundle`. That bundle rides along on the session request. `assembleAgentContext` (`AssembleAgentContextInput.sandboxPath`, `layers/agent-orchestration/run-orchestration/src/context.ts`) then does zero DB reads — it only writes the already-baked bundle into files in the agent's sandbox.
 
 **Sandbox layout** (exact — `CONTEXT_ASSEMBLY_DIRS`, `context.ts:527-536`):
 

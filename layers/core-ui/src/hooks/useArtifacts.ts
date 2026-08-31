@@ -1,5 +1,4 @@
 // L3 — single hook for /api/artifacts with axis discriminant.
-// Source: plans/L3/architecture.md §6.5.
 //
 // L12: optional `query` parameter adds limit to the URL.
 

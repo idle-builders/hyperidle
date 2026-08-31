@@ -69,7 +69,7 @@ const acceptedLineage: ReviewedLineage = {
 	action: "rewrite",
 	capability: "open work",
 	contractRef: "docs/information-architecture/work-view.md",
-	reviewArtifact: "plans/AU20/register-reviews/work.md",
+	reviewArtifact: "accepted-reviews/work.md",
 	reviewArtifactHash: digest(lineageReviewContent),
 	reviewedPayloadHash: lineagePayloadHash,
 	canonicalLineage,
@@ -376,12 +376,12 @@ describe("validation inventory contract", () => {
 	test.each([
 		[
 			"traversal path",
-			{ ...acceptedLineage, reviewArtifact: "../register-reviews/work.md" },
+			{ ...acceptedLineage, reviewArtifact: "../accepted-reviews/work.md" },
 			/path|traversal|accepted.*root/i,
 		],
 		[
 			"unresolved trusted artifact",
-			{ ...acceptedLineage, reviewArtifact: "plans/AU20/register-reviews/missing.md" },
+			{ ...acceptedLineage, reviewArtifact: "accepted-reviews/missing.md" },
 			/trusted.*artifact|resolve/i,
 		],
 	] as const)("rejects lineage %s", (_name, lineage, message) => {
@@ -706,7 +706,7 @@ describe("reviewed payload lock", () => {
 	const canonicalPayload =
 		'{"dispositions":["feature_regression"],"identities":["browser:work:opens"]}';
 	const payloadHash = digest(canonicalPayload);
-	const reviewArtifact = "plans/AU20/register-reviews/work.md";
+	const reviewArtifact = "accepted-reviews/work.md";
 	const reviewContent = JSON.stringify({
 		verdict: "accept",
 		reviewedPayloadHash: payloadHash,
@@ -953,7 +953,7 @@ describe("single-run reconciliation boundaries", () => {
 
 describe("trusted review provenance", () => {
 	const payload = { identities: [mocked.id] };
-	const reviewArtifact = "plans/AU20/register-reviews/work.md";
+	const reviewArtifact = "accepted-reviews/work.md";
 	const claim: ReviewClaim = {
 		artifactPath: reviewArtifact,
 		artifactHash: "trusted-artifact",
@@ -993,7 +993,7 @@ describe("trusted review provenance", () => {
 		expect(() =>
 			contracts.unlockPayload({
 				payload,
-				claim: { ...claim, artifactPath: "../register-reviews/work.md" },
+				claim: { ...claim, artifactPath: "../accepted-reviews/work.md" },
 			}),
 		).toThrow(/path|traversal|accepted.*root/i);
 	});

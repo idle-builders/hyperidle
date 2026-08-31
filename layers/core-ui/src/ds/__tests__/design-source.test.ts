@@ -21,7 +21,6 @@
  *   in CI without a custom CI step. (It was originally enforced via the signed
  *   attestation; the attestation is gone and CI now runs the test suite directly,
  *   which enforces this the same way for a simpler reason.)
- *   See plans/AJ1/architecture.md and `.pipeline/work-packages/TRACK-AJ.md`.
  */
 
 import * as fs from "node:fs";
@@ -264,7 +263,7 @@ describe("AC1 — TSX is the single design source of truth", () => {
 			hits,
 			`Found ${hits.length} HTML-as-design-reference violation(s) in skills/rules:\n${report}\n\n` +
 				`Fix: rewrite the listed files to reference TSX stories instead of HTML files. ` +
-				`See plans/AJ1/architecture.md (AC1/AC5).`,
+				`See docs/ui-design/index.md (AC1/AC5).`,
 		).toHaveLength(0);
 	});
 });

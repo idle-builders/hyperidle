@@ -111,9 +111,9 @@ describe("migration 0074: bets become root tasks — brownfield", () => {
 			`);
 
 			// --- apply 0074 ---
-			const folder68 = makeTempMigrationsFolder(68);
-			tempDirs.push(folder68);
-			await migrate(db, { migrationsFolder: folder68 });
+			const folder74 = makeTempMigrationsFolder(74);
+			tempDirs.push(folder74);
+			await migrate(db, { migrationsFolder: folder74 });
 
 			// The old shape is gone entirely.
 			const betsTable = await db.execute(sql`
@@ -218,9 +218,9 @@ describe("migration 0074: bets become root tasks — brownfield", () => {
 		tempDirs.push(folder73);
 		await migrate(db, { migrationsFolder: folder73 });
 
-		const folder68 = makeTempMigrationsFolder(68);
-		tempDirs.push(folder68);
-		await migrate(db, { migrationsFolder: folder68 });
+		const folder74 = makeTempMigrationsFolder(74);
+		tempDirs.push(folder74);
+		await migrate(db, { migrationsFolder: folder74 });
 
 		const counts = await db.execute(sql`SELECT count(*) AS n FROM tasks`);
 		expect(counts.rows[0]).toEqual({ n: 0 });

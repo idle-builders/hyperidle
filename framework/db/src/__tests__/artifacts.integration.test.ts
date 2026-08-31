@@ -1,5 +1,4 @@
 // L3 RED — Drizzle schema tests for the `artifacts` table.
-// Source of truth: plans/L3/architecture.md §4.1, §12.
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";

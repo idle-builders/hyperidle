@@ -80,7 +80,7 @@ The tiers:
 | Tier | Packages | Purpose |
 |---|---|---|
 | `layers/` | `core-ui`, `core-api`, `agent-orchestration`, `agent-execution`, plus a nested package per Service | The four Layers and their Services |
-| `framework/` | `db`, `api-contract`, `design-system`, and the eighteen the old `shared` substrate became — `domain-model`, `presentation-format`, `harness-capability`, `harness-protocol`, `tool-protocol`, `work-intent-port`, `filesystem-contract`, `conversation-parts`, `block-derivation`, `event-bus`, `http-middleware`, `diagnostics`, `host-process`, `factory-defaults`, `credential-access`, `cron`, `toon-codec`, `query-escaping` | Drizzle schema + migrations, Zod response schemas, React components + stories, and one package per thing the substrate held. Each declares who may name it in `tools/governance/architecture.json`; only `domain-model`, the product's nouns, is reachable by everyone |
+| `framework/` | `api-contract`, `db`, `diagnostics`, `domain-model`, `event-bus`, `harness-capability`, `harness-protocol` | Drizzle schema + migrations, Zod response schemas, the product's nouns, the event bus, and the harness contracts. Each declares who may name it in `tools/governance/architecture.json`; only `domain-model` is reachable by everyone. The eighteen packages the old `shared` substrate became have since consolidated to these seven — run `ls framework/` rather than trusting a list |
 | `applications/` | `desktop`, `remote-server`, `remote-worker` | Deployment units — wiring and bootstrap only |
 | `tools/` | `eval`, `eslint-plugin-design`, `eslint-plugin-authz` | LLM-judged evals; design-system and authorization lint rules |
 
@@ -143,4 +143,4 @@ WebSocket subscribe authorization is owned by the [Authorization Model](./author
 - **A backlog.** Proposed tasks live on the Work view; unpicked ones can be killed.
 - **Multiple applications.** One app, two form factors.
 - **Jira-style reporting.** Conversations (review threads) and Work (task views) are the human surfaces for status.
-- **A git forge, a CI engine, or deploy infrastructure.** HyperIdle rides the git substrate (code in a local-first, forge-optional git repo), integrates CI/registries/deploy/SSO via API/MCP, and triggers side-effects through connected systems — it never hosts repos, runs runners, or executes a deploy itself. See [System Boundary](./system-boundary.md); the trigger-not-executor seam is the [Proposed Call](../process-layer/staged-operation.md) (AL7).
+- **A git forge, a CI engine, or deploy infrastructure.** HyperIdle rides the git substrate (code in a local-first, forge-optional git repo), integrates CI/registries/deploy/SSO via API/MCP, and triggers side-effects through connected systems — it never hosts repos, runs runners, or executes a deploy itself. See [System Boundary](./system-boundary.md) for the trigger-not-executor seam.

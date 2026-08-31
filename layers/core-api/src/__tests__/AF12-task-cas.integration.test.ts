@@ -15,6 +15,7 @@
 
 import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/event-bus";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
@@ -25,7 +26,7 @@ import { test } from "../__testing__/test-fixtures.js";
 
 const testDeps: TaskStateMachineDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent },
+	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 	teamCapacity: { getByTeamId: (exec, teamId) => getTeam(exec, { id: teamId }) },
 };
 

@@ -16,8 +16,6 @@
  *   AC2  — FilesystemTokenResolver seam: resolveToken
  *   LIVE — Lane A: hermetic git ls-remote (file://) + fs.access probes (no network, no secrets)
  *
- * Source of truth: plans/AO1/architecture.md §v2 (Reachability rework v2)
- *
  * @lore AU19 Increment 2b: `filesystem-reachability.ts` moved to
  * `@hyperidle/filesystems`; imports repointed there. This test file itself
  * STAYS in `packages/server` — `probeGitRemote`/`resolveFilesystemState` now

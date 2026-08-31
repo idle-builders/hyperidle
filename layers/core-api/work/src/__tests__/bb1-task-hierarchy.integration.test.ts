@@ -58,6 +58,9 @@ const taskDeps: TaskStateMachineDeps = {
 		requireRunnableAgent: async () => {
 			throw new Error("requireRunnableAgent must not fire in BB1 service tests");
 		},
+		getAgentIdentity: async () => {
+			throw new Error("getAgentIdentity must not fire in BB1 service tests");
+		},
 	},
 	teamCapacity,
 };
@@ -88,6 +91,8 @@ const dispatchDeps: TaskStateMachineDeps = {
 			if (!agent) throw new Error(`no agent ${agentId}`);
 			return agent;
 		},
+		// No knowledge items seeded in these tests — identity is always null.
+		getAgentIdentity: async () => null,
 	},
 	teamCapacity,
 };

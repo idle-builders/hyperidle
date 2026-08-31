@@ -120,7 +120,6 @@ describe("agent_work_intents durable-rows checks", () => {
 				["knowledge_action", "knowledge_action"],
 				["routine_run", "routine_run"],
 				["task_run", "task_dispatch_attempt"],
-				["reengagement", "proposed_call"],
 			];
 		for (const [kind, sourceKind] of pairs) {
 			const [row] = await db

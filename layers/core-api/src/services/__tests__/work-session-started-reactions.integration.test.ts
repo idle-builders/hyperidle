@@ -37,7 +37,7 @@
  *     member of `TASK_STATE_TRANSITIONS` and throws), never propagate it into
  *     the EventBus's handler-isolation logging path as an unexpected failure.
  *   - `session_started` with `taskId: null` (a task-free session — an
- *     `assistant_turn`/reengagement/explicit non-task session request) is a
+ *     `assistant_turn`/explicit non-task session request) is a
  *     no-op.
  *
  * This is the literal replacement for `run-orchestration`'s deleted direct

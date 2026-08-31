@@ -22,16 +22,12 @@ export type {
 export type {
 	ArtifactView,
 	// @lore BB1: BetView deleted — bet is now a root task.
-	CaptureProposedCallRequest,
-	CaptureProposedCallResponse,
-	ConsumeTailoredGrantRequest,
-	ConsumeTailoredGrantResponse,
 	// ConversationInboxMessageView: field of ConversationInboxRowView — reachable, no name-importers
 	ConversationInboxRowView,
 	ConversationMessageType,
 	ConversationThreadView,
 	CoreApiConversationPort,
-	// CoreApiKnowledgePort / CoreApiReviewPort / CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
+	// CoreApiKnowledgePort / CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
 	CoreApiOrgPort,
 	CoreApiPort,
 	CoreApiTransport,
@@ -66,7 +62,6 @@ export type {
 	PersistScaffoldedAgentsResponse,
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
-	ProposedCallOutcomeResult,
 	// ReviewRecipientsQuery: param of resolveReviewRecipientsForItem — no name-importers
 	RoutineView,
 	ScaffoldFromRequestInput,

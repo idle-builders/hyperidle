@@ -1,5 +1,4 @@
 // L3 RED — protected test: closed view family for Artifact components.
-// Source of truth: plans/L3/architecture.md §9, §12; concept §4.5 hard rule #2.
 //
 // Asserts:
 // 1. The DS export boundary publishes EXACTLY the 7 named exports (3 layouts + 4 sub-primitives).

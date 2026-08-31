@@ -243,13 +243,6 @@ describe("reply tool", () => {
 	});
 
 	describe("tool declaration", () => {
-		test("declares reversibility: reversible (never fails closed to irreversible under AL7)", ({
-			app,
-		}) => {
-			const replyTool = buildReplyTool(app);
-			expect(replyTool.reversibility).toBe("reversible");
-		});
-
 		test("input schema has no thread argument — reply always targets its own calling thread", ({
 			app,
 		}) => {

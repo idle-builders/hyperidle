@@ -35,6 +35,7 @@ import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
+import { createActionRulesRoutes } from "./routes/settings-action-rules.js";
 import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
@@ -378,7 +379,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				options.wsHub,
 			),
 		);
-		api.route("/users", createUserRoutes(options.db, agentOrchestration, options.adapterPool));
+		api.route("/users", createUserRoutes(options.db));
 		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
 		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
@@ -400,6 +401,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
+		api.route("/settings/action-rules", createActionRulesRoutes(options.db));
 		api.route("/plugins", createPluginRoutes(options.db, options.pluginsBaseDir));
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 

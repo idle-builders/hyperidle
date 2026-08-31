@@ -35,6 +35,19 @@ import { taskDispatchAttemptStore } from "./work-service.js";
 export interface TaskRunResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
+	 * The agent's identity document body, baked onto the request so the
+	 * provisioner never reads `knowledge_items` — that table belongs to the
+	 * knowledge service. Injected (Mechanism C).
+	 */
+	/**
+	 * The agent's identity document, baked onto the request.
+	 *
+	 * Required, not optional: while it was optional, two of the call sites that
+	 * bake an assistant turn simply never wired it, compiled clean, and baked no
+	 * identity at all. A required port turns that into a compile error.
+	 */
+	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
+	/**
 	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/work`'s `package.json`
 	 * depends only on `@hyperidle/db` + framework packages, never
@@ -205,6 +218,9 @@ export async function resolveTaskRunRequest(
 	if (input.kind === "session_start") {
 		// --- session_start path (was resolveSessionStartRequest) ---
 		const agent = await deps.requireRunnableAgent(db, input.requestedAgentId);
+		// The agent's identity is a knowledge document bound to it; baked so the
+		// provisioner never touches knowledge.
+		const agentPersona = await deps.getAgentIdentity(db, agent.id);
 		const task = await work.get(db, "task", input.taskId);
 		if (!task) {
 			throw new Error("Explicit session task is unavailable");
@@ -224,7 +240,7 @@ export async function resolveTaskRunRequest(
 			taskId: task.id,
 			teamId: task.teamId,
 			sourceCorrelation: { taskId: task.id, teamId: task.teamId },
-			agentConfig: bakeAgentRunnableConfig(agent),
+			agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 			...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 			...(callingThreadId !== undefined ? { callingThreadId } : {}),
 		};
@@ -243,6 +259,9 @@ export async function resolveTaskRunRequest(
 		throw new Error("Task owner changed after intent creation");
 	}
 	const agent = await deps.requireRunnableAgent(db, attempt.agentId);
+	// The agent's identity is a knowledge document bound to it; baked so the
+	// provisioner never touches knowledge.
+	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 
 	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
 	// caller supplied both context deps (see TaskRunResolverDeps `@lore`) —
@@ -287,7 +306,7 @@ export async function resolveTaskRunRequest(
 		taskId: task.id,
 		teamId: task.teamId,
 		sourceCorrelation: { taskId: task.id, teamId: task.teamId },
-		agentConfig: bakeAgentRunnableConfig(agent),
+		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(contextBundle ? { contextBundle } : {}),
 		...(callingThreadId !== undefined ? { callingThreadId } : {}),

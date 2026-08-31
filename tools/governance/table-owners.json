@@ -2,8 +2,8 @@
 	"tableOwners": true,
 	"note": "Every table names the ONE service that may read and write it. A table absent from this file is a build error, never a silently skipped row — completeness is the point. Owners are package names, never paths (Ruling 5).",
 	"totals": {
-		"tables": 36,
-		"owned": 36,
+		"tables": 35,
+		"owned": 35,
 		"unowned": 0
 	},
 	"owners": {
@@ -25,15 +25,13 @@
 		"serverConfig": "settings",
 		"plugins": "settings",
 		"pluginConfigurationDefaults": "settings",
+		"pluginContributions": "settings",
 		"configurationOverrides": "settings",
 		"notificationQueue": "notifications",
 		"serverCredentials": "credentials",
 		"serviceConnections": "connections",
 		"routines": "routine",
 		"routineRuns": "routine",
-		"proposedCalls": "review",
-		"operationOutcomes": "review",
-		"tailoredGrants": "review",
 		"agentWorkIntents": "session-requests",
 		"agentSessionRequests": "session-requests",
 		"explicitSessionStarts": "session-requests",
@@ -42,7 +40,8 @@
 		"hintProgress": "users",
 		"agentRunConfig": "run-orchestration",
 		"taskDispatchAttempts": "work",
-		"sessions": "run-orchestration"
+		"sessions": "run-orchestration",
+		"actionRules": "settings"
 	},
 	"unowned": {
 		"note": "Ruling 6 — no unowned tables, and now there are none. This block stays because the registry's shape declares it and the loader reads it unconditionally; an entry here is a defect, not a category. A table with no owner is a table any package may invent invariants for and none is responsible for keeping.",

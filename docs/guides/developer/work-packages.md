@@ -1,6 +1,6 @@
 # Work Packages
 
-Work packages are the unit of delivery. A work package's spec is `.pipeline/work/<id>/plan.md`, registered in a per-track coordination file `.pipeline/<track>.md` (WP registry table + dependency graph). `/refine` adds `requirements.md`, `/design` adds `design/`, `/architecture` adds `architecture.md` + `feasibility.md`, all alongside `plan.md`. Legacy work packages not yet migrated to this shape stay under `.pipeline/work-packages/` (per-track `TRACK-*.md` files plus `pipeline-manifest.yaml`) — check both locations for a given track. Each work package carries acceptance criteria; per-WP progress lands in `.pipeline/progress/<id>.json`, retro observations in `.pipeline/retro-log/<id>.jsonl`.
+Work packages are the unit of delivery. A work package's spec is `.pipeline/work/<id>/plan.md`, registered in a per-track coordination file `.pipeline/<track>.md` (WP registry table + dependency graph). `/refine` adds `requirements.md`, `/design` adds `design/`, `/architecture` adds `architecture.md` + `feasibility.md`, all alongside `plan.md`. A package that has not been refined yet has no plan — its registry row in `.pipeline/<track>.md` is the whole record, and the plan is written with the maintainer at refinement. Each work package carries acceptance criteria; per-WP progress lands in `.pipeline/progress/<id>.json`, retro observations in `.pipeline/retro-log/<id>.jsonl`.
 
 Pipeline phases, skill routing, and orchestration mechanics are owned by [.claude/rules/skill-discovery.md](../../../.claude/rules/skill-discovery.md) — this page only orients a developer.
 
@@ -25,4 +25,4 @@ The founder reviews the user/dev-guide draft and the rendered variant, and the p
 
 **Park, don't auto-ship.** A high-stakes work package in an autonomous run does not ship unreviewed: the pipeline parks it (writes a park status to its progress file) and stops that work package; sibling work packages proceed. Parked is distinct from `blocked` (something failed) — the resolution is a founder review, not a bugfix.
 
-**Planning-time forecast.** WP specs carry an advisory **Human design review.** `Yes | No` field (see legacy track files, e.g. `TRACK-AP.md`). It forecasts whether the WP will park; the design-time classification is authoritative and overrides a `No` forecast.
+**Planning-time forecast.** A WP spec may carry an advisory **Human design review.** `Yes | No` field. It forecasts whether the WP will park; the design-time classification is authoritative and overrides a `No` forecast.

@@ -2,14 +2,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createLogger } from "@hyperidle/diagnostics";
 import type {
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
 	BakedContextBundle,
 	BakedContextKnowledgeItem,
 	RoutineTriggerEvent,
-} from "@hyperidle/domain-model";
-import {
-	type AgentSessionSourceCorrelation,
-	type AgentSessionSourceKind,
-	communityForRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -22,7 +19,7 @@ import type { EventBus } from "@hyperidle/event-bus";
  * EMIT time by each per-kind resolver (`@hyperidle/work`'s
  * `task-run-resolver.ts`, `@hyperidle/knowledge`'s
  * `knowledge-action-resolver.ts`, `@hyperidle/routine`'s
- * `resolveRoutineRunRequest`, `@hyperidle/review`'s `proposed-call-workflow.ts`)
+ * `resolveRoutineRunRequest`)
  * calling the shared `@hyperidle/knowledge`'s `assembleSessionKnowledge`
  * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
  * below consumes the baked `contextBundle` carried on the session request and
@@ -280,7 +277,7 @@ function substituteTemplateVars(template: string, vars: Record<string, string>):
  * Returns { product, community }.
  */
 function buildTemplateVariables(context: SessionContextData): Record<string, string> {
-	const community = communityForRole(context.agent.role);
+	const community = context.agent.role;
 	return {
 		product: context.team.name,
 		community,
@@ -633,7 +630,7 @@ function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptComp
 		// empty string is the right fallback rather than a visible defect.
 		const vars: Record<string, string> = {
 			product: context.team?.name ?? "",
-			community: communityForRole(context.agent.role),
+			community: context.agent.role,
 		};
 		personaSection = substituteTemplateVars(stripped, vars);
 	}
@@ -847,8 +844,14 @@ function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): s
  * `fetchAllForLayer`/`rankAndBudget` DB-reading pair.
  *
  * @lore BA9b: capability roles (skill/rule/agent_file) are routed by role,
- * not by layer. `agentId` is required to filter agent_file items — only the
- * item whose agentBindingId matches receives it.
+ * not by layer.
+ *
+ * @lore BA9f: `agentId` decides which `agent_file` is THIS agent's identity.
+ * That one is already delivered as the "## Identity" section of AGENTS.md
+ * (baked at emit through `getAgentIdentity`), so materialising it here too
+ * would put the same text in the sandbox twice. Every OTHER agent file — an
+ * unbound one that applies to all sessions — is still written, which is what
+ * BA9b delivers.
  *
  * Items with role='ordinary' and an unrecognized/absent layer are skipped
  * (defensive — assembleSessionKnowledge only produces L4/L2/L3 ordinary items).
@@ -883,13 +886,17 @@ function writeBundleKnowledge(
 		}
 
 		if (role === "agent_file") {
-			// Only write if this item is bound to the current agent (or unbound).
-			if (item.agentBindingId !== null && item.agentBindingId !== agentId) {
+			// The agent file bound to THIS agent is its identity, and its home in
+			// the sandbox is the "## Identity" section of AGENTS.md. Writing it here
+			// too would deliver the same text twice.
+			if (item.agentBindingId === agentId) {
 				continue;
 			}
-			// agent_file: append to knowledge/rules so the agent reads it as a rule-like doc.
-			// @lore BA9b: agent_file content is delivered via knowledge/rules/ — the agent's
-			// AGENTS.md already contains the system prompt; agent_file supplements it.
+			// An agent file bound to someone else is not ours to carry.
+			if (item.agentBindingId !== null && item.agentBindingId !== undefined) {
+				continue;
+			}
+			// Unbound: applies to every session, so it is materialised (BA9b).
 			const relativePath = writeItem(sandboxPath, item, "knowledge/rules");
 			manifestItems[item.id] = {
 				version: item.version,
@@ -989,7 +996,7 @@ interface AssembleAgentContextInput {
 	readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle a
-	 * `task_run`/`reengagement` (`kind:"task"`) or `routine_run`
+	 * `task_run` (`kind:"task"`) or `routine_run`
 	 * (`kind:"routine"`) session's sandbox is built from. Absent for
 	 * `knowledge_action` (`kind:"knowledge"` bundles carry no established
 	 * sandbox-context shape yet — a knowledge-review turn keeps today's

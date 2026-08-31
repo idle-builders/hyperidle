@@ -30,8 +30,7 @@ const BASE_PROFILE: AgentProfileResponse = {
 	teamName: "HyperIdle Core",
 	teamId: "team-1",
 	createdAt: "2024-01-15T08:00:00.000Z",
-	systemPrompt:
-		"You are Atlas, a meticulous TypeScript builder who values clean code, thorough testing, and honest communication. You never ship broken builds.",
+	identityKnowledgeId: "ki_af_agent-1",
 	harnessType: "claude-code",
 	modelTierPreference: "workhorse",
 	maxConcurrentSessions: 2,

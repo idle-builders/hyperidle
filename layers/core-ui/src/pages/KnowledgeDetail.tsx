@@ -22,7 +22,7 @@
  * live only in LEGACY_DETAILS (the fixture k1 uses layer:"L0", kind:"decision").
  * The <pre> rendering path is gone; the data remains for the protected tests.
  * Full deletion is deferred to L25 (Save-actually-persists) when the data layer
- * replaces the fixture lookup entirely. See plans/L23/follow-ups.md.
+ * replaces the fixture lookup entirely.
  *
  * @lore L18: ObservationLog replaced by HostThreadSection. Block popover wiring
  * added (same pattern as WorkBet). KnowledgeBody extended with onOpenBlockActions

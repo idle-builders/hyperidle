@@ -28,6 +28,7 @@ import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
 	assembleSessionKnowledge,
+	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
@@ -155,6 +156,9 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		getUserById: (db: HyperIdleDb, id: string) =>
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		assembleSessionKnowledge,
+		getAgentIdentity,
+		getKnowledgeBody: async (db, knowledgeItemId) =>
+			(await getKnowledgeItem(db, knowledgeItemId))?.body ?? null,
 	};
 }
 

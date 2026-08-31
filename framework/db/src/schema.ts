@@ -1,4 +1,8 @@
-import type { ConfigurationKind, PluginState } from "@hyperidle/domain-model";
+import type {
+	ConfigurationKind,
+	PluginContributionKind,
+	PluginState,
+} from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
 	type AnyPgColumn,
@@ -30,13 +34,6 @@ export const teams = pgTable("teams", {
 	principlesPath: text("principles_path"),
 	factoryDbPath: text("factory_db_path"),
 	createdAt: text("created_at").notNull(),
-	/**
-	 * AB0: Team functions as JSON array of strings.
-	 * Determines which agent roles appear in the default roster.
-	 * @lore AB0: Open vocabulary. Known functions: development, product,
-	 * design, marketing, sales, operations, support, research.
-	 */
-	functions: text("functions"),
 	// AU44 B1: folded from team_members
 	leadAgentId: text("lead_agent_id"),
 	/**
@@ -88,7 +85,6 @@ export const users = pgTable(
 			onDelete: "set null",
 		}),
 		/** BA9d: set when this user row was materialised by a plugin install. Used for disable/enable/remove cleanup. */
-		pluginId: text("plugin_id"),
 	},
 	(table) => [
 		check(
@@ -102,7 +98,7 @@ export const users = pgTable(
  * AU26 G1 — one agent's run configuration, keyed on its `users` row.
  *
  * @lore AU26 G1 (architecture §D-L): `users` used to carry agent-execution
- * configuration (`system_prompt`, `harness_type`, `model_tier_preference`,
+ * configuration (`harness_type`, `model_tier_preference`,
  * `model_id`, `model_provider`, `max_concurrent_sessions`) on the same row as
  * human identity. Core administers those fields but never operationally
  * consumes them — only an agent's session does — so they relocate here, owned
@@ -110,6 +106,10 @@ export const users = pgTable(
  * as the single human+agent identity record: `kind`, `status`, `agent_category`,
  * `role`, `team_id` stay put because core genuinely uses them
  * (`middleware/auth.ts`, `recipients.ts`, `policy-bindings.ts`).
+ *
+ * @lore The agent's identity is no longer here: it is an `agent_file` knowledge
+ * document bound to the agent (scope_kind='user', scope_id=agentId), which is
+ * what that role has always meant. Migration 0069 moved every existing prompt.
  *
  * @lore AU26 G1: `system_prompt_path` and `skills` were dropped, not moved —
  * zero production readers repo-wide (seed fixtures only) at the time of the
@@ -127,7 +127,6 @@ export const agentRunConfig = pgTable("agent_run_config", {
 	agentUserId: text("agent_user_id")
 		.primaryKey()
 		.references(() => users.id, { onDelete: "cascade" }),
-	systemPrompt: text("system_prompt"),
 	harnessType: text("harness_type"),
 	modelTierPreference: text("model_tier_preference"),
 	modelId: text("model_id"),
@@ -422,11 +421,11 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','reengagement')`,
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','proposed_call')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -445,7 +444,6 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
-				or (${table.kind} = 'reengagement' and ${table.sourceKind} = 'proposed_call')
 			`,
 		),
 		/**
@@ -559,7 +557,16 @@ export const routines = pgTable(
 		 * its own; this column IS it. Nullable: a routine with no prompt runs
 		 * the owner agent on its own persona (AC3).
 		 */
-		prompt: text("prompt"),
+		/**
+		 * The knowledge document carrying this routine's instruction. A routine
+		 * prompt is knowledge like any other — readable, editable and reusable in
+		 * the knowledge view — so it lives there rather than in a column of its
+		 * own. Null for a routine with no instruction, which runs on its name.
+		 */
+		promptKnowledgeId: text("prompt_knowledge_id").references(
+			(): AnyPgColumn => knowledgeItems.id,
+			{ onDelete: "set null" },
+		),
 		ownerAgentId: text("owner_agent_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
@@ -599,7 +606,6 @@ export const routines = pgTable(
 		/** AA2: Soft delete timestamp. When set, routine is archived. */
 		deletedAt: text("deleted_at"),
 		/** BA9d: set when this routine was materialised by a plugin install. Used for disable/enable/remove cleanup. */
-		pluginId: text("plugin_id"),
 		/** AA2: Last successful run's summary. Single-slot overwrite per concept doc. */
 		lastRunSummary: text("last_run_summary"),
 		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
@@ -1236,6 +1242,61 @@ export const pluginConfigurationDefaults = pgTable(
 	],
 );
 
+/**
+ * What a plugin contributed, and whether the person has since taken it over.
+ *
+ * @lore BA9g: provenance used to be recorded SEVEN different ways —
+ * `users.plugin_id`, `routines.plugin_id`,
+ * `plugin_configuration_defaults.plugin_id`, `knowledge_items.topic =
+ * 'plugin:<id>'`, `knowledge_items.updated_by = 'plugin:<id>'`, a `<pluginId>/`
+ * prefix inside a configuration key, and one-way hashed row ids. Each covered a
+ * different subset, so no surface could answer "what did this plugin
+ * contribute" and the lifecycle operations disagreed with each other. Two of
+ * the seven were never read at all.
+ *
+ * Two of those were also table-ownership violations wearing a column: a
+ * `plugin_id` on `users` and on `routines` is provenance the PLUGIN service
+ * owns, sitting in tables it does not, which is why the write had to live in the
+ * users package. This table belongs to the plugin service, and it is the only
+ * answer to who contributed what.
+ *
+ * `detachedAt` replaces the `updated_by = 'plugin:<id>'` sentinel: a person
+ * edited this contribution, so a reinstall must not overwrite their version.
+ */
+export const pluginContributions = pgTable(
+	"plugin_contributions",
+	{
+		id: text("id").primaryKey(),
+		pluginId: text("plugin_id")
+			.notNull()
+			.references(() => plugins.id, { onDelete: "cascade" }),
+		/** Which table `entityId` points into. */
+		kind: text("kind").$type<PluginContributionKind>().notNull(),
+		/** The contributed row's primary key, in the table `kind` names. */
+		entityId: text("entity_id").notNull(),
+		/** Set when a person edited this contribution; a reinstall leaves their version alone. */
+		detachedAt: text("detached_at"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		// One plugin cannot contribute the same row twice, and reinstall is an
+		// upsert on this key.
+		uniqueIndex("plugin_contributions_plugin_kind_entity_uq").on(
+			table.pluginId,
+			table.kind,
+			table.entityId,
+		),
+		// "Everything this plugin contributed" — the lifecycle's only read.
+		index("plugin_contributions_plugin_idx").on(table.pluginId),
+		// "Which plugin owns this row" — the provenance badge's read.
+		index("plugin_contributions_entity_idx").on(table.kind, table.entityId),
+		check(
+			"plugin_contributions_kind_ck",
+			sql`${table.kind} IN ('agent', 'routine', 'knowledge', 'configuration_default')`,
+		),
+	],
+);
+
 export const configurationOverrides = pgTable(
 	"configuration_overrides",
 	{
@@ -1340,112 +1401,6 @@ export const inviteCodes = pgTable(
 	(table) => [uniqueIndex("invite_codes_code_uq").on(table.code)],
 );
 
-// --- AL7 trust-first: Proposed Calls + Tailored Grants + Operation Outcomes ---
-
-/**
- * Proposed Calls — irreversible tool calls captured during session 1, routed to
- * human review. The agent proposes; the human approves; the agent's own session
- * executes in session 2. HyperIdle executes nothing of its own (AC12).
- *
- * @lore AL7 trust-first: replaces staged_operations. Key differences:
- *   - toolId + args (verbatim captured call, not capabilityTool/operation/params)
- *   - originSessionId + identityHash UNIQUE — capture idempotency (WARNING-5.2)
- *   - status: captured | granted | executed | failed | held (not pending/executing)
- *   - No idempotencyKey (replaced by origin_session_id + identity_hash UNIQUE)
- *
- * @lore AL7 WARNING-5.2: UNIQUE constraint on (origin_session_id, identity_hash)
- * is a CONSTRAINT, not a plain index. The capture insert uses
- * ON CONFLICT (origin_session_id, identity_hash) DO NOTHING RETURNING *;
- * firstCapture = rows.length > 0. Only a UNIQUE enforces the dedup — a plain
- * index does not prevent duplicate rows.
- */
-export const proposedCalls = pgTable(
-	"proposed_calls",
-	{
-		id: text("id").primaryKey(),
-		// C1: THE review dispatch key.
-		reviewMessageId: text("review_message_id")
-			.notNull()
-			.references(() => messages.id, { onDelete: "restrict" }),
-		// Loader/index anchor ONLY — never the dispatch key.
-		subjectThreadId: text("subject_thread_id")
-			.notNull()
-			.references(() => threads.id, { onDelete: "restrict" }),
-		artifactId: text("artifact_id")
-			.notNull()
-			.references(() => artifacts.id, { onDelete: "restrict" }),
-		originSessionId: text("origin_session_id").notNull(),
-		toolId: text("tool_id").notNull(),
-		args: text("args").notNull(), // verbatim JSON captured args
-		identityHash: text("identity_hash").notNull(), // SHA-256 over canonical {toolId, args}; arg-pin convenience metadata
-		reversibility: text("reversibility").notNull(), // "irreversible" | "reversible"
-		// captured | granted | executed | failed | held
-		status: text("status").notNull().default("captured"),
-		stagedByAgentId: text("staged_by_agent_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [
-		index("proposed_calls_review_msg_idx").on(table.reviewMessageId, table.status),
-		index("proposed_calls_subject_idx").on(table.subjectThreadId),
-		index("proposed_calls_artifact_idx").on(table.artifactId),
-		// WARNING-5.2: MUST be a UNIQUE constraint, not a plain index.
-		// ON CONFLICT (origin_session_id, identity_hash) DO NOTHING RETURNING *
-		uniqueIndex("proposed_calls_capture_uq").on(table.originSessionId, table.identityHash),
-	],
-);
-
-/**
- * Tailored Grants — scoped permission composed on approve, consumed once by
- * session 2 via a single-statement CAS.
- *
- * @lore AL7 D2: separate table so the grant has its own lifecycle (compose at
- * approve, consume in session 2, re-mint on re-open). CAS consume:
- *   UPDATE tailored_grants SET consumed=true WHERE ... AND consumed=false RETURNING *
- * One non-null return = claimed; null = already consumed (no double-execute).
- *
- * @lore AL7 D3: retryCount is a liveness-net counter only (AC11b). It is NOT
- * a guard — the liveness net fires on crash/no-show, never on re-derivation.
- */
-export const tailoredGrants = pgTable(
-	"tailored_grants",
-	{
-		proposedCallId: text("proposed_call_id")
-			.primaryKey()
-			.references(() => proposedCalls.id, { onDelete: "restrict" }),
-		taskScope: text("task_scope").notNull(), // tasks.id
-		agentScope: text("agent_scope").notNull(), // agents.id — the same owner resuming
-		approvedToolId: text("approved_tool_id").notNull(),
-		approvedArgs: text("approved_args").notNull(), // JSON; recorded approved args (arg-pin uses these)
-		argPinned: boolean("arg_pinned").notNull().default(false),
-		identityHash: text("identity_hash"), // optional, for the arg-pin convenience
-		consumed: boolean("consumed").notNull().default(false),
-		retryCount: integer("retry_count").notNull().default(0), // liveness net (AC11b), not a guard
-		mintedAt: text("minted_at").notNull(),
-		consumedAt: text("consumed_at"),
-	},
-	(t) => [index("grant_match_idx").on(t.taskScope, t.agentScope, t.approvedToolId, t.consumed)],
-);
-
-/**
- * Operation Outcomes — immutable terminal result of one executed Proposed Call.
- *
- * @lore AL7 trust-first: proposedCallId IS the PK — enforces 0..1 per call
- * and immutability structurally. FK renamed from staged_operation_id.
- * receipt replaces payload (holds the tool's return identity string or JSON).
- */
-export const operationOutcomes = pgTable("operation_outcomes", {
-	// 0..1 per Proposed Call — PK enforces immutability.
-	proposedCallId: text("proposed_call_id")
-		.primaryKey()
-		.references(() => proposedCalls.id, { onDelete: "restrict" }),
-	status: text("status").notNull(), // "ok" | "failed"
-	receipt: text("receipt"), // tool return on ok (serialized)
-	error: text("error"), // surfaced verbatim on failed — never null+failed
-	executedAt: text("executed_at").notNull(),
-});
-
 // --- Inferred types ---
 
 // @lore U1 / AU44 B1: Team is the single domain entity — team_members dissolved into it.
@@ -1503,12 +1458,6 @@ export type NewLoginSession = typeof loginSessions.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
 
-export type ProposedCall = typeof proposedCalls.$inferSelect;
-
-export type TailoredGrant = typeof tailoredGrants.$inferSelect;
-
-export type OperationOutcome = typeof operationOutcomes.$inferSelect;
-
 // --- AN1: Service connections (per-user external tool connections) ---
 
 /**
@@ -1561,3 +1510,59 @@ export const serviceConnections = pgTable(
 
 export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
 export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
+
+// --- Action rules (scoped items for agent action approval) ---
+
+/**
+ * Action rules define which agent actions require human approval before
+ * an agent may take them.
+ *
+ * @lore BA2: The rule list is EMPTY on a fresh install — nothing interrupts
+ * an agent until a human adds a rule. Scope is global, team, or agent.
+ * Resolution at provisioning is by UNION: global rules + the agent's team's
+ * rules + that specific agent's rules. An empty result means no action is
+ * ever interrupted.
+ *
+ * @lore BA2 (ruling 20): No clearance table, no state machine, no risk tiers.
+ * The design is deliberately minimal: rules are plain scoped rows, resolution
+ * is a SQL union, and session-level enforcement happens in the hook layer.
+ *
+ * @lore BA2 (ruling 1): No rule is pre-loaded on a fresh install. An empty
+ * list is the correct, designed starting state — security is never preemptive.
+ */
+export const actionRules = pgTable(
+	"action_rules",
+	{
+		id: text("id").primaryKey(),
+		/**
+		 * A name or pattern identifying the action to gate, e.g. "git push",
+		 * "rm -rf", "deploy". Matched by our enforcement code at provisioning time, not by the harness's own hook config.
+		 */
+		pattern: text("pattern").notNull(),
+		/** Human-readable label shown in the settings surface. */
+		description: text("description").notNull(),
+		/** 'global' | 'team' | 'agent' */
+		scope: text("scope").notNull(),
+		/**
+		 * null when scope='global';
+		 * teams.id when scope='team';
+		 * users.id (agent row) when scope='agent'.
+		 *
+		 * No FK constraint — the rule stays if the team or agent is removed,
+		 * and the hook simply finds no matching entry when resolving.
+		 */
+		scopeId: text("scope_id"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		check("action_rules_scope_ck", sql`${table.scope} IN ('global', 'team', 'agent')`),
+		check(
+			"action_rules_scope_id_ck",
+			sql`(${table.scope} = 'global' AND ${table.scopeId} IS NULL) OR (${table.scope} IN ('team', 'agent') AND ${table.scopeId} IS NOT NULL)`,
+		),
+		index("action_rules_scope_idx").on(table.scope, table.scopeId),
+	],
+);
+
+export type ActionRuleRow = typeof actionRules.$inferSelect;
+export type NewActionRuleRow = typeof actionRules.$inferInsert;

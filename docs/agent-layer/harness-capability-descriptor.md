@@ -156,7 +156,7 @@ CLI binary → [HTTP POST /api/mcp/:token] → createMcpRoute → bridgeRegistry
 
 **Proven in tests:** `mcp-bridge-stateful.integration.test.ts` drives the production factory+route through init→list→call via the SDK `Client` + `StreamableHTTPClientTransport`; sanity-break: POST without `mcp-session-id` → 400/404.
 
-Per-CLI config delivery is listed under each family above. The staged-operation gate that rides this bridge (`registry.invoke`, never harness-native) is owned by [staged-operation](../process-layer/staged-operation.md).
+Per-CLI config delivery is listed under each family above. The gate that routes a consequential action to a human is being rebuilt; no document describes a live mechanism for it until it lands.
 
 ---
 
@@ -227,13 +227,6 @@ The `builtin` exemption is enforced in two independent places: the `select()` fi
 - Not backend-specific UI branching. UI controls render from option descriptors — no `harnessType` checks (ESLint-enforced, single `"builtin"` exception).
 - Not Strategy-owned. Descriptors are Kernel-governed; Strategy reads them but cannot mutate or install harness extensions.
 - Not a plugin marketplace. Extension trust policy is closed: first-party bundled and deployment-configured BYO only.
-
----
-
-## Research Basis
-
-- `plans/AM2/research/cli-harness-surface.md` — local CLI probe results: binary versions, auth behavior, launch commands, event format captures; Cursor absence confirmed.
-- `plans/AM2/research/t3code-source-map.md` — t3code source paths for provider/harness discovery, auth, launch, status/version, event handling, and UI metadata.
 
 ---
 

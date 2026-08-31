@@ -1,6 +1,5 @@
 // AE6 — Artifact primitive type definitions.
 // Reshaped from L3 (13 business-domain kinds) to AE6 (6 fundamental kinds + labels).
-// Source: plans/AE6/architecture.md §1.
 
 import { getKindDefinition } from "../kinds/registry.js";
 

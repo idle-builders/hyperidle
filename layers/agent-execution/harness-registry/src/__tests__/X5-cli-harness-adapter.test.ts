@@ -14,7 +14,7 @@
 
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
+import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
@@ -416,6 +416,100 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
 		expect(spawnEnv["DATABASE_URL"]).toBeUndefined();
 		delete process.env["DATABASE_URL"];
+	});
+});
+
+// ── resumeSession env construction ───────────────────────────────────────────
+//
+// Guards that envMap is resolved the same way in resumeSession as in
+// startSession. Codex has envMap: { OPENAI_API_KEY: "{{apiKey}}" };
+// opencode has ANTHROPIC_API_KEY. Before this fix, resumeSession passed
+// only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping envMap.
+// A deployment that resolves a real apiKey would resume with no credentials.
+
+describe("CliHarnessAdapter resumeSession — env construction", () => {
+	it("resolves envMap {{apiKey}} on resume the same way startSession does", async () => {
+		const spawnSpy = vi.fn();
+		// startSession spawn (call 0) and resumeSession spawn (call 1)
+		const fakeChild1 = makeFakeChild();
+		const fakeChild2 = makeFakeChild();
+		spawnSpy.mockReturnValueOnce(fakeChild1.proc).mockReturnValueOnce(fakeChild2.proc);
+
+		const adapter = new CliHarnessAdapter(
+			{
+				binary: "opencode",
+				// Minimal args — no templates that need a sandbox on disk.
+				args: ["run", "{{prompt}}", "--format", "json", "--pure"],
+				envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" },
+				eventFormat: "ndjson",
+				envAllowlist: [],
+			},
+			{ spawnFn: spawnSpy },
+		);
+
+		// startSession: apiKey flows through envMap → ANTHROPIC_API_KEY.
+		const startConfig = makeSessionConfig({
+			resolvedModel: {
+				provider: "anthropic",
+				model: "claude-haiku-4-5",
+				apiKey: "sk-ant-start-key",
+				baseUrl: "https://api.anthropic.com",
+			},
+		});
+		await adapter.startSession(startConfig);
+
+		const startEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
+		expect(startEnv["ANTHROPIC_API_KEY"]).toBe("sk-ant-start-key");
+
+		// resumeSession: same apiKey must be resolved from envMap.
+		const resumeConfig: SessionResumeConfig = {
+			sandboxPath: "/fake/sandbox",
+			modelTier: "workhorse",
+			resolvedModel: {
+				provider: "anthropic",
+				model: "claude-haiku-4-5",
+				apiKey: "sk-ant-resume-key",
+				baseUrl: "https://api.anthropic.com",
+			},
+		};
+		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);
+
+		const resumeEnv = spawnSpy.mock.calls[1]![2]?.env as Record<string, string>;
+		expect(resumeEnv["ANTHROPIC_API_KEY"]).toBe("sk-ant-resume-key");
+	});
+
+	it("mcpTokenEnv overrides envMap on resume (per-session specifics win)", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			{
+				binary: "opencode",
+				args: ["run", "{{prompt}}", "--format", "json", "--pure"],
+				envMap: { MY_TOKEN: "{{apiKey}}" },
+				eventFormat: "ndjson",
+				envAllowlist: [],
+			},
+			{ spawnFn: spawnSpy },
+		);
+
+		const resumeConfig: SessionResumeConfig = {
+			sandboxPath: "/fake/sandbox",
+			modelTier: "workhorse",
+			resolvedModel: {
+				provider: "anthropic",
+				model: "claude-haiku-4-5",
+				apiKey: "from-envmap",
+				baseUrl: "https://api.anthropic.com",
+			},
+			mcpTokenEnv: { MY_TOKEN: "from-mcpTokenEnv" },
+		};
+		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);
+
+		const resumeEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
+		// mcpTokenEnv wins over envMap.
+		expect(resumeEnv["MY_TOKEN"]).toBe("from-mcpTokenEnv");
 	});
 });
 

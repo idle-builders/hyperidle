@@ -84,7 +84,6 @@ interface ToolHandlersCreateTeamInput {
 	readonly id: string;
 	readonly name: string;
 	readonly phase: string;
-	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
 	/** The `teamMembers.id` for the companion row (1:1 invariant). */
@@ -364,7 +363,6 @@ interface ToolHandlersCoreApiAccessor {
 		teamMembersId: string | null,
 		trigger: "team_scaffold" | "agent_added" | "user_assistant",
 		teamName: string | null,
-		functions: readonly string[] | null,
 		role: string | null,
 		name: string | null,
 		ownerUserId: string | null,

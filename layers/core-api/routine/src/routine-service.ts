@@ -1,8 +1,7 @@
 /**
  * AU13: Routine service — the only module permitted to read or write
- * `routines`, `routine_runs`. Every write call site enumerated in
- * `.pipeline/plans/AU13.md` §4d-§4e, and every read call site enumerated in
- * the read-ownership addendum §A3, routes through one of these functions
+ * `routines`, `routine_runs`. Every write call site and every read call site
+ * routes through one of these functions
  * instead of a direct `insert`/`update`/`delete`/`select` against the table
  * objects.
  *
@@ -399,6 +398,26 @@ export interface RoutineRunResolverDeps {
 	 */
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
+	 * The agent's identity document body, baked onto the request so the
+	 * provisioner never reads `knowledge_items` — that table belongs to the
+	 * knowledge service. Injected (Mechanism C), absent where nothing bakes.
+	 */
+	/**
+	 * The agent's identity document, baked onto the request.
+	 *
+	 * Required, not optional: while it was optional, two of the call sites that
+	 * bake an assistant turn simply never wired it, compiled clean, and baked no
+	 * identity at all. A required port turns that into a compile error.
+	 */
+	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
+	/**
+	 * Read the body of the knowledge document carrying this routine's
+	 * instruction. Injected (Mechanism C) because `knowledge_items` belongs to
+	 * the knowledge service — this package depends only on `@hyperidle/db` and
+	 * framework packages. Absent at a call site that bakes no prompt.
+	 */
+	getKnowledgeBody?(db: HyperIdleDb, knowledgeItemId: string): Promise<string | null>;
+	/**
 	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/routine`'s `package.json`
 	 * depends only on `@hyperidle/db` + framework packages, never
@@ -518,6 +537,15 @@ export async function resolveRoutineRunRequest(
 	// Proven on the packaged app by the case that exposed it: an individual
 	// agent ran with an empty sandbox, no `.claude/skills` written, while
 	// factory-scoped skills sat in the database.
+	// Both the instruction and the agent's identity are knowledge documents;
+	// they reach this resolver through injected ports.
+	const agentPersona = await deps.getAgentIdentity(db, agent.id);
+	// The instruction is a knowledge document; read it through the injected port.
+	const routinePrompt =
+		routine.promptKnowledgeId && deps.getKnowledgeBody
+			? await deps.getKnowledgeBody(db, routine.promptKnowledgeId)
+			: null;
+
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionKnowledge } = deps;
 	if (assembleSessionKnowledge) {
@@ -531,7 +559,7 @@ export async function resolveRoutineRunRequest(
 			agentRole: agent.role,
 			// BA1 D3: the scorer ranks knowledge against the instruction the run
 			// will actually execute, not a description of the routine.
-			taskDescription: routine.prompt ?? routine.name,
+			taskDescription: routinePrompt ?? routine.name,
 			agentId: agent.id,
 		});
 		contextBundle = {
@@ -539,7 +567,7 @@ export async function resolveRoutineRunRequest(
 			routine: {
 				id: routine.id,
 				name: routine.name,
-				prompt: routine.prompt,
+				prompt: routinePrompt,
 				lastRunSummary: routine.lastRunSummary,
 			},
 			agent: { id: agent.id, name: agent.name, role: agent.role },
@@ -568,7 +596,7 @@ export async function resolveRoutineRunRequest(
 			...(teamId !== undefined ? { teamId } : {}),
 		},
 		...(contextBundle ? { contextBundle } : {}),
-		agentConfig: bakeAgentRunnableConfig(agent),
+		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }
@@ -578,18 +606,35 @@ export async function resolveRoutineRunRequest(
 // ---------------------------------------------------------------------------
 
 /**
- * Set the `active` flag on all routines belonging to a plugin.
- * Used by the plugin disable/enable lifecycle in the route layer.
+ * Set liveness on the named routines.
  *
- * @lore BA9d: the route cannot write the `routines` table directly
- * (governance boundary) — it calls this function instead.
+ * @lore BA9d: the route cannot write the `routines` table directly (governance
+ * boundary) — it calls this function instead.
+ *
+ * @lore BA9g: it took a `pluginId` and filtered on `routines.plugin_id`, the
+ * plugin service's provenance living in a table it does not own. The plugin
+ * service names the rows now.
+ *
+ * It also wrote `active` alone, leaving `state` behind — so a plugin-disabled
+ * routine read as `state='active'` while the scheduler skipped it. Both move
+ * together, the way the routine DELETE route already writes them. Reviving also
+ * clears `deletedAt`: a removed plugin's routines used to keep it forever, so a
+ * reinstall could never bring them back.
  */
-export async function setPluginRoutinesActive(
+export async function setRoutinesLive(
 	exec: WriteExecutor,
-	pluginId: string,
+	routineIds: readonly string[],
 	active: boolean,
 ): Promise<void> {
-	await exec.update(routines).set({ active }).where(eq(routines.pluginId, pluginId));
+	if (routineIds.length === 0) return;
+	await exec
+		.update(routines)
+		.set(
+			active
+				? { active: true, state: "active" as const, deletedAt: null }
+				: { active: false, state: "paused" as const },
+		)
+		.where(inArray(routines.id, [...routineIds]));
 }
 
 /**
@@ -603,13 +648,21 @@ export async function setPluginRoutinesActive(
  * @lore BA9d: the route cannot write the `routines` table directly
  * (governance boundary) — it calls this function instead.
  */
-export async function softDeletePluginRoutines(
+/**
+ * Soft-delete the named routines.
+ *
+ * @lore BA9g: `state` moves with `active` and `deletedAt`, matching the routine
+ * DELETE route. It used to write two of the three, leaving a soft-deleted
+ * routine reading as `state='active'`.
+ */
+export async function softDeleteRoutines(
 	exec: WriteExecutor,
-	pluginId: string,
+	routineIds: readonly string[],
 ): Promise<void> {
+	if (routineIds.length === 0) return;
 	const now = new Date().toISOString();
 	await exec
 		.update(routines)
-		.set({ active: false, deletedAt: now })
-		.where(eq(routines.pluginId, pluginId));
+		.set({ active: false, state: "paused" as const, deletedAt: now })
+		.where(inArray(routines.id, [...routineIds]));
 }

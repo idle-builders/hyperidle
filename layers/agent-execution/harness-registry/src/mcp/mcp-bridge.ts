@@ -127,7 +127,6 @@ export async function createMcpSession<TDb = unknown>(
 	// D1 (AL7 delta — STATEFUL): sessionIdGenerator assigns one mcp-session-id per
 	// per-session transport. Real CLI clients (codex, opencode, claude via .mcp.json) issue
 	// separate HTTP requests per session; stateless mode would throw on request 2.
-	// See R1-closure section in plans/AL7/architecture-codex-opencode.md.
 	const transport = new WebStandardStreamableHTTPServerTransport({
 		sessionIdGenerator: () => crypto.randomUUID(),
 	});

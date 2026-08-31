@@ -552,95 +552,12 @@ describe("SplitView ratio persistence", () => {
 // AC-3: Role template fetched on edit-open
 // ---------------------------------------------------------------------------
 
-describe("Role template fetched when editing an existing agent", () => {
-	beforeEach(() => {
-		mockShowToast.mockClear();
-	});
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it("fetches template for known role when editing an agent", async () => {
-		const fetchedTemplates: string[] = [];
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation((url: string) => {
-				const urlStr = String(url);
-				if (urlStr.includes("/api/agents/templates/")) {
-					const role = urlStr.split("/api/agents/templates/")[1] ?? "";
-					fetchedTemplates.push(decodeURIComponent(role));
-					return Promise.resolve({
-						ok: true,
-						status: 200,
-						json: async () => ({ role: "builder", content: "Build things." }),
-					});
-				}
-				if (urlStr.includes("/api/filesystems")) {
-					return Promise.resolve({
-						ok: true,
-						status: 200,
-						json: async () => ({ filesystems: [] }),
-					});
-				}
-				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-			}),
-		);
-
-		render(
-			<AgentEditor
-				agentId="agent-1"
-				draft={{ ...NORMAL_AGENT_DRAFT, role: "builder" }}
-				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
-				onSave={vi.fn()}
-				onCancel={vi.fn()}
-				saving={false}
-				error={null}
-				fetchTemplateOnMount
-			/>,
-		);
-
-		await waitFor(() => expect(fetchedTemplates).toContain("builder"));
-	});
-
-	it("404 template (custom role) does not crash the editor", async () => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockImplementation((url: string) => {
-				if (String(url).includes("/api/agents/templates/")) {
-					return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-				}
-				if (String(url).includes("/api/filesystems")) {
-					return Promise.resolve({
-						ok: true,
-						status: 200,
-						json: async () => ({ filesystems: [] }),
-					});
-				}
-				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
-			}),
-		);
-
-		render(
-			<AgentEditor
-				agentId="agent-1"
-				draft={{ ...NORMAL_AGENT_DRAFT, role: "custom-role-xyz" }}
-				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
-				onSave={vi.fn()}
-				onCancel={vi.fn()}
-				saving={false}
-				error={null}
-				fetchTemplateOnMount
-			/>,
-		);
-
-		// Should not crash — role field should still render
-		await waitFor(() => {
-			expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
-		});
-	});
-});
+// @lore BA9g: this block covered the editor prefilling a new agent's identity
+// from `GET /api/agents/templates/:role`. That route, the files behind it and
+// the prefill are all gone — the personas are the `role-personas` plugin's, and
+// HyperIdle holds no built-in idea of what a "builder" is. A new agent starts
+// with an empty identity; a plugin's agent brings its own
+// (`BA9g-plugin-agent-identity.integration.test.ts`).
 
 describe("AgentEditor — model options", () => {
 	function renderWith(draft: AgentEditorDraft, onDraftChange = vi.fn()): typeof onDraftChange {

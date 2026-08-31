@@ -1,65 +1,100 @@
 # AU21 — Seam the core-api ↔ agent-orchestration boundary; resolve agent-to-core coupling against it
 
-## Work package
+**Status: not done.** Increments 0–13 have landed and CI is green; Increment 14 (Decision L) remains.
 
-**Work package.** *(Redirected 2026-07-17 — see `requirements.md` for the founder's full input and reasoning; this section reflects the redirected scope.)* As a maintainer continuing the simplification AU19 started, I want the `core-api ↔ agent-orchestration` boundary to stop being the one Layer boundary in the system without a location-transparent seam. Three of the four boundaries already have one: `core-ui → core-api` (type-only RPC client), `agent-orchestration → agent-execution` (the `HarnessPort` seam — one Application-injected interface, in-process today, remote-capable without a Service rewrite), and `core-api → agent-orchestration` against-grain (EventBus or a named permanent exception, never raw DI). `agent-orchestration → core-api` alone is still 45 Service-pair edges of ordinary, ungoverned downward DI (112 individually-challenged capabilities: 49 JUSTIFIED / 52 QUESTIONABLE / 11 UNJUSTIFIED). This WP builds that boundary's seam, makes the **clean loop** real in code (core-api emits an event with everything orchestration needs → orchestration builds + deploys the session → execution runs it → any write back to core goes through the same door `core-ui` uses, never a raw Service import), and then judges every one of the 63 non-cleanly-justified edges against that seam rule rather than against case-by-case justification alone.
+## What we need
 
-**Why this matters.** The founder's own read of the AU19 graph named the actual asymmetry precisely: `core-api → agent-orchestration` stays disciplined because it has a structural forcing function (Mechanism C makes a direct import fail to compile; only the EventBus or a founder-argued permanent exception can cross that direction) — but `agent-orchestration → core-api` has no equivalent pressure. It's "legal" downward DI, so nothing stops any orchestration Service from wiring up to as many core-api Services as it wants, and nothing forces anyone to ask whether each wire is earning its keep. The 2026-07-17 redirect sharpens *why* that's not good enough: legality isn't legitimacy, and re-justifying 63 edges one at a time doesn't stop the next 63 from accumulating the same way. The fix is structural, not case-by-case — give this direction the same seam discipline the other three boundaries already have (proven out concretely by `HarnessPort`), then re-run the AU19 adversarial-challenge method against that seam rule. Concretely, the busiest of the 45 edges are `tool-handlers`, `dispatch`, and `session-requests` (23 of 45 between them) — `tool-handlers` in particular is where an agent's MCP tool call (e.g. `create_bet`, `send_message`) reaches straight into a `core-api` Service via a raw DI port instead of the same door `core-ui` uses for the identical action. That's the concrete case the founder means by "goes via MCP API back to core, just like the user would."
+`agent-orchestration → core-api` is the one Layer boundary in the system without a location-transparent
+seam. The other three have one: `core-ui → core-api` (type-only RPC client), `agent-orchestration →
+agent-execution` (`HarnessPort` — one Application-injected interface, in-process today, remote-capable
+without a Service rewrite), and `core-api → agent-orchestration` against-grain (EventBus, or a named
+permanent exception, never raw DI), which stays disciplined because a direct import fails to compile.
+Downward, nothing pushes back: it is ordinary legal DI, so any orchestration Service can wire itself to
+as many core-api Services as it likes and nobody has to ask whether the wire earns its keep — 45
+Service-pair edges and 112 individually-challenged capabilities (49 justified / 52 questionable / 11
+unjustified) at the start of this work. Legality is not legitimacy, and re-justifying edges one at a time
+does not stop the next batch accumulating the same way. The fix is structural: give this direction the
+same seam discipline, make the **clean loop** real in code, then judge every edge against the seam rule —
+so the standing question becomes "does this go through the seam, ride the event payload, or meet the
+permanent-exception bar?" rather than "is this edge individually justified?"
 
-**Type.** backend.
+Done means: the seam exists and is the default way to cross; the clean loop runs end to end for
+core-initiated agent work; every non-cleanly-justified edge has a disposition that survives the same
+adversarial challenge the first pass applied; the dependency-graph baseline is regenerated with a
+distinct edge type for seam calls versus raw DI; AU19's five permanent against-grain DI ports and three
+EventBus inversions are not silently reopened; and a documented practice keeps the reduction from
+regrowing. **Decision L (founder, 2026-08-03) raised the bar to genuinely zero:** *"as long as there is
+any exception I don't think AU21 is done."* No allowlist, no stateless-provider or method carve-out; the
+only shape that stays legal is the running agent acting like a user through the `CoreApiPort` seam, which
+is not an orchestration decision-read.
 
-**What exists today.** `plans/AU19/as-is-dependency-graph.md` (the full corrected edge list, including the "Why 5 of 8 against-grain edges are permanent" reasoning table) and `plans/AU19/dependency-graph-data.json` (the machine-readable, mechanically-extracted version, 139 DI edges + 34 EventBus edges, zero unresolved) are both current and trustworthy — re-verified by running `scripts/generate-dependency-graph.ts` fresh on 2026-07-17, byte-identical output. **Caveat found by `/refine-critique` round 1, confirmed by direct search — do not treat as settled:** the 112-capability adversarial-challenge run's actual per-edge verdicts (JUSTIFIED/QUESTIONABLE/UNJUSTIFIED) and written reasoning are *not* present in any committed file under `plans/AU19/` — `as-is-dependency-graph.md` only references them as living in "the workflow transcript," which this search could not locate committed anywhere. The structural graph is solid; the disposition worklist's provenance is not yet verified. See `requirements.md`'s "Worklist provenance" section — this is a blocking open question for `/architecture`, not yet resolved. One confirmed phantom edge (`session-requests → settings`, present in an earlier hand-derived catalog, absent from real code) was already caught and needs its removal confirmed in all downstream docs.
+No product behavior changes except where a named verified bug is fixed or confirmed-dead capability
+removed; every removed edge must have its need served some other way, proven by tests. The seam must not
+force a network hop where none exists — `desktop` keeps all four Layers in one process, so the seam is a
+typed interface plus an Application-time wiring choice. Out of scope: the per-Service exposed-API audit
+(AU20); reopening AU19's own rulings; redesigning `HarnessPort`; a per-agent authorization layer over the
+now-unified write door; any UI-facing change.
 
-**What's genuinely missing.** A named seam for `core-api ↔ agent-orchestration`, modeled on `HarnessPort`: a small typed API surface, wired by the Application, that today's colocated topologies satisfy in-process and a future split topology could satisfy remotely without a Service-level rewrite. For each of the 63 non-cleanly-justified edges (11 UNJUSTIFIED + 52 QUESTIONABLE): a disposition judged against that seam — served through it, served by a richer event payload at the point the triggering fact is first known, merged as a duplicate call, or (rarely) a named permanent exception meeting the same same-transaction/synchronous-branch bar AU19's 5 permanent ports already established. Also missing: a standing practice for evaluating a *new* orchestration→core-api edge going forward — "does this go through the seam, ride the event payload, or meet the permanent-exception bar" — replacing "is this edge individually justified" as the only question asked.
+## How it works
 
-**Depends on.**
-- **AU19** — needs the real Service boundaries, the mechanical extraction script, and the 112-capability adversarial audit's findings this WP directly resolves.
+**The clean loop.** A core-api Service that needs an agent validates its own state and resolves the run
+*at emit time* — agent identity and correlation, with the `ast-<userId>` assistant agent validated as a
+real runnable AI rather than the human sender — and enqueues a fully baked request through the
+against-grain `AgentWorkIntentRecorder` port. Orchestration claims and writes only its own dedup rows,
+dispatches the baked request as given, and builds and deploys the session via `HarnessPort`. Execution
+runs it. The running agent pulls current reality live over MCP through `CoreApiPort`, adjusting or
+reporting the request stale if reality contradicts its instructions, and any write back to core-owned
+data goes through the same route and middleware `core-ui` uses.
 
-**Complexity.** L — likely reassessed upward by `/architecture` once the seam's actual shape is designed; building a new seam type is a different (and probably larger) unit of work than disposing of 63 pre-enumerated edges alone. Flagged, not resolved, at refine.
+The hard rule that falls out: **any orchestration read of core-api domain state to make its own decision
+is a defect.** Only four shapes are legal — core bakes at emit; orchestration acts on its own state plus
+the baked request; the agent reads live through the seam like a user; a failure is reported by event and
+the re-decision belongs to core.
 
-**Engineering tier.** production — matches the repo default forecast (HyperIdle: core platform shipped, actively developed); this WP tightens a live architectural boundary in a shipped system, not prototype exploration. `pipeline.config.yml` has no `engineering.tier` key yet (the tier field is unreleased in this repo), so this is the maintainer's explicit call for this WP rather than an inherited default — confirm/override before build if the tier feature lands with a different repo-wide default in the meantime.
+**Failures come back on two explicit channels.** Pre-handoff — bad payload, max attempts, provisioning
+failure, target agent not runnable — emits `agent_run_admission_failed`, and core-api Services finalize
+their own state and decide retry or abandon. Post-session failures ride the existing `session_ended` /
+`agent_run_lifecycle_changed`. Retry means core re-validates and pushes a fresh baked request; nowhere
+does orchestration ask core a question.
 
-**Pre-build gates.**
-- **Refinement:** Done — this redirect *is* the refinement; a new architectural principle (location-transparent seam, the clean loop) is being pinned. See `requirements.md`.
-- **Design:** Not required — backend refactor, no UI surface.
+**Facts that change while work is outstanding are pushed, never pulled.** Core re-emits the request; from
+its own state orchestration either supersedes a not-yet-started request (freshest payload wins) or
+delivers on the next turn as a follow-up session. Realtime works the same way: core pushes the changed
+record and the client never re-reads. A value baked at emit that is stale by one already-authorized run
+is accepted — orchestration acts only on what core sent, and core stops sending when it wants to stop.
 
-**Human review gates.** Yes — mandatory for every work package under the current plugin: the requirement gate (Phase 3) after `/refine-critique`, the concept gate (Phase 6, design + architecture) after the critiques, and the final review (Phase 10) before ship all still run. Forecast is low-friction: internal refactor, behavior changes only where fixing a genuine bug or removing genuinely-dead capability.
+**The mechanical graph was blind** to reads reaching core through composition bundles rather than declared
+ports: a scanner folded into the graph generator and the anti-regrowth guard found 37 real edges where the
+graph saw 15. The guard classifies edges by kind, not purpose, so a decision-read riding the `CoreApiPort`
+seam can still hide from it — an accepted limitation.
 
-**Plan calls.** This WP's method is already proven — reuse the exact two-phase workflow AU19 used (explain each edge from real code, independently challenge it, default to skepticism) rather than inventing a new process. **Correction (post `/refine-critique`):** whether this WP "starts from disposition, not discovery" depends on locating the original 112-capability challenge transcript first (see "What exists today" caveat above) — `/architecture` must resolve that before assuming the worklist is a known input; if the transcript can't be found, re-running the adversarial challenge is itself the first task, not assumed prior art. Cross-reference AU20 explicitly where a finding is shared (`log_task`, the duplicate-read cases) rather than fixing the same thing twice under two different work packages.
+Three durable rulings from the same pass. **Cost was never a real enforcement boundary** — the spend
+ceiling lives at the upstream LLM account and HyperIdle's cap gate was lightweight informational
+accounting, so blowing past a locally tracked cap is harmless; it is deleted outright, and every prior
+note calling its allowlist rows "founder-signed" was wrong. **`model-gateway` is a pure function, not a
+Service** — zero tables, types already in `@hyperidle/shared`. **`routeItem` is vestigial** — nothing
+reads the `view` it returns and core already abandoned item routing, so deleting it completes that
+removal rather than fulfilling the still-documented F-6.1 requirement.
 
-**Contracts / constraints.**
-- No product behavior change except where fixing a named, verified bug or removing a confirmed-dead/duplicate capability.
-- The 5 permanent against-grain rulings and 3 EventBus inversions from AU19 stand as decided — this WP does not reopen them without new evidence of the same rigor that closed them.
-- Every edge removal must have its genuine capability need served correctly some other way, verified by the test suite, not simply deleted and left broken.
-- `core-api → agent-orchestration` stays EventBus-only (plus the 5 named, evidenced permanent exceptions) — no new direct DI edge in that direction without the same same-transaction/synchronous-read test AU19 established.
-- The new `core-api ↔ agent-orchestration` seam must not force a network hop where none exists today — `desktop` keeps all four Layers in one process; the seam is a typed interface + an Application-time wiring choice (the `HarnessPort` pattern), not a mandate to add HTTP/serialization where a function call already suffices.
-- Every edge this WP disposes of via the seam or an event-payload change must be judged against the rule in `requirements.md`'s "the clean loop" noun — served by the seam, served by event data, or a named permanent exception meeting AU19's same-transaction/synchronous-branch bar. No new bare Service-to-Service DI port in this direction.
+## How we work on this
 
-**Out of scope.**
-- The per-method / per-Service exposed-API audit (AU20's job) — this WP is about the cross-Service *edges*, not a Service's internal method count.
-- Reopening AU19's own 5 permanent-DI / 3 EventBus rulings — those are settled, evidence-backed decisions, not part of this WP's worklist.
-- Redesigning `agent-orchestration ↔ agent-execution`'s `HarnessPort` seam — already meets the bar; used here only as the reference precedent.
-- Building a new authorization layer for agent-initiated core writes that now route through the seam — a natural follow-up once the write-back door is unified with the UI's, but tracking/enforcing per-agent permissions on that door is separate scope.
-- Any UI-facing change — pure backend edge reduction plus the new seam.
+Each increment is an independently shippable cycle — tests red, code green, review, verify, clean commit
+— with a fresh agent and `main` green between them. Increments 0–13 landed the seam and its contract-test
+harness, `tool-handlers` and `dispatch` routed through it, resolve-at-emit with the drain collapsed to
+claim-and-dispatch, the routine collapse and dispatch untangle, the realtime relocation of session
+streaming, and the anti-regrowth guard promoted to a hard lint failure.
 
-**Effort.** L (~4-6d as originally scoped) — the redirect likely pushes this past the original estimate once `/architecture` designs the seam itself (a new piece of infrastructure, not just edge disposition); reassess after architecture, don't hold the original number as a ceiling.
+Increment 14 remains, in five sub-increments. **14a** hard-delete cost repo-wide, including a migration
+dropping every cost column — done when a case-insensitive repo-wide grep returns no domain-meaningful
+hits, every survivor individually justified with the founder. **14b** move `resolveModel` into
+`@hyperidle/shared` and dissolve `model-gateway`. **14c** delete `route_item`, the `create_item` `view`
+output, `item-router.ts` and the eval scenario, and reconcile the stale F-6.1 docs.
+**14d** retire the generic `BROADCAST_ROUTES` forwarder, keep the WS transport the session stream needs,
+re-home each domain's signal as a push of the changed record. **14e** delete the exemption apparatus so
+the guard fails on any orchestration→core edge that is not an agent-as-user seam call, and re-baseline.
 
-## Acceptance criteria
-
-*(Redirected 2026-07-17 — supersedes the original edge-disposition-only ACs; see `requirements.md`'s AC alignment table for the mapping.)*
-
-- A location-transparent seam exists for `core-api ↔ agent-orchestration` — one small, named, typed API surface, Application-wired, working in-process today and remote-capable without a Service-level rewrite (modeled directly on the proven `HarnessPort` pattern) — replacing ad hoc per-Service DI ports as the default way to cross this boundary.
-- The clean loop is real in code, end to end, for core-initiated agent work: `core-api` emits one event carrying everything `agent-orchestration` needs (no synchronous read-back to fill gaps), `agent-orchestration` alone builds and deploys the resulting session, `agent-execution` alone runs it, and any resulting write to core-owned data goes back through the same seam/API `core-ui` uses — never a direct Service import from `tool-handlers` or any other orchestration Service into a `core-api` Service.
-- Every one of the 63 non-cleanly-justified edges (11 UNJUSTIFIED + 52 QUESTIONABLE) gets a disposition judged against the seam rule above — served through the seam, served by richer event data, merged/removed as a duplicate, or re-classified as a named permanent exception meeting AU19's same-transaction/synchronous-branch bar — with reasoning that survives the same adversarial challenge the first pass applied.
-- The confirmed-phantom `session-requests → settings` edge is verified absent from every document and data artifact that might still reference it.
-- `scripts/generate-dependency-graph.ts` is re-run at the end; its new baseline (including a distinct edge-type for "goes through the seam" vs. "raw DI") becomes the documented baseline in `plans/AU19/as-is-dependency-graph.md`, replacing the 139/8/34 figures.
-- The 5 permanent against-grain DI ports and 3 EventBus inversions AU19 already ruled on are **not** silently reopened by this WP.
-- A concrete, documented practice exists (in `plans/AU19/architecture.md` or a successor doc) for evaluating a *new* orchestration→core-api edge going forward against the seam rule, so the reduction doesn't silently regrow.
-
-## Validation scenarios
-
-- Given a core-api action that needs an agent (e.g. a routine firing, a task assigned to an agent), when it runs, then it emits exactly one event carrying every field `agent-orchestration` needs, and orchestration performs zero synchronous reads back into `core-api` Services to fill in what the event omitted.
-- Given an agent's MCP tool call changes core data (e.g. `create_bet`, `send_message`), when the call completes, then the write reached `core-api` through the same seam/API `core-ui` uses for the equivalent human action — not a direct `tool-handlers → core-api` Service import.
-- Given an UNJUSTIFIED or QUESTIONABLE edge is removed, when `scripts/generate-dependency-graph.ts` is re-run, then it no longer appears as a raw DI edge, and the capability it used to serve is confirmed still correctly available another way (test coverage proves this, not assertion).
-- Given an edge is kept as a named permanent exception, when the same adversarial-challenge method is reapplied, then the new justification survives it (documented, not just asserted) and meets the same-transaction/synchronous-branch bar.
-- Given the full existing test suite, when re-run after every fix in this WP, then it passes unchanged except for tests newly added to cover a fixed bug.
+Named follow-ups, deliberately not folded in: true mid-run injection into a live harness session (blocked
+— CLI adapters spawn with stdin closed by design); the cross-layer settings reorg, dependent on
+`AgentOrchestrationPort` and needing its own design pass; MCP tool-call *response* streaming, parked
+undecided; resumable harness sessions, which do not exist yet; and rebuilding lightweight cost accounting
+from scratch, if it is ever wanted.

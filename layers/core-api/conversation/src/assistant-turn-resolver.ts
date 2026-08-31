@@ -34,6 +34,19 @@ import { findMessage, listMessages } from "./conversation-store.js";
 export interface AssistantTurnResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
+	 * The agent's identity document body, baked onto the request so the
+	 * provisioner never reads `knowledge_items` — that table belongs to the
+	 * knowledge service. Injected (Mechanism C).
+	 */
+	/**
+	 * The agent's identity document, baked onto the request.
+	 *
+	 * Required, not optional: while it was optional, two of the call sites that
+	 * bake an assistant turn simply never wired it, compiled clean, and baked no
+	 * identity at all. A required port turns that into a compile error.
+	 */
+	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
+	/**
 	 * `@hyperidle/settings`'s `readServerConfig`, injected (Mechanism C —
 	 * `@hyperidle/conversation` cannot import `@hyperidle/settings` directly)
 	 * for the `harnessDisabled` bake.
@@ -128,6 +141,9 @@ export async function resolveAssistantTurnRequest(
 		type: row.type,
 	}));
 	const { harnessDisabled } = await deps.readServerConfig(db);
+	// The agent's identity is a knowledge document bound to it; read through the
+	// injected port and baked so the provisioner never touches knowledge.
+	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 	return {
 		defaultAgentId: targetAgentId,
 		sourceKind: "assistant",
@@ -142,7 +158,7 @@ export async function resolveAssistantTurnRequest(
 		},
 		transcript,
 		callingThreadId: message.threadId,
-		agentConfig: bakeAgentRunnableConfig(agent),
+		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 		harnessDisabled,
 	};
 }

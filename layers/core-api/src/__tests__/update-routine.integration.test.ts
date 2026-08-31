@@ -8,7 +8,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { routines, tasks, teams, users } from "@hyperidle/db";
+import { knowledgeItems, routines, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -147,8 +147,8 @@ describe("update_routine tool", () => {
 				routineId,
 				updates: {
 					name: "Updated Name",
-					state: "paused",
 					prompt: "New prompt",
+					state: "paused",
 				},
 			},
 			makeContext(db),
@@ -158,7 +158,13 @@ describe("update_routine tool", () => {
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		expect(row!.name).toBe("Updated Name");
 		expect(row!.state).toBe("paused");
-		expect(row!.prompt).toBe("New prompt");
+		// The prompt lives in a knowledge document now; the tool writes through to it.
+		const [promptDoc] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, String(row!.promptKnowledgeId)))
+			.limit(1);
+		expect(promptDoc?.body).toBe("New prompt");
 	});
 
 	test("returns ok({ routineId, name, state })", async ({ db, app }) => {

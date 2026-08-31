@@ -9,7 +9,6 @@
  *  - Role field is `RoleCombobox` (catalog + custom free-text, NOT a closed Select).
  *  - Model select comes from `modelOptionsForHarness(selectedDescriptor)` — DISCOVERED
  *    models only, never MODEL_CATALOG. Empty discovered list → affordance text.
- *  - `fetchTemplateOnMount` prop: when true, fetches the template for the initial role
  *    on mount (used when editing an existing agent whose prompt was auto-filled).
  *  - Props are fully controlled: parent owns draft + sets it on changes.
  *
@@ -30,11 +29,11 @@
 
 // hearth-internal-padding
 
-import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
+import { roleLabel } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import { type JSX, useEffect, useRef } from "react";
+import type { JSX } from "react";
+import { Link as RRLink } from "react-router-dom";
 import { Button, Input, RoleCombobox, SectionLabel, Select, Toggle } from "../ds";
-import { apiFetch } from "../services/api-fetch.js";
 import {
 	declaredOptionsFor,
 	defaultChoiceLabel,
@@ -72,7 +71,7 @@ export interface AgentEditorDraft {
 }
 
 export interface AgentEditorProps {
-	/** The agent id being edited. ast-* → assistant route; others → /api/agents/:id */
+	/** The agent id being edited. Every agent, assistants included, uses /api/agents/:id. */
 	agentId: string;
 	/** Controlled draft state. */
 	draft: AgentEditorDraft;
@@ -92,26 +91,46 @@ export interface AgentEditorProps {
 	/** Inline error (from 422 or save failure). */
 	error: string | null;
 	/**
-	 * When true, fetches the role template on mount and pre-fills systemPrompt
-	 * if empty. Used when editing an existing agent (role template for prompt hint).
-	 */
-	fetchTemplateOnMount?: boolean;
-	/**
 	 * AO1: the team's registered filesystems — pool for the per-bot injection control.
 	 * Absent → the filesystem control is not rendered.
 	 */
 	filesystems?: InjectableFilesystem[];
+	/**
+	 * The agent's identity document, when it has one. Present → the editor links
+	 * to it instead of offering a prompt box: the identity is knowledge, edited
+	 * where knowledge is edited. Absent (creating an agent) → the box seeds it.
+	 */
+	identityKnowledgeId?: string | null;
+	/**
+	 * The roles agents actually have — what the picker offers.
+	 *
+	 * @lore BA9g: a role is data, not a fixed list. Typing one the list does not
+	 * have introduces it.
+	 */
+	rolesInUse?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ROLE_OPTIONS = AGENT_ROLE_CATALOG.map((e) => ({
-	role: e.role,
-	label: e.label,
-	description: e.description,
-}));
+/**
+ * The roles on offer: the ones agents actually have.
+ *
+ * @lore BA9g: this was `AGENT_ROLE_CATALOG.map(...)` — 17 roles the product had
+ * opinions about, offered whether or not any agent had them, while a role a
+ * plugin or a person introduced was never offered back. A role is data now, so
+ * the options are whatever is in use, and typing a new one introduces it.
+ */
+function roleOptions(rolesInUse: readonly string[]): ReadonlyArray<{
+	role: string;
+	label: string;
+}> {
+	return [...new Set(rolesInUse)]
+		.filter((role) => role.length > 0)
+		.sort()
+		.map((role) => ({ role, label: roleLabel(role) }));
+}
 
 /** AO1: human label for a filesystem source — the easy-to-detect mark text. */
 function fsSourceLabel(source: string): string {
@@ -145,8 +164,9 @@ export function AgentEditor({
 	onCancel,
 	saving,
 	error,
-	fetchTemplateOnMount,
 	filesystems,
+	identityKnowledgeId,
+	rolesInUse,
 }: AgentEditorProps): JSX.Element {
 	// Find the selected harness descriptor
 	const selectedDescriptor = harnesses.find((h) => h.type === draft.harnessType);
@@ -164,37 +184,12 @@ export function AgentEditor({
 	];
 
 	// Template fetch on mount
-	const templateFetchRef = useRef<AbortController | null>(null);
 
-	useEffect(() => {
-		if (!fetchTemplateOnMount) return;
-		const controller = new AbortController();
-		templateFetchRef.current = controller;
-		void (async () => {
-			try {
-				const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(draft.role)}`, {
-					signal: controller.signal,
-				});
-				if (!res.ok) return;
-				const json = (await res.json()) as { role: string; content: string };
-				onDraftChange((prev) => ({
-					...prev,
-					systemPrompt: prev.systemPrompt || json.content,
-				}));
-			} catch (err) {
-				if (err instanceof Error && err.name === "AbortError") return;
-				// 404 (custom role with no template) → no-op, editor stays usable
-			} finally {
-				if (templateFetchRef.current === controller) {
-					templateFetchRef.current = null;
-				}
-			}
-		})();
-		return () => {
-			controller.abort();
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [onDraftChange, fetchTemplateOnMount, draft.role]);
+	// @lore BA9g: the editor used to prefill a new agent's identity from
+	// `GET /api/agents/templates/:role`. That route and the files behind it are
+	// gone — the personas are the `role-personas` plugin's, and HyperIdle holds
+	// no built-in idea of what a "builder" is. A new agent starts with an empty
+	// identity you write, or a plugin's agent brings its own.
 
 	const isAssistant = agentId.startsWith("ast-");
 
@@ -221,7 +216,7 @@ export function AgentEditor({
 				<div className="flex-1 min-w-[140px]">
 					<RoleCombobox
 						id={`edit-role-${agentId}`}
-						options={ROLE_OPTIONS}
+						options={roleOptions(rolesInUse ?? [draft.role])}
 						value={draft.role}
 						disabled={isAssistant} // assistant role is immutable
 						onChange={(newRole) => {
@@ -397,21 +392,36 @@ export function AgentEditor({
 				</div>
 			)}
 
-			{/* System prompt */}
-			<Input
-				id={`edit-system-prompt-${agentId}`}
-				label="System prompt"
-				textarea
-				rows={8}
-				value={draft.systemPrompt}
-				onChange={(e) =>
-					onDraftChange((prev) => ({
-						...prev,
-						systemPrompt: e.target.value,
-					}))
-				}
-				placeholder="System prompt text (optional). Leave empty for no persona."
-			/>
+			{/* Who the agent is. An existing agent's identity is a knowledge
+			    document, so the editor sends you there rather than keeping a second
+			    copy of the same text behind a different Save button. */}
+			{identityKnowledgeId ? (
+				<div className="flex flex-col gap-[6px]">
+					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Identity</span>
+					<RRLink
+						to={`/knowledge/${identityKnowledgeId}`}
+						data-testid={`edit-identity-link-${agentId}`}
+						className="type-metadata  text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+					>
+						Edit identity document
+					</RRLink>
+				</div>
+			) : (
+				<Input
+					id={`edit-system-prompt-${agentId}`}
+					label="Identity"
+					textarea
+					rows={8}
+					value={draft.systemPrompt}
+					onChange={(e) =>
+						onDraftChange((prev) => ({
+							...prev,
+							systemPrompt: e.target.value,
+						}))
+					}
+					placeholder="Who this agent is (optional). Becomes its identity document."
+				/>
+			)}
 
 			{/* Filesystem injection — only when registry provided */}
 			{filesystems && filesystems.length > 0 && (

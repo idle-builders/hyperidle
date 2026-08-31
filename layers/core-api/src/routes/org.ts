@@ -16,6 +16,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
+import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import {
 	createTeam,
 	deleteOrgEdge,
@@ -275,6 +276,7 @@ export function createOrgRoutes(
 			{
 				getUserById: (db2, id) => findUser(db2, { id }),
 				insertUser,
+				upsertAgentIdentity,
 				// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
 				// @hyperidle/run-orchestration import (crossing-di) — now the
 				// seam-backed adapter.
@@ -298,7 +300,6 @@ export function createOrgRoutes(
 		const resolved = resolveAgentScaffoldSpecs({
 			trigger: body.trigger,
 			teamName: body.teamName,
-			functions: body.functions,
 			role: body.role,
 			name: body.name,
 			ownerUserId: body.ownerUserId,
@@ -313,6 +314,7 @@ export function createOrgRoutes(
 			{
 				getUserById: (db2, id) => findUser(db2, { id }),
 				insertUser,
+				upsertAgentIdentity,
 				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
 			},
 			body.teamMembersId,

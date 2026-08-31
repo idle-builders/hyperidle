@@ -12,6 +12,22 @@ export type ConfigurationKind = (typeof CONFIGURATION_KINDS)[number];
 export const PLUGIN_STATES = ["enabled", "disabled", "removed"] as const;
 export type PluginState = "enabled" | "disabled" | "removed";
 
+/**
+ * The kinds of thing a plugin can contribute, and the table each points into.
+ *
+ * `agent` → `users`, `routine` → `routines`, `knowledge` → `knowledge_items`
+ * (skills, rules, agent files and routine prompts alike — BA9f made them all
+ * knowledge documents, so one kind covers them), `configuration_default` →
+ * `plugin_configuration_defaults`.
+ */
+export const PLUGIN_CONTRIBUTION_KINDS = [
+	"agent",
+	"routine",
+	"knowledge",
+	"configuration_default",
+] as const;
+export type PluginContributionKind = (typeof PLUGIN_CONTRIBUTION_KINDS)[number];
+
 export const PLUGIN_SCOPE_KINDS = ["factory", "team"] as const;
 export type PluginScopeKind = (typeof PLUGIN_SCOPE_KINDS)[number];
 

@@ -23,6 +23,7 @@ import {
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
+	type WriteExecutor,
 } from "@hyperidle/db";
 
 import {
@@ -281,7 +282,7 @@ export async function create(
 	// EventBus emit (live subscribers: ws-broadcaster, observability
 	// dispatcher); non-HTTP callers (tools/writeback) never emitted on the bus
 	// before this WP and continue not to — emitting here would be a NEW event for
-	// them, a behavior change the WP forbids. See plans/AU14/architecture.md §4.
+	// them, a behavior change the WP forbids.
 	const [created] = await db
 		.select()
 		.from(knowledgeItems)
@@ -589,6 +590,35 @@ async function listBase(
  * @lore AU20 K1-reads: the three delegate functions (findById, findDetailById,
  * findKnowledgeItemProjectionById) are deleted — logic is inlined into each case.
  */
+/**
+ * What a viewer may see: everything except another person's private notes.
+ *
+ * `scope_kind='user'` says the document belongs to the subject in `scope_id`.
+ * That is two different things depending on the document's ROLE. An `ordinary`
+ * user-scoped document is a person's private note. A capability document —
+ * `agent_file`, `skill`, `rule` — with the same scope is a BINDING: it says
+ * which agent this identity, skill or rule applies to. A binding is ordinary
+ * team knowledge that happens to name its agent, not a secret.
+ *
+ * @lore BA9f: an agent's identity became a `scope_kind='user'` document bound to
+ * the agent. Spelled as "user scope is private, full stop", every one of those
+ * was invisible to everyone — including through the single knowledge edit
+ * endpoint that is now the only place to edit them. Proven by driving the live
+ * API: `GET /api/knowledge/ki_af_demo-agent-pm` answered 404 for a document
+ * sitting in the table.
+ *
+ * The rule stays inside knowledge's own vocabulary on purpose: telling an agent
+ * from a person means reading `users`, and that table belongs to another
+ * service.
+ */
+function visibleToViewer(viewerUserId: string): SQL | undefined {
+	return or(
+		ne(knowledgeItems.scopeKind, "user"),
+		ne(knowledgeItems.role, "ordinary"),
+		eq(knowledgeItems.updatedBy, viewerUserId),
+	);
+}
+
 export function get(
 	db: HyperIdleDb,
 	id: string,
@@ -599,6 +629,7 @@ export function get(
 	id: string,
 	opts?: { view?: "summary" },
 ): Promise<KnowledgeItem | null>;
+
 export async function get(
 	db: HyperIdleDb,
 	id: string,
@@ -703,7 +734,7 @@ export async function list(
 				knowledgeAppProjection,
 				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
-			.where(or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, viewerUserId)));
+			.where(visibleToViewer(viewerUserId));
 		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 
@@ -750,7 +781,7 @@ export async function list(
 				and(
 					eq(knowledgeItems.topic, opts.topic),
 					ne(knowledgeItems.id, opts.excludeId),
-					or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, opts.viewerUserId)),
+					visibleToViewer(opts.viewerUserId),
 				),
 			)
 			.limit(opts.limit);
@@ -777,10 +808,7 @@ export async function count(
 		.select({ count: sql<number>`count(*)` })
 		.from(knowledgeItems)
 		.where(
-			and(
-				inArray(knowledgeItems.status, ["draft", "needs_human"]),
-				or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, viewerUserId)),
-			),
+			and(inArray(knowledgeItems.status, ["draft", "needs_human"]), visibleToViewer(viewerUserId)),
 		);
 	return Number(result?.count ?? 0);
 }
@@ -818,10 +846,7 @@ export async function search(
 	// "text"); the LIKE escape is inlined here because query-escaping was dissolved.
 	const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
-	const authFilter =
-		visibility != null
-			? or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, visibility))
-			: undefined;
+	const authFilter = visibility != null ? visibleToViewer(visibility) : undefined;
 
 	const textFilter = or(
 		sql`${knowledgeItems.title} ILIKE ${pattern} ESCAPE '\\'`,
@@ -1201,19 +1226,24 @@ export async function remove(
 // Plugin-managed skill operations (BA9b)
 // ---------------------------------------------------------------------------
 
-export interface UpsertPluginSkillInput {
+export interface UpsertPluginDocumentInput {
 	id: string;
 	pluginId: string;
-	dirName: string;
+	/** The document's title — a skill's directory name, or a routine's prompt title. */
+	title: string;
 	body: string;
 	scopeKind: string;
 	scopeId: string | null;
-	topic: string;
+	/** A real topic, or none. It no longer carries provenance — the registry does. */
+	topic: string | null;
 	ts: string;
+	/** Defaults to `skill`. A routine's prompt is an ordinary document. */
+	role?: KnowledgeRole;
 }
 
 /**
- * Insert or update a plugin-managed skill knowledge item.
+ * Insert or update a plugin-managed knowledge document — a skill, or the
+ * document a contributed routine's prompt lives in.
  *
  * @lore BA9b: On conflict (same ID = same plugin+dirName), updates scope/topic/
  * timestamp but PRESERVES the body — user edits win (D5: your edit wins, you
@@ -1221,9 +1251,113 @@ export interface UpsertPluginSkillInput {
  * because these are machine-managed rows; a user edit through the knowledge
  * route writes its own log entry via the normal update() path.
  */
-export async function upsertPluginSkill(
+/**
+ * The body of the `agent_file` knowledge document bound to this agent — its
+ * identity, which becomes the "## Identity" section of the AGENTS.md its
+ * sessions read.
+ *
+ * The binding is the one context assembly already uses for `agent_file`:
+ * `scopeKind='user'` with `scopeId` set to the agent's id. Null when the agent
+ * has no identity document, which is a valid state — the session then carries
+ * task, tools and workspace sections without a persona.
+ */
+/**
+ * Give an agent its identity document, or update the one it has.
+ *
+ * An agent's identity is an `agent_file` knowledge document bound to it —
+ * `scopeKind='user'` with `scopeId` set to the agent — which is what that role
+ * has always meant, and the binding context assembly already reads. Seeded once
+ * when the agent is created; after that it is edited like any other document.
+ *
+ * The body is NOT overwritten when the document already exists: an identity a
+ * person has edited is theirs, and re-seeding would silently discard it.
+ */
+export async function upsertAgentIdentity(
 	db: HyperIdleDb,
-	input: UpsertPluginSkillInput,
+	input: {
+		readonly agentId: string;
+		readonly agentName: string;
+		readonly body: string;
+		readonly updatedBy: string;
+	},
+): Promise<string> {
+	const id = `ki_af_${input.agentId}`;
+	const ts = now();
+	await db
+		.insert(knowledgeItems)
+		.values({
+			id,
+			scopeKind: "user",
+			scopeId: input.agentId,
+			topic: null,
+			title: `${input.agentName || input.agentId} — identity`,
+			body: input.body,
+			format: "markdown",
+			status: "active",
+			version: 1,
+			role: "agent_file",
+			updatedBy: input.updatedBy,
+			createdAt: ts,
+			updatedAt: ts,
+		})
+		.onConflictDoNothing();
+	// Kernel row and projection travel together, as knowledge always writes them.
+	await db
+		.insert(knowledgeAppProjection)
+		.values({
+			id: `kp_af_${input.agentId}`,
+			knowledgeItemId: id,
+			layer: null,
+			scopeId: input.agentId,
+		})
+		.onConflictDoNothing();
+	return id;
+}
+
+export async function getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ body: knowledgeItems.body })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.role, "agent_file"),
+				eq(knowledgeItems.scopeKind, "user"),
+				eq(knowledgeItems.scopeId, agentId),
+				eq(knowledgeItems.status, "active"),
+			),
+		)
+		.limit(1);
+	return row?.body ?? null;
+}
+
+/**
+ * The identity document id for each of `agentIds`, for agents that have one.
+ *
+ * The agent list needs to link every agent to the document that says who it is,
+ * and one query for the whole list beats one per agent.
+ */
+export async function getAgentIdentityIds(
+	db: HyperIdleDb,
+	agentIds: readonly string[],
+): Promise<Map<string, string>> {
+	if (agentIds.length === 0) return new Map();
+	const rows = await db
+		.select({ id: knowledgeItems.id, scopeId: knowledgeItems.scopeId })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.role, "agent_file"),
+				eq(knowledgeItems.scopeKind, "user"),
+				eq(knowledgeItems.status, "active"),
+				inArray(knowledgeItems.scopeId, [...agentIds]),
+			),
+		);
+	return new Map(rows.flatMap((r) => (r.scopeId ? [[r.scopeId, r.id] as const] : [])));
+}
+
+export async function upsertPluginDocument(
+	db: HyperIdleDb,
+	input: UpsertPluginDocumentInput,
 ): Promise<void> {
 	await db
 		.insert(knowledgeItems)
@@ -1232,13 +1366,17 @@ export async function upsertPluginSkill(
 			scopeKind: input.scopeKind,
 			scopeId: input.scopeId,
 			topic: input.topic,
-			title: input.dirName,
+			title: input.title,
 			body: input.body,
 			format: "markdown",
 			status: "active",
 			version: 1,
-			role: "skill",
-			updatedBy: `plugin:${input.pluginId}`,
+			role: input.role ?? "skill",
+			// @lore BA9g: `plugin:<id>` was a provenance sentinel here. Migration
+			// 0071 rewrote every existing one to `plugin` because it leaked into the
+			// knowledge view as a raw author string, and the registry carries
+			// provenance now — so a freshly installed document must not re-create it.
+			updatedBy: "plugin",
 			createdAt: input.ts,
 			updatedAt: input.ts,
 		})
@@ -1260,32 +1398,21 @@ export async function upsertPluginSkill(
 				updatedAt: input.ts,
 			},
 		});
-}
-
-/**
- * Archive knowledge items matching `topic`, excluding items whose IDs are
- * in `keepIds`. Used to clean up stale plugin skill items on reinstall or remove.
- */
-export async function removeByPluginTopic(
-	db: HyperIdleDb,
-	topic: string,
-	keepIds: readonly string[],
-): Promise<void> {
-	const rows = await db
-		.select({ id: knowledgeItems.id })
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.topic, topic));
-
-	const staleIds = rows.map((r) => r.id).filter((id) => !keepIds.includes(id));
-	if (staleIds.length === 0) return;
-
-	// @lore BA9d: archive instead of hard-delete — knowledge_edit_log/access_log/conflicts
-	// have RESTRICT FK on knowledge_items.id (I3 security: audit trail outlives subject).
-	// Archived items are excluded from session assembly (status != 'active' filter).
+	// Kernel row and projection travel together, as knowledge always writes them.
+	// @lore BA9g: this write was MISSING. Migrations 0068/0069/0071 all insert a
+	// projection and their tests assert "a document with no projection is a state
+	// production cannot produce" — while the install path produced exactly that.
+	// Migrated documents appeared in scope-filtered views (which inner-join the
+	// projection) and freshly installed ones did not.
 	await db
-		.update(knowledgeItems)
-		.set({ status: "archived", updatedAt: new Date().toISOString() })
-		.where(inArray(knowledgeItems.id, staleIds));
+		.insert(knowledgeAppProjection)
+		.values({
+			id: `kp_${input.id}`,
+			knowledgeItemId: input.id,
+			layer: scopeToLayer(input.scopeKind as (typeof SCOPE_KINDS)[number]),
+			scopeId: input.scopeId,
+		})
+		.onConflictDoNothing();
 }
 
 /**
@@ -1303,15 +1430,24 @@ export async function removeByPluginTopic(
  * disable/remove — skills do not go through plugin_configuration_defaults, so
  * restorePluginContribution() cannot recover them.
  */
-export async function setPluginSkillsStatus(
-	db: HyperIdleDb,
-	pluginId: string,
+/**
+ * Set status on the named knowledge documents.
+ *
+ * @lore BA9g: it took a `pluginId` and matched `topic = 'plugin:<id>'`. The
+ * topic is a person's field — editing it silently orphaned a document from
+ * uninstall and disable, permanently. The plugin service names the documents
+ * now, and `topic` means what it says.
+ */
+export async function setKnowledgeStatus(
+	exec: WriteExecutor,
+	ids: readonly string[],
 	status: "active" | "archived",
 ): Promise<void> {
-	await db
+	if (ids.length === 0) return;
+	await exec
 		.update(knowledgeItems)
 		.set({ status, updatedAt: new Date().toISOString() })
-		.where(eq(knowledgeItems.topic, `plugin:${pluginId}`));
+		.where(inArray(knowledgeItems.id, [...ids]));
 }
 
 /**
@@ -1328,16 +1464,21 @@ export async function setPluginSkillsStatus(
  * We deliberately do NOT store a separate copy in plugin_configuration_defaults;
  * the file on disk IS the authoritative original.
  */
-export async function restorePluginSkillBody(
-	db: HyperIdleDb,
-	skillId: string,
+/**
+ * Put the plugin's version of a contributed document back.
+ *
+ * @lore BA9g: this also reset `updatedBy` to `plugin:<id>` to clear the
+ * "detached" signal. That sentinel is gone — detachment is a registry column,
+ * and `updated_by` names a person again. The caller clears it.
+ */
+export async function restorePluginDocumentBody(
+	exec: WriteExecutor,
+	documentId: string,
 	body: string,
-	pluginId: string,
+	restoredBy: string,
 ): Promise<void> {
-	// @lore D12: resetting updatedBy to plugin:${pluginId} clears the
-	// "detached" signal — the item matches its source again.
-	await db
+	await exec
 		.update(knowledgeItems)
-		.set({ body, updatedBy: `plugin:${pluginId}`, updatedAt: new Date().toISOString() })
-		.where(eq(knowledgeItems.id, skillId));
+		.set({ body, updatedBy: restoredBy, updatedAt: new Date().toISOString() })
+		.where(eq(knowledgeItems.id, documentId));
 }

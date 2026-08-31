@@ -32,7 +32,7 @@
  * member of `TASK_STATE_TRANSITIONS`) — swallowed here as a safe no-op,
  * never propagated as an unexpected failure.
  *
- * `taskId: null` (a task-free session — an `assistant_turn`/reengagement/
+ * `taskId: null` (a task-free session — an `assistant_turn`/
  * explicit non-task session request) is a no-op.
  *
  * @lore this module mirrors `work-session-end-reactions.ts`'s

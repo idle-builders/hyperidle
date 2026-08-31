@@ -16,7 +16,7 @@
  *
  * @lore AG1: stat tiles (Capacity, Agent Health) replace the KeyValue list in
  * the burn section. The Agent Health tile is mandatory — empty roster →
- * "—" / "No agents", never "On track". See plans/AG1/design/approved.md §2 + §4a.
+ * "—" / "No agents", never "On track".
  * Renamed from "Status" to "Agent Health" in AZ7 B4 — see WorkTeam.tsx's tile
  * comment for why.
  *

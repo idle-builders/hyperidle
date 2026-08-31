@@ -40,6 +40,7 @@ import {
 import type { EventBus, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,
+	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
@@ -127,6 +128,7 @@ function makePorts(): RoutineSchedulerPorts {
 		},
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
+		getAgentIdentity,
 		getTeamById: async (db, id) => {
 			const [row] = await db.select().from(teams).where(eq(teams.id, id)).limit(1);
 			return row;
@@ -207,7 +209,6 @@ async function seedEventRoutine(
 	await db.insert(routines).values({
 		id,
 		name: `${id} event routine`,
-		prompt: `You fired because of a ${eventType} event. Report the context.`,
 		state: "active",
 		ownerAgentId,
 		triggerType: "event",
@@ -890,7 +891,6 @@ describe("BA9c — team_created produces kind:team rich subject", () => {
 				streamId: teamId,
 				teamId,
 				teamMembersId: "ba9c-tm-1-members",
-				functions: [],
 				agentIds: [],
 				at: new Date().toISOString(),
 			});
@@ -966,7 +966,6 @@ describe("BA9c — team-less agent owner still receives triggerEvent in contextB
 		await db.insert(routines).values({
 			id: "ba9c-noteam-routine",
 			name: "BA9c team-less routine",
-			prompt: "Report the event.",
 			state: "active",
 			ownerAgentId: "ba9c-noteam-owner",
 			triggerType: "event",

@@ -152,7 +152,6 @@ describe("AppShell", () => {
 
 	// @lore W2: density wiring tests removed. The density system was completely
 	// stripped in W2. AppShell no longer sets [data-density] on the root element.
-	// See plans/W2/architecture.md for the full density strip inventory.
 
 	describe("global search navigation by type", () => {
 		// I4 N1: `handleSearchNavigate` must route by result type.

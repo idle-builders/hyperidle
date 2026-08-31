@@ -1,5 +1,4 @@
 // AE6 — Updated type & runtime tests for the Artifact primitive.
-// Source of truth: plans/AE6/architecture.md §11, plans/AE6/concept.md.
 //
 // Replaces the L3 test suite (13-kind closed enum) with the AE6 6-kind open system.
 

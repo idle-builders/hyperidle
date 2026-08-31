@@ -10,8 +10,7 @@
  * of `rounded-full` (`calc(infinity * 1px)` → 33,554,432px) as an "off-scale"
  * radius, when it is really the pill read through its other spelling.
  *
- * Predicate (plan.md §5.2, restated so a reviewer can re-derive the
- * population from `predicates.mjs`): a class token matching the shape of a
+ * Predicate: a class token matching the shape of a
  * Tailwind radius utility — named (`rounded`, `rounded-lg`, `rounded-tl-md`, …)
  * or arbitrary (`rounded-[8px]`) — is a violation UNLESS it is `rounded-none`
  * (Set 4's zero-radius member has no token — "no radius class, or rounded-none")
