@@ -71,7 +71,7 @@ import { serve } from "@hono/node-server";
 import type { EnforcementRegistry } from "@hyperidle/harness-registry";
 import { createReturnEnforcement, provisionHarnessEnvironment } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
+import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
@@ -395,14 +395,14 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// Spawn the REAL claude binary headless.
 					// --dangerously-skip-permissions: required for non-interactive mode.
 					// --output-format json: machine-readable; no TTY required.
-					// --model: locked to AR7 matrix (harnessTestResolvedModel("claude").model → haiku).
+					// --model: locked to AR7 matrix (HARNESS_TEST_MODELS.claude.model → haiku).
 					// detached: true (inside spawnDetached): own process group → CC's
 					//   SIGTERM cascade does not reach the child before hook fires.
 					//
 					// @lore Real-claude-full-binary: The prompt MUST be short and
 					// trivial so the LLM call completes quickly (~3s). The Stop hook
 					// fires when the session ends — before the claude process exits.
-					// @lore AR7: model is AR7-locked via harnessTestResolvedModel("claude") — never hardcode.
+					// @lore AR7: model is AR7-locked via HARNESS_TEST_MODELS.claude — never hardcode.
 					const result = await spawnDetached(
 						"claude",
 						[
@@ -412,7 +412,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 							"--output-format",
 							"json",
 							"--model",
-							harnessTestResolvedModel("claude").model,
+							HARNESS_TEST_MODELS.claude.model,
 						],
 						{
 							cwd: sandboxPath,
@@ -1017,7 +1017,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
 			//
-			// @lore Opencode-full-binary: Uses AR7-locked model (harnessTestResolvedModel("opencode").model
+			// @lore Opencode-full-binary: Uses AR7-locked model (HARNESS_TEST_MODELS.opencode.model
 			// → openrouter/z-ai/glm-4.7-flash). Pure mode (--pure) skips external plugin loading. JSON
 			// output streamed per-event; step_finish proves turn completed.
 			// @lore AR7: model replaced from openrouter/~anthropic/claude-haiku-latest to AR7 matrix model.
@@ -1030,7 +1030,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					"json",
 					"--pure",
 					"--model",
-					harnessTestResolvedModel("opencode").model,
+					HARNESS_TEST_MODELS.opencode.model,
 				],
 				{
 					cwd: os.tmpdir(),
@@ -1132,9 +1132,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 
 			const FORCING_MESSAGE =
 				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
-			// @lore AR7: model AR7-locked via harnessTestResolvedModel("opencode") → openrouter/z-ai/glm-4.7-flash.
+			// @lore AR7: model AR7-locked via HARNESS_TEST_MODELS.opencode → openrouter/z-ai/glm-4.7-flash.
 			// Old value was openrouter/~anthropic/claude-haiku-latest (hardcoded, demoted by AR7).
-			const MODEL = harnessTestResolvedModel("opencode").model;
+			const MODEL = HARNESS_TEST_MODELS.opencode.model;
 
 			// First spawn: trivial no-return prompt (agent just says something, doesn't return).
 			// We detect step_finish and treat it as a no-return turn.

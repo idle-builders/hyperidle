@@ -221,8 +221,6 @@ describe("the model an agent is configured with reaches its session", () => {
 		await provisioner.run(deps, params, admitted);
 
 		expect(captured.sessionConfig?.selectedModel).toBe("haiku");
-		// Nothing resolved a credential to get here.
-		expect(captured.sessionConfig?.resolvedModel).toBeUndefined();
 	});
 
 	test("an agent that chose no model carries none, leaving the harness its own default", async ({

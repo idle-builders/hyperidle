@@ -1601,7 +1601,6 @@ async function runSession(
 		assembledPrompt,
 		modelTier,
 		tools: allowedToolNames,
-		resolvedModel: params.resolvedModel as ResolvedModel | undefined,
 		// Absent when the agent chose nothing, so the harness keeps its own default
 		// rather than being handed an empty string to strip back out.
 		...(selectedModel ? { selectedModel } : {}),

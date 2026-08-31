@@ -51,13 +51,11 @@ import {
 	decryptCredentialValue,
 	encryptCredentialValue,
 	resolveCredential,
-	resolveModel as resolveModelAgainstGateway,
 	seedAnthropicKeyFromEnv,
 } from "@hyperidle/credentials";
 
-import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { getPluginMcpContributions, readServerConfig } from "@hyperidle/settings";
+import { getPluginMcpContributions } from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
@@ -124,17 +122,6 @@ export interface CoreApiBoot {
 	readonly wsHub: WsConnectionHub;
 	/** The upgrade-token store `/api/auth/ws-token` mints from and the WS route consumes. Present whenever WS support is being wired. */
 	readonly upgradeTokenStore: UpgradeTokenStore | null;
-	/**
-	 * AF7 §1: resolves `(tier, modelOverride?) => ResolvedModel | undefined`
-	 * from this Layer's own `settings` (model gateway config) and
-	 * `credentials` (the production resolver) — the poller drain's model
-	 * resolution, same shape `create-server.ts`'s deleted `makeResolveModel`
-	 * built. Present whenever `db` is provided.
-	 */
-	readonly resolveModel?: (
-		tier: ModelTier,
-		modelOverride?: { readonly modelId: string | null; readonly modelProvider: string | null },
-	) => Promise<ResolvedModel | undefined>;
 	/**
 	 * AU26 review C2 / AU31 §5.2: the single human whose held connections a
 	 * spawn provisions (oldest-row tiebreak). Reads `users` — core-api's own
@@ -203,34 +190,11 @@ function resolveProvisioningOwnerUserIdFor(
 	};
 }
 
-/**
- * AF7 §1: build the drain's `resolveModel(tier, modelOverride?)`, in-layer —
- * relocated verbatim from `create-server.ts`'s deleted `makeResolveModel`.
- */
-function buildResolveModel(
-	db: NonNullable<AppOptions["db"]>,
-	credentialResolver: CredentialResolver,
-): (
-	tier: ModelTier,
-	modelOverride?: { readonly modelId: string | null; readonly modelProvider: string | null },
-) => Promise<ResolvedModel | undefined> {
-	return async (tier, modelOverride) => {
-		const cfg = await readServerConfig(db);
-		if (modelOverride && modelOverride.modelProvider !== "openai-compatible") {
-			return resolveModelAgainstGateway(
-				{
-					kind: "agent",
-					modelId: modelOverride.modelId,
-					modelProvider: modelOverride.modelProvider,
-					tierFallback: tier,
-				},
-				cfg.modelGateway,
-				credentialResolver,
-			);
-		}
-		return resolveModelAgainstGateway({ kind: "tier", tier }, cfg.modelGateway, credentialResolver);
-	};
-}
+// @lore A `buildResolveModel` stood here, answering "(tier, override) -> which
+// provider, which model, which key" out of the model gateway and the credential
+// store. Its answer reached a session as `resolvedModel`, and only the built-in
+// adapter ever called the API it described. Every harness authenticates itself
+// now, so the gateway, its credentials and this builder are gone.
 
 export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApiBoot> {
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
@@ -331,9 +295,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		disposeWebSocket,
 		wsHub,
 		upgradeTokenStore: tokenStore,
-		...(db && credentialResolver
-			? { resolveModel: buildResolveModel(db, credentialResolver) }
-			: {}),
 		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),
 		...(db
 			? {

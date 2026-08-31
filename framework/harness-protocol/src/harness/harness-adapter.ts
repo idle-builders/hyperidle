@@ -1,6 +1,6 @@
 /** Harness adapter interface — the boundary between meta-layer and agent runtime (D1). */
 
-import type { ModelTier, ResolvedModel, Reversibility, TokenUsage } from "@hyperidle/domain-model";
+import type { ModelTier, Reversibility, TokenUsage } from "@hyperidle/domain-model";
 import type {
 	HarnessAuthActionDescriptor,
 	HarnessDiscoveryStatus,
@@ -94,18 +94,16 @@ export interface SessionConfig {
 	 * Absent means the person chose nothing, and the harness runs on its own
 	 * default. That is a stated outcome, not the accident of an empty string.
 	 *
-	 * Distinct from {@link resolvedModel}, which additionally carries a provider,
+	 * Carries only the model name — no provider, no credential.
 	 * an API key and a base URL because the built-in harness calls a model API
 	 * itself. A spawned CLI authenticates on its own and needs none of that — it
 	 * needs the name to put after `--model`, which is this.
 	 */
 	readonly selectedModel?: string;
-	/**
-	 * X4: Resolved model configuration from the gateway.
-	 * When present, adapters use this instead of looking up by modelTier.
-	 * Optional for backward compatibility during migration.
-	 */
-	readonly resolvedModel?: ResolvedModel;
+	// @lore A `resolvedModel` sat here — provider, model, apiKey and baseUrl, as
+	// answered by the model gateway. Only the built-in adapter ever made the call
+	// it described. A CLI harness authenticates itself and runs `selectedModel`,
+	// so the gateway, its credentials and this field are all gone.
 	/**
 	 * The harness options this agent's model runs with, set once when the agent
 	 * was configured rather than chosen per message.

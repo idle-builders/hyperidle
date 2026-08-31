@@ -217,16 +217,7 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],
-				resolvedModel: {
-					provider: "anthropic" as const,
-					// apiKey is intentionally empty: CLAUDE_CLI_CONFIG.envMap is {} so nothing
-					// is injected. claude authenticates via the macOS keychain through the
-					// forwarded HOME/USER/LOGNAME env vars (envAllowlist).
-					// The allowlist excludes CLAUDECODE etc — no nested-session detection fires.
-					model: "haiku",
-					apiKey: "",
-					baseUrl: "https://api.anthropic.com",
-				},
+				selectedModel: "haiku",
 				mcpConnectionInfo: undefined,
 			};
 
@@ -387,18 +378,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 			modelTier: "workhorse" as const,
 			tools: [],
-			resolvedModel: {
-				// codex uses OpenAI API — "openai-compatible" is the correct provider.
-				// CLI_TOOL_CONFIGS.codex.envMap injects OPENAI_API_KEY from apiKey.
-				// The codex binary reads its own auth from CODEX_HOME/auth.json (not apiKey).
-				provider: "openai-compatible" as const,
-				// AR7: codex now receives --model {{model}}, so this must be a model the
-				// ChatGPT-account codex login accepts. "codex-mini-latest" is rejected (400);
-				// gpt-5.4-mini is the valid floor (matches HARNESS_TEST_MODELS.codex).
-				model: "gpt-5.4-mini",
-				apiKey: "",
-				baseUrl: "https://api.openai.com",
-			},
+			selectedModel: "gpt-5.4-mini",
 			mcpConnectionInfo: undefined,
 		};
 
@@ -525,20 +505,7 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],
-				resolvedModel: {
-					// This route IS OpenRouter, and now has to say so. The label used to
-					// read `openai-compatible`, which in this product means something
-					// else entirely: an endpoint the person typed in themselves, with no
-					// fixed host. The adapter answers that by declaring a provider in the
-					// session config and addressing the model through it — correct for a
-					// brought endpoint, wrong for an id already routed by `openrouter/`.
-					provider: "openrouter" as const,
-					// Provider-prefixed model id required by opencode (OpenRouter route).
-					// @lore Opencode uses provider-prefixed model IDs.
-					model: "openrouter/openai/gpt-4o-mini",
-					apiKey,
-					baseUrl: "https://openrouter.ai/api",
-				},
+				selectedModel: "openrouter/openai/gpt-4o-mini",
 				mcpConnectionInfo: undefined,
 			};
 
@@ -587,12 +554,7 @@ describe("cursor-agent CLI adapter (real binary, production CliHarnessAdapter pa
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],
-				resolvedModel: {
-					provider: "openai-compatible" as const,
-					model: "auto",
-					apiKey: "",
-					baseUrl: "https://api.cursor.com",
-				},
+				selectedModel: "auto",
 				mcpConnectionInfo: undefined,
 			};
 

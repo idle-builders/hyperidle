@@ -266,7 +266,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			coreApiTransport,
 			session: runtimeSessionDeps,
 			sandboxBasePath,
-			resolveModel: coreApi.resolveModel,
 			worker: {
 				pool: agentExecution.adapters.pool,
 				// @lore AU31/AU34: passed straight through (not re-wrapped with a

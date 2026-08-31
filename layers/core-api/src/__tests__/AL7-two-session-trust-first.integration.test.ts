@@ -83,7 +83,7 @@ import {
 	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
+import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { toClaudeToolSpec, toRegistered } from "@hyperidle/tool-handlers";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
@@ -544,7 +544,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned.";
 
-				// @lore AR7: model AR7-locked via harnessTestResolvedModel("claude") → haiku.
+				// @lore AR7: model AR7-locked via HARNESS_TEST_MODELS["claude"] → haiku.
 				const result = await spawnDetached(
 					"claude",
 					[
@@ -559,7 +559,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--output-format",
 						"json",
 						"--model",
-						harnessTestResolvedModel("claude").model,
+						HARNESS_TEST_MODELS.claude.model,
 					],
 					{
 						cwd: s1SandboxPath,
@@ -635,7 +635,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned.";
 
-				// @lore AR7: model AR7-locked via harnessTestResolvedModel("claude") → haiku.
+				// @lore AR7: model AR7-locked via HARNESS_TEST_MODELS["claude"] → haiku.
 				const s1Result = await spawnDetached(
 					"claude",
 					[
@@ -650,7 +650,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--output-format",
 						"json",
 						"--model",
-						harnessTestResolvedModel("claude").model,
+						HARNESS_TEST_MODELS.claude.model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
 				);
@@ -689,7 +689,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"You MUST use the commit_file tool — no other tools are available. " +
 					"After calling the tool, report what the tool returned (it should say the file was written).";
 
-				// @lore AR7: model AR7-locked via harnessTestResolvedModel("claude") → haiku.
+				// @lore AR7: model AR7-locked via HARNESS_TEST_MODELS["claude"] → haiku.
 				const s2Result = await spawnDetached(
 					"claude",
 					[
@@ -704,7 +704,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--output-format",
 						"json",
 						"--model",
-						harnessTestResolvedModel("claude").model,
+						HARNESS_TEST_MODELS.claude.model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
 				);
@@ -879,7 +879,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 					"After calling the tool, report what the tool returned.";
 
 				// @lore AR7: --model added per AR7 rule (codex now argument-enforced on model).
-				// harnessTestResolvedModel("codex").model → gpt-5.4-mini (tiny baseline).
+				// HARNESS_TEST_MODELS.codex.model → gpt-5.4-mini (tiny baseline).
 				const result = await spawnDetached(
 					"codex",
 					[
@@ -888,7 +888,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--json",
 						"--dangerously-bypass-approvals-and-sandbox",
 						"--model",
-						harnessTestResolvedModel("codex").model,
+						HARNESS_TEST_MODELS.codex.model,
 					],
 					{
 						cwd: s1SandboxPath,
@@ -987,7 +987,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--json",
 						"--dangerously-bypass-approvals-and-sandbox",
 						"--model",
-						harnessTestResolvedModel("codex").model,
+						HARNESS_TEST_MODELS.codex.model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000, closeStdin: true },
 				);
@@ -1048,7 +1048,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--json",
 						"--dangerously-bypass-approvals-and-sandbox",
 						"--model",
-						harnessTestResolvedModel("codex").model,
+						HARNESS_TEST_MODELS.codex.model,
 					],
 					{ cwd: sandboxPath, env: s2Env, timeoutMs: 60_000, closeStdin: true },
 				);
@@ -1128,10 +1128,10 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 	// @lore AL7 T3 opencode (COMPLETE): Mirrors the codex lane. Uses a plain sandbox (no git
 	// required). writeCliMcpConfig writes opencode.json to the sandbox cwd.
 	// The spawn recipe: opencode run <prompt> --format json --pure
-	//   --dir <sandbox> --model <AR7-locked> (harnessTestResolvedModel("opencode").model)
+	//   --dir <sandbox> --model <AR7-locked> (HARNESS_TEST_MODELS.opencode.model)
 	// (W4 closure: --model is required; provider-prefixed form per plan §1a.)
 	// @lore AR7: model was openrouter/~anthropic/claude-haiku-latest; now AR7-locked to
-	//   openrouter/z-ai/glm-4.7-flash (harnessTestResolvedModel("opencode")). Never hardcode.
+	//   openrouter/z-ai/glm-4.7-flash (HARNESS_TEST_MODELS["opencode"]). Never hardcode.
 	//
 	// Hits PRODUCTION createMcpBridge (stateful) via createMcpRoute at
 	// ${server.url}/api/mcp/${token}. buildStatefulMcpServer and /mcp/:token override deleted.
@@ -1168,7 +1168,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 
 				const cleanEnv = buildCleanEnv();
 
-				// @lore AR7: model AR7-locked via harnessTestResolvedModel("opencode") →
+				// @lore AR7: model AR7-locked via HARNESS_TEST_MODELS["opencode"] →
 				// openrouter/z-ai/glm-4.7-flash (replaces openrouter/~anthropic/claude-haiku-latest).
 				const prompt =
 					"Use the commit_file MCP tool to write 'al7-proof' to a file named 'proof.txt'. " +
@@ -1186,7 +1186,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--dir",
 						s1SandboxPath,
 						"--model",
-						harnessTestResolvedModel("opencode").model,
+						HARNESS_TEST_MODELS.opencode.model,
 					],
 					{
 						cwd: s1SandboxPath,
@@ -1262,7 +1262,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--dir",
 						sandboxPath,
 						"--model",
-						harnessTestResolvedModel("opencode").model,
+						HARNESS_TEST_MODELS.opencode.model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
 				);
@@ -1311,7 +1311,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 						"--dir",
 						sandboxPath,
 						"--model",
-						harnessTestResolvedModel("opencode").model,
+						HARNESS_TEST_MODELS.opencode.model,
 					],
 					{ cwd: sandboxPath, env: cleanEnv, timeoutMs: 60_000 },
 				);

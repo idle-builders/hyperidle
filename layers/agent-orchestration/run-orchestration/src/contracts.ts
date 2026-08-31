@@ -10,7 +10,6 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	ModelTier,
-	ResolvedModel,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -37,7 +36,6 @@ export interface RunContextBundle {
 	readonly productId: string;
 	readonly sandboxBasePath: string;
 	readonly modelTier?: ModelTier;
-	readonly resolvedModel?: ResolvedModel;
 	readonly routineId?: string;
 	readonly requestContext?: {
 		readonly requestId: string;
@@ -248,7 +246,6 @@ export type RunOptions =
 			readonly sandboxBasePath: string;
 			readonly workerId?: string;
 			readonly claim?: { readonly now: Date; readonly leaseMs: number };
-			readonly resolvedModel?: RunContextBundle["resolvedModel"];
 			readonly modelTier?: RunContextBundle["modelTier"];
 			readonly sessionWorkflow?: RunContextBundle["sessionWorkflow"];
 	  }
@@ -278,13 +275,6 @@ export interface RuntimeDeps {
 	 * not assistant-only). Absent means "no override, tier only" — matches the
 	 * pre-AU27 signature's own behaviour exactly.
 	 */
-	readonly resolveModel?: (
-		tier: import("@hyperidle/domain-model").ModelTier,
-		modelOverride?: {
-			readonly modelId: string | null;
-			readonly modelProvider: string | null;
-		},
-	) => Promise<import("@hyperidle/domain-model").ResolvedModel | undefined>;
 	readonly ports?: RuntimePorts;
 	readonly durableQueue?: Parameters<RuntimePorts["sessionRequests"]["drainIntents"]>[0];
 	readonly composition: {

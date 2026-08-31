@@ -4,13 +4,11 @@ import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "@hyperidle/conversation";
-import { encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	agentRunConfig,
 	agentSessionRequests,
 	type HyperIdleDb,
 	messages,
-	serverCredentials,
 	sessions,
 	threads,
 	users,
@@ -107,7 +105,6 @@ async function runDurableHandoffProof(
 ): Promise<void> {
 	const harnessType = HARNESS_TYPE[harness];
 	const locked = HARNESS_TEST_MODELS[harness];
-	const provider = locked.provider;
 	const humanId = `au9-${harness}-human`;
 	const assistantId = `ast-${humanId}`;
 	const threadId = `au9-${harness}-thread`;
@@ -139,7 +136,6 @@ async function runDurableHandoffProof(
 		agentUserId: assistantId,
 		harnessType,
 		modelId: locked.model,
-		modelProvider: provider,
 	});
 	await db.insert(threads).values({
 		id: threadId,
@@ -150,32 +146,11 @@ async function runDurableHandoffProof(
 		lastActiveAt: now,
 		createdAt: now,
 	});
-	// A harness that bills through a key needs it resolvable the production way —
-	// the encrypted credential row, not a bypass. One that authenticates through
-	// its own login needs nothing, and is given nothing.
-	if (locked.apiKeyEnv) {
-		// @lore The cast that used to stand here (`as string`) let an absent key
-		// through to `encryptCredentialValue`, which failed with a TypeError from
-		// inside the crypto helper — "The first argument must be of type string
-		// … Received undefined" — naming neither the key nor the harness. A
-		// missing credential is a real, actionable setup problem, so it fails
-		// like one: named, and at the point it is noticed. Same rule
-		// `requireHarness` follows for a missing binary — hard-fail, never skip.
-		const apiKey = process.env[locked.apiKeyEnv];
-		if (!apiKey) {
-			throw new Error(
-				`${locked.apiKeyEnv} is not set — the ${harness} lane bills through that key and ` +
-					"cannot complete without it. Provide it in the environment (the repo's .env " +
-					"carries one) and re-run.",
-			);
-		}
-		await db.insert(serverCredentials).values({
-			name: "openrouter_api_key",
-			encryptedValue: encryptCredentialValue(apiKey),
-			validationState: "present_untested",
-			updatedAt: now,
-		});
-	}
+	// @lore A credential row was seeded here for a harness that "bills through a
+	// key", so the key would resolve the production way. No harness is handed a
+	// key any more — each authenticates through its own login — so there is
+	// nothing to seed, and the OPENROUTER_API_KEY this lane used to demand is not
+	// needed to run it.
 
 	const port = await freePort();
 	// `createServer` boots execution itself, against the

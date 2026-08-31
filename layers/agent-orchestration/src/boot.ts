@@ -48,7 +48,6 @@ import {
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
-import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import { HELD_AUTH_SOURCES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -114,10 +113,6 @@ export interface AgentOrchestrationRuntimeOptions {
 	/** The session-provisioning deps `startRuntime`'s poller threads to every admitted session — same shape the Application built for the deleted direct `startRuntime` call, minus the four provisioning reads this boot now builds itself (§5.1). */
 	readonly session: ApplicationProvisionSessionDeps;
 	readonly sandboxBasePath?: string;
-	readonly resolveModel?: (
-		tier: ModelTier,
-		modelOverride?: { readonly modelId: string | null; readonly modelProvider: string | null },
-	) => Promise<ResolvedModel | undefined>;
 	/** For worker WebSocket registration (`registerWorkerWebSocket`) — the local `AdapterPool` instance and its remote-adapter factory, both from the execution adapters bundle. Absent on a `remote-server`-shaped boot with no local pool of its own. */
 	readonly worker?: {
 		readonly pool: NonNullable<RuntimeDeps["composition"]["worker"]>["pool"];
@@ -391,7 +386,6 @@ export async function bootAgentOrchestration(
 			composition.runtimeDeps(db, eventBus, {
 				runtime: { ...provisioningReads, ...runtime.session } as ProvisionSessionDeps,
 				sandboxBasePath: runtime.sandboxBasePath,
-				resolveModel: runtime.resolveModel,
 				composition: buildRuntimeComposition(runtime),
 			}),
 		);

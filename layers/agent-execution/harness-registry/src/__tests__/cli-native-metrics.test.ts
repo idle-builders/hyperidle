@@ -43,12 +43,7 @@ function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfi
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse",
 		tools: [],
-		resolvedModel: {
-			provider: "anthropic",
-			model: "claude-3-5-sonnet-20241022",
-			apiKey: "sk-test",
-			baseUrl: "https://api.anthropic.com",
-		},
+		selectedModel: "claude-3-5-sonnet-20241022",
 		mcpConnectionInfo: undefined,
 		...overrides,
 	};

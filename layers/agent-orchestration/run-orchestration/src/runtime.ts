@@ -441,7 +441,6 @@ async function consumeAgentSessionRequest(
 		productId: claimedRequest.teamId ?? "task-free",
 		sandboxBasePath: options.sandboxBasePath,
 		...(options.modelTier ? { modelTier: options.modelTier } : {}),
-		...(options.resolvedModel ? { resolvedModel: options.resolvedModel } : {}),
 		...(options.sessionWorkflow ? { sessionWorkflow: options.sessionWorkflow } : {}),
 		...(claimedRequest.sourceKind === "routine" && "routineId" in sourceCorrelation
 			? { routineId: sourceCorrelation.routineId }
