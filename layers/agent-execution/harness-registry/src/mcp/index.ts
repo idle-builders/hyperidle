@@ -1,5 +1,6 @@
 import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import type { Hono } from "hono";
+import type { ActionGateStore } from "../action-gate-store.js";
 import type { EnforcementRegistry } from "../enforcement-registry.js";
 import { createMcpSession } from "./mcp-bridge.js";
 import { createMcpRouter, type McpSessionRegistry } from "./mcp-route.js";
@@ -26,7 +27,11 @@ export interface McpToolBridge {
 }
 
 export function createMcpToolBridge(
-	options: { readonly enforcement?: EnforcementRegistry; readonly baseUrl?: string } = {},
+	options: {
+		readonly enforcement?: EnforcementRegistry;
+		readonly baseUrl?: string;
+		readonly actionGate?: ActionGateStore;
+	} = {},
 ): McpToolBridge {
 	const active = new Map<string, Awaited<ReturnType<typeof createMcpSession>>>();
 	const sessions: McpSessionRegistry & {
@@ -58,7 +63,7 @@ export function createMcpToolBridge(
 	};
 	const { baseUrl = "" } = options;
 	return {
-		router: createMcpRouter(sessions, options.enforcement),
+		router: createMcpRouter(sessions, options.enforcement, options.actionGate),
 		async open(session) {
 			const instance = await createMcpSession(session);
 			sessions.register(instance);

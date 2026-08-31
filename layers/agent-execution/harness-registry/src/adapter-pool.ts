@@ -434,23 +434,16 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// - `run <prompt>` delivers the seed prompt.
 		// - `--dir {{sandbox}}` sets cwd for config resolution (opencode.json).
 		// - `--format json` emits JSONL per-event output (eventFormat: "ndjson").
-		// - `--pure` disables TUI / interactive fallback.
 		// - `--model {{model}}` requires provider-prefixed id (e.g. openrouter/~anthropic/claude-haiku-latest).
 		// @lore AL7 W4: {{model}} resolves from config.resolvedModel?.model (cli-harness-adapter.ts:303).
 		// opencode run requires a provider-prefixed model id; a bare id fails. The model resolution
 		// for opencode agents must produce the provider-prefixed form.
 		// @lore AK1: {{sandbox}} is the renamed template var (was {{workspace}}).
-		args: [
-			"run",
-			"{{prompt}}",
-			"--dir",
-			"{{sandbox}}",
-			"--format",
-			"json",
-			"--pure",
-			"--model",
-			"{{model}}",
-		],
+		// @lore BA2: --pure was removed because it silently disables all external plugins including
+		// the sandbox's own gate plugin. XDG_CONFIG_HOME=<sandbox>/.hyperidle/opencode-xdg-config
+		// is injected by cli-harness-adapter (same pattern as CODEX_HOME) to provide the same
+		// config isolation --pure used to claim but never actually delivered.
+		args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--model", "{{model}}"],
 		// @lore opencode used to be handed a stored API key here, under whichever
 		// variable its provider reads, plus a provider block for a brought
 		// OpenAI-compatible endpoint. Both are gone: opencode authenticates through
@@ -587,7 +580,9 @@ const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	envMap: {},
 	eventFormat: "ndjson",
 	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
-	returnEnforcementChannel: "none",
+	// @lore BA2: "settings-cursor" distinguishes cursor from the true "none" floor.
+	// installActionGate dispatches on this value to write .cursor/hooks.json.
+	returnEnforcementChannel: "settings-cursor",
 	eventDialect: "claude-stream-json",
 	mcpConfig: { dialect: "cursor-json" },
 };

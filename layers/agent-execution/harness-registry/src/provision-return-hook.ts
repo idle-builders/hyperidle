@@ -76,6 +76,7 @@ async function installReturnHook(opts: ReturnHookOptions): Promise<void> {
 		// No-op channels: enforcement is handled in-process or not at all.
 		case "sdk-inprocess":
 		case "soft-continue":
+		case "settings-cursor": // gate hook handled by installActionGate; no return hook for cursor
 		case "none":
 			// No file artifact written for these channels.
 			break;

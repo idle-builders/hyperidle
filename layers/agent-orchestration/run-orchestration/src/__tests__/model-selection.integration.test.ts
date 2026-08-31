@@ -84,6 +84,7 @@ function buildHarnessPorts(): SessionLifecyclePorts {
 			createReturnGate: () => ({ observe: () => undefined, returned: false }),
 			evaluateReturn: () => "returned" as const,
 			provisionReturnHook: async () => undefined,
+			provisionActionGate: async () => undefined,
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
 			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
 			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),

@@ -166,6 +166,7 @@ export interface RunOrchestrationHarnessRuntimeAdapter {
 	readonly createReturnGate: SessionLifecyclePorts["harnessRuntime"]["createReturnGate"];
 	readonly evaluateReturn: SessionLifecyclePorts["harnessRuntime"]["evaluateReturn"];
 	readonly provisionReturnHook: SessionLifecyclePorts["harnessRuntime"]["provisionReturnHook"];
+	readonly provisionActionGate: SessionLifecyclePorts["harnessRuntime"]["provisionActionGate"];
 	readonly writeCliMcpConfig: SessionLifecyclePorts["harnessRuntime"]["writeCliMcpConfig"];
 	readonly writePluginStdioMcpEntries: SessionLifecyclePorts["harnessRuntime"]["writePluginStdioMcpEntries"];
 	openMcpBridge(session: {
@@ -191,6 +192,7 @@ function buildHarnessRuntime(
 		createReturnGate: adapter.createReturnGate,
 		evaluateReturn: adapter.evaluateReturn,
 		provisionReturnHook: adapter.provisionReturnHook,
+		provisionActionGate: adapter.provisionActionGate,
 		writeCliMcpConfig: adapter.writeCliMcpConfig,
 		writePluginStdioMcpEntries: adapter.writePluginStdioMcpEntries,
 		// The execution face already owns one bridge instance and one

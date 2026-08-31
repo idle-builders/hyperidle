@@ -56,6 +56,9 @@ function buildEvalHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntimeAdapter
 		provisionReturnHook: async (options) => {
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
+		provisionActionGate: async () => {
+			// Eval sessions have no action gate — ungated by construction.
+		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: () => {

@@ -99,6 +99,9 @@ function buildLiveHarnessRuntimeAdapter(
 		provisionReturnHook: async (options) => {
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
+		provisionActionGate: async () => {
+			// Live harness test: no action gate — sessions run ungated.
+		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: async (session) => {

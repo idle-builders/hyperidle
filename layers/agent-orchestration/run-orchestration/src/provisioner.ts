@@ -179,6 +179,17 @@ interface SessionLifecycleAdapterPool {
 	describeSelectFailure(requirements?: SessionLifecycleSelectRequirements): string;
 }
 
+/**
+ * An action rule as the provisioner sees it — structurally compatible with
+ * GateRule in @hyperidle/harness-registry without importing that package
+ * (run-orchestration has no direct edge to harness-registry).
+ */
+interface SessionActionRule {
+	readonly id: string;
+	readonly pattern: string;
+	readonly description: string;
+}
+
 interface SessionLifecycleEnforcementEntry {
 	readonly gate: { readonly returned: boolean };
 	forceCount: number;
@@ -231,6 +242,15 @@ interface SessionLifecycleHarnessRuntime {
 		readonly bridgeToken: string;
 		readonly mcpUrl: string;
 		readonly forceBudget: number;
+	}): Promise<void>;
+	/** Provision the action gate PreToolUse hook for this session. No-op when rules is empty. */
+	provisionActionGate(opts: {
+		readonly sandboxPath: string;
+		readonly channel: ReturnEnforcementChannel;
+		readonly bridgeToken: string;
+		readonly mcpUrl: string;
+		readonly sessionId: string;
+		readonly rules: readonly SessionActionRule[];
 	}): Promise<void>;
 	writeCliMcpConfig(params: {
 		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
@@ -820,6 +840,14 @@ interface ProvisionSessionDeps {
 	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
 	 */
 	readonly pluginMcpContributions?: PluginMcpContributionsPort;
+	/**
+	 * BA2: Action rules resolver. Absent → no gate provisioned (ungated session).
+	 * When present, called at Phase 8b-gate to resolve the rules for this agent/team
+	 * and provision the harness's PreToolUse hook.
+	 */
+	readonly actionRulesPort?: {
+		resolveFor(agentId: string, teamId?: string | null): Promise<readonly SessionActionRule[]>;
+	};
 }
 
 interface ProvisionSessionParams {
@@ -1567,6 +1595,21 @@ async function runSession(
 		mcpUrl: mcpUrl ?? "",
 		forceBudget: MAX_FORCE_RETURNS,
 	});
+
+	// ── Phase 8b-gate: provision the action gate PreToolUse hook for this session.
+	// Only runs when an actionRulesPort is wired (opt-in per application).
+	// Absent port = ungated session (security is never preemptive).
+	if (deps.actionRulesPort) {
+		const gateRules = await deps.actionRulesPort.resolveFor(params.agentId, teamId ?? null);
+		await ports.harnessRuntime.provisionActionGate({
+			sandboxPath,
+			channel: adapterCapabilities.returnEnforcement,
+			bridgeToken: mcpBridgeToken ?? "",
+			mcpUrl: mcpUrl ?? "",
+			sessionId,
+			rules: gateRules,
+		});
+	}
 
 	// ── Phase 9-10: single startSession + drain.
 

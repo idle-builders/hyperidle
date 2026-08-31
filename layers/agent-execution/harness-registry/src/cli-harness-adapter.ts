@@ -368,7 +368,7 @@ function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "codex") return "settings-codex";
 	if (binary === "opencode") return "process-reengage";
 	if (binary === "claude") return "settings-claude";
-	if (binary === "cursor-agent") return "none";
+	if (binary === "cursor-agent") return "settings-cursor";
 	return "none";
 }
 
@@ -599,6 +599,35 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
 			// requiring the user to have pre-approved the hook command.
 			extraArgs = ["--dangerously-bypass-hook-trust"];
+		}
+
+		// ── Per-session opencode gate env injection.
+		//
+		// XDG_CONFIG_HOME: isolates opencode's config dir so the gate plugin in
+		// <sandbox>/.opencode/plugin/ loads while the user's global plugins do not.
+		// Replaces the removed --pure flag (which also disabled the sandbox plugin).
+		// Only injected when installActionGate wrote the xdg config dir marker.
+		//
+		// OPENCODE_PERMISSION: broad backstop when the gate plugin fails to load.
+		// installActionGate writes the permission JSON to .hyperidle/opencode-permission.json.
+		//
+		// @lore BA2: CODEX_HOME injection pattern; neither var is in envAllowlist.
+		if (this.config.binary === "opencode") {
+			const xdgConfigDir = path.join(config.sandboxPath, ".hyperidle", "opencode-xdg-config");
+			if (fs.existsSync(xdgConfigDir)) {
+				resolvedEnvMap.XDG_CONFIG_HOME = xdgConfigDir;
+			}
+			const permissionFile = path.join(
+				config.sandboxPath,
+				".hyperidle",
+				"opencode-permission.json",
+			);
+			try {
+				const permission = fs.readFileSync(permissionFile, "utf-8").trim();
+				if (permission) resolvedEnvMap.OPENCODE_PERMISSION = permission;
+			} catch {
+				// No permission file — no restriction (rules are empty or gate not provisioned)
+			}
 		}
 
 		// ── AL7 delta: Per-session MCP token env var injection.

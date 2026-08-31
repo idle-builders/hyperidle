@@ -45,9 +45,12 @@ import type {
 import type { EnforcementRegistry as BaseEnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	AdapterPool,
+	createActionGateStore,
 	createLocalAdapterPool,
 	createReturnEnforcement,
 	createSandboxAdapter,
+	type GateRule,
+	installActionGate,
 	provisionHarnessEnvironment,
 	RemoteHarnessAdapter,
 	type SandboxAdapter,
@@ -94,6 +97,19 @@ export interface AgentExecutionHarnessRuntime {
 		readonly bridgeToken: string;
 		readonly mcpUrl: string;
 		readonly forceBudget: number;
+	}): Promise<void>;
+	/**
+	 * Provision the action gate PreToolUse hook for this session.
+	 * Called after the MCP bridge is open (so mcpUrl + bridgeToken are available).
+	 * No-op when rules is empty.
+	 */
+	provisionActionGate(options: {
+		readonly sandboxPath: string;
+		readonly channel: ReturnEnforcementChannel;
+		readonly bridgeToken: string;
+		readonly mcpUrl: string;
+		readonly sessionId: string;
+		readonly rules: readonly GateRule[];
 	}): Promise<void>;
 	writeCliMcpConfig(options: {
 		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
@@ -172,6 +188,7 @@ export async function bootAgentExecution(
 ): Promise<AgentExecutionBoot> {
 	const sandbox = createSandboxAdapter(options.topology);
 	const enforcementRegistry = createReturnEnforcement();
+	const actionGateStore = createActionGateStore();
 	const pool =
 		options.topology === "local"
 			? await createLocalAdapterPool({ enforcement: enforcementRegistry })
@@ -179,6 +196,7 @@ export async function bootAgentExecution(
 	const bridge = createMcpToolBridge({
 		enforcement: enforcementRegistry,
 		baseUrl: options.mcpBaseUrl,
+		actionGate: actionGateStore,
 	});
 
 	const harnessRuntime: AgentExecutionHarnessRuntime = {
@@ -188,6 +206,12 @@ export async function bootAgentExecution(
 		evaluateReturn: (gate, endReason) => enforcementRegistry.evaluate(gate, endReason),
 		provisionReturnHook: async (hookOptions) => {
 			await provisionHarnessEnvironment({ ...hookOptions, token: hookOptions.bridgeToken });
+		},
+		provisionActionGate: async (gateOptions) => {
+			if (gateOptions.rules.length > 0) {
+				actionGateStore.set(gateOptions.sessionId, gateOptions.rules);
+			}
+			await installActionGate(gateOptions);
 		},
 		writeCliMcpConfig: (configOptions) => provisionHarnessEnvironment(configOptions),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
