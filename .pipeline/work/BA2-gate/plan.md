@@ -168,3 +168,44 @@ resolve a thread to post back into. Ruling 6's instinct — that a review needs 
 
 **Nothing else is blocked by this.** Task-backed sessions are the majority path and the whole gate can be
 built, tested and proven against them. This decides only how far it reaches afterwards.
+
+---
+
+## Correction after the first build attempt — a resumed session is a real session
+
+The first attempt at the loop was abandoned. Its reviewer found fourteen blocking problems, and the root
+of most of them was one under-specification in this plan.
+
+**What the plan said:** "resume the agent's own session with the verdict as a user message."
+
+**What it left open:** *what a resumed session is*. The first attempt read it as "spawn the harness again
+with resume arguments" — a detached process fired from teardown, with a side store mapping session ids to
+resume functions.
+
+**Why that cannot work.** The provisioner opens the MCP bridge, then runs the session inside a
+`try/finally` that closes it. A resume fired after that runs against a **dead bridge**: the resumed agent
+has no HyperIdle tools at all, and the hook's `/action-check` call gets a 401 — which a deny-by-default
+script reads as "block everything". The resumed agent was also an orphan: its stream was never drained,
+its output never reached a thread, and nothing ever stopped it. It ran invisibly.
+
+**The correction.** A resumed session is not a spawn — it is **a session**, and it goes through the same
+provisioning flow as any other. Everything that flow already does is what a resumed session needs: open
+the bridge, drain the stream, account tokens, post output back to the thread, tear down once. The only
+difference is one branch at the point the harness is started:
+
+- a new session calls `startSession` with a composed prompt;
+- a resumed session calls `resumeSession` with the harness's native session id and the verdict as its
+  user message.
+
+Everything before and after that branch is unchanged. This is both more faithful to the intent and *less*
+code than the detached-spawn approach it replaces — no side store, no separate lifecycle, no second
+teardown path.
+
+**Two further findings from that attempt, easy to rebuild wrongly:**
+
+- **The clearance is keyed to the action, not to "the next tool call".** The first attempt let the resumed
+  session's first call — a harmless read — consume the one-time pass, so the action that was actually
+  cleared got denied again. Single-use means single-use *for the cleared action*.
+- **A verdict on an ordinary review must not mint a gate clearance.** The first attempt registered on
+  every `submit_review`, so approving a normal design review granted a bypass. Only a review that a gate
+  actually caused may clear anything.
