@@ -29,13 +29,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type {
-	AgentCategory,
-	BetStatus,
-	ModelTier,
-	ScopeKind,
-	TaskState,
-} from "@hyperidle/domain-model";
+import type { AgentCategory, BetStatus, ScopeKind, TaskState } from "@hyperidle/domain-model";
 import { findRoleCatalogEntry } from "@hyperidle/domain-model";
 import { evalHarnessModel, evalHarnessType } from "./eval-harness.js";
 import type { ScenarioSeedResult } from "./types.js";
@@ -101,7 +95,6 @@ export async function seedAgent(
 		teamId: string;
 		systemPrompt?: string;
 		harnessType?: string;
-		modelTierPreference?: ModelTier;
 		/** AB0: Agent category. Defaults to "team" for backward compat. */
 		agentCategory?: AgentCategory;
 	},
@@ -131,7 +124,6 @@ export async function seedAgent(
 		// adapter, `modelId` becomes `SessionConfig.selectedModel`.
 		harnessType: opts.harnessType ?? evalHarnessType(),
 		modelId: evalHarnessModel(),
-		modelTierPreference: opts.modelTierPreference ?? null,
 	});
 
 	return { agentId };

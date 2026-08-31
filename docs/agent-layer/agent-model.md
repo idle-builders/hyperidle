@@ -43,7 +43,6 @@ One row per agent, primary-keyed on `agent_user_id`.
 |---|---|---|
 | System prompt | `system_prompt` (text, nullable) | Injected at session start — who this agent is. |
 | Harness type | `harness_type` (text, nullable) | Preferred adapter (`claude-code`, `codex`, `opencode`, `cursor-agent`); null means any available adapter. |
-| Model tier | `model_tier_preference` (text, nullable) | Preferred tier (`reasoning` \| `workhorse` \| `fast`); null means system default. Tier vocabulary is owned by [model-routing-and-cost](./model-routing-and-cost.md). |
 | Model | `model_id`, `model_provider` (text, nullable) | Per-agent model override. Resolution order is owned by [model-routing-and-cost](./model-routing-and-cost.md). |
 | Concurrency | `max_concurrent_sessions` (int, not null, default 1) | Max parallel sessions. Set by role: builder 3, all others 1. |
 

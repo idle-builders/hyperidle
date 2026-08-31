@@ -4,15 +4,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type {
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	ModelTier,
 	SessionOutcome,
-} from "@hyperidle/domain-model";
-import {
-	type AgentSessionSourceCorrelation,
-	type AgentSessionSourceKind,
-	MODEL_TIERS,
-	type ModelTier,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
@@ -95,7 +92,7 @@ interface IngestionHandle {
 // `kind`/`status` check (below, in `admitSession`) is DEFENSE-IN-DEPTH ONLY —
 // a consistency assertion against a resolver bug that baked an
 // already-invalid snapshot — never a live authority gate; every other Phase
-// 1 field (`role`/`systemPrompt`/`modelTierPreference`/`harnessType`/
+// 1 field (`role`/`systemPrompt`/`harnessType`/
 // `modelProvider`/`maxConcurrentSessions`/`teamId`) also comes from this same
 // baked `agentConfig` snapshot, unchanged.
 // ---------------------------------------------------------------------------
@@ -865,7 +862,7 @@ interface ProvisionSessionParams {
 	 * `requireRunnableAgent` already loaded + validated there (no new read —
 	 * the exact H2/Increment 11 precedent `assistant-turn-resolver.ts`'s
 	 * `modelId`/`modelProvider` bake already established). `role`/
-	 * `systemPrompt`/`modelTierPreference`/`harnessType`/`modelProvider`/
+	 * `systemPrompt`/`harnessType`/`modelProvider`/
 	 * `maxConcurrentSessions`/`teamId` all come from THIS baked snapshot —
 	 * staleness there is a UX/efficiency concern only.
 	 *
@@ -1039,15 +1036,14 @@ async function admitSession(
 	// X3: system prompt from the agent's run config. No file read required.
 	const systemPromptText = runConfig.systemPrompt ?? "";
 
-	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
-	const rawPreference = runConfig.modelTierPreference;
-	const agentPreference =
-		rawPreference !== null &&
-		rawPreference !== undefined &&
-		(MODEL_TIERS as readonly string[]).includes(rawPreference)
-			? (rawPreference as ModelTier)
-			: null;
-	const modelTier: ModelTier = params.modelTier ?? agentPreference ?? "workhorse";
+	// @lore The tier used to be chosen: explicit param > the agent's own
+	// `modelTierPreference` > "workhorse". That dial is gone. It named which model
+	// gateway entry a session resolved against, and with the gateway removed it
+	// selected nothing — worse, the durable drain always passes a `modelTier`, so
+	// the agent's preference was never even reached on the path every real session
+	// takes. What a tier still does is key the token-usage bucket a session's spend
+	// is reported in.
+	const modelTier: ModelTier = params.modelTier ?? "workhorse";
 
 	// ── Phase 3: adapter selection + concurrency check + task transition.
 	// Wave E: `harnessDisabled` comes from the baked request (no live

@@ -1,0 +1,14 @@
+-- The per-agent model-tier dial is gone.
+--
+-- It named which model-gateway entry a session resolved against. With the
+-- gateway removed the tier selects nothing — and it was already unreachable on
+-- the path every real session takes: the durable drain always passes a tier of
+-- its own, so `provisionSession`'s `params.modelTier ?? agentPreference` never
+-- reached the second operand. A control that is both inert and unreachable, and
+-- still shown to people in the agent editor, is worse than no control.
+--
+-- People choose a model per agent (`model_id`), which is the thing that
+-- actually reaches the harness. Nothing is migrated onto that column from this
+-- one: a tier was never a model, and inventing one from "reasoning" would be
+-- guessing on the user's behalf.
+ALTER TABLE "agent_run_config" DROP COLUMN IF EXISTS "model_tier_preference";

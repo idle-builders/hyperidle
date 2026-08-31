@@ -26,7 +26,7 @@ import type {
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { AGENT_CATEGORIES, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
+import { AGENT_CATEGORIES, findRoleCatalogEntry } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { getTeam, readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
@@ -46,7 +46,6 @@ const createAgentSchema = z.object({
 	agentCategory: z.enum(AGENT_CATEGORIES).optional(),
 	systemPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
-	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
 	modelId: z.string().max(200).nullable().optional(),
 	modelProvider: z.string().max(100).nullable().optional(),
 	maxConcurrentSessions: z.number().int().min(1).max(20).default(1),
@@ -63,7 +62,6 @@ const patchAgentSchema = z.object({
 	role: z.string().min(1).max(100).optional(),
 	systemPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
-	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
 	modelId: z.string().max(200).nullable().optional(),
 	modelProvider: z.string().max(100).nullable().optional(),
 	maxConcurrentSessions: z.number().int().min(1).max(20).optional(),
@@ -91,7 +89,6 @@ type PatchAgentData = z.infer<typeof patchAgentSchema>;
 const EMPTY_RUN_CONFIG_VIEW = {
 	systemPrompt: null,
 	harnessType: null,
-	modelTierPreference: null,
 	modelId: null,
 	modelProvider: null,
 	maxConcurrentSessions: 1,
@@ -123,7 +120,6 @@ function buildRunConfigPatch(data: PatchAgentData): AgentOrchestrationRunConfigP
 	const patch: AgentOrchestrationRunConfigPatch = {};
 	if ("systemPrompt" in data) patch.systemPrompt = data.systemPrompt ?? null;
 	if ("harnessType" in data) patch.harnessType = data.harnessType ?? null;
-	if ("modelTierPreference" in data) patch.modelTierPreference = data.modelTierPreference ?? null;
 	if ("modelId" in data) patch.modelId = data.modelId ?? null;
 	if ("modelProvider" in data) patch.modelProvider = data.modelProvider ?? null;
 	if (data.maxConcurrentSessions !== undefined)
@@ -213,7 +209,6 @@ export function createAgentRoutes(
 				agentCategory: agent.agentCategory ?? null,
 				systemPrompt: runConfig.systemPrompt,
 				harnessType: runConfig.harnessType,
-				modelTierPreference: runConfig.modelTierPreference,
 				modelId: runConfig.modelId,
 				modelProvider: runConfig.modelProvider,
 				maxConcurrentSessions: runConfig.maxConcurrentSessions,
@@ -303,7 +298,6 @@ export function createAgentRoutes(
 		await agentOrchestration.runConfig.write(id, {
 			systemPrompt: data.systemPrompt ?? null,
 			harnessType: effectiveHarnessType,
-			modelTierPreference: data.modelTierPreference ?? null,
 			modelId: effectiveModelId,
 			modelProvider: effectiveProvider,
 			maxConcurrentSessions: data.maxConcurrentSessions,
@@ -318,7 +312,6 @@ export function createAgentRoutes(
 				agentCategory,
 				systemPrompt: data.systemPrompt ?? null,
 				harnessType: effectiveHarnessType,
-				modelTierPreference: data.modelTierPreference ?? null,
 				modelId: effectiveModelId,
 				modelProvider: effectiveProvider,
 				modelOptions: data.modelOptions ?? {},
@@ -422,7 +415,6 @@ export function createAgentRoutes(
 				// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
 				systemPrompt: updatedRunConfig.systemPrompt,
 				harnessType: updatedRunConfig.harnessType,
-				modelTierPreference: updatedRunConfig.modelTierPreference,
 				modelId: updatedRunConfig.modelId,
 				modelProvider: updatedRunConfig.modelProvider,
 				maxConcurrentSessions: updatedRunConfig.maxConcurrentSessions,
@@ -492,7 +484,6 @@ export function createAgentRoutes(
 			agentCategory: updated.agentCategory ?? null,
 			systemPrompt: updatedRunConfig.systemPrompt,
 			harnessType: updatedRunConfig.harnessType,
-			modelTierPreference: updatedRunConfig.modelTierPreference,
 			modelId: updatedRunConfig.modelId,
 			modelProvider: updatedRunConfig.modelProvider,
 			maxConcurrentSessions: updatedRunConfig.maxConcurrentSessions,

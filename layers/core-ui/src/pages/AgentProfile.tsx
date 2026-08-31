@@ -436,7 +436,6 @@ function AgentProfileLoaded({
 						<KeyValue label="Role" value={roleLabel(data.role)} />
 						<KeyValue label="Harness" value={harnessLabel(data.harnessType)} />
 						<KeyValue label="Category" value={data.agentCategory ?? "team"} />
-						<KeyValue label="Model tier" value={data.modelTierPreference ?? "Default"} />
 						{data.teamName && <KeyValue label="Team" value={data.teamName} />}
 						<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
 						<KeyValue label="Created" value={createdDate} />

@@ -26,7 +26,6 @@ const BASE_PROFILE: AgentProfileResponse = {
 	createdAt: "2026-01-01T00:00:00.000Z",
 	systemPrompt: "",
 	harnessType: "opencode",
-	modelTierPreference: "fast",
 	maxConcurrentSessions: 1,
 	mcpSetup: null,
 	harnessAvailable: true,

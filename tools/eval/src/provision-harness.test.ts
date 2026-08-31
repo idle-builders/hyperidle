@@ -55,7 +55,6 @@ vi.mock("@hyperidle/users", () => ({
 				role: "builder",
 				teamId: null,
 				systemPrompt: null,
-				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
 				maxConcurrentSessions: 5,

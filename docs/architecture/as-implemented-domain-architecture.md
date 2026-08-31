@@ -438,7 +438,7 @@ The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/
 
 Triggers: routine fired, dependency cleared, or an inbox/assistant message. Then:
 
-1. Model tier resolved (explicit param → agent preference → workhorse), model via gateway.
+1. The agent's own model (`model_id`) becomes `SessionConfig.selectedModel`; the tier is a cost-reporting label, resolved as explicit param → `workhorse`.
 2. Context assembly writes TOON prompt + context files.
 3. `LocalSandboxAdapter` provisions the per-session working directory; filesystem mounts applied.
 4. Harness spawned; agent works via MCP tools.

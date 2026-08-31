@@ -185,7 +185,6 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			agentUserId: "ah2-builder",
 			maxConcurrentSessions: 1,
 			harnessType: "opencode",
-			modelTierPreference: "workhorse",
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });

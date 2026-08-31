@@ -154,7 +154,6 @@ export interface AgentOrchestrationRunsPort {
 export interface AgentOrchestrationRunConfigView {
 	readonly systemPrompt: string | null;
 	readonly harnessType: string | null;
-	readonly modelTierPreference: string | null;
 	readonly modelId: string | null;
 	readonly modelProvider: string | null;
 	readonly maxConcurrentSessions: number;

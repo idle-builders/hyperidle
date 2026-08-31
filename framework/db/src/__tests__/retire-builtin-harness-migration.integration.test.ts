@@ -101,16 +101,16 @@ async function seedAgents(client: PGlite): Promise<void> {
 			('a-claude', 'ai', 'Claude Agent', 'builder', 'active', '${NOW}', 'team'),
 			('a-none', 'ai', 'Unset Agent', 'builder', 'active', '${NOW}', 'team');
 		INSERT INTO "agent_run_config"
-			(agent_user_id, system_prompt, harness_type, model_tier_preference,
+			(agent_user_id, system_prompt, harness_type,
 			 model_id, model_provider, max_concurrent_sessions, model_options_json)
 		VALUES
-			('a-builtin', 'p1', 'builtin', 'workhorse',
+			('a-builtin', 'p1', 'builtin',
 			 'deepseek/deepseek-v4-flash', 'openrouter', 3, '{"reasoning_effort":"high"}'),
-			('a-builtin-2', NULL, 'builtin', NULL,
+			('a-builtin-2', NULL, 'builtin',
 			 'claude-haiku-4-5', 'anthropic', 1, NULL),
-			('a-claude', 'p3', 'claude-code', 'reasoning',
+			('a-claude', 'p3', 'claude-code',
 			 'claude-opus-4-8', 'anthropic', 7, '{"effort":"max"}'),
-			('a-none', NULL, NULL, NULL, NULL, NULL, 1, NULL);
+			('a-none', NULL, NULL, NULL, NULL, 1, NULL);
 	`);
 }
 
@@ -132,7 +132,7 @@ describe("migration 0065 retires the built-in harness, forward-only", () => {
 		const rows = await query(
 			client,
 			`SELECT agent_user_id, harness_type, model_id, model_provider, model_options_json,
-			        system_prompt, model_tier_preference, max_concurrent_sessions
+			        system_prompt, max_concurrent_sessions
 			 FROM agent_run_config ORDER BY agent_user_id`,
 		);
 
@@ -149,7 +149,6 @@ describe("migration 0065 retires the built-in harness, forward-only", () => {
 
 		// Everything the migration has no business touching is untouched.
 		expect(byId.get("a-builtin")?.system_prompt).toBe("p1");
-		expect(byId.get("a-builtin")?.model_tier_preference).toBe("workhorse");
 		expect(byId.get("a-builtin")?.max_concurrent_sessions).toBe(3);
 	});
 

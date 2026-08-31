@@ -403,7 +403,6 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 				createdAt: new Date().toISOString(),
 				systemPrompt: null,
 				harnessType: null,
-				modelTierPreference: null,
 				modelId: null,
 				modelProvider: null,
 				agentCategory: null,

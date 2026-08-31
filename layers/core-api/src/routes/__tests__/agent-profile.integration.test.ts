@@ -89,7 +89,6 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		maxConcurrentSessions: 2,
 		harnessType: "claude-code",
 		systemPrompt: "You are a builder agent.",
-		modelTierPreference: "workhorse",
 	});
 
 	// Seed a human user (to test 404 path)
@@ -158,7 +157,6 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		// Config fields
 		expect(body).toHaveProperty("systemPrompt");
 		expect(body).toHaveProperty("harnessType");
-		expect(body).toHaveProperty("modelTierPreference");
 		expect(body).toHaveProperty("maxConcurrentSessions");
 		// @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
 		// `healthSignals` are GONE — every one was derived here from
@@ -191,7 +189,6 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.role).toBe("builder");
 		expect(body.harnessType).toBe("claude-code");
 		expect(body.systemPrompt).toBe("You are a builder agent.");
-		expect(body.modelTierPreference).toBe("workhorse");
 		expect(body.maxConcurrentSessions).toBe(2);
 	});
 

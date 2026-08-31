@@ -53,7 +53,6 @@ describe("agent run config store", () => {
 		expect(config).toEqual({
 			systemPrompt: null,
 			harnessType: null,
-			modelTierPreference: null,
 			modelId: null,
 			modelProvider: null,
 			maxConcurrentSessions: 1,
@@ -68,7 +67,6 @@ describe("agent run config store", () => {
 		await writeAgentRunConfig(db, "a-full", {
 			systemPrompt: "you are a builder",
 			harnessType: "claude-code",
-			modelTierPreference: "reasoning",
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 7,
@@ -78,7 +76,6 @@ describe("agent run config store", () => {
 		expect(await readAgentRunConfig(db, "a-full")).toEqual({
 			systemPrompt: "you are a builder",
 			harnessType: "claude-code",
-			modelTierPreference: "reasoning",
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 7,
@@ -101,7 +98,6 @@ describe("agent run config store", () => {
 		expect(await readAgentRunConfig(db, "a-partial")).toEqual({
 			systemPrompt: null,
 			harnessType: "builtin",
-			modelTierPreference: null,
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 3,
@@ -133,7 +129,6 @@ describe("agent run config store", () => {
 		expect(await readAgentRunConfig(db, "a-first")).toEqual({
 			systemPrompt: null,
 			harnessType: "builtin",
-			modelTierPreference: null,
 			modelId: null,
 			modelProvider: null,
 			maxConcurrentSessions: 1,

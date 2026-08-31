@@ -106,7 +106,6 @@ const ports: ToolHandlersPorts = {
 				modelId: "claude-sonnet-4-6",
 				modelProvider: "anthropic",
 				maxConcurrentSessions: 1,
-				modelTierPreference: null,
 			};
 			await sharedDb
 				.insert(agentRunConfig)

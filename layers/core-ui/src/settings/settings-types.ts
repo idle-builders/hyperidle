@@ -88,7 +88,6 @@ export interface AgentConfig {
 	role: string;
 	systemPrompt: string | null;
 	harnessType: string | null;
-	modelTierPreference: string | null;
 	/** AH2: Per-agent model ID. null = use tier fallback. */
 	modelId: string | null;
 	/** AH2: Per-agent model provider. null = use tier fallback ("anthropic"). */

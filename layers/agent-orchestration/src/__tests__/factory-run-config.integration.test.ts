@@ -6,7 +6,7 @@
  * `agent_run_config` patch shapes the AU29 feasibility probe proved the owning-service writer
  * reproduces (`.pipeline/work/AU29/probes/run-config-equivalence.ts`, `feasibility.md` §2): a fresh
  * roster agent, and an upgrade over a pre-existing operator-configured row (AH2 fields overwritten,
- * `modelTierPreference` left alone). It also covers a behavioural contract the probe does not touch
+ * fields the upgrade does not own left alone). It also covers a behavioural contract the probe does not touch
  * and today's `factory-bootstrap.ts` has no test for: the `content !== null` skip
  * (architecture.md §2.5.3 step 2) — a missing template read must preserve the agent's existing
  * `systemPrompt` rather than nulling it.
@@ -82,7 +82,7 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 		expect(row?.systemPrompt).toContain("You are a Facilitator");
 	});
 
-	test("upgrade over an operator-configured row: AH2 fields + prompt overwritten, modelTierPreference untouched", async ({
+	test("upgrade over an operator-configured row: AH2 fields + prompt overwritten", async ({
 		db,
 	}) => {
 		await seedUser(db, "agent-upgrade", "facilitator");
@@ -90,7 +90,6 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 			agentUserId: "agent-upgrade",
 			systemPrompt: "operator-set prompt",
 			harnessType: "claude",
-			modelTierPreference: "workhorse",
 			modelId: "some-model",
 			modelProvider: "openrouter",
 			maxConcurrentSessions: 3,
@@ -106,7 +105,6 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 		expect(row?.modelId).toBe(AH2.modelId);
 		expect(row?.modelProvider).toBe(AH2.modelProvider);
 		expect(row?.maxConcurrentSessions).toBe(AH2.maxConcurrentSessions);
-		expect(row?.modelTierPreference).toBe("workhorse");
 		expect(row?.systemPrompt).toContain("You are a Facilitator");
 	});
 

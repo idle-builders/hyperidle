@@ -249,6 +249,9 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 	it("reasoning-tier agent gets claude-opus-4-8 after backfill", async () => {
 		await insertLegacyAgent("legacy-reasoning", {
 			harnessType: null,
+			// @lore The tier column is part of the PRE-0055 `users` shape this file
+			// reconstructs, and migration 0032's backfill keys off it. It is
+			// historical schema, not current — the live dial was dropped by 0066.
 			modelTierPreference: "reasoning",
 			agentCategory: "strategy",
 		});
@@ -261,8 +264,8 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 
 	it("fast-tier agent gets claude-haiku-4-5 after backfill", async () => {
 		await insertLegacyAgent("legacy-fast", {
-			harnessType: null,
 			modelTierPreference: "fast",
+			harnessType: null,
 			agentCategory: "individual",
 		});
 
@@ -275,7 +278,6 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 	it("null-tier agent gets workhorse default (claude-sonnet-4-6) after backfill", async () => {
 		await insertLegacyAgent("legacy-null-tier", {
 			harnessType: null,
-			modelTierPreference: null,
 			agentCategory: "individual",
 		});
 

@@ -12,10 +12,10 @@
  */
 
 import type { RosterMember } from "@hyperidle/domain-model";
-import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
+import { findRoleCatalogEntry } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 // hearth-internal-padding
-import { Avatar, Button, Input, PageHeader, PageScaffold, Select } from "../../ds";
+import { Avatar, Button, Input, PageHeader, PageScaffold } from "../../ds";
 import { apiFetch } from "../../services/api-fetch.js";
 import type { AgentConfig } from "../../settings/settings-types.js";
 import { useToast } from "../../shell/ToastRegion.js";
@@ -34,7 +34,6 @@ export interface AgentDetailPaneProps {
 interface EditFormValues {
 	systemPrompt: string;
 	harnessType: string;
-	modelTierPreference: string;
 	maxConcurrentSessions: number;
 }
 
@@ -42,7 +41,6 @@ function agentToForm(agent: AgentConfig): EditFormValues {
 	return {
 		systemPrompt: agent.systemPrompt ?? "",
 		harnessType: agent.harnessType ?? "",
-		modelTierPreference: agent.modelTierPreference ?? "",
 		maxConcurrentSessions: agent.maxConcurrentSessions,
 	};
 }
@@ -57,7 +55,6 @@ export function AgentDetailPane({
 	const [formValues, setFormValues] = useState<EditFormValues>({
 		systemPrompt: "",
 		harnessType: "",
-		modelTierPreference: "",
 		maxConcurrentSessions: 1,
 	});
 	const [initialSystemPrompt, setInitialSystemPrompt] = useState("");
@@ -88,7 +85,6 @@ export function AgentDetailPane({
 				body: JSON.stringify({
 					systemPrompt: formValues.systemPrompt || null,
 					harnessType: formValues.harnessType || null,
-					modelTierPreference: formValues.modelTierPreference || null,
 					maxConcurrentSessions: formValues.maxConcurrentSessions,
 				}),
 			});
@@ -270,29 +266,6 @@ export function AgentDetailPane({
 									}
 									placeholder="e.g. claude-code"
 									disabled={isStrategy || saving}
-								/>
-							</div>
-
-							<div className="form-control min-w-[140px] flex-1">
-								<label className="label" htmlFor="pane-dialog-tier">
-									<span className="label-text text-[var(--text-secondary)]">Model tier</span>
-								</label>
-								<Select
-									id="pane-dialog-tier"
-									aria-label="Model tier"
-									size="sm"
-									value={formValues.modelTierPreference}
-									onChange={(e) =>
-										setFormValues((prev) => ({
-											...prev,
-											modelTierPreference: e.target.value,
-										}))
-									}
-									disabled={isStrategy || saving}
-									options={[
-										{ value: "", label: "Default" },
-										...MODEL_TIERS.map((t) => ({ value: t, label: t })),
-									]}
 								/>
 							</div>
 

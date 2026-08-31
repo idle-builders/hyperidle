@@ -11,7 +11,7 @@
  *  - packages/server/src/routes/agents.ts is created with all five endpoints
  *  - packages/server/src/app.ts registers the agent routes at /api/agents
  *  - framework/db/drizzle/0021_X3_agent_config.sql migration adds the columns
- *  - framework/db/src/schema.ts adds systemPrompt, harnessType, modelTierPreference to users
+ *  - framework/db/src/schema.ts adds systemPrompt and harnessType to the agent run config
  *  - framework/db/src/seed.ts inserts system_template:* factorySettings rows
  */
 
@@ -129,7 +129,6 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("role");
 		expect(agent).toHaveProperty("systemPrompt");
 		expect(agent).toHaveProperty("harnessType");
-		expect(agent).toHaveProperty("modelTierPreference");
 		expect(agent).toHaveProperty("maxConcurrentSessions");
 		expect(agent).toHaveProperty("status");
 	});
@@ -291,27 +290,9 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when modelTierPreference is invalid", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ name: "Test", role: "builder", modelTierPreference: "ultra" }),
-		});
-		expect(res.status).toBe(400);
-	});
-
-	test("accepts valid modelTierPreference values", async ({ db, app }) => {
-		await seedPrereqs(db);
-		for (const tier of ["reasoning", "workhorse", "fast"]) {
-			const res = await app.request("/api/agents", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: `Bot ${tier}`, role: "builder", modelTierPreference: tier }),
-			});
-			expect(res.status, `modelTierPreference '${tier}' should be 201`).toBe(201);
-		}
-	});
+	// @lore Two tests here validated `modelTierPreference` on the create payload —
+	// a 400 for an off-enum value and a 200 for each of the three. The dial is gone;
+	// the payload no longer carries it, so there is nothing left to validate.
 
 	test("persists the agent to the database", async ({ db, app }) => {
 		await seedPrereqs(db);
@@ -349,13 +330,12 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		const res = await app.request("/api/agents/x3-agent-builder", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ systemPrompt: "New persona text", modelTierPreference: "reasoning" }),
+			body: JSON.stringify({ systemPrompt: "New persona text" }),
 		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.systemPrompt).toBe("New persona text");
-		expect(body.modelTierPreference).toBe("reasoning");
 	});
 
 	test("preserves unchanged fields when patching", async ({ db, app }) => {

@@ -106,7 +106,6 @@ const MOCK_AGENT_CONFIGS = [
 		role: "builder",
 		systemPrompt: "You are a meticulous builder who values clean code.",
 		harnessType: "claude-code",
-		modelTierPreference: "workhorse",
 		maxConcurrentSessions: 2,
 		status: "active",
 		activeSessions: 0,
@@ -118,7 +117,6 @@ const MOCK_AGENT_CONFIGS = [
 		role: "scout",
 		systemPrompt: null,
 		harnessType: null,
-		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
@@ -130,7 +128,6 @@ const MOCK_AGENT_CONFIGS = [
 		role: "assistant",
 		systemPrompt: null,
 		harnessType: null,
-		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
@@ -551,60 +548,13 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		});
 	});
 
-	it("Save button calls PATCH with modelTierPreference when config is changed", async () => {
-		const user = userEvent.setup();
-
-		const patchResponse = new Response(
-			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], modelTierPreference: "reasoning" }),
-			{ status: 200 },
-		);
-		mockApiFetch.mockResolvedValueOnce(makeAgentsResponse()).mockResolvedValueOnce(patchResponse);
-
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-row").length).toBe(3);
-		});
-
-		const builderRow4 = screen
-			.getAllByTestId("agent-row")
-			.find((c) => c.textContent?.includes("Atlas Builder"));
-		const builderBtn4 = builderRow4?.querySelector('[data-testid="agent-customize-btn"]');
-		expect(builderBtn4).toBeDefined();
-		await user.click((builderBtn4 as HTMLElement) ?? document.body);
-
-		// AV4: pane opens (no dialog)
-		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
-		});
-
-		// Expand config
-		const configToggle = screen.getByRole("button", { name: /show configuration/i });
-		await user.click(configToggle);
-
-		// Change model tier
-		await waitFor(() => {
-			expect(screen.getByLabelText(/model tier/i)).toBeInTheDocument();
-		});
-		await user.selectOptions(screen.getByLabelText(/model tier/i), "reasoning");
-
-		// Click Save
-		const saveBtn = screen.getByRole("button", { name: /^save$/i });
-		await user.click(saveBtn);
-
-		await waitFor(() => {
-			const patchCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "PATCH",
-			);
-			expect(patchCall).toBeDefined();
-			if (!patchCall) return;
-			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
-				string,
-				unknown
-			>;
-			expect(body.modelTierPreference).toBe("reasoning");
-		});
-	});
+	// @lore A test here changed the Model tier select and asserted the PATCH body
+	// carried `modelTierPreference`. That dial is gone: it named a model-gateway
+	// entry, selected nothing once the gateway went, and was unreachable anyway on
+	// the path every real session takes — the durable drain always supplies its own
+	// tier. People choose a model per agent instead, which is what reaches the
+	// harness. The save path itself is covered by the harnessType/systemPrompt
+	// assertions above.
 });
 
 // ---------------------------------------------------------------------------
@@ -678,7 +628,6 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 				role: "builder",
 				systemPrompt: null,
 				harnessType: null,
-				modelTierPreference: null,
 				maxConcurrentSessions: 1,
 				status: "active",
 				activeSessions: 0,

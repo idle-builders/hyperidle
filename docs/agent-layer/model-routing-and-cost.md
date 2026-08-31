@@ -42,9 +42,11 @@ reported in (`TokenUsage.byTier`, `cli-harness-adapter.ts`). Session provisionin
 — `params.modelTier ?? agent tier preference ?? "workhorse"` (`provisioner.ts`) — and hands it
 through as that label.
 
-`agent_run_config.model_tier_preference` therefore chooses which bucket an agent's tokens land in
-and nothing else. It is surfaced in the agent editor and on the agent profile, which overstates what
-it does; **this is a known open question, not a settled design.**
+There is **no per-agent tier dial**. `agent_run_config.model_tier_preference` was removed (migration
+`0066`): it named a gateway entry, selected nothing once the gateway went, and was unreachable
+anyway on the path every real session takes — the durable drain always passes a tier of its own, so
+`params.modelTier ?? agentPreference` never reached the second operand. People choose a **model** per
+agent, which is the thing that reaches the harness.
 
 Handling of a tier name outside the closed enum (coerce-and-flag, `ModelTierUnknownWarning`) is owned
 by [`docs/process-layer/canonical-shapes.md`](../process-layer/canonical-shapes.md).

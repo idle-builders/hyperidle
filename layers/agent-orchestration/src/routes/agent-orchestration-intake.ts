@@ -215,7 +215,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 			z.object({
 				systemPrompt: z.string().nullable().optional(),
 				harnessType: z.string().nullable().optional(),
-				modelTierPreference: z.string().nullable().optional(),
 				modelId: z.string().nullable().optional(),
 				modelProvider: z.string().nullable().optional(),
 				maxConcurrentSessions: z.number().optional(),

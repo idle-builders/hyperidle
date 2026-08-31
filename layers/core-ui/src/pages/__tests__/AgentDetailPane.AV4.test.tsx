@@ -53,7 +53,6 @@ const AGENT_CONFIG: AgentConfig = {
 	role: "builder",
 	systemPrompt: "You build things.",
 	harnessType: "claude-code",
-	modelTierPreference: "workhorse",
 	modelId: null,
 	modelProvider: null,
 	maxConcurrentSessions: 2,

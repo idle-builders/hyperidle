@@ -146,7 +146,6 @@ export async function handleAgentProfile(
 		createdAt: agent.createdAt,
 		systemPrompt: runConfig.systemPrompt,
 		harnessType: runConfig.harnessType,
-		modelTierPreference: runConfig.modelTierPreference,
 		maxConcurrentSessions: runConfig.maxConcurrentSessions,
 		mcpSetup: null,
 		// @lore AU26 J4: harness availability is NOT run state — it is a fact

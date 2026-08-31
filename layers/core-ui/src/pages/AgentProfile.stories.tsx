@@ -33,7 +33,6 @@ const BASE_PROFILE: AgentProfileResponse = {
 	systemPrompt:
 		"You are Atlas, a meticulous TypeScript builder who values clean code, thorough testing, and honest communication. You never ship broken builds.",
 	harnessType: "claude-code",
-	modelTierPreference: "workhorse",
 	maxConcurrentSessions: 2,
 	mcpSetup: null,
 	harnessAvailable: true,

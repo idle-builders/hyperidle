@@ -20,7 +20,7 @@ Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
 **F-1.6** An agent belongs to exactly one team (`users.teamId` is a single FK). No multi-team membership.
 
-**F-1.7** Model routing is tier-based (reasoning / workhorse / fast). Tier resolves as: explicit session parameter → agent `modelTierPreference` → `workhorse`; a per-agent `modelId`/`modelProvider` override takes precedence. Deployers map each tier to an actual model via `ModelGatewayConfig`. Vocabulary and mechanics: [agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md).
+**F-1.7** A session runs the model its agent was configured with (`model_id`/`model_provider`), passed to the harness binary as `--model`. There is no tier-based routing and no per-agent tier dial: the tier vocabulary (reasoning / workhorse / fast) survives only as the key of the token-usage bucket a session's spend is reported in. Vocabulary and mechanics: [agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md).
 
 ## F-2: The Five Process Primitives
 
