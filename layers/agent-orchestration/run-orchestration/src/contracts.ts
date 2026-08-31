@@ -72,11 +72,7 @@ export interface HarnessRunOutput {
 
 /** Application-injected port for "dispatch a run to some execution" (§7.4). */
 export interface HarnessPort<TDb = unknown> {
-	admitSession(
-		deps: HarnessPortDeps<TDb>,
-		bundle: RunContextBundle,
-		enforceResolvedModelGuard?: boolean,
-	): Promise<AdmittedRun>;
+	admitSession(deps: HarnessPortDeps<TDb>, bundle: RunContextBundle): Promise<AdmittedRun>;
 	runSession(
 		deps: HarnessPortDeps<TDb>,
 		bundle: RunContextBundle,
@@ -255,13 +251,11 @@ export type RunOptions =
 			readonly resolvedModel?: RunContextBundle["resolvedModel"];
 			readonly modelTier?: RunContextBundle["modelTier"];
 			readonly sessionWorkflow?: RunContextBundle["sessionWorkflow"];
-			readonly enforceResolvedModelGuard?: boolean;
 	  }
 	| {
 			readonly mode: "one-shot";
 			readonly completion: "admit" | "await";
 			readonly input: RunContextBundle;
-			readonly enforceResolvedModelGuard?: boolean;
 	  }
 	| {
 			readonly mode: "assemble";

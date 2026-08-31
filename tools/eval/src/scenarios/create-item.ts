@@ -59,7 +59,6 @@ Use create_item to escalate this compliance blocker:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -168,7 +167,6 @@ This routes the item to the knowledge view for facilitator review.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -254,7 +252,6 @@ Request a human review using create_item:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -344,7 +341,6 @@ Create a work item to escalate this as a bet using create_item:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -443,7 +439,6 @@ This routes to conversations for a quick check.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -531,7 +526,6 @@ Request a clinical UX review using create_item:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -646,7 +640,6 @@ Escalate using create_item:
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

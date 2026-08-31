@@ -17,17 +17,9 @@
  * Run locally only (live LLM, never CI):
  *   cd tools/eval && node dist/cli.js --feature force_return
  *
- * SKIP when neither the `claude` CLI binary nor model credentials are present —
- * the external-shaped path still needs a real model call.
- *
  * @lore Evals are NOT tests (see @lore X7). They require real LLM calls
  * and are run locally on demand. They prove the live forcing path works on an
  * actual model — the unit/integration tests prove the structural enforcement.
- *
- * @lore fr-forced-return-external exercises the Layer-B re-prompt loop
- * through provision-harness.ts:runEvalSession with harnessKind:"external".
- * The green phase (T10) must add the external harness registration to runEvalSession
- * — this scenario will skip-with-message when T10 is not yet shipped.
  */
 
 import { judgeSessionCompleted, judgeSessionRowValid, judgeSubmitReviewCalled } from "../judges.js";
@@ -42,8 +34,6 @@ import type {
 	TriggerContext,
 	TriggerResult,
 } from "../types.js";
-
-// T10: runEvalSession now accepts harnessKind directly — no cast needed.
 
 // ---------------------------------------------------------------------------
 // fr-forced-return-builder
@@ -85,7 +75,6 @@ Your system prompt has specific instructions about how to end this task.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -234,7 +223,6 @@ This is a simple task. Complete it and call submit_review before ending your tur
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -280,18 +268,16 @@ This is a simple task. Complete it and call submit_review before ending your tur
 
 // ---------------------------------------------------------------------------
 // fr-forced-return-external
-// AC4 Layer-B: agent on an external-shaped harness (hasNativeReturnHook:false)
-// forced via the provisioning re-prompt loop (sandbox-file rewrite).
+// AC4 Layer-B: an agent that ends its turn without returning is forced via the
+// provisioning re-prompt loop (sandbox-file rewrite).
 //
-// T10 red: runEvalSession needs harnessKind:"external" support in provision-harness.ts.
-// When T10 ships: the green phase adds the external adapter registration branch.
-// Until then: this scenario is REGISTERED but skips-with-message when the external
-// harness branch is absent — so the eval can still run the builtin scenarios.
+// @lore This used to select a second, external-shaped adapter to get a harness
+// with `returnEnforcement:"none"`. It no longer needs to ask for one: which
+// enforcement channel a run exercises is now a property of the harness the run
+// selected, and a harness with no native hook takes the Layer-B loop by itself.
 //
-// The forceReturnCount judge reads result.forceReturnCount (turn-level, §2.4):
-//   - For the external path: = loopForceCount (Layer-B re-engages) ≥ 1.
-//   - For builtin: = getForceReturnCount (Layer-A in-turn re-injects).
-// This is the unified counter added in T6/T10.
+// The forceReturnCount judge reads result.forceReturnCount (turn-level, §2.4) —
+// the unified counter, whichever channel fired.
 // ---------------------------------------------------------------------------
 
 const frForcedReturnExternal: EvalScenario = {
@@ -325,22 +311,16 @@ Do NOT call submit_review, send_message, handoff_to, or reply.`,
 	},
 
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		// T10: harnessKind:"external" routes to the external-shaped adapter.
-		// If claude CLI is present: uses CliHarnessAdapter (real subprocess + sandbox-file carrier).
-		// Else: uses ExternalShapedAdapter (direct LLM call, reads AGENTS.md from sandbox).
-		// Both prove Layer-B forcing via the provisioning re-prompt loop.
 		return await runEvalSession(
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
 				agentId: ctx.seedResult.agentId,
 				teamId: ctx.seedResult.teamId,
-				harnessKind: "external",
 			},
 		);
 	},
@@ -517,14 +497,12 @@ Your response is complete once you have written the summary.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
 				taskId: ctx.seedResult.taskId,
 				agentId: ctx.seedResult.agentId,
 				teamId: ctx.seedResult.teamId,
-				harnessKind: "external",
 			},
 		);
 	},

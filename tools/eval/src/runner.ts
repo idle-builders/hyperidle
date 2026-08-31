@@ -17,6 +17,7 @@ import { applyMigrations, createPgliteDb, type HyperIdleDb } from "@hyperidle/db
 import type { ModelGatewayConfig, ResolvedModel } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { EnvCredentialResolver } from "./env-credential-resolver.js";
+import { type EvalHarnessName, evalHarnessName, selectEvalHarness } from "./eval-harness.js";
 import { scoreScenario } from "./scoring.js";
 import type {
 	EvalReport,
@@ -122,6 +123,11 @@ function buildGatewayConfig(modelOverride?: string): ModelGatewayConfig {
 	};
 }
 
+/**
+ * The judge's model. Independent of the harness under measurement: the judge
+ * scores what the harness produced, so it goes through the gateway and reads a
+ * key from the environment, exactly as it always did.
+ */
 async function resolveEvalModel(modelOverride?: string): Promise<ResolvedModel> {
 	const config = buildGatewayConfig(modelOverride);
 	const resolver = new EnvCredentialResolver();
@@ -208,8 +214,13 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	const runId = randomUUID();
 	const timestamp = new Date().toISOString();
 
-	const resolvedModel = await resolveEvalModel(options.model);
-	const modelLabel = resolvedModel.model;
+	// Fix the harness before anything is seeded — a seeded agent's `harness_type`
+	// and `model_id` come from this selection, and an absent binary hard-fails
+	// here rather than mid-suite.
+	selectEvalHarness((options.harness ?? "codex") as EvalHarnessName, options.model ?? null);
+	const harnessLabel = evalHarnessName();
+	const resolvedModel = await resolveEvalModel(options.judgeModel);
+	const modelLabel = options.model ?? "(harness default)";
 
 	let scenarios = await discoverScenarios();
 
@@ -258,7 +269,6 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 				db,
 				eventBus,
 				seedResult,
-				resolvedModel,
 			};
 			triggerResult = await scenario.trigger(triggerCtx);
 
@@ -357,6 +367,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	const report: EvalReport = {
 		runId,
 		timestamp,
+		harness: harnessLabel,
 		model: modelLabel,
 		mode: options.quick ? "quick" : "full",
 		scenarios: scenarioReports,
@@ -371,7 +382,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 	fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf-8");
 	process.stderr.write(`\n[eval] Report written to ${outputPath}\n`);
 	process.stderr.write(
-		`[eval] Overall score: ${overallScore.toFixed(3)} (${scenarioReports.length} scenarios)\n`,
+		`[eval] Overall score: ${overallScore.toFixed(3)} (${scenarioReports.length} scenarios) on ${harnessLabel}\n`,
 	);
 
 	return report;

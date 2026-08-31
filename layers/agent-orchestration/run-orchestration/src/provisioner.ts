@@ -11,7 +11,6 @@ import type {
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
-	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
 	type ResolvedModel,
@@ -151,7 +150,6 @@ interface SessionLifecycleHarnessAdapter {
 		readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
 	};
 	getForceReturnCount?(sessionId: string): number;
-	setSessionToolRegistry?(sessionId: string, registry: unknown): void;
 }
 
 interface SessionLifecycleAdapterMeta {
@@ -1004,12 +1002,6 @@ async function admitSession(
 	deps: ProvisionSessionDeps,
 	params: ProvisionSessionParams,
 	ports: SessionLifecyclePorts,
-	/**
-	 * AF7 §2: enforce the synchronous resolvedModel-presence guard for builtin
-	 * adapters. Set ONLY on the HTTP POST path (startSessionProvision) so a missing
-	 * resolved model maps to a 500 + no row.
-	 */
-	enforceResolvedModelGuard = false,
 ): Promise<AdmittedSession> {
 	const { db, eventBus, adapterPool, workspace } = deps;
 
@@ -1105,17 +1097,11 @@ async function admitSession(
 		throw new ConcurrencyLimitError(params.agentId, runConfig.maxConcurrentSessions);
 	}
 
-	// AF7 §2 (WARNING-2): resolvedModel presence guard — synchronous, pre-P5.
-	if (
-		enforceResolvedModelGuard &&
-		selectedAdapter.meta.type === "builtin" &&
-		!params.resolvedModel
-	) {
-		adapterPool.release(adapterId);
-		throw new MissingCredentialError(
-			`anthropic_api_key (required for builtin harness, tier: ${modelTier}) — set it in Settings > Models`,
-		);
-	}
+	// @lore The synchronous resolvedModel-presence guard that stood here existed
+	// for the built-in harness alone: it was the only adapter that made the model
+	// call itself, so a session with no resolved credential could not run at all.
+	// A CLI harness authenticates itself — its own login, its own key — so there
+	// is nothing for orchestration to pre-check, and the guard went with it.
 
 	// AU21 §9 Increment 12 (Decision H3), Wave D: the AD2 "only transition if
 	// not already in_progress" guard moved core-side — a task's `in_progress`
@@ -1334,9 +1320,8 @@ async function runSession(
 		mountedFilesystems,
 	} = admitted;
 
-	// AF7 §5: cooperative abort flag for non-builtin adapters (the provisioning
-	// event loop checks this each iteration). For builtin the real stop is
-	// stopSession (wired via sessionRunRegistry.abort).
+	// AF7 §5: cooperative abort flag — the provisioning event loop checks it each
+	// iteration.
 	let aborted = false;
 
 	// ── Phase 8: build tool registry bound to this context.
@@ -1372,14 +1357,6 @@ async function runSession(
 		sessionWorkflow: params.sessionWorkflow,
 	});
 
-	// ── Phase 8.5a: inject registry into builtin harness before startSession.
-	if (
-		selectedAdapter.meta.type === "builtin" &&
-		typeof harness.setSessionToolRegistry === "function"
-	) {
-		harness.setSessionToolRegistry(sessionId, registry);
-	}
-
 	// ── Phase 8.5: compose prompt and write CLAUDE.md.
 	const toolSummaries: SessionLifecycleToolSummary[] = ports.toolProvider
 		.toolsForRole(agentRole)
@@ -1387,9 +1364,6 @@ async function runSession(
 			name: d.name,
 			description: d.description,
 		}));
-
-	/** Messages for the builtin chat path (`runChatTurn`) — set when `params.transcript` is present. */
-	let chatMessages: ConversationMessage[] | undefined;
 
 	let assembledPrompt: string;
 	if (params.routineId && params.contextBundle?.kind === "routine") {
@@ -1441,15 +1415,12 @@ async function runSession(
 		);
 	}
 
-	// AU27 Increment 4 (Decision 2): generic transcript delivery, item 3 —
-	// `SessionConfig.messages` from `params.transcript`. Selects the builtin
-	// adapter's chat completion (`runChatTurn`) over the planning loop
-	// (`builtin-harness-adapter.ts:397`) on a generic input, not "is this the
-	// assistant" — the assistant is simply the first (and today, only) kind
-	// that bakes one, since Increment 6's switchover.
-	if (params.transcript) {
-		chatMessages = [...params.transcript];
-	}
+	// @lore AU27 Increment 4 delivered the transcript twice: once as
+	// `SessionConfig.messages`, which only the built-in adapter read (it picked
+	// its chat loop over its planning loop on their presence), and once as the
+	// `## Conversation` section `assembleTaskFreePrompt` renders. A CLI harness
+	// only ever saw the second. With the built-in adapter gone the first has no
+	// reader, so the prompt section is now the single delivery.
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
@@ -1481,15 +1452,14 @@ async function runSession(
 	let mcpUrl: string | undefined;
 	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
-	// AU31 fix: a CLI harness reaches HyperIdle's tools ONLY through the MCP
-	// bridge it dials from its `.mcp.json` (claude-code reads it directly; codex/
-	// opencode/cursor get the same info via their `cliMcpDialect` translation).
-	// Gate on "this is a spawned CLI harness" (not builtin), NOT on the vestigial
-	// `mcpBridgeRegistry`/`mcpBaseUrl` deps — those moved into the execution face
-	// and are no longer wired in production, so the old gate was always false and
-	// every CLI-harness session got an empty `{"mcpServers":{}}` (no tools at
-	// all). Builtin/SDK harnesses use the in-process tool registry, no bridge.
-	if (selectedAdapter.meta.type !== "builtin") {
+	// AU31 fix: a harness reaches HyperIdle's tools ONLY through the MCP bridge it
+	// dials from its `.mcp.json` (claude-code reads it directly; codex/opencode/
+	// cursor get the same info via their `cliMcpDialect` translation). This is
+	// deliberately NOT gated on the vestigial `mcpBridgeRegistry`/`mcpBaseUrl`
+	// deps — those moved into the execution face and are no longer wired in
+	// production, so the old gate was always false and every session got an empty
+	// `{"mcpServers":{}}` (no tools at all).
+	{
 		try {
 			const bridge = await ports.harnessRuntime.openMcpBridge({
 				registry: mcpBridgeRegistry,
@@ -1587,7 +1557,7 @@ async function runSession(
 	// plugins only reach sessions whose teamId matches. ${PLUGIN_ROOT} and
 	// ${PLUGIN_DATA} are expanded; cwd defaults to plugin root.
 	// Dialect writing is delegated to cli-mcp-config.ts via the harnessRuntime port.
-	if (selectedAdapter.meta.type !== "builtin") {
+	{
 		try {
 			await mergePluginMcpContributions(
 				deps.pluginMcpContributions,
@@ -1663,7 +1633,6 @@ async function runSession(
 		returnHook: returnHookConfig,
 		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
-		...(chatMessages ? { messages: chatMessages } : {}),
 		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	};
 
@@ -1730,7 +1699,7 @@ async function runSession(
 							argsSummary: ports.observability.summarizeToolArgs(event.args),
 							timestamp: Date.now(),
 						});
-						if (interceptToolCalls && selectedAdapter.meta.type !== "builtin") {
+						if (interceptToolCalls) {
 							await registry.invoke(event.toolName, event.args);
 						}
 					} else if (event.type === "error") {
@@ -1916,8 +1885,7 @@ async function startSessionProvision(
 	params: ProvisionSessionParams,
 	ports: SessionLifecyclePorts,
 ): Promise<{ sessionId: string; taskId: string }> {
-	// AF7 §2: HTTP path — enforce the resolvedModel guard.
-	const admitted = await admitSession(deps, params, ports, true);
+	const admitted = await admitSession(deps, params, ports);
 
 	let signalStarted!: () => void;
 	const started = new Promise<void>((resolve) => {
@@ -1978,11 +1946,7 @@ async function provisionSession(
 
 interface Provisioner {
 	readonly emittedFiles: readonly string[];
-	admit(
-		deps: ProvisionSessionDeps,
-		params: ProvisionSessionParams,
-		enforceResolvedModelGuard?: boolean,
-	): Promise<AdmittedSession>;
+	admit(deps: ProvisionSessionDeps, params: ProvisionSessionParams): Promise<AdmittedSession>;
 	run(
 		deps: ProvisionSessionDeps,
 		params: ProvisionSessionParams,
@@ -2015,7 +1979,7 @@ interface Provisioner {
 export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 	return {
 		emittedFiles: PROVISIONER_EMITTED_FILES,
-		admit: (deps, params, guard) => admitSession(deps, params, ports, guard),
+		admit: (deps, params) => admitSession(deps, params, ports),
 		run: (deps, params, admitted, onHarnessStarted) =>
 			runSession(deps, params, admitted, ports, onHarnessStarted),
 		provision: (deps, params) => provisionSession(deps, params, ports),

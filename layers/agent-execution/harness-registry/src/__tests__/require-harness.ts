@@ -28,7 +28,7 @@
 
 import { isBinaryOnPath } from "./require-binary.js";
 
-export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "builtin";
+export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent";
 
 /**
  * The supported-harness matrix. This file is now the SINGLE source of truth.
@@ -50,7 +50,6 @@ export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "bu
  */
 // biome-ignore format: keep the mirror and asserts on adjacent lines for lockstep visibility
 const SUPPORTED_HARNESSES_MIRROR = [
-	"builtin",
 	"claude",
 	"codex",
 	"opencode",
@@ -66,20 +65,23 @@ type AssertHarnessCoversSupported = HarnessName extends SupportedHarness ? true 
 // Compile-time proof that both asserts hold (any `never` in the union = error):
 declare const _lockstepCheck: [AssertSupportedInHarness, AssertHarnessCoversSupported];
 
-/** Binary name on PATH for each binary-backed harness. */
-const BINARY: Record<Exclude<HarnessName, "builtin">, string> = {
+/** Binary name on PATH for each harness. */
+const BINARY: Record<HarnessName, string> = {
 	claude: "claude",
 	codex: "codex",
 	opencode: "opencode",
 	"cursor-agent": "cursor-agent",
 };
 
-/** True iff the harness is available (binary on PATH, or OPENROUTER_API_KEY set). */
+/**
+ * True iff the harness is available: its binary is on PATH.
+ *
+ * @lore There used to be a second arm here — `builtin` was "available" when
+ * `OPENROUTER_API_KEY` was set, the one key that gated any harness. With the
+ * built-in harness gone, availability is a question about installed binaries
+ * only, and no key gates any harness.
+ */
 function isHarnessAvailable(name: HarnessName): boolean {
-	if (name === "builtin") {
-		// The ONLY key gate. Read process.env at call time (tests stub it).
-		return Boolean(process.env.OPENROUTER_API_KEY);
-	}
 	return isBinaryOnPath(BINARY[name]);
 }
 
@@ -94,7 +96,7 @@ export function requireHarness(...names: HarnessName[]): void {
 	throw new Error(
 		`requireHarness: ${missing.join(", ")} not installed/configured — harness ` +
 			`integration test cannot complete. Install the binary ` +
-			`(claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote ` +
+			`(claude/codex/opencode/cursor-agent); or demote ` +
 			`to a *.test.ts unit. (AR1: never skipIf to green.)`,
 	);
 }
@@ -175,12 +177,6 @@ export interface HarnessTestModelSpec {
 
 // biome-ignore lint/style/useNamingConvention: SCREAMING_SNAKE_CASE constant per typescript.md.
 export const HARNESS_TEST_MODELS = {
-	builtin: {
-		provider: "openai-compatible",
-		model: "deepseek/deepseek-v4-flash",
-		baseUrl: "https://openrouter.ai/api",
-		apiKeyEnv: "OPENROUTER_API_KEY",
-	},
 	claude: {
 		provider: "anthropic",
 		// TINY-BASELINE: `haiku` (smallest claude tier), NOT sonnet/opus. See header.

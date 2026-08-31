@@ -2,11 +2,11 @@
  * AR7 — Unit tests for the locked per-harness test-model matrix.
  *
  * Verifies:
- *   1. HARNESS_TEST_MODELS has exactly the 5 supported harness keys.
+ *   1. HARNESS_TEST_MODELS has exactly the 4 supported harness keys.
  *   2. Each harness maps to the founder-set locked model string.
  *   3. harnessTestResolvedModel reads the key from OPENROUTER_API_KEY for
  *      OpenRouter harnesses and returns the inherited-auth placeholder for
- *      keychain CLIs (claude/codex).
+ *      keychain CLIs (claude/codex/cursor-agent).
  *
  * This is a *.test.ts UNIT — not *.integration.test.ts — so:
  *   - The guard does NOT apply the model-import ban to this file.
@@ -21,13 +21,9 @@ import { HARNESS_TEST_MODELS, harnessTestResolvedModel } from "./require-harness
 // ── Matrix shape ──────────────────────────────────────────────────────────────
 
 describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
-	test("has exactly the 5 supported harness keys", () => {
+	test("has exactly the 4 supported harness keys", () => {
 		const keys = Object.keys(HARNESS_TEST_MODELS).sort();
-		expect(keys).toEqual(["builtin", "claude", "codex", "cursor-agent", "opencode"]);
-	});
-
-	test("builtin → locked model deepseek/deepseek-v4-flash", () => {
-		expect(HARNESS_TEST_MODELS.builtin.model).toBe("deepseek/deepseek-v4-flash");
+		expect(keys).toEqual(["claude", "codex", "cursor-agent", "opencode"]);
 	});
 
 	test("claude → locked model haiku (tiny baseline)", () => {
@@ -40,10 +36,6 @@ describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
 
 	test("opencode → locked model openrouter/z-ai/glm-4.7-flash", () => {
 		expect(HARNESS_TEST_MODELS.opencode.model).toBe("openrouter/z-ai/glm-4.7-flash");
-	});
-
-	test("builtin apiKeyEnv is OPENROUTER_API_KEY", () => {
-		expect(HARNESS_TEST_MODELS.builtin.apiKeyEnv).toBe("OPENROUTER_API_KEY");
 	});
 
 	test("opencode apiKeyEnv is OPENROUTER_API_KEY", () => {
@@ -78,13 +70,6 @@ describe("harnessTestResolvedModel — resolves locked model for a harness", () 
 		vi.unstubAllEnvs();
 	});
 
-	test("builtin resolves to deepseek/deepseek-v4-flash + reads OPENROUTER_API_KEY from env", () => {
-		const resolved = harnessTestResolvedModel("builtin");
-		expect(resolved.model).toBe("deepseek/deepseek-v4-flash");
-		expect(resolved.provider).toBe("openai-compatible");
-		expect(resolved.apiKey).toBe("test-openrouter-key-abc123");
-	});
-
 	test("claude resolves to haiku + empty apiKey (keychain auth, no key env)", () => {
 		const resolved = harnessTestResolvedModel("claude");
 		expect(resolved.model).toBe("haiku");
@@ -113,10 +98,10 @@ describe("harnessTestResolvedModel — resolves locked model for a harness", () 
 		expect(resolved.apiKey).toBe("");
 	});
 
-	test("builtin with missing OPENROUTER_API_KEY → apiKey is empty string (not null)", () => {
+	test("opencode with missing OPENROUTER_API_KEY → apiKey is empty string (not null)", () => {
 		vi.unstubAllEnvs();
 		vi.stubEnv("OPENROUTER_API_KEY", "");
-		const resolved = harnessTestResolvedModel("builtin");
+		const resolved = harnessTestResolvedModel("opencode");
 		expect(resolved.apiKey).toBe("");
 	});
 });

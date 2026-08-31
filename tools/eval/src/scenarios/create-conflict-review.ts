@@ -68,7 +68,6 @@ Your proposed body should clearly state the correct practice.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -196,7 +195,6 @@ If you get a DUPLICATE error, note this in your session notes and move on.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -284,7 +282,6 @@ When you get the INVALID_INPUT error, note it in session notes and do not retry.
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

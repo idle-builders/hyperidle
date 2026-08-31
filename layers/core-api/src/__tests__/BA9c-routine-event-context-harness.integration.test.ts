@@ -222,32 +222,10 @@ async function spawnWithClosedStdin(
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("BA9c AC6: routine event context reaches the agent's running prompt — real harnesses", () => {
-	// ── builtin ───────────────────────────────────────────────────────────────
-	//
-	// builtin is a direct LLM call through OpenRouter; context reaches it via
-	// AGENTS.md injection (system-prompt assembly). File presence on AGENTS.md
-	// and CLAUDE.md is the right assertion — goes RED when buildRoutineTaskSection
-	// omits the triggerEvent block. No binary to spawn.
-	describe("builtin — triggerEvent rendering proof (file-presence; no binary to interrogate)", () => {
-		requireHarness("builtin");
-
-		test("AGENTS.md and CLAUDE.md contain the probe task title after routine assembly", {
-			retry: 0,
-		}, async () => {
-			const agentsMdPath = path.join(sandboxPath, "AGENTS.md");
-			const claudeMdPath = path.join(sandboxPath, "CLAUDE.md");
-			expect(fs.existsSync(agentsMdPath)).toBe(false);
-			expect(fs.existsSync(claudeMdPath)).toBe(false);
-
-			await assembleRoutineContextIntoSandbox();
-
-			expect(fs.existsSync(agentsMdPath)).toBe(true);
-			expect(fs.existsSync(claudeMdPath)).toBe(true);
-			expect(fs.readFileSync(agentsMdPath, "utf8")).toContain(probeTitle);
-			expect(fs.readFileSync(claudeMdPath, "utf8")).toContain(probeTitle);
-		});
-	});
-
+	// @lore The built-in harness had a lane here, asserting only that
+	// buildRoutineTaskSection rendered the triggerEvent block into AGENTS.md and
+	// CLAUDE.md — it had no binary to ask. Every lane below makes that same
+	// file-presence assertion first, so the proof survives its deletion.
 	// ── claude ────────────────────────────────────────────────────────────────
 	describe("claude — reads AGENTS.md + CLAUDE.md, names the trigger task", () => {
 		requireHarness("claude");

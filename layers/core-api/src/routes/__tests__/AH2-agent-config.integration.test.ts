@@ -14,7 +14,7 @@
  */
 
 import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
-import { AdapterPool, BuiltinHarnessAdapter, CliHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, CliHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -29,13 +29,6 @@ function authHeaders(): Record<string, string> {
 /** Minimal adapter pool for AH2 validation tests (builtin + claude-code only). */
 function makeAH2Pool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
-		name: "Built-in Harness",
-		kind: "local",
-		type: "builtin",
-		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent: 4,
-	});
 	pool.register(
 		"local-claude-code",
 		new CliHarnessAdapter({

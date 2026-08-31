@@ -61,7 +61,6 @@ Also document what you wrote in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -184,7 +183,6 @@ Document your edit in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -276,7 +274,6 @@ Document what you created in session notes.`,
 			{
 				db: ctx.db,
 				eventBus: ctx.eventBus,
-				resolvedModel: ctx.resolvedModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

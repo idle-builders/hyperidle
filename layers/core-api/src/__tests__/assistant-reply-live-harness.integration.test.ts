@@ -3,7 +3,7 @@
  *
  * A real-harness test that an assistant turn's reply reaches the calling
  * thread through the agent's OWN `reply` tool call — not an orchestration-
- * side write. Per harness (builtin / claude-code / codex / opencode),
+ * side write. Per harness (claude-code / codex / opencode / cursor-agent),
  * `requireHarness(...)`, zero stubs, hard-fail if absent — never `skipIf` to
  * green (CLAUDE.md, testing.md).
  *
@@ -127,7 +127,6 @@ const TEST_API_KEY = "au27-inc8-live-harness-key";
 
 /** Test-vocabulary harness name -> the exact `users.harness_type` the adapter pool registers under. */
 const HARNESS_TYPE: Partial<Record<SupportedHarnessName, string>> = {
-	builtin: "builtin",
 	claude: "claude-code",
 	codex: "codex",
 	opencode: "opencode",
@@ -414,14 +413,9 @@ describe("the assistant reply reaches the calling thread via a real harness's ow
 		}
 	}
 
-	describe("[harness:builtin]", () => {
-		requireHarness("builtin");
-		dbTest(
-			"an assistant turn on builtin ends with a real reply() call landing in the calling thread",
-			async ({ db }) => runReplyProof("builtin", db),
-			180_000,
-		);
-	});
+	// @lore The `[harness:builtin]` lane is gone with the harness it drove. The
+	// property it proved — an assistant turn ends with a real `reply()` landing in
+	// the calling thread — is proven on every harness that remains.
 
 	describe("[harness:claude]", () => {
 		requireHarness("claude");

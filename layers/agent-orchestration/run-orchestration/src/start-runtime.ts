@@ -369,11 +369,10 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 	const ports: RuntimePorts = {
 		...deps.ports,
 		sessionProvisioner: deps.ports.sessionProvisioner ?? {
-			admitSession: (runtimeDeps, bundle, enforceGuard) =>
+			admitSession: (runtimeDeps, bundle) =>
 				provisioner.admit(
 					runtimeDeps as Parameters<typeof provisioner.admit>[0],
 					bundle as AdmitInput,
-					enforceGuard,
 				),
 			runSession: (runtimeDeps, bundle, admitted, onStarted) =>
 				provisioner.run(

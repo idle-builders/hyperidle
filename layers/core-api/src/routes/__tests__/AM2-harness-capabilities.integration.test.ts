@@ -1,4 +1,4 @@
-import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -63,13 +63,6 @@ function authHeaders(): Record<string, string> {
 
 function makePool(): AdapterPool {
 	const pool = new AdapterPool(STATIC_DISCOVERIES);
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
-		name: "Built-in Harness",
-		kind: "local",
-		type: "builtin",
-		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent: 4,
-	});
 	return pool;
 }
 

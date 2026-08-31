@@ -329,45 +329,12 @@ async function spawnWithClosedStdin(
 // ---------------------------------------------------------------------------
 
 describe("BA9b: skill materialisation via production writeSkillItem — real harnesses", () => {
-	// ── builtin ──────────────────────────────────────────────────────────────
-	//
-	// builtin is a direct LLM call through OpenRouter; skills reach it via AGENTS.md
-	// injection (system-prompt assembly), not file-based discovery. File presence on
-	// both HARNESS_SKILL_DIRS entries proves materialisation and goes RED when the
-	// constant is broken. Injection proof (model sees token via AGENTS.md) is a
-	// separate scope — no binary to spawn here.
-	describe("builtin — materialisation proof (file-presence; no binary to interrogate)", () => {
-		requireHarness("builtin");
-
-		dbTest(
-			"writeSkillItem writes SKILL.md to both HARNESS_SKILL_DIRS after production assembly",
-			{ retry: 0 },
-			async ({ db }) => {
-				const claudeSkillPath = path.join(
-					sandboxPath,
-					".claude/skills",
-					SKILL_DIR_NAME,
-					"SKILL.md",
-				);
-				const agentsSkillPath = path.join(
-					sandboxPath,
-					".agents/skills",
-					SKILL_DIR_NAME,
-					"SKILL.md",
-				);
-				expect(fs.existsSync(claudeSkillPath)).toBe(false);
-				expect(fs.existsSync(agentsSkillPath)).toBe(false);
-
-				await assembleSkillIntoSandbox(db);
-
-				expect(fs.existsSync(claudeSkillPath)).toBe(true);
-				expect(fs.existsSync(agentsSkillPath)).toBe(true);
-				expect(fs.readFileSync(claudeSkillPath, "utf8")).toContain(probeToken);
-				expect(fs.readFileSync(agentsSkillPath, "utf8")).toContain(probeToken);
-			},
-		);
-	});
-
+	// @lore The built-in harness had a lane here. It was a direct in-process LLM
+	// call with no binary to interrogate, so it could only assert the half of this
+	// test that is deterministic — that writeSkillItem put SKILL.md on both
+	// HARNESS_SKILL_DIRS paths. The cursor-agent lane below asserts presence on
+	// both of those same paths before it interrogates its binary, so the
+	// deterministic proof outlives it.
 	// ── claude ───────────────────────────────────────────────────────────────
 	describe("claude — reads from .claude/skills/", () => {
 		requireHarness("claude");

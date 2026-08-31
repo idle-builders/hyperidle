@@ -304,10 +304,7 @@ async function runClaimedRequest(
 	request: AgentSessionRequest,
 	provisionParams: RunContextBundle,
 	ports: ExecutionPorts,
-	options: Pick<
-		Extract<RunOptions, { mode: "durable" }>,
-		"completion" | "enforceResolvedModelGuard"
-	>,
+	options: Pick<Extract<RunOptions, { mode: "durable" }>, "completion">,
 ): Promise<RunResult> {
 	let admitted: AdmittedRun | null = null;
 	try {
@@ -327,9 +324,7 @@ async function runClaimedRequest(
 			{ requestId: request.id, claimToken: request.claimToken },
 			ports,
 		);
-		admitted = options.enforceResolvedModelGuard
-			? await ports.sessionProvisioner.admitSession(deps, provisionParams, true)
-			: await ports.sessionProvisioner.admitSession(deps, provisionParams);
+		admitted = await ports.sessionProvisioner.admitSession(deps, provisionParams);
 		await ports.sessionRequests.transitionSessionRequest(deps.db, {
 			to: "running",
 			requestId: request.id,
@@ -509,9 +504,7 @@ export function runSession(deps: RuntimeDeps, options: RunOptions): Promise<RunR
 		return consumeAgentSessionRequest(runtime, options.request, options, ports);
 	}
 	return (async () => {
-		const admitted = options.enforceResolvedModelGuard
-			? await ports.sessionProvisioner.admitSession(runtime, options.input, true)
-			: await ports.sessionProvisioner.admitSession(runtime, options.input);
+		const admitted = await ports.sessionProvisioner.admitSession(runtime, options.input);
 		if (options.completion === "admit") {
 			void ports.sessionProvisioner
 				.runSession(runtime, options.input, admitted, runtime.onHarnessStarted)

@@ -100,23 +100,4 @@ describe("AM2 real harness discovery", () => {
 		});
 	});
 
-	describe("builtin", () => {
-		requireHarness("builtin");
-		test("builtin gateway discovery is ready when the builtin key is configured", async () => {
-			const result = await discoverLocalHarnesses({ env: process.env });
-
-			// Must be ready — not unauthenticated — because the builtin key IS present.
-			expect(result.builtin.state).toBe("ready");
-			expect(result.builtin.authAction?.kind).toBe("enter_api_key");
-
-			// The matched credential name must be surfaced in the authAction.
-			const credentialNames = result.builtin.authAction?.credentialNames ?? [];
-			const recognizedNames = [
-				"anthropic_api_key",
-				"openai_compatible_api_key",
-				"openrouter_api_key",
-			];
-			expect(credentialNames.some((n: string) => recognizedNames.includes(n))).toBe(true);
-		});
-	});
 });

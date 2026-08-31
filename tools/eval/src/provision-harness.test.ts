@@ -16,6 +16,29 @@ const runSession = vi.fn();
 vi.mock("@hyperidle/agent-orchestration", () => ({
 	buildRunOrchestrationComposition: () => ({ runSession }),
 }));
+
+/**
+ * The pool identity is the whole point of this test, so it is a real sentinel
+ * object rather than a shape: the assertion below is that the pool reaching
+ * `runSession` IS the one `createLocalAdapterPool` produced, not one that
+ * merely resembles it.
+ */
+const productionPool = { __brand: "createLocalAdapterPool" } as unknown as AdapterPool;
+const createLocalAdapterPool = vi.fn(async () => productionPool);
+vi.mock("@hyperidle/harness-registry", () => ({
+	createLocalAdapterPool: () => createLocalAdapterPool(),
+	createReturnEnforcement: () => ({
+		createGate: vi.fn(),
+		evaluate: vi.fn(),
+	}),
+	createSandboxAdapter: () => ({}),
+	provisionHarnessEnvironment: vi.fn(),
+	writePluginStdioMcpEntries: vi.fn(),
+}));
+vi.mock("@hyperidle/harness-registry/mcp", () => ({
+	returnStatusTool: { forRegistry: vi.fn() },
+}));
+
 // AU21 §9 Increment 12 (Decision H3), Wave E: `runEvalSession` now performs a
 // real `requireRunnableAgent`/`readServerConfig` bake before calling
 // `runSession` (mocked above) — this test's concern is adapter-pool
@@ -44,14 +67,17 @@ vi.mock("@hyperidle/settings", () => ({
 }));
 
 describe("eval harness provisioning", () => {
-	it("uses the canonical direct adapter for non-Anthropic external fallback", async () => {
+	/**
+	 * An eval exists to measure HyperIdle on a harness a user can actually run.
+	 * It used to assemble a private pool holding a direct in-process LLM adapter,
+	 * which meant the score said something about the model and nothing about the
+	 * harness wiring. This asserts the replacement: eval drives the SAME pool
+	 * production drives, so the adapter under measurement is a real one.
+	 */
+	it("drives the production local adapter pool, not a pool of its own", async () => {
+		let poolSeenByRunSession: AdapterPool | undefined;
 		vi.mocked(runSession).mockImplementationOnce(async (deps) => {
-			const selected = (deps as unknown as { adapterPool: AdapterPool }).adapterPool.select();
-			expect(selected?.adapter.getCapabilities()).toMatchObject({
-				returnEnforcement: "none",
-				mcpSupport: false,
-				modelProviders: ["openrouter"],
-			});
+			poolSeenByRunSession = (deps as unknown as { adapterPool: AdapterPool }).adapterPool;
 			const completed: Extract<Awaited<ReturnType<typeof runSession>>, { mode: "completed" }> = {
 				mode: "completed",
 				sessionId: "eval-session",
@@ -66,17 +92,13 @@ describe("eval harness provisioning", () => {
 			{
 				db: {} as HyperIdleDb,
 				eventBus: {} as EventBus,
-				resolvedModel: {
-					provider: "openrouter",
-					model: "anthropic/claude-haiku-4-5",
-					apiKey: "test",
-					baseUrl: "https://openrouter.ai/api/v1",
-				},
 				sandboxBasePath: "/tmp/eval",
 			},
-			{ taskId: "task", agentId: "agent", teamId: "team", harnessKind: "external" },
+			{ taskId: "task", agentId: "agent", teamId: "team" },
 		);
 
+		expect(createLocalAdapterPool).toHaveBeenCalledOnce();
+		expect(poolSeenByRunSession).toBe(productionPool);
 		expect(result).toMatchObject({ sessionId: "eval-session", outcome: "completed" });
 		expect(runSession).toHaveBeenCalledOnce();
 	});

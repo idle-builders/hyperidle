@@ -21,7 +21,7 @@
  *  - POST /:type/disabled endpoint with :type validation + builtin-reject
  */
 
-import { AdapterPool, BuiltinHarnessAdapter, CliHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, CliHarnessAdapter } from "@hyperidle/harness-registry";
 import { updateServerConfig } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -59,13 +59,6 @@ const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
 
 function makePool(): AdapterPool {
 	const pool = new AdapterPool(STATIC_DISCOVERIES);
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
-		name: "Built-in Harness",
-		kind: "local",
-		type: "builtin",
-		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent: 4,
-	});
 	pool.register(
 		"local-claude-code",
 		new CliHarnessAdapter({

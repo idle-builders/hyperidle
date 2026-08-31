@@ -39,7 +39,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { agentRunConfig, type HyperIdleDb, users } from "@hyperidle/db";
-import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -137,13 +137,6 @@ async function emptyCodexHome(): Promise<string> {
  */
 function makePool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
-		name: "Built-in Harness",
-		kind: "local",
-		type: "builtin",
-		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent: 4,
-	});
 	return pool;
 }
 
