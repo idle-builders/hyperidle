@@ -53,7 +53,11 @@ import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 const NOW = "2026-08-01T00:00:00.000Z";
 const TEAM_ID = "team-i12c-parity";
 const AGENT_ID = "agent-i12c-parity";
-const AGENT_ROLE = "builder"; // communityForRole("builder") === "building"
+// @lore BA9g: the practice an agent belongs to IS its role. This said
+// `communityForRole("builder") === "building"` — the catalog's mapping of 16
+// roles onto four communities, gone with the catalog. `knowledge.ts` already
+// documented the truth ("practice scopeId is a role id").
+const AGENT_ROLE = "builder";
 const TASK_ID = "task-i12c-parity";
 const BET_ID = "bet-i12c-parity";
 const ATTEMPT_ID = "attempt-i12c-parity";
@@ -145,7 +149,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	await db.insert(knowledgeItems).values({
 		id: "item-i12c-l3",
 		scopeKind: "practice",
-		scopeId: "building",
+		scopeId: "builder",
 		title: "Building practice knowledge",
 		body: "Relevant to the builder community.",
 		format: "markdown",
@@ -159,7 +163,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		id: "proj-i12c-l3",
 		knowledgeItemId: "item-i12c-l3",
 		layer: "L3",
-		scopeId: "building",
+		scopeId: "builder",
 	});
 }
 

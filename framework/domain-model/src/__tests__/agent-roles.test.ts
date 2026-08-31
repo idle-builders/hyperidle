@@ -14,184 +14,27 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	AGENT_CATEGORIES,
-	AGENT_ROLE_CATALOG,
-	type AgentCategory,
-	type AgentRoleCatalogEntry,
-	communityForRole,
-	findRoleCatalogEntry,
-	roleLabel,
-} from "../agent-roles.js";
+import { AGENT_CATEGORIES, type AgentCategory, roleLabel } from "../agent-roles.js";
 
 // ---------------------------------------------------------------------------
 // AGENT_ROLE_CATALOG — AC2
 // ---------------------------------------------------------------------------
 
-describe("AGENT_ROLE_CATALOG", () => {
-	it("has 17 entries", () => {
-		// @lore AD8b: chief_of_staff replaced by assistant — count stayed 16.
-		// @lore BA9g: +1 for `agent`, the role a new team's single agent carries.
-		expect(AGENT_ROLE_CATALOG).toHaveLength(17);
-	});
-
-	it("every entry has required fields", () => {
-		for (const entry of AGENT_ROLE_CATALOG) {
-			expect(entry).toHaveProperty("role");
-			expect(entry).toHaveProperty("label");
-			expect(entry).toHaveProperty("category");
-			expect(entry).toHaveProperty("description");
-			expect(entry).toHaveProperty("community");
-
-			expect(typeof entry.role).toBe("string");
-			expect(entry.role.length).toBeGreaterThan(0);
-			expect(typeof entry.label).toBe("string");
-			expect(entry.label.length).toBeGreaterThan(0);
-			expect(typeof entry.description).toBe("string");
-			expect(entry.description.length).toBeGreaterThan(0);
-			expect(typeof entry.community).toBe("string");
-			expect(entry.community.length).toBeGreaterThan(0);
-		}
-	});
-
-	it("every known role has a catalog entry", () => {
-		// @lore AD8b: chief_of_staff removed; assistant added.
-		const knownRoles = [
-			"builder",
-			"growth",
-			"product_manager",
-			"facilitator", // @lore AD8c: renamed from practice_facilitator
-			"assistant", // @lore AD8b: replaces chief_of_staff
-			"brand_voice",
-		];
-		for (const role of knownRoles) {
-			expect(
-				findRoleCatalogEntry(role),
-				`role "${role}" should have a catalog entry`,
-			).toBeDefined();
-		}
-	});
-
-	it("categories are valid AgentCategory values", () => {
-		const validCategories = new Set<string>(AGENT_CATEGORIES);
-		for (const entry of AGENT_ROLE_CATALOG) {
-			expect(
-				validCategories.has(entry.category),
-				`entry "${entry.role}" has invalid category "${entry.category}"`,
-			).toBe(true);
-		}
-	});
-
-	it("no duplicate roles in catalog", () => {
-		const roles = AGENT_ROLE_CATALOG.map((e) => e.role);
-		const uniqueRoles = new Set(roles);
-		expect(uniqueRoles.size).toBe(roles.length);
-	});
-
-	it("all 2 categories are represented (strategy removed in BA9d)", () => {
-		const categoriesInCatalog = new Set(AGENT_ROLE_CATALOG.map((e) => e.category));
-		expect(categoriesInCatalog.has("team")).toBe(true);
-		expect(categoriesInCatalog.has("individual")).toBe(true);
-		// Cast to string — TS rejects "strategy" as it's not in the AgentCategory union (BA9d).
-		expect((categoriesInCatalog as Set<string>).has("strategy")).toBe(false);
-	});
-
-	it("type annotation: each entry is assignable to AgentRoleCatalogEntry", () => {
-		// Type-level test — if this compiles, the shape is correct
-		const entry: AgentRoleCatalogEntry = AGENT_ROLE_CATALOG[0]!;
-		expect(entry).toBeDefined();
-	});
-});
+// @lore BA9g: the `AGENT_ROLE_CATALOG` block is gone with the catalog. A role is
+// a string on an agent now — the roles in use are the distinct roles among the
+// agents you can see, and `roleLabel` derives a display name from any string, so
+// nothing needs a registry to render. Introducing a role is creating an agent
+// with it (`BA9g-roles-are-data.integration.test.ts`).
 
 // ---------------------------------------------------------------------------
 // findRoleCatalogEntry
 // ---------------------------------------------------------------------------
 
-describe("findRoleCatalogEntry", () => {
-	it("returns the entry for a known role", () => {
-		const entry = findRoleCatalogEntry("builder");
-		expect(entry).toBeDefined();
-		expect(entry?.role).toBe("builder");
-		expect(entry?.category).toBe("team");
-	});
-
-	it("returns undefined for an unknown role", () => {
-		const entry = findRoleCatalogEntry("totally_unknown_role_xyz");
-		expect(entry).toBeUndefined();
-	});
-
-	// @lore AD8c: role renamed from practice_facilitator to facilitator
-	// @lore BA9d: facilitator moved from category="strategy" to category="individual"
-	it("returns the entry for facilitator", () => {
-		const entry = findRoleCatalogEntry("facilitator");
-		expect(entry).toBeDefined();
-		expect(entry?.category).toBe("individual");
-	});
-
-	it("returns the entry for assistant (formerly chief_of_staff)", () => {
-		// @lore AD8b: chief_of_staff renamed to assistant.
-		const entry = findRoleCatalogEntry("assistant");
-		expect(entry).toBeDefined();
-		expect(entry?.category).toBe("individual");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// communityForRole — AC7
-// ---------------------------------------------------------------------------
-
-describe("communityForRole", () => {
-	it("returns 'building' for builder", () => {
-		expect(communityForRole("builder")).toBe("building");
-	});
-
-	it("returns 'product' for product_manager", () => {
-		expect(communityForRole("product_manager")).toBe("product");
-	});
-
-	it("returns 'growth' for growth", () => {
-		expect(communityForRole("growth")).toBe("growth");
-	});
-
-	it("returns 'ops' for assistant (formerly chief_of_staff)", () => {
-		// @lore AD8b: chief_of_staff renamed to assistant.
-		expect(communityForRole("assistant")).toBe("ops");
-	});
-
-	// @lore AD8c: role renamed from practice_facilitator to facilitator
-	it("returns 'ops' for facilitator", () => {
-		expect(communityForRole("facilitator")).toBe("ops");
-	});
-
-	it("returns 'growth' for brand_voice", () => {
-		expect(communityForRole("brand_voice")).toBe("growth");
-	});
-
-	it("returns 'ops' for unknown custom role (fallback)", () => {
-		expect(communityForRole("unknown_custom_role")).toBe("ops");
-	});
-
-	it("returns 'ops' for empty string (fallback)", () => {
-		expect(communityForRole("")).toBe("ops");
-	});
-
-	it("returns 'building' for qa_engineer", () => {
-		expect(communityForRole("qa_engineer")).toBe("building");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// TEAM_FUNCTIONS — AC3
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// defaultRoster — AC3
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// AGENT_CATEGORIES re-export
-// ---------------------------------------------------------------------------
-
+// @lore BA9g: the `findRoleCatalogEntry` and `communityForRole` blocks are gone
+// with the functions. There is no catalog to look a role up in — a role is a
+// string on an agent — and the practice an agent belongs to is its role, so
+// there is no mapping left to assert. `roleLabel` below is what survives: it
+// derives a display name from any string, which is all rendering ever needed.
 describe("AGENT_CATEGORIES", () => {
 	it("has exactly 2 values (strategy removed in BA9d)", () => {
 		expect(AGENT_CATEGORIES).toHaveLength(2);

@@ -30,7 +30,6 @@ import {
 	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
-	findRoleCatalogEntry,
 	MODEL_TIERS,
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
@@ -268,8 +267,7 @@ export function createAgentRoutes(
 		}
 
 		// Derive agentCategory: explicit field > catalog lookup > default "team"
-		const agentCatalogEntry = findRoleCatalogEntry(data.role);
-		const agentCategory = data.agentCategory ?? agentCatalogEntry?.category ?? "team";
+		const agentCategory = data.agentCategory ?? "team";
 
 		const id = randomUUID();
 		const now = new Date().toISOString();

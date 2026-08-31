@@ -1,4 +1,3 @@
-import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { AgentScaffoldSpec } from "./scaffold-agents.js";
 
 /**
@@ -59,12 +58,13 @@ export function resolveAgentScaffoldSpecs(
 			];
 		case "agent_added": {
 			if (request.role === null) throw new Error("agent_added trigger requires a role");
-			const entry = AGENT_ROLE_CATALOG.find((candidate) => candidate.role === request.role);
 			return [
 				{
 					role: request.role,
 					name: request.name ?? `${request.teamName ?? "Agent"} ${request.role}`,
-					agentCategory: entry?.category ?? "team",
+					// @lore BA9g: the category used to come off the role catalog. A role
+					// is a string now; an agent added to a team is a team agent.
+					agentCategory: "team",
 					systemPrompt: null,
 				},
 			];

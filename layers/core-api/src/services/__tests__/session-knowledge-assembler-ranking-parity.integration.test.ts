@@ -141,11 +141,19 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		scopeId: OTHER_TEAM_ID,
 	});
 
-	// L3 — scoped to "building" (communityForRole("builder")), must be included.
+	// L3 — scoped to the agent's practice, which IS its role. Was `"building"`,
+	// the community `communityForRole("builder")` mapped it into.
+	//
+	// @lore BA9g: the role catalog carried that mapping — 16 roles onto four
+	// communities — and it went with the catalog. `knowledge.ts` already
+	// documented the truth ("practice scopeId is a role id"): the product scopes
+	// practice knowledge by ROLE everywhere, including the demo world, and this
+	// fixture was the only thing that ever used a community name. A practice is a
+	// role, so a new role is its own practice with no mapping to maintain.
 	await db.insert(knowledgeItems).values({
 		id: "item-i12-l3-in",
 		scopeKind: "practice",
-		scopeId: "building",
+		scopeId: "builder",
 		title: "Building practice knowledge",
 		body: "Relevant to the builder community.",
 		format: "markdown",

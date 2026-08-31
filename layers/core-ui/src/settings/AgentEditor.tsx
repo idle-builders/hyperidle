@@ -29,7 +29,7 @@
 
 // hearth-internal-padding
 
-import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
+import { roleLabel } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { JSX } from "react";
 import { Link as RRLink } from "react-router-dom";
@@ -101,17 +101,36 @@ export interface AgentEditorProps {
 	 * where knowledge is edited. Absent (creating an agent) → the box seeds it.
 	 */
 	identityKnowledgeId?: string | null;
+	/**
+	 * The roles agents actually have — what the picker offers.
+	 *
+	 * @lore BA9g: a role is data, not a fixed list. Typing one the list does not
+	 * have introduces it.
+	 */
+	rolesInUse?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ROLE_OPTIONS = AGENT_ROLE_CATALOG.map((e) => ({
-	role: e.role,
-	label: e.label,
-	description: e.description,
-}));
+/**
+ * The roles on offer: the ones agents actually have.
+ *
+ * @lore BA9g: this was `AGENT_ROLE_CATALOG.map(...)` — 17 roles the product had
+ * opinions about, offered whether or not any agent had them, while a role a
+ * plugin or a person introduced was never offered back. A role is data now, so
+ * the options are whatever is in use, and typing a new one introduces it.
+ */
+function roleOptions(rolesInUse: readonly string[]): ReadonlyArray<{
+	role: string;
+	label: string;
+}> {
+	return [...new Set(rolesInUse)]
+		.filter((role) => role.length > 0)
+		.sort()
+		.map((role) => ({ role, label: roleLabel(role) }));
+}
 
 /** AO1: human label for a filesystem source — the easy-to-detect mark text. */
 function fsSourceLabel(source: string): string {
@@ -147,6 +166,7 @@ export function AgentEditor({
 	error,
 	filesystems,
 	identityKnowledgeId,
+	rolesInUse,
 }: AgentEditorProps): JSX.Element {
 	// Find the selected harness descriptor
 	const selectedDescriptor = harnesses.find((h) => h.type === draft.harnessType);
@@ -196,7 +216,7 @@ export function AgentEditor({
 				<div className="flex-1 min-w-[140px]">
 					<RoleCombobox
 						id={`edit-role-${agentId}`}
-						options={ROLE_OPTIONS}
+						options={roleOptions(rolesInUse ?? [draft.role])}
 						value={draft.role}
 						disabled={isAssistant} // assistant role is immutable
 						onChange={(newRole) => {

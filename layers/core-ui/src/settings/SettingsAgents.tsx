@@ -570,6 +570,7 @@ export function SettingsAgents(): JSX.Element {
 						saving={adding}
 						error={addError}
 						filesystems={filesystems}
+						rolesInUse={agents.map((a) => a.role)}
 					/>
 				</div>
 			)}
@@ -595,6 +596,7 @@ export function SettingsAgents(): JSX.Element {
 				error={editError}
 				filesystems={filesystems}
 				identityKnowledgeId={selectedAgent?.identityKnowledgeId ?? null}
+				rolesInUse={agents.map((a) => a.role)}
 			/>
 		) : (
 			<EmptyState

@@ -21,13 +21,7 @@ export type {
 	AgentReviewTrackRecord,
 	AgentVerdictEntry,
 } from "./agent-profile.js";
-export type { AgentRoleCatalogEntry } from "./agent-roles.js";
-export {
-	AGENT_ROLE_CATALOG,
-	communityForRole,
-	findRoleCatalogEntry,
-	roleLabel,
-} from "./agent-roles.js";
+export { roleLabel } from "./agent-roles.js";
 // HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {

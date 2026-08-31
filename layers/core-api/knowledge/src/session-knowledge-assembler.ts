@@ -25,7 +25,7 @@ import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { and, eq, ne, or } from "drizzle-orm";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import { list } from "./knowledge-repository.js";
-import { communityForRole } from "./role-community-map.js";
+import { practiceForRole } from "./role-community-map.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import type { ScoredItem } from "./token-budget.js";
@@ -100,16 +100,11 @@ function computeTagMatch(item: KnowledgeItemWithProjection, taskTags: string[]):
 
 /** Compute role match factor (0 or 1). */
 function computeRoleMatch(item: KnowledgeItemWithProjection, agentRole: string): number {
-	const community = communityForRole(agentRole);
-	const scopeId = item.scopeId ?? null;
-	if (scopeId === community) {
-		return 1;
-	}
-	// Also match if scopeId contains the role name
-	if (scopeId?.includes(agentRole)) {
-		return 0.5;
-	}
-	return 0;
+	// @lore BA9g: the practice is the role, so this is an exact match. It used to
+	// compare against a community the role mapped into and fall back to a fuzzy
+	// substring test — and the fuzzy branch was the one that fired, because
+	// practice knowledge is scoped by role, never by community name.
+	return (item.scopeId ?? null) === practiceForRole(agentRole) ? 1 : 0;
 }
 
 /** Compute recency factor (0-1). Items updated within last 30 days score higher. */
@@ -386,7 +381,7 @@ export async function assembleSessionKnowledge(
 	db: HyperIdleDb,
 	input: SessionKnowledgeInput,
 ): Promise<readonly KnowledgeItemWithProjection[]> {
-	const community = communityForRole(input.agentRole);
+	const community = practiceForRole(input.agentRole);
 
 	// L2 is the team layer. `list()` applies a scope filter only when `scopeId`
 	// is defined, so passing an absent team through would return EVERY team's L2

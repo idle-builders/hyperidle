@@ -26,11 +26,7 @@
  */
 
 import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
-import {
-	AGENT_OPERATIONAL_STATUS_LABEL,
-	findRoleCatalogEntry,
-	roleLabel,
-} from "@hyperidle/domain-model";
+import { AGENT_OPERATIONAL_STATUS_LABEL, roleLabel } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import {
@@ -215,7 +211,6 @@ function AgentProfileLoaded({
 	data: AgentProfileResponse;
 	overrideRunState?: AgentRunState;
 }): JSX.Element {
-	const catalogEntry = findRoleCatalogEntry(data.role);
 	const initials = deriveInitials(data.name);
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
@@ -397,7 +392,7 @@ function AgentProfileLoaded({
 								)}
 							</div>
 							<p className="type-metadata  text-[var(--text-tertiary)] mt-[3px]">
-								{catalogEntry?.label ?? data.role}
+								{roleLabel(data.role)}
 								{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
 								<span className="ml-[6px]">· Created {createdDate}</span>
 							</p>

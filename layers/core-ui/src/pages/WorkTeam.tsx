@@ -26,7 +26,7 @@ import type { BetCardSummary, TeamDetail } from "@hyperidle/domain-model";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	BET_STATUS_LABEL,
-	findRoleCatalogEntry,
+	roleLabel,
 } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -552,8 +552,10 @@ function WorkTeamLoaded({
 							: healthDetail;
 
 						let contextText = (() => {
-							const catalogEntry = findRoleCatalogEntry(member.role);
-							return catalogEntry?.description ?? member.role;
+							// @lore BA9g: the catalog's one-line description went with the
+							// catalog. What an agent is for is its identity document, not a
+							// sentence the product wrote about its role.
+							return roleLabel(member.role);
 						})();
 						let contextIsError = false;
 						if (memberStatus === "active" && runState.activeTaskTitle) {
@@ -807,6 +809,7 @@ function WorkTeamLoaded({
 			{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
 			{addDialogOpen && (
 				<AgentAddDialog
+					rolesInUse={(data?.roster ?? []).map((m) => m.role)}
 					open={addDialogOpen}
 					teamMembersId={data.teamMembers.id}
 					teamName={data.team.name}
