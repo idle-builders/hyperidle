@@ -1,5 +1,4 @@
 // AE6 RED — Integration tests for artifact normalization (AC-3).
-// Source of truth: plans/AE6/architecture.md §11 AC-3
 //
 // Tests:
 // 1. POST artifact with old kind, GET it back, verify normalization

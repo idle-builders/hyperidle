@@ -14,7 +14,7 @@ Iterative visual fidelity improvement loop. Compare the live implementation agai
 
 - Dev server running on `localhost:5173` (`npm run dev` from repo root) for app-level polish
 - Design system viewer running on `localhost:8098` (`npm run ds:serve`) for component-level polish
-- Reference: the approved design at `plans/<workpackage-id>/design/approved.md`
+- Reference: the approved design in `.pipeline/work/<id>/plan.md`
 
 ## Workflow
 
@@ -38,7 +38,7 @@ Navigate to `http://localhost:8098/#<ComponentName>` in the browser or via agent
 - **Missing elements** — icons, badges, indicators not implemented
 - **Extra elements** — implementation has things the reference doesn't
 
-Reference the approved design (`plans/<workpackage-id>/design/approved.md`) for design intent when differences are ambiguous.
+Reference the approved design in `.pipeline/work/<id>/plan.md` for design intent when differences are ambiguous.
 
 ### 3. Check the snapshot net
 
@@ -90,7 +90,7 @@ Commit the updated `.snap` in the same PR as the component change. Read the diff
 
 - **Never blind re-bless** — always read the `.snap` diff before running `vitest -u`. Blind re-bless degrades the net to noise.
 - **Fix structure before details** — a wrong layout with perfect colors is worse than right layout with slightly off colors
-- **Check the approved design first** — when story and reference disagree, the approved design at `plans/<workpackage-id>/design/approved.md` is the source of truth
+- **Check the approved design first** — when story and reference disagree, the approved design in `.pipeline/work/<id>/plan.md` is the source of truth
 - **One change at a time** — so you can attribute regression to specific modifications
 
 ## Output

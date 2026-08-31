@@ -9,7 +9,7 @@
  *   Artifact slot (placeholder for L12)
  *
  * @lore L13: Product = Team 1:1 invariant. The page is addressed by teamId
- * (the public identifier). See plans/L13/concept.md.
+ * (the public identifier).
  *
  * @lore L13: The `overrideData` / `overrideLoading` / `overrideError` props
  * mirror WorkBet's `overrideBet` / `loading` props — used by stories and tests
@@ -328,8 +328,7 @@ function WorkTeamLoaded({
 				{/*
 				 * @lore AG1: stat tiles (Capacity/Status) replace the KeyValue
 				 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
-				 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
-				 * plans/AG1/design/approved.md §2 + §4a.
+				 * mandatory — empty roster → "—"/"No agents", never "Healthy".
 				 */}
 				{/* @lore UI-065: StatTile replaced with KpiStat (design-system primitive) +
 				    a border card wrapper. KpiStat is the canonical metric-display primitive

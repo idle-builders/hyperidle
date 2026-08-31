@@ -1,5 +1,4 @@
 // AE6 RED — Kind registry and Kind Definition unit tests.
-// Source of truth: plans/AE6/architecture.md §11 AC-1, AC-2, AC-3
 //
 // These tests will FAIL until the green phase creates the implementation.
 

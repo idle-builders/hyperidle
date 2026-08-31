@@ -1,8 +1,8 @@
 /**
  * AV2 design artifact — RoleCombobox (catalog-plus-custom role picker).
  *
- * The chosen role-control variant (R2, inline combobox) from
- * plans/AV2/design/approved.md. Populated real state only (open popover showing
+ * The chosen role-control variant (R2, inline combobox).
+ * Populated real state only (open popover showing
  * the catalog + the "Use new role" affordance) per
  * feedback_no_skeleton_error_in_initial_designs. This story IS the design artifact
  * the human review renders at /designsystem.

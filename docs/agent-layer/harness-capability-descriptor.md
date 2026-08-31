@@ -221,11 +221,4 @@ The `builtin` exemption is enforced in two independent places: the `select()` fi
 
 ---
 
-## Research Basis
-
-- `plans/AM2/research/cli-harness-surface.md` — local CLI probe results: binary versions, auth behavior, launch commands, event format captures; Cursor absence confirmed.
-- `plans/AM2/research/t3code-source-map.md` — t3code source paths for provider/harness discovery, auth, launch, status/version, event handling, and UI metadata.
-
----
-
 Next: [Model Routing and Cost](./model-routing-and-cost.md) — how descriptors integrate with model selection and cost enforcement.

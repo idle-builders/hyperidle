@@ -4,14 +4,14 @@
  * Captures screenshots of surfaces affected by AI1 token fixes. These are
  * evidence screenshots for reviewer inspection — not pixel-diff regression tests.
  *
- * Screenshots saved to plans/AI1/screenshots/ (git add -f'd as visual proof).
+ * Screenshots saved to test-results/AI1-*.png for reviewer inspection.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { expect, test } from "./fixtures";
 
-const SCREENSHOTS_DIR = path.resolve(import.meta.dirname, "../../../plans/AI1/screenshots");
+const SCREENSHOTS_DIR = path.resolve(import.meta.dirname, "../../../test-results");
 
 /** Thread row shape per layers/core-ui/src/hooks/useConversationsThreads.ts */
 function makeThreadRow(id: string, title: string, blocking = false): Record<string, unknown> {
@@ -67,7 +67,7 @@ test("AI1 AC2/AC5 — conversations: blocking section uses --status-error border
 	await page.goto("/conversations", { waitUntil: "domcontentloaded" });
 	await page.waitForTimeout(2500);
 
-	const screenshotPath = path.join(SCREENSHOTS_DIR, "01-conversations-blocking-section.png");
+	const screenshotPath = path.join(SCREENSHOTS_DIR, "AI1-01-conversations-blocking-section.png");
 	await page.screenshot({ path: screenshotPath, fullPage: false });
 	expect(fs.existsSync(screenshotPath)).toBe(true);
 });
@@ -105,7 +105,7 @@ test("AI1 AC4 — settings assistant: --surface-container + status token colors"
 		await page.waitForTimeout(1000);
 	}
 
-	const screenshotPath = path.join(SCREENSHOTS_DIR, "02-settings-assistant.png");
+	const screenshotPath = path.join(SCREENSHOTS_DIR, "AI1-02-settings-assistant.png");
 	await page.screenshot({ path: screenshotPath, fullPage: false });
 	expect(fs.existsSync(screenshotPath)).toBe(true);
 });
@@ -133,7 +133,7 @@ test("AI1 AC2 — conversations desktop: blocking section border-left visible", 
 	await page.goto("/conversations", { waitUntil: "domcontentloaded" });
 	await page.waitForTimeout(2500);
 
-	const screenshotPath = path.join(SCREENSHOTS_DIR, "03-conversations-desktop.png");
+	const screenshotPath = path.join(SCREENSHOTS_DIR, "AI1-03-conversations-desktop.png");
 	await page.screenshot({ path: screenshotPath, fullPage: false });
 	expect(fs.existsSync(screenshotPath)).toBe(true);
 });
@@ -147,7 +147,7 @@ test("AI1 AC2 — conversations mobile viewport", async ({ page }) => {
 	await page.goto("/conversations", { waitUntil: "domcontentloaded" });
 	await page.waitForTimeout(1500);
 
-	const screenshotPath = path.join(SCREENSHOTS_DIR, "04-conversations-mobile.png");
+	const screenshotPath = path.join(SCREENSHOTS_DIR, "AI1-04-conversations-mobile.png");
 	await page.screenshot({ path: screenshotPath, fullPage: false });
 	expect(fs.existsSync(screenshotPath)).toBe(true);
 });

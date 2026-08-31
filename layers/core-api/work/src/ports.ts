@@ -83,8 +83,8 @@
  * Increment 3b) is **RULED PERMANENT**, not inverted. `bet-decomposition.ts`
  * calls `deps.workIntents.record(tx, {...})` **inside the same
  * `db.transaction`** as `work.claimBetDecomposition(tx, betId)` — the literal
- * same-transaction-write shape §10.3's amendment names first
- * (`plans/AU19/architecture.md` line 528). An EventBus emit-after-commit
+ * same-transaction-write shape §10.3's amendment names first.
+ * An EventBus emit-after-commit
  * would split the bet claim and the intent record into two transactions — a
  * crash between them leaves a bet marked "claimed for decomposition" with no
  * recorded intent anywhere, silently stuck forever. This port's shape is

@@ -1,7 +1,7 @@
 /**
  * AV2 design artifact — Settings → Agents rendered as an ItemList + SplitView.
  *
- * The chosen IA (IA-B, plans/AV2/design/approved.md): the Agents section body is
+ * The chosen IA (IA-B): the Agents section body is
  * a SplitView — an ItemList(flush) of agent Rows on the left (origin), the shared
  * agent editor on the right (destination). The Assistant is just a row. Populated
  * real state only (no empty/loading/error) per

@@ -2,7 +2,7 @@
  * AR1 — requireHarness: hard-fail (never skip) gate for harness-facing
  * integration tests. Replaces every `skipIf`-on-absent availability gate.
  *
- * STRICT harness model (plans/AR/concept.md):
+ * STRICT harness model:
  *   - claude | codex | opencode | cursor-agent → real binary on PATH (keychain /
  *     inherited login — NO API key of any kind).
  *   - builtin                          → OPENROUTER_API_KEY present in the env.

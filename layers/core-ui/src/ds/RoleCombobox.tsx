@@ -6,7 +6,7 @@
  * known catalog roles by label/description AND can commit an arbitrary new role
  * string. Known roles render their friendly label; a custom role renders its raw
  * string. This is UI-only — `role` is already an open `users.role` string
- * (see plans/AV2/requirements.md §5); no data-model change.
+ * with no data-model change.
  *
  * Presentational: options + value + onChange in, local open/highlight/filter
  * state, callbacks. Production wiring (fetching the catalog, save routing) is the

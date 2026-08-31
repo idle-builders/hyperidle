@@ -288,7 +288,7 @@ export async function create(
 	// EventBus emit (live subscribers: ws-broadcaster, observability
 	// dispatcher); non-HTTP callers (tools/writeback) never emitted on the bus
 	// before this WP and continue not to — emitting here would be a NEW event for
-	// them, a behavior change the WP forbids. See plans/AU14/architecture.md §4.
+	// them, a behavior change the WP forbids.
 	const [created] = await db
 		.select()
 		.from(knowledgeItems)

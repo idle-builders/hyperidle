@@ -21,7 +21,7 @@
  *     sidebarProps.onSearchClick).
  * Both surfaces are always rendered by AppShell on desktop viewport (default project fixture).
  * TaskSheet reachability (no live trigger on AI2 branch) is a pre-existing gap owned by AG
- * (Work-view experience workpackage). See plans/AI2/review-notes.md.
+ * (Work-view experience workpackage).
  */
 
 import { expect, test } from "./fixtures";

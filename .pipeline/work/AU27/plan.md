@@ -1,94 +1,100 @@
 # AU27 — The assistant turn is just an ordinary agent: de-specialize its output + execution path
 
-## Work package
+**Status: shipped 2026-08-04.**
 
-**Work package.** As a maintainer, I want the assistant turn to run as a genuinely ordinary tool-driven agent session — same execution path, same output mechanism, same tool surface — as every other agent kind (task_run, routine_run, knowledge_action, reengagement), so that "the assistant is just an ordinary agent" is true in the code and not just in intent. Today the assistant is still secretly special on the **output + execution** side: it runs through a bespoke `conversational` mode (`dispatch.runAssistantTurn` → a `conversational: {...}` params bag → `executeAgentRunRequest`), returns a special `conversationalReply`/`conversationalToolCalls` result shape, and **dispatch itself** (not the agent, not a tool) parses that reply and posts it into the thread afterward. Every other agent kind produces its work products via ordinary explicit tool calls DURING the session and flows through the shared `run-orchestration` poller (`drainIntents → runClaimedRequest`); the assistant does neither. This WP collapses that specialness: the assistant runs on the normal poller path and posts its response by calling a new generic **`reply`** tool DURING the session, exactly like any other agent's output.
+## What we need
 
-**Why this matters.** The maintainer stated it verbatim during AU21's build: *"the assistant is just an ordinary agent [session]. and the orchestration should deal with it like any other agent. also the assistant uses tools like any other agent. there is nothing special."* And: *"the conversation with the assistant is nothing different than any ordinary conversation. the only place where the assistant is treated specially is in the UI since it can show up in a different spot visually."* AU21's Decision H2 closed the assistant turn's **input** side (core bakes the transcript, orchestration formats it, no agent MCP pull) but never touched the **output** side. Leaving a whole second execution path + a special result shape + an orchestration-side post-hoc write means the runtime still forks on "is this the assistant," which is exactly the specialness this track (AU) exists to remove. It is not user-facing-broken today (assistants reply fine), so this is a coherence/architecture fix, not an incident — but it is real, scoped, buildable debt, and it is the natural precondition for AU25 (resumable harness sessions) applying uniformly to all kinds.
+The assistant turn should run as a genuinely ordinary tool-driven agent session — same execution path,
+same output mechanism, same tool surface — as every other agent kind, so that "the assistant is just an
+ordinary agent" is true in the code and not only in intent. AU21's Decision H2 closed the assistant's
+**input** side (core bakes the transcript, orchestration formats it) but left the **output** side special:
+the assistant ran through a bespoke `conversational` mode, returned a special result shape, and
+`dispatch` — not the agent, not a tool — parsed that reply and posted it into the thread afterward. Every
+other kind produces its work products through explicit tool calls during the session and flows through
+the shared `run-orchestration` poller. The runtime still forked on "is this the assistant," which is
+exactly the specialness this track exists to remove.
 
-**Type.** backend.
+The maintainer put it plainly: *"the assistant is just an ordinary agent [session] … it uses tools like
+any other agent. there is nothing special,"* and *"the only place where the assistant is treated specially
+is in the UI since it can show up in a different spot visually."* Nothing was user-visibly broken — this is
+coherence debt, and the precondition for resumable harness sessions applying uniformly across kinds.
 
-**What exists today (verified in AU21's Decision K, source-traced).** `packages/agent-orchestration/dispatch/src/service.ts`'s `runTurnInternal` (`:302-422`) is a separate assistant execution entry (`DispatchOps.runAssistantTurn`, `:533,567`) that passes `conversational: { threadId, assistantAgentId, draftRegistry, messages, systemPromptOverride }` into `executeAgentRunRequest` (`:363-369`), then reads `result.conversationalReply`/`conversationalToolCalls` and posts the reply via `ports.conversation.insertMessage` (`:371-401`; failure twin `persistTurnFailureInternal` `:105-135`). `packages/agent-orchestration/run-orchestration/src/provisioner.ts` implements the mode: `isConversational` gating (`:1245`), the conversational tool-registry merge (`:1207-1217`), reply capture from the harness `completion` event (`:1576-1581`), and the special result fields (`:740,787-791,1795-1798`); `contracts.ts:231` declares `RunOptions.conversational`. The assistant-only draft tool surface is `packages/agent-orchestration/tool-handlers/src/assistant-draft-registry.ts` (`buildAssistantDraftRegistry`). No generic "post a message into the thread this session is running for" tool exists: `send_message` (`tool-definitions.ts:109-141`) is agent→agent direct messaging, `log_task` (`:1456-1479`) appends to the task's notes column, and `ToolContext` (`shared/src/tool.ts:38-56`) has no `threadId`. `tasks.threadId → threads.id` (`db/src/schema.ts:220`) confirms task comments are the same threads/messages primitive — every conversation-anchored kind has a well-defined calling thread (`assistant` → `sourceCorrelation.threadId`, `session-request.ts:66`; `task`/`proposed_call` → the task's `threadId`, `:54,100`).
+**This is a deletion work package**, scope-locked to six things: a generic `reply` tool; a calling-thread
+id on the tool context, baked at emit; the assistant onto the shared poller; delete `conversational` mode;
+delete the `@hyperidle/dispatch` package; purge the `AL6` work-package-ID naming from production code. Any
+increment that grew the surface rather than shrinking it needed explicit justification against that lock.
 
-**What's genuinely missing.** A generic session-scoped `reply` (or `post_message`) MCP tool that posts a plain message into the session's calling thread via the `CoreApiPort` seam — available to ALL agent kinds; a `threadId` field on `ToolContext` populated from the baked request (assistant from correlation; task/proposed_call baked at emit from `task.threadId`); the convergence of `dispatch.runAssistantTurn` into the shared `run-orchestration` poller path; the removal of the whole `conversational` mode (`RunOptions.conversational`, `RunResult.conversationalReply`/`conversationalToolCalls`, `dispatch`'s conversational runner, and the assistant draft registry as a special surface); and moving the pre-handoff "assistant can't respond" notice UX onto the standard `agent_run_admission_failed` → core-api `conversation` subscriber (§10 of AU21's architecture already reserves the `assistant_turn` → `conversation` subscriber slot).
+Done means the assistant's response is authored by the assistant itself through the same `CoreApiPort`
+route and middleware a human uses, with no orchestration-side post-hoc write anywhere in the path; `reply`
+works for every agent kind (proven by a task_run posting into its own task's thread); `threadId` reaches
+the tool context from the baked request with zero orchestration→core reads on the run path; no
+`conversational` execution branch survives a type check and grep; the assistant is consumed by the shared
+poller with no second execution entry; and the return gate forces the session-appropriate action, proven
+on a real harness rather than in gate unit tests alone.
 
-**Depends on.**
-- **AU21** — this WP builds on H2's baked assistant transcript, the `CoreApiPort` seam, the baked-request/emit path, and the `agent_run_admission_failed` channel — all of which AU21 shipped. It cannot be meaningfully scoped or built until AU21 has shipped those.
+Deliberately accepted, not deferred: the assistant's bet-draft cards and tool-call summary rows lose their
+only data source and **go away**, with no replacement — pre-users, no one to regress. One UI file is
+edited, only to delete those now-dead branches; the assistant's distinct visual spot is untouched. There
+is no migration, no backfill, no schema change, and no tombstone comments narrating what was removed.
 
-**Complexity.** L
+Out of scope: resumable per-thread harness sessions (AU25); mid-run delivery into a running session
+(AU22); any UI redesign; and the pre-handoff admission-failure notice UX, which the founder ruled a
+different concern — see *How we work on this* for the three defects spun out with it.
 
-**Engineering tier.** production (matches AU21's own tier).
+## How it works
 
-**Pre-build gates.**
-- **Refinement:** Not required — the goal, the source trace, and the design are already settled via AU21's Decision K (`.pipeline/work/AU21/architecture.md`, search "Decision K"), a real verified architecture pass.
-- **Design:** Not required — backend, no new UI surface. The UI already renders the assistant in its own visual spot (the founder's one accepted specialness) and that is unchanged; the response still lands as an ordinary thread message.
+**`reply` is deliberately narrower than `send_message`: it takes no thread argument.** That is what makes
+it mean "answer your caller," and it removes a whole loop class. It posts a plain message into the
+session's calling thread through `ports.coreApi.insertMessage` — the same route `send_message` already
+uses. It carries no `roles`, so every agent kind gets it. Its errors are tool results, never throws: a
+session with no calling thread (routine_run, knowledge_action) gets `NO_CALLING_THREAD` naming the
+alternatives that do work, and the session continues. It is marked `reversible` on purpose, because
+reversibility classification fails closed and an unmarked `reply` would route every answer to human
+review under a session workflow.
 
-**Human review gates.** Yes — mandatory for every work package. The one judgment call to confirm during build: the exact scope of retiring/folding the assistant draft registry (`buildAssistantDraftRegistry`) — whether its draft tools become ordinary tools or are retired — should be confirmed against the current tool surface, not assumed.
+**`ToolContext.threadId` is optional and absent means absent** — the `taskId: ""` idiom for a missing id
+was deliberately not copied, because `reply` has to be able to tell. It is baked by each per-kind resolver
+at emit, so orchestration only parses the drained payload and never reads core on the run path.
 
-**Plan calls.** Standard architecture pass, but treat AU21's Decision K (K2 section) as the locked design frame — do not re-derive it; verify its source claims still hold against the current tree (AU21 will have shipped more by the time this starts) and produce the increment breakdown from it.
+**Threads are found by `(hostKind, hostId)` lookup, not by a foreign key on the host.** `tasks.threadId`
+is a denormalized shortcut and the anomaly among the eight thread hosts, not the norm; knowledge items
+have working conversations with no such column. So the task's thread is resolve-or-created core-side at
+emit time — a core write, which leaves the zero-orchestration-reads boundary intact — rather than by a
+migration making the column non-null. Lazy resolve-or-create is the architecture, not a gap.
 
-**Contracts / constraints.**
-- The assistant reply must land through the **same** `CoreApiPort` route + middleware a human or any other agent uses (the seam AU21 Increment 2 already routes `send_message`/`insertMessage` through) — never an orchestration-side special write.
-- The generic `reply` tool must be available to every agent kind, and must fail cleanly (not crash) for a session with no calling thread (routine/knowledge).
-- `ToolContext.threadId` must be populated from the **baked** request (emit-time), never a new orchestration→core read on the run path — this preserves AU21's AC #2 (zero orchestration→core reads).
-- The assistant turn must flow through the shared `run-orchestration` poller path after this WP — no second execution entry may remain.
-- The UI's assistant rendering (its distinct visual spot) is unchanged — this is backend-only; the founder's one accepted specialness (visual placement) stays.
-- The **return gate itself is adjusted**, not shadowed: the fix for "the agent must actually call `reply`" is a change to the existing return-gate/forcing hook (`packages/shared/src/harness/return-actions.ts` + its per-harness enforcement channels), never a second parallel forcing mechanism alongside it. **Founder amendment, 2026-08-04.**
-- The **`AL6` work-package-ID naming is purged** from production code as part of this WP — exported constants (`AL6_FORCE_RETURN_MESSAGE`, `AL6_MAX_FORCE_RETURNS`), comments/`@lore` tags, the lint-rule marker strings (`AL6-relay`, `AL6-exempt:`, `AL6-observe-only:`), the HTTP headers (`X-AL6-Budget-Left`, `X-AL6-Returned`), and `AL6`-prefixed test/eval filenames. Renamed to intent-describing names (the mechanism is "return enforcement", not a WP id). Pure rename, zero behavior change, its own increment. **Founder amendment, 2026-08-04.**
+**The one return gate is adjusted in place, never shadowed.** The requirement is per-session: a session
+whose output belongs in a calling thread cannot satisfy the gate with an unrelated return tool, and the
+forcing message names the action that session actually needs. The change extends the existing return
+action names, forcing predicate and enforcement entries across all six force sites and four harness
+channels; no second gate, no parallel registry, no bypass.
 
-**Out of scope.**
-- Resumable per-thread harness sessions + delta computation (resume-vs-new) — that is **AU25** (meta-orchestration of harness sessions). AU27 keeps today's fresh-spawn model; it only de-specializes the assistant's output + execution path. AU27 should land before or with AU25 so AU25 applies uniformly.
-- Mid-run delivery into an already-running session — that is **AU22**.
-- Any UI redesign of the assistant surface.
-- Re-opening any AU21 AC — AU21's AC #2/#9 are met independent of this WP; this is a purity refinement, not a boundary hole.
-- **The pre-handoff / admission-failure notice UX (founder, 2026-08-04 — "wrong scope").** Two real defects were found while planning AU27 and are recorded here for a follow-up WP, NOT built here: (a) the `resolveModel` throw at `run-orchestration`'s `start-runtime.ts:127` escapes `runClaimedRequest`, so **no** `agent_run_admission_failed` event fires at all for that failure today; (b) the admission failure-code union is too coarse to say *why* (no `MISSING_CREDENTIAL` / `NO_ELIGIBLE_HARNESS`, though that vocabulary already exists at `start-runtime.ts:180-184`). AU27 deletes `persistTurnFailureInternal` as part of removing `conversational` mode; it does not backfill this chain. **(c) A third, related defect — a durability bug, not a notice UX, so recorded here explicitly rather than silently inherited:** `drainAgentSessionRequests` claims the request (`start-runtime.ts:90-94`) *before* `resolveModel` throws at `:127`, and the catch (`:150-173`) neither terminalizes nor releases the claim — the row sits `claimed` until its 30s lease expires, is re-claimed, and loops indefinitely. This is **pre-existing** (it already happens for `task_run`), but AU27's switchover makes it newly reachable for `assistant_turn`, the highest-volume kind. **AU27 accepts newly exposing it rather than bounding it**: bounding it means terminalizing/releasing on a pre-admission throw, which is the same code path (a) fixes, so splitting the fix across two WPs would leave a half-corrected catch block. It ships with (a) and (b) in the follow-up WP.
+**The force budget is finite, so a never-silent net catches the rest.** The already-emitted
+`session_not_returned` event gains the calling thread id and a `conversation` subscriber that posts one
+notice; absent a thread the subscriber no-ops. The assistant's tool surface grows from three tools to
+roughly seventeen as a direct consequence, and that is the point rather than a side effect. The mechanism
+is named for what it does — return enforcement — not for the work package that introduced it.
 
-**Effort.** L (~4-6d) — a new generic tool + `ToolContext.threadId` + emit-time thread baking for task/proposed_call, plus deleting `conversational` mode across three packages (`dispatch`, `run-orchestration`, `tool-handlers`) and converging two execution paths into one. Each piece is independently testable.
+## How we work on this
 
-## Acceptance criteria
+The build ran in three phases so the seam was the review unit: five additive increments that land safely
+alone because nothing consumes them yet; a switchover where one commit changes live behavior and the next
+removes what it made unreachable; and the mechanical rename last, over a settled surface.
 
-- **Every task has a thread, by definition — `tasks.threadId` is NOT NULL and the thread is created with the task.** **Founder amendment, 2026-08-04: *"each task must have a thread by definition. the entire purpose of our architecture is that any task, knowledge, chat is a thread."*** Today `tasks.threadId` (`db/src/schema.ts:201`) is nullable and its only writer is `session-review-creator.ts:68-83` — post-session, medium/high risk only — so essentially every task has no thread. That is an architecture violation, not a missing feature: `hostKind: "task"` is already the most-used thread host in the codebase (163 sites) and `messages.threadId`/items are already NOT NULL. **SCOPE LOCK — founder, 2026-08-04. Read this before any other section; it overrides anything below that conflicts.**
+Residual risks the next work package should own, all recorded at review and none blocking: a structurally
+failing `reply` (the `NO_CALLING_THREAD` result) still satisfies the return gate, so a routine or
+knowledge turn can end without its intended return if a model ignores a correcting error; only one of the
+eleven harness tests is visible to the enforcement machinery; the regression guard for the switchover
+lives in the release-gated harness lane; and a silent-retry window remains.
 
-> *"keep as is we don't want to rewrite the entire user interface. this workpackage is about cleanup and deleting stuff."*
-> *"there is no production data in existence, we are pre users."*
+Spun out as its own follow-up: the pre-handoff admission-failure chain. Three real defects were found and
+are recorded rather than fixed here — a `resolveModel` throw escapes `runClaimedRequest`, so no
+`agent_run_admission_failed` fires at all for that failure; the failure-code union is too coarse to say
+why (no missing-credential or no-eligible-harness case, though that vocabulary already exists); and the
+request is claimed before that throw, with the catch neither terminalizing nor releasing it, so the row
+loops on lease expiry indefinitely. The third is pre-existing for task_run but AU27 newly exposes it for
+the highest-volume kind; bounding it means the same catch block the first defect fixes, so splitting the
+work would leave a half-corrected path. AU27 accepts the exposure rather than half-fixing it.
 
-AU27 is a **deletion** work package. Its whole content is: (1) the generic `reply` tool, (2) `ToolContext.threadId` baked at emit, (3) the assistant onto the shared poller — delete the `if` branch, (4) delete `conversational` mode, (5) delete the `@hyperidle/dispatch` package, plus (6) the `AL6` naming purge. Nothing else.
-
-Consequences, all settled — do not reopen:
-- **No DB migration, no backfill, no `NOT NULL`, no schema change.** The emit path resolve-or-creates the task's thread the way the UI already does. All migration-safety analysis (PGlite/Postgres, adopt guards, real-data smoke, task-creation-path enumeration) is **moot**: pre-users, zero production data.
-- **No UI work of any kind.** The assistant's `payload.toolCalls` bet cards die with the dispatch code — **accept the loss, delete the dead branches, preserve nothing.** No user exists to regress. Re-adding them properly is a later WP.
-- **The other thread hosts stay lazy.** Lazy resolve-or-create is the architecture, not a gap.
-- **Bias to deletion.** Any increment that grows the surface rather than shrinking it needs an explicit justification against this lock.
-- **No tombstone comments. Founder, 2026-08-04: *"in code comments about what was removed is bad smell, also that needs removing."*** A comment describing the now-deleted `conversational` mode / `dispatch` package is itself debt — delete the comment, don't narrate the deletion. Applies to every `// AU27 Increment 7: … is DELETED`, `now-deleted conversational-mode …`, and similar. Where a comment explains why the *surviving* code is shaped as it is, rewrite it to describe the present design on its own terms, with no reference to what used to be there. Git history is the record.
-- **Docs get cleaned too. Founder, 2026-08-04: *"also the docs need cleanup."*** `docs/` is ground truth and must describe the system as it is after this WP — no `conversational` mode, no `runAssistantTurn`, no `@hyperidle/dispatch`. Files carrying stale references: `architecture/runtime-simplification.md`, `agent-layer/agent-model.md`, `agent-layer/harness-coverage-enforcement.md`, `process-layer/bets-shape-commit-change-ship.md`, `process-layer/staged-operation.md`, `process-layer/routines-and-retros.md`, `guides/user/agents.md`, `requirements/users-and-their-modes-of-engagement.md`, `human-interface-layer/the-three-views.md`. Update the ones describing the removed machinery; leave alone any whose match is an ordinary English use of the word "conversational".
-
----
-
-Retained for context (the outcome the `reply` tool needs): when an agent session starts for a task, that task's thread exists, so `reply` has somewhere real to post. Mechanism settled above. Supporting correction (orchestrator, 2026-08-04):
-
-Threads are resolved by **`(hostKind, hostId)` lookup**, not by an FK column on the host — `resolveOrCreateHostThread` (`web/src/services/host-threads.ts:36-76`) lists `/api/threads?host_kind=…&host_id=…` and creates one if absent; the server keys on `hostKind`/`hostId` (`core-api/src/routes/threads.ts:739,751`; `threads_host_idx`, `schema.ts:739`). So **no host needs a `threadId` column**, and `tasks.threadId` is a *denormalized* shortcut — the anomaly among the 8 hosts, not the norm. Knowledge items have working conversations today with no such column (`KnowledgeDetail.tsx:752-755` → `HostThreadSection.tsx:186`), so the earlier "knowledge_item has no thread capability" reading was wrong.
-
-⇒ The likely minimal fix is for **core to resolve-or-create the task's thread at emit time** (core-side write; orchestration still never reads, so AU21 AC #2 is unaffected) — **no migration, no backfill, no `NOT NULL`**. The heavier schema route is only justified if a hot read path or an emit-time constraint genuinely demands the denormalized column; the critique must settle which, with evidence, before build.
-
-Apply the same "is a thread guaranteed when a session needs one?" test to the other hosts rather than only the task example that surfaced it — but note that if lazy resolve-or-create is the established working pattern for all 8 hosts, "lazy" is the architecture, not a gap.
-- A generic `reply`/`post_message` MCP tool exists, is available to every agent kind, and posts a plain message into the session's calling thread through the `CoreApiPort` seam (same route + middleware a human uses) — proven by a test that a task_run session posts a comment into its task's thread via the tool.
-- `ToolContext` carries a `threadId` (the session's calling thread) populated from the baked request, with **zero** orchestration→core read on the run path — proven by a test (and the AU21 anti-regrowth guard staying green).
-- The assistant turn produces its response by calling the generic `reply` tool DURING the session, not via an orchestration-side post-hoc write — proven end-to-end (an assistant turn's reply appears in the thread, authored through the seam by the agent's own tool call).
-- The `conversational` mode is fully removed: `RunOptions.conversational`, `RunResult.conversationalReply`/`conversationalToolCalls`, `dispatch`'s `runTurnInternal`/`runAssistantTurn`/`persistTurnFailureInternal`, and the assistant-only draft registry as a special surface are gone — a grep/type check confirms no `conversational` execution branch remains.
-- The assistant turn flows through the shared `run-orchestration` poller path (`drainIntents → runClaimedRequest`), the same as every other kind — no second execution entry remains (test asserts the assistant intent is consumed by the shared poller).
-- ~~The pre-handoff failure UX still surfaces a helpful thread message via the `agent_run_admission_failed` → core-api `conversation` subscriber.~~ **REMOVED FROM SCOPE — founder, 2026-08-04: "no api key is not your issue. here wrong scope."** The pre-handoff / admission-failure notice chain (incl. the discovered `resolveModel` throw at `start-runtime.ts:127` escaping `runClaimedRequest`, and the too-coarse failure-code union) is a separate concern from de-specializing the assistant's output path. AU27 deletes `persistTurnFailureInternal` along with the rest of `conversational` mode and does **not** own restoring or improving that UX. Spun out — see *Out of scope*.
-- ~~A routine_run/knowledge_action session (no calling thread) calling `reply` gets a clean, well-typed error, never a crash.~~ **SUPERSEDED — founder, 2026-08-04: `reply` must always land somewhere.** The error was the wrong answer: a routine agent could do its work, try to report it, fail, and still be marked as having returned cleanly — with no output and no notice anywhere (the never-silent net also no-ops when there is no thread, `session-not-returned-notice.ts:43`). Replaced by:
-  - **knowledge_action** — resolves-or-creates its own knowledge item's thread (`hostKind: "knowledge_item"`, from the request's `knowledgeItemId`), exactly like task_run does. It always had a valid thread host; it was simply unfinished.
-  - **any session with no calling thread (routine_run, and any future kind)** — `reply` falls back to a direct thread with the agent's assigned owner/team, reusing `findOrCreateDirectThread` (the same machinery `send_message` already uses, `tool-definitions.ts:123`). No `NO_CALLING_THREAD` error path remains.
-  This deletes a failure mode rather than reporting it, and closes review finding W9 outright (no failed-`reply`-still-satisfies-the-gate case can exist if `reply` cannot fail for want of a thread).
-- The return gate forces the **session-appropriate** action: a session whose output belongs in a calling thread cannot satisfy the gate with an unrelated return tool, and the forcing message names the action that session actually needs — proven by a test, and on a real harness (not gate-unit-only).
-- No `AL6` work-package-ID naming remains in production code. **No lint rule — founder, 2026-08-04: *"please remove this lint rule. for a single AL6 makes no sense at all."*** The rename is a one-time cleanup, not a standing invariant; a permanent guard against one historical work-package id is a wall built for no earned reason (see `ETHOS.md` — never preemptive). The purge is verified by the rename itself, not by machinery left behind.
-
-## Validation scenarios
-
-- Given a user sends a message to the assistant, when the assistant turn runs, then the assistant's response appears in the thread — authored by the assistant agent through the `CoreApiPort` seam via its own `reply` tool call — with no orchestration-side post-hoc write anywhere in the path.
-- Given a task_run agent session is running for a task, when the agent calls `reply`, then a comment appears in the task's own thread (the same `threads`/`messages` primitive an assistant conversation uses), proving the capability is generic, not assistant-specific.
-- ~~Given the assistant's API key is missing, when the turn fails at pre-handoff, then a helpful notice message appears in the thread.~~ **OUT OF SCOPE — founder, 2026-08-04.**
-- Given an agent session ends without producing the reply its calling thread is waiting for, when the return gate evaluates, then the agent is forced toward the action that session actually needs — and if the force budget is spent, the thread is not left silent.
-- Given a routine_run session (no calling thread), when its agent calls `reply`, then it receives a clean typed error and the session continues, never crashing.
-- Given the assistant turn and a task_run both run, when their execution paths are inspected, then both flow through the same `run-orchestration` poller (`drainIntents → runClaimedRequest`) with no `conversational` branch — the assistant has no special execution entry.
+Noted in passing, not actionable here: picking a team's human by an unordered `limit(1)` makes the
+emit-created task thread list a nondeterministic participant on multi-human teams, and the fast-tier
+resolution warning fires per request rather than once, on runs whose harness never reads that tier.

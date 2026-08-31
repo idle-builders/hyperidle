@@ -126,9 +126,9 @@ test.describe("AH4 AC6 — Settings Agents add form shows team placement", () =>
 		await expect(teamSelect).toBeVisible({ timeout: 5000 });
 
 		// Screenshot — add form with Team select visible
-		const screenshotDir = path.join("plans", "AH4", "proof");
+		const screenshotDir = "test-results";
 		await page.screenshot({
-			path: path.join(screenshotDir, "settings-agents-team-select.png"),
+			path: path.join(screenshotDir, "AH4-settings-agents-team-select.png"),
 			fullPage: false,
 		});
 	});
@@ -257,9 +257,9 @@ test.describe("AH4 AC6 — WorkTeam AgentAddDialog shows placement KeyValue", ()
 		await expect(dialogBox.getByText(TEAM_NAME)).toBeVisible({ timeout: 5000 });
 
 		// Screenshot — dialog with placement KeyValue visible
-		const screenshotDir = path.join("plans", "AH4", "proof");
+		const screenshotDir = "test-results";
 		await page.screenshot({
-			path: path.join(screenshotDir, "workteam-agent-add-placement.png"),
+			path: path.join(screenshotDir, "AH4-workteam-agent-add-placement.png"),
 			fullPage: false,
 		});
 	});

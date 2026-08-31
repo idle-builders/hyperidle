@@ -77,9 +77,9 @@ test.describe("AH4 AC5 — Org chart shows founder→team edge after team creati
 		await expect(orgChartSection.getByText("team")).toBeVisible({ timeout: 5000 });
 
 		// Screenshot for proof
-		const screenshotDir = path.join("plans", "AH4", "proof");
+		const screenshotDir = "test-results";
 		await page.screenshot({
-			path: path.join(screenshotDir, "org-chart-team-edge.png"),
+			path: path.join(screenshotDir, "AH4-org-chart-team-edge.png"),
 			fullPage: false,
 		});
 	});

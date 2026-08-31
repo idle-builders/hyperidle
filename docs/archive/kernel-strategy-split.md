@@ -4,7 +4,6 @@
 
 **Status (historical):** Authoritative (founder-aligned 2026-06-14; boundary **refined** 2026-06-15 — see §2a "Agents are knowledge"). This document is the ground truth for the kernel/strategy boundary and the harness-engineering vocabulary. Where another doc disagrees with this one on the boundary or the nouns, this one wins.
 
-Originating research: `plans/AK/kernel-strategy-usp-analysis.md`, `plans/AK/concept.md` (both tracked under `plans/AK/`). Build track: `.pipeline/work-packages/TRACK-AK.md`.
 
 ---
 
@@ -58,7 +57,7 @@ The original boundary put "running a PM agent" and agent selection on the Kernel
 - **AK3-as-built (kernel-side default PM, round-robin assignment) becomes the Minimal Strategy's default fallback** — the simplest possible response, not the Kernel's permanent decomposition path.
 - This matches the doc's own event pattern for Strategy responsibility 3 (§2: the Strategy "subscribes to events… the Kernel does not call it; it runs alongside"). Decomposition and selection join that pattern.
 
-**This is a class of surfaces, not just decomposition.** A codebase sweep (`plans/AK/agent-decision-surfaces.md`, 2026-06-15) found the same "Kernel triggers / Strategy decides the agent + knowledge" shape across: **team scaffolding** (creating a team's default agents), **adding an agent** to a team, **Assistant creation** at user registration, **factory bootstrap** (system + facilitator/strategy agents), **bet decomposition** (AK3), **task→session dispatch**, the **Assistant turn**, and **routine delegation**. Two structural facts made the seam absent at the time of the sweep:
+**This is a class of surfaces, not just decomposition.** A codebase sweep (2026-06-15) found the same "Kernel triggers / Strategy decides the agent + knowledge" shape across: **team scaffolding** (creating a team's default agents), **adding an agent** to a team, **Assistant creation** at user registration, **factory bootstrap** (system + facilitator/strategy agents), **bet decomposition** (AK3), **task→session dispatch**, the **Assistant turn**, and **routine delegation**. Two structural facts made the seam absent at the time of the sweep:
 
 - **Entity creation emitted no events.** Team / agent / user creation happened *inline in routes* — there was no `team_created` / `agent_added` / `user_created` event — so there was no place for a Strategy to attach and own "what agent gets created." The "what" (roster, personas, the assistant's system prompt) was hard-coded Kernel-side.
 - **Selection was knowledge-blind.** Which agent took a unit of work was role-eligibility + round-robin + pre-set owner, with zero Strategy/knowledge input. The only skill-aware selection anywhere was routine delegation (`findDelegate`).

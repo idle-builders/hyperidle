@@ -22,7 +22,7 @@ const digest = (value: string) => createHash("sha256").update(value).digest("hex
 
 function repositoryFixture() {
 	const repositoryRoot = mkdtempSync(join(tmpdir(), "review-verifier-"));
-	const acceptedReviewRoot = join(repositoryRoot, "plans/AU20/register-reviews");
+	const acceptedReviewRoot = join(repositoryRoot, "accepted-reviews");
 	mkdirSync(acceptedReviewRoot, { recursive: true });
 	const artifactPath = join(acceptedReviewRoot, "proof.md");
 	const payload = '{"a":1}';
@@ -96,7 +96,7 @@ describe("filesystem review verifier", () => {
 		[
 			"prefix sibling",
 			(f: ReturnType<typeof repositoryFixture>) =>
-				join(f.repositoryRoot, "plans/AU20/register-reviews-evil/proof.md"),
+				join(f.repositoryRoot, "accepted-reviews-evil/proof.md"),
 		],
 	])("rejects %s artifact escape", (_name, pathFor) => {
 		const fixture = repositoryFixture();
@@ -512,7 +512,7 @@ describe("validation contract factory", () => {
 		};
 		const contracts = createValidationContracts({ reviewVerifier: verifier });
 		const claim: ReviewClaim = {
-			artifactPath: "plans/AU20/register-reviews/proof.md",
+			artifactPath: "accepted-reviews/proof.md",
 			artifactHash: "hash",
 			payloadHash: digest('{"a":1}'),
 			verdict: "accept",

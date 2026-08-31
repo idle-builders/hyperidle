@@ -6,9 +6,10 @@ import { ruleTester } from "./setup.js";
 RuleTester.describe = describe as unknown as typeof RuleTester.describe;
 RuleTester.it = it as unknown as typeof RuleTester.it;
 
-// AZ7 E2: DaisyUI control classes or a raw accent/status fill on a raw
-// button/input/textarea/select under layers/core-ui/src/** are violations.
-// The rule is scoped OFF outside that path (design-system builds controls).
+// AZ7 E2: DaisyUI control classes, a raw accent/status fill, any other token
+// fill, a token border, or ANY radius on a raw button/input/textarea/select
+// under layers/core-ui/src/** are violations. The rule is scoped OFF outside
+// that path (design-system builds controls).
 ruleTester.run("no-handrolled-control", noHandrolledControl, {
 	valid: [
 		// Outside layers/core-ui/src — the design system builds controls.
@@ -21,11 +22,21 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const J = <Button variant="primary" />;',
 		},
-		// A raw button with no DaisyUI/accent chrome (token-legal, no violation
-		// under this rule — E2's honest boundary, plan.md §3.3).
+		// A raw button that paints no chrome at all — layout and spacing only.
 		{
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const J = <button className="flex items-center gap-[6px]" />;',
+		},
+		// A non-control element may carry a fill, a border and a radius freely —
+		// this rule is about controls.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <div className="rounded-[var(--r-default)] bg-[var(--surface-container)] border-[1.5px]" />;',
+		},
+		// A plain `border` utility is not the token border weight/colour.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button className="border border-dashed" />;',
 		},
 		// The AQ-011 form-control exemption: checkbox/toggle/radio/range are not matched.
 		{
@@ -111,6 +122,65 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const controlClass = "btn btn-primary"; const J = <button className={controlClass} />;',
 			errors: [{ messageId: "daisyControl" }, { messageId: "daisyControl" }],
+		},
+		// A surface fill — token-legal, and still chrome Button owns.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button className="bg-[var(--surface-container)]" />;',
+			errors: [{ messageId: "tokenFill" }],
+		},
+		// A color-mix() fill.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button className="bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)]" />;',
+			errors: [{ messageId: "tokenFill" }],
+		},
+		// The 1.5px Hearth control border weight.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <input className="border-[1.5px]" />;',
+			errors: [{ messageId: "tokenBorder" }],
+		},
+		// A --border-* colour, with a side infix.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <textarea className="border-x-[var(--border-subtle)]" />;',
+			errors: [{ messageId: "tokenBorder" }],
+		},
+		// A token-spelled radius passes design/radius-token-only and is still a
+		// control deciding its own corner radius.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button className="rounded-[var(--r-default)]" />;',
+			errors: [{ messageId: "controlRadius" }],
+		},
+		// A named Tailwind radius on a <select>.
+		{
+			filename: "layers/core-ui/src/settings/Foo.tsx",
+			code: 'const J = <select className="rounded-lg" />;',
+			errors: [{ messageId: "controlRadius" }],
+		},
+		// All three new axes on one element — one report per axis, not per token.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button className="bg-[var(--surface-container)] bg-[var(--surface-elevated)] border-[1.5px] rounded-full rounded-lg" />;',
+			errors: [
+				{ messageId: "tokenFill" },
+				{ messageId: "tokenBorder" },
+				{ messageId: "controlRadius" },
+			],
+		},
+		// Variant prefixes are stripped before matching.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button className="hover:bg-[var(--surface-elevated)] lg:rounded-full" />;',
+			errors: [{ messageId: "tokenFill" }, { messageId: "controlRadius" }],
+		},
+		// Token-legal chrome built in a same-file `const`.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const RETRY_BTN_CLASS = "rounded-[var(--r-subtle)] bg-[var(--surface-container)]"; const J = <button className={RETRY_BTN_CLASS} />;',
+			errors: [{ messageId: "tokenFill" }, { messageId: "controlRadius" }],
 		},
 	],
 });

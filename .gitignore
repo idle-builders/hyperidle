@@ -14,13 +14,9 @@ layers/core-ui/__e2e__/screenshots/
 visual-reports/
 sync-reports/
 .pipeline/*
-!.pipeline/work-packages/
-!.pipeline/progress/
-!.pipeline/retro-log/
 !.pipeline/audits/
 !.pipeline/work/
-!.pipeline/[A-Z].md
-!.pipeline/[A-Z][A-Z].md
+!.pipeline/[A-Z]*.md
 .env
 !infrastructure/langfuse/.env
 .worktrees/
@@ -34,12 +30,6 @@ logs/
 .claude/scheduled_tasks.lock
 test-output.toon
 .verify.pid
-# plans/ is tracked — pipeline artifacts persist across worktrees and are retired
-# at the /write-docs step once their essence lives in docs/ + code. (Was: plans/*)
-layers/*/plans/
-framework/*/plans/
-applications/*/plans/
-tools/*/plans/
 framework/design-system/03-hearth.html
 framework/design-system/inspiration/
 installed-plugins/

@@ -12,7 +12,6 @@
  * 401 with NO diagnostic hint — the server validates the key but does not log
  * the mismatch in a way visible to the SPA developer. If you see unexplained
  * 401s in dev, verify both env vars in root .env are identical.
- * See plans/electron/auth-decision.md for the full auth model.
  */
 
 function getApiKey(): string | undefined {

@@ -1,8 +1,7 @@
 /**
  * Work service: one repository vocabulary for all owned work entities.
- * `tasks`, `items`. Every write call site enumerated in
- * `.pipeline/plans/AU13.md` §4a-§4c, and every read call site enumerated in
- * the read-ownership addendum §A3, routes through one of these functions
+ * `tasks`, `items`. Every write call site and every read call site
+ * routes through one of these functions
  * instead of a direct `insert`/`update`/`delete`/`select` against the table
  * objects.
  *

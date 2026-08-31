@@ -1,6 +1,5 @@
 // AE6 — Hono router for /api/artifacts.
 // Updated from L3 (13 business-domain kinds) to AE6 (6 fundamental kinds + labels).
-// Source: plans/AE6/architecture.md §3.
 
 import * as crypto from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";

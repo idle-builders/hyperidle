@@ -8,7 +8,7 @@
  * accessor in the whole codebase (`routes/hints.ts`) — a clear FK-anchored
  * domain home, same shape as `teamMembers`/`taskPlanningSignals` before their
  * owning Service was assigned (see `scripts/table-ownership-guard.ts`'s
- * `TABLE_OWNER` row + `plans/AU19/architecture.md` §12 hintProgress ruling).
+ * `TABLE_OWNER` row).
  * `routes/hints.ts` now calls `listDismissedHints`/`dismissHint` instead of
  * querying `hintProgress` directly — the route file itself stays in
  * `core-api/src/routes` (Mechanism-C composition-root shape, no need to

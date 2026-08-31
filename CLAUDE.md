@@ -2,7 +2,7 @@
 
 HyperIdle is an agentic operating system for AI-first companies. Flat teams of humans and AI agents collaborate through conversations, manage work as time-boxed bets, and build shared knowledge — like Slack + Linear + Notion + GitHub in one app, with AI agents as first-class participants.
 
-**Status:** Actively developed. Core platform shipped. Work packages build incrementally. The `pipeline@agent-pipeline` plugin's work-planning skill moved to a new registration shape: new-style work packages seed `.pipeline/work/<id>/plan.md`, registered in a per-track coordination file `.pipeline/<track>.md`. Older work packages remain under `.pipeline/work-packages/` (`TRACK-*.md` specs + `pipeline-manifest.yaml`) pending migration — check both locations for a given track until fully transferred.
+**Status:** Actively developed. Core platform shipped. Work packages build incrementally. The `pipeline@agent-pipeline` plugin's work-planning skill registers every work package the same way: a per-track coordination file `.pipeline/<track>.md` holds the registry row, and a package that has entered the pipeline seeds its full spec at `.pipeline/work/<id>/plan.md`. There is one location per track — nothing lives outside that shape.
 
 **Builder philosophy:** Read `ETHOS.md` — four principles (**Build for the Fast, Not the Enterprise**, **Trust Agents and Humans**, Boil the Lake, Search Before Building) that guide all agent behavior. We build for fast-moving small teams (never enterprise features); we trust agents and humans and live by self-reliance. **Security is never preemptive — it is earned from real learnings, never a wall built first.** "Irreversible" alone is not a reason to gate; review rides AL7 only where a human chose it or a learning earned it. Never design for paranoia, a rogue agent, or a gate-by-default classifier.
 
@@ -31,7 +31,7 @@ If you estimate a change will require adding 1,000 or more lines of code, assume
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
-1. Extract the acceptance criteria from the work package's own spec, `.pipeline/work/<id>/plan.md` (older, unmigrated work packages: `.pipeline/work-packages/TRACK-*.md`).
+1. Extract the acceptance criteria from the work package's own spec, `.pipeline/work/<id>/plan.md`. A package that has not been refined yet has no plan — its registry row in `.pipeline/<track>.md` is all there is, and the plan is written with the maintainer at refinement.
 2. Define the verification method for each criterion — pick the right tool for each:
    - **Runtime behavior** (function returns X, API responds Y, component renders Z) → automated test
    - **Static codebase property** (no forbidden imports, naming conventions, config shape) → ESLint rule or type system
@@ -128,16 +128,11 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 **Pipeline** — `.pipeline/` (tracked durable pipeline state):
 
-- `<track>.md` — new-shape per-track coordination file (WP registry table + dependency graph); a WP's full spec seeds at `work/<id>/plan.md` alongside it.
-- `work/<id>/` — new-shape per-workpackage folder; `plan.md` is the seeded spec (`/refine` → `requirements.md`, `/design` → `design/`, `/architecture` → `architecture.md` + `feasibility.md` land alongside it).
-- `work-packages/` — legacy per-track files (`TRACK-*.md` workpackage specs, `pipeline-manifest.yaml`); work packages not yet migrated to the new shape stay here.
-- `progress/` — per-workpackage progress JSON files
-- `retro-log/<workpackage>.jsonl` — retro observations, one append-only file per workpackage (feeds `/pipeline:compound`). Split per-workpackage so parallel branches never merge-conflict; `.gitattributes` sets `merge=union` as a safety net.
+- `<track>.md` — per-track coordination file (item registry table + dependency graph). An item that has not been refined yet has only its registry row.
+- `work/<id>/` — per-item folder: `plan.md`, the item's durable account, 50–100 lines; and `retro.jsonl`, its retro observations.
+- `audits/` — product and security audit ledgers, read by `product-deep-review` and `security-audit`.
 
-**Working artifacts** — `plans/` (tracked; persists across worktrees, retired at `/pipeline:write-docs`):
-
-- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `requirements.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. A workpackage's artifacts **always** live in its own folder, `plans/<workpackage-id>/<artifact>.md` (the track's strategic frame lives in `docs/` ground truth, settled in `/pipeline:work-planning`). `plans/` is tracked so these persist across worktrees and downstream phases read them; `/pipeline:write-docs` retires the ones whose essence has landed in `docs/` + code (git history keeps them).
-- `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not workpackage-specific)
+**Reviews** — `reviews/` — cross-cutting UI and consistency review notes.
 
 ---
 
