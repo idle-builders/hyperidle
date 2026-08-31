@@ -1,9 +1,6 @@
 /**
  * L1a — `ThreadHostBanner` rendering tests.
  *
- * Approved-design contract: `plans/L1/design/approved.md` §2.1.
- * Plan §7.1.
- *
  * Red phase: the component throws "Not implemented"; every render
  * test surfaces the error.
  */

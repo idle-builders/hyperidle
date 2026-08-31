@@ -1,111 +1,64 @@
 # AU31 — Only a composition root reaches across a layer, and only as far as its public face
 
-## Work package
+## What we need
 
-**Work package.** As a maintainer, I want cross-layer conversation to happen exclusively through the API, MCP or the bus — with the applications composing layers by their public faces and no layer naming another layer's insides — so that the boundary AU21 established in one direction holds in every direction. Today `core-api` imports thirty-six symbols directly out of `agent-orchestration`'s and `agent-execution`'s services, injects fourteen functions across the same boundary, and declares the dependency in its own manifest; `remote-server` composes by naming thirteen services rather than the two layer faces; `desktop` reaches into `remote-server`; and the MCP router is dialled from an application because `agent-execution` hosts no app of its own. When this ships, a layer's package manifest names no other layer, the applications name only layer faces, and the router is dialled only by the layer that owns the harness relationship.
+As a maintainer, I want cross-layer conversation to happen exclusively through the API, MCP or the bus — with the applications composing layers by their public faces and no layer naming another layer's insides — so that the boundary AU21 established in one direction holds in every direction.
 
-**Why this matters.** AU21 closed `agent-orchestration → core-api` and proved the mechanism: core bakes what a run needs and emits; orchestration is a blind, request-driven executor. The reverse direction was never checked and never closed — `core-api`'s routes and reactors still reach sideways into `session-requests` (12 sites), `agent-run-config` (7), `run-orchestration` (6), `harness-registry` (5) and `tool-handlers` (2). The maintainer's cost of not fixing this is concrete and already paid once: AU21's guard reported zero findings for months while half the boundary was unguarded, and the same is true of every architectural claim made about this boundary since. This is also the largest single group of production violations — 89 of 221 — and the one whose fix is genuine architecture rather than placement.
+AU21 closed `agent-orchestration → core-api` and proved the mechanism: core bakes what a run needs and emits; orchestration is a blind, request-driven executor. The reverse direction was never checked and never closed. `core-api` imported thirty-six symbols straight out of the agent layers' services, injected fourteen functions across the same boundary, and declared the dependency in its own manifest; `remote-server` composed by naming thirteen services rather than layer faces; `desktop` reached into `remote-server`; and the MCP router was dialled from an application because `agent-execution` hosted no face of its own. The cost of leaving it was concrete and had already been paid once: AU21's guard reported zero findings for months while half the boundary was unguarded, and the same was true of every architectural claim made about this boundary since. It was also the largest single group of production violations.
 
-**Type.** backend / infra.
-
-**What exists today.** AU26 shipped (`f484b295`) and gave `agent-orchestration` its own Hono app, moving composition to the application tier; AU21 shipped the bake-at-emit mechanism, the `CoreApiPort`/`AgentOrchestrationPort` seam, and Increment 14's removal of every guard exemption. What neither closed is the forward direction. `layers/core-api/src/services/run-orchestration-composition.ts` and `layers/core-api/src/service-bootstrap.ts` are composition code still living inside a layer. `layers/core-api/src/app.ts:494`, `routes/bets.ts:684`, `routes/tasks.ts:254`, `routes/threads.ts:1678`, `routes/org.ts:306`, `service-bootstrap.ts:330,470` and `services/agent-run-admission-reactions.ts:115` inject across the boundary — chiefly `enqueueWorkIntent` from `session-requests` (5 sites). `applications/remote-server/src/create-server.ts` names 13 services at lines 34–109 and dials `createMcpToolBridge` at 551. `layers/agent-orchestration/run-orchestration/src/provisioner.ts` builds an `/api/mcp/` URL inline at 1349 and opens a router session at 1327, against a layer that hosts no HTTP API. `layers/core-api/package.json` declares `@hyperidle/agent-orchestration`; `layers/agent-orchestration/package.json` declares `@hyperidle/agent-execution`. The rule the model already states: cross-layer conversation goes through the API, MCP or the bus — dependency injection is legal only within a layer.
-
-**What's genuinely missing.** For each of the five reached-into services, the legal replacement mechanism has not been chosen — `enqueueWorkIntent` is plainly an emit under AU21's own doctrine, but `agent-run-config`'s seven read sites and `harness-registry`'s five are not obviously events, an API, or a sign the service is in the wrong layer. That choice per service is the substance of this work package. `agent-execution` also has no app of its own, so the MCP router has nowhere legal to be dialled from.
-
-**Depends on.** None. AU21 and AU26 are merged and are in this branch's base. Independent of AU29 and AU30 — no shared files.
-
-**Complexity.** L
-
-**Engineering tier.** production — live request paths in a shipped system.
-
-**Pre-build gates.**
-- **Refinement:** Required — run `/refine` first. Two nouns are unsettled and both are load-bearing. **`session-requests`**: core-api writes into it from seven places, which is at least as consistent with "it is core's intake queue in the wrong layer" as with "core should be emitting" — apply AU26's own domain test rather than assuming the mechanism. **A layer's public face**: what an application is allowed to see when it composes a layer has never been written down, and the applications currently see everything.
-- **Design:** Not required — backend/infra, no UI surface.
-
-**Human review gates.** Yes — mandatory for every work package. Load-bearing here: the founder has stated this rule in absolute terms ("DI imports across layers are absolutely forbidden. zero exceptions"), and the same discipline AU21's Decision L received applies — architecture, independent critique, founder review, before any code moves.
-
-**Plan calls.** Multi-version exploration on the mechanism, not one pass. Resolve each of the five reached-into services separately — emit, API, MCP, or relocate — and say which and why per service; a single blanket answer is the failure mode here. `/architecture` may well split this into two or three work packages once the per-service verdicts are in, and that is expected rather than a plan failure. Verify against the live tree before planning: AU26 moved real code and the `layers/core-api/connections` and `layers/agent-orchestration/connections` packages both exist today, which needs explaining before anything is built on top of it.
-
-**Contracts / constraints.**
-- Zero exceptions. No allowlist, no stateless-provider carve-out, no named method exemption — AU21's Decision L already overturned exactly that apparatus once and it does not come back.
-- The end state is stated as the end state. No transitional facade, no "temporary" cross-layer import.
-- A layer's package manifest names no other layer or another layer's service.
-- Composition roots reach a layer's public face only — never a service, never another application.
-- No production export may be added that only tests consume.
-- Promotion is a step: clearing a group key's last site removes that key from `governance/rule-severity.json` in the same pull request, and that is what makes the rule bite. Nothing is deferred to another work package, and there is no record to delete.
-- Every group key this work package clears is removed from `governance/rule-severity.json`, never re-tagged.
-
-**Out of scope.**
-- Whether `connections`, `filesystems` or any other domain sits in the right layer — AU26's axis, already shipped; reopen only if this work package's own evidence forces it, and then as a finding, not a silent fix.
-- Table ownership — AU30.
-- The development world — AU32.
-
-**Effort.** L (~5d)
-
-## Acceptance criteria
+Done meant:
 
 - No layer names another layer, or another layer's service, in its imports or its package manifest.
-- No function crosses a layer boundary by injection; every cross-layer conversation happens through the API, MCP or the bus.
+- No function crosses a layer boundary by injection; every cross-layer conversation goes through the API, MCP or the bus.
 - An application composes layers by their public faces only, and names no service and no other application.
 - The MCP router is dialled only by the layer that owns the harness relationship and by the harness, and the layer serving it hosts the API being dialled.
-- Every composition-root, cross-layer-import, cross-layer-DI, MCP and API group key this work package owns is removed from `governance/rule-severity.json`, and those rules are at `error` from this pull request.
-- The AU28 bookkeeping mechanism is already gone (deleted unconditionally by `AU32`); reintroducing it, or any per-file allowance, under any name, fails the build via `no-per-file-allowances`.
-- `npm run verify` is green and a real agent run completes end to end — proven by executing one, not by reading the code.
+- Every rule key this work cleared is deleted from the severity dial in the same pull request, so those rules are at error from that commit.
+- `npm run verify` is green and a real agent run completes end to end — proven by executing one.
 
-## Validation scenarios
+Zero exceptions: no allowlist, no stateless-provider carve-out, no named-method exemption. The end state is stated as the end state — no transitional facade, no temporary cross-layer import, no phase one. AU21's Decision L already overturned exactly that apparatus once and it does not come back.
 
-**Given** the governance lint runs over the live tree, **when** it reports, **then** no production violation remains in any `layer → layer`, `layer → service (other layer)`, `application → service`, `application → application`, `di`, `mcp` or `api` group.
+Boundary: whether `connections`, `filesystems` or any other domain sits in the right layer is AU26's axis and stays shipped; table ownership is AU30; the development world is AU32.
 
-**Given** a developer adds `import { x } from "@hyperidle/session-requests"` to a file in `layers/core-api`, **when** `npm run lint` runs, **then** the build fails naming the file and the import.
+## How it works
 
-**Given** a developer passes a function from one layer into a constructor in another, **when** `npm run lint` runs, **then** the build fails naming both packages and the symbol.
+Core-api converses with the agent layers only through agent-orchestration's own HTTP app, dialled over the `AgentOrchestrationPort` seam. Results and lifecycle flow back the way they already did — bus events core subscribes to, and agent tool calls through core's API — so nothing changed on the return path.
 
-**Given** the application boots and a task-backed agent run is dispatched, **when** the run completes, **then** the work intent reached `session-requests`, the harness executed, and the result landed — with no cross-layer import anywhere in the path.
+Six services were reached into, and each got its own verdict; a single blanket answer was the identified failure mode.
 
-## Status — wave A shipped, wave B open
+- **`session-requests` — API for the conversation, relocate the wiring.** Submitting a work intent, starting an explicit session, requesting termination and reading a request's status became operations on orchestration's app. The emit stays the durable intake write: the handler runs it inside orchestration's own transaction, so the durability is byte-identical and only the doorway changed. Not the bus, because an emit is not durable and returns nothing while two call sites need the created intent back synchronously. Not relocation, because that reopens AU21's zero-read end state. The in-process abort registry never crosses — it is meaningless outside the layer that runs sessions, so aborting is an implementation detail of the termination op.
+- **`agent-run-config` — API.** The admin routes stay core-hosted, because every write route gates on `users`, a core table, and moving them would make orchestration read core state. Only the persistence spelling changed, to port read/readBatch/write ops. The drain read relocated in-layer with the composition.
+- **`run-orchestration` — API for the lifecycle verbs; relocate the composition and the tooling entry.** This supersedes AU26's ruling that the door stays read-only: the downward call is now the forbidden crossing, and the port is core's one door in both directions.
+- **`harness-registry` — relocate behind faces.** `layer → agent-execution [api]` is forbidden, so the execution relationship rides the composition contract instead: orchestration receives adapter construction, return enforcement and harness provisioning as opaque, shared-typed runtime adapters supplied by the application.
+- **`tool-handlers` — the wrapper file dies** and the dispatch moves to the definitions; the one core-owned port becomes an API call.
+- **`filesystems` — API.**
 
-The 93-site inventory this work package found splits into two sequential waves, each its own PR
-(founder-ruled 2026-08-08, `progress.json.founderRulings.split`): **wave A** — core converses with
-agent-orchestration only through the door (`AgentOrchestrationPort`), and every write that used to
-be one all-or-nothing transaction is corrected to name its failure window explicitly; **wave B** —
-the applications compose layers by their public faces only, the MCP router moves behind the layer
-that owns the harness, and every rule this work package owns is promoted from `warn` to `error` in
-`governance/rule-severity.json`. Wave A is this PR; wave B follows separately off `main`, reading
-this folder — especially `architecture.md` (the approved plan wave B builds against, not
-re-litigated), `feasibility.md` (the corrected transactional-atomicity audit, kept next to the
-audit method's first, wrong attempt so wave B does not repeat it), and the adjudications and
-founder rulings in `progress.json`.
+`agent-execution` grew a genuine face — `bootAgentExecution` — owning the adapter pool, sandbox adapters, the return-enforcement registry, the MCP bridge and its router, and harness-environment provisioning. The MCP dial folded into `harness-registry`'s own session provisioning, which is the only actor with an allowed MCP row: it mints the token, writes the config, exposes the URL and closes on session end. The application now mounts a face handle rather than importing the router.
 
-**What wave A actually built**, beyond the four failure-window fixes the founder ruled on:
-- **A0 — the transport contract.** One `AgentOrchestrationPort` per composition, handed to routes
-  and to reaction registrars as a value. `registerAgentOrchestrationTransport` /
-  `getRegisteredAgentOrchestrationTransport` (a module-variable registry) deleted; the
-  core-app / seam-app construction cycle closes with a root-local binding instead. Not in the
-  original architecture — the builder hit it as a real gap (reaction handlers had no legal way to
-  reach the transport) and it was added ahead of A1/A2 rather than worked around.
-- **Nine cross-boundary transactions corrected, not four.** The architecture's own atomicity audit
-  (P3) searched by function name and found 4; the true count, found by following the transaction
-  handle instead (P3b, `probes/p3b-transaction-threading/`), is 9 (10 writes — one site carries
-  two). Five sites were missing from the ruled inventory entirely. All nine now commit the core
-  write and let the seam call follow, per §3.1's one rule, with the failure window named in code at
-  each site. One of the five newly-found sites — `routine-scheduler.ts:599` — leaves a routine with
-  no session if the seam call fails, wedging it permanently with no reaper; relinquished anyway (any
-  alternative is durable-write machinery the founder already rejected for this product), but it is
-  the one item worth a second look if routines ever misbehave in the wild.
-- **Two sites where review caught a correctness regression, not a boundary miss.** The first build
-  of two of the nine sites (`teams-routes.ts`'s `createTeam`, `knowledge-repository.ts`'s `flagItem`
-  `"flag"` transition) split apart writes that had nothing to do with the boundary — each function's
-  own two writes stopped being atomic with each other, which no requirement asked for. Code review
-  round 1 (`review.md`) caught it; the fix (`review-r2.md`) re-wraps each function's own writes and
-  adds a test per site that fails if the fix is reverted (proven by reverse-applying the fix and
-  watching exactly those two tests fail, nothing else).
+Each application boots `bootAgentExecution` → `bootCoreApi` → `bootAgentOrchestration`, mounts, listens, disposes. The application mediates every cross-face handoff; no layer imports another. `desktop` has its own composition root and no longer imports `remote-server`. The middleware and mount ordering, which probes showed is fragile, lives in a layer-blind Hono helper in the framework package — it names no layer.
 
-**What did not move in wave A:** `governance/rule-severity.json` — untouched, verified by empty
-diff against `origin/main`. None of this work package's fourteen rules can be promoted yet; every
-one still has a live site in wave B.
+The face is enforced two ways. Each layer's manifest export map shrank (core-api ends at `.`, `./boot` and `./app`), so Node's own encapsulation makes a deep service-path import fail to resolve — the least gameable teeth available. On top of that sit three census rules — exports must resolve inside the layer, service values must not escape the face, deep imports die with their entries — each shipped with a positive attack and a control twin.
 
-**Verified at ship time:** `npm run verify` exit 0; typecheck 34/34 packages; governance lint 187
-production + 0 development known violations (unchanged from wave A's start — no new violation
-introduced); full affected unit + service-integration slice green (12 files / 167 unit tests, 252
-files / 2419 service-integration tests); full `test:integration:service` also run green (2844
-tests); `deps:check` and `knip`/`knip:production` pass with no gate widened to reach green.
+Nine transactions committed a core write together with an agent-orchestration write. One rule applies to all of them: the core transaction commits, the seam call follows, and a seam failure surfaces as the operation's own failure with the core rows committed and the queued job missing. The window is named in code at every site. No outbox, no saga, no compensating write, no reconciler. Where the seam write needs nothing from the core transaction and its absence would strand something, the order is simply flipped — a free lever, used at the one site that qualifies. Two in-transaction reads of orchestration state, which deadlock the shared connection the same way, were hoisted above the transaction rather than relinquished.
+
+Promotion landed with the work: all thirteen rule keys this work package owned were deleted from the severity dial, which is kept as an empty severity map because an absent key means error and the file lists only what is not yet clean.
+
+## How we work on this
+
+Shipped. Both waves landed on the same branch and PR (#467), CI green on both required checks, open and awaiting human merge. The plan originally split this into two sequential pull requests on a founder ruling, and the earlier text in this file described wave B as a later PR; the orchestrator running the work landed it on the same branch instead. The PR title and body still read as wave-A-only.
+
+Final state: zero production and zero development governance violations across 23 rules. Both bite-proofs were reproduced live and reverted clean — a cross-layer import and a cross-layer injection each failing the build by name, file and symbol.
+
+Founder rulings that still explain the shape of things:
+
+- No outbox and no durable mechanism for the relinquished atomicity. Verbatim: keep it simple, no overengineering for things that do not matter in reality; this is a productivity tool without real users and the architecture is being cleaned up.
+- The launder rule was scoped down to plain export declarations after four critique rounds spent on it. It does not read function bodies, class, enum or namespace members, mutation of an already-exported object, aliases, globals, or dynamic `import()`. **No completeness claim is made** — linting is engineering guidance, not protection against a malicious actor. The boundary itself holds by acquisition rather than by that rule: the census records an import edge for every acquisition spelling, verified independently.
+- Two supersessions ratified: AU26's read-only door opens to port write ops, and AU21's `SessionActivityBuffer` placement relocates.
+
+Watch items, all accepted rather than open work:
+
+- The routine scheduler's site could not be relinquished as cheaply as the rest — a failed seam call would leave a `running` routine run with no session, which wedges that routine forever, since the coalescing guard reads exactly that row and the reaper keys on a session that never existed. It now catches the failure and marks the run failed so the next tick re-fires. Ordinary error handling, not machinery, but it is the one item worth a second look if routines ever misbehave in the wild.
+- Two further sites relinquish atomicity with named failure windows in code.
+- A leftover plpgsql helper function from one test outlives its trigger on the pooled instance; harmless, and the existing `finally` is the free place to drop it. Several smaller non-blocking review findings were deliberately left open.
+- The harness lane is red for three files on real-binary flakiness (codex MCP readiness, one cursor-agent run). It is release-gated rather than part of per-merge CI, and it is documented as red on main for this same class. Four of five harnesses passed the identical wiring, which is evidence against a composition regression here.
+
+Two lessons this work paid for. An audit that searches by function name found four of the nine cross-boundary transactions; following the transaction handle instead found all nine, and five sites were missing from the ruled inventory entirely — so the corrected audit method is kept alongside its first, wrong attempt. And two of the first fixes split apart writes that had nothing to do with the boundary, breaking atomicity nobody asked to break; review caught it, and each re-wrap now carries a test proven by reverse-applying the fix and watching exactly those tests fail.

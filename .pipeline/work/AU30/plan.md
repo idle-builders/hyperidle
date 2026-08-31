@@ -1,63 +1,95 @@
 # AU30 — Every table has an owner, and only its owner touches it
 
-## Work package
+## What we need
 
-**Work package.** As a maintainer, I want every table in the schema to name exactly one service that may read and write it, and every production access to go through that service — so that "who is allowed to change this data" is answerable from the schema instead of from a grep. Six of the forty-five tables have no owner at all today: `sessions`, `propagationLog`, `taskDispatchAttempts`, `userSkills`, `agentRunConfig` and `teamRunConfigDefaults`. Ninety of the ninety-one production table violations are those six, and exactly one is a genuine foreign access by a service that should know better. When this ships, `governance/table-owners.json` has an empty `unowned` block, every production read and write reaches its table through the owning service, and the four table rules stop being advisory.
+As a maintainer, I want every table in the schema to name exactly one service that may read and
+write it, and every production access to go through that service — so "who is allowed to change
+this data" is answerable from the schema instead of from a grep.
 
-**Why this matters.** An unowned table is not a style problem — it is a table where any package may invent its own invariants and no package is responsible for keeping them. `sessions` is touched by three packages today with no service between them; `propagationLog` by three; `taskDispatchAttempts` by two. The maintainer's cost of not fixing this is that the ownership model is 87% true, and a partly-true rule is worse than none because reviewers stop checking the part they assume holds. This is also the last structural block in the governance model: the table rules aggregate across all six tables, so **not one of them can be promoted until every one is owned.** That all-or-nothing shape is the reason this is a single work package rather than six small ones.
+An unowned table is not a style problem. It is a table where any package may invent its own
+invariants and no package is responsible for keeping them. Six of the forty-five tables had no
+owner: `sessions`, `propagationLog`, `taskDispatchAttempts`, `userSkills`, `agentRunConfig` and
+`teamRunConfigDefaults`. The ownership model was 87% true, and a partly-true rule is worse than
+none because reviewers stop checking the part they assume holds. It was also the last structural
+block in the governance model: the table rules aggregate across all six tables, so not one could
+be promoted until every one was owned. That all-or-nothing shape is why this is a single work
+package rather than six small ones.
 
-**Type.** backend.
+Done means: `governance/table-owners.json` has an empty `unowned` block; every production read
+and write reaches its table through the owning service; a service that needs data it does not own
+asks the owner, with no cross-owned-table query in production; the table and table-symbol import
+rules fail the build in both directions with no baseline entry behind them; every group key this
+work package clears is deleted from `governance/rule-severity.json` in the same pull request that
+clears its last site; and `npm run verify` is green with relocated accessors proven unchanged.
 
-**What exists today.** `governance/table-owners.json` names all 45 live tables — 39 owned, 6 unowned, each unowned entry carrying the packages that touch it and a one-line note on what assigning it would cost. A table missing from the file is a build error, so the inventory is complete by construction. The owning services already exist for 39 tables and the pattern is established: an owning service is a package under `layers/<layer>/<service>/` that holds the reads and writes for its tables and is named in the registry. `agentRunConfig` and `teamRunConfigDefaults` are touched only by `layers/agent-orchestration/agent-run-config`, which makes them one-line assignments. `userSkills` (core-api 7 sites, settings 2), `propagationLog` (policy 9, core-api 3, work 2) and `taskDispatchAttempts` (work 8, policy 3) need an owner named *and* accessors moved behind it. `sessions` has no candidate service at all — nothing in the tree owns it. The remaining production foreign accesses are small: four service writes, three service reads, three service imports and one layer import, all against tables whose owner already exists. `framework/db`'s own 15 owned-table writes are AU29's, not this work package's.
+The constraints were absolute. Zero exceptions in the ownership rule — no allowlist, no
+foreign-import ceiling, no named carve-out. Exclusivity covers reads as well as writes. No
+production export may be added that only tests consume. Out of scope: `framework/db`'s own table
+writes (AU29), the development-world companion violations (AU32), and reducing any service's
+exposed method surface (AU20).
 
-**What's genuinely missing.** A service that owns `sessions` does not exist and has to be created — that is the one piece of new construction here. The other five need an owner *decision* (which existing service, or a new one) plus accessor relocation. Nothing else in this work package is new capability; it is placement.
+## How it works
 
-**Depends on.**
-- **AU29** — `framework/db/src/factory-bootstrap.ts` writes `users`, `knowledgeItems` and `knowledgeAppProjection` directly, and cannot be routed through those owning services while it lives in a framework package, because a framework package may not import a layer. AU29 moves it to a composition root; only then does "go through the owner" have a legal form for those sites.
+Five founder rulings at the concept gate settled the ownership questions, and together they mean
+this work package creates no new package and no new service. It is placement throughout, plus one
+deletion.
 
-**Complexity.** L
+- **`sessions` is owned by the existing `run-orchestration` service.** `sessions` is the product
+  primitive Session, distinct from `loginSessions`, `agentSessionRequests` and the in-memory
+  `sessionRunRegistry`. `run-orchestration` already consumes the row for its own decisions —
+  capacity gating, boot recovery, live-runtime terminal writes. Naming it owner legalises 74 sites
+  with zero code change; any other owner leaves 30 more, each needing an injected port.
+- **`filesystemCaptures` is corrected to `filesystem-mounting`** and **`serverCredentials` to
+  `core-api/credentials`.** Both registry entries named packages that never touch the table. For
+  `serverCredentials` the correction was forced: routing through the registered owner would be
+  cross-layer, where DI is forbidden, making the access criteria unsatisfiable any other way.
+- **`user_skills` is deleted, not owned.** The table is `agent_skills` mechanically renamed and
+  never re-scoped; it holds a per-agent-per-skill autonomy score sheet whose feature was killed by
+  product decision long ago; no production insert exists anywhere, so a production database has it
+  permanently empty. Deleting it satisfies the ownership criterion by removing the table and clears
+  nine production sites without adding an accessor. This deliberately executed the charter of the
+  registered-but-never-started AL9 inside this package. Whether skills should become knowledge
+  items stays open and is untouched — both plausible destinations lead away from this table.
+- `propagationLog` goes to `policy`, `taskDispatchAttempts` to `work`, and `agentRunConfig` and
+  `teamRunConfigDefaults` to `agent-run-config` as registry-only fills.
 
-**Engineering tier.** production — live data-access paths in a shipped system.
+Every production query touching the six tables was read: not one joins across an ownership
+boundary, so the no-cross-query criterion was satisfied by owner-surface design rather than query
+surgery. The one genuine cross-ownership transition that moved is the no-live-runtime terminal
+compare-and-swap and its `session_ended` emit, which relocates into the owner with its rowcount
+invariant intact.
 
-**Pre-build gates.**
-- **Refinement:** Required — run `/refine` first, and specifically on the noun **`sessions`**. What a sessions service owns, where it lives, and how it relates to `session-requests` and `run-orchestration` is a real domain question, not a placement detail. Getting it wrong creates a seventh problem. The five other assignments do not need refinement.
-- **Design:** Not required — backend, no UI surface.
+The work landed as one sequential builder over eight commits, ordered so the tree passes at every
+boundary. Registry entry and accessor relocation are inseparable for `propagationLog` and
+`sessions` — splitting them flips layer-world sites to hard error. The promotion commit is a
+strict join point: nine keys deleted, then a tenth once the last blocker cleared. Production
+violations went 191 → 90, table crossings to zero, development violations zero.
 
-**Human review gates.** Yes — mandatory for every work package. Load-bearing here: naming an owner for a table is a durable domain decision, and creating a sessions service adds a package to the tree.
+The last blocker was `bet.schema.ts` importing a table-derived zod schema for a table owned by
+`work`. The planned fix — re-exporting it from the owner — is a hard build error, because
+owner-ship *is* the laundering vector the rule exists to catch. Instead core-api hand-writes the
+bet list-item wire shape and drops the table import, consistent with its already hand-written
+sibling response schema. That surfaced a latent bug: the table-derived schema was wrong, not
+merely misplaced — `bets.atRisk` is an integer that the route normalises to a boolean before
+responding, so fed the row the endpoint actually emits the schema rejects it. It survived because
+the only test validating it had never inserted a bet. Drift is now pinned by a compile-time
+conditional type against the `Bet` row type, plus an integration case with a real bet row.
 
-**Plan calls.** Standard architecture pass, with one exception: the `sessions` owner needs design-it-twice on what the service is *for* before any code moves — apply AU26's own test (does anyone operationally consume this for their own purpose, or only administer it?) rather than defaulting to "whoever touches it most". Sequence the five cheap assignments first while the sessions question is still open; the plan should say explicitly that no rule promotes until the last one lands — the group key carries no table name, so a table rule cannot leave `governance/rule-severity.json` until every unowned table under it is owned (see `AU30/plan.md:7` and `.pipeline/AU.md:29`) — so nobody reads the intermediate state as stalled.
+## How we work on this
 
-**Contracts / constraints.**
-- Zero exceptions in the ownership rule. No allowlist, no "foreign-import ceiling", no named carve-out, however small — a cross-owned-table join decomposes into one call per owning service.
-- An owning service's exclusivity covers **reads as well as writes**.
-- No production export may be added that only tests consume.
-- If assigning an owner creates new development-world companion violations (the companion groups are derived from the owners' own writers), this work package clears them rather than leaving them for AU32.
-- Promotion is a step: clearing a group key's last site removes that key from `governance/rule-severity.json` in the same pull request, and that is what makes the rule bite. Nothing is deferred to another work package, and there is no record to delete.
-- Every group key this work package clears is removed from `governance/rule-severity.json`, never re-tagged.
+The work is complete and green: two review rounds, the second returning DONE with no blocking
+findings, and a pull request open against `main` awaiting human merge.
 
-**Out of scope.**
-- `framework/db`'s own production table writes — AU29.
-- The 63 development-world companion violations that exist today — AU32.
-- Reducing any service's exposed method surface — that is AU20's axis.
+Residual and deferred:
 
-**Effort.** L (~4d)
-
-## Acceptance criteria
-
-- Every table in the schema names exactly one owning service; `governance/table-owners.json` has an empty `unowned` block.
-- Every production read and write of a table reaches it through the owning service — no package other than the owner names the table.
-- A service that needs data from a table it does not own obtains it by asking the owner, with no cross-owned-table query anywhere in production.
-- The four table rules and the two table-symbol import rules fail the build in both directions on any new violation, with no baseline entry backing them.
-- Every `db:table (unowned)` and production `db:table (other)` group key this work package owns is removed from `governance/rule-severity.json`.
-- The AU28 bookkeeping mechanism is already gone (deleted unconditionally by `AU32`); reintroducing it, or any per-file allowance, under any name, fails the build via `no-per-file-allowances`.
-- `npm run verify` is green, and the behaviour of every relocated accessor is proven unchanged by tests that exercise it through the owner.
-
-## Validation scenarios
-
-**Given** the governance lint runs over the live tree, **when** it reports, **then** no production violation remains in any `db:table (unowned)` or `db:table (other)` group, and `table-owners.json` lists zero unowned tables.
-
-**Given** a developer adds a new table to the schema without naming an owner, **when** `npm run lint` runs, **then** the build fails naming that table.
-
-**Given** a developer adds a `select` against `sessions` from a package that does not own it, **when** `npm run lint` runs, **then** the build fails — proving reads are covered, not only writes.
-
-**Given** the application runs its existing integration suite, **when** every previously-direct accessor now calls through its owner, **then** the observable results are identical to `origin/main`.
+- **Standing instruction from Ruling 5.** One net-new `layer → service (other layer) [import]`
+  warning was accepted from the `tool-handlers` sessions wiring. When this branch rebases onto
+  AU31, that wiring must be *resolved*, not carried — and resolved by copying the pattern AU31
+  introduces, not by inventing a second one. Do not build the zero-crossing alternative of
+  constructing the tool context inside the owner here.
+- **Filed, not assigned.** `schema.ts`'s `delegationAllowed` lore claims a behaviour nothing reads
+  (same defect class as the deleted skills path, different file); an AU15 routine-scheduler test
+  cross-references the suite deleted here; `session-stream-hub` answers an existence question via
+  an eighteen-column select.
+- `satisfies z.ZodType<...>` does not work in zod 4 (TS1360, both spellings) — use a
+  conditional-type pin.

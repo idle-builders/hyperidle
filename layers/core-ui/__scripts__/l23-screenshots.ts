@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { chromium } from "@playwright/test";
 
 const BASE_URL = "http://localhost:5179";
-const PROOF_DIR = join(import.meta.dirname, "../../../../plans/L23/proof");
+const PROOF_DIR = join(import.meta.dirname, "../../../../test-results");
 
 async function run(): Promise<void> {
 	await mkdir(PROOF_DIR, { recursive: true });
@@ -20,7 +20,7 @@ async function run(): Promise<void> {
 	await page.goto(`${BASE_URL}/knowledge/k1`);
 	await page.waitForSelector("[data-testid='knowledge-body']");
 	await page.screenshot({
-		path: join(PROOF_DIR, "k1-belief-body.png"),
+		path: join(PROOF_DIR, "L23-k1-belief-body.png"),
 		fullPage: false,
 	});
 	console.log("Saved k1-belief-body.png");
@@ -61,7 +61,7 @@ async function run(): Promise<void> {
 	await page.getByRole("button", { name: /save/i }).click();
 	await page.waitForSelector("[data-testid='knowledge-body']");
 	await page.screenshot({
-		path: join(PROOF_DIR, "k1-playbook-body.png"),
+		path: join(PROOF_DIR, "L23-k1-playbook-body.png"),
 		fullPage: false,
 	});
 	console.log("Saved k1-playbook-body.png");
@@ -74,7 +74,7 @@ async function run(): Promise<void> {
 	await page.getByRole("button", { name: /save/i }).click();
 	await page.waitForSelector("[data-testid='knowledge-body']");
 	await page.screenshot({
-		path: join(PROOF_DIR, "k1-empty-body.png"),
+		path: join(PROOF_DIR, "L23-k1-empty-body.png"),
 		fullPage: false,
 	});
 	console.log("Saved k1-empty-body.png");

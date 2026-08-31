@@ -321,8 +321,7 @@ export function ThreadSections({
 				action={
 					onClearFilter ? (
 						// L10 Design C2 / approved mockup: flat text-link, not a solid button.
-						// Mirrors `.empty-state__action-btn` in
-						// plans/L10/design/variant-a-pure-axis/mockup.html
+						// Mirrors the approved mockup's `.empty-state__action-btn`
 						// (color: var(--accent-primary); background: transparent; border: 0; padding: 0).
 						<button
 							type="button"

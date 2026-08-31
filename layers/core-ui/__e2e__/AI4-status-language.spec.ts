@@ -20,7 +20,7 @@
  *   - WorkTask session row (active session)
  *
  * Strategy: hermetic page.route() mocks. No DB. Dev server on port 5179.
- * Screenshots saved to plans/AI4/proof/ (path resolved from __dirname).
+ * Screenshots saved to test-results/AI4-*.png (path resolved from __dirname).
  *
  * Selector notes:
  * - StatusChip carries data-ds-component="StatusChip" (via dsProps) + data-status={safeStatus}.
@@ -37,12 +37,12 @@ const BET_ID = "bet-ai4-proof";
 const TASK_ID = "task-ai4-proof";
 const TEAM_ID = "team-ai4-proof";
 
-// Proof directory — absolute path so screenshots always land in plans/AI4/proof/
+// Proof directory — absolute path so screenshots always land in test-results/.
 // ESM: use import.meta.url instead of __dirname (not available in ES module scope).
 // import.meta.url = file:///…/layers/core-ui/e2e/AI4-status-language.spec.ts
-// → up 3 levels → monorepo root → plans/AI4/proof/
+// → up 3 levels → monorepo root → test-results/
 const Dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROOF_DIR = path.resolve(Dirname, "../../../plans/AI4/proof");
+const PROOF_DIR = path.resolve(Dirname, "../../../test-results");
 
 // Selectors
 const STATUS_CHIP = '[data-ds-component="StatusChip"]';
@@ -325,7 +325,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		// Screenshot the status badge area of the task row
 		const statusArea = taskRow.locator("span.flex.items-center").last();
 		await statusArea.screenshot({
-			path: `${PROOF_DIR}/ac1a-workbet-task-row-in-progress.png`,
+			path: `${PROOF_DIR}/AI4-ac1a-workbet-task-row-in-progress.png`,
 		});
 	});
 
@@ -352,7 +352,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		// Screenshot the header status badge area
 		const statusArea = header.locator(".flex.items-center").last();
 		await statusArea.screenshot({
-			path: `${PROOF_DIR}/ac1a-worktask-header-in-progress.png`,
+			path: `${PROOF_DIR}/AI4-ac1a-worktask-header-in-progress.png`,
 		});
 	});
 
@@ -374,7 +374,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		await expect(liveDotInSession).toBeVisible();
 
 		await sessionRow.screenshot({
-			path: `${PROOF_DIR}/livedot-worktask-session-row-active.png`,
+			path: `${PROOF_DIR}/AI4-livedot-worktask-session-row-active.png`,
 		});
 	});
 
@@ -400,7 +400,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		await expect(chipInCard).toContainText("Active");
 
 		await chipInCard.screenshot({
-			path: `${PROOF_DIR}/ac1b-portfolio-betcard-active-chip.png`,
+			path: `${PROOF_DIR}/AI4-ac1b-portfolio-betcard-active-chip.png`,
 		});
 	});
 
@@ -420,7 +420,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		await expect(chipInRow).toHaveAttribute("data-status", "healthy");
 
 		await chipInRow.screenshot({
-			path: `${PROOF_DIR}/ac1b-team-betrow-active-chip.png`,
+			path: `${PROOF_DIR}/AI4-ac1b-team-betrow-active-chip.png`,
 		});
 	});
 
@@ -441,7 +441,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		await expect(chipInHeader).toContainText("Active");
 
 		await chipInHeader.screenshot({
-			path: `${PROOF_DIR}/ac1b-betdetail-header-active-chip.png`,
+			path: `${PROOF_DIR}/AI4-ac1b-betdetail-header-active-chip.png`,
 		});
 	});
 
@@ -483,7 +483,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		await expect(verdictChip).toContainText("Validated");
 
 		await verdictBadge.screenshot({
-			path: `${PROOF_DIR}/ac3-portfolio-betcard-verdict-validated.png`,
+			path: `${PROOF_DIR}/AI4-ac3-portfolio-betcard-verdict-validated.png`,
 		});
 	});
 
@@ -538,7 +538,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		await expect(verdictChip).toContainText("Validated");
 
 		await verdictBadge.screenshot({
-			path: `${PROOF_DIR}/ac3-betdetail-outcome-verdict-validated.png`,
+			path: `${PROOF_DIR}/AI4-ac3-betdetail-outcome-verdict-validated.png`,
 		});
 	});
 
@@ -582,6 +582,6 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		await page
 			.locator('[data-testid="task-detail-page"] header')
 			.first()
-			.screenshot({ path: `${PROOF_DIR}/parity-worktask-header-chip.png` });
+			.screenshot({ path: `${PROOF_DIR}/AI4-parity-worktask-header-chip.png` });
 	});
 });

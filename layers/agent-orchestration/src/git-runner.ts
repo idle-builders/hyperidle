@@ -11,7 +11,7 @@
  * @lore Every method is typed + whitelisted — we never forward user strings
  * straight into argv. The factory sets `GIT_TERMINAL_PROMPT=0` so an auth
  * failure errors immediately instead of hanging on an interactive password
- * prompt (see docs/plans/H1-plan.md §7).
+ * prompt.
  */
 import { spawn } from "node:child_process";
 import { createLogger, type Logger } from "@hyperidle/diagnostics";
@@ -19,7 +19,7 @@ import { createLogger, type Logger } from "@hyperidle/diagnostics";
 /**
  * Optional per-request git config injected via environment variables.
  * Token never goes in argv or URL — only in the child env via GIT_CONFIG_*
- * (verified mechanism; see plans/AO1/architecture.md §v2·2).
+ * (verified mechanism).
  *
  * @lore AO1 v2: GIT_CONFIG_COUNT/KEY_n/VALUE_n is the ONLY safe token path.
  * Putting tokens in the URL or `-c http.extraHeader=…` in argv leaks to ps/logs.

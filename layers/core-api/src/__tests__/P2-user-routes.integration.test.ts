@@ -72,8 +72,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		// distinct from the general /api/users listing route. The P2 rename assertion
 		// (agents → users) was valid when /api/agents was simply removed; now that X3
 		// adds it back with a different purpose (agent config, not user listing), the
-		// 404 assertion is no longer valid. See plans/X3/architecture.md §3 for the
-		// design rationale (separate routes, separate authorization model).
+		// 404 assertion is no longer valid (separate routes, separate authorization model).
 
 		// @lore AU26 J1: the `activeSessions` count is gone from this response.
 		test("GET /api/users returns users with their identity fields", async ({ app, db }) => {

@@ -463,7 +463,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// null pre-AU14. That is a deliberate, tested convergence (plan §9 D3), not a
 		// regression: route-created scoped items now participate in scope-filtered
 		// context assembly / promotion / practice-meeting / attention like tool-created
-		// items already do. See plans/AU14/architecture.md §5, §9.
+		// items already do.
 		const created = await createKnowledgeItem(db, {
 			// AU21 §9 Increment 2 (knowledge wave): honor an explicit `layer`
 			// override when the caller supplies one (write_memory's real call

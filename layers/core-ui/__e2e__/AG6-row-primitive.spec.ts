@@ -33,7 +33,7 @@ const TEAM_URL = `/work/team/${TEAM_ID}`;
 const KNOWLEDGE_URL = "/knowledge";
 
 const SpecDir = path.dirname(fileURLToPath(import.meta.url));
-const PROOF_DIR = path.resolve(SpecDir, "../../../plans/AG6/proof");
+const PROOF_DIR = path.resolve(SpecDir, "../../../test-results");
 
 // ---------------------------------------------------------------------------
 // Mock data

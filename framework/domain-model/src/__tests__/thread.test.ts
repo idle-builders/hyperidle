@@ -1,8 +1,7 @@
 /**
  * L1a — `headCollapsePredicate` unit tests.
  *
- * Source of truth: `plans/L1/architecture.md` §4 + §9 + Q4 of §1.
- * Approved-design hard-rule 1 (`plans/L1/design/approved.md` §8):
+ * Approved-design hard-rule 1:
  * "ThreadHead mounts iff there exists a message of type 'review' or
  * 'questionnaire' whose resolvedAt is null AND that message is the most
  * recent of its kind in the thread."

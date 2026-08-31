@@ -8,8 +8,7 @@
  * @lore N5: We bundle from main.ts (Option B) rather than a separate server
  * entry (Option A). This inlines @hyperidle/server, @hyperidle/db, etc. into
  * one CJS file, eliminating split-brain dependency management and runtime
- * require() tricks. See plans/N5/architecture.md §Design-it-twice for the
- * full rationale.
+ * require() tricks.
  *
  * @lore PGlite migration: postgres and drizzle-orm/postgres-js are stubbed
  * (not externalized) via the pgStubPlugin. Desktop uses PGlite (not

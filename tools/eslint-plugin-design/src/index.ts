@@ -12,6 +12,7 @@ import { borderWidthProfileOnly } from "./rules/border-width-profile-only.js";
 import { motionProfileOnly } from "./rules/motion-profile-only.js";
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
+import { noHandrolledChip } from "./rules/no-handrolled-chip.js";
 import { noHandrolledControl } from "./rules/no-handrolled-control.js";
 import { noHandrolledPageHeader } from "./rules/no-handrolled-page-header.js";
 import { noHandrolledPageScaffold } from "./rules/no-handrolled-page-scaffold.js";
@@ -43,6 +44,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-mock-data-import": noMockDataImport,
 	"no-mock-data-symbol": noMockDataSymbol,
 	"no-handrolled-control": noHandrolledControl,
+	"no-handrolled-chip": noHandrolledChip,
 	"no-handrolled-page-header": noHandrolledPageHeader,
 	"no-handrolled-page-scaffold": noHandrolledPageScaffold,
 	"no-undefined-font-heading": noUndefinedFontHeading,

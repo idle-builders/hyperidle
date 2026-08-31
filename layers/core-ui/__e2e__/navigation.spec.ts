@@ -298,7 +298,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		await expect(breadcrumb).toBeVisible();
 
 		// Screenshot for reviewer visual inspection (non-blocking)
-		await page.screenshot({ path: "plans/AG4/proof/breadcrumb-bet-detail.png", fullPage: false });
+		await page.screenshot({ path: "test-results/AG4-breadcrumb-bet-detail.png", fullPage: false });
 	});
 
 	// C1 — AC-1: portfolio → team → bet; click Back chevron → team; ⌘[ → portfolio.

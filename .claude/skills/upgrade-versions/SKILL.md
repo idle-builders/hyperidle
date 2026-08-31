@@ -95,7 +95,7 @@ This is the load-bearing phase. For each floor dep, web-verify the newest *suppo
 3. **TypeScript** → newest stable; note it gates typescript-eslint, vite, vitest, tsx, biome's TS support.
 4. **React + react-dom** → newest stable (keep the pair locked); note the @types and react-compiler/eslint-plugin versions it requires.
 
-Write `plans/<id>/upgrade-envelope.md` (or print it inline if no plan folder) — the contract every later layer is checked against:
+Write the compatibility envelope into `.pipeline/work/<id>/plan.md` (or print it inline if the item has no folder) — the contract every later layer is checked against:
 
 ```
 ## Compatibility envelope (web-verified <date>)

@@ -9,7 +9,7 @@ import * as schema from "./schema.js";
 // @lore Phase 2 PGlite migration: the unified HyperIdleDb type covers both
 // PGlite (laptop / test) and postgres-js (VPS / cloud). Both Drizzle drivers
 // satisfy PgDatabase<PgQueryResultHKT, typeof schema> — the common supertype
-// lets callers remain driver-agnostic. See plans/pglite-migration for rationale.
+// lets callers remain driver-agnostic.
 
 /** Unified Drizzle DB type: satisfied by both PGlite and postgres-js drivers. */
 export type HyperIdleDb = PgDatabase<PgQueryResultHKT, typeof schema>;

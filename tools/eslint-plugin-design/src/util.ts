@@ -287,7 +287,8 @@ export function collectClassStringsFromJSXAttribute(
  * @lore AZ7 review-round-2 NEW-1: `CommentRow.tsx` builds `avatarClass` as a
  * ternary of two class strings, assigns it to a `const`, and only THEN passes
  * it to `className`. Every className-scanning tool in this repo (this deep
- * collector, `scan.mjs`, `predicates.mjs`) walked `className={avatarClass}`
+ * collector and the standalone AST scanner that measured the population)
+ * walked `className={avatarClass}`
  * and saw only an `Identifier` node — none of the switch cases matched, so
  * the two strings underneath (one carrying `rounded-full`, the pill's
  * forbidden second spelling) were invisible. The same shape turned out NOT to
@@ -360,8 +361,7 @@ export function createConstIdentifierResolver(context: Rule.RuleContext): Identi
  * expression's arguments and, for a member-call receiver (`[...].join(" ")`),
  * the receiver too. The shallow collector only widens into `cn()`/`clsx()`-style
  * named helpers; it never chases `.join()`, so `className={[...].join(" ")}` —
- * a real, measured pattern (AZ7 measurement `scan.mjs`/`predicates.mjs`, which
- * use this exact traversal shape) — is invisible to it. `no-off-scale-radius`
+ * a real, measured pattern — is invisible to it. `no-off-scale-radius`
  * silently passed `Checkbox.tsx`'s `rounded-[6px]` for this reason: the class
  * list is built via `[...].join(" ")` and the shallow walker stops at the
  * `CallExpression` because `.join` is a `MemberExpression` callee, not a bare
@@ -371,13 +371,11 @@ export function createConstIdentifierResolver(context: Rule.RuleContext): Identi
  * `collectClassStringsFromExpression` in place — that function backs 20+ other
  * rules already at `error` in production; widening it in place risks surfacing
  * new findings in files those rules currently read as clean, outside this
- * work package's scope. The two new AZ7 rules (`radius-token-only`,
- * `no-handrolled-control`) use the deep variant so their site counts are
- * comparable to the measurement's `predicate-sites.json` (same traversal
- * shape), which is what `migration-backlog.md` and the scope-line arithmetic
- * in the approved plan are built from. The two counts are an approximation,
- * not an exact match: the scanner keys its const map by name-per-file, while
- * ESLint resolves by lexical scope — shadowing diverges both directions.
+ * work package's scope. `radius-token-only`, `no-handrolled-control` and
+ * `no-handrolled-chip` use the deep variant because a class string that
+ * reaches `className` through `[...].join(" ")` or a same-file `const` is the
+ * common shape in this codebase, not an edge case — a rule on the shallow
+ * collector under-reports it silently.
  *
  * @lore AZ7 review-round-2 NEW-1: accepts an optional `resolveIdentifier` —
  * see `createConstIdentifierResolver` — so a bare `Identifier` in class-string

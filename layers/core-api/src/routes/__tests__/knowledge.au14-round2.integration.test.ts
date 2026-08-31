@@ -1,5 +1,5 @@
 /**
- * AU14 round 2 — route-level net-new locks (plans/AU14/architecture-round2.md §11):
+ * AU14 round 2 — route-level net-new locks:
  * - Test 1: `searchByText` LIKE-vs-FTS lock — a topic-only substring match FTS
  *   (title+body only) would not return.
  * - Test 5b (flag cross-domain): coverage moved to plugin — ritual routes left core under AU20 founder ruling.

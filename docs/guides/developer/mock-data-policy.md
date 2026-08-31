@@ -41,10 +41,10 @@ The surface is verifiable by path alone — no content inspection. Adding a new 
 ## Hard rules
 
 1. **No mock data in runtime production code paths.** Enforced by `design/no-mock-data-import` + `design/no-mock-data-symbol` (error-level in `eslint.config.ts`) and the literal-id detector in `tools/repo-gates/src/mock-inventory.ts`.
-2. **Every surviving mock instance is tracked with its remediation plan** in `plans/mock-data-purge/follow-ups.md` — the API, table, or context it stands in for.
+2. **Every surviving mock instance is tracked with its remediation plan** under [Tracked-out survivors](#tracked-out-survivors) below — the API, table, or context it stands in for.
 3. **Removing a mock removes its fallback.** The pattern `useFoo() ?? FALLBACK_FOO` is forbidden; the UI must render an honest empty / loading / error state when the source is silent.
 4. **The guard is non-bypassable.** Per-line `eslint-disable` for these rules requires a tracking issue id in the comment (enforced by the meta-test in `tools/eslint-plugin-design/src/__tests__/eslint-disable-meta.test.ts`).
-5. **The inventory is machine-generated.** `tools/repo-gates/src/mock-inventory.ts` emits `plans/mock-data-purge/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) exits non-zero when it's stale. PRs that change the offender set must commit the regenerated inventory.
+5. **The inventory is machine-generated.** `tools/repo-gates/src/mock-inventory.ts` emits `tools/repo-gates/mock-inventory/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) exits non-zero when it's stale. PRs that change the offender set must commit the regenerated inventory.
 
 ## Forbidden symbol-name prefixes (in runtime production code)
 
@@ -66,7 +66,15 @@ Any other clearly-fictional placeholder (`ACME Corp`, `Test Team`, `Demo Co`) is
 
 ## Forbidden literal-id strings (in runtime production code)
 
-The inventory script flags hardcoded identity strings used as stand-ins for the auth context: `"u-founder"`, `"agent-unassigned"`, `"founder@hyperidle.com"` (`LITERAL_ID_STRINGS`, mock-data-policy.ts:83-87). Tests / stories / e2e are exempt by path. Known tracked-out survivors (the server auth fallbacks) are listed with remediation plans in `plans/mock-data-purge/follow-ups.md` — an offender in a file not listed there is a real failure.
+The inventory script flags hardcoded identity strings used as stand-ins for the auth context: `"u-founder"`, `"agent-unassigned"`, `"founder@hyperidle.com"` (`LITERAL_ID_STRINGS`, mock-data-policy.ts:83-87). Tests / stories / e2e are exempt by path. Known tracked-out survivors (the server auth fallbacks) are listed with remediation plans under [Tracked-out survivors](#tracked-out-survivors) — an offender in a file not listed there is a real failure.
+
+## Tracked-out survivors
+
+The offenders the inventory carries deliberately. An offender in a file not listed here is a real failure.
+
+**Server auth fallback** — `u-founder` in `layers/core-api/src/middleware/auth.ts`, `layers/core-api/src/routes/auth.ts` and `layers/core-api/policy/src/lifecycle-propagation.ts`. The middleware substitutes the hardcoded user id when the database holds no `kind: "human"` row, and the auth route does the same when the session context carries no resolved user id. Onboarding now inserts that row (`layers/core-api/src/routes/users.ts`), so the fallback is reachable only against a database nobody set up. It goes when `userId` turns nullable and answers 401 instead of substituting a fake identity.
+
+**Knowledge page API wiring** — `MOCK_KNOWLEDGE_ITEMS` in `layers/core-ui/src/fixtures/knowledge-data.ts`, and `LEGACY_DETAILS`, `LEGACY_SOURCES`, `FALLBACK_DETAIL` plus the fixtures import in `layers/core-ui/src/pages/KnowledgeDetail.tsx`. `useKnowledgeItem` fetches live data and falls back to the fixture lookup, which is what keeps the constants reachable; `LEGACY_DETAILS` survives because the protected `KnowledgeDetail.test.tsx` asserts the "company" and "belief" labels that only it carries. Auto-save through `PATCH /api/knowledge/:id` has since shipped, so the deferral those constants were waiting on is spent — what remains is re-baselining the protected assertions against API data, then deleting the fallback with them.
 
 ## When you legitimately need a mock
 
@@ -77,7 +85,7 @@ The inventory script flags hardcoded identity strings used as stand-ins for the 
 ## Checking locally
 
 ```bash
-npm run mock-inventory        # regenerate plans/mock-data-purge/inventory.json
+npm run mock-inventory        # regenerate tools/repo-gates/mock-inventory/inventory.json
 npm run mock-inventory:check  # fails if the checked-in inventory is stale
 ```
 
@@ -86,6 +94,6 @@ Run the check before pushing; it also runs in `npm run verify`.
 ## Cross-references
 
 - Machine copy of the closed sets: `tools/eslint-plugin-design/src/mock-data-policy.ts`
-- Offender tracking: `plans/mock-data-purge/follow-ups.md`, `plans/mock-data-purge/inventory.json`
+- Offender tracking: [Tracked-out survivors](#tracked-out-survivors), `tools/repo-gates/mock-inventory/inventory.json`
 - Fixtures import boundary precedent: `eslint.config.ts` block tagged "L16 AC-3"
 - Testing guide: [testing.md](testing.md)

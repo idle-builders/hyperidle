@@ -8,7 +8,7 @@
 import type { JSX } from "react";
 // AJ3: page-fed variant mounts via the shared isolation harness instead of a
 // local ad-hoc MemoryRouter wrapper. One story = prototype = annotation
-// surface = catalog entry. See layers/core-ui/src/preview + plans/AJ3.
+// surface = catalog entry.
 import { MockProviders } from "../__preview__";
 import { WorkBetCreate } from "./WorkBetCreate";
 

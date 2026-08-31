@@ -1,6 +1,5 @@
 // AO1 — Hono router for /api/filesystems.
 // Registry CRUD + per-bot injection wiring.
-// Source of truth: plans/AO1/architecture.md §3 + §v2 (Reachability rework v2).
 //
 // @lore AU26 F2 (§D-A's placement rule + the founder's 2026-08-04 ruling): this
 // module lives on `agent-orchestration`'s own app now, not core-api's — the
