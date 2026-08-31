@@ -258,6 +258,26 @@ export interface AdapterInfo {
 	readonly paused: boolean;
 }
 
+/**
+ * Configuration for resuming a previously started session.
+ *
+ * @lore BA2: Session resumption is per-harness. The native session id is what
+ * each harness assigned (or we assigned, for claude) when the session first ran.
+ * sandboxPath is required for claude and cursor-agent (their sessions are bound
+ * to the directory they started in). resolvedModel and mcpTokenEnv mirror the
+ * fields used in SessionConfig that affect the resume invocation.
+ */
+export interface SessionResumeConfig {
+	/** Absolute path to the sandbox where the original session ran. */
+	readonly sandboxPath: string;
+	/** Model tier for metrics tracking. */
+	readonly modelTier: ModelTier;
+	/** Resolved model; same shape as SessionConfig.resolvedModel. */
+	readonly resolvedModel?: ResolvedModel;
+	/** Per-session MCP token env vars; same shape as SessionConfig.mcpTokenEnv. */
+	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
+}
+
 export interface HarnessAdapter {
 	startSession(config: SessionConfig): Promise<SessionHandle>;
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;
@@ -279,4 +299,44 @@ export interface HarnessAdapter {
 	 * for all others).
 	 */
 	getForceReturnCount?(sessionId: string): number;
+
+	/**
+	 * Optional: Return the harness's own native session id for a completed or
+	 * in-progress session. Call after streamEvents has started (or completed)
+	 * so the id has had a chance to arrive from the event stream.
+	 *
+	 * Returns undefined when the harness did not emit a session id (error before
+	 * first event, or an adapter type that does not support resumption).
+	 *
+	 * @lore BA2: The native id is what makes resumption work. For claude we assign
+	 * it via --session-id at start time (so it is available immediately). For
+	 * codex/cursor-agent/opencode we extract it from the first relevant event in
+	 * the stream. Either way, the caller reads it AFTER startSession returns and
+	 * AFTER streaming has begun.
+	 */
+	getNativeSessionId?(handle: SessionHandle): string | undefined;
+
+	/**
+	 * Optional: Resume a previously ended session with a new user message.
+	 * The harness replays the session's prior context and delivers the message
+	 * as a fresh user turn. Returns a new handle whose events can be streamed.
+	 *
+	 * @lore BA2: Per-harness invocations (measured against real installed binaries):
+	 *   claude:        claude -p <msg> --resume <uuid> [standard flags]
+	 *   codex:         codex exec resume <thread-id> <msg> --json [--model <m>]
+	 *   cursor-agent:  cursor-agent -p <msg> --print --output-format stream-json
+	 *                  --model <m> --trust --approve-mcps --force --resume <chat-id>
+	 *   opencode:      opencode run <msg> --dir <sandbox> --format json --pure
+	 *                  --model <m> --session <id>
+	 *
+	 * @lore BA2 cursor-agent-silent-fail: cursor-agent exits 0 even on a wrong or
+	 * missing session id, echoing back the requested id. The caller MUST verify
+	 * from the resumed session's content that prior context survived — exit 0 and
+	 * the reported id are not proof.
+	 */
+	resumeSession?(
+		nativeSessionId: string,
+		message: string,
+		config: SessionResumeConfig,
+	): Promise<SessionHandle>;
 }
