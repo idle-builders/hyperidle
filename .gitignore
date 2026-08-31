@@ -17,6 +17,8 @@ sync-reports/
 !.pipeline/audits/
 !.pipeline/work/
 !.pipeline/[A-Z]*.md
+!.pipeline/rules
+!.pipeline/viewer.config.json
 .env
 !infrastructure/langfuse/.env
 .worktrees/
@@ -80,17 +82,9 @@ framework/*/src/**/*.js.map
 applications/*/src/**/*.d.ts.map
 applications/*/src/**/*.js.map
 framework/db/src/*.d.ts
-# viewer compiled outputs (Vite resolves ./discovery.js → discovery.ts at build/dev time;
-# emitted .js/.d.ts/.map files must not be committed)
-framework/design-system/viewer/*.js
-framework/design-system/viewer/*.d.ts
-framework/design-system/viewer/*.js.map
-framework/design-system/viewer/*.d.ts.map
-# AJ7: same for the annotations/ subdir (the inspector modules)
-framework/design-system/viewer/**/*.js
-framework/design-system/viewer/**/*.d.ts
-framework/design-system/viewer/**/*.js.map
-framework/design-system/viewer/**/*.d.ts.map
+# The pipeline plugin's component viewer copies itself here on launch (see
+# .pipeline/rules/visual-regression.md). Never committed.
+/viewer/
 
 # AJ5: annotation files (gitignored — founder reviews .annotations/annotations.md locally)
 .annotations/

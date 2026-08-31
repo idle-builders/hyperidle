@@ -22,6 +22,9 @@ export default [
 			"**/dist/**",
 			"**/.worktrees/**",
 			"**/.claude/**",
+			// The pipeline plugin's component viewer copies itself to <root>/viewer/
+			// on launch (see .pipeline/rules/visual-regression.md). Not our code.
+			"viewer/**",
 			"**/coverage/**",
 			"**/.astro/**",
 		],

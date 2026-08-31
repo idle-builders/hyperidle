@@ -1,0 +1,1 @@
+../../.claude/rules/aesthetic-quality.md
