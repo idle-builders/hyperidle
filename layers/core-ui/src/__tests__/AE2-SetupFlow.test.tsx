@@ -152,7 +152,6 @@ describe("AE2-SetupFlow — custom preset", () => {
 
 		// Fill required fields
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		// Switch to Custom — no chips selected yet
 		await user.click(screen.getByRole("button", { name: /^custom$/i }));
@@ -170,7 +169,6 @@ describe("AE2-SetupFlow — custom preset", () => {
 
 		// Fill required fields
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		// Switch to Custom
 		await user.click(screen.getByRole("button", { name: /^custom$/i }));
@@ -221,7 +219,6 @@ describe("AE2-SetupFlow — submitting sends functions array", () => {
 		const { capturedBody } = renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		const startBtn = screen.getByRole("button", { name: /start hyperidle/i });
 		await user.click(startBtn);
@@ -276,7 +273,6 @@ describe("AE2-SetupFlow — submitting sends functions array", () => {
 		);
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		// Switch to Custom
 		await user.click(screen.getByRole("button", { name: /^custom$/i }));
@@ -328,7 +324,6 @@ describe("AE2-SetupFlow — navigation to /work?onboarding=true", () => {
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
 

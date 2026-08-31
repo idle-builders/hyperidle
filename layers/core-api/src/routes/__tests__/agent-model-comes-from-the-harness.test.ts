@@ -39,6 +39,7 @@ function descriptorWith(
 		kind: "local",
 		authAction: { kind: "native_cli_login", label: "Log in" },
 		discovery: { state: "ready" },
+		acceptsApiKey: false,
 		models: modelIds.map((id) => ({
 			id,
 			label: id,

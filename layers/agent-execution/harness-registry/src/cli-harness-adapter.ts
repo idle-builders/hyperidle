@@ -1109,6 +1109,10 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// unknown → none (drain-gate floor backstop only)
 			returnEnforcement:
 				this.config.returnEnforcementChannel ?? deriveCliChannel(this.config.binary),
+			// A harness accepts a stored key exactly when it declares the variable
+			// names to hand one to. Derived, never a per-binary list: a CLI without
+			// that mapping gets no key, which is what protects its own login.
+			acceptsApiKey: this.config.credentialEnvByProvider !== undefined,
 			// AL7 delta: expose the MCP config dialect so session-provisioning can
 			// call writeCliMcpConfig with the right dialect. Absent if no mcpConfig set.
 			...(this.config.mcpConfig ? { cliMcpDialect: this.config.mcpConfig.dialect } : {}),

@@ -17,6 +17,7 @@ import { modelOptionsForHarness } from "../model-options-for-harness.js";
 
 const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "builtin",
+	acceptsApiKey: false,
 	name: "Built-in",
 	kind: "local",
 	models: [
@@ -55,6 +56,7 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 
 const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "codex",
+	acceptsApiKey: false,
 	name: "Codex",
 	kind: "local",
 	models: [],
@@ -65,6 +67,7 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 
 const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "opencode",
+	acceptsApiKey: true,
 	name: "OpenCode",
 	kind: "local",
 	models: [

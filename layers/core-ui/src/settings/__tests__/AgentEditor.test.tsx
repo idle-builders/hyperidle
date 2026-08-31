@@ -23,33 +23,41 @@ import { AgentEditor } from "../AgentEditor.js";
 // Fixture harness descriptors (no MODEL_CATALOG)
 // ---------------------------------------------------------------------------
 
-const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
-	type: "builtin",
-	name: "Built-in",
+// The key-accepting harness. Its models are its own — `opencode models` reports
+// them — so `inheritedFromGateway` is false throughout: there is no gateway left
+// for anything to inherit from.
+const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
+	type: "opencode",
+	name: "OpenCode",
 	kind: "local",
 	models: [
 		{
-			id: "deepseek/deepseek-v4-flash",
+			id: "openrouter/deepseek/deepseek-v4-flash",
 			label: "DeepSeek V4 Flash",
 			provider: "openrouter",
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: true,
+			inheritedFromGateway: false,
 			options: [],
 		},
 		{
-			id: "claude-haiku-4-5",
-			label: "Claude Haiku 4.5",
-			provider: "anthropic",
+			id: "openrouter/z-ai/glm-4.7-flash",
+			label: "GLM 4.7 Flash",
+			provider: "openrouter",
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: true,
+			inheritedFromGateway: false,
 			options: [],
 		},
 	],
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	discovery: { state: "ready" },
-	authAction: { kind: "enter_api_key", label: "Enter API key" },
+	acceptsApiKey: true,
+	authAction: {
+		kind: "native_cli_login",
+		label: "Log in to OpenCode",
+		command: ["opencode", "providers", "login"],
+	},
 };
 
 const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
@@ -59,6 +67,7 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	models: [], // codex has no enumerable models
 	modelProviders: [], // provider-agnostic
 	discovery: { state: "ready" },
+	acceptsApiKey: false,
 	authAction: {
 		kind: "native_cli_login",
 		label: "Log in to Codex",
@@ -83,6 +92,7 @@ const CLAUDE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	],
 	modelProviders: ["anthropic"],
 	discovery: { state: "ready" },
+	acceptsApiKey: false,
 	authAction: {
 		kind: "native_cli_login",
 		label: "Log in to Claude",
@@ -94,7 +104,7 @@ const NORMAL_AGENT_DRAFT: AgentEditorDraft = {
 	name: "Atlas",
 	role: "builder",
 	systemPrompt: "Build things",
-	harnessType: "builtin",
+	harnessType: "opencode",
 	modelId: "deepseek/deepseek-v4-flash",
 	modelProvider: "openrouter",
 	maxConcurrentSessions: 1,
@@ -106,7 +116,7 @@ const ASSISTANT_DRAFT: AgentEditorDraft = {
 	name: "Nova",
 	role: "assistant",
 	systemPrompt: "I am your assistant",
-	harnessType: "builtin",
+	harnessType: "opencode",
 	modelId: "claude-haiku-4-5",
 	modelProvider: "anthropic",
 	maxConcurrentSessions: 1,
@@ -165,6 +175,7 @@ const DECLARING_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	],
 	modelProviders: ["anthropic"],
 	discovery: { state: "ready" },
+	acceptsApiKey: false,
 	authAction: { kind: "none", label: "" },
 };
 
@@ -264,7 +275,7 @@ describe("AgentEditor save routing", () => {
 				agentId="ast-user1"
 				draft={ASSISTANT_DRAFT}
 				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
+				harnesses={[OPENCODE_DESCRIPTOR]}
 				onSave={mockSave}
 				onCancel={vi.fn()}
 				saving={false}
@@ -285,7 +296,7 @@ describe("AgentEditor save routing", () => {
 				agentId="agent-abc"
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
+				harnesses={[OPENCODE_DESCRIPTOR]}
 				onSave={mockSave}
 				onCancel={vi.fn()}
 				saving={false}
@@ -310,13 +321,13 @@ describe("Model dropdown uses discovered descriptor.models", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("builtin harness: model select options equal discovered models (not MODEL_CATALOG)", async () => {
+	it("opencode harness: model select options equal discovered models (not MODEL_CATALOG)", async () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
-				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "builtin" }}
+				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "opencode" }}
 				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
+				harnesses={[OPENCODE_DESCRIPTOR]}
 				onSave={vi.fn()}
 				onCancel={vi.fn()}
 				saving={false}
@@ -330,8 +341,8 @@ describe("Model dropdown uses discovered descriptor.models", () => {
 		);
 
 		// Should contain discovered models
-		expect(options).toContain("deepseek/deepseek-v4-flash");
-		expect(options).toContain("claude-haiku-4-5");
+		expect(options).toContain("openrouter/deepseek/deepseek-v4-flash");
+		expect(options).toContain("openrouter/z-ai/glm-4.7-flash");
 
 		// Should NOT contain MODEL_CATALOG-only ids like "claude-opus-4-8" (not in the descriptor fixture)
 		// The discovered list is scoped to what the fixture says, NOT the full catalog
@@ -433,15 +444,15 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 				agentId="agent-1"
 				draft={{
 					...NORMAL_AGENT_DRAFT,
-					harnessType: "builtin",
+					harnessType: "opencode",
 					modelProvider: "openrouter",
 				}}
 				onDraftChange={(fn) => {
 					draftChanges.push(
-						fn({ ...NORMAL_AGENT_DRAFT, harnessType: "builtin", modelProvider: "openrouter" }),
+						fn({ ...NORMAL_AGENT_DRAFT, harnessType: "opencode", modelProvider: "openrouter" }),
 					);
 				}}
-				harnesses={[BUILTIN_DESCRIPTOR, CLAUDE_DESCRIPTOR]}
+				harnesses={[OPENCODE_DESCRIPTOR, CLAUDE_DESCRIPTOR]}
 				onSave={vi.fn()}
 				onCancel={vi.fn()}
 				saving={false}
@@ -477,7 +488,7 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 				agentId="agent-1"
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
+				harnesses={[OPENCODE_DESCRIPTOR]}
 				onSave={vi.fn()}
 				onCancel={vi.fn()}
 				saving={false}
@@ -519,7 +530,7 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 				agentId="agent-1"
 				draft={{ ...NORMAL_AGENT_DRAFT, filesystemIds: ["fs-1"] }}
 				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
+				harnesses={[OPENCODE_DESCRIPTOR]}
 				onSave={vi.fn()}
 				onCancel={vi.fn()}
 				saving={false}
@@ -591,7 +602,7 @@ describe("Role template fetched when editing an existing agent", () => {
 				agentId="agent-1"
 				draft={{ ...NORMAL_AGENT_DRAFT, role: "builder" }}
 				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
+				harnesses={[OPENCODE_DESCRIPTOR]}
 				onSave={vi.fn()}
 				onCancel={vi.fn()}
 				saving={false}
@@ -626,7 +637,7 @@ describe("Role template fetched when editing an existing agent", () => {
 				agentId="agent-1"
 				draft={{ ...NORMAL_AGENT_DRAFT, role: "custom-role-xyz" }}
 				onDraftChange={vi.fn()}
-				harnesses={[BUILTIN_DESCRIPTOR]}
+				harnesses={[OPENCODE_DESCRIPTOR]}
 				onSave={vi.fn()}
 				onCancel={vi.fn()}
 				saving={false}

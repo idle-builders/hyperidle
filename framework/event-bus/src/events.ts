@@ -712,12 +712,12 @@ export const EVENT_TYPES = [
 	"tool_call_recorded",
 ] as const satisfies readonly EventType[];
 // completeness: a new EventType not listed above is a compile error here.
-type _EventTypesComplete =
+type EventTypesComplete =
 	Exclude<EventType, (typeof EVENT_TYPES)[number]> extends never
 		? true
 		: ["EVENT_TYPES is missing", Exclude<EventType, (typeof EVENT_TYPES)[number]>];
-const _eventTypesComplete: _EventTypesComplete = true;
-void _eventTypesComplete;
+const EventTypesComplete: EventTypesComplete = true;
+void EventTypesComplete;
 
 /** Wildcard subscription type. */
 export type WildcardType = "*";

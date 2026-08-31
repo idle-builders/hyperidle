@@ -132,8 +132,18 @@ export interface TeamListResponse {
  */
 export interface PrimaryHarnessConfig {
 	readonly harnessType: string;
-	readonly modelId: string;
-	readonly modelProvider: string;
+	/**
+	 * The model to run, when one was chosen. Absent leaves the harness on its own
+	 * default — which is a real answer, not a missing one: a CLI that was never
+	 * told a model runs whatever it is configured to run.
+	 *
+	 * @lore These used to be required, defaulted to a hardcoded Anthropic model
+	 * whenever nothing was chosen. That default was invented, not observed: it
+	 * named a model the selected harness might not serve, and it was written into
+	 * every scaffolded agent's run config as though the user had picked it.
+	 */
+	readonly modelId?: string;
+	readonly modelProvider?: string;
 }
 
 export interface CreateTeamRequest {

@@ -258,6 +258,17 @@ export interface HarnessCapabilities {
 	 */
 	readonly returnEnforcement: ReturnEnforcementChannel;
 	readonly descriptorModels?: readonly HarnessModelDescriptor[];
+	/**
+	 * Whether this harness can run on an API key HyperIdle stores, rather than
+	 * only on its own login.
+	 *
+	 * Most CLIs authenticate themselves and would be actively harmed by an
+	 * injected key — handing codex an unrelated key as OPENAI_API_KEY shadows the
+	 * ChatGPT login it actually uses. A harness that declares this reads the key
+	 * under its own provider's variable name, which is what makes "bring your own
+	 * key" a real onboarding path without a gateway of our own.
+	 */
+	readonly acceptsApiKey?: boolean;
 	readonly authAction?: HarnessAuthActionDescriptor;
 	readonly discovery?: HarnessDiscoveryStatus;
 	readonly fileEditing?: boolean;
@@ -265,7 +276,7 @@ export interface HarnessCapabilities {
 	/**
 	 * AL7 delta: Per-session MCP config dialect for CLI harnesses that need a
 	 * config file written into the sandbox for the binary to discover the bridge.
-	 * Absent for non-CLI harnesses (builtin, SDK adapters).
+	 * Absent for a harness that discovers the bridge some other way.
 	 *
 	 * "codex-toml"    — appends [mcp_servers.hyperidle] to .codex-home/config.toml.
 	 * "opencode-json" — writes opencode.json to sandbox cwd.

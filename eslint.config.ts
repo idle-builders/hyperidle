@@ -732,13 +732,15 @@ export default [
 	// must contain ZERO per-backend string literal
 	// comparisons — the entire surface is descriptor-driven.
 	//
-	// The ONLY allowed type literal is "builtin" — it is the intentional
-	// founder-rule exemption in showsToggle (NOT disableable) and is paired
-	// with the select() hard-exemption in adapter-pool.ts (AM4 Seam 2).
+	// There are NO allowed type literals. "builtin" used to be one — the
+	// founder-rule exemption in showsToggle (NOT disableable), paired with a
+	// hard-exemption in adapter-pool.ts's select(). The built-in harness is gone
+	// and both exemptions went with it, so the surface is now what it always
+	// claimed to be: entirely descriptor-driven.
 	//
-	// All other harness type strings (claude-code, codex, opencode, cursor-agent…)
-	// are banned so a new backend can be added to the descriptor without touching
-	// any presentation file.
+	// Every harness type string (claude-code, codex, opencode, cursor-agent…) is
+	// banned so a new backend can be added to the descriptor without touching any
+	// presentation file.
 	//
 	// Scoped to production code only — stories and tests are exempt.
 	// @lore AU1's decomposition guard — "decomposition may create an
@@ -952,11 +954,11 @@ export default [
 			"no-restricted-syntax": [
 				"error",
 				{
-					// Ban any string literal that is a known harness type EXCEPT "builtin".
+					// Ban any string literal that is a known harness type. No exemptions.
 					selector:
-						"Literal[value=/^(claude-code|codex|opencode|cursor-agent|aider|goose|cline|continue|avante)$/]",
+						"Literal[value=/^(builtin|claude-code|codex|opencode|cursor-agent|aider|goose|cline|continue|avante)$/]",
 					message:
-						'AM4 descriptor-driven contract: harness-type string literals (other than "builtin") are banned in presentation files. Add a field to HarnessCapabilityDescriptor and use that instead. The ONLY allowed type literal is "builtin" (showsToggle exemption — founder rule).',
+						"AM4 descriptor-driven contract: harness-type string literals are banned in presentation files. Add a field to HarnessCapabilityDescriptor and use that instead. The last exemption ('builtin') went with the built-in harness.",
 				},
 				{
 					// Restated from the core-ui block above, which this one overrides

@@ -99,5 +99,4 @@ describe("AM2 real harness discovery", () => {
 			}
 		});
 	});
-
 });

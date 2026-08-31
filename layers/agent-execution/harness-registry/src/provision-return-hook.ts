@@ -13,7 +13,6 @@
  *                         and sets CODEX_HOME=<sandboxPath>/.codex-home when spawning codex.
  *   "process-reengage" → writes .opencode/plugins/return-signal.ts
  *   "sdk-inprocess"    → no-op (dead — no adapter declares this; kept in union for backward compat)
- *   "builtin-loop"     → no-op (in-process loop; no file artifact)
  *   "soft-continue"    → no-op (cursor inert today)
  *   "none"             → no-op (drain-gate floor only)
  *
@@ -76,7 +75,6 @@ async function installReturnHook(opts: ReturnHookOptions): Promise<void> {
 
 		// No-op channels: enforcement is handled in-process or not at all.
 		case "sdk-inprocess":
-		case "builtin-loop":
 		case "soft-continue":
 		case "none":
 			// No file artifact written for these channels.

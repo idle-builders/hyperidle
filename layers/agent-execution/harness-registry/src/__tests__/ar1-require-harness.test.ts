@@ -97,7 +97,6 @@ describe("requireHarness — binary absent (claude/codex/opencode/cursor-agent)"
 // that a harness can be "available" because a credential exists. Availability is
 // now a question about installed binaries, and nothing else.
 
-
 // ── STRICT VOCABULARY: forbidden key-named tokens are NOT valid HarnessNames ──
 //
 // These assert the reverted bug (requireHarness("anthropic-key") etc.) cannot return.

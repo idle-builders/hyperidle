@@ -87,6 +87,7 @@ function describe(
 			},
 			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 			models,
+			acceptsApiKey: caps.acceptsApiKey ?? false,
 			returnEnforcement: caps.returnEnforcement,
 			modelProviders: meta.modelProviders,
 		};
@@ -104,6 +105,7 @@ function describe(
 		authAction: caps.authAction ?? { kind: "none", label: "Configured externally" },
 		discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 		models,
+		acceptsApiKey: caps.acceptsApiKey ?? false,
 		returnEnforcement: caps.returnEnforcement,
 		modelProviders: meta.modelProviders,
 	};
@@ -130,6 +132,9 @@ function missing(
 			authAction: authActionOrDefault(type, discoveryInput?.authAction),
 			discovery,
 			models: cliModelsFromInput(discoveryInput?.models),
+			// A harness that is not installed cannot take a key — supplying one
+			// would not make it present. Only a registered adapter declares this.
+			acceptsApiKey: false,
 			returnEnforcement: "none",
 			modelProviders: [],
 		};

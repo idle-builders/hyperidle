@@ -294,15 +294,6 @@ function parseOpenCodeCatalog(output: string): HarnessModelDescriptor[] {
 }
 
 /**
- * Timeout (ms) for the builtin /models network fetch.
- *
- * @lore AV2 Build Obligation 1: The fetch runs inside discoverLocalHarnesses's
- * Promise.all. A gateway reject/hang MUST degrade to models:[] without rejecting
- * the whole discovery batch. Wrap in AbortController with this timeout.
- */
-const BUILTIN_MODELS_FETCH_TIMEOUT_MS = 10_000;
-
-/**
  * AC5 result of the harmless real one-shot session probe.
  * `runtimeFromDiscovery` only sets fileEditing/toolUse `true` when
  * `sessionProbe?.ok === true` — auth status alone proves login, NOT launchability.
@@ -337,7 +328,6 @@ interface HarnessDiscoveryInput {
 }
 
 interface HarnessDiscoveryResult {
-	readonly builtin: HarnessDiscoveryInput;
 	readonly codex: HarnessDiscoveryInput;
 	readonly "claude-code": HarnessDiscoveryInput;
 	readonly opencode: HarnessDiscoveryInput;
@@ -367,18 +357,6 @@ interface HarnessProbeDeps {
 	 * reach probes (now `@hyperidle/connections`' `createInheritedReach`).
 	 */
 	readonly cwd?: string;
-	/**
-	 * AV2 Build Obligation 1: Injectable fetch for the builtin /models HTTP call.
-	 * Real code uses `globalThis.fetch`; unit tests inject a stub.
-	 * Signature compatible with the browser/Node Fetch API.
-	 *
-	 * @lore AV2: The fetch is isolated here so unit tests never need a live gateway.
-	 * The production path uses the globally available fetch (Node 18+).
-	 */
-	readonly fetchModels?: (
-		url: string,
-		opts: { signal: AbortSignal },
-	) => Promise<{ ok: boolean; json: () => Promise<unknown> }>;
 	/**
 	 * Injectable reader for codex's own model cache, so unit tests never read the
 	 * real home directory. Returns the file's text, or null when there is none.
@@ -757,228 +735,13 @@ async function probeCli(
 }
 
 /**
- * @lore AM2 AC3/AC5 CRITICAL FIX: `probeBuiltinGateway` now checks the full
- * ordered gateway-usable credential set instead of only ANTHROPIC_API_KEY.
- * The gateway's callLlm() supports three provider paths:
- *   - "anthropic"         → ANTHROPIC_API_KEY (direct Anthropic Messages API)
- *   - "openai-compatible" → OPENAI_API_KEY / openai_compatible_api_key
- *   - "openrouter"        → OPENROUTER_API_KEY
- * On this machine OPENAI_API_KEY is present — the original single-key check
- * always returned `unauthenticated` here, breaking AC3/AC5 discovery.
- *
- * AV2: Now async — fetches the provider's /models endpoint when a key is present.
- * Build Obligation 1: the fetch is timeout-bounded (BUILTIN_MODELS_FETCH_TIMEOUT_MS)
- * and failure-isolated (try/catch → models:[]). `fetchModels` is injectable for
- * unit tests so no live HTTP hit is required in tests.
- *
- * ⚠️ UNVERIFIED endpoint response shapes — confirmed against:
- * - OpenRouter: https://openrouter.ai/docs/api-reference/list-available-models (no auth)
- * - Anthropic: https://docs.anthropic.com/en/api/models-list (x-api-key + anthropic-version)
- * - openai-compatible: standard OpenAI /v1/models (bearer auth, data[].id only)
+ * @lore The built-in gateway had its own probe here, plus catalogue fetches
+ * against Anthropic's and OpenRouter's /models endpoints. It was the one
+ * "harness" whose readiness was a credential rather than an installed binary,
+ * and the one whose model list came off the network rather than out of the tool
+ * itself. Both are gone with it: every harness now reports its own models, and
+ * readiness means the binary is installed and logged in.
  */
-async function probeBuiltinGateway(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
-	const env = d?.env ?? process.env;
-
-	// Ordered set of gateway-usable credentials (priority: Anthropic → OpenAI-compatible → OpenRouter)
-	const credentialCandidates: Array<{
-		envKey: string;
-		credentialName: string;
-		label: string;
-		provider: "anthropic" | "openrouter" | "openai-compatible";
-		fetchModels: (
-			apiKey: string,
-			fetchFn: HarnessProbeDeps["fetchModels"],
-		) => Promise<readonly HarnessModelDescriptor[]>;
-	}> = [
-		{
-			envKey: "ANTHROPIC_API_KEY",
-			credentialName: "anthropic_api_key",
-			label: "Enter Anthropic API key",
-			provider: "anthropic",
-			fetchModels: async (apiKey, fetchFn) => fetchAnthropicModels(apiKey, fetchFn),
-		},
-		{
-			envKey: "OPENAI_API_KEY",
-			credentialName: "openai_compatible_api_key",
-			label: "Enter OpenAI-compatible API key",
-			provider: "openai-compatible",
-			fetchModels: async () => [],
-		},
-		{
-			envKey: "OPENROUTER_API_KEY",
-			credentialName: "openrouter_api_key",
-			label: "Enter OpenRouter API key",
-			provider: "openrouter",
-			fetchModels: async (_apiKey, fetchFn) => fetchOpenRouterModels(fetchFn),
-		},
-	];
-
-	const matched = credentialCandidates.find((c) => Boolean(env[c.envKey]));
-
-	if (matched) {
-		// AV2: failure-isolated model fetch (Build Obligation 1)
-		let models: readonly HarnessModelDescriptor[] = [];
-		try {
-			const apiKey = env[matched.envKey] ?? "";
-			models = await matched.fetchModels(apiKey, d?.fetchModels);
-		} catch {
-			// degraded gracefully — models stays []
-		}
-
-		return {
-			state: "ready",
-			models,
-			authAction: {
-				kind: "enter_api_key",
-				label: matched.label,
-				description: "Store a model gateway API key in HyperIdle.",
-				credentialNames: [
-					matched.credentialName,
-					"openrouter_api_key",
-					"openai_compatible_api_key",
-				],
-			},
-		};
-	}
-
-	const checkedList = credentialCandidates.map((c) => c.envKey).join(", ");
-	return {
-		state: "unauthenticated",
-		reason: `Built-in gateway has no usable credential. Checked: ${checkedList}.`,
-		authAction: {
-			kind: "enter_api_key",
-			label: "Enter API key",
-			description: "Store a model gateway API key in HyperIdle.",
-			credentialNames: ["anthropic_api_key", "openai_compatible_api_key", "openrouter_api_key"],
-		},
-	};
-}
-
-/** AV2: Fetch Anthropic model list via GET https://api.anthropic.com/v1/models */
-async function fetchAnthropicModels(
-	_apiKey: string,
-	fetchFn?: HarnessProbeDeps["fetchModels"],
-): Promise<readonly HarnessModelDescriptor[]> {
-	const doFetch = fetchFn ?? defaultFetch;
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), BUILTIN_MODELS_FETCH_TIMEOUT_MS);
-	try {
-		const resp = await doFetch("https://api.anthropic.com/v1/models", {
-			signal: controller.signal,
-		});
-		if (!resp.ok) return [];
-		const body = await resp.json();
-		const data = (body as { data?: unknown[] }).data;
-		if (!Array.isArray(data)) return [];
-		return data.flatMap((item) => {
-			if (typeof item !== "object" || item === null) return [];
-			const m = item as Record<string, unknown>;
-			const id = typeof m.id === "string" ? m.id : undefined;
-			if (!id) return [];
-			const label = typeof m.display_name === "string" ? m.display_name : id;
-			const contextWindow = typeof m.max_input_tokens === "number" ? m.max_input_tokens : 0;
-			return [
-				{
-					id,
-					label,
-					provider: "anthropic" as const,
-					contextWindow,
-					selectable: true,
-					inheritedFromGateway: true,
-					options: [],
-				} satisfies HarnessModelDescriptor,
-			];
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-}
-
-/** AV2: Fetch OpenRouter model list via GET https://openrouter.ai/api/v1/models (no auth) */
-/**
- * The reasoning-effort option a model declares, from OpenRouter's own catalogue.
- *
- * The catalogue publishes each model's `reasoning.supported_efforts` and its
- * `reasoning.default_effort`. A model that publishes no efforts declares no
- * option — most do not — and the editor then shows nothing for it.
- *
- * @lore Verified live 2026-08-25: of 418 catalogued models, 143 publish
- * `reasoning_effort`. The value carries through to OpenRouter's native endpoint,
- * which rejects an invalid one with HTTP 400 naming the parameter — see
- * `builtin-model-options.integration.test.ts`.
- */
-function openRouterModelOptions(
-	model: Record<string, unknown>,
-): readonly HarnessModelOptionDescriptor[] {
-	const reasoning = model.reasoning as Record<string, unknown> | undefined;
-	const efforts = reasoning?.supported_efforts;
-	if (!Array.isArray(efforts) || efforts.length === 0) return [];
-	const choices = efforts
-		.filter((effort): effort is string => typeof effort === "string")
-		.map((effort) => ({ value: effort, label: effort }));
-	if (choices.length === 0) return [];
-	const defaultEffort = reasoning?.default_effort;
-	return [
-		{
-			key: "reasoning_effort",
-			label: "Reasoning effort",
-			helpText: "How much the model thinks before answering.",
-			control: { kind: "select", choices },
-			required: false,
-			...(typeof defaultEffort === "string" ? { defaultValue: defaultEffort } : {}),
-		},
-	];
-}
-
-async function fetchOpenRouterModels(
-	fetchFn?: HarnessProbeDeps["fetchModels"],
-): Promise<readonly HarnessModelDescriptor[]> {
-	const doFetch = fetchFn ?? defaultFetch;
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), BUILTIN_MODELS_FETCH_TIMEOUT_MS);
-	try {
-		const resp = await doFetch("https://openrouter.ai/api/v1/models", {
-			signal: controller.signal,
-		});
-		if (!resp.ok) return [];
-		const body = await resp.json();
-		const data = (body as { data?: unknown[] }).data;
-		if (!Array.isArray(data)) return [];
-		return data.flatMap((item) => {
-			if (typeof item !== "object" || item === null) return [];
-			const m = item as Record<string, unknown>;
-			const id = typeof m.id === "string" ? m.id : undefined;
-			if (!id) return [];
-			const label = typeof m.name === "string" ? m.name : id;
-			const contextWindow = typeof m.context_length === "number" ? m.context_length : 0;
-			return [
-				{
-					id,
-					label,
-					provider: "openrouter" as const,
-					contextWindow,
-					selectable: true,
-					inheritedFromGateway: true,
-					options: openRouterModelOptions(m),
-				} satisfies HarnessModelDescriptor,
-			];
-		});
-	} finally {
-		clearTimeout(timer);
-	}
-}
-
-/** Default fetch implementation — uses globalThis.fetch (Node 18+). */
-function defaultFetch(
-	url: string,
-	opts: { signal: AbortSignal },
-): Promise<{ ok: boolean; json: () => Promise<unknown> }> {
-	// @lore AV2: globalThis.fetch is Node 18+ built-in. We do not import node-fetch
-	// to stay zero-new-dep. The injectable fetchModels in HarnessProbeDeps lets unit
-	// tests avoid live HTTP without mocking globalThis.
-	return globalThis.fetch(url, opts) as Promise<{ ok: boolean; json: () => Promise<unknown> }>;
-}
-
 /**
  * Probe the local environment for the first-class harness families AM2 cares about.
  *
@@ -996,8 +759,7 @@ export async function discoverLocalHarnesses(
 	d?: HarnessProbeDeps,
 ): Promise<HarnessDiscoveryResult> {
 	// Run probes concurrently — they are independent filesystem probes.
-	const [builtin, codex, claudeCode, opencode, cursorAgent] = await Promise.all([
-		probeBuiltinGateway(d),
+	const [codex, claudeCode, opencode, cursorAgent] = await Promise.all([
 		probeCli(CLI_PROBE_CONFIGS[0], d), // codex
 		probeCli(CLI_PROBE_CONFIGS[1], d), // claude-code
 		probeCli(CLI_PROBE_CONFIGS[2], d), // opencode
@@ -1005,7 +767,6 @@ export async function discoverLocalHarnesses(
 	]);
 
 	return {
-		builtin,
 		codex,
 		"claude-code": claudeCode,
 		opencode,

@@ -1452,69 +1452,60 @@ async function runSession(
 	let mcpUrl: string | undefined;
 	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
-	// AU31 fix: a harness reaches HyperIdle's tools ONLY through the MCP bridge it
-	// dials from its `.mcp.json` (claude-code reads it directly; codex/opencode/
-	// cursor get the same info via their `cliMcpDialect` translation). This is
-	// deliberately NOT gated on the vestigial `mcpBridgeRegistry`/`mcpBaseUrl`
-	// deps — those moved into the execution face and are no longer wired in
-	// production, so the old gate was always false and every session got an empty
-	// `{"mcpServers":{}}` (no tools at all).
-	{
-		try {
-			const bridge = await ports.harnessRuntime.openMcpBridge({
-				registry: mcpBridgeRegistry,
-				baseUrl: mcpBaseUrl,
-				sessionId,
-				toolRegistry: registry,
-				onToolCall: ({ toolName, args }) => {
-					if (!isReturnAction(toolName, args as Record<string, unknown>)) return;
+	try {
+		const bridge = await ports.harnessRuntime.openMcpBridge({
+			registry: mcpBridgeRegistry,
+			baseUrl: mcpBaseUrl,
+			sessionId,
+			toolRegistry: registry,
+			onToolCall: ({ toolName, args }) => {
+				if (!isReturnAction(toolName, args as Record<string, unknown>)) return;
 
-					returnGate.observe({
-						type: "tool_call",
-						toolName,
-						args: args && typeof args === "object" ? (args as Record<string, unknown>) : {},
-					});
-					if (selectedAdapter.meta.type === "opencode") {
-						aborted = true;
-						setTimeout(() => {
-							void ports.sessionRequests.abortSessionRun(sessionId).catch(() => {
-								// The harness may already have exited after the return action.
-							});
-						}, 0);
-					}
-				},
-			});
-			mcpBridgeToken = bridge.token;
-			mcpUrl = bridge.url;
-
-			const mcpJsonConfig = {
-				mcpServers: {
-					hyperidle: {
-						type: "http",
-						url: mcpUrl,
-					},
-				},
-			};
-			fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
-
-			if (adapterCapabilities.cliMcpDialect) {
-				const result = await ports.harnessRuntime.writeCliMcpConfig({
-					dialect: adapterCapabilities.cliMcpDialect,
-					sandboxPath,
-					mcpUrl,
-					token: bridge.token,
+				returnGate.observe({
+					type: "tool_call",
+					toolName,
+					args: args && typeof args === "object" ? (args as Record<string, unknown>) : {},
 				});
-				if (result.tokenEnv && Object.keys(result.tokenEnv).length > 0) {
-					mcpTokenEnv = result.tokenEnv;
+				if (selectedAdapter.meta.type === "opencode") {
+					aborted = true;
+					setTimeout(() => {
+						void ports.sessionRequests.abortSessionRun(sessionId).catch(() => {
+							// The harness may already have exited after the return action.
+						});
+					}, 0);
 				}
+			},
+		});
+		mcpBridgeToken = bridge.token;
+		mcpUrl = bridge.url;
+
+		const mcpJsonConfig = {
+			mcpServers: {
+				hyperidle: {
+					type: "http",
+					url: mcpUrl,
+				},
+			},
+		};
+		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
+
+		if (adapterCapabilities.cliMcpDialect) {
+			const result = await ports.harnessRuntime.writeCliMcpConfig({
+				dialect: adapterCapabilities.cliMcpDialect,
+				sandboxPath,
+				mcpUrl,
+				token: bridge.token,
+			});
+			if (result.tokenEnv && Object.keys(result.tokenEnv).length > 0) {
+				mcpTokenEnv = result.tokenEnv;
 			}
-		} catch (bridgeErr) {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				`[session-provisioning] MCP bridge creation failed for session ${sessionId}; falling back to event-stream mode:`,
-				bridgeErr,
-			);
 		}
+	} catch (bridgeErr) {
+		// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+		console.warn(
+			`[session-provisioning] MCP bridge creation failed for session ${sessionId}; falling back to event-stream mode:`,
+			bridgeErr,
+		);
 	}
 
 	// ── Phase 8b-connections: AN2 Connection provisioning (parallel to inbound bridge).
@@ -1549,32 +1540,22 @@ async function runSession(
 			);
 		}
 	}
-
-	// ── Phase 8c: merge plugin MCP server contributions in the harness's dialect.
-	// @lore BA9b: plugins that declare mcp.json servers contribute them here,
-	// merged WITH (not replacing) the tool-bridge entry written above.
-	// Scope filter: factory-scoped plugins reach all sessions; team-scoped
-	// plugins only reach sessions whose teamId matches. ${PLUGIN_ROOT} and
-	// ${PLUGIN_DATA} are expanded; cwd defaults to plugin root.
-	// Dialect writing is delegated to cli-mcp-config.ts via the harnessRuntime port.
-	{
-		try {
-			await mergePluginMcpContributions(
-				deps.pluginMcpContributions,
-				sandboxPath,
-				teamId ?? null,
-				adapterCapabilities.cliMcpDialect,
-				adapterCapabilities.cliMcpDialect
-					? (params) => ports.harnessRuntime.writePluginStdioMcpEntries(params)
-					: undefined,
-			);
-		} catch (mcpMergeErr) {
-			// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
-			console.warn(
-				`[session-provisioning] plugin MCP merge failed for session ${sessionId}:`,
-				mcpMergeErr,
-			);
-		}
+	try {
+		await mergePluginMcpContributions(
+			deps.pluginMcpContributions,
+			sandboxPath,
+			teamId ?? null,
+			adapterCapabilities.cliMcpDialect,
+			adapterCapabilities.cliMcpDialect
+				? (params) => ports.harnessRuntime.writePluginStdioMcpEntries(params)
+				: undefined,
+		);
+	} catch (mcpMergeErr) {
+		// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
+		console.warn(
+			`[session-provisioning] plugin MCP merge failed for session ${sessionId}:`,
+			mcpMergeErr,
+		);
 	}
 
 	// ── Phase 8b-enforce: provision the return-enforcement hook for this adapter.

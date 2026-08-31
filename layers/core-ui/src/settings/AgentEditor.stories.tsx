@@ -5,7 +5,7 @@
  * key states of the AgentEditor in the `/designsystem` viewer.
  *
  * States covered:
- *  - NormalAgent: editing a regular team agent (builtin harness, discovered models)
+ *  - NormalAgent: editing a regular team agent (opencode harness, discovered models)
  *  - AssistantAgent: editing the assistant (ast-* id, role disabled)
  *  - EmptyModels: codex harness — no discovered models → affordance text
  *  - SavingState: save in progress
@@ -25,9 +25,12 @@ export default { title: "AgentEditor", group: "Settings" };
 // Fixture descriptors (no MODEL_CATALOG — AV2 discovered models only)
 // ---------------------------------------------------------------------------
 
-const BUILTIN_DESCRIPTOR = {
-	type: "builtin",
-	name: "Built-in",
+// The key-accepting harness: opencode runs on a key HyperIdle stores, under the
+// variable its provider reads. Its models come from `opencode models`, so they
+// are its own — not inherited from a gateway.
+const OPENCODE_DESCRIPTOR = {
+	type: "opencode",
+	name: "OpenCode",
 	kind: "local" as const,
 	models: [
 		{
@@ -36,23 +39,28 @@ const BUILTIN_DESCRIPTOR = {
 			provider: "openrouter" as const,
 			contextWindow: 128000,
 			selectable: true,
-			inheritedFromGateway: true,
+			inheritedFromGateway: false,
 			options: [],
 		},
 		{
-			id: "anthropic/claude-haiku-4-5",
-			label: "Claude Haiku 4.5",
-			provider: "anthropic" as const,
+			id: "openrouter/z-ai/glm-4.7-flash",
+			label: "GLM 4.7 Flash",
+			provider: "openrouter" as const,
 			contextWindow: 200000,
 			selectable: true,
-			inheritedFromGateway: true,
+			inheritedFromGateway: false,
 			options: [],
 		},
 	],
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-	accessMode: "api-gateway" as const,
+	accessMode: "provider-subscription-cli" as const,
 	discovery: { state: "ready" as const },
-	authAction: { kind: "enter_api_key" as const, label: "Enter API key" },
+	acceptsApiKey: true,
+	authAction: {
+		kind: "native_cli_login" as const,
+		label: "Log in to OpenCode",
+		command: ["opencode", "providers", "login"],
+	},
 	runtime: {
 		preCompactionTrigger: false,
 		subAgents: false,
@@ -71,6 +79,7 @@ const CODEX_DESCRIPTOR = {
 	modelProviders: [],
 	accessMode: "provider-subscription-cli" as const,
 	discovery: { state: "ready" as const },
+	acceptsApiKey: false,
 	authAction: {
 		kind: "native_cli_login" as const,
 		label: "Log in to Codex",
@@ -131,6 +140,7 @@ const CLAUDE_CODE_DESCRIPTOR = {
 	modelProviders: ["anthropic"],
 	accessMode: "provider-subscription-cli" as const,
 	discovery: { state: "ready" as const },
+	acceptsApiKey: false,
 	authAction: {
 		kind: "native_cli_login" as const,
 		label: "Log in to Claude Code",
@@ -146,10 +156,10 @@ const CLAUDE_CODE_DESCRIPTOR = {
 	},
 };
 
-const ALL_HARNESSES = [BUILTIN_DESCRIPTOR, CODEX_DESCRIPTOR, CLAUDE_CODE_DESCRIPTOR];
+const ALL_HARNESSES = [OPENCODE_DESCRIPTOR, CODEX_DESCRIPTOR, CLAUDE_CODE_DESCRIPTOR];
 
 // ---------------------------------------------------------------------------
-// NormalAgent: regular team agent with builtin harness + discovered models
+// NormalAgent: regular team agent with an opencode harness + discovered models
 // ---------------------------------------------------------------------------
 
 function NormalAgentEditor(): JSX.Element {
@@ -157,7 +167,7 @@ function NormalAgentEditor(): JSX.Element {
 		name: "Atlas",
 		role: "builder",
 		systemPrompt: "You are Atlas, a builder agent. You implement features from plans.",
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "openrouter/deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
 		maxConcurrentSessions: 1,
@@ -191,7 +201,7 @@ function AssistantAgentEditor(): JSX.Element {
 		role: "assistant",
 		systemPrompt:
 			"You are Nova, your personal assistant. You help coordinate work and answer questions.",
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "anthropic/claude-haiku-4-5",
 		modelProvider: "anthropic",
 		maxConcurrentSessions: 1,
@@ -259,7 +269,7 @@ export const SavingState = (): JSX.Element => (
 			name: "Atlas",
 			role: "builder",
 			systemPrompt: "You are Atlas.",
-			harnessType: "builtin",
+			harnessType: "opencode",
 			modelId: "openrouter/deepseek/deepseek-v4-flash",
 			modelProvider: "openrouter",
 			maxConcurrentSessions: 1,

@@ -129,7 +129,9 @@ describe("configuring an agent's model options", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({ modelOptions: { model_reasoning_effort: "xhigh" } }),
 		});
-		expect((await readAgentRunConfig(db, id)).modelOptions).toEqual({ model_reasoning_effort: "xhigh" });
+		expect((await readAgentRunConfig(db, id)).modelOptions).toEqual({
+			model_reasoning_effort: "xhigh",
+		});
 
 		// Renaming the agent must not disturb what its model runs with.
 		await app.request(`/api/agents/${id}`, {
@@ -137,7 +139,9 @@ describe("configuring an agent's model options", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({ name: "Atlas Renamed" }),
 		});
-		expect((await readAgentRunConfig(db, id)).modelOptions).toEqual({ model_reasoning_effort: "xhigh" });
+		expect((await readAgentRunConfig(db, id)).modelOptions).toEqual({
+			model_reasoning_effort: "xhigh",
+		});
 	});
 
 	test("clearing them returns the agent to whatever the harness does", async ({ db, eventBus }) => {

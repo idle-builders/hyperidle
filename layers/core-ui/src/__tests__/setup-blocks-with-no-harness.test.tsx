@@ -40,6 +40,7 @@ function descriptor(
 			command: [type, "login"],
 		},
 		discovery: { state, ...(reason ? { reason } : {}) },
+		acceptsApiKey: false,
 		models: [],
 		modelProviders: [],
 	};

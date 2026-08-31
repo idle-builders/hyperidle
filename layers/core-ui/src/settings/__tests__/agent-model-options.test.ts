@@ -47,6 +47,7 @@ function descriptorWith(
 ): HarnessCapabilityDescriptor {
 	return {
 		type: "claude-code",
+		acceptsApiKey: false,
 		name: "Claude Code",
 		kind: "local",
 		authAction: { kind: "none", label: "" },
