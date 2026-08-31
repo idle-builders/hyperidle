@@ -441,16 +441,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// opencode run requires a provider-prefixed model id; a bare id fails. The model resolution
 		// for opencode agents must produce the provider-prefixed form.
 		// @lore AK1: {{sandbox}} is the renamed template var (was {{workspace}}).
-		args: [
-			"run",
-			"{{prompt}}",
-			"--dir",
-			"{{sandbox}}",
-			"--format",
-			"json",
-			"--model",
-			"{{model}}",
-		],
+		args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--model", "{{model}}"],
 		envMap: {
 			ANTHROPIC_API_KEY: "{{apiKey}}",
 			// @lore BA2 opencode-xdg-isolation: XDG_CONFIG_HOME points to a per-sandbox dir so
