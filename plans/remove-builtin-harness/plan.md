@@ -406,10 +406,15 @@ out. It is reverted rather than committed red. Three things it turned up, all of
    cannot, because the HTTP → poller chain IS what it proves. Either the lanes get one file each, or
    disposal has to be provably complete between them.
 
-**The written lane is kept as `plans/remove-builtin-harness/AU9-all-harness-lane.ts.draft`** — a draft,
-not a test, so nothing runs it. It carries all the fixes above. Restoring it is a copy; what it needs
-is an answer on codex, not more rewriting. The committed test stays `builtin`-only meanwhile, so the
-branch is green and the gap is stated rather than hidden.
+**The lane was applied, and the draft that carried it is deleted.**
+`AU9-assistant-handoff-realbinary.integration.test.ts` now runs four lanes — claude, codex, opencode,
+cursor-agent — with the fixes above. The `builtin` lane went with the harness, and with it the
+`RUN_CONFIG_PROVIDER` override and the mislabelled `openai-compatible` entry that only ever existed
+to work around it. The draft file itself was a copy of the pre-Batch-6 test, built around
+`BuiltinHarnessAdapter`; keeping it after that class was deleted would have left dead code with a
+stale import, which is exactly what the destructive-migration rule forbids.
+
+Findings 3 and 4 are recorded above as the reasons this took the shape it did, not as open work.
 
 ---
 
