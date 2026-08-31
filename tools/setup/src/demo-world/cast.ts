@@ -55,7 +55,7 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			name: "Acme Designer",
 			role: "designer",
 			createdAt: clock.daysAgo(40),
-			harnessType: "builtin",
+			harnessType: "opencode",
 			maxConcurrentSessions: 1,
 		},
 		{
@@ -71,7 +71,7 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			name: "Acme Growth",
 			role: "growth",
 			createdAt: clock.daysAgo(29),
-			harnessType: "builtin",
+			harnessType: "cursor-agent",
 			maxConcurrentSessions: 1,
 		},
 	];
@@ -100,12 +100,13 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			.onConflictDoNothing();
 	}
 
-	// Harness variety on the pre-existing skeleton agents (builder on Claude
-	// Code, the rest builtin) — gives the Agents view something to distinguish.
+	// Harness variety on the pre-existing skeleton agents — gives the Agents view
+	// something to distinguish. The demo cast now spreads across all four
+	// installable harnesses; the built-in one it used to lean on is gone.
 	for (const [agentId, harnessType] of [
 		[BUILDER_ID, "claude-code"],
-		[PM_ID, "builtin"],
-		[ASSISTANT_ID, "builtin"],
+		[PM_ID, "codex"],
+		[ASSISTANT_ID, "claude-code"],
 	] as const satisfies readonly (readonly [string, HarnessType])[]) {
 		await db
 			.insert(agentRunConfig)

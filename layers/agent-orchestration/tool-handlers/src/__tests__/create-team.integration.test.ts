@@ -99,18 +99,17 @@ const ports: ToolHandlersPorts = {
 
 			const configRow: NewAgentRunConfigRow = {
 				agentUserId: agentId,
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "claude-sonnet-4-6",
 				modelProvider: "anthropic",
 				maxConcurrentSessions: 1,
-				modelTierPreference: null,
 			};
 			await sharedDb
 				.insert(agentRunConfig)
 				.values(configRow)
 				.onConflictDoUpdate({
 					target: agentRunConfig.agentUserId,
-					set: { harnessType: "builtin" },
+					set: { harnessType: "opencode" },
 				});
 
 			return { agentIds: [agentId], leadAgentId: agentId };

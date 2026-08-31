@@ -13,7 +13,7 @@
  * from the initial empty state. Authoring surface — guards on dismissal when dirty.
  */
 
-import { MODEL_TIERS, roleLabel } from "@hyperidle/domain-model";
+import { roleLabel } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Dialog, Input, KeyValue, Select } from "../ds";
@@ -38,7 +38,6 @@ interface AddFormValues {
 	role: string;
 	systemPrompt: string;
 	harnessType: string;
-	modelTierPreference: string;
 	maxConcurrentSessions: number;
 }
 
@@ -47,7 +46,6 @@ const INITIAL_FORM: AddFormValues = {
 	role: "builder",
 	systemPrompt: "",
 	harnessType: "",
-	modelTierPreference: "",
 	maxConcurrentSessions: 1,
 };
 
@@ -99,7 +97,6 @@ export function AgentAddDialog({
 					role: formValues.role,
 					systemPrompt: formValues.systemPrompt || null,
 					harnessType: formValues.harnessType || null,
-					modelTierPreference: formValues.modelTierPreference || null,
 					maxConcurrentSessions: formValues.maxConcurrentSessions,
 					teamId: teamMembersId,
 				}),
@@ -214,29 +211,6 @@ export function AgentAddDialog({
 							onChange={(e) => setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))}
 							placeholder="e.g. claude-code"
 							disabled={creating}
-						/>
-					</div>
-
-					<div className="form-control min-w-[140px] flex-1">
-						<label className="label" htmlFor="add-dialog-tier">
-							<span className="label-text text-[var(--text-secondary)]">Model tier</span>
-						</label>
-						<Select
-							id="add-dialog-tier"
-							aria-label="Model tier"
-							size="sm"
-							value={formValues.modelTierPreference}
-							onChange={(e) =>
-								setFormValues((prev) => ({
-									...prev,
-									modelTierPreference: e.target.value,
-								}))
-							}
-							disabled={creating}
-							options={[
-								{ value: "", label: "Default" },
-								...MODEL_TIERS.map((t) => ({ value: t, label: t })),
-							]}
 						/>
 					</div>
 

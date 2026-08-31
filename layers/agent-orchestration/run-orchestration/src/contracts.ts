@@ -10,7 +10,6 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	ModelTier,
-	ResolvedModel,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -37,7 +36,6 @@ export interface RunContextBundle {
 	readonly productId: string;
 	readonly sandboxBasePath: string;
 	readonly modelTier?: ModelTier;
-	readonly resolvedModel?: ResolvedModel;
 	readonly routineId?: string;
 	readonly requestContext?: {
 		readonly requestId: string;
@@ -45,6 +43,8 @@ export interface RunContextBundle {
 		readonly sourceId: string;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	};
+	/** Opaque pass-through — `session-lifecycle`-owned `RegistrySessionWorkflow`. Never inspected here. */
+	readonly sessionWorkflow?: unknown;
 	readonly contextBundle?: BakedContextBundle;
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	readonly harnessDisabled?: readonly string[];
@@ -70,11 +70,7 @@ export interface HarnessRunOutput {
 
 /** Application-injected port for "dispatch a run to some execution" (§7.4). */
 export interface HarnessPort<TDb = unknown> {
-	admitSession(
-		deps: HarnessPortDeps<TDb>,
-		bundle: RunContextBundle,
-		enforceResolvedModelGuard?: boolean,
-	): Promise<AdmittedRun>;
+	admitSession(deps: HarnessPortDeps<TDb>, bundle: RunContextBundle): Promise<AdmittedRun>;
 	runSession(
 		deps: HarnessPortDeps<TDb>,
 		bundle: RunContextBundle,
@@ -250,15 +246,13 @@ export type RunOptions =
 			readonly sandboxBasePath: string;
 			readonly workerId?: string;
 			readonly claim?: { readonly now: Date; readonly leaseMs: number };
-			readonly resolvedModel?: RunContextBundle["resolvedModel"];
 			readonly modelTier?: RunContextBundle["modelTier"];
-			readonly enforceResolvedModelGuard?: boolean;
+			readonly sessionWorkflow?: RunContextBundle["sessionWorkflow"];
 	  }
 	| {
 			readonly mode: "one-shot";
 			readonly completion: "admit" | "await";
 			readonly input: RunContextBundle;
-			readonly enforceResolvedModelGuard?: boolean;
 	  }
 	| {
 			readonly mode: "assemble";
@@ -281,13 +275,6 @@ export interface RuntimeDeps {
 	 * not assistant-only). Absent means "no override, tier only" — matches the
 	 * pre-AU27 signature's own behaviour exactly.
 	 */
-	readonly resolveModel?: (
-		tier: import("@hyperidle/domain-model").ModelTier,
-		modelOverride?: {
-			readonly modelId: string | null;
-			readonly modelProvider: string | null;
-		},
-	) => Promise<import("@hyperidle/domain-model").ResolvedModel | undefined>;
 	readonly ports?: RuntimePorts;
 	readonly durableQueue?: Parameters<RuntimePorts["sessionRequests"]["drainIntents"]>[0];
 	readonly composition: {

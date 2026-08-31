@@ -25,11 +25,7 @@ function makeConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig
 	return {
 		binary: "fake-tool",
 		args: ["--dir", "{{sandbox}}", "--model", "{{model}}"],
-		envMap: {
-			FAKE_API_KEY: "{{apiKey}}",
-			FAKE_BASE_URL: "{{baseUrl}}",
-			MCP_URL: "{{mcpUrl}}",
-		},
+		envMap: { MCP_URL: "{{mcpUrl}}" },
 		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME"],
 		...overrides,
@@ -43,12 +39,10 @@ function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfi
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse",
 		tools: ["Read", "Write"],
-		resolvedModel: {
-			provider: "anthropic",
-			model: "claude-3-5-sonnet-20241022",
-			apiKey: "sk-test-key",
-			baseUrl: "https://api.anthropic.com",
-		},
+		// The model the agent was configured with. There is no second source for
+		// it any more — the gateway's `resolvedModel` used to sit beside this as a
+		// fallback, and injected a key and base URL besides.
+		selectedModel: "claude-3-5-sonnet-20241022",
 		mcpConnectionInfo: {
 			url: "http://localhost:3001/api/mcp/abc123token",
 			token: "abc123token",
@@ -120,45 +114,10 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		expect(spawnCall[1]).not.toContain("{{model}}");
 	});
 
-	it("resolves {{apiKey}} in envMap", async () => {
-		const spawnSpy = vi.fn();
-		const fakeChild = makeFakeChild();
-		spawnSpy.mockReturnValue(fakeChild.proc);
-
-		const adapter = new CliHarnessAdapter(
-			makeConfig({
-				args: [],
-				envMap: { FAKE_API_KEY: "{{apiKey}}" },
-				envAllowlist: [],
-			}),
-			{ spawnFn: spawnSpy },
-		);
-		await adapter.startSession(makeSessionConfig());
-
-		const spawnCall = spawnSpy.mock.calls[0]!;
-		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["FAKE_API_KEY"]).toBe("sk-test-key");
-	});
-
-	it("resolves {{baseUrl}} in envMap", async () => {
-		const spawnSpy = vi.fn();
-		const fakeChild = makeFakeChild();
-		spawnSpy.mockReturnValue(fakeChild.proc);
-
-		const adapter = new CliHarnessAdapter(
-			makeConfig({
-				args: [],
-				envMap: { FAKE_BASE_URL: "{{baseUrl}}" },
-				envAllowlist: [],
-			}),
-			{ spawnFn: spawnSpy },
-		);
-		await adapter.startSession(makeSessionConfig());
-
-		const spawnCall = spawnSpy.mock.calls[0]!;
-		const spawnEnv = spawnCall[2]?.env as Record<string, string>;
-		expect(spawnEnv["FAKE_BASE_URL"]).toBe("https://api.anthropic.com");
-	});
+	// @lore Two tests here exercised `{{apiKey}}` and `{{baseUrl}}`, the template
+	// variables that carried a stored credential and a brought endpoint into a
+	// harness's environment. Both variables are gone — HyperIdle holds no model
+	// credential to pass on — so there is nothing left for them to resolve.
 
 	it("resolves {{mcpUrl}} in envMap", async () => {
 		const spawnSpy = vi.fn();
@@ -201,8 +160,8 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		expect(spawnEnv["MCP_URL"]).toBe("");
 	});
 
-	it("drops --model flag when resolvedModel is absent (WARNING-D1 conditional-model fix)", async () => {
-		// @lore AR4 WARNING-D1: When resolvedModel is absent, {{model}} resolves to "".
+	it("drops --model flag when the agent named no model (WARNING-D1 conditional-model fix)", async () => {
+		// @lore AR4 WARNING-D1: When the agent named no model, {{model}} resolves to "".
 		// Passing --model "" to codex sends an empty model string to the OpenAI API →
 		// 400 invalid_request_error. The fix: strip --model + "" pairs when model is empty,
 		// preserving pre-AR4 behavior (codex falls back to its CLI default).
@@ -219,7 +178,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 			}),
 			{ spawnFn: spawnSpy },
 		);
-		await adapter.startSession(makeSessionConfig({ resolvedModel: undefined }));
+		await adapter.startSession(makeSessionConfig({ selectedModel: undefined }));
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnArgs: string[] = spawnCall[1];
@@ -232,7 +191,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		expect(spawnArgs).not.toContain("{{model}}");
 	});
 
-	it("keeps --model flag with non-empty resolved model (WARNING-D1 non-empty path)", async () => {
+	it("keeps --model flag when the agent named one (WARNING-D1 non-empty path)", async () => {
 		// @lore AR4 WARNING-D1: Non-empty model must still inject --model <value>.
 		// Proves the conditional strip only fires on empty string, not on valid model IDs.
 		const spawnSpy = vi.fn();
@@ -247,16 +206,7 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 			}),
 			{ spawnFn: spawnSpy },
 		);
-		await adapter.startSession(
-			makeSessionConfig({
-				resolvedModel: {
-					provider: "openai-compatible",
-					model: "gpt-5.4-mini",
-					apiKey: "",
-					baseUrl: "https://api.openai.com",
-				},
-			}),
-		);
+		await adapter.startSession(makeSessionConfig({ selectedModel: "gpt-5.4-mini" }));
 
 		const spawnCall = spawnSpy.mock.calls[0]!;
 		const spawnArgs: string[] = spawnCall[1];
@@ -379,7 +329,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		const adapter = new CliHarnessAdapter(
 			makeConfig({
 				args: [],
-				envMap: { FAKE_KEY: "{{apiKey}}" },
+				envMap: { FAKE_MCP: "{{mcpUrl}}" },
 				envAllowlist: ["PATH"], // Only PATH is allowlisted, not HYPERIDLE_SECRET
 			}),
 			{ spawnFn: spawnSpy },
@@ -388,7 +338,7 @@ describe("CliHarnessAdapter env sandboxing", () => {
 
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
 		expect(spawnEnv["PATH"]).toBe("/usr/bin:/bin");
-		expect(spawnEnv["FAKE_KEY"]).toBe("sk-test-key");
+		expect(spawnEnv["FAKE_MCP"]).toBe("http://localhost:3001/api/mcp/abc123token");
 		// Secret must NOT be forwarded
 		expect(spawnEnv["HYPERIDLE_SECRET"]).toBeUndefined();
 
@@ -422,13 +372,19 @@ describe("CliHarnessAdapter env sandboxing", () => {
 // ── resumeSession env construction ───────────────────────────────────────────
 //
 // Guards that envMap is resolved the same way in resumeSession as in
-// startSession. Codex has envMap: { OPENAI_API_KEY: "{{apiKey}}" };
-// opencode has ANTHROPIC_API_KEY. Before this fix, resumeSession passed
-// only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping envMap.
-// A deployment that resolves a real apiKey would resume with no credentials.
+// startSession. Before this fix, resumeSession passed only extraEnv
+// (CODEX_HOME + mcpTokenEnv), silently dropping envMap.
+//
+// @lore A test here proved `{{apiKey}}` resolved on resume exactly as it did at
+// start — codex's envMap was `OPENAI_API_KEY: "{{apiKey}}"`, opencode's the
+// ANTHROPIC_API_KEY equivalent. HyperIdle holds no key to resolve any more: a
+// harness arrives already logged in and carries its own credential, so
+// `{{apiKey}}` and `{{baseUrl}}` are gone as template vars. The claim that
+// survives — envMap IS resolved on resume, and per-session specifics beat it —
+// is made below over `{{model}}`, a var that still exists.
 
 describe("CliHarnessAdapter resumeSession — env construction", () => {
-	it("resolves envMap {{apiKey}} on resume the same way startSession does", async () => {
+	it("resolves envMap templates on resume the same way startSession does", async () => {
 		const spawnSpy = vi.fn();
 		// startSession spawn (call 0) and resumeSession spawn (call 1)
 		const fakeChild1 = makeFakeChild();
@@ -440,42 +396,29 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 				binary: "opencode",
 				// Minimal args — no templates that need a sandbox on disk.
 				args: ["run", "{{prompt}}", "--format", "json", "--pure"],
-				envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" },
+				envMap: { MY_MODEL: "{{model}}" },
 				eventFormat: "ndjson",
 				envAllowlist: [],
 			},
 			{ spawnFn: spawnSpy },
 		);
 
-		// startSession: apiKey flows through envMap → ANTHROPIC_API_KEY.
-		const startConfig = makeSessionConfig({
-			resolvedModel: {
-				provider: "anthropic",
-				model: "claude-haiku-4-5",
-				apiKey: "sk-ant-start-key",
-				baseUrl: "https://api.anthropic.com",
-			},
-		});
+		const startConfig = makeSessionConfig({ selectedModel: "claude-haiku-4-5" });
 		await adapter.startSession(startConfig);
 
 		const startEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
-		expect(startEnv["ANTHROPIC_API_KEY"]).toBe("sk-ant-start-key");
+		expect(startEnv["MY_MODEL"]).toBe("claude-haiku-4-5");
 
-		// resumeSession: same apiKey must be resolved from envMap.
+		// resumeSession: the model must be resolved from envMap the same way.
 		const resumeConfig: SessionResumeConfig = {
 			sandboxPath: "/fake/sandbox",
 			modelTier: "workhorse",
-			resolvedModel: {
-				provider: "anthropic",
-				model: "claude-haiku-4-5",
-				apiKey: "sk-ant-resume-key",
-				baseUrl: "https://api.anthropic.com",
-			},
+			selectedModel: "claude-sonnet-4-6",
 		};
 		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);
 
 		const resumeEnv = spawnSpy.mock.calls[1]![2]?.env as Record<string, string>;
-		expect(resumeEnv["ANTHROPIC_API_KEY"]).toBe("sk-ant-resume-key");
+		expect(resumeEnv["MY_MODEL"]).toBe("claude-sonnet-4-6");
 	});
 
 	it("mcpTokenEnv overrides envMap on resume (per-session specifics win)", async () => {
@@ -487,7 +430,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 			{
 				binary: "opencode",
 				args: ["run", "{{prompt}}", "--format", "json", "--pure"],
-				envMap: { MY_TOKEN: "{{apiKey}}" },
+				envMap: { MY_TOKEN: "{{model}}" },
 				eventFormat: "ndjson",
 				envAllowlist: [],
 			},
@@ -497,12 +440,7 @@ describe("CliHarnessAdapter resumeSession — env construction", () => {
 		const resumeConfig: SessionResumeConfig = {
 			sandboxPath: "/fake/sandbox",
 			modelTier: "workhorse",
-			resolvedModel: {
-				provider: "anthropic",
-				model: "claude-haiku-4-5",
-				apiKey: "from-envmap",
-				baseUrl: "https://api.anthropic.com",
-			},
+			selectedModel: "from-envmap",
 			mcpTokenEnv: { MY_TOKEN: "from-mcpTokenEnv" },
 		};
 		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);

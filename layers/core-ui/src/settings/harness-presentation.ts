@@ -3,15 +3,14 @@
  *
  * Single interpretation point: ALL presence decisions (toggle, auth zone, caps fold,
  * disabled row) flow through these functions. ZERO per-backend type branching in the
- * rendered surface — the only allowed type check is the intentional `builtin` exemption
- * in showsToggle (founder rule: built-in is NOT disableable) and the matching guard in
- * select() (CHANGE 2). The ESLint no-restricted-syntax rule (task 12) enforces this.
+ * rendered surface — there is now no exemption at all. The ESLint
+ * no-restricted-syntax rule (task 12) enforces this.
  *
  * @lore AM4: showsToggle/isEnabled are real persisted controls backed by
  * server_config.harnessDisabled + the caller-supplied select() disabledTypes gate
- * (AM4 R1 reversal, founder review + AC2). The sole type check is the builtin
- * exemption — intentional, not per-family branching. The ESLint contract rule
- * allows the single "builtin" literal and bans the rest (codex, claude-code, etc.).
+ * (AM4 R1 reversal, founder review + AC2). The one type check this file used to
+ * carry was the built-in harness's toggle exemption; it went with that harness,
+ * and the ESLint contract rule now bans every harness-type literal here.
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -106,18 +105,14 @@ export function hasActionableNextStep(d: HarnessCapabilityDescriptor): boolean {
  * Driven by discovery.state — ready/installed/unauthenticated get a toggle.
  * missing/unavailable show NO toggle (nothing to disable — no ambiguity).
  *
- * The sole type check: "builtin" is NOT disableable (founder rule).
- * This is intentional, not per-family branching — paired with the select()
- * hard-exemption back-stop (CHANGE 2, AM4 architecture Seam 2).
- *
  * @lore AM4: Real persisted control backed by server_config.harnessDisabled +
  * caller-supplied select() disabledTypes gate (R1 reversal, founder review + AC2).
- * The ESLint no-restricted-syntax rule (task 12) allows this one "builtin" literal
- * and bans all other harness-type string comparisons in presentation files.
+ * The built-in harness used to be exempt here — it was the always-present
+ * fallback, so disabling it would have left a session with nothing to run on.
+ * There is no always-present harness now: every one is installed by the user and
+ * every one can be turned off, including the last one.
  */
 export function showsToggle(d: HarnessCapabilityDescriptor): boolean {
-	// builtin is NOT disableable — the always-present fallback (founder rule)
-	if (d.type === "builtin") return false;
 	// Only ready, unauthenticated, and installed states have a meaningful toggle
 	const s = getDiscovery(d).state;
 	return s === "ready" || s === "unauthenticated" || s === "installed";

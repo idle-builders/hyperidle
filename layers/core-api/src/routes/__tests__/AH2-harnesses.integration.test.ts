@@ -14,7 +14,7 @@
  */
 
 import { users } from "@hyperidle/db";
-import { AdapterPool, BuiltinHarnessAdapter, CliHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, CliHarnessAdapter } from "@hyperidle/harness-registry";
 import { createLoginSession } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -27,7 +27,7 @@ function authHeaders(): Record<string, string> {
 }
 
 /**
- * Minimal adapter pool for AH2 harness tests (builtin + claude-code).
+ * Minimal adapter pool for AH2 harness tests (claude-code only).
  *
  * @lore claude-cli-adapter: Uses CliHarnessAdapter(CLAUDE_CLI_CONFIG) instead of
  * ClaudeAgentSdkAdapter (deleted). The pool construction explicitly registers
@@ -38,13 +38,6 @@ function authHeaders(): Record<string, string> {
  */
 function makeAH2Pool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
-		name: "Built-in Harness",
-		kind: "local",
-		type: "builtin",
-		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent: 4,
-	});
 	pool.register(
 		"local-claude-code",
 		new CliHarnessAdapter({
@@ -94,7 +87,7 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
-		// The test pool always registers 'builtin' and 'claude-code' (unconditional for API coverage)
+		// The test pool registers 'claude-code' unconditionally for API coverage.
 		expect(body.length).toBeGreaterThanOrEqual(1);
 
 		for (const entry of body) {
@@ -115,13 +108,17 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		}
 	});
 
-	test("includes 'builtin' harness type (always registered)", async ({ db, eventBus }) => {
+	// @lore There was a test here asserting 'builtin' was always in the response,
+	// because that harness was registered unconditionally by the pool itself. No
+	// harness is unconditional now — the route returns what is registered plus the
+	// known families reported missing — so the property it guarded is gone. What
+	// remains worth guarding is the inverse.
+	test("does not include a 'builtin' harness type", async ({ db, eventBus }) => {
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
-		const builtin = body.find((h) => h.type === "builtin");
-		expect(builtin).toBeDefined();
+		expect(body.find((h) => h.type === "builtin")).toBeUndefined();
 	});
 
 	test("includes 'claude-code' harness type (registered in test pool)", async ({
@@ -136,15 +133,18 @@ describe("AH2 AC2: GET /api/harnesses — returns registered harness types", () 
 		expect(claudeCode).toBeDefined();
 	});
 
-	test("builtin modelProviders includes anthropic", async ({ db, eventBus }) => {
+	test("a registered harness reports the providers it was registered with", async ({
+		db,
+		eventBus,
+	}) => {
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 		const res = await app.request("/api/harnesses", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
-		const builtin = body.find((h) => h.type === "builtin") as
+		const claudeCode = body.find((h) => h.type === "claude-code") as
 			| { modelProviders: string[] }
 			| undefined;
-		expect(builtin?.modelProviders).toContain("anthropic");
+		expect(claudeCode?.modelProviders).toContain("anthropic");
 	});
 
 	test("deduplicates by type (no duplicate type values)", async ({ db, eventBus }) => {

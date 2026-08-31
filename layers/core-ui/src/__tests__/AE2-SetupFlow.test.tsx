@@ -39,8 +39,10 @@ interface RenderResult {
 
 function renderSetupFlow(initialPath = "/setup"): RenderResult {
 	// AH1: capture the teams POST body specifically (not the last-captured body).
-	// After AH1, SetupFlow makes 3 fetch calls:
-	//   1. POST /api/users, 2. POST /api/teams, 3. PUT /api/credentials/:name
+	// SetupFlow makes two calls plus an optional third:
+	//   1. POST /api/users, 2. POST /api/teams, 3. POST /api/filesystems (only
+	//   when a folder was picked). Setup writes no credential — a harness
+	//   arrives already logged in.
 	// capturedBody() returns the teams POST body for AE2 assertions.
 	let teamsCreateBody: Record<string, unknown> | null = null;
 
@@ -123,7 +125,6 @@ describe("AE2-SetupFlow — navigation to /work?onboarding=true", () => {
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await user.type(screen.getByLabelText(/anthropic api key/i), "sk-ant-test");
 
 		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
 

@@ -77,7 +77,6 @@ function serializeModelOptions(options: ModelOptions): string | null {
 /** One agent's run configuration, keyless — the `users.id` is the caller's context. */
 export interface AgentRunConfig {
 	readonly harnessType: string | null;
-	readonly modelTierPreference: string | null;
 	readonly modelId: string | null;
 	readonly modelProvider: string | null;
 	readonly maxConcurrentSessions: number;
@@ -91,7 +90,6 @@ export interface AgentRunConfig {
  */
 export const DEFAULT_AGENT_RUN_CONFIG: AgentRunConfig = {
 	harnessType: null,
-	modelTierPreference: null,
 	modelId: null,
 	modelProvider: null,
 	maxConcurrentSessions: 1,
@@ -112,7 +110,6 @@ export type AgentRunConfigPatch = {
 
 const CONFIG_COLUMNS = {
 	harnessType: agentRunConfig.harnessType,
-	modelTierPreference: agentRunConfig.modelTierPreference,
 	modelId: agentRunConfig.modelId,
 	modelProvider: agentRunConfig.modelProvider,
 	maxConcurrentSessions: agentRunConfig.maxConcurrentSessions,
@@ -122,7 +119,6 @@ const CONFIG_COLUMNS = {
 /** Map a selected row's columns onto the config shape. */
 function rowToConfig(row: {
 	harnessType: string | null;
-	modelTierPreference: string | null;
 	modelId: string | null;
 	modelProvider: string | null;
 	maxConcurrentSessions: number;
@@ -187,7 +183,6 @@ export async function writeAgentRunConfig(
 	const insertValues: NewAgentRunConfigRow = {
 		agentUserId,
 		harnessType: patch.harnessType ?? DEFAULT_AGENT_RUN_CONFIG.harnessType,
-		modelTierPreference: patch.modelTierPreference ?? DEFAULT_AGENT_RUN_CONFIG.modelTierPreference,
 		modelId: patch.modelId ?? DEFAULT_AGENT_RUN_CONFIG.modelId,
 		modelProvider: patch.modelProvider ?? DEFAULT_AGENT_RUN_CONFIG.modelProvider,
 		maxConcurrentSessions:
@@ -199,8 +194,6 @@ export async function writeAgentRunConfig(
 
 	const updateSet: Partial<NewAgentRunConfigRow> = {};
 	if ("harnessType" in patch) updateSet.harnessType = patch.harnessType ?? null;
-	if ("modelTierPreference" in patch)
-		updateSet.modelTierPreference = patch.modelTierPreference ?? null;
 	if ("modelId" in patch) updateSet.modelId = patch.modelId ?? null;
 	if ("modelProvider" in patch) updateSet.modelProvider = patch.modelProvider ?? null;
 	if (patch.maxConcurrentSessions !== undefined)
@@ -216,31 +209,8 @@ export async function writeAgentRunConfig(
 	await insert.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: updateSet });
 }
 
-/**
- * Insert a run-config row only if none already exists for this agent — leaves
- * any existing user-edited config untouched.
- *
- * @lore BA9d: factory bootstrap uses this so the every-launch AH2_DEFAULTS
- * write stops overwriting user edits. The "App-managed" lock (strategy
- * category) is gone; factory agents are now user-editable. First-boot
- * semantics: set the defaults once, then get out of the way.
- */
-export async function writeAgentRunConfigIfAbsent(
-	exec: WriteExecutor,
-	agentUserId: string,
-	patch: AgentRunConfigPatch,
-): Promise<void> {
-	const insertValues: NewAgentRunConfigRow = {
-		agentUserId,
-		harnessType: patch.harnessType ?? DEFAULT_AGENT_RUN_CONFIG.harnessType,
-		modelTierPreference: patch.modelTierPreference ?? DEFAULT_AGENT_RUN_CONFIG.modelTierPreference,
-		modelId: patch.modelId ?? DEFAULT_AGENT_RUN_CONFIG.modelId,
-		modelProvider: patch.modelProvider ?? DEFAULT_AGENT_RUN_CONFIG.modelProvider,
-		maxConcurrentSessions:
-			patch.maxConcurrentSessions ?? DEFAULT_AGENT_RUN_CONFIG.maxConcurrentSessions,
-		modelOptionsJson: serializeModelOptions(
-			patch.modelOptions ?? DEFAULT_AGENT_RUN_CONFIG.modelOptions,
-		),
-	};
-	await exec.insert(agentRunConfig).values(insertValues).onConflictDoNothing();
-}
+// @lore A `writeAgentRunConfigIfAbsent` lived here, for the every-launch factory
+// bootstrap to seed first-boot run config without overwriting user edits. Its one
+// caller wrote the built-in harness and a hardcoded Anthropic model; with that
+// harness retired, everything left to seed was what an absent row already resolves
+// to (`DEFAULT_AGENT_RUN_CONFIG`), so the caller went and this went with it.

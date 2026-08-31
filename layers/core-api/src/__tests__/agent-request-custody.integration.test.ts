@@ -165,7 +165,7 @@ async function seedAssistantTurnRequest(
 	// AU26 G1: the run config lives in `agent_run_config` now.
 	await db.insert(agentRunConfig).values({
 		agentUserId: assistantId,
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
 	});

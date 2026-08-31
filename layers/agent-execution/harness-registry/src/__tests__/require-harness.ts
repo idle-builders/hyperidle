@@ -28,7 +28,7 @@
 
 import { isBinaryOnPath } from "./require-binary.js";
 
-export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "builtin";
+export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent";
 
 /**
  * The supported-harness matrix. This file is now the SINGLE source of truth.
@@ -50,7 +50,6 @@ export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "bu
  */
 // biome-ignore format: keep the mirror and asserts on adjacent lines for lockstep visibility
 const SUPPORTED_HARNESSES_MIRROR = [
-	"builtin",
 	"claude",
 	"codex",
 	"opencode",
@@ -66,20 +65,23 @@ type AssertHarnessCoversSupported = HarnessName extends SupportedHarness ? true 
 // Compile-time proof that both asserts hold (any `never` in the union = error):
 declare const _lockstepCheck: [AssertSupportedInHarness, AssertHarnessCoversSupported];
 
-/** Binary name on PATH for each binary-backed harness. */
-const BINARY: Record<Exclude<HarnessName, "builtin">, string> = {
+/** Binary name on PATH for each harness. */
+const BINARY: Record<HarnessName, string> = {
 	claude: "claude",
 	codex: "codex",
 	opencode: "opencode",
 	"cursor-agent": "cursor-agent",
 };
 
-/** True iff the harness is available (binary on PATH, or OPENROUTER_API_KEY set). */
+/**
+ * True iff the harness is available: its binary is on PATH.
+ *
+ * @lore There used to be a second arm here — `builtin` was "available" when
+ * `OPENROUTER_API_KEY` was set, the one key that gated any harness. With the
+ * built-in harness gone, availability is a question about installed binaries
+ * only, and no key gates any harness.
+ */
 function isHarnessAvailable(name: HarnessName): boolean {
-	if (name === "builtin") {
-		// The ONLY key gate. Read process.env at call time (tests stub it).
-		return Boolean(process.env.OPENROUTER_API_KEY);
-	}
 	return isBinaryOnPath(BINARY[name]);
 }
 
@@ -94,7 +96,7 @@ export function requireHarness(...names: HarnessName[]): void {
 	throw new Error(
 		`requireHarness: ${missing.join(", ")} not installed/configured — harness ` +
 			`integration test cannot complete. Install the binary ` +
-			`(claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote ` +
+			`(claude/codex/opencode/cursor-agent); or demote ` +
 			`to a *.test.ts unit. (AR1: never skipIf to green.)`,
 	);
 }
@@ -138,58 +140,33 @@ export function requireHarness(...names: HarnessName[]): void {
  * the absence of any imported model source make an off-matrix literal an obvious,
  * isolated red flag rather than a routine reach.
  *
- * @lore AR7: Values are founder-set 2026-06-30. builtin + opencode bill through
- * OpenRouter (shared credit pool, `OPENROUTER_API_KEY`). claude + codex use the
- * inherited keychain login of the installed CLI — no key, the `apiKey` field is
- * an empty string (the CLI ignores it; injecting a non-empty placeholder would
- * feed the subprocess a garbage env var and risk overriding native auth). `haiku`
- * is the claude CLI tier alias resolving to the latest Haiku (smallest tier);
- * `gpt-5.4-mini` is the smallest codex tier our ChatGPT-account login accepts
- * (nano/codex-mini are rejected there), argument-enforced via `--model {{model}}`.
- * Both are the TINY baseline — see the header block.
+ * @lore AR7: Values are founder-set 2026-06-30. `haiku` is the claude CLI tier
+ * alias resolving to the latest Haiku (smallest tier); `gpt-5.4-mini` is the
+ * smallest codex tier our ChatGPT-account login accepts (nano/codex-mini are
+ * rejected there). Both are the TINY baseline — see the header block. Every
+ * harness authenticates itself, so none of these carry a key.
  *
- * @lore AR7: All four harnesses are now argument/request-enforced on the model:
- * builtin passes it in the OpenRouter request body; claude, codex, and opencode
- * all receive it via `--model {{model}}` in `CLI_TOOL_CONFIGS.<harness>.args`
- * (cli-harness-adapter.ts resolves `{{model}}` from `config.resolvedModel?.model`).
- * `HARNESS_TEST_MODELS` is therefore load-bearing for every supported harness —
- * not just the OpenRouter ones. A hand-written raw `resolvedModel` object literal
- * passed directly to `provisionSession` remains an accepted residual gap (catching
- * it would require the brittle model-id string-matching we rejected). Code review +
- * the absence of any imported model source make an off-matrix literal an obvious,
+ * @lore AR7: All four harnesses are argument-enforced on the model — each
+ * receives it via `--model {{model}}` in its adapter config, resolved from
+ * `config.selectedModel`. `HARNESS_TEST_MODELS` is therefore load-bearing for
+ * every supported harness. A hand-written model id seeded straight onto an
+ * agent's run config remains an accepted residual gap (catching it would require
+ * the brittle model-id string-matching we rejected). Code review + the absence of
+ * any other imported model source make an off-matrix literal an obvious,
  * isolated red flag rather than a routine reach.
  */
 export interface HarnessTestModelSpec {
-	/** Model-gateway provider the resolved model routes through. */
-	readonly provider: "openai-compatible" | "anthropic";
 	/** The locked model id passed to the harness. */
 	readonly model: string;
-	/** Base URL for the provider. */
-	readonly baseUrl: string;
-	/**
-	 * Env var that supplies the API key, or `null` when auth is inherited from the
-	 * installed CLI's keychain login (no key — the resolved `apiKey` is a placeholder).
-	 */
-	readonly apiKeyEnv: "OPENROUTER_API_KEY" | null;
 }
 
 // biome-ignore lint/style/useNamingConvention: SCREAMING_SNAKE_CASE constant per typescript.md.
 export const HARNESS_TEST_MODELS = {
-	builtin: {
-		provider: "openai-compatible",
-		model: "deepseek/deepseek-v4-flash",
-		baseUrl: "https://openrouter.ai/api",
-		apiKeyEnv: "OPENROUTER_API_KEY",
-	},
 	claude: {
-		provider: "anthropic",
 		// TINY-BASELINE: `haiku` (smallest claude tier), NOT sonnet/opus. See header.
 		model: "haiku",
-		baseUrl: "https://api.anthropic.com",
-		apiKeyEnv: null,
 	},
 	codex: {
-		provider: "openai-compatible",
 		// TINY-BASELINE: `gpt-5.4-mini` is the SMALLEST codex tier usable here. nano is
 		// NOT it — codex with a ChatGPT-account login rejects `gpt-5.4-nano` and
 		// `gpt-5-codex-mini` (400 "not supported when using Codex with a ChatGPT
@@ -197,45 +174,23 @@ export const HARNESS_TEST_MODELS = {
 		// the inherited ChatGPT/keychain login, so mini is the floor. Enforced via
 		// CLI_TOOL_CONFIGS.codex.args `--model {{model}}` on codex exec. See header.
 		model: "gpt-5.4-mini",
-		baseUrl: "https://api.openai.com",
-		apiKeyEnv: null,
 	},
 	opencode: {
-		provider: "openai-compatible",
 		model: "openrouter/z-ai/glm-4.7-flash",
-		baseUrl: "https://openrouter.ai/api",
-		apiKeyEnv: "OPENROUTER_API_KEY",
 	},
 	"cursor-agent": {
-		provider: "openai-compatible",
 		// TINY-BASELINE: `auto` is Cursor's default/cheapest routing tier.
 		model: "auto",
-		baseUrl: "https://api.cursor.com",
-		apiKeyEnv: null,
 	},
 	// `satisfies Record<…>` proves all four supported harnesses are present with
 	// the exact key set — adding/removing a harness without updating this map is a
 	// `npm run check` error.
 } as const satisfies Record<SupportedHarnessName, HarnessTestModelSpec>;
 
-/** The resolved-model shape a harness run consumes. */
-export interface ResolvedTestModel {
-	readonly provider: "openai-compatible" | "anthropic";
-	readonly model: string;
-	readonly apiKey: string;
-	readonly baseUrl: string;
-}
-
-/**
- * This is the sanctioned way a test obtains a locked model; the inherited-auth
- * `apiKey` is an empty string (claude/codex authenticate via the CLI's own
- * keychain/CODEX_HOME, not this field — a non-empty placeholder would inject a
- * garbage env var into the subprocess and risk overriding native auth).
- * OpenRouter harnesses (builtin/opencode) read their key from `OPENROUTER_API_KEY`.
- * The model/provider/baseUrl are fixed by `HARNESS_TEST_MODELS`.
- */
-export function harnessTestResolvedModel(harness: SupportedHarnessName): ResolvedTestModel {
-	const spec = HARNESS_TEST_MODELS[harness];
-	const apiKey = spec.apiKeyEnv ? (process.env[spec.apiKeyEnv] ?? "") : "";
-	return { provider: spec.provider, model: spec.model, apiKey, baseUrl: spec.baseUrl };
-}
+// @lore This map used to carry a `provider`, a `baseUrl` and an `apiKeyEnv`
+// alongside each model, and a `harnessTestResolvedModel` helper assembled them
+// into the `resolvedModel` a test handed to `runSession`. All three described the
+// model gateway: which provider to call, where, with whose key. No harness makes
+// that call — each authenticates itself — so the only thing left worth locking is
+// which model a lane runs. A test seeds it onto the agent's own run config, the
+// same place production puts it, and it arrives as `SessionConfig.selectedModel`.

@@ -64,31 +64,26 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
-	it("renders exactly 4 credential rows (one per CREDENTIAL_CATALOG entry)", async () => {
+// @lore The catalog had four slots: three model-provider keys plus the shared
+// backend key. HyperIdle stores no model credential any more — a harness
+// authenticates with its own login — so the tab renders the one slot left.
+describe("AH1 — CredentialsTab: HTTP-backed, 1-slot catalog", () => {
+	it("renders exactly 1 credential row (one per CREDENTIAL_CATALOG entry)", async () => {
 		render(<CredentialsTab />);
 		await waitFor(() => {
 			const rows = document.querySelectorAll("[data-testid^='credential-row-']");
-			expect(rows).toHaveLength(4);
+			expect(rows).toHaveLength(1);
 		});
 	});
 
-	it("renders the openai_compatible_api_key row", async () => {
+	it("renders each catalog entry label", async () => {
 		render(<CredentialsTab />);
 		await waitFor(() => {
-			expect(
-				document.querySelector("[data-testid='credential-row-openai_compatible_api_key']"),
-			).toBeInTheDocument();
-		});
-	});
-
-	it("renders all 4 catalog entry labels", async () => {
-		render(<CredentialsTab />);
-		await waitFor(() => {
-			expect(screen.getByText(/anthropic api key/i)).toBeInTheDocument();
-			expect(screen.getByText(/openrouter api key/i)).toBeInTheDocument();
 			expect(screen.getByText(/shared backend/i)).toBeInTheDocument();
-			expect(screen.getByText(/openai.compatible api key/i)).toBeInTheDocument();
+			// The three model-provider labels are gone with their credentials.
+			expect(screen.queryByText(/anthropic api key/i)).not.toBeInTheDocument();
+			expect(screen.queryByText(/openrouter api key/i)).not.toBeInTheDocument();
+			expect(screen.queryByText(/openai.compatible api key/i)).not.toBeInTheDocument();
 		});
 	});
 
@@ -96,7 +91,7 @@ describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
 		render(<CredentialsTab />);
 		await waitFor(() => {
 			const chips = document.querySelectorAll("[data-testid='credential-state-chip']");
-			expect(chips).toHaveLength(4);
+			expect(chips).toHaveLength(1);
 		});
 	});
 
@@ -117,7 +112,7 @@ describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
 		await waitFor(() => {
 			// AH1: scope to the specific row to avoid matching the "Validate" button
 			// that appears on present-state rows (/valid/i would match "Validate").
-			const row = screen.getByTestId("credential-row-anthropic_api_key");
+			const row = screen.getByTestId("credential-row-shared_backend_key");
 			const chip = within(row).getByTestId("credential-state-chip");
 			expect(within(chip).getByText(/^valid$/i)).toBeInTheDocument();
 		});
@@ -151,13 +146,13 @@ describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
 
 	it("calls PUT /api/credentials/:name when saving", async () => {
 		const putResponse = {
-			name: "anthropic_api_key",
+			name: "shared_backend_key",
 			state: "present_untested",
 			lastValidatedAt: null,
 		};
 		setupFetch([
 			{ url: "/api/credentials", method: "GET", body: makeAbsentCatalog() },
-			{ url: "/api/credentials/anthropic_api_key", method: "PUT", body: putResponse },
+			{ url: "/api/credentials/shared_backend_key", method: "PUT", body: putResponse },
 		]);
 
 		render(<CredentialsTab />);
@@ -181,7 +176,7 @@ describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
 			const fetchMock = vi.mocked(global.fetch);
 			const putCall = fetchMock.mock.calls.find(
 				([url, opts]) =>
-					(url as string).includes("/api/credentials/anthropic_api_key") &&
+					(url as string).includes("/api/credentials/shared_backend_key") &&
 					(opts as RequestInit)?.method === "PUT",
 			);
 			expect(putCall).toBeDefined();
@@ -192,7 +187,7 @@ describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
 		setupFetch([
 			{ url: "/api/credentials", method: "GET", body: makeAbsentCatalog() },
 			{
-				url: "/api/credentials/anthropic_api_key",
+				url: "/api/credentials/shared_backend_key",
 				method: "PUT",
 				body: { error: "Encryption secret not configured", code: "MISSING_ROOT_SECRET" },
 				status: 500,
@@ -236,7 +231,7 @@ describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
 		catalog[0]!.state = "valid"; // anthropic_api_key is valid
 		setupFetch([
 			{ url: "/api/credentials", method: "GET", body: catalog },
-			{ url: "/api/credentials/anthropic_api_key", method: "DELETE", body: null },
+			{ url: "/api/credentials/shared_backend_key", method: "DELETE", body: null },
 		]);
 
 		render(<CredentialsTab />);
@@ -247,7 +242,7 @@ describe("AH1 — CredentialsTab: HTTP-backed, 4-slot catalog", () => {
 			const fetchMock = vi.mocked(global.fetch);
 			const deleteCall = fetchMock.mock.calls.find(
 				([url, opts]) =>
-					(url as string).includes("/api/credentials/anthropic_api_key") &&
+					(url as string).includes("/api/credentials/shared_backend_key") &&
 					(opts as RequestInit)?.method === "DELETE",
 			);
 			expect(deleteCall).toBeDefined();

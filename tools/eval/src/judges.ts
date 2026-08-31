@@ -500,12 +500,12 @@ Respond ONLY with the JSON object. No preamble, no markdown.`;
 			try {
 				const { Anthropic } = await import("@anthropic-ai/sdk");
 				const client = new Anthropic({
-					apiKey: ctx.resolvedModel.apiKey,
-					baseURL: ctx.resolvedModel.baseUrl,
+					apiKey: ctx.judgeModel.apiKey,
+					baseURL: ctx.judgeModel.baseUrl,
 				});
 
 				const response = await client.messages.create({
-					model: ctx.resolvedModel.model,
+					model: ctx.judgeModel.model,
 					max_tokens: 256,
 					messages: [{ role: "user", content: prompt }],
 				});

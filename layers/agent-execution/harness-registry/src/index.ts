@@ -28,7 +28,6 @@ export {
 	createLocalAdapterPool,
 	type SelectRequirements,
 } from "./adapter-pool.js";
-export { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 export { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
 export {
 	type PluginStdioServer,
@@ -36,7 +35,6 @@ export {
 } from "./cli-mcp-config.js";
 export type { EnforcementEntry, EnforcementRegistry } from "./enforcement-registry.js";
 export { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
-export { type CallLlmOptions, callLlm } from "./llm-client.js";
 export type { McpToolBridge } from "./mcp-tool-bridge.js";
 export {
 	type ProvisionOptions,

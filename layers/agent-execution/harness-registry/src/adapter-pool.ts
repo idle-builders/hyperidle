@@ -9,7 +9,6 @@
 import type { HarnessType } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { AdapterInfo, AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
-import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import {
@@ -39,8 +38,6 @@ export interface SelectRequirements {
 	 * AM4 CHANGE 1: Caller-supplied list of disabled harness types (pool is DB-free and
 	 * select() is synchronous — cannot read server_config itself). The caller (admitSession)
 	 * reads harnessDisabled from readServerConfig(db) and passes it here.
-	 * Paired with the builtin hard-exemption (CHANGE 2) — "builtin" is NEVER skipped
-	 * even if present in this list (back-stop against hand-edited/stale config).
 	 *
 	 * @lore AM4: Real persisted control backed by server_config.harnessDisabled + this
 	 * caller-supplied gate (AM4 R1 reversal, founder review + AC2). The pool stays a
@@ -183,18 +180,18 @@ export class AdapterPool {
 				if (entry.meta.type !== requirements.harnessType) continue;
 			}
 
-			// AM4 CHANGE 1+2: disabledTypes gate with builtin hard-exemption.
-			// The caller (admitSession) passes harnessDisabled from server_config here.
-			// "builtin" is HARD-EXEMPT regardless of the persisted list — back-stop
-			// against stale config stranding the always-present fallback.
+			// AM4 CHANGE 1: disabledTypes gate. The caller (admitSession) passes
+			// `harnessDisabled` from server_config here.
 			//
-			// @lore AM4: showsToggle(builtin) === false is the front-door guard (UI);
-			// this exemption is the back-stop (selection). Both are required (CHANGE 2).
+			// @lore There used to be a hard exemption here for the built-in harness —
+			// it could never be disabled, whatever the stored config said, because it
+			// was the always-present fallback everything else leaned on. With it gone
+			// no harness is exempt: every one of them is something the person
+			// installed, and every one can be turned off.
 			if (
 				requirements?.disabledTypes &&
 				requirements.disabledTypes.length > 0 &&
 				entry.meta.type &&
-				entry.meta.type !== "builtin" && // CHANGE 2: builtin hard-exempt
 				requirements.disabledTypes.includes(entry.meta.type)
 			) {
 				continue;
@@ -248,9 +245,10 @@ export class AdapterPool {
 		}
 		const disabled = requirements?.disabledTypes ?? [];
 		if (disabled.length > 0) {
+			// Mirrors `select`'s filter exactly — no harness is exempt from being
+			// disabled any more, so neither is this diagnostic.
 			const enabled = live.filter(
-				(entry) =>
-					!entry.meta.type || entry.meta.type === "builtin" || !disabled.includes(entry.meta.type),
+				(entry) => !entry.meta.type || !disabled.includes(entry.meta.type),
 			);
 			if (enabled.length === 0) {
 				return `every available harness type is disabled in settings (disabled: ${disabled.join(", ")})`;
@@ -453,9 +451,12 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 			"--model",
 			"{{model}}",
 		],
-		envMap: {
-			ANTHROPIC_API_KEY: "{{apiKey}}",
-		},
+		// @lore opencode used to be handed a stored API key here, under whichever
+		// variable its provider reads, plus a provider block for a brought
+		// OpenAI-compatible endpoint. Both are gone: opencode authenticates through
+		// its own login like every other harness, and HyperIdle holds no model
+		// credential to pass on.
+		envMap: {},
 		// AL7 delta: changed from "text" → "ndjson" because opencode --format json emits JSONL.
 		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via
 		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture
@@ -625,8 +626,7 @@ async function registerCliAdaptersIfAvailable(
 /**
  * Create an AdapterPool pre-loaded with all available local adapters:
  * 1. claude-code (CliHarnessAdapter, binary `claude`) — registered if on PATH
- * 2. builtin (BuiltinHarnessAdapter stub) — always registered (X6 fills in)
- * 3. codex / opencode — registered if their binary is on PATH
+ * 2. codex / opencode / cursor-agent — registered if their binary is on PATH
  *
  * @lore S2 AC4: this factory keeps server-factory.ts clean — it just calls
  * createLocalAdapterPool() instead of knowing about adapter internals.
@@ -689,16 +689,6 @@ export async function createLocalAdapterPool(opts?: {
 			},
 		);
 	}
-
-	// 2. X6: Built-in harness adapter — supports direct API calls to all providers
-	const builtinAdapter = new BuiltinHarnessAdapter();
-	pool.register("local-builtin", builtinAdapter, {
-		name: "Built-in Harness",
-		kind: "local",
-		type: "builtin",
-		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent: Number.parseInt(process.env.HYPERIDLE_BUILTIN_MAX_CONCURRENT ?? "8", 10),
-	});
 
 	// 3. CLI adapters: registered dynamically when available
 	await registerCliAdaptersIfAvailable(pool, enforcement);

@@ -23,11 +23,10 @@
  * Validation order (per plan + reviewer NEW-1):
  *  1. UNSUPPORTED_PROVIDER — openai-compatible cannot be used for per-agent model
  *  2. UNKNOWN_HARNESS — harnessType must be registered in the pool (when non-null)
- *  3. UNKNOWN_MODEL — for anthropic providers, modelId must be in the catalog
+ *  3. UNKNOWN_MODEL — modelId must be one the chosen harness offers (when it states any)
  *  4. INCOMPATIBLE_HARNESS_MODEL — provider must be in harness's modelProviders list
  */
 
-import { isCatalogModel } from "../model-utils.js";
 import {
 	type HarnessCapabilityReader,
 	harnessRegistrationMeta,
@@ -73,11 +72,36 @@ export function validateAgentConfig(
 		}
 	}
 
-	// 3. UNKNOWN_MODEL — for anthropic, modelId must be in the catalog
-	if (modelId && effectiveProvider === "anthropic") {
-		if (!isCatalogModel(modelId)) {
+	// 3. UNKNOWN_MODEL — the model must be one the chosen harness offers.
+	//
+	// The list comes from the harness itself, so it is stated in that harness's
+	// own vocabulary: `haiku` and `sonnet[1m]` for claude, `gpt-5.6-sol` for
+	// codex, `composer-2.5` for cursor, `openrouter/z-ai/glm-4.7-flash` for
+	// opencode. No cross-harness namespace exists, and none is imposed.
+	//
+	// A harness that published NO models accepts anything. An empty list means
+	// either "this harness manages its own models" or "the probe failed", and
+	// those are indistinguishable from here — rejecting on it would let a network
+	// hiccup block someone's save. Same rule `model-options.ts` follows for
+	// option values, for the same reason.
+	//
+	// @lore The predecessor checked an anthropic-provider model against
+	// `MODEL_CATALOG`, a static list of four gateway ids. Once discovery started
+	// reading each harness's own model list, the editor offered `haiku` while
+	// this rule answered UNKNOWN_MODEL — the dropdown and the save path disagreed
+	// about what a model is.
+	//
+	// @lore A second clause used to sit under this one, judging the id against the
+	// model gateway's per-provider catalog whenever the harness stated nothing. It
+	// existed for the built-in harness alone — the only one that called a model API
+	// itself and got a run-time 404 for a retired id — and it went with that
+	// harness. Every harness left reports its own models or accepts anything.
+	if (modelId && effectiveHarnessType && pool) {
+		const descriptor = pool.describe({ type: effectiveHarnessType, includeKnownMissing: false })[0];
+		const stated = descriptor?.models ?? [];
+		if (stated.length > 0 && !stated.some((m) => m.id === modelId)) {
 			return {
-				error: `Model '${modelId}' is not in the catalog. Use a current model ID from the catalog.`,
+				error: `Model '${modelId}' is not one '${effectiveHarnessType}' offers. Pick one from its list in Settings → Agents.`,
 				code: "UNKNOWN_MODEL",
 			};
 		}

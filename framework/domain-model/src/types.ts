@@ -105,13 +105,12 @@ export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
  * declaration on the path was a bare `string`. Both the registration side and
  * every writer now spell the vocabulary from here.
  */
-export const HARNESS_TYPES = [
-	"builtin",
-	"claude-code",
-	"codex",
-	"opencode",
-	"cursor-agent",
-] as const;
+// @lore `"builtin"` led this list. HyperIdle ran agents in-process against a
+// model gateway it held the key for; it does not any more — you bring a harness,
+// and the harness brings its login. A vocabulary that still named it would make
+// an unrunnable value look sanctioned, which is the exact drift the
+// harness-type-vocabulary tests exist to catch.
+export const HARNESS_TYPES = ["claude-code", "codex", "opencode", "cursor-agent"] as const;
 export type HarnessType = (typeof HARNESS_TYPES)[number];
 
 /**

@@ -63,7 +63,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 	// How the assistant RUNS. Who it is lives in its identity document below.
 	await db.insert(agentRunConfig).values({
 		agentUserId: ASSISTANT_ID,
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
 		maxConcurrentSessions: 1,

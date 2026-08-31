@@ -13,7 +13,7 @@
  * filter at :753 is removed; SettingsAssistant.tsx is deleted.
  *
  * @lore AV2: Model options now come from descriptor.models (discovered at probe time
- * by probeBuiltinGateway/probeClaudeCodeCli/probeOpenCodeCli), NOT from MODEL_CATALOG.
+ * by the per-harness CLI probes), NOT from MODEL_CATALOG.
  * This is the founder concept-review blocking tweak. modelOptionsForHarness() is the
  * single source of truth for options.
  *

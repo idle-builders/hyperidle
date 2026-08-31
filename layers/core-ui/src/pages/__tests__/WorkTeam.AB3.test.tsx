@@ -106,7 +106,6 @@ const MOCK_AGENT_CONFIGS = [
 		role: "builder",
 		identityKnowledgeId: "ki_af_demo",
 		harnessType: "claude-code",
-		modelTierPreference: "workhorse",
 		maxConcurrentSessions: 2,
 		status: "active",
 		activeSessions: 0,
@@ -118,7 +117,6 @@ const MOCK_AGENT_CONFIGS = [
 		role: "scout",
 		identityKnowledgeId: "ki_af_demo",
 		harnessType: null,
-		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
@@ -131,7 +129,6 @@ const MOCK_AGENT_CONFIGS = [
 		role: "assistant",
 		identityKnowledgeId: "ki_af_demo",
 		harnessType: null,
-		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
@@ -454,11 +451,19 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 	// so the claim belongs to the knowledge edit endpoint. That this pane's Save
 	// reaches `PATCH /api/agents/:id` at all is proven by the next test.
 
-	it("Save button calls PATCH with modelTierPreference when config is changed", async () => {
+	// @lore This test used to change the Model tier select and assert the PATCH
+	// body carried `modelTierPreference`. That dial is gone: it named a
+	// model-gateway entry, selected nothing once the gateway went, and was
+	// unreachable anyway on the path every real session takes — the durable drain
+	// always supplies its own tier. People choose a model per agent instead, which
+	// is what reaches the harness. The claim itself — this pane's Save reaches
+	// `PATCH /api/agents/:id` with what the user edited — is unchanged, so the
+	// test makes it over the config field that survived.
+	it("Save button calls PATCH with the edited harness", async () => {
 		const user = userEvent.setup();
 
 		const patchResponse = new Response(
-			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], modelTierPreference: "reasoning" }),
+			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], harnessType: "codex" }),
 			{ status: 200 },
 		);
 		mockApiFetch.mockResolvedValueOnce(makeAgentsResponse()).mockResolvedValueOnce(patchResponse);
@@ -485,11 +490,12 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		const configToggle = screen.getByRole("button", { name: /show configuration/i });
 		await user.click(configToggle);
 
-		// Change model tier
+		// Change the harness
 		await waitFor(() => {
-			expect(screen.getByLabelText(/model tier/i)).toBeInTheDocument();
+			expect(screen.getByLabelText(/harness/i)).toBeInTheDocument();
 		});
-		await user.selectOptions(screen.getByLabelText(/model tier/i), "reasoning");
+		await user.clear(screen.getByLabelText(/harness/i));
+		await user.type(screen.getByLabelText(/harness/i), "codex");
 
 		// Click Save
 		const saveBtn = screen.getByRole("button", { name: /^save$/i });
@@ -505,7 +511,7 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 				string,
 				unknown
 			>;
-			expect(body.modelTierPreference).toBe("reasoning");
+			expect(body.harnessType).toBe("codex");
 		});
 	});
 });
@@ -581,7 +587,6 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 				role: "builder",
 				identityKnowledgeId: "ki_af_demo",
 				harnessType: null,
-				modelTierPreference: null,
 				maxConcurrentSessions: 1,
 				status: "active",
 				activeSessions: 0,

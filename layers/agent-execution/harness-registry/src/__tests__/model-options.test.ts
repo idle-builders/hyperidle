@@ -22,7 +22,9 @@ describe("model options reaching a harness", () => {
 
 	test("a harness that declares nothing carries nothing, whatever is stored", () => {
 		expect(modelOptionArgv("cursor-agent", { effort: "high" })).toEqual([]);
-		expect(modelOptionArgv("builtin", { reasoning_effort: "high" })).toEqual([]);
+		// A harness type outside the vocabulary declares nothing either — the
+		// stored options are dropped rather than guessed at.
+		expect(modelOptionArgv("not-a-harness", { reasoning_effort: "high" })).toEqual([]);
 	});
 
 	test("an option stored for a different harness is dropped, not carried across", () => {

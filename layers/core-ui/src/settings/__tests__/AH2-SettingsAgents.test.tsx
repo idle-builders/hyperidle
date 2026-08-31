@@ -28,7 +28,7 @@ import { SettingsAgents } from "../SettingsAgents.js";
 // ---------------------------------------------------------------------------
 
 const MOCK_HARNESSES = [
-	{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic", "openrouter"] },
+	{ type: "opencode", name: "OpenCode", modelProviders: ["anthropic", "openrouter"] },
 	{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
 ];
 
@@ -38,7 +38,7 @@ const MOCK_AGENTS = [
 		name: "Opus Agent",
 		role: "builder",
 		systemPrompt: null,
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "claude-opus-4-8",
 		modelProvider: "anthropic",
 		maxConcurrentSessions: 1,

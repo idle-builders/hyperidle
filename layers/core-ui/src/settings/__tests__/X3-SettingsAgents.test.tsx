@@ -89,8 +89,8 @@ describe("X3 AC-9: SettingsAgents renders agent list", () => {
 						json: async () => [
 							{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
 							{
-								type: "builtin",
-								name: "Built-in Harness",
+								type: "opencode",
+								name: "OpenCode",
 								modelProviders: ["anthropic", "openrouter"],
 							},
 						],
@@ -236,7 +236,7 @@ describe("X3 AC-11: Settings UI add form creates agent with template pre-fill", 
 						ok: true,
 						status: 200,
 						json: async () => [
-							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+							{ type: "opencode", name: "OpenCode", modelProviders: ["anthropic"] },
 						],
 					});
 				}
@@ -365,7 +365,7 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 						ok: true,
 						status: 200,
 						json: async () => [
-							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+							{ type: "opencode", name: "OpenCode", modelProviders: ["anthropic"] },
 						],
 					});
 				}
@@ -511,7 +511,7 @@ describe("X3 keyboard: actions menu is fully keyboard-navigable", () => {
 						ok: true,
 						status: 200,
 						json: async () => [
-							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+							{ type: "opencode", name: "OpenCode", modelProviders: ["anthropic"] },
 						],
 					});
 				}

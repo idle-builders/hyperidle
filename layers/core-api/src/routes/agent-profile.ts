@@ -147,7 +147,6 @@ export async function handleAgentProfile(
 		createdAt: agent.createdAt,
 		identityKnowledgeId: (await getAgentIdentityIds(db, [agentId])).get(agentId) ?? null,
 		harnessType: runConfig.harnessType,
-		modelTierPreference: runConfig.modelTierPreference,
 		maxConcurrentSessions: runConfig.maxConcurrentSessions,
 		mcpSetup: null,
 		// @lore AU26 J4: harness availability is NOT run state — it is a fact
@@ -214,7 +213,7 @@ function mapCapabilities(caps: HarnessCapabilities | null): AgentHarnessCapabili
 		toolUse: caps.preCompactionTrigger,
 		mcpSupport: caps.mcpSupport,
 		// File editing capability — subAgents implies it indirectly; assume capable
-		// if the harness supports subAgents (Claude Code, builtin)
+		// if the harness supports subAgents (Claude Code)
 		fileEditing: caps.subAgents,
 		subAgents: caps.subAgents,
 	};

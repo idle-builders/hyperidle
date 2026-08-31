@@ -16,7 +16,6 @@ import type { ModelProvider } from "@hyperidle/domain-model";
  *   "sdk-inprocess"   — dead since claude moved to settings-claude; no adapter declares this
  *   "settings-claude" — HyperIdle writes .claude/settings.json Stop hook (BLOCKING)
  *   "settings-codex"  — HyperIdle writes .codex/hooks.json Stop hook (BLOCKING)
- *   "builtin-loop"    — in-process loop owns turn-end (BLOCKING)
  *   "process-reengage"— no native block — HyperIdle re-invokes the CLI in its sandbox (opencode, remote default)
  *   "soft-continue"   — native soft re-prompt (cursor — inert until spawnable)
  *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
@@ -29,7 +28,6 @@ export type ReturnEnforcementChannel =
 	| "sdk-inprocess"
 	| "settings-claude"
 	| "settings-codex"
-	| "builtin-loop"
 	| "process-reengage"
 	| "soft-continue"
 	| "none";
@@ -82,7 +80,6 @@ export interface HarnessModelDescriptor {
 	readonly provider?: ModelProvider;
 	readonly contextWindow?: number;
 	readonly selectable: boolean;
-	readonly inheritedFromGateway: boolean;
 	readonly options: readonly HarnessModelOptionDescriptor[];
 }
 
@@ -92,7 +89,7 @@ export interface HarnessDiscoveryStatus {
 	readonly reason?: string;
 	/**
 	 * AM4 additive field — stamped by the route handler (not the pool, which is DB-free).
-	 * true when the type is in server_config.harnessDisabled. "builtin" is always exempt.
+	 * true when the type is in server_config.harnessDisabled. No harness is exempt.
 	 * Undefined/absent == not disabled (same as false). Breaking: no — additive field.
 	 */
 	readonly disabled?: boolean;

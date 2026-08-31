@@ -39,7 +39,7 @@ export interface ScaffoldResult {
 
 /**
  * Either an explicit resolved PrimaryHarnessConfig, or the team's default
- * columns (the writer resolves explicit → team-default → builtin internally).
+ * columns (the writer resolves explicit → team-default internally).
  *
  * @lore AU20 Am7: callers no longer pre-compute `resolveTeamAgentHarness`
  * separately; they pass either an explicit PrimaryHarnessConfig or the team
@@ -89,8 +89,8 @@ async function resolveAgentId(
 
 /**
  * Inline of the former `resolveTeamAgentHarness` from `team-default-harness.ts`.
- * Returns undefined when both explicit and team default are unset so the
- * builtin fallback in `persistScaffoldedAgents` applies.
+ * Returns undefined when both explicit and team default are unset — the agent
+ * then stores no harness at all, and the pool picks one at admission.
  *
  * @lore AU44 B1: `team-default-harness.ts` deleted; one caller, no file needed.
  */
@@ -108,8 +108,11 @@ function resolveHarness(
 	if (team?.defaultHarnessType != null) {
 		return {
 			harnessType: team.defaultHarnessType,
-			modelId: team.defaultModelId ?? "claude-sonnet-4-6",
-			modelProvider: team.defaultModelProvider ?? "anthropic",
+			// A team that stored no model gets none. The hardcoded Anthropic pair
+			// that used to fill this in was invented — it named a model the team's
+			// own harness might not serve, on every agent it scaffolded.
+			...(team.defaultModelId != null ? { modelId: team.defaultModelId } : {}),
+			...(team.defaultModelProvider != null ? { modelProvider: team.defaultModelProvider } : {}),
 		};
 	}
 	return undefined;
@@ -124,7 +127,7 @@ function resolveHarness(
  * @param specs   - The app-owned agent specs to persist.
  * @param harness - Optional harness hint. Pass a `PrimaryHarnessConfig` (explicit) OR
  *                  the `team` row (defaultHarnessType/modelId/modelProvider fields —
- *                  the writer resolves team default → builtin). Omit to use builtin.
+ *                  the writer resolves the team default). Omit to store none.
  * @returns { agentIds, leadAgentId }
  *
  * @lore AU44 B1: param `teamMembersId` renamed to `teamId` — after the fold
@@ -138,7 +141,7 @@ export async function persistScaffoldedAgents(
 	specs: readonly AgentScaffoldSpec[],
 	harness?: PrimaryHarnessConfig | TeamHarnessDefault,
 ): Promise<ScaffoldResult> {
-	// Resolve explicit → team-default → builtin internally.
+	// Resolve explicit → team-default → nothing stored.
 	let resolvedHarness: PrimaryHarnessConfig | undefined;
 	if (harness !== undefined) {
 		if ("harnessType" in harness) {
@@ -168,9 +171,14 @@ export async function persistScaffoldedAgents(
 			createdAt: now,
 		});
 		await users.writeAgentRunConfig(db, agentId, {
-			harnessType: resolvedHarness?.harnessType ?? "builtin",
-			modelId: resolvedHarness?.modelId ?? "claude-sonnet-4-6",
-			modelProvider: resolvedHarness?.modelProvider ?? "anthropic",
+			// No team harness chosen means none is stored — see the agents route.
+			// @lore The fabricated `"builtin"` / `"claude-sonnet-4-6"` / `"anthropic"`
+			// defaults that stood here were invented, not chosen: they went onto every
+			// scaffolded agent as though a user had picked them, naming a harness that
+			// no longer exists and an Anthropic model other harnesses may not serve.
+			harnessType: resolvedHarness?.harnessType ?? null,
+			modelId: resolvedHarness?.modelId ?? null,
+			modelProvider: resolvedHarness?.modelProvider ?? null,
 			// @lore BA9g: this used to be `spec.role === "builder" ? 3 : 1` — a
 			// concurrency dial keyed to a role the core no longer knows anything
 			// about. Every scaffolded agent starts at 1 and the operator raises it.

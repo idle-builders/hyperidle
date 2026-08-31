@@ -57,7 +57,7 @@ describe("credentials routes", () => {
 		});
 
 		test("returns catalog with present_untested state after PUT", async ({ app }) => {
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "sk-ant-test-key-here" }),
@@ -69,26 +69,28 @@ describe("credentials routes", () => {
 			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ name: string; state: string }>;
-			const anthropicEntry = body.find((e) => e.name === "anthropic_api_key");
+			const anthropicEntry = body.find((e) => e.name === "shared_backend_key");
 			expect(anthropicEntry?.state).toBe("present_untested");
 		});
 	});
 
 	describe("PUT /api/credentials/:name", () => {
 		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
-			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", { method: "PUT" });
+			const res = await requestWithoutAuth("/api/credentials/shared_backend_key", {
+				method: "PUT",
+			});
 			expect(res.status).toBe(401);
 		});
 
 		test("returns 200 with credential status on valid PUT", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "sk-ant-valid-key" }),
 			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { name: string; state: string };
-			expect(body.name).toBe("anthropic_api_key");
+			expect(body.name).toBe("shared_backend_key");
 			expect(body.state).toBe("present_untested");
 		});
 
@@ -102,7 +104,7 @@ describe("credentials routes", () => {
 		});
 
 		test("returns 400 on missing value field", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({}),
@@ -111,7 +113,7 @@ describe("credentials routes", () => {
 		});
 
 		test("encrypts the value (never returns plaintext)", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "my-secret-api-key" }),
@@ -124,14 +126,14 @@ describe("credentials routes", () => {
 
 		test("upserts: overwrites existing credential", async ({ app }) => {
 			// First PUT
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "old-key" }),
 			});
 
 			// Second PUT with new value
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "new-key" }),
@@ -144,7 +146,7 @@ describe("credentials routes", () => {
 
 	describe("DELETE /api/credentials/:name", () => {
 		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
-			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", {
+			const res = await requestWithoutAuth("/api/credentials/shared_backend_key", {
 				method: "DELETE",
 			});
 			expect(res.status).toBe(401);
@@ -152,13 +154,13 @@ describe("credentials routes", () => {
 
 		test("returns 204 on successful delete", async ({ app }) => {
 			// Set credential first
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "some-key" }),
 			});
 
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "DELETE",
 				headers: authHeaders(),
 			});
@@ -174,7 +176,7 @@ describe("credentials routes", () => {
 		});
 
 		test("returns 204 even when credential does not exist (idempotent)", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "DELETE",
 				headers: authHeaders(),
 			});
@@ -184,14 +186,14 @@ describe("credentials routes", () => {
 
 	describe("POST /api/credentials/:name/validate", () => {
 		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
-			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key/validate", {
+			const res = await requestWithoutAuth("/api/credentials/shared_backend_key/validate", {
 				method: "POST",
 			});
 			expect(res.status).toBe(401);
 		});
 
 		test("returns 200 with valid:false when credential not set", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
+			const res = await app.request("/api/credentials/shared_backend_key/validate", {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -208,7 +210,7 @@ describe("credentials routes", () => {
 			// validate call to avoid exhausting the 3/hour bucket shared across all tests in this file.
 
 			// Set credential first
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: "sk-ant-test-key" }),
@@ -220,7 +222,7 @@ describe("credentials routes", () => {
 				.mockResolvedValue(new Response(JSON.stringify({ models: [] }), { status: 200 }));
 
 			// Validate
-			const validateRes = await app.request("/api/credentials/anthropic_api_key/validate", {
+			const validateRes = await app.request("/api/credentials/shared_backend_key/validate", {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -239,7 +241,7 @@ describe("credentials routes", () => {
 				state: string;
 				lastValidatedAt: string | null;
 			}>;
-			const anthropicEntry = listBody.find((e) => e.name === "anthropic_api_key");
+			const anthropicEntry = listBody.find((e) => e.name === "shared_backend_key");
 			expect(anthropicEntry?.state).toBe("valid");
 			expect(anthropicEntry?.lastValidatedAt).not.toBeNull();
 		});

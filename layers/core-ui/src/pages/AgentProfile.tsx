@@ -55,7 +55,6 @@ import { absoluteDate } from "../utils/time.js";
 // UI-041: static display names for known harness families. Matches
 // KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts.
 const HARNESS_DISPLAY: Record<string, string> = {
-	builtin: "Built-in",
 	"claude-code": "Claude Code",
 	codex: "Codex",
 	"cursor-agent": "Cursor Agent",
@@ -426,7 +425,6 @@ function AgentProfileLoaded({
 						<KeyValue label="Role" value={roleLabel(data.role)} />
 						<KeyValue label="Harness" value={harnessLabel(data.harnessType)} />
 						<KeyValue label="Category" value={data.agentCategory ?? "team"} />
-						<KeyValue label="Model tier" value={data.modelTierPreference ?? "Default"} />
 						{data.teamName && <KeyValue label="Team" value={data.teamName} />}
 						<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
 						<KeyValue label="Created" value={createdDate} />

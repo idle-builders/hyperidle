@@ -18,8 +18,8 @@ import { SettingsAgents } from "../SettingsAgents.js";
 
 const MOCK_HARNESSES_WITH_MODELS = [
 	{
-		type: "builtin",
-		name: "Built-in",
+		type: "opencode",
+		name: "OpenCode",
 		kind: "local",
 		models: [
 			{
@@ -28,7 +28,6 @@ const MOCK_HARNESSES_WITH_MODELS = [
 				provider: "openrouter",
 				contextWindow: 128000,
 				selectable: true,
-				inheritedFromGateway: true,
 				options: [],
 			},
 		],
@@ -71,10 +70,9 @@ const MOCK_AGENTS = [
 		name: "Nova",
 		role: "assistant",
 		identityKnowledgeId: "ki_af_demo",
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
-		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
@@ -86,10 +84,9 @@ const MOCK_AGENTS = [
 		name: "Atlas",
 		role: "builder",
 		identityKnowledgeId: "ki_af_demo",
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
-		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,

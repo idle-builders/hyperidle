@@ -84,7 +84,7 @@ describe("AR4c: an assistant's harness+model config, through the one agent route
 			method: "PATCH",
 			headers: authHeaders(userId),
 			body: JSON.stringify({
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "deepseek/deepseek-v4-flash",
 				modelProvider: "openrouter",
 			}),
@@ -99,7 +99,7 @@ describe("AR4c: an assistant's harness+model config, through the one agent route
 			modelId: string | null;
 			modelProvider: string | null;
 		};
-		expect(body.harnessType).toBe("builtin");
+		expect(body.harnessType).toBe("opencode");
 		expect(body.modelId).toBe("deepseek/deepseek-v4-flash");
 		expect(body.modelProvider).toBe("openrouter");
 
@@ -110,7 +110,7 @@ describe("AR4c: an assistant's harness+model config, through the one agent route
 			.from(agentRunConfig)
 			.where(eq(agentRunConfig.agentUserId, assistantId))
 			.limit(1);
-		expect(row?.harnessType).toBe("builtin");
+		expect(row?.harnessType).toBe("opencode");
 		expect(row?.modelId).toBe("deepseek/deepseek-v4-flash");
 		expect(row?.modelProvider).toBe("openrouter");
 	});
@@ -126,7 +126,7 @@ describe("AR4c: an assistant's harness+model config, through the one agent route
 			method: "PATCH",
 			headers: authHeaders(userId),
 			body: JSON.stringify({
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "some-model",
 				modelProvider: "openai-compatible",
 			}),
@@ -173,14 +173,14 @@ describe("AR4c: an assistant's harness+model config, through the one agent route
 			method: "PATCH",
 			headers: authHeaders(userId),
 			body: JSON.stringify({
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "deepseek/deepseek-v4-flash",
 				modelProvider: "openrouter",
 			}),
 		});
 
 		const body = await readAssistant(app, userId);
-		expect(body.harnessType).toBe("builtin");
+		expect(body.harnessType).toBe("opencode");
 		expect(body.modelId).toBe("deepseek/deepseek-v4-flash");
 		expect(body.modelProvider).toBe("openrouter");
 	});
@@ -197,7 +197,7 @@ describe("AR4c: an assistant's harness+model config, through the one agent route
 			method: "PATCH",
 			headers: authHeaders(userId),
 			body: JSON.stringify({
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "deepseek/deepseek-v4-flash",
 				modelProvider: "openrouter",
 				modelOptions: { reasoning_effort: "high" },

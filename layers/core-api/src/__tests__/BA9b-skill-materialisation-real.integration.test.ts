@@ -99,7 +99,7 @@ import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
+import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-runtime.js";
@@ -331,45 +331,12 @@ async function spawnWithClosedStdin(
 // ---------------------------------------------------------------------------
 
 describe("BA9b: skill materialisation via production writeSkillItem — real harnesses", () => {
-	// ── builtin ──────────────────────────────────────────────────────────────
-	//
-	// builtin is a direct LLM call through OpenRouter; skills reach it via AGENTS.md
-	// injection (system-prompt assembly), not file-based discovery. File presence on
-	// both HARNESS_SKILL_DIRS entries proves materialisation and goes RED when the
-	// constant is broken. Injection proof (model sees token via AGENTS.md) is a
-	// separate scope — no binary to spawn here.
-	describe("builtin — materialisation proof (file-presence; no binary to interrogate)", () => {
-		requireHarness("builtin");
-
-		dbTest(
-			"writeSkillItem writes SKILL.md to both HARNESS_SKILL_DIRS after production assembly",
-			{ retry: 0 },
-			async ({ db }) => {
-				const claudeSkillPath = path.join(
-					sandboxPath,
-					".claude/skills",
-					SKILL_DIR_NAME,
-					"SKILL.md",
-				);
-				const agentsSkillPath = path.join(
-					sandboxPath,
-					".agents/skills",
-					SKILL_DIR_NAME,
-					"SKILL.md",
-				);
-				expect(fs.existsSync(claudeSkillPath)).toBe(false);
-				expect(fs.existsSync(agentsSkillPath)).toBe(false);
-
-				await assembleSkillIntoSandbox(db);
-
-				expect(fs.existsSync(claudeSkillPath)).toBe(true);
-				expect(fs.existsSync(agentsSkillPath)).toBe(true);
-				expect(fs.readFileSync(claudeSkillPath, "utf8")).toContain(probeToken);
-				expect(fs.readFileSync(agentsSkillPath, "utf8")).toContain(probeToken);
-			},
-		);
-	});
-
+	// @lore The built-in harness had a lane here. It was a direct in-process LLM
+	// call with no binary to interrogate, so it could only assert the half of this
+	// test that is deterministic — that writeSkillItem put SKILL.md on both
+	// HARNESS_SKILL_DIRS paths. The cursor-agent lane below asserts presence on
+	// both of those same paths before it interrogates its binary, so the
+	// deterministic proof outlives it.
 	// ── claude ───────────────────────────────────────────────────────────────
 	describe("claude — reads from .claude/skills/", () => {
 		requireHarness("claude");
@@ -387,7 +354,7 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
 				// Injection check: spawn and assert model output.
-				const { model } = harnessTestResolvedModel("claude");
+				const { model } = HARNESS_TEST_MODELS.claude;
 				const { stdout } = await spawnWithClosedStdin(
 					"claude",
 					[
@@ -402,6 +369,10 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 					{
 						cwd: sandboxPath,
 						env: {
+							// opencode authenticates itself. The locked matrix used to hand
+							// this spawn an OPENROUTER_API_KEY it had resolved; the matrix
+							// carries no key any more, and the inherited environment is where
+							// opencode looks for one anyway.
 							...process.env,
 							// @lore BA9b-pwd: pin PWD to sandbox so claude doesn't scan
 							// the worktree's skill dirs via inherited parent PWD.
@@ -445,7 +416,7 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
 				// Injection check: spawn and assert model output.
-				const { model } = harnessTestResolvedModel("codex");
+				const { model } = HARNESS_TEST_MODELS.codex;
 				const { stdout } = await spawnWithClosedStdin(
 					"codex",
 					[
@@ -491,7 +462,6 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
 				// Injection check: spawn and assert model output.
-				const { apiKey } = harnessTestResolvedModel("opencode");
 				// @lore BA9b-opencode-model: coordinator-authorized override; glm-4.7-flash
 				// (the locked baseline) cannot drive skill selection. qwen3-8b understands
 				// YAML frontmatter and explicit skill invocation requests.
@@ -504,7 +474,6 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 						cwd: sandboxPath,
 						env: {
 							...process.env,
-							OPENROUTER_API_KEY: apiKey,
 							// @lore BA9b-opencode-pwd: opencode uses process.env.PWD (not
 							// process.cwd()) for project-root skill scanning. Without this,
 							// it inherits the parent's PWD (the worktree) and scans the
@@ -553,7 +522,7 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 				expect(fs.readFileSync(agentsSkillPath, "utf8")).toContain(probeToken);
 
 				// Injection check: spawn and assert model output.
-				const { model } = harnessTestResolvedModel("cursor-agent");
+				const { model } = HARNESS_TEST_MODELS["cursor-agent"];
 				const { stdout } = await spawnWithClosedStdin(
 					"cursor-agent",
 					["-p", PROBE_PROMPT, "--print", "--model", model, "--trust"],

@@ -25,20 +25,13 @@ import type {
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	AGENT_CATEGORIES,
-	DEFAULT_AGENT_HARNESS,
-	DEFAULT_AGENT_MODEL_ID,
-	DEFAULT_AGENT_MODEL_PROVIDER,
-	MODEL_TIERS,
-} from "@hyperidle/domain-model";
+import { AGENT_CATEGORIES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
-import { catalogEntry } from "../model-utils.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { handleAgentProfile } from "./agent-profile.js";
 import { validateAgentConfig } from "./validate-agent-config.js";
@@ -54,7 +47,6 @@ const createAgentSchema = z.object({
 	/** Seed text for the agent's identity document. Editing it afterwards happens on the document. */
 	systemPrompt: z.string().max(50_000).nullable().optional(),
 	harnessType: z.string().max(100).nullable().optional(),
-	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
 	modelId: z.string().max(200).nullable().optional(),
 	modelProvider: z.string().max(100).nullable().optional(),
 	maxConcurrentSessions: z.number().int().min(1).max(20).default(1),
@@ -74,7 +66,6 @@ const patchAgentSchema = z.object({
 	name: z.string().min(1).max(200).optional(),
 	role: z.string().min(1).max(100).optional(),
 	harnessType: z.string().max(100).nullable().optional(),
-	modelTierPreference: z.enum(MODEL_TIERS).nullable().optional(),
 	modelId: z.string().max(200).nullable().optional(),
 	modelProvider: z.string().max(100).nullable().optional(),
 	maxConcurrentSessions: z.number().int().min(1).max(20).optional(),
@@ -101,7 +92,6 @@ type PatchAgentData = z.infer<typeof patchAgentSchema>;
  */
 const EMPTY_RUN_CONFIG_VIEW = {
 	harnessType: null,
-	modelTierPreference: null,
 	modelId: null,
 	modelProvider: null,
 	maxConcurrentSessions: 1,
@@ -132,7 +122,6 @@ function buildIdentityUpdateSet(data: PatchAgentData): Record<string, unknown> {
 function buildRunConfigPatch(data: PatchAgentData): AgentOrchestrationRunConfigPatch {
 	const patch: AgentOrchestrationRunConfigPatch = {};
 	if ("harnessType" in data) patch.harnessType = data.harnessType ?? null;
-	if ("modelTierPreference" in data) patch.modelTierPreference = data.modelTierPreference ?? null;
 	if ("modelId" in data) patch.modelId = data.modelId ?? null;
 	if ("modelProvider" in data) patch.modelProvider = data.modelProvider ?? null;
 	if (data.maxConcurrentSessions !== undefined)
@@ -210,7 +199,6 @@ export function createAgentRoutes(
 				agentCategory: agent.agentCategory ?? null,
 				identityKnowledgeId: identityIds.get(agent.id) ?? null,
 				harnessType: runConfig.harnessType,
-				modelTierPreference: runConfig.modelTierPreference,
 				modelId: runConfig.modelId,
 				modelProvider: runConfig.modelProvider,
 				maxConcurrentSessions: runConfig.maxConcurrentSessions,
@@ -241,10 +229,14 @@ export function createAgentRoutes(
 
 		const data = parsed.data;
 
-		// AH2: Apply defaults for harness and model when not specified
-		const effectiveHarnessType = data.harnessType ?? DEFAULT_AGENT_HARNESS;
-		const effectiveProvider = data.modelProvider ?? DEFAULT_AGENT_MODEL_PROVIDER;
-		const effectiveModelId = data.modelId ?? DEFAULT_AGENT_MODEL_ID;
+		// Nothing is chosen on the caller's behalf. An agent created without a
+		// harness or a model stores neither, and the run resolves both: the pool
+		// takes an available harness, and that harness runs its own default model.
+		// A compiled-in vendor name here would present a decision nobody made back
+		// to them as their own configuration.
+		const effectiveHarnessType = data.harnessType ?? null;
+		const effectiveProvider = data.modelProvider ?? null;
+		const effectiveModelId = data.modelId ?? null;
 
 		// AH2: Validate (harness, provider, modelId) triple
 		const validationError = validateAgentConfig(
@@ -279,8 +271,9 @@ export function createAgentRoutes(
 		// seam write can never join a caller's transaction (§3.2), so `insertUser`
 		// commits alone and `runConfig.write` follows. On a failed write, the
 		// agent exists with `DEFAULT_AGENT_RUN_CONFIG` semantics (the read path
-		// already defaults) — it runs on builtin instead of the harness the
-		// caller asked for. The admin edit path repairs it.
+		// already defaults) — it stores no harness, so the pool picks one at
+		// admission rather than the harness the caller asked for. The admin edit
+		// path repairs it.
 		await insertUser(db, {
 			id,
 			kind: "ai",
@@ -299,7 +292,6 @@ export function createAgentRoutes(
 		});
 		await agentOrchestration.runConfig.write(id, {
 			harnessType: effectiveHarnessType,
-			modelTierPreference: data.modelTierPreference ?? null,
 			modelId: effectiveModelId,
 			modelProvider: effectiveProvider,
 			maxConcurrentSessions: data.maxConcurrentSessions,
@@ -314,7 +306,6 @@ export function createAgentRoutes(
 				agentCategory,
 				identityKnowledgeId,
 				harnessType: effectiveHarnessType,
-				modelTierPreference: data.modelTierPreference ?? null,
 				modelId: effectiveModelId,
 				modelProvider: effectiveProvider,
 				modelOptions: data.modelOptions ?? {},
@@ -399,7 +390,6 @@ export function createAgentRoutes(
 			agentCategory: updated.agentCategory ?? null,
 			identityKnowledgeId: (await getAgentIdentityIds(db, [id])).get(id) ?? null,
 			harnessType: updatedRunConfig.harnessType,
-			modelTierPreference: updatedRunConfig.modelTierPreference,
 			modelId: updatedRunConfig.modelId,
 			modelProvider: updatedRunConfig.modelProvider,
 			// The editor sets these, so the editor's save has to hand them back —
@@ -434,5 +424,6 @@ export function createAgentRoutes(
 	return router;
 }
 
-// Re-export catalogEntry for legacy callers that import from here
-export { catalogEntry };
+// @lore A `catalogEntry` was re-exported here "for legacy callers". It looked up
+// a model in MODEL_CATALOG — the built-in gateway's four-entry list — and by the
+// end no caller reached it at all. Both are gone.

@@ -190,7 +190,6 @@ function makePorts(): RoutineSchedulerPorts & {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
 				return {
-					modelGateway: cfg.modelGateway,
 					harnessDisabled: cfg.harnessDisabled,
 				};
 			},

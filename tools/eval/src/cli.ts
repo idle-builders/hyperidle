@@ -2,22 +2,30 @@
 /**
  * X7: Eval CLI entry point.
  *
+ * An eval run measures HyperIdle on ONE harness. `--harness` picks it and
+ * `--model` picks the model that harness runs; both are run-scoped, because a
+ * report that mixed harnesses would not be readable. Compare harnesses by
+ * running the suite once per harness.
+ *
+ * `--judge-model` is a separate axis: the LLM-as-judge scores through the
+ * model gateway and is deliberately independent of the harness, so a harness
+ * comparison is not also a judge comparison.
+ *
  * Usage:
- *   npm run eval                                              # run all scenarios (OpenRouter default)
+ *   npm run eval                                              # all scenarios on codex
+ *   npm run eval -- --harness claude                          # same suite, claude-code
+ *   npm run eval -- --harness opencode --model openrouter/z-ai/glm-4.7-flash
  *   npm run eval -- --quick                                   # quick scenarios only
- *   npm run eval -- --model moonshotai/kimi-k2.6               # override model (OpenRouter)
- *   npm run eval -- --model deepseek/deepseek-v4-pro         # DeepSeek v4 Pro via OpenRouter
- *   npm run eval -- --model minimax/minimax-m3                # MiniMax M3 via OpenRouter
- *   npm run eval -- --model claude-sonnet-4-20250514          # Anthropic model
  *   npm run eval -- --scenario poc-session-notes              # single scenario
  *   npm run eval -- --output results.json                     # custom output path
  *
- * API key validation:
- *   - Default (OpenRouter): requires OPENROUTER_API_KEY
- *   - Anthropic models: requires ANTHROPIC_API_KEY
- *   - Missing key → exits with code 1
+ * Requirements:
+ *   - The selected harness's binary must be installed and logged in.
+ *   - The judge needs OPENROUTER_API_KEY (or ANTHROPIC_API_KEY with
+ *     --judge-model claude-*). Missing key → exits with code 1.
  */
 
+import { EVAL_HARNESSES, isEvalHarnessName } from "./eval-harness.js";
 import { runEval } from "./runner.js";
 
 // ---------------------------------------------------------------------------
@@ -25,7 +33,9 @@ import { runEval } from "./runner.js";
 // ---------------------------------------------------------------------------
 
 interface CliArgs {
+	harness?: string;
 	model?: string;
+	judgeModel?: string;
 	quick: boolean;
 	scenario?: string;
 	feature?: string;
@@ -42,8 +52,12 @@ function parseArgs(argv: string[]): CliArgs {
 			args.help = true;
 		} else if (arg === "--quick" || arg === "-q") {
 			args.quick = true;
+		} else if (arg === "--harness") {
+			args.harness = argv[++i];
 		} else if (arg === "--model" || arg === "-m") {
 			args.model = argv[++i];
+		} else if (arg === "--judge-model") {
+			args.judgeModel = argv[++i];
 		} else if (arg === "--scenario" || arg === "-s") {
 			args.scenario = argv[++i];
 		} else if (arg === "--feature" || arg === "-f") {
@@ -64,24 +78,28 @@ Usage:
   npm run eval [-- options]
 
 Options:
+  --harness <name>             Harness to run: ${EVAL_HARNESSES.join(" | ")} (default: codex)
+  --model, -m <model-id>       Harness-native model to run (default: the harness's own)
+  --judge-model <model-id>     Gateway model for the LLM-as-judge
+                               (default: deepseek/deepseek-v4-pro via OpenRouter)
   --quick, -q                  Run only quick-tagged scenarios
-  --model, -m <model-id>       Override model (default: deepseek/deepseek-v4-pro via OpenRouter)
   --scenario, -s <id>          Run a single scenario by ID
   --feature, -f <name>         Run scenarios for a specific interaction feature
   --output, -o <path>          Output JSON path (default: eval-results.json)
   --help, -h                   Show this help
 
-OpenRouter model examples:
-  --model moonshotai/kimi-k2.6
-  --model deepseek/deepseek-v4-pro
-  --model minimax/minimax-m3
-
-Anthropic model examples:
-  --model claude-sonnet-4-20250514
+Harness model examples:
+  --harness codex        --model gpt-5.4-mini
+  --harness claude       --model haiku
+  --harness opencode     --model openrouter/z-ai/glm-4.7-flash
+  --harness cursor-agent --model auto
 
 Environment variables:
-  OPENROUTER_API_KEY  Required for OpenRouter models (default provider)
-  ANTHROPIC_API_KEY   Required for Anthropic models
+  OPENROUTER_API_KEY  Required for the judge (default provider)
+  ANTHROPIC_API_KEY   Required when --judge-model is an Anthropic model
+
+The selected harness authenticates itself — its own login or key, not one of
+these. Nothing here is injected into the harness subprocess.
 
 Output:
   Console: scenario progress written to stderr
@@ -93,6 +111,16 @@ Output:
 // API key validation
 // ---------------------------------------------------------------------------
 
+function validateHarness(harness?: string): void {
+	if (harness && !isEvalHarnessName(harness)) {
+		process.stderr.write(
+			`[eval] Error: unknown harness "${harness}". Choose one of: ${EVAL_HARNESSES.join(", ")}.\n`,
+		);
+		process.exit(1);
+	}
+}
+
+/** The JUDGE's key — the harness brings its own auth and is never handed one. */
 function validateApiKey(model?: string): void {
 	// Determine which key is needed
 	let needsAnthropic = false;
@@ -141,22 +169,25 @@ async function main(): Promise<void> {
 		process.exit(0);
 	}
 
-	// Validate API key before doing any work
-	validateApiKey(args.model);
+	// Validate selection + judge key before doing any work
+	validateHarness(args.harness);
+	validateApiKey(args.judgeModel);
 
 	process.stderr.write("[eval] Starting HyperIdle Eval Framework\n");
-	if (args.model) {
-		process.stderr.write(`[eval] Model: ${args.model}\n`);
-	} else {
-		process.stderr.write("[eval] Model: deepseek/deepseek-v4-pro (OpenRouter default)\n");
-	}
+	process.stderr.write(`[eval] Harness: ${args.harness ?? "codex"}\n`);
+	process.stderr.write(`[eval] Model: ${args.model ?? "(harness default)"}\n`);
+	process.stderr.write(
+		`[eval] Judge model: ${args.judgeModel ?? "deepseek/deepseek-v4-pro (OpenRouter default)"}\n`,
+	);
 	if (args.quick) {
 		process.stderr.write("[eval] Mode: quick (tagged scenarios only)\n");
 	}
 
 	try {
 		await runEval({
+			harness: args.harness,
 			model: args.model,
+			judgeModel: args.judgeModel,
 			quick: args.quick,
 			filter: args.scenario,
 			feature: args.feature,

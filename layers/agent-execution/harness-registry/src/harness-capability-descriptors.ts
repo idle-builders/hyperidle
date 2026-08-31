@@ -1,4 +1,3 @@
-import { MODEL_CATALOG } from "@hyperidle/domain-model";
 import type {
 	HarnessCapabilityDescriptor,
 	HarnessModelDescriptor,
@@ -26,24 +25,6 @@ const KNOWN_HARNESS_LOGIN_COMMANDS: Record<KnownHarnessFamily, readonly string[]
 
 function isKnownHarnessFamily(type: string): type is KnownHarnessFamily {
 	return (KNOWN_HARNESS_FAMILIES as readonly string[]).includes(type);
-}
-
-function builtinModels(caps: HarnessCapabilities): readonly HarnessModelDescriptor[] {
-	if (caps.descriptorModels) return caps.descriptorModels;
-	// @lore AU19 Increment 4: explicit element type — `(typeof MODEL_CATALOG)[number]`
-	// infers `any` for the map callback under this package's standalone
-	// `tsc --noEmit -p <pkg>/tsconfig.json` (same pre-existing cross-package-reference
-	// artifact documented in `llm-client.ts`'s `isHttpError` — reproduces identically
-	// in otherwise-clean leaf packages, not introduced by this migration).
-	return MODEL_CATALOG.map((model: (typeof MODEL_CATALOG)[number]) => ({
-		id: model.id,
-		label: model.label,
-		provider: model.provider,
-		contextWindow: model.contextWindow,
-		selectable: true,
-		inheritedFromGateway: true,
-		options: [],
-	}));
 }
 
 function cliModels(caps: HarnessCapabilities): readonly HarnessModelDescriptor[] {
@@ -86,32 +67,6 @@ function describe(
 	discoveries?: Readonly<Record<string, HarnessDiscoveryInput | undefined>>,
 ): HarnessCapabilityDescriptor {
 	const type = meta.type ?? meta.name;
-
-	if (type === "builtin") {
-		// @lore AV2 Build Obligation 5: builtin branch reads discoveries[builtin].models
-		// when present (populated by probeBuiltinGateway's /models fetch), NOT caps.descriptorModels.
-		// caps.descriptorModels is the legacy fallback for the static pre-AV2 path; once
-		// the async fetch populates discoveries.builtin.models, that wins.
-		const discoveredModels = discoveries?.[type]?.models;
-		const models: readonly HarnessModelDescriptor[] =
-			discoveredModels && discoveredModels.length > 0 ? discoveredModels : builtinModels(caps);
-
-		return {
-			type,
-			name: meta.name,
-			kind: meta.kind,
-			authAction: caps.authAction ?? {
-				kind: "enter_api_key",
-				label: "Enter API key",
-				description: "Store a model gateway API key in HyperIdle.",
-				credentialNames: ["anthropic_api_key", "openrouter_api_key", "openai_compatible_api_key"],
-			},
-			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
-			models,
-			returnEnforcement: caps.returnEnforcement,
-			modelProviders: meta.modelProviders,
-		};
-	}
 
 	if (isKnownHarnessFamily(type)) {
 		// @lore AV2: known CLI harnesses prefer discoveries[type].models (populated by

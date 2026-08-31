@@ -520,7 +520,6 @@ const ROUTES: readonly RouteCase[] = [
 						teamName: "Alpha",
 						harnessType: null,
 						harnessAvailable: true,
-						modelTierPreference: null,
 						maxConcurrentSessions: 1,
 						createdAt: "2026-01-01T00:00:00.000Z",
 						systemPrompt: null,

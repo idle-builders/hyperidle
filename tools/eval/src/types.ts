@@ -10,11 +10,11 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { JudgeModel } from "./runner.js";
 
 // Re-export for consumers of @hyperidle/eval
-export type { HyperIdleDb, ResolvedModel };
+export type { HyperIdleDb, JudgeModel };
 
 // ---------------------------------------------------------------------------
 // Seeding types
@@ -37,13 +37,18 @@ export interface ScenarioSeedResult {
 	readonly sandboxBasePath: string;
 }
 
-/** Context provided to trigger functions. */
+/**
+ * Context provided to trigger functions.
+ *
+ * @lore No resolved model here. A trigger spawns a real CLI harness, which
+ * authenticates itself and runs the model the agent's own config named — there
+ * is no gateway credential for a trigger to pass down. The judge still gets one
+ * (`JudgeContext.judgeModel`); scoring is its own call, not a harness one.
+ */
 export interface TriggerContext {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly seedResult: ScenarioSeedResult;
-	/** Pre-resolved model from --model flag or default. */
-	readonly resolvedModel: ResolvedModel;
 }
 
 /**
@@ -100,8 +105,8 @@ export interface JudgeContext {
 	readonly db: HyperIdleDb;
 	readonly seedResult: ScenarioSeedResult;
 	readonly triggerResult: TriggerResult;
-	/** The resolved model, available for LLM-as-judge calls. */
-	readonly resolvedModel: ResolvedModel;
+	/** The model the LLM-as-judge scores with — never the harness's own. */
+	readonly judgeModel: JudgeModel;
 }
 
 export interface DimensionScore {
@@ -192,6 +197,11 @@ export interface FeatureBreakdown {
 export interface EvalReport {
 	readonly runId: string;
 	readonly timestamp: string;
+	/**
+	 * The harness this run drove. A score is only readable next to the harness
+	 * that produced it — the same scenarios score differently on each.
+	 */
+	readonly harness: string;
 	readonly model: string;
 	readonly mode: "full" | "quick";
 	readonly scenarios: readonly ScenarioReport[];
@@ -219,7 +229,15 @@ export interface EvalReport {
 // ---------------------------------------------------------------------------
 
 export interface RunOptions {
+	/**
+	 * The harness-native model the agent runs, e.g. `gpt-5.4-mini` for codex.
+	 * Absent leaves the harness on its own default.
+	 */
 	readonly model?: string;
+	/** The CLI harness this run drives. Defaults to codex. */
+	readonly harness?: string;
+	/** The gateway model the LLM-as-judge scores with. Independent of the harness. */
+	readonly judgeModel?: string;
 	readonly quick: boolean;
 	readonly filter?: string;
 	/** Filter scenarios by feature name. Only run scenarios where scenario.feature === feature. */

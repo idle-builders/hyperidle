@@ -82,12 +82,7 @@ function makeSessionConfig(
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse",
 		tools: ["submit_review"],
-		resolvedModel: {
-			provider: "openrouter",
-			model: "openrouter/~anthropic/claude-haiku-latest",
-			apiKey: "sk-test-key",
-			baseUrl: "https://openrouter.ai/api/v1",
-		},
+		selectedModel: "openrouter/~anthropic/claude-haiku-latest",
 		...overrides,
 	};
 }

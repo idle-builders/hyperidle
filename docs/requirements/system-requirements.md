@@ -22,11 +22,11 @@ Platform constraints and standing decisions — what the system must run on and 
 
 ## S-3: Agent Runtime
 
-**S-3.1** The system runs agents through two kinds of harness: a builtin in-process model-calling harness (`layers/agent-execution/harness-registry/src/builtin-harness-adapter.ts`, `llm-client.ts`) and CLI harness adapters for claude/codex/opencode (`cli-harness-adapter.ts`, `adapter-pool.ts`). Capability detail: [../agent-layer/harness-capability-descriptor.md](../agent-layer/harness-capability-descriptor.md).
+**S-3.1** The system runs agents through installed CLI harnesses only — claude-code, codex, opencode, cursor-agent (`cli-harness-adapter.ts`, `adapter-pool.ts`) — plus remote workers. Each authenticates through its own login; HyperIdle stores no model credential. A builtin in-process model-calling harness was removed. Capability detail: [../agent-layer/harness-capability-descriptor.md](../agent-layer/harness-capability-descriptor.md).
 
 **S-3.2** Agents run as host processes; sandboxing is opt-in, never the default. The `SandboxAdapter` surface is `spawn`/`exec`/`destroy` (`layers/agent-execution/harness-registry/src/sandbox-adapter.ts`). See [../architecture/run-unit-model.md](../architecture/run-unit-model.md).
 
-**S-3.3** Model tier (`reasoning | workhorse | fast`, `framework/domain-model/src/types.ts`) is assigned at session creation. The deployer maps a provider + model to each tier (`model-gateway.ts`); API keys live in the credential store, not in tier config. Tier vocabulary and routing: [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md).
+**S-3.3** A session runs the model its agent was configured with (`agent_run_config.model_id`), passed to the harness binary as `--model`. Model tier (`reasoning | workhorse | fast`, `framework/domain-model/src/types.ts`) is still assigned at session creation but selects nothing — it keys the token-usage bucket a session's spend is reported in. Tier vocabulary and routing: [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md).
 
 ## S-4: Threads and Messaging
 

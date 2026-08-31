@@ -19,7 +19,6 @@ import type {
 } from "@hyperidle/harness-protocol";
 import { describe, expect, it, vi } from "vitest";
 import { AdapterPool, createLocalAdapterPool } from "../adapter-pool.js";
-import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 
 // ── Stub adapter helper ───────────────────────────────────────────────────────
@@ -52,40 +51,11 @@ function makeStubAdapter(mcpSupport = false): HarnessAdapter {
 
 // ── createLocalAdapterPool registration ──────────────────────────────────────
 
-describe("createLocalAdapterPool — registration", () => {
-	// "registers a claude-code adapter" moved to
-	// adapter-pool-real-discovery.integration.test.ts — it needs `claude` on PATH.
-
-	it("registers a builtin adapter", async () => {
-		const pool = await createLocalAdapterPool();
-		// builtin is always present and selectable by type
-		const entry = pool.select({ harnessType: "builtin" });
-		expect(entry).not.toBeNull();
-		expect(entry?.meta.kind).toBe("local");
-	});
-
-	// "registers at least two adapters" and "claude-code adapter has id
-	// 'local-claude-code'" moved to adapter-pool-real-discovery.integration.test.ts
-	// — both need `claude` on PATH.
-
-	it("builtin adapter has id 'local-builtin'", async () => {
-		const pool = await createLocalAdapterPool();
-		expect(pool.has("local-builtin")).toBe(true);
-	});
-});
-
 // ── Pool selection by harnessType ─────────────────────────────────────────────
 
 describe("AdapterPool selection by harnessType", () => {
 	// "selects claude-code adapter when harnessType is 'claude-code'" moved to
 	// adapter-pool-real-discovery.integration.test.ts — it needs `claude` on PATH.
-
-	it("selects builtin adapter when harnessType is 'builtin'", async () => {
-		const pool = await createLocalAdapterPool();
-		const entry = pool.select({ harnessType: "builtin" });
-		expect(entry).not.toBeNull();
-		expect(entry?.meta.type).toBe("builtin");
-	});
 
 	it("returns null for unknown harnessType", async () => {
 		const pool = await createLocalAdapterPool();
@@ -172,22 +142,5 @@ describe("AC7 — new adapters can be added via register() only", () => {
 		expect(entry).not.toBeNull();
 		expect(entry?.id).toBe("local-cli-opencode");
 		expect(entry?.meta.type).toBe("opencode");
-	});
-
-	it("a BuiltinHarnessAdapter can be registered and selected", () => {
-		const pool = new AdapterPool();
-		const builtinAdapter = new BuiltinHarnessAdapter();
-
-		pool.register("local-builtin", builtinAdapter, {
-			name: "Built-in Harness",
-			kind: "local",
-			type: "builtin",
-			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-			maxConcurrent: 4,
-		});
-
-		const entry = pool.select({ harnessType: "builtin" });
-		expect(entry).not.toBeNull();
-		expect(entry?.id).toBe("local-builtin");
 	});
 });

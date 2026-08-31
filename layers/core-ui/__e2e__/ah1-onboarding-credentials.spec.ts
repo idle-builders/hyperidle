@@ -101,22 +101,25 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 			}
 		});
 
-		// GET /api/harnesses — pin the built-in gateway to "unauthenticated".
-		// Setup only asks for a key when the gateway does not already have one, and
-		// the real backend reports "ready" on any machine with a gateway credential
-		// in its environment. Without this the test's whole premise — a key entered
-		// during onboarding — depends on the developer's shell.
+		// GET /api/harnesses — pin a key-accepting harness to "unauthenticated".
+		// Setup only asks for a key when the chosen harness can take one and is not
+		// already logged in, and the real backend reports whatever this machine
+		// happens to have installed. Without this the test's whole premise — a key
+		// entered during onboarding — depends on the developer's shell.
 		await page.route("**/api/harnesses", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify([
 					{
-						type: "builtin",
-						name: "Built-in gateway",
-						kind: "remote",
-						accessMode: "api-gateway",
-						authAction: { kind: "enter_api_key", label: "Enter API key" },
+						type: "opencode",
+						name: "OpenCode",
+						kind: "local",
+						authAction: {
+							kind: "native_cli_login",
+							label: "Log in to OpenCode",
+							command: ["opencode", "providers", "login"],
+						},
 						discovery: { state: "unauthenticated" },
 						models: [],
 						runtime: {
@@ -127,7 +130,7 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 							fileEditing: false,
 							toolUse: false,
 						},
-						modelProviders: ["anthropic"],
+						modelProviders: ["anthropic", "openrouter"],
 					},
 				]),
 			});
@@ -147,9 +150,12 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 		// Step 1: Navigate to setup.
 		await page.goto("/setup");
 
-		// Step 2: Fill name and API key.
+		// Step 2: Fill name, API key, and the model the key should run.
 		await page.getByLabel(/your name/i).fill("AH1 Founder");
-		await page.getByLabel(/anthropic api key/i).fill(TEST_ANTHROPIC_KEY);
+		await page.getByLabel(/api key/i).fill(TEST_ANTHROPIC_KEY);
+		// A key says who to call, never what to run — there are no tier defaults
+		// left to fill the model in, so setup asks for it.
+		await page.getByLabel(/^model/i).fill("claude-sonnet-4-6");
 
 		// Step 3: Submit setup form.
 		// After AH1, SetupFlow writes the key via PUT /api/credentials/anthropic_api_key

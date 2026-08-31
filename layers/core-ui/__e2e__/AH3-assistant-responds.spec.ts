@@ -291,7 +291,7 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 							name: "Builder Agent",
 							role: "builder",
 							systemPrompt: "You are a builder.",
-							harnessType: "builtin",
+							harnessType: "claude-code",
 							modelId: "claude-sonnet-4-6",
 							modelProvider: "anthropic",
 							maxConcurrentSessions: 1,
@@ -311,7 +311,7 @@ test.describe("AH3: rectangular textareas in Settings (not pills)", () => {
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify([
-						{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+						{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
 					]),
 				});
 			} else {

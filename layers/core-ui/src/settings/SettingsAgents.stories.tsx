@@ -46,7 +46,7 @@ function Frame({
 }
 
 const MOCK_HARNESSES = [
-	{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic", "openrouter"] },
+	{ type: "opencode", name: "OpenCode", modelProviders: ["anthropic", "openrouter"] },
 	{ type: "claude-code", name: "Claude Code", modelProviders: ["anthropic"] },
 ];
 
@@ -72,7 +72,6 @@ const MOCK_AGENTS = [
 		harnessType: "claude-code",
 		modelId: "claude-sonnet-4-6",
 		modelProvider: "anthropic",
-		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		agentCategory: "team",
@@ -82,10 +81,9 @@ const MOCK_AGENTS = [
 		name: "Builder Bot",
 		role: "builder",
 		systemPrompt: null,
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "claude-opus-4-8",
 		modelProvider: "anthropic",
-		modelTierPreference: null,
 		maxConcurrentSessions: 2,
 		status: "active",
 		agentCategory: "team",

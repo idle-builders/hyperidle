@@ -4,9 +4,7 @@
  * (baked at emit — Increment 1's `callingThreadId` sibling) reaches:
  *   1. the `## Conversation` prompt section (every harness reads it from
  *      AGENTS.md/CLAUDE.md), replacing the raw machine-id Correlation line;
- *   2. `SessionConfig.messages` (selects the builtin adapter's chat
- *      completion over the planning loop, generically);
- *   3. `SessionConfig.requiredReturnActions` — Decision 3's structural rule
+ *   2. `SessionConfig.requiredReturnActions` — Decision 3's structural rule
  *      (`callingThreadId != null && taskId == null` ⇒ `["reply"]`), plus the
  *      one-line reply orientation in the prompt.
  *
@@ -203,7 +201,13 @@ describe("generic transcript delivery (Increment 4)", () => {
 		} as ProvisionSessionParams;
 	}
 
-	test("a session with a baked transcript + calling thread + no task gets ## Conversation, chat messages, and requiredReturnActions:['reply']", async ({
+	// @lore Increment 4 delivered the transcript twice: as the `## Conversation`
+	// prompt section, and as `SessionConfig.messages`, which only the built-in
+	// adapter read — their presence is what selected its chat loop over its
+	// planning loop. A CLI harness only ever saw the prompt section. With that
+	// adapter gone the second delivery had no reader, so the prompt section is the
+	// single delivery and this test asserts it alone.
+	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['reply']", async ({
 		db,
 	}) => {
 		await seedAgent(db, "agent-transcript-1");
@@ -235,10 +239,6 @@ describe("generic transcript delivery (Increment 4)", () => {
 		expect(prompt).toContain("call `reply`");
 		expect(prompt).not.toContain("Correlation:");
 
-		expect(captured.sessionConfig?.messages).toEqual([
-			{ role: "user", content: "What's the status of the launch?" },
-			{ role: "assistant", content: "On track for Friday." },
-		]);
 		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["reply"]);
 	});
 
@@ -296,6 +296,5 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
 		expect(prompt).toContain("Correlation:");
 		expect(prompt).not.toContain("## Conversation");
-		expect(captured.sessionConfig?.messages).toBeUndefined();
 	});
 });

@@ -380,6 +380,45 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 			expect(parsed.mcp?.hyperidle?.url).not.toContain(TEST_TOKEN);
 		});
 	});
+
+	// ── cursor-json dialect ───────────────────────────────────────────────────
+
+	describe("cursor-json dialect", () => {
+		test("writes .cursor/mcp.json with the bridge url and an inline bearer token", () => {
+			writeCliMcpConfig({
+				dialect: "cursor-json",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+			});
+
+			const parsed = JSON.parse(
+				fs.readFileSync(path.join(sandboxPath, ".cursor", "mcp.json"), "utf-8"),
+			) as {
+				mcpServers?: { hyperidle?: { url?: string; headers?: Record<string, string> } };
+			};
+			expect(parsed.mcpServers?.hyperidle?.url).toBe(TEST_MCP_URL);
+			expect(parsed.mcpServers?.hyperidle?.headers?.Authorization).toBe(`Bearer ${TEST_TOKEN}`);
+		});
+
+		/**
+		 * @lore cursor-workspace-root (verified live 2026-08-31, cursor-agent
+		 * 2026.08.25): cursor-agent resolves `.cursor/mcp.json` against the root of
+		 * the enclosing GIT REPOSITORY, not its working directory. A session sandbox
+		 * is a plain subdirectory of the sandbox base, and that base is a git repo —
+		 * so cursor looked in the base, found no `.cursor/`, and ran the whole turn
+		 * with no MCP server. The agent said as much in its own transcript and
+		 * answered in plain text, which never calls `reply`.
+		 *
+		 * Two tests here asserted this writer made the sandbox a repo root, and left
+		 * an existing repo alone. It does neither now, and should not: making every
+		 * session sandbox a git repo is `ensureSandboxGitRepo`'s job
+		 * (run-orchestration/mounter.ts, BA2 ruling 22), called unconditionally from
+		 * the provisioner well before any config file is written — and it has to run
+		 * AFTER filesystem mounting, which a config writer knows nothing about. Both
+		 * claims live in `mounter-registry.test.ts` alongside that function.
+		 */
+	});
 });
 
 // ---------------------------------------------------------------------------

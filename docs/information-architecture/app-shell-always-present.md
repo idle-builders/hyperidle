@@ -86,7 +86,7 @@ Settings opens **in-shell**: Main renders `SettingsPage`, while the primary dest
 
 Profile · Org chart · Agents · Agent behavior · Filesystems · Agent backends · Connections · Appearance (theme only) · Credentials · Notifications (per-type mute) · Backend (mode label + desktop hint, no switch button; Worker folded in, shared-mode only).
 
-Models and Assistant are no longer standalone sections (AV2): model tiers moved into the builtin harness detail inside Agent backends, and Assistant is now a row inside Agents.
+Models and Assistant are no longer standalone sections (AV2): Assistant is a row inside Agents. Model tiers moved into the built-in harness's own detail pane inside Agent backends, and went with that harness — there is no tier screen.
 
 Section-by-section reference: [guides/user/settings](../guides/user/settings.md).
 

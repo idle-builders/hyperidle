@@ -27,7 +27,6 @@ import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
-import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createPluginRoutes } from "./routes/plugins.js";
@@ -353,7 +352,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db, agentOrchestration, options.adapterPool));
-		api.route("/model-gateway", createModelGatewayRoutes(options.db));
 		api.route(
 			"/teams",
 			createTeamRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),

@@ -210,7 +210,6 @@ describe("agent session request sources", () => {
 				role: "builder",
 				teamId: "team-au3-agent",
 				systemPrompt: null,
-				modelTierPreference: null,
 				harnessType: "recording",
 				modelProvider: "test",
 				maxConcurrentSessions: 1,

@@ -2,17 +2,12 @@ import type { HarnessAdapter, HarnessCapabilities } from "@hyperidle/harness-pro
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
 import { discoverLocalHarnesses } from "../harness-discovery.js";
+import {
+	CLAUDE_MODEL_COMMAND_CAPTURE,
+	CLAUDE_MODEL_COMMAND_NO_LIST_CAPTURE,
+} from "./__fixtures__/claude-model-command.js";
 import { CODEX_MODELS_CACHE_CAPTURE } from "./__fixtures__/codex-models-cache.js";
-
-const CLAUDE_MODELS = `Current Claude models:
-
-| Model | ID | Context | In $/1M | Out $/1M |
-|---|---|---|---|---|
-| **Fable 5** | \`claude-fable-5\` | 1M | $10 | $50 |
-| **Haiku 4.5** | \`claude-haiku-4-5\` | 200K | $1 | $5 |
-| Decimal | \`claude-decimal\` | 1.5M | $1 | $5 |
-| Numeric | \`claude-numeric\` | 128000 | $1 | $5 |
-`;
+import { CURSOR_LIST_MODELS_CAPTURE } from "./__fixtures__/cursor-list-models.js";
 
 const OPENCODE_MODELS = `opencode/bad
 { bad json
@@ -32,7 +27,7 @@ function discoveryRunner(overrides: Readonly<Record<string, ReturnType<typeof re
 		"codex login status": response("Logged in using ChatGPT"),
 		"claude --version": response("2.0.0"),
 		"claude auth status": response('{"loggedIn":true}'),
-		"claude models": response(CLAUDE_MODELS),
+		"claude -p /model --output-format json": response(CLAUDE_MODEL_COMMAND_CAPTURE),
 		"opencode --version": response("1.0.0"),
 		"opencode providers list": response("1 credentials"),
 		"opencode models --verbose": response(OPENCODE_MODELS),
@@ -60,7 +55,7 @@ const noCodexCache = async (): Promise<string | null> => null;
 const CODEX_CACHE_FIXTURE = CODEX_MODELS_CACHE_CAPTURE;
 
 describe("discoverLocalHarnesses cohesive discovery", () => {
-	it("parses the captured Claude table, context forms, and MCP health end to end", async () => {
+	it("offers the model names claude itself says it accepts", async () => {
 		const result = await discoverLocalHarnesses({
 			run: discoveryRunner(),
 			env: {},
@@ -69,16 +64,135 @@ describe("discoverLocalHarnesses cohesive discovery", () => {
 		const claude = result["claude-code"];
 
 		expect(claude.state).toBe("ready");
-		expect(claude.models).toEqual([
-			expect.objectContaining({ id: "claude-fable-5", label: "Fable 5", contextWindow: 1_000_000 }),
-			expect.objectContaining({
-				id: "claude-haiku-4-5",
-				label: "Haiku 4.5",
-				contextWindow: 200_000,
-			}),
-			expect.objectContaining({ id: "claude-decimal", contextWindow: 1_500_000 }),
-			expect.objectContaining({ id: "claude-numeric", contextWindow: 128_000 }),
+		// Exactly the names from the captured `/model` answer, in its order. Every
+		// one is a string `--model` accepts, which is the only property that makes a
+		// model offerable at all.
+		expect(claude.models?.map((model) => model.id)).toEqual([
+			"sonnet",
+			"opus",
+			"haiku",
+			"fable",
+			"best",
+			"sonnet[1m]",
+			"opus[1m]",
+			"fable[1m]",
+			"opusplan",
 		]);
+	});
+
+	it("does not offer claude's `default`, because that is the absence of a choice", async () => {
+		const result = await discoverLocalHarnesses({
+			run: discoveryRunner(),
+			env: {},
+			readCodexModelCache: noCodexCache,
+		});
+		// `/model` lists `default` alongside the real names. Offering it would put
+		// "no model" in a model dropdown that already has an empty option, and it
+		// can never satisfy "the model you picked is the model that ran".
+		expect(result["claude-code"].models?.map((model) => model.id)).not.toContain("default");
+	});
+
+	it("reports no claude models when its own answer names none", async () => {
+		const result = await discoverLocalHarnesses({
+			run: discoveryRunner({
+				"claude -p /model --output-format json": response(CLAUDE_MODEL_COMMAND_NO_LIST_CAPTURE),
+			}),
+			env: {},
+			readCodexModelCache: noCodexCache,
+		});
+		// Silence, not a guess: the same rule codex's cache reader follows.
+		expect(result["claude-code"]).toMatchObject({ state: "ready" });
+		expect(result["claude-code"].models).toEqual([]);
+	});
+
+	it("never sends a bare prompt to claude to find out what it can run", async () => {
+		const invoked: string[] = [];
+		await discoverLocalHarnesses({
+			run: async (args) => {
+				invoked.push(args.join(" "));
+				const key = args.join(" ");
+				return (
+					{
+						"claude --version": response("2.0.0"),
+						"claude auth status": response('{"loggedIn":true}'),
+						"claude -p /model --output-format json": response(CLAUDE_MODEL_COMMAND_CAPTURE),
+					}[key] ?? response("", 1)
+				);
+			},
+			env: {},
+			readCodexModelCache: noCodexCache,
+		});
+		// `claude models` is not a subcommand — the binary answers it with a model
+		// turn. Every claude invocation discovery makes must be a flagged command,
+		// never a bare word the CLI will treat as something to think about.
+		expect(invoked).not.toContain("claude models");
+		for (const call of invoked.filter((c) => c.startsWith("claude "))) {
+			expect(call).toMatch(/claude (--version|auth status|-p \/model --output-format json)$/);
+		}
+	});
+
+	it("offers the models cursor-agent lists for the signed-in account", async () => {
+		const result = await discoverLocalHarnesses({
+			run: discoveryRunner({
+				"cursor-agent --version": response("2025.1.1"),
+				"cursor-agent status": response("Logged in as someone@example.com"),
+				"cursor-agent --list-models": response(CURSOR_LIST_MODELS_CAPTURE),
+			}),
+			env: {},
+			readCodexModelCache: noCodexCache,
+		});
+		const cursor = result["cursor-agent"];
+
+		expect(cursor.state).toBe("ready");
+		expect(cursor.models?.map((model) => model.id)).toContain("composer-2.5");
+		expect(cursor.models?.map((model) => model.id)).toContain("gemini-3-flash");
+		expect(cursor.models?.length).toBe(18);
+	});
+
+	it("strips cursor's moving `(current)` and `(default)` markers from labels", async () => {
+		const result = await discoverLocalHarnesses({
+			run: discoveryRunner({
+				"cursor-agent --version": response("2025.1.1"),
+				"cursor-agent status": response("Logged in as someone@example.com"),
+				"cursor-agent --list-models": response(CURSOR_LIST_MODELS_CAPTURE),
+			}),
+			env: {},
+			readCodexModelCache: noCodexCache,
+		});
+		// The suffix marks whichever model the last run selected, so it moves
+		// between probes. Keeping it makes a label change under the reader.
+		const marked = result["cursor-agent"].models?.find((model) => model.id === "gpt-5.2");
+		expect(marked?.label).toBe("GPT-5.2");
+		for (const model of result["cursor-agent"].models ?? []) {
+			expect(model.label).not.toMatch(/\((current|default)\)/);
+		}
+	});
+
+	it("does not offer cursor's `auto`, because it hands the choice back to the harness", async () => {
+		const result = await discoverLocalHarnesses({
+			run: discoveryRunner({
+				"cursor-agent --version": response("2025.1.1"),
+				"cursor-agent status": response("Logged in as someone@example.com"),
+				"cursor-agent --list-models": response(CURSOR_LIST_MODELS_CAPTURE),
+			}),
+			env: {},
+			readCodexModelCache: noCodexCache,
+		});
+		expect(result["cursor-agent"].models?.map((model) => model.id)).not.toContain("auto");
+	});
+
+	it("reports no cursor models when its listing fails, without disturbing readiness", async () => {
+		const result = await discoverLocalHarnesses({
+			run: discoveryRunner({
+				"cursor-agent --version": response("2025.1.1"),
+				"cursor-agent status": response("Logged in as someone@example.com"),
+				"cursor-agent --list-models": response("", 1, "boom"),
+			}),
+			env: {},
+			readCodexModelCache: noCodexCache,
+		});
+		expect(result["cursor-agent"]).toMatchObject({ state: "ready" });
+		expect(result["cursor-agent"].models).toEqual([]);
 	});
 
 	it("reports no Codex models when its cache is absent, and skips malformed OpenCode blocks", async () => {
@@ -144,9 +258,9 @@ const capabilities: HarnessCapabilities = {
 const adapter = { getCapabilities: () => capabilities } as HarnessAdapter;
 
 describe("AdapterPool capability catalog merge", () => {
-	it("prefers discovered models for registered builtin and retains known missing families", () => {
+	it("prefers discovered models for a registered harness and retains known missing families", () => {
 		const pool = new AdapterPool({
-			builtin: {
+			opencode: {
 				state: "ready",
 				models: [
 					{
@@ -155,19 +269,17 @@ describe("AdapterPool capability catalog merge", () => {
 						provider: "openrouter",
 						contextWindow: 128_000,
 						selectable: true,
-						inheritedFromGateway: true,
 						options: [],
 					},
 				],
 			},
 			codex: { state: "missing" },
 			"claude-code": { state: "missing" },
-			opencode: { state: "missing" },
 			"cursor-agent": { state: "missing" },
 		});
-		pool.register("builtin", adapter, {
-			type: "builtin",
-			name: "Builtin",
+		pool.register("opencode", adapter, {
+			type: "opencode",
+			name: "OpenCode",
 			kind: "local",
 			modelProviders: ["openrouter"],
 			maxConcurrent: 1,
@@ -175,7 +287,7 @@ describe("AdapterPool capability catalog merge", () => {
 
 		const catalog = pool.describe();
 		expect(
-			catalog.find((entry) => entry.type === "builtin")?.models.map((model) => model.id),
+			catalog.find((entry) => entry.type === "opencode")?.models.map((model) => model.id),
 		).toEqual(["openrouter/discovered"]);
 		expect(catalog.find((entry) => entry.type === "codex")?.discovery.state).toBe("missing");
 	});

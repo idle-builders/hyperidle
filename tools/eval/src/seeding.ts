@@ -28,7 +28,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { AgentCategory, ModelTier, ScopeKind, TaskState } from "@hyperidle/domain-model";
+import type { AgentCategory, ScopeKind, TaskState } from "@hyperidle/domain-model";
+import { evalHarnessModel, evalHarnessType } from "./eval-harness.js";
 import type { ScenarioSeedResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -92,7 +93,6 @@ export async function seedAgent(
 		teamId: string;
 		systemPrompt?: string;
 		harnessType?: string;
-		modelTierPreference?: ModelTier;
 		/** AB0: Agent category. Defaults to "team" for backward compat. */
 		agentCategory?: AgentCategory;
 	},
@@ -116,8 +116,11 @@ export async function seedAgent(
 	// Services, this one included.
 	await db.insert(agentRunConfig).values({
 		agentUserId: agentId,
-		harnessType: opts.harnessType ?? "builtin",
-		modelTierPreference: opts.modelTierPreference ?? null,
+		// The run's harness and model, so the session the provisioner admits is
+		// the harness the run was asked to measure — `harnessType` picks the
+		// adapter, `modelId` becomes `SessionConfig.selectedModel`.
+		harnessType: opts.harnessType ?? evalHarnessType(),
+		modelId: evalHarnessModel(),
 	});
 
 	return { agentId };
@@ -284,7 +287,6 @@ export async function seedMinimalWorld(
 		teamId,
 		agentCategory,
 		systemPrompt: opts?.agentSystemPrompt ?? buildDefaultSystemPrompt(agentRole),
-		harnessType: "builtin",
 	});
 
 	const { rootTaskId } = await seedRootTask(db, {
@@ -575,7 +577,6 @@ export async function seedMultiAgentWorld(
 		teamId: base.teamId,
 		agentCategory: secondAgentCategory,
 		systemPrompt: opts?.secondAgentSystemPrompt ?? buildDefaultSystemPrompt(secondRole),
-		harnessType: "builtin",
 	});
 
 	return {

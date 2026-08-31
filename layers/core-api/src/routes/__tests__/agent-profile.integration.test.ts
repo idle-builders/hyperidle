@@ -88,7 +88,6 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		agentUserId: "ab1-agent-builder",
 		maxConcurrentSessions: 2,
 		harnessType: "claude-code",
-		modelTierPreference: "workhorse",
 	});
 	// Who the agent is — an `agent_file` document bound to it. The profile links
 	// to the document; it does not carry its text.
@@ -168,7 +167,6 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		// Config fields
 		expect(body).toHaveProperty("identityKnowledgeId");
 		expect(body).toHaveProperty("harnessType");
-		expect(body).toHaveProperty("modelTierPreference");
 		expect(body).toHaveProperty("maxConcurrentSessions");
 		// @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
 		// `healthSignals` are GONE — every one was derived here from
@@ -201,7 +199,6 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.role).toBe("builder");
 		expect(body.harnessType).toBe("claude-code");
 		expect(body.identityKnowledgeId).toBeTruthy();
-		expect(body.modelTierPreference).toBe("workhorse");
 		expect(body.maxConcurrentSessions).toBe(2);
 	});
 
@@ -359,10 +356,10 @@ describe("AB1 AC-10: Harness availability", () => {
 		await seedPrereqs(db);
 		const adapterPool = new AdapterPool();
 		// Register any adapter
-		adapterPool.register("local-builtin", makeMockAdapter(), {
-			name: "Built-in",
+		adapterPool.register("local-opencode", makeMockAdapter(), {
+			name: "OpenCode",
 			kind: "local",
-			type: "builtin",
+			type: "opencode",
 			modelProviders: ["anthropic"],
 			maxConcurrent: 4,
 		});

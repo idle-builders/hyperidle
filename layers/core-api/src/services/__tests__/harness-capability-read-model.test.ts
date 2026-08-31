@@ -57,24 +57,24 @@ function makeAdapter(caps?: Partial<HarnessCapabilities>): HarnessAdapter {
 	};
 }
 
-const BUILTIN_META: AdapterMeta = {
-	name: "Built-in Harness",
+const OPENCODE_META: AdapterMeta = {
+	name: "OpenCode",
 	kind: "local",
-	type: "builtin",
+	type: "opencode",
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	maxConcurrent: 1,
 };
 
 function makePopulatedPool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("local-builtin", makeAdapter(), BUILTIN_META);
+	pool.register("local-opencode", makeAdapter(), OPENCODE_META);
 	return pool;
 }
 
 describe("harness-capability-read-model", () => {
 	it("harnessCapabilitiesForType returns non-null for a registered type", () => {
 		const pool = makePopulatedPool();
-		const result = harnessCapabilitiesForType(pool, "builtin");
+		const result = harnessCapabilitiesForType(pool, "opencode");
 		expect(result).not.toBeNull();
 		expect(result?.returnEnforcement).toBeDefined();
 	});
@@ -85,18 +85,18 @@ describe("harness-capability-read-model", () => {
 	});
 
 	it("harnessCapabilitiesForType returns null when reader is undefined (nullable-pool fallback)", () => {
-		expect(harnessCapabilitiesForType(undefined, "builtin")).toBeNull();
+		expect(harnessCapabilitiesForType(undefined, "opencode")).toBeNull();
 	});
 
 	it("harnessRegistrationMeta derives registration metadata from AdapterPool.describe()", () => {
 		const pool = makePopulatedPool();
-		expect(harnessRegistrationMeta(pool, "builtin")).toEqual(BUILTIN_META);
+		expect(harnessRegistrationMeta(pool, "opencode")).toEqual(OPENCODE_META);
 		expect(harnessRegistrationMeta(pool, "unknown-type")).toBeNull();
 	});
 
 	it("a real AdapterPool is structurally assignable to HarnessCapabilityReader (AC-2 compile-time guarantee)", () => {
 		const pool = makePopulatedPool();
 		const reader: HarnessCapabilityReader = pool;
-		expect(harnessCapabilitiesForType(reader, "builtin")).not.toBeNull();
+		expect(harnessCapabilitiesForType(reader, "opencode")).not.toBeNull();
 	});
 });

@@ -14,7 +14,8 @@
 // --- Section navigation ---
 
 /**
- * AV2: Removed "worker" (folded under backend) and "models" (folded into builtin harness detail).
+ * AV2: Removed "worker" (folded under backend) and "models" (which lived in the built-in
+ * harness's own detail pane, and went with it).
  * "assistant" was never in this union (handled in SettingsAssistant, now deleted — the assistant
  * is a row in the Agents section).
  */
@@ -50,8 +51,9 @@ export interface SettingsSection {
  * review false-negative (WARNING-1 in the AF15 architecture-critique).
  */
 /**
- * AV2: "worker" removed (folded under Backend). "models" removed (folded into builtin harness
- * detail in SettingsHarnesses). The assistant is now part of the "agents" section.
+ * AV2: "worker" removed (folded under Backend). "models" removed — it lived in the
+ * built-in harness's own detail pane in SettingsHarnesses, and went with that
+ * harness. The assistant is now part of the "agents" section.
  */
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
 	{ id: "profile", label: "Profile" },
@@ -87,7 +89,6 @@ export interface AgentConfig {
 	/** The agent's identity document, or null when it has none. */
 	identityKnowledgeId: string | null;
 	harnessType: string | null;
-	modelTierPreference: string | null;
 	/** AH2: Per-agent model ID. null = use tier fallback. */
 	modelId: string | null;
 	/** AH2: Per-agent model provider. null = use tier fallback ("anthropic"). */

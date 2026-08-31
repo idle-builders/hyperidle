@@ -165,14 +165,14 @@ describe("credentials:set handler", () => {
 		) => Promise<{ stored: boolean; warning?: string }>;
 		const setHandler = getHandler<SetFn>(handleMock, "credentials:set");
 
-		const result = await setHandler(null, "anthropic_api_key", "sk-1234abcd");
+		const result = await setHandler(null, "shared_backend_key", "sk-1234abcd");
 		expect(result.stored).toBe(true);
 		expect(result.warning).toBeUndefined();
 
 		// Verify credentials.json was written
 		expect(fs.existsSync(credPath)).toBe(true);
 		const raw = JSON.parse(fs.readFileSync(credPath, "utf-8")) as Record<string, string>;
-		expect(Object.keys(raw)).toContain("anthropic_api_key");
+		expect(Object.keys(raw)).toContain("shared_backend_key");
 	});
 
 	it("returns { stored: false, warning } when encryption is unavailable", async () => {
@@ -192,7 +192,7 @@ describe("credentials:set handler", () => {
 		) => Promise<{ stored: boolean; warning?: string }>;
 		const setHandler = getHandler<SetFn>(handleMock, "credentials:set");
 
-		const result = await setHandler(null, "anthropic_api_key", "sk-1234abcd");
+		const result = await setHandler(null, "shared_backend_key", "sk-1234abcd");
 		expect(result.stored).toBe(false);
 		expect(result.warning).toBeDefined();
 		expect(result.warning).toMatch(/keychain|memory|unavailable/i);
@@ -215,8 +215,8 @@ describe("credentials:get handler", () => {
 		const setHandlerFn = getHandler<SetFn>(handleMock, "credentials:set");
 		const getHandlerFn = getHandler<GetFn>(handleMock, "credentials:get");
 
-		await setHandlerFn(null, "anthropic_api_key", "super-secret");
-		const value = await getHandlerFn(null, "anthropic_api_key");
+		await setHandlerFn(null, "shared_backend_key", "super-secret");
+		const value = await getHandlerFn(null, "shared_backend_key");
 		expect(value).toBe("super-secret");
 	});
 
@@ -248,12 +248,13 @@ describe("credentials:list handler", () => {
 		const setHandlerFn = getHandler<SetFn>(handleMock, "credentials:set");
 		const listHandlerFn = getHandler<ListFn>(handleMock, "credentials:list");
 
-		await setHandlerFn(null, "anthropic_api_key", "valueA");
-		await setHandlerFn(null, "openrouter_api_key", "valueB");
+		// @lore This stored two names and asserted both came back. The catalog is
+		// one name now — HyperIdle holds no model credential — so what the list
+		// handler owes is that a stored name is returned and an unstored one is not.
+		await setHandlerFn(null, "shared_backend_key", "valueA");
 
 		const names = await listHandlerFn(null);
-		expect(names).toContain("anthropic_api_key");
-		expect(names).toContain("openrouter_api_key");
+		expect(names).toEqual(["shared_backend_key"]);
 	});
 
 	it("returns empty array for an empty store", async () => {
@@ -286,10 +287,10 @@ describe("credentials:delete handler", () => {
 		const deleteHandlerFn = getHandler<DeleteFn>(handleMock, "credentials:delete");
 		const listHandlerFn = getHandler<ListFn>(handleMock, "credentials:list");
 
-		await setHandlerFn(null, "anthropic_api_key", "value");
-		await deleteHandlerFn(null, "anthropic_api_key");
+		await setHandlerFn(null, "shared_backend_key", "value");
+		await deleteHandlerFn(null, "shared_backend_key");
 		const names = await listHandlerFn(null);
-		expect(names).not.toContain("anthropic_api_key");
+		expect(names).not.toContain("shared_backend_key");
 	});
 });
 
@@ -343,8 +344,8 @@ describe("memory-only fallback", () => {
 		const memSetHandler = getHandler<MemSetFn>(handleMock, "credentials:set");
 		const memGetHandler = getHandler<MemGetFn>(handleMock, "credentials:get");
 
-		await memSetHandler(null, "anthropic_api_key", "in-memory-value");
-		const value = await memGetHandler(null, "anthropic_api_key");
+		await memSetHandler(null, "shared_backend_key", "in-memory-value");
+		const value = await memGetHandler(null, "shared_backend_key");
 		// Memory-only: the value should still be retrievable within the same session
 		expect(value).toBe("in-memory-value");
 

@@ -64,7 +64,7 @@ export function cliAdapterFixture(
 					"--model",
 					"{{model}}",
 				],
-				envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" },
+				envMap: {},
 				eventFormat: "ndjson",
 				envAllowlist: ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"],
 				returnEnforcementChannel: "process-reengage",

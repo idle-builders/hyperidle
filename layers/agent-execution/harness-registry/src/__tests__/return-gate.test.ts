@@ -17,7 +17,6 @@ import {
 	shouldForceReturn,
 } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
-import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { createReturnEnforcement } from "../return-enforcement.js";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
@@ -279,13 +278,6 @@ describe("shouldForceReturn helper", () => {
 describe("returnEnforcement channel declared per adapter", () => {
 	// ── Hard-block adapters ────────────────────────────────────────────────
 
-	it("BuiltinHarnessAdapter: returnEnforcement='builtin-loop'", () => {
-		const adapter = new BuiltinHarnessAdapter();
-		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
-		// FAILS red until Task 6 adds returnEnforcement:"builtin-loop"
-		expect(caps.returnEnforcement).toBe("builtin-loop");
-	});
-
 	it("claude CLI adapter (CliHarnessAdapter): returnEnforcement='settings-claude'", () => {
 		const adapter = new CliHarnessAdapter(cliAdapterFixture("claude"));
 		const caps = adapter.getCapabilities() as unknown as Record<string, unknown>;
@@ -295,25 +287,26 @@ describe("returnEnforcement channel declared per adapter", () => {
 	// ── v3 fields are GONE (v4 guard) ───────────────────────────────────
 
 	it("HarnessCapabilities NO LONGER has hasNativeReturnHook (v3 removed in Task 1)", () => {
-		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<
-			string,
-			unknown
-		>;
+		const caps = new CliHarnessAdapter(
+			cliAdapterFixture("claude"),
+		).getCapabilities() as unknown as Record<string, unknown>;
 		// FAILS red until Task 1/6 removes hasNativeReturnHook
 		expect("hasNativeReturnHook" in caps).toBe(false);
 	});
 
 	it("HarnessCapabilities NO LONGER has canReEngage (v3 removed in Task 1)", () => {
-		const caps = new BuiltinHarnessAdapter().getCapabilities() as unknown as Record<
-			string,
-			unknown
-		>;
+		const caps = new CliHarnessAdapter(
+			cliAdapterFixture("claude"),
+		).getCapabilities() as unknown as Record<string, unknown>;
 		// FAILS red until Task 1/6 removes canReEngage
 		expect("canReEngage" in caps).toBe(false);
 	});
 
 	it("HarnessAdapter NO LONGER has continueSession? (v3 Mode-2 removed in Task 1)", () => {
-		const adapter = new BuiltinHarnessAdapter() as unknown as Record<string, unknown>;
+		const adapter = new CliHarnessAdapter(cliAdapterFixture("claude")) as unknown as Record<
+			string,
+			unknown
+		>;
 		// FAILS red until Task 1 removes continueSession? from the interface
 		expect("continueSession" in adapter).toBe(false);
 	});

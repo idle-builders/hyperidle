@@ -114,7 +114,7 @@ export interface BakedWorkIntentRequest {
  * `ProvisionSessionParams.productId`, which is the TASK's team).
  *
  * @lore AU26 G1 (architecture §D-L): the five RUN-CONFIG fields this shape used
- * to carry — `systemPrompt`, `modelTierPreference`, `harnessType`,
+ * to carry — `systemPrompt`, `harnessType`,
  * `modelProvider`, `maxConcurrentSessions` — LEFT the bake when the columns
  * left `users`. They are no longer core state, so there is nothing for core to
  * bake: they live in `agent_run_config`, which agent-orchestration owns, and
