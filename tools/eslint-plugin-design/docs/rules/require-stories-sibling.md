@@ -6,10 +6,10 @@
 ## Why
 
 Stories are the single demonstrable artifact for a component. Every component
-file under `framework/design-system/src/` and `layers/core-ui/src/components/`
+file under the directories in `TARGET_DIRS`
 must have a sibling `<Name>.stories.tsx`. The story is the design artifact
 rendered by the pipeline design-review tooling and covered by the catalog
-DOM-snapshot net (`framework/design-system/src/__tests__/catalog-snapshot.test.tsx`).
+design review that renders the story.
 
 ## Opt-out
 
@@ -23,12 +23,19 @@ export const Internal = () => null;
 
 ## Incorrect
 
-`framework/design-system/src/Foo.tsx` exists; `Foo.stories.tsx` does not.
+`layers/core-ui/src/components/Foo.tsx` exists; `Foo.stories.tsx` does not.
 
 ## Correct
 
-`framework/design-system/src/Foo.tsx` AND `framework/design-system/src/Foo.stories.tsx` both exist.
+`layers/core-ui/src/components/Foo.tsx` AND `layers/core-ui/src/components/Foo.stories.tsx` both exist.
 
 ## Cross-link
 
 See `.claude/rules/design-system.md` for the full design-system contract.
+
+## Known gap
+
+`TARGET_DIRS` is `framework/design-system/src/` (deleted) and `layers/core-ui/src/components/`. It does
+not include `layers/core-ui/src/ds/`, where the design system now lives, so the rule does not enforce a
+story for any of those components — 18 of 74 have none. Correcting the target directories is a
+deliberate change: it surfaces those 18 at once.

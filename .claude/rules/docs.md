@@ -17,7 +17,7 @@ top.
 - Plain, simple language. No domain lingo where an ordinary word works, no marketing register, no
   effort or time estimates.
 - Durable domain language only. Planning labels — track letters, work-item ids — stay inside
-  `.pipeline/`. A doc that says "AU34 did this" is dated the day the track ends.
+  `.pipeline/`. A doc that names a track and what it did is dated the day that track ends.
 - Say what is true now. Not what is planned, not what was true before, not what a work item intends.
 - One authoritative account per subject. If two pages would both explain a mechanism, one explains it
   and the other links.

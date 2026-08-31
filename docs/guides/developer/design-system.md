@@ -4,7 +4,7 @@ Story format, catalog groups, and the component budget are owned by [`.claude/ru
 
 ## Stories are the design artifact
 
-Each component's `.stories.tsx` is the design source of truth. The `require-stories-sibling` lint rule enforces the sibling story — **error** inside `layers/core-ui/src/ds/**`, **warn** everywhere else in `layers/core-ui/src/**`. Severities are wired per scope in `tools/eslint-plugin-design/src/hearth-config.ts`, and `npm run lint` runs ESLint with `--quiet`, so the warn scope reports nothing there; use `npm run lint:design` to see it.
+Each component's `.stories.tsx` is the design source of truth. The `require-stories-sibling` lint rule is wired at **error** for `layers/core-ui/src/ds/**` and **warn** elsewhere in `layers/core-ui/src/**` (`tools/eslint-plugin-design/src/hearth-config.ts`), but its own `TARGET_DIRS` are `layers/core-ui/src/components/` and a design-system directory that no longer exists — so inside `ds/`, where the components actually live, it never fires. 18 of 74 `ds/` component files have no story. `require-ds-attribute` has the same problem and currently fires nowhere: its filename predicate matches only the deleted package's path. Both want their targets corrected; until then the story and the marker attributes are a manual obligation. Note also that `npm run lint` runs ESLint with `--quiet`, which drops warn-level rules entirely — use `npm run lint:design` to see them.
 
 There is **no story browser in the repo**. The old in-app `/designsystem` route and the `ds:serve` standalone viewer were both removed; nothing in the app or build depends on a viewer being installed. Stories are rendered by the pipeline plugin's component viewer during `/pipeline:design`:
 

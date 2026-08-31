@@ -8,12 +8,19 @@ paths:
 
 Components live in `layers/core-ui/src/ds/` — 57 at the top level plus nested parts in subfolders,
 re-exported from `layers/core-ui/src/ds/index.ts` along with their prop types and helpers. Shell and region components stay in `layers/core-ui/src/shell/`.
-There is no `framework/design-system` package; AU44 dissolved it into `ds/`, and
-`design-source.test.ts` fails if it ever comes back.
+There is no separate design-system package — it was dissolved into `ds/`, and
+`design-source.test.ts` fails if one comes back.
 
 **Single source of truth.** Each component has exactly one `.tsx` (production, Tailwind). TSX is the
 design source of truth — there are no `.html` reference files, and the `.stories.tsx` story IS the
 design artifact. Every custom component must have a story; it is a deliverable, not documentation.
+
+**Nothing enforces that inside `ds/` right now.** `require-stories-sibling` looks at
+`layers/core-ui/src/components/` and at a design-system directory that no longer exists — never at
+`ds/`. 18 of the 74 component files under `ds/` have no story today. Writing one is on you until the
+rule's target directories are corrected. The same goes for the `data-ds-component` marker:
+`require-ds-attribute` only fires on filenames matching the deleted package's path, so it currently
+fires nowhere at all.
 
 **Story format.** Default export `{ title: "Name", group?: GroupName }`; named exports are React
 components, one variant each. `group` is optional — most stories classify from their path; use it only
@@ -50,8 +57,8 @@ everything else is code that USES it. Rules are wired per scope in
 
 ## Data attributes
 
-`data-ds-component` (shell components use `data-ds-shell`), `data-ds-tier`, `data-uses`,
-`data-daisyui`, `data-used-by` on the outermost element; inner sub-components also carry
+Add them by hand — see the dead-rule note above. `data-ds-component` (shell components use
+`data-ds-shell`), `data-ds-tier`, `data-uses`, `data-daisyui`, `data-used-by` on the outermost element; inner sub-components also carry
 `data-ds-component` + `data-ds-tier`. These DOM markers carry component identity and drive the design
 viewer's annotation overlay, and they are what a review cites when a claim about the render needs a
 number behind it.

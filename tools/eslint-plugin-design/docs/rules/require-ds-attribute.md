@@ -1,7 +1,7 @@
 # `design/require-ds-attribute`
 
 **Severity (K6):** `warn`.
-**Maps to:** K2 marker contract (`framework/design-system/src/ds-attrs.ts`).
+**Maps to:** the marker contract in `layers/core-ui/src/ds/ds-attrs.ts`.
 
 ## Why
 
@@ -11,14 +11,17 @@ powers the K4 inspector, the K6 visual reports, and the visual-regression
 sync check. The recommended way is to spread `dsProps("Name", "1" | "2")`
 or `dsShellProps("Name")` (Tier 3 shells).
 
-This rule fires only inside `framework/design-system/src/*.tsx` (a one-level
+**Currently fires nowhere.** Its filename predicate still matches only
+`framework/design-system/src/*.tsx`, a package that no longer exists — the components moved to
+`layers/core-ui/src/ds/`. The predicate wants repointing; until then the markers are added by hand.
+As written the rule fires only inside `framework/design-system/src/*.tsx` (a one-level
 glob that matches the design-system primitive files; deeper nested
 sub-files are not Tier 1+2 surfaces).
 
 ## Incorrect
 
 ```tsx
-// framework/design-system/src/Foo.tsx
+// layers/core-ui/src/ds/Foo.tsx
 export default function Foo() {
   return <div>{/* ... */}</div>;       // outermost JSX is unmarked
 }
@@ -27,7 +30,7 @@ export default function Foo() {
 ## Correct
 
 ```tsx
-// framework/design-system/src/Foo.tsx
+// layers/core-ui/src/ds/Foo.tsx
 import { dsProps } from "./ds-attrs";
 
 export default function Foo() {
@@ -37,5 +40,5 @@ export default function Foo() {
 
 ## Cross-link
 
-See `framework/design-system/src/ds-attrs.ts` for the marker helper, and
+See `layers/core-ui/src/ds/ds-attrs.ts` for the marker helper, and
 `docs/work-packages/TRACK-K.md` § K2 for the full contract.

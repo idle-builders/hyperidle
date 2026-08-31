@@ -38,12 +38,8 @@ If you can't express the assertion as `import { thing } from "../module" → exp
 
 ### Test file naming
 
-| Pattern | Type | Speed |
-|---|---|---|
-| `*.test.ts` | Unit tests (pure logic, no DB/server) | <1s per file |
-| `*.test.tsx` | Component/UI tests (React rendering) | <1s per file |
-| `*.integration.test.ts` | Integration — a real integration point, no stub of it: **service** (real DB + app fixtures) **or harness-facing** (real installed binary, zero stubs, hard-fail if absent) | 1-10s service / 30-90s harness |
-| `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
+The pattern table lives in `CLAUDE.md` — you need it before you name the file, not after. It is not
+repeated here.
 
 ## Standards
 
@@ -74,7 +70,7 @@ An integration test exercises a **real integration point**, with no stub standin
 
 **What actually enforces this, today.** Do not restate the mechanism here — `docs/agent-layer/harness-coverage-enforcement.md` is the authoritative account and this rule deliberately does not duplicate it. Two things are worth knowing before you rely on it:
 
-- **The source-level gate is gone.** `scripts/honest-harness-guard.ts` and its three shrink-only allowlists were deleted under AU28's clean-slate ruling; the note that recorded them as deserving re-derivation did not survive that track's folder consolidation. Nothing checks at lint time that a harness-facing test declares all its lanes or avoids a stubbed adapter.
+- **The source-level gate is gone.** `scripts/honest-harness-guard.ts` and its three shrink-only allowlists were deleted in a clean-slate ruling, and the note recording them as worth re-deriving did not survive the folder consolidation that followed. Nothing checks at lint time that a harness-facing test declares all its lanes or avoids a stubbed adapter.
 - **The execution floor is gone too.** `assertHarnessSymmetry` enforced per-harness executed counts out of the signed attestation; both were deleted when test execution moved into CI. It had also been near-blind for most of its life — its path predicate matched 1 of the 12 files calling `requireHarness`, having stopped matching when the packages moved.
 
 **So nothing enforces harness breadth today — not at lint time, not at run time.** It is on you, and only on you. `requireHarness` still hard-fails on an absent binary, which keeps an individual lane honest about whether it ran; it says nothing about whether you wrote all four.

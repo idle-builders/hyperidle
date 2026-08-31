@@ -26,5 +26,5 @@ paths:
   it `rounded-[var(--r-default)]`, never `rounded-2xl`. The full catalogue and what the linter
   actually blocks: `.claude/rules/aesthetic-quality.md`.
 - **Palette.** Crème Lemon on Hearth geometry: warm lemon-cream surfaces, lemon-drop fill accent
-  (`--accent-primary`), cocoa text accent (`--accent-deep`), system fonts. No forest green — CL1
-  replaced it. Dense, purposeful, distinctive.
+  (`--accent-primary`), cocoa text accent (`--accent-deep`), system fonts. No forest green — the earlier palette
+  is gone. Dense, purposeful, distinctive.

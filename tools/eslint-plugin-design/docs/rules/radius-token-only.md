@@ -1,8 +1,8 @@
 # `design/radius-token-only`
 
-**Severity:** `error` (both `layers/core-ui/src/**` and `framework/design-system/src/**`, via `hearth-config.ts`).
+**Severity:** `error` in both scopes — `layers/core-ui/src/ds/**` and the rest of `layers/core-ui/src/**` — via `hearth-config.ts`.
 **AQ rule:** AQ-011.
-**Source of truth:** [AESTHETICS.md § Borders/Radii/Shadows](../../../design-system/AESTHETICS.md#bordersradiishadows) and `framework/design-system/src/tokens.css` (`--r-none/--r-subtle/--r-default/--r-pill`).
+**Source of truth:** the radius tokens in `layers/core-ui/src/ds/tokens.css`, and AQ-011 in `.claude/rules/aesthetic-quality.md`. and `framework/design-system/src/tokens.css` (`--r-none/--r-subtle/--r-default/--r-pill`).
 
 ## Why
 
