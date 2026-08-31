@@ -95,6 +95,15 @@ narrower — every fact still announces itself — but that one distinction move
 to the subscriber. If that turns out to matter in practice, the fix is a filter on the subscription,
 not a second event type.
 
+## Known limits, accepted on purpose
+
+**Concurrent reparent can still form a cycle.** `assertNoCycle` runs inside the write's transaction
+but reads with a plain `SELECT`, so two simultaneous reparents can each see an acyclic tree and
+together close a loop. It cannot happen on PGlite (which serialises), only on a shared Postgres, and
+the depth cap on recursive reads keeps such a loop from hanging anything. Founder ruling 2026-08-31:
+*"we can fix that edge case when it becomes a problem."* Recorded here so the next person finds a
+decision rather than a bug. The fix is subtree locking or a higher isolation level — not a retry loop.
+
 ## Dependency graph
 
 - `BB1` → nothing. It is the substrate.
