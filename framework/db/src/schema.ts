@@ -1451,7 +1451,7 @@ export const serviceConnections = pgTable(
 export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
 export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
 
-// --- BA2: Action rules (scoped items for agent action approval) ---
+// --- Action rules (scoped items for agent action approval) ---
 
 /**
  * Action rules define which agent actions require human approval before

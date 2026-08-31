@@ -1,4 +1,4 @@
--- BA2: Action rules table — scoped items that flag agent actions needing
+-- Action rules table — scoped items that flag agent actions needing
 -- human approval. Scope is global, team, or agent; resolution at
 -- provisioning is by union. The list starts empty; no action is interrupted
 -- until a human adds a rule.
