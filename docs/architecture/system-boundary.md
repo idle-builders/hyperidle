@@ -19,7 +19,7 @@ Boundary settled by founder decision 2026-06-22, grounded in a code+docs invento
 | Git hosting (repos, commits, protocol) | **RIDE** | code lives in a **local git repo, forge-optional**; we read diffs and sync provider PR/MR state — never host repos |
 | Code review (PR/MR, approvals, comments) | **SYNC / INTEGRATE** | Provider-native PR/MR review remains source of truth for code; HyperIdle links it to work, agents, sessions, and AL7-gated actions |
 | CI/CD (Actions, runners, pipelines) | **INTEGRATE** | trigger/observe via API/MCP; never host runners |
-| Deploy / registries / environments | **INTEGRATE** | a deploy is a Proposed Call the agent runs with its own tools once approved; registries integrated |
+| Deploy / registries / environments | **INTEGRATE** | a deploy is an action the agent runs with its own tools once approved; registries integrated |
 | Project management (Issues, Projects, Epics) | **REPLACE** | bets/tasks supersede tickets |
 | Knowledge (wikis, gists, Pages) | **REPLACE** | the knowledge fabric supersedes wikis |
 | Code intelligence (search, scanning, AI) | **INTEGRATE** scanning · **REPLACE** AI review | scanning is a rules-DB investment; AI review is our differentiator |
@@ -30,11 +30,11 @@ Boundary settled by founder decision 2026-06-22, grounded in a code+docs invento
 
 - **The system needs no git.** Most agent work — a refund, an email, a metric, a doc — touches no git. Git is **one connected system**, not a foundation.
 - **Code work uses a local git repo, forge-optional.** The agent edits a working copy that is a plain git repo (history + real diffs; `layers/agent-orchestration/filesystem-mounting/src/mounter-registry.ts`). A solo founder needs **no GitHub**. Connect a forge and agents use normal git/gh or provider MCP/API flows to push branches and open PRs; the forge owns code review, CI, branch protection, conflicts, and merge. HyperIdle syncs that provider-native PR/MR state back into Work/Conversations and may route consequential provider actions through AL7, but it does not replace the forge's merge semantics. Git is our working ground, never a product we host. The code artifact is **derived** from the repo / PR, never our store of record.
-- **Consequential provider actions can sit behind a review.** The code diff / PR state is **descriptive** (approve = "this change is good"); **merge / deploy / mark-ready** can be an operative artifact carrying a Proposed Call — routed to a human as a collaboration checkpoint where a human chose it or a learning earned it. Approve lets the agent's own session run it through the provider/CI tool with its own creds, with the provider result returning. The checkpoint fades as trust grows. → mechanics in [Staged operation: the Proposed Call](../process-layer/staged-operation.md).
+- **Consequential provider actions can sit behind a review.** The code diff / PR state is **descriptive** (approve = "this change is good"); **merge / deploy / mark-ready** can be routed to a human as a collaboration checkpoint where a human chose it or a learning earned it. Approve lets the agent's own session run the action through the provider/CI tool with its own creds, with the provider result returning. The checkpoint fades as trust grows. The gate that routes a consequential action to a human is being rebuilt; no document describes a live mechanism for it until it lands.
 
 ## The executes-nothing boundary
 
-HyperIdle is the **gate + bookkeeper**; the connected system and the agent's own tools are the **executor**. HyperIdle never executes a side-effect of its own — a Proposed Call is approved in HyperIdle, then executed by the agent's session through the provider's tools, and the Outcome returns (`layers/core-api/review/src/proposed-call-workflow.ts`; `proposed_call` in `framework/db/src/schema.ts`). No CI runner, forge, or registry code exists anywhere in the repository.
+HyperIdle is the **gate + bookkeeper**; the connected system and the agent's own tools are the **executor**. HyperIdle never executes a side-effect of its own — an action is approved in HyperIdle, then executed by the agent's own session through the provider's tools, and the result returns. No CI runner, forge, or registry code exists anywhere in the repository.
 
 ## Hard rules
 

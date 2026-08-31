@@ -54,7 +54,7 @@ Cross-view edges (what links to what across the three views): [cross-view-naviga
 | `/work/bet/new` | WorkBetCreate (full page — no dialog) |
 | `/work/bet/:betId` | WorkBet detail |
 | `/work/bet/:betId/task/:taskId` | WorkTask |
-| `/work/bet/:betId/review/:reviewId` | ReviewPage |
+| `/reviews/:reviewId` | ReviewPage |
 | `/agents/:agentId` | AgentProfile |
 | `/knowledge` | KnowledgeList |
 | `/knowledge/new` | KnowledgeCreate |

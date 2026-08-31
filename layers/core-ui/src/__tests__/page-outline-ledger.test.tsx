@@ -83,7 +83,7 @@ describe("real route outline ledger", () => {
 		["New Bet", "/work/bet/new", "Untitled bet", <WorkBetCreate />],
 		["Work Bet", "/work/bet/b", "Bet", <WorkBet loading />],
 		["Work Task", "/work/bet/b/task/t", "Task", <WorkTask />],
-		["Review", "/work/bet/b/review/r", "Review", <ReviewPage loader={pendingReview} />],
+		["Review", "/reviews/r", "Review", <ReviewPage loader={pendingReview} />],
 		["Agent", "/agents/a", "Agent", <AgentProfile overrideLoading />],
 		["Knowledge list", "/knowledge", "Knowledge", <KnowledgeList loading />],
 		["New Knowledge", "/knowledge/new", undefined, <KnowledgeCreate />],

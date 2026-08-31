@@ -16,6 +16,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
+import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import {
 	createTeam,
 	deleteOrgEdge,
@@ -27,7 +28,6 @@ import {
 	resolveReviewRecipients,
 	upsertOrgEdge,
 } from "@hyperidle/org";
-import { provisionTeamRoutines } from "@hyperidle/routine";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
@@ -66,7 +66,7 @@ const createOrgTeamSchema = z.object({
 const scaffoldSpecSchema = z.object({
 	role: z.string().min(1),
 	name: z.string().min(1),
-	agentCategory: z.enum(["team", "strategy", "individual"]),
+	agentCategory: z.enum(["team", "individual"]),
 	systemPrompt: z.string().nullable(),
 	idHint: z.string().optional(),
 });
@@ -76,15 +76,6 @@ const persistScaffoldedAgentsSchema = z.object({
 	specs: z.array(scaffoldSpecSchema).min(1),
 });
 
-/**
- * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): backs
- * `CoreApiOrgPort.provisionTeamRoutines` — `create_team`'s tool handler's
- * last remaining non-seam step (see `core-api-port.ts`'s own doc comment on
- * `CoreApiOrgPort` for the full reasoning). No 1:1 UI route (same shape as
- * `scaffoldedAgentsSchema` above) — `provisionTeamRoutines` is a step INSIDE
- * `POST /teams`'s heavier UI flow (`teams-routes.ts`), not itself a route;
- * this is a new, narrowly-scoped route built specifically for the seam.
- */
 /**
  * @lore AU44 AU20-fd: backs `CoreApiOrgPort.scaffoldFromRequest` — widens the
  * scaffold seam so agent-orchestration passes the request instead of pre-resolved
@@ -100,12 +91,6 @@ const scaffoldFromRequestSchema = z.object({
 	ownerUserId: z.string().nullable(),
 	ownerUserName: z.string().nullable(),
 	systemPromptOverride: z.string().optional(),
-});
-
-const provisionTeamRoutinesSchema = z.object({
-	teamId: z.string().min(1),
-	ownerByRole: z.record(z.string(), z.string().optional()),
-	leadAgentId: z.string().min(1),
 });
 
 /**
@@ -291,6 +276,7 @@ export function createOrgRoutes(
 			{
 				getUserById: (db2, id) => findUser(db2, { id }),
 				insertUser,
+				upsertAgentIdentity,
 				// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
 				// @hyperidle/run-orchestration import (crossing-di) — now the
 				// seam-backed adapter.
@@ -314,7 +300,6 @@ export function createOrgRoutes(
 		const resolved = resolveAgentScaffoldSpecs({
 			trigger: body.trigger,
 			teamName: body.teamName,
-			functions: body.functions,
 			role: body.role,
 			name: body.name,
 			ownerUserId: body.ownerUserId,
@@ -329,28 +314,13 @@ export function createOrgRoutes(
 			{
 				getUserById: (db2, id) => findUser(db2, { id }),
 				insertUser,
+				upsertAgentIdentity,
 				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
 			},
 			body.teamMembersId,
 			specs,
 		);
 		return c.json(result, 201);
-	});
-
-	// POST /team-routines — seeds the four builtin-routine definitions for a
-	// team (`@hyperidle/routine`'s `provisionTeamRoutines`). `teams-routes.ts`'s
-	// `POST /teams` calls the underlying function directly in-process (same
-	// convention as `scaffolded-agents` above) — this route exists so
-	// `create_team`'s tool handler (already routing every other step through
-	// this seam) can reach it too, per Decision C.
-	router.post("/team-routines", validateBody(provisionTeamRoutinesSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof provisionTeamRoutinesSchema>;
-		await provisionTeamRoutines(db, {
-			teamId: body.teamId,
-			ownerByRole: body.ownerByRole,
-			leadAgentId: body.leadAgentId,
-		});
-		return c.json({}, 201);
 	});
 
 	return router;

@@ -17,7 +17,6 @@ const AGENT_WORK_INTENT_SOURCE_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_dispatch_attempt",
-	"proposed_call",
 ] as const;
 
 /** Narrow a raw `agent_work_intents.kind` DB column value to `AgentWorkIntentKind`. */
@@ -63,11 +62,31 @@ export class TargetAgentNotRunnableError extends Error {
  * problem (no adapter registered for that type), not a credential problem.
  */
 export class NoEligibleHarnessError extends Error {
-	constructor(public readonly harnessType: string) {
+	constructor(
+		public readonly harnessType: string,
+		reason?: string,
+	) {
 		super(
-			`No registered adapter matches harness type '${harnessType}'. ` +
+			`No registered adapter matches harness type '${harnessType}'${reason ? ` — ${reason}` : ""}. ` +
 				`Check Settings → Agents or ensure the harness is registered at startup.`,
 		);
 		this.name = "NoEligibleHarnessError";
+	}
+}
+
+/**
+ * No harness could be selected for an agent that pinned none — the pool was
+ * empty, paused, filtered out, or full. `reason` comes from the pool itself,
+ * which is the only thing that can tell those apart.
+ *
+ * Exists as a named class purely so the failure gets a usable `error_code`:
+ * the durable record derives it from `err.name`, and a plain `new Error` lands
+ * as the literal string `"Error"` — which is what every failed request in a
+ * real database used to carry.
+ */
+export class NoAvailableHarnessError extends Error {
+	constructor(public readonly reason: string) {
+		super(`Could not select a harness to run this agent — ${reason}`);
+		this.name = "NoAvailableHarnessError";
 	}
 }

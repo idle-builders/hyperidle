@@ -91,7 +91,6 @@ export interface SeedTeamOptions {
 	readonly id?: string;
 	readonly name?: string;
 	readonly phase?: string;
-	readonly functions?: string | null;
 	readonly factoryDbPath?: string | null;
 	readonly createdAt?: string;
 	readonly teamMembersId?: string;
@@ -119,7 +118,6 @@ export async function seedTeam(
 		id,
 		name: options.name ?? "Test",
 		phase: options.phase ?? "build",
-		functions: options.functions,
 		factoryDbPath: options.factoryDbPath,
 		createdAt,
 		capacity: options.capacity ?? 5,

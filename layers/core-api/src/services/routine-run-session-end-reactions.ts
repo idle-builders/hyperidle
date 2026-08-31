@@ -69,6 +69,7 @@ async function finalizeRoutineRun(
 		readonly outcome: RoutineRunFinalizeOutcome;
 		readonly endedAt: string;
 		readonly sessionId?: string;
+		readonly errorMessage?: string;
 	},
 ): Promise<void> {
 	const run = await routineService.getRoutineRun(db, input.runId);
@@ -81,6 +82,7 @@ async function finalizeRoutineRun(
 			outcome: input.outcome,
 			endedAt: input.endedAt,
 			...(input.sessionId ? { sessionId: input.sessionId } : {}),
+			...(input.errorMessage ? { errorMessage: input.errorMessage } : {}),
 		},
 		{ onlyIfRunning: true },
 	);
@@ -110,6 +112,10 @@ function reactToLifecycleChanged(
 		outcome: "error",
 		endedAt: new Date(event.timestamp).toISOString(),
 		sessionId: event.sessionId,
+		// A run that records only "error" cannot be diagnosed by anyone — not
+		// the person reading the routine's history, not the next agent. Prefer
+		// the message; fall back to the code when that is all there is.
+		errorMessage: event.errorMessage ?? event.failureCode,
 	});
 }
 

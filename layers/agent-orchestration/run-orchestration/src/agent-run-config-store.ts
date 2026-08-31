@@ -76,7 +76,6 @@ function serializeModelOptions(options: ModelOptions): string | null {
 
 /** One agent's run configuration, keyless — the `users.id` is the caller's context. */
 export interface AgentRunConfig {
-	readonly systemPrompt: string | null;
 	readonly harnessType: string | null;
 	readonly modelId: string | null;
 	readonly modelProvider: string | null;
@@ -90,7 +89,6 @@ export interface AgentRunConfig {
  * a NOT NULL DEFAULT 1 (its exact pre-move shape on `users`).
  */
 export const DEFAULT_AGENT_RUN_CONFIG: AgentRunConfig = {
-	systemPrompt: null,
 	harnessType: null,
 	modelId: null,
 	modelProvider: null,
@@ -111,7 +109,6 @@ export type AgentRunConfigPatch = {
 };
 
 const CONFIG_COLUMNS = {
-	systemPrompt: agentRunConfig.systemPrompt,
 	harnessType: agentRunConfig.harnessType,
 	modelId: agentRunConfig.modelId,
 	modelProvider: agentRunConfig.modelProvider,
@@ -121,7 +118,6 @@ const CONFIG_COLUMNS = {
 
 /** Map a selected row's columns onto the config shape. */
 function rowToConfig(row: {
-	systemPrompt: string | null;
 	harnessType: string | null;
 	modelId: string | null;
 	modelProvider: string | null;
@@ -186,7 +182,6 @@ export async function writeAgentRunConfig(
 ): Promise<void> {
 	const insertValues: NewAgentRunConfigRow = {
 		agentUserId,
-		systemPrompt: patch.systemPrompt ?? DEFAULT_AGENT_RUN_CONFIG.systemPrompt,
 		harnessType: patch.harnessType ?? DEFAULT_AGENT_RUN_CONFIG.harnessType,
 		modelId: patch.modelId ?? DEFAULT_AGENT_RUN_CONFIG.modelId,
 		modelProvider: patch.modelProvider ?? DEFAULT_AGENT_RUN_CONFIG.modelProvider,
@@ -198,7 +193,6 @@ export async function writeAgentRunConfig(
 	};
 
 	const updateSet: Partial<NewAgentRunConfigRow> = {};
-	if ("systemPrompt" in patch) updateSet.systemPrompt = patch.systemPrompt ?? null;
 	if ("harnessType" in patch) updateSet.harnessType = patch.harnessType ?? null;
 	if ("modelId" in patch) updateSet.modelId = patch.modelId ?? null;
 	if ("modelProvider" in patch) updateSet.modelProvider = patch.modelProvider ?? null;
@@ -214,3 +208,9 @@ export async function writeAgentRunConfig(
 	}
 	await insert.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: updateSet });
 }
+
+// @lore A `writeAgentRunConfigIfAbsent` lived here, for the every-launch factory
+// bootstrap to seed first-boot run config without overwriting user edits. Its one
+// caller wrote the built-in harness and a hardcoded Anthropic model; with that
+// harness retired, everything left to seed was what an absent row already resolves
+// to (`DEFAULT_AGENT_RUN_CONFIG`), so the caller went and this went with it.

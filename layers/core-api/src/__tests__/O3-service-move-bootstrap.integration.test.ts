@@ -139,11 +139,6 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// whole relevance engine goes; the knowledge_accessed event stays as
 			// an extension surface for plugins.
 			{
-				owner: "review subscriptions",
-				cleanupEffect: "unsubscribe",
-				constituents: ["review creation subscription", "review liveness subscription"],
-			},
-			{
 				owner: "policy registration",
 				cleanupEffect: "unsubscribe",
 				// @lore AU44 batch6: "retry interval" removed — 30s heartbeat deleted with propagation_log.
@@ -162,15 +157,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// `registerAgentLayerServices` boots one lifecycle — the assistant
 			// runs through the SAME durable poller (`startRuntime`) as every
 			// other kind.
-			// @lore AU21 §9 Increment 4: the routine scheduler (builtin-routine
-			// event reaction + the cron/due-eval tick loop) is its own
-			// core-api-side lifecycle, separate from the builtin routine
-			// reactions below.
-			{
-				owner: "builtin routine reactions",
-				cleanupEffect: "bet_state_changed subscription stop",
-				constituents: ["builtin routine reactions"],
-			},
+			// @lore BA9d wave 3: "builtin routine reactions" (bet_state_changed
+			// subscription) was deleted in commit aa260893c — no owner entry here.
 			{
 				owner: "routine scheduler",
 				cleanupEffect: "cron/due-eval tick stop",
@@ -286,10 +274,6 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// ({ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 })
 				// is removed here — the listener itself was deleted with the
 				// whole relevance engine.
-				// One `session_ended` subscription, not two: the risk-tier session-review
-				// subscriber was deleted with the gate it served (nothing ever wrote a risk
-				// tier, so it always returned early). The liveness subscriber beside it stays.
-				{ unsubscribedEvents: ["session_ended"], clearedIntervals: 0 },
 				{
 					// @lore AU44 batch6: clearedIntervals 1→0 — the 30s retry
 					// heartbeat (retryFailedPropagations) is deleted with propagation_log.
@@ -318,9 +302,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					clearedIntervals: 0,
 				},
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
-				// @lore AU21 §9 Increment 4: `bet_state_changed` (builtin routine
-				// reaction) and the scheduler interval dispose separately.
-				{ unsubscribedEvents: ["bet_state_changed"], clearedIntervals: 0 },
+				// @lore BA9d wave 3: "builtin routine reactions" bet_state_changed
+				// subscription deleted in commit aa260893c — no entry here.
 				// @lore BA1 D2: `registerRoutineEventMatcher` replaces
 				// `registerEventTriggers` — one `eventBus.on` per EVENT_TYPES
 				// member (34, always, regardless of what is in `routines`), not

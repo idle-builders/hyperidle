@@ -5,9 +5,10 @@
  */
 
 import {
-	ARTIFACT_VIEW_SHAPES,
+	ARTIFACT_KINDS,
 	HOST_KINDS,
 	type MESSAGE_TYPES,
+	REVIEW_CANVAS_KINDS,
 	VERDICT_DECISIONS,
 } from "@hyperidle/domain-model";
 
@@ -77,9 +78,43 @@ export const inlineRefSchema = z.discriminatedUnion("kind", [
 	mentionRefSchema,
 ]);
 
+/**
+ * WRITE arm — `kind` speaks the consolidated `ARTIFACT_KINDS` vocabulary,
+ * not the retired five-value `ArtifactViewShape`. `.optional()` on the
+ * field itself (not just the value) because the loader never trusts this
+ * copy anyway — it re-reads the real kind off the artifact row.
+ */
 const artifactRefSchema = z.object({
 	id: z.string(),
-	kind: z.enum(ARTIFACT_VIEW_SHAPES),
+	kind: z.enum(ARTIFACT_KINDS).optional(),
+});
+
+/**
+ * READ arm — tolerant of whatever a row already carries, including a
+ * pre-consolidation value like `"text_diff"` written before this change. A
+ * strict enum here throws `.parse()` on every such row, taking out
+ * `GET /threads/:id` for the whole thread.
+ */
+const artifactRefSchemaRow = z.object({
+	id: z.string(),
+	kind: z.string().optional(),
+});
+
+/**
+ * The canvas-envelope channel: `submit_review`'s primary path for
+ * attaching evidence, no stored artifact required. `kind` is validated
+ * against the nine `REVIEW_CANVAS_KINDS`; `payload` stays opaque (malformed
+ * payloads are discovered at render, by the per-canvas fallback, not
+ * rejected here).
+ */
+const reviewCanvasArtifactSchema = z.object({
+	id: z.string().min(1),
+	tool: z.string().min(1),
+	app: z.string().min(1),
+	sourceHref: z.string().min(1),
+	title: z.string().min(1),
+	kind: z.enum(REVIEW_CANVAS_KINDS),
+	payload: z.record(z.string(), z.unknown()),
 });
 
 /**
@@ -152,10 +187,26 @@ export const plainPayloadSchemaWithToolCalls = plainPayloadSchema.extend({
 	notice: assistantNoticeSchema.optional(),
 });
 
+/**
+ * WRITE arm. `artifactRef` is optional (a canvas-only review has none to
+ * give) and `artifacts` is DECLARED — a bare `z.object` strips unknown keys
+ * by default, which would otherwise silently drop the array on write.
+ */
 const reviewPayloadSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).max(16),
-	artifactRef: artifactRefSchema,
+	artifactRef: artifactRefSchema.optional(),
+	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
+});
+
+/**
+ * READ arm, extending the write arm exactly as
+ * `plainPayloadSchemaWithToolCalls` extends `plainPayloadSchema` above:
+ * only `artifactRef.kind` differs, tolerant of a pre-consolidation value a
+ * row already carries.
+ */
+const reviewPayloadSchemaRow = reviewPayloadSchema.extend({
+	artifactRef: artifactRefSchemaRow.optional(),
 });
 
 const questionnairePayloadSchema = z.object({
@@ -217,7 +268,9 @@ export const messageRowSchema = z.discriminatedUnion("type", [
 	}),
 	z.object({
 		type: z.literal("review"),
-		payload: z.union([reviewPayloadSchema, redactedPayloadSchema]),
+		// READ arm — tolerant of a pre-consolidation `artifactRef.kind` an
+		// existing row already carries.
+		payload: z.union([reviewPayloadSchemaRow, redactedPayloadSchema]),
 	}),
 	z.object({
 		type: z.literal("questionnaire"),

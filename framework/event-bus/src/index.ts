@@ -25,8 +25,6 @@ export type {
 	NotificationEvent,
 	PropagationAppliedEvent,
 	PropagationFailedEvent,
-	ProposedCallExecutedEvent,
-	ProposedCallGrantedEvent,
 	RoutineFiredEvent,
 	SandboxWritebackChange,
 	SandboxWritebackChangesDetectedEvent,

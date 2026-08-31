@@ -1,0 +1,46 @@
+{
+	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+	"name": "knowledge-management",
+	"version": "1.0.0",
+	"description": "Knowledge Librarian agent with decay, promotion, and post-task retro routines.",
+	"extensions": {
+		"io.hyperidle": {
+			"contributions": [],
+			"agents": [
+				{
+					"id": "librarian",
+					"name": "Knowledge Librarian",
+					"role": "assistant",
+					"agentCategory": "individual"
+				}
+			],
+			"routines": [
+				{
+					"id": "knowledge-decay",
+					"name": "Knowledge Decay Sweep",
+					"agentId": "librarian",
+					"triggerType": "calendar",
+					"triggerConfig": "{\"cron\":\"0 3 * * 0\"}",
+					"prompt": "Run the knowledge decay sweep by calling the run_knowledge_sweep tool with kind='stale'. This marks active knowledge items that have not been referenced recently as stale so the team's knowledge base stays current and focused."
+				},
+				{
+					"id": "knowledge-promotion",
+					"name": "Knowledge Promotion with Attention Recompute",
+					"agentId": "librarian",
+					"triggerType": "calendar",
+					"triggerConfig": "{\"cron\":\"0 4 * * 0\"}",
+					"prompt": "Run the knowledge promotion sweep by calling the run_knowledge_sweep tool with kind='autoPromotion'. This promotes provisional knowledge items that have met the repetition threshold to validated status so the most-referenced items are available to the team."
+				},
+				{
+					"id": "post-task-retro",
+					"name": "Post-Task Retro",
+					"agentId": "librarian",
+					"triggerType": "event",
+					"eventType": "task_state_changed",
+					"triggerConfig": "{\"transitionTo\":\"done\"}",
+					"prompt": "A task just completed. Review the task notes and any work done. Identify one or two concrete learnings — a process improvement, a decision that should be documented, or a gap in the team's knowledge. Create or update knowledge items to capture what was learned. Keep retros brief and actionable."
+				}
+			]
+		}
+	}
+}

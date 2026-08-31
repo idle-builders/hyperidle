@@ -6,21 +6,9 @@ import { z } from "zod";
  * "decomposition"-sourced session request) no longer exists, so this
  * session-source vocabulary member is dead, not merely unused.
  */
-export const AGENT_SESSION_SOURCE_KINDS = [
-	"task",
-	"assistant",
-	"routine",
-	"knowledge",
-	"proposed_call",
-] as const;
+export const AGENT_SESSION_SOURCE_KINDS = ["task", "assistant", "routine", "knowledge"] as const;
 
-export const AGENT_SESSION_PROMPT_MODES = [
-	"task",
-	"conversation",
-	"routine",
-	"knowledge",
-	"proposed_call",
-] as const;
+export const AGENT_SESSION_PROMPT_MODES = ["task", "conversation", "routine", "knowledge"] as const;
 
 export const AGENT_SESSION_REQUEST_STATUSES = [
 	"pending",
@@ -53,7 +41,6 @@ export const taskSessionRequestInputSchema = baseInput.extend({
 	sourceCorrelation: z.object({
 		taskId: z.string().min(1),
 		teamId: z.string().min(1),
-		proposedCallId: z.string().min(1).optional(),
 	}),
 });
 
@@ -95,23 +82,11 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
 	}),
 });
 
-export const proposedCallSessionRequestInputSchema = baseInput.extend({
-	sourceKind: z.literal("proposed_call"),
-	promptMode: z.literal("proposed_call"),
-	taskId: z.string().min(1),
-	sourceCorrelation: z.object({
-		taskId: z.string().min(1),
-		proposedCallId: z.string().min(1),
-		grantedAgentId: z.string().min(1),
-	}),
-});
-
 export const agentSessionRequestInputSchema = z.discriminatedUnion("sourceKind", [
 	taskSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
-	proposedCallSessionRequestInputSchema,
 ]);
 
 export type AgentSessionRequestInput = z.infer<typeof agentSessionRequestInputSchema>;

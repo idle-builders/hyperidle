@@ -39,9 +39,7 @@
 
 import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
 import {
-	bets,
 	type HyperIdleDb,
-	items,
 	routineRuns,
 	routines,
 	teams,
@@ -50,13 +48,14 @@ import {
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
+	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
 } from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
-import { fireBuiltinRoutine, fireGenericRoutine } from "@hyperidle/routine";
+import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -137,6 +136,7 @@ function makePorts(): RoutineSchedulerPorts {
 		},
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
+		getAgentIdentity,
 	};
 }
 
@@ -166,25 +166,6 @@ async function seedManualRoutine(
 	return { routineId: id, ownerAgentId };
 }
 
-async function seedBuiltinOwner(
-	db: HyperIdleDb,
-	role: string,
-	agentId: string,
-	teamId: string,
-): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: "Inc4 builtin team", phase: "build", createdAt: NOW });
-	await db.insert(users).values({
-		id: agentId,
-		kind: "ai",
-		name: "Builtin owner",
-		role,
-		status: "active",
-		createdAt: NOW,
-	});
-}
-
 describe("relocated fireGenericRoutine", () => {
 	test("fires a manual routine identically to the dispatch-owned original: records a running run + a routine_run work intent", async ({
 		db,
@@ -206,49 +187,6 @@ describe("relocated fireGenericRoutine", () => {
 	// the factory cost-cap gate no longer exists, no replacement.
 });
 
-describe("relocated fireBuiltinRoutine", () => {
-	test("post-bet-retro: creates a review item via ordinary core-api imports (conversation + work), no DispatchPorts", async ({
-		db,
-		eventBus,
-	}) => {
-		const teamId = "inc4-pbr-team";
-		await seedBuiltinOwner(db, "product_manager", "inc4-pbr-owner", teamId);
-		await db.insert(routines).values({
-			id: "builtin:post-bet-retro",
-			name: "Post-bet retro",
-			state: "active",
-			ownerAgentId: "inc4-pbr-owner",
-			triggerType: "event",
-			triggerConfig: JSON.stringify({ eventType: "bet_state_changed" }),
-			active: true,
-		});
-		await db.insert(bets).values({
-			id: "inc4-pbr-bet",
-			teamId,
-			description: "Ship the relocation",
-			appetite: "small",
-			hypothesis: "Relocating the scheduler changes nothing observable.",
-			status: "completed",
-			createdAt: NOW,
-			completedAt: NOW,
-		});
-
-		const result = await fireBuiltinRoutine(db, eventBus, makePorts(), "builtin:post-bet-retro", {
-			betId: "inc4-pbr-bet",
-		});
-
-		expect(result.fired).toBe(true);
-		const reviewRows = await db.select().from(items);
-		expect(reviewRows).toHaveLength(1);
-		expect(reviewRows[0]?.kind).toBe("review");
-		expect(reviewRows[0]?.body ?? "").toContain(
-			"Relocating the scheduler changes nothing observable.",
-		);
-		const runs = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, "builtin:post-bet-retro"));
-		expect(runs).toHaveLength(1);
-		expect(runs[0]?.outcome).toBe("success");
-	});
-});
+// @lore BA9d: "relocated fireBuiltinRoutine" describe block deleted —
+// fireBuiltinRoutine and all builtin bodies (runPostBetRetro etc.) removed.
+// The feature these tested (post-bet retro, portfolio retro) is now plugin-driven.

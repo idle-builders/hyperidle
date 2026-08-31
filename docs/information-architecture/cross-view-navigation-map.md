@@ -22,7 +22,7 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 
 | From | To | Trigger |
 |---|---|---|
-| Review Part in a thread | ReviewPage | "Open review" (`ReviewRequestPart.tsx:63`) → `/work/bet/:betId/review/:reviewId` (`router.tsx:88`) |
+| Review Part in a thread | ReviewPage | "Open review" (`ReviewRequestPart.tsx:63`) → `/reviews/:reviewId` (`router.tsx:94`) |
 
 ## Within Work
 

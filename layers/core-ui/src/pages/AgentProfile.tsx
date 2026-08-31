@@ -26,11 +26,7 @@
  */
 
 import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
-import {
-	AGENT_OPERATIONAL_STATUS_LABEL,
-	findRoleCatalogEntry,
-	roleLabel,
-} from "@hyperidle/domain-model";
+import { AGENT_OPERATIONAL_STATUS_LABEL, roleLabel } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import {
@@ -214,7 +210,6 @@ function AgentProfileLoaded({
 	data: AgentProfileResponse;
 	overrideRunState?: AgentRunState;
 }): JSX.Element {
-	const catalogEntry = findRoleCatalogEntry(data.role);
 	const initials = deriveInitials(data.name);
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
@@ -391,18 +386,12 @@ function AgentProfileLoaded({
 								{/* AI4 Decision 3a: Category tag (name + status are in PageHeader) */}
 								{data.agentCategory && data.agentCategory !== "team" && (
 									<Tag
-										label={
-											data.agentCategory === "strategy"
-												? "App-managed"
-												: data.agentCategory === "individual"
-													? "Individual"
-													: data.agentCategory
-										}
+										label={data.agentCategory === "individual" ? "Individual" : data.agentCategory}
 									/>
 								)}
 							</div>
 							<p className="type-metadata  text-[var(--text-tertiary)] mt-[3px]">
-								{catalogEntry?.label ?? data.role}
+								{roleLabel(data.role)}
 								{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
 								<span className="ml-[6px]">· Created {createdDate}</span>
 							</p>
@@ -440,15 +429,17 @@ function AgentProfileLoaded({
 						<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
 						<KeyValue label="Created" value={createdDate} />
 					</div>
-					{data.systemPrompt && (
-						<details className="mt-[12px]">
-							<summary className="type-metadata  text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)] select-none">
-								System prompt
-							</summary>
-							<pre className="type-data mt-[6px]  text-[var(--text-secondary)]  whitespace-pre-wrap break-all bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
-								{data.systemPrompt}
-							</pre>
-						</details>
+					{/* Who the agent is. It is a knowledge document, so the profile
+					    links to it rather than reprinting it — one place to read it,
+					    one place to edit it. */}
+					{data.identityKnowledgeId && (
+						<RRLink
+							to={`/knowledge/${data.identityKnowledgeId}`}
+							data-testid="agent-identity-link"
+							className="type-metadata mt-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+						>
+							Identity document
+						</RRLink>
 					)}
 				</section>
 

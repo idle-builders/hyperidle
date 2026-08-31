@@ -45,6 +45,16 @@ interface HarnessMcpConfigParams {
 	readonly mcpUrl: string;
 	/** 64-char hex bridge session token. */
 	readonly token: string;
+	/**
+	 * Additional local paths to declare trusted, beyond the sandbox itself —
+	 * the session's mounted filesystems (BA2 founder ruling 18: the filesystem
+	 * primitive is what declares trusted directories; the harness is told what
+	 * it declares, in whatever form that harness understands). Currently only
+	 * the codex-toml dialect acts on this — codex is the harness with a trust
+	 * precondition; the field is threaded generically so a future harness with
+	 * the same shape of check does not need a parallel param.
+	 */
+	readonly trustedPaths?: readonly string[];
 }
 
 interface HarnessMcpConfigResult {
@@ -77,11 +87,11 @@ interface HarnessMcpConfigResult {
  * The Codex home and OpenCode config are both rooted inside the session sandbox.
  */
 function writeHarnessMcpConfig(params: HarnessMcpConfigParams): HarnessMcpConfigResult {
-	const { dialect, sandboxPath, mcpUrl, token } = params;
+	const { dialect, sandboxPath, mcpUrl, token, trustedPaths } = params;
 
 	switch (dialect) {
 		case "codex-toml":
-			return writeCodexToml({ sandboxPath, mcpUrl, token });
+			return writeCodexToml({ sandboxPath, mcpUrl, token, trustedPaths });
 
 		case "opencode-json":
 			return writeOpencodeJson({ sandboxPath, mcpUrl, token });
@@ -97,8 +107,9 @@ function writeCodexToml(params: {
 	sandboxPath: string;
 	mcpUrl: string;
 	token: string;
+	trustedPaths?: readonly string[];
 }): HarnessMcpConfigResult {
-	const { sandboxPath, mcpUrl, token } = params;
+	const { sandboxPath, mcpUrl, token, trustedPaths } = params;
 
 	const codexHomeDir = path.join(sandboxPath, ".codex-home");
 	const configTomlPath = path.join(codexHomeDir, "config.toml");
@@ -121,10 +132,76 @@ function writeCodexToml(params: {
 	// Append to existing config.toml (return-enforcement provisioning may have written model/auth
 	// blocks already). Create the file if absent.
 	fs.appendFileSync(configTomlPath, mcpBlock, "utf-8");
+	fs.appendFileSync(configTomlPath, buildCodexTrustBlock(sandboxPath, trustedPaths), "utf-8");
 
 	// Token must be injected as an env var on codex spawn — NOT forwarded from
 	// process.env (it's per-session-generated). Caller injects outside allowlist.
 	return { tokenEnv: { HYPERIDLE_MCP_TOKEN: token } };
+}
+
+/**
+ * BA2 ruling 22 (corrects ruling 18): trust is DECLARED through codex's own
+ * mechanism, never bypassed — kept deliberately as the general shape (where a
+ * harness has a trusted-directory mechanism, declare the filesystems we
+ * inject as trusted through it), not because it was observed to change
+ * whether `codex exec` runs. Empirically, on codex-cli 0.150.1, this
+ * `[projects."<path>"] trust_level = "trusted"` block makes no observed
+ * difference to the "Not inside a trusted directory" refusal in either
+ * direction — that refusal tracks git-repo-ness alone (see
+ * `ensureSandboxGitRepo`, run-orchestration/mounter.ts, and the corrected
+ * @lore in adapter-pool.ts next to codex's CLI_TOOL_CONFIGS entry). The
+ * session sandbox (codex's cwd) is always declared; `extraPaths` carries the
+ * session's other mounted filesystems (the filesystem primitive's job is
+ * deciding what is trusted — see docs/process-layer/filesystem-primitive.md),
+ * so a doc_set folder symlinked into the sandbox from elsewhere on disk is
+ * trusted too, not just the sandbox root it is linked under.
+ */
+function buildCodexTrustBlock(sandboxPath: string, extraPaths?: readonly string[]): string {
+	const paths = [...new Set([sandboxPath, ...(extraPaths ?? [])])];
+	return paths
+		.map((p) => `\n[projects."${escapeTomlString(p)}"]\ntrust_level = "trusted"\n`)
+		.join("");
+}
+
+/**
+ * Escape a value for a TOML basic string. `extraPaths` (a mounted filesystem's
+ * real path, e.g. a doc_set folder name) is user-influenced — an unescaped `"`
+ * closes the string early and lets the rest of the value be parsed as TOML
+ * (new keys/tables), and a literal newline is not valid inside a basic string
+ * at all.
+ *
+ * @lore A single-pass regex + callback, not a chain of `.replace`s — a chain
+ * only covers the escapes it enumerates (this used to stop at `\ " \n \r \t`,
+ * leaving every other C0 control character, e.g. a vertical tab from a pasted
+ * path, emitted raw; codex's own TOML parser then dies with "invalid basic
+ * string" — verified against the real binary). The TOML spec requires every
+ * control character in a basic string to be escaped; this handles the named
+ * escapes it defines (`\\ \" \n \r \t \b \f`) and falls back to `\uXXXX` for
+ * everything else in the C0/DEL range. A single pass also avoids the
+ * double-escaping a sequential chain risks if ever reordered.
+ */
+function escapeTomlString(value: string): string {
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters IS the point of this escape function.
+	return value.replace(/[\\"\n\r\t\x00-\x1f\x7f]/g, (ch) => {
+		switch (ch) {
+			case "\\":
+				return "\\\\";
+			case '"':
+				return '\\"';
+			case "\n":
+				return "\\n";
+			case "\r":
+				return "\\r";
+			case "\t":
+				return "\\t";
+			case "\b":
+				return "\\b";
+			case "\f":
+				return "\\f";
+			default:
+				return `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`;
+		}
+	});
 }
 
 // ── opencode-json dialect ─────────────────────────────────────────────────────

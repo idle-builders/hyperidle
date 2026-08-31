@@ -19,16 +19,9 @@ const ICON_ARROW = "M3 8h8.2L8 4.8 9.2 3.6 14.4 8l-5.2 4.4L8 11.2 11.2 8H3V8z";
 export function ReviewRequestPart({
 	part,
 	onOpen,
-	canOpen = true,
 }: {
 	part: ReviewPartValue;
 	onOpen: OpenHandler;
-	/**
-	 * UI-005: when false the "Open review" button is hidden. Callers set this to
-	 * false when the bet cannot be resolved (task-hosted thread, no page betId, no
-	 * betId carried on the target) — navigating would produce a dead URL.
-	 */
-	canOpen?: boolean;
 }): JSX.Element {
 	return (
 		<div
@@ -60,26 +53,24 @@ export function ReviewRequestPart({
 			{part.changeSet !== null && (
 				<div className="pl-[29px]">{renderEmbed(part.changeSet, "changeset", onOpen)}</div>
 			)}
-			{canOpen && (
-				<div className="pl-[29px]">
-					<Button
-						variant="primary"
-						size="sm"
-						className="w-fit"
-						onClick={() => onOpen({ route: "review", ...part.reviewTarget })}
+			<div className="pl-[29px]">
+				<Button
+					variant="primary"
+					size="sm"
+					className="w-fit"
+					onClick={() => onOpen({ route: "review", ...part.reviewTarget })}
+				>
+					Open review
+					<svg
+						viewBox="0 0 16 16"
+						fill="currentColor"
+						style={{ width: 12, height: 12 }}
+						aria-hidden="true"
 					>
-						Open review
-						<svg
-							viewBox="0 0 16 16"
-							fill="currentColor"
-							style={{ width: 12, height: 12 }}
-							aria-hidden="true"
-						>
-							<path d={ICON_ARROW} />
-						</svg>
-					</Button>
-				</div>
-			)}
+						<path d={ICON_ARROW} />
+					</svg>
+				</Button>
+			</div>
 		</div>
 	);
 }

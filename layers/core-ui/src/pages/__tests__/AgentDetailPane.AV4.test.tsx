@@ -51,7 +51,7 @@ const AGENT_CONFIG: AgentConfig = {
 	id: "a1",
 	name: "Atlas Builder",
 	role: "builder",
-	systemPrompt: "You build things.",
+	identityKnowledgeId: "ki_af_demo",
 	harnessType: "claude-code",
 	modelId: null,
 	modelProvider: null,
@@ -96,7 +96,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3: AgentDetailPane has no role="dialog" + shows system prompt textarea
+// AC-3: AgentDetailPane has no role="dialog" + links to the identity document
 // ---------------------------------------------------------------------------
 
 describe("AgentDetailPane renders as a detail pane without dialog chrome", () => {
@@ -104,7 +104,7 @@ describe("AgentDetailPane renders as a detail pane without dialog chrome", () =>
 		const { container } = renderAgentPane();
 
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 
 		const dialogs = container.querySelectorAll('[role="dialog"]');
@@ -120,13 +120,17 @@ describe("AgentDetailPane renders as a detail pane without dialog chrome", () =>
 		});
 	});
 
-	it("[RED] system prompt textarea is pre-filled with agent systemPrompt", async () => {
+	// @lore BA9f: the pane used to hold a system-prompt textarea. An agent's
+	// identity is a knowledge document now, so the pane links to it — one editor
+	// for it, not a third copy.
+	it("links to the agent's identity document instead of editing it inline", async () => {
 		renderAgentPane();
 
 		await waitFor(() => {
-			const textarea = screen.getByRole("textbox", { name: /system prompt/i });
-			expect((textarea as HTMLTextAreaElement).value).toBe("You build things.");
+			const link = screen.getByTestId("agent-detail-identity-link");
+			expect(link.getAttribute("href")).toBe("/knowledge/ki_af_demo");
 		});
+		expect(screen.queryByRole("textbox", { name: /system prompt/i })).toBeNull();
 	});
 
 	it("[RED] Save button calls PATCH /api/agents/a1", async () => {

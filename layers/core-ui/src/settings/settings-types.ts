@@ -86,7 +86,8 @@ export interface AgentConfig {
 	id: string;
 	name: string;
 	role: string;
-	systemPrompt: string | null;
+	/** The agent's identity document, or null when it has none. */
+	identityKnowledgeId: string | null;
 	harnessType: string | null;
 	/** AH2: Per-agent model ID. null = use tier fallback. */
 	modelId: string | null;
@@ -103,7 +104,7 @@ export interface AgentConfig {
 	 * keeps the counts in their own state — same rendered string, and a save no
 	 * longer carries a run count at all.
 	 */
-	/** AB3: "team" | "strategy" | "individual" | null. Matches users.agentCategory. @lore AD8a: "personal" renamed to "individual". */
+	/** AB3: "team" | "individual" | null. Matches users.agentCategory. @lore AD8a: "personal"→"individual". @lore BA9d: "strategy" removed. */
 	agentCategory: string | null;
 	/**
 	 * AO1: Registered-filesystem ids injected into THIS bot (the per-bot injection

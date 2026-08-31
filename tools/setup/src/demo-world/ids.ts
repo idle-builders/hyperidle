@@ -18,11 +18,11 @@ export const DESIGNER_ID = "demo-agent-designer";
 export const QA_ID = "demo-agent-qa";
 export const GROWTH_ID = "demo-agent-growth";
 /**
- * The facilitation-community facilitator, seeded by the factory bootstrap (factory-state.ts).
- * @lore AU44 AU20-fd: factory-defaults dissolved; facilitator seeding stays in core (factory-state.ts)
- * until the plugin-track (AU20 Ruling 3) takes over. FACILITATOR_ID points at the factory seed.
+ * @lore BA9d: seed-agent-pf-facilitation removed from factory bootstrap.
+ * Knowledge-management plugin will provide facilitators. Demo world uses
+ * the demo founder's assistant as stand-in for knowledge-routine activity.
  */
-export const FACILITATOR_ID = "seed-agent-pf-facilitation";
+export const FACILITATOR_ID = "ast-demo-founder";
 export const PROPAGATION_ID = "system:propagation";
 
 // ── Bets ────────────────────────────────────────────────────────────────────
@@ -111,10 +111,9 @@ export const KI_TRIAL_RETRO = "demo-ki-retro-trial-extension";
 export const KI_MOBILE_POSTMORTEM = "demo-ki-postmortem-mobile";
 
 // ── Routines ────────────────────────────────────────────────────────────────
-export const ROUTINE_POST_BET_RETRO = "builtin:post-bet-retro";
-export const ROUTINE_PORTFOLIO_RETRO = "builtin:portfolio-retro";
-export const ROUTINE_KNOWLEDGE_DECAY = "builtin:knowledge-decay";
-export const ROUTINE_KNOWLEDGE_PROMOTION = "builtin:knowledge-promotion";
+// @lore BA9d: ritual routine ids (post-task retro, knowledge decay, knowledge
+// promotion) removed from the demo world — the plugin owns them now. Only the
+// skeleton's daily digest remains here; all other routines come from plugins.
 export const ROUTINE_DAILY_DIGEST = "demo-routine-daily_digest";
 
 // ── Sessions (only the ones other rows reference) ───────────────────────────

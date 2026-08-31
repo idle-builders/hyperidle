@@ -51,7 +51,6 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { ProposedCallWorkflowPort } from "@hyperidle/tool-handlers";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
 import { buildToolDefinitions } from "./tool-handlers-bindings.js";
@@ -216,34 +215,12 @@ function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<Hyper
 }
 
 /**
- * AU31 §2.5 — the AL7 trust-first workflow, rebuilt over the `CoreApiPort`
- * seam instead of a direct `@hyperidle/review` import (which would be an
- * orchestration → core-api service import after the tool dispatch's move).
- * Same bridge-adapter idiom as the deleted `tool-provider-bindings.ts`'s own
- * `proposedCallWorkflowPort` — old method names
- * (`captureProposedCall`/`consumeTailoredGrant`/`recordOutcome`) because
- * `ProposedCallWorkflowPort<TDb>` is `@hyperidle/tool-protocol`'s own type; `db` is
- * accepted and ignored (the seam's server side has its own `db`, from the
- * request that reaches its route, not this argument).
- */
-export function buildProposedCallWorkflowPort(
-	transport: CoreApiTransport,
-): ProposedCallWorkflowPort<HyperIdleDb> {
-	const port = buildCoreApiPort(transport);
-	return {
-		captureProposedCall: (_db, input) => port.review.captureProposedCall(input),
-		consumeTailoredGrant: (_db, opts) => port.review.consumeTailoredGrant(opts),
-		recordOutcome: (_db, id, result) => port.review.recordOutcome(id, result),
-	};
-}
-
-/**
  * AU31 §2.7 — the writeback processor's `knowledge` port, rebuilt over the
  * `CoreApiPort` seam instead of the Application injecting
  * `@hyperidle/knowledge` functions directly (`create-server.ts:545-562`
  * before this leaf) — an application → service crossing that hosting could
  * not legalize. `db` is accepted and ignored on every method (same idiom as
- * `buildProposedCallWorkflowPort`): the seam's server side reads/writes
+ * the seam's server side reads/writes
  * through its OWN `db`, not this argument, which exists only so the object
  * satisfies the writeback processor's pre-existing pooled-handle-shaped port.
  */
@@ -323,21 +300,14 @@ function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
 ): SessionLifecyclePorts["toolProvider"] {
-	const workflowPort = buildProposedCallWorkflowPort(coreApiTransport);
 	return {
 		buildToolRegistry(ctx, options) {
 			const definitions = buildToolDefinitions(coreApiTransport);
-			return buildToolRegistryFromDefinitions(
-				definitions,
-				widenToToolContext(ctx),
-				{
-					role: options.role,
-					extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
-					sessionWorkflow: options.sessionWorkflow as ToolRegistryOptions["sessionWorkflow"],
-					useOnlyExtraTools: options.useOnlyExtraTools,
-				},
-				workflowPort,
-			);
+			return buildToolRegistryFromDefinitions(definitions, widenToToolContext(ctx), {
+				role: options.role,
+				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
+				useOnlyExtraTools: options.useOnlyExtraTools,
+			});
 		},
 		toolsForRole(role) {
 			return buildToolDefinitions(coreApiTransport).filter(
@@ -423,6 +393,17 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 				sessionId: input.sessionId,
 				claimToken: input.claimToken,
 				failureCode: input.failureCode,
+				// @lore This adapter silently dropped `errorMessage` for months.
+				// Nothing caught it: the field is optional on both sides, so
+				// omitting it from this fresh object literal type-checks, and
+				// `run-orchestration/__tests__/test-ports.ts` REIMPLEMENTS this
+				// port (forwarding the field correctly), so the package's own
+				// tests asserted the message green while production wrote null.
+				// Every failed request in a real database read `error_code:
+				// "Error"`, `error_message: null` — a failure that refused to say
+				// what it was. Any new field here needs a test through the real
+				// composition, not through `test-ports`.
+				errorMessage: input.errorMessage,
 			},
 		);
 	},

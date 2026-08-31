@@ -293,8 +293,19 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 		return observed;
 	};
 	await wake();
-	// EventBus is a latency hint only; polling remains the process-death recovery path.
-	const unsubscribe = deps.eventBus?.on("*", () => void wake());
+	// EventBus is a latency hint only; the 1-second polling interval is the
+	// authoritative drain path and covers process-death recovery.
+	// @lore BA9d: "*" replaced with the specific event. Coverage:
+	//   - agent_work_intent_recorded is emitted by routine-scheduler.ts only.
+	//     Work intents enqueued via threads, bets, and session-start reactions
+	//     (buildSeamBackedWorkIntentRecorder → intents.submit HTTP seam →
+	//     enqueueWorkIntent) do NOT emit this event — the intake route has no
+	//     EventBus access. Those paths rely on the 1-second poll (≤1s latency).
+	//   - Routine-fired work gets a sub-second wake; all other paths get ≤1s.
+	//   The old "*" subscription fired on every domain event (messages, reviews,
+	//   knowledge, etc.) and caused redundant wakes with no latency benefit since
+	//   those events are not correlated with new work intents.
+	const unsubscribe = deps.eventBus?.on("agent_work_intent_recorded", () => void wake());
 	const timer = setInterval(() => void wake(), 1_000);
 	const reapTimer = setInterval(
 		() => void deps.ports.sessionRequests.reapExpired(deps.db),

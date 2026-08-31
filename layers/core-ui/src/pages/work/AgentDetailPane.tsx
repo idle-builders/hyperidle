@@ -12,8 +12,9 @@
  */
 
 import type { RosterMember } from "@hyperidle/domain-model";
-import { findRoleCatalogEntry } from "@hyperidle/domain-model";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { roleLabel as deriveRoleLabel } from "@hyperidle/domain-model";
+import { type JSX, useCallback, useEffect, useState } from "react";
+import { Link as RRLink } from "react-router-dom";
 // hearth-internal-padding
 import { Avatar, Button, Input, PageHeader, PageScaffold } from "../../ds";
 import { apiFetch } from "../../services/api-fetch.js";
@@ -32,14 +33,12 @@ export interface AgentDetailPaneProps {
 }
 
 interface EditFormValues {
-	systemPrompt: string;
 	harnessType: string;
 	maxConcurrentSessions: number;
 }
 
 function agentToForm(agent: AgentConfig): EditFormValues {
 	return {
-		systemPrompt: agent.systemPrompt ?? "",
 		harnessType: agent.harnessType ?? "",
 		maxConcurrentSessions: agent.maxConcurrentSessions,
 	};
@@ -53,27 +52,29 @@ export function AgentDetailPane({
 }: AgentDetailPaneProps): JSX.Element {
 	const { showToast } = useToast();
 	const [formValues, setFormValues] = useState<EditFormValues>({
-		systemPrompt: "",
 		harnessType: "",
 		maxConcurrentSessions: 1,
 	});
-	const [initialSystemPrompt, setInitialSystemPrompt] = useState("");
+	const [initialForm, setInitialForm] = useState<EditFormValues>({
+		harnessType: "",
+		maxConcurrentSessions: 1,
+	});
 	const [configVisible, setConfigVisible] = useState(false);
 	const [saving, setSaving] = useState(false);
-	const [templateLoading, setTemplateLoading] = useState(false);
-	const templateFetchAbortRef = useRef<AbortController | null>(null);
 
 	// Sync form when agent changes
 	useEffect(() => {
 		if (agent !== null) {
 			const form = agentToForm(agent);
 			setFormValues(form);
-			setInitialSystemPrompt(form.systemPrompt);
+			setInitialForm(form);
 			setConfigVisible(false);
 		}
 	}, [agent]);
 
-	const isDirty = formValues.systemPrompt !== initialSystemPrompt;
+	const isDirty =
+		formValues.harnessType !== initialForm.harnessType ||
+		formValues.maxConcurrentSessions !== initialForm.maxConcurrentSessions;
 
 	const handleSave = useCallback(async (): Promise<void> => {
 		if (!agent) return;
@@ -83,7 +84,6 @@ export function AgentDetailPane({
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					systemPrompt: formValues.systemPrompt || null,
 					harnessType: formValues.harnessType || null,
 					maxConcurrentSessions: formValues.maxConcurrentSessions,
 				}),
@@ -99,41 +99,14 @@ export function AgentDetailPane({
 		}
 	}, [agent, formValues, onSaved, onClose, showToast]);
 
-	const handleLoadTemplate = useCallback(async (): Promise<void> => {
-		if (!agent) return;
-		if (templateFetchAbortRef.current) {
-			templateFetchAbortRef.current.abort();
-		}
-		const controller = new AbortController();
-		templateFetchAbortRef.current = controller;
-		setTemplateLoading(true);
-		try {
-			const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(agent.role)}`, {
-				signal: controller.signal,
-			});
-			if (!res.ok) return;
-			const json = (await res.json()) as { role: string; content: string };
-			setFormValues((prev) => ({ ...prev, systemPrompt: json.content }));
-		} catch (err) {
-			if (err instanceof Error && err.name === "AbortError") return;
-		} finally {
-			if (templateFetchAbortRef.current === controller) {
-				templateFetchAbortRef.current = null;
-			}
-			setTemplateLoading(false);
-		}
-	}, [agent]);
-
 	const role = rosterMember?.role ?? agent?.role ?? "";
-	const catalogEntry = findRoleCatalogEntry(role);
-	const roleLabel = catalogEntry?.label ?? role;
-	const roleDescription = catalogEntry?.description ?? role;
-	const isStrategy = (rosterMember?.agentCategory ?? agent?.agentCategory) === "strategy";
+	const roleLabel = deriveRoleLabel(role);
+	// @lore BA9g: the catalog's description went with the catalog — an agent's
+	// identity document says what it is for, not a sentence about its role.
+	const roleDescription = roleLabel;
+	// @lore BA9d D5: strategy category removed — isStrategy deleted.
 	const agentName = rosterMember?.name ?? agent?.name ?? "";
 	const initials = deriveInitials(agentName);
-
-	const showTemplateButton =
-		!formValues.systemPrompt && catalogEntry?.hasTemplate === true && !templateLoading;
 
 	if (agent === null) {
 		return (
@@ -190,49 +163,27 @@ export function AgentDetailPane({
 					</div>
 				</div>
 
-				{/* System prompt section */}
+				{/* Identity section. It is a knowledge document, so this pane links
+				    to it rather than keeping a third copy of the same editor. */}
 				<div className="mt-[18px]">
-					<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">
-						SYSTEM PROMPT
-					</h3>
+					<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">IDENTITY</h3>
 					<p className="type-metadata  text-[var(--text-tertiary)] mb-[6px]">
-						Personality, style, and values. You define the system prompt; the harness provides
-						tools, context, and knowledge.
+						Personality, style, and values. You define who the agent is; the harness provides tools,
+						context, and knowledge.
 					</p>
 
-					{isStrategy && (
-						<div
-							className="rounded-[var(--r-subtle)] p-[9px] mt-[6px] mb-[6px]"
-							style={{ background: "color-mix(in oklab, var(--status-warning) 6%, transparent)" }}
+					{agent.identityKnowledgeId ? (
+						<RRLink
+							to={`/knowledge/${agent.identityKnowledgeId}`}
+							data-testid="agent-detail-identity-link"
+							className="type-metadata  text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 						>
-							<p className="type-metadata  text-[var(--text-secondary)]">
-								This agent is managed by app defaults. Your system prompt edits are preserved, but
-								operational configuration may refresh when defaults change.
-							</p>
-						</div>
-					)}
-
-					<Input
-						textarea
-						aria-label="System prompt"
-						className="mt-[6px]"
-						rows={12}
-						value={formValues.systemPrompt}
-						onChange={(e) => setFormValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
-						placeholder="Describe this agent's personality, communication style, and values..."
-						disabled={saving}
-					/>
-
-					{showTemplateButton && (
-						<Button
-							variant="ghost"
-							size="sm"
-							type="button"
-							onClick={() => void handleLoadTemplate()}
-							className="mt-[6px]"
-						>
-							Load {roleLabel} template
-						</Button>
+							Edit identity document
+						</RRLink>
+					) : (
+						<p className="type-metadata  text-[var(--text-tertiary)]">
+							This agent has no identity document yet.
+						</p>
 					)}
 				</div>
 
@@ -244,13 +195,7 @@ export function AgentDetailPane({
 						type="button"
 						onClick={() => setConfigVisible((v) => !v)}
 					>
-						{isStrategy
-							? configVisible
-								? "Hide configuration (app-managed)"
-								: "Show configuration (app-managed)"
-							: configVisible
-								? "Hide configuration"
-								: "Show configuration"}
+						{configVisible ? "Hide configuration" : "Show configuration"}
 					</Button>
 
 					{configVisible && (
@@ -265,7 +210,7 @@ export function AgentDetailPane({
 										setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))
 									}
 									placeholder="e.g. claude-code"
-									disabled={isStrategy || saving}
+									disabled={saving}
 								/>
 							</div>
 
@@ -283,7 +228,7 @@ export function AgentDetailPane({
 											maxConcurrentSessions: Number(e.target.value),
 										}))
 									}
-									disabled={isStrategy || saving}
+									disabled={saving}
 								/>
 							</div>
 						</div>

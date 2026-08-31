@@ -1,92 +1,56 @@
 // AL1 review canvas #6 — ReviewVisualDiff: the visual before→after canvas.
 //
-// Proof family: visual before→after (Figma design frame vs the implemented screen).
-// Tool-grounded: Figma mini-logo on the canvas + on each render pane.
+// Proof family: visual before→after (a design frame vs the implemented screen).
+// Real content reaches this canvas as the labels an agent's `VisualDiffPayload`
+// actually supplies — a before/after source label each, plus a list of
+// differing regions.
 //
 // 3-layer drill-down (the signature):
-//   L1  one glance  — side-by-side THUMBNAILS (Design ↔ Build) + Figma logo + "3 regions differ".
-//   L2  the proof   — before/after AT SIZE with a compare-mode toggle (Side-by-side · Overlay · Swipe).
-//   L3  on demand   — the differing regions flagged as chips; clicking one highlights it on both renders.
+//   L1  one glance  — "{count} regions differ" + "{before} → {after}".
+//   L2  the proof   — before/after evidence panes with a compare-mode toggle
+//       (Side-by-side · Overlay · Swipe).
+//   L3  on demand   — the differing regions listed as chips; clicking one flags it.
 //
-// Offline determinism: there are no real image URLs, so the "design" and "build" screens are
-// hand-rendered as Hearth-styled divs (an onboarding screen: header, form, CTA). They differ in
-// three spots — CTA color, a missing field, hero spacing — which are exactly the flagged regions.
+// @lore This canvas used to fill BOTH evidence panes, in every compare mode,
+// with a hand-drawn fake signup screen ("Create your account", an email field
+// placeholdered "you@company.com", a "Create account" CTA) plus a hardcoded
+// Figma mark — for every payload, regardless of what was actually under
+// review. `VisualDiffPayload` carries labels only, no image data, so there
+// was never anything real to put there; the fake screen was pure invention
+// and is deleted outright, not guarded. Real visual content belongs to the
+// `image` artifact kind; until a payload carries one, the honest behavior is
+// to say so — the same rule every other canvas in this family already follows.
 //
-// Chrome tokens are Hearth/CP1 by NAME (var(--token)). The mock screens stay on-palette too; the
-// only hex in this surface comes from <ToolLogo> (tool identity, AQ-008 exempt).
+// Chrome tokens are Hearth/CP1 by NAME (var(--token)). No hex anywhere in this
+// surface — the tool mark that used to live inside the evidence panes is gone;
+// tool identity is shown once, in `CanvasSourceHeader`.
 //
-// States: populated (default, story). empty → "No design frame linked to compare." loading →
-// skeleton: two pulsing thumbnail blocks + a region-chip row of bars. needs-you emphasis → the
-// region count pill uses --accent-secondary-dim (amber) and the strongest region (the missing
-// field, severity `change`) pins first via relevance-ordering.
-//
-// hearth-internal-padding: pane chrome uses optically-tuned inner padding alongside grid spacing.
+// States: populated (default, story) — panes always read "No rendered image
+// supplied" because no payload observed so far carries image data.
 
-import { type CSSProperties, type JSX, useState } from "react";
+import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { ReviewCanvasProps, VisualDiffPayload } from "./review-artifact";
-import { ToolLogo } from "./ToolLogo";
 
-// ── Fixture ────────────────────────────────────────────────────────────────
-// A region the diff flags. `side` says where the difference lives so a render
-// pane can self-highlight the affected band when the region is selected.
-type RegionId = "cta" | "email" | "hero";
+// ── View model ─────────────────────────────────────────────────────────────
+// A region the diff flags — id + label only, both payload-supplied.
+// `VisualDiffPayload` has no real severity, band, or per-region design/build
+// description; the earlier version invented all three to drive highlighting
+// on the fake screen deleted above. Nothing here goes beyond what the payload
+// actually names.
 
 interface DiffRegion {
-	readonly id: RegionId;
-	/** the band this region maps to on the screen renders. */
-	readonly band: "hero" | "form" | "cta";
-	/** materiality — `change` floats above `tweak` so the missing field leads. */
-	readonly severity: "change" | "tweak";
+	readonly id: string;
 	readonly label: string;
-	readonly design: string;
-	readonly build: string;
 }
 
 interface VisualDiff {
-	readonly title: string;
-	readonly frame: string; // Figma frame name
-	readonly tool: "figma";
-	readonly designedBy: string;
-	readonly builtIn: string;
+	readonly before: string;
+	readonly after: string;
 	readonly regions: readonly DiffRegion[];
 }
-
-const FIXTURE: VisualDiff = {
-	title: "Onboarding · Create account",
-	frame: "Onboarding / Account · v4",
-	tool: "figma",
-	designedBy: "Onboarding-v4 frame",
-	builtIn: "SignupScreen.tsx",
-	// relevance-ordered: the missing field (a `change`) floats above the two tweaks.
-	regions: [
-		{
-			id: "email",
-			band: "form",
-			severity: "change",
-			label: "Email field missing in build",
-			design: "Email + Password (2 fields)",
-			build: "Password only (1 field)",
-		},
-		{
-			id: "cta",
-			band: "cta",
-			severity: "tweak",
-			label: "CTA color forest vs amber",
-			design: "--accent-primary (forest)",
-			build: "--accent-secondary (amber)",
-		},
-		{
-			id: "hero",
-			band: "hero",
-			severity: "tweak",
-			label: "Hero spacing 24 → 16",
-			design: "--space-8 (24px)",
-			build: "--space-6 (18px)",
-		},
-	],
-};
 
 type CompareMode = "side" | "overlay" | "swipe";
 
@@ -96,140 +60,58 @@ const MODES: readonly { readonly id: CompareMode; readonly label: string }[] = [
 	{ id: "swipe", label: "Swipe" },
 ];
 
-// ── Mock screens (Hearth-styled divs, no external image) ─────────────────────
-// `variant` picks design vs build; `active` is the currently-selected region so
-// the affected band lights up. Everything is var(--token) — fully deterministic.
+// ── Evidence pane ──────────────────────────────────────────────────────────
+// No mocked screen: the payload carries labels, not images. An honest absence
+// stands in until a real `image` artifact reaches this canvas.
 
-interface ScreenProps {
-	readonly variant: "design" | "build";
-	readonly active: RegionId | null;
-}
-
-const HL: CSSProperties = {
-	outline: "2px solid var(--accent-primary)",
-	outlineOffset: 2,
-	borderRadius: "var(--r-subtle)",
-};
-
-function MockScreen({ variant, active }: ScreenProps): JSX.Element {
-	const isDesign = variant === "design";
-	// hero spacing differs: design 24px, build 18px.
-	const heroPad = isDesign ? 24 : 18;
-	// CTA color differs: design forest, build amber.
-	const ctaBg = isDesign ? "var(--accent-primary)" : "var(--accent-secondary)";
-
+function NoImagePane(): JSX.Element {
 	return (
 		<div
-			className="border-width-thin overflow-hidden  border-[var(--border-default)] bg-[var(--surface-page)]"
+			className="border-width-thin flex items-center justify-center  border-[var(--border-default)] bg-[var(--surface-page)] p-[36px]"
 			style={{ borderRadius: "var(--r-default)" }}
 		>
-			{/* hero band */}
-			<div
-				className="border-width-thin-b  border-[var(--border-subtle)] bg-[var(--surface-container)]"
-				style={{ padding: heroPad, ...(active === "hero" ? HL : {}) }}
-			>
-				<div className="type-lead   text-[var(--text-primary)]">Create your account</div>
-				<div className="type-metadata mt-[3px]  text-[var(--text-tertiary)]">
-					Start your 14-day trial — no card required.
-				</div>
-			</div>
-
-			{/* form band */}
-			<div className="p-[18px]" style={active === "email" ? HL : undefined}>
-				{isDesign ? <Field label="Email" placeholder="you@company.com" /> : null}
-				<div className={isDesign ? "mt-[12px]" : ""}>
-					<Field label="Password" placeholder="••••••••" />
-				</div>
-			</div>
-
-			{/* cta band */}
-			<div className="px-[18px] pb-[18px]" style={active === "cta" ? HL : undefined}>
-				<div
-					className="type-small flex h-[36px] items-center justify-center   text-[var(--text-on-accent)]"
-					style={{ background: ctaBg, borderRadius: "var(--r-pill)" }}
-				>
-					Create account
-				</div>
-			</div>
+			<span className="type-metadata  text-[var(--text-tertiary)]">No rendered image supplied</span>
 		</div>
 	);
 }
 
-function Field({ label, placeholder }: { label: string; placeholder: string }): JSX.Element {
-	return (
-		<div>
-			<div className="type-label mb-[3px]   text-[var(--text-secondary)]">{label}</div>
-			<div
-				className="type-metadata border-width-thin flex h-[30px] items-center  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px]  text-[var(--text-placeholder)]"
-				style={{ borderRadius: "var(--r-subtle)" }}
-			>
-				{placeholder}
-			</div>
-		</div>
-	);
-}
-
-// A labelled render pane (used at-size in L2). Carries the Figma logo + which side it is.
+// A labelled render pane (used at-size in L2). Carries which side it is + its source label.
 function RenderPane({
 	variant,
 	source,
-	active,
 }: {
 	readonly variant: "design" | "build";
 	readonly source: string;
-	readonly active: RegionId | null;
 }): JSX.Element {
 	const isDesign = variant === "design";
 	return (
 		<div className="flex flex-col gap-[6px]">
 			<div className="flex items-center gap-[6px]">
-				<ToolLogo tool="figma" size="sm" label="" />
 				<span className="type-label   uppercase  text-[var(--text-secondary)]">
 					{isDesign ? "Design" : "Build"}
 				</span>
 				<span className="type-metadata  text-[var(--text-tertiary)] truncate">{source}</span>
 			</div>
-			<MockScreen variant={variant} active={active} />
-		</div>
-	);
-}
-
-// ── L1: thumbnail (compact, non-interactive, for the one-glance summary) ──────
-function Thumb({ variant }: { readonly variant: "design" | "build" }): JSX.Element {
-	const isDesign = variant === "design";
-	const ctaBg = isDesign ? "var(--accent-primary)" : "var(--accent-secondary)";
-	return (
-		<div
-			className="border-width-thin w-[72px] shrink-0 overflow-hidden  border-[var(--border-default)] bg-[var(--surface-page)]"
-			style={{ borderRadius: "var(--r-subtle)" }}
-			aria-hidden="true"
-		>
-			<div className="h-[16px] bg-[var(--surface-container)]" />
-			<div className="flex flex-col gap-[3px] p-[6px]">
-				{(isDesign ? [0, 1] : [0]).map((i) => (
-					<div key={i} className="h-[6px] bg-[var(--surface-elevated)]" />
-				))}
-				<div className="mt-[3px] h-[8px] rounded-[var(--r-pill)]" style={{ background: ctaBg }} />
-			</div>
+			<NoImagePane />
 		</div>
 	);
 }
 
 export interface ReviewVisualDiffProps {
-	readonly diff?: VisualDiff;
+	readonly diff: VisualDiff;
 	readonly onApprove?: () => void;
-	readonly onFlag?: (region: RegionId) => void;
+	readonly onFlag?: (region: string) => void;
 }
 
-function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps): JSX.Element {
+function ReviewVisualDiffView({ diff, onFlag }: ReviewVisualDiffProps): JSX.Element {
 	const [mode, setMode] = useState<CompareMode>("side");
-	const [selected, setSelected] = useState<RegionId | null>(null);
+	const [selected, setSelected] = useState<string | null>(null);
 	// overlay opacity (design under, build over); swipe split position.
 	const [overlay, setOverlay] = useState<number>(50);
 
 	const count = diff.regions.length;
 
-	function pick(id: RegionId): void {
+	function pick(id: string): void {
 		setSelected((cur) => (cur === id ? null : id));
 		onFlag?.(id);
 	}
@@ -245,25 +127,17 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 		>
 			<div className="flex flex-col gap-[12px] p-[18px]">
 				{/* ── L1: one-glance summary (tool/title now in source header) ── */}
-				<header className="flex items-start gap-[12px]">
-					<div className="flex gap-[6px]">
-						<Thumb variant="design" />
-						<Thumb variant="build" />
-					</div>
-					<div className="flex min-w-0 flex-col gap-[3px]">
-						<div className="flex items-center gap-[6px]">
-							<span
-								data-spacing-role="compact-pill"
-								className="type-metadata inline-flex items-center gap-[4px] px-[9px] py-[3px]   text-[var(--status-warning)]"
-								style={{ background: "var(--accent-secondary-dim)", borderRadius: "var(--r-pill)" }}
-							>
-								{count} regions differ
-							</span>
-							<span className="type-metadata  text-[var(--text-tertiary)] truncate">
-								{diff.frame} → {diff.builtIn}
-							</span>
-						</div>
-					</div>
+				<header className="flex items-center gap-[6px]">
+					<span
+						data-spacing-role="compact-pill"
+						className="type-metadata inline-flex items-center gap-[4px] px-[9px] py-[3px]   text-[var(--status-warning)]"
+						style={{ background: "var(--accent-secondary-dim)", borderRadius: "var(--r-pill)" }}
+					>
+						{count} regions differ
+					</span>
+					<span className="type-metadata  text-[var(--text-tertiary)] truncate">
+						{diff.before} → {diff.after}
+					</span>
 				</header>
 
 				{/* ── L2: at-size compare + mode toggle ── */}
@@ -313,21 +187,21 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 
 				{mode === "side" ? (
 					<div className="grid grid-cols-2 gap-[12px]">
-						<RenderPane variant="design" source={diff.designedBy} active={selected} />
-						<RenderPane variant="build" source={diff.builtIn} active={selected} />
+						<RenderPane variant="design" source={diff.before} />
+						<RenderPane variant="build" source={diff.after} />
 					</div>
 				) : (
 					<div className="flex flex-col gap-[6px]">
-						<div className="flex items-center gap-[6px]">
-							<ToolLogo tool="figma" size="sm" label="" />
-							<span className="type-label   uppercase  text-[var(--text-secondary)]">
-								Design under · Build over
-							</span>
-						</div>
+						<span className="type-label   uppercase  text-[var(--text-secondary)]">
+							Design under · Build over
+						</span>
 						{/* overlay = build pane stacked over design at `overlay`% opacity.
-					    swipe   = build pane clipped to the left `overlay`% (a wipe). */}
+					    swipe   = build pane clipped to the left `overlay`% (a wipe). Both
+					    panes are the same honest-absence block, so the effect only ever
+					    shows one absence message under/over another — the correct,
+					    non-fabricated result when neither side has an image. */}
 						<div className="relative">
-							<MockScreen variant="design" active={selected} />
+							<NoImagePane />
 							<div
 								className="absolute inset-0"
 								style={
@@ -336,7 +210,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 										: { clipPath: `inset(0 ${100 - overlay}% 0 0)` }
 								}
 							>
-								<MockScreen variant="build" active={selected} />
+								<NoImagePane />
 							</div>
 							{mode === "swipe" ? (
 								<div
@@ -349,7 +223,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 					</div>
 				)}
 
-				{/* ── L3: flagged regions (relevance-ordered; click to highlight) ── */}
+				{/* ── L3: flagged regions (click to flag) ── */}
 				<div className="flex flex-col gap-[6px]">
 					<div className="type-label   uppercase  text-[var(--text-tertiary)]">
 						Differing regions
@@ -357,33 +231,20 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 					<div className="flex flex-wrap gap-[6px]">
 						{diff.regions.map((r) => {
 							const on = r.id === selected;
-							const major = r.severity === "change";
 							return (
 								<button
 									key={r.id}
 									type="button"
 									aria-pressed={on}
 									onClick={() => pick(r.id)}
-									className="border-width-thin flex flex-col gap-[3px]  px-[12px] py-[6px] text-left   "
+									className="border-width-thin px-[12px] py-[6px] text-left   "
 									style={{
 										borderRadius: "var(--r-subtle)",
 										borderColor: on ? "var(--accent-primary)" : "var(--border-default)",
 										background: on ? "var(--accent-primary-dim)" : "var(--surface-page)",
 									}}
 								>
-									<span className="type-metadata flex items-center gap-[6px]   text-[var(--text-primary)]">
-										<span
-											aria-hidden="true"
-											className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)]"
-											style={{
-												background: major ? "var(--status-warning)" : "var(--text-tertiary)",
-											}}
-										/>
-										{r.label}
-									</span>
-									<span className="type-metadata  text-[var(--text-tertiary)]">
-										<span className="line-through">{r.design}</span> → {r.build}
-									</span>
+									<span className="type-metadata  text-[var(--text-primary)]">{r.label}</span>
 								</button>
 							);
 						})}
@@ -406,37 +267,26 @@ function isVisualDiffPayload(payload: unknown): payload is VisualDiffPayload {
 	);
 }
 
-const REGION_IDS: readonly RegionId[] = ["cta", "email", "hero"];
-
-function isRegionId(value: unknown): value is RegionId {
-	return isString(value) && REGION_IDS.includes(value as RegionId);
-}
-
 function mapVisualPayload(payload: VisualDiffPayload): VisualDiff {
 	return {
-		title: "Onboarding · Create account",
-		frame: `${payload.before.label} vs ${payload.after.label}`,
-		tool: "figma",
-		designedBy: payload.before.label,
-		builtIn: payload.after.label,
+		before: payload.before.label,
+		after: payload.after.label,
 		regions: payload.diffRegions
 			.filter(
 				(r): r is { readonly id: string; readonly label: string } =>
 					isPlainObject(r) && isString(r.id) && isString(r.label),
 			)
-			.map((r) => ({
-				id: isRegionId(r.id) ? r.id : "cta",
-				band: "form" as const,
-				severity: "change" as const,
-				label: r.label,
-				design: "",
-				build: "",
-			})),
+			.map((r) => ({ id: r.id, label: r.label })),
 	};
 }
 
 export function ReviewVisualDiff({ artifact }: ReviewCanvasProps): JSX.Element {
-	const diff = isVisualDiffPayload(artifact.payload) ? mapVisualPayload(artifact.payload) : FIXTURE;
+	if (!isVisualDiffPayload(artifact.payload)) {
+		// A malformed payload gets the honest unknown-canvas
+		// fallback, never a fabricated signup screen.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
+	const diff = mapVisualPayload(artifact.payload);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

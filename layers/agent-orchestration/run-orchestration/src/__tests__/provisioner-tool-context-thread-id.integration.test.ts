@@ -118,6 +118,7 @@ function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 				},
 			}),
 			release: () => undefined,
+			describeSelectFailure: () => "test pool selected nothing",
 		},
 		workspace: {
 			spawn: async () => ({

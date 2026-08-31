@@ -1,9 +1,14 @@
 /**
  * O2: Knowledge routes rewritten for kernel purity.
  * Q2: scope_kind + scope_id fields added to creation, list, and detail endpoints.
- *     PATCH /:id/scope endpoint added for scope mutation with version tracking.
  *     User-scoped items filtered by userId at GET / and GET /:id.
- *     App projection layer assigned (via knowledgeAppProjection) on creation and scope change.
+ *     App projection layer assigned (via knowledgeAppProjection) on creation.
+ *
+ * Scope is edited through `PATCH /:id` like every other field. The separate
+ * `PATCH /:id/scope` endpoint is DELETED: it demanded a `reason` that was
+ * concatenated into an edit-log value and read by nothing, and it wrote the
+ * kernel scopeId while the generic update wrote the projection's — two writers,
+ * two tables, free to disagree.
  *
  * URL shape simplified from /:layer/... to /:id and /.
  * Layer guard, createRelevanceService, and computeSignals removed.
@@ -28,6 +33,7 @@ import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
 	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_ROLES,
 	roleLabel,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
@@ -53,10 +59,12 @@ import {
 	list as listKnowledgeItems,
 	recomputeAttention,
 	recordConflict as recordKnowledgeConflict,
+	sweep as runKnowledgeSweep,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
+import { markDetached } from "@hyperidle/settings";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -201,6 +209,12 @@ const createKnowledgeSchema = z.object({
 	// layer stays derived from scopeToLayer(scopeKind)).
 	kind: z.enum(KNOWLEDGE_ITEM_KINDS).optional(),
 	layer: z.enum(KNOWLEDGE_LAYERS).optional(),
+	/**
+	 * The document's role — what context assembly does with it. Absent means
+	 * `ordinary`, which is the column default and what every existing caller
+	 * has always produced.
+	 */
+	role: z.enum(KNOWLEDGE_ROLES).optional(),
 });
 
 const updateKnowledgeSchema = z.object({
@@ -211,6 +225,37 @@ const updateKnowledgeSchema = z.object({
 	topic: z.string().optional(),
 	format: z.string().optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
+	/** An ordinary note becomes a skill, or a skill goes back to being one. */
+	role: z.enum(KNOWLEDGE_ROLES).optional(),
+	/**
+	 * Scope is a field on the document like any other. It had its own endpoint
+	 * demanding a `reason`, which was concatenated into an edit-log value and
+	 * read by nothing; that endpoint and that string are gone. Changing scope
+	 * alongside role or content is now one edit under one version bump instead
+	 * of two round trips that can half-fail.
+	 */
+	scopeKind: z.enum(SCOPE_KINDS).optional(),
+	scopeId: z.string().nullable().optional(),
+});
+
+// BA9d: agent-reachable merge/split doors (recovered from AU44 scope breach,
+// see .pipeline/work/AU44/FEATURE-LEDGER.md rows 58-59 and founder D9).
+const mergeSchema = z.object({
+	sourceId: z.string().min(1),
+	updatedBy: z.string().min(1),
+});
+
+const splitSchema = z.object({
+	newItems: z
+		.array(
+			z.object({
+				title: z.string().min(1),
+				body: z.string().min(1),
+				topic: z.string().optional(),
+			}),
+		)
+		.min(2),
+	updatedBy: z.string().min(1),
 });
 
 /**
@@ -272,18 +317,6 @@ async function recomputeAttentionScoreForKnowledgeItem(
 		throw new Error("unexpected attention result");
 	return result;
 }
-
-/**
- * Q2: Schema for PATCH /:id/scope — change scope_kind and scope_id with version tracking.
- * `reason` is required (min 1 char) so scope changes always have an audit trail.
- */
-const changeScopeSchema = z.object({
-	scopeKind: z.enum(SCOPE_KINDS),
-	scopeId: z.string().optional(),
-	reason: z.string().min(1),
-	updatedBy: z.string(),
-	version: z.number(),
-});
 
 /**
  * Create Hono routes for knowledge endpoints.
@@ -351,8 +384,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
-		// Q2: user-scoped items are private — return 404 (not 403) to avoid leaking existence.
-		if (row.scopeKind === "user" && row.updatedBy !== userId) {
+		// Q2: a person's private note is private — 404 (not 403) so its existence
+		// does not leak. An `agent_file`/`skill`/`rule` with user scope is a
+		// BINDING to an agent, not a private note: it is ordinary team knowledge,
+		// and this endpoint is the only place its identity can be edited.
+		if (row.scopeKind === "user" && row.role === "ordinary" && row.updatedBy !== userId) {
 			const response: ApiErrorResponse = {
 				error: "Knowledge item not found",
 				code: API_ERROR_CODES.NOT_FOUND,
@@ -442,6 +478,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			format: body.format,
 			// O2: default status is "draft" (was "captured" in old implementation)
 			status: body.status ?? "draft",
+			role: body.role,
 			updatedBy: body.updatedBy,
 		});
 
@@ -460,64 +497,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		eventBus.emit(createdEvent);
 
 		return c.json(row, 201);
-	});
-
-	// PATCH /:id/scope — Q2: change scope_kind and scope_id with version tracking.
-	// Bumps version, logs change in knowledgeEditLog, updates app projection layer.
-	router.patch("/:id/scope", validateBody(changeScopeSchema), async (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
-
-		const existing = await getKnowledgeItem(db, id);
-
-		if (!existing) {
-			const response: ApiErrorResponse = {
-				error: "Knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		// Optimistic locking: check version
-		if (existing.version !== body.version) {
-			const response: ApiErrorResponse = {
-				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
-				code: API_ERROR_CODES.CONFLICT,
-				details: { currentVersion: existing.version },
-			};
-			return c.json(response, 409);
-		}
-
-		// Q2: scopeId validation for the new scope kind
-		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
-			const response: ApiErrorResponse = {
-				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-
-		// @lore AU20 K2-writes: changeScope folded into transition({target:"changeScope"}).
-		// transition() fetches the item internally by id (no need to pass `existing`).
-		const updated = await knowledgeTransition(db, id, {
-			target: "changeScope",
-			scopeKind: body.scopeKind,
-			scopeId: body.scopeId ?? null,
-			reason: body.reason,
-			updatedBy: body.updatedBy,
-		});
-
-		// Emit knowledge_updated event for scope change
-		const updatedEvent: KnowledgeUpdatedEvent = {
-			type: "knowledge_updated",
-			streamId: `knowledge:${id}`,
-			itemId: id,
-			action: "updated",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(updatedEvent);
-
-		return c.json(updated);
 	});
 
 	// PATCH /:id — update (optimistic locking)
@@ -549,6 +528,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 409);
 		}
 
+		// The guard the deleted `/scope` route carried: a scope that names an
+		// external entity needs that entity's id.
+		if (body.scopeKind !== undefined && requiresScopeId(body.scopeKind) && !body.scopeId) {
+			const response: ApiErrorResponse = {
+				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
 		try {
 			await updateKnowledgeItem(
 				db,
@@ -559,6 +548,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					topic: body.topic,
 					format: body.format,
 					status: body.status,
+					role: body.role,
+					scopeKind: body.scopeKind,
+					scopeId: body.scopeId,
 					updatedBy: body.updatedBy,
 				},
 				body.version,
@@ -582,6 +574,18 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			throw error;
 		}
 
+		// @lore BA9g: a plugin-contributed document a person edits becomes theirs,
+		// so a reinstall leaves their version alone (D5: your edit wins) and the
+		// plugin's contributions view says which rows they have taken over. The
+		// route is the legal bridge — knowledge does not know about plugins, and
+		// the plugin service does not write `knowledge_items`.
+		//
+		// This replaces `updated_by <> 'plugin:<id>'`, which carried the same
+		// meaning and was never read by anything.
+		if (body.body !== undefined) {
+			await markDetached(db, { kind: "knowledge", entityId: id, ts: new Date().toISOString() });
+		}
+
 		const updated = await getKnowledgeItem(db, id);
 
 		// O2: emit knowledge_updated event
@@ -595,6 +599,81 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		eventBus.emit(updatedEvent);
 
 		return c.json(updated);
+	});
+
+	// POST /:id/merge — merge source item into target; source is archived.
+	// @lore BA9d D9: restored from AU44 scope breach (rows 58-59 of FEATURE-LEDGER.md).
+	router.post("/:id/merge", validateBody(mergeSchema), async (c) => {
+		const targetId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
+
+		const target = await getKnowledgeItem(db, targetId);
+		if (!target) {
+			const response: ApiErrorResponse = {
+				error: "Target knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const source = await getKnowledgeItem(db, body.sourceId);
+		if (!source) {
+			const response: ApiErrorResponse = {
+				error: "Source knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const merged = await knowledgeTransition(db, target.id, {
+			target: "merge",
+			sourceId: source.id,
+			updatedBy: body.updatedBy,
+		});
+
+		const mergedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${targetId}`,
+			itemId: targetId,
+			action: "merged",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(mergedEvent);
+
+		return c.json(merged);
+	});
+
+	// POST /:id/split — split item into two or more new items; original is archived.
+	// @lore BA9d D9: restored from AU44 scope breach (rows 58-59 of FEATURE-LEDGER.md).
+	router.post("/:id/split", validateBody(splitSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
+
+		const original = await getKnowledgeItem(db, id);
+		if (!original) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const createdItems = await knowledgeTransition(db, original.id, {
+			target: "split",
+			newItems: body.newItems,
+			updatedBy: body.updatedBy,
+		});
+
+		const splitEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "split",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(splitEvent);
+
+		return c.json({ items: createdItems });
 	});
 
 	// POST /:id/archive — archive item, emit knowledge_archived event
@@ -702,6 +781,20 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
 		return c.json(result);
+	});
+
+	// POST /sweep — agent-callable knowledge sweep (BA9d: replaces dead builtin routine path).
+	// kind="autoPromotion": promote provisional items that meet the repetition threshold.
+	// kind="stale": mark active items that have not been referenced recently as stale.
+	const sweepBodySchema = z.object({ kind: z.enum(["autoPromotion", "stale"]) });
+	router.post("/sweep", validateBody(sweepBodySchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof sweepBodySchema>;
+		const result =
+			body.kind === "autoPromotion"
+				? await runKnowledgeSweep(db, eventBus, "autoPromotion")
+				: await runKnowledgeSweep(db, eventBus, "stale", { nowMs: Date.now() });
+		const processed = "promotedIds" in result ? result.promotedIds.length : result.markedIds.length;
+		return c.json({ kind: body.kind, processed });
 	});
 
 	return router;

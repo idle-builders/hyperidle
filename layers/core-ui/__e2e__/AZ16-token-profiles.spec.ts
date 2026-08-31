@@ -350,7 +350,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 		["bet", "/work/bet/bet-az16", "work-bet-page"],
 		["knowledge", "/knowledge/k-az16", "knowledge-detail-page"],
 		["settings", "/conversations?settings=open", "settings-page"],
-		["review", "/work/bet/bet-az16/review/review-az16", null],
+		["review", "/reviews/review-az16", null],
 	] as const;
 	for (const [name, route, testId] of routes) {
 		await page.goto(route);

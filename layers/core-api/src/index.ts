@@ -16,8 +16,7 @@
  */
 
 // AU29 §2.5.2: the first-boot core-state face — the composition roots (desktop,
-// tools/setup) call this + agent-orchestration's applyFactoryRunConfigDefaults,
-// in that order, instead of a database package writing service-owned tables.
+// tools/setup) call this instead of a database package writing service-owned tables.
 export { applyFactoryCoreState } from "./bootstrap/factory-state.js";
 export type {
 	ComposeApiApplicationOptions,

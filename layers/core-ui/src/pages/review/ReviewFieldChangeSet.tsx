@@ -23,6 +23,7 @@
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { FieldChangeSetPayload, ReviewCanvasProps } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
@@ -44,62 +45,14 @@ interface FieldChange {
 }
 
 interface ChangeSet {
-	readonly tool: "salesforce";
-	readonly object: string;
+	/** Widened from the literal `"salesforce"` — an agent-supplied payload has
+	 * no tool concept of its own; this carries the real `artifact.tool` so the
+	 * per-field provenance mark is honest. */
+	readonly tool: string;
 	readonly record: string;
 	readonly changed: readonly FieldChange[];
 	readonly unchangedCount: number;
 }
-
-const FIXTURE: ChangeSet = {
-	tool: "salesforce",
-	object: "Opportunity",
-	record: "Northwind Logistics",
-	unchangedCount: 12,
-	changed: [
-		{
-			id: "amount",
-			label: "Amount",
-			kind: "value",
-			before: "$0",
-			after: "$78,400",
-			source: "from the signed quote attached to the Jun 12 discovery call",
-			needsYou: "Verify $78,400 — 12% discount is over the 10% approval floor",
-		},
-		{
-			id: "stage",
-			label: "Stage",
-			kind: "value",
-			before: "Discovery",
-			after: "Proposal",
-			source: "advanced after the Jun 12 discovery call (BANT confirmed)",
-		},
-		{
-			id: "closeDate",
-			label: "Close date",
-			kind: "value",
-			before: null,
-			after: "Jul 31, 2026",
-			source: "buyer's stated decision timeline (end of Q3)",
-		},
-		{
-			id: "nextStep",
-			label: "Next step",
-			kind: "value",
-			before: null,
-			after: "Decision call — Jun 19",
-			source: "scheduled with the buyer on the discovery call",
-		},
-		{
-			id: "contact",
-			label: "Contact",
-			kind: "added",
-			before: null,
-			after: "Marcus Vela — Procurement",
-			source: "introduced as the economic buyer on the Jun 12 call",
-		},
-	],
-};
 
 // ── Atoms ──────────────────────────────────────────────────────────────────────
 
@@ -113,6 +66,7 @@ const isMoney = (s: string | null): boolean => s?.trim().startsWith("$") ?? fals
 
 interface RowProps {
 	readonly field: FieldChange;
+	readonly tool: string;
 	readonly approved: boolean;
 	readonly expanded: boolean;
 	readonly onToggleApprove: (id: string) => void;
@@ -121,6 +75,7 @@ interface RowProps {
 
 function FieldRow({
 	field,
+	tool,
 	approved,
 	expanded,
 	onToggleApprove,
@@ -209,7 +164,7 @@ function FieldRow({
 							className="mt-[9px] ml-[105px] flex flex-col gap-[6px]"
 						>
 							<div className="type-metadata flex items-center gap-[6px]  text-[var(--text-secondary)]">
-								<ToolLogo tool="salesforce" size="sm" label="" />
+								<ToolLogo tool={tool} size="sm" label="" />
 								<span>{field.source}</span>
 							</div>
 							{needs ? (
@@ -234,14 +189,14 @@ function FieldRow({
 // ── Canvas ───────────────────────────────────────────────────────────────────
 
 export interface ReviewFieldChangeSetProps {
-	readonly changeSet?: ChangeSet;
+	readonly changeSet: ChangeSet;
 	/** id of the field expanded by default (so L3 shows in a static render). */
 	readonly defaultExpandedId?: string;
 }
 
 export function ReviewFieldChangeSetView({
-	changeSet = FIXTURE,
-	defaultExpandedId = "amount",
+	changeSet,
+	defaultExpandedId,
 }: ReviewFieldChangeSetProps): JSX.Element {
 	// relevance-ordering: needs-you field floats to the top, rest keep authored order.
 	const ordered = [...changeSet.changed].sort(
@@ -249,8 +204,11 @@ export function ReviewFieldChangeSetView({
 	);
 
 	const [approved, setApproved] = useState<ReadonlySet<string>>(new Set());
-	const [expanded, setExpanded] = useState<string | null>(defaultExpandedId);
-	const [showUnchanged, setShowUnchanged] = useState(false);
+	// Derived from the real payload's own top-relevance field, so the default
+	// expansion is correct for any payload.
+	const [expanded, setExpanded] = useState<string | null>(
+		() => defaultExpandedId ?? ordered[0]?.id ?? null,
+	);
 
 	const toggleApprove = (id: string): void =>
 		setApproved((prev) => {
@@ -306,6 +264,7 @@ export function ReviewFieldChangeSetView({
 					<FieldRow
 						key={field.id}
 						field={field}
+						tool={changeSet.tool}
 						approved={approved.has(field.id)}
 						expanded={expanded === field.id}
 						onToggleApprove={toggleApprove}
@@ -314,28 +273,19 @@ export function ReviewFieldChangeSetView({
 				))}
 			</div>
 
-			{/* collapsed trivia — unchanged fields */}
-			<button
-				type="button"
-				onClick={() => setShowUnchanged((v) => !v)}
-				aria-expanded={showUnchanged}
-				className="type-control flex w-full items-center gap-[6px] px-[18px] py-[9px] text-left   text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+			{/* unchanged-fields trivia line — a static count, not a disclosure:
+			    `FieldChangeSetPayload` carries only the unchanged COUNT, not which
+			    fields, so there is nothing to expand into. An earlier version named
+			    five specific field labels here ("Owner, Lead source, Probability,
+			    Type, Account") no payload ever supplied. */}
+			<div
+				className="type-metadata flex w-full items-center gap-[6px] px-[18px] py-[9px]   text-[var(--text-tertiary)]"
 				style={{
 					background: "var(--surface-page)",
 				}}
 			>
-				<span aria-hidden>{showUnchanged ? "▾" : "▸"}</span>
 				<span>+{changeSet.unchangedCount} unchanged</span>
-			</button>
-			{showUnchanged ? (
-				<div
-					className="type-metadata px-[18px] py-[9px]  text-[var(--text-tertiary)]"
-					style={{ background: "var(--surface-page)" }}
-				>
-					Owner, Lead source, Probability, Type, Account, and {changeSet.unchangedCount - 5} more
-					were left as-is.
-				</div>
-			) : null}
+			</div>
 
 			{/* ── footer — per-field approve rollup (frame owns the final verdict) ── */}
 			<div
@@ -368,10 +318,9 @@ function isFieldChangePayload(payload: unknown): payload is FieldChangeSetPayloa
 	);
 }
 
-function mapFieldChangePayload(payload: FieldChangeSetPayload): ChangeSet {
+function mapFieldChangePayload(payload: FieldChangeSetPayload, tool: string): ChangeSet {
 	return {
-		tool: "salesforce",
-		object: "Record",
+		tool,
 		record: payload.recordLabel,
 		unchangedCount: payload.unchangedCount,
 		changed: payload.fields.map((field) => ({
@@ -387,9 +336,12 @@ function mapFieldChangePayload(payload: FieldChangeSetPayload): ChangeSet {
 }
 
 export function ReviewFieldChangeSet({ artifact }: ReviewCanvasProps): JSX.Element {
-	const changeSet = isFieldChangePayload(artifact.payload)
-		? mapFieldChangePayload(artifact.payload)
-		: FIXTURE;
+	if (!isFieldChangePayload(artifact.payload)) {
+		// A malformed payload gets the honest unknown-canvas
+		// fallback, never the Salesforce demo fixture.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
+	const changeSet = mapFieldChangePayload(artifact.payload, artifact.tool);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

@@ -36,9 +36,10 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { BakedContextBundle } from "@hyperidle/domain-model";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
+import { eq } from "drizzle-orm";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const createdAt = new Date().toISOString();
@@ -72,16 +73,49 @@ async function seedRoutine(
 		readonly prompt?: string | null;
 	},
 ): Promise<void> {
+	// The instruction is a knowledge document the routine points at.
+	let promptKnowledgeId: string | null = null;
+	if (options.prompt) {
+		promptKnowledgeId = `ki-${options.routineId}-prompt`;
+		const ts = new Date().toISOString();
+		await db.insert(knowledgeItems).values({
+			id: promptKnowledgeId,
+			scopeKind: "factory",
+			scopeId: null,
+			topic: null,
+			title: `${options.routineId} — prompt`,
+			body: options.prompt,
+			format: "markdown",
+			status: "active",
+			version: 1,
+			updatedBy: "test",
+			createdAt: ts,
+			updatedAt: ts,
+		});
+		// Kernel row and projection travel together, as knowledge always writes them.
+		await db.insert(knowledgeAppProjection).values({
+			id: `kp-${options.routineId}-prompt`,
+			knowledgeItemId: promptKnowledgeId,
+			layer: "L4",
+			scopeId: null,
+		});
+	}
 	await db.insert(routines).values({
 		id: options.routineId,
 		name: options.routineId,
-		prompt: options.prompt ?? null,
+		promptKnowledgeId,
 		ownerAgentId: options.ownerAgentId,
 		triggerType: "manual",
 		active: options.active ?? true,
 		state: options.state ?? "active",
 		deletedAt: options.deletedAt ?? null,
 	});
+}
+
+/** The resolver reads the prompt document through this port (Mechanism C). */
+async function readKnowledgeBody(db: HyperIdleDb, id: string): Promise<string | null> {
+	const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+	return row?.body ?? null;
 }
 
 async function seedRun(
@@ -107,7 +141,7 @@ async function seedRun(
  * enumerate this file's cases by hand; the compiler will not do it for you.
  */
 function buildDeps() {
-	return { requireRunnableAgent };
+	return { requireRunnableAgent, getAgentIdentity };
 }
 
 describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)", () => {
@@ -279,6 +313,8 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
 			requireRunnableAgent,
+			getAgentIdentity,
+			getKnowledgeBody: readKnowledgeBody,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,
 		});
@@ -297,14 +333,19 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		});
 	});
 
-	// BA1 D4 — the case this wave adds: a team-less owner cannot be scored
-	// against a team, so the resolver skips knowledge assembly rather than
-	// inventing a global query, and bakes `team: null` / `knowledge: []`
-	// instead of omitting the bundle entirely (the prompt still has to
-	// reach the agent).
-	test("bakes team:null and knowledge:[] for a team-less owner, without calling assembleSessionKnowledge", async ({
-		db,
-	}) => {
+	// BA1 D4 bakes `team: null` for a team-less owner rather than omitting the
+	// bundle — the prompt still has to reach the agent.
+	//
+	// This test used to also assert that knowledge assembly was SKIPPED for
+	// such an owner, on the reasoning that nothing can be scored without a
+	// team. That stopped being true once capability items (skill/rule/
+	// agent_file) arrived: they are scoped factory / team / agent, and the
+	// factory- and agent-scoped ones need no team. Skipping meant a plugin's
+	// own agent — created `agentCategory: "individual"`, so team-less by
+	// construction — could never receive the skills that same plugin
+	// installed for it. The assembler is now always called; the team only
+	// decides what the team-scoped layers contribute.
+	test("assembles knowledge for a team-less owner and still bakes team:null", async ({ db }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedAgent(db, "owner-rrun-ctx-noteam");
 		await seedRoutine(db, {
@@ -318,21 +359,37 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		});
 
 		let assembleCalled = false;
+		let receivedTeamId: string | undefined = "unset";
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-noteam", {
 			requireRunnableAgent,
+			getAgentIdentity,
+			getKnowledgeBody: readKnowledgeBody,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
-			assembleSessionKnowledge: async () => {
+			assembleSessionKnowledge: async (_db, input) => {
 				assembleCalled = true;
-				return [];
+				receivedTeamId = input.teamId;
+				return [
+					{
+						id: "skill-rrun-ctx-noteam",
+						title: "knowledge-decay",
+						body: "# Knowledge decay sweep",
+						role: "skill",
+					} as never,
+				];
 			},
 		});
 
-		expect(assembleCalled).toBe(false);
+		expect(assembleCalled).toBe(true);
+		// No team to scope by — the assembler is told so plainly rather than
+		// being handed a stand-in id.
+		expect(receivedTeamId).toBeUndefined();
 		expect(baked.contextBundle).toMatchObject({
 			kind: "routine",
 			routine: { id: "routine-rrun-ctx-noteam", prompt: "Summarize the week." },
 			team: null,
-			knowledge: [],
+			knowledge: expect.arrayContaining([
+				expect.objectContaining({ id: "skill-rrun-ctx-noteam", role: "skill" }),
+			]),
 		});
 	});
 });

@@ -41,7 +41,10 @@ In **Settings → Agents**, click **+ Add Agent**. The form asks:
 
 - **Team** — which team this agent belongs to, populated from your existing teams (defaults to the first). If no teams exist yet, run Setup first.
 - **Name** — the agent's display name
-- **Role** — from the team-category role catalog; the agent's system prompt is pre-filled from the role template
+- **Role** — any name you type. The picker offers the roles your agents already
+  have so you can reuse one; typing a new one introduces it. A new agent starts
+  with an empty identity — you write it, or a plugin brings an agent that has
+  one.
 - **Harness** — from the registered backend list
 - **Model** — from the model catalog
 - **Max concurrent sessions**

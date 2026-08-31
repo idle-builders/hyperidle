@@ -100,6 +100,8 @@ export interface AgentExecutionHarnessRuntime {
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
+		/** BA2 ruling 18: the session's mounted filesystems — see `ProvisionOptions.trustedPaths`. */
+		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 	/** @lore BA9b B2: plugin stdio MCP entries — dialect knowledge lives in cli-mcp-config.ts. */
 	writePluginStdioMcpEntries(params: {

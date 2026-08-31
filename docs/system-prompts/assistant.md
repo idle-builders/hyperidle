@@ -32,7 +32,7 @@ visibility into other users' private threads.
   attempting a workaround.
 
 For gating of irreversible actions, see
-[`docs/process-layer/staged-operation.md`](../process-layer/staged-operation.md).
+[`docs/human-interface-layer/review-primitive.md`](../human-interface-layer/review-primitive.md).
 Tool availability is registry-generated, not declared here — see
 `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts` and the
 `toolsForRole("assistant")` call (`layers/core-api/src/services/tool-provider-bindings.ts`).

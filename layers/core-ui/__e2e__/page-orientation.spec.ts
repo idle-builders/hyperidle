@@ -128,7 +128,7 @@ test("review keeps one page title", async ({ page }) => {
 		fulfillJson(route, { ...REVIEW_COMPOSITION_SUBJECT, title: ARTIFACT_TITLE }),
 	);
 	await page.setViewportSize({ width: 1024, height: 768 });
-	await page.goto("/work/bet/bet-orientation/review/review-orientation");
+	await page.goto("/reviews/review-orientation");
 	await proveHeader(page, "review-tablet.png", ARTIFACT_TITLE);
 });
 

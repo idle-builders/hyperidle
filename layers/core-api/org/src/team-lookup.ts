@@ -76,7 +76,6 @@ export interface CreateTeamInput {
 	readonly id: string;
 	readonly name: string;
 	readonly phase: string;
-	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
 }
@@ -93,7 +92,6 @@ export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Pro
 		id: input.id,
 		name: input.name,
 		phase: input.phase,
-		functions: input.functions,
 		factoryDbPath: input.factoryDbPath,
 		createdAt: input.createdAt,
 		capacity: 5,

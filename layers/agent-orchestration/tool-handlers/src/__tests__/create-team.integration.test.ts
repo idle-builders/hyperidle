@@ -62,7 +62,6 @@ const ports: ToolHandlersPorts = {
 				id: input.id,
 				name: input.name,
 				phase: input.phase,
-				functions: input.functions,
 				factoryDbPath: input.factoryDbPath,
 				createdAt: input.createdAt,
 				capacity: 5,
@@ -101,8 +100,7 @@ const ports: ToolHandlersPorts = {
 
 			const configRow: NewAgentRunConfigRow = {
 				agentUserId: agentId,
-				systemPrompt: null,
-				harnessType: "builtin",
+				harnessType: "opencode",
 				modelId: "claude-sonnet-4-6",
 				modelProvider: "anthropic",
 				maxConcurrentSessions: 1,
@@ -112,7 +110,7 @@ const ports: ToolHandlersPorts = {
 				.values(configRow)
 				.onConflictDoUpdate({
 					target: agentRunConfig.agentUserId,
-					set: { harnessType: "builtin" },
+					set: { harnessType: "opencode" },
 				});
 
 			return { agentIds: [agentId], leadAgentId: agentId };
@@ -133,9 +131,6 @@ const ports: ToolHandlersPorts = {
 				await sharedDb.update(teams).set(patch).where(eq(teams.id, teamId));
 			}
 		},
-
-		/** No-op: routine provisioning is orthogonal to FK correctness. */
-		provisionTeamRoutines: async () => {},
 	},
 };
 

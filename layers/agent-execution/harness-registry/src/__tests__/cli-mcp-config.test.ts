@@ -148,6 +148,141 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 			// And the new block is also present.
 			expect(after).toContain("[mcp_servers.hyperidle]");
 		});
+
+		// ── BA2 ruling 18 — trust is declared, not bypassed ───────────────────────
+		//
+		// codex 0.150.1 refuses to run outside a directory it trusts ("Not inside
+		// a trusted directory"). The fix is NOT a bypass flag — it is codex's own
+		// declaration mechanism: `[projects."<path>"] trust_level = "trusted"` in
+		// config.toml. This writer already authors that file for the MCP entry, so
+		// the trust declaration belongs beside it.
+
+		test('declares the sandbox path trusted via [projects."<path>"] trust_level', () => {
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			expect(content).toContain(`[projects."${sandboxPath}"]`);
+			expect(content).toContain('trust_level = "trusted"');
+		});
+
+		test("declares each mounted filesystem's real path trusted alongside the sandbox", () => {
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+			const mountedRepoPath = fs.mkdtempSync(path.join(os.tmpdir(), "t1-mounted-repo-"));
+
+			try {
+				writeCliMcpConfig({
+					dialect: "codex-toml",
+					sandboxPath,
+					mcpUrl: TEST_MCP_URL,
+					token: TEST_TOKEN,
+					trustedPaths: [mountedRepoPath],
+				});
+
+				const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+				expect(content).toContain(`[projects."${sandboxPath}"]`);
+				expect(content).toContain(`[projects."${mountedRepoPath}"]`);
+				// Both entries declare trust_level = "trusted" (count, not just contains).
+				expect(content.match(/trust_level = "trusted"/g)?.length).toBe(2);
+			} finally {
+				fs.rmSync(mountedRepoPath, { recursive: true, force: true });
+			}
+		});
+
+		test("does not duplicate the trust entry when a trustedPaths entry equals the sandbox", () => {
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+				trustedPaths: [sandboxPath],
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			expect(content.match(/trust_level = "trusted"/g)?.length).toBe(1);
+		});
+
+		test("escapes a quote in a trustedPaths entry instead of breaking the TOML string", () => {
+			// A doc_set folder name is user-influenced (BA2 ruling 18: the filesystem
+			// primitive supplies the trusted path). An unescaped `"` in that path would
+			// close the TOML string early, corrupting the file or letting the remainder
+			// of the path be read as arbitrary config keys.
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+			const maliciousPath = '/tmp/docs"]\n[bogus_key]\ninjected = true\n#';
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+				trustedPaths: [maliciousPath],
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			// The quote and newlines must be escaped, not written raw — the entry
+			// stays a single `[projects."..."]` table header on one line, and the
+			// injected content lives inside the quoted string, not as its own table.
+			expect(content).toContain(
+				`[projects."${maliciousPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"]`,
+			);
+			const lines = content.split("\n");
+			expect(lines).not.toContain("[bogus_key]");
+			expect(lines).not.toContain("injected = true");
+			expect(lines.filter((line) => line.startsWith("[projects."))).toHaveLength(2);
+		});
+
+		test("escapes a non-newline/tab C0 control character in a trustedPaths entry instead of emitting it raw", () => {
+			// `escapeTomlString` used to handle only `\ " \n \r \t` — any other C0
+			// control character (e.g. a vertical tab from a pasted path) was
+			// emitted raw, which codex's own TOML parser rejects with "invalid
+			// basic string" (verified against the real binary), killing the
+			// session. `\x0b` (vertical tab) stands in for that whole class here.
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+			const controlCharPath = "/tmp/docs\x0bnotes";
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+				trustedPaths: [controlCharPath],
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			expect(content).toContain('[projects."/tmp/docs\\u000bnotes"]');
+			expect(content).not.toContain("\x0b");
+		});
+
+		test("leaves the [mcp_servers.hyperidle] block undisturbed by the trust declaration", () => {
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+				trustedPaths: ["/some/other/mounted/path"],
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			expect(content).toContain("[mcp_servers.hyperidle]");
+			expect(content).toContain(`url = "${TEST_MCP_URL}"`);
+			expect(content).toContain('bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"');
+		});
 	});
 
 	// ── opencode-json dialect ─────────────────────────────────────────────────

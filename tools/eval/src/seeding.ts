@@ -30,7 +30,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { AgentCategory, BetStatus, ScopeKind, TaskState } from "@hyperidle/domain-model";
-import { findRoleCatalogEntry } from "@hyperidle/domain-model";
 import { evalHarnessModel, evalHarnessType } from "./eval-harness.js";
 import type { ScenarioSeedResult } from "./types.js";
 
@@ -118,7 +117,6 @@ export async function seedAgent(
 	// Services, this one included.
 	await db.insert(agentRunConfig).values({
 		agentUserId: agentId,
-		systemPrompt: opts.systemPrompt ?? null,
 		// The run's harness and model, so the session the provisioner admits is
 		// the harness the run was asked to measure — `harnessType` picks the
 		// adapter, `modelId` becomes `SessionConfig.selectedModel`.
@@ -275,8 +273,9 @@ export async function seedMinimalWorld(
 	const { founderId } = await seedFounder(db);
 	const agentRole = opts?.agentRole ?? "builder";
 	// AB0: derive agentCategory from role catalog so seeded agents match production behavior.
-	const catalogEntry = findRoleCatalogEntry(agentRole);
-	const agentCategory: AgentCategory = catalogEntry?.category ?? "team";
+	// @lore BA9g: the role catalog is gone — a role is a string on an agent. An
+	// eval's agents are team agents.
+	const agentCategory: AgentCategory = "team";
 	const { agentId } = await seedAgent(db, {
 		name: "Eval Agent",
 		role: agentRole,
@@ -466,70 +465,6 @@ export async function seedConflict(
 }
 
 /**
- * Seed the three builtin agent stubs that `provisionTeamRoutines()` (`@hyperidle/routine`) references via
- * owner role resolution (`seed-agent-cos`, `seed-agent-pf-facilitation`, `demo-agent-pm`).
- * Must be called before `provisionTeamRoutines()` (`@hyperidle/routine`) in any eval scenario that exercises
- * the builtin routine subsystem.
- *
- * @lore X8 BUILTIN-FK: `provisionTeamRoutines` (`@hyperidle/routine`) resolves ownerByRole to users.id.
- * The eval ephemeral PGlite DB does NOT run the production seed, so FK constraints
- * on `routines.ownerAgentId → users.id` fail unless we pre-insert these three stubs.
- * We use `onConflictDoNothing` so this is idempotent.
- *
- * @lore AF17: Updated from the old `seedBuiltinRoutines` shim (deleted) to
- * `provisionTeamRoutines` (`@hyperidle/routine`). The owner agent ids remain the same stable factory stubs.
- */
-export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
-	const now = new Date().toISOString();
-
-	// @lore AD8a: name renamed "Chief of Staff" → "System Agent" (display string purge).
-	// agentCategory: "individual" (was "personal" — AD8a renamed the value).
-	await db
-		.insert(users)
-		.values({
-			id: "seed-agent-cos",
-			kind: "ai",
-			name: "System Agent (eval stub)",
-			role: "assistant",
-			status: "active",
-			// @lore AD8a: role string "assistant" renamed in AD8b. AB0: chief_of_staff is an individual-category agent (factory-wide, per-founder).
-			agentCategory: "individual",
-			createdAt: now,
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(users)
-		.values({
-			id: "seed-agent-pf-facilitation",
-			kind: "ai",
-			// @lore AD8c: renamed from "Practice Facilitator" to "Facilitator"
-			name: "Facilitator - Facilitation (eval stub)",
-			// @lore AD8c: role renamed from practice_facilitator to facilitator
-			role: "facilitator",
-			status: "active",
-			// @lore AD8c: facilitator is a strategy-category agent (factory-wide, no team binding).
-			agentCategory: "strategy",
-			createdAt: now,
-		})
-		.onConflictDoNothing();
-
-	await db
-		.insert(users)
-		.values({
-			id: "demo-agent-pm",
-			kind: "ai",
-			name: "Acme Product Manager (eval stub)",
-			role: "product_manager",
-			status: "active",
-			// AB0: product_manager is a team-category agent.
-			agentCategory: "team",
-			createdAt: now,
-		})
-		.onConflictDoNothing();
-}
-
-/**
  * Create a routine row.
  *
  * `dispatchOps.fireRoutine` reads scheduling/event fields from `triggerConfig`; a
@@ -630,9 +565,7 @@ export async function seedMultiAgentWorld(
 	});
 
 	const secondRole = opts?.secondAgentRole ?? "product_manager";
-	// AB0: derive agentCategory from role catalog for second agent.
-	const secondCatalogEntry = findRoleCatalogEntry(secondRole);
-	const secondAgentCategory: AgentCategory = secondCatalogEntry?.category ?? "team";
+	const secondAgentCategory: AgentCategory = "team";
 	const { agentId: secondAgentId } = await seedAgent(db, {
 		name: opts?.secondAgentName ?? "Eval Agent 2",
 		role: secondRole,

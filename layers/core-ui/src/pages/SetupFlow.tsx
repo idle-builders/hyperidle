@@ -8,9 +8,7 @@
  * Submits:
  * 1. POST /api/users — create human user (name only, no email)
  * 2. POST /api/teams — create first team + primaryHarness (from picker)
- * 3. PUT /api/credentials/:name — built-in gateway key, written before nav
- * 4. PATCH /api/model-gateway — only when that key is for a non-anthropic provider
- * 5. POST /api/filesystems (best-effort, if folder picked)
+ * 3. POST /api/filesystems (best-effort, if folder picked)
  * On success: navigate to /work?onboarding=true.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
@@ -21,8 +19,7 @@
  * @lore visual-parity: Redesigned to match onboarding.html exactly — 3-card
  * abstract visual, step title, step description, left-aligned layout, form-group
  * spacing of 18px, design-system Input + Button components.
- * @lore AE2: Added function selector (preset pills + custom chips) and roster preview.
- * Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
+ * @lore AE2: Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
  * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
  * derivePrimaryHarness() wired into POST /api/teams body.
  * Folder → inspect-path + register filesystem (best-effort, writeback:"none").
@@ -31,7 +28,6 @@
  * login, never in HyperIdle.
  */
 
-import { AGENT_ROLE_CATALOG, defaultRoster, TEAM_FUNCTIONS } from "@hyperidle/domain-model";
 import {
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
@@ -48,38 +44,11 @@ import { useNavigate } from "react-router-dom";
 import { Button, Input, PageHeader, PageScaffold } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 
-/**
- * AE2: Preset configurations for team function selection.
- * Each preset maps to a set of TEAM_FUNCTIONS that drive defaultRoster().
- */
-const PRESETS = [
-	{ id: "software", label: "Software", functions: ["development", "product"] },
-	{ id: "software_design", label: "Eng+UX", functions: ["development", "product", "design"] },
-	{
-		id: "full_team",
-		label: "Full team",
-		functions: ["development", "product", "design", "marketing"],
-	},
-	{ id: "marketing", label: "Growth", functions: ["marketing"] },
-	{ id: "custom", label: "Custom", functions: [] },
-] as const;
-
-type PresetId = (typeof PRESETS)[number]["id"];
-
-/**
- * Compute the roster preview label string from a set of functions.
- * Returns empty string when functions is empty.
- */
-function rosterPreviewLabel(functions: readonly string[]): string {
-	if (functions.length === 0) return "";
-	const roles = defaultRoster(functions);
-	if (roles.length === 0) return "";
-	const labels = roles.map((role) => {
-		const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
-		return entry?.label ?? role;
-	});
-	return `Creates: ${labels.join(", ")}`;
-}
+// @lore BA9g: the "What are you building?" step is GONE, with the presets, the
+// custom function chips and the roster preview that promised "Creates: Builder,
+// Product Manager, QA Engineer". A team no longer arrives with a roster — it is
+// one empty agent, and you improve it with plugins — so the question had no
+// answer left to act on.
 
 // ── Harness picker helpers ────────────────────────────────────────────────────
 
@@ -182,18 +151,14 @@ export function SetupFlow(): JSX.Element {
 
 	// AE2: function selector state
 	// Default preset is "software" (development + product).
-	const [selectedPreset, setSelectedPreset] = useState<PresetId>("software");
-	// Custom chips — only visible when selectedPreset === "custom".
-	const [customFunctions, setCustomFunctions] = useState<string[]>([]);
 
-	// AV1: Harness discovery — fetch on mount; degrade to builtin on failure.
-	// @lore AV1: we never block setup on discovery; graceful-degrade to builtin.
+	// AV1: Harness discovery — fetch on mount. We never block setup on it.
 	const [descriptors, setDescriptors] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [harnessLoaded, setHarnessLoaded] = useState(false);
-	// The selected primary harness. Discovery replaces this with the first row
-	// this machine can actually run; the initial value only holds until then, and
-	// goes with the built-in harness itself.
-	const [selectedHarnessType, setSelectedHarnessType] = useState<string>("builtin");
+	// The selected primary harness. Empty until discovery answers, which replaces
+	// it with the first row this machine can actually run. There is no fallback
+	// harness to pre-select any more — every harness is one the person installed.
+	const [selectedHarnessType, setSelectedHarnessType] = useState<string>("");
 
 	useEffect(() => {
 		let cancelled = false;
@@ -226,21 +191,6 @@ export function SetupFlow(): JSX.Element {
 	// AV1: Folder inspection result for confirmation row.
 	const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null);
 
-	// Resolved functions array based on current preset selection.
-	const resolvedFunctions: readonly string[] =
-		selectedPreset === "custom"
-			? customFunctions
-			: (PRESETS.find((p) => p.id === selectedPreset)?.functions ?? ["development", "product"]);
-
-	const toggleCustomFunction = useCallback((fn: string): void => {
-		setCustomFunctions((prev) =>
-			prev.includes(fn) ? prev.filter((f) => f !== fn) : [...prev, fn],
-		);
-	}, []);
-
-	// AE2: submit requires functions when custom is selected (can't have empty roster).
-	const functionsValid = selectedPreset !== "custom" || customFunctions.length > 0;
-
 	const selectedDescriptor = descriptors.find((d) => d.type === selectedHarnessType);
 
 	// Nothing on this machine can run an agent. Finishing setup here would hand
@@ -255,8 +205,8 @@ export function SetupFlow(): JSX.Element {
 	const noHarnessAvailable =
 		harnessLoaded && descriptors.length > 0 && choosableHarnesses.length === 0;
 
-	// R2: Start requires a name; the key fields only bind when the chosen harness needs them.
-	const canStart = name.trim().length > 0 && functionsValid && !noHarnessAvailable && !submitting;
+	// R2: Start requires a name, and a machine that can actually run an agent.
+	const canStart = name.trim().length > 0 && !noHarnessAvailable && !submitting;
 
 	const handleFolderPick = useCallback(async (): Promise<void> => {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
@@ -340,7 +290,6 @@ export function SetupFlow(): JSX.Element {
 						name: derivedTeamName,
 						repoPath: repoPath.trim() || undefined,
 						// AE2: pass resolved functions and userId for welcome message seeding.
-						functions: [...resolvedFunctions],
 						userId: createdUserId,
 						// AV1: thread primaryHarness (omitted only when discovery gave us nothing)
 						...(primaryHarness !== undefined ? { primaryHarness } : {}),
@@ -422,7 +371,7 @@ export function SetupFlow(): JSX.Element {
 				setSubmitting(false);
 			}
 		},
-		[canStart, name, repoPath, resolvedFunctions, navigate, selectedDescriptor, folderInfo],
+		[canStart, name, repoPath, navigate, selectedDescriptor, folderInfo],
 	);
 
 	return (
@@ -636,81 +585,6 @@ export function SetupFlow(): JSX.Element {
 								</div>
 							)}
 						</div>
-					</div>
-
-					{/* AE2: Function selector — preset pills */}
-					<div className="mb-[18px]">
-						<p className="type-small   text-[var(--text-primary)] mb-[6px]">
-							What are you building?{" "}
-							<span className="type-small  text-[var(--text-tertiary)]">(pick a team type)</span>
-						</p>
-						<div className="flex flex-wrap gap-[6px] mb-[9px]">
-							{PRESETS.map((preset) => {
-								const isSelected = selectedPreset === preset.id;
-								return (
-									<button
-										key={preset.id}
-										type="button"
-										aria-pressed={isSelected}
-										data-selected={isSelected ? "true" : undefined}
-										onClick={() => {
-											setSelectedPreset(preset.id);
-											// Reset custom chips when switching away from custom.
-											if (preset.id !== "custom") {
-												setCustomFunctions([]);
-											}
-										}}
-										// A pressed/selected TOGGLE in a preset picker group, not an
-										// action Button (Button has no built-in pressed/selected
-										// treatment distinct from its 4 action variants).
-										className={`type-control ${[
-											"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)]  ",
-											"   ",
-											isSelected
-												? // eslint-disable-next-line design/no-handrolled-control -- see comment above
-													"border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
-												: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:border-[var(--border-strong)]",
-										].join(" ")}`}
-									>
-										{preset.label}
-									</button>
-								);
-							})}
-						</div>
-
-						{/* AE2: Custom function chips — visible only when Custom is selected */}
-						{selectedPreset === "custom" && (
-							<div className="flex flex-wrap gap-[6px] mb-[9px]">
-								{TEAM_FUNCTIONS.map((fn) => {
-									const isActive = customFunctions.includes(fn);
-									return (
-										<button
-											key={fn}
-											type="button"
-											aria-pressed={isActive}
-											onClick={() => toggleCustomFunction(fn)}
-											className={`type-control ${[
-												"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-subtle)]  capitalize",
-												"   ",
-												isActive
-													? "border-[var(--accent-deep)] bg-[var(--surface-elevated)] text-[var(--accent-deep)] "
-													: "border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-default)]",
-											].join(" ")}`}
-										>
-											{fn}
-										</button>
-									);
-								})}
-							</div>
-						)}
-
-						{/* AE2: Roster preview */}
-						<p
-							data-testid="roster-preview"
-							className="type-metadata  text-[var(--text-tertiary)] min-h-[18px]"
-						>
-							{rosterPreviewLabel(resolvedFunctions)}
-						</p>
 					</div>
 
 					{/* Validation / submit error */}

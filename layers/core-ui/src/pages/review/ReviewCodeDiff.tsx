@@ -19,6 +19,7 @@ import type { CodeDelta, DiffLineRef } from "../../ds";
 import { CodeDeltaRenderer } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { CodeDiffPayload, ReviewCanvasProps } from "./review-artifact";
 import {
 	AnchoredThreadCard,
@@ -65,143 +66,16 @@ interface ChangedFile {
 
 interface CiCheck {
 	readonly label: string;
-	/** success cells show a ✓; the coverage delta carries its own text. */
-	readonly detail?: string;
 }
-
-// ── fixture — GitHub PR, the expired-promo silent-success → typed-422 fix ─────────
-// Realistic: the meat (catch → typed 422) is 6 lines inside a 12-file PR; generated
-// churn (OpenAPI regen + lockfile + formatting) is collapsed to one trivia row.
-const PROMO_WEBHOOK_HUNK: Hunk = {
-	header: "@@ -116,9 +116,18 @@ export async function onPromoApplied(evt: PromoEvent) {",
-	lines: [
-		{ kind: "ctx", oldNo: 116, newNo: 116, text: "  const promo = await promos.find(evt.code);" },
-		{ kind: "ctx", oldNo: 117, newNo: 117, text: "  if (!promo) return notFound(evt.code);" },
-		{ kind: "del", oldNo: 118, newNo: null, text: "  if (promo.expiresAt < now()) {" },
-		{
-			kind: "del",
-			oldNo: 119,
-			newNo: null,
-			text: "    // expired — nothing to apply, ack the webhook",
-		},
-		{ kind: "del", oldNo: 120, newNo: null, text: "    return ack(evt);" },
-		{ kind: "del", oldNo: 121, newNo: null, text: "  }" },
-		{ kind: "add", oldNo: null, newNo: 118, text: "  if (promo.expiresAt < now()) {" },
-		{ kind: "add", oldNo: null, newNo: 119, text: "    return fail(evt, {" },
-		{ kind: "add", oldNo: null, newNo: 120, text: "      status: 422," },
-		{ kind: "add", oldNo: null, newNo: 121, text: '      code: "promo_expired",' },
-		{ kind: "add", oldNo: null, newNo: 122, text: "      expiredAt: promo.expiresAt," },
-		{ kind: "add", oldNo: null, newNo: 123, text: "    });" },
-		{ kind: "add", oldNo: null, newNo: 124, text: "  }" },
-		{ kind: "ctx", oldNo: 122, newNo: 125, text: "  return applyDiscount(evt, promo);" },
-		{ kind: "ctx", oldNo: 123, newNo: 126, text: "}" },
-	],
-};
-
-const PROMO_FIELD_HUNK: Hunk = {
-	header: "@@ -41,5 +41,9 @@ function PromoField({ onApply }: PromoFieldProps) {",
-	lines: [
-		{ kind: "ctx", oldNo: 41, newNo: 41, text: "  const res = await applyPromo(code);" },
-		{ kind: "del", oldNo: 42, newNo: null, text: '  if (res.ok) toast.success("Promo applied");' },
-		{
-			kind: "add",
-			oldNo: null,
-			newNo: 42,
-			text: '  if (res.ok) { toast.success("Promo applied"); return; }',
-		},
-		{ kind: "add", oldNo: null, newNo: 43, text: '  if (res.code === "promo_expired")' },
-		{
-			kind: "add",
-			oldNo: null,
-			newNo: 44,
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: reproduces a source-code template literal in the diff fixture.
-			text: "    setError(`This promo expired on ${fmt(res.expiredAt)}.`);",
-		},
-		{ kind: "ctx", oldNo: 43, newNo: 45, text: '  else setError("Couldn’t apply that code.");' },
-	],
-};
-
-const PROMO_TEST_HUNK: Hunk = {
-	header: "@@ -0,0 +1,44 @@ // new file",
-	lines: [
-		{
-			kind: "add",
-			oldNo: null,
-			newNo: 1,
-			text: 'test("expired promo returns typed 422, not silent ack", async () => {',
-		},
-		{
-			kind: "add",
-			oldNo: null,
-			newNo: 2,
-			text: "  const promo = seedPromo({ expiresAt: yesterday });",
-		},
-		{
-			kind: "add",
-			oldNo: null,
-			newNo: 3,
-			text: "  const res = await onPromoApplied(eventFor(promo));",
-		},
-		{ kind: "add", oldNo: null, newNo: 4, text: "  expect(res.status).toBe(422);" },
-		{ kind: "add", oldNo: null, newNo: 5, text: '  expect(res.code).toBe("promo_expired");' },
-		{ kind: "add", oldNo: null, newNo: 6, text: "});" },
-	],
-};
-
-const FILES: readonly ChangedFile[] = [
-	{
-		path: "src/billing/promo-webhook.ts",
-		added: 28,
-		removed: 6,
-		band: "logic",
-		reviewed: false,
-		rationale: "The fix — rethrows the typed error instead of swallowing it (the behavior change).",
-		hunks: [PROMO_WEBHOOK_HUNK],
-	},
-	{
-		path: "src/checkout/PromoField.tsx",
-		added: 19,
-		removed: 2,
-		band: "logic",
-		reviewed: false,
-		rationale: "Renders the new user-facing “expired” message.",
-		hunks: [PROMO_FIELD_HUNK],
-	},
-	{
-		path: "src/billing/__tests__/promo.expired.test.ts",
-		added: 44,
-		removed: 0,
-		band: "test",
-		reviewed: true,
-		hunks: [PROMO_TEST_HUNK],
-	},
-];
-
-// Generated / trivia — never shown line-by-line; collapsed to one row.
-const TRIVIA = {
-	count: 3,
-	summary: "OpenAPI regen + lockfile + formatting",
-	added: 49,
-	removed: 23,
-} as const;
-
-// The agent's plain-language change summary — the PR/ship description. Reads as prose,
-// not code (founder asked for a "little PR message" up top, distinct from the diff).
-const PR_DESCRIPTION =
-	"Root cause: an unhandled PromoExpiredError was swallowed by a catch-all, so expired codes silently “succeeded.” Now returns a typed 422 and checkout renders an inline “This code expired on Apr 3” message. Regression test added.";
-
-const CI_CHECKS: readonly CiCheck[] = [
-	{ label: "tests" },
-	{ label: "lint" },
-	{ label: "build" },
-	{ label: "typecheck" },
-];
 
 interface CodeDiffData {
 	readonly title: string;
 	readonly description: string;
 	readonly files: readonly ChangedFile[];
-	readonly trivia: {
+	/** Undefined when the payload carries no aggregate trivia object — an
+	 * agent-supplied `CodeDiffPayload` can omit `trivia` entirely, and there is
+	 * nothing honest to show for a band with no real count behind it. */
+	readonly trivia?: {
 		readonly count: number;
 		readonly summary: string;
 		readonly added: number;
@@ -209,14 +83,6 @@ interface CodeDiffData {
 	};
 	readonly checks: readonly CiCheck[];
 }
-
-const CODE_DIFF_FIXTURE: CodeDiffData = {
-	title: "Fix expired-promo checkout returns silent success → typed 422",
-	description: PR_DESCRIPTION,
-	files: FILES,
-	trivia: TRIVIA,
-	checks: CI_CHECKS,
-};
 
 const BAND_LABEL: Record<ChangedFile["band"], string> = {
 	logic: "Logic",
@@ -309,33 +175,24 @@ function ReviewedBox({
 }
 
 // ── L1: CI checks row ─────────────────────────────────────────────────────────────
+//
+// @lore `CodeDiffPayload.checks` is `readonly string[]` —
+// labels only, no pass/fail state. The row used to render every one with a
+// green checkmark under a fixed "All checks passed" banner and a coverage
+// figure (`+0.4%`) the payload has no field for at all — a review must not
+// claim CI is green (or name a coverage delta) when nothing here knows either.
+// Render the check names the payload actually has, nothing else.
 function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element {
 	return (
-		<div className="flex flex-wrap items-center gap-[9px]">
-			<span className="type-metadata inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[3px]   text-[var(--status-success)]">
-				<CheckGlyph />
-				All checks passed
-			</span>
-			<div className="flex flex-wrap items-center gap-x-[12px] gap-y-[3px]">
-				{checks.map((c) => (
-					<span
-						key={c.label}
-						className="type-metadata inline-flex items-center gap-[6px]  text-[var(--text-secondary)]"
-					>
-						<span className="text-[var(--status-success)]">
-							<CheckGlyph />
-						</span>
-						{c.label}
-					</span>
-				))}
-				<span className="type-metadata inline-flex items-center gap-[6px]  text-[var(--text-secondary)]">
-					<span className="text-[var(--status-success)]">
-						<CheckGlyph />
-					</span>
-					coverage
-					<span className="type-data  tabular-nums  text-[var(--status-success)]">+0.4%</span>
+		<div className="flex flex-wrap items-center gap-x-[12px] gap-y-[3px]">
+			{checks.map((c) => (
+				<span
+					key={c.label}
+					className="type-metadata inline-flex items-center gap-[6px]  text-[var(--text-secondary)]"
+				>
+					{c.label}
 				</span>
-			</div>
+			))}
 		</div>
 	);
 }
@@ -619,22 +476,27 @@ function FileCard({
 export interface ReviewCodeDiffProps {
 	/** start with the top (most-relevant) file expanded so L3 shows by default. */
 	readonly initialExpandedPath?: string;
-	/** AL4: raw payload so the canvas can compute deterministic line block ids. */
-	readonly payload?: unknown;
+	/** the guarded payload so the canvas can compute deterministic line block ids. */
+	readonly payload: CodeDiffPayload;
 	/** AL4: owning artifact id for deterministic line block ids. */
-	readonly artifactId?: string;
+	readonly artifactId: string;
 }
 
 function ReviewCodeDiffView({
-	initialExpandedPath = CODE_DIFF_FIXTURE.files[0]?.path,
+	initialExpandedPath,
 	payload,
-	artifactId = "artifact:code:fixture",
+	artifactId,
 }: ReviewCodeDiffProps): JSX.Element {
-	const data = mapCodeDiffPayload(payload ?? CODE_DIFF_FIXTURE, artifactId);
+	const data = mapCodeDiffPayload(payload, artifactId);
 	const { description, files, trivia, checks } = data;
-	const [expanded, setExpanded] = useState<ReadonlySet<string>>(
-		() => new Set(initialExpandedPath ? [initialExpandedPath] : []),
-	);
+	// relevance order: logic band first, then test band — never file/alpha order.
+	// Computed from the real payload's files, so the top-file default expansion
+	// is correct for every payload.
+	const ordered = [...files].sort((a, b) => (a.band === b.band ? 0 : a.band === "logic" ? -1 : 1));
+	const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
+		const start = initialExpandedPath ?? ordered[0]?.path;
+		return new Set(start ? [start] : []);
+	});
 	const [reviewed, setReviewed] = useState<ReadonlySet<string>>(
 		() => new Set(files.filter((f) => f.reviewed).map((f) => f.path)),
 	);
@@ -674,11 +536,9 @@ function ReviewCodeDiffView({
 		}
 	}
 
-	const totalAdded = files.reduce((s, f) => s + f.added, 0) + trivia.added;
-	const totalRemoved = files.reduce((s, f) => s + f.removed, 0) + trivia.removed;
-
-	// relevance order: logic band first, then test band — never file/alpha order.
-	const ordered = [...files].sort((a, b) => (a.band === b.band ? 0 : a.band === "logic" ? -1 : 1));
+	const totalAdded = files.reduce((s, f) => s + f.added, 0) + (trivia?.added ?? 0);
+	const totalRemoved = files.reduce((s, f) => s + f.removed, 0) + (trivia?.removed ?? 0);
+	const fileCount = files.length + (trivia?.count ?? 0);
 
 	return (
 		<section
@@ -710,9 +570,7 @@ function ReviewCodeDiffView({
 
 				<div className="border-width-thin-t flex items-center justify-between  border-[var(--border-subtle)] pt-[12px]">
 					<span className="type-metadata  text-[var(--text-secondary)]">
-						<span className="type-data  tabular-nums  text-[var(--text-primary)]">
-							{files.length + trivia.count}
-						</span>{" "}
+						<span className="type-data  tabular-nums  text-[var(--text-primary)]">{fileCount}</span>{" "}
 						files changed · relevance-ranked
 					</span>
 					<button
@@ -720,7 +578,7 @@ function ReviewCodeDiffView({
 						onClick={collapseOrExpandAll}
 						className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)]"
 					>
-						{allCollapsed ? "Expand" : "Collapse"} {files.length + trivia.count} files changed
+						{allCollapsed ? "Expand" : "Collapse"} {fileCount} files changed
 					</button>
 				</div>
 			</header>
@@ -746,38 +604,40 @@ function ReviewCodeDiffView({
 					);
 				})}
 
-				{/* MINOR band — the separation header + note so the user knows these don't need review */}
-				<div className="mt-[3px] flex items-baseline gap-[6px] px-[12px] pt-[6px]">
-					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Minor</span>
-					<span className="type-metadata  text-[var(--text-tertiary)]">
-						generated &amp; formatting — safe to skip
-					</span>
-				</div>
-				{/* generated / trivia — collapsed to one row, never line-by-line */}
-				<div className="border-width-thin rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
-					<button
-						type="button"
-						onClick={() => setTriviaOpen((v) => !v)}
-						aria-expanded={triviaOpen}
-						className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
-					>
-						<Chevron open={triviaOpen} />
-						<span className="type-small flex-1  text-[var(--text-secondary)]">
-							<span className="type-data  tabular-nums  text-[var(--text-primary)]">
-								{trivia.count}
-							</span>{" "}
-							files · {trivia.summary}
-						</span>
-						<ChangeBadge added={trivia.added} removed={trivia.removed} />
-					</button>
-					{triviaOpen ? (
-						<div className="border-width-thin-t type-data  border-[var(--border-subtle)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
-							<div>openapi/schema.gen.ts</div>
-							<div>package-lock.json</div>
-							<div>src/checkout/styles.css</div>
+				{/* MINOR band — only when the payload actually supplies an aggregate
+				    `trivia` object; no object means there is no real count/summary to
+				    report, not "0 files". No judgement ("safe to skip") is asserted
+				    about THIS diff — no payload field backs one — and the expanded
+				    row below shows only the payload's own `trivia.summary`, never
+				    hardcoded filenames. */}
+				{trivia ? (
+					<>
+						<div className="mt-[3px] flex items-baseline gap-[6px] px-[12px] pt-[6px]">
+							<span className="type-label   uppercase  text-[var(--text-tertiary)]">Minor</span>
+							<span className="type-metadata  text-[var(--text-tertiary)]">
+								generated &amp; formatting
+							</span>
 						</div>
-					) : null}
-				</div>
+						{/* generated / trivia — collapsed to one row, never line-by-line */}
+						<div className="border-width-thin rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
+							<button
+								type="button"
+								onClick={() => setTriviaOpen((v) => !v)}
+								aria-expanded={triviaOpen}
+								className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
+							>
+								<Chevron open={triviaOpen} />
+								<span className="type-small flex-1  text-[var(--text-secondary)]">
+									<span className="type-data  tabular-nums  text-[var(--text-primary)]">
+										{trivia.count}
+									</span>{" "}
+									files · {trivia.summary}
+								</span>
+								<ChangeBadge added={trivia.added} removed={trivia.removed} />
+							</button>
+						</div>
+					</>
+				) : null}
 			</div>
 
 			{/*
@@ -803,9 +663,9 @@ function isCodeDiffPayload(payload: unknown): payload is CodeDiffPayload {
 	);
 }
 
-function mapCodeDiffPayload(payload: unknown, artifactId?: string): CodeDiffData {
-	if (!isCodeDiffPayload(payload)) return CODE_DIFF_FIXTURE;
-
+function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId: string): CodeDiffData {
+	// Only a real `payload.trivia` object backs the Minor band's count/summary —
+	// no `trivia` object means there is no aggregate trivia to report, not "0".
 	const trivia = isPlainObject(payload.trivia)
 		? {
 				count: Number(payload.trivia.count) || 0,
@@ -813,12 +673,12 @@ function mapCodeDiffPayload(payload: unknown, artifactId?: string): CodeDiffData
 				added: Number(payload.trivia.added) || 0,
 				removed: Number(payload.trivia.removed) || 0,
 			}
-		: { count: 0, summary: payload.triviaSummary, added: 0, removed: 0 };
+		: undefined;
 
 	return {
 		title: payload.prTitle,
 		description: payload.description,
-		files: payload.files.map((file, fileIndex) => ({
+		files: payload.files.map((file) => ({
 			path: file.path,
 			added: Number(file.added) || 0,
 			removed: Number(file.removed) || 0,
@@ -831,12 +691,7 @@ function mapCodeDiffPayload(payload: unknown, artifactId?: string): CodeDiffData
 					const spotLabel = `${file.path}:${line.newNo ?? line.oldNo ?? "new"}`;
 					return {
 						...line,
-						blockId: lineBlockId(
-							artifactId ?? `artifact:code:${fileIndex}`,
-							file.path,
-							hunkIndex,
-							line,
-						),
+						blockId: lineBlockId(artifactId, file.path, hunkIndex, line),
 						spotLabel,
 					};
 				}),
@@ -848,6 +703,11 @@ function mapCodeDiffPayload(payload: unknown, artifactId?: string): CodeDiffData
 }
 
 export function ReviewCodeDiff({ artifact }: ReviewCanvasProps): JSX.Element {
+	if (!isCodeDiffPayload(artifact.payload)) {
+		// A malformed payload gets the honest unknown-canvas
+		// fallback, never the promo-fix PR demo fixture.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

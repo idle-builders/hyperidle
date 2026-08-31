@@ -113,6 +113,11 @@ async function transitionAgentRunLifecycle(
 		sourceId: row.sourceId,
 		state: row.status as "completed" | "failed" | "cancelled",
 		sessionId: row.sessionId ?? undefined,
+		// Read back off the row the CAS just wrote, not off `input` — the row is
+		// the durable truth, and a termination reason may have overridden the
+		// caller's own code (see `TERMINATION_DISPOSITIONS` above).
+		failureCode: row.errorCode ?? undefined,
+		errorMessage: row.errorMessage ?? undefined,
 		timestamp: Date.now(),
 	});
 }
@@ -322,6 +327,7 @@ export function transitionRun(
 				readonly sessionId?: string;
 				readonly claimToken?: string;
 				readonly failureCode?: string;
+				readonly errorMessage?: string;
 		  }
 		| {
 				readonly target: "session";

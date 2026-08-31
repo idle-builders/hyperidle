@@ -9,7 +9,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { AGENT_ROLE_CATALOG, findRoleCatalogEntry } from "../agent-roles.js";
 import type { ToolCallSummary } from "../thread.js";
 
 // ThreadConfiguration classifier inlined (classifyThreadConfiguration removed from domain-model —
@@ -35,53 +34,12 @@ function classifyThreadConfiguration(thread: {
 // AC-11: Role catalog — "assistant" replaces "chief_of_staff"
 // ---------------------------------------------------------------------------
 
-describe("AD8b — AGENT_ROLE_CATALOG: assistant entry", () => {
-	it("findRoleCatalogEntry('assistant') returns an entry", () => {
-		const entry = findRoleCatalogEntry("assistant");
-		expect(entry).toBeDefined();
-	});
-
-	it("assistant entry has role='assistant'", () => {
-		const entry = findRoleCatalogEntry("assistant");
-		expect(entry?.role).toBe("assistant");
-	});
-
-	it("assistant entry has label='Assistant'", () => {
-		const entry = findRoleCatalogEntry("assistant");
-		expect(entry?.label).toBe("Assistant");
-	});
-
-	it("assistant entry has category='individual'", () => {
-		const entry = findRoleCatalogEntry("assistant");
-		expect(entry?.category).toBe("individual");
-	});
-
-	it("assistant entry has hasTemplate=true", () => {
-		const entry = findRoleCatalogEntry("assistant");
-		expect(entry?.hasTemplate).toBe(true);
-	});
-
-	it("assistant entry has community='ops'", () => {
-		const entry = findRoleCatalogEntry("assistant");
-		expect(entry?.community).toBe("ops");
-	});
-
-	it("AGENT_ROLE_CATALOG contains exactly one individual-category entry", () => {
-		const individualEntries = AGENT_ROLE_CATALOG.filter((e) => e.category === "individual");
-		expect(individualEntries).toHaveLength(1);
-		expect(individualEntries[0]?.role).toBe("assistant");
-	});
-
-	it("findRoleCatalogEntry('chief_of_staff') returns undefined (renamed to assistant)", () => {
-		const entry = findRoleCatalogEntry("chief_of_staff");
-		expect(entry).toBeUndefined();
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-11: ThreadConfiguration rename — "coach" → "assistant"
-// ---------------------------------------------------------------------------
-
+// @lore BA9g: the catalog block is gone with `AGENT_ROLE_CATALOG`. What it
+// asserted — that `assistant` is an individual-category role with community
+// "ops" — was catalog metadata for a role that is now just a string. The
+// assistant is still special, but for a reason the catalog never carried: it is
+// the one agent HyperIdle ships, per human, and it keeps its persona. The
+// ThreadConfiguration rename this file also covers is unaffected.
 describe("AD8b — ThreadConfiguration rename: coach → assistant", () => {
 	it("classifyThreadConfiguration returns 'assistant' for pinned user-hosted thread", () => {
 		const thread = {

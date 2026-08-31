@@ -49,9 +49,8 @@ const RETURN_ACTION_SET: ReadonlySet<string> = new Set(RETURN_ACTION_NAMES);
  * namespaced by client dialect. Claude/Codex use `mcp__<server>__<bare-name>`
  * (e.g. `mcp__hyperidle__send_message`). OpenCode exposes tools as
  * `<server>_<bare-name>` (e.g. `hyperidle_send_message`). The bare name is
- * `send_message`. The builtin harness calls bare names directly (no namespace).
- * This helper normalises all forms to the bare name so callers can do a single
- * set lookup.
+ * `send_message`. This helper normalises all forms to the bare name so callers
+ * can do a single set lookup.
  *
  * Pattern: `mcp__<server>__<name>` → `<name>`. Any string not matching the
  * pattern is returned unchanged (idempotent for bare names and unknown forms).
@@ -80,8 +79,8 @@ function stripMcpNamespace(toolName: string): string {
  *
  * @lore AR2: MCP-namespaced tool names (`mcp__hyperidle__send_message` etc.)
  * are normalised to their bare form before the set lookup so CLI+MCP sessions
- * are verdicted correctly. The builtin harness is unaffected (bare names pass
- * through `stripMcpNamespace` unchanged).
+ * are verdicted correctly. A bare name passes through `stripMcpNamespace`
+ * unchanged, so a harness that does not namespace is handled by the same path.
  */
 export function isReturnAction(toolName: string, _args?: Record<string, unknown>): boolean {
 	return RETURN_ACTION_SET.has(stripMcpNamespace(toolName));
@@ -111,8 +110,8 @@ export function isRequiredReturnAction(
 
 /**
  * The canonical forcing message re-injected when an agent attempts to
- * stop without returning. Single source of truth — used by the SDK Stop hook
- * callback, the builtin loop re-inject, and any future forcing path.
+ * stop without returning. Single source of truth — used by the Stop hook
+ * callback and any future forcing path.
  *
  * @lore This string is what the agent sees when forced to return, when
  * the session has no specific `requiredReturnActions` (the pre-Increment-3
@@ -142,7 +141,7 @@ const RETURN_ACTION_HINTS: Record<ReturnActionName, string> = {
  */
 export type LiteralToolNamer = (name: ReturnActionName) => string;
 
-/** Default namer: the bare name unchanged (builtin, and the pre-Increment-8 default). */
+/** Default namer: the bare name unchanged (the pre-Increment-8 default). */
 const identityToolName: LiteralToolNamer = (name) => name;
 
 /**
@@ -171,14 +170,14 @@ export const opencodeToolName: LiteralToolNamer = (name) => `hyperidle_${name}`;
  * The harness adapter "type" identifiers `AdapterPool` registration meta uses
  * (`adapter-pool.ts`) — the vocabulary `selectedAdapter.meta.type` carries.
  */
-export type HarnessAdapterType = "builtin" | "claude-code" | "codex" | "opencode" | "cursor-agent";
+export type HarnessAdapterType = "claude-code" | "codex" | "opencode" | "cursor-agent";
 
 /**
  * AU27 Increment 8 (BLOCKER fix) — resolve the right `LiteralToolNamer` for a
  * given harness adapter type, so any call site that names a return-action
  * tool in agent-facing text can say a name the agent can actually invoke.
- * `builtin` calls tools directly (no MCP, no namespace) and an unrecognized/
- * absent type falls back to the bare name — the pre-Increment-8 default.
+ * An unrecognized or absent type falls back to the bare name — the
+ * pre-Increment-8 default.
  */
 export function literalToolNamerForAdapterType(
 	adapterType: HarnessAdapterType | string | undefined,
@@ -229,8 +228,8 @@ export function buildForceReturnMessage(
 
 /**
  * Maximum number of force-continue re-injections per turn before falling
- * through to Tier-2 reject. N=2 matches the builtin's bounded-retry
- * discipline (one nudge, one recovery).
+ * through to Tier-2 reject. N=2 is a bounded-retry discipline: one nudge, one
+ * recovery.
  *
  * @lore After this budget is spent the forcing hook allows the stop and the
  * provisioning drain applies the not_returned outcome. The session never

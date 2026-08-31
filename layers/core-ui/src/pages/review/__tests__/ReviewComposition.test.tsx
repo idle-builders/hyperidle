@@ -5,6 +5,7 @@ import { REVIEW_COMPOSITION_SUBJECT } from "../__fixtures__/review-composition.f
 import { getReviewCanvas } from "../canvas-registry.js";
 import { ReviewComposition } from "../ReviewComposition.js";
 import type { CodeDiffPayload, ReviewArtifact, ReviewCanvasKind } from "../review-artifact.js";
+import type { ComposedReviewSubject } from "../review-composition.js";
 
 describe("ReviewComposition", () => {
 	function renderComposition(props?: Partial<Parameters<typeof ReviewComposition>[0]>) {
@@ -21,7 +22,7 @@ describe("ReviewComposition", () => {
 		};
 	}
 
-	it("AC1: renders the bet/task breadcrumb, prompt, outcome, KPIs and visible proof", () => {
+	it("AC1: renders the bet/task breadcrumb, prompt, outcome and KPIs", () => {
 		renderComposition();
 
 		expect(
@@ -35,8 +36,9 @@ describe("ReviewComposition", () => {
 			expect(screen.getByText(kpi.label)).toBeInTheDocument();
 			expect(screen.getByText(kpi.value)).toBeInTheDocument();
 		}
-		expect(screen.getByText("Before")).toBeInTheDocument();
-		expect(screen.getByText("After")).toBeInTheDocument();
+		// "Before"/"After" came only from the deleted hardcoded CheckoutCard mock —
+		// never from real subject data. Asserting them here encoded the defect;
+		// dropped rather than preserving the mock to keep it green.
 	});
 
 	it("AC2: surfaces derived needs with jump links", () => {
@@ -150,5 +152,99 @@ describe("ReviewComposition", () => {
 		const { container } = render(<CanvasComponent artifact={unknownArtifact} />);
 
 		expect(within(container).getByText("Mystery output")).toBeInTheDocument();
+	});
+
+	// The reviews loader's no-proposed-call branch (`routes/reviews.ts`) appends
+	// a resolved stored-artifact entry to `artifacts` — byte-identical in shape
+	// to what it puts on the wire. Every prior test in this file exercises
+	// hand-authored fixture artifacts that already carry every field
+	// `ArtifactRow`/`ToolLogo` need; none of them would have caught a loader
+	// that omits `tool`/`app`/`payload` (`ToolLogo`'s `tool.slice(0, 1)`
+	// crashes the whole row on `undefined`). This test renders the row-level
+	// list (not a canvas component directly) with exactly the loader's output
+	// shape so a missing required field reddens here first.
+	it("renders a resolved stored-artifact entry (the reviews loader's actual output shape) without crashing", () => {
+		const resolvedArtifact: ReviewArtifact = {
+			id: "artifact:resolved:1",
+			tool: "hyperidle",
+			app: "HyperIdle",
+			kind: "text" as ReviewCanvasKind,
+			sourceHref: "/artifacts/artifact:resolved:1",
+			title: "Resolved reference title",
+			payload: {},
+		};
+		renderComposition({
+			subject: {
+				...REVIEW_COMPOSITION_SUBJECT,
+				artifacts: [...REVIEW_COMPOSITION_SUBJECT.artifacts, resolvedArtifact],
+			},
+		});
+
+		expect(screen.getByText("Resolved reference title")).toBeInTheDocument();
+	});
+});
+
+describe("ReviewComposition — the checkout mock is deleted", () => {
+	/**
+	 * A ComposedReviewSubject shaped like a real, non-demo review — deliberately NOT the
+	 * REVIEW_COMPOSITION_SUBJECT fixture above. A production `ReviewPayload` only ever
+	 * carries `{title, reasoning, artifactRef}` (domain-model `thread.ts:199-203`, what
+	 * `submit_review` actually writes);
+	 * nothing populates a token count, tools, KPIs or needs, so the loader composes those as
+	 * empty arrays for what nothing produces. `tokens: ""` is that real gap, not a
+	 * convenience value chosen to make the assertion trivially pass — it is the exact
+	 * condition every non-demo review is in.
+	 */
+	const realReviewSubject: ComposedReviewSubject = {
+		id: "review-msg-real-1",
+		title: "Fix the checkout regression",
+		threadId: "thread-real-1",
+		betId: "bet-real-1",
+		betTitle: "Checkout reliability",
+		taskId: "task-real-1",
+		taskTitle: "Fix the checkout regression",
+		prompt: "Fix the checkout bug reported by support.",
+		authorName: "Atlas",
+		reviewerName: "You",
+		blocking: true,
+		producedAgo: "5 min ago",
+		tokens: "",
+		tools: [],
+		outcome: "Fixed the regression; the checkout tests pass.",
+		resultKpis: [],
+		intent: [],
+		needs: [],
+		conversation: [],
+		artifacts: [],
+	};
+
+	it("never renders the hardcoded checkout mock's strings (ReviewComposition.tsx:346-414)", () => {
+		const { container } = render(
+			<ReviewComposition subject={realReviewSubject} onSubmitVerdict={vi.fn()} />,
+		);
+
+		expect(container.textContent).not.toContain("SPRING24");
+		expect(container.textContent).not.toContain("$120.00");
+		expect(container.textContent).not.toContain("This code expired on Apr 3.");
+	});
+
+	it("does not render a bare separator when tokens is empty (ReviewComposition.tsx:258)", () => {
+		const { container } = render(
+			<ReviewComposition subject={realReviewSubject} onSubmitVerdict={vi.fn()} />,
+		);
+
+		const producedAgoField = container.querySelector('[data-az16-profile="data"]');
+		expect(producedAgoField?.textContent).toBe(realReviewSubject.producedAgo);
+	});
+
+	it("still renders the separator when both tokens and producedAgo are present (no regression)", () => {
+		const { container } = render(
+			<ReviewComposition subject={REVIEW_COMPOSITION_SUBJECT} onSubmitVerdict={vi.fn()} />,
+		);
+
+		const producedAgoField = container.querySelector('[data-az16-profile="data"]');
+		expect(producedAgoField?.textContent).toBe(
+			`${REVIEW_COMPOSITION_SUBJECT.tokens} · ${REVIEW_COMPOSITION_SUBJECT.producedAgo}`,
+		);
 	});
 });

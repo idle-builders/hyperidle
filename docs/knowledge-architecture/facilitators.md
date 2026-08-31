@@ -8,15 +8,25 @@ Most agent systems have workers (agents that do things) and maybe an orchestrato
 
 | Layer | Agent | What they organize |
 |-------|-------|--------------------|
-| L4 Factory | **System assistant** (factory-level singleton, `framework/factory-defaults/src/factory-roster.ts:124-127`) | Factory-level knowledge above the per-product teams |
+| L4 Factory | **System Agent** (factory-level singleton, `layers/core-api/src/bootstrap/factory-state.ts`) | Factory-level knowledge above the per-product teams |
 | L3 Practice | **Facilitator** (one per community: build/product/growth/ops, plus facilitation itself) | Role-specific practices, anti-patterns, conflicts, community-wide learnings |
 | L2 Product | **Product Manager** (one per product) | Product cycles, team coordination, bet shaping, cross-function handoffs — and its own facilitation quality |
 
-In code: role `facilitator`, category `strategy` (`framework/domain-model/src/agent-roles.ts:150` — renamed from `practice_facilitator`, @lore AD8c). The default factory roster seeds five facilitators plus the system-assistant singleton (`factory-roster.ts:92-128`); the minimal strategy roster concept no longer exists — the roster is a fixed constant (AU28 step 6: the swappable-roster injection seam was removed as dead, zero-production-caller code). The Product Manager is a `team`-category agent ("Team lead", `agent-roles.ts:65-72`) — its facilitator hat is a conceptual framing, not a code category. The assistant is a per-user individual agent with guardrails (`agent-roles.ts:187-197`, @lore AD8b). Role identity and the full taxonomy live in [agent-model](../agent-layer/agent-model.md).
+In code: role `facilitator`, category `individual` (`framework/domain-model/src/agent-roles.ts` — renamed from `practice_facilitator`, @lore AD8c; moved from `strategy` to `individual` in BA9d). Facilitators are now provided by the knowledge-management plugin (BA9d wave 2), not seeded at factory boot. The Product Manager is a `team`-category agent ("Team lead") — its facilitator hat is a conceptual framing, not a code category. The assistant is a per-user individual agent with guardrails (@lore AD8b). Role identity and the full taxonomy live in [agent-model](../agent-layer/agent-model.md).
 
 Facilitators don't do the work itself — no code, no copy, no deploys. Worker agents (builder, growth, ops, …) do that. Facilitators coordinate, organize, score, and route: the factory's nervous system.
 
-Worker agents sit in a **matrix**: each reports vertically to its Product Manager and belongs horizontally to a community of practice led by a facilitator — implemented as the `community` field per catalog role plus `communityForRole()` (`agent-roles.ts:242`); communities are `build/product/growth/ops/facilitation` (`framework/factory-defaults/src/factory-roster.ts`).
+Worker agents sit in a **matrix**: each reports vertically to its Product
+Manager and belongs horizontally to a community of practice led by a
+facilitator.
+
+**A practice is a role.** It used to be a `community` field on each catalog role
+plus a `communityForRole()` mapping onto `build/product/growth/ops/facilitation`
+— but nothing ever scoped knowledge to a community name (the demo world scopes
+practice knowledge by role), so the mapping did no work and went with the role
+catalog in BA9g. L3 practice knowledge is scoped by role: `scope_kind='practice'`
+with `scope_id` the role. A new role is its own practice, with nothing to
+maintain.
 
 The fifth facilitator — for **facilitation itself** — means the facilitators form their own community of practice (`seed-agent-pf-facilitation`). Turtles stop there.
 

@@ -21,15 +21,7 @@ export type {
 	AgentReviewTrackRecord,
 	AgentVerdictEntry,
 } from "./agent-profile.js";
-export type { AgentRoleCatalogEntry } from "./agent-roles.js";
-export {
-	AGENT_ROLE_CATALOG,
-	communityForRole,
-	defaultRoster,
-	findRoleCatalogEntry,
-	roleLabel,
-	TEAM_FUNCTIONS,
-} from "./agent-roles.js";
+export { roleLabel } from "./agent-roles.js";
 // HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
@@ -51,6 +43,7 @@ export type {
 	ConfigurationOrigin,
 	ConfigurationOriginType,
 	ConfigurationValueSource,
+	PluginContributionKind,
 	PluginScopeKind,
 	PluginState,
 	ResolvedConfigurationItem,
@@ -58,6 +51,7 @@ export type {
 export {
 	BUILTIN_PLUGIN_ID,
 	CONFIGURATION_KINDS,
+	PLUGIN_CONTRIBUTION_KINDS,
 	PLUGIN_SCOPE_KINDS,
 	PLUGIN_STATES,
 } from "./configuration.js";
@@ -142,8 +136,6 @@ export type { NotificationType, NotificationTypeKey } from "./notifications.js";
 // NotificationUrgency unexported (SIMPLIFY): member of registry entry; no external consumer names it directly.
 // shortLabelForType MERGE → core-ui/shell/notification-display.ts (AU44 batch 8)
 export { NOTIFICATION_TYPES } from "./notifications.js";
-export type { ProposedCall, ProposedCallStatus, Reversibility } from "./proposed-call.js";
-export { PROPOSED_CALL_STATUSES, REVERSIBILITY } from "./proposed-call.js";
 export type {
 	RoutineCardSummary,
 	RoutineDetail,
@@ -176,7 +168,6 @@ export {
 	agentSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
-	proposedCallSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
@@ -202,7 +193,6 @@ export type {
 	ArtifactRef,
 	ArtifactThreadSummary,
 	ArtifactThreadSummaryResponse,
-	ArtifactViewShape,
 	AssistantNotice,
 	// BlockId + BlockHostKind: wire types embedded in AnchorRef/BlockRef; inlined in
 	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
@@ -223,6 +213,8 @@ export type {
 	PlainPayloadWithBlockId,
 	QuestionnairePayload,
 	RedactedPayload,
+	ReviewCanvasArtifact,
+	ReviewCanvasKind,
 	ReviewPayload,
 	Thread,
 	ThreadId,
@@ -231,13 +223,13 @@ export type {
 	VerdictPayload,
 } from "./thread.js";
 export {
-	ARTIFACT_VIEW_SHAPES,
 	HOST_KINDS,
 	headCollapsePredicate,
 	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
 	// promotedRichMessageId MERGE → core-ui/ds/thread-display.ts (AU44 batch 8)
+	REVIEW_CANVAS_KINDS,
 	VERDICT_DECISIONS,
 	verdictDecisionLabel,
 	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts (AU44 batch 8)
@@ -255,6 +247,7 @@ export type {
 	AgentCategory,
 	BetOutcomeVerdict,
 	BetStatus,
+	HarnessType,
 	HealthResponse,
 	KernelKnowledgeStatus,
 	ModelTier,
@@ -276,6 +269,7 @@ export {
 	BET_OUTCOME_VERDICTS,
 	BET_STATUS_LABEL,
 	BET_STATUSES,
+	HARNESS_TYPES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	MODEL_TIERS,
 	ORG_EDGE_MECHANISMS,

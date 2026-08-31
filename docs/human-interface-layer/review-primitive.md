@@ -20,7 +20,7 @@ AL2 ships nine proof-family canvases. Each artifact renders through the canvas s
 
 ## Composition surface (AL3)
 
-The `ReviewComposition` component at `/work/bet/:betId/review/:reviewId` (`layers/core-ui/src/router.tsx`) wraps the canvas families into a coherent review page:
+The `ReviewComposition` component at `/reviews/:reviewId` (`layers/core-ui/src/router.tsx`) wraps the canvas families into a coherent review page:
 
 ```
 ReviewComposition
@@ -63,9 +63,9 @@ All thresholds live in factory settings with safe defaults. The effect the user 
 
 ## Execution on approve (AL7)
 
-Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the collaboration checkpoint on the Subject's **Proposed Call**: the irreversible call (a refund, a merge, a send) the agent attempted and the gate routed to a human. The review shows the **concrete proposed call** — tool id + verbatim args — so judgment is grounded in the real action. On approve, HyperIdle grants the call and re-engages the agent's own session; the agent re-does the approved work through its own tools and continues. Non-approving verdicts hold the call un-executed. Proposed Call statuses: `captured | granted | executed | failed | held` (`framework/domain-model/src/proposed-call.ts`).
+Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the collaboration checkpoint on the action the agent was stopped from taking (a refund, a merge, a send). The review shows the concrete action so judgment is grounded in what would really happen. On approve, the agent's own session takes the action with its own tools and continues; a non-approving verdict leaves it untaken.
 
-HyperIdle itself executes nothing — see [system boundary](../architecture/system-boundary.md). Full gate mechanics (grant CAS, session re-engagement, reversibility classification, auto-flow AL8): [Staged operation / Proposed Call](../process-layer/staged-operation.md).
+HyperIdle itself executes nothing — see [system boundary](../architecture/system-boundary.md). The gate that routes a consequential action to a human is being rebuilt; no document describes a live mechanism for it until it lands.
 
 ### OutcomeBand — what the reviewer sees after approving
 
@@ -84,11 +84,11 @@ The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **O
 - The success band uses a `--status-success` tint, **not** `--accent-secondary-dim` (the warning/money amber used on the amount block). A completed op is history — it must not continue reading in the danger color family (`ReviewActionOperation.tsx`).
 - The failure error is **never truncated** — a reviewer cannot be forced to miss the exact tool error. `whitespace-pre-wrap break-words` preserves the tool's own newlines and keeps long tokens inside the band.
 - `executedAt` is a pre-humanized relative string ("2 min ago") — the reviews loader formats it at the response boundary; the component never parses time.
-- There is **no HyperIdle-held `executing` state** — HyperIdle never holds an in-flight execution; the agent's own session does. If that session ends without the approved op executing (crash/no-show), the liveness net re-provisions once, then surfaces a `failed` Outcome (`layers/core-api/review/src/proposed-call-workflow.ts,66-82`) — a reviewer never sits on a permanent spinner.
+- There is **no HyperIdle-held `executing` state** — HyperIdle never holds an in-flight execution; the agent's own session does. A reviewer never sits on a permanent spinner.
 - The band is **persistent** — a re-opened review shows the terminal Outcome state instead of re-prompting for a verdict on an already-executed op.
 
 ## Where it lives
 
-The registry, types, canvases, and composition component are in `layers/core-ui/src/pages/review/`. `ReviewPage` at `/work/bet/:betId/review/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewMessageId` (`layers/core-api/src/routes/reviews.ts`) — a real loader querying `proposed_calls LEFT JOIN operation_outcomes` plus artifacts, humanizing `executedAt` server-side; a fixture remains only for the demo id `rev-1`. The route is mounted in `layers/core-api/src/app.ts`.
+The registry, types, canvases, and composition component are in `layers/core-ui/src/pages/review/`. `ReviewPage` at `/reviews/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewMessageId` (`layers/core-api/src/routes/reviews.ts`) — a loader that reads the review message payload, composes the review's own `threadId` from the message row (never from the payload), and resolves an optional `artifactRef` to a full artifact entry appended to whatever artifacts the payload already carries. The route is mounted in `layers/core-api/src/app.ts`.
 
 Next: [`Artifact` primitive](../process-layer/artifact-primitive.md) for the canonical data shape, or [`Thread` primitive](./thread-primitive.md) for the conversation container and verdict grammar.

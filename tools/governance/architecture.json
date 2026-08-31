@@ -65,10 +65,9 @@
 				"core-api",
 				"remote-worker",
 				"agent-execution",
-				"tool-handlers",
-				"review"
+				"tool-handlers"
 			],
-			"why": "how a run is dispatched to a harness and how its output comes back: the adapter interface, the event stream, the worker wire protocol, the return-action set, and the tool-seam contract (RegisteredTool, ToolResult, ok/err) the tool dispatch side agrees on. A contract between a harness process, the layer that runs it and the worker that hosts it. The web UI is not one of those. `agent-execution`'s own boot (AU31 \u00a76, `bootAgentExecution`) is the layer that runs it \u2014 it types the enforcement registry, the harness adapter and the worker-registration message its `AgentExecutionAdapters` bundle carries out to whichever layer consumes it; neither server Application needs the protocol itself, only the already-typed function value the boot hands back. `tool-handlers` and `review` reach it because AU44 batch 5 dissolved `framework/tool-protocol` into this package \u2014 those two services formerly reached `tool-protocol` for the RegisteredTool/ToolResult seam, widening harness-protocol's declared audience beyond the harness contract itself."
+			"why": "how a run is dispatched to a harness and how its output comes back: the adapter interface, the event stream, the worker wire protocol, the return-action set, and the tool-seam contract (RegisteredTool, ToolResult, ok/err) the tool dispatch side agrees on. A contract between a harness process, the layer that runs it and the worker that hosts it. The web UI is not one of those. `agent-execution`'s own boot (AU31 \u00a76, `bootAgentExecution`) is the layer that runs it \u2014 it types the enforcement registry, the harness adapter and the worker-registration message its `AgentExecutionAdapters` bundle carries out to whichever layer consumes it; neither server Application needs the protocol itself, only the already-typed function value the boot hands back. `tool-handlers` reaches it because AU44 batch 5 dissolved `framework/tool-protocol` into this package \u2014 it formerly reached `tool-protocol` for the RegisteredTool/ToolResult seam."
 		},
 		"framework/db": {
 			"reach": "everyone",

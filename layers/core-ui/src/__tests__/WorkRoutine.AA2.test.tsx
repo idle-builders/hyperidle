@@ -60,6 +60,7 @@ const MOCK_DETAIL_AA2: RoutineDetail = {
 		createdAt: "2026-01-01T00:00:00.000Z",
 		lastRunSummary: "Sent 10 notifications successfully.",
 		silent: false,
+		eventTransitionTo: null,
 	},
 	runs: [
 		{

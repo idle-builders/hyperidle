@@ -25,7 +25,7 @@ const PROFILE: AgentProfileResponse = {
 	teamName: null,
 	teamId: null,
 	createdAt: "2026-08-01T00:00:00.000Z",
-	systemPrompt: "",
+	identityKnowledgeId: "ki_af_demo",
 	harnessType: "opencode",
 	maxConcurrentSessions: 1,
 	mcpSetup: null,

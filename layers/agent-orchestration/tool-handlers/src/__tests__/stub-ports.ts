@@ -13,7 +13,6 @@ function notImplemented(): never {
 export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 	coreApi: {
 		createBet: notImplemented,
-		provisionTeamRoutines: notImplemented,
 		getTaskById: notImplemented,
 		getBetById: notImplemented,
 		updateBetById: notImplemented,
@@ -24,6 +23,7 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		createItem: notImplemented,
 		findItemByReasoningMarker: notImplemented,
 		createArtifact: notImplemented,
+		getArtifactById: notImplemented,
 		getUserById: notImplemented,
 		listUsersByTeam: notImplemented,
 		findSoleHumanUser: notImplemented,
@@ -52,6 +52,9 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		createKnowledgeConflict: notImplemented,
 		promoteKnowledgeItem: notImplemented,
 		upsertKnowledgeAppProjectionAttentionScore: notImplemented,
+		runKnowledgeSweep: notImplemented,
 		recomputeAttentionScoreForItem: notImplemented,
+		mergeKnowledgeItem: notImplemented,
+		splitKnowledgeItem: notImplemented,
 	},
 };

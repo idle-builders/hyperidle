@@ -88,8 +88,7 @@ export type AgentOrchestrationWorkIntentKind =
 	| "session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "task_run"
-	| "reengagement";
+	| "task_run";
 
 /**
  * Mirrors `AgentWorkIntentRecorderInput` — `bakedRequest` is carried opaque
@@ -152,7 +151,10 @@ export interface AgentOrchestrationRunsPort {
 
 /** Mirrors `AgentRunConfig` (`@hyperidle/agent-run-config`). */
 export interface AgentOrchestrationRunConfigView {
-	readonly systemPrompt: string | null;
+	// The agent's identity is NOT here. It is the `agent_file` knowledge document
+	// bound to the agent (scope_kind='user', scope_id = the agent's id), edited
+	// like any other document. Run config is how an agent runs; the identity is
+	// who it is, and it stopped being a column so a plugin could contribute one.
 	readonly harnessType: string | null;
 	readonly modelId: string | null;
 	readonly modelProvider: string | null;

@@ -258,9 +258,9 @@ const capabilities: HarnessCapabilities = {
 const adapter = { getCapabilities: () => capabilities } as HarnessAdapter;
 
 describe("AdapterPool capability catalog merge", () => {
-	it("prefers discovered models for registered builtin and retains known missing families", () => {
+	it("prefers discovered models for a registered harness and retains known missing families", () => {
 		const pool = new AdapterPool({
-			builtin: {
+			opencode: {
 				state: "ready",
 				models: [
 					{
@@ -275,12 +275,11 @@ describe("AdapterPool capability catalog merge", () => {
 			},
 			codex: { state: "missing" },
 			"claude-code": { state: "missing" },
-			opencode: { state: "missing" },
 			"cursor-agent": { state: "missing" },
 		});
-		pool.register("builtin", adapter, {
-			type: "builtin",
-			name: "Builtin",
+		pool.register("opencode", adapter, {
+			type: "opencode",
+			name: "OpenCode",
 			kind: "local",
 			modelProviders: ["openrouter"],
 			maxConcurrent: 1,
@@ -288,7 +287,7 @@ describe("AdapterPool capability catalog merge", () => {
 
 		const catalog = pool.describe();
 		expect(
-			catalog.find((entry) => entry.type === "builtin")?.models.map((model) => model.id),
+			catalog.find((entry) => entry.type === "opencode")?.models.map((model) => model.id),
 		).toEqual(["openrouter/discovered"]);
 		expect(catalog.find((entry) => entry.type === "codex")?.discovery.state).toBe("missing");
 	});

@@ -437,10 +437,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const [outcomeSummaryForm, setOutcomeSummaryForm] = useState<string>(bet?.outcomeSummary ?? "");
 	const [outcomeSaving, setOutcomeSaving] = useState(false);
 	const [outcomeError, setOutcomeError] = useState<string | null>(null);
-	// AC2: Learnings field and AI draft state for the retro flow
+	// Learnings field state for the retro flow
 	const [retroLearningsForm, setRetroLearningsForm] = useState<string>("");
-	const [retroDrafting, setRetroDrafting] = useState(false);
-	const [retroDraftError, setRetroDraftError] = useState<string | null>(null);
 
 	// L18: Block popover state — openBlockId is set when the user opens a block's
 	// actions menu; null when the popover is closed.
@@ -610,33 +608,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			setOutcomeSaving(false);
 		}
 	}, [bet, outcomeVerdictForm, outcomeSummaryForm, retroLearningsForm, fetched]);
-
-	/**
-	 * AC2: Call POST /api/bets/:id/retro/draft to get an AI-assisted draft.
-	 * Pre-fills verdict, summary, and learnings form fields.
-	 * On failure, shows error message but keeps form usable.
-	 */
-	const handleRetroDraft = useCallback(async (): Promise<void> => {
-		if (!bet) return;
-		setRetroDrafting(true);
-		setRetroDraftError(null);
-		try {
-			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}/retro/draft`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({}),
-			});
-			if (!res.ok) throw new Error("Draft failed");
-			const draft = (await res.json()) as { verdict: string; summary: string; learnings: string };
-			setOutcomeVerdictForm(draft.verdict as BetOutcomeVerdict);
-			setOutcomeSummaryForm(draft.summary);
-			setRetroLearningsForm(draft.learnings);
-		} catch {
-			setRetroDraftError("Could not generate draft. Fill in manually.");
-		} finally {
-			setRetroDrafting(false);
-		}
-	}, [bet]);
 
 	// AD5 AC-5: endpoint is always "kill" (pause removed)
 	const handleConsequenceConfirm = useCallback(
@@ -1071,7 +1042,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												setOutcomeVerdictForm("");
 												setOutcomeSummaryForm("");
 												setRetroLearningsForm("");
-												setRetroDraftError(null);
 												setOutcomeEditMode("editing");
 											}}
 										>
@@ -1116,24 +1086,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 											</p>
 										)}
 									</div>
-									{/* Right column: Draft with AI + form fields */}
+									{/* Right column: form fields */}
 									<div className="flex flex-col gap-[12px]">
-										{/* Draft with AI button */}
-										<div className="flex items-center gap-[9px]">
-											<Button
-												variant="secondary"
-												size="sm"
-												disabled={retroDrafting}
-												onClick={() => void handleRetroDraft()}
-											>
-												{retroDrafting ? "Drafting…" : "Draft with AI"}
-											</Button>
-											{retroDraftError && (
-												<span className="type-metadata  text-[var(--status-error)]">
-													{retroDraftError}
-												</span>
-											)}
-										</div>
 										{/* Verdict select */}
 										<div className="flex flex-col gap-[6px]">
 											<label

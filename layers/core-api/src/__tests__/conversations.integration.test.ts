@@ -196,7 +196,7 @@ describe("Conversations Endpoints (E2)", () => {
 						payload: {
 							title: "Verdict smoke",
 							reasoning: ["Looks fine"],
-							artifactRef: { id: "a-1", kind: "text_diff" },
+							artifactRef: { id: "a-1", kind: "code" },
 						},
 					},
 				}),
@@ -260,7 +260,7 @@ describe("Conversations Endpoints (E2)", () => {
 						payload: {
 							title: "No",
 							reasoning: ["Nope"],
-							artifactRef: { id: "a-2", kind: "text_diff" },
+							artifactRef: { id: "a-2", kind: "code" },
 						},
 					},
 				}),
@@ -322,7 +322,7 @@ describe("Conversations Endpoints (E2)", () => {
 						payload: {
 							title: "Validate",
 							reasoning: ["x"],
-							artifactRef: { id: "a-3", kind: "text_diff" },
+							artifactRef: { id: "a-3", kind: "code" },
 						},
 					},
 				}),

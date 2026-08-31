@@ -148,7 +148,8 @@ describe("AG6 AC-2 — agent rows via Row primitive (T6)", () => {
 	it("agent-card-category is the FIRST cell in agent rows (AB3 protected — position matters)", () => {
 		const teamWithCategory: TeamDetail = {
 			...TEAM,
-			roster: [{ ...AGENT, agentId: "strat-1", name: "Strat", agentCategory: "strategy" }],
+			// @lore BA9d: "strategy" deleted; individual is the non-team category for category-tag test.
+			roster: [{ ...AGENT, agentId: "ind-1", name: "Ind Agent", agentCategory: "individual" }],
 		};
 		renderPage(teamWithCategory);
 		const rows = screen.getAllByTestId("agent-row");

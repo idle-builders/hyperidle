@@ -6,6 +6,7 @@
  * release() decrements the count when a session ends.
  */
 
+import type { HarnessType } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { AdapterInfo, AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
@@ -209,6 +210,63 @@ export class AdapterPool {
 	}
 
 	/**
+	 * Why `select(requirements)` would return null, in the caller's words.
+	 *
+	 * `select` has six distinct ways to reject every entry, and the pool is the
+	 * only thing that can tell them apart. Callers used to collapse all six
+	 * into "all adapters are at capacity" — false for the case that actually
+	 * happens (an empty pool, because discovery found no harness binary), and
+	 * false in a way that points the reader at the wrong subsystem.
+	 *
+	 * Ordered most-actionable first: an empty pool is a different problem from
+	 * a filtered-out pool, which is a different problem from a full one.
+	 */
+	describeSelectFailure(requirements?: SelectRequirements): string {
+		if (this.entries.size === 0) {
+			// Covers both ways a pool ends up empty, because the pool cannot tell
+			// them apart: a `local`-topology deployment discovered no CLI on this
+			// host, and a `disabled`-topology one (the `remote-server`
+			// Application) never discovers anything at all — it waits for remote
+			// workers to register. Naming only the first would send a
+			// remote-server operator hunting for a binary that was never meant to
+			// be installed.
+			return "no harness adapters are registered — no local harness was discovered on this host, and no remote worker has registered";
+		}
+		const live = [...this.entries.values()].filter((entry) => !entry.paused);
+		if (live.length === 0) {
+			return `every registered harness adapter is paused (${this.entries.size} total)`;
+		}
+		const availableTypes = [...new Set(live.map((entry) => entry.meta.type ?? "untyped"))];
+		if (requirements?.harnessType) {
+			const ofType = live.filter((entry) => entry.meta.type === requirements.harnessType);
+			if (ofType.length === 0) {
+				return `no harness adapter of type "${requirements.harnessType}" is available (available: ${availableTypes.join(", ")})`;
+			}
+		}
+		const disabled = requirements?.disabledTypes ?? [];
+		if (disabled.length > 0) {
+			// Mirrors `select`'s filter exactly — no harness is exempt from being
+			// disabled any more, so neither is this diagnostic.
+			const enabled = live.filter(
+				(entry) => !entry.meta.type || !disabled.includes(entry.meta.type),
+			);
+			if (enabled.length === 0) {
+				return `every available harness type is disabled in settings (disabled: ${disabled.join(", ")})`;
+			}
+		}
+		if (requirements?.modelProviders) {
+			const required = requirements.modelProviders;
+			const matching = live.filter((entry) =>
+				required.every((provider) => entry.meta.modelProviders.includes(provider)),
+			);
+			if (matching.length === 0) {
+				return `no harness adapter supports the required model providers (${required.join(", ")})`;
+			}
+		}
+		return `all harness adapters are at capacity (${live.length} available: ${availableTypes.join(", ")})`;
+	}
+
+	/**
 	 * AB1: Return the HarnessCapabilities for the first adapter matching the given
 	 * harnessType. When harnessType is null, returns capabilities from any adapter
 	 * (useful when the agent has no preference — any adapter will do).
@@ -279,7 +337,7 @@ export class AdapterPool {
  * test can assert that codex config has a {{prompt}} or {{seed}} template arg. Without
  * a per-session prompt carrier codex sessions get a generic system prompt only.
  */
-const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
+const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 	codex: {
 		binary: "codex",
 		// @lore X5: `codex exec` runs a single-turn headless session; --json emits
@@ -312,6 +370,35 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		// Verified against codex-cli: `codex exec --help` lists three values:
 		// read-only (default), workspace-write, danger-full-access.
 		// workspace-write = writable within the cwd tree; no full-disk access.
+		//
+		// @lore BA2 ruling 22 (corrects ruling 18): codex-cli 0.150.1 refuses to
+		// run with "Not inside a trusted directory and --skip-git-repo-check was
+		// not specified" unless the working directory is a git repository — that
+		// IS a git-repo check, empirically, on this binary. Verified against the
+		// installed binary across all four combinations: {git repo, no trust
+		// declaration in config.toml} → runs; {git repo, trust declared} → runs;
+		// {not a git repo, trust declared} → fails with the exact same message;
+		// {not a git repo, no trust declared} → fails. `trust_level = "trusted"`
+		// makes no observed difference in either direction — the earlier BA2
+		// ruling 18 comment asserted the opposite ("it is not a git-repo check")
+		// on the strength of a probe that never tried a git repo WITHOUT a trust
+		// declaration, so it never saw that the trust entry was doing nothing.
+		// Ruling 18's other claim — that a prior commit "removed"
+		// `--skip-git-repo-check` — is also corrected here: against `main` that
+		// flag was never present; it existed only inside an abandoned branch.
+		//
+		// The actual fix for "every codex session dies at startup" is
+		// `ensureSandboxGitRepo` (run-orchestration/mounter.ts), called once
+		// after Phase 4.5 filesystem mounting to `git init` the sandbox when
+		// mounting didn't already make it one — see that function's own comment
+		// for why it cannot run before mounting. `writeCliMcpConfig`'s
+		// codex-toml dialect still writes the `[projects."<sandbox>"]
+		// trust_level = "trusted"` block (cli-mcp-config.ts, `buildCodexTrustBlock`)
+		// per BA2 ruling 22: kept deliberately, as the general shape — where a
+		// harness has its own trusted-directory mechanism, declare the
+		// filesystems we inject as trusted through it — even though it was not
+		// observed to be load-bearing for this specific codex-cli precondition.
+		// No bypass flag is used here, before or after this correction.
 		args: ["exec", "--sandbox", "workspace-write", "--model", "{{model}}", "{{prompt}}", "--json"],
 		envMap: {
 			OPENAI_API_KEY: "{{apiKey}}",

@@ -39,6 +39,11 @@ const EXPECTED_TOOL_NAMES = [
 	"update_routine",
 	// AK4: bet draft/edit tool for assistant conversational drafting
 	"edit_bet",
+	// BA9d wave 2: knowledge merge and split tools
+	"merge_knowledge",
+	"split_knowledge",
+	// BA9d wave 3: knowledge sweep tool
+	"run_knowledge_sweep",
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {

@@ -104,7 +104,9 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// Floor re-measured after AU44 B7+fd: factory-defaults dissolved. Live: 3060, suggested: 2754.
 	{ kind: "manifest", min: 141, floorKind: "magnitude" },
 	// Floor re-measured after AU44 fd: factory-defaults dissolved. Live: 157, suggested: 141.
-	{ kind: "di", min: 166, floorKind: "magnitude" },
+	// Floor re-measured after the capture machinery was deleted: the workflow port, the review
+	// subscriptions and their injected deps went with it. Live: 182, suggested: 163.
+	{ kind: "di", min: 163, floorKind: "magnitude" },
 	{ kind: "api", min: 167, floorKind: "magnitude" },
 	{ kind: "mcp", min: 29, floorKind: "magnitude" },
 	{ kind: "event", min: 192, floorKind: "magnitude" },
@@ -114,7 +116,7 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
 	{ kind: "capability", min: 14, floorKind: "magnitude" },
 	// Floor re-measured after AU44 B7+fd: factory-defaults dissolved. Live: 1046, suggested: 941.
-	{ kind: "table:read", min: 941, floorKind: "magnitude" },
+	{ kind: "table:read", min: 1066, floorKind: "magnitude" },
 	// Floor re-measured after AU44 B7+fd. Live: 1711, suggested: 1539.
 	{ kind: "table:write", min: 1539, floorKind: "magnitude" },
 ];

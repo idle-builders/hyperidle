@@ -56,7 +56,7 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 		maxConcurrentSessions: 2,
 	});
 
-	// Strategy category agent
+	// @lore BA9d: was "strategy" category — now "individual" (strategy deleted).
 	await db.insert(users).values({
 		id: strategyAgentId,
 		kind: "ai",
@@ -64,7 +64,7 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 		role: "scout",
 		status: "active",
 		teamId,
-		agentCategory: "strategy",
+		agentCategory: "individual",
 		createdAt: NOW,
 	});
 
@@ -128,7 +128,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			expect(teamMember?.agentCategory).toBe("team");
 		});
 
-		test("roster member with agentCategory='strategy' is present", async ({ db, app }) => {
+		test("roster member with agentCategory='individual' is present", async ({ db, app }) => {
 			const { teamId, strategyAgentId } = await seedTeamWithCategorizedAgents(db);
 
 			const res = await app.request(`/api/teams/${teamId}`, {
@@ -142,7 +142,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			};
 			const stratMember = body.roster.find((m) => m.agentId === strategyAgentId);
 			expect(stratMember).toBeDefined();
-			expect(stratMember?.agentCategory).toBe("strategy");
+			expect(stratMember?.agentCategory).toBe("individual");
 		});
 
 		test("roster member with null agentCategory returns null (not undefined)", async ({

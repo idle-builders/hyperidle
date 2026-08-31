@@ -30,6 +30,8 @@ import {
 	agentSessionRequests,
 	agentWorkIntents,
 	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
 	routineRuns,
 	routines,
 	teams,
@@ -43,6 +45,7 @@ import type {
 	TaskStateChangedEvent,
 } from "@hyperidle/event-bus";
 import {
+	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
@@ -183,6 +186,7 @@ function makePorts(): RoutineSchedulerPorts & {
 		},
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
+		getAgentIdentity,
 	};
 }
 
@@ -352,10 +356,33 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-e2e");
 			const configuredPrompt = "Say hello to the team, BA1 style.";
 			const routineId = "ba1-e2e-routine";
+			// The instruction is a knowledge document the routine points at.
+			await db.insert(knowledgeItems).values({
+				id: "ki-ba1-e2e-prompt",
+				scopeKind: "factory",
+				scopeId: null,
+				topic: null,
+				title: "BA1 e2e routine — prompt",
+				body: configuredPrompt,
+				format: "markdown",
+				status: "active",
+				version: 1,
+				updatedBy: "test",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
+			// Knowledge always writes the kernel row and its projection together —
+			// a document without one is a state production cannot produce.
+			await db.insert(knowledgeAppProjection).values({
+				id: "kp-ba1-e2e-prompt",
+				knowledgeItemId: "ki-ba1-e2e-prompt",
+				layer: "L4",
+				scopeId: null,
+			});
 			await db.insert(routines).values({
 				id: routineId,
 				name: "BA1 e2e routine",
-				prompt: configuredPrompt,
+				promptKnowledgeId: "ki-ba1-e2e-prompt",
 				state: "active",
 				ownerAgentId,
 				triggerType: "event",

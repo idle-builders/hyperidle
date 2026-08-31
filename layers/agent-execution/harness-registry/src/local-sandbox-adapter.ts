@@ -5,6 +5,15 @@
  * user's environment. No container isolation is built or claimed (AQ2 adds opt-in isolation).
  * Refused on server profiles (non-laptop) — the shared backend runs no agents
  * (DisabledSandboxAdapter handles that boot guard). Laptop profile is always allowed.
+ *
+ * @lore BA2 ruling 22: the sandbox is deliberately NOT git-initialized here.
+ * `spawn()` only creates the bare directory — `ensureSandboxGitRepo`
+ * (run-orchestration/mounter.ts) makes it a git repo AFTER filesystem
+ * mounting (Phase 4.5) runs, because a code filesystem's mount adapter
+ * (`git clone` / `git worktree add`) refuses to write into a directory that
+ * already has a `.git` — verified empirically (both exit non-zero: "already
+ * exists"/"not an empty directory"). Git-initializing here, before mounting,
+ * would break every session with a mounted code filesystem.
  */
 
 import { mkdir, rm } from "node:fs/promises";

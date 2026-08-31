@@ -1,0 +1,62 @@
+{
+	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+	"name": "role-personas",
+	"version": "1.0.0",
+	"description": "A team of agents with defined roles — builder, designer, product manager, QA, growth, ops, facilitator — each with its own identity.",
+	"extensions": {
+		"io.hyperidle": {
+			"contributions": [],
+			"agents": [
+				{
+					"id": "builder",
+					"name": "Builder",
+					"role": "builder",
+					"agentCategory": "team",
+					"identity": "personas/builder.md"
+				},
+				{
+					"id": "designer",
+					"name": "Designer",
+					"role": "designer",
+					"agentCategory": "team",
+					"identity": "personas/designer.md"
+				},
+				{
+					"id": "product-manager",
+					"name": "Product Manager",
+					"role": "product_manager",
+					"agentCategory": "team",
+					"identity": "personas/product-manager.md"
+				},
+				{
+					"id": "qa-engineer",
+					"name": "QA Engineer",
+					"role": "qa_engineer",
+					"agentCategory": "team",
+					"identity": "personas/qa-engineer.md"
+				},
+				{
+					"id": "growth",
+					"name": "Growth",
+					"role": "growth",
+					"agentCategory": "team",
+					"identity": "personas/growth.md"
+				},
+				{
+					"id": "ops",
+					"name": "Ops",
+					"role": "ops",
+					"agentCategory": "team",
+					"identity": "personas/ops.md"
+				},
+				{
+					"id": "facilitator",
+					"name": "Facilitator",
+					"role": "facilitator",
+					"agentCategory": "team",
+					"identity": "personas/facilitator.md"
+				}
+			]
+		}
+	}
+}

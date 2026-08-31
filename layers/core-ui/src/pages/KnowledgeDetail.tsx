@@ -39,9 +39,15 @@
  * content matches editContent to prevent spurious saves on BodyEditor mount
  * (TipTap fires onChange with initial content on mount).
  */
-import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/domain-model";
+import type {
+	KnowledgeRole,
+	Message,
+	PlainPayloadWithBlockId,
+	ScopeKind,
+} from "@hyperidle/domain-model";
 import {
 	isRedactedPayload,
+	KNOWLEDGE_ROLES,
 	KNOWLEDGE_STATUSES,
 	type KnowledgeScope,
 	type KnowledgeStatus,
@@ -62,6 +68,7 @@ import {
 	PageHeader,
 	PageScaffold,
 	SectionLabel,
+	Select,
 	SkeletonCard,
 	StatusChip,
 } from "../ds";
@@ -110,6 +117,8 @@ interface DetailItem {
 	versionNum?: number;
 	/** Q2: scope_kind column. Defaults to "factory" for pre-Q2 items. */
 	scopeKind?: ScopeKind;
+	/** What context assembly does with this document. Absent means `ordinary`. */
+	role?: KnowledgeRole;
 	relatedItems?: ReadonlyArray<string>;
 	/** W3 AC-41: structured related items with title (from API) */
 	structuredRelatedItems?: ReadonlyArray<{ id: string; title: string }>;
@@ -237,6 +246,18 @@ function toKnowledgeStatus(raw: string): KnowledgeStatus {
 }
 
 /**
+ * Reader-facing names for the four document roles. `roleLabel` in
+ * `@hyperidle/domain-model` is for AGENT role ids and is a different vocabulary
+ * entirely — the two must not be confused.
+ */
+const KNOWLEDGE_ROLE_LABEL: Record<KnowledgeRole, string> = {
+	ordinary: "Knowledge",
+	skill: "Skill",
+	rule: "Rule",
+	agent_file: "Agent file",
+};
+
+/**
  * Narrows a raw string from the API to ScopeKind.
  * Falls back to "factory" so the render defaults to the most restrictive scope.
  */
@@ -340,6 +361,7 @@ export function KnowledgeDetail({
 			content: apiItem.body,
 			versionNum: apiItem.version,
 			scopeKind: toScopeKind(apiItem.scopeKind),
+			role: apiItem.role,
 			confidence: apiItem.confidence,
 			accessCount: apiItem.accessCount,
 			updatedBy: apiItem.updatedBy,
@@ -631,6 +653,9 @@ function KnowledgeDetailView({
 
 	// T2: Auto-save version tracking
 	const [version, setVersion] = useState<number>(item.versionNum ?? 1);
+	const [role, setRole] = useState<KnowledgeRole>(item.role ?? "ordinary");
+	const [savingRole, setSavingRole] = useState(false);
+	const [roleError, setRoleError] = useState<string | null>(null);
 	const [conflictVersion, setConflictVersion] = useState<number | null>(null);
 
 	/**
@@ -721,6 +746,37 @@ function KnowledgeDetailView({
 	 * @lore AD6: Archive was previously a stub (closeOverflow only). Now wired
 	 * to a real POST endpoint. The archive endpoint has no request body.
 	 */
+	/**
+	 * Save a new role. The version travels with it so the server's optimistic
+	 * check can reject a stale edit, exactly as the body auto-save and the scope
+	 * dialog already do; the local version advances on success so a second change
+	 * in the same sitting is not rejected as stale.
+	 */
+	async function handleRoleChange(nextRole: KnowledgeRole): Promise<void> {
+		if (nextRole === role) return;
+		setSavingRole(true);
+		setRoleError(null);
+		try {
+			const res = await apiFetch(`/api/knowledge/${effectiveKnowledgeId}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ version, updatedBy: user?.id ?? "human", role: nextRole }),
+			});
+			if (res.ok) {
+				const updated = (await res.json().catch(() => ({}))) as { version?: number };
+				if (typeof updated.version === "number") setVersion(updated.version);
+				setRole(nextRole);
+			} else {
+				const data = (await res.json().catch(() => ({}))) as { error?: string };
+				setRoleError(data.error ?? `Could not change the role: ${res.status}`);
+			}
+		} catch {
+			setRoleError("Could not change the role: network error");
+		} finally {
+			setSavingRole(false);
+		}
+	}
+
 	async function handleArchive(): Promise<void> {
 		closeOverflow();
 		setArchiving(true);
@@ -944,6 +1000,25 @@ function KnowledgeDetailView({
 						</div>
 					)}
 
+					{/* Role-change error — a failed role save must say so rather than
+					    silently snapping the select back. */}
+					{roleError !== null && (
+						<div
+							role="alert"
+							className="type-small border-width-thin flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							data-testid="role-error"
+						>
+							<span className="text-[var(--status-error)]">{roleError}</span>
+							<button
+								type="button"
+								className="type-control  text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
+								onClick={() => setRoleError(null)}
+							>
+								Dismiss
+							</button>
+						</div>
+					)}
+
 					{/* AD6: Archive error — shown when POST /archive fails */}
 					{archiveError !== null && (
 						<div
@@ -1088,6 +1163,35 @@ function KnowledgeDetailView({
 							<span className="text-[var(--text-tertiary)]">Kind</span>
 							{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
 							<span className="type-small text-[var(--text-primary)] ">{item.kind ?? "—"}</span>
+						</div>
+						{/* Role row — what context assembly does with this document. Unlike
+						    scope, which carries a reason and gets a dialog, a role change is an
+						    ordinary field edit and saves immediately. */}
+						<div
+							className="type-small border-width-thin-b flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
+							data-testid="knowledge-role-row"
+						>
+							<span className="text-[var(--text-tertiary)]">Role</span>
+							{/* W3 AC-46: the metadata aside is read-only while the body is being
+							    edited — the role reads as text until editing ends. */}
+							{isReadOnly || editing ? (
+								<span className="type-small text-[var(--text-primary)] ">
+									{KNOWLEDGE_ROLE_LABEL[role]}
+								</span>
+							) : (
+								<Select
+									size="sm"
+									aria-label="Role"
+									data-testid="knowledge-role-select"
+									value={role}
+									disabled={savingRole}
+									options={KNOWLEDGE_ROLES.map((r) => ({
+										value: r,
+										label: KNOWLEDGE_ROLE_LABEL[r],
+									}))}
+									onChange={(e) => void handleRoleChange(e.target.value as KnowledgeRole)}
+								/>
+							)}
 						</div>
 						{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
 						<div

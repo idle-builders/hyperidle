@@ -61,6 +61,32 @@ export type RoutineRun = typeof routineRuns.$inferSelect;
 
 /** Patch type for `updateRoutine`. */
 export type RoutinePatch = Partial<NewRoutine>;
+
+/**
+ * BA9d D11 — Extract the `transitionTo` constraint from an event routine's
+ * `trigger_config` JSON blob. Returns the state string if present, or null
+ * when no constraint is declared (routine fires on every occurrence of its
+ * event type).
+ *
+ * Storage: `{"transitionTo":"done"}` in `trigger_config` for event routines.
+ * Calendar routines use `{"cron":"..."}` in the same column — no collision
+ * since the two trigger types never share a row.
+ *
+ * @lore BA9d D11: lives in `trigger_config` (not a new column) because
+ * transition is never queried — filtering happens in-memory after the
+ * `event_type` index lookup. A dedicated column would require a migration for
+ * a value that needs no index. The `event_type` precedent was indexability;
+ * this is not that.
+ */
+export function parseTransitionTo(triggerConfig: string | null | undefined): string | null {
+	if (!triggerConfig) return null;
+	try {
+		const parsed = JSON.parse(triggerConfig) as Record<string, unknown>;
+		return typeof parsed.transitionTo === "string" ? parsed.transitionTo : null;
+	} catch {
+		return null;
+	}
+}
 /** Patch type for `updateRoutineRun`. */
 export type RoutineRunPatch = Partial<NewRoutineRun>;
 
@@ -373,6 +399,26 @@ export interface RoutineRunResolverDeps {
 	 */
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
+	 * The agent's identity document body, baked onto the request so the
+	 * provisioner never reads `knowledge_items` — that table belongs to the
+	 * knowledge service. Injected (Mechanism C), absent where nothing bakes.
+	 */
+	/**
+	 * The agent's identity document, baked onto the request.
+	 *
+	 * Required, not optional: while it was optional, two of the call sites that
+	 * bake an assistant turn simply never wired it, compiled clean, and baked no
+	 * identity at all. A required port turns that into a compile error.
+	 */
+	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
+	/**
+	 * Read the body of the knowledge document carrying this routine's
+	 * instruction. Injected (Mechanism C) because `knowledge_items` belongs to
+	 * the knowledge service — this package depends only on `@hyperidle/db` and
+	 * framework packages. Absent at a call site that bakes no prompt.
+	 */
+	getKnowledgeBody?(db: HyperIdleDb, knowledgeItemId: string): Promise<string | null>;
+	/**
 	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/routine`'s `package.json`
 	 * depends only on `@hyperidle/db` + framework packages, never
@@ -390,7 +436,8 @@ export interface RoutineRunResolverDeps {
 	assembleSessionKnowledge?(
 		db: HyperIdleDb,
 		input: {
-			readonly teamId: string;
+			/** Absent for a team-less agent — see `assembleSessionKnowledge`'s own note. */
+			readonly teamId?: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
 			readonly agentId: string;
@@ -476,11 +523,30 @@ export async function resolveRoutineRunRequest(
 	const userId = agent.ownerUserId ?? undefined;
 
 	// BA1 D4: the bundle is always baked when `assembleSessionKnowledge` is
-	// available — a team-less owner still gets its prompt delivered, just
-	// with `team: null` and `knowledge: []` (assembling knowledge needs a
-	// team; this resolver does not invent a global query). `getTeamById`
-	// stays optional Mechanism-C plumbing, now driven by the AGENT's team
-	// rather than a `routines.team_id` column that no longer exists.
+	// available. `getTeamById` stays optional Mechanism-C plumbing, driven by
+	// the AGENT's team rather than a `routines.team_id` column that no longer
+	// exists.
+	//
+	// A team-less owner used to be handed `knowledge: []` outright, on the
+	// reasoning that assembling knowledge needs a team. That stopped being true
+	// when capability items (skill/rule/agent_file) arrived: they are scoped
+	// factory / team / agent, and the factory- and agent-scoped ones need no
+	// team at all. An agent with no team is an ordinary agent — `agentCategory:
+	// "individual"` — and must still receive everything scoped to reach it. The
+	// team decides only what the TEAM-scoped layers contribute.
+	//
+	// Proven on the packaged app by the case that exposed it: an individual
+	// agent ran with an empty sandbox, no `.claude/skills` written, while
+	// factory-scoped skills sat in the database.
+	// Both the instruction and the agent's identity are knowledge documents;
+	// they reach this resolver through injected ports.
+	const agentPersona = await deps.getAgentIdentity(db, agent.id);
+	// The instruction is a knowledge document; read it through the injected port.
+	const routinePrompt =
+		routine.promptKnowledgeId && deps.getKnowledgeBody
+			? await deps.getKnowledgeBody(db, routine.promptKnowledgeId)
+			: null;
+
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionKnowledge } = deps;
 	if (assembleSessionKnowledge) {
@@ -489,23 +555,20 @@ export async function resolveRoutineRunRequest(
 			const teamRow = await getTeamById(db, teamId);
 			if (teamRow) team = { id: teamRow.id, name: teamRow.name };
 		}
-		const knowledge = team
-			? await assembleSessionKnowledge(db, {
-					teamId: team.id,
-					agentRole: agent.role,
-					// BA1 D3: the scorer ranks knowledge against the instruction
-					// the run will actually execute, not a description of the
-					// routine.
-					taskDescription: routine.prompt ?? routine.name,
-					agentId: agent.id,
-				})
-			: [];
+		const knowledge = await assembleSessionKnowledge(db, {
+			...(team ? { teamId: team.id } : {}),
+			agentRole: agent.role,
+			// BA1 D3: the scorer ranks knowledge against the instruction the run
+			// will actually execute, not a description of the routine.
+			taskDescription: routinePrompt ?? routine.name,
+			agentId: agent.id,
+		});
 		contextBundle = {
 			kind: "routine",
 			routine: {
 				id: routine.id,
 				name: routine.name,
-				prompt: routine.prompt,
+				prompt: routinePrompt,
 				lastRunSummary: routine.lastRunSummary,
 			},
 			agent: { id: agent.id, name: agent.name, role: agent.role },
@@ -534,7 +597,73 @@ export async function resolveRoutineRunRequest(
 			...(teamId !== undefined ? { teamId } : {}),
 		},
 		...(contextBundle ? { contextBundle } : {}),
-		agentConfig: bakeAgentRunnableConfig(agent),
+		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Plugin lifecycle — bulk writes by pluginId
+// ---------------------------------------------------------------------------
+
+/**
+ * Set liveness on the named routines.
+ *
+ * @lore BA9d: the route cannot write the `routines` table directly (governance
+ * boundary) — it calls this function instead.
+ *
+ * @lore BA9g: it took a `pluginId` and filtered on `routines.plugin_id`, the
+ * plugin service's provenance living in a table it does not own. The plugin
+ * service names the rows now.
+ *
+ * It also wrote `active` alone, leaving `state` behind — so a plugin-disabled
+ * routine read as `state='active'` while the scheduler skipped it. Both move
+ * together, the way the routine DELETE route already writes them. Reviving also
+ * clears `deletedAt`: a removed plugin's routines used to keep it forever, so a
+ * reinstall could never bring them back.
+ */
+export async function setRoutinesLive(
+	exec: WriteExecutor,
+	routineIds: readonly string[],
+	active: boolean,
+): Promise<void> {
+	if (routineIds.length === 0) return;
+	await exec
+		.update(routines)
+		.set(
+			active
+				? { active: true, state: "active" as const, deletedAt: null }
+				: { active: false, state: "paused" as const },
+		)
+		.where(inArray(routines.id, [...routineIds]));
+}
+
+/**
+ * Soft-delete all routines belonging to a plugin: set active=false and
+ * deletedAt=now(). Used by the plugin remove lifecycle.
+ *
+ * Soft-delete (not hard-delete) because routine_runs.routineId has
+ * ON DELETE RESTRICT — any install where a routine ever fired cannot
+ * hard-delete the parent routine row.
+ *
+ * @lore BA9d: the route cannot write the `routines` table directly
+ * (governance boundary) — it calls this function instead.
+ */
+/**
+ * Soft-delete the named routines.
+ *
+ * @lore BA9g: `state` moves with `active` and `deletedAt`, matching the routine
+ * DELETE route. It used to write two of the three, leaving a soft-deleted
+ * routine reading as `state='active'`.
+ */
+export async function softDeleteRoutines(
+	exec: WriteExecutor,
+	routineIds: readonly string[],
+): Promise<void> {
+	if (routineIds.length === 0) return;
+	const now = new Date().toISOString();
+	await exec
+		.update(routines)
+		.set({ active: false, state: "paused" as const, deletedAt: now })
+		.where(inArray(routines.id, [...routineIds]));
 }

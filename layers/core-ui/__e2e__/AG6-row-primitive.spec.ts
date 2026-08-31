@@ -69,10 +69,11 @@ function makeTeamFixture() {
 			},
 			{
 				agentId: "agent-2",
-				name: "Strategy Agent",
-				role: "strategy",
+				name: "Scout Agent",
+				role: "scout",
 				isLead: false,
-				agentCategory: "strategy",
+				// @lore BA9d: "strategy" category deleted; individual now covers non-team agents.
+				agentCategory: "individual",
 				operationalStatus: "idle",
 				healthLevel: "warning",
 				healthDetail: "1 of 3 sessions degraded",

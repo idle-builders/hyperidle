@@ -6,7 +6,7 @@ TSX is the single design source of truth (AJ1) — each component has exactly on
 
 Visual fidelity is gated by:
 
-1. **Human concept review** — the primary visual gate. For a high-stakes change (`DESIGN-CLASS: novel` or `DOC-CLASS: significant`) the founder opens the chosen variant rendered live in the skill's viewer and annotates it element-by-element; the planner revises the real TSX until approved. See `/pipeline:human-concept-review`.
+1. **Founder review of the live render** — the primary visual gate, and the one to place in the plan whenever a change is visually novel or high-exposure. The founder opens the variant rendered live in the design viewer (`skills/design/viewer/launch.mjs`) and annotates it element-by-element; the real TSX is revised until approved.
 2. **Design token lint** — `npm run lint:design` (`eslint-plugin-design`) catches off-scale spacing, non-token colors, off-scale font sizes/radii, and AI-aesthetic tells in `layers/core-ui/` and `framework/design-system/`.
 3. **Lint** — `npm run lint` runs the full lint suite including the same `eslint-plugin-design` rules across all files.
 4. **Type check** — `npm run check` catches removed / renamed component variants.

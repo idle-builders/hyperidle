@@ -71,6 +71,19 @@ export interface BetView {
 }
 
 /**
+ * Mirrors `GET /artifacts/:id`'s response — only the fields a `CoreApiPort`
+ * consumer relies on. `submit_review` uses this to confirm a stored
+ * `artifactRef` resolves to an artifact whose `producingTaskId` matches the
+ * calling task before attaching it — a review may not claim proof it does
+ * not have.
+ */
+export interface ArtifactView {
+	readonly id: string;
+	readonly producingTaskId: string;
+	readonly kind: string;
+}
+
+/**
  * Mirrors the fields `PATCH /bets/:id` accepts across its discriminated-union
  * wire shape (`field`/`value`/`reason`, `routes/bets.ts`). `buildCoreApiPort`
  * issues one PATCH per present field — the route accepts exactly one field
@@ -222,6 +235,8 @@ export interface CoreApiWorkPort {
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
 	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
 	createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse>;
+	/** Over `GET /artifacts/:id`, the same shape as `getTaskById`/`getBetById`. */
+	getArtifactById(id: string): Promise<ArtifactView | undefined>;
 	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;
 }
 
@@ -367,7 +382,6 @@ export interface CreateOrgTeamRequest {
 	readonly id: string;
 	readonly name: string;
 	readonly phase: string;
-	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
 	readonly teamMembersId: string;
@@ -411,7 +425,6 @@ export interface ScaffoldFromRequestInput {
 	readonly teamMembersId: string | null;
 	readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
 	readonly teamName: string | null;
-	readonly functions: readonly string[] | null;
 	readonly role: string | null;
 	readonly name: string | null;
 	readonly ownerUserId: string | null;
@@ -420,38 +433,12 @@ export interface ScaffoldFromRequestInput {
 }
 
 /**
- * Mirrors `POST /org/team-routines`'s validated request body — seeds the
- * four builtin-routine definitions for a team (`@hyperidle/routine`'s
- * `provisionTeamRoutines`). No 1:1 UI route (same shape as
- * `persistScaffoldedAgents`/`resolveReviewRecipientsForItem` below) — a
- * narrowly-scoped route built specifically for this seam method.
- */
-export interface ProvisionTeamRoutinesRequest {
-	readonly teamId: string;
-	readonly ownerByRole: Readonly<Record<string, string | undefined>>;
-	readonly leadAgentId: string;
-}
-
-/**
  * The agent's tool-facing `org` capability family (Decision C, Increment 2's
- * org/routine/handoff wave) — `edge-disposition.md`'s `org.{getTeam,
- * getTeamMembers, createTeam, updateTeam}` row. `resolveReviewRecipientsForItem`/
- * `persistScaffoldedAgents`/`provisionTeamRoutines` back collapsed multi-step
- * `tool-handlers`-only helpers (no 1:1 UI route) — new narrowly-scoped routes.
- *
- * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass):
- * `provisionTeamRoutines` added here — `create_team`'s tool handler used to
- * reach it via an opaque `ToolHandlersPorts.routine`/`.dispatch` pass-through
- * satisfied by direct same-process DI in the composition root
- * (`tool-handlers-bindings.ts` importing `@hyperidle/routine` directly),
- * which the anti-regrowth guard's composition-bundle detector correctly
- * flagged as a hidden `tool-handlers -> routine` edge once that wiring named
- * a real `@hyperidle/routine` export. Decision C's own rule ("the running
- * agent's MCP tool calls — both reads and writes — route through
- * CoreApiPort, because they are the agent acting like the UI") already
- * covers this exactly; `create_team`'s OTHER steps
- * (`createTeam`/`persistScaffoldedAgents`/`updateTeam`) already went through
- * this seam — `provisionTeamRoutines` was the one piece that hadn't.
+ * org/routine/handoff wave).
+ * @lore BA9d: ProvisionTeamRoutinesRequest and provisionTeamRoutines() removed —
+ * POST /org/team-routines existed only to seed builtin routines, which are gone.
+ * The create_team tool no longer seeds routines; any routines a team needs come
+ * from plugins installed by the team.
  */
 export interface CoreApiOrgPort {
 	getTeamById(teamId: string): Promise<OrgTeamView | undefined>;
@@ -462,7 +449,6 @@ export interface CoreApiOrgPort {
 	resolveReviewRecipientsForItem(ctx: ReviewRecipientsQuery): Promise<readonly string[]>;
 	/** @lore AU44 AU20-fd: replaces `persistScaffoldedAgents` — seam now accepts the request; core-api resolves internally. */
 	scaffoldFromRequest(input: ScaffoldFromRequestInput): Promise<PersistScaffoldedAgentsResponse>;
-	provisionTeamRoutines(input: ProvisionTeamRoutinesRequest): Promise<void>;
 }
 
 /**
@@ -681,6 +667,30 @@ export interface CoreApiKnowledgePort {
 	 * the HTTP boundary.
 	 */
 	recomputeAttentionScoreForItem(knowledgeItemId: string): Promise<{ readonly current: number }>;
+	mergeKnowledgeItem(
+		targetId: string,
+		sourceId: string,
+		updatedBy: string,
+	): Promise<{ readonly id: string }>;
+	splitKnowledgeItem(
+		itemId: string,
+		newItems: ReadonlyArray<{
+			readonly title: string;
+			readonly body: string;
+			readonly topic?: string;
+		}>,
+		updatedBy: string,
+	): Promise<ReadonlyArray<{ readonly id: string }>>;
+	/**
+	 * Run a knowledge sweep.
+	 * kind="autoPromotion" promotes provisional items meeting the repetition threshold.
+	 * kind="stale" marks active items not referenced recently as stale.
+	 * @lore BA9d: replaces the dead builtin-routine sweep path; exposed as an agent tool
+	 * so the Librarian can trigger sweeps from plugin routines.
+	 */
+	runKnowledgeSweep(
+		kind: "autoPromotion" | "stale",
+	): Promise<{ readonly kind: string; readonly processed: number }>;
 }
 
 /**
@@ -708,60 +718,6 @@ export interface CoreApiKnowledgePort {
  */
 
 /**
- * AU31 §2.5 — the AL7 trust-first proposed-call workflow, crossing the seam.
- * `@hyperidle/review` (core-api's owned Service for `proposedCalls`/
- * `tailoredGrants`/`operationOutcomes`) backs these three ops; the caller is
- * `tool-handlers`' relocated dispatch (`@hyperidle/tool-handlers`'s
- * `buildToolRegistry`, agent-orchestration's own Service now) reaching a
- * core-owned table through the seam's one legal door — the workflow's own
- * "held"/"granted" transitions stay core-side (core's `threads.ts` verdict
- * handler), never crossing.
- *
- * `ProposedCallOutcomeResult` mirrors `@hyperidle/shared`'s `ToolResult`
- * shape without importing it — `api-contract` declares no dependencies
- * (deliberately: see `core-api-port.ts`'s own architecture note,
- * `.pipeline/work/AU31/architecture.md` §2.8), so a wire type it exposes is
- * a structural mirror, never an import of the layer-side type.
- */
-export interface CaptureProposedCallRequest {
-	readonly originSessionId: string;
-	readonly taskId: string;
-	readonly agentId: string;
-	readonly toolId: string;
-	readonly args: Record<string, unknown>;
-	readonly hash: string;
-	readonly reviewMessageId: string;
-	readonly subjectThreadId: string;
-	readonly artifactId: string;
-}
-
-export interface CaptureProposedCallResponse {
-	readonly firstCapture: boolean;
-}
-
-export interface ConsumeTailoredGrantRequest {
-	readonly taskId: string;
-	readonly agentId: string;
-	readonly toolId: string;
-}
-
-export interface ConsumeTailoredGrantResponse {
-	readonly proposedCallId: string;
-}
-
-export type ProposedCallOutcomeResult =
-	| { readonly success: true; readonly data: unknown }
-	| { readonly success: false; readonly error: string; readonly code: string };
-
-export interface CoreApiReviewPort {
-	captureProposedCall(input: CaptureProposedCallRequest): Promise<CaptureProposedCallResponse>;
-	consumeTailoredGrant(
-		input: ConsumeTailoredGrantRequest,
-	): Promise<ConsumeTailoredGrantResponse | null>;
-	recordOutcome(proposedCallId: string, result: ProposedCallOutcomeResult): Promise<void>;
-}
-
-/**
  * `CoreApiPort` — a per-core-Service family of narrow hand-typed method
  * groups, each Application-adapted onto the `hc<AppType>` client
  * (`buildCoreApiPort`, `layers/agent-orchestration/src/services/
@@ -776,7 +732,6 @@ export interface CoreApiPort {
 	readonly org: CoreApiOrgPort;
 	readonly routine: CoreApiRoutinePort;
 	readonly knowledge: CoreApiKnowledgePort;
-	readonly review: CoreApiReviewPort;
 }
 
 /**

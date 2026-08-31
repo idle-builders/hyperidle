@@ -19,7 +19,6 @@
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/users": "*",
 		"drizzle-orm": "^0.45.2",

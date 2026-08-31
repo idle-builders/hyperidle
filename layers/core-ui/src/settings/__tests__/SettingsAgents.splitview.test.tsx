@@ -8,6 +8,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsAgents } from "../SettingsAgents.js";
 
@@ -68,7 +69,7 @@ const MOCK_AGENTS = [
 		id: "ast-user1",
 		name: "Nova",
 		role: "assistant",
-		systemPrompt: "I am your assistant",
+		identityKnowledgeId: "ki_af_demo",
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
@@ -82,7 +83,7 @@ const MOCK_AGENTS = [
 		id: "agent-atlas",
 		name: "Atlas",
 		role: "builder",
-		systemPrompt: "Build things",
+		identityKnowledgeId: "ki_af_demo",
 		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
@@ -147,7 +148,11 @@ describe("Assistant is a row in the agents list", () => {
 	});
 
 	it("renders Nova (ast-*) as a row alongside normal agents", async () => {
-		render(<SettingsAgents />);
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
 
 		await waitFor(() => {
 			expect(screen.getByText("Nova")).toBeInTheDocument();
@@ -157,7 +162,11 @@ describe("Assistant is a row in the agents list", () => {
 
 	it("a generic agent row rests read-only and opens the shared editor only from Edit", async () => {
 		const user = userEvent.setup();
-		render(<SettingsAgents />);
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
 
 		await waitFor(() => screen.getByText("Nova"));
 		expect(screen.queryByLabelText(/name/i)).toBeNull();
@@ -172,7 +181,11 @@ describe("Assistant is a row in the agents list", () => {
 		});
 	});
 
-	it("clicking an existing agent fetches its role template for the shared editor", async () => {
+	// @lore BA9f: the role template exists to PREFILL a new agent's identity, and
+	// editing an existing agent no longer has a box to prefill — it links to that
+	// agent's identity document instead. So the template fetch belongs to the add
+	// path, and editing must not fire it.
+	it("editing an existing agent does not fetch a role template — it links to the document", async () => {
 		const user = userEvent.setup();
 		const fetchedTemplates: string[] = [];
 		vi.stubGlobal(
@@ -213,7 +226,11 @@ describe("Assistant is a row in the agents list", () => {
 			}),
 		);
 
-		render(<SettingsAgents />);
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
 
 		await waitFor(() => screen.getByText("Atlas"));
 		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
@@ -221,7 +238,10 @@ describe("Assistant is a row in the agents list", () => {
 		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
 		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
 
-		await waitFor(() => expect(fetchedTemplates).toContain("builder"));
+		await waitFor(() => {
+			expect(screen.getByTestId("edit-identity-link-agent-atlas")).toBeInTheDocument();
+		});
+		expect(fetchedTemplates).toHaveLength(0);
 	});
 });
 
@@ -240,7 +260,11 @@ describe("Agent editor model dropdown uses discovered descriptor.models", () => 
 
 	it("selects Atlas and the model dropdown shows the discovered model id", async () => {
 		const user = userEvent.setup();
-		render(<SettingsAgents />);
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
 
 		await waitFor(() => screen.getByText("Atlas"));
 		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
@@ -271,7 +295,11 @@ describe("SplitView ratio persistence is wired via useUiPreference", () => {
 	});
 
 	it("renders without crashing (SplitView persistence wiring)", async () => {
-		render(<SettingsAgents />);
+		render(
+			<MemoryRouter>
+				<SettingsAgents />
+			</MemoryRouter>,
+		);
 		await waitFor(() => screen.getByText("Nova"));
 		// If onRatioChange were missing the SplitView would still render; the
 		// real test is that the ratio persists — verified via useUiPreference unit test

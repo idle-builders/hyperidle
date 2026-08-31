@@ -25,7 +25,7 @@ import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { and, eq, ne, or } from "drizzle-orm";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import { list } from "./knowledge-repository.js";
-import { communityForRole } from "./role-community-map.js";
+import { practiceForRole } from "./role-community-map.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import type { ScoredItem } from "./token-budget.js";
@@ -100,16 +100,11 @@ function computeTagMatch(item: KnowledgeItemWithProjection, taskTags: string[]):
 
 /** Compute role match factor (0 or 1). */
 function computeRoleMatch(item: KnowledgeItemWithProjection, agentRole: string): number {
-	const community = communityForRole(agentRole);
-	const scopeId = item.scopeId ?? null;
-	if (scopeId === community) {
-		return 1;
-	}
-	// Also match if scopeId contains the role name
-	if (scopeId?.includes(agentRole)) {
-		return 0.5;
-	}
-	return 0;
+	// @lore BA9g: the practice is the role, so this is an exact match. It used to
+	// compare against a community the role mapped into and fall back to a fuzzy
+	// substring test — and the fuzzy branch was the one that fired, because
+	// practice knowledge is scoped by role, never by community name.
+	return (item.scopeId ?? null) === practiceForRole(agentRole) ? 1 : 0;
 }
 
 /** Compute recency factor (0-1). Items updated within last 30 days score higher. */
@@ -252,14 +247,23 @@ async function rank(
 
 /** Input to assembleSessionKnowledge — the emit-time context an agent's session needs. */
 export interface SessionKnowledgeInput {
-	readonly teamId: string;
+	/**
+	 * @lore The agent's team, when it has one. Optional because a plugin's own
+	 * agent is created `agentCategory: "individual"` and belongs to no team —
+	 * and capability items (skill/rule/agent_file) are scoped factory / team /
+	 * agent independently of any team, so a team-less agent must still receive
+	 * the factory- and agent-scoped ones. Absent simply means the team-scoped
+	 * L2 layer and team-scoped capability items contribute nothing, which is
+	 * the honest answer rather than a reason to assemble nothing at all.
+	 */
+	readonly teamId?: string;
 	readonly agentRole: string;
 	readonly taskDescription: string;
 	/**
 	 * @lore BA9b: agentId is required to fetch agent_file items bound to this agent.
 	 * Required (not optional) so no caller can accidentally omit it and silently lose
 	 * agent-bound knowledge items. All three real bundle-builders (task-run-resolver,
-	 * routine-service, proposed-call-workflow) have agent.id in scope and must pass it.
+	 * routine-service) have agent.id in scope and must pass it.
 	 */
 	readonly agentId: string;
 }
@@ -287,7 +291,17 @@ async function fetchAllForLayer(
 			limit: LIST_BATCH_SIZE,
 			offset,
 		});
-		allItems.push(...batch);
+		// @lore BA9g: a session must never be handed archived knowledge. Archived
+		// items were excluded here only by ACCIDENT — a plugin document had no
+		// projection row, and `list()` filters by layer through that row, so an
+		// archived skill was invisible for the wrong reason. Writing the projection
+		// (which every knowledge write owes) made them visible, which is what
+		// surfaced this. `fetchCapabilityItems` has always filtered status; this
+		// path never did.
+		// The rule is NOT "only active": `write_memory` writes `captured` items and
+		// R7 AC-5 requires those to reach the next session. Archived is the one
+		// status that means "this reaches nobody".
+		allItems.push(...batch.filter((item) => item.status !== "archived"));
 		if (batch.length < LIST_BATCH_SIZE) break;
 		offset += LIST_BATCH_SIZE;
 	}
@@ -319,19 +333,23 @@ async function fetchAllForLayer(
  */
 async function fetchCapabilityItems(
 	db: HyperIdleDb,
-	teamId: string,
+	teamId: string | undefined,
 	agentId: string | undefined,
 ): Promise<KnowledgeItemWithProjection[]> {
-	const scopeFilter = agentId
-		? or(
-				eq(knowledgeItems.scopeKind, "factory"),
-				and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId)),
-				and(eq(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.scopeId, agentId)),
-			)
-		: or(
-				eq(knowledgeItems.scopeKind, "factory"),
-				and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId)),
-			);
+	// A clause per scope that is actually in play. `teamId` is absent for a
+	// team-less agent; emitting a `scopeId = undefined` comparison there would
+	// silently match nothing AND drag the whole OR down with it in some
+	// drivers, so the clause is omitted rather than fed a missing value.
+	const scopeClauses = [
+		eq(knowledgeItems.scopeKind, "factory"),
+		...(teamId
+			? [and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId))]
+			: []),
+		...(agentId
+			? [and(eq(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.scopeId, agentId))]
+			: []),
+	];
+	const scopeFilter = or(...scopeClauses);
 
 	const rows = await db
 		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
@@ -373,11 +391,15 @@ export async function assembleSessionKnowledge(
 	db: HyperIdleDb,
 	input: SessionKnowledgeInput,
 ): Promise<readonly KnowledgeItemWithProjection[]> {
-	const community = communityForRole(input.agentRole);
+	const community = practiceForRole(input.agentRole);
 
+	// L2 is the team layer. `list()` applies a scope filter only when `scopeId`
+	// is defined, so passing an absent team through would return EVERY team's L2
+	// knowledge rather than none — a team-less agent would inherit other teams'
+	// working agreements. No team means no team layer.
 	const [l4Items, l2Items, l3Items, capabilityItems] = await Promise.all([
 		fetchAllForLayer(db, "L4"),
-		fetchAllForLayer(db, "L2", input.teamId),
+		input.teamId ? fetchAllForLayer(db, "L2", input.teamId) : Promise.resolve([]),
 		fetchAllForLayer(db, "L3", community),
 		fetchCapabilityItems(db, input.teamId, input.agentId),
 	]);

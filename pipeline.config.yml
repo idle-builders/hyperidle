@@ -1,10 +1,15 @@
 # pipeline.config.yml — the repo-specific bindings the pipeline skills read.
 # The skills (installed via the `pipeline@agent-pipeline` plugin) reference these
-# values as {{verify}}, {{paths.docs}}, {{models.review}}, … instead of
-# hardcoding anything HyperIdle-specific.
+# values as {{verify}}, {{paths.docs}}, … instead of hardcoding anything
+# HyperIdle-specific.
 
-# The single command that must pass before a work package can ship.
+# The single command that must pass before an item can ship.
 verify: "npm run verify"
+
+# The customer this product is built for, and therefore how good the code must
+# be. Global: it describes the product, not the individual item.
+engineering:
+  tier: mvp
 
 # Where the code lives. Monorepo: source + tests live under the role roots
 # (layers/, framework/, applications/, tools/).
@@ -19,7 +24,7 @@ paths:
   tests: ["**/*.test.ts", "**/*.test.tsx"]
   docs: ["docs/**"]
 
-# The design system that /design, /design-critique, /human-concept-review, and
+# The design system that /design and
 # /visual-polish render and score against.
 designSystem:
   path: "layers/core-ui/src/ds"
@@ -28,23 +33,16 @@ designSystem:
 # Version control + where /ship opens PRs and waits for CI.
 vcs: github
 
-# Model ROLES, not vendor ids. high = most capable (design, review);
-# fast = quick (build).
-models:
-  design: high
-  review: high
-  build: fast
-
 # Project rules — repo-specific guidance the generic plugin skills read as
 # BINDING (a project rule overrides the skill's generic advice on conflict).
 # This is where HyperIdle's conventions live now that the skills are unforked.
 rules:
   code: .claude/rules/typescript.md          # → write-code, architecture, review
   testing: .claude/rules/testing.md           # → write-tests, review
-  design-system: .claude/rules/design-system.md  # → design, design-critique, write-code, review
+  design-system: .claude/rules/design-system.md  # → design, write-code, review
   frontend: .claude/rules/frontend.md         # → design, write-code, review
-  visual: .claude/rules/visual-regression.md  # → design-critique, review
-  aesthetics: .claude/rules/aesthetic-quality.md  # → design, design-critique
+  visual: .claude/rules/visual-regression.md  # → design, review
+  aesthetics: .claude/rules/aesthetic-quality.md  # → design
   # architecture: <none yet>                  # → architecture, architecture-critique, review
   # security: <none yet>                      # → review
   # docs: <none yet>                          # → write-docs

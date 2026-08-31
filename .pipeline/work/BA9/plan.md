@@ -252,3 +252,134 @@ are this package's to remove, once the plugin takes over.
   `strategy`, no agent is stranded without a category, and the row count is unchanged.
 - Given the repo is searched for `strategy` as an agent category afterwards, when the results are read,
   then every remaining hit is the unrelated knowledge/task fabric sense.
+
+
+---
+
+# As refined and delivered
+
+Consolidated at ship. `requirements.md` and `refine-critique.md` are folded in here and deleted.
+`founder-decisions.md` stays — it is founder authority, not a phase artifact, and the four package
+plans cite it.
+
+## BA9 was split into four packages (founder decision, 2026-08-25)
+
+A live interview settled the substrate, and the work was too large for one package. The split, in
+build order, with each package's own `plan.md` carrying its "As built" record:
+
+| Package | Outcome | Shipped |
+|---|---|---|
+| **BA9a** | A plugin can be installed | PR #513 |
+| **BA9b** | Skills, rules and agent files are knowledge | PR #515 |
+| **BA9c** | A routine that fires on an event knows what happened | PR #516 |
+| **BA9d** | The rituals become a plugin, and `strategy` is purged | PR #517 |
+
+## Three more batches (founder, 2026-08-29) — BA9 is not done
+
+Proving a–d end to end on the packaged desktop app found the capability half of BA9b unbuilt and the
+plugin boundary in the wrong place. These are batches of BA9, not follow-on work. BA9 is delivered
+when all seven are done, and everything is proven end to end on the packaged app.
+
+| Batch | Outcome | Depends on |
+|---|---|---|
+| **BA9e** | Role and scope are editable on any knowledge document | — |
+| **BA9f** | Rule, agent file and routine prompt are knowledge documents | BA9e |
+| **BA9g** | The plugin service owns what it installed | BA9f |
+
+**BA9e — role and scope are editable.** Founder: *"role and scope should be editable"*. The read side
+is built and proven live: a factory-scoped skill reaches a team agent and a team-less one alike, a
+team-scoped one reaches only that team, an agent-bound one reaches only its agent. The write side does
+not exist. `createKnowledgeSchema` has no `role`; `updateKnowledgeSchema` cannot change `role`,
+`scopeKind` or `scopeId`; **nothing anywhere writes `scopeKind:'user'`**, so the agent binding the
+reader supports has no producer; and no `.tsx` mentions `skill`, `rule` or `agent_file`. Only
+`upsertPluginSkill` writes a role today, so a capability exists only if a plugin brought it.
+
+**BA9f — the other three become knowledge documents.** Founder: *"rule, agent file, skills files,
+routine prompt should all be knowledge documents"*, and the routine prompt belongs here *"since
+otherwise the plugin stuff is directly broken again"*. `rule` and `agent_file` are materialised by
+`context.ts` and have no writer and no manifest key. `agent_file` is written into `knowledge/rules/`
+as a self-described supplement while the real AGENTS.md is generated from the assembled prompt — the
+opposite of the intent that an agent file IS that agent's AGENTS.md. `routines.prompt` is a plain
+`text` column; existing prompts migrate.
+
+**BA9g — the plugin service owns what it installed.** Founder: *"the plugin is not purely a writer it
+also needs to know the provenance and be able to update… the plugin service keeps track of which
+entities belong to a certain plugin"*. Provenance is recorded three ways: `users.plugin_id`,
+`routines.plugin_id` and `plugin_configuration_defaults.plugin_id` are real columns, while skills use
+`topic = "plugin:<id>"` — editing a skill's topic orphans it from uninstall and enable permanently.
+The contributions view reads only the configuration tables, so skills never appear and the decided
+detach/restore has no surface. `mergePluginMcpContributions` expands `${PLUGIN_ROOT}`/`${PLUGIN_DATA}`
+at session-provisioning time; that moves to install.
+
+Found during review of the a–d follow-on fixes, and belonging to this batch: installing over a
+**disabled** plugin re-enables the plugin row (`state: "enabled"`, `disabledAt: null`, unconditionally
+on conflict) but leaves its agents `inactive` and its routines `active: false` — only the enable route
+restores those. So a reinstall of a disabled plugin yields a plugin that reports enabled with a dead
+agent and dead routines. Pre-existing; the ownership registry is where the lifecycle becomes one
+operation instead of three that can disagree.
+
+## BA9g: `${PLUGIN_ROOT}` stays at session time (2026-08-30)
+
+The batch listed "`mergePluginMcpContributions` expands `${PLUGIN_ROOT}`/
+`${PLUGIN_DATA}` at session-provisioning time; that moves to install." It does
+not move, and the item was aimed at the wrong thing.
+
+Expansion **never ran at all** in production. `pluginsBaseDir` was set by nothing
+but a test fixture — `app.ts` documented it as "production wiring passes the
+platform config dir" and no Application ever did — so `plugins.install_path` was
+null on every real install, and the merge skips any plugin without one. A
+plugin's MCP servers never reached a session. Restore was dead for the same
+reason. Both Applications wire it now; that was the actual bug.
+
+Expansion stays where it is, because moving it would store an absolute machine
+path in `default_value_json`, and `defaultVersionHash` is a hash of that value.
+That hash exists to answer "did the plugin's shipped default change"; baking a
+machine path in makes it answer "did the plugin change, or did the app move",
+and the UI surfaces it. It also goes stale on any userData relocation or
+restore-from-backup with no reinstall to fix it. Session-time expansion has one
+failure mode — the path must be right now, which it is.
+
+(The tempting argument that remote workers on other machines need per-machine
+expansion is WRONG and was checked: the provisioner runs wherever
+`agent-orchestration` boots, which is the server that installed the plugin. A
+remote worker holds only a harness adapter.)
+
+## What refinement established, and what it got wrong
+
+Refinement plus an independent critique corrected five claims in the original plan. Each was
+re-tested against the tree; all five held:
+
+1. **No restart is needed** after installing a routine. The event matcher subscribes once per member
+   of a compile-time constant and reads the database on delivery, so the subscription set cannot go
+   stale. The plan's restart step was dropped from the proof.
+2. **Practice communities are live**, not absent — `communityForRole` scopes which L3 knowledge every
+   agent session loads. Only the facilitator *agents* were invisible.
+3. **Skills did not exist** in any form — no table, no route, no loader. Of "agents, skills, routines
+   and triggers", two existed, one retired in BA1, one never existed. BA9b built skills as knowledge.
+4. **The per-team duplication fix was not inherited from BA1.** It came from an explicit `scope`
+   field on the builtin specs that BA9d deletes, so the property had to be re-established rather than
+   assumed. The track registry asserted the opposite; building on that would have reintroduced the bug.
+5. **Both tables the plan carved out as "different sense of the word" were already gone.**
+
+The ritual inventory was the other product of refinement: most candidates did **not** travel. Practice
+communities, the attention score with its session ranking and manual door, the human bet-retro save and
+the manual promote door all stayed in core because something reads them while working. The five
+facilitator personas, the portfolio retro and the contradiction detector died because they never worked.
+What shipped as a plugin is small — one agent and a few routines carrying prompts.
+
+## The pattern worth carrying forward
+
+The same failure shape appeared at four levels across this track, and every instance passed its tests:
+
+- Skill directories chosen by plausible name — one right, one redundant, one that nothing reads —
+  while unit tests asserted the writer matched the constant the same author had picked.
+- A harness test that imported no production code and hardcoded the directories itself; repointing the
+  production constant at a dead path left it green, with real model calls.
+- An `agentId` parameter that was optional and that no production caller passed, so agent-file binding
+  never ran — and its test passed by supplying the parameter itself.
+- MCP dialect shapes written from plausibility; probing the real binary showed opencode silently
+  rejects the `command`/`args` form and needs a merged array.
+
+**The lesson: evidence that confirms the author's own setup is not evidence.** What settled each of
+these was running the real binary and asking it what it saw, then breaking the production constant and
+confirming the test went red.

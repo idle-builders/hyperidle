@@ -121,7 +121,7 @@ describe("ToolPart", () => {
 					kind: "diff",
 					label: "server/chat/stream.ts",
 					meta: "9/2",
-					target: { route: "review", reviewId: "rev-1", betId: "bet-1" },
+					target: { route: "review", reviewId: "rev-1" },
 				},
 			],
 		});

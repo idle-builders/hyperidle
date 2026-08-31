@@ -11,7 +11,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 
@@ -93,6 +93,42 @@ export interface ParsedSkill {
 }
 
 /**
+ * An agent declared in extensions["io.hyperidle"].agents[].
+ * The `id` is a local key used to reference the agent from routines.
+ * The route handler computes the stable DB id from pluginId + localId.
+ */
+export interface ParsedPluginAgent {
+	readonly id: string;
+	readonly name: string;
+	readonly role: string;
+	readonly agentCategory: string;
+	/**
+	 * Who this agent is, read from the file the manifest's `identity` names.
+	 *
+	 * @lore BA9g: the gap BA9f named — "a plugin contributing an agent had
+	 * nothing to contribute its identity to". It does now: the identity is a
+	 * knowledge document, and this is the plugin's copy of it. Absent → the agent
+	 * installs bare, which is what HyperIdle itself ships.
+	 */
+	readonly identity: string | null;
+}
+
+/**
+ * A routine declared in extensions["io.hyperidle"].routines[].
+ * `agentId` references a ParsedPluginAgent.id within this manifest.
+ * The route handler computes stable DB ids for both the routine and agent.
+ */
+export interface ParsedPluginRoutine {
+	readonly id: string;
+	readonly name: string;
+	readonly agentId: string;
+	readonly triggerType: string;
+	readonly triggerConfig: string | null;
+	readonly eventType: string | null;
+	readonly prompt: string | null;
+}
+
+/**
  * An MCP server parsed from the plugin's mcp.json.
  * The name is the server key, the config is the server object.
  *
@@ -114,6 +150,10 @@ export interface PluginManifest {
 	readonly skills: ParsedSkill[];
 	/** MCP servers from the plugin's mcp.json. */
 	readonly mcpServers: ParsedMcpServer[];
+	/** Agents declared in extensions["io.hyperidle"].agents[]. */
+	readonly agents: ParsedPluginAgent[];
+	/** Routines declared in extensions["io.hyperidle"].routines[]. */
+	readonly routines: ParsedPluginRoutine[];
 }
 
 export type ManifestParseResult =
@@ -208,8 +248,10 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 		}
 	}
 
-	// Extract contributions from our namespace
+	// Extract contributions, agents, and routines from our namespace
 	const contributions: ParsedContribution[] = [];
+	const agents: ParsedPluginAgent[] = [];
+	const routines: ParsedPluginRoutine[] = [];
 	if (ourExtension !== undefined) {
 		if (typeof ourExtension === "object" && ourExtension !== null && !Array.isArray(ourExtension)) {
 			const ext = ourExtension as Record<string, unknown>;
@@ -217,6 +259,18 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 				for (const item of ext.contributions) {
 					const contribution = parseContribution(item, warnings);
 					if (contribution) contributions.push(contribution);
+				}
+			}
+			if (Array.isArray(ext.agents)) {
+				for (const item of ext.agents) {
+					const agent = parsePluginAgent(item, warnings, pluginRoot);
+					if (agent) agents.push(agent);
+				}
+			}
+			if (Array.isArray(ext.routines)) {
+				for (const item of ext.routines) {
+					const routine = parsePluginRoutine(item, warnings);
+					if (routine) routines.push(routine);
 				}
 			}
 		}
@@ -237,7 +291,17 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 
 	return {
 		ok: true,
-		manifest: { name, version, description, contributions, warnings, skills, mcpServers },
+		manifest: {
+			name,
+			version,
+			description,
+			contributions,
+			warnings,
+			skills,
+			mcpServers,
+			agents,
+			routines,
+		},
 	};
 }
 
@@ -394,5 +458,145 @@ function parseContribution(item: unknown, warnings: ManifestWarning[]): ParsedCo
 		kind: kind as ConfigurationKind,
 		key,
 		value: value as Record<string, unknown>,
+	};
+}
+
+function parsePluginAgent(
+	item: unknown,
+	warnings: ManifestWarning[],
+	pluginRoot: string,
+): ParsedPluginAgent | null {
+	if (typeof item !== "object" || item === null || Array.isArray(item)) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: "Agent entry is not an object — skipped",
+		});
+		return null;
+	}
+	const obj = item as Record<string, unknown>;
+	if (typeof obj.id !== "string" || !obj.id) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: 'Agent missing required string "id" — skipped',
+		});
+		return null;
+	}
+	if (typeof obj.name !== "string" || !obj.name) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: `Agent "${obj.id}" missing required string "name" — skipped`,
+		});
+		return null;
+	}
+	if (typeof obj.role !== "string" || !obj.role) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: `Agent "${obj.id}" missing required string "role" — skipped`,
+		});
+		return null;
+	}
+	if (typeof obj.agentCategory !== "string" || !obj.agentCategory) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: `Agent "${obj.id}" missing required string "agentCategory" — skipped`,
+		});
+		return null;
+	}
+	// @lore BA9d: agentCategory accepts any non-empty string here — deliberate.
+	// The user-facing POST /api/agents Zod schema enforces z.enum(AGENT_CATEGORIES),
+	// but plugin agents are installed server-side and trusted; gating them at the
+	// parse layer would break forward-compat (a new category would silently skip
+	// every existing agent). The API guard is the right choke-point.
+	// `identity` names a file inside the plugin, the way a skill's body is a
+	// file. A path that escapes the plugin root, or names a file that is not
+	// there, drops the identity and keeps the agent — a bare agent is a valid
+	// agent, so a typo must not cost you the whole contribution.
+	let identity: string | null = null;
+	if (typeof obj.identity === "string" && obj.identity) {
+		identity = readPluginFile(pluginRoot, obj.identity);
+		if (identity === null) {
+			warnings.push({
+				code: "INVALID_CONTRIBUTION",
+				message: `Agent "${obj.id}" identity file "${obj.identity}" is missing or outside the plugin — agent installed without one`,
+			});
+		}
+	}
+
+	return {
+		id: obj.id,
+		name: obj.name,
+		role: obj.role,
+		agentCategory: obj.agentCategory,
+		identity,
+	};
+}
+
+/**
+ * Read a plugin-relative file, refusing anything that escapes the plugin root.
+ *
+ * A manifest is data from outside, so `../../../etc/passwd` is a path it can
+ * ask for; resolving and re-checking the prefix is what stops it.
+ */
+function readPluginFile(pluginRoot: string, relativePath: string): string | null {
+	const resolvedRoot = resolve(pluginRoot);
+	const target = resolve(resolvedRoot, relativePath);
+	if (target !== resolvedRoot && !target.startsWith(resolvedRoot + sep)) {
+		return null;
+	}
+	try {
+		return readFileSync(target, "utf8");
+	} catch {
+		return null;
+	}
+}
+
+function parsePluginRoutine(
+	item: unknown,
+	warnings: ManifestWarning[],
+): ParsedPluginRoutine | null {
+	if (typeof item !== "object" || item === null || Array.isArray(item)) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: "Routine entry is not an object — skipped",
+		});
+		return null;
+	}
+	const obj = item as Record<string, unknown>;
+	if (typeof obj.id !== "string" || !obj.id) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: 'Routine missing required string "id" — skipped',
+		});
+		return null;
+	}
+	if (typeof obj.name !== "string" || !obj.name) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: `Routine "${obj.id}" missing required string "name" — skipped`,
+		});
+		return null;
+	}
+	if (typeof obj.agentId !== "string" || !obj.agentId) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: `Routine "${obj.id}" missing required string "agentId" — skipped`,
+		});
+		return null;
+	}
+	if (typeof obj.triggerType !== "string" || !obj.triggerType) {
+		warnings.push({
+			code: "INVALID_CONTRIBUTION",
+			message: `Routine "${obj.id}" missing required string "triggerType" — skipped`,
+		});
+		return null;
+	}
+	return {
+		id: obj.id,
+		name: obj.name,
+		agentId: obj.agentId,
+		triggerType: obj.triggerType,
+		triggerConfig: typeof obj.triggerConfig === "string" ? obj.triggerConfig : null,
+		eventType: typeof obj.eventType === "string" ? obj.eventType : null,
+		prompt: typeof obj.prompt === "string" ? obj.prompt : null,
 	};
 }

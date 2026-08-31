@@ -12,7 +12,15 @@ For the Team primitive's place among the five, see [The five primitives](./the-f
 
 Team formation runs through Conversations as a review item (`layers/core-api/review/src/review-item-factory.ts`). The proposed team — these agents, this lead, this capacity — is posted for the founder's verdict. Approving the team kicks off the product. Membership is visible in the Work view (`WorkTeam.tsx` roster) and editable through subsequent review items (proven by `AK6-user-team-handoff.integration.test.ts`).
 
-Roster creation today (AK6): the Strategy proposes `AgentScaffoldSpec`s (persona, role — the *who*), the Kernel attaches identity + mechanism fields and persists the rows, assigning the lead (`layers/core-api/org/src/scaffold-agents.ts` — lead = first product-manager, else first agent). There is no pre-existing agent pool to draw from.
+Agent creation today: `resolveAgentScaffoldSpecs` produces the specs (role and
+name — the *who*), and `persistScaffoldedAgents` attaches ids and mechanism
+fields and writes the rows (`layers/core-api/org/src/scaffold-agents.ts`).
+
+**Creating a team creates one agent**, with no identity, carrying the neutral
+role `agent`; it is the team's lead because it is the only one. You add the
+rest, or install a plugin that brings a shaped team. A team used to arrive with
+a roster derived from declared `functions`, and a team that produced no agents
+was rejected — all of that was removed in BA9g.
 
 Formation criteria:
 

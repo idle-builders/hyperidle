@@ -25,7 +25,6 @@ export { bootAgentOrchestration } from "./boot.js";
 // AU29 §2.5.3: the first-boot run-config face — the composition roots call this
 // AFTER core-api's applyFactoryCoreState (agent_run_config.agentUserId has an FK
 // to users.id), instead of a database package writing an orchestration-owned table.
-export { applyFactoryRunConfigDefaults } from "./factory-run-config.js";
 /**
  * AU31 §2.5/§5/§12: the `CoreApiPort` seam's outbound client construction —
  * relocated here from core-api with the tool stack that is its real
@@ -58,10 +57,7 @@ export type {
 	RunOrchestrationHarnessRuntimeAdapter,
 	RunOrchestrationReturnStatusToolAdapter,
 } from "./services/run-orchestration-composition.js";
-export {
-	buildProposedCallWorkflowPort,
-	buildRunOrchestrationComposition,
-} from "./services/run-orchestration-composition.js";
+export { buildRunOrchestrationComposition } from "./services/run-orchestration-composition.js";
 /**
  * AU31 §2.5: the tool stack's own composition — `buildToolHandlersPorts`/
  * `buildToolDefinitions` wire `@hyperidle/tool-handlers`' domain ports to a

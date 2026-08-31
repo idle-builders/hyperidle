@@ -26,7 +26,7 @@ import type { BetCardSummary, TeamDetail } from "@hyperidle/domain-model";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	BET_STATUS_LABEL,
-	findRoleCatalogEntry,
+	roleLabel,
 } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -552,8 +552,10 @@ function WorkTeamLoaded({
 							: healthDetail;
 
 						let contextText = (() => {
-							const catalogEntry = findRoleCatalogEntry(member.role);
-							return catalogEntry?.description ?? member.role;
+							// @lore BA9g: the catalog's one-line description went with the
+							// catalog. What an agent is for is its identity document, not a
+							// sentence the product wrote about its role.
+							return roleLabel(member.role);
 						})();
 						let contextIsError = false;
 						if (memberStatus === "active" && runState.activeTaskTitle) {
@@ -564,16 +566,13 @@ function WorkTeamLoaded({
 						}
 
 						const categoryLabel =
-							member.agentCategory === "strategy"
-								? "App-managed"
-								: member.agentCategory === "individual"
-									? "Individual"
-									: (member.agentCategory ?? "");
+							member.agentCategory === "individual" ? "Individual" : (member.agentCategory ?? "");
 
 						// Category cell — first cell when non-team category.
 						// @lore AG6: team agents do NOT render agent-card-category testid
-						// (AB3 protected test: strategy + individual only, team = 0). The
-						// AG6 "first cell" test renders app-managed agents where this is present.
+						// (AB3 protected test: individual only, team = 0). The
+						// AG6 "first cell" test renders individual-category agents where this is present.
+						// @lore BA9d: "strategy" removed from category set — only "individual" is non-team.
 						const hasCategory = member.agentCategory && member.agentCategory !== "team";
 
 						return (
@@ -810,6 +809,7 @@ function WorkTeamLoaded({
 			{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
 			{addDialogOpen && (
 				<AgentAddDialog
+					rolesInUse={(data?.roster ?? []).map((m) => m.role)}
 					open={addDialogOpen}
 					teamMembersId={data.teamMembers.id}
 					teamName={data.team.name}

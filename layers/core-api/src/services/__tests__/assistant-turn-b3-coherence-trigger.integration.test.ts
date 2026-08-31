@@ -161,7 +161,7 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 
 		// AU21 review fix (non-blocking finding): the assistant agent has an
 		// injected filesystem — `rebakePendingSiblingsForThread`'s re-bake must
-		// carry it forward too (same class of gap as the granted-reengagement
+		// carry it forward too (same class of gap as the resumed-session
 		// blocking finding, on this race-only rebake path).
 		await db
 			.insert(teams)

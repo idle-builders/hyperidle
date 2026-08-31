@@ -51,7 +51,6 @@ describe("agent run config store", () => {
 		const config = await readAgentRunConfig(db, "a-none");
 
 		expect(config).toEqual({
-			systemPrompt: null,
 			harnessType: null,
 			modelId: null,
 			modelProvider: null,
@@ -65,7 +64,6 @@ describe("agent run config store", () => {
 		await insertAgent(db, "a-full");
 
 		await writeAgentRunConfig(db, "a-full", {
-			systemPrompt: "you are a builder",
 			harnessType: "claude-code",
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
@@ -74,7 +72,6 @@ describe("agent run config store", () => {
 		});
 
 		expect(await readAgentRunConfig(db, "a-full")).toEqual({
-			systemPrompt: "you are a builder",
 			harnessType: "claude-code",
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
@@ -86,7 +83,7 @@ describe("agent run config store", () => {
 	test("a partial write patches only the named fields", async ({ db }) => {
 		await insertAgent(db, "a-partial");
 		await writeAgentRunConfig(db, "a-partial", {
-			harnessType: "builtin",
+			harnessType: "opencode",
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 3,
@@ -96,8 +93,7 @@ describe("agent run config store", () => {
 		await writeAgentRunConfig(db, "a-partial", { modelId: "claude-opus-4-8" });
 
 		expect(await readAgentRunConfig(db, "a-partial")).toEqual({
-			systemPrompt: null,
-			harnessType: "builtin",
+			harnessType: "opencode",
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 3,
@@ -124,11 +120,10 @@ describe("agent run config store", () => {
 	}) => {
 		await insertAgent(db, "a-first");
 
-		await writeAgentRunConfig(db, "a-first", { harnessType: "builtin" });
+		await writeAgentRunConfig(db, "a-first", { harnessType: "opencode" });
 
 		expect(await readAgentRunConfig(db, "a-first")).toEqual({
-			systemPrompt: null,
-			harnessType: "builtin",
+			harnessType: "opencode",
 			modelId: null,
 			modelProvider: null,
 			maxConcurrentSessions: 1,

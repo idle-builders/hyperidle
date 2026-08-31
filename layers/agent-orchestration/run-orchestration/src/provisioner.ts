@@ -23,7 +23,6 @@ import {
 	type SessionHandle,
 	type SessionMetrics,
 	type SessionResult,
-	type SessionWorkflow,
 } from "@hyperidle/harness-protocol";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
@@ -35,6 +34,7 @@ import {
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
 	ConcurrencyLimitError,
+	NoAvailableHarnessError,
 	NoEligibleHarnessError,
 	TargetAgentNotRunnableError,
 } from "./errors.js";
@@ -45,7 +45,7 @@ import {
 } from "./filesystem-provisioning.js";
 // Filesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
-import type { Filesystem } from "./mounter.js";
+import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -171,6 +171,12 @@ interface SessionLifecycleSelectedEntry {
 interface SessionLifecycleAdapterPool {
 	select(requirements?: SessionLifecycleSelectRequirements): SessionLifecycleSelectedEntry | null;
 	release(id: string): void;
+	/**
+	 * Why `select` would decline, in the pool's own words. REQUIRED, not
+	 * optional: an optional diagnostic is one every implementer quietly skips,
+	 * and the fallback message then becomes the thing everyone actually reads.
+	 */
+	describeSelectFailure(requirements?: SessionLifecycleSelectRequirements): string;
 }
 
 interface SessionLifecycleEnforcementEntry {
@@ -231,6 +237,8 @@ interface SessionLifecycleHarnessRuntime {
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
+		/** BA2 ruling 18: the session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
+		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 	/** @lore BA9b B2: write plugin stdio MCP entries in the harness's dialect. Dialect knowledge lives in cli-mcp-config.ts. */
 	writePluginStdioMcpEntries(params: {
@@ -304,13 +312,6 @@ interface SessionLifecycleToolContext {
 	readonly threadId?: string;
 }
 
-/** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/harness-protocol`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
-interface SessionLifecycleRegistrySessionWorkflow extends SessionWorkflow {
-	readonly reviewMessageId: string;
-	readonly subjectThreadId: string;
-	readonly artifactId: string;
-}
-
 interface SessionLifecycleToolRegistry {
 	invoke(name: string, rawArgs: unknown): Promise<unknown>;
 }
@@ -321,7 +322,6 @@ interface SessionLifecycleToolProvider {
 		options: {
 			readonly role: string;
 			readonly extraTools?: readonly unknown[];
-			readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
 			readonly useOnlyExtraTools?: boolean;
 		},
 	): SessionLifecycleToolRegistry;
@@ -849,7 +849,7 @@ interface ProvisionSessionParams {
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle
 	 * this session's sandbox context (Phase 6) and prompt persona (Phase 8.5)
-	 * are built from — `kind:"task"` for `task_run`/`reengagement`,
+	 * are built from — `kind:"task"` for `task_run`,
 	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
 	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
 	 * Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
@@ -900,7 +900,7 @@ interface ProvisionSessionParams {
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
 	 * the triggering message's thread; `task_run`/`session_start`/
-	 * `reengagement` from Decision 0's resolve-or-create). Absent for
+	 * resolve-or-create). Absent for
 	 * `routine_run`/`knowledge_action`. Forwarded verbatim onto
 	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
 	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
@@ -915,11 +915,6 @@ interface ProvisionSessionParams {
 	 * transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
-	/**
-	 * AL7 Task 6: When set, the registry invoke router participates in the
-	 * trust-first review workflow for this session.
-	 */
-	readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
 }
 
 interface ProvisionSessionResult {
@@ -1033,8 +1028,11 @@ async function admitSession(
 	// is exactly what an all-null `users` row resolved before the move.
 	const runConfig = await readAgentRunConfig(db, params.agentId);
 
-	// X3: system prompt from the agent's run config. No file read required.
-	const systemPromptText = runConfig.systemPrompt ?? "";
+	// The agent's identity is the `agent_file` knowledge document bound to it,
+	// baked onto the request core-side. It cannot be read here: `knowledge_items`
+	// belongs to the knowledge service, while `agent_run_config` — read just above
+	// — is orchestration's own.
+	const systemPromptText = agentConfig.persona ?? "";
 
 	// @lore The tier used to be chosen: explicit param > the agent's own
 	// `modelTierPreference` > "workhorse". That dial is gone. It named which model
@@ -1059,12 +1057,17 @@ async function admitSession(
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
+		// Ask the pool WHY rather than asserting a reason. `select` declines for
+		// six different causes and this call site used to report exactly one of
+		// them ("all adapters are at capacity") for all six — false for the case
+		// that actually happens in practice, an empty pool because no harness
+		// binary was discovered, and false in a way that sends whoever reads it
+		// to the wrong subsystem.
+		const reason = adapterPool.describeSelectFailure(selectRequirements);
 		if (runConfig.harnessType) {
-			throw new NoEligibleHarnessError(runConfig.harnessType);
+			throw new NoEligibleHarnessError(runConfig.harnessType, reason);
 		}
-		throw new Error(
-			`No available adapter in pool — all adapters are at capacity${runConfig.harnessType ? ` (harnessType: ${runConfig.harnessType})` : ""}`,
-		);
+		throw new NoAvailableHarnessError(reason);
 	}
 	const harness = selectedAdapter.adapter;
 	const adapterId = selectedAdapter.id;
@@ -1167,6 +1170,14 @@ async function admitSession(
 			mounter: deps.mounter,
 		});
 	}
+
+	// @lore BA2 ruling 22: guarantee the sandbox is a git repo, AFTER mounting
+	// (never before — a mounted code filesystem's `git clone`/`git worktree add`
+	// refuses a target directory that already has a `.git`; see
+	// `ensureSandboxGitRepo`'s own doc comment in mounter.ts). Unconditional —
+	// runs even when no mounter is configured, since every session sandbox
+	// benefits (codex's trust precondition; an agent's own diff/revert).
+	ensureSandboxGitRepo(sandboxPath);
 
 	// ── Phase 6: assemble context into the sandbox through the agent layer.
 	if (params.taskId) {
@@ -1328,15 +1339,6 @@ async function runSession(
 		...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
 		sandboxPath,
 		ingestion,
-		// AL7 Task 6: inject abort callback so the workflow router can end session 1
-		// after capturing the first irreversible call. Fire-and-forget is intentional.
-		onAbortSession: params.sessionWorkflow
-			? (abortedSessionId) => {
-					void ports.sessionRequests.abortSessionRun(abortedSessionId).catch(() => {
-						// Non-fatal: the harness may have already exited.
-					});
-				}
-			: undefined,
 	};
 	// Every session, assistant included, gets the ordinary role-scoped tool
 	// registry — the assistant's tool surface spans every `roles: undefined`
@@ -1346,7 +1348,6 @@ async function runSession(
 		extraTools: [
 			ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
 		],
-		sessionWorkflow: params.sessionWorkflow,
 	});
 
 	// ── Phase 8.5: compose prompt and write CLAUDE.md.
@@ -1428,7 +1429,7 @@ async function runSession(
 	// A session whose output belongs in a calling thread and has no task (the
 	// assistant, and now knowledge_action too) must call `reply`, not the
 	// trio — purely structural, no `sourceKind` check anywhere. A task-bound
-	// session (task_run/session_start/reengagement/proposed_call) also bakes
+	// session (task_run/session_start) also bakes
 	// a calling thread but keeps the trio available (`reply` still lands in
 	// the same thread, but so does e.g. `handoff_to`).
 	const requiredReturnActions: readonly string[] | undefined =
@@ -1482,11 +1483,18 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 		if (adapterCapabilities.cliMcpDialect) {
+			// BA2 ruling 18: the session's mounted filesystems (AO2, phase 4.5
+			// above) are the trusted directories — tell the harness what the
+			// filesystem primitive already declared, alongside the sandbox.
+			const trustedPaths = mountedFilesystems
+				.map((filesystem) => localTrustedPath(filesystem))
+				.filter((p): p is string => p !== undefined);
 			const result = await ports.harnessRuntime.writeCliMcpConfig({
 				dialect: adapterCapabilities.cliMcpDialect,
 				sandboxPath,
 				mcpUrl,
 				token: bridge.token,
+				...(trustedPaths.length > 0 ? { trustedPaths } : {}),
 			});
 			if (result.tokenEnv && Object.keys(result.tokenEnv).length > 0) {
 				mcpTokenEnv = result.tokenEnv;
@@ -1603,7 +1611,6 @@ async function runSession(
 		mcpConnectionInfo:
 			mcpBridgeToken && mcpUrl ? { url: mcpUrl, token: mcpBridgeToken } : undefined,
 		returnHook: returnHookConfig,
-		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
 		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	};

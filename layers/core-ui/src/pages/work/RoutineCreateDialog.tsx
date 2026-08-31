@@ -68,6 +68,9 @@ export function RoutineCreateDialog({
 	const [whenMode, setWhenMode] = useState<WhenMode>("schedule");
 	const [eventTypes, setEventTypes] = useState<readonly string[]>([]);
 	const [eventType, setEventType] = useState("");
+	// BA9d D11: optional transition constraint — fires only when the event
+	// transitions to this state. Empty means no constraint.
+	const [transitionTo, setTransitionTo] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -112,6 +115,7 @@ export function RoutineCreateDialog({
 			setCustomCron("");
 			setWhenMode("schedule");
 			setEventType("");
+			setTransitionTo("");
 			setError(null);
 			setSubmitting(false);
 		}
@@ -141,6 +145,8 @@ export function RoutineCreateDialog({
 						ownerAgentId: agentId,
 						triggerType: "event",
 						eventType,
+						// BA9d D11: include transition constraint when set
+						...(transitionTo.trim() ? { eventTransitionTo: transitionTo.trim() } : {}),
 					};
 
 		const res = await apiFetch("/api/routines", {
@@ -287,22 +293,34 @@ export function RoutineCreateDialog({
 						)}
 					</>
 				) : (
-					<label htmlFor="routine-create-event" className="flex flex-col gap-[3px]">
-						<span className="type-metadata  text-[var(--text-tertiary)]">
-							Event <span aria-hidden>(required)</span>
-						</span>
-						<Select
-							id="routine-create-event"
-							size="sm"
-							className="w-full"
-							value={eventType}
-							onChange={(e) => setEventType(e.target.value)}
+					<>
+						<label htmlFor="routine-create-event" className="flex flex-col gap-[3px]">
+							<span className="type-metadata  text-[var(--text-tertiary)]">
+								Event <span aria-hidden>(required)</span>
+							</span>
+							<Select
+								id="routine-create-event"
+								size="sm"
+								className="w-full"
+								value={eventType}
+								onChange={(e) => setEventType(e.target.value)}
+								disabled={submitting}
+								aria-label="Event"
+								placeholder="Select an event…"
+								options={eventTypes.map((e) => ({ value: e, label: e }))}
+							/>
+						</label>
+						{/* BA9d D11: optional transition constraint */}
+						<Input
+							label="Only when transitioning to (optional)"
+							type="text"
+							value={transitionTo}
+							onChange={(e) => setTransitionTo(e.target.value)}
+							placeholder="e.g. done"
 							disabled={submitting}
-							aria-label="Event"
-							placeholder="Select an event…"
-							options={eventTypes.map((e) => ({ value: e, label: e }))}
+							aria-label="Transition to state"
 						/>
-					</label>
+					</>
 				)}
 
 				{error && (

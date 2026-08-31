@@ -1,5 +1,6 @@
 import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -9,7 +10,7 @@ import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // workIntents is now AgentWorkIntentRecorderFn — plain function, no tx parameter.
 const depWatcherDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent },
+	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 };
 
 /**

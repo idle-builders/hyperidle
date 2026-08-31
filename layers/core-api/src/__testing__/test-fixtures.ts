@@ -1,3 +1,6 @@
+import { mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
@@ -61,6 +64,12 @@ export interface IntegrationFixtures extends DbFixtures {
 	 * fixture (e.g. `dispatch-test-helpers.ts`'s `fireStoredRoutine`).
 	 */
 	agentOrchestration: AgentOrchestrationPort;
+	/**
+	 * BA9d D12: a per-test app instance with a temp `pluginsBaseDir` set,
+	 * so `installPlugin` persists files to disk and skills can be restored.
+	 * Use instead of `app` in tests that need to exercise the restore route.
+	 */
+	pluginsApp: Hono;
 }
 
 export function withoutServiceTestAuth(
@@ -76,6 +85,7 @@ export function withoutServiceTestAuth(
 export async function createServiceTestApp(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	pluginsBaseDir?: string,
 ): Promise<{ app: Hono; authApiKey: string }> {
 	const authApiKey = `hyperidle-service-test-${++nextFixtureAppId}`;
 	const app = await createTestApp({
@@ -85,6 +95,7 @@ export async function createServiceTestApp(
 		// AU44-b2: cipher required for /api/connections POST (AES-256-GCM token encrypt/decrypt).
 		cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 		registerExtraRoutes: registerTestRoutes,
+		pluginsBaseDir,
 	});
 	const rawFetch = app.fetch.bind(app);
 	// @lore The shared service fixture owns authentication explicitly. Its app
@@ -106,9 +117,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// `createServer`'s `serviceBootstrap` — the plain `createApp` this
 	// fixture's `app` below builds does NOT invoke that bootstrap, so wiring
 	// it here (rather than requiring every test to call
-	// `registerAgentRunAdmissionReactions` by hand, the way
-	// `registerPolicy`/`registerReviewSubscriptions` are called explicitly per
-	// test today) is what lets a bare `{ db, eventBus }` test observe the real
+	// `registerAgentRunAdmissionReactions` by hand) is what lets a bare `{ db, eventBus }` test observe the real
 	// reaction without booting the whole app. `registerAgentRunAdmissionReactions`'s
 	// per-eventBus-instance idempotency guard means this is still safe even if
 	// a future change makes `createServer`'s boot path reachable from a test
@@ -196,6 +205,23 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 			headers.set("X-HyperIdle-Test-Without-Auth", "true");
 			return app.request(input, { ...requestInit, headers }, env, executionCtx);
 		});
+	},
+	// @lore BA9d D12: per-test app with a temp pluginsBaseDir so install_path
+	// is recorded and skill restore (route /contributions/restore, kind=skill)
+	// can re-read from disk. Not shared across the worker: each test gets its
+	// own temp dir so concurrent tests don't collide on file paths.
+	pluginsApp: async ({ db, eventBus }, use) => {
+		const pluginsBaseDir = join(
+			tmpdir(),
+			`plugins-fixture-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
+		mkdirSync(pluginsBaseDir, { recursive: true });
+		const { app } = await createServiceTestApp(db, eventBus, pluginsBaseDir);
+		await use(app);
+		disposeApp(app);
+		try {
+			rmSync(pluginsBaseDir, { recursive: true, force: true });
+		} catch {}
 	},
 });
 

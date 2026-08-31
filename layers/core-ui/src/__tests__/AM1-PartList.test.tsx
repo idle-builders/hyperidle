@@ -153,7 +153,7 @@ describe("AM1 PartList — message-type Parts (AC3)", () => {
 		embeds: [],
 		title: "Adopt passkeys",
 		changeSet: artifactEmbed,
-		reviewTarget: { betId: "bet-1", reviewId: "rv1" },
+		reviewTarget: { reviewId: "rv1" },
 	} as Part;
 
 	const questionnairePart = {
@@ -175,7 +175,7 @@ describe("AM1 PartList — message-type Parts (AC3)", () => {
 		label: "APPROVED",
 		resolvedBy: "A. Founder",
 		summary: "looks good",
-		reviewTarget: { betId: "bet-1", reviewId: "rs1" },
+		reviewTarget: { reviewId: "rs1" },
 	} as Part;
 
 	it("review Part: compact reference with an Open review button, NO inline decision/code", () => {
@@ -295,11 +295,11 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 			embeds: [],
 			title: "Adopt passkeys",
 			changeSet: artifactEmbed,
-			reviewTarget: { betId: "bet-1", reviewId: "rv1" },
+			reviewTarget: { reviewId: "rv1" },
 		} as Part;
 		render(<PartList parts={[reviewPart]} onOpen={onOpen} />);
 		fireEvent.click(screen.getByText(/open review/i));
-		expect(onOpen).toHaveBeenCalledWith({ route: "review", betId: "bet-1", reviewId: "rv1" });
+		expect(onOpen).toHaveBeenCalledWith({ route: "review", reviewId: "rv1" });
 	});
 
 	it("clicking the session Fold fires onOpen({route:session})", () => {

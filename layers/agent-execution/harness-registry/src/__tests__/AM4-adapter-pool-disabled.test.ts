@@ -2,9 +2,9 @@
  * AM4 — AdapterPool select() disabledTypes gate (Task 3, AC2)
  *
  * AC2 behavioral proof (the disable verb's only real proof):
- *  - register builtin + claude-code; select({ disabledTypes: ["claude-code"] }) NEVER returns claude-code
- *  - select({ disabledTypes: ["builtin"] }) STILL returns builtin (hard-exemption back-stop, CHANGE 2)
- *  - disabledTypes only skips non-builtin adapters
+ *  - register opencode + claude-code; select({ disabledTypes: ["claude-code"] }) NEVER returns claude-code
+ *  - a disabled harness is skipped even when it is the only one registered — no
+ *    harness is exempt (the built-in harness used to be, and is gone)
  *  - disabledTypes: [] (empty set) does not skip anything
  *
  * AC2 additional:
@@ -68,10 +68,10 @@ function makeAdapter(): HarnessAdapter {
 	};
 }
 
-const BUILTIN_META: AdapterMeta = {
-	name: "Built-in Harness",
+const OPENCODE_META: AdapterMeta = {
+	name: "OpenCode",
 	kind: "local",
-	type: "builtin",
+	type: "opencode",
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	maxConcurrent: 8,
 };
@@ -97,7 +97,7 @@ const CODEX_META: AdapterMeta = {
 describe("AM4 AC2 — AdapterPool.select() disabledTypes gate", () => {
 	it("selects claude-code when disabledTypes is empty", () => {
 		const pool = new AdapterPool();
-		pool.register("local-builtin", makeAdapter(), BUILTIN_META);
+		pool.register("local-opencode", makeAdapter(), OPENCODE_META);
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
 
 		const entry = pool.select({
@@ -110,11 +110,11 @@ describe("AM4 AC2 — AdapterPool.select() disabledTypes gate", () => {
 
 	it("NEVER returns claude-code when disabledTypes includes 'claude-code' (with harnessType)", () => {
 		const pool = new AdapterPool();
-		pool.register("local-builtin", makeAdapter(), BUILTIN_META);
+		pool.register("local-opencode", makeAdapter(), OPENCODE_META);
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
 
 		// Request claude-code specifically — the disabledTypes gate must block it
-		// Without harnessType, the selection might fall through to builtin and not test the gate
+		// Without harnessType, the selection might fall through to opencode and not test the gate
 		const entry = pool.select({
 			harnessType: "claude-code",
 			disabledTypes: ["claude-code"],
@@ -126,21 +126,21 @@ describe("AM4 AC2 — AdapterPool.select() disabledTypes gate", () => {
 
 	it("selects a different adapter when the requested harnessType is disabled", () => {
 		const pool = new AdapterPool();
-		pool.register("local-builtin", makeAdapter(), BUILTIN_META);
+		pool.register("local-opencode", makeAdapter(), OPENCODE_META);
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
 
 		// Requesting claude-code but it's disabled — should NOT get claude-code
-		// (no harnessType requirement here, so it can fall back to builtin)
+		// (no harnessType requirement here, so it can fall back to opencode)
 		const entry = pool.select({ disabledTypes: ["claude-code"] } as AM4SelectRequirements);
-		// Should either return null OR return builtin — but NEVER claude-code
+		// Should either return null OR return opencode — but NEVER claude-code
 		if (entry !== null) {
 			expect(entry.meta.type).not.toBe("claude-code");
 		}
 	});
 
-	it("returns null when all non-builtin adapters are disabled and harnessType specifies one", () => {
+	it("returns null when the requested type is disabled", () => {
 		const pool = new AdapterPool();
-		pool.register("local-builtin", makeAdapter(), BUILTIN_META);
+		pool.register("local-opencode", makeAdapter(), OPENCODE_META);
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
 
 		// Requesting claude-code specifically, but it's disabled
@@ -154,18 +154,18 @@ describe("AM4 AC2 — AdapterPool.select() disabledTypes gate", () => {
 
 	it("disabling multiple types skips all of them", () => {
 		const pool = new AdapterPool();
-		pool.register("local-builtin", makeAdapter(), BUILTIN_META);
+		pool.register("local-opencode", makeAdapter(), OPENCODE_META);
 		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
 		pool.register("local-codex", makeAdapter(), CODEX_META);
 
-		// Both non-builtin types disabled — only builtin remains
+		// Both other types disabled — only opencode remains
 		const entry = pool.select({ disabledTypes: ["claude-code", "codex"] } as AM4SelectRequirements);
-		// Should return builtin
-		expect(entry?.meta.type).toBe("builtin");
+		// Should return opencode
+		expect(entry?.meta.type).toBe("opencode");
 	});
 });
 
-// ── AC2 hard-exemption back-stop: builtin ALWAYS selects ────────────────────
+// ── AC2: no adapter is exempt from the disable gate ─────────────────────────
 
 describe("no harness is exempt from being disabled", () => {
 	it("a disabled harness is skipped even when it is the only one registered", () => {
@@ -195,7 +195,7 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 
 	it("refreshDiscoveries() re-runs discoverLocalHarnesses and replaces the snapshot", async () => {
 		const freshDiscoveries: Record<string, HarnessDiscoveryInput> = {
-			builtin: { state: "ready", version: "fresh" },
+			opencode: { state: "ready", version: "fresh" },
 		};
 
 		// Mock discoverLocalHarnesses to return known fresh data
@@ -205,7 +205,7 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 			.mockResolvedValue(freshDiscoveries as any);
 
 		const staleDiscoveries: Record<string, HarnessDiscoveryInput> = {
-			builtin: { state: "ready", version: "stale" },
+			opencode: { state: "ready", version: "stale" },
 		};
 		const pool = new AdapterPool(staleDiscoveries);
 

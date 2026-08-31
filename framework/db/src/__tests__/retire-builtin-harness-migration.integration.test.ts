@@ -1,5 +1,5 @@
 /**
- * Migration 0065 — agents that ran on the built-in harness move to codex.
+ * Migration 0074 — agents that ran on the built-in harness move to codex.
  *
  * The built-in harness is deleted. An `agent_run_config` row still naming it
  * points at an adapter that is not in the pool, so admission finds nothing to
@@ -18,7 +18,7 @@
  * configured that agent chose a model for a different harness, and only they
  * can choose the replacement.
  *
- * This replays the REAL `drizzle/0065_*.sql` against a real PGlite instance
+ * This replays the REAL `drizzle/0074_*.sql` against a real PGlite instance
  * holding real pre-migration rows. It does not re-declare the UPDATE: a test
  * that inlined its own copy would prove only that the copy is correct.
  *
@@ -41,10 +41,10 @@ import * as schema from "../schema.js";
 const DIRNAME = fileURLToPath(new URL(".", import.meta.url));
 const DRIZZLE_DIR = resolve(DIRNAME, "../../drizzle");
 
-/** The 0065 migration, located by prefix so a rename of its suffix cannot silently skip the test. */
-function readMigration0065(): string {
-	const file = readdirSync(DRIZZLE_DIR).find((name) => name.startsWith("0065_"));
-	if (!file) throw new Error("migration 0065_* not found in framework/db/drizzle");
+/** The 0074 migration, located by prefix so a rename of its suffix cannot silently skip the test. */
+function readMigration0074(): string {
+	const file = readdirSync(DRIZZLE_DIR).find((name) => name.startsWith("0074_"));
+	if (!file) throw new Error("migration 0074_* not found in framework/db/drizzle");
 	return readFileSync(resolve(DRIZZLE_DIR, file), "utf8");
 }
 
@@ -69,7 +69,7 @@ async function exec(client: PGlite, script: string): Promise<void> {
 }
 
 /**
- * Migrate to head, then undo 0065's own effect so the fixture can plant
+ * Migrate to head, then undo 0074's own effect so the fixture can plant
  * `builtin` rows the migration has not seen yet. Only rows this test inserts
  * exist, so nothing else is disturbed.
  */
@@ -101,38 +101,38 @@ async function seedAgents(client: PGlite): Promise<void> {
 			('a-claude', 'ai', 'Claude Agent', 'builder', 'active', '${NOW}', 'team'),
 			('a-none', 'ai', 'Unset Agent', 'builder', 'active', '${NOW}', 'team');
 		INSERT INTO "agent_run_config"
-			(agent_user_id, system_prompt, harness_type,
+			(agent_user_id, harness_type,
 			 model_id, model_provider, max_concurrent_sessions, model_options_json)
 		VALUES
-			('a-builtin', 'p1', 'builtin',
+			('a-builtin', 'builtin',
 			 'deepseek/deepseek-v4-flash', 'openrouter', 3, '{"reasoning_effort":"high"}'),
-			('a-builtin-2', NULL, 'builtin',
+			('a-builtin-2', 'builtin',
 			 'claude-haiku-4-5', 'anthropic', 1, NULL),
-			('a-claude', 'p3', 'claude-code',
+			('a-claude', 'claude-code',
 			 'claude-opus-4-8', 'anthropic', 7, '{"effort":"max"}'),
-			('a-none', NULL, NULL, NULL, NULL, 1, NULL);
+			('a-none', NULL, NULL, NULL, 1, NULL);
 	`);
 }
 
-describe("migration 0065 retires the built-in harness, forward-only", () => {
+describe("migration 0074 retires the built-in harness, forward-only", () => {
 	it("moves every builtin agent to codex and clears the model it cannot serve", {
 		timeout: 120_000,
 	}, async () => {
 		const { client } = requireHarness();
 		await seedAgents(client);
-		// Undo 0065 for the rows just planted — `migrate` already ran it against an
+		// Undo 0074 for the rows just planted — `migrate` already ran it against an
 		// empty table, so this restores the pre-migration state it would have found.
 		await client.exec(`
 			UPDATE "agent_run_config" SET harness_type = 'builtin'
 			WHERE agent_user_id IN ('a-builtin', 'a-builtin-2');
 		`);
 
-		await exec(client, readMigration0065());
+		await exec(client, readMigration0074());
 
 		const rows = await query(
 			client,
 			`SELECT agent_user_id, harness_type, model_id, model_provider, model_options_json,
-			        system_prompt, max_concurrent_sessions
+			        max_concurrent_sessions
 			 FROM agent_run_config ORDER BY agent_user_id`,
 		);
 
@@ -148,7 +148,6 @@ describe("migration 0065 retires the built-in harness, forward-only", () => {
 		}
 
 		// Everything the migration has no business touching is untouched.
-		expect(byId.get("a-builtin")?.system_prompt).toBe("p1");
 		expect(byId.get("a-builtin")?.max_concurrent_sessions).toBe(3);
 	});
 
@@ -158,7 +157,7 @@ describe("migration 0065 retires the built-in harness, forward-only", () => {
 		const { client } = requireHarness();
 		await seedAgents(client);
 
-		await exec(client, readMigration0065());
+		await exec(client, readMigration0074());
 
 		const [claude] = await query(
 			client,
@@ -177,7 +176,7 @@ describe("migration 0065 retires the built-in harness, forward-only", () => {
 		const { client } = requireHarness();
 		await seedAgents(client);
 
-		await exec(client, readMigration0065());
+		await exec(client, readMigration0074());
 
 		const [unset] = await query(
 			client,
@@ -200,7 +199,7 @@ describe("migration 0065 retires the built-in harness, forward-only", () => {
 			WHERE agent_user_id IN ('a-builtin', 'a-builtin-2');
 		`);
 
-		await exec(client, readMigration0065());
+		await exec(client, readMigration0074());
 
 		const [{ count }] = (await query(
 			client,

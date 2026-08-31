@@ -14,7 +14,7 @@
 
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
+import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
@@ -366,6 +366,88 @@ describe("CliHarnessAdapter env sandboxing", () => {
 		const spawnEnv = spawnSpy!.mock.calls[0]![2]?.env as Record<string, string>;
 		expect(spawnEnv["DATABASE_URL"]).toBeUndefined();
 		delete process.env["DATABASE_URL"];
+	});
+});
+
+// ── resumeSession env construction ───────────────────────────────────────────
+//
+// Guards that envMap is resolved the same way in resumeSession as in
+// startSession. Before this fix, resumeSession passed only extraEnv
+// (CODEX_HOME + mcpTokenEnv), silently dropping envMap.
+//
+// @lore A test here proved `{{apiKey}}` resolved on resume exactly as it did at
+// start — codex's envMap was `OPENAI_API_KEY: "{{apiKey}}"`, opencode's the
+// ANTHROPIC_API_KEY equivalent. HyperIdle holds no key to resolve any more: a
+// harness arrives already logged in and carries its own credential, so
+// `{{apiKey}}` and `{{baseUrl}}` are gone as template vars. The claim that
+// survives — envMap IS resolved on resume, and per-session specifics beat it —
+// is made below over `{{model}}`, a var that still exists.
+
+describe("CliHarnessAdapter resumeSession — env construction", () => {
+	it("resolves envMap templates on resume the same way startSession does", async () => {
+		const spawnSpy = vi.fn();
+		// startSession spawn (call 0) and resumeSession spawn (call 1)
+		const fakeChild1 = makeFakeChild();
+		const fakeChild2 = makeFakeChild();
+		spawnSpy.mockReturnValueOnce(fakeChild1.proc).mockReturnValueOnce(fakeChild2.proc);
+
+		const adapter = new CliHarnessAdapter(
+			{
+				binary: "opencode",
+				// Minimal args — no templates that need a sandbox on disk.
+				args: ["run", "{{prompt}}", "--format", "json", "--pure"],
+				envMap: { MY_MODEL: "{{model}}" },
+				eventFormat: "ndjson",
+				envAllowlist: [],
+			},
+			{ spawnFn: spawnSpy },
+		);
+
+		const startConfig = makeSessionConfig({ selectedModel: "claude-haiku-4-5" });
+		await adapter.startSession(startConfig);
+
+		const startEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
+		expect(startEnv["MY_MODEL"]).toBe("claude-haiku-4-5");
+
+		// resumeSession: the model must be resolved from envMap the same way.
+		const resumeConfig: SessionResumeConfig = {
+			sandboxPath: "/fake/sandbox",
+			modelTier: "workhorse",
+			selectedModel: "claude-sonnet-4-6",
+		};
+		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);
+
+		const resumeEnv = spawnSpy.mock.calls[1]![2]?.env as Record<string, string>;
+		expect(resumeEnv["MY_MODEL"]).toBe("claude-sonnet-4-6");
+	});
+
+	it("mcpTokenEnv overrides envMap on resume (per-session specifics win)", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			{
+				binary: "opencode",
+				args: ["run", "{{prompt}}", "--format", "json", "--pure"],
+				envMap: { MY_TOKEN: "{{model}}" },
+				eventFormat: "ndjson",
+				envAllowlist: [],
+			},
+			{ spawnFn: spawnSpy },
+		);
+
+		const resumeConfig: SessionResumeConfig = {
+			sandboxPath: "/fake/sandbox",
+			modelTier: "workhorse",
+			selectedModel: "from-envmap",
+			mcpTokenEnv: { MY_TOKEN: "from-mcpTokenEnv" },
+		};
+		await adapter.resumeSession("fake-session-id", "Hello", resumeConfig);
+
+		const resumeEnv = spawnSpy.mock.calls[0]![2]?.env as Record<string, string>;
+		// mcpTokenEnv wins over envMap.
+		expect(resumeEnv["MY_TOKEN"]).toBe("from-mcpTokenEnv");
 	});
 });
 

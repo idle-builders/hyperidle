@@ -1,29 +1,27 @@
 /**
- * AR4b — Formation seam: the assistant's persona is decided at turn time from
- * the app-owned run-config row, NOT a hardcoded constant.
+ * AR4b — Formation seam: the assistant's identity is decided from editable
+ * state at turn time, NOT a hardcoded constant.
  *
- * The persona is the `system_prompt` column `PATCH /api/users/:userId/assistant`
- * writes, and `admitSession` (`provisioner.ts`) reads it LIVE at drain through
- * `ports.agentRunConfig.readAgentRunConfig`.
+ * @lore AU26 G1 (architecture §D-L) x AU27 x BA9f: the observable has moved
+ * twice, because the persona has. AU27 proved it at the bake boundary (a
+ * `users` column core baked at emit); AU26 moved it to `agent_run_config`,
+ * which orchestration owns, so it was read live at drain instead. BA9f made it
+ * an `agent_file` knowledge document bound to the agent — which is what an
+ * agent file has always meant — so it is core-owned state again and rides the
+ * bake, exactly like the context bundle beside it (AU21 §H3: the provisioner
+ * consumes a baked bundle and reads zero core-api state).
  *
- * @lore AU26 G1 (architecture §D-L) x AU27: AU27 proved this at the BAKE
- * boundary — the `agent_work_intents` row's `agentConfig.systemPrompt` — because
- * at the time the persona was a `users` column core baked at emit. AU26 moved
- * the column into `agent_run_config`, which agent-orchestration OWNS, so there
- * is nothing for core to bake and `admitSession` reads it live instead. The
- * observable therefore moved with the data: this file still drives the exact
- * same route-level flow (post a message -> an `assistant_turn` intent is
- * emitted; PATCH the persona; post again) and still proves AC3 ("changing the
- * response changes the assistant's form"), but it reads the persona back
- * through `readAgentRunConfig` — the SAME function
- * `run-orchestration-composition.ts` wires into `ports.agentRunConfig` for the
- * drain — instead of off the snapshot. That is strictly fresher than the bake:
- * an edit between emit and drain now applies to that turn. It also asserts the
- * bake NO LONGER carries `systemPrompt`, pinning AU26's "do not re-bake it".
+ * What the test proves has NOT moved: AC3 — changing the identity changes what
+ * the assistant's next turn runs with. It still drives the same route-level
+ * flow (post a message -> an `assistant_turn` intent is emitted; edit the
+ * identity; post again) and reads the persona back off the bake the drain will
+ * actually use. It also pins that the run config no longer carries a persona:
+ * one home for the identity, not two.
  */
 
 import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
 import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
+import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/knowledge";
 import { readAgentRunConfig } from "@hyperidle/run-orchestration";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -62,14 +60,19 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: now,
 	});
-	// AU26 G1: the run config (persona included) lives in `agent_run_config` now.
+	// How the assistant RUNS. Who it is lives in its identity document below.
 	await db.insert(agentRunConfig).values({
 		agentUserId: ASSISTANT_ID,
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
-		systemPrompt: "Original row persona — the app default.",
 		maxConcurrentSessions: 1,
+	});
+	await upsertAgentIdentity(db, {
+		agentId: ASSISTANT_ID,
+		agentName: "Assistant",
+		body: "Original row persona — the app default.",
+		updatedBy: FOUNDER_ID,
 	});
 	await db.insert(threads).values({
 		id: THREAD_ID,
@@ -121,27 +124,30 @@ async function postAndResolveTurnPersona(
 		agentConfig?: BakedAgentRunnableConfig & { systemPrompt?: unknown };
 	};
 	expect(baked.agentConfig).toBeDefined();
-	// AU26 G1: the persona is NOT core state any more, so it must not ride the bake.
+	// The identity has ONE home. It is not a run-config field, so the old
+	// `systemPrompt` spelling must not reappear anywhere on the request.
 	expect(baked.agentConfig).not.toHaveProperty("systemPrompt");
-
-	// The exact read `admitSession` performs at drain through `ports.agentRunConfig`.
 	const runConfig = await readAgentRunConfig(db, ASSISTANT_ID);
-	return runConfig.systemPrompt;
+	expect(runConfig).not.toHaveProperty("systemPrompt");
+
+	// What `admitSession` (`provisioner.ts`) reads to build the "## Identity"
+	// section of this turn's AGENTS.md.
+	return baked.agentConfig?.persona ?? null;
 }
 
-describe("AR4b: formation seam — the assistant's persona is read live from agent_run_config at turn time", () => {
+describe("AR4b: formation seam — editing the assistant's identity document changes its next turn", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", GATE_API_KEY);
 	});
 
-	test("default row persona drives the turn when no PATCH has ever run", async ({ db, app }) => {
+	test("the seeded identity drives the turn when nothing has been edited", async ({ db, app }) => {
 		await seedFixtures(db);
 
 		const persona = await postAndResolveTurnPersona(app, db, "msg-ar4b-default");
 		expect(persona).toBe("Original row persona — the app default.");
 	});
 
-	test("a PATCH /api/users/:userId/assistant persona edit drives the NEXT turn (AC3)", async ({
+	test("editing the identity document in Knowledge drives the NEXT turn (AC3)", async ({
 		db,
 		app,
 	}) => {
@@ -150,14 +156,18 @@ describe("AR4b: formation seam — the assistant's persona is read live from age
 		const before = await postAndResolveTurnPersona(app, db, "msg-ar4b-before-patch");
 		expect(before).toBe("Original row persona — the app default.");
 
-		const patchRes = await app.request(`/api/users/${FOUNDER_ID}/assistant`, {
+		// The one knowledge edit endpoint — the same one every other document is
+		// edited through. There is no assistant-shaped side door any more.
+		const identityId = (await getAgentIdentityIds(db, [ASSISTANT_ID])).get(ASSISTANT_ID);
+		expect(identityId).toBeTruthy();
+		const patchRes = await app.request(`/api/knowledge/${identityId}`, {
 			method: "PATCH",
 			headers: {
 				"Content-Type": "application/json",
 				"X-API-Key": GATE_API_KEY,
 				"X-Identity": FOUNDER_ID,
 			},
-			body: JSON.stringify({ systemPrompt: ALPHA_PERSONA }),
+			body: JSON.stringify({ version: 1, updatedBy: FOUNDER_ID, body: ALPHA_PERSONA }),
 		});
 		expect(patchRes.status).toBe(200);
 

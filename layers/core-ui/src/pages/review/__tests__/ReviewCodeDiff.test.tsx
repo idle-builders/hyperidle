@@ -44,7 +44,10 @@ describe("ReviewCodeDiff canvas", () => {
 	it("renders the CI checks row inline", () => {
 		renderCanvas();
 
-		expect(screen.getByText("All checks passed")).toBeInTheDocument();
+		// `checks` is `readonly string[]` — labels only, no pass/fail state, so
+		// "All checks passed" would assert a status nothing here actually knows.
+		// The row renders the check names the payload has.
+		expect(screen.queryByText(/all checks passed/i)).not.toBeInTheDocument();
 		for (const check of artifact.payload.checks) {
 			expect(screen.getByText(check)).toBeInTheDocument();
 		}

@@ -63,8 +63,8 @@ async function seedIntent(db: HyperIdleDb, suffix: string, updatedAt = "2026-07-
 		.insert(agentWorkIntents)
 		.values({
 			id: `queue-intent-${suffix}`,
-			kind: "reengagement",
-			sourceKind: "proposed_call",
+			kind: "assistant_turn",
+			sourceKind: "thread_message",
 			sourceId: `queue-source-${suffix}`,
 			idempotencyKey: `queue-intent:${suffix}`,
 			status: "pending",

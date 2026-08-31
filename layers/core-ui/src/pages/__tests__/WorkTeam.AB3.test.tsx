@@ -81,7 +81,8 @@ const TEAM_WITH_AGENTS: TeamDetail = {
 			name: "Scout Agent",
 			role: "scout",
 			isLead: false,
-			agentCategory: "strategy",
+			// @lore BA9d: strategy category removed; scout is now individual
+			agentCategory: "individual",
 		},
 		{
 			agentId: "agent-cos-1",
@@ -104,7 +105,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-builder-1",
 		name: "Atlas Builder",
 		role: "builder",
-		systemPrompt: "You are a meticulous builder who values clean code.",
+		identityKnowledgeId: "ki_af_demo",
 		harnessType: "claude-code",
 		maxConcurrentSessions: 2,
 		status: "active",
@@ -115,18 +116,19 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-scout-1",
 		name: "Scout Agent",
 		role: "scout",
-		systemPrompt: null,
+		identityKnowledgeId: "ki_af_demo",
 		harnessType: null,
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
-		agentCategory: "strategy",
+		// @lore BA9d: strategy category removed; scout is now individual
+		agentCategory: "individual",
 	},
 	{
 		id: "agent-cos-1",
 		name: "System Agent",
 		role: "assistant",
-		systemPrompt: null,
+		identityKnowledgeId: "ki_af_demo",
 		harnessType: null,
 		maxConcurrentSessions: 1,
 		status: "active",
@@ -202,25 +204,19 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		});
 	});
 
-	it("each agent card shows the role description from catalog", async () => {
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		// "builder" role description from AGENT_ROLE_CATALOG
-		await waitFor(() => {
-			expect(screen.getByText(/Engineer\. Implements features/i)).toBeInTheDocument();
-		});
-	});
-
-	it("app-managed agent card shows an 'App-managed' category tag", async () => {
+	// @lore BA9g: the card showed a one-line description the role catalog carried
+	// — "Engineer. Implements features…". The catalog is gone: a role is a string
+	// on an agent, and what an agent is for is its identity document, not a
+	// sentence the product wrote about its role. The card shows the role.
+	it("each agent card shows its role", async () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
 		await waitFor(() => {
-			const tags = screen.getAllByTestId("agent-card-category");
-			const tagTexts = tags.map((t) => t.textContent ?? "");
-			expect(tagTexts.some((t) => t.includes("App-managed"))).toBe(true);
+			expect(screen.getByText("Builder")).toBeInTheDocument();
 		});
 	});
 
+	// @lore BA9d: App-managed category (strategy) deleted — no App-managed test.
 	// @lore AD8a: "personal" category renamed to "individual"; display label updated to "Individual".
 	it("individual agent card shows an 'Individual' category tag", async () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
@@ -241,9 +237,10 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		});
 
 		// The team agent (Atlas Builder) card should not contain a category testid
-		// We check the tags count — only 2 (strategy + individual), not 3
+		// We check the tags count — only 2 (both individual), not 3
+		// @lore BA9d: strategy category removed; scout and System Agent are both "individual"
 		const tags = screen.queryAllByTestId("agent-card-category");
-		expect(tags.length).toBe(2); // strategy + individual only
+		expect(tags.length).toBe(2); // two individual-category agents (scout + System Agent)
 	});
 });
 
@@ -280,9 +277,9 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		expect(firstBtn).toBeDefined();
 		await user.click((firstBtn as HTMLElement) ?? document.body);
 
-		// AV4: pane opens — no role="dialog"; system prompt textarea present
+		// AV4: pane opens — no role="dialog"; BA9f: the identity link is the marker
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 		expect(document.querySelectorAll('[role="dialog"]').length).toBe(0);
 	});
@@ -305,7 +302,10 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		});
 	});
 
-	it("edit dialog system prompt textarea is pre-filled with agent's systemPrompt", async () => {
+	// @lore BA9f: the pane links to the agent's identity document instead of
+	// carrying a textarea for it. Same claim — the pane reaches this agent's
+	// identity — read off the link the pane now renders.
+	it("the pane links to this agent's identity document", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -322,9 +322,8 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		await user.click((btnForSystemPrompt as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
-			const textarea = screen.getByRole("textbox", { name: /system prompt/i });
-			expect(textarea).toBeInTheDocument();
-			expect((textarea as HTMLTextAreaElement).value).toContain("You are a meticulous builder");
+			const link = screen.getByTestId("agent-detail-identity-link");
+			expect(link.getAttribute("href")).toBe("/knowledge/ki_af_demo");
 		});
 	});
 
@@ -368,25 +367,8 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		mockApiFetch.mockReset();
 	});
 
-	it("app-managed agent dialog shows app defaults management note", async () => {
-		const user = userEvent.setup();
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-row").length).toBe(3);
-		});
-
-		// Click the app-managed agent (Scout Agent — index 1) Customize button
-		const rows = screen.getAllByTestId("agent-row");
-		const scoutRow = rows.find((c) => c.textContent?.includes("Scout Agent"));
-		const scoutBtn = scoutRow?.querySelector('[data-testid="agent-customize-btn"]');
-		expect(scoutBtn).toBeDefined();
-		await user.click((scoutBtn as HTMLElement) ?? document.body);
-
-		await waitFor(() => {
-			expect(screen.getByText(/managed by app defaults/i)).toBeInTheDocument();
-		});
-	});
+	// @lore BA9d D5: app-managed dialog tests deleted — strategy category and the
+	// "managed by app defaults" UI lock are removed. Plugins now configure agents.
 
 	// @lore AV4: team agent pane (no dialog) does NOT show app-managed note.
 	it("team agent pane does NOT show app defaults management note", async () => {
@@ -406,43 +388,14 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 
 		// AV4: wait for pane to open (system prompt textarea present)
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 
 		expect(screen.queryByText(/managed by app defaults/i)).not.toBeInTheDocument();
 	});
 
-	// @lore AV4: app-managed agent config fields in pane (no dialog).
-	it("app-managed agent config fields are disabled when config section is expanded", async () => {
-		const user = userEvent.setup();
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-row").length).toBe(3);
-		});
-
-		const scoutRow2 = screen
-			.getAllByTestId("agent-row")
-			.find((c) => c.textContent?.includes("Scout Agent"));
-		const scoutBtn2 = scoutRow2?.querySelector('[data-testid="agent-customize-btn"]');
-		expect(scoutBtn2).toBeDefined();
-		await user.click((scoutBtn2 as HTMLElement) ?? document.body);
-
-		// AV4: wait for pane (no dialog check)
-		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
-		});
-
-		// Toggle config open
-		const configToggle = screen.getByRole("button", { name: /show configuration/i });
-		await user.click(configToggle);
-
-		// All config inputs should be disabled for app-managed agents
-		await waitFor(() => {
-			const harnessInput = screen.getByLabelText(/harness/i);
-			expect(harnessInput).toBeDisabled();
-		});
-	});
+	// @lore BA9d D5: app-managed config-disabled test deleted — strategy category and
+	// the disabled-config-for-app-managed-agents UI are removed. Plugins configure agents.
 
 	// @lore AV4: team agent config fields in pane (no dialog).
 	it("team agent config fields are enabled when config section is expanded", async () => {
@@ -462,7 +415,7 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 
 		// AV4: wait for pane (no dialog check)
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 
 		const configToggle = screen.getByRole("button", { name: /show configuration/i });
@@ -494,17 +447,27 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		mockApiFetch.mockReset();
 	});
 
-	it("clicking Save calls PATCH /api/agents/:id with updated system prompt", async () => {
+	// @lore BA9f: "Save writes the edited system prompt" lived here. The persona
+	// is a knowledge document now — this pane links to it and never PATCHes it —
+	// so the claim belongs to the knowledge edit endpoint. That this pane's Save
+	// reaches `PATCH /api/agents/:id` at all is proven by the next test.
+
+	// @lore This test used to change the Model tier select and assert the PATCH
+	// body carried `modelTierPreference`. That dial is gone: it named a
+	// model-gateway entry, selected nothing once the gateway went, and was
+	// unreachable anyway on the path every real session takes — the durable drain
+	// always supplies its own tier. People choose a model per agent instead, which
+	// is what reaches the harness. The claim itself — this pane's Save reaches
+	// `PATCH /api/agents/:id` with what the user edited — is unchanged, so the
+	// test makes it over the config field that survived.
+	it("Save button calls PATCH with the edited harness", async () => {
 		const user = userEvent.setup();
 
-		// Mock PATCH to return success
 		const patchResponse = new Response(
-			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], systemPrompt: "Updated system prompt text." }),
+			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], harnessType: "codex" }),
 			{ status: 200 },
 		);
-		mockApiFetch
-			.mockResolvedValueOnce(makeAgentsResponse()) // initial GET /api/agents
-			.mockResolvedValueOnce(patchResponse); // PATCH /api/agents/:id
+		mockApiFetch.mockResolvedValueOnce(makeAgentsResponse()).mockResolvedValueOnce(patchResponse);
 
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -512,22 +475,28 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 			expect(screen.getAllByTestId("agent-row").length).toBe(3);
 		});
 
-		const builderRow3 = screen
+		const builderRow4 = screen
 			.getAllByTestId("agent-row")
 			.find((c) => c.textContent?.includes("Atlas Builder"));
-		const builderBtn3 = builderRow3?.querySelector('[data-testid="agent-customize-btn"]');
-		expect(builderBtn3).toBeDefined();
-		await user.click((builderBtn3 as HTMLElement) ?? document.body);
+		const builderBtn4 = builderRow4?.querySelector('[data-testid="agent-customize-btn"]');
+		expect(builderBtn4).toBeDefined();
+		await user.click((builderBtn4 as HTMLElement) ?? document.body);
 
 		// AV4: pane opens (no dialog)
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 
-		// Update system prompt textarea
-		const textarea = screen.getByRole("textbox", { name: /system prompt/i });
-		await user.clear(textarea);
-		await user.type(textarea, "Updated system prompt text.");
+		// Expand config
+		const configToggle = screen.getByRole("button", { name: /show configuration/i });
+		await user.click(configToggle);
+
+		// Change the harness
+		await waitFor(() => {
+			expect(screen.getByLabelText(/harness/i)).toBeInTheDocument();
+		});
+		await user.clear(screen.getByLabelText(/harness/i));
+		await user.type(screen.getByLabelText(/harness/i), "codex");
 
 		// Click Save
 		const saveBtn = screen.getByRole("button", { name: /^save$/i });
@@ -539,22 +508,13 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 			);
 			expect(patchCall).toBeDefined();
 			if (!patchCall) return;
-			expect(patchCall[0] as string).toContain("/api/agents/agent-builder-1");
 			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
 				string,
 				unknown
 			>;
-			expect(body.systemPrompt).toBe("Updated system prompt text.");
+			expect(body.harnessType).toBe("codex");
 		});
 	});
-
-	// @lore A test here changed the Model tier select and asserted the PATCH body
-	// carried `modelTierPreference`. That dial is gone: it named a model-gateway
-	// entry, selected nothing once the gateway went, and was unreachable anyway on
-	// the path every real session takes — the durable drain always supplies its own
-	// tier. People choose a model per agent instead, which is what reaches the
-	// harness. The save path itself is covered by the harnessType/systemPrompt
-	// assertions above.
 });
 
 // ---------------------------------------------------------------------------
@@ -626,7 +586,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 				id: "new-agent-1",
 				name: "New Custom Agent",
 				role: "builder",
-				systemPrompt: null,
+				identityKnowledgeId: "ki_af_demo",
 				harnessType: null,
 				maxConcurrentSessions: 1,
 				status: "active",

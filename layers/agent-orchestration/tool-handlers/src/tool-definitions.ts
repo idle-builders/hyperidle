@@ -25,7 +25,6 @@ import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
-	ARTIFACT_VIEW_SHAPES,
 	artifactPreviewSchema,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
@@ -33,6 +32,7 @@ import {
 	KNOWLEDGE_STATUSES,
 	type KnowledgeLayer,
 	type KnowledgeStatus,
+	REVIEW_CANVAS_KINDS,
 	type ReviewPayload,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
@@ -109,7 +109,7 @@ type ReplyInput = z.infer<typeof replyInputSchema>;
  * (`ports.coreApi.insertMessage`, backed by `POST /threads/:id/messages`) —
  * never an orchestration-side special write. Available to every agent kind
  * (no `roles` filter) — this is how the assistant answers, but any agent
- * kind with a calling thread (task_run/session_start/reengagement/
+ * kind with a calling thread (task_run/session_start/
  * knowledge_action) can use it too.
  *
  * Deliberately narrower than `send_message`: NO thread argument. `reply`
@@ -135,11 +135,6 @@ function makeReplyTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<ReplyInput
 			"own calling thread (or, when the session has none, to a direct thread with the team's " +
 			"human).",
 		inputSchema: replyInputSchema,
-		// @lore AU27 C11 (Decision 1): `reversibility: "reversible"` is required,
-		// not decorative. `classifyReversibility` fails CLOSED to "irreversible"
-		// when a tool declares no signal — under an AL7 `sessionWorkflow`, an
-		// undeclared `reply` would route every reply to human review.
-		reversibility: "reversible",
 		handler: async (args, ctx) => {
 			const parsed = replyInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
@@ -583,18 +578,93 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 // submit_review
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Respelled from the retired `ARTIFACT_VIEW_SHAPES` (zero overlap with what
+ * `create_artifact` emits) to the consolidated `ARTIFACT_KINDS`.
+ * `.optional()` on `kind` for the same reason as `threads-schema.ts`'s twin
+ * copy of this schema: the value is never trusted — the loader re-reads the
+ * real kind off the artifact row.
+ */
 const artifactRefSchema = z.object({
 	id: z.string().min(1),
-	kind: z.enum(ARTIFACT_VIEW_SHAPES),
+	kind: z.enum(ARTIFACT_KINDS).optional(),
+});
+
+/**
+ * The canvas-envelope channel: an agent attaches canvas payloads directly,
+ * with no stored artifact or `create_artifact` producer required. `kind`
+ * validates against the nine `REVIEW_CANVAS_KINDS`; `payload` stays opaque
+ * (a malformed payload is discovered at render, by the honest per-canvas
+ * fallback, not rejected here).
+ */
+const reviewCanvasArtifactSchema = z.object({
+	id: z.string().min(1),
+	tool: z.string().min(1),
+	app: z.string().min(1),
+	sourceHref: z.string().min(1),
+	title: z.string().min(1),
+	kind: z.enum(REVIEW_CANVAS_KINDS),
+	payload: z.record(z.string(), z.unknown()),
 });
 
 const submitReviewInputSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).min(1).max(16),
 	artifactRef: artifactRefSchema.optional(),
+	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
 });
 
 type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
+
+/**
+ * Founder ruling 7 — a review lands in the thread the task already has, or a
+ * new one attached to the task, never the bet's: a task will exist without a
+ * bet, so resolving via `parentTask.betId` is not just the wrong host, it can
+ * be an empty one. Extracted from the handler to keep it readable as a
+ * single flow.
+ */
+async function resolveReviewThreadId(
+	ports: ToolHandlersPorts,
+	taskId: string,
+	teamId: string,
+	agentId: string,
+	now: string,
+): Promise<string> {
+	const existingThread = await ports.coreApi.getFirstThreadByHost("task", taskId, agentId);
+	if (existingThread) {
+		if (!existingThread.participants.includes(agentId)) {
+			await ports.coreApi.updateThread(
+				existingThread.id,
+				{ participants: [...existingThread.participants, agentId], lastActiveAt: now },
+				agentId,
+			);
+		}
+		return existingThread.id;
+	}
+
+	// @lore founder ruling — this backend is shared across an organisation's
+	// teams, so a newly created review thread must be seeded with the team
+	// that owns the task, never with "whichever human happens to be first in
+	// the users table" (`findSoleHumanUser`'s old fallback here). That picked
+	// one arbitrary person regardless of team, which put the review in one
+	// human's inbox and left it absent from the right team's — the exact
+	// class of unreachability this tool exists to close. Reuse
+	// `resolveReviewRecipientsForItem` (already `create_item`'s seam for the
+	// same decision): team humans, falling back to all humans only when the
+	// team itself has none. `agentRole` is accepted for backward-compat by
+	// the backing route but no longer drives the result, so it is not worth
+	// an extra `getUserById` call here — pass `undefined`.
+	const humanIds = await ports.coreApi.resolveReviewRecipientsForItem(
+		{ userId: agentId, agentRole: undefined, teamId },
+		agentId,
+	);
+	const participants = humanIds.length > 0 ? [...humanIds, agentId] : [agentId];
+	const created = await ports.coreApi.insertThread(
+		{ hostKind: "task", hostId: taskId, participants },
+		agentId,
+	);
+	return created.id;
+}
 
 function makeSubmitReviewTool<TDb>(
 	ports: ToolHandlersPorts,
@@ -602,49 +672,49 @@ function makeSubmitReviewTool<TDb>(
 	return {
 		name: "submit_review",
 		description:
-			"Submit a review for the current bet's work. Posts a review-type message to the bet's host thread. If no artifactRef is provided, falls back to a plain message with the review summary.",
+			"Submit a review for the current task's work. Posts a review-type message to the task's own thread — the task's existing thread if it has one, otherwise a new thread attached to the task (never the bet's thread — a task can exist without a bet). Attach evidence either as `artifacts` — inline canvas payloads (kind is one of: outcome_summary, field_change_set, action_operation, rendered_in_context, metrics_moved, visual_diff, code_diff, batch, browser_preview; payload shape is validated at render time, not here) — or as `artifactRef`, a reference to an artifact this task already produced via create_artifact. If neither is provided, falls back to a plain message with the review summary.",
 		inputSchema: submitReviewInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = submitReviewInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
-			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
-			const betId = parentTask.betId;
-
-			const now = new Date().toISOString();
-			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
-			// routes a human caller's client would use — instead of the raw
-			// `ports.conversation` DI calls (deleted).
-			const existingThread = await ports.coreApi.getFirstThreadByHost("bet", betId, ctx.agentId);
-
-			let threadId: string;
-			if (existingThread) {
-				threadId = existingThread.id;
-				if (!existingThread.participants.includes(ctx.agentId)) {
-					await ports.coreApi.updateThread(
-						threadId,
-						{ participants: [...existingThread.participants, ctx.agentId], lastActiveAt: now },
-						ctx.agentId,
+			// A review may not claim proof it does not have: the referenced
+			// artifact must exist and belong to the calling task, the same
+			// binding `create_artifact` itself enforces.
+			if (input.artifactRef) {
+				const referenced = await ports.coreApi.getArtifactById(input.artifactRef.id, ctx.agentId);
+				if (!referenced || referenced.producingTaskId !== ctx.taskId) {
+					return err(
+						"INVALID_INPUT",
+						`artifactRef ${input.artifactRef.id} does not resolve to an artifact produced by task ${ctx.taskId}`,
 					);
 				}
-			} else {
-				const created = await ports.coreApi.insertThread(
-					{ hostKind: "bet", hostId: betId, participants: [ctx.agentId] },
-					ctx.agentId,
-				);
-				threadId = created.id;
 			}
+
+			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
+			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
+
+			const now = new Date().toISOString();
+			const threadId = await resolveReviewThreadId(
+				ports,
+				ctx.taskId,
+				parentTask.teamId,
+				ctx.agentId,
+				now,
+			);
 
 			// The route generates the message's id server-side; `created.id`
 			// replaces the client-generated `randomUUID()` the raw DI path used.
 			let created: { readonly id: string };
-			if (input.artifactRef) {
+			// A review carrying only canvas artifacts is a review; an agent that
+			// supplies neither still gets today's plain-message fallback.
+			if (input.artifactRef || input.artifacts?.length) {
 				const payload: ReviewPayload = {
 					title: input.title,
 					reasoning: input.reasoning,
-					artifactRef: input.artifactRef,
+					...(input.artifactRef ? { artifactRef: input.artifactRef } : {}),
+					...(input.artifacts ? { artifacts: input.artifacts } : {}),
 				};
 				created = await ports.coreApi.insertMessage(
 					{ threadId, type: "review", payload: { ...payload }, clientKey: crypto.randomUUID() },
@@ -661,7 +731,33 @@ function makeSubmitReviewTool<TDb>(
 
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
-			return ok({ messageId, threadId, betId });
+			return ok({ messageId, threadId, betId: parentTask.betId });
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// run_knowledge_sweep
+// ─────────────────────────────────────────────────────────────────────────────
+
+const runKnowledgeSweepInputSchema = z.object({
+	kind: z.enum(["autoPromotion", "stale"]),
+});
+
+type RunKnowledgeSweepInput = z.infer<typeof runKnowledgeSweepInputSchema>;
+
+function makeRunKnowledgeSweepTool<TDb>(
+	ports: ToolHandlersPorts,
+): ToolDefinition<RunKnowledgeSweepInput, TDb> {
+	return {
+		name: "run_knowledge_sweep",
+		description:
+			"Run a knowledge sweep. kind='autoPromotion' promotes provisional knowledge items that meet the repetition threshold to validated status. kind='stale' marks active items that have not been referenced recently as stale. Call this from a scheduled routine, not from an interactive session.",
+		inputSchema: runKnowledgeSweepInputSchema,
+		roles: ["assistant", "facilitator", "product_manager"],
+		handler: async (args, ctx) => {
+			const result = await ports.coreApi.runKnowledgeSweep(args.kind, ctx.agentId);
+			return ok(result);
 		},
 	};
 }
@@ -894,12 +990,90 @@ function makeCreateConflictReviewTool<TDb>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// merge_knowledge
+// @lore BA9d D9: restored from AU44 scope breach. Merges sourceId into target,
+// appending source body behind a separator, then archives the source.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const mergeKnowledgeInputSchema = z.object({
+	targetId: z.string().min(1).describe("ID of the knowledge item to merge INTO"),
+	sourceId: z.string().min(1).describe("ID of the knowledge item to merge FROM (will be archived)"),
+});
+
+type MergeKnowledgeInput = z.infer<typeof mergeKnowledgeInputSchema>;
+
+function makeMergeKnowledgeTool<TDb>(
+	ports: ToolHandlersPorts,
+): ToolDefinition<MergeKnowledgeInput, TDb> {
+	return {
+		name: "merge_knowledge",
+		description:
+			"Merge two knowledge items: appends the source item's body to the target item (separated by ---), then archives the source. Use when two related pieces of knowledge should live as one.",
+		inputSchema: mergeKnowledgeInputSchema,
+		roles: ["assistant", "facilitator", "product_manager"],
+		handler: async (args, ctx) => {
+			const updatedBy = `agent:${ctx.agentId}`;
+			const result = await ports.coreApi.mergeKnowledgeItem(
+				args.targetId,
+				args.sourceId,
+				updatedBy,
+				ctx.agentId,
+			);
+			return ok({ mergedId: result.id, sourceArchived: args.sourceId });
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// split_knowledge
+// @lore BA9d D9: restored from AU44 scope breach. Splits one item into two or
+// more new items, archiving the original.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const splitKnowledgeItemSchema = z.object({
+	title: z.string().min(1),
+	body: z.string().min(1),
+	topic: z.string().optional(),
+});
+
+const splitKnowledgeInputSchema = z.object({
+	itemId: z.string().min(1).describe("ID of the knowledge item to split (will be archived)"),
+	newItems: z
+		.array(splitKnowledgeItemSchema)
+		.min(2)
+		.describe("Two or more new items to create from this one"),
+});
+
+type SplitKnowledgeInput = z.infer<typeof splitKnowledgeInputSchema>;
+
+function makeSplitKnowledgeTool<TDb>(
+	ports: ToolHandlersPorts,
+): ToolDefinition<SplitKnowledgeInput, TDb> {
+	return {
+		name: "split_knowledge",
+		description:
+			"Split a knowledge item into two or more focused items. The original is archived; each new item starts in draft. Use when a knowledge item covers multiple distinct topics that should be managed independently.",
+		inputSchema: splitKnowledgeInputSchema,
+		roles: ["assistant", "facilitator", "product_manager"],
+		handler: async (args, ctx) => {
+			const updatedBy = `agent:${ctx.agentId}`;
+			const created = await ports.coreApi.splitKnowledgeItem(
+				args.itemId,
+				args.newItems,
+				updatedBy,
+				ctx.agentId,
+			);
+			return ok({ originalArchived: args.itemId, createdIds: created.map((c) => c.id) });
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // create_team
 // ─────────────────────────────────────────────────────────────────────────────
 
 const createTeamInputSchema = z.object({
 	name: z.string().min(1).max(200),
-	functions: z.array(z.string().min(1)).min(1).max(20),
 	repoPath: z.string().max(500).optional(),
 });
 
@@ -909,7 +1083,7 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 	return {
 		name: "create_team",
 		description:
-			"Create a new team with the specified functions. Automatically generates an app-default agent roster with appropriate system prompt templates.",
+			"Create a new team. The team starts with a single agent that has no identity — give it one, or install a plugin that brings a shaped team.",
 		inputSchema: createTeamInputSchema,
 		roles: ["assistant"],
 		handler: async (args, ctx) => {
@@ -930,7 +1104,6 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 					id: teamId,
 					name: input.name,
 					phase: "build",
-					functions: JSON.stringify(input.functions),
 					factoryDbPath: input.repoPath ?? null,
 					createdAt: now,
 					teamMembersId,
@@ -947,7 +1120,6 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 				teamMembersId,
 				"team_scaffold",
 				input.name,
-				input.functions,
 				null,
 				null,
 				null,
@@ -969,29 +1141,11 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 				await ports.coreApi.updateTeam(teamId, { leadAgentId: lead }, ctx.agentId);
 			}
 
-			{
-				const ownerByRole: Partial<Record<string, string>> = {};
-				for (const { role, agentId } of roster) {
-					if (role && !ownerByRole[role]) {
-						ownerByRole[role] = agentId;
-					}
-				}
-				await ports.coreApi.provisionTeamRoutines(
-					{
-						teamId,
-						ownerByRole,
-						leadAgentId: lead ?? agentIds[0] ?? "",
-					},
-					ctx.agentId,
-				);
-			}
-
 			ctx.eventBus.emit({
 				type: "team_created",
 				streamId: teamId,
 				teamId,
 				teamMembersId,
-				functions: input.functions,
 				agentIds,
 				at: now,
 			});
@@ -1040,7 +1194,6 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgen
 				memberGroup.id,
 				"agent_added",
 				team.name,
-				null,
 				input.role,
 				input.name,
 				null,
@@ -1506,9 +1659,12 @@ export function buildToolDefinitions(
 		toRegistered(makeCreateTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
+		toRegistered(makeRunKnowledgeSweepTool(ports)),
 		toRegistered(makeScoreAttentionTool(ports)),
 		toRegistered(makePromoteKnowledgeTool(ports)),
 		toRegistered(makeCreateConflictReviewTool(ports)),
+		toRegistered(makeMergeKnowledgeTool(ports)),
+		toRegistered(makeSplitKnowledgeTool(ports)),
 		toRegistered(makeCreateTeamTool(ports)),
 		toRegistered(makeAddAgentTool(ports)),
 		toRegistered(makeCreateBetTool(ports)),

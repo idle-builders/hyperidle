@@ -14,7 +14,16 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
+import {
+	artifacts,
+	bets,
+	type HyperIdleDb,
+	messages,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
@@ -65,6 +74,17 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	// `submit_review` now checks a stored `artifactRef` resolves to an
+	// artifact produced by the calling task before attaching it; a real row
+	// is required for the AC2 happy-path test below.
+	await db.insert(artifacts).values({
+		id: "art-1",
+		producingTaskId: "task-1",
+		kind: "text",
+		label: null,
+		previewJson: null,
+		createdAt: NOW,
+	});
 }
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
@@ -82,14 +102,17 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 describe("submit_review tool", () => {
 	// AC2 happy path: full ReviewPayload with artifactRef
 	describe("AC2: review message with artifactRef", () => {
-		test("creates review-type message on bet host thread", async ({ db, app }) => {
+		test("creates review-type message on the task's own thread (founder ruling 7: never the bet's)", async ({
+			db,
+			app,
+		}) => {
 			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
 			const result = await submitReviewTool.handler(
 				{
 					title: "Work complete",
 					reasoning: ["All tests pass", "Code reviewed"],
-					artifactRef: { id: "art-1", kind: "content_preview" },
+					artifactRef: { id: "art-1", kind: "text" },
 				},
 				makeContext(db),
 			);
@@ -118,13 +141,14 @@ describe("submit_review tool", () => {
 			expect(payload.title).toBe("Work complete");
 			expect(payload.reasoning).toEqual(["All tests pass", "Code reviewed"]);
 			expect(payload.artifactRef.id).toBe("art-1");
-			expect(payload.artifactRef.kind).toBe("content_preview");
+			expect(payload.artifactRef.kind).toBe("text");
 
-			// Thread has hostKind="bet", hostId="b1"
+			// Founder ruling 7: the review lands on the TASK's own thread, never
+			// the bet's.
 			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
 			expect(thread).toBeDefined();
-			expect(thread?.hostKind).toBe("bet");
-			expect(thread?.hostId).toBe("b1");
+			expect(thread?.hostKind).toBe("task");
+			expect(thread?.hostId).toBe("task-1");
 
 			// Agent is in participants
 			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
@@ -162,9 +186,9 @@ describe("submit_review tool", () => {
 		});
 	});
 
-	// Thread reuse: second call reuses existing bet thread
+	// Thread reuse: second call reuses existing task thread
 	describe("thread reuse", () => {
-		test("second call reuses existing bet thread (idempotent thread creation)", async ({
+		test("second call reuses existing task thread (idempotent thread creation)", async ({
 			db,
 			app,
 		}) => {
@@ -188,17 +212,18 @@ describe("submit_review tool", () => {
 			expect(d1.threadId).toBe(d2.threadId);
 		});
 
-		test("adds agent to participants when existing bet thread does not include agent", async ({
+		test("adds agent to participants when existing task thread does not include agent", async ({
 			db,
 			app,
 		}) => {
 			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
-			// Create a bet thread that does NOT include agent-a
+			// Founder ruling 7: the review anchors on the TASK's thread — create
+			// a task thread (not a bet thread) that does NOT include agent-a.
 			await db.insert(threads).values({
-				id: "existing-bet-thread",
-				hostKind: "bet",
-				hostId: "b1",
+				id: "existing-task-thread",
+				hostKind: "task",
+				hostId: "task-1",
 				initiatorId: "other-agent",
 				participants: JSON.stringify(["other-agent"]),
 				lastActiveAt: NOW,
@@ -214,9 +239,12 @@ describe("submit_review tool", () => {
 			if (!result.success) return;
 
 			const data = result.data as { threadId: string };
-			expect(data.threadId).toBe("existing-bet-thread");
+			expect(data.threadId).toBe("existing-task-thread");
 
-			const [thread] = await db.select().from(threads).where(eq(threads.id, "existing-bet-thread"));
+			const [thread] = await db
+				.select()
+				.from(threads)
+				.where(eq(threads.id, "existing-task-thread"));
 			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
 			expect(participants).toContain("agent-a");
 		});

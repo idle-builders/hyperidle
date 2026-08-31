@@ -8,13 +8,22 @@ Testable, outcome-level statements of what HyperIdle does. Field lists, schemas,
 
 Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
-**F-1.1** An agent is defined by three composable parts: system prompt (`users.systemPrompt`), context (assembled just-in-time from the knowledge layers at session start), and skills. All three are independently swappable.
+**F-1.1** An agent is defined by three composable parts: identity (an `agent_file` knowledge document bound to the agent), context (assembled just-in-time from the knowledge layers at session start), and skills. All three are independently swappable.
 
-**F-1.2** Agents belong to exactly one of three categories — `team` (does the work, team-scoped), `strategy` (knowledge-scoped, behind the scenes), `individual` (user-scoped operator). Closed enum `AGENT_CATEGORIES` (`framework/domain-model/src/types.ts`).
+**F-1.2** Agents belong to exactly one of two categories — `team` (does the work, team-scoped), `individual` (user-scoped operator). Closed enum `AGENT_CATEGORIES` (`framework/domain-model/src/types.ts`).
 
-**F-1.3** Every human user gets exactly one assistant (individual agent) at registration. Strategy roles include facilitator, scout, infra, and platform.
+**F-1.3** Every human user gets exactly one assistant (individual agent) at registration.
 
-**F-1.4** A team's agent roster derives from the team's declared functions (open vocabulary) via `defaultRoster()` — not from a fixed role list. Specialist capabilities (security review, brand-voice check, accessibility audit) are skills invoked within sessions, not separate top-level agents.
+**F-1.4** Creating a team creates exactly one agent, with no identity. HyperIdle
+ships no roster: roles and the agents that hold them come from plugins or from
+the user. Specialist capabilities (security review, brand-voice check,
+accessibility audit) are skills invoked within sessions, not separate top-level
+agents.
+
+**F-1.4a** A role is an open string on an agent, not a fixed list. The roles that
+exist are the distinct roles among existing agents; a plugin or a user
+introduces a new one by creating an agent with it, and can reuse any existing
+one.
 
 **F-1.5** Agents are retired (soft-delete to `status="retired"`), never hard-deleted. Retirement is available at any time.
 
@@ -58,7 +67,7 @@ Layer taxonomy (L0–L4) is owned by [knowledge-architecture/the-five-layers.md]
 
 Duties and lifecycle: [knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md); role identity: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
-**F-4.1** Three curation tiers map to the three agent categories — assistant (individual), facilitator (strategy), product manager (team). Full category-to-role mapping: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
+**F-4.1** Knowledge curation agents: assistant (individual) and product manager (team). Full category-to-role mapping: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
 **F-4.2** Facilitators continuously organize knowledge (promotion, conflict resolution, decay/archival, lifecycle propagation), score items for human attention, and close the loop by writing human feedback back into the store.
 

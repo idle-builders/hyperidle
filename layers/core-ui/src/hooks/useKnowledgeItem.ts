@@ -9,6 +9,7 @@
  * KnowledgeList) to avoid page-level coupling. See architecture.md § 3.2.
  */
 
+import type { KnowledgeRole } from "@hyperidle/domain-model";
 import type { FetchState } from "./useFetch.js";
 import { useFetch } from "./useFetch.js";
 
@@ -21,6 +22,8 @@ export interface KnowledgeItemData {
 	version: number;
 	updatedBy: string;
 	scopeKind: string;
+	/** What context assembly does with this document; absent on older responses. */
+	role?: KnowledgeRole;
 	scopeId: string | null;
 	topic: string | null;
 	createdAt: string;

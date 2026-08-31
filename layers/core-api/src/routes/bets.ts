@@ -621,73 +621,9 @@ export function createBetRoutes(
 		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
 
-	// POST /bets/:id/retro/draft — AI-assisted draft (stub) for AC2.
-	// Must be registered BEFORE /:id/retro to avoid partial-segment match.
-	// Returns a suggested { verdict, summary, learnings } based on task outcomes.
-	//
-	// @lore AC2: The draft endpoint is a stub for AC2. The stub derives verdict
-	// from task outcome verdicts and composes a summary from task titles + states.
-	// When LLM integration lands, replace this logic with a single bounded LLM call.
-	// The endpoint shape and frontend integration are already in place.
-	router.post("/:id/retro/draft", async (c) => {
-		const betId = c.req.param("id");
-
-		const bet = await work.get(db, "bet", betId);
-		if (!bet) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-		}
-
-		if (bet.status !== "completed" && bet.status !== "killed") {
-			return c.json(
-				{
-					error: `Draft cannot be generated for a bet in '${bet.status}' status. Only completed or killed bets can be evaluated.`,
-					code: "VALIDATION_ERROR",
-				},
-				400,
-			);
-		}
-
-		// Load tasks for the bet
-		const betTasks = await work.list(db, "task", { betId });
-
-		// Stub: derive verdict from task outcome verdicts
-		const metOutcomes = betTasks.filter((t) => t.outcomeVerdict === "met");
-		const partialOutcomes = betTasks.filter(
-			(t) => t.outcomeVerdict === "partially_met" || t.outcomeVerdict === "met_with_rework",
-		);
-		const notMetOutcomes = betTasks.filter((t) => t.outcomeVerdict === "not_met");
-		const totalTasks = betTasks.length;
-
-		let verdict: string;
-		if (totalTasks === 0) {
-			verdict = "inconclusive";
-		} else if (notMetOutcomes.length === 0 && partialOutcomes.length === 0) {
-			verdict = "validated";
-		} else if (metOutcomes.length === 0 && partialOutcomes.length === 0) {
-			verdict = "refuted";
-		} else {
-			verdict = "partial";
-		}
-
-		// Stub: compose summary from task data
-		const taskSummaryLines = betTasks.map((t) => {
-			const outcome = t.outcomeVerdict ? ` (${t.outcomeVerdict})` : "";
-			return `- ${t.title}: ${t.state}${outcome}`;
-		});
-		const summary =
-			totalTasks === 0
-				? "No tasks were associated with this bet."
-				: `Based on ${totalTasks} task${totalTasks === 1 ? "" : "s"}:\n\n${taskSummaryLines.join("\n")}`;
-
-		const learnings =
-			totalTasks === 0
-				? "No task data available to derive learnings."
-				: `Based on ${totalTasks} task${totalTasks === 1 ? "" : "s"}, ${metOutcomes.length} met their conditions, ${partialOutcomes.length} partially met, and ${notMetOutcomes.length} did not meet their conditions.`;
-
-		return c.json({ verdict, summary, learnings });
-	});
-
 	// POST /bets/:id/retro — atomic retro: writes outcome + creates/upserts retro knowledge item (AC2).
+	// @lore BA9d D10: POST /bets/:id/retro/draft (the "Draft with AI" stub) deleted.
+	// It composed strings with no model call. The human retro form itself stays in core.
 	// Only valid for completed or killed bets.
 	//
 	// @lore AC2: Single endpoint wraps both the outcome write and the knowledge item

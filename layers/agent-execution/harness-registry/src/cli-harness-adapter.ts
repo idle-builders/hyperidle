@@ -16,6 +16,7 @@
 
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
@@ -27,6 +28,7 @@ import type {
 	SessionHandle,
 	SessionMetrics,
 	SessionResult,
+	SessionResumeConfig,
 } from "@hyperidle/harness-protocol";
 import {
 	isRequiredReturnAction,
@@ -309,6 +311,18 @@ interface CliSession {
 	 * disappear part-way through a session.
 	 */
 	readonly reEngageOptionArgv: readonly string[];
+	/**
+	 * The harness's own native session id, captured from the event stream or
+	 * assigned by us at start time (claude: --session-id). Set once the first
+	 * relevant event arrives; undefined until then (or for harnesses that do not
+	 * emit one before the session ends).
+	 *
+	 * @lore BA2: This is the handle that makes resumption possible. For claude we
+	 * assign it via --session-id at start time. For codex, cursor-agent, and
+	 * opencode we extract it from the first relevant event (thread.started,
+	 * system/init, any-event.sessionID respectively).
+	 */
+	nativeSessionId?: string;
 }
 
 /** Replace all template variables in a string. */
@@ -417,14 +431,29 @@ function extractClaudeResultMetrics(obj: Record<string, unknown>): {
 } {
 	const usage =
 		obj.usage && typeof obj.usage === "object" ? (obj.usage as Record<string, unknown>) : {};
+	// @lore BA2 cursor-metrics: cursor-agent is configured with the same
+	// eventDialect: "claude-stream-json" as claude (it advertises a
+	// claude-compatible `--output-format stream-json`), and its terminal
+	// `result` line does carry a `usage` object — but with CAMELCASE keys
+	// (`inputTokens`/`outputTokens`/`cacheReadTokens`/`cacheWriteTokens`),
+	// not claude's native snake_case. Proven against the installed binary
+	// (2026.08.25-3e8eec8): a real run reported
+	// `"usage":{"inputTokens":4,"outputTokens":759,"cacheReadTokens":61008,
+	// "cacheWriteTokens":9070}`. Without this fallback every cursor-agent
+	// session silently reports 0 input/output tokens regardless of real
+	// spend — the exact thing that made a real, reasoned model refusal look
+	// like "the prompt never arrived" in BA2's resumed-session investigation.
 	return {
 		durationMs: finiteNonNegative(obj.duration_ms),
 		apiDurationMs: finiteNonNegative(obj.duration_api_ms),
 		modelTurns: finiteNonNegative(obj.num_turns),
-		inputTokens: finiteNonNegative(usage.input_tokens),
-		outputTokens: finiteNonNegative(usage.output_tokens),
-		cachedInputTokens: finiteNonNegative(usage.cache_read_input_tokens),
-		cacheCreationInputTokens: finiteNonNegative(usage.cache_creation_input_tokens),
+		inputTokens: finiteNonNegative(usage.input_tokens) ?? finiteNonNegative(usage.inputTokens),
+		outputTokens: finiteNonNegative(usage.output_tokens) ?? finiteNonNegative(usage.outputTokens),
+		cachedInputTokens:
+			finiteNonNegative(usage.cache_read_input_tokens) ?? finiteNonNegative(usage.cacheReadTokens),
+		cacheCreationInputTokens:
+			finiteNonNegative(usage.cache_creation_input_tokens) ??
+			finiteNonNegative(usage.cacheWriteTokens),
 	};
 }
 
@@ -457,6 +486,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly spawnFn: typeof spawn;
 	private readonly enforcement: EnforcementRegistry;
 	private readonly sessions = new Map<string, CliSession>();
+	/**
+	 * Persists harness-native session ids even after a session is removed
+	 * from `sessions` by stopSession. Keyed by the adapter's internal sessionId.
+	 * This lets the caller read the native id after the session has completed.
+	 */
+	private readonly nativeSessionIds = new Map<string, string>();
 
 	constructor(config: CliAdapterConfig, deps?: CliAdapterDeps) {
 		this.config = config;
@@ -582,6 +617,22 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			}
 		}
 
+		// ── claude session-id assignment.
+		//
+		// claude supports --session-id <uuid> which lets the caller NAME the session
+		// rather than capturing an opaque id from the stream after the fact. We assign
+		// a UUID here so that getNativeSessionId can return it immediately (before any
+		// stream events arrive) and resumeSession can use it later.
+		//
+		// @lore BA2 claude-session-id: Assigning rather than capturing is strictly simpler
+		// — no stream-parsing needed, id available at startSession return time. The UUID
+		// must be unique per session; randomUUID() guarantees this.
+		let claudeAssignedSessionId: string | undefined;
+		if (this.config.binary === "claude") {
+			claudeAssignedSessionId = randomUUID();
+			extraArgs = [...extraArgs, "--session-id", claudeAssignedSessionId];
+		}
+
 		const finalArgs = [...resolvedArgs, ...extraArgs];
 
 		// Build sandboxed environment
@@ -645,9 +696,18 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// store resolved model for re-engage spawn (opencode --model flag).
 			reEngageResolvedModel: config.selectedModel,
 			reEngageOptionArgv: optionArgv,
+			// for claude, we assigned this at start time; for all other harnesses
+			// it is captured from the event stream (set in parseStdoutLine).
+			nativeSessionId: claudeAssignedSessionId,
 		};
 
 		this.sessions.set(sessionId, session);
+
+		// for claude, persist the assigned id immediately so getNativeSessionId
+		// works even after stopSession removes the session from `sessions`.
+		if (claudeAssignedSessionId !== undefined) {
+			this.nativeSessionIds.set(sessionId, claudeAssignedSessionId);
+		}
 
 		// Wire stdout line reader
 		this.wireStdout(session);
@@ -983,6 +1043,245 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		});
 	}
 
+	getNativeSessionId(handle: SessionHandle): string | undefined {
+		// Check the live session first (set during stream parsing or at start).
+		// Fall back to the persistent map which survives stopSession.
+		return (
+			this.sessions.get(handle.sessionId)?.nativeSessionId ??
+			this.nativeSessionIds.get(handle.sessionId)
+		);
+	}
+
+	async resumeSession(
+		nativeSessionId: string,
+		message: string,
+		config: SessionResumeConfig,
+	): Promise<SessionHandle> {
+		// @lore BA2: Per-harness resume invocations, measured against real installed
+		// binaries. See harness-research/session-continuation.md for full evidence.
+		const model = config.selectedModel ?? "";
+		const sandboxPath = config.sandboxPath;
+
+		let args: string[];
+		const extraEnv: Record<string, string> = {};
+		let extraArgs: string[] = [];
+
+		switch (this.config.binary) {
+			case "claude": {
+				// claude -p <msg> --resume <uuid> [standard flags]
+				// @lore BA2 claude-resume: --resume takes the uuid we assigned via
+				// --session-id at start time. The sandbox (cwd) must be the same as the
+				// original session — claude sessions are bound to their working directory.
+				args = [
+					"-p",
+					message,
+					"--resume",
+					nativeSessionId,
+					"--output-format",
+					"stream-json",
+					"--verbose",
+					...(model ? ["--model", model] : []),
+					"--mcp-config",
+					".mcp.json",
+					"--strict-mcp-config",
+					"--permission-mode",
+					"bypassPermissions",
+					"--settings",
+					".claude/settings.json",
+				];
+				break;
+			}
+			case "codex": {
+				// codex exec resume <thread-id> <msg> --json [--model <m>]
+				// @lore BA2 codex-resume: `exec resume` is a first-class subcommand;
+				// thread-id is captured from thread.started at session start.
+				// CODEX_HOME must point to the per-session .codex-home/ so the hook
+				// runs on the resumed session too.
+				//
+				// @lore BA2 codex-sandbox-inherit: `exec resume` has no --sandbox flag.
+				// The original thread's sandbox mode (workspace-write) is INHERITED by
+				// the resumed session — codex stores it with the thread. Proved by running
+				// a two-phase session (phase 1: exec --sandbox workspace-write, phase 2:
+				// exec resume) and verifying the resumed turn could create new files in
+				// the sandbox. This holds whether or not sandbox_mode appears in
+				// config.toml — the flag is thread-scoped, not config-scoped.
+				args = [
+					"exec",
+					"resume",
+					nativeSessionId,
+					message,
+					"--json",
+					...(model ? ["--model", model] : []),
+				];
+				const codexHomeDir = path.join(sandboxPath, ".codex-home");
+				if (fs.existsSync(codexHomeDir)) {
+					extraEnv.CODEX_HOME = codexHomeDir;
+					extraArgs = ["--dangerously-bypass-hook-trust"];
+				}
+				break;
+			}
+			case "cursor-agent": {
+				// cursor-agent -p <msg> --print --output-format stream-json --model <m>
+				//   --trust --approve-mcps --force --resume <chat-id>
+				// @lore BA2 cursor-agent-resume: --force is required for headless resume;
+				// without it cursor-agent prompts interactively. --resume targets the
+				// specific chat by id. The sandbox (cwd) must match the original session.
+				// @lore BA2 cursor-agent-silent-fail: cursor-agent exits 0 even on a
+				// wrong or missing session id, echoing back the requested id. The caller
+				// MUST verify prior context from the session's content.
+				args = [
+					"-p",
+					message,
+					"--print",
+					"--output-format",
+					"stream-json",
+					...(model ? ["--model", model] : []),
+					"--trust",
+					"--approve-mcps",
+					"--force",
+					"--resume",
+					nativeSessionId,
+				];
+				break;
+			}
+			case "opencode": {
+				// opencode run <msg> --dir <sandbox> --format json --pure [--model <m>]
+				//   --session <id>
+				// @lore BA2 opencode-dir-pairing: --dir must be passed on resume and must
+				// match whether --dir was passed at start time. Production always passes
+				// --dir (adapter-pool.ts), so every resume must too. Mixing (--dir at start,
+				// no --dir at resume, or vice versa) hangs forever with zero output.
+				args = [
+					"run",
+					message,
+					"--dir",
+					sandboxPath,
+					"--format",
+					"json",
+					"--pure",
+					...(model ? ["--model", model] : []),
+					"--session",
+					nativeSessionId,
+				];
+				break;
+			}
+			default:
+				throw new Error(
+					`CliHarnessAdapter.resumeSession: binary "${this.config.binary}" does not support session resumption`,
+				);
+		}
+
+		if (config.mcpTokenEnv) {
+			for (const [k, v] of Object.entries(config.mcpTokenEnv)) {
+				extraEnv[k] = v;
+			}
+		}
+
+		// ── Resolve envMap the same way startSession does.
+		//
+		// startSession builds resolvedEnvMap from this.config.envMap with template
+		// vars resolved against the session's config. resumeSession was previously
+		// passing only extraEnv (CODEX_HOME + mcpTokenEnv), silently dropping envMap
+		// entries. extraEnv entries override (they are per-session specifics that
+		// take precedence over the template).
+		//
+		// {{mcpUrl}} and {{prompt}} are not meaningful at resume time and resolve
+		// to empty string, which is safe — neither appears in any production envMap.
+		const resumeTemplateVars: Record<TemplateVar, string> = {
+			"{{sandbox}}": config.sandboxPath,
+			"{{model}}": config.selectedModel ?? "",
+			"{{mcpUrl}}": "",
+			"{{prompt}}": "",
+		};
+		const resolvedEnvMap: Record<string, string> = {};
+		for (const [key, value] of Object.entries(this.config.envMap)) {
+			resolvedEnvMap[key] = resolveTemplates(value, resumeTemplateVars);
+		}
+		// extraEnv (CODEX_HOME, mcpTokenEnv) takes precedence over the template-resolved
+		// envMap entries — per-session specifics win over the credential template.
+		for (const [k, v] of Object.entries(extraEnv)) {
+			resolvedEnvMap[k] = v;
+		}
+
+		const finalArgs = [...args, ...extraArgs];
+		const sandboxedEnv = buildSandboxedEnv(this.config.envAllowlist, resolvedEnvMap);
+
+		const child = this.spawnFn(this.config.binary, finalArgs, {
+			cwd: sandboxPath,
+			env: sandboxedEnv,
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+		child.stdin?.end();
+
+		const sessionId = `cli-session-${nextId++}`;
+		const session: CliSession = {
+			child,
+			sessionId,
+			configSessionId: `resume:${nativeSessionId}`,
+			done: false,
+			exitCode: null,
+			exitSignal: null,
+			stdoutLines: [],
+			stderrLines: [],
+			notifyStream: null,
+			resolveStop: null,
+			killTimer: null,
+			metricsProcessedLineCount: 0,
+			inputTokens: 0,
+			outputTokens: 0,
+			cachedInputTokens: 0,
+			cacheCreationInputTokens: 0,
+			reasoningOutputTokens: 0,
+			pendingInputTokens: 0,
+			pendingOutputTokens: 0,
+			pendingCachedInputTokens: 0,
+			pendingCacheCreationInputTokens: 0,
+			pendingReasoningOutputTokens: 0,
+			modelTurns: 0,
+			processStarts: 1,
+			toolCalls: 0,
+			completionEvents: 0,
+			modelTier: config.modelTier,
+			returnSeen: false,
+			requiredReturnActions: undefined,
+			reEngageCount: 0,
+			sandboxPath,
+			reEngageCarrier: this.config.reEngageCarrier,
+			spawnEnv: sandboxedEnv,
+			reEngageResolvedModel: model || undefined,
+			reEngageOptionArgv: [],
+			// Resume sessions use the same native id we resumed into.
+			nativeSessionId,
+		};
+
+		this.sessions.set(sessionId, session);
+		// Persist the native id so getNativeSessionId works after stopSession.
+		this.nativeSessionIds.set(sessionId, nativeSessionId);
+		this.wireStdout(session);
+		this.wireStderr(session);
+
+		child.on("exit", (code, signal) => {
+			for (let i = 0; i < session.stdoutLines.length; i++) {
+				const bufferedLine = session.stdoutLines[i];
+				if (bufferedLine !== undefined) {
+					this.parseStdoutLine(bufferedLine, session, i);
+				}
+			}
+			session.exitCode = code;
+			session.exitSignal = signal;
+			session.done = true;
+			if (session.killTimer) {
+				clearTimeout(session.killTimer);
+				session.killTimer = null;
+			}
+			session.notifyStream?.();
+			const result = this.buildResult(session, code, signal);
+			session.resolveStop?.(result);
+		});
+
+		return { sessionId };
+	}
+
 	getCapabilities(): HarnessCapabilities {
 		return {
 			preCompactionTrigger: false, // External CLI tools don't expose compaction signals
@@ -1021,6 +1320,40 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				typeof (parsed as Record<string, unknown>).type === "string"
 			) {
 				const obj = parsed as Record<string, unknown>;
+
+				// ── native session id capture per harness dialect.
+				//
+				// Extract the harness's own session id from the first relevant event so that
+				// getNativeSessionId() can return it after streaming has started.
+				//
+				// codex:        thread.started carries thread_id (dot-namespaced, unique to codex)
+				// cursor-agent: system/init carries session_id (system+session_id combo only
+				//               on cursor-agent; claude emits system but never session_id)
+				// opencode:     every event carries sessionID (capital D, opencode-specific field)
+				// claude:       id was assigned by us at startSession time — not set here.
+				if (session && !session.nativeSessionId) {
+					let capturedId: string | undefined;
+					if (obj.type === "thread.started" && typeof obj.thread_id === "string") {
+						// codex — thread.started is the session-init lifecycle event
+						capturedId = obj.thread_id;
+					} else if (
+						obj.type === "system" &&
+						typeof obj.session_id === "string" &&
+						this.config.binary === "cursor-agent"
+					) {
+						// cursor-agent — system/init line; guard on binary to avoid claude system events
+						capturedId = obj.session_id;
+					} else if (typeof obj.sessionID === "string" && this.config.binary === "opencode") {
+						// opencode — all events carry sessionID; guard on binary for safety
+						capturedId = obj.sessionID;
+					}
+					if (capturedId !== undefined) {
+						session.nativeSessionId = capturedId;
+						// Write to the persistent map so the id survives stopSession.
+						this.nativeSessionIds.set(session.sessionId, capturedId);
+					}
+				}
+
 				const shouldRecordMetrics =
 					session !== undefined &&
 					(lineIndex === undefined || lineIndex >= session.metricsProcessedLineCount);

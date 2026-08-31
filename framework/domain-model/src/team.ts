@@ -52,7 +52,7 @@ export interface RosterMember {
 	name: string;
 	role: string; // agents.role
 	isLead: boolean; // matches leadAgentId on the team
-	/** AB3: "team" | "strategy" | "individual" | null. Null when category is unset. */
+	/** AB3: "team" | "individual" | null. Null when category is unset. @lore BA9d: "strategy" removed. */
 	agentCategory: string | null;
 	/**
 	 * Whether an adapter matching this agent's harness type is registered in the
@@ -149,8 +149,6 @@ export interface PrimaryHarnessConfig {
 export interface CreateTeamRequest {
 	name: string;
 	repoPath?: string;
-	/** AE2: team functions for defaultRoster(). Defaults to ["development","product"] if omitted. */
-	functions?: string[];
 	/** AE2: optional free-text context about what is being built. */
 	buildingContext?: string;
 	/** AE2: human user id — seeds welcome message in thr-ast-{userId} when provided. */

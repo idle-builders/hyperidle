@@ -409,18 +409,17 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	// @lore AF17: factory bootstrap must run before the server starts so system:propagation
 	// and facilitator agents are present when the first request arrives. The call is
 	// idempotent (onConflictDoNothing) so repeated launches are safe.
-	// @lore AU29 §2.5.4: `applyFactoryBootstrap` (framework/db) dissolved into two layer
+	// @lore AU29 §2.5.4: `applyFactoryBootstrap` (framework/db) dissolved into layer
 	// faces — `framework/db` may not import a layer, so first-boot composition moved to
-	// this composition root. Ordering is load-bearing: `agent_run_config.agentUserId` has
-	// an FK to `users.id`, so the core-state face must complete before the run-config face.
+	// this composition root. Only the core-state face is left: the run-config face wrote
+	// the built-in harness and a hardcoded Anthropic model, and once the built-in harness
+	// was retired it had nothing left to write that an absent row does not already resolve.
 	try {
 		const { createPgliteDb } = await import("@hyperidle/db");
 		const { applyFactoryCoreState } = await import("@hyperidle/core-api");
-		const { applyFactoryRunConfigDefaults } = await import("@hyperidle/agent-orchestration");
 		const handle = await createPgliteDb(dbPath);
 		try {
-			const rosterAgents = await applyFactoryCoreState(handle.db);
-			await applyFactoryRunConfigDefaults(handle.db, rosterAgents);
+			await applyFactoryCoreState(handle.db);
 			log("boot:local factory bootstrap complete");
 		} finally {
 			await handle.close();

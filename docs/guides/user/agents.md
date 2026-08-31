@@ -14,14 +14,13 @@ Open the Assistant overlay by clicking the **Assistant button** in the top row o
 
 ## Agent categories
 
-Three categories — `team`, `strategy`, `individual`:
+Two categories — `team` and `individual`:
 
-**Team agents** — do the work on a bet. A team's roster is derived from its functions (development, design, product, marketing, sales, support, operations, research), so you only get the roles your team needs. The full catalog: Builder, Designer, Product Manager (team lead — shapes bets, coordinates handoffs), QA Engineer, Growth, Brand Voice, Ops, Support, Sales, Content Writer, Data Analyst.
-
-**Strategy agents** — knowledge-scoped, mostly background:
-
-- **Facilitators** — five, one per community (build, product, growth, ops, facilitation). They synthesize cross-team patterns into knowledge and surface items for your attention. See [knowledge-architecture/facilitators.md](../../knowledge-architecture/facilitators.md).
-- **Scout, Infra, Platform** — market analysis, shared infrastructure, and shared tooling respectively.
+**Team agents** — do the work on a bet. A new team starts with **one** agent and
+nothing decided about it. You give it an identity, add more agents in whatever
+roles your work needs, or install a plugin that brings a shaped team. A role is
+just a name you type; the picker offers the ones already in use so you can reuse
+them.
 
 **Individual agents** — your Assistant (above). Scoped to one user, not a team.
 

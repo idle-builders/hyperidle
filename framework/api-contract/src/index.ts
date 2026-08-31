@@ -20,17 +20,14 @@ export type {
 	AgentOrchestrationWorkIntentReceipt,
 } from "./agent-orchestration-port.js";
 export type {
+	ArtifactView,
 	BetView,
-	CaptureProposedCallRequest,
-	CaptureProposedCallResponse,
-	ConsumeTailoredGrantRequest,
-	ConsumeTailoredGrantResponse,
 	// ConversationInboxMessageView: field of ConversationInboxRowView — reachable, no name-importers
 	ConversationInboxRowView,
 	ConversationMessageType,
 	ConversationThreadView,
 	CoreApiConversationPort,
-	// CoreApiKnowledgePort / CoreApiReviewPort / CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
+	// CoreApiKnowledgePort / CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
 	CoreApiOrgPort,
 	CoreApiPort,
 	CoreApiTransport,
@@ -66,8 +63,6 @@ export type {
 	PersistScaffoldedAgentsResponse,
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
-	ProposedCallOutcomeResult,
-	ProvisionTeamRoutinesRequest,
 	// ReviewRecipientsQuery: param of resolveReviewRecipientsForItem — no name-importers
 	RoutineView,
 	ScaffoldFromRequestInput,

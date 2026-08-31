@@ -44,19 +44,48 @@ export const VERDICT_DECISIONS = [
 ] as const;
 export type VerdictDecision = (typeof VERDICT_DECISIONS)[number];
 
-// The 5 ArtifactView renderer shapes (per docs/process-layer/artifact-primitive.md).
-// Distinct from the L3 Artifact primitive's `kind` (function-agnostic type
-// label). These describe HOW a review-message embed renders its preview;
-// they are a sub-vocabulary inside the L3 review_message_embed layout, not
-// the primitive itself. See HUMAN_INTERFACE_LAYER.md §4.7.
-export const ARTIFACT_VIEW_SHAPES = [
-	"text_diff",
-	"content_preview",
-	"visual_comparison",
-	"action_summary",
-	"data_metrics",
+/**
+ * @lore `ARTIFACT_VIEW_SHAPES`/`ArtifactViewShape` — the pre-AM5 five-value
+ * vocabulary this constant used to hold — is DELETED, not migrated. It had
+ * zero overlap with the six consolidated `ArtifactKind` values
+ * (`@hyperidle/domain-model`'s `kinds/registry.js`) that `create_artifact`
+ * actually emits, so `ArtifactRef.kind` below is respelled onto that
+ * vocabulary instead.
+ *
+ * The nine REVIEW-CANVAS kind names (a different axis — how a review
+ * renders its evidence, not what an artifact fundamentally is) live here,
+ * single-homed so `@hyperidle/tool-handlers` (which cannot import core-ui)
+ * and core-ui's own `ReviewCanvasKind` both derive from one source. The
+ * PAYLOAD contract per kind stays owned by each canvas's own type guard in
+ * core-ui — only the kind names and the envelope shape move.
+ */
+export const REVIEW_CANVAS_KINDS = [
+	"outcome_summary",
+	"field_change_set",
+	"action_operation",
+	"rendered_in_context",
+	"metrics_moved",
+	"visual_diff",
+	"code_diff",
+	"batch",
+	"browser_preview",
 ] as const;
-export type ArtifactViewShape = (typeof ARTIFACT_VIEW_SHAPES)[number];
+export type ReviewCanvasKind = (typeof REVIEW_CANVAS_KINDS)[number];
+
+/**
+ * The canvas-envelope shape `submit_review`'s `artifacts` field validates —
+ * `payload` stays `unknown` on the wire (opaque-payload trade; each
+ * canvas's own type guard is the only reader that trusts its shape).
+ */
+export interface ReviewCanvasArtifact {
+	readonly id: string;
+	readonly tool: string;
+	readonly app: string;
+	readonly sourceHref: string;
+	readonly title: string;
+	readonly kind: ReviewCanvasKind;
+	readonly payload: unknown;
+}
 
 // ── Identity ────────────────────────────────────────────────────
 
@@ -143,9 +172,24 @@ export interface MentionRef {
 
 export type InlineRef = EntityRef | BlockRef | MentionRef;
 
+/**
+ * @lore `kind` widened from the deleted `ArtifactViewShape` to `string`
+ * (open vocabulary) rather than narrowed to the closed `ArtifactKind` —
+ * same treatment `ArtifactThreadSummary.artifactKind` below already has
+ * (`@lore AE6`), for the same reason: this value is never trusted by a
+ * reader (the loader resolves the real kind off the artifact row), so a
+ * closed union here buys no safety and would force every existing typed
+ * fixture across the tree onto the new six-value vocabulary. Optional for
+ * the same reason the write/read zod schemas both mark it `.optional()`: a
+ * category error — not a wrong value — is the one thing `.optional()` can
+ * guard against, so it only ever guards absence. The WRITE-time boundary is
+ * where the real enforcement lives: `reviewPayloadSchema`'s
+ * `z.enum(ARTIFACT_KINDS)` (`threads-schema.ts`) and `submit_review`'s own
+ * copy (`tool-definitions.ts`).
+ */
 export interface ArtifactRef {
 	readonly id: string;
-	readonly kind: ArtifactViewShape;
+	readonly kind?: string;
 }
 
 /**
@@ -199,7 +243,14 @@ export interface PlainPayload {
 export interface ReviewPayload {
 	readonly title: string;
 	readonly reasoning: ReadonlyArray<string>;
-	readonly artifactRef: ArtifactRef;
+	/** @lore optional — a canvas-only review (see `artifacts` below) has no stored artifact to reference at all. */
+	readonly artifactRef?: ArtifactRef;
+	/**
+	 * @lore The primary canvas channel — an agent attaches canvas payloads
+	 * directly, with no stored artifact required. Byte-identical to what the
+	 * demo world already persists and the reviews loader already serves.
+	 */
+	readonly artifacts?: ReadonlyArray<ReviewCanvasArtifact>;
 }
 
 export interface QuestionnairePayload {

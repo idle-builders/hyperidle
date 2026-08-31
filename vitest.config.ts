@@ -23,7 +23,6 @@ const PROJECTS = [
 	"layers/core-api",
 	"layers/core-api/knowledge",
 	"layers/core-api/routine",
-	"layers/core-api/review",
 	"layers/core-api/work",
 	"layers/core-api/org",
 	"layers/core-api/users",

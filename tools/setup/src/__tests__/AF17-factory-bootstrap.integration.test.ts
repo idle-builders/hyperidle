@@ -16,9 +16,10 @@
  * @hyperidle/org — same function, moved to the owning service package.
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { sql } from "drizzle-orm";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
@@ -33,6 +34,34 @@ async function queryRows<T extends Record<string, unknown>>(
 // ─────────────────────────────────────────────────────────────────────────────
 // AC1: Factory layer is complete after a single runFactoryBootstrap call
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The persona the `role-personas` plugin ships for a role.
+ *
+ * @lore BA9g: these were `docs/system-prompts/*.md`, read by the runtime through
+ * `readSystemPromptTemplateForRole`. That reader is deleted — HyperIdle ships a
+ * single agent with a bare AGENTS.md and holds no built-in idea of a "builder".
+ * The demo world is what a team looks like once the plugin is installed, so the
+ * fixture and these tests read the plugin's own files.
+ */
+function rolePersona(role: string): string | null {
+	const files: Readonly<Record<string, string>> = {
+		builder: "builder.md",
+		designer: "designer.md",
+		facilitator: "facilitator.md",
+		growth: "growth.md",
+		ops: "ops.md",
+		product_manager: "product-manager.md",
+		qa_engineer: "qa-engineer.md",
+	};
+	const filename = files[role];
+	if (!filename) return null;
+	try {
+		return readFileSync(resolve("plugins/role-personas/personas", filename), "utf-8");
+	} catch {
+		return null;
+	}
+}
 
 describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () => {
 	test("system:propagation user exists after bootstrap", async ({ db }) => {
@@ -58,18 +87,17 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(rows[0]?.agent_category).toBe("individual");
 	});
 
-	test("one facilitator agent per community of practice (5 communities)", async ({ db }) => {
+	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
+	// They are now provided by the rituals plugin. The factory bootstrap must
+	// not create them — 0 pf-* rows after bootstrap proves the clean boundary.
+	test("factory no longer seeds facilitator agents (now plugin-provided)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; role: string }>(
 			db,
 			"SELECT id, role FROM users WHERE id LIKE 'seed-agent-pf-%' ORDER BY id",
 		);
-		// 5 communities: build, product, growth, ops, facilitation
-		expect(rows.length).toBeGreaterThanOrEqual(5);
-		for (const row of rows) {
-			expect(row.role).toBe("facilitator");
-		}
+		expect(rows.length).toBe(0);
 	});
 
 	// @lore AU18: previously asserted a `factory_settings.system_template:<role>`
@@ -80,7 +108,7 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 	test("product_manager system prompt template resolves (docs-backed)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const content = readSystemPromptTemplateForRole("product_manager");
+		const content = rolePersona("product_manager");
 		expect(content).toBeTruthy();
 		expect((content ?? "").length).toBeGreaterThan(50);
 	});
@@ -88,7 +116,7 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 	test("facilitator system prompt template resolves (docs-backed)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const content = readSystemPromptTemplateForRole("facilitator");
+		const content = rolePersona("facilitator");
 		expect(content).toBeTruthy();
 		expect((content ?? "").length).toBeGreaterThan(50);
 	});
@@ -135,17 +163,17 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	test("facilitator agents have null team_id (factory-scoped, not team-scoped)", async ({ db }) => {
+	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
+	// Verified above; this companion test is now a no-op guard (0 rows → loop
+	// never runs — confirms no spurious pf-* row exists with a team_id set).
+	test("no facilitator agents seeded by factory (BA9d: plugin-provided)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; team_id: string | null }>(
 			db,
 			"SELECT id, team_id FROM users WHERE id LIKE 'seed-agent-pf-%'",
 		);
-		expect(rows.length).toBeGreaterThanOrEqual(1);
-		for (const row of rows) {
-			expect(row.team_id).toBeNull();
-		}
+		expect(rows.length).toBe(0);
 	});
 });
 
@@ -174,10 +202,10 @@ describe("AF17 AC2: runFactoryBootstrap is idempotent", () => {
 	// it resolves).
 	test("running bootstrap twice produces identical resolved templates", async ({ db }) => {
 		await runFactoryBootstrap(db);
-		const first = readSystemPromptTemplateForRole("product_manager");
+		const first = rolePersona("product_manager");
 
 		await runFactoryBootstrap(db);
-		const second = readSystemPromptTemplateForRole("product_manager");
+		const second = rolePersona("product_manager");
 
 		expect(second).toEqual(first);
 	});

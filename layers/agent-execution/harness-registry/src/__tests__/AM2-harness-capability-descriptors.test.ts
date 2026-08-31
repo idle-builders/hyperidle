@@ -6,10 +6,10 @@ import {
 } from "../harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput } from "../harness-discovery.js";
 
-const BUILTIN_META: AdapterMeta = {
-	name: "Built-in Harness",
+const OPENCODE_META: AdapterMeta = {
+	name: "OpenCode",
 	kind: "local",
-	type: "builtin",
+	type: "opencode",
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	maxConcurrent: 8,
 };
@@ -47,7 +47,7 @@ describe("AM2 harness capability descriptor builders", () => {
 	});
 
 	it("emits missing descriptors for first-class known harness families", () => {
-		const missing = catalog.missing(new Set(["builtin"]));
+		const missing = catalog.missing(new Set<string>());
 		const missingTypes = missing.map((descriptor) => descriptor.type);
 
 		expect(missingTypes).toEqual(["codex", "claude-code", "cursor-agent", "opencode"]);
@@ -72,7 +72,7 @@ describe("AM2 harness capability descriptor builders", () => {
 			},
 		};
 
-		const missing = catalog.missing(new Set(["builtin", "claude-code", "opencode"]), discoveries);
+		const missing = catalog.missing(new Set(["claude-code", "opencode"]), discoveries);
 
 		const codex = missing.find((d) => d.type === "codex");
 		const cursor = missing.find((d) => d.type === "cursor-agent");
@@ -87,16 +87,16 @@ describe("AM2 harness capability descriptor builders", () => {
 
 	it("overrides registered adapter discovery from real probe results", () => {
 		const discoveries: Record<string, HarnessDiscoveryInput> = {
-			builtin: {
+			opencode: {
 				state: "unauthenticated",
-				reason: "ANTHROPIC_API_KEY absent",
+				reason: "no opencode login on this host",
 			},
 		};
 
-		const descriptor = catalog.describe(BUILTIN_META, BASE_CAPS, discoveries);
+		const descriptor = catalog.describe(OPENCODE_META, BASE_CAPS, discoveries);
 
 		expect(descriptor.discovery.state).toBe("unauthenticated");
-		expect(descriptor.discovery.reason).toContain("ANTHROPIC_API_KEY");
+		expect(descriptor.discovery.reason).toContain("opencode login");
 	});
 
 	it("AC4: auth-status-only probe (no sessionProbe) surfaces discovery state", () => {
@@ -111,7 +111,7 @@ describe("AM2 harness capability descriptor builders", () => {
 		};
 
 		const missing = catalog.missing(
-			new Set(["builtin", "claude-code", "cursor-agent", "opencode"]),
+			new Set(["claude-code", "cursor-agent", "opencode"]),
 			discoveries,
 		);
 
@@ -137,7 +137,7 @@ describe("AM2 harness capability descriptor builders", () => {
 		};
 
 		const missing = catalog.missing(
-			new Set(["builtin", "claude-code", "cursor-agent", "opencode"]),
+			new Set(["claude-code", "cursor-agent", "opencode"]),
 			discoveries,
 		);
 

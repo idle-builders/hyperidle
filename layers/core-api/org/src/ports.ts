@@ -34,11 +34,24 @@ export interface OrgUserDirectory {
 		db: WriteExecutor,
 		agentUserId: string,
 		patch: {
-			readonly systemPrompt?: string | null;
 			readonly harnessType?: string | null;
 			readonly modelId?: string | null;
 			readonly modelProvider?: string | null;
 			readonly maxConcurrentSessions?: number;
 		},
 	): Promise<void>;
+	/**
+	 * Give a newly created agent its identity document. The identity is an
+	 * `agent_file` knowledge document bound to the agent, not a run-config field
+	 * — run config is what harness to use, identity is who the agent is.
+	 */
+	upsertAgentIdentity(
+		db: WriteExecutor,
+		input: {
+			readonly agentId: string;
+			readonly agentName: string;
+			readonly body: string;
+			readonly updatedBy: string;
+		},
+	): Promise<string>;
 }

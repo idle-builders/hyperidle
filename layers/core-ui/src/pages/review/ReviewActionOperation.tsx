@@ -16,15 +16,11 @@
 // Tokens by NAME only (Hearth + CP1). Money + irreversibility lean on
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
-import type { ProposedCallStatus } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
-import type { ProposedCallOutcomeView, ProposedCallView } from "./review-composition";
-
-// ── fixture ─────────────────────────────────────────────────────────────────
-// A realistic Stripe refund staged for human verdict.
 
 interface RefundField {
 	readonly label: string;
@@ -35,8 +31,7 @@ interface RefundField {
 	readonly sub?: string;
 }
 
-interface RefundOperation {
-	readonly tool: "stripe";
+interface Operation {
 	readonly action: string;
 	readonly amount: string;
 	readonly currency: string;
@@ -44,63 +39,22 @@ interface RefundOperation {
 	readonly fields: readonly RefundField[];
 	readonly blastRadius: readonly string[];
 	readonly reversibility: string;
+	/** Both `IrreversibleBadge` and the L3 section title read this alongside
+	 * `reversibility` below, which already carries the same fact — keeping
+	 * both conditional on it avoids one contradicting the other. */
+	readonly irreversible: boolean;
 }
-
-const REFUND: RefundOperation = {
-	tool: "stripe",
-	action: "Refund payment",
-	amount: "$1,240.00",
-	currency: "USD",
-	intent: "Refund the duplicate charge on invoice INV-4471 back to the original card.",
-	fields: [
-		{ label: "Charge", value: "ch_3QspeeJ2a7kLmN0p", mono: true },
-		{
-			label: "Customer",
-			value: "cus_PnWq8xR2vTbA1c",
-			mono: true,
-			sub: "Northwind Logistics",
-		},
-		{ label: "Reason", value: "duplicate" },
-		{ label: "Idempotency key", value: "refund_2026_INV4471_dup", mono: true },
-		{ label: "Net after refund", value: "$0.00", sub: "charge fully refunded" },
-	],
-	blastRadius: [
-		"Affects 1 customer, 1 charge.",
-		"Reverses the ledger entry on the May close (revenue −$1,240.00).",
-		"Emails a Stripe refund receipt to billing@northwind-logistics.com.",
-	],
-	reversibility:
-		"Irreversible once submitted — Stripe processes the refund immediately and a refund cannot be cancelled. Re-charging the customer is a new, separate payment.",
-};
 
 // ── canvas ──────────────────────────────────────────────────────────────────
 
-// ── AL7 trust-first: the Proposed Call execution outcome ──────────────────────
-// The terminal result of an executed Proposed Call, surfaced on the same
-// canvas that rendered the pre-commit receipt. Hard rule #8: a failure is an
-// Outcome with status="failed" + a surfaced error — NEVER a missing/silent
-// outcome, never a toast. The band is a persistent part of the card so a
-// re-opened review shows the terminal state instead of re-prompting.
-//
-// @lore AL7 N2: ProposedCallStatus is imported from @hyperidle/domain-model (the
-// shared PROPOSED_CALL_STATUSES const tuple), NOT defined inline here.
-// This ensures the canvas cannot drift from the router's status values.
-// ProposedCallOutcomeView is imported from review-composition — the loader
-// uses the same shape, so canvas and loader cannot drift either.
-
 export interface ReviewActionOperationProps {
-	readonly operation?: RefundOperation;
-	/** AL7 trust-first: drives the outcome band. `captured` renders the AL2 canvas unchanged. */
-	readonly status?: ProposedCallStatus;
-	readonly outcome?: ProposedCallOutcomeView;
+	readonly operation: Operation;
 	readonly onApprove?: () => void;
 	readonly onReject?: () => void;
 }
 
 function ReviewActionOperationView({
-	operation = REFUND,
-	status = "captured",
-	outcome,
+	operation,
 	onApprove,
 	onReject,
 }: ReviewActionOperationProps): JSX.Element {
@@ -121,7 +75,7 @@ function ReviewActionOperationView({
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px]">
 						<h2 className="type-subheading    text-[var(--text-primary)]">{operation.action}</h2>
-						<IrreversibleBadge />
+						{operation.irreversible ? <IrreversibleBadge /> : null}
 					</div>
 					<p className="type-small mt-[6px]   text-[var(--text-secondary)]">{operation.intent}</p>
 				</div>
@@ -136,7 +90,9 @@ function ReviewActionOperationView({
 					background: "var(--accent-secondary-dim)",
 				}}
 			>
-				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Refund amount</span>
+				{/* No caption here: the payload names no operation type, so no
+				    generic label is supplied either — the figure and its currency
+				    below are the payload's own. */}
 				<span
 					className="type-metric    text-[var(--text-primary)]"
 					style={{ fontVariantNumeric: "tabular-nums" }}
@@ -181,13 +137,6 @@ function ReviewActionOperationView({
 					</div>
 				))}
 			</dl>
-
-			{/* ── AL7 trust-first · the execution outcome band (granted | executed | failed) ── */}
-			{/* @lore AL7: `granted` is transient — the agent is provisioned for session 2.
-			    `executed` = ok outcome, `failed` = outcome with error. */}
-			{status === "granted" ? <ExecutingBand /> : null}
-			{status === "executed" && outcome ? <OutcomeBand outcome={outcome} ok /> : null}
-			{status === "failed" && outcome ? <OutcomeBand outcome={outcome} /> : null}
 
 			{/* ── L3 toggle ── */}
 			<button
@@ -242,7 +191,11 @@ function ReviewActionOperationView({
 							/>
 						</svg>
 						<div>
-							<div className="type-label   uppercase  text-[var(--status-error)]">Irreversible</div>
+							{operation.irreversible ? (
+								<div className="type-label   uppercase  text-[var(--status-error)]">
+									Irreversible
+								</div>
+							) : null}
 							<p className="type-small mt-[3px]   text-[var(--text-secondary)]">
 								{operation.reversibility}
 							</p>
@@ -270,7 +223,7 @@ function ReviewActionOperationView({
 						background: "var(--accent-primary)",
 					}}
 				>
-					Approve refund
+					Approve
 				</button>
 			</footer>
 		</article>
@@ -278,116 +231,6 @@ function ReviewActionOperationView({
 }
 
 // ── small parts ───────────────────────────────────────────────────────────
-
-// AL7: the executing band — transient in-flight state. Shown while dispatch is
-// running; converted to failed by the boot sweep if a crash strands the op.
-function ExecutingBand(): JSX.Element {
-	return (
-		<section
-			className="border-width-thin mx-[18px] mt-[12px] flex items-center gap-[9px]  px-[12px] py-[9px]"
-			style={{
-				borderRadius: "var(--r-subtle)",
-				borderColor: "var(--border-default)",
-				background: "var(--surface-container)",
-			}}
-		>
-			<svg
-				data-az16-profile="busy"
-				aria-label="executing"
-				viewBox="0 0 16 16"
-				className="motion-busy h-[14px] w-[14px] shrink-0"
-			>
-				<circle cx="8" cy="8" r="6" fill="none" stroke="var(--border-subtle)" strokeWidth="2" />
-				<path d="M8 2a6 6 0 0 1 6 6" fill="none" stroke="var(--text-tertiary)" strokeWidth="2" />
-			</svg>
-			<span className="type-label   uppercase  text-[var(--text-tertiary)]">Executing…</span>
-		</section>
-	);
-}
-
-// AL7: the outcome band. Success is calm (green success family — a done
-// refund is now history); failure is loud (status-error). Success uses the
-// success tint (status-success color-mix), NOT the warning fill the amount
-// block + IrreversibleBadge use (`--accent-secondary-dim`) — a succeeded op must
-// not read in the danger/money color family. The surfaced error renders verbatim
-// AND un-truncated (rule #8: failure must be impossible to miss — never clipped).
-function OutcomeBand({
-	outcome,
-	ok = false,
-}: {
-	readonly outcome: ProposedCallOutcomeView;
-	readonly ok?: boolean;
-}): JSX.Element {
-	return (
-		<section
-			className="border-width-thin mx-[18px] mt-[12px] flex gap-[9px]  px-[12px] py-[9px]"
-			style={{
-				borderRadius: "var(--r-subtle)",
-				borderColor: ok ? "var(--status-success)" : "var(--status-error)",
-				background: ok
-					? "color-mix(in oklab, var(--status-success) 10%, transparent)"
-					: "var(--status-error-dim)",
-			}}
-		>
-			<span
-				aria-hidden="true"
-				className="mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[var(--r-pill)]"
-				style={{ background: ok ? "var(--status-success)" : "var(--status-error)" }}
-			>
-				<svg width="9" height="9" viewBox="0 0 12 12" fill="none">
-					<title>{ok ? "executed" : "failed"}</title>
-					{ok ? (
-						<path
-							d="M2.5 6.5 5 9l4.5-5"
-							stroke="var(--text-on-accent)"
-							strokeWidth="1.8"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-						/>
-					) : (
-						<path
-							d="M3 3l6 6M9 3l-6 6"
-							stroke="var(--text-on-accent)"
-							strokeWidth="1.8"
-							strokeLinecap="round"
-						/>
-					)}
-				</svg>
-			</span>
-			<div className="min-w-0 flex-1">
-				<div className="flex items-baseline justify-between gap-[9px]">
-					<span
-						className="type-label   uppercase "
-						style={{ color: ok ? "var(--status-success)" : "var(--status-error)" }}
-					>
-						{ok ? "Executed" : "Execution failed"}
-					</span>
-					<span
-						className="type-metadata shrink-0  text-[var(--text-tertiary)]"
-						style={{ fontVariantNumeric: "tabular-nums" }}
-					>
-						{outcome.executedAt}
-					</span>
-				</div>
-				{ok ? (
-					// the receipt is a short identity (e.g. `re_3Qs… · refunded`) — one line is fine.
-					<p className="type-data mt-[3px] truncate   text-[var(--text-primary)]">
-						{outcome.receipt}
-					</p>
-				) : (
-					// rule #8: the failure error renders verbatim and un-clipped. A real tool
-					// error (Stripe `card_declined` body, GitHub merge-conflict, API stack) wraps
-					// across lines — NEVER `truncate`, which would clip the thing the reviewer
-					// most needs to read. `whitespace-pre-wrap` preserves the tool's own newlines;
-					// `break-words` keeps long unbroken tokens inside the band.
-					<p className="type-data mt-[3px] whitespace-pre-wrap break-words   text-[var(--text-primary)]">
-						{outcome.error}
-					</p>
-				)}
-			</div>
-		</section>
-	);
-}
 
 function IrreversibleBadge(): JSX.Element {
 	return (
@@ -450,9 +293,8 @@ function isActionOperationPayload(payload: unknown): payload is ActionOperationP
 	);
 }
 
-function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
+function mapActionPayload(payload: ActionOperationPayload): Operation {
 	return {
-		tool: "stripe",
 		action: payload.verb,
 		amount: payload.amountWire.formatted,
 		currency: payload.amountWire.currency,
@@ -462,77 +304,17 @@ function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
 		reversibility: payload.irreversible
 			? "Irreversible once submitted — confirm to proceed."
 			: "Reversible before the operation is executed.",
+		irreversible: payload.irreversible,
 	};
 }
 
-/**
- * AC10b (WARNING-2, ETHOS §3): When a Proposed Call is present, render the
- * concrete captured toolId + args BEFORE the standard operation card.
- * The human approves what they actually see — no summary, no fabricated data.
- *
- * @lore AL7 CRITICAL-3: Previously only `status`+`outcome` were passed and the
- * component defaulted to the hardcoded REFUND fixture. The approver saw fake
- * Stripe ids/amount, not the agent's real call. This section renders the verbatim
- * captured args so gross divergence is visible to human judgment.
- */
-function ProposedCallArgsPanel({
-	proposedCall,
-}: {
-	readonly proposedCall: ProposedCallView;
-}): JSX.Element {
-	const argEntries = Object.entries(proposedCall.args);
-	return (
-		<section
-			className="border-width-thin overflow-hidden  border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
-			style={{ borderRadius: "var(--r-subtle)" }}
-			aria-label="Proposed call details"
-		>
-			<div className="border-width-thin-b flex items-center gap-[9px]  border-[var(--border-subtle)] px-[12px] py-[9px]">
-				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Tool</span>
-				<span
-					className="type-data   text-[var(--text-primary)]"
-					data-testid="proposed-call-tool-id"
-				>
-					{proposedCall.toolId}
-				</span>
-			</div>
-			{argEntries.length > 0 ? (
-				<dl className="px-[12px]">
-					{argEntries.map(([key, value], i) => (
-						<div
-							key={key}
-							className="border-none flex items-start justify-between gap-[12px] py-[9px]"
-							style={{
-								borderTop: i === 0 ? undefined : "var(--bw-thin) solid var(--border-subtle)",
-							}}
-						>
-							<dt className="type-small shrink-0 pt-[1px]  text-[var(--text-tertiary)]">{key}</dt>
-							<dd
-								className="type-data min-w-0 text-right   text-[var(--text-primary)] break-all"
-								data-testid={`proposed-call-arg-${key}`}
-							>
-								{typeof value === "string" ? value : JSON.stringify(value)}
-							</dd>
-						</div>
-					))}
-				</dl>
-			) : null}
-		</section>
-	);
-}
-
-export function ReviewActionOperation({
-	artifact,
-	status,
-	outcome,
-	proposedCall,
-}: ReviewCanvasProps &
-	Pick<ReviewActionOperationProps, "status" | "outcome"> & {
-		readonly proposedCall?: ProposedCallView;
-	}): JSX.Element {
-	const operation = isActionOperationPayload(artifact.payload)
-		? mapActionPayload(artifact.payload)
-		: REFUND;
+export function ReviewActionOperation({ artifact }: ReviewCanvasProps): JSX.Element {
+	if (!isActionOperationPayload(artifact.payload)) {
+		// A malformed payload gets the honest unknown-canvas
+		// fallback, never the REFUND demo fixture.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
+	const operation = mapActionPayload(artifact.payload);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader
@@ -541,10 +323,7 @@ export function ReviewActionOperation({
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
-			{/* AC10b WARNING-2: render the concrete captured args (verbatim, not a summary)
-			    so the human approves what the agent actually called. */}
-			{proposedCall ? <ProposedCallArgsPanel proposedCall={proposedCall} /> : null}
-			<ReviewActionOperationView operation={operation} status={status} outcome={outcome} />
+			<ReviewActionOperationView operation={operation} />
 		</div>
 	);
 }

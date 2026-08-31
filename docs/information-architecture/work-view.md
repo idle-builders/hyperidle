@@ -6,7 +6,7 @@ Structure and layout only. Bet lifecycle semantics live in [bets-shape-commit-ch
 
 ## 1. Routes — the three-level drill
 
-Work is a three-level drill: team list → team → bet, extended by task/review/routine sub-pages. The provisional domain navigator lists teams when there are multiple; its registered follow-up owns the richer scope and work-item model. The main pane drills down. Routes (`layers/core-ui/src/router.tsx:75-88`):
+Work is a three-level drill: team list → team → bet, extended by task/routine sub-pages. The provisional domain navigator lists teams when there are multiple; its registered follow-up owns the richer scope and work-item model. The main pane drills down. Routes (`layers/core-ui/src/router.tsx:76-88`):
 
 | Route | Page | Level |
 |---|---|---|
@@ -15,7 +15,6 @@ Work is a three-level drill: team list → team → bet, extended by task/review
 | `/work/bet/new` | WorkBetCreate — full-page create | — |
 | `/work/bet/:betId` | WorkBet — bet detail | 3 |
 | `/work/bet/:betId/task/:taskId` | WorkTask | 4 |
-| `/work/bet/:betId/review/:reviewId` | ReviewPage (decision UI lives here — see [review-primitive](../human-interface-layer/review-primitive.md)) | 4 |
 | `/work/routine/:routineId` | WorkRoutine | — |
 
 Legacy redirects: `/work/portfolio` → `/work` (unconditional), `/work/product/:productId` → `/work/team/:teamId` (U6 rename; Product = Team 1:1).

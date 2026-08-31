@@ -43,6 +43,7 @@ import type {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
+import { getAgentIdentityIds } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 import type { Context } from "hono";
@@ -144,7 +145,7 @@ export async function handleAgentProfile(
 		teamName,
 		teamId: resolvedTeamId,
 		createdAt: agent.createdAt,
-		systemPrompt: runConfig.systemPrompt,
+		identityKnowledgeId: (await getAgentIdentityIds(db, [agentId])).get(agentId) ?? null,
 		harnessType: runConfig.harnessType,
 		maxConcurrentSessions: runConfig.maxConcurrentSessions,
 		mcpSetup: null,

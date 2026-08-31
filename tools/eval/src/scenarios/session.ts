@@ -40,7 +40,6 @@ const sessLifecycleGrowthSales: EvalScenario = {
 			systemPrompt: `You are a growth agent analyzing sales pipeline data.
 Your job is to review the sales context and document key findings in session notes.
 Write substantive session notes covering: what you analyzed, key findings, and next steps.`,
-			harnessType: "builtin",
 		});
 
 		const { betId } = await seedBet(ctx.db, {
@@ -140,7 +139,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			role: "builder",
 			teamId,
 			systemPrompt: "You are a DevOps builder. Complete the task and write session notes.",
-			harnessType: "builtin",
 		});
 
 		const { betId } = await seedBet(ctx.db, {
@@ -226,7 +224,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			role: "builder",
 			teamId,
 			systemPrompt: "You are a frontend builder. Complete the task and write session notes.",
-			harnessType: "builtin",
 		});
 
 		const { betId } = await seedBet(ctx.db, {

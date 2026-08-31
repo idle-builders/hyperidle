@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
@@ -21,6 +22,34 @@ async function queryRows<T extends Record<string, unknown>>(
 ): Promise<T[]> {
 	const result = await db.execute(sql.raw(query));
 	return (result as { rows: T[] }).rows;
+}
+
+/**
+ * The persona the `role-personas` plugin ships for a role.
+ *
+ * @lore BA9g: these were `docs/system-prompts/*.md`, read by the runtime through
+ * `readSystemPromptTemplateForRole`. That reader is deleted — HyperIdle ships a
+ * single agent with a bare AGENTS.md and holds no built-in idea of a "builder".
+ * The demo world is what a team looks like once the plugin is installed, so the
+ * fixture and these tests read the plugin's own files.
+ */
+function rolePersona(role: string): string | null {
+	const files: Readonly<Record<string, string>> = {
+		builder: "builder.md",
+		designer: "designer.md",
+		facilitator: "facilitator.md",
+		growth: "growth.md",
+		ops: "ops.md",
+		product_manager: "product-manager.md",
+		qa_engineer: "qa-engineer.md",
+	};
+	const filename = files[role];
+	if (!filename) return null;
+	try {
+		return readFileSync(resolve("plugins/role-personas/personas", filename), "utf-8");
+	} catch {
+		return null;
+	}
 }
 
 describe("A2: Seed script", () => {
@@ -122,12 +151,14 @@ describe("A2: Seed script", () => {
 		);
 		expect(Number(cosRows[0]?.count)).toBeGreaterThanOrEqual(1);
 
+		// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
+		// Facilitators are now provided by the rituals plugin; 0 in the base world.
 		// @lore AD8c: role string renamed from practice_facilitator to facilitator
 		const pfRows = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE role = 'facilitator'",
 		);
-		expect(Number(pfRows[0]?.count)).toBe(5);
+		expect(Number(pfRows[0]?.count)).toBe(0);
 
 		// @lore AD8c: no agents must remain with the old practice_facilitator role
 		const oldPfRows = await queryRows<{ count: string }>(
@@ -153,21 +184,30 @@ describe("A2: Seed script", () => {
 	// with a usable system prompt, and that the docs file backing it exists on disk. Both
 	// facts survive: the content now lives in `agent_run_config.system_prompt`, and the
 	// on-disk file is asserted through the role→template resolver that produced it.
-	test("seeded facilitator and product_manager carry a non-empty system prompt", async ({ db }) => {
+	// @lore BA9d: factory no longer seeds facilitator agents — they are plugin-provided.
+	// SYSTEM_PROMPT_FILE_ROLES includes "facilitator" but 0 facilitators exist in the
+	// base world, so only product_manager rows are returned. The assertion is ≥1.
+	test("seeded product_manager carries a non-empty system prompt (facilitator is plugin-provided)", async ({
+		db,
+	}) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
+		// @lore BA9f: the persona is the `agent_file` document bound to the agent.
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
-		const rows = await queryRows<{ id: string; role: string; system_prompt: string | null }>(
+		const rows = await queryRows<{ id: string; role: string; body: string | null }>(
 			db,
-			`SELECT u.id, u.role, c.system_prompt FROM users u
-			   JOIN agent_run_config c ON c.agent_user_id = u.id
+			`SELECT u.id, u.role, k.body FROM users u
+			   JOIN knowledge_items k
+			     ON k.scope_kind = 'user' AND k.scope_id = u.id
+			    AND k.role = 'agent_file' AND k.status = 'active'
 			  WHERE u.role IN (${rolesList})`,
 		);
-		expect(rows.length).toBeGreaterThanOrEqual(2);
+		// Only product_manager agents exist (facilitators are plugin-provided, not seeded here).
+		expect(rows.length).toBeGreaterThanOrEqual(1);
 		for (const row of rows) {
-			expect(row.system_prompt, `${row.id} system_prompt must be set`).toBeTruthy();
-			expect((row.system_prompt ?? "").length).toBeGreaterThan(50);
+			expect(row.body, `${row.id} identity must be set`).toBeTruthy();
+			expect((row.body ?? "").length).toBeGreaterThan(50);
 		}
 	});
 
@@ -181,7 +221,7 @@ describe("A2: Seed script", () => {
 		await seedDemoWorld(db);
 
 		for (const role of SYSTEM_PROMPT_FILE_ROLES) {
-			const content = readSystemPromptTemplateForRole(role);
+			const content = rolePersona(role);
 			expect(content, `${role} system prompt file must exist and be readable`).toBeTruthy();
 			expect((content ?? "").length).toBeGreaterThan(50);
 		}
@@ -197,12 +237,12 @@ describe("A2: Seed script", () => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
-		const content = readSystemPromptTemplateForRole("facilitator");
+		const content = rolePersona("facilitator");
 		expect(content).toBeTruthy();
 		expect((content ?? "").length).toBeGreaterThan(50);
 
 		// @lore AD8c: old role name must not resolve
-		expect(readSystemPromptTemplateForRole("practice_facilitator")).toBeNull();
+		expect(rolePersona("practice_facilitator")).toBeNull();
 	});
 });
 

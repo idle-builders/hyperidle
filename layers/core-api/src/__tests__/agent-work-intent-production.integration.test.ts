@@ -2,11 +2,9 @@ import {
 	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
-	artifacts,
 	bets,
 	type HyperIdleDb,
 	messages,
-	proposedCalls,
 	routineRuns,
 	routines,
 	sessions,
@@ -16,7 +14,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { transitionProposedCall } from "@hyperidle/review";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
@@ -77,49 +75,6 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 // so the helper that installs this fault also owns its exact teardown.
 let cleanupRejectedIntentWrites: (() => Promise<void>) | undefined;
 
-async function seedProposedCallWorld(db: HyperIdleDb) {
-	await seedExplicitSessionAuthority(db);
-	const now = new Date().toISOString();
-	await db.insert(artifacts).values({
-		id: "au9-production-artifact",
-		producingTaskId: "au9-production-task",
-		kind: "action_operation",
-		createdAt: now,
-	});
-	await db.insert(threads).values({
-		id: "au9-production-thread",
-		hostKind: "bet",
-		hostId: "au9-production-bet",
-		initiatorId: "au9-production-agent",
-		participants: JSON.stringify(["au9-production-agent"]),
-		lastActiveAt: now,
-		createdAt: now,
-	});
-	await db.insert(messages).values({
-		id: "au9-production-review-message",
-		senderId: "au9-production-agent",
-		threadId: "au9-production-thread",
-		type: "review",
-		payload: JSON.stringify({ title: "Approve", reasoning: ["needed"] }),
-		clientKey: "au9-production-review-message",
-		createdAt: now,
-	});
-	await db.insert(proposedCalls).values({
-		id: "au9-production-call",
-		reviewMessageId: "au9-production-review-message",
-		subjectThreadId: "au9-production-thread",
-		artifactId: "au9-production-artifact",
-		originSessionId: "au9-production-origin",
-		toolId: "commit_file",
-		args: JSON.stringify({ path: "result.txt" }),
-		identityHash: "au9-production-hash",
-		reversibility: "irreversible",
-		status: "captured",
-		stagedByAgentId: "au9-production-agent",
-		createdAt: now,
-	});
-}
-
 async function rejectIntentWrites(db: HyperIdleDb) {
 	await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
 	cleanupRejectedIntentWrites = async () => {
@@ -160,7 +115,7 @@ async function seedAssistantThread(db: HyperIdleDb) {
 	// AU26 G1: the run config lives in its own table now.
 	await db.insert(agentRunConfig).values({
 		agentUserId: "ast-au9-assistant-human",
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
 	});
@@ -199,11 +154,11 @@ describe("atomic production handoffs", () => {
 		cleanupRejectedIntentWrites = undefined;
 	});
 
-	test("schema exposes authoritative sources for all seven atomic commands", async ({ db }) => {
+	test("schema exposes authoritative sources for all six atomic commands", async ({ db }) => {
 		const result = await db.execute(sql`
 			select table_name as "tableName" from information_schema.tables
 			where table_schema = 'public'
-			and table_name in ('messages','explicit_session_starts','knowledge_items','routine_runs','bets','task_dispatch_attempts','proposed_calls','agent_work_intents')
+			and table_name in ('messages','explicit_session_starts','knowledge_items','routine_runs','bets','task_dispatch_attempts','agent_work_intents')
 		`);
 		const rows = result as { rows: Array<{ tableName: string }> };
 		expect(new Set(rows.rows.map((row) => row.tableName))).toEqual(
@@ -214,7 +169,6 @@ describe("atomic production handoffs", () => {
 				"routine_runs",
 				"bets",
 				"task_dispatch_attempts",
-				"proposed_calls",
 				"agent_work_intents",
 			]),
 		);
@@ -267,7 +221,7 @@ describe("atomic production handoffs", () => {
 			enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]);
 		const localDeps = {
 			workIntents: workIntentsImpl,
-			taskRunResolver: { requireRunnableAgent },
+			taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 		};
 		await checkAndUnblockDependents(db, eventBus, "au9-production-task", localDeps);
 
@@ -457,33 +411,4 @@ describe("atomic production handoffs", () => {
 	});
 
 	// POST /api/tasks/:id/transition (door #40) deleted. Retry-transition test removed.
-
-	test("real proposed-call grant command records one replay-safe reengagement occasion", async ({
-		db,
-	}) => {
-		await seedProposedCallWorld(db);
-		await transitionProposedCall(
-			db,
-			{
-				to: "granted",
-				id: "au9-production-call",
-				taskScope: "au9-production-task",
-				agentScope: "au9-production-agent",
-				approvedToolId: "commit_file",
-				approvedArgs: { path: "result.txt" },
-			},
-			{
-				// @lore AU44: same cast pattern as workIntentsImpl above.
-				intentRecorder: (
-					input: Parameters<import("@hyperidle/domain-model").AgentWorkIntentRecorderFn>[0],
-				) => enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]),
-			},
-		);
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "au9-production-call"));
-		expect(intents).toHaveLength(1);
-		expect(intents[0]).toMatchObject({ kind: "reengagement", status: "pending", requestId: null });
-	});
 });
