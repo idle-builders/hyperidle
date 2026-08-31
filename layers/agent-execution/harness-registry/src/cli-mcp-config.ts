@@ -32,6 +32,7 @@
  * outside resolvedEnvMap/envAllowlist).
  */
 
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -165,6 +166,45 @@ function writeOpencodeJson(params: {
 
 // ── cursor-json dialect ───────────────────────────────────────────────────────
 
+/**
+ * Make the sandbox its own git repository, unless it already is one.
+ *
+ * @lore cursor-workspace-root (verified live 2026-08-31, cursor-agent
+ * 2026.08.25): cursor-agent reads `.cursor/mcp.json` from the root of the
+ * enclosing GIT REPOSITORY, not from its working directory. A session sandbox
+ * is `<base>/local-sb-N-<ts>/`, and `<base>` is a git repo — so cursor resolved
+ * the root to `<base>`, found no `.cursor/` there, and started with no MCP
+ * server at all. The agent then said so in its own transcript ("there's no
+ * `hyperidle` MCP server registered") and answered in plain text, which is a
+ * turn that never calls `reply` — `not_returned`, every time.
+ *
+ * Reproduced three ways to pin the cause: the same sandbox one directory up
+ * (a repo root) connects; the same sandbox as a plain subdirectory does not;
+ * `git init` inside it makes it connect again. `--workspace <sandbox>` does
+ * NOT fix it — cursor takes the workspace from the repo root regardless, so
+ * the flag is not the lever it looks like.
+ *
+ * Writing `.cursor/mcp.json` at the real repo root instead was rejected: that
+ * root can be the user's own checkout, and a per-session bridge token has no
+ * business being written into it.
+ *
+ * Best-effort: a machine with no `git` still gets its config file written, and
+ * every other harness is unaffected either way.
+ */
+function ensureSandboxIsRepoRoot(sandboxPath: string): void {
+	if (fs.existsSync(path.join(sandboxPath, ".git"))) return;
+	try {
+		execFileSync("git", ["init", "--quiet"], {
+			cwd: sandboxPath,
+			stdio: "ignore",
+			timeout: 10_000,
+		});
+	} catch {
+		// No git, or init refused. The config is still written; cursor may not
+		// read it, which is the behaviour we had before this call existed.
+	}
+}
+
 function writeCursorJson(params: {
 	sandboxPath: string;
 	mcpUrl: string;
@@ -172,12 +212,16 @@ function writeCursorJson(params: {
 }): HarnessMcpConfigResult {
 	const { sandboxPath, mcpUrl, token } = params;
 
+	// Cursor looks for this file at the git-repo root, so the sandbox has to be
+	// one before the file lands in it.
+	ensureSandboxIsRepoRoot(sandboxPath);
+
 	const cursorDir = path.join(sandboxPath, ".cursor");
 	fs.mkdirSync(cursorDir, { recursive: true });
 	const mcpJsonPath = path.join(cursorDir, "mcp.json");
 
 	// @lore AW1 cursor-json: cursor-agent reads MCP servers from .cursor/mcp.json
-	// in the workspace (same shape as Cursor IDE). Token is inline in headers.
+	// at the git-repo root (same shape as Cursor IDE). Token is inline in headers.
 	const config = {
 		mcpServers: {
 			hyperidle: {

@@ -245,6 +245,71 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 			expect(parsed.mcp?.hyperidle?.url).not.toContain(TEST_TOKEN);
 		});
 	});
+
+	// ── cursor-json dialect ───────────────────────────────────────────────────
+
+	describe("cursor-json dialect", () => {
+		test("writes .cursor/mcp.json with the bridge url and an inline bearer token", () => {
+			writeCliMcpConfig({
+				dialect: "cursor-json",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+			});
+
+			const parsed = JSON.parse(
+				fs.readFileSync(path.join(sandboxPath, ".cursor", "mcp.json"), "utf-8"),
+			) as {
+				mcpServers?: { hyperidle?: { url?: string; headers?: Record<string, string> } };
+			};
+			expect(parsed.mcpServers?.hyperidle?.url).toBe(TEST_MCP_URL);
+			expect(parsed.mcpServers?.hyperidle?.headers?.Authorization).toBe(`Bearer ${TEST_TOKEN}`);
+		});
+
+		/**
+		 * The config file alone is not enough for cursor to read it.
+		 *
+		 * @lore cursor-workspace-root (verified live 2026-08-31, cursor-agent
+		 * 2026.08.25): cursor-agent resolves `.cursor/mcp.json` against the root
+		 * of the enclosing GIT REPOSITORY, not its working directory. A session
+		 * sandbox is a plain subdirectory of the sandbox base, and that base is a
+		 * git repo — so cursor looked in the base, found no `.cursor/`, and ran
+		 * the whole turn with no MCP server. The agent said as much in its own
+		 * transcript and answered in plain text, which never calls `reply`.
+		 *
+		 * Making the sandbox its own repo root is what fixes it. This asserts the
+		 * writer does that, because nothing else in the session will.
+		 */
+		test("makes the sandbox its own git repo root, so cursor can find the file", () => {
+			expect(fs.existsSync(path.join(sandboxPath, ".git"))).toBe(false);
+
+			writeCliMcpConfig({
+				dialect: "cursor-json",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+			});
+
+			expect(fs.existsSync(path.join(sandboxPath, ".git"))).toBe(true);
+		});
+
+		test("leaves an existing repo alone rather than re-initialising it", () => {
+			// A sandbox that is already a checkout — re-running `git init` over a
+			// real working tree is not something a config writer should ever do.
+			const gitDir = path.join(sandboxPath, ".git");
+			fs.mkdirSync(gitDir, { recursive: true });
+			fs.writeFileSync(path.join(gitDir, "MARKER"), "pre-existing", "utf-8");
+
+			writeCliMcpConfig({
+				dialect: "cursor-json",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+			});
+
+			expect(fs.readFileSync(path.join(gitDir, "MARKER"), "utf-8")).toBe("pre-existing");
+		});
+	});
 });
 
 // ---------------------------------------------------------------------------
