@@ -152,6 +152,8 @@ interface SessionLifecycleHarnessAdapter {
 	};
 	getForceReturnCount?(sessionId: string): number;
 	setSessionToolRegistry?(sessionId: string, registry: unknown): void;
+	/** Return the harness-native session ID after startSession. */
+	getNativeSessionId?(handle: SessionHandle): string | undefined;
 }
 
 interface SessionLifecycleAdapterMeta {
@@ -243,7 +245,7 @@ interface SessionLifecycleHarnessRuntime {
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
-		/** BA2 ruling 18: the session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
+		/** The session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
 		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 	/** @lore BA9b B2: write plugin stdio MCP entries in the harness's dialect. Dialect knowledge lives in cli-mcp-config.ts. */
@@ -283,6 +285,41 @@ interface SessionLifecycleHarnessRuntime {
 		registry: SessionLifecycleMcpBridgeRegistry | undefined,
 		token: string,
 	): Promise<void>;
+	/**
+	 * The action gate registry. Optional so callers that don't need gate
+	 * enforcement (tests, task-free sessions) can omit it.
+	 */
+	readonly gateRegistry?: {
+		register(
+			sessionId: string,
+			entry: { readonly rules: readonly ActionGateRule[]; readonly sandboxPath: string },
+		): void;
+		checkAndConsumeClearance(sessionId: string, toolName: string): boolean;
+		setPendingBlock(
+			sessionId: string,
+			block: { ruleId: string; rulePattern: string; blockedTool: string },
+		): void;
+		setNativeSessionId(sessionId: string, nativeSessionId: string): void;
+		unregister(sessionId: string): void;
+	};
+	/**
+	 * Install the action-gate PreToolUse hook alongside the return hook.
+	 * Optional — omitting it leaves gate hooks unprovisioned (sessions without rules).
+	 */
+	provisionGateHook?(options: {
+		readonly sandboxPath: string;
+		readonly channel: ReturnEnforcementChannel;
+		readonly bridgeToken: string;
+		readonly mcpUrl: string;
+		readonly gateRules: readonly ActionGateRule[];
+	}): Promise<void>;
+}
+
+/** Minimal gate rule shape — a subset of ActionRule from settings. */
+interface ActionGateRule {
+	readonly id: string;
+	readonly pattern: string;
+	readonly description: string;
 }
 
 interface SessionLifecycleMcpBridgeRegistry {
@@ -825,6 +862,15 @@ interface ProvisionSessionDeps {
 	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
 	 */
 	readonly pluginMcpContributions?: PluginMcpContributionsPort;
+	/**
+	 * Resolve action rules for a session (global + team + agent union).
+	 * When absent, the session runs without gate enforcement (rules = []).
+	 * Application-composed from `@hyperidle/core-api`'s settings surface.
+	 */
+	readonly resolveActionRules?: (input: {
+		agentId: string;
+		teamId?: string | null;
+	}) => Promise<readonly ActionGateRule[]>;
 }
 
 interface ProvisionSessionParams {
@@ -1518,7 +1564,7 @@ async function runSession(
 			fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 			if (adapterCapabilities.cliMcpDialect) {
-				// BA2 ruling 18: the session's mounted filesystems (AO2, phase 4.5
+				// The session the session's mounted filesystems (AO2, phase 4.5
 				// above) are the trusted directories — tell the harness what the
 				// filesystem primitive already declared, alongside the sandbox.
 				const trustedPaths = mountedFilesystems
@@ -1613,6 +1659,40 @@ async function runSession(
 		forceBudget: MAX_FORCE_RETURNS,
 	});
 
+	// ── Phase 8b-gate: action gate — resolve rules + register + provision hook.
+	// Rules are empty on a fresh install; no action is interrupted until a human
+	// adds a rule. Optional deps: absent → gate is inert (no-op).
+	let resolvedGateRules: readonly ActionGateRule[] = [];
+	if (deps.resolveActionRules && mcpBridgeToken) {
+		try {
+			resolvedGateRules = await deps.resolveActionRules({
+				agentId: params.agentId,
+				teamId: teamId ?? null,
+			});
+		} catch (gateErr) {
+			// biome-ignore lint/suspicious/noConsole: observability not yet stood up
+			console.warn(
+				`[session-provisioning] action rule resolution failed for session ${sessionId}:`,
+				gateErr,
+			);
+		}
+	}
+	if (resolvedGateRules.length > 0 && ports.harnessRuntime.gateRegistry) {
+		ports.harnessRuntime.gateRegistry.register(sessionId, {
+			rules: resolvedGateRules,
+			sandboxPath,
+		});
+		if (ports.harnessRuntime.provisionGateHook) {
+			await ports.harnessRuntime.provisionGateHook({
+				sandboxPath,
+				channel: adapterCapabilities.returnEnforcement,
+				bridgeToken: mcpBridgeToken ?? "",
+				mcpUrl: mcpUrl ?? "",
+				gateRules: resolvedGateRules,
+			});
+		}
+	}
+
 	// ── Phase 9-10: single startSession + drain.
 
 	// Register this session in the enforcement registry now that the
@@ -1694,6 +1774,13 @@ async function runSession(
 				handle: harnessHandle,
 				adapter: harness,
 			});
+			// Capture native session ID for potential gate resume.
+			if (resolvedGateRules.length > 0 && ports.harnessRuntime.gateRegistry) {
+				const nativeId = harness.getNativeSessionId?.(harnessHandle);
+				if (nativeId) {
+					ports.harnessRuntime.gateRegistry.setNativeSessionId(sessionId, nativeId);
+				}
+			}
 		}
 		onHarnessStarted?.();
 
@@ -1802,6 +1889,7 @@ async function runSession(
 		);
 		const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, "crashed");
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
+		ports.harnessRuntime.gateRegistry?.unregister(sessionId);
 		return {
 			sessionId,
 			outcome: "crashed",
@@ -1856,6 +1944,7 @@ async function runSession(
 		await workspace.destroy(sandboxHandle);
 		const notReturnedForceCount = computeForceReturnCount();
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
+		ports.harnessRuntime.gateRegistry?.unregister(sessionId);
 		return {
 			sessionId,
 			outcome: "not_returned",
@@ -1881,6 +1970,7 @@ async function runSession(
 	);
 	await workspace.destroy(sandboxHandle);
 	ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
+	ports.harnessRuntime.gateRegistry?.unregister(sessionId);
 
 	if (beforeHarnessStartError) {
 		throw beforeHarnessStartError;

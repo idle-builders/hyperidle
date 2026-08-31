@@ -84,6 +84,13 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 	readonly adapterPool?: unknown;
 	readonly workspace?: unknown;
 	readonly pluginMcpContributions?: PluginMcpContributionsPort;
+	/** Resolve action gate rules for the session (global + team + agent). Typed inline to keep the boundary clean. */
+	readonly resolveActionRules?: (input: {
+		readonly agentId: string;
+		readonly teamId?: string | null;
+	}) => Promise<
+		ReadonlyArray<{ readonly id: string; readonly pattern: string; readonly description: string }>
+	>;
 };
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];

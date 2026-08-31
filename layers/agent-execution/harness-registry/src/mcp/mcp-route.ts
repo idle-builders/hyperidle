@@ -11,6 +11,7 @@ import {
  * the reason is gone and the duplicate goes with it.
  */
 import { Hono } from "hono";
+import type { ActionGateRegistry } from "../action-gate-registry.js";
 import type { EnforcementRegistry } from "../enforcement-registry.js";
 
 interface McpSessionRegistry {
@@ -65,6 +66,7 @@ interface McpSessionRegistry {
 export function createMcpRouter(
 	bridgeRegistry: McpSessionRegistry,
 	enforcementRegistry?: EnforcementRegistry,
+	gateRegistry?: ActionGateRegistry,
 ): Hono {
 	const router = new Hono();
 
@@ -153,6 +155,93 @@ export function createMcpRouter(
 		});
 	});
 
+	// ── Action gate adjudication endpoint ────────────────────────────────────
+	//
+	// Called by the per-harness gate-check hook script (piped from hook stdin).
+	// Resolves token → sessionId → gate registry → rule match.
+	// ?harness=claude|codex|cursor|opencode selects the response format.
+	//
+	// Single-use clearances are checked FIRST (keyed to the exact tool name).
+	// Rule matching is substring: the pattern must appear in
+	//   `<tool_name> <JSON.stringify(tool_input)>`.
+	//
+	// On deny: sets a pending block in the gate registry so the subsequent
+	// submit_review call can record it as a gate review.
+	//
+	// @lore BA2: MUST be registered BEFORE the catch-all /mcp/:token route.
+	// @lore BA2 terse-deny: the deny message names ONLY the rule — no imperative.
+	// The instruction to call submit_review lives in the seed prompt (finding
+	// from harness-research: Sonnet refused instruction in hook message as
+	// "characteristic of a prompt injection").
+	router.post("/mcp/:token/action-check", async (c) => {
+		const token = c.req.param("token");
+		const harness = c.req.query("harness") ?? "generic";
+
+		// Validate Bearer token.
+		const authHeader = c.req.header("Authorization") ?? "";
+		if (authHeader !== `Bearer ${token}`) {
+			return c.text("Unauthorized", 401);
+		}
+
+		const bridge = bridgeRegistry.lookup(token);
+		if (!bridge) {
+			return c.text("Unauthorized", 401);
+		}
+
+		if (!gateRegistry) {
+			// Gate not wired — fail open (no rules to enforce).
+			return c.json(buildGateAllow(harness));
+		}
+
+		const { sessionId } = bridge;
+		const entry = gateRegistry.get(sessionId);
+		if (!entry || entry.rules.length === 0) {
+			// Session has no rules — allow.
+			return c.json(buildGateAllow(harness));
+		}
+
+		// Parse the hook event to extract the tool name and input.
+		let hookBody: Record<string, unknown>;
+		try {
+			hookBody = await c.req.json<Record<string, unknown>>();
+		} catch {
+			// Unparseable body — fail open (can't determine what to check).
+			return c.json(buildGateAllow(harness));
+		}
+
+		// Extract tool name from the hook event JSON (all supported harnesses
+		// use "tool_name" as the field name).
+		const toolName = typeof hookBody.tool_name === "string" ? hookBody.tool_name : "";
+		const toolInput = hookBody.tool_input ?? hookBody.input ?? {};
+		const toolText = `${toolName} ${JSON.stringify(toolInput)}`;
+
+		// Check single-use clearances FIRST — consume and allow if found.
+		// @lore BA2 single-use-keyed-to-action: clearance is per tool name.
+		if (gateRegistry.checkAndConsumeClearance(sessionId, toolName)) {
+			return c.json(buildGateAllow(harness));
+		}
+
+		// Check rules — pattern is a case-insensitive substring of tool+input.
+		const matchedRule = entry.rules.find((rule) =>
+			toolText.toLowerCase().includes(rule.pattern.toLowerCase()),
+		);
+
+		if (!matchedRule) {
+			return c.json(buildGateAllow(harness));
+		}
+
+		// Rule matched — deny and record the pending block.
+		gateRegistry.setPendingBlock(sessionId, {
+			ruleId: matchedRule.id,
+			rulePattern: matchedRule.pattern,
+			blockedTool: toolName,
+		});
+
+		// Terse fact: names the rule, no imperative.
+		const denyReason = `Action blocked by rule: ${matchedRule.description || matchedRule.pattern}`;
+		return c.json(buildGateDeny(harness, denyReason));
+	});
+
 	// ── MCP JSON-RPC bridge (existing — catch-all) ────────────────────────────
 	router.all("/mcp/:token", async (c) => {
 		const token = c.req.param("token");
@@ -164,3 +253,58 @@ export function createMcpRouter(
 }
 
 export type { McpSessionRegistry };
+
+// ── Gate response builders ────────────────────────────────────────────────────
+
+/**
+ * Build the harness-specific "allow" response for /action-check.
+ *
+ * @lore BA2 hook-format: each harness reads a different JSON shape from the
+ * hook's stdout. The server returns the exact shape so the script is just
+ * `cat | curl ... | cat` with no client-side JSON manipulation.
+ */
+function buildGateAllow(harness: string): unknown {
+	switch (harness) {
+		case "claude":
+			return {
+				hookSpecificOutput: {
+					hookEventName: "PreToolUse",
+					permissionDecision: "allow",
+				},
+			};
+		case "codex":
+			return { decision: "approve" };
+		case "cursor":
+			return { permission: "allow" };
+		default:
+			// opencode plugin / generic callers check decision field.
+			return { decision: "allow" };
+	}
+}
+
+/**
+ * Build the harness-specific "deny" response for /action-check.
+ *
+ * @lore BA2 cursor-user_message: cursor-agent discards the `agent_message`
+ * field (research finding). Must use `user_message` for the model to receive
+ * the reason. Verified against installed binary.
+ */
+function buildGateDeny(harness: string, reason: string): unknown {
+	switch (harness) {
+		case "claude":
+			return {
+				hookSpecificOutput: {
+					hookEventName: "PreToolUse",
+					permissionDecision: "deny",
+					permissionDecisionReason: reason,
+				},
+			};
+		case "codex":
+			return { decision: "block", reason };
+		case "cursor":
+			return { permission: "deny", user_message: reason };
+		default:
+			// opencode plugin / generic callers.
+			return { decision: "deny", reason };
+	}
+}

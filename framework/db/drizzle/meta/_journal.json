@@ -519,6 +519,13 @@
 			"when": 1785690002000,
 			"tag": "0073_drop_team_functions",
 			"breakpoints": true
+		},
+		{
+			"idx": 74,
+			"version": "7",
+			"when": 1785690003000,
+			"tag": "0074_gate_reviews",
+			"breakpoints": true
 		}
 	]
 }

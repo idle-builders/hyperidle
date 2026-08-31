@@ -57,7 +57,11 @@ import {
 
 import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { getPluginMcpContributions, readServerConfig } from "@hyperidle/settings";
+import {
+	getPluginMcpContributions,
+	readServerConfig,
+	resolveActionRules,
+} from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
@@ -174,6 +178,18 @@ export interface CoreApiBoot {
 			}[]
 		>;
 	};
+	/**
+	 * Action-gate rule resolver — threads the session's applicable gate rules
+	 * into the provisioner. Typed inline to keep core-api's boot boundary-clean.
+	 * The Application passes this into `runtimeSessionDeps.resolveActionRules`.
+	 * Present whenever `db` is provided.
+	 */
+	readonly resolveActionRules?: (input: {
+		readonly agentId: string;
+		readonly teamId?: string | null;
+	}) => Promise<
+		ReadonlyArray<{ readonly id: string; readonly pattern: string; readonly description: string }>
+	>;
 }
 
 /**
@@ -340,6 +356,8 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 					pluginMcpContributions: {
 						getContributions: (teamId: string | null) => getPluginMcpContributions(db, teamId),
 					},
+					resolveActionRules: (input: { agentId: string; teamId?: string | null }) =>
+						resolveActionRules(db, input),
 				}
 			: {}),
 		...(credentialResolver ? { credentialResolver } : {}),

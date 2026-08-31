@@ -255,6 +255,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		eventBus,
 		adapterPool: agentExecution.adapters.pool,
 		workspace: agentExecution.adapters.sandbox,
+		resolveActionRules: coreApi.resolveActionRules,
 	} satisfies ApplicationProvisionSessionDeps;
 
 	if (!coreApi.upgradeTokenStore) {

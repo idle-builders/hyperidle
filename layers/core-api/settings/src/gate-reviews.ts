@@ -1,0 +1,80 @@
+/**
+ * Gate reviews — persistence layer for the BA2 action gate review link.
+ *
+ * Records the association between a gate block and the review the agent filed.
+ * Only a review with a gate_review record may trigger a session resume on verdict.
+ *
+ * @lore BA2 no-extra-clearance-from-ordinary-review: the lookup by reviewMessageId
+ * is the guard. If a review was not created by the gate, there is no record, and
+ * the verdict handler takes no gate action.
+ */
+
+import { randomUUID } from "node:crypto";
+import { type GateReviewRow, gateReviews, type HyperIdleDb } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
+
+export interface GateReview {
+	readonly id: string;
+	readonly sessionId: string;
+	readonly reviewMessageId: string;
+	readonly blockedTool: string;
+	readonly rulePattern: string;
+	readonly ruleId: string;
+	readonly createdAt: string;
+}
+
+function rowToGateReview(row: GateReviewRow): GateReview {
+	return {
+		id: row.id,
+		sessionId: row.sessionId,
+		reviewMessageId: row.reviewMessageId,
+		blockedTool: row.blockedTool,
+		rulePattern: row.rulePattern,
+		ruleId: row.ruleId,
+		createdAt: row.createdAt,
+	};
+}
+
+export interface RecordGateReviewInput {
+	readonly sessionId: string;
+	readonly reviewMessageId: string;
+	readonly blockedTool: string;
+	readonly rulePattern: string;
+	readonly ruleId: string;
+	/** Override current timestamp for deterministic tests only. */
+	readonly now?: string;
+}
+
+/** Record that a review was filed due to a gate block. */
+export async function recordGateReview(
+	db: HyperIdleDb,
+	input: RecordGateReviewInput,
+): Promise<GateReview> {
+	const row: GateReviewRow = {
+		id: randomUUID(),
+		sessionId: input.sessionId,
+		reviewMessageId: input.reviewMessageId,
+		blockedTool: input.blockedTool,
+		rulePattern: input.rulePattern,
+		ruleId: input.ruleId,
+		createdAt: input.now ?? new Date().toISOString(),
+	};
+	await db.insert(gateReviews).values(row);
+	return rowToGateReview(row);
+}
+
+/**
+ * Look up a gate review by review message ID.
+ * Returns undefined if this review was NOT caused by a gate block.
+ */
+export async function findGateReviewByMessageId(
+	db: HyperIdleDb,
+	reviewMessageId: string,
+): Promise<GateReview | undefined> {
+	const rows = await db
+		.select()
+		.from(gateReviews)
+		.where(eq(gateReviews.reviewMessageId, reviewMessageId))
+		.limit(1);
+	return rows[0] ? rowToGateReview(rows[0]) : undefined;
+}

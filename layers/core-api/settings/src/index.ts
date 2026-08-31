@@ -31,6 +31,8 @@ export {
 	resolveActionRules,
 } from "./action-rules.js";
 // -- plugin configuration (resolution engine, agent-behavior UI) --
+export type { GateReview } from "./gate-reviews.js";
+export { findGateReviewByMessageId, recordGateReview } from "./gate-reviews.js";
 export { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
 export type { PluginContribution } from "./plugin-contributions.js";
 export {

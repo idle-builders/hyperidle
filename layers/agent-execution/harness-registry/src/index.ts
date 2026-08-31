@@ -23,6 +23,13 @@
  */
 
 export {
+	type ActionGateEntry,
+	type ActionGateRegistry,
+	createActionGateRegistry,
+	type GateRule,
+	type PendingBlock,
+} from "./action-gate-registry.js";
+export {
 	type AdapterFilter,
 	AdapterPool,
 	createLocalAdapterPool,
@@ -38,6 +45,7 @@ export type { EnforcementEntry, EnforcementRegistry } from "./enforcement-regist
 export { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
 export { type CallLlmOptions, callLlm } from "./llm-client.js";
 export type { McpToolBridge } from "./mcp-tool-bridge.js";
+export { type GateHookOptions, installGateHook } from "./provision-gate-hook.js";
 export {
 	type ProvisionOptions,
 	provisionHarnessEnvironment,

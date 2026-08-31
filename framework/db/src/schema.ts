@@ -1556,3 +1556,42 @@ export const actionRules = pgTable(
 
 export type ActionRuleRow = typeof actionRules.$inferSelect;
 export type NewActionRuleRow = typeof actionRules.$inferInsert;
+
+/**
+ * Gate reviews — links a submitted review to the gate block that caused it.
+ *
+ * Written when an agent calls submit_review after /action-check denies an
+ * action. The verdict handler reads this table to determine whether a verdict
+ * should trigger a gate session resume.
+ *
+ * @lore BA2: Only reviews that a gate actually caused may clear a block.
+ * An ordinary review (no pendingBlock) must NOT mint a clearance.
+ * Enforced by: record only when pendingBlock is set in the gate registry at
+ * submit_review time, and only look up gate reviews by reviewMessageId when
+ * processing verdicts.
+ */
+export const gateReviews = pgTable(
+	"gate_reviews",
+	{
+		id: text("id").primaryKey(),
+		/** The HyperIdle session that was running when the block occurred. */
+		sessionId: text("session_id").notNull(),
+		/** The review message ID (messages.id) that the agent filed. */
+		reviewMessageId: text("review_message_id").notNull().unique(),
+		/** The tool name that was blocked (e.g. "Bash", "computer"). */
+		blockedTool: text("blocked_tool").notNull(),
+		/** The rule pattern that matched (for the deny message and resume wording). */
+		rulePattern: text("rule_pattern").notNull(),
+		/** The rule ID. */
+		ruleId: text("rule_id").notNull(),
+		/** ISO 8601 timestamp when the gate review was recorded. */
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		index("gate_reviews_session_id_idx").on(table.sessionId),
+		index("gate_reviews_review_message_id_idx").on(table.reviewMessageId),
+	],
+);
+
+export type GateReviewRow = typeof gateReviews.$inferSelect;
+export type NewGateReviewRow = typeof gateReviews.$inferInsert;

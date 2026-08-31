@@ -1,5 +1,7 @@
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
+import type { GateRule } from "./action-gate-registry.js";
 import { writeHarnessMcpConfig } from "./cli-mcp-config.js";
+import { installGateHook } from "./provision-gate-hook.js";
 import { installReturnHook } from "./provision-return-hook.js";
 
 export interface ProvisionOptions {
@@ -10,12 +12,17 @@ export interface ProvisionOptions {
 	readonly channel?: ReturnEnforcementChannel;
 	readonly forceBudget?: number;
 	/**
-	 * BA2 ruling 18: the session's mounted filesystems, threaded down to the
+	 * The session's mounted filesystems, threaded down to the
 	 * dialect writer so a harness with a trust precondition (codex) can declare
 	 * them trusted alongside the sandbox. See cli-mcp-config.ts's
 	 * `HarnessMcpConfigParams.trustedPaths`.
 	 */
 	readonly trustedPaths?: readonly string[];
+	/**
+	 * Action gate rules resolved for this session. When non-empty,
+	 * installs a PreToolUse gate hook alongside the Stop hook.
+	 */
+	readonly gateRules?: readonly GateRule[];
 }
 
 export async function provisionHarnessEnvironment(
@@ -38,6 +45,14 @@ export async function provisionHarnessEnvironment(
 			mcpUrl: options.mcpUrl,
 			forceBudget: options.forceBudget ?? 0,
 		});
+		if (options.gateRules && options.gateRules.length > 0) {
+			await installGateHook({
+				sandboxPath: options.sandboxPath,
+				channel: options.channel,
+				bridgeToken: options.token,
+				mcpUrl: options.mcpUrl,
+			});
+		}
 	}
 	return configured;
 }

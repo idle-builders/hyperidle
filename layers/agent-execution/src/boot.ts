@@ -44,10 +44,14 @@ import type {
 } from "@hyperidle/harness-protocol";
 import type { EnforcementRegistry as BaseEnforcementRegistry } from "@hyperidle/harness-registry";
 import {
+	type ActionGateRegistry,
 	AdapterPool,
+	createActionGateRegistry,
 	createLocalAdapterPool,
 	createReturnEnforcement,
 	createSandboxAdapter,
+	type GateRule,
+	installGateHook,
 	provisionHarnessEnvironment,
 	RemoteHarnessAdapter,
 	type SandboxAdapter,
@@ -83,6 +87,8 @@ export interface AgentExecutionBootOptions {
  */
 export interface AgentExecutionHarnessRuntime {
 	readonly enforcementRegistry: EnforcementRegistry;
+	/** The action gate registry for this boot instance. */
+	readonly gateRegistry: ActionGateRegistry;
 	createReturnGate(requiredReturnActions?: readonly string[]): ReturnGate;
 	evaluateReturn(
 		gate: ReturnGate,
@@ -95,12 +101,23 @@ export interface AgentExecutionHarnessRuntime {
 		readonly mcpUrl: string;
 		readonly forceBudget: number;
 	}): Promise<void>;
+	/**
+	 * Install the action-gate PreToolUse hook for this session's channel.
+	 * Only called when the session has resolved action rules.
+	 */
+	provisionGateHook(options: {
+		readonly sandboxPath: string;
+		readonly channel: ReturnEnforcementChannel;
+		readonly bridgeToken: string;
+		readonly mcpUrl: string;
+		readonly gateRules: readonly GateRule[];
+	}): Promise<void>;
 	writeCliMcpConfig(options: {
 		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
-		/** BA2 ruling 18: the session's mounted filesystems — see `ProvisionOptions.trustedPaths`. */
+		/** The session's mounted filesystems — see `ProvisionOptions.trustedPaths`. */
 		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 	/** @lore BA9b B2: plugin stdio MCP entries — dialect knowledge lives in cli-mcp-config.ts. */
@@ -172,22 +189,35 @@ export async function bootAgentExecution(
 ): Promise<AgentExecutionBoot> {
 	const sandbox = createSandboxAdapter(options.topology);
 	const enforcementRegistry = createReturnEnforcement();
+	const gateRegistry = createActionGateRegistry();
 	const pool =
 		options.topology === "local"
 			? await createLocalAdapterPool({ enforcement: enforcementRegistry })
 			: new AdapterPool();
 	const bridge = createMcpToolBridge({
 		enforcement: enforcementRegistry,
+		gateRegistry,
 		baseUrl: options.mcpBaseUrl,
 	});
 
 	const harnessRuntime: AgentExecutionHarnessRuntime = {
 		enforcementRegistry,
+		gateRegistry,
 		createReturnGate: (requiredReturnActions) =>
 			enforcementRegistry.createGate(requiredReturnActions),
 		evaluateReturn: (gate, endReason) => enforcementRegistry.evaluate(gate, endReason),
 		provisionReturnHook: async (hookOptions) => {
 			await provisionHarnessEnvironment({ ...hookOptions, token: hookOptions.bridgeToken });
+		},
+		provisionGateHook: async (hookOptions) => {
+			// Call installGateHook directly — avoids redundantly re-writing the
+			// return hook that Phase 8b-enforce already installed.
+			await installGateHook({
+				sandboxPath: hookOptions.sandboxPath,
+				channel: hookOptions.channel,
+				bridgeToken: hookOptions.bridgeToken,
+				mcpUrl: hookOptions.mcpUrl,
+			});
 		},
 		writeCliMcpConfig: (configOptions) => provisionHarnessEnvironment(configOptions),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
