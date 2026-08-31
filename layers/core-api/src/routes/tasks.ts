@@ -336,7 +336,7 @@ export function createTaskRoutes(
 		// A fully serialised increment would require a transaction per insert,
 		// which is overkill given the ultra-low concurrent-create rate in practice.
 		const resolvedParentTaskId = body.parentTaskId ?? null;
-		const siblingMax = await work.maxSiblingPosition(db, resolvedParentTaskId);
+		const siblingMax = await work.maxSiblingPosition(db, resolvedParentTaskId, resolvedTeamId);
 
 		const taskId = crypto.randomUUID();
 		await work.create(db, "task", {
@@ -394,7 +394,7 @@ export function createTaskRoutes(
 					// rather than colliding with an existing sibling's position.
 					// @lore BB1: this read is INSIDE the transaction — two concurrent
 					// reparents to the same parent cannot both compute the same max.
-					const newParentMax = await work.maxSiblingPosition(tx, parentTaskId);
+					const newParentMax = await work.maxSiblingPosition(tx, parentTaskId, existing.teamId);
 					const patch: Record<string, unknown> = {
 						...plainFields,
 						parentTaskId,
@@ -416,9 +416,18 @@ export function createTaskRoutes(
 					}
 
 					// Read all siblings (including this task) ordered by current position.
-					// `parentTaskId: null` selects root tasks — work.list handles both.
+					//
+					// @lore BB1: scoped by `teamId` as well as parent. For a NESTED
+					// task the parent already implies the team, so the filter is
+					// redundant — but for a ROOT task `parentTaskId` is null, and
+					// "siblings" without a team filter means every root task in every
+					// team. Reordering one team's roots would renumber and bump
+					// `updatedAt` on every other team's roots: a cross-tenant write
+					// nobody asked for, invisible in the UI because within-team order
+					// still looked right.
 					const siblings = await work.list(tx, "task", {
 						parentTaskId: existing.parentTaskId,
+						teamId: existing.teamId,
 					});
 
 					// Build the new order: remove self, insert at clamped slot.

@@ -118,6 +118,22 @@ export interface TaskStateChangedEvent {
 	fromState: TaskState;
 	toState: TaskState;
 	timestamp: number;
+	/**
+	 * BB1: this transition is part of a deliberate subtree KILL, not ordinary
+	 * progress. Upward completion propagation must ignore it.
+	 *
+	 * @lore BB1: without this, killing a task with descendants raced its own
+	 * completion cascade. `cascadeTaskKill` kills deepest-first, each kill emits
+	 * this event, and the propagation handler — which listens for `killed` on
+	 * purpose, so a last child being killed can still advance its parent — found
+	 * the ancestors' children all terminal and marked them `done` before the
+	 * cascade reached them. That stamped `completedAt` on cancelled work and
+	 * raised a "Confirm shipping?" review on a killed root. The cascade already
+	 * suppresses `session_ended` for exactly this reason; this closes the other
+	 * path. Optional, so every existing emitter is unchanged and only the
+	 * cascade opts in.
+	 */
+	cascade?: boolean;
 }
 
 /**

@@ -376,6 +376,37 @@ describe("AC6 — WIP limit", () => {
 	});
 
 	/**
+	 * A dispatched task holds its slot from the moment the session is REQUESTED,
+	 * not from the moment the agent answers. Counting only `in_progress` let a
+	 * run of accepts each observe the same count and all pass — overshooting the
+	 * limit by however many were provisioning at once.
+	 *
+	 * TO SEE THIS FAIL: drop the `accepted`-with-a-requested-dispatch clause from
+	 * `countTeamTasksInProgress` and the second accept is admitted.
+	 */
+	test("a dispatched-but-not-yet-started task still occupies a slot", async ({ db, eventBus }) => {
+		await insertTeam(db, "team", 1);
+		await insertAgent(db, "agent-1");
+		await insertTask(db, "first", "team", "proposed", null, "agent-1");
+		await insertTask(db, "second", "team", "proposed", null, "agent-1");
+
+		// First accept dispatches and fills the single slot. The task stays
+		// `accepted` — `session_started` has not fired yet.
+		await transitionTask(db, eventBus, "first", "accepted", dispatchDeps);
+		const [firstRow] = await db
+			.select({ state: tasks.state })
+			.from(tasks)
+			.where(eq(tasks.id, "first"))
+			.limit(1);
+		expect(firstRow?.state).toBe("accepted");
+
+		// Second accept must be refused even though nothing is `in_progress`.
+		await expect(
+			transitionTask(db, eventBus, "second", "accepted", dispatchDeps),
+		).rejects.toBeInstanceOf(CapacityExceededError);
+	});
+
+	/**
 	 * The regression that live testing on the packaged app found: at capacity an
 	 * agent session still started, and the reaction that moves the task to
 	 * `in_progress` was refused — stranding the task in `accepted` so session-end

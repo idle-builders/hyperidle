@@ -48,7 +48,7 @@ A root task starts as a top-down commitment and evolves as the team learns; the 
 
 ---
 
-## 3. The five primitives
+## 3. The four primitives
 
 **Producer rule for Artifacts.** Tasks are the unique producers of Artifacts: `artifacts.producingTaskId` is a NOT NULL FK to tasks (`framework/db/src/schema.ts`). Teams and Routines never own Artifacts; a parent task aggregates its subtree's Artifacts read-only, and a Routine's work produces Artifacts via the Task it spawns. The Artifact contract itself lives in [artifact-primitive.md](artifact-primitive.md).
 

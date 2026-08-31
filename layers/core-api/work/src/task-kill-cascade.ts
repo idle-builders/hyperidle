@@ -91,7 +91,14 @@ export async function cascadeTaskKill(
 		for (const run of stoppedRuns.filter((r) => r.taskId === task.id)) {
 			sessionsStopped.push(run.sessionId);
 		}
-		await transitionTask(db, eventBus, task.id, "killed", deps);
+		// @lore BB1: `cascade: true` marks the emitted `task_state_changed` so the
+		// upward COMPLETION propagation ignores it. Without it, killing a subtree
+		// raced its own completion: the leaf's kill advanced the ancestors to
+		// `done` (stamping `completedAt` on cancelled work, and raising a
+		// "Confirm shipping?" review on a killed root) moments before this loop
+		// killed those same rows. The same reasoning as the `session_ended`
+		// suppression above — a kill is not progress.
+		await transitionTask(db, eventBus, task.id, "killed", deps, undefined, { cascade: true });
 		tasksKilled.push(task.id);
 	}
 

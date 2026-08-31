@@ -107,6 +107,11 @@ export async function transitionTask(
 	toState: TaskState,
 	deps: TaskStateMachineDeps,
 	dispatchOccasion?: "accepted" | "retry",
+	/**
+	 * BB1: marks this transition as part of a deliberate subtree kill, so upward
+	 * completion propagation ignores it. Only `cascadeTaskKill` passes it.
+	 */
+	opts?: { readonly cascade?: boolean },
 ): Promise<void> {
 	let pendingDispatch:
 		| {
@@ -240,5 +245,6 @@ export async function transitionTask(
 		fromState: transitioned.fromState,
 		toState,
 		timestamp: Date.now(),
+		...(opts?.cascade === true ? { cascade: true } : {}),
 	});
 }

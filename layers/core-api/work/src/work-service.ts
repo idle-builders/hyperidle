@@ -51,7 +51,7 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 
 export type Task = typeof tasks.$inferSelect;
 
@@ -639,7 +639,36 @@ export async function countTeamTasksInProgress(
 	const [row] = await exec
 		.select({ n: sql<number>`count(*)` })
 		.from(tasks)
-		.where(and(eq(tasks.teamId, teamId), eq(tasks.state, "in_progress")));
+		.where(
+			and(
+				eq(tasks.teamId, teamId),
+				or(
+					eq(tasks.state, "in_progress"),
+					// Dispatched but not yet started: a task is `accepted` from the
+					// moment a session is REQUESTED until `session_started` flips it
+					// to `in_progress`, and provisioning takes real time. Counting
+					// only `in_progress` let N accepts in that window each observe
+					// the same count, all pass the capacity check, and all become
+					// `in_progress` — overshooting the limit. Work that has been
+					// handed to an agent occupies a slot from the moment it is
+					// handed over, not from the moment the agent answers.
+					and(
+						eq(tasks.state, "accepted"),
+						exists(
+							exec
+								.select({ one: sql`1` })
+								.from(taskDispatchAttempts)
+								.where(
+									and(
+										eq(taskDispatchAttempts.taskId, tasks.id),
+										eq(taskDispatchAttempts.status, "requested"),
+									),
+								),
+						),
+					),
+				),
+			),
+		);
 	return Number(row?.n ?? 0);
 }
 
@@ -672,16 +701,24 @@ function buildArtifactGuardCond(guard: TransitionGuard): SQL {
  * @lore BB1: used by POST /tasks (append) and PATCH /tasks/:id (reparent) to
  * assign the next-last position without a data race — callers that need
  * atomicity must call this INSIDE their own transaction.
+ *
+ * @lore BB1: `teamId` is REQUIRED, not optional. A nested task's parent already
+ * implies its team, but a ROOT task's parent is null — so without the team
+ * filter the "sibling group" for a root is every root task in the entire
+ * install, and a new root would take its position from an unrelated team's
+ * count. Making the argument mandatory means a caller cannot forget it.
  */
 export async function maxSiblingPosition(
 	exec: WriteExecutor,
 	parentTaskId: string | null,
+	teamId: string,
 ): Promise<number> {
-	const cond = parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId);
+	const parentCondition =
+		parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId);
 	const [row] = await exec
 		.select({ m: sql<number>`COALESCE(MAX(${tasks.position}), -1)` })
 		.from(tasks)
-		.where(cond);
+		.where(and(parentCondition, eq(tasks.teamId, teamId)));
 	return row?.m ?? -1;
 }
 

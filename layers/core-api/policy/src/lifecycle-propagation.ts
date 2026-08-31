@@ -432,6 +432,10 @@ function registerLifecyclePropagation(
 	// Handler 2: task_state_changed -> evaluate parent transition (recursive rollup).
 	// Fires for every terminal state so that a kill also propagates upward.
 	const unsubTaskChanged = eventBus.on("task_state_changed", (event: TaskStateChangedEvent) => {
+		// @lore BB1: a cascade kill is not progress — skip it. The handler still
+		// listens for ordinary `killed` transitions so that killing the last live
+		// child advances its parent, which is the behaviour AC3 promises.
+		if (event.cascade === true) return;
 		if (event.toState === "done" || event.toState === "killed") {
 			void (async () => {
 				await propagateTaskToParent(db, eventBus, event.taskId, deps);

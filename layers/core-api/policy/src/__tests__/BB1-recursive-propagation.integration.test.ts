@@ -174,6 +174,8 @@ async function completeTask(
 	taskId: string,
 	fromState: TaskState,
 	toState: "done" | "killed",
+	/** BB1: mark the emit as part of a deliberate subtree kill. */
+	cascade = false,
 ): Promise<void> {
 	const { applied } = await policyDeps.work.transitionTaskState(db, {
 		taskId,
@@ -188,6 +190,7 @@ async function completeTask(
 		fromState,
 		toState,
 		timestamp: Date.now(),
+		...(cascade ? { cascade: true } : {}),
 	});
 }
 
@@ -553,6 +556,85 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 			expect(await getTaskState(db, "bb1-p6b-root")).toBe("accepted");
 		} finally {
 			unregister();
+		}
+	});
+});
+
+// ─── BB1 regression: a kill cascade must not run the COMPLETION cascade ───────
+
+describe("BB1 — a cascade kill does not complete its ancestors", () => {
+	/**
+	 * `cascadeTaskKill` kills deepest-first and every kill emits
+	 * `task_state_changed(killed)`. This handler listens for `killed` on purpose
+	 * — so that killing the last live child still advances its parent — and it
+	 * only ever moves ancestors to `done`/`review`, never `killed`. On the shared
+	 * production bus that meant killing a subtree raced its own completion:
+	 * ancestors were marked `done` (stamping `completedAt` on cancelled work, and
+	 * raising a "Confirm shipping?" review on a killed root) moments before the
+	 * cascade reached them.
+	 *
+	 * TO SEE THIS FAIL: delete the `event.cascade === true` early return in
+	 * `registerLifecyclePropagation`'s task handler.
+	 */
+	dbTest("a kill marked as cascade does not advance the parent", async ({ db }) => {
+		const eventBus = new EventBus();
+		await seedTeam(db, "ct");
+		await seedTask(db, { id: "c-root", parentTaskId: null, teamId: "ct", state: "in_progress" });
+		await seedTask(db, {
+			id: "c-child",
+			parentTaskId: "c-root",
+			teamId: "ct",
+			state: "in_progress",
+		});
+		const policyDeps: PolicyDeps = {
+			work: makeWorkPort(),
+			conversation: conversationStub,
+			users: usersStub,
+		};
+		const unsub = registerPolicy(db, eventBus, policyDeps);
+		try {
+			await completeTask(db, eventBus, policyDeps, "c-child", "in_progress", "killed", true);
+			// NOT vi.waitFor: asserting "still in_progress" would pass instantly,
+			// before propagation had a chance to run, and could never fail. Give
+			// the fire-and-forget handler real time to do the wrong thing first.
+			await new Promise((r) => setTimeout(r, 400));
+			const [root] = await db.select().from(tasks).where(eq(tasks.id, "c-root")).limit(1);
+			expect(root?.state).toBe("in_progress");
+			expect(root?.completedAt).toBeNull();
+		} finally {
+			unsub();
+		}
+	});
+
+	/**
+	 * The suppression must be scoped to the CASCADE, not to `killed` in general.
+	 * Killing the last live child by hand still advances the parent — that is
+	 * what AC3 promises, and narrowing it would be a silent regression.
+	 */
+	dbTest("an ordinary kill of the last child still advances the parent", async ({ db }) => {
+		const eventBus = new EventBus();
+		await seedTeam(db, "ot");
+		await seedTask(db, { id: "o-root", parentTaskId: null, teamId: "ot", state: "in_progress" });
+		await seedTask(db, {
+			id: "o-child",
+			parentTaskId: "o-root",
+			teamId: "ot",
+			state: "in_progress",
+		});
+		const policyDeps: PolicyDeps = {
+			work: makeWorkPort(),
+			conversation: conversationStub,
+			users: usersStub,
+		};
+		const unsub = registerPolicy(db, eventBus, policyDeps);
+		try {
+			await completeTask(db, eventBus, policyDeps, "o-child", "in_progress", "killed");
+			await vi.waitFor(async () => {
+				const [root] = await db.select().from(tasks).where(eq(tasks.id, "o-root")).limit(1);
+				expect(root?.state).toBe("done");
+			});
+		} finally {
+			unsub();
 		}
 	});
 });
