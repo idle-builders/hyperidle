@@ -65,15 +65,6 @@ export function cliAdapterFixture(
 					"{{model}}",
 				],
 				envMap: {},
-				credentialEnvByProvider: {
-					anthropic: "ANTHROPIC_API_KEY",
-					openrouter: "OPENROUTER_API_KEY",
-				},
-				customEndpointProvider: {
-					id: "brought-endpoint",
-					npm: "@ai-sdk/openai-compatible",
-					configFile: "opencode.json",
-				},
 				eventFormat: "ndjson",
 				envAllowlist: ["PATH", "HOME", "LANG", "OPENROUTER_API_KEY", "XDG_DATA_HOME"],
 				returnEnforcementChannel: "process-reengage",

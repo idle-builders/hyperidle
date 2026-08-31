@@ -36,7 +36,6 @@ describe("AM2 HarnessCapabilityDescriptor", () => {
 				credentialNames: ["openrouter_api_key"],
 			},
 			discovery: { state: "ready" },
-			acceptsApiKey: true,
 			modelProviders: ["openrouter"],
 			models: [
 				{

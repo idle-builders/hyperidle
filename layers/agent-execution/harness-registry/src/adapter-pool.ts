@@ -364,17 +364,12 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 			"--model",
 			"{{model}}",
 		],
-		// No blind key injection — the key goes under its own provider's name.
+		// @lore opencode used to be handed a stored API key here, under whichever
+		// variable its provider reads, plus a provider block for a brought
+		// OpenAI-compatible endpoint. Both are gone: opencode authenticates through
+		// its own login like every other harness, and HyperIdle holds no model
+		// credential to pass on.
 		envMap: {},
-		credentialEnvByProvider: {
-			anthropic: "ANTHROPIC_API_KEY",
-			openrouter: "OPENROUTER_API_KEY",
-		},
-		customEndpointProvider: {
-			id: "brought-endpoint",
-			npm: "@ai-sdk/openai-compatible",
-			configFile: "opencode.json",
-		},
 		// AL7 delta: changed from "text" → "ndjson" because opencode --format json emits JSONL.
 		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via
 		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture

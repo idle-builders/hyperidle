@@ -44,7 +44,6 @@ function makeDescriptor(
 		kind: "local",
 		authAction: { kind: "native_cli_login", label: "Log in" },
 		discovery: { state: "ready" },
-		acceptsApiKey: false,
 		models: [],
 		returnEnforcement: "none",
 		modelProviders: metaProviders,

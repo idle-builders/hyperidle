@@ -21,7 +21,6 @@ function makeDescriptor(
 		kind: "local",
 		authAction: { kind: "none", label: "None" },
 		discovery: { state: "ready" },
-		acceptsApiKey: false,
 		models: models.map((m) => ({
 			id: m.id,
 			label: m.id,

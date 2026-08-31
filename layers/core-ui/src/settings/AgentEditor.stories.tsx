@@ -53,7 +53,6 @@ const OPENCODE_DESCRIPTOR = {
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	accessMode: "provider-subscription-cli" as const,
 	discovery: { state: "ready" as const },
-	acceptsApiKey: true,
 	authAction: {
 		kind: "native_cli_login" as const,
 		label: "Log in to OpenCode",
@@ -77,7 +76,6 @@ const CODEX_DESCRIPTOR = {
 	modelProviders: [],
 	accessMode: "provider-subscription-cli" as const,
 	discovery: { state: "ready" as const },
-	acceptsApiKey: false,
 	authAction: {
 		kind: "native_cli_login" as const,
 		label: "Log in to Codex",
@@ -136,7 +134,6 @@ const CLAUDE_CODE_DESCRIPTOR = {
 	modelProviders: ["anthropic"],
 	accessMode: "provider-subscription-cli" as const,
 	discovery: { state: "ready" as const },
-	acceptsApiKey: false,
 	authAction: {
 		kind: "native_cli_login" as const,
 		label: "Log in to Claude Code",

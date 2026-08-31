@@ -26,20 +26,12 @@
  * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
  * derivePrimaryHarness() wired into POST /api/teams body.
  * Folder → inspect-path + register filesystem (best-effort, writeback:"none").
- * @lore AW1: The standalone Anthropic key field is gone. Credential entry belongs
- * to a harness row — the one that declares `acceptsApiKey`, meaning it can run on
- * a key HyperIdle stores rather than only on its own login. Today that is
- * opencode, and the fields appear under its row.
+ * @lore AW1 + follow-up: setup collects no credential at all. A harness arrives
+ * already logged in, or it is not choosable — the key lives in the harness's own
+ * login, never in HyperIdle.
  */
 
-import type { ModelProvider } from "@hyperidle/domain-model";
-import {
-	AGENT_ROLE_CATALOG,
-	credentialNameForProvider,
-	defaultRoster,
-	MODEL_PROVIDERS,
-	TEAM_FUNCTIONS,
-} from "@hyperidle/domain-model";
+import { AGENT_ROLE_CATALOG, defaultRoster, TEAM_FUNCTIONS } from "@hyperidle/domain-model";
 import {
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
@@ -53,7 +45,7 @@ import {
 	useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button, Input, PageHeader, PageScaffold, Select } from "../ds";
+import { Button, Input, PageHeader, PageScaffold } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 
 /**
@@ -92,21 +84,19 @@ function rosterPreviewLabel(functions: readonly string[]): string {
 // ── Harness picker helpers ────────────────────────────────────────────────────
 
 /**
- * A row is choosable (radio-selectable) when the harness can actually run: it is
- * logged in already, or it accepts a key this screen can collect. Missing,
- * unavailable, and login-only rows that are not signed in are greyed.
+ * A row is choosable (radio-selectable) when the harness is ready to run — which
+ * means installed AND signed in. Everything else is greyed.
  *
  * @lore AV1 Decision 4: greyed rows render but are NOT choosable; the greyed
  * affordance IS the actionable element (install hint), not a dead radio.
  *
- * @lore A key-accepting harness stays choosable while unauthenticated, because
- * entering the key IS how it becomes authenticated — greying it out would hide
- * the only route to a working setup for someone who has a key and no CLI login.
- * It is still required to be INSTALLED: `acceptsApiKey` is only ever true for a
- * harness whose adapter is registered, which means its binary is on PATH.
+ * @lore A key-accepting harness used to stay choosable while unauthenticated,
+ * because entering a key here was how it became authenticated. Setup collects no
+ * key any more, so "not signed in" is not a state this screen can move you out
+ * of — the login command on the greyed row is.
  */
 function isChoosable(d: HarnessCapabilityDescriptor): boolean {
-	return d.discovery.state === "ready" || d.acceptsApiKey;
+	return d.discovery.state === "ready";
 }
 
 /** Install-hint copy derived from authAction (greyed rows). */
@@ -119,98 +109,16 @@ function installHintText(d: HarnessCapabilityDescriptor): string {
 /** State hint for choosable rows. */
 function stateHintText(d: HarnessCapabilityDescriptor): string {
 	if (d.discovery.state === "ready") return "Ready";
-	if (d.acceptsApiKey) return "Bring your own model credentials";
 	if (d.discovery.state === "unauthenticated") return "Sign in to use";
 	if (d.discovery.state === "installed") return "Installed – sign in";
 	return "Not installed";
 }
 
-// ── Bring-your-own-key providers ──────────────────────────────────────────────
-
-/**
- * How each provider presents itself in the key fields under a harness row.
- *
- * `agentSelectable` marks a provider an agent can actually be configured with.
- * `openai-compatible` is not one: per-agent openai-compatible is rejected by
- * `validateAgentConfig` (422 UNSUPPORTED_PROVIDER) and by the model resolver
- * itself, because an arbitrary endpoint has no fixed host and nothing per-agent
- * stores one. Setup writes the chosen provider onto every scaffolded agent, so
- * offering it here would produce a team the API refuses to accept.
- *
- * @lore Before the built-in harness was removed, this key went to the model
- * gateway's tiers rather than to an agent, and the gateway DID accept an
- * arbitrary endpoint — it stored a baseUrl per tier. That is why setup used to
- * collect one. The tiers are not what a session runs on any more.
- */
-interface GatewayProviderMeta {
-	readonly label: string;
-	readonly keyPlaceholder: string;
-	/** Whether an agent can be configured with this provider at all. */
-	readonly agentSelectable: boolean;
-	/** Whether the provider publishes a model catalog we can offer as choices. */
-	readonly hasCatalog: boolean;
-}
-
-/**
- * Keyed by provider so the lookup is total — a provider added to MODEL_PROVIDERS
- * without presentation here fails to compile rather than falling back to whatever
- * sits first in a list.
- */
-const GATEWAY_PROVIDERS = {
-	anthropic: {
-		label: "Anthropic",
-		keyPlaceholder: "sk-ant-...",
-		agentSelectable: true,
-		hasCatalog: false,
-	},
-	openrouter: {
-		label: "OpenRouter",
-		keyPlaceholder: "sk-or-...",
-		agentSelectable: true,
-		hasCatalog: true,
-	},
-	"openai-compatible": {
-		label: "OpenAI-compatible",
-		keyPlaceholder: "sk-...",
-		agentSelectable: false,
-		hasCatalog: false,
-	},
-} as const satisfies Record<ModelProvider, GatewayProviderMeta>;
-
-/** The providers setup can offer — the ones an agent can actually be given. */
-const SELECTABLE_PROVIDERS: readonly ModelProvider[] = MODEL_PROVIDERS.filter(
-	(p) => GATEWAY_PROVIDERS[p].agentSelectable,
-);
-
-/** A model offered by a provider's public catalog. */
-interface CatalogModel {
-	readonly id: string;
-	readonly label: string;
-}
-
-/**
- * OpenRouter's public model list. No key required and it serves
- * `access-control-allow-origin: *`, so the browser reads it directly rather
- * than round-tripping through our server (verified 2026-08-10).
- *
- * ⚠️ UNVERIFIED beyond the shape observed on that date: `{ data: [{ id, name,
- * context_length }] }`. Anything unparsable degrades to a typed model field —
- * setup must never be blocked by a third-party catalog being down.
- * https://openrouter.ai/docs/api-reference/list-available-models
- */
-const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
-
-function parseOpenRouterCatalog(body: unknown): CatalogModel[] {
-	const data = (body as { data?: unknown })?.data;
-	if (!Array.isArray(data)) return [];
-	return data.flatMap((item): CatalogModel[] => {
-		if (typeof item !== "object" || item === null) return [];
-		const entry = item as Record<string, unknown>;
-		const id = typeof entry.id === "string" ? entry.id : "";
-		if (!id) return [];
-		return [{ id, label: typeof entry.name === "string" ? entry.name : id }];
-	});
-}
+// @lore The setup screen used to collect an API key, a provider, and a model, and
+// write the key into HyperIdle's credential store for a harness to run on. That
+// path is gone: the harness is what a person brings, and the key lives in the
+// harness's own login. Nothing here holds a model credential, so the OpenRouter
+// catalogue fetch that populated the model picker went with it.
 
 // ── Folder inspection result ──────────────────────────────────────────────────
 
@@ -269,13 +177,6 @@ export function SetupFlow(): JSX.Element {
 	const [name, setName] = useState("");
 	const [repoPath, setRepoPath] = useState("");
 
-	// Built-in gateway credential — provider-scoped, not Anthropic-specific.
-	const [gatewayProvider, setGatewayProvider] = useState<ModelProvider>("anthropic");
-	const [apiKey, setApiKey] = useState("");
-	const [gatewayModel, setGatewayModel] = useState("");
-	const [catalogModels, setCatalogModels] = useState<CatalogModel[]>([]);
-	const [catalogPending, setCatalogPending] = useState(false);
-
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -325,35 +226,6 @@ export function SetupFlow(): JSX.Element {
 	// AV1: Folder inspection result for confirmation row.
 	const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null);
 
-	const providerMeta = GATEWAY_PROVIDERS[gatewayProvider];
-
-	// Fetch the chosen provider's public catalog so the model is picked, never guessed.
-	// A failed fetch leaves catalogModels empty, which renders a typed model field.
-	//
-	// `catalogPending` exists so the field never changes KIND under the user: without
-	// it the control renders as a text input while the request is in flight and swaps
-	// to a select on arrival, discarding whatever was typed in between.
-	useEffect(() => {
-		if (!providerMeta.hasCatalog) {
-			setCatalogModels([]);
-			setCatalogPending(false);
-			return;
-		}
-		let cancelled = false;
-		setCatalogPending(true);
-		apiFetch(OPENROUTER_MODELS_URL)
-			.then(async (res) => (res.ok ? parseOpenRouterCatalog(await res.json()) : []))
-			.catch(() => [])
-			.then((models) => {
-				if (cancelled) return;
-				setCatalogModels(models);
-				setCatalogPending(false);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [providerMeta.hasCatalog]);
-
 	// Resolved functions array based on current preset selection.
 	const resolvedFunctions: readonly string[] =
 		selectedPreset === "custom"
@@ -369,15 +241,7 @@ export function SetupFlow(): JSX.Element {
 	// AE2: submit requires functions when custom is selected (can't have empty roster).
 	const functionsValid = selectedPreset !== "custom" || customFunctions.length > 0;
 
-	// The chosen harness needs a key only when it can take one AND is not already
-	// logged in. A harness that authenticates itself asks for nothing here.
 	const selectedDescriptor = descriptors.find((d) => d.type === selectedHarnessType);
-	const needsGatewayCredential =
-		selectedDescriptor?.acceptsApiKey === true && selectedDescriptor.discovery.state !== "ready";
-
-	// The key alone does not say what to run, so the model is named here too. It
-	// is stored as the agent's model and handed to the harness as `--model`.
-	const gatewayConfigComplete = apiKey.trim().length > 0 && gatewayModel.trim().length > 0;
 
 	// Nothing on this machine can run an agent. Finishing setup here would hand
 	// someone a workspace whose agents silently fail, with nothing on screen
@@ -392,12 +256,7 @@ export function SetupFlow(): JSX.Element {
 		harnessLoaded && descriptors.length > 0 && choosableHarnesses.length === 0;
 
 	// R2: Start requires a name; the key fields only bind when the chosen harness needs them.
-	const canStart =
-		name.trim().length > 0 &&
-		functionsValid &&
-		(!needsGatewayCredential || gatewayConfigComplete) &&
-		!noHarnessAvailable &&
-		!submitting;
+	const canStart = name.trim().length > 0 && functionsValid && !noHarnessAvailable && !submitting;
 
 	const handleFolderPick = useCallback(async (): Promise<void> => {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
@@ -470,17 +329,8 @@ export function SetupFlow(): JSX.Element {
 				// discovery never resolved — there is no default harness to fall back
 				// to any more, so the server is told nothing rather than told wrong.
 				//
-				// On the bring-your-own-key path the model the user typed is the one
-				// that goes on every scaffolded agent: it is what makes the stored key
-				// resolvable (the provider names the credential) and what the harness
-				// is handed as `--model`.
 				const primaryHarness = selectedDescriptor
-					? derivePrimaryHarness(
-							selectedDescriptor,
-							needsGatewayCredential
-								? { modelId: gatewayModel.trim(), modelProvider: gatewayProvider }
-								: undefined,
-						)
+					? derivePrimaryHarness(selectedDescriptor)
 					: undefined;
 
 				const teamRes = await apiFetch("/api/teams", {
@@ -508,28 +358,10 @@ export function SetupFlow(): JSX.Element {
 				} | null;
 				const createdTeamId = teamBody?.team?.id ?? undefined;
 
-				// Step 3: Store the key the chosen harness will run on (AH1 §5).
-				// @lore AH1: Replaced bridge write (window.__HYPERIDLE__.credentials.set)
-				// with HTTP write. apiFetch works in desktop-local AND web/E2E.
-				// The DB write is the runtime + Settings truth.
-				// The bridge mirror is dropped — no surviving non-resolution reader
-				// of the safeStorage credential value after AH1 §3 resolver swap.
-				// @lore AV1 AC4b: key PUT completes BEFORE navigate — ordering guarantee.
-				// @lore AW1: the credential NAME follows the chosen provider. Writing an
-				// OpenRouter key to anthropic_api_key stores it where nothing reads it.
-				//
-				// @lore The key is not ours to call with — HyperIdle has no gateway of
-				// its own any more. It is stored under its provider's credential name,
-				// and the harness adapter hands it to the subprocess under the variable
-				// that provider reads. The tier PATCH that used to follow this write is
-				// gone with the gateway it configured.
-				if (needsGatewayCredential && apiKey.trim()) {
-					await apiFetch(`/api/credentials/${credentialNameForProvider(gatewayProvider)}`, {
-						method: "PUT",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ value: apiKey.trim() }),
-					});
-				}
+				// @lore A step here wrote the key someone typed into HyperIdle's
+				// credential store, so a harness could be run on it. Setup asks for no
+				// key at all now — a harness arrives already logged in, or it is not
+				// choosable.
 
 				// Step 4 (best-effort): Register folder as filesystem.
 				// @lore AV1 Decision 3: inspect result determines kind (code+branch | doc_set).
@@ -590,19 +422,7 @@ export function SetupFlow(): JSX.Element {
 				setSubmitting(false);
 			}
 		},
-		[
-			canStart,
-			name,
-			repoPath,
-			apiKey,
-			resolvedFunctions,
-			navigate,
-			selectedDescriptor,
-			folderInfo,
-			needsGatewayCredential,
-			gatewayProvider,
-			gatewayModel,
-		],
+		[canStart, name, repoPath, resolvedFunctions, navigate, selectedDescriptor, folderInfo],
 	);
 
 	return (
@@ -707,81 +527,6 @@ export function SetupFlow(): JSX.Element {
 															{installHintText(d)}
 														</p>
 													</div>
-												</div>
-											)}
-											{isSelected && needsGatewayCredential && (
-												<div className="flex flex-col gap-[12px] px-[12px] pb-[12px] pl-[36px]">
-													<Select
-														id="setup-gateway-provider"
-														label="Provider"
-														size="sm"
-														value={gatewayProvider}
-														options={SELECTABLE_PROVIDERS.map((p) => ({
-															value: p,
-															label: GATEWAY_PROVIDERS[p].label,
-														}))}
-														onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-															setGatewayProvider(e.target.value as ModelProvider);
-															// A model ID is provider-specific; carrying one across
-															// providers would send a slug the next one cannot resolve.
-															setGatewayModel("");
-														}}
-													/>
-
-													<Input
-														id="setup-api-key"
-														label={`${providerMeta.label} API key`}
-														type="password"
-														placeholder={providerMeta.keyPlaceholder}
-														value={apiKey}
-														onChange={(e: ChangeEvent<HTMLInputElement>) =>
-															setApiKey(e.target.value)
-														}
-														hint="Your key stays on this device."
-														required
-													/>
-
-													{/* The key says who to call, never what to run. There are no
-											    tier defaults to fall back on any more, so the model is
-											    named here whatever the provider — it becomes the agent's
-											    model and the harness's own --model. */}
-													{catalogPending ? (
-														<Select
-															id="setup-gateway-model"
-															label="Model"
-															size="sm"
-															placeholder="Loading models…"
-															value=""
-															options={[]}
-															disabled
-															onChange={() => undefined}
-														/>
-													) : catalogModels.length > 0 ? (
-														<Select
-															id="setup-gateway-model"
-															label="Model"
-															size="sm"
-															placeholder="Choose a model"
-															value={gatewayModel}
-															options={catalogModels.map((m) => ({ value: m.id, label: m.label }))}
-															onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-																setGatewayModel(e.target.value)
-															}
-														/>
-													) : (
-														<Input
-															id="setup-gateway-model"
-															label="Model"
-															type="text"
-															placeholder="anthropic/claude-opus-5"
-															value={gatewayModel}
-															onChange={(e: ChangeEvent<HTMLInputElement>) =>
-																setGatewayModel(e.target.value)
-															}
-															hint="The model ID your provider publishes."
-															required
-														/>
-													)}
 												</div>
 											)}
 										</div>

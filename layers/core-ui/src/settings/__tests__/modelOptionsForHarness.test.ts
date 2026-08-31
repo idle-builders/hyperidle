@@ -25,7 +25,6 @@ import { modelOptionsForHarness } from "../model-options-for-harness.js";
  */
 const MULTI_PROVIDER_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "cursor-agent",
-	acceptsApiKey: false,
 	name: "Cursor Agent",
 	kind: "local",
 	models: [
@@ -65,7 +64,6 @@ const MULTI_PROVIDER_DESCRIPTOR: HarnessCapabilityDescriptor = {
 
 const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "codex",
-	acceptsApiKey: false,
 	name: "Codex",
 	kind: "local",
 	models: [],
@@ -76,7 +74,6 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 
 const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "opencode",
-	acceptsApiKey: true,
 	name: "OpenCode",
 	kind: "local",
 	models: [

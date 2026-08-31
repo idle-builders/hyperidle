@@ -68,7 +68,6 @@ function makeDescriptor(
 			},
 		],
 		modelProviders: ["anthropic"],
-		acceptsApiKey: false,
 		...rest,
 	};
 }
@@ -112,7 +111,6 @@ const UNAVAILABLE_DESCRIPTOR = makeDescriptor({
 const KEY_ACCEPTING_DESCRIPTOR = makeDescriptor({
 	type: "opencode",
 	name: "OpenCode",
-	acceptsApiKey: true,
 	authAction: {
 		kind: "enter_api_key",
 		label: "Enter API key",

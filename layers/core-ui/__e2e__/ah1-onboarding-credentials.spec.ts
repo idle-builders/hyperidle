@@ -115,7 +115,6 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 						type: "opencode",
 						name: "OpenCode",
 						kind: "local",
-						acceptsApiKey: true,
 						authAction: {
 							kind: "native_cli_login",
 							label: "Log in to OpenCode",

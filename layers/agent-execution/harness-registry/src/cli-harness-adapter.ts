@@ -61,13 +61,7 @@ function createIsolatedEnforcementRegistry(): EnforcementRegistry {
  * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
  * @lore {{prompt}} added for per-session seed prompt carrier (codex exec).
  */
-type TemplateVar =
-	| "{{sandbox}}"
-	| "{{model}}"
-	| "{{apiKey}}"
-	| "{{baseUrl}}"
-	| "{{mcpUrl}}"
-	| "{{prompt}}";
+type TemplateVar = "{{sandbox}}" | "{{model}}" | "{{mcpUrl}}" | "{{prompt}}";
 
 function isExecutableFile(filePath: string): boolean {
 	try {
@@ -90,7 +84,7 @@ interface CliAdapterConfig {
 	readonly binary: string;
 	/**
 	 * CLI arguments with template variables:
-	 * {{sandbox}}, {{model}}, {{apiKey}}, {{baseUrl}}, {{mcpUrl}}.
+	 * {{sandbox}}, {{model}}, {{mcpUrl}}.
 	 */
 	readonly args: readonly string[];
 	/**
@@ -98,50 +92,14 @@ interface CliAdapterConfig {
 	 * These are merged with the allowlisted host env vars.
 	 */
 	readonly envMap: Readonly<Record<string, string>>;
-	/**
-	 * Which environment variable a stored API key arrives in, keyed by the
-	 * provider that key is for.
-	 *
-	 * Only for a harness that accepts someone's own key — opencode. The others
-	 * authenticate through their own login and are handed nothing, deliberately:
-	 * injecting a key there shadows the auth the person already has.
-	 *
-	 * A provider with no entry gets nothing. That is the correct answer for
-	 * `openai-compatible`, which has no fixed host, so no variable can mean "this
-	 * endpoint" — it needs a provider block carrying its base URL, and putting its
-	 * key in some other vendor's variable would aim it at the wrong service.
-	 *
-	 * @lore The predecessor was a fixed `envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" }`
-	 * on opencode, which sent every key under that one name whatever provider it
-	 * was for. Onboarding offers three providers, so the common case — an
-	 * OpenRouter key — was stored, carried into the subprocess, and unreadable by
-	 * the provider it belonged to. It also set the variable to `""` when there was
-	 * no key at all, and an empty-but-set variable is not nothing: a harness that
-	 * reads it can prefer it over a working login.
-	 */
-	readonly credentialEnvByProvider?: Readonly<Record<string, string>>;
-	/**
-	 * How a brought OpenAI-compatible endpoint is declared to this harness.
-	 *
-	 * Onboarding offers three provider shapes. Two are named vendors with fixed
-	 * hosts, and their key travels in {@link credentialEnvByProvider}. The third
-	 * is whatever endpoint someone types, and no environment variable can carry
-	 * it — the key alone says nothing about where to send it. It needs a provider
-	 * declared in the config file the harness reads from the session directory,
-	 * carrying the base URL, and the model addressed as `<provider>/<model>` so
-	 * the id names who serves it.
-	 *
-	 * Only opencode declares this. Verified live 2026-08-27: a project
-	 * `opencode.json` with this shape made the model appear in `opencode models`.
-	 */
-	readonly customEndpointProvider?: {
-		/** Provider id written into the config, and the prefix the model takes. */
-		readonly id: string;
-		/** The SDK package the harness loads for an OpenAI-compatible endpoint. */
-		readonly npm: string;
-		/** Config file, relative to the session directory. */
-		readonly configFile: string;
-	};
+	// @lore Two fields stood here: `credentialEnvByProvider`, which put a stored
+	// API key into the subprocess under its own provider's variable name, and
+	// `customEndpointProvider`, which declared a brought OpenAI-compatible
+	// endpoint in the harness's own config file. Both existed so someone could
+	// bring a key and have a harness run on it. That is not a thing any more —
+	// the harness is what you bring, and the key lives in its own login. HyperIdle
+	// stores no model credential, so there is nothing left to inject.
+
 	/**
 	 * How to interpret stdout lines.
 	 * "ndjson" — each line is parsed as JSON; valid HarnessEvent objects are
@@ -362,52 +320,6 @@ function resolveTemplates(template: string, vars: Record<TemplateVar, string>): 
 	return result;
 }
 
-/**
- * Declare a brought OpenAI-compatible endpoint in the harness's own config file,
- * and return the model id addressed through it.
- *
- * The file is MERGED, never rewritten: the MCP server is already in there by the
- * time a session starts, and clobbering it would take away the agent's tools to
- * give it a model. An unreadable or non-object file is replaced rather than
- * merged into — there is nothing there worth keeping.
- */
-function declareCustomEndpoint(params: {
-	readonly sandboxPath: string;
-	readonly spec: NonNullable<CliAdapterConfig["customEndpointProvider"]>;
-	readonly model: string;
-	readonly baseUrl: string;
-	readonly apiKey: string;
-}): string {
-	const { sandboxPath, spec, model, baseUrl, apiKey } = params;
-	const file = path.join(sandboxPath, spec.configFile);
-
-	let config: Record<string, unknown> = {};
-	try {
-		const existing = JSON.parse(fs.readFileSync(file, "utf-8")) as unknown;
-		if (existing && typeof existing === "object" && !Array.isArray(existing)) {
-			config = existing as Record<string, unknown>;
-		}
-	} catch {
-		// No file yet, or nothing parseable in it.
-	}
-
-	const provider =
-		config.provider && typeof config.provider === "object" && !Array.isArray(config.provider)
-			? (config.provider as Record<string, unknown>)
-			: {};
-
-	provider[spec.id] = {
-		npm: spec.npm,
-		options: { baseURL: baseUrl, apiKey },
-		// The provider must declare the model, or the prefixed id points at nothing.
-		models: { [model]: {} },
-	};
-	config.provider = provider;
-
-	fs.writeFileSync(file, JSON.stringify(config, null, 2), "utf-8");
-	return `${spec.id}/${model}`;
-}
-
 /** Build the sandboxed environment from allowlist + resolved envMap. */
 function buildSandboxedEnv(
 	allowlist: readonly string[],
@@ -581,13 +493,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			: "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
-			// The agent's own choice first. `resolvedModel` is the gateway's answer,
-			// which needs an API key per provider and rejects `openai-compatible`
-			// outright — on a subscription-authenticated machine it is absent, and
-			// falling back to it is what silently discarded the person's model.
-			"{{model}}": config.selectedModel ?? config.resolvedModel?.model ?? "",
-			"{{apiKey}}": config.resolvedModel?.apiKey ?? "",
-			"{{baseUrl}}": config.resolvedModel?.baseUrl ?? "",
+			// The agent's own choice, and nothing else. A fallback to the model
+			// gateway's answer used to sit here, and on a subscription-authenticated
+			// machine it was absent — which is how the person's chosen model got
+			// silently discarded.
+			"{{model}}": config.selectedModel ?? "",
 			"{{mcpUrl}}": config.mcpConnectionInfo?.url ?? "",
 			"{{prompt}}": promptSeed,
 		};
@@ -595,8 +505,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Resolve args
 		let resolvedArgs = this.config.args.map((arg) => resolveTemplates(arg, templateVars));
 
-		// @lore AR4 WARNING-D1 conditional-model: When resolvedModel is absent or model is
-		// empty (e.g. builtin adapter path, or a CLI lane provisioned without a model), the
+		// @lore AR4 WARNING-D1 conditional-model: When the agent named no model, the
 		// {{model}} template resolves to "". Passing --model "" to codex sends an empty string
 		// to the OpenAI API → 400 invalid_request_error. Before AR4 codex had no --model flag
 		// and used its CLI default. Preserve pre-AR4 behavior: drop --model + the following
@@ -630,32 +539,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedEnvMap[key] = resolveTemplates(value, templateVars);
 		}
 
-		// ── The stored key, under the name its own provider reads.
-		const credentialEnv = this.config.credentialEnvByProvider;
-		const provider = config.resolvedModel?.provider;
-		const apiKey = config.resolvedModel?.apiKey;
-		if (credentialEnv && provider && apiKey) {
-			const varName = credentialEnv[provider];
-			if (varName) resolvedEnvMap[varName] = apiKey;
-		}
-
-		// ── A brought OpenAI-compatible endpoint, which no variable can carry.
-		const endpointSpec = this.config.customEndpointProvider;
-		const baseUrl = config.resolvedModel?.baseUrl;
-		if (endpointSpec && provider === "openai-compatible" && apiKey && baseUrl) {
-			const model = templateVars["{{model}}"];
-			if (model) {
-				const addressed = declareCustomEndpoint({
-					sandboxPath: config.sandboxPath,
-					spec: endpointSpec,
-					model,
-					baseUrl,
-					apiKey,
-				});
-				// Re-resolve argv so `--model` names the provider that serves it.
-				resolvedArgs = resolvedArgs.map((arg) => (arg === model ? addressed : arg));
-			}
-		}
+		// @lore No API key is injected into a harness, ever. Two blocks stood here —
+		// one putting a stored key under its provider's variable name, one writing a
+		// brought endpoint into the harness's own config file. A harness
+		// authenticates itself, and an injected key can shadow the login the person
+		// already has rather than help it.
 
 		// ── Per-session CODEX_HOME injection.
 		//
@@ -755,7 +643,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			reEngageCarrier: this.config.reEngageCarrier,
 			spawnEnv: sandboxedEnv,
 			// store resolved model for re-engage spawn (opencode --model flag).
-			reEngageResolvedModel: config.selectedModel ?? config.resolvedModel?.model,
+			reEngageResolvedModel: config.selectedModel,
 			reEngageOptionArgv: optionArgv,
 		};
 
@@ -1109,10 +997,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// unknown → none (drain-gate floor backstop only)
 			returnEnforcement:
 				this.config.returnEnforcementChannel ?? deriveCliChannel(this.config.binary),
-			// A harness accepts a stored key exactly when it declares the variable
-			// names to hand one to. Derived, never a per-binary list: a CLI without
-			// that mapping gets no key, which is what protects its own login.
-			acceptsApiKey: this.config.credentialEnvByProvider !== undefined,
 			// AL7 delta: expose the MCP config dialect so session-provisioning can
 			// call writeCliMcpConfig with the right dialect. Absent if no mcpConfig set.
 			...(this.config.mcpConfig ? { cliMcpDialect: this.config.mcpConfig.dialect } : {}),

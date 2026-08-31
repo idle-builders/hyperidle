@@ -31,7 +31,6 @@ const MOCK_DESCRIPTORS = [
 		name: "OpenCode",
 		kind: "local",
 		accessMode: "provider-subscription-cli",
-		acceptsApiKey: true,
 		authAction: {
 			kind: "native_cli_login",
 			label: "Log in to OpenCode",

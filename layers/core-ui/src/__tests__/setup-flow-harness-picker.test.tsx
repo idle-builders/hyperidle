@@ -28,7 +28,6 @@ function makeDescriptor(
 ): HarnessCapabilityDescriptor {
 	return {
 		type,
-		acceptsApiKey: false,
 		name,
 		kind: "local",
 		authAction: { kind: "native_cli_login", label: "Sign in", command: [`${type}`, "login"] },
@@ -53,13 +52,6 @@ const OPENCODE_READY: HarnessCapabilityDescriptor = makeDescriptor(
 		},
 	],
 );
-
-/** opencode before it has a login: the row that asks for a key. */
-const OPENCODE_NEEDS_KEY: HarnessCapabilityDescriptor = {
-	...makeDescriptor("opencode", "OpenCode", "unauthenticated"),
-	acceptsApiKey: true,
-	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-};
 
 const CLAUDE_CODE_READY: HarnessCapabilityDescriptor = makeDescriptor(
 	"claude-code",
@@ -298,20 +290,17 @@ describe("setup submit ordering — key write before nav", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("PUT /api/credentials call precedes navigate to /work?onboarding=true", async () => {
+	// @lore This asserted a PUT /api/credentials landed before the navigate, back
+	// when setup collected an API key and stored it for a harness to run on. Setup
+	// asks for no credential now — the harness holds its own — so the ordering
+	// guarantee is that the team is created before we leave the screen, and the
+	// credential write is asserted absent.
+	it("creates the team before navigating, and writes no credential", async () => {
 		const user = userEvent.setup();
-		const { getCallOrder } = setupFetchMock({
-			descriptors: [OPENCODE_NEEDS_KEY],
-		});
+		const { getCallOrder } = setupFetchMock({ descriptors: [OPENCODE_READY] });
 		renderSetupFlow();
 
 		await user.type(screen.getByLabelText(/your name/i), "Alice");
-		await waitFor(() => {
-			expect(screen.getByLabelText(/api key/i)).toBeInTheDocument();
-		});
-		await user.type(screen.getByLabelText(/api key/i), "sk-ant-test");
-		await user.type(screen.getByLabelText(/^model/i), "claude-opus-5");
-
 		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
 
 		await waitFor(() => {
@@ -322,16 +311,9 @@ describe("setup submit ordering — key write before nav", () => {
 		const searchEl = screen.getByTestId("current-search");
 		expect(searchEl.textContent).toContain("onboarding=true");
 
-		// Verify PUT /api/credentials is in call sequence before nav (which triggers work-page render)
 		const calls = getCallOrder();
-		const credIndex = calls.findIndex(
-			(c) => c.method === "PUT" && c.url.includes("/api/credentials"),
-		);
-		const teamsIndex = calls.findIndex((c) => c.method === "POST" && c.url.includes("/api/teams"));
-		expect(credIndex).toBeGreaterThan(-1);
-		expect(teamsIndex).toBeGreaterThan(-1);
-		// credentials must come after teams (teams first, then creds, then nav)
-		expect(credIndex).toBeGreaterThan(teamsIndex);
+		expect(calls.some((c) => c.method === "POST" && c.url.includes("/api/teams"))).toBe(true);
+		expect(calls.some((c) => c.url.includes("/api/credentials"))).toBe(false);
 	});
 
 	it("primaryHarness is included in POST /api/teams body when a ready harness is selected", async () => {

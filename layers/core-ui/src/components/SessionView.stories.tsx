@@ -262,7 +262,6 @@ const DESCRIPTOR: HarnessCapabilityDescriptor = {
 	kind: "local",
 	authAction: { kind: "native_cli_login", label: "Logged in" },
 	discovery: { state: "ready", version: "1.4.2" },
-	acceptsApiKey: false,
 	modelProviders: ["anthropic"],
 	models: [
 		{

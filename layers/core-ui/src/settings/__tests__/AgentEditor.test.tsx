@@ -49,7 +49,6 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	],
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 	discovery: { state: "ready" },
-	acceptsApiKey: true,
 	authAction: {
 		kind: "native_cli_login",
 		label: "Log in to OpenCode",
@@ -64,7 +63,6 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	models: [], // codex has no enumerable models
 	modelProviders: [], // provider-agnostic
 	discovery: { state: "ready" },
-	acceptsApiKey: false,
 	authAction: {
 		kind: "native_cli_login",
 		label: "Log in to Codex",
@@ -88,7 +86,6 @@ const CLAUDE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	],
 	modelProviders: ["anthropic"],
 	discovery: { state: "ready" },
-	acceptsApiKey: false,
 	authAction: {
 		kind: "native_cli_login",
 		label: "Log in to Claude",
@@ -169,7 +166,6 @@ const DECLARING_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	],
 	modelProviders: ["anthropic"],
 	discovery: { state: "ready" },
-	acceptsApiKey: false,
 	authAction: { kind: "none", label: "" },
 };
 

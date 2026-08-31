@@ -34,7 +34,6 @@ vi.mock("../../components/CredentialsTab.js", () => ({
 
 const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "opencode",
-	acceptsApiKey: true,
 	name: "OpenCode",
 	kind: "local",
 	models: [
@@ -54,7 +53,6 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 
 const CLAUDE_CODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "claude-code",
-	acceptsApiKey: false,
 	name: "Claude Code",
 	kind: "local",
 	models: [
@@ -78,7 +76,6 @@ const CLAUDE_CODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 
 const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "codex",
-	acceptsApiKey: false,
 	name: "Codex",
 	kind: "local",
 	models: [],
@@ -94,7 +91,6 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 // Descriptor with no caps and no models — should NOT trigger split open
 const EMPTY_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "cursor-agent",
-	acceptsApiKey: false,
 	name: "Cursor Agent",
 	kind: "local",
 	models: [],

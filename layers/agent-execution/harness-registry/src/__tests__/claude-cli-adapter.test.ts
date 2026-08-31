@@ -130,12 +130,7 @@ function makeSessionConfig() {
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse" as const,
 		tools: [],
-		resolvedModel: {
-			provider: "anthropic" as const,
-			model: "claude-sonnet-4-6",
-			apiKey: "sk-test",
-			baseUrl: "https://api.anthropic.com",
-		},
+		selectedModel: "claude-sonnet-4-6",
 		mcpConnectionInfo: undefined,
 	};
 }
@@ -167,7 +162,7 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		expect(args[args.indexOf("--model") + 1]).toBe("claude-sonnet-4-6");
 	});
 
-	it("passes the model the agent chose, with no gateway-resolved model present at all", async () => {
+	it("passes the model the agent chose", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -175,8 +170,7 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
 		// The shape a subscription-authenticated machine actually has: an agent
 		// configured with a model, and NO credential anywhere to resolve one.
-		const { resolvedModel: _dropped, ...withoutGateway } = makeSessionConfig();
-		const sessionP = adapter.startSession({ ...withoutGateway, selectedModel: "haiku" });
+		const sessionP = adapter.startSession({ ...makeSessionConfig(), selectedModel: "haiku" });
 		await Promise.resolve();
 		fakeChild.emitExit(0, null);
 		await sessionP;

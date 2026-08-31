@@ -110,12 +110,6 @@ export interface HarnessCapabilityDescriptor {
 	readonly authAction: HarnessAuthActionDescriptor;
 	readonly discovery: HarnessDiscoveryStatus;
 	readonly models: readonly HarnessModelDescriptor[];
-	/**
-	 * Whether this harness can run on an API key HyperIdle stores. Drives the
-	 * "bring your own key" affordance in setup: a harness that accepts one is
-	 * choosable before it has a login, because supplying the key IS the login.
-	 */
-	readonly acceptsApiKey: boolean;
 	readonly returnEnforcement?: ReturnEnforcementChannel;
 	/** Legacy compatibility for existing SettingsAgents selector. */
 	readonly modelProviders: readonly string[];
