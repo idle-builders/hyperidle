@@ -81,7 +81,6 @@ Register a filesystem once here with **+ Add filesystem**; injecting it into a s
 
 | Backend | What it is | How to activate |
 |---------|-----------|-----------------|
-| **Built-in** | HyperIdle's own model gateway (Anthropic, OpenAI, OpenRouter API keys) | Add credentials in **Settings → Credentials** |
 | **Claude Code** | Anthropic's Claude Code CLI | Run `claude auth login` in a terminal |
 | **Codex** | OpenAI Codex CLI | Run `codex login` in a terminal |
 | **OpenCode** | OpenCode CLI | Run `opencode providers login` in a terminal |

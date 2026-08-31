@@ -1,6 +1,6 @@
 # Run-Unit Model — As Built (AQ1)
 
-An agent session runs in a **per-session working directory on the host machine**. The agent binary (Claude Code CLI, codex, opencode, or the builtin SDK loop) spawns as a **host child process** — same user account, same `$HOME`, same environment. There is no isolation boundary. The working directory is created at session start and deleted when the session ends.
+An agent session runs in a **per-session working directory on the host machine**. The agent binary (Claude Code CLI, codex, opencode, cursor-agent) spawns as a **host child process** — same user account, same `$HOME`, same environment. There is no isolation boundary. The working directory is created at session start and deleted when the session ends.
 
 This is the only local run path as of AQ1. The code noun `Sandbox*` (`SandboxAdapter`, `LocalSandboxAdapter`) names the working-directory abstraction, not an isolation layer.
 

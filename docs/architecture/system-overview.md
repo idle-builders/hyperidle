@@ -56,7 +56,7 @@ Agents run as host processes in a local working directory — there is no isolat
 | API Layer | Hono on `@hono/node-server` | Same + load balancer |
 | Event Bus | In-process EventBus (TypeScript) | _Future candidate:_ Redis pub/sub or NATS (cloud profile only) |
 | Scheduler | `setInterval` services inside the owning Service, e.g. `layers/core-api/routine/src/routine-scheduler.ts` | _Future candidate:_ external queue (cloud profile only) |
-| Harnesses | builtin (OpenRouter) + CLI adapters (claude/codex/opencode) + remote worker, pooled via `layers/agent-execution/harness-registry/src/adapter-pool.ts` | — |
+| Harnesses | CLI adapters (claude-code/codex/opencode/cursor-agent) + remote worker, pooled via `layers/agent-execution/harness-registry/src/adapter-pool.ts` | — |
 | Sandbox (default) | `LocalSandboxAdapter` (host working dir); `DisabledSandboxAdapter` | Opt-in isolation planned (AQ2) |
 | Human Interface | React + TypeScript (Electron renderer) | Same |
 | Desktop shell | Electron (macOS, arm64, DMG) | — |

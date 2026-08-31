@@ -1,42 +1,59 @@
 # Model Routing and Cost
 
-How a session gets its model: per-agent model first, tier fallback second. This doc owns the **ModelTier vocabulary** (`reasoning | workhorse | fast`).
+How a session gets its model: the agent's own model, handed to the harness that runs it. This doc
+owns the **ModelTier vocabulary** (`reasoning | workhorse | fast`), which is now a **cost-reporting
+label only** — see §2.
 
-## 1. Per-agent model
+## 1. The agent's model
 
-Each agent can have a **per-agent model** (`agent_run_config.model_id` + `agent_run_config.model_provider`, `framework/db/src/schema.ts` — AU26 moved these off `users` into the agent-orchestration-owned `agent_run_config` table), set in Settings → Agents (options come from `MODEL_CATALOG`). Two agents can run different models during the same bet — a PM on Opus while a builder runs Sonnet.
+Each agent has a **model** (`agent_run_config.model_id` + `agent_run_config.model_provider`,
+`framework/db/src/schema.ts`), set in Settings → Agents. The options come from the **harness itself**
+— each CLI reports the models it can run, and discovery reads that list (`harness-discovery.ts`).
+Two agents can run different models during the same bet — a PM on Opus while a builder runs Sonnet.
 
-Resolution order (`resolveModel`, `framework/domain-model/src/model-gateway.ts`) — a single discriminated entry point that replaced the former separate `resolveAgentModel`/`resolveModelTier` pair:
+There is one resolution step, and it is not a lookup: `agent_run_config.model_id` becomes
+`SessionConfig.selectedModel` (`provisioner.ts`), and the harness adapter passes it to the binary as
+`--model` (`cli-harness-adapter.ts`). No provider is contacted, no credential is resolved, and there
+is no fallback — a harness told nothing runs its own default, which is a real answer rather than a
+missing one.
 
-1. **Per-agent path** (`{ kind: "agent", modelId, modelProvider, tierFallback }`) — if `modelId` is set, resolve it directly using `modelProvider` for the credential lookup. Supported providers: `anthropic`, `openrouter`. `openai-compatible` throws `UnsupportedAgentProviderError` — configure it at the tier level instead.
-2. **Tier fallback** (`{ kind: "tier", tier }`) — no `modelId` → the tier → model mapping from Settings → Models. Session provisioning computes the tier as `params.modelTier ?? agent tier preference ?? "workhorse"` (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`).
+An agent's model is **not** validated against a central list. A harness that publishes a model list
+has its own ids checked against it (`UNKNOWN_MODEL`,
+`layers/core-api/src/routes/validate-agent-config.ts`); one that publishes nothing accepts anything,
+because an empty list means either "this harness manages its own models" or "the probe failed", and
+those are indistinguishable from here.
 
-Default per-agent model for new agents: `DEFAULT_AGENT_MODEL_ID = "claude-sonnet-4-6"` (`framework/domain-model/src/model-gateway.ts`).
+> **Removed.** A model gateway used to sit between the agent and the model: `resolveModel` turned a
+> tier or a per-agent pair into a `ResolvedModel` (provider + model + apiKey + baseUrl) out of
+> `Settings → Models` and a credential store. It existed for the built-in harness, the only one that
+> called a provider API itself. Every harness now authenticates through its own login. Gone with it:
+> `ModelGatewayConfig`, `BUILT_IN_GATEWAY_CONFIG`, `MODEL_CATALOG`, `DEFAULT_AGENT_MODEL_ID`,
+> `PATCH /api/model-gateway`, the Settings → Models screen, and the three model-provider credentials.
+> See [`docs/architecture/credential-model.md`](../architecture/credential-model.md).
 
-## 2. Model tiers
+## 2. Model tiers — a cost label, not a selector
 
-The tier is a fallback and cost vocabulary, not the primary model selector. The vocabulary is **closed**: `MODEL_TIERS = ["reasoning", "workhorse", "fast"]` (`framework/domain-model/src/types.ts`).
+The vocabulary is **closed**: `MODEL_TIERS = ["reasoning", "workhorse", "fast"]`
+(`framework/domain-model/src/types.ts`).
 
-| Tier | When to use | Default mapping |
-|------|-------------|-----------------|
-| **Reasoning** | Complex analysis, code generation, product decisions | `claude-opus-4-8` |
-| **Workhorse** | Standard task execution, content creation, routine code, most sessions | `claude-sonnet-4-6` |
-| **Fast** | Formatting, classification, bulk processing, summarization | `claude-haiku-4-5` |
+A tier **selects nothing**. It used to name which gateway entry a session resolved against; with the
+gateway gone, the only thing a tier still does is key the token-usage bucket a session's spend is
+reported in (`TokenUsage.byTier`, `cli-harness-adapter.ts`). Session provisioning still computes one
+— `params.modelTier ?? agent tier preference ?? "workhorse"` (`provisioner.ts`) — and hands it
+through as that label.
 
-The default mapping is `BUILT_IN_GATEWAY_CONFIG` (`framework/domain-model/src/model-gateway.ts`). The deployer reconfigures it per tier in Settings → Models (`ModelTierConfig`: provider + model + optional `baseUrl`, `framework/domain-model/src/model-gateway.ts`) — a solo builder might map all three tiers to Sonnet; another team maps Fast to a local OpenAI-compatible endpoint. The process layer cares about the tier, not the model behind it.
+`agent_run_config.model_tier_preference` therefore chooses which bucket an agent's tokens land in
+and nothing else. It is surfaced in the agent editor and on the agent profile, which overstates what
+it does; **this is a known open question, not a settled design.**
 
-Handling of a tier name outside the closed enum (coerce-and-flag, `ModelTierUnknownWarning`) is owned by [`docs/process-layer/canonical-shapes.md`](../process-layer/canonical-shapes.md).
+Handling of a tier name outside the closed enum (coerce-and-flag, `ModelTierUnknownWarning`) is owned
+by [`docs/process-layer/canonical-shapes.md`](../process-layer/canonical-shapes.md).
 
-## 3. Model catalog
+## 3. Cost
 
-`MODEL_CATALOG` (`framework/domain-model/src/model-gateway.ts`) is the closed set of supported Anthropic models:
+Token accounting uses the tier vocabulary: `TokenUsage.byTier` is keyed by `ModelTier`
+(`framework/domain-model/src/types/money.ts`), so a session's reported spend lines up with the bucket
+its agent was configured with.
 
-`claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5`, `claude-fable-5`
-
-An anthropic `modelId` outside the catalog is rejected during agent creation/update (`UNKNOWN_MODEL`, `layers/agent-orchestration/agent-run-config/src/validate-agent-config.ts`).
-
-## 4. Cost
-
-Token accounting uses the same tier vocabulary: `TokenUsage.byTier` is keyed by `ModelTier` (`framework/domain-model/src/types/money.ts`), so a session's reported spend lines up with the routing decision that produced it.
-
-Cost caps — the Money-only agent < team < factory hierarchy, the no-duration rule, and the recorded gaps — are owned by [`docs/process-layer/wip-and-cost-limits.md`](../process-layer/wip-and-cost-limits.md).
+Cost caps — the Money-only agent < team < factory hierarchy, the no-duration rule, and the recorded
+gaps — are owned by [`docs/process-layer/wip-and-cost-limits.md`](../process-layer/wip-and-cost-limits.md).

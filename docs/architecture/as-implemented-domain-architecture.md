@@ -11,7 +11,7 @@ flowchart LR
   Conversation["Conversation domain\nthreads, messages, reviews, artifacts"]
   Knowledge["Knowledge domain\nknowledge items, relevance, attention, writeback"]
   Session["Agent session domain\nsession lifecycle and execution"]
-  Harness["Harness domain\nbuiltin, CLI, remote adapters"]
+  Harness["Harness domain\nCLI + remote adapters"]
   Integration["Integration domain\nfilesystems, credentials, service connections"]
   Eventing["Domain event bus\nstate changes and push"]
 
@@ -400,7 +400,7 @@ Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified 
 
 In-process `setInterval` services, no external workflow engine. Routine scheduler (`layers/core-api/routine/src/routine-scheduler.ts`) fires cron/event/heartbeat triggers and honors silent routines; dispatch lives in `layers/agent-orchestration/dispatch/`; `checkAndUnblockDependents` (`layers/core-api/work/src/dependency-watcher.ts`) moves dependent tasks off hold. The scheduler never calls models — it reads the store and emits events.
 
-Model tier selection: explicit param → agent `modelTierPreference` → `"workhorse"`; tier→model resolution via the model gateway. Vocabulary and catalog: [model routing and cost](../agent-layer/model-routing-and-cost.md).
+A session runs the model its agent was configured with — `agent_run_config.model_id` reaches the harness as `SessionConfig.selectedModel`. There is no gateway and no tier→model resolution; the tier is a cost-reporting label only. Vocabulary: [model routing and cost](../agent-layer/model-routing-and-cost.md).
 
 ### Knowledge Services
 
@@ -414,7 +414,7 @@ Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) 
 
 ### Harness adapters
 
-Interface in `framework/harness-protocol/src/harness/harness-adapter.ts`; implementations in `layers/agent-execution/harness-registry/src/`: builtin (gateway/direct-key runtime — anthropic/openrouter/openai-compatible, `builtin-harness-adapter.ts`), CLI (codex, claude-code, opencode — `cli-harness-adapter.ts`), remote worker (`remote-harness-adapter.ts`). Autodiscovery covers codex, claude-code, cursor-agent, opencode (`harness-discovery.ts`). Descriptor, probes, MCP bridge, pre-compaction contract: [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
+Interface in `framework/harness-protocol/src/harness/harness-adapter.ts`; implementations in `layers/agent-execution/harness-registry/src/`: CLI (codex, claude-code, opencode, cursor-agent — `cli-harness-adapter.ts`) and remote worker (`remote-harness-adapter.ts`). Autodiscovery covers the same four CLIs (`harness-discovery.ts`). A built-in in-process adapter used to sit alongside these, calling a provider API directly; it is gone, and with it the model gateway that fed it. Descriptor, probes, MCP bridge, pre-compaction contract: [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
 ### Sandbox (run unit)
 

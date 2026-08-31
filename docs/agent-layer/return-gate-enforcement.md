@@ -41,7 +41,7 @@ The channel type is defined in `framework/harness-protocol/src/harness/harness-a
 
 ```
 "sdk-inprocess" | "settings-claude" | "settings-codex" |
-"builtin-loop" | "process-reengage" | "soft-continue" | "none"
+"process-reengage" | "soft-continue" | "none"
 ```
 
 `sdk-inprocess` is dead — no adapter declares it since claude-code moved to the CLI adapter and `settings-claude`; it survives only in the type union. Because the field is non-optional, `npm run check` fails any adapter that doesn't declare a channel — the "uniform across harnesses" guarantee is enforced at the type level.
@@ -117,11 +117,10 @@ Re-engage is bounded by `MAX_FORCE_RETURNS`. The `CliSession.reEngageCount` coun
 
 **Proof:** `real-harness-return-enforcement-realbinary.integration.test.ts` — the live process-reengage proof spawns the real opencode binary, detects `step_finish` on the first turn, fires the re-engage spawn with the forcing message, and confirms both turns complete.
 
-### `builtin` — `builtin-loop`
-
-`provisionReturnHook` is a no-op for `builtin-loop`. The builtin harness (`BuiltinHarnessAdapter`) owns its own loop. At two intercept points — `end_turn`/`stop` in `runExecuteTurn` and end-of-loop break in `runChatTurn` — the adapter calls `shouldForceReturn({ returned: session.returnSeen }, session.forceCount)`. If non-null, it pushes the forcing message as a user message and continues the loop without setting `session.done = true`.
-
-An exemption applies: if none of the session's tool defs are return actions (e.g. the `create_bet`/`edit_bet`-only chat path), the force check is skipped — forcing an agent to call a tool it doesn't have causes a hard error.
+> **Removed: the `builtin-loop` channel.** The built-in harness owned its own loop and intercepted
+> turn-end in process, so `provisionReturnHook` was a no-op for it — it wrote no file and spawned
+> nothing, which made its "live proof" a proof that nothing happened. The harness and the channel are
+> both gone. Every channel that remains provisions a real artifact a real binary reads.
 
 ### `cursor-agent` — `none`
 
@@ -157,7 +156,6 @@ The drain-end `ReturnGate` is the un-bypassable backstop. Even if an agent strip
 
 | Adapter | Channel | Native enforcement | Backstop |
 |---|---|---|---|
-| `BuiltinHarnessAdapter` | `builtin-loop` | In-process loop intercept + re-injects | drain-gate floor |
 | `CliHarnessAdapter` (claude-code) | `settings-claude` | Stop hook exit-2+stderr blocks | drain-gate floor |
 | `CliHarnessAdapter` (codex) | `settings-codex` | Stop hook decision:block JSON blocks | drain-gate floor |
 | `CliHarnessAdapter` (opencode) | `process-reengage` | Process wrapper re-invokes with forcing message | drain-gate floor |
@@ -193,7 +191,7 @@ const adapterForceCount = harness.getForceReturnCount?.(sessionId) ?? 0;
 return registryForceCount + adapterForceCount;
 ```
 
-The registry is the primary source (incremented by the `/return-status` route); `getForceReturnCount` (optional method on `HarnessAdapter`) supplements for adapters that maintain their own in-process counter (builtin: `session.forceCount`). Zero when no forcing was needed — and `forceCount = 0` on a `not_returned` outcome is an honest signal that the hook never fired (inspect hook provisioning + endpoint wiring), never a drain fallback.
+The registry is the primary source (incremented by the `/return-status` route); `getForceReturnCount` (optional method on `HarnessAdapter`) supplements for an adapter that maintains its own in-process counter. Zero when no forcing was needed — and `forceCount = 0` on a `not_returned` outcome is an honest signal that the hook never fired (inspect hook provisioning + endpoint wiring), never a drain fallback.
 
 ---
 
@@ -243,6 +241,5 @@ Each real-binary lane is gated by `requireHarness(<name>)` (hard-fail, never ski
 | `codex` | "FULL BINARY PROOF (CODEX_HOME)" — per-session `.codex-home/`; `CODEX_HOME` injected; Stop hook fires; bridge `callCount >= 1` |
 | `opencode` | live process-reengage proof — `step_finish` detected; re-engage spawn fires with forcing message; both turns complete |
 | `cursor-agent` | provisioning a no-artifact channel resolves without throwing |
-| `builtin` | realbinary block covers provisioning no-op + real route forcing |
 
-Real-binary tests are local-only (require binary + auth). The deterministic builtin anchor — the force-bounded `shouldForceReturn` behavior and the gate's returned/not-returned detection — lives in `return-gate.test.ts` (unit test) and runs without any real binary or LLM call.
+Real-binary tests are local-only (require binary + auth). The deterministic anchor — the force-bounded `shouldForceReturn` behavior and the gate's returned/not-returned detection — lives in `return-gate.test.ts` (unit test) and runs without any real binary or LLM call.

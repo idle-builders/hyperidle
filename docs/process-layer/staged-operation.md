@@ -25,7 +25,7 @@ When a checkpoint is attached, the routing line is **reversibility** (`classifyR
 
 ## The carrier: HyperIdle's MCP bridge, never a harness-native permission feature
 
-The single shipped carrier of the workflow on every CLI harness is **HyperIdle's production MCP bridge** — `/api/mcp/:token` (`layers/agent-execution/harness-registry/src/mcp/mcp-route.ts`) → `createMcpBridge` (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts`) → the capturing router at `registry.invoke` (`layers/agent-execution/harness-registry/src/tool-registry.ts` — "the router in `invoke` is the uniform record/consume"). The builtin harness is the same router in-process.
+The single shipped carrier of the workflow on every CLI harness is **HyperIdle's production MCP bridge** — `/api/mcp/:token` (`layers/agent-execution/harness-registry/src/mcp/mcp-route.ts`) → `createMcpBridge` (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts`) → the capturing router at `registry.invoke` (`layers/agent-execution/harness-registry/src/tool-registry.ts` — "the router in `invoke` is the uniform record/consume").
 
 No harness-native permission mechanism carries any of this. There is no `canUseTool` (the Agent SDK was removed; claude-code is the real `claude` CLI), no `PreToolUse` hook (the codex hook is a **Stop** hook for return enforcement), and no opencode `permission` config anywhere in the codebase — the claude production adapter runs `--permission-mode bypassPermissions` (`layers/agent-execution/harness-registry/src/adapter-pool.ts`).
 
@@ -131,7 +131,7 @@ Grammar unchanged — five decisions, `approve` stays `approve` (owned by the [t
 8. **The work continues after the result.** On approve the agent re-engages (`proposed_call_granted` → session 2), runs the approved op, and keeps working — the same session-2 run proceeding after the tool returns, not a second event. Exactly one re-engagement event; the only other re-provision is the liveness net on crash/no-show.
 9. **Failure surfaces** as a `failed` Outcome — never silently swallowed.
 10. **The gate fades as trust grows** (verdict-history signal, AD4).
-11. **DONE is proven LIVE on the real installed harnesses** — never a stub. builtin, claude-code, codex, and opencode are all proven through the production MCP bridge (`AL7-two-session-trust-first.integration.test.ts`); a missing binary hard-fails, never skips.
+11. **DONE is proven LIVE on the real installed harnesses** — never a stub. claude-code, codex, opencode and cursor-agent are all proven through the production MCP bridge (`AL7-two-session-trust-first.integration.test.ts`); a missing binary hard-fails, never skips.
 
 ## Vocabulary
 

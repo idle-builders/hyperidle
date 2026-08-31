@@ -2,7 +2,7 @@
 
 HyperIdle is an operating system for AI-first companies. It manages the organizational layer between "we have AI agents" and "the agents are shipping product" — teams, budgets, knowledge, human oversight. Agents execute. Humans validate. Knowledge compounds.
 
-It does not call models or execute tools — those belong to the agent harnesses, which are real CLIs: `claude` (claude-code), `codex`, `opencode`, plus a builtin harness via OpenRouter. HyperIdle manages the structure around them: who works on what, what they know, how they coordinate, and how humans stay in the loop.
+It does not call models or execute tools — those belong to the agent harnesses, which are real CLIs you install and sign into: `claude` (claude-code), `codex`, `opencode`, `cursor-agent`. HyperIdle manages the structure around them: who works on what, what they know, how they coordinate, and how humans stay in the loop.
 
 ---
 
