@@ -9,49 +9,37 @@
  * @lore AG4: Breadcrumb nav orientation strip + NavHistoryCluster (history back/forward).
  * Back (⌘[) = temporal history, Up (breadcrumb) = structural parent.
  */
-import { expect, test } from "./fixtures";
+import {
+	expect,
+	makeTask,
+	makeTaskCardSummary,
+	mockTaskTree,
+	mockTeamDetail,
+	test,
+} from "./fixtures";
 
 // ── AG4 fixtures ──────────────────────────────────────────────────────────────
 
-const BET_ID = "bet-ag4-1";
+const ROOT_TASK_ID = "task-ag4-1";
 const TEAM_ID = "team-ag4-1";
 
-// BetDetail shape: matches layers/core-ui/src/types/bet.ts BetDetail interface.
-// Fields WorkBet.tsx accesses: id, title, team, status, atRisk, description, tasks.
-function makeBetDetailResponse() {
-	return {
-		id: BET_ID,
-		title: "AG4 test bet",
-		team: "AG4 Team",
+async function mockTaskAndTeam(page: import("@playwright/test").Page) {
+	await mockTaskTree(page, {
+		task: makeTask(ROOT_TASK_ID, {
+			title: "AG4 test task",
+			teamId: TEAM_ID,
+			description: "# AG4 test task\n\nTest description",
+		}),
+	});
+	await mockTeamDetail(page, {
 		teamId: TEAM_ID,
-		status: "committed",
-		atRisk: false,
-		tokenAppetite: null,
-		tokensActual: null,
-		progress: { done: 1, total: 3 },
-		description: "# AG4 test bet\n\nTest description",
-		tasks: [],
-		artifacts: [],
-	};
-}
-
-function makeTeamDetailResponse() {
-	return {
-		team: { id: TEAM_ID, name: "AG4 Team", phase: "build", status: "healthy", leadAgentId: null },
-		teamMembers: { id: TEAM_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
-		roster: [],
-		burn: {
-			capacity: 3,
-			activeBets: 1,
-		},
-		activeBets: [
-			{
-				id: BET_ID,
-				pitchTitle: "AG4 test bet",
-				status: "committed",
+		name: "AG4 Team",
+		tasksInProgress: [
+			makeTaskCardSummary(ROOT_TASK_ID, {
+				title: "AG4 test task",
 				progressDone: 1,
 				progressTotal: 3,
-			},
+			}),
 		],
 		routines: Array.from({ length: 12 }, (_, index) => ({
 			id: `routine-ag4-${index}`,
@@ -64,31 +52,6 @@ function makeTeamDetailResponse() {
 			lastRunOutcome: null,
 			nextRunAt: null,
 		})),
-	};
-}
-
-async function mockBetAndTeam(page: import("@playwright/test").Page) {
-	await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetDetailResponse()),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-	await page.route(`**/api/teams/${TEAM_ID}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeTeamDetailResponse()),
-			});
-		} else {
-			await route.continue();
-		}
 	});
 	await page.route("**/api/teams", async (route) => {
 		if (route.request().method() === "GET") {
@@ -117,7 +80,7 @@ async function mockBetAndTeam(page: import("@playwright/test").Page) {
 
 test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	test("routine Navigate and temporal Back restore team scroll and row focus", async ({ page }) => {
-		await mockBetAndTeam(page);
+		await mockTaskAndTeam(page);
 		await page.route("**/api/routines/routine-ag4-11", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -160,10 +123,10 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	// AC-3: Every detail screen shows hierarchy breadcrumb + structural up-path
-	test("AC-3: bet detail renders Breadcrumb nav with Work + parent link", async ({ page }) => {
-		await mockBetAndTeam(page);
-		await page.goto(`/work/bet/${BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+	test("AC-3: task detail renders Breadcrumb nav with Work + parent link", async ({ page }) => {
+		await mockTaskAndTeam(page);
+		await page.goto(`/work/task/${ROOT_TASK_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// DS Breadcrumb must be present
 		const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
@@ -175,11 +138,13 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	// AC-4: Deep-link fresh screen: sane up path, Back disabled (no history)
-	test("AC-4: deep-link to bet detail — Back button disabled when no history", async ({ page }) => {
-		await mockBetAndTeam(page);
+	test("AC-4: deep-link to task detail — Back button disabled when no history", async ({
+		page,
+	}) => {
+		await mockTaskAndTeam(page);
 		// Fresh navigation — no history
-		await page.goto(`/work/bet/${BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto(`/work/task/${ROOT_TASK_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// NavHistoryCluster is only shown on desktop (not sidebarMobile)
 		// viewport is default 1280x720 in Playwright — desktop
@@ -188,10 +153,10 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	// AC-3 (up path): clicking breadcrumb segment navigates to parent route
-	test("AC-3 up: clicking Work breadcrumb from bet detail → portfolio", async ({ page }) => {
-		await mockBetAndTeam(page);
-		await page.goto(`/work/bet/${BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+	test("AC-3 up: clicking Work breadcrumb from task detail → portfolio", async ({ page }) => {
+		await mockTaskAndTeam(page);
+		await page.goto(`/work/task/${ROOT_TASK_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
 		const workLink = breadcrumb.getByRole("link", { name: "Work" });
@@ -289,10 +254,10 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	// AC-6: Screenshot visual check — breadcrumb visible on bet detail
-	test("AC-6: bet detail screenshot — breadcrumb visible (visual proof)", async ({ page }) => {
-		await mockBetAndTeam(page);
-		await page.goto(`/work/bet/${BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+	test("AC-6: task detail screenshot — breadcrumb visible (visual proof)", async ({ page }) => {
+		await mockTaskAndTeam(page);
+		await page.goto(`/work/task/${ROOT_TASK_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
 		await expect(breadcrumb).toBeVisible();
@@ -308,10 +273,10 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	// page.goto() for the second and third hops. This ensures React Router pushes real
 	// history entries (idx increments), making canGoBack=true on the bet page.
 	// page.goto() creates a fresh navigation that resets history.state.idx to 0.
-	test("AC-1: portfolio→team→bet — Back chevron returns to team, ⌘[ returns to portfolio", async ({
+	test("AC-1: portfolio→team→task — Back chevron returns to team, ⌘[ returns to portfolio", async ({
 		page,
 	}) => {
-		await mockBetAndTeam(page);
+		await mockTaskAndTeam(page);
 
 		// 1. Start at portfolio (page.goto is ok for the first navigation — sets idx=0 baseline).
 		await page.goto("/work/portfolio");
@@ -343,7 +308,7 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 			window.history.pushState({ idx: currentIdx + 1 }, "", url);
 			// Dispatch popstate to trigger React Router's listener.
 			window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-		}, `/work/bet/${BET_ID}`);
+		}, `/work/task/${ROOT_TASK_ID}`);
 
 		// Wait for the loaded breadcrumb on the bet page (not the skeleton)
 		const breadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
@@ -374,13 +339,13 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	// from ⌘K search result click). The global-search dialog focus is unreliable in headless
 	// Playwright, so we simulate the navigation outcome directly. The AC verifies the
 	// temporal history traversal, not the search UI itself (that's covered by global-search.spec.ts).
-	test("AC-2: cross-view history — bet→knowledge→Back returns to bet", async ({ page }) => {
+	test("AC-2: cross-view history — task→knowledge→Back returns to task", async ({ page }) => {
 		const KNOWLEDGE_ID = "k1";
 
-		await mockBetAndTeam(page);
+		await mockTaskAndTeam(page);
 
 		// 1. Navigate to bet detail (establishes history base).
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${ROOT_TASK_ID}`);
 		// Wait for breadcrumb (not skeleton) to confirm bet data loaded.
 		await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible({
 			timeout: 10000,
