@@ -43,7 +43,7 @@ const NOW = "2026-07-31T00:00:00.000Z";
 const TEAM_ID = "team-i12-parity";
 const OTHER_TEAM_ID = "team-i12-other";
 const AGENT_ID = "agent-i12-parity";
-const AGENT_ROLE = "builder"; // communityForRole("builder") === "building"
+const AGENT_ROLE = "builder"; // BA9g: the practice IS the role — `communityForRole` is deleted.
 const TASK_ID = "task-i12-parity";
 const BET_ID = "bet-i12-parity";
 const TASK_DESCRIPTION = "Ship the boundary seam parity check.";

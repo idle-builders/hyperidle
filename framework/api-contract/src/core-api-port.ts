@@ -382,7 +382,6 @@ export interface CreateOrgTeamRequest {
 	readonly id: string;
 	readonly name: string;
 	readonly phase: string;
-	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
 	readonly teamMembersId: string;
@@ -426,7 +425,6 @@ export interface ScaffoldFromRequestInput {
 	readonly teamMembersId: string | null;
 	readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
 	readonly teamName: string | null;
-	readonly functions: readonly string[] | null;
 	readonly role: string | null;
 	readonly name: string | null;
 	readonly ownerUserId: string | null;

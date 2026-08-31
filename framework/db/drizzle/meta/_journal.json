@@ -512,6 +512,13 @@
 			"when": 1785690001000,
 			"tag": "0072_plugin_ownership_registry",
 			"breakpoints": true
+		},
+		{
+			"idx": 72,
+			"version": "7",
+			"when": 1785686402000,
+			"tag": "0072_drop_team_functions",
+			"breakpoints": true
 		}
 	]
 }

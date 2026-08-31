@@ -34,13 +34,6 @@ export const teams = pgTable("teams", {
 	principlesPath: text("principles_path"),
 	factoryDbPath: text("factory_db_path"),
 	createdAt: text("created_at").notNull(),
-	/**
-	 * AB0: Team functions as JSON array of strings.
-	 * Determines which agent roles appear in the default roster.
-	 * @lore AB0: Open vocabulary. Known functions: development, product,
-	 * design, marketing, sales, operations, support, research.
-	 */
-	functions: text("functions"),
 	// AU44 B1: folded from team_members
 	leadAgentId: text("lead_agent_id"),
 	capacity: integer("capacity").notNull().default(5),

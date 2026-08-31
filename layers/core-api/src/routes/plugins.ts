@@ -173,6 +173,15 @@ function readPluginDocumentSource(
 		for (const skill of parsed.manifest.skills) {
 			if (skillItemId(pluginId, skill.dirName) === documentId) return skill.body;
 		}
+		// An agent's identity is a document too, and its source is the file the
+		// manifest's `identity` names. Without this branch, restoring a persona —
+		// the whole point of the `role-personas` plugin — answered 422.
+		for (const agent of parsed.manifest.agents) {
+			if (agent.identity === null) continue;
+			const agentDbId = agentItemId(pluginId, agent.id, "factory", null);
+			if (`ki_af_${agentDbId}` === documentId) return agent.identity;
+		}
+
 		// A routine's prompt is a document too, and its source is the manifest
 		// rather than a file. Only the factory shape is derivable here — a
 		// team-scoped install's ids carry the team, which this function is not

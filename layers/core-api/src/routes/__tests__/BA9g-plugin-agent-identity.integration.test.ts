@@ -140,6 +140,57 @@ describe("a plugin's agent comes with an identity", () => {
 		expect(identity?.status, "a removed plugin's persona reaches no session").toBe("archived");
 	});
 
+	// @lore BA9g: restore was DEAD for exactly this plugin shape. `install_path`
+	// was persisted only when a plugin had skills or MCP servers, and a personas
+	// plugin has neither — so restore answered NO_INSTALL_PATH forever, and even
+	// past that, the source reader had no branch for an identity id. Tests stayed
+	// green because none of them restored an identity.
+	test("restoring an edited identity brings the plugin's version back", async ({
+		db,
+		pluginsApp,
+	}) => {
+		const app = pluginsApp;
+		await db.insert(users).values({
+			id: "u-founder-identity",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			kind: "human",
+			createdAt: new Date().toISOString(),
+		});
+		await install(app);
+
+		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
+		const [identity] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.scopeId, String(agent?.id)));
+		expect(identity?.body).toBe(PERSONA);
+
+		await app.request(`/api/knowledge/${identity?.id}`, {
+			method: "PATCH",
+			headers: { ...auth(), "X-Identity": "u-founder-identity" },
+			body: JSON.stringify({
+				version: identity?.version,
+				updatedBy: "u-founder-identity",
+				body: "My own idea of a builder.",
+			}),
+		});
+
+		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
+			method: "POST",
+			headers: auth(),
+			body: JSON.stringify({ kind: "knowledge", entityId: identity?.id }),
+		});
+		expect(res.status, "restore must reach the plugin's own file").toBe(200);
+
+		const [restored] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, String(identity?.id)));
+		expect(restored?.body, "the plugin's persona comes back").toBe(PERSONA);
+	});
+
 	test("an agent with no identity file is still installed, just bare", async ({ db, app }) => {
 		const dir = join(tmpdir(), `ba9g-bare-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });

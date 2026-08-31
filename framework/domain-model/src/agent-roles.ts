@@ -56,8 +56,9 @@ export function roleLabel(role: string): string {
  * the core… a new team is just a single empty agent. and then you improve that
  * team with plugins." The roles themselves live in the `role-personas` plugin.
  *
- * The catalog stays, as VOCABULARY: a plugin agent declares `role: "builder"`,
- * `roleLabel` renders it, and `communityForRole` scopes which knowledge a
- * session loads. What went with the roster is `teamFunctions` (which only
- * `defaultRoster` read) and `hasTemplate` (dead since the personas moved).
+ * Written when the catalog was expected to survive as vocabulary. It did not:
+ * the same batch deleted `AGENT_ROLE_CATALOG`, `communityForRole`,
+ * `teamFunctions` and `hasTemplate` outright (see the block above). A role is a
+ * string on an agent; `roleLabel` derives a display name from it, and the
+ * practice an agent belongs to is its role.
  */

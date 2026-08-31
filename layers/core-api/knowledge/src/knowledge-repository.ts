@@ -1405,7 +1405,11 @@ export async function upsertPluginDocument(
 			status: "active",
 			version: 1,
 			role: input.role ?? "skill",
-			updatedBy: `plugin:${input.pluginId}`,
+			// @lore BA9g: `plugin:<id>` was a provenance sentinel here. Migration
+			// 0071 rewrote every existing one to `plugin` because it leaked into the
+			// knowledge view as a raw author string, and the registry carries
+			// provenance now — so a freshly installed document must not re-create it.
+			updatedBy: "plugin",
 			createdAt: input.ts,
 			updatedAt: input.ts,
 		})
@@ -1427,6 +1431,21 @@ export async function upsertPluginDocument(
 				updatedAt: input.ts,
 			},
 		});
+	// Kernel row and projection travel together, as knowledge always writes them.
+	// @lore BA9g: this write was MISSING. Migrations 0068/0069/0071 all insert a
+	// projection and their tests assert "a document with no projection is a state
+	// production cannot produce" — while the install path produced exactly that.
+	// Migrated documents appeared in scope-filtered views (which inner-join the
+	// projection) and freshly installed ones did not.
+	await db
+		.insert(knowledgeAppProjection)
+		.values({
+			id: `kp_${input.id}`,
+			knowledgeItemId: input.id,
+			layer: scopeToLayer(input.scopeKind as (typeof SCOPE_KINDS)[number]),
+			scopeId: input.scopeId,
+		})
+		.onConflictDoNothing();
 }
 
 /**

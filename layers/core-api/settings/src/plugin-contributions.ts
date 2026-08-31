@@ -92,31 +92,6 @@ export async function contributedEntityIds(
 }
 
 /**
- * Which plugin contributed this row, if any.
- *
- * The provenance question no surface could answer before: `users.plugin_id` had
- * zero readers outside the lifecycle, so nothing ever said "this agent came
- * from a plugin".
- */
-export async function ownerOf(
-	db: WriteExecutor,
-	kind: PluginContributionKind,
-	entityIds: readonly string[],
-): Promise<ReadonlyMap<string, string>> {
-	if (entityIds.length === 0) return new Map();
-	const rows = await db
-		.select({ entityId: pluginContributions.entityId, pluginId: pluginContributions.pluginId })
-		.from(pluginContributions)
-		.where(
-			and(
-				eq(pluginContributions.kind, kind),
-				inArray(pluginContributions.entityId, [...entityIds]),
-			),
-		);
-	return new Map(rows.map((r) => [r.entityId, r.pluginId]));
-}
-
-/**
  * Mark a contribution as the person's now, so a reinstall leaves it alone.
  *
  * This replaces `knowledge_items.updated_by = 'plugin:<id>'`, a sentinel that

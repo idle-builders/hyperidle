@@ -1074,7 +1074,6 @@ function makeSplitKnowledgeTool<TDb>(
 
 const createTeamInputSchema = z.object({
 	name: z.string().min(1).max(200),
-	functions: z.array(z.string().min(1)).min(1).max(20),
 	repoPath: z.string().max(500).optional(),
 });
 
@@ -1084,7 +1083,7 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 	return {
 		name: "create_team",
 		description:
-			"Create a new team with the specified functions. Automatically generates an app-default agent roster with appropriate system prompt templates.",
+			"Create a new team. The team starts with a single agent that has no identity — give it one, or install a plugin that brings a shaped team.",
 		inputSchema: createTeamInputSchema,
 		roles: ["assistant"],
 		handler: async (args, ctx) => {
@@ -1105,7 +1104,6 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 					id: teamId,
 					name: input.name,
 					phase: "build",
-					functions: JSON.stringify(input.functions),
 					factoryDbPath: input.repoPath ?? null,
 					createdAt: now,
 					teamMembersId,
@@ -1122,7 +1120,6 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 				teamMembersId,
 				"team_scaffold",
 				input.name,
-				input.functions,
 				null,
 				null,
 				null,
@@ -1197,7 +1194,6 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgen
 				memberGroup.id,
 				"agent_added",
 				team.name,
-				null,
 				input.role,
 				input.name,
 				null,

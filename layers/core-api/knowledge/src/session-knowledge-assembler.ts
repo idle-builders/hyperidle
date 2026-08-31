@@ -291,7 +291,17 @@ async function fetchAllForLayer(
 			limit: LIST_BATCH_SIZE,
 			offset,
 		});
-		allItems.push(...batch);
+		// @lore BA9g: a session must never be handed archived knowledge. Archived
+		// items were excluded here only by ACCIDENT — a plugin document had no
+		// projection row, and `list()` filters by layer through that row, so an
+		// archived skill was invisible for the wrong reason. Writing the projection
+		// (which every knowledge write owes) made them visible, which is what
+		// surfaced this. `fetchCapabilityItems` has always filtered status; this
+		// path never did.
+		// The rule is NOT "only active": `write_memory` writes `captured` items and
+		// R7 AC-5 requires those to reach the next session. Archived is the one
+		// status that means "this reaches nobody".
+		allItems.push(...batch.filter((item) => item.status !== "archived"));
 		if (batch.length < LIST_BATCH_SIZE) break;
 		offset += LIST_BATCH_SIZE;
 	}

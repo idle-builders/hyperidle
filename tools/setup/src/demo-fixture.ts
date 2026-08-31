@@ -178,7 +178,6 @@ export async function seedDemoWorld(
 			id: teamId,
 			name: "Acme",
 			phase: "build",
-			functions: JSON.stringify(["development", "product"]),
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();

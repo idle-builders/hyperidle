@@ -39,7 +39,6 @@ export {
 	forgetContributionsExcept,
 	listContributions,
 	markDetached,
-	ownerOf,
 	recordContribution,
 } from "./plugin-contributions.js";
 // -- plugin install / manage (BA9a) --
