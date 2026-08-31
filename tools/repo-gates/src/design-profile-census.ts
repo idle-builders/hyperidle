@@ -30,7 +30,7 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 //   fields (`audienceLabel`/`excludedNote`/`sendPlan`/`ctaLabel`/`footer`)
 //   `mapRenderedPayload` hardcoded to "" unconditionally.
 // thin +2: knowledge document Role row (metadata row rule + error banner).
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 193, default: 17, strong: 11 } as const; // -2: capture deletion — ExecutingBand + OutcomeBand borders removed
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 194, default: 17, strong: 11 } as const; // -2: capture deletion — ExecutingBand + OutcomeBand borders removed; +1: action-rules list border
 
 const EXPECTED = {
 	typography: {
@@ -41,7 +41,7 @@ const EXPECTED = {
 		// betTitle/taskTitle breadcrumb button deleted); -1 ReviewMetricsMoved.tsx (the
 		// unconditional "Timing" badge deleted — only the confirmed `needsYou` case
 		// renders now); -1 ReviewVisualDiff.tsx (the deleted Field component's own label).
-		label: 112, // BA9f +1: AgentDetailPane's IDENTITY section heading (the SYSTEM PROMPT heading it replaces was the same profile, and AgentEditor gained an "Identity" label above the document link). -1: read-mode ConversationHeader strip removed (was FR-3 +1); +1: BA1 review N7 RoutineDetailPane "Event" field label (event routines show an Event select instead of Schedule); +1: BA9a SettingsPlugins contribution key label; +1: BA9d D11 RoutineDetailPane "Transition to" edit-mode label; -2: capture deletion — ExecutingBand "Executing…" + OutcomeBand "Executed"/"Execution failed" labels removed
+		label: 114, // BA9f +1: AgentDetailPane's IDENTITY section heading (the SYSTEM PROMPT heading it replaces was the same profile, and AgentEditor gained an "Identity" label above the document link). -1: read-mode ConversationHeader strip removed (was FR-3 +1); +1: BA1 review N7 RoutineDetailPane "Event" field label (event routines show an Event select instead of Schedule); +1: BA9a SettingsPlugins contribution key label; +1: BA9d D11 RoutineDetailPane "Transition to" edit-mode label; -2: capture deletion — ExecutingBand "Executing…" + OutcomeBand "Executed"/"Execution failed" labels removed; +2: action-rules list header + add-rule header
 		// Review-canvas fabrication cleanup -10: -2 ReviewCodeDiff.tsx ("All checks
 		// passed" pill + the "coverage" label deleted from CiRow); -5
 		// ReviewComposition.tsx (CheckoutCard's fixed/the-bug pill, "Promo code" label,
@@ -50,7 +50,7 @@ const EXPECTED = {
 		// hardcoded field names deleted); -2 ReviewVisualDiff.tsx net (the deleted
 		// MockScreen hero caption + the deleted Field's placeholder-box mark, offset
 		// by the honest-absence pane's own "No rendered image supplied" caption).
-		metadata: 221, // BA9f +3: the identity-document links in AgentProfile, AgentEditor and AgentDetailPane, each replacing an inline persona editor with a link to the one place it is edited. -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section; -1: BA9d D10 removed "Draft with AI" error span from WorkBet.tsx; -1: BA9d D5 removed "app-managed" note paragraph from AgentDetailPane.tsx; -1: capture deletion — OutcomeBand executedAt span removed
+		metadata: 224, // BA9f +3: the identity-document links in AgentProfile, AgentEditor and AgentDetailPane, each replacing an inline persona editor with a link to the one place it is edited. -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section; -1: BA9d D10 removed "Draft with AI" error span from WorkBet.tsx; -1: BA9d D5 removed "app-managed" note paragraph from AgentDetailPane.tsx; -1: capture deletion — OutcomeBand executedAt span removed; +3: action-rules intro lede + description text + scope-tag metadata spans
 		// Review-canvas fabrication cleanup -8: -1 ReviewActionOperation.tsx
 		// (ProposedCallArgsPanel's arg-key `dt` deleted with the panel); -1
 		// ReviewBatch.tsx net (the "no reply drafted" dashed box's caption deleted;
@@ -94,7 +94,7 @@ const EXPECTED = {
 		// panel); -2 ReviewCodeDiff.tsx (the hardcoded "+0.4%" coverage figure + the
 		// trivia expanded-file-list wrapper, both deleted); -2 ReviewComposition.tsx
 		// (CheckoutCard's promo-code input value + its subtotal/total container).
-		data: 80, // BA9f -1: AgentProfile's <pre> persona dump deleted — the profile links to the identity document instead of reprinting it. // -5: FR-20 hint bar + FR-21 restyle; -3: deletion pass removed ArtifactEmbed.tsx; -2: capture deletion — OutcomeBand receipt + error type-data paragraphs removed
+		data: 81, // BA9f -1: AgentProfile's <pre> persona dump deleted — the profile links to the identity document instead of reprinting it. // -5: FR-20 hint bar + FR-21 restyle; -3: deletion pass removed ArtifactEmbed.tsx; -2: capture deletion — OutcomeBand receipt + error type-data paragraphs removed; +1: action-rules rule pattern span
 		"inline-code": 2,
 	},
 	// Follow-up review fixes -1: ReviewMetricsMoved.tsx — the deleted trivia

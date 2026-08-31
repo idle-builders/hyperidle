@@ -17,6 +17,19 @@
  * migrateCredentialsToStore uses an inline type.
  */
 
+// -- action rules (BA2 — scoped items for agent action approval) --
+export type {
+	ActionRule,
+	ActionRuleScope,
+	CreateActionRuleInput,
+	ResolveActionRulesInput,
+} from "./action-rules.js";
+export {
+	createActionRule,
+	deleteActionRule,
+	listActionRules,
+	resolveActionRules,
+} from "./action-rules.js";
 // -- plugin configuration (resolution engine, agent-behavior UI) --
 export { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
 // -- plugin install / manage (BA9a) --
@@ -52,7 +65,6 @@ export type {
 	PluginManifest,
 } from "./plugin-manifest.js";
 export { parsePluginManifest } from "./plugin-manifest.js";
-
 // -- server config (P3 — server_config single-row table read/write) --
 export type { ServerConfig, ServerConfigPatch } from "./server-config.js";
 export { readServerConfig, updateServerConfig } from "./server-config.js";
