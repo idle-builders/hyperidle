@@ -12,7 +12,7 @@
  * AC5: Scope enforcement — participant-scope routes reject cross-principal access.
  */
 
-import { serverConfig, threads, users } from "@hyperidle/db";
+import { threads, users } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -29,7 +29,6 @@ async function createWorkerConnectionManager(pool: AdapterPool) {
 }
 
 const TEST_API_KEY = "test-key-af11-authz";
-const TEST_SERVER_SECRET = "a-test-secret-for-af11-encryption-32x";
 
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
 	return {
@@ -334,7 +333,7 @@ describe("AC3: Worker token cannot access credentials or admin routes", () => {
 	test("worker token rejected by PUT /api/credentials/:name (requires HYPERIDLE_API_KEY)", async ({
 		requestWithoutAuth,
 	}) => {
-		const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", {
+		const res = await requestWithoutAuth("/api/credentials/shared_backend_key", {
 			method: "PUT",
 			headers: {
 				"X-API-Key": "worker-secret-token-af11",
@@ -442,62 +441,14 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 
 // ---------------------------------------------------------------------------
 // AC4 — No plaintext secret at rest (Hard Rule 4)
-// Updated for AH1: apiKey moved from server_config blob → server_credentials.
+//
+// @lore This asserted that a `PATCH /api/model-gateway` never wrote an apiKey
+// into the server_config blob — the AH1 fix that moved model keys out to
+// server_credentials. Both ends are gone: there is no model-gateway route to
+// PATCH, and no model credential to keep out of the blob. The rule it guarded
+// still holds for the one credential that remains, and
+// credentials.store.integration.test.ts is where that is proven.
 // ---------------------------------------------------------------------------
-
-describe("AC4: openai-compatible key in server_credentials, not server_config blob", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", TEST_SERVER_SECRET);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("PATCH /api/model-gateway stores tier config WITHOUT apiKey field in blob", async ({
-		db,
-		app,
-	}) => {
-		// AH1 §2: apiKey is no longer accepted in the model-gateway PATCH (schema change).
-		// The blob must never contain an apiKey field.
-		const patchRes = await app.request("/api/model-gateway", {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				reasoning: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-				},
-				workhorse: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-				},
-				fast: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-				},
-			}),
-		});
-		expect(patchRes.status).toBe(200);
-
-		// Read the raw DB row directly — must have no apiKey field in any tier.
-		const rows = await db.select().from(serverConfig);
-		expect(rows.length).toBe(1);
-
-		const rawConfig = rows[0]?.config ?? "";
-		const parsed = JSON.parse(rawConfig) as Record<string, unknown>;
-		const gateway = parsed.modelGateway as Record<string, Record<string, unknown>> | undefined;
-		if (gateway) {
-			for (const [tierName, tier] of Object.entries(gateway)) {
-				expect(tier, `tier ${tierName} must not have apiKey in blob`).not.toHaveProperty("apiKey");
-			}
-		}
-	});
-});
 
 // ---------------------------------------------------------------------------
 // AC5 — Ownership/scope enforcement

@@ -27,7 +27,6 @@ import {
 } from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/notifications";
@@ -71,7 +70,6 @@ interface TaskDispatcherDeps {
 	readonly adapterPool: unknown;
 	readonly workspace: unknown;
 	readonly sandboxBasePath: string;
-	readonly resolveModel?: (modelTier: string) => Promise<ResolvedModel | undefined>;
 	readonly mcpBridgeRegistry?: unknown;
 	readonly mcpBaseUrl?: string;
 	readonly mounter?: unknown;

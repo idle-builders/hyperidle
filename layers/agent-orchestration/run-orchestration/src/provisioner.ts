@@ -13,7 +13,6 @@ import {
 	type AgentSessionSourceKind,
 	MODEL_TIERS,
 	type ModelTier,
-	type ResolvedModel,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
@@ -835,12 +834,9 @@ interface ProvisionSessionParams {
 	readonly factorySpend?: number;
 	readonly reviewThreadId?: string;
 	readonly modelTier?: ModelTier;
-	/**
-	 * X4: Resolved model from the gateway. When present, passed through to the
-	 * harness adapter via SessionConfig so the adapter uses the correct provider,
-	 * model, and API key.
-	 */
-	readonly resolvedModel?: ResolvedModel;
+	// @lore A `resolvedModel` was carried here — the gateway's provider, model and
+	// API key, passed to the adapter through SessionConfig. Only the built-in
+	// harness ever called with it.
 	readonly requestContext?: {
 		readonly requestId: string;
 		readonly sourceKind: AgentSessionSourceKind;

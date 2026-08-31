@@ -124,7 +124,6 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
 				return {
-					modelGateway: cfg.modelGateway,
 					harnessDisabled: cfg.harnessDisabled,
 				};
 			},

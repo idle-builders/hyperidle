@@ -20,76 +20,16 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { z } from "zod";
 
 /** Validation timeout: 10 seconds for all external service calls. */
 const VALIDATE_TIMEOUT_MS = 10_000;
 
-/**
- * Call Anthropic API to test key validity.
- * A non-401 response means the key is valid (even 400 = bad request, not bad key).
- */
-async function validateAnthropicApiKey(
-	apiKey: string,
-): Promise<{ valid: boolean; error?: string }> {
-	try {
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
-		try {
-			const response = await fetch("https://api.anthropic.com/v1/models", {
-				headers: {
-					"x-api-key": apiKey,
-					"anthropic-version": "2023-06-01",
-				},
-				signal: controller.signal,
-			});
-			if (response.status === 401) {
-				return { valid: false, error: "Invalid API key" };
-			}
-			return { valid: true };
-		} finally {
-			clearTimeout(timer);
-		}
-	} catch (err) {
-		return {
-			valid: false,
-			error: err instanceof Error ? err.message : "Network error",
-		};
-	}
-}
-
-/**
- * Call OpenRouter auth check endpoint to test key validity.
- */
-async function validateOpenRouterApiKey(
-	apiKey: string,
-): Promise<{ valid: boolean; error?: string }> {
-	try {
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
-		try {
-			const headers = new Headers();
-			headers.set("Authorization", `Bearer ${apiKey}`);
-			const response = await fetch("https://openrouter.ai/api/v1/auth/key", {
-				headers,
-				signal: controller.signal,
-			});
-			if (response.status === 401 || response.status === 403) {
-				return { valid: false, error: "Invalid API key" };
-			}
-			return { valid: true };
-		} finally {
-			clearTimeout(timer);
-		}
-	} catch (err) {
-		return {
-			valid: false,
-			error: err instanceof Error ? err.message : "Network error",
-		};
-	}
-}
+// @lore Two validators stood here, pinging Anthropic's and OpenRouter's APIs to
+// check a model key someone had just stored. HyperIdle stores no model key any
+// more — a harness authenticates itself — so there is nothing left to validate
+// but the shared-backend key below.
 
 /**
  * Call this server's own health/auth endpoint to validate a shared backend key.
@@ -276,72 +216,10 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		// Call the appropriate external service to validate the key.
 		// @lore P3 F-ARCH-4: Each credential type dispatches to its own validator.
 		// Tests mock these external calls via vi.spyOn / global fetch mocking.
-		let validationResult: { valid: boolean; error?: string };
-		switch (name) {
-			case "anthropic_api_key":
-				validationResult = await validateAnthropicApiKey(plaintext);
-				break;
-			case "openrouter_api_key":
-				validationResult = await validateOpenRouterApiKey(plaintext);
-				break;
-			case "shared_backend_key": {
-				// Self-validate: use local server address
-				const port = process.env.PORT ?? "3001";
-				const selfUrl = `http://127.0.0.1:${port}`;
-				validationResult = await validateSharedBackendKey(plaintext, selfUrl);
-				break;
-			}
-			case "openai_compatible_api_key": {
-				// AH1 §5 CRITICAL-3: Validate against the configured baseUrl.
-				// Read baseUrl from server_config (non-secret, lives in tier config).
-				// @lore AH1 SSRF deferral: this fetches a user-supplied baseUrl.
-				// For v1 (single-founder local-trust) this is acceptable.
-				// Hardening follow-up: block link-local/metadata IPs for multi-user deployments.
-				const cfg = await readServerConfig(db);
-				const openaiCompatibleTiers = (["reasoning", "workhorse", "fast"] as const).filter(
-					(t) =>
-						cfg.modelGateway[t].provider === "openai-compatible" && cfg.modelGateway[t].baseUrl,
-				);
-				const firstOaiTier = openaiCompatibleTiers[0];
-				if (openaiCompatibleTiers.length === 0 || !firstOaiTier) {
-					validationResult = {
-						valid: false,
-						error:
-							"Set a base URL first (configure an openai-compatible tier in Settings > Models)",
-					};
-				} else {
-					const baseUrl = cfg.modelGateway[firstOaiTier].baseUrl ?? "";
-					try {
-						const controller = new AbortController();
-						const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
-						try {
-							const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, {
-								headers: { Authorization: `Bearer ${plaintext}` },
-								signal: controller.signal,
-							});
-							if (response.status === 401 || response.status === 403) {
-								validationResult = { valid: false, error: "Invalid API key" };
-							} else {
-								validationResult = { valid: true };
-							}
-						} finally {
-							clearTimeout(timer);
-						}
-					} catch (err) {
-						validationResult = {
-							valid: false,
-							error: err instanceof Error ? err.message : "Network error",
-						};
-					}
-				}
-				break;
-			}
-			default: {
-				// AH1 §5 CRITICAL-3: isCredentialName() at the top already rejects
-				// unknown names — this branch is a fail-closed runtime guard.
-				validationResult = { valid: false, error: "Unknown credential name" };
-			}
-		}
+		// Only one credential remains, and it is not a model key: the shared-backend
+		// key a remote worker presents to reach this server.
+		const port = process.env.PORT ?? "3001";
+		const validationResult = await validateSharedBackendKey(plaintext, `http://127.0.0.1:${port}`);
 
 		// Update validation state in DB
 		const now = new Date().toISOString();

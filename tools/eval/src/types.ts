@@ -10,11 +10,11 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { JudgeModel } from "./runner.js";
 
 // Re-export for consumers of @hyperidle/eval
-export type { HyperIdleDb, ResolvedModel };
+export type { HyperIdleDb, JudgeModel };
 
 // ---------------------------------------------------------------------------
 // Seeding types
@@ -42,7 +42,7 @@ export interface ScenarioSeedResult {
  * @lore No resolved model here. A trigger spawns a real CLI harness, which
  * authenticates itself and runs the model the agent's own config named — there
  * is no gateway credential for a trigger to pass down. The judge still gets one
- * (`JudgeContext.resolvedModel`); scoring is a gateway call, not a harness one.
+ * (`JudgeContext.judgeModel`); scoring is its own call, not a harness one.
  */
 export interface TriggerContext {
 	readonly db: HyperIdleDb;
@@ -104,8 +104,8 @@ export interface JudgeContext {
 	readonly db: HyperIdleDb;
 	readonly seedResult: ScenarioSeedResult;
 	readonly triggerResult: TriggerResult;
-	/** The gateway model the LLM-as-judge scores with — never the harness's own. */
-	readonly resolvedModel: ResolvedModel;
+	/** The model the LLM-as-judge scores with — never the harness's own. */
+	readonly judgeModel: JudgeModel;
 }
 
 export interface DimensionScore {

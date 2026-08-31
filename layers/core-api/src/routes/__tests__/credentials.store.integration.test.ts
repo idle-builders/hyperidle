@@ -38,11 +38,11 @@ describe("AH1 AC2 — credential store: ciphertext in DB, no plaintext in blob",
 		vi.unstubAllEnvs();
 	});
 
-	describe("anthropic_api_key — stored as ciphertext", () => {
+	describe("shared_backend_key — stored as ciphertext", () => {
 		test("PUT stores ciphertext, not plaintext, in server_credentials", async ({ app, db }) => {
 			const plaintext = "sk-ant-my-real-key-12345";
 
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: plaintext }),
@@ -53,7 +53,7 @@ describe("AH1 AC2 — credential store: ciphertext in DB, no plaintext in blob",
 			const [row] = await db
 				.select()
 				.from(serverCredentials)
-				.where(eq(serverCredentials.name, "anthropic_api_key"));
+				.where(eq(serverCredentials.name, "shared_backend_key"));
 
 			// The row must exist.
 			expect(row).toBeDefined();
@@ -66,7 +66,7 @@ describe("AH1 AC2 — credential store: ciphertext in DB, no plaintext in blob",
 
 		test("GET /api/credentials never includes plaintext value in response", async ({ app }) => {
 			const plaintext = "sk-ant-never-in-response";
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: plaintext }),
@@ -81,27 +81,24 @@ describe("AH1 AC2 — credential store: ciphertext in DB, no plaintext in blob",
 		});
 	});
 
-	describe("openai_compatible_api_key — in server_credentials, not server_config blob", () => {
-		test("PUT openai_compatible_api_key stores ciphertext in server_credentials", async ({
-			app,
-			db,
-		}) => {
+	describe("shared_backend_key — in server_credentials, not server_config blob", () => {
+		test("PUT shared_backend_key stores ciphertext in server_credentials", async ({ app, db }) => {
 			const plaintext = "sk-openai-compat-key-xyz";
 
 			// PUT to the new catalog slot (fails today: name not in catalog → 400).
-			const res = await app.request("/api/credentials/openai_compatible_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: plaintext }),
 			});
-			// Fails today: 400 (unknown credential name — openai_compatible_api_key not in catalog).
+			// Fails today: 400 (unknown credential name — shared_backend_key not in catalog).
 			expect(res.status).toBe(200);
 
 			// Direct DB read-back: row in server_credentials.
 			const [row] = await db
 				.select()
 				.from(serverCredentials)
-				.where(eq(serverCredentials.name, "openai_compatible_api_key"));
+				.where(eq(serverCredentials.name, "shared_backend_key"));
 
 			expect(row).toBeDefined();
 			expect(row?.encryptedValue).not.toBe(plaintext);
@@ -152,25 +149,26 @@ describe("AH1 AC2 — credential store: ciphertext in DB, no plaintext in blob",
 		});
 	});
 
-	describe("GET /api/credentials catalog — returns 4 entries after AH1", () => {
-		test("returns exactly 4 credential entries", async ({ app }) => {
+	describe("GET /api/credentials catalog", () => {
+		test("returns exactly one credential entry", async ({ app }) => {
 			const res = await app.request("/api/credentials", {
 				method: "GET",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ name: string }>;
-			// Fails today: catalog has 3 entries.
-			expect(body).toHaveLength(4);
+			// @lore This asserted four: three model-provider keys plus the shared
+			// backend key. HyperIdle stores no model credential any more.
+			expect(body).toHaveLength(1);
 		});
 
-		test("catalog includes openai_compatible_api_key entry", async ({ app }) => {
+		test("catalog includes shared_backend_key entry", async ({ app }) => {
 			const res = await app.request("/api/credentials", {
 				method: "GET",
 				headers: authHeaders(),
 			});
 			const body = (await res.json()) as Array<{ name: string; state: string }>;
-			const entry = body.find((e) => e.name === "openai_compatible_api_key");
+			const entry = body.find((e) => e.name === "shared_backend_key");
 			// Fails today: entry absent.
 			expect(entry).toBeDefined();
 			expect(entry?.state).toBe("absent");

@@ -51,7 +51,6 @@ import {
 	decryptCredentialValue,
 	encryptCredentialValue,
 	resolveCredential,
-	seedAnthropicKeyFromEnv,
 } from "@hyperidle/credentials";
 
 import type { EventBus } from "@hyperidle/event-bus";
@@ -206,12 +205,12 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	// respected as-is; production leaves it unset and gets the real thing.
 	//
 	// @lore AU44 batch2: DbCredentialResolver deleted (replaced by resolveCredential).
-	// migrateCredentialsToStore deleted (all deployments have migrated; only
-	// seedAnthropicKeyFromEnv survives for the env-seed path).
+	// migrateCredentialsToStore deleted (all deployments have migrated), and the
+	// `seedAnthropicKeyFromEnv` that outlived it went with the model gateway —
+	// HyperIdle stores no model credential to seed.
 	let credentialResolver: CredentialResolver | undefined = options?.credentialResolver;
 	if (db && !credentialResolver) {
 		credentialResolver = { resolve: (name) => resolveCredential(db, name) };
-		await seedAnthropicKeyFromEnv(db, encryptCredentialValue);
 	}
 
 	// AU21 §6 Decision L4 / AU26 J3 / AU31 §5.2: the hub is built ONCE, here,

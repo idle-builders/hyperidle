@@ -3,19 +3,21 @@
  *
  * @lore P3: The fixed credential catalog lives in @hyperidle/domain-model so both
  * the desktop (safeStorage) and server (encrypted DB table) can reference the
- * same three canonical credential names. The catalog is intentionally not
+ * same canonical credential names. The catalog is intentionally not
  * user-extensible — HyperIdle knows exactly which credentials it needs.
+ *
+ * @lore There were four. Three were model-provider keys — anthropic, openrouter,
+ * openai-compatible — held so the built-in harness could call a provider API,
+ * and later so a stored key could be injected into a harness subprocess. Neither
+ * happens any more: a harness is what a person brings, and it authenticates with
+ * its own login. HyperIdle stores no model credential, so the catalog is down to
+ * the one secret that is genuinely ours to hold — the key a remote worker
+ * presents to reach this server. `CREDENTIAL_BY_PROVIDER` and
+ * `credentialNameForProvider` went with the three.
  */
 
-import type { ModelProvider } from "./model-gateway.js";
-
 /** The fixed set of credential names. Not user-extensible. */
-export const CREDENTIAL_NAMES = [
-	"anthropic_api_key",
-	"openrouter_api_key",
-	"shared_backend_key",
-	"openai_compatible_api_key", // AH1: promoted from server_config blob
-] as const;
+export const CREDENTIAL_NAMES = ["shared_backend_key"] as const;
 
 export type CredentialName = (typeof CREDENTIAL_NAMES)[number];
 
@@ -35,59 +37,15 @@ export interface CredentialCatalogEntry {
 
 export const CREDENTIAL_CATALOG: readonly CredentialCatalogEntry[] = [
 	{
-		name: "anthropic_api_key",
-		label: "Anthropic API Key",
-		description: "Required for AI agents to run. Starts with 'sk-ant-'.",
-		required: false, // System works without it, agents are just inert
-		testable: true,
-	},
-	{
-		name: "openrouter_api_key",
-		label: "OpenRouter API Key",
-		description: "Alternative model provider. Optional.",
-		required: false,
-		testable: true,
-	},
-	{
 		name: "shared_backend_key",
 		label: "Shared Backend API Key",
 		description: "Authenticates this client to a shared HyperIdle server.",
 		required: false, // Only required when backendMode = "shared"
 		testable: true, // Test via health check to remote server
 	},
-	{
-		name: "openai_compatible_api_key",
-		label: "OpenAI-compatible API Key",
-		description: "API key for any OpenAI-compatible provider (Together, Groq, etc.).",
-		required: false,
-		testable: true,
-	},
 ] as const;
 
 /** Check if a string is a valid credential name. */
 export function isCredentialName(name: string): name is CredentialName {
 	return (CREDENTIAL_NAMES as readonly string[]).includes(name);
-}
-
-/**
- * The credential a given model provider authenticates with.
- *
- * Every surface that pairs a provider with a key — the setup form, the
- * credential resolver, the built-in gateway probe — asks here rather than
- * spelling the pairing again. A second spelling is how a provider ends up
- * storing its key under another provider's name.
- *
- * The `satisfies Record<ModelProvider, ...>` clause is the enforcement: adding a
- * provider to MODEL_PROVIDERS without giving it a credential fails to compile
- * here, so a provider can never reach the gateway with nowhere to read its key.
- */
-export const CREDENTIAL_BY_PROVIDER = {
-	anthropic: "anthropic_api_key",
-	openrouter: "openrouter_api_key",
-	"openai-compatible": "openai_compatible_api_key",
-} as const satisfies Record<ModelProvider, CredentialName>;
-
-/** The credential name a model provider's key is stored under. */
-export function credentialNameForProvider(provider: ModelProvider): CredentialName {
-	return CREDENTIAL_BY_PROVIDER[provider];
 }

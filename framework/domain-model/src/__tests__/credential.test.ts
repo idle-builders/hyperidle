@@ -23,46 +23,25 @@ import {
 } from "../credential.js";
 
 describe("P3 AC-7 — Credential catalog", () => {
+	// @lore There were four names: three model-provider keys plus the shared
+	// backend key. HyperIdle stores no model credential any more — a harness
+	// authenticates with its own login — so one remains, and it is the only one
+	// that was ever really ours to hold.
 	describe("CREDENTIAL_NAMES", () => {
-		it("has exactly 4 entries", () => {
-			// AH1: openai_compatible_api_key promoted from server_config blob to catalog
-			expect(CREDENTIAL_NAMES).toHaveLength(4);
-		});
-
-		it("contains anthropic_api_key", () => {
-			expect(CREDENTIAL_NAMES).toContain("anthropic_api_key");
-		});
-
-		it("contains openrouter_api_key", () => {
-			expect(CREDENTIAL_NAMES).toContain("openrouter_api_key");
-		});
-
-		it("contains shared_backend_key", () => {
-			expect(CREDENTIAL_NAMES).toContain("shared_backend_key");
-		});
-
-		it("contains openai_compatible_api_key", () => {
-			// AH1: promoted from server_config blob to catalog
-			expect(CREDENTIAL_NAMES).toContain("openai_compatible_api_key");
+		it("holds the shared-backend key and nothing else", () => {
+			expect(CREDENTIAL_NAMES).toEqual(["shared_backend_key"]);
 		});
 	});
 
 	describe("isCredentialName", () => {
-		it("returns true for anthropic_api_key", () => {
-			expect(isCredentialName("anthropic_api_key")).toBe(true);
-		});
-
-		it("returns true for openrouter_api_key", () => {
-			expect(isCredentialName("openrouter_api_key")).toBe(true);
-		});
-
 		it("returns true for shared_backend_key", () => {
 			expect(isCredentialName("shared_backend_key")).toBe(true);
 		});
 
-		it("returns true for openai_compatible_api_key", () => {
-			// AH1: promoted from server_config blob to catalog
-			expect(isCredentialName("openai_compatible_api_key")).toBe(true);
+		it("returns false for a model-provider key that used to be in the catalog", () => {
+			expect(isCredentialName("anthropic_api_key")).toBe(false);
+			expect(isCredentialName("openrouter_api_key")).toBe(false);
+			expect(isCredentialName("openai_compatible_api_key")).toBe(false);
 		});
 
 		it("returns false for arbitrary_key", () => {
@@ -73,8 +52,8 @@ describe("P3 AC-7 — Credential catalog", () => {
 			expect(isCredentialName("")).toBe(false);
 		});
 
-		it("returns false for ANTHROPIC_API_KEY (case sensitive)", () => {
-			expect(isCredentialName("ANTHROPIC_API_KEY")).toBe(false);
+		it("returns false for SHARED_BACKEND_KEY (case sensitive)", () => {
+			expect(isCredentialName("SHARED_BACKEND_KEY")).toBe(false);
 		});
 
 		it("returns false for null coerced to string", () => {
@@ -83,9 +62,8 @@ describe("P3 AC-7 — Credential catalog", () => {
 	});
 
 	describe("CREDENTIAL_CATALOG", () => {
-		it("has exactly 4 entries", () => {
-			// AH1: openai_compatible_api_key promoted from server_config blob to catalog
-			expect(CREDENTIAL_CATALOG).toHaveLength(4);
+		it("has exactly 1 entry", () => {
+			expect(CREDENTIAL_CATALOG).toHaveLength(1);
 		});
 
 		it("each entry has a name field matching a valid CredentialName", () => {
@@ -120,15 +98,16 @@ describe("P3 AC-7 — Credential catalog", () => {
 			}
 		});
 
-		it("openai_compatible_api_key entry exists in catalog", () => {
-			// AH1: promoted from server_config blob
-			const entry = CREDENTIAL_CATALOG.find((e) => e.name === "openai_compatible_api_key");
-			expect(entry).toBeDefined();
-			expect(entry?.testable).toBeDefined();
+		// @lore Two tests here asserted the anthropic and openai-compatible entries
+		// existed and were testable. HyperIdle holds no model credential any more —
+		// a harness authenticates with its own login — so the catalog is one entry,
+		// asserted below.
+		it("holds the shared-backend key and nothing else", () => {
+			expect(CREDENTIAL_CATALOG.map((e) => e.name)).toEqual(["shared_backend_key"]);
 		});
 
-		it("anthropic_api_key entry is testable", () => {
-			const entry = CREDENTIAL_CATALOG.find((e) => e.name === "anthropic_api_key");
+		it("shared_backend_key entry is testable", () => {
+			const entry = CREDENTIAL_CATALOG.find((e) => e.name === "shared_backend_key");
 			expect(entry).toBeDefined();
 			expect(entry?.testable).toBe(true);
 		});

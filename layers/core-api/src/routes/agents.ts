@@ -32,7 +32,6 @@ import { getTeam, readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
-import { catalogEntry } from "../model-utils.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { handleAgentProfile } from "./agent-profile.js";
 import { validateAgentConfig } from "./validate-agent-config.js";
@@ -524,5 +523,6 @@ export function createAgentRoutes(
 	return router;
 }
 
-// Re-export catalogEntry for legacy callers that import from here
-export { catalogEntry };
+// @lore A `catalogEntry` was re-exported here "for legacy callers". It looked up
+// a model in MODEL_CATALOG — the built-in gateway's four-entry list — and by the
+// end no caller reached it at all. Both are gone.

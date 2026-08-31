@@ -40,12 +40,20 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-// @lore AU44-b8: isCatalogModel moved to core-api (layers); framework/db can't import layers.
-// Inline the catalog check using MODEL_CATALOG directly.
-import { MODEL_CATALOG } from "@hyperidle/domain-model";
 
-function isCatalogModel(id: string): boolean {
-	return MODEL_CATALOG.some((m) => m.id === id);
+/**
+ * The exact three ids migration 0032's backfill writes, read off the migration
+ * itself (`model_tier_preference` reasoning→opus, fast→haiku, else sonnet).
+ *
+ * @lore This used to check membership in `MODEL_CATALOG`, the built-in gateway's
+ * four-entry list. That catalogue is gone with the gateway, and checking against
+ * it was always the looser assertion: a historical backfill writes exactly what
+ * its SQL says, and that is what a test of it should pin.
+ */
+const BACKFILLED_MODEL_IDS = new Set(["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"]);
+
+function isBackfilledModel(id: string): boolean {
+	return BACKFILLED_MODEL_IDS.has(id);
 }
 
 import { drizzle } from "drizzle-orm/pglite";
@@ -190,7 +198,7 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 		expect(REGISTERED_HARNESSES.has(row.harnessType ?? "")).toBe(true);
 	});
 
-	it("null-harness AI agent gets a non-null catalog model_id after backfill", async () => {
+	it("null-harness AI agent gets a non-null backfilled model_id", async () => {
 		await insertLegacyAgent("legacy-null-model", {
 			harnessType: null,
 			agentCategory: "strategy",
@@ -200,7 +208,7 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 
 		const row = await readAgent("legacy-null-model");
 		expect(row.modelId).not.toBeNull();
-		expect(isCatalogModel(row.modelId ?? "")).toBe(true);
+		expect(isBackfilledModel(row.modelId ?? "")).toBe(true);
 		expect(row.modelProvider).not.toBeNull();
 	});
 
@@ -215,7 +223,7 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 		const row = await readAgent("legacy-builtin");
 		expect(row.harnessType).toBe("builtin");
 		expect(row.modelId).not.toBeNull();
-		expect(isCatalogModel(row.modelId ?? "")).toBe(true);
+		expect(isBackfilledModel(row.modelId ?? "")).toBe(true);
 	});
 
 	it("claude-code-harness AI agent gets model_id after backfill (H-2b: previously excluded)", async () => {
@@ -234,7 +242,7 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 		expect(row.harnessType).toBe("claude-code");
 		// model_id must now be non-null and catalog-valid
 		expect(row.modelId).not.toBeNull();
-		expect(isCatalogModel(row.modelId ?? "")).toBe(true);
+		expect(isBackfilledModel(row.modelId ?? "")).toBe(true);
 		expect(row.modelProvider).not.toBeNull();
 	});
 
@@ -328,8 +336,8 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 			).toBe(true);
 			expect(row.modelId, `${s.id}: model_id must be non-null`).not.toBeNull();
 			expect(
-				isCatalogModel(row.modelId ?? ""),
-				`${s.id}: model_id '${row.modelId}' must be in the current catalog`,
+				isBackfilledModel(row.modelId ?? ""),
+				`${s.id}: model_id '${row.modelId}' must be one the 0032 backfill writes`,
 			).toBe(true);
 			expect(row.modelProvider, `${s.id}: model_provider must be non-null`).not.toBeNull();
 		}

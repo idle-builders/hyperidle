@@ -44,7 +44,7 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		// Store a key in the DB via direct insert (bypassing HTTP route).
 		const encryptedValue = encryptCredentialValue(TEST_PLAINTEXT_KEY);
 		await db.insert(serverCredentials).values({
-			name: "anthropic_api_key",
+			name: "shared_backend_key",
 			encryptedValue,
 			validationState: "present_untested",
 			lastValidatedAt: null,
@@ -52,11 +52,11 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		});
 
 		// resolveCredential reads from the DB — should find the key.
-		const resolved = await resolveCredential(db, "anthropic_api_key");
+		const resolved = await resolveCredential(db, "shared_backend_key");
 		expect(resolved).toBe(TEST_PLAINTEXT_KEY);
 
 		// Cleanup.
-		await db.delete(serverCredentials).where(eq(serverCredentials.name, "anthropic_api_key"));
+		await db.delete(serverCredentials).where(eq(serverCredentials.name, "shared_backend_key"));
 	}, 15_000);
 
 	test("createServer wires DB-backed resolver (functional invariant)", async ({ db }) => {
@@ -86,7 +86,7 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 
 		const encryptedValue = encryptCredentialValue(TEST_PLAINTEXT_KEY);
 		await db.insert(serverCredentials).values({
-			name: "anthropic_api_key",
+			name: "shared_backend_key",
 			encryptedValue,
 			validationState: "present_untested",
 			lastValidatedAt: null,
@@ -101,11 +101,11 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 
 		try {
 			// The wired resolver must find the key in DB (env is clear).
-			const resolved = await handle.credentialResolver?.resolve("anthropic_api_key");
+			const resolved = await handle.credentialResolver?.resolve("shared_backend_key");
 			expect(resolved).toBe(TEST_PLAINTEXT_KEY);
 		} finally {
 			handle.dispose();
-			await db.delete(serverCredentials).where(eq(serverCredentials.name, "anthropic_api_key"));
+			await db.delete(serverCredentials).where(eq(serverCredentials.name, "shared_backend_key"));
 		}
 	}, 20_000);
 });

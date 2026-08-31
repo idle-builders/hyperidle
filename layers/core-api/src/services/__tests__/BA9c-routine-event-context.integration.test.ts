@@ -118,7 +118,7 @@ function makePorts(): RoutineSchedulerPorts {
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
-				return { modelGateway: cfg.modelGateway, harnessDisabled: cfg.harnessDisabled };
+				return { harnessDisabled: cfg.harnessDisabled };
 			},
 		},
 		workIntents: { enqueueWorkIntent },

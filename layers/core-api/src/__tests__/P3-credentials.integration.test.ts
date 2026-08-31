@@ -3,12 +3,12 @@
  *
  * AC coverage:
  *  - GET /api/credentials returns all catalog entries with "absent" state
- *  - PUT /api/credentials/anthropic_api_key with value returns 200 + status (not value)
- *  - GET /api/credentials after PUT shows "present_untested" for anthropic_api_key
+ *  - PUT /api/credentials/shared_backend_key with value returns 200 + status (not value)
+ *  - GET /api/credentials after PUT shows "present_untested" for shared_backend_key
  *  - PUT /api/credentials/unknown_key returns 400 (not in catalog)
- *  - DELETE /api/credentials/anthropic_api_key returns 204
- *  - GET /api/credentials after DELETE shows "absent" for anthropic_api_key
- *  - POST /api/credentials/anthropic_api_key/validate returns validation result
+ *  - DELETE /api/credentials/shared_backend_key returns 204
+ *  - GET /api/credentials after DELETE shows "absent" for shared_backend_key
+ *  - POST /api/credentials/shared_backend_key/validate returns validation result
  *  - No response body contains the raw credential value
  *  - All endpoints require auth (401 without API key)
  */
@@ -44,14 +44,14 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 				lastValidatedAt: string | null;
 			}>;
 			expect(Array.isArray(body)).toBe(true);
-			// AH1: openai_compatible_api_key promoted from server_config blob to catalog (4th entry)
-			expect(body).toHaveLength(4);
+			// AH1: shared_backend_key promoted from server_config blob to catalog (4th entry)
+			expect(body).toHaveLength(1);
 
 			const names = body.map((e) => e.name);
-			expect(names).toContain("anthropic_api_key");
-			expect(names).toContain("openrouter_api_key");
 			expect(names).toContain("shared_backend_key");
-			expect(names).toContain("openai_compatible_api_key");
+			expect(names).toContain("shared_backend_key");
+			expect(names).toContain("shared_backend_key");
+			expect(names).toContain("shared_backend_key");
 
 			for (const entry of body) {
 				expect(entry.state).toBe("absent");
@@ -80,7 +80,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 		test("returns 200 with status response when setting a valid catalog credential", async ({
 			app,
 		}) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
@@ -88,7 +88,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as { name: string; state: string };
-			expect(body.name).toBe("anthropic_api_key");
+			expect(body.name).toBe("shared_backend_key");
 			expect(body.state).toBe("present_untested");
 		});
 
@@ -102,7 +102,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 		});
 
 		test("response does not contain the raw credential value", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
@@ -112,7 +112,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 		});
 
 		test("returns 400 when body is missing value field", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ wrong_field: "value" }),
@@ -121,7 +121,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 		});
 
 		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
-			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", {
+			const res = await requestWithoutAuth("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
 			});
@@ -132,7 +132,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 	describe("GET /api/credentials after PUT", () => {
 		test("shows present_untested state after setting a credential", async ({ app }) => {
 			// Set the credential
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
@@ -142,26 +142,26 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			const res = await app.request("/api/credentials", { headers: authHeaders() });
 			const body = (await res.json()) as Array<{ name: string; state: string }>;
 
-			const anthropicEntry = body.find((e) => e.name === "anthropic_api_key");
+			const anthropicEntry = body.find((e) => e.name === "shared_backend_key");
 			expect(anthropicEntry?.state).toBe("present_untested");
 
-			// Others remain absent
-			const openrouterEntry = body.find((e) => e.name === "openrouter_api_key");
-			expect(openrouterEntry?.state).toBe("absent");
+			// @lore A second assertion sat here, checking an untouched credential
+			// stayed absent while its neighbour was set. The catalog is one entry —
+			// there is no neighbour to leave alone.
 		});
 	});
 
 	describe("DELETE /api/credentials/:name", () => {
 		test("returns 204 on successful deletion", async ({ app }) => {
 			// First set the credential
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
 			});
 
 			// Then delete it
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+			const res = await app.request("/api/credentials/shared_backend_key", {
 				method: "DELETE",
 				headers: authHeaders(),
 			});
@@ -170,12 +170,12 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 
 		test("subsequent GET shows absent after DELETE", async ({ app }) => {
 			// Set then delete
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
 			});
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "DELETE",
 				headers: authHeaders(),
 			});
@@ -183,7 +183,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			// Verify absent
 			const res = await app.request("/api/credentials", { headers: authHeaders() });
 			const body = (await res.json()) as Array<{ name: string; state: string }>;
-			const entry = body.find((e) => e.name === "anthropic_api_key");
+			const entry = body.find((e) => e.name === "shared_backend_key");
 			expect(entry?.state).toBe("absent");
 		});
 
@@ -196,7 +196,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 		});
 
 		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
-			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", {
+			const res = await requestWithoutAuth("/api/credentials/shared_backend_key", {
 				method: "DELETE",
 			});
 			expect(res.status).toBe(401);
@@ -206,13 +206,13 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 	describe("POST /api/credentials/:name/validate", () => {
 		test("returns a validation result for a known credential", async ({ app }) => {
 			// Set the credential first
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
 			});
 
-			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
+			const res = await app.request("/api/credentials/shared_backend_key/validate", {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -232,20 +232,20 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 		});
 
 		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
-			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key/validate", {
+			const res = await requestWithoutAuth("/api/credentials/shared_backend_key/validate", {
 				method: "POST",
 			});
 			expect(res.status).toBe(401);
 		});
 
 		test("validation response does not contain the raw credential value", async ({ app }) => {
-			await app.request("/api/credentials/anthropic_api_key", {
+			await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
 			});
 
-			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
+			const res = await app.request("/api/credentials/shared_backend_key/validate", {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -259,7 +259,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			const secretValue = "sk-ant-super-secret-value-do-not-leak";
 
 			// PUT
-			const putRes = await app.request("/api/credentials/anthropic_api_key", {
+			const putRes = await app.request("/api/credentials/shared_backend_key", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({ value: secretValue }),
@@ -271,7 +271,7 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(await getRes.text()).not.toContain(secretValue);
 
 			// DELETE
-			const delRes = await app.request("/api/credentials/anthropic_api_key", {
+			const delRes = await app.request("/api/credentials/shared_backend_key", {
 				method: "DELETE",
 				headers: authHeaders(),
 			});

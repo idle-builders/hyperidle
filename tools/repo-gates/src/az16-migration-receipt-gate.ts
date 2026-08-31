@@ -57,6 +57,10 @@ const DELIBERATELY_DELETED: ReadonlySet<string> = new Set([
 	"framework/design-system/src/ArtifactEmbed.tsx",
 	"framework/design-system/src/Toast.tsx",
 	"framework/design-system/src/diff/select-diff.tsx",
+	// The model gateway's tier screen. It configured which provider and model
+	// each tier called, for the built-in harness to call with — and it went with
+	// that harness and that gateway.
+	"layers/core-ui/src/settings/SettingsModels.tsx",
 ]);
 
 // AU44 batch 7: framework/design-system was dissolved into layers/core-ui/src/ds/.
