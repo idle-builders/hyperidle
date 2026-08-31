@@ -117,9 +117,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// `createServer`'s `serviceBootstrap` — the plain `createApp` this
 	// fixture's `app` below builds does NOT invoke that bootstrap, so wiring
 	// it here (rather than requiring every test to call
-	// `registerAgentRunAdmissionReactions` by hand, the way
-	// `registerPolicy`/`registerReviewSubscriptions` are called explicitly per
-	// test today) is what lets a bare `{ db, eventBus }` test observe the real
+	// `registerAgentRunAdmissionReactions` by hand) is what lets a bare `{ db, eventBus }` test observe the real
 	// reaction without booting the whole app. `registerAgentRunAdmissionReactions`'s
 	// per-eventBus-instance idempotency guard means this is still safe even if
 	// a future change makes `createServer`'s boot path reachable from a test

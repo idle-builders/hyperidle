@@ -222,7 +222,7 @@ describe("handoff_to tool", () => {
  *    handoff that emitted it would create a spurious review item on EVERY
  *    handoff.
  *  - **no review item** — the observable consequence of the above, proven
- *    against the real `registerReviewSubscriptions` subscriber.
+ *    in the real event subscriptions wired by the test fixture.
  *  - **unconditional** — the row is written whether or not a matching
  *    `agentSessionRequests` row exists (trap (a) again), and there is no
  *    safety net behind it (trap (c): `runtime-reapers.ts` is routine-only).

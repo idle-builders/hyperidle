@@ -89,6 +89,6 @@ The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **O
 
 ## Where it lives
 
-The registry, types, canvases, and composition component are in `layers/core-ui/src/pages/review/`. `ReviewPage` at `/reviews/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewMessageId` (`layers/core-api/src/routes/reviews.ts`) — a loader that reads the review message payload and resolves an optional `artifactRef` to a full artifact entry, appended to whatever artifacts the payload already carries. A hardcoded fixture is still returned for the id `rev-1`; that is a known violation of the no-fabricated-content-in-production rule and is slated for removal. The route is mounted in `layers/core-api/src/app.ts`.
+The registry, types, canvases, and composition component are in `layers/core-ui/src/pages/review/`. `ReviewPage` at `/reviews/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewMessageId` (`layers/core-api/src/routes/reviews.ts`) — a loader that reads the review message payload, composes the review's own `threadId` from the message row (never from the payload), and resolves an optional `artifactRef` to a full artifact entry appended to whatever artifacts the payload already carries. The route is mounted in `layers/core-api/src/app.ts`.
 
 Next: [`Artifact` primitive](../process-layer/artifact-primitive.md) for the canonical data shape, or [`Thread` primitive](./thread-primitive.md) for the conversation container and verdict grammar.

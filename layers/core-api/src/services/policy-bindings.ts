@@ -13,8 +13,8 @@
  * — `record`/`abort` repoint to its real exports (`enqueueWorkIntent`/
  * `sessionRunRegistry.abort`, mechanical, zero behavior change). This stays
  * a plain DI port rather than the §10.3-default EventBus inversion — see
- * `@hyperidle/policy`'s `ports.ts` top `@lore` for why (`composeTailoredGrant`-
- * style same-transaction write, ruled permanent).
+ * `@hyperidle/policy`'s `ports.ts` top `@lore` for why (same-transaction
+ * write requirement, ruled permanent).
  *
  * @lore AU19 Increment 3g: `cost` — `HandoffDeps.cost`/`PolicyCostDedupReleaser`
  * REMOVED. `handoff-protocol.ts` now emits `session_handoff_completed` on the
