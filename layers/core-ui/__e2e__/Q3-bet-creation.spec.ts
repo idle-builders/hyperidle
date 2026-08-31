@@ -72,17 +72,6 @@ const MOCK_CREATE_RESPONSE = {
 test.describe("Q3 — Bet creation flow", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock GET /api/bets/canvas — starts empty
-		await page.route("**/api/bets/canvas", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(MOCK_CANVAS_EMPTY),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 
 		// Mock GET /api/artifacts — empty
 		await page.route("**/api/artifacts**", async (route) => {
@@ -106,30 +95,8 @@ test.describe("Q3 — Bet creation flow", () => {
 	// AC4: New bet appears as BetCard in shaped column
 	test("AC4 — Creating a pitch shows BetCard in shaped column", async ({ page }) => {
 		// Override POST /api/bets
-		await page.route("**/api/bets", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify(MOCK_CREATE_RESPONSE),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 
 		// After creation, canvas returns a bet
-		await page.route("**/api/bets/canvas", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(MOCK_CANVAS_WITH_BET),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 
 		// Click new pitch button
 		await page.getByRole("button", { name: /new pitch/i }).click();
@@ -153,36 +120,14 @@ test.describe("Q3 — Bet creation flow", () => {
 	// AC5: Pitch renders as markdown in bet detail
 	test("AC5 — Pitch with **bold** renders as <strong> in bet detail", async ({ page }) => {
 		// Canvas with a bet that has markdown pitch
-		await page.route("**/api/bets/canvas", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(MOCK_CANVAS_WITH_BOLD_BET),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 
 		// Mock the bet detail
-		await page.route("**/api/bets/bold-bet-id", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(MOCK_BET_DETAIL),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
 
 		// Navigate to bet detail
-		await page.goto("/work/bet/bold-bet-id");
+		await page.goto("/work/task/bold-bet-id");
 		await page.waitForSelector("[data-testid='bet-pitch']");
 
 		// **bold** should render as <strong>
@@ -194,18 +139,6 @@ test.describe("Q3 — Bet creation flow", () => {
 
 	// AC9: No appetite → card shows "—"
 	test("AC9 — BetCard shows '—' when no appetite is set", async ({ page }) => {
-		await page.route("**/api/bets/canvas", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(MOCK_CANVAS_WITH_BET), // appetite: "—"
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
 

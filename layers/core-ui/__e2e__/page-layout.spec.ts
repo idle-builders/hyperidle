@@ -27,8 +27,8 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 	await page.route("**/api/teams", (route) =>
 		json(route, {
 			teams: [
-				{ id: "team-a", name: "Core", phase: "build", status: "healthy", activeBets: 2 },
-				{ id: "team-b", name: "Growth", phase: "build", status: "healthy", activeBets: 1 },
+				{ id: "team-a", name: "Core", phase: "build", status: "healthy", tasksInProgress: 2 },
+				{ id: "team-b", name: "Growth", phase: "build", status: "healthy", tasksInProgress: 1 },
 			],
 		}),
 	);
@@ -130,8 +130,8 @@ async function mockTeamRoutine(page: Page): Promise<void> {
 			},
 			teamMembers: { id: "team-layout", formedAt: NOW, dissolvedAt: null },
 			roster: [],
-			burn: { capacity: 4, activeBets: 0 },
-			activeBets: [],
+			burn: { capacity: 4 },
+			tasksInProgress: [],
 			routines: [
 				{
 					id: "routine-layout",

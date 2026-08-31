@@ -170,7 +170,7 @@ test.describe("T4 — Block Reference E2E", () => {
 	test("AC-4: CocAttachButton '+' appears on bet pitch blocks when CoC overlay is open", async ({
 		page,
 	}) => {
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// Open the CoC overlay
 		const trigger = page.getByRole("button", { name: /assistant/i });
@@ -191,7 +191,7 @@ test.describe("T4 — Block Reference E2E", () => {
 	test("AC-5: clicking '+' on a block adds it as a chip in the CoC overlay composer", async ({
 		page,
 	}) => {
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// Open the CoC overlay
 		const trigger = page.getByRole("button", { name: /assistant/i });
@@ -216,7 +216,7 @@ test.describe("T4 — Block Reference E2E", () => {
 	test("AC-3: BlockActionsPopover includes 'Share' alongside 'Discuss' for bet pitch blocks", async ({
 		page,
 	}) => {
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// The bet pitch renders blocks. We need to open the block actions popover.
 		// Blocks show a handle on hover/focus that opens the popover.
@@ -301,13 +301,6 @@ test.describe("T4 — Block Reference E2E", () => {
 				body: JSON.stringify(conversationDetail),
 			});
 		});
-		await page.route(`**/api/bets/${BLOCK_HOST_BET}**`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ ...BET_FIXTURE, id: BLOCK_HOST_BET, title: "Auth migration bet" }),
-			});
-		});
 
 		await page.goto(`/conversations/${CONV_THREAD_ID}`);
 
@@ -324,6 +317,6 @@ test.describe("T4 — Block Reference E2E", () => {
 		const blockChip = page.locator("[data-ds-kind='block']").first();
 		await expect(blockChip).toBeVisible();
 		await blockChip.click();
-		await expect(page).toHaveURL(new RegExp(`/work/bet/${BLOCK_HOST_BET}`));
+		await expect(page).toHaveURL(new RegExp(`/work/task/${BLOCK_HOST_BET}`));
 	});
 });

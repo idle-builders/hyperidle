@@ -64,9 +64,8 @@ function makeTeamDetailResponse() {
 		roster: [],
 		burn: {
 			capacity: 5,
-			activeBets: 0,
 		},
-		activeBets: [],
+		tasksInProgress: [],
 		bets: [],
 		routines: [],
 	};

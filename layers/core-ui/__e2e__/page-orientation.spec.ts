@@ -82,27 +82,6 @@ test.beforeEach(async ({ page }) => {
 	await page.route("**/api/threads?**host_kind=task**", (route) =>
 		fulfillJson(route, { threads: [], nextCursor: null }),
 	);
-	await page.route("**/api/bets/bet-orientation", (route) =>
-		fulfillJson(route, {
-			id: "bet-orientation",
-			title: "International launch",
-			team: "Growth",
-			teamId: "team-1",
-			status: "active",
-			atRisk: false,
-			progress: { done: 1, total: 2 },
-			description: "Launch",
-			tasks: [
-				{
-					id: "task-orientation",
-					title: TASK_TITLE,
-					owner: "Atlas",
-					state: "in_progress",
-					startedAt: null,
-				},
-			],
-		}),
-	);
 	await page.route("**/api/sessions*", (route) => fulfillJson(route, { sessions: [] }));
 });
 
@@ -117,7 +96,7 @@ for (const viewport of [
 		await proveHeader(page, `artifact-${viewport.name}.png`, ARTIFACT_TITLE);
 		await expect(page.locator("[data-ds-component='ArtifactPreview']")).toContainText(TASK_TITLE);
 		await expect(page.locator("[data-ds-component='ArtifactPreviewSurface'] h1")).toHaveCount(0);
-		await page.goto("/work/bet/bet-orientation/task/task-orientation");
+		await page.goto("/work/task/bet-orientation/task/task-orientation");
 		await proveHeader(page, `task-${viewport.name}.png`, TASK_TITLE);
 		await expect(page.getByTestId("nav-history-cluster")).toHaveCount(viewport.width > 768 ? 1 : 0);
 	});

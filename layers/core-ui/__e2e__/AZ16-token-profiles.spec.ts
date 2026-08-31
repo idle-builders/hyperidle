@@ -56,11 +56,11 @@ const TEAM = {
 		dissolvedAt: null,
 	},
 	roster: [{ agentId: "agent-az16", name: "Atlas", role: "builder", isLead: true }],
-	burn: { capacity: 5, activeBets: 1 },
-	activeBets: [
+	burn: { capacity: 5 },
+	tasksInProgress: [
 		{
 			id: "bet-az16",
-			pitchTitle: "Semantic design profiles",
+			title: "Semantic design profiles",
 			status: "active",
 			progressDone: 8,
 			progressTotal: 9,
@@ -348,7 +348,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 	const routes = [
 		["conversations", "/conversations/t-az16", "conversations-page"],
 		["team", "/work/team/team-az16", "work-team-page"],
-		["bet", "/work/bet/bet-az16", "work-bet-page"],
+		["bet", "/work/task/bet-az16", "task-detail-page"],
 		["knowledge", "/knowledge/k-az16", "knowledge-detail-page"],
 		["settings", "/conversations?settings=open", "settings-page"],
 		["review", "/reviews/review-az16", null],

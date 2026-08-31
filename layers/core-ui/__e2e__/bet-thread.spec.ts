@@ -75,17 +75,6 @@ test.describe("L18 — Bet detail thread surface", () => {
 		const composedText = "This is a test comment on the bet thread.";
 
 		// Mock /api/bets/:id
-		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeBetResponse()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 
 		// Mock GET /api/threads?host_kind=bet&host_id=...
 		await page.route(`**/api/threads?**host_kind=bet**`, async (route) => {
@@ -139,7 +128,7 @@ test.describe("L18 — Bet detail thread surface", () => {
 			}
 		});
 
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// Thread surface should be visible
 		await expect(page.getByTestId("host-thread-section")).toBeVisible();
@@ -154,13 +143,6 @@ test.describe("L18 — Bet detail thread surface", () => {
 
 		// Reload the page
 		await page.reload();
-		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse()),
-			});
-		});
 
 		// Message should persist after reload
 		await expect(page.getByText(composedText)).toBeVisible();

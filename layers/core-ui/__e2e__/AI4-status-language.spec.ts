@@ -172,12 +172,11 @@ function makeTeamDetailResponse() {
 		roster: [],
 		burn: {
 			capacity: 3,
-			activeBets: 1,
 		},
-		activeBets: [
+		tasksInProgress: [
 			{
 				id: BET_ID,
-				descriptionTitle: "AI4 Proof Bet",
+				title: "AI4 Proof Bet",
 				status: "active",
 				progressDone: 1,
 				progressTotal: 3,
@@ -203,23 +202,6 @@ async function setupBetRoutes(
 			: never
 		: never,
 ) {
-	await page.route(`**/api/bets/${BET_ID}`, (route) => {
-		if (route.request().method() === "GET") {
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse()),
-			});
-		}
-		return route.continue();
-	});
-	await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-		}),
-	);
 	await page.route(`**/api/threads?**`, (route) =>
 		route.fulfill({
 			status: 200,
@@ -257,19 +239,7 @@ async function setupTaskRoutes(page: Parameters<typeof setupBetRoutes>[0]) {
 }
 
 /** Wire routes needed for WorkPortfolio page. */
-async function setupPortfolioRoutes(page: Parameters<typeof setupBetRoutes>[0]) {
-	await page.route(`**/api/bets`, (route) => {
-		const url = route.request().url();
-		if (route.request().method() === "GET" && !url.includes(`/api/bets/${BET_ID}`)) {
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetsGroupedResponse()),
-			});
-		}
-		return route.continue();
-	});
-}
+async function setupPortfolioRoutes(page: Parameters<typeof setupBetRoutes>[0]) {}
 
 /** Wire routes needed for WorkTeam page. */
 async function setupTeamRoutes(page: Parameters<typeof setupBetRoutes>[0]) {
@@ -303,8 +273,8 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 
 	test("AC1a-workbet: task in_progress chip + LiveDot on WorkBet task list", async ({ page }) => {
 		await setupBetRoutes(page);
-		await page.goto(`/work/bet/${BET_ID}`);
-		await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
+		await page.goto(`/work/task/${BET_ID}`);
+		await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible();
 
 		// Find the in_progress task row
 		const taskRow = page.locator('[data-testid="task-row"]').first();
@@ -333,7 +303,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 
 	test("AC1a-worktask: task in_progress chip + LiveDot on WorkTask header", async ({ page }) => {
 		await setupTaskRoutes(page);
-		await page.goto(`/work/bet/${BET_ID}/task/${TASK_ID}`);
+		await page.goto(`/work/task/${BET_ID}/task/${TASK_ID}`);
 		await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible();
 
 		// Header has StatusChip + LiveDot for in_progress
@@ -362,7 +332,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		page,
 	}) => {
 		await setupTaskRoutes(page);
-		await page.goto(`/work/bet/${BET_ID}/task/${TASK_ID}`);
+		await page.goto(`/work/task/${BET_ID}/task/${TASK_ID}`);
 		await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible();
 		await expect(page.locator('[data-testid="task-sessions-section"]')).toBeVisible();
 
@@ -411,11 +381,11 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 		await page.goto(`/work/team/${TEAM_ID}`);
 		await expect(page.locator('[data-testid="work-team-page"]')).toBeVisible();
 
-		const activeBets = page.locator('[data-testid="team-active-bets"]');
-		await expect(activeBets).toBeVisible();
+		const activeTasks = page.locator('[data-testid="team-active-tasks"]');
+		await expect(activeTasks).toBeVisible();
 
 		// BetRow in the team page has a StatusChip
-		const chipInRow = activeBets.locator(STATUS_CHIP).first();
+		const chipInRow = activeTasks.locator(STATUS_CHIP).first();
 		await expect(chipInRow).toBeVisible();
 		await expect(chipInRow).toHaveAttribute("data-status", "healthy");
 
@@ -428,11 +398,11 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 
 	test("AC1b-betdetail: bet active status chip on bet detail header", async ({ page }) => {
 		await setupBetRoutes(page);
-		await page.goto(`/work/bet/${BET_ID}`);
-		await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
+		await page.goto(`/work/task/${BET_ID}`);
+		await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible();
 
 		// The bet detail header StatusChip has label BET_STATUS_LABEL["active"] = "Active"
-		const header = page.locator('[data-testid="work-bet-page"] header').first();
+		const header = page.locator('[data-testid="task-detail-page"] header').first();
 		await expect(header).toBeVisible();
 
 		const chipInHeader = header.locator(STATUS_CHIP).first();
@@ -449,17 +419,6 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 
 	test("AC3-portfolio: validated verdict chip on BetCard (portfolio)", async ({ page }) => {
 		// Use a completed bet with a validated verdict so BetCard shows the verdict badge
-		await page.route(`**/api/bets`, (route) => {
-			const url = route.request().url();
-			if (route.request().method() === "GET" && !url.includes(`/api/bets/${BET_ID}`)) {
-				return route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeCompletedBetsGroupedResponse()),
-				});
-			}
-			return route.continue();
-		});
 		await page.goto("/work/portfolio");
 		await expect(page.locator('[data-testid="work-portfolio-page"]')).toBeVisible();
 
@@ -491,23 +450,6 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 
 	test("AC3-betdetail: validated verdict chip on bet detail outcome section", async ({ page }) => {
 		// Use a COMPLETED bet — outcome-section only renders for completed/killed bets
-		await page.route(`**/api/bets/${BET_ID}`, (route) => {
-			if (route.request().method() === "GET") {
-				return route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeCompletedBetResponse()),
-				});
-			}
-			return route.continue();
-		});
-		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-			}),
-		);
 		await page.route(`**/api/threads?**`, (route) =>
 			route.fulfill({
 				status: 200,
@@ -522,8 +464,8 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 				body: JSON.stringify({ messages: [], total: 0 }),
 			}),
 		);
-		await page.goto(`/work/bet/${BET_ID}`);
-		await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
+		await page.goto(`/work/task/${BET_ID}`);
+		await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible();
 
 		// The outcome section is present for completed bets
 		const outcomeSection = page.locator('[data-testid="outcome-section"]');
@@ -549,8 +491,8 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 	}) => {
 		// Capture data-status from WorkBet task row
 		await setupBetRoutes(page);
-		await page.goto(`/work/bet/${BET_ID}`);
-		await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
+		await page.goto(`/work/task/${BET_ID}`);
+		await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible();
 
 		const taskRow = page.locator('[data-testid="task-row"]').first();
 		await expect(taskRow).toBeVisible();
@@ -561,7 +503,7 @@ test.describe("AI4 — Visual proof: cross-surface status parity", () => {
 
 		// Capture data-status from WorkTask header
 		await setupTaskRoutes(page);
-		await page.goto(`/work/bet/${BET_ID}/task/${TASK_ID}`);
+		await page.goto(`/work/task/${BET_ID}/task/${TASK_ID}`);
 		await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible();
 
 		const headerChip = page

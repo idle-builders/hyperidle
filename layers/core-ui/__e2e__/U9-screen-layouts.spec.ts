@@ -20,7 +20,6 @@ const TEAMS_FIXTURE = {
 			id: "team-alpha",
 			name: "Alpha Team",
 			status: "healthy",
-			activeBets: 2,
 			shipRate: "80%",
 			leadAgentId: "agent-1",
 			shipped: 5,
@@ -30,7 +29,6 @@ const TEAMS_FIXTURE = {
 			id: "team-beta",
 			name: "Beta Team",
 			status: "behind",
-			activeBets: 1,
 			shipRate: "60%",
 			leadAgentId: "agent-2",
 			shipped: 3,
@@ -142,17 +140,6 @@ test.describe("U9 AC-2 + AC-3: Work Portfolio — bet grid + team pills", () => 
 		});
 
 		// Mock /api/bets (portfolio endpoint)
-		await page.route("**/api/bets", async (route) => {
-			if (!route.request().url().includes("/api/bets/")) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(BETS_FIXTURE),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-testid='work-portfolio-page']");

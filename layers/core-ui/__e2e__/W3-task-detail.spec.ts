@@ -1,7 +1,7 @@
 /**
  * W3 — Task Detail E2E tests: AC-26 through AC-32.
  *
- * AC-26: Route /work/bet/:betId/task/:taskId renders task detail page.
+ * AC-26: Route /work/task/:betId/task/:taskId renders task detail page.
  * AC-27: Breadcrumb: Work / [Team] / [Bet] / [Task title].
  * AC-28: Metadata strip: Owner, Status, Started, Session.
  * AC-29: Sessions section listing agent sessions.
@@ -53,13 +53,6 @@ const TEAMS_FIXTURE = {
 
 test.describe("W3 AC-26 — Task detail route", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
 		await page.route("**/api/sessions*", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -76,21 +69,16 @@ test.describe("W3 AC-26 — Task detail route", () => {
 		});
 	});
 
-	test("navigating to /work/bet/:betId/task/:taskId renders task detail page", async ({ page }) => {
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+	test("navigating to /work/task/:betId/task/:taskId renders task detail page", async ({
+		page,
+	}) => {
+		await page.goto("/work/task/bet-e2e-1/task/task-e2e-1");
 		await expect(page.getByTestId("task-detail-page")).toBeVisible();
 	});
 });
 
 test.describe("W3 AC-27 — Breadcrumb", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
 		await page.route("**/api/sessions*", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -105,7 +93,7 @@ test.describe("W3 AC-27 — Breadcrumb", () => {
 				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+		await page.goto("/work/task/bet-e2e-1/task/task-e2e-1");
 		await page.waitForSelector("[data-testid='task-detail-page']");
 	});
 
@@ -132,13 +120,6 @@ test.describe("W3 AC-27 — Breadcrumb", () => {
 
 test.describe("W3 AC-28 — Metadata strip", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
 		await page.route("**/api/sessions*", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -153,7 +134,7 @@ test.describe("W3 AC-28 — Metadata strip", () => {
 				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+		await page.goto("/work/task/bet-e2e-1/task/task-e2e-1");
 		await page.waitForSelector("[data-testid='task-meta-strip']");
 	});
 
@@ -174,13 +155,6 @@ test.describe("W3 AC-28 — Metadata strip", () => {
 
 test.describe("W3 AC-29 — Sessions section", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
 		await page.route("**/api/sessions*", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -195,7 +169,7 @@ test.describe("W3 AC-29 — Sessions section", () => {
 				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+		await page.goto("/work/task/bet-e2e-1/task/task-e2e-1");
 		await page.waitForSelector("[data-testid='task-sessions-section']");
 	});
 
@@ -216,13 +190,6 @@ test.describe("W3 AC-29 — Sessions section", () => {
 
 test.describe("W3 AC-32 — Task detail max-width 800px", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
 		await page.route("**/api/sessions*", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -237,7 +204,7 @@ test.describe("W3 AC-32 — Task detail max-width 800px", () => {
 				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+		await page.goto("/work/task/bet-e2e-1/task/task-e2e-1");
 		await page.waitForSelector("[data-testid='task-detail-body']");
 	});
 
@@ -253,13 +220,6 @@ test.describe("W3 AC-32 — Task detail max-width 800px", () => {
 
 test.describe("W3 — Task detail from bet detail click-through", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
 		await page.route("**/api/sessions*", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -277,7 +237,7 @@ test.describe("W3 — Task detail from bet detail click-through", () => {
 	});
 
 	test("clicking a task row on bet detail navigates to task detail page", async ({ page }) => {
-		await page.goto("/work/bet/bet-e2e-1");
+		await page.goto("/work/task/bet-e2e-1");
 		await page.waitForSelector("[data-testid='task-row']");
 
 		const firstTaskRow = page.locator("[data-testid='task-row']").first();

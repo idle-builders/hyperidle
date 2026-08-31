@@ -173,44 +173,13 @@ function makeNotificationInboxResponse(rows: ReturnType<typeof makeSeedNotificat
 	return { unseenCount: rows.length, rows };
 }
 
-/**
- * BetDetail shape for WorkTask surface (surface-4).
- * useBet fetches GET /api/bets/:betId and expects BetDetail.
- * WorkTask renders task.startedAt via relativeLong → data-testid="task-started-at".
- */
-const AI3_BET_ID = "ai3-seed-bet";
-const AI3_TASK_ID = "ai3-seed-task-worktask";
-
-function makeSeedBetDetail() {
-	return {
-		id: AI3_BET_ID,
-		title: "AI3 Seed Bet",
-		team: "Alpha Core",
-		status: "active",
-		atRisk: false,
-		tokenAppetite: null,
-		tokensActual: null,
-		progress: { done: 0, total: 1 },
-		description: "Seeded for one-clock AC-1 surface-4 test",
-		tasks: [
-			{
-				id: AI3_TASK_ID,
-				title: "AI3 Seed Task",
-				owner: "Test Agent",
-				state: "in_progress",
-				startedAt: SEED_CREATED_AT,
-			},
-		],
-	};
-}
-
 // ── Proof directory (absolute path from the worktree root) ─────────────────
 // @lore AI3: Use import.meta.url + fileURLToPath because this spec runs as ESM
 // (Playwright transpiles .ts files). __dirname is not available in ESM scope.
 const SpecDir = path.dirname(fileURLToPath(import.meta.url));
 const PROOF_DIR = path.resolve(SpecDir, "../../../test-results");
 
-// ── AC-1: Same age → same label across ≥ 4 surfaces ───────────────────────
+// ── AC-1: Same age → same label across every compact-register surface ─────
 
 test.describe("AC-1: one-clock label agreement across surfaces", () => {
 	test.beforeEach(async ({ page }) => {
@@ -308,70 +277,25 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 	});
 
 	/**
-	 * Surface-4: WorkTask work page — proves AC-1's "work pages" requirement.
-	 *
-	 * @lore AI3: Uses the overrideTaskId seam defined in WorkTask props so we
-	 * can navigate directly to /work/bet/:betId/task/:taskId without a real DB.
-	 * page.route() mocks /api/bets/:betId returning a BetDetail with one task
-	 * whose startedAt = SEED_CREATED_AT. WorkTask renders that via relativeLong()
-	 * into data-testid="task-started-at". Screenshot saved to test-results/.
-	 */
-	test("WorkTask work page renders relative label with shared register", async ({ page }) => {
-		// Mock /api/bets/:betId — useBet calls GET /api/bets/<betId>
-		await page.route(`**/api/bets/${AI3_BET_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeSeedBetDetail()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Mock /api/tasks/:taskId/sessions — useTaskSessions calls this
-		await page.route(`**/api/tasks/${AI3_TASK_ID}/sessions**`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ sessions: [] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.goto(`/work/bet/${AI3_BET_ID}/task/${AI3_TASK_ID}`);
-
-		const taskPage = page.locator("[data-testid='task-detail-page']");
-		await expect(taskPage).toBeVisible();
-
-		// task-started-at only renders when task.startedAt is non-null (guarded in WorkTask.tsx:297)
-		const startedAtEl = page.locator("[data-testid='task-started-at']").first();
-		await expect(startedAtEl).toBeVisible();
-		await expect(startedAtEl).not.toBeEmpty();
-		const text = await startedAtEl.textContent();
-		expect(text).not.toBe("—");
-
-		// Capture proof screenshot for test-results/AI3-surface-4-work-task.png
-		fs.mkdirSync(PROOF_DIR, { recursive: true });
-		await page.screenshot({
-			path: path.join(PROOF_DIR, "AI3-surface-4-work-task.png"),
-			fullPage: false,
-		});
-	});
-
-	/**
-	 * Cross-surface agreement: all four surfaces must render the identical label.
+	 * Cross-surface agreement: every compact-register surface renders the
+	 * identical label.
 	 *
 	 * @lore AI3 Phase 4: Presence assertions (not.toBeEmpty, not.toBe("—")) only
 	 * prove each surface is non-empty independently. This test captures each
-	 * surface's textContent and asserts all four are strictly equal — a drift in
+	 * surface's textContent and asserts they are strictly equal — a drift in
 	 * any surface's register would break this even if it's non-empty.
+	 *
+	 * @lore BB1: there was a fourth surface here, the work-task page, and it was
+	 * the ONLY prose-register (relativeLong) surface in this test. WorkTaskPage
+	 * renders no timestamp at all, so there is nothing left to read: the meta
+	 * strip carries owner, status, depth and session counts only. The
+	 * cross-register guarantee (relativeLong === relativeShort + " ago") is
+	 * asserted directly in utils/__tests__/time.test.ts, and ArtifactTimestamp
+	 * is the remaining prose-register surface.
 	 */
-	test("all four surfaces render identical relative label for same-age seed", async ({ page }) => {
+	test("all compact surfaces render identical relative label for same-age seed", async ({
+		page,
+	}) => {
 		// ── Surface 1: thread list ──────────────────────────────────────────────
 		await page.goto("/conversations");
 		const threadRow = page.locator("[data-ds-component='ThreadRow']").first();
@@ -417,53 +341,15 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			fullPage: false,
 		});
 
-		// ── Surface 4: WorkTask work page ───────────────────────────────────────
-		await page.route(`**/api/bets/${AI3_BET_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeSeedBetDetail()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-		await page.route(`**/api/tasks/${AI3_TASK_ID}/sessions**`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ sessions: [] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.goto(`/work/bet/${AI3_BET_ID}/task/${AI3_TASK_ID}`);
-		await expect(page.locator("[data-testid='task-detail-page']")).toBeVisible();
-		const workTaskTimeEl = page.locator("[data-testid='task-started-at']").first();
-		await expect(workTaskTimeEl).toBeVisible();
-		const workTaskLabel = (await workTaskTimeEl.textContent()) ?? "";
-
 		// ── Cross-surface agreement assertion ───────────────────────────────────
 		// Surfaces 1-3 use relativeShort (compact register); surface 4 uses
-		// relativeLong (prose register). Within each register the labels must
-		// agree; across registers the structural guarantee is:
-		//   relativeLong === relativeShort + " ago"
-		// (implemented at time.ts:106-110 — not a parallel ladder).
-		//
-		// @lore AI3 Phase 4: asserts register-internal agreement AND cross-register
-		// structural guarantee in one test. A drift in either would break this.
+		// All remaining surfaces use relativeShort (compact register), so they
+		// must render byte-identical labels for the same seed.
 
 		// Compact register: surfaces 1-3 must be identical
 		expect(threadLabel).not.toBe("—");
 		expect(knowledgeLabel).toBe(threadLabel);
 		expect(notifLabel).toBe(threadLabel);
-
-		// Prose register: surface 4 must be relativeShort + " ago"
-		expect(workTaskLabel).toBe(`${threadLabel} ago`);
 
 		// Confirm compact-register agreement via Set dedup (size 1 = identical)
 		const compactLabels = new Set([threadLabel, knowledgeLabel, notifLabel]);
@@ -478,10 +364,8 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			`Surface 1 (thread list):      "${threadLabel}" [relativeShort]`,
 			`Surface 2 (knowledge list):   "${knowledgeLabel}" [relativeShort]`,
 			`Surface 3 (notification):     "${notifLabel}" [relativeShort]`,
-			`Surface 4 (work-task):        "${workTaskLabel}" [relativeLong = relativeShort + " ago"]`,
 			"",
 			`Compact register identical (surfaces 1-3): ${compactLabels.size === 1}`,
-			`Cross-register structural guarantee (s4 === s1 + " ago"): ${workTaskLabel === `${threadLabel} ago`}`,
 		].join("\n");
 		fs.writeFileSync(path.join(PROOF_DIR, "AI3-labels.txt"), labelsContent, "utf8");
 	});

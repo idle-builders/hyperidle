@@ -65,22 +65,8 @@ function makeBetResponse() {
 test.describe("L19 — WorkBet session metadata (e2e)", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock bet detail endpoint.
-		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse()),
-			});
-		});
 
 		// Mock artifact thread summary so WorkBet renders cleanly.
-		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-			});
-		});
 
 		// Mock all /api/threads calls (host thread list for the bet, conversations).
 		// The AppShell fires GET /api/threads?participant_id=… which must be absorbed
@@ -93,11 +79,11 @@ test.describe("L19 — WorkBet session metadata (e2e)", () => {
 			});
 		});
 
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// Wait for the bet page to be mounted (data-testid is set immediately on render).
 		// Then wait for at least one task row to appear (requires the bet fetch to complete).
-		await expect(page.getByTestId("work-bet-page")).toBeVisible();
+		await expect(page.getByTestId("task-detail-page")).toBeVisible();
 		await expect(page.getByRole("table")).toBeVisible();
 	});
 

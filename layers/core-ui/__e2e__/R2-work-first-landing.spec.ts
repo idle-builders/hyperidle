@@ -156,13 +156,6 @@ test.describe("R2 — Work-First Landing", () => {
 			});
 
 			// Mock canvas endpoint
-			await page.route("**/api/bets/canvas", async (route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ shaped: [], committed: [], capacity: { used: 0, max: 2 } }),
-				});
-			});
 
 			await page.route("**/api/artifacts**", async (route) => {
 				await route.fulfill({
@@ -191,17 +184,6 @@ test.describe("R2 — Work-First Landing", () => {
 	test.describe("WorkPortfolio — Create bet CTA (R2 AC7)", () => {
 		test.beforeEach(async ({ page }) => {
 			// Canvas returns empty (no bets)
-			await page.route("**/api/bets/canvas", async (route) => {
-				if (route.request().method() === "GET") {
-					await route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify({ shaped: [], committed: [], capacity: { used: 0, max: 2 } }),
-					});
-				} else {
-					await route.continue();
-				}
-			});
 
 			// Empty artifacts
 			await page.route("**/api/artifacts**", async (route) => {
@@ -231,8 +213,8 @@ test.describe("R2 — Work-First Landing", () => {
 			await expect(createBetBtn).toBeVisible();
 		});
 
-		// AG3: "Create bet" CTA navigates to /work/bet/new (full-page authoring, not dialog)
-		test("AC7 — Clicking 'Create bet' CTA navigates to /work/bet/new", async ({ page }) => {
+		// AG3: "Create bet" CTA navigates to /work/task/new (full-page authoring, not dialog)
+		test("AC7 — Clicking 'Create bet' CTA navigates to /work/task/new", async ({ page }) => {
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
 
@@ -275,30 +257,6 @@ test.describe("R2 — Work-First Landing", () => {
 		// AC-7: CTA is hidden when bets exist
 		test("AC7 — 'Create bet' CTA is hidden when bets already exist", async ({ page }) => {
 			// Override canvas to have a bet
-			await page.route("**/api/bets/canvas", async (route) => {
-				if (route.request().method() === "GET") {
-					await route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify({
-							shaped: [
-								{
-									id: "bet-1",
-									title: "Existing Bet",
-									product: "Test Product",
-									teamId: "test-team-1",
-									status: "shaped",
-									appetite: "—",
-								},
-							],
-							committed: [],
-							capacity: { used: 1, max: 2 },
-						}),
-					});
-				} else {
-					await route.continue();
-				}
-			});
 
 			await page.goto("/work/portfolio");
 			await page.waitForSelector("[data-testid='work-portfolio-page']");
@@ -327,14 +285,6 @@ test.describe("R2 — Work-First Landing", () => {
 						name: "Founder",
 						avatarUrl: null,
 					}),
-				});
-			});
-
-			await page.route("**/api/bets/canvas", async (route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ shaped: [], committed: [], capacity: { used: 0, max: 2 } }),
 				});
 			});
 

@@ -73,37 +73,8 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 	test("7. Bet detail page loads with breadcrumb and tasks table", async ({ page }) => {
 		// @lore L16: WorkBet now calls useBet (real API fetch). Mock the endpoint
 		// so the test is hermetic — no real DB required in CI.
-		await page.route("**/api/bets/b1", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "b1",
-					title: "User auth flow",
-					product: "Alpha",
-					team: "Alpha Core",
-					status: "committed",
-					tokensActual: null,
-					progress: { done: 3, total: 8 },
-					description: "# Problem\n\nAuth is broken.\n",
-					tasks: [
-						{
-							id: "t1",
-							betId: "b1",
-							title: "Implement login endpoint",
-							ownerAgentId: "agent-dev-1",
-							state: "done",
-							latestSessionOutcome: null,
-							latestSessionTokensInput: null,
-							latestSessionTokensOutput: null,
-							latestSessionHarnessUrl: null,
-						},
-					],
-				}),
-			}),
-		);
-		await page.goto("/work/bet/b1");
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto("/work/task/b1");
+		await page.waitForSelector("[data-testid='task-detail-page']");
 		await expect(page.getByRole("navigation", { name: /breadcrumb/i })).toBeVisible();
 		await expect(page.getByRole("heading", { name: /tasks/i })).toBeVisible();
 		// Table renders at least one row.

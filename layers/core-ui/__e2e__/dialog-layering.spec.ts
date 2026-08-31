@@ -220,34 +220,6 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 	}) => {
 		// Need the WorkBet route for the kill-bet dialog (ConsequencePreviewDialog).
 		const BET_ID = "bet-dialog-layer-test";
-		await page.route(`**/api/bets/${BET_ID}/**`, (route) =>
-			route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) }),
-		);
-		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-			}),
-		);
-		await page.route(`**/api/bets/${BET_ID}`, (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: BET_ID,
-					title: "Layering test bet",
-					team: "Test Team",
-					status: "active",
-					atRisk: false,
-					tokenAppetite: null,
-					tokensActual: null,
-					progress: { done: 0, total: 0 },
-					description: "# Test",
-					tasks: [],
-				}),
-			}),
-		);
 		await page.route("**/api/artifacts**", (route) =>
 			route.fulfill({
 				status: 200,
@@ -256,9 +228,9 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 			}),
 		);
 
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
-		// @lore AI2: wait for success state via overflow button (not work-bet-page testid
+		// @lore AI2: wait for success state via overflow button (not task-detail-page testid
 		// which appears in loading/error states). Matches pattern from dialog-dismissal.spec.ts.
 		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
 		await expect(

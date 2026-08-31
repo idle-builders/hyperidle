@@ -11,7 +11,7 @@
  *   2. Conversations list (with threads)
  *   3. Thread detail (/conversations/:threadId)
  *   4. Bet grid / Work Portfolio
- *   5. Bet detail (/work/bet/:betId)
+ *   5. Bet detail (/work/task/:betId)
  *   6. Team view (/work/team/:teamId)
  *   7. Knowledge list (empty state)
  *   8. Knowledge list (with items)
@@ -37,7 +37,6 @@ const TEAMS_FIXTURE = {
 			phase: "build",
 			status: "healthy",
 			leadAgentId: "agent-lead",
-			activeBets: 2,
 			shipped: 5,
 			shipRate: "71%",
 			progress: { done: 3, total: 6 },
@@ -48,7 +47,6 @@ const TEAMS_FIXTURE = {
 			phase: "grow",
 			status: "behind",
 			leadAgentId: "agent-lead-2",
-			activeBets: 1,
 			shipped: 3,
 			shipRate: "75%",
 			progress: { done: 1, total: 3 },
@@ -197,12 +195,11 @@ const TEAM_DETAIL_FIXTURE = {
 	],
 	burn: {
 		capacity: 5,
-		activeBets: 2,
 	},
-	activeBets: [
+	tasksInProgress: [
 		{
 			id: "bet-u11-draft",
-			pitchTitle: "Hearth Design System",
+			title: "Hearth Design System",
 			status: "draft",
 			progressDone: 0,
 			progressTotal: 0,
@@ -353,18 +350,6 @@ test("U11 screenshot: work portfolio bet grid", async ({ page }) => {
 		});
 	});
 
-	await page.route("**/api/bets", async (route) => {
-		if (!route.request().url().includes("/api/bets/")) {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BETS_FIXTURE),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
 	await page.goto("/work/portfolio");
 	await page.waitForSelector("[data-testid='work-portfolio-page']");
 	await page.waitForLoadState("networkidle");
@@ -378,14 +363,6 @@ test("U11 screenshot: work portfolio bet grid", async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test("U11 screenshot: bet detail", async ({ page }) => {
-	await page.route("**/api/bets/bet-u11-active", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(BET_DETAIL_FIXTURE),
-		});
-	});
-
 	await page.route("**/api/threads*", async (route) => {
 		await route.fulfill({
 			status: 200,
@@ -402,11 +379,11 @@ test("U11 screenshot: bet detail", async ({ page }) => {
 		});
 	});
 
-	await page.goto("/work/bet/bet-u11-active");
-	await page.waitForSelector("[data-testid='work-bet-page']");
+	await page.goto("/work/task/bet-u11-active");
+	await page.waitForSelector("[data-testid='task-detail-page']");
 	await page.waitForLoadState("networkidle");
 
-	await expect(page.getByTestId("work-bet-page")).toBeVisible();
+	await expect(page.getByTestId("task-detail-page")).toBeVisible();
 	await page.screenshot({ path: "test-results/U11-05-bet-detail.png", fullPage: false });
 });
 

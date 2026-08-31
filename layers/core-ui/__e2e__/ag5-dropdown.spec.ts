@@ -14,7 +14,7 @@
  * Strategy: hermetic page.route() mocks. No DB seeding.
  * Screenshots: test-results/ag5-*.png (same convention as U11).
  *
- * @lore AG5: Fix round 1 — corrected route from /work/bets/:id to /work/bet/:id
+ * @lore AG5: Fix round 1 — corrected route from /work/bets/:id to /work/task/:id
  * (singular); Settings from role=tab to stacked page at /conversations?settings=open;
  * S2 uses /work/portfolio; S3 uses /work/team/:id + new-routine-btn testid;
  * S2b opens appetite dialog first; S4b uses draft-status bet for activate action;
@@ -52,16 +52,6 @@ async function setupBetRoutes(
 		: never,
 	betStatus = "active",
 ): Promise<void> {
-	await page.route(`**/api/bets/${BET_ID}`, (route) => {
-		if (route.request().method() === "GET") {
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse(betStatus)),
-			});
-		}
-		return route.continue();
-	});
 	await page.route(`**/api/threads?**`, (route) =>
 		route.fulfill({
 			status: 200,
@@ -75,9 +65,6 @@ async function setupBetRoutes(
 			contentType: "application/json",
 			body: JSON.stringify({ messages: [], total: 0 }),
 		}),
-	);
-	await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, (route) =>
-		route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(null) }),
 	);
 	await page.route(`**/api/tasks?**`, (route) =>
 		route.fulfill({
@@ -131,28 +118,6 @@ async function _setupBetsListRoutes(
 			: never
 		: never,
 ): Promise<void> {
-	await page.route("**/api/bets", (route) => {
-		if (route.request().method() === "GET") {
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					draft: [],
-					active: [makeBetResponse("active")],
-					completed: [],
-					killed: [],
-				}),
-			});
-		}
-		if (route.request().method() === "POST") {
-			return route.fulfill({
-				status: 201,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse("shaped")),
-			});
-		}
-		return route.continue();
-	});
 	// Override api/teams to provide 2 teams so BetCreateDialog shows the team Select.
 	// (With 1 team, BetCreateDialog auto-resolves and hides the select per R2.)
 	await page.route("**/api/teams", (route) => {
@@ -189,8 +154,8 @@ async function setupTeamRoutes(
 					product: { id: TEAM_ID, name: "Test Team", phase: "build", status: "healthy" },
 					team: { id: "t1", formedAt: new Date().toISOString(), dissolvedAt: null },
 					roster: [],
-					burn: { capacity: 5, activeBets: 0 },
-					activeBets: [],
+					burn: { capacity: 5 },
+					tasksInProgress: [],
 					routines: [],
 				}),
 			});
@@ -207,13 +172,6 @@ async function setupTeamRoutes(
 		}
 		return route.continue();
 	});
-	await page.route(`**/api/bets?**`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ tasks: [], nextCursor: null }),
-		}),
-	);
 }
 
 // ─── Surface 1: Settings / Models ────────────────────────────────────────────
@@ -247,7 +205,7 @@ test("AG5-S1: Settings/Models — canonical Select renders on model tier rows", 
 });
 
 // ─── Surface 2: WorkBetCreate — full-width team Select on new full-page route ────
-// AG3: BetCreateDialog deleted. Team Select is now on /work/bet/new (WorkBetCreate).
+// AG3: BetCreateDialog deleted. Team Select is now on /work/task/new (WorkBetCreate).
 // With multi-team fixture, the team Select appears in the commitments aside.
 
 test("AG5-S2: WorkBetCreate — team Select control is full-width in commitments aside", async ({
@@ -270,7 +228,6 @@ test("AG5-S2: WorkBetCreate — team Select control is full-width in commitments
 							phase: "build",
 							status: "healthy",
 							leadAgentId: null,
-							activeBets: 0,
 							shipped: 0,
 							shipRate: "—",
 							progress: { done: 0, total: 0 },
@@ -285,7 +242,6 @@ test("AG5-S2: WorkBetCreate — team Select control is full-width in commitments
 							phase: "build",
 							status: "healthy",
 							leadAgentId: null,
-							activeBets: 0,
 							shipped: 0,
 							shipRate: "—",
 							progress: { done: 0, total: 0 },
@@ -302,7 +258,7 @@ test("AG5-S2: WorkBetCreate — team Select control is full-width in commitments
 	});
 
 	// Navigate directly to the new full-page bet create route
-	await page.goto("/work/bet/new");
+	await page.goto("/work/task/new");
 	await page.waitForSelector("[data-testid='bet-create-page']", { timeout: 10000 });
 
 	// Find the commitments aside
@@ -332,8 +288,8 @@ test("AG5-S2b: WorkBet — currency Select control bounding box ≈ 88px (C3)", 
 	await page.setViewportSize({ width: 1440, height: 900 });
 	// Use active status — the appetite dialog requires an active bet.
 	await setupBetRoutes(page, "active");
-	// @lore AG5 fix: route is /work/bet/:id (singular), not /work/bets/:id (plural).
-	await page.goto(`/work/bet/${BET_ID}`);
+	// @lore AG5 fix: route is /work/task/:id (singular), not /work/bets/:id (plural).
+	await page.goto(`/work/task/${BET_ID}`);
 	await page.waitForSelector("[data-testid='main-content']");
 
 	// The currency Select is inside the "Adjust appetite" dialog.
@@ -409,8 +365,8 @@ test("AG5-S4: WorkBet overflow Menu — open, keyboard nav (ArrowDown+Enter), cl
 }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await setupBetRoutes(page);
-	// @lore AG5 fix: route is /work/bet/:id (singular), not /work/bets/:id (plural).
-	await page.goto(`/work/bet/${BET_ID}`);
+	// @lore AG5 fix: route is /work/task/:id (singular), not /work/bets/:id (plural).
+	await page.goto(`/work/task/${BET_ID}`);
 	await page.waitForSelector("[data-testid='main-content']");
 
 	// Open the overflow menu via the trigger button
@@ -455,8 +411,8 @@ test("AG5-S4b: WorkBet overflow Menu — data-bet-action attrs present on items 
 	// @lore AG5 fix: Use "draft" status so the "activate" menu item appears.
 	// When status="active", only "adjust-appetite"/"unblock"/"kill" render.
 	await setupBetRoutes(page, "draft");
-	// @lore AG5 fix: route is /work/bet/:id (singular), not /work/bets/:id (plural).
-	await page.goto(`/work/bet/${BET_ID}`);
+	// @lore AG5 fix: route is /work/task/:id (singular), not /work/bets/:id (plural).
+	await page.goto(`/work/task/${BET_ID}`);
 	await page.waitForSelector("[data-testid='main-content']");
 
 	const overflowBtn = page.getByTestId("bet-overflow-btn");

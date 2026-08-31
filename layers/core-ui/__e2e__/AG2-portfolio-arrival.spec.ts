@@ -26,7 +26,6 @@ const TEAMS_FIXTURE = {
 			id: "team-alpha",
 			name: "Alpha Team",
 			status: "healthy",
-			activeBets: 2,
 			shipRate: "80%",
 			leadAgentId: "agent-1",
 			shipped: 5,
@@ -40,7 +39,6 @@ const TEAMS_FIXTURE = {
 			id: "team-beta",
 			name: "Beta Team",
 			status: "behind",
-			activeBets: 1,
 			shipRate: "60%",
 			leadAgentId: "agent-2",
 			shipped: 3,
@@ -59,7 +57,6 @@ const TEAMS_FIXTURE_SINGLE = {
 			id: "team-alpha",
 			name: "Alpha Team",
 			status: "healthy",
-			activeBets: 2,
 			shipRate: "80%",
 			leadAgentId: "agent-1",
 			shipped: 5,
@@ -177,28 +174,9 @@ async function registerTeamMock(page: import("@playwright/test").Page, fixture =
 async function registerBetsMock(
 	page: import("@playwright/test").Page,
 	fixture: typeof BETS_FIXTURE_EMPTY,
-) {
-	await page.route("**/api/bets", async (route) => {
-		if (!route.request().url().includes("/api/bets/")) {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(fixture),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-}
+) {}
 
 async function registerCanvasMock(page: import("@playwright/test").Page) {
-	await page.route("**/api/bets/canvas", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ shaped: [], committed: [], capacity: { used: 0, max: 2 } }),
-		});
-	});
 	await page.route("**/api/artifacts**", async (route) => {
 		await route.fulfill({
 			status: 200,
@@ -238,8 +216,8 @@ test.describe("AG2 — Empty portfolio state (AC-1)", () => {
 		await expect(createBtn).toBeVisible();
 	});
 
-	// AG3: 'Create bet' CTA navigates to full-page /work/bet/new (not dialog)
-	test("AC-1: clicking 'Create bet' CTA navigates to /work/bet/new", async ({ page }) => {
+	// AG3: 'Create bet' CTA navigates to full-page /work/task/new (not dialog)
+	test("AC-1: clicking 'Create bet' CTA navigates to /work/task/new", async ({ page }) => {
 		await page.getByRole("button", { name: /create bet/i }).click();
 		await expect(page).toHaveURL(/\/work\/bet\/new/, { timeout: 5_000 });
 		await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -257,11 +235,11 @@ test.describe("AG2 — Empty portfolio state (AC-1)", () => {
 		await expect(page.getByTestId("portfolio-filter-zone")).toHaveCount(0);
 	});
 
-	test("AC-4: frame invariant — 'All bets' heading and new-bet-btn visible at empty state", async ({
+	test("AC-4: frame invariant — 'All bets' heading and new-task-btn visible at empty state", async ({
 		page,
 	}) => {
 		await expect(page.getByRole("heading", { name: /all bets/i })).toBeVisible();
-		await expect(page.getByTestId("new-bet-btn")).toBeVisible();
+		await expect(page.getByTestId("new-task-btn")).toBeVisible();
 	});
 });
 
@@ -304,9 +282,9 @@ test.describe("AG2 — Unevaluated portfolio state (AC-2, AC-3)", () => {
 		await expect(page.getByRole("button", { name: /^draft$/i })).toBeVisible();
 	});
 
-	test("AC-4: frame invariant — heading and new-bet-btn visible with bets", async ({ page }) => {
+	test("AC-4: frame invariant — heading and new-task-btn visible with bets", async ({ page }) => {
 		await expect(page.getByRole("heading", { name: /all bets/i })).toBeVisible();
-		await expect(page.getByTestId("new-bet-btn")).toBeVisible();
+		await expect(page.getByTestId("new-task-btn")).toBeVisible();
 	});
 
 	test("AC-4: bet grid is visible (not empty state)", async ({ page }) => {
@@ -414,8 +392,8 @@ test.describe("AG2 — Entry from team screen (AC-6)", () => {
 
 		// @lore AG2: Mock team detail endpoint MUST return TeamDetail shape (not flat TeamSummary).
 		// WorkTeam guards: if (!data.team) → "Team not found". Flat { id, name } fails this guard.
-		// TeamDetail = { team: TeamSummary, roster: [], burn: TeamBurn, activeBets: [], teamMembers }
-		// TeamBurn = { capacity, activeBets } (AU21 Increment 14a: cost fields deleted)
+		// TeamDetail = { team: TeamSummary, roster: [], burn: TeamBurn, tasksInProgress: [], teamMembers }
+		// @lore BB1: TeamBurn = { capacity } — the stored activeBets tally is gone.
 		await page.route("**/api/teams/team-alpha", async (route) => {
 			// Only intercept the exact team detail endpoint (not sub-paths like /budget, /agents).
 			const url = route.request().url();
@@ -438,9 +416,8 @@ test.describe("AG2 — Entry from team screen (AC-6)", () => {
 					roster: [],
 					burn: {
 						capacity: 1,
-						activeBets: 0,
 					},
-					activeBets: [],
+					tasksInProgress: [],
 					routines: [],
 				}),
 			});

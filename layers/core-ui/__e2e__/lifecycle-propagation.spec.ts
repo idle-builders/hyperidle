@@ -62,8 +62,10 @@ function makeBetResponse(betStatus: string, taskState: string) {
 }
 
 function makeProductResponse(betStatus: string) {
-	// Shape matches ProductDetail from @hyperidle/domain-model:
-	// activeBets is BetCardSummary[] with pitchTitle, progressDone, progressTotal fields.
+	// Shape matches TeamDetail from @hyperidle/domain-model.
+	// @lore BB1: `activeBets: BetCardSummary[]` became
+	// `tasksInProgress: TaskCardSummary[]` (title/state, not pitchTitle/status),
+	// and TeamBurn lost its stored counter — it is { capacity } only.
 	return {
 		product: {
 			id: PRODUCT_ID,
@@ -74,14 +76,11 @@ function makeProductResponse(betStatus: string) {
 		},
 		team: { id: "team-l20", formedAt: "2026-01-01T00:00:00Z", dissolvedAt: null },
 		roster: [],
-		burn: {
-			capacity: 5,
-			activeBets: betStatus === "review" || betStatus === "in_progress" ? 1 : 0,
-		},
-		activeBets: [
+		burn: { capacity: 5 },
+		tasksInProgress: [
 			{
 				id: BET_ID,
-				pitchTitle: "L20 Lifecycle Bet",
+				title: "L20 Lifecycle Bet",
 				status: betStatus,
 				progressDone: 1,
 				progressTotal: 1,
@@ -124,16 +123,6 @@ async function setupCommonRoutes(
 	taskState: string,
 ): Promise<void> {
 	// Bet detail route
-	await page.route(`**/api/bets/${BET_ID}`, (route) => {
-		if (route.request().method() === "GET") {
-			return route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse(betStatus, taskState)),
-			});
-		}
-		return route.continue();
-	});
 
 	// Threads list
 	await page.route("**/api/threads?**", (route) => {
@@ -190,13 +179,6 @@ async function setupCommonRoutes(
 	});
 
 	// Bets list for nav
-	await page.route("**/api/bets?**", (route) => {
-		return route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ bets: [] }),
-		});
-	});
 
 	// Tasks list
 	await page.route("**/api/tasks?**", (route) => {
@@ -215,10 +197,10 @@ test("L20: task shows review state after session ends with outcome=completed", a
 	await setupCommonRoutes(page, "in_progress", "review");
 
 	// Act: navigate to bet detail page
-	await page.goto(`/work/bet/${BET_ID}`);
+	await page.goto(`/work/task/${BET_ID}`);
 
 	// Assert: the bet page loads
-	await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible({ timeout: 10000 });
+	await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible({ timeout: 10000 });
 
 	// Assert: a task row is visible containing our task title
 	const taskRow = page
@@ -241,10 +223,10 @@ test("L20: bet shows review state after all tasks are done", async ({ page }) =>
 	await setupCommonRoutes(page, "review", "done");
 
 	// Act: navigate to bet detail page
-	await page.goto(`/work/bet/${BET_ID}`);
+	await page.goto(`/work/task/${BET_ID}`);
 
 	// Assert: the bet page loads
-	await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible({ timeout: 10000 });
+	await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible({ timeout: 10000 });
 
 	// Assert: a bet-status chip is visible with data-status="behind"
 	// betStatusToStatus('review') === 'behind' — review means "action required" in the design system
@@ -282,11 +264,11 @@ test("L20: bet stays in review — shipped transition requires human confirmatio
 	// the final automatically-reachable state.
 	await setupCommonRoutes(page, "review", "done");
 
-	await page.goto(`/work/bet/${BET_ID}`);
+	await page.goto(`/work/task/${BET_ID}`);
 
 	// Bet should be in 'review' state — NOT 'shipped'
 	// The bet page must load successfully
-	await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible({ timeout: 10000 });
+	await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible({ timeout: 10000 });
 
 	// The bet-level status chip should be data-status="behind" (review → behind in design system)
 	// NOT data-status="done" (shipped → done). BetCard renders the first StatusChip on the page.

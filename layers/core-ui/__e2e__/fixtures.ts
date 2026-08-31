@@ -145,6 +145,32 @@ export const test = base.extend<CoreApiFixtures>({
 				}
 			});
 
+			// GET /api/tasks/:id/tree — WorkTaskPage's only data source.
+			//
+			// @lore BB1: a fallback, exactly like the /api/teams one above. Many
+			// specs open a task page purely as a vehicle (layout, scroll, nav,
+			// dialogs) and do not care what the task says. Without a default they
+			// would each need their own mock, and a spec that forgot one would hang
+			// on the loading state rather than fail with something readable.
+			// A spec that DOES care calls mockTaskTree(), which wins on LIFO.
+			await page.route("**/api/tasks/*/tree", async (route) => {
+				if (route.request().method() !== "GET") {
+					await route.continue();
+					return;
+				}
+				const id = new URL(route.request().url()).pathname.split("/").at(-2) ?? "task-default";
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({
+						task: makeTask(id),
+						ancestors: [],
+						children: [],
+						tokensActualRollup: null,
+					}),
+				});
+			});
+
 			// Run the test.
 			await use();
 		},

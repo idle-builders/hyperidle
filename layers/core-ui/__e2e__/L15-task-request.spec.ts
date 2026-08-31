@@ -1,12 +1,12 @@
 /**
  * L15 — Playwright e2e: strip-drag + request-state + open-thread.
- * L13 amendment: re-routed from /work/team to /work/bet/:id.
+ * L13 amendment: re-routed from /work/team to /work/task/:id.
  *
  * Strategy: hermetic page.route() mocks for all /api/ calls.
  * No DB seeding required — the dev server only serves the SPA bundle.
  *
  * Flow:
- * 1. Navigate to /work/bet/b1 (bet detail page)
+ * 1. Navigate to /work/task/b1 (bet detail page)
  * 2. Positive drag-absence guards (structural assertions, not behavior)
  * 3. Click a task row [data-testid="bet-task-row"] → TaskSheet opens
  * 4. Select "Move to BLOCKED" intent → Send request → Sent. feedback → sheet closes
@@ -14,7 +14,7 @@
  * 6. Re-open task row → Open thread → URL navigates to /conversations/:threadId (L9)
  *
  * @lore L13: WorkTeam.tsx is deleted. TaskSheet is now mounted on WorkBet.
- * All L15 flows navigate through /work/bet/:id → [data-testid="bet-task-row"]
+ * All L15 flows navigate through /work/task/:id → [data-testid="bet-task-row"]
  * instead of /work/team → task card.
  */
 import { expect, test } from "./fixtures";
@@ -179,27 +179,8 @@ function makeHostThreadResponse(): object {
 test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock /api/bets/:id so the bet detail page loads
-		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-			const req = route.request();
-			if (req.method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeBetDetailResponse()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 
 		// Mock /api/bets/:id/artifact-thread-summary
-		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], truncated: false, totalCount: 0 }),
-			});
-		});
 
 		// Mock host thread for the bet (HostThreadSection)
 		await page.route(`**/api/threads?host_kind=bet&host_id=${BET_ID}`, async (route) => {
@@ -260,8 +241,8 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 	test("(step 2) drag affordances are structurally absent from the bet task table", async ({
 		page,
 	}) => {
-		await page.goto(`/work/bet/${BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto(`/work/task/${BET_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// On the Bet detail page, there is no Kanban with drag affordances
 		await expect(page.locator("[data-droppable-column]")).toHaveCount(0);
@@ -270,8 +251,8 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 	});
 
 	test("(step 3) clicking a task row opens the TaskSheet (role=dialog)", async ({ page }) => {
-		await page.goto(`/work/bet/${BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto(`/work/task/${BET_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// Click the first task row
 		const taskRow = page.getByTestId("bet-task-row").first();
@@ -324,8 +305,8 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 			}
 		});
 
-		await page.goto(`/work/bet/${BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto(`/work/task/${BET_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// Open the sheet via task row click
 		await page.getByTestId("bet-task-row").first().click();
@@ -373,8 +354,8 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 			}
 		});
 
-		await page.goto(`/work/bet/${BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto(`/work/task/${BET_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// Open the sheet via task row click
 		await page.getByTestId("bet-task-row").first().click();

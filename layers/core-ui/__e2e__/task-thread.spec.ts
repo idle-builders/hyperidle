@@ -111,38 +111,9 @@ test.describe("L18 — Task sheet thread surface", () => {
 		// WorkBet. Navigate to the bet detail page and click a task row to open
 		// the sheet. The bet mock must be registered before the thread mocks so
 		// the page renders before we try to click.
-		await page.route("**/api/bets/b1", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "b1",
-					title: "User auth flow",
-					product: "Alpha",
-					team: "Alpha Core",
-					status: "committed",
-					tokensActual: null,
-					progress: { done: 1, total: 3 },
-					description: "# Problem\n\nAuth is broken.\n",
-					tasks: [
-						{
-							id: TASK_ID,
-							betId: "b1",
-							title: "Implement login endpoint",
-							ownerAgentId: "agent-dev-1",
-							state: "in_progress",
-							latestSessionOutcome: null,
-							latestSessionTokensInput: null,
-							latestSessionTokensOutput: null,
-							latestSessionHarnessUrl: null,
-						},
-					],
-				}),
-			}),
-		);
 
-		await page.goto("/work/bet/b1");
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto("/work/task/b1");
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// Click the first task row (bet-task-row) to open the task sheet
 		const taskCards = page.locator("[data-testid='bet-task-row']");

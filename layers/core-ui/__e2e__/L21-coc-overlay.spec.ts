@@ -234,7 +234,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 
 	test("AC-E4: user can add a bet as context — chip appears in overlay", async ({ page }) => {
 		// Navigate to a bet page so a BetCard is visible in Main.
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// Open the CoC overlay first.
 		const trigger = page.getByRole("button", { name: /assistant/i });
@@ -244,7 +244,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await expect(dialog).toBeVisible();
 
 		// When the overlay is open, a "+" attach button should appear on the BetCard in Main.
-		// The BetCard is rendered in the Main area at /work/bet/:id.
+		// The BetCard is rendered in the Main area at /work/task/:id.
 		const attachButton = page.getByRole("button", { name: /add.*context|attach/i });
 		await expect(attachButton).toBeVisible();
 

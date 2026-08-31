@@ -169,18 +169,18 @@ describe("Active Bets SectionLabel has a + New task button (BB1: was New bet)", 
 	it("renders '+ New task' button in the Active Bets section (BB1: was New bet)", async () => {
 		renderWithRouter(<WorkTeam overrideData={TEAM_EMPTY} skipArtifacts />);
 		await waitFor(() => {
-			expect(screen.getByTestId("new-bet-btn")).toBeInTheDocument();
+			expect(screen.getByTestId("new-task-btn")).toBeInTheDocument();
 		});
-		expect(screen.getByTestId("new-bet-btn").textContent).toMatch(/\+ new task/i);
+		expect(screen.getByTestId("new-task-btn").textContent).toMatch(/\+ new task/i);
 	});
 
 	it("clicking '+ New task' navigates to /work/task/new (BB1: was /work/bet/new)", async () => {
 		const user = userEvent.setup();
 		renderWithRouter(<WorkTeam overrideData={TEAM_EMPTY} skipArtifacts />);
 		await waitFor(() => {
-			expect(screen.getByTestId("new-bet-btn")).toBeInTheDocument();
+			expect(screen.getByTestId("new-task-btn")).toBeInTheDocument();
 		});
-		await user.click(screen.getByTestId("new-bet-btn"));
+		await user.click(screen.getByTestId("new-task-btn"));
 		await waitFor(() => {
 			expect(screen.getByTestId("task-new-page")).toBeInTheDocument();
 		});

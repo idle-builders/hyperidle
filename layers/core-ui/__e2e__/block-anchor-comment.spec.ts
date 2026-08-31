@@ -72,22 +72,6 @@ test.describe("L18 — Block-anchored comment flow", () => {
 		let postedBlockId: string | null = null;
 		const composedText = "This is my anchored comment on the block.";
 
-		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse()),
-			});
-		});
-
-		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-			});
-		});
-
 		await page.route(`**/api/threads?**host_kind=bet**`, async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -159,7 +143,7 @@ test.describe("L18 — Block-anchored comment flow", () => {
 			}
 		});
 
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// Find a block in the pitch and open its actions
 		const firstBlock = page.locator("[data-ds-component='block']").first();

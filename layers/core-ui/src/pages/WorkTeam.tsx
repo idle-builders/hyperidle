@@ -416,7 +416,7 @@ function WorkTeamLoaded({
 							size="sm"
 							type="button"
 							onClick={() => navigate("/work/task/new")}
-							data-testid="new-bet-btn"
+							data-testid="new-task-btn"
 						>
 							+ New task
 						</Button>

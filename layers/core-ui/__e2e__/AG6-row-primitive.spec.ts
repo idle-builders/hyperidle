@@ -84,12 +84,11 @@ function makeTeamFixture() {
 		],
 		burn: {
 			capacity: 5,
-			activeBets: 1,
 		},
-		activeBets: [
+		tasksInProgress: [
 			{
 				id: "bet-ag6",
-				descriptionTitle: "AG6 primitive",
+				title: "AG6 primitive",
 				status: "active",
 				progressDone: 1,
 				progressTotal: 2,

@@ -61,13 +61,6 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
-		await page.route("**/api/bets", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BETS_FIXTURE),
-			});
-		});
 
 		await page.goto("/work/portfolio");
 		await page.waitForSelector("[data-testid='work-portfolio-page']");
@@ -182,13 +175,6 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 	});
 
 	test("work empty state visible when no bets", async ({ page }) => {
-		await page.route("**/api/bets*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ bets: [] }),
-			});
-		});
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
