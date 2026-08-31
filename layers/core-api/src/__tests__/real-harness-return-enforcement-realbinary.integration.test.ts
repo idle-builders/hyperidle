@@ -403,6 +403,14 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					// trivial so the LLM call completes quickly (~3s). The Stop hook
 					// fires when the session ends — before the claude process exits.
 					// @lore AR7: model is AR7-locked via HARNESS_TEST_MODELS.claude — never hardcode.
+					//
+					// @lore codex-force-budget-timing: "~3s" is one turn, and this spawn
+					// absorbs three — `forceBudget: 2` blocks the stop twice, and each block
+					// costs a full extra LLM round trip before the process may exit. The
+					// budget below is the kill timer for all three, and at 30s it was thin
+					// enough to flake. The failure reads as `exitCode: null`, which looks
+					// like "the binary never completed" long after the hook assertions have
+					// already passed. Same measurement and same fix as the codex lane.
 					const result = await spawnDetached(
 						"claude",
 						[
@@ -417,7 +425,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 						{
 							cwd: sandboxPath,
 							env: cleanEnv,
-							timeoutMs: 30_000,
+							timeoutMs: 120_000,
 						},
 					);
 
@@ -449,7 +457,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			} finally {
 				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
-		}, 60_000);
+		}, 180_000);
 
 		test("LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)", async () => {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-claude-live-"));
@@ -891,13 +899,24 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					const cleanEnv = buildCleanEnv();
 					cleanEnv.CODEX_HOME = codexHomeDir;
 
+					// @lore codex-force-budget-timing (measured live 2026-08-31, codex
+					// 0.150.1): this run takes ~29s against a 30s budget, and the failure
+					// mode is `exitCode: null` — the timeout SIGKILLs the process group
+					// mid-turn, which reads as "the binary never completed" while the hook
+					// assertions above have already passed.
+					//
+					// It is slow BECAUSE enforcement works. `forceBudget: 2` means the Stop
+					// hook blocks twice, and each block costs codex a full extra LLM round
+					// trip before it may stop. Three turns, not one. A budget an inch above
+					// the measured time is a coin flip; this one has real headroom, and the
+					// assertions it protects are unchanged.
 					const result = await spawnDetached(
 						"codex",
 						["exec", "say: HOOK_TEST_DONE", "--json", "--dangerously-bypass-hook-trust"],
 						{
 							cwd: sandboxPath,
 							env: cleanEnv,
-							timeoutMs: 30_000,
+							timeoutMs: 120_000,
 						},
 					);
 
@@ -919,7 +938,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					}
 					expect(entry.forceCount).toBeGreaterThanOrEqual(1);
 
-					// The binary must have completed (non-null exit code, turn.completed in stdout).
+					// The binary must have completed of its own accord. A null exitCode is
+					// the spawn timeout's SIGKILL, never a real exit — see the timing lore
+					// above the spawn.
 					expect(result.exitCode).not.toBeNull();
 					expect(result.stdout).toContain("turn.completed");
 				} finally {
@@ -928,7 +949,7 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			} finally {
 				fs.rmSync(sandboxPath, { recursive: true, force: true });
 			}
-		}, 60_000);
+		}, 180_000);
 
 		test("LIVE: codex binary is reachable, auth present, and version is valid", async () => {
 			const { stdout: versionOut } = await execFileAsync("codex", ["--version"], {
