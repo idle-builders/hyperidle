@@ -8,7 +8,6 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
 		"drizzle-orm": "^0.45.2"
