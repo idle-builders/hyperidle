@@ -16,7 +16,6 @@
 
 import type {
 	AgentRunActiveCountsResponse,
-	AgentRunLatestOutcomesResponse,
 	AgentRunSummary,
 	AgentRunsResponse,
 } from "@hyperidle/domain-model";
@@ -71,21 +70,4 @@ export async function fetchActiveRunCounts(
 		signal,
 	);
 	return body.counts;
-}
-
-/**
- * The outcome of the newest run per task. A task with no run is absent from the
- * map, which callers render as `null` — the same shape core-api used to serve as
- * `latestSessionOutcome`.
- */
-export async function fetchLatestRunOutcomes(
-	taskIds: ReadonlyArray<string>,
-	signal?: AbortSignal,
-): Promise<Readonly<Record<string, string | null>>> {
-	if (taskIds.length === 0) return {};
-	const body = await getJson<AgentRunLatestOutcomesResponse>(
-		`${BASE}/runs/latest-outcomes?task_ids=${encodeURIComponent(taskIds.join(","))}`,
-		signal,
-	);
-	return body.outcomes;
 }

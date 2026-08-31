@@ -29,7 +29,7 @@ import type {
 	AgentRunSummary,
 } from "@hyperidle/domain-model";
 import { useEffect, useMemo, useState } from "react";
-import { fetchLatestRunOutcomes, fetchRunsByAgentIds } from "../services/agent-runs.js";
+import { fetchRunsByAgentIds } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";
 import type {
 	AgentActiveSession,
@@ -314,41 +314,4 @@ function groupByAgent(
 		byAgent.set(run.agentId, bucket);
 	}
 	return byAgent;
-}
-
-// ---------------------------------------------------------------------------
-// Bet view
-// ---------------------------------------------------------------------------
-
-/**
- * The outcome of the newest run per task, keyed by task id. A task with no run
- * is absent, which callers render as `null` — the exact shape core-api used to
- * serve as `latestSessionOutcome` on `GET /api/bets/:id` (AU26 J4).
- */
-export function useLatestRunOutcomes(
-	taskIds: ReadonlyArray<string>,
-): Readonly<Record<string, string | null>> {
-	const [outcomes, setOutcomes] = useState<Readonly<Record<string, string | null>>>({});
-	const idsKey = useMemo(() => [...taskIds].join(","), [taskIds]);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: idsKey is the content-stable key for `taskIds`
-	useEffect(() => {
-		if (taskIds.length === 0) {
-			setOutcomes({});
-			return;
-		}
-		const ac = new AbortController();
-		fetchLatestRunOutcomes(taskIds, ac.signal)
-			.then((next) => {
-				if (!ac.signal.aborted) setOutcomes(next);
-			})
-			.catch(() => {
-				// The task list is core's data and already rendered; a run-state
-				// failure just means no outcome chip, exactly as for a task with no run.
-				if (!ac.signal.aborted) setOutcomes({});
-			});
-		return () => ac.abort();
-	}, [idsKey]);
-
-	return outcomes;
 }
