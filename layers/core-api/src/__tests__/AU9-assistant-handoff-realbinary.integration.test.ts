@@ -154,9 +154,24 @@ async function runDurableHandoffProof(
 	// the encrypted credential row, not a bypass. One that authenticates through
 	// its own login needs nothing, and is given nothing.
 	if (locked.apiKeyEnv) {
+		// @lore The cast that used to stand here (`as string`) let an absent key
+		// through to `encryptCredentialValue`, which failed with a TypeError from
+		// inside the crypto helper — "The first argument must be of type string
+		// … Received undefined" — naming neither the key nor the harness. A
+		// missing credential is a real, actionable setup problem, so it fails
+		// like one: named, and at the point it is noticed. Same rule
+		// `requireHarness` follows for a missing binary — hard-fail, never skip.
+		const apiKey = process.env[locked.apiKeyEnv];
+		if (!apiKey) {
+			throw new Error(
+				`${locked.apiKeyEnv} is not set — the ${harness} lane bills through that key and ` +
+					"cannot complete without it. Provide it in the environment (the repo's .env " +
+					"carries one) and re-run.",
+			);
+		}
 		await db.insert(serverCredentials).values({
 			name: "openrouter_api_key",
-			encryptedValue: encryptCredentialValue(process.env[locked.apiKeyEnv] as string),
+			encryptedValue: encryptCredentialValue(apiKey),
 			validationState: "present_untested",
 			updatedAt: now,
 		});
