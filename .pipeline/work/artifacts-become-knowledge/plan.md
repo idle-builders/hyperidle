@@ -11,6 +11,13 @@ how it graduates into the team's knowledge tree.
 the word — founder call. The parallel nested-knowledge strand currently writes
 "knowledge documents"; that is the same object under a word we are not keeping.
 
+**It has already leaked into merged production code.** `upsertPluginDocument` and
+`UpsertPluginDocumentInput`
+(`layers/core-api/knowledge/src/knowledge-repository.ts:1358`, exported from that
+package's index) landed with the BA9 plugin work, and the BA9e/BA9f commit
+messages say "knowledge document" throughout. Two identifiers, cheap to respell —
+fold it into this strand's naming sweep rather than leaving the drift to spread.
+
 ## Why
 
 Two nouns were doing one job badly.
@@ -30,6 +37,21 @@ that can never be produced by a task.
 
 Removing the second table also closes the product thesis: everything is a
 thread, a task, or a knowledge item.
+
+**This is now the third time the same move has been made, not the first.** The
+BA9 plugin work already moved two other pieces of entity text into
+`knowledge_items`:
+
+- **A routine's prompt** — `routines.prompt` was dropped and replaced by
+  `routines.prompt_knowledge_id`, an FK to a knowledge item (BA9f, `7aea1084e`).
+  The commit's own reasoning is the same as this plan's: the prompt "could not be
+  read, edited or reused the way the knowledge it plainly is can be".
+- **An agent's identity** — resolved as a knowledge item with `role='agent_file'`,
+  `scopeKind='user'`, `scopeId=<agentId>`, `status='active'`
+  (`getAgentIdentityIds`, `layers/core-api/knowledge/src/knowledge-repository.ts:1339`).
+
+Artifacts are the same argument applied to produced content. The precedent is
+established; this strand does not have to make the case from scratch.
 
 ## What was already true
 
@@ -195,6 +217,27 @@ parented to the thread has all four.
 into the conversation, parented to the thread. The button stays; the rotting
 reference behind it is what dies.
 
+### Three attachment mechanisms now exist — worth a ruling, not a blocker
+
+Saying "this knowledge item belongs to that entity" is now done three different
+ways, and ours is the third:
+
+| Mechanism | Used by | Shape |
+|---|---|---|
+| FK pointer on the entity | routine prompt | `routines.prompt_knowledge_id` |
+| Scope + role reverse lookup | agent identity | `role='agent_file'`, `scopeKind='user'`, `scopeId=<agentId>` |
+| Parent slot | **this strand**, nested knowledge | `parentKind` + `parentId` |
+
+The parent slot is right for artifacts and stays: a produced item is not a fixed
+named slot on an entity, it is one of many things that appeared under it, and it
+has to be able to graduate. The other two are fixed singular slots, which is a
+genuinely different relationship — a routine has exactly one prompt.
+
+So this is not an argument to fold them together, and nothing here is blocked on
+it. But three answers to one question is the kind of drift that is cheap to
+notice now and expensive later. Worth a founder ruling on whether they converge
+once the parent slot exists — **not in this strand's scope**.
+
 ### Surfaces
 
 Clicking a knowledge item in a thread or on a task **opens it in the split
@@ -205,11 +248,14 @@ in use across the settings surfaces. No new interaction is designed here.
 
 Three strands touch the same tables. This one lands last.
 
-1. **BB1 / task-hierarchy** (`feature/task-hierarchy-nested-subtasks-3ddf76`) —
-   deletes `bets`, every bet becomes a root task keeping its id, re-scopes
-   bet-scoped knowledge onto the new root task id, removes `bet` from
-   `SCOPE_KINDS`.
-2. **Nested knowledge** (`feature/knowledge-doc-nesting-480d3f`) — builds
+1. **BB1 / task-hierarchy — MERGED** as `870bd0bdc` ("Everything is a task, and
+   a task has subtasks", #537). Verified on `origin/main` after rebase: the
+   `bets` table is gone; `tasks.parentTaskId`, `tasks.position` and
+   `tasks.needsReview` exist; `bet` is gone from `SCOPE_KINDS`, `HOST_KINDS` and
+   `BLOCK_HOST_KINDS`. `SCOPE_KINDS` is now
+   `factory | product | practice | team | task | user`.
+2. **Nested knowledge** (`feature/knowledge-doc-nesting-480d3f`) — NOT yet
+   merged. Builds
    `parentId` + `parentKind`, deletes `layer`, `kind`, `topic`, and removes
    `product`, `practice` and `task` from `SCOPE_KINDS`, leaving
    `factory | team | user`.
@@ -304,10 +350,16 @@ markdown `description` that derives blocks — their migration writes
 `bets.description` onto the root task's `description` byte-for-byte, and
 `deriveBlocks(description, { kind: "task", id })` is the straight port of what
 `WorkBet.tsx:216` did. So a task's description is a knowledge item in all but
-name. Folding that in would double this change and is not needed for artifacts to
-die. The parent slot it would use is the same one built here, so nothing decided
+name. The parent slot it would use is the same one built here, so nothing decided
 now blocks it later — and BB1 collapsing bets into tasks makes it a smaller job
 later than it would have been.
+
+**The reason for excluding it has changed, and is now weaker.** It was "this is
+unproven and would double the change". Since then BA9f moved routine prompts and
+agent identities into `knowledge_items` successfully, so the pattern is proven
+and `tasks.description` is the last large holdout. The exclusion now rests only
+on sequencing — keeping this strand to one subtraction — not on risk. Re-decide
+it deliberately rather than inheriting this line.
 
 ## Existing data
 
@@ -332,14 +384,20 @@ preview. There is no content-conversion work in this strand.
 | AC10 | Clicking a knowledge item in a thread or on a task opens it in the split view. | Component test asserting `SplitView` renders with the item. |
 | AC11 | `BlockRef`, `BlockRefEmbed` and `blockRefSchema` are gone, with every caller moved — no compat layer, alias or dead code. | Typecheck plus knip. |
 | AC12 | `tasks.artifacts` is renamed to `handoffFiles`, the handoff write path still round-trips, and no unrelated `artifacts:` key (review canvas, review composition, core-api port) was renamed by mistake. | Service integration test on the handoff round-trip; AC2's lint rule catches any survivor. |
+| AC13 | No production identifier says "document" for a knowledge item — `upsertPluginDocument` and `UpsertPluginDocumentInput` are respelled. | Lint rule alongside AC2's, shown failing before it passes. |
 
 AC2, AC3 and AC8 are the three that carry the change. AC3 is the one that would
 have been shipped broken without the derivation probe. AC8 is the goal.
 
 ## Status
 
-**Parked** until the nested-knowledge strand lands. Nothing here is buildable
-before it and BB1 merge.
+**Parked** until the nested-knowledge strand lands. BB1 has merged (`870bd0bdc`);
+nested knowledge has not, and it owns the parent slot everything here depends on.
+
+Rebased onto `origin/main` and re-verified 2026-09-01: the `artifacts` table and
+`tasks.artifacts` both still exist and are still ours to remove; `artifact` is
+still a value in `HOST_KINDS` and `BLOCK_HOST_KINDS`. Nothing this strand
+planned to delete has been deleted by someone else.
 
 Refine is complete. Program design is complete except for one thing, which is
 the first job when this unparks: **how an agent produces or attaches a
