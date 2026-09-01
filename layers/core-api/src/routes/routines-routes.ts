@@ -14,6 +14,7 @@ import {
 	create as createKnowledgeItem,
 	getParentedItem,
 	listItemIdsByParent,
+	listParentedItemBodies,
 	setKnowledgeStatus,
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
@@ -148,6 +149,23 @@ async function readRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<st
 		role: "prompt",
 	});
 	return doc?.body ?? null;
+}
+
+/**
+ * `readRoutinePrompt` for a whole page of routines, in one query rather than
+ * one per row — the list endpoint must agree with GET/POST/PATCH on shape
+ * (all four carry `prompt`), and a list can grow, so it batches the same way
+ * `getAgentIdentityIds` already does for the agents list.
+ */
+async function readRoutinePrompts(
+	db: HyperIdleDb,
+	routineIds: readonly string[],
+): Promise<Map<string, string>> {
+	return listParentedItemBodies(db, {
+		parentKind: "routine",
+		parentIds: routineIds,
+		role: "prompt",
+	});
 }
 
 /**
@@ -331,7 +349,16 @@ export function createRoutineRoutes(
 	// GET / — List all non-deleted routines (AA2: filter soft-deleted)
 	router.get("/", async (c) => {
 		const allRoutines = await routineService.listRoutines(db);
-		return c.json(allRoutines);
+		// The row no longer carries the prompt text — resolve it from each
+		// routine's document, same as GET/POST/PATCH, so all four responses
+		// agree on shape. One batched read, not one per routine.
+		const prompts = await readRoutinePrompts(
+			db,
+			allRoutines.map((routine) => routine.id),
+		);
+		return c.json(
+			allRoutines.map((routine) => ({ ...routine, prompt: prompts.get(routine.id) ?? null })),
+		);
 	});
 
 	// DELETE /:id — Soft delete routine (AA2 AC-2)

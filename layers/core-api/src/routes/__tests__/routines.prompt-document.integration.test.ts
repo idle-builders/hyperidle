@@ -186,4 +186,35 @@ describe("a routine's prompt is a knowledge document", () => {
 		const doc = await findPromptDoc(db, created.id);
 		expect(doc).toBeUndefined();
 	});
+
+	test("the list response carries prompt text too, same as create/get/patch", async ({
+		db,
+		app,
+	}) => {
+		await seedAgent(db, "agent-owner");
+		const created = (await (
+			await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: routineBody(),
+			})
+		).json()) as { id: string };
+
+		const noPrompt = (await (
+			await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: routineBody({ name: "No prompt routine", prompt: undefined }),
+			})
+		).json()) as { id: string };
+
+		const res = await app.request("/api/routines", { headers: authHeaders() });
+		const list = (await res.json()) as Array<{ id: string; prompt?: string | null }>;
+
+		const withPrompt = list.find((r) => r.id === created.id);
+		const withoutPrompt = list.find((r) => r.id === noPrompt.id);
+
+		expect(withPrompt?.prompt).toBe("Sweep the knowledge base for stale items.");
+		expect(withoutPrompt?.prompt).toBe(null);
+	});
 });

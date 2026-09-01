@@ -67,6 +67,7 @@ export {
 	getParentedItem,
 	list,
 	listItemIdsByParent,
+	listParentedItemBodies,
 	remove,
 	restorePluginDocumentBody,
 	search,

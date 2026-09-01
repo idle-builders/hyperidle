@@ -1395,6 +1395,36 @@ async function listParentedItemIds(
 }
 
 /**
+ * The same named slot's text for many parents at once — one query instead of
+ * one `getParentedItem` per parent. A list endpoint that must agree with its
+ * own detail endpoint on shape (e.g. a routine's `prompt`) reaches for this
+ * instead of resolving each row's document individually.
+ */
+export async function listParentedItemBodies(
+	db: HyperIdleDb,
+	input: {
+		readonly parentKind: KnowledgeParentKind;
+		readonly parentIds: readonly string[];
+		readonly role: KnowledgeRole;
+		readonly status?: "active";
+	},
+): Promise<Map<string, string>> {
+	if (input.parentIds.length === 0) return new Map();
+	const rows = await db
+		.select({ body: knowledgeItems.body, parentId: knowledgeItems.parentId })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, input.parentKind),
+				inArray(knowledgeItems.parentId, [...input.parentIds]),
+				eq(knowledgeItems.role, input.role),
+				...(input.status ? [eq(knowledgeItems.status, input.status)] : []),
+			),
+		);
+	return new Map(rows.flatMap((r) => (r.parentId ? [[r.parentId, r.body] as const] : [])));
+}
+
+/**
  * Give an agent its identity document, or update the one it has.
  *
  * An agent's identity is an `agent_file` knowledge document parented to it —
