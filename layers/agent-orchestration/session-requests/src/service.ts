@@ -566,6 +566,48 @@ function parseBakedRequest(intent: AgentWorkIntent): BakedWorkIntentRequest | un
 	if (!intent.bakedRequestJson) return undefined;
 	return JSON.parse(intent.bakedRequestJson) as BakedWorkIntentRequest;
 }
+
+/**
+ * BA2: the `session_resume` kind bakes a resume, not a start request. Same
+ * column, different shape — see `insertIntentInternal`.
+ */
+function parseBakedResume(intent: AgentWorkIntent): BakedSessionResumeRequest | undefined {
+	if (!intent.bakedRequestJson) return undefined;
+	return JSON.parse(intent.bakedRequestJson) as BakedSessionResumeRequest;
+}
+
+/**
+ * Turn a baked resume into the session request that carries it.
+ *
+ * @lore BA2: A resumed session IS a session — it takes the same provisioning
+ * path as any other, which already opens the MCP bridge, drains the stream,
+ * accounts tokens, posts output back to the thread and tears down once. The
+ * difference is one branch at harness start, and it is expressed here as a
+ * source kind of its own rather than by borrowing one that misdescribes it.
+ */
+async function createResumeRequestInternal(
+	db: HyperIdleDb,
+	intent: AgentWorkIntent,
+	resume: BakedSessionResumeRequest,
+): Promise<{ readonly request: AgentSessionRequest }> {
+	const requestInput = agentSessionRequestInputSchema.parse({
+		sourceKind: "gate_resume",
+		sourceId: intent.sourceId,
+		streamId: `gate_resume:${intent.sourceId}`,
+		agentId: resume.agentId,
+		taskId: null,
+		promptMode: "resume",
+		idempotencyKey: intent.idempotencyKey,
+		sourceCorrelation: {
+			reviewMessageId: intent.sourceId,
+			threadId: resume.threadId,
+			resumedSessionId: resume.sessionId,
+		},
+		payloadJson: JSON.stringify({ resume }),
+	});
+	const request = await insertRequestInternal(db, requestInput);
+	return { request };
+}
 /**
  * AU21 §9 Increment 3 co-existence scaffolding — an already-baked request is
  * used DIRECTLY (zero domain reads): reconstruct the full `triggered` request
@@ -677,6 +719,18 @@ async function processIntentsInternal(
 			// @lore AU44: unbaked intents are production-unreachable (bakedRequest is
 			// required at emit time), but legacy rows with bakedRequestJson=null must
 			// fail cleanly via INVALID_WORK_SOURCE rather than being stuck claimed.
+			if (intent.kind === "session_resume") {
+				const resume = parseBakedResume(intent);
+				if (!resume) {
+					throw new InvalidAgentWorkSourceError(
+						`Intent ${intent.id} (kind: session_resume) has no baked resume`,
+					);
+				}
+				await handOffInternal(db, intent, claimToken, now, (tx) =>
+					createResumeRequestInternal(tx as HyperIdleDb, intent, resume),
+				);
+				continue;
+			}
 			const baked = parseBakedRequest(intent);
 			if (baked) {
 				await handOffInternal(db, intent, claimToken, now, (tx) =>

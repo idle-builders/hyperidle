@@ -8,6 +8,7 @@ import type {
 	AgentSessionSourceKind,
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	BakedSessionResumeRequest,
 	ModelTier,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
@@ -151,6 +152,20 @@ interface SessionLifecycleHarnessAdapter {
 	 * adapter with no resume support never reports one.
 	 */
 	getNativeSessionId?(handle: SessionHandle): string | undefined;
+	/**
+	 * Reopen a session the harness already had, delivering `message` as a fresh
+	 * user turn. Optional because not every adapter supports resumption.
+	 */
+	resumeSession?(
+		nativeSessionId: string,
+		message: string,
+		config: {
+			readonly sandboxPath: string;
+			readonly modelTier: ModelTier;
+			readonly selectedModel?: string;
+			readonly mcpTokenEnv?: Readonly<Record<string, string>>;
+		},
+	): Promise<SessionHandle>;
 }
 
 interface SessionLifecycleAdapterMeta {
@@ -963,6 +978,16 @@ interface ProvisionSessionParams {
 	 * transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
+	/**
+	 * BA2: present only when this session returns an agent to a session it already
+	 * had, carrying a human's verdict.
+	 *
+	 * Its presence changes exactly one thing: where the harness starts. Everything
+	 * else — the MCP bridge, the stream drain, token accounting, posting output
+	 * back to the thread, teardown — is the same path every other session takes,
+	 * because a resumed session is a session.
+	 */
+	readonly resume?: BakedSessionResumeRequest;
 }
 
 interface ProvisionSessionResult {
@@ -1331,6 +1356,31 @@ async function admitSession(
  * Registers itself in the `sessionRunRegistry` (AF7 §4/§5) at harness-start so a
  * PATCH/handoff can cooperatively abort it, and deregisters at teardown.
  */
+/**
+ * What the human's verdict says to the agent when its session reopens.
+ *
+ * @lore BA2 (ruling 16): the wording is load-bearing on cursor-agent. A bare
+ * "Approved. Go ahead." complied 3 of 6 — and the objection was about MECHANISM,
+ * not suspicion: a chat message saying approved is not the approval mechanism the
+ * policy requires. Naming the gate fact — that the rule was cleared and the
+ * action may now be retried — took it to 8 of 8. Tune this wording, don't route
+ * around a model that objects.
+ */
+function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
+	if (resume.decision === "approve") {
+		return (
+			`A human reviewed your request and approved it. The rule that blocked ${resume.toolName} ` +
+			`has been cleared for this one action, so retrying it will now go through. ` +
+			`Carry on with your work and decide when you are done.`
+		);
+	}
+	return (
+		`A human reviewed your request and declined it. The rule that blocked ${resume.toolName} ` +
+		`is still in force, so that action will keep being refused. Continue with the rest of your ` +
+		`work, or make your case again if you think it should be reconsidered.`
+	);
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: run coordinates harness lifecycle, event-stream consumption, abort, and teardown
 async function runSession(
 	deps: ProvisionSessionDeps,
@@ -1704,7 +1754,34 @@ async function runSession(
 	// on errors.
 	try {
 		if (!aborted) {
-			harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
+			// BA2: a resumed session reopens the harness's own session and takes the
+			// verdict as a genuine user turn. Not a fabricated transcript asserting
+			// that a human approved — a real cursor-agent refused exactly that, and
+			// was right to: nothing authenticated the claim. The authority is the
+			// cleared rule at the gate, which the agent never has to believe.
+			if (params.resume?.harnessSessionId && harness.resumeSession) {
+				// Clear first, and only for the action a human actually cleared. The
+				// pass is keyed to the rule AND the tool, so the resumed session's
+				// first call — usually a harmless read — cannot spend it.
+				if (params.resume.decision === "approve") {
+					ports.harnessRuntime.clearGateAction(sessionId, {
+						ruleId: params.resume.ruleId,
+						toolName: params.resume.toolName,
+					});
+				}
+				harnessHandle = await harness.resumeSession(
+					params.resume.harnessSessionId,
+					buildVerdictMessage(params.resume),
+					{
+						sandboxPath,
+						modelTier,
+						...(selectedModel ? { selectedModel } : {}),
+						...(mcpTokenEnv ? { mcpTokenEnv } : {}),
+					},
+				);
+			} else {
+				harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
+			}
 			ports.sessionRequests.registerSessionRun(sessionId, {
 				signalAbort: () => {
 					aborted = true;

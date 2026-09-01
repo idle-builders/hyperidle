@@ -137,6 +137,18 @@ function sourceInput(
 					teamId: "team-au6",
 				},
 			};
+		case "gate_resume":
+			return {
+				...base,
+				sourceKind,
+				taskId: null,
+				promptMode: "resume",
+				sourceCorrelation: {
+					reviewMessageId: `review-${suffix}`,
+					threadId: "thread-au6",
+					resumedSessionId: `sess-${suffix}`,
+				},
+			};
 	}
 }
 

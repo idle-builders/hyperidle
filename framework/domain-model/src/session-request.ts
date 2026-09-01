@@ -6,9 +6,31 @@ import { z } from "zod";
  * "decomposition"-sourced session request) no longer exists, so this
  * session-source vocabulary member is dead, not merely unused.
  */
-export const AGENT_SESSION_SOURCE_KINDS = ["task", "assistant", "routine", "knowledge"] as const;
+export const AGENT_SESSION_SOURCE_KINDS = [
+	"task",
+	"assistant",
+	"routine",
+	"knowledge",
+	/**
+	 * BA2: a human's verdict on the review a gate denial produced. The session it
+	 * asks for is not a new piece of work — it returns an agent to a session it
+	 * already had, so it composes no prompt and assembles no context.
+	 */
+	"gate_resume",
+] as const;
 
-export const AGENT_SESSION_PROMPT_MODES = ["task", "conversation", "routine", "knowledge"] as const;
+export const AGENT_SESSION_PROMPT_MODES = [
+	"task",
+	"conversation",
+	"routine",
+	"knowledge",
+	/**
+	 * BA2: not a prompt at all — the verdict arrives as a user turn in a session
+	 * the harness replays for itself. Named so the request row stays honest about
+	 * having no prompt to compose rather than borrowing one that misdescribes it.
+	 */
+	"resume",
+] as const;
 
 export const AGENT_SESSION_REQUEST_STATUSES = [
 	"pending",
@@ -82,11 +104,31 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
 	}),
 });
 
+/**
+ * BA2: the request that returns an agent to its own session carrying a verdict.
+ *
+ * It has no `taskId` requirement and no context to assemble — everything it needs
+ * is the harness session to reopen and what to say. The correlation names the
+ * review a human decided on, which is the one identifier that ties the block, the
+ * asking, and the answer together.
+ */
+export const gateResumeSessionRequestInputSchema = baseInput.extend({
+	sourceKind: z.literal("gate_resume"),
+	promptMode: z.literal("resume"),
+	taskId: z.string().min(1).nullable().optional(),
+	sourceCorrelation: z.object({
+		reviewMessageId: z.string().min(1),
+		threadId: z.string().min(1),
+		resumedSessionId: z.string().min(1),
+	}),
+});
+
 export const agentSessionRequestInputSchema = z.discriminatedUnion("sourceKind", [
 	taskSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
+	gateResumeSessionRequestInputSchema,
 ]);
 
 export type AgentSessionRequestInput = z.infer<typeof agentSessionRequestInputSchema>;
