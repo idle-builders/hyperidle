@@ -135,9 +135,44 @@ parent at all. An agent-created file therefore has no home under the new model.
 Giving it one (the session's task) is phase 2's job, but it is named here because
 it is the seam between this mechanism and the agent path.
 
+### Three fields, three questions
+
+| Field | Question it answers |
+|---|---|
+| `parentKind` + `parentId` | where it hangs |
+| `role` | where it lands in the session |
+| `scope` | how far it reaches |
+
+**`scope` stays stored on the item — it is not derived from the parent.** Scope
+is not UI visibility; it is the materialisation reach filter. Verified: session
+assembly builds exactly `scopeKind='factory'` (global) OR
+`scopeKind='team' AND scopeId=<teamId>` OR `scopeKind='user' AND scopeId=<agentId>`
+(`layers/core-api/knowledge/src/session-knowledge-assembler.ts:344`) — global plus
+your team plus your user context.
+
+Three reasons not to derive it:
+
+1. **They are different questions that coincide in one case.** For agent identity
+   `parent=agent:X` and `scope=user:X` encode the same id, but that is a
+   coincidence of that case. An item parented to a task could reasonably be
+   team-wide or private; the parent does not say which.
+2. **Deriving costs a hot path.** The reach filter is a flat indexed predicate
+   over two columns today. Derived from the parent it would need joins across
+   five parent tables on every session assembly.
+3. **It makes scope a real choice for the first time.** Today `scopeKind='user'`
+   is *forced* onto an agent identity by the binding mechanism — a team-visible
+   identity is not expressible. Moving the binding to `parentId` frees scope to
+   answer its own question.
+
+Migration consequence, accepted: each existing agent identity needs a real scope
+rather than an inherited one. Default to `user` — identical reach to today, no
+behaviour change — and let it be widened deliberately later.
+
 ## Status
 
-**Refine in progress.** The three sections above are agreed. Parent vocabulary
-and the fate of `scope` are still open.
+**Refine COMPLETE.** Scope, mechanism, role semantics, parent vocabulary, the
+parent-is-not-content rule and the three-field split are all agreed.
+
+**Program design in progress.**
 
 Migration numbering: main is at `0076_BB1_one_work_primitive.sql`. Take 0077+.
