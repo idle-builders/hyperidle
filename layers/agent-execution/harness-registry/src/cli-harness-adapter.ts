@@ -633,7 +633,18 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				const permission = fs.readFileSync(permissionFile, "utf-8").trim();
 				if (permission) resolvedEnvMap.OPENCODE_PERMISSION = permission;
 			} catch {
-				// No permission file — no restriction (rules are empty or gate not provisioned)
+				// No permission file — gate not provisioned. Default to allow-all so opencode
+				// operates in non-interactive mode (without this, opencode prompts for each tool
+				// call and auto-rejects in non-interactive spawned processes).
+				// @lore BA2 opencode-permission-default: OPENCODE_PERMISSION={"*":"allow"} is
+				// required even for ungated sessions. Without it, opencode's default permission
+				// model asks the user interactively before each tool call. In non-interactive
+				// mode (no TTY), this auto-rejects every tool — the write/read tools fail with
+				// "The user rejected permission to use this specific tool call." Verified
+				// 2026-09-01: {} (empty object) also rejects; {"*":"allow"} grants non-
+				// interactive auto-approval for all tools. The gate plugin (when installed) still
+				// fires BEFORE the tool executes and can deny independently.
+				resolvedEnvMap.OPENCODE_PERMISSION = '{"*":"allow"}';
 			}
 		}
 
