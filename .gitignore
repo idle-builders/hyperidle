@@ -16,6 +16,7 @@ sync-reports/
 .pipeline/*
 !.pipeline/audits/
 !.pipeline/work/
+!.pipeline/retro-log/
 !.pipeline/[A-Z]*.md
 !.pipeline/rules
 !.pipeline/viewer.config.json
