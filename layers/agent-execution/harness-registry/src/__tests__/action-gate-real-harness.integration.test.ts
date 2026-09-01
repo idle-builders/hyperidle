@@ -61,6 +61,14 @@ const DENY_RULE: GateRule = {
 	pattern: "Write",
 	description: "Block all Write tool uses",
 };
+// @lore action-gate-real-harness codex-tool-names: codex does not use a "Write" tool.
+// Its file-write tool is named "apply_patch". Gate B for codex must target apply_patch
+// so the denial actually fires when the model tries to create a file. Verified 2026-09-01.
+const DENY_RULE_CODEX: GateRule = {
+	id: "gate-rule-apply-patch-block",
+	pattern: "apply_patch",
+	description: "Block all apply_patch tool uses",
+};
 
 // ── Mini action-check server ──────────────────────────────────────────────────
 // Minimal HTTP server that serves POST /mcp/:token/action-check.
@@ -487,7 +495,8 @@ async function runAdapterSession(
 	const config = cliAdapterFixture(family);
 
 	const models: Record<string, string> = {
-		codex: "o4-mini",
+		// gpt-5.4-mini: matches the model used in existing codex harness tests.
+		codex: "gpt-5.4-mini",
 		"cursor-agent": "auto",
 		opencode: "openrouter/z-ai/glm-4.7-flash",
 	};
@@ -555,23 +564,40 @@ async function opencodeIsAuthed(): Promise<boolean> {
 
 // ── Codex sandbox setup ───────────────────────────────────────────────────────
 
-function setupCodexSandbox(sandbox: string): void {
+function setupCodexSandbox(sandbox: string): boolean {
 	const codexHomeDir = path.join(sandbox, ".codex-home");
 	fs.mkdirSync(codexHomeDir, { recursive: true });
 
 	const homeCodexDir = path.join(os.homedir(), ".codex");
+	let authFound = false;
 	for (const fname of ["auth.json", "config.toml"]) {
 		const src = path.join(homeCodexDir, fname);
 		if (fs.existsSync(src)) {
 			fs.copyFileSync(src, path.join(codexHomeDir, fname));
+			if (fname === "auth.json") authFound = true;
 		}
 	}
+
+	// @lore AO2 codex-approvals-strip: ~/.codex/config.toml may have
+	// `approvals_reviewer = "user"` which causes codex to prompt for interactive
+	// approval before running any tool. In a non-interactive spawned process (no TTY),
+	// codex exits immediately when it can't get the approval input.
+	// Strip it so codex uses its built-in headless default.
+	const configPath = path.join(codexHomeDir, "config.toml");
+	try {
+		const content = fs.readFileSync(configPath, "utf-8");
+		fs.writeFileSync(
+			configPath,
+			content.replace(/^approvals_reviewer\s*=\s*"[^"]*"\n?/gm, ""),
+			"utf-8",
+		);
+	} catch {
+		// config.toml absent — nothing to strip.
+	}
+
 	// Trust this sandbox directory.
-	fs.appendFileSync(
-		path.join(codexHomeDir, "config.toml"),
-		`\n[projects."${sandbox}"]\ntrust_level = "trusted"\n`,
-		"utf-8",
-	);
+	fs.appendFileSync(configPath, `\n[projects."${sandbox}"]\ntrust_level = "trusted"\n`, "utf-8");
+	return authFound;
 }
 
 // ── CODEX: gates A/B/C ────────────────────────────────────────────────────────
@@ -586,7 +612,8 @@ describe("Action gate — codex: gates A/B/C (real binary, real LLM)", () => {
 	let authed = false;
 
 	beforeAll(async () => {
-		server = await startCheckServer([DENY_RULE]);
+		// Codex writes files via apply_patch (not "Write"). Use DENY_RULE_CODEX here.
+		server = await startCheckServer([DENY_RULE_CODEX]);
 		authed = await codexIsAuthed();
 	});
 
@@ -604,7 +631,11 @@ describe("Action gate — codex: gates A/B/C (real binary, real LLM)", () => {
 		const sandbox = makeSandbox();
 		try {
 			ensureSandboxGitRepo(sandbox);
-			setupCodexSandbox(sandbox);
+			const authFound = setupCodexSandbox(sandbox);
+			if (!authFound) {
+				skip();
+				return;
+			}
 			// No installActionGate → no hook → Write allowed.
 			const proofFile = path.join(sandbox, "proof.txt");
 			const result = await runAdapterSession(
@@ -626,7 +657,7 @@ describe("Action gate — codex: gates A/B/C (real binary, real LLM)", () => {
 		}
 	}, 180_000);
 
-	it("gate B — deny-Write rule: Write blocked AND rule id reaches codex model", async ({
+	it("gate B — deny-apply_patch rule: apply_patch blocked AND rule id reaches codex model", async ({
 		skip,
 	}) => {
 		if (!(authed && server)) {
@@ -636,13 +667,17 @@ describe("Action gate — codex: gates A/B/C (real binary, real LLM)", () => {
 		const sandbox = makeSandbox();
 		try {
 			ensureSandboxGitRepo(sandbox);
-			setupCodexSandbox(sandbox);
+			const authFoundB = setupCodexSandbox(sandbox);
+			if (!authFoundB) {
+				skip();
+				return;
+			}
 			await installActionGate({
 				sandboxPath: sandbox,
 				channel: "settings-codex",
 				bridgeToken: BRIDGE_TOKEN,
 				mcpUrl: server.baseUrl,
-				rules: [DENY_RULE],
+				rules: [DENY_RULE_CODEX],
 			});
 			const result = await runAdapterSession(
 				"codex",
@@ -651,14 +686,14 @@ describe("Action gate — codex: gates A/B/C (real binary, real LLM)", () => {
 			);
 			expect(
 				result.allText,
-				`Gate B FAIL: rule id '${DENY_RULE.id}' not found in codex output. text: "${result.allText.slice(0, 600)}"`,
-			).toContain(DENY_RULE.id);
+				`Gate B FAIL: rule id '${DENY_RULE_CODEX.id}' not found in codex output. text: "${result.allText.slice(0, 600)}"`,
+			).toContain(DENY_RULE_CODEX.id);
 		} finally {
 			rmSandbox(sandbox);
 		}
 	}, 180_000);
 
-	it("gate C — deny-Write rule: read (non-matching) tool still runs in codex session", async ({
+	it("gate C — deny-apply_patch rule: read tool (non-matching) still runs in codex session", async ({
 		skip,
 	}) => {
 		if (!(authed && server)) {
@@ -668,16 +703,20 @@ describe("Action gate — codex: gates A/B/C (real binary, real LLM)", () => {
 		const sandbox = makeSandbox();
 		try {
 			ensureSandboxGitRepo(sandbox);
-			setupCodexSandbox(sandbox);
+			const authFoundC = setupCodexSandbox(sandbox);
+			if (!authFoundC) {
+				skip();
+				return;
+			}
 			fs.writeFileSync(path.join(sandbox, "canary.txt"), "GATE_C_CODEX_READ_OK", "utf-8");
 			await installActionGate({
 				sandboxPath: sandbox,
 				channel: "settings-codex",
 				bridgeToken: BRIDGE_TOKEN,
 				mcpUrl: server.baseUrl,
-				rules: [DENY_RULE],
+				rules: [DENY_RULE_CODEX],
 			});
-			// Ask codex to READ — gate blocks Write but not read-file tools.
+			// Ask codex to READ — gate blocks apply_patch but not read-file tools.
 			const result = await runAdapterSession(
 				"codex",
 				sandbox,

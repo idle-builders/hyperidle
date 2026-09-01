@@ -230,34 +230,25 @@ async function appendCodexGateHook(
 /**
  * Build the execpolicy .rules content from action rules.
  *
- * The .rules format is an allowlist of shell command prefixes — anything not
- * matched is denied. To avoid over-blocking (the gate only restricts specific
- * patterns, not everything), we emit an allowlist-everything rule and then a
- * deny for any pattern that maps to a shell command (pattern starts with "bash"
- * or "*").
- *
- * @lore BA2: execpolicy .rules is the backstop. The main gate is the PreToolUse
- * hook. .rules only kicks in if the hook fails open. We emit `allow *` so normal
- * commands are not blocked by the presence of the file alone, then deny specific
- * patterns derived from action rules whose pattern suggests shell execution.
+ * @lore BA2: codex execpolicy .rules uses Starlark. The file is evaluated at
+ * startup; a parse error causes codex to exit 1 immediately (fail-closed).
+ * `allow *` and `deny *` are NOT valid Starlark — they look like identifier
+ * lookups with a `*` operand and parse as errors. Only Starlark comments (`#`)
+ * and actual Starlark expressions are valid. The codex Starlark evaluation context
+ * does NOT expose `allow` or `deny` as built-in functions (verified 2026-09-01).
+ * Therefore this file can only contain comment lines — no allow/deny directives.
+ * The file still needs to exist so codex registers it as a rules file; an empty
+ * or comments-only file evaluates cleanly and has no effect on tool execution.
+ * The primary gate mechanism is the PreToolUse hook (gate-check.py), not this file.
  */
 function buildCodexExecpolicyRules(rules: readonly GateRule[]): string {
 	const lines: string[] = [
 		"# HyperIdle action gate — execpolicy backstop (auto-generated, do not edit)",
-		"# Format: allow/deny <command-prefix-pattern>",
-		"# This file is the fail-closed backstop when the PreToolUse hook fails open.",
+		"# Active rules are enforced by the PreToolUse hook (gate-check.py).",
+		"# This file must be valid Starlark; only Starlark comments are safe here.",
 	];
-	// Start with a broad allow so commands not matched by gate rules proceed.
-	lines.push("allow *");
-	// Add deny entries for any rule whose pattern suggests shell/bash execution.
 	for (const rule of rules) {
-		const pat = rule.pattern.toLowerCase();
-		if (pat === "*" || pat === "bash" || pat.startsWith("bash")) {
-			// Broad rule — deny all shell commands as backstop.
-			lines.push(`# Rule: ${rule.description}`);
-			lines.push("deny *");
-			break; // One deny * is enough.
-		}
+		lines.push(`# Rule: id=${rule.id} pattern=${rule.pattern} — ${rule.description}`);
 	}
 	return `${lines.join("\n")}\n`;
 }
