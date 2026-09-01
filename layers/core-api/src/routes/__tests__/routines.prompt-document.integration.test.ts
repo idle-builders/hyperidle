@@ -90,6 +90,18 @@ describe("a routine's prompt is a knowledge document", () => {
 		expect(doc?.body).toBe("Sweep the knowledge base for stale items.");
 	});
 
+	test("the create response already carries the prompt text", async ({ db, app }) => {
+		await seedAgent(db, "agent-owner");
+
+		const res = await app.request("/api/routines", {
+			method: "POST",
+			headers: authHeaders(),
+			body: routineBody(),
+		});
+		const created = (await res.json()) as { prompt?: string | null };
+		expect(created.prompt).toBe("Sweep the knowledge base for stale items.");
+	});
+
 	test("reading the routine still returns its prompt text", async ({ db, app }) => {
 		await seedAgent(db, "agent-owner");
 		const created = (await (

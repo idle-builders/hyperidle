@@ -320,7 +320,12 @@ export function createRoutineRoutes(
 		}
 
 		const created = await routineService.getRoutine(db, routineId);
-		return c.json(created, 201);
+		// The row no longer carries the prompt text — resolve it from the document,
+		// same as GET and PATCH, so all three responses agree on shape.
+		return c.json(
+			created ? { ...created, prompt: await readRoutinePrompt(db, routineId) } : created,
+			201,
+		);
 	});
 
 	// GET / — List all non-deleted routines (AA2: filter soft-deleted)
