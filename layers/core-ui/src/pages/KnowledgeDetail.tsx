@@ -255,6 +255,11 @@ const KNOWLEDGE_ROLE_LABEL: Record<KnowledgeRole, string> = {
 	skill: "Skill",
 	rule: "Rule",
 	agent_file: "Agent file",
+	// @lore knowledge-attachment-slot: `prompt` never reaches this control — a
+	// routine prompt's role is set at creation and role stops being editable
+	// here in increment 5, which also deletes this whole block. Present only
+	// to keep `Record<KnowledgeRole, string>` total in the interim.
+	prompt: "Prompt",
 };
 
 /**
