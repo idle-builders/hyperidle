@@ -209,6 +209,19 @@ neighbour.
 
 The full agent section is **not** in this phase.
 
+**Once the list exists, skills and rules come out of the knowledge navigation in
+the same change.** Search still finds them by text, so nothing becomes
+unreachable.
+
+### Navigation display can be nested knowledge's job
+
+Founder: whichever makes more sense, the nested-knowledge strand can take the
+navigation part. That is the sensible split — hiding parented items from the tree
+IS their tree-display rule, already agreed. **Phase 1 therefore does not change
+the knowledge tree.** It builds the slot, migrates the two cases, and gives
+skills and rules a home; what the tree shows is nested knowledge's to implement
+against the parent column this phase creates.
+
 ### Findability is a registered follow-up, not a claim
 
 Search does **not** filter by role or scope today — the knowledge list filters on
@@ -216,9 +229,35 @@ Search does **not** filter by role or scope today — the knowledge list filters
 at all (`layers/core-api/src/routes/search.ts`). Registered as its own work item:
 `.pipeline/work/knowledge-role-scope-filtering/`.
 
-**Sequencing consequence to respect:** do not hide parented items from navigation
-before that filtering exists, or prompts and identities are unreachable in the
-window between. Either the follow-up lands first, or the hiding waits for it.
+**There is no unreachable window.** Global search already finds knowledge items by
+text (`scope=knowledge`, `layers/core-api/src/routes/search.ts:98`). What is
+missing is filtering *by role*, which is a convenience, not the only way in. So
+removing skills and rules from the knowledge navigation is safe to do
+immediately, provided they are listed somewhere.
+
+### Deleting a parent deletes its knowledge
+
+Founder call: when a routine, agent or other parent is deleted, its parented
+knowledge items are deleted too. Chosen deliberately as the easy option **because
+there is no UI for orphaned knowledge items** — an orphan would be invisible
+clutter nobody can find or clear.
+
+This is a change from today, where `routines.prompt_knowledge_id` is a real FK
+and a routine's prompt is protected by it. Accepted: the parent column has no FK
+by design (it points at five tables), so nothing enforces this at the database
+level and it has to be done in application code.
+
+**Ownership constraint on how that is built.** The routine service may not write
+`knowledge_items` — that table belongs to the knowledge service, and BA9g
+convicted exactly this shape as "a table-ownership violation wearing a column".
+So the cascade cannot be a delete statement inside the routine service. It has to
+be composed where both services already meet (the route), or expressed as a
+knowledge-service operation the parent's service calls through an injected port —
+the same way `getKnowledgeBody` and `getAgentIdentity` already reach knowledge
+from the routine resolver.
+
+Revisit if orphaned-item management ever gets a UI; deletion is the reversible-in-
+principle choice only while the alternative is invisible.
 
 ## Status
 
