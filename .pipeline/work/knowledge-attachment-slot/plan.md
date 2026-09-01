@@ -101,6 +101,40 @@ Moving it onto `knowledge_items` puts it in the owning service's table.
 BA9g is also the precedent for the whole exercise — provenance had been recorded
 seven different ways before it was unified.
 
+### The full parent vocabulary ships in phase 1
+
+`parentKind` is built as `knowledge_item | task | thread | routine | agent`.
+Phase 1 uses `routine` and `agent`; the other three are declared so phase 2 and
+nested knowledge do not each have to reopen the column and its CHECK constraint.
+This is the point of going first — the enum is the foundation being handed over,
+and shipping a partial one would leave nested knowledge doing the very change
+they were told to stand down on.
+
+### A parent is not content
+
+Founder call. Parenting a knowledge item to a thread hangs it off the
+conversation; it does **not** make the conversation a file. A thread transcript
+is never materialised into `knowledge/`.
+
+The reason is mechanical, and was verified: `knowledge/` has no read-only
+concept. The sandbox prompt tells the agent those files are editable
+(`context.ts:361`), and `handleCreate` turns **any** file an agent writes there
+into a knowledge item (`writeback-processor.ts:216`). A transcript in that
+directory would be editable, and an edit would write back into an item.
+
+Threads are not materialised today at all, so this is a rule to hold, not a bug
+to fix. **If a conversation is ever wanted as agent context, it lands outside
+`knowledge/` in a zone that is read-only** — which does not exist yet and would
+be its own piece of work.
+
+### Found while checking: `handleCreate` has no parent
+
+`handleCreate` writes `layer: "L1"` and a `kind` inferred from the subdirectory —
+**both of which are being deleted** by the nested-knowledge strand — and sets no
+parent at all. An agent-created file therefore has no home under the new model.
+Giving it one (the session's task) is phase 2's job, but it is named here because
+it is the seam between this mechanism and the agent path.
+
 ## Status
 
 **Refine in progress.** The three sections above are agreed. Parent vocabulary
