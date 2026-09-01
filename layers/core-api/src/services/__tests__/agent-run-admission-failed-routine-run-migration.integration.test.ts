@@ -48,6 +48,7 @@ import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/event-bu
 import {
 	getAgentIdentity,
 	get as getKnowledgeItem,
+	getParentedItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
@@ -162,6 +163,9 @@ function makePorts(): RoutineSchedulerPorts & {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
+		getRoutinePrompt: async (db, routineId) =>
+			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
+				?.body ?? null,
 	};
 }
 

@@ -10,8 +10,8 @@
  * FKs on `knowledge_items.id`, and the audit trail outlives its subject.
  */
 
-import { type HyperIdleDb, knowledgeItems, routines, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -51,6 +51,24 @@ async function seedAgent(db: HyperIdleDb): Promise<void> {
 	]);
 }
 
+/** The knowledge document parented to this routine's prompt slot, if any. */
+async function findPromptDoc(
+	db: HyperIdleDb,
+	routineId: string,
+): Promise<typeof knowledgeItems.$inferSelect | undefined> {
+	const [row] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, "routine"),
+				eq(knowledgeItems.parentId, routineId),
+				eq(knowledgeItems.role, "prompt"),
+			),
+		);
+	return row;
+}
+
 async function createRoutine(app: Hono): Promise<string> {
 	const res = await app.request("/api/routines", {
 		method: "POST",
@@ -72,9 +90,9 @@ describe("deleting a routine takes its prompt document with it", () => {
 		await seedAgent(db);
 		const routineId = await createRoutine(app);
 
-		const [row] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const docId = String(row?.promptKnowledgeId);
-		expect(docId, "the routine points at a prompt document").toBeTruthy();
+		const before = await findPromptDoc(db, routineId);
+		expect(before, "the routine has a prompt document parented to it").toBeDefined();
+		const docId = String(before?.id);
 
 		const del = await app.request(`/api/routines/${routineId}`, {
 			method: "DELETE",
@@ -115,8 +133,8 @@ describe("deleting a routine takes its prompt document with it", () => {
 		const doomed = await createRoutine(app);
 		const spared = await createRoutine(app);
 
-		const [sparedRow] = await db.select().from(routines).where(eq(routines.id, spared));
-		const sparedDocId = String(sparedRow?.promptKnowledgeId);
+		const sparedDoc = await findPromptDoc(db, spared);
+		const sparedDocId = String(sparedDoc?.id);
 
 		await app.request(`/api/routines/${doomed}`, { method: "DELETE", headers: auth() });
 

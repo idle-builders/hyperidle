@@ -11,10 +11,28 @@
  * editing that document in Knowledge changes what the routine fires with.
  */
 
-import { type HyperIdleDb, knowledgeItems, routines, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
+
+/** The knowledge document parented to this routine's prompt slot, if any. */
+async function findPromptDoc(
+	db: HyperIdleDb,
+	routineId: string,
+): Promise<typeof knowledgeItems.$inferSelect | undefined> {
+	const [row] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, "routine"),
+				eq(knowledgeItems.parentId, routineId),
+				eq(knowledgeItems.role, "prompt"),
+			),
+		);
+	return row;
+}
 
 const TEST_API_KEY = "test-key-routine-prompt";
 
@@ -67,13 +85,8 @@ describe("a routine's prompt is a knowledge document", () => {
 		expect(res.status).toBe(201);
 		const created = (await res.json()) as { id: string };
 
-		const [row] = await db.select().from(routines).where(eq(routines.id, created.id));
-		expect(row?.promptKnowledgeId).toBeTruthy();
-
-		const [doc] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, String(row?.promptKnowledgeId)));
+		const doc = await findPromptDoc(db, created.id);
+		expect(doc, "the routine has a prompt document parented to it").toBeDefined();
 		expect(doc?.body).toBe("Sweep the knowledge base for stale items.");
 	});
 
@@ -105,9 +118,8 @@ describe("a routine's prompt is a knowledge document", () => {
 			})
 		).json()) as { id: string };
 
-		const [row] = await db.select().from(routines).where(eq(routines.id, created.id));
-		const docId = String(row?.promptKnowledgeId);
-		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, docId));
+		const doc = await findPromptDoc(db, created.id);
+		const docId = String(doc?.id);
 
 		// Edited as ordinary knowledge — the whole point of it being a document.
 		await app.request(`/api/knowledge/${docId}`, {
@@ -145,11 +157,7 @@ describe("a routine's prompt is a knowledge document", () => {
 			body: JSON.stringify({ prompt: "Rewritten instruction." }),
 		});
 
-		const [row] = await db.select().from(routines).where(eq(routines.id, created.id));
-		const [doc] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, String(row?.promptKnowledgeId)));
+		const doc = await findPromptDoc(db, created.id);
 		expect(doc?.body).toBe("Rewritten instruction.");
 	});
 
@@ -163,7 +171,7 @@ describe("a routine's prompt is a knowledge document", () => {
 			})
 		).json()) as { id: string };
 
-		const [row] = await db.select().from(routines).where(eq(routines.id, created.id));
-		expect(row?.promptKnowledgeId).toBeNull();
+		const doc = await findPromptDoc(db, created.id);
+		expect(doc).toBeUndefined();
 	});
 });

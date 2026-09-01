@@ -28,6 +28,7 @@ import {
 
 import {
 	type KernelKnowledgeStatus,
+	type KnowledgeParentKind,
 	type KnowledgeRole,
 	type SCOPE_KINDS,
 	scopeToLayer,
@@ -62,6 +63,15 @@ export interface CreateKnowledgeItemInput {
 	 * to one agent. Absent leaves the column default (`ordinary`).
 	 */
 	role?: KnowledgeRole;
+	/**
+	 * @lore knowledge-attachment-slot: which entity this item hangs off, and
+	 * the role it occupies there — a routine's prompt, an agent's identity.
+	 * Optional: "no parent" is the ordinary case, and every caller would
+	 * otherwise write `null` as noise. Both present or both absent — the
+	 * kernel table's `ki_parent_pair_ck` enforces the pairing.
+	 */
+	parentKind?: KnowledgeParentKind | null;
+	parentId?: string | null;
 	/**
 	 * @lore AU14: made optional so callers with no `kind` concept (the HTTP route)
 	 * can omit it and keep `projection.kind` null, matching pre-AU14 route behavior.
@@ -250,6 +260,8 @@ export async function create(
 		// Absent leaves the column default (`ordinary`), which is what every
 		// caller predating an authorable role produced.
 		...(input.role ? { role: input.role } : {}),
+		parentKind: input.parentKind ?? null,
+		parentId: input.parentId ?? null,
 		version: 1,
 		updatedBy: input.updatedBy,
 		createdAt: timestamp,
@@ -1239,6 +1251,14 @@ export interface UpsertPluginDocumentInput {
 	ts: string;
 	/** Defaults to `skill`. A routine's prompt is an ordinary document. */
 	role?: KnowledgeRole;
+	/**
+	 * @lore knowledge-attachment-slot: required, not optional — every plugin
+	 * writer names its parent, `null` included. Left optional, a caller could
+	 * silently keep writing the old parentless shape; a required field makes
+	 * `npm run check` name every call site instead.
+	 */
+	parentKind: KnowledgeParentKind | null;
+	parentId: string | null;
 }
 
 /**
@@ -1262,12 +1282,97 @@ export interface UpsertPluginDocumentInput {
  * task, tools and workspace sections without a persona.
  */
 /**
+ * The item in a parent's named slot — a routine's prompt, an agent's
+ * identity. Parent says where it hangs, role says where it lands; together
+ * they are the singular-slot query (`ki_parent_slot_uq` makes at most one
+ * item ever answer it). Ignores scope entirely — scope answers a different
+ * question (how far an item reaches), not which item occupies this slot.
+ */
+export async function getParentedItem(
+	db: HyperIdleDb,
+	input: {
+		readonly parentKind: KnowledgeParentKind;
+		readonly parentId: string;
+		readonly role: KnowledgeRole;
+		readonly status?: "active";
+	},
+): Promise<KnowledgeItem | null> {
+	const [row] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, input.parentKind),
+				eq(knowledgeItems.parentId, input.parentId),
+				eq(knowledgeItems.role, input.role),
+				...(input.status ? [eq(knowledgeItems.status, input.status)] : []),
+			),
+		)
+		.limit(1);
+	return row ?? null;
+}
+
+/**
+ * Every item under one parent, whatever its role — feeds the archive-on-
+ * delete path (a parent's children are its whole `parent_kind`+`parent_id`
+ * population, not just its named slot).
+ */
+export async function listItemIdsByParent(
+	db: HyperIdleDb,
+	input: { readonly parentKind: KnowledgeParentKind; readonly parentId: string },
+): Promise<readonly string[]> {
+	const rows = await db
+		.select({ id: knowledgeItems.id })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, input.parentKind),
+				eq(knowledgeItems.parentId, input.parentId),
+			),
+		);
+	return rows.map((r) => r.id);
+}
+
+/**
+ * The same named slot for many parents at once — module-private because its
+ * only consumer is `getAgentIdentityIds` below. `knip.json` sets
+ * `ignoreExportsUsedInFile: true`, so an in-file-used export is fine, but a
+ * barrel re-export nothing outside consumes would be flagged as unused.
+ */
+async function listParentedItemIds(
+	db: HyperIdleDb,
+	input: {
+		readonly parentKind: KnowledgeParentKind;
+		readonly parentIds: readonly string[];
+		readonly role: KnowledgeRole;
+		readonly status?: "active";
+	},
+): Promise<Map<string, string>> {
+	if (input.parentIds.length === 0) return new Map();
+	const rows = await db
+		.select({ id: knowledgeItems.id, parentId: knowledgeItems.parentId })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, input.parentKind),
+				inArray(knowledgeItems.parentId, [...input.parentIds]),
+				eq(knowledgeItems.role, input.role),
+				...(input.status ? [eq(knowledgeItems.status, input.status)] : []),
+			),
+		);
+	return new Map(rows.flatMap((r) => (r.parentId ? [[r.parentId, r.id] as const] : [])));
+}
+
+/**
  * Give an agent its identity document, or update the one it has.
  *
- * An agent's identity is an `agent_file` knowledge document bound to it —
- * `scopeKind='user'` with `scopeId` set to the agent — which is what that role
- * has always meant, and the binding context assembly already reads. Seeded once
- * when the agent is created; after that it is edited like any other document.
+ * An agent's identity is an `agent_file` knowledge document parented to it —
+ * `parentKind='agent'` with `parentId` set to the agent — which is the
+ * binding context assembly reads through `getParentedItem`. `scopeKind:
+ * 'user'`/`scopeId` are still written too: scope answers a different
+ * question (how far the item reaches) and is never derived from the parent.
+ * Seeded once when the agent is created; after that it is edited like any
+ * other document.
  *
  * The body is NOT overwritten when the document already exists: an identity a
  * person has edited is theirs, and re-seeding would silently discard it.
@@ -1296,6 +1401,8 @@ export async function upsertAgentIdentity(
 			status: "active",
 			version: 1,
 			role: "agent_file",
+			parentKind: "agent",
+			parentId: input.agentId,
 			updatedBy: input.updatedBy,
 			createdAt: ts,
 			updatedAt: ts,
@@ -1314,20 +1421,19 @@ export async function upsertAgentIdentity(
 	return id;
 }
 
+/**
+ * @lore knowledge-attachment-slot: the retired predicate was
+ * `scopeKind='user' AND scopeId=agentId` — a reverse lookup. This now resolves
+ * through the parent slot instead; scope plays no part in finding the item.
+ */
 export async function getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null> {
-	const [row] = await db
-		.select({ body: knowledgeItems.body })
-		.from(knowledgeItems)
-		.where(
-			and(
-				eq(knowledgeItems.role, "agent_file"),
-				eq(knowledgeItems.scopeKind, "user"),
-				eq(knowledgeItems.scopeId, agentId),
-				eq(knowledgeItems.status, "active"),
-			),
-		)
-		.limit(1);
-	return row?.body ?? null;
+	const item = await getParentedItem(db, {
+		parentKind: "agent",
+		parentId: agentId,
+		role: "agent_file",
+		status: "active",
+	});
+	return item?.body ?? null;
 }
 
 /**
@@ -1340,19 +1446,12 @@ export async function getAgentIdentityIds(
 	db: HyperIdleDb,
 	agentIds: readonly string[],
 ): Promise<Map<string, string>> {
-	if (agentIds.length === 0) return new Map();
-	const rows = await db
-		.select({ id: knowledgeItems.id, scopeId: knowledgeItems.scopeId })
-		.from(knowledgeItems)
-		.where(
-			and(
-				eq(knowledgeItems.role, "agent_file"),
-				eq(knowledgeItems.scopeKind, "user"),
-				eq(knowledgeItems.status, "active"),
-				inArray(knowledgeItems.scopeId, [...agentIds]),
-			),
-		);
-	return new Map(rows.flatMap((r) => (r.scopeId ? [[r.scopeId, r.id] as const] : [])));
+	return listParentedItemIds(db, {
+		parentKind: "agent",
+		parentIds: agentIds,
+		role: "agent_file",
+		status: "active",
+	});
 }
 
 export async function upsertPluginDocument(
@@ -1372,6 +1471,8 @@ export async function upsertPluginDocument(
 			status: "active",
 			version: 1,
 			role: input.role ?? "skill",
+			parentKind: input.parentKind,
+			parentId: input.parentId,
 			// @lore BA9g: `plugin:<id>` was a provenance sentinel here. Migration
 			// 0071 rewrote every existing one to `plugin` because it leaked into the
 			// knowledge view as a raw author string, and the registry carries
@@ -1387,6 +1488,12 @@ export async function upsertPluginDocument(
 				scopeKind: input.scopeKind,
 				scopeId: input.scopeId,
 				topic: input.topic,
+				// A reinstall over a row created before the parent column existed
+				// must repair the binding, exactly as this set already repairs
+				// scope and status. The parent is not a person's field, so nothing
+				// a human wrote is discarded by overwriting it.
+				parentKind: input.parentKind,
+				parentId: input.parentId,
 				// Uninstall and disable both ARCHIVE these rows, and only `active`
 				// ones reach a session. Leaving status alone here meant a reinstall
 				// produced a plugin that reported `enabled`, restored its agent and

@@ -411,12 +411,17 @@ export interface RoutineRunResolverDeps {
 	 */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	/**
-	 * Read the body of the knowledge document carrying this routine's
-	 * instruction. Injected (Mechanism C) because `knowledge_items` belongs to
-	 * the knowledge service — this package depends only on `@hyperidle/db` and
-	 * framework packages. Absent at a call site that bakes no prompt.
+	 * The routine's instruction, read from the knowledge document parented to
+	 * it. Injected (Mechanism C) because `knowledge_items` belongs to the
+	 * knowledge service — this package depends only on `@hyperidle/db` and
+	 * framework packages.
+	 *
+	 * Required, not optional — the same reasoning as `getAgentIdentity` above:
+	 * an optional port let two call sites wire nothing, compile clean, and
+	 * bake no identity at all. A routine silently running with no instruction
+	 * is the same failure shape.
 	 */
-	getKnowledgeBody?(db: HyperIdleDb, knowledgeItemId: string): Promise<string | null>;
+	getRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/routine`'s `package.json`
@@ -540,11 +545,9 @@ export async function resolveRoutineRunRequest(
 	// Both the instruction and the agent's identity are knowledge documents;
 	// they reach this resolver through injected ports.
 	const agentPersona = await deps.getAgentIdentity(db, agent.id);
-	// The instruction is a knowledge document; read it through the injected port.
-	const routinePrompt =
-		routine.promptKnowledgeId && deps.getKnowledgeBody
-			? await deps.getKnowledgeBody(db, routine.promptKnowledgeId)
-			: null;
+	// The instruction is the knowledge document parented to this routine; read
+	// it through the injected port.
+	const routinePrompt = await deps.getRoutinePrompt(db, routine.id);
 
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionKnowledge } = deps;

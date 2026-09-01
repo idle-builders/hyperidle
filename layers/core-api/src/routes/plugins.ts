@@ -384,6 +384,10 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 					// this; the topic is a person's field.
 					topic: null,
 					ts: installTs,
+					// A skill has no parent — it is ordinary capability knowledge,
+					// reached from its own list, not hung off any entity.
+					parentKind: null,
+					parentId: null,
 				};
 				await upsertPluginDocument(tx, input);
 			}
@@ -424,6 +428,8 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 						body: agentSpec.identity,
 						ts: installTs,
 						role: "agent_file",
+						parentKind: "agent",
+						parentId: dbId,
 					});
 				}
 			}
@@ -453,7 +459,9 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 						topic: null,
 						body: routineSpec.prompt,
 						ts: installTs,
-						role: "ordinary",
+						role: "prompt",
+						parentKind: "routine",
+						parentId: routineDbId,
 					});
 				}
 				await insertRoutine(
@@ -465,7 +473,6 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 						triggerType: routineSpec.triggerType,
 						triggerConfig: routineSpec.triggerConfig ?? null,
 						eventType: routineSpec.eventType ?? null,
-						promptKnowledgeId: routinePromptDocId,
 						createdAt: installTs,
 					},
 					{ onConflictDoNothing: true },

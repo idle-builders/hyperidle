@@ -42,6 +42,7 @@ import {
 	create as createKnowledgeItem,
 	getAgentIdentity,
 	get as getKnowledgeItem,
+	getParentedItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
@@ -135,6 +136,9 @@ function makePorts(): RoutineSchedulerPorts {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
+		getRoutinePrompt: async (db, routineId) =>
+			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
+				?.body ?? null,
 		getTeamById: async (db, id) => {
 			const [row] = await db.select().from(teams).where(eq(teams.id, id)).limit(1);
 			return row;
