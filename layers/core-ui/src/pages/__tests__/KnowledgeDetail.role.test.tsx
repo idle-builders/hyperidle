@@ -1,23 +1,18 @@
 /**
- * The role of a knowledge document is editable from the document itself.
+ * A knowledge document's role is set once, at creation, and is never edited
+ * from the document itself.
  *
- * A skill is a knowledge document that carries a role, so the place to change
- * that role is the same place you change anything else about the document. The
- * metadata card already shows Kind, Scope and Status; role belongs beside them,
- * and — unlike scope, which needs a reason and gets a dialog — a role change is
- * an ordinary field edit.
- *
- * Read-only documents show the role without a control, matching how the Scope
- * row already behaves.
+ * A skill or rule's role is chosen where it is created (Settings → Skills &
+ * rules); the document's metadata aside shows Kind, Scope and Status but no
+ * role row or role control, whether or not the document is otherwise
+ * editable.
  */
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { KnowledgeDetail } from "../KnowledgeDetail";
-
-const patchCalls: Array<{ url: string; body: unknown }> = [];
 
 vi.mock("../../hooks/useFetch", () => ({
 	useFetch: () => ({ data: null, loading: false, error: null, refresh: vi.fn() }),
@@ -67,10 +62,7 @@ vi.mock("../../services/api-fetch", async (importOriginal) => {
 	const actual = (await importOriginal()) as Record<string, unknown>;
 	return {
 		...actual,
-		apiFetch: (url: string, init?: RequestInit) => {
-			if (init?.method === "PATCH") {
-				patchCalls.push({ url, body: JSON.parse(String(init.body)) });
-			}
+		apiFetch: () => {
 			return Promise.resolve(
 				new Response(JSON.stringify({ id: "k-role", version: 4, role: "skill" }), {
 					status: 200,
@@ -91,11 +83,7 @@ function renderDetail() {
 	);
 }
 
-describe("role is set at creation, never edited from the document (knowledge-attachment-slot)", () => {
-	beforeEach(() => {
-		patchCalls.length = 0;
-	});
-
+describe("role is set at creation, never edited from the document", () => {
 	it("has no role row or role control in the metadata aside", async () => {
 		renderDetail();
 		// Wait for the body to render first, so the absence assertion below
@@ -105,7 +93,7 @@ describe("role is set at creation, never edited from the document (knowledge-att
 		expect(screen.queryByTestId("knowledge-role-select")).not.toBeInTheDocument();
 	});
 
-	it("a PATCH never carries a role field, even if a caller tried to set one", async () => {
+	it("edit mode still shows no role select", async () => {
 		const user = userEvent.setup();
 		renderDetail();
 		const editButton = await screen.findByRole("button", { name: /edit/i });
