@@ -35,9 +35,12 @@ const HARNESS_INCLUDE = [
 	// `layers/**` include and hard-fails CI where the binaries are absent.
 	"layers/agent-orchestration/connections/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
 	"layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts",
-	"layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
 	"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts",
+	// BA2: the action gate loop end to end — blocked, asks, a human clears it,
+	// the agent carries out what was cleared. Needs the app (the agent calls
+	// `submit_review`), so it runs on the shared app-and-harness bench.
+	"layers/core-api/src/__tests__/gate-loop-live-harness.integration.test.ts",
 	"layers/core-api/src/__tests__/BA9c-routine-event-context-harness.integration.test.ts",
 	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__ and
 	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run

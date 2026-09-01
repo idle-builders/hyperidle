@@ -13,7 +13,11 @@
 
 import { randomUUID } from "node:crypto";
 import { type GateReviewRow, gateReviews, type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { BakedSessionResumeRequest, GateVerdictOutcome } from "@hyperidle/domain-model";
+import type {
+	BakedAgentRunnableConfig,
+	BakedSessionResumeRequest,
+	GateVerdictOutcome,
+} from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 
 /** One action a rule blocked: the rule that matched and the tool it matched on. */
@@ -103,6 +107,7 @@ export async function recordGateVerdict(
 		readonly decision: "approve" | "decline";
 		readonly decidedBy: string;
 		readonly threadId: string;
+		readonly agentConfig?: BakedAgentRunnableConfig;
 	},
 	enqueue: ResumeIntentEnqueuer,
 ): Promise<GateVerdictOutcome> {
@@ -139,6 +144,7 @@ export async function recordGateVerdict(
 			decision: input.decision,
 			threadId: input.threadId,
 			agentId: session.agentId,
+			...(input.agentConfig ? { agentConfig: input.agentConfig } : {}),
 		},
 	});
 	return { status: "queued" };

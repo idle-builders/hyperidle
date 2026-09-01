@@ -603,7 +603,12 @@ async function createResumeRequestInternal(
 			threadId: resume.threadId,
 			resumedSessionId: resume.sessionId,
 		},
-		payloadJson: JSON.stringify({ resume }),
+		// `agentConfig` rides the same key every other kind uses, so the drain's
+		// existing `parseBakedAgentConfig` finds it with no special case.
+		payloadJson: JSON.stringify({
+			resume,
+			...(resume.agentConfig ? { agentConfig: resume.agentConfig } : {}),
+		}),
 	});
 	const request = await insertRequestInternal(db, requestInput);
 	return { request };

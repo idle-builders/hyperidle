@@ -25,6 +25,7 @@ import type {
 	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
@@ -115,6 +116,10 @@ const gateVerdictInputSchema = z.object({
 	decision: z.enum(["approve", "decline"]),
 	decidedBy: z.string().min(1),
 	threadId: z.string().min(1),
+	// Carried opaque, like `bakedRequest` on the intent schema above. Declared
+	// because zod strips what it does not name, and a silently dropped agent
+	// config surfaces much later as "agent is not runnable".
+	agentConfig: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationGateVerdictInput>;
 
 export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
@@ -134,7 +139,19 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// session resumable — is made here and the answer crosses back as data.
 	router.post("/gate-verdicts", validateBody(gateVerdictInputSchema), async (c) => {
 		const body = c.req.valid("json");
-		const outcome = await recordGateVerdict(db, body, (input) => enqueueWorkIntent(db, input));
+		// One audited cast, same idiom as `toWorkIntentInput`'s: the wire carries the
+		// agent config opaque and nothing here inspects it, only forwards it.
+		const outcome = await recordGateVerdict(
+			db,
+			{
+				reviewMessageId: body.reviewMessageId,
+				decision: body.decision,
+				decidedBy: body.decidedBy,
+				threadId: body.threadId,
+				...(body.agentConfig ? { agentConfig: body.agentConfig as BakedAgentRunnableConfig } : {}),
+			},
+			(input) => enqueueWorkIntent(db, input),
+		);
 		return c.json(outcome);
 	});
 

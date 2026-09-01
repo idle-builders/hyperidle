@@ -1008,6 +1008,23 @@ interface ProvisionSessionResult {
 }
 
 /**
+ * What a gated agent is told, once, in its prompt.
+ *
+ * @lore BA2 (ruling 6): the push-back is delivered in two pieces. The gate's deny
+ * carries only the fact that a rule blocked the call and which rule; the
+ * instruction for what to do about it lives here. A deny message that told the
+ * model what to do next was refused by a real model as a suspected injection —
+ * an instruction arriving through the same channel an attacker could write to.
+ *
+ * Only added when the session actually has rules. On a fresh system the list is
+ * empty and nothing is said, because nothing can be blocked.
+ */
+const GATE_ORIENTATION = `
+
+## When an action needs a person
+Some actions in this workspace need a human to agree before you take them. If a tool call is refused because a rule blocked it, that is not a failure and not something to work around. Make your case with \`submit_review\`: say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer.`;
+
+/**
  * AF7 §2: The synchronous result of admission (phases 1-7). Carries everything
  * `runSession` (phases 8-11) needs to run the harness and tear down. Produced by
  * `admitSession` AFTER the session row is committed and `session_started` emitted.
@@ -1018,6 +1035,16 @@ interface AdmittedSession {
 	readonly agentRole: string;
 	readonly teamId: string | undefined;
 	readonly systemPromptText: string;
+	/**
+	 * The action rules that apply to this session, resolved at admission.
+	 *
+	 * @lore BA2: Resolved here rather than at gate-provisioning time because the
+	 * prompt is composed first, and a gated agent has to be told — once, in the
+	 * prompt — that some actions need a person and how to ask. The deny message
+	 * itself stays a terse statement of fact: an imperative in a deny is what a
+	 * model once refused as prompt injection (ruling 6).
+	 */
+	readonly gateRules: readonly SessionActionRule[];
 	readonly modelTier: ModelTier;
 	/**
 	 * The harness options this agent was configured with, read from its run
@@ -1105,7 +1132,14 @@ async function admitSession(
 	// baked onto the request core-side. It cannot be read here: `knowledge_items`
 	// belongs to the knowledge service, while `agent_run_config` — read just above
 	// — is orchestration's own.
-	const systemPromptText = agentConfig.persona ?? "";
+	const persona = agentConfig.persona ?? "";
+
+	// The rules that apply to this agent, if this application wired a gate at all.
+	// An absent port is an ungated session — security is never preemptive.
+	const gateRules = deps.actionRulesPort
+		? await deps.actionRulesPort.resolveFor(params.agentId, teamId ?? null)
+		: [];
+	const systemPromptText = gateRules.length > 0 ? `${persona}${GATE_ORIENTATION}` : persona;
 
 	// @lore The tier used to be chosen: explicit param > the agent's own
 	// `modelTierPreference` > "workhorse". That dial is gone. It named which model
@@ -1330,6 +1364,7 @@ async function admitSession(
 		agentRole,
 		teamId,
 		systemPromptText,
+		gateRules,
 		modelTier,
 		modelOptions: runConfig.modelOptions,
 		// The model this agent was configured with, read straight from its own
@@ -1409,6 +1444,7 @@ async function runSession(
 		agentRole,
 		teamId,
 		systemPromptText,
+		gateRules,
 		modelTier,
 		modelOptions,
 		selectedModel,
@@ -1669,7 +1705,8 @@ async function runSession(
 	// Only runs when an actionRulesPort is wired (opt-in per application).
 	// Absent port = ungated session (security is never preemptive).
 	if (deps.actionRulesPort) {
-		const gateRules = await deps.actionRulesPort.resolveFor(params.agentId, teamId ?? null);
+		// Resolved at admission (see `AdmittedSession.gateRules`) so the prompt could
+		// carry the orientation. Reused here rather than read a second time.
 		await ports.harnessRuntime.provisionActionGate({
 			sandboxPath,
 			channel: adapterCapabilities.returnEnforcement,

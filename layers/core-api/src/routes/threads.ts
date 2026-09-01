@@ -39,6 +39,7 @@ import type {
 } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
+	bakeAgentRunnableConfig,
 	extractMentionCandidates,
 	headCollapsePredicate,
 	resolveMentions,
@@ -1517,7 +1518,13 @@ export function createThreadRoutes(
 			let gateOutcome: GateVerdictOutcome | undefined;
 			if (input.type === "verdict" && resolvesMessageRow) {
 				try {
+					// The agent that asked is the review's own sender. Its runnable
+					// config is core state, so it is baked here and carried across —
+					// admission treats a missing bake as a deactivated agent.
+					const askingAgent = await findUser(db, { id: resolvesMessageRow.senderId });
+					const persona = askingAgent ? await getAgentIdentity(db, askingAgent.id) : null;
 					gateOutcome = await gateVerdictRecorder({
+						...(askingAgent ? { agentConfig: bakeAgentRunnableConfig(askingAgent, persona) } : {}),
 						reviewMessageId: resolvesMessageRow.id,
 						// Two of the five verdict decisions clear the action; the other
 						// three send the agent back with a no. "approve-with-comments" is

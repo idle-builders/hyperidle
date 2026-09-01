@@ -134,6 +134,15 @@ export interface AgentOrchestrationGateVerdictInput {
 	readonly decision: "approve" | "decline";
 	readonly decidedBy: string;
 	readonly threadId: string;
+	/**
+	 * The asking agent's runnable-config snapshot, baked core-side because
+	 * `users` is core state.
+	 *
+	 * Every intent kind bakes this — a missing bake is a hard provisioning
+	 * failure, never a silent allow — and a resume is no exception. Carried
+	 * opaque here for the same reason `bakedRequest` is.
+	 */
+	readonly agentConfig?: unknown;
 }
 
 /** The intent-write family (`intents.*`). */

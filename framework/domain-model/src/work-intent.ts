@@ -633,6 +633,12 @@ export interface BakedSessionResumeRequest {
 	readonly threadId: string;
 	/** The agent whose session this is. */
 	readonly agentId: string;
+	/**
+	 * The asking agent's runnable-config snapshot. Baked when the human decides,
+	 * like every other intent kind — `admitSession` treats an absent bake as a
+	 * deactivated agent and refuses the run.
+	 */
+	readonly agentConfig?: BakedAgentRunnableConfig;
 }
 
 /**
@@ -676,4 +682,6 @@ export type GateVerdictRecorderFn = (input: {
 	readonly decidedBy: string;
 	/** The thread the review lives in — where a failure has to be reported. */
 	readonly threadId: string;
+	/** The asking agent's runnable-config snapshot, baked by the caller (core state). */
+	readonly agentConfig?: BakedAgentRunnableConfig;
 }) => Promise<GateVerdictOutcome>;
