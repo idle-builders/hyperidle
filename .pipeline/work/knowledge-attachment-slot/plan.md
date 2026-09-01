@@ -290,6 +290,30 @@ Known gap, accepted: there is **no un-archive path in the UI**. A parent deleted
 by mistake leaves its knowledge recoverable in the database but not through the
 app. Revisit if orphaned-item management ever gets a surface.
 
+### Migration stance: pre-alpha, fail loud
+
+Founder call: **nothing is deployed anywhere, so a migration may fail loudly and
+the database can be nuked.** This is a standing constraint for this phase, not a
+one-off answer.
+
+It does not mean migrations may be careless — it means that where a choice exists
+between failing visibly and guessing silently, **fail visibly**. Two open
+concerns collapse under it:
+
+- **A shared prompt document aborts the migration.** The partial unique index on
+  `(parent_kind, parent_id, role) WHERE role <> 'ordinary'` sits AFTER the
+  backfills, so two routines pointing at one prompt document stop the upgrade
+  rather than binding it arbitrarily. Kept. A halted upgrade is visible and
+  fixable; a silently wrong binding means a routine runs someone else's
+  instruction and nobody finds out.
+- **A team-scoped `agent_file` needs no migration handling.** Its `agentBindingId`
+  semantics do flip, but the case is unreachable: all three writers hard-code
+  `scopeKind: "user"` — `upsertAgentIdentity`
+  (`layers/core-api/knowledge/src/knowledge-repository.ts:1289`), the plugin
+  installer (`layers/core-api/src/routes/plugins.ts:426`), and the demo fixture
+  (`tools/setup/src/demo-fixture.ts:124`). State the change and pin it in a test;
+  do not add a migration branch for data nothing creates.
+
 ## Status
 
 **Refine COMPLETE.** Scope, mechanism, role semantics, parent vocabulary, the
