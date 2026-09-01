@@ -256,8 +256,27 @@ knowledge-service operation the parent's service calls through an injected port 
 the same way `getKnowledgeBody` and `getAgentIdentity` already reach knowledge
 from the routine resolver.
 
-Revisit if orphaned-item management ever gets a UI; deletion is the reversible-in-
-principle choice only while the alternative is invisible.
+**Settled: archive, using the API that already exists.** A hard delete is
+impossible — `knowledge_edit_log`, `knowledge_access_log` and
+`knowledge_conflicts` all hold `onDelete: "restrict"` FKs on `knowledge_items.id`
+(`framework/db/src/schema.ts:878`, `:908`, `:926`), deliberately, so an agent can
+never wipe its own authored history. Founder: if deleting is not possible it does
+not matter, so long as it stops showing up.
+
+`setKnowledgeStatus(exec, ids, "archived")` is that operation. It is already
+exported from the knowledge package
+(`layers/core-api/knowledge/src/knowledge-repository.ts:1441`) and already called
+from the routine DELETE route (`layers/core-api/src/routes/routines-routes.ts:345`),
+which archives a prompt for exactly this reason. **No new port is needed** — the
+seam exists and governance permits it, since the call is composed at the route
+where both services already meet rather than inside the parent's service.
+
+Archived items are excluded from session assembly (`status='active'` predicate)
+and from the knowledge surfaces, so archiving delivers the intent.
+
+Known gap, accepted: there is **no un-archive path in the UI**. A parent deleted
+by mistake leaves its knowledge recoverable in the database but not through the
+app. Revisit if orphaned-item management ever gets a surface.
 
 ## Status
 
