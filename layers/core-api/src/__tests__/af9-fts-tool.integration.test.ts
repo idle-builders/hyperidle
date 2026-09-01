@@ -18,6 +18,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -31,7 +32,7 @@ import { describe, expect, test } from "../__testing__/test-fixtures.js";
  * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
 function buildQueryPracticeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
 		(t) => t.name === "query_practice",
 	)!;
 }

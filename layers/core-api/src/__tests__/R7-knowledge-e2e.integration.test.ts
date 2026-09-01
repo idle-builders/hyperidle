@@ -16,6 +16,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -42,12 +43,12 @@ import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-r
  * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
 function buildPromoteKnowledgeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
 		(t) => t.name === "promote_knowledge",
 	)!;
 }
 function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
 		(t) => t.name === "write_memory",
 	)!;
 }

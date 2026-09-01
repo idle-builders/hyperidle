@@ -42,6 +42,8 @@ export function buildTestHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntime
 		provisionActionGate: async () => {
 			// Test runtime: no action gate — sessions run ungated in integration tests.
 		},
+		pendingGateDenial: () => undefined,
+		clearGateAction: () => {},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: () => {

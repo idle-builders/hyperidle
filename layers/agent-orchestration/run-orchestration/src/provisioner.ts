@@ -298,6 +298,18 @@ interface SessionLifecycleHarnessRuntime {
 		token: string,
 	): Promise<void>;
 	/** Release the action gate store entry for a session — called at teardown alongside closeMcpBridge. */
+	/**
+	 * The action this session was last denied, if any — read when the agent files
+	 * a review, so the review can be tied to the block that caused it.
+	 */
+	pendingGateDenial(
+		sessionId: string,
+	): { readonly ruleId: string; readonly toolName: string } | undefined;
+	/** Let one attempt at this action through, once, just before a resume. */
+	clearGateAction(
+		sessionId: string,
+		action: { readonly ruleId: string; readonly toolName: string },
+	): void;
 	releaseActionGate(sessionId: string): void;
 }
 

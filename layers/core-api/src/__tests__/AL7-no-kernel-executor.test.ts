@@ -16,6 +16,7 @@
  * provides an execute/dispatch/kernel-capability surface.
  */
 
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { describe, expect, it } from "vitest";
 
 describe("AC12: no kernel-executor surface in the trust-first model", () => {
@@ -68,7 +69,7 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 		// wiring a real `app`.
 		const ALL_TOOL_DEFINITIONS = buildToolDefinitions(() => {
 			throw new Error("AL7-no-kernel-executor never invokes a tool handler");
-		});
+		}, THROWING_GATE_ACCESSOR);
 		const names = ALL_TOOL_DEFINITIONS.map((d: { name: string }) => d.name);
 		// The stage_operation tool was the v1 agent-authored staging tool — retired per concept rejection #8
 		expect(names).not.toContain("stage_operation");

@@ -2,6 +2,7 @@ import {
 	buildToolHandlersPorts,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { insertThread } from "@hyperidle/conversation";
 import {
 	type HyperIdleDb,
@@ -144,7 +145,10 @@ async function seedConflict(db: HyperIdleDb, id: string, itemId: string): Promis
 
 describe("attention-service", () => {
 	test("tool attention override atomically upserts projection only", async ({ db, app }) => {
-		const toolHandlersPorts = buildToolHandlersPorts(createInProcessCoreApiTransport(app));
+		const toolHandlersPorts = buildToolHandlersPorts(
+			createInProcessCoreApiTransport(app),
+			THROWING_GATE_ACCESSOR,
+		);
 		await seedKi(db, { id: "ki-override", attentionScore: 0.1 });
 		const [before] = await db
 			.select()

@@ -25,6 +25,7 @@
 export {
 	type ActionGateStore,
 	createActionGateStore,
+	type DeniedAction,
 	type GateCheckResult,
 	type GateDenyResult,
 	type GateResult,

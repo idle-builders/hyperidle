@@ -5,6 +5,7 @@ import {
 	createInProcessCoreApiTransport,
 	unconfiguredCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -59,7 +60,10 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 
 describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	test("registry produces one spec per expected tool name", ({ db, app }) => {
-		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
+		const definitions = buildToolDefinitions(
+			createInProcessCoreApiTransport(app),
+			THROWING_GATE_ACCESSOR,
+		);
 		const specs = buildToolRegistry(definitions, makeContext(db), {
 			role: "assistant",
 		}).toClaudeToolSpecs();
@@ -80,7 +84,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		// introspection only) — the unconfigured transport (throws only if
 		// actually dialled) is honest here.
 		const registry = buildToolRegistry(
-			buildToolDefinitions(unconfiguredCoreApiTransport()),
+			buildToolDefinitions(unconfiguredCoreApiTransport(), THROWING_GATE_ACCESSOR),
 			{
 				db: null as unknown as HyperIdleDb,
 				eventBus: new EventBus(),
@@ -111,7 +115,10 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	});
 
 	test("each spec is JSON-serializable (no circular references)", ({ db, app }) => {
-		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
+		const definitions = buildToolDefinitions(
+			createInProcessCoreApiTransport(app),
+			THROWING_GATE_ACCESSOR,
+		);
 		const specs = buildToolRegistry(definitions, makeContext(db), {
 			role: "assistant",
 		}).toClaudeToolSpecs();

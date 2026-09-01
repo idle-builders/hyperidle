@@ -65,6 +65,8 @@ function buildEvalHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntimeAdapter
 			throw new Error("eval sessions never supply an MCP bridge — this should be unreachable.");
 		},
 		closeMcpBridge: async () => {},
+		pendingGateDenial: () => undefined,
+		clearGateAction: () => undefined,
 		releaseActionGate: () => undefined,
 	};
 }

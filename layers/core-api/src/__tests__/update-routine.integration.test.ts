@@ -8,6 +8,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { knowledgeItems, routines, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -16,7 +17,7 @@ import { test } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW } from "./_helpers.js";
 
 function buildUpdateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
 		(t) => t.name === "update_routine",
 	)!;
 }

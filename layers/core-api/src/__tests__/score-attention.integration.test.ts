@@ -2,6 +2,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, items, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
@@ -11,7 +12,7 @@ import { test } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function buildScoreAttentionTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
 		(t) => t.name === "score_attention",
 	)!;
 }
@@ -143,7 +144,7 @@ describe("score_attention tool", () => {
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR),
 			makeContext(db),
 			{ role: "assistant" },
 		); // @lore AD8a: role string renamed to "assistant" in AD8b
@@ -193,7 +194,7 @@ describe("score_attention tool", () => {
 		await seedBase(db);
 		await seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR),
 			makeContext(db),
 			{ role: "assistant" },
 		);
@@ -219,7 +220,7 @@ describe("score_attention tool", () => {
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR),
 			makeContext(db),
 			{ role: "assistant" },
 		); // @lore AD8a: role string renamed in AD8b
@@ -243,7 +244,7 @@ describe("score_attention tool", () => {
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR),
 			makeContext(db),
 			{ role: "assistant" },
 		); // @lore AD8a: role string renamed in AD8b

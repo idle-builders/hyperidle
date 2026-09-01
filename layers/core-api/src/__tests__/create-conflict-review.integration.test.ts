@@ -2,6 +2,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -15,7 +16,7 @@ import { test } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function buildCreateConflictReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
 		(t) => t.name === "create_conflict_review",
 	)!;
 }

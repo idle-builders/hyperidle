@@ -102,6 +102,8 @@ function buildLiveHarnessRuntimeAdapter(
 		provisionActionGate: async () => {
 			// Live harness test: no action gate — sessions run ungated.
 		},
+		pendingGateDenial: () => undefined,
+		clearGateAction: () => {},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: async (session) => {

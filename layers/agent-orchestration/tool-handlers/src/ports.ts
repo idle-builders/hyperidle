@@ -512,7 +512,25 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
+/**
+ * The action gate, as `submit_review` needs to see it.
+ *
+ * @lore BA2: This exists so a review can be tied to the block that caused it at
+ * the moment it is filed. It is one call and it is deliberately not a question
+ * the agent can answer — the pending denial comes from the gate's own record of
+ * what it refused, never from the tool's arguments.
+ */
+export interface ToolHandlersGateAccessor {
+	/**
+	 * Record this review as the one a gate denial produced, when the session has
+	 * a denial pending. Does nothing for an ordinary review, which is what stops
+	 * approving a design review from clearing an action.
+	 */
+	linkReviewToPendingDenial(sessionId: string, reviewMessageId: string): Promise<void>;
+}
+
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts {
 	readonly coreApi: ToolHandlersCoreApiAccessor;
+	readonly gate: ToolHandlersGateAccessor;
 }

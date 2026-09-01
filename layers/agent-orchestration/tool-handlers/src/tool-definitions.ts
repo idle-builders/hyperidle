@@ -806,6 +806,12 @@ function makeSubmitReviewTool<TDb>(
 			}
 			const messageId = created.id;
 
+			// If the gate is holding a denial against this session, this review is
+			// the agent asking about that exact action. Recording the link here is
+			// what lets a human's approval clear it — and what stops an approval on
+			// any other review from clearing anything.
+			await ports.gate.linkReviewToPendingDenial(ctx.sessionId, messageId);
+
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
 			// BB1: walk the parentTaskId chain to find the root task.

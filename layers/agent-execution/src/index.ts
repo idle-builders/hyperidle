@@ -33,6 +33,7 @@ export type {
 	AgentExecutionBoot,
 	AgentExecutionBootOptions,
 	AgentExecutionHarnessRuntime,
+	DeniedAction,
 } from "./boot.js";
 export { bootAgentExecution } from "./boot.js";
 export {

@@ -14,6 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -23,7 +24,7 @@ import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 function buildCreateTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
 		(t) => t.name === "create_task",
 	)!;
 }

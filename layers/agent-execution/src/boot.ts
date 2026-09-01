@@ -49,6 +49,7 @@ import {
 	createLocalAdapterPool,
 	createReturnEnforcement,
 	createSandboxAdapter,
+	type DeniedAction,
 	type GateRule,
 	installActionGate,
 	provisionHarnessEnvironment,
@@ -84,6 +85,8 @@ export interface AgentExecutionBootOptions {
  * mirrored here field-for-field so the relocated composition root can assign
  * this object directly, structurally, with no adapter layer of its own.
  */
+export type { DeniedAction };
+
 export interface AgentExecutionHarnessRuntime {
 	readonly enforcementRegistry: EnforcementRegistry;
 	createReturnGate(requiredReturnActions?: readonly string[]): ReturnGate;
@@ -141,6 +144,19 @@ export interface AgentExecutionHarnessRuntime {
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
 	}): Promise<{ readonly token: string; readonly url: string }>;
 	closeMcpBridge(token: string): Promise<void>;
+	/**
+	 * The action this session was last denied, if any.
+	 *
+	 * Read when an agent files a review, so the review can be tied to the block
+	 * that caused it. A session that was never denied has none, which is what
+	 * stops an ordinary design review from clearing an action.
+	 */
+	pendingGateDenial(sessionId: string): DeniedAction | undefined;
+	/**
+	 * Let one attempt at this action through, once. Called when a human approves
+	 * the review a denial produced, just before the session is resumed.
+	 */
+	clearGateAction(sessionId: string, action: DeniedAction): void;
 	/** Release the action gate store entry for this session — call at teardown. */
 	releaseActionGate(sessionId: string): void;
 }
@@ -224,6 +240,8 @@ export async function bootAgentExecution(
 				onToolCall: session.onToolCall,
 			}),
 		closeMcpBridge: (token) => bridge.close(token),
+		pendingGateDenial: (sessionId) => actionGateStore.pendingDenial(sessionId),
+		clearGateAction: (sessionId, action) => actionGateStore.clear(sessionId, action),
 		releaseActionGate: (sessionId) => actionGateStore.delete(sessionId),
 	};
 

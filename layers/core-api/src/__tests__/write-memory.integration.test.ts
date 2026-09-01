@@ -4,6 +4,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -19,7 +20,7 @@ import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
 		(t) => t.name === "write_memory",
 	)!;
 }
