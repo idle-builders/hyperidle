@@ -563,3 +563,27 @@ The repository then holds exactly one shape at every moment: the old one until i
 then the new one. Never two at once, and never a reader's choice between them.
 
 `docs/process-layer/staged-operation.md` documents the deleted mechanism and goes with it.
+
+## 26. The gate blocks named tools, and that is the design
+
+Ruled 2026-09-01, after a real codex run routed around a blocked tool. Founder: *"right now we can only
+block named tools and that is fine. This is meant for tools that don't have a workaround."*
+
+**What was observed.** With a rule denying `apply_patch`, codex was blocked and said so plainly — *"
+`apply_patch` was blocked by a pre-tool hook in this environment, so I'm using a shell write instead"* —
+then wrote the file with `printf 'TEST' > proof.txt`. The gate fired correctly; the model reached the same
+outcome another way. Reproduced on all three retries.
+
+**The ruling: this is not a defect.** A rule names a **tool**, not an outcome. The gate exists for tools
+where there is no second route — a deploy, a merge, a send, a refund — not to make an outcome
+unreachable. An agent that finds another path is behaving normally, and building outcome-level enforcement
+would mean the classifier machinery the founder has already rejected twice.
+
+**What follows for the build.** A test may assert that the named tool was blocked and that the rule
+reached the agent. It may **not** assert that the outcome did not happen, because that is not what the
+gate promises.
+
+**And a test must read the rejection from the structured stream event, never from the model's prose.**
+The same run had the model paraphrase the block three different ways — "a pre-tool hook", "the workspace
+hook", "the local pre-tool policy" — and never quote the rule id, which the cursor-agent research had
+already recorded as a general property. Asserting on narration tests the model's phrasing, not our gate.
