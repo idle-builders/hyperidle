@@ -46,8 +46,64 @@ Known costs: `role` carries a DB CHECK pinned to four values
 (`framework/db/src/schema.ts:866`) that has to open; `routines.prompt_knowledge_id`
 is deleted rather than kept.
 
+## Agreed in refine
+
+### Scope: the two real attachment cases
+
+Only two things today attach a knowledge item to an entity as its content:
+
+| Case | How it attaches today |
+|---|---|
+| Routine prompt | `routines.prompt_knowledge_id` — an FK column on the routines table |
+| Agent identity | `role='agent_file'` + `scopeKind='user'` + `scopeId=<agentId>` |
+
+**Skills and rules are NOT attachment.** They are ordinary knowledge with a
+materialisation role and no parent (`context.ts:868`). Only `agent_file` carries
+a binding.
+
+**Excluded, deliberately:** `tasks.sourceKnowledgeItemId` points the other way —
+the knowledge item a task was promoted *from*, not content the task owns. The
+four satellite tables (edit log, access log, conflicts, projection) are records
+*about* an item, not attachment.
+
+### `role` = where the item lands in the session
+
+Founder call, verified in code. Role is not about sandbox files — it is about
+where the item lands in the session, which is broader:
+
+| role | Lands as |
+|---|---|
+| `ordinary` | `knowledge/` files in the sandbox |
+| `skill` | the harness's skills directory |
+| `rule` | `knowledge/rules` |
+| `agent_file` | the "## Identity" section of AGENTS.md |
+| `prompt` | the run's instruction |
+
+`prompt` fits that definition, so it is a role and **no new field is needed**.
+Verified: the routine prompt resolves into the session's context bundle as the
+instruction the run executes (`layers/core-api/routine/src/routine-service.ts:545`).
+
+So the mechanism is two axes with one job each: **`parentKind` + `parentId` says
+where it hangs; `role` says where it lands.**
+
+Cost: the `role` CHECK constraint pinned to four values
+(`framework/db/src/schema.ts:866`) has to open.
+
+### This fixes a convicted ownership violation, not just untidiness
+
+BA9g moved plugin provenance out of `users.plugin_id` and `routines.plugin_id`
+into `plugin_contributions`, calling those columns **"table-ownership violations
+wearing a column — provenance the PLUGIN service owns, sitting in tables it does
+not"** (`framework/db/src/schema.ts:1246`). `routines.prompt_knowledge_id` is the
+same shape: a column on the routines table describing a knowledge relationship.
+Moving it onto `knowledge_items` puts it in the owning service's table.
+
+BA9g is also the precedent for the whole exercise — provenance had been recorded
+seven different ways before it was unified.
+
 ## Status
 
-**Refine in progress.** Nothing below the seed is agreed yet.
+**Refine in progress.** The three sections above are agreed. Parent vocabulary
+and the fate of `scope` are still open.
 
 Migration numbering: main is at `0076_BB1_one_work_primitive.sql`. Take 0077+.
