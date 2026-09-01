@@ -586,7 +586,54 @@ export type AgentWorkIntentRecorderInput =
 			readonly idempotencyKey: string;
 			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts` (AU21 Increment 3). */
 			readonly bakedRequest?: BakedWorkIntentRequest;
+	  }
+	| {
+			/**
+			 * BA2: a human decided on the review a gate denial produced, and the agent
+			 * that asked has to be brought back to its own session with the answer.
+			 *
+			 * This kind does NOT start a session, so it bakes no
+			 * `BakedWorkIntentRequest` — there is no agent to resolve, no context to
+			 * assemble and no prompt to compose. Everything a resume needs is the
+			 * session to return to and what to tell it.
+			 */
+			readonly kind: "session_resume";
+			readonly sourceKind: "gate_review";
+			/** The review message the human decided on. */
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			readonly resume: BakedSessionResumeRequest;
 	  };
+
+/**
+ * What a resume needs, baked when the verdict is recorded.
+ *
+ * @lore BA2: Baked rather than read at drain time for the same reason every
+ * other kind bakes — the drain does zero domain reads. It also means the record
+ * of what was approved is fixed at the moment a human decided it, not
+ * reconstructed later from rows that may have moved on.
+ */
+export interface BakedSessionResumeRequest {
+	/** The HyperIdle session to bring back. */
+	readonly sessionId: string;
+	/**
+	 * The harness's own id for that session. Absent when the harness never
+	 * reported one, which means the session cannot be resumed — the drain surfaces
+	 * that to the human rather than silently doing nothing.
+	 */
+	readonly harnessSessionId?: string | null;
+	/** The rule that blocked the action, cleared for this one action on approval. */
+	readonly ruleId: string;
+	/** The tool the rule matched, so the clearance is spent on that action alone. */
+	readonly toolName: string;
+	/** What the human decided. A decline resumes too, carrying the reasoning back. */
+	readonly decision: "approve" | "decline";
+	/** The thread the review lives in, where a failure has to be reported. */
+	readonly threadId: string;
+	/** The agent whose session this is. */
+	readonly agentId: string;
+}
 
 /**
  * Plain function type replacing the former `AgentWorkIntentRecorder<TTx>` interface.

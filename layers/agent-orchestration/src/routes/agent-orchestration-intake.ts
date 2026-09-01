@@ -51,6 +51,7 @@ const WORK_INTENT_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_run",
+	"session_resume",
 ] as const;
 
 function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentKind {
@@ -69,13 +70,31 @@ function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentK
  * `idempotencyKey` all type-check structurally with no cast at all.
  */
 function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentInput {
+	// BA2: session_resume carries a resume, not a start request. Splitting here
+	// keeps the cast audited per field on both branches.
+	if (body.kind === "session_resume") {
+		return {
+			kind: "session_resume",
+			sourceKind: "gate_review",
+			sourceId: body.sourceId,
+			requestedBy: body.requestedBy,
+			idempotencyKey: body.idempotencyKey,
+			resume: body.resume as Extract<WorkIntentInput, { kind: "session_resume" }>["resume"],
+		};
+	}
 	return {
 		kind: body.kind,
-		sourceKind: body.sourceKind as WorkIntentInput["sourceKind"],
+		sourceKind: body.sourceKind as Exclude<
+			WorkIntentInput,
+			{ kind: "session_resume" }
+		>["sourceKind"],
 		sourceId: body.sourceId,
 		requestedBy: body.requestedBy,
 		idempotencyKey: body.idempotencyKey,
-		bakedRequest: body.bakedRequest as WorkIntentInput["bakedRequest"],
+		bakedRequest: body.bakedRequest as Exclude<
+			WorkIntentInput,
+			{ kind: "session_resume" }
+		>["bakedRequest"],
 	};
 }
 
@@ -86,6 +105,7 @@ const workIntentInputSchema = z.object({
 	requestedBy: z.string().optional(),
 	idempotencyKey: z.string().min(1),
 	bakedRequest: z.unknown().optional(),
+	resume: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationWorkIntentInput>;
 
 export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {

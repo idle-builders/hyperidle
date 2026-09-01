@@ -16,13 +16,14 @@ import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "../events.js"
 import type { AgentWorkIntentRecorderInput } from "../work-intent.js";
 
 describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
-	it("contains exactly the five canonical kinds", () => {
+	it("contains exactly the six canonical kinds", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toEqual([
 			"assistant_turn",
 			"session_start",
 			"knowledge_action",
 			"routine_run",
 			"task_run",
+			"session_resume",
 		]);
 	});
 
@@ -34,8 +35,8 @@ describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
 	});
 });
 
-describe("AgentWorkIntentRecorderInput widened five-kind union", () => {
-	it("accepts every one of the five kinds as its discriminant, paired with the correct sourceKind", () => {
+describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
+	it("accepts every one of the six kinds as its discriminant, paired with the correct sourceKind", () => {
 		const inputs: AgentWorkIntentRecorderInput[] = [
 			{
 				kind: "assistant_turn",
@@ -66,6 +67,23 @@ describe("AgentWorkIntentRecorderInput widened five-kind union", () => {
 				sourceKind: "task_dispatch_attempt",
 				sourceId: "s5",
 				idempotencyKey: "k5",
+			},
+			{
+				// BA2: the only kind that resumes a session rather than starting one,
+				// so it bakes a resume instead of a BakedWorkIntentRequest.
+				kind: "session_resume",
+				sourceKind: "gate_review",
+				sourceId: "review-message-1",
+				idempotencyKey: "k6",
+				resume: {
+					sessionId: "sess-1",
+					harnessSessionId: "native-1",
+					ruleId: "rule-1",
+					toolName: "Bash",
+					decision: "approve",
+					threadId: "thread-1",
+					agentId: "agent-1",
+				},
 			},
 		];
 		expect(inputs.map((i) => i.kind)).toEqual(AGENT_WORK_INTENT_KINDS);

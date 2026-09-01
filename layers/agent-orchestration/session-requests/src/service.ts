@@ -12,6 +12,7 @@ import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 	BakedContextBundle,
+	BakedSessionResumeRequest,
 } from "@hyperidle/domain-model";
 import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
@@ -718,7 +719,13 @@ async function insertIntentInternal(db: WriteExecutor, input: WorkIntentInput) {
 			requestedBy: input.requestedBy ?? null,
 			idempotencyKey: input.idempotencyKey,
 			status: "pending",
-			bakedRequestJson: JSON.stringify(input.bakedRequest),
+			// @lore BA2: session_resume bakes a resume rather than a start request —
+			// it returns to a session that already exists, so there is no agent to
+			// resolve and no context to assemble. Same column, different shape,
+			// read back by the drain branch that owns the kind.
+			bakedRequestJson: JSON.stringify(
+				input.kind === "session_resume" ? input.resume : input.bakedRequest,
+			),
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		})
@@ -995,24 +1002,38 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	knowledge: "knowledge",
 };
 
-export type WorkIntentInput = {
-	readonly kind:
-		| "assistant_turn"
-		| "session_start"
-		| "knowledge_action"
-		| "routine_run"
-		| "task_run";
-	readonly sourceKind:
-		| "thread_message"
-		| "explicit_session_start"
-		| "knowledge_action"
-		| "routine_run"
-		| "task_dispatch_attempt";
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-	readonly bakedRequest: BakedWorkIntentRequest;
-};
+export type WorkIntentInput =
+	| {
+			readonly kind:
+				| "assistant_turn"
+				| "session_start"
+				| "knowledge_action"
+				| "routine_run"
+				| "task_run";
+			readonly sourceKind:
+				| "thread_message"
+				| "explicit_session_start"
+				| "knowledge_action"
+				| "routine_run"
+				| "task_dispatch_attempt";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			readonly bakedRequest: BakedWorkIntentRequest;
+	  }
+	| {
+			/**
+			 * BA2: return an agent to a session it already had, carrying a human's
+			 * verdict. Nothing is started, so nothing is resolved or assembled —
+			 * `resume` is the whole payload, and it takes `bakedRequest`'s column.
+			 */
+			readonly kind: "session_resume";
+			readonly sourceKind: "gate_review";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			readonly resume: BakedSessionResumeRequest;
+	  };
 /**
  * Extended baked work-intent payload for session-requests' own drain logic.
  *

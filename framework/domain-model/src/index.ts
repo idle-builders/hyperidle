@@ -283,6 +283,7 @@ export type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	BakedContextKnowledgeItem,
+	BakedSessionResumeRequest,
 	BakedWorkIntentRequest,
 	RoutineTriggerEvent,
 	SessionKnowledgeItemLike,

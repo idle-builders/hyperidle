@@ -146,6 +146,11 @@ interface SessionLifecycleHarnessAdapter {
 		readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
 	};
 	getForceReturnCount?(sessionId: string): number;
+	/**
+	 * The harness's own id for this session, once it has one. Optional because an
+	 * adapter with no resume support never reports one.
+	 */
+	getNativeSessionId?(handle: SessionHandle): string | undefined;
 }
 
 interface SessionLifecycleAdapterMeta {
@@ -1765,6 +1770,33 @@ async function runSession(
 	} finally {
 		// W1: release the adapter pool slot EXACTLY ONCE after the single run.
 		adapterPool.release(adapterId);
+	}
+
+	// The harness's own id for this session, written down before teardown drops
+	// the handle. Without it there is nothing to resume, and the return half of
+	// the action gate cannot bring the agent back after a human decides.
+	//
+	// @lore BA2: Read AFTER the stream drained — claude assigns its id at start,
+	// but codex, cursor-agent and opencode only report theirs in the event stream.
+	// A harness that reported none leaves the column null: that session genuinely
+	// cannot be resumed, and the verdict path says so rather than resuming nothing.
+	if (harnessHandle) {
+		const nativeSessionId = harness.getNativeSessionId?.(harnessHandle);
+		if (nativeSessionId) {
+			try {
+				await deps.db
+					.update(sessions)
+					.set({ harnessSessionId: nativeSessionId })
+					.where(eq(sessions.id, sessionId));
+			} catch (persistErr) {
+				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+				console.warn(
+					`[session-provisioning] could not persist harness session id for ${sessionId}; ` +
+						`this session will not be resumable:`,
+					persistErr,
+				);
+			}
+		}
 	}
 
 	// ── Phase 11: teardown.

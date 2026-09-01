@@ -88,7 +88,8 @@ export type AgentOrchestrationWorkIntentKind =
 	| "session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "task_run";
+	| "task_run"
+	| "session_resume";
 
 /**
  * Mirrors `AgentWorkIntentRecorderInput` — `bakedRequest` is carried opaque
@@ -102,6 +103,13 @@ export interface AgentOrchestrationWorkIntentInput {
 	readonly requestedBy?: string;
 	readonly idempotencyKey: string;
 	readonly bakedRequest?: unknown;
+	/**
+	 * BA2: `session_resume`'s payload, carried opaque like `bakedRequest` beside
+	 * it. A separate field rather than a reuse of `bakedRequest` because the two
+	 * describe different things — one starts a session, the other returns to one —
+	 * and a reader should not have to know the kind to know which shape arrived.
+	 */
+	readonly resume?: unknown;
 }
 
 /** Mirrors the row `enqueueWorkIntent` returns — `id` + `idempotencyKey` only, the AC-9 shape. */

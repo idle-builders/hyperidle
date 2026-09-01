@@ -17,6 +17,7 @@ export const AGENT_WORK_INTENT_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_run",
+	"session_resume",
 ] as const;
 
 export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
@@ -34,7 +35,13 @@ export type AgentWorkIntentSourceKind =
 	| "explicit_session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "task_dispatch_attempt";
+	| "task_dispatch_attempt"
+	/**
+	 * BA2: a human's verdict on the review a gate denial produced. The source id
+	 * is that review's message id — the one thing that identifies both the block
+	 * and the session to bring back.
+	 */
+	| "gate_review";
 
 export interface AgentWorkIntentEvent {
 	readonly type: "agent_work_intent_recorded";
