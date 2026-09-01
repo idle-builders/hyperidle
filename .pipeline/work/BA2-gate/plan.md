@@ -1,6 +1,37 @@
 # An agent asks before doing something risky, and a human clears it
 
-**Status:** design settled. Every harness mechanism below was proven against its installed binary.
+**Status:** design settled and half built. Every harness mechanism below was proven against its installed
+binary.
+
+## Where this stands
+
+**Merged.** The old approval machinery deleted (#529, −8,074 lines). Scoped action rules with their
+settings surface (#532). Harness session-handle capture and resume for all four harnesses (#533). Stale
+documentation corrected (#534). Four earlier pieces fixed production bugs no test had caught — codex
+sessions dying at startup, cursor-agent never reporting token usage, all nine review canvases showing
+invented content, and a human unable to reach or approve a review (#521–#525).
+
+**Open, proven, not yet a feature — PR #542.** The **deny half**: a rule matches, the action is blocked,
+the agent is told which rule. Demonstrated against all four real binaries. It is a safe merge but does
+nothing for a user yet, for three reasons:
+
+- The loop does not close. Criteria 3–7 below are unbuilt: no review is filed, no verdict returns, no
+  session resumes.
+- **The desktop application does not wire `actionRulesPort`**, so the gate cannot fire there at all. Only
+  `remote-server` wires it.
+- It is not inert either: it always injects `XDG_CONFIG_HOME` for opencode (replacing `--pure`) and
+  defaults `OPENCODE_PERMISSION` to allow-all when no gate is present. That changes every opencode
+  session, gated or not.
+
+**Still to build.** The return half — review filed, verdict, clearance, resume — plus the desktop wiring,
+and one assertion fix: the codex gate test reads the rule id from the model's prose, which ruling 26 says
+is the wrong place. It must read the structured rejection event.
+
+**Known weakness in the current proof.** The fail-closed check genuinely runs the script against an
+unreachable server for claude and codex. For cursor-agent and opencode it only asserts the file is
+syntactically valid and contains deny logic — that is a file-shape check, not a fail-closed proof, and it
+is exactly the kind of assertion that stayed green while a Claude-shaped hook sat unread in cursor's
+config.
 
 This document describes the design as it now stands. It was rewritten from a version that had grown by
 appending corrections, which left the reader reconstructing the current shape from its own history — the
@@ -157,16 +188,21 @@ resume for all four harnesses. What remains:
   `submit_review`, so approving an ordinary design review granted a bypass. The `gate_reviews` record
   already built is the right answer; keep it.
 
-## What gets cleaned up
+## What was abandoned, and is gone
 
-The abandoned first attempt at this loop is preserved on `archive/action-gate-first-attempt` and must not
-be revived. From the current branch, remove: the Claude-shaped hook config written for codex, cursor and
-opencode; the opencode plugin that reads args from the wrong parameter; and the detached-spawn resume with
-its side store of resume functions. The `--pure` flag goes with them — it disables the sandbox's own plugin
-and provides no isolation at all.
+Two earlier attempts at this loop were abandoned and **deleted** — no archive branch, no revivable copy.
+They are described here only so the same shapes are not rebuilt:
 
-The gate must exist in exactly **one** shape per harness when this lands. No compatibility path, no second
-mechanism kept "just in case".
+- **A detached-spawn resume**, fired from teardown with a side store of resume functions. It ran against a
+  closed MCP bridge and produced an invisible orphan session.
+- **Claude's hook shape written into every harness.** codex, cursor-agent and opencode each ignored a file
+  they never read, and the silent failures were misread as harness limitations.
+
+Both are superseded by the measured per-harness contracts above. The `--pure` flag went with them — it
+disables the sandbox's own plugin and provides no isolation at all.
+
+The gate exists in exactly **one** shape per harness. No compatibility path, no second mechanism kept
+"just in case".
 
 ## How it will be proven
 
