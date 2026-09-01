@@ -38,9 +38,33 @@ nothing for a user yet, for three reasons:
 - The provisioner branch: reopen the harness session, deliver the verdict as a user turn, clear first.
 - The failure path: when the resume cannot be prepared, the human who approved is told in their thread.
 
-**Still to build.** The proof. Criteria 3–7 are code without evidence — no real-binary test yet drives
-an agent from block, through filing a review, to a human's verdict and a completed action. Plus the
-desktop wiring check, and the cursor-agent fail-closed assertion, which is still a file-shape check.
+Two things the loop needed that the design had not spelled out, both found by trying to run it:
+
+- **A gated agent is told, once in its prompt,** that some actions need a person and how to ask.
+  Ruling 6 keeps the deny itself a terse statement of fact, so the instruction has to live in the
+  prompt or nowhere — and it lived nowhere. Only added when the session has rules; on a fresh system
+  nothing is said, because nothing can be blocked.
+- **A resume bakes the asking agent's runnable config,** like every other intent kind. Admission
+  treats an absent bake exactly like a deactivated agent and refuses the run, so without it the agent
+  could never be brought back.
+
+**Still to prove — this is now `BA2a`, its own row.** Criteria 3–7 are code without evidence. No
+real-binary test drives an agent from block, through filing a review, to a human's verdict and a
+completed action, **on all four harnesses**. An attempt during this package was deleted rather than
+kept: it needed a shared app-and-harness bench that does not exist, it covered claude alone, and it
+worked around an unrelated defect by seeding data a real dispatch never writes. What it did establish,
+and what BA2a starts from:
+
+- The first half runs. Against the real claude binary, through the real app, an agent blocked on
+  `bash` filed a review asking to run `echo -n "OK" > proof.txt`, and it reached the human in the
+  task's thread.
+- The second half hangs. `resumeSession` is entered with the right native id and never returns. The
+  cause is unidentified — and the obvious theory is wrong, since `--resume` finds sessions globally by
+  UUID in 2.1.247, so a destroyed sandbox does not explain it.
+- A durable task session's prompt carries the task's id but not its title or description. That is
+  `BA10`, not this package.
+
+Also still open: the cursor-agent fail-closed assertion is a file-shape check, not a fail-closed proof.
 
 **Known weakness in the current proof.** The fail-closed check genuinely runs the script against an
 unreachable server for claude and codex. For cursor-agent and opencode it only asserts the file is

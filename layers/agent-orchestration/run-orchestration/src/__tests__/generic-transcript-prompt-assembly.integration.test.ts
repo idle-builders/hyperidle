@@ -158,6 +158,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 		db: HyperIdleDb,
 		sandboxPath: string,
 		captured: { sessionConfig?: SessionConfig },
+		actionRules?: ReadonlyArray<{ id: string; pattern: string; description: string }>,
 	): ProvisionSessionDeps {
 		return {
 			db,
@@ -186,6 +187,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 				captured.sessionConfig = ctx.sessionConfig;
 				return "abort";
 			},
+			...(actionRules ? { actionRulesPort: { resolveFor: async () => actionRules } } : {}),
 		};
 	}
 
@@ -300,5 +302,56 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
 		expect(prompt).toContain("Correlation:");
 		expect(prompt).not.toContain("## Conversation");
+	});
+
+	/**
+	 * A gated agent has to be told, once, that some actions need a person and how
+	 * to ask — because the deny message deliberately will not tell it.
+	 *
+	 * @lore BA2 (ruling 6): the push-back is two pieces. The gate's deny carries
+	 * only the fact that a rule blocked the call; an imperative in a deny message
+	 * is what a real model once refused as a suspected injection, arriving as it
+	 * does through the same channel an attacker could write to. So the instruction
+	 * lives in the prompt or nowhere.
+	 */
+	test("a gated session is told in its prompt that some actions need a person", async ({ db }) => {
+		await seedAgent(db, "agent-gated-1");
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-gate-prompt-"));
+		sandboxDirs.push(sandboxPath);
+
+		const provisioner = createProvisioner(buildHarnessPorts());
+		const captured: { sessionConfig?: SessionConfig } = {};
+		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured, [
+			{ id: "r1", pattern: "bash", description: "shell needs a person" },
+		]);
+		const params = baseParams("agent-gated-1", sandboxPath);
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
+		expect(prompt).toContain("## When an action needs a person");
+		expect(prompt, "the agent must be told HOW to ask").toContain("submit_review");
+	});
+
+	/**
+	 * The list is empty on a fresh install and nothing can be blocked, so saying
+	 * anything would be noise about a mechanism that cannot fire.
+	 */
+	test("an ungated session is told nothing about approval", async ({ db }) => {
+		await seedAgent(db, "agent-ungated-1");
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-gate-prompt-"));
+		sandboxDirs.push(sandboxPath);
+
+		const provisioner = createProvisioner(buildHarnessPorts());
+		const captured: { sessionConfig?: SessionConfig } = {};
+		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const params = baseParams("agent-ungated-1", sandboxPath);
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
+		expect(prompt).not.toContain("## When an action needs a person");
 	});
 });

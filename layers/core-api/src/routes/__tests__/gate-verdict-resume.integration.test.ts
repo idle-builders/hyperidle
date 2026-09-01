@@ -150,6 +150,32 @@ describe("a verdict on a gate-caused review sends the agent back", () => {
 		});
 	});
 
+	test("the resume bakes the asking agent's config, or admission will refuse it", async ({
+		db,
+		app,
+	}) => {
+		await seed(db as HyperIdleDb, { harnessSessionId: "native-abc" });
+		await linkGateReview(db as HyperIdleDb);
+
+		expect((await postVerdict(app, "approve")).status).toBe(201);
+
+		const [intent] = await (db as HyperIdleDb)
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "session_resume"));
+		const baked = JSON.parse(intent?.bakedRequestJson ?? "{}") as {
+			agentConfig?: { kind?: string; status?: string; role?: string };
+		};
+		// `admitSession` treats an absent bake exactly like a deactivated agent and
+		// refuses the run, so a resume without this can never bring the agent back.
+		expect(
+			baked.agentConfig,
+			"a resume with no baked agent config is refused at admission",
+		).toBeDefined();
+		expect(baked.agentConfig?.kind).toBe("ai");
+		expect(baked.agentConfig?.status).toBe("active");
+	});
+
 	test("rejecting also queues a resume, so the agent learns the answer either way", async ({
 		db,
 		app,
