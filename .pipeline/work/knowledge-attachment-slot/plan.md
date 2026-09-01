@@ -30,7 +30,7 @@ BA9 established the direction — a routine's prompt and an agent's identity are
 knowledge, not bespoke columns. This finishes that thought with one mechanism
 instead of a third.
 
-## The proposed shape (to be tested in refine, not yet agreed)
+## The shape (agreed)
 
 `parentKind` + `parentId` + `role`.
 
@@ -45,6 +45,11 @@ cannot express "the prompt of this routine".
 Known costs: `role` carries a DB CHECK pinned to four values
 (`framework/db/src/schema.ts:866`) that has to open; `routines.prompt_knowledge_id`
 is deleted rather than kept.
+
+Refined below into three fields with one job each — see "Three fields, three
+questions". Role's meaning was sharpened during refine from "what it is to its
+parent" to **where it lands in the session**, which is the definition that also
+covers roles with no parent.
 
 ## Agreed in refine
 
@@ -170,99 +175,77 @@ behaviour change — and let it be widened deliberately later.
 
 ## How it behaves
 
-### Navigation comes from elsewhere; the knowledge view is still where you land
+### The governing model
 
-Founder call. A knowledge item whose role is not `ordinary` does **not** appear in
-the knowledge navigation — the knowledge tree stays clean. You reach a routine's
-prompt from the routine page and an agent's identity from the agent page.
+Founder's framing, and it supersedes the piecemeal navigation rules this section
+used to carry:
 
-But clicking it **opens the real knowledge view**, not a bespoke editor. It is a
-navigational pattern, not a different kind of object: the item is a first-class
-knowledge item wherever you arrive from.
+> general knowledge, skills, agents, routine prompts, tasks, … accessible from
+> their respective lists where they can also be created & deleted but they are
+> all knowledge items and are read & updated via the knowledge item content view.
+>
+> the navigation in the knowledge list is just the knowledge list for general
+> knowledge.
+>
+> a plugin can create & update any of those like a human or an agent could.
 
-This is role-driven, not parent-driven, which is what makes it general — it
-covers items with a role and no parent as well.
+Three rules follow.
 
-**Hiding is parent-driven, not role-driven.** An item that hangs off something is
-navigated to from that something. An item with no parent stays in the knowledge
-view. This needs no exception list, and it is the same rule the nested-knowledge
-strand applies to the tree — so the two agree by construction rather than by
-coordination. Role keeps its single job (where it lands in a session); parent
-keeps its own (where you navigate from).
+**1. Lists own create and delete. The knowledge content view owns read and
+update.** Each type has its own list — general knowledge, skills, rules, agents,
+routines, tasks. You create and delete from the list. You click through to the
+ordinary knowledge content view to read the thing and edit its body. There is no
+bespoke editor per type, and no create flow inside the knowledge view.
 
-### Role is set by the thing that creates it, never edited on the document
+**2. The knowledge list shows general knowledge only.** Items with a role or a
+parent are reached from their own list, not by browsing knowledge. This is what
+keeps the knowledge navigation clean, and it is why removing skills and rules
+from it is safe rather than a loss.
 
-Founder call. `role` is not a field you edit in the knowledge view. It is set by
-whatever creates the thing: creating a skill writes `skill`, creating a rule
-writes `rule`, creating an agent gives its identity `agent_file`, creating a
-routine gives its prompt `prompt`.
+**3. Human, agent and plugin have identical power.** A plugin is a batch of edits
+a human could make one at a time — not a privileged author. Anything a plugin can
+create or update, a person and an agent can too, through the same paths. This is
+the same parity rule already agreed for human and agent.
 
-**A plugin is a batch of edits a human could make one at a time** — founder's
-framing, and the governing principle here. It is not a privileged author. So
-wherever a plugin sets a role, a human must have the same action available
-singly. That is what makes removing the role selector safe rather than a
-regression: the answer to "how does a person make a skill" is a create flow on
-the skills surface, not a dropdown on an unrelated document.
+### What that means concretely for this phase
 
-This reverses the mechanism BA9e chose (`4f647e34e`, role as an editable field in
-the document's metadata card) while keeping the problem it solved. BA9e's real
-finding was that the plugin installer was the *only* writer of `role`, which made
-plugins a special kind of author. The fix stands; the place it lives moves.
+- **`role` is set at creation, never edited on the document.** Creating a skill
+  writes `skill`; a rule writes `rule`; creating an agent gives its identity
+  `agent_file`; creating a routine gives its prompt `prompt`. The role selector
+  is removed from the knowledge view entirely.
 
-Consequence: **the skills and rules surface gets create, not only a list.** That
-is the human-side equivalent of the plugin's batch, and it is what lets the role
-selector be removed from the knowledge view in the same change.
+  This reverses the *mechanism* BA9e chose (`4f647e34e`, role as an editable
+  metadata field) while keeping the problem it solved. BA9e's real finding was
+  that the plugin installer was the only writer of `role`, making plugins a
+  special kind of author. That stands — rule 3 above is the same point. Only the
+  place it lives moves: to each type's create flow.
 
-This also closes a defect the architecture critique found: while role was
-editable, a person could change a routine prompt's role away from `prompt` — the
-routine would then silently fall back to running on its name — or promote an
-ordinary note into a stray `prompt`. Neither is reachable once role is not an
-editable field.
+- **The skills and rules surface gets create and delete, not only a list.** That
+  is the human-side equivalent of the plugin's batch, and it is what makes
+  removing the role selector safe.
 
-### Skills and rules get a home
+- **Skills and rules leave the knowledge navigation** in the same change. Global
+  search still finds them by text (`scope=knowledge`,
+  `layers/core-api/src/routes/search.ts:98`), so nothing becomes unreachable.
+  Filtering *by role* is a registered follow-up
+  (`.pipeline/work/knowledge-role-scope-filtering/`), not a blocker.
 
-The pattern above exposed a gap: `agent_file` and `prompt` have somewhere to be
-navigated from, but `skill` and `rule` are surfaced nowhere except the knowledge
-view — BA9b's whole point was that a skill is a knowledge item edited there.
+- **Two defects the architecture critique found are closed by rule 1**, not by
+  extra guards: a person could have changed a routine prompt's role away from
+  `prompt` (the routine then silently runs on its name), or promoted an ordinary
+  note into a stray `prompt`. Neither is reachable once role is not an editable
+  field.
 
-Founder call: **eventually there should be an agent section in the nav** (agents,
-skills, rules, routines, …). For now, put a list of skills and rules "somewhere
-like settings pages or wherever routines or agents live" — the exact placement is
-a build-time choice, not a decision to make here.
+- **The knowledge tree is still not this phase's job.** What the tree shows is the
+  nested-knowledge strand's to implement against the parent column this phase
+  creates. Phase 1 builds the column and the lists; it does not restructure the
+  tree.
 
-Recommended spot: alongside `SettingsAgents` / `SettingsAgentBehavior`, which
-already groups agent, skill, routine, tool and MCP rows and already carries a
-`skill: "Skills"` label. Agents live in settings and routines live on a work page
-today, so there is no single existing home to match — this is the closer
-neighbour.
-
-The full agent section is **not** in this phase.
-
-**Once the list exists, skills and rules come out of the knowledge navigation in
-the same change.** Search still finds them by text, so nothing becomes
-unreachable.
-
-### Navigation display can be nested knowledge's job
-
-Founder: whichever makes more sense, the nested-knowledge strand can take the
-navigation part. That is the sensible split — hiding parented items from the tree
-IS their tree-display rule, already agreed. **Phase 1 therefore does not change
-the knowledge tree.** It builds the slot, migrates the two cases, and gives
-skills and rules a home; what the tree shows is nested knowledge's to implement
-against the parent column this phase creates.
-
-### Findability is a registered follow-up, not a claim
-
-Search does **not** filter by role or scope today — the knowledge list filters on
-`topic` (being deleted by nested knowledge) and global search has no role concept
-at all (`layers/core-api/src/routes/search.ts`). Registered as its own work item:
-`.pipeline/work/knowledge-role-scope-filtering/`.
-
-**There is no unreachable window.** Global search already finds knowledge items by
-text (`scope=knowledge`, `layers/core-api/src/routes/search.ts:98`). What is
-missing is filtering *by role*, which is a convenience, not the only way in. So
-removing skills and rules from the knowledge navigation is safe to do
-immediately, provided they are listed somewhere.
+- **Not in this phase:** the full agent section in the nav (agents, skills, rules,
+  routines as a navigation group). Placement of the skills/rules list is a
+  build-time choice — `SettingsAgents` / `SettingsAgentBehavior` is the closest
+  existing neighbour, since it already groups agent, skill, routine, tool and MCP
+  rows.
 
 ### Deleting a parent deletes its knowledge
 
