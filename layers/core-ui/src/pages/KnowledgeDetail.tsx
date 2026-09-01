@@ -40,7 +40,6 @@
  * (TipTap fires onChange with initial content on mount).
  */
 import type {
-	KnowledgeRole,
 	Message,
 	PlainPayloadWithBlockId,
 	ScopeKind,
@@ -115,8 +114,6 @@ interface DetailItem {
 	versionNum?: number;
 	/** Q2: scope_kind column. Defaults to "factory" for pre-Q2 items. */
 	scopeKind?: ScopeKind;
-	/** What context assembly does with this document. Absent means `ordinary`. */
-	role?: KnowledgeRole;
 	relatedItems?: ReadonlyArray<string>;
 	/** W3 AC-41: structured related items with title (from API) */
 	structuredRelatedItems?: ReadonlyArray<{ id: string; title: string }>;
@@ -347,7 +344,6 @@ export function KnowledgeDetail({
 			content: apiItem.body,
 			versionNum: apiItem.version,
 			scopeKind: toScopeKind(apiItem.scopeKind),
-			role: apiItem.role,
 			confidence: apiItem.confidence,
 			accessCount: apiItem.accessCount,
 			updatedBy: apiItem.updatedBy,
