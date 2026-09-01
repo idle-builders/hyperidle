@@ -30,6 +30,7 @@ interface ApiKnowledgeItem {
 	id: string;
 	title: string;
 	role?: string;
+	status?: string;
 }
 
 type SkillOrRuleItem = ApiKnowledgeItem & { role: SkillOrRuleRole };
@@ -70,8 +71,13 @@ export function SettingsSkillsAndRules(): JSX.Element {
 				return;
 			}
 			const json = (await res.json()) as { items?: ApiKnowledgeItem[] };
+			// GET /api/knowledge has no status query param — it returns every status
+			// visible to the viewer (drafts, needs_human, archived...) so the knowledge
+			// tree and triage views can show them. This list is a "what's live" surface,
+			// so it filters archived out client-side rather than widening the shared route.
 			const filtered = (json.items ?? [])
 				.filter((item): item is SkillOrRuleItem => isSkillOrRule(item.role))
+				.filter((item) => item.status !== "archived")
 				.sort((a, b) => a.title.localeCompare(b.title));
 			setItems(filtered);
 			setStatus("ready");

@@ -22,6 +22,7 @@ const ITEMS = [
 	{ id: "ki-rule-1", title: "no-console", role: "rule", status: "active" },
 	{ id: "ki-ordinary-1", title: "meeting notes", role: "ordinary", status: "active" },
 	{ id: "ki-prompt-1", title: "Routine — prompt", role: "prompt", status: "active" },
+	{ id: "ki-skill-archived", title: "retired-skill", role: "skill", status: "archived" },
 ];
 
 /** Captures the current route so a navigate() call can be asserted on. */
@@ -77,6 +78,13 @@ describe("SettingsSkillsAndRules", () => {
 		expect(screen.getByText("no-console")).toBeInTheDocument();
 		expect(screen.queryByText("meeting notes")).not.toBeInTheDocument();
 		expect(screen.queryByText("Routine — prompt")).not.toBeInTheDocument();
+	});
+
+	it("excludes archived items from the list", async () => {
+		renderSurface();
+
+		await screen.findByText("write-tests");
+		expect(screen.queryByText("retired-skill")).not.toBeInTheDocument();
 	});
 
 	it("each row links to the real knowledge content view", async () => {
