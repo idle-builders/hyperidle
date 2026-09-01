@@ -74,13 +74,29 @@ const DENY_RULE_CODEX: GateRule = {
 // Minimal HTTP server that serves POST /mcp/:token/action-check.
 // Reads body.tool_name (snake_case) — same as mcp-route.ts.
 
+/**
+ * A decision this gate actually made, as the gate recorded it.
+ *
+ * @lore the model paraphrases a block instead of quoting it — codex said "a pre-tool hook", "the
+ * workspace hook" and "the local pre-tool policy" across three runs of the same test, never naming the
+ * rule. Asserting on model prose tests the model's phrasing; asserting here tests the gate.
+ */
+interface GateDecision {
+	readonly toolName: string;
+	readonly decision: "allow" | "deny";
+	readonly ruleId?: string;
+}
+
 interface CheckServer {
 	port: number;
 	baseUrl: string;
+	/** Every decision this gate made, in order. */
+	decisions: GateDecision[];
 	stop: () => Promise<void>;
 }
 
 function startCheckServer(rules: readonly GateRule[]): Promise<CheckServer> {
+	const decisions: GateDecision[] = [];
 	return new Promise((resolve, reject) => {
 		const server = http.createServer((req, res) => {
 			if (!req.url?.includes("/action-check")) {
@@ -108,6 +124,7 @@ function startCheckServer(rules: readonly GateRule[]): Promise<CheckServer> {
 						);
 					});
 					if (hit) {
+						decisions.push({ toolName, decision: "deny", ruleId: hit.id });
 						res.writeHead(200, { "Content-Type": "application/json" });
 						res.end(
 							JSON.stringify({
@@ -116,6 +133,7 @@ function startCheckServer(rules: readonly GateRule[]): Promise<CheckServer> {
 							}),
 						);
 					} else {
+						decisions.push({ toolName, decision: "allow" });
 						res.writeHead(200, { "Content-Type": "application/json" });
 						res.end(JSON.stringify({ decision: "allow" }));
 					}
@@ -131,6 +149,7 @@ function startCheckServer(rules: readonly GateRule[]): Promise<CheckServer> {
 			resolve({
 				port: addr.port,
 				baseUrl: `http://127.0.0.1:${addr.port}/mcp/${BRIDGE_TOKEN}`,
+				decisions,
 				stop: () =>
 					new Promise<void>((res, rej) => server.close((err) => (err ? rej(err) : res()))),
 			});
@@ -679,15 +698,29 @@ describe("Action gate — codex: gates A/B/C (real binary, real LLM)", () => {
 				mcpUrl: server.baseUrl,
 				rules: [DENY_RULE_CODEX],
 			});
-			const result = await runAdapterSession(
+			await runAdapterSession(
 				"codex",
 				sandbox,
 				"Use a file-write tool to write 'TEST' to proof.txt. Tell me exactly what happened.",
 			);
+			// Assert on what the GATE recorded, not on what the model said about it. codex is
+			// blocked correctly but paraphrases the block — "a pre-tool hook", "the workspace
+			// hook", "the local pre-tool policy" across three runs, never quoting the rule id.
+			//
+			// Per founder ruling 26: a rule names a TOOL, not an outcome. It is correct for codex
+			// to reach the same result another way (it fell back to a shell redirect), so this
+			// asserts the named tool was refused — never that the file went unwritten.
+			const denials = server.decisions.filter(
+				(d) => d.decision === "deny" && d.ruleId === DENY_RULE_CODEX.id,
+			);
 			expect(
-				result.allText,
-				`Gate B FAIL: rule id '${DENY_RULE_CODEX.id}' not found in codex output. text: "${result.allText.slice(0, 600)}"`,
-			).toContain(DENY_RULE_CODEX.id);
+				denials.length,
+				`Gate B FAIL: the gate never denied '${DENY_RULE_CODEX.pattern}' for rule '${DENY_RULE_CODEX.id}'. decisions: ${JSON.stringify(server.decisions)}`,
+			).toBeGreaterThanOrEqual(1);
+			expect(
+				denials.some((d) => d.toolName.toLowerCase().includes("apply_patch")),
+				`Gate B FAIL: denial was not for apply_patch. decisions: ${JSON.stringify(server.decisions)}`,
+			).toBe(true);
 		} finally {
 			rmSandbox(sandbox);
 		}
