@@ -30,12 +30,8 @@ vi.mock("@hyperidle/diagnostics", () => ({
 	})),
 }));
 
-import type {
-	BetStateChangedEvent,
-	DomainEvent,
-	NotificationEvent,
-	TaskStateChangedEvent,
-} from "@hyperidle/event-bus";
+// @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
+import type { DomainEvent, NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "../event-bus.js";
 
 function makeTaskEvent(taskId: string, seq: number): TaskStateChangedEvent {
@@ -204,7 +200,8 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		const handler = vi.fn();
 
-		bus.on("bet_state_changed", handler);
+		// @lore BB1: bet_state_changed deleted; use session_started to keep cross-type isolation test.
+		bus.on("session_started", handler);
 		bus.emit(makeTaskEvent("t1", 1));
 
 		expect(handler).not.toHaveBeenCalled();
@@ -225,20 +222,9 @@ describe("EventBus", () => {
 			expect(To).toBeDefined();
 		});
 
-		bus.on("bet_state_changed", (e) => {
-			const BetId: string = e.betId;
-			expect(BetId).toBeDefined();
-		});
+		// @lore BB1: BetStateChangedEvent deleted — bet is now a root task.
 
 		bus.emit(makeTaskEvent("t1", 1));
-		bus.emit({
-			type: "bet_state_changed",
-			streamId: "bet:b1",
-			betId: "b1",
-			fromState: "active",
-			toState: "completed",
-			timestamp: 1,
-		} satisfies BetStateChangedEvent);
 	});
 
 	// ---------------- I1 / EventBus resilience ----------------

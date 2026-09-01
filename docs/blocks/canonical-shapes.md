@@ -49,4 +49,4 @@ Block-anchored discussion is **message-level**, not a thread-attachment kind. Th
 
 ## 6. Consumers
 
-Bet bodies, knowledge bodies, and review canvases all render through `Block[]` derived by the shared `deriveBlocks` (`WorkBet.tsx`, `KnowledgeBody.tsx`, `review-canvas.tsx` in `layers/core-ui`). All round-trip GFM losslessly for the nine content kinds; the `unknown` sentinel ensures derivation never throws for unrecognised GFM features. Block-anchored discussion attaches per §2 — message `blockId`, no comment table.
+Task bodies, knowledge bodies, and review canvases all render through `Block[]` derived by the shared `deriveBlocks` (`WorkTask.tsx`, `KnowledgeBody.tsx`, `review-canvas.tsx` in `layers/core-ui`). All round-trip GFM losslessly for the nine content kinds; the `unknown` sentinel ensures derivation never throws for unrecognised GFM features. Block-anchored discussion attaches per §2 — message `blockId`, no comment table.

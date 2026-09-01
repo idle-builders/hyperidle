@@ -1,14 +1,20 @@
 /**
- * AX1 — demo world work: eight bets across every lifecycle, twenty-seven
- * tasks covering all eight states, and the artifacts they produced.
+ * AX1 — demo world work: seven root tasks across every lifecycle, twenty-nine
+ * child tasks (including two grandchild tasks under TASK_PRICING_PAGE for
+ * 3-level nesting), and the artifacts they produced.
+ *
+ * @lore BB1: bets table dropped. Each former "bet" is now a root task
+ * (parentTaskId: null). Child tasks carry parentTaskId pointing at the root
+ * task or (for grandchildren) at another child task. This gives the tree its
+ * maximum depth: root → child → grandchild.
  *
  * The story: Acme builds "Pulse", a customer-feedback analytics app. They
- * shipped a trial-extension bet (validated), tuned search (partial), killed a
- * mobile spike honestly, and are now mid-flight on a pricing overhaul — with
- * one task in review and one blocked on the founder.
+ * shipped a trial-extension initiative (validated), tuned search (partial),
+ * killed a mobile spike honestly, and are now mid-flight on a pricing overhaul
+ * — with one task in review and one blocked on the founder.
  */
 
-import { artifacts, bets, type HyperIdleDb, tasks } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
 	ART_MOBILE_RESEARCH,
@@ -20,20 +26,20 @@ import {
 	ART_SEARCH_RANKING,
 	ART_TRIAL_FLOW,
 	ART_TRIAL_METRICS,
-	BET_CHURN,
-	BET_DIGEST,
-	BET_DOWNGRADE,
-	BET_MOBILE,
-	BET_ONBOARDING,
-	BET_PRICING,
-	BET_SEARCH,
-	BET_TRIAL,
 	BUILDER_ID,
 	DESIGNER_ID,
 	GROWTH_ID,
 	KI_CHURN_SIGNALS,
 	PM_ID,
 	QA_ID,
+	ROOT_TASK_CHURN,
+	ROOT_TASK_DIGEST,
+	ROOT_TASK_DOWNGRADE,
+	ROOT_TASK_MOBILE,
+	ROOT_TASK_ONBOARDING,
+	ROOT_TASK_PRICING,
+	ROOT_TASK_SEARCH,
+	ROOT_TASK_TRIAL,
 	TASK_CHURN_DASH,
 	TASK_CHURN_SIGNALS,
 	TASK_DOWNGRADE_POLICY,
@@ -50,6 +56,8 @@ import {
 	TASK_PRICING_METERING,
 	TASK_PRICING_METRICS,
 	TASK_PRICING_PAGE,
+	TASK_PRICING_PAGE_DESKTOP,
+	TASK_PRICING_PAGE_MOBILE,
 	TASK_PRICING_RESEARCH,
 	TASK_PRICING_TIERS,
 	TASK_SEARCH_EVAL,
@@ -65,12 +73,17 @@ import {
 } from "./ids.js";
 import type { DemoClock } from "./time.js";
 
-interface BetSpec {
+/**
+ * @lore BB1: RootTaskSpec replaces BetSpec. Root tasks (parentTaskId: null) are
+ * the top-level work containers. State maps from former bet status:
+ *   draft → proposed, active → in_progress, completed → done, killed → killed.
+ */
+interface RootTaskSpec {
 	readonly id: string;
+	readonly title: string;
 	readonly description: string;
-	readonly hypothesis: string | null;
 	readonly doneCondition: string;
-	readonly status: "draft" | "active" | "completed" | "killed";
+	readonly state: "proposed" | "in_progress" | "done" | "killed";
 	readonly createdAt: string;
 	readonly completedAt?: string;
 	readonly outcomeVerdict?: "validated" | "refuted" | "partial" | "inconclusive";
@@ -80,7 +93,8 @@ interface BetSpec {
 
 interface TaskSpec {
 	readonly id: string;
-	readonly betId: string;
+	/** @lore BB1: formerly betId — now parentTaskId (root task or any ancestor). */
+	readonly parentTaskId: string;
 	readonly ownerId: string;
 	readonly title: string;
 	readonly description: string;
@@ -102,9 +116,12 @@ interface ArtifactSpec {
 }
 
 export async function seedWork(db: HyperIdleDb, clock: DemoClock): Promise<void> {
-	const betSpecs: readonly BetSpec[] = [
+	// ── Root tasks (formerly bets) ────────────────────────────────────────────
+	// @lore BB1: each former "bet" is now a root task (parentTaskId: null).
+	const rootTaskSpecs: readonly RootTaskSpec[] = [
 		{
-			id: BET_PRICING,
+			id: ROOT_TASK_PRICING,
+			title: "Pricing page overhaul",
 			description: `# Pricing page overhaul
 
 Pulse's pricing page still shows the three-tier structure from launch. Trial
@@ -115,16 +132,15 @@ support gets the same "which plan is right for us" question weekly.
 rewrite the page copy around outcomes instead of feature counts, and wire
 annual billing with a founder-approved discount.
 
-Out of scope: usage-based pricing, plan downgrades (separate draft bet).`,
-			hypothesis:
-				"Simplifying to two tiers with a visible comparison lifts trial-to-paid conversion by 15% without raising churn.",
+Out of scope: usage-based pricing, plan downgrades (separate task tree).`,
 			doneCondition:
 				"New pricing page live for two weeks; conversion measured against baseline; pricing-related support questions drop.",
-			status: "active",
+			state: "in_progress",
 			createdAt: clock.daysAgo(21),
 		},
 		{
-			id: BET_ONBOARDING,
+			id: ROOT_TASK_ONBOARDING,
+			title: "Onboarding email sequence",
 			description: `# Onboarding email sequence
 
 New signups get one welcome email and then silence. Activation (first saved
@@ -133,15 +149,14 @@ value moment, one check-in — should move it.
 
 **Shape:** four emails, triggered by behavior rather than fixed days,
 written in the Pulse voice, measurable per step.`,
-			hypothesis:
-				"A four-email behavior-triggered sequence lifts 14-day activation from 34% to 45%.",
 			doneCondition:
 				"Sequence live for two cohorts; 14-day activation measured against the 34% baseline.",
-			status: "active",
+			state: "in_progress",
 			createdAt: clock.daysAgo(10),
 		},
 		{
-			id: BET_CHURN,
+			id: ROOT_TASK_CHURN,
+			title: "Churn early-warning dashboard",
 			description: `# Churn early-warning dashboard
 
 Churned accounts show the same three signals in their final two weeks —
@@ -150,15 +165,14 @@ know this from the postmortem; we just cannot see it in time.
 
 **Shape:** a dashboard that scores each account against those signals and
 lists the ten most at-risk accounts weekly.`,
-			hypothesis:
-				"Surfacing at-risk accounts weekly lets us intervene before half of the currently-surprising churns.",
 			doneCondition: "Dashboard live; at-risk list reviewed for three consecutive weeks.",
-			status: "draft",
+			state: "proposed",
 			createdAt: clock.daysAgo(6),
 			sourceKnowledgeItemId: KI_CHURN_SIGNALS,
 		},
 		{
-			id: BET_DOWNGRADE,
+			id: ROOT_TASK_DOWNGRADE,
+			title: "Self-serve plan downgrades",
 			description: `# Self-serve plan downgrades
 
 Teams that shrink today email support and wait. A self-serve downgrade path
@@ -166,23 +180,20 @@ keeps them paying something instead of churning to zero.
 
 **Shape:** downgrade in-app with prorated credit; retention offer only where
 usage justifies it.`,
-			hypothesis:
-				"Self-serve downgrades convert 30% of would-be cancellations into continued revenue.",
 			doneCondition: "Downgrade flow live; cancellation reasons tracked for one month.",
-			status: "draft",
+			state: "proposed",
 			createdAt: clock.daysAgo(4),
 		},
 		{
-			id: BET_TRIAL,
+			id: ROOT_TASK_TRIAL,
+			title: "Trial extension flow",
 			description: `# Trial extension flow
 
 Trials expire mid-evaluation for half our signups — they ask support for more
 time, support grants it by hand. A self-serve extension (one click, one time,
 with a reason) should convert evaluations that simply needed a week more.`,
-			hypothesis:
-				"A self-serve one-week trial extension converts 20% of expiring trials that would otherwise lapse.",
 			doneCondition: "Extension flow live; conversion of expiring trials measured for two weeks.",
-			status: "completed",
+			state: "done",
 			createdAt: clock.daysAgo(40),
 			completedAt: clock.daysAgo(14),
 			outcomeVerdict: "validated",
@@ -190,33 +201,31 @@ with a reason) should convert evaluations that simply needed a week more.`,
 				"27% of expiring trials took the extension and 31% of those converted — the hypothesis held with room to spare. Support-granted extensions dropped to near zero. Kept: the one-time limit; dropped: the reason dropdown (nobody used it).",
 		},
 		{
-			id: BET_SEARCH,
+			id: ROOT_TASK_SEARCH,
+			title: "Search relevance tuning",
 			description: `# Search relevance tuning
 
 Search returns the right documents in the wrong order — users scroll past the
 answer to find it. Re-rank on recency + title match, and build an eval loop so
 we stop guessing.`,
-			hypothesis:
-				"Re-ranking on recency and title match puts the clicked result in the top 3 for 80% of queries.",
 			doneCondition: "Eval set of 50 real queries; top-3 hit rate measured before/after.",
-			status: "completed",
+			state: "done",
 			createdAt: clock.daysAgo(35),
 			completedAt: clock.daysAgo(20),
 			outcomeVerdict: "partial",
 			outcomeSummary:
-				"Top-3 hit rate moved 54% → 71% — real, short of the 80% target. Recency mattered more than expected; personalization was killed mid-bet as out of reach. The eval loop itself is the keeper: every future search change gets measured.",
+				"Top-3 hit rate moved 54% → 71% — real, short of the 80% target. Recency mattered more than expected; personalization was killed mid-task as out of reach. The eval loop itself is the keeper: every future search change gets measured.",
 		},
 		{
-			id: BET_MOBILE,
+			id: ROOT_TASK_MOBILE,
+			title: "Native mobile spike",
 			description: `# Native mobile spike
 
 Explore a native mobile shell for Pulse — is the reach worth the build cost?
 Research first, prototype only if the numbers say yes.`,
-			hypothesis:
-				"A meaningful share of Pulse usage happens away from a desk, justifying a native shell.",
 			doneCondition:
 				"Go/no-go decision with evidence: usage patterns, competitor teardown, build-cost estimate.",
-			status: "killed",
+			state: "killed",
 			createdAt: clock.daysAgo(30),
 			completedAt: clock.daysAgo(8),
 			outcomeVerdict: "refuted",
@@ -225,32 +234,34 @@ Research first, prototype only if the numbers say yes.`,
 		},
 	];
 
-	for (const bet of betSpecs) {
+	for (const rt of rootTaskSpecs) {
 		await db
-			.insert(bets)
+			.insert(tasks)
 			.values({
-				id: bet.id,
+				id: rt.id,
+				parentTaskId: null,
 				teamId: TEAM_ID,
-				description: bet.description,
-				doneCondition: bet.doneCondition,
-				hypothesis: bet.hypothesis,
-				status: bet.status,
-				createdAt: bet.createdAt,
-				completedAt: bet.completedAt ?? null,
-				outcomeVerdict: bet.outcomeVerdict ?? null,
-				outcomeSummary: bet.outcomeSummary ?? null,
-				outcomeRecordedAt: bet.completedAt ?? null,
-				outcomeRecordedBy: bet.completedAt ? PM_ID : null,
-				sourceKnowledgeItemId: bet.sourceKnowledgeItemId ?? null,
+				title: rt.title,
+				description: rt.description,
+				doneCondition: rt.doneCondition,
+				state: rt.state,
+				createdAt: rt.createdAt,
+				completedAt: rt.completedAt ?? null,
+				outcomeVerdict: rt.outcomeVerdict ?? null,
+				outcomeSummary: rt.outcomeSummary ?? null,
+				outcomeRecordedAt: rt.completedAt ?? null,
+				outcomeRecordedBy: rt.completedAt ? PM_ID : null,
+				sourceKnowledgeItemId: rt.sourceKnowledgeItemId ?? null,
+				updatedAt: rt.completedAt ?? rt.createdAt,
 			})
 			.onConflictDoNothing();
 	}
 
 	const taskSpecs: readonly TaskSpec[] = [
-		// ── Pricing overhaul (active, mid-flight) ──────────────────────────
+		// ── Pricing overhaul (in_progress, mid-flight) ────────────────────────
 		{
 			id: TASK_PRICING_RESEARCH,
-			betId: BET_PRICING,
+			parentTaskId: ROOT_TASK_PRICING,
 			ownerId: PM_ID,
 			title: "Interview trial users about pricing confusion",
 			description:
@@ -263,7 +274,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_PRICING_TIERS,
-			betId: BET_PRICING,
+			parentTaskId: ROOT_TASK_PRICING,
 			ownerId: PM_ID,
 			title: "Draft the two-tier structure and comparison",
 			description:
@@ -276,7 +287,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_PRICING_PAGE,
-			betId: BET_PRICING,
+			parentTaskId: ROOT_TASK_PRICING,
 			ownerId: DESIGNER_ID,
 			title: "Build the new pricing page",
 			description:
@@ -286,9 +297,36 @@ Research first, prototype only if the numbers say yes.`,
 			createdAt: clock.daysAgo(13),
 			updatedAt: clock.hoursAgo(5),
 		},
+		// Grandchildren of TASK_PRICING_PAGE — 3-level nesting proof:
+		//   ROOT_TASK_PRICING → TASK_PRICING_PAGE → TASK_PRICING_PAGE_{DESKTOP,MOBILE}
+		// @lore BB1: These two rows are the deepest point in the tree.
+		{
+			id: TASK_PRICING_PAGE_DESKTOP,
+			parentTaskId: TASK_PRICING_PAGE,
+			ownerId: DESIGNER_ID,
+			title: "Pricing page — desktop layout",
+			description:
+				"Finalize the desktop layout: two-tier card grid, FAQ accordion, hero. Pixel-perfect at 1440px and 1280px.",
+			doneCondition: "Desktop layout approved by founder.",
+			state: "in_progress",
+			createdAt: clock.daysAgo(10),
+			updatedAt: clock.hoursAgo(3),
+		},
+		{
+			id: TASK_PRICING_PAGE_MOBILE,
+			parentTaskId: TASK_PRICING_PAGE,
+			ownerId: DESIGNER_ID,
+			title: "Pricing page — mobile layout",
+			description:
+				"Finalize the mobile layout: stacked tiers, collapsible FAQ, thumb-zone CTAs. Covers 375px and 390px.",
+			doneCondition: "Mobile layout approved and renders without overflow.",
+			state: "accepted",
+			createdAt: clock.daysAgo(9),
+			updatedAt: clock.daysAgo(8),
+		},
 		{
 			id: TASK_PRICING_COPY,
-			betId: BET_PRICING,
+			parentTaskId: ROOT_TASK_PRICING,
 			ownerId: GROWTH_ID,
 			title: "Rewrite pricing copy around outcomes",
 			description:
@@ -300,7 +338,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_PRICING_ANNUAL,
-			betId: BET_PRICING,
+			parentTaskId: ROOT_TASK_PRICING,
 			ownerId: BUILDER_ID,
 			title: "Implement annual billing toggle",
 			description:
@@ -312,7 +350,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_PRICING_METERING,
-			betId: BET_PRICING,
+			parentTaskId: ROOT_TASK_PRICING,
 			ownerId: BUILDER_ID,
 			title: "Wire usage metering into the new tiers",
 			description:
@@ -325,7 +363,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_PRICING_METRICS,
-			betId: BET_PRICING,
+			parentTaskId: ROOT_TASK_PRICING,
 			ownerId: QA_ID,
 			title: "Set up conversion funnel measurement",
 			description:
@@ -338,7 +376,7 @@ Research first, prototype only if the numbers say yes.`,
 		// ── Onboarding emails (active, early) ──────────────────────────────
 		{
 			id: TASK_ONBOARD_AUDIT,
-			betId: BET_ONBOARDING,
+			parentTaskId: ROOT_TASK_ONBOARDING,
 			ownerId: PM_ID,
 			title: "Audit the current signup-to-activation path",
 			description:
@@ -351,7 +389,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_ONBOARD_SEQUENCE,
-			betId: BET_ONBOARDING,
+			parentTaskId: ROOT_TASK_ONBOARDING,
 			ownerId: GROWTH_ID,
 			title: "Write the four-email sequence",
 			description:
@@ -364,7 +402,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_ONBOARD_TEMPLATES,
-			betId: BET_ONBOARDING,
+			parentTaskId: ROOT_TASK_ONBOARDING,
 			ownerId: DESIGNER_ID,
 			title: "Design the email templates",
 			description:
@@ -376,7 +414,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_ONBOARD_TRIGGER,
-			betId: BET_ONBOARDING,
+			parentTaskId: ROOT_TASK_ONBOARDING,
 			ownerId: BUILDER_ID,
 			title: "Wire behavior triggers for the sequence",
 			description:
@@ -389,7 +427,7 @@ Research first, prototype only if the numbers say yes.`,
 		// ── Trial extension (completed, validated) ─────────────────────────
 		{
 			id: TASK_TRIAL_BANNER,
-			betId: BET_TRIAL,
+			parentTaskId: ROOT_TASK_TRIAL,
 			ownerId: BUILDER_ID,
 			title: "Trial-expiry banner and countdown",
 			description: "In-app banner for the last five trial days, with the extension affordance.",
@@ -401,7 +439,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_TRIAL_FLOW,
-			betId: BET_TRIAL,
+			parentTaskId: ROOT_TASK_TRIAL,
 			ownerId: BUILDER_ID,
 			title: "Self-serve extension flow",
 			description:
@@ -415,7 +453,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_TRIAL_EMAIL,
-			betId: BET_TRIAL,
+			parentTaskId: ROOT_TASK_TRIAL,
 			ownerId: GROWTH_ID,
 			title: "Expiry email with extension offer",
 			description: "Sent two days before expiry; extension link is the primary CTA.",
@@ -427,7 +465,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_TRIAL_HEURISTIC,
-			betId: BET_TRIAL,
+			parentTaskId: ROOT_TASK_TRIAL,
 			ownerId: PM_ID,
 			title: "Decide who sees the extension offer",
 			description:
@@ -440,7 +478,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_TRIAL_MEASURE,
-			betId: BET_TRIAL,
+			parentTaskId: ROOT_TASK_TRIAL,
 			ownerId: QA_ID,
 			title: "Measure expiring-trial conversion",
 			description:
@@ -454,7 +492,7 @@ Research first, prototype only if the numbers say yes.`,
 		// ── Search relevance (completed, partial) ──────────────────────────
 		{
 			id: TASK_SEARCH_PROFILE,
-			betId: BET_SEARCH,
+			parentTaskId: ROOT_TASK_SEARCH,
 			ownerId: BUILDER_ID,
 			title: "Profile real search queries",
 			description:
@@ -467,7 +505,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_SEARCH_RANKING,
-			betId: BET_SEARCH,
+			parentTaskId: ROOT_TASK_SEARCH,
 			ownerId: BUILDER_ID,
 			title: "Re-rank on recency and title match",
 			description: "Weight recency and exact-title-match above body-match; keep it tunable.",
@@ -479,7 +517,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_SEARCH_EVAL,
-			betId: BET_SEARCH,
+			parentTaskId: ROOT_TASK_SEARCH,
 			ownerId: QA_ID,
 			title: "Build the 50-query eval loop",
 			description:
@@ -492,7 +530,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_SEARCH_PERSONALIZE,
-			betId: BET_SEARCH,
+			parentTaskId: ROOT_TASK_SEARCH,
 			ownerId: BUILDER_ID,
 			title: "Personalize ranking by team usage",
 			description:
@@ -505,7 +543,7 @@ Research first, prototype only if the numbers say yes.`,
 		// ── Mobile spike (killed) ──────────────────────────────────────────
 		{
 			id: TASK_MOBILE_RESEARCH,
-			betId: BET_MOBILE,
+			parentTaskId: ROOT_TASK_MOBILE,
 			ownerId: PM_ID,
 			title: "Mobile usage research and competitor teardown",
 			description:
@@ -518,7 +556,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_MOBILE_PROTO,
-			betId: BET_MOBILE,
+			parentTaskId: ROOT_TASK_MOBILE,
 			ownerId: DESIGNER_ID,
 			title: "Prototype the mobile shell",
 			description:
@@ -530,7 +568,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_MOBILE_SHELL,
-			betId: BET_MOBILE,
+			parentTaskId: ROOT_TASK_MOBILE,
 			ownerId: BUILDER_ID,
 			title: "Spike the native shell",
 			description: "Killed with the bet.",
@@ -542,7 +580,7 @@ Research first, prototype only if the numbers say yes.`,
 		// ── Drafts: proposed tasks waiting on bet activation ───────────────
 		{
 			id: TASK_DOWNGRADE_POLICY,
-			betId: BET_DOWNGRADE,
+			parentTaskId: ROOT_TASK_DOWNGRADE,
 			ownerId: PM_ID,
 			title: "Write the downgrade policy",
 			description: "Proration, credit, when a retention offer is honest and when it is not.",
@@ -553,7 +591,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_DOWNGRADE_UI,
-			betId: BET_DOWNGRADE,
+			parentTaskId: ROOT_TASK_DOWNGRADE,
 			ownerId: DESIGNER_ID,
 			title: "Design the downgrade flow",
 			description: "In-app downgrade with confirmation and credit summary.",
@@ -564,7 +602,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_CHURN_SIGNALS,
-			betId: BET_CHURN,
+			parentTaskId: ROOT_TASK_CHURN,
 			ownerId: QA_ID,
 			title: "Score accounts against the three churn signals",
 			description:
@@ -576,7 +614,7 @@ Research first, prototype only if the numbers say yes.`,
 		},
 		{
 			id: TASK_CHURN_DASH,
-			betId: BET_CHURN,
+			parentTaskId: ROOT_TASK_CHURN,
 			ownerId: BUILDER_ID,
 			title: "Build the at-risk dashboard",
 			description:
@@ -593,7 +631,7 @@ Research first, prototype only if the numbers say yes.`,
 			.insert(tasks)
 			.values({
 				id: task.id,
-				betId: task.betId,
+				parentTaskId: task.parentTaskId,
 				teamId: TEAM_ID,
 				ownerAgentId: task.ownerId,
 				title: task.title,
@@ -610,12 +648,15 @@ Research first, prototype only if the numbers say yes.`,
 			.onConflictDoNothing();
 	}
 
-	// Backdate the skeleton's daily-digest bet so it sits inside the world's
-	// history instead of "just now".
+	// Backdate the factory-skeleton daily-digest root task so it sits inside
+	// the world's history instead of "just now". The task row was seeded by
+	// demo-fixture.ts; only the timestamp is corrected here.
+	// @lore BB1: formerly `update(bets).where(eq(bets.id, BET_DIGEST))` — the
+	// daily-digest is now a root task in the tasks table.
 	await db
-		.update(bets)
-		.set({ createdAt: clock.daysAgo(19) })
-		.where(eq(bets.id, BET_DIGEST));
+		.update(tasks)
+		.set({ createdAt: clock.daysAgo(19), updatedAt: clock.daysAgo(19) })
+		.where(eq(tasks.id, ROOT_TASK_DIGEST));
 
 	const artifactSpecs: readonly ArtifactSpec[] = [
 		{

@@ -7,7 +7,7 @@
  * Z8-033.
  */
 
-import { bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -47,20 +47,24 @@ describe("AF16 T7 — Search determinism (Z8-033)", () => {
 		await seedBase(db);
 		const tiedTs = "2024-01-15T10:00:00.000Z";
 		// Insert bets with the same createdAt but different ids (id order: "srch-bet-a" < "srch-bet-b")
-		await db.insert(bets).values([
+		await db.insert(tasks).values([
 			{
 				id: "srch-bet-b",
+				parentTaskId: null,
 				teamId: "srch-team",
-				description: "Determinism test B",
-				status: "active",
+				title: "Determinism test B",
+				state: "in_progress",
 				createdAt: tiedTs,
+				updatedAt: tiedTs,
 			},
 			{
 				id: "srch-bet-a",
+				parentTaskId: null,
 				teamId: "srch-team",
-				description: "Determinism test A",
-				status: "active",
+				title: "Determinism test A",
+				state: "in_progress",
 				createdAt: tiedTs,
+				updatedAt: tiedTs,
 			},
 		]);
 
@@ -105,20 +109,24 @@ describe("AF16 T8 — Search relevance ordering (Z8-033)", () => {
 
 		// "srch-exact" has exact title match but is OLDER (lower recency)
 		// "srch-substr" has substring match in description and is NEWER
-		await db.insert(bets).values([
+		await db.insert(tasks).values([
 			{
 				id: "srch-exact",
+				parentTaskId: null,
 				teamId: "srch-team",
-				description: "Hyper drive project",
-				status: "active",
+				title: "Hyper drive project",
+				state: "in_progress",
 				createdAt: olderTs,
+				updatedAt: olderTs,
 			},
 			{
 				id: "srch-substr",
+				parentTaskId: null,
 				teamId: "srch-team",
-				description: "We need a hyper drive to go faster",
-				status: "active",
+				title: "We need a hyper drive to go faster",
+				state: "in_progress",
 				createdAt: newerTs,
+				updatedAt: newerTs,
 			},
 		]);
 

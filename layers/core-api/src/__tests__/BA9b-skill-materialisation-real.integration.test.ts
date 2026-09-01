@@ -216,12 +216,14 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 			description: "Probe task for skill materialisation test",
 			state: "active",
 		},
-		bet: {
-			id: "bet-ba9b-probe",
-			description: "Prove skill materialisation via production path",
-			appetite: "small",
-			doneCondition: "PROBE_TOKEN in harness output",
-		},
+		ancestors: [
+			{
+				id: "bet-ba9b-probe",
+				title: "Prove skill materialisation via production path",
+				description: null,
+				doneCondition: "PROBE_TOKEN in harness output",
+			},
+		],
 		agent: { id: AGENT_ID, name: "BA9b Probe Agent", role: "builder" },
 		team: { id: TEAM_ID, name: "BA9b Probe Team" },
 		knowledge: toBakedContextKnowledgeItems(knowledge),

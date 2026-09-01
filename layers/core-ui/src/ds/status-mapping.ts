@@ -1,7 +1,6 @@
+// @lore BB1: BetStatus removed — bet vocabulary folded into TASK_STATES.
 import type {
 	AgentOperationalStatus,
-	BetOutcomeVerdict,
-	BetStatus,
 	KnowledgeStatus,
 	RoutineState,
 	SessionOutcome,
@@ -45,21 +44,6 @@ export const KNOWLEDGE_STATUS_MAP: Record<KnowledgeStatus, Status> = {
 	needs_human: "behind",
 };
 
-/**
- * Bet lifecycle status → presentation Status. Exhaustive over all 4
- * BetStatus values post-U1 simplification.
- *
- * @lore U1: status simplified from 9 values to 4:
- *   shaped → draft, committed|in_progress|behind|blocked|paused|review → active,
- *   shipped → completed.
- */
-export const BET_STATUS_MAP: Record<BetStatus, Status> = {
-	draft: "paused",
-	active: "healthy",
-	completed: "done",
-	killed: "error",
-};
-
 export function taskStateToStatus(state: TaskState): Status {
 	// noUncheckedIndexedAccess widens Record<K,V>[K] to V|undefined; the Record
 	// is exhaustive so the value is always present — non-null is safe here.
@@ -68,10 +52,6 @@ export function taskStateToStatus(state: TaskState): Status {
 
 export function knowledgeStatusToStatus(ks: KnowledgeStatus): Status {
 	return KNOWLEDGE_STATUS_MAP[ks] as Status;
-}
-
-export function betStatusToStatus(bs: BetStatus): Status {
-	return BET_STATUS_MAP[bs] as Status;
 }
 
 /**
@@ -112,26 +92,6 @@ export const ROUTINE_STATE_MAP: Record<RoutineState, Status> = {
 
 export function routineStateToStatus(state: RoutineState): Status {
 	return ROUTINE_STATE_MAP[state] as Status;
-}
-
-/**
- * AI4 Decision 6: Bet outcome verdict → presentation Status. Exhaustive.
- *
- * Color rationale (reviewer-approved):
- *   validated → healthy (green) — hypothesis held
- *   refuted → error (red) — hypothesis failed
- *   partial → behind (amber) — "not a clean win, look closer"
- *   inconclusive → paused (blue) — insufficient evidence
- */
-export const BET_OUTCOME_VERDICT_STATUS: Record<BetOutcomeVerdict, Status> = {
-	validated: "healthy",
-	refuted: "error",
-	partial: "behind",
-	inconclusive: "paused",
-};
-
-export function betOutcomeVerdictToStatus(v: BetOutcomeVerdict): Status {
-	return BET_OUTCOME_VERDICT_STATUS[v] as Status;
 }
 
 /**

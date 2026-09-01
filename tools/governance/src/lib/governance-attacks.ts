@@ -35,13 +35,11 @@
  */
 
 import { classificationTotal } from "../rules/classification-total.js";
-import { type FloorRecord, floorVerdict } from "../rules/floors-tight.js";
 import { frameworkSurfacesDeclared } from "../rules/framework-surfaces-declared.js";
 import { misplacementLedger } from "../rules/misplacement-ledger.js";
 import { noPerFileAllowances } from "../rules/no-per-file-allowances.js";
 import { noStaleBuildArtifacts } from "../rules/no-stale-build-artifacts.js";
-import { patternLive } from "../rules/pattern-live.js";
-import { type CrossingsResult, type DetectorFloor, detectCrossings } from "./crossings.js";
+import { type CrossingsResult, type DetectorKind, detectCrossings } from "./crossings.js";
 import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./db-surfaces.js";
 import { type Architecture, decide, type World } from "./governance-model.js";
 import type { MisplacedFiles, TableOwners } from "./governance-registry.js";
@@ -160,11 +158,16 @@ export const ATTACK_ANCHORS = {
 /**
  * A table the ATTACKING package does not own, and one it does.
  *
- * `bets` is owned by `work`; `teams` is owned by `org`. An attack from inside `work` writing `teams`
- * is a foreign write; the same file writing `bets` is the control.
+ * `tasks` is owned by `work`; `teams` is owned by `org`. An attack from inside `work` writing `teams`
+ * is a foreign write; the same file writing `tasks` is the control.
+ *
+ * @lore BB1: the own-table example was `bets` until that table was deleted and folded into `tasks`.
+ * A fixture naming a table the schema no longer declares is not a neutral placeholder — it made
+ * `one-work-primitive` fire on the synthetic files, which polluted the expected findings of the
+ * rules these cases actually test. Keep this pointed at a table that really exists.
  */
 const FOREIGN_TABLE = { symbol: "teams", physical: "teams" } as const;
-const OWN_TABLE = { symbol: "bets", physical: "bets" } as const;
+const OWN_TABLE = { symbol: "tasks", physical: "tasks" } as const;
 
 const KEY = {
 	serviceForeignWrite: "service → db:table (other) [table:write] production",
@@ -440,11 +443,47 @@ export const ATTACKS: readonly Attack[] = [
 
 	// --- C1: re-export laundering -------------------------------------------------------------
 	{
+		/**
+		 * BB1 — the bet vocabulary must not creep back into production code.
+		 *
+		 * The rule scans the PRODUCTION world with comments stripped, so the
+		 * attack is a live reference in a shipping file. The control below proves
+		 * it does not simply match the word anywhere: the same token inside a
+		 * comment is the historical record of why the merge happened, and must
+		 * stay legal.
+		 */
+		id: "one-work-primitive-live-reference",
+		detail: "a production file reintroducing the deleted bet vocabulary as live code",
+		rules: ["one-work-primitive"],
+		overlay: {
+			[`${a.serviceDir}/attack-bet-vocabulary.ts`]: `export function findBet(betId: string): string {\n\treturn betId;\n}\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.serviceDir}/attack-bet-vocabulary.ts`,
+			ruleId: "one-work-primitive",
+			messageContains: "parentTaskId",
+		},
+	},
+	{
+		id: "one-work-primitive-comment-control",
+		detail:
+			"the same token inside a COMMENT — the record of what a bet was — is prose, not a live reference, and must stay legal",
+		rules: ["one-work-primitive"],
+		overlay: {
+			[`${a.serviceDir}/attack-bet-comment.ts`]: `// A task with no parent is what used to be called a bet (betId is gone).\nexport const parentIsRoot = null;\n`,
+		},
+		// Scoped to the file, like every other control here: adding any synthetic
+		// file shifts a declared population floor, and an unscoped "clean" would
+		// be asserting something this case is not about.
+		expect: { sort: "clean", file: `${a.serviceDir}/attack-bet-comment.ts` },
+	},
+	{
 		id: "reexport-table",
 		detail: "a service barrel re-exporting its own table, so its layer can obtain it transitively",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.serviceDir}/attack-reexport-table.ts`]: `export { ${OWN_TABLE.symbol} as betsTable } from "@hyperidle/db";\n`,
+			[`${a.serviceDir}/attack-reexport-table.ts`]: `export { ${OWN_TABLE.symbol} as tasksTable } from "@hyperidle/db";\n`,
 		},
 		expect: {
 			sort: "finding",
@@ -456,12 +495,12 @@ export const ATTACKS: readonly Attack[] = [
 	{
 		id: "reexport-table-as-a-value",
 		detail:
-			"the same republication written as a VALUE — `import { bets }; export const betsTable = bets`, which `export … from` detection never sees",
+			"the same republication written as a VALUE — `import { tasks }; export const tasksTable = tasks`, which `export … from` detection never sees",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
 			[`${a.serviceDir}/attack-reexport-table-value.ts`]:
 				`import { ${OWN_TABLE.symbol} } from "@hyperidle/db";\n` +
-				`export const betsTable = ${OWN_TABLE.symbol};\n`,
+				`export const tasksTable = ${OWN_TABLE.symbol};\n`,
 		},
 		expect: {
 			sort: "finding",
@@ -525,7 +564,11 @@ export const ATTACKS: readonly Attack[] = [
 			"re-exporting a row type (reach `everyone`) launders nothing — any consumer could import it directly. Without this control the rule dies of noise.",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.serviceDir}/attack-reexport-rowtype.ts`]: `export type { Bet } from "@hyperidle/db";\n`,
+			// @lore BB1: was `Bet`, a row type deleted with the bets table. A fixture
+			// naming a symbol the database package no longer exports resolves to
+			// `db:unknown`, which made this control report the very finding it
+			// exists to prove absent.
+			[`${a.serviceDir}/attack-reexport-rowtype.ts`]: `export type { Task } from "@hyperidle/db";\n`,
 		},
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-reexport-rowtype.ts` },
 	},
@@ -1132,7 +1175,7 @@ export interface AttackTree {
 		readonly databasePackage: DatabasePackageConfig;
 	};
 	readonly tableOwners: TableOwners;
-	readonly floors: readonly DetectorFloor[];
+	readonly kinds: readonly DetectorKind[];
 	/**
 	 * The rules to run over an overlaid tree, and the ids of every rule the build registers.
 	 *
@@ -1290,7 +1333,7 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 				tableOwners: tree.tableOwners,
 				frameworkSurfaces: frameworkSurfacesOf(census),
 			},
-			tree.floors,
+			tree.kinds,
 		);
 		const rules = tree.buildRules(census, detected, overlaid.readFile);
 		ruleIds = rules.map((rule) => rule.id);
@@ -1487,14 +1530,6 @@ const SURFACE_CLAUSE_ARCHITECTURE: Architecture = {
 	},
 };
 
-/** A floor set the band rule can be driven with, without touching the tree. */
-const floorCase = (
-	id: string,
-	live: number,
-	floor: number,
-	floorKind: "magnitude" | "existence",
-): FloorRecord => ({ id, live, floor, floorKind });
-
 export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 	{
 		id: "framework-role-opens-framework-surfaces-and-nothing-else",
@@ -1590,90 +1625,6 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 			return messages.some((m) => m.includes("framework/present/package.json"))
 				? `the package with a decided audience was reported: ${messages.join(" | ")}`
 				: null;
-		},
-	},
-	{
-		id: "slack-floor",
-		detail: "a magnitude floor sitting at half its live count no longer measures anything",
-		rules: ["floors-tight"],
-		positive: true,
-		run: () => {
-			const verdict = floorVerdict(floorCase("detector:pretend", 1000, 500, "magnitude"));
-			if (verdict.sort !== "slack") return `expected a slack verdict, got ${verdict.sort}`;
-			// The MIDDLE of the band (1000 - 200/2), never its edge (1000 - 200). A floor written at the
-			// edge is one added file from red, which is how the whole floor set came to sit there at once.
-			return verdict.suggested === 900
-				? null
-				: `expected the fix to be the band's middle, 900, got ${verdict.suggested}`;
-		},
-	},
-	{
-		id: "floor-on-the-edge-warns-before-it-errors",
-		detail:
-			"a floor sitting exactly ON the allowed edge WARNS rather than erroring — the state the whole floor set was in, one file from a red build",
-		rules: ["floors-tight"],
-		positive: true,
-		run: () => {
-			// live 1000, allowed 200. A floor of 800 is exactly on the edge.
-			const edge = floorVerdict(floorCase("detector:pretend", 1000, 800, "magnitude"));
-			if (edge.sort !== "approaching")
-				return `a floor on the edge of its band reported ${edge.sort}, not a warning`;
-			if (edge.suggested !== 900)
-				return `the warning named ${edge.suggested} to write, not the band's middle, 900`;
-			if (!edge.message.includes("governance:floors"))
-				return "the warning did not name the command that prints the value to write";
-			// One past the edge is an error, and the middle is silent — the band has three states, not two.
-			const past = floorVerdict(floorCase("detector:pretend", 1000, 799, "magnitude"));
-			if (past.sort !== "slack") return `a floor past the edge reported ${past.sort}, not an error`;
-			const middle = floorVerdict(floorCase("detector:pretend", 1000, 900, "magnitude"));
-			return middle.sort === "ok"
-				? null
-				: `a floor at the middle of its band reported ${middle.sort} instead of staying silent`;
-		},
-	},
-	{
-		id: "existence-floor-exempt",
-		detail:
-			"an existence floor of 1 against 94 live files is NOT slack — without this the band would demand a nonsensical floor. A control: it asserts nothing is reported.",
-		rules: ["floors-tight"],
-		positive: false,
-		run: () => {
-			const verdict = floorVerdict(floorCase("pattern:pretend", 94, 1, "existence"));
-			return verdict.sort === "ok" ? null : `an existence floor was reported as ${verdict.sort}`;
-		},
-	},
-	{
-		id: "magnitude-floor-of-one-cannot-dodge",
-		detail:
-			"declaring `1` on a MAGNITUDE floor is still slack — `floorKind` is not an escape hatch",
-		rules: ["floors-tight"],
-		positive: true,
-		run: () => {
-			const verdict = floorVerdict(floorCase("pattern:pretend", 94, 1, "magnitude"));
-			return verdict.sort === "slack" ? null : `expected slack, got ${verdict.sort}`;
-		},
-	},
-	{
-		id: "dead-classification-pattern",
-		detail:
-			"a classification pattern that has stopped matching files is reported, and a live one is not",
-		rules: ["pattern-live"],
-		positive: true,
-		run: () => {
-			// Sized so `default-production` clears its floor while every development pattern is at zero:
-			// without a pattern that is genuinely ALIVE, "reports a dead pattern" is indistinguishable
-			// from "reports everything".
-			const files = Array.from({ length: 800 }, (_, i) => `layers/a/src/f${i}.ts`);
-			const census = buildCensus({ files, readFile: () => "" });
-			const reported = patternLive
-				.evaluate(census)
-				.map((f) => f.message)
-				.join("\n");
-			if (!reported.includes("dunder-segment"))
-				return "a pattern matching zero files was not reported";
-			if (reported.includes("default-production"))
-				return "reported a pattern that is still matching files";
-			return null;
 		},
 	},
 	{
@@ -1796,7 +1747,6 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 				"tools/governance/table-owners.json",
 				"tools/governance/misplaced-files.json",
 				"tools/governance/src/governance-lint.ts",
-				"tools/governance/src/governance-floors.ts",
 				"tools/governance/src/governance-new-cells.ts",
 			];
 			const cleanCli =

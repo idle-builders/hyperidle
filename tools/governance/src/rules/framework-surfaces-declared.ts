@@ -46,7 +46,7 @@ export function frameworkSurfacesDeclared(architecture: Architecture): Rule {
 			}
 			return [...population];
 		},
-		minScope: 4,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 

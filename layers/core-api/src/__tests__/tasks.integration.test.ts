@@ -1,4 +1,4 @@
-import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -23,13 +23,15 @@ describe("Task Endpoints (E3)", () => {
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "bet-1",
+			parentTaskId: null,
 			teamId: "prod-1",
+			title: "Test bet",
 			description: "Test bet",
-			appetite: "small",
-			status: "active",
+			state: "in_progress",
 			createdAt: now,
+			updatedAt: now,
 		});
 
 		// Seed agents for FK references
@@ -58,7 +60,7 @@ describe("Task Endpoints (E3)", () => {
 		const now = new Date().toISOString();
 		await db.insert(tasks).values({
 			id,
-			betId: "bet-1",
+			parentTaskId: "bet-1",
 			teamId: "prod-1",
 			title: `Task ${id}`,
 			state: "proposed",
@@ -70,7 +72,7 @@ describe("Task Endpoints (E3)", () => {
 
 	// AC8: GET /api/tasks — list, filterable by bet_id, state, owner
 	describe("AC8: GET /api/tasks — list with filters", () => {
-		test("returns all tasks", async ({ db, app }) => {
+		test("returns all tasks (including root tasks)", async ({ db, app }) => {
 			await seedPrereqs(db);
 			await seedTask(db, "t1");
 			await seedTask(db, "t2");
@@ -78,25 +80,28 @@ describe("Task Endpoints (E3)", () => {
 			const res = await app.request("/api/tasks", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as unknown[];
-			expect(body).toHaveLength(2);
+			// BB1: GET /api/tasks returns ALL tasks including root tasks (bet-1, t1, t2)
+			expect(body).toHaveLength(3);
 		});
 
-		test("filters by bet_id", async ({ db, app }) => {
+		test("filters by parent_id", async ({ db, app }) => {
 			await seedPrereqs(db);
 			await seedTask(db, "t1");
 			// Create another bet and task
-			await db.insert(bets).values({
+			await db.insert(tasks).values({
 				id: "bet-2",
+				parentTaskId: null,
 				teamId: "prod-1",
+				title: "Other bet",
 				description: "Other bet",
-				appetite: "medium",
-				status: "draft",
+				state: "proposed",
 				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 
-			seedTask(db, "t2", { betId: "bet-2" });
+			seedTask(db, "t2", { parentTaskId: "bet-2" });
 
-			const res = await app.request("/api/tasks?bet_id=bet-1", { headers: authHeaders() });
+			const res = await app.request("/api/tasks?parent_id=bet-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as unknown[];
 			expect(body).toHaveLength(1);
@@ -110,7 +115,8 @@ describe("Task Endpoints (E3)", () => {
 			const res = await app.request("/api/tasks?state=in_progress", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as unknown[];
-			expect(body).toHaveLength(1);
+			// BB1: bet-1 root task is also in_progress (seeded by seedPrereqs), so 2 rows match
+			expect(body).toHaveLength(2);
 		});
 
 		test("filters by owner", async ({ db, app }) => {

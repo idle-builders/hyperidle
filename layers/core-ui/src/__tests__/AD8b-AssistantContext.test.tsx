@@ -64,7 +64,7 @@ describe("AD8b — AssistantContext", () => {
 
 	it("attachContext passes the ref to the provider handler", () => {
 		const mockAttachContext = vi.fn();
-		const testRef: AssistantContextRef = { kind: "bet", id: "bet-1", label: "Test Bet" };
+		const testRef: AssistantContextRef = { kind: "task", id: "task-1", label: "Test Bet" };
 
 		function Consumer(): null {
 			const { attachContext } = useContext(AssistantContext);
@@ -83,12 +83,13 @@ describe("AD8b — AssistantContext", () => {
 
 	it("AssistantContextRef supports all attachment kinds", () => {
 		// Type-level test: all 5 context kinds compile
-		const betRef: AssistantContextRef = { kind: "bet", id: "b1", label: "Bet" };
+		// @lore BB1: betRef now uses kind:"task" (root tasks replace bets)
+		const betRef: AssistantContextRef = { kind: "task", id: "b1", label: "Bet" };
 		const taskRef: AssistantContextRef = { kind: "task", id: "t1", label: "Task" };
 		const knowledgeRef: AssistantContextRef = { kind: "knowledge_item", id: "ki1", label: "KB" };
 		const messageRef: AssistantContextRef = { kind: "message", id: "msg1", label: "Message" };
 
-		expect(betRef.kind).toBe("bet");
+		expect(betRef.kind).toBe("task");
 		expect(taskRef.kind).toBe("task");
 		expect(knowledgeRef.kind).toBe("knowledge_item");
 		expect(messageRef.kind).toBe("message");
@@ -98,8 +99,8 @@ describe("AD8b — AssistantContext", () => {
 		const blockRef: AssistantContextRef = {
 			kind: "block",
 			blockId: "blk-1",
-			hostKind: "bet",
-			hostId: "bet-1",
+			hostKind: "task",
+			hostId: "task-1",
 			label: "Block content",
 		};
 		expect(blockRef.kind).toBe("block");

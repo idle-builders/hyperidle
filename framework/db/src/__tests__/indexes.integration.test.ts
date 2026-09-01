@@ -18,9 +18,11 @@ describe("I3: secondary index coverage", () => {
 		return (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
 	}
 
-	test("tasks has an index for bet_id", async ({ db }) => {
+	// @lore BB1: bet_id index dropped with the bets table. tasks now has a
+	// parent_task_id index for subtree traversal.
+	test("tasks has an index for parent_task_id", async ({ db }) => {
 		const indexes = await indexesFor(db, "tasks");
-		expect(indexes.some((i) => i.includes("bet_id"))).toBe(true);
+		expect(indexes.some((i) => i.includes("parent_task_id"))).toBe(true);
 	});
 
 	// @lore U1: tasks.product_id dropped; tasks.team_id now references `teams` (formerly `products`).
@@ -55,17 +57,5 @@ describe("I3: secondary index coverage", () => {
 	test("messages has an index for thread_id", async ({ db }) => {
 		const indexes = await indexesFor(db, "messages");
 		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
-	});
-
-	// @lore U1: bets.product_id dropped; bets.team_id now references `teams` (formerly `products`).
-	// The bets_team_id_idx covers this query path.
-	test("bets has an index for team_id (formerly product_id)", async ({ db }) => {
-		const indexes = await indexesFor(db, "bets");
-		expect(indexes.some((i) => i.includes("team_id"))).toBe(true);
-	});
-
-	test("bets has an index for status", async ({ db }) => {
-		const indexes = await indexesFor(db, "bets");
-		expect(indexes.some((i) => i.includes("status"))).toBe(true);
 	});
 });

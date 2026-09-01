@@ -25,21 +25,29 @@ export const GROWTH_ID = "demo-agent-growth";
 export const FACILITATOR_ID = "ast-demo-founder";
 export const PROPAGATION_ID = "system:propagation";
 
-// ── Bets ────────────────────────────────────────────────────────────────────
-export const BET_PRICING = "demo-bet-pricing";
-export const BET_ONBOARDING = "demo-bet-onboarding-emails";
-export const BET_CHURN = "demo-bet-churn-dashboard";
-export const BET_DOWNGRADE = "demo-bet-self-serve-downgrades";
-export const BET_TRIAL = "demo-bet-trial-extension";
-export const BET_SEARCH = "demo-bet-search-relevance";
-export const BET_MOBILE = "demo-bet-mobile-spike";
-/** Pre-existing skeleton bet — kept, still a draft. */
-export const BET_DIGEST = "demo-bet-daily-digest";
+// ── Root tasks (formerly bets) ───────────────────────────────────────────────
+// @lore BB1: bets table dropped. Root tasks (parentTaskId: null) replace bets
+// as the top-level work container. IDs intentionally keep "demo-task-" prefix
+// so they are distinct from their child tasks.
+export const ROOT_TASK_PRICING = "demo-task-pricing";
+export const ROOT_TASK_ONBOARDING = "demo-task-onboarding";
+export const ROOT_TASK_CHURN = "demo-task-churn";
+export const ROOT_TASK_DOWNGRADE = "demo-task-downgrade";
+export const ROOT_TASK_TRIAL = "demo-task-trial";
+export const ROOT_TASK_SEARCH = "demo-task-search";
+export const ROOT_TASK_MOBILE = "demo-task-mobile";
+/** Daily digest root task (from factory skeleton). ID kept for FK compat with demo-fixture.ts. */
+export const ROOT_TASK_DIGEST = "demo-bet-daily-digest";
 
 // ── Tasks ───────────────────────────────────────────────────────────────────
 export const TASK_PRICING_RESEARCH = "demo-task-pricing-research";
 export const TASK_PRICING_TIERS = "demo-task-pricing-tiers";
 export const TASK_PRICING_PAGE = "demo-task-pricing-page";
+// Grandchildren of TASK_PRICING_PAGE — creates the 3-level-deep branch:
+//   ROOT_TASK_PRICING → TASK_PRICING_PAGE → TASK_PRICING_PAGE_{DESKTOP,MOBILE}
+// @lore BB1: 3-level nesting proof (root → child → grandchild).
+export const TASK_PRICING_PAGE_DESKTOP = "demo-task-pricing-page-desktop";
+export const TASK_PRICING_PAGE_MOBILE = "demo-task-pricing-page-mobile";
 export const TASK_PRICING_COPY = "demo-task-pricing-copy";
 export const TASK_PRICING_ANNUAL = "demo-task-pricing-annual";
 export const TASK_PRICING_METERING = "demo-task-pricing-metering";

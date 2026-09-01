@@ -2,7 +2,6 @@ import {
 	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
-	bets,
 	type HyperIdleDb,
 	messages,
 	routineRuns,
@@ -15,6 +14,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { getAgentIdentity } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
@@ -52,17 +52,19 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			createdAt: now,
 		},
 	]);
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "au9-production-bet",
+		parentTaskId: null,
 		teamId: "au9-production-team",
+		title: "Atomic handoff",
 		description: "Atomic handoff",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "au9-production-task",
-		betId: "au9-production-bet",
+		parentTaskId: "au9-production-bet",
 		teamId: "au9-production-team",
 		title: "Atomic handoff",
 		state: "in_progress",
@@ -162,12 +164,12 @@ describe("atomic production handoffs", () => {
 		`);
 		const rows = result as { rows: Array<{ tableName: string }> };
 		expect(new Set(rows.rows.map((row) => row.tableName))).toEqual(
+			// BB1: "bets" table deleted — tasks are the single work primitive.
 			new Set([
 				"messages",
 				"explicit_session_starts",
 				"knowledge_items",
 				"routine_runs",
-				"bets",
 				"task_dispatch_attempts",
 				"agent_work_intents",
 			]),
@@ -198,7 +200,7 @@ describe("atomic production handoffs", () => {
 		const now = new Date().toISOString();
 		await db.insert(tasks).values({
 			id: "au9-production-dependent",
-			betId: "au9-production-bet",
+			parentTaskId: "au9-production-bet",
 			teamId: "au9-production-team",
 			ownerAgentId: "au9-production-agent",
 			title: "Unblocked work",
@@ -222,6 +224,10 @@ describe("atomic production handoffs", () => {
 		const localDeps = {
 			workIntents: workIntentsImpl,
 			taskRunResolver: { requireRunnableAgent, getAgentIdentity },
+			teamCapacity: {
+				getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) =>
+					getTeam(exec, { id: teamId }),
+			},
 		};
 		await checkAndUnblockDependents(db, eventBus, "au9-production-task", localDeps);
 

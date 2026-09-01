@@ -53,7 +53,7 @@ export interface WorkOverviewViewProps {
 	error: Error | null;
 	/** Invoked with a team id when a row is activated. */
 	onSelectTeam: (teamId: string) => void;
-	/** Invoked when the header "New bet" button is pressed. */
+	/** Invoked when the header "New task" button is pressed. */
 	onNewBet: () => void;
 	/** Invoked when the empty state's "Finish setup" action is pressed. */
 	onFinishSetup: () => void;
@@ -124,7 +124,7 @@ export function WorkOverviewView({
 			>
 				<EmptyState
 					title="No teams yet"
-					description="Teams group your agents and bets. Finish setup to create your first team."
+					description="Teams group your agents and tasks. Finish setup to create your first team."
 					action={
 						<Button variant="primary" size="sm" onClick={onFinishSetup}>
 							Finish setup
@@ -151,7 +151,7 @@ export function WorkOverviewView({
 					}
 					actions={
 						<Button variant="primary" size="sm" onClick={onNewBet}>
-							New bet
+							New task
 						</Button>
 					}
 				/>
@@ -161,8 +161,9 @@ export function WorkOverviewView({
 			<div className="max-w-[800px] w-full">
 				<ItemList variant="flush" as="ul" isEmpty={false}>
 					{sorted.map((team) => {
-						const betCount = team.activeBets;
-						const betLabel = `${betCount} active ${betCount === 1 ? "bet" : "bets"}`;
+						// @lore BB1: activeBets→tasksInProgress on TeamListItem
+						const taskCount = team.tasksInProgress;
+						const taskLabel = `${taskCount} active ${taskCount === 1 ? "task" : "tasks"}`;
 						return (
 							<Row
 								key={team.id}
@@ -171,14 +172,13 @@ export function WorkOverviewView({
 								title={team.name}
 								cells={[
 									{
-										// AD9: Active-bet count as a numeric end cell (tabular-nums),
+										// AD9: Active-task count as a numeric end cell (tabular-nums),
 										// placed BEFORE the StatusChip. Row reads:
-										// [name .......... N active bets] [StatusChip]
-										// Supersedes 1st-pass subtitle decision (founder 2nd-pass review).
-										content: betLabel,
+										// [name .......... N active tasks] [StatusChip]
+										content: taskLabel,
 										align: "end" as const,
 										numeric: true,
-										"data-testid": "team-active-bets",
+										"data-testid": "team-active-tasks",
 									},
 									{
 										content: <StatusChip status={team.status} />,
@@ -217,7 +217,7 @@ export function WorkOverview(): JSX.Element {
 			error={error}
 			onRetry={refetch}
 			onSelectTeam={(teamId) => navigate(`/work/team/${encodeURIComponent(teamId)}`)}
-			onNewBet={() => navigate("/work/bet/new")}
+			onNewBet={() => navigate("/work/task/new")}
 			onFinishSetup={() => navigate("/setup")}
 		/>
 	);

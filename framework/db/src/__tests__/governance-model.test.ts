@@ -663,7 +663,10 @@ describe("AU28 — the registries are honest", () => {
 	it("fails when an owner names a package that does not exist", () => {
 		const broken = {
 			...tableOwners,
-			owners: { ...tableOwners.owners, bets: "a-package-that-was-deleted" },
+			// @lore BB1: was `bets`, which is no longer a live table — the registry
+			// then failed on "names a table the schema does not declare" before it
+			// could reach the branch under test. Any LIVE table works here.
+			owners: { ...tableOwners.owners, tasks: "a-package-that-was-deleted" },
 		};
 		expect(() => validateTableOwners(broken as TableOwners, liveTables, packageNames)).toThrow(
 			/not a package/,
@@ -680,7 +683,7 @@ describe("AU28 — the registries are honest", () => {
 			unowned: { ...tableOwners.unowned, tables: { aTableNobodyClaimed: "example" } },
 		};
 		expect(ownerOf(withUnowned, "aTableNobodyClaimed")).toBeNull();
-		expect(ownerOf(tableOwners, "bets")).toBe("work");
+		expect(ownerOf(tableOwners, "tasks")).toBe("work");
 		expect(() => ownerOf(tableOwners, "notATable")).toThrow(RegistryError);
 	});
 

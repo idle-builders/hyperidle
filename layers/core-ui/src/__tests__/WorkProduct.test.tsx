@@ -60,15 +60,12 @@ const MOCK_PRODUCT_DETAIL = {
 	],
 	burn: {
 		capacity: 5,
-		activeBets: 2,
 	},
-	activeBets: [
+	tasksInProgress: [
 		{
 			id: "b1",
-			// @lore U1: descriptionTitle (formerly pitchTitle)
-			descriptionTitle: "Auth migration",
-			// @lore U1: "committed" merged into "active"
-			status: "active" as const,
+			title: "Auth migration",
+			state: "in_progress" as const,
 			progressDone: 1,
 			progressTotal: 2,
 		},
@@ -77,7 +74,7 @@ const MOCK_PRODUCT_DETAIL = {
 
 const MOCK_PRODUCT_EMPTY_BETS = {
 	...MOCK_PRODUCT_DETAIL,
-	activeBets: [],
+	tasksInProgress: [],
 };
 
 // @lore U5: Route path /work/product/:productId is F1 scope (U6). Local var renamed teamId.
@@ -98,7 +95,8 @@ function renderPage(
 				/>
 				{/* AD9: /work/portfolio retired → /work */}
 				<Route path="/work" element={<div data-testid="work-overview-page">Work Overview</div>} />
-				<Route path="/work/bet/:betId" element={<div data-testid="work-bet-page">Bet</div>} />
+				{/* @lore BB1: bet route replaced by task route */}
+				<Route path="/work/task/:taskId" element={<div data-testid="work-task-page">Task</div>} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -115,7 +113,7 @@ describe("WorkTeam", () => {
 
 	it("2. renders one BetCard row per active bet", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
-		const betsRegion = screen.getByTestId("team-active-bets");
+		const betsRegion = screen.getByTestId("team-active-tasks");
 		expect(betsRegion).toBeInTheDocument();
 		// Should render the bet title
 		expect(screen.getByText("Auth migration")).toBeInTheDocument();
@@ -123,7 +121,7 @@ describe("WorkTeam", () => {
 
 	it("3. renders the empty-state when active bets list is empty", () => {
 		renderPage("p1", MOCK_PRODUCT_EMPTY_BETS);
-		expect(screen.getByTestId("team-active-bets-empty")).toBeInTheDocument();
+		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
 	// @lore AB2: AgentCard replaced by AgentRow (data-testid="agent-row").
@@ -159,14 +157,15 @@ describe("WorkTeam", () => {
 	// UI-080: bet rows are now <a href> links so ⌘-click / middle-click work natively.
 	// In jsdom + MemoryRouter, <a href> clicks don't trigger SPA navigation; the correct
 	// assertion is that the row has the right href attribute.
-	it("7. bet row has href to /work/bet/:id (UI-080 link conversion)", () => {
+	// @lore BB1: bet rows now link to /work/task/:id (root tasks replace bets)
+	it("7. task row has href to /work/task/:id (BB1: was /work/bet/:id)", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 
-		// The bet title is inside the anchor row; find the closest <a> ancestor.
-		const betTitle = screen.getByText("Auth migration");
-		const link = betTitle.closest("a");
+		// The task title is inside the anchor row; find the closest <a> ancestor.
+		const taskTitle = screen.getByText("Auth migration");
+		const link = taskTitle.closest("a");
 		expect(link).not.toBeNull();
-		expect(link?.getAttribute("href")).toBe("/work/bet/b1");
+		expect(link?.getAttribute("href")).toBe("/work/task/b1");
 	});
 
 	it("8. renders the 404 empty state when the fetch returns 404", () => {
@@ -190,7 +189,7 @@ describe("WorkTeam", () => {
 		// Skeleton placeholders should be visible
 		expect(screen.queryAllByRole("status").length).toBeGreaterThanOrEqual(0); // skeletons may use aria
 		// Most importantly: empty state for active bets must NOT appear during loading
-		expect(screen.queryByTestId("team-active-bets-empty")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("team-active-tasks-empty")).not.toBeInTheDocument();
 	});
 
 	// D1 regression guard: a committed bet must not show the BEHIND status chip.
@@ -201,7 +200,7 @@ describe("WorkTeam", () => {
 		// The bet title should be visible
 		expect(screen.getByText("Auth migration")).toBeInTheDocument();
 		// The StatusChip for a committed bet should not say BEHIND
-		const betsRegion = screen.getByTestId("team-active-bets");
+		const betsRegion = screen.getByTestId("team-active-tasks");
 		expect(betsRegion.textContent).not.toContain("BEHIND");
 	});
 

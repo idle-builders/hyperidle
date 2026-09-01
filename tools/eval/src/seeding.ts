@@ -15,7 +15,6 @@ import { randomUUID } from "node:crypto";
 import {
 	agentRunConfig,
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	items,
 	knowledgeAppProjection,
@@ -29,7 +28,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { AgentCategory, BetStatus, ScopeKind, TaskState } from "@hyperidle/domain-model";
+import type { AgentCategory, ScopeKind, TaskState } from "@hyperidle/domain-model";
 import { evalHarnessModel, evalHarnessType } from "./eval-harness.js";
 import type { ScenarioSeedResult } from "./types.js";
 
@@ -127,35 +126,40 @@ export async function seedAgent(
 	return { agentId };
 }
 
-/** Create a bet. */
-export async function seedBet(
+/**
+ * Create a root task (parentTaskId = null). Formerly `seedBet`.
+ *
+ * @lore BB1: bets table dropped. Root tasks (parentTaskId: null) replace bets
+ * as the top-level work container. Eval scenarios that previously seeded a bet
+ * now seed a root task instead.
+ */
+export async function seedRootTask(
 	db: HyperIdleDb,
 	opts: {
-		betId?: string;
+		rootTaskId?: string;
 		teamId: string;
 		description: string;
 		doneCondition?: string;
-		status?: BetStatus;
-		/** W8: Deprecated appetite string that appears in composed prompt via bet.appetite field. */
-		appetite?: string;
-		hypothesis?: string;
+		state?: TaskState;
 	},
-): Promise<{ betId: string }> {
-	const betId = opts.betId ?? randomUUID();
+): Promise<{ rootTaskId: string }> {
+	const rootTaskId = opts.rootTaskId ?? randomUUID();
 	const now = new Date().toISOString();
 
-	await db.insert(bets).values({
-		id: betId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
 		teamId: opts.teamId,
+		title:
+			opts.description.length > 120 ? `${opts.description.slice(0, 117)}...` : opts.description,
 		description: opts.description,
 		doneCondition: opts.doneCondition ?? null,
-		status: opts.status ?? "active",
-		appetite: opts.appetite ?? null,
-		hypothesis: opts.hypothesis ?? null,
+		state: opts.state ?? "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 
-	return { betId };
+	return { rootTaskId };
 }
 
 /** Create a task assigned to an agent. */
@@ -163,7 +167,8 @@ export async function seedTask(
 	db: HyperIdleDb,
 	opts: {
 		taskId?: string;
-		betId: string;
+		/** @lore BB1: formerly betId — now parentTaskId (the root task or any ancestor). */
+		parentTaskId: string;
 		teamId: string;
 		ownerAgentId: string;
 		title: string;
@@ -177,7 +182,7 @@ export async function seedTask(
 
 	await db.insert(tasks).values({
 		id: taskId,
-		betId: opts.betId,
+		parentTaskId: opts.parentTaskId,
 		teamId: opts.teamId,
 		ownerAgentId: opts.ownerAgentId,
 		title: opts.title,
@@ -284,14 +289,14 @@ export async function seedMinimalWorld(
 		systemPrompt: opts?.agentSystemPrompt ?? buildDefaultSystemPrompt(agentRole),
 	});
 
-	const { betId } = await seedBet(db, {
+	const { rootTaskId } = await seedRootTask(db, {
 		teamId,
-		description: opts?.betDescription ?? "Eval scenario bet",
+		description: opts?.betDescription ?? "Eval scenario root task",
 		doneCondition: opts?.betDoneCondition ?? "Scenario objectives completed.",
 	});
 
 	const { taskId } = await seedTask(db, {
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		ownerAgentId: agentId,
 		title: opts?.taskTitle ?? "Eval task",
@@ -314,7 +319,7 @@ export async function seedMinimalWorld(
 		teamId,
 		founderId,
 		agentId,
-		betId,
+		rootTaskId,
 		taskId,
 		sandboxBasePath,
 	};

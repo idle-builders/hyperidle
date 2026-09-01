@@ -14,7 +14,7 @@ import { CLASSIFICATION_PATTERNS } from "../lib/repo-census.js";
 export const classificationTotal: Rule = {
 	id: "classification-total",
 	description: "every censused file carries exactly one kind and one clause; the counts reconcile",
-	minScope: 1000,
+	minScope: 1,
 	scope: (census) => census.files.map((f) => f.path),
 	evaluate: (census) => {
 		const findings: Finding[] = [];

@@ -12,7 +12,7 @@ the team that ships it.
 
 ### Job 1 — Coordinator
 
-- Run cycles. Shape bets. Turn bets into tasks and hand them off to team
+- Run cycles. Shape tasks. Decompose root tasks into subtasks and hand them off to team
   agents in your team.
 - Resolve handoffs. When a team agent gets stuck at a product boundary,
   unblock them — either by making the call yourself or by escalating with

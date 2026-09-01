@@ -6,7 +6,7 @@
 // 3. Label field present in responses
 // 4. Artifact accepts new 6 fundamental kinds
 
-import { artifacts, bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -17,28 +17,30 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seed(db: HyperIdleDb): Promise<{ taskId: string; betId: string }> {
+async function seed(db: HyperIdleDb): Promise<{ taskId: string; parentTaskId: string }> {
 	await db
 		.insert(teams)
 		.values({ id: "team-ae6", name: "AE6 Team", phase: "build", createdAt: NOW });
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-ae6",
+		parentTaskId: null,
 		teamId: "team-ae6",
+		title: "AE6 bet",
 		description: "AE6 bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: "task-ae6",
-		betId: "bet-ae6",
+		parentTaskId: "bet-ae6",
 		teamId: "team-ae6",
 		title: "AE6 Task",
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	return { taskId: "task-ae6", betId: "bet-ae6" };
+	return { taskId: "task-ae6", parentTaskId: "bet-ae6" };
 }
 
 describe("AE6 AC-3: artifact kind normalization and label support", () => {

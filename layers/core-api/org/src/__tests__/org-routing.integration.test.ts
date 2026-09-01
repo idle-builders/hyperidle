@@ -84,7 +84,6 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				name: "Alpha",
 				phase: "build",
 				capacity: 3,
-				activeBets: 0,
 				formedAt: NOW,
 				createdAt: NOW,
 			});
@@ -122,7 +121,6 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				name: "Beta",
 				phase: "build",
 				capacity: 5,
-				activeBets: 0,
 				formedAt: NOW,
 				createdAt: NOW,
 			});
@@ -175,7 +173,6 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				name: "Gamma",
 				phase: "build",
 				capacity: 2,
-				activeBets: 0,
 				formedAt: NOW,
 				createdAt: NOW,
 			});
@@ -214,7 +211,6 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				name: "Orphan",
 				phase: "build",
 				capacity: 5,
-				activeBets: 0,
 				formedAt: NOW,
 				createdAt: NOW,
 			});

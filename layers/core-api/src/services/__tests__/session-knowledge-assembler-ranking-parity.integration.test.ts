@@ -27,7 +27,6 @@
  */
 
 import {
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -45,7 +44,7 @@ const OTHER_TEAM_ID = "team-i12-other";
 const AGENT_ID = "agent-i12-parity";
 const AGENT_ROLE = "builder"; // BA9g: the practice IS the role — `communityForRole` is deleted.
 const TASK_ID = "task-i12-parity";
-const BET_ID = "bet-i12-parity";
+const ROOT_TASK_ID = "bet-i12-parity";
 const TASK_DESCRIPTION = "Ship the boundary seam parity check.";
 
 async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
@@ -60,16 +59,19 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: BET_ID,
+	await db.insert(tasks).values({
+		id: ROOT_TASK_ID,
+		parentTaskId: null,
 		teamId: TEAM_ID,
+		title: "I12 parity bet",
 		description: "I12 parity bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: TASK_ID,
-		betId: BET_ID,
+		parentTaskId: ROOT_TASK_ID,
 		teamId: TEAM_ID,
 		title: "I12 parity task",
 		description: TASK_DESCRIPTION,

@@ -37,7 +37,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 const BASE_TEAM = {
 	phase: "build",
 	leadAgentId: null,
-	shipped: 0,
+	tasksDone: 0,
 	shipRate: "—",
 	progress: { done: 0, total: 0 },
 	routineCount: 0,
@@ -49,21 +49,21 @@ const TEAM_A = {
 	id: "team-a",
 	name: "Alpha Team",
 	status: "healthy" as const,
-	activeBets: 3,
+	tasksInProgress: 3,
 };
 const TEAM_B = {
 	...BASE_TEAM,
 	id: "team-b",
 	name: "Beta Team",
 	status: "blocked" as const,
-	activeBets: 1,
+	tasksInProgress: 1,
 };
 const TEAM_C = {
 	...BASE_TEAM,
 	id: "team-c",
 	name: "Gamma Team",
 	status: "behind" as const,
-	activeBets: 0,
+	tasksInProgress: 0,
 };
 
 afterEach(() => {
@@ -304,7 +304,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 
 	it("renders active bet count as end cell (plural)", () => {
 		mockUseTeams.mockReturnValue({
-			data: { teams: [TEAM_A] }, // activeBets: 3 but we test 2 teams case
+			data: { teams: [TEAM_A] }, // tasksInProgress: 3 but we test 2 teams case
 			loading: false,
 			error: null,
 			refetch: mockRefetch,
@@ -317,8 +317,8 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			refetch: mockRefetch,
 		});
 		renderInRouter();
-		expect(screen.getByText("3 active bets")).toBeInTheDocument();
-		expect(screen.getByText("1 active bet")).toBeInTheDocument();
+		expect(screen.getByText("3 active tasks")).toBeInTheDocument();
+		expect(screen.getByText("1 active task")).toBeInTheDocument();
 	});
 
 	it("renders singular 'active bet' for count of 1", () => {
@@ -329,10 +329,10 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			refetch: mockRefetch,
 		});
 		renderInRouter();
-		expect(screen.getByText("1 active bet")).toBeInTheDocument();
+		expect(screen.getByText("1 active task")).toBeInTheDocument();
 	});
 
-	it("renders plural 'active bets' for count != 1", () => {
+	it("renders plural 'active tasks' for count != 1", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] }, // TEAM_A has 3 activeBets
 			loading: false,
@@ -340,11 +340,11 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			refetch: mockRefetch,
 		});
 		renderInRouter();
-		expect(screen.getByText("3 active bets")).toBeInTheDocument();
+		expect(screen.getByText("3 active tasks")).toBeInTheDocument();
 	});
 
-	it("renders 0 active bets as end cell", () => {
-		const zeroTeam = { ...TEAM_A, id: "zero", name: "Zero Bets", activeBets: 0 };
+	it("renders 0 active tasks as end cell", () => {
+		const zeroTeam = { ...TEAM_A, id: "zero", name: "Zero Bets", tasksInProgress: 0 };
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_B, zeroTeam] },
 			loading: false,
@@ -352,7 +352,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			refetch: mockRefetch,
 		});
 		renderInRouter();
-		expect(screen.getByText("0 active bets")).toBeInTheDocument();
+		expect(screen.getByText("0 active tasks")).toBeInTheDocument();
 	});
 
 	it("renders a StatusChip end cell per row (no agents cell, no progress cell)", () => {
@@ -405,7 +405,8 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 		expect(screen.getByText("2 teams")).toBeInTheDocument();
 	});
 
-	it("header renders 'New bet' button", () => {
+	// @lore BB1: "New bet" renamed to "New task" — root tasks replace bets
+	it("header renders 'New task' button", () => {
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },
 			loading: false,
@@ -413,10 +414,10 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			refetch: mockRefetch,
 		});
 		renderInRouter();
-		expect(screen.getByRole("button", { name: /new bet/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /new task/i })).toBeInTheDocument();
 	});
 
-	it("'New bet' button navigates to /work/bet/new", async () => {
+	it("'New task' button navigates to /work/task/new (BB1: was /work/bet/new)", async () => {
 		const user = userEvent.setup();
 		mockUseTeams.mockReturnValue({
 			data: { teams: [TEAM_A, TEAM_B] },
@@ -425,7 +426,7 @@ describe("AC2 — Populated team list (2+ teams)", () => {
 			refetch: mockRefetch,
 		});
 		renderInRouter();
-		await user.click(screen.getByRole("button", { name: /new bet/i }));
-		expect(mockNavigate).toHaveBeenCalledWith("/work/bet/new");
+		await user.click(screen.getByRole("button", { name: /new task/i }));
+		expect(mockNavigate).toHaveBeenCalledWith("/work/task/new");
 	});
 });

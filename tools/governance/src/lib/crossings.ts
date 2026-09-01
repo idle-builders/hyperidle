@@ -7,7 +7,8 @@
  * @lore AU28: the split matters because the two rot differently. A decision rots loudly — a founder
  * notices a wrong verdict. A measurement rots silently: the retired `au6` guard scanned a directory
  * deleted two tracks earlier and printed PASS over zero files for months. So every detector here
- * declares a floor, and a detector below its floor fails the build rather than reporting nothing.
+ * declares the kinds it must find, and a detector that finds none of its kind fails the build
+ * rather than reporting nothing.
  *
  * @lore AU28: a detector that under-detects is INVISIBLE to any internal consistency check — a
  * crossing never emitted cannot unbalance anything. Positive fixtures only prove a detector finds
@@ -15,7 +16,6 @@
  * `governance-fixtures.ts`: a near-miss that must NOT be detected.
  */
 
-import type { FloorKind } from "../rules/floors-tight.js";
 import {
 	buildCompanionGroups,
 	buildWriteSets,
@@ -40,11 +40,16 @@ export interface DetectedCrossing {
 	readonly detail: string;
 }
 
-export interface DetectorFloor {
+/**
+ * A crossing kind the build expects a detector to find.
+ *
+ * @lore BB1: this carried a `min` magnitude — a floor re-measured by hand whenever the tree moved.
+ * The floors are gone; what they were standing in for is the zero case, and that is checked below.
+ * A detector finding FEWER crossings than last week is ordinary churn. A detector finding NONE is
+ * broken, and that is the `au6` defect the floors were built for.
+ */
+export interface DetectorKind {
 	readonly kind: Kind;
-	readonly min: number;
-	/** Every detector floor is a magnitude — declared, not assumed. See `floors-tight`. */
-	readonly floorKind: FloorKind;
 }
 
 export interface CrossingsInput {
@@ -63,7 +68,7 @@ export interface CrossingsInput {
 
 export interface CrossingsResult {
 	readonly crossings: readonly DetectedCrossing[];
-	/** Instances found per kind, for the floors. */
+	/** Instances found per kind. */
 	readonly countsByKind: ReadonlyMap<Kind, number>;
 	/** Database symbols that could not be placed. Reported, never absorbed. */
 	readonly unplacedDbSymbols: ReadonlyMap<string, string>;
@@ -255,12 +260,12 @@ function detectManifests(input: CrossingsInput): DetectedCrossing[] {
 /**
  * Run every detector.
  *
- * @throws when a detector finds fewer crossings than its floor. A detector that finds nothing is the
+ * @throws when a detector finds no crossings at all. A detector that finds nothing is the
  * `au6` failure mode and must never read as a clean result.
  */
 export function detectCrossings(
 	input: CrossingsInput,
-	floors: readonly DetectorFloor[],
+	kinds: readonly DetectorKind[],
 ): CrossingsResult {
 	const locate = buildPackageLocator(input.census.packages);
 	const crossings = [
@@ -294,12 +299,11 @@ export function detectCrossings(
 		countsByKind.set(found.crossing.kind, (countsByKind.get(found.crossing.kind) ?? 0) + 1);
 	}
 
-	for (const floor of floors) {
-		const found = countsByKind.get(floor.kind) ?? 0;
-		if (found < floor.min) {
+	for (const { kind } of kinds) {
+		if ((countsByKind.get(kind) ?? 0) === 0) {
 			throw new Error(
-				`crossings: the "${floor.kind}" detector found ${found} crossing(s) but declares a floor of ${floor.min}. ` +
-					"A detector that finds nothing reads as clean forever — fix the detector, never lower the floor to match.",
+				`crossings: the "${kind}" detector found NO crossings. A detector that finds nothing ` +
+					"reads as clean forever — fix the detector, or delete the kind if it is obsolete.",
 			);
 		}
 	}

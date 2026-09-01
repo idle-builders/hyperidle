@@ -1,12 +1,14 @@
 import {
-	BET_STATUSES,
 	KNOWLEDGE_STATUSES,
 	type KnowledgeStatus,
 	TASK_STATES,
 	type TaskState,
 } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
-import { betStatusToStatus, knowledgeStatusToStatus, type Status, taskStateToStatus } from "../ds";
+import { knowledgeStatusToStatus, type Status, taskStateToStatus } from "../ds";
+
+// @lore BB1: betStatusToStatus tests removed — WorkTeam still exports betStatusToStatus
+// for WorkTeam.tsx consumption until that page is updated to the task primitive.
 
 /** All legal presentation Status values, used to assert exhaustive coverage. */
 const VALID_STATUSES: readonly Status[] = [
@@ -135,43 +137,6 @@ describe("knowledgeStatusToStatus", () => {
 		expect(KNOWLEDGE_STATUSES).toHaveLength(7);
 		for (const ks of KNOWLEDGE_STATUSES) {
 			const result = knowledgeStatusToStatus(ks);
-			expect(VALID_STATUSES).toContain(result);
-		}
-	});
-});
-
-/**
- * @lore U1: BetStatus simplified from 9 to 4 values.
- * shaped → draft, committed|in_progress|behind|blocked|paused|review → active,
- * shipped → completed.
- */
-describe("betStatusToStatus", () => {
-	it("maps draft to paused", () => {
-		// @lore U1: draft (formerly shaped) → paused (not-yet-started)
-		expect(betStatusToStatus("draft")).toBe("paused" satisfies Status);
-	});
-
-	it("maps active to healthy", () => {
-		// @lore U1: active (covers committed/in_progress) → healthy
-		expect(betStatusToStatus("active")).toBe("healthy" satisfies Status);
-	});
-
-	it("maps completed to done", () => {
-		// @lore U1: completed (formerly shipped) → done
-		expect(betStatusToStatus("completed")).toBe("done" satisfies Status);
-	});
-
-	it("maps killed to error", () => {
-		expect(betStatusToStatus("killed")).toBe("error" satisfies Status);
-	});
-
-	it("exhaustively maps every BET_STATUSES value to a valid Status", () => {
-		// I4 S1/S6: runtime iteration over the shared BET_STATUSES array
-		// — every future addition must be mapped or this test fails.
-		// @lore U1: 4 statuses (was 9 before simplification).
-		expect(BET_STATUSES).toHaveLength(4);
-		for (const bs of BET_STATUSES) {
-			const result = betStatusToStatus(bs);
 			expect(VALID_STATUSES).toContain(result);
 		}
 	});

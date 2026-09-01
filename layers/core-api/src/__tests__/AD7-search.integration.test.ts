@@ -23,11 +23,11 @@
  */
 
 import {
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
 	messages,
+	tasks,
 	teams,
 	threads,
 	users,
@@ -114,20 +114,22 @@ async function seedTeam(db: HyperIdleDb, teamId: string, teamName: string): Prom
 	});
 }
 
-/** Seed a bet row */
-async function seedBet(
+/** Seed a root task (replaces seedBet — BB1) */
+async function seedRootTask(
 	db: HyperIdleDb,
-	betId: string,
+	taskId: string,
 	teamId: string,
-	description: string,
-	status = "active",
+	title: string,
+	_state = "in_progress",
 ): Promise<void> {
-	await db.insert(bets).values({
-		id: betId,
+	await db.insert(tasks).values({
+		id: taskId,
+		parentTaskId: null,
 		teamId,
-		description,
-		status,
+		title,
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 }
 
@@ -298,44 +300,32 @@ describe("GET /api/search — AD7 search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-6: Matching work items (bets with team name) ────────────────────
+	// ─── TC-6: Matching work items (root tasks with team name) ────────────────
 
-	test("TC-6: returns matching bets with id, title, team name, status, appetite", async ({
+	test("TC-6: returns matching root tasks with id, title, team name, status", async ({
 		app,
 		db,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await seedTeam(db, "team-a", "Alpha Team");
-		await seedBet(
-			db,
-			"bet-search-1",
-			"team-a",
-			"# Deploy the authentication module\nFull SSO.",
-			"active",
-		);
+		await seedRootTask(db, "task-search-1", "team-a", "Deploy the authentication module");
 
 		const res = await app.request("/api/search?q=authentication+module", {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			work: Array<{
-				id: string;
-				title: string;
-				team: string;
-				status: string;
-				appetite: string | null;
-			}>;
+			work: Array<{ id: string; title: string; team: string; status: string }>;
 		};
 
 		expect(body.work).toHaveLength(1);
 		const workItem = body.work[0];
 		expect(workItem).toBeDefined();
-		expect(workItem?.id).toBe("bet-search-1");
-		expect(workItem?.title).toBeTruthy();
+		expect(workItem?.id).toBe("task-search-1");
+		expect(workItem?.title).toBe("Deploy the authentication module");
 		expect(workItem?.team).toBe("Alpha Team");
-		expect(workItem?.status).toBe("active");
+		expect(workItem?.status).toBe("in_progress");
 		vi.unstubAllEnvs();
 	});
 
@@ -439,9 +429,9 @@ describe("GET /api/search — AD7 search backend", () => {
 			firstMessageText: "Release planning discussion",
 		});
 
-		// Bet matching "release"
+		// Root task matching "release" (BB1)
 		await seedTeam(db, "team-b", "Beta Team");
-		await seedBet(db, "bet-release-1", "team-b", "# Release the v2 feature\nShip it.", "active");
+		await seedRootTask(db, "task-release-1", "team-b", "Release the v2 feature");
 
 		// Knowledge matching "release"
 		await seedKnowledgeItem(db, {
@@ -478,15 +468,9 @@ describe("GET /api/search — AD7 search backend", () => {
 		await seedUser(db, userId);
 		await seedTeam(db, "team-cap", "Cap Team");
 
-		// Seed 7 bets that all match "captest"
+		// Seed 7 root tasks that all match "captest" (BB1)
 		for (let i = 1; i <= 7; i++) {
-			await seedBet(
-				db,
-				`bet-cap-${i}`,
-				"team-cap",
-				`# Captest bet number ${i}\nDescription.`,
-				"active",
-			);
+			await seedRootTask(db, `task-cap-${i}`, "team-cap", `Captest task number ${i}`);
 		}
 
 		const res = await app.request("/api/search?q=Captest", { headers: authHeaders() });
@@ -505,21 +489,15 @@ describe("GET /api/search — AD7 search backend", () => {
 		await seedUser(db, userId);
 		await seedTeam(db, "team-escape", "Escape Team");
 
-		// Bet that should NOT match a query of "%" (wildcard)
-		await seedBet(
-			db,
-			"bet-escape-1",
-			"team-escape",
-			"# Unrelated bet title\nNothing in common.",
-			"active",
-		);
+		// Root task that should NOT match a query of "%" (wildcard) — BB1
+		await seedRootTask(db, "task-escape-1", "team-escape", "Unrelated task title");
 
 		// Query with raw `%` — must not match all rows
 		const res = await app.request("/api/search?q=%25", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { work: unknown[] };
-		// "%" should match items literally containing "%" in title/description
-		// "Unrelated bet title" does NOT contain "%" — so it must not be returned
+		// "%" should match items literally containing "%" in title
+		// "Unrelated task title" does NOT contain "%" — so it must not be returned
 		expect(body.work).toHaveLength(0);
 		vi.unstubAllEnvs();
 	});
@@ -534,16 +512,15 @@ describe("GET /api/search — AD7 search backend", () => {
 		await seedUser(db, userId);
 		await seedTeam(db, "team-escape2", "Escape Team 2");
 
-		// Seed a bet whose title contains a single char — would match "_" unescaped
-		await seedBet(db, "bet-escape-2", "team-escape2", "# A\nSingle char title.", "active");
-		// Another bet that does NOT match "_" when properly escaped
-		await seedBet(db, "bet-escape-3", "team-escape2", "# Longer title\nMore words.", "active");
+		// Seed tasks — BB1: root tasks instead of bets
+		await seedRootTask(db, "task-escape-2", "team-escape2", "Short task title");
+		await seedRootTask(db, "task-escape-3", "team-escape2", "Longer task title here");
 
 		// Query "_" — should match literal underscore, not any single char
 		const res = await app.request("/api/search?q=_", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { work: unknown[] };
-		// Neither bet title contains literal "_" → 0 results
+		// Neither task title contains literal "_" → 0 results
 		expect(body.work).toHaveLength(0);
 		vi.unstubAllEnvs();
 	});

@@ -11,7 +11,7 @@
  * (behind --demo flag / HYPERIDLE_DEMO=1 — AX1), and test files.
  *
  * @lore AX1: the skeleton grew into a LIVED-IN world — six weeks of Acme
- * history (bets across every lifecycle, threads with real reviews, a
+ * history (nested tasks across every lifecycle, threads with real reviews, a
  * knowledge corpus, sessions and routines with run history). The content
  * lives in `./demo-world/`; this file keeps the skeleton and the entry
  * point. The AF17 constraint is unchanged: demo data is OPT-IN at database
@@ -37,7 +37,6 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
 	agentRunConfig,
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -54,10 +53,10 @@ import { createDemoClock } from "./demo-world/time.js";
  * Seed a demo world for onboarding / development mode.
  *
  * Creates: team "Acme" (AU44 B1: team_members dissolved), two humans, the founder's
- * assistant and five team agents, eight bets across every lifecycle with
- * ~27 tasks, fifteen threads with ~100 messages, a ~40-item knowledge
- * corpus, ~45 sessions, routines with run history, and notifications —
- * a world that reads as six weeks of use by a small team.
+ * assistant and five team agents, seven root tasks across every lifecycle with
+ * nested subtasks to three levels deep, fifteen threads with ~100 messages,
+ * a ~40-item knowledge corpus, ~45 sessions, routines with run history, and
+ * notifications — a world that reads as six weeks of use by a small team.
  *
  * Idempotent: uses onConflictDoNothing throughout; fixed `demo-*` ids.
  *
@@ -252,14 +251,16 @@ export async function seedDemoWorld(
 
 	// Daily digest bet (disabled by default — operator enables)
 	await db
-		.insert(bets)
+		.insert(tasks)
 		.values({
 			id: "demo-bet-daily-digest",
-			teamId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Internal: daily digest scaffolding bet",
 			description: "Internal: daily digest scaffolding bet",
-			appetite: "small",
-			status: "draft",
+			state: "proposed",
 			createdAt: clock.daysAgo(19),
+			updatedAt: clock.daysAgo(19),
 		})
 		.onConflictDoNothing();
 
@@ -268,12 +269,12 @@ export async function seedDemoWorld(
 		.insert(tasks)
 		.values({
 			id: "demo-task-daily-digest",
-			betId: "demo-bet-daily-digest",
+			parentTaskId: "demo-bet-daily-digest",
 			teamId,
 			ownerAgentId: "seed-agent-cos",
 			title: "Daily digest anchor task",
 			description: "Anchor task for the daily digest routine — emits routine_fired.",
-			state: "ready",
+			state: "accepted",
 			createdAt: clock.daysAgo(19),
 			updatedAt: clock.daysAgo(19),
 		})

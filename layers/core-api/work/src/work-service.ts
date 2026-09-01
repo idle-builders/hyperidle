@@ -42,9 +42,7 @@
 import { randomUUID } from "node:crypto";
 import {
 	artifacts,
-	bets,
 	items,
-	type NewBet,
 	type NewItem,
 	type NewTask,
 	taskDispatchAttempts,
@@ -52,9 +50,8 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 
-export type Bet = typeof bets.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 
 /** Queue-facing operations for the work-owned dispatch-attempt table. */
@@ -156,7 +153,6 @@ export const taskDispatchAttemptStore = {
 export type Item = typeof items.$inferSelect;
 
 /** Internal raw update shapes. Consumers use the operator-aware generic patches. */
-type BetPatch = { [K in keyof NewBet]?: NewBet[K] | SQL };
 /** `NewTask` widened so a patch field may carry a raw `SQL` fragment. */
 type TaskPatch = { [K in keyof NewTask]?: NewTask[K] | SQL };
 /** `NewItem` widened so a patch field may carry a raw `SQL` fragment. */
@@ -185,11 +181,10 @@ const NOTE_SEPARATOR = "\n\n---\n\n";
 import type { ArtifactRow, ArtifactWithTaskTitle, CreateArtifactInput } from "./artifact-store.js";
 
 /** Discriminant union of all work-owned entity kinds. */
-export type WorkEntity = "bet" | "task" | "item" | "artifact";
+export type WorkEntity = "task" | "item" | "artifact";
 
 /** Maps each entity discriminant to its plain (non-joined) row type. */
 interface WorkEntityRowMap {
-	bet: Bet;
 	task: Task;
 	item: Item;
 	artifact: ArtifactRow;
@@ -218,13 +213,12 @@ export interface WorkFilter {
 	offset?: number;
 	count?: true;
 	include?: "taskTitle";
-	// bet-specific
-	teamId?: string;
-	status?: string;
-	text?: string;
 	// task-specific
+	teamId?: string;
+	text?: string;
 	state?: string;
-	betId?: string;
+	/** BB1: direct children of this task. `null` selects ROOT tasks (no parent). */
+	parentTaskId?: string | null;
 	ownerAgentId?: string;
 	dependencyId?: string;
 	// item-specific
@@ -264,10 +258,6 @@ export async function get(
 	opts?: { include?: string },
 ): Promise<unknown> {
 	switch (entity) {
-		case "bet": {
-			const [row] = await exec.select().from(bets).where(eq(bets.id, id)).limit(1);
-			return row;
-		}
 		case "task": {
 			const [row] = await exec.select().from(tasks).where(eq(tasks.id, id)).limit(1);
 			return row;
@@ -319,21 +309,11 @@ export async function list(
 
 	// ── count short-circuit ──────────────────────────────────────────────────
 	if (f.count) {
-		if (entity === "bet") {
-			const conds: SQL[] = [];
-			if (f.teamId !== undefined) conds.push(eq(bets.teamId, f.teamId));
-			if (f.status !== undefined) conds.push(eq(bets.status, f.status));
-			const [row] = await exec
-				.select({ n: sql<number>`count(*)` })
-				.from(bets)
-				.where(conds.length > 0 ? and(...conds) : undefined);
-			return Number(row?.n ?? 0);
-		}
 		if (entity === "task") {
 			const conds: SQL[] = [];
 			if (f.teamId !== undefined) conds.push(eq(tasks.teamId, f.teamId));
 			if (f.state !== undefined) conds.push(eq(tasks.state, f.state));
-			if (f.betId !== undefined) conds.push(eq(tasks.betId, f.betId));
+			if (f.parentTaskId !== undefined) conds.push(parentCond(f.parentTaskId));
 			const [row] = await exec
 				.select({ n: sql<number>`count(*)` })
 				.from(tasks)
@@ -376,49 +356,6 @@ export async function list(
 					.limit(f.limit ?? 50)
 			: query.orderBy(desc(artifacts.createdAt), desc(artifacts.id)).limit(f.limit ?? 50);
 	}
-	// ── bet dispatches ───────────────────────────────────────────────────────
-	if (entity === "bet") {
-		if (f.text !== undefined) {
-			const escaped = f.text.replace(/[\\%_]/g, "\\$&");
-			const pattern = `%${escaped}%`;
-			const rank = sql<number>`CASE WHEN ${bets.description} ILIKE ${`${escaped}%`} ESCAPE '\\' THEN 0 WHEN ${bets.description} ILIKE ${`% ${escaped}%`} ESCAPE '\\' THEN 1 ELSE 2 END`;
-			return exec
-				.select()
-				.from(bets)
-				.where(
-					or(
-						sql`${bets.description} ILIKE ${pattern} ESCAPE '\\'`,
-						sql`${bets.hypothesis} ILIKE ${pattern} ESCAPE '\\'`,
-						sql`${bets.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
-					),
-				)
-				.orderBy(rank, desc(bets.createdAt), bets.id)
-				.limit(f.limit ?? 50);
-		}
-		if (f.ids !== undefined)
-			return f.ids.length === 0
-				? []
-				: exec
-						.select()
-						.from(bets)
-						.where(inArray(bets.id, [...f.ids]));
-		if (f.teamId !== undefined || f.status !== undefined) {
-			// Single-key path: mirror the count path so only the present key is
-			// applied (passing an empty string for the absent key to
-			// listBetsByTeamAndStatus would always return []).
-			const conds: SQL[] = [];
-			if (f.teamId !== undefined) conds.push(eq(bets.teamId, f.teamId));
-			if (f.status !== undefined) conds.push(eq(bets.status, f.status));
-			return exec
-				.select()
-				.from(bets)
-				.where(conds.length > 0 ? and(...conds) : undefined);
-		}
-		return f.limit !== undefined && f.offset !== undefined
-			? exec.select().from(bets).limit(f.limit).offset(f.offset)
-			: exec.select().from(bets);
-	}
-
 	// ── task dispatches ──────────────────────────────────────────────────────
 	if (entity === "task") {
 		if (f.ids !== undefined)
@@ -435,18 +372,43 @@ export async function list(
 				.from(tasks)
 				.where(and(eq(tasks.state, "hold"), like(tasks.dependencies, `%"${escaped}"%`)));
 		}
+		if (f.text !== undefined) {
+			// BB1: moved off the deleted bet dispatch. A task's searchable prose is
+			// its title, description and goal — `hypothesis` is cut, and `title`
+			// is a real column now rather than the first line of the description.
+			const escaped = f.text.replace(/[\\%_]/g, "\\$&");
+			const pattern = `%${escaped}%`;
+			const rank = sql<number>`CASE WHEN ${tasks.title} ILIKE ${`${escaped}%`} ESCAPE '\\' THEN 0 WHEN ${tasks.title} ILIKE ${`% ${escaped}%`} ESCAPE '\\' THEN 1 ELSE 2 END`;
+			return exec
+				.select()
+				.from(tasks)
+				.where(
+					or(
+						sql`${tasks.title} ILIKE ${pattern} ESCAPE '\\'`,
+						sql`${tasks.description} ILIKE ${pattern} ESCAPE '\\'`,
+						sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
+					),
+				)
+				.orderBy(rank, desc(tasks.createdAt), tasks.id)
+				.limit(f.limit ?? 50);
+		}
 		const conditions = [];
-		if (f.betId !== undefined) conditions.push(eq(tasks.betId, f.betId));
+		if (f.parentTaskId !== undefined) conditions.push(parentCond(f.parentTaskId));
 		if (f.state !== undefined) conditions.push(eq(tasks.state, f.state));
 		if (f.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, f.ownerAgentId));
 		if (f.teamId !== undefined) conditions.push(eq(tasks.teamId, f.teamId));
+		// BB1: siblings come back in display order, always. `position` alone is not
+		// a total order (it defaults to 0 and nothing forces uniqueness), so
+		// createdAt then id break ties — otherwise the tree can render in a
+		// different order on two successive reads.
 		const query =
 			conditions.length > 0
 				? exec
 						.select()
 						.from(tasks)
 						.where(and(...conditions))
-				: exec.select().from(tasks);
+						.orderBy(tasks.position, tasks.createdAt, tasks.id)
+				: exec.select().from(tasks).orderBy(tasks.position, tasks.createdAt, tasks.id);
 		return f.limit !== undefined ? query.limit(f.limit) : query;
 	}
 
@@ -543,14 +505,6 @@ export interface AppendNoteOp {
 	readonly appendNote: string;
 }
 
-/**
- * Bet update patch: standard BetPatch fields.
- * @lore AU21 Increment 14a: this used to also admit `costActualMinor` as an
- * `IncrementOp` (atomic `coalesce(col,0)+n` accumulation) — deleted along
- * with the rest of the cost feature (the column is dropped), no replacement.
- */
-type BetUpdatePatch = BetPatch;
-
 /** Task update patch: standard TaskPatch fields; notes also accepts AppendNoteOp. */
 type TaskUpdatePatch = Omit<TaskPatch, "notes"> & {
 	readonly notes?: TaskPatch["notes"] | AppendNoteOp;
@@ -561,7 +515,6 @@ type ItemUpdatePatch = ItemPatch;
 
 /** Maps each entity discriminant to its create-values type. */
 interface WorkEntityCreateMap {
-	bet: NewBet;
 	task: NewTask;
 	item: NewItem;
 	artifact: CreateArtifactInput;
@@ -569,7 +522,6 @@ interface WorkEntityCreateMap {
 
 /** Maps each entity discriminant to its update-patch type (excluding artifact). */
 interface WorkEntityUpdatePatchMap {
-	bet: BetUpdatePatch;
 	task: TaskUpdatePatch;
 	item: ItemUpdatePatch;
 }
@@ -598,22 +550,123 @@ export interface TransitionSpec<P = unknown> {
 
 /** Maps each entity discriminant to its transition-patch type. Note: "item" is excluded — items have no guard-able state column, no transition() callers. */
 interface WorkEntityTransitionPatchMap {
-	bet: BetPatch;
 	task: TaskPatch;
 	artifact: Partial<ArtifactRow>;
 }
 
-export type { BetUpdatePatch, ItemUpdatePatch, TaskPatch, TaskUpdatePatch };
+export type { ItemUpdatePatch, TaskPatch, TaskUpdatePatch };
 
 function isNullGuard(guard: TransitionGuard): guard is TransitionFieldIsNullGuard {
 	return "isNull" in guard;
 }
 
-function buildBetGuardCond(guard: TransitionGuard): SQL {
-	if (guard.field === "status") {
-		return isNullGuard(guard) ? isNull(bets.status) : eq(bets.status, guard.equals);
-	}
-	throw new Error(`Unknown bet field for transition guard: ${guard.field}`);
+/**
+ * BB1: `parentTaskId: null` means "root tasks", not "ignore this filter". The
+ * distinction matters — `undefined` is absence, `null` is a value.
+ */
+function parentCond(parentTaskId: string | null): SQL {
+	return parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId);
+}
+
+/**
+ * BB1: every descendant of `rootId`, the root itself included, nearest first.
+ *
+ * Recursive CTE rather than a loop of per-level queries: the tree has no depth
+ * bound, so a loop would issue an unbounded number of round trips, and the two
+ * callers that need this (the kill cascade and the token rollup) both need the
+ * whole subtree in one consistent read.
+ *
+ * @lore BB1: `depth` is capped at MAX_TASK_DEPTH. A cycle is rejected at write
+ * time (`assertNoCycle`), so this cap should never bind — it is here because a
+ * recursive CTE that meets a cycle does not error, it spins forever, and a
+ * corrupt row must not be able to hang a request.
+ *
+ * @lore BB1: 32 matches the cap the nested-knowledge-documents work chose for
+ * its own tree. The number is arbitrary in both places; having ONE number
+ * across the product's two trees is the point, so if either moves, move both.
+ */
+export const MAX_TASK_DEPTH = 32;
+
+export async function listSubtreeIds(exec: WriteExecutor, rootId: string): Promise<string[]> {
+	const result = (await exec.execute(sql`
+		WITH RECURSIVE subtree(id, depth) AS (
+			SELECT id, 0 FROM ${tasks} WHERE id = ${rootId}
+			UNION ALL
+			SELECT t.id, s.depth + 1
+			FROM ${tasks} t
+			JOIN subtree s ON t.parent_task_id = s.id
+			WHERE s.depth < ${MAX_TASK_DEPTH}
+		)
+		SELECT id FROM subtree ORDER BY depth
+	`)) as { readonly rows: ReadonlyArray<{ readonly id: string }> };
+	return result.rows.map((r) => r.id);
+}
+
+/**
+ * BB1: every ancestor of `taskId`, nearest parent first, excluding the task.
+ * Drives the upward completion rollup, which is no longer a single hop.
+ */
+export async function listAncestorIds(exec: WriteExecutor, taskId: string): Promise<string[]> {
+	const result = (await exec.execute(sql`
+		WITH RECURSIVE ancestors(id, parent_task_id, depth) AS (
+			SELECT id, parent_task_id, 0 FROM ${tasks} WHERE id = ${taskId}
+			UNION ALL
+			SELECT t.id, t.parent_task_id, a.depth + 1
+			FROM ${tasks} t
+			JOIN ancestors a ON t.id = a.parent_task_id
+			WHERE a.depth < ${MAX_TASK_DEPTH}
+		)
+		SELECT id FROM ancestors WHERE depth > 0 ORDER BY depth
+	`)) as { readonly rows: ReadonlyArray<{ readonly id: string }> };
+	return result.rows.map((r) => r.id);
+}
+
+/**
+ * BB1: how many tasks this team currently has `in_progress`, at any depth.
+ *
+ * This is the WIP limit's live count. It replaces the stored `teams.activeBets`
+ * tally, which the bet commit/complete/kill paths maintained by hand and which
+ * could therefore drift from the truth. Counted inside the caller's transaction,
+ * so it cannot be stale.
+ */
+export async function countTeamTasksInProgress(
+	exec: WriteExecutor,
+	teamId: string,
+): Promise<number> {
+	const [row] = await exec
+		.select({ n: sql<number>`count(*)` })
+		.from(tasks)
+		.where(
+			and(
+				eq(tasks.teamId, teamId),
+				or(
+					eq(tasks.state, "in_progress"),
+					// Dispatched but not yet started: a task is `accepted` from the
+					// moment a session is REQUESTED until `session_started` flips it
+					// to `in_progress`, and provisioning takes real time. Counting
+					// only `in_progress` let N accepts in that window each observe
+					// the same count, all pass the capacity check, and all become
+					// `in_progress` — overshooting the limit. Work that has been
+					// handed to an agent occupies a slot from the moment it is
+					// handed over, not from the moment the agent answers.
+					and(
+						eq(tasks.state, "accepted"),
+						exists(
+							exec
+								.select({ one: sql`1` })
+								.from(taskDispatchAttempts)
+								.where(
+									and(
+										eq(taskDispatchAttempts.taskId, tasks.id),
+										eq(taskDispatchAttempts.status, "requested"),
+									),
+								),
+						),
+					),
+				),
+			),
+		);
+	return Number(row?.n ?? 0);
 }
 
 function buildTaskGuardCond(guard: TransitionGuard): SQL {
@@ -635,6 +688,37 @@ function buildArtifactGuardCond(guard: TransitionGuard): SQL {
 	throw new Error(`Unknown artifact field for transition guard: ${guard.field}`);
 }
 
+// -- maxSiblingPosition() -----------------------------------------------------
+
+/**
+ * Returns the current maximum `position` value among tasks with the given
+ * `parentTaskId` (or among root tasks when `parentTaskId` is null).
+ * Returns -1 when the sibling group is empty, so the first child gets 0.
+ *
+ * @lore BB1: used by POST /tasks (append) and PATCH /tasks/:id (reparent) to
+ * assign the next-last position without a data race — callers that need
+ * atomicity must call this INSIDE their own transaction.
+ *
+ * @lore BB1: `teamId` is REQUIRED, not optional. A nested task's parent already
+ * implies its team, but a ROOT task's parent is null — so without the team
+ * filter the "sibling group" for a root is every root task in the entire
+ * install, and a new root would take its position from an unrelated team's
+ * count. Making the argument mandatory means a caller cannot forget it.
+ */
+export async function maxSiblingPosition(
+	exec: WriteExecutor,
+	parentTaskId: string | null,
+	teamId: string,
+): Promise<number> {
+	const parentCondition =
+		parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId);
+	const [row] = await exec
+		.select({ m: sql<number>`COALESCE(MAX(${tasks.position}), -1)` })
+		.from(tasks)
+		.where(and(parentCondition, eq(tasks.teamId, teamId)));
+	return row?.m ?? -1;
+}
+
 // -- create() -----------------------------------------------------------------
 
 /** Insert a new entity row. Discriminated by entity literal; values typed per entity. */
@@ -644,9 +728,6 @@ export async function create<E extends WorkEntity>(
 	values: WorkEntityCreateMap[E],
 ): Promise<void> {
 	switch (entity) {
-		case "bet":
-			await exec.insert(bets).values(values as NewBet);
-			return;
 		case "task":
 			await exec.insert(tasks).values(values as NewTask);
 			return;
@@ -680,7 +761,7 @@ export function update(
  * `BetUpdatePatch`/`TaskUpdatePatch`/`ItemUpdatePatch` uses the `{increment}`
  * operator anymore.)
  */
-export function update<E extends "bet" | "task" | "item">(
+export function update<E extends "task" | "item">(
 	exec: WriteExecutor,
 	entity: E,
 	id: string,
@@ -710,13 +791,6 @@ export async function update(
 			.update(tasks)
 			.set(patch as TaskPatch)
 			.where(eq(tasks.id, id));
-		return;
-	}
-	if (entity === "bet") {
-		await exec
-			.update(bets)
-			.set(patch as BetPatch)
-			.where(eq(bets.id, id));
 		return;
 	}
 	if (entity === "item") {
@@ -751,16 +825,6 @@ export async function transition<E extends keyof WorkEntityTransitionPatchMap>(
 	const patch = spec.patch;
 
 	switch (entity) {
-		case "bet": {
-			const guardCond = buildBetGuardCond(spec.guard);
-			const whereCond = spec.id !== undefined ? and(eq(bets.id, spec.id), guardCond) : guardCond;
-			rows = await exec
-				.update(bets)
-				.set(patch as BetPatch)
-				.where(whereCond)
-				.returning({ id: bets.id });
-			break;
-		}
 		case "task": {
 			const guardCond = buildTaskGuardCond(spec.guard);
 			const whereCond = spec.id !== undefined ? and(eq(tasks.id, spec.id), guardCond) : guardCond;

@@ -28,7 +28,7 @@ Code-verified decision log for the system architecture. Each entry records a set
 
 ## UI
 
-- **Bet placement tech.** Plain React `BetCard` components in a simple symbolic layout with a hard capacity cap — no drawing-canvas or drag-and-drop library. Surface structure: [work view](../information-architecture/work-view.md); lifecycle: [bets](../process-layer/bets-shape-commit-change-ship.md).
+- **Task placement tech.** Plain React task card components in a simple symbolic layout with a hard capacity cap — no drawing-canvas or drag-and-drop library. Surface structure: [work view](../information-architecture/work-view.md); lifecycle: [tasks and sessions](../process-layer/tasks-and-sessions.md).
 - **Attention scores drive notifications and ambient indicators, not the Knowledge view.** The Knowledge view gives access to all knowledge; attention scores decide what notifies and what surfaces via Conversations filter chips — they never filter the Knowledge view. Scoring: [relevance and attention](../knowledge-architecture/relevance-and-attention.md).
 
 ## Process layer

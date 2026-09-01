@@ -16,7 +16,7 @@ Item {
   id               # stable, addressable
   source_agent_id  # which agent sent this — uses agent identity
   layer            # knowledge-architecture layer; see docs/knowledge-architecture/the-five-layers.md
-  verb             # the human activity: review | prioritize | bet | assist | curate
+  verb             # the human activity: review | prioritize | assist | curate
   kind             # the rendering shape: review | chat | skill_change | work | knowledge
   title            # one-line, decidable
   body             # markdown; rendered by the view
@@ -54,7 +54,7 @@ Rules, in match order:
 | 1 | `risk_tier` medium or high | Conversations |
 | 2 | `kind` review or skill_change | Conversations |
 | 3 | `kind` knowledge | Knowledge — async curation, never approval |
-| 4 | `kind` work or `verb` bet | Work — bet-shaped items only when shaped enough to bet on |
+| 4 | `kind` work | Work — task-shaped items |
 | 5 | `kind` chat | Conversations |
 | 6 | everything else | Conversations (default) |
 

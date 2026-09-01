@@ -81,6 +81,7 @@ export {
 	HttpError,
 	InvalidTransitionError,
 	MissingCredentialError,
+	TaskCycleError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
 // Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
@@ -175,11 +176,11 @@ export { canTransitionTaskState, TASK_STATE_TRANSITIONS } from "./task-transitio
 export type {
 	AgentHealthLevel,
 	AgentOperationalStatus,
-	BetCardSummary,
 	CreateTeamRequest,
 	CreateTeamResponse,
 	PrimaryHarnessConfig,
 	RosterMember,
+	TaskCardSummary,
 	TeamBurn,
 	TeamDetail,
 	TeamListItem,
@@ -245,8 +246,6 @@ export type {
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
 export type {
 	AgentCategory,
-	BetOutcomeVerdict,
-	BetStatus,
 	HarnessType,
 	HealthResponse,
 	KernelKnowledgeStatus,
@@ -262,13 +261,10 @@ export type {
 	TaskState,
 	TriggerType,
 } from "./types.js";
+// @lore BB1: BetStatus, BET_STATUSES, BET_STATUS_LABEL removed — task vocabulary is the only work vocabulary.
 export {
 	AGENT_CATEGORIES,
 	AGENT_OPERATIONAL_STATUS_LABEL,
-	BET_OUTCOME_VERDICT_LABEL,
-	BET_OUTCOME_VERDICTS,
-	BET_STATUS_LABEL,
-	BET_STATUSES,
 	HARNESS_TYPES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	MODEL_TIERS,

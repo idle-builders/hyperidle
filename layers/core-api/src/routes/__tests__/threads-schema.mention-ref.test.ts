@@ -73,7 +73,7 @@ describe("AE5 — inlineRefSchema discriminated union (with mention)", () => {
 	});
 
 	it("existing entity refs still accepted after widening", () => {
-		for (const kind of ["knowledge_item", "task", "artifact", "bet", "message"]) {
+		for (const kind of ["knowledge_item", "task", "artifact", "message"]) {
 			const result = inlineRefSchema.safeParse({ kind, id: "some-id" });
 			expect(result.success, `entity kind=${kind}`).toBe(true);
 		}
@@ -83,7 +83,7 @@ describe("AE5 — inlineRefSchema discriminated union (with mention)", () => {
 		const result = inlineRefSchema.safeParse({
 			kind: "block",
 			blockId: "blk:v1:abc",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "bet-1",
 		});
 		expect(result.success).toBe(true);

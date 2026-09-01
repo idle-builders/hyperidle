@@ -20,7 +20,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { artifacts, bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import type { ArtifactPreview } from "@hyperidle/domain-model";
 import type { ArtifactCreatedEvent } from "@hyperidle/event-bus";
@@ -77,26 +77,28 @@ const createArtifactTool = buildToolDefinitions(ports).find((t) => t.name === "c
 
 // --- Helpers ------------------------------------------------------------------
 
-async function seed(db: HyperIdleDb): Promise<{ taskId: string; betId: string }> {
+async function seed(db: HyperIdleDb): Promise<{ taskId: string; parentTaskId: string }> {
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "1w",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "p1",
 		title: "Test task",
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	return { taskId: "task-1", betId: "bet-1" };
+	return { taskId: "task-1", parentTaskId: "bet-1" };
 }
 
 function makeContext(
@@ -240,7 +242,7 @@ describe("create_artifact tool", () => {
 			// Insert a second task so we can verify taskId routing.
 			await db.insert(tasks).values({
 				id: "task-other",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "p1",
 				title: "Other task",
 				state: "in_progress",

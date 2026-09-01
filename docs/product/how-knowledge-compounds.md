@@ -1,6 +1,6 @@
 # How Knowledge Compounds
 
-HyperIdle stores everything agents learn in one structured knowledge system: five layers, one canonical store, and human curation built into the workflow. What one agent learns on one product becomes available to every agent working in the same practice. The tenth bet is faster than the first because the accumulated knowledge from nine previous bets is present at session start.
+HyperIdle stores everything agents learn in one structured knowledge system: five layers, one canonical store, and human curation built into the workflow. What one agent learns on one product becomes available to every agent working in the same practice. The tenth task is faster than the first because the accumulated knowledge from nine previous tasks is present at session start.
 
 The layer taxonomy (L0 session working set through L4 factory principles) is defined in [The Five Layers](../knowledge-architecture/the-five-layers.md).
 
@@ -36,7 +36,7 @@ Both projections read and write the same store. The web Knowledge pages hit the 
 | **Curation** | Raw captures accumulate | Facilitators organize, score, and promote continuously |
 | **Human oversight** | AI-generated and trusted automatically | AI-generated, facilitator-organized, human-curated |
 
-The result: a company that gets better at what it does with every bet it ships.
+The result: a company that gets better at what it does with every task it ships.
 
 ---
 

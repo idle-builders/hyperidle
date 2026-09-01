@@ -14,7 +14,7 @@ The human never thinks "which app do I open?". They open HyperIdle, scan Convers
 
 The messaging surface. Reviews and chat — all as threads, on the same infrastructure agents use to talk to each other: one shared message store with identities, threads, and delivery rules. Humans are identities in the matrix, not a special category outside it (`messages.senderId → users.id`, `framework/db/src/schema.ts`).
 
-Consequence: **agents can initiate conversations with humans**, not just surface things for approval. An agent noticing a cross-bet pattern starts a thread; the human replies, ignores, or escalates. Humans start threads too, via the RecipientPicker (`layers/core-ui/src/components/RecipientPicker.tsx`) — pick an agent, type, send; replies arrive over WebSocket.
+Consequence: **agents can initiate conversations with humans**, not just surface things for approval. An agent noticing a cross-task pattern starts a thread; the human replies, ignores, or escalates. Humans start threads too, via the RecipientPicker (`layers/core-ui/src/components/RecipientPicker.tsx`) — pick an agent, type, send; replies arrive over WebSocket.
 
 "Review thread" and "chat thread" are experience shorthand, not thread types. A thread has no `kind` column — shape lives on typed *messages* (a review message embeds an artifact + verdict affordance; a plain message is text), and a thread moves between the two experiences as messages are appended. The full Thread/Message model, the five-verdict grammar, and derived blocking are owned by [thread-primitive.md](thread-primitive.md).
 
@@ -31,17 +31,17 @@ Artifact embeds inside review messages (the five `ArtifactView` shapes) are owne
 
 ## Work — plan and track
 
-Bets and tasks: planning what to do and tracking what's in flight. The Work landing page is a flat, attention-sorted team list — one row per team with status chip and active-bet count (`WorkOverview.tsx`, AD9) — drilling into team → bet detail → task. Bet lifecycle (`draft | active | completed | killed`) and the shape/commit/ship flow are owned by [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md); page structure by [information-architecture/work-view.md](../information-architecture/work-view.md). Bet bodies render as Blocks with anchored discussion — see [docs/blocks/](../blocks/index.md).
+Tasks: planning what to do and tracking what's in flight. The Work landing page is a flat, attention-sorted team list — one row per team with status chip and in-progress task count (`WorkOverview.tsx`, AD9) — drilling into team → task detail → subtask to any depth. Task lifecycle (`proposed | accepted | hold | in_progress | blocked | review | done | killed`) is owned by [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md); page structure by [information-architecture/work-view.md](../information-architecture/work-view.md). Task bodies render as Blocks with anchored discussion — see [docs/blocks/](../blocks/index.md).
 
 Two view-level principles:
 
-- **Tasks are agent-owned.** Humans do not drag tasks between states — there is no board. Humans request state changes through the thread attached to the bet or task (`tasks.ownerAgentId`, `tasks.threadId`, schema.ts,225). The task list gives visibility without requiring the human to dive into individual threads.
+- **Tasks are agent-owned.** Humans do not drag tasks between states — there is no board. Humans request state changes through the thread attached to the task (`tasks.ownerAgentId`, `tasks.threadId`, schema.ts,225). The task list gives visibility without requiring the human to dive into individual threads.
 
 ## Knowledge — curate
 
 The company wiki — a catalogue of knowledge items, not a page tree. Think Confluence, not Jira. The human searches, filters, reads, edits inline, and **creates** items directly; agents contribute through their sessions. It is **not an approval gate** — knowledge flows freely without per-change human review. It is *async curation* that prevents AI-only drift. This is the most critical view to get right and the easiest to skip, because nothing forces you to open it; without it the knowledge base is a community of bots talking to itself.
 
-**Scopes.** Items are authored at any of seven scopes — `factory, product, practice, team, bet, task, user` (`SCOPE_KINDS`, `framework/domain-model/src/types.ts`); `user`-scoped items are private and show a "Private" badge. The view browses three scopes — practice, product, factory (`KnowledgeList.tsx`) — with **topic** as the mid-level grouping (`KnowledgeTopicGroup.tsx`). Topic headers carry health indicators: item count, active-vs-stale mix. Store semantics: [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
+**Scopes.** Items are authored at any of six scopes — `factory, product, practice, team, task, user` (`SCOPE_KINDS`, `framework/domain-model/src/types.ts`). There is no `bet` scope and no legacy bet-scoped data: migration 0068 re-scoped every such row to `task`, and because each bet became a root task keeping its own id, the scope_id did not change; `user`-scoped items are private and show a "Private" badge. The view browses three scopes — practice, product, factory (`KnowledgeList.tsx`) — with **topic** as the mid-level grouping (`KnowledgeTopicGroup.tsx`). Topic headers carry health indicators: item count, active-vs-stale mix. Store semantics: [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
 
 **Curation through exploration.** The corpus is too small (hundreds of items) and interaction too infrequent for algorithmic recommendation to carry the view — no algorithm has enough signal. The view must excel at **browsing**, with three orientations:
 

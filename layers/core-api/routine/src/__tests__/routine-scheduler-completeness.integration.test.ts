@@ -56,7 +56,7 @@ function unreachable(label: string): () => never {
 function inertPorts(): RoutineSchedulerPorts {
 	return {
 		work: {
-			getBetById: unreachable("work.getBetById"),
+			// @lore BB1: getBetById deleted — bet is now a root task.
 			getTaskById: unreachable("work.getTaskById"),
 			getItemById: unreachable("work.getItemById"),
 			getArtifactById: unreachable("work.getArtifactById"),

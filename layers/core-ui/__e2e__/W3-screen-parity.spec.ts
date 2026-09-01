@@ -21,7 +21,6 @@ const TEAMS_FIXTURE = {
 	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
 };
 const THREADS_FIXTURE = { threads: [], nextCursor: null };
-const BETS_FIXTURE = { bets: [] };
 const KNOWLEDGE_FIXTURE = { items: [] };
 
 test.describe("W3 AC-57 — Max-width centering across all screens", () => {
@@ -59,13 +58,6 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
-		await page.route("**/api/bets", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BETS_FIXTURE),
 			});
 		});
 
@@ -182,13 +174,6 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 	});
 
 	test("work empty state visible when no bets", async ({ page }) => {
-		await page.route("**/api/bets*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ bets: [] }),
-			});
-		});
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,

@@ -20,16 +20,7 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
-import {
-	bets,
-	type HyperIdleDb,
-	messages,
-	sessions,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
@@ -55,15 +46,9 @@ const policyDeps: PolicyDeps = {
 				guard: { field: "state", equals: fromState },
 				patch,
 			}),
-		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
-			work.transition(exec, "bet", {
-				id: betId,
-				guard: { field: "status", equals: fromStatus },
-				patch,
-			}),
-		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
-			work.list(exec, "task", opts ?? {}),
+		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
+			work.list(exec, "task", { parentTaskId }),
+		listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 		updateItemById: (exec: WriteExecutor, id: string, patch) =>
 			work.update(exec, "item", id, patch),
@@ -101,12 +86,15 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(bets).values({
+	// BB1: bets replaced by root tasks (parentTaskId: null)
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "prod-1",
-		description: "Test bet",
-		status: "active",
+		title: "Test bet",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 
 	await db.insert(users).values({
@@ -131,12 +119,12 @@ async function seedTask(
 	db: HyperIdleDb,
 	id: string,
 	state: string,
-	betId = "bet-1",
+	parentTaskId = "bet-1",
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
 		id,
-		betId,
+		parentTaskId,
 		teamId: "prod-1",
 		title: `Task ${id}`,
 		state,
@@ -224,10 +212,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Assert: task is now in review — use vi.waitFor because the handler is async fire-and-forget
+		// Assert: the task closed on its own — use vi.waitFor because the handler
+		// is async fire-and-forget.
 		await vi.waitFor(async () => {
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-			expect(task?.state).toBe("review");
+			// @lore BB1: `done`, not `review`. A finished task closes to `done`
+			// unless it asked for a verdict via `needsReview`; before BB1 every
+			// finished task went to `review`, which made the queue meaningless.
+			expect(task?.state).toBe("done");
 		});
 	});
 
@@ -256,11 +248,16 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// Assert: propagation_applied event emitted — use vi.waitFor because the handler is async fire-and-forget
 		await vi.waitFor(() => {
-			expect(appliedEvents).toHaveLength(1);
+			// @lore BB1: was `toHaveLength(1)`. The cascade no longer stops at the
+			// task — the task closes to `done`, which makes its parent's children
+			// all-terminal, so the parent closes too, and so on up. More than one
+			// applied event is the CORRECT new behaviour; assert the session->task
+			// hop is present rather than that it is the only hop.
+			expect(appliedEvents.length).toBeGreaterThanOrEqual(1);
 			expect(appliedEvents[0]!.sourceLevel).toBe("session");
 			expect(appliedEvents[0]!.targetLevel).toBe("task");
 			expect(appliedEvents[0]!.targetId).toBe("task-1");
-			expect(appliedEvents[0]!.targetTransition).toBe("in_progress -> review");
+			expect(appliedEvents[0]!.targetTransition).toBe("in_progress -> done");
 		});
 	});
 
@@ -361,7 +358,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Assert: the sibling does not block — the task reaches review.
 		await vi.waitFor(async () => {
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-			expect(task?.state).toBe("review");
+			expect(task?.state).toBe("done");
 		});
 	});
 
@@ -391,6 +388,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Handler returns early — wait briefly then assert task unchanged
 		await new Promise((r) => setTimeout(r, 80));
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+		// Unchanged: the task was seeded in `review` and the handler returns early
+		// because it is not `in_progress`. This one is NOT the BB1 done-by-default
+		// rule — it is the guard that stops a second session end re-transitioning
+		// a task someone already moved.
 		expect(task?.state).toBe("review");
 		expect(appliedEvents).toHaveLength(0);
 	});
@@ -436,368 +437,6 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	});
 });
 
-// ─── Task -> Bet propagation ──────────────────────────────────────────────────
-
-describe("registerLifecyclePropagation — task -> bet", () => {
-	let unsubscribe: (() => void) | undefined;
-
-	afterEach(() => {
-		unsubscribe?.();
-		vi.restoreAllMocks();
-	});
-
-	test("transitions bet to review when all tasks on bet are terminal (done)", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		// Arrange: two tasks both done
-		await seedTask(db, "task-1", "done");
-		await seedTask(db, "task-2", "in_progress");
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
-
-		// Manually move task-2 to done (bypass state machine for direct DB test)
-		// then fire task_state_changed event
-		await db
-			.update(tasks)
-			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-2"));
-
-		eventBus.emit({
-			type: "task_state_changed",
-			streamId: "task-2",
-			taskId: "task-2",
-			fromState: "in_progress",
-			toState: "done",
-			timestamp: Date.now(),
-		});
-
-		// Assert: bet is now completed (U1: review status removed, transitions to completed when all tasks done)
-		await vi.waitFor(async () => {
-			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.status).toBe("completed");
-		});
-	});
-
-	test("does NOT transition bet when some tasks are still open", async ({ db, eventBus }) => {
-		await seedBase(db);
-		// Arrange: one done, one still in_progress
-		await seedTask(db, "task-1", "done");
-		await seedTask(db, "task-2", "in_progress");
-		const appliedEvents: PropagationAppliedEvent[] = [];
-		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
-
-		// Act: task-1 goes done (task-2 still open)
-		eventBus.emit({
-			type: "task_state_changed",
-			streamId: "task-1",
-			taskId: "task-1",
-			fromState: "in_progress",
-			toState: "done",
-			timestamp: Date.now(),
-		});
-
-		// Handler returns early — wait briefly then assert bet still active
-		await new Promise((r) => setTimeout(r, 80));
-		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-		expect(bet?.status).toBe("active");
-	});
-
-	test("transitions bet to review when last task is killed (all remaining terminal)", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		// Arrange: one done, one killed
-		await seedTask(db, "task-1", "done");
-		await seedTask(db, "task-2", "in_progress");
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
-
-		// Move task-2 to killed
-		await db
-			.update(tasks)
-			.set({ state: "killed", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-2"));
-
-		eventBus.emit({
-			type: "task_state_changed",
-			streamId: "task-2",
-			taskId: "task-2",
-			fromState: "in_progress",
-			toState: "killed",
-			timestamp: Date.now(),
-		});
-
-		// Assert: bet transitions to completed (U1: "review" removed)
-		await vi.waitFor(async () => {
-			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.status).toBe("completed");
-		});
-	});
-
-	test("creates a ship-confirmation review thread when bet transitions to review", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		// Arrange
-		await seedTask(db, "task-1", "done");
-		await seedTask(db, "task-2", "in_progress");
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
-
-		// Move task-2 to done
-		await db
-			.update(tasks)
-			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-2"));
-
-		eventBus.emit({
-			type: "task_state_changed",
-			streamId: "task-2",
-			taskId: "task-2",
-			fromState: "in_progress",
-			toState: "done",
-			timestamp: Date.now(),
-		});
-
-		// Assert: a review thread and ship-confirmation message exist — use vi.waitFor
-		await vi.waitFor(async () => {
-			const threadRows = await db.select().from(threads).where(eq(threads.hostKind, "bet"));
-			expect(threadRows.length).toBeGreaterThanOrEqual(1);
-
-			const thread = threadRows[0];
-			const allMessages = await db.select().from(messages).where(eq(messages.threadId, thread!.id));
-			expect(allMessages.length).toBeGreaterThanOrEqual(1);
-			const reviewMsg = allMessages.find((m) => m.type === "review");
-			expect(reviewMsg).toBeDefined();
-			if (!reviewMsg) return; // narrowing for TypeScript
-			const payload = JSON.parse(reviewMsg.payload) as { kind: string };
-			expect(payload.kind).toBe("ship_confirmation");
-		});
-	});
-
-	test("handles concurrent race on bet: InvalidTransitionError caught silently (F4)", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		// Arrange: bet manually killed while propagation fires
-		await seedTask(db, "task-1", "done");
-		await seedTask(db, "task-2", "in_progress");
-		const appliedEvents: PropagationAppliedEvent[] = [];
-		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
-
-		// Manually kill the bet (simulating concurrent human action)
-		await db
-			.update(bets)
-			.set({ status: "killed", revisionLog: JSON.stringify([]) })
-			.where(eq(bets.id, "bet-1"));
-
-		// Move task-2 to done and fire event (propagation will try completed but bet is killed)
-		await db
-			.update(tasks)
-			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-2"));
-
-		eventBus.emit({
-			type: "task_state_changed",
-			streamId: "task-2",
-			taskId: "task-2",
-			fromState: "in_progress",
-			toState: "done",
-			timestamp: Date.now(),
-		});
-
-		// Handler returns early (TERMINAL_BET_STATES includes 'killed') — bet stays killed
-		await new Promise((r) => setTimeout(r, 80));
-		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-		expect(bet?.status).toBe("killed");
-		expect(appliedEvents).toHaveLength(0);
-	});
-});
-
-// ─── Re-entrant cascade (F4) ──────────────────────────────────────────────────
-
-describe("registerLifecyclePropagation — re-entrant cascade", () => {
-	let unsubscribe: (() => void) | undefined;
-
-	afterEach(() => {
-		unsubscribe?.();
-		vi.restoreAllMocks();
-	});
-
-	test("session_ended cascades: session->task review, then task->bet completed when task goes done (F4)", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		// Arrange: one task in_progress, one active session
-		await seedTask(db, "task-1", "in_progress");
-		await seedSession(db, "session-1", "task-1", "active");
-		const appliedEvents: PropagationAppliedEvent[] = [];
-		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
-
-		// Act step 1: session ends -> task moves to review
-		eventBus.emit({
-			type: "session_ended",
-			streamId: "session-1",
-			sessionId: "session-1",
-			agentId: "agent-1",
-			taskId: "task-1",
-			timestamp: Date.now(),
-			outcome: "completed",
-		});
-
-		// Assert: task is in review — use vi.waitFor because handler is async fire-and-forget
-		await vi.waitFor(async () => {
-			const [taskAfterSession] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-			expect(taskAfterSession?.state).toBe("review");
-		});
-
-		// Verify hop 1 emitted
-		await vi.waitFor(() => {
-			const hop1 = appliedEvents.find(
-				(e) => e.sourceLevel === "session" && e.targetLevel === "task" && e.targetId === "task-1",
-			);
-			expect(hop1).toBeDefined();
-		});
-
-		// Act step 2: task manually moved to done -> bet should go to completed
-		await db
-			.update(tasks)
-			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-1"));
-
-		eventBus.emit({
-			type: "task_state_changed",
-			streamId: "task-1",
-			taskId: "task-1",
-			fromState: "in_progress",
-			toState: "done",
-			timestamp: Date.now(),
-		});
-
-		// Assert: bet is now completed (U1: "review" status removed, task->bet propagation transitions to "completed")
-		await vi.waitFor(async () => {
-			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.status).toBe("completed");
-		});
-
-		// Verify hop 2 emitted separately
-		await vi.waitFor(() => {
-			const hop2 = appliedEvents.find(
-				(e) => e.sourceLevel === "task" && e.targetLevel === "bet" && e.sourceId === "task-1",
-			);
-			expect(hop2).toBeDefined();
-		});
-	});
-});
-
-// ─── Bet -> Team propagation ──────────────────────────────────────────────────
-
-describe("registerLifecyclePropagation — bet -> team", () => {
-	let unsubscribe: (() => void) | undefined;
-
-	afterEach(() => {
-		unsubscribe?.();
-		vi.restoreAllMocks();
-	});
-
-	test("emits propagation_failed when bet read throws on bet_state_changed", async ({
-		db,
-		eventBus,
-	}) => {
-		const failedEvents: PropagationFailedEvent[] = [];
-		const failingDeps: PolicyDeps = {
-			...policyDeps,
-			work: {
-				...policyDeps.work,
-				getBetById: () => Promise.reject(new Error("bet read unavailable")),
-			},
-		};
-		unsubscribe = registerPolicy(db, eventBus, failingDeps);
-		eventBus.on("propagation_failed", (e) => failedEvents.push(e));
-		eventBus.emit({
-			type: "bet_state_changed",
-			streamId: "team-failure",
-			betId: "bet-failure",
-			fromState: "active",
-			toState: "completed",
-			timestamp: Date.now(),
-		});
-		await vi.waitFor(() => {
-			expect(failedEvents.length).toBeGreaterThanOrEqual(1);
-			expect(failedEvents[0]!.failureReason).toBe("bet read unavailable");
-		});
-	});
-
-	test("emits propagation_applied event when bet transitions to completed", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		// Arrange
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
-		const propagationEvents: PropagationAppliedEvent[] = [];
-		eventBus.on("propagation_applied", (e) => propagationEvents.push(e));
-
-		// Act: emit bet_state_changed to completed
-		eventBus.emit({
-			type: "bet_state_changed",
-			streamId: "prod-1",
-			betId: "bet-1",
-			fromState: "active",
-			toState: "completed",
-			timestamp: Date.now(),
-		});
-
-		// Assert: propagation_applied event emitted — use vi.waitFor because handler is async fire-and-forget
-		await vi.waitFor(() => {
-			const betHop = propagationEvents.find(
-				(e) => e.sourceLevel === "bet" && e.targetLevel === "team",
-			);
-			expect(betHop).toBeDefined();
-			expect(betHop!.sourceId).toBe("bet-1");
-			// @lore U1: renamed from "product" to "team"
-			expect(betHop!.targetLevel).toBe("team");
-		});
-	});
-
-	test("emits propagation_applied event when bet transitions to killed", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		// Arrange
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
-		const propagationEvents: PropagationAppliedEvent[] = [];
-		eventBus.on("propagation_applied", (e) => propagationEvents.push(e));
-
-		// Act: emit bet_state_changed to killed
-		eventBus.emit({
-			type: "bet_state_changed",
-			streamId: "prod-1",
-			betId: "bet-1",
-			fromState: "active",
-			toState: "killed",
-			timestamp: Date.now(),
-		});
-
-		// Assert: propagation_applied emitted — use vi.waitFor
-		await vi.waitFor(() => {
-			const killedHop = propagationEvents.find(
-				(e) => e.sourceLevel === "bet" && e.targetLevel === "team",
-			);
-			expect(killedHop).toBeDefined();
-		});
-	});
-});
-
-// ─── Propagation event coverage ──────────────────────────────────────────────
-
 describe("registerLifecyclePropagation — propagation events", () => {
 	let unsubscribe: (() => void) | undefined;
 
@@ -832,7 +471,12 @@ describe("registerLifecyclePropagation — propagation events", () => {
 
 		// Assert: propagation_applied event was emitted — use vi.waitFor because the handler is async fire-and-forget
 		await vi.waitFor(() => {
-			expect(appliedEvents).toHaveLength(1);
+			// @lore BB1: was `toHaveLength(1)`. The cascade no longer stops at the
+			// task — the task closes to `done`, which makes its parent's children
+			// all-terminal, so the parent closes too, and so on up. More than one
+			// applied event is the CORRECT new behaviour; assert the session->task
+			// hop is present rather than that it is the only hop.
+			expect(appliedEvents.length).toBeGreaterThanOrEqual(1);
 			expect(appliedEvents[0]!.sourceLevel).toBe("session");
 			expect(appliedEvents[0]!.targetLevel).toBe("task");
 		});

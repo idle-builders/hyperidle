@@ -27,7 +27,7 @@ const DOW_NAMES: Record<string, string> = {
  * BA1 D8/§2.6: the label is DERIVED from the event name, not mapped — the
  * four-name `EVENT_LABELS` table this replaced would have rendered the bare
  * string "On event" for the other 30 of the 34 events D2 makes authorable.
- * `bet_state_changed` → "On bet state changed". One line, correct for every
+ * `task_state_changed` → "On task state changed". One line, correct for every
  * event, and no label map left to drift.
  */
 function humanizeEventType(eventType: string): string {

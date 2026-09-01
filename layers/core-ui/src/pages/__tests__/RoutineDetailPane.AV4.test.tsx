@@ -371,7 +371,7 @@ const EVENT_ROUTINE_DETAIL: RoutineDetail = {
 		...ROUTINE_DETAIL.routine,
 		triggerType: "event",
 		triggerConfig: null,
-		eventType: "bet_state_changed",
+		eventType: "task_state_changed",
 		scheduleLabel: "On bet state changed",
 	},
 };
@@ -382,7 +382,7 @@ describe("an event routine shows the Event control and saves eventType via PATCH
 			if (url === "/api/routines/event-types") {
 				return Promise.resolve(
 					new Response(
-						JSON.stringify({ eventTypes: ["bet_state_changed", "task_state_changed"] }),
+						JSON.stringify({ eventTypes: ["task_state_changed", "task_state_changed"] }),
 						{ status: 200 },
 					),
 				);
@@ -394,7 +394,7 @@ describe("an event routine shows the Event control and saves eventType via PATCH
 
 		await waitFor(() => {
 			const eventSelect = screen.getByRole("combobox", { name: /event/i });
-			expect((eventSelect as HTMLSelectElement).value).toBe("bet_state_changed");
+			expect((eventSelect as HTMLSelectElement).value).toBe("task_state_changed");
 		});
 		expect(screen.queryByRole("combobox", { name: /schedule/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("textbox", { name: /custom cron/i })).not.toBeInTheDocument();
@@ -405,7 +405,7 @@ describe("an event routine shows the Event control and saves eventType via PATCH
 			if (url === "/api/routines/event-types") {
 				return Promise.resolve(
 					new Response(
-						JSON.stringify({ eventTypes: ["bet_state_changed", "task_state_changed"] }),
+						JSON.stringify({ eventTypes: ["task_state_changed", "task_state_changed"] }),
 						{ status: 200 },
 					),
 				);

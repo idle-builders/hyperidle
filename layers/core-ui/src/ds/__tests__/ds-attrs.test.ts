@@ -2,13 +2,13 @@
 
 /**
  * K2 acceptance gate: every Tier 1+2 component spreads `dsProps(name, tier)` on its outermost element.
+ * @lore BB1: BetCard removed — tasks are now the one work primitive.
  */
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { BetCard } from "../BetCard";
 import { EmptyState } from "../EmptyState";
 import { ErrorState } from "../ErrorState";
 import { KeyValue } from "../KeyValue";
@@ -62,17 +62,6 @@ const TIER_1: ComponentCase[] = [
 ];
 
 const TIER_2: ComponentCase[] = [
-	{
-		name: "BetCard",
-		tier: "2",
-		render: () =>
-			createElement(BetCard, {
-				title: "Bet",
-				team: "Team",
-				status: "draft",
-				appetite: "2 weeks",
-			}),
-	},
 	{
 		name: "EmptyState",
 		tier: "2",

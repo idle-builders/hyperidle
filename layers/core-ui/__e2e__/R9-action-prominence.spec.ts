@@ -44,49 +44,6 @@ const BET_1 = {
 	atRisk: false,
 };
 
-const BET_2 = {
-	id: "bet-r9-2",
-	title: "Dashboard redesign",
-	description: "# Problem\n\nDashboard needs a refresh.\n",
-	status: "draft" as const,
-	teamId: "team-r9-1",
-	atRisk: false,
-};
-
-const BET_DETAIL_1 = {
-	id: "bet-r9-1",
-	title: "Auth migration",
-	description: "# Problem\n\nWe need better auth.\n",
-	product: "HyperIdle Core",
-	team: "Alpha Core",
-	status: "active" as const,
-	tokensActual: null,
-	tokenAppetite: null,
-	progress: { done: 1, total: 3 },
-	tasks: [
-		{
-			id: "task-r9-1",
-			title: "Implement OAuth",
-			state: "ready",
-			owner: "test-founder",
-			latestSessionOutcome: null,
-			latestSessionHarnessUrl: null,
-			latestSessionModelTier: null,
-			ownerAgentId: null,
-		},
-		{
-			id: "task-r9-2",
-			title: "Add refresh tokens",
-			state: "done",
-			owner: "test-founder",
-			latestSessionOutcome: null,
-			latestSessionHarnessUrl: null,
-			latestSessionModelTier: null,
-			ownerAgentId: null,
-		},
-	],
-};
-
 const THREAD_1 = {
 	id: "thread-r9-1",
 	hostKind: "user",
@@ -213,18 +170,6 @@ const KNOWLEDGE_ITEM_3 = {
  * Used for testing empty-state CTAs.
  */
 async function seedEmpty(page: Page): Promise<void> {
-	await page.route("**/api/bets", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ draft: [], active: [], completed: [], killed: [] }),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
 	await page.route("**/api/threads?**", async (route) => {
 		if (route.request().method() === "GET") {
 			await route.fulfill({
@@ -255,30 +200,6 @@ async function seedEmpty(page: Page): Promise<void> {
  * Used for testing single-bet portfolio, bet detail, team, and conversations.
  */
 async function seedFirstBet(page: Page): Promise<void> {
-	await page.route("**/api/bets", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ draft: [], active: [BET_1], completed: [], killed: [] }),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
-	await page.route(`**/api/bets/${BET_1.id}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_DETAIL_1),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
 	await page.route("**/api/threads?**", async (route) => {
 		if (route.request().method() === "GET") {
 			await route.fulfill({
@@ -359,30 +280,6 @@ async function seedFirstBet(page: Page): Promise<void> {
  * Used for testing conversations filter, verdict, and dial-in flows.
  */
 async function seedActiveWork(page: Page): Promise<void> {
-	await page.route("**/api/bets", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ draft: [BET_2], active: [BET_1], completed: [], killed: [] }),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
-	await page.route(`**/api/bets/${BET_1.id}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_DETAIL_1),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
 	await page.route("**/api/threads?**", async (route) => {
 		if (route.request().method() === "GET") {
 			await route.fulfill({
@@ -670,13 +567,6 @@ test.describe("R9 — Setup page", () => {
 		});
 
 		// Mock bets for portfolio
-		await page.route("**/api/bets", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ draft: [], active: [], completed: [], killed: [] }),
-			});
-		});
 
 		await page.goto("/setup");
 		await page.getByLabel(/^name/i).fill("R9 Founder");
@@ -726,7 +616,7 @@ test.describe("R9 — Setup page", () => {
 
 test.describe("R9 — Portfolio page", () => {
 	// portfolio-create-bet: "New bet" button visible + EmptyState CTA visible (AC-1, AC-2)
-	test("portfolio-create-bet: New bet btn-sm visible; empty state CTA visible", async ({
+	test("portfolio-create-task: New task btn-sm visible; empty state CTA visible", async ({
 		page,
 	}) => {
 		await seedEmpty(page);
@@ -734,7 +624,7 @@ test.describe("R9 — Portfolio page", () => {
 		await page.waitForSelector("[data-testid='work-overview-page']");
 
 		// AC-1: "New bet" button must be visible and clickable
-		const newBetBtn = page.getByTestId("new-bet-btn");
+		const newBetBtn = page.getByTestId("new-task-btn");
 		await expect(newBetBtn).toBeVisible();
 		// AC-1: The button must have btn-sm class (not btn-xs)
 		await expect(newBetBtn).toHaveClass(/btn-sm/);
@@ -745,58 +635,6 @@ test.describe("R9 — Portfolio page", () => {
 		// AC-2: CTA button inside EmptyState is visible and clickable
 		const ctaButton = emptyState.getByRole("button", { name: /new bet/i });
 		await expect(ctaButton).toBeVisible();
-	});
-
-	// portfolio-open-bet: Click first BetCard → URL matches /work/bet/:id
-	test("portfolio-open-bet: clicking BetCard navigates to /work/bet/:id", async ({ page }) => {
-		await seedFirstBet(page);
-		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-overview-page']");
-
-		// Bet grid should show the bet
-		const betGrid = page.getByTestId("bet-grid");
-		await expect(betGrid).toBeVisible();
-
-		// Click the bet card
-		await betGrid.getByText("Auth migration").click();
-
-		await expect(page).toHaveURL(new RegExp(`/work/bet/${BET_1.id}`), { timeout: 5_000 });
-	});
-
-	// portfolio-filter-team: Click team pill → filtered bet grid shows matching bets
-	test("portfolio-filter-team: team pill filters bet grid", async ({ page }) => {
-		await seedActiveWork(page);
-
-		// Override teams so multiple teams exist for pill filters
-		await page.route("**/api/teams", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						teams: [
-							{ id: "team-r9-1", name: "Alpha Core", phase: "build", active: true },
-							{ id: "team-r9-2", name: "Beta Squad", phase: "build", active: true },
-						],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-overview-page']");
-
-		// Team pill filter group must be visible
-		const pillFilters = page.getByTestId("team-pill-filters");
-		await expect(pillFilters).toBeVisible();
-
-		// Click a team pill — activating a filter
-		await pillFilters.getByText("Alpha Core").click();
-
-		// The pill should become active (btn-primary class)
-		await expect(pillFilters.getByText("Alpha Core")).toHaveClass(/btn-primary/);
 	});
 });
 
@@ -826,12 +664,11 @@ test.describe("R9 — Team page", () => {
 						roster: [{ agentId: "test-founder", name: "Test Founder", role: "lead", isLead: true }],
 						burn: {
 							capacity: 2,
-							activeBets: 1,
 						},
-						activeBets: [
+						tasksInProgress: [
 							{
 								id: BET_1.id,
-								descriptionTitle: BET_1.title,
+								title: BET_1.title,
 								status: BET_1.status,
 								progressDone: 1,
 								progressTotal: 3,
@@ -845,24 +682,26 @@ test.describe("R9 — Team page", () => {
 		});
 	});
 
-	// team-open-bet: Click BetRow → URL matches /work/bet/:id
-	// @lore R9: WorkTeam uses data-testid="team-active-bets" (not "product-active-bets")
-	test("team-open-bet: clicking BetRow on team page navigates to bet detail", async ({ page }) => {
+	// team-open-bet: Click BetRow → URL matches /work/task/:id
+	// @lore R9: WorkTeam uses data-testid="team-active-tasks" (not "product-active-bets")
+	test("team-open-task: clicking BetRow on team page navigates to task detail", async ({
+		page,
+	}) => {
 		await seedFirstBet(page);
 		await page.goto(`/work/team/${BET_1.teamId}`);
 		await page.waitForSelector("[data-testid='work-team-page']");
 
 		// Active bets region must be visible
-		const activeBets = page.getByTestId("team-active-bets");
-		await expect(activeBets).toBeVisible();
+		const activeTasks = page.getByTestId("team-active-tasks");
+		await expect(activeTasks).toBeVisible();
 
 		// The bet title should be visible
-		await expect(activeBets.getByText("Auth migration")).toBeVisible();
+		await expect(activeTasks.getByText("Auth migration")).toBeVisible();
 
 		// Click the bet
-		await activeBets.getByText("Auth migration").click();
+		await activeTasks.getByText("Auth migration").click();
 
-		await expect(page).toHaveURL(new RegExp(`/work/bet/${BET_1.id}`), { timeout: 5_000 });
+		await expect(page).toHaveURL(new RegExp(`/work/task/${BET_1.id}`), { timeout: 5_000 });
 	});
 
 	// team-back-portfolio: Click breadcrumb "Portfolio" → URL matches /work/portfolio
@@ -895,7 +734,7 @@ test.describe("R9 — Team page", () => {
 // Bet (3 tests) — seedFirstBet
 // ---------------------------------------------------------------------------
 
-test.describe("R9 — Bet detail page", () => {
+test.describe("R9 — Task detail page", () => {
 	test.beforeEach(async ({ page }) => {
 		await seedFirstBet(page);
 
@@ -920,9 +759,9 @@ test.describe("R9 — Bet detail page", () => {
 	// onClick on table rows/cells because force-dispatched events bypass the pointer
 	// event chain that React's delegation relies on. Use page.evaluate() to fire a
 	// real bubbling click event through JS, which React's root listener intercepts.
-	test("bet-open-task: clicking task row opens task sheet", async ({ page }) => {
-		await page.goto(`/work/bet/${BET_1.id}`);
-		await expect(page.getByTestId("work-bet-page")).toBeVisible();
+	test("task-open-task: clicking task row opens task sheet", async ({ page }) => {
+		await page.goto(`/work/task/${BET_1.id}`);
+		await expect(page.getByTestId("task-detail-page")).toBeVisible();
 
 		// Tasks must be visible in the bet detail — use data-testid to avoid overlap
 		const taskRows = page.getByTestId("task-row");
@@ -939,7 +778,7 @@ test.describe("R9 — Bet detail page", () => {
 	});
 
 	// bet-post-discussion: Type in host thread composer + send → POST intercepted
-	test("bet-post-discussion: posting to host thread section intercepts POST", async ({ page }) => {
+	test("task-post-discussion: posting to host thread section intercepts POST", async ({ page }) => {
 		let postCalled = false;
 
 		// @lore R9: The beforeEach mock returns empty threads for **/api/threads?**.
@@ -986,8 +825,8 @@ test.describe("R9 — Bet detail page", () => {
 			}
 		});
 
-		await page.goto(`/work/bet/${BET_1.id}`);
-		await expect(page.getByTestId("work-bet-page")).toBeVisible();
+		await page.goto(`/work/task/${BET_1.id}`);
+		await expect(page.getByTestId("task-detail-page")).toBeVisible();
 
 		// @lore R9: HostThreadSection uses "Write a message…" placeholder (not "Reply to thread…").
 		// ThreadShell Composer uses "Reply to thread…". HostThreadSection on the bet page uses
@@ -1010,62 +849,6 @@ test.describe("R9 — Bet detail page", () => {
 	// 2. useBetDescriptionSave/useAutoSave: unmountedRef.current reset to false in
 	//    effect setup so React 18 StrictMode double-invocation doesn't permanently
 	//    mark the hook as "unmounted" after cleanup+re-run.
-	test("bet-edit-description: editing description fires PATCH and shows saving indicator", async ({
-		page,
-	}) => {
-		// @lore R9: Intercept all thread requests to prevent 500 errors from threads API.
-		await page.route("**/api/threads**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null, thread: null }),
-			});
-		});
-
-		// @lore R9: GET falls through to seedFirstBet's GET handler via fallback().
-		// PATCH is captured via waitForRequest() at the network level.
-		await page.route(`**/api/bets/${BET_1.id}`, async (route) => {
-			if (route.request().method() === "PATCH") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ ok: true }),
-				});
-			} else {
-				await route.fallback();
-			}
-		});
-
-		await page.goto(`/work/bet/${BET_1.id}`);
-		await expect(page.getByTestId("work-bet-page")).toBeVisible();
-
-		// BodyEditor is present for active bets
-		const editor = page.locator('[data-testid="bet-description-editor"]');
-		await expect(editor).toBeVisible({ timeout: 5_000 });
-
-		// @lore R9: .fill() silently no-ops on ProseMirror (not a form element); drive
-		// TipTap via keyboard input (pressSequentially). Start waitForRequest() BEFORE
-		// typing so the debounced PATCH (1500ms after last keystroke) is captured.
-		const contentEditable = editor.locator('[contenteditable="true"]').first();
-		await contentEditable.click();
-
-		// Start listening for the PATCH BEFORE typing (debounce 1500ms, budget 10s)
-		const patchPromise = page.waitForRequest(
-			(req) => req.url().includes(`/api/bets/${BET_1.id}`) && req.method() === "PATCH",
-			{ timeout: 10_000 },
-		);
-
-		await contentEditable.pressSequentially("Updated");
-
-		// Wait for the debounced PATCH to arrive (debounce=1500ms; 10s budget covers latency)
-		const patchRequest = await patchPromise;
-		const capturedPatchBody = JSON.parse(patchRequest.postData() ?? "{}") as Record<
-			string,
-			unknown
-		>;
-
-		expect(capturedPatchBody.field).toBe("description");
-	});
 });
 
 // ---------------------------------------------------------------------------

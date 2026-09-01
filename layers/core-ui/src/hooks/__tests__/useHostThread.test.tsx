@@ -16,7 +16,7 @@ import { useHostThread } from "../../hooks/useHostThread";
 const THREAD_ID = "t-host-001";
 const THREAD_FIXTURE = {
 	id: THREAD_ID,
-	hostKind: "bet",
+	hostKind: "task",
 	hostId: "bet-001",
 	initiatorId: "u-founder",
 	participants: ["u-founder", "agent-unassigned"],
@@ -76,7 +76,7 @@ describe("useHostThread (L18)", () => {
 			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }]))
 			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, MESSAGES_FIXTURE));
 
-		const { result } = renderHook(() => useHostThread("bet", "bet-001"));
+		const { result } = renderHook(() => useHostThread("task", "bet-001"));
 
 		expect(result.current.isLoading).toBe(true);
 
@@ -94,7 +94,7 @@ describe("useHostThread (L18)", () => {
 		// GET list returns empty
 		fetchSpy.mockResolvedValueOnce(makeThreadListResponse([]));
 
-		const { result } = renderHook(() => useHostThread("bet", "bet-no-thread"));
+		const { result } = renderHook(() => useHostThread("task", "bet-no-thread"));
 
 		await waitFor(() => {
 			expect(result.current.isLoading).toBe(false);
@@ -137,7 +137,7 @@ describe("useHostThread (L18)", () => {
 			.mockResolvedValueOnce(makeThreadListResponse([{ id: THREAD_ID }])) // list re-fetch
 			.mockResolvedValueOnce(makeThreadDetailResponse(THREAD_FIXTURE, updatedMessages)); // detail re-fetch (threadId stable but useFetch will re-fetch when list data changes)
 
-		const { result } = renderHook(() => useHostThread("bet", "bet-001"));
+		const { result } = renderHook(() => useHostThread("task", "bet-001"));
 
 		await waitFor(() => {
 			expect(result.current.isLoading).toBe(false);
@@ -159,7 +159,7 @@ describe("useHostThread (L18)", () => {
 	});
 
 	it("returns null when hostId is empty string", async () => {
-		const { result } = renderHook(() => useHostThread("bet", ""));
+		const { result } = renderHook(() => useHostThread("task", ""));
 
 		await waitFor(() => {
 			expect(result.current.isLoading).toBe(false);

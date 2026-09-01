@@ -40,7 +40,6 @@ const ROSTER_RUN_STATE = new Map<string, unknown>([
 			healthDetail: "Healthy",
 			activeTaskTitle: null,
 			activeTaskId: null,
-			activeBetId: null,
 		},
 	],
 ]);
@@ -79,9 +78,8 @@ const TEAM: TeamDetail = {
 	roster: [AGENT],
 	burn: {
 		capacity: 5,
-		activeBets: 0,
 	},
-	activeBets: [],
+	tasksInProgress: [],
 	routines: [
 		{
 			id: "routine-1",

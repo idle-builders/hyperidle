@@ -21,12 +21,12 @@
  * useParams now reads `teamId` directly (no more productId alias).
  */
 
-// @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
-import type { BetCardSummary, TeamDetail } from "@hyperidle/domain-model";
+// @lore BB1: `BetCardSummary` → `TaskCardSummary`, `activeBets` → `tasksInProgress`.
+import type { TaskCardSummary, TeamDetail } from "@hyperidle/domain-model";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
-	BET_STATUS_LABEL,
 	roleLabel,
+	TASK_STATE_LABEL,
 } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -37,7 +37,6 @@ import {
 	agentOperationalStatusToStatus,
 	Breadcrumb,
 	Button,
-	betStatusToStatus,
 	EmptyState,
 	ErrorState,
 	ItemList,
@@ -52,6 +51,7 @@ import {
 	SplitView,
 	StatusChip,
 	Tag,
+	taskStateToStatus,
 } from "../ds";
 import { DEFAULT_ROSTER_RUN_STATE, useRosterRunState } from "../hooks/useAgentRunState.js";
 import { useTeam } from "../hooks/useTeam";
@@ -132,7 +132,7 @@ export function WorkTeam({
 				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
 					{/* UI-016: match real content regions — summary strip, bets, routines, roster */}
 					<SkeletonCard ariaLabel="Loading team summary" />
-					<SkeletonCard ariaLabel="Loading active bets" />
+					<SkeletonCard ariaLabel="Loading active tasks" />
 					<SkeletonCard ariaLabel="Loading routines" />
 					<SkeletonCard ariaLabel="Loading roster" />
 				</div>
@@ -240,7 +240,8 @@ function WorkTeamLoaded({
 	const { sidebarMobile } = useViewportBreakpoint();
 	// @lore U1: `team` replaces `product` in TeamDetail.
 	// @lore AA1: routines defaults to [] so pre-AA1 mock data (missing the field) doesn't crash.
-	const { team, roster, burn, activeBets, routines = [] } = data;
+	// @lore BB1: activeBets → tasksInProgress; stored counter deleted, list comes from API
+	const { team, roster, burn, tasksInProgress = [], routines = [] } = data;
 	const onOpenArtifact = useArtifactOpen();
 	// @lore AV4: All three new hooks go UNCONDITIONALLY here at the top of WorkTeamLoaded,
 	// NOT in WorkTeam — WorkTeam has 5 early-return guard branches (loading/error/null/no-team)
@@ -345,8 +346,8 @@ function WorkTeamLoaded({
 							metrics={[
 								{
 									label: "Capacity",
-									value: `${burn.activeBets} / ${burn.capacity}`,
-									sub: "active bets",
+									value: `${tasksInProgress.length} / ${burn.capacity}`,
+									sub: "active tasks",
 								},
 							]}
 						/>
@@ -404,39 +405,43 @@ function WorkTeamLoaded({
 				</div>
 			</section>
 
-			{/* R2 — Active bets */}
-			<section aria-label="Active bets" data-testid="team-active-bets">
+			{/* R2 — Active tasks (@lore BB1: was "Active bets") */}
+			<section aria-label="Active tasks" data-testid="team-active-tasks">
 				<SectionLabel
-					label="Active Bets"
+					label="Active Tasks"
 					as="h2"
 					trailing={
 						<Button
 							variant="ghost"
 							size="sm"
 							type="button"
-							onClick={() => navigate("/work/bet/new")}
-							data-testid="new-bet-btn"
+							onClick={() => navigate("/work/task/new")}
+							data-testid="new-task-btn"
 						>
-							+ New bet
+							+ New task
 						</Button>
 					}
 				/>
-				{activeBets.length === 0 ? (
+				{tasksInProgress.length === 0 ? (
 					<EmptyState
-						title="No active bets"
-						description="This team has no bets in flight."
-						dataTestId="team-active-bets-empty"
+						title="No active tasks"
+						description="This team has no tasks in flight."
+						dataTestId="team-active-tasks-empty"
 					/>
 				) : (
 					<ItemList variant="flush" isEmpty={false}>
-						{activeBets.map((bet) => (
-							<BetRow key={bet.id} bet={bet} href={`/work/bet/${encodeURIComponent(bet.id)}`} />
+						{tasksInProgress.map((task) => (
+							<TaskRow
+								key={task.id}
+								task={task}
+								href={`/work/task/${encodeURIComponent(task.id)}`}
+							/>
 						))}
 					</ItemList>
 				)}
 			</section>
 
-			{/* R5 — Routines (AA1): sits after active bets, before roster */}
+			{/* R5 — Routines (AA1): sits after active tasks, before roster */}
 			<section aria-label="Team routines" data-testid="team-routines">
 				<SectionLabel
 					label="Routines"
@@ -828,23 +833,23 @@ function WorkTeamLoaded({
 // wrapper in the stat strip. See @lore UI-065 comment in the R4 section above.
 
 /**
- * Single active-bet row rendered inside R2. Uses design-system Row for flush layout.
+ * Single active-task row rendered inside R2. Uses design-system Row for flush layout.
+ * @lore BB1: Renamed from BetRow; now uses TaskCardSummary shape.
  * @lore F1 (POLISH-060): replaced hand-rolled grey button with Row primitive — drops
- * bg-[var(--surface-container)] so bets sit flush on the page, not in a grey card.
+ * bg-[var(--surface-container)] so tasks sit flush on the page, not in a grey card.
  */
 // @lore UI-080: href instead of onClick so ⌘-click / middle-click work natively.
 // StatusChip (actions) is display-only so nesting inside <a> is valid.
-function BetRow({ bet, href }: { bet: BetCardSummary; href: string }): JSX.Element {
-	const progressText = bet.progressTotal > 0 ? `${bet.progressDone}/${bet.progressTotal}` : "—";
+function TaskRow({ task, href }: { task: TaskCardSummary; href: string }): JSX.Element {
+	const progressText = task.progressTotal > 0 ? `${task.progressDone}/${task.progressTotal}` : "—";
 
 	return (
 		<Row
-			title={bet.descriptionTitle}
+			title={task.title}
 			href={href}
 			cells={[{ content: progressText, numeric: true }]}
 			actions={
-				/* C1: label so team surface reads "ACTIVE" not "HEALTHY" */
-				<StatusChip status={betStatusToStatus(bet.status)} label={BET_STATUS_LABEL[bet.status]} />
+				<StatusChip status={taskStateToStatus(task.state)} label={TASK_STATE_LABEL[task.state]} />
 			}
 		/>
 	);

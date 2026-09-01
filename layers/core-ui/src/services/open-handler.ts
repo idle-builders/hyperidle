@@ -50,7 +50,6 @@ export interface OpenHandlerContext {
 
 function objectKindForHost(hostKind: HostKind): ProductObjectKind | null {
 	switch (hostKind) {
-		case "bet":
 		case "task":
 		case "knowledge_item":
 		case "artifact":

@@ -58,7 +58,6 @@ import {
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { deriveTitle } from "@hyperidle/work";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
@@ -355,10 +354,6 @@ async function resolveHostTitle(
 	hostId: string,
 ): Promise<string | null> {
 	switch (hostKind) {
-		case "bet": {
-			const row = await work.get(db, "bet", hostId);
-			return row ? deriveTitle(row.description, hostId) : null;
-		}
 		case "task": {
 			const row = await work.get(db, "task", hostId);
 			return row?.title ?? null;
@@ -427,7 +422,6 @@ async function resolveThreadTitles(
 	if (rows.length === 0) return titleMap;
 
 	// ── collect IDs for batched lookups ──────────────────────────────────────
-	const betIds: string[] = [];
 	const taskIds: string[] = [];
 	const kiIds: string[] = [];
 	const allParticipantIds = new Set<string>();
@@ -445,9 +439,6 @@ async function resolveThreadTitles(
 		for (const p of parts) allParticipantIds.add(p);
 
 		switch (row.hostKind) {
-			case "bet":
-				betIds.push(row.hostId);
-				break;
 			case "task":
 				taskIds.push(row.hostId);
 				break;
@@ -460,8 +451,7 @@ async function resolveThreadTitles(
 	}
 
 	// ── batched queries ───────────────────────────────────────────────────────
-	const [betRows, taskRows, kiRows, userRows] = await Promise.all([
-		work.list(db, "bet", { ids: betIds }),
+	const [taskRows, kiRows, userRows] = await Promise.all([
 		work.list(db, "task", { ids: taskIds }),
 		kiIds.length > 0
 			? listKnowledgeItems(db, { titlesByIds: kiIds })
@@ -471,7 +461,6 @@ async function resolveThreadTitles(
 			: Promise.resolve([] as Array<{ id: string; name: string }>),
 	]);
 
-	const betMap = new Map(betRows.map((r) => [r.id, r.description]));
 	const taskMap = new Map(taskRows.map((r) => [r.id, r.title]));
 	const kiMap = new Map(kiRows.map((r) => [r.id, r.title]));
 	const userNameMap = new Map(userRows.map((r) => [r.id, r.name]));
@@ -516,16 +505,11 @@ async function resolveThreadTitles(
 			}
 		}
 
-		// Rung 3: host-scoped (bet, task, knowledge_item)
-		if (row.hostKind === "bet") {
-			const desc = betMap.get(row.hostId);
-			if (desc !== undefined) {
-				titleMap.set(row.id, deriveTitle(desc, row.hostId));
-			} else {
-				titleMap.set(row.id, "Deleted bet");
-			}
-			continue;
-		}
+		// Rung 3: host-scoped (task, knowledge_item)
+		// @lore BB1: the `bet` branch is deleted. It collected host ids into a
+		// second array and issued a SECOND `work.list(db, "task", …)` that could
+		// only ever return nothing, because migration 0068 flipped every
+		// bet-hosted thread to host_kind "task". One host kind, one query.
 		if (row.hostKind === "task") {
 			const title = taskMap.get(row.hostId);
 			if (title !== undefined) {

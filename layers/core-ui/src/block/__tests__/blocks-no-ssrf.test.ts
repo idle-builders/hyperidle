@@ -14,7 +14,7 @@ describe("AC-50 — image kind never triggers server-side fetch", () => {
 		});
 		try {
 			const md = "![one](https://example.com/a.png)\n\n![two](https://example.com/b.jpg)\n";
-			const { blocks } = deriveBlocks(md, { kind: "bet", id: "b1" });
+			const { blocks } = deriveBlocks(md, { kind: "task", id: "b1" });
 			expect(blocks.length).toBeGreaterThan(0);
 			expect(fetchSpy).not.toHaveBeenCalled();
 		} finally {

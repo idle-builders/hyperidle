@@ -2,14 +2,6 @@
 
 Cross-primitive conventions and closed vocabularies for the process layer. The shapes themselves live in code — `framework/db/src/schema.ts`, `framework/domain-model/src/types/money.ts`, `framework/domain-model/src/types.ts` — and each primitive's semantics live in its own deep doc. This doc never carries Block shapes (see [../blocks/canonical-shapes.md](../blocks/canonical-shapes.md)) or knowledge shapes (schema.ts owns them).
 
-## RevisionLogEntry (bets)
-
-```
-{ timestamp: string, field: string, old_value: unknown, new_value: unknown, reason: string, actor: string }
-```
-
-Appended as a JSON array in the `bets.revision_log` text column (`layers/core-api/src/routes/bets.ts`).
-
 ## Money and TokenUsage — as shipped
 
 The `Money` and `TokenUsage` types still ship as shared vocabulary even though nothing caps or enforces spend. ModelTier vocabulary is owned by [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md). Shipped conventions (`framework/domain-model/src/types/money.ts`):
@@ -29,24 +21,9 @@ The `Money` and `TokenUsage` types still ship as shared vocabulary even though n
 
 **Gap:** shipped normalization silently drops unknown tiers instead — `isModelTier(n.tier) ? { tier: n.tier } : {}` (`framework/harness-protocol/src/harness/harness-event-normalization.ts`); `ModelTierUnknownWarning` is unimplemented. The contract above is the spec to build toward.
 
-## Outcome verdicts (AC1)
+## Outcome verdict
 
-Enums shipped in `framework/domain-model/src/types.ts` (`BET_OUTCOME_VERDICTS`, `TASK_OUTCOME_VERDICTS`). The semantics below are the canonical meanings; code carries only labels.
-
-### BetOutcomeVerdict
-
-```
-'validated' | 'refuted' | 'partial' | 'inconclusive'
-```
-
-- `validated` — the hypothesis held; measured results confirm the prediction.
-- `refuted` — the hypothesis did not hold; evidence contradicts the prediction.
-- `partial` — some segments or dimensions validated; others did not.
-- `inconclusive` — insufficient data or runtime to reach a verdict.
-
-Null means not yet evaluated. Evaluation is only meaningful for `completed` or `killed` bets.
-
-### TaskOutcomeVerdict
+One vocabulary covers every task at every depth (`TASK_OUTCOME_VERDICTS`, `framework/domain-model/src/types.ts`):
 
 ```
 'met' | 'met_with_rework' | 'partially_met' | 'not_met'
@@ -57,7 +34,7 @@ Null means not yet evaluated. Evaluation is only meaningful for `completed` or `
 - `partially_met` — partially completed; some acceptance criteria remain open.
 - `not_met` — did not meet its acceptance criteria.
 
-Null means not yet evaluated. Evaluation typically happens after the task reaches `done`.
+Null means not yet evaluated. Evaluation typically happens after the task reaches `done`. The separate `BetOutcomeVerdict` enum (`validated | refuted | partial | inconclusive`) is deleted — it died with the `bets` table in BB1. There is now one vocabulary for work outcomes at every depth.
 
 ### Session effectivenessScore
 

@@ -46,16 +46,10 @@ describe("BLOCK_KINDS", () => {
 });
 
 describe("BLOCK_HOST_KINDS", () => {
-	it("is a closed 6-entry array", () => {
-		expect(BLOCK_HOST_KINDS).toHaveLength(6);
-		expect([...BLOCK_HOST_KINDS]).toEqual([
-			"bet",
-			"task",
-			"knowledge_item",
-			"artifact",
-			"agent",
-			"user",
-		]);
+	// @lore BB1: "bet" removed from BLOCK_HOST_KINDS — root tasks replace bets
+	it("is a closed 5-entry array (BB1: bet removed)", () => {
+		expect(BLOCK_HOST_KINDS).toHaveLength(5);
+		expect([...BLOCK_HOST_KINDS]).toEqual(["task", "knowledge_item", "artifact", "agent", "user"]);
 	});
 
 	it("derives BlockHostKind union", () => {

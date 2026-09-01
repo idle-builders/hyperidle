@@ -13,16 +13,16 @@
  */
 
 import { groupKey } from "../lib/crossing-keys.js";
-import type { DetectedCrossing } from "../lib/crossings.js";
-import type { Architecture, Kind } from "../lib/governance-model.js";
+import type { DetectedCrossing, DetectorKind } from "../lib/crossings.js";
+import type { Architecture } from "../lib/governance-model.js";
 import { decide } from "../lib/governance-model.js";
 import type { Finding, Rule } from "../lib/governance-rules.js";
 
 export interface CrossingRuleInput {
 	readonly architecture: Architecture;
 	readonly crossings: readonly DetectedCrossing[];
-	/** Minimum crossings each detector must find. Below it the rule throws rather than passing. */
-	readonly floors: ReadonlyMap<Kind, number>;
+	/** The crossing kinds to build rules for — one rule per kind. */
+	readonly kinds: readonly DetectorKind[];
 }
 
 /** Every violation found, with the group it belongs to. Shared by the rules and the reporter. */
@@ -45,18 +45,19 @@ export function violationsOf(
 }
 
 export function crossingRules(input: CrossingRuleInput): Rule[] {
-	const { architecture, crossings, floors } = input;
+	const { architecture, crossings, kinds } = input;
 	const violations = violationsOf(architecture, crossings);
 
-	const kinds = [...floors.keys()];
-	return kinds.map((kind): Rule => {
+	return kinds.map(({ kind }): Rule => {
 		const mine = crossings.filter((c) => c.crossing.kind === kind);
 		const myViolations = violations.filter((v) => v.found.crossing.kind === kind);
 		return {
 			id: `crossing-${kind.replace(":", "-")}`,
 			description: `every ${kind} crossing obeys the architecture model`,
 			scope: () => mine.map((c) => `${c.file}:${c.line}`),
-			minScope: floors.get(kind) ?? 1,
+			// @lore BB1: was the kind's declared magnitude floor. The floors are gone; 1 is the
+			// liveness bar that matters — a crossing rule with an EMPTY population is dead.
+			minScope: 1,
 			evaluate: (): readonly Finding[] =>
 				myViolations.map((violation) => ({
 					ruleId: `crossing-${kind.replace(":", "-")}`,

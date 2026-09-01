@@ -1,4 +1,4 @@
-import { bets, type HyperIdleDb, routines, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routines, sessions, tasks, teams, users } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -29,18 +29,20 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 
 	// Seed a bet and task for FK references in session creation
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "prod-1",
+		title: "Test",
 		description: "Test",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
 	});
 
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "prod-1",
 		title: "Test Task",
 		state: "in_progress",

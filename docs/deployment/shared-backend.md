@@ -77,11 +77,7 @@ Helm chart** — cloud deploys currently skip factory bootstrap.
 
 Factory bootstrap is **not** team provisioning and **not** demo data:
 
-- A user's own **team**, its **agent roster**, and its **built-in routines**
-  (`post-bet-retro`, `portfolio-retro`, `knowledge-decay`,
-  `knowledge-promotion`) are created by **onboarding / `create_team`**, provisioned
-  per-team (`builtin:<kind>:<teamId>`) with an `ownerRole` resolved from the team
-  roster at provision time — never factory-seeded.
+- A user's own **team** and its **agent roster** are created by **onboarding / `create_team`**, provisioned per-team with an `ownerRole` resolved from the team roster at provision time — never factory-seeded. Plugin-provided routines (`knowledge-decay`, `knowledge-promotion`, `post-task-retro`) are seeded by the knowledge-management plugin on team creation.
 - The bootstrap **never** creates a user-facing team, human, or assistant (local
   or shared). Demo/example world-state lives only in tests / stories / e2e /
   `setup-cli` demo mode, under a neutral fictional name.

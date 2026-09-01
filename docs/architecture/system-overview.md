@@ -97,7 +97,7 @@ React (TypeScript) with **Tailwind CSS + DaisyUI** and the Hearth theme — `hea
 ### 3.3 The three views
 
 - **Conversations** — threaded messages; review messages embed an artifact reference plus a verdict affordance; humans can initiate conversations and dial into live sessions. Verdict grammar is owned by [Thread Primitive](../human-interface-layer/thread-primitive.md); ArtifactView's five embed shapes by [Artifact Primitive](../process-layer/artifact-primitive.md).
-- **Work** — drill-down WorkOverview → Team → Bet → Task (no Product level; scope is Team). Bets have a hard capacity cap enforced server-side at status transitions (`layers/core-api/src/routes/bets.ts`). Tasks are agent-owned — no drag; state changes flow through threads.
+- **Work** — drill-down WorkOverview → Team → Task (any depth; no Product level; scope is Team). A team's capacity cap is enforced server-side at `in_progress` transitions (`layers/core-api/src/routes/tasks.ts`). Tasks are agent-owned — no drag; state changes flow through threads.
 - **Knowledge** — items with relevance and attention scoring; scope changes carry a reason logged to the knowledge edit log. Scoring design: [relevance and attention](../knowledge-architecture/relevance-and-attention.md).
 
 View behavior and layout are owned by the [human-interface-layer](../human-interface-layer/the-three-views.md) and [information-architecture](../information-architecture/app-shell-always-present.md) docs.
@@ -123,8 +123,8 @@ User submits a verdict
   → App subscribers react: harness adapter unblocks agent, attention scores update
   → Thread list refreshes via WebSocket push
 
-User creates a bet
-  → POST /api/bets (markdown body + appetite)
+User creates a task
+  → POST /api/tasks (markdown body + done condition)
 
 User creates knowledge
   → POST /api/knowledge (scope_kind + scope_id + markdown body)
@@ -140,7 +140,7 @@ WebSocket subscribe authorization is owned by the [Authorization Model](./author
 - **MCP servers for external tool discovery.** Skills call CLIs and APIs directly. Exception: the MCP Bridge (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts`) exposes HyperIdle's tools TO external harnesses — the inverse direction. There is no outbound MCP broker; external tools arrive via the [Connection model](./connection-model.md) (held tokens injected at provisioning, or inherited harness auth).
 - **A vector database.** Full-text search is Postgres tsvector + GIN on `knowledge_items`; no pgvector.
 - **A separate auth service.** Auto-generated API keys; a Tailscale-style private network for shared deployments.
-- **A backlog.** Draft bets live on the Work view; unpicked drafts expire.
+- **A backlog.** Proposed tasks live on the Work view; unpicked ones can be killed.
 - **Multiple applications.** One app, two form factors.
-- **Jira-style reporting.** Conversations (review threads) and Work (bet/task views) are the human surfaces for status.
+- **Jira-style reporting.** Conversations (review threads) and Work (task views) are the human surfaces for status.
 - **A git forge, a CI engine, or deploy infrastructure.** HyperIdle rides the git substrate (code in a local-first, forge-optional git repo), integrates CI/registries/deploy/SSO via API/MCP, and triggers side-effects through connected systems — it never hosts repos, runs runners, or executes a deploy itself. See [System Boundary](./system-boundary.md) for the trigger-not-executor seam.

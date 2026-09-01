@@ -16,13 +16,14 @@ describe("resolveHostRoute (H5 fixes)", () => {
 		expect(resolveHostRoute("artifact", "art-42")).toBe("/artifacts/art-42");
 	});
 
-	it("task → null (BLOCKER-1: no betId in scope — documented no-op)", () => {
-		expect(resolveHostRoute("task", "task-99")).toBeNull();
+	// @lore BB1: task now navigates directly — no betId needed
+	it("task → /work/task/:id (BB1: was a no-op when bet route needed betId)", () => {
+		expect(resolveHostRoute("task", "task-99")).toBe("/work/task/task-99");
 	});
 
 	// Regression guard: unchanged cases must still pass
-	it("bet → /work/bet/:id (unchanged)", () => {
-		expect(resolveHostRoute("bet", "bet-5")).toBe("/work/bet/bet-5");
+	it("task → /work/task/:id with correct id", () => {
+		expect(resolveHostRoute("task", "task-5")).toBe("/work/task/task-5");
 	});
 
 	it("knowledge_item → /knowledge/:id (unchanged)", () => {
@@ -56,11 +57,12 @@ describe("createOpenHandler: H5 host(artifact) → /artifacts/:id", () => {
 	});
 });
 
-describe("createOpenHandler: H5 host(task) → null (no-op)", () => {
-	it("host(task) does NOT call navigate (BLOCKER-1 no-op)", () => {
+// @lore BB1: host(task) now navigates to /work/task/:id — not a no-op
+describe("createOpenHandler: host(task) → navigates to /work/task/:id (BB1)", () => {
+	it("host(task) calls navigate with /work/task/:id", () => {
 		const nav = vi.fn();
 		createOpenHandler(nav, {})({ route: "host", hostKind: "task", hostId: "task-9" });
-		expect(nav).not.toHaveBeenCalled();
+		expect(nav).toHaveBeenCalledWith("/work/task/task-9");
 	});
 });
 

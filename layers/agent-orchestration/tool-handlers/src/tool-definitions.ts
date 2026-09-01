@@ -37,6 +37,7 @@ import {
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
+	TASK_STATES,
 } from "@hyperidle/domain-model";
 import {
 	type ArtifactCreatedEvent,
@@ -375,6 +376,8 @@ const RISK_TIERS_ITEM = ["low", "medium", "high"] as const;
 // @lore AU21 Increment 14a: "cost_cap_breach" is deleted from ITEM_KINDS —
 // the cost-cap breach review-item creation that produced it is gone along
 // with the rest of the cost feature, no replacement.
+// @lore BB1: "post-bet-retro" removed — BA9d deleted the builtin routine
+// mechanism (fireBuiltinRoutine etc.) and the bet entity is gone.
 const ITEM_KINDS = [
 	"review",
 	"skill_change",
@@ -384,7 +387,6 @@ const ITEM_KINDS = [
 	"escalation",
 	"autonomy_change",
 	"ordering",
-	"post-bet-retro",
 ] as const;
 
 const ITEM_VERBS = ["propose", "review", "approve", "reject", "escalate", "bet"] as const;
@@ -511,6 +513,10 @@ const createTaskInputSchema = z.object({
 	title: z.string().min(1).max(512),
 	description: z.string().max(65_536).optional(),
 	doneCondition: z.string().max(65_536).optional(),
+	/** Explicit parent — any depth. Omit to nest under the session's own task. */
+	parentTaskId: z.string().min(1).optional(),
+	/** When true, finishing this task sends it to `review` rather than `done`. */
+	needsReview: z.boolean().optional(),
 });
 
 type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
@@ -519,7 +525,7 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 	return {
 		name: "create_task",
 		description:
-			"Create a new task under the current bet. Derives betId and teamId from the session context. The new task starts in 'proposed' state.",
+			"Create a new subtask. Supply parentTaskId to nest under any task at any depth; omit it to nest under the session's current task. The new task starts in 'proposed' state.",
 		inputSchema: createTaskInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = createTaskInputSchema.safeParse(args);
@@ -533,14 +539,13 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			// so no session's `requestContext.sourceKind` can ever be
 			// `"decomposition"` (the value is gone from `AgentSessionSourceKind`
 			// itself, not merely unreachable).
-			let parent: { betId: string; teamId: string };
-			if (ctx.taskId) {
-				const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
-				if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
-				parent = { betId: parentTask.betId, teamId: parentTask.teamId };
-			} else {
-				return err("NOT_FOUND", "Parent task not found");
-			}
+			// @lore BB1: parentTaskId is now explicit (any depth); falls back to
+			// ctx.taskId (the session's own task) when the caller omits it.
+			const parentId = input.parentTaskId ?? ctx.taskId;
+			if (!parentId) return err("NOT_FOUND", "Parent task not found");
+
+			const parentTask = await ports.coreApi.getTaskById(parentId, ctx.agentId);
+			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${parentId}`);
 
 			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
 			// `POST /tasks` route a human caller uses — instead of the raw
@@ -549,11 +554,13 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			// `randomUUID()` the raw DI path used.
 			const created = await ports.coreApi.createTask(
 				{
-					betId: parent.betId,
+					parentTaskId: parentId,
+					teamId: parentTask.teamId,
 					title: input.title,
 					description: input.description ?? null,
 					doneCondition: input.doneCondition ?? null,
 					ownerAgentId: ctx.agentId,
+					...(input.needsReview !== undefined ? { needsReview: input.needsReview } : {}),
 				},
 				ctx.agentId,
 			);
@@ -569,7 +576,77 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			};
 			ctx.eventBus.emit(event as TaskStateChangedEvent);
 
-			return ok({ taskId, betId: parent.betId });
+			return ok({ taskId });
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// edit_task
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @lore BB1: this must stay field-for-field with the human `PATCH /api/tasks/:id`
+ * body — the whole point of the package is one door with the same reach for
+ * both. Two asymmetries were found in review and closed here: `state` was an
+ * unconstrained string (the tool advertised a domain it does not have; the route
+ * rejected bad values with a 400, so the schema was simply lying), and
+ * `parentTaskId` could not be null, so an agent could nest a task but never
+ * promote one back to a root the way a human can.
+ */
+const editTaskInputSchema = z.object({
+	taskId: z.string().min(1),
+	title: z.string().min(1).max(512).optional(),
+	description: z.string().max(65_536).optional(),
+	doneCondition: z.string().max(65_536).optional(),
+	ownerAgentId: z.string().min(1).optional(),
+	/** `null` promotes the task to a root — the same reach the human door has. */
+	parentTaskId: z.string().min(1).nullable().optional(),
+	state: z.enum(TASK_STATES).optional(),
+	/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
+	position: z.number().int().nonnegative().optional(),
+	/** Flip whether finishing this task routes to `review` (true) or `done` (false). */
+	needsReview: z.boolean().optional(),
+});
+
+type EditTaskInput = z.infer<typeof editTaskInputSchema>;
+
+function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTaskInput, TDb> {
+	return {
+		name: "edit_task",
+		description:
+			"Edit a task's fields. Supply any subset of title, description, doneCondition, ownerAgentId, parentTaskId, position, or state; omitted fields are unchanged. State transitions route through the task state machine. Setting position moves the task within its sibling list and renumbers siblings to a clean sequence.",
+		inputSchema: editTaskInputSchema,
+		handler: async (args, ctx) => {
+			const parsed = editTaskInputSchema.safeParse(args);
+			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
+			const input = parsed.data;
+
+			const updates: {
+				title?: string;
+				description?: string | null;
+				doneCondition?: string | null;
+				ownerAgentId?: string | null;
+				parentTaskId?: string | null;
+				state?: string;
+				position?: number;
+				needsReview?: boolean;
+			} = {};
+			if (input.title !== undefined) updates.title = input.title;
+			if (input.description !== undefined) updates.description = input.description;
+			if (input.doneCondition !== undefined) updates.doneCondition = input.doneCondition;
+			if (input.ownerAgentId !== undefined) updates.ownerAgentId = input.ownerAgentId;
+			if (input.parentTaskId !== undefined) updates.parentTaskId = input.parentTaskId;
+			if (input.state !== undefined) updates.state = input.state;
+			if (input.position !== undefined) updates.position = input.position;
+			if (input.needsReview !== undefined) updates.needsReview = input.needsReview;
+
+			if (Object.keys(updates).length === 0) {
+				return err("INVALID_INPUT", "No fields to update.");
+			}
+
+			await ports.coreApi.updateTaskById(input.taskId, updates, ctx.agentId);
+			return ok({ taskId: input.taskId });
 		},
 	};
 }
@@ -619,7 +696,7 @@ type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
 /**
  * Founder ruling 7 — a review lands in the thread the task already has, or a
  * new one attached to the task, never the bet's: a task will exist without a
- * bet, so resolving via `parentTask.betId` is not just the wrong host, it can
+ * bet, so resolving via `parentTask.rootTaskId` is not just the wrong host, it can
  * be an empty one. Extracted from the handler to keep it readable as a
  * single flow.
  */
@@ -731,7 +808,17 @@ function makeSubmitReviewTool<TDb>(
 
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
-			return ok({ messageId, threadId, betId: parentTask.betId });
+			// BB1: walk the parentTaskId chain to find the root task.
+			let rootTaskId = ctx.taskId;
+			let cursor: { parentTaskId: string | null } = parentTask;
+			while (cursor.parentTaskId !== null) {
+				const ancestor = await ports.coreApi.getTaskById(cursor.parentTaskId, ctx.agentId);
+				if (!ancestor) break;
+				rootTaskId = cursor.parentTaskId;
+				cursor = ancestor;
+			}
+
+			return ok({ messageId, threadId, rootTaskId });
 		},
 	};
 }
@@ -1108,7 +1195,7 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 					createdAt: now,
 					teamMembersId,
 					capacity: 5,
-					activeBets: 0,
+					// @lore BB1: activeBets removed — WIP limit is capacity counted live.
 					formedAt: now,
 				},
 				ctx.agentId,
@@ -1217,101 +1304,6 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgen
 			});
 
 			return ok({ agentId, name: input.name, role: input.role, teamId: input.teamId });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// create_bet
-// ─────────────────────────────────────────────────────────────────────────────
-
-const createBetInputSchema = z.object({
-	teamId: z.string().min(1),
-	description: z.string().min(1).max(65_536),
-	doneCondition: z.string().max(65_536).optional(),
-	hypothesis: z.string().max(65_536).optional(),
-});
-
-type CreateBetInput = z.infer<typeof createBetInputSchema>;
-
-function makeCreateBetTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateBetInput, TDb> {
-	return {
-		name: "create_bet",
-		description:
-			"Create a new bet in draft status for the given team. HIGH RISK: requires human approval before execution.",
-		inputSchema: createBetInputSchema,
-		roles: ["assistant"],
-		handler: async (args, ctx) => {
-			const parsed = createBetInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const input = parsed.data;
-
-			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
-			if (!team) return err("NOT_FOUND", `Team not found: ${input.teamId}`);
-
-			// AU21 §9 Increment 1: routes through the CoreApiPort write seam — the
-			// SAME `POST /bets` route + middleware a human caller uses — instead of
-			// the raw `ports.work.createBet` DI call (deleted). `ctx.agentId`
-			// carries the calling agent's own identity as the route actor (§12).
-			const created = await ports.coreApi.createBet(
-				{
-					teamId: input.teamId,
-					description: input.description,
-					doneCondition: input.doneCondition ?? null,
-					hypothesis: input.hypothesis ?? null,
-				},
-				ctx.agentId,
-			);
-
-			return ok({ betId: created.id, status: "draft" as const, teamId: created.teamId });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// edit_bet
-// ─────────────────────────────────────────────────────────────────────────────
-
-const editBetInputSchema = z.object({
-	betId: z.string().min(1),
-	description: z.string().min(1).max(65_536).optional(),
-	doneCondition: z.string().max(65_536).optional(),
-	hypothesis: z.string().max(65_536).optional(),
-});
-
-type EditBetInput = z.infer<typeof editBetInputSchema>;
-
-function makeEditBetTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditBetInput, TDb> {
-	return {
-		name: "edit_bet",
-		description:
-			"Edit a bet's description, done condition, or hypothesis. HIGH RISK: requires human approval.",
-		inputSchema: editBetInputSchema,
-		roles: ["assistant"],
-		handler: async (args, ctx) => {
-			const parsed = editBetInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const input = parsed.data;
-
-			const existing = await ports.coreApi.getBetById(input.betId, ctx.agentId);
-			if (!existing) return err("NOT_FOUND", `Bet not found: ${input.betId}`);
-			if (existing.status !== "draft") return err("INVALID_STATE", "Can only edit a draft bet.");
-
-			const updates: Partial<{
-				description: string;
-				doneCondition: string | null;
-				hypothesis: string | null;
-			}> = {};
-			if (input.description !== undefined) updates.description = input.description;
-			if (input.doneCondition !== undefined) updates.doneCondition = input.doneCondition;
-			if (input.hypothesis !== undefined) updates.hypothesis = input.hypothesis;
-
-			if (Object.keys(updates).length === 0) {
-				return err("INVALID_INPUT", "No fields to update.");
-			}
-
-			await ports.coreApi.updateBetById(input.betId, updates, ctx.agentId);
-			return ok({ betId: input.betId });
 		},
 	};
 }
@@ -1657,6 +1649,7 @@ export function buildToolDefinitions(
 		toRegistered(makeHandoffToTool(ports)),
 		toRegistered(makeCreateItemTool(ports)),
 		toRegistered(makeCreateTaskTool(ports)),
+		toRegistered(makeEditTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
 		toRegistered(makeRunKnowledgeSweepTool(ports)),
@@ -1667,8 +1660,6 @@ export function buildToolDefinitions(
 		toRegistered(makeSplitKnowledgeTool(ports)),
 		toRegistered(makeCreateTeamTool(ports)),
 		toRegistered(makeAddAgentTool(ports)),
-		toRegistered(makeCreateBetTool(ports)),
-		toRegistered(makeEditBetTool(ports)),
 		toRegistered(makeCreateRoutineTool(ports)),
 		toRegistered(makeUpdateRoutineTool(ports)),
 	];

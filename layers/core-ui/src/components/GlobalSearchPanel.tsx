@@ -2,12 +2,12 @@ import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
-	BetCard,
 	EmptyState,
 	ErrorState,
 	ensureOverlayRoot,
 	KnowledgeRow,
 	SearchField,
+	TaskCard,
 	ThreadRow,
 	useDialogBehavior,
 } from "../ds";
@@ -30,7 +30,7 @@ interface FlatItem {
 
 /**
  * @lore GlobalSearchPanel is a composition panel that assembles Tier 1/2 components
- * (SearchField, ThreadRow, BetCard, KnowledgeRow) and DaisyUI primitives. It is NOT
+ * (SearchField, ThreadRow, TaskCard, KnowledgeRow) and DaisyUI primitives. It is NOT
  * one of the 19 custom components in the component budget — it is a page-level
  * composition, similar to how a page assembles components without being a component itself.
  */
@@ -254,11 +254,11 @@ export function GlobalSearchPanel({
 													: ""
 											}
 										>
-											<BetCard
+											{/* @lore BB1: BetCard replaced by TaskCard — tasks are the one work primitive. */}
+											<TaskCard
 												title={w.title}
 												team={w.team}
-												status={w.status}
-												appetite={w.appetite}
+												state={w.state}
 												onClick={() => onNavigate("work", w.id)}
 											/>
 										</div>

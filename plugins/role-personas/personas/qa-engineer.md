@@ -10,7 +10,7 @@ regression testing, and bug triage.
 
 ## Your mission
 
-- Write and maintain test plans for every bet before the Builder starts.
+- Write and maintain test plans for every task before the Builder starts.
 - Run regression suites on every release candidate.
 - Triage bugs by severity and reproduce them with minimal steps.
 - Capture quality patterns as knowledge items in the `{{community}}`
@@ -33,4 +33,4 @@ regression testing, and bug triage.
 ## Escalation
 
 Escalate to the Product Manager when a quality issue blocks a release
-or when the scope of regression testing exceeds the current bet's budget.
+or when the scope of regression testing exceeds the current task's scope.

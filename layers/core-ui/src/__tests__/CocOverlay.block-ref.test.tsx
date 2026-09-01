@@ -73,8 +73,8 @@ describe("AF14 — AssistantOverlay block ref chip rendering (AC-5)", () => {
 		const blockRef: AssistantContextRef = {
 			kind: "block",
 			blockId: "blk:v1:abc",
-			hostKind: "bet",
-			hostId: "bet-123",
+			hostKind: "task",
+			hostId: "task-123",
 			label: "Bet pitch paragraph 1",
 		};
 		renderOverlay([blockRef]);
@@ -99,12 +99,12 @@ describe("AF14 — AssistantOverlay block ref chip rendering (AC-5)", () => {
 
 	it("renders multiple chips for mixed entity and block refs", () => {
 		const refs: ReadonlyArray<AssistantContextRef> = [
-			{ kind: "bet", id: "bet-1", label: "Bet Alpha" },
+			{ kind: "task", id: "task-1", label: "Bet Alpha" },
 			{
 				kind: "block",
 				blockId: "blk:v1:p1",
-				hostKind: "bet",
-				hostId: "bet-1",
+				hostKind: "task",
+				hostId: "task-1",
 				label: "First paragraph",
 			},
 		];
@@ -119,8 +119,8 @@ describe("AF14 — AssistantOverlay block ref chip rendering (AC-5)", () => {
 		const blockRef: AssistantContextRef = {
 			kind: "block",
 			blockId: "blk:v1:abc",
-			hostKind: "bet",
-			hostId: "bet-1",
+			hostKind: "task",
+			hostId: "task-1",
 			label: "A block",
 		};
 		renderOverlay([blockRef], onRemove);
@@ -144,7 +144,7 @@ describe("AF14 — AssistantOverlay wire serialization for block refs (AC-5)", (
 		const blockRef: AssistantContextRef = {
 			kind: "block",
 			blockId: "blk:v1:theblock",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "bet-777",
 			label: "A paragraph",
 		};
@@ -167,7 +167,7 @@ describe("AF14 — AssistantOverlay wire serialization for block refs (AC-5)", (
 		expect(refs[0]).toEqual({
 			kind: "block",
 			blockId: "blk:v1:theblock",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "bet-777",
 		});
 	});
@@ -175,7 +175,7 @@ describe("AF14 — AssistantOverlay wire serialization for block refs (AC-5)", (
 	it("sends entity ref shape (kind/id) for entity context refs", async () => {
 		const user = userEvent.setup();
 		const entityRef: AssistantContextRef = {
-			kind: "bet",
+			kind: "task",
 			id: "bet-999",
 			label: "My Bet",
 		};
@@ -193,6 +193,6 @@ describe("AF14 — AssistantOverlay wire serialization for block refs (AC-5)", (
 		};
 		const refs = body.payload.refs;
 		expect(refs).toHaveLength(1);
-		expect(refs[0]).toEqual({ kind: "bet", id: "bet-999" });
+		expect(refs[0]).toEqual({ kind: "task", id: "bet-999" });
 	});
 });

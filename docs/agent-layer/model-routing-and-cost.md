@@ -9,7 +9,7 @@ label only** — see §2.
 Each agent has a **model** (`agent_run_config.model_id` + `agent_run_config.model_provider`,
 `framework/db/src/schema.ts`), set in Settings → Agents. The options come from the **harness itself**
 — each CLI reports the models it can run, and discovery reads that list (`harness-discovery.ts`).
-Two agents can run different models during the same bet — a PM on Opus while a builder runs Sonnet.
+Two agents can run different models during the same task — a PM on Opus while a builder runs Sonnet.
 
 There is one resolution step, and it is not a lookup: `agent_run_config.model_id` becomes
 `SessionConfig.selectedModel` (`provisioner.ts`), and the harness adapter passes it to the binary as

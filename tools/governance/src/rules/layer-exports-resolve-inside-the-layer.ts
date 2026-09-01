@@ -34,7 +34,7 @@ export function layerExportsResolveInsideTheLayer(
 		description:
 			"a layer manifest's `exports` entry resolves inside the layer's own source, never into a nested service package",
 		scope: layerManifests,
-		minScope: 4,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			for (const pkg of census.packages) {

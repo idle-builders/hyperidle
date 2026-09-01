@@ -1,26 +1,29 @@
 # Data Flow Examples
 
-Five end-to-end flows, verified against live code. Each names the real mechanism (service, table, column) that carries the step. Lifecycle semantics belong to the owning docs — bet lifecycle in [bets-shape-commit-change-ship](../process-layer/bets-shape-commit-change-ship.md), task/session lifecycle in [tasks-and-sessions](../process-layer/tasks-and-sessions.md), knowledge layers and promotion in [knowledge-architecture](../knowledge-architecture/index.md), item routing in [items-and-routing](../human-interface-layer/items-and-routing.md).
+Five end-to-end flows, verified against live code. Each names the real mechanism (service, table, column) that carries the step. Lifecycle semantics belong to the owning docs — task/session lifecycle in [tasks-and-sessions](../process-layer/tasks-and-sessions.md), knowledge layers and promotion in [knowledge-architecture](../knowledge-architecture/index.md), item routing in [items-and-routing](../human-interface-layer/items-and-routing.md).
 
-## 1. A Bet Ships
+## 1. A Task Tree Completes
 
 ```
-1. Builder agent completes final task → session ends, task → "done"
+1. Builder agent completes the final leaf subtask → session ends, subtask → "done"
 2. Dependency watcher (layers/core-api/work/src/dependency-watcher.ts):
-   all tasks for Bet-17 are done
-3. Product Manager's routine fires: "check bet done condition"
-4. Product Manager confirms done condition met
-5. Product Manager creates Item: bet review thread
+   checks siblings — all children of parent task are done
+3. Lifecycle propagation (layers/core-api/policy/src/lifecycle-propagation.ts):
+   parent task → "review" (CAS-guarded, audited)
+4. Propagation walks up: if root task's all children are terminal → root → "review"
+5. Product Manager confirms done condition met
+6. Product Manager creates Item: task review thread
    (kind: review, risk_tier: high, body: summary of what shipped)
-6. Router: risk_tier ≥ medium → Conversations + push notification
+7. Router: risk_tier ≥ medium → Conversations + push notification
    (notification_queue + dispatcher)
-7. Router: product scope → route to CPO
+8. Router: product scope → route to CPO
    (resolveReviewRecipients, layers/core-api/org/src/org-routing.ts)
-8. Notification adapter: push to CPO's phone
-9. CPO opens thread, reads summary, approves
-10. Verdict recorded → bet status → "completed"
-11. builtin:post-bet-retro routine fires on the Product Manager
-12. Product Manager writes the retro; learnings route to the
+9. Notification adapter: push to CPO's phone
+10. CPO opens thread, reads summary, approves
+11. Verdict recorded → task state → "done"
+12. post-task-retro plugin routine fires on task_state_changed → done
+    (plugins/knowledge-management/plugin.json)
+13. Knowledge Librarian writes retro; learnings route to the
     facilitator and the assistant's thread
 ```
 
@@ -58,30 +61,27 @@ Layer taxonomy (L0–L4) and knowledge statuses are owned by [the-five-layers](.
    c. The Builder has the knowledge without anyone pushing a notification
 ```
 
-## 4. A Bet Changes Mid-Flight
+## 4. A Task Changes Mid-Flight
 
 ```
-1. The team is two weeks into an active bet
+1. The team is two weeks into an active task
 2. Growth agent discovers via analytics that the target audience uses
-   the product differently than hypothesized
+   the product differently than assumed
 3. Growth agent posts the finding to task notes, and the facilitator
    picks it up for the practice
-4. Product Manager notices the trajectory has shifted:
-   the hypothesis is no longer valid
-5. Product Manager drafts a bet revision:
-   - New hypothesis: "SME buyers use the comparison tool for due diligence,
-     not initial screening"
-   - Revised done condition: adjust acceptance criteria for the
+4. Product Manager notices the direction has shifted:
+   the done condition is no longer valid
+5. Product Manager edits the task via PATCH /api/tasks/:id:
+   - Revised doneCondition: adjust acceptance criteria for the
      due-diligence flow
-   - Reasoning: cites the growth agent's analytics data
-6. Product Manager creates Item: bet revision review thread
+   - Reasoning: appended to auditTrail
+6. Product Manager creates Item: task revision review thread
    (kind: review, risk_tier: high)
 7. Router → Conversations + push notification → both founders (strategic)
 8. Founders discuss in the thread, approve with comments
-9. Verdict recorded → bets.revision_log appended → hypothesis and
-   done_condition updated
-10. Team adjusts the task graph accordingly (internal, no additional human
-    review unless the Product Manager's judgement says otherwise)
+9. Verdict recorded; team adjusts the subtask graph accordingly
+   (internal, no additional human review unless the Product Manager
+   judges it necessary)
 ```
 
 ## 5. A Sleep-Time Routine Runs

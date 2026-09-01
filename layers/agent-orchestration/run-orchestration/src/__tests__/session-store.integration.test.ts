@@ -24,7 +24,7 @@
  * arrangement this replaced.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
@@ -33,7 +33,7 @@ import { endSessionByCas } from "../session-store.js";
 
 const AGENT_ID = "agent-session-store";
 const TEAM_ID = "team-session-store";
-const BET_ID = "bet-session-store";
+const ROOT_TASK_ID = "bet-session-store";
 const TASK_ID = "task-session-store";
 
 async function seedWorld(db: HyperIdleDb): Promise<void> {
@@ -47,16 +47,19 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, phase: "build", createdAt: now });
-	await db.insert(bets).values({
-		id: BET_ID,
+	await db.insert(tasks).values({
+		id: ROOT_TASK_ID,
+		parentTaskId: null,
 		teamId: TEAM_ID,
+		title: "Session-store bet",
 		description: "Session-store bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: TASK_ID,
-		betId: BET_ID,
+		parentTaskId: ROOT_TASK_ID,
 		teamId: TEAM_ID,
 		ownerAgentId: AGENT_ID,
 		title: "Session-store task",

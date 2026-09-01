@@ -8,7 +8,6 @@ export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> 
 	product: "L2",
 	practice: "L3",
 	task: "L1",
-	bet: null,
 	team: null,
 	user: null,
 };
@@ -59,7 +58,7 @@ export type KnowledgeAccessorKind = "human" | "agent";
 export const KNOWLEDGE_SORT_OPTIONS = ["relevance", "recency", "frequency"] as const;
 export type KnowledgeSortOption = (typeof KNOWLEDGE_SORT_OPTIONS)[number];
 
-export type PropagationLevel = "session" | "task" | "bet" | "team" | "portfolio";
+export type PropagationLevel = "session" | "task" | "team" | "portfolio";
 
 /**
  * @lore BA9b: Role of a knowledge item — determines how context assembly

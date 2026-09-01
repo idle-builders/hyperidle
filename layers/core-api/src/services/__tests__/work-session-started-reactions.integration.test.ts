@@ -49,7 +49,7 @@
  * Wave D's GREEN deletes `workAccessor` wholesale.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
@@ -63,9 +63,9 @@ async function seedTaskAndAgent(
 	db: HyperIdleDb,
 	id: string,
 	options: { readonly taskState: TaskState },
-): Promise<{ readonly taskId: string; readonly agentId: string; readonly betId: string }> {
+): Promise<{ readonly taskId: string; readonly agentId: string; readonly rootTaskId: string }> {
 	const teamId = `${id}-team`;
-	const betId = `${id}-bet`;
+	const rootTaskId = `${id}-bet`;
 	const taskId = `${id}-task`;
 	const agentId = `${id}-agent`;
 	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
@@ -77,16 +77,19 @@ async function seedTaskAndAgent(
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "work-session-started-reactions bet",
 		description: "work-session-started-reactions bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		ownerAgentId: agentId,
 		title: "work-session-started-reactions task",
@@ -94,7 +97,7 @@ async function seedTaskAndAgent(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	return { taskId, agentId, betId };
+	return { taskId, agentId, rootTaskId };
 }
 
 async function seedSession(

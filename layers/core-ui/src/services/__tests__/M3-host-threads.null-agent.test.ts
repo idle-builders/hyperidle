@@ -78,7 +78,7 @@ describe("M3 — resolveOrCreateHostThread with null agentParticipantId (D1)", (
 			.mockResolvedValueOnce(makeThreadListResponse([]))
 			.mockResolvedValueOnce(makeCreateThreadResponse("thread-no-sentinel"));
 
-		await resolveOrCreateHostThread("bet", "bet-1", "founder-id", null);
+		await resolveOrCreateHostThread("task", "task-1", "founder-id", null);
 
 		const [, postOptions] = fetchSpy.mock.calls[1] as [string, RequestInit];
 		const body = JSON.parse(postOptions.body as string) as {

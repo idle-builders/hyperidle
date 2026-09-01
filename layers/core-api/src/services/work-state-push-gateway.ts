@@ -4,7 +4,7 @@
  * Relocated OUT of `layers/core-api/realtime/src/ws-connection-hub.ts`'s
  * deleted generic `BROADCAST_ROUTES` forwarder. `task_state_changed` /
  * `bet_state_changed` already carry every field a client needs (`toState`
- * plus `taskId`/`betId` — see `task-state-machine.ts` / `bet-state-machine.ts`
+ * plus `taskId`/`rootTaskId` — see `task-state-machine.ts` / `bet-state-machine.ts`
  * emit sites) so, unlike the per-thread/conversations-list pushes (which need
  * the caller's in-hand DB row and are pushed directly from
  * `routes/threads.ts`), this one stays a thin EventBus-driven forwarder —
@@ -35,6 +35,7 @@ export function registerWorkStatePushGateway(
 	eventBus: EventBus,
 	target: WorkStatePushTarget,
 ): () => void {
+	// BB1: bet_state_changed deleted — root tasks fire task_state_changed.
 	const unsubscribers = [
 		eventBus.on("task_state_changed", (event) => {
 			target.broadcast(
@@ -44,17 +45,6 @@ export function registerWorkStatePushGateway(
 					topic: WORK_TOPIC,
 					kind: "task_state_changed",
 					data: { taskId: event.taskId, toState: event.toState },
-				}),
-			);
-		}),
-		eventBus.on("bet_state_changed", (event) => {
-			target.broadcast(
-				WORK_TOPIC,
-				JSON.stringify({
-					type: "update",
-					topic: WORK_TOPIC,
-					kind: "bet_state_changed",
-					data: { betId: event.betId, toState: event.toState },
 				}),
 			);
 		}),

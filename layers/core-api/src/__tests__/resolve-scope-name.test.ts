@@ -87,57 +87,8 @@ describe("resolveScopeName — resolves scopeId to human-readable scope name", (
 		expect(result).toBe("Team");
 	});
 
-	// ── bet ──────────────────────────────────────────────────────────────────
-	it("bet → bets.description (short, no truncation)", async () => {
-		const { bets } = await import("@hyperidle/db");
-		const db = makeDb(new Map([[bets, [{ description: "Ship the new login flow" }]]]));
-		const result = await resolveScopeName(db, "bet", "bet-1");
-		expect(result).toBe("Ship the new login flow");
-	});
-
-	it("bet → description truncated at 60 chars with ellipsis", async () => {
-		const { bets } = await import("@hyperidle/db");
-		const longDesc = "A".repeat(65);
-		const db = makeDb(new Map([[bets, [{ description: longDesc }]]]));
-		const result = await resolveScopeName(db, "bet", "bet-1");
-		expect(result).toBe(`${"A".repeat(60)}…`);
-	});
-
-	it("bet exactly 60 chars → no truncation", async () => {
-		const { bets } = await import("@hyperidle/db");
-		const exactDesc = "B".repeat(60);
-		const db = makeDb(new Map([[bets, [{ description: exactDesc }]]]));
-		const result = await resolveScopeName(db, "bet", "bet-1");
-		expect(result).toBe(exactDesc);
-	});
-
-	it("bet empty description → scopeKindToLabel('bet') = 'Shared'", async () => {
-		const { bets } = await import("@hyperidle/db");
-		const db = makeDb(new Map([[bets, [{ description: "" }]]]));
-		const result = await resolveScopeName(db, "bet", "bet-1");
-		expect(result).toBe(scopeKindToLabel("bet"));
-		expect(result).toBe("Shared");
-	});
-
-	it("bet whitespace-only description → 'Shared'", async () => {
-		const { bets } = await import("@hyperidle/db");
-		const db = makeDb(new Map([[bets, [{ description: "   " }]]]));
-		const result = await resolveScopeName(db, "bet", "bet-1");
-		expect(result).toBe("Shared");
-	});
-
-	it("bet missing → scopeKindToLabel('bet') = 'Shared'", async () => {
-		const result = await resolveScopeName(emptyDb(), "bet", "nonexistent");
-		expect(result).toBe(scopeKindToLabel("bet"));
-		expect(result).toBe("Shared");
-	});
-
-	it("bet null scopeId → 'Shared'", async () => {
-		const result = await resolveScopeName(emptyDb(), "bet", null);
-		expect(result).toBe("Shared");
-	});
-
 	// ── task ─────────────────────────────────────────────────────────────────
+	// BB1: "bet" scope deleted — tests removed; bets table gone from @hyperidle/db.
 	it("task → tasks.title when entity found", async () => {
 		const { tasks } = await import("@hyperidle/db");
 		const db = makeDb(new Map([[tasks, [{ title: "Implement login" }]]]));

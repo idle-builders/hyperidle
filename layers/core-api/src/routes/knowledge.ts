@@ -158,12 +158,9 @@ export async function resolveScopeName(
 	}
 
 	if (scopeKind === "bet") {
-		const row = await work.get(db, "bet", scopeId);
-		if (!row) return scopeKindToLabel("bet");
-		const desc = row.description?.trim() ?? "";
-		if (!desc) return scopeKindToLabel("bet");
-		// A5 rule: deterministic 60-char truncation with U+2026 ellipsis.
-		return desc.length > 60 ? `${desc.slice(0, 60)}…` : desc;
+		// BB1: bets are now root tasks — look up by task id, return title.
+		const row = await work.get(db, "task", scopeId);
+		return row?.title ?? scopeKindToLabel("bet");
 	}
 
 	if (scopeKind === "task") {

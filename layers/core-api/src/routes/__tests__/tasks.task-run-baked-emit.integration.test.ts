@@ -39,7 +39,6 @@
 
 import {
 	agentWorkIntents,
-	bets,
 	type HyperIdleDb,
 	sessions,
 	taskDispatchAttempts,
@@ -62,19 +61,22 @@ function authHeaders(): Record<string, string> {
 
 async function seedTeamAndBet(
 	db: HyperIdleDb,
-	options: { readonly teamId: string; readonly betId: string },
+	options: { readonly teamId: string; readonly rootTaskId: string },
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
 		.values({ id: options.teamId, name: options.teamId, phase: "build", createdAt: now });
 
-	await db.insert(bets).values({
-		id: options.betId,
+	await db.insert(tasks).values({
+		id: options.rootTaskId,
+		parentTaskId: null,
 		teamId: options.teamId,
+		title: "task_run baked-emit bet",
 		description: "task_run baked-emit bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 }
 
@@ -100,13 +102,13 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 
 	describe("via handoff-protocol (POST /api/tasks/:id/handoff)", () => {
 		async function seedHandoffWorld(db: HyperIdleDb): Promise<void> {
-			await seedTeamAndBet(db, { teamId: "team-au21-trun-4", betId: "bet-au21-trun-4" });
+			await seedTeamAndBet(db, { teamId: "team-au21-trun-4", rootTaskId: "bet-au21-trun-4" });
 			await seedAgent(db, "agent-au21-trun-4-source", "team-au21-trun-4");
 			await seedAgent(db, "agent-au21-trun-4-target", "team-au21-trun-4");
 			const now = new Date().toISOString();
 			await db.insert(tasks).values({
 				id: "task-au21-trun-4",
-				betId: "bet-au21-trun-4",
+				parentTaskId: "bet-au21-trun-4",
 				teamId: "team-au21-trun-4",
 				ownerAgentId: "agent-au21-trun-4-source",
 				title: "task_run baked-emit handoff task",

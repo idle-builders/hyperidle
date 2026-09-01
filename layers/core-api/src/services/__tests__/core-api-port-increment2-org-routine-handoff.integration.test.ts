@@ -77,7 +77,7 @@ import {
 	createInProcessCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, routines, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routines, sessions, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import {
@@ -486,19 +486,21 @@ describe("CoreApiPort.work.handoffTask — Increment 2 org/routine/handoff wave 
 		const { teamId, teamMembersId } = await seedTeam(db, { suffix: `handoff-${suffix}` });
 		await seedAgent(db, `agent-handoff-a-${suffix}`, { teamId: teamMembersId });
 		await seedAgent(db, `agent-handoff-b-${suffix}`, { teamId: teamMembersId });
-		const betId = `bet-handoff-${suffix}`;
-		await db.insert(bets).values({
-			id: betId,
-			teamId,
+		const rootTaskId = `bet-handoff-${suffix}`;
+		await db.insert(tasks).values({
+			id: rootTaskId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Handoff bet",
 			description: "Handoff bet",
-			appetite: "small",
-			status: "active",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 		const taskId = `task-handoff-${suffix}`;
 		await db.insert(tasks).values({
 			id: taskId,
-			betId,
+			parentTaskId: rootTaskId,
 			teamId,
 			ownerAgentId: `agent-handoff-a-${suffix}`,
 			title: "Handoff task",

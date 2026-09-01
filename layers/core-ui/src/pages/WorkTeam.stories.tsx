@@ -37,20 +37,19 @@ const MOCK_DETAIL = {
 	],
 	burn: {
 		capacity: 5,
-		activeBets: 2,
 	},
-	activeBets: [
+	tasksInProgress: [
 		{
 			id: "b1",
-			descriptionTitle: "Auth migration",
-			status: "active" as const,
+			title: "Auth migration",
+			state: "in_progress" as const,
 			progressDone: 1,
 			progressTotal: 2,
 		},
 		{
 			id: "b2",
-			descriptionTitle: "Onboarding revamp",
-			status: "active" as const,
+			title: "Onboarding revamp",
+			state: "in_progress" as const,
 			progressDone: 0,
 			progressTotal: 5,
 		},
@@ -72,7 +71,7 @@ function wrap(element: React.JSX.Element): React.JSX.Element {
 export const Populated = (): React.JSX.Element => wrap(<WorkTeam overrideData={MOCK_DETAIL} />);
 
 export const EmptyBets = (): React.JSX.Element =>
-	wrap(<WorkTeam overrideData={{ ...MOCK_DETAIL, activeBets: [] }} />);
+	wrap(<WorkTeam overrideData={{ ...MOCK_DETAIL, tasksInProgress: [] }} />);
 
 export const EmptyRoster = (): React.JSX.Element =>
 	wrap(<WorkTeam overrideData={{ ...MOCK_DETAIL, roster: [] }} />);

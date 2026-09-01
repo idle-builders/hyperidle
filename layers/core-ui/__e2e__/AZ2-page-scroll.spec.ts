@@ -146,10 +146,10 @@ function makeOverflowingTeam() {
 			activeTaskId: null,
 			activeBetId: null,
 		})),
-		burn: { capacity: 20, activeBets: 8 },
-		activeBets: Array.from({ length: 8 }, (_, i) => ({
+		burn: { capacity: 20 },
+		tasksInProgress: Array.from({ length: 8 }, (_, i) => ({
 			id: `bet-${i}`,
-			descriptionTitle: `Bet number ${i}`,
+			title: `Bet number ${i}`,
 			status: "active",
 			progressDone: i,
 			progressTotal: 8,
@@ -364,12 +364,11 @@ interface RouteCase {
 	setup: (page: Page) => Promise<void>;
 }
 
-const BET_ID = "bet-az2";
-const TASK_ID = "task-az2";
-const ROUTINE_ID = "routine-az2";
+const ROOT_TASK_ID = "task-az2";
 const AGENT_ID = "agent-az2";
 const KNOWLEDGE_ID = "knowledge-az2";
 const THREAD_ID = "thread-az2";
+const ROUTINE_ID = "routine-az2";
 
 async function mockDefaultThreads(page: Page): Promise<void> {
 	await page.route("**/api/threads?**", async (route: Route) => {
@@ -393,8 +392,8 @@ const ROUTES: readonly RouteCase[] = [
 					contentType: "application/json",
 					body: JSON.stringify({
 						teams: [
-							{ id: "t1", name: "Team One", status: "healthy", activeBets: 2 },
-							{ id: "t2", name: "Team Two", status: "healthy", activeBets: 1 },
+							{ id: "t1", name: "Team One", status: "healthy", tasksInProgress: 2 },
+							{ id: "t2", name: "Team Two", status: "healthy", tasksInProgress: 1 },
 						],
 					}),
 				});
@@ -402,72 +401,13 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		name: "work-bet",
-		url: `/work/bet/${BET_ID}`,
-		readySelector: "[data-testid='work-bet-page']",
-		setup: async (page) => {
-			await mockDefaultThreads(page);
-			await page.route(`**/api/bets/${BET_ID}`, async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: BET_ID,
-						title: "AZ2 fixture bet",
-						team: "Alpha",
-						teamId: "t1",
-						status: "active",
-						atRisk: false,
-						tokenAppetite: null,
-						tokensActual: null,
-						progress: { done: 1, total: 3 },
-						description: "# Fixture bet",
-						tasks: [{ id: TASK_ID, title: "A task", owner: "Dev", state: "in_progress" }],
-					}),
-				});
-			});
-		},
-	},
-	{
+		// @lore BB1: was two rows, "work-bet" and "work-task" — a bet page and the
+		// task page nested under it. They are the same page now, so this is one row.
 		name: "work-task",
-		url: `/work/bet/${BET_ID}/task/${TASK_ID}`,
+		url: `/work/task/${ROOT_TASK_ID}`,
 		readySelector: "[data-testid='task-detail-page']",
 		setup: async (page) => {
 			await mockDefaultThreads(page);
-			await page.route(`**/api/bets/${BET_ID}`, async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: BET_ID,
-						title: "AZ2 fixture bet",
-						team: "Alpha",
-						teamId: "t1",
-						status: "active",
-						atRisk: false,
-						tokenAppetite: null,
-						tokensActual: null,
-						progress: { done: 1, total: 3 },
-						description: "# Fixture bet",
-						tasks: [
-							{
-								id: TASK_ID,
-								title: "AZ2 fixture task",
-								owner: "Dev Agent",
-								state: "in_progress",
-								startedAt: "2026-01-01T10:00:00.000Z",
-							},
-						],
-					}),
-				});
-			});
-			await page.route("**/api/sessions*", async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ sessions: [] }),
-				});
-			});
 		},
 	},
 	{
@@ -594,9 +534,9 @@ const ROUTES: readonly RouteCase[] = [
 		setup: async () => undefined,
 	},
 	{
-		name: "work-bet-create",
-		url: "/work/bet/new",
-		readySelector: "[data-testid='bet-create-page']",
+		name: "work-task-create",
+		url: "/work/task/new",
+		readySelector: "[data-testid='task-create-page']",
 		setup: async (page) => {
 			await page.route("**/api/teams", async (route: Route) => {
 				await route.fulfill({
@@ -625,7 +565,7 @@ const ROUTES: readonly RouteCase[] = [
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({
-						thread: { id: THREAD_ID, hostKind: "bet", hostId: BET_ID },
+						thread: { id: THREAD_ID, hostKind: "bet", hostId: ROOT_TASK_ID },
 						messages: [],
 						headMessageId: null,
 						identities: {},

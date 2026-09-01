@@ -168,7 +168,7 @@ describe("Per-kind payload renderers", () => {
 			const { deriveBlocks } = await import("../../../block");
 			const { Block } = await import("../../Block.js");
 			const md = "see [click](javascript:alert(1)) and [ok](https://example.com)";
-			const { blocks } = deriveBlocks(md, { kind: "bet", id: "x" });
+			const { blocks } = deriveBlocks(md, { kind: "task", id: "x" });
 			await mount(
 				createElement(Block, { id: blocks[0]!.id, payload: blocks[0]!.payload }) as ReactElement,
 			);

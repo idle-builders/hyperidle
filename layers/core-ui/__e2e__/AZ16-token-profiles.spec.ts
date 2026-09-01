@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
-import { expect, test } from "./fixtures";
+import { expect, makeTask, test } from "./fixtures";
 
 // Screenshots are review artifacts, not pixel-diff assertions (AG1/U11 naming convention).
 const SCREENSHOTS = resolve(process.cwd(), "test-results");
@@ -27,16 +27,19 @@ const THREAD = {
 	taskId: null,
 };
 
-const BET = {
-	id: "bet-az16",
-	title: "Semantic design profiles",
-	team: "Hearth",
-	teamId: "team-az16",
-	description: "Make every authored value consume one complete, named profile.",
-	status: "active",
-	atRisk: false,
-	progress: { done: 8, total: 9 },
-	tasks: [],
+// @lore BB1: was a BetDetail for GET /api/bets/:id. WorkTaskPage loads
+// GET /api/tasks/:id/tree, so this is the tree response instead. The catch-all
+// below answers `{}` for anything it does not recognise, so an unmatched
+// task-tree request would render the page with no task at all.
+const TASK_TREE = {
+	task: makeTask("task-az16", {
+		title: "Semantic design profiles",
+		teamId: "team-az16",
+		description: "Make every authored value consume one complete, named profile.",
+	}),
+	ancestors: [],
+	children: [],
+	tokensActualRollup: null,
 };
 
 const TEAM = {
@@ -56,11 +59,11 @@ const TEAM = {
 		dissolvedAt: null,
 	},
 	roster: [{ agentId: "agent-az16", name: "Atlas", role: "builder", isLead: true }],
-	burn: { capacity: 5, activeBets: 1 },
-	activeBets: [
+	burn: { capacity: 5 },
+	tasksInProgress: [
 		{
 			id: "bet-az16",
-			pitchTitle: "Semantic design profiles",
+			title: "Semantic design profiles",
 			status: "active",
 			progressDone: 8,
 			progressTotal: 9,
@@ -144,12 +147,7 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/teams") {
 			return json(route, { teams: [{ id: "team-az16", name: "Hearth", phase: "build" }] });
 		}
-		if (pathname === "/api/bets/bet-az16/artifact-thread-summary") {
-			return json(route, { summaries: [], totalCount: 0, truncated: false });
-		}
-		if (pathname === "/api/bets/bet-az16") return json(route, BET);
-		if (pathname === "/api/bets")
-			return json(route, { draft: [], active: [BET], completed: [], killed: [] });
+		if (pathname === "/api/tasks/task-az16/tree") return json(route, TASK_TREE);
 		if (pathname === "/api/knowledge/k-az16") return json(route, KNOWLEDGE);
 		if (pathname === "/api/knowledge") return json(route, { items: [KNOWLEDGE], nextCursor: null });
 		if (pathname === "/api/org") {
@@ -166,7 +164,7 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/settings/agent-behavior/config") return json(route, { items: [] });
 		if (pathname === "/api/filesystems") return json(route, { filesystems: [] });
 		if (pathname === "/api/reviews/review-az16") {
-			return json(route, { ...REVIEW_COMPOSITION_SUBJECT, id: "review-az16", betId: "bet-az16" });
+			return json(route, { ...REVIEW_COMPOSITION_SUBJECT, id: "review-az16", taskId: "task-az16" });
 		}
 		if (pathname === "/api/sessions") return json(route, { sessions: [] });
 		if (pathname === "/api/artifacts") return json(route, { items: [], nextCursor: null });
@@ -348,7 +346,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 	const routes = [
 		["conversations", "/conversations/t-az16", "conversations-page"],
 		["team", "/work/team/team-az16", "work-team-page"],
-		["bet", "/work/bet/bet-az16", "work-bet-page"],
+		["task", "/work/task/task-az16", "task-detail-page"],
 		["knowledge", "/knowledge/k-az16", "knowledge-detail-page"],
 		["settings", "/conversations?settings=open", "settings-page"],
 		["review", "/reviews/review-az16", null],

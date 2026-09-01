@@ -16,7 +16,7 @@
  * are `layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts`.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import type {
 	AgentRunActiveCountsResponse,
 	AgentRunLatestOutcomesResponse,
@@ -62,18 +62,20 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			createdAt: T1,
 		},
 	]);
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "Test",
 		description: "Test",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: T1,
+		updatedAt: T1,
 	});
 	await db.insert(tasks).values([
 		{
 			id: "task-1",
-			betId: "bet-1",
+			parentTaskId: "bet-1",
 			teamId: "team-1",
 			title: "One",
 			state: "in_progress",
@@ -82,7 +84,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		},
 		{
 			id: "task-2",
-			betId: "bet-1",
+			parentTaskId: "bet-1",
 			teamId: "team-1",
 			title: "Two",
 			state: "review",

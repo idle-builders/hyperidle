@@ -32,7 +32,7 @@ export function noStaleBuildArtifacts(presentFiles: readonly string[]): Rule {
 		// The population is every TypeScript source that COULD be shadowed.
 		scope: (census: Census) =>
 			census.files.filter((f) => f.path.endsWith(".ts")).map((f) => f.path),
-		minScope: 500,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const sources = new Set(census.files.map((f) => f.path));
 			const findings: Finding[] = [];

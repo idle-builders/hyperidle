@@ -81,12 +81,7 @@ const BUNDLE: BakedContextBundle = {
 		description: "Bundle-sourced description",
 		state: "in_progress",
 	},
-	bet: {
-		id: "bet-i12-c1",
-		description: "Ship fast",
-		appetite: "small",
-		doneCondition: "Shipped to prod",
-	},
+	ancestors: [],
 	agent: { id: "agent-i12-c1", name: "Ada", role: "builder" },
 	team: { id: "team-i12-c1", name: "Alpha" },
 	knowledge: [

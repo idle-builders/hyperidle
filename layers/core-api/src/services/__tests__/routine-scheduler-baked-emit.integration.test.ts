@@ -123,8 +123,18 @@ function makePorts(): RoutineSchedulerPorts & {
 } {
 	return {
 		work: {
-			getBetById: (db, id) => work.get(db, "bet", id),
-			getTaskById: (db, id) => work.get(db, "task", id),
+			// BB1: getBetById deleted.
+			getTaskById: async (db: HyperIdleDb, id: string) => {
+				const row = await work.get(db, "task", id);
+				if (!row) return undefined;
+				return {
+					id: row.id,
+					title: row.title,
+					description: row.description,
+					state: row.state,
+					parentTaskId: row.parentTaskId,
+				};
+			},
 			// BA9c: new port methods for rich subject shapes
 			getItemById: (db, id) => work.get(db, "item", id),
 			getArtifactById: (db, id) => work.get(db, "artifact", id),

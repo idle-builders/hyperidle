@@ -65,7 +65,6 @@ const ports: ToolHandlersPorts = {
 				factoryDbPath: input.factoryDbPath,
 				createdAt: input.createdAt,
 				capacity: 5,
-				activeBets: 0,
 				formedAt: input.createdAt,
 			});
 		},

@@ -30,7 +30,12 @@ export type TaskState = (typeof TASK_STATES)[number];
  */
 export const TASK_STATE_LABEL: Record<TaskState, string> = {
 	proposed: "Planned",
-	accepted: "Planned",
+	// @lore BB1: `accepted` used to read "Planned" too, so the State dropdown
+	// listed "Planned" twice and the two states were indistinguishable — picking
+	// the wrong one silently set a different state. They are genuinely different:
+	// `proposed` is drafted and not yet picked up, `accepted` is committed to an
+	// owner and counts against the team's concurrent-task limit.
+	accepted: "Accepted",
 	hold: "On hold",
 	in_progress: "In progress",
 	blocked: "Blocked",
@@ -39,15 +44,6 @@ export const TASK_STATE_LABEL: Record<TaskState, string> = {
 	killed: "Killed",
 };
 
-/**
- * The mutable fields a bet caller can patch via PATCH /api/bets/:id while
- * the bet is in `in_progress`. Mirrored by the server's
- * `bet-state-machine.MUTABLE_FIELDS` set; both must stay in sync.
- *
- * @lore I2 V2: the route schema now uses `z.enum(MUTABLE_BET_FIELDS)` so a
- * bad `field` value is rejected by Zod (400) instead of falling through to
- * the service layer (which would throw a generic 500).
- */
 export interface HealthResponse {
 	status: "ok";
 	timestamp: string;
@@ -66,30 +62,11 @@ export const KERNEL_KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_
 export type KernelKnowledgeStatus = (typeof KERNEL_KNOWLEDGE_STATUSES)[number];
 
 /**
- * The full set of legal bet lifecycle statuses. The `BetStatus` union is
- * derived from this constant. Mirrors the I3 pattern for `TASK_STATES`.
- *
- * @lore I4 cross-cutting: required so `BET_STATUS_MAP` can be exhaustively
- * verified at runtime without drifting from the type-checked union.
- *
- * @lore U1: Simplified from 9 statuses to 4. Old status mapping:
- * shaped->draft, committed|in_progress|behind|blocked|paused|review->active,
- * shipped->completed, killed->killed. The `at_risk` boolean on bets replaces
- * the old `behind` sub-state.
+ * @lore BB1: `BET_STATUSES`, `BetStatus`, and `BET_STATUS_LABEL` are DELETED.
+ * A bet was a root task; the task state vocabulary (TASK_STATES) is the only
+ * work vocabulary. Old mapping: draft→proposed, active→in_progress,
+ * completed→done, killed→killed.
  */
-export const BET_STATUSES = ["draft", "active", "completed", "killed"] as const;
-
-export type BetStatus = (typeof BET_STATUSES)[number];
-
-/**
- * AI4: Human-readable labels for each BetStatus. Exhaustive `Record`.
- */
-export const BET_STATUS_LABEL: Record<BetStatus, string> = {
-	draft: "Draft",
-	active: "Active",
-	completed: "Completed",
-	killed: "Killed",
-};
 
 export type ModelTier = "reasoning" | "workhorse" | "fast";
 
@@ -174,15 +151,13 @@ export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
  * ruled the scope out and the record whole into agent-orchestration. There is
  * no production data, so nothing is migrated.
  */
-export const SCOPE_KINDS = [
-	"factory",
-	"product",
-	"practice",
-	"team",
-	"bet",
-	"task",
-	"user",
-] as const;
+/**
+ * @lore BB1: `"bet"` is GONE. A bet is a task with no parent now, so knowledge
+ * produced under a bet is knowledge produced under a task. Migration 0068
+ * re-scoped every `"bet"` row to `"task"`; the scope_id did not change, because
+ * each bet became a root task keeping its own id.
+ */
+export const SCOPE_KINDS = ["factory", "product", "practice", "team", "task", "user"] as const;
 
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
 
@@ -199,13 +174,12 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
 	"product",
 	"practice",
 	"team",
-	"bet",
 	"task",
 ]);
 
 /**
  * Maps a raw scopeKind from the API to the user-facing bucket label.
- * factory/practice/bet/task → "Shared"
+ * factory/practice/task → "Shared"
  * team/product → "Team"
  * user → "Private"
  * Anything else → "Shared" (safe fallback).
@@ -220,28 +194,6 @@ export function scopeKindToLabel(scopeKind: string): string {
 	if (scopeKind === "team" || scopeKind === "product") return "Team";
 	return "Shared";
 }
-
-/**
- * AC1: Closed enum of bet outcome verdicts.
- * Adding a fifth value is a concept change, not a type change.
- *
- * @lore AC1: "validated" means the hypothesis held; "refuted" means it didn't;
- * "partial" means mixed results; "inconclusive" means insufficient evidence.
- * These are retrospective evaluations of hypothesis quality, distinct from the
- * thread `VerdictDecision` type (approve/reject) which is a conversational action.
- */
-export const BET_OUTCOME_VERDICTS = ["validated", "refuted", "partial", "inconclusive"] as const;
-export type BetOutcomeVerdict = (typeof BET_OUTCOME_VERDICTS)[number];
-
-/**
- * AI4: Human-readable labels for each BetOutcomeVerdict (AC2, AC5).
- */
-export const BET_OUTCOME_VERDICT_LABEL: Record<BetOutcomeVerdict, string> = {
-	validated: "Validated",
-	refuted: "Refuted",
-	partial: "Partial",
-	inconclusive: "Inconclusive",
-};
 
 /**
  * AC1: Closed enum of task outcome verdicts.

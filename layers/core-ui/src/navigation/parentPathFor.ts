@@ -12,6 +12,10 @@
  * @lore AG4: Extracted from AppShell navigateToParent (mobile-only in AE4) so
  * both the mobile back button and the desktop breadcrumb cluster compute the
  * same Up target from a single pure function.
+ *
+ * @lore BB1: /work/bet/ routes removed. /work/task/:id at any depth goes Up
+ * to /work (we cannot know the parent task id from the pathname alone). Use
+ * the breadcrumb built from ancestors for fine-grained nav.
  */
 
 /**
@@ -19,8 +23,7 @@
  * pathname does not match any detail route with a defined parent.
  *
  * Matched route → parent mapping:
- *   /work/bet/:id/task/:taskId  → /work/bet/:id
- *   /work/bet/:id               → /work  (AD9: was /work/portfolio)
+ *   /work/task/:id              → /work  (BB1: tasks at any depth, breadcrumb handles deep nav)
  *   /work/routine/:id           → /work  (AD9: was /work/portfolio)
  *   /work/team/:id              → /work  (AD9: was /work/portfolio)
  *   /knowledge/:id              → /knowledge  (excludes /knowledge/new)
@@ -31,14 +34,8 @@
  * @returns The explicit parent path string, or null for unmatched routes.
  */
 export function parentPathFor(pathname: string): string | null {
-	// Task nested under bet: /work/bet/:id/task/:taskId → /work/bet/:id
-	const betTaskMatch = pathname.match(/^\/work\/bet\/([^/]+)\/task\//);
-	if (betTaskMatch) {
-		return `/work/bet/${betTaskMatch[1]}`;
-	}
-
-	// Bet detail: /work/bet/:id → /work (AD9: was /work/portfolio)
-	if (/^\/work\/bet\/[^/]+/.test(pathname)) {
+	// Task detail: /work/task/:id → /work (BB1: replaces /work/bet/:id at any depth)
+	if (/^\/work\/task\/[^/]+/.test(pathname)) {
 		return "/work";
 	}
 

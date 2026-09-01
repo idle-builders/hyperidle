@@ -37,7 +37,7 @@
 
 import {
 	type ArtifactView,
-	type BetView,
+	// @lore BB1: BetView deleted — bet is now a root task.
 	CORE_API_ACTOR_OVERRIDE_HEADER,
 	type ConversationInboxRowView,
 	type ConversationMessageType,
@@ -46,8 +46,6 @@ import {
 	type CoreApiTransport,
 	type CreateArtifactRequest,
 	type CreateArtifactResponse,
-	type CreateBetRequest,
-	type CreateBetResponse,
 	type CreateItemRequest,
 	type CreateItemResponse,
 	type CreateKnowledgeConflictRequest,
@@ -77,47 +75,39 @@ import {
 	type RoutineView,
 	type ScaffoldFromRequestInput,
 	type TaskView,
-	type UpdateBetRequest,
+	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
 	type UpdateItemRequest,
 	type UpdateKnowledgeItemContentRequest,
 	type UpdateKnowledgeItemContentResponse,
 	type UpdateKnowledgeItemContentResult,
 	type UpdateOrgTeamRequest,
 	type UpdateRoutineRequest,
+	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
+	type UpdateTaskRequest,
 	type UpdateThreadRequest,
 	type UserView,
 } from "@hyperidle/api-contract";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 
-/** Wire shape `PATCH /bets/:id` accepts — one field per call (`routes/bets.ts`'s discriminated union). */
-interface BetPatchFieldBody {
-	readonly field: "description" | "done_condition" | "hypothesis";
-	readonly value: string;
-	readonly reason: string;
-}
+// @lore BB1: BetPatchFieldBody and `bets` route group DELETED — the /bets route
+// family is gone; tasks replace bets as root-level work items.
 
 /**
  * Hand-typed mirror of the real core-api `hc` client shape — one property
- * group per mounted sub-router (`app.route("/bets", …)` etc, `app.ts:460-`).
- * Increment 1 seeded ONLY `bets.$post`; Increment 2 adds every route this
- * wave's `CoreApiWorkPort`/`CoreApiUsersPort` methods reuse or newly expose.
+ * group per mounted sub-router (`app.ts:460-`).
+ * Increment 2 adds every route this wave's `CoreApiWorkPort`/`CoreApiUsersPort`
+ * methods reuse or newly expose.
  */
 interface CoreApiHcClient {
-	readonly bets: {
-		$post(args: { readonly json: CreateBetRequest }): Promise<Response>;
-		readonly ":id": {
-			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
-			$patch(args: {
-				readonly param: { readonly id: string };
-				readonly json: BetPatchFieldBody;
-			}): Promise<Response>;
-		};
-	};
 	readonly tasks: {
 		$post(args: { readonly json: CreateTaskRequest }): Promise<Response>;
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+			$patch(args: {
+				readonly param: { readonly id: string };
+				readonly json: UpdateTaskRequest;
+			}): Promise<Response>;
 			readonly notes: {
 				$patch(args: {
 					readonly param: { readonly id: string };
@@ -406,12 +396,7 @@ async function getRoutineViewOrUndefined(
 	return { name: body.routine.name, state: body.routine.state, deletedAt: null };
 }
 
-/** Maps `UpdateBetRequest`'s camelCase keys onto `PATCH /bets/:id`'s wire `field` names. */
-const BET_PATCH_FIELD_NAMES = {
-	description: "description",
-	doneCondition: "done_condition",
-	hypothesis: "hypothesis",
-} as const satisfies Record<keyof UpdateBetRequest, BetPatchFieldBody["field"]>;
+// @lore BB1: BET_PATCH_FIELD_NAMES DELETED — UpdateBetRequest and BetPatchFieldBody gone.
 
 /**
  * Builds a real `CoreApiPort` wired to the given transport. The transport
@@ -426,39 +411,16 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 
 	return {
 		work: {
-			async createBet(input: CreateBetRequest): Promise<CreateBetResponse> {
-				const res = await client.bets.$post({ json: input });
-				if (!res.ok) return throwSeamError("work.createBet", res);
-				return (await res.json()) as CreateBetResponse;
-			},
+			// @lore BB1: createBet, getBetById, updateBetById DELETED — bet is now a root task.
 
 			async getTaskById(id: string): Promise<TaskView | undefined> {
 				const res = await client.tasks[":id"].$get({ param: { id } });
 				return getOrUndefined<TaskView>("work.getTaskById", res);
 			},
 
-			async getBetById(id: string): Promise<BetView | undefined> {
-				const res = await client.bets[":id"].$get({ param: { id } });
-				return getOrUndefined<BetView>("work.getBetById", res);
-			},
-
-			async updateBetById(id: string, updates: UpdateBetRequest): Promise<void> {
-				const reason = "agent update via CoreApiPort seam";
-				const entries: ReadonlyArray<
-					readonly [BetPatchFieldBody["field"], string | null | undefined]
-				> = [
-					[BET_PATCH_FIELD_NAMES.description, updates.description],
-					[BET_PATCH_FIELD_NAMES.doneCondition, updates.doneCondition],
-					[BET_PATCH_FIELD_NAMES.hypothesis, updates.hypothesis],
-				];
-				for (const [field, value] of entries) {
-					if (value === undefined || value === null) continue;
-					const res = await client.bets[":id"].$patch({
-						param: { id },
-						json: { field, value, reason },
-					});
-					if (!res.ok) return throwSeamError("work.updateBetById", res);
-				}
+			async updateTaskById(id: string, updates: UpdateTaskRequest): Promise<void> {
+				const res = await client.tasks[":id"].$patch({ param: { id }, json: updates });
+				if (!res.ok) return throwSeamError("work.updateTaskById", res);
 			},
 
 			async createTask(input: CreateTaskRequest): Promise<CreateTaskResponse> {

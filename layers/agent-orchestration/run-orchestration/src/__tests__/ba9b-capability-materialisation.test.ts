@@ -30,7 +30,7 @@ function makeBundle(
 	return {
 		kind: "task" as const,
 		task: { id: "t-ba9b", title: "Test", description: null, state: "in_progress" },
-		bet: { id: "b-ba9b", description: "Test", appetite: "small", doneCondition: null },
+		ancestors: [],
 		agent: { id: agentId, name: "Tester", role: "builder" },
 		team: { id: "team-ba9b", name: "Test Team" },
 		knowledge: knowledge.map((k) => ({

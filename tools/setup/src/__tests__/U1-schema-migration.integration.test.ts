@@ -25,7 +25,6 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { BET_STATUSES } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
@@ -124,17 +123,10 @@ describe("U1 AC1: Table renames — products→teams", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC1: FK renames — bets.team_id and tasks.team_id reference new `teams` table
+// AC1: FK rename — tasks.team_id references the `teams` table
 // ---------------------------------------------------------------------------
 
-describe("U1 AC1: FK renames on bets and tasks", () => {
-	test("bets has team_id column (renamed from product_id)", async ({ db }) => {
-		const cols = await columnNamesOf(db, "bets");
-		expect(cols).toContain("team_id");
-		// product_id must be gone
-		expect(cols).not.toContain("product_id");
-	});
-
+describe("U1 AC1: FK rename on tasks", () => {
 	test("tasks has team_id column (renamed from product_id)", async ({ db }) => {
 		const cols = await columnNamesOf(db, "tasks");
 		expect(cols).toContain("team_id");
@@ -142,28 +134,8 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 		expect(cols).not.toContain("product_id");
 	});
 
-	test("bets.team_id FK integrity: insert bet referencing teams.id succeeds", async ({ db }) => {
-		const now = new Date().toISOString();
-
-		// Insert into the new teams table (formerly products)
-		await db.execute(
-			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p1', 'MyTeam', 'build', '${now}')`,
-			),
-		);
-
-		// Insert a bet with team_id pointing at the new teams table
-		await db.execute(
-			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-fk-1', 't-p1', 'Test bet', 'draft', '${now}')`,
-			),
-		);
-
-		const result = await db.execute(sql.raw(`SELECT id, team_id FROM bets WHERE id='bet-fk-1'`));
-		const rows = (result as { rows: Array<{ id: string; team_id: string }> }).rows;
-		expect(rows[0]?.team_id).toBe("t-p1");
-	});
-
+	// @lore BB1: bets table dropped — tasks FK test no longer inserts a parent bet row;
+	// tasks are now root tasks (parentTaskId: null) or children of other tasks.
 	test("tasks.team_id FK integrity: insert task referencing teams.id succeeds", async ({ db }) => {
 		const now = new Date().toISOString();
 
@@ -174,12 +146,7 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 		);
 		await db.execute(
 			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-task-fk', 't-p2', 'Bet for task', 'active', '${now}')`,
-			),
-		);
-		await db.execute(
-			sql.raw(
-				`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at) VALUES ('task-fk-1', 'bet-task-fk', 't-p2', 'Test task', 'proposed', '${now}', '${now}')`,
+				`INSERT INTO tasks (id, parent_task_id, team_id, title, state, created_at, updated_at) VALUES ('task-fk-1', NULL, 't-p2', 'Test task', 'proposed', '${now}', '${now}')`,
 			),
 		);
 
@@ -190,179 +157,8 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC3: Bet status enum — draft | active | completed | killed
 // ---------------------------------------------------------------------------
-
-describe("U1 AC3: Bet status enum simplification", () => {
-	test("bet with status 'draft' is insertable and queryable", async ({ db }) => {
-		const now = new Date().toISOString();
-
-		await db.execute(
-			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-s1', 'T', 'build', '${now}')`,
-			),
-		);
-		await db.execute(
-			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-draft', 't-s1', 'Test', 'draft', '${now}')`,
-			),
-		);
-
-		const result = await db.execute(sql.raw(`SELECT status FROM bets WHERE id='bet-draft'`));
-		const rows = (result as { rows: Array<{ status: string }> }).rows;
-		expect(rows[0]?.status).toBe("draft");
-	});
-
-	test("bet with old status 'in_progress' is not valid in the new schema", async ({ db }) => {
-		// After U1 migration runs, no rows with in_progress should exist
-		const result = await db.execute(
-			sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='in_progress'`),
-		);
-		const rows = (result as { rows: Array<{ count: string }> }).rows;
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("bet with old status 'committed' is not valid in the new schema", async ({ db }) => {
-		const result = await db.execute(
-			sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='committed'`),
-		);
-		const rows = (result as { rows: Array<{ count: string }> }).rows;
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("bet with old status 'shipped' is not valid in the new schema", async ({ db }) => {
-		const result = await db.execute(
-			sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='shipped'`),
-		);
-		const rows = (result as { rows: Array<{ count: string }> }).rows;
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("bet with old status 'shaped' is not valid in the new schema", async ({ db }) => {
-		const result = await db.execute(
-			sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='shaped'`),
-		);
-		const rows = (result as { rows: Array<{ count: string }> }).rows;
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("BET_STATUSES shared constant contains only new values: draft, active, completed, killed", () => {
-		// Must NOT contain old statuses
-		expect(BET_STATUSES).not.toContain("shaped");
-		expect(BET_STATUSES).not.toContain("committed");
-		expect(BET_STATUSES).not.toContain("in_progress");
-		expect(BET_STATUSES).not.toContain("behind");
-		expect(BET_STATUSES).not.toContain("blocked");
-		expect(BET_STATUSES).not.toContain("paused");
-		expect(BET_STATUSES).not.toContain("review");
-		expect(BET_STATUSES).not.toContain("shipped");
-
-		// Must contain new statuses
-		expect(BET_STATUSES).toContain("draft");
-		expect(BET_STATUSES).toContain("active");
-		expect(BET_STATUSES).toContain("completed");
-		expect(BET_STATUSES).toContain("killed");
-
-		// Exactly 4 values
-		expect((BET_STATUSES as readonly string[]).length).toBe(4);
-	});
-});
-
 // ---------------------------------------------------------------------------
-// AC4: Bet column renames — pitch -> description, shipped_at -> completed_at
-// ---------------------------------------------------------------------------
-
-describe("U1 AC4: Bet column renames", () => {
-	test("bets table has 'description' column (renamed from pitch)", async ({ db }) => {
-		const cols = await columnNamesOf(db, "bets");
-		expect(cols).toContain("description");
-		expect(cols).not.toContain("pitch");
-	});
-
-	test("bets table has 'completed_at' column (renamed from shipped_at)", async ({ db }) => {
-		const cols = await columnNamesOf(db, "bets");
-		expect(cols).toContain("completed_at");
-		expect(cols).not.toContain("shipped_at");
-	});
-
-	test("description column preserves data after rename", async ({ db }) => {
-		const now = new Date().toISOString();
-
-		await db.execute(
-			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-d1', 'T', 'build', '${now}')`,
-			),
-		);
-		await db.execute(
-			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-desc', 't-d1', 'Build the feature', 'active', '${now}')`,
-			),
-		);
-
-		const result = await db.execute(sql.raw(`SELECT description FROM bets WHERE id='bet-desc'`));
-		const rows = (result as { rows: Array<{ description: string }> }).rows;
-		expect(rows[0]?.description).toBe("Build the feature");
-	});
-
-	test("completed_at column is nullable", async ({ db }) => {
-		const cols = await columnsOf(db, "bets");
-		const col = cols.find((c) => c.column_name === "completed_at");
-		expect(col).toBeDefined();
-		// PostgreSQL returns 'YES' for nullable columns
-		expect(col?.is_nullable).toBe("YES");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC5: at_risk boolean column on bets
-// ---------------------------------------------------------------------------
-
-describe("U1 AC5: at_risk column on bets", () => {
-	test("bets table has 'at_risk' column", async ({ db }) => {
-		const cols = await columnNamesOf(db, "bets");
-		expect(cols).toContain("at_risk");
-	});
-
-	test("at_risk column has a default value of 0", async ({ db }) => {
-		const cols = await columnsOf(db, "bets");
-		const col = cols.find((c) => c.column_name === "at_risk");
-		expect(col).toBeDefined();
-		// Column has a non-null default
-		expect(col?.column_default).not.toBeNull();
-	});
-
-	test("at_risk column is NOT NULL", async ({ db }) => {
-		const cols = await columnsOf(db, "bets");
-		const col = cols.find((c) => c.column_name === "at_risk");
-		expect(col).toBeDefined();
-		// PostgreSQL returns 'NO' for NOT NULL columns
-		expect(col?.is_nullable).toBe("NO");
-	});
-
-	test("at_risk defaults to false when inserting a bet without specifying at_risk", async ({
-		db,
-	}) => {
-		const now = new Date().toISOString();
-
-		await db.execute(
-			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-ar', 'T', 'build', '${now}')`,
-			),
-		);
-		await db.execute(
-			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-at-risk', 't-ar', 'Some bet', 'draft', '${now}')`,
-			),
-		);
-
-		const result = await db.execute(sql.raw(`SELECT at_risk FROM bets WHERE id='bet-at-risk'`));
-		// @lore U1: at_risk is stored as integer (0/1) in the schema.
-		// PGLite returns 0 (not false) for integer columns.
-		const rows = (result as { rows: Array<{ at_risk: number | boolean }> }).rows;
-		expect(rows[0]?.at_risk === 0 || rows[0]?.at_risk === false).toBe(true);
-	});
-});
-
 // ---------------------------------------------------------------------------
 // AC8: Seed data — uses new names and produces valid records
 // ---------------------------------------------------------------------------
@@ -382,44 +178,6 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	// @lore AU44 B1: team_members dissolved into teams — test removed
-
-	test("after seeding, bet uses 'description' column (not pitch)", async ({ db }) => {
-		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
-
-		// @lore AF17: daily digest bet id updated to demo-bet-daily-digest (demo-fixture split)
-		const result = await db.execute(
-			sql.raw(`SELECT id, description FROM bets WHERE id = 'demo-bet-daily-digest'`),
-		);
-		const rows = (result as { rows: Array<{ id: string; description: string }> }).rows;
-		expect(rows.length).toBe(1);
-		expect(rows[0]?.description).toBeTruthy();
-	});
-
-	test("after seeding, bet status is 'draft' (not 'shaped')", async ({ db }) => {
-		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
-
-		// @lore AF17: daily digest bet id updated to demo-bet-daily-digest (demo-fixture split)
-		const result = await db.execute(
-			sql.raw(`SELECT status FROM bets WHERE id = 'demo-bet-daily-digest'`),
-		);
-		const rows = (result as { rows: Array<{ status: string }> }).rows;
-		expect(rows[0]?.status).toBe("draft");
-	});
-
-	test("after seeding, demo bet uses team_id (not product_id)", async ({ db }) => {
-		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
-
-		// @lore AF17: team_id now points to 'demo-team-acme' (split from seed-product-1)
-		const result = await db.execute(
-			sql.raw(`SELECT team_id FROM bets WHERE id = 'demo-bet-daily-digest'`),
-		);
-		const rows = (result as { rows: Array<{ team_id: string }> }).rows;
-		expect(rows.length).toBe(1);
-		expect(rows[0]?.team_id).toBe("demo-team-acme");
-	});
 
 	test("after seeding, demo task uses team_id (not product_id)", async ({ db }) => {
 		await runFactoryBootstrap(db);
@@ -442,62 +200,6 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Bet status migration validation scenarios
-// ---------------------------------------------------------------------------
-
-describe("U1: Bet status migration scenarios (data transformation)", () => {
-	test("all 4 new statuses are insertable and queryable", async ({ db }) => {
-		const now = new Date().toISOString();
-
-		await db.execute(
-			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-st', 'T', 'build', '${now}')`,
-			),
-		);
-
-		for (const status of ["draft", "active", "completed", "killed"]) {
-			await db.execute(
-				sql.raw(
-					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-${status}', 't-st', 'Bet ${status}', '${status}', '${now}')`,
-				),
-			);
-		}
-
-		const result = await db.execute(
-			sql.raw(`SELECT status FROM bets WHERE team_id='t-st' ORDER BY created_at`),
-		);
-		const rows = (result as { rows: Array<{ status: string }> }).rows;
-		const statuses = rows.map((r) => r.status);
-		expect(statuses).toContain("draft");
-		expect(statuses).toContain("active");
-		expect(statuses).toContain("completed");
-		expect(statuses).toContain("killed");
-	});
-
-	test("no bets with status 'shaped', 'committed', 'in_progress', 'behind', 'blocked', 'paused', 'review', or 'shipped' exist after migration", async ({
-		db,
-	}) => {
-		const oldStatuses = [
-			"shaped",
-			"committed",
-			"in_progress",
-			"behind",
-			"blocked",
-			"paused",
-			"review",
-			"shipped",
-		];
-		for (const status of oldStatuses) {
-			const result = await db.execute(
-				sql.raw(`SELECT COUNT(*) as count FROM bets WHERE status='${status}'`),
-			);
-			const rows = (result as { rows: Array<{ count: string }> }).rows;
-			expect(Number(rows[0]?.count), `Expected 0 bets with old status '${status}'`).toBe(0);
-		}
-	});
-});
-
-// ---------------------------------------------------------------------------
 // Table-level schema correctness assertions (matches architecture spec §4.1)
 // ---------------------------------------------------------------------------
 
@@ -509,31 +211,12 @@ describe("U1: Full table schema shape assertions", () => {
 
 	// @lore AU44 B1: team_members dissolved into teams — test removed
 
-	test("bets table schema has all expected new columns", async ({ db }) => {
-		const cols = await columnNamesOf(db, "bets");
-		expect(cols).toContain("team_id");
-		expect(cols).toContain("description");
-		expect(cols).toContain("completed_at");
-		expect(cols).toContain("at_risk");
-
-		// Old columns must be gone
-		expect(cols).not.toContain("product_id");
-		expect(cols).not.toContain("pitch");
-		expect(cols).not.toContain("shipped_at");
-	});
-
 	test("tasks table schema has team_id (from product_id rename, no old team_id)", async ({
 		db,
 	}) => {
 		const cols = await columnNamesOf(db, "tasks");
 		expect(cols).toContain("team_id");
 		expect(cols).not.toContain("product_id");
-	});
-
-	test("bets_team_id_idx index exists (recreated from bets_product_id_idx)", async ({ db }) => {
-		const indexes = await indexNamesForTable(db, "bets");
-		expect(indexes).toContain("bets_team_id_idx");
-		expect(indexes).not.toContain("bets_product_id_idx");
 	});
 
 	test("tasks_team_id_idx index exists (recreated from tasks_product_id_idx)", async ({ db }) => {

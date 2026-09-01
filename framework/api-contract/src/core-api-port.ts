@@ -13,61 +13,24 @@
  * its real backing route through the in-process transport), never a
  * compiler guarantee.
  *
- * Seeded (Increment 1) with `work.createBet`, mirroring `POST /bets`'s
- * validated request body (`createBetSchema`, `routes/bets.ts:53-75`) and
- * 201 response body (`routes/bets.ts:609-638`). Later increments (§9
- * Increment 2) add the remaining `tool-handlers` capabilities as more
- * narrow methods on more `CoreApiPort` families — never a generic
- * pass-through, per Decision C's "narrow hand-typed method groups" ruling.
- */
-
-/** Mirrors `POST /bets`'s validated request body (`createBetSchema`, `routes/bets.ts:53-75`). */
-export interface CreateBetRequest {
-	readonly teamId: string;
-	readonly description: string;
-	readonly doneCondition?: string;
-	readonly hypothesis?: string;
-	readonly sourceKnowledgeItemId?: string;
-}
-
-/**
- * Mirrors `POST /bets`'s 201 response body — the created bet row
- * (`work.get(db,"bet",id)`). Not an exhaustive column-for-column mirror of
- * the `bets` table (per this file's top `@lore`, only the fields a
- * `CoreApiPort` consumer relies on are declared) — the real response may
- * carry additional raw columns this type does not name.
+ * Later increments (§9 Increment 2) add the remaining `tool-handlers`
+ * capabilities as more narrow methods on more `CoreApiPort` families —
+ * never a generic pass-through, per Decision C's "narrow hand-typed method
+ * groups" ruling.
  *
- * @lore AU21 Increment 14a: the structured `costAppetite` field this
- * response used to also carry is deleted along with the rest of the cost
- * feature (the column is dropped), no replacement.
+ * @lore BB1: `CreateBetRequest`, `CreateBetResponse`, `BetView`,
+ * `UpdateBetRequest` DELETED — a bet is now a root task (`parentTaskId IS NULL`).
+ * `TaskView.betId` → `parentTaskId: string | null`. The `/bets` route family
+ * is gone; `createBet`/`getBetById`/`updateBetById` are removed from
+ * `CoreApiWorkPort`.
  */
-export interface CreateBetResponse {
-	readonly id: string;
-	readonly teamId: string;
-	readonly description: string;
-	readonly doneCondition: string | null;
-	readonly hypothesis: string | null;
-	readonly status: string;
-	readonly createdAt: string;
-	readonly revisionLog: string | null;
-	readonly sourceKnowledgeItemId: string | null;
-}
 
 /** Mirrors `GET /tasks/:id`'s response — only the fields a `CoreApiPort` consumer relies on. */
 export interface TaskView {
 	readonly id: string;
-	readonly betId: string;
+	readonly parentTaskId: string | null;
 	readonly teamId: string;
 	readonly notes: string | null;
-}
-
-/** Mirrors `GET /bets/:id`'s response — only the fields a `CoreApiPort` consumer relies on. */
-export interface BetView {
-	readonly id: string;
-	readonly status: string;
-	readonly description?: string;
-	readonly doneCondition?: string | null;
-	readonly hypothesis?: string | null;
 }
 
 /**
@@ -83,31 +46,46 @@ export interface ArtifactView {
 	readonly kind: string;
 }
 
-/**
- * Mirrors the fields `PATCH /bets/:id` accepts across its discriminated-union
- * wire shape (`field`/`value`/`reason`, `routes/bets.ts`). `buildCoreApiPort`
- * issues one PATCH per present field — the route accepts exactly one field
- * per call.
- */
-export interface UpdateBetRequest {
-	readonly description?: string;
-	readonly doneCondition?: string | null;
-	readonly hypothesis?: string | null;
-}
+// @lore BB1: UpdateBetRequest DELETED — bet fields are now task fields; PATCH /tasks/:id.
 
-/** Mirrors `POST /tasks`'s validated request body (`createTaskSchema`, `routes/tasks.ts`). */
+/**
+ * Mirrors `POST /tasks`'s validated request body (`createTaskSchema`, `routes/tasks.ts`).
+ *
+ * @lore BB1: keep this in step with the schema. The route is `.strict()`, so a field the
+ * schema knows and this interface omits is not a harmless gap — it is a field no seam caller
+ * can discover, while a field this interface has and the schema does not is a 400 at runtime.
+ * Excess-property checking does NOT catch the drift, because the seam receives a variable
+ * rather than an object literal.
+ */
 export interface CreateTaskRequest {
-	readonly betId: string;
+	readonly parentTaskId?: string | null;
+	/** Required when `parentTaskId` is omitted; inherited from the parent otherwise. */
+	readonly teamId?: string;
 	readonly title: string;
 	readonly description?: string | null;
 	readonly doneCondition?: string | null;
 	readonly ownerAgentId?: string | null;
+	/** When true, finishing this task sends it to `review` rather than `done`. */
+	readonly needsReview?: boolean;
+	/** AK5 provenance — the knowledge item this task was promoted from. */
+	readonly sourceKnowledgeItemId?: string;
+}
+
+/** Mirrors `PATCH /tasks/:id`'s validated request body. */
+export interface UpdateTaskRequest {
+	readonly title?: string;
+	readonly description?: string | null;
+	readonly doneCondition?: string | null;
+	readonly ownerAgentId?: string | null;
+	readonly dependencies?: string | null;
+	readonly parentTaskId?: string | null;
+	readonly state?: string;
 }
 
 /** Mirrors `POST /tasks`'s 201 response body — the created task row. */
 export interface CreateTaskResponse {
 	readonly id: string;
-	readonly betId: string;
+	readonly parentTaskId: string | null;
 	readonly teamId: string;
 }
 
@@ -214,20 +192,20 @@ export interface HandoffTaskResponse {
 }
 
 /**
- * The agent's tool-facing `work` capability family (Decision C). Seeded
- * (Increment 1) with `createBet`; Increment 2 adds the remaining
- * `tool-handlers` reads/writes named in `edge-disposition.md`'s
- * `work.{get, list, create, update}` row, plus `handoffTask` (org/routine/
- * handoff wave — the backing route lives under `/tasks`). `routeItem` (a
- * pure local computation, no DB, no cross-layer read) was never a seam
- * method — AU21 §6 Decision L3 later deleted it outright as vestigial.
+ * The agent's tool-facing `work` capability family (Decision C). Increment 2
+ * adds reads/writes named in `edge-disposition.md`'s `work.{get, list, create,
+ * update}` row, plus `handoffTask` (org/routine/handoff wave — the backing
+ * route lives under `/tasks`). `routeItem` (a pure local computation, no DB,
+ * no cross-layer read) was never a seam method — AU21 §6 Decision L3 later
+ * deleted it outright as vestigial.
+ *
+ * @lore BB1: `createBet`, `getBetById`, `updateBetById` DELETED — a bet is
+ * now a root task; use `createTask`/`getTaskById`/updateTask paths instead.
  */
 export interface CoreApiWorkPort {
-	createBet(input: CreateBetRequest): Promise<CreateBetResponse>;
 	getTaskById(id: string): Promise<TaskView | undefined>;
-	getBetById(id: string): Promise<BetView | undefined>;
-	updateBetById(id: string, updates: UpdateBetRequest): Promise<void>;
 	createTask(input: CreateTaskRequest): Promise<CreateTaskResponse>;
+	updateTaskById(id: string, updates: UpdateTaskRequest): Promise<void>;
 	/** Atomic note append. Resolves `undefined` when the task does not exist (no throw). */
 	appendTaskNote(taskId: string, entry: string): Promise<{ readonly id: string } | undefined>;
 	getItemById(id: string): Promise<ItemView | undefined>;
@@ -235,7 +213,7 @@ export interface CoreApiWorkPort {
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
 	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
 	createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse>;
-	/** Over `GET /artifacts/:id`, the same shape as `getTaskById`/`getBetById`. */
+	/** Over `GET /artifacts/:id`, the same shape as `getTaskById`. */
 	getArtifactById(id: string): Promise<ArtifactView | undefined>;
 	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;
 }
@@ -386,7 +364,7 @@ export interface CreateOrgTeamRequest {
 	readonly createdAt: string;
 	readonly teamMembersId: string;
 	readonly capacity?: number;
-	readonly activeBets?: number;
+	// @lore BB1: activeBets removed — WIP limit is capacity counted live.
 	readonly formedAt?: string;
 }
 
@@ -396,7 +374,7 @@ export interface CreateOrgTeamRequest {
  */
 export interface UpdateOrgTeamRequest {
 	readonly phase?: string;
-	readonly activeBets?: number;
+	// @lore BB1: activeBets removed — WIP limit is capacity counted live.
 	readonly leadAgentId?: string;
 }
 

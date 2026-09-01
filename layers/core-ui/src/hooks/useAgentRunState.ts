@@ -29,7 +29,7 @@ import type {
 	AgentRunSummary,
 } from "@hyperidle/domain-model";
 import { useEffect, useMemo, useState } from "react";
-import { fetchLatestRunOutcomes, fetchRunsByAgentIds } from "../services/agent-runs.js";
+import { fetchRunsByAgentIds } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";
 import type {
 	AgentActiveSession,
@@ -55,7 +55,7 @@ export type RunStateStatus = "loading" | "ready" | "error";
 /** The subset of a task the run-state renders need. Both fields are core's. */
 interface TaskRef {
 	readonly title: string;
-	readonly betId: string | null;
+	// @lore BB1: betId removed — tasks link directly via /work/task/:taskId
 }
 
 /**
@@ -79,13 +79,11 @@ async function fetchTaskRefs(
 	const rows = (await res.json()) as ReadonlyArray<{
 		id?: unknown;
 		title?: unknown;
-		betId?: unknown;
 	}>;
 	for (const row of rows) {
 		if (typeof row.id !== "string") continue;
 		refs.set(row.id, {
 			title: typeof row.title === "string" ? row.title : row.id,
-			betId: typeof row.betId === "string" ? row.betId : null,
 		});
 	}
 	return refs;
@@ -102,7 +100,7 @@ export interface RosterRunState {
 	readonly healthDetail: string;
 	readonly activeTaskTitle: string | null;
 	readonly activeTaskId: string | null;
-	readonly activeBetId: string | null;
+	// @lore BB1: activeBetId removed — use activeTaskId + /work/task/:taskId
 }
 
 export interface RosterMemberRef {
@@ -170,7 +168,7 @@ export function useRosterRunState(members: ReadonlyArray<RosterMemberRef>): Rost
 					healthDetail: deriveHealthDetail(signals),
 					activeTaskTitle: activeTask?.title ?? null,
 					activeTaskId: active?.taskId ?? null,
-					activeBetId: activeTask?.betId ?? null,
+					// @lore BB1: activeBetId removed
 				});
 			}
 			setState(next);
@@ -199,7 +197,7 @@ export const DEFAULT_ROSTER_RUN_STATE: RosterRunState = {
 	healthDetail: "Healthy",
 	activeTaskTitle: null,
 	activeTaskId: null,
-	activeBetId: null,
+	// @lore BB1: activeBetId removed
 };
 
 // ---------------------------------------------------------------------------
@@ -266,7 +264,7 @@ export function useAgentRunState(agentId: string | null, harnessAvailable: boole
 								sessionId: active.id,
 								taskId: active.taskId,
 								// @lore AB1 M1: the bet route expects betId, not taskId.
-								betId: taskRefs.get(active.taskId)?.betId ?? "",
+								// @lore BB1: betId removed from session nav
 								startedAt: active.startedAt,
 							}
 						: null,
@@ -316,41 +314,4 @@ function groupByAgent(
 		byAgent.set(run.agentId, bucket);
 	}
 	return byAgent;
-}
-
-// ---------------------------------------------------------------------------
-// Bet view
-// ---------------------------------------------------------------------------
-
-/**
- * The outcome of the newest run per task, keyed by task id. A task with no run
- * is absent, which callers render as `null` — the exact shape core-api used to
- * serve as `latestSessionOutcome` on `GET /api/bets/:id` (AU26 J4).
- */
-export function useLatestRunOutcomes(
-	taskIds: ReadonlyArray<string>,
-): Readonly<Record<string, string | null>> {
-	const [outcomes, setOutcomes] = useState<Readonly<Record<string, string | null>>>({});
-	const idsKey = useMemo(() => [...taskIds].join(","), [taskIds]);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: idsKey is the content-stable key for `taskIds`
-	useEffect(() => {
-		if (taskIds.length === 0) {
-			setOutcomes({});
-			return;
-		}
-		const ac = new AbortController();
-		fetchLatestRunOutcomes(taskIds, ac.signal)
-			.then((next) => {
-				if (!ac.signal.aborted) setOutcomes(next);
-			})
-			.catch(() => {
-				// The task list is core's data and already rendered; a run-state
-				// failure just means no outcome chip, exactly as for a task with no run.
-				if (!ac.signal.aborted) setOutcomes({});
-			});
-		return () => ac.abort();
-	}, [idsKey]);
-
-	return outcomes;
 }

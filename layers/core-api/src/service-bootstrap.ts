@@ -174,21 +174,15 @@ const policyDeps: PolicyDeps = {
 			return rows.map((r) => r.id);
 		},
 		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
-			work.transition(exec, "bet", {
-				id: betId,
-				guard: { field: "status", equals: fromStatus },
-				patch,
-			}),
 		transitionTaskState: (exec, { taskId, fromState, patch }) =>
 			work.transition(exec, "task", {
 				id: taskId,
 				guard: { field: "state", equals: fromState },
 				patch,
 			}),
-		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
-			work.list(exec, "task", { betId: opts?.betId }),
+		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
+			work.list(exec, "task", { parentTaskId }),
+		listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
 	},
 	conversation: {
 		insertMessage,

@@ -28,7 +28,6 @@ describe("API Availability Regression Guard (I6)", () => {
 	// /api/notifications root (door #129 DELETE) — these routes were convicted and removed.
 	const ROUTE_MODULES = [
 		{ path: "/api/health", description: "Health (public)" },
-		{ path: "/api/bets", description: "Bets" },
 		{ path: "/api/tasks", description: "Tasks" },
 		{ path: "/api/knowledge", description: "Knowledge" },
 		{ path: "/api/users", description: "Users" },
@@ -62,6 +61,8 @@ describe("API Availability Regression Guard (I6)", () => {
 	 * unknown `/api/*` path returns. The mirror image of the guard above.
 	 */
 	const RETIRED_ROUTES = [
+		// BB1: bets dissolved into tasks — /api/bets route deleted.
+		"/api/bets",
 		"/api/git-export",
 		"/api/git-export/config",
 		"/api/git-export/run",

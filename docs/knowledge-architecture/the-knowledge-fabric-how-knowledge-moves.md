@@ -17,13 +17,13 @@ App-runtime projects the same rows two ways:
 | Agents | Plain files in the session sandbox (`context/factory`, `context/product`, `context/practices`) + one TOON pack (`context/session.toon`) |
 | Humans | Knowledge and Work views in the web UI |
 
-Scope maps to layer via `SCOPE_TO_LAYER` (`framework/domain-model/src/knowledge.ts:6-14`): factory→L4, product→L2, practice→L3, task→L1; bet/team/user carry no layer. The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
+Scope maps to layer via `SCOPE_TO_LAYER` (`framework/domain-model/src/knowledge.ts:6-14`): factory→L4, product→L2, practice→L3, task→L1; team/user carry no layer (`bet` still exists in the enum for legacy data; it also carries no layer). The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
 
 **If a file is human-readable, that means a human will actually read it.** Not "could theoretically read." Will. If no human will ever read it, it has no business being markdown — that's just token waste and version-control noise. Agent-only session state ships as TOON; human-curated knowledge ships as markdown.
 
-### Knowledge → bet
+### Knowledge → task
 
-Promoting a knowledge item into a draft bet (and the forward/reverse edge distinction) is owned by [bets-shape-commit-change-ship.md §5.1](../process-layer/bets-shape-commit-change-ship.md); the forward edge is documented at the `bets.source_knowledge_item_id` schema comment (`framework/db/src/schema.ts:180-191`).
+Promoting a knowledge item into a task (AK5) creates a new task with `sourceKnowledgeItemId` set to the item's id. The task header links back to the source item. This edge is owned by the task create flow; the provenance column is `tasks.source_knowledge_item_id` (`framework/db/src/schema.ts`).
 
 ## 2. Projection for humans (Web UI)
 
@@ -57,7 +57,7 @@ Selection, ranking, and budgeting are done **before** a session starts, not at p
     product/                 # L2 items
     practices/               # L3 items
     factory/                 # L4 items
-    session.toon             # TOON pack: task, bet, team, user, routines
+    session.toon             # TOON pack: task, team, user, routines
 
   work/                      # READ-WRITE — session scratch
     task-notes.md            # created empty at assembly
@@ -109,7 +109,7 @@ L3 practices:  items for communityForRole(agentRole)   (role-community-map.ts)
 
 Only L4/L2/L3 are assembled; L0/L1 items are never projected. The combined set is then scored against the task description and trimmed to the token budget via `rank(…)` (`relevance-scoring.ts:209-216`, which defaults to `DEFAULT_KNOWLEDGE_BUDGET` from `scoring-config.ts`) — "load what you need, nothing more" is implemented, not aspirational. Scoring and budget are owned by [relevance-and-attention.md](relevance-and-attention.md).
 
-**TOON reality** (spec: [github.com/toon-format/toon](https://github.com/toon-format/toon); codec at `framework/toon-codec/src/toon-codec.ts`): the only TOON artifact is `context/session.toon`, built from task, bet, team, user, and routine state. Knowledge items — including practices — are always written as markdown; per-item TOON packing was never built.
+**TOON reality** (spec: [github.com/toon-format/toon](https://github.com/toon-format/toon); codec at `framework/toon-codec/src/toon-codec.ts`): the only TOON artifact is `context/session.toon`, built from task (with its subtree context), team, user, and routine state. Knowledge items — including practices — are always written as markdown; per-item TOON packing was never built.
 
 ## 4. Why context assembly, not FUSE
 

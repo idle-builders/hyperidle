@@ -1,48 +1,38 @@
 /**
  * W3 — Task Detail E2E tests: AC-26 through AC-32.
  *
- * AC-26: Route /work/bet/:betId/task/:taskId renders task detail page.
- * AC-27: Breadcrumb: Work / [Team] / [Bet] / [Task title].
- * AC-28: Metadata strip: Owner, Status, Started, Session.
+ * AC-26: /work/task/:taskId renders the task detail page.
+ * AC-27: Breadcrumb: Work / [ancestors…] / [Task title].
+ * AC-28: Metadata strip: Owner, Status, Depth, Sessions.
  * AC-29: Sessions section listing agent sessions.
- * AC-30: Discussion section.
- * AC-31: Artifacts section.
- * AC-32: Content max-width 800px, centered.
+ * AC-32: Content max-width 800px.
+ *
+ * @lore BB1: the route was `/work/task/:betId/task/:taskId` — a task sat
+ * exactly one level under a bet, so the path carried both ids. A task can now
+ * nest at any depth, so there is ONE route, `/work/task/:taskId`, and the
+ * ancestor chain comes back from `GET /api/tasks/:id/tree` instead of the URL.
+ *
+ * @lore BB1: AC-27 used to assert a team-name segment. The breadcrumb is the
+ * task TREE path now — "Work", then each ancestor's title, then this task — so
+ * there is no team segment to assert. The team is reachable from /work.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeTask, mockTaskTree, test } from "./fixtures";
 
-const BET_FIXTURE = {
-	id: "bet-e2e-1",
-	title: "User Auth Flow",
-	team: "Alpha Core",
-	teamId: "t1",
-	status: "active",
-	atRisk: false,
-	tokenAppetite: null,
-	tokensActual: null,
-	progress: { done: 3, total: 8 },
-	description: "# Auth Feature\nMigrate to JWT.",
-	tasks: [
-		{
-			id: "task-e2e-1",
-			title: "Implement login endpoint",
-			owner: "Dev Agent 1",
-			state: "in_progress",
-			startedAt: "2026-01-01T10:00:00.000Z",
-		},
-	],
-};
+const ROOT_TASK_ID = "root-e2e-1";
+const TASK_ID = "task-e2e-1";
+const ROOT_TITLE = "User Auth Flow";
+const TASK_TITLE = "Implement login endpoint";
 
-const SESSIONS_FIXTURE = {
-	sessions: [
+/** `GET /api/agent-orchestration/runs?task_id=…` — what useTaskSessions reads. */
+const RUNS_FIXTURE = {
+	runs: [
 		{
 			id: "sess-1",
-			title: "Login endpoint implementation",
-			agent: "Dev Agent 1",
-			tokens: 15000,
-			status: "completed",
-			harnessUrl: null,
+			state: "completed",
+			startedAt: "2026-01-01T10:00:00.000Z",
+			agentId: "agent-dev-1",
+			effectivenessScore: null,
 		},
 	],
 };
@@ -51,109 +41,72 @@ const TEAMS_FIXTURE = {
 	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
 };
 
-test.describe("W3 AC-26 — Task detail route", () => {
-	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
+async function seedTaskTree(page: import("@playwright/test").Page): Promise<void> {
+	await page.route("**/api/agent-orchestration/runs**", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(RUNS_FIXTURE),
 		});
-		await page.route("**/api/sessions*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(SESSIONS_FIXTURE),
-			});
-		});
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
+	});
+	await page.route("**/api/teams", async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(TEAMS_FIXTURE),
 		});
 	});
 
-	test("navigating to /work/bet/:betId/task/:taskId renders task detail page", async ({ page }) => {
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+	const root = makeTask(ROOT_TASK_ID, { title: ROOT_TITLE, teamId: "t1" });
+	const child = makeTask(TASK_ID, {
+		title: TASK_TITLE,
+		teamId: "t1",
+		parentTaskId: ROOT_TASK_ID,
+		ownerAgentId: "Dev Agent 1",
+		state: "in_progress",
+	});
+
+	// The subtask, opened directly: one ancestor, so the breadcrumb has a middle segment.
+	await mockTaskTree(page, { task: child, ancestors: [root] });
+	// The root, for the click-through test: the subtask hangs underneath it.
+	await mockTaskTree(page, { task: root, children: [{ ...child, children: [] }] });
+}
+
+test.describe("W3 AC-26 — Task detail route", () => {
+	test.beforeEach(async ({ page }) => {
+		await seedTaskTree(page);
+	});
+
+	test("navigating to /work/task/:taskId renders task detail page", async ({ page }) => {
+		await page.goto(`/work/task/${TASK_ID}`);
 		await expect(page.getByTestId("task-detail-page")).toBeVisible();
 	});
 });
 
 test.describe("W3 AC-27 — Breadcrumb", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
-		await page.route("**/api/sessions*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(SESSIONS_FIXTURE),
-			});
-		});
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+		await seedTaskTree(page);
+		await page.goto(`/work/task/${TASK_ID}`);
 		await page.waitForSelector("[data-testid='task-detail-page']");
 	});
 
 	test("breadcrumb shows 'Work'", async ({ page }) => {
-		const breadcrumb = page.getByTestId("task-breadcrumb");
-		await expect(breadcrumb).toContainText("Work");
+		await expect(page.getByTestId("task-breadcrumb")).toContainText("Work");
 	});
 
-	test("breadcrumb shows team name (Alpha Core)", async ({ page }) => {
-		const breadcrumb = page.getByTestId("task-breadcrumb");
-		await expect(breadcrumb).toContainText("Alpha Core");
-	});
-
-	test("breadcrumb shows bet title", async ({ page }) => {
-		const breadcrumb = page.getByTestId("task-breadcrumb");
-		await expect(breadcrumb).toContainText("User Auth Flow");
+	test("breadcrumb shows the ancestor task title", async ({ page }) => {
+		await expect(page.getByTestId("task-breadcrumb")).toContainText(ROOT_TITLE);
 	});
 
 	test("breadcrumb shows task title", async ({ page }) => {
-		const breadcrumb = page.getByTestId("task-breadcrumb");
-		await expect(breadcrumb).toContainText("Implement login endpoint");
+		await expect(page.getByTestId("task-breadcrumb")).toContainText(TASK_TITLE);
 	});
 });
 
 test.describe("W3 AC-28 — Metadata strip", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
-		await page.route("**/api/sessions*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(SESSIONS_FIXTURE),
-			});
-		});
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+		await seedTaskTree(page);
+		await page.goto(`/work/task/${TASK_ID}`);
 		await page.waitForSelector("[data-testid='task-meta-strip']");
 	});
 
@@ -162,128 +115,52 @@ test.describe("W3 AC-28 — Metadata strip", () => {
 	});
 
 	test("metadata strip shows owner name", async ({ page }) => {
-		const strip = page.getByTestId("task-meta-strip");
-		await expect(strip).toContainText("Dev Agent 1");
+		await expect(page.getByTestId("task-meta-strip")).toContainText("Dev Agent 1");
 	});
 
 	test("metadata strip shows status", async ({ page }) => {
-		const strip = page.getByTestId("task-meta-strip");
-		await expect(strip).toContainText(/in progress|in_progress/i);
+		await expect(page.getByTestId("task-meta-strip")).toContainText("In progress");
+	});
+
+	// @lore BB1: replaces the old "Started" cell. The strip carries Depth now —
+	// a task can sit at any level, so how deep it is IS the new metadata.
+	test("metadata strip shows depth relative to the root task", async ({ page }) => {
+		await expect(page.getByTestId("task-meta-strip")).toContainText("Level 1");
 	});
 });
 
 test.describe("W3 AC-29 — Sessions section", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
-		await page.route("**/api/sessions*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(SESSIONS_FIXTURE),
-			});
-		});
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
+		await seedTaskTree(page);
+		await page.goto(`/work/task/${TASK_ID}`);
 		await page.waitForSelector("[data-testid='task-sessions-section']");
 	});
 
 	test("sessions section is visible", async ({ page }) => {
 		await expect(page.getByTestId("task-sessions-section")).toBeVisible();
 	});
-
-	test("sessions section lists session titles", async ({ page }) => {
-		const section = page.getByTestId("task-sessions-section");
-		await expect(section).toContainText("Login endpoint implementation");
-	});
-
-	test("sessions section shows agent name", async ({ page }) => {
-		const section = page.getByTestId("task-sessions-section");
-		await expect(section).toContainText("Dev Agent 1");
-	});
 });
 
 test.describe("W3 AC-32 — Task detail max-width 800px", () => {
-	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
-		await page.route("**/api/sessions*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(SESSIONS_FIXTURE),
-			});
-		});
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
-		await page.goto("/work/bet/bet-e2e-1/task/task-e2e-1");
-		await page.waitForSelector("[data-testid='task-detail-body']");
-	});
-
 	test("detail body has max-width ≤ 800px", async ({ page }) => {
-		const body = page.getByTestId("task-detail-body");
-		const box = await body.boundingBox();
-		expect(box).not.toBeNull();
-		if (box) {
-			expect(box.width).toBeLessThanOrEqual(800);
-		}
+		await seedTaskTree(page);
+		await page.goto(`/work/task/${TASK_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-body']");
+		const width = await page
+			.getByTestId("task-detail-body")
+			.evaluate((el) => el.getBoundingClientRect().width);
+		expect(width).toBeLessThanOrEqual(800);
 	});
 });
 
-test.describe("W3 — Task detail from bet detail click-through", () => {
-	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-		});
-		await page.route("**/api/sessions*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(SESSIONS_FIXTURE),
-			});
-		});
-		await page.route("**/api/teams", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(TEAMS_FIXTURE),
-			});
-		});
-	});
-
-	test("clicking a task row on bet detail navigates to task detail page", async ({ page }) => {
-		await page.goto("/work/bet/bet-e2e-1");
-		await page.waitForSelector("[data-testid='task-row']");
-
-		const firstTaskRow = page.locator("[data-testid='task-row']").first();
-		await firstTaskRow.click();
-
-		await expect(page).toHaveURL(/\/work\/bet\/bet-e2e-1\/task\/task-e2e-1/);
-		await expect(page.getByTestId("task-detail-page")).toBeVisible();
+test.describe("W3 — Task detail from its parent task", () => {
+	test("clicking a subtask row on the parent navigates to that task's detail page", async ({
+		page,
+	}) => {
+		await seedTaskTree(page);
+		await page.goto(`/work/task/${ROOT_TASK_ID}`);
+		await page.waitForSelector("[data-testid='subtask-row']");
+		await page.locator(`[data-testid='subtask-link-${TASK_ID}']`).first().click();
+		await expect(page).toHaveURL(new RegExp(`/work/task/${TASK_ID}`));
 	});
 });

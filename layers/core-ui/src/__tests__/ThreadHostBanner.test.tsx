@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { ThreadHostBanner } from "../ds";
 
 const baseProps = {
-	hostKind: "bet" as const,
+	hostKind: "task" as const,
 	hostTitle: "Pricing overhaul",
 	hostHref: "/work/bet/bet-1",
 	blocking: false,

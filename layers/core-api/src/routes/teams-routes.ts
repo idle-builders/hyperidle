@@ -22,12 +22,12 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
-	BetCardSummary,
 	CreateTeamRequest,
 	CreateTeamResponse,
 	RosterMember,
 	RoutineCardSummary,
 	RoutineRunOutcome,
+	TaskCardSummary,
 	TeamDetail,
 	TeamListItem,
 } from "@hyperidle/domain-model";
@@ -47,7 +47,6 @@ import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { deriveTitle } from "@hyperidle/work";
 import { Hono } from "hono";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
@@ -73,13 +72,14 @@ function deriveInitials(name: string): string {
  */
 function deriveTeamStatus(
 	memberGroup: {
-		activeBets: number;
+		// BB1: renamed from activeBets to tasksInProgress — root tasks in_progress.
+		tasksInProgress: number;
 		capacity: number;
 	},
 	hasBlockedTask: boolean,
 ): "healthy" | "behind" | "blocked" {
 	if (hasBlockedTask) return "blocked";
-	const overCapacity = memberGroup.activeBets > memberGroup.capacity;
+	const overCapacity = memberGroup.tasksInProgress > memberGroup.capacity;
 	if (overCapacity) return "behind";
 	return "healthy";
 }
@@ -134,16 +134,17 @@ export function createTeamRoutes(
 
 		const result: TeamListItem[] = await Promise.all(
 			allTeams.map(async (team) => {
-				// @lore AU44 B1: team_members dissolved — team row now carries capacity/activeBets/leadAgentId.
-				// Count active and completed bets
-				const activeBetCount = await work.list(db, "bet", {
+				// BB1: bets are now root tasks (parentTaskId: null). Active = in_progress; completed = done.
+				const activeBetCount = await work.list(db, "task", {
 					teamId: team.id,
-					status: "active",
+					parentTaskId: null,
+					state: "in_progress",
 					count: true,
 				});
-				const completedCount = await work.list(db, "bet", {
+				const completedCount = await work.list(db, "task", {
 					teamId: team.id,
-					status: "completed",
+					parentTaskId: null,
+					state: "done",
 					count: true,
 				});
 
@@ -151,13 +152,17 @@ export function createTeamRoutes(
 				const total = completedCount + activeBetCount;
 				const shipRate = total === 0 ? "—" : `${Math.round((completedCount / total) * 100)}%`;
 
-				// Progress: sum done/total tasks across active bets
-				const activeBetRows = await work.list(db, "bet", { teamId: team.id, status: "active" });
+				// Progress: sum done/total tasks across active root tasks
+				const activeRootRows = await work.list(db, "task", {
+					teamId: team.id,
+					parentTaskId: null,
+					state: "in_progress",
+				});
 
 				let progressDone = 0;
 				let progressTotal = 0;
-				for (const bet of activeBetRows) {
-					const taskRows = await work.list(db, "task", { betId: bet.id });
+				for (const rootTask of activeRootRows) {
+					const taskRows = await work.list(db, "task", { parentTaskId: rootTask.id });
 					progressTotal += taskRows.length;
 					progressDone += taskRows.filter((t) => t.state === "done").length;
 				}
@@ -165,7 +170,7 @@ export function createTeamRoutes(
 				const leadAgentId = team.leadAgentId ?? null;
 				const status = deriveTeamStatus(
 					{
-						activeBets: team.activeBets,
+						tasksInProgress: activeBetCount,
 						capacity: team.capacity,
 					},
 					false,
@@ -202,8 +207,9 @@ export function createTeamRoutes(
 					phase: team.phase,
 					status,
 					leadAgentId,
-					activeBets: activeBetCount,
-					shipped: completedCount,
+					// BB1: activeBets/shipped → tasksInProgress/tasksDone
+					tasksInProgress: activeBetCount,
+					tasksDone: completedCount,
 					shipRate,
 					progress: { done: progressDone, total: progressTotal },
 					routineCount,
@@ -551,14 +557,19 @@ export function createTeamRoutes(
 				}
 			}
 
-			// 4. Load active bets
-			const activeBetRows = await work.list(db, "bet", { teamId: teamId, status: "active" });
+			// 4. Load active root tasks (BB1: bets are now root tasks in_progress)
+			const activeBetRows = await work.list(db, "task", {
+				teamId: teamId,
+				parentTaskId: null,
+				state: "in_progress",
+			});
 
-			// 5. Per active bet, count tasks done/total
+			// 5. Per active root task, count child tasks done/total
 			let hasBlockedTask = false;
-			const activeBets: BetCardSummary[] = await Promise.all(
+			// BB1: BetCardSummary → TaskCardSummary; activeBets → tasksInProgress.
+			const tasksInProgress: TaskCardSummary[] = await Promise.all(
 				activeBetRows.map(async (bet) => {
-					const taskRows = await work.list(db, "task", { betId: bet.id });
+					const taskRows = await work.list(db, "task", { parentTaskId: bet.id });
 
 					const progressTotal = taskRows.length;
 					const progressDone = taskRows.filter((t) => t.state === "done").length;
@@ -566,17 +577,16 @@ export function createTeamRoutes(
 
 					return {
 						id: bet.id,
-						// @lore U1: `descriptionTitle` was formerly `pitchTitle`.
-						descriptionTitle: deriveTitle(bet.description, bet.id),
-						status: bet.status as "active",
+						title: bet.title,
+						state: "in_progress" as const,
 						progressDone,
 						progressTotal,
 					};
 				}),
 			);
 
-			// Sort bets by createdAt desc
-			activeBets.sort((a, b) => {
+			// Sort by createdAt desc
+			tasksInProgress.sort((a, b) => {
 				const aRow = activeBetRows.find((r) => r.id === a.id);
 				const bRow = activeBetRows.find((r) => r.id === b.id);
 				if (!(aRow && bRow)) return 0;
@@ -629,10 +639,10 @@ export function createTeamRoutes(
 			// Sort routines by name asc
 			teamRoutines.sort((a, b) => a.name.localeCompare(b.name));
 
-			// 6. Derive team status
+			// 6. Derive team status (BB1: tasksInProgress count = active root tasks)
 			const teamStatus = deriveTeamStatus(
 				{
-					activeBets: team.activeBets,
+					tasksInProgress: tasksInProgress.length,
 					capacity: team.capacity,
 				},
 				hasBlockedTask,
@@ -653,11 +663,11 @@ export function createTeamRoutes(
 					dissolvedAt: null,
 				},
 				roster,
+				// BB1: activeBets field removed from TeamBurn; only capacity remains.
 				burn: {
 					capacity: team.capacity,
-					activeBets: team.activeBets,
 				},
-				activeBets,
+				tasksInProgress,
 				routines: teamRoutines,
 			};
 

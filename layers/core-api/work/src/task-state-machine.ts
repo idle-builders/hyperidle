@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts, type WriteExecutor } from "@hyperidle/db";
 import type { BakedWorkIntentRequest } from "@hyperidle/domain-model";
 import {
 	canTransitionTaskState,
@@ -8,8 +8,8 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { TaskInvalidTransitionError } from "./errors.js";
-import type { AgentWorkIntentRecorder } from "./ports.js";
+import { CapacityExceededError, TaskCycleError, TaskInvalidTransitionError } from "./errors.js";
+import type { AgentWorkIntentRecorder, TeamCapacityReader } from "./ports.js";
 import type { TaskRunResolverDeps } from "./task-run-resolver.js";
 import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import * as work from "./work-service.js";
@@ -31,6 +31,48 @@ import * as work from "./work-service.js";
 export interface TaskStateMachineDeps {
 	readonly workIntents: AgentWorkIntentRecorder;
 	readonly taskRunResolver: TaskRunResolverDeps;
+	/**
+	 * BB1: reads `teams.capacity` for the WIP check on `-> in_progress`. Same
+	 * injected-port shape the deleted bet state machine used, minus its write
+	 * half — the count is live, so there is nothing to write back.
+	 */
+	readonly teamCapacity: TeamCapacityReader;
+}
+
+/**
+ * BB1: reject a parent link that would make the tree cyclic — a task set as its
+ * own parent, or reparented under one of its own descendants.
+ *
+ * Called before any write that sets `parentTaskId`. The read and the write must
+ * share a transaction.
+ *
+ * @lore BB1 — KNOWN, ACCEPTED LIMIT: this is not proof against two SIMULTANEOUS
+ * reparents. The subtree is read with a plain SELECT — no row locks, no
+ * SERIALIZABLE — so on real Postgres under READ COMMITTED, "reparent A under B"
+ * and "reparent B under A" at the same instant can each observe an acyclic tree,
+ * both pass, and together form a detached `A → B → A` loop. PGlite serialises
+ * locally, so it cannot happen on a laptop, and MAX_TASK_DEPTH keeps such a loop
+ * degrading reads rather than hanging them. Founder ruling (2026-08-31): "we can
+ * fix that edge case when it becomes a problem" — one shared backend, two people
+ * reparenting the same two tasks in the same instant, is not a real scenario yet.
+ * When it is, the fix is to lock the subtree or raise the isolation level. It is
+ * NOT a retry loop: retrying a check that can pass wrongly just passes wrongly
+ * again.
+ */
+export async function assertNoCycle(
+	exec: WriteExecutor,
+	taskId: string,
+	parentTaskId: string,
+): Promise<void> {
+	if (taskId === parentTaskId) {
+		throw new TaskCycleError(taskId, parentTaskId);
+	}
+	// If the proposed parent is somewhere in this task's own subtree, linking
+	// them closes a loop.
+	const subtree = await work.listSubtreeIds(exec, taskId);
+	if (subtree.includes(parentTaskId)) {
+		throw new TaskCycleError(taskId, parentTaskId);
+	}
 }
 
 export {
@@ -77,6 +119,11 @@ export async function transitionTask(
 	toState: TaskState,
 	deps: TaskStateMachineDeps,
 	dispatchOccasion?: "accepted" | "retry",
+	/**
+	 * BB1: marks this transition as part of a deliberate subtree kill, so upward
+	 * completion propagation ignores it. Only `cascadeTaskKill` passes it.
+	 */
+	opts?: { readonly cascade?: boolean },
 ): Promise<void> {
 	let pendingDispatch:
 		| {
@@ -101,12 +148,48 @@ export async function transitionTask(
 			}
 
 			const now = new Date().toISOString();
+
+			// BB1: the WIP limit, enforced AT THE DOOR — the moment work is
+			// dispatched to an agent, which is this same transition (`accepted`
+			// with an owner is what inserts the dispatch attempt and records the
+			// work intent, below).
+			//
+			// @lore BB1: it was first put on the transition INTO `in_progress`,
+			// which is one step too late and actively harmful. Nothing in the
+			// dispatch chain consulted capacity, so at capacity a session still
+			// started and the agent did real, paid work — and then the reaction
+			// that moves the task to `in_progress` (`work-session-started-
+			// reactions.ts`) was refused, stranding the task in `accepted`. Since
+			// session-end propagation requires `in_progress`, the task never
+			// reached `review` and the work was silently lost. A limit must
+			// refuse work at the door; once a session exists, the transition is
+			// RECORDING a fact and must never fail.
+			//
+			// The count spans the whole team at every depth: what bounds the
+			// factory is how much work is actually running, not how many top-level
+			// commitments exist. Counted live inside this transaction rather than
+			// read off a stored tally, so two dispatches racing cannot both see
+			// the same stale count.
+			if (toState === "accepted" && task.ownerAgentId && fromState !== "accepted") {
+				const team = await deps.teamCapacity.getByTeamId(tx, task.teamId);
+				if (!team) {
+					throw new Error(`Team not found: ${task.teamId}`);
+				}
+				const running = await work.countTeamTasksInProgress(tx, task.teamId);
+				if (running >= team.capacity) {
+					throw new CapacityExceededError(task.teamId, team.capacity);
+				}
+			}
+
 			const { applied } = await work.transition(tx, "task", {
 				id: taskId,
 				guard: { field: "state", equals: fromState },
 				patch: {
 					state: toState,
 					updatedAt: now,
+					// BB1: moved off the deleted bet path, which stamped this on
+					// completion. Every task records when it finished.
+					...(toState === "done" ? { completedAt: now } : {}),
 				},
 			});
 
@@ -174,5 +257,6 @@ export async function transitionTask(
 		fromState: transitioned.fromState,
 		toState,
 		timestamp: Date.now(),
+		...(opts?.cascade === true ? { cascade: true } : {}),
 	});
 }

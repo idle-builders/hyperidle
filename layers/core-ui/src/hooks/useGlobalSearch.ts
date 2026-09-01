@@ -1,10 +1,10 @@
 import type {
-	BetStatus,
 	KnowledgeKind,
 	KnowledgeLayer,
 	KnowledgeStatus,
+	TaskState,
 } from "@hyperidle/domain-model";
-import { BET_STATUSES, KNOWLEDGE_STATUSES } from "@hyperidle/domain-model";
+import { KNOWLEDGE_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
@@ -21,8 +21,8 @@ interface WorkResult {
 	title: string;
 	/** @lore U5: Renamed from `product` to `team`. */
 	team: string;
-	status: BetStatus;
-	appetite: string;
+	// @lore BB1: status/appetite (bet-era) replaced by state (task).
+	state: TaskState;
 }
 
 interface KnowledgeResult {
@@ -74,7 +74,7 @@ const KNOWLEDGE_KIND_SET: ReadonlySet<string> = new Set([
 	"reflection",
 	"focus",
 ]);
-const BET_STATUS_SET: ReadonlySet<string> = new Set<string>(BET_STATUSES);
+const TASK_STATE_SET: ReadonlySet<string> = new Set<string>(TASK_STATES);
 const KNOWLEDGE_STATUS_SET: ReadonlySet<string> = new Set<string>(KNOWLEDGE_STATUSES);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -94,8 +94,8 @@ function isKnowledgeLayer(v: string): v is KnowledgeLayer {
 function isKnowledgeKind(v: string): v is KnowledgeKind {
 	return KNOWLEDGE_KIND_SET.has(v);
 }
-function isBetStatus(v: string): v is BetStatus {
-	return BET_STATUS_SET.has(v);
+function isTaskState(v: string): v is TaskState {
+	return TASK_STATE_SET.has(v);
 }
 function isKnowledgeStatus(v: string): v is KnowledgeStatus {
 	return KNOWLEDGE_STATUS_SET.has(v);
@@ -135,10 +135,11 @@ function parseConversation(value: unknown): ConversationResult | null {
 
 function parseWork(value: unknown): WorkResult | null {
 	if (!isRecord(value)) return null;
+	// @lore BB1: work items are now tasks; `state` replaces `status`+`appetite`.
 	// @lore U5: API may send `team` (new) or `product` (old/compat). Prefer `team`, fall back to `product`.
-	const fields = readStringFields(value, ["id", "title", "status", "appetite"] as const);
+	const fields = readStringFields(value, ["id", "title", "state"] as const);
 	if (!fields) return null;
-	if (!isBetStatus(fields.status)) return null;
+	if (!isTaskState(fields.state)) return null;
 	const teamValue =
 		(typeof value.team === "string" && value.team.length > 0 ? value.team : null) ??
 		(typeof value.product === "string" && value.product.length > 0 ? value.product : null) ??
@@ -147,8 +148,7 @@ function parseWork(value: unknown): WorkResult | null {
 		id: fields.id,
 		title: fields.title,
 		team: teamValue,
-		status: fields.status,
-		appetite: fields.appetite,
+		state: fields.state,
 	};
 }
 

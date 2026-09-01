@@ -4,7 +4,7 @@
  * AC coverage:
  *  - WorkPortfolio: ArtifactGalleryCard renders on /work/portfolio
  *  - WorkProduct: ArtifactStackItem renders on /work/product/:id
- *  - WorkBet: ArtifactStackItem renders on /work/bet/:id (BEFORE thread section)
+ *  - WorkBet: ArtifactStackItem renders on /work/task/:id (BEFORE thread section)
  *  - TaskSheet: ArtifactPreview renders when task sheet is open
  *  - Overflow "View all" is a non-interactive <span> (not a link or button)
  *
@@ -131,14 +131,13 @@ async function mockAppShellEndpoints(page: Page): Promise<void> {
 					status: "active",
 					phase: "build",
 					leadAgentId: null,
-					activeBets: 0,
 					shipped: 0,
 					shipRate: "0%",
 					progress: { done: 0, total: 0 },
 				},
 				roster: [],
-				burn: { activeBets: 0, capacity: 3 },
-				activeBets: [],
+				burn: { capacity: 3 },
+				tasksInProgress: [],
 			}),
 		});
 	});
@@ -209,8 +208,8 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 					},
 					team: { id: "team-e2e", formedAt: "2024-01-01T00:00:00Z", dissolvedAt: null },
 					roster: [],
-					burn: { activeBets: 0, capacity: 3 },
-					activeBets: [],
+					burn: { capacity: 3 },
+					tasksInProgress: [],
 				}),
 			});
 		});
@@ -225,35 +224,11 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 	// ── WorkBet ───────────────────────────────────────────────────────────────
 
 	test("WorkBet: ArtifactStackItem renders when artifacts exist", async ({ page }) => {
-		await page.route("**/api/bets/bet-e2e/artifact-thread-summary", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-			});
-		});
-		await page.route("**/api/bets/bet-e2e", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "bet-e2e",
-					title: "E2E Test Bet",
-					product: "E2E Product",
-					team: "E2E Team",
-					status: "committed",
-					tokensActual: null,
-					progress: { done: 1, total: 3 },
-					description: "# Problem\nTest.",
-					tasks: [],
-				}),
-			});
-		});
 		await mockThreadEndpoints(page);
 		await mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);
 
-		await page.goto("/work/bet/bet-e2e");
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto("/work/task/bet-e2e");
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		await expect(page.locator("[data-ds-component='ArtifactStackItem']").first()).toBeVisible();
 	});
@@ -339,8 +314,8 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 		});
 		await mockArtifactsOnPage(page, ARTIFACT_PAGE_RESPONSE);
 
-		await page.goto(`/work/bet/${ORDER_BET_ID}`);
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto(`/work/task/${ORDER_BET_ID}`);
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// Verify ArtifactSection and thread section both render
 		const artifactSectionEl = page.locator("[data-testid='artifact-section-container']");
@@ -408,42 +383,6 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 	// ── TaskSheet ─────────────────────────────────────────────────────────────
 
 	test("TaskSheet: ArtifactPreview renders when task has artifacts", async ({ page }) => {
-		await page.route("**/api/bets/bet-ts-e2e/artifact-thread-summary", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-			});
-		});
-		await page.route("**/api/bets/bet-ts-e2e", async (route: Route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: "bet-ts-e2e",
-					title: "Task Sheet Bet",
-					product: "TS Product",
-					team: "TS Team",
-					status: "committed",
-					tokensActual: null,
-					progress: { done: 0, total: 1 },
-					description: "# Test",
-					tasks: [
-						{
-							id: "task-ts-1",
-							betId: "bet-ts-e2e",
-							title: "Task for sheet",
-							state: "in_progress",
-							ownerAgentId: "agent-dev-1",
-							latestSessionOutcome: null,
-							latestSessionTokensInput: null,
-							latestSessionTokensOutput: null,
-							latestSessionHarnessUrl: null,
-						},
-					],
-				}),
-			});
-		});
 		await mockThreadEndpoints(page);
 		// Mock with single artifact for the task
 		await page.route("**/api/artifacts?**", async (route: Route) => {
@@ -454,8 +393,8 @@ test.describe("L12 — Artifact surfaces on Work pages", () => {
 			});
 		});
 
-		await page.goto("/work/bet/bet-ts-e2e");
-		await page.waitForSelector("[data-testid='work-bet-page']");
+		await page.goto("/work/task/bet-ts-e2e");
+		await page.waitForSelector("[data-testid='task-detail-page']");
 
 		// Click the task row to open TaskSheet
 		const taskRow = page.getByTestId("bet-task-row").first();

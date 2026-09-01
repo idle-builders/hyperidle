@@ -40,7 +40,9 @@ describe("M3 — HostThreadSection: accepts agentId prop (D3)", () => {
 	});
 
 	it("renders without error when agentId is null", () => {
-		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" agentId={null} />);
+		render(
+			<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" agentId={null} />,
+		);
 
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
 	});
@@ -48,8 +50,8 @@ describe("M3 — HostThreadSection: accepts agentId prop (D3)", () => {
 	it("renders without error when agentId is a real agent id", () => {
 		render(
 			<HostThreadSection
-				hostKind="bet"
-				hostId="bet-001"
+				hostKind="task"
+				hostId="task-001"
 				title="Discussion"
 				agentId="agent-real-1"
 			/>,
@@ -60,14 +62,14 @@ describe("M3 — HostThreadSection: accepts agentId prop (D3)", () => {
 
 	it("renders without error when agentId prop is omitted (default to null)", () => {
 		// No agentId prop — backward compatible default
-		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" />);
+		render(<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" />);
 
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
 	});
 
 	it("does NOT use 'agent-unassigned' string in the component", () => {
 		const { container } = render(
-			<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" agentId={null} />,
+			<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" agentId={null} />,
 		);
 
 		// The hardcoded sentinel "agent-unassigned" must never appear in the DOM

@@ -96,34 +96,19 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 		return buildCoreApiPort(withActorTransport(transport, { userId: actorId }));
 	}
 
-	function createBetThroughCoreApiPort(
-		input: {
-			readonly teamId: string;
-			readonly description: string;
-			readonly doneCondition: string | null;
-			readonly hypothesis: string | null;
-		},
-		actorId: string,
-	): Promise<{ readonly id: string; readonly teamId: string; readonly status: string }> {
-		return seamPortForActor(actorId).work.createBet({
-			teamId: input.teamId,
-			description: input.description,
-			doneCondition: input.doneCondition ?? undefined,
-			hypothesis: input.hypothesis ?? undefined,
-		});
-	}
+	// @lore BB1: createBetThroughCoreApiPort DELETED — bet is now a root task;
+	// use createTask with parentTaskId=null for root tasks.
 
 	return {
 		// AU21 §6 Decision L3: `work.routeItem` (the last standalone same-process
 		// `work` DI capability) is DELETED outright as vestigial — every `work`
 		// read/write now crosses the `coreApi` seam below.
+		// @lore BB1: createBet, getBetById, updateBetById removed — bet is now a root task.
 		coreApi: {
-			createBet: createBetThroughCoreApiPort,
 			getTaskById: (id, actorId) => seamPortForActor(actorId).work.getTaskById(id),
-			getBetById: (id, actorId) => seamPortForActor(actorId).work.getBetById(id),
-			updateBetById: (id, updates, actorId) =>
-				seamPortForActor(actorId).work.updateBetById(id, updates),
 			createTask: (input, actorId) => seamPortForActor(actorId).work.createTask(input),
+			updateTaskById: (id, updates, actorId) =>
+				seamPortForActor(actorId).work.updateTaskById(id, updates),
 			appendTaskNote: (taskId, entry, actorId) =>
 				seamPortForActor(actorId).work.appendTaskNote(taskId, entry),
 			getItemById: (id, actorId) => seamPortForActor(actorId).work.getItemById(id),
@@ -142,7 +127,7 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 			createArtifact: (input, actorId) => seamPortForActor(actorId).work.createArtifact(input),
 			// `submit_review` uses this to confirm a stored `artifactRef` resolves
 			// to an artifact this task actually produced, over `GET /artifacts/:id`
-			// — same shape as `getTaskById`/`getBetById`.
+			// — same shape as `getTaskById`.
 			getArtifactById: (id, actorId) => seamPortForActor(actorId).work.getArtifactById(id),
 			getUserById: (id, actorId) => seamPortForActor(actorId).users.getUserById(id),
 			listUsersByTeam: (teamMembersId, actorId) =>

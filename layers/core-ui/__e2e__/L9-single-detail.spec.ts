@@ -156,13 +156,6 @@ test.describe("L9 — single Conversations detail surface", () => {
 		page,
 	}) => {
 		// Setup mocks for work page
-		await page.route("**/api/bets*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ bets: [] }),
-			});
-		});
 		await page.route("**/api/threads?**", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -236,23 +229,6 @@ test.describe("L9 — single Conversations detail surface", () => {
 		const BET_THREAD_ID = "t-bet-l9";
 
 		// Mock /api/bets/:id
-		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: BET_ID,
-					title: "L9 Bet",
-					product: "Alpha",
-					team: "Alpha Core",
-					status: "in_progress",
-					tokensActual: null,
-					progress: { done: 0, total: 1 },
-					description: "# Test\nL9 bet for e2e.",
-					tasks: [],
-				}),
-			});
-		});
 
 		// Mock GET /api/threads?host_kind=bet&host_id=...
 		await page.route(`**/api/threads?**host_kind=bet**`, async (route) => {
@@ -311,7 +287,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 		});
 
 		// Navigate to the bet detail page
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// Wait for the host thread section to appear
 		await expect(page.getByTestId("host-thread-section")).toBeVisible({ timeout: 10000 });

@@ -1,7 +1,8 @@
-import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { getAgentIdentity } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, InvalidTransitionError, transitionTask } from "@hyperidle/work";
@@ -9,29 +10,37 @@ import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
+const teamCapacity: TaskStateMachineDeps["teamCapacity"] = {
+	getByTeamId: (exec, teamId) => getTeam(exec, { id: teamId }),
+};
+
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
+	teamCapacity,
 };
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
-const depWatcherDeps = {
+const depWatcherDeps: TaskStateMachineDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
+	teamCapacity,
 };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "b1",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 }
 
@@ -44,7 +53,7 @@ async function insertTask(
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
 		id,
-		betId: "b1",
+		parentTaskId: "b1",
 		teamId: "p1",
 		title: `Task ${id}`,
 		state,
@@ -122,10 +131,18 @@ describe("Task State Machine", () => {
 	});
 
 	describe("invalid transitions", () => {
-		test("throws InvalidTransitionError for proposed -> done", async ({ db, eventBus }) => {
+		/**
+		 * @lore BB1: this used to assert `proposed -> done`, which is LEGAL now. A
+		 * task finishes to `done` by default rather than `review`, and a container
+		 * parent that nobody personally worked still sits in `proposed` when its
+		 * children finish — so it needs a legal path to `done` or the cascade dies
+		 * at the first such parent. `done -> in_progress` is the invariant that
+		 * genuinely still holds: a finished task does not reopen.
+		 */
+		test("throws InvalidTransitionError for done -> in_progress", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
-			await insertTask(db, "task-1", "proposed");
-			await expect(transitionTask(db, eventBus, "task-1", "done", testDeps)).rejects.toThrow(
+			await insertTask(db, "task-1", "done");
+			await expect(transitionTask(db, eventBus, "task-1", "in_progress", testDeps)).rejects.toThrow(
 				InvalidTransitionError,
 			);
 		});
@@ -258,11 +275,13 @@ describe("Task State Machine", () => {
 
 		test("does not emit event on invalid transition", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
-			await insertTask(db, "task-1", "proposed");
+			// @lore BB1: `done -> in_progress`, not `proposed -> done` — the latter
+			// is legal now (see the note above).
+			await insertTask(db, "task-1", "done");
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			await expect(transitionTask(db, eventBus, "task-1", "done", testDeps)).rejects.toThrow(
+			await expect(transitionTask(db, eventBus, "task-1", "in_progress", testDeps)).rejects.toThrow(
 				InvalidTransitionError,
 			);
 			expect(events).toHaveLength(0);

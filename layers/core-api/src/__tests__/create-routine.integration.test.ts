@@ -111,10 +111,11 @@ describe("create_routine tool", () => {
 
 		const result = await createRoutineTool.handler(
 			{
-				name: "On bet completion",
+				// BB1: bet_state_changed removed; use task_state_changed instead.
+				name: "On task completion",
 				ownerAgentId: agentId,
 				triggerType: "event",
-				eventType: "bet_state_changed",
+				eventType: "task_state_changed",
 			},
 			makeContext(db),
 		);
@@ -124,7 +125,7 @@ describe("create_routine tool", () => {
 		const data = result.data as { routineId: string };
 		const routineRows = await db.select().from(routines).where(eq(routines.id, data.routineId));
 		expect(routineRows[0]?.triggerType).toBe("event");
-		expect(routineRows[0]?.eventType).toBe("bet_state_changed");
+		expect(routineRows[0]?.eventType).toBe("task_state_changed");
 		expect(routineRows[0]?.triggerConfig).toBeNull();
 	});
 

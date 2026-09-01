@@ -15,12 +15,14 @@
 // into layers/core-ui (batch 8). These two are wire types embedded in BlockRef/AnchorRef — domain-model
 // cannot import from layers/core-ui, so they are inlined here.
 export type BlockId = string & { readonly __brand: "BlockId" };
-export type BlockHostKind = "bet" | "task" | "knowledge_item" | "artifact" | "agent" | "user";
+// @lore BB1: `"bet"` removed — a bet is a task with no parent, and migration
+// 0068 flipped every thread whose host_kind was "bet" to "task" (the host_id was
+// already correct, since each bet kept its id as a root task).
+export type BlockHostKind = "task" | "knowledge_item" | "artifact" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 
 export const HOST_KINDS = [
-	"bet",
 	"task",
 	"knowledge_item",
 	"artifact",
@@ -135,13 +137,12 @@ export type InlineRefKind =
 	| "knowledge_item"
 	| "task"
 	| "artifact"
-	| "bet"
 	| "message"
 	| "block"
 	| "mention";
 
 export interface EntityRef {
-	readonly kind: "knowledge_item" | "task" | "artifact" | "bet" | "message";
+	readonly kind: "knowledge_item" | "task" | "artifact" | "message";
 	readonly id: string;
 }
 

@@ -51,9 +51,8 @@ Cross-view edges (what links to what across the three views): [cross-view-naviga
 | `/work` | WorkOverview (flat attention-sorted team list) |
 | `/work/team/:teamId` | WorkTeam |
 | `/work/routine/:routineId` | WorkRoutine |
-| `/work/bet/new` | WorkBetCreate (full page — no dialog) |
-| `/work/bet/:betId` | WorkBet detail |
-| `/work/bet/:betId/task/:taskId` | WorkTask |
+| `/work/task/new` | WorkTaskCreate (full page — no dialog) |
+| `/work/task/:taskId` | WorkTask detail (root or subtask, any depth) |
 | `/reviews/:reviewId` | ReviewPage |
 | `/agents/:agentId` | AgentProfile |
 | `/knowledge` | KnowledgeList |

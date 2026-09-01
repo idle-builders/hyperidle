@@ -70,7 +70,10 @@ export async function listTeams(
  *
  * @lore AU44 B1: `teamMembersId`/`capacity`/`activeBets`/`formedAt` removed —
  * these formerly seeded the companion `team_members` row; after the fold they
- * live on `teams` with schema defaults (capacity=5, activeBets=0, formedAt=createdAt).
+ * live on `teams` with schema defaults (capacity=5, formedAt=createdAt).
+ * @lore BB1: `activeBets` column dropped — the WIP limit is now counted live
+ * from `tasks.state = 'in_progress'` via `countTeamTasksInProgress` in
+ * `@hyperidle/work`. No stored tally that can drift.
  */
 export interface CreateTeamInput {
 	readonly id: string;
@@ -84,8 +87,8 @@ export interface CreateTeamInput {
  * Insert a `teams` row.
  *
  * @lore AU44 B1: formerly inserted both `teams` and `team_members` companion.
- * After the fold, a single insert suffices; defaults (capacity=5, activeBets=0)
- * live in the schema.
+ * After the fold, a single insert suffices; default (capacity=5) lives in the schema.
+ * @lore BB1: `activeBets: 0` default removed — the column is dropped.
  */
 export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Promise<void> {
 	await db.insert(teams).values({
@@ -95,7 +98,6 @@ export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Pro
 		factoryDbPath: input.factoryDbPath,
 		createdAt: input.createdAt,
 		capacity: 5,
-		activeBets: 0,
 		formedAt: input.createdAt,
 	});
 }
@@ -103,24 +105,20 @@ export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Pro
 /**
  * Update team-owned columns on the `teams` row.
  *
- * Accepts `WriteExecutor` so callers can pass a `tx` handle (bet-state-machine
- * updates `activeBets` inside its own transaction).
- *
  * @example updateTeam(db, teamId, { phase: "archive" })
- * @example updateTeam(db, teamId, { activeBets: newCount })
  * @example updateTeam(db, teamId, { leadAgentId: agentId })
  *
  * @lore AU44 B1: formerly split between `teams` (phase) and `team_members`
- * (activeBets, leadAgentId). After the fold all three columns are on `teams`.
+ * (leadAgentId). After the fold all columns are on `teams`.
+ * @lore BB1: `activeBets` removed — the column is dropped; WIP is counted live.
  */
 export async function updateTeam(
 	db: WriteExecutor,
 	teamId: string,
-	patch: { phase?: string; activeBets?: number; leadAgentId?: string },
+	patch: { phase?: string; leadAgentId?: string },
 ): Promise<void> {
-	const set: { phase?: string; activeBets?: number; leadAgentId?: string } = {};
+	const set: { phase?: string; leadAgentId?: string } = {};
 	if (patch.phase !== undefined) set.phase = patch.phase;
-	if (patch.activeBets !== undefined) set.activeBets = patch.activeBets;
 	if (patch.leadAgentId !== undefined) set.leadAgentId = patch.leadAgentId;
 	if (Object.keys(set).length === 0) return;
 	await db.update(teams).set(set).where(eq(teams.id, teamId));

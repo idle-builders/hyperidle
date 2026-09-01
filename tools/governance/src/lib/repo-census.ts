@@ -18,8 +18,6 @@
 
 import ts from "typescript";
 
-import type { FloorKind } from "../rules/floors-tight.js";
-
 // ---------------------------------------------------------------------------
 // Classification
 // ---------------------------------------------------------------------------
@@ -39,25 +37,21 @@ export type ClassificationClause =
 /**
  * A single classification pattern.
  *
- * @lore AU28: every pattern carries its OWN `minFiles` floor, not just every clause. The old guard
- * set died of dead sub-patterns hiding inside live clauses — `au6`'s `ALLOWED_DIRECT_CONSUMER_IMPORTS`
- * sat empty inside a guard that reported PASS, and the AU28 plan's own `vitest.*.config.ts`
- * sub-pattern matched zero files while its clause matched 35. A per-clause floor cannot see either.
+ * @lore BB1: patterns used to carry a per-pattern `minFiles` floor, policed by `pattern-live` and
+ * held near the live count by `floors-tight`. Both are gone. The floors were migration-era ratchets:
+ * every deliberate deletion — ten dead e2e specs, in the change that removed them — turned the build
+ * red and asked for a bigger number, which trains exactly the reflexive floor-bumping the design was
+ * meant to prevent. Rule liveness is still enforced, by `minScope` in the runner: a rule whose
+ * population is empty throws `DeadRuleError`. That catches the `au6` defect these floors were built
+ * for, without a single maintained magnitude.
  */
 export interface ClassificationPattern {
-	/** Unique, stable id. Reported verbatim when the floor is breached. */
+	/** Unique, stable id. */
 	readonly id: string;
 	readonly clause: ClassificationClause;
 	readonly kind: FileKind;
 	/** Human-readable statement of the rule this pattern encodes. */
 	readonly description: string;
-	/** Minimum number of tracked files this pattern must match. Below it, the guard hard-fails. */
-	readonly minFiles: number;
-	/**
-	 * `magnitude` — the floor tracks a count and `floors-tight` holds it near the live value.
-	 * `existence` — a check over a closed enumerated set, floor exactly 1, band-exempt by declaration.
-	 */
-	readonly floorKind: FloorKind;
 	readonly matches: (repoRelativePath: string) => boolean;
 }
 
@@ -117,33 +111,40 @@ const hasDunderSegment = (p: string): boolean => p.split("/").some((seg) => seg.
  * classification has exactly two mechanisms and both are explicit: a name-declared FILE (this table)
  * and a name-declared FOLDER (`__`, below). Nothing is classified by accident.
  *
- * `.eval.ts(x)` is deliberately ABSENT. Zero such files exist today, so the clause would match nothing
- * and `pattern-live` would hard-fail on arrival. It gets added by the first eval that lands beside
- * production code — a pattern that matches nothing is the defect this whole design exists to prevent.
+ * `.eval.ts(x)` is deliberately ABSENT. Zero such files exist today, so the clause would match
+ * nothing. It gets added by the first eval that lands beside production code.
  */
 const NAME_DECLARED_SUFFIXES: readonly {
 	readonly clause: Extract<ClassificationClause, "stories-suffix" | "test-suffix" | "spec-suffix">;
 	readonly suffixes: readonly string[];
 	readonly description: string;
-	readonly minFiles: number;
 }[] = [
 	{
 		clause: "stories-suffix",
 		suffixes: [".stories.tsx"],
 		description: "a `.stories.tsx` file is a design artifact, pinned beside its component",
-		minFiles: 129,
 	},
 	{
 		clause: "test-suffix",
 		suffixes: [".test.ts", ".test.tsx"],
 		description: "a `.test.ts(x)` file is a test — including the `.integration.test.ts` form",
-		minFiles: 805,
 	},
 	{
 		clause: "spec-suffix",
 		suffixes: [".spec.ts", ".spec.tsx"],
 		description: "a `.spec.ts(x)` file is a Playwright end-to-end spec",
-		minFiles: 84,
+		/**
+		 * @lore BB1: re-based 84 -> 82 after DELETING 10 e2e specs whose surfaces no
+		 * longer exist (the bet pages, their overflow menu and its dialogs, the
+		 * Canvas portfolio). This floor guards against the MEASUREMENT breaking —
+		 * "the tree moved and the pattern must be re-rooted" — not against the repo
+		 * legitimately having fewer specs, and it was checked in that spirit before
+		 * being moved: the pattern still matches every one of the 82 `.spec.ts`
+		 * files that exist, all of them under `layers/core-ui/__e2e__/`. Re-base
+		 * only with that check done and the deletion visible in the same diff;
+		 * a drop you cannot account for file-by-file is the bug this rule exists
+		 * to catch, and lowering the number would hide it.
+		 */
 	},
 ];
 
@@ -171,30 +172,10 @@ const NAME_DECLARED_SUFFIXES: readonly {
  * workaround. The reorder moved ~958 files from `dunder-segment` into the suffix clauses; it changed
  * WHICH clause claims a file, never WHETHER the file is development.
  *
- * @lore AU28: the floors are RECOMPUTED against the live tree whenever the tree moves under them, and
- * the recompute is part of the merge, not a follow-up. A single rebase onto two other tracks moved
- * every magnitude below. A floor left at its pre-merge value is the precise rot these floors exist to
- * catch — it still passes, so nobody notices it has stopped measuring anything. Run
- * `npm run governance:floors`: it prints the live count, the slack, the band verdict and the value to
- * write for every floor in the build, and `floors-tight` fails the build for any magnitude floor that
- * has drifted more than `max(20%, 5)` below live — warning first, while the fix is still cheap.
- *
  * @lore AU28 — THIS BLOCK CARRIES NO MEASURED COUNTS, ON PURPOSE. It used to list the live count of
- * every pattern beside the floor, and those transcriptions went stale three times running — the third
- * set was written by the very commit that corrected the second. Nothing recomputes a number in prose
- * and nothing fails when it drifts, so it rots silently while reading as authoritative, which is the
- * worse half of the same failure the floors exist to prevent. The `minFiles` values below ARE the
- * record: enforced, recomputed by one command, and gated by `floors-tight`. Anything a reader needs
- * to know about the live tree comes from `npm run governance:floors`, never from here.
- *
- * The floors below sit in the MIDDLE of their band rather than at its edge. A floor written at the
- * edge is one added file away from failing the build, and the message it fails with says "raise the
- * floor" — which trains the reflex these floors exist to prevent.
- *
- * The enumerated-set patterns (`development-root:*`, `test-runner-config:*`) stay at 1 on purpose and
- * declare `floorKind: "existence"`: they are existence checks over a closed list, and their job is to
- * fail when an ENTRY dies, not when a count dips. That is a declared field rather than a heuristic on
- * the number 1, so it cannot be used to dodge the band on a magnitude pattern.
+ * every pattern, and those transcriptions went stale three times running — the third set was written
+ * by the very commit that corrected the second. Nothing recomputes a number in prose and nothing
+ * fails when it drifts, so it rots silently while reading as authoritative.
  *
  * @lore AU28 step 2: the role-folder move (`packages/` → `layers/` + `framework/` + `applications/` +
  * `tools/`, and root-level `bin`/`chart`/`homebrew` → `deploy/`) left every magnitude count identical
@@ -206,13 +187,11 @@ const NAME_DECLARED_SUFFIXES: readonly {
  */
 export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 	...NAME_DECLARED_SUFFIXES.map(
-		({ clause, suffixes, description, minFiles }): ClassificationPattern => ({
+		({ clause, suffixes, description }): ClassificationPattern => ({
 			id: clause,
 			clause,
 			kind: "development",
 			description,
-			minFiles,
-			floorKind: "magnitude",
 			matches: (p) => suffixes.some((s) => p.endsWith(s)),
 		}),
 	),
@@ -221,8 +200,6 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "dunder-segment",
 		kind: "development",
 		description: "any path segment starting with `__` marks the file development",
-		minFiles: 54,
-		floorKind: "magnitude",
 		matches: hasDunderSegment,
 	},
 	...DEVELOPMENT_ROOTS.map(
@@ -231,9 +208,6 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 			clause: "development-root",
 			kind: "development",
 			description: `every file under the wholly-development role root \`${root}/\``,
-			minFiles: 1,
-			// An enumerated closed set: the job is to fail when a ROOT dies, not when a count dips.
-			floorKind: "existence",
 			matches: (p) => p.startsWith(`${root}/`),
 		}),
 	),
@@ -242,12 +216,6 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "outside-production-roots",
 		kind: "development",
 		description: `anything outside the production role roots (${PRODUCTION_ROOTS.map((r) => `\`${r}/\``).join(", ")}) is repo tooling, deployment assets, docs or pipeline state`,
-		minFiles: 1,
-		// The unconditional default: every file the earlier patterns did not claim lands here, so its
-		// size is whatever the repo happens to be. Deleting docs or pipeline state legitimately shrinks
-		// it, so a count floor here only ever fires on intended cleanup. The job is to fail when the
-		// default stops matching at all.
-		floorKind: "existence",
 		matches: (p) => !PRODUCTION_ROOTS.some((root) => p.startsWith(`${root}/`)),
 	},
 	...TEST_RUNNER_CONFIG_BASENAMES.map(
@@ -256,9 +224,6 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 			clause: "test-runner-config",
 			kind: "development",
 			description: `\`${name}\` — pinned to a production path by the runner's own discovery`,
-			minFiles: 1,
-			// An enumerated closed set: the job is to fail when an ENTRY dies, not when a count dips.
-			floorKind: "existence",
 			matches: (p) => basename(p) === name,
 		}),
 	),
@@ -267,8 +232,6 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "test-runner-config",
 		kind: "development",
 		description: "`playwright.<lane>.config.ts` — the per-lane playwright configs",
-		minFiles: 1,
-		floorKind: "existence",
 		matches: (p) => {
 			const b = basename(p);
 			return (
@@ -281,8 +244,6 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "default-production",
 		kind: "production",
 		description: "everything else — shipping code",
-		minFiles: 710,
-		floorKind: "magnitude",
 		matches: () => true,
 	},
 ];

@@ -4,7 +4,7 @@
  * `GET /api/reviews/:id` used to spread `JSON.parse(reviewMsg.payload)`
  * verbatim — `{title, reasoning, artifactRef}` — and never read the
  * message's own `threadId` column at all. `ReviewPage` derived a host from
- * `subject.taskId ?? subject.betId` and looked the thread up BY HOST, which
+ * `subject.taskId ?? subject.rootTaskId` and looked the thread up BY HOST, which
  * resolves the first thread for that host — the WRONG thread when a host
  * has more than one. The fix is for the loader to hand back the thread the
  * review message actually lives in, so the page can fetch it directly

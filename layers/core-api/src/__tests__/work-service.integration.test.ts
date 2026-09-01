@@ -19,7 +19,7 @@
  *   - R5 tx-visibility: a read fn called with `tx` inside an open transaction
  *     must see an uncommitted row written earlier in the same `tx`.
  */
-import { bets, type HyperIdleDb, items, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, items, tasks, teams, threads, users } from "@hyperidle/db";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -56,111 +56,22 @@ async function seedThread(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 describe("work-service", () => {
-	describe("createBet / updateBetById", () => {
-		test("createBet inserts a readable row", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "Ship the thing",
-				status: "draft",
-				createdAt: new Date().toISOString(),
-			});
-
-			const [row] = await db.select().from(bets).where(eq(bets.id, "bet-1")).limit(1);
-			expect(row?.description).toBe("Ship the thing");
-			expect(row?.status).toBe("draft");
-		});
-
-		test("updateBetById patches only the addressed row", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "Original",
-				status: "draft",
-				createdAt: new Date().toISOString(),
-			});
-			await work.create(db, "bet", {
-				id: "bet-2",
-				teamId: "team-1",
-				description: "Untouched",
-				status: "draft",
-				createdAt: new Date().toISOString(),
-			});
-
-			await work.update(db, "bet", "bet-1", { description: "Updated" });
-
-			const [updated] = await db.select().from(bets).where(eq(bets.id, "bet-1")).limit(1);
-			const [other] = await db.select().from(bets).where(eq(bets.id, "bet-2")).limit(1);
-			expect(updated?.description).toBe("Updated");
-			expect(other?.description).toBe("Untouched");
-		});
-	});
-
-	describe("transitionBetStatus", () => {
-		test("applies the CAS update and returns applied:true when status matches fromStatus", async ({
-			db,
-		}) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d",
-				status: "draft",
-				createdAt: new Date().toISOString(),
-			});
-
-			const result = await work.transition(db, "bet", {
-				id: "bet-1",
-				guard: { field: "status", equals: "draft" },
-				patch: { status: "active" },
-			});
-
-			expect(result.applied).toBe(true);
-			const [row] = await db.select().from(bets).where(eq(bets.id, "bet-1")).limit(1);
-			expect(row?.status).toBe("active");
-		});
-
-		test("returns applied:false and mutates nothing when status does not match fromStatus", async ({
-			db,
-		}) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d",
-				status: "active",
-				createdAt: new Date().toISOString(),
-			});
-
-			const result = await work.transition(db, "bet", {
-				id: "bet-1",
-				guard: { field: "status", equals: "draft" },
-				patch: { status: "active" },
-			});
-
-			expect(result.applied).toBe(false);
-			const [row] = await db.select().from(bets).where(eq(bets.id, "bet-1")).limit(1);
-			// Unchanged — the guard predicate missed, so status stays "active" (not re-written).
-			expect(row?.status).toBe("active");
-		});
-	});
-
 	describe("createTask / updateTaskById", () => {
 		test("createTask inserts a readable row", async ({ db }) => {
 			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
+			await work.create(db, "task", {
 				id: "bet-1",
+				parentTaskId: null,
 				teamId: "team-1",
-				description: "d",
-				status: "active",
+				title: "Root task",
+				state: "in_progress",
 				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 
 			await work.create(db, "task", {
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "team-1",
 				title: "Do the thing",
 				state: "proposed",
@@ -175,16 +86,18 @@ describe("work-service", () => {
 
 		test("updateTaskById patches only the addressed row", async ({ db }) => {
 			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
+			await work.create(db, "task", {
 				id: "bet-1",
+				parentTaskId: null,
 				teamId: "team-1",
-				description: "d",
-				status: "active",
+				title: "Root task",
+				state: "in_progress",
 				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 			await work.create(db, "task", {
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "team-1",
 				title: "Original",
 				state: "proposed",
@@ -205,16 +118,18 @@ describe("work-service", () => {
 			db,
 		}) => {
 			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
+			await work.create(db, "task", {
 				id: "bet-1",
+				parentTaskId: null,
 				teamId: "team-1",
-				description: "d",
-				status: "active",
+				title: "Root task",
+				state: "in_progress",
 				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 			await work.create(db, "task", {
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "team-1",
 				title: "t",
 				state: "proposed",
@@ -235,16 +150,18 @@ describe("work-service", () => {
 
 		test("returns applied:false when state does not match fromState", async ({ db }) => {
 			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
+			await work.create(db, "task", {
 				id: "bet-1",
+				parentTaskId: null,
 				teamId: "team-1",
-				description: "d",
-				status: "active",
+				title: "Root task",
+				state: "in_progress",
 				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 			await work.create(db, "task", {
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "team-1",
 				title: "t",
 				state: "accepted",
@@ -302,189 +219,21 @@ describe("work-service", () => {
 	// AU13 read-ownership addendum — reads
 	// -------------------------------------------------------------------------
 
-	describe("getBetById", () => {
-		test("returns the full row for an existing bet", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "Ship the thing",
-				status: "draft",
-				createdAt: new Date().toISOString(),
-			});
-
-			const row = await work.get(db, "bet", "bet-1");
-			expect(row?.description).toBe("Ship the thing");
-		});
-
-		test("returns undefined for a missing bet", async ({ db }) => {
-			const row = await work.get(db, "bet", "nope");
-			expect(row).toBeUndefined();
-		});
-	});
-
-	describe("listBets", () => {
-		test("returns every bet when opts are omitted", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d1",
-				status: "draft",
-				createdAt: new Date().toISOString(),
-			});
-			await work.create(db, "bet", {
-				id: "bet-2",
-				teamId: "team-1",
-				description: "d2",
-				status: "draft",
-				createdAt: new Date().toISOString(),
-			});
-
-			const rows = await work.list(db, "bet");
-			expect(rows).toHaveLength(2);
-		});
-
-		test("applies limit and offset together", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			for (const n of [1, 2, 3]) {
-				await work.create(db, "bet", {
-					id: `bet-${n}`,
-					teamId: "team-1",
-					description: `d${n}`,
-					status: "draft",
-					createdAt: new Date().toISOString(),
-				});
-			}
-
-			const rows = await work.list(db, "bet", { limit: 1, offset: 1 });
-			expect(rows).toHaveLength(1);
-		});
-	});
-
-	describe("listBetsByTeamAndStatus / countBetsByTeamAndStatus", () => {
-		test("filters by exact team + status pair", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d1",
-				status: "active",
-				createdAt: new Date().toISOString(),
-			});
-			await work.create(db, "bet", {
-				id: "bet-2",
-				teamId: "team-1",
-				description: "d2",
-				status: "completed",
-				createdAt: new Date().toISOString(),
-			});
-
-			const active = await work.list(db, "bet", { teamId: "team-1", status: "active" });
-			expect(active.map((b) => b.id)).toEqual(["bet-1"]);
-
-			const activeCount = await work.list(db, "bet", {
-				teamId: "team-1",
-				status: "active",
-				count: true,
-			});
-			const completedCount = await work.list(db, "bet", {
-				teamId: "team-1",
-				status: "completed",
-				count: true,
-			});
-			expect(activeCount).toBe(1);
-			expect(completedCount).toBe(1);
-		});
-
-		test("count excludes bets from a different team", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await db.insert(teams).values({
-				id: "team-2",
-				name: "Other Team",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d1",
-				status: "active",
-				createdAt: new Date().toISOString(),
-			});
-			await work.create(db, "bet", {
-				id: "bet-2",
-				teamId: "team-2",
-				description: "d2",
-				status: "active",
-				createdAt: new Date().toISOString(),
-			});
-
-			const count = await work.list(db, "bet", { teamId: "team-1", status: "active", count: true });
-			expect(count).toBe(1);
-		});
-	});
-
-	describe("listBetsByIds", () => {
-		test("returns matching bets, empty ids short-circuits without querying", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d1",
-				status: "draft",
-				createdAt: new Date().toISOString(),
-			});
-
-			const rows = await work.list(db, "bet", { ids: ["bet-1", "missing"] });
-			expect(rows.map((b) => b.id)).toEqual(["bet-1"]);
-
-			const empty = await work.list(db, "bet", { ids: [] });
-			expect(empty).toEqual([]);
-		});
-	});
-
-	describe("searchBetsByText", () => {
-		test("matches description/hypothesis/doneCondition, ranks prefix matches first", async ({
-			db,
-		}) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "unrelated",
-				hypothesis: "widgets will sell",
-				status: "draft",
-				createdAt: "2026-01-01T00:00:00.000Z",
-			});
-			await work.create(db, "bet", {
-				id: "bet-2",
-				teamId: "team-1",
-				description: "widgets are the future",
-				status: "draft",
-				createdAt: "2026-01-02T00:00:00.000Z",
-			});
-
-			const rows = await work.list(db, "bet", { text: "widgets", limit: 10 });
-			expect(rows.map((b) => b.id).sort()).toEqual(["bet-1", "bet-2"]);
-			// bet-2's description starts with the query → matchRank 0, ranked first.
-			expect(rows[0]?.id).toBe("bet-2");
-		});
-	});
-
 	describe("getTaskById", () => {
 		test("returns the full row for an existing task", async ({ db }) => {
 			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
+			await work.create(db, "task", {
 				id: "bet-1",
+				parentTaskId: null,
 				teamId: "team-1",
-				description: "d",
-				status: "active",
+				title: "Root task",
+				state: "in_progress",
 				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 			await work.create(db, "task", {
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "team-1",
 				title: "Do it",
 				state: "proposed",
@@ -500,16 +249,18 @@ describe("work-service", () => {
 	describe("listTasks", () => {
 		async function seedTwoTasks(db: HyperIdleDb): Promise<void> {
 			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
+			await work.create(db, "task", {
 				id: "bet-1",
+				parentTaskId: null,
 				teamId: "team-1",
-				description: "d",
-				status: "active",
+				title: "Root task",
+				state: "in_progress",
 				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 			await work.create(db, "task", {
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				title: "T1",
@@ -519,7 +270,7 @@ describe("work-service", () => {
 			});
 			await work.create(db, "task", {
 				id: "task-2",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "team-1",
 				title: "T2",
 				state: "accepted",
@@ -530,30 +281,31 @@ describe("work-service", () => {
 
 		test("returns every task when opts are omitted", async ({ db }) => {
 			await seedTwoTasks(db);
+			// BB1: work.list(db, "task") returns ALL tasks including root (bet-1, task-1, task-2)
 			const rows = await work.list(db, "task");
-			expect(rows).toHaveLength(2);
+			expect(rows).toHaveLength(3);
 		});
 
-		test("AND-composes betId + state + ownerAgentId over only the provided keys", async ({
+		test("AND-composes parentTaskId + state + ownerAgentId over only the provided keys", async ({
 			db,
 		}) => {
 			await seedTwoTasks(db);
 
-			const byBet = await work.list(db, "task", { betId: "bet-1" });
-			expect(byBet).toHaveLength(2);
+			const byParent = await work.list(db, "task", { parentTaskId: "bet-1" });
+			expect(byParent).toHaveLength(2);
 
-			const byState = await work.list(db, "task", { betId: "bet-1", state: "proposed" });
+			const byState = await work.list(db, "task", { parentTaskId: "bet-1", state: "proposed" });
 			expect(byState.map((t) => t.id)).toEqual(["task-1"]);
 
 			const byOwner = await work.list(db, "task", {
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				state: "proposed",
 				ownerAgentId: "agent-1",
 			});
 			expect(byOwner.map((t) => t.id)).toEqual(["task-1"]);
 
 			const byOwnerMiss = await work.list(db, "task", {
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				state: "accepted",
 				ownerAgentId: "agent-1",
 			});
@@ -564,16 +316,18 @@ describe("work-service", () => {
 	describe("listTasksByIds", () => {
 		test("returns matching tasks, empty ids short-circuits without querying", async ({ db }) => {
 			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
+			await work.create(db, "task", {
 				id: "bet-1",
+				parentTaskId: null,
 				teamId: "team-1",
-				description: "d",
-				status: "active",
+				title: "Root task",
+				state: "in_progress",
 				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 			await work.create(db, "task", {
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "team-1",
 				title: "T1",
 				state: "proposed",

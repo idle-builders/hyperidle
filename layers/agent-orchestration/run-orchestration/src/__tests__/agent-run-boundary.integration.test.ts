@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { agentSessionRequests, bets, tasks, teams, users } from "@hyperidle/db";
+import { agentSessionRequests, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -55,16 +55,19 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-au6",
+		parentTaskId: null,
 		teamId: "team-au6",
+		title: "Close agent execution boundary",
 		description: "Close agent execution boundary",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-au6",
-		betId: "bet-au6",
+		parentTaskId: "bet-au6",
 		teamId: "team-au6",
 		title: "Boundary task",
 		state: "accepted",

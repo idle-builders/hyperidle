@@ -18,19 +18,21 @@ describe("AG4 — parentPathFor", () => {
 	describe("work routes", () => {
 		// AD9: /work is now the Work overview root (was /work/portfolio)
 		it("bet detail → /work (was /work/portfolio)", () => {
-			expect(parentPathFor("/work/bet/abc-123")).toBe("/work");
+			expect(parentPathFor("/work/task/abc-123")).toBe("/work");
 		});
 
-		it("bet detail with trailing content → /work", () => {
-			expect(parentPathFor("/work/bet/abc-123/")).toBe("/work");
+		// @lore BB1: /work/bet/ routes deleted; test uses /work/task/ instead
+		it("task detail with trailing slash → /work", () => {
+			expect(parentPathFor("/work/task/abc-123/")).toBe("/work");
 		});
 
-		it("task detail → parent bet", () => {
-			expect(parentPathFor("/work/bet/bet-1/task/task-2")).toBe("/work/bet/bet-1");
+		// @lore BB1: tasks have no URL-visible parent (breadcrumb uses ancestors API)
+		it("task detail → /work (BB1: flat URL, depth via ancestors API)", () => {
+			expect(parentPathFor("/work/task/task-2")).toBe("/work");
 		});
 
-		it("task detail with nested path → parent bet", () => {
-			expect(parentPathFor("/work/bet/abc-123/task/xyz-456")).toBe("/work/bet/abc-123");
+		it("task detail (any id) → /work (BB1: all tasks share same flat parent)", () => {
+			expect(parentPathFor("/work/task/xyz-456")).toBe("/work");
 		});
 
 		it("routine detail → /work (was /work/portfolio)", () => {

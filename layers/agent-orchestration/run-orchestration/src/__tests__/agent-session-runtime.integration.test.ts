@@ -1,7 +1,6 @@
 import {
 	agentSessionRequests,
 	agentWorkIntents,
-	bets,
 	type HyperIdleDb,
 	tasks,
 	teams,
@@ -57,16 +56,19 @@ describe("agent session runtime consumer", () => {
 			status: "active",
 			createdAt: now,
 		});
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "bet-1",
+			parentTaskId: null,
 			teamId: "team-1",
+			title: "Bet",
 			description: "Bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: now,
+			updatedAt: now,
 		});
 		await db.insert(tasks).values({
 			id: "task-1",
-			betId: "bet-1",
+			parentTaskId: "bet-1",
 			teamId: "team-1",
 			title: "Task",
 			state: "accepted",
@@ -135,16 +137,19 @@ describe("agent session runtime consumer", () => {
 			status: "active",
 			createdAt: now,
 		});
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "bet-1",
+			parentTaskId: null,
 			teamId: "team-1",
+			title: "Bet",
 			description: "Bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: now,
+			updatedAt: now,
 		});
 		await db.insert(tasks).values({
 			id: "task-1",
-			betId: "bet-1",
+			parentTaskId: "bet-1",
 			teamId: "team-1",
 			title: "Task",
 			state: "accepted",
@@ -267,16 +272,19 @@ describe("agent session runtime consumer", () => {
 			status: "retired",
 			createdAt,
 		});
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "bet-race",
+			parentTaskId: null,
 			teamId: "team-race",
+			title: "Bet",
 			description: "Bet",
-			status: "active",
-			createdAt,
+			state: "in_progress",
+			createdAt: createdAt,
+			updatedAt: createdAt,
 		});
 		await db.insert(tasks).values({
 			id: "task-race",
-			betId: "bet-race",
+			parentTaskId: "bet-race",
 			teamId: "team-race",
 			title: "Task",
 			state: "accepted",

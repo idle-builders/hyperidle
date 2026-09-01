@@ -12,14 +12,13 @@ const mockConversations = [
 	},
 ];
 
+// @lore BB1: work items are now tasks — `state` replaces `status` + `appetite`.
 const mockWork = [
 	{
 		id: "w1",
 		title: "Mobile App V2",
 		team: "HyperIdle",
-		// @lore U1: "committed" merged into "active"
-		status: "active" as const,
-		appetite: "6 weeks",
+		state: "in_progress" as const,
 	},
 ];
 

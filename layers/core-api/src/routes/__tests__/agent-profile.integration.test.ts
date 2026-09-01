@@ -27,7 +27,6 @@
 
 import {
 	agentRunConfig,
-	bets,
 	type HyperIdleDb,
 	items,
 	messages,
@@ -116,17 +115,20 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	});
 
 	// Seed a bet and task for sessions
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "ab1-bet-1",
+		parentTaskId: null,
 		teamId: "ab1-team",
+		title: "Test bet",
 		description: "Test bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 
 	await db.insert(tasks).values({
 		id: "ab1-task-1",
-		betId: "ab1-bet-1",
+		parentTaskId: "ab1-bet-1",
 		teamId: "ab1-team",
 		title: "Test task 1",
 		state: "in_progress",

@@ -13,7 +13,7 @@ export const InProgress = (): React.JSX.Element => (
 			title="Implement login flow"
 			owner="Bob Smith"
 			state="in_progress"
-			betTag="Mobile V2"
+			parentTag="Mobile V2"
 		/>
 	</div>
 );
@@ -26,7 +26,7 @@ export const Blocked = (): React.JSX.Element => (
 
 export const Done = (): React.JSX.Element => (
 	<div className="max-w-[320px]">
-		<TaskCard title="Write unit tests" owner="Carol Davis" state="done" betTag="Sprint 1" />
+		<TaskCard title="Write unit tests" owner="Carol Davis" state="done" parentTag="Sprint 1" />
 	</div>
 );
 

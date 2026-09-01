@@ -6,7 +6,7 @@
  * forwards it onto `provisionParams.callingThreadId` — a JSON.parse of the
  * already-drained payload, ZERO orchestration -> core read (AU21 AC #2).
  */
-import { agentSessionRequests, bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { agentSessionRequests, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";
@@ -24,16 +24,19 @@ async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: now,
 	});
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "Bet",
 		description: "Bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "team-1",
 		title: "Task",
 		state: "accepted",

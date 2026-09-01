@@ -113,16 +113,14 @@ type AgentWorkIntentRecorder = AgentWorkIntentRecorderFn;
  * off `@hyperidle/db` row types directly) — no narrower `Work*` row type is
  * needed since `org` already owns the canonical row shape.
  *
- * @lore AU20 Am7: `setActiveBets` signature changed from `(db, teamMembersId, activeBets)`
- * to `(db, teamId, activeBets)` — the 1:1 invariant lets `org`'s new
- * `updateTeam(db, teamId, { activeBets })` address the row by `teamId`
- * (WHERE teamMembers.teamId = teamId), eliminating the need to pass
- * `teamMembers.id` to the write side. `bet-state-machine.ts` passes
- * `freshMemberGroup.teamId` instead of `freshMemberGroup.id` unchanged in semantics.
+ * @lore BB1: read-only now. `setActiveBets` is GONE with the stored
+ * `teams.activeBets` tally it maintained — the WIP limit is counted live from
+ * `tasks.state = 'in_progress'` inside the transition's own transaction
+ * (`countTeamTasksInProgress`), so there is no counter to write and none to
+ * drift. This port exists purely to read `capacity`.
  */
 interface TeamCapacityReader {
 	getByTeamId(db: WriteExecutor, teamId: string): Promise<Team | undefined>;
-	setActiveBets(db: WriteExecutor, teamId: string, activeBets: number): Promise<void>;
 }
 
 export type { AgentWorkIntentRecorder, TeamCapacityReader };

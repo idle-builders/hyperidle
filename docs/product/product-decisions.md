@@ -12,7 +12,7 @@ Target user framing behind all of these: solo founder up to a small (~10-person)
 
 **No per-skill autonomy controls, ever.** The per-agent-per-skill autonomy product was removed outright. Agents get allow-all on the tools and skills they use; their output is judged at review, and knowledge-item edits are scored behind the system to decide whether a change needs review. Trust model detail: [Review Primitive](../human-interface-layer/review-primitive.md).
 
-**Bet pause/resume does not exist by design.** Resolved by removing the paused state from the bet lifecycle (U1), not by adding endpoints. Lifecycle authority: [Bets](../process-layer/bets-shape-commit-change-ship.md).
+**Task pause/resume does not exist by design.** Resolved by removing the paused state from the task lifecycle (U1), not by adding endpoints. Lifecycle authority: [Tasks and sessions](../process-layer/tasks-and-sessions.md).
 
 **No bundled demo/portfolio ceremony for single-product founders.** The cross-team Portfolio grid was removed (AD9); Work lands on `WorkOverview`.
 
@@ -22,7 +22,7 @@ Target user framing behind all of these: solo founder up to a small (~10-person)
 
 - **Knowledge scope cleanup.** Authoring exposes all 7 scope kinds (`SCOPE_KINDS`, `framework/domain-model/src/types.ts:181`; scope enum owned by [The Canonical Store](../knowledge-architecture/the-canonical-store.md)). Founder direction: cut the user-facing choice to roughly three — whole company / this product / just me; the practice-vs-product-vs-team distinction is confusing without domain knowledge. Not shipped.
 - **Knowledge kind taxonomy under question.** Founder doubts the value of the pattern/decision/failure/brief classification and notes "skill" is missing as a kind even though skills are knowledge items. Kind now lives in the app projection as open text (`knowledgeAppProjection.kind`, `framework/db/src/schema.ts:1014`). Open product question, no resolution yet.
-- **Create-knowledge-from-discussion needs no button.** An agent can identify and capture knowledge from bet/task discussion; the explicit UI affordance is dispensable.
+- **Create-knowledge-from-discussion needs no button.** An agent can identify and capture knowledge from task discussion; the explicit UI affordance is dispensable.
 - **Org-chart settings page removal.** Founder: "nobody needs that — we have teams with a responsible human and agents inside." `layers/core-ui/src/settings/SettingsOrgChart.tsx` still exists; removal pending.
 - **Routines reframing.** A routine is a work object — or part of a strategy — not an org-level scheduler config. Shapes future Routines work; see [Routines and Retros](../process-layer/routines-and-retros.md).
 
@@ -61,4 +61,4 @@ Decisions from the June audits that already shipped; do not re-open them as gaps
 | Routine scheduler (cron, silent runs, delegation) | Started at boot: `startRoutineScheduler` in `layers/core-api/src/service-bootstrap.ts:600` |
 | Portfolio page | Removed (AD9); `WorkOverview` is the Work landing |
 | Per-skill autonomy product | Removed (see §1) |
-| Bet pause/resume | Removed from the bet lifecycle (U1; see §1) |
+| Task pause/resume | Removed from the task lifecycle (U1; see §1) |

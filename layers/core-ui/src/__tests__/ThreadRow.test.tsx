@@ -171,8 +171,9 @@ describe("ThreadRow", () => {
 	});
 
 	it("renders the host tag pill when hostTag is provided", () => {
-		render(<ThreadRow {...defaultProps} hostTag="bet" />);
-		expect(screen.getByText("bet")).toBeInTheDocument();
+		// @lore BB1: hostTag="task" renders "task", not "bet"
+		render(<ThreadRow {...defaultProps} hostTag="task" />);
+		expect(screen.getByText("task")).toBeInTheDocument();
 	});
 
 	it("selected state stacks with blocking — accent-primary border-left wins", () => {

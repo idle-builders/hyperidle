@@ -89,7 +89,7 @@ interface ToolHandlersCreateTeamInput {
 	/** The `teamMembers.id` for the companion row (1:1 invariant). */
 	readonly teamMembersId: string;
 	readonly capacity?: number;
-	readonly activeBets?: number;
+	// @lore BB1: activeBets removed — WIP limit is capacity counted live.
 	readonly formedAt?: string;
 }
 
@@ -132,49 +132,67 @@ interface ToolHandlersCreateKnowledgeConflictInput {
 /**
  * `CoreApiPort` write-seam accessor (AU21 §9 Increment 1). Unlike every
  * other accessor in this file, this one takes NO `TDb` — the write crosses
- * via the seam's transport (a real `POST /bets` route call through the
- * SAME door core-ui uses, architecture.md §6 Decision A/C), not a
- * same-process DB handle. `actorId` carries the calling agent's own
- * identity as the route actor (§12) — the composition root threads it onto
- * the request, never a hardcoded/founder constant.
+ * via the seam's transport (a real route call through the SAME door core-ui
+ * uses, architecture.md §6 Decision A/C), not a same-process DB handle.
+ * `actorId` carries the calling agent's own identity as the route actor (§12)
+ * — the composition root threads it onto the request, never a hardcoded/
+ * founder constant.
+ *
+ * @lore BB1: `createBet`/`getBetById`/`updateBetById` removed — the `bets`
+ * table is gone; tasks are one recursive primitive. `createTask` now takes
+ * `parentTaskId` (nullable). `getTaskById` returns `parentTaskId` instead of
+ * `betId`/`rootTaskId`. `updateTaskById` is added as the one edit door for
+ * agents, mirroring `PATCH /api/tasks/:id` with no actor or role gate.
  */
 interface ToolHandlersCoreApiAccessor {
-	createBet(
-		input: {
-			readonly teamId: string;
-			readonly description: string;
-			readonly doneCondition: string | null;
-			readonly hypothesis: string | null;
-		},
-		actorId: string,
-	): Promise<{ readonly id: string; readonly teamId: string; readonly status: string }>;
 	/** Structural mirror of `@hyperidle/api-contract`'s `TaskView` (Mechanism C: no import). */
 	getTaskById(
 		id: string,
 		actorId: string,
 	): Promise<
-		{ readonly betId: string; readonly teamId: string; readonly notes: string | null } | undefined
+		| {
+				readonly parentTaskId: string | null;
+				readonly teamId: string;
+				readonly notes: string | null;
+		  }
+		| undefined
 	>;
-	getBetById(id: string, actorId: string): Promise<{ readonly status: string } | undefined>;
-	updateBetById(
-		id: string,
-		updates: Partial<{
-			description: string;
-			doneCondition: string | null;
-			hypothesis: string | null;
-		}>,
-		actorId: string,
-	): Promise<void>;
 	createTask(
 		input: {
-			readonly betId: string;
+			readonly parentTaskId: string | null;
+			readonly teamId: string;
 			readonly title: string;
 			readonly description: string | null;
 			readonly doneCondition: string | null;
 			readonly ownerAgentId: string | null;
+			/** When true, finishing this task sends it to `review` rather than `done`. */
+			readonly needsReview?: boolean;
 		},
 		actorId: string,
-	): Promise<{ readonly id: string; readonly betId: string; readonly teamId: string }>;
+	): Promise<{ readonly id: string; readonly teamId: string }>;
+	/**
+	 * One edit door for agents: mirrors `PATCH /api/tasks/:id`.
+	 * No actor gate, no role gate — humans and agents use the same endpoint.
+	 * `state` routes through `transitionTask` server-side; all other fields
+	 * are plain writes plus `updatedAt`.
+	 */
+	updateTaskById(
+		id: string,
+		updates: {
+			readonly title?: string;
+			readonly description?: string | null;
+			readonly doneCondition?: string | null;
+			readonly ownerAgentId?: string | null;
+			readonly dependencies?: string | null;
+			readonly parentTaskId?: string | null;
+			readonly state?: string;
+			/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
+			readonly position?: number;
+			/** Flip whether finishing this task routes to `review` (true) or `done` (false). */
+			readonly needsReview?: boolean;
+		},
+		actorId: string,
+	): Promise<void>;
 	/**
 	 * Atomic note append via the seam. Resolves `undefined` when the task does
 	 * not exist (task-not-found signal for the `log_task` handler) — never throws.
@@ -215,8 +233,7 @@ interface ToolHandlersCoreApiAccessor {
 		actorId: string,
 	): Promise<{ readonly id: string; readonly producingTaskId: string; readonly kind: string }>;
 	/**
-	 * The shape `getTaskById`/`getBetById`/`getItemById` already establish,
-	 * over `GET /artifacts/:id`. `submit_review` uses this to confirm a
+	 * Mirrors `GET /artifacts/:id`. `submit_review` uses this to confirm a
 	 * stored `artifactRef` resolves to an artifact whose `producingTaskId`
 	 * matches `ctx.taskId` before attaching it — a review may not claim
 	 * proof it does not have.
@@ -321,10 +338,11 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<{ readonly teamId: string } | undefined>;
 	/** Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant). */
 	createTeam(input: ToolHandlersCreateTeamInput, actorId: string): Promise<void>;
-	/** Update team-owned columns (phase on `teams`, activeBets/leadAgentId on `teamMembers`). */
+	/** Update team-owned columns (phase on `teams`, leadAgentId on `teamMembers`). */
+	// @lore BB1: activeBets removed from patch — WIP limit is capacity counted live.
 	updateTeam(
 		teamId: string,
-		patch: { phase?: string; activeBets?: number; leadAgentId?: string },
+		patch: { phase?: string; leadAgentId?: string },
 		actorId: string,
 	): Promise<void>;
 	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */

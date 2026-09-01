@@ -4,35 +4,37 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
-import { artifacts, bets, tasks, teams } from "../schema.js";
+import { artifacts, tasks, teams } from "../schema.js";
 
 const NOW = "2026-04-28T00:00:00.000Z";
 
 async function seedTask(
 	db: HyperIdleDb,
-): Promise<{ taskId: string; betId: string; teamId: string }> {
+): Promise<{ taskId: string; parentTaskId: string; teamId: string }> {
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW });
 
-	await db.insert(bets).values({
-		id: "b1",
-		teamId: "p1",
-		description: "x",
-		appetite: "1w",
-		status: "draft",
-		createdAt: NOW,
-	});
-
 	await db.insert(tasks).values({
-		id: "task1",
-		betId: "b1",
+		id: "b1",
+		parentTaskId: null,
 		teamId: "p1",
-		title: "T",
-		state: "pending",
+		title: "x",
+		description: "x",
+		state: "proposed",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 
-	return { taskId: "task1", betId: "b1", teamId: "p1" };
+	await db.insert(tasks).values({
+		id: "task1",
+		parentTaskId: "b1",
+		teamId: "p1",
+		title: "T",
+		state: "proposed",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	return { taskId: "task1", parentTaskId: "b1", teamId: "p1" };
 }
 
 describe("L3 artifacts schema", () => {

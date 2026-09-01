@@ -25,8 +25,8 @@ const FAKE_THREAD = {
 	// A bet-hosted thread. "Open review" renders regardless of host kind
 	// (the route needs no bet id), but a bet host is the simplest happy path
 	// for the reasoning-relocation AC this file covers.
-	hostKind: "bet",
-	hostId: "bet-1",
+	hostKind: "task",
+	hostId: "task-1",
 	initiatorId: "agent-1",
 	participants: ["u-founder", "agent-1"],
 	pinned: false,

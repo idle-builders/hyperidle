@@ -1,7 +1,7 @@
 /**
  * `submit_review`'s thread anchoring. Founder ruling 7: a review lands in
  * the thread the task already has, or a new one attached to the task —
- * NEVER the bet, because tasks will exist without bets. The resolution:
+ * NEVER a different task's thread. The resolution:
  * `getFirstThreadByHost("task", ctx.taskId, …)`, else
  * `insertThread({hostKind:"task", hostId: ctx.taskId, …})` seeding the
  * task's OWN team's humans as participants, via `resolveReviewRecipientsForItem`
@@ -18,11 +18,10 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
-import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ToolHandlersPorts } from "../ports.js";
@@ -39,15 +38,10 @@ const ports: ToolHandlersPorts = {
 	coreApi: {
 		...STUB_TOOL_HANDLERS_PORTS.coreApi,
 		getTaskById: async (id: string) => {
-			// The "no bet" scenario has no `tasks` row at all (schema's `betId`
-			// is `notNull`, so a real task cannot be produced without one yet —
-			// ruling 7's stated FUTURE case) — special-cased by id so this fake
-			// still routes every real seeded task through the actual db.
-			if (id === "task-no-bet") {
-				return { betId: "", teamId: "team-no-bet", notes: null };
-			}
-			const row = await work.get(sharedDb, "task", id);
-			return row ? { betId: row.betId, teamId: row.teamId, notes: row.notes ?? null } : undefined;
+			const [row] = await sharedDb.select().from(tasks).where(eq(tasks.id, id));
+			return row
+				? { parentTaskId: row.parentTaskId ?? null, teamId: row.teamId, notes: row.notes ?? null }
+				: undefined;
 		},
 		// Backed by the real `users` table so the test genuinely exercises
 		// team-scoped resolution — humans on the team, falling back to all
@@ -130,13 +124,17 @@ function makeContext(
 	};
 }
 
-async function seedTeamBetTask(
+/**
+ * Seed: team + root task (parentTaskId: null) + child task.
+ * The child task is what the agent's session is working on.
+ */
+async function seedTeamTask(
 	db: HyperIdleDb,
 	idPrefix: string,
 	humanId?: string,
-): Promise<{ teamId: string; betId: string; taskId: string }> {
+): Promise<{ teamId: string; rootTaskId: string; taskId: string }> {
 	const teamId = `${idPrefix}-team`;
-	const betId = `${idPrefix}-bet`;
+	const rootTaskId = `${idPrefix}-root`;
 	const taskId = `${idPrefix}-task`;
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
 	if (humanId) {
@@ -150,24 +148,25 @@ async function seedTeamBetTask(
 			createdAt: NOW,
 		});
 	}
-	await db.insert(bets).values({
-		id: betId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
 		teamId,
-		description: "d",
-		appetite: "small",
-		status: "active",
+		title: "Root goal",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		title: "T",
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	return { teamId, betId, taskId };
+	return { teamId, rootTaskId, taskId };
 }
 
 /**
@@ -209,7 +208,7 @@ async function reviewMessages(db: HyperIdleDb): Promise<ReadonlyArray<Record<str
 	return rows;
 }
 
-describe("submit_review — anchors on the task's thread, never the bet's (founder ruling 7)", () => {
+describe("submit_review — anchors on the task's own thread (founder ruling 7)", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
@@ -233,16 +232,16 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		await handle.close();
 	});
 
-	it("posts to the task's existing thread, not the bet's, when the task already has both a bet thread and a task thread", async () => {
-		const { betId, taskId } = await seedTeamBetTask(db, "task-both-threads");
+	it("posts to the task's existing thread, not the root task's, when both already have a thread", async () => {
+		const { rootTaskId, taskId } = await seedTeamTask(db, "task-both-threads");
 
-		// Both hosts already have a thread — the exact situation where a
-		// by-host lookup on the bet would find and reuse the WRONG one.
-		const betThreadId = crypto.randomUUID();
+		// Both tasks already have a thread — the exact situation where a
+		// by-host lookup on the root task would find and reuse the WRONG one.
+		const rootThreadId = crypto.randomUUID();
 		await db.insert(threads).values({
-			id: betThreadId,
-			hostKind: "bet",
-			hostId: betId,
+			id: rootThreadId,
+			hostKind: "task",
+			hostId: rootTaskId,
 			initiatorId: HUMAN_ID,
 			participants: JSON.stringify([HUMAN_ID]),
 			lastActiveAt: NOW,
@@ -273,17 +272,15 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		const written = await reviewMessages(db);
 		expect(written).toHaveLength(1);
 		expect(written[0]?.threadId).toBe(taskThreadId);
-		expect(written[0]?.threadId).not.toBe(betThreadId);
+		expect(written[0]?.threadId).not.toBe(rootThreadId);
 
-		// No review message reaches the bet's thread at all — the regression
-		// this package exists to close, asserted directly rather than only by
-		// implication from the equality check above.
-		const betThreadMessages = written.filter((m) => m.threadId === betThreadId);
-		expect(betThreadMessages).toHaveLength(0);
+		// No review message reaches the root task's thread at all.
+		const rootThreadMessages = written.filter((m) => m.threadId === rootThreadId);
+		expect(rootThreadMessages).toHaveLength(0);
 	});
 
-	it("creates a thread attached to the task — never the bet — when the task has no thread yet", async () => {
-		const { taskId } = await seedTeamBetTask(db, "task-thread-create");
+	it("creates a thread attached to the task when the task has no thread yet", async () => {
+		const { taskId } = await seedTeamTask(db, "task-thread-create");
 
 		const result = await submitReviewTool.handler(
 			{
@@ -300,16 +297,13 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		const taskHosted = createdThreads.filter((t) => t.hostKind === "task" && t.hostId === taskId);
 		expect(taskHosted).toHaveLength(1);
 
-		const betHosted = createdThreads.filter((t) => t.hostKind === "bet");
-		expect(betHosted).toHaveLength(0);
-
 		const written = await reviewMessages(db);
 		expect(written).toHaveLength(1);
 		expect(written[0]?.threadId).toBe(taskHosted[0]?.id);
 	});
 
 	it("seeds the human as a participant on a thread it creates — the thread is otherwise unreachable in the participant-scoped inbox", async () => {
-		const { taskId } = await seedTeamBetTask(db, "task-seed-participant", HUMAN_ID);
+		const { taskId } = await seedTeamTask(db, "task-seed-participant", HUMAN_ID);
 
 		const result = await submitReviewTool.handler(
 			{
@@ -334,30 +328,38 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		expect(participants).toContain("agent-builder");
 	});
 
-	it("anchors on the task's own thread even when the task has no bet at all", async () => {
-		// `tasks.betId` is `notNull` in the live schema — a task genuinely
-		// without a bet cannot be seeded as a real row yet (founder ruling 7's
-		// own future case: "tasks will exist without bets"). This test proves
-		// `submit_review`'s thread resolution does not need `parentTask.betId`
-		// to be a real bet id by faking `getTaskById` for this one task id to
-		// return an empty `betId` (see the `ports.coreApi.getTaskById` fake
-		// above) — no `tasks` row is inserted, so nothing here can pass by
-		// accidentally reading a real bet.
-		const taskId = "task-no-bet";
+	it("anchors on the task's own thread when the task is a root task (parentTaskId: null)", async () => {
+		// A root task (no parent) is the direct work item — submit_review
+		// must still create a thread on this task, not try to look up a parent.
+		const teamId = "team-root-task";
+		const rootTaskId = "root-task-direct";
+		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
+		await db.insert(tasks).values({
+			id: rootTaskId,
+			parentTaskId: null,
+			teamId,
+			title: "Root goal",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 
 		const result = await submitReviewTool.handler(
-			{ title: "Please approve", reasoning: ["done"], artifacts: [canvasArtifact("task-no-bet")] },
-			makeContext(db, eventBus, taskId, "nobet"),
+			{
+				title: "Please approve",
+				reasoning: ["done"],
+				artifacts: [canvasArtifact("root-task-direct")],
+			},
+			makeContext(db, eventBus, rootTaskId, "root"),
 		);
 
 		expect(result.success).toBe(true);
 
 		const createdThreads = await allThreads(db);
-		const taskHosted = createdThreads.filter((t) => t.hostKind === "task" && t.hostId === taskId);
+		const taskHosted = createdThreads.filter(
+			(t) => t.hostKind === "task" && t.hostId === rootTaskId,
+		);
 		expect(taskHosted).toHaveLength(1);
-
-		const betHosted = createdThreads.filter((t) => t.hostKind === "bet");
-		expect(betHosted).toHaveLength(0);
 
 		const written = await reviewMessages(db);
 		expect(written).toHaveLength(1);
@@ -367,8 +369,8 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 	it("seeds only the OWNING team's human — a second team's human never receives a review that isn't theirs", async () => {
 		const HUMAN_TEAM_A = "human-team-a";
 		const HUMAN_TEAM_B = "human-team-b";
-		const { taskId } = await seedTeamBetTask(db, "task-team-a", HUMAN_TEAM_A);
-		await seedTeamBetTask(db, "task-team-b", HUMAN_TEAM_B);
+		const { taskId } = await seedTeamTask(db, "task-team-a", HUMAN_TEAM_A);
+		await seedTeamTask(db, "task-team-b", HUMAN_TEAM_B);
 
 		const result = await submitReviewTool.handler(
 			{ title: "Please approve", reasoning: ["done"], artifacts: [canvasArtifact("task-team-a")] },

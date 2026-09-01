@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { bets, teams } from "../schema.js";
+import { tasks, teams } from "../schema.js";
 
 /**
  * I3 — foreign-key action acceptance tests.
@@ -15,34 +15,33 @@ import { bets, teams } from "../schema.js";
  *
  * @lore AU44 B1: `team_members` dissolved into `teams`. The test probing
  * "rejects deleting a team while a teamMembers row references it" is removed —
- * the `team_members` table is gone. The surviving test asserts the still-live
- * `bets.team_id → teams.id` RESTRICT constraint.
+ * the `team_members` table is gone.
+ * @lore BB1: `bets` table dropped. The RESTRICT constraint is now on
+ * `tasks.team_id → teams.id` — a root task blocks team deletion.
  */
 
 const NOW = new Date().toISOString();
 
 describe("I3: FK actions — RESTRICT on reference data", () => {
-	test("rejects deleting a team while a bet references it", async ({ db }) => {
-		// @lore AU44 B1: no more teamMembers insert needed; capacity/activeBets/formedAt
-		// are now columns on teams. The single cause of rejection is bets.team_id → teams.id.
+	test("rejects deleting a team while a task references it", async ({ db }) => {
+		// @lore BB1: tasks.team_id → teams.id must block team deletion.
 		await db.insert(teams).values({
 			id: "p1",
 			name: "P",
 			phase: "build",
 			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
 			createdAt: NOW,
 		});
-		await db.insert(bets).values({
-			id: "b1",
+		await db.insert(tasks).values({
+			id: "t1",
+			parentTaskId: null,
 			teamId: "p1",
-			description: "x",
-			appetite: "2w",
-			status: "draft",
+			title: "Root task",
+			state: "proposed",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
-		// `bets.team_id → teams.id` must block team deletion
+		// `tasks.team_id → teams.id` must block team deletion
 		await expect(db.delete(teams).where(eq(teams.id, "p1"))).rejects.toThrow();
 	});
 });

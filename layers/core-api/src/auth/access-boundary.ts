@@ -32,7 +32,6 @@ export type AccessScope = "participant" | "host";
 export const HOST_SCOPE: Readonly<Record<HostKind, AccessScope>> = {
 	user: "participant",
 	agent: "participant",
-	bet: "host",
 	task: "host",
 	knowledge_item: "host",
 	artifact: "host",

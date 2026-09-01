@@ -24,7 +24,7 @@ Setup flags: `--db-path <dir>` (PGlite data directory, default `./hyperidle-pg`)
 
 ### Demo data
 
-`npm run setup -- --demo` fills a fresh database with a lived-in Acme world — six weeks of history for a small team of two humans and five agents: bets across every lifecycle (active with a review blocking on the founder, drafts, completed with verdicts, killed), tasks in all eight states, ~15 threads with reviews, verdicts and DMs, a ~40-item knowledge corpus with a triage queue, sessions, routines with run history, and unread notifications. It exists so UI work and demos happen against a product that looks used, not an empty shell. The seed is idempotent (`demo-*` ids, re-running changes nothing) and anchors all timestamps to seed time.
+`npm run setup -- --demo` fills a fresh database with a lived-in Acme world — six weeks of history for a small team of two humans and five agents: tasks across every lifecycle (in_progress with a review blocking on the founder, proposed, done with outcomes, killed), subtasks in all eight states, ~15 threads with reviews, verdicts and DMs, a ~40-item knowledge corpus with a triage queue, sessions, routines with run history, and unread notifications. It exists so UI work and demos happen against a product that looks used, not an empty shell. The seed is idempotent (`demo-*` ids, re-running changes nothing) and anchors all timestamps to seed time.
 
 - Local-mode auth resolves the first human user, so a seeded instance logs you straight in as the demo founder — no onboarding.
 - Postgres: `npm run db:bootstrap:pg -- --demo` (or `HYPERIDLE_DEMO=1`).

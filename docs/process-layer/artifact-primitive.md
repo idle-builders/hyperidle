@@ -1,6 +1,6 @@
 # Artifact primitive (L3)
 
-The function-agnostic, task-rooted record of something the team has produced. An Artifact roots on exactly one producing Task; Bet/Team/Portfolio surfaces aggregate Artifacts, they never own them.
+The function-agnostic, task-rooted record of something the team has produced. An Artifact roots on exactly one producing Task; Team/Portfolio surfaces aggregate Artifacts, they never own them.
 
 This path is frozen — code cites it directly (`framework/domain-model/src/thread.ts`, `framework/conversation-parts/src/part.ts`).
 
@@ -111,7 +111,7 @@ A Kind Definition does NOT bind a renderer or base primitive — rendering dispa
 
 ## Fetching contract
 
-`GET /api/artifacts?axis=task|bet|product|portfolio` (`routes/artifacts.ts`; `ArtifactFilterAxis` in `framework/domain-model/src/types/artifact.ts`). Bet/Product/Portfolio aggregate via task-id fan-out (capped at 1000). The product axis resolves `teamId` (U1 productId→teamId rename; both query params accepted).
+`GET /api/artifacts?axis=task|product|portfolio` (`routes/artifacts.ts`; `ArtifactFilterAxis` in `framework/domain-model/src/types/artifact.ts`). Product/Portfolio aggregate via task-id fan-out (capped at 1000). The product axis resolves `teamId` (U1 productId→teamId rename; both query params accepted).
 
 ## Permalinks
 
@@ -122,11 +122,11 @@ Every Artifact has a permalink page: route `artifacts/:id` → `ArtifactPermalin
 An artifact carries no cost. It never did as a stored column, and there is no longer an accumulator behind it either.
 
 - `GET` returns `{money: null, tokens: null}` per artifact, and `PATCH /:id/cost` does not exist (`layers/core-api/src/routes/artifacts.ts`).
-- The bet/agent/team cost accumulators the `POST` payload used to feed are deleted — the whole cost-accounting mechanism went with the cost cap. See [wip-and-cost-limits](wip-and-cost-limits.md), which records the deletion and why nothing replaced it: the real spend ceiling lives at the upstream provider account, not in HyperIdle.
+- The agent/team cost accumulators the `POST` payload used to feed are deleted — the whole cost-accounting mechanism went with the cost cap. See [wip-and-cost-limits](wip-and-cost-limits.md), which records the deletion and why nothing replaced it: the real spend ceiling lives at the upstream provider account, not in HyperIdle.
 
 ## Hard rules
 
-- Artifacts root on Tasks. Bet/Team/Portfolio surfaces aggregate; they never own. (The fetch API still accepts `axis=product` for wire compatibility — U1 productId→teamId rename.)
+- Artifacts root on Tasks. Team/Portfolio surfaces aggregate; they never own. (The fetch API still accepts `axis=product` for wire compatibility — U1 productId→teamId rename.)
 - Threads attach to Artifacts via the artifact→task chain (`routes/threads.ts`); thread grammar owned by [thread-primitive](../human-interface-layer/thread-primitive.md).
 - Compositions closed at three; placements closed at four; ArtifactView shapes closed at five.
 - No fake thumbnails — when `preview` is null, render an explicit placeholder.

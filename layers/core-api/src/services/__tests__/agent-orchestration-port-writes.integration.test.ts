@@ -10,7 +10,6 @@
 
 import {
 	agentWorkIntents,
-	bets,
 	filesystemInjections,
 	filesystems,
 	type HyperIdleDb,
@@ -52,17 +51,19 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 			createdAt: NOW,
 		},
 	]);
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: `${prefix}-bet`,
+		parentTaskId: null,
 		teamId: `${prefix}-team-parent`,
+		title: prefix,
 		description: prefix,
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: `${prefix}-task`,
-		betId: `${prefix}-bet`,
+		parentTaskId: `${prefix}-bet`,
 		teamId: `${prefix}-team-parent`,
 		title: prefix,
 		state: "in_progress",

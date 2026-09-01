@@ -191,7 +191,7 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 		scopeName: "Team Nimmly",
 	},
 	/**
-	 * AK5: archived knowledge item fixture used by the "Promote to bet" disabled test.
+	 * AK5: archived knowledge item fixture used by the "Promote to task" disabled test.
 	 * status:"archived" causes the promote menu item to be disabled (aria-disabled="true").
 	 */
 	// eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
@@ -456,7 +456,7 @@ function KnowledgeOverflowMenu({
 	onClose,
 	onArchive,
 	onChangeScope,
-	onPromoteToBet,
+	onPromoteToTask,
 	archiving,
 	itemStatus,
 	isReadOnly,
@@ -466,9 +466,9 @@ function KnowledgeOverflowMenu({
 	onClose: () => void;
 	onArchive: () => void;
 	onChangeScope: () => void;
-	onPromoteToBet: () => void;
+	onPromoteToTask: () => void;
 	archiving: boolean;
-	/** AK5: used to disable "Promote to bet" when item is archived. */
+	/** AK5: used to disable "Promote to task" when item is archived. */
 	itemStatus: string;
 	/**
 	 * AV3 WARNING-D2: gate the "Change scope" item behind !isReadOnly so the
@@ -493,12 +493,12 @@ function KnowledgeOverflowMenu({
 			dataAttrs: { "data-testid": "knowledge-archive" },
 		},
 		{
-			// AK5: promote-to-bet action — disabled when item is archived.
-			id: "promote-bet",
-			label: "Promote to bet",
-			onSelect: onPromoteToBet,
+			// AK5: promote-to-task action — disabled when item is archived.
+			id: "promote-task",
+			label: "Promote to task",
+			onSelect: onPromoteToTask,
 			disabled: itemStatus === "archived",
-			dataAttrs: { "data-testid": "knowledge-promote-bet" },
+			dataAttrs: { "data-testid": "knowledge-promote-task" },
 		},
 		// AV3: only include change-scope for editable items (WARNING-D2 coherence fix).
 		...(isReadOnly ? [] : [changeScopeItem]),
@@ -799,24 +799,23 @@ function KnowledgeDetailView({
 	}
 
 	/**
-	 * AK5: Promote-to-bet handler.
-	 * Single-team: POST /api/bets with sourceKnowledgeItemId → navigate to /work/bet/:id.
-	 * Multi-team: navigate to /work/bet/new?fromKnowledge=:id (team picker in WorkBetCreate).
+	 * @lore BB1: Promote-to-task handler — POSTs to /api/tasks.
+	 * Single-team: POST /api/tasks with sourceKnowledgeItemId → navigate to /work/task/:id.
+	 * Multi-team: navigate to /work/task/new?fromKnowledge=:id (team picker in WorkTaskCreate).
 	 *
-	 * @lore AK5: team resolution uses useTeams() (already used in WorkBetCreate).
-	 * Single-team auto-resolves (the common factory case) — zero friction.
-	 * Multi-team falls back to the existing WorkBetCreate page which has the team Select
-	 * and already collects the required teamId before creating the bet.
+	 * @lore AK5: team resolution uses useTeams(). Single-team auto-resolves (the
+	 * common factory case) — zero friction. Multi-team falls back to WorkTaskCreate,
+	 * which has the team Select and collects the required teamId before creating.
 	 */
-	async function handlePromoteToBet(): Promise<void> {
+	async function handlePromoteToTask(): Promise<void> {
 		closeOverflow();
 		const teams = teamsData?.teams ?? [];
 		const singleTeam = teams.length === 1;
 
 		if (!singleTeam) {
-			// Multi-team: navigate to WorkBetCreate with fromKnowledge param; provenance
-			// is carried through by WorkBetCreate's ?fromKnowledge= pre-fill path (task 7).
-			navigate(`/work/bet/new?fromKnowledge=${encodeURIComponent(effectiveKnowledgeId)}`);
+			// Multi-team: navigate to WorkTaskCreate with fromKnowledge param; provenance
+			// is carried through by its ?fromKnowledge= pre-fill path.
+			navigate(`/work/task/new?fromKnowledge=${encodeURIComponent(effectiveKnowledgeId)}`);
 			return;
 		}
 
@@ -825,18 +824,22 @@ function KnowledgeDetailView({
 
 		setPromoteError(null);
 		try {
-			const res = await apiFetch("/api/bets", {
+			const res = await apiFetch("/api/tasks", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					teamId,
+					// BB1: POST /api/tasks requires a non-empty title (the deleted
+					// POST /bets had only `description`). The item's own title is
+					// the task's title; its body becomes the description.
+					title: item.title,
 					description: savedContent || item.content,
 					sourceKnowledgeItemId: effectiveKnowledgeId,
 				}),
 			});
 			if (res.ok) {
 				const data = (await res.json()) as { id: string };
-				navigate(`/work/bet/${data.id}`);
+				navigate(`/work/task/${data.id}`);
 			} else {
 				const data = (await res.json().catch(() => ({}))) as { error?: string };
 				setPromoteError(data.error ?? `Promote failed: ${res.status}`);
@@ -970,7 +973,7 @@ function KnowledgeDetailView({
 										setScopeChangeOpen(true);
 										closeOverflow();
 									}}
-									onPromoteToBet={() => void handlePromoteToBet()}
+									onPromoteToTask={() => void handlePromoteToTask()}
 									archiving={archiving}
 									itemStatus={item.status}
 									isReadOnly={isReadOnly}

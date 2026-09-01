@@ -33,7 +33,6 @@ function makeProductsListResponse() {
 				phase: "build",
 				status: "healthy",
 				leadAgentId: "agent-lead",
-				activeBets: 2,
 				shipped: 4,
 				shipRate: "67%",
 				progress: { done: 1, total: 3 },
@@ -58,12 +57,11 @@ function makeProductDetailResponse() {
 		],
 		burn: {
 			capacity: 5,
-			activeBets: 2,
 		},
-		activeBets: [
+		tasksInProgress: [
 			{
 				id: "b1",
-				pitchTitle: "Auth migration",
+				title: "Auth migration",
 				status: "committed",
 				progressDone: 1,
 				progressTotal: 2,
@@ -75,7 +73,7 @@ function makeProductDetailResponse() {
 function makeProductDetailEmptyBets() {
 	return {
 		...makeProductDetailResponse(),
-		activeBets: [],
+		tasksInProgress: [],
 	};
 }
 
@@ -130,13 +128,13 @@ test.describe("L13 — Product drill-down", () => {
 		await expect(page.getByTestId("team-agents")).toBeVisible();
 
 		// Active bets region visible
-		await expect(page.getByTestId("team-active-bets")).toBeVisible();
+		await expect(page.getByTestId("team-active-tasks")).toBeVisible();
 
 		// Burn vs cap region visible
 		await expect(page.getByTestId("team-burn-vs-cap")).toBeVisible();
 	});
 
-	test("(2) empty state: team with zero active bets shows team-active-bets-empty", async ({
+	test("(2) empty state: team with zero active bets shows team-active-tasks-empty", async ({
 		page,
 	}) => {
 		const emptyProductId = "p-empty";
@@ -153,7 +151,7 @@ test.describe("L13 — Product drill-down", () => {
 		await page.goto(`/work/team/${emptyProductId}`);
 		await page.waitForSelector("[data-testid='work-team-page']");
 
-		await expect(page.getByTestId("team-active-bets-empty")).toBeVisible();
+		await expect(page.getByTestId("team-active-tasks-empty")).toBeVisible();
 	});
 
 	test("(3) roster + bets visible with seeded data", async ({ page }) => {

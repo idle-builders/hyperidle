@@ -36,8 +36,17 @@ export const teams = pgTable("teams", {
 	createdAt: text("created_at").notNull(),
 	// AU44 B1: folded from team_members
 	leadAgentId: text("lead_agent_id"),
+	/**
+	 * BB1: the WIP limit — how many tasks this team may have `in_progress` at
+	 * once, at any depth in the task tree.
+	 *
+	 * @lore BB1: the companion `active_bets` counter is GONE. It was a stored
+	 * tally maintained by the bet commit/complete/kill paths, and a stored
+	 * tally of a derivable fact can drift. The live count is a
+	 * `COUNT(*) WHERE state = 'in_progress'` inside the same transaction that
+	 * makes the transition, so it cannot be stale by construction.
+	 */
 	capacity: integer("capacity").notNull().default(5),
-	activeBets: integer("active_bets").notNull().default(0),
 	formedAt: text("formed_at"),
 });
 
@@ -137,75 +146,26 @@ export const agentRunConfig = pgTable("agent_run_config", {
 
 // --- Process primitives ---
 
-export const bets = pgTable(
-	"bets",
-	{
-		id: text("id").primaryKey(),
-		// @lore U1: teamId references the new `teams` table (formerly `products`).
-		// The old teamId (pointing at team_members) was dropped — the 1:1 invariant
-		// means this teamId fully determines the team_members group.
-		teamId: text("team_id")
-			.notNull()
-			.references(() => teams.id, { onDelete: "restrict" }),
-		// @lore U1: `description` was formerly `pitch`. Renamed in migration 0021.
-		description: text("description").notNull(),
-		/**
-		 * @lore L17: appetite (duration string "1 week"/"2 weeks"/"6 weeks") was
-		 * deprecated in favour of the cost-appetite columns AU21 Increment 14a
-		 * now deletes outright (no replacement). The column is kept for rollback
-		 * safety but no longer required at the API boundary (nullable here,
-		 * route validation rejects it as a 400).
-		 */
-		appetite: text("appetite"),
-		doneCondition: text("done_condition"),
-		hypothesis: text("hypothesis"),
-		// @lore U1: Status enum simplified to draft | active | completed | killed.
-		// Old statuses: shaped->draft, committed|in_progress|behind|blocked|paused|review->active, shipped->completed.
-		status: text("status").notNull(),
-		revisionLog: text("revision_log"),
-		createdAt: text("created_at").notNull(),
-		// @lore U1: `completedAt` was formerly `shippedAt`. Renamed in migration 0021.
-		completedAt: text("completed_at"),
-		// @lore U1: `atRisk` boolean replaces the old `behind` status sub-state.
-		atRisk: integer("at_risk").notNull().default(0),
-		/** L17: accumulated tokens as JSON (TokenUsage shape). */
-		tokensActualJson: text("tokens_actual_json"),
-		/** AC1: Structured outcome verdict. Closed enum: validated|refuted|partial|inconclusive. Null = not evaluated. */
-		outcomeVerdict: text("outcome_verdict"),
-		/** AC1: Free-text explanation of the outcome (max 2000 chars enforced at API boundary). */
-		outcomeSummary: text("outcome_summary"),
-		/** AC1: ISO 8601 timestamp when the outcome was last recorded. */
-		outcomeRecordedAt: text("outcome_recorded_at"),
-		/** AC1: User ID of the actor who last recorded the outcome. */
-		outcomeRecordedBy: text("outcome_recorded_by"),
-		/**
-		 * AK5: provenance — the knowledge item this bet was promoted from.
-		 * null = hand-typed / assistant-drafted bet (no source). Forward, recoverable,
-		 * one-way link. NOT the reverse of knowledge.scopeKind="bet" (that means
-		 * "knowledge produced under this bet"). RESTRICT: a source item cannot be
-		 * hard-deleted while a bet cites it as provenance — provenance must outlive
-		 * convenience deletes (same rationale as knowledge_edit_log I3 HIGH-2).
-		 * @lore AK5: knowledge items have no hard-delete endpoint (only soft-delete via
-		 * POST /:id/archive → status:"archived"), so RESTRICT has zero live UX downside
-		 * but guarantees provenance integrity if a hard-delete is ever added.
-		 */
-		sourceKnowledgeItemId: text("source_knowledge_item_id").references(() => knowledgeItems.id, {
-			onDelete: "restrict",
-		}),
-	},
-	(table) => [
-		index("bets_team_id_idx").on(table.teamId),
-		index("bets_status_idx").on(table.status),
-	],
-);
-
 export const tasks = pgTable(
 	"tasks",
 	{
 		id: text("id").primaryKey(),
-		betId: text("bet_id")
-			.notNull()
-			.references(() => bets.id, { onDelete: "restrict" }),
+		/**
+		 * BB1: the task tree. NULL means a root task — the shape a bet used to
+		 * have. Replaces the NOT NULL `bet_id`, which hardcoded work to exactly
+		 * two levels.
+		 *
+		 * @lore BB1: a self-FK needs the explicit `AnyPgColumn` return type or
+		 * TypeScript cannot infer the circular reference.
+		 *
+		 * @lore BB1: ON DELETE RESTRICT, not CASCADE. Killing a subtree is a
+		 * domain operation with an audit trail (`cascadeTaskKill`), never a
+		 * silent row disappearance — the same reason every other FK here
+		 * restricts.
+		 */
+		parentTaskId: text("parent_task_id").references((): AnyPgColumn => tasks.id, {
+			onDelete: "restrict",
+		}),
 		// @lore U1: teamId references the new `teams` table (formerly `products`).
 		// The old teamId (pointing at team_members) was dropped — see §2.3.
 		teamId: text("team_id")
@@ -225,13 +185,66 @@ export const tasks = pgTable(
 		updatedAt: text("updated_at").notNull(),
 		/** AC1: Task outcome verdict. Closed enum: met|met_with_rework|partially_met|not_met. Null = not evaluated. */
 		outcomeVerdict: text("outcome_verdict"),
+		/**
+		 * BB1: free-text explanation of the outcome (moved from `bets`, where it
+		 * was the only half of the outcome pair tasks lacked).
+		 */
+		outcomeSummary: text("outcome_summary"),
 		/** AC1: ISO 8601 timestamp when the task outcome was last recorded. */
 		outcomeRecordedAt: text("outcome_recorded_at"),
 		/** AC1: User ID of the actor who last recorded the task outcome. */
 		outcomeRecordedBy: text("outcome_recorded_by"),
+		/**
+		 * BB1: accumulated TokenUsage actuals for THIS task's own sessions
+		 * (moved from `bets`). Ancestors are never written — a subtree total is
+		 * summed at read time, so there is no rollup column to drift.
+		 */
+		tokensActualJson: text("tokens_actual_json"),
+		/**
+		 * BB1: provenance — the knowledge item this task was promoted from
+		 * (moved from `bets`, AK5). RESTRICT so provenance outlives a
+		 * convenience delete.
+		 */
+		sourceKnowledgeItemId: text("source_knowledge_item_id").references(() => knowledgeItems.id, {
+			onDelete: "restrict",
+		}),
+		/** BB1: set when the task reaches `done` (moved from `bets`). */
+		completedAt: text("completed_at"),
+		/**
+		 * BB1: display order among siblings. Defaults to creation order; ties
+		 * break on `createdAt` then `id` so the order is total and stable.
+		 *
+		 * @lore BB1: deliberately NOT derived from `dependencies`, and
+		 * deliberately not recency. `dependencies` says what must FINISH first;
+		 * this says what to SHOW first, and two siblings with no dependency
+		 * between them still need a defined order. Ordering by recency would
+		 * reshuffle the tree whenever someone edits a child, which makes a tree
+		 * unbrowsable. Aligned with the nested-knowledge-documents tree, which
+		 * chose the same shape for the same reason.
+		 */
+		position: integer("position").notNull().default(0),
+		/**
+		 * BB1: does finishing this task need a human verdict?
+		 *
+		 * `false` (the default) means the task closes straight to `done` when its
+		 * work finishes — a session ending, or every child reaching a terminal
+		 * state. `true` sends it to `review` instead.
+		 *
+		 * @lore BB1: before this, EVERY task went to `review` when its session
+		 * ended (`lifecycle-propagation.ts`), which made review a queue nobody
+		 * could keep up with. Opting in is what makes the queue mean something.
+		 *
+		 * @lore BB1: deliberately a boolean, not a risk tier. The product used to
+		 * carry `riskTier` on `task_planning_signals`, which was deleted; reviving
+		 * a three-value scale would mean inventing how risk gets estimated, and
+		 * nothing estimates it today. Founder call: start with the flag, add a way
+		 * to derive it later. A flag that something sets beats a scale nothing
+		 * computes.
+		 */
+		needsReview: boolean("needs_review").notNull().default(false),
 	},
 	(table) => [
-		index("tasks_bet_id_idx").on(table.betId),
+		index("tasks_parent_task_id_idx").on(table.parentTaskId),
 		index("tasks_team_id_idx").on(table.teamId),
 		// @lore I3 review O1: `tasks_state_idx` was dropped — state has too
 		// few distinct values to be selective.
@@ -1399,9 +1412,6 @@ export type NewUser = typeof users.$inferInsert;
 // table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s
 // `AgentRunConfig` is the keyless value object callers actually consume.
 export type NewAgentRunConfigRow = typeof agentRunConfig.$inferInsert;
-
-export type Bet = typeof bets.$inferSelect;
-export type NewBet = typeof bets.$inferInsert;
 
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;

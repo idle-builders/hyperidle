@@ -20,14 +20,13 @@ const mockConversations = [
 	},
 ];
 
+// @lore BB1: work items are now tasks — `state` replaces `status` + `appetite`.
 const mockWork = [
 	{
 		id: "w1",
 		title: "Mobile App V2",
 		team: "HyperIdle",
-		// @lore U1: "committed" merged into "active"
-		status: "active" as const,
-		appetite: "6 weeks",
+		state: "in_progress" as const,
 	},
 ];
 
@@ -222,7 +221,8 @@ describe("GlobalSearchPanel", () => {
 		expect(onNavigate).toHaveBeenCalledWith("conversation", "c2");
 	});
 
-	// AC6: Results rendered as ThreadRow, BetCard (lite), KnowledgeRow
+	// AC6: Results rendered as ThreadRow, TaskCard (lite), KnowledgeRow
+	// @lore BB1: BetCard replaced by TaskCard in GlobalSearchPanel.
 	it("renders conversation results as ThreadRow components", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -244,7 +244,7 @@ describe("GlobalSearchPanel", () => {
 		});
 	});
 
-	it("renders work results as BetCard components", async () => {
+	it("renders work results as TaskCard components", async () => {
 		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 		(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
 			ok: true,
@@ -260,8 +260,7 @@ describe("GlobalSearchPanel", () => {
 
 		await waitFor(() => {
 			expect(screen.getByText("Mobile App V2")).toBeInTheDocument();
-			// visual-parity-audit D-05: BetCard no longer shows team as Tag pill
-			// (removed to match screen mockups). The title is sufficient to confirm rendering.
+			// @lore BB1: TaskCard shows title and state; team maps to owner. Title is sufficient to confirm rendering.
 		});
 	});
 

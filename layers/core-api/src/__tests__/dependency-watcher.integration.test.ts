@@ -1,7 +1,8 @@
-import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { getAgentIdentity } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -14,19 +15,25 @@ import { describe, expect, test } from "../__testing__/test-fixtures.js";
 const depWatcherDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
+	teamCapacity: {
+		getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) =>
+			getTeam(exec, { id: teamId }),
+	},
 };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "b1",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 }
 
@@ -39,7 +46,7 @@ async function insertTask(
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
 		id,
-		betId: "b1",
+		parentTaskId: "b1",
 		teamId: "p1",
 		title: `Task ${id}`,
 		state,

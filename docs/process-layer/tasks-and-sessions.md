@@ -12,9 +12,44 @@ Tasks move through a small state machine — the eight states of `TASK_STATES` (
 - `hold` — the task has unmet upstream dependencies (other tasks that must reach `done` first). The task cannot start until all dependencies clear. **When the last upstream dependency moves to `done`, the dependency watcher (`checkAndUnblockDependents`, `layers/core-api/work/src/dependency-watcher.ts`) automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks.
 - `in_progress` — at least one session is running or has run. The task has produced some progress.
 - `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they surface in the WorkTeam AgentRow health indicators.
-- `review` — the task has produced an artifact and is awaiting verdict. Session-end events on tasks with medium/high `riskTier` (on the `task_planning_signals` extension table, `framework/db/src/schema.ts`) create review items routed to recipients (`session-review-creator`); low-risk tasks close on an internal team check.
-- `done` — verdict reached, artifact accepted, task closed.
-- `killed` — abandoned. Reasoning logged.
+- `review` — the task is awaiting a human verdict. A task reaches `review` only if it **asked** to, via `needsReview` (see §1.1); otherwise finished work closes straight to `done`.
+- `done` — the work is finished. Reached either because the task closed on its own (the ordinary case) or because a reviewer accepted it.
+- `killed` — abandoned. Reasoning logged. Killing is a **subtree** operation: moving a
+  task to `killed` through `PATCH /api/tasks/:id` kills every task beneath it and stops
+  their running sessions (`cascadeTaskKill`). A kill only ever travels DOWN — it never
+  climbs to the parent, and never touches a sibling.
+
+## 1.1 How a task finishes: `done` by default, `review` on request
+
+A task finishes by going to **`done`**. It goes to **`review`** only when it asked to — the boolean
+`tasks.needs_review`, default `false`, settable on create and through `PATCH /api/tasks/:id` and the
+agent tool, by a person or an agent alike.
+
+One rule, applied in both places work can finish (`lifecycle-propagation.ts`):
+
+| What happened | `needsReview` false | `needsReview` true |
+|---|---|---|
+| A session on the task ended | task → `done` | task → `review` |
+| Every child reached a terminal state (`done`/`killed`) | parent → `done` | parent → `review` |
+
+**Why the flag exists.** Before it, *every* task went to `review` when its session ended. Review was a
+queue nobody could keep up with, so it meant nothing. Opting in is what makes the queue mean something.
+
+**Why a boolean and not a risk tier.** The product used to carry `riskTier` on a
+`task_planning_signals` table. That table was deleted, and docs describing it were stale for a long
+time. Reviving a three-value scale would mean inventing how risk gets estimated, and nothing estimates
+it today. A flag something sets beats a scale nothing computes — and the flag is the seam a derived
+risk signal can later feed.
+
+**The consequence is the point.** With most tasks closing to `done`, completion cascades all the way up
+a tree by itself: child done → parent done → grandparent done. A task marked `needsReview` is where the
+chain deliberately stops until a person acts. `done` and `review` are both reachable from every
+non-terminal state, because a container task nobody personally worked otherwise has no legal path to
+either — which is exactly how an earlier version of this rule died silently at the first such parent.
+
+**A kill is not progress.** `cascadeTaskKill` marks its transitions, and completion propagation ignores
+them. Without that, killing a subtree raced its own completion — ancestors were marked `done`, stamping
+a completion timestamp on cancelled work, moments before the cascade killed them.
 
 The distinction between `hold` and `blocked` is important: `hold` is structural (the task can't start because upstream work isn't done — the system knows this from the dependency graph and resolves it automatically), while `blocked` is situational (the agent started work and hit something it can't resolve alone — requires human or external action).
 
@@ -22,7 +57,7 @@ The distinction between `hold` and `blocked` is important: `hold` is structural 
 
 Transitions are events in the audit trail (`tasks.auditTrail`). WorkTeam AgentRow health indicators surface blocked and held tasks prominently because they're the most actionable signal of friction.
 
-How task-state changes propagate to bets and how work moves between owners is covered in [handoff and lifecycle propagation](handoff-and-lifecycle-propagation.md).
+How state changes propagate up the task tree and how work moves between owners is covered in [handoff and lifecycle propagation](handoff-and-lifecycle-propagation.md).
 
 ## 2. Sessions: many runs per task
 

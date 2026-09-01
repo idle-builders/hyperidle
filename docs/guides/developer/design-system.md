@@ -27,12 +27,12 @@ The harness is `layers/core-ui/src/__preview__/MockProviders` — the thinnest s
 ```tsx
 // layers/core-ui/src/pages/WorkBetCreate.stories.tsx — the canonical example
 import { MockProviders } from "../__preview__";
-import { WorkBetCreate } from "./WorkBetCreate";
+import { WorkTaskCreate } from "./WorkTaskCreate";
 
 export function EmptyState() {
   return (
-    <MockProviders route="/work/bet/new">
-      <WorkBetCreate />
+    <MockProviders route="/work/task/new">
+      <WorkTaskCreate />
     </MockProviders>
   );
 }

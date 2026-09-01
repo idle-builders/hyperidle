@@ -40,7 +40,7 @@ const MOCK_KNOWLEDGE_USER_ITEM = {
 	updatedBy: "test-founder",
 };
 
-const MOCK_BET = {
+const _MOCK_BET = {
 	id: "bet-test-1",
 	title: "Auth flow bet",
 	product: "HyperIdle Core",
@@ -218,13 +218,6 @@ test.describe("Q2 AC-4: Creation flow validation", () => {
 test.describe("Q2 AC-5: Add knowledge from bet detail", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock bet detail API
-		await page.route("**/api/bets/bet-test-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(MOCK_BET),
-			});
-		});
 
 		// Mock knowledge creation
 		await page.route("**/api/knowledge", async (route) => {
@@ -262,7 +255,7 @@ test.describe("Q2 AC-5: Add knowledge from bet detail", () => {
 	});
 
 	test("WorkBet page shows Add knowledge button", async ({ page }) => {
-		await page.goto("/work/bet/bet-test-1");
+		await page.goto("/work/task/bet-test-1");
 		await page.waitForSelector("[data-testid='bet-detail-page']", { timeout: 5000 }).catch(() => {
 			// Fallback: wait for any bet-related content
 		});
@@ -272,7 +265,7 @@ test.describe("Q2 AC-5: Add knowledge from bet detail", () => {
 	});
 
 	test("Add knowledge from bet opens dialog with bet scope locked", async ({ page }) => {
-		await page.goto("/work/bet/bet-test-1");
+		await page.goto("/work/task/bet-test-1");
 
 		const addKnowledgeBtn = page.getByRole("button", { name: "Add knowledge" });
 		await addKnowledgeBtn.click();
@@ -302,13 +295,6 @@ test.describe("Q2 AC-11: Create knowledge from bet detail, visible in list", () 
 		};
 
 		// Mock bet detail
-		await page.route("**/api/bets/bet-test-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(MOCK_BET),
-			});
-		});
 
 		// Mock knowledge endpoints
 		let knowledgeCreated = false;
@@ -350,7 +336,7 @@ test.describe("Q2 AC-11: Create knowledge from bet detail, visible in list", () 
 		});
 
 		// Navigate to bet, create knowledge item
-		await page.goto("/work/bet/bet-test-1");
+		await page.goto("/work/task/bet-test-1");
 
 		const addKnowledgeBtn = page.getByRole("button", { name: "Add knowledge" });
 		await addKnowledgeBtn.click();

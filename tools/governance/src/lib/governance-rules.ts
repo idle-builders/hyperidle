@@ -9,9 +9,8 @@
  * @lore AU28: `minScope` is the single most important field here. `au6-agent-boundary-guard` and
  * `au9-direct-handoff-guard` both scanned `packages/server/src`, a directory deleted two tracks
  * earlier, and both printed PASS over zero files for months while sitting in the lint chain. That one
- * failure mode is what killed the entire inherited guard set. A rule that cannot state how many
- * things it is about cannot prove it is still alive, so declaring the floor is mandatory and the
- * runner throws — it does not warn — when live scope falls below it.
+ * failure mode is what killed the entire inherited guard set. A rule that scans NOTHING cannot prove
+ * it is still alive, so the runner throws — it does not warn — when a rule's population is empty.
  */
 
 import type { Census } from "./repo-census.js";
@@ -48,7 +47,17 @@ export interface Rule {
 	 * population. A rule whose population is empty is dead, whatever its verdict says.
 	 */
 	readonly scope: (census: Census) => readonly string[];
-	/** Minimum population size. At or below it minus one, `runRules` throws. Must be >= 1. */
+	/**
+	 * Minimum population size. At or below it minus one, `runRules` throws. Must be >= 1.
+	 *
+	 * @lore BB1: every rule declares exactly 1. It used to carry a hand-measured magnitude — 1000
+	 * here, 700 there — and those numbers were the same migration-era ratchet as the deleted
+	 * `minFiles` floors: deleting a file legitimately, as ten dead e2e specs were, turned the build
+	 * red with a message asking for a different number. That trains reflexive number-bumping, which
+	 * is the rot a floor is supposed to prevent. What actually catches the `au6` defect is the ZERO
+	 * case — `au6` scanned a deleted directory and passed over no files at all — and 1 catches it
+	 * without a magnitude anyone has to keep true.
+	 */
 	readonly minScope: number;
 	readonly evaluate: (census: Census) => readonly Finding[];
 }

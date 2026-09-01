@@ -14,21 +14,6 @@ const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-bet-anchor";
 const BET_ID = "bet-anchor-test";
 
-function makeBetResponse() {
-	return {
-		id: BET_ID,
-		title: "Block Anchor Test Bet",
-		product: "Alpha",
-		team: "Alpha Core",
-		status: "in_progress",
-		tokensActual: null,
-		progress: { done: 0, total: 1 },
-		description:
-			"# Problem\n\nThis paragraph block will receive an anchored comment.\n\n## Solution\n\nAnother block here.",
-		tasks: [],
-	};
-}
-
 function makeThreadListResponse() {
 	return { threads: [], nextCursor: null };
 }
@@ -71,22 +56,6 @@ test.describe("L18 — Block-anchored comment flow", () => {
 		const postedMessages: Array<Record<string, unknown>> = [];
 		let postedBlockId: string | null = null;
 		const composedText = "This is my anchored comment on the block.";
-
-		await page.route(`**/api/bets/${BET_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeBetResponse()),
-			});
-		});
-
-		await page.route(`**/api/bets/${BET_ID}/artifact-thread-summary`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ summaries: [], totalCount: 0, truncated: false }),
-			});
-		});
 
 		await page.route(`**/api/threads?**host_kind=bet**`, async (route) => {
 			await route.fulfill({
@@ -159,7 +128,7 @@ test.describe("L18 — Block-anchored comment flow", () => {
 			}
 		});
 
-		await page.goto(`/work/bet/${BET_ID}`);
+		await page.goto(`/work/task/${BET_ID}`);
 
 		// Find a block in the pitch and open its actions
 		const firstBlock = page.locator("[data-ds-component='block']").first();

@@ -3,10 +3,10 @@
 // Under Ruling 2 (extension surface), all events survive — only the location changes.
 // Callers that imported from @hyperidle/domain-model now import from @hyperidle/event-bus.
 // SessionOutcome stays in domain-model (core-ui needs it; core-ui cannot reach event-bus).
+// @lore BB1: BetStatus import removed — bet vocabulary deleted, task vocabulary is the only work vocabulary.
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	BetStatus,
 	HostKind,
 	MessageType,
 	ModelTier,
@@ -116,16 +116,33 @@ export interface TaskStateChangedEvent {
 	fromState: TaskState;
 	toState: TaskState;
 	timestamp: number;
+	/**
+	 * BB1: this transition is part of a deliberate subtree KILL, not ordinary
+	 * progress. Upward completion propagation must ignore it.
+	 *
+	 * @lore BB1: without this, killing a task with descendants raced its own
+	 * completion cascade. `cascadeTaskKill` kills deepest-first, each kill emits
+	 * this event, and the propagation handler — which listens for `killed` on
+	 * purpose, so a last child being killed can still advance its parent — found
+	 * the ancestors' children all terminal and marked them `done` before the
+	 * cascade reached them. That stamped `completedAt` on cancelled work and
+	 * raised a "Confirm shipping?" review on a killed root. The cascade already
+	 * suppresses `session_ended` for exactly this reason; this closes the other
+	 * path. Optional, so every existing emitter is unchanged and only the
+	 * cascade opts in.
+	 */
+	cascade?: boolean;
 }
 
-export interface BetStateChangedEvent {
-	type: "bet_state_changed";
-	streamId: string;
-	betId: string;
-	fromState: BetStatus;
-	toState: BetStatus;
-	timestamp: number;
-}
+/**
+ * @lore BB1: `BetStateChangedEvent` DELETED — a bet is now a root task.
+ * A bet state change IS a task state change; `task_state_changed` is the
+ * only work-state event. This NARROWS the routine extension surface:
+ * routines authored against `bet_state_changed` will no longer fire. Since
+ * no code emits `bet_state_changed` anymore (the bet entity is gone), no
+ * routine could have matched it in practice — the deletion removes a dead
+ * event type from the extension surface.
+ */
 
 export interface ItemCreatedEvent {
 	type: "item_created";
@@ -367,13 +384,12 @@ export interface SandboxWritebackChangesDetectedEvent {
 	timestamp: number;
 }
 
-export interface BetRevisedEvent {
-	type: "bet_revised";
-	streamId: string;
-	betId: string;
-	field: string;
-	timestamp: number;
-}
+/**
+ * @lore BB1: `BetRevisedEvent` DELETED — a bet is now a root task.
+ * Task field updates go through normal task mutation paths; there is no
+ * dedicated "bet revised" event. This removes a dead surface: nothing
+ * emitted `bet_revised` after the bet entity was dropped.
+ */
 
 /**
  * Emitted by `session-provisioning` each time the harness yields a
@@ -463,10 +479,10 @@ export interface ArtifactCreatedEvent {
  * imports from strategy). The canonical definition is in packages/server/src/knowledge/types.ts.
  *
  * @lore U1: "product" renamed to "team" in propagation levels. The propagation
- * hierarchy is: session -> task -> bet -> team -> portfolio.
+ * hierarchy is: session -> task -> team -> portfolio.
  * Note: "product" scope kind in knowledge_items is UNCHANGED (different taxonomy).
  */
-type PropagationLevelLiteral = "session" | "task" | "bet" | "team" | "portfolio";
+type PropagationLevelLiteral = "session" | "task" | "team" | "portfolio";
 
 /** L20: Emitted when lifecycle propagation successfully applies a transition. */
 export interface PropagationAppliedEvent {
@@ -586,8 +602,7 @@ export type DomainEvent =
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
 	| TaskStateChangedEvent
-	| BetStateChangedEvent
-	| BetRevisedEvent
+	// @lore BB1: BetStateChangedEvent and BetRevisedEvent deleted — bet is now a root task.
 	| SessionStartedEvent
 	| SessionEndedEvent
 	// AU19 Increment 3g: handoff EventBus inversion
@@ -643,8 +658,7 @@ export const EVENT_TYPES = [
 	"agent_run_admission_failed",
 	"agent_run_lifecycle_changed",
 	"task_state_changed",
-	"bet_state_changed",
-	"bet_revised",
+	// @lore BB1: "bet_state_changed" and "bet_revised" deleted — bet is now a root task.
 	"session_started",
 	"session_ended",
 	"session_handoff_completed",

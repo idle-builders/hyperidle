@@ -84,12 +84,11 @@ function makePopulatedTeam() {
 		],
 		burn: {
 			capacity: 5,
-			activeBets: 2,
 		},
-		activeBets: [
+		tasksInProgress: [
 			{
 				id: "bet-1",
-				descriptionTitle: "Auth migration",
+				title: "Auth migration",
 				status: "active",
 				progressDone: 1,
 				progressTotal: 2,
@@ -128,9 +127,8 @@ function makeEmptyTeam() {
 		roster: [],
 		burn: {
 			capacity: 5,
-			activeBets: 0,
 		},
-		activeBets: [],
+		tasksInProgress: [],
 		routines: [],
 	};
 }
@@ -213,7 +211,7 @@ test.describe("AG1 populated team — section visibility & column width per view
 			// AC-1: all main sections visible
 			await expect(page.getByTestId("work-team-page")).toBeVisible();
 			await expect(page.getByTestId("team-burn-vs-cap")).toBeVisible();
-			await expect(page.getByTestId("team-active-bets")).toBeVisible();
+			await expect(page.getByTestId("team-active-tasks")).toBeVisible();
 			await expect(page.getByTestId("team-routines")).toBeVisible();
 			await expect(page.getByTestId("team-agents")).toBeVisible();
 
@@ -259,7 +257,7 @@ test.describe("AG1 empty team — intentional composition & column width per vie
 			// AC-1: visible
 			await expect(page.getByTestId("work-team-page")).toBeVisible();
 			await expect(page.getByTestId("team-burn-vs-cap")).toBeVisible();
-			await expect(page.getByTestId("team-active-bets")).toBeVisible();
+			await expect(page.getByTestId("team-active-tasks")).toBeVisible();
 			await expect(page.getByTestId("team-routines")).toBeVisible();
 			await expect(page.getByTestId("team-agents")).toBeVisible();
 
@@ -296,7 +294,7 @@ test.describe("AG1 empty team — intentional composition & column width per vie
 			expect(statusTileText).not.toContain("Healthy");
 
 			// AC-3: empty section states all present
-			await expect(page.getByTestId("team-active-bets-empty")).toBeVisible();
+			await expect(page.getByTestId("team-active-tasks-empty")).toBeVisible();
 			await expect(page.getByTestId("team-routines-empty")).toBeVisible();
 
 			// AC-5(b): screenshot
@@ -395,14 +393,6 @@ test("AG1 AC-4 — clicking add-agent-btn opens add-agent dialog", async ({ page
 test("AG1 AC-4 regression — breadcrumb back navigates to /work/portfolio", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await mockTeamRoute(page, makePopulatedTeam());
-
-	await page.route("**/api/bets*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ draft: [], active: [], completed: [], killed: [] }),
-		});
-	});
 
 	await page.goto(TEAM_URL);
 	await page.waitForSelector("[data-testid='work-team-page']");

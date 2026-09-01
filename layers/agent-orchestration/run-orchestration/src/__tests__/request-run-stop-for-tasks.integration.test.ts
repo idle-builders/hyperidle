@@ -11,7 +11,7 @@
  * caller WHICH runs were actually affected.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { requestRunStopForTasks } from "../request-run-stop-for-tasks.js";
@@ -23,17 +23,20 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(users)
 		.values({ id: "agent-1", name: "A", role: "builder", status: "active", createdAt: NOW });
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "d",
 		description: "d",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	for (const id of ["task-a", "task-b", "task-untouched"]) {
 		await db.insert(tasks).values({
 			id,
-			betId: "bet-1",
+			parentTaskId: "bet-1",
 			teamId: "team-1",
 			title: id,
 			state: "in_progress",

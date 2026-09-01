@@ -31,7 +31,8 @@ export interface ScenarioSeedResult {
 	readonly teamId: string;
 	readonly agentId: string;
 	readonly taskId: string;
-	readonly betId: string;
+	/** @lore BB1: formerly betId — root tasks replace bets. */
+	readonly rootTaskId: string;
 	/** Sandbox base path for LocalSandboxAdapter. */
 	readonly sandboxBasePath: string;
 }
@@ -174,12 +175,12 @@ export interface ScenarioReport {
 	readonly aggregateScore: number;
 	/**
 	 * Token usage by model tier for this scenario.
-	 * Populated from bets.tokensActualJson after session completes.
+	 * Populated from tasks.tokensActualJson after session completes.
 	 *
 	 * @lore X7: Section 19 addendum — merged into canonical type per arch critique.
-	 * Token data is queried from bets.tokensActualJson (written by provisionSession
-	 * via accumulateSessionTokensOnBet) rather than from provisionSession's return
-	 * value (which does not expose tokens).
+	 * @lore BB1: token data is queried from tasks.tokensActualJson (moved from
+	 * bets.tokensActualJson when the bets table was dropped) rather than from
+	 * provisionSession's return value (which does not expose tokens).
 	 */
 	readonly tokensByTier: Record<string, { prompt: number; completion: number }>;
 }
@@ -214,8 +215,9 @@ export interface EvalReport {
 	 * @lore AU21 (harness-telemetry narrowing): `totalCostCents` (mirrored from
 	 * `ProvisionSessionResult.totalCostCents`) is REMOVED — founder ruling kept
 	 * only token usage. This field (already queried independently from
-	 * `bets.tokensActualJson`, not from the harness's $-cost report) is
-	 * unaffected and remains the eval report's real usage signal.
+	 * `tasks.tokensActualJson` — @lore BB1: moved from bets — not from the
+	 * harness's $-cost report) is unaffected and remains the eval report's real
+	 * usage signal.
 	 */
 	readonly totalTokensByTier: Record<string, { prompt: number; completion: number }>;
 	/** Per-feature score breakdown, computed from scenarios grouped by feature field. */

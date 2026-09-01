@@ -22,7 +22,7 @@ Layer is assigned from an item's scope — `SCOPE_TO_LAYER` (`framework/domain-m
 | `practice` | L3 |
 | `product` | L2 |
 | `task` | L1 |
-| `bet`, `team`, `user` | none — outside the maturity flow |
+| `team`, `user` | none — outside the maturity flow |
 
 Layer is a strategy signal: it lives on the `knowledge_app_projection` extension table, not on `knowledge_items` (O2 kernel/strategy split). Store semantics — scopes, statuses, the kernel/strategy table split — are owned by [the canonical store](the-canonical-store.md).
 
@@ -50,7 +50,7 @@ A product runs for months. Its knowledge splits by artifact type.
 
 **The human-readable part** — the product's core identity: `BRIEF`, `ARCHITECTURE`, `BRAND`, `PRINCIPLES`. These are knowledge items; there is no git export today — the database is the only store. The sketched (not-implemented) export shape is described in [facilitators](facilitators.md).
 
-**The agent-native part** — process state. Tasks and bets are their own primitive tables, never `knowledge_items` rows (see [the canonical store](the-canonical-store.md)). Decisions are knowledge items of kind `decision` — lightweight rows, not two-page ADRs.
+**The agent-native part** — process state. Tasks (recursive, any depth) are their own primitive table, never `knowledge_items` rows (see [the canonical store](the-canonical-store.md)). Decisions are knowledge items of kind `decision` — lightweight rows, not two-page ADRs.
 
 **Capture happens inline with the work**: when an agent learns something during a session, it lands via writeback, not a separate documentation pass — see [sync and conflict resolution](sync-and-conflict-resolution.md).
 
@@ -61,7 +61,7 @@ A product runs for months. Its knowledge splits by artifact type.
 - **Storage**: knowledge items at `practice` scope, one community per discipline: `building`, `product`, `growth`, `ops` (`framework/domain-model/src/agent-roles.ts`, `communityForRole` with fallback `ops`). All builders across all products share the `building` community — knowledge that emerges in one product is available to every other immediately.
 - **Grouping**: `topic` is a first-class column (`framework/db/src/schema.ts:894`); tags and evidence live in the app projection extension's `meta` JSON (`framework/db/src/schema.ts:1020`).
 - **Anti-patterns are first-class**: `anti_pattern` is its own knowledge kind (`framework/domain-model/src/knowledge.ts:41-49`), searchable alongside patterns. Promotion itself is generic, not kind-specific: the same `(layer, topic, kind)` signature repeated across 5+ distinct scopes auto-promotes an item's status regardless of kind (`layers/core-api/knowledge/src/promotion-pipeline.ts`).
-- **Human touch**: curation through the [Knowledge view](../information-architecture/knowledge-view.md). Sharpen wording, retire stale items, add the tacit knowledge agents can't generate — customer taste, market intuition. Two unattended calendar routines run alongside it: `builtin:knowledge-promotion` (daily, promotes provisional items past the repetition threshold) and `builtin:knowledge-decay` (daily, silent, retires stale items). There is no meeting and no synchronous ritual.
+- **Human touch**: curation through the [Knowledge view](../information-architecture/knowledge-view.md). Sharpen wording, retire stale items, add the tacit knowledge agents can't generate — customer taste, market intuition. Two unattended routines run alongside it: `knowledge-promotion` (weekly, Sunday 04:00, promotes provisional items past the repetition threshold) and `knowledge-decay` (weekly, Sunday 03:00, retires stale items) — both provided by the knowledge-management plugin. There is no meeting and no synchronous ritual.
 
 ## L4: Factory — the meta
 
@@ -84,4 +84,4 @@ The ideas this taxonomy borrowed (sole home of these credits):
 - **Google's Always-On Memory Agent** — a structured store beats a vector DB for agent state; that instinct now lives in PGlite/Postgres.
 - **TOON format** — ~40% fewer tokens than JSON for structured context packs (L0 loading).
 - **KCS (Knowledge-Centered Service)** — reuse before create, the single highest-leverage knowledge behavior (L3).
-- **Shape Up** — bets over backlog as the work model the knowledge layers feed.
+- **Shape Up** — time-boxed tasks over backlog as the work model the knowledge layers feed.

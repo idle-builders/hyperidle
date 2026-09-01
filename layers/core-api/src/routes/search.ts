@@ -30,7 +30,7 @@ import type { EventBus } from "@hyperidle/event-bus";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
 import * as work from "@hyperidle/work";
-import { deriveTitle } from "@hyperidle/work";
+// BB1: deriveTitle removed — tasks use .title directly
 import { Hono } from "hono";
 import z from "zod";
 
@@ -253,17 +253,21 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// claiming "`teams` is not one of the five owned tables, so any file may
 		// query it" — WRONG, `teams` IS `org`-owned (architecture.md §4 line 69).
 		// Now calls `@hyperidle/org`'s `listTeamsByIds`.
-		const betRows = await work.list(db, "bet", { text: query, limit: MAX_PER_CATEGORY });
-		const betTeamRows =
-			betRows.length > 0 ? await listTeams(db, { ids: betRows.map((b) => b.teamId) }) : [];
-		const teamNameMap = new Map(betTeamRows.map((t) => [t.id, t.name]));
+		// BB1: search root tasks (parentTaskId: null) instead of deleted bets.
+		const taskRows = await work.list(db, "task", {
+			text: query,
+			parentTaskId: null,
+			limit: MAX_PER_CATEGORY,
+		});
+		const taskTeamRows =
+			taskRows.length > 0 ? await listTeams(db, { ids: taskRows.map((t) => t.teamId) }) : [];
+		const teamNameMap = new Map(taskTeamRows.map((t) => [t.id, t.name]));
 
-		const workResults = betRows.map((row) => ({
+		const workResults = taskRows.map((row) => ({
 			id: row.id,
-			title: deriveTitle(row.description, row.id),
+			title: row.title,
 			team: teamNameMap.get(row.teamId) ?? row.teamId,
-			status: row.status,
-			appetite: row.appetite ?? "—",
+			status: row.state,
 		}));
 
 		// ── 3. Knowledge items ──────────────────────────────────────────────────

@@ -76,11 +76,10 @@ describe("buildToolRegistry", () => {
 				// AE3 management tools
 				"create_team",
 				"add_agent",
-				"create_bet",
 				"create_routine",
 				"update_routine",
-				// AK4: bet draft/edit tool for assistant conversational drafting
-				"edit_bet",
+				// BB1: create_bet and edit_bet deleted; edit_task added.
+				"edit_task",
 				// BA9d wave 2: knowledge merge and split
 				"merge_knowledge",
 				"split_knowledge",
@@ -90,13 +89,12 @@ describe("buildToolRegistry", () => {
 			].sort(),
 		);
 		// 9 base tools + create_task (R5) + submit_review (R5) + create_artifact (R6) = 12
-		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 17
-		// + 1 AK4 draft tool: edit_bet = 18
-		// + 1 AU27: reply = 19
-		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 21
-		// + 1 BA9d wave 3: run_knowledge_sweep = 22
-		// @lore AU20 repair: read_inbox (1) + write_session_notes (1) + commit_file (1) deleted = 22 → 19
-		expect(registry.definitions).toHaveLength(22);
+		// + 4 AE3 management tools: create_team, add_agent, create_routine, update_routine = 16
+		// BB1: create_bet + edit_bet deleted; edit_task added = 17
+		// + 1 AU27: reply = 18
+		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
+		// + 1 BA9d wave 3: run_knowledge_sweep = 21
+		expect(registry.definitions).toHaveLength(21);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({

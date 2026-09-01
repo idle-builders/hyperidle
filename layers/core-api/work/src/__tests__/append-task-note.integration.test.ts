@@ -10,7 +10,7 @@
  * Uses the `{ db }`-only fixture — no `app` / `eventBus` needed.
  */
 
-import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { describe } from "vitest";
 import { get, update } from "../work-service.js";
@@ -21,17 +21,19 @@ const NOTE_SEPARATOR = "\n\n---\n\n";
 async function seedTask(db: HyperIdleDb, id: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: `${id}-team`, name: "Test", phase: "build", createdAt: now });
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: `${id}-bet`,
+		parentTaskId: null,
 		teamId: `${id}-team`,
+		title: "Test",
 		description: "Test",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id,
-		betId: `${id}-bet`,
+		parentTaskId: `${id}-bet`,
 		teamId: `${id}-team`,
 		title: "Test Task",
 		state: "accepted",

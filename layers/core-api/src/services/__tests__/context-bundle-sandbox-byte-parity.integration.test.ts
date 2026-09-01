@@ -34,7 +34,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -59,7 +58,7 @@ const AGENT_ID = "agent-i12c-parity";
 // documented the truth ("practice scopeId is a role id").
 const AGENT_ROLE = "builder";
 const TASK_ID = "task-i12c-parity";
-const BET_ID = "bet-i12c-parity";
+const ROOT_TASK_ID = "bet-i12c-parity";
 const ATTEMPT_ID = "attempt-i12c-parity";
 const TASK_DESCRIPTION = "Ship the Wave C byte-parity check.";
 
@@ -75,18 +74,20 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: BET_ID,
+	await db.insert(tasks).values({
+		id: ROOT_TASK_ID,
+		parentTaskId: null,
 		teamId: TEAM_ID,
+		title: "I12 Wave C byte-parity bet",
 		description: "I12 Wave C byte-parity bet",
-		appetite: "small",
 		doneCondition: "Byte-identical sandboxes",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: TASK_ID,
-		betId: BET_ID,
+		parentTaskId: ROOT_TASK_ID,
 		teamId: TEAM_ID,
 		ownerAgentId: AGENT_ID,
 		title: "I12 Wave C byte-parity task",

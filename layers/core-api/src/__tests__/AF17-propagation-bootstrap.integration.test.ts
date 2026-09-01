@@ -11,7 +11,7 @@
  * so this stays a relative, in-package import.
  */
 
-import { bets, type HyperIdleDb, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -27,10 +27,10 @@ function authHeaders(): Record<string, string> {
 /** Minimal world to drive a bet to review without any demo data. */
 async function seedMinimalWorld(
 	db: HyperIdleDb,
-): Promise<{ teamId: string; betId: string; sessionId: string; founderId: string }> {
+): Promise<{ teamId: string; rootTaskId: string; sessionId: string; founderId: string }> {
 	const teamId = "team-ac5-test";
 	const founderId = "user-ac5-founder";
-	const betId = "bet-ac5-test";
+	const rootTaskId = "bet-ac5-test";
 	const sessionId = "session-ac5-test";
 	const agentId = "agent-ac5-builder";
 
@@ -57,16 +57,18 @@ async function seedMinimalWorld(
 		createdAt: NOW,
 	});
 
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "Ship MVP",
 		description: "Ship MVP",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 
-	return { teamId, betId, sessionId, founderId };
+	return { teamId, rootTaskId, sessionId, founderId };
 }
 
 describe("AF17 AC5: system:propagation is present after bootstrap; review thread succeeds", () => {

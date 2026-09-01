@@ -19,7 +19,7 @@ Neither path derives anything. Derivation happens when a surface renders the bod
 
 | Surface | Source body | Renderer |
 |---|---|---|
-| Bet description | `bets.description` | `layers/core-ui/src/pages/WorkBet.tsx:210` — co-located adapter, `deriveBlocks(description, { kind: "bet", id: betId })` → `<Block />` |
+| Task description | `tasks.description` | `layers/core-ui/src/pages/WorkTask.tsx` — co-located adapter, `deriveBlocks(description, { kind: "task", id: taskId })` → `<Block />` |
 | Knowledge body | `knowledge_items.body` | `layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx` — includes the per-block action popover and inline anchored-message slots (per-block discussion) |
 | Review canvas / artifact prose | artifact text bodies | `layers/core-ui/src/pages/review/review-canvas.tsx:78` (`deriveProseBlocks`) and `framework/design-system/src/kinds/compose-artifact-body.tsx`, `{ kind: "artifact" }` |
 

@@ -6,16 +6,18 @@
  * - New structural elements (unread dot, colored border, icon circle)
  * - PitchCard deletion from design-system exports
  * - Hearth token presence on key components
- * - BetCard/TaskCard shadow+border surface lift
+ * - TaskCard shadow+border surface lift
  * - Composer pill send button
  * - ThreadRow selected state shadow
+ *
+ * @lore BB1: BetCard deleted — tasks are the one work primitive.
+ * BetCard describe blocks removed; TaskCard surface lift tests remain.
  */
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { BetCard } from "../BetCard.js";
 import { Composer } from "../Composer.js";
 import { NotificationRow } from "../NotificationRow.js";
 import { TaskCard } from "../TaskCard.js";
@@ -192,116 +194,6 @@ describe("U8 — Hearth restyle structural elements", () => {
 			) as HTMLElement | null;
 			expect(iconCircle).not.toBeNull();
 			expect(iconCircle?.className ?? "").toMatch(/rounded-full|r-pill/);
-		});
-	});
-
-	// ── BetCard ───────────────────────────────────────────────────────────────
-
-	describe("BetCard — Hearth surface lift", () => {
-		it("outer element uses surface-elevated token", () => {
-			act(() => {
-				root.render(
-					createElement(BetCard, {
-						title: "Ship auth",
-						team: "Platform",
-						status: "draft",
-						appetite: "2 weeks",
-					}),
-				);
-			});
-			const card = container.firstElementChild as HTMLElement;
-			expect(card.className).toContain("surface-elevated");
-		});
-
-		it("outer element uses r-default radius token", () => {
-			act(() => {
-				root.render(
-					createElement(BetCard, {
-						title: "Ship auth",
-						team: "Platform",
-						status: "draft",
-						appetite: "2 weeks",
-					}),
-				);
-			});
-			const card = container.firstElementChild as HTMLElement;
-			expect(card.className).toContain("r-default");
-		});
-
-		it("outer element has shadow-default class", () => {
-			act(() => {
-				root.render(
-					createElement(BetCard, {
-						title: "Ship auth",
-						team: "Platform",
-						status: "draft",
-						appetite: "2 weeks",
-					}),
-				);
-			});
-			const card = container.firstElementChild as HTMLElement;
-			expect(card.className).toContain("shadow-default");
-		});
-
-		it("outer element does NOT have explicit border (mockup uses shadow only)", () => {
-			// visual-parity-audit: BetCard story/baseline uses shadow-default only, no explicit border
-			act(() => {
-				root.render(
-					createElement(BetCard, {
-						title: "Ship auth",
-						team: "Platform",
-						status: "draft",
-						appetite: "2 weeks",
-					}),
-				);
-			});
-			const card = container.firstElementChild as HTMLElement;
-			// Card uses shadow-default for elevation, no border needed
-			expect(card.className).toContain("shadow-default");
-			expect(card.className).not.toContain("border border-[");
-		});
-
-		it("outer element has hover translate-y lift class", () => {
-			act(() => {
-				root.render(
-					createElement(BetCard, {
-						title: "Ship auth",
-						team: "Platform",
-						status: "draft",
-						appetite: "2 weeks",
-					}),
-				);
-			});
-			const card = container.firstElementChild as HTMLElement;
-			expect(card.className).toContain("hover:translate-y-");
-		});
-
-		it("does NOT use old Lucid token surface-4", () => {
-			act(() => {
-				root.render(
-					createElement(BetCard, {
-						title: "Ship auth",
-						team: "Platform",
-						status: "draft",
-						appetite: "2 weeks",
-					}),
-				);
-			});
-			expect(container.innerHTML).not.toContain("surface-4");
-		});
-
-		it("does NOT use old Lucid token surface-6", () => {
-			act(() => {
-				root.render(
-					createElement(BetCard, {
-						title: "Ship auth",
-						team: "Platform",
-						status: "draft",
-						appetite: "2 weeks",
-					}),
-				);
-			});
-			expect(container.innerHTML).not.toContain("surface-6");
 		});
 	});
 

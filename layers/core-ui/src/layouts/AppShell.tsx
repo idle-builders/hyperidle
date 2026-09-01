@@ -205,8 +205,7 @@ export function AppShell(): JSX.Element {
 	 *
 	 * Matches:
 	 *   /conversations/:id          (thread detail)
-	 *   /work/bet/:id               (bet detail)
-	 *   /work/bet/:id/task/:taskId  (task detail)
+	 *   /work/task/:id              (task detail — any depth, replaces /work/bet/:id)
 	 *   /work/routine/:id           (routine detail)
 	 *   /work/team/:id              (team page — shows back arrow)
 	 *   /knowledge/:id              (knowledge detail, but NOT /knowledge/new)
@@ -219,8 +218,8 @@ export function AppShell(): JSX.Element {
 		const p = location.pathname;
 		// conversations/:id
 		if (/^\/conversations\/[^/]+/.test(p)) return true;
-		// work/bet/:id and nested
-		if (/^\/work\/bet\/[^/]+/.test(p)) return true;
+		// @lore BB1: /work/bet/:id replaced by /work/task/:id (any depth)
+		if (/^\/work\/task\/[^/]+/.test(p)) return true;
 		// work/routine/:id
 		if (/^\/work\/routine\/[^/]+/.test(p)) return true;
 		// work/team/:id
@@ -436,8 +435,8 @@ export function AppShell(): JSX.Element {
 			switch (type) {
 				case "work": {
 					const safeId = sanitizeRouteId(id);
-					// AD9: fallback was /work/portfolio; now /work (WorkOverview).
-					navigate(safeId !== null ? `/work/bet/${safeId}` : "/work");
+					// @lore BB1: /work/bet/:id replaced by /work/task/:taskId — tasks are the one work primitive.
+					navigate(safeId !== null ? `/work/task/${safeId}` : "/work");
 					break;
 				}
 				case "knowledge": {
@@ -588,7 +587,8 @@ export function AppShell(): JSX.Element {
 		}
 		if (p.startsWith("/work/portfolio")) return "Work";
 		if (p.startsWith("/work/team/")) return "Work";
-		if (p.startsWith("/work/bet/")) return "Work";
+		// @lore BB1: /work/bet/:id replaced by /work/task/:id
+		if (p.startsWith("/work/task/")) return "Work";
 		if (p.startsWith("/work/routine/")) return "Work";
 		if (p.startsWith("/work")) return "Work";
 		if (p.startsWith("/knowledge")) return "Knowledge";

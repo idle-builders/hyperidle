@@ -1,13 +1,4 @@
-import {
-	bets,
-	type HyperIdleDb,
-	items,
-	routines,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, items, routines, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -54,17 +45,20 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 async function seedTaskData(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teamId references `teams` domain entity (not teamMembers).
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "prod-1",
+		title: "Test bet",
 		description: "Test bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
 	});
 
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "prod-1",
 		title: "Task A",
 		state: "proposed",
@@ -94,17 +88,20 @@ async function seedConversationData(db: HyperIdleDb): Promise<void> {
 
 async function seedSessionData(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teamId references `teams` domain entity (not teamMembers).
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-s",
+		parentTaskId: null,
 		teamId: "prod-1",
+		title: "Session bet",
 		description: "Session bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
 	});
 
 	await db.insert(tasks).values({
 		id: "task-s",
-		betId: "bet-s",
+		parentTaskId: "bet-s",
 		teamId: "prod-1",
 		title: "Session task",
 		state: "in_progress",
@@ -141,7 +138,7 @@ describe("E2E API Integration (I5)", () => {
 	describe("Auth enforcement", () => {
 		test("returns 401 when X-API-Key header is missing", async ({ db, requestWithoutAuth }) => {
 			await seedBase(db);
-			const res = await requestWithoutAuth("/api/bets");
+			const res = await requestWithoutAuth("/api/tasks");
 			expect(res.status).toBe(401);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("UNAUTHORIZED");
@@ -149,7 +146,7 @@ describe("E2E API Integration (I5)", () => {
 
 		test("returns 401 when X-API-Key header is wrong", async ({ db, requestWithoutAuth }) => {
 			await seedBase(db);
-			const res = await requestWithoutAuth("/api/bets", {
+			const res = await requestWithoutAuth("/api/tasks", {
 				headers: { "X-API-Key": "wrong-key" },
 			});
 			expect(res.status).toBe(401);
@@ -159,7 +156,7 @@ describe("E2E API Integration (I5)", () => {
 
 		test("allows access with correct API key", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/bets", { headers: auth() });
+			const res = await app.request("/api/tasks", { headers: auth() });
 			expect(res.status).toBe(200);
 		});
 	});
@@ -184,78 +181,45 @@ describe("E2E API Integration (I5)", () => {
 	});
 
 	// -------------------------------------------------------
-	// 3. Bets
+	// 3. Root Tasks (replaced Bets in BB1)
 	// -------------------------------------------------------
-	describe("Bets", () => {
-		// @lore U1: teamId references `teams` domain entity; status "draft" replaces "shaped".
-		test("POST /api/bets creates a shaped bet and GET /api/bets lists it", async ({ db, app }) => {
+	describe("Root Tasks", () => {
+		// BB1: bets are now root tasks (parentTaskId=null). Test task creation and listing.
+		test("POST /api/tasks creates a root task and GET /api/tasks lists it", async ({ db, app }) => {
 			await seedBase(db);
-			const createRes = await app.request("/api/bets", {
+			const createRes = await app.request("/api/tasks", {
 				method: "POST",
 				headers: auth(),
-				body: JSON.stringify({
-					teamId: "prod-1",
-					description: "E2E integration bet",
-				}),
+				body: JSON.stringify({ teamId: "prod-1", title: "E2E root task" }),
 			});
 			expect(createRes.status).toBe(201);
-			const created = (await createRes.json()) as { id: string; status: string };
-			expect(created.status).toBe("draft");
+			const created = (await createRes.json()) as { id: string; state: string; parentTaskId: null };
+			expect(created.state).toBe("proposed");
+			expect(created.parentTaskId).toBeNull();
 
-			const listRes = await app.request("/api/bets", { headers: auth() });
+			const listRes = await app.request("/api/tasks", { headers: auth() });
 			expect(listRes.status).toBe(200);
-			const list = (await listRes.json()) as { draft: Array<{ id: string }> };
-			expect(list.draft.some((b) => b.id === created.id)).toBe(true);
+			const list = (await listRes.json()) as Array<{ id: string }>;
+			expect(list.some((t) => t.id === created.id)).toBe(true);
 		});
 
-		test("POST /api/bets returns 400 for missing required fields", async ({ db, app }) => {
+		test("POST /api/tasks returns 400 when neither teamId nor parentTaskId is supplied", async ({
+			db,
+			app,
+		}) => {
 			await seedBase(db);
-			const res = await app.request("/api/bets", {
+			const res = await app.request("/api/tasks", {
 				method: "POST",
 				headers: auth(),
-				body: JSON.stringify({ productId: "prod-1" }),
+				body: JSON.stringify({ title: "No team no parent" }),
 			});
 			expect(res.status).toBe(400);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("VALIDATION_ERROR");
 		});
 
-		test("GET /api/bets/:id returns 404 for nonexistent bet", async ({ db, app }) => {
+		test("GET /api/tasks/:id returns 404 for nonexistent task", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/bets/nonexistent", { headers: auth() });
+			const res = await app.request("/api/tasks/nonexistent", { headers: auth() });
 			expect(res.status).toBe(404);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("NOT_FOUND");
-		});
-
-		// GET /api/bets/canvas (door #24) deleted. Test removed.
-
-		// @lore U1: commit transitions draft→active (formerly shaped→committed).
-		test("POST /api/bets/:id/commit transitions a shaped bet to committed", async ({ db, app }) => {
-			await seedBase(db);
-			// Create a draft bet first
-			const createRes = await app.request("/api/bets", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					teamId: "prod-1",
-					description: "Bet to commit",
-				}),
-			});
-			expect(createRes.status).toBe(201);
-			const created = (await createRes.json()) as { id: string; status: string };
-			expect(created.status).toBe("draft");
-
-			// Commit the bet (transitions draft→active)
-			const commitRes = await app.request(`/api/bets/${created.id}/commit`, {
-				method: "POST",
-				headers: auth(),
-			});
-			expect(commitRes.status).toBe(200);
-			const committed = (await commitRes.json()) as { id: string; status: string };
-			expect(committed.id).toBe(created.id);
-			// @lore U1: status "active" replaces "committed"
-			expect(committed.status).toBe("active");
 		});
 	});
 
@@ -272,13 +236,13 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.length).toBeGreaterThanOrEqual(1);
 		});
 
-		test("GET /api/tasks?bet_id=bet-1 filters by bet", async ({ db, app }) => {
+		test("GET /api/tasks?parent_id=bet-1 filters by parent task", async ({ db, app }) => {
 			await seedBase(db);
 			await seedTaskData(db);
-			const res = await app.request("/api/tasks?bet_id=bet-1", { headers: auth() });
+			const res = await app.request("/api/tasks?parent_id=bet-1", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<{ betId: string }>;
-			expect(body.every((t) => t.betId === "bet-1")).toBe(true);
+			const body = (await res.json()) as Array<{ parentTaskId: string }>;
+			expect(body.every((t) => t.parentTaskId === "bet-1")).toBe(true);
 		});
 
 		// PATCH /api/tasks/:id (door #39) and POST /api/tasks/:id/transition (door #40) deleted.
@@ -317,16 +281,19 @@ describe("E2E API Integration (I5)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-1", name: "E2E Product", phase: "build", createdAt: now });
-			await db.insert(bets).values({
+			await db.insert(tasks).values({
 				id: "bet-1",
+				parentTaskId: null,
 				teamId: "prod-1",
+				title: "Test bet",
 				description: "Test bet",
-				status: "active",
+				state: "in_progress",
 				createdAt: now,
+				updatedAt: now,
 			});
 			await db.insert(tasks).values({
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "bet-1",
 				teamId: "prod-1",
 				title: "Task A",
 				state: "proposed",

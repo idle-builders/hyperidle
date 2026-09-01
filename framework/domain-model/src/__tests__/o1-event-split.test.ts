@@ -113,10 +113,10 @@ describe("O1 event split", () => {
 			// The EventBus.on() overload only accepts EventType -- so if the
 			// TypeScript compiler accepts on("bet_shipped", ...) it's a compile error.
 			// Here we enumerate the expected post-O1 event types:
+			// @lore BB1: "bet_state_changed" and "bet_revised" removed — a bet is
+			// now a root task; bet events are deleted, task_state_changed survives.
 			const expectedTypes = new Set([
 				"task_state_changed",
-				"bet_state_changed",
-				"bet_revised",
 				"session_started",
 				"session_ended",
 				"thread_created",
@@ -143,6 +143,8 @@ describe("O1 event split", () => {
 			expect(expectedTypes.has("bet_shipped")).toBe(false);
 			expect(expectedTypes.has("bet_committed")).toBe(false);
 			expect(expectedTypes.has("response_recorded")).toBe(false);
+			expect(expectedTypes.has("bet_state_changed")).toBe(false);
+			expect(expectedTypes.has("bet_revised")).toBe(false);
 		});
 	});
 
@@ -156,13 +158,13 @@ describe("O1 event split", () => {
 			// @lore O1: If a new kernel event is added to KernelEvent without a case
 			// here, `bun run check` fails with "Not all code paths return a value."
 			// Add the case and update the count in the comment above.
+			// @lore BB1: "bet_state_changed" and "bet_revised" removed from KernelEvent.
+			// Count drops from 16 to 14.
 			type KernelEvent = Extract<
 				DomainEvent,
 				{
 					type:
 						| "task_state_changed"
-						| "bet_state_changed"
-						| "bet_revised"
 						| "session_started"
 						| "session_ended"
 						| "thread_created"
@@ -182,10 +184,6 @@ describe("O1 event split", () => {
 			function assertExhaustiveKernel(event: KernelEvent): string {
 				switch (event.type) {
 					case "task_state_changed":
-						return event.type;
-					case "bet_state_changed":
-						return event.type;
-					case "bet_revised":
 						return event.type;
 					case "session_started":
 						return event.type;

@@ -11,6 +11,7 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
 import type { NotificationsDeps } from "@hyperidle/notifications";
+import { getTeam } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -19,7 +20,6 @@ import { Hono } from "hono";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
@@ -356,7 +356,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			"/teams",
 			createTeamRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
 		);
-		api.route("/bets", createBetRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/reviews", createReviewRoutes(options.db));
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
@@ -424,6 +423,9 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
 					workIntents: defaultAgentWorkIntentRecorder,
 					taskRunResolver: taskRunResolverDeps,
+					teamCapacity: {
+						getByTeamId: (exec: WriteExecutor, teamId: string) => getTeam(exec, { id: teamId }),
+					},
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,

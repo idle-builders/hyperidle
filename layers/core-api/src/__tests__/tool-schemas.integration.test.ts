@@ -32,13 +32,12 @@ const EXPECTED_TOOL_NAMES = [
 	// R6 artifact tools
 	"create_artifact",
 	// AE3 management tools (chief_of_staff / assistant)
+	// BB1: create_bet and edit_bet deleted — bets dissolved into tasks; edit_task added.
 	"create_team",
 	"add_agent",
-	"create_bet",
 	"create_routine",
 	"update_routine",
-	// AK4: bet draft/edit tool for assistant conversational drafting
-	"edit_bet",
+	"edit_task",
 	// BA9d wave 2: knowledge merge and split tools
 	"merge_knowledge",
 	"split_knowledge",

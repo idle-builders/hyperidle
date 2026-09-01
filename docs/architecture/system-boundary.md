@@ -20,7 +20,7 @@ Boundary settled by founder decision 2026-06-22, grounded in a code+docs invento
 | Code review (PR/MR, approvals, comments) | **SYNC / INTEGRATE** | Provider-native PR/MR review remains source of truth for code; HyperIdle links it to work, agents, sessions, and AL7-gated actions |
 | CI/CD (Actions, runners, pipelines) | **INTEGRATE** | trigger/observe via API/MCP; never host runners |
 | Deploy / registries / environments | **INTEGRATE** | a deploy is an action the agent runs with its own tools once approved; registries integrated |
-| Project management (Issues, Projects, Epics) | **REPLACE** | bets/tasks supersede tickets |
+| Project management (Issues, Projects, Epics) | **REPLACE** | tasks supersede tickets |
 | Knowledge (wikis, gists, Pages) | **REPLACE** | the knowledge fabric supersedes wikis |
 | Code intelligence (search, scanning, AI) | **INTEGRATE** scanning · **REPLACE** AI review | scanning is a rules-DB investment; AI review is our differentiator |
 | Identity / governance (SSO, audit, rulesets) | **INTEGRATE** SSO/audit · **OWN** merge-policy | the policy "can this agent change land" is ours; enforcement via the host's ruleset API is stated intent, not yet built |

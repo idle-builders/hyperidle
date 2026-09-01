@@ -64,7 +64,27 @@ export class InvalidTransitionError extends Error {
 }
 
 /**
- * Thrown when a team's active-bet capacity is exceeded on activation.
+ * BB1: thrown when a write would make the task tree cyclic — a task set as its
+ * own parent, or reparented under one of its own descendants.
+ *
+ * A cycle is not merely invalid data: a recursive read that meets one does not
+ * error, it spins. So this is rejected at write time, and the recursive CTEs
+ * additionally carry a depth cap as a backstop.
+ */
+export class TaskCycleError extends Error {
+	constructor(
+		public readonly taskId: string,
+		public readonly parentTaskId: string,
+	) {
+		super(`Task ${taskId} cannot be a child of ${parentTaskId}: that would form a cycle`);
+		this.name = "TaskCycleError";
+	}
+}
+
+/**
+ * BB1: thrown when a team is already at its WIP limit — `teams.capacity`
+ * tasks are `in_progress`. Was raised on bet activation; now raised when a task
+ * starts, at any depth.
  *
  * @lore AU44: co-located with InvalidTransitionError in @hyperidle/domain-model
  * so the error-handler's instanceof check covers errors thrown by either service.

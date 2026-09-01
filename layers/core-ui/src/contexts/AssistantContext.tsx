@@ -25,7 +25,7 @@ import type { BlockHostKind } from "../block/types.js";
  */
 export type AssistantContextRef =
 	| {
-			kind: "knowledge_item" | "task" | "artifact" | "bet" | "message";
+			kind: "knowledge_item" | "task" | "artifact" | "message";
 			id: string;
 			/** Display label for the chip in the overlay composer area. */
 			label: string;

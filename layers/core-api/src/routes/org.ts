@@ -59,7 +59,7 @@ const createOrgTeamSchema = z.object({
 	createdAt: z.string().min(1),
 	teamMembersId: z.string().min(1),
 	capacity: z.number().int().optional(),
-	activeBets: z.number().int().optional(),
+	// BB1: activeBets removed — WIP limit counted live from tasks in `in_progress`.
 	formedAt: z.string().optional(),
 });
 

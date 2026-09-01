@@ -1,8 +1,8 @@
 # Getting Started
 
-From zero to HyperIdle running locally, with a Team, a Bet, and agents producing output. This guide uses the embedded PGlite database — no external database required.
+From zero to HyperIdle running locally, with a Team, a Task, and agents producing output. This guide uses the embedded PGlite database — no external database required.
 
-**Time: 10 minutes.** By the end you'll see an agent session respond to a bet you defined.
+**Time: 10 minutes.** By the end you'll see an agent session respond to a task you defined.
 
 ---
 
@@ -133,37 +133,37 @@ Take 60 seconds to look around. Top to bottom in the **sidebar**:
 - **Domain navigator** below — most of the sidebar is reserved for scanning and opening items from the active domain.
 - **Settings** pinned at the bottom.
 
-The **main pane** shows your team. No bets yet means an empty state with a **New bet** button.
+The **main pane** shows your team. No tasks yet means an empty state with a **New task** button.
 
 Full walkthrough of the shell, shortcuts, and search: [The Interface](./the-interface.md). What each view is for: [Three Core Views](./three-core-views.md).
 
 ---
 
-## 6. Create your first Bet
+## 6. Create your first Task
 
-A **Bet** is a time-boxed chunk of work — the unit agents pick up and execute. There are two ways to create one.
+A **Task** is a time-boxed chunk of work — the unit agents pick up and execute. Root tasks (no parent) are your top-level commitments; subtasks can be added to any depth. There are two ways to create one.
 
 **Option A — Talk to the Assistant (recommended for first-timers):**
 
 1. Click the Assistant button in the top row of the sidebar (next to search) to open the overlay.
 2. Describe your idea in plain language. For example: "I want to build a landing page with email signup."
-3. The Assistant replies and drafts a bet from the conversation. A **BetCard** appears below the reply.
-4. Click the card to open the draft bet. Review, edit as needed, and commit.
+3. The Assistant replies and drafts a task. A task card appears below the reply.
+4. Click the card to open the draft task. Review, edit as needed, and accept it.
 
-This is the conversation-first path — you iterate with the Assistant until the bet looks right, then commit.
+This is the conversation-first path — you iterate with the Assistant until the task looks right, then accept it.
 
-**Option B — Hand-type the bet:**
+**Option B — Hand-type the task:**
 
-1. Click **New bet** in the Work overview header or the team header (or in the empty-state centre if no bets exist yet).
+1. Click **New task** in the Work overview header or the team header (or in the empty-state centre if no tasks exist yet).
 2. A full-page authoring surface opens with:
    - **Description editor** (required) — describe the work using headings, lists, and paragraphs. For example: `Build a landing page with a hero section and a features list.`
    - **Title preview** — auto-derived from the first line of your description (heading markers stripped).
    - **Team** select — shown only when you have more than one team; the single team is used automatically otherwise.
 3. Click **Create**.
 
-**Expected:** You are navigated to the new Bet detail page. The Bet also appears as a `draft` card in the Team view.
+**Expected:** You are navigated to the new Task detail page. The Task also appears as a `proposed` card in the Team view.
 
-To start agents, open the Bet, click the overflow menu (`···`) in the top-right, and choose **Activate bet**. The status flips from `draft` to `active`. The task section shows "No tasks yet" — agents on your team will begin adding tasks as they pick up the work. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
+To start agents, open the Task and accept it (change status to `accepted`). Agents on your team will begin adding subtasks and running sessions as they pick up the work. If your team is already at its capacity limit (the number of `in_progress` tasks across all depths), you must complete or kill a task before accepting another.
 
 **Troubleshooting:**
 - Create button stays disabled — the description field is required.
@@ -173,12 +173,12 @@ To start agents, open the Bet, click the overflow menu (`···`) in the top-rig
 
 ## 7. Watch an agent session
 
-Once a Bet is active, the agents on your Team pick up its tasks and start sessions. When an agent's work needs your decision, a review thread appears in **Conversations**.
+Once a Task is accepted, the agents on your Team pick up its subtasks and start sessions. When an agent's work needs your decision, a review thread appears in **Conversations**.
 
-**Troubleshooting — no session starts after activating a Bet:**
+**Troubleshooting — no session starts after accepting a Task:**
 - Confirm your API key is set (Settings → Credentials or `ANTHROPIC_API_KEY`) and the server was restarted if you changed the environment.
 - Check server terminal output for `no API key` or `401 Unauthorized`.
-- Confirm Bet status is `active`, not `draft`.
+- Confirm Task status is `accepted` or `in_progress`, not `proposed`.
 
 ---
 

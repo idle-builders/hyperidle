@@ -15,16 +15,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	artifacts,
-	bets,
-	type HyperIdleDb,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -44,8 +35,10 @@ const ports: ToolHandlersPorts = {
 	coreApi: {
 		...STUB_TOOL_HANDLERS_PORTS.coreApi,
 		getTaskById: async (id: string) => {
-			const row = await work.get(sharedDb, "task", id);
-			return row ? { betId: row.betId, teamId: row.teamId, notes: row.notes ?? null } : undefined;
+			const [row] = await sharedDb.select().from(tasks).where(eq(tasks.id, id));
+			return row
+				? { parentTaskId: row.parentTaskId ?? null, teamId: row.teamId, notes: row.notes ?? null }
+				: undefined;
 		},
 		getArtifactById: async (id: string) => {
 			const row = await work.get(sharedDb, "artifact", id);
@@ -124,29 +117,31 @@ function makeContext(
 async function seedTeamBetTask(
 	db: HyperIdleDb,
 	idPrefix: string,
-): Promise<{ teamId: string; betId: string; taskId: string }> {
+): Promise<{ teamId: string; rootTaskId: string; taskId: string }> {
 	const teamId = `${idPrefix}-team`;
-	const betId = `${idPrefix}-bet`;
+	const rootTaskId = `${idPrefix}-bet`;
 	const taskId = `${idPrefix}-task`;
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "d",
 		description: "d",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		title: "T",
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	return { teamId, betId, taskId };
+	return { teamId, rootTaskId, taskId };
 }
 
 describe("submit_review — the stored artifactRef channel", () => {

@@ -13,5 +13,6 @@
 export {
 	CapacityExceededError,
 	InvalidTransitionError,
+	TaskCycleError,
 	TaskInvalidTransitionError,
 } from "@hyperidle/domain-model";

@@ -23,11 +23,10 @@ import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { ReviewPage } from "./pages/review/ReviewPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SetupFlow } from "./pages/SetupFlow";
-import { WorkBet } from "./pages/WorkBet";
-import { WorkBetCreate } from "./pages/WorkBetCreate";
 import { WorkOverview } from "./pages/WorkOverview";
 import { WorkRoutine } from "./pages/WorkRoutine";
-import { WorkTask } from "./pages/WorkTask";
+import { WorkTaskCreate } from "./pages/WorkTaskCreate";
+import { WorkTaskPage } from "./pages/WorkTaskPage";
 import { WorkTeam } from "./pages/WorkTeam";
 
 /**
@@ -83,9 +82,11 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/team/:teamId", element: <WorkTeam /> },
 				{ path: "work/product/:productId", element: <RedirectProductToTeam /> },
 				{ path: "work/routine/:routineId", element: <WorkRoutine /> },
-				{ path: "work/bet/new", element: <WorkBetCreate /> },
-				{ path: "work/bet/:betId", element: <WorkBet /> },
-				{ path: "work/bet/:betId/task/:taskId", element: <WorkTask /> },
+				// @lore BB1: /work/task/:taskId replaces both /work/bet/:betId and
+				// /work/bet/:betId/task/:taskId. One route, any depth. The breadcrumb
+				// is built from the ancestors array in the tree response.
+				{ path: "work/task/new", element: <WorkTaskCreate /> },
+				{ path: "work/task/:taskId", element: <WorkTaskPage /> },
 				// Flattened from `work/bet/:betId/review/:reviewId` — the loader
 				// now names the review's own thread directly, so the route needs
 				// no bet. Deleted rather than redirected: no persisted row holds

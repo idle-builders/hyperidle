@@ -295,9 +295,9 @@ export interface RoutineTriggerEvent {
 	/**
 	 * The entity the event concerns, assembled as fully as possible.
 	 *
-	 * - `task`: full task+bet shape, DB-loaded (task_state_changed / dependency_met).
-	 * - `bet`:  full bet shape including appetite+doneCondition, DB-loaded
-	 *           (bet_state_changed / bet_revised).
+	 * - `task`: the task plus its ancestor chain, DB-loaded (task_state_changed /
+	 *           dependency_met). BB1 removed the separate `bet` variant — a bet is
+	 *           a root task now, so a bet event IS a task event.
 	 * - `generic`: for all other event types that carry a named entity id (threadId,
 	 *   itemId, sessionId, artifactId, teamId, agentId, userId, routineId, …).
 	 *   No DB lookup — carries the id directly from the event.
@@ -314,21 +314,22 @@ export interface RoutineTriggerEvent {
 					readonly description: string | null;
 					readonly state: string;
 				};
-				readonly bet: {
+				/**
+				 * BB1: the containing work, root first, down to the immediate
+				 * parent. Empty for a root task.
+				 *
+				 * Replaces the single `bet` this carried. A task used to sit
+				 * exactly one level under a bet, so one entity was the whole
+				 * context above it; a task can now sit at any depth, and an agent
+				 * on a leaf needs the goal chain it is serving, not just the step
+				 * directly above.
+				 */
+				readonly ancestors: readonly {
 					readonly id: string;
-					readonly description: string;
-					readonly appetite: string;
+					readonly title: string;
+					readonly description: string | null;
 					readonly doneCondition: string | null;
-				};
-		  }
-		| {
-				readonly kind: "bet";
-				readonly bet: {
-					readonly id: string;
-					readonly description: string;
-					readonly appetite: string;
-					readonly doneCondition: string | null;
-				};
+				}[];
 		  }
 		| {
 				/**
@@ -473,12 +474,22 @@ export type BakedContextBundle =
 				readonly description: string | null;
 				readonly state: string;
 			};
-			readonly bet: {
+			/**
+			 * BB1: the containing work, root first, down to the immediate
+			 * parent. Empty for a root task.
+			 *
+			 * Replaces the single `bet` this carried. A task used to sit
+			 * exactly one level under a bet, so one entity was the whole
+			 * context above it; a task can now sit at any depth, and an agent
+			 * on a leaf needs the goal chain it is serving, not just the step
+			 * directly above.
+			 */
+			readonly ancestors: readonly {
 				readonly id: string;
-				readonly description: string;
-				readonly appetite: string;
+				readonly title: string;
+				readonly description: string | null;
 				readonly doneCondition: string | null;
-			};
+			}[];
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			readonly team: { readonly id: string; readonly name: string };
 			readonly knowledge: readonly BakedContextKnowledgeItem[];

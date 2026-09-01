@@ -13,8 +13,8 @@ import { sortTeamsByAttention } from "../sortTeamsByAttention.js";
 const BASE: Omit<TeamListItem, "id" | "name" | "status"> = {
 	phase: "build",
 	leadAgentId: null,
-	activeBets: 0,
-	shipped: 0,
+	tasksInProgress: 0,
+	tasksDone: 0,
 	shipRate: "—",
 	progress: { done: 0, total: 0 },
 	routineCount: 0,

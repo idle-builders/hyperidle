@@ -3,7 +3,7 @@
  *
  * These tests prove acceptance criteria AC2, AC3, and AC4:
  *   AC2 — Artifacts created by agent sessions appear in WorkBet ArtifactSection
- *          (GET /api/artifacts?axis=bet&betId=X returns the artifact)
+ *          (GET /api/artifacts?axis=bet&rootTaskId=X returns the artifact)
  *   AC3 — Artifacts appear in WorkPortfolio artifact gallery
  *          (GET /api/artifacts?axis=portfolio returns the artifact)
  *   AC4 — Artifact metadata (kind, timestamp) renders correctly in response
@@ -23,7 +23,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { ArtifactPreview } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -46,29 +46,31 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 interface SeedScope {
 	taskId: string;
-	betId: string;
+	rootTaskId: string;
 	teamId: string;
 }
 
 async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 	const teamId = `team-r6${suffix}`;
-	const betId = `bet-r6${suffix}`;
+	const rootTaskId = `bet-r6${suffix}`;
 	const taskId = `task-r6${suffix}`;
 
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `R6 Product${suffix}`, phase: "build", createdAt: NOW });
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "R6 Bet",
 		description: "R6 Bet",
-		appetite: "1w",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		title: "R6 Test task",
 		state: "in_progress",
@@ -76,7 +78,7 @@ async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 		updatedAt: NOW,
 	});
 
-	return { taskId, betId, teamId };
+	return { taskId, rootTaskId, teamId };
 }
 
 function makeContext(
@@ -111,7 +113,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		eventBus,
 	}) => {
 		const createArtifactTool = buildCreateArtifactTool(app);
-		const { taskId, betId } = await seed(db);
+		const { taskId, rootTaskId } = await seed(db);
 		const ctx = makeContext(db, eventBus, taskId);
 
 		// @lore AE6: 'verification' mapped to 'data' kind. Using text kind for simplicity.
@@ -128,7 +130,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		if (!result.success) return;
 		const { artifactId } = result.data as { artifactId: string };
 
-		const res = await app.request(`/api/artifacts?axis=bet&betId=${betId}`, {
+		const res = await app.request(`/api/artifacts?axis=bet&rootTaskId=${rootTaskId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);

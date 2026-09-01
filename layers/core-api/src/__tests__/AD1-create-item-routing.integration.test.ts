@@ -20,7 +20,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -40,12 +40,15 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		phase: "build",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-ad1",
+		parentTaskId: null,
 		teamId: TEST_TEAM_ID,
+		title: "AD1 bet",
 		description: "AD1 bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	// Agent on the team (AI — never a review recipient)
 	await db.insert(users).values({
@@ -68,7 +71,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 	await db.insert(tasks).values({
 		id: "task-ad1",
-		betId: "bet-ad1",
+		parentTaskId: "bet-ad1",
 		teamId: TEST_TEAM_ID,
 		ownerAgentId: "agent-ad1",
 		title: "AD1 Task",

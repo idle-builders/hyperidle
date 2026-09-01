@@ -38,7 +38,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					// @lore AU44 B1: `team_members` dissolved back into `teams`
 					// @lore: `file_leases` was dropped in older migrations
 					"users",
-					"bets",
+					// @lore BB1: `bets` table dropped — tasks carry parentTaskId self-FK.
 					"hint_progress",
 					"invite_codes",
 					"items",
@@ -66,7 +66,10 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			expect(tableNames).not.toContain("user_skills");
 			// @lore AU44 B1: team_members dissolved — must not reappear.
 			expect(tableNames).not.toContain("team_members");
-			expect(tableNames.length).toBeGreaterThanOrEqual(18);
+			// @lore BB1: bets table dropped — parentTaskId self-FK on tasks replaces it.
+			expect(tableNames).not.toContain("bets");
+			// @lore BB1: bets table dropped — was 18, now 17.
+			expect(tableNames.length).toBeGreaterThanOrEqual(17);
 		} finally {
 			await close();
 		}
@@ -82,8 +85,8 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			);
 			const rows = (result as { rows: Array<{ n: string | number }> }).rows;
 			const n = Number(rows[0]?.n ?? 0);
-			// L1a: 15 canonical tables + 4 _l1_snapshot_* artifacts.
-			expect(n).toBeGreaterThanOrEqual(15);
+			// L1a: 14 canonical tables (bets dropped by BB1) + 4 _l1_snapshot_* artifacts.
+			expect(n).toBeGreaterThanOrEqual(14);
 		} finally {
 			await close();
 		}

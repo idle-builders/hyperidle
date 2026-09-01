@@ -61,7 +61,6 @@
 
 import {
 	agentSessionRequests,
-	bets,
 	type HyperIdleDb,
 	sessions,
 	taskDispatchAttempts,
@@ -77,13 +76,13 @@ import { registerWorkSessionEndReactions } from "../work-session-end-reactions.j
 
 const NOW = new Date().toISOString();
 
-/** Seed the owning-chain a `taskDispatchAttempts` row's FKs require: team -> bet -> task, plus an agent. */
+/** Seed the owning-chain a `taskDispatchAttempts` row's FKs require: team -> (root task) -> task, plus an agent. */
 async function seedTaskAndAgent(
 	db: HyperIdleDb,
 	id: string,
-): Promise<{ readonly taskId: string; readonly agentId: string; readonly betId: string }> {
+): Promise<{ readonly taskId: string; readonly agentId: string }> {
 	const teamId = `${id}-team`;
-	const betId = `${id}-bet`;
+	const rootId = `${id}-root`;
 	const taskId = `${id}-task`;
 	const agentId = `${id}-agent`;
 	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
@@ -95,16 +94,19 @@ async function seedTaskAndAgent(
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: betId,
+	// BB1: root task replaces bet
+	await db.insert(tasks).values({
+		id: rootId,
+		parentTaskId: null,
 		teamId,
-		description: "work-session-end-reactions bet",
-		status: "active",
+		title: "work-session-end-reactions root",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootId,
 		teamId,
 		ownerAgentId: agentId,
 		title: "work-session-end-reactions task",
@@ -112,7 +114,7 @@ async function seedTaskAndAgent(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	return { taskId, agentId, betId };
+	return { taskId, agentId };
 }
 
 /**
@@ -393,13 +395,9 @@ describe("registerWorkSessionEndReactions", () => {
 });
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave D — RED.
- *
- * `registerWorkSessionEndReactions` does not yet subscribe to `session_ended`
- * at all — every test below is RED via behavior absence (the bet's
- * `tokensActualJson` is never touched), not module-resolution failure (the
- * import above already resolves, since `registerWorkSessionEndReactions`
- * itself exists from Increment 10's GREEN).
+ * BB1-adapted Wave D — token writeback onto the WORKED TASK's own
+ * `tasks.tokensActualJson` (not an ancestor/bet). Subtree totals are
+ * computed at read time by `GET /api/tasks/:id/tree`.
  */
 function sessionEnded(input: {
 	readonly sessionId: string;
@@ -419,23 +417,23 @@ function sessionEnded(input: {
 	};
 }
 
-async function readBetTokensActualJson(
+async function readTaskTokensActualJson(
 	db: HyperIdleDb,
-	betId: string,
+	taskId: string,
 ): Promise<{ byTier: Record<string, { prompt: number; completion: number }> } | undefined> {
-	const [row] = await db.select().from(bets).where(eq(bets.id, betId));
+	const [row] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 	if (!row?.tokensActualJson) return undefined;
 	return JSON.parse(row.tokensActualJson) as {
 		byTier: Record<string, { prompt: number; completion: number }>;
 	};
 }
 
-describe("registerWorkSessionEndReactions — Wave D session_ended bet-token writeback", () => {
-	test("session_ended with tokensByTier merges into the owning bet's tokensActualJson (NEW event path, zero orchestration->work write)", async ({
+describe("registerWorkSessionEndReactions — session_ended task-token writeback", () => {
+	test("session_ended with tokensByTier merges into the worked task's own tokensActualJson", async ({
 		db,
 		eventBus,
 	}) => {
-		const { taskId, agentId, betId } = await seedTaskAndAgent(db, "wser-tok-merge");
+		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-merge");
 		await seedSession(db, "wser-tok-merge-session", agentId);
 		registerWorkSessionEndReactions(db, eventBus);
 
@@ -449,24 +447,24 @@ describe("registerWorkSessionEndReactions — Wave D session_ended bet-token wri
 		);
 
 		await vi.waitFor(async () => {
-			const parsed = await readBetTokensActualJson(db, betId);
+			const parsed = await readTaskTokensActualJson(db, taskId);
 			expect(parsed?.byTier.workhorse).toEqual({ prompt: 100, completion: 200 });
 		});
 	});
 
-	test("session_ended with tokensByTier ADDS onto an existing tokensActualJson byTier entry (read-modify-write merge, matching accumulateSessionTokensOnBet exactly)", async ({
+	test("session_ended with tokensByTier ADDS onto existing tokensActualJson (read-modify-write merge)", async ({
 		db,
 		eventBus,
 	}) => {
-		const { taskId, agentId, betId } = await seedTaskAndAgent(db, "wser-tok-add");
+		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-add");
 		await db
-			.update(bets)
+			.update(tasks)
 			.set({
 				tokensActualJson: JSON.stringify({
 					byTier: { workhorse: { prompt: 50, completion: 75 } },
 				}),
 			})
-			.where(eq(bets.id, betId));
+			.where(eq(tasks.id, taskId));
 		await seedSession(db, "wser-tok-add-session", agentId);
 		registerWorkSessionEndReactions(db, eventBus);
 
@@ -480,29 +478,23 @@ describe("registerWorkSessionEndReactions — Wave D session_ended bet-token wri
 		);
 
 		await vi.waitFor(async () => {
-			const parsed = await readBetTokensActualJson(db, betId);
+			const parsed = await readTaskTokensActualJson(db, taskId);
 			expect(parsed?.byTier.workhorse).toEqual({ prompt: 60, completion: 95 });
 		});
 	});
 
-	test("session_ended with no tokensByTier is a no-op (mirrors accumulateSessionTokensOnBet's empty-object early return)", async ({
-		db,
-		eventBus,
-	}) => {
-		const { taskId, agentId, betId } = await seedTaskAndAgent(db, "wser-tok-empty");
+	test("session_ended with no tokensByTier is a no-op", async ({ db, eventBus }) => {
+		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-empty");
 		await seedSession(db, "wser-tok-empty-session", agentId);
 		registerWorkSessionEndReactions(db, eventBus);
 
 		eventBus.emit(sessionEnded({ sessionId: "wser-tok-empty-session", agentId, taskId }));
 
 		await new Promise((resolve) => setTimeout(resolve, 30));
-		expect(await readBetTokensActualJson(db, betId)).toBeUndefined();
+		expect(await readTaskTokensActualJson(db, taskId)).toBeUndefined();
 	});
 
-	test("session_ended with taskId: null (task-free session) is a no-op", async ({
-		db,
-		eventBus,
-	}) => {
+	test("session_ended with taskId: null is a no-op", async ({ db, eventBus }) => {
 		const { agentId } = await seedTaskAndAgent(db, "wser-tok-notask");
 		await seedSession(db, "wser-tok-notask-session", agentId);
 		registerWorkSessionEndReactions(db, eventBus);
@@ -520,11 +512,11 @@ describe("registerWorkSessionEndReactions — Wave D session_ended bet-token wri
 		await new Promise((resolve) => setTimeout(resolve, 30));
 	});
 
-	test("a duplicate/redelivered session_ended for the same session is a safe no-op (idempotency — must not double-apply the token merge)", async ({
+	test("duplicate session_ended for the same session is idempotent (no double-apply)", async ({
 		db,
 		eventBus,
 	}) => {
-		const { taskId, agentId, betId } = await seedTaskAndAgent(db, "wser-tok-idem");
+		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-idem");
 		await seedSession(db, "wser-tok-idem-session", agentId);
 		registerWorkSessionEndReactions(db, eventBus);
 
@@ -537,17 +529,15 @@ describe("registerWorkSessionEndReactions — Wave D session_ended bet-token wri
 
 		eventBus.emit(event);
 		await vi.waitFor(async () => {
-			const parsed = await readBetTokensActualJson(db, betId);
+			const parsed = await readTaskTokensActualJson(db, taskId);
 			expect(parsed?.byTier.workhorse).toEqual({ prompt: 100, completion: 200 });
 		});
 
-		// Redelivery of the SAME event — a naive re-application would double the
-		// tokens to {prompt:200, completion:400}. Must stay at the single
-		// application's values.
+		// Redelivery — must NOT double-apply
 		eventBus.emit(event);
 		await new Promise((resolve) => setTimeout(resolve, 30));
 
-		const parsed = await readBetTokensActualJson(db, betId);
+		const parsed = await readTaskTokensActualJson(db, taskId);
 		expect(parsed?.byTier.workhorse).toEqual({ prompt: 100, completion: 200 });
 	});
 });

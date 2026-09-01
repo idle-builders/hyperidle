@@ -57,9 +57,13 @@ export interface ArtifactPage {
 	readonly nextCursor: string | null;
 }
 
+/**
+ * @lore BB1: `{ axis: "bet"; betId: string }` DELETED — a bet is now a root
+ * task. Artifacts scoped to a former bet are now scoped to the root task that
+ * replaced it (`axis: "task"`). No "bet" axis survives.
+ */
 export type ArtifactFilterAxis =
 	| { axis: "task"; taskId: string }
-	| { axis: "bet"; betId: string }
 	// @lore U1: `productId` renamed to `teamId` (references `teams.id`, domain entity).
 	| { axis: "product"; teamId: string }
 	| { axis: "portfolio" };

@@ -25,7 +25,6 @@ import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	agentWorkIntents,
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	items,
 	routineRuns,
@@ -37,7 +36,8 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import type { BetStateChangedEvent, EventBus, TaskStateChangedEvent } from "@hyperidle/event-bus";
+// BB1: BetStateChangedEvent deleted — bet is now a root task.
+import type { EventBus, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,
 	getAgentIdentity,
@@ -66,8 +66,18 @@ const NOW = new Date().toISOString();
 function makePorts(): RoutineSchedulerPorts {
 	return {
 		work: {
-			getBetById: (db, id) => work.get(db, "bet", id),
-			getTaskById: (db, id) => work.get(db, "task", id),
+			// BB1: getBetById deleted; getTaskById returns parentTaskId.
+			getTaskById: async (db: HyperIdleDb, id: string) => {
+				const row = await work.get(db, "task", id);
+				if (!row) return undefined;
+				return {
+					id: row.id,
+					title: row.title,
+					description: row.description,
+					state: row.state,
+					parentTaskId: row.parentTaskId,
+				};
+			},
 			getItemById: (db, id) => work.get(db, "item", id),
 			getArtifactById: (db, id) => work.get(db, "artifact", id),
 			createItem: (exec, values) => work.create(exec, "item", values),
@@ -158,34 +168,35 @@ async function seedTeamAndOwner(
 	return { teamId, ownerAgentId };
 }
 
-/** Seed a bet. */
+/** Seed a root task (replaces bet — BB1). */
 async function seedBet(
 	db: HyperIdleDb,
 	id: string,
 	teamId: string,
 	opts: { description?: string; status?: string } = {},
 ): Promise<void> {
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id,
+		parentTaskId: null,
 		teamId,
-		description: opts.description ?? `Bet ${id}`,
-		appetite: "small",
-		status: opts.status ?? "active",
+		title: opts.description ?? `Root ${id}`,
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 }
 
-/** Seed a task under a bet. */
+/** Seed a task under a root task (parentTaskId replaces betId — BB1). */
 async function seedTask(
 	db: HyperIdleDb,
 	id: string,
-	betId: string,
+	parentTaskId: string,
 	teamId: string,
 	opts: { title?: string; state?: string } = {},
 ): Promise<void> {
 	await db.insert(tasks).values({
 		id,
-		betId,
+		parentTaskId,
 		teamId,
 		title: opts.title ?? `Task ${id}`,
 		state: opts.state ?? "in_progress",
@@ -285,10 +296,8 @@ describe("BA9c — task_state_changed event fires routine with task+bet subject 
 				"BA9c-UNIQUE-TITLE-Implement event context",
 			);
 			expect(baked.contextBundle.triggerEvent.subject.task.id).toBe(taskId);
-			// AC2: bet assembled too
-			expect(baked.contextBundle.triggerEvent.subject.bet.description).toBe(
-				"Ship the BA9c feature",
-			);
+			// BB1: bet subject block deleted — tasks carry ancestors[] instead.
+			expect(baked.contextBundle.triggerEvent.subject.ancestors).toEqual([]);
 		} finally {
 			scheduler.stop();
 		}
@@ -296,9 +305,10 @@ describe("BA9c — task_state_changed event fires routine with task+bet subject 
 });
 
 // ---------------------------------------------------------------------------
-// AC2+AC3: bet_state_changed → bet subject in bundle
+// AC2+AC3: BB1 — bet_state_changed deleted; root tasks fire task_state_changed
 // ---------------------------------------------------------------------------
 
+// @lore BB1: bet_state_changed deleted — a root task changing state fires task_state_changed.
 describe("BA9c — bet_state_changed event fires routine with bet subject in bundle", () => {
 	test("baked bundle carries triggerEvent with bet assembled from the DB", async ({
 		db,
@@ -309,22 +319,25 @@ describe("BA9c — bet_state_changed event fires routine with bet subject in bun
 		const betId = "ba9c-bet-1-bet";
 		const routineId = "ba9c-bet-1-routine";
 
+		// Root task (was "bet" in pre-BB1) — description is carried via tasks.description.
 		await seedBet(db, betId, "ba9c-bet-1-team", {
 			description: "BA9c-UNIQUE-BET-Launch the product",
 		});
-		await seedEventRoutine(db, routineId, ownerAgentId, "bet_state_changed");
+		// BB1: routine fires on task_state_changed (the surviving work-state event).
+		await seedEventRoutine(db, routineId, ownerAgentId, "task_state_changed");
 
 		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
 			pollIntervalMs: 999_999,
 			canProvision: true,
 		});
 		try {
-			const evt: BetStateChangedEvent = {
-				type: "bet_state_changed",
+			// BB1: emit task_state_changed for the root task instead of bet_state_changed.
+			const evt: TaskStateChangedEvent = {
+				type: "task_state_changed",
 				streamId: betId,
-				betId,
-				fromState: "active",
-				toState: "completed",
+				taskId: betId,
+				fromState: "in_progress",
+				toState: "done",
 				timestamp: Date.now(),
 			};
 			eventBus.emit(evt);
@@ -347,13 +360,15 @@ describe("BA9c — bet_state_changed event fires routine with bet subject in bun
 				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
 			const baked = JSON.parse(intent!.bakedRequestJson!);
 
-			expect(baked.contextBundle.triggerEvent.type).toBe("bet_state_changed");
+			// BB1: event type is now task_state_changed.
+			expect(baked.contextBundle.triggerEvent.type).toBe("task_state_changed");
 			expect(baked.contextBundle.triggerEvent.transition).toMatchObject({
-				from: "active",
-				to: "completed",
+				from: "in_progress",
+				to: "done",
 			});
-			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("bet");
-			expect(baked.contextBundle.triggerEvent.subject.bet.description).toBe(
+			// BB1: subject kind is "task" (root task); description stored in task.title (seedBet).
+			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("task");
+			expect(baked.contextBundle.triggerEvent.subject.task.title).toBe(
 				"BA9c-UNIQUE-BET-Launch the product",
 			);
 		} finally {
@@ -942,22 +957,25 @@ describe("BA9c — team-less agent owner still receives triggerEvent in contextB
 			phase: "build",
 			createdAt: NOW,
 		});
-		await db.insert(bets).values({
+		// BB1: root task replaces bet
+		await db.insert(tasks).values({
 			id: "ba9c-noteam-bet",
+			parentTaskId: null,
 			teamId: "ba9c-noteam-team",
-			description: "BA9c-NOTEAM-BET-description",
-			appetite: "small",
-			status: "active",
+			title: "BA9c-NOTEAM-BET-description",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 
+		// BB1: routine fires on task_state_changed (bet_state_changed deleted).
 		await db.insert(routines).values({
 			id: "ba9c-noteam-routine",
 			name: "BA9c team-less routine",
 			state: "active",
 			ownerAgentId: "ba9c-noteam-owner",
 			triggerType: "event",
-			eventType: "bet_state_changed",
+			eventType: "task_state_changed",
 			active: true,
 		});
 
@@ -966,12 +984,13 @@ describe("BA9c — team-less agent owner still receives triggerEvent in contextB
 			canProvision: true,
 		});
 		try {
-			const evt: BetStateChangedEvent = {
-				type: "bet_state_changed",
+			// BB1: emit task_state_changed for the root task.
+			const evt: TaskStateChangedEvent = {
+				type: "task_state_changed",
 				streamId: "ba9c-noteam-bet",
-				betId: "ba9c-noteam-bet",
-				fromState: "active",
-				toState: "completed",
+				taskId: "ba9c-noteam-bet",
+				fromState: "in_progress",
+				toState: "done",
 				timestamp: Date.now(),
 			};
 			eventBus.emit(evt);
@@ -1000,9 +1019,11 @@ describe("BA9c — team-less agent owner still receives triggerEvent in contextB
 			// Team-less: team is null
 			expect(baked.contextBundle.team).toBeNull();
 			// But triggerEvent is still present (AC5)
-			expect(baked.contextBundle.triggerEvent.type).toBe("bet_state_changed");
-			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("bet");
-			expect(baked.contextBundle.triggerEvent.subject.bet.description).toBe(
+			// BB1: event type is task_state_changed; subject kind is "task".
+			expect(baked.contextBundle.triggerEvent.type).toBe("task_state_changed");
+			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("task");
+			// The root task's identifying string is in subject.task.title.
+			expect(baked.contextBundle.triggerEvent.subject.task.title).toBe(
 				"BA9c-NOTEAM-BET-description",
 			);
 		} finally {

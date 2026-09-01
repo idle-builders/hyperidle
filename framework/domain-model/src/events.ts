@@ -1,6 +1,6 @@
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 import type { HostKind, MessageType } from "./thread.js";
-import type { BetStatus, ModelTier, TaskState } from "./types.js";
+import type { ModelTier, TaskState } from "./types.js";
 
 /**
  * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —
@@ -97,14 +97,11 @@ export interface TaskStateChangedEvent {
 	timestamp: number;
 }
 
-export interface BetStateChangedEvent {
-	type: "bet_state_changed";
-	streamId: string;
-	betId: string;
-	fromState: BetStatus;
-	toState: BetStatus;
-	timestamp: number;
-}
+/**
+ * @lore BB1: `BetStateChangedEvent` DELETED — a bet is now a root task.
+ * A bet state change IS a task state change; `task_state_changed` is the
+ * only work-state event. `BetStatus` vocabulary is gone.
+ */
 
 export interface ItemCreatedEvent {
 	type: "item_created";
@@ -347,13 +344,11 @@ export interface SandboxWritebackChangesDetectedEvent {
 	timestamp: number;
 }
 
-export interface BetRevisedEvent {
-	type: "bet_revised";
-	streamId: string;
-	betId: string;
-	field: string;
-	timestamp: number;
-}
+/**
+ * @lore BB1: `BetRevisedEvent` DELETED — a bet is now a root task.
+ * Field edits on a task are observable through `task_state_changed` (for state)
+ * or the audit_trail column. There is no dedicated "task revised" event.
+ */
 
 /**
  * Emitted by `session-provisioning` each time the harness yields a
@@ -443,10 +438,10 @@ export interface ArtifactCreatedEvent {
  * imports from strategy). The canonical definition is in packages/server/src/knowledge/types.ts.
  *
  * @lore U1: "product" renamed to "team" in propagation levels. The propagation
- * hierarchy is: session -> task -> bet -> team -> portfolio.
+ * hierarchy is: session -> task -> team -> portfolio.
  * Note: "product" scope kind in knowledge_items is UNCHANGED (different taxonomy).
  */
-type PropagationLevelLiteral = "session" | "task" | "bet" | "team" | "portfolio";
+type PropagationLevelLiteral = "session" | "task" | "team" | "portfolio";
 
 /** L20: Emitted when lifecycle propagation successfully applies a transition. */
 export interface PropagationAppliedEvent {
@@ -566,8 +561,7 @@ export type DomainEvent =
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
 	| TaskStateChangedEvent
-	| BetStateChangedEvent
-	| BetRevisedEvent
+	// @lore BB1: BetStateChangedEvent and BetRevisedEvent removed — a bet is now a root task
 	| SessionStartedEvent
 	| SessionEndedEvent
 	// AU19 Increment 3g: handoff EventBus inversion

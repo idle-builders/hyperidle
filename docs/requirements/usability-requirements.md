@@ -34,13 +34,13 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 ## UX-4: Work View
 
-**UX-4.1** The Work view drills down: Work Overview (portfolio) → Team → Bet Detail → Task, with session references inspecting alongside their origin (`WorkOverview.tsx` → `WorkTeam.tsx` → `WorkBet.tsx` → `WorkTask.tsx`). Breadcrumbs navigate back up.
+**UX-4.1** The Work view drills down: Work Overview (portfolio) → Team → Task Detail, with subtasks nested to any depth on the task page (`WorkOverview.tsx` → `WorkTeam.tsx` → `WorkTask.tsx`). Breadcrumbs navigate back up the full ancestor chain. Layout detail: [information-architecture/work-view.md](../information-architecture/work-view.md).
 
-**UX-4.2** Bet statuses are `draft | active | completed | killed` (`framework/domain-model/src/types.ts`; `at_risk` boolean replaces the old behind sub-state). Lifecycle semantics: [bets-shape-commit-change-ship](../process-layer/bets-shape-commit-change-ship.md).
+**UX-4.2** Task states are `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/domain-model/src/types.ts`). One vocabulary at every depth — a root task is `in_progress`, not "active". Lifecycle semantics: [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
 
-**UX-4.3** Bet creation is a page (`layers/core-ui/src/pages/WorkBetCreate.tsx`).
+**UX-4.3** Task creation is a full page (`layers/core-ui/src/pages/WorkTaskCreate.tsx`). A `parentTaskId` query param pre-selects the parent when creating a subtask.
 
-**UX-4.4** Team burn is visible in the Team view: active bets vs. capacity (`WorkTeam.tsx`).
+**UX-4.4** Team burn is visible in the Team view: in-progress tasks vs. capacity (`WorkTeam.tsx`). Capacity counts tasks at every depth of the task tree.
 
 **UX-4.5** No backlog. Work is a continuous flow — no backlog surface or table exists anywhere.
 
@@ -60,11 +60,11 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 **UX-6.2** Trust is earned, not assigned: routing uses approval-rate from verdict history × riskTier (AD4, `layers/core-api/policy/src/policy-engine.ts`). Surface: [review-primitive](../human-interface-layer/review-primitive.md).
 
-**UX-6.3** Usage transparency: per-session token chips and team burn (active bets vs. capacity) keep work visible at every level.
+**UX-6.3** Usage transparency: per-session token chips and team burn (in-progress tasks vs. capacity) keep work visible at every level.
 
 ## UX-7: App Shell & Navigation
 
-**UX-7.1** Global search (⌘K) with results grouped by type — Threads, Bets, Knowledge (`layers/core-ui/src/hooks/useCommandK.ts`, `GlobalSearchPanel.tsx`).
+**UX-7.1** Global search (⌘K) with results grouped by type — Threads, Tasks, Knowledge (`layers/core-ui/src/hooks/useCommandK.ts`, `GlobalSearchPanel.tsx`).
 
 **UX-7.2** Keyboard shortcuts: ⌘K (search), ⌘[ / ⌘] (history back/forward), ⌘1/2/3 pinned to Conversations/Work/Knowledge. None fire while focus is in an input, textarea, or contentEditable element (`layers/core-ui/src/hooks/useNavShortcuts.ts`).
 

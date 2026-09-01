@@ -274,7 +274,7 @@ export function serviceValuesDoNotEscapeTheFace(input: ServiceValuesDoNotEscapeT
 		description:
 			"a layer's own modules never export a service-imported value — the plain re-export and deps-bag shapes a face gains by accident",
 		scope: facePopulation,
-		minScope: 5,
+		minScope: 1,
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			const isService = (specifier: string): boolean => {

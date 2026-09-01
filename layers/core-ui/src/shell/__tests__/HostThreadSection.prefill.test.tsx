@@ -25,8 +25,8 @@ import { useHostThread } from "../../hooks/useHostThread";
 
 const THREAD_FIXTURE = {
 	id: "t-prefill-001",
-	hostKind: "bet" as const,
-	hostId: "bet-prefill",
+	hostKind: "task" as const,
+	hostId: "task-prefill",
 	initiatorId: "u-founder",
 	participants: ["u-founder", "agent-unassigned"],
 	pinned: false,
@@ -50,8 +50,8 @@ describe("HostThreadSection prefill (L18)", () => {
 
 		render(
 			<HostThreadSection
-				hostKind="bet"
-				hostId="bet-prefill"
+				hostKind="task"
+				hostId="task-prefill"
 				title="Discussion"
 				prefill={{ blockId: "block-abc", blockExcerpt: "The auth cache TTL policy" }}
 			/>,
@@ -70,7 +70,7 @@ describe("HostThreadSection prefill (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(<HostThreadSection hostKind="bet" hostId="bet-prefill" title="Discussion" />);
+		render(<HostThreadSection hostKind="task" hostId="task-prefill" title="Discussion" />);
 
 		expect(screen.queryByTestId("host-thread-prefill-chip")).not.toBeInTheDocument();
 	});
@@ -87,8 +87,8 @@ describe("HostThreadSection prefill (L18)", () => {
 
 		render(
 			<HostThreadSection
-				hostKind="bet"
-				hostId="bet-prefill"
+				hostKind="task"
+				hostId="task-prefill"
 				title="Discussion"
 				prefill={{ blockId: "block-abc", blockExcerpt: "The auth cache TTL policy" }}
 				onClearPrefill={onClearPrefill}
@@ -111,8 +111,8 @@ describe("HostThreadSection prefill (L18)", () => {
 
 		render(
 			<HostThreadSection
-				hostKind="bet"
-				hostId="bet-prefill"
+				hostKind="task"
+				hostId="task-prefill"
 				title="Discussion"
 				prefill={{ blockId: "block-abc", blockExcerpt: "The auth cache TTL policy" }}
 			/>,

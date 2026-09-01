@@ -1,7 +1,6 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import {
-	bets,
 	items,
 	knowledgeAppProjection,
 	knowledgeEditLog,
@@ -36,7 +35,6 @@ describe("A2: Database Schema", () => {
 					// @lore P2: agents → users
 					// @lore U1: `products` → `teams`; old `teams` → `team_members`
 					"users",
-					"bets",
 					// @lore AU18: `factory_settings` retired — `server_config` is its
 					// typed singleton-row successor.
 					"server_config",
@@ -54,6 +52,8 @@ describe("A2: Database Schema", () => {
 			expect(tableNames).not.toContain("responses");
 			// @lore U1: `products` table was renamed to `teams`
 			expect(tableNames).not.toContain("products");
+			// @lore BB1: `bets` table dropped — must not reappear.
+			expect(tableNames).not.toContain("bets");
 			// @lore AU18: factory_settings dropped — must not reappear.
 			expect(tableNames).not.toContain("factory_settings");
 			// @lore AU30: `user_skills` dropped. Exact-absence, because the expected
@@ -67,6 +67,7 @@ describe("A2: Database Schema", () => {
 	// --- AC2: All tables insert/read/update correctly with full type safety ---
 	describe("AC2: CRUD operations", () => {
 		// @lore U1: `products` renamed to `teams`.
+		// @lore BB1: `activeBets` column dropped — WIP is counted live.
 		test("inserts and reads teams (formerly products)", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({
@@ -75,7 +76,6 @@ describe("A2: Database Schema", () => {
 				phase: "build",
 				createdAt: now,
 				capacity: 7,
-				activeBets: 2,
 				formedAt: now,
 			});
 
@@ -86,7 +86,6 @@ describe("A2: Database Schema", () => {
 				name: "Acme",
 				phase: "build",
 				capacity: 7,
-				activeBets: 2,
 				formedAt: now,
 			});
 		});
@@ -113,44 +112,50 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		// @lore U1: bets.productId/pitch/status simplified; teamId now refs `teams` (formerly products).
-		test("inserts and reads bets", async ({ db }) => {
+		// @lore BB1: `bets` dropped — root tasks replace bets. A task with
+		// parentTaskId: null is the top-level unit of work.
+		test("inserts and reads root tasks (formerly bets)", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(bets).values({
-				id: "bet-1",
+			await db.insert(tasks).values({
+				id: "root-1",
+				parentTaskId: null,
 				teamId: "prod-1",
-				description: "Build file upload",
-				appetite: "6w",
-				status: "draft",
+				title: "Build file upload",
+				description: "Add chunked upload support",
+				doneCondition: "Upload works for files > 100 MB",
+				state: "in_progress",
 				createdAt: now,
+				updatedAt: now,
 			});
 
-			const result = await db.select().from(bets).where(eq(bets.id, "bet-1"));
+			const result = await db.select().from(tasks).where(eq(tasks.id, "root-1"));
 
 			expect(result[0]).toMatchObject({
-				id: "bet-1",
-				description: "Build file upload",
-				appetite: "6w",
-				status: "draft",
+				id: "root-1",
+				parentTaskId: null,
+				title: "Build file upload",
+				state: "in_progress",
 			});
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
+		// @lore BB1: task now has parentTaskId instead of betId.
 		test("inserts and reads tasks", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(bets).values({
-				id: "bet-1",
+			await db.insert(tasks).values({
+				id: "root-1",
+				parentTaskId: null,
 				teamId: "prod-1",
-				description: "X",
-				appetite: "2w",
-				status: "draft",
+				title: "Root",
+				state: "in_progress",
 				createdAt: now,
+				updatedAt: now,
 			});
 			await db.insert(tasks).values({
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: "root-1",
 				teamId: "prod-1",
 				title: "Implement upload",
 				state: "proposed",
@@ -162,26 +167,20 @@ describe("A2: Database Schema", () => {
 
 			expect(result[0]).toMatchObject({
 				id: "task-1",
+				parentTaskId: "root-1",
 				title: "Implement upload",
 				state: "proposed",
 			});
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
+		// @lore BB1: task now has parentTaskId instead of betId.
 		test("updates tasks correctly", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "X",
-				appetite: "2w",
-				status: "draft",
-				createdAt: now,
-			});
 			await db.insert(tasks).values({
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: null,
 				teamId: "prod-1",
 				title: "Original",
 				state: "proposed",
@@ -199,6 +198,7 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
+		// @lore BB1: task now has parentTaskId instead of betId.
 		test("inserts and reads sessions", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
@@ -210,17 +210,9 @@ describe("A2: Database Schema", () => {
 				status: "active",
 				createdAt: now,
 			});
-			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "X",
-				appetite: "2w",
-				status: "draft",
-				createdAt: now,
-			});
 			await db.insert(tasks).values({
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: null,
 				teamId: "prod-1",
 				title: "T",
 				state: "proposed",
@@ -531,15 +523,16 @@ describe("A2: Database Schema", () => {
 
 	// --- AC6: Foreign key constraints enforced ---
 	describe("AC6: foreign key constraints", () => {
-		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		test("rejects task with invalid bet_id", async ({ db }) => {
+		// @lore BB1: tasks.betId dropped; parentTaskId is a nullable self-FK.
+		// An invalid parentTaskId must be rejected by the FK constraint.
+		test("rejects task with invalid parent_task_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
 
 			await expect(
 				db.insert(tasks).values({
 					id: "task-1",
-					betId: "nonexistent-bet",
+					parentTaskId: "nonexistent-parent",
 					teamId: "prod-1",
 					title: "T",
 					state: "proposed",
@@ -550,20 +543,13 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
+		// @lore BB1: task now has parentTaskId instead of betId.
 		test("rejects session with invalid agent_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
-			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
-				description: "X",
-				appetite: "2w",
-				status: "draft",
-				createdAt: now,
-			});
 			await db.insert(tasks).values({
 				id: "task-1",
-				betId: "bet-1",
+				parentTaskId: null,
 				teamId: "prod-1",
 				title: "T",
 				state: "proposed",

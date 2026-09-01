@@ -46,9 +46,10 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, SessionStartedEvent } from "@hyperidle/event-bus";
+import { getTeam } from "@hyperidle/org";
 import {
 	TaskInvalidTransitionError,
 	type TaskStateMachineDeps,
@@ -70,6 +71,9 @@ async function reactToSessionStarted(
 	const transitionDeps: TaskStateMachineDeps = {
 		workIntents: buildSeamBackedWorkIntentRecorder(agentOrchestration),
 		taskRunResolver: taskRunResolverDeps,
+		teamCapacity: {
+			getByTeamId: (exec: WriteExecutor, teamId: string) => getTeam(exec, { id: teamId }),
+		},
 	};
 	try {
 		await transitionTask(db, eventBus, event.taskId, "in_progress", transitionDeps);

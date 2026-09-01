@@ -17,22 +17,22 @@ import type { BlockRef, EntityRef, InlineRef, InlineRefKind } from "../thread.js
 describe("T4 — InlineRef discriminated union (AC-1)", () => {
 	it("EntityRef has kind in the entity set and an id field", () => {
 		// Type check: create an entity ref
-		const entityRef: EntityRef = { kind: "bet", id: "bet-1" };
-		expect(entityRef.kind).toBe("bet");
-		expect(entityRef.id).toBe("bet-1");
+		const entityRef: EntityRef = { kind: "task", id: "task-1" };
+		expect(entityRef.kind).toBe("task");
+		expect(entityRef.id).toBe("task-1");
 	});
 
 	it("BlockRef has kind='block' and blockId/hostKind/hostId fields", () => {
 		const blockRef: BlockRef = {
 			kind: "block",
 			blockId: "blk:v1:abc123",
-			hostKind: "bet",
-			hostId: "bet-1",
+			hostKind: "task",
+			hostId: "task-1",
 		};
 		expect(blockRef.kind).toBe("block");
 		expect(blockRef.blockId).toBe("blk:v1:abc123");
-		expect(blockRef.hostKind).toBe("bet");
-		expect(blockRef.hostId).toBe("bet-1");
+		expect(blockRef.hostKind).toBe("task");
+		expect(blockRef.hostId).toBe("task-1");
 	});
 
 	it("InlineRef union accepts entity ref shape", () => {
@@ -52,12 +52,12 @@ describe("T4 — InlineRef discriminated union (AC-1)", () => {
 
 	it("can narrow InlineRef to BlockRef via kind discriminant", () => {
 		const refs: InlineRef[] = [
-			{ kind: "bet", id: "bet-1" },
+			{ kind: "task", id: "task-1" },
 			{
 				kind: "block",
 				blockId: "blk:v1:abc",
-				hostKind: "bet",
-				hostId: "bet-1",
+				hostKind: "task",
+				hostId: "task-1",
 			},
 			{ kind: "task", id: "task-2" },
 		];
@@ -70,19 +70,19 @@ describe("T4 — InlineRef discriminated union (AC-1)", () => {
 
 	it("can narrow InlineRef to EntityRef via kind discriminant", () => {
 		const refs: InlineRef[] = [
-			{ kind: "bet", id: "bet-1" },
+			{ kind: "task", id: "task-1" },
 			{
 				kind: "block",
 				blockId: "blk:v1:abc",
-				hostKind: "bet",
-				hostId: "bet-1",
+				hostKind: "task",
+				hostId: "task-1",
 			},
 		];
 
 		const entityRefs = refs.filter((r): r is EntityRef => r.kind !== "block");
 		expect(entityRefs).toHaveLength(1);
 		const entityRef = entityRefs[0];
-		expect(entityRef?.id).toBe("bet-1");
+		expect(entityRef?.id).toBe("task-1");
 	});
 
 	it("all entity ref kinds are accepted by EntityRef", () => {
@@ -90,7 +90,7 @@ describe("T4 — InlineRef discriminated union (AC-1)", () => {
 			"knowledge_item",
 			"task",
 			"artifact",
-			"bet",
+			"task",
 			"message",
 		];
 		for (const kind of entityKinds) {
@@ -112,7 +112,7 @@ describe("T4 — InlineRefKind includes 'block' (AC-1)", () => {
 			"knowledge_item",
 			"task",
 			"artifact",
-			"bet",
+			"task",
 			"message",
 			"block",
 		];
