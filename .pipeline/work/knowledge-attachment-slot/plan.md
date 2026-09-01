@@ -190,6 +190,35 @@ strand applies to the tree — so the two agree by construction rather than by
 coordination. Role keeps its single job (where it lands in a session); parent
 keeps its own (where you navigate from).
 
+### Role is set by the thing that creates it, never edited on the document
+
+Founder call. `role` is not a field you edit in the knowledge view. It is set by
+whatever creates the thing: creating a skill writes `skill`, creating a rule
+writes `rule`, creating an agent gives its identity `agent_file`, creating a
+routine gives its prompt `prompt`.
+
+**A plugin is a batch of edits a human could make one at a time** — founder's
+framing, and the governing principle here. It is not a privileged author. So
+wherever a plugin sets a role, a human must have the same action available
+singly. That is what makes removing the role selector safe rather than a
+regression: the answer to "how does a person make a skill" is a create flow on
+the skills surface, not a dropdown on an unrelated document.
+
+This reverses the mechanism BA9e chose (`4f647e34e`, role as an editable field in
+the document's metadata card) while keeping the problem it solved. BA9e's real
+finding was that the plugin installer was the *only* writer of `role`, which made
+plugins a special kind of author. The fix stands; the place it lives moves.
+
+Consequence: **the skills and rules surface gets create, not only a list.** That
+is the human-side equivalent of the plugin's batch, and it is what lets the role
+selector be removed from the knowledge view in the same change.
+
+This also closes a defect the architecture critique found: while role was
+editable, a person could change a routine prompt's role away from `prompt` — the
+routine would then silently fall back to running on its name — or promote an
+ordinary note into a stray `prompt`. Neither is reachable once role is not an
+editable field.
+
 ### Skills and rules get a home
 
 The pattern above exposed a gap: `agent_file` and `prompt` have somewhere to be
