@@ -39,11 +39,7 @@
  * content matches editContent to prevent spurious saves on BodyEditor mount
  * (TipTap fires onChange with initial content on mount).
  */
-import type {
-	Message,
-	PlainPayloadWithBlockId,
-	ScopeKind,
-} from "@hyperidle/domain-model";
+import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/domain-model";
 import {
 	isRedactedPayload,
 	KNOWLEDGE_STATUSES,
