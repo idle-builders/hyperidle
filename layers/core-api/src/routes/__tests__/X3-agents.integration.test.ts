@@ -16,6 +16,7 @@
  */
 
 import { agentRunConfig, type HyperIdleDb, knowledgeItems, teams, users } from "@hyperidle/db";
+import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -498,6 +499,28 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(409);
+	});
+
+	// knowledge-attachment-slot §6: deleting a parent archives its knowledge —
+	// there is no UI for an orphan, so archiving is the only safe default.
+	test("archives the agent's identity document, parented to the agent", async ({ db, app }) => {
+		await seedPrereqs(db);
+		const identityId = await upsertAgentIdentity(db, {
+			agentId: "x3-agent-builder",
+			agentName: "X3 Builder Bot",
+			body: "I am the builder.",
+			updatedBy: "u-founder-x3",
+		});
+
+		const res = await app.request("/api/agents/x3-agent-builder", {
+			method: "DELETE",
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+
+		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, identityId));
+		expect(doc, "the row survives — audit tables hold RESTRICT FKs on it").toBeDefined();
+		expect(doc?.status, "and it is archived, not live").toBe("archived");
 	});
 });
 

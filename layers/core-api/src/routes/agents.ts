@@ -27,7 +27,12 @@ import type {
 import type { HyperIdleDb } from "@hyperidle/db";
 import { AGENT_CATEGORIES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/knowledge";
+import {
+	getAgentIdentityIds,
+	listItemIdsByParent,
+	setKnowledgeStatus,
+	upsertAgentIdentity,
+} from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
@@ -417,6 +422,17 @@ export function createAgentRoutes(
 		}
 
 		await updateUser(db, id, { status: "retired" });
+
+		// knowledge-attachment-slot §6: deleting a parent archives its
+		// knowledge — an agent's identity document (and anything else
+		// parented to it) has no UI for an orphan, so archiving is the only
+		// safe default. Archived, not hard-deleted: the audit tables hold
+		// RESTRICT FKs on knowledge_items.id.
+		await setKnowledgeStatus(
+			db,
+			await listItemIdsByParent(db, { parentKind: "agent", parentId: id }),
+			"archived",
+		);
 
 		return c.json({ id, status: "retired" });
 	});
