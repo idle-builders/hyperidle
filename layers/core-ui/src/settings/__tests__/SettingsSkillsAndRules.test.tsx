@@ -158,4 +158,29 @@ describe("SettingsSkillsAndRules", () => {
 			expect(screen.queryByText("write-tests")).not.toBeInTheDocument();
 		});
 	});
+
+	it("delete error: shows the failure and the row stays", async () => {
+		apiFetch.mockImplementation((url: string, init?: RequestInit) => {
+			if (url === "/api/knowledge/ki-skill-1/archive" && init?.method === "POST") {
+				return Promise.resolve({
+					ok: false,
+					status: 500,
+					json: () => Promise.resolve({ error: "Could not delete it: boom" }),
+				});
+			}
+			if (url === "/api/knowledge") {
+				return Promise.resolve({ ok: true, json: () => Promise.resolve({ items: ITEMS }) });
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+		});
+
+		const user = userEvent.setup();
+		renderSurface();
+		const row = await screen.findByText("write-tests");
+		const rowContainer = row.closest("[data-testid='skill-rule-row']") as HTMLElement;
+		await user.click(within(rowContainer).getByRole("button", { name: /delete/i }));
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("Could not delete it: boom");
+		expect(screen.getByText("write-tests")).toBeInTheDocument();
+	});
 });

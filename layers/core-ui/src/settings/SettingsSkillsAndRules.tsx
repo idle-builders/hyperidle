@@ -32,6 +32,8 @@ interface ApiKnowledgeItem {
 	role?: string;
 }
 
+type SkillOrRuleItem = ApiKnowledgeItem & { role: SkillOrRuleRole };
+
 /** The two roles this surface creates. `KNOWLEDGE_ROLES` carries three more
  * (ordinary, agent_file, prompt) that never appear in this list — each has
  * its own home (the knowledge view, an agent's page, a routine's page). */
@@ -50,13 +52,14 @@ export function SettingsSkillsAndRules(): JSX.Element {
 	const navigate = useNavigate();
 	const { user } = useCurrentUser();
 
-	const [items, setItems] = useState<ApiKnowledgeItem[]>([]);
+	const [items, setItems] = useState<SkillOrRuleItem[]>([]);
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
 	const [newTitle, setNewTitle] = useState("");
 	const [newRole, setNewRole] = useState<SkillOrRuleRole>("skill");
 	const [creating, setCreating] = useState(false);
 	const [createError, setCreateError] = useState<string | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 
 	const load = useCallback(async (): Promise<void> => {
 		setStatus("loading");
@@ -68,7 +71,7 @@ export function SettingsSkillsAndRules(): JSX.Element {
 			}
 			const json = (await res.json()) as { items?: ApiKnowledgeItem[] };
 			const filtered = (json.items ?? [])
-				.filter((item) => isSkillOrRule(item.role))
+				.filter((item): item is SkillOrRuleItem => isSkillOrRule(item.role))
 				.sort((a, b) => a.title.localeCompare(b.title));
 			setItems(filtered);
 			setStatus("ready");
@@ -119,10 +122,20 @@ export function SettingsSkillsAndRules(): JSX.Element {
 	}
 
 	async function handleDelete(id: string): Promise<void> {
-		// Archive is what delete means everywhere in this system — a hard
-		// delete is impossible (the audit tables hold RESTRICT FKs).
-		await apiFetch(`/api/knowledge/${id}/archive`, { method: "POST" });
-		await load();
+		setDeleteError(null);
+		try {
+			// Archive is what delete means everywhere in this system — a hard
+			// delete is impossible (the audit tables hold RESTRICT FKs).
+			const res = await apiFetch(`/api/knowledge/${id}/archive`, { method: "POST" });
+			if (!res.ok) {
+				const data = (await res.json().catch(() => ({}))) as { error?: string };
+				setDeleteError(data.error ?? `Could not delete it: ${res.status}`);
+				return;
+			}
+			await load();
+		} catch {
+			setDeleteError("Could not delete it: network error");
+		}
 	}
 
 	if (status === "loading") {
@@ -173,9 +186,7 @@ export function SettingsSkillsAndRules(): JSX.Element {
 										<span className="truncate">{item.title}</span>
 									</button>
 									<div className="flex shrink-0 items-center gap-[9px]">
-										<Tag
-											label={KNOWLEDGE_ROLE_LABEL[isSkillOrRule(item.role) ? item.role : "skill"]}
-										/>
+										<Tag label={KNOWLEDGE_ROLE_LABEL[item.role]} />
 										<Button
 											variant="ghost"
 											size="sm"
@@ -189,6 +200,11 @@ export function SettingsSkillsAndRules(): JSX.Element {
 							</div>
 						))}
 					</div>
+				)}
+				{deleteError !== null && (
+					<p role="alert" className="type-small  text-[var(--status-error)]">
+						{deleteError}
+					</p>
 				)}
 			</div>
 
