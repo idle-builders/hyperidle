@@ -23,9 +23,24 @@ nothing for a user yet, for three reasons:
   defaults `OPENCODE_PERMISSION` to allow-all when no gate is present. That changes every opencode
   session, gated or not.
 
-**Still to build.** The return half — review filed, verdict, clearance, resume — plus the desktop wiring,
-and one assertion fix: the codex gate test reads the rule id from the model's prose, which ruling 26 says
-is the wrong place. It must read the structured rejection event.
+**Built since, on the same branch.** The return half, end to end in code:
+
+- `sessions.harness_session_id` — the harness's own id, persisted after the stream drains, because
+  without it there is nothing to resume. Null when the harness reported none: that session genuinely
+  cannot be resumed, and the verdict path says so.
+- `gate_reviews` — the record that a review and a block are the same event. `submit_review` writes one
+  only when the gate is holding a denial against that session, so an ordinary review clears nothing.
+- A clearance keyed to the rule **and** the tool, spent by that action alone.
+- `session_resume`, a sixth intent kind, so the verdict travels the same durable queue as every other
+  handoff from a domain write to the agent runtime.
+- `gate_resume`, a session source of its own: it composes no prompt and assembles no context, and a
+  request row claiming otherwise would be a lie.
+- The provisioner branch: reopen the harness session, deliver the verdict as a user turn, clear first.
+- The failure path: when the resume cannot be prepared, the human who approved is told in their thread.
+
+**Still to build.** The proof. Criteria 3–7 are code without evidence — no real-binary test yet drives
+an agent from block, through filing a review, to a human's verdict and a completed action. Plus the
+desktop wiring check, and the cursor-agent fail-closed assertion, which is still a file-shape check.
 
 **Known weakness in the current proof.** The fail-closed check genuinely runs the script against an
 unreachable server for claude and codex. For cursor-agent and opencode it only asserts the file is
@@ -75,12 +90,18 @@ Nothing is held open.
 **5. The verdict returns the agent to its work.** How, differs by harness, and one of them is better than
 the rest:
 
-- **claude** uses `permissionDecision: "defer"`. The run stops with `stop_reason: "tool_deferred"` and
-  hands back the exact pending call. Resuming **with no prompt** re-runs the gate on that stored call and
-  executes it — one turn, no model decision involved. Approval never enters the conversation as text.
-- **codex, cursor-agent and opencode** resume the agent's own session with the verdict as **a user
-  message**, having first cleared the rule. The agent retries, the gate no longer matches, the action
-  runs.
+**All four** resume the agent's own session with the verdict as **a user message**, having first cleared
+the rule for that one action. The agent retries, the gate no longer matches, the action runs.
+
+**`defer` is researched, rejected for now, and worth revisiting** (founder, 2026-09-01). claude has a
+`permissionDecision: "defer"` that would be better on paper: the run stops with
+`stop_reason: "tool_deferred"`, and resuming with no prompt re-runs the gate on the stored call and
+executes it — no model decision, so approval never has to be believed. It cannot be used at the first
+block, because **`permissionDecisionReason` on a defer is not shown to the model** (there is no
+tool_result — `harness-research/interception-claude-code.md`). The agent would never learn it was
+blocked, so it could not write the review making its case, which is moment 3 and the whole "an agent
+asks" half of this package. Revisit it as a claude-only refinement of the RETURN leg once the uniform
+loop is proven.
 
 Declining also resumes, carrying the reasoning back. The rule stays in force, so the action stays blocked,
 and the agent may argue again.
