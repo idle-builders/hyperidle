@@ -49,3 +49,30 @@ to the maintainer instead of quietly leaving one.
 For "where is this used" and "what does changing this touch", use the `hyperidle-trace` MCP tools —
 the code graph follows cross-file calls, startup wiring and event chains that grep cannot. A "no
 matches" is not proof of unused; confirm an important negative with a targeted search.
+
+## Harness features are file-based, and every harness has its own
+
+Harness capabilities — hooks, skills, agent instructions, permissions, MCP wiring — are almost always
+configured through **files the harness reads**, not through CLI flags. An absent command-line flag is not
+evidence a feature is missing.
+
+**Every harness is researched and implemented on its own terms**: its file locations, its event names, its
+payload shape, its response protocol. A design that works on one harness and is copied to the others is
+worse than no design, because it fails **silently** — the file is written, nothing errors, and the feature
+never runs.
+
+**An architecture that touches a harness must be exact.** For each harness, name the actual file path, the
+actual event vocabulary, the actual payload and the actual response contract — with evidence it was
+verified against the installed binary, not inferred from another harness or from documentation.
+
+**How to find the contract.** The binary on `PATH` is often a launcher: resolve it (`realpath`, `file`),
+then grep the installed JavaScript — or `strings` a compiled binary — for its config filenames and event
+names. Then prove it with a real run. The bundle gives you the vocabulary; only a run proves the behaviour.
+
+**What earned this rule.** An action gate was built across four harnesses by writing Claude Code's
+`PreToolUse` hook shape into all four. Only Claude's leg worked. The other three wrote files their harness
+never reads, and the silent failures were read as harness limitations — "cursor-agent ignores hooks",
+"opencode is scoped out" — one of which was nearly accepted as a permanent product limit. cursor-agent's
+real contract, recovered from its own bundle in minutes, shares nothing with Claude's: a different file, a
+different event set, and a `user_message` field that carries the reason back to the model — the capability
+that had been written off as impossible there.
