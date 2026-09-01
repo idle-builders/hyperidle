@@ -297,6 +297,16 @@ export const sessions = pgTable(
 		effectivenessRecordedAt: text("effectiveness_recorded_at"),
 		/** AC1: User ID (or agent ID) of the actor who last recorded the effectiveness score. */
 		effectivenessRecordedBy: text("effectiveness_recorded_by"),
+		/**
+		 * The harness's own id for this session, which is what `resumeSession`
+		 * needs to bring the agent back after a human decides.
+		 *
+		 * @lore BA2: Null for a session whose harness never reported one — an
+		 * error before the first stream event, or an adapter with no resume
+		 * support. A null here means the session cannot be resumed, which the
+		 * verdict path must surface to the human rather than fail silently.
+		 */
+		harnessSessionId: text("harness_session_id"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
@@ -420,11 +430,11 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run')`,
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','session_resume')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','gate_review')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -443,6 +453,7 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
+				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'gate_review')
 			`,
 		),
 		/**
@@ -1565,3 +1576,43 @@ export const actionRules = pgTable(
 
 export type ActionRuleRow = typeof actionRules.$inferSelect;
 export type NewActionRuleRow = typeof actionRules.$inferInsert;
+
+/**
+ * The reviews a gate actually caused.
+ *
+ * A row is written only when an agent files a review while the gate is holding
+ * a denial against its session. Approving that review clears the denied action,
+ * once; approving any other review clears nothing.
+ *
+ * @lore BA2: This is the answer to a real defect in an abandoned attempt, which
+ * registered on every `submit_review` — so approving an ordinary design review
+ * granted a bypass. The link is the record that the review and the block are the
+ * same event, and it is why the clearance cannot be forged by filing a review.
+ *
+ * @lore BA2: `toolName` is stored because the clearance is keyed to the ACTION,
+ * not to "the next tool call". An earlier attempt let the resumed session's first
+ * call — a harmless read — spend the one-time pass, so the action that was
+ * actually cleared got denied again.
+ */
+export const gateReviews = pgTable(
+	"gate_reviews",
+	{
+		id: text("id").primaryKey(),
+		/** The `messages` row of type "review" that the agent filed. */
+		reviewMessageId: text("review_message_id").notNull(),
+		/** The session the gate denied, and the one a verdict resumes. */
+		sessionId: text("session_id").notNull(),
+		/** The `action_rules` row that matched. Cleared for this session on approval. */
+		ruleId: text("rule_id").notNull(),
+		/** The tool name the rule matched, so clearance is spent on that action only. */
+		toolName: text("tool_name").notNull(),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("gate_reviews_review_message_id_uq").on(table.reviewMessageId),
+		index("gate_reviews_session_id_idx").on(table.sessionId),
+	],
+);
+
+export type GateReviewRow = typeof gateReviews.$inferSelect;
+export type NewGateReviewRow = typeof gateReviews.$inferInsert;
