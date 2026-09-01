@@ -180,7 +180,8 @@ export interface BakedContextKnowledgeItem {
 	 * - ordinary: knowledge/... files
 	 * - skill: .claude/skills/<title>/SKILL.md
 	 * - rule: knowledge/rules/<title>
-	 * - agent_file: AGENTS.md/CLAUDE.md only when scopeId === agentId
+	 * - agent_file: AGENTS.md/CLAUDE.md, bound to the agent named by the parent slot
+	 * - prompt: the run's instruction — never materialised as a sandbox file
 	 */
 	readonly role: string;
 	/**
