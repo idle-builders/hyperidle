@@ -117,3 +117,98 @@ describe("ActionGateStore", () => {
 		expect(store.check("s2", "Write").allowed).toBe(true);
 	});
 });
+
+/**
+ * The return half: the store has to remember which action it denied, and to
+ * honour a clearance for exactly that action once.
+ *
+ * @lore BA2: Both behaviours here are defects from an abandoned attempt, written
+ * down as tests so they cannot come back. The clearance was keyed to "the next
+ * tool call", so the resumed session's first call — a harmless read — spent the
+ * pass and the cleared action was denied again.
+ */
+describe("ActionGateStore — remembering a denial and honouring a clearance", () => {
+	const RULES = [{ id: "r1", pattern: "bash", description: "shell needs a person" }];
+
+	it("has no pending denial until something is actually denied", () => {
+		const store = createActionGateStore();
+		store.set("s1", RULES);
+		expect(store.pendingDenial("s1")).toBeUndefined();
+		store.check("s1", "Read");
+		expect(store.pendingDenial("s1")).toBeUndefined();
+	});
+
+	it("remembers the rule and the tool that was denied", () => {
+		const store = createActionGateStore();
+		store.set("s1", RULES);
+		store.check("s1", "Bash");
+		expect(store.pendingDenial("s1")).toEqual({ ruleId: "r1", toolName: "Bash" });
+	});
+
+	it("clears the cleared action, and only that action", () => {
+		const store = createActionGateStore();
+		store.set("s1", [
+			{ id: "r1", pattern: "bash", description: "shell" },
+			{ id: "r2", pattern: "write", description: "files" },
+		]);
+		store.clear("s1", { ruleId: "r1", toolName: "Bash" });
+
+		expect(store.check("s1", "Bash").allowed).toBe(true);
+		expect(store.check("s1", "Write").allowed).toBe(false);
+	});
+
+	it("is not spent by another call the SAME rule covers", () => {
+		// The defect this pins: one broad rule covers every tool, a human clears
+		// Bash, and the resumed session reads a file first. Keyed to the rule alone,
+		// that read spends the pass and the approved Bash is denied again.
+		const store = createActionGateStore();
+		store.set("s1", [{ id: "r1", pattern: "*", description: "everything" }]);
+		store.clear("s1", { ruleId: "r1", toolName: "Bash" });
+
+		expect(store.check("s1", "Read").allowed, "the read must not spend the pass").toBe(false);
+		expect(store.check("s1", "Bash").allowed, "the approved action must run").toBe(true);
+	});
+
+	it("is not spent by an unrelated call the resumed session makes first", () => {
+		const store = createActionGateStore();
+		store.set("s1", [
+			{ id: "r1", pattern: "bash", description: "shell" },
+			{ id: "r2", pattern: "write", description: "files" },
+		]);
+		store.clear("s1", { ruleId: "r1", toolName: "Bash" });
+
+		// The agent comes back and reads a file, then writes one — neither is the
+		// action a human cleared, and neither may consume the pass.
+		expect(store.check("s1", "Read").allowed).toBe(true);
+		expect(store.check("s1", "Write").allowed).toBe(false);
+
+		expect(store.check("s1", "Bash").allowed).toBe(true);
+	});
+
+	it("is single-use: the cleared action is denied again on a second attempt", () => {
+		const store = createActionGateStore();
+		store.set("s1", RULES);
+		store.clear("s1", { ruleId: "r1", toolName: "Bash" });
+
+		expect(store.check("s1", "Bash").allowed).toBe(true);
+		const second = store.check("s1", "Bash");
+		expect(second.allowed).toBe(false);
+		expect(second.allowed === false && second.ruleId).toBe("r1");
+	});
+
+	it("does not clear an action in some other session", () => {
+		const store = createActionGateStore();
+		store.set("s1", RULES);
+		store.set("s2", RULES);
+		store.clear("s1", { ruleId: "r1", toolName: "Bash" });
+		expect(store.check("s2", "Bash").allowed).toBe(false);
+	});
+
+	it("drops the pending denial and the clearance when the session is released", () => {
+		const store = createActionGateStore();
+		store.set("s1", RULES);
+		store.check("s1", "Bash");
+		store.delete("s1");
+		expect(store.pendingDenial("s1")).toBeUndefined();
+	});
+});
