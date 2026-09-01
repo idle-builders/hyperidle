@@ -266,6 +266,63 @@ describe("BA9b: agent_file items are bound to a specific agent", () => {
 	});
 });
 
+describe("knowledge-attachment-slot: a prompt item never reaches the sandbox", () => {
+	// Guard 2 (context.ts): the writer itself refuses a prompt, independent of
+	// whatever the assembler does or does not include. This test hands a
+	// prompt item straight to the writer — no assembler involved — so it goes
+	// red on its own if the guard is removed, and cannot be hidden by guard 1
+	// (the assembler-side filters) working correctly.
+	it("writes no file and no manifest entry for a role:'prompt' item", async () => {
+		const bundle = makeBundle("agent-1", [
+			{
+				id: "prompt-1",
+				title: "Routine — prompt",
+				body: "Sweep the stale items.",
+				role: "prompt",
+				layer: "L4",
+			},
+		]);
+
+		await assembler.assembleAgentContext({
+			sandboxPath,
+			sessionId: "session-prompt-1",
+			taskId: "t-ba9b",
+			agentId: "agent-1",
+			agentRole: "builder",
+			teamId: "team-ba9b",
+			isRoutine: false,
+			sourceKind: null,
+			sourceId: null,
+			sourceCorrelation: null,
+			contextBundle: bundle,
+		});
+
+		// Nowhere: not a skill dir, not knowledge/rules, not context/factory (the
+		// L4 layer route an ordinary item would take).
+		const knowledgeDir = path.join(sandboxPath, "knowledge");
+		const walkFiles = (dir: string): string[] => {
+			if (!fs.existsSync(dir)) return [];
+			return fs
+				.readdirSync(dir, { recursive: true, withFileTypes: true } as never)
+				.flatMap((entry: unknown) => {
+					const e = entry as { isFile(): boolean; name: string; parentPath?: string };
+					return e.isFile() ? [e.name] : [];
+				});
+		};
+		expect(walkFiles(knowledgeDir)).toEqual([]);
+		expect(fs.existsSync(path.join(sandboxPath, ".claude/skills"))).toBe(false);
+		const contextFactory = path.join(sandboxPath, "context/factory");
+		const contextFiles = fs.existsSync(contextFactory) ? fs.readdirSync(contextFactory) : [];
+		expect(contextFiles).toEqual([]);
+
+		const manifest = JSON.parse(
+			fs.readFileSync(path.join(sandboxPath, ".fabric/manifest.json"), "utf-8"),
+		) as { items: Record<string, unknown> };
+		expect(manifest.items).not.toHaveProperty("prompt-1");
+		expect(Object.keys(manifest.items)).toHaveLength(0);
+	});
+});
+
 describe("BA9b: ordinary items are unaffected", () => {
 	it("ordinary item with L4 layer still goes to context/factory", async () => {
 		const bundle = makeBundle("agent-1", [

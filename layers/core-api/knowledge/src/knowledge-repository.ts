@@ -137,6 +137,15 @@ export interface ListFilters {
 	layer?: KnowledgeLayer;
 	/** Matches scope stored on either the canonical row or its app projection. */
 	scopeId?: string | null;
+	/**
+	 * @lore knowledge-attachment-slot: added so session assembly's layer fetch
+	 * (`fetchAllForLayer` in session-knowledge-assembler.ts) can say which role
+	 * it wants. Without this, every role — including `prompt` — arrived by the
+	 * layer path regardless of the capability allowlist. In the query, not a
+	 * post-filter: `list()` is paginated, and a post-filter would silently
+	 * shorten pages.
+	 */
+	role?: KnowledgeRole;
 	limit?: number;
 	offset?: number;
 }
@@ -521,16 +530,18 @@ export async function update(
  * Called by the overloaded list() for the default base ListFilters case.
  */
 /**
- * @lore BA9b-listBase: listBase has no `role` filter intentionally — the public
- * `list()` surface is for editorial/display use (knowledge view), where all roles
- * appear together. Capability items (role != 'ordinary') for session assembly are
- * fetched by a separate path: `fetchCapabilityItems` in session-knowledge-assembler.ts
- * uses a direct query with a scope+role predicate rather than going through listBase.
- * That path justifies the deviation (listBase's layer predicate would silently drop
- * capability items that have no layer). The two query paths do not drift because they
- * serve different callers — one is editorial, the other is session-time materialisation.
- * See the @lore BA9b-listBase comment in session-knowledge-assembler.ts for the full
- * rationale.
+ * @lore BA9b-listBase: the editorial callers of `list()` — the knowledge view —
+ * pass no `role` and keep seeing every role, exactly as before. What changed
+ * (knowledge-attachment-slot §5) is that session assembly, which is NOT
+ * editorial, now says which role it wants: `fetchAllForLayer` in
+ * session-knowledge-assembler.ts passes `role: "ordinary"` so a routine prompt
+ * (or any other non-ordinary role) reaching a session by the layer path is
+ * excluded at the query, not filtered after the fact — `list()` is paginated,
+ * and a post-filter would silently shorten pages. Capability items (role !=
+ * 'ordinary') still take the separate `fetchCapabilityItems` path, which uses
+ * its own scope+role predicate rather than going through listBase; the two
+ * query paths do not drift because they serve different callers — one is
+ * editorial, the other is session-time materialisation.
  */
 async function listBase(
 	db: HyperIdleDb,
@@ -545,6 +556,7 @@ async function listBase(
 		const rows = await db
 			.select()
 			.from(knowledgeItems)
+			.where(filters.role !== undefined ? eq(knowledgeItems.role, filters.role) : undefined)
 			.orderBy(knowledgeItems.id)
 			.limit(limit)
 			.offset(offset);
@@ -573,6 +585,9 @@ async function listBase(
 						eq(knowledgeAppProjection.scopeId, filters.scopeId),
 					);
 		if (scopeCondition) conditions.push(scopeCondition);
+	}
+	if (filters.role !== undefined) {
+		conditions.push(eq(knowledgeItems.role, filters.role));
 	}
 	const rows = await db
 		.select({ item: knowledgeItems, projection: knowledgeAppProjection })

@@ -24,9 +24,11 @@ async function insertKnowledgeItem(
 		id?: string;
 		title: string;
 		body: string;
-		role: "ordinary" | "skill" | "rule" | "agent_file";
+		role: "ordinary" | "skill" | "rule" | "agent_file" | "prompt";
 		scopeKind?: "factory" | "team" | "user";
 		scopeId?: string | null;
+		/** Only needed to exercise the layer-fetch path (fetchAllForLayer). */
+		layer?: "L2" | "L3" | "L4";
 	},
 ) {
 	const id = opts.id ?? generateId();
@@ -46,7 +48,14 @@ async function insertKnowledgeItem(
 		createdAt: now,
 		updatedAt: now,
 	});
-	// No projection row needed for capability items — they don't use layer.
+	if (opts.layer) {
+		await db.insert(knowledgeAppProjection).values({
+			id: `proj-${id}`,
+			knowledgeItemId: id,
+			layer: opts.layer,
+			scopeId: opts.scopeId ?? null,
+		});
+	}
 	return id;
 }
 
@@ -202,6 +211,60 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 
 		const matching = items.filter((i) => i.title === `dedup-skill-${id}`);
 		expect(matching).toHaveLength(1);
+	});
+});
+
+/**
+ * knowledge-attachment-slot §5 — a routine prompt must never reach a session
+ * sandbox. Two fetches inside assembleSessionKnowledge each independently
+ * match a prompt item; seeding one at factory scope (matches the capability
+ * fetch) and one at team scope with an L2 layer (matches the layer fetch)
+ * exercises both, so this test cannot pass by accident if only one guard is
+ * in place.
+ */
+describe("knowledge-attachment-slot: a routine prompt in reach appears in neither fetch", () => {
+	test("a factory-scoped prompt and a team-scoped L2 prompt are both excluded, while skills/rules/identity still appear", async ({
+		db,
+	}) => {
+		const teamId = `team-prompt-${generateId()}`;
+		const agentId = `agent-prompt-${generateId()}`;
+
+		await insertKnowledgeItem(db, {
+			title: "factory-prompt",
+			body: "Factory-scoped instruction.",
+			role: "prompt",
+			scopeKind: "factory",
+		});
+		await insertKnowledgeItem(db, {
+			title: "team-prompt",
+			body: "Team-scoped instruction.",
+			role: "prompt",
+			scopeKind: "team",
+			scopeId: teamId,
+			layer: "L2",
+		});
+		await insertKnowledgeItem(db, { title: "still-a-skill", body: "Skill body.", role: "skill" });
+		await insertKnowledgeItem(db, { title: "still-a-rule", body: "Rule body.", role: "rule" });
+		await insertKnowledgeItem(db, {
+			title: "still-an-identity",
+			body: "Identity body.",
+			role: "agent_file",
+			scopeKind: "user",
+			scopeId: agentId,
+		});
+
+		const items = await assembleSessionKnowledge(db, {
+			teamId,
+			agentRole: "builder",
+			taskDescription: "Work",
+			agentId,
+		});
+
+		expect(items.find((i) => i.title === "factory-prompt")).toBeUndefined();
+		expect(items.find((i) => i.title === "team-prompt")).toBeUndefined();
+		expect(items.find((i) => i.title === "still-a-skill")).toBeDefined();
+		expect(items.find((i) => i.title === "still-a-rule")).toBeDefined();
+		expect(items.find((i) => i.title === "still-an-identity")).toBeDefined();
 	});
 });
 

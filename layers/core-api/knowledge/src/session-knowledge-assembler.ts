@@ -22,7 +22,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
-import { and, eq, ne, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import { list } from "./knowledge-repository.js";
 import { practiceForRole } from "./role-community-map.js";
@@ -275,6 +275,13 @@ const LIST_BATCH_SIZE = 500;
  * Relocated verbatim from `context.ts`'s `fetchAllForLayer` — same batching
  * behavior (500-item pages, stop once a page returns fewer than the batch
  * size).
+ *
+ * @lore knowledge-attachment-slot §5 Guard 1: `role: "ordinary"` closes the
+ * leak this fetch had — no role predicate at all, so every non-ordinary role
+ * (a routine prompt included) arrived here whenever its layer/scope matched,
+ * independently of the capability allowlist below. A role added later is then
+ * excluded by default rather than included by default, the safe direction for
+ * a set that decides what reaches an agent.
  */
 async function fetchAllForLayer(
 	db: HyperIdleDb,
@@ -288,6 +295,7 @@ async function fetchAllForLayer(
 		const batch = await list(db, {
 			layer,
 			scopeId,
+			role: "ordinary",
 			limit: LIST_BATCH_SIZE,
 			offset,
 		});
@@ -310,9 +318,17 @@ async function fetchAllForLayer(
 }
 
 /**
- * @lore BA9b: Fetch active capability items (role != 'ordinary') scoped to this
- * session. Capability items bypass ranking — plugin installation is a deliberate
- * act, so skills/rules/agent_files are always present (AC8 stated decision).
+ * @lore BA9b: Fetch active capability items (skill/rule/agent_file) scoped to
+ * this session. Capability items bypass ranking — plugin installation is a
+ * deliberate act, so skills/rules/agent_files are always present (AC8 stated
+ * decision).
+ *
+ * @lore knowledge-attachment-slot §5 Guard 1: the predicate used to be
+ * `ne(role, 'ordinary')`, which also matched `prompt` — a routine prompt is
+ * non-ordinary and takes factory or team scope from its owner agent, so it
+ * matched directly. Named to the three roles that actually materialise here
+ * instead: a role added later is excluded by default, not included by
+ * default.
  *
  * Scope filter:
  *   - factory-scoped: reach all sessions.
@@ -356,7 +372,11 @@ async function fetchCapabilityItems(
 		.from(knowledgeItems)
 		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
 		.where(
-			and(ne(knowledgeItems.role, "ordinary"), eq(knowledgeItems.status, "active"), scopeFilter),
+			and(
+				inArray(knowledgeItems.role, ["skill", "rule", "agent_file"]),
+				eq(knowledgeItems.status, "active"),
+				scopeFilter,
+			),
 		)
 		.orderBy(knowledgeItems.id);
 
@@ -413,10 +433,10 @@ export async function assembleSessionKnowledge(
 		productId: input.teamId,
 	});
 
-	// Capability items are appended after ranked ordinary items.
-	// Deduplicate: a factory-scoped skill that came through L4 would appear twice.
-	const rankedIds = new Set(rankedItems.map((i) => i.id));
-	const newCapability = capabilityItems.filter((c) => !rankedIds.has(c.id));
-
-	return [...rankedItems, ...newCapability];
+	// Capability items are appended after ranked ordinary items. No dedupe
+	// needed: `fetchAllForLayer` now fetches `role: "ordinary"` only and
+	// `fetchCapabilityItems` fetches skill/rule/agent_file only — the two
+	// lists are disjoint by role, so a factory-scoped skill can no longer
+	// arrive through both paths.
+	return [...rankedItems, ...capabilityItems];
 }
