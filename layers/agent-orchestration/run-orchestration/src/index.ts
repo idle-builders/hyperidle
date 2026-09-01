@@ -65,7 +65,9 @@ export {
 	type DeniedActionRecord,
 	findGateReviewByMessage,
 	type GateReviewLink,
+	type ResumeIntentEnqueuer,
 	recordGateReview,
+	recordGateVerdict,
 } from "./gate-reviews.js";
 export { ensureSandboxGitRepo, RegistryFilesystemMounter } from "./mounter.js";
 export type { MountingGitRunnerFactory } from "./mounter-ports.js";

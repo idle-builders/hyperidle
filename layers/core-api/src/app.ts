@@ -40,7 +40,10 @@ import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
-import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
+import {
+	buildSeamBackedGateVerdictRecorder,
+	buildSeamBackedWorkIntentRecorder,
+} from "./services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "./services/harness-capability-reader.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
@@ -171,6 +174,13 @@ interface AppOptions {
 	 * tests may override for isolation.
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
+	/**
+	 * BA2: Application-injected verdict recorder for the action gate, injected for
+	 * the same reason as `agentWorkIntentRecorder` above — `gate_reviews` belongs
+	 * to agent-orchestration and `routes/threads.ts` may not read it. Defaults to
+	 * the seam-backed recorder; tests may override.
+	 */
+	gateVerdictRecorder?: import("@hyperidle/domain-model").GateVerdictRecorderFn;
 	/**
 	 * BA9d D12: base directory where plugin files are persisted on install.
 	 * When provided, `installPlugin` copies the plugin source to
@@ -348,6 +358,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			);
 		}
 		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
+		const defaultGateVerdictRecorder = buildSeamBackedGateVerdictRecorder(agentOrchestration);
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
@@ -374,6 +385,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				options.db,
 				eventBus,
 				options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder,
+				options.gateVerdictRecorder ?? defaultGateVerdictRecorder,
 				options.wsHub,
 			),
 		);

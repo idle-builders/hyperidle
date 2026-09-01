@@ -19,6 +19,7 @@
  */
 
 import type {
+	AgentOrchestrationGateVerdictInput,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
@@ -32,6 +33,7 @@ import {
 	endRunForHandoff,
 	readAgentRunConfig,
 	readAgentRunConfigs,
+	recordGateVerdict,
 	requestRunStopForTasks,
 	writeAgentRunConfig,
 } from "@hyperidle/run-orchestration";
@@ -108,6 +110,13 @@ const workIntentInputSchema = z.object({
 	resume: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationWorkIntentInput>;
 
+const gateVerdictInputSchema = z.object({
+	reviewMessageId: z.string().min(1),
+	decision: z.enum(["approve", "decline"]),
+	decidedBy: z.string().min(1),
+	threadId: z.string().min(1),
+}) satisfies z.ZodType<AgentOrchestrationGateVerdictInput>;
+
 export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -116,6 +125,17 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		const body = c.req.valid("json");
 		const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
 		return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
+	});
+
+	// ── intents.recordGateVerdict — POST /agent-orchestration/gate-verdicts ──
+	//
+	// BA2: the verdict half of the action gate. `gate_reviews` and `sessions` are
+	// this layer's tables, so the whole decision — is this a gate review, is its
+	// session resumable — is made here and the answer crosses back as data.
+	router.post("/gate-verdicts", validateBody(gateVerdictInputSchema), async (c) => {
+		const body = c.req.valid("json");
+		const outcome = await recordGateVerdict(db, body, (input) => enqueueWorkIntent(db, input));
+		return c.json(outcome);
 	});
 
 	// ── requests.listPendingIntentsByKind — GET /agent-orchestration/requests/pending-intents?kind= ──

@@ -285,6 +285,8 @@ export type {
 	BakedContextKnowledgeItem,
 	BakedSessionResumeRequest,
 	BakedWorkIntentRequest,
+	GateVerdictOutcome,
+	GateVerdictRecorderFn,
 	RoutineTriggerEvent,
 	SessionKnowledgeItemLike,
 } from "./work-intent.js";

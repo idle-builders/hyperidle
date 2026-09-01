@@ -28,6 +28,8 @@ import type { Message as DbMessage, Thread as DbThread, HyperIdleDb } from "@hyp
 import type {
 	AgentWorkIntentRecorderFn,
 	ApiErrorResponse,
+	GateVerdictOutcome,
+	GateVerdictRecorderFn,
 	HostKind,
 	Message,
 	MessageType,
@@ -648,6 +650,12 @@ export function createThreadRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentWorkIntentRecorder: AgentWorkIntentRecorderFn,
+	/**
+	 * BA2: the verdict half of the action gate. Injected for the same reason
+	 * `agentWorkIntentRecorder` is — `gate_reviews` belongs to the
+	 * agent-orchestration layer and this route may not read it.
+	 */
+	gateVerdictRecorder: GateVerdictRecorderFn,
 	wsHub?: WsPushTarget,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -1500,6 +1508,53 @@ export function createThreadRoutes(
 			// AU31 §3.1 site 5), and the agent layer's intent drain
 			// resolves/creates/executes the request. This route has no
 			// assistant-execution dependency at all.
+
+			// BA2: if this verdict decided the review a gate denial produced, the
+			// agent that asked has to be brought back to its own session with the
+			// answer. Post-commit, like the intent recording above and for the same
+			// reason — the message is committed, so the resume can never reference
+			// a review that does not exist.
+			let gateOutcome: GateVerdictOutcome | undefined;
+			if (input.type === "verdict" && resolvesMessageRow) {
+				try {
+					gateOutcome = await gateVerdictRecorder({
+						reviewMessageId: resolvesMessageRow.id,
+						// Two of the five verdict decisions clear the action; the other
+						// three send the agent back with a no. "approve-with-comments" is
+						// still an approval — the comments are for the agent to read, not
+						// a reason to withhold what the human said yes to.
+						decision:
+							input.payload.decision === "approve" ||
+							input.payload.decision === "approve-with-comments"
+								? "approve"
+								: "decline",
+						decidedBy: senderId,
+						threadId,
+					});
+				} catch (gateErr) {
+					gateOutcome = {
+						status: "not_resumable",
+						reason: gateErr instanceof Error ? gateErr.message : "unknown error",
+					};
+				}
+			}
+
+			// The approving human is told when the agent cannot be sent back. An
+			// approval that reaches nobody is exactly the silent failure this work
+			// package exists to remove, so it is reported in the thread they are in.
+			if (gateOutcome?.status === "not_resumable") {
+				await insertMessage(db, {
+					id: crypto.randomUUID(),
+					threadId,
+					senderId,
+					type: "plain",
+					payload: JSON.stringify({
+						text: `This action was approved but could not be carried out: ${gateOutcome.reason}. The agent has not been told, and the action has not run.`,
+					}),
+					clientKey: crypto.randomUUID(),
+					createdAt: new Date().toISOString(),
+				});
+			}
 
 			if (input.type === "verdict" && resolvesMessageRow) {
 				const resolvedEvent: ThreadResolvedEvent = {

@@ -118,10 +118,36 @@ export interface AgentOrchestrationWorkIntentReceipt {
 	readonly idempotencyKey: string;
 }
 
+/**
+ * BA2: what a verdict did about the review a gate denial produced. Mirrors
+ * `GateVerdictOutcome` — the port carries it as data so a core-api route can
+ * tell the human without ever reading `gate_reviews`.
+ */
+export type AgentOrchestrationGateVerdictOutcome =
+	| { readonly status: "queued" }
+	| { readonly status: "not_a_gate_review" }
+	| { readonly status: "not_resumable"; readonly reason: string };
+
+/** BA2: a human's verdict on a review, as it crosses into agent-orchestration. */
+export interface AgentOrchestrationGateVerdictInput {
+	readonly reviewMessageId: string;
+	readonly decision: "approve" | "decline";
+	readonly decidedBy: string;
+	readonly threadId: string;
+}
+
 /** The intent-write family (`intents.*`). */
 export interface AgentOrchestrationIntentsPort {
 	/** The durable enqueue — mirrors `enqueueWorkIntent`'s row-level identity/idempotency semantics. */
 	submit(input: AgentOrchestrationWorkIntentInput): Promise<AgentOrchestrationWorkIntentReceipt>;
+	/**
+	 * BA2: record a verdict on a gate-caused review and queue the resume that
+	 * carries it back to the agent. Returns what happened, because the human who
+	 * approved has to be told when the agent cannot be sent back.
+	 */
+	recordGateVerdict(
+		input: AgentOrchestrationGateVerdictInput,
+	): Promise<AgentOrchestrationGateVerdictOutcome>;
 }
 
 /** The requests family — outstanding-work readers and session-start lifecycle writers. */

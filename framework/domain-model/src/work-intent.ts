@@ -643,3 +643,37 @@ export interface BakedSessionResumeRequest {
 export type AgentWorkIntentRecorderFn = (
 	input: AgentWorkIntentRecorderInput,
 ) => Promise<{ readonly id: string; readonly idempotencyKey: string }>;
+
+/**
+ * What happened when a verdict tried to send an agent back to its work.
+ *
+ * @lore BA2: A status rather than void, because the acceptance criterion is that
+ * a failure REACHES the human who approved. Silent failure is the defect this
+ * package exists to fix — a human sees "approved" and assumes the action
+ * happened — so reproducing it here would fail the work.
+ */
+export type GateVerdictOutcome =
+	/** The resume is queued. The agent will be brought back. */
+	| { readonly status: "queued" }
+	/** An ordinary review, caused by no gate. Nothing to resume, and nothing wrong. */
+	| { readonly status: "not_a_gate_review" }
+	/** A gate review whose session cannot be resumed. The human has to be told. */
+	| { readonly status: "not_resumable"; readonly reason: string };
+
+/**
+ * Records a human's verdict on the review a gate denial produced, and queues the
+ * resume that carries it back to the agent.
+ *
+ * Injected into the core-api thread route the same way `AgentWorkIntentRecorderFn`
+ * is, and for the same reason: `gate_reviews` belongs to the agent-orchestration
+ * layer, and a core-api route may not read it.
+ */
+export type GateVerdictRecorderFn = (input: {
+	/** The review message the verdict resolved. */
+	readonly reviewMessageId: string;
+	readonly decision: "approve" | "decline";
+	/** The human who decided. */
+	readonly decidedBy: string;
+	/** The thread the review lives in — where a failure has to be reported. */
+	readonly threadId: string;
+}) => Promise<GateVerdictOutcome>;
