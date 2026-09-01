@@ -183,8 +183,42 @@ knowledge item wherever you arrive from.
 This is role-driven, not parent-driven, which is what makes it general — it
 covers items with a role and no parent as well.
 
-Findability is preserved by **search filtering on role and scope**, so a prompt's
-text is still reachable without browsing to it.
+**Hiding is parent-driven, not role-driven.** An item that hangs off something is
+navigated to from that something. An item with no parent stays in the knowledge
+view. This needs no exception list, and it is the same rule the nested-knowledge
+strand applies to the tree — so the two agree by construction rather than by
+coordination. Role keeps its single job (where it lands in a session); parent
+keeps its own (where you navigate from).
+
+### Skills and rules get a home
+
+The pattern above exposed a gap: `agent_file` and `prompt` have somewhere to be
+navigated from, but `skill` and `rule` are surfaced nowhere except the knowledge
+view — BA9b's whole point was that a skill is a knowledge item edited there.
+
+Founder call: **eventually there should be an agent section in the nav** (agents,
+skills, rules, routines, …). For now, put a list of skills and rules "somewhere
+like settings pages or wherever routines or agents live" — the exact placement is
+a build-time choice, not a decision to make here.
+
+Recommended spot: alongside `SettingsAgents` / `SettingsAgentBehavior`, which
+already groups agent, skill, routine, tool and MCP rows and already carries a
+`skill: "Skills"` label. Agents live in settings and routines live on a work page
+today, so there is no single existing home to match — this is the closer
+neighbour.
+
+The full agent section is **not** in this phase.
+
+### Findability is a registered follow-up, not a claim
+
+Search does **not** filter by role or scope today — the knowledge list filters on
+`topic` (being deleted by nested knowledge) and global search has no role concept
+at all (`layers/core-api/src/routes/search.ts`). Registered as its own work item:
+`.pipeline/work/knowledge-role-scope-filtering/`.
+
+**Sequencing consequence to respect:** do not hide parented items from navigation
+before that filtering exists, or prompts and identities are unreachable in the
+window between. Either the follow-up lands first, or the hiding waits for it.
 
 ## Status
 
