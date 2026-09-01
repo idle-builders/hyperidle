@@ -1,6 +1,5 @@
 /**
- * Stories for SettingsSkillsAndRules — the skills-and-rules list (knowledge-
- * attachment-slot §8).
+ * Stories for SettingsSkillsAndRules — the skills-and-rules list.
  *
  * DESIGN-CLASS = routine (extract). Reuses the SettingsFilesystems grammar:
  * a lede paragraph, one uppercase section-label header, one bordered

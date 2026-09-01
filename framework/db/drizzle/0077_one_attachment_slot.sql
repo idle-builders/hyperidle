@@ -1,4 +1,4 @@
--- knowledge-attachment-slot: one way to attach knowledge to anything.
+-- One way to attach knowledge to anything.
 --
 -- Three mechanisms currently say "this knowledge item belongs to that
 -- entity": `routines.prompt_knowledge_id` (an FK column), a scope+role

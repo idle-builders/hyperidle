@@ -1,5 +1,5 @@
 /**
- * knowledge-attachment-slot §8 rule 2 — the knowledge list shows general
+ * The knowledge list shows general
  * knowledge only. Skill and rule items are reached from their own list
  * (Settings → Skills & rules), not by browsing knowledge.
  */

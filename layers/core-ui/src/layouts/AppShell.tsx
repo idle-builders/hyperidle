@@ -557,7 +557,7 @@ export function AppShell(): JSX.Element {
 	} = useFetch<{
 		items: ReadonlyArray<{ id: string; title: string; role?: string }>;
 	}>("/api/knowledge");
-	// knowledge-attachment-slot §8 rule 2: the same "general knowledge only"
+	// The same "general knowledge only"
 	// filter KnowledgeList applies — a skill or rule item is reached from its
 	// own list (Settings → Skills & rules), not the fast-nav.
 	const sidebarKnowledgeItems = useMemo(

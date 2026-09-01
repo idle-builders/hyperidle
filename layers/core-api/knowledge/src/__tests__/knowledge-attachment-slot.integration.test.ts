@@ -1,6 +1,5 @@
 /**
- * knowledge-attachment-slot — service integration tests for the parent+role
- * read/write surface (architecture.md §4).
+ * Service integration tests for the parent+role read/write surface.
  *
  * Proves:
  * - getParentedItem finds an item by parent and role, ignoring scope entirely.

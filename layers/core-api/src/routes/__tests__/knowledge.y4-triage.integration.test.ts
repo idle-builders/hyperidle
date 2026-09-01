@@ -239,7 +239,7 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(body.count).toBe(5);
 	});
 
-	// knowledge-attachment-slot §8: a draft skill or rule must not inflate the
+	// A draft skill or rule must not inflate the
 	// sidebar badge — it appears in neither the knowledge list nor the
 	// skills-and-rules list's own count, which reads as a bug with no way to
 	// clear it.

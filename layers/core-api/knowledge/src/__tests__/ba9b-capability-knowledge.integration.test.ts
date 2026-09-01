@@ -215,14 +215,14 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 });
 
 /**
- * knowledge-attachment-slot §5 — a routine prompt must never reach a session
+ * A routine prompt must never reach a session
  * sandbox. Two fetches inside assembleSessionKnowledge each independently
  * match a prompt item; seeding one at factory scope (matches the capability
  * fetch) and one at team scope with an L2 layer (matches the layer fetch)
  * exercises both, so this test cannot pass by accident if only one guard is
  * in place.
  */
-describe("knowledge-attachment-slot: a routine prompt in reach appears in neither fetch", () => {
+describe("a routine prompt in reach appears in neither fetch", () => {
 	test("a factory-scoped prompt and a team-scoped L2 prompt are both excluded, while skills/rules/identity still appear", async ({
 		db,
 	}) => {

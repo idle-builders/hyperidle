@@ -1,6 +1,5 @@
 /**
- * knowledge-attachment-slot — brownfield migration test for 0077 (one
- * attachment slot).
+ * Brownfield migration test for 0077 (one attachment slot).
  *
  * A database seeded before this carries `routines.prompt_knowledge_id` (an FK
  * pointer) and agent identities bound by `scope_kind='user' AND scope_id=<id>

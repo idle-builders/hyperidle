@@ -501,7 +501,7 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 		expect(res.status).toBe(409);
 	});
 
-	// knowledge-attachment-slot §6: deleting a parent archives its knowledge —
+	// Deleting a parent archives its knowledge —
 	// there is no UI for an orphan, so archiving is the only safe default.
 	test("archives the agent's identity document, parented to the agent", async ({ db, app }) => {
 		await seedPrereqs(db);

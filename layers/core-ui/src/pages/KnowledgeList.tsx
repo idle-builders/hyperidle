@@ -849,7 +849,7 @@ export function KnowledgeList({
 		outletCtx?.onRetryShell?.();
 	}, [apiRefetch, retryUser, outletCtx]);
 
-	// knowledge-attachment-slot §8 rule 2: the knowledge list shows general
+	// The knowledge list shows general
 	// knowledge only. skill and rule items are reached from their own list
 	// (Settings → Skills & rules), not by browsing knowledge — dropped here,
 	// before the triage/curated split, so both tabs and the topic grouping

@@ -536,7 +536,7 @@ export async function update(
 /**
  * @lore BA9b-listBase: the editorial callers of `list()` — the knowledge view —
  * pass no `role` and keep seeing every role, exactly as before. What changed
- * (knowledge-attachment-slot §5) is that session assembly, which is NOT
+ * is that session assembly, which is NOT
  * editorial, now says which role it wants: `fetchAllForLayer` in
  * session-knowledge-assembler.ts passes `role: "ordinary"` so a routine prompt
  * (or any other non-ordinary role) reaching a session by the layer path is

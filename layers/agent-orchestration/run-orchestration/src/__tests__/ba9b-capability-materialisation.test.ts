@@ -266,7 +266,7 @@ describe("BA9b: agent_file items are bound to a specific agent", () => {
 	});
 });
 
-describe("knowledge-attachment-slot: a prompt item never reaches the sandbox", () => {
+describe("a prompt item never reaches the sandbox", () => {
 	// Guard 2 (context.ts): the writer itself refuses a prompt, independent of
 	// whatever the assembler does or does not include. This test hands a
 	// prompt item straight to the writer — no assembler involved — so it goes

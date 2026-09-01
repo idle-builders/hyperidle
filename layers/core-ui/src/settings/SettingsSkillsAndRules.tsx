@@ -1,7 +1,7 @@
 /**
  * SettingsSkillsAndRules — the skills-and-rules list (live component).
  *
- * knowledge-attachment-slot §8: lists own create and delete; the knowledge
+ * This list owns create and delete; the knowledge
  * content view owns read and update. This is the human-side equivalent of a
  * plugin's batch install — anything a plugin can create, a person can too,
  * through the same path — and it is what makes removing the role selector

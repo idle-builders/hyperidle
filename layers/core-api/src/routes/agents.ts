@@ -423,7 +423,7 @@ export function createAgentRoutes(
 
 		await updateUser(db, id, { status: "retired" });
 
-		// knowledge-attachment-slot §6: deleting a parent archives its
+		// Deleting a parent archives its
 		// knowledge — an agent's identity document (and anything else
 		// parented to it) has no UI for an orphan, so archiving is the only
 		// safe default. Archived, not hard-deleted: the audit tables hold

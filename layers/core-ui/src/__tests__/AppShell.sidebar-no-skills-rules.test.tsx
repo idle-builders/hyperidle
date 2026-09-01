@@ -1,5 +1,5 @@
 /**
- * knowledge-attachment-slot §8 rule 2 — the sidebar's Knowledge fast-nav list
+ * The sidebar's Knowledge fast-nav list
  * shows general knowledge only. A skill or rule item must not appear there
  * either — the same rule KnowledgeList's own filter enforces.
  */

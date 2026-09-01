@@ -5,8 +5,8 @@
  * BA9e made role an editable field so a plugin was not the only writer — but
  * that opened two defects: a person could change a routine prompt's role away
  * from `prompt` (the routine then silently runs on its name), or promote an
- * ordinary note into a stray `prompt`. knowledge-attachment-slot closes both
- * by making role create-only: every creator writes a role through its own
+ * ordinary note into a stray `prompt`. Role is now create-only: every creator
+ * writes a role through its own
  * list (routines, agents, the skills-and-rules settings surface), and no
  * later edit can change it.
  */

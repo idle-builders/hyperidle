@@ -1,5 +1,5 @@
 /**
- * knowledge-attachment-slot §8 — SettingsSkillsAndRules component tests.
+ * SettingsSkillsAndRules component tests.
  *
  * Lists own create and delete; the knowledge content view owns read and
  * update. This surface is the human-side equivalent of a plugin's batch
