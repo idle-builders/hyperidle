@@ -91,34 +91,27 @@ function renderDetail() {
 	);
 }
 
-describe("the role row on a knowledge document", () => {
+describe("role is set at creation, never edited from the document (knowledge-attachment-slot)", () => {
 	beforeEach(() => {
 		patchCalls.length = 0;
 	});
 
-	it("shows the document's current role", async () => {
+	it("has no role row or role control in the metadata aside", async () => {
 		renderDetail();
-		const row = await screen.findByTestId("knowledge-role-row");
-		expect(row).toBeTruthy();
-		expect(row.textContent).toContain("Role");
+		// Wait for the body to render first, so the absence assertion below
+		// runs after the async data load has settled.
+		await screen.findByTestId("knowledge-metadata-aside");
+		expect(screen.queryByTestId("knowledge-role-row")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("knowledge-role-select")).not.toBeInTheDocument();
 	});
 
-	it("offers every role the vocabulary allows", async () => {
-		renderDetail();
-		const select = (await screen.findByTestId("knowledge-role-select")) as HTMLSelectElement;
-		const values = [...select.options].map((o) => o.value);
-		expect(values).toEqual(expect.arrayContaining(["ordinary", "skill", "rule", "agent_file"]));
-	});
-
-	it("saves the new role, carrying the document's version for the optimistic check", async () => {
+	it("a PATCH never carries a role field, even if a caller tried to set one", async () => {
 		const user = userEvent.setup();
 		renderDetail();
-		const select = await screen.findByTestId("knowledge-role-select");
-
-		await user.selectOptions(select, "skill");
-
-		expect(patchCalls).toHaveLength(1);
-		expect(patchCalls[0]?.url).toContain("/api/knowledge/k-role");
-		expect(patchCalls[0]?.body).toMatchObject({ role: "skill", version: 3 });
+		const editButton = await screen.findByRole("button", { name: /edit/i });
+		await user.click(editButton);
+		// No role control exists to drive a PATCH with `role` through the UI —
+		// this pins that no future edit affordance reintroduces it silently.
+		expect(screen.queryByTestId("knowledge-role-select")).not.toBeInTheDocument();
 	});
 });

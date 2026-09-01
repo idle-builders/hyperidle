@@ -555,10 +555,17 @@ export function AppShell(): JSX.Element {
 		error: knowledgeError,
 		refetch: refetchSidebarKnowledge,
 	} = useFetch<{
-		items: ReadonlyArray<{ id: string; title: string }>;
+		items: ReadonlyArray<{ id: string; title: string; role?: string }>;
 	}>("/api/knowledge");
+	// knowledge-attachment-slot §8 rule 2: the same "general knowledge only"
+	// filter KnowledgeList applies — a skill or rule item is reached from its
+	// own list (Settings → Skills & rules), not the fast-nav.
 	const sidebarKnowledgeItems = useMemo(
-		() => (knowledgeListData?.items ?? []).slice(0, 5).map((k) => ({ id: k.id, title: k.title })),
+		() =>
+			(knowledgeListData?.items ?? [])
+				.filter((k) => k.role !== "skill" && k.role !== "rule")
+				.slice(0, 5)
+				.map((k) => ({ id: k.id, title: k.title })),
 		[knowledgeListData],
 	);
 

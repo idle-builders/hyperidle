@@ -239,6 +239,49 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(body.count).toBe(5);
 	});
 
+	// knowledge-attachment-slot §8: a draft skill or rule must not inflate the
+	// sidebar badge — it appears in neither the knowledge list nor the
+	// skills-and-rules list's own count, which reads as a bug with no way to
+	// clear it.
+	test("does NOT count a draft skill or a draft rule", async ({ db, app }) => {
+		await seedFounder(db, "founder");
+		await seedKnowledgeItem(db, "ki-draft-ordinary", "draft");
+		const now = new Date().toISOString();
+		await db.insert(knowledgeItems).values([
+			{
+				id: "ki-draft-skill",
+				title: "A skill",
+				body: "body",
+				format: "markdown",
+				status: "draft",
+				role: "skill",
+				version: 1,
+				updatedBy: "founder",
+				scopeKind: "factory",
+				createdAt: now,
+				updatedAt: now,
+			},
+			{
+				id: "ki-draft-rule",
+				title: "A rule",
+				body: "body",
+				format: "markdown",
+				status: "draft",
+				role: "rule",
+				version: 1,
+				updatedBy: "founder",
+				scopeKind: "factory",
+				createdAt: now,
+				updatedAt: now,
+			},
+		]);
+
+		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { count: number };
+		expect(body.count).toBe(1);
+	});
+
 	test("does NOT count active or archived items", async ({ db, app }) => {
 		await seedFounder(db, "founder");
 		await seedKnowledgeItem(db, "ki-active-1", "active");

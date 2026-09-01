@@ -151,6 +151,13 @@ interface ApiKnowledgeItem {
 	createdAt: string;
 	updatedAt: string;
 	attentionScore?: number | null;
+	/**
+	 * @lore knowledge-attachment-slot: already in the payload (a kernel
+	 * column), just previously undeclared here. Used only to drop skill/rule
+	 * items before the triage/curated split — they are reached from their own
+	 * list (Settings → Skills & rules) now, not by browsing knowledge.
+	 */
+	role?: string;
 }
 
 interface ApiKnowledgeListResponse {
@@ -842,7 +849,15 @@ export function KnowledgeList({
 		outletCtx?.onRetryShell?.();
 	}, [apiRefetch, retryUser, outletCtx]);
 
-	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
+	// knowledge-attachment-slot §8 rule 2: the knowledge list shows general
+	// knowledge only. skill and rule items are reached from their own list
+	// (Settings → Skills & rules), not by browsing knowledge — dropped here,
+	// before the triage/curated split, so both tabs and the topic grouping
+	// are covered by one filter.
+	const allItems = useMemo<ApiKnowledgeItem[]>(
+		() => (apiData?.items ?? []).filter((item) => item.role !== "skill" && item.role !== "rule"),
+		[apiData],
+	);
 
 	/**
 	 * AD6: Apply static scope filter before triage/curated split.

@@ -118,8 +118,6 @@ export interface UpdateKnowledgeItemInput {
 	 * CreateKnowledgeItemInput.status (R7) — the PATCH route accepts kernel
 	 * statuses (e.g. "draft") that are outside the app-runtime KnowledgeStatus enum. */
 	status?: KnowledgeStatus | KernelKnowledgeStatus;
-	/** Changing this promotes an ordinary note into a skill, or demotes one back. */
-	role?: KnowledgeRole;
 	/**
 	 * Scope lives on the kernel row, and `scopeId` is mirrored onto the
 	 * projection after the kernel write — `list()` matches either column with an
@@ -320,17 +318,23 @@ export async function create(
  * Allow-list of caller-mutable fields for the kernel table.
  * @lore O2: projection fields (layer, scopeId, kind, attentionScore, confidence, meta)
  * are removed from canonical EDITABLE_FIELDS and written to the extension table instead.
+ *
+ * @lore knowledge-attachment-slot: `role` is NOT here — it used to ride the
+ * ordinary editable set (BA9e, so a change was versioned and edit-logged like
+ * any other field), but that opened two defects the architecture critique
+ * found: a person could change a routine prompt's role away from `prompt`
+ * (the routine then silently runs on its name), or promote an ordinary note
+ * into a stray `prompt`. Role is now create-only — every creator writes it
+ * through its own list (routines, agents, the skills-and-rules settings
+ * surface) and no later edit can change it. `z.object` strips the `role` key
+ * from a PATCH body before it ever reaches this function.
  */
-// `role` rides the ordinary editable set so a change is versioned and written to
-// the edit log like any other field — promoting a note to a skill is an edit with
-// an author and a history, not a hidden reclassification.
 const KERNEL_EDITABLE_FIELDS = [
 	"topic",
 	"title",
 	"body",
 	"format",
 	"status",
-	"role",
 	"scopeKind",
 	"scopeId",
 	"updatedBy",
@@ -824,6 +828,14 @@ export async function list(
  * - `{triageVisible: viewerUserId}` → count of draft + needs_human items visible to viewer (Q2)
  *
  * @lore AU20 K1-reads: subsumes former countTriageVisible — deleted from source.
+ *
+ * @lore knowledge-attachment-slot §8: `role = 'ordinary'` closes a badge bug
+ * the two client-side nav filters (KnowledgeList, the sidebar fast-nav)
+ * cannot reach — a draft skill or rule would otherwise inflate this count
+ * while appearing in neither knowledge surface, which reads as a bug with no
+ * way to clear it. Filtering server-side is right here (one consumer, the
+ * badge) and wrong for the list payload (two consumers that want opposite
+ * halves of it — see `KnowledgeList.tsx`'s own `@lore`).
  */
 export async function count(
 	db: HyperIdleDb,
@@ -835,7 +847,11 @@ export async function count(
 		.select({ count: sql<number>`count(*)` })
 		.from(knowledgeItems)
 		.where(
-			and(inArray(knowledgeItems.status, ["draft", "needs_human"]), visibleToViewer(viewerUserId)),
+			and(
+				inArray(knowledgeItems.status, ["draft", "needs_human"]),
+				eq(knowledgeItems.role, "ordinary"),
+				visibleToViewer(viewerUserId),
+			),
 		);
 	return Number(result?.count ?? 0);
 }
