@@ -168,6 +168,24 @@ Migration consequence, accepted: each existing agent identity needs a real scope
 rather than an inherited one. Default to `user` — identical reach to today, no
 behaviour change — and let it be widened deliberately later.
 
+## How it behaves
+
+### Navigation comes from elsewhere; the knowledge view is still where you land
+
+Founder call. A knowledge item whose role is not `ordinary` does **not** appear in
+the knowledge navigation — the knowledge tree stays clean. You reach a routine's
+prompt from the routine page and an agent's identity from the agent page.
+
+But clicking it **opens the real knowledge view**, not a bespoke editor. It is a
+navigational pattern, not a different kind of object: the item is a first-class
+knowledge item wherever you arrive from.
+
+This is role-driven, not parent-driven, which is what makes it general — it
+covers items with a role and no parent as well.
+
+Findability is preserved by **search filtering on role and scope**, so a prompt's
+text is still reachable without browsing to it.
+
 ## Status
 
 **Refine COMPLETE.** Scope, mechanism, role semantics, parent vocabulary, the
