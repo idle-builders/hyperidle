@@ -95,7 +95,13 @@ import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
 interface DetailItem {
 	id: string;
 	title: string;
-	layer: string;
+	/**
+	 * @lore nested-knowledge-items: `layer` is never rendered — the legacy
+	 * k1/k2 LEGACY_DETAILS map is the only thing that still sets it (its own
+	 * "company"/"belief" values, asserted by a protected test). Optional
+	 * because the real API no longer has a `layer` column at all.
+	 */
+	layer?: string;
 	/** AF13 §5: kind is optional — undefined renders as "—" in the metadata aside */
 	kind?: string;
 	status: KnowledgeStatus;
@@ -118,6 +124,12 @@ interface DetailItem {
 	relatedItems?: ReadonlyArray<string>;
 	/** W3 AC-41: structured related items with title (from API) */
 	structuredRelatedItems?: ReadonlyArray<{ id: string; title: string }>;
+	/**
+	 * @lore nested-knowledge-items: this item's own children (parent-kind
+	 * `knowledge_item`, ordered by position) — "a parent renders its
+	 * children". Distinct from `structuredRelatedItems` (children ∪ siblings).
+	 */
+	children?: ReadonlyArray<{ id: string; title: string }>;
 	topic?: string;
 	/** W3 AC-40: 30-day access count from API */
 	accessCount?: number;
@@ -338,8 +350,6 @@ export function KnowledgeDetail({
 		item = {
 			id: apiItem.id,
 			title: apiItem.title,
-			layer: apiItem.layer ?? "unknown",
-			kind: apiItem.kind,
 			status: toKnowledgeStatus(apiItem.status),
 			timestamp: apiItem.updatedAt,
 			content: apiItem.body,
@@ -349,6 +359,7 @@ export function KnowledgeDetail({
 			accessCount: apiItem.accessCount,
 			updatedBy: apiItem.updatedBy,
 			structuredRelatedItems: apiItem.relatedItems,
+			children: apiItem.children,
 			// AV3 WARNING-A3: must assign on the object, not only on the interface.
 			scopeName: apiItem.scopeName,
 		};
@@ -375,6 +386,41 @@ export function KnowledgeDetail({
 }
 
 // AG4: KnowledgeDetailBreadcrumb local fn deleted — replaced by DS Breadcrumb in KnowledgeDetailView.
+
+/**
+ * @lore nested-knowledge-items: "a parent renders its children" — a plain
+ * list of this item's own children, ordered by position (server-side).
+ * Distinct from Backlinks (children ∪ siblings): this card is empty for a
+ * leaf item and renders nothing at all rather than an empty-state, since a
+ * leaf having no children is the normal case, not an absence worth noting.
+ */
+function ChildrenCard({
+	children,
+}: {
+	children?: ReadonlyArray<{ id: string; title: string }>;
+}): JSX.Element | null {
+	if (!children || children.length === 0) return null;
+	return (
+		<div
+			data-testid="knowledge-children-card"
+			className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]"
+		>
+			<SectionLabel label="Children" as="h2" />
+			<ul className="flex flex-col">
+				{children.map((child) => (
+					<li key={child.id} data-testid="knowledge-child-item">
+						<RRLink
+							to={`/knowledge/${child.id}`}
+							className="type-control flex items-center gap-[9px] py-[6px]  text-[var(--accent-deep)] hover:underline cursor-pointer"
+						>
+							{child.title}
+						</RRLink>
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
 
 /** Backlinks card shown in the aside */
 function BacklinksCard({
@@ -1154,6 +1200,9 @@ function KnowledgeDetailView({
 							)}
 						</div>
 					</div>
+
+					{/* nested-knowledge-items: this item's own children */}
+					<ChildrenCard children={item.children} />
 
 					{/* W3 AC-41: backlinks card */}
 					<BacklinksCard

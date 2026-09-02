@@ -116,6 +116,15 @@ interface ApiKnowledgeItem {
 	createdAt: string;
 	updatedAt: string;
 	attentionScore?: number | null;
+	/**
+	 * @lore nested-knowledge-items §4: already in the payload (a kernel
+	 * column), just previously undeclared here. `null` or `"knowledge_item"`
+	 * means the row is ordinary, browsable knowledge; anything else (agent,
+	 * task, thread, routine) is a role-carrying binding that belongs to its
+	 * own surface, not this list — the parent rule that replaces the old
+	 * `role !== "skill" && role !== "rule"` filter.
+	 */
+	parentKind?: string | null;
 }
 
 interface ApiKnowledgeListResponse {
@@ -670,11 +679,21 @@ export function KnowledgeList({
 		outletCtx?.onRetryShell?.();
 	}, [apiRefetch, retryUser, outletCtx]);
 
-	// @lore nested-knowledge-items §4: the client-side `role !== "skill" &&
-	// role !== "rule"` filter is deleted — GET /api/knowledge now excludes
-	// role-carrying rows structurally (parent is not `knowledge_item`), so
-	// every row this page receives is already ordinary, browsable knowledge.
-	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
+	// @lore nested-knowledge-items §4: the old `role !== "skill" && role !==
+	// "rule"` filter is REPLACED, not deleted — a role-carrying binding
+	// (agent identity, routine prompt, skill, rule) is any row whose parent
+	// is set but is not `knowledge_item`. GET /api/knowledge already excludes
+	// these server-side (knowledge-repository.ts's `visibleWithSignals`), but
+	// the client keeps its own check too: it is the one place this page's
+	// contract with its data source is expressed in code, not just in the
+	// server it happens to be pointed at today.
+	const allItems = useMemo<ApiKnowledgeItem[]>(
+		() =>
+			(apiData?.items ?? []).filter(
+				(item) => item.parentKind === null || item.parentKind === undefined || item.parentKind === "knowledge_item",
+			),
+		[apiData],
+	);
 
 	/**
 	 * AD6: Apply static scope filter before triage/curated split.

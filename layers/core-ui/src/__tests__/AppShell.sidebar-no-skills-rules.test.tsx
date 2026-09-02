@@ -39,6 +39,7 @@ beforeEach(() => {
 							format: "markdown",
 							status: "active",
 							role: "skill",
+							parentKind: "agent",
 							version: 1,
 							updatedBy: "agent",
 							createdAt: "2025-01-01",
