@@ -31,6 +31,7 @@
 
 import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { ArtifactSection } from "../components/ArtifactSection";
 import ConversationSurface, {
 	type ConversationSurfaceParticipant,
 } from "../components/ConversationSurface";
@@ -566,15 +567,32 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 					if (mode === "fold-back") setInspection(null);
 				}}
 				origin={
-					<ConversationSurface
-						parts={parts}
-						onOpen={openTarget}
-						header={header}
-						participants={participants}
-						onSend={onSend}
-						scroll
-						headerPresentation={inspection ? "pane" : "read"}
-					/>
+					<>
+						<ConversationSurface
+							parts={parts}
+							onOpen={openTarget}
+							header={header}
+							participants={participants}
+							onSend={onSend}
+							scroll
+							headerPresentation={inspection ? "pane" : "read"}
+						/>
+						{/*
+						 * What was produced in this conversation. A human and an agent
+						 * put things here the same way, and this is where they land.
+						 *
+						 * `onOpen` rather than the section's own split: this page already
+						 * owns a SplitView, and opening through its existing `path`
+						 * inspection reuses it instead of nesting a second one.
+						 */}
+						<ArtifactSection
+							parentKind="thread"
+							parentId={threadId}
+							heading="Artifacts"
+							emptyDescription="Artifacts produced in this conversation appear here."
+							onOpen={(itemId) => setInspection({ kind: "path", path: `/knowledge/${itemId}` })}
+						/>
+					</>
 				}
 				destination={inspectionDestination}
 			/>

@@ -32,19 +32,34 @@ import {
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useParentedKnowledgeItems } from "../hooks/useParentedKnowledgeItems.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
+import { KnowledgeBody } from "../pages/knowledge/KnowledgeBody.js";
 
 export interface ArtifactSectionProps {
 	parentKind: "task" | "thread";
 	parentId: string;
 	heading?: string;
 	emptyDescription?: string;
+	/**
+	 * Hand the click to the caller instead of splitting here.
+	 *
+	 * A surface that already owns a `SplitView` — the conversation page does —
+	 * must not have a second one nested inside it: two splits on one screen
+	 * fight over the same gesture and the same width. When this is given, the
+	 * section is just the list, and the caller decides what "open" means.
+	 */
+	onOpen?: (itemId: string) => void;
 }
 
 /**
  * Detail pane rendered inside the SplitView destination when an item is
- * selected. Fetches the full body via useKnowledgeItem and renders it as text.
- * A full block-rendered view is intentionally deferred — the body is shown
- * here in raw form for the initial pass.
+ * selected. Fetches the full body and renders it through `KnowledgeBody` — the
+ * same path a knowledge item's own page takes.
+ *
+ * That shared path is the point, not a convenience. It is what makes a produced
+ * item that IS an interactive document — a body whose only block is a fenced
+ * ```html block — run in the sandbox frame here too. Rendering the body as
+ * `<pre>` text instead would show an interactive artifact as its own source,
+ * which is precisely the thing this change exists to stop.
  */
 function ArtifactDetailPane({ itemId }: { itemId: string }): JSX.Element {
 	const { data, isLoading } = useKnowledgeItem(itemId);
@@ -68,7 +83,7 @@ function ArtifactDetailPane({ itemId }: { itemId: string }): JSX.Element {
 	return (
 		<div data-testid="artifact-section-detail" className="flex flex-col gap-[12px] p-[24px]">
 			<h2 className="type-title">{data.title}</h2>
-			<pre className="type-small whitespace-pre-wrap text-[var(--text-secondary)]">{data.body}</pre>
+			<KnowledgeBody body={data.body} hostId={data.id} documentTitle={data.title} />
 		</div>
 	);
 }
@@ -78,6 +93,7 @@ export function ArtifactSection({
 	parentId,
 	heading,
 	emptyDescription,
+	onOpen,
 }: ArtifactSectionProps): JSX.Element | null {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
@@ -145,8 +161,12 @@ export function ArtifactSection({
 						as="div"
 						title={item.title}
 						subtitle={item.status}
-						selected={selectedId === item.id}
+						selected={onOpen ? false : selectedId === item.id}
 						onClick={() => {
+							if (onOpen) {
+								onOpen(item.id);
+								return;
+							}
 							setSelectedId(item.id);
 							setSplitMode("split");
 						}}
@@ -161,6 +181,18 @@ export function ArtifactSection({
 	) : (
 		<EmptyState compact title="Select an artifact" description="Click a row to view its content." />
 	);
+
+	if (onOpen) {
+		return (
+			<section
+				data-testid="artifact-section-container"
+				aria-label={heading ?? "Artifacts"}
+				className="flex flex-col"
+			>
+				{origin}
+			</section>
+		);
+	}
 
 	return (
 		<section
