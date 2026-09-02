@@ -1550,7 +1550,9 @@ function makeCreateArtifactTool<TDb>(
 
 			const created = await ports.coreApi.create(
 				{
-					layer: null,
+					// `layer` is deliberately OMITTED, not sent as null: the route
+					// rejects an explicit null and derives the layer from the scope
+					// when the field is absent. This tool has no opinion about layer.
 					scopeKind,
 					scopeId,
 					title,

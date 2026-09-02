@@ -468,7 +468,15 @@ export interface CoreApiRoutinePort {
  * have a `kind`/explicit-`layer` concept the HTTP UI caller never needed).
  */
 export interface CreateKnowledgeItemRequest {
-	readonly layer: string | null;
+	/**
+	 * Optional, and `null` is NOT a legal value — the route's zod is
+	 * `z.enum(KNOWLEDGE_LAYERS).optional()`, which accepts a layer or the field's
+	 * absence and rejects an explicit null. A caller with no opinion about layer
+	 * must OMIT this, not send null; the route then derives it from the scope.
+	 * `create_artifact` sent `layer: null` and 400'd on every call until a parity
+	 * test drove it through the real route.
+	 */
+	readonly layer?: string;
 	/**
 	 * Required, because the route requires it. It was optional here for a long
 	 * time and the route's zod was not, so a caller that omitted it typechecked

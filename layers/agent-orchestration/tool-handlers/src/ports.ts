@@ -102,7 +102,7 @@ interface ToolHandlersCreateTeamInput {
  * widen to `string` (Mechanism C: never importing `knowledge`'s own types).
  */
 interface ToolHandlersCreateKnowledgeItemInput {
-	readonly layer: string | null;
+	readonly layer?: string;
 	/** Required, mirroring `CreateKnowledgeItemRequest` — see the note there. */
 	readonly scopeKind: string;
 	readonly scopeId?: string | null;
