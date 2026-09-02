@@ -50,7 +50,7 @@ A root task starts as a top-down commitment and evolves as the team learns; the 
 
 ## 3. The four primitives
 
-**Producer rule for Artifacts.** Tasks are the unique producers of Artifacts: `artifacts.producingTaskId` is a NOT NULL FK to tasks (`framework/db/src/schema.ts`). Teams and Routines never own Artifacts; a parent task aggregates its subtree's Artifacts read-only, and a Routine's work produces Artifacts via the Task it spawns. The Artifact contract itself lives in [artifact-primitive.md](artifact-primitive.md).
+**Artifacts are not a primitive.** An artifact is a knowledge item carrying a parent that says what produced it — a task, or a conversation. There is no artifacts table and no separate content model. A task is no longer the *unique* producer either: an agent answering in a conversation produces a thread-parented item, and a human does the same through "+". See [artifact-primitive.md](artifact-primitive.md).
 
 All shapes below reflect `framework/db/src/schema.ts` — the schema file is authoritative; this doc names the load-bearing fields and their semantics.
 
@@ -68,7 +68,6 @@ Shipped shape:
 - `title`, `description`, `doneCondition` — the goal is `doneCondition`; every task has one
 - `state` — **`proposed | accepted | hold | in_progress | blocked | review | done | killed`** (`TASK_STATES`, `framework/domain-model/src/types.ts`). One vocabulary at every depth: a root task is `in_progress`, not "active".
 - `dependencies` — Task IDs that must reach `done` first; sequences emerge from these, not from a graph
-- `artifacts` — Artifact references (Tasks are the unique producers)
 - `threadId` — **nullable**; `notes`, `auditTrail`
 - `outcomeVerdict` — `met | met_with_rework | partially_met | not_met`, null until evaluated; `outcomeSummary` alongside it
 - `tokensActualJson` — this task's OWN accumulated TokenUsage. A subtree total is summed at read time; no ancestor carries a rollup column, so there is none to drift.
