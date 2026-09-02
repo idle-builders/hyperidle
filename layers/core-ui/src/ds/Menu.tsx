@@ -160,10 +160,17 @@ export function Menu({
 	}, [open, onClose]);
 
 	// Anchored mode: measure the trigger's rect synchronously (before paint) so
-	// the portaled menu never flashes at (0,0). Recomputed on resize while open;
-	// a scroll anywhere closes the menu rather than chasing a moving anchor —
-	// the same "don't try to track it, just close" call click-outside already
-	// makes.
+	// the portaled menu never flashes at (0,0). Recomputed on resize while open.
+	//
+	// @lore knowledge-attachment-slot: an earlier version also closed the menu
+	// on any `scroll` event, on the theory that a stale position beats a
+	// tracked one. In a real browser this fired immediately after opening —
+	// clicking the trigger's own `scrollIntoViewIfNeeded` (or any residual
+	// scroll settling on a long stacked Settings page) closed the menu before
+	// the click event that opened it had even finished, so the menu never
+	// stayed open long enough to be used. Removed rather than threshold-tuned:
+	// nothing here needs the menu to track scroll, and click-outside already
+	// closes it once the user moves on.
 	useLayoutEffect(() => {
 		// Non-anchored callers never touch anchoredPos (it stays its initial
 		// null) — skip the effect body entirely rather than a same-value
@@ -185,13 +192,10 @@ export function Menu({
 		};
 		measure();
 		window.addEventListener("resize", measure);
-		const handleScroll = (): void => onClose();
-		document.addEventListener("scroll", handleScroll, { capture: true });
 		return () => {
 			window.removeEventListener("resize", measure);
-			document.removeEventListener("scroll", handleScroll, { capture: true });
 		};
-	}, [open, anchorRef, align, onClose]);
+	}, [open, anchorRef, align]);
 
 	if (!open) return null;
 	// Anchored mode paints only once the rect is measured — one frame of
