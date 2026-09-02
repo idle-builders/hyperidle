@@ -53,7 +53,9 @@ import {
 	count as countKnowledgeItems,
 	create as createKnowledgeItem,
 	findOpenConflict as findOpenKnowledgeConflict,
+	GraduationNotAllowedError,
 	get as getKnowledgeItem,
+	graduate as graduateKnowledgeItem,
 	ItemDeletedError,
 	transition as knowledgeTransition,
 	list as listKnowledgeItems,
@@ -871,6 +873,100 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
 		return c.json(result);
+	});
+
+	// POST /:id/graduate — narrow transition that moves a produced item into the knowledge tree.
+	//
+	// Only allowed when:
+	//   - role is `ordinary` (skills/rules/prompts/agent_files cannot be reparented here)
+	//   - current parentKind is `task` or `thread` (that is what "produced item" means)
+	//   - newParentId names an existing knowledge item, or is absent (top of tree)
+	//   - item cannot graduate onto itself
+	//
+	// @lore graduation: this is the one path that writes parentKind/parentId after
+	// create, and it is deliberately narrow. The generic PATCH omits parent so a
+	// person cannot repoint a routine prompt or an agent identity. This endpoint
+	// carries its own preconditions to preserve that guarantee.
+	const graduateSchema = z.object({
+		version: z.number().int().positive(),
+		updatedBy: z.string().min(1),
+		newParentKind: z.literal("knowledge_item").optional(),
+		newParentId: z.string().min(1).optional(),
+	});
+	router.post("/:id/graduate", validateBody(graduateSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof graduateSchema>;
+
+		const existing = await getKnowledgeItem(db, id);
+		if (!existing) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		// Optimistic locking: early check so the error message is specific.
+		if (existing.version !== body.version) {
+			const response: ApiErrorResponse = {
+				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
+				code: API_ERROR_CODES.CONFLICT,
+				details: { currentVersion: existing.version },
+			};
+			return c.json(response, 409);
+		}
+
+		// Both-or-neither: a kind with no id is ambiguous, an id with no kind is too.
+		if ((body.newParentKind === undefined) !== (body.newParentId === undefined)) {
+			const response: ApiErrorResponse = {
+				error: "newParentKind and newParentId must be given together",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
+		// When a knowledge-item parent is named, it must exist.
+		if (body.newParentKind === "knowledge_item" && body.newParentId !== undefined) {
+			const target = await getKnowledgeItem(db, body.newParentId);
+			if (!target) {
+				const response: ApiErrorResponse = {
+					error: `no knowledge_item with id '${body.newParentId}'`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+		}
+
+		try {
+			const updated = await graduateKnowledgeItem(
+				db,
+				id,
+				{
+					newParentKind: body.newParentKind ?? null,
+					newParentId: body.newParentId ?? null,
+					updatedBy: body.updatedBy,
+				},
+				body.version,
+			);
+			return c.json(updated);
+		} catch (error) {
+			if (error instanceof GraduationNotAllowedError) {
+				const response: ApiErrorResponse = {
+					error: error.reason,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+			if (error instanceof VersionConflictError) {
+				const response: ApiErrorResponse = {
+					error: `Version conflict: expected ${body.version}, current is ${error.currentVersion}`,
+					code: API_ERROR_CODES.CONFLICT,
+					details: { currentVersion: error.currentVersion },
+				};
+				return c.json(response, 409);
+			}
+			throw error;
+		}
 	});
 
 	// POST /sweep — agent-callable knowledge sweep (BA9d: replaces dead builtin routine path).
