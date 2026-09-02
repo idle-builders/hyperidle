@@ -58,3 +58,50 @@ approving it and declining it and seeing what happens each way. On all four harn
 - A classifier. Maintained lists are dated and a classifier is the modern answer, but that is a later
   point — for now it is a list.
 - Anything that is not BA2 core.
+
+## How it works
+
+Someone adds a rule in settings. Until then nothing is interrupted.
+
+When a session is provisioned for an agent on a task, we resolve the rules that apply to it and write
+the gate into the sandbox — in each harness's own shape, because harness features are files and
+writing one harness's shape into another fails silently. We own that whole filesystem, so the gate is
+ours to place, and the session's prompt tells the agent once that some actions need a person and how
+to ask.
+
+The agent works. Every tool call it makes goes past the gate, which asks us whether this one is
+allowed. Almost always it is, and nothing happens. When a rule matches, the call is refused and the
+agent is told, as a plain statement of fact, which rule stopped it — nothing more. The instruction
+for what to do about it is already in its prompt, because an imperative arriving in a refusal is a
+message a model can reasonably distrust.
+
+The agent then makes its case as a review — what it has done, what it wants to do next, why, with
+real artifacts — and its session ends. The review lands in the thread the task already has, or in one
+attached to the task. Then it sits. Nothing chases it and nothing expires; an unanswered review is
+human working hygiene, like any other.
+
+When a human approves, that kind of action is cleared and the agent's own session is resumed carrying
+the verdict. It retries, the gate lets it through, and it carries on until it decides it is done. A
+decline resumes it too, with the reasoning — the rule stays in force, because what was declined is
+the solution, not the task, and the agent keeps working toward the same goal another way.
+
+**Why this way.** A held session would be simpler, and every harness can in fact hold a tool call for
+minutes — but a human may take days and a held process does not survive a restart. Resuming the
+agent's own session also means the verdict arrives as a real turn from the human rather than a claim
+about one, which an earlier attempt tried and a real agent refused as suspected injection.
+
+**What it leans on.** The rules table and its settings surface, the review product and its canvases,
+the session handles each harness already reports, and the provisioning step that writes the sandbox.
+
+**Deliberately simple.** The list is a list a human maintains. Rules name tools, so an agent that
+reaches the same outcome through a different tool is behaving normally — this gates a cooperative
+agent, not a determined one, and outcome-level enforcement would need the classifier we have already
+set aside. We do not monitor whether a gate is alive: a gate that fails is a session that failed, and
+session health is a general concern we will want anyway, not something this package invents for
+itself. We are not strict about exactly when a granted permission is used up.
+
+**One thing the harnesses force.** The set of currently-cleared actions lives beside the gate as data
+it re-reads on every call, never inside the gate's own configuration — changing that configuration
+disarms the gate outright on one harness and is ignored until restart on another. And on one harness
+a refusal has to name a pattern rather than a whole tool, because refusing the whole tool removes it
+from the model's view and the agent never learns there was a rule to ask about.
