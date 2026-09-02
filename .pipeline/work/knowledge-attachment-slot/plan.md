@@ -314,6 +314,35 @@ concerns collapse under it:
   (`tools/setup/src/demo-fixture.ts:124`). State the change and pin it in a test;
   do not add a migration branch for data nothing creates.
 
+## Accepted limitations and residual risks
+
+Folded from the architecture at ship. These explain why the code looks the way it
+does; the round-by-round design that produced them is gone with the file.
+
+- **An ordinary note can no longer be promoted to a skill.** That follows directly
+  from role becoming create-only, and it is the price of closing two defects the
+  first critique found — a person could otherwise change a routine prompt's role
+  away from `prompt` (the routine then silently runs on its name) or promote an
+  ordinary note into a stray one. Worth confirming nobody relied on the promotion
+  path.
+- **The migration labels a human user's `agent_file` as `parent_kind='agent'`.**
+  `scope_kind='user'` does not distinguish an agent from a person, and knowledge
+  cannot tell from inside its own vocabulary — reading `users` is a boundary
+  `visibleToViewer`'s `@lore` already refuses to cross. Cosmetic today: nothing
+  reads `parent_kind='agent'` except identity resolution, which looks up an agent
+  id it already has. It would matter if a surface ever listed "all agents with an
+  identity" off the parent column.
+- **`getRoutinePrompt` is a required port, not an optional one.** Chosen
+  deliberately: `ports.ts` records the exact bug an optional port caused before —
+  two sites wired nothing, compiled clean, and baked no identity. A routine
+  silently running with no instruction is the same failure, so the compiler is
+  made to name every wiring site.
+- **A team-scoped `agent_file` would change behaviour** (silently inert before,
+  delivered to every session in the team after) and no backfill can fix it, since
+  the row names no agent. Unreachable in practice — all three writers hard-code
+  `scopeKind: 'user'` — so it is pinned by a test rather than handled in the
+  migration.
+
 ## Status
 
 **Refine COMPLETE.** Scope, mechanism, role semantics, parent vocabulary, the
