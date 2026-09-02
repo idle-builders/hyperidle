@@ -27,7 +27,7 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 
-import { insertThread } from "@hyperidle/conversation";
+import { findThread, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
@@ -181,6 +181,13 @@ function requiresScopeId(kind: string): boolean {
 	return SCOPES_REQUIRING_ID.has(kind as Parameters<typeof SCOPES_REQUIRING_ID.has>[0]);
 }
 
+/**
+ * The parent kinds a client may name. A deliberate subset of
+ * `KNOWLEDGE_PARENT_KINDS` — see `createKnowledgeSchema.parentKind`.
+ */
+const CLIENT_WRITABLE_PARENT_KINDS = ["task", "thread"] as const;
+type ClientWritableParentKind = (typeof CLIENT_WRITABLE_PARENT_KINDS)[number];
+
 const createKnowledgeSchema = z.object({
 	// AU21 §9 Increment 2 (knowledge wave): widened to accept an explicit
 	// `null` alongside `undefined` — `write_memory`'s seam call always passes
@@ -212,7 +219,42 @@ const createKnowledgeSchema = z.object({
 	 * has always produced.
 	 */
 	role: z.enum(KNOWLEDGE_ROLES).optional(),
+	/**
+	 * Where the item hangs. A produced item — what used to be an artifact row —
+	 * is a knowledge item whose parent is the task or the conversation that
+	 * produced it.
+	 *
+	 * Only `task` and `thread` are accepted from a client. The other three
+	 * parent kinds in `KNOWLEDGE_PARENT_KINDS` (`knowledge_item`, `routine`,
+	 * `agent`) are written exclusively by core-api's own routes, which already
+	 * hold the parent row for other reasons and so never need a client to name
+	 * it. Accepting them here would be a way to forge a routine's prompt or an
+	 * agent's identity from outside.
+	 */
+	parentKind: z.enum(CLIENT_WRITABLE_PARENT_KINDS).optional(),
+	parentId: z.string().optional(),
 });
+
+/**
+ * Confirm a named parent actually exists, asking the service that OWNS its
+ * table rather than reading that table here — `work` for a task,
+ * `conversation` for a thread. Both are already imported by this route, so
+ * this costs no new dependency.
+ *
+ * The slot carries no foreign key (it points at five tables), so this check is
+ * the only thing standing between a typo and a knowledge item hanging off
+ * nothing.
+ */
+async function parentExists(
+	db: HyperIdleDb,
+	kind: ClientWritableParentKind,
+	id: string,
+): Promise<boolean> {
+	if (kind === "task") {
+		return (await work.get(db, "task", id)) !== undefined;
+	}
+	return (await findThread(db, { id })) !== undefined;
+}
 
 const updateKnowledgeSchema = z.object({
 	version: z.number(),
@@ -453,6 +495,28 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 400);
 		}
 
+		// The parent is both-or-neither: a kind with no id names nowhere, and an
+		// id with no kind names five tables at once. The column constraint
+		// (`ki_parent_pair_ck`) says the same thing, but a 500 from a constraint
+		// violation is a worse answer than a 400 that says which half is missing.
+		if ((body.parentKind === undefined) !== (body.parentId === undefined)) {
+			const response: ApiErrorResponse = {
+				error: "parentKind and parentId must be given together",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
+		if (body.parentKind !== undefined && body.parentId !== undefined) {
+			if (!(await parentExists(db, body.parentKind, body.parentId))) {
+				const response: ApiErrorResponse = {
+					error: `no ${body.parentKind} with id '${body.parentId}'`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+		}
+
 		// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
 		const resolvedScopeId =
 			body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
@@ -480,6 +544,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// O2: default status is "draft" (was "captured" in old implementation)
 			status: body.status ?? "draft",
 			role: body.role,
+			parentKind: body.parentKind,
+			parentId: body.parentId,
 			updatedBy: body.updatedBy,
 		});
 
