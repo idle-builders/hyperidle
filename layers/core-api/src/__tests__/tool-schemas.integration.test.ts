@@ -18,7 +18,6 @@ const EXPECTED_TOOL_NAMES = [
 	"create_item",
 	"handoff_to",
 	"log_task",
-	"query_practice",
 	"send_message",
 	// AU27 Increment 2: the generic reply tool.
 	"reply",

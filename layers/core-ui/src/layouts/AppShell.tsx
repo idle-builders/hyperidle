@@ -564,7 +564,12 @@ export function AppShell(): JSX.Element {
 	const sidebarKnowledgeItems = useMemo(
 		() =>
 			(knowledgeListData?.items ?? [])
-				.filter((k) => k.parentKind === null || k.parentKind === undefined || k.parentKind === "knowledge_item")
+				.filter(
+					(k) =>
+						k.parentKind === null ||
+						k.parentKind === undefined ||
+						k.parentKind === "knowledge_item",
+				)
 				.slice(0, 5)
 				.map((k) => ({ id: k.id, title: k.title })),
 		[knowledgeListData],

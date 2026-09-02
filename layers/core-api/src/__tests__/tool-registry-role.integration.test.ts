@@ -72,7 +72,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(names.has("send_message")).toBe(true);
 		expect(names.has("reply")).toBe(true);
 		expect(names.has("log_task")).toBe(true);
-		expect(names.has("query_practice")).toBe(true);
 		expect(names.has("write_memory")).toBe(true);
 		expect(names.has("handoff_to")).toBe(true);
 		expect(names.has("create_item")).toBe(true);
@@ -111,7 +110,9 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// @lore BB1: create_bet + edit_bet deleted, edit_task added → 22 → 21.
-	test("B3: assistant registry includes all 21 tools", ({ db, app }) => {
+	// @lore nested-knowledge-items: query_practice deleted → 21 → 20 (its
+	// only filter was `layer === 'L3'`, and layer is gone).
+	test("B3: assistant registry includes all 20 tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR),
 			makeContext(db),
@@ -124,7 +125,8 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// + 1 AU27 Increment 2: reply = 18
 		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
 		// + 1 BA9d wave 3: run_knowledge_sweep = 21
-		expect(names).toHaveLength(21);
+		// nested-knowledge-items: query_practice deleted = 20
+		expect(names).toHaveLength(20);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}

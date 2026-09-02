@@ -129,8 +129,10 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.version).toBe(1);
-			// @lore O2: status default is "draft" (was "captured" pre-O2)
-			expect(body.status).toBe("draft");
+			// @lore nested-knowledge-items: status default is "proposed" (was
+			// "draft" post-O2, "captured" pre-O2 — draft/captured/provisional all
+			// fold into proposed now).
+			expect(body.status).toBe("proposed");
 			expect(body.id).toBeTruthy();
 		});
 

@@ -416,20 +416,20 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-promote");
 		await seedAgent(db, "agent-know-promote1");
-		await seedKnowledgeItem(db, { id: "ki-promote-1", status: "provisional" });
+		await seedKnowledgeItem(db, { id: "ki-promote-1", status: "proposed" });
 
 		const port = buildSeamPort("agent-know-promote1", app);
 		const result = await port.knowledge.promoteKnowledgeItem({
 			knowledgeItemId: "ki-promote-1",
-			fromStatus: "provisional",
-			toStatus: "validated",
+			fromStatus: "proposed",
+			toStatus: "active",
 			reason: "reviewed and confirmed",
 			editor: "agent:agent-know-promote1",
 		});
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.fromStatus).toBe("provisional");
+			expect(result.fromStatus).toBe("proposed");
 		}
 
 		const [row] = await db
@@ -437,7 +437,7 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, "ki-promote-1"))
 			.limit(1);
-		expect(row?.status).toBe("validated");
+		expect(row?.status).toBe("active");
 	});
 
 	test("promoteKnowledgeItem to 'validated' with an open conflict returns the domain CONFLICT_OPEN result (no throw, no state change)", async ({
@@ -446,7 +446,7 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-promote-conflict");
 		await seedAgent(db, "agent-know-promote2");
-		await seedKnowledgeItem(db, { id: "ki-promote-2", status: "provisional" });
+		await seedKnowledgeItem(db, { id: "ki-promote-2", status: "proposed" });
 		await db.insert(knowledgeConflicts).values({
 			id: "conflict-blocking-1",
 			itemId: "ki-promote-2",
@@ -461,8 +461,8 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 		const port = buildSeamPort("agent-know-promote2", app);
 		const result = await port.knowledge.promoteKnowledgeItem({
 			knowledgeItemId: "ki-promote-2",
-			fromStatus: "provisional",
-			toStatus: "validated",
+			fromStatus: "proposed",
+			toStatus: "active",
 			reason: undefined,
 			editor: "agent:agent-know-promote2",
 		});
@@ -477,7 +477,7 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, "ki-promote-2"))
 			.limit(1);
-		expect(row?.status).toBe("provisional");
+		expect(row?.status).toBe("proposed");
 	});
 });
 

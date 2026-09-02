@@ -690,7 +690,10 @@ export function KnowledgeList({
 	const allItems = useMemo<ApiKnowledgeItem[]>(
 		() =>
 			(apiData?.items ?? []).filter(
-				(item) => item.parentKind === null || item.parentKind === undefined || item.parentKind === "knowledge_item",
+				(item) =>
+					item.parentKind === null ||
+					item.parentKind === undefined ||
+					item.parentKind === "knowledge_item",
 			),
 		[apiData],
 	);

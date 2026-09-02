@@ -3,10 +3,19 @@
  *
  * AC-1: team-scoped item returns scopeName === team name (not bucket word, not UUID).
  * AC-2: scopeName present for factory/"Factory", user/name, team/name, missing→fallback.
- * AV3 amendment: practice→role label, filesystem→composed display name.
  * AU26 F2 (founder ruling): the filesystem scope kind is DELETED — the string
  * now resolves through the unknown-kind fallback, and this route no longer
  * reads `filesystems` at all.
+ *
+ * @lore nested-knowledge-items: `resolveScopeName`'s bet/task/product/practice
+ * branches are DELETED with those scope values — `bet`/`task`/`product` had
+ * their own entity-lookup branch (root task title, task title, "Team"
+ * literal), `practice` had a role-label lookup (AV3 amendment). All five
+ * tests that exercised them are deleted, not adapted: there is no
+ * replacement behavior to assert, only the shared unknown-kind fallback
+ * every retired scope value now resolves through (see the
+ * `filesystem`-scoped and `practice`-with-null-scopeId cases below, both of
+ * which already tested that fallback and needed no change).
  *
  * Uses real DB + real Hono app fixtures.
  */
@@ -15,7 +24,6 @@ import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
-	tasks,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -141,79 +149,6 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 		expect(body.scopeName).toBe("Backend Squad");
 	});
 
-	test("bet item returns scopeName = truncated description", async ({ db, app }) => {
-		// Create bet (requires team)
-		const teamId = crypto.randomUUID();
-		await db.insert(teams).values({
-			id: teamId,
-			name: "Alpha",
-			phase: "active",
-			createdAt: new Date().toISOString(),
-		});
-		const rootTaskId = crypto.randomUUID();
-		await db.insert(tasks).values({
-			id: rootTaskId,
-			parentTaskId: null,
-			teamId: teamId,
-			title: "Ship the new onboarding flow",
-			description: "Ship the new onboarding flow",
-			state: "in_progress",
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		});
-		const id = await createKnowledgeItem(db, { scopeKind: "bet", scopeId: rootTaskId });
-		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.scopeName).toBe("Ship the new onboarding flow");
-	});
-
-	test("task item returns scopeName = task title", async ({ db, app }) => {
-		// Create team + bet + task
-		const teamId = crypto.randomUUID();
-		await db.insert(teams).values({
-			id: teamId,
-			name: "Beta",
-			phase: "active",
-			createdAt: new Date().toISOString(),
-		});
-		const rootTaskId = crypto.randomUUID();
-		await db.insert(tasks).values({
-			id: rootTaskId,
-			parentTaskId: null,
-			teamId: teamId,
-			title: "Build auth",
-			description: "Build auth",
-			state: "in_progress",
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		});
-		const now = new Date().toISOString();
-		const taskId = crypto.randomUUID();
-		await db.insert(tasks).values({
-			id: taskId,
-			parentTaskId: rootTaskId,
-			teamId,
-			title: "Implement JWT refresh",
-			state: "active",
-			createdAt: now,
-			updatedAt: now,
-		});
-		const id = await createKnowledgeItem(db, { scopeKind: "task", scopeId: taskId });
-		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.scopeName).toBe("Implement JWT refresh");
-	});
-
-	test("product scope (no table) returns scopeName = 'Team'", async ({ db, app }) => {
-		const id = await createKnowledgeItem(db, { scopeKind: "product", scopeId: "any-id" });
-		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.scopeName).toBe("Team");
-	});
-
 	test("practice scope null scopeId → 'Shared' fallback (AV3 amendment: role-label path, no id → fallback)", async ({
 		db,
 		app,
@@ -253,35 +188,6 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 		expect(body).toHaveProperty("scopeId");
 		expect(body).toHaveProperty("scopeName");
 		expect(body.scopeName).toBe("Factory");
-	});
-
-	// AV3 amendment A1 — practice → role label
-	test("practice item with known role scopeId returns role label (product_manager → 'Product Manager')", async ({
-		db,
-		app,
-	}) => {
-		const id = await createKnowledgeItem(db, {
-			scopeKind: "practice",
-			scopeId: "product_manager",
-		});
-		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.scopeName).toBe("Product Manager");
-	});
-
-	test("practice item with unknown role scopeId returns title-cased label (growth_hacker → 'Growth Hacker')", async ({
-		db,
-		app,
-	}) => {
-		const id = await createKnowledgeItem(db, {
-			scopeKind: "practice",
-			scopeId: "growth_hacker",
-		});
-		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.scopeName).toBe("Growth Hacker");
 	});
 
 	// AU26 F2 (founder ruling): the `filesystem` scope kind is DELETED. An item

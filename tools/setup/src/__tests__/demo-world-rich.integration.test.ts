@@ -191,26 +191,23 @@ describe("AX1: lived-in demo world", () => {
 	test("knowledge corpus fills curated + triage with provenance and logs", async ({ db }) => {
 		await seedWorld(db);
 
+		// nested-knowledge-items: the practice-folder items (`demo-ki-practice-*`)
+		// also match `id LIKE 'demo-%'`, so this bound still holds comfortably.
 		expect(await count(db, "knowledge_items", "WHERE id LIKE 'demo-%'")).toBeGreaterThanOrEqual(35);
 
-		// Triage queue: items a human must look at (the triage query counts
-		// draft + needs_human — the kernel statuses a facilitator triages).
-		expect(
-			await count(db, "knowledge_items", "WHERE status IN ('draft','needs_human')"),
-		).toBeGreaterThanOrEqual(3);
+		// Triage queue: items a human must look at.
+		// @lore nested-knowledge-items: the status ladder collapsed — draft/
+		// captured/provisional/needs_human all fold into `proposed` now.
+		expect(await count(db, "knowledge_items", "WHERE status = 'proposed'")).toBeGreaterThanOrEqual(
+			3,
+		);
 
-		// Variety of scopes and kinds.
+		// Variety of scopes.
 		const scopes = await rows<{ scope_kind: string }>(
 			db,
 			"SELECT DISTINCT scope_kind FROM knowledge_items WHERE id LIKE 'demo-%'",
 		);
-		expect(scopes.length).toBeGreaterThanOrEqual(4);
-		const kinds = await rows<{ kind: string }>(
-			db,
-			`SELECT DISTINCT p.kind FROM knowledge_app_projection p
-			  JOIN knowledge_items k ON k.id = p.knowledge_item_id WHERE k.id LIKE 'demo-%'`,
-		);
-		expect(kinds.length).toBeGreaterThanOrEqual(5);
+		expect(scopes.length).toBeGreaterThanOrEqual(3);
 
 		// Every demo item has a projection row; at least one open conflict; edit + access logs.
 		const missingProjection = await rows<{ id: string }>(
@@ -226,13 +223,15 @@ describe("AX1: lived-in demo world", () => {
 		expect(await count(db, "knowledge_edit_log")).toBeGreaterThanOrEqual(3);
 		expect(await count(db, "knowledge_access_log")).toBeGreaterThanOrEqual(5);
 
-		// Provenance loop: a done/killed root task produced a retro item scoped to it.
-		// @lore BB1: scope_kind was 'bet', now 'task' — the scope_id points at a root task row.
+		// Provenance loop: a done/killed root task produced a retro item under it.
+		// @lore nested-knowledge-items: task-scoped items are no longer
+		// `scope_kind='task'` — they are `parent_kind='task'`/`parent_id=<taskId>`,
+		// factory-scoped (D4/architecture §7 step 7).
 		const retro = await rows<{ id: string }>(
 			db,
 			`SELECT k.id FROM knowledge_items k
-			  JOIN tasks t ON t.id = k.scope_id
-			  WHERE k.scope_kind = 'task' AND t.parent_task_id IS NULL AND t.state IN ('done','killed')`,
+			  JOIN tasks t ON t.id = k.parent_id
+			  WHERE k.parent_kind = 'task' AND t.parent_task_id IS NULL AND t.state IN ('done','killed')`,
 		);
 		expect(retro.length).toBeGreaterThanOrEqual(1);
 	});
