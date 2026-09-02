@@ -277,51 +277,49 @@ export function SettingsHarnesses(): JSX.Element {
 						</div>
 					</div>
 
-					{/* @lore FR-14: contract = hairline-border container, no shadow. */}
-					{/* Backend rows */}
-					<div className="border-width-thin border-[var(--border-subtle)] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] overflow-hidden">
-						<ItemList as="ul" isEmpty={sorted.length === 0} variant="flush">
-							{sorted.map((descriptor) => {
-								const sl = statusLine(descriptor);
-								const clickable = hasDetail(descriptor);
-								// @lore AZ7 E7: Status → RowTone mapping mirrors the
-								// original hand-rolled ladder exactly (healthy→success,
-								// behind→warning, error|blocked→error, else→info); the dot itself
-								// is now RowDot, not a private span + private color ladder.
-								const dotTone =
-									sl.tone === "healthy"
-										? ("success" as const)
-										: sl.tone === "behind"
-											? ("warning" as const)
-											: sl.tone === "error" || sl.tone === "blocked"
-												? ("error" as const)
-												: ("info" as const);
-								const titleNode = (
-									<span className="flex items-center gap-[6px]">
-										<span className="type-copy   text-[var(--text-primary)]">
-											{descriptor.name}
-										</span>
-										{descriptor.discovery.version && (
-											<span className="type-data   text-[var(--text-tertiary)]">
-												v{descriptor.discovery.version}
-											</span>
-										)}
+					{/* Backend rows — variant="boxed" is the one hairline-border-container
+					    spelling (ItemList.tsx), shared with KnowledgeRoleList. */}
+					<ItemList as="ul" isEmpty={sorted.length === 0} variant="boxed">
+						{sorted.map((descriptor) => {
+							const sl = statusLine(descriptor);
+							const clickable = hasDetail(descriptor);
+							// @lore AZ7 E7: Status → RowTone mapping mirrors the
+							// original hand-rolled ladder exactly (healthy→success,
+							// behind→warning, error|blocked→error, else→info); the dot itself
+							// is now RowDot, not a private span + private color ladder.
+							const dotTone =
+								sl.tone === "healthy"
+									? ("success" as const)
+									: sl.tone === "behind"
+										? ("warning" as const)
+										: sl.tone === "error" || sl.tone === "blocked"
+											? ("error" as const)
+											: ("info" as const);
+							const titleNode = (
+								<span className="flex items-center gap-[6px]">
+									<span className="type-copy   text-[var(--text-primary)]">
+										{descriptor.name}
 									</span>
-								);
-								return (
-									<Row
-										key={descriptor.type}
-										as="li"
-										title={titleNode}
-										subtitle={sl.text}
-										lead={<RowDot tone={dotTone} title={sl.text} />}
-										selected={selectedType === descriptor.type}
-										onClick={clickable ? () => handleRowClick(descriptor) : undefined}
-									/>
-								);
-							})}
-						</ItemList>
-					</div>
+									{descriptor.discovery.version && (
+										<span className="type-data   text-[var(--text-tertiary)]">
+											v{descriptor.discovery.version}
+										</span>
+									)}
+								</span>
+							);
+							return (
+								<Row
+									key={descriptor.type}
+									as="li"
+									title={titleNode}
+									subtitle={sl.text}
+									lead={<RowDot tone={dotTone} title={sl.text} />}
+									selected={selectedType === descriptor.type}
+									onClick={clickable ? () => handleRowClick(descriptor) : undefined}
+								/>
+							);
+						})}
+					</ItemList>
 				</div>
 			}
 			destination={

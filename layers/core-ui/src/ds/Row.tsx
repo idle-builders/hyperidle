@@ -27,7 +27,7 @@ import { dsProps } from "./ds-attrs.js";
 // ---------------------------------------------------------------------------
 
 export interface ItemListContextValue {
-	variant: "contained" | "flush";
+	variant: "contained" | "flush" | "boxed";
 	as: "div" | "ul";
 }
 
@@ -144,8 +144,9 @@ export function Row({
 }: RowProps): JSX.Element {
 	const { variant } = useContext(ItemListContext);
 
-	// padding: flush variant → px-[24px]; contained → px-[6px]
-	const px = variant === "flush" ? "px-[24px]" : "px-[6px]";
+	// padding: contained → px-[6px]; flush/boxed (a boxed list's rows are
+	// flush inside the box) → px-[24px]
+	const px = variant === "contained" ? "px-[6px]" : "px-[24px]";
 
 	// selected state classes
 	const selectedClasses = selected

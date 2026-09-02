@@ -7,7 +7,7 @@ export default {
 	title: "ItemList",
 	tier: "2" as const,
 	uses: ["Row", "RowDot", "EmptyState", "SkeletonList", "ErrorState"],
-	order: ["Populated", "Empty", "Loading", "Error", "Flush", "AsUl"],
+	order: ["Populated", "Empty", "Loading", "Error", "Flush", "Boxed", "AsUl"],
 };
 
 export const Populated = (): React.JSX.Element => (
@@ -62,6 +62,13 @@ export const Flush = (): React.JSX.Element => (
 			onClick={() => {}}
 		/>
 		<Row title="User Interview Notes" subtitle="Interview notes" onClick={() => {}} />
+	</ItemList>
+);
+
+export const Boxed = (): React.JSX.Element => (
+	<ItemList isEmpty={false} variant="boxed">
+		<Row title="claude-code" subtitle="Ready" onClick={() => {}} />
+		<Row title="codex" subtitle="Unauthenticated" onClick={() => {}} />
 	</ItemList>
 );
 
