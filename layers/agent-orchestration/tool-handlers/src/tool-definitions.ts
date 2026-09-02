@@ -1495,11 +1495,11 @@ const createArtifactInputSchema = z.object({
 		),
 });
 
-type CreateArtifactInput = z.infer<typeof createArtifactInputSchema>;
+type CreateKnowledgeItemInput = z.infer<typeof createArtifactInputSchema>;
 
 function makeCreateArtifactTool<TDb>(
 	ports: ToolHandlersPorts,
-): ToolDefinition<CreateArtifactInput, TDb> {
+): ToolDefinition<CreateKnowledgeItemInput, TDb> {
 	return {
 		name: "create_artifact",
 		description:

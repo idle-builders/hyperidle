@@ -48,7 +48,7 @@ const FAKE_REVIEW_MESSAGE = {
 	payload: {
 		title: "Pricing overhaul",
 		reasoning: ["Step one", "Step two", "Step three"],
-		artifactRef: { id: "art-1", kind: "text_diff" },
+		producedItemId: "art-1",
 	},
 };
 

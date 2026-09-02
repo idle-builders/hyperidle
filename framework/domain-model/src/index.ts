@@ -93,7 +93,6 @@ export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 // Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
 // unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
-export { ARTIFACT_KINDS, getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
 export type {
 	KnowledgeAccessorKind,
 	KnowledgeKind,
@@ -192,7 +191,6 @@ export type {
 export type {
 	AgentSessionStateSnapshot,
 	AnchorRef,
-	ArtifactRef,
 	AssistantNotice,
 	// BlockId + BlockHostKind: wire types embedded in AnchorRef; inlined in
 	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).

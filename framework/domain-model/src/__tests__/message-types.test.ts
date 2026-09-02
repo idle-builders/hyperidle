@@ -87,7 +87,7 @@ describe("AC-4 / AC-11 — message-type discriminant exhaustiveness", () => {
 			payload: {
 				title: "t",
 				reasoning: ["r"],
-				artifactRef: { id: "a", kind: "text_diff" },
+				producedItemId: "a",
 			},
 		};
 		const qMsg: Message = {

@@ -174,10 +174,10 @@ export type InlineRef = EntityRef | MentionRef;
  * `z.enum(ARTIFACT_KINDS)` (`threads-schema.ts`) and `submit_review`'s own
  * copy (`tool-definitions.ts`).
  */
-export interface ArtifactRef {
-	readonly id: string;
-	readonly kind?: string;
-}
+// `ArtifactRef` is DELETED. It pointed at a row in the `artifacts` table, and
+// that table is gone — produced content is a knowledge item, referenced by its
+// own id. `ReviewPayload.producedItemId` replaces it; the `kind` it carried is
+// derived from the item's blocks at render time and is not stored anywhere.
 
 /**
  * AD8b: ToolCallSummary — metadata for a single tool invocation by the assistant.
@@ -230,8 +230,15 @@ export interface PlainPayload {
 export interface ReviewPayload {
 	readonly title: string;
 	readonly reasoning: ReadonlyArray<string>;
-	/** @lore optional — a canvas-only review (see `artifacts` below) has no stored artifact to reference at all. */
-	readonly artifactRef?: ArtifactRef;
+	/**
+	 * The produced item under review — a knowledge item id.
+	 *
+	 * @lore optional: a canvas-only review (see `artifacts` below) references no
+	 * produced item at all. Replaces the deleted `artifactRef`, which pointed at
+	 * a row in a table that no longer exists and carried a `kind` that is now
+	 * derived from the item's own blocks rather than stored.
+	 */
+	readonly producedItemId?: string;
 	/**
 	 * @lore The primary canvas channel — an agent attaches canvas payloads
 	 * directly, with no stored artifact required. Byte-identical to what the

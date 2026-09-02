@@ -42,7 +42,7 @@ function reviewMsg(reasoning: ReadonlyArray<string>): Message {
 		payload: {
 			title: "Approve deploy of v2.4 to staging",
 			reasoning,
-			artifactRef: { id: "art-1", kind: "text_diff" },
+			producedItemId: "art-1",
 		},
 	};
 }

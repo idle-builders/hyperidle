@@ -22,4 +22,4 @@ describe("L18 — plain message payload with blockId", () => {
 		expect(payload.text).toBe("Regular message");
 		expect((payload as { blockId?: string }).blockId).toBeUndefined();
 	});
-})
+});

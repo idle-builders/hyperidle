@@ -1450,8 +1450,6 @@ export type KnowledgeItem = typeof knowledgeItems.$inferSelect;
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
-
-
 export type ServerCredential = typeof serverCredentials.$inferSelect;
 
 export type PluginRow = typeof plugins.$inferSelect;

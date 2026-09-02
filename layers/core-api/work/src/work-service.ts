@@ -237,11 +237,7 @@ export function get<E extends WorkEntity>(
 	entity: E,
 	id: string,
 ): Promise<WorkEntityRowMap[E] | undefined>;
-export async function get(
-	exec: WriteExecutor,
-	entity: WorkEntity,
-	id: string,
-): Promise<unknown> {
+export async function get(exec: WriteExecutor, entity: WorkEntity, id: string): Promise<unknown> {
 	switch (entity) {
 		case "task": {
 			const [row] = await exec.select().from(tasks).where(eq(tasks.id, id)).limit(1);
@@ -408,7 +404,6 @@ export async function list(
 		// A bare-createdSince path would silently bypass the policy_queued filter.
 		return exec.select().from(items);
 	}
-
 
 	return [];
 }
@@ -604,7 +599,6 @@ function buildTaskGuardCond(guard: TransitionGuard): SQL {
 	throw new Error(`Unknown task field for transition guard: ${guard.field}`);
 }
 
-
 // -- maxSiblingPosition() -----------------------------------------------------
 
 /**
@@ -650,7 +644,8 @@ export async function create<E extends WorkEntity>(
 			return;
 		case "item":
 			await exec.insert(items).values(values as NewItem);
-			return;	}
+			return;
+	}
 }
 
 // -- update() -----------------------------------------------------------------

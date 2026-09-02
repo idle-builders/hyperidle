@@ -82,132 +82,125 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 	};
 }
 
+// AC2 fallback: plain message when no artifactRef
+describe("AC2: fallback plain message without artifactRef", () => {
+	test("creates plain-type fallback message when no artifactRef provided", async ({ db, app }) => {
+		const submitReviewTool = buildSubmitReviewTool(app);
+		await seed(db);
+		const result = await submitReviewTool.handler(
+			{
+				title: "Work complete",
+				reasoning: ["All tests pass"],
+			},
+			makeContext(db),
+		);
 
-	// AC2 fallback: plain message when no artifactRef
-	describe("AC2: fallback plain message without artifactRef", () => {
-		test("creates plain-type fallback message when no artifactRef provided", async ({
-			db,
-			app,
-		}) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
-			await seed(db);
-			const result = await submitReviewTool.handler(
-				{
-					title: "Work complete",
-					reasoning: ["All tests pass"],
-				},
-				makeContext(db),
-			);
+		expect(result.success).toBe(true);
+		if (!result.success) return;
 
-			expect(result.success).toBe(true);
-			if (!result.success) return;
+		const data = result.data as { messageId: string };
+		const [msg] = await db.select().from(messages).where(eq(messages.id, data.messageId));
+		expect(msg).toBeDefined();
+		expect(msg?.type).toBe("plain");
 
-			const data = result.data as { messageId: string };
-			const [msg] = await db.select().from(messages).where(eq(messages.id, data.messageId));
-			expect(msg).toBeDefined();
-			expect(msg?.type).toBe("plain");
+		const payload = JSON.parse(msg?.payload ?? "{}") as { text: string };
+		expect(payload.text).toContain("Review requested");
+		expect(payload.text).toContain("Work complete");
+	});
+});
 
-			const payload = JSON.parse(msg?.payload ?? "{}") as { text: string };
-			expect(payload.text).toContain("Review requested");
-			expect(payload.text).toContain("Work complete");
-		});
+// Thread reuse: second call reuses existing task thread
+describe("thread reuse", () => {
+	test("second call reuses existing task thread (idempotent thread creation)", async ({
+		db,
+		app,
+	}) => {
+		const submitReviewTool = buildSubmitReviewTool(app);
+		await seed(db);
+		const first = await submitReviewTool.handler(
+			{ title: "First review", reasoning: ["Reason A"] },
+			makeContext(db),
+		);
+		const second = await submitReviewTool.handler(
+			{ title: "Second review", reasoning: ["Reason B"] },
+			makeContext(db),
+		);
+
+		expect(first.success).toBe(true);
+		expect(second.success).toBe(true);
+		if (!(first.success && second.success)) return;
+
+		const d1 = first.data as { threadId: string };
+		const d2 = second.data as { threadId: string };
+		expect(d1.threadId).toBe(d2.threadId);
 	});
 
-	// Thread reuse: second call reuses existing task thread
-	describe("thread reuse", () => {
-		test("second call reuses existing task thread (idempotent thread creation)", async ({
-			db,
-			app,
-		}) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
-			await seed(db);
-			const first = await submitReviewTool.handler(
-				{ title: "First review", reasoning: ["Reason A"] },
-				makeContext(db),
-			);
-			const second = await submitReviewTool.handler(
-				{ title: "Second review", reasoning: ["Reason B"] },
-				makeContext(db),
-			);
-
-			expect(first.success).toBe(true);
-			expect(second.success).toBe(true);
-			if (!(first.success && second.success)) return;
-
-			const d1 = first.data as { threadId: string };
-			const d2 = second.data as { threadId: string };
-			expect(d1.threadId).toBe(d2.threadId);
+	test("adds agent to participants when existing task thread does not include agent", async ({
+		db,
+		app,
+	}) => {
+		const submitReviewTool = buildSubmitReviewTool(app);
+		await seed(db);
+		// Founder ruling 7: the review anchors on the TASK's thread — create
+		// a task thread (not a bet thread) that does NOT include agent-a.
+		await db.insert(threads).values({
+			id: "existing-task-thread",
+			hostKind: "task",
+			hostId: "task-1",
+			initiatorId: "other-agent",
+			participants: JSON.stringify(["other-agent"]),
+			lastActiveAt: NOW,
+			createdAt: NOW,
 		});
 
-		test("adds agent to participants when existing task thread does not include agent", async ({
-			db,
-			app,
-		}) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
-			await seed(db);
-			// Founder ruling 7: the review anchors on the TASK's thread — create
-			// a task thread (not a bet thread) that does NOT include agent-a.
-			await db.insert(threads).values({
-				id: "existing-task-thread",
-				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "other-agent",
-				participants: JSON.stringify(["other-agent"]),
-				lastActiveAt: NOW,
-				createdAt: NOW,
-			});
+		const result = await submitReviewTool.handler(
+			{ title: "Join review", reasoning: ["Test"] },
+			makeContext(db),
+		);
 
-			const result = await submitReviewTool.handler(
-				{ title: "Join review", reasoning: ["Test"] },
-				makeContext(db),
-			);
+		expect(result.success).toBe(true);
+		if (!result.success) return;
 
-			expect(result.success).toBe(true);
-			if (!result.success) return;
+		const data = result.data as { threadId: string };
+		expect(data.threadId).toBe("existing-task-thread");
 
-			const data = result.data as { threadId: string };
-			expect(data.threadId).toBe("existing-task-thread");
+		const [thread] = await db.select().from(threads).where(eq(threads.id, "existing-task-thread"));
+		const participants = JSON.parse(thread?.participants ?? "[]") as string[];
+		expect(participants).toContain("agent-a");
+	});
+});
 
-			const [thread] = await db
-				.select()
-				.from(threads)
-				.where(eq(threads.id, "existing-task-thread"));
-			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
-			expect(participants).toContain("agent-a");
-		});
+// Error cases
+describe("error cases", () => {
+	test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, app }) => {
+		const submitReviewTool = buildSubmitReviewTool(app);
+		await seed(db);
+		const ctx: ToolContext<HyperIdleDb> = {
+			...makeContext(db),
+			taskId: "ghost-task-does-not-exist",
+		};
+
+		const result = await submitReviewTool.handler(
+			{ title: "Will fail", reasoning: ["Because"] },
+			ctx,
+		);
+
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	// Error cases
-	describe("error cases", () => {
-		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, app }) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
-			await seed(db);
-			const ctx: ToolContext<HyperIdleDb> = {
-				...makeContext(db),
-				taskId: "ghost-task-does-not-exist",
-			};
+	test("returns INVALID_INPUT when reasoning array is empty", async ({ db, app }) => {
+		const submitReviewTool = buildSubmitReviewTool(app);
+		await seed(db);
+		const result = await submitReviewTool.handler(
+			// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
+			{ title: "No reasoning", reasoning: [] } as any,
+			makeContext(db),
+		);
 
-			const result = await submitReviewTool.handler(
-				{ title: "Will fail", reasoning: ["Because"] },
-				ctx,
-			);
-
-			expect(result.success).toBe(false);
-			if (result.success) return;
-			expect(result.code).toBe("NOT_FOUND");
-		});
-
-		test("returns INVALID_INPUT when reasoning array is empty", async ({ db, app }) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
-			await seed(db);
-			const result = await submitReviewTool.handler(
-				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
-				{ title: "No reasoning", reasoning: [] } as any,
-				makeContext(db),
-			);
-
-			expect(result.success).toBe(false);
-			if (result.success) return;
-			expect(result.code).toBe("INVALID_INPUT");
-		});
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.code).toBe("INVALID_INPUT");
 	});
+});

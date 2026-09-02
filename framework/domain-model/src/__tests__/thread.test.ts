@@ -49,7 +49,7 @@ function review(id: string, offsetMin: number, opts: { resolvedAt?: string | nul
 		payload: {
 			title: `review-${id}`,
 			reasoning: ["because"],
-			artifactRef: { id: "a1", kind: "text_diff" },
+			producedItemId: "a1",
 		},
 	};
 }

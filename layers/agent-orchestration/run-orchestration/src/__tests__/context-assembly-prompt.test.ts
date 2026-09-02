@@ -321,7 +321,6 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).toContain("**When:**");
 	});
 
-
 	it("renders team subject with name", async () => {
 		const context = {
 			...routineContext(),

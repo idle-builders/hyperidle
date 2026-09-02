@@ -257,7 +257,6 @@ export function judgeHandoffCalled(): RubricDimension {
 	};
 }
 
-
 /** Judge: promote_knowledge was called — knowledgeEditLog row with editor = "agent:<agentId>" and field = "status". */
 export function judgePromoteKnowledgeCalled(): RubricDimension {
 	return {
@@ -673,7 +672,6 @@ export function judgePromoteKnowledgeCalledByAgent(): RubricDimension {
 		},
 	};
 }
-
 
 /** Judge: at least one coordination tool (create_task, send_message, or handoff) was used. */
 export function judgeCoordinationToolsUsed(): RubricDimension {

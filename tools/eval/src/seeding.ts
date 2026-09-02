@@ -414,7 +414,6 @@ export async function seedItem(
 	return { itemId };
 }
 
-
 /** Create a knowledge conflict. Used by promote_knowledge scenarios (conflict gate blocks validated promotion). */
 export async function seedConflict(
 	db: HyperIdleDb,

@@ -97,7 +97,6 @@ interface TaskSpec {
 	readonly outcomeVerdict?: "met" | "met_with_rework" | "partially_met" | "not_met";
 }
 
-
 export async function seedWork(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	// ── Root tasks (formerly bets) ────────────────────────────────────────────
 	// @lore BB1: each former "bet" is now a root task (parentTaskId: null).
@@ -640,5 +639,4 @@ Research first, prototype only if the numbers say yes.`,
 		.update(tasks)
 		.set({ createdAt: clock.daysAgo(19), updatedAt: clock.daysAgo(19) })
 		.where(eq(tasks.id, ROOT_TASK_DIGEST));
-
 }

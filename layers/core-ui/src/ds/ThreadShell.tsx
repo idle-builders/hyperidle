@@ -25,7 +25,6 @@
 
 import type {
 	AgentSessionStateSnapshot,
-	ArtifactRef,
 	Message,
 	MessageType,
 	Thread,
@@ -62,7 +61,6 @@ export interface ThreadShellProps {
 	thread: Thread;
 	messages: ReadonlyArray<Message>;
 	identities: Record<string, ThreadShellIdentity>;
-	artifactSlot?: (ref: ArtifactRef | undefined) => ReactNode;
 	onAppendMessage: (input: ThreadShellAppendInput) => Promise<void>;
 	loading?: boolean;
 	error?: string;
@@ -148,10 +146,7 @@ interface RichSlotsForRow {
 	actions: ReactNode;
 }
 
-function buildRichSlots(
-	message: Message,
-	artifactSlot: ((ref: ArtifactRef | undefined) => ReactNode) | undefined,
-): RichSlotsForRow | null {
+function buildRichSlots(message: Message): RichSlotsForRow | null {
 	if (message.type === "review") {
 		const { payload } = message;
 		if (isRedactedPayload(payload)) return null;
@@ -176,7 +171,7 @@ function buildRichSlots(
 					) : null}
 				</>
 			),
-			body: artifactSlot ? artifactSlot(payload.artifactRef) : null,
+			body: null,
 			actions: null,
 		};
 	}
@@ -225,7 +220,6 @@ export function ThreadShell({
 	thread,
 	messages,
 	identities,
-	artifactSlot,
 	onAppendMessage,
 	loading,
 	error,
@@ -423,11 +417,6 @@ export function ThreadShell({
 															role: identityFor(identities, m.senderId).role,
 														}}
 														blocking={resolvedProps ? false : blocking}
-														artifactSlot={
-															!resolvedProps && m.type === "review" && !isRedactedPayload(m.payload)
-																? artifactSlot?.(m.payload.artifactRef)
-																: undefined
-														}
 														onAction={
 															resolvedProps
 																? (): void => undefined
@@ -451,7 +440,7 @@ export function ThreadShell({
 										(message.type === "review" || message.type === "questionnaire") &&
 										message.resolvedAt === null
 									) {
-										const slots = buildRichSlots(message, artifactSlot);
+										const slots = buildRichSlots(message);
 										if (slots) {
 											return (
 												<CommentRow

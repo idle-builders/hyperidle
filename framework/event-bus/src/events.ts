@@ -455,7 +455,6 @@ export interface ThreadArchivedEvent {
 	timestamp: number;
 }
 
-
 /**
  * @lore O1: PropagationLevel moved to @hyperidle/server (packages/server/src/knowledge/types.ts). This inline literal
  * union avoids importing from fabric in shared (boundary rule: kernel never

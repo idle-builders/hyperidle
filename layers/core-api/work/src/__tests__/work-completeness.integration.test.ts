@@ -57,5 +57,4 @@ describe("work completeness contract", () => {
 		).toEqual(["source-item-2", "source-item-other"]);
 		expect(await list(db, "item", { ids: [] })).toEqual([]);
 	});
-
 });

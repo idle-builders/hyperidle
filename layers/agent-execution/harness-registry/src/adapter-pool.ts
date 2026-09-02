@@ -248,7 +248,7 @@ export class AdapterPool {
 			// Mirrors `select`'s filter exactly — no harness is exempt from being
 			// disabled any more, so neither is this diagnostic.
 			const enabled = live.filter(
-				(entry) => !entry.meta.type || !disabled.includes(entry.meta.type),
+				(entry) => !(entry.meta.type && disabled.includes(entry.meta.type)),
 			);
 			if (enabled.length === 0) {
 				return `every available harness type is disabled in settings (disabled: ${disabled.join(", ")})`;
