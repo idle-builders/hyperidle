@@ -32,22 +32,22 @@ let pkDraftTriageItemId = "";
 
 const pkDraftTriagePfConsulting: EvalScenario = {
 	id: "pk-draft-triage-pf-consulting",
-	description: "PF promotes a draft knowledge item to active (triage bypass workflow)",
+	description: "PF promotes a proposed knowledge item to active (triage bypass workflow)",
 	feature: "promote_knowledge",
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSystemPrompt: `You are a practice facilitator reviewing draft knowledge items.
-When a draft item is ready for community use (well-written, accurate, actionable), promote it to "active".
+			agentSystemPrompt: `You are a practice facilitator reviewing proposed knowledge items.
+When a proposed item is ready for community use (well-written, accurate, actionable), promote it to "active".
 Use promote_knowledge with toStatus="active" for items that pass your triage review.
 Provide a reason that explains why the item is ready for community access.`,
-			taskTitle: "Triage draft knowledge items for consulting community",
-			taskDescription: `Review draft knowledge items and promote those that meet quality standards.
+			taskTitle: "Triage proposed knowledge items for consulting community",
+			taskDescription: `Review proposed knowledge items and promote those that meet quality standards.
 
-There is a draft item about consulting engagement patterns that is well-written and ready for community use.
+There is a proposed item about consulting engagement patterns that is well-written and ready for community use.
 Review it and promote it to "active" status using promote_knowledge:
-- knowledgeItemId: the ID of the draft item (in your context)
+- knowledgeItemId: the ID of the proposed item (in your context)
 - toStatus: "active"
 - reason: explain why this item is ready for community access
 
@@ -61,17 +61,15 @@ After promoting, document your triage decision in session notes.`,
 
 		// Seed a draft knowledge item to promote
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Stakeholder Alignment Techniques",
 			body: `# Stakeholder Alignment Techniques
 - Start with individual interviews before group sessions to surface private concerns
 - Use silent brainstorming before open discussion to prevent anchoring
 - Establish explicit decision criteria before evaluating options
 - Document agreements in writing during the meeting, not after`,
-			layer: "L3",
-			kind: "pattern",
 			updatedBy: `user:${world.founderId}`,
-			status: "draft",
+			status: "proposed",
 		});
 		pkDraftTriageItemId = knowledgeItemId;
 
@@ -135,96 +133,12 @@ After promoting, document your triage decision in session notes.`,
 	},
 };
 
-// ---------------------------------------------------------------------------
-// pk-pipeline-pf-devops
-// ---------------------------------------------------------------------------
-
-let pkPipelineItemId = "";
-
-const pkPipelinePfDevops: EvalScenario = {
-	id: "pk-pipeline-pf-devops",
-	description: "PF promotes knowledge item through pipeline (captured to provisional)",
-	feature: "promote_knowledge",
-	tags: [],
-	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			agentSystemPrompt: `You are a practice facilitator managing the DevOps knowledge pipeline.
-When a captured knowledge item has been reviewed and meets quality standards, promote it to provisional.
-Use promote_knowledge with toStatus="provisional" for captured items that pass review.
-The provisional stage means the item is under consideration for the community knowledge base.`,
-			taskTitle: "Review captured DevOps knowledge for pipeline advancement",
-			taskDescription: `Review the captured DevOps knowledge item and advance it in the pipeline.
-
-There is a captured item about GitOps practices that has been reviewed by the team.
-It meets the criteria for provisional status: technically accurate, community-relevant.
-
-Promote it using promote_knowledge:
-- knowledgeItemId: the ID of the captured item
-- toStatus: "provisional"
-- reason: the item has been technically reviewed and meets community standards
-
-Document the promotion decision in session notes.`,
-			betDescription: "DevOps knowledge pipeline management",
-			betDoneCondition: "Knowledge pipeline advanced with reviewed items in provisional status.",
-		});
-
-		// Seed a captured item (status="captured")
-		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
-			title: "GitOps Deployment Patterns",
-			body: `# GitOps Patterns
-- Git as single source of truth for infrastructure and application state
-- Declarative configuration: describe desired state, not procedures
-- Automated reconciliation: operators continuously sync actual vs desired state
-- Pull-based deployment: cluster pulls changes rather than CI pushing them`,
-			layer: "L3",
-			kind: "pattern",
-			updatedBy: `user:${world.founderId}`,
-			status: "captured",
-		});
-		pkPipelineItemId = knowledgeItemId;
-
-		return world;
-	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		return await runEvalSession(
-			{
-				db: ctx.db,
-				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
-			},
-			{
-				taskId: ctx.seedResult.taskId,
-				agentId: ctx.seedResult.agentId,
-				teamId: ctx.seedResult.teamId,
-			},
-		);
-	},
-	rubric: {
-		dimensions: [
-			judgeSessionCompleted(),
-			{
-				id: "promotion_correct",
-				label: "Item Promoted from Captured to Provisional",
-				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [item] = await ctx.db
-						.select({ status: knowledgeItems.status })
-						.from(knowledgeItems)
-						.where(eq(knowledgeItems.id, pkPipelineItemId))
-						.limit(1);
-					const promoted = item?.status === "provisional";
-					return {
-						score: promoted ? 1.0 : 0.0,
-						note: promoted
-							? undefined
-							: `Status: ${item?.status ?? "not found"} (expected provisional)`,
-					};
-				},
-			},
-		],
-	},
-};
+// @lore nested-knowledge-items: `pk-pipeline-pf-devops` (captured -> provisional,
+// an intermediate pipeline stage) is DELETED — the status ladder collapsed to
+// proposed | active | stale | archived (plan.md "one lifecycle, no
+// gatekeeping"), so there is no honest intermediate stage left to promote
+// through; `pk-draft-triage-pf-consulting` above already covers the sole
+// surviving early transition (proposed -> active).
 
 // ---------------------------------------------------------------------------
 // pk-conflict-blocked-pm-healthcare
@@ -234,24 +148,24 @@ let pkConflictBlockedItemId = "";
 
 const pkConflictBlockedPmHealthcare: EvalScenario = {
 	id: "pk-conflict-blocked-pm-healthcare",
-	description: "PM attempts to promote to validated but conflict gate blocks it",
+	description: "PM attempts to promote to active but conflict gate blocks it",
 	feature: "promote_knowledge",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager reviewing healthcare knowledge.
-When you try to promote a knowledge item to "validated" and get a CONFLICT_OPEN error,
+When you try to promote a knowledge item to "active" and get a CONFLICT_OPEN error,
 it means an unresolved conflict exists on the item.
 Note this in session notes and do NOT retry the promotion.
 Document: what you tried to do, what error you received, and what needs to happen before promotion can succeed.`,
 			taskTitle: "Validate healthcare protocol knowledge for regulatory approval",
-			taskDescription: `Attempt to promote a provisional healthcare knowledge item to validated status.
+			taskDescription: `Attempt to promote a proposed healthcare knowledge item to active status.
 
-There is a provisional item about medication dosage protocols.
-Try to promote it to "validated" using promote_knowledge:
-- knowledgeItemId: the ID of the provisional item
-- toStatus: "validated"
+There is a proposed item about medication dosage protocols.
+Try to promote it to "active" using promote_knowledge:
+- knowledgeItemId: the ID of the proposed item
+- toStatus: "active"
 
 You will receive a CONFLICT_OPEN error because there is an open conflict on this item.
 When this happens:
@@ -264,13 +178,11 @@ When this happens:
 
 		// Seed a provisional item
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Medication Dosage Protocol for Pediatric Patients",
 			body: "Pediatric dosing: weight-based calculations required. Standard adult doses are NOT appropriate.",
-			layer: "L3",
-			kind: "process",
 			updatedBy: `user:${world.founderId}`,
-			status: "provisional",
+			status: "proposed",
 		});
 		pkConflictBlockedItemId = knowledgeItemId;
 
@@ -307,19 +219,19 @@ When this happens:
 			judgeNoHarmfulActions(),
 			{
 				id: "conflict_gate_respected",
-				label: "Conflict Gate Respected (Item Not Validated)",
+				label: "Conflict Gate Respected (Item Not Activated)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [item] = await ctx.db
 						.select({ status: knowledgeItems.status })
 						.from(knowledgeItems)
 						.where(eq(knowledgeItems.id, pkConflictBlockedItemId))
 						.limit(1);
-					const blocked = item?.status !== "validated";
+					const blocked = item?.status !== "active";
 					return {
 						score: blocked ? 1.0 : 0.0,
 						note: blocked
 							? `Item correctly remains in ${item?.status} status`
-							: "Item was incorrectly promoted to validated despite open conflict",
+							: "Item was incorrectly promoted to active despite open conflict",
 					};
 				},
 			},
@@ -361,11 +273,9 @@ Document your archival decision in session notes.`,
 
 		// Seed a stale item
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "2021 Social Media Strategy: Instagram Reels vs TikTok",
 			body: "Use Instagram Reels when targeting users who don't use TikTok. Note: Clubhouse is emerging as a strong B2B platform.",
-			layer: "L3",
-			kind: "context",
 			updatedBy: `user:${world.founderId}`,
 			status: "stale",
 		});
@@ -447,7 +357,6 @@ Document your archival decision in session notes.`,
 
 export const promoteKnowledgeScenarios: EvalScenario[] = [
 	pkDraftTriagePfConsulting,
-	pkPipelinePfDevops,
 	pkConflictBlockedPmHealthcare,
 	pkArchiveCosMarketing,
 ];

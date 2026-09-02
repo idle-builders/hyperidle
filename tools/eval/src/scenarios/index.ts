@@ -26,7 +26,6 @@ export { handoffToScenarios } from "./handoff-to.js";
 export { knowledgeWritebackScenarios } from "./knowledge-writeback.js";
 export { logTaskScenarios } from "./log-task.js";
 export { promoteKnowledgeScenarios } from "./promote-knowledge.js";
-export { queryPracticeScenarios } from "./query-practice.js";
 export { readInboxScenarios } from "./read-inbox.js";
 export { routineSessionsScenarios } from "./routine-sessions.js";
 export { scoreAttentionScenarios } from "./score-attention.js";

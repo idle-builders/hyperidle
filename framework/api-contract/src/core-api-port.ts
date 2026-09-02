@@ -460,47 +460,29 @@ export interface CoreApiRoutinePort {
 }
 
 /**
- * Mirrors `POST /knowledge`'s validated request body — extended (Increment 2
- * knowledge wave) with optional `kind` and an optional explicit `layer`
- * override. The pre-existing route always derived `layer` from
- * `scopeToLayer(scopeKind)` and silently dropped any `kind` field; `write_memory`'s
- * real call needs both fields to round-trip verbatim (an agent tool caller DOES
- * have a `kind`/explicit-`layer` concept the HTTP UI caller never needed).
+ * Mirrors `POST /knowledge`'s validated request body.
+ *
+ * @lore nested-knowledge-items: `layer`/`kind`/`topic` are DELETED — a
+ * knowledge item's place in the tree says what it is about now, not a flat
+ * layer/kind/topic vocabulary.
  */
 export interface CreateKnowledgeItemRequest {
-	/**
-	 * Optional, and `null` is NOT a legal value — the route's zod is
-	 * `z.enum(KNOWLEDGE_LAYERS).optional()`, which accepts a layer or the field's
-	 * absence and rejects an explicit null. A caller with no opinion about layer
-	 * must OMIT this, not send null; the route then derives it from the scope.
-	 * `create_artifact` sent `layer: null` and 400'd on every call until a parity
-	 * test drove it through the real route.
-	 */
-	readonly layer?: string;
-	/**
-	 * Required, because the route requires it. It was optional here for a long
-	 * time and the route's zod was not, so a caller that omitted it typechecked
-	 * clean and 400'd at runtime — which is exactly what the agent writeback
-	 * path did, for its whole life. Making the contract tell the truth is what
-	 * turns that class of drift into a `npm run check` failure instead of a
-	 * silent seam error nobody reads.
-	 */
-	readonly scopeKind: string;
+	readonly scopeKind?: string | null;
 	readonly scopeId?: string | null;
-	readonly kind?: string | null;
-	readonly topic?: string | null;
+	/**
+	 * @lore nested-knowledge-items §8/§9: lets a caller place a new item under
+	 * an existing knowledge item at create time — the writeback processor's
+	 * directory-chain and new-leaf creates use this instead of a separate
+	 * reparent call, since a brand-new id has no prior parent to move from.
+	 * Both present or neither, mirroring `createKnowledgeSchema`'s own pairing.
+	 */
+	readonly parentKind?: string | null;
+	readonly parentId?: string | null;
 	readonly title: string;
 	readonly body: string;
 	readonly format: string;
 	readonly status: string;
 	readonly updatedBy: string;
-	/**
-	 * Where the item hangs. A produced item is parented to the task or the
-	 * conversation that produced it; only those two kinds are accepted from a
-	 * client (see `createKnowledgeSchema` in core-api's knowledge route).
-	 */
-	readonly parentKind?: "task" | "thread";
-	readonly parentId?: string;
 }
 
 /** Mirrors `POST /knowledge`'s 201 response body — only the fields a `CoreApiPort` consumer relies on. */
@@ -597,15 +579,8 @@ export type PromoteKnowledgeItemResult =
  * `knowledge.{get, create, transition, findOpenConflict, recordConflict}` row.
  */
 export interface CoreApiKnowledgePort {
-	/**
-	 * Returned items are opaque (`Record<string, unknown>`) plus the one field
-	 * `query_practice`'s handler filters on (`layer`) — same reasoning as
-	 * `ToolHandlersKnowledgeAccessor.search`'s own doc comment (mirrored here).
-	 */
-	search(
-		query: string,
-		opts: { readonly limit: number },
-	): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>>;
+	// @lore nested-knowledge-items: `search` is DELETED — its only consumer,
+	// `query_practice`, is gone (its one filter was `layer === 'L3'`).
 	create(input: CreateKnowledgeItemRequest): Promise<CreateKnowledgeItemResponse>;
 	/** AU31 §2.7 — the writeback processor's optimistic-lock update, backed by the same `PATCH /knowledge/:id` route `create`'s sibling routes ride. */
 	updateKnowledgeItemContent(
@@ -650,7 +625,6 @@ export interface CoreApiKnowledgePort {
 		newItems: ReadonlyArray<{
 			readonly title: string;
 			readonly body: string;
-			readonly topic?: string;
 		}>,
 		updatedBy: string,
 	): Promise<ReadonlyArray<{ readonly id: string }>>;

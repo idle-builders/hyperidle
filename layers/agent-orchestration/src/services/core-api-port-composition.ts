@@ -302,7 +302,6 @@ interface CoreApiHcClient {
 						readonly newItems: ReadonlyArray<{
 							readonly title: string;
 							readonly body: string;
-							readonly topic?: string;
 						}>;
 						readonly updatedBy: string;
 					};
@@ -616,22 +615,9 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 			},
 		},
 		knowledge: {
-			async search(
-				query: string,
-				opts: { readonly limit: number },
-			): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>> {
-				const res = await client.search.$get({
-					query: { q: query, scope: "knowledge", limit: String(opts.limit) },
-				});
-				if (!res.ok) return throwSeamError("knowledge.search", res);
-				const body = (await res.json()) as {
-					readonly results: ReadonlyArray<
-						Record<string, unknown> & { readonly layer?: string | null }
-					>;
-				};
-				return body.results;
-			},
-
+			// @lore nested-knowledge-items: `search` is DELETED — its only
+			// consumer, `query_practice`, is gone (its one filter was
+			// `layer === 'L3'`).
 			async create(input: CreateKnowledgeItemRequest): Promise<CreateKnowledgeItemResponse> {
 				const res = await client.knowledge.$post({ json: input });
 				if (!res.ok) return throwSeamError("knowledge.create", res);
@@ -783,7 +769,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				newItems: ReadonlyArray<{
 					readonly title: string;
 					readonly body: string;
-					readonly topic?: string;
 				}>,
 				updatedBy: string,
 			): Promise<ReadonlyArray<{ readonly id: string }>> {

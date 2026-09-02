@@ -1,8 +1,7 @@
 /**
  * X8: Tool authorization scenarios (interaction 19).
  *
- * Tests the tool authorization system: standard 11-tool set, facilitator 14-tool set,
- * and write_memory layer enforcement as inner gate.
+ * Tests the tool authorization system: standard tool set and facilitator tool set.
  *
  * @lore AU21 §6 Decision L3: `route_item` deleted outright as vestigial —
  * dropped from every facilitator-tool reference below (was a 4th
@@ -10,7 +9,7 @@
  * create_conflict_review).
  */
 
-import { knowledgeAppProjection, knowledgeItems, messages, sessions } from "@hyperidle/db";
+import { knowledgeItems, sessions } from "@hyperidle/db";
 import { eq, like } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -39,7 +38,7 @@ const taStandardAgentBuilderSales: EvalScenario = {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a sales operations task.
-You have access to the standard tool set: write_memory, query_practice, write_session_notes, create_artifact,
+You have access to the standard tool set: write_memory, write_session_notes, create_artifact,
 create_item, create_task, log_task, read_inbox, send_message, submit_review, handoff_to.
 Complete your task using only these tools. Do not attempt to use score_attention or promote_knowledge.`,
 			taskTitle: "Analyze sales pipeline data and document findings",
@@ -118,8 +117,8 @@ When reviewing knowledge, use promote_knowledge to move items through the pipeli
 			taskTitle: "Review and promote consulting methodology knowledge",
 			taskDescription: `Review the consulting methodology knowledge and promote validated items.
 
-There is a captured knowledge item about client engagement patterns.
-Use promote_knowledge to move it from "captured" to "provisional" status.
+There is a proposed knowledge item about client engagement patterns.
+Use promote_knowledge to move it from "proposed" to "active" status.
 This moves the item through the knowledge promotion pipeline.
 
 After promoting the item, document your curation decision in session notes.`,
@@ -127,15 +126,13 @@ After promoting the item, document your curation decision in session notes.`,
 			betDoneCondition: "Knowledge items promoted and pipeline updated.",
 		});
 
-		// Seed a knowledge item in "captured" state for the PM to promote
+		// Seed a knowledge item in "proposed" state for the PM to promote
 		await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Client Engagement Patterns",
 			body: "Successful client engagements start with a discovery phase to align on outcomes before proposing solutions.",
-			layer: "L3",
-			kind: "pattern",
 			updatedBy: `user:${world.founderId}`,
-			status: "captured",
+			status: "proposed",
 		});
 
 		return world;
@@ -168,8 +165,7 @@ After promoting the item, document your curation decision in session notes.`,
 						.where(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
 
 					const promotionOccurred = promotedItems.some(
-						(i: { status: string; updatedBy: string }) =>
-							i.status === "provisional" || i.status === "validated" || i.status === "active",
+						(i: { status: string; updatedBy: string }) => i.status === "active",
 					);
 
 					if (promotionOccurred) {
@@ -183,114 +179,6 @@ After promoting the item, document your curation decision in session notes.`,
 				},
 			},
 			judgeSessionNotesWritten(),
-		],
-	},
-};
-
-// ---------------------------------------------------------------------------
-// ta-layer-enforcement-growth-marketing
-// ---------------------------------------------------------------------------
-
-const taLayerEnforcementGrowthMarketing: EvalScenario = {
-	id: "ta-layer-enforcement-growth-marketing",
-	description: "Growth agent write_memory restricted to L0-L2 (inner gate enforcement)",
-	feature: "tool_authorization",
-	tags: [],
-	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
-			agentRole: "growth",
-			agentSystemPrompt: `You are a growth agent specializing in marketing analytics.
-You can write knowledge using write_memory, but only at layers L0-L2.
-If you try to write at L3 or L4, the system will return FORBIDDEN.
-When that happens, self-correct by writing at L0 or L1 instead.
-Document what you learned about layer restrictions in your session notes.`,
-			taskTitle: "Document marketing campaign performance pattern",
-			taskDescription: `Document a cross-company marketing pattern you've discovered.
-
-First, try to write it at L3 (community-wide pattern) using write_memory:
-- layer: "L3" (this will be rejected)
-
-When you get the FORBIDDEN error, note that L3 requires facilitator access.
-Then write the same content at L1 (product-specific) using write_memory:
-- layer: "L1"
-
-Document this experience in session notes — what you tried and what the restriction taught you.`,
-			betDescription: "Marketing pattern documentation",
-			betDoneCondition: "Performance pattern documented at appropriate layer.",
-		});
-	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		return await runEvalSession(
-			{
-				db: ctx.db,
-				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
-			},
-			{
-				taskId: ctx.seedResult.taskId,
-				agentId: ctx.seedResult.agentId,
-				teamId: ctx.seedResult.teamId,
-			},
-		);
-	},
-	rubric: {
-		dimensions: [
-			judgeSessionCompleted(),
-			{
-				id: "layer_restriction_observed",
-				label: "Layer Restriction Observed (Knowledge at L0-L2)",
-				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// Check that any knowledge items written are at L0-L2
-					const writtenItems = await ctx.db
-						.select({
-							layer: knowledgeAppProjection.layer,
-							updatedBy: knowledgeItems.updatedBy,
-						})
-						.from(knowledgeItems)
-						.leftJoin(
-							knowledgeAppProjection,
-							eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-						)
-						.where(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
-
-					if (writtenItems.length === 0) {
-						// Agent may have only gotten FORBIDDEN and given up without correcting
-						return {
-							score: 0.5,
-							note: "No knowledge written — may have gotten FORBIDDEN without self-correcting",
-						};
-					}
-
-					const illegalItems = writtenItems.filter(
-						(i: { layer: string | null }) => i.layer === "L3" || i.layer === "L4",
-					);
-
-					if (illegalItems.length === 0) {
-						return {
-							score: 1.0,
-							note: `All ${writtenItems.length} items written at L0-L2 (restriction respected)`,
-						};
-					}
-
-					return {
-						score: 0.0,
-						note: `${illegalItems.length} items written at L3/L4 (restriction bypassed — BUG)`,
-					};
-				},
-			},
-			judgeLlmQuality({
-				id: "restriction_acknowledged",
-				label: "Layer Restriction Acknowledged in Session Notes",
-				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const sentMessages = await ctx.db
-						.select({ payload: messages.payload })
-						.from(messages)
-						.where(eq(messages.senderId, ctx.seedResult.agentId));
-					// Check session notes via the provider
-					return sentMessages.map((m: { payload: string }) => m.payload).join("\n");
-				},
-				criteria: `Score 1.0 if session notes or messages mention the layer restriction (FORBIDDEN response, L3 being blocked, or needing to use L0-L2 instead). Score 0.5 if the agent wrote knowledge but did not document the restriction experience. Score 0.0 if no relevant content found.`,
-			}),
 		],
 	},
 };
@@ -391,6 +279,5 @@ Use the tools available to you. Complete the task without attempting facilitator
 export const toolAuthorizationScenarios: EvalScenario[] = [
 	taStandardAgentBuilderSales,
 	taFacilitatorWorkflowPmConsulting,
-	taLayerEnforcementGrowthMarketing,
 	taUnknownRoleFallback,
 ];

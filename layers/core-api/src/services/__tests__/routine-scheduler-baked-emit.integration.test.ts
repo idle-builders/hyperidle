@@ -48,7 +48,6 @@ import {
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getParentedItem,
-	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
 } from "@hyperidle/knowledge";

@@ -62,22 +62,18 @@ Write session notes that:
 
 		// Seed L2 product-specific HIPAA docs
 		await seedKnowledge(ctx.db, {
-			scopeKind: "product",
+			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "HIPAA Data Handling: Patient Portal Requirements",
 			body: "Patient data must use AES-256 encryption at rest. Access logs must include user ID, timestamp, and data accessed. Session timeout: 15 minutes of inactivity.",
-			layer: "L2",
-			kind: "context",
 			updatedBy: `user:${world.founderId}`,
 		});
 
 		// Seed L3 community security patterns
 		await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Healthcare Security Pattern: Defense in Depth",
 			body: "Apply 3+ security layers: network segmentation, application-level auth, data encryption. Never rely on a single security control. Use the principle of least privilege for all data access.",
-			layer: "L3",
-			kind: "pattern",
 			updatedBy: `user:${world.founderId}`,
 		});
 
@@ -86,8 +82,6 @@ Write session notes that:
 			scopeKind: "factory",
 			title: "Company Security Principles",
 			body: "Security is non-negotiable. Any feature that accesses sensitive data requires security review before deployment. Zero-trust architecture: verify every request, never assume internal traffic is safe.",
-			layer: "L4",
-			kind: "context",
 			updatedBy: `user:${world.founderId}`,
 		});
 
@@ -178,52 +172,42 @@ Do not reference or be distracted by the irrelevant items.`,
 
 		// Seed RELEVANT items
 		await seedKnowledge(ctx.db, {
-			scopeKind: "product",
+			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Current Infrastructure Performance Metrics Q3",
 			body: "API p99 latency: 180ms. CPU utilization: 65% average (92% peak). Memory: 78% average. Database connections: 450/500 max.",
-			layer: "L2",
-			kind: "context",
 			updatedBy: `user:${world.founderId}`,
 		});
 
 		await seedKnowledge(ctx.db, {
-			scopeKind: "product",
+			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Q4 Growth Projections",
 			body: "Q4 traffic growth: +40% YoY based on historical patterns. Black Friday spike: 3-4x normal load. Holiday period (Dec 15 - Jan 5): sustained 2x load.",
-			layer: "L2",
-			kind: "context",
 			updatedBy: `user:${world.founderId}`,
 		});
 
 		await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Kubernetes Horizontal Scaling Patterns",
 			body: "Pre-scale by 30% for known traffic spikes. Set HPA min replicas to 3 for production workloads. Use predictive scaling for scheduled events (Black Friday, product launches).",
-			layer: "L3",
-			kind: "pattern",
 			updatedBy: `user:${world.founderId}`,
 		});
 
 		// Seed IRRELEVANT items (should be ignored)
 		await seedKnowledge(ctx.db, {
-			scopeKind: "product",
+			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Q3 Marketing Campaign Performance",
 			body: "Email open rate: 28% (industry avg 21%). Social media CTR: 3.2%. Campaign ROI: 4.2x spend.",
-			layer: "L2",
-			kind: "context",
 			updatedBy: `user:${world.founderId}`,
 		});
 
 		await seedKnowledge(ctx.db, {
-			scopeKind: "product",
+			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Sales Pipeline Metrics Q3",
 			body: "SQLs: 342. Win rate: 23%. Average deal size: $45k. Sales cycle: 47 days average.",
-			layer: "L2",
-			kind: "context",
 			updatedBy: `user:${world.founderId}`,
 		});
 
@@ -309,7 +293,7 @@ Write session notes describing what patterns you followed and where you put your
 
 		// Seed knowledge that will be assembled into the context/ workspace
 		await seedKnowledge(ctx.db, {
-			scopeKind: "product",
+			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Frontend Component Patterns",
 			body: `# Component Patterns
@@ -318,8 +302,6 @@ Write session notes describing what patterns you followed and where you put your
 - Include Storybook story for every component
 - Unit test with vitest + testing-library
 - Use CSS modules or styled-components, no inline styles`,
-			layer: "L2",
-			kind: "pattern",
 			updatedBy: `user:${world.founderId}`,
 		});
 

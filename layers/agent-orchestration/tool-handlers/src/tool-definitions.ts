@@ -24,11 +24,7 @@ import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	KERNEL_KNOWLEDGE_STATUSES,
-	type KernelKnowledgeStatus,
-	KNOWLEDGE_LAYERS,
 	KNOWLEDGE_STATUSES,
-	type KnowledgeLayer,
 	type KnowledgeStatus,
 	REVIEW_CANVAS_KINDS,
 	type ReviewPayload,
@@ -161,59 +157,24 @@ function makeReplyTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<ReplyInput
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// query_practice
-// ─────────────────────────────────────────────────────────────────────────────
-
-const queryPracticeInputSchema = z.object({
-	query: z.string().min(1),
-	layer: z.enum(KNOWLEDGE_LAYERS).optional(),
-	limit: z.number().int().positive().max(100).optional(),
-});
-
-type QueryPracticeInput = z.infer<typeof queryPracticeInputSchema>;
-
-function makeQueryPracticeTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<QueryPracticeInput, TDb> {
-	return {
-		name: "query_practice",
-		description:
-			"Search the knowledge fabric for L3 practices (defaults to layer L3) matching a free-text query. Use to discover prior patterns, decisions, or reflections before starting work.",
-		inputSchema: queryPracticeInputSchema,
-		handler: async (args, ctx) => {
-			const parsed = queryPracticeInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const { query, layer = "L3", limit = 20 } = parsed.data;
-			const allMatches = await ports.coreApi.search(query, { limit: limit * 5 }, ctx.agentId);
-			const items = allMatches.filter((item) => item.layer === layer).slice(0, limit);
-			return ok({ items });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // write_memory
+//
+// @lore nested-knowledge-items: `query_practice` is DELETED — its only filter
+// was `layer === 'L3'`, and layer is gone. `write_memory` drops `layer`,
+// `kind`, `topic` with the vocabularies they carried; a knowledge item's
+// place in the tree (not shipped here — this tool has no nesting UI) says
+// what it is about, and `scope` says only who sees it. The layer-keyed
+// authorisation gate (`NON_FACILITATOR_MAX_LAYER`, `FACILITATOR_ROLES`) is
+// DELETED WITH NOTHING REPLACING IT — founder ruling 2026-09-02: no
+// authorisation checks; risk-based review can be earned later from a real
+// learning. Any agent may write anywhere its scope reaches.
 // ─────────────────────────────────────────────────────────────────────────────
-
-const KNOWLEDGE_KINDS = [
-	"pattern",
-	"anti_pattern",
-	"brief",
-	"principle",
-	"decision",
-	"failure",
-	"reflection",
-	"focus",
-] as const;
 
 const KNOWLEDGE_FORMATS = ["markdown", "toon"] as const;
 
 const writeMemoryInputSchema = z.object({
-	layer: z.enum(KNOWLEDGE_LAYERS),
-	kind: z.enum(KNOWLEDGE_KINDS),
 	title: z.string().min(1),
 	body: z.string().min(1),
-	topic: z.string().optional(),
 	format: z.enum(KNOWLEDGE_FORMATS).optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
 	scopeKind: z.enum(SCOPE_KINDS).optional(),
@@ -222,24 +183,16 @@ const writeMemoryInputSchema = z.object({
 
 type WriteMemoryInput = z.infer<typeof writeMemoryInputSchema>;
 
-const FACILITATOR_ROLES: ReadonlySet<string> = new Set([
-	"assistant",
-	"facilitator",
-	"product_manager",
-]);
-
-const NON_FACILITATOR_MAX_LAYER: ReadonlySet<KnowledgeLayer> = new Set(["L0", "L1", "L2"]);
-
 function makeWriteMemoryTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<WriteMemoryInput, TDb> {
 	return {
 		name: "write_memory",
 		description:
-			"Write a new knowledge item (pattern, decision, reflection, etc.) into the knowledge fabric, attributed to the current agent. Returns the new item ID and version.",
+			"Write a new knowledge item into the knowledge tree, attributed to the current agent. Returns the new item ID and version.",
 		inputSchema: writeMemoryInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = writeMemoryInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const { layer, kind, title, body, topic, format, status } = parsed.data;
+			const { title, body, format, status } = parsed.data;
 			const requestedScopeKind = parsed.data.scopeKind;
 			const requestedScopeId = parsed.data.scopeId?.trim();
 
@@ -247,20 +200,12 @@ function makeWriteMemoryTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Writ
 				return err("INVALID_INPUT", `scopeId is required for scopeKind '${requestedScopeKind}'`);
 			}
 
-			if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
-				const agent = await ports.coreApi.getUserById(ctx.agentId, ctx.agentId);
-				const role = agent?.role ?? "";
-				if (!FACILITATOR_ROLES.has(role)) {
-					return err("FORBIDDEN", `insufficient role for ${layer}`);
-				}
-			}
-
 			const teamId =
 				ctx.teamId ??
 				(await ports.coreApi
 					.getTaskById(ctx.taskId, ctx.agentId)
 					.then((row) => row?.teamId ?? null));
-			const defaultScopeKind: ScopeKind = teamId ? "product" : "factory";
+			const defaultScopeKind: ScopeKind = teamId ? "team" : "factory";
 			const scopeKind = requestedScopeKind ?? defaultScopeKind;
 			const scopeId =
 				scopeKind === "user"
@@ -269,13 +214,10 @@ function makeWriteMemoryTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Writ
 
 			const created = await ports.coreApi.create(
 				{
-					layer,
-					kind,
 					title,
 					body,
-					topic: topic ?? null,
 					format: format ?? "markdown",
-					status: status ?? "draft",
+					status: status ?? "proposed",
 					scopeKind,
 					scopeId,
 					updatedBy: `agent:${ctx.agentId}`,
@@ -930,24 +872,35 @@ function makeScoreAttentionTool<TDb>(
 // promote_knowledge
 // ─────────────────────────────────────────────────────────────────────────────
 
-type AnyKnowledgeStatus = KnowledgeStatus | KernelKnowledgeStatus;
+/**
+ * @lore nested-knowledge-items §2: the two status vocabularies collapse into
+ * one four-value ladder — proposed | active | stale | archived. A row an
+ * unmigrated read still reports under a legacy name (draft/captured/
+ * provisional/validated/needs_human) normalizes through this map before the
+ * transition table is consulted, so it transitions exactly as its collapsed
+ * value would.
+ */
+const LEGACY_STATUS_TO_CURRENT: Readonly<Record<string, KnowledgeStatus>> = {
+	draft: "proposed",
+	captured: "proposed",
+	provisional: "proposed",
+	proposed: "proposed",
+	validated: "active",
+	active: "active",
+	stale: "stale",
+	archived: "archived",
+	needs_human: "archived",
+};
 
-function isAnyKnowledgeStatus(value: string): value is AnyKnowledgeStatus {
-	return (
-		(KNOWLEDGE_STATUSES as readonly string[]).includes(value) ||
-		(KERNEL_KNOWLEDGE_STATUSES as readonly string[]).includes(value)
-	);
+function normalizeKnowledgeStatus(value: string): KnowledgeStatus | null {
+	return LEGACY_STATUS_TO_CURRENT[value] ?? null;
 }
 
-const ALLOWED_TRANSITIONS: Record<AnyKnowledgeStatus, readonly AnyKnowledgeStatus[]> = {
-	draft: ["active", "captured", "archived"],
-	captured: ["provisional"],
-	provisional: ["validated", "archived", "needs_human"],
-	validated: ["active", "archived"],
+const ALLOWED_TRANSITIONS: Record<KnowledgeStatus, readonly KnowledgeStatus[]> = {
+	proposed: ["active", "archived"],
 	active: ["stale", "archived"],
 	stale: ["active", "archived"],
 	archived: [],
-	needs_human: [],
 };
 
 const promoteKnowledgeInputSchema = z.object({
@@ -964,7 +917,7 @@ function makePromoteKnowledgeTool<TDb>(
 	return {
 		name: "promote_knowledge",
 		description:
-			"Transition a knowledge item's lifecycle status (captured → provisional → validated → active → stale → archived). Blocks promotion to 'validated' if any open conflict exists on the item.",
+			"Transition a knowledge item's lifecycle status (proposed → active → stale → archived). Blocks promotion to 'active' if any open conflict exists on the item.",
 		inputSchema: promoteKnowledgeInputSchema,
 		roles: ["assistant", "facilitator", "product_manager"],
 		handler: async (args, ctx) => {
@@ -973,21 +926,25 @@ function makePromoteKnowledgeTool<TDb>(
 			const row = await ports.coreApi.findKnowledgeItemStatusById(knowledgeItemId, ctx.agentId);
 			if (!row) return err("NOT_FOUND", `Knowledge item not found: ${knowledgeItemId}`);
 
-			if (!isAnyKnowledgeStatus(row.status)) {
+			const normalizedFromStatus = normalizeKnowledgeStatus(row.status);
+			if (!normalizedFromStatus) {
 				return err("INVALID_STATE", `unknown current status: ${row.status}`);
 			}
-			const fromStatus: AnyKnowledgeStatus = row.status;
 
-			const allowed = ALLOWED_TRANSITIONS[fromStatus] ?? [];
+			const allowed = ALLOWED_TRANSITIONS[normalizedFromStatus] ?? [];
 			if (!allowed.includes(toStatus)) {
-				return err("INVALID_TRANSITION", `cannot transition ${fromStatus} → ${toStatus}`);
+				return err("INVALID_TRANSITION", `cannot transition ${normalizedFromStatus} → ${toStatus}`);
 			}
 
 			const editor = `agent:${ctx.agentId}`;
+			// The CAS conditional-UPDATE downstream matches on the row's LITERAL
+			// current value, not the normalized one — an unmigrated "captured"
+			// row must be compared for equality against "captured", or the CAS
+			// matches zero rows and reports a false CONCURRENT_MODIFICATION.
 			const result = await ports.coreApi.promoteKnowledgeItem(
 				{
 					knowledgeItemId,
-					fromStatus,
+					fromStatus: row.status,
 					toStatus,
 					reason,
 					editor,
@@ -1569,6 +1526,12 @@ function makeCreateArtifactTool<TDb>(
 
 			// Scope resolution: same logic as write_memory — ctx.teamId first,
 			// then task row, then fall back to factory scope.
+			//
+			// @lore rebase-onto-#547 / nested-knowledge-items: `SCOPE_KINDS` no
+			// longer has `product` (§2) — a team-scoped produced item is `team`
+			// now, scope_id unchanged, same mapping `write_memory`'s own
+			// `defaultScopeKind` uses. `status: "draft"` doesn't exist either
+			// (§2's collapse); `proposed` is the ladder's starting point.
 			const teamId: string | null =
 				ctx.teamId ??
 				(ctx.taskId
@@ -1576,20 +1539,17 @@ function makeCreateArtifactTool<TDb>(
 							.getTaskById(ctx.taskId, ctx.agentId)
 							.then((row) => row?.teamId ?? null)
 					: null);
-			const scopeKind: ScopeKind = teamId ? "product" : "factory";
+			const scopeKind: ScopeKind = teamId ? "team" : "factory";
 			const scopeId: string | null = teamId;
 
 			const created = await ports.coreApi.create(
 				{
-					// `layer` is deliberately OMITTED, not sent as null: the route
-					// rejects an explicit null and derives the layer from the scope
-					// when the field is absent. This tool has no opinion about layer.
 					scopeKind,
 					scopeId,
 					title,
 					body,
 					format: "markdown",
-					status: "draft",
+					status: "proposed",
 					updatedBy: `agent:${ctx.agentId}`,
 					parentKind,
 					parentId,
@@ -1634,7 +1594,6 @@ export function buildToolDefinitions(
 		toRegistered(makeSendMessageTool(ports)),
 		toRegistered(makeReplyTool(ports)),
 		toRegistered(makeLogTaskTool(ports)),
-		toRegistered(makeQueryPracticeTool(ports)),
 		toRegistered(makeWriteMemoryTool(ports)),
 		toRegistered(makeHandoffToTool(ports)),
 		toRegistered(makeCreateItemTool(ports)),

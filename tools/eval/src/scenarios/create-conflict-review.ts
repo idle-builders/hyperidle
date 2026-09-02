@@ -53,11 +53,9 @@ Your proposed body should clearly state the correct practice.`,
 		});
 
 		await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Deployment Practices",
 			body: "Deploy directly to production to save time. Staging environments are optional.",
-			layer: "L3",
-			kind: "process",
 			updatedBy: `user:${world.founderId}`,
 		});
 
@@ -169,11 +167,9 @@ If you get a DUPLICATE error, note this in your session notes and move on.`,
 
 		// Seed the knowledge item
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Audit Procedures",
 			body: "Annual audits are optional for firms under $10M revenue.",
-			layer: "L3",
-			kind: "process",
 			updatedBy: `user:${world.founderId}`,
 		});
 		ccrDedupKnowledgeItemId = knowledgeItemId;
@@ -266,11 +262,9 @@ When you get the INVALID_INPUT error, note it in session notes and do not retry.
 
 		// Seed the knowledge item at version 0
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Engagement Methodology",
 			body: "Start every engagement with a 2-week discovery phase.",
-			layer: "L3",
-			kind: "process",
 			updatedBy: `user:${world.founderId}`,
 		});
 		ccrVersionGuardKnowledgeItemId = knowledgeItemId;

@@ -190,7 +190,7 @@ export function buildToolHandlersPorts(
 			// AU21 §9 Increment 2 (knowledge wave): every former
 			// `ToolHandlersKnowledgeAccessor` capability moved onto this seam —
 			// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.
-			search: (query, opts, actorId) => seamPortForActor(actorId).knowledge.search(query, opts),
+			// @lore nested-knowledge-items: `search` is DELETED with `query_practice`.
 			create: (input, actorId) => seamPortForActor(actorId).knowledge.create(input),
 			findKnowledgeItemVersionById: (id, actorId) =>
 				seamPortForActor(actorId).knowledge.findKnowledgeItemVersionById(id),
