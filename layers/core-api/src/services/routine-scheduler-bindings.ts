@@ -30,6 +30,7 @@ import {
 	assembleSessionKnowledge,
 	getAgentIdentity,
 	get as getKnowledgeItem,
+	getRoutinePrompt,
 	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
@@ -162,8 +163,10 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		assembleSessionKnowledge,
 		getAgentIdentity,
-		getKnowledgeBody: async (db, knowledgeItemId) =>
-			(await getKnowledgeItem(db, knowledgeItemId))?.body ?? null,
+		// @lore knowledge-attachment-slot: was its own inline getParentedItem call
+		// (a spelling-twin of routines-routes.ts's own copy); both now share
+		// `getRoutinePrompt` from @hyperidle/knowledge, `getAgentIdentity`'s twin.
+		getRoutinePrompt,
 	};
 }
 

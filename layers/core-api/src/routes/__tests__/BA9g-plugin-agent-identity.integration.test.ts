@@ -14,7 +14,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { knowledgeItems, users } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -105,6 +105,39 @@ describe("a plugin's agent comes with an identity", () => {
 		// agent file rather than ordinary knowledge.
 		expect(identity?.role).toBe("agent_file");
 		expect(identity?.scopeKind).toBe("user");
+		// The parent slot — the binding `getAgentIdentity` actually reads.
+		expect(identity?.parentKind).toBe("agent");
+		expect(identity?.parentId).toBe(agent?.id);
+	});
+
+	test("a reinstall over a parentless row repairs the binding", async ({ db, app }) => {
+		await install(app);
+		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
+		const identityId = `ki_af_${agent?.id}`;
+
+		// Simulate a row written before the parent column existed. Kernel row
+		// and projection are touched together, as knowledge always writes
+		// them — the projection value is unchanged, this just keeps the pair
+		// in the same statement group.
+		await db
+			.update(knowledgeItems)
+			.set({ parentKind: null, parentId: null })
+			.where(eq(knowledgeItems.id, identityId));
+		await db
+			.update(knowledgeAppProjection)
+			.set({ layer: null })
+			.where(eq(knowledgeAppProjection.knowledgeItemId, identityId));
+		const [before] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, identityId));
+		expect(before?.parentKind, "the parentless row this test starts from").toBeNull();
+
+		await install(app);
+
+		const [after] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, identityId));
+		expect(after?.parentKind).toBe("agent");
+		expect(after?.parentId).toBe(agent?.id);
 	});
 
 	test("the identity appears in the plugin's contributions", async ({ app }) => {
@@ -189,6 +222,53 @@ describe("a plugin's agent comes with an identity", () => {
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, String(identity?.id)));
 		expect(restored?.body, "the plugin's persona comes back").toBe(PERSONA);
+	});
+
+	test("a plugin-contributed routine's prompt is parented to the routine", async ({ db, app }) => {
+		const dir = join(tmpdir(), `ba9g-routine-prompt-${Date.now()}`);
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(
+			join(dir, "plugin.json"),
+			JSON.stringify({
+				$schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+				name: "routine-prompt-under-test",
+				version: "1.0.0",
+				extensions: {
+					"io.hyperidle": {
+						agents: [{ id: "sweeper", name: "Sweeper", role: "builder", agentCategory: "team" }],
+						routines: [
+							{
+								id: "weekly-sweep",
+								name: "Weekly sweep",
+								agentId: "sweeper",
+								triggerType: "manual",
+								prompt: "Sweep the stale items.",
+							},
+						],
+					},
+				},
+			}),
+		);
+		tempDirs.push(dir);
+
+		const res = await app.request("/api/plugins", {
+			method: "POST",
+			headers: auth(),
+			body: JSON.stringify({ source: { type: "folder", path: dir }, scope: { kind: "factory" } }),
+		});
+		expect(res.status).toBe(201);
+
+		const [routine] = await db.select().from(users).where(eq(users.name, "Sweeper"));
+		expect(routine, "the plugin's agent exists").toBeDefined();
+
+		const [promptDoc] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.body, "Sweep the stale items."));
+		expect(promptDoc, "the routine's prompt document exists").toBeDefined();
+		expect(promptDoc?.role).toBe("prompt");
+		expect(promptDoc?.parentKind).toBe("routine");
+		expect(promptDoc?.parentId).toBeTruthy();
 	});
 
 	test("an agent with no identity file is still installed, just bare", async ({ db, app }) => {

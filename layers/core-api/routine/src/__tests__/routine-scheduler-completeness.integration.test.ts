@@ -79,6 +79,7 @@ function inertPorts(): RoutineSchedulerPorts {
 		workIntents: { enqueueWorkIntent: unreachable("workIntents.enqueueWorkIntent") },
 		requireRunnableAgent: unreachable("requireRunnableAgent"),
 		getAgentIdentity,
+		getRoutinePrompt: unreachable("getRoutinePrompt"),
 	};
 }
 

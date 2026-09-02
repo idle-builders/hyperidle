@@ -180,13 +180,18 @@ export interface BakedContextKnowledgeItem {
 	 * - ordinary: knowledge/... files
 	 * - skill: .claude/skills/<title>/SKILL.md
 	 * - rule: knowledge/rules/<title>
-	 * - agent_file: AGENTS.md/CLAUDE.md only when scopeId === agentId
+	 * - agent_file: AGENTS.md/CLAUDE.md, bound to the agent named by the parent slot
+	 * - prompt: the run's instruction — never materialised as a sandbox file
 	 */
 	readonly role: string;
 	/**
 	 * @lore BA9b: For role='agent_file', this is the agentId the file is
-	 * bound to (stored in scopeId on the knowledge_item row). Only the agent
-	 * whose session matches this id receives the file.
+	 * bound to. Only the agent whose session matches this id receives the
+	 * file.
+	 *
+	 * @lore knowledge-attachment-slot: the binding moved from a scope reverse
+	 * lookup to the parent slot — `parentKind='agent'`, `parentId=<agentId>` —
+	 * so this is now derived from the parent, not from `scopeId`.
 	 */
 	readonly agentBindingId: string | null;
 }
@@ -201,10 +206,13 @@ export interface BakedContextKnowledgeItem {
  * `layer` stays optional (matching `KnowledgeItemWithProjection`'s own
  * optional `layer?: string | null`) — `toBakedContextKnowledgeItems` below
  * normalizes it to the required-but-nullable `BakedContextKnowledgeItem.layer`.
- * `role` and `scopeId` are required: both come from the kernel `knowledgeItems`
- * table which is always present in a DB row. role is NOT NULL DEFAULT 'ordinary';
- * scopeId is nullable but always present. No compat shim — callers provide the
- * real DB values.
+ * `role`, `parentKind` and `parentId` are required: all three come from the
+ * kernel `knowledgeItems` table, which is always present in a DB row. role is
+ * NOT NULL DEFAULT 'ordinary'; `parentKind`/`parentId` are nullable but always
+ * present — the same rule this doc comment already stated for `scopeId`,
+ * which this interface no longer needs (its only reader was the
+ * agentBindingId derivation below). No compat shim — callers provide the real
+ * DB values.
  */
 export interface SessionKnowledgeItemLike {
 	readonly id: string;
@@ -219,11 +227,14 @@ export interface SessionKnowledgeItemLike {
 	 */
 	readonly role: string;
 	/**
-	 * @lore BA9b: Kernel table column. Required, nullable.
-	 * For agent_file items: contains the agentId the item is bound to.
-	 * toBakedContextKnowledgeItems derives agentBindingId from this field.
+	 * @lore knowledge-attachment-slot: kernel table columns, required,
+	 * nullable — the parent slot this item hangs off, if any.
+	 * toBakedContextKnowledgeItems derives agentBindingId from these two
+	 * fields: `parentKind === "agent"` means `parentId` names the bound
+	 * agent.
 	 */
-	readonly scopeId: string | null;
+	readonly parentKind: string | null;
+	readonly parentId: string | null;
 }
 
 /**
@@ -244,9 +255,15 @@ export function toBakedContextKnowledgeItems(
 		version: item.version,
 		layer: item.layer ?? null,
 		role: item.role,
-		// @lore BA9b: agent_file items store the agentId in scopeId on the DB row.
-		// agentBindingId is always derived — never set explicitly (no shim path).
-		agentBindingId: item.role === "agent_file" ? (item.scopeId ?? null) : null,
+		// @lore knowledge-attachment-slot: the binding is the parent, not the
+		// scope — always derived, never set explicitly (no shim path). One
+		// semantic flip is deliberate: a team-scoped agent_file (unreachable in
+		// production — no writer creates one) used to derive
+		// agentBindingId=<teamId>, matching no agent and so silently inert
+		// everywhere. It has no parent under this derivation, and null means
+		// UNBOUND — delivered to every session in reach, per BA9b's stated
+		// intent for an agent file nobody claims.
+		agentBindingId: item.parentKind === "agent" ? item.parentId : null,
 	}));
 }
 

@@ -853,6 +853,13 @@ function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): s
  * unbound one that applies to all sessions — is still written, which is what
  * BA9b delivers.
  *
+ * @lore knowledge-attachment-slot: the binding compared below
+ * (`item.agentBindingId`) is now the PARENT — `parentKind='agent'`,
+ * `parentId=<agentId>` — not a scope reverse lookup. Nothing here changes:
+ * `agentBindingId` is still derived once, upstream, in
+ * `toBakedContextKnowledgeItems` (`@hyperidle/domain-model`), and this
+ * function only ever compares the already-derived value.
+ *
  * Items with role='ordinary' and an unrecognized/absent layer are skipped
  * (defensive — assembleSessionKnowledge only produces L4/L2/L3 ordinary items).
  */
@@ -864,6 +871,14 @@ function writeBundleKnowledge(
 	const manifestItems: Record<string, ManifestEntry> = {};
 	for (const item of knowledge) {
 		const role = item.role;
+
+		// @lore knowledge-attachment-slot Guard 2: `prompt` lands as the run's
+		// instruction, never a sandbox file. This is NOT redundant with the
+		// assembler-side filters (Guard 1, session-knowledge-assembler.ts) — the
+		// code below is a FALL-THROUGH, not an `if role === 'ordinary'` branch,
+		// so without this line a prompt reaching the bundle by any route would be
+		// written as a knowledge file by the path that exists for ordinary items.
+		if (role === "prompt") continue;
 
 		if (role === "skill") {
 			const relativePath = writeSkillItem(sandboxPath, item);

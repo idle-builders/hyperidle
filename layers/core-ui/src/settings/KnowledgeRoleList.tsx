@@ -1,0 +1,265 @@
+/**
+ * KnowledgeRoleList — shared list surface for knowledge items scoped to a
+ * fixed set of roles.
+ *
+ * Owns create and delete; the knowledge content view owns read and update —
+ * this is the human-side equivalent of a plugin's batch install, anything a
+ * plugin can create a person can too, through the same path. Built on the
+ * ItemList/Row primitives, following the idiom already shared by
+ * SettingsPlugins, SettingsHarnesses, SettingsConnections and SettingsAgents.
+ *
+ * @lore knowledge-attachment-slot: one list, parameterised by role — not one
+ * bespoke screen per role. `role` is set once here, at creation, and never
+ * edited afterward (the knowledge content view's role selector is gone),
+ * which is what makes this the single writer of role for the roles it lists.
+ * Skills and rules are the only knowledge-item type with a *list* today —
+ * a routine's prompt and an agent's identity are singular 1:1 bindings shown
+ * inline in their own editor (AgentEditor's identity link, the routine
+ * prompt field), not a create/list/delete surface — so this component is not
+ * wired into them. Wiring is a one-line instantiation (see
+ * SettingsSkillsAndRules.tsx) whenever a type gets a real list.
+ */
+
+import type { KnowledgeRole } from "@hyperidle/domain-model";
+import { KNOWLEDGE_ROLE_LABEL } from "@hyperidle/domain-model";
+import type { JSX, ReactNode } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+// hearth-internal-padding
+import {
+	Button,
+	ErrorState,
+	Input,
+	ItemList,
+	Row,
+	SectionLabel,
+	Select,
+	SkeletonList,
+	Tag,
+} from "../ds";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useFetch } from "../hooks/useFetch.js";
+import { apiFetch } from "../services/api-fetch.js";
+
+// ---------------------------------------------------------------------------
+// Wire types
+// ---------------------------------------------------------------------------
+
+interface ApiKnowledgeItem {
+	id: string;
+	title: string;
+	role?: string;
+	status?: string;
+}
+
+type RoleItem = ApiKnowledgeItem & { role: KnowledgeRole };
+
+export interface KnowledgeRoleListProps {
+	/** Which roles this list shows, and which roles the create form offers. */
+	roles: readonly KnowledgeRole[];
+	/** Lede paragraph explaining what the list is for. */
+	description: ReactNode;
+	/** Uppercase header above the row list. */
+	sectionLabel: string;
+	/** Shown in place of the list when there are no items. */
+	emptyMessage: string;
+	/** Uppercase header above the create form. */
+	createLabel: string;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function KnowledgeRoleList({
+	roles,
+	description,
+	sectionLabel,
+	emptyMessage,
+	createLabel,
+}: KnowledgeRoleListProps): JSX.Element {
+	const navigate = useNavigate();
+	const { user } = useCurrentUser();
+
+	// GET /api/knowledge has no role or status query param — it returns every
+	// item visible to the viewer, so this "what's live" surface filters to its
+	// own roles and drops archived items client-side rather than widening the
+	// shared route.
+	const { data, error, isLoading, refetch } = useFetch<{ items?: ApiKnowledgeItem[] }>(
+		"/api/knowledge",
+	);
+	// Ids removed optimistically. Delete drops the row immediately rather than
+	// waiting on the round trip; if the archive actually failed, the next load
+	// simply shows the row again — the server stays the source of truth.
+	const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(new Set());
+
+	const items: RoleItem[] = (data?.items ?? [])
+		.filter((item): item is RoleItem => roles.includes(item.role as KnowledgeRole))
+		.filter((item) => item.status !== "archived")
+		.filter((item) => !removedIds.has(item.id))
+		.sort((a, b) => a.title.localeCompare(b.title));
+
+	const [newTitle, setNewTitle] = useState("");
+	const [newRole, setNewRole] = useState<KnowledgeRole>(roles[0] ?? "ordinary");
+	const [creating, setCreating] = useState(false);
+	const [createError, setCreateError] = useState<string | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+
+	async function handleCreate(): Promise<void> {
+		const title = newTitle.trim();
+		if (!title) return;
+		setCreating(true);
+		setCreateError(null);
+		try {
+			const res = await apiFetch("/api/knowledge", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					title,
+					body: "",
+					format: "markdown",
+					// The route defaults to "draft", and only "active" items reach a
+					// session — a freshly created item must be live from the start,
+					// not sit invisibly in triage.
+					status: "active",
+					scopeKind: "factory",
+					role: newRole,
+					updatedBy: user?.id ?? "human",
+				}),
+			});
+			if (res.ok) {
+				const created = (await res.json()) as { id: string };
+				setNewTitle("");
+				navigate(`/knowledge/${created.id}`);
+				return;
+			}
+			const errBody = (await res.json().catch(() => ({}))) as { error?: string };
+			setCreateError(errBody.error ?? `Could not create it: ${res.status}`);
+		} catch {
+			setCreateError("Could not create it: network error");
+		} finally {
+			setCreating(false);
+		}
+	}
+
+	function restore(id: string): void {
+		setRemovedIds((prev) => {
+			const next = new Set(prev);
+			next.delete(id);
+			return next;
+		});
+	}
+
+	async function handleDelete(id: string): Promise<void> {
+		setDeleteError(null);
+		setRemovedIds((prev) => new Set(prev).add(id));
+		try {
+			// Archive is what delete means everywhere in this system — a hard
+			// delete is impossible (the audit tables hold RESTRICT FKs).
+			const res = await apiFetch(`/api/knowledge/${id}/archive`, { method: "POST" });
+			if (!res.ok) {
+				const errBody = (await res.json().catch(() => ({}))) as { error?: string };
+				setDeleteError(errBody.error ?? `Could not delete it: ${res.status}`);
+				restore(id);
+			}
+		} catch {
+			setDeleteError("Could not delete it: network error");
+			restore(id);
+		}
+	}
+
+	if (isLoading) {
+		return <SkeletonList rows={3} ariaLabel={`Loading ${sectionLabel.toLowerCase()}`} />;
+	}
+
+	if (error !== null) {
+		return (
+			<ErrorState
+				compact
+				title={`Couldn't load ${sectionLabel.toLowerCase()}`}
+				description="Please check your connection and try again."
+				onRetry={refetch}
+			/>
+		);
+	}
+
+	return (
+		<div className="flex flex-col gap-[24px]">
+			<p className="type-metadata max-w-[560px]  text-[var(--text-tertiary)]">{description}</p>
+
+			<div className="flex flex-col gap-[12px]">
+				<SectionLabel label={sectionLabel} />
+				<ItemList
+					variant="boxed"
+					isEmpty={items.length === 0}
+					empty={{
+						title: emptyMessage,
+						description: "Create one below to get started.",
+						dataTestId: "knowledge-role-empty",
+					}}
+				>
+					{items.map((item) => (
+						<Row
+							key={item.id}
+							data-testid="knowledge-role-row"
+							title={item.title}
+							actions={
+								<>
+									<Tag label={KNOWLEDGE_ROLE_LABEL[item.role]} />
+									<button
+										type="button"
+										aria-label={`Delete ${item.title}`}
+										onClick={() => void handleDelete(item.id)}
+										className="type-control cursor-pointer px-[8px] h-[28px] rounded-[var(--r-subtle)] text-[var(--status-error)] hover:bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]"
+									>
+										Delete
+									</button>
+								</>
+							}
+							onClick={() => navigate(`/knowledge/${item.id}`)}
+						/>
+					))}
+				</ItemList>
+				{deleteError !== null && (
+					<p role="alert" className="type-small  text-[var(--status-error)]">
+						{deleteError}
+					</p>
+				)}
+			</div>
+
+			<div className="flex flex-col gap-[12px]">
+				<SectionLabel label={createLabel} />
+				<div className="flex items-end gap-[9px]">
+					<div className="flex-1">
+						<Input
+							label="Title"
+							value={newTitle}
+							onChange={(e) => setNewTitle(e.target.value)}
+							disabled={creating}
+						/>
+					</div>
+					<Select
+						label="Type"
+						value={newRole}
+						onChange={(e) => setNewRole(e.target.value as KnowledgeRole)}
+						disabled={creating}
+						options={roles.map((r) => ({ value: r, label: KNOWLEDGE_ROLE_LABEL[r] }))}
+					/>
+					<Button
+						variant="primary"
+						size="default"
+						onClick={() => void handleCreate()}
+						disabled={creating || newTitle.trim().length === 0}
+					>
+						Create
+					</Button>
+				</div>
+				{createError !== null && (
+					<p role="alert" className="type-small  text-[var(--status-error)]">
+						{createError}
+					</p>
+				)}
+			</div>
+		</div>
+	);
+}

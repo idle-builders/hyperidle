@@ -566,17 +566,16 @@ export const routines = pgTable(
 		 * fires. Renamed from `description` — the prompt never had a home of
 		 * its own; this column IS it. Nullable: a routine with no prompt runs
 		 * the owner agent on its own persona (AC3).
+		 *
+		 * @lore knowledge-attachment-slot: `prompt_knowledge_id` (the FK that
+		 * used to live here) is dropped by migration 0077. The routine's prompt
+		 * is now the knowledge document parented to this routine
+		 * (`parentKind='routine', parentId=<this row's id>, role='prompt'`) —
+		 * read through `getParentedItem` in `@hyperidle/knowledge`, never a
+		 * column on this table. This closes a table-ownership violation BA9g
+		 * named but did not fix: a column here describing a knowledge
+		 * relationship, in a table the knowledge service does not own.
 		 */
-		/**
-		 * The knowledge document carrying this routine's instruction. A routine
-		 * prompt is knowledge like any other — readable, editable and reusable in
-		 * the knowledge view — so it lives there rather than in a column of its
-		 * own. Null for a routine with no instruction, which runs on its name.
-		 */
-		promptKnowledgeId: text("prompt_knowledge_id").references(
-			(): AnyPgColumn => knowledgeItems.id,
-			{ onDelete: "set null" },
-		),
 		ownerAgentId: text("owner_agent_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
@@ -853,17 +852,31 @@ export const knowledgeItems = pgTable(
 		version: integer("version").notNull().default(1),
 		/**
 		 * @lore BA9b: Knowledge item role. Determines where context assembly
-		 * materialises this item in the session sandbox.
+		 * materialises this item in the session sandbox — widened by the
+		 * knowledge-attachment-slot item to mean *where the item lands in the
+		 * session*.
 		 *
 		 * - ordinary: knowledge/... files, exactly as before (default).
 		 * - skill: a SKILL.md in the harness skills directory (e.g. .claude/skills/<title>/SKILL.md).
 		 * - rule: knowledge/rules/ — always-present rules for the agent.
 		 * - agent_file: AGENTS.md-shaped content, only for the bound agent.
-		 *   Binding: scopeKind='user', scopeId=agentId uses the existing scope system.
+		 *   Binding: parentKind='agent', parentId=agentId (see below).
+		 * - prompt: the run's instruction — never materialised as a sandbox file.
 		 *
 		 * Default 'ordinary' — all existing rows keep their current behaviour.
 		 */
 		role: text("role").notNull().default("ordinary"),
+		/**
+		 * @lore knowledge-attachment-slot: the entity this item hangs off, or
+		 * NULL for unparented knowledge (most rows). Nullable, both — a half
+		 * parent is not a parent (`ki_parent_pair_ck`). No FK: the column points
+		 * at five tables (`ki_parent_kind_ck`), so nothing at the database level
+		 * keeps a parent id honest and nothing cascades a delete — application
+		 * code archives a parent's children instead (see the knowledge route
+		 * composition roots).
+		 */
+		parentKind: text("parent_kind"),
+		parentId: text("parent_id"),
 		updatedBy: text("updated_by").notNull(),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
@@ -874,7 +887,26 @@ export const knowledgeItems = pgTable(
 		index("ki_status_idx").on(table.status),
 		index("ki_updated_desc_idx").on(table.updatedAt),
 		index("ki_role_idx").on(table.role),
-		check("ki_role_ck", sql`${table.role} IN ('ordinary', 'skill', 'rule', 'agent_file')`),
+		check(
+			"ki_role_ck",
+			sql`${table.role} IN ('ordinary', 'skill', 'rule', 'agent_file', 'prompt')`,
+		),
+		index("ki_parent_idx").on(table.parentKind, table.parentId),
+		// One item per named role per parent — a routine's prompt, an agent's
+		// identity. `role <> 'ordinary'` leaves a parent free to hold many
+		// ordinary children (the nested-knowledge tree, phase 2), and Postgres
+		// treats NULLs as distinct by default, so unparented rows never collide.
+		uniqueIndex("ki_parent_slot_uq")
+			.on(table.parentKind, table.parentId, table.role)
+			.where(sql`${table.role} <> 'ordinary'`),
+		check(
+			"ki_parent_kind_ck",
+			sql`${table.parentKind} IS NULL OR ${table.parentKind} IN ('knowledge_item', 'task', 'thread', 'routine', 'agent')`,
+		),
+		check(
+			"ki_parent_pair_ck",
+			sql`(${table.parentKind} IS NULL AND ${table.parentId} IS NULL) OR (${table.parentKind} IS NOT NULL AND ${table.parentId} IS NOT NULL)`,
+		),
 	],
 );
 

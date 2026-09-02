@@ -222,14 +222,18 @@ const updateKnowledgeSchema = z.object({
 	topic: z.string().optional(),
 	format: z.string().optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
-	/** An ordinary note becomes a skill, or a skill goes back to being one. */
-	role: z.enum(KNOWLEDGE_ROLES).optional(),
 	/**
 	 * Scope is a field on the document like any other. It had its own endpoint
 	 * demanding a `reason`, which was concatenated into an edit-log value and
 	 * read by nothing; that endpoint and that string are gone. Changing scope
-	 * alongside role or content is now one edit under one version bump instead
-	 * of two round trips that can half-fail.
+	 * alongside content is now one edit under one version bump instead of two
+	 * round trips that can half-fail.
+	 *
+	 * @lore knowledge-attachment-slot: `role` is deliberately NOT in this
+	 * schema — it is create-only now (see the create schema's own `role`
+	 * field above). `z.object` strips unknown keys, so a PATCH body that
+	 * still carries `role` is silently ignored rather than 400ing; the role
+	 * a document was created with cannot drift.
 	 */
 	scopeKind: z.enum(SCOPE_KINDS).optional(),
 	scopeId: z.string().nullable().optional(),
@@ -545,7 +549,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					topic: body.topic,
 					format: body.format,
 					status: body.status,
-					role: body.role,
 					scopeKind: body.scopeKind,
 					scopeId: body.scopeId,
 					updatedBy: body.updatedBy,

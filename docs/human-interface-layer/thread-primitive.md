@@ -18,7 +18,7 @@ Thread columns: `framework/db/src/schema.ts`. Message columns: `schema.ts`. `blo
 
 ## Host kinds (closed)
 
-`HOST_KINDS` (`framework/domain-model/src/thread.ts`): `bet | task | knowledge_item | artifact | agent | user | team | factory`.
+`HOST_KINDS` (`framework/domain-model/src/thread.ts`): `task | knowledge_item | artifact | agent | user | team | factory`. There is no `bet` host kind — migration `0068` flipped every thread whose host was a bet to `task` (the host id did not change, since each bet kept its id as a root task).
 
 - Host = the entity the thread is *about* — not the creator (that is `initiator_id`); no thread has an owner.
 - No orphan threads. An assistant-style thread with no domain object attaches to the user themselves.
@@ -49,7 +49,7 @@ A configuration is a recognisable pattern of host + participants + pinning — d
 - **assistant** — host = user, pinned. (Starts unpinned → classifies as `dm` until the assistant's first response.)
 - **feed** — host = team or factory; broadcast.
 - **dm** — host = agent or user, exactly two participants.
-- **attached** — everything else (thread on a bet, task, knowledge item, artifact).
+- **attached** — everything else (thread on a task, knowledge item, artifact).
 
 Post-spec extension: `direct_key` (AF14, `schema.ts`) dedupes direct two-participant threads only, via a partial unique index; null for group/feed/host-scoped threads, and the assistant thread is exempt.
 

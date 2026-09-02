@@ -10,7 +10,7 @@ import {
 } from "@hyperidle/agent-orchestration";
 import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { knowledgeItems, routines, tasks, teams, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -159,11 +159,18 @@ describe("update_routine tool", () => {
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		expect(row!.name).toBe("Updated Name");
 		expect(row!.state).toBe("paused");
-		// The prompt lives in a knowledge document now; the tool writes through to it.
+		// The prompt lives in a knowledge document parented to the routine now;
+		// the tool writes through to it.
 		const [promptDoc] = await db
 			.select()
 			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, String(row!.promptKnowledgeId)))
+			.where(
+				and(
+					eq(knowledgeItems.parentKind, "routine"),
+					eq(knowledgeItems.parentId, routineId),
+					eq(knowledgeItems.role, "prompt"),
+				),
+			)
 			.limit(1);
 		expect(promptDoc?.body).toBe("New prompt");
 	});

@@ -58,4 +58,13 @@ describe("I3: secondary index coverage", () => {
 		const indexes = await indexesFor(db, "messages");
 		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
 	});
+
+	// @lore knowledge-attachment-slot: the composite (parent_kind, parent_id)
+	// index serves both "everything under this parent" (leading column alone)
+	// and "the item parented to X" (the pair), and still serves
+	// `parent_kind IS NULL` — the nested-knowledge tree's roots query.
+	test("knowledge_items has an index for parent_kind, parent_id", async ({ db }) => {
+		const indexes = await indexesFor(db, "knowledge_items");
+		expect(indexes.some((i) => i.includes("parent_idx"))).toBe(true);
+	});
 });

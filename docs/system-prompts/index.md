@@ -10,11 +10,13 @@ and roles arrive with a plugin or with you. See
 
 ## How an identity reaches a session
 
-An agent's identity is an `agent_file` knowledge document bound to that agent —
-`scope_kind='user'`, `scope_id` the agent's id. It is read and edited like any
-other document, through the one knowledge edit endpoint, and editing it changes
-what the agent's next session runs with. The document body becomes the
-`## Identity` section of the AGENTS.md written into the session's sandbox.
+An agent's identity is an `agent_file` knowledge document parented to that
+agent — `parentKind='agent'`, `parentId` the agent's id, `role='agent_file'`.
+Its body is read and edited like any other document, through the one
+knowledge edit endpoint, and editing it changes what the agent's next session
+runs with; the role itself is fixed at creation and cannot be changed
+afterwards. The document body becomes the `## Identity` section of the
+AGENTS.md written into the session's sandbox.
 
 Nothing reads a persona off disk at runtime any more. The old mechanism — a
 frozen `SYSTEM_PROMPT_TEMPLATE_FILES` allowlist mapping role → filename, read at

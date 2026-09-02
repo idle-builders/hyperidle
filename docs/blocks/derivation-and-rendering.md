@@ -38,8 +38,8 @@ Two distinct block-linking shapes, both shipped and coexisting:
 
 Both shapes use the same `(blockId, hostKind, hostId)` coordinate; neither replaces the other.
 
-`InlineRef.kind` is a **closed** discriminated union of seven kinds: `knowledge_item | task | artifact | bet | message | block | mention` (`framework/domain-model/src/thread.ts:102-109`; `mention` added by AE5). The `block` variant is the only one carrying extra fields.
+`InlineRef.kind` is a **closed** discriminated union of six kinds: `knowledge_item | task | artifact | message | block | mention` (`framework/domain-model/src/thread.ts:136-142`; `mention` added by AE5). There is no `bet` kind — a bet is a task with no parent. The `block` variant is the only one carrying extra fields.
 
-**Not a thread attachment kind.** `HOST_KINDS` closed at eight kinds (`bet | task | knowledge_item | artifact | agent | user | team | factory`, `framework/domain-model/src/thread.ts:19-28`) — there is no `block` attachment kind. Per-block discussion rides the message-level anchor above, not thread attachment. Thread and Message primitives are owned by [`thread-primitive.md`](../human-interface-layer/thread-primitive.md).
+**Not a thread attachment kind.** `HOST_KINDS` closed at seven kinds (`task | knowledge_item | artifact | agent | user | team | factory`, `framework/domain-model/src/thread.ts:19-28`) — there is no `block` attachment kind, and no `bet` kind either. Per-block discussion rides the message-level anchor above, not thread attachment. Thread and Message primitives are owned by [`thread-primitive.md`](../human-interface-layer/thread-primitive.md).
 
 **Composition is one-way.** A thread or message knows which block it targets; the Block carries no inbound-ref fields. This keeps derivation pure — the same body always derives to the same Block list, regardless of who references it.

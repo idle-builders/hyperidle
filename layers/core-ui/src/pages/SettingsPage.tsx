@@ -31,6 +31,7 @@ import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsPlugins } from "../settings/SettingsPlugins.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
+import { SettingsSkillsAndRules } from "../settings/SettingsSkillsAndRules.js";
 import { SettingsWorker } from "../settings/SettingsWorker.js";
 
 /** Section label: 13px uppercase, text-tertiary. No border — spacing creates rhythm. */
@@ -86,6 +87,15 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Agents</SectionTitle>
 						<SettingsAgents />
+					</section>
+
+					<section
+						id="settings-section-skills"
+						data-testid="settings-section-skills"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Skills & rules</SectionTitle>
+						<SettingsSkillsAndRules />
 					</section>
 
 					<section

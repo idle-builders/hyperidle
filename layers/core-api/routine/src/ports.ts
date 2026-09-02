@@ -275,8 +275,12 @@ export interface RoutineSchedulerPorts {
 	 * identity at all. A required port turns that into a compile error.
 	 */
 	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
-	/** Read a knowledge document's body — the routine's instruction lives in one. */
-	getKnowledgeBody?(db: HyperIdleDb, knowledgeItemId: string): Promise<string | null>;
+	/**
+	 * The routine's instruction, read from the knowledge document parented to
+	 * it. Required, not optional — see the `@lore` on the identical port in
+	 * `routine-service.ts`'s `RoutineRunResolverDeps`.
+	 */
+	getRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null>;
 	assembleSessionKnowledge?(
 		db: HyperIdleDb,
 		input: {

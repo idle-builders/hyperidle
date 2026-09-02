@@ -39,7 +39,7 @@ import type { BakedContextBundle } from "@hyperidle/domain-model";
 import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const createdAt = new Date().toISOString();
@@ -73,10 +73,18 @@ async function seedRoutine(
 		readonly prompt?: string | null;
 	},
 ): Promise<void> {
-	// The instruction is a knowledge document the routine points at.
-	let promptKnowledgeId: string | null = null;
+	await db.insert(routines).values({
+		id: options.routineId,
+		name: options.routineId,
+		ownerAgentId: options.ownerAgentId,
+		triggerType: "manual",
+		active: options.active ?? true,
+		state: options.state ?? "active",
+		deletedAt: options.deletedAt ?? null,
+	});
+	// The instruction is a knowledge document parented to the routine.
 	if (options.prompt) {
-		promptKnowledgeId = `ki-${options.routineId}-prompt`;
+		const promptKnowledgeId = `ki-${options.routineId}-prompt`;
 		const ts = new Date().toISOString();
 		await db.insert(knowledgeItems).values({
 			id: promptKnowledgeId,
@@ -88,6 +96,9 @@ async function seedRoutine(
 			format: "markdown",
 			status: "active",
 			version: 1,
+			role: "prompt",
+			parentKind: "routine",
+			parentId: options.routineId,
 			updatedBy: "test",
 			createdAt: ts,
 			updatedAt: ts,
@@ -100,21 +111,21 @@ async function seedRoutine(
 			scopeId: null,
 		});
 	}
-	await db.insert(routines).values({
-		id: options.routineId,
-		name: options.routineId,
-		promptKnowledgeId,
-		ownerAgentId: options.ownerAgentId,
-		triggerType: "manual",
-		active: options.active ?? true,
-		state: options.state ?? "active",
-		deletedAt: options.deletedAt ?? null,
-	});
 }
 
 /** The resolver reads the prompt document through this port (Mechanism C). */
-async function readKnowledgeBody(db: HyperIdleDb, id: string): Promise<string | null> {
-	const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
+async function readRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null> {
+	const [row] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, "routine"),
+				eq(knowledgeItems.parentId, routineId),
+				eq(knowledgeItems.role, "prompt"),
+			),
+		)
+		.limit(1);
 	return row?.body ?? null;
 }
 
@@ -141,7 +152,7 @@ async function seedRun(
  * enumerate this file's cases by hand; the compiler will not do it for you.
  */
 function buildDeps() {
-	return { requireRunnableAgent, getAgentIdentity };
+	return { requireRunnableAgent, getAgentIdentity, getRoutinePrompt: readRoutinePrompt };
 }
 
 describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)", () => {
@@ -314,7 +325,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
 			requireRunnableAgent,
 			getAgentIdentity,
-			getKnowledgeBody: readKnowledgeBody,
+			getRoutinePrompt: readRoutinePrompt,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,
 		});
@@ -363,7 +374,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-noteam", {
 			requireRunnableAgent,
 			getAgentIdentity,
-			getKnowledgeBody: readKnowledgeBody,
+			getRoutinePrompt: readRoutinePrompt,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge: async (_db, input) => {
 				assembleCalled = true;

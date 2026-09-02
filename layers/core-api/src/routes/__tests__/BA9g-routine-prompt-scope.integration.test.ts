@@ -14,10 +14,25 @@
  */
 
 import { type HyperIdleDb, knowledgeItems, teams, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
+
+/** The knowledge document parented to this routine's prompt slot. */
+async function findPromptDocId(db: HyperIdleDb, routineId: string): Promise<string> {
+	const [row] = await db
+		.select({ id: knowledgeItems.id })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, "routine"),
+				eq(knowledgeItems.parentId, routineId),
+				eq(knowledgeItems.role, "prompt"),
+			),
+		);
+	return String(row?.id);
+}
 
 const TEST_API_KEY = "test-key-ba9g-prompt-scope";
 
@@ -59,7 +74,7 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 	]);
 }
 
-async function createRoutine(app: Hono, ownerAgentId: string): Promise<string> {
+async function createRoutine(app: Hono, db: HyperIdleDb, ownerAgentId: string): Promise<string> {
 	const res = await app.request("/api/routines", {
 		method: "POST",
 		headers: authHeaders(),
@@ -72,8 +87,8 @@ async function createRoutine(app: Hono, ownerAgentId: string): Promise<string> {
 		}),
 	});
 	expect(res.status).toBe(201);
-	const body = (await res.json()) as { promptKnowledgeId: string };
-	return body.promptKnowledgeId;
+	const body = (await res.json()) as { id: string };
+	return findPromptDocId(db, body.id);
 }
 
 describe("a routine's prompt takes its owner's scope", () => {
@@ -86,7 +101,7 @@ describe("a routine's prompt takes its owner's scope", () => {
 
 	test("a team agent's routine prompt is that team's knowledge", async ({ db, app }) => {
 		await seedWorld(db);
-		const docId = await createRoutine(app, "agent-on-team");
+		const docId = await createRoutine(app, db, "agent-on-team");
 
 		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, docId));
 		expect(doc?.scopeKind, "not the whole organisation's").toBe("team");
@@ -95,7 +110,7 @@ describe("a routine's prompt takes its owner's scope", () => {
 
 	test("an agent on no team still writes a factory-wide prompt", async ({ db, app }) => {
 		await seedWorld(db);
-		const docId = await createRoutine(app, "agent-no-team");
+		const docId = await createRoutine(app, db, "agent-no-team");
 
 		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, docId));
 		expect(doc?.scopeKind).toBe("factory");
@@ -125,7 +140,7 @@ describe("a routine's prompt takes its owner's scope", () => {
 			body: JSON.stringify({ prompt: "Now it has one." }),
 		});
 		expect(patched.status).toBe(200);
-		const { promptKnowledgeId } = (await patched.json()) as { promptKnowledgeId: string };
+		const promptKnowledgeId = await findPromptDocId(db, id);
 
 		const [doc] = await db
 			.select()

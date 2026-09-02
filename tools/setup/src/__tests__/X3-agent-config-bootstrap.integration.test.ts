@@ -30,12 +30,21 @@ async function queryRows<T extends Record<string, unknown>>(
 	return (result as { rows: T[] }).rows;
 }
 
-/** The persona of an agent: the `agent_file` document bound to it. */
+/**
+ * The persona of an agent: the `agent_file` document parented to it.
+ *
+ * @lore knowledge-attachment-slot: this used to read
+ * `scope_kind = 'user' AND scope_id = <agentId>` — the retired reverse-lookup
+ * predicate. As written it stayed green while a plugin-installed or
+ * demo-seeded agent's identity was actually unreachable, because the binding
+ * moved to `parent_kind`/`parent_id`. Moved onto the parent predicate so a
+ * missing parent turns this test red instead of silently passing.
+ */
 async function readIdentity(db: HyperIdleDb, agentId: string): Promise<string | null> {
 	const rows = await queryRows<{ body: string | null }>(
 		db,
 		`SELECT body FROM knowledge_items
-      WHERE role = 'agent_file' AND scope_kind = 'user' AND scope_id = '${agentId}'
+      WHERE role = 'agent_file' AND parent_kind = 'agent' AND parent_id = '${agentId}'
         AND status = 'active'`,
 	);
 	return rows[0]?.body ?? null;
