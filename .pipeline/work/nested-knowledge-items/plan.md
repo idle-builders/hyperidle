@@ -1,0 +1,231 @@
+# Nested knowledge items
+
+## Seed
+
+A knowledge item can contain other knowledge items. The knowledge
+navigation becomes a tree. There is no separate folder thing — **a folder is a
+knowledge item**: clicking it opens it, with its children listed on it. In an agent's
+sandbox, a knowledge item with children materialises as a directory with an index
+knowledge item inside.
+
+## What we need
+
+**Why this matters.** Structure today is four flat vocabularies — `topic`, `kind`,
+`layer`, `scope` — and they are four words doing two jobs badly. Knowledge
+management is a plugin now; the core should not ship a fixed filing vocabulary.
+The founder wants full flexibility: *"what we really need is full flexibility in
+structuring knowledge."* You restructure by moving knowledge items, not by us shipping a
+new enum value.
+
+### The two jobs, separated
+
+Everything turned on splitting one confusion: **what a knowledge item is about** is
+answered by where it sits in the tree; **who sees it** is answered by `scope`, and
+by nothing else. "Product" and "Practices" stop being scope values and become what
+they always were — knowledge items near the root. A knowledge item is product knowledge
+because it lives under Product.
+
+| Survives | Job |
+|---|---|
+| `parentId` + `parentKind` + `position` | what it is about, and where it sits |
+| `scope` = `factory` / `team` / `user` | who sees it |
+| `status` | how relevant and trusted it is |
+| `role` | skill / rule / agent file / ordinary |
+
+**Deleted: `topic`, `kind`, `layer` (L0–L4), and the `product` / `practice` scope
+values.** Founder: *"layer and kind don't make sense anymore in the current
+product."*
+
+### Scope is a readability filter, not RBAC
+
+Scope narrows as you descend, and that is how the tree stays readable as it grows
+— not an access-control system. A child's scope must be the same or narrower than
+its parent's, on the founder's own reasoning: if you cannot see the root you
+cannot reach the children. What you cannot see is **hidden**, not
+shown-and-locked; a locked row you cannot open still costs a line of tree.
+
+### Task knowledge lives in the task
+
+The parent slot is polymorphic: a knowledge item's parent is another **knowledge item**, a
+**task**, or a **thread** (a knowledge item an agent produced inside a conversation, or
+a file a human attached to one). So `task` and `bet` leave the scope kinds entirely, and graduating a task
+learning into the team's knowledge is reparenting it — one field, no copy, no
+status change. This closes a hole found by the artifact/knowledge strand: while
+task/bet stayed scope values, `scope` was still doing two jobs and the descent rule
+was meaningless for a task-scoped child.
+
+Accepted cost: the parent is no longer a plain foreign key, so existence is
+validated at the API boundary. `org_edges` is the precedent. We trade a database
+guarantee for one word that means one thing.
+
+Another session is merging artifacts with knowledge, which makes task knowledge
+and artifacts the same object. This item does not decide what that object is — only
+that it stays off the tree and can be reparented into it.
+
+### Agents and humans are equal here
+
+*"Agents can do anything a human can."* An agent that writes
+`knowledge/pricing/objections.md` creates real nested knowledge items, and nesting a
+human makes materialises as real directories. Today deeper folders an agent
+creates are silently discarded.
+
+### Ordering and depth
+
+Children sort by an explicit `position`, defaulting to creation order, ties by
+title. There is no ordering at all today, and a browse tree that reshuffles when
+someone fixes a typo is unusable. No drag-to-reorder interface here; the column
+makes one possible later. Depth is capped at 32 as a backstop; the real guard is a
+cycle check on every move.
+
+### Success looks like
+
+- A person opens Knowledge, sees a tree, clicks a parent, and reads it as a
+  knowledge item with its children listed on it.
+- A person can nest and move knowledge items, and the tree keeps up.
+- An agent creating nested folders produces that same tree, and a tree a human
+  builds arrives in the sandbox as directories.
+- A team-scoped branch is invisible to someone outside that team.
+- A task's knowledge appears on the task, never in the tree.
+- `topic`, `kind`, `layer`, `product` and `practice` are gone from the schema, the
+  interface and the agent tools — not deprecated, gone.
+
+### Not in this item
+
+- Drag-to-reorder, or any hand-ordering interface.
+- The sidebar navigator's own design (search, filter, phone drawer).
+- Changing how knowledge is created, promoted, decayed or scored beyond what
+  losing `layer` and `kind` forces.
+- Access control. Scope hides things to keep the tree readable; it is not a
+  security boundary and must not be sold as one.
+
+## How it works
+
+### The tree
+
+A knowledge item carries a parent, a parent kind, and a position. The parent kind is
+a knowledge item, a task, or a thread. **Bet is not among them.** A parallel, further
+advanced session is deleting bets in favour of nested tasks — a bet is a task with
+no parent — so there is nothing extra to model here, and any parent kind list
+carrying `bet` is stale. A knowledge item with no parent is a root. A knowledge item parented
+to a task or a thread never appears in the knowledge tree; that task or thread
+lists its own.
+
+Three rules hold on every write that sets a parent, checked **inside the same
+transaction as the write**: no cycles, scope no wider than the parent's, depth no
+greater than 32. The in-transaction part is not fussiness — two people reparenting
+at the same time can each see a legal tree and together produce a loop, and a
+recursive read that meets a loop does not fail, it spins.
+
+### One tree, not two
+
+Today an agent gets two knowledge trees: the one it receives, filed into
+`context/` by layer and made read-only, and the flat `knowledge/` it writes into.
+That split is what stops an agent doing what a human can, so it goes. There is one
+writable, watched `knowledge/` tree, shaped like the real one. Context assembly is
+unchanged in spirit — scope and relevance still choose the slice an agent gets; the
+slice simply arrives in the shape it actually has. Skills, rules and agent files
+still land wherever the harness looks for them, because that is decided by what
+they are, not where they sit.
+
+A parent materialises as a directory with an `index.md` inside holding its own
+text. Filenames are plain human names — no ids, no front matter. The sandbox
+manifest already maps each knowledge item to its path, so identity has a home and the
+knowledge item does not have to carry a machine number in its name or its body. When a
+selected knowledge item has an unselected ancestor, that ancestor's index is written
+anyway: a path with a missing middle means nothing.
+
+### A move is an edit
+
+A file appearing inside a directory becomes a knowledge item whose parent is that
+directory's knowledge item. Moves are the interesting case. The watcher cannot get a
+reliable move event from the operating system, and does not need one: it batches
+changes on a short debounce, so both halves of a move — the disappearance and the
+appearance — arrive together. When a batch holds exactly one of each and the
+manifest knows the vanished path, that is a move: reparent, leave the body alone.
+Anything ambiguous falls back to today's behaviour, where a disappearance opens a
+conflict for review and nothing is lost.
+
+The thread parent is not a new capability — it is the honest version of one that
+has been half-built since T4. Content is attached to a conversation today as a
+`BlockRef` embed, and a block id is a hash of content and outline path, so the
+reference rots the moment the source is edited and degrades to "source changed".
+It has no body, status, scope or history of its own. A knowledge item parented to the
+thread has all of them. That retirement is owned by the artifact/knowledge strand,
+which is rewriting how message content works; this item owns the slot it lands in.
+The opposite direction — a thread *hosted on* a knowledge item and anchored to a block,
+a comment on a region — is untouched.
+
+**Nothing resolves through a non-item parent.** Every tree walk stops at the
+first parent that is not a knowledge item, so a task- or thread-parented knowledge item is
+both a leaf and a walking root: no ancestors, inherits nothing. This is what keeps
+`item -> thread -> item` harmless — a thread can be hosted on a knowledge item
+and also parent one, which closes a loop in the wider graph, but no walk crosses
+the hop, so the loop is inert rather than policed. Forbidding it at write time
+would outlaw the case it exists for. The cycle check governs item-to-item
+chains only, and runs in full when a knowledge item graduates, since that is an ordinary
+reparent.
+
+A move is then recorded as an ordinary edit to the knowledge item, on its parent. It
+shows up in history beside every other change and needs no separate review path —
+which is what makes a move reviewable at all. A move that breaks one of the three
+rules is refused outright and reported back, rather than recorded and repaired.
+
+### What the old vocabularies were holding up
+
+Only one live surface depended on them: the **Backlinks card** on a knowledge item,
+which lists up to ten items sharing a topic string. It becomes children plus
+siblings — the tree answers "what is near this" better than a shared word did.
+
+The weekly decay sweep's cohort — how many neighbours say the same thing — becomes
+siblings. The cross-scope repetition signal is deleted rather than approximated;
+without `topic` there is no honest version of it. Nothing in the interface renders
+an attention score today, so this changes what the sweep archives, not what anyone
+sees.
+
+Two more queries turned out to have no callers at all — the layer-filtered git
+export and the recent-by-layer digest. They are deleted, not ported.
+
+### Migrating what exists
+
+Two levels, seeded once: a root item per surviving scope grouping (Product,
+Practices), a root per distinct topic beneath it, and the items under those. Items
+with no topic land under General. Rows scoped `product` or `practice` have their
+scope rewritten to `factory`, because where they now sit says what their scope
+value used to. Task- and bet-scoped rows all become task-parented, leaning on the
+parallel work's invariant that each bet became a root task keeping its own id — so
+the scope id never changes and only the kind string moves.
+
+**Amendment, founder-approved 2026-08-30, after reconciliation against the code**
+(`feasibility.md`). Two of the plan's migration claims were wrong.
+
+`product` is not layer vocabulary — it displays as **Team** everywhere, and its
+scope id is already a team id. It migrates to `team`, not `factory`. Sending it to
+`factory` would have published every team's product knowledge factory-wide.
+
+`practice` is live role-scoped knowledge — the "Role" option in the create picker,
+whose scope id is an agent role, feeding the knowledge an agent receives for its
+role. It moves **into the tree**, on the founder's ruling: a "Practices" root with
+one knowledge item per practice, so a practice has a folder of its own knowledge and can
+nest inside it. Context assembly resolves an agent's practice folder by matching
+the agent's `role` string against those knowledge items.
+
+That name match is a deliberate stopgap, accepted as such: *"for now whatever
+works and later we will launch a session to rework that entire role/practice
+aspect since it seems broken."* Whether a practice and an agent role are one thing,
+and whether agents should be assigned practices by id instead of by name, is
+deferred to its own session and must not be settled here.
+
+### Left deliberately simple
+
+No hand-ordering interface — `position` exists so one can be added later. No
+transclusion: a knowledge item still belongs to exactly one parent. Scope hides branches
+to keep the tree readable and is not access control; the day someone needs it to
+survive a determined reader, it has to be rebuilt as something else.
+
+### Sequenced with two parallel strands
+
+The task-hierarchy work removes `bet` from the scope kinds; this work removes
+`product`, `practice` and finally `task`. Same list, two branches — theirs lands
+first and ours subsumes it. The artifact/knowledge merge decides what a
+task-parented knowledge item *is*; this work needs only that it stays off the tree and
+can be reparented into it.
