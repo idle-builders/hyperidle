@@ -297,9 +297,7 @@ export function SettingsHarnesses(): JSX.Element {
 											: ("info" as const);
 							const titleNode = (
 								<span className="flex items-center gap-[6px]">
-									<span className="type-copy   text-[var(--text-primary)]">
-										{descriptor.name}
-									</span>
+									<span className="type-copy   text-[var(--text-primary)]">{descriptor.name}</span>
 									{descriptor.discovery.version && (
 										<span className="type-data   text-[var(--text-tertiary)]">
 											v{descriptor.discovery.version}

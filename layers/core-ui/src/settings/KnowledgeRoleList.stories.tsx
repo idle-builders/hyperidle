@@ -31,7 +31,10 @@ function makeMockFetch(
 			);
 		}
 		return Promise.resolve(
-			new Response(JSON.stringify({}), { status: 200, headers: { "Content-Type": "application/json" } }),
+			new Response(JSON.stringify({}), {
+				status: 200,
+				headers: { "Content-Type": "application/json" },
+			}),
 		);
 	};
 }
@@ -41,7 +44,10 @@ export default {
 	group: "Settings" as const,
 };
 
-function render(items: ReadonlyArray<{ id: string; title: string; role: string }>, opts?: { listStatus?: number }) {
+function render(
+	items: ReadonlyArray<{ id: string; title: string; role: string }>,
+	opts?: { listStatus?: number },
+) {
 	globalThis.fetch = makeMockFetch(items, opts) as typeof fetch;
 	// eslint-disable-next-line @typescript-eslint/no-require-imports
 	const { KnowledgeRoleList } = require("./KnowledgeRoleList");

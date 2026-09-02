@@ -442,11 +442,11 @@ export function SettingsAgents(): JSX.Element {
 								<RowDeleteAction
 									triggerLabel={`Actions for ${agent.name}`}
 									menuLabel="Agent actions"
-									items={[{ id: "edit", label: "Edit", onSelect: () => void handleAgentClick(agent) }]}
+									items={[
+										{ id: "edit", label: "Edit", onSelect: () => void handleAgentClick(agent) },
+									]}
 									onDelete={
-										agent.id.startsWith("ast-")
-											? undefined
-											: () => handleDeleteConfirm(agent.id)
+										agent.id.startsWith("ast-") ? undefined : () => handleDeleteConfirm(agent.id)
 									}
 								/>
 							}

@@ -145,12 +145,12 @@ describe("SettingsSkillsAndRules", () => {
 	 * X3-SettingsAgents.test.tsx proves for SettingsAgents' own rows.
 	 */
 	async function deleteRow(user: ReturnType<typeof userEvent.setup>, rowContainer: HTMLElement) {
-		await user.click(within(rowContainer).getByRole("button", { name: /actions for write-tests/i }));
+		await user.click(
+			within(rowContainer).getByRole("button", { name: /actions for write-tests/i }),
+		);
 		await waitFor(() => screen.getByRole("menuitem", { name: /^delete$/i }));
 		await user.click(screen.getByRole("menuitem", { name: /^delete$/i }));
-		await waitFor(() =>
-			within(rowContainer).getByRole("button", { name: /confirm delete\?/i }),
-		);
+		await waitFor(() => within(rowContainer).getByRole("button", { name: /confirm delete\?/i }));
 		await user.click(within(rowContainer).getByRole("button", { name: /confirm delete\?/i }));
 	}
 
