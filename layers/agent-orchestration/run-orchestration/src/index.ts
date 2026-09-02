@@ -61,14 +61,6 @@ export {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-export {
-	type DeniedActionRecord,
-	findGateReviewByMessage,
-	type GateReviewLink,
-	type ResumeIntentEnqueuer,
-	recordGateReview,
-	recordGateVerdict,
-} from "./gate-reviews.js";
 export { ensureSandboxGitRepo, RegistryFilesystemMounter } from "./mounter.js";
 export type { MountingGitRunnerFactory } from "./mounter-ports.js";
 export type { PluginMcpContributionsPort } from "./provisioner.js";
@@ -76,6 +68,13 @@ export {
 	requestRunStopForTasks,
 	type StoppedRun,
 } from "./request-run-stop-for-tasks.js";
+export {
+	findReviewSession,
+	type ResumeIntentEnqueuer,
+	type ReviewSessionLink,
+	recordReviewSession,
+	recordReviewVerdict,
+} from "./review-sessions.js";
 export { runSession } from "./runtime.js";
 export { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 // -- `sessions`: this Service owns the table, so these are its only doors --

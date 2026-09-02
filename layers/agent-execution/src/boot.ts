@@ -45,13 +45,9 @@ import type {
 import type { EnforcementRegistry as BaseEnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	AdapterPool,
-	createActionGateStore,
 	createLocalAdapterPool,
 	createReturnEnforcement,
 	createSandboxAdapter,
-	type DeniedAction,
-	type GateRule,
-	installActionGate,
 	provisionHarnessEnvironment,
 	RemoteHarnessAdapter,
 	type SandboxAdapter,
@@ -85,8 +81,6 @@ export interface AgentExecutionBootOptions {
  * mirrored here field-for-field so the relocated composition root can assign
  * this object directly, structurally, with no adapter layer of its own.
  */
-export type { DeniedAction };
-
 export interface AgentExecutionHarnessRuntime {
 	readonly enforcementRegistry: EnforcementRegistry;
 	createReturnGate(requiredReturnActions?: readonly string[]): ReturnGate;
@@ -100,19 +94,6 @@ export interface AgentExecutionHarnessRuntime {
 		readonly bridgeToken: string;
 		readonly mcpUrl: string;
 		readonly forceBudget: number;
-	}): Promise<void>;
-	/**
-	 * Provision the action gate PreToolUse hook for this session.
-	 * Called after the MCP bridge is open (so mcpUrl + bridgeToken are available).
-	 * No-op when rules is empty.
-	 */
-	provisionActionGate(options: {
-		readonly sandboxPath: string;
-		readonly channel: ReturnEnforcementChannel;
-		readonly bridgeToken: string;
-		readonly mcpUrl: string;
-		readonly sessionId: string;
-		readonly rules: readonly GateRule[];
 	}): Promise<void>;
 	writeCliMcpConfig(options: {
 		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
@@ -144,21 +125,6 @@ export interface AgentExecutionHarnessRuntime {
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
 	}): Promise<{ readonly token: string; readonly url: string }>;
 	closeMcpBridge(token: string): Promise<void>;
-	/**
-	 * The action this session was last denied, if any.
-	 *
-	 * Read when an agent files a review, so the review can be tied to the block
-	 * that caused it. A session that was never denied has none, which is what
-	 * stops an ordinary design review from clearing an action.
-	 */
-	pendingGateDenial(sessionId: string): DeniedAction | undefined;
-	/**
-	 * Let one attempt at this action through, once. Called when a human approves
-	 * the review a denial produced, just before the session is resumed.
-	 */
-	clearGateAction(sessionId: string, action: DeniedAction): void;
-	/** Release the action gate store entry for this session — call at teardown. */
-	releaseActionGate(sessionId: string): void;
 }
 
 /**
@@ -206,7 +172,6 @@ export async function bootAgentExecution(
 ): Promise<AgentExecutionBoot> {
 	const sandbox = createSandboxAdapter(options.topology);
 	const enforcementRegistry = createReturnEnforcement();
-	const actionGateStore = createActionGateStore();
 	const pool =
 		options.topology === "local"
 			? await createLocalAdapterPool({ enforcement: enforcementRegistry })
@@ -214,7 +179,6 @@ export async function bootAgentExecution(
 	const bridge = createMcpToolBridge({
 		enforcement: enforcementRegistry,
 		baseUrl: options.mcpBaseUrl,
-		actionGate: actionGateStore,
 	});
 
 	const harnessRuntime: AgentExecutionHarnessRuntime = {
@@ -225,12 +189,6 @@ export async function bootAgentExecution(
 		provisionReturnHook: async (hookOptions) => {
 			await provisionHarnessEnvironment({ ...hookOptions, token: hookOptions.bridgeToken });
 		},
-		provisionActionGate: async (gateOptions) => {
-			if (gateOptions.rules.length > 0) {
-				actionGateStore.set(gateOptions.sessionId, gateOptions.rules);
-			}
-			await installActionGate(gateOptions);
-		},
 		writeCliMcpConfig: (configOptions) => provisionHarnessEnvironment(configOptions),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: (session) =>
@@ -240,9 +198,6 @@ export async function bootAgentExecution(
 				onToolCall: session.onToolCall,
 			}),
 		closeMcpBridge: (token) => bridge.close(token),
-		pendingGateDenial: (sessionId) => actionGateStore.pendingDenial(sessionId),
-		clearGateAction: (sessionId, action) => actionGateStore.clear(sessionId, action),
-		releaseActionGate: (sessionId) => actionGateStore.delete(sessionId),
 	};
 
 	return {

@@ -20,7 +20,6 @@
 import type { JSX } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
 import { PageHeader, PageScaffold } from "../ds";
-import { SettingsActionRules } from "../settings/SettingsActionRules.js";
 import { SettingsAgentBehavior } from "../settings/SettingsAgentBehavior.js";
 import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";
@@ -96,15 +95,6 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Agent behavior</SectionTitle>
 						<SettingsAgentBehavior />
-					</section>
-
-					<section
-						id="settings-section-action-rules"
-						data-testid="settings-section-action-rules"
-						className="flex flex-col gap-[9px]"
-					>
-						<SectionTitle>Action rules</SectionTitle>
-						<SettingsActionRules />
 					</section>
 
 					<section

@@ -591,9 +591,9 @@ async function createResumeRequestInternal(
 	resume: BakedSessionResumeRequest,
 ): Promise<{ readonly request: AgentSessionRequest }> {
 	const requestInput = agentSessionRequestInputSchema.parse({
-		sourceKind: "gate_resume",
+		sourceKind: "review_resume",
 		sourceId: intent.sourceId,
-		streamId: `gate_resume:${intent.sourceId}`,
+		streamId: `review_resume:${intent.sourceId}`,
 		agentId: resume.agentId,
 		taskId: null,
 		promptMode: "resume",
@@ -1087,7 +1087,7 @@ export type WorkIntentInput =
 			 * `resume` is the whole payload, and it takes `bakedRequest`'s column.
 			 */
 			readonly kind: "session_resume";
-			readonly sourceKind: "gate_review";
+			readonly sourceKind: "review_verdict";
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;

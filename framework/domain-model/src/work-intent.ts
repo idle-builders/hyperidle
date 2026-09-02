@@ -598,7 +598,7 @@ export type AgentWorkIntentRecorderInput =
 			 * session to return to and what to tell it.
 			 */
 			readonly kind: "session_resume";
-			readonly sourceKind: "gate_review";
+			readonly sourceKind: "review_verdict";
 			/** The review message the human decided on. */
 			readonly sourceId: string;
 			readonly requestedBy?: string;
@@ -623,10 +623,6 @@ export interface BakedSessionResumeRequest {
 	 * that to the human rather than silently doing nothing.
 	 */
 	readonly harnessSessionId?: string | null;
-	/** The rule that blocked the action, cleared for this one action on approval. */
-	readonly ruleId: string;
-	/** The tool the rule matched, so the clearance is spent on that action alone. */
-	readonly toolName: string;
 	/** What the human decided. A decline resumes too, carrying the reasoning back. */
 	readonly decision: "approve" | "decline";
 	/** The thread the review lives in, where a failure has to be reported. */
@@ -658,12 +654,12 @@ export type AgentWorkIntentRecorderFn = (
  * package exists to fix — a human sees "approved" and assumes the action
  * happened — so reproducing it here would fail the work.
  */
-export type GateVerdictOutcome =
+export type ReviewVerdictOutcome =
 	/** The resume is queued. The agent will be brought back. */
 	| { readonly status: "queued" }
-	/** An ordinary review, caused by no gate. Nothing to resume, and nothing wrong. */
-	| { readonly status: "not_a_gate_review" }
-	/** A gate review whose session cannot be resumed. The human has to be told. */
+	/** No session filed this review. Nothing to resume, and nothing wrong. */
+	| { readonly status: "not_a_review_session" }
+	/** A session filed it but cannot be brought back. The human has to be told. */
 	| { readonly status: "not_resumable"; readonly reason: string };
 
 /**
@@ -671,10 +667,10 @@ export type GateVerdictOutcome =
  * resume that carries it back to the agent.
  *
  * Injected into the core-api thread route the same way `AgentWorkIntentRecorderFn`
- * is, and for the same reason: `gate_reviews` belongs to the agent-orchestration
+ * is, and for the same reason: `review_sessions` belongs to the agent-orchestration
  * layer, and a core-api route may not read it.
  */
-export type GateVerdictRecorderFn = (input: {
+export type ReviewVerdictRecorderFn = (input: {
 	/** The review message the verdict resolved. */
 	readonly reviewMessageId: string;
 	readonly decision: "approve" | "decline";
@@ -684,4 +680,4 @@ export type GateVerdictRecorderFn = (input: {
 	readonly threadId: string;
 	/** The asking agent's runnable-config snapshot, baked by the caller (core state). */
 	readonly agentConfig?: BakedAgentRunnableConfig;
-}) => Promise<GateVerdictOutcome>;
+}) => Promise<ReviewVerdictOutcome>;

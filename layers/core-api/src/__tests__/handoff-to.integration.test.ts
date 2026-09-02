@@ -4,7 +4,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
 	agentSessionRequests,
 	type HyperIdleDb,
@@ -23,7 +23,7 @@ import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 function buildHandoffToTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_GATE_ACCESSOR).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR).find(
 		(t) => t.name === "handoff_to",
 	)!;
 }

@@ -30,9 +30,9 @@
  */
 
 import type {
-	AgentOrchestrationGateVerdictInput,
-	AgentOrchestrationGateVerdictOutcome,
 	AgentOrchestrationPort,
+	AgentOrchestrationReviewVerdictInput,
+	AgentOrchestrationReviewVerdictOutcome,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationRunConfigView,
 	AgentOrchestrationSessionWireRow,
@@ -46,7 +46,7 @@ import type { WriteExecutor } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
-	GateVerdictRecorderFn,
+	ReviewVerdictRecorderFn,
 } from "@hyperidle/domain-model";
 import type { OrgUserDirectory } from "@hyperidle/org";
 import type { Hono } from "hono";
@@ -68,8 +68,8 @@ interface AgentOrchestrationHcClient {
 		readonly intents: {
 			$post(args: { readonly json: AgentOrchestrationWorkIntentInput }): Promise<Response>;
 		};
-		readonly "gate-verdicts": {
-			$post(args: { readonly json: AgentOrchestrationGateVerdictInput }): Promise<Response>;
+		readonly "review-verdicts": {
+			$post(args: { readonly json: AgentOrchestrationReviewVerdictInput }): Promise<Response>;
 		};
 		readonly requests: {
 			readonly "pending-intents": {
@@ -211,12 +211,12 @@ export function buildAgentOrchestrationPort(
 				if (!res.ok) return throwSeamError("intents.submit", res);
 				return (await res.json()) as AgentOrchestrationWorkIntentReceipt;
 			},
-			async recordGateVerdict(
-				input: AgentOrchestrationGateVerdictInput,
-			): Promise<AgentOrchestrationGateVerdictOutcome> {
-				const res = await client["agent-orchestration"]["gate-verdicts"].$post({ json: input });
-				if (!res.ok) return throwSeamError("intents.recordGateVerdict", res);
-				return (await res.json()) as AgentOrchestrationGateVerdictOutcome;
+			async recordReviewVerdict(
+				input: AgentOrchestrationReviewVerdictInput,
+			): Promise<AgentOrchestrationReviewVerdictOutcome> {
+				const res = await client["agent-orchestration"]["review-verdicts"].$post({ json: input });
+				if (!res.ok) return throwSeamError("intents.recordReviewVerdict", res);
+				return (await res.json()) as AgentOrchestrationReviewVerdictOutcome;
 			},
 		},
 		requests: {
@@ -358,15 +358,15 @@ export function buildSeamBackedWorkIntentRecorder(
 }
 
 /**
- * BA2: the same mechanism for the gate's verdict half. `gate_reviews` belongs to
+ * BA2: the same mechanism for the gate's verdict half. `review_sessions` belongs to
  * agent-orchestration, so the thread route asks across the seam rather than
  * reading the table, and gets back what happened — including that the agent
  * cannot be resumed, which the human then has to be told.
  */
-export function buildSeamBackedGateVerdictRecorder(
+export function buildSeamBackedReviewVerdictRecorder(
 	port: AgentOrchestrationPort,
-): GateVerdictRecorderFn {
-	return (input) => port.intents.recordGateVerdict(input);
+): ReviewVerdictRecorderFn {
+	return (input) => port.intents.recordReviewVerdict(input);
 }
 
 /**

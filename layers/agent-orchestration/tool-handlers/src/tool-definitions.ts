@@ -810,7 +810,7 @@ function makeSubmitReviewTool<TDb>(
 			// the agent asking about that exact action. Recording the link here is
 			// what lets a human's approval clear it — and what stops an approval on
 			// any other review from clearing anything.
-			await ports.gate.linkReviewToPendingDenial(ctx.sessionId, messageId);
+			await ports.gate.linkReviewToSession(ctx.sessionId, messageId);
 
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 

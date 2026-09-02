@@ -18,18 +18,6 @@
  */
 
 // -- action rules (scoped items for agent action approval) --
-export type {
-	ActionRule,
-	ActionRuleScope,
-	CreateActionRuleInput,
-	ResolveActionRulesInput,
-} from "./action-rules.js";
-export {
-	createActionRule,
-	deleteActionRule,
-	listActionRules,
-	resolveActionRules,
-} from "./action-rules.js";
 // -- plugin configuration (resolution engine, agent-behavior UI) --
 export { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
 export type { PluginContribution } from "./plugin-contributions.js";

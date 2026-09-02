@@ -434,7 +434,7 @@ export const agentWorkIntents = pgTable(
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','gate_review')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','review_verdict')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -453,7 +453,7 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
-				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'gate_review')
+				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'review_verdict')
 			`,
 		),
 		/**
@@ -1524,60 +1524,6 @@ export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
 // --- Action rules (scoped items for agent action approval) ---
 
 /**
- * Action rules define which agent actions require human approval before
- * an agent may take them.
- *
- * @lore BA2: The rule list is EMPTY on a fresh install — nothing interrupts
- * an agent until a human adds a rule. Scope is global, team, or agent.
- * Resolution at provisioning is by UNION: global rules + the agent's team's
- * rules + that specific agent's rules. An empty result means no action is
- * ever interrupted.
- *
- * @lore BA2 (ruling 20): No clearance table, no state machine, no risk tiers.
- * The design is deliberately minimal: rules are plain scoped rows, resolution
- * is a SQL union, and session-level enforcement happens in the hook layer.
- *
- * @lore BA2 (ruling 1): No rule is pre-loaded on a fresh install. An empty
- * list is the correct, designed starting state — security is never preemptive.
- */
-export const actionRules = pgTable(
-	"action_rules",
-	{
-		id: text("id").primaryKey(),
-		/**
-		 * A name or pattern identifying the action to gate, e.g. "git push",
-		 * "rm -rf", "deploy". Matched by our enforcement code at provisioning time, not by the harness's own hook config.
-		 */
-		pattern: text("pattern").notNull(),
-		/** Human-readable label shown in the settings surface. */
-		description: text("description").notNull(),
-		/** 'global' | 'team' | 'agent' */
-		scope: text("scope").notNull(),
-		/**
-		 * null when scope='global';
-		 * teams.id when scope='team';
-		 * users.id (agent row) when scope='agent'.
-		 *
-		 * No FK constraint — the rule stays if the team or agent is removed,
-		 * and the hook simply finds no matching entry when resolving.
-		 */
-		scopeId: text("scope_id"),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [
-		check("action_rules_scope_ck", sql`${table.scope} IN ('global', 'team', 'agent')`),
-		check(
-			"action_rules_scope_id_ck",
-			sql`(${table.scope} = 'global' AND ${table.scopeId} IS NULL) OR (${table.scope} IN ('team', 'agent') AND ${table.scopeId} IS NOT NULL)`,
-		),
-		index("action_rules_scope_idx").on(table.scope, table.scopeId),
-	],
-);
-
-export type ActionRuleRow = typeof actionRules.$inferSelect;
-export type NewActionRuleRow = typeof actionRules.$inferInsert;
-
-/**
  * The reviews a gate actually caused.
  *
  * A row is written only when an agent files a review while the gate is holding
@@ -1594,25 +1540,21 @@ export type NewActionRuleRow = typeof actionRules.$inferInsert;
  * call — a harmless read — spend the one-time pass, so the action that was
  * actually cleared got denied again.
  */
-export const gateReviews = pgTable(
-	"gate_reviews",
+export const reviewSessions = pgTable(
+	"review_sessions",
 	{
 		id: text("id").primaryKey(),
 		/** The `messages` row of type "review" that the agent filed. */
 		reviewMessageId: text("review_message_id").notNull(),
 		/** The session the gate denied, and the one a verdict resumes. */
 		sessionId: text("session_id").notNull(),
-		/** The `action_rules` row that matched. Cleared for this session on approval. */
-		ruleId: text("rule_id").notNull(),
-		/** The tool name the rule matched, so clearance is spent on that action only. */
-		toolName: text("tool_name").notNull(),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [
-		uniqueIndex("gate_reviews_review_message_id_uq").on(table.reviewMessageId),
-		index("gate_reviews_session_id_idx").on(table.sessionId),
+		uniqueIndex("review_sessions_review_message_id_uq").on(table.reviewMessageId),
+		index("review_sessions_session_id_idx").on(table.sessionId),
 	],
 );
 
-export type GateReviewRow = typeof gateReviews.$inferSelect;
-export type NewGateReviewRow = typeof gateReviews.$inferInsert;
+export type ReviewSessionRow = typeof reviewSessions.$inferSelect;
+export type NewReviewSessionRow = typeof reviewSessions.$inferInsert;

@@ -56,18 +56,12 @@ function buildEvalHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntimeAdapter
 		provisionReturnHook: async (options) => {
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
-		provisionActionGate: async () => {
-			// Eval sessions have no action gate — ungated by construction.
-		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: () => {
 			throw new Error("eval sessions never supply an MCP bridge — this should be unreachable.");
 		},
 		closeMcpBridge: async () => {},
-		pendingGateDenial: () => undefined,
-		clearGateAction: () => undefined,
-		releaseActionGate: () => undefined,
 	};
 }
 

@@ -39,11 +39,6 @@ export function buildTestHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntime
 		provisionReturnHook: async (options) => {
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
-		provisionActionGate: async () => {
-			// Test runtime: no action gate — sessions run ungated in integration tests.
-		},
-		pendingGateDenial: () => undefined,
-		clearGateAction: () => {},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: () => {
@@ -52,7 +47,6 @@ export function buildTestHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntime
 			);
 		},
 		closeMcpBridge: async () => {},
-		releaseActionGate: () => undefined,
 	};
 }
 

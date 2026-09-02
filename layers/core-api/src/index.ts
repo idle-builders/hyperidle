@@ -45,7 +45,7 @@ export {
 export {
 	buildAgentOrchestrationPort,
 	buildSeamBackedAgentRunConfigWriter,
-	buildSeamBackedGateVerdictRecorder,
+	buildSeamBackedReviewVerdictRecorder,
 	buildSeamBackedWorkIntentRecorder,
 	createInProcessAgentOrchestrationTransport,
 	createNetworkAgentOrchestrationTransport,

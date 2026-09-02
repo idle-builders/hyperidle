@@ -35,7 +35,7 @@ import {
 	type RunTransitionSpec,
 	type RuntimeDeps,
 	type RuntimePorts,
-	recordGateReview,
+	recordReviewSession,
 	runSession as runSessionInternal,
 	startRuntime as startRuntimeInternal,
 	startWatcher,
@@ -54,7 +54,7 @@ import {
 } from "@hyperidle/session-requests";
 import {
 	buildToolRegistry as buildToolRegistryFromDefinitions,
-	type ToolHandlersGateAccessor,
+	type ToolHandlersReviewAccessor,
 } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
 import { buildToolDefinitions } from "./tool-handlers-bindings.js";
@@ -184,10 +184,6 @@ export interface RunOrchestrationHarnessRuntimeAdapter {
 	readonly createReturnGate: SessionLifecyclePorts["harnessRuntime"]["createReturnGate"];
 	readonly evaluateReturn: SessionLifecyclePorts["harnessRuntime"]["evaluateReturn"];
 	readonly provisionReturnHook: SessionLifecyclePorts["harnessRuntime"]["provisionReturnHook"];
-	readonly provisionActionGate: SessionLifecyclePorts["harnessRuntime"]["provisionActionGate"];
-	readonly releaseActionGate: SessionLifecyclePorts["harnessRuntime"]["releaseActionGate"];
-	readonly pendingGateDenial: SessionLifecyclePorts["harnessRuntime"]["pendingGateDenial"];
-	readonly clearGateAction: SessionLifecyclePorts["harnessRuntime"]["clearGateAction"];
 	readonly writeCliMcpConfig: SessionLifecyclePorts["harnessRuntime"]["writeCliMcpConfig"];
 	readonly writePluginStdioMcpEntries: SessionLifecyclePorts["harnessRuntime"]["writePluginStdioMcpEntries"];
 	openMcpBridge(session: {
@@ -213,10 +209,6 @@ function buildHarnessRuntime(
 		createReturnGate: adapter.createReturnGate,
 		evaluateReturn: adapter.evaluateReturn,
 		provisionReturnHook: adapter.provisionReturnHook,
-		pendingGateDenial: adapter.pendingGateDenial,
-		clearGateAction: adapter.clearGateAction,
-		provisionActionGate: adapter.provisionActionGate,
-		releaseActionGate: adapter.releaseActionGate,
 		writeCliMcpConfig: adapter.writeCliMcpConfig,
 		writePluginStdioMcpEntries: adapter.writePluginStdioMcpEntries,
 		// The execution face already owns one bridge instance and one
@@ -330,24 +322,10 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
  * refused, never from the tool's arguments — an agent cannot file its way to a
  * permission it was never denied.
  */
-function buildGateAccessor(
-	adapter: RunOrchestrationHarnessRuntimeAdapter,
-	db: HyperIdleDb,
-): ToolHandlersGateAccessor {
+function buildGateAccessor(db: HyperIdleDb): ToolHandlersReviewAccessor {
 	return {
-		async linkReviewToPendingDenial(sessionId, reviewMessageId) {
-			const denial = adapter.pendingGateDenial(sessionId);
-			if (!denial) return;
-			await recordGateReview(
-				db,
-				{
-					reviewMessageId,
-					sessionId,
-					ruleId: denial.ruleId,
-					toolName: denial.toolName,
-				},
-				new Date().toISOString(),
-			);
+		async linkReviewToSession(sessionId, reviewMessageId) {
+			await recordReviewSession(db, { reviewMessageId, sessionId }, new Date().toISOString());
 		},
 	};
 }
@@ -357,9 +335,9 @@ function buildGateAccessor(
  * a wiring mistake, and it says so rather than silently recording nothing —
  * a gate that quietly does nothing is the failure mode this package exists to fix.
  */
-function unusableGateAccessor(): ToolHandlersGateAccessor {
+function unusableGateAccessor(): ToolHandlersReviewAccessor {
 	return {
-		linkReviewToPendingDenial: () => {
+		linkReviewToSession: () => {
 			throw new Error(
 				"tool-handlers gate accessor: reached from a name-only tool listing; build the registry through buildToolRegistry instead",
 			);
@@ -370,15 +348,11 @@ function unusableGateAccessor(): ToolHandlersGateAccessor {
 function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
-	harnessAdapter: RunOrchestrationHarnessRuntimeAdapter,
 ): SessionLifecyclePorts["toolProvider"] {
 	return {
 		buildToolRegistry(ctx, options) {
 			const toolCtx = widenToToolContext(ctx);
-			const definitions = buildToolDefinitions(
-				coreApiTransport,
-				buildGateAccessor(harnessAdapter, toolCtx.db),
-			);
+			const definitions = buildToolDefinitions(coreApiTransport, buildGateAccessor(toolCtx.db));
 			return buildToolRegistryFromDefinitions(definitions, toolCtx, {
 				role: options.role,
 				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
@@ -433,11 +407,7 @@ function buildSessionLifecyclePorts(
 		sessionRequests: sessionRequestsPort,
 		observability: observabilityAccessor,
 		harnessRuntime: buildHarnessRuntime(harnessRuntimeAdapter),
-		toolProvider: buildToolProvider(
-			coreApiTransport,
-			returnStatusToolAdapter,
-			harnessRuntimeAdapter,
-		),
+		toolProvider: buildToolProvider(coreApiTransport, returnStatusToolAdapter),
 	};
 }
 

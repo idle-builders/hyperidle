@@ -19,7 +19,7 @@
  */
 
 import type {
-	AgentOrchestrationGateVerdictInput,
+	AgentOrchestrationReviewVerdictInput,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
@@ -34,7 +34,7 @@ import {
 	endRunForHandoff,
 	readAgentRunConfig,
 	readAgentRunConfigs,
-	recordGateVerdict,
+	recordReviewVerdict,
 	requestRunStopForTasks,
 	writeAgentRunConfig,
 } from "@hyperidle/run-orchestration";
@@ -78,7 +78,7 @@ function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentI
 	if (body.kind === "session_resume") {
 		return {
 			kind: "session_resume",
-			sourceKind: "gate_review",
+			sourceKind: "review_verdict",
 			sourceId: body.sourceId,
 			requestedBy: body.requestedBy,
 			idempotencyKey: body.idempotencyKey,
@@ -120,7 +120,7 @@ const gateVerdictInputSchema = z.object({
 	// because zod strips what it does not name, and a silently dropped agent
 	// config surfaces much later as "agent is not runnable".
 	agentConfig: z.unknown().optional(),
-}) satisfies z.ZodType<AgentOrchestrationGateVerdictInput>;
+}) satisfies z.ZodType<AgentOrchestrationReviewVerdictInput>;
 
 export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -132,16 +132,16 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
 	});
 
-	// ── intents.recordGateVerdict — POST /agent-orchestration/gate-verdicts ──
+	// ── intents.recordReviewVerdict — POST /agent-orchestration/review-verdicts ──
 	//
-	// BA2: the verdict half of the action gate. `gate_reviews` and `sessions` are
+	// BA2: the verdict half of the action gate. `review_sessions` and `sessions` are
 	// this layer's tables, so the whole decision — is this a gate review, is its
 	// session resumable — is made here and the answer crosses back as data.
-	router.post("/gate-verdicts", validateBody(gateVerdictInputSchema), async (c) => {
+	router.post("/review-verdicts", validateBody(gateVerdictInputSchema), async (c) => {
 		const body = c.req.valid("json");
 		// One audited cast, same idiom as `toWorkIntentInput`'s: the wire carries the
 		// agent config opaque and nothing here inspects it, only forwards it.
-		const outcome = await recordGateVerdict(
+		const outcome = await recordReviewVerdict(
 			db,
 			{
 				reviewMessageId: body.reviewMessageId,

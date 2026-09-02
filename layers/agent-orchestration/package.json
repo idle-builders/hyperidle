@@ -5,7 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./testing": "./src/__testing__/gate-accessor.ts"
+		"./testing": "./src/__testing__/review-accessor.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",

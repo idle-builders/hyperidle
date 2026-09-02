@@ -9,12 +9,12 @@
  *
  * A test about the gate injects its own accessor instead.
  */
-import type { ToolHandlersGateAccessor } from "@hyperidle/tool-handlers";
+import type { ToolHandlersReviewAccessor } from "@hyperidle/tool-handlers";
 
-export const THROWING_GATE_ACCESSOR: ToolHandlersGateAccessor = {
-	linkReviewToPendingDenial: () => {
+export const THROWING_REVIEW_ACCESSOR: ToolHandlersReviewAccessor = {
+	linkReviewToSession: () => {
 		throw new Error(
-			"THROWING_GATE_ACCESSOR: this test built the tool stack without a real gate accessor, but a handler reached it. Inject a real one for gate behaviour.",
+			"THROWING_REVIEW_ACCESSOR: this test built the tool stack without a real gate accessor, but a handler reached it. Inject a real one for gate behaviour.",
 		);
 	},
 };
@@ -26,6 +26,6 @@ export const THROWING_GATE_ACCESSOR: ToolHandlersGateAccessor = {
  * by an unblocked agent is an ordinary review and must not become a clearance.
  * A test about a blocked session injects an accessor that records instead.
  */
-export const UNGATED_GATE_ACCESSOR: ToolHandlersGateAccessor = {
-	linkReviewToPendingDenial: async () => {},
+export const NO_LINK_REVIEW_ACCESSOR: ToolHandlersReviewAccessor = {
+	linkReviewToSession: async () => {},
 };

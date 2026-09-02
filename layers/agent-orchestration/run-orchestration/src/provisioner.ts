@@ -199,17 +199,6 @@ interface SessionLifecycleAdapterPool {
 	describeSelectFailure(requirements?: SessionLifecycleSelectRequirements): string;
 }
 
-/**
- * An action rule as the provisioner sees it — structurally compatible with
- * GateRule in @hyperidle/harness-registry without importing that package
- * (run-orchestration has no direct edge to harness-registry).
- */
-interface SessionActionRule {
-	readonly id: string;
-	readonly pattern: string;
-	readonly description: string;
-}
-
 interface SessionLifecycleEnforcementEntry {
 	readonly gate: { readonly returned: boolean };
 	forceCount: number;
@@ -263,15 +252,6 @@ interface SessionLifecycleHarnessRuntime {
 		readonly mcpUrl: string;
 		readonly forceBudget: number;
 	}): Promise<void>;
-	/** Provision the action gate PreToolUse hook for this session. No-op when rules is empty. */
-	provisionActionGate(opts: {
-		readonly sandboxPath: string;
-		readonly channel: ReturnEnforcementChannel;
-		readonly bridgeToken: string;
-		readonly mcpUrl: string;
-		readonly sessionId: string;
-		readonly rules: readonly SessionActionRule[];
-	}): Promise<void>;
 	writeCliMcpConfig(params: {
 		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
 		readonly sandboxPath: string;
@@ -317,20 +297,6 @@ interface SessionLifecycleHarnessRuntime {
 		registry: SessionLifecycleMcpBridgeRegistry | undefined,
 		token: string,
 	): Promise<void>;
-	/** Release the action gate store entry for a session — called at teardown alongside closeMcpBridge. */
-	/**
-	 * The action this session was last denied, if any — read when the agent files
-	 * a review, so the review can be tied to the block that caused it.
-	 */
-	pendingGateDenial(
-		sessionId: string,
-	): { readonly ruleId: string; readonly toolName: string } | undefined;
-	/** Let one attempt at this action through, once, just before a resume. */
-	clearGateAction(
-		sessionId: string,
-		action: { readonly ruleId: string; readonly toolName: string },
-	): void;
-	releaseActionGate(sessionId: string): void;
 }
 
 interface SessionLifecycleMcpBridgeRegistry {
@@ -874,14 +840,6 @@ interface ProvisionSessionDeps {
 	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
 	 */
 	readonly pluginMcpContributions?: PluginMcpContributionsPort;
-	/**
-	 * Action rules resolver for the action gate deny half. Absent → no gate provisioned
-	 * (ungated session). When present, called at Phase 8b-gate to resolve the rules for
-	 * this agent/team and provision the harness's PreToolUse hook.
-	 */
-	readonly actionRulesPort?: {
-		resolveFor(agentId: string, teamId?: string | null): Promise<readonly SessionActionRule[]>;
-	};
 }
 
 interface ProvisionSessionParams {
@@ -1019,7 +977,7 @@ interface ProvisionSessionResult {
  * Only added when the session actually has rules. On a fresh system the list is
  * empty and nothing is said, because nothing can be blocked.
  */
-const GATE_ORIENTATION = `
+const REVIEW_ORIENTATION = `
 
 ## When an action needs a person
 Some actions in this workspace need a human to agree before you take them. If a tool call is refused because a rule blocked it, that is not a failure and not something to work around. Make your case with \`submit_review\`: say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer.`;
@@ -1044,7 +1002,6 @@ interface AdmittedSession {
 	 * itself stays a terse statement of fact: an imperative in a deny is what a
 	 * model once refused as prompt injection (ruling 6).
 	 */
-	readonly gateRules: readonly SessionActionRule[];
 	readonly modelTier: ModelTier;
 	/**
 	 * The harness options this agent was configured with, read from its run
@@ -1134,12 +1091,7 @@ async function admitSession(
 	// — is orchestration's own.
 	const persona = agentConfig.persona ?? "";
 
-	// The rules that apply to this agent, if this application wired a gate at all.
-	// An absent port is an ungated session — security is never preemptive.
-	const gateRules = deps.actionRulesPort
-		? await deps.actionRulesPort.resolveFor(params.agentId, teamId ?? null)
-		: [];
-	const systemPromptText = gateRules.length > 0 ? `${persona}${GATE_ORIENTATION}` : persona;
+	const systemPromptText = `${persona}${REVIEW_ORIENTATION}`;
 
 	// @lore The tier used to be chosen: explicit param > the agent's own
 	// `modelTierPreference` > "workhorse". That dial is gone. It named which model
@@ -1364,7 +1316,6 @@ async function admitSession(
 		agentRole,
 		teamId,
 		systemPromptText,
-		gateRules,
 		modelTier,
 		modelOptions: runConfig.modelOptions,
 		// The model this agent was configured with, read straight from its own
@@ -1394,25 +1345,23 @@ async function admitSession(
 /**
  * What the human's verdict says to the agent when its session reopens.
  *
- * @lore BA2 (ruling 16): the wording is load-bearing on cursor-agent. A bare
- * "Approved. Go ahead." complied 3 of 6 — and the objection was about MECHANISM,
- * not suspicion: a chat message saying approved is not the approval mechanism the
- * policy requires. Naming the gate fact — that the rule was cleared and the
- * action may now be retried — took it to 8 of 8. Tune this wording, don't route
- * around a model that objects.
+ * @lore BA2 (ruling 16): the wording is load-bearing. A bare "Approved. Go ahead."
+ * complied 3 of 6 on cursor-agent, and the objection was about MECHANISM rather
+ * than suspicion — a chat message saying approved is not the approval mechanism a
+ * policy requires. Naming what actually happened took it to 8 of 8. Tune this
+ * wording; do not route around a model that objects to it.
  */
 function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
 	if (resume.decision === "approve") {
 		return (
-			`A human reviewed your request and approved it. The rule that blocked ${resume.toolName} ` +
-			`has been cleared for this one action, so retrying it will now go through. ` +
-			`Carry on with your work and decide when you are done.`
+			"A human read the review you submitted and approved it. Go ahead with what you proposed, " +
+			"then carry on with your work and decide when you are done."
 		);
 	}
 	return (
-		`A human reviewed your request and declined it. The rule that blocked ${resume.toolName} ` +
-		`is still in force, so that action will keep being refused. Continue with the rest of your ` +
-		`work, or make your case again if you think it should be reconsidered.`
+		"A human read the review you submitted and declined it. What was declined is the approach you " +
+		"proposed, not the task itself — keep working toward the same goal another way, and submit " +
+		"another review if you want to make a different case."
 	);
 }
 
@@ -1473,7 +1422,6 @@ async function runSession(
 		agentRole,
 		teamId,
 		systemPromptText,
-		gateRules,
 		modelTier,
 		modelOptions,
 		selectedModel,
@@ -1734,22 +1682,6 @@ async function runSession(
 		forceBudget: MAX_FORCE_RETURNS,
 	});
 
-	// ── Phase 8b-gate: provision the action gate PreToolUse hook for this session.
-	// Only runs when an actionRulesPort is wired (opt-in per application).
-	// Absent port = ungated session (security is never preemptive).
-	if (deps.actionRulesPort) {
-		// Resolved at admission (see `AdmittedSession.gateRules`) so the prompt could
-		// carry the orientation. Reused here rather than read a second time.
-		await ports.harnessRuntime.provisionActionGate({
-			sandboxPath,
-			channel: adapterCapabilities.returnEnforcement,
-			bridgeToken: mcpBridgeToken ?? "",
-			mcpUrl: mcpUrl ?? "",
-			sessionId,
-			rules: gateRules,
-		});
-	}
-
 	// ── Phase 9-10: single startSession + drain.
 
 	// Register this session in the enforcement registry now that the
@@ -1832,15 +1764,6 @@ async function runSession(
 			// was right to: nothing authenticated the claim. The authority is the
 			// cleared rule at the gate, which the agent never has to believe.
 			if (params.resume?.harnessSessionId && harness.resumeSession) {
-				// Clear first, and only for the action a human actually cleared. The
-				// pass is keyed to the rule AND the tool, so the resumed session's
-				// first call — usually a harmless read — cannot spend it.
-				if (params.resume.decision === "approve") {
-					ports.harnessRuntime.clearGateAction(sessionId, {
-						ruleId: params.resume.ruleId,
-						toolName: params.resume.toolName,
-					});
-				}
 				harnessHandle = await harness.resumeSession(
 					params.resume.harnessSessionId,
 					buildVerdictMessage(params.resume),
@@ -1958,7 +1881,6 @@ async function runSession(
 	if (mcpBridgeToken) {
 		await ports.harnessRuntime.closeMcpBridge(mcpBridgeRegistry, mcpBridgeToken);
 	}
-	ports.harnessRuntime.releaseActionGate(sessionId);
 
 	function computeForceReturnCount(): number {
 		const registryEntry = ports.harnessRuntime.enforcementRegistry.get(sessionId);

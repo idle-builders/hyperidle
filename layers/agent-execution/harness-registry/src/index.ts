@@ -23,15 +23,6 @@
  */
 
 export {
-	type ActionGateStore,
-	createActionGateStore,
-	type DeniedAction,
-	type GateCheckResult,
-	type GateDenyResult,
-	type GateResult,
-	type GateRule,
-} from "./action-gate-store.js";
-export {
 	type AdapterFilter,
 	AdapterPool,
 	createLocalAdapterPool,
@@ -45,7 +36,6 @@ export {
 export type { EnforcementEntry, EnforcementRegistry } from "./enforcement-registry.js";
 export { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
 export type { McpToolBridge } from "./mcp-tool-bridge.js";
-export { type ActionGateOptions, installActionGate } from "./provision-gate-hook.js";
 export {
 	type ProvisionOptions,
 	provisionHarnessEnvironment,

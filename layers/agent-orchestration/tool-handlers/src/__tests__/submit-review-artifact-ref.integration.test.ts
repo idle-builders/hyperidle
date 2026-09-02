@@ -34,7 +34,7 @@ const ports: ToolHandlersPorts = {
 	...STUB_TOOL_HANDLERS_PORTS,
 	// This session was never denied anything, so there is no gate review to
 	// record. That is the ordinary case these tests exercise.
-	gate: { linkReviewToPendingDenial: async () => {} },
+	gate: { linkReviewToSession: async () => {} },
 	coreApi: {
 		...STUB_TOOL_HANDLERS_PORTS.coreApi,
 		getTaskById: async (id: string) => {

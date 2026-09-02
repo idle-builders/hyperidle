@@ -120,16 +120,16 @@ export interface AgentOrchestrationWorkIntentReceipt {
 
 /**
  * BA2: what a verdict did about the review a gate denial produced. Mirrors
- * `GateVerdictOutcome` — the port carries it as data so a core-api route can
- * tell the human without ever reading `gate_reviews`.
+ * `ReviewVerdictOutcome` — the port carries it as data so a core-api route can
+ * tell the human without ever reading `review_sessions`.
  */
-export type AgentOrchestrationGateVerdictOutcome =
+export type AgentOrchestrationReviewVerdictOutcome =
 	| { readonly status: "queued" }
-	| { readonly status: "not_a_gate_review" }
+	| { readonly status: "not_a_review_session" }
 	| { readonly status: "not_resumable"; readonly reason: string };
 
 /** BA2: a human's verdict on a review, as it crosses into agent-orchestration. */
-export interface AgentOrchestrationGateVerdictInput {
+export interface AgentOrchestrationReviewVerdictInput {
 	readonly reviewMessageId: string;
 	readonly decision: "approve" | "decline";
 	readonly decidedBy: string;
@@ -154,9 +154,9 @@ export interface AgentOrchestrationIntentsPort {
 	 * carries it back to the agent. Returns what happened, because the human who
 	 * approved has to be told when the agent cannot be sent back.
 	 */
-	recordGateVerdict(
-		input: AgentOrchestrationGateVerdictInput,
-	): Promise<AgentOrchestrationGateVerdictOutcome>;
+	recordReviewVerdict(
+		input: AgentOrchestrationReviewVerdictInput,
+	): Promise<AgentOrchestrationReviewVerdictOutcome>;
 }
 
 /** The requests family — outstanding-work readers and session-start lifecycle writers. */

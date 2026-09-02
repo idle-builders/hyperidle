@@ -14,7 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { UNGATED_GATE_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import { NO_LINK_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { artifacts, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -29,7 +29,7 @@ import { test } from "../__testing__/test-fixtures.js";
  * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
 function buildSubmitReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), UNGATED_GATE_ACCESSOR).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), NO_LINK_REVIEW_ACCESSOR).find(
 		(t) => t.name === "submit_review",
 	)!;
 }

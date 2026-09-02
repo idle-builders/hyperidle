@@ -41,7 +41,7 @@ export type AgentWorkIntentSourceKind =
 	 * is that review's message id — the one thing that identifies both the block
 	 * and the session to bring back.
 	 */
-	| "gate_review";
+	| "review_verdict";
 
 export interface AgentWorkIntentEvent {
 	readonly type: "agent_work_intent_recorded";

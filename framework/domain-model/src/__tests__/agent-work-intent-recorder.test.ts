@@ -72,14 +72,12 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 				// BA2: the only kind that resumes a session rather than starting one,
 				// so it bakes a resume instead of a BakedWorkIntentRequest.
 				kind: "session_resume",
-				sourceKind: "gate_review",
+				sourceKind: "review_verdict",
 				sourceId: "review-message-1",
 				idempotencyKey: "k6",
 				resume: {
 					sessionId: "sess-1",
 					harnessSessionId: "native-1",
-					ruleId: "rule-1",
-					toolName: "Bash",
 					decision: "approve",
 					threadId: "thread-1",
 					agentId: "agent-1",

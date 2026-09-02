@@ -256,8 +256,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		adapterPool: agentExecution.adapters.pool,
 		workspace: agentExecution.adapters.sandbox,
 		// Without this the action gate cannot fire in the desktop app at all:
-		// the provisioner installs a gate only when an actionRulesPort is wired.
-		actionRulesPort: coreApi.actionRulesPort,
 	} satisfies ApplicationProvisionSessionDeps;
 
 	if (!coreApi.upgradeTokenStore) {

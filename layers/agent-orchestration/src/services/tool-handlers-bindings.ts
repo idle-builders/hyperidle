@@ -51,7 +51,7 @@ import type {
 	InsertRoutineRequest,
 	UpdateRoutineRequest,
 } from "@hyperidle/api-contract";
-import type { ToolHandlersGateAccessor, ToolHandlersPorts } from "@hyperidle/tool-handlers";
+import type { ToolHandlersPorts, ToolHandlersReviewAccessor } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions as buildToolDefinitionsFromPorts } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, withActorTransport } from "./core-api-port-composition.js";
 
@@ -93,7 +93,7 @@ function widenUpdateRoutineInput(input: unknown): UpdateRoutineRequest {
  */
 export function buildToolHandlersPorts(
 	transport: CoreApiTransport,
-	gate: ToolHandlersGateAccessor,
+	gate: ToolHandlersReviewAccessor,
 ): ToolHandlersPorts {
 	function seamPortForActor(actorId: string): CoreApiPort {
 		return buildCoreApiPort(withActorTransport(transport, { userId: actorId }));
@@ -227,7 +227,7 @@ export function buildToolHandlersPorts(
 /** Production-wired tool definitions, fresh per `CoreApiTransport` value — every real call site builds through this. */
 export function buildToolDefinitions(
 	transport: CoreApiTransport,
-	gate: ToolHandlersGateAccessor,
+	gate: ToolHandlersReviewAccessor,
 ): ReturnType<typeof buildToolDefinitionsFromPorts> {
 	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport, gate));
 }

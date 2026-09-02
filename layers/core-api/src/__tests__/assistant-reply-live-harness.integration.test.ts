@@ -99,11 +99,6 @@ function buildLiveHarnessRuntimeAdapter(
 		provisionReturnHook: async (options) => {
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
-		provisionActionGate: async () => {
-			// Live harness test: no action gate — sessions run ungated.
-		},
-		pendingGateDenial: () => undefined,
-		clearGateAction: () => {},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
 		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: async (session) => {
@@ -117,7 +112,6 @@ function buildLiveHarnessRuntimeAdapter(
 			return { token, url: `${mcpBaseUrl}/api/mcp/${token}` };
 		},
 		closeMcpBridge: (token) => mcpBridgeRegistry.close(token),
-		releaseActionGate: () => undefined,
 	};
 }
 

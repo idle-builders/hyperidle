@@ -16,7 +16,7 @@ export const AGENT_SESSION_SOURCE_KINDS = [
 	 * asks for is not a new piece of work — it returns an agent to a session it
 	 * already had, so it composes no prompt and assembles no context.
 	 */
-	"gate_resume",
+	"review_resume",
 ] as const;
 
 export const AGENT_SESSION_PROMPT_MODES = [
@@ -112,8 +112,8 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
  * review a human decided on, which is the one identifier that ties the block, the
  * asking, and the answer together.
  */
-export const gateResumeSessionRequestInputSchema = baseInput.extend({
-	sourceKind: z.literal("gate_resume"),
+export const reviewResumeSessionRequestInputSchema = baseInput.extend({
+	sourceKind: z.literal("review_resume"),
 	promptMode: z.literal("resume"),
 	taskId: z.string().min(1).nullable().optional(),
 	sourceCorrelation: z.object({
@@ -128,7 +128,7 @@ export const agentSessionRequestInputSchema = z.discriminatedUnion("sourceKind",
 	assistantSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
-	gateResumeSessionRequestInputSchema,
+	reviewResumeSessionRequestInputSchema,
 ]);
 
 export type AgentSessionRequestInput = z.infer<typeof agentSessionRequestInputSchema>;

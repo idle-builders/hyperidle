@@ -28,13 +28,13 @@ import type { Message as DbMessage, Thread as DbThread, HyperIdleDb } from "@hyp
 import type {
 	AgentWorkIntentRecorderFn,
 	ApiErrorResponse,
-	GateVerdictOutcome,
-	GateVerdictRecorderFn,
 	HostKind,
 	Message,
 	MessageType,
 	PlainPayload,
 	RedactedPayload,
+	ReviewVerdictOutcome,
+	ReviewVerdictRecorderFn,
 	Thread,
 } from "@hyperidle/domain-model";
 import {
@@ -653,10 +653,10 @@ export function createThreadRoutes(
 	agentWorkIntentRecorder: AgentWorkIntentRecorderFn,
 	/**
 	 * BA2: the verdict half of the action gate. Injected for the same reason
-	 * `agentWorkIntentRecorder` is — `gate_reviews` belongs to the
+	 * `agentWorkIntentRecorder` is — `review_sessions` belongs to the
 	 * agent-orchestration layer and this route may not read it.
 	 */
-	gateVerdictRecorder: GateVerdictRecorderFn,
+	reviewVerdictRecorder: ReviewVerdictRecorderFn,
 	wsHub?: WsPushTarget,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -1515,7 +1515,7 @@ export function createThreadRoutes(
 			// answer. Post-commit, like the intent recording above and for the same
 			// reason — the message is committed, so the resume can never reference
 			// a review that does not exist.
-			let gateOutcome: GateVerdictOutcome | undefined;
+			let verdictOutcome: ReviewVerdictOutcome | undefined;
 			if (input.type === "verdict" && resolvesMessageRow) {
 				try {
 					// The agent that asked is the review's own sender. Its runnable
@@ -1523,7 +1523,7 @@ export function createThreadRoutes(
 					// admission treats a missing bake as a deactivated agent.
 					const askingAgent = await findUser(db, { id: resolvesMessageRow.senderId });
 					const persona = askingAgent ? await getAgentIdentity(db, askingAgent.id) : null;
-					gateOutcome = await gateVerdictRecorder({
+					verdictOutcome = await reviewVerdictRecorder({
 						...(askingAgent ? { agentConfig: bakeAgentRunnableConfig(askingAgent, persona) } : {}),
 						reviewMessageId: resolvesMessageRow.id,
 						// Two of the five verdict decisions clear the action; the other
@@ -1539,7 +1539,7 @@ export function createThreadRoutes(
 						threadId,
 					});
 				} catch (gateErr) {
-					gateOutcome = {
+					verdictOutcome = {
 						status: "not_resumable",
 						reason: gateErr instanceof Error ? gateErr.message : "unknown error",
 					};
@@ -1549,14 +1549,14 @@ export function createThreadRoutes(
 			// The approving human is told when the agent cannot be sent back. An
 			// approval that reaches nobody is exactly the silent failure this work
 			// package exists to remove, so it is reported in the thread they are in.
-			if (gateOutcome?.status === "not_resumable") {
+			if (verdictOutcome?.status === "not_resumable") {
 				await insertMessage(db, {
 					id: crypto.randomUUID(),
 					threadId,
 					senderId,
 					type: "plain",
 					payload: JSON.stringify({
-						text: `This action was approved but could not be carried out: ${gateOutcome.reason}. The agent has not been told, and the action has not run.`,
+						text: `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`,
 					}),
 					clientKey: crypto.randomUUID(),
 					createdAt: new Date().toISOString(),

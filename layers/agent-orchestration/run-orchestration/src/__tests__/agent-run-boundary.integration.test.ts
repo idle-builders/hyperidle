@@ -137,7 +137,7 @@ function sourceInput(
 					teamId: "team-au6",
 				},
 			};
-		case "gate_resume":
+		case "review_resume":
 			return {
 				...base,
 				sourceKind,

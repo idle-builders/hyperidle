@@ -11,7 +11,6 @@ import {
  * the reason is gone and the duplicate goes with it.
  */
 import { Hono } from "hono";
-import type { ActionGateStore } from "../action-gate-store.js";
 import type { EnforcementRegistry } from "../enforcement-registry.js";
 
 interface McpSessionRegistry {
@@ -66,7 +65,6 @@ interface McpSessionRegistry {
 export function createMcpRouter(
 	bridgeRegistry: McpSessionRegistry,
 	enforcementRegistry?: EnforcementRegistry,
-	actionGate?: ActionGateStore,
 ): Hono {
 	const router = new Hono();
 
@@ -153,52 +151,6 @@ export function createMcpRouter(
 				"X-Return-Seen": String(entry.gate.returned),
 			},
 		});
-	});
-
-	// ── Action gate adjudication endpoint for PreToolUse hook scripts ───────
-	//
-	// Hook scripts in every harness POST here on each tool call.
-	// The route resolves token → sessionId → rules → allow/deny.
-	//
-	// Protocol:
-	//   Request:  POST /api/mcp/:token/action-check
-	//             Body: {"tool_name":"<name>"}
-	//             Authorization: Bearer <token>
-	//   Response: 200 {"decision":"allow"}
-	//             200 {"decision":"deny","reason":"<rule description>"}
-	//             401 token not found / Bearer mismatch
-	//
-	// @lore BA2: Route is registered before the catch-all /mcp/:token so Hono
-	// matches the more-specific path first. Token auth mirrors /return-status.
-	// When actionGate is absent (no rules provisioned), every check returns allow.
-	router.post("/mcp/:token/action-check", async (c) => {
-		const token = c.req.param("token");
-		const authHeader = c.req.header("Authorization") ?? "";
-		if (authHeader !== `Bearer ${token}`) {
-			return c.json({ error: "Unauthorized" }, 401);
-		}
-		const bridge = bridgeRegistry.lookup(token);
-		if (!bridge) {
-			return c.json({ error: "Unauthorized" }, 401);
-		}
-		if (!actionGate) {
-			// Gate not wired — allow (no rules provisioned for this deployment).
-			return c.json({ decision: "allow" });
-		}
-		const { sessionId } = bridge;
-		let toolName = "";
-		try {
-			const body = await c.req.json<{ tool_name?: string }>();
-			toolName = body.tool_name ?? "";
-		} catch {
-			// Malformed body — deny by construction (fail closed)
-			return c.json({ decision: "deny", reason: "Action gate: malformed request body." });
-		}
-		const result = actionGate.check(sessionId, toolName);
-		if (result.allowed) {
-			return c.json({ decision: "allow" });
-		}
-		return c.json({ decision: "deny", reason: result.description });
 	});
 
 	// ── MCP JSON-RPC bridge (existing — catch-all) ────────────────────────────
