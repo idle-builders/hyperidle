@@ -6,7 +6,7 @@
  * install, and it is what makes removing the role selector from the
  * knowledge content view safe.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSX } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -89,14 +89,14 @@ describe("SettingsSkillsAndRules", () => {
 
 	/**
 	 * @lore knowledge-attachment-slot: this row is deliberately NOT a real <a
-	 * href> (UI-080's usual contract). RowDeleteAction's kebab/Menu/confirm are
-	 * real buttons in `actions`, which Row's href mode forbids nesting — the
-	 * earlier version of this test asserted the opposite and passed while
-	 * Delete was completely broken in the packaged app (a real anchor
-	 * swallowed the "Delete" click as navigation before the confirm step ever
-	 * ran). Clicking the row still navigates, just via onClick/navigate()
-	 * instead of a native link — the named trade is losing ⌘-click/middle-
-	 * click/"copy link" for this list.
+	 * href> (UI-080's usual contract). The Delete button is a real button in
+	 * `actions`, which Row's href mode forbids nesting — an earlier version of
+	 * this test asserted the opposite and passed while Delete was completely
+	 * broken in the packaged app (a real anchor swallowed the "Delete" click
+	 * as navigation before it ever reached handleDelete). Clicking the row
+	 * still navigates, just via onClick/navigate() instead of a native link —
+	 * the named trade is losing ⌘-click/middle-click/"copy link" for this
+	 * list.
 	 */
 	it("clicking a row navigates to its knowledge content view, but not via a real <a>", async () => {
 		const user = userEvent.setup();
@@ -156,53 +156,26 @@ describe("SettingsSkillsAndRules", () => {
 	});
 
 	/**
-	 * FR-10 shape (RowDeleteAction): kebab "..." → Menu → "Delete" → row flips
-	 * to inline "Confirm delete?"/"Cancel" → second click confirms. Same flow
-	 * X3-SettingsAgents.test.tsx proves for SettingsAgents' own rows.
+	 * Founder call: no double confirmation. A plain "Delete" button in the
+	 * row's `actions` deletes on the first click — no kebab, no Menu, no
+	 * inline Confirm/Cancel step (that FR-10 shape is what SettingsAgents'
+	 * own rows still use, via RowDeleteAction; this list deliberately does
+	 * not).
 	 *
-	 * @lore knowledge-attachment-slot: this is the exact regression a mocked
-	 * router could not catch before — clicking "Delete" the FIRST time must
-	 * only flip the row to Confirm/Cancel, never leave "/settings". The row is
-	 * a real link no longer (see the "not via a real <a>" test above), so this
-	 * navigation check is meaningful here: it goes through router `navigate()`
-	 * (a plain JS call visible to LocationProbe), not a native anchor click
-	 * jsdom silently no-ops. If Menu's item click stops stopping propagation
-	 * again, this assertion is what would catch it — clicking "Delete" would
-	 * bubble to the row's own onClick and fire navigate() before the confirm
-	 * step is ever reached.
+	 * @lore knowledge-attachment-slot: this replaces the old kebab/confirm
+	 * test, which stayed green through four broken fix attempts because
+	 * jsdom's `userEvent.click()` never reproduces real anchor navigation —
+	 * see `knowledge-role-delete.spec.ts` for the real-Chromium coverage of
+	 * that failure mode. The removal here is optimistic (see
+	 * KnowledgeRoleList.tsx's `removedIds`), so the row is gone from the DOM
+	 * immediately on click, before the archive request resolves.
 	 */
-	async function deleteRow(user: ReturnType<typeof userEvent.setup>, rowContainer: HTMLElement) {
-		await user.click(
-			within(rowContainer).getByRole("button", { name: /actions for write-tests/i }),
-		);
-		await waitFor(() => screen.getByRole("menuitem", { name: /^delete$/i }));
-		await user.click(screen.getByRole("menuitem", { name: /^delete$/i }));
-		// The first "Delete" click must only arm the confirm step — it must
-		// NOT have navigated the row away already.
-		expect(screen.getByTestId("location-probe")).toHaveTextContent("/settings");
-		await waitFor(() => within(rowContainer).getByRole("button", { name: /confirm delete\?/i }));
-		await user.click(within(rowContainer).getByRole("button", { name: /confirm delete\?/i }));
-	}
-
-	it("deletes: posts to /archive and the row leaves the list", async () => {
-		let archived = false;
-		apiFetch.mockImplementation((url: string, init?: RequestInit) => {
-			if (url === "/api/knowledge/ki-skill-1/archive" && init?.method === "POST") {
-				archived = true;
-				return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-			}
-			if (url === "/api/knowledge") {
-				const items = archived ? ITEMS.filter((i) => i.id !== "ki-skill-1") : ITEMS;
-				return Promise.resolve({ ok: true, json: () => Promise.resolve({ items }) });
-			}
-			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-		});
-
+	it("deletes: one click posts to /archive and removes the row immediately", async () => {
 		const user = userEvent.setup();
 		renderSurface();
-		const row = await screen.findByText("write-tests");
-		const rowContainer = row.closest("[data-testid='knowledge-role-row']") as HTMLElement;
-		await deleteRow(user, rowContainer);
+		await screen.findByText("write-tests");
+
+		await user.click(screen.getByRole("button", { name: /delete write-tests/i }));
 
 		await waitFor(() => {
 			expect(screen.queryByText("write-tests")).not.toBeInTheDocument();
@@ -215,49 +188,18 @@ describe("SettingsSkillsAndRules", () => {
 		);
 		expect(archiveCall).toBeDefined();
 
-		// And the whole flow stayed on /settings — Delete must never navigate.
+		// Delete never navigates — the row's own onClick is a separate path.
 		expect(screen.getByTestId("location-probe")).toHaveTextContent("/settings");
 	});
 
 	/**
-	 * @lore knowledge-attachment-slot: the boxed ItemList variant sets
-	 * overflow-hidden (for its rounded-corner clip) — a single-item list is
-	 * all "last row", so a menu positioned absolute inside that container has
-	 * no room below the row to open into and gets clipped at the box edge,
-	 * with "Delete" invisible. This is the common fresh-install shape.
-	 * RowDeleteAction's Menu now anchors and portals into #overlay-root
-	 * instead of rendering as a DOM descendant of the boxed container, so it
-	 * can never be clipped by that ancestor's overflow-hidden regardless of
-	 * where the row sits in the box.
+	 * @lore knowledge-attachment-slot: the optimistic-restore path — nothing
+	 * covered this before the rewrite. `handleDelete` removes the row
+	 * immediately, then `restore(id)` puts it back if the archive call
+	 * itself fails, so a real failure is visible (the row reappears, not a
+	 * silently-broken delete) rather than trusting the optimistic remove.
 	 */
-	it("with a single-item boxed list, the open menu is not a DOM descendant of the clipping list container", async () => {
-		apiFetch.mockImplementation((url: string, init?: RequestInit) => {
-			if (url === "/api/knowledge" && (!init || init.method === undefined)) {
-				return Promise.resolve({
-					ok: true,
-					json: () => Promise.resolve({ items: [ITEMS[0]] }),
-				});
-			}
-			return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-		});
-
-		const user = userEvent.setup();
-		renderSurface();
-		const row = await screen.findByText("write-tests");
-		const rowContainer = row.closest("[data-testid='knowledge-role-row']") as HTMLElement;
-		const listContainer = document.querySelector('[data-ds-component="ItemList"]') as HTMLElement;
-		expect(listContainer).not.toBeNull();
-		expect(listContainer.contains(rowContainer)).toBe(true);
-
-		await user.click(
-			within(rowContainer).getByRole("button", { name: /actions for write-tests/i }),
-		);
-
-		const menu = await screen.findByRole("menu");
-		expect(listContainer.contains(menu)).toBe(false);
-	});
-
-	it("delete error: shows the failure and the row stays", async () => {
+	it("delete error: shows the failure and the row comes back", async () => {
 		apiFetch.mockImplementation((url: string, init?: RequestInit) => {
 			if (url === "/api/knowledge/ki-skill-1/archive" && init?.method === "POST") {
 				return Promise.resolve({
@@ -274,10 +216,12 @@ describe("SettingsSkillsAndRules", () => {
 
 		const user = userEvent.setup();
 		renderSurface();
-		const row = await screen.findByText("write-tests");
-		const rowContainer = row.closest("[data-testid='knowledge-role-row']") as HTMLElement;
-		await deleteRow(user, rowContainer);
+		await screen.findByText("write-tests");
 
+		await user.click(screen.getByRole("button", { name: /delete write-tests/i }));
+
+		// The failed archive restores the row (removed optimistically on click,
+		// put back once the request comes back not-ok) and surfaces the error.
 		expect(await screen.findByRole("alert")).toHaveTextContent("Could not delete it: boom");
 		expect(screen.getByText("write-tests")).toBeInTheDocument();
 	});

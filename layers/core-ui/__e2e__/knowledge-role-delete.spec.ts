@@ -1,23 +1,20 @@
 /**
- * E2E for Settings → Skills & Rules delete (RowDeleteAction on a
- * KnowledgeRoleList row).
+ * E2E for Settings → Skills & Rules delete (the one-click Delete button on
+ * a KnowledgeRoleList row).
  *
  * @lore knowledge-attachment-slot: jsdom/RTL cannot catch this class of bug.
- * `SettingsSkillsAndRules.test.tsx` drives the same flow with
+ * `SettingsSkillsAndRules.test.tsx` drives the same click with
  * `userEvent.click()`, which dispatches synthetic events straight at the
  * element it holds a reference to — it never reproduces what a REAL mouse
- * click does along the way (`scrollIntoViewIfNeeded`, real native
- * mousedown/mouseup, real `scroll`/`resize` events firing on the document).
- * That gap is exactly what let a real regression through review: an earlier
- * version of the anchored Menu closed itself on ANY `document` `scroll`
- * event (to avoid a stale position) — but on a real, tall, stacked Settings
- * page, simply scrolling the kebab trigger into view to click it fired that
- * listener and closed the menu before the click that opened it had even
- * finished landing. `SettingsSkillsAndRules.test.tsx` stayed green throughout
- * because jsdom's `userEvent.click()` never scrolls anything and never fires
- * a real `scroll` event. This spec — real Chromium, real mouse clicks — is
- * what actually watched that regression fail (the "Delete" menuitem never
- * appeared; the click on the kebab timed out) and now watches it pass.
+ * click does along the way (real native mousedown/mouseup, real anchor
+ * navigation). That gap is exactly what let the previous kebab/confirm
+ * design ship completely broken: a real anchor swallowed the "Delete" click
+ * as navigation before the confirm step ever ran, four separate fix
+ * attempts stayed green in jsdom, and the founder's call afterward was to
+ * drop the confirm step entirely — one real button, one real click, no menu
+ * to intercept it. This spec — real Chromium, a real mouse click — is what
+ * actually proves that first click both fires the archive request and
+ * leaves the row's own click-to-navigate path alone.
  */
 import { expect, test } from "./fixtures";
 
@@ -47,7 +44,7 @@ test.describe("Settings → Skills & rules: delete", () => {
 		});
 	});
 
-	test("kebab → Delete → Confirm delete?, all real mouse clicks: archives, never navigates", async ({
+	test("one real mouse click on Delete: archives immediately, never navigates", async ({
 		page,
 	}) => {
 		await page.goto("/settings");
@@ -56,20 +53,16 @@ test.describe("Settings → Skills & rules: delete", () => {
 		const row = page.getByTestId("knowledge-role-row").filter({ hasText: "write-tests" });
 		await expect(row).toBeVisible();
 
-		// Real click — Playwright scrolls the trigger into view first, exactly
-		// like a user reaching a section partway down the stacked Settings
-		// page, then dispatches real mousedown/mouseup/click.
-		await row.getByRole("button", { name: /actions for write-tests/i }).click();
-		await page.getByRole("menuitem", { name: /^delete$/i }).click();
-
-		const confirmButton = row.getByRole("button", { name: /confirm delete\?/i });
-		await expect(confirmButton).toBeVisible();
-
 		const archiveRequest = page.waitForRequest(
 			(req) => req.url().includes("/api/knowledge/ki-skill-1/archive") && req.method() === "POST",
 			{ timeout: 5_000 },
 		);
-		await confirmButton.click();
+
+		// Real click — Playwright scrolls the button into view first, exactly
+		// like a user reaching a section partway down the stacked Settings
+		// page, then dispatches real mousedown/mouseup/click. No menu, no
+		// confirm step: this single click is the whole delete flow.
+		await row.getByRole("button", { name: /delete write-tests/i }).click();
 
 		await expect(archiveRequest).resolves.toBeTruthy();
 		await expect(page).toHaveURL(/\/settings$/);

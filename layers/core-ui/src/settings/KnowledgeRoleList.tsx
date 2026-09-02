@@ -32,7 +32,6 @@ import {
 	Input,
 	ItemList,
 	Row,
-	RowDeleteAction,
 	SectionLabel,
 	Select,
 	SkeletonList,
@@ -89,9 +88,15 @@ export function KnowledgeRoleList({
 	const { data, error, isLoading, refetch } = useFetch<{ items?: ApiKnowledgeItem[] }>(
 		"/api/knowledge",
 	);
+	// Ids removed optimistically. Delete drops the row immediately rather than
+	// waiting on the round trip; if the archive actually failed, the next load
+	// simply shows the row again — the server stays the source of truth.
+	const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(new Set());
+
 	const items: RoleItem[] = (data?.items ?? [])
 		.filter((item): item is RoleItem => roles.includes(item.role as KnowledgeRole))
 		.filter((item) => item.status !== "archived")
+		.filter((item) => !removedIds.has(item.id))
 		.sort((a, b) => a.title.localeCompare(b.title));
 
 	const [newTitle, setNewTitle] = useState("");
@@ -137,8 +142,17 @@ export function KnowledgeRoleList({
 		}
 	}
 
+	function restore(id: string): void {
+		setRemovedIds((prev) => {
+			const next = new Set(prev);
+			next.delete(id);
+			return next;
+		});
+	}
+
 	async function handleDelete(id: string): Promise<void> {
 		setDeleteError(null);
+		setRemovedIds((prev) => new Set(prev).add(id));
 		try {
 			// Archive is what delete means everywhere in this system — a hard
 			// delete is impossible (the audit tables hold RESTRICT FKs).
@@ -146,11 +160,11 @@ export function KnowledgeRoleList({
 			if (!res.ok) {
 				const errBody = (await res.json().catch(() => ({}))) as { error?: string };
 				setDeleteError(errBody.error ?? `Could not delete it: ${res.status}`);
-				return;
+				restore(id);
 			}
-			refetch();
 		} catch {
 			setDeleteError("Could not delete it: network error");
+			restore(id);
 		}
 	}
 
@@ -192,21 +206,16 @@ export function KnowledgeRoleList({
 							actions={
 								<>
 									<Tag label={KNOWLEDGE_ROLE_LABEL[item.role]} />
-									<RowDeleteAction
-										triggerLabel={`Actions for ${item.title}`}
-										menuLabel="Item actions"
-										onDelete={() => handleDelete(item.id)}
-									/>
+									<button
+										type="button"
+										aria-label={`Delete ${item.title}`}
+										onClick={() => void handleDelete(item.id)}
+										className="type-control cursor-pointer px-[8px] h-[28px] rounded-[var(--r-subtle)] text-[var(--status-error)] hover:bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]"
+									>
+										Delete
+									</button>
 								</>
 							}
-							// @lore knowledge-attachment-slot: onClick, not href. Row's own
-							// contract (Row.tsx) forbids nested real <button>/<a> inside an
-							// href row's actions — RowDeleteAction's kebab+Menu+confirm/cancel
-							// are all real buttons, needed for the delete flow. The row stays
-							// clickable to navigate, but as a div[role=button] (Row's own
-							// heuristic for onClick+actions), not a real anchor — so it loses
-							// ⌘-click/middle-click/"copy link"/hover-preview. That trade is the
-							// honest one here: this row's job is create/delete, not link-sharing.
 							onClick={() => navigate(`/knowledge/${item.id}`)}
 						/>
 					))}

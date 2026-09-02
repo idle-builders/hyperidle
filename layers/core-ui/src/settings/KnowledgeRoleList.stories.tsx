@@ -1,8 +1,8 @@
 /**
  * Stories for `KnowledgeRoleList` itself — `SettingsSkillsAndRules.stories.tsx`
  * covers the thin skill/rule instantiation; these exercise the shared
- * component directly, including its own error state and the RowDeleteAction
- * delete-confirm interaction (mocks `globalThis.fetch`, `require`s the
+ * component directly, including its own error state and the one-click
+ * Delete button on each row (mocks `globalThis.fetch`, `require`s the
  * component fresh per story — same mechanism SettingsHarnesses.stories.tsx
  * uses for its own live-fetching component).
  */
@@ -76,4 +76,4 @@ export const ErrorLoading = (): React.JSX.Element => render([], { listStatus: 50
 ErrorLoading.storyName = "Error State";
 
 export const DeleteConfirm = (): React.JSX.Element => render(ITEMS_POPULATED);
-DeleteConfirm.storyName = "Delete confirm (click '…' on a row, then Delete)";
+DeleteConfirm.storyName = "Delete (click 'Delete' on a row — one click, no confirm)";
