@@ -173,7 +173,16 @@ export interface BakedContextKnowledgeItem {
 	readonly body: string;
 	readonly format: string;
 	readonly version: number;
-	readonly layer: string | null;
+	/**
+	 * @lore nested-knowledge-items §5: the chain of ancestor knowledge items
+	 * this item sits under, root first. `writeContextBundle` does zero DB
+	 * reads ("every byte comes from `bundle`"), so an ancestor that was not
+	 * itself selected still needs its directory-with-index materialised —
+	 * this is the only place that obligation can be carried. Empty for a root
+	 * item or one whose parent is not a knowledge item (task/thread/routine/
+	 * agent — walks never cross that hop).
+	 */
+	readonly parentChain: ReadonlyArray<{ readonly id: string; readonly title: string }>;
 	/**
 	 * @lore BA9b: Role determines how context assembly materialises this item.
 	 * Defaults to 'ordinary' for all items that pre-date the role column.
@@ -204,8 +213,6 @@ export interface BakedContextKnowledgeItem {
  * dependency (Mechanism C: none of those packages may import
  * `@hyperidle/knowledge` directly) without needing that Service's own type.
  * `layer` stays optional (matching `KnowledgeItemWithProjection`'s own
- * optional `layer?: string | null`) — `toBakedContextKnowledgeItems` below
- * normalizes it to the required-but-nullable `BakedContextKnowledgeItem.layer`.
  * `role`, `parentKind` and `parentId` are required: all three come from the
  * kernel `knowledgeItems` table, which is always present in a DB row. role is
  * NOT NULL DEFAULT 'ordinary'; `parentKind`/`parentId` are nullable but always
@@ -220,7 +227,8 @@ export interface SessionKnowledgeItemLike {
 	readonly body: string;
 	readonly format: string;
 	readonly version: number;
-	readonly layer?: string | null;
+	/** @lore nested-knowledge-items §5: see `BakedContextKnowledgeItem.parentChain`. */
+	readonly parentChain?: ReadonlyArray<{ readonly id: string; readonly title: string }>;
 	/**
 	 * @lore BA9b: Kernel table column, NOT NULL DEFAULT 'ordinary'. Required.
 	 * Every DB row carries a non-null role after migration 0062.
@@ -253,7 +261,7 @@ export function toBakedContextKnowledgeItems(
 		body: item.body,
 		format: item.format,
 		version: item.version,
-		layer: item.layer ?? null,
+		parentChain: item.parentChain ?? [],
 		role: item.role,
 		// @lore knowledge-attachment-slot: the binding is the parent, not the
 		// scope — always derived, never set explicitly (no shim path). One

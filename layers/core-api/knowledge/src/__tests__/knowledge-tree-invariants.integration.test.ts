@@ -21,11 +21,9 @@
 import { knowledgeItems } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq, sql } from "drizzle-orm";
-// @lore RED phase: this export does not exist yet — see file header. The
-// green-phase implementation owns choosing the real signature; this is the
-// smallest one that lets every cycle/depth-via-move case in this file be
-// expressed.
-// @ts-expect-error — reparent does not exist on knowledge-repository.js yet (RED phase)
+// @lore RED phase: this export did not exist yet at red-phase authoring time
+// — see file header. The green-phase implementation (knowledge-repository.ts)
+// now exports `reparent` with this exact signature.
 import { create, reparent, update } from "../knowledge-repository.js";
 
 describe("nested-knowledge-items: tree invariants", () => {

@@ -69,18 +69,20 @@ export {
 	getRoutinePrompt,
 	getRoutinePromptBodies,
 	graduate,
+	type KnowledgeItemChildRef,
 	list,
 	listItemIdsByParent,
 	listParentedItemBodies,
 	remove,
+	reparent,
 	restorePluginDocumentBody,
 	search,
 	setKnowledgeStatus,
 	transition,
-	type UpsertPluginDocumentInput,
+	type UpsertKnowledgeDocumentInput,
 	update,
 	upsertAgentIdentity,
-	upsertPluginDocument,
+	upsertKnowledgeDocument,
 } from "./knowledge-repository.js";
 export { sweep } from "./promotion-pipeline.js";
 // -- review-item factory (moved from @hyperidle/review, AU44 batch 4 rows 9/10 MERGE) --

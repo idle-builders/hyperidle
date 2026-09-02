@@ -7,7 +7,7 @@
  * - Team-scoped capability items only reach the matching team's sessions (AC7)
  * - agent_file items have agentBindingId derived from scopeId
  */
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { assembleSessionKnowledge } from "../session-knowledge-assembler.js";
 
@@ -27,8 +27,6 @@ async function insertKnowledgeItem(
 		role: "ordinary" | "skill" | "rule" | "agent_file" | "prompt";
 		scopeKind?: "factory" | "team" | "user";
 		scopeId?: string | null;
-		/** Only needed to exercise the layer-fetch path (fetchAllForLayer). */
-		layer?: "L2" | "L3" | "L4";
 	},
 ) {
 	const id = opts.id ?? generateId();
@@ -37,7 +35,6 @@ async function insertKnowledgeItem(
 		id,
 		scopeKind: opts.scopeKind ?? "factory",
 		scopeId: opts.scopeId ?? null,
-		topic: null,
 		title: opts.title,
 		body: opts.body,
 		format: "markdown",
@@ -48,14 +45,6 @@ async function insertKnowledgeItem(
 		createdAt: now,
 		updatedAt: now,
 	});
-	if (opts.layer) {
-		await db.insert(knowledgeAppProjection).values({
-			id: `proj-${id}`,
-			knowledgeItemId: id,
-			layer: opts.layer,
-			scopeId: opts.scopeId ?? null,
-		});
-	}
 	return id;
 }
 
@@ -169,37 +158,14 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 		expect(rule).toBeDefined();
 	});
 
-	test("capability items are deduplicated if they would appear twice (factory skill via L4 + capability fetch)", async ({
+	test("a factory skill appears exactly once (never doubled by the capability fetch)", async ({
 		db,
 	}) => {
-		// This test inserts a factory-scoped skill that has a projection row with layer=L4.
-		// assembleSessionKnowledge should not include it twice.
-		const id = generateId();
-		const now = new Date().toISOString();
-		await db.insert(knowledgeItems).values({
-			id,
-			scopeKind: "factory",
-			scopeId: null,
-			topic: null,
-			title: `dedup-skill-${id}`,
+		const id = await insertKnowledgeItem(db, {
+			title: `dedup-skill-${generateId()}`,
 			body: "Dedup test.",
-			format: "markdown",
-			status: "active",
 			role: "skill",
-			version: 1,
-			updatedBy: "test-user",
-			createdAt: now,
-			updatedAt: now,
-		});
-		await db.insert(knowledgeAppProjection).values({
-			id: `proj-${id}`,
-			knowledgeItemId: id,
-			layer: "L4",
-			scopeId: null,
-			kind: null,
-			attentionScore: null,
-			confidence: null,
-			meta: null,
+			scopeKind: "factory",
 		});
 
 		const items = await assembleSessionKnowledge(db, {
@@ -209,21 +175,18 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			agentId: generateId(),
 		});
 
-		const matching = items.filter((i) => i.title === `dedup-skill-${id}`);
+		const matching = items.filter((i) => i.id === id);
 		expect(matching).toHaveLength(1);
 	});
 });
 
 /**
- * A routine prompt must never reach a session
- * sandbox. Two fetches inside assembleSessionKnowledge each independently
- * match a prompt item; seeding one at factory scope (matches the capability
- * fetch) and one at team scope with an L2 layer (matches the layer fetch)
- * exercises both, so this test cannot pass by accident if only one guard is
- * in place.
+ * A routine prompt must never reach a session sandbox — neither the
+ * scope-based ordinary fetch (role:"ordinary" only) nor the capability fetch
+ * (skill/rule/agent_file only) matches role:"prompt".
  */
 describe("a routine prompt in reach appears in neither fetch", () => {
-	test("a factory-scoped prompt and a team-scoped L2 prompt are both excluded, while skills/rules/identity still appear", async ({
+	test("a factory-scoped prompt and a team-scoped prompt are both excluded, while skills/rules/identity still appear", async ({
 		db,
 	}) => {
 		const teamId = `team-prompt-${generateId()}`;
@@ -241,7 +204,6 @@ describe("a routine prompt in reach appears in neither fetch", () => {
 			role: "prompt",
 			scopeKind: "team",
 			scopeId: teamId,
-			layer: "L2",
 		});
 		await insertKnowledgeItem(db, { title: "still-a-skill", body: "Skill body.", role: "skill" });
 		await insertKnowledgeItem(db, { title: "still-a-rule", body: "Rule body.", role: "rule" });
@@ -415,39 +377,19 @@ describe("who a capability item reaches", () => {
 });
 
 /**
- * `list()` applies a scope filter only when `scopeId !== undefined`, so an
- * absent team must not be passed through to the team-scoped L2 fetch — doing so
- * returns EVERY team's L2 knowledge instead of none. A team-less agent has no
- * team-scoped knowledge to receive; it must not inherit other teams'.
+ * The team-scoped fetch only runs when `input.teamId` is set (architecture
+ * D1: "factory + its team + its own", no subtree/other-team selection). A
+ * team-less agent has no team-scoped knowledge to receive; it must not
+ * inherit other teams'.
  */
 describe("a team-less agent receives no team-scoped ordinary knowledge", () => {
-	test("does not inherit another team's L2 items", async ({ db }) => {
-		const otherTeamItem = `l2-other-team-${generateId()}`;
-		const now = new Date().toISOString();
-		await db.insert(knowledgeItems).values({
-			id: otherTeamItem,
-			scopeKind: "team",
-			scopeId: "team-somebody-else",
-			topic: null,
+	test("does not inherit another team's items", async ({ db }) => {
+		const otherTeamItem = await insertKnowledgeItem(db, {
 			title: "Another team's working agreement",
 			body: "Private to that team.",
-			format: "markdown",
-			status: "active",
 			role: "ordinary",
-			version: 1,
-			updatedBy: "test-user",
-			createdAt: now,
-			updatedAt: now,
-		});
-		await db.insert(knowledgeAppProjection).values({
-			id: `proj-${otherTeamItem}`,
-			knowledgeItemId: otherTeamItem,
-			layer: "L2",
+			scopeKind: "team",
 			scopeId: "team-somebody-else",
-			kind: null,
-			attentionScore: null,
-			confidence: null,
-			meta: null,
 		});
 
 		const assembled = await assembleSessionKnowledge(db, {

@@ -71,7 +71,6 @@ describe("nested-knowledge-items: tree reads", () => {
 			updatedAt: new Date().toISOString(),
 		});
 
-		// @ts-expect-error — list() has no 'tree' discriminant yet (RED phase)
 		const treeItems = await list(db, { tree: { viewerTeamId: null } });
 		const ids = treeItems.map((i: { id: string }) => i.id);
 
@@ -106,13 +105,11 @@ describe("nested-knowledge-items: tree reads", () => {
 			parentId: teamRoot.id,
 		});
 
-		// @ts-expect-error — list() has no 'tree' discriminant yet (RED phase)
 		const forOutsider = await list(db, { tree: { viewerTeamId: "team-2" } });
 		const outsiderIds = forOutsider.map((i: { id: string }) => i.id);
 		expect(outsiderIds).not.toContain(teamRoot.id);
 		expect(outsiderIds).not.toContain(teamChild.id);
 
-		// @ts-expect-error — list() has no 'tree' discriminant yet (RED phase)
 		const forMember = await list(db, { tree: { viewerTeamId: "team-1" } });
 		const memberIds = forMember.map((i: { id: string }) => i.id);
 		expect(memberIds).toContain(teamRoot.id);

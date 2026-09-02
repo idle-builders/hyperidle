@@ -2,7 +2,7 @@
  * Uninstalling a plugin archives its skills; installing it again has to bring
  * them back.
  *
- * `upsertPluginDocument`'s conflict-update deliberately leaves `body` alone so a
+ * `upsertKnowledgeDocument`'s conflict-update deliberately leaves `body` alone so a
  * person's edit survives a reinstall (D5: your edit wins). It also left
  * `status` alone, which is a different thing entirely: an archived row stayed
  * archived, and `fetchCapabilityItems` only returns `active` ones. So after an
@@ -22,7 +22,7 @@
 import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { upsertPluginDocument } from "../knowledge-repository.js";
+import { upsertKnowledgeDocument } from "../knowledge-repository.js";
 import { assembleSessionKnowledge } from "../session-knowledge-assembler.js";
 
 const TS = "2026-01-01T00:00:00.000Z";
@@ -35,7 +35,6 @@ function installInput(body: string) {
 		title: "knowledge-decay",
 		scopeKind: "factory" as const,
 		scopeId: null,
-		topic: "plugin:knowledge-management",
 		body,
 		ts: TS,
 		parentKind: null,
@@ -49,7 +48,7 @@ describe("reinstalling a plugin revives its skills", () => {
 	}: {
 		db: HyperIdleDb;
 	}) => {
-		await upsertPluginDocument(db, installInput("# Original body"));
+		await upsertKnowledgeDocument(db, installInput("# Original body"));
 
 		// A person edits it, then the plugin is uninstalled (which archives).
 		await db
@@ -57,7 +56,7 @@ describe("reinstalling a plugin revives its skills", () => {
 			.set({ body: "# Edited by a person", status: "archived" })
 			.where(eq(knowledgeItems.id, SKILL_ID));
 
-		await upsertPluginDocument(db, installInput("# Original body"));
+		await upsertKnowledgeDocument(db, installInput("# Original body"));
 
 		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, SKILL_ID));
 		expect(row?.status).toBe("active");
@@ -66,7 +65,7 @@ describe("reinstalling a plugin revives its skills", () => {
 	});
 
 	test("a revived skill actually reaches a session again", async ({ db }: { db: HyperIdleDb }) => {
-		await upsertPluginDocument(db, installInput("# Sweep stale knowledge"));
+		await upsertKnowledgeDocument(db, installInput("# Sweep stale knowledge"));
 		await db
 			.update(knowledgeItems)
 			.set({ status: "archived" })
@@ -80,7 +79,7 @@ describe("reinstalling a plugin revives its skills", () => {
 		});
 		expect(whileArchived.map((i) => i.id)).not.toContain(SKILL_ID);
 
-		await upsertPluginDocument(db, installInput("# Sweep stale knowledge"));
+		await upsertKnowledgeDocument(db, installInput("# Sweep stale knowledge"));
 
 		const afterReinstall = await assembleSessionKnowledge(db, {
 			teamId: "team-alpha",

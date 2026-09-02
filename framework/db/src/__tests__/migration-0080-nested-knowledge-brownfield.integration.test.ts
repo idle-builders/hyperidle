@@ -1,9 +1,11 @@
 /**
  * Brownfield migration test for the nested-knowledge-items migration
  * (architecture.md §7 — numbered `0078` at the time this test was written;
- * the item's own report names whichever number is actually free when the
- * green-phase migration file lands, since a parallel strand may claim 0078
- * first).
+ * two parallel strands (`0078_BA2_review_return_half`,
+ * `0079_artifacts_become_knowledge`) claimed 0078 and 0079 first, so this
+ * migration is `0080`. Neither of those touches `knowledge_items`, so the
+ * pre-state below (through 0077) is unaffected — applying the "pending"
+ * folder picks up 78 and 79 along the way to 80.
  *
  * Builds the pre-state by running the REAL migrations 0..77 against a
  * populated database (never hand-rolled DDL — the same discipline
@@ -43,7 +45,7 @@ const DRIZZLE_FOLDER = resolve(DIRNAME, "../../drizzle");
 // file header: another strand may claim it first, in which case the number
 // below (and only the number) needs bumping to match whatever the real
 // migration file is actually numbered.
-const NESTED_KNOWLEDGE_MIGRATION_IDX = 78;
+const NESTED_KNOWLEDGE_MIGRATION_IDX = 80;
 
 function makeTempMigrationsFolder(upToIdx: number): string {
 	const tmpDir = mkdtempSync(join(tmpdir(), "drizzle-brownfield-nested-knowledge-"));

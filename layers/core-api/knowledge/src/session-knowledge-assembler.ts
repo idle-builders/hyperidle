@@ -22,15 +22,12 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
-import { list } from "./knowledge-repository.js";
-import { practiceForRole } from "./role-community-map.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import type { ScoredItem } from "./token-budget.js";
 import { enforceBudget } from "./token-budget.js";
-import type { KnowledgeLayer } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Private relevance-scoring helpers (inlined from relevance-scoring.ts)
@@ -40,15 +37,14 @@ import type { KnowledgeLayer } from "./types.js";
 const RECENCY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * Extract tags from a knowledge item's topic and JSON meta.tags fields.
+ * Extract tags from a knowledge item's title and JSON meta.tags fields.
  *
- * @lore O2: meta field moved to knowledgeAppProjection; accepts KnowledgeItemWithProjection.
+ * @lore nested-knowledge-items: `topic` is gone with the flat vocabulary it
+ * belonged to — the title is the closest surviving honest signal (same
+ * substitution `attention-classifier.ts` makes for its own topic gate).
  */
 function extractItemTags(item: KnowledgeItemWithProjection): string[] {
-	const tags: string[] = [];
-	if (item.topic) {
-		tags.push(item.topic.toLowerCase());
-	}
+	const tags: string[] = [item.title.toLowerCase()];
 	const meta = item.meta ?? null;
 	if (meta) {
 		try {
@@ -98,15 +94,6 @@ function computeTagMatch(item: KnowledgeItemWithProjection, taskTags: string[]):
 	return matches / normalizedTaskTags.length;
 }
 
-/** Compute role match factor (0 or 1). */
-function computeRoleMatch(item: KnowledgeItemWithProjection, agentRole: string): number {
-	// @lore BA9g: the practice is the role, so this is an exact match. It used to
-	// compare against a community the role mapped into and fall back to a fuzzy
-	// substring test — and the fuzzy branch was the one that fired, because
-	// practice knowledge is scoped by role, never by community name.
-	return (item.scopeId ?? null) === practiceForRole(agentRole) ? 1 : 0;
-}
-
 /** Compute recency factor (0-1). Items updated within last 30 days score higher. */
 function computeRecency(item: KnowledgeItemWithProjection, now: number): number {
 	const updatedAt = new Date(item.updatedAt).getTime();
@@ -139,24 +126,6 @@ function computeConfidence(item: KnowledgeItemWithProjection): number {
 	return Math.max(0, Math.min(1, val));
 }
 
-/**
- * Compute layer proximity factor (0-1).
- * Items closer to task context (lower layers) score higher for task work.
- * L0 (session) and L1 (task) are closest, L4 (factory) is furthest but always included.
- *
- * @lore O2: layer field is now optional (from projection table).
- */
-function computeLayerProximity(item: KnowledgeItemWithProjection): number {
-	const layerScores: Record<string, number> = {
-		L0: 1.0,
-		L1: 0.9,
-		L2: 0.7,
-		L3: 0.5,
-		L4: 0.3,
-	};
-	return layerScores[item.layer ?? ""] ?? 0;
-}
-
 /** Compute attention score factor (0-1). attentionScore stored as string in projection table. */
 function computeAttentionScore(item: KnowledgeItemWithProjection): number {
 	// @lore O2: attentionScore moved to knowledgeAppProjection as text column.
@@ -182,28 +151,19 @@ function scoreItem(
 	const timestamp = now ?? Date.now();
 
 	const tagMatch = computeTagMatch(item, context.taskTags);
-	const roleMatch = computeRoleMatch(item, context.agentRole);
 	const recency = computeRecency(item, timestamp);
 	const confidence = computeConfidence(item);
-	const layerProximity = computeLayerProximity(item);
 	const attentionScoreFactor = computeAttentionScore(item);
 
 	const weighted =
 		tagMatch * weights.tagMatch +
-		roleMatch * weights.roleMatch +
 		recency * weights.recency +
 		confidence * weights.confidence +
-		layerProximity * weights.layerProximity +
 		attentionScoreFactor * weights.attentionScore;
 
 	// Normalize to 0-100
 	const totalWeight =
-		weights.tagMatch +
-		weights.roleMatch +
-		weights.recency +
-		weights.confidence +
-		weights.layerProximity +
-		weights.attentionScore;
+		weights.tagMatch + weights.recency + weights.confidence + weights.attentionScore;
 
 	if (totalWeight === 0) {
 		return 0;
@@ -268,53 +228,45 @@ export interface SessionKnowledgeInput {
 	readonly agentId: string;
 }
 
-const LIST_BATCH_SIZE = 500;
-
 /**
- * Fetch all items for a layer, handling pagination.
- * Relocated verbatim from `context.ts`'s `fetchAllForLayer` — same batching
- * behavior (500-item pages, stop once a page returns fewer than the batch
- * size).
+ * Fetch ordinary knowledge items at one scope — factory (scopeId `null`),
+ * team, or the agent's own.
  *
- * @lore knowledge-attachment-slot §5 Guard 1: `role: "ordinary"` closes the
- * leak this fetch had — no role predicate at all, so every non-ordinary role
- * (a routine prompt included) arrived here whenever its layer/scope matched,
- * independently of the capability allowlist below. A role added later is then
- * excluded by default rather than included by default, the safe direction for
- * a set that decides what reaches an agent.
+ * @lore nested-knowledge-items D1: "what an agent receives" is answered
+ * entirely by scope now — factory + its team + its own, no subtree
+ * selection. Replaces the layer-keyed `fetchAllForLayer` (L4/L2/L3), which
+ * had nothing to key on once `layer` was deleted.
  */
-async function fetchAllForLayer(
+async function fetchOrdinaryItemsByScope(
 	db: HyperIdleDb,
-	layer: KnowledgeLayer,
-	scopeId?: string,
+	scopeKind: "factory" | "team" | "user",
+	scopeId: string | null,
 ): Promise<KnowledgeItemWithProjection[]> {
-	const allItems: KnowledgeItemWithProjection[] = [];
-	let offset = 0;
+	const rows = await db
+		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
+		.from(knowledgeItems)
+		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
+		.where(
+			and(
+				eq(knowledgeItems.role, "ordinary"),
+				eq(knowledgeItems.scopeKind, scopeKind),
+				scopeId === null ? isNull(knowledgeItems.scopeId) : eq(knowledgeItems.scopeId, scopeId),
+				// @lore BA9g: a session must never be handed archived knowledge. The
+				// rule is NOT "only active": `write_memory` writes `proposed` items
+				// and R7 AC-5 requires those to reach the next session. Archived is
+				// the one status that means "this reaches nobody".
+				ne(knowledgeItems.status, "archived"),
+			),
+		)
+		.orderBy(knowledgeItems.id);
 
-	while (true) {
-		const batch = await list(db, {
-			layer,
-			scopeId,
-			role: "ordinary",
-			limit: LIST_BATCH_SIZE,
-			offset,
-		});
-		// @lore BA9g: a session must never be handed archived knowledge. Archived
-		// items were excluded here only by ACCIDENT — a plugin document had no
-		// projection row, and `list()` filters by layer through that row, so an
-		// archived skill was invisible for the wrong reason. Writing the projection
-		// (which every knowledge write owes) made them visible, which is what
-		// surfaced this. `fetchCapabilityItems` has always filtered status; this
-		// path never did.
-		// The rule is NOT "only active": `write_memory` writes `captured` items and
-		// R7 AC-5 requires those to reach the next session. Archived is the one
-		// status that means "this reaches nobody".
-		allItems.push(...batch.filter((item) => item.status !== "archived"));
-		if (batch.length < LIST_BATCH_SIZE) break;
-		offset += LIST_BATCH_SIZE;
-	}
-
-	return allItems;
+	return rows.map(({ item, projection }) => ({
+		...item,
+		attentionScore: projection?.attentionScore ?? null,
+		confidence: projection?.confidence ?? null,
+		meta: projection?.meta ?? null,
+		scopeId: projection?.scopeId ?? item.scopeId,
+	}));
 }
 
 /**
@@ -382,8 +334,6 @@ async function fetchCapabilityItems(
 
 	return rows.map(({ item, projection }) => ({
 		...item,
-		layer: projection?.layer ?? null,
-		kind: projection?.kind ?? null,
 		attentionScore: projection?.attentionScore ?? null,
 		confidence: projection?.confidence ?? null,
 		meta: projection?.meta ?? null,
@@ -393,12 +343,16 @@ async function fetchCapabilityItems(
 
 /**
  * Assemble the ranked + budgeted knowledge bundle a session needs at launch:
- * fetch L4 (factory-wide) + L2 (team-scoped) + L3 (practice-community-scoped)
- * items, then rank + budget them against the task's scoring context —
- * exactly what `context.ts`'s `assembleContext` currently does at launch
- * time (`context.ts:834-858`), relocated core-side so a per-kind resolver can
- * call it and bake the result at emit time instead of `run-orchestration`
- * reading it back at launch.
+ * fetch factory-wide + team-scoped + the agent's own ordinary items, then
+ * rank + budget them against the task's scoring context — exactly what
+ * `context.ts`'s `assembleContext` currently does at launch time
+ * (`context.ts:834-858`), relocated core-side so a per-kind resolver can call
+ * it and bake the result at emit time instead of `run-orchestration` reading
+ * it back at launch.
+ *
+ * @lore nested-knowledge-items D1: replaces the L4/L2/L3 layer fetch — scope
+ * (factory + team + own) is now the entire selection rule, no subtree
+ * selection.
  *
  * `rank()` reads scoring weights from the DB and trims to
  * `DEFAULT_KNOWLEDGE_BUDGET` tokens — this function delegates to it.
@@ -411,20 +365,15 @@ export async function assembleSessionKnowledge(
 	db: HyperIdleDb,
 	input: SessionKnowledgeInput,
 ): Promise<readonly KnowledgeItemWithProjection[]> {
-	const community = practiceForRole(input.agentRole);
-
-	// L2 is the team layer. `list()` applies a scope filter only when `scopeId`
-	// is defined, so passing an absent team through would return EVERY team's L2
-	// knowledge rather than none — a team-less agent would inherit other teams'
-	// working agreements. No team means no team layer.
-	const [l4Items, l2Items, l3Items, capabilityItems] = await Promise.all([
-		fetchAllForLayer(db, "L4"),
-		input.teamId ? fetchAllForLayer(db, "L2", input.teamId) : Promise.resolve([]),
-		fetchAllForLayer(db, "L3", community),
+	// A team-less agent gets no team-scoped items — never every team's.
+	const [factoryItems, teamItems, ownItems, capabilityItems] = await Promise.all([
+		fetchOrdinaryItemsByScope(db, "factory", null),
+		input.teamId ? fetchOrdinaryItemsByScope(db, "team", input.teamId) : Promise.resolve([]),
+		fetchOrdinaryItemsByScope(db, "user", input.agentId),
 		fetchCapabilityItems(db, input.teamId, input.agentId),
 	]);
 
-	const allItems = [...l4Items, ...l2Items, ...l3Items];
+	const allItems = [...factoryItems, ...teamItems, ...ownItems];
 
 	const rankedItems = await rank(db, allItems, {
 		taskDescription: input.taskDescription,
@@ -434,7 +383,7 @@ export async function assembleSessionKnowledge(
 	});
 
 	// Capability items are appended after ranked ordinary items. No dedupe
-	// needed: `fetchAllForLayer` now fetches `role: "ordinary"` only and
+	// needed: the scope fetches above are role:"ordinary" only and
 	// `fetchCapabilityItems` fetches skill/rule/agent_file only — the two
 	// lists are disjoint by role, so a factory-scoped skill can no longer
 	// arrive through both paths.

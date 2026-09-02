@@ -21,38 +21,38 @@ interface ScoredItem {
 
 /**
  * Enforce a token budget on scored items using greedy fill.
- * L4 (factory) items are always included first as non-negotiable context.
+ * Factory-scoped items are always included first as non-negotiable context.
  * Returns items sorted by score descending, within budget.
  *
- * @lore O2: layer moved to knowledgeAppProjection; items without a projection row
- * have layer=undefined/null and are treated as non-L4 (not always included).
+ * @lore nested-knowledge-items D1: `layer==='L4'` (factory-wide, the widest
+ * layer) is replaced by `scopeKind==='factory'` — the same "everyone always
+ * gets this" rule, now stated directly on the field that carries it.
  */
 function enforceBudget(
 	scoredItems: ScoredItem[],
 	maxTokens: number,
 ): KnowledgeItemWithProjection[] {
-	// Separate L4 items (non-negotiable) from the rest
-	const l4Items: ScoredItem[] = [];
+	// Separate factory-scoped items (non-negotiable) from the rest
+	const factoryItems: ScoredItem[] = [];
 	const otherItems: ScoredItem[] = [];
 
 	for (const si of scoredItems) {
-		// @lore O2: layer is optional on KnowledgeItemWithProjection
-		if ((si.item as KnowledgeItemWithProjection).layer === "L4") {
-			l4Items.push(si);
+		if (si.item.scopeKind === "factory") {
+			factoryItems.push(si);
 		} else {
 			otherItems.push(si);
 		}
 	}
 
 	// Sort both groups by score descending
-	l4Items.sort((a, b) => b.score - a.score);
+	factoryItems.sort((a, b) => b.score - a.score);
 	otherItems.sort((a, b) => b.score - a.score);
 
 	const result: KnowledgeItemWithProjection[] = [];
 	let usedTokens = 0;
 
-	// Include all L4 items first (non-negotiable)
-	for (const si of l4Items) {
+	// Include all factory-scoped items first (non-negotiable)
+	for (const si of factoryItems) {
 		const tokens = countItemTokens(si.item);
 		usedTokens += tokens;
 		result.push(si.item);

@@ -14,8 +14,8 @@ import {
 	get as getKnowledgeItem,
 	restorePluginDocumentBody,
 	setKnowledgeStatus,
-	type UpsertPluginDocumentInput,
-	upsertPluginDocument,
+	type UpsertKnowledgeDocumentInput,
+	upsertKnowledgeDocument,
 } from "@hyperidle/knowledge";
 import { getRoutine, insertRoutine, setRoutinesLive, softDeleteRoutines } from "@hyperidle/routine";
 import {
@@ -373,23 +373,20 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 			for (const skill of skills) {
 				const id = skillItemId(plugin.id, skill.dirName);
 				knowledgeIds.push(id);
-				const input: UpsertPluginDocumentInput = {
+				const input: UpsertKnowledgeDocumentInput = {
 					id,
 					pluginId: plugin.id,
 					title: skill.dirName,
 					body: skill.body,
 					scopeKind,
 					scopeId,
-					// No `plugin:<id>` topic. The registry records who contributed
-					// this; the topic is a person's field.
-					topic: null,
 					ts: installTs,
 					// A skill has no parent — it is ordinary capability knowledge,
 					// reached from its own list, not hung off any entity.
 					parentKind: null,
 					parentId: null,
 				};
-				await upsertPluginDocument(tx, input);
+				await upsertKnowledgeDocument(tx, input);
 			}
 
 			// Materialize declared agents as users rows.
@@ -413,18 +410,17 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 				// Who the agent is. A plugin contributing an agent contributes its
 				// identity — the gap BA9f named, closed now that an identity is a
 				// knowledge document. Deterministic id so a reinstall updates the same
-				// document instead of orphaning it, and `upsertPluginDocument` leaves
+				// document instead of orphaning it, and `upsertKnowledgeDocument` leaves
 				// the body alone on conflict so a person's edit survives.
 				if (agentSpec.identity) {
 					const identityId = `ki_af_${dbId}`;
 					knowledgeIds.push(identityId);
-					await upsertPluginDocument(tx, {
+					await upsertKnowledgeDocument(tx, {
 						id: identityId,
 						pluginId: plugin.id,
 						title: `${agentSpec.name} — identity`,
 						scopeKind: "user",
 						scopeId: dbId,
-						topic: null,
 						body: agentSpec.identity,
 						ts: installTs,
 						role: "agent_file",
@@ -447,7 +443,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 				if (routineSpec.prompt) {
 					routinePromptDocId = `ki_rp_${routineDbId}`;
 					knowledgeIds.push(routinePromptDocId);
-					await upsertPluginDocument(tx, {
+					await upsertKnowledgeDocument(tx, {
 						id: routinePromptDocId,
 						pluginId: plugin.id,
 						title: `${routineSpec.name || "Routine"} — prompt`,
@@ -456,7 +452,6 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 						// team's knowledge, not the whole org's.
 						scopeKind,
 						scopeId,
-						topic: null,
 						body: routineSpec.prompt,
 						ts: installTs,
 						role: "prompt",

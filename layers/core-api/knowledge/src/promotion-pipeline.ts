@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import {
 	type HyperIdleDb,
 	type KnowledgeItem,
-	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -10,20 +9,22 @@ import {
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/event-bus";
 import { and, eq, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import { recomputeAttention } from "./attention-service.js";
-import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 
 // --- Constants ---
 
 /**
  * Threshold for auto-promotion.
  *
- * TRACK-G §G3 AC2: "same finding in 5+ sessions → VALIDATED".
- * KNOWLEDGE_ARCHITECTURE.md §6.5: "If the same pattern shows up in 5
- * products and never gets contradicted, the facilitator can auto-promote
- * it from PROVISIONAL straight to VALIDATED via repetition."
+ * TRACK-G §G3 AC2: "same finding in 5+ sessions → VALIDATED" (now: proposed
+ * -> active).
  *
- * We match on distinct `scope_id` values (cross-product repetition) with
- * the same `(layer, topic, kind)` signature.
+ * @lore nested-knowledge-items §4: the old `(layer, topic, kind)` signature
+ * is GONE with those three vocabularies — the sibling set (same
+ * `parentKind`/`parentId`) replaces it. Removing the three fields without a
+ * replacement would degenerate the signature to empty, matching every row —
+ * a scheduled sweep would then mass-promote the entire store. We match on
+ * distinct `scope_id` values (cross-scope repetition) among items that share
+ * one parent.
  */
 const AUTO_PROMOTION_REPETITION_THRESHOLD = 5;
 
@@ -54,7 +55,7 @@ const AUTO_PROMOTION_EDITOR = "system:auto-promotion";
  * loop on one pass.
  *
  * @lore G3 sweep cap: bounding the initial SELECT prevents a
- * self-inflicted outage when the provisional or active pool grows
+ * self-inflicted outage when the proposed or active pool grows
  * unexpectedly (for example after a bulk import). 1000 is well above
  * steady-state sweep volume and still cheap to iterate synchronously.
  * Callers that need different behavior can pass `maxBatchSize`.
@@ -81,35 +82,6 @@ interface StaleSweepResult {
 	readonly markedIds: readonly string[];
 }
 
-/**
- * Signature used for cross-scope repetition matching.
- *
- * @lore G3 topic null vs empty: `topic = NULL` and `topic = ''` are
- * treated as DISTINCT signatures. Collapsing them would silently merge
- * two editorially different groups ("no topic" vs. "explicitly blank
- * topic"). A signature where topic is `null` only matches rows where
- * `topic IS NULL`; a signature where topic is `''` only matches rows
- * where `topic = ''`. If a future use-case genuinely wants the merged
- * behavior, add it as an explicit option rather than flipping the
- * default back.
- *
- * @lore O2: layer and kind are now in the projection table; the
- * function accepts KnowledgeItemWithProjection (optional projection fields).
- * Items missing a projection row have layer=null and kind=null, meaning
- * they form their own degenerate signature group.
- */
-function signatureFor(item: Pick<KnowledgeItemWithProjection, "layer" | "topic" | "kind">): {
-	layer: string | null;
-	topic: string | null;
-	kind: string | null;
-} {
-	return {
-		layer: item.layer ?? null,
-		topic: item.topic,
-		kind: item.kind ?? null,
-	};
-}
-
 async function hasOpenConflict(db: HyperIdleDb, itemId: string): Promise<boolean> {
 	const [row] = await db
 		.select({ id: knowledgeConflicts.id })
@@ -122,74 +94,44 @@ async function hasOpenConflict(db: HyperIdleDb, itemId: string): Promise<boolean
 // --- Public API ---
 
 /**
- * Decide whether a knowledge item should be auto-promoted to `validated`
- * based on cross-scope repetition of its signature.
+ * Decide whether a knowledge item should be auto-promoted to `active`
+ * based on cross-scope repetition among its siblings.
  *
- * The signature is `(layer, topic, kind)` with `scope_id` deliberately
- * excluded — the rule is about the *same finding* recurring across
- * different products/communities.
- *
- * @lore G3 signature: `scope_id` is excluded from the signature on
- * purpose. Including it would make every item trivially unique and
- * defeat AC2 ("same finding in 5 products → VALIDATED").
+ * @lore nested-knowledge-items §4: the sibling set — same `parentKind` +
+ * `parentId` — replaces the old `(layer, topic, kind)` signature. `scope_id`
+ * itself is deliberately excluded from the grouping key — the rule is about
+ * the *same finding* recurring across different scopes under one parent.
  */
 async function checkAutoPromotion(
 	db: HyperIdleDb,
 	knowledgeItemId: string,
 ): Promise<AutoPromotionResult> {
-	// @lore O2: projection fields (layer, kind, scopeId) are in knowledgeAppProjection.
-	// We LEFT JOIN to get both kernel and projection columns together.
-	const [subjectRow] = await db
-		.select({
-			item: knowledgeItems,
-			fabric: knowledgeAppProjection,
-		})
+	const [subject] = await db
+		.select()
 		.from(knowledgeItems)
-		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
 		.where(eq(knowledgeItems.id, knowledgeItemId))
 		.limit(1);
-	if (!subjectRow) {
+	if (!subject) {
 		return { shouldPromote: false, reason: "NOT_FOUND", distinctScopes: 0 };
 	}
 
-	const subject: KnowledgeItemWithProjection = {
-		...subjectRow.item,
-		layer: subjectRow.fabric?.layer ?? null,
-		scopeId: subjectRow.fabric?.scopeId ?? null,
-		kind: subjectRow.fabric?.kind ?? null,
-		attentionScore: subjectRow.fabric?.attentionScore ?? null,
-		confidence: subjectRow.fabric?.confidence ?? null,
-		meta: subjectRow.fabric?.meta ?? null,
-	};
+	const parentKind = subject.parentKind ?? null;
+	const parentId = subject.parentId ?? null;
 
-	const sig = signatureFor(subject);
-
-	// Count distinct scope_id values for non-archived items with matching signature.
-	// Items with NULL scope_id are excluded — they cannot demonstrate
-	// cross-product repetition (which is the whole point of AC2).
-	// @lore O2: JOIN with knowledgeAppProjection to filter on layer/kind/scopeId.
+	// Count distinct scope_id values among siblings (same parent) that are
+	// not archived. Items with NULL scope_id are excluded — they cannot
+	// demonstrate cross-scope repetition (which is the whole point of AC2).
 	const [row] = await db
-		.select({ count: sql<number>`COUNT(DISTINCT ${knowledgeAppProjection.scopeId})` })
+		.select({ count: sql<number>`COUNT(DISTINCT ${knowledgeItems.scopeId})` })
 		.from(knowledgeItems)
-		.innerJoin(
-			knowledgeAppProjection,
-			eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-		)
 		.where(
 			and(
-				sig.layer != null
-					? eq(knowledgeAppProjection.layer, sig.layer)
-					: isNull(knowledgeAppProjection.layer),
-				sig.kind != null
-					? eq(knowledgeAppProjection.kind, sig.kind)
-					: isNull(knowledgeAppProjection.kind),
-				// Topic matching: NULL and '' are distinct signatures — see
-				// `signatureFor` lore. `eq` with a NULL RHS would yield a SQL
-				// `topic = NULL` which is always false in SQL three-valued
-				// logic, so we branch on `isNull` explicitly.
-				sig.topic === null ? isNull(knowledgeItems.topic) : eq(knowledgeItems.topic, sig.topic),
+				parentKind === null
+					? isNull(knowledgeItems.parentKind)
+					: eq(knowledgeItems.parentKind, parentKind),
+				parentId === null ? isNull(knowledgeItems.parentId) : eq(knowledgeItems.parentId, parentId),
 				ne(knowledgeItems.status, "archived"),
-				isNotNull(knowledgeAppProjection.scopeId),
+				isNotNull(knowledgeItems.scopeId),
 			),
 		)
 		.limit(1);
@@ -275,7 +217,7 @@ async function markStale(db: HyperIdleDb, itemId: string): Promise<boolean> {
 }
 
 /**
- * Sweep all `provisional` knowledge items and auto-promote those that
+ * Sweep all `proposed` knowledge items and auto-promote those that
  * meet AC2 (5+ cross-scope repetitions), AC3 (no L4 contradiction), and
  * AC5 (no open conflicts).
  *
@@ -294,7 +236,7 @@ async function runAutoPromotionSweep(
 	const candidates = await db
 		.select()
 		.from(knowledgeItems)
-		.where(eq(knowledgeItems.status, "provisional"))
+		.where(eq(knowledgeItems.status, "proposed"))
 		.limit(maxBatchSize);
 
 	// @lore BA9d AF9 AC7: populate attention scores for ALL candidates before
@@ -324,8 +266,8 @@ async function runAutoPromotionSweep(
 			continue;
 		}
 
-		// Promote — provisional → validated with AUTO_PROMOTION_EDITOR provenance.
-		const promoted = await promoteToValidatedAuto(db, item.id);
+		// Promote — proposed -> active with AUTO_PROMOTION_EDITOR provenance.
+		const promoted = await promoteToActiveAuto(db, item.id);
 		if (!promoted) {
 			skippedIds.push(item.id);
 			continue;
@@ -444,11 +386,11 @@ export function sweep(
 // --- Internal ---
 
 /**
- * Transition a provisional item to validated within the same
+ * Transition a proposed item to active within the same
  * transactional gate + conditional UPDATE + edit-log pattern as the G1
  * `promote_knowledge` tool. Uses the AUTO_PROMOTION_EDITOR marker.
  *
- * Returns true on success, false if the item was no longer provisional
+ * Returns true on success, false if the item was no longer proposed
  * (concurrent modification) or a last-second open-conflict check fired.
  *
  * @lore G3 gate parity: this function duplicates the gate logic from
@@ -458,7 +400,7 @@ export function sweep(
  * stay in lockstep; any change to one requires the corresponding change
  * here.
  */
-async function promoteToValidatedAuto(db: HyperIdleDb, itemId: string): Promise<boolean> {
+async function promoteToActiveAuto(db: HyperIdleDb, itemId: string): Promise<boolean> {
 	const isoNow = new Date().toISOString();
 	return db.transaction(async (tx): Promise<boolean> => {
 		// Re-check the open-conflict gate inside the transaction so a
@@ -472,8 +414,8 @@ async function promoteToValidatedAuto(db: HyperIdleDb, itemId: string): Promise<
 
 		const updateRows = await tx
 			.update(knowledgeItems)
-			.set({ status: "validated", updatedAt: isoNow, updatedBy: AUTO_PROMOTION_EDITOR })
-			.where(and(eq(knowledgeItems.id, itemId), eq(knowledgeItems.status, "provisional")))
+			.set({ status: "active", updatedAt: isoNow, updatedBy: AUTO_PROMOTION_EDITOR })
+			.where(and(eq(knowledgeItems.id, itemId), eq(knowledgeItems.status, "proposed")))
 			.returning({ id: knowledgeItems.id });
 
 		if (updateRows.length === 0) return false;
@@ -483,8 +425,8 @@ async function promoteToValidatedAuto(db: HyperIdleDb, itemId: string): Promise<
 			itemId,
 			editor: AUTO_PROMOTION_EDITOR,
 			field: "status",
-			oldValue: "provisional",
-			newValue: `validated | reason: auto-promotion at ${AUTO_PROMOTION_REPETITION_THRESHOLD}+ cross-scope repetitions`,
+			oldValue: "proposed",
+			newValue: `active | reason: auto-promotion at ${AUTO_PROMOTION_REPETITION_THRESHOLD}+ cross-scope repetitions`,
 			editType: "refinement",
 			createdAt: isoNow,
 		});

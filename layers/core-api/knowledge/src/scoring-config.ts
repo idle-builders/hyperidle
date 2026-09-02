@@ -1,11 +1,17 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 
+/**
+ * @lore nested-knowledge-items D1: `roleMatch` and `layerProximity` are
+ * DELETED. `roleMatch` scored against a role→community map that never
+ * matched seeded data (the census found the fuzzy substring fallback did all
+ * the work); `layerProximity` scored the now-deleted layer ladder. What an
+ * agent receives is answered entirely by scope (factory + its team + its
+ * own) — no subtree selection, no replacement weight.
+ */
 interface ScoringWeights {
 	tagMatch: number;
-	roleMatch: number;
 	recency: number;
 	confidence: number;
-	layerProximity: number;
 	attentionScore: number;
 }
 
@@ -18,11 +24,9 @@ interface ScoringContext {
 }
 
 const DEFAULT_WEIGHTS: ScoringWeights = {
-	tagMatch: 0.35,
-	roleMatch: 0.15,
-	recency: 0.15,
-	confidence: 0.1,
-	layerProximity: 0.15,
+	tagMatch: 0.55,
+	recency: 0.2,
+	confidence: 0.15,
 	attentionScore: 0.1,
 };
 

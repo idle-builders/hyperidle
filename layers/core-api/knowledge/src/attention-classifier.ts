@@ -25,24 +25,23 @@ const TASTE_TOPICS: ReadonlySet<string> = new Set([
  * human voice, brand, or aesthetics and should preferentially surface to the
  * founders for review. Pure classifier; no DB access.
  *
- * @lore O2: accepts KnowledgeItemWithProjection since kind and scopeId moved to
- * the app projection table. KnowledgeItem is still accepted for backward
- * compat (type intersection).
+ * @lore nested-knowledge-items: `kind` and `topic` are gone (plan.md "the two
+ * jobs, separated" — where an item is about is now the tree, not a flat
+ * vocabulary). The `kind`-based brief/principle gate has no replacement — a
+ * knowledge item's document type is no longer tagged at all. The title-word
+ * gate replaces the old exact-match `topic` gate as the closest honest
+ * equivalent: a taste-sensitive item's title still tends to name the thing
+ * (e.g. "Brand voice guidelines").
  */
 function isTasteSensitive(item: KnowledgeItem | KnowledgeItemWithProjection): boolean {
-	// @lore O2: kind and scopeId are optional on KnowledgeItemWithProjection (from app projection).
-	const kind = (item as KnowledgeItemWithProjection).kind ?? null;
 	const scopeId = (item as KnowledgeItemWithProjection).scopeId ?? null;
+	const titleWords = new Set(item.title.toLowerCase().split(/\W+/).filter(Boolean));
 
-	// 1. kind gate — briefs and principles are always human-authored voice.
-	if (kind === "brief" || kind === "principle") {
-		return true;
+	// 1. title gate — brand / voice / aesthetics / strategy words.
+	for (const word of titleWords) {
+		if (TASTE_TOPICS.has(word)) return true;
 	}
-	// 2. topic gate — brand / voice / aesthetics / strategy buckets.
-	if (item.topic && TASTE_TOPICS.has(item.topic.toLowerCase())) {
-		return true;
-	}
-	// 3. scope gate — explicit brand scope.
+	// 2. scope gate — explicit brand scope.
 	if (scopeId === "brand") {
 		return true;
 	}

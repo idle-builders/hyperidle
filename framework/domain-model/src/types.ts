@@ -50,15 +50,15 @@ export interface HealthResponse {
 }
 
 /**
- * Kernel-level knowledge statuses: the three states the kernel cares about
- * (draft → active → archived). The full 7-state taxonomy lives in
- * @hyperidle/server (packages/server/src/knowledge/types.ts) as KnowledgeStatus.
+ * @lore nested-knowledge-items: collapsed onto the single four-value ladder —
+ * `proposed | active | stale | archived` — that `KNOWLEDGE_STATUSES`
+ * (`./knowledge.ts`) now also is. There were two status vocabularies (kernel
+ * vs. app-runtime) saying the same thing under different names (`draft` vs
+ * `captured`, both "not yet vouched for"); one lifecycle now, no gatekeeping.
  *
- * @lore O1: moved as part of kernel/strategy separation. The kernel only needs
- * to know if knowledge is draft, active, or archived. The strategy layer
- * (fabric) owns the richer 7-state lifecycle.
+ * @lore O1: moved as part of kernel/strategy separation, historically.
  */
-export const KERNEL_KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_human"] as const;
+export const KERNEL_KNOWLEDGE_STATUSES = ["proposed", "active", "stale", "archived"] as const;
 export type KernelKnowledgeStatus = (typeof KERNEL_KNOWLEDGE_STATUSES)[number];
 
 /**
@@ -156,8 +156,19 @@ export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
  * produced under a bet is knowledge produced under a task. Migration 0068
  * re-scoped every `"bet"` row to `"task"`; the scope_id did not change, because
  * each bet became a root task keeping its own id.
+ *
+ * @lore nested-knowledge-items: `"product"`, `"practice"` and `"task"` are
+ * GONE too. `product`/`practice` were the layer vocabulary wearing a scope
+ * costume — "Product" and "Practices" are now knowledge items near the root,
+ * not scope values; where an item sits in the tree says what it is about,
+ * `scope` says only who sees it. `task` left because a task's knowledge
+ * parents onto the task directly (`parentKind='task'`) and never appears in
+ * the scope column at all — task/bet-scoped knowledge never had a "how far
+ * does it reach" question `scope` answers. Scope is now closed to exactly
+ * three concentric rings: factory (everyone) > team (a team) > user (one
+ * person).
  */
-export const SCOPE_KINDS = ["factory", "product", "practice", "team", "task", "user"] as const;
+export const SCOPE_KINDS = ["factory", "team", "user"] as const;
 
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
 
@@ -167,21 +178,14 @@ export type ScopeKind = (typeof SCOPE_KINDS)[number];
  *
  * @lore Q2: Extracted to @hyperidle/domain-model so the web dialogs (KnowledgeCreateDialog,
  * ScopeChangeDialog) and the server route (knowledge.ts) share a single source of truth.
- * @lore AV3 A2: "filesystem" added — references filesystems.id.
- * @lore AU26 F2: "filesystem" removed again with the scope kind itself.
+ * @lore nested-knowledge-items: `"product"`/`"practice"`/`"task"` removed with
+ * the scope kinds themselves.
  */
-export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
-	"product",
-	"practice",
-	"team",
-	"task",
-]);
+export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>(["team"]);
 
 /**
  * Maps a raw scopeKind from the API to the user-facing bucket label.
- * factory/practice/task → "Shared"
- * team/product → "Team"
- * user → "Private"
+ * factory → "Shared", team → "Team", user → "Private".
  * Anything else → "Shared" (safe fallback).
  *
  * @lore AV3: SSOT for scope label mapping — lives beside ScopeKind so the
@@ -191,7 +195,7 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
  */
 export function scopeKindToLabel(scopeKind: string): string {
 	if (scopeKind === "user") return "Private";
-	if (scopeKind === "team" || scopeKind === "product") return "Team";
+	if (scopeKind === "team") return "Team";
 	return "Shared";
 }
 

@@ -28,7 +28,6 @@ async function seedItem(
 		id: string;
 		title: string;
 		body: string;
-		topic: string | null;
 		status: KnowledgeStatus | KernelKnowledgeStatus;
 		scopeKind: string;
 		scopeId: string | null;
@@ -37,10 +36,8 @@ async function seedItem(
 	}> = {},
 ): Promise<typeof knowledgeItems.$inferSelect> {
 	const created = await createKnowledgeItem(db, {
-		layer: null,
 		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
-		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Seed title",
 		body: overrides.body ?? "Seed body",
 		format: "markdown",
@@ -95,7 +92,7 @@ describe("scope is an ordinary edited field", () => {
 		await update(
 			db,
 			existing.id,
-			{ scopeKind: "product", scopeId: "prod-123", updatedBy: "u-founder" },
+			{ scopeKind: "team", scopeId: "prod-123", updatedBy: "u-founder" },
 			existing.version,
 		);
 
@@ -108,7 +105,7 @@ describe("scope is an ordinary edited field", () => {
 		const scopeIdLog = logs.find((l) => l.field === "scopeId");
 
 		expect(scopeKindLog?.oldValue).toBe("user");
-		expect(scopeKindLog?.newValue).toBe("product");
+		expect(scopeKindLog?.newValue).toBe("team");
 		expect(scopeIdLog?.oldValue).toBe("u-founder");
 		expect(scopeIdLog?.newValue).toBe("prod-123");
 		// No reason is smuggled into the value any more.
@@ -121,7 +118,7 @@ describe("scope is an ordinary edited field", () => {
 		await update(
 			db,
 			existing.id,
-			{ scopeKind: "product", scopeId: "prod-123", updatedBy: "u-founder" },
+			{ scopeKind: "team", scopeId: "prod-123", updatedBy: "u-founder" },
 			existing.version,
 		);
 

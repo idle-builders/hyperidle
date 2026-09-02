@@ -27,9 +27,9 @@ describe("O1 kernel type additions to @hyperidle/domain-model", () => {
 			expect((val as unknown[]).length).toBe(4);
 		});
 
-		it("contains draft, active, archived", () => {
+		it("contains proposed, active, archived (nested-knowledge-items status collapse)", () => {
 			const val = (sharedIndex as Record<string, unknown>)["KERNEL_KNOWLEDGE_STATUSES"] as string[];
-			expect(val).toContain("draft");
+			expect(val).toContain("proposed");
 			expect(val).toContain("active");
 			expect(val).toContain("archived");
 		});
@@ -60,16 +60,19 @@ describe("O1 kernel type additions to @hyperidle/domain-model", () => {
 	});
 
 	describe("App-owned knowledge vocabulary is exported from shared after AU3", () => {
-		it("KNOWLEDGE_LAYERS is exported from shared", () => {
-			expect("KNOWLEDGE_LAYERS" in sharedIndex).toBe(true);
+		// @lore nested-knowledge-items: KNOWLEDGE_LAYERS and KNOWLEDGE_SCOPES are
+		// DELETED, not deprecated — a knowledge item's place in the tree says
+		// what it is about now, not a flat layer/scope-costume vocabulary.
+		it("KNOWLEDGE_LAYERS is gone", () => {
+			expect("KNOWLEDGE_LAYERS" in sharedIndex).toBe(false);
 		});
 
 		it("KNOWLEDGE_STATUSES is exported from shared", () => {
 			expect("KNOWLEDGE_STATUSES" in sharedIndex).toBe(true);
 		});
 
-		it("KNOWLEDGE_SCOPES is exported from shared", () => {
-			expect("KNOWLEDGE_SCOPES" in sharedIndex).toBe(true);
+		it("KNOWLEDGE_SCOPES is gone", () => {
+			expect("KNOWLEDGE_SCOPES" in sharedIndex).toBe(false);
 		});
 
 		it("KNOWLEDGE_SORT_OPTIONS is exported from shared", () => {
