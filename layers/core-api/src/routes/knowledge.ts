@@ -188,9 +188,14 @@ const updateKnowledgeSchema = z.object({
 	 * through `reparent()`, not the generic field diff, because moving a
 	 * knowledge item re-checks the tree invariants (cycle, scope-no-wider,
 	 * depth<=32) against LIVE state inside its own transaction.
+	 *
+	 * @lore nested-knowledge-items defect 2: both `null` together is a move
+	 * to the top level (detach to root) — mirrors `ki_parent_pair_ck`'s
+	 * both-or-neither pairing, now including "neither" as an explicit value
+	 * rather than only "field absent".
 	 */
-	parentKind: z.enum(KNOWLEDGE_PARENT_KINDS).optional(),
-	parentId: z.string().optional(),
+	parentKind: z.enum(KNOWLEDGE_PARENT_KINDS).nullable().optional(),
+	parentId: z.string().nullable().optional(),
 });
 
 // BA9d: agent-reachable merge/split doors (recovered from AU44 scope breach,
@@ -464,6 +469,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// `parentId` is a MOVE — it routes through `reparent()` (tree invariants,
 	// its own transaction), not the generic field-diff `update()`. Any other
 	// field in the same body is applied first via `update()`, then the move.
+	// @lore nested-knowledge-items defect 2: both `null` together is a move
+	// to the top level (detach to root) — `reparent()` still runs, its
+	// invariants are simply vacuous for a root.
 	router.patch("/:id", validateBody(updateKnowledgeSchema), async (c) => {
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
@@ -498,9 +506,20 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 400);
 		}
 
+		// @lore nested-knowledge-items defect 2: `undefined` means "no move in
+		// this PATCH"; `null` means "move to the top level" (detach to root).
+		// Both fields must carry the same one of the three states — absent,
+		// null, or a same-kind string — never a mix.
 		if ((body.parentKind === undefined) !== (body.parentId === undefined)) {
 			const response: ApiErrorResponse = {
 				error: "parentKind and parentId must both be present or both be absent",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+		if (body.parentKind !== undefined && (body.parentKind === null) !== (body.parentId === null)) {
+			const response: ApiErrorResponse = {
+				error: "parentKind and parentId must both be null (a move to the top level) or both be set",
 				code: API_ERROR_CODES.VALIDATION_ERROR,
 			};
 			return c.json(response, 400);
@@ -521,7 +540,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				},
 				body.version,
 			);
-			if (body.parentKind && body.parentId) {
+			if (body.parentKind !== undefined && body.parentId !== undefined) {
 				await reparentKnowledgeItem(db, id, {
 					parentKind: body.parentKind,
 					parentId: body.parentId,

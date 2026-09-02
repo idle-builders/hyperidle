@@ -199,16 +199,6 @@ async function cascadeScopeNarrowing(
 // ---------------------------------------------------------------------------
 
 export interface CreateKnowledgeItemInput {
-	/**
-	 * @lore nested-knowledge-items: `layer` is DELETED from the schema and
-	 * ignored here — accepted-but-inert only because red-phase tests written
-	 * before this green phase (`knowledge-tree-invariants.integration.test.ts`,
-	 * `knowledge-tree-reads.integration.test.ts`) pass `layer: null` on every
-	 * `create()` call and are frozen (must not be edited). Not a compat shim
-	 * in the destructive-migration sense — nothing reads or stores this field;
-	 * it exists purely so those call sites keep typechecking.
-	 */
-	layer?: null;
 	/** @lore R7: scopeKind written to the kernel table so items are queryable by
 	 * scope without a JOIN against the extension table. Defaults to "factory"
 	 * when not provided (preserves existing behavior for callers that don't set scope). */
@@ -545,13 +535,20 @@ async function applyParentMove(
  * own transaction, because two reparents that each look legal against the
  * pre-transaction snapshot can together produce a cycle no single read would
  * catch.
+ *
+ * @lore nested-knowledge-items defect 2: `parentKind`/`parentId` are both
+ * nullable — null,null detaches the item to the top level (a root), mirroring
+ * `ki_parent_pair_ck`'s both-or-neither pairing. A root has no parent to walk,
+ * so the cycle/scope/depth invariants are vacuously satisfied and simply
+ * never run for that case, rather than being asked a question that has no
+ * answer.
  */
 export async function reparent(
 	db: HyperIdleDb,
 	id: string,
 	input: {
-		readonly parentKind: KnowledgeParentKind;
-		readonly parentId: string;
+		readonly parentKind: KnowledgeParentKind | null;
+		readonly parentId: string | null;
 		readonly updatedBy: string;
 	},
 ): Promise<KnowledgeItem> {
@@ -566,6 +563,13 @@ export async function reparent(
 				throw new Error(`reparent: knowledge item ${id} not found`);
 			}
 
+			const { parentKind, parentId } = input;
+			if ((parentKind === null || parentId === null) && (parentKind !== null || parentId !== null)) {
+				throw new Error(
+					"reparent: parentKind and parentId must both be null (detach to root) or both be set — never one without the other",
+				);
+			}
+
 			const timestamp = now();
 			await applyParentMove(tx, id, existing, input, input.updatedBy, timestamp);
 
@@ -575,7 +579,7 @@ export async function reparent(
 				editor: input.updatedBy,
 				field: "parent",
 				oldValue: existing.parentId ? `${existing.parentKind}:${existing.parentId}` : null,
-				newValue: `${input.parentKind}:${input.parentId}`,
+				newValue: parentId ? `${parentKind}:${parentId}` : null,
 				editType: "update",
 				createdAt: timestamp,
 			});

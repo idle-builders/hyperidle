@@ -547,7 +547,6 @@ describe("BA9c — knowledge_created produces kind:knowledge-item rich subject",
 			body: "Knowledge body content",
 			format: "markdown",
 			status: "active",
-			layer: null,
 			updatedBy: ownerAgentId,
 		});
 		const kiId = ki.id;

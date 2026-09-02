@@ -242,6 +242,72 @@ describe("nested-knowledge-items: writeback end-to-end (real files, real sandbox
 		expect(afterMove[0]?.parentId).toBe(newHomeFolder[0]?.id);
 	});
 
+	test("moving a file out of a nested directory to sit directly under knowledge/ detaches it to the top level, leaving its body untouched", async ({
+		db,
+	}) => {
+		const { root, manifestPath } = makeSandbox();
+		const knowledge = makeRealDbKnowledgeWriter(db);
+
+		fs.mkdirSync(path.join(root, "knowledge", "nested-home"), { recursive: true });
+		const originalPath = path.join(root, "knowledge", "nested-home", "note_e5f6a7b8.md");
+		fs.writeFileSync(originalPath, "The original body.");
+
+		await writeback.process(
+			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, knowledge },
+			[
+				{
+					type: "create",
+					relativePath: "knowledge/nested-home/note_e5f6a7b8.md",
+					fullPath: originalPath,
+				},
+			],
+		);
+
+		const beforeMove = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.title, "note e5f6a7b8"));
+		expect(beforeMove).toHaveLength(1);
+		const itemId = beforeMove[0]?.id;
+		expect(beforeMove[0]?.parentKind).toBe("knowledge_item");
+
+		// Physically move the file directly under knowledge/ — no wrapping
+		// directory. Same delete+create batch shape as an ordinary move.
+		fs.rmSync(originalPath);
+		const movedPath = path.join(root, "knowledge", "note_e5f6a7b8.md");
+		fs.writeFileSync(movedPath, "The original body.");
+
+		await writeback.process(
+			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, knowledge },
+			[
+				{
+					type: "delete",
+					relativePath: "knowledge/nested-home/note_e5f6a7b8.md",
+					fullPath: originalPath,
+				},
+				{
+					type: "create",
+					relativePath: "knowledge/note_e5f6a7b8.md",
+					fullPath: movedPath,
+				},
+			],
+		);
+
+		// Same item (identity preserved via the id suffix, D3), no duplicate.
+		const afterMove = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, itemId ?? ""));
+		expect(afterMove).toHaveLength(1);
+
+		// The move detached it to the top level: no parent, either half.
+		expect(afterMove[0]?.parentKind).toBeNull();
+		expect(afterMove[0]?.parentId).toBeNull();
+
+		// The body did not change.
+		expect(afterMove[0]?.body).toBe("The original body.");
+	});
+
 	test("renaming a directory containing several files produces one batch of many deletes and creates, and every file's parent updates with no duplicates or orphans", async ({
 		db,
 	}) => {

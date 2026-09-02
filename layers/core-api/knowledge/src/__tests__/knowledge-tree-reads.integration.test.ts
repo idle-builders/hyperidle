@@ -30,7 +30,6 @@ describe("nested-knowledge-items: tree reads", () => {
 		db,
 	}) => {
 		const ordinary = await create(db, {
-			layer: null,
 			title: "Ordinary root",
 			body: "b",
 			format: "markdown",
@@ -83,7 +82,6 @@ describe("nested-knowledge-items: tree reads", () => {
 		db,
 	}) => {
 		const teamRoot = await create(db, {
-			layer: null,
 			title: "Team-1 root",
 			body: "b",
 			format: "markdown",
@@ -93,7 +91,6 @@ describe("nested-knowledge-items: tree reads", () => {
 			scopeId: "team-1",
 		});
 		const teamChild = await create(db, {
-			layer: null,
 			title: "Team-1 child",
 			body: "b",
 			format: "markdown",

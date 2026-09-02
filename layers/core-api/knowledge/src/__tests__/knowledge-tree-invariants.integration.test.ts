@@ -30,7 +30,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 	describe("cycle rejection", () => {
 		test("self-parent is rejected", async ({ db }) => {
 			const item = await create(db, {
-				layer: null,
 				title: "Root",
 				body: "root body",
 				format: "markdown",
@@ -49,7 +48,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 
 		test("reparenting a node under its own descendant is rejected", async ({ db }) => {
 			const grandparent = await create(db, {
-				layer: null,
 				title: "Grandparent",
 				body: "gp",
 				format: "markdown",
@@ -57,7 +55,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 				updatedBy: "u-1",
 			});
 			const parent = await create(db, {
-				layer: null,
 				title: "Parent",
 				body: "p",
 				format: "markdown",
@@ -67,7 +64,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 				parentId: grandparent.id,
 			});
 			const child = await create(db, {
-				layer: null,
 				title: "Child",
 				body: "c",
 				format: "markdown",
@@ -91,7 +87,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 			db,
 		}) => {
 			const x = await create(db, {
-				layer: null,
 				title: "X",
 				body: "x",
 				format: "markdown",
@@ -99,7 +94,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 				updatedBy: "u-1",
 			});
 			const y = await create(db, {
-				layer: null,
 				title: "Y",
 				body: "y",
 				format: "markdown",
@@ -126,7 +120,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 			db,
 		}) => {
 			const parent = await create(db, {
-				layer: null,
 				title: "Team parent",
 				body: "p",
 				format: "markdown",
@@ -138,7 +131,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 
 			await expect(
 				create(db, {
-					layer: null,
 					title: "Wider child",
 					body: "c",
 					format: "markdown",
@@ -157,7 +149,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 			// Task-parented items never appear in the tree and inherit nothing
 			// (architecture §3): the scope-widening rule must not fire for them.
 			const created = await create(db, {
-				layer: null,
 				title: "Task-parented note",
 				body: "n",
 				format: "markdown",
@@ -177,7 +168,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 			let parentId: string | null = null;
 			for (let level = 1; level <= 32; level++) {
 				const created = await create(db, {
-					layer: null,
 					title: `Level ${level}`,
 					body: `body ${level}`,
 					format: "markdown",
@@ -195,7 +185,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 			// A 33rd level must be refused.
 			await expect(
 				create(db, {
-					layer: null,
 					title: "Level 33",
 					body: "too deep",
 					format: "markdown",
@@ -211,7 +200,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 	describe("D5 — scope narrowing on a parent cascades to its subtree", () => {
 		test("narrowing a parent's scope narrows its children too", async ({ db }) => {
 			const parent = await create(db, {
-				layer: null,
 				title: "Cascading parent",
 				body: "p",
 				format: "markdown",
@@ -220,7 +208,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 				scopeKind: "factory",
 			});
 			const child = await create(db, {
-				layer: null,
 				title: "Cascading child",
 				body: "c",
 				format: "markdown",
@@ -248,7 +235,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 			db,
 		}) => {
 			const parent = await create(db, {
-				layer: null,
 				title: "Ordered parent",
 				body: "p",
 				format: "markdown",
@@ -256,7 +242,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 				updatedBy: "u-1",
 			});
 			const first = await create(db, {
-				layer: null,
 				title: "Zebra",
 				body: "z",
 				format: "markdown",
@@ -266,7 +251,6 @@ describe("nested-knowledge-items: tree invariants", () => {
 				parentId: parent.id,
 			});
 			const second = await create(db, {
-				layer: null,
 				title: "Apple",
 				body: "a",
 				format: "markdown",

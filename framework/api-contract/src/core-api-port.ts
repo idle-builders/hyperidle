@@ -540,17 +540,14 @@ export interface KnowledgeItemVersionView {
  * version; the seam implementation fetches the current one internally, the
  * same "reuse GET /:id" idiom `findKnowledgeItemVersionById` already uses.
  *
- * @lore Known gap, not silently worked around: `reparent()`'s own signature
- * requires a non-null `parentKind`/`parentId` — there is no repository-level
- * "detach to root" operation. A file moved to sit directly under `knowledge/`
- * (no wrapping directory) therefore cannot be reparented through this seam.
- * Untested by architecture.md's three writeback e2e cases and not spelled out
- * as a requirement; widening `reparent()` to support it is a repository-level
- * decision this leaf does not make unilaterally.
+ * @lore nested-knowledge-items defect 2: `parentKind`/`parentId` are both
+ * nullable, together — `reparent()`'s repository-level "detach to root" gap
+ * this comment used to document is closed. A file moved to sit directly under
+ * `knowledge/` (no wrapping directory) now reparents to `null, null`.
  */
 export interface ReparentKnowledgeItemRequest {
-	readonly parentKind: string;
-	readonly parentId: string;
+	readonly parentKind: string | null;
+	readonly parentId: string | null;
 	readonly updatedBy: string;
 }
 

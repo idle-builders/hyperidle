@@ -279,13 +279,17 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 	 * move case — `PATCH /knowledge/:id`'s existing `parentKind`/`parentId`
 	 * fields, which already route through `reparent()` (tree invariants +
 	 * its own `field='parent'` edit-log entry).
+	 *
+	 * @lore nested-knowledge-items defect 2: `parentKind`/`parentId` both
+	 * null together detaches the item to the top level (a move to sit
+	 * directly under `knowledge/`, no wrapping directory).
 	 */
 	reparentKnowledgeItem(
 		_db: HyperIdleDb,
 		id: string,
 		input: {
-			readonly parentKind: "knowledge_item";
-			readonly parentId: string;
+			readonly parentKind: "knowledge_item" | null;
+			readonly parentId: string | null;
 			readonly updatedBy: string;
 		},
 	): Promise<void>;

@@ -90,13 +90,18 @@ interface CaptureWritebackKnowledgeWriter {
 	 * reads/writes for the move case (architecture.md §5's "a creation whose
 	 * filename carries a known id IS a move") — `knowledge` owns that table,
 	 * and this crossing must go through its seam like every other write here.
+	 *
+	 * @lore nested-knowledge-items defect 2: `parentKind`/`parentId` both null
+	 * together is a move to the top level — a file that lands directly under
+	 * `knowledge/` (no wrapping directory) detaches to root instead of the
+	 * move silently not happening.
 	 */
 	reparentKnowledgeItem(
 		db: HyperIdleDb,
 		id: string,
 		input: {
-			readonly parentKind: "knowledge_item";
-			readonly parentId: string;
+			readonly parentKind: "knowledge_item" | null;
+			readonly parentId: string | null;
 			readonly updatedBy: string;
 		},
 	): Promise<void>;
@@ -400,17 +405,15 @@ async function handleCreate(
 	if (suffixMatch) {
 		const parentDir = path.dirname(relativePath);
 		const parent = await ensureDirectoryChainItem(config, parentDir, manifest);
-		// @lore nested-knowledge-items: `reparentKnowledgeItem` requires a
-		// non-null parent (see its own doc comment) — a move to the bare
-		// `knowledge/` root (no wrapping directory) is a known, untested gap,
-		// not silently worked around with a raw write.
-		if (parent) {
-			await config.knowledge.reparentKnowledgeItem(config.db, suffixMatch.itemId, {
-				parentKind: "knowledge_item",
-				parentId: parent.id,
-				updatedBy: `session:${config.sessionId}`,
-			});
-		}
+		// @lore nested-knowledge-items defect 2: a move to the bare `knowledge/`
+		// root (no wrapping directory, `parent === null`) reparents to
+		// `null, null` — a detach to the top level — instead of the move
+		// silently not happening.
+		await config.knowledge.reparentKnowledgeItem(config.db, suffixMatch.itemId, {
+			parentKind: parent ? "knowledge_item" : null,
+			parentId: parent ? parent.id : null,
+			updatedBy: `session:${config.sessionId}`,
+		});
 		manifest.items[suffixMatch.itemId] = {
 			...suffixMatch.entry,
 			source_path: relativePath,

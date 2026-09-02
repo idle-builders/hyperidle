@@ -256,6 +256,8 @@ interface CoreApiHcClient {
 			 * route `PATCH /knowledge/:id` the human-facing UI patches through.
 			 * @lore nested-knowledge-items: `parentKind`/`parentId` widen this for
 			 * `reparentKnowledgeItem` — same route, its own existing move fields.
+			 * @lore nested-knowledge-items defect 2: both nullable, together —
+			 * `null, null` is a move to the top level (detach to root).
 			 */
 			$patch(args: {
 				readonly param: { readonly id: string };
@@ -263,8 +265,8 @@ interface CoreApiHcClient {
 					readonly version: number;
 					readonly updatedBy: string;
 					readonly body?: string;
-					readonly parentKind?: string;
-					readonly parentId?: string;
+					readonly parentKind?: string | null;
+					readonly parentId?: string | null;
 				};
 			}): Promise<Response>;
 			readonly conflicts: {
