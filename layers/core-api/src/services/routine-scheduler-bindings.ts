@@ -30,7 +30,7 @@ import {
 	assembleSessionKnowledge,
 	getAgentIdentity,
 	get as getKnowledgeItem,
-	getParentedItem,
+	getRoutinePrompt,
 	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
@@ -163,11 +163,10 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		assembleSessionKnowledge,
 		getAgentIdentity,
-		// No status filter: today's read has none, and a manually archived
-		// prompt should keep behaving as it does today.
-		getRoutinePrompt: async (db, routineId) =>
-			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
-				?.body ?? null,
+		// @lore knowledge-attachment-slot: was its own inline getParentedItem call
+		// (a spelling-twin of routines-routes.ts's own copy); both now share
+		// `getRoutinePrompt` from @hyperidle/knowledge, `getAgentIdentity`'s twin.
+		getRoutinePrompt,
 	};
 }
 

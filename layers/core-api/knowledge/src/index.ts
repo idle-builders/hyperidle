@@ -65,6 +65,8 @@ export {
 	getAgentIdentity,
 	getAgentIdentityIds,
 	getParentedItem,
+	getRoutinePrompt,
+	getRoutinePromptBodies,
 	list,
 	listItemIdsByParent,
 	listParentedItemBodies,

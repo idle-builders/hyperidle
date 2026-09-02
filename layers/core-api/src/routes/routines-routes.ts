@@ -13,8 +13,9 @@ import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,
 	getParentedItem,
+	getRoutinePrompt,
+	getRoutinePromptBodies,
 	listItemIdsByParent,
-	listParentedItemBodies,
 	setKnowledgeStatus,
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
@@ -134,39 +135,13 @@ function stateToActive(state: string): boolean {
 
 /**
  * A routine's instruction lives in a knowledge document parented to it, so it
- * can be read and edited like any other knowledge. These keep the routine and
- * its document in step: `prompt` stays the field a caller writes, and this is
- * where that text reaches the document.
- *
- * `knowledge_items` belongs to the knowledge service, so the reads/writes go
- * through its own functions rather than the routine service reaching into the
- * table.
+ * can be read and edited like any other knowledge. `prompt` stays the field
+ * a caller writes; the read/write of the document itself is
+ * `getRoutinePrompt`/`getRoutinePromptBodies` (`@hyperidle/knowledge`,
+ * `getAgentIdentity`'s exact twin) — `knowledge_items` belongs to the
+ * knowledge service, so this route reaches through its functions rather than
+ * touching the table itself.
  */
-async function readRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null> {
-	const doc = await getParentedItem(db, {
-		parentKind: "routine",
-		parentId: routineId,
-		role: "prompt",
-	});
-	return doc?.body ?? null;
-}
-
-/**
- * `readRoutinePrompt` for a whole page of routines, in one query rather than
- * one per row — the list endpoint must agree with GET/POST/PATCH on shape
- * (all four carry `prompt`), and a list can grow, so it batches the same way
- * `getAgentIdentityIds` already does for the agents list.
- */
-async function readRoutinePrompts(
-	db: HyperIdleDb,
-	routineIds: readonly string[],
-): Promise<Map<string, string>> {
-	return listParentedItemBodies(db, {
-		parentKind: "routine",
-		parentIds: routineIds,
-		role: "prompt",
-	});
-}
 
 /**
  * Create the document a new routine's prompt lives in, parented to that
@@ -341,7 +316,7 @@ export function createRoutineRoutes(
 		// The row no longer carries the prompt text — resolve it from the document,
 		// same as GET and PATCH, so all three responses agree on shape.
 		return c.json(
-			created ? { ...created, prompt: await readRoutinePrompt(db, routineId) } : created,
+			created ? { ...created, prompt: await getRoutinePrompt(db, routineId) } : created,
 			201,
 		);
 	});
@@ -352,7 +327,7 @@ export function createRoutineRoutes(
 		// The row no longer carries the prompt text — resolve it from each
 		// routine's document, same as GET/POST/PATCH, so all four responses
 		// agree on shape. One batched read, not one per routine.
-		const prompts = await readRoutinePrompts(
+		const prompts = await getRoutinePromptBodies(
 			db,
 			allRoutines.map((routine) => routine.id),
 		);
@@ -447,7 +422,7 @@ export function createRoutineRoutes(
 		const routineInfo: RoutineInfo = {
 			id: routine.id,
 			name: routine.name,
-			prompt: await readRoutinePrompt(db, routine.id),
+			prompt: await getRoutinePrompt(db, routine.id),
 			state: (routine.state ?? "active") as RoutineInfo["state"],
 			triggerType: routine.triggerType,
 			triggerConfig: routine.triggerConfig ?? null,
@@ -562,7 +537,7 @@ export function createRoutineRoutes(
 		// The row no longer carries the prompt text — resolve it from the document
 		// so the response still describes the routine as a caller expects.
 		return c.json(
-			updated ? { ...updated, prompt: await readRoutinePrompt(db, updated.id) } : updated,
+			updated ? { ...updated, prompt: await getRoutinePrompt(db, updated.id) } : updated,
 		);
 	});
 

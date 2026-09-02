@@ -1515,6 +1515,42 @@ export async function getAgentIdentityIds(
 	});
 }
 
+/**
+ * The body of the `prompt` knowledge document parented to a routine — the
+ * instruction its sessions read. `getAgentIdentity`'s exact twin: parent
+ * says where it hangs, role says where it lands, same singular-slot query.
+ * Null when the routine has no prompt document.
+ *
+ * @lore knowledge-attachment-slot: no status filter, on purpose — today's
+ * read has never had one, so a manually archived prompt keeps being read
+ * exactly as it is today. Narrowing to `status: "active"` (like
+ * `getAgentIdentity` does) is a real behavior change nobody has asked for.
+ */
+export async function getRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null> {
+	const item = await getParentedItem(db, {
+		parentKind: "routine",
+		parentId: routineId,
+		role: "prompt",
+	});
+	return item?.body ?? null;
+}
+
+/**
+ * `getRoutinePrompt` for a whole page of routines, in one query rather than
+ * one per row — mirrors `getAgentIdentityIds` for the routine list, which
+ * must agree with the single-routine routes on the same `prompt` field.
+ */
+export async function getRoutinePromptBodies(
+	db: HyperIdleDb,
+	routineIds: readonly string[],
+): Promise<Map<string, string>> {
+	return listParentedItemBodies(db, {
+		parentKind: "routine",
+		parentIds: routineIds,
+		role: "prompt",
+	});
+}
+
 export async function upsertPluginDocument(
 	db: HyperIdleDb,
 	input: UpsertPluginDocumentInput,
