@@ -1416,6 +1416,35 @@ function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
 	);
 }
 
+/**
+ * What the agent is being asked to do, for a session that has a task.
+ *
+ * @lore BA10: when a task is assigned to an agent, the task is basically all
+ * there is as the user prompt. This is deliberately NOT the assembled context —
+ * that goes to AGENTS.md and says who the agent is and what it knows, not what
+ * to do. The two were conflated, and the agent received a 200-character slice of
+ * the wrong one.
+ *
+ * Returns undefined when the session has no task to state — a routine waking on a
+ * heartbeat, or an assistant turn, whose opening turn comes from elsewhere.
+ */
+function composeTaskInstruction(params: ProvisionSessionParams): string | undefined {
+	const bundle = params.contextBundle;
+	if (bundle?.kind !== "task") return undefined;
+	const { title, description } = bundle.task;
+	const parts = [`Your task: ${title}`];
+	if (description) parts.push(description);
+	if (bundle.ancestors.length > 0) {
+		// The goal chain this task serves, root first — a leaf task read alone can
+		// be followed to the letter and still miss the point of the work above it.
+		const chain = bundle.ancestors
+			.map((a) => (a.doneCondition ? `${a.title} (done when: ${a.doneCondition})` : a.title))
+			.join(" → ");
+		parts.push(`This serves: ${chain}`);
+	}
+	return parts.join("\n\n");
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: run coordinates harness lifecycle, event-stream consumption, abort, and teardown
 async function runSession(
 	deps: ProvisionSessionDeps,
@@ -1550,6 +1579,10 @@ async function runSession(
 	// reader, so the prompt section is now the single delivery.
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
+
+	// BA10: what the agent is asked to do, as opposed to what it is told about
+	// itself. Composed from the task the session was dispatched for.
+	const taskInstruction = composeTaskInstruction(params);
 
 	// Retrieve adapter capabilities once.
 	const adapterCapabilities = harness.getCapabilities();
@@ -1749,6 +1782,8 @@ async function runSession(
 		sessionId,
 		sandboxPath,
 		assembledPrompt,
+		// BA10: the ask, whole and separate from the context above.
+		...(taskInstruction ? { instruction: taskInstruction } : {}),
 		modelTier,
 		tools: allowedToolNames,
 		// Absent when the agent chose nothing, so the harness keeps its own default

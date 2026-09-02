@@ -519,13 +519,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		// Build template variable map
-		// @lore {{prompt}} resolves to the assembled prompt (first 200 chars
-		// as a seed summary) or "proceed" as a safe default. Codex exec uses this as the
-		// initial user message in the session; AGENTS.md in sandboxPath provides the full
-		// system context. Full prompt is written to AGENTS.md by session-provisioning.
-		const promptSeed = config.assembledPrompt
-			? config.assembledPrompt.slice(0, 200).replace(/\n/g, " ").trim() || "proceed"
-			: "proceed";
+		// @lore BA10: {{prompt}} is the session's opening user turn — what the agent
+		// is being ASKED to do — and it is delivered whole. `assembledPrompt` is
+		// context and goes to AGENTS.md; it is not an instruction and is no longer
+		// used as one. This used to be `assembledPrompt.slice(0, 200)` with newlines
+		// flattened, and a real agent replied "your initial message appears to have
+		// been cut off". "proceed" remains the default for a session with nothing to
+		// ask — a routine waking on a heartbeat has no instruction of its own.
+		const promptSeed = config.instruction?.trim() || "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
 			// The agent's own choice, and nothing else. A fallback to the model

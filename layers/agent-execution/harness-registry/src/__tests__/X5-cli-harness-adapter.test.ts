@@ -191,6 +191,58 @@ describe("CliHarnessAdapter — template variable resolution", () => {
 		expect(spawnArgs).not.toContain("{{model}}");
 	});
 
+	/**
+	 * @lore BA10: `{{prompt}}` used to be built here as
+	 * `assembledPrompt.slice(0, 200)` with newlines flattened. A real agent read
+	 * the result and replied "your initial message appears to have been cut off" —
+	 * it had been, at exactly 200 characters. The instruction is what the agent is
+	 * ASKED to do; it arrives whole or the agent cannot do the work.
+	 */
+	it("passes the instruction through whole, never truncated", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const instruction = `Your task: build the thing\n\n${"y".repeat(500)}\n\nFinally: say DONE.`;
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ args: ["exec", "{{prompt}}"], envMap: {}, envAllowlist: [] }),
+			{ spawnFn: spawnSpy },
+		);
+		await adapter.startSession(makeSessionConfig({ instruction }));
+
+		const spawnArgs: string[] = spawnSpy.mock.calls[0]![1];
+		const passed = spawnArgs.find((a) => a.includes("build the thing")) ?? "";
+		expect(passed, "the whole instruction reaches the harness").toBe(instruction);
+		expect(passed.length).toBeGreaterThan(200);
+		expect(passed, "the end of it survives").toContain("Finally: say DONE.");
+	});
+
+	/**
+	 * @lore BA10: `assembledPrompt` is CONTEXT — it goes to AGENTS.md. It is not
+	 * the ask, and it must not be used as one.
+	 */
+	it("does not fall back to the assembled context when there is no instruction", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({ args: ["exec", "{{prompt}}"], envMap: {}, envAllowlist: [] }),
+			{ spawnFn: spawnSpy },
+		);
+		await adapter.startSession(
+			makeSessionConfig({
+				instruction: undefined,
+				assembledPrompt: "You are a helpful agent. Here is everything you know.",
+			}),
+		);
+
+		const spawnArgs: string[] = spawnSpy.mock.calls[0]![1];
+		expect(spawnArgs).toContain("proceed");
+		expect(spawnArgs.join(" ")).not.toContain("everything you know");
+	});
+
 	it("keeps --model flag when the agent named one (WARNING-D1 non-empty path)", async () => {
 		// @lore AR4 WARNING-D1: Non-empty model must still inject --model <value>.
 		// Proves the conditional strip only fires on empty string, not on valid model IDs.
