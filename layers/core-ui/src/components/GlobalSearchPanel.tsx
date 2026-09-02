@@ -283,7 +283,6 @@ export function GlobalSearchPanel({
 										>
 											<KnowledgeRow
 												title={k.title}
-												kind={k.kind}
 												status={k.status}
 												timestamp={relativeShort(k.timestamp)}
 												onClick={() => onNavigate("knowledge", k.id)}

@@ -1064,6 +1064,20 @@ function visibleToViewer(viewerUserId: string): SQL | undefined {
 	);
 }
 
+/**
+ * @lore nested-knowledge-items §4: replaces the old client-side
+ * `role !== "skill" && role !== "rule"` filter (`KnowledgeList.tsx:858`).
+ * Every `role='ordinary'` row now lives in the tree (parented under one of
+ * the three roots or a descendant of one). A row whose parent is set but is
+ * NOT `knowledge_item` (agent/task/thread/routine) is a role-carrying item
+ * (skill/rule/agent_file/prompt) — excluding it structurally removes the
+ * whole role-carrying population from general browsing without naming any
+ * role, so a future role added to that set is excluded automatically too.
+ */
+function parentIsKnowledgeItemOrRoot(): SQL | undefined {
+	return or(isNull(knowledgeItems.parentKind), eq(knowledgeItems.parentKind, "knowledge_item"));
+}
+
 export function get(
 	db: HyperIdleDb,
 	id: string,
@@ -1197,8 +1211,11 @@ export async function list(
 
 	if ("visibleWithSignals" in filter) {
 		// Visible items: Q2 filter — include if scope_kind != 'user' OR updatedBy = viewer.
-		// AC4/AC5: exclude parented items — they belong to their task or thread surface,
-		// not the knowledge tree. A caller wanting parented items uses { byParent }.
+		// @lore nested-knowledge-items: the whole tree, not just roots — a row
+		// parented under another knowledge_item is still browsable general
+		// knowledge, unlike a task/thread/routine/agent-parented row (excluded
+		// by `parentIsKnowledgeItemOrRoot`, same predicate `{tree}` uses below).
+		// A caller wanting task/thread-parented produced items uses { byParent }.
 		const viewerUserId = filter.visibleWithSignals;
 		const rows = await db
 			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
@@ -1207,7 +1224,7 @@ export async function list(
 				knowledgeAppProjection,
 				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
-			.where(and(visibleToViewer(viewerUserId), isNull(knowledgeItems.parentKind)));
+			.where(and(visibleToViewer(viewerUserId), parentIsKnowledgeItemOrRoot()));
 		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 
@@ -1243,14 +1260,10 @@ export async function list(
 
 	if ("tree" in filter) {
 		const { viewerTeamId } = filter.tree;
-		const parentIsKnowledgeItemOrRoot = or(
-			isNull(knowledgeItems.parentKind),
-			eq(knowledgeItems.parentKind, "knowledge_item"),
-		);
 		const rows = await db
 			.select()
 			.from(knowledgeItems)
-			.where(and(parentIsKnowledgeItemOrRoot, scopeVisibleCondition(viewerTeamId)))
+			.where(and(parentIsKnowledgeItemOrRoot(), scopeVisibleCondition(viewerTeamId)))
 			.orderBy(knowledgeItems.position, knowledgeItems.title);
 		return rows.map((item) => mergeWithProjection(item, null));
 	}

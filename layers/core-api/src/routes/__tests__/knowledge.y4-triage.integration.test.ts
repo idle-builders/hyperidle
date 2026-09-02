@@ -1,18 +1,21 @@
 /**
- * Y4 — Knowledge Triage Improvements: Server-side tests (red phase).
+ * Y4 — Knowledge Triage Improvements: Server-side tests.
  *
  * Covers:
  * - GET /api/knowledge returns attentionScore in signals
- * - GET /api/knowledge/triage-count returns correct count for draft + needs_human items
- * - PATCH /api/knowledge/:id accepts needs_human status
+ * - GET /api/knowledge/triage-count returns the count of proposed items
  * - triage-count endpoint uses same auth middleware (requires API key)
- * - needs_human added to KERNEL_KNOWLEDGE_STATUSES (shared types)
  *
- * All tests in this file should FAIL until implementation is complete.
+ * @lore nested-knowledge-items: the status ladder collapsed from 7 values to
+ * 4 (proposed | active | stale | archived). `draft`/`captured`/`provisional`
+ * folded into `proposed`; `needs_human` folded into `archived` (the
+ * escalation signal now lives on `knowledge_conflicts`, not the status
+ * column). Triage is therefore just `status === "proposed"` — the former
+ * "PATCH accepts needs_human status" describe block tested a status value
+ * that no longer exists and is deleted, not adapted.
  */
 
 import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
-import { KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -76,23 +79,10 @@ async function seedFabricWithAttentionScore(
 		await db.insert(knowledgeAppProjection).values({
 			id: crypto.randomUUID(),
 			knowledgeItemId,
-			layer: "L4",
 			attentionScore,
 		});
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Shared types: needs_human in KERNEL_KNOWLEDGE_STATUSES
-// ---------------------------------------------------------------------------
-
-describe("Y4 — KERNEL_KNOWLEDGE_STATUSES includes needs_human", () => {
-	test("KERNEL_KNOWLEDGE_STATUSES contains 'needs_human'", () => {
-		// This test verifies the shared types constant is widened.
-		// Red: currently KERNEL_KNOWLEDGE_STATUSES = ["draft", "active", "archived"]
-		expect(KERNEL_KNOWLEDGE_STATUSES).toContain("needs_human");
-	});
-});
 
 // ---------------------------------------------------------------------------
 // GET /api/knowledge — attentionScore in signals
@@ -172,7 +162,7 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		app,
 	}) => {
 		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-4", "draft");
+		await seedKnowledgeItem(db, "ki-4", "proposed");
 		await seedFabricWithAttentionScore(db, "ki-4", "0.72");
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
@@ -210,10 +200,10 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(body.count).toBe(0);
 	});
 
-	test("counts draft items only when no needs_human items exist", async ({ db, app }) => {
+	test("counts proposed items only", async ({ db, app }) => {
 		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-draft-1", "draft");
-		await seedKnowledgeItem(db, "ki-draft-2", "draft");
+		await seedKnowledgeItem(db, "ki-proposed-1", "proposed");
+		await seedKnowledgeItem(db, "ki-proposed-2", "proposed");
 		await seedKnowledgeItem(db, "ki-active", "active");
 		await seedKnowledgeItem(db, "ki-archived", "archived");
 
@@ -223,37 +213,21 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(body.count).toBe(2);
 	});
 
-	test("counts needs_human items in addition to draft items", async ({ db, app }) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-draft-a", "draft");
-		await seedKnowledgeItem(db, "ki-draft-b", "draft");
-		await seedKnowledgeItem(db, "ki-draft-c", "draft");
-		await seedKnowledgeItem(db, "ki-nh-1", "needs_human");
-		await seedKnowledgeItem(db, "ki-nh-2", "needs_human");
-		await seedKnowledgeItem(db, "ki-active", "active");
-
-		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { count: number };
-		// 3 draft + 2 needs_human = 5
-		expect(body.count).toBe(5);
-	});
-
-	// A draft skill or rule must not inflate the
+	// A proposed skill or rule must not inflate the
 	// sidebar badge — it appears in neither the knowledge list nor the
 	// skills-and-rules list's own count, which reads as a bug with no way to
 	// clear it.
-	test("does NOT count a draft skill or a draft rule", async ({ db, app }) => {
+	test("does NOT count a proposed skill or a proposed rule", async ({ db, app }) => {
 		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-draft-ordinary", "draft");
+		await seedKnowledgeItem(db, "ki-proposed-ordinary", "proposed");
 		const now = new Date().toISOString();
 		await db.insert(knowledgeItems).values([
 			{
-				id: "ki-draft-skill",
+				id: "ki-proposed-skill",
 				title: "A skill",
 				body: "body",
 				format: "markdown",
-				status: "draft",
+				status: "proposed",
 				role: "skill",
 				version: 1,
 				updatedBy: "founder",
@@ -262,11 +236,11 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 				updatedAt: now,
 			},
 			{
-				id: "ki-draft-rule",
+				id: "ki-proposed-rule",
 				title: "A rule",
 				body: "body",
 				format: "markdown",
-				status: "draft",
+				status: "proposed",
 				role: "rule",
 				version: 1,
 				updatedBy: "founder",
@@ -319,14 +293,14 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		await seedFounder(db, "founder");
 		// Seed a different human user, then switch to them
 		// The triage-count endpoint should only count items visible to the requesting user
-		await seedKnowledgeItem(db, "ki-draft-factory", "draft", "founder", "factory");
+		await seedKnowledgeItem(db, "ki-proposed-factory", "proposed", "founder", "factory");
 		// User-scoped item authored by a different user
 		await db.insert(knowledgeItems).values({
 			id: "ki-private-other",
 			title: "Private item from other user",
 			body: "body",
 			format: "markdown",
-			status: "draft",
+			status: "proposed",
 			version: 1,
 			updatedBy: "other-user",
 			scopeKind: "user",
@@ -339,16 +313,16 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { count: number };
-		// Only the factory-scoped draft should count (not the other-user's private draft)
+		// Only the factory-scoped proposed item should count (not the other-user's private one)
 		expect(body.count).toBe(1);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// PATCH /api/knowledge/:id — accepts needs_human status
+// PATCH /api/knowledge/:id — status transitions on the collapsed ladder
 // ---------------------------------------------------------------------------
 
-describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
+describe("Y4 — PATCH /api/knowledge/:id status transitions", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -357,79 +331,11 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("PATCH with status=needs_human returns 200", async ({ db, app }) => {
+	test("PATCH from proposed to active returns 200 (triage validate flow)", async ({ db, app }) => {
 		await seedFounder(db, "founder");
-		// First create a draft item via POST
-		const createRes = await app.request("/api/knowledge", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				title: "Item to flag",
-				body: "body",
-				format: "markdown",
-				updatedBy: "founder",
-				scopeKind: "factory",
-			}),
-		});
-		expect(createRes.status).toBe(201);
-		const created = (await createRes.json()) as { id: string; version: number };
+		await seedKnowledgeItem(db, "ki-proposed", "proposed");
 
-		const patchRes = await app.request(`/api/knowledge/${created.id}`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				version: created.version,
-				updatedBy: "founder",
-				status: "needs_human",
-			}),
-		});
-		expect(patchRes.status).toBe(200);
-	});
-
-	test("PATCH with status=needs_human persists the new status", async ({ db, app }) => {
-		await seedFounder(db, "founder");
-		const createRes = await app.request("/api/knowledge", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				title: "Flaggable item",
-				body: "body",
-				format: "markdown",
-				updatedBy: "founder",
-				scopeKind: "factory",
-			}),
-		});
-		expect(createRes.status).toBe(201);
-		const created = (await createRes.json()) as { id: string; version: number };
-
-		await app.request(`/api/knowledge/${created.id}`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				version: created.version,
-				updatedBy: "founder",
-				status: "needs_human",
-			}),
-		});
-
-		// Read back the item via GET /:id and verify status
-		const getRes = await app.request(`/api/knowledge/${created.id}`, {
-			headers: authHeaders(),
-		});
-		expect(getRes.status).toBe(200);
-		const item = (await getRes.json()) as { status: string };
-		expect(item.status).toBe("needs_human");
-	});
-
-	test("PATCH from needs_human to active returns 200 (triage validate flow)", async ({
-		db,
-		app,
-	}) => {
-		await seedFounder(db, "founder");
-		// Seed a needs_human item directly
-		await seedKnowledgeItem(db, "ki-needs-human", "needs_human");
-
-		const patchRes = await app.request("/api/knowledge/ki-needs-human", {
+		const patchRes = await app.request("/api/knowledge/ki-proposed", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -443,14 +349,11 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 		expect(updated.status).toBe("active");
 	});
 
-	test("PATCH from needs_human to archived returns 200 (triage reject flow)", async ({
-		db,
-		app,
-	}) => {
+	test("PATCH from proposed to archived returns 200 (triage reject flow)", async ({ db, app }) => {
 		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-nh-reject", "needs_human");
+		await seedKnowledgeItem(db, "ki-reject", "proposed");
 
-		const patchRes = await app.request("/api/knowledge/ki-nh-reject", {
+		const patchRes = await app.request("/api/knowledge/ki-reject", {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -464,7 +367,7 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 
 	test("PATCH with an unknown status still returns 400", async ({ db, app }) => {
 		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-bad-status", "draft");
+		await seedKnowledgeItem(db, "ki-bad-status", "proposed");
 
 		const patchRes = await app.request("/api/knowledge/ki-bad-status", {
 			method: "PATCH",
@@ -473,6 +376,24 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 				version: 1,
 				updatedBy: "founder",
 				status: "invalid_status_xyz",
+			}),
+		});
+		expect(patchRes.status).toBe(400);
+	});
+
+	// @lore nested-knowledge-items: needs_human is a retired status value —
+	// PATCHing it must now 400, the same as any other unrecognized string.
+	test("PATCH with status=needs_human returns 400 (retired status value)", async ({ db, app }) => {
+		await seedFounder(db, "founder");
+		await seedKnowledgeItem(db, "ki-nh-retired", "proposed");
+
+		const patchRes = await app.request("/api/knowledge/ki-nh-retired", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				version: 1,
+				updatedBy: "founder",
+				status: "needs_human",
 			}),
 		});
 		expect(patchRes.status).toBe(400);

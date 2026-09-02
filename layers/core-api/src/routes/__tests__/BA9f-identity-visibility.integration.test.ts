@@ -58,7 +58,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			id: "ki_af_agent-ba9f",
 			scopeKind: "user",
 			scopeId: AGENT,
-			topic: null,
 			title: "Atlas — identity",
 			body: "You are Atlas.",
 			format: "markdown",
@@ -73,7 +72,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			id: "ki_note_other",
 			scopeKind: "user",
 			scopeId: OTHER_HUMAN,
-			topic: null,
 			title: "Other's private note",
 			body: "Nobody else's business.",
 			format: "markdown",
@@ -87,8 +85,8 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	]);
 	// Kernel row and projection travel together, as knowledge always writes them.
 	await db.insert(knowledgeAppProjection).values([
-		{ id: "kp_af_agent-ba9f", knowledgeItemId: "ki_af_agent-ba9f", layer: null, scopeId: AGENT },
-		{ id: "kp_note_other", knowledgeItemId: "ki_note_other", layer: null, scopeId: OTHER_HUMAN },
+		{ id: "kp_af_agent-ba9f", knowledgeItemId: "ki_af_agent-ba9f", scopeId: AGENT },
+		{ id: "kp_note_other", knowledgeItemId: "ki_note_other", scopeId: OTHER_HUMAN },
 	]);
 }
 

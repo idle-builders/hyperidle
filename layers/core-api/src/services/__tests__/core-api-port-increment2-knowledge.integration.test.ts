@@ -120,11 +120,8 @@ afterEach(() => vi.unstubAllEnvs());
 const NOW = "2026-07-28T00:00:00.000Z";
 
 interface SeamKnowledgeCreateInput {
-	readonly layer: string | null;
 	readonly scopeKind?: string | null;
 	readonly scopeId?: string | null;
-	readonly kind?: string | null;
-	readonly topic?: string | null;
 	readonly title: string;
 	readonly body: string;
 	readonly format: string;
@@ -148,12 +145,13 @@ interface SeamPromoteConflictResult {
 	readonly message: string;
 }
 
+// @lore nested-knowledge-items: `search` deleted from this seam interface —
+// `CoreApiKnowledgePort.search` is gone (its only consumer, `query_practice`,
+// is gone too). The header comment above still narrates the original
+// Increment 2 plan, which included `search`/`layer`/`kind`; kept as historical
+// design record, not corrected line-by-line.
 interface SeamCoreApiPortIncrement2Knowledge {
 	readonly knowledge: {
-		search(
-			query: string,
-			opts: { readonly limit: number },
-		): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>>;
 		create(input: SeamKnowledgeCreateInput): Promise<SeamKnowledgeCreateResponse>;
 		findKnowledgeItemVersionById(
 			id: string,
@@ -220,7 +218,7 @@ async function seedKnowledgeItem(
 		title: opts.title ?? "Seeded knowledge item",
 		body: opts.body ?? "Seeded body content",
 		format: "markdown",
-		status: opts.status ?? "draft",
+		status: opts.status ?? "proposed",
 		version: opts.version ?? 1,
 		updatedBy: opts.updatedBy ?? "human:founder",
 		createdAt: NOW,
@@ -232,26 +230,9 @@ async function seedKnowledgeItem(
 		.values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
 }
 
-describe("CoreApiPort.knowledge.search — Increment 2 knowledge wave (RED)", () => {
-	test("search reaches the real full-text-search route and respects the requested limit", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-search");
-		await seedAgent(db, "agent-know-search1");
-		await seedKnowledgeItem(db, { id: "ki-search-1", title: "Widget rollout pattern" });
-		await seedKnowledgeItem(db, { id: "ki-search-2", title: "Widget onboarding pattern" });
-		await seedKnowledgeItem(db, { id: "ki-search-3", title: "Widget deprecation pattern" });
-
-		const port = buildSeamPort("agent-know-search1", app);
-		const results = await port.knowledge.search("Widget", { limit: 2 });
-
-		expect(results.length).toBeLessThanOrEqual(2);
-		for (const item of results) {
-			expect(String(item.title)).toContain("Widget");
-		}
-	});
-});
+// @lore nested-knowledge-items: the `search` describe block is DELETED —
+// `CoreApiKnowledgePort.search` is gone (its only consumer, `query_practice`,
+// is gone too; its one filter was `layer === 'L3'`).
 
 describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", () => {
 	test("create reaches the real POST /knowledge route with write_memory's full field fidelity (kind + explicit layer land)", async ({
@@ -263,13 +244,10 @@ describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", ()
 
 		const port = buildSeamPort("agent-know-create1", app);
 		const created = await port.knowledge.create({
-			layer: "L3",
-			kind: "pattern",
 			title: "A written memory",
 			body: "The body of the memory",
-			topic: "onboarding",
 			format: "markdown",
-			status: "draft",
+			status: "proposed",
 			scopeKind: "factory",
 			scopeId: null,
 			updatedBy: "agent:agent-know-create1",
@@ -284,16 +262,15 @@ describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", ()
 			.limit(1);
 		expect(row?.title).toBe("A written memory");
 
-		// The explicit layer/kind write_memory sends must land in the projection —
-		// NOT silently dropped the way today's createKnowledgeSchema drops `kind`
-		// and recomputes `layer` from scopeKind instead of honoring the caller's.
+		// @lore nested-knowledge-items: layer/kind are deleted vocabulary — a
+		// created item still gets a projection row (kernel + projection always
+		// write together), just without those two retired columns.
 		const [projection] = await db
 			.select()
 			.from(knowledgeAppProjection)
 			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id))
 			.limit(1);
-		expect(projection?.layer).toBe("L3");
-		expect(projection?.kind).toBe("pattern");
+		expect(projection).toBeDefined();
 	});
 });
 

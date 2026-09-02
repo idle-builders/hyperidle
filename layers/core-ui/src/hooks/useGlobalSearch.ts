@@ -1,9 +1,4 @@
-import type {
-	KnowledgeKind,
-	KnowledgeLayer,
-	KnowledgeStatus,
-	TaskState,
-} from "@hyperidle/domain-model";
+import type { KnowledgeStatus, TaskState } from "@hyperidle/domain-model";
 import { KNOWLEDGE_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
@@ -28,8 +23,6 @@ interface WorkResult {
 interface KnowledgeResult {
 	id: string;
 	title: string;
-	layer: KnowledgeLayer;
-	kind: KnowledgeKind;
 	status: KnowledgeStatus;
 	timestamp: string;
 }
@@ -63,17 +56,6 @@ interface UseGlobalSearchReturn {
 // accepts any string without casts. The type narrowing happens inside the
 // parse* functions below once the string is confirmed present in the set.
 const CONVERSATION_KINDS: ReadonlySet<string> = new Set(["review", "chat"]);
-const KNOWLEDGE_LAYER_SET: ReadonlySet<string> = new Set(["L0", "L1", "L2", "L3", "L4"]);
-const KNOWLEDGE_KIND_SET: ReadonlySet<string> = new Set([
-	"pattern",
-	"anti_pattern",
-	"brief",
-	"principle",
-	"decision",
-	"failure",
-	"reflection",
-	"focus",
-]);
 const TASK_STATE_SET: ReadonlySet<string> = new Set<string>(TASK_STATES);
 const KNOWLEDGE_STATUS_SET: ReadonlySet<string> = new Set<string>(KNOWLEDGE_STATUSES);
 
@@ -87,12 +69,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 function isConversationKind(v: string): v is ConversationResult["kind"] {
 	return CONVERSATION_KINDS.has(v);
-}
-function isKnowledgeLayer(v: string): v is KnowledgeLayer {
-	return KNOWLEDGE_LAYER_SET.has(v);
-}
-function isKnowledgeKind(v: string): v is KnowledgeKind {
-	return KNOWLEDGE_KIND_SET.has(v);
 }
 function isTaskState(v: string): v is TaskState {
 	return TASK_STATE_SET.has(v);
@@ -154,23 +130,12 @@ function parseWork(value: unknown): WorkResult | null {
 
 function parseKnowledge(value: unknown): KnowledgeResult | null {
 	if (!isRecord(value)) return null;
-	const fields = readStringFields(value, [
-		"id",
-		"title",
-		"layer",
-		"kind",
-		"status",
-		"timestamp",
-	] as const);
+	const fields = readStringFields(value, ["id", "title", "status", "timestamp"] as const);
 	if (!fields) return null;
-	if (!isKnowledgeLayer(fields.layer)) return null;
-	if (!isKnowledgeKind(fields.kind)) return null;
 	if (!isKnowledgeStatus(fields.status)) return null;
 	return {
 		id: fields.id,
 		title: fields.title,
-		layer: fields.layer,
-		kind: fields.kind,
 		status: fields.status,
 		timestamp: fields.timestamp,
 	};

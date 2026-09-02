@@ -316,8 +316,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// @lore AU44 batch 4: L22 signals (accessCount30d, lastActivityAt etc.) removed per
 		// FULL-AUDIT.md row 13. attentionScore (PLUGIN-owned, still in schema) is parsed from
 		// the stored text to a number here — same as the detail route does for confidence.
-		// @lore AC4/AC5: visibleWithSignals now excludes parented items — they belong to
-		// their task or thread surface and are fetched via ?parentKind+parentId.
+		// @lore nested-knowledge-items: visibleWithSignals returns the whole tree
+		// (root + knowledge_item-parented rows) — a task/thread-parented produced
+		// item is excluded and fetched separately via ?parentKind+parentId.
 		const rows = await listKnowledgeItems(db, { visibleWithSignals: userId });
 		const items = rows.map((item) => ({
 			...item,

@@ -252,7 +252,7 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		vi.clearAllMocks();
 	});
 
-	it("renders labeled scope pills including Role — not raw enums", () => {
+	it("renders labeled scope pills — not raw enums", () => {
 		render(
 			<MemoryRouter>
 				<ScopeChangeDialog
@@ -276,9 +276,12 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		expect(optionTexts).toContain("Shared");
 		expect(optionTexts).toContain("Team");
 		expect(optionTexts).toContain("Private");
-		expect(optionTexts).toContain("Role");
 		// AU26 F2 (founder ruling): the Filesystem scope is gone.
 		expect(optionTexts).not.toContain("Filesystem");
+		// @lore nested-knowledge-items: the Role option (scopeKind: "practice")
+		// is gone with the practice scope value — role-scoped patterns are now
+		// tree children under the Practices root, not a scope pick.
+		expect(optionTexts).not.toContain("Role");
 
 		expect(optionTexts).not.toContain("factory");
 		expect(optionTexts).not.toContain("practice");
@@ -286,7 +289,7 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		expect(optionTexts).not.toContain("task");
 		expect(optionTexts).not.toContain("product");
 
-		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(4);
+		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(3);
 	});
 });
 
@@ -327,7 +330,10 @@ describe("AF13 §4A SUGGESTION — default-option resolution", () => {
 		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("data-active", "true");
 	});
 
-	it("when currentScopeKind is practice, the Role option is selected", () => {
+	// @lore nested-knowledge-items: "practice" is no longer a valid ScopeKind
+	// (retired with the Role option) — this test now exercises "team", the
+	// direct 1:1 exact-match case resolveDefaultOption always takes today.
+	it("when currentScopeKind is team, the Team option is selected", () => {
 		render(
 			<MemoryRouter>
 				<ScopeChangeDialog
@@ -336,12 +342,12 @@ describe("AF13 §4A SUGGESTION — default-option resolution", () => {
 					onSaved={() => {}}
 					knowledgeId="k1"
 					currentVersion={1}
-					currentScopeKind="practice"
+					currentScopeKind="team"
 				/>
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByTestId("scope-pill-change-role")).toHaveAttribute("data-active", "true");
+		expect(screen.getByTestId("scope-pill-change-team")).toHaveAttribute("data-active", "true");
 
 		const group = screen.getByRole("radiogroup", { name: "Scope kind" });
 		const optionTexts = Array.from(group.querySelectorAll('[role="radio"]')).map(

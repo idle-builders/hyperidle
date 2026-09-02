@@ -11,22 +11,22 @@
  * practice scope so the protected KnowledgeList tests continue to pass
  * without modification.
  */
-import type {
-	KnowledgeKind,
-	KnowledgeLayer,
-	KnowledgeScope,
-	KnowledgeStatus,
-	KnowledgeTopicHealth,
-} from "@hyperidle/domain-model";
+import type { KnowledgeStatus, KnowledgeTopicHealth } from "@hyperidle/domain-model";
 
 export interface MockKnowledgeItem {
 	id: string;
 	title: string;
-	layer: KnowledgeLayer;
-	kind: KnowledgeKind;
+	/**
+	 * @lore nested-knowledge-items: `layer`/`kind` and the 3-value
+	 * `KnowledgeScope` union are deleted vocabulary — this fixture predates
+	 * a real API and never fed the real kernel columns, so both stay plain
+	 * strings rather than importing a type that no longer exists.
+	 */
+	layer: string;
+	kind: string;
 	status: KnowledgeStatus;
 	timestamp: string;
-	scope: KnowledgeScope;
+	scope: string;
 	topic: string;
 	/**
 	 * 0..100 — higher means more urgent human attention.
@@ -139,7 +139,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		title: "Sprint Retro Outcomes",
 		layer: "L2",
 		kind: "reflection",
-		status: "provisional",
+		status: "proposed",
 		timestamp: "5h ago",
 		scope: "practice",
 		topic: "Process",
@@ -152,7 +152,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		title: "Review Queue Triage Heuristics",
 		layer: "L1",
 		kind: "principle",
-		status: "needs_human",
+		status: "proposed",
 		timestamp: "5h ago",
 		scope: "practice",
 		topic: "Process",
@@ -182,7 +182,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		title: "Welcome Email Copy Principle",
 		layer: "L1",
 		kind: "principle",
-		status: "needs_human",
+		status: "proposed",
 		timestamp: "6h ago",
 		scope: "product",
 		topic: "Onboarding",
@@ -241,7 +241,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		title: "Repeated Test Failure Escalation Protocol",
 		layer: "L1",
 		kind: "pattern",
-		status: "needs_human",
+		status: "proposed",
 		timestamp: "1d ago",
 		scope: "factory",
 		topic: "Governance",

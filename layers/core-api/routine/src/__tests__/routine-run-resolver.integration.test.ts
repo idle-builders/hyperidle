@@ -90,7 +90,6 @@ async function seedRoutine(
 			id: promptKnowledgeId,
 			scopeKind: "factory",
 			scopeId: null,
-			topic: null,
 			title: `${options.routineId} — prompt`,
 			body: options.prompt,
 			format: "markdown",
@@ -107,7 +106,6 @@ async function seedRoutine(
 		await db.insert(knowledgeAppProjection).values({
 			id: `kp-${options.routineId}-prompt`,
 			knowledgeItemId: promptKnowledgeId,
-			layer: "L4",
 			scopeId: null,
 		});
 	}
@@ -318,7 +316,6 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		await db.insert(knowledgeAppProjection).values({
 			id: "proj-rrun-ctx-l4",
 			knowledgeItemId: "item-rrun-ctx-l4",
-			layer: "L4",
 			scopeId: null,
 		});
 

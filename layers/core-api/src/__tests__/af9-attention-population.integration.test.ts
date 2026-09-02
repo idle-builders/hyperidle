@@ -40,11 +40,11 @@ async function seedCandidates(db: HyperIdleDb, prefix: string): Promise<string[]
 		await db.insert(knowledgeItems).values({
 			id,
 			scopeKind: "factory",
-			topic: `topic-${prefix}`,
+			scopeId: scopes[i],
 			title: `Candidate ${prefix}-${i}`,
 			body: "Body content for attention scoring.",
 			format: "markdown",
-			status: "provisional",
+			status: "proposed",
 			version: 1,
 			updatedBy: "agent:seed",
 			createdAt: NOW_ISO,
@@ -53,9 +53,7 @@ async function seedCandidates(db: HyperIdleDb, prefix: string): Promise<string[]
 		await db.insert(knowledgeAppProjection).values({
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
-			layer: "L3",
 			scopeId: scopes[i],
-			kind: "pattern",
 			attentionScore: null,
 		});
 	}

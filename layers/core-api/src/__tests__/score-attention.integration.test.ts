@@ -24,8 +24,7 @@ async function seedKnowledgeItemWithScore(
 ): Promise<void> {
 	await db.insert(knowledgeItems).values({
 		id,
-		topic: "brand",
-		title: "Crossable KI",
+		title: "Crossable Brand KI",
 		body: "Body",
 		format: "markdown",
 		status: "active",
@@ -37,8 +36,6 @@ async function seedKnowledgeItemWithScore(
 	await db.insert(knowledgeAppProjection).values({
 		id: `ksf-${id}`,
 		knowledgeItemId: id,
-		layer: "L3",
-		kind: "brief",
 		attentionScore: score != null ? String(score) : null,
 		confidence: "0.1",
 	});

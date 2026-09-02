@@ -46,12 +46,15 @@ export interface ScopeChangeDialogProps {
 
 /**
  * Maps a raw scopeKind to the matching SCOPE_CREATE_OPTIONS entry.
- * Both "factory" and "practice" (shared scopes) map to the "Shared" option.
- * "team" and "product" map to "Team". "user" maps to "Private".
- * Any unrecognized scope defaults to "Shared".
+ * "factory" → "Shared", "team" → "Team", "user" → "Private" — a direct 1:1
+ * match, since ScopeKind and SCOPE_CREATE_OPTIONS are both exactly these
+ * three values (nested-knowledge-items retired product/practice/task).
  *
- * @lore AV3 A2: Prefer exact option matches before bucket fallback so first-class
- * role/filesystem scopes stay selected instead of collapsing to Shared.
+ * @lore AV3 A2: the label-based fallback below predates that collapse, back
+ * when a scopeKind could lack an exact SCOPE_CREATE_OPTIONS entry. It is
+ * unreachable now but kept as a defensive default rather than deleted —
+ * `scopeKind` is a closed union today, but this function's whole job is to
+ * degrade gracefully if that ever changes again.
  */
 function resolveDefaultOption(scopeKind: ScopeKind): ScopeCreateOption {
 	const exact = SCOPE_CREATE_OPTIONS.find((o) => o.scopeKind === scopeKind);

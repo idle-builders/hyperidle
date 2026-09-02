@@ -6,7 +6,10 @@
  * AC-4: KnowledgeListRow bespoke component removed; composed via Row.
  *
  * Protected testids (time-vocabulary.spec, L13-product-drilldown.spec) must survive:
- *   knowledge-row, knowledge-time, kind-badge, status-badge, private-badge, data-focused.
+ *   knowledge-row, knowledge-time, status-badge, private-badge, data-focused.
+ * @lore nested-knowledge-items: kind-badge removed from the protected list —
+ * `kind` vocabulary is deleted (see AD6-knowledge-simplification.test.tsx,
+ * which already asserted zero kind-badges).
  *
  * Tests FAIL until T8 (KnowledgeList migration) is complete.
  */
@@ -97,11 +100,12 @@ describe("AG6 AC-2 — KnowledgeList rows via Row primitive (T8)", () => {
 		expect(times.length).toBeGreaterThan(0);
 	});
 
-	it("kind-badge testid preserved (L13 protected)", () => {
-		renderPage();
-		const badges = screen.getAllByTestId("kind-badge");
-		expect(badges.length).toBeGreaterThan(0);
-	});
+	// @lore nested-knowledge-items: the "kind-badge preserved" assertion this
+	// test made is now factually false — `kind` vocabulary is deleted and
+	// AD6-knowledge-simplification.test.tsx already asserts zero kind-badges
+	// in both views (that test is the current source of truth; this one
+	// forced the badge to render by abusing `scopeKind: "pattern"` as a fake
+	// kind value in its mock data).
 
 	it("ItemList variant=flush applied to knowledge list (no surface-container on list wrapper)", () => {
 		renderPage();

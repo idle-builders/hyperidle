@@ -9,9 +9,13 @@
  * - AC-4: scope validation at API boundary (closed enum, scopeId required for non-factory)
  * - AC-6: user-scoped items visible only to their author
  * - AC-7: scope changes through PATCH /:id, bumps version, logs changes
- * - AC-8: all 7 scope kinds use the same schema and lifecycle
- * - AC-9: fabric layer assigned on creation (factory→L4, product→L2, etc.)
+ * - AC-8: all 3 scope kinds use the same schema and lifecycle
  * - AC-10: invalid scopeKind → 400; valid ones → 201
+ *
+ * @lore nested-knowledge-items: AC-9 (fabric layer assignment) is DELETED —
+ * `layer` no longer exists on `knowledgeAppProjection`, and product/practice
+ * (two of the three scope values AC-9 keyed its layer mapping on) are
+ * themselves retired.
  */
 
 import {
@@ -223,19 +227,21 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		expect(res.status).toBe(201);
 	});
 
-	// BB1: scopeKind="bet" removed — use "task" instead for task-scoped knowledge.
-	test("POST with scopeKind=task and scopeId=task-123 returns 201", async ({ db, app }) => {
+	// @lore nested-knowledge-items: scopeKind="task" removed — task-scoped
+	// knowledge is now expressed via parentKind="task"/parentId=<taskId> on a
+	// factory-scoped item, not a scope value.
+	test("POST with scopeKind=team and scopeId=team-123 returns 201", async ({ db, app }) => {
 		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				title: "Task knowledge",
-				body: "What we learned from this task",
+				title: "Team knowledge",
+				body: "What we learned from this team",
 				format: "markdown",
 				updatedBy: "u-founder",
-				scopeKind: "task",
-				scopeId: "task-123",
+				scopeKind: "team",
+				scopeId: "team-123",
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -247,19 +253,18 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				title: "Task item",
+				title: "Team item",
 				body: "Body",
 				format: "markdown",
 				updatedBy: "u-founder",
-				scopeKind: "task",
-				scopeId: "task-abc",
+				scopeKind: "team",
+				scopeId: "team-abc",
 			}),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { scopeKind: string; scopeId: string };
-		// BB1: "bet" scope removed; "task" is the equivalent work-scoped kind.
-		expect(body.scopeKind).toBe("task");
-		expect(body.scopeId).toBe("task-abc");
+		expect(body.scopeKind).toBe("team");
+		expect(body.scopeId).toBe("team-abc");
 	});
 });
 
@@ -421,8 +426,8 @@ describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				scopeKind: "product",
-				scopeId: "prod-123",
+				scopeKind: "team",
+				scopeId: "team-123",
 				updatedBy: "u-founder",
 				version: item.version,
 			}),
@@ -433,8 +438,8 @@ describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 			scopeId: string;
 			version: number;
 		};
-		expect(updated.scopeKind).toBe("product");
-		expect(updated.scopeId).toBe("prod-123");
+		expect(updated.scopeKind).toBe("team");
+		expect(updated.scopeId).toBe("team-123");
 	});
 
 	test("a scope change bumps version by 1", async ({ db, app }) => {
@@ -446,8 +451,8 @@ describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeKind: "team",
+				scopeId: "team-abc",
 				updatedBy: "u-founder",
 				version: originalVersion,
 			}),
@@ -465,8 +470,8 @@ describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				scopeKind: "product",
-				scopeId: "prod-xyz",
+				scopeKind: "team",
+				scopeId: "team-xyz",
 				updatedBy: "u-founder",
 				version: item.version,
 			}),
@@ -480,7 +485,7 @@ describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 		const scopeKindLog = logs.find((l) => l.field === "scopeKind");
 		expect(scopeKindLog).toBeDefined();
 		expect(scopeKindLog?.oldValue).toBe("user");
-		expect(scopeKindLog?.newValue).toContain("product");
+		expect(scopeKindLog?.newValue).toContain("team");
 	});
 
 	test("PATCH /:id/scope with wrong version returns 409", async ({ db, app }) => {
@@ -491,8 +496,8 @@ describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeKind: "team",
+				scopeId: "team-abc",
 				updatedBy: "u-founder",
 				version: item.version + 99, // wrong version
 			}),
@@ -506,8 +511,8 @@ describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeKind: "team",
+				scopeId: "team-abc",
 				updatedBy: "u-founder",
 				version: 1,
 			}),
@@ -550,11 +555,7 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 		scopeId: string | null;
 	}> = [
 		{ scopeKind: "factory", scopeId: null },
-		{ scopeKind: "product", scopeId: "prod-1" },
-		{ scopeKind: "practice", scopeId: "fe-practice" },
 		{ scopeKind: "team", scopeId: "team-1" },
-		// BB1: "bet" scopeKind removed — "task" covers work-scoped items.
-		{ scopeKind: "task", scopeId: "task-1" },
 		{ scopeKind: "user", scopeId: null },
 	];
 
@@ -612,116 +613,6 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-9: Fabric layer assigned on creation
-// ---------------------------------------------------------------------------
-describe("Q2 AC-9: fabric layer assignment on creation", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	async function createItem(
-		app: Awaited<ReturnType<typeof createTestApp>>,
-		scopeKind: string,
-		scopeId: string | null,
-	): Promise<string> {
-		const payload: Record<string, unknown> = {
-			title: `${scopeKind} item`,
-			body: "Test body",
-			format: "markdown",
-			updatedBy: "u-founder",
-			scopeKind,
-		};
-		if (scopeId !== null) {
-			payload.scopeId = scopeId;
-		}
-		const res = await app.request("/api/knowledge", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify(payload),
-		});
-		expect(res.status).toBe(201);
-		const created = (await res.json()) as { id: string };
-		return created.id;
-	}
-
-	test("factory-scoped item gets fabric row with layer=L4", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "factory", null);
-		const [fabricRow] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(fabricRow?.layer).toBe("L4");
-	});
-
-	test("product-scoped item gets fabric row with layer=L2", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "product", "prod-1");
-		const [fabricRow] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(fabricRow?.layer).toBe("L2");
-	});
-
-	test("practice-scoped item gets fabric row with layer=L3", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "practice", "fe-practice");
-		const [fabricRow] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(fabricRow?.layer).toBe("L3");
-	});
-
-	test("task-scoped item gets fabric row with layer=L1", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "task", "task-1");
-		const [fabricRow] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(fabricRow?.layer).toBe("L1");
-	});
-
-	// BB1: "bet" scope removed. All task-scoped items (root or subtask) get layer=L1
-	// because scopeKind drives layer assignment, not task depth.
-	test("task-scoped item (root task) also gets layer=L1 in fabric", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "task", "task-root-1");
-		const [fabricRow] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(fabricRow?.layer).toBe("L1");
-	});
-
-	test("team-scoped item has no layer (null) in fabric", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "team", "team-1");
-		const [fabricRow] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(fabricRow?.layer ?? null).toBeNull();
-	});
-
-	test("user-scoped item has no layer (null) in fabric", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "user", null);
-		const [fabricRow] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(fabricRow?.layer ?? null).toBeNull();
-	});
-});
-
-// ---------------------------------------------------------------------------
 // AC-10: Scope validation — closed enum at API boundary
 // ---------------------------------------------------------------------------
 describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
@@ -733,7 +624,22 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 		vi.unstubAllEnvs();
 	});
 
-	const INVALID_SCOPES = ["FACTORY", "Practice", "global", "all", "", "null", "undefined"];
+	// @lore nested-knowledge-items: product/practice/task/bet are retired
+	// scope values — explicitly asserted invalid now, not just absent from
+	// VALID_SCOPES below.
+	const INVALID_SCOPES = [
+		"FACTORY",
+		"Practice",
+		"global",
+		"all",
+		"",
+		"null",
+		"undefined",
+		"product",
+		"practice",
+		"task",
+		"bet",
+	];
 
 	for (const invalid of INVALID_SCOPES) {
 		test(`POST with scopeKind="${invalid}" returns 400`, async ({ db, app }) => {
@@ -756,11 +662,7 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 
 	const VALID_SCOPES = [
 		{ kind: "factory", id: null },
-		{ kind: "product", id: "prod-1" },
-		{ kind: "practice", id: "fe" },
 		{ kind: "team", id: "team-1" },
-		// BB1: "bet" scopeKind removed — tasks are the single work primitive.
-		{ kind: "task", id: "task-1" },
 		{ kind: "user", id: null },
 	];
 
@@ -785,68 +687,6 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 		});
 	}
 });
-
-// ---------------------------------------------------------------------------
-// AC-9 (continuation): Layer reassignment on scope change
-// ---------------------------------------------------------------------------
-describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("fabric layer updated when scope changes from user (null) to product (L2)", async ({
-		db,
-		app,
-	}) => {
-		await seedFounder(db, "u-founder");
-		// Create as user scope
-		const createRes = await app.request("/api/knowledge", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				title: "Scope change test",
-				body: "Body",
-				format: "markdown",
-				updatedBy: "u-founder",
-				scopeKind: "user",
-			}),
-		});
-		expect(createRes.status).toBe(201);
-		const created = (await createRes.json()) as { id: string; version: number };
-
-		// Verify no fabric layer initially (user → null)
-		const [beforeFabric] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id));
-		expect(beforeFabric?.layer ?? null).toBeNull();
-
-		// Change scope to product
-		const patchRes = await app.request(`/api/knowledge/${created.id}`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				scopeKind: "product",
-				scopeId: "prod-abc",
-				updatedBy: "u-founder",
-				version: created.version,
-			}),
-		});
-		expect(patchRes.status).toBe(200);
-
-		// Verify fabric now has L2
-		const [afterFabric] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id));
-		expect(afterFabric?.layer).toBe("L2");
-	});
-});
-
 // ---------------------------------------------------------------------------
 // GET /api/teams — new lightweight endpoint
 // ---------------------------------------------------------------------------

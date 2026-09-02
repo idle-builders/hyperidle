@@ -21,26 +21,26 @@ import { describe, expect, test } from "../__testing__/test-fixtures.js";
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
 
 /**
- * Seed 5 provisional items sharing the same (layer, topic, kind) signature
+ * Seed 5 proposed items sharing the same (parentKind, parentId) sibling set
  * across 5 distinct scopeIds — the minimum threshold for auto-promotion.
  * Returns the id of the first item (the "subject").
  */
 async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise<string> {
 	const scopes = ["scope-a", "scope-b", "scope-c", "scope-d", "scope-e"];
-	const layer = "L3";
-	const topic = `topic-${prefix}`;
-	const kind = "pattern";
+	const parentId = `parent-${prefix}`;
 
 	for (let i = 0; i < scopes.length; i++) {
 		const id = `${prefix}-ki-${i}`;
 		await db.insert(knowledgeItems).values({
 			id,
 			scopeKind: "factory",
-			topic,
+			scopeId: scopes[i],
+			parentKind: "knowledge_item",
+			parentId,
 			title: `Candidate ${prefix}-${i}`,
 			body: "Body",
 			format: "markdown",
-			status: "provisional",
+			status: "proposed",
 			version: 1,
 			updatedBy: "agent:seed",
 			createdAt: NOW_ISO,
@@ -49,9 +49,7 @@ async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise
 		await db.insert(knowledgeAppProjection).values({
 			id: `ksf-${id}`,
 			knowledgeItemId: id,
-			layer,
 			scopeId: scopes[i],
-			kind,
 		});
 	}
 
@@ -59,19 +57,19 @@ async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise
 }
 
 describe("AF9 AC2: knowledge-promotion sweep", () => {
-	test("sweep promotes provisional items meeting the threshold", async ({ db, eventBus }) => {
-		// Seed 5 provisional items with same signature across 5 scopes.
+	test("sweep promotes proposed items meeting the threshold", async ({ db, eventBus }) => {
+		// Seed 5 proposed items with the same sibling parent across 5 scopes.
 		const subjectId = await seedPromotionCandidates(db, "promo-basic");
 
 		// Act: run the promotion sweep.
 		await sweep(db, eventBus, "autoPromotion");
 
-		// Assert: the subject item is now validated.
+		// Assert: the subject item is now active.
 		const [item] = await db
 			.select({ status: knowledgeItems.status })
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, subjectId));
-		expect(item?.status).toBe("validated");
+		expect(item?.status).toBe("active");
 
 		// Assert: an edit-log row for the promotion exists.
 		const editRows = await db

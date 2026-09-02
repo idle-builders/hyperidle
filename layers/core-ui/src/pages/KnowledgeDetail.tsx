@@ -43,7 +43,6 @@ import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/dom
 import {
 	isRedactedPayload,
 	KNOWLEDGE_STATUSES,
-	type KnowledgeScope,
 	type KnowledgeStatus,
 	SCOPE_KINDS,
 } from "@hyperidle/domain-model";
@@ -102,7 +101,13 @@ interface DetailItem {
 	status: KnowledgeStatus;
 	timestamp: string;
 	content: string;
-	scope?: KnowledgeScope;
+	/**
+	 * @lore nested-knowledge-items: the deprecated `KnowledgeScope` union
+	 * (practice/product/factory) is gone — this field only ever fed the
+	 * fixture's own local topic-grouping (see `fixtures/knowledge-data.ts`),
+	 * never the real `scopeKind` column, so it stays a plain string.
+	 */
+	scope?: string;
 	originAgent?: string;
 	confidence?: number;
 	version?: string;
@@ -217,7 +222,7 @@ const FALLBACK_DETAIL: DetailItem = {
 	title: "Unknown Knowledge Item",
 	layer: "unknown",
 	kind: "unknown",
-	status: "provisional",
+	status: "proposed",
 	timestamp: "—",
 	content: "This knowledge item was not found.",
 };
@@ -233,7 +238,7 @@ function formatConfidence(score: number | undefined): string {
  */
 function toKnowledgeStatus(raw: string): KnowledgeStatus {
 	const statuses: ReadonlyArray<string> = KNOWLEDGE_STATUSES;
-	return statuses.includes(raw) ? (raw as KnowledgeStatus) : "provisional";
+	return statuses.includes(raw) ? (raw as KnowledgeStatus) : "proposed";
 }
 
 /**
@@ -570,7 +575,6 @@ function KnowledgeDetailView({
 	// T4: AssistantContext for block share action
 	const { overlayOpen, attachContext } = useContext(AssistantContext);
 	const isFactory = item.scope === "factory" || item.scopeKind === "factory";
-	const amendableBanner = isFactory && item.status === "needs_human";
 	const initialContent = item.content ?? "";
 	const [savedContent, setSavedContent] = useState<string>(initialContent);
 	const [editing, setEditing] = useState(false);
@@ -941,16 +945,6 @@ function KnowledgeDetailView({
 			>
 				{/* Main content column */}
 				<div className="flex flex-col gap-[24px] flex-1 min-w-0">
-					{amendableBanner && (
-						<div
-							role="alert"
-							className="type-small alert-info flex items-start gap-[9px] px-[12px] py-[9px]  bg-[var(--status-info-dim)] text-[var(--status-info)] rounded-[var(--r-subtle)]"
-							data-testid="factory-amendable-banner"
-						>
-							<span>Amendable under review — edits route through the review queue.</span>
-						</div>
-					)}
-
 					{/* AD6: Archive error — shown when POST /archive fails */}
 					{archiveError !== null && (
 						<div

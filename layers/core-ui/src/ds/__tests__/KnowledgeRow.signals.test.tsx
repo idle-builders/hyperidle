@@ -14,8 +14,6 @@ import { KnowledgeRow } from "../KnowledgeRow.js";
 
 const BASE_PROPS = {
 	title: "Architecture Decision: Auth Strategy",
-	layer: "L3" as const,
-	kind: "decision" as const,
 	status: "active" as const,
 	timestamp: "2d ago",
 };

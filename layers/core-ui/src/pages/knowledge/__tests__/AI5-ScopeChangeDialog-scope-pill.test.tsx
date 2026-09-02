@@ -41,9 +41,11 @@ describe("AI5: ScopeChangeDialog — scope-pill-change picker", () => {
 		expect(screen.getByTestId("scope-pill-change-shared")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-change-team")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-change-private")).toBeInTheDocument();
-		expect(screen.getByTestId("scope-pill-change-role")).toBeInTheDocument();
 		// AU26 F2 (founder ruling): the Filesystem scope is gone.
 		expect(screen.queryByTestId("scope-pill-change-filesystem")).not.toBeInTheDocument();
+		// @lore nested-knowledge-items: the Role option (scopeKind: "practice")
+		// is gone with the practice scope value.
+		expect(screen.queryByTestId("scope-pill-change-role")).not.toBeInTheDocument();
 	});
 
 	it("does not render a Select combobox (replaced by the pill group)", () => {

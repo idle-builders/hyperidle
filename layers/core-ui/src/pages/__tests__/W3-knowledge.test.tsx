@@ -225,7 +225,6 @@ describe("W3 AC-35 — KnowledgeRow preview and no status dots", () => {
 			<KnowledgeRow
 				id="k1"
 				title="Auth Strategy Decision"
-				kind="decision"
 				status="active"
 				timestamp="2026-01-01"
 				preview="We decided to use JWT."
@@ -239,7 +238,6 @@ describe("W3 AC-35 — KnowledgeRow preview and no status dots", () => {
 			<KnowledgeRow
 				id="k1"
 				title="Auth Strategy Decision"
-				kind="decision"
 				status="active"
 				timestamp="2026-01-01"
 			/>,

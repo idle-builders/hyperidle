@@ -32,7 +32,6 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 		await seedKnowledgeItem(db, {
 			id: "item-l22-1",
-			topic: "testing",
 			title: "Item item-l22-1",
 			body: "Test body",
 			status: "active",

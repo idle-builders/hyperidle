@@ -179,7 +179,6 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		id: skillId,
 		scopeKind: "factory",
 		scopeId: null,
-		topic: null,
 		title: SKILL_DIR_NAME,
 		body: skillBody,
 		format: "markdown",
@@ -193,9 +192,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 	await db.insert(knowledgeAppProjection).values({
 		id: `${skillId}-proj`,
 		knowledgeItemId: skillId,
-		layer: null,
 		scopeId: null,
-		kind: null,
 		attentionScore: null,
 		confidence: null,
 		meta: null,

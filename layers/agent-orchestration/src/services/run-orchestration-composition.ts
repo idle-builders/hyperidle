@@ -232,18 +232,17 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 	create(
 		_db: HyperIdleDb,
 		input: {
-			readonly layer: "L1" | "L2" | "L3";
-			readonly kind: "pattern" | "decision" | "failure" | "reflection";
 			readonly title: string;
 			readonly body: string;
 			readonly format: string;
 			/**
-			 * `draft`, not `captured`. The route has never accepted `captured` —
-			 * it validates status against its own four-value list, so every
-			 * writeback create 400'd for the whole life of this path. `draft` is
-			 * the same state under the name the route knows.
+			 * @lore rebase-onto-#547: a parallel strand found the route never
+			 * accepted `captured` (its whole life) and fixed this forward to
+			 * `draft`. `draft` doesn't exist any more — this WP's status collapse
+			 * replaces the whole draft/captured/provisional ladder with one
+			 * starting state, `proposed` (see `KNOWLEDGE_STATUSES`).
 			 */
-			readonly status: "draft";
+			readonly status: "proposed";
 			readonly updatedBy: string;
 			/** Where the produced item hangs — the session's task, or the conversation it is answering in. */
 			readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
@@ -276,13 +275,6 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 	return {
 		async create(_db, input) {
 			const created = await port.knowledge.create({
-				layer: input.layer,
-				// The route requires a scope and this call never sent one, so
-				// every writeback create was rejected before it reached the
-				// database. `factory` is what the column default would have been
-				// had the row ever been written.
-				scopeKind: "factory",
-				kind: input.kind,
 				title: input.title,
 				body: input.body,
 				format: input.format,

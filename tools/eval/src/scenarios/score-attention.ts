@@ -252,6 +252,7 @@ Document this behavior in session notes — note that item scoring is currently 
 			sourceAgentId: world.agentId,
 			title: "Q4 Social Media Campaign Launch",
 			threadId,
+			kind: "work",
 			verb: "propose",
 			body: "Propose Q4 social media campaign across LinkedIn, Twitter, and Instagram targeting mid-market buyers.",
 		});

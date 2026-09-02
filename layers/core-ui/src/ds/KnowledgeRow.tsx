@@ -1,11 +1,9 @@
-import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/domain-model";
+import type { KnowledgeStatus } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";
 import { StatusChip } from "./StatusChip";
 import { knowledgeStatusToStatus } from "./status-mapping";
-import { Tag } from "./Tag";
-import type { TagKind } from "./tag-kinds";
 
 /**
  * L22 relevance signal triad shown on each row.
@@ -21,9 +19,6 @@ export interface KnowledgeRowSignals {
 
 export interface KnowledgeRowProps {
 	title: string;
-	/** W3 AC-35: layer is optional — omit to hide the layer tag */
-	layer?: KnowledgeLayer;
-	kind: KnowledgeKind;
 	status: KnowledgeStatus;
 	timestamp: string;
 	actions?: ReactNode;
@@ -62,8 +57,6 @@ export interface KnowledgeRowProps {
 
 export function KnowledgeRow({
 	title,
-	layer,
-	kind,
 	status,
 	timestamp,
 	actions,
@@ -92,8 +85,6 @@ export function KnowledgeRow({
 					<span className={`type-copy ${titleClass}`} aria-label={`Knowledge: ${title}`}>
 						{title}
 					</span>
-					{layer && <Tag label={layer} />}
-					<Tag label={kind} kind={kind as TagKind} />
 					<StatusChip status={knowledgeStatusToStatus(status)} />
 					{factoryMode && version && (
 						<span

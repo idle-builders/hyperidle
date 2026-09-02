@@ -1,10 +1,7 @@
 /**
- * Knowledge/List page — list with topic grouping (Curated) and
- * draft-item Triage view.
+ * Knowledge/List page — a Curated list and a draft-item Triage view.
  *
- * @lore J6: the page reads scope from the URL search param `scope` so the
- * AppShell's Sidebar scope selector can drive it without lifting state out
- * of the page. Tab memory (Triage/Curated) stays in component state only —
+ * @lore J6: Tab memory (Triage/Curated) stays in component state only —
  * AC explicitly forbids localStorage persistence here.
  *
  * @lore L22: Triage view fetches from /api/knowledge (the general list
@@ -13,13 +10,9 @@
  * removed. attentionScore triage sort removed. Plain recency list throughout.
  *
  * @lore N5: Replaced all fixture imports with real API calls. Both Triage and
- * Curated tabs now read from /api/knowledge. The real schema has no layer/kind
- * columns — those were mock-only fields removed in O2. layer and kind are
- * rendered with fallback values ("L0" / "brief") when absent from the API.
+ * Curated tabs now read from /api/knowledge.
  * Curation suggestions have no API yet so that block is suppressed.
  * Tab-default logic uses API status ("draft" = needs review, was "needs_human").
- * Scope param is preserved in the URL for future API filter support but does
- * not filter the item list today — the O2 schema has no scope column.
  *
  * @lore Q2: "+ New" button previously opened KnowledgeCreateDialog. Now navigates
  * to /knowledge/new (full-page create route). User-scoped items show a "Private"
@@ -30,14 +23,17 @@
  * overflow-hidden contract. Visual treatment updated to match knowledge-list.html:
  * segmented pill tab control, outlined scope pills, plain-text sort bar,
  * inline KnowledgeListRow replacing KnowledgeRow primitive.
+ *
+ * @lore nested-knowledge-items: topic grouping (KnowledgeTopicGroup, "curated
+ * = topic buckets") is REMOVED — `topic` no longer exists on the kernel row.
+ * The Curated tab is now a flat sorted list, same rendering shape as Triage.
+ * Browsing the actual tree (parent/child nesting) lives on the detail page's
+ * children list, not here. The old scope URL param (`?scope=practice|product`)
+ * used dead scope values and drove nothing but a hidden sr-only indicator —
+ * removed along with the values it read.
  */
 
-import type {
-	KnowledgeScope,
-	KnowledgeSortOption,
-	KnowledgeStatus,
-	KnowledgeTopicHealth,
-} from "@hyperidle/domain-model";
+import type { KnowledgeSortOption, KnowledgeStatus } from "@hyperidle/domain-model";
 import { KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
 import {
 	Button,
@@ -60,7 +56,6 @@ const VISIBLE_SORT_OPTIONS = ["recency"] as const;
 
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
-import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
 import type { AppShellOutletContext } from "../layouts/AppShell.js";
@@ -71,26 +66,6 @@ import { stripMarkdown } from "../utils/strip-markdown.js";
 import { relativeShort } from "../utils/time.js";
 
 type KnowledgeTab = "triage" | "curated";
-
-/**
- * UI-045: Convert topic slugs from the API ("GENERAL", "PRODUCT-IDENTITY") to
- * human-readable title case ("General", "Product Identity").
- * Splits on hyphens, underscores, and spaces; title-cases each word.
- */
-function slugToTitle(slug: string): string {
-	return slug
-		.toLowerCase()
-		.split(/[-_\s]+/)
-		.filter(Boolean)
-		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-		.join(" ");
-}
-
-/**
- * S1 fix: hoisted to module scope — was rebuilt per-row as new Set([...]) inside .map(),
- * one allocation per row per render. Single const reused across both triage and curated paths.
- */
-const KNOWLEDGE_KINDS = new Set(["pattern", "decision", "failure"]);
 
 /**
  * AF13 §3: Pure sort helper for knowledge items.
@@ -114,15 +89,6 @@ export function sortItems(items: ApiKnowledgeItem[]): ApiKnowledgeItem[] {
 	});
 }
 
-function isKnowledgeScope(value: string | null): value is KnowledgeScope {
-	return value === "practice" || value === "product" || value === "factory";
-}
-
-function deriveScope(searchParams: URLSearchParams): KnowledgeScope {
-	const raw = searchParams.get("scope");
-	return isKnowledgeScope(raw) ? raw : "practice";
-}
-
 function isKnowledgeSortOption(value: string | null): value is KnowledgeSortOption {
 	return (VISIBLE_SORT_OPTIONS as readonly string[]).includes(value ?? "");
 }
@@ -139,7 +105,6 @@ function deriveSort(searchParams: URLSearchParams): KnowledgeSortOption {
  */
 interface ApiKnowledgeItem {
 	id: string;
-	topic: string | null;
 	title: string;
 	body: string;
 	format: string;
@@ -151,13 +116,6 @@ interface ApiKnowledgeItem {
 	createdAt: string;
 	updatedAt: string;
 	attentionScore?: number | null;
-	/**
-	 * @lore knowledge-attachment-slot: already in the payload (a kernel
-	 * column), just previously undeclared here. Used only to drop skill/rule
-	 * items before the triage/curated split — they are reached from their own
-	 * list (Settings → Skills & rules) now, not by browsing knowledge.
-	 */
-	role?: string;
 }
 
 interface ApiKnowledgeListResponse {
@@ -170,75 +128,11 @@ function toKnowledgeStatus(apiStatus: string): KnowledgeStatus {
 			return "active";
 		case "archived":
 			return "archived";
-		case "needs_human":
-			return "needs_human";
+		case "stale":
+			return "stale";
 		default:
-			return "captured";
+			return "proposed";
 	}
-}
-
-function deriveTopicHealth(totalCount: number, archivedCount: number): KnowledgeTopicHealth {
-	if (totalCount === 0 || archivedCount === 0) return "fresh";
-	const ratio = archivedCount / totalCount;
-	if (ratio >= 0.5) return "mostly_stale";
-	return "some_stale";
-}
-
-function groupByTopic(items: ApiKnowledgeItem[]): Array<{
-	topic: string;
-	items: ApiKnowledgeItem[];
-	staleCount: number;
-	health: KnowledgeTopicHealth;
-}> {
-	const byTopic = new Map<string, ApiKnowledgeItem[]>();
-	for (const item of items) {
-		const key = item.topic ?? "General";
-		const bucket = byTopic.get(key);
-		if (bucket) {
-			bucket.push(item);
-		} else {
-			byTopic.set(key, [item]);
-		}
-	}
-	return Array.from(byTopic.entries()).map(([topic, topicItems]) => {
-		const archivedCount = topicItems.filter((i) => i.status === "archived").length;
-		return {
-			topic,
-			items: topicItems,
-			staleCount: archivedCount,
-			health: deriveTopicHealth(topicItems.length, archivedCount),
-		};
-	});
-}
-
-/**
- * Returns inline style for a knowledge kind badge.
- * Colors per mockup: Pattern → green, Decision → blue, Failure → red.
- * AI4 Note A: kind is NOT status — this stays local (Tag would be the ideal
- * primitive but kind badge style matches existing visual treatment).
- */
-// @lore AZ7: the design system's closed status-presentation set is explicit
-// that Tag/ReferenceChip/ArtifactKindBadge are "what an object IS", not a
-// state — kind is NOT status.
-// eslint-disable-next-line design/no-local-status-builder -- AI4 Note A: the name matches the rule's Badge+Style naming heuristic by coincidence; this builds a KIND treatment (Pattern/Decision/Failure), never a state.
-function kindBadgeStyle(kind: string): { background: string; color: string } {
-	const k = kind.toLowerCase();
-	if (k === "pattern") {
-		return { background: "var(--accent-primary-dim)", color: "var(--accent-primary)" };
-	}
-	if (k === "decision") {
-		return {
-			background: "color-mix(in oklab, var(--status-info) 8%, transparent)",
-			color: "var(--status-info)",
-		};
-	}
-	if (k === "failure") {
-		return {
-			background: "color-mix(in oklab, var(--status-error) 8%, transparent)",
-			color: "var(--status-error)",
-		};
-	}
-	return { background: "var(--surface-container)", color: "var(--text-secondary)" };
 }
 
 // AG6: KnowledgeListRow deleted. Rows now rendered via Row + ItemList variant="flush".
@@ -246,17 +140,11 @@ function kindBadgeStyle(kind: string): { background: string; color: string } {
 interface KnowledgeListContentProps {
 	tab: KnowledgeTab;
 	sort: KnowledgeSortOption;
-	scope: KnowledgeScope;
 	/** AD6: The currently selected static scope pill option. null = "All". */
 	selectedScopePill: ScopePillOption | null;
 	onScopePillChange: (pill: ScopePillOption | null) => void;
 	onSortChange: (option: KnowledgeSortOption) => void;
-	grouped: Array<{
-		topic: string;
-		items: ApiKnowledgeItem[];
-		staleCount: number;
-		health: KnowledgeTopicHealth;
-	}>;
+	curatedItems: ApiKnowledgeItem[];
 	triageItems: ApiKnowledgeItem[];
 	apiLoading: boolean;
 	apiError: string | null;
@@ -279,11 +167,10 @@ interface KnowledgeListContentProps {
 function KnowledgeListContent({
 	tab,
 	sort,
-	scope,
 	selectedScopePill,
 	onScopePillChange,
 	onSortChange,
-	grouped,
+	curatedItems,
 	triageItems,
 	apiLoading,
 	apiError,
@@ -304,14 +191,9 @@ function KnowledgeListContent({
 	const filteredTriageItems = normalizedQuery
 		? triageItems.filter((i) => i.title.toLowerCase().includes(normalizedQuery))
 		: triageItems;
-	const filteredGrouped = normalizedQuery
-		? grouped
-				.map((g) => ({
-					...g,
-					items: g.items.filter((i) => i.title.toLowerCase().includes(normalizedQuery)),
-				}))
-				.filter((g) => g.items.length > 0)
-		: grouped;
+	const filteredCuratedItems = normalizedQuery
+		? curatedItems.filter((i) => i.title.toLowerCase().includes(normalizedQuery))
+		: curatedItems;
 
 	// Y4: keyboard navigation handler for triage tab
 	useEffect(() => {
@@ -459,10 +341,6 @@ function KnowledgeListContent({
 				/>
 			</div>
 
-			<span data-testid="knowledge-scope-indicator" className="sr-only">
-				{scope}
-			</span>
-
 			{/* AF13 §3: Sort pills changed from role=radio to plain buttons so
 			    getByRole("button", { name: /recency/ }) works in tests.
 			    @lore AF13: role="radio" buttons are not found by getByRole("button"),
@@ -533,16 +411,6 @@ function KnowledgeListContent({
 						<ItemList variant="flush" as="ul" isEmpty={filteredTriageItems.length === 0}>
 							{filteredTriageItems.map((item, index) => {
 								const isPrivate = item.scopeKind === "user";
-								// AG6/AD6: kind-badge only renders for explicit knowledge-kind values.
-								// "factory","product","practice","team","user" are scope values — no badge.
-								// @lore AG6: AD6 AC-4 (kind badge removed from rows) coexists with AG6
-								// protected kind-badge testid because real scopeKind values are scope
-								// identifiers; only "pattern"/"decision"/"failure" render a kind badge.
-								const itemKind =
-									item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
-										? item.scopeKind
-										: undefined;
-								const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
 								const itemStatus = toKnowledgeStatus(item.status);
 								return (
 									<Row
@@ -571,21 +439,6 @@ function KnowledgeListContent({
 																</span>
 															),
 															"data-testid": "private-badge" as const,
-														},
-													]
-												: []),
-											...(itemKind && kStyle
-												? [
-														{
-															content: (
-																<span
-																	className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
-																	style={kStyle}
-																>
-																	{itemKind}
-																</span>
-															),
-															"data-testid": "kind-badge" as const,
 														},
 													]
 												: []),
@@ -716,79 +569,48 @@ function KnowledgeListContent({
 							/>
 						</div>
 					) : (
-						filteredGrouped.map((g) => (
-							<KnowledgeTopicGroup
-								key={g.topic}
-								topic={slugToTitle(g.topic)}
-								itemCount={g.items.length}
-								staleCount={g.staleCount}
-								health={g.health}
-							>
-								<ItemList variant="flush" as="ul" isEmpty={g.items.length === 0}>
-									{g.items.map((item) => {
-										const isPrivate = item.scopeKind === "user";
-										// AG6/AD6: kind-badge only for knowledge-kind values, not scope values.
-										const itemKind =
-											item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
-												? item.scopeKind
-												: undefined;
-										const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
-										return (
-											<Row
-												key={item.id}
-												as="li"
-												data-testid="knowledge-row"
-												title={item.title}
-												subtitle={
-													item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
-												}
-												cells={[
-													...(isPrivate
-														? [
-																{
-																	content: (
-																		<span
-																			className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
-																			style={{
-																				background: "var(--surface-container)",
-																				color: "var(--text-secondary)",
-																			}}
-																			title="Private — only visible to you"
-																		>
-																			Private
-																		</span>
-																	),
-																	"data-testid": "private-badge" as const,
-																},
-															]
-														: []),
-													...(itemKind && kStyle
-														? [
-																{
-																	content: (
-																		<span
-																			className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
-																			style={kStyle}
-																		>
-																			{itemKind}
-																		</span>
-																	),
-																	"data-testid": "kind-badge" as const,
-																},
-															]
-														: []),
-													{
-														content: relativeShort(item.updatedAt),
-														"data-testid": "knowledge-time" as const,
-													},
-												]}
-												onClick={() => onNavigate(item.id)}
-											/>
-										);
-									})}
-								</ItemList>
-							</KnowledgeTopicGroup>
-						))
+						<ItemList variant="flush" as="ul" isEmpty={filteredCuratedItems.length === 0}>
+							{filteredCuratedItems.map((item) => {
+								const isPrivate = item.scopeKind === "user";
+								return (
+									<Row
+										key={item.id}
+										as="li"
+										data-testid="knowledge-row"
+										title={item.title}
+										subtitle={
+											item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
+										}
+										cells={[
+											...(isPrivate
+												? [
+														{
+															content: (
+																<span
+																	className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
+																	style={{
+																		background: "var(--surface-container)",
+																		color: "var(--text-secondary)",
+																	}}
+																	title="Private — only visible to you"
+																>
+																	Private
+																</span>
+															),
+															"data-testid": "private-badge" as const,
+														},
+													]
+												: []),
+											{
+												content: relativeShort(item.updatedAt),
+												"data-testid": "knowledge-time" as const,
+											},
+										]}
+										onClick={() => onNavigate(item.id)}
+									/>
+								);
+							})}
+						</ItemList>
 					)}
 				</div>
 			)}
@@ -807,7 +629,6 @@ export function KnowledgeList({
 }: KnowledgeListProps = {}): JSX.Element {
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
-	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
 	const { user, retry: retryUser } = useCurrentUser();
 	// @lore NEW-24: optional — gracefully absent in story/test contexts without an AppShell outlet.
@@ -849,15 +670,11 @@ export function KnowledgeList({
 		outletCtx?.onRetryShell?.();
 	}, [apiRefetch, retryUser, outletCtx]);
 
-	// The knowledge list shows general
-	// knowledge only. skill and rule items are reached from their own list
-	// (Settings → Skills & rules), not by browsing knowledge — dropped here,
-	// before the triage/curated split, so both tabs and the topic grouping
-	// are covered by one filter.
-	const allItems = useMemo<ApiKnowledgeItem[]>(
-		() => (apiData?.items ?? []).filter((item) => item.role !== "skill" && item.role !== "rule"),
-		[apiData],
-	);
+	// @lore nested-knowledge-items §4: the client-side `role !== "skill" &&
+	// role !== "rule"` filter is deleted — GET /api/knowledge now excludes
+	// role-carrying rows structurally (parent is not `knowledge_item`), so
+	// every row this page receives is already ordinary, browsable knowledge.
+	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
 
 	/**
 	 * AD6: Apply static scope filter before triage/curated split.
@@ -879,42 +696,26 @@ export function KnowledgeList({
 		return withOverrides.filter((i) => i.scopeKind !== undefined && allowed.has(i.scopeKind));
 	}, [allItems, selectedScopePill, optimisticStatuses]);
 
-	// Y4: triage includes both draft and needs_human items.
+	// @lore nested-knowledge-items: triage/curated now split on the collapsed
+	// 4-value ladder — "proposed" replaces the old draft/needs_human pair,
+	// "active" is unchanged.
 	// @lore AU44 batch 4: attentionScore sort removed (FULL-AUDIT.md row 13 — attention sort dies
 	// with signals). Triage is now a plain recency list; the sort pill applies if selected.
 	const triageItems = useMemo<ApiKnowledgeItem[]>(() => {
-		const raw = scopeFilteredItems.filter(
-			(i) => i.status === "draft" || i.status === "needs_human",
-		);
+		const raw = scopeFilteredItems.filter((i) => i.status === "proposed");
 		return sortItems(raw);
 	}, [scopeFilteredItems]);
 
-	const curatedItems = useMemo<ApiKnowledgeItem[]>(
-		() => scopeFilteredItems.filter((i) => i.status === "active"),
-		[scopeFilteredItems],
-	);
+	const curatedItems = useMemo<ApiKnowledgeItem[]>(() => {
+		const raw = scopeFilteredItems.filter((i) => i.status === "active");
+		return sortItems(raw);
+	}, [scopeFilteredItems]);
 
-	// AF13 §3: Apply sortItems within each topic group so the recency pill reorders curated view.
-	const grouped = useMemo(
-		() =>
-			groupByTopic(curatedItems).map((g) => ({
-				...g,
-				items: sortItems(g.items),
-			})),
-		[curatedItems],
-	);
-
-	const prevScopeRef = useRef(scope);
 	useEffect(() => {
-		if (prevScopeRef.current !== scope) {
-			tabManuallySelectedRef.current = false;
-			prevScopeRef.current = scope;
-		}
 		if (tabManuallySelectedRef.current) return;
-		// Y4: auto-tab checks needs_human as well as draft
-		const hasTriage = allItems.some((i) => i.status === "draft" || i.status === "needs_human");
+		const hasTriage = allItems.some((i) => i.status === "proposed");
 		setTab(hasTriage ? "triage" : "curated");
-	}, [allItems, scope]);
+	}, [allItems]);
 
 	// AF13 §6: Optimistic status-override + PATCH for triage actions.
 	// Uses Map<id, status> instead of Set<id> so validated items appear in Curated
@@ -1000,7 +801,7 @@ export function KnowledgeList({
 	// UI-010: only show "system empty" when there is no API error — a 500/429 must
 	// surface as an error state (ErrorState + retry), NOT as "your knowledge base is empty".
 	const systemEmpty = allItems.length === 0 && !apiLoading && !apiError;
-	const isCuratedEmpty = grouped.length === 0 && !apiLoading;
+	const isCuratedEmpty = curatedItems.length === 0 && !apiLoading;
 	const isTriageEmpty = triageItems.length === 0 && !apiLoading;
 
 	return (
@@ -1055,11 +856,10 @@ export function KnowledgeList({
 				<KnowledgeListContent
 					tab={tab}
 					sort={sort}
-					scope={scope}
 					selectedScopePill={selectedScopePill}
 					onScopePillChange={setSelectedScopePill}
 					onSortChange={handleSortChange}
-					grouped={grouped}
+					curatedItems={curatedItems}
 					triageItems={triageItems}
 					apiLoading={apiLoading}
 					apiError={apiError}

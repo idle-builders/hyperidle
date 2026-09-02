@@ -50,13 +50,11 @@ async function createKnowledgeItem(
 		updatedAt: now,
 		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
-		topic: null,
 	});
 	// Insert a minimal fabric row to satisfy joins in GET /:id
 	await db.insert(knowledgeAppProjection).values({
 		id: crypto.randomUUID(),
 		knowledgeItemId: id,
-		layer: null,
 	});
 	return id;
 }
