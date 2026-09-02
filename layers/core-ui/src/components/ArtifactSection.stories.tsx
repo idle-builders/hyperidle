@@ -1,18 +1,11 @@
 /**
- * ArtifactSection stories — L12 artifact view family section wrapper.
+ * ArtifactSection stories — produced-item section for task and thread surfaces.
  *
- * Each story renders the real `ArtifactSection` component (not raw DS
- * subcomponents) with a fetch override that controls the hook response.
- * This pattern replaces the previous approach of importing DS subcomponents
- * directly, ensuring stories exercise the same code path as production.
- *
- * @lore L12 review (W-5): Stories use a wrapper that overrides globalThis.fetch
- * before mounting ArtifactSection to control which hook state the component
- * renders. This is the "wrapper pattern" — no vi.mock (unavailable in the
- * browser story renderer), no component prop surgery.
+ * Shows knowledge items parented to a task or thread. Each story uses a
+ * fetch-override wrapper to control the GET /api/knowledge? response without
+ * vi.mock (unavailable in the browser story renderer).
  */
 
-import type { Artifact, ArtifactPage } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { ArtifactSection } from "./ArtifactSection.js";
@@ -21,256 +14,149 @@ export default { title: "ArtifactSection", tier: "component" as const };
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-// AE6: artifacts use 6 fundamental kinds (code, text, image, data, html, url).
-// Story fixtures updated from L3 business-domain kinds (code_diff, deck, contract).
-const CODE_DIFF_ARTIFACT: Artifact = {
-	id: "art-story-1",
-	producingTaskId: "task-story-1",
-	producingTaskTitle: "Build auth service",
-	kind: "code" as const,
-	label: "auth-migration" as const,
-	preview: {
-		kind: "code" as const,
-		path: "layers/core-ui/src/auth.ts",
-		lang: "typescript",
-		text: "// auth service implementation",
-	},
-	threadCount: 2,
-	createdAt: "2026-05-01T10:00:00.000Z",
+const ITEM_1 = {
+	id: "ki-story-1",
+	title: "Auth service implementation",
+	body: "# Auth service\n\nImplemented the core auth flow.",
+	format: "markdown",
+	status: "captured",
+	version: 1,
+	updatedBy: "agent:session-1",
+	scopeKind: "factory",
+	scopeId: null,
+	topic: null,
+	createdAt: "2026-09-01T10:00:00.000Z",
+	updatedAt: "2026-09-01T10:00:00.000Z",
 };
 
-const DECK_ARTIFACT: Artifact = {
-	...CODE_DIFF_ARTIFACT,
-	id: "art-story-2",
-	producingTaskId: "task-story-2",
-	producingTaskTitle: "Design pitch deck",
-	kind: "text" as const,
-	label: "pitch-deck" as const,
-	preview: {
-		kind: "text" as const,
-		body: "Executive summary slide content",
-		format: "markdown" as const,
-	},
-	threadCount: 0,
+const ITEM_2 = {
+	...ITEM_1,
+	id: "ki-story-2",
+	title: "Pitch deck outline",
+	body: "# Pitch deck\n\nExecutive summary: ...",
 };
 
-const CONTRACT_ARTIFACT: Artifact = {
-	...CODE_DIFF_ARTIFACT,
-	id: "art-story-3",
-	producingTaskId: "task-story-3",
-	producingTaskTitle: "Draft contract",
-	kind: "text" as const,
-	label: "service-agreement" as const,
-	preview: {
-		kind: "text" as const,
-		body: "Service Agreement between Acme Corp and HyperIdle",
-		format: "plain" as const,
-	},
-	threadCount: 1,
+const ITEM_3 = {
+	...ITEM_1,
+	id: "ki-story-3",
+	title: "Service agreement draft",
+	body: "# Service Agreement\n\nBetween Acme Corp and HyperIdle...",
 };
-
-const POPULATED_PAGE: ArtifactPage = {
-	items: [CODE_DIFF_ARTIFACT, DECK_ARTIFACT, CONTRACT_ARTIFACT],
-	nextCursor: null,
-};
-
-const POPULATED_PAGE_WITH_CURSOR: ArtifactPage = {
-	items: [CODE_DIFF_ARTIFACT, DECK_ARTIFACT],
-	nextCursor: "next-page-cursor",
-};
-
-const EMPTY_PAGE: ArtifactPage = { items: [], nextCursor: null };
-
-const SINGLE_PAGE: ArtifactPage = { items: [CODE_DIFF_ARTIFACT], nextCursor: null };
 
 // ── Fetch-override wrapper ────────────────────────────────────────────────────
 
 /**
- * Wraps ArtifactSection with a controlled fetch mock. Before mounting the
- * inner component, the wrapper installs a globalThis.fetch override that
- * returns the given response for any /api/artifacts? request. After unmount
- * the real fetch is restored.
- *
- * @lore L12 review (W-5): this is the "wrapper pattern" — it controls hook
- * state without vi.mock (unavailable outside Vitest) or component prop surgery.
+ * Controls the GET /api/knowledge? response without vi.mock.
  */
 function ControlledArtifactSection({
-	children,
-	fetchResponse,
+	parentKind,
+	parentId,
+	heading,
+	emptyDescription,
+	listResponse,
+	detailResponse,
 }: {
-	children: React.ReactNode;
-	fetchResponse: ArtifactPage | "loading" | "error";
+	parentKind: "task" | "thread";
+	parentId: string;
+	heading?: string;
+	emptyDescription?: string;
+	listResponse: { items: (typeof ITEM_1)[] };
+	detailResponse?: typeof ITEM_1 | null;
 }): React.JSX.Element {
-	const [ready, setReady] = useState(fetchResponse === "loading");
+	const [, rerender] = useState(0);
 
 	useEffect(() => {
-		if (fetchResponse === "loading") {
-			// Hang the fetch indefinitely to simulate loading state.
-			const original = globalThis.fetch;
-			globalThis.fetch = (): Promise<Response> => new Promise(() => {});
-			setReady(true);
-			return () => {
-				globalThis.fetch = original;
-			};
-		}
-		if (fetchResponse === "error") {
-			const original = globalThis.fetch;
-			globalThis.fetch = (): Promise<Response> =>
-				Promise.resolve(new Response(null, { status: 500 }));
-			setReady(true);
-			return () => {
-				globalThis.fetch = original;
-			};
-		}
-		// Populated or empty page response.
-		const original = globalThis.fetch;
-		globalThis.fetch = (_url: RequestInfo | URL): Promise<Response> =>
-			Promise.resolve(new Response(JSON.stringify(fetchResponse), { status: 200 }));
-		setReady(true);
+		const real = globalThis.fetch;
+		globalThis.fetch = ((url: RequestInfo | URL) => {
+			const urlStr = String(url);
+			if (urlStr.includes("/api/knowledge/")) {
+				// detail endpoint
+				const body = detailResponse ? JSON.stringify(detailResponse) : "{}";
+				return Promise.resolve(new Response(body, { status: 200 }));
+			}
+			if (urlStr.includes("/api/knowledge")) {
+				return Promise.resolve(new Response(JSON.stringify(listResponse), { status: 200 }));
+			}
+			return real(url);
+		}) as typeof fetch;
+		rerender((n) => n + 1);
 		return () => {
-			globalThis.fetch = original;
+			globalThis.fetch = real;
 		};
-	}, [fetchResponse]);
+	}, [listResponse, detailResponse]);
 
-	if (!ready) return <div />;
 	return (
 		<MemoryRouter>
-			<div className="p-4 bg-[var(--surface-1)]">{children}</div>
+			<ArtifactSection
+				parentKind={parentKind}
+				parentId={parentId}
+				heading={heading}
+				emptyDescription={emptyDescription}
+			/>
 		</MemoryRouter>
 	);
 }
 
-// ── Gallery layout ────────────────────────────────────────────────────────────
+// ── Stories ───────────────────────────────────────────────────────────────────
 
-export const GalleryLoading = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse="loading">
-		<ArtifactSection
-			filter={{ axis: "portfolio" }}
-			layout="gallery"
-			limit={12}
+export function Loading(): React.JSX.Element {
+	return (
+		<MemoryRouter>
+			<ArtifactSection parentKind="task" parentId="" heading="Artifacts" />
+		</MemoryRouter>
+	);
+}
+
+export function Empty(): React.JSX.Element {
+	return (
+		<ControlledArtifactSection
+			parentKind="task"
+			parentId="task-1"
 			heading="Artifacts"
-			emptyDescription="Artifacts appear here as agents complete tasks."
+			emptyDescription="Artifacts will appear here once agents produce output for this task."
+			listResponse={{ items: [] }}
 		/>
-	</ControlledArtifactSection>
-);
+	);
+}
 
-export const GalleryError = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse="error">
-		<ArtifactSection
-			filter={{ axis: "portfolio" }}
-			layout="gallery"
-			limit={12}
+export function OneItem(): React.JSX.Element {
+	return (
+		<ControlledArtifactSection
+			parentKind="task"
+			parentId="task-1"
 			heading="Artifacts"
-			emptyDescription="Artifacts appear here as agents complete tasks."
+			listResponse={{ items: [ITEM_1] }}
+			detailResponse={ITEM_1}
 		/>
-	</ControlledArtifactSection>
-);
+	);
+}
 
-export const GalleryEmpty = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse={EMPTY_PAGE}>
-		<ArtifactSection
-			filter={{ axis: "portfolio" }}
-			layout="gallery"
-			limit={12}
+export function ThreeItems(): React.JSX.Element {
+	return (
+		<ControlledArtifactSection
+			parentKind="task"
+			parentId="task-2"
 			heading="Artifacts"
-			emptyDescription="Artifacts appear here as agents complete tasks."
+			listResponse={{ items: [ITEM_1, ITEM_2, ITEM_3] }}
+			detailResponse={ITEM_1}
 		/>
-	</ControlledArtifactSection>
-);
+	);
+}
 
-export const GalleryPopulated = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse={POPULATED_PAGE}>
-		<ArtifactSection
-			filter={{ axis: "portfolio" }}
-			layout="gallery"
-			limit={12}
-			heading="Artifacts"
-			emptyDescription="Artifacts appear here as agents complete tasks."
+export function ThreadParented(): React.JSX.Element {
+	return (
+		<ControlledArtifactSection
+			parentKind="thread"
+			parentId="thr-1"
+			heading="Produced in conversation"
+			listResponse={{ items: [ITEM_2, ITEM_3] }}
+			detailResponse={ITEM_2}
 		/>
-	</ControlledArtifactSection>
-);
+	);
+}
 
-export const GalleryWithOverflow = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse={POPULATED_PAGE_WITH_CURSOR}>
-		<ArtifactSection
-			filter={{ axis: "portfolio" }}
-			layout="gallery"
-			limit={2}
-			heading="Artifacts"
-			emptyDescription="Artifacts appear here as agents complete tasks."
-		/>
-	</ControlledArtifactSection>
-);
-
-// ── Stack layout ──────────────────────────────────────────────────────────────
-
-export const StackLoading = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse="loading">
-		<ArtifactSection
-			filter={{ axis: "product", teamId: "prod-story" }}
-			layout="stack"
-			limit={10}
-			heading="Artifacts"
-			emptyDescription="Artifacts appear as agents complete tasks for this product."
-		/>
-	</ControlledArtifactSection>
-);
-
-export const StackError = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse="error">
-		<ArtifactSection
-			filter={{ axis: "product", teamId: "prod-story" }}
-			layout="stack"
-			limit={10}
-			heading="Artifacts"
-			emptyDescription="Artifacts appear as agents complete tasks for this product."
-		/>
-	</ControlledArtifactSection>
-);
-
-export const StackEmpty = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse={EMPTY_PAGE}>
-		<ArtifactSection
-			filter={{ axis: "product", teamId: "prod-story" }}
-			layout="stack"
-			limit={10}
-			heading="Artifacts"
-			emptyDescription="Artifacts appear as agents complete tasks for this product."
-		/>
-	</ControlledArtifactSection>
-);
-
-export const StackPopulated = (): React.JSX.Element => (
-	<ControlledArtifactSection
-		fetchResponse={{ items: [CODE_DIFF_ARTIFACT, DECK_ARTIFACT], nextCursor: null }}
-	>
-		<ArtifactSection
-			filter={{ axis: "product", teamId: "prod-story" }}
-			layout="stack"
-			limit={10}
-			heading="Artifacts"
-			emptyDescription="Artifacts appear as agents complete tasks for this product."
-		/>
-	</ControlledArtifactSection>
-);
-
-// ── Single layout ─────────────────────────────────────────────────────────────
-
-export const SingleLoading = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse="loading">
-		<ArtifactSection filter={{ axis: "task", taskId: "task-story" }} layout="single" limit={1} />
-	</ControlledArtifactSection>
-);
-
-export const SingleEmpty = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse={EMPTY_PAGE}>
-		{/* No heading → renders null in empty state (TaskSheet pattern). */}
-		<ArtifactSection filter={{ axis: "task", taskId: "task-story" }} layout="single" limit={1} />
-	</ControlledArtifactSection>
-);
-
-export const SinglePopulated = (): React.JSX.Element => (
-	<ControlledArtifactSection fetchResponse={SINGLE_PAGE}>
-		<ArtifactSection filter={{ axis: "task", taskId: "task-story" }} layout="single" limit={1} />
-	</ControlledArtifactSection>
-);
+export function NoHeading(): React.JSX.Element {
+	return (
+		<ControlledArtifactSection parentKind="task" parentId="task-3" listResponse={{ items: [] }} />
+	);
+}

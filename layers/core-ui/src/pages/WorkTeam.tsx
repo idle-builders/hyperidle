@@ -31,7 +31,7 @@ import {
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
+// ArtifactSection removed — produced items are task-parented and shown on each task
 import {
 	Avatar,
 	agentOperationalStatusToStatus,
@@ -242,7 +242,7 @@ function WorkTeamLoaded({
 	// @lore AA1: routines defaults to [] so pre-AA1 mock data (missing the field) doesn't crash.
 	// @lore BB1: activeBets → tasksInProgress; stored counter deleted, list comes from API
 	const { team, roster, burn, tasksInProgress = [], routines = [] } = data;
-	const onOpenArtifact = useArtifactOpen();
+	// onOpenArtifact removed — ArtifactSection manages the split view internally
 	// @lore AV4: All three new hooks go UNCONDITIONALLY here at the top of WorkTeamLoaded,
 	// NOT in WorkTeam — WorkTeam has 5 early-return guard branches (loading/error/null/no-team)
 	// that would make any hook after the first guard a conditional-hook violation.
@@ -678,18 +678,11 @@ function WorkTeamLoaded({
 				</ItemList>
 			</section>
 
-			{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
-			{!skipArtifacts && (
-				<ArtifactSection
-					// @lore U1: `productId` → `teamId` in ArtifactSection filter.
-					filter={{ axis: "product", teamId: team.id }}
-					layout="stack"
-					limit={10}
-					heading="Artifacts"
-					emptyDescription="Artifacts appear as agents complete tasks for this team."
-					onOpen={onOpenArtifact}
-				/>
-			)}
+			{/* Produced items are now task-parented knowledge items — each task's
+			    own ArtifactSection shows what was produced there. The team overview
+			    no longer aggregates across tasks since there is no team-level parent.
+			    skipArtifacts still suppresses the block in tests that mock data. */}
+			{!skipArtifacts && null}
 
 			{/* @lore AV4: AgentEditDialog modal retired from the WorkTeam customize path.
 			 * Customize now opens AgentDetailPane in the split pane via ?agent param (AC#3).

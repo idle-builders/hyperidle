@@ -380,6 +380,28 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// for every scope kind (user/team/bet/task). Detail endpoint resolves one item in one call.
 	router.get("/", async (c) => {
 		const userId = c.get("userId");
+		const parentKind = c.req.query("parentKind");
+		const parentId = c.req.query("parentId");
+
+		// AC4/AC5: when parentKind+parentId are provided, return only items for that
+		// parent. Both must be present — one without the other is a malformed request.
+		if (parentKind !== undefined || parentId !== undefined) {
+			if (!(parentKind && parentId)) {
+				return c.json(
+					{ error: "parentKind and parentId must both be provided", code: "INVALID_QUERY" },
+					400,
+				);
+			}
+			if (parentKind !== "task" && parentKind !== "thread") {
+				return c.json({ error: "parentKind must be task or thread", code: "INVALID_QUERY" }, 400);
+			}
+			const rows = await listKnowledgeItems(db, { byParent: { parentKind, parentId } });
+			const items = rows.map((item) => ({
+				...item,
+				attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
+			}));
+			return c.json({ items });
+		}
 
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
 		// access-signal aggregation all moved into the repository's
@@ -387,6 +409,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// @lore AU44 batch 4: L22 signals (accessCount30d, lastActivityAt etc.) removed per
 		// FULL-AUDIT.md row 13. attentionScore (PLUGIN-owned, still in schema) is parsed from
 		// the stored text to a number here — same as the detail route does for confidence.
+		// @lore AC4/AC5: visibleWithSignals now excludes parented items — they belong to
+		// their task or thread surface and are fetched via ?parentKind+parentId.
 		const rows = await listKnowledgeItems(db, { visibleWithSignals: userId });
 		const items = rows.map((item) => ({
 			...item,

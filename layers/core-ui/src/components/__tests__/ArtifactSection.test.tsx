@@ -1,202 +1,156 @@
 /**
- * L12 — ArtifactSection unit tests.
+ * ArtifactSection unit tests.
  *
  * AC coverage:
- *  - loading: renders skeleton(s) matching layout (gallery=3, stack=2, single=1)
- *  - error: renders ErrorState
+ *  - loading: renders SkeletonList while fetch is in flight
+ *  - error with heading: renders ErrorState
+ *  - error without heading: renders null
  *  - empty with heading: renders EmptyState
- *  - empty without heading (TaskSheet / single layout, no heading): renders null
- *  - populated gallery: renders ArtifactGalleryCard per item
- *  - populated stack: renders ArtifactStackItem per item
- *  - populated single: renders ArtifactPreview for items[0]
- *  - overflow: renders non-interactive "View all" span when nextCursor !== null
- *  - onOpen callback navigates to /artifacts/:id
- *  - limit param is forwarded to useArtifacts
+ *  - empty without heading: renders null
+ *  - emptyDescription prop forwarded to EmptyState
+ *  - populated: renders one Row per item
+ *  - heading rendered when provided
+ *  - AC10: clicking a row enters split mode, renders detail pane
+ *
+ * Migrated from the old filter/layout/useArtifacts API to parentKind/parentId/useParentedKnowledgeItems.
  */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ArtifactSection as ArtifactSectionType } from "../ArtifactSection";
 
-// Mock useArtifacts so tests control the fetch state
-vi.mock("../../hooks/useArtifacts", () => ({
-	useArtifacts: vi.fn(),
+vi.mock("../../hooks/useParentedKnowledgeItems", () => ({
+	useParentedKnowledgeItems: vi.fn(),
 }));
 
-// Mock useNavigate so we can assert navigation calls
-const mockNavigate = vi.fn();
+vi.mock("../../hooks/useKnowledgeItem", () => ({
+	useKnowledgeItem: vi.fn(),
+}));
+
 vi.mock("react-router-dom", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("react-router-dom")>();
-	return {
-		...actual,
-		useNavigate: () => mockNavigate,
-	};
+	return { ...actual, useNavigate: () => vi.fn() };
 });
 
-import { useArtifacts } from "../../hooks/useArtifacts";
+import { useKnowledgeItem } from "../../hooks/useKnowledgeItem";
+import { useParentedKnowledgeItems } from "../../hooks/useParentedKnowledgeItems";
 import { ArtifactSection } from "../ArtifactSection";
 
-/** Canonical Artifact fixture for tests */
-const MOCK_ARTIFACT = {
-	id: "art-l12-1",
-	producingTaskId: "task-l12-1",
-	producingTaskTitle: "Build feature X",
-	kind: "code" as const,
-	label: null,
-	preview: {
-		kind: "code" as const,
-		path: "layers/core-ui/src/Foo.tsx",
-		lang: "typescript",
-		text: "// Foo.tsx",
-	},
-	threadCount: 0,
-	createdAt: "2026-05-01T10:00:00.000Z",
+const ITEM_A = {
+	id: "ki-test-a",
+	title: "Agent output alpha",
+	body: "# Output alpha",
+	format: "markdown",
+	status: "captured",
+	version: 1,
+	updatedBy: "agent:sess-1",
+	scopeKind: "factory",
+	scopeId: null,
+	topic: null,
+	createdAt: "2026-09-01T00:00:00.000Z",
+	updatedAt: "2026-09-01T00:00:00.000Z",
 };
 
-const MOCK_ARTIFACT_2 = {
-	...MOCK_ARTIFACT,
-	id: "art-l12-2",
-	producingTaskId: "task-l12-2",
-	producingTaskTitle: "Build feature Y",
-};
-
-const MOCK_ARTIFACT_3 = {
-	...MOCK_ARTIFACT,
-	id: "art-l12-3",
-	producingTaskId: "task-l12-3",
-	producingTaskTitle: "Build feature Z",
-};
+const ITEM_B = { ...ITEM_A, id: "ki-test-b", title: "Agent output beta", body: "# Output beta" };
+const ITEM_C = { ...ITEM_A, id: "ki-test-c", title: "Agent output gamma", body: "# Output gamma" };
 
 function renderSection(
-	props: Partial<React.ComponentProps<typeof ArtifactSectionType>> & {
-		filter?: React.ComponentProps<typeof ArtifactSectionType>["filter"];
-		layout?: React.ComponentProps<typeof ArtifactSectionType>["layout"];
-	} = {},
+	overrides: Partial<React.ComponentProps<typeof ArtifactSection>> = {},
 ): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
-			<ArtifactSection
-				filter={{ axis: "portfolio" }}
-				layout="gallery"
-				onOpen={vi.fn()}
-				{...props}
-			/>
+			<ArtifactSection parentKind="task" parentId="task-test" heading="Artifacts" {...overrides} />
 		</MemoryRouter>,
 	);
 }
 
-describe("ArtifactSection (L12)", () => {
+describe("ArtifactSection", () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
-		mockNavigate.mockReset();
 	});
 
-	// ── Loading states ────────────────────────────────────────────────────────
+	// ── Loading ───────────────────────────────────────────────────────────────
 
-	it("gallery layout: renders 3 skeleton cards while loading", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
+	it("renders SkeletonList while loading", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
 			data: null,
 			error: null,
 			isLoading: true,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
-		renderSection({ layout: "gallery" });
+		renderSection();
 
-		const skeletons = screen.getAllByTestId("skeleton-card");
-		expect(skeletons).toHaveLength(3);
+		expect(screen.getByTestId("skeleton-list")).toBeInTheDocument();
 	});
 
-	it("stack layout: renders 2 skeleton rows while loading", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: null,
-			error: null,
-			isLoading: true,
-		});
-
-		renderSection({ layout: "stack" });
-
-		// SkeletonList renders a single container with N rows inside
-		const skeletonList = screen.getByTestId("skeleton-list");
-		expect(skeletonList).toBeInTheDocument();
-		const rows = screen.getAllByTestId("skeleton-row");
-		expect(rows).toHaveLength(2);
-	});
-
-	it("single layout: renders 1 skeleton card while loading", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: null,
-			error: null,
-			isLoading: true,
-		});
-
-		renderSection({ layout: "single" });
-
-		const skeletons = screen.getAllByTestId("skeleton-card");
-		expect(skeletons).toHaveLength(1);
-	});
-
-	// ── Error state ───────────────────────────────────────────────────────────
+	// ── Error ─────────────────────────────────────────────────────────────────
 
 	it("renders ErrorState when fetch fails and heading is provided", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
 			data: null,
 			error: "HTTP 500",
 			isLoading: false,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
 		renderSection({ heading: "Artifacts" });
 
 		expect(screen.getByTestId("error-state")).toBeInTheDocument();
 	});
 
-	it("renders null when fetch fails and heading is NOT provided (W-3: TaskSheet collapse)", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
+	it("renders null when fetch fails and no heading is provided", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
 			data: null,
 			error: "HTTP 500",
 			isLoading: false,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
-		// No heading prop — should collapse entirely on error
-		const { container } = renderSection({ layout: "single" });
-		expect(container.firstChild).toBeNull();
+		renderSection({ heading: undefined });
+
+		// MemoryRouter is the firstChild; its content should be empty
+		expect(screen.queryByTestId("artifact-section-container")).toBeNull();
 	});
 
-	// ── Empty states ──────────────────────────────────────────────────────────
+	// ── Empty ─────────────────────────────────────────────────────────────────
 
-	it("with heading: renders EmptyState when data is empty", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [], nextCursor: null },
+	it("renders EmptyState when data is empty and heading is provided", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+			data: { items: [] },
 			error: null,
 			isLoading: false,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
 		renderSection({ heading: "Artifacts" });
 
 		expect(screen.getByTestId("empty-state")).toBeInTheDocument();
 	});
 
-	it("uses emptyDescription prop in EmptyState when provided (W-4)", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [], nextCursor: null },
+	it("uses emptyDescription prop when provided", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+			data: { items: [] },
 			error: null,
 			isLoading: false,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
 		renderSection({
 			heading: "Artifacts",
-			emptyDescription: "Artifacts appear here as agents complete tasks.",
+			emptyDescription: "Agents produce output here as tasks complete.",
 		});
 
-		expect(screen.getByText("Artifacts appear here as agents complete tasks.")).toBeInTheDocument();
+		expect(screen.getByText("Agents produce output here as tasks complete.")).toBeInTheDocument();
 	});
 
-	it("falls back to generic description when emptyDescription is not provided", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [], nextCursor: null },
+	it("uses the generic fallback description when emptyDescription is not provided", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+			data: { items: [] },
 			error: null,
 			isLoading: false,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
 		renderSection({ heading: "Artifacts" });
 
@@ -205,189 +159,85 @@ describe("ArtifactSection (L12)", () => {
 		).toBeInTheDocument();
 	});
 
-	it("without heading: renders null when data is empty (TaskSheet pattern)", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [], nextCursor: null },
+	it("renders null when data is empty and no heading is provided", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+			data: { items: [] },
 			error: null,
 			isLoading: false,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
-		const { container } = renderSection({ layout: "single" });
+		renderSection({ heading: undefined });
 
-		// No heading → render null → container is empty (only MemoryRouter scaffold)
-		expect(container.firstChild).toBeNull();
+		expect(screen.queryByTestId("artifact-section-container")).toBeNull();
 	});
 
-	// ── Populated: gallery ────────────────────────────────────────────────────
+	// ── Populated ─────────────────────────────────────────────────────────────
 
-	it("gallery layout: renders ArtifactGalleryCard per item", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT, MOCK_ARTIFACT_2], nextCursor: null },
+	it("renders one row per item when populated", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+			data: { items: [ITEM_A, ITEM_B, ITEM_C] },
 			error: null,
 			isLoading: false,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
-		const { container } = renderSection({ layout: "gallery" });
+		renderSection({ heading: "Artifacts" });
 
-		// ArtifactGalleryCard adds data-ds-component="ArtifactGalleryCard" via dsProps (B-2 fix)
-		const cards = container.querySelectorAll("[data-ds-component='ArtifactGalleryCard']");
-		expect(cards).toHaveLength(2);
+		expect(screen.getByText("Agent output alpha")).toBeInTheDocument();
+		expect(screen.getByText("Agent output beta")).toBeInTheDocument();
+		expect(screen.getByText("Agent output gamma")).toBeInTheDocument();
 	});
 
-	it("gallery layout: uses data-ds-component='ArtifactGalleryCard' selector", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT], nextCursor: null },
+	it("renders heading when provided and items exist", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+			data: { items: [ITEM_A] },
 			error: null,
 			isLoading: false,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
-		const { container } = renderSection({ layout: "gallery" });
+		renderSection({ heading: "My Artifacts" });
 
-		const cards = container.querySelectorAll("[data-ds-component='ArtifactGalleryCard']");
-		expect(cards).toHaveLength(1);
+		expect(screen.getByText("My Artifacts")).toBeInTheDocument();
 	});
 
-	// ── Populated: stack ──────────────────────────────────────────────────────
-
-	it("stack layout: renders ArtifactStackItem per item", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT, MOCK_ARTIFACT_2], nextCursor: null },
+	it("calls useParentedKnowledgeItems with the provided parentKind and parentId", () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+			data: null,
 			error: null,
-			isLoading: false,
+			isLoading: true,
 		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
-		const { container } = renderSection({ layout: "stack" });
+		renderSection({ parentKind: "thread", parentId: "thr-99" });
 
-		const items = container.querySelectorAll("[data-ds-component='ArtifactStackItem']");
-		expect(items).toHaveLength(2);
+		expect(useParentedKnowledgeItems).toHaveBeenCalledWith("thread", "thr-99");
 	});
 
-	// ── Populated: single ─────────────────────────────────────────────────────
+	// ── AC10: click → split detail ────────────────────────────────────────────
 
-	it("single layout: renders ArtifactPreview for the first item", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT, MOCK_ARTIFACT_2], nextCursor: null },
+	it("AC10: clicking an item row renders the split detail pane", async () => {
+		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+			data: { items: [ITEM_A] },
+			error: null,
+			isLoading: false,
+		});
+		vi.mocked(useKnowledgeItem).mockReturnValue({
+			data: ITEM_A,
 			error: null,
 			isLoading: false,
 		});
 
-		const { container } = renderSection({ layout: "single" });
+		renderSection();
 
-		// ArtifactPreview renders with data-ds-component="ArtifactPreview"
-		const previews = container.querySelectorAll("[data-ds-component='ArtifactPreview']");
-		expect(previews).toHaveLength(1);
-	});
+		// Before click: detail pane absent
+		expect(screen.queryByTestId("artifact-section-detail")).toBeNull();
 
-	// ── Overflow "View all" ───────────────────────────────────────────────────
+		fireEvent.click(screen.getByText("Agent output alpha"));
 
-	it("renders non-interactive 'View all' span when nextCursor is not null", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT], nextCursor: "cursor-abc" },
-			error: null,
-			isLoading: false,
+		await waitFor(() => {
+			expect(screen.getByTestId("artifact-section-detail")).toBeInTheDocument();
 		});
-
-		const { container } = renderSection({ layout: "gallery" });
-
-		// Must be a <span>, NOT an <a> or <button>
-		const viewAll = container.querySelector("span[data-testid='artifact-section-view-all']");
-		expect(viewAll).not.toBeNull();
-		// Confirm it's not a link
-		expect(viewAll?.tagName.toLowerCase()).toBe("span");
-		expect(viewAll?.closest("a")).toBeNull();
-		expect(viewAll?.closest("button")).toBeNull();
-	});
-
-	it("does NOT render 'View all' when nextCursor is null", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT], nextCursor: null },
-			error: null,
-			isLoading: false,
-		});
-
-		const { container } = renderSection({ layout: "gallery" });
-
-		const viewAll = container.querySelector("[data-testid='artifact-section-view-all']");
-		expect(viewAll).toBeNull();
-	});
-
-	// ── onOpen / navigation ───────────────────────────────────────────────────
-
-	// UI-080: ArtifactGalleryCard now renders as <a href> when href is provided.
-	// ArtifactSection always passes href, so the card is a real link regardless of onOpen.
-	it("renders artifact gallery card as an anchor link with correct href (UI-080)", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT], nextCursor: null },
-			error: null,
-			isLoading: false,
-		});
-
-		const { container } = render(
-			<MemoryRouter>
-				<ArtifactSection filter={{ axis: "portfolio" }} layout="gallery" />
-			</MemoryRouter>,
-		);
-
-		const card = container.querySelector("[data-ds-component='ArtifactGalleryCard']");
-		expect(card).not.toBeNull();
-		expect(card?.tagName.toLowerCase()).toBe("a");
-		expect(card?.getAttribute("href")).toBe("/artifacts/art-l12-1");
-	});
-
-	// ── limit prop forwarded to useArtifacts ─────────────────────────────────
-
-	it("forwards limit to useArtifacts when provided", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [], nextCursor: null },
-			error: null,
-			isLoading: false,
-		});
-
-		renderSection({ layout: "gallery", limit: 12 });
-
-		// useArtifacts should be called with the filter and { limit: 12 }
-		expect(useArtifacts).toHaveBeenCalledWith({ axis: "portfolio" }, { limit: 12 });
-	});
-
-	it("calls useArtifacts without query when limit is not provided", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [], nextCursor: null },
-			error: null,
-			isLoading: false,
-		});
-
-		renderSection({ layout: "gallery" });
-
-		// useArtifacts should be called without a second arg
-		expect(useArtifacts).toHaveBeenCalledWith({ axis: "portfolio" }, undefined);
-	});
-
-	// ── Heading renders ───────────────────────────────────────────────────────
-
-	it("renders heading when heading prop is provided", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT], nextCursor: null },
-			error: null,
-			isLoading: false,
-		});
-
-		renderSection({ layout: "gallery", heading: "Artifacts" });
-
-		expect(screen.getByText("Artifacts")).toBeInTheDocument();
-	});
-
-	// ── Multiple items in gallery ─────────────────────────────────────────────
-
-	it("gallery layout: renders all three mock artifacts", () => {
-		vi.mocked(useArtifacts).mockReturnValue({
-			data: { items: [MOCK_ARTIFACT, MOCK_ARTIFACT_2, MOCK_ARTIFACT_3], nextCursor: null },
-			error: null,
-			isLoading: false,
-		});
-
-		const { container } = renderSection({ layout: "gallery" });
-
-		const cards = container.querySelectorAll("[data-ds-component='ArtifactGalleryCard']");
-		expect(cards).toHaveLength(3);
 	});
 });

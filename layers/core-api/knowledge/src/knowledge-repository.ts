@@ -731,6 +731,10 @@ export function list(
 		};
 	},
 ): Promise<Array<{ id: string; title: string }>>;
+export function list(
+	db: HyperIdleDb,
+	filter: { readonly byParent: { readonly parentKind: string; readonly parentId: string } },
+): Promise<KnowledgeItemWithProjection[]>;
 export function list(db: HyperIdleDb, filter?: ListFilters): Promise<KnowledgeItemWithProjection[]>;
 export async function list(
 	db: HyperIdleDb,
@@ -746,6 +750,7 @@ export async function list(
 					readonly limit: number;
 				};
 		  }
+		| { readonly byParent: { readonly parentKind: string; readonly parentId: string } }
 		| ListFilters,
 ): Promise<
 	| KnowledgeItemWithProjection[]
@@ -757,6 +762,8 @@ export async function list(
 
 	if ("visibleWithSignals" in filter) {
 		// Visible items: Q2 filter — include if scope_kind != 'user' OR updatedBy = viewer.
+		// AC4/AC5: exclude parented items — they belong to their task or thread surface,
+		// not the knowledge tree. A caller wanting parented items uses { byParent }.
 		const viewerUserId = filter.visibleWithSignals;
 		const rows = await db
 			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
@@ -765,7 +772,27 @@ export async function list(
 				knowledgeAppProjection,
 				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
-			.where(visibleToViewer(viewerUserId));
+			.where(and(visibleToViewer(viewerUserId), isNull(knowledgeItems.parentKind)));
+		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
+	}
+
+	if ("byParent" in filter) {
+		// Return all items whose parent matches exactly. No scope/visibility filter —
+		// access to the parent implies access to its produced items.
+		const { parentKind, parentId } = filter.byParent;
+		const rows = await db
+			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
+			.from(knowledgeItems)
+			.leftJoin(
+				knowledgeAppProjection,
+				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
+			)
+			.where(
+				and(
+					eq(knowledgeItems.parentKind, parentKind as KnowledgeParentKind),
+					eq(knowledgeItems.parentId, parentId),
+				),
+			);
 		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 
