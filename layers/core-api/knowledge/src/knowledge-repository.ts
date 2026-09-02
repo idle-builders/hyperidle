@@ -1157,6 +1157,10 @@ export function list(
 	db: HyperIdleDb,
 	filter: { readonly byParent: { readonly parentKind: string; readonly parentId: string } },
 ): Promise<KnowledgeItemWithProjection[]>;
+export function list(
+	db: HyperIdleDb,
+	filter: { readonly childrenOf: { readonly parentId: string } },
+): Promise<KnowledgeItemChildRef[]>;
 export function list(db: HyperIdleDb, filter?: ListFilters): Promise<KnowledgeItemWithProjection[]>;
 export async function list(
 	db: HyperIdleDb,
@@ -1164,6 +1168,7 @@ export async function list(
 		| { readonly visibleWithSignals: string }
 		| { readonly titlesByIds: readonly string[] }
 		| { readonly tree: { readonly viewerTeamId: string | null } }
+		| { readonly childrenOf: { readonly parentId: string } }
 		| {
 				readonly childrenAndSiblings: {
 					readonly itemId: string;
@@ -1173,8 +1178,22 @@ export async function list(
 		  }
 		| { readonly byParent: { readonly parentKind: string; readonly parentId: string } }
 		| ListFilters,
-): Promise<KnowledgeItemWithProjection[] | null | readonly { id: string; title: string }[]> {
+): Promise<
+	| KnowledgeItemWithProjection[]
+	| null
+	| readonly { id: string; title: string }[]
+	| KnowledgeItemChildRef[]
+> {
 	if (!filter) return listBase(db);
+
+	if ("childrenOf" in filter) {
+		const { parentId } = filter.childrenOf;
+		return db
+			.select({ id: knowledgeItems.id, title: knowledgeItems.title })
+			.from(knowledgeItems)
+			.where(and(eq(knowledgeItems.parentKind, "knowledge_item"), eq(knowledgeItems.parentId, parentId)))
+			.orderBy(knowledgeItems.position, knowledgeItems.title);
+	}
 
 	if ("visibleWithSignals" in filter) {
 		// Visible items: Q2 filter — include if scope_kind != 'user' OR updatedBy = viewer.

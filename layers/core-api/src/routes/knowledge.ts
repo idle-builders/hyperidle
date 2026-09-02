@@ -2,7 +2,6 @@
  * O2: Knowledge routes rewritten for kernel purity.
  * Q2: scope_kind + scope_id fields added to creation, list, and detail endpoints.
  *     User-scoped items filtered by userId at GET / and GET /:id.
- *     App projection layer assigned (via knowledgeAppProjection) on creation.
  *
  * Scope is edited through `PATCH /:id` like every other field. The separate
  * `PATCH /:id/scope` endpoint is DELETED: it demanded a `reason` that was
@@ -13,18 +12,15 @@
  * URL shape simplified from /:layer/... to /:id and /.
  * Layer guard, createRelevanceService, and computeSignals removed.
  * Events emitted per-route using the typed event interfaces.
- * Status simplified to draft | active | archived.
  *
- * @lore O2: The layer-based URL scheme was a strategy concern embedded in
- * the kernel API. Removing it (along with layer/scopeId/kind columns on
- * knowledgeItems) keeps the kernel pure. Strategy layers compute their
- * signals in the projection and write to knowledgeAppProjection.
- *
- * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every item
- * knows where it belongs, regardless of which strategy app projection is used.
- * scopeToLayer() from @hyperidle/domain-model maps scope_kind to projection layer.
- * The assignment is done inline (not via event) so the projection row is immediately
- * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
+ * @lore nested-knowledge-items: `layer`/`kind`/`topic` and the `product`/
+ * `practice` scope kinds are DELETED — a knowledge item's place in the tree
+ * says what it is about now; `scope` says only who sees it. `parentKind`/
+ * `parentId` are accepted on create, and `PATCH /:id` routes a
+ * parentKind+parentId body through `reparent()` (the tree invariants) rather
+ * than the generic field-diff `update()`. The `relatedItems` (Backlinks)
+ * card becomes children ∪ siblings — the topic-match query it used is gone
+ * with `topic`.
  */
 
 import { findThread, insertThread } from "@hyperidle/conversation";
@@ -32,13 +28,11 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
-	KNOWLEDGE_LAYERS,
 	KNOWLEDGE_ROLES,
-	roleLabel,
+	KNOWLEDGE_STATUSES,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	scopeKindToLabel,
-	scopeToLayer,
 } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type {
@@ -61,6 +55,7 @@ import {
 	list as listKnowledgeItems,
 	recomputeAttention,
 	recordConflict as recordKnowledgeConflict,
+	reparent as reparentKnowledgeItem,
 	sweep as runKnowledgeSweep,
 	update as updateKnowledgeItem,
 	VersionConflictError,
@@ -72,55 +67,22 @@ import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 
-/**
- * @lore AU21 §9 Increment 2 (knowledge wave): the 8 `KNOWLEDGE_KINDS` values
- * are `write_memory`'s own vocabulary (`tool-handlers/src/tool-definitions.ts`)
- * redefined locally here (never imported cross-Service — `@hyperidle/knowledge`'s
- * own `KnowledgeKind` type is intentionally NOT re-exported from its barrel).
- * A `z.enum(...)`-validated value's literal-union type is structurally
- * identical to the private `KnowledgeKind` type without needing to import it —
- * both are simply the same set of string literals.
- */
-const KNOWLEDGE_ITEM_KINDS = [
-	"pattern",
-	"anti_pattern",
-	"brief",
-	"principle",
-	"decision",
-	"failure",
-	"reflection",
-	"focus",
-] as const;
-
-// O2: status simplified to draft | active | archived
-// Y4: needs_human added for triage escalation
-const KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_human"] as const;
+const KNOWLEDGE_PARENT_KINDS = ["knowledge_item", "task", "thread", "routine", "agent"] as const;
 
 /**
  * Resolve a knowledge item's scopeId to a human-readable scope name.
  * Response-only derived field — never persisted (AV3 contract).
  *
- * Resolution map (per AV3 §1 table):
+ * Resolution map (per AV3 §1 table, narrowed to the surviving scope kinds):
  * - factory → "Factory" (literal, no query)
  * - user    → users.name (missing → "Private" via scopeKindToLabel)
- * - team    → teams.name by direct id; two-hop via teamMembers if not found (missing → "Team")
- * - bet     → bets.description truncated at 60 chars (empty/missing → "Shared")
- * - task    → tasks.title (missing → "Shared")
- * - product → no entity table → scopeKindToLabel("product")
- * - practice → roleLabel(scopeId) for agent role ids; empty → scopeKindToLabel("practice")
+ * - team    → teams.name by direct id (missing → "Team")
  *
- * Every fallback is scopeKindToLabel(kind) from @hyperidle/presentation-format — single source of truth.
- * Never returns a raw UUID.
+ * Every fallback is scopeKindToLabel(kind) — single source of truth. Never
+ * returns a raw UUID.
  *
- * @lore AU26 F2 (founder ruling): the `filesystem` branch — the one that read
- * `filesystems.resourceRef` to compose a repo/folder label — is DELETED with
- * the scope kind. It was this route's only `filesystems` touch, and the only
- * core-side use of the record; removing it is what let the record follow its
- * mounting engine into agent-orchestration.
- *
- * @lore AV3: Promoted scopeKindToLabel to @hyperidle/presentation-format so server fallback === web fallback.
- * @lore AV3 U1: team scopeId may be teams.id OR team_members.id (two-hop join). Resolve by
- * querying teams first; on miss query teamMembers then teams on that teamId; on final miss fallback.
+ * @lore nested-knowledge-items: the `product`/`practice`/`bet`/`task`/
+ * `filesystem` branches are DELETED with the scope kinds themselves.
  */
 export async function resolveScopeName(
 	db: HyperIdleDb,
@@ -131,20 +93,6 @@ export async function resolveScopeName(
 	// (which would return "Shared"); factory is a deliberate override.
 	if (scopeKind === "factory") return "Factory";
 
-	// product has no entity table — fall back immediately.
-	if (scopeKind === "product") {
-		return scopeKindToLabel(scopeKind);
-	}
-
-	// practice: no entity table — resolve scopeId as an agent role id via AGENT_ROLE_CATALOG.
-	// @lore AV3 A1: practice scopeId is a role id. roleLabel() returns the catalog label or
-	// title-cases the raw role for open-vocab user-defined roles. Empty scopeId → fallback.
-	if (scopeKind === "practice") {
-		if (!scopeId) return scopeKindToLabel("practice");
-		const label = roleLabel(scopeId);
-		return label || scopeKindToLabel("practice");
-	}
-
 	// All remaining kinds need a scopeId to look anything up.
 	if (!scopeId) return scopeKindToLabel(scopeKind);
 
@@ -154,20 +102,8 @@ export async function resolveScopeName(
 	}
 
 	if (scopeKind === "team") {
-		// @lore AU44 B1: after team_members fold, scopeId IS teams.id directly (no two-hop).
 		const teamRow = await getTeam(db, { id: scopeId });
 		return teamRow?.name ?? scopeKindToLabel("team");
-	}
-
-	if (scopeKind === "bet") {
-		// BB1: bets are now root tasks — look up by task id, return title.
-		const row = await work.get(db, "task", scopeId);
-		return row?.title ?? scopeKindToLabel("bet");
-	}
-
-	if (scopeKind === "task") {
-		const row = await work.get(db, "task", scopeId);
-		return row?.title ?? scopeKindToLabel("task");
 	}
 
 	// Unknown scopeKind — safe fallback.
@@ -183,19 +119,7 @@ function requiresScopeId(kind: string): boolean {
 	return SCOPES_REQUIRING_ID.has(kind as Parameters<typeof SCOPES_REQUIRING_ID.has>[0]);
 }
 
-/**
- * The parent kinds a client may name. A deliberate subset of
- * `KNOWLEDGE_PARENT_KINDS` — see `createKnowledgeSchema.parentKind`.
- */
-const CLIENT_WRITABLE_PARENT_KINDS = ["task", "thread"] as const;
-type ClientWritableParentKind = (typeof CLIENT_WRITABLE_PARENT_KINDS)[number];
-
 const createKnowledgeSchema = z.object({
-	// AU21 §9 Increment 2 (knowledge wave): widened to accept an explicit
-	// `null` alongside `undefined` — `write_memory`'s seam call always passes
-	// `topic: topic ?? null` (never bare `undefined`), unlike the pre-existing
-	// UI caller which simply omits the field when unset.
-	topic: z.string().nullable().optional(),
 	title: z.string(),
 	body: z.string(),
 	format: z.string(),
@@ -208,13 +132,6 @@ const createKnowledgeSchema = z.object({
 	// for scopes it resolves to no external id (e.g. "factory"), unlike the
 	// pre-existing UI caller which simply omits the field.
 	scopeId: z.string().nullable().optional(),
-	// AU21 §9 Increment 2 (knowledge wave): `kind` + an explicit `layer` override
-	// — see this file's top `@lore` and CreateKnowledgeItemRequest's own doc
-	// comment (api-contract). Both optional so the pre-existing UI caller
-	// (never sets either) keeps its exact prior behavior (kind stays null,
-	// layer stays derived from scopeToLayer(scopeKind)).
-	kind: z.enum(KNOWLEDGE_ITEM_KINDS).optional(),
-	layer: z.enum(KNOWLEDGE_LAYERS).optional(),
 	/**
 	 * The document's role — what context assembly does with it. Absent means
 	 * `ordinary`, which is the column default and what every existing caller
@@ -222,48 +139,33 @@ const createKnowledgeSchema = z.object({
 	 */
 	role: z.enum(KNOWLEDGE_ROLES).optional(),
 	/**
-	 * Where the item hangs. A produced item — what used to be an artifact row —
-	 * is a knowledge item whose parent is the task or the conversation that
-	 * produced it.
+	 * @lore nested-knowledge-items §8: a caller may place a new item under an
+	 * existing knowledge item, task, thread, routine or agent. Both present or
+	 * neither — the kernel table's `ki_parent_pair_ck` mirrors this at the DB
+	 * layer. Existence/invariant validation for a `knowledge_item` parent runs
+	 * inside `create()`'s own transaction; other parent kinds are accepted at
+	 * face value, matching the no-FK design's own best-effort guarantee.
 	 *
-	 * Only `task` and `thread` are accepted from a client. The other three
-	 * parent kinds in `KNOWLEDGE_PARENT_KINDS` (`knowledge_item`, `routine`,
-	 * `agent`) are written exclusively by core-api's own routes, which already
-	 * hold the parent row for other reasons and so never need a client to name
-	 * it. Accepting them here would be a way to forge a routine's prompt or an
-	 * agent's identity from outside.
+	 * @lore rebase-onto-#547: a parallel strand narrowed this to a
+	 * `CLIENT_WRITABLE_PARENT_KINDS = ["task", "thread"]` subset (routing
+	 * `knowledge_item`/`routine`/`agent` exclusively through server-side
+	 * callers) plus a cross-service `parentExists` existence check for
+	 * task/thread. This WP's design is the wider, already-reviewed one: full
+	 * `KNOWLEDGE_PARENT_KINDS` accepted at creation (§8), no existence check
+	 * at this layer — both narrower pieces are dropped rather than kept
+	 * alongside, since keeping both would mean two different validation
+	 * strengths for the same field depending on which code path a reviewer
+	 * happens to read.
 	 */
-	parentKind: z.enum(CLIENT_WRITABLE_PARENT_KINDS).optional(),
+	parentKind: z.enum(KNOWLEDGE_PARENT_KINDS).optional(),
 	parentId: z.string().optional(),
 });
-
-/**
- * Confirm a named parent actually exists, asking the service that OWNS its
- * table rather than reading that table here — `work` for a task,
- * `conversation` for a thread. Both are already imported by this route, so
- * this costs no new dependency.
- *
- * The slot carries no foreign key (it points at five tables), so this check is
- * the only thing standing between a typo and a knowledge item hanging off
- * nothing.
- */
-async function parentExists(
-	db: HyperIdleDb,
-	kind: ClientWritableParentKind,
-	id: string,
-): Promise<boolean> {
-	if (kind === "task") {
-		return (await work.get(db, "task", id)) !== undefined;
-	}
-	return (await findThread(db, { id })) !== undefined;
-}
 
 const updateKnowledgeSchema = z.object({
 	version: z.number(),
 	updatedBy: z.string(),
 	title: z.string().optional(),
 	body: z.string().optional(),
-	topic: z.string().optional(),
 	format: z.string().optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
 	/**
@@ -281,6 +183,14 @@ const updateKnowledgeSchema = z.object({
 	 */
 	scopeKind: z.enum(SCOPE_KINDS).optional(),
 	scopeId: z.string().nullable().optional(),
+	/**
+	 * @lore nested-knowledge-items: a move. Both present or neither — routed
+	 * through `reparent()`, not the generic field diff, because moving a
+	 * knowledge item re-checks the tree invariants (cycle, scope-no-wider,
+	 * depth<=32) against LIVE state inside its own transaction.
+	 */
+	parentKind: z.enum(KNOWLEDGE_PARENT_KINDS).optional(),
+	parentId: z.string().optional(),
 });
 
 // BA9d: agent-reachable merge/split doors (recovered from AU44 scope breach,
@@ -296,7 +206,6 @@ const splitSchema = z.object({
 			z.object({
 				title: z.string().min(1),
 				body: z.string().min(1),
-				topic: z.string().optional(),
 			}),
 		)
 		.min(2),
@@ -371,15 +280,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — list all items with LEFT JOIN to knowledgeAppProjection for pre-computed signals.
-	// Also computes L22 signals (accessCount30d, lastActivityAt) from knowledgeAccessLog.
 	// Q2: user-scoped items filtered: only visible to their author (updatedBy = userId).
 	// @lore O2: Kernel route queries app projection + access-log tables —
 	// pragmatic boundary compromise to avoid a second round-trip from the projection.
 	// @lore Q2: The filter is: include item if scope_kind != 'user' OR updatedBy = userId.
 	// Using 404 (not 403) for unauthorized access prevents leaking existence.
-	// @lore AV3: scopeName is NOT resolved here — detail endpoint only (GET /:id). Intentional
-	// list carve-out: resolving scopeName per-row would require N+1 DB queries or a batch join
-	// for every scope kind (user/team/bet/task). Detail endpoint resolves one item in one call.
 	router.get("/", async (c) => {
 		const userId = c.get("userId");
 		const parentKind = c.req.query("parentKind");
@@ -422,11 +327,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json({ items });
 	});
 
-	// GET /triage-count — count of draft + needs_human items visible to the requesting user.
+	// GET /triage-count — count of proposed items visible to the requesting user.
 	// Y4: lightweight endpoint for the sidebar badge.
 	// Must be registered before /:id to avoid route conflict.
-	// @lore Y4: The filter mirrors GET / user-scope visibility: include item if scope_kind != 'user'
-	// OR updatedBy = userId. This ensures private items from other users don't inflate the count.
 	router.get("/triage-count", async (c) => {
 		const userId = c.get("userId");
 		const count = await countKnowledgeItems(db, { triageVisible: userId });
@@ -435,14 +338,14 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /:id — single item, emit knowledge_accessed event
 	// Q2: returns 404 for user-scoped items not authored by the requesting user.
-	// AF13 §5: relatedItems computed as same-topic items visible to the requesting user,
-	// capped at 10, null-topic → [] (WARNING 2 from architecture-critique).
+	// @lore nested-knowledge-items: `relatedItems` (Backlinks) is now children
+	// ∪ siblings — the tree answers "what is near this" instead of a shared
+	// topic string. `children` is the ordered list this item's own children,
+	// for the detail page's "a parent renders its children" surface.
 	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
-		// @lore AU44 batch 4 MERGE row 9: detail→full; after score columns die, two
-		// joined views are one. KnowledgeItemWithProjection is the single joined view.
 		const row = await getKnowledgeItem(db, id, { view: "full" });
 
 		if (!row) {
@@ -465,20 +368,12 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
-		// AF13 §5 WARNING 2: relatedItems — same-topic items visible to this user, capped at 10.
-		// null-topic → [] (no topic match means no related items).
-		// User-scope filter: exclude other users' private (user-scoped) items.
-		let relatedItems: Array<{ id: string; title: string }> = [];
-		if (row.topic !== null) {
-			relatedItems = await listKnowledgeItems(db, {
-				relatedByTopic: {
-					topic: row.topic,
-					excludeId: row.id,
-					viewerUserId: userId,
-					limit: 10,
-				},
-			});
-		}
+		const [relatedItems, children] = await Promise.all([
+			listKnowledgeItems(db, {
+				childrenAndSiblings: { itemId: row.id, viewerUserId: userId, limit: 10 },
+			}),
+			listKnowledgeItems(db, { childrenOf: { parentId: row.id } }),
+		]);
 
 		// O2: emit knowledge_accessed event
 		const accessedEvent: KnowledgeAccessedEvent = {
@@ -498,16 +393,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			...row,
 			confidence: row.confidence ? Number.parseFloat(row.confidence) : undefined,
 			relatedItems,
+			children,
 			// AV3: resolved human-readable scope name (response-only, never persisted)
 			scopeName,
 		});
 	});
 
-	// POST / — create (version=1), status defaults to "draft"
-	// Q2: scopeKind required. scopeId required for product/practice/team/bet/task.
+	// POST / — create (version=1), status defaults to "proposed"
+	// Q2: scopeKind required. scopeId required for team.
 	//     factory and user scopes need no external scopeId.
 	//     user scope auto-fills scopeId from userId.
-	//     App projection layer assigned inline on creation.
 	router.post("/", validateBody(createKnowledgeSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
 		const userId = c.get("userId");
@@ -521,57 +416,28 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 400);
 		}
 
-		// The parent is both-or-neither: a kind with no id names nowhere, and an
-		// id with no kind names five tables at once. The column constraint
-		// (`ki_parent_pair_ck`) says the same thing, but a 500 from a constraint
-		// violation is a worse answer than a 400 that says which half is missing.
 		if ((body.parentKind === undefined) !== (body.parentId === undefined)) {
 			const response: ApiErrorResponse = {
-				error: "parentKind and parentId must be given together",
+				error: "parentKind and parentId must both be present or both be absent",
 				code: API_ERROR_CODES.VALIDATION_ERROR,
 			};
 			return c.json(response, 400);
-		}
-
-		if (body.parentKind !== undefined && body.parentId !== undefined) {
-			if (!(await parentExists(db, body.parentKind, body.parentId))) {
-				const response: ApiErrorResponse = {
-					error: `no ${body.parentKind} with id '${body.parentId}'`,
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 400);
-			}
 		}
 
 		// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
 		const resolvedScopeId =
 			body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
 
-		// @lore AU14: routes through the shared repository instead of a raw insert +
-		// upsertProjectionLayer. kind is omitted so projection.kind stays null exactly
-		// as before; resolvedScopeId is passed so the kernel scopeId (read by Q2/GET
-		// filters) is preserved — this also populates projection.scopeId, which was
-		// null pre-AU14. That is a deliberate, tested convergence (plan §9 D3), not a
-		// regression: route-created scoped items now participate in scope-filtered
-		// context assembly / promotion / practice-meeting / attention like tool-created
-		// items already do.
 		const created = await createKnowledgeItem(db, {
-			// AU21 §9 Increment 2 (knowledge wave): honor an explicit `layer`
-			// override when the caller supplies one (write_memory's real call
-			// always does); otherwise preserve the pre-existing derivation.
-			layer: body.layer ?? scopeToLayer(body.scopeKind),
 			scopeKind: body.scopeKind,
 			scopeId: resolvedScopeId,
-			kind: body.kind ?? null,
-			topic: body.topic ?? null,
 			title: body.title,
 			body: body.body,
 			format: body.format,
-			// O2: default status is "draft" (was "captured" in old implementation)
-			status: body.status ?? "draft",
+			// Default status is "proposed" — the ladder's starting point.
+			status: body.status ?? "proposed",
 			role: body.role,
-			parentKind: body.parentKind,
-			parentId: body.parentId,
+			...(body.parentKind ? { parentKind: body.parentKind, parentId: body.parentId } : {}),
 			updatedBy: body.updatedBy,
 		});
 
@@ -593,10 +459,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	});
 
 	// PATCH /:id — update (optimistic locking)
-	// @lore AU14: routes through the shared repository's versioned update() instead of
-	// a manual per-field edit-log loop + raw db.update. Pre-checks (404/409) stay so the
-	// common-path response body is unchanged; the try/catch below is belt-and-suspenders
-	// for a TOCTOU race between the pre-check and the repo's own transactional recheck.
+	// @lore nested-knowledge-items: a body carrying both `parentKind` and
+	// `parentId` is a MOVE — it routes through `reparent()` (tree invariants,
+	// its own transaction), not the generic field-diff `update()`. Any other
+	// field in the same body is applied first via `update()`, then the move.
 	router.patch("/:id", validateBody(updateKnowledgeSchema), async (c) => {
 		const id = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
@@ -631,6 +497,14 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 400);
 		}
 
+		if ((body.parentKind === undefined) !== (body.parentId === undefined)) {
+			const response: ApiErrorResponse = {
+				error: "parentKind and parentId must both be present or both be absent",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
 		try {
 			await updateKnowledgeItem(
 				db,
@@ -638,7 +512,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				{
 					title: body.title,
 					body: body.body,
-					topic: body.topic,
 					format: body.format,
 					status: body.status,
 					scopeKind: body.scopeKind,
@@ -647,6 +520,13 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				},
 				body.version,
 			);
+			if (body.parentKind && body.parentId) {
+				await reparentKnowledgeItem(db, id, {
+					parentKind: body.parentKind,
+					parentId: body.parentId,
+					updatedBy: body.updatedBy,
+				});
+			}
 		} catch (error) {
 			if (error instanceof VersionConflictError) {
 				const response: ApiErrorResponse = {
@@ -970,7 +850,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	});
 
 	// POST /sweep — agent-callable knowledge sweep (BA9d: replaces dead builtin routine path).
-	// kind="autoPromotion": promote provisional items that meet the repetition threshold.
+	// kind="autoPromotion": promote proposed items that meet the repetition threshold.
 	// kind="stale": mark active items that have not been referenced recently as stale.
 	const sweepBodySchema = z.object({ kind: z.enum(["autoPromotion", "stale"]) });
 	router.post("/sweep", validateBody(sweepBodySchema), async (c) => {

@@ -697,17 +697,16 @@ function cleanDirectory(dirPath: string): void {
 	fs.rmSync(dirPath, { recursive: true, force: true });
 }
 
-const CONTEXT_ASSEMBLY_DIRS = [
-	".fabric",
-	"context/product",
-	"context/practices",
-	"context/factory",
-	"knowledge/practices",
-	"knowledge/decisions",
-	"knowledge/failures",
-	"knowledge/rules",
-	"work/artifacts",
-] as const;
+/**
+ * @lore nested-knowledge-items §5: the per-layer `context/product|practices|
+ * factory` zones and the `knowledge/practices|decisions|failures` legacy
+ * kind-inference subdirectories are GONE — there is one writable, watched
+ * `knowledge/` tree shaped like the real tree, not a set of layer buckets. An
+ * agent's own materialised knowledge writes wherever its parent chain says;
+ * `knowledge/rules` survives because role='rule' items land there regardless
+ * of tree position (placement follows role, not tree position).
+ */
+const CONTEXT_ASSEMBLY_DIRS = [".fabric", "context", "knowledge/rules", "work/artifacts"] as const;
 
 /**
  * @lore BA9b: Per-harness skill directories — empirically verified 2026-08-26.
@@ -771,6 +770,31 @@ function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: s
 	return relativePath;
 }
 
+/**
+ * Write an ordinary item into `knowledge/`, shaped like its real ancestor
+ * chain (architecture.md §5). `writeContextBundle` does zero DB reads —
+ * `item.parentChain` (baked at emit time, root first) is the only source for
+ * "where in the tree does this go".
+ *
+ * An ancestor that is not itself among the selected items still gets its
+ * directory-with-index materialised (plan.md: "a path with a missing middle
+ * means nothing") — the index holds only the ancestor's own title, since the
+ * baked chain carries no body for it; that is incomplete, not fabricated.
+ */
+function writeOrdinaryItem(sandboxPath: string, item: BakedContextKnowledgeItem): string {
+	let cursor = "knowledge";
+	for (const ancestor of item.parentChain) {
+		cursor = `${cursor}/${toSkillDirName(ancestor.title)}`;
+		const fullDir = path.join(sandboxPath, cursor);
+		fs.mkdirSync(fullDir, { recursive: true });
+		const indexPath = path.join(fullDir, "index.md");
+		if (!fs.existsSync(indexPath)) {
+			fs.writeFileSync(indexPath, `# ${ancestor.title}\n`);
+		}
+	}
+	return writeItem(sandboxPath, item, cursor);
+}
+
 function setContextReadOnly(sandboxPath: string): void {
 	const contextDir = path.join(sandboxPath, "context");
 	if (!fs.existsSync(contextDir)) return;
@@ -789,13 +813,6 @@ function setContextReadOnly(sandboxPath: string): void {
 
 	setReadOnlyRecursive(contextDir);
 }
-
-/** Sandbox zone (relative to sandboxPath) a baked knowledge item's `layer` writes into. */
-const ZONE_BY_LAYER: Record<string, string> = {
-	L4: "context/factory",
-	L2: "context/product",
-	L3: "context/practices",
-};
 
 /**
  * @lore BA9b: Slugify a skill title into a safe directory name.
@@ -849,8 +866,6 @@ function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): s
  * `toBakedContextKnowledgeItems` (`@hyperidle/domain-model`), and this
  * function only ever compares the already-derived value.
  *
- * Items with role='ordinary' and an unrecognized/absent layer are skipped
- * (defensive — assembleSessionKnowledge only produces L4/L2/L3 ordinary items).
  */
 function writeBundleKnowledge(
 	sandboxPath: string,
@@ -910,16 +925,9 @@ function writeBundleKnowledge(
 			continue;
 		}
 
-		// role === 'ordinary': route by layer (existing behavior).
-		const zone = item.layer ? ZONE_BY_LAYER[item.layer] : undefined;
-		if (!zone) {
-			logger.warn("skipping baked knowledge item with unrecognized layer", {
-				itemId: item.id,
-				layer: item.layer,
-			});
-			continue;
-		}
-		const relativePath = writeItem(sandboxPath, item, zone);
+		// role === 'ordinary': materialise into knowledge/, shaped like its
+		// real ancestor chain (architecture.md §5) — not a layer zone.
+		const relativePath = writeOrdinaryItem(sandboxPath, item);
 		manifestItems[item.id] = {
 			version: item.version,
 			source_path: relativePath,

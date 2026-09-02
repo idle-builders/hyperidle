@@ -1,7 +1,8 @@
 /** Consolidated private capture/writeback stage. */
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeEditLog, knowledgeItems, sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 
@@ -10,23 +11,28 @@ import { eq } from "drizzle-orm";
 // knowledge — CaptureWritebackKnowledgeWriter (ordinary downward edge, real target)
 // ---------------------------------------------------------------------------
 
-type CaptureWritebackKnowledgeLayer = "L1" | "L2" | "L3";
-type CaptureWritebackKnowledgeKind = "pattern" | "decision" | "failure" | "reflection";
-
+/**
+ * @lore nested-knowledge-items: `layer`/`kind` are DELETED — a knowledge item
+ * a session writes back is a node in the tree now, not a flat-vocabulary
+ * document. `status` collapses to the four-value ladder's starting point:
+ * "proposed" (draft/captured/provisional all folded into it).
+ */
 interface CaptureWritebackCreateKnowledgeItemInput {
-	readonly layer: CaptureWritebackKnowledgeLayer;
-	readonly kind: CaptureWritebackKnowledgeKind;
 	readonly title: string;
 	readonly body: string;
 	readonly format: string;
 	/**
-	 * `draft`, not `captured`. This path sent `captured` for its whole life and
-	 * the route has never accepted that value — it validates status against its
-	 * own four-value list — so every writeback create was rejected before it
-	 * reached the database. `draft` is the same state under the name the route
-	 * knows.
+	 * @lore nested-knowledge-items / rebase-onto-#547: a parallel strand found
+	 * this path sent `captured` for its whole life and the route never accepted
+	 * that value — every writeback create was rejected before it reached the
+	 * database — and fixed it forward to `draft`. `draft` no longer exists:
+	 * this WP's status collapse (`KNOWLEDGE_STATUSES`,
+	 * `framework/domain-model/src/knowledge.ts`) deletes the whole
+	 * draft/captured/provisional ladder and replaces it with a single triage
+	 * starting state, `proposed`. `proposed` is what actually reaches the
+	 * route now.
 	 */
-	readonly status: "draft";
+	readonly status: "proposed";
 	readonly updatedBy: string;
 	/**
 	 * Where the produced item hangs: the session's task, or the conversation
@@ -163,6 +169,156 @@ function titleFromFilename(filename: string): string {
 	return base.replace(/[_-]/g, " ");
 }
 
+/**
+ * The `_${id.slice(0,8)}` suffix `toFilename` (context.ts) puts on every
+ * materialised path (D3) — the one thing making a path unique, and what
+ * makes a move self-identifying. Matched against the FILENAME two paths
+ * carry, not against any real database id: the suffix is a stable token a
+ * rename preserves, decoupled from whichever id a fresh `create()` call
+ * happens to assign (architecture.md §5).
+ */
+function filenameIdSuffix(relativePath: string): string | null {
+	const base = path.basename(relativePath, path.extname(relativePath));
+	const match = /_([A-Za-z0-9]{8})$/.exec(base);
+	return match?.[1] ?? null;
+}
+
+/**
+ * A manifest entry whose OWN tracked path carries the same id suffix as
+ * `relativePath` — the move-detection match. Excludes an entry already
+ * sitting at `relativePath` (that is not a move, it is the same path).
+ */
+function findManifestEntryBySuffix(
+	manifest: Manifest,
+	relativePath: string,
+): { itemId: string; entry: ManifestEntry } | null {
+	const suffix = filenameIdSuffix(relativePath);
+	if (!suffix) return null;
+	for (const [itemId, entry] of Object.entries(manifest.items)) {
+		if (entry.source_path === relativePath) continue;
+		if (filenameIdSuffix(entry.source_path) === suffix) {
+			return { itemId, entry };
+		}
+	}
+	return null;
+}
+
+/**
+ * Read a knowledge item's current `parentKind`/`parentId`/`scopeKind` — the
+ * three fields a move or a directory-scoped create needs, and which the
+ * knowledge port's `create()`/`update()` surface (deliberately narrowed to
+ * `{body, updatedBy}` — see this file's top `@lore`) does not carry.
+ *
+ * @lore nested-knowledge-items §5: this reads/writes `knowledgeItems`
+ * directly via `config.db` rather than through the `knowledge` port. That is
+ * a deliberate, narrow crossing of the "knowledge owns knowledge_items"
+ * table boundary — the same one the real production port crosses over HTTP
+ * (a request the writeback processor cannot originate on its own without
+ * that hop) — recorded here rather than silently, since it is a discretionary
+ * call, not an obligation the architecture spelled out by name.
+ */
+async function getItemLink(
+	db: HyperIdleDb,
+	itemId: string,
+): Promise<{ readonly parentKind: string | null; readonly parentId: string | null; readonly scopeKind: string }> {
+	const [row] = await db
+		.select({
+			parentKind: knowledgeItems.parentKind,
+			parentId: knowledgeItems.parentId,
+			scopeKind: knowledgeItems.scopeKind,
+		})
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.id, itemId))
+		.limit(1);
+	return row ?? { parentKind: null, parentId: null, scopeKind: "factory" };
+}
+
+/** Set a knowledge item's parent link (+ scope, for a fresh directory/leaf create) and log the move. */
+async function setItemLink(
+	db: HyperIdleDb,
+	sessionId: string,
+	itemId: string,
+	link: { readonly parentKind: "knowledge_item" | null; readonly parentId: string | null; readonly scopeKind?: string },
+): Promise<void> {
+	const before = await getItemLink(db, itemId);
+	await db
+		.update(knowledgeItems)
+		.set({
+			parentKind: link.parentKind,
+			parentId: link.parentId,
+			...(link.scopeKind ? { scopeKind: link.scopeKind } : {}),
+			updatedAt: new Date().toISOString(),
+		})
+		.where(eq(knowledgeItems.id, itemId));
+
+	if (before.parentId !== link.parentId || before.parentKind !== link.parentKind) {
+		await db.insert(knowledgeEditLog).values({
+			id: randomUUID(),
+			itemId,
+			editor: `session:${sessionId}`,
+			field: "parent",
+			oldValue: before.parentId ? `${before.parentKind}:${before.parentId}` : null,
+			newValue: link.parentId ? `${link.parentKind}:${link.parentId}` : null,
+			editType: "update",
+			createdAt: new Date().toISOString(),
+		});
+	}
+}
+
+/**
+ * Ensure every directory from `knowledge/` down to `dirRelativePath` has a
+ * knowledge item (plan.md D4: "a folder is a knowledge item"), creating any
+ * that are missing, and return the immediate parent's item id (`null` at the
+ * `knowledge/` root itself).
+ *
+ * @lore nested-knowledge-items §5 D4: a created directory item inherits its
+ * own parent's scope. Manifest entries double as the directory→item index —
+ * a directory's `source_path` is its own relative path, so `findItemByPath`
+ * already tells this function which directories already have an item.
+ */
+async function ensureDirectoryChainItem(
+	config: WritebackConfig,
+	dirRelativePath: string,
+	manifest: Manifest,
+): Promise<string | null> {
+	if (dirRelativePath === "knowledge" || dirRelativePath === "." || dirRelativePath === "") {
+		return null;
+	}
+
+	const existing = findItemByPath(manifest, dirRelativePath);
+	if (existing) return existing.itemId;
+
+	const parentDir = path.dirname(dirRelativePath);
+	const parentItemId = await ensureDirectoryChainItem(config, parentDir, manifest);
+	const parentScopeKind = parentItemId
+		? (await getItemLink(config.db, parentItemId)).scopeKind
+		: "factory";
+
+	const created = await config.knowledge.create(config.db, {
+		// A directory's title is its plain name, unlike a file's — a folder
+		// called "team-rituals" is still called "team-rituals" (no
+		// underscore/hyphen-to-space normalization; that only makes sense for
+		// a filename that also carries an extension and an id suffix).
+		title: path.basename(dirRelativePath),
+		body: "",
+		format: "markdown",
+		status: "proposed",
+		updatedBy: `session:${config.sessionId}`,
+	});
+	await setItemLink(config.db, config.sessionId, created.id, {
+		parentKind: parentItemId ? "knowledge_item" : null,
+		parentId: parentItemId,
+		scopeKind: parentScopeKind,
+	});
+
+	manifest.items[created.id] = {
+		version: created.version,
+		source_path: dirRelativePath,
+		format: created.format,
+	};
+	return created.id;
+}
+
 /** Process a batch of writeback changes. */
 async function processWriteback(
 	config: WritebackConfig,
@@ -178,7 +334,18 @@ async function processWriteback(
 
 	const manifest = readManifest(config.manifestPath);
 
-	for (const change of changes) {
+	// @lore nested-knowledge-items §5: creates are processed before deletes so
+	// a move (a create whose filename suffix matches a path this batch is also
+	// deleting) retargets the manifest FIRST — the paired delete for the old
+	// path then finds nothing tracked there and safely no-ops. Batch pairing
+	// itself was rejected (a directory rename is N deletes + N creates that
+	// never line up 1:1); ordering the two PASSES, not pairing entries, is
+	// what makes this safe.
+	const creates = changes.filter((c) => c.type === "create");
+	const modifies = changes.filter((c) => c.type === "modify");
+	const deletes = changes.filter((c) => c.type === "delete");
+
+	for (const change of [...creates, ...modifies, ...deletes]) {
 		const relativePath = change.relativePath;
 
 		// Handle session notes specially
@@ -189,7 +356,7 @@ async function processWriteback(
 			continue;
 		}
 
-		// Only knowledge/ files create/update knowledge_items
+		// Only knowledge/ files/directories create/update knowledge_items
 		if (!isKnowledgePath(relativePath)) {
 			result.processed++;
 			continue;
@@ -197,8 +364,14 @@ async function processWriteback(
 
 		switch (change.type) {
 			case "create":
-				await handleCreate(config, change, manifest);
-				result.created++;
+				{
+					const outcome = await handleCreate(config, change, manifest);
+					if (outcome === "moved") {
+						result.updated++;
+					} else {
+						result.created++;
+					}
+				}
 				break;
 			case "modify":
 				{
@@ -231,35 +404,59 @@ async function processWriteback(
 	return result;
 }
 
-/** Handle a new file in knowledge/. */
+/**
+ * Handle a new path in knowledge/ — a directory (materialises its own item,
+ * D4) or a file (a move, if its filename suffix matches an already-tracked
+ * path, or a genuinely new item otherwise).
+ */
 async function handleCreate(
 	config: WritebackConfig,
 	change: WritebackChange,
 	manifest: Manifest,
-): Promise<void> {
-	const body = fs.readFileSync(change.fullPath, "utf-8");
-	const title = titleFromFilename(change.relativePath);
+): Promise<"created" | "moved"> {
+	const relativePath = change.relativePath;
 
-	// Determine kind from subdirectory
-	const parts = change.relativePath.split("/");
-	let kind: "pattern" | "decision" | "failure" | "reflection" = "pattern";
-	if (parts.length > 1) {
-		const subdir = parts[1];
-		if (subdir === "decisions") kind = "decision";
-		else if (subdir === "failures") kind = "failure";
-		else if (subdir === "practices") kind = "pattern";
+	if (fs.existsSync(change.fullPath) && fs.statSync(change.fullPath).isDirectory()) {
+		await ensureDirectoryChainItem(config, relativePath, manifest);
+		return "created";
 	}
 
+	// Move detection (architecture §5): a creation whose filename carries the
+	// same id suffix as an already-tracked path IS that item, moved.
+	const suffixMatch = findManifestEntryBySuffix(manifest, relativePath);
+	if (suffixMatch) {
+		const parentDir = path.dirname(relativePath);
+		const parentItemId = await ensureDirectoryChainItem(config, parentDir, manifest);
+		await setItemLink(config.db, config.sessionId, suffixMatch.itemId, {
+			parentKind: parentItemId ? "knowledge_item" : null,
+			parentId: parentItemId,
+		});
+		manifest.items[suffixMatch.itemId] = { ...suffixMatch.entry, source_path: relativePath };
+		return "moved";
+	}
+
+	const body = fs.readFileSync(change.fullPath, "utf-8");
+	const title = titleFromFilename(change.relativePath);
+	const parentDir = path.dirname(relativePath);
+	const parentItemId = await ensureDirectoryChainItem(config, parentDir, manifest);
+
 	const item = await config.knowledge.create(config.db, {
-		layer: "L1",
-		kind,
 		title,
 		body,
 		format: "markdown",
-		status: "draft",
+		status: "proposed",
 		updatedBy: `session:${config.sessionId}`,
 		...(config.parent ? { parent: config.parent } : {}),
 	});
+
+	if (parentItemId) {
+		const parentScopeKind = (await getItemLink(config.db, parentItemId)).scopeKind;
+		await setItemLink(config.db, config.sessionId, item.id, {
+			parentKind: "knowledge_item",
+			parentId: parentItemId,
+			scopeKind: parentScopeKind,
+		});
+	}
 
 	// Add to manifest
 	manifest.items[item.id] = {
@@ -267,6 +464,7 @@ async function handleCreate(
 		source_path: change.relativePath,
 		format: item.format,
 	};
+	return "created";
 }
 
 /** Handle a modified file in knowledge/. Returns outcome type. */
@@ -333,7 +531,9 @@ async function handleDelete(
 	const existing = findItemByPath(manifest, change.relativePath);
 
 	if (!existing) {
-		return false; // Not tracked, nothing to do
+		// Not tracked (or already retargeted elsewhere by a move processed
+		// earlier in this same batch) — nothing to do.
+		return false;
 	}
 
 	// Create a review item flagging the deletion for facilitator

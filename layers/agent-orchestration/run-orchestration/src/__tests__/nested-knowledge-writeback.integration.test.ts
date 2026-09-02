@@ -63,7 +63,6 @@ function makeRealDbKnowledgeWriter(
 				id,
 				scopeKind: "factory",
 				scopeId: null,
-				topic: null,
 				title: input.title,
 				body: input.body,
 				format: input.format,

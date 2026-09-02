@@ -111,7 +111,12 @@ export function startWatcher(config: FileWatcherConfig): FileWatcher {
 		if (fs.existsSync(fullPath)) {
 			const stat = fs.lstatSync(fullPath);
 			if (stat.isSymbolicLink()) return;
-			if (!stat.isFile()) return;
+			// @lore nested-knowledge-items §5: a directory used to be dropped here
+			// unconditionally — "a folder is a knowledge item" (plan.md D4) means
+			// the watcher must report a new directory too, so writeback can create
+			// its item. `writeback-processor.ts` distinguishes file vs. directory
+			// by stat'ing `fullPath` itself; nothing here needs to know which.
+			if (!stat.isFile() && !stat.isDirectory()) return;
 
 			changeType = "modify"; // Will be refined in writeback
 		} else {

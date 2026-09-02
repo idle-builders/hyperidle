@@ -275,7 +275,6 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// ── 3. Knowledge items ──────────────────────────────────────────────────
 		//
 		// Find knowledge items where title OR body LIKE-matches the query.
-		// LEFT JOIN knowledgeAppProjection for layer/kind.
 		//
 		// Auth boundary: scope_kind != 'user' OR updated_by = userId.
 		// (user-scoped items are private to their author)
@@ -299,8 +298,6 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		const knowledgeResults = kiRows.map((row) => ({
 			id: row.id,
 			title: row.title,
-			layer: row.layer ?? "L0",
-			kind: row.kind ?? "pattern",
 			status: row.status,
 			timestamp: row.updatedAt,
 		}));
