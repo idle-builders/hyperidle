@@ -87,15 +87,15 @@ describe("resolveScopeName — resolves scopeId to human-readable scope name", (
 		expect(result).toBe("Team");
 	});
 
-	// ── task ─────────────────────────────────────────────────────────────────
-	// BB1: "bet" scope deleted — tests removed; bets table gone from @hyperidle/db.
-	it("task → tasks.title when entity found", async () => {
-		const { tasks } = await import("@hyperidle/db");
-		const db = makeDb(new Map([[tasks, [{ title: "Implement login" }]]]));
-		const result = await resolveScopeName(db, "task", "task-1");
-		expect(result).toBe("Implement login");
-	});
+	// @lore nested-knowledge-items: `task`/`product`/`practice` are all
+	// retired scope values; `resolveScopeName`'s task-title, "Team"-literal,
+	// and role-label branches are DELETED with them. No replacement behavior
+	// exists to assert — all three now resolve through the same unknown-kind
+	// fallback the `filesystem` and `practice`-with-empty-scopeId cases below
+	// already cover ("task"/"product"/"practice" → scopeKindToLabel(...) →
+	// "Shared", exactly like "filesystem").
 
+	// ── task ─────────────────────────────────────────────────────────────────
 	it("task missing → scopeKindToLabel('task') = 'Shared'", async () => {
 		const result = await resolveScopeName(emptyDb(), "task", "nonexistent");
 		expect(result).toBe(scopeKindToLabel("task"));
@@ -107,29 +107,7 @@ describe("resolveScopeName — resolves scopeId to human-readable scope name", (
 		expect(result).toBe("Shared");
 	});
 
-	// ── product (no table) ───────────────────────────────────────────────────
-	it("product → scopeKindToLabel('product') = 'Team' (no entity table)", async () => {
-		const result = await resolveScopeName(emptyDb(), "product", "some-id");
-		expect(result).toBe(scopeKindToLabel("product"));
-		expect(result).toBe("Team");
-	});
-
-	it("product null scopeId → 'Team'", async () => {
-		const result = await resolveScopeName(emptyDb(), "product", null);
-		expect(result).toBe("Team");
-	});
-
-	// ── practice → role label (AV3 amendment A1) ─────────────────────────────
-	it("practice with known role scopeId → catalog label ('product_manager' → 'Product Manager')", async () => {
-		const result = await resolveScopeName(emptyDb(), "practice", "product_manager");
-		expect(result).toBe("Product Manager");
-	});
-
-	it("practice with unknown role scopeId → title-cased ('growth_hacker' → 'Growth Hacker')", async () => {
-		const result = await resolveScopeName(emptyDb(), "practice", "growth_hacker");
-		expect(result).toBe("Growth Hacker");
-	});
-
+	// ── practice ─────────────────────────────────────────────────────────────
 	it("practice with empty scopeId → scopeKindToLabel('practice') = 'Shared'", async () => {
 		const result = await resolveScopeName(emptyDb(), "practice", "");
 		expect(result).toBe(scopeKindToLabel("practice"));

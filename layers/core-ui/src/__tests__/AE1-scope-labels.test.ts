@@ -1,67 +1,45 @@
 /**
- * AE1 — Purge False Knowledge & Doc Hygiene: failing tests (red phase).
+ * AE1 — Purge False Knowledge & Doc Hygiene.
  *
- * AC3 + AC4: scopeKindToLabel("product") must return "Team" (not "Shared"),
- * and SCOPE_PILL_OPTIONS must place "product" in the Team pill's filterKinds,
- * not the Shared pill's.
- *
- * These tests verify the AE1 implementation is correct.
+ * AC3 + AC4 originally locked "product" → "Team" and SCOPE_PILL_OPTIONS
+ * placing "product" in the Team pill. nested-knowledge-items retired
+ * `product` (and `practice`/`task`/`bet`) as scope values entirely — the
+ * 3-value contract these tests now lock is what survived that collapse.
  */
 
 import { describe, expect, it } from "vitest";
 import { SCOPE_PILL_OPTIONS, scopeKindToLabel } from "../utils/scope-labels.js";
 
-// ---------------------------------------------------------------------------
-// AC3 + AC4: scopeKindToLabel — "product" maps to "Team"
-// ---------------------------------------------------------------------------
-
-describe("AE1 — scopeKindToLabel: product → Team", () => {
-	it('scopeKindToLabel("product") returns "Team"', () => {
-		expect(scopeKindToLabel("product")).toBe("Team");
-	});
-
-	it('scopeKindToLabel("team") still returns "Team"', () => {
-		// Must not regress
+describe("AE1 — scopeKindToLabel: the 3-value contract", () => {
+	it('scopeKindToLabel("team") returns "Team"', () => {
 		expect(scopeKindToLabel("team")).toBe("Team");
 	});
 
-	it('scopeKindToLabel("user") still returns "Private"', () => {
+	it('scopeKindToLabel("user") returns "Private"', () => {
 		expect(scopeKindToLabel("user")).toBe("Private");
 	});
 
-	it('scopeKindToLabel("factory") still returns "Shared"', () => {
+	it('scopeKindToLabel("factory") returns "Shared"', () => {
 		expect(scopeKindToLabel("factory")).toBe("Shared");
 	});
 
-	it('scopeKindToLabel("practice") still returns "Shared"', () => {
-		expect(scopeKindToLabel("practice")).toBe("Shared");
+	// @lore nested-knowledge-items: "product" is a retired scope value — it
+	// no longer gets its own "Team" mapping, it falls through to the same
+	// unknown-kind fallback any other unrecognized string gets.
+	it('scopeKindToLabel("product") falls back to "Shared" (retired scope value)', () => {
+		expect(scopeKindToLabel("product")).toBe("Shared");
 	});
 });
 
-// ---------------------------------------------------------------------------
-// AC4: SCOPE_PILL_OPTIONS — Team pill includes "product", Shared pill excludes it
-// ---------------------------------------------------------------------------
-
-describe("AE1 — SCOPE_PILL_OPTIONS: Team pill includes product", () => {
-	it('Team pill filterKinds includes "product"', () => {
+describe("AE1 — SCOPE_PILL_OPTIONS: the 3 real scope kinds", () => {
+	it('Team pill filterKinds is exactly ["team"]', () => {
 		const teamPill = SCOPE_PILL_OPTIONS.find((o) => o.id === "team");
-		expect(teamPill?.filterKinds).toContain("product");
+		expect(teamPill?.filterKinds).toEqual(["team"]);
 	});
 
-	it('Team pill filterKinds still includes "team"', () => {
-		const teamPill = SCOPE_PILL_OPTIONS.find((o) => o.id === "team");
-		expect(teamPill?.filterKinds).toContain("team");
-	});
-
-	it('Shared pill filterKinds does NOT include "product"', () => {
+	it('Shared pill filterKinds is exactly ["factory"]', () => {
 		const sharedPill = SCOPE_PILL_OPTIONS.find((o) => o.id === "shared");
-		expect(sharedPill?.filterKinds).not.toContain("product");
-	});
-
-	it('Shared pill filterKinds still includes "factory" and "practice"', () => {
-		const sharedPill = SCOPE_PILL_OPTIONS.find((o) => o.id === "shared");
-		expect(sharedPill?.filterKinds).toContain("factory");
-		expect(sharedPill?.filterKinds).toContain("practice");
+		expect(sharedPill?.filterKinds).toEqual(["factory"]);
 	});
 
 	it("All pill filterKinds is null (no filter)", () => {

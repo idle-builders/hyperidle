@@ -161,11 +161,11 @@ describe("AF13 §3 — Sort pills reorder the triage tab", () => {
 		mockUseFetch.mockReturnValue({
 			data: {
 				items: [
-					makeItem("draft-old", "draft", {
+					makeItem("draft-old", "proposed", {
 						updatedAt: "2024-01-01T00:00:00Z",
 						title: "Old Draft",
 					}),
-					makeItem("draft-new", "draft", {
+					makeItem("draft-new", "proposed", {
 						updatedAt: "2024-06-01T00:00:00Z",
 						title: "New Draft",
 					}),
@@ -221,7 +221,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 		mockUseFetch.mockReturnValue({
 			data: {
 				items: [
-					makeItem("k-draft", "draft", { title: "Draft to validate", topic: "Science" }),
+					makeItem("k-draft", "proposed", { title: "Draft to validate", topic: "Science" }),
 					makeItem("k-active", "active", { title: "Already active", topic: "Science" }),
 				],
 			},
@@ -253,7 +253,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 	it("validated item appears in the Curated tab in the same render", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [makeItem("k-draft", "draft", { title: "Newly validated", topic: "Science" })],
+				items: [makeItem("k-draft", "proposed", { title: "Newly validated", topic: "Science" })],
 			},
 			error: null,
 			isLoading: false,
@@ -282,7 +282,9 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 	it("rejected item leaves triage and does NOT appear in curated", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [makeItem("k-draft-reject", "draft", { title: "Item to reject", topic: "Science" })],
+				items: [
+					makeItem("k-draft-reject", "proposed", { title: "Item to reject", topic: "Science" }),
+				],
 			},
 			error: null,
 			isLoading: false,
@@ -324,7 +326,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 	it("reverts to triage when PATCH fails (failure-revert semantics preserved)", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [makeItem("k-fail", "draft", { title: "Failing item", topic: "Science" })],
+				items: [makeItem("k-fail", "proposed", { title: "Failing item", topic: "Science" })],
 			},
 			error: null,
 			isLoading: false,

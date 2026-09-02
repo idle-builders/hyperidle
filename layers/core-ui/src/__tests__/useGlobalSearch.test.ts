@@ -26,9 +26,7 @@ const mockKnowledge = [
 	{
 		id: "k1",
 		title: "Rate Limiting",
-		layer: "L2" as const,
-		kind: "pattern" as const,
-		status: "validated" as const,
+		status: "active" as const,
 		timestamp: "1 hour ago",
 	},
 ];

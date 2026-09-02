@@ -77,8 +77,8 @@ vi.mock("../../hooks/useKnowledgeItem", () => ({
 			status: "active",
 			kind: "decision",
 			layer: "L2",
-			// W3: scopeKind must be "practice" so the Edit button renders (factory items are read-only)
-			scopeKind: "practice",
+			// W3: scopeKind must not be "factory" so the Edit button renders (factory items are read-only)
+			scopeKind: "team",
 			scopeId: null,
 			version: 1,
 			format: "markdown",

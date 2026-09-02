@@ -76,7 +76,7 @@ describe("useKnowledgeItem", () => {
 			id: "k-abc",
 			title: "Test Knowledge Item",
 			version: 3,
-			scopeKind: "practice",
+			scopeKind: "factory",
 		});
 		expect(result.current.error).toBeNull();
 	});

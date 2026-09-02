@@ -28,8 +28,8 @@ vi.mock("../../hooks/useKnowledgeItem", () => ({
 			status: "active",
 			kind: "decision",
 			layer: "L2",
-			// "practice" keeps the item editable — factory items are read-only.
-			scopeKind: "practice",
+			// "team" keeps the item editable — factory items are read-only.
+			scopeKind: "team",
 			scopeId: null,
 			role: "ordinary",
 			version: 3,
