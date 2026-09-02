@@ -298,31 +298,35 @@ race for a number below that.
 
 Settled with BB1 directly:
 
-- **`tasks.artifacts` -> `handoffFiles` is OURS.** BB1 offered, then handed it
-  back explicitly rather than leaving it ambiguous: the column rename is one
-  line, but the code is not mechanical, and the founder asked them to land their
-  package rather than bolt a cross-cutting rename onto the end of it. It is
-  cheaper here anyway — by the time this runs, `layers/core-api/src` and
-  `layers/core-ui` are settled rather than moving.
+- **`tasks.artifacts` is DEAD — drop it, do not rename it.** The plan previously
+  said this column had to be renamed to `handoffFiles` by hand, warning that a
+  blind replace would hit unrelated `artifacts:` keys. That warning still stands
+  for the *other* keys, but the column itself needs no rename because **nothing
+  uses it**. Verified on `main` at `bed7972d8`:
 
-  **It is also not optional.** AC2 forbids the string "artifact" in production
-  code, and this column is production code. It was always in scope; the handback
-  only changes who does it.
+  - **Zero writers.** The only production task INSERT is `work-service.ts:732`,
+    fed from `layers/core-api/src/routes/tasks.ts`, and that path never sets
+    `artifacts`. Every other `insert(tasks)` in the repo is under `tools/`.
+  - **Zero readers.** `work-service.ts` selects `*`, so the column rides along
+    into the row and is mirrored as `artifacts: string | null` at
+    `layers/core-ui/src/types/task.ts:34` — but no UI code ever reads
+    `task.artifacts`.
+  - **The handoff filename array never went through this column.** It travels in
+    the thread message payload: `layers/core-api/src/routes/tasks.ts:134` and
+    `:617` are the handoff *request body*, forwarded to
+    `layers/core-api/policy/src/handoff-protocol.ts:28` and written into
+    `messages.payload` at `:283`.
 
-  What we inherit: `tasks.artifacts` is a text column holding a JSON array of
-  handoff filenames — nothing to do with the `artifacts` TABLE. The deferred
-  rename note sits beside it (`framework/db/src/schema.ts:1043`). The real writer
-  is the handoff path (`layers/core-api/policy/src/handoff-protocol.ts:283`) plus
-  the task read surface; it is not part of the task tree or ordering work.
+  So: drop the column in the migration, delete the field from the core-ui `Task`
+  type, and leave `HandoffMetadata.artifacts` alone — that is a message-payload
+  field naming real handoff filenames, a separate question from either artifact
+  concept, and renaming it is not this strand's job.
 
-  **Rename by hand, never mechanically.** Verified: `artifacts:` is a key in
-  several unrelated shapes — the handoff array
-  (`tool-definitions.ts:314`, `z.array(z.string())`), the review canvas
-  (`tool-definitions.ts:619`, `z.array(reviewCanvasArtifactSchema)`), review
-  composition (`review-composition.ts:129`), and the core-api port
-  (`core-api-port-composition.ts:207`). A blind replace hits all of them. Most
-  are review artifacts that die under AC2 anyway, so this lands inside a sweep
-  this strand is doing regardless.
+  **The by-hand warning still applies to everything else.** `artifacts:` is a key
+  in several unrelated shapes that must NOT be touched: the handoff array
+  (`tool-definitions.ts:310`), the review canvas (`tool-definitions.ts:691`),
+  review composition (`review-composition.ts:86`), the core-api port
+  (`core-api-port-composition.ts:192`), and `threads-schema.ts:200`.
 - **The FK is a non-issue.** `artifacts.producing_task_id` NOT NULL RESTRICT
   never fires against their migration 0068 — it only ADDs columns, INSERTs root
   tasks, UPDATEs parentage, then drops `bet_id` and the `bets` table. RESTRICT
