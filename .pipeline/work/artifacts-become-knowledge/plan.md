@@ -581,3 +581,34 @@ list names identifiers — `ArtifactRow`, `producingTaskId`, `previewJson`,
 shapes that all survive (the handoff filename array, the review canvas, review
 composition, the core-api port client, the threads write arm), and a rule that
 banned the word would need a carve-out for each one.
+
+### Graduation had no mechanism, and this plan opens with it
+
+This plan's first paragraph says *"Giving either one a knowledge-item parent
+later is how it graduates into the team's knowledge tree"*, and AC6 tests exactly
+that. It cannot happen today.
+
+Phase 1 made the parent **create-only**, on purpose:
+`KERNEL_EDITABLE_FIELDS` (`knowledge-repository.ts`) omits both `role` and the
+parent, and `updateKnowledgeSchema` omits them too, so `z.object` strips a parent
+out of a PATCH body before it reaches the repository. That was the right call for
+the defect it closed — a person could otherwise repoint a routine's prompt or an
+agent's identity at something else — and reopening the field generically would
+undo it.
+
+So graduation is a **narrow, dedicated transition**, not a reopened field:
+
+- Allowed only when the item's role is `ordinary`. A skill, rule, agent file or
+  routine prompt can never be reparented by this path, which is the guarantee
+  phase 1 bought.
+- Allowed only when the current parent is `task` or `thread` — that is what a
+  produced item is. An item already in the tree is not graduating.
+- The new parent is a `knowledge_item` that exists, or nothing at all, which
+  means the top of the tree.
+- It writes an edit-log entry carrying the old parent, which is what makes AC6
+  satisfiable and what the plan's "provenance is history, not a column" decision
+  depends on: the original task id survives as that entry's `oldValue` and there
+  is nowhere else it is kept.
+
+The narrow shape is the point. One transition, with its own preconditions, cannot
+be pointed at a routine prompt however it is called.
