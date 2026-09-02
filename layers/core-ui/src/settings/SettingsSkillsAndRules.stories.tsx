@@ -2,8 +2,9 @@
  * Stories for SettingsSkillsAndRules — a thin instantiation of the shared
  * `KnowledgeRoleList` (role in {skill, rule}). Rows render on the ItemList/Row
  * design-system primitives; the bordered `--surface-elevated` container with
- * hairline row dividers is KnowledgeRoleList's own wrapper (matches the
- * SettingsHarnesses grammar), and each row carries a `Tag` for the role mark.
+ * hairline row dividers, no shadow, is `ItemList`'s own `variant="boxed"`
+ * (the same variant SettingsHarnesses renders through — one spelling, not a
+ * per-caller claim of parity), and each row carries a `Tag` for the role mark.
  *
  * Mocks `globalThis.fetch` (the layer `apiFetch` calls through to) and
  * `require`s the component fresh per story — same mechanism

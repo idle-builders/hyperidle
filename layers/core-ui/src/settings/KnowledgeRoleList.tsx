@@ -23,21 +23,23 @@
 import type { KnowledgeRole } from "@hyperidle/domain-model";
 import { KNOWLEDGE_ROLE_LABEL } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 // hearth-internal-padding
 import {
 	Button,
-	EmptyState,
 	ErrorState,
 	Input,
 	ItemList,
 	Row,
+	RowDeleteAction,
+	SectionLabel,
 	Select,
 	SkeletonList,
 	Tag,
 } from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useFetch } from "../hooks/useFetch.js";
 import { apiFetch } from "../services/api-fetch.js";
 
 // ---------------------------------------------------------------------------
@@ -80,42 +82,23 @@ export function KnowledgeRoleList({
 	const navigate = useNavigate();
 	const { user } = useCurrentUser();
 
-	const [items, setItems] = useState<RoleItem[]>([]);
-	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+	// GET /api/knowledge has no role or status query param — it returns every
+	// item visible to the viewer, so this "what's live" surface filters to its
+	// own roles and drops archived items client-side rather than widening the
+	// shared route.
+	const { data, error, isLoading, refetch } = useFetch<{ items?: ApiKnowledgeItem[] }>(
+		"/api/knowledge",
+	);
+	const items: RoleItem[] = (data?.items ?? [])
+		.filter((item): item is RoleItem => roles.includes(item.role as KnowledgeRole))
+		.filter((item) => item.status !== "archived")
+		.sort((a, b) => a.title.localeCompare(b.title));
 
 	const [newTitle, setNewTitle] = useState("");
 	const [newRole, setNewRole] = useState<KnowledgeRole>(roles[0] ?? "ordinary");
 	const [creating, setCreating] = useState(false);
 	const [createError, setCreateError] = useState<string | null>(null);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
-
-	const load = useCallback(async (): Promise<void> => {
-		setStatus("loading");
-		try {
-			const res = await apiFetch("/api/knowledge");
-			if (!res.ok) {
-				setStatus("error");
-				return;
-			}
-			const json = (await res.json()) as { items?: ApiKnowledgeItem[] };
-			// GET /api/knowledge has no role or status query param — it returns
-			// every item visible to the viewer, so this "what's live" surface
-			// filters to its own roles and drops archived items client-side
-			// rather than widening the shared route.
-			const filtered = (json.items ?? [])
-				.filter((item): item is RoleItem => roles.includes(item.role as KnowledgeRole))
-				.filter((item) => item.status !== "archived")
-				.sort((a, b) => a.title.localeCompare(b.title));
-			setItems(filtered);
-			setStatus("ready");
-		} catch {
-			setStatus("error");
-		}
-	}, [roles]);
-
-	useEffect(() => {
-		void load();
-	}, [load]);
 
 	async function handleCreate(): Promise<void> {
 		const title = newTitle.trim();
@@ -145,8 +128,8 @@ export function KnowledgeRoleList({
 				navigate(`/knowledge/${created.id}`);
 				return;
 			}
-			const data = (await res.json().catch(() => ({}))) as { error?: string };
-			setCreateError(data.error ?? `Could not create it: ${res.status}`);
+			const errBody = (await res.json().catch(() => ({}))) as { error?: string };
+			setCreateError(errBody.error ?? `Could not create it: ${res.status}`);
 		} catch {
 			setCreateError("Could not create it: network error");
 		} finally {
@@ -161,27 +144,27 @@ export function KnowledgeRoleList({
 			// delete is impossible (the audit tables hold RESTRICT FKs).
 			const res = await apiFetch(`/api/knowledge/${id}/archive`, { method: "POST" });
 			if (!res.ok) {
-				const data = (await res.json().catch(() => ({}))) as { error?: string };
-				setDeleteError(data.error ?? `Could not delete it: ${res.status}`);
+				const errBody = (await res.json().catch(() => ({}))) as { error?: string };
+				setDeleteError(errBody.error ?? `Could not delete it: ${res.status}`);
 				return;
 			}
-			await load();
+			refetch();
 		} catch {
 			setDeleteError("Could not delete it: network error");
 		}
 	}
 
-	if (status === "loading") {
+	if (isLoading) {
 		return <SkeletonList rows={3} ariaLabel={`Loading ${sectionLabel.toLowerCase()}`} />;
 	}
 
-	if (status === "error") {
+	if (error !== null) {
 		return (
 			<ErrorState
 				compact
 				title={`Couldn't load ${sectionLabel.toLowerCase()}`}
 				description="Please check your connection and try again."
-				onRetry={() => void load()}
+				onRetry={refetch}
 			/>
 		);
 	}
@@ -191,46 +174,35 @@ export function KnowledgeRoleList({
 			<p className="type-metadata max-w-[560px]  text-[var(--text-tertiary)]">{description}</p>
 
 			<div className="flex flex-col gap-[12px]">
-				<span className="type-label   uppercase  text-[var(--text-tertiary)]">{sectionLabel}</span>
-				{items.length === 0 ? (
-					<EmptyState
-						title={sectionLabel}
-						description={emptyMessage}
-						dataTestId="knowledge-role-empty"
-					/>
-				) : (
-					// @lore FR-14 (matches SettingsHarnesses): contract = hairline-border
-					// container, no shadow beyond the default. ItemList's own "flush"
-					// variant paints no outer box — the box is this wrapper's job.
-					<div className="border-width-thin overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]">
-						<ItemList variant="flush" isEmpty={false}>
-							{items.map((item) => (
-								<Row
-									key={item.id}
-									data-testid="knowledge-role-row"
-									title={item.title}
-									actions={
-										<>
-											<Tag label={KNOWLEDGE_ROLE_LABEL[item.role]} />
-											<Button
-												variant="ghost"
-												size="sm"
-												aria-label={`Delete ${item.title}`}
-												onClick={(e) => {
-													e.stopPropagation();
-													void handleDelete(item.id);
-												}}
-											>
-												Delete
-											</Button>
-										</>
-									}
-									onClick={() => navigate(`/knowledge/${item.id}`)}
-								/>
-							))}
-						</ItemList>
-					</div>
-				)}
+				<SectionLabel label={sectionLabel} />
+				<ItemList
+					variant="boxed"
+					isEmpty={items.length === 0}
+					empty={{
+						title: emptyMessage,
+						description: "Create one below to get started.",
+						dataTestId: "knowledge-role-empty",
+					}}
+				>
+					{items.map((item) => (
+						<Row
+							key={item.id}
+							data-testid="knowledge-role-row"
+							title={item.title}
+							actions={
+								<>
+									<Tag label={KNOWLEDGE_ROLE_LABEL[item.role]} />
+									<RowDeleteAction
+										triggerLabel={`Actions for ${item.title}`}
+										menuLabel="Item actions"
+										onDelete={() => handleDelete(item.id)}
+									/>
+								</>
+							}
+							href={`/knowledge/${item.id}`}
+						/>
+					))}
+				</ItemList>
 				{deleteError !== null && (
 					<p role="alert" className="type-small  text-[var(--status-error)]">
 						{deleteError}
@@ -239,7 +211,7 @@ export function KnowledgeRoleList({
 			</div>
 
 			<div className="flex flex-col gap-[12px]">
-				<span className="type-label   uppercase  text-[var(--text-tertiary)]">{createLabel}</span>
+				<SectionLabel label={createLabel} />
 				<div className="flex items-end gap-[9px]">
 					<div className="flex-1">
 						<Input

@@ -87,16 +87,13 @@ describe("SettingsSkillsAndRules", () => {
 		expect(screen.queryByText("retired-skill")).not.toBeInTheDocument();
 	});
 
-	it("each row links to the real knowledge content view", async () => {
-		const user = userEvent.setup();
+	it("each row renders as a real link to its knowledge content view (UI-080: cmd-click, copy-link)", async () => {
 		renderSurface();
 
 		const row = await screen.findByText("write-tests");
-		await user.click(row);
-
-		await waitFor(() => {
-			expect(screen.getByTestId("location-probe")).toHaveTextContent("/knowledge/ki-skill-1");
-		});
+		const link = row.closest("a");
+		expect(link).not.toBeNull();
+		expect(link).toHaveAttribute("href", "/knowledge/ki-skill-1");
 	});
 
 	it("creates a skill: posts role and status:'active', then navigates to the new item", async () => {
@@ -142,6 +139,21 @@ describe("SettingsSkillsAndRules", () => {
 		});
 	});
 
+	/**
+	 * FR-10 shape (RowDeleteAction): kebab "..." → Menu → "Delete" → row flips
+	 * to inline "Confirm delete?"/"Cancel" → second click confirms. Same flow
+	 * X3-SettingsAgents.test.tsx proves for SettingsAgents' own rows.
+	 */
+	async function deleteRow(user: ReturnType<typeof userEvent.setup>, rowContainer: HTMLElement) {
+		await user.click(within(rowContainer).getByRole("button", { name: /actions for write-tests/i }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^delete$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^delete$/i }));
+		await waitFor(() =>
+			within(rowContainer).getByRole("button", { name: /confirm delete\?/i }),
+		);
+		await user.click(within(rowContainer).getByRole("button", { name: /confirm delete\?/i }));
+	}
+
 	it("deletes: posts to /archive and the row leaves the list", async () => {
 		let archived = false;
 		apiFetch.mockImplementation((url: string, init?: RequestInit) => {
@@ -160,7 +172,7 @@ describe("SettingsSkillsAndRules", () => {
 		renderSurface();
 		const row = await screen.findByText("write-tests");
 		const rowContainer = row.closest("[data-testid='knowledge-role-row']") as HTMLElement;
-		await user.click(within(rowContainer).getByRole("button", { name: /delete/i }));
+		await deleteRow(user, rowContainer);
 
 		await waitFor(() => {
 			expect(screen.queryByText("write-tests")).not.toBeInTheDocument();
@@ -186,7 +198,7 @@ describe("SettingsSkillsAndRules", () => {
 		renderSurface();
 		const row = await screen.findByText("write-tests");
 		const rowContainer = row.closest("[data-testid='knowledge-role-row']") as HTMLElement;
-		await user.click(within(rowContainer).getByRole("button", { name: /delete/i }));
+		await deleteRow(user, rowContainer);
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("Could not delete it: boom");
 		expect(screen.getByText("write-tests")).toBeInTheDocument();
