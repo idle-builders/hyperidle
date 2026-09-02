@@ -1765,18 +1765,19 @@ async function runSession(
 			// authenticated the claim. A real turn in the agent's own session is not
 			// a message about a human; it is the human.
 			//
-			// KNOWN DEFECT (BA2, unfixed): `sandboxPath` here is the NEW session's
-			// sandbox. cursor-agent binds a chat to the literal working directory it
-			// started in, so resuming from anywhere else exits 0, echoes back the
-			// right session id, and runs with no context at all. claude finds a
-			// session by id from any directory; cursor does not. The resume has to
-			// run in the session's own directory.
+			// The resume runs in the ORIGINAL session's directory, not this one's.
+			// cursor-agent keys a chat on an md5 of the cwd string
+			// (`~/.cursor/chats/<md5(cwd)>/`), so resuming from anywhere else exits 0,
+			// echoes back the right session id, and runs with no context at all —
+			// silently, with nothing in the stream. The chat itself lives outside the
+			// sandbox, so what has to match is the path, not what is in it. claude
+			// finds a session by id from any directory and is unaffected either way.
 			if (params.resume?.harnessSessionId && harness.resumeSession) {
 				harnessHandle = await harness.resumeSession(
 					params.resume.harnessSessionId,
 					buildVerdictMessage(params.resume),
 					{
-						sandboxPath,
+						sandboxPath: params.resume.sandboxPath ?? sandboxPath,
 						modelTier,
 						...(selectedModel ? { selectedModel } : {}),
 						...(mcpTokenEnv ? { mcpTokenEnv } : {}),

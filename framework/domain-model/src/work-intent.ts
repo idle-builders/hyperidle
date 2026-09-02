@@ -625,6 +625,17 @@ export interface BakedSessionResumeRequest {
 	readonly harnessSessionId?: string | null;
 	/** What the human decided. A decline resumes too, carrying the reasoning back. */
 	readonly decision: "approve" | "decline";
+	/**
+	 * The working directory the original session ran in.
+	 *
+	 * @lore BA2: cursor-agent keys a chat on an md5 of the cwd STRING —
+	 * `~/.cursor/chats/<md5(cwd)>/` — so a resume from any other directory exits 0,
+	 * echoes back the right session id, and runs with no context at all, silently.
+	 * The chat content lives outside the sandbox, so what has to match is the path,
+	 * not the directory's contents. claude finds a session by id from anywhere and
+	 * does not care.
+	 */
+	readonly sandboxPath?: string | null;
 	/** The thread the review lives in, where a failure has to be reported. */
 	readonly threadId: string;
 	/** The agent whose session this is. */

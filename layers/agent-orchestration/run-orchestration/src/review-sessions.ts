@@ -126,6 +126,9 @@ export async function recordReviewVerdict(
 		resume: {
 			sessionId: link.sessionId,
 			harnessSessionId: session.harnessSessionId,
+			// The directory the session ran in — cursor-agent finds its chat by this
+			// path and silently loses all context without it.
+			sandboxPath: session.sandboxSnapshot,
 			decision: input.decision,
 			threadId: input.threadId,
 			agentId: session.agentId,
