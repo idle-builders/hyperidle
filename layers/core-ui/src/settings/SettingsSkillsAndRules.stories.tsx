@@ -1,10 +1,9 @@
 /**
- * Stories for SettingsSkillsAndRules — the skills-and-rules list.
- *
- * DESIGN-CLASS = routine (extract). Reuses the SettingsFilesystems grammar:
- * a lede paragraph, one uppercase section-label header, one bordered
- * `--surface-elevated` container with hairline row dividers, and a `Tag`
- * per row for the role mark.
+ * Stories for SettingsSkillsAndRules — a thin instantiation of the shared
+ * `KnowledgeRoleList` (role in {skill, rule}). Rows render on the ItemList/Row
+ * design-system primitives; the bordered `--surface-elevated` container with
+ * hairline row dividers is KnowledgeRoleList's own wrapper (matches the
+ * SettingsHarnesses grammar), and each row carries a `Tag` for the role mark.
  *
  * Mocks `globalThis.fetch` (the layer `apiFetch` calls through to) and
  * `require`s the component fresh per story — same mechanism

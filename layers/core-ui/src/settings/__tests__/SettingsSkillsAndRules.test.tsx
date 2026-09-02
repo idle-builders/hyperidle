@@ -159,7 +159,7 @@ describe("SettingsSkillsAndRules", () => {
 		const user = userEvent.setup();
 		renderSurface();
 		const row = await screen.findByText("write-tests");
-		const rowContainer = row.closest("[data-testid='skill-rule-row']") as HTMLElement;
+		const rowContainer = row.closest("[data-testid='knowledge-role-row']") as HTMLElement;
 		await user.click(within(rowContainer).getByRole("button", { name: /delete/i }));
 
 		await waitFor(() => {
@@ -185,7 +185,7 @@ describe("SettingsSkillsAndRules", () => {
 		const user = userEvent.setup();
 		renderSurface();
 		const row = await screen.findByText("write-tests");
-		const rowContainer = row.closest("[data-testid='skill-rule-row']") as HTMLElement;
+		const rowContainer = row.closest("[data-testid='knowledge-role-row']") as HTMLElement;
 		await user.click(within(rowContainer).getByRole("button", { name: /delete/i }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("Could not delete it: boom");
