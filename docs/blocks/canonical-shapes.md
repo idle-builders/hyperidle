@@ -9,13 +9,13 @@ This file is the canonical signature home for the Block primitive — `framework
 `framework/domain-model/src/blocks/types.ts` defines `BlockKind`, `BlockHostKind`, `BlockId`, `BlockAnchor`, `BlockPayload`, `Block`, and `BlockDerivationResult`. Do not restate them here or anywhere else in `docs/` — this section records only the contracts behind them:
 
 - **`BlockId`** — hex-encoded 128-bit blake2s of `blk:v1 ‖ kind ‖ outlinePath ‖ normalisedPayload` (`framework/block-derivation/src/blocks/block-id.ts:19-23`, dkLen 16, bytesToHex). Algorithm and normalisation rules: [contracts.md](./contracts.md).
-- **`BlockHostKind`** — closed, six kinds: `bet | task | knowledge_item | artifact | agent | user`. No `string` escape hatch.
+- **`BlockHostKind`** — closed, five kinds: `task | knowledge_item | artifact | agent | user`. No `string` escape hatch. No `bet` kind — a bet is a task with no parent.
 - **`Block.order`** — informational only, never used for identity.
 - **The anchor IS the primitive's own affordance** — `BlockAnchor { blockId }`; there is no separate linking primitive in the codebase.
 
 ## 2. How anchoring shipped
 
-Block-anchored discussion is **message-level**, not a thread-attachment kind. Thread `HOST_KINDS` is a closed eight-kind enum (`bet | task | knowledge_item | artifact | agent | user | team | factory` — `framework/domain-model/src/thread.ts:19-28`) and does **not** contain `block`. Instead a message carries an optional `payload.blockId` (`PlainPayloadWithBlockId`, `thread.ts:480-491`), dual-written to the queryable `messages.block_id` column (`framework/db/src/schema.ts:787-794`). There is no parallel comment table. Thread/Message depth: [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
+Block-anchored discussion is **message-level**, not a thread-attachment kind. Thread `HOST_KINDS` is a closed seven-kind enum (`task | knowledge_item | artifact | agent | user | team | factory` — `framework/domain-model/src/thread.ts:19-28`) and does **not** contain `block`. Instead a message carries an optional `payload.blockId` (`PlainPayloadWithBlockId`, `thread.ts:480-491`), dual-written to the queryable `messages.block_id` column (`framework/db/src/schema.ts:787-794`). There is no parallel comment table. Thread/Message depth: [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 
 ## 3. BlockKind — the closed vocabulary
 

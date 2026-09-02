@@ -12,7 +12,10 @@ import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,
-	get as getKnowledgeItem,
+	getParentedItem,
+	getRoutinePrompt,
+	getRoutinePromptBodies,
+	listItemIdsByParent,
 	setKnowledgeStatus,
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
@@ -131,25 +134,18 @@ function stateToActive(state: string): boolean {
  */
 
 /**
- * A routine's instruction lives in a knowledge document, so it can be read and
- * edited like any other knowledge. These keep the routine and its document in
- * step: `prompt` stays the field a caller writes, and this is where that text
- * reaches the document.
- *
- * `knowledge_items` belongs to the knowledge service, so the writes go through
- * its own functions rather than the routine service reaching into the table.
+ * A routine's instruction lives in a knowledge document parented to it, so it
+ * can be read and edited like any other knowledge. `prompt` stays the field
+ * a caller writes; the read/write of the document itself is
+ * `getRoutinePrompt`/`getRoutinePromptBodies` (`@hyperidle/knowledge`,
+ * `getAgentIdentity`'s exact twin) — `knowledge_items` belongs to the
+ * knowledge service, so this route reaches through its functions rather than
+ * touching the table itself.
  */
-async function readRoutinePrompt(
-	db: HyperIdleDb,
-	promptKnowledgeId: string | null | undefined,
-): Promise<string | null> {
-	if (!promptKnowledgeId) return null;
-	const doc = await getKnowledgeItem(db, promptKnowledgeId);
-	return doc?.body ?? null;
-}
 
 /**
- * Create the document a new routine's prompt lives in. Returns its id.
+ * Create the document a new routine's prompt lives in, parented to that
+ * routine. Returns its id.
  *
  * @lore BA9g: the scope was hardcoded `factory` — org-wide — so a routine owned
  * by one team's agent published its instruction to everybody. A prompt is
@@ -159,6 +155,7 @@ async function readRoutinePrompt(
 async function createRoutinePromptDocument(
 	db: HyperIdleDb,
 	input: {
+		readonly routineId: string;
 		readonly routineName: string;
 		readonly prompt: string;
 		readonly updatedBy: string;
@@ -173,6 +170,9 @@ async function createRoutinePromptDocument(
 		body: input.prompt,
 		format: "markdown",
 		status: "active",
+		role: "prompt",
+		parentKind: "routine",
+		parentId: input.routineId,
 		updatedBy: input.updatedBy,
 	});
 	return created.id;
@@ -279,20 +279,14 @@ export function createRoutineRoutes(
 		const routineId = body.id ?? crypto.randomUUID();
 		const now = new Date().toISOString();
 
-		const promptKnowledgeId = body.prompt
-			? await createRoutinePromptDocument(db, {
-					routineName: body.name,
-					prompt: body.prompt,
-					updatedBy: c.get("userId"),
-					ownerTeamId: (await findUser(db, { id: body.ownerAgentId }))?.teamId ?? null,
-				})
-			: null;
-
+		// The routine must exist before its prompt document can name it as a
+		// parent — order flips from the old FK shape. Side benefit: an invalid
+		// cron below now fails BEFORE any document is created, so it can never
+		// orphan one (the old order created the document first).
 		try {
 			await routineService.insertRoutine(db, {
 				id: routineId,
 				name: body.name,
-				promptKnowledgeId,
 				ownerAgentId: body.ownerAgentId,
 				triggerType: body.triggerType,
 				...(triggerConfig !== undefined ? { triggerConfig } : {}),
@@ -308,14 +302,38 @@ export function createRoutineRoutes(
 			);
 		}
 
+		if (body.prompt) {
+			await createRoutinePromptDocument(db, {
+				routineId,
+				routineName: body.name,
+				prompt: body.prompt,
+				updatedBy: c.get("userId"),
+				ownerTeamId: (await findUser(db, { id: body.ownerAgentId }))?.teamId ?? null,
+			});
+		}
+
 		const created = await routineService.getRoutine(db, routineId);
-		return c.json(created, 201);
+		// The row no longer carries the prompt text — resolve it from the document,
+		// same as GET and PATCH, so all three responses agree on shape.
+		return c.json(
+			created ? { ...created, prompt: await getRoutinePrompt(db, routineId) } : created,
+			201,
+		);
 	});
 
 	// GET / — List all non-deleted routines (AA2: filter soft-deleted)
 	router.get("/", async (c) => {
 		const allRoutines = await routineService.listRoutines(db);
-		return c.json(allRoutines);
+		// The row no longer carries the prompt text — resolve it from each
+		// routine's document, same as GET/POST/PATCH, so all four responses
+		// agree on shape. One batched read, not one per routine.
+		const prompts = await getRoutinePromptBodies(
+			db,
+			allRoutines.map((routine) => routine.id),
+		);
+		return c.json(
+			allRoutines.map((routine) => ({ ...routine, prompt: prompts.get(routine.id) ?? null })),
+		);
 	});
 
 	// DELETE /:id — Soft delete routine (AA2 AC-2)
@@ -334,17 +352,23 @@ export function createRoutineRoutes(
 			active: false,
 		});
 
-		// @lore BA9g: the routine's instruction is a knowledge document (BA9f), and
-		// deleting the routine used to leave it behind — an orphan in the knowledge
-		// view titled "<name> — prompt", belonging to a routine that no longer
-		// exists and that nothing could reach again.
+		// @lore BA9g/knowledge-attachment-slot: the routine's instruction is a
+		// knowledge document parented to it, and deleting the routine used to
+		// leave it behind — an orphan in the knowledge view titled "<name> —
+		// prompt", belonging to a routine that no longer exists and that
+		// nothing could reach again. Archiving every item parented to this
+		// routine (not just the prompt slot) is what the plan calls "deleting
+		// a parent deletes its knowledge" — there is no UI for an orphan, so
+		// archiving is the only safe default.
 		//
 		// Archived, not hard-deleted: `knowledge_edit_log` and friends hold
 		// RESTRICT FKs on `knowledge_items.id`, and the audit trail outlives its
 		// subject.
-		if (existing.promptKnowledgeId) {
-			await setKnowledgeStatus(db, [existing.promptKnowledgeId], "archived");
-		}
+		await setKnowledgeStatus(
+			db,
+			await listItemIdsByParent(db, { parentKind: "routine", parentId: routineId }),
+			"archived",
+		);
 
 		return c.json({ deleted: true, deletedAt: now });
 	});
@@ -398,7 +422,7 @@ export function createRoutineRoutes(
 		const routineInfo: RoutineInfo = {
 			id: routine.id,
 			name: routine.name,
-			prompt: await readRoutinePrompt(db, routine.promptKnowledgeId),
+			prompt: await getRoutinePrompt(db, routine.id),
 			state: (routine.state ?? "active") as RoutineInfo["state"],
 			triggerType: routine.triggerType,
 			triggerConfig: routine.triggerConfig ?? null,
@@ -470,18 +494,21 @@ export function createRoutineRoutes(
 		if (body.prompt !== undefined) {
 			// Write through to the document. A routine that never had a prompt gets
 			// one now; one that did keeps its document so edit history survives.
-			if (existing.promptKnowledgeId) {
-				const doc = await getKnowledgeItem(db, existing.promptKnowledgeId);
-				if (doc) {
-					await updateKnowledgeItem(
-						db,
-						existing.promptKnowledgeId,
-						{ body: body.prompt ?? "", updatedBy: c.get("userId") },
-						doc.version,
-					);
-				}
+			const existingDoc = await getParentedItem(db, {
+				parentKind: "routine",
+				parentId: routineId,
+				role: "prompt",
+			});
+			if (existingDoc) {
+				await updateKnowledgeItem(
+					db,
+					existingDoc.id,
+					{ body: body.prompt ?? "", updatedBy: c.get("userId") },
+					existingDoc.version,
+				);
 			} else if (body.prompt) {
-				updates.promptKnowledgeId = await createRoutinePromptDocument(db, {
+				await createRoutinePromptDocument(db, {
+					routineId,
 					routineName: body.name ?? existing.name,
 					prompt: body.prompt,
 					updatedBy: c.get("userId"),
@@ -510,9 +537,7 @@ export function createRoutineRoutes(
 		// The row no longer carries the prompt text — resolve it from the document
 		// so the response still describes the routine as a caller expects.
 		return c.json(
-			updated
-				? { ...updated, prompt: await readRoutinePrompt(db, updated.promptKnowledgeId) }
-				: updated,
+			updated ? { ...updated, prompt: await getRoutinePrompt(db, updated.id) } : updated,
 		);
 	});
 

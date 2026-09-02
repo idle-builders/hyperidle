@@ -38,6 +38,8 @@ function installInput(body: string) {
 		topic: "plugin:knowledge-management",
 		body,
 		ts: TS,
+		parentKind: null,
+		parentId: null,
 	};
 }
 

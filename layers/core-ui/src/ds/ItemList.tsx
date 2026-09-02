@@ -33,8 +33,12 @@ export interface ItemListError {
 
 export interface ItemListProps {
 	children?: ReactNode;
-	/** default "contained" */
-	variant?: "contained" | "flush";
+	/**
+	 * default "contained". "boxed" = flush rows inside a hairline-border
+	 * card (no shadow) — the one spelling for the bordered-container list,
+	 * shared by SettingsHarnesses and KnowledgeRoleList.
+	 */
+	variant?: "contained" | "flush" | "boxed";
 	/** "ul" → semantic list element; default "div" */
 	as?: "div" | "ul";
 	loading?: boolean;
@@ -67,10 +71,15 @@ export function ItemList({
 	// the page surface (transparent) so they don't produce a grey box around a
 	// single EmptyState/ErrorState/SkeletonList. The contained style is applied
 	// only in the populated branch below.
+	// @lore knowledge-attachment-slot: "boxed" contract = hairline-border
+	// container, no shadow — SettingsHarnesses' original wrapper, now the one
+	// spelling instead of a fork per caller.
 	const containerClass =
 		variant === "contained"
 			? "rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px]"
-			: "";
+			: variant === "boxed"
+				? "border-width-thin border-[var(--border-subtle)] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] overflow-hidden"
+				: "";
 
 	// State precedence: error → loading → empty → children
 	let content: JSX.Element;

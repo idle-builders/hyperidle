@@ -49,6 +49,7 @@ function makePorts(
 ): RoutineSchedulerPorts {
 	return {
 		getAgentIdentity,
+		getRoutinePrompt: unreachable("getRoutinePrompt"),
 		work: {
 			// @lore BB1: getBetById deleted — bet is now a root task.
 			// Returns undefined so assembleTriggerEvent falls through to generic subject

@@ -47,6 +47,7 @@ import type {
 import {
 	getAgentIdentity,
 	get as getKnowledgeItem,
+	getParentedItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
@@ -197,6 +198,9 @@ function makePorts(): RoutineSchedulerPorts & {
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
 		getAgentIdentity,
+		getRoutinePrompt: async (db, routineId) =>
+			(await getParentedItem(db, { parentKind: "routine", parentId: routineId, role: "prompt" }))
+				?.body ?? null,
 	};
 }
 
@@ -366,7 +370,16 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-e2e");
 			const configuredPrompt = "Say hello to the team, BA1 style.";
 			const routineId = "ba1-e2e-routine";
-			// The instruction is a knowledge document the routine points at.
+			await db.insert(routines).values({
+				id: routineId,
+				name: "BA1 e2e routine",
+				state: "active",
+				ownerAgentId,
+				triggerType: "event",
+				eventType: "task_state_changed",
+				active: true,
+			});
+			// The instruction is a knowledge document parented to the routine.
 			await db.insert(knowledgeItems).values({
 				id: "ki-ba1-e2e-prompt",
 				scopeKind: "factory",
@@ -377,6 +390,9 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 				format: "markdown",
 				status: "active",
 				version: 1,
+				role: "prompt",
+				parentKind: "routine",
+				parentId: routineId,
 				updatedBy: "test",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
@@ -388,16 +404,6 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 				knowledgeItemId: "ki-ba1-e2e-prompt",
 				layer: "L4",
 				scopeId: null,
-			});
-			await db.insert(routines).values({
-				id: routineId,
-				name: "BA1 e2e routine",
-				promptKnowledgeId: "ki-ba1-e2e-prompt",
-				state: "active",
-				ownerAgentId,
-				triggerType: "event",
-				eventType: "task_state_changed",
-				active: true,
 			});
 
 			const evt: TaskStateChangedEvent = {

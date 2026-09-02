@@ -193,13 +193,17 @@ describe("A2: Seed script", () => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
-		// @lore BA9f: the persona is the `agent_file` document bound to the agent.
+		// @lore BA9f/knowledge-attachment-slot: the persona is the `agent_file`
+		// document parented to the agent — `parent_kind='agent' AND
+		// parent_id=u.id`, not the retired `scope_kind='user' AND scope_id=u.id`
+		// reverse lookup. Moved onto the parent predicate so a missing parent
+		// turns this test red instead of staying green while the app is broken.
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
 		const rows = await queryRows<{ id: string; role: string; body: string | null }>(
 			db,
 			`SELECT u.id, u.role, k.body FROM users u
 			   JOIN knowledge_items k
-			     ON k.scope_kind = 'user' AND k.scope_id = u.id
+			     ON k.parent_kind = 'agent' AND k.parent_id = u.id
 			    AND k.role = 'agent_file' AND k.status = 'active'
 			  WHERE u.role IN (${rolesList})`,
 		);

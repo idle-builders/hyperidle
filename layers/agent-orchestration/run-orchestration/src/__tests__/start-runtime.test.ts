@@ -1,7 +1,8 @@
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "../contracts.js";
+import { ConcurrencyLimitError } from "../errors.js";
 
 const state = vi.hoisted(() => ({
 	failRoutineReaper: false,
@@ -9,9 +10,16 @@ const state = vi.hoisted(() => ({
 	sandboxDispose: vi.fn(),
 	workerDispose: vi.fn(),
 	registerWorker: vi.fn(),
+	runSessionThrows: null as (() => Error) | null,
 }));
 
 vi.mock("../context.js", () => ({ createContextAssembler: vi.fn(() => ({})) }));
+vi.mock("../runtime.js", () => ({
+	runSession: vi.fn(async () => {
+		if (state.runSessionThrows) throw state.runSessionThrows();
+		return { mode: "admitted", sessionId: "session-mock" };
+	}),
+}));
 vi.mock("../provisioner.js", () => ({
 	createProvisioner: vi.fn(() => ({ admit: vi.fn(), run: vi.fn() })),
 }));
@@ -87,6 +95,7 @@ const workerArgs = [
 describe("startRuntime resource ownership", () => {
 	afterEach(() => {
 		state.failRoutineReaper = false;
+		state.runSessionThrows = null;
 		vi.clearAllMocks();
 		vi.useRealTimers();
 	});
@@ -176,5 +185,55 @@ describe("startRuntime resource ownership", () => {
 
 		await expect(startRuntime(deps())).rejects.toThrow("reaper failed");
 		expect(state.writebackDispose).toHaveBeenCalledOnce();
+	});
+
+	/**
+	 * @lore ship-blocker regression: a `ConcurrencyLimitError` release puts a
+	 * session request back to `pending` with no delay, and `claimSessionRequest`
+	 * has no "not before" gate — so before the fix, `drainAgentSessionRequests`'s
+	 * `for (;;)` reclaimed the SAME request in the SAME synchronous drain call,
+	 * forever, whenever the blocking slot never frees on its own (verified
+	 * against the packaged desktop app: 100%+ CPU, health checks dead, no
+	 * macrotask boundary for the event loop to hand back to). `MAX_SAFE_CLAIMS`
+	 * bounds this test's own claim mock so an unfixed regression fails fast
+	 * (a thrown assertion) instead of hanging the suite.
+	 */
+	it("does not busy-loop reclaiming a request released with ConcurrencyLimitError", async () => {
+		vi.useFakeTimers();
+		const MAX_SAFE_CLAIMS = 25;
+		const runtimeDeps: RuntimeDeps = {
+			...deps(),
+			runtime: {} as NonNullable<RuntimeDeps["runtime"]>,
+		};
+		state.runSessionThrows = () => new ConcurrencyLimitError("agent-concurrency-test", 1);
+		const stuckRequest = { id: "request-concurrency-stuck" } as unknown as AgentSessionRequest;
+		let claimCalls = 0;
+		if (!runtimeDeps.ports) throw new Error("test runtime ports missing");
+		runtimeDeps.ports.sessionRequests.claimSessionRequest = vi.fn(async () => {
+			claimCalls += 1;
+			if (claimCalls > MAX_SAFE_CLAIMS) {
+				throw new Error(
+					`drainAgentSessionRequests reclaimed a ConcurrencyLimitError-released request ${claimCalls} times in one drain call — busy-loop regression`,
+				);
+			}
+			return stuckRequest;
+		});
+		runtimeDeps.ports.sessionRequests.findSessionRequest = vi.fn(
+			async () => undefined,
+		) as unknown as RuntimePorts["sessionRequests"]["findSessionRequest"];
+
+		await startRuntime(runtimeDeps);
+
+		// `startRuntime` itself does one synchronous `await wake()` as part of
+		// boot (before the 1s interval even starts) — that single wake must
+		// claim the stuck request exactly ONCE, not loop.
+		expect(claimCalls).toBe(1);
+
+		// The retry belongs to the NEXT natural wake() cadence (1s), not the
+		// same drain call — one more claim per tick, never a burst.
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(claimCalls).toBe(2);
+		await vi.advanceTimersByTimeAsync(1_000);
+		expect(claimCalls).toBe(3);
 	});
 });

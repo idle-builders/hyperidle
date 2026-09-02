@@ -177,6 +177,23 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 					failureCode: failure.code,
 				});
 			}
+			// @lore ship-blocker fix: a `ConcurrencyLimitError` release puts the
+			// request back to `pending` with NO delay — `claimSessionRequest`'s
+			// `{next:true}` candidate query has no "not before" gate, so it is
+			// reclaimable in the SAME instant it was released. When the blocking
+			// slot never frees on its own (e.g. a permanently-`active` session
+			// with no live runtime behind it — the demo world seeds exactly one),
+			// looping straight back to `claimSessionRequest` turned this `for (;;)`
+			// into an unbounded synchronous claim→fail→release cycle: 100%+ CPU,
+			// no macrotask boundary for the event loop to hand back to (not even
+			// health checks got served), verified against the packaged desktop
+			// app. `wake()` (this function's caller) already reruns every 1s via
+			// `setInterval` — returning here instead of looping defers the retry
+			// to that natural cadence instead of busy-spinning within one call.
+			// Every OTHER failure kind still terminalizes the request to `failed`
+			// (see the lore above), so it will not be reclaimed again at all —
+			// only `CONCURRENCY_LIMIT` needs this.
+			if (failure.code === "CONCURRENCY_LIMIT") return consumed;
 		}
 	}
 }

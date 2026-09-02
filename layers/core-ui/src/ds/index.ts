@@ -146,6 +146,8 @@ export type { RoleComboboxProps, RoleOption } from "./RoleCombobox.js";
 export { RoleCombobox } from "./RoleCombobox.js";
 export type { ItemListContextValue, RowCell, RowProps } from "./Row.js";
 export { ItemListContext, Row } from "./Row.js";
+export type { RowDeleteActionProps } from "./RowDeleteAction.js";
+export { RowDeleteAction } from "./RowDeleteAction.js";
 export type { RowDotProps, RowTone } from "./RowDot.js";
 export { RowDot, TONE_COLOR } from "./RowDot.js";
 export type { ScopePickerOption, ScopePickerProps } from "./ScopePicker.js";

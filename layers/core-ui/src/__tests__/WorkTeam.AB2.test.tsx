@@ -17,7 +17,7 @@
  */
 
 import type { RosterMember, TeamDetail } from "@hyperidle/domain-model";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -248,12 +248,27 @@ describe("AB2 AC-3: AgentRow click navigates to agent profile", () => {
 		const user = userEvent.setup();
 		renderPage(TEAM_WITH_AGENTS);
 
-		// Click the idle agent row
+		// Click the idle agent row.
+		//
+		// @lore knowledge-attachment-slot: click the row's NAME text, not the
+		// outer `agent-row` testid element. Row.tsx's onClick+actions branch
+		// puts the click handler on an inner div that wraps lead/title/cells
+		// only — `actions` (Profile link, Customize button) render as a
+		// sibling OUTSIDE it, never nested inside the clickable element (a
+		// real browser reached the row's onClick from a nested actions click
+		// despite the action's own stopPropagation — see Row.tsx's div-branch
+		// lore). `data-testid="agent-row"` stays on the OUTER, non-clickable
+		// wrapper so it keeps finding the whole row (title AND actions) for
+		// other queries; a click on that outer node no longer reaches the
+		// inner handler, matching how a real click on empty row padding
+		// (outside the clickable content) already didn't navigate before this
+		// fix either — this test asserts the row is clickable via its content,
+		// which is what a real user actually clicks.
 		const rows = screen.getAllByTestId("agent-row");
 		const idleRow = rows.find((r) => r.textContent?.includes("Idle Agent"));
 		expect(idleRow).toBeDefined();
 
-		await user.click(idleRow as HTMLElement);
+		await user.click(within(idleRow as HTMLElement).getByText("Idle Agent"));
 
 		await waitFor(() => {
 			expect(screen.getByTestId("agent-profile-page")).toBeInTheDocument();

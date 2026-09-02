@@ -16,6 +16,7 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock useToast used by SettingsProfile, SettingsOrgChart, SettingsAgents, etc.
@@ -160,7 +161,11 @@ afterEach(() => {
 describe("AF15 AC-1 — SettingsPage: new sections mounted", () => {
 	it("renders settings-section-agents testid", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
-		render(<SettingsPage />);
+		render(
+			<MemoryRouter>
+				<SettingsPage />
+			</MemoryRouter>,
+		);
 		await waitFor(() => {
 			expect(screen.getByTestId("settings-section-agents")).toBeInTheDocument();
 		});
@@ -171,7 +176,11 @@ describe("AF15 AC-1 — SettingsPage: new sections mounted", () => {
 
 	it("agents section co-exists with profile and backend sections", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
-		render(<SettingsPage />);
+		render(
+			<MemoryRouter>
+				<SettingsPage />
+			</MemoryRouter>,
+		);
 		await waitFor(() => {
 			expect(screen.getByTestId("settings-section-profile")).toBeInTheDocument();
 			expect(screen.getByTestId("settings-section-agents")).toBeInTheDocument();
@@ -184,7 +193,11 @@ describe("AF15 AC-1 — SettingsPage: new sections mounted", () => {
 
 	it("Agents section appears before Backend section in DOM order", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
-		render(<SettingsPage />);
+		render(
+			<MemoryRouter>
+				<SettingsPage />
+			</MemoryRouter>,
+		);
 		await waitFor(() => {
 			const agents = screen.getByTestId("settings-section-agents");
 			const backend = screen.getByTestId("settings-section-backend");
@@ -199,7 +212,11 @@ describe("AF15 AC-1 — SettingsPage: new sections mounted", () => {
 describe("AF15 AC-5 — SettingsPage: no email digests control", () => {
 	it("does not render any email digests control", async () => {
 		const { SettingsPage } = await import("../pages/SettingsPage.js");
-		render(<SettingsPage />);
+		render(
+			<MemoryRouter>
+				<SettingsPage />
+			</MemoryRouter>,
+		);
 		await waitFor(() => {
 			// Allow some content to render
 			expect(screen.getByTestId("settings-page")).toBeInTheDocument();

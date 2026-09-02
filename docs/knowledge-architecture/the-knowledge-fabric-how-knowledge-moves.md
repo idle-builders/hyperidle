@@ -17,7 +17,7 @@ App-runtime projects the same rows two ways:
 | Agents | Plain files in the session sandbox (`context/factory`, `context/product`, `context/practices`) + one TOON pack (`context/session.toon`) |
 | Humans | Knowledge and Work views in the web UI |
 
-Scope maps to layer via `SCOPE_TO_LAYER` (`framework/domain-model/src/knowledge.ts:6-14`): factory→L4, product→L2, practice→L3, task→L1; team/user carry no layer (`bet` still exists in the enum for legacy data; it also carries no layer). The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
+Scope maps to layer via `SCOPE_TO_LAYER` (`framework/domain-model/src/knowledge.ts:6-14`): factory→L4, product→L2, practice→L3, task→L1; team/user carry no layer. There is no `bet` scope kind — migration `0068` re-scoped every `bet` row to `task`. The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
 
 **If a file is human-readable, that means a human will actually read it.** Not "could theoretically read." Will. If no human will ever read it, it has no business being markdown — that's just token waste and version-control noise. Agent-only session state ships as TOON; human-curated knowledge ships as markdown.
 

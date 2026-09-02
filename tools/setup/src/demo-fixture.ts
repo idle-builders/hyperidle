@@ -100,10 +100,16 @@ async function upsertDemoRunConfig(
 			.onConflictDoNothing();
 	}
 
-	// The agent's identity is an `agent_file` knowledge document bound to it —
-	// scope_kind='user' with scope_id = the agent, the binding context assembly
-	// already reads. Kernel row and projection are written together, as knowledge
-	// always writes them.
+	// The agent's identity is an `agent_file` knowledge document parented to
+	// it — parent_kind='agent', parent_id=the agent — the binding context
+	// assembly reads through `getParentedItem`. scope_kind='user'/scope_id are
+	// still written too: scope answers a different question (how far the item
+	// reaches) and is never derived from the parent. Kernel row and projection
+	// are written together, as knowledge always writes them.
+	//
+	// Runs AFTER migrations (this fixture is app-level seed data, not a
+	// migration), so a bootstrap run always writes the current parent shape —
+	// there is no pre-parent state for it to repair.
 	if (systemPrompt) {
 		const ts = new Date().toISOString();
 		const identityId = `ki_af_${agentUserId}`;
@@ -122,11 +128,16 @@ async function upsertDemoRunConfig(
 				status: "active",
 				version: 1,
 				role: "agent_file",
+				parentKind: "agent",
+				parentId: agentUserId,
 				updatedBy: "demo-seed",
 				createdAt: ts,
 				updatedAt: ts,
 			})
-			.onConflictDoUpdate({ target: knowledgeItems.id, set: { body: systemPrompt } });
+			.onConflictDoUpdate({
+				target: knowledgeItems.id,
+				set: { body: systemPrompt, parentKind: "agent", parentId: agentUserId },
+			});
 		await db
 			.insert(knowledgeAppProjection)
 			.values({

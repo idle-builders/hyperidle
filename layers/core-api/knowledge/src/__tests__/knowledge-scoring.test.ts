@@ -42,6 +42,8 @@ function makeItem(
 		confidence: null,
 		meta: null,
 		role: "ordinary",
+		parentKind: null,
+		parentId: null,
 		...overrides,
 	};
 }

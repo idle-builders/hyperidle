@@ -28,6 +28,7 @@ import {
 
 import {
 	type KernelKnowledgeStatus,
+	type KnowledgeParentKind,
 	type KnowledgeRole,
 	type SCOPE_KINDS,
 	scopeToLayer,
@@ -62,6 +63,15 @@ export interface CreateKnowledgeItemInput {
 	 * to one agent. Absent leaves the column default (`ordinary`).
 	 */
 	role?: KnowledgeRole;
+	/**
+	 * @lore knowledge-attachment-slot: which entity this item hangs off, and
+	 * the role it occupies there — a routine's prompt, an agent's identity.
+	 * Optional: "no parent" is the ordinary case, and every caller would
+	 * otherwise write `null` as noise. Both present or both absent — the
+	 * kernel table's `ki_parent_pair_ck` enforces the pairing.
+	 */
+	parentKind?: KnowledgeParentKind | null;
+	parentId?: string | null;
 	/**
 	 * @lore AU14: made optional so callers with no `kind` concept (the HTTP route)
 	 * can omit it and keep `projection.kind` null, matching pre-AU14 route behavior.
@@ -108,8 +118,6 @@ export interface UpdateKnowledgeItemInput {
 	 * CreateKnowledgeItemInput.status (R7) — the PATCH route accepts kernel
 	 * statuses (e.g. "draft") that are outside the app-runtime KnowledgeStatus enum. */
 	status?: KnowledgeStatus | KernelKnowledgeStatus;
-	/** Changing this promotes an ordinary note into a skill, or demotes one back. */
-	role?: KnowledgeRole;
 	/**
 	 * Scope lives on the kernel row, and `scopeId` is mirrored onto the
 	 * projection after the kernel write — `list()` matches either column with an
@@ -127,6 +135,15 @@ export interface ListFilters {
 	layer?: KnowledgeLayer;
 	/** Matches scope stored on either the canonical row or its app projection. */
 	scopeId?: string | null;
+	/**
+	 * @lore knowledge-attachment-slot: added so session assembly's layer fetch
+	 * (`fetchAllForLayer` in session-knowledge-assembler.ts) can say which role
+	 * it wants. Without this, every role — including `prompt` — arrived by the
+	 * layer path regardless of the capability allowlist. In the query, not a
+	 * post-filter: `list()` is paginated, and a post-filter would silently
+	 * shorten pages.
+	 */
+	role?: KnowledgeRole;
 	limit?: number;
 	offset?: number;
 }
@@ -250,6 +267,8 @@ export async function create(
 		// Absent leaves the column default (`ordinary`), which is what every
 		// caller predating an authorable role produced.
 		...(input.role ? { role: input.role } : {}),
+		parentKind: input.parentKind ?? null,
+		parentId: input.parentId ?? null,
 		version: 1,
 		updatedBy: input.updatedBy,
 		createdAt: timestamp,
@@ -299,17 +318,23 @@ export async function create(
  * Allow-list of caller-mutable fields for the kernel table.
  * @lore O2: projection fields (layer, scopeId, kind, attentionScore, confidence, meta)
  * are removed from canonical EDITABLE_FIELDS and written to the extension table instead.
+ *
+ * @lore knowledge-attachment-slot: `role` is NOT here — it used to ride the
+ * ordinary editable set (BA9e, so a change was versioned and edit-logged like
+ * any other field), but that opened two defects the architecture critique
+ * found: a person could change a routine prompt's role away from `prompt`
+ * (the routine then silently runs on its name), or promote an ordinary note
+ * into a stray `prompt`. Role is now create-only — every creator writes it
+ * through its own list (routines, agents, the skills-and-rules settings
+ * surface) and no later edit can change it. `z.object` strips the `role` key
+ * from a PATCH body before it ever reaches this function.
  */
-// `role` rides the ordinary editable set so a change is versioned and written to
-// the edit log like any other field — promoting a note to a skill is an edit with
-// an author and a history, not a hidden reclassification.
 const KERNEL_EDITABLE_FIELDS = [
 	"topic",
 	"title",
 	"body",
 	"format",
 	"status",
-	"role",
 	"scopeKind",
 	"scopeId",
 	"updatedBy",
@@ -509,16 +534,18 @@ export async function update(
  * Called by the overloaded list() for the default base ListFilters case.
  */
 /**
- * @lore BA9b-listBase: listBase has no `role` filter intentionally — the public
- * `list()` surface is for editorial/display use (knowledge view), where all roles
- * appear together. Capability items (role != 'ordinary') for session assembly are
- * fetched by a separate path: `fetchCapabilityItems` in session-knowledge-assembler.ts
- * uses a direct query with a scope+role predicate rather than going through listBase.
- * That path justifies the deviation (listBase's layer predicate would silently drop
- * capability items that have no layer). The two query paths do not drift because they
- * serve different callers — one is editorial, the other is session-time materialisation.
- * See the @lore BA9b-listBase comment in session-knowledge-assembler.ts for the full
- * rationale.
+ * @lore BA9b-listBase: the editorial callers of `list()` — the knowledge view —
+ * pass no `role` and keep seeing every role, exactly as before. What changed
+ * is that session assembly, which is NOT
+ * editorial, now says which role it wants: `fetchAllForLayer` in
+ * session-knowledge-assembler.ts passes `role: "ordinary"` so a routine prompt
+ * (or any other non-ordinary role) reaching a session by the layer path is
+ * excluded at the query, not filtered after the fact — `list()` is paginated,
+ * and a post-filter would silently shorten pages. Capability items (role !=
+ * 'ordinary') still take the separate `fetchCapabilityItems` path, which uses
+ * its own scope+role predicate rather than going through listBase; the two
+ * query paths do not drift because they serve different callers — one is
+ * editorial, the other is session-time materialisation.
  */
 async function listBase(
 	db: HyperIdleDb,
@@ -533,6 +560,7 @@ async function listBase(
 		const rows = await db
 			.select()
 			.from(knowledgeItems)
+			.where(filters.role !== undefined ? eq(knowledgeItems.role, filters.role) : undefined)
 			.orderBy(knowledgeItems.id)
 			.limit(limit)
 			.offset(offset);
@@ -561,6 +589,9 @@ async function listBase(
 						eq(knowledgeAppProjection.scopeId, filters.scopeId),
 					);
 		if (scopeCondition) conditions.push(scopeCondition);
+	}
+	if (filters.role !== undefined) {
+		conditions.push(eq(knowledgeItems.role, filters.role));
 	}
 	const rows = await db
 		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
@@ -797,6 +828,14 @@ export async function list(
  * - `{triageVisible: viewerUserId}` → count of draft + needs_human items visible to viewer (Q2)
  *
  * @lore AU20 K1-reads: subsumes former countTriageVisible — deleted from source.
+ *
+ * @lore knowledge-attachment-slot §8: `role = 'ordinary'` closes a badge bug
+ * the two client-side nav filters (KnowledgeList, the sidebar fast-nav)
+ * cannot reach — a draft skill or rule would otherwise inflate this count
+ * while appearing in neither knowledge surface, which reads as a bug with no
+ * way to clear it. Filtering server-side is right here (one consumer, the
+ * badge) and wrong for the list payload (two consumers that want opposite
+ * halves of it — see `KnowledgeList.tsx`'s own `@lore`).
  */
 export async function count(
 	db: HyperIdleDb,
@@ -808,7 +847,11 @@ export async function count(
 		.select({ count: sql<number>`count(*)` })
 		.from(knowledgeItems)
 		.where(
-			and(inArray(knowledgeItems.status, ["draft", "needs_human"]), visibleToViewer(viewerUserId)),
+			and(
+				inArray(knowledgeItems.status, ["draft", "needs_human"]),
+				eq(knowledgeItems.role, "ordinary"),
+				visibleToViewer(viewerUserId),
+			),
 		);
 	return Number(result?.count ?? 0);
 }
@@ -1239,6 +1282,14 @@ export interface UpsertPluginDocumentInput {
 	ts: string;
 	/** Defaults to `skill`. A routine's prompt is an ordinary document. */
 	role?: KnowledgeRole;
+	/**
+	 * @lore knowledge-attachment-slot: required, not optional — every plugin
+	 * writer names its parent, `null` included. Left optional, a caller could
+	 * silently keep writing the old parentless shape; a required field makes
+	 * `npm run check` name every call site instead.
+	 */
+	parentKind: KnowledgeParentKind | null;
+	parentId: string | null;
 }
 
 /**
@@ -1262,12 +1313,127 @@ export interface UpsertPluginDocumentInput {
  * task, tools and workspace sections without a persona.
  */
 /**
+ * The item in a parent's named slot — a routine's prompt, an agent's
+ * identity. Parent says where it hangs, role says where it lands; together
+ * they are the singular-slot query (`ki_parent_slot_uq` makes at most one
+ * item ever answer it). Ignores scope entirely — scope answers a different
+ * question (how far an item reaches), not which item occupies this slot.
+ */
+export async function getParentedItem(
+	db: HyperIdleDb,
+	input: {
+		readonly parentKind: KnowledgeParentKind;
+		readonly parentId: string;
+		readonly role: KnowledgeRole;
+		readonly status?: "active";
+	},
+): Promise<KnowledgeItem | null> {
+	const [row] = await db
+		.select()
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, input.parentKind),
+				eq(knowledgeItems.parentId, input.parentId),
+				eq(knowledgeItems.role, input.role),
+				...(input.status ? [eq(knowledgeItems.status, input.status)] : []),
+			),
+		)
+		.limit(1);
+	return row ?? null;
+}
+
+/**
+ * Every item under one parent, whatever its role — feeds the archive-on-
+ * delete path (a parent's children are its whole `parent_kind`+`parent_id`
+ * population, not just its named slot).
+ */
+export async function listItemIdsByParent(
+	db: HyperIdleDb,
+	input: { readonly parentKind: KnowledgeParentKind; readonly parentId: string },
+): Promise<readonly string[]> {
+	const rows = await db
+		.select({ id: knowledgeItems.id })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, input.parentKind),
+				eq(knowledgeItems.parentId, input.parentId),
+			),
+		);
+	return rows.map((r) => r.id);
+}
+
+/**
+ * The same named slot for many parents at once — module-private because its
+ * only consumer is `getAgentIdentityIds` below. `knip.json` sets
+ * `ignoreExportsUsedInFile: true`, so an in-file-used export is fine, but a
+ * barrel re-export nothing outside consumes would be flagged as unused.
+ */
+async function listParentedItemIds(
+	db: HyperIdleDb,
+	input: {
+		readonly parentKind: KnowledgeParentKind;
+		readonly parentIds: readonly string[];
+		readonly role: KnowledgeRole;
+		readonly status?: "active";
+	},
+): Promise<Map<string, string>> {
+	if (input.parentIds.length === 0) return new Map();
+	const rows = await db
+		.select({ id: knowledgeItems.id, parentId: knowledgeItems.parentId })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, input.parentKind),
+				inArray(knowledgeItems.parentId, [...input.parentIds]),
+				eq(knowledgeItems.role, input.role),
+				...(input.status ? [eq(knowledgeItems.status, input.status)] : []),
+			),
+		);
+	return new Map(rows.flatMap((r) => (r.parentId ? [[r.parentId, r.id] as const] : [])));
+}
+
+/**
+ * The same named slot's text for many parents at once — one query instead of
+ * one `getParentedItem` per parent. A list endpoint that must agree with its
+ * own detail endpoint on shape (e.g. a routine's `prompt`) reaches for this
+ * instead of resolving each row's document individually.
+ */
+export async function listParentedItemBodies(
+	db: HyperIdleDb,
+	input: {
+		readonly parentKind: KnowledgeParentKind;
+		readonly parentIds: readonly string[];
+		readonly role: KnowledgeRole;
+		readonly status?: "active";
+	},
+): Promise<Map<string, string>> {
+	if (input.parentIds.length === 0) return new Map();
+	const rows = await db
+		.select({ body: knowledgeItems.body, parentId: knowledgeItems.parentId })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.parentKind, input.parentKind),
+				inArray(knowledgeItems.parentId, [...input.parentIds]),
+				eq(knowledgeItems.role, input.role),
+				...(input.status ? [eq(knowledgeItems.status, input.status)] : []),
+			),
+		);
+	return new Map(rows.flatMap((r) => (r.parentId ? [[r.parentId, r.body] as const] : [])));
+}
+
+/**
  * Give an agent its identity document, or update the one it has.
  *
- * An agent's identity is an `agent_file` knowledge document bound to it —
- * `scopeKind='user'` with `scopeId` set to the agent — which is what that role
- * has always meant, and the binding context assembly already reads. Seeded once
- * when the agent is created; after that it is edited like any other document.
+ * An agent's identity is an `agent_file` knowledge document parented to it —
+ * `parentKind='agent'` with `parentId` set to the agent — which is the
+ * binding context assembly reads through `getParentedItem`. `scopeKind:
+ * 'user'`/`scopeId` are still written too: scope answers a different
+ * question (how far the item reaches) and is never derived from the parent.
+ * Seeded once when the agent is created; after that it is edited like any
+ * other document.
  *
  * The body is NOT overwritten when the document already exists: an identity a
  * person has edited is theirs, and re-seeding would silently discard it.
@@ -1296,6 +1462,8 @@ export async function upsertAgentIdentity(
 			status: "active",
 			version: 1,
 			role: "agent_file",
+			parentKind: "agent",
+			parentId: input.agentId,
 			updatedBy: input.updatedBy,
 			createdAt: ts,
 			updatedAt: ts,
@@ -1314,20 +1482,19 @@ export async function upsertAgentIdentity(
 	return id;
 }
 
+/**
+ * @lore knowledge-attachment-slot: the retired predicate was
+ * `scopeKind='user' AND scopeId=agentId` — a reverse lookup. This now resolves
+ * through the parent slot instead; scope plays no part in finding the item.
+ */
 export async function getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null> {
-	const [row] = await db
-		.select({ body: knowledgeItems.body })
-		.from(knowledgeItems)
-		.where(
-			and(
-				eq(knowledgeItems.role, "agent_file"),
-				eq(knowledgeItems.scopeKind, "user"),
-				eq(knowledgeItems.scopeId, agentId),
-				eq(knowledgeItems.status, "active"),
-			),
-		)
-		.limit(1);
-	return row?.body ?? null;
+	const item = await getParentedItem(db, {
+		parentKind: "agent",
+		parentId: agentId,
+		role: "agent_file",
+		status: "active",
+	});
+	return item?.body ?? null;
 }
 
 /**
@@ -1340,19 +1507,48 @@ export async function getAgentIdentityIds(
 	db: HyperIdleDb,
 	agentIds: readonly string[],
 ): Promise<Map<string, string>> {
-	if (agentIds.length === 0) return new Map();
-	const rows = await db
-		.select({ id: knowledgeItems.id, scopeId: knowledgeItems.scopeId })
-		.from(knowledgeItems)
-		.where(
-			and(
-				eq(knowledgeItems.role, "agent_file"),
-				eq(knowledgeItems.scopeKind, "user"),
-				eq(knowledgeItems.status, "active"),
-				inArray(knowledgeItems.scopeId, [...agentIds]),
-			),
-		);
-	return new Map(rows.flatMap((r) => (r.scopeId ? [[r.scopeId, r.id] as const] : [])));
+	return listParentedItemIds(db, {
+		parentKind: "agent",
+		parentIds: agentIds,
+		role: "agent_file",
+		status: "active",
+	});
+}
+
+/**
+ * The body of the `prompt` knowledge document parented to a routine — the
+ * instruction its sessions read. `getAgentIdentity`'s exact twin: parent
+ * says where it hangs, role says where it lands, same singular-slot query.
+ * Null when the routine has no prompt document.
+ *
+ * @lore knowledge-attachment-slot: no status filter, on purpose — today's
+ * read has never had one, so a manually archived prompt keeps being read
+ * exactly as it is today. Narrowing to `status: "active"` (like
+ * `getAgentIdentity` does) is a real behavior change nobody has asked for.
+ */
+export async function getRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null> {
+	const item = await getParentedItem(db, {
+		parentKind: "routine",
+		parentId: routineId,
+		role: "prompt",
+	});
+	return item?.body ?? null;
+}
+
+/**
+ * `getRoutinePrompt` for a whole page of routines, in one query rather than
+ * one per row — mirrors `getAgentIdentityIds` for the routine list, which
+ * must agree with the single-routine routes on the same `prompt` field.
+ */
+export async function getRoutinePromptBodies(
+	db: HyperIdleDb,
+	routineIds: readonly string[],
+): Promise<Map<string, string>> {
+	return listParentedItemBodies(db, {
+		parentKind: "routine",
+		parentIds: routineIds,
+		role: "prompt",
+	});
 }
 
 export async function upsertPluginDocument(
@@ -1372,6 +1568,8 @@ export async function upsertPluginDocument(
 			status: "active",
 			version: 1,
 			role: input.role ?? "skill",
+			parentKind: input.parentKind,
+			parentId: input.parentId,
 			// @lore BA9g: `plugin:<id>` was a provenance sentinel here. Migration
 			// 0071 rewrote every existing one to `plugin` because it leaked into the
 			// knowledge view as a raw author string, and the registry carries
@@ -1387,6 +1585,12 @@ export async function upsertPluginDocument(
 				scopeKind: input.scopeKind,
 				scopeId: input.scopeId,
 				topic: input.topic,
+				// A reinstall over a row created before the parent column existed
+				// must repair the binding, exactly as this set already repairs
+				// scope and status. The parent is not a person's field, so nothing
+				// a human wrote is discarded by overwriting it.
+				parentKind: input.parentKind,
+				parentId: input.parentId,
 				// Uninstall and disable both ARCHIVE these rows, and only `active`
 				// ones reach a session. Leaving status alone here meant a reinstall
 				// produced a plugin that reported `enabled`, restored its agent and
