@@ -395,11 +395,11 @@ export function KnowledgeDetail({
  * leaf having no children is the normal case, not an absence worth noting.
  */
 function ChildrenCard({
-	children,
+	children: items,
 }: {
 	children?: ReadonlyArray<{ id: string; title: string }>;
 }): JSX.Element | null {
-	if (!children || children.length === 0) return null;
+	if (!items || items.length === 0) return null;
 	return (
 		<div
 			data-testid="knowledge-children-card"
@@ -407,7 +407,7 @@ function ChildrenCard({
 		>
 			<SectionLabel label="Children" as="h2" />
 			<ul className="flex flex-col">
-				{children.map((child) => (
+				{items.map((child) => (
 					<li key={child.id} data-testid="knowledge-child-item">
 						<RRLink
 							to={`/knowledge/${child.id}`}
@@ -1202,7 +1202,7 @@ function KnowledgeDetailView({
 					</div>
 
 					{/* nested-knowledge-items: this item's own children */}
-					<ChildrenCard children={item.children} />
+					<ChildrenCard>{item.children}</ChildrenCard>
 
 					{/* W3 AC-41: backlinks card */}
 					<BacklinksCard
