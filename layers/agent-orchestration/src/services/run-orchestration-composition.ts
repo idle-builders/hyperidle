@@ -233,8 +233,16 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 			readonly title: string;
 			readonly body: string;
 			readonly format: string;
-			readonly status: "captured";
+			/**
+			 * `draft`, not `captured`. The route has never accepted `captured` —
+			 * it validates status against its own four-value list, so every
+			 * writeback create 400'd for the whole life of this path. `draft` is
+			 * the same state under the name the route knows.
+			 */
+			readonly status: "draft";
 			readonly updatedBy: string;
+			/** Where the produced item hangs — the session's task, or the conversation it is answering in. */
+			readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
 		},
 	): Promise<{ readonly id: string; readonly version: number; readonly format: string }>;
 	update(
@@ -265,12 +273,18 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 		async create(_db, input) {
 			const created = await port.knowledge.create({
 				layer: input.layer,
+				// The route requires a scope and this call never sent one, so
+				// every writeback create was rejected before it reached the
+				// database. `factory` is what the column default would have been
+				// had the row ever been written.
+				scopeKind: "factory",
 				kind: input.kind,
 				title: input.title,
 				body: input.body,
 				format: input.format,
 				status: input.status,
 				updatedBy: input.updatedBy,
+				...(input.parent ? { parentKind: input.parent.kind, parentId: input.parent.id } : {}),
 			});
 			return { id: created.id, version: created.version, format: input.format };
 		},

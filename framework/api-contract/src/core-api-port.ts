@@ -505,7 +505,15 @@ export interface CoreApiRoutinePort {
  */
 export interface CreateKnowledgeItemRequest {
 	readonly layer: string | null;
-	readonly scopeKind?: string | null;
+	/**
+	 * Required, because the route requires it. It was optional here for a long
+	 * time and the route's zod was not, so a caller that omitted it typechecked
+	 * clean and 400'd at runtime — which is exactly what the agent writeback
+	 * path did, for its whole life. Making the contract tell the truth is what
+	 * turns that class of drift into a `npm run check` failure instead of a
+	 * silent seam error nobody reads.
+	 */
+	readonly scopeKind: string;
 	readonly scopeId?: string | null;
 	readonly kind?: string | null;
 	readonly topic?: string | null;
@@ -514,6 +522,13 @@ export interface CreateKnowledgeItemRequest {
 	readonly format: string;
 	readonly status: string;
 	readonly updatedBy: string;
+	/**
+	 * Where the item hangs. A produced item is parented to the task or the
+	 * conversation that produced it; only those two kinds are accepted from a
+	 * client (see `createKnowledgeSchema` in core-api's knowledge route).
+	 */
+	readonly parentKind?: "task" | "thread";
+	readonly parentId?: string;
 }
 
 /** Mirrors `POST /knowledge`'s 201 response body — only the fields a `CoreApiPort` consumer relies on. */

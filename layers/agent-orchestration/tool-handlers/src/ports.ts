@@ -103,8 +103,15 @@ interface ToolHandlersCreateTeamInput {
  */
 interface ToolHandlersCreateKnowledgeItemInput {
 	readonly layer: string | null;
-	readonly scopeKind?: string | null;
+	/** Required, mirroring `CreateKnowledgeItemRequest` — see the note there. */
+	readonly scopeKind: string;
 	readonly scopeId?: string | null;
+	/**
+	 * Where the item hangs. A produced item — what used to be an artifact — is
+	 * parented to the task or the conversation that produced it.
+	 */
+	readonly parentKind?: "task" | "thread";
+	readonly parentId?: string;
 	readonly kind?: string | null;
 	readonly topic?: string | null;
 	readonly title: string;
