@@ -126,6 +126,7 @@ function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 				path: sandboxPath,
 			}),
 			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
 			destroy: async () => undefined,
 		},
 	};

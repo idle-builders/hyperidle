@@ -53,19 +53,60 @@ and deliver the verdict as a real user turn.
 session that is the task. It is distinct from the assembled context that becomes AGENTS.md, and it is
 delivered whole. Conflating the two is what previously handed agents 200 characters of the wrong text.
 
-## The one defect left in the code
+## What the manual proof found
 
-`resumeSession` is given the **new** session's sandbox path. cursor-agent binds a chat to the literal
-working directory it started in — `~/.cursor/chats/<md5(cwd)>/` — so resuming from anywhere else exits
-0, echoes back the correct session id, and runs with no context whatsoever. There is no error and
-nothing in the stream. claude finds a session by id from any directory and is unaffected; codex and
-opencode need checking against the same question. This is the most likely cause of the unexplained
-hang recorded against the earlier attempt, and it is marked in the code at the call site.
+Six defects, each fixed and each with a test that goes red when the fix is reverted.
 
-The fix is to resume in the session's own directory. That requires the sandbox to still exist when the
-human answers, which is a real constraint the plan does not yet address — a sandbox is destroyed at
-teardown, and a human may take days. **This is a plan question, not an architecture one**, and it is
-the one open item that could change the shape of the work.
+1. **`submit_review` only wrote a review when evidence was attached.** With just a title and reasoning
+   — the ordinary case for an agent asking BEFORE it acts — it wrote a plain message. Only a `review`
+   message renders the card that carries the verdict buttons, so the common ask could never be
+   answered, and the link row pointed at a message no verdict could reach. The rare case worked; the
+   ordinary one was silently broken.
+2. **The review surface crashed on a real review.** `GET /api/reviews/:id` returned `{...payload,
+   threadId}`, while the page calls `.find`/`.filter`/`.map` on `artifacts`, `conversation`, `intent`,
+   `needs` and `resultKpis` with no guard. Every fixture had them; no agent-filed review did. The
+   route now composes the subject from real rows and answers "we have none of that" with an empty
+   list, never an invented one.
+3. **The sandbox was destroyed while a verdict was owed.** Recorded as an accepted gap about lost
+   files; it is actually what hangs the resume. Teardown now keeps the directory when the session
+   filed a review, and the resumed session ADOPTS it rather than spawning a fresh one.
+4. **Re-materialising context into that directory failed with EACCES.** Context files are chmod-ed to
+   0444; the bundle path deletes the tree first, the bundle-less path a resume takes wrote straight
+   over them. The human approved and the session crashed before the agent started.
+5. **A review filed while the app was open was invisible until a restart.** A message append pushed
+   only to `thread:<id>`, which nobody is subscribed to unless they already have that thread open, and
+   the pushed list row hardcoded `hasUnresolvedReview: false`.
+6. **A resumed session had no calling thread.** The never-silent net had nowhere to post, so a resumed
+   agent that ended without returning left the person who approved staring at silence.
+
+Two of these were nearly missed by a passing test. The sandbox-lifetime check first watched the
+`workspace.destroy` spy, which removes an already-removed tree — the delete that matters is the `fs.rm`
+in the terminal transition. And it first read the tool call off the event stream, which production
+never uses: with the MCP bridge open a return action arrives through `onToolCall` instead. Both
+versions were green and both did nothing on a real run. The check now asks the `review_sessions` row —
+the durable fact — and the test asserts the directory on disk.
+
+## Where each harness stands
+
+| | asks | verdict lands | resumes with context | returns after the verdict |
+|---|---|---|---|---|
+| claude-code | yes | yes | yes | yes — both approve and decline |
+| cursor-agent | sometimes | yes | yes, in the original directory | yes when it asked |
+| codex | yes | yes | yes | no — ends without returning |
+| opencode | no | — | — | — |
+
+**cursor-agent** files a real review some runs and simply stops on others. Nothing forces it: its
+hooks file is the one the research found voided when the matcher is written the way its own docs show.
+
+**codex** asks reliably and its resume genuinely carries context — proved directly against the real
+binary: a thread told to remember a word answered with it after `exec resume`. What it does not do is
+return on the resumed turn. The human is no longer left in silence (defect 6), but the answer they
+get is the never-silent notice, not the agent's.
+
+**opencode** never reaches the loop. Its own log names the cause: `failed to load plugin …
+return-signal.ts error="Plugin export is not a function"`. The plugin HyperIdle writes exports an
+object with `setup(ctx)`; the installed opencode requires `Plugin = (input, options?) => Promise<Hooks>`.
+That is the return gate, not this package, and it is registered separately.
 
 ## Failure behaviour
 
@@ -95,19 +136,26 @@ That last is a real exposure and is recorded outside this package.
 
 ## Verification
 
-Done is behavioural — the agent decides it is done according to the task and marks it done. The
-evidence is the maintainer's: invent a task locally, let the agent raise a review, then approve it once
-and decline it once and observe each outcome, on all four harnesses.
+Done is behavioural. The evidence is a maintainer's run of the real desktop application against a real
+repository, driven through its own screens: invent a task, let the agent raise a review, approve it
+once and decline it once, and read what the agent says when it comes back.
 
-Existing lanes cover the parts beneath it and are adequate: unit tests for the instruction passing
-through whole, service integration for the link, the verdict path and the resume branch. Two things
-those lanes cannot show and the manual check must — that a resumed session carries its context on each
-harness, and that an agent told only by its context actually elects to ask.
+On claude-code both halves closed. Approved, the agent returned to its own directory, verified its
+commit and marked the task done. Declined, it said *"'Proofground' is off the table"* and asked for a
+steer instead of treating the task as refused — the plan's rule that a decline declines the solution,
+observed rather than asserted.
+
+Beneath that, the lanes cover the parts a run cannot isolate: the message type, the loader's contract,
+the sandbox lifetime on both invocation modes, context re-materialisation, the live push, and the
+calling thread on a resume. Every one was sanity-broken.
 
 ## Remaining work
 
-1. The cursor resume directory defect, and the sandbox-lifetime question it raises — plan first.
-2. The manual proof.
+Nothing in BA2. Registered outside it: opencode's return-signal plugin, cursor's unreliable forcing,
+and three things the run exposed that are nobody's package yet — the team's repository is never
+mounted into a session's sandbox, the agent Customize panel swallows a 422 and shows only "Unsaved
+changes", and `describeSelectFailure` reports a harness-type mismatch as "all adapters are at
+capacity".
 
 ## Documentation this makes false
 

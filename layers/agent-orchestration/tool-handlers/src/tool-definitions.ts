@@ -749,7 +749,7 @@ function makeSubmitReviewTool<TDb>(
 	return {
 		name: "submit_review",
 		description:
-			"Submit a review for the current task's work. Posts a review-type message to the task's own thread — the task's existing thread if it has one, otherwise a new thread attached to the task (never the bet's thread — a task can exist without a bet). Attach evidence either as `artifacts` — inline canvas payloads (kind is one of: outcome_summary, field_change_set, action_operation, rendered_in_context, metrics_moved, visual_diff, code_diff, batch, browser_preview; payload shape is validated at render time, not here) — or as `artifactRef`, a reference to an artifact this task already produced via create_artifact. If neither is provided, falls back to a plain message with the review summary.",
+			"Submit a review for the current task's work. Posts a review-type message to the task's own thread — the task's existing thread if it has one, otherwise a new thread attached to the task (never the bet's thread — a task can exist without a bet). Attach evidence either as `artifacts` — inline canvas payloads (kind is one of: outcome_summary, field_change_set, action_operation, rendered_in_context, metrics_moved, visual_diff, code_diff, batch, browser_preview; payload shape is validated at render time, not here) — or as `artifactRef`, a reference to an artifact this task already produced via create_artifact. Evidence is optional: a review with only a title and reasoning is still a review, and is what an agent files when it wants agreement before acting rather than sign-off on something already built.",
 		inputSchema: submitReviewInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = submitReviewInputSchema.safeParse(args);
@@ -781,35 +781,32 @@ function makeSubmitReviewTool<TDb>(
 				now,
 			);
 
+			// @lore BA2: evidence is optional but the message TYPE is not. This
+			// used to write a plain message when an agent supplied neither
+			// artifactRef nor artifacts, which silently broke the whole loop: only
+			// a `review` message renders the card that carries the verdict
+			// buttons, so a plain "Review requested: ..." can never be approved or
+			// declined, and the session that filed it is never resumed. The link
+			// row below was still written, pointing at a message no verdict can
+			// ever reach. An agent asking for agreement BEFORE it acts has nothing
+			// to attach yet, which is exactly the common case — so that fallback
+			// broke the ordinary path and left the rare one working.
+			const payload: ReviewPayload = {
+				title: input.title,
+				reasoning: input.reasoning,
+				...(input.artifactRef ? { artifactRef: input.artifactRef } : {}),
+				...(input.artifacts ? { artifacts: input.artifacts } : {}),
+			};
 			// The route generates the message's id server-side; `created.id`
 			// replaces the client-generated `randomUUID()` the raw DI path used.
-			let created: { readonly id: string };
-			// A review carrying only canvas artifacts is a review; an agent that
-			// supplies neither still gets today's plain-message fallback.
-			if (input.artifactRef || input.artifacts?.length) {
-				const payload: ReviewPayload = {
-					title: input.title,
-					reasoning: input.reasoning,
-					...(input.artifactRef ? { artifactRef: input.artifactRef } : {}),
-					...(input.artifacts ? { artifacts: input.artifacts } : {}),
-				};
-				created = await ports.coreApi.insertMessage(
-					{ threadId, type: "review", payload: { ...payload }, clientKey: crypto.randomUUID() },
-					ctx.agentId,
-				);
-			} else {
-				const text = `Review requested: ${input.title}\n\n${input.reasoning.join("\n")}`;
-				created = await ports.coreApi.insertMessage(
-					{ threadId, type: "plain", payload: { text }, clientKey: crypto.randomUUID() },
-					ctx.agentId,
-				);
-			}
+			const created = await ports.coreApi.insertMessage(
+				{ threadId, type: "review", payload: { ...payload }, clientKey: crypto.randomUUID() },
+				ctx.agentId,
+			);
 			const messageId = created.id;
 
-			// If the gate is holding a denial against this session, this review is
-			// the agent asking about that exact action. Recording the link here is
-			// what lets a human's approval clear it — and what stops an approval on
-			// any other review from clearing anything.
+			// Which session filed this review. A verdict reads this row to know
+			// which session to bring back with the answer.
 			await ports.gate.linkReviewToSession(ctx.sessionId, messageId);
 
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);

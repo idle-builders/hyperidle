@@ -85,13 +85,13 @@ about one.
 **What it leans on.** The review product and its canvases, the session handle each harness reports,
 the resume path, and the context materialisation step that writes the sandbox.
 
-**A known gap, accepted for now.** A sandbox is destroyed when its session ends, so a resumed agent
-finds its conversation but not the files it made. The rule we want is that the filesystem belongs to
-the *work* and survives until the agent says it is done — only an agent actively deciding it is done
-should let us delete it. That changes teardown for every session, not just resumed ones, and needs
-something to reap the work that is abandoned rather than finished, so it is its own package. BA2 is
-proven with the gap in place, and the proof is weaker for it: the loop is shown to close, not that an
-agent returns to its own work intact.
+**The filesystem belongs to the work.** A session that ends by filing a review is not finished, it
+is waiting, so its directory survives until the agent is brought back and says it is done. This was
+first written down as an accepted gap — "the agent finds its conversation but not the files it made"
+— and that was wrong about the cost. Deleting the directory does not lose files, it hangs the resume:
+the harness is started with a working directory that no longer exists and never fails, so the human's
+answer reaches nobody and nothing anywhere says why. The narrow rule is here because BA2 cannot close
+without it. Reaping work that is abandoned rather than finished is still a separate package.
 
 **Deliberately simple.** No rule list, no clearance, no permission that burns, nothing to keep in sync
 between a gate and a decision. The agent may ask about something nobody would have stopped, and that

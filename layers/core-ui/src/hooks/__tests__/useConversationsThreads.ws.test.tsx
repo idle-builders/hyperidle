@@ -164,6 +164,50 @@ describe("useConversationsThreads applies the pushed ThreadListRow with zero fol
 		expect(result.current.threads.some((t) => t.id === "t-new")).toBe(false);
 	});
 
+	/**
+	 * @lore BA2: an agent filing a review appends a message to a thread the human
+	 * ALREADY has. Nothing about that push announces a new thread, and the hook
+	 * used to accept `thread_created` only, then skip any id it already held. So
+	 * the row never moved, its time never changed, and its blocking flag never
+	 * flipped — the review was invisible until the app was restarted.
+	 */
+	it("applies a message append to a thread already in the list", async () => {
+		let capturedHandler: ((data: unknown) => void) | null = null;
+		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
+			capturedHandler = handler;
+			return unsubscribeMock;
+		});
+
+		const { result } = renderHook(() => useConversationsThreads("u-founder"));
+		await waitFor(() => expect(result.current.status).toBe("ready"));
+		expect(result.current.threads[0]?.status).not.toBe("behind");
+
+		await act(async () => {
+			capturedHandler?.({
+				type: "update",
+				topic: "conversations",
+				kind: "thread_message_appended",
+				data: pushedRow({
+					id: "t1",
+					hostId: "host-1",
+					participants: ["u-founder", "agent-1"],
+					title: "Existing thread",
+					hasUnresolvedReview: true,
+					lastActiveAt: "2026-04-30T14:00:00.000Z",
+				}),
+			});
+		});
+
+		await waitFor(() => {
+			expect(
+				result.current.threads.find((t) => t.id === "t1")?.status,
+				"the human is now the one holding this up and the list has to say so",
+			).toBe("behind");
+		});
+		// Replaced in place, not duplicated.
+		expect(result.current.threads.filter((t) => t.id === "t1")).toHaveLength(1);
+	});
+
 	it("ignores a push envelope of a different kind", async () => {
 		let capturedHandler: ((data: unknown) => void) | null = null;
 		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {

@@ -47,6 +47,7 @@ import {
 // Filesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
 import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
+import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -226,6 +227,8 @@ interface SessionLifecycleSandboxHandle {
 
 interface SessionLifecycleSandboxAdapter {
 	spawn(baseDir: string): Promise<SessionLifecycleSandboxHandle>;
+	/** Take ownership of a directory that already exists — see BA2 in Phase 4. */
+	adopt(path: string): Promise<SessionLifecycleSandboxHandle>;
 	exec(
 		handle: SessionLifecycleSandboxHandle,
 		command: string,
@@ -977,10 +980,20 @@ interface ProvisionSessionResult {
  * Only added when the session actually has rules. On a fresh system the list is
  * empty and nothing is said, because nothing can be blocked.
  */
+/**
+ * @lore BA2: nothing intercepts. This text used to open with "if a tool call is
+ * refused because a rule blocked it" — it was written for a gate that no longer
+ * exists, and an agent reading it would wait for a refusal that never comes. The
+ * whole mechanism now IS this paragraph: the agent is told that some work
+ * deserves a person's agreement and how to ask, and it elects to ask. What
+ * agents choose to ask about is the evidence any future interception list would
+ * be built from, so the wording deliberately leaves the judgement with them
+ * rather than enumerating what to ask about.
+ */
 const REVIEW_ORIENTATION = `
 
-## When an action needs a person
-Some actions in this workspace need a human to agree before you take them. If a tool call is refused because a rule blocked it, that is not a failure and not something to work around. Make your case with \`submit_review\`: say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer.`;
+## When work needs a person
+Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask with \`submit_review\`: say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer. A declined review declines that solution, not the task — keep working toward the same goal another way.`;
 
 /**
  * AF7 §2: The synchronous result of admission (phases 1-7). Carries everything
@@ -993,15 +1006,6 @@ interface AdmittedSession {
 	readonly agentRole: string;
 	readonly teamId: string | undefined;
 	readonly systemPromptText: string;
-	/**
-	 * The action rules that apply to this session, resolved at admission.
-	 *
-	 * @lore BA2: Resolved here rather than at gate-provisioning time because the
-	 * prompt is composed first, and a gated agent has to be told — once, in the
-	 * prompt — that some actions need a person and how to ask. The deny message
-	 * itself stays a terse statement of fact: an imperative in a deny is what a
-	 * model once refused as prompt injection (ruling 6).
-	 */
 	readonly modelTier: ModelTier;
 	/**
 	 * The harness options this agent was configured with, read from its run
@@ -1175,9 +1179,17 @@ async function admitSession(
 	let sandboxPath: string;
 	let mountedFilesystems: Filesystem[] = [];
 	// ── Phase 4: spawn sandbox via adapter.
-	const sandboxHandle: SessionLifecycleSandboxHandle = await workspace.spawn(
-		params.sandboxBasePath,
-	);
+	//
+	// @lore BA2: a resumed session does not get a new directory — it adopts the
+	// one the session it is resuming ran in. Two reasons, and either alone is
+	// enough. The agent is coming back to its own work, and cursor-agent finds
+	// its chat by an md5 of the cwd STRING, so resuming from anywhere else runs
+	// with no context at all, exits 0, and says nothing. Adopting also settles
+	// who deletes it: this session does, at its own teardown, unless it too ends
+	// by asking a human.
+	const sandboxHandle: SessionLifecycleSandboxHandle = params.resume?.sandboxPath
+		? await workspace.adopt(params.resume.sandboxPath)
+		: await workspace.spawn(params.sandboxBasePath);
 	sandboxPath = sandboxHandle.path;
 
 	// ── Phase 5: insert session row.
@@ -1777,7 +1789,8 @@ async function runSession(
 					params.resume.harnessSessionId,
 					buildVerdictMessage(params.resume),
 					{
-						sandboxPath: params.resume.sandboxPath ?? sandboxPath,
+						// Phase 4 adopted the original session's directory, so this IS it.
+						sandboxPath,
 						modelTier,
 						...(selectedModel ? { selectedModel } : {}),
 						...(mcpTokenEnv ? { mcpTokenEnv } : {}),
@@ -1802,6 +1815,15 @@ async function runSession(
 				for await (const event of harness.streamEvents(harnessHandle)) {
 					// Observe every event FIRST — the gate is read-only.
 					returnGate.observe(event);
+
+					// @lore BA2: a session that ends by filing a review is not
+					// finished, it is waiting — a human may take days to answer, and
+					// when they do, the agent is resumed IN THIS DIRECTORY. Destroying
+					// it at teardown does not merely lose the agent's files: the resume
+					// spawns the harness with a cwd that no longer exists, and every
+					// harness hangs rather than failing, so the verdict reaches nobody
+					// and nothing says why. The filesystem belongs to the work, and the
+					// work is not done until the agent says it is.
 
 					if (aborted) {
 						break;
@@ -2005,7 +2027,19 @@ async function runSession(
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
-	await workspace.destroy(sandboxHandle);
+	// @lore BA2: the filesystem belongs to the work, not to the session. A session
+	// that ended by filing a review is not finished, it is waiting — a human may
+	// take days — and when the verdict comes the agent is resumed IN THIS
+	// DIRECTORY. Deleting it now does not merely lose the agent's files: the
+	// resume spawns the harness with a working directory that no longer exists,
+	// and it hangs instead of failing, so the answer reaches nobody and nothing
+	// says why. The question is asked of the `review_sessions` row `submit_review`
+	// wrote, not of the tool-call event: a return action reaches this function by
+	// one of two paths depending on whether the MCP bridge is open, and watching
+	// only the stream was green in a test and dead on every real run.
+	if (!(await sessionAwaitsVerdict(db, sessionId))) {
+		await workspace.destroy(sandboxHandle);
+	}
 	ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 
 	if (beforeHarnessStartError) {

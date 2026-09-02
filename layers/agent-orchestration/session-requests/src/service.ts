@@ -605,8 +605,18 @@ async function createResumeRequestInternal(
 		},
 		// `agentConfig` rides the same key every other kind uses, so the drain's
 		// existing `parseBakedAgentConfig` finds it with no special case.
+		//
+		// @lore BA2: `callingThreadId` is the thread the human gave the verdict in,
+		// and a resumed session needs it for the same reason any other session with
+		// a calling thread does — it is where the agent's answer belongs, and it is
+		// where the never-silent net posts when a turn ends without returning.
+		// Without it a resumed agent that says nothing leaves the human who
+		// approved staring at silence, which is the exact defect this package
+		// exists to remove. Observed on codex: the resume ran, carried its context,
+		// and ended `not_returned` with nothing posted anywhere.
 		payloadJson: JSON.stringify({
 			resume,
+			callingThreadId: resume.threadId,
 			...(resume.agentConfig ? { agentConfig: resume.agentConfig } : {}),
 		}),
 	});

@@ -131,9 +131,19 @@ async function buildThreadListRowForPush(
 ): Promise<Record<string, unknown>> {
 	const thread = rowToThread(row);
 	const titleMap = await resolveThreadTitles(db, [row], requestingUserId);
+	// @lore BA2: this used to be hardcoded `false`. The sidebar's blocking badge
+	// and the list's "behind" chip are both derived from it, so a pushed row said
+	// "nothing is waiting" however many reviews were — and an agent asking a human
+	// for agreement showed up nowhere at all until the app was restarted. Computed
+	// the same way the list route computes it.
+	const unresolved = await listMessages(db, {
+		threadIds: [row.id],
+		types: ["review", "questionnaire"],
+		unresolved: true,
+	});
 	return {
 		...thread,
-		hasUnresolvedReview: false,
+		hasUnresolvedReview: unresolved.length > 0,
 		title: titleMap.get(row.id) ?? "Untitled conversation",
 	};
 }
@@ -1597,6 +1607,18 @@ export function createThreadRoutes(
 				message: rowToMessage(created),
 				senderIdentity: await buildSenderIdentityForPush(db, senderId),
 			});
+			// @lore BA2: the same append also changes the thread's row in every
+			// participant's LIST — its position, its time, and whether it is now
+			// waiting on someone. Only the `thread:<id>` topic was pushed, which
+			// nobody is subscribed to unless they already have that thread open, so
+			// a review filed while a human sat in the app appeared nowhere until the
+			// app was restarted.
+			pushUpdate(
+				wsHub,
+				"conversations",
+				"thread_message_appended",
+				await buildThreadListRowForPush(db, updatedThread, senderId),
+			);
 			if (input.type === "verdict" && resolvesMessageRow) {
 				pushUpdate(wsHub, `thread:${threadId}`, "thread_resolved", {
 					resolvedAt: updatedThread.resolvedAt,

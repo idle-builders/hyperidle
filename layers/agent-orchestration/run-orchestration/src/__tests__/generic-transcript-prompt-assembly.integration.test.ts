@@ -198,6 +198,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 			workspace: {
 				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
 				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
 				destroy: async () => undefined,
 			},
 			onBeforeHarnessStart: (ctx) => {
@@ -330,7 +331,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	 * does through the same channel an attacker could write to. So the instruction
 	 * lives in the prompt or nowhere.
 	 */
-	test("a gated session is told in its prompt that some actions need a person", async ({ db }) => {
+	test("every session is told in its prompt that some work needs a person", async ({ db }) => {
 		await seedAgent(db, "agent-gated-1");
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-gate-prompt-"));
 		sandboxDirs.push(sandboxPath);
@@ -344,8 +345,15 @@ describe("generic transcript delivery (Increment 4)", () => {
 		await provisioner.run(deps, params, admitted);
 
 		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
-		expect(prompt).toContain("## When an action needs a person");
+		expect(prompt).toContain("## When work needs a person");
 		expect(prompt, "the agent must be told HOW to ask").toContain("submit_review");
+		// Nothing intercepts, so the agent has to know the judgement is its own.
+		// Text written for a gate would have it waiting for a refusal that never
+		// comes.
+		expect(prompt, "the agent elects to ask; nothing stops it").toContain("Nothing here stops you");
+		expect(prompt, "a decline must not read as the task being refused").toContain(
+			"declines that solution, not the task",
+		);
 	});
 
 	/**

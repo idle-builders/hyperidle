@@ -34,6 +34,7 @@ export {
 	mcpNamespacedToolName,
 	opencodeToolName,
 	RETURN_ACTION_NAMES,
+	returnActionOf,
 	shouldForceReturn,
 } from "./harness/return-actions.js";
 export type {

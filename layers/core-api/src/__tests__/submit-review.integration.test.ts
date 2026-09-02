@@ -151,12 +151,17 @@ describe("submit_review tool", () => {
 		});
 	});
 
-	// AC2 fallback: plain message when no artifactRef
-	describe("AC2: fallback plain message without artifactRef", () => {
-		test("creates plain-type fallback message when no artifactRef provided", async ({
-			db,
-			app,
-		}) => {
+	/**
+	 * @lore BA2: this used to assert the opposite — that a review with no
+	 * `artifactRef` produced a `plain` message reading "Review requested: …".
+	 * That fallback was the defect. Only a `review` message renders the card
+	 * carrying the verdict buttons, so the ordinary case — an agent asking for
+	 * agreement BEFORE it acts, with nothing built yet to attach — could never
+	 * be approved or declined, and the session that filed it was never resumed.
+	 * Evidence is optional; the message type is not.
+	 */
+	describe("a review with no evidence attached", () => {
+		test("is still a review, so a human has something to answer", async ({ db, app }) => {
 			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
 			const result = await submitReviewTool.handler(
@@ -173,11 +178,17 @@ describe("submit_review tool", () => {
 			const data = result.data as { messageId: string };
 			const [msg] = await db.select().from(messages).where(eq(messages.id, data.messageId));
 			expect(msg).toBeDefined();
-			expect(msg?.type).toBe("plain");
+			expect(
+				msg?.type,
+				"a plain message renders no verdict buttons, so the human can never answer",
+			).toBe("review");
 
-			const payload = JSON.parse(msg?.payload ?? "{}") as { text: string };
-			expect(payload.text).toContain("Review requested");
-			expect(payload.text).toContain("Work complete");
+			const payload = JSON.parse(msg?.payload ?? "{}") as {
+				title: string;
+				reasoning: ReadonlyArray<string>;
+			};
+			expect(payload.title).toBe("Work complete");
+			expect(payload.reasoning).toEqual(["All tests pass"]);
 		});
 	});
 

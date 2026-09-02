@@ -50,6 +50,22 @@ export class LocalSandboxAdapter implements SandboxAdapter {
 		return handle;
 	}
 
+	/**
+	 * Register an existing directory as a sandbox this adapter owns.
+	 *
+	 * The registry is per-process, so a directory left behind by an earlier run
+	 * of the app is unknown to `destroy` until it is adopted — which is exactly
+	 * the case a resumed session is in, a human having taken however long they
+	 * took to answer.
+	 */
+	async adopt(path: string): Promise<SandboxHandle> {
+		await mkdir(path, { recursive: true });
+		const sandboxId = `local-sb-adopted-${nextId++}-${Date.now()}`;
+		const handle: SandboxHandle = { sandboxId, path };
+		this.sandboxes.set(sandboxId, handle);
+		return handle;
+	}
+
 	async destroy(handle: SandboxHandle): Promise<void> {
 		if (!this.sandboxes.has(handle.sandboxId)) {
 			throw new Error(`Unknown sandbox: ${handle.sandboxId}`);

@@ -87,6 +87,21 @@ export function isReturnAction(toolName: string, _args?: Record<string, unknown>
 }
 
 /**
+ * Which return action a tool call is, or `undefined` if it is not one.
+ *
+ * @lore BA2: callers need more than "did it return" once returning by asking a
+ * human means something different from returning finished work. A session that
+ * ended on `submit_review` is waiting for a verdict, not done, and its sandbox
+ * has to survive until it is resumed — resuming into a directory that no longer
+ * exists hangs the harness rather than failing. Every caller goes through the
+ * same namespace-stripping the predicate uses, so no one re-implements it.
+ */
+export function returnActionOf(toolName: string): ReturnActionName | undefined {
+	const bare = stripMcpNamespace(toolName);
+	return RETURN_ACTION_SET.has(bare) ? (bare as ReturnActionName) : undefined;
+}
+
+/**
  * AU27 Increment 3 (Decision 3) — return predicate that additionally binds
  * to a specific REQUIRED subset of the closed return set, not just "any
  * member". Membership alone both under-binds a session with a specific

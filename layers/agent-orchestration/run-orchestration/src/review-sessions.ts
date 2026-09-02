@@ -62,6 +62,25 @@ export async function findReviewSession(
 	return row;
 }
 
+/**
+ * Does a human owe this session an answer?
+ *
+ * True exactly when the session filed a review, because `submit_review` writes
+ * the link row. Teardown asks this rather than watching for the tool call: a
+ * return action reaches the provisioner by two different paths depending on
+ * whether the MCP bridge is open, and a check that reads only one of them is
+ * green in a test and dead on every real run. The row is the fact; the event is
+ * a way of hearing about it.
+ */
+export async function sessionAwaitsVerdict(db: HyperIdleDb, sessionId: string): Promise<boolean> {
+	const [row] = await db
+		.select({ id: reviewSessions.id })
+		.from(reviewSessions)
+		.where(eq(reviewSessions.sessionId, sessionId))
+		.limit(1);
+	return row !== undefined;
+}
+
 /** Queues one `session_resume` intent. Injected so this file does no enqueueing of its own. */
 export type ResumeIntentEnqueuer = (input: {
 	readonly kind: "session_resume";
