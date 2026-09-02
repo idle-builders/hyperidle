@@ -67,8 +67,8 @@ function makeFakeCtx(agentId = "agent-1"): ToolContext<HyperIdleDb> {
 /**
  * Role assignment summary for the current catalog:
  *
- * No roles (unrestricted, 11 tools):
- *   send_message, reply, log_task, query_practice, write_memory,
+ * No roles (unrestricted, 10 tools):
+ *   send_message, reply, log_task, write_memory,
  *   handoff_to, create_item, create_task, edit_task, submit_review, create_artifact
  *
  * roles: ["assistant"] only (4 tools):
@@ -85,7 +85,6 @@ describe("buildToolDefinitions — role filtering", () => {
 		"send_message",
 		"reply",
 		"log_task",
-		"query_practice",
 		"write_memory",
 		"handoff_to",
 		"create_item",
@@ -106,14 +105,14 @@ describe("buildToolDefinitions — role filtering", () => {
 		"split_knowledge",
 	] as const;
 
-	it("returns all 21 tools when no opts provided", () => {
+	it("returns all 20 tools when no opts provided", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
-		expect(tools).toHaveLength(21);
+		expect(tools).toHaveLength(20);
 	});
 
-	it("returns all 21 tools when opts.role is undefined", () => {
+	it("returns all 20 tools when opts.role is undefined", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: undefined });
-		expect(tools).toHaveLength(21);
+		expect(tools).toHaveLength(20);
 	});
 
 	it("returns same tool set for undefined and no-opts (identity guarantee)", () => {
@@ -126,10 +125,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		expect(noOpts).toEqual(withUndefined);
 	});
 
-	describe("role: 'assistant' (all 21 tools)", () => {
-		it("returns 21 tools — assistant sees the full catalog", () => {
+	describe("role: 'assistant' (all 20 tools)", () => {
+		it("returns 20 tools — assistant sees the full catalog", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "assistant" });
-			expect(tools).toHaveLength(21);
+			expect(tools).toHaveLength(20);
 		});
 
 		it("includes all unrestricted tools", () => {
@@ -157,10 +156,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'facilitator' (17 tools — unrestricted + multi-role, not assistant-only)", () => {
-		it("returns 17 tools for facilitator", () => {
+	describe("role: 'facilitator' (16 tools — unrestricted + multi-role, not assistant-only)", () => {
+		it("returns 16 tools for facilitator", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "facilitator" });
-			expect(tools).toHaveLength(17);
+			expect(tools).toHaveLength(16);
 		});
 
 		it("includes unrestricted tools", () => {
@@ -190,10 +189,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'product_manager' (17 tools — unrestricted + multi-role, not assistant-only)", () => {
-		it("returns 17 tools for product_manager", () => {
+	describe("role: 'product_manager' (16 tools — unrestricted + multi-role, not assistant-only)", () => {
+		it("returns 16 tools for product_manager", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "product_manager" });
-			expect(tools).toHaveLength(17);
+			expect(tools).toHaveLength(16);
 		});
 
 		it("excludes assistant-only tools", () => {
@@ -213,10 +212,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'builder' (11 tools — unrestricted only)", () => {
-		it("returns 11 tools for builder (unrestricted only)", () => {
+	describe("role: 'builder' (10 tools — unrestricted only)", () => {
+		it("returns 10 tools for builder (unrestricted only)", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "builder" });
-			expect(tools).toHaveLength(11);
+			expect(tools).toHaveLength(10);
 		});
 
 		it("includes all unrestricted tools", () => {
@@ -247,7 +246,7 @@ describe("buildToolDefinitions — role filtering", () => {
 	it("unknown role sees only unrestricted tools (open-vocab safety)", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "custom_unknown_role" });
 		// Only unrestricted tools survive (roles-restricted tools exclude unknown)
-		expect(tools).toHaveLength(11);
+		expect(tools).toHaveLength(10);
 		const names = new Set(tools.map((t) => t.name));
 		for (const name of UNRESTRICTED) {
 			expect(names.has(name), `unknown role should see: ${name}`).toBe(true);

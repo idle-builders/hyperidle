@@ -112,6 +112,7 @@ async function seedKi(
 		updatedAt: overrides.updatedAt ?? NOW,
 		parentKind: overrides.parentKind ?? null,
 		parentId: overrides.parentId ?? null,
+		scopeId: overrides.scopeId ?? null,
 	};
 	await db.insert(knowledgeItems).values(kernelRow);
 
