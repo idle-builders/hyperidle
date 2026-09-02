@@ -152,26 +152,4 @@ describe("AC9 — pending_block on send creates a knowledge item, not a wire ref
 		const refs = msgBody.payload?.refs;
 		expect(refs === undefined || refs.length === 0).toBe(true);
 	});
-
-	it("editing the source body after attach does not affect the knowledge item — it is a copy", () => {
-		// This is a structural guarantee: the knowledge item body is a string copied at
-		// attach time. There is no blockId pointer that could rot. If the source knowledge
-		// item is edited, the knowledge item produced here is completely unaffected —
-		// it is a new, independent row with its own body column.
-		const pendingBlock: AssistantContextRef = {
-			kind: "pending_block",
-			content: "Original block text",
-			label: "Block",
-		};
-		// Simulating "source edit" — mutating source string does NOT change pendingBlock.content
-		// because JavaScript strings are immutable and copied by value when assigned.
-		// This test proves the data model guarantees the property.
-		const contentAtAttachTime = pendingBlock.content;
-		// After "editing" (no actual API call here — we test the data model property)
-		const sourceAfterEdit = "Modified block text";
-		expect(contentAtAttachTime).toBe("Original block text");
-		expect(sourceAfterEdit).not.toBe(contentAtAttachTime);
-		// The pending_block content is unchanged — it was captured at click time.
-		expect(pendingBlock.content).toBe("Original block text");
-	});
 });
