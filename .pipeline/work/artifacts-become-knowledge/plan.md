@@ -391,19 +391,47 @@ have been shipped broken without the derivation probe. AC8 is the goal.
 
 ## Status
 
-**Parked** until the nested-knowledge strand lands. BB1 has merged (`870bd0bdc`);
-nested knowledge has not, and it owns the parent slot everything here depends on.
+**Unparked 2026-09-02.** The park reason is gone and the sequencing in the
+section above is stale in one respect — recorded here rather than silently
+rewritten, because the change of order matters.
 
-Rebased onto `origin/main` and re-verified 2026-09-01: the `artifacts` table and
-`tasks.artifacts` both still exist and are still ours to remove; `artifact` is
-still a value in `HOST_KINDS` and `BLOCK_HOST_KINDS`. Nothing this strand
-planned to delete has been deleted by someone else.
+- **BB1 merged** (`870bd0bdc`, #537). Unchanged.
+- **The parent slot exists and is on `main`** — but it was NOT built by the
+  nested-knowledge strand. A separate strand
+  (`.pipeline/work/knowledge-attachment-slot/`) built it and merged it as
+  `bed7972d8` (#545). `knowledge_items.parent_kind` + `parent_id` are live, with
+  `ki_parent_kind_ck`, `ki_parent_pair_ck`, `ki_parent_slot_uq` and
+  `ki_parent_idx`. The allowed kinds are
+  `knowledge_item | task | thread | routine | agent` — five, not the three this
+  plan assumed, because that strand also folded the routine-prompt FK and the
+  agent-identity reverse lookup onto the same slot. `task` and `thread` are both
+  already allowed, so nothing here needs a constraint change.
+
+  That also settles the "three attachment mechanisms" ruling above: they
+  converged, and it was done by that strand rather than deferred.
+- **Nested knowledge has not started.** `feature/knowledge-doc-nesting-480d3f`
+  carries two planning commits and no implementation, and is not pushed.
+  **So this strand no longer lands last — it lands first.** Verified 2026-09-02:
+  `SCOPE_KINDS` on `main` is still the six BB1 left
+  (`factory | product | practice | team | task | user`), and
+  `knowledge_app_projection.layer` / `.kind` still exist.
+
+  Two consequences. **Still do not edit `SCOPE_KINDS`** — nested knowledge
+  narrows it and this strand has no reason to touch it. And the line under
+  "Kind is derived" that leans on nested knowledge deleting
+  `knowledge_app_projection.kind` cannot be leaned on yet; it is still their
+  column to remove. Nothing here writes it, which is all this strand needs.
+
+Re-verified on `main` at `bed7972d8`: the `artifacts` table, `tasks.artifacts`,
+`ARTIFACT_KINDS`, the artifacts routes, `BlockRef` and the `artifact` value in
+`HOST_KINDS` / `BLOCK_HOST_KINDS` all still exist. Nothing this strand planned to
+delete has been deleted by someone else.
 
 Refine is complete. Program design is complete except for one thing, which is
-the first job when this unparks: **how an agent produces or attaches a
-thread-parented knowledge item**, given that writeback is session-scoped today.
-That is a mechanism to design, not a question to ask.
+the first job now: **how an agent produces or attaches a thread-parented
+knowledge item**, given that writeback is session-scoped today. That is a
+mechanism to design, not a question to ask.
 
-On unpark, confirm BB1 and nested-knowledge have actually merged rather than
-assuming it. The `tasks.artifacts` rename is no longer a dependency — BB1 handed
-it back and it is this strand's work.
+**Migration numbering: take 0078 or higher.** The attachment-slot strand landed
+`framework/db/drizzle/0077_one_attachment_slot.sql`. The 0071 floor in
+Sequencing above is superseded.
