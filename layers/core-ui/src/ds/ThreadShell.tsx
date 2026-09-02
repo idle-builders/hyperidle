@@ -26,7 +26,6 @@
 import type {
 	AgentSessionStateSnapshot,
 	ArtifactRef,
-	InlineRef,
 	Message,
 	MessageType,
 	Thread,
@@ -94,16 +93,6 @@ export interface ThreadShellProps {
 	 * DOMPurify here; design-system stays free of DOMPurify dependency.
 	 */
 	sanitizeHtml?: (raw: string) => string;
-	/**
-	 * T4: Optional render function for inline ref embeds. Called per-message
-	 * with the message's refs array. The web consumer provides BlockRefEmbed
-	 * instances; the design-system stays free of data-fetching components.
-	 *
-	 * @lore T4: ThreadShell cannot import BlockRefEmbed (web-layer) directly.
-	 * The render prop keeps the design-system pure while enabling inline embeds
-	 * in any ThreadShell consumer (CocOverlay, Conversations).
-	 */
-	renderRefEmbeds?: (refs: ReadonlyArray<InlineRef>) => ReactNode;
 	/**
 	 * AD8b B3.1: Optional render function for per-message extra content.
 	 * Called per plain message; return value is appended after the message
@@ -245,7 +234,6 @@ export function ThreadShell({
 	hostHref,
 	hideHostBanner = false,
 	sanitizeHtml,
-	renderRefEmbeds,
 	renderMessageExtra,
 }: ThreadShellProps): JSX.Element {
 	// Sort ASC by createdAt with id as a stability tiebreaker.
@@ -484,24 +472,9 @@ export function ThreadShell({
 											);
 										}
 									}
-									// T4: compute afterBody for plain messages with refs.
-									// AD8b B3.1: also append renderMessageExtra output (tool-call rows).
-									const refEmbeds =
-										renderRefEmbeds &&
-										message.type === "plain" &&
-										!isRedactedPayload(message.payload) &&
-										message.payload.refs &&
-										message.payload.refs.length > 0
-											? renderRefEmbeds(message.payload.refs)
-											: null;
+									// AD8b B3.1: append renderMessageExtra output (tool-call rows).
 									const messageExtra = renderMessageExtra ? renderMessageExtra(message) : null;
-									const afterBody =
-										refEmbeds || messageExtra ? (
-											<>
-												{refEmbeds}
-												{messageExtra}
-											</>
-										) : undefined;
+									const afterBody = messageExtra ? messageExtra : undefined;
 									return (
 										<CommentRow
 											key={message.id}

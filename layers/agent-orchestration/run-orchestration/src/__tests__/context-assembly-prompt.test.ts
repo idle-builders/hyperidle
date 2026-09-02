@@ -321,36 +321,6 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).toContain("**When:**");
 	});
 
-	it("renders artifact subject with kind and producingTaskId", async () => {
-		const context = {
-			...routineContext(),
-			triggerEvent: {
-				type: "artifact_created",
-				timestamp: 1_700_000_000_000,
-				subject: {
-					kind: "artifact" as const,
-					artifact: {
-						id: "artifact-ba9c-probe",
-						kind: "document",
-						label: "BA9c Artifact Label",
-						producingTaskId: "task-producing-ba9c",
-					},
-					actorId: "agent-artifact-actor",
-				},
-			},
-		};
-		const result = await assembler.assembleRoutinePrompt({
-			systemPromptText: "",
-			context,
-			tools: [],
-			sandboxPath: "/tmp/unused",
-		});
-
-		expect(result.assembledPrompt).toContain("### Trigger Event");
-		expect(result.assembledPrompt).toContain("document");
-		expect(result.assembledPrompt).toContain("task-producing-ba9c");
-		expect(result.assembledPrompt).toContain("**When:**");
-	});
 
 	it("renders team subject with name", async () => {
 		const context = {

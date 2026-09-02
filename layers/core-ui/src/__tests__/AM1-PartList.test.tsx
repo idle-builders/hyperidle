@@ -40,16 +40,6 @@ function prose(over: Partial<Part> & { id: string; author: typeof ME; text: stri
 	} as Part;
 }
 
-const blockEmbed: Embed = {
-	kind: "block",
-	title: "Auth migration plan · §2",
-	target: { route: "host", hostKind: "knowledge_item", hostId: "k-1" },
-};
-const betBlockEmbed: Embed = {
-	kind: "block",
-	title: "Bet brief · §1",
-	target: { route: "host", hostKind: "task", hostId: "bet-9" },
-};
 const artifactEmbed: Embed = {
 	kind: "artifact",
 	label: "auth/passkey.ts",
@@ -106,18 +96,6 @@ describe("AM1 PartList — calm author-grouped column (AC1)", () => {
 // ── AC2 — embeds render inline ───────────────────────────────────
 
 describe("AM1 PartList — inline embeds (AC2)", () => {
-	it("renders a block embed as a ReferenceChip (title only)", () => {
-		render(
-			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "see", embeds: [blockEmbed] })]}
-				onOpen={vi.fn()}
-			/>,
-		);
-		const chip = document.querySelector('[data-ds-component="ReferenceChip"]');
-		expect(chip).not.toBeNull();
-		expect(screen.getByText("Auth migration plan · §2")).toBeDefined();
-	});
-
 	it("renders an artifact embed as a ReferenceChip", () => {
 		render(
 			<PartList
@@ -245,34 +223,6 @@ describe("AM1 PartList — unknown fallback (AC7)", () => {
 // ── AC8 — routing seam: onOpen fires with the resolved OpenTarget ─
 
 describe("AM1 PartList — onOpen routing seam (AC8)", () => {
-	it("clicking a knowledge-hosted block chip fires onOpen({route:host,knowledge_item})", () => {
-		const onOpen = vi.fn();
-		render(
-			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [blockEmbed] })]}
-				onOpen={onOpen}
-			/>,
-		);
-		fireEvent.click(screen.getByText("Auth migration plan · §2"));
-		expect(onOpen).toHaveBeenCalledWith({
-			route: "host",
-			hostKind: "knowledge_item",
-			hostId: "k-1",
-		});
-	});
-
-	it("clicking a BET-hosted block chip fires onOpen({route:host,bet}) (C1 — non-knowledge case)", () => {
-		const onOpen = vi.fn();
-		render(
-			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [betBlockEmbed] })]}
-				onOpen={onOpen}
-			/>,
-		);
-		fireEvent.click(screen.getByText("Bet brief · §1"));
-		expect(onOpen).toHaveBeenCalledWith({ route: "host", hostKind: "task", hostId: "bet-9" });
-	});
-
 	it("clicking an artifact chip fires onOpen({route:artifact})", () => {
 		const onOpen = vi.fn();
 		render(
@@ -317,7 +267,7 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 	it("mounts NO destination view inline (the conversation owns no viewer)", () => {
 		render(
 			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [blockEmbed, artifactEmbed] })]}
+				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [artifactEmbed] })]}
 				onOpen={vi.fn()}
 			/>,
 		);

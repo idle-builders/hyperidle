@@ -8,18 +8,6 @@ export type { AgentOperationalStatus } from "@hyperidle/domain-model";
 // @lore AU43 bundle-03: ArtifactEmbed deleted — only door was /_dev/artifacts (DEV-ONLY).
 export type { ArtifactFrameProps } from "./ArtifactFrame.js";
 export { ArtifactFrame } from "./ArtifactFrame.js";
-export type { ArtifactGalleryCardProps } from "./ArtifactGalleryCard.js";
-export { ArtifactGalleryCard } from "./ArtifactGalleryCard.js";
-export type { ArtifactKindBadgeProps } from "./ArtifactKindBadge.js";
-export { ArtifactKindBadge } from "./ArtifactKindBadge.js";
-export type { ArtifactPreviewProps } from "./ArtifactPreview.js";
-export { ArtifactPreview } from "./ArtifactPreview.js";
-export type { ArtifactPreviewSurfaceProps } from "./ArtifactPreviewSurface.js";
-export { ArtifactPreviewSurface } from "./ArtifactPreviewSurface.js";
-export type { ArtifactStackItemProps } from "./ArtifactStackItem.js";
-export { ArtifactStackItem } from "./ArtifactStackItem.js";
-export type { ArtifactTimestampProps } from "./ArtifactTimestamp.js";
-export { ArtifactTimestamp } from "./ArtifactTimestamp.js";
 // ── Tier 0: Foundation primitives (W2) ──
 export type { AvatarGroupProps, AvatarProps } from "./Avatar.js";
 export { Avatar, AvatarGroup } from "./Avatar.js";
@@ -61,9 +49,6 @@ export type { ParagraphPayloadProps } from "./block/ParagraphPayload.js";
 export { ParagraphPayload } from "./block/ParagraphPayload.js";
 export type { QuotePayloadProps } from "./block/QuotePayload.js";
 export { QuotePayload } from "./block/QuotePayload.js";
-// T4: renderPayload exported for use in web-layer BlockRefEmbed (cannot import
-// from a sub-path because the design-system package.json only exports ".").
-export { renderPayload } from "./block/render-payload.js";
 export type { TablePayloadProps } from "./block/TablePayload.js";
 export { TablePayload } from "./block/TablePayload.js";
 export type { CheckboxProps } from "./Checkbox.js";
@@ -108,10 +93,6 @@ export { KnowledgeRow } from "./KnowledgeRow.js";
 // ── AM5: KpiStat + Sparkline — extracted base primitives from data-renderer ──
 export type { KpiStatMetric, KpiStatProps } from "./KpiStat.js";
 export { KpiStat } from "./KpiStat.js";
-// ── AM5: composeArtifactBody — the single-home Artifact composition (REPLACES getRenderer) ──
-// K5: CodeRenderer/DataRenderer/FallbackRenderer/HtmlRenderer/ImageRenderer/TextRenderer/UrlRenderer
-// + getRenderer + RendererComponent/RendererProps are REMOVED from this barrel (kind layer collapsed).
-export { composeArtifactBody } from "./kinds/compose-artifact-body.js";
 // ── AI4 Task 5: LiveDot — promoted from WorkTask/TaskSheet ──
 export { LiveDot } from "./LiveDot.js";
 export type { MenuItem, MenuProps } from "./Menu.js";

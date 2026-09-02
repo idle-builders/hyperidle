@@ -1,8 +1,9 @@
 /**
  * T4 — block-excerpt utility.
  *
- * Extracts a short text label from a BlockPayload for use in CoC chips
- * and aria-labels.
+ * Extracts a short text label from a BlockPayload for use in chips
+ * and aria-labels. Also provides blockTextFromPayload for creating
+ * knowledge item bodies from block content.
  *
  * @lore T4: The excerpt is purely for display — it is never persisted or
  * sent over the wire. The label is capped at 60 characters to keep chips
@@ -15,33 +16,29 @@ const EXCERPT_MAX_LENGTH = 60;
 
 /**
  * Recursively extracts plain text from an array of InlineNodes.
- * Stops early once the accumulated text exceeds EXCERPT_MAX_LENGTH.
+ * @param limit - optional max length; stops early when reached.
  */
-function extractText(nodes: InlineNode[], acc: string[]): void {
+function extractText(nodes: InlineNode[], acc: string[], limit?: number): void {
 	for (const node of nodes) {
 		if (node.type === "text") {
 			acc.push(node.value);
 		} else if (node.type === "strong" || node.type === "emphasis") {
-			extractText(node.children, acc);
+			extractText(node.children, acc, limit);
 		} else if (node.type === "inlineCode") {
 			acc.push(node.value);
 		} else if (node.type === "link") {
-			extractText(node.children, acc);
+			extractText(node.children, acc, limit);
 		} else if (node.type === "break") {
 			acc.push(" ");
 		}
-		if (acc.join("").length >= EXCERPT_MAX_LENGTH) break;
+		if (limit !== undefined && acc.join("").length >= limit) break;
 	}
 }
 
 /**
- * Extracts a short text label from a BlockPayload.
- * Returns a string of at most EXCERPT_MAX_LENGTH characters.
- * Falls back to the block kind name if no readable text is found.
+ * Collect all plain text from a BlockPayload into acc, without truncation.
  */
-export function blockExcerptFromPayload(payload: BlockPayload): string {
-	const acc: string[] = [];
-
+function collectText(payload: BlockPayload, acc: string[]): void {
 	switch (payload.kind) {
 		case "heading":
 			acc.push(payload.text);
@@ -54,23 +51,17 @@ export function blockExcerptFromPayload(payload: BlockPayload): string {
 			break;
 		case "quote":
 			for (const child of payload.children) {
-				const childExcerpt = blockExcerptFromPayload(child);
-				if (childExcerpt) acc.push(childExcerpt);
-				if (acc.join("").length >= EXCERPT_MAX_LENGTH) break;
+				collectText(child, acc);
 			}
 			break;
 		case "list":
 			for (const item of payload.items) {
 				for (const child of item.children) {
-					const childExcerpt = blockExcerptFromPayload(child);
-					if (childExcerpt) acc.push(childExcerpt);
-					if (acc.join("").length >= EXCERPT_MAX_LENGTH) break;
+					collectText(child, acc);
 				}
-				if (acc.join("").length >= EXCERPT_MAX_LENGTH) break;
 			}
 			break;
 		case "table":
-			// Use first header cell text
 			if (payload.header.length > 0) {
 				extractText(payload.header[0] ?? [], acc);
 			}
@@ -83,11 +74,30 @@ export function blockExcerptFromPayload(payload: BlockPayload): string {
 			break;
 		case "html":
 		case "unknown":
-			// No useful text from html/unknown blocks
 			break;
 	}
+}
 
+/**
+ * Extracts a short text label from a BlockPayload.
+ * Returns a string of at most EXCERPT_MAX_LENGTH characters.
+ * Falls back to the block kind name if no readable text is found.
+ */
+export function blockExcerptFromPayload(payload: BlockPayload): string {
+	const acc: string[] = [];
+	collectText(payload, acc);
+	// enforce limit in excerpt variant
 	const raw = acc.join("").trim();
 	if (!raw) return payload.kind;
 	return raw.slice(0, EXCERPT_MAX_LENGTH);
+}
+
+/**
+ * Extracts the full plain-text content of a block for use as a knowledge
+ * item body. No length cap.
+ */
+export function blockTextFromPayload(payload: BlockPayload): string {
+	const acc: string[] = [];
+	collectText(payload, acc);
+	return acc.join("").trim();
 }

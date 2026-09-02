@@ -177,7 +177,6 @@ export const tasks = pgTable(
 		doneCondition: text("done_condition"),
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
-		artifacts: text("artifacts"),
 		threadId: text("thread_id").references(() => threads.id, { onDelete: "restrict" }),
 		notes: text("notes"),
 		auditTrail: text("audit_trail"),
@@ -1074,33 +1073,11 @@ export const notificationQueue = pgTable(
 	],
 );
 
-// --- Artifacts (L3) ---
-
-// @lore L3 — `kind` is stored as text but normalised to ARTIFACT_KINDS at the
-// API boundary (forward-compat for new ingest tokens).
-// @lore L3 name-collision: tasks.artifacts (line 92) carries handoff
-// filename array; rename deferred to L3-FU-1.
-// @lore O2: cost columns (costMoneyMicros, costTokensInput, costTokensOutput,
-// costSettledAt) stripped from the kernel artifacts table as part of
-// kernel/strategy separation. Cost is a strategy concern.
-export const artifacts = pgTable(
-	"artifacts",
-	{
-		id: text("id").primaryKey(),
-		producingTaskId: text("producing_task_id")
-			.notNull()
-			.references(() => tasks.id, { onDelete: "restrict" }),
-		kind: text("kind").notNull(),
-		// AE6: optional business-domain tag (e.g., 'contract', 'email'). Does NOT affect renderer.
-		label: text("label"),
-		previewJson: text("preview_json"),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [
-		index("artifacts_producing_task_id_idx").on(table.producingTaskId),
-		index("artifacts_created_at_idx").on(table.createdAt),
-	],
-);
+// The `artifacts` table is DELETED (migration 0078). Produced content is a
+// knowledge item whose parent is the task or the conversation that produced it —
+// the same row a human writes, with a body, a status, a version, a scope and an
+// edit history, none of which an artifact row had. The word survives as the name
+// for produced content; nothing stores one.
 
 // --- AO1: Filesystem registry + per-bot injection ---
 
@@ -1135,7 +1112,7 @@ export const filesystems = pgTable(
 		// An unresolvable id → needs_attention (AC5).
 		// @lore AO1: plain text by design — AO1 ⟂ AN; AN may add the FK in its own migration.
 		connectionId: text("connection_id"),
-		// JSON-encoded ResourceRef, discriminated by kind. Mirrors artifacts.previewJson.
+		// JSON-encoded ResourceRef, discriminated by kind.
 		resourceRef: text("resource_ref").notNull(),
 		// Capability axis: how authored changes leave the sandbox.
 		writeback: text("writeback").notNull(),
@@ -1473,7 +1450,7 @@ export type KnowledgeItem = typeof knowledgeItems.$inferSelect;
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
-export type ArtifactRow = typeof artifacts.$inferSelect;
+
 
 export type ServerCredential = typeof serverCredentials.$inferSelect;
 

@@ -36,7 +36,6 @@
  */
 
 import {
-	type ArtifactView,
 	// @lore BB1: BetView deleted — bet is now a root task.
 	CORE_API_ACTOR_OVERRIDE_HEADER,
 	type ConversationInboxRowView,
@@ -463,11 +462,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("work.findItemByReasoningMarker", res);
 				const { items } = (await res.json()) as { readonly items: ReadonlyArray<{ id: string }> };
 				return items[0] ? { id: items[0].id } : undefined;
-			},
-
-			async getArtifactById(id: string): Promise<ArtifactView | undefined> {
-				const res = await client.artifacts[":id"].$get({ param: { id } });
-				return getOrUndefined<ArtifactView>("work.getArtifactById", res);
 			},
 
 			async handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse> {

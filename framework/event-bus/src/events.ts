@@ -455,23 +455,6 @@ export interface ThreadArchivedEvent {
 	timestamp: number;
 }
 
-/**
- * R6: Emitted by the create_artifact skill tool after a new artifact row is
- * inserted into the kernel artifacts table.
- *
- * @lore R6: producingTaskId is carried as `taskId` (not producingTaskId) to
- * keep the event shape consistent with other task-scoped events where the
- * field is called `taskId`. The WsBroadcaster forwards this to the "work"
- * topic so the UI can invalidate artifact galleries.
- */
-export interface ArtifactCreatedEvent {
-	type: "artifact_created";
-	streamId: string;
-	artifactId: string;
-	taskId: string;
-	kind: string;
-	timestamp: number;
-}
 
 /**
  * @lore O1: PropagationLevel moved to @hyperidle/server (packages/server/src/knowledge/types.ts). This inline literal
@@ -622,7 +605,6 @@ export type DomainEvent =
 	| KnowledgeUpdatedEvent
 	| KnowledgeArchivedEvent
 	| KnowledgeAccessedEvent
-	| ArtifactCreatedEvent
 	// AK6: creation events
 	| TeamCreatedEvent
 	| AgentAddedEvent
@@ -675,7 +657,6 @@ export const EVENT_TYPES = [
 	"knowledge_updated",
 	"knowledge_archived",
 	"knowledge_accessed",
-	"artifact_created",
 	"team_created",
 	"agent_added",
 	"user_created",

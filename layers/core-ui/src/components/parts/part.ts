@@ -26,7 +26,6 @@
 
 import type {
 	ActivityEntry,
-	ArtifactRef,
 	EntityRef,
 	InlineRef,
 	Message,
@@ -177,7 +176,6 @@ export type Embed =
 			readonly meta?: string;
 			readonly target: OpenTarget;
 	  }
-	| { readonly kind: "block"; readonly title: string; readonly target: OpenTarget }
 	| {
 			readonly kind: "diff";
 			readonly label: string;
@@ -281,55 +279,9 @@ function resolveAuthor(
 // stay here so an existing row keeps a real label instead of falling
 // through to "Artifact"; the six current entries are what a NEW row can
 // actually carry.
-// `text_diff` and `code` are deliberately absent: `artifactRefToEmbed` below
-// handles both before ever reaching this map (the `ref.kind === "text_diff"
-// || ref.kind === "code"` branch returns early), so an entry here for either
-// would be dead code — never read.
-const ARTIFACT_KIND_LABEL: Partial<Record<string, string>> = {
-	// Retired (`ARTIFACT_VIEW_SHAPES`) — legacy rows only.
-	content_preview: "Artifact",
-	visual_comparison: "Comparison",
-	action_summary: "Summary",
-	data_metrics: "Data",
-	// Current (`ARTIFACT_KINDS`) — what `create_artifact`/`submit_review`
-	// actually write today.
-	text: "Text",
-	image: "Image",
-	data: "Data",
-	html: "Preview",
-	url: "Link",
-};
-
-/**
- * Map an ArtifactRef to an artifact/diff Embed. Both the retired `text_diff`
- * value (a row persisted before the respell) and its current-vocabulary
- * successor `code` render as the diff embed — the same review-changeset
- * meaning survives the respell.
- *
- * @lore `ArtifactRef` is optional on `ReviewPayload` now that a canvas-only
- * review (see `artifacts`) has no stored artifact to reference — `undefined`
- * here means "no changeSet embed to show", not a bug.
- */
-function artifactRefToEmbed(ref: ArtifactRef | undefined): Embed | null {
-	if (!ref) return null;
-	const target: OpenTarget = { route: "artifact", artifactId: ref.id };
-	if (ref.kind === "text_diff" || ref.kind === "code") {
-		return { kind: "diff", label: "Changes", meta: "", target };
-	}
-	const label = (ref.kind ? ARTIFACT_KIND_LABEL[ref.kind] : undefined) ?? "Artifact";
-	return { kind: "artifact", label, target };
-}
 
 /** Map one InlineRef to one Embed. Exhaustive over all InlineRef kinds. */
 function inlineRefToEmbed(ref: InlineRef): Embed {
-	if (ref.kind === "block") {
-		return {
-			kind: "block",
-			title: ref.blockId,
-			// @lore AM5 T8: thread blockId so the open-handler can append #block-<id>
-			target: { route: "host", hostKind: ref.hostKind, hostId: ref.hostId, blockId: ref.blockId },
-		};
-	}
 	if (ref.kind === "mention") {
 		return { kind: "mention", identityId: ref.identityId, displayName: ref.displayName };
 	}
@@ -429,7 +381,7 @@ export function derivePartsFromMessages(
 						...base,
 						kind: "review",
 						title: message.payload.title,
-						changeSet: artifactRefToEmbed(message.payload.artifactRef),
+						changeSet: null,
 						reviewTarget,
 					});
 				}

@@ -14,7 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { artifacts, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
@@ -68,17 +68,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	// `submit_review` now checks a stored `artifactRef` resolves to an
-	// artifact produced by the calling task before attaching it; a real row
-	// is required for the AC2 happy-path test below.
-	await db.insert(artifacts).values({
-		id: "art-1",
-		producingTaskId: "task-1",
-		kind: "text",
-		label: null,
-		previewJson: null,
-		createdAt: NOW,
-	});
 }
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
@@ -93,62 +82,6 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 	};
 }
 
-describe("submit_review tool", () => {
-	// AC2 happy path: full ReviewPayload with artifactRef
-	describe("AC2: review message with artifactRef", () => {
-		test("creates review-type message on the task's own thread (founder ruling 7: never the bet's)", async ({
-			db,
-			app,
-		}) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
-			await seed(db);
-			const result = await submitReviewTool.handler(
-				{
-					title: "Work complete",
-					reasoning: ["All tests pass", "Code reviewed"],
-					artifactRef: { id: "art-1", kind: "text" },
-				},
-				makeContext(db),
-			);
-
-			expect(result.success).toBe(true);
-			if (!result.success) return;
-
-			const data = result.data as { messageId: string; threadId: string; rootTaskId: string };
-			expect(typeof data.messageId).toBe("string");
-			expect(typeof data.threadId).toBe("string");
-			expect(data.rootTaskId).toBe("b1");
-
-			// Message exists with type "review"
-			const [msg] = await db.select().from(messages).where(eq(messages.id, data.messageId));
-			expect(msg).toBeDefined();
-			expect(msg?.type).toBe("review");
-			expect(msg?.senderId).toBe("agent-a");
-			expect(msg?.threadId).toBe(data.threadId);
-
-			// Payload has correct structure
-			const payload = JSON.parse(msg?.payload ?? "{}") as {
-				title: string;
-				reasoning: string[];
-				artifactRef: { id: string; kind: string };
-			};
-			expect(payload.title).toBe("Work complete");
-			expect(payload.reasoning).toEqual(["All tests pass", "Code reviewed"]);
-			expect(payload.artifactRef.id).toBe("art-1");
-			expect(payload.artifactRef.kind).toBe("text");
-
-			// Founder ruling 7: the review lands on the TASK's own thread, never
-			// the bet's.
-			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
-			expect(thread).toBeDefined();
-			expect(thread?.hostKind).toBe("task");
-			expect(thread?.hostId).toBe("task-1");
-
-			// Agent is in participants
-			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
-			expect(participants).toContain("agent-a");
-		});
-	});
 
 	// AC2 fallback: plain message when no artifactRef
 	describe("AC2: fallback plain message without artifactRef", () => {
@@ -278,4 +211,3 @@ describe("submit_review tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 	});
-});

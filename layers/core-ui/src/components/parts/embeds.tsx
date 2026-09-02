@@ -43,16 +43,6 @@ export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX
 					onOpen={() => onOpen(embed.target)}
 				/>
 			);
-		case "block":
-			return (
-				<ReferenceChip
-					key={key}
-					kind="block"
-					label={embed.title}
-					mode="posted"
-					onOpen={() => onOpen(embed.target)}
-				/>
-			);
 		case "entity-ref":
 			return (
 				<ReferenceChip

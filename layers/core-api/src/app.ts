@@ -18,7 +18,6 @@ import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
 import { createAgentRoutes } from "./routes/agents.js";
-import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
@@ -358,8 +357,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		);
 		api.route("/tasks", createTaskRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/reviews", createReviewRoutes(options.db));
-		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
-		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
+			// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
 		// `POST /:id/injections`, whose team-consistency gate reads `users` +
 		// `team_members`. Every other registration (and the reachability probe's
 		// `ServiceConnectionResolver`, which core-api no longer constructs) lives

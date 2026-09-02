@@ -20,7 +20,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		updateItemById: notImplemented,
 		createItem: notImplemented,
 		findItemByReasoningMarker: notImplemented,
-		getArtifactById: notImplemented,
 		getUserById: notImplemented,
 		listUsersByTeam: notImplemented,
 		findSoleHumanUser: notImplemented,

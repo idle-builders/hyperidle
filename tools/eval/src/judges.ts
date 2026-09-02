@@ -13,7 +13,6 @@
  */
 
 import {
-	artifacts,
 	items,
 	knowledgeAppProjection,
 	knowledgeEditLog,
@@ -258,28 +257,6 @@ export function judgeHandoffCalled(): RubricDimension {
 	};
 }
 
-/** Judge: create_artifact was called — artifacts row with producingTaskId = taskId. */
-export function judgeCreateArtifactCalled(): RubricDimension {
-	return {
-		id: "artifact_created",
-		label: "Artifact Created (create_artifact called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [artifact] = await ctx.db
-				.select({ id: artifacts.id, kind: artifacts.kind })
-				.from(artifacts)
-				.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-				.limit(1);
-
-			const created = artifact !== undefined;
-			return {
-				score: created ? 1.0 : 0.0,
-				note: created
-					? `Artifact kind: ${artifact.kind}`
-					: "No artifact created for task (create_artifact not called)",
-			};
-		},
-	};
-}
 
 /** Judge: promote_knowledge was called — knowledgeEditLog row with editor = "agent:<agentId>" and field = "status". */
 export function judgePromoteKnowledgeCalled(): RubricDimension {
@@ -697,28 +674,6 @@ export function judgePromoteKnowledgeCalledByAgent(): RubricDimension {
 	};
 }
 
-/** Judge: no artifact was created during this session. */
-export function judgeNoArtifactCreated(): RubricDimension {
-	return {
-		id: "no_artifact_created",
-		label: "No Artifact Created",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [artifact] = await ctx.db
-				.select({ id: artifacts.id })
-				.from(artifacts)
-				.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-				.limit(1);
-
-			const noArtifact = artifact === undefined;
-			return {
-				score: noArtifact ? 1.0 : 0.0,
-				note: noArtifact
-					? "No artifact created (correct — PM should coordinate, not implement)"
-					: "Artifact was created — PM violated delegation constraint",
-			};
-		},
-	};
-}
 
 /** Judge: at least one coordination tool (create_task, send_message, or handoff) was used. */
 export function judgeCoordinationToolsUsed(): RubricDimension {

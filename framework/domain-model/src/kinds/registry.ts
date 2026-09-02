@@ -242,6 +242,12 @@ export const urlKind: KindDefinition = {
 
 // ── the registry ─────────────────────────────────────────────────────────────
 
+/** Closed set of registered kind strings. Used for z.enum validation at the wire boundary. */
+export const ARTIFACT_KINDS = ["text", "code", "image", "data", "html", "url"] as const;
+
+/** Narrowed kind string type. */
+export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
+
 /**
  * @lore AE6: Registry is a Map rather than auto-discovered import.meta.glob
  * because import.meta.glob is Vite-specific and doesn't work in the Node server.
@@ -257,12 +263,6 @@ const REGISTRY: ReadonlyMap<string, KindDefinition> = new Map([
 	[urlKind.kind, urlKind],
 ]);
 
-/** The 6 fundamental artifact kind strings. */
-export const ARTIFACT_KINDS = ["text", "code", "image", "data", "html", "url"] as const;
-
-/** The union type of all registered kind strings. */
-export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
-
 /**
  * Look up a Kind Definition by kind string.
  * Returns undefined for unregistered kinds (caller renders fallback).
@@ -275,6 +275,6 @@ export function getKindDefinition(kind: string): KindDefinition | undefined {
  * Check if a kind string is registered.
  * Type guard: narrows to ArtifactKind when true.
  */
-export function isRegisteredKind(kind: string): kind is ArtifactKind {
+export function isRegisteredKind(kind: string): kind is string {
 	return REGISTRY.has(kind);
 }

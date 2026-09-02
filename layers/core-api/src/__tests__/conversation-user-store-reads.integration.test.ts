@@ -15,7 +15,6 @@
 import {
 	findMessage,
 	findThread,
-	getArtifactThreadSummaries,
 	insertMessage,
 	insertThread,
 	listMessages,
@@ -291,43 +290,6 @@ describe("conversation-store reads", () => {
 			"lastActiveAt",
 			"participants",
 		]);
-	});
-
-	test("getArtifactThreadSummaries reproduces the correlated aggregates", async ({ db }) => {
-		await insertUser(db, userValues("u1"));
-		await insertThread(db, threadValues("t1", { hostKind: "artifact", hostId: "art1" }));
-		await insertMessage(
-			db,
-			messageValues("m1", "t1", "2026-01-01T00:00:00.000Z", {
-				type: "plain",
-				payload: JSON.stringify({ text: "first" }),
-			}),
-		);
-		await insertMessage(
-			db,
-			messageValues("m2", "t1", "2026-01-02T00:00:00.000Z", {
-				type: "plain",
-				payload: JSON.stringify({ text: "latest" }),
-			}),
-		);
-		await insertMessage(
-			db,
-			messageValues("m3", "t1", "2026-01-03T00:00:00.000Z", { type: "review" }),
-		);
-		const [row] = await getArtifactThreadSummaries(db, ["art1"]);
-		expect(row?.artifactId).toBe("art1");
-		expect(row?.threadId).toBe("t1");
-		expect(Number(row?.messageCount)).toBe(3);
-		// newest NON-deleted message of ANY type (the review at 01-03)
-		expect(row?.lastMessageAt).toBe("2026-01-03T00:00:00.000Z");
-		// newest non-deleted PLAIN message payload (m2 at 01-02)
-		expect(row?.lastMessagePayload).toBe(JSON.stringify({ text: "latest" }));
-		expect(Number(row?.hasUnresolvedReview)).toBe(1);
-	});
-
-	test("getArtifactThreadSummaries omits artifacts with no thread", async ({ db }) => {
-		const rows = await getArtifactThreadSummaries(db, ["no-thread"]);
-		expect(rows).toHaveLength(0);
 	});
 });
 

@@ -14,7 +14,6 @@ export {
 	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
-	artifacts,
 	type ConfigurationOverrideRow,
 	configurationOverrides,
 	type ExplicitSessionStart,

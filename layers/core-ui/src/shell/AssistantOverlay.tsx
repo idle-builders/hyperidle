@@ -21,57 +21,14 @@
  * not a design-system custom component. It lives in layers/core-ui/src/shell/.
  */
 
-import type {
-	AssistantNotice,
-	BlockRef,
-	InlineRef,
-	Message,
-	PlainPayload,
-} from "@hyperidle/domain-model";
+import type { AssistantNotice, Message, PlainPayload } from "@hyperidle/domain-model";
 import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
-import { type JSX, type ReactNode, type RefObject, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
+import { type JSX, type RefObject, useCallback, useEffect } from "react";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
 import { Button, ThreadShell, useDialogBehavior } from "../ds";
 import { useAssistantThread } from "../hooks/useAssistantThread";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
-import { createOpenHandler } from "../services/open-handler.js";
-
-/**
- * T4: renderRefEmbeds for AssistantOverlay — builds BlockRefEmbed cards for block refs.
- * AM5 T9: accepts a navigate function so each embed wires the open contract (block-anchored open).
- * @lore AM5 T9: onOpen routes through createOpenHandler → host(hostKind, hostId, blockId) →
- * resolveHostRoute + #block-<id> fragment (H2/AC2). Cards are now interactive when in AssistantOverlay.
- */
-function renderRefEmbedsForAssistant(
-	refs: ReadonlyArray<InlineRef>,
-	navigate: (path: string) => void,
-): ReactNode {
-	const blockRefs = refs.filter((r): r is BlockRef => r.kind === "block");
-	if (blockRefs.length === 0) return null;
-	const openHandler = createOpenHandler(navigate, {});
-	return (
-		<div className="flex flex-col gap-[3px] mt-[3px]">
-			{blockRefs.map((r) => (
-				<BlockRefEmbed
-					key={`${r.blockId}-${r.hostId}`}
-					blockId={r.blockId}
-					hostKind={r.hostKind}
-					hostId={r.hostId}
-					onOpen={() =>
-						openHandler({
-							route: "host",
-							hostKind: r.hostKind,
-							hostId: r.hostId,
-							blockId: r.blockId,
-						})
-					}
-				/>
-			))}
-		</div>
-	);
-}
 
 export interface AssistantOverlayProps {
 	open: boolean;
@@ -327,22 +284,22 @@ function AssistantOverlayInner({
 }): JSX.Element {
 	// AF14 AC2: destructure `refresh` so sent messages stay visible immediately.
 	const { status, data, error, retry, refresh } = useAssistantThread();
-	// AM5 T9: navigate for block-ref-embed open-contract wiring
-	const navigate = useNavigate();
+	// artifacts-become-knowledge: scopeKind for knowledge items created from pending_block refs.
+	const { user } = useCurrentUser();
 
 	const handleAppendMessage = useCallback(
 		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
 			if (!data?.thread) return;
-			const refsToSend = contextRefs.map((ref) =>
-				ref.kind === "block"
-					? ({
-							kind: "block" as const,
-							blockId: ref.blockId,
-							hostKind: ref.hostKind,
-							hostId: ref.hostId,
-						} satisfies { kind: "block"; blockId: string; hostKind: string; hostId: string })
-					: { kind: ref.kind, id: ref.id },
+
+			// Separate pending_block refs from entity refs.
+			// pending_block refs become real knowledge items on send — never wire refs.
+			const pendingBlocks = contextRefs.filter(
+				(ref): ref is AssistantContextRef & { kind: "pending_block" } =>
+					ref.kind === "pending_block",
 			);
+			const entityRefs = contextRefs.filter((ref) => ref.kind !== "pending_block");
+			const refsToSend = entityRefs.map((ref) => ({ kind: ref.kind, id: ref.id }));
+
 			const payload =
 				input.type === "plain" && typeof input.payload === "object" && input.payload !== null
 					? {
@@ -360,12 +317,35 @@ function AssistantOverlayInner({
 				const text = await res.text().catch(() => res.statusText);
 				throw new Error(`Failed to send message: ${res.status} ${text}`);
 			}
+
+			// @lore artifacts-become-knowledge: For each pending_block, create a knowledge
+			// item parented to this thread. The content was captured at click time — a real
+			// document row, not a pointer that rots when the source is edited.
+			const teamId = user?.teamId ?? null;
+			await Promise.all(
+				pendingBlocks.map((ref) =>
+					apiFetch("/api/knowledge", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							parentKind: "thread",
+							parentId: data.thread.id,
+							body: ref.content,
+							format: "markdown",
+							scopeKind: teamId ? "product" : "factory",
+							scopeId: teamId,
+							updatedBy: user?.id,
+						}),
+					}),
+				),
+			);
+
 			// AF14 AC2: re-fetch thread so the sent message appears without
 			// closing and reopening the overlay. The WS update will arrive
 			// shortly after, but refresh() ensures immediate visibility.
 			refresh();
 		},
-		[data?.thread, contextRefs, refresh],
+		[data?.thread, contextRefs, refresh, user],
 	);
 
 	if (status === "loading" || (!data && status !== "error")) {
@@ -439,8 +419,8 @@ function AssistantOverlayInner({
 					{contextRefs.map((contextRef, i) => (
 						<ContextChip
 							key={
-								contextRef.kind === "block"
-									? `${contextRef.kind}-${contextRef.blockId}-${contextRef.hostId}`
+								contextRef.kind === "pending_block"
+									? `${contextRef.kind}-${contextRef.label}`
 									: `${contextRef.kind}-${contextRef.id}`
 							}
 							ref={contextRef}
@@ -483,7 +463,6 @@ function AssistantOverlayInner({
 					identities={identities}
 					onAppendMessage={handleAppendMessage}
 					hostTitle="Assistant"
-					renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
 				/>
 			</div>
 		</div>

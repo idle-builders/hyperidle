@@ -29,7 +29,7 @@ import { type JSX, useMemo } from "react";
 import { deriveBlocks } from "../../block/index.js";
 import { AssistantAttachButton } from "../../components/AssistantAttachButton.js";
 import { ArtifactFrame, Block } from "../../ds";
-import { blockExcerptFromPayload } from "../../utils/block-excerpt.js";
+import { blockExcerptFromPayload, blockTextFromPayload } from "../../utils/block-excerpt.js";
 import { sanitizeHtml } from "../../utils/sanitize-html.js";
 
 export interface KnowledgeBodyProps {
@@ -160,10 +160,8 @@ export function KnowledgeBody({
 						{/* T4: AssistantAttachButton — shows when Assistant overlay is open */}
 						<AssistantAttachButton
 							ref={{
-								kind: "block",
-								blockId: block.id,
-								hostKind: "knowledge_item",
-								hostId: hostId,
+								kind: "pending_block",
+								content: blockTextFromPayload(block.payload),
 								label: blockExcerptFromPayload(block.payload),
 							}}
 						/>

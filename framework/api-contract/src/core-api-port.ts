@@ -33,19 +33,6 @@ export interface TaskView {
 	readonly notes: string | null;
 }
 
-/**
- * Mirrors `GET /artifacts/:id`'s response — only the fields a `CoreApiPort`
- * consumer relies on. `submit_review` uses this to confirm a stored
- * `artifactRef` resolves to an artifact whose `producingTaskId` matches the
- * calling task before attaching it — a review may not claim proof it does
- * not have.
- */
-export interface ArtifactView {
-	readonly id: string;
-	readonly producingTaskId: string;
-	readonly kind: string;
-}
-
 // @lore BB1: UpdateBetRequest DELETED — bet fields are now task fields; PATCH /tasks/:id.
 
 /**
@@ -192,8 +179,6 @@ export interface CoreApiWorkPort {
 	updateItemById(id: string, updates: UpdateItemRequest): Promise<void>;
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
 	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
-	/** Over `GET /artifacts/:id`, the same shape as `getTaskById`. */
-	getArtifactById(id: string): Promise<ArtifactView | undefined>;
 	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;
 }
 

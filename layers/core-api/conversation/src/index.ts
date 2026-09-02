@@ -43,7 +43,6 @@ export { resolveAssistantTurnRequest } from "./assistant-turn-resolver.js";
 // Filter types
 // Shared row types
 export type {
-	ArtifactThreadSummaryRow,
 	InboxFilter,
 	InboxRow,
 	MessageFilter,
@@ -58,7 +57,6 @@ export {
 	findMessage,
 	findOrCreateDirectThread,
 	findThread,
-	getArtifactThreadSummaries,
 	insertMessage,
 	insertThread,
 	listInbox,

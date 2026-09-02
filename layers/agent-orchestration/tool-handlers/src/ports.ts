@@ -230,18 +230,6 @@ interface ToolHandlersCoreApiAccessor {
 		marker: string,
 		actorId: string,
 	): Promise<{ readonly id: string } | undefined>;
-	/**
-	 * Mirrors `GET /artifacts/:id`. `submit_review` uses this to confirm a
-	 * stored `artifactRef` resolves to an artifact whose `producingTaskId`
-	 * matches `ctx.taskId` before attaching it — a review may not claim
-	 * proof it does not have.
-	 */
-	getArtifactById(
-		id: string,
-		actorId: string,
-	): Promise<
-		{ readonly id: string; readonly producingTaskId: string; readonly kind: string } | undefined
-	>;
 	getUserById(
 		id: string,
 		actorId: string,

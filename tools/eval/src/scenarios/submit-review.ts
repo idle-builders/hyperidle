@@ -9,7 +9,7 @@ import { messages, threads } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSubmitReviewCalled } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import { seedArtifact, seedMinimalWorld, seedThread } from "../seeding.js";
+import { seedMinimalWorld, seedThread } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -51,18 +51,6 @@ Submit a review using submit_review with:
 Your reasoning should mention: what was changed and what the reviewer should check.`,
 			betDescription: "Infrastructure monitoring improvements",
 			betDoneCondition: "Monitoring configuration refactored and reviewed.",
-		});
-
-		// Pre-seed the artifact that the agent will reference
-		await seedArtifact(ctx.db, {
-			producingTaskId: world.taskId,
-			kind: "code",
-			previewJson: JSON.stringify({
-				kind: "code",
-				path: "config/prometheus.yml",
-				lang: "yaml",
-				text: "scrape_interval: 15s\nevaluation_interval: 15s",
-			}),
 		});
 
 		return world;

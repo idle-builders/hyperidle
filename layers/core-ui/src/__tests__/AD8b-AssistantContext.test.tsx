@@ -95,15 +95,13 @@ describe("AD8b — AssistantContext", () => {
 		expect(messageRef.kind).toBe("message");
 	});
 
-	it("AssistantContextRef supports block kind with triple (blockId, hostKind, hostId)", () => {
-		const blockRef: AssistantContextRef = {
-			kind: "block",
-			blockId: "blk-1",
-			hostKind: "task",
-			hostId: "task-1",
-			label: "Block content",
+	it("AssistantContextRef supports pending_block kind with content snapshot", () => {
+		const pendingBlock: AssistantContextRef = {
+			kind: "pending_block",
+			content: "Full block text captured at click time.",
+			label: "Full block text captured",
 		};
-		expect(blockRef.kind).toBe("block");
-		expect(blockRef.blockId).toBe("blk-1");
+		expect(pendingBlock.kind).toBe("pending_block");
+		expect(pendingBlock.content).toBe("Full block text captured at click time.");
 	});
 });

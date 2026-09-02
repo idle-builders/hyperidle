@@ -28,14 +28,7 @@ const PARTS: Part[] = [
 		kind: "prose",
 		author: ATLAS,
 		createdAt: "2026-06-17T10:01:00.000Z",
-		embeds: [
-			{
-				kind: "block",
-				title: "Auth migration plan · §2",
-				target: { route: "host", hostKind: "knowledge_item", hostId: "k-1" },
-			},
-			{ kind: "session-reference", sessionId: "s-1", summary: "Worked for 1m 12s" },
-		],
+		embeds: [{ kind: "session-reference", sessionId: "s-1", summary: "Worked for 1m 12s" }],
 		text: "Added WebAuthn registration and the dual-auth window.",
 	},
 	{

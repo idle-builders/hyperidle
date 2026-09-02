@@ -133,24 +133,11 @@ export interface AnchorRef {
  * renderRefEmbedsForConversations (Conversations.tsx filters by kind, no switch needed),
  * CommentRow (uses segmentMentions to locate mention spans inline).
  */
-export type InlineRefKind =
-	| "knowledge_item"
-	| "task"
-	| "artifact"
-	| "message"
-	| "block"
-	| "mention";
+export type InlineRefKind = "knowledge_item" | "task" | "artifact" | "message" | "mention";
 
 export interface EntityRef {
 	readonly kind: "knowledge_item" | "task" | "artifact" | "message";
 	readonly id: string;
-}
-
-export interface BlockRef {
-	readonly kind: "block";
-	readonly blockId: string;
-	readonly hostKind: BlockHostKind;
-	readonly hostId: string;
 }
 
 /**
@@ -170,7 +157,7 @@ export interface MentionRef {
 	readonly sourceText: string;
 }
 
-export type InlineRef = EntityRef | BlockRef | MentionRef;
+export type InlineRef = EntityRef | MentionRef;
 
 /**
  * @lore `kind` widened from the deleted `ArtifactViewShape` to `string`

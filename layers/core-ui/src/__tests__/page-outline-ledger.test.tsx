@@ -5,7 +5,6 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // @lore BB1: useBet mock removed — useBet is deleted; useTaskTree replaces it.
-vi.mock("../hooks/useArtifacts.js", () => ({ useArtifact: () => ({ isLoading: true }) }));
 vi.mock("../hooks/useTaskTree.js", () => ({
 	useTaskTree: () => ({ data: null, loading: true, error: null, refresh: vi.fn() }),
 }));
@@ -25,7 +24,6 @@ vi.mock("../ds", async (importOriginal) => ({
 }));
 
 import { AgentProfile } from "../pages/AgentProfile.js";
-import { ArtifactPermalink } from "../pages/ArtifactPermalink.js";
 import { Conversations } from "../pages/Conversations.js";
 import { KnowledgeCreate } from "../pages/KnowledgeCreate.js";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail.js";
@@ -89,7 +87,6 @@ describe("real route outline ledger", () => {
 		["Knowledge list", "/knowledge", "Knowledge", <KnowledgeList loading />],
 		["New Knowledge", "/knowledge/new", undefined, <KnowledgeCreate />],
 		["Knowledge detail", "/knowledge/k1", undefined, <KnowledgeDetail overrideKnowledgeId="k1" />],
-		["Artifact", "/artifacts/a", "Artifact", <ArtifactPermalink />],
 		[
 			"Settings",
 			"/settings",

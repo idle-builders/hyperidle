@@ -57,7 +57,7 @@ function hostMessagesToReviewComments(
 		if (isRedactedPayload(m.payload)) continue;
 		const payload = m.payload as PlainPayload;
 		const payloadRecord = payload as { blockId?: unknown; spotLabel?: unknown };
-		const artifactRef = payload.refs?.find(isArtifactEntityRef);
+		const entityRef = payload.refs?.find(isArtifactEntityRef);
 		const blockIdString =
 			typeof payloadRecord.blockId === "string" ? payloadRecord.blockId : undefined;
 		const spotLabel =
@@ -68,7 +68,7 @@ function hostMessagesToReviewComments(
 		const authorIsAgent = identity?.role === "agent" || m.senderId.startsWith("agent");
 		const blockId = blockIdString ? (blockIdString as BlockId) : undefined;
 		const anchor: AnchorRef | undefined =
-			artifactRef && blockId ? { artifactId: artifactRef.id, blockId, spotLabel } : undefined;
+			entityRef && blockId ? { artifactId: entityRef.id, blockId, spotLabel } : undefined;
 
 		result.push({
 			id: m.id,

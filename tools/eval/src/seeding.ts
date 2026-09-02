@@ -14,7 +14,6 @@
 import { randomUUID } from "node:crypto";
 import {
 	agentRunConfig,
-	artifacts,
 	type HyperIdleDb,
 	items,
 	knowledgeAppProjection,
@@ -415,29 +414,6 @@ export async function seedItem(
 	return { itemId };
 }
 
-/** Create an artifact. Used by submit_review scenarios (need existing artifact for artifactRef). */
-export async function seedArtifact(
-	db: HyperIdleDb,
-	opts: {
-		artifactId?: string;
-		producingTaskId: string;
-		kind: string;
-		previewJson?: string;
-	},
-): Promise<{ artifactId: string }> {
-	const artifactId = opts.artifactId ?? randomUUID();
-	const now = new Date().toISOString();
-
-	await db.insert(artifacts).values({
-		id: artifactId,
-		producingTaskId: opts.producingTaskId,
-		kind: opts.kind,
-		previewJson: opts.previewJson ?? null,
-		createdAt: now,
-	});
-
-	return { artifactId };
-}
 
 /** Create a knowledge conflict. Used by promote_knowledge scenarios (conflict gate blocks validated promotion). */
 export async function seedConflict(

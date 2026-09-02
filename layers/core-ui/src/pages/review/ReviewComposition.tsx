@@ -415,13 +415,13 @@ function NeedsSection({
 
 // ── § ARTIFACTS ──────────────────────────────────────────────────────────────────
 
-interface ArtifactRowProps {
+interface ArtifactEntryProps {
 	readonly artifact: ComposedReviewSubject["artifacts"][number];
 	readonly active: boolean;
 	readonly onOpen: () => void;
 }
 
-function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Element {
+function ArtifactEntry({ artifact, active, onOpen }: ArtifactEntryProps): JSX.Element {
 	return (
 		<button
 			type="button"
@@ -476,7 +476,7 @@ function ArtifactsSection({
 			<SectionHead label="Artifacts" count={String(s.artifacts.length)} />
 			<div className="flex flex-col gap-[6px]">
 				{s.artifacts.map((a) => (
-					<ArtifactRow
+					<ArtifactEntry
 						key={a.id}
 						artifact={a}
 						active={a.id === activeId}

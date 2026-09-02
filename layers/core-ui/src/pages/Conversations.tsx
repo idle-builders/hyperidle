@@ -62,7 +62,6 @@ import { apiFetch } from "../services/api-fetch.js";
 import { resolveHostRoute } from "../services/host-route.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { ToastContext } from "../shell/ToastRegion";
-import { ArtifactPermalink } from "./ArtifactPermalink.js";
 import { KnowledgeDetail } from "./KnowledgeDetail.js";
 import { ReviewPage } from "./review/ReviewPage.js";
 
@@ -278,8 +277,6 @@ function classifyHttpError(status: number): string {
 
 function InspectDestination({ path }: { path: string }): JSX.Element {
 	const [pathname, hash = ""] = path.split("#");
-	const artifact = pathname?.match(/^\/artifacts\/([^/]+)$/);
-	if (artifact?.[1]) return <ArtifactPermalink overrideId={artifact[1]} presentation="pane" />;
 	const knowledge = pathname?.match(/^\/knowledge\/([^/]+)$/);
 	if (knowledge?.[1]) {
 		return (

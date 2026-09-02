@@ -1,40 +1,7 @@
 /** AU20 Stage 1: consumer-demand completeness contract for the work service. */
-import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { create, get, list } from "../work-service.js";
-
-async function seedWork(
-	db: HyperIdleDb,
-	suffix: string,
-): Promise<{ rootTaskId: string; taskId: string }> {
-	const now = "2026-07-21T00:00:00.000Z";
-	const teamId = `work-team-${suffix}`;
-	const rootTaskId = `work-bet-${suffix}`;
-	const taskId = `work-task-${suffix}`;
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: `Team ${suffix}`, phase: "build", createdAt: now });
-	await db.insert(tasks).values({
-		id: rootTaskId,
-		parentTaskId: null,
-		teamId: teamId,
-		title: "Completeness bet",
-		description: "Completeness bet",
-		state: "in_progress",
-		createdAt: now,
-		updatedAt: now,
-	});
-	await db.insert(tasks).values({
-		id: taskId,
-		parentTaskId: rootTaskId,
-		teamId,
-		title: "Completeness task",
-		state: "accepted",
-		createdAt: now,
-		updatedAt: now,
-	});
-	return { rootTaskId, taskId };
-}
+import { create, list } from "../work-service.js";
 
 async function seedItemDeps(
 	db: HyperIdleDb,
@@ -91,17 +58,4 @@ describe("work completeness contract", () => {
 		expect(await list(db, "item", { ids: [] })).toEqual([]);
 	});
 
-	test("artifact create and direct get preserve the complete row", async ({ db }) => {
-		const { taskId } = await seedWork(db, "artifact");
-		const artifact = {
-			id: "work-artifact-1",
-			producingTaskId: taskId,
-			kind: "document",
-			label: "Result",
-			previewJson: '{"summary":"done"}',
-			createdAt: "2026-07-21T00:00:00.000Z",
-		};
-		await create(db, "artifact", artifact);
-		expect(await get(db, "artifact", artifact.id)).toEqual(artifact);
-	});
 });

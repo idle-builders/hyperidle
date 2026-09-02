@@ -810,15 +810,18 @@ function KnowledgeDetailView({
 	 * T4: "Share" handler — attaches the block as a context ref in the CoC overlay.
 	 * @lore T4: Only included as a menu item when overlayOpen=true (reviewer critique).
 	 */
+	/**
+	 * @lore artifacts-become-knowledge: captures block text at click time rather
+	 * than recording a blockId pointer. On send, AssistantOverlay creates a real
+	 * knowledge item parented to the thread. No pointer, no rot.
+	 */
 	function handleShareBlock(blockId: string): void {
 		const blockEl = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
 		const rawText = blockEl?.textContent?.trim() ?? "";
 		const blockExcerpt = rawText.slice(0, 60) || blockId;
 		attachContext({
-			kind: "block",
-			blockId,
-			hostKind: "knowledge_item",
-			hostId: item.id,
+			kind: "pending_block",
+			content: rawText,
 			label: blockExcerpt,
 		});
 		setOpenBlockId(null);

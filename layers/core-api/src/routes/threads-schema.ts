@@ -12,11 +12,6 @@ import {
 	VERDICT_DECISIONS,
 } from "@hyperidle/domain-model";
 
-// @lore AU44-b8: BLOCK_HOST_KINDS moved to core-ui (blocks/types.ts).
-// Inlined here since core-api cannot import core-ui (cross-layer governance rule).
-// BB1: "bet" removed — tasks are the single work primitive.
-const BLOCK_HOST_KINDS = ["task", "knowledge_item", "artifact", "agent", "user"] as const;
-
 import z from "zod";
 
 // `clientKey` URL-safe regex: [A-Za-z0-9_\-:.], length 8-128 chars (plan
@@ -35,21 +30,6 @@ const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
 export const entityRefSchema = z.object({
 	kind: z.enum(["knowledge_item", "task", "artifact", "bet", "message"]),
 	id: z.string(),
-});
-
-/**
- * T4: blockRefSchema validates block refs (kind, blockId, hostKind, hostId).
- * Exported for testing.
- *
- * @lore T4: z.discriminatedUnion takes its options as a TUPLE (typed [A, B, ...]),
- * not a plain array — each member carries its own literal discriminator prop.
- * Both entityRefSchema (z.enum) and blockRefSchema (z.literal) use "kind".
- */
-export const blockRefSchema = z.object({
-	kind: z.literal("block"),
-	blockId: z.string().min(1),
-	hostKind: z.enum(BLOCK_HOST_KINDS),
-	hostId: z.string().min(1),
 });
 
 /**
@@ -73,11 +53,7 @@ export const mentionRefSchema = z.object({
  * AE5: Extended to include mentionRefSchema as the third member.
  * Exported for testing.
  */
-export const inlineRefSchema = z.discriminatedUnion("kind", [
-	entityRefSchema,
-	blockRefSchema,
-	mentionRefSchema,
-]);
+export const inlineRefSchema = z.discriminatedUnion("kind", [entityRefSchema, mentionRefSchema]);
 
 /**
  * WRITE arm — `kind` speaks the consolidated `ARTIFACT_KINDS` vocabulary,

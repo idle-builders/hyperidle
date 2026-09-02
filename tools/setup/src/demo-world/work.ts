@@ -14,18 +14,9 @@
  * — with one task in review and one blocked on the founder.
  */
 
-import { artifacts, type HyperIdleDb, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, tasks } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
-	ART_MOBILE_RESEARCH,
-	ART_ONBOARD_AUDIT,
-	ART_PRICING_COPY,
-	ART_PRICING_HERO,
-	ART_PRICING_PAGE,
-	ART_SEARCH_EVAL,
-	ART_SEARCH_RANKING,
-	ART_TRIAL_FLOW,
-	ART_TRIAL_METRICS,
 	BUILDER_ID,
 	DESIGNER_ID,
 	GROWTH_ID,
@@ -106,14 +97,6 @@ interface TaskSpec {
 	readonly outcomeVerdict?: "met" | "met_with_rework" | "partially_met" | "not_met";
 }
 
-interface ArtifactSpec {
-	readonly id: string;
-	readonly producingTaskId: string;
-	readonly kind: string;
-	readonly label: string;
-	readonly previewJson: string;
-	readonly createdAt: string;
-}
 
 export async function seedWork(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	// ── Root tasks (formerly bets) ────────────────────────────────────────────
@@ -658,141 +641,4 @@ Research first, prototype only if the numbers say yes.`,
 		.set({ createdAt: clock.daysAgo(19), updatedAt: clock.daysAgo(19) })
 		.where(eq(tasks.id, ROOT_TASK_DIGEST));
 
-	const artifactSpecs: readonly ArtifactSpec[] = [
-		{
-			id: ART_PRICING_PAGE,
-			producingTaskId: TASK_PRICING_PAGE,
-			kind: "html",
-			label: "New pricing page — preview",
-			previewJson: JSON.stringify({
-				kind: "html",
-				title: "Pricing — Pulse",
-				html: "<section><h1>Simple pricing that scales with your team</h1><p>Two tiers. No surprises. Start free for 14 days.</p><table><tr><th></th><th>Starter</th><th>Team</th></tr><tr><td>Dashboards</td><td>5</td><td>Unlimited</td></tr><tr><td>Seats</td><td>3</td><td>Unlimited</td></tr><tr><td>Exports</td><td>Weekly</td><td>Continuous</td></tr></table></section>",
-			}),
-			createdAt: clock.hoursAgo(5),
-		},
-		{
-			id: ART_PRICING_COPY,
-			producingTaskId: TASK_PRICING_COPY,
-			kind: "text",
-			label: "Pricing copy — draft 2",
-			previewJson: JSON.stringify({
-				kind: "text",
-				format: "markdown",
-				body: "# Starter\n\nFor teams getting their first feedback loop running. Five dashboards, three seats, weekly exports.\n\n# Team\n\nFor teams that run on feedback. Unlimited dashboards and seats, continuous exports, priority support.\n\n> Both plans start with a 14-day trial. No card required.",
-			}),
-			createdAt: clock.hoursAgo(20),
-		},
-		{
-			id: ART_PRICING_HERO,
-			producingTaskId: TASK_PRICING_PAGE,
-			kind: "image",
-			label: "Pricing hero — option B",
-			previewJson: JSON.stringify({
-				kind: "image",
-				url: "https://acme.example/assets/pricing-hero-b.png",
-				width: 1600,
-				height: 900,
-				alt: "Pricing page hero with two tier cards",
-			}),
-			createdAt: clock.daysAgo(2),
-		},
-		{
-			id: ART_TRIAL_FLOW,
-			producingTaskId: TASK_TRIAL_FLOW,
-			kind: "code",
-			label: "trial/extend.ts — entitlement date math",
-			previewJson: JSON.stringify({
-				kind: "code",
-				path: "src/trial/extend.ts",
-				lang: "typescript",
-				text: "export function extendTrial(entitlement: Entitlement, now: Date): Entitlement {\n  if (entitlement.extensionUsed) {\n    return entitlement; // one-time: decline gracefully\n  }\n  const until = addDaysUtc(entitlement.expiresAt, 7, TZ_UTC);\n  return { ...entitlement, expiresAt: until, extensionUsed: true };\n}",
-			}),
-			createdAt: clock.daysAgo(29),
-		},
-		{
-			id: ART_TRIAL_METRICS,
-			producingTaskId: TASK_TRIAL_MEASURE,
-			kind: "data",
-			label: "Expiring-trial conversion — two weeks",
-			previewJson: JSON.stringify({
-				kind: "data",
-				headlines: [
-					{ label: "Extensions taken", value: "27%" },
-					{ label: "Of those, converted", value: "31%" },
-					{ label: "Support-granted extensions", value: "-92%" },
-				],
-				charts: [{ label: "Daily extensions", values: [2, 3, 1, 4, 5, 3, 6, 4, 5, 7, 6, 8, 7, 9] }],
-			}),
-			createdAt: clock.daysAgo(15),
-		},
-		{
-			id: ART_SEARCH_RANKING,
-			producingTaskId: TASK_SEARCH_RANKING,
-			kind: "code",
-			label: "search/rank.ts — weight config",
-			previewJson: JSON.stringify({
-				kind: "code",
-				path: "src/search/rank.ts",
-				lang: "typescript",
-				text: "export const RANK_WEIGHTS = {\n  recency: 0.45,\n  titleMatch: 0.35,\n  bodyMatch: 0.2,\n} as const;\n\nexport function score(hit: SearchHit, now: number): number {\n  return (\n    RANK_WEIGHTS.recency * recencyScore(hit.updatedAt, now) +\n    RANK_WEIGHTS.titleMatch * hit.titleScore +\n    RANK_WEIGHTS.bodyMatch * hit.bodyScore\n  );\n}",
-			}),
-			createdAt: clock.daysAgo(24),
-		},
-		{
-			id: ART_SEARCH_EVAL,
-			producingTaskId: TASK_SEARCH_EVAL,
-			kind: "data",
-			label: "Search eval — top-3 hit rate",
-			previewJson: JSON.stringify({
-				kind: "data",
-				headlines: [
-					{ label: "Baseline top-3", value: "54%" },
-					{ label: "After re-rank", value: "71%" },
-					{ label: "Queries", value: "50" },
-				],
-				charts: [{ label: "Hit rate by bucket", values: [54, 58, 63, 66, 71] }],
-			}),
-			createdAt: clock.daysAgo(21),
-		},
-		{
-			id: ART_ONBOARD_AUDIT,
-			producingTaskId: TASK_ONBOARD_AUDIT,
-			kind: "text",
-			label: "Signup-to-activation funnel audit",
-			previewJson: JSON.stringify({
-				kind: "text",
-				format: "markdown",
-				body: "## Where the 66% drop\n\n1. **Signup → first login: 91%** — fine.\n2. **First login → connect a source: 58%** — the big cliff. The connect screen assumes a data source exists.\n3. **Connect → first saved dashboard: 72%** — recoverable with a template.\n\nThe value moment is the first saved dashboard. Everything before it is friction budget.",
-			}),
-			createdAt: clock.daysAgo(6),
-		},
-		{
-			id: ART_MOBILE_RESEARCH,
-			producingTaskId: TASK_MOBILE_RESEARCH,
-			kind: "url",
-			label: "Mobile research write-up",
-			previewJson: JSON.stringify({
-				kind: "url",
-				url: "https://acme.example/research/mobile-spike",
-				status: "ok",
-				statusLabel: "Published",
-			}),
-			createdAt: clock.daysAgo(12),
-		},
-	];
-
-	for (const artifact of artifactSpecs) {
-		await db
-			.insert(artifacts)
-			.values({
-				id: artifact.id,
-				producingTaskId: artifact.producingTaskId,
-				kind: artifact.kind,
-				label: artifact.label,
-				previewJson: artifact.previewJson,
-				createdAt: artifact.createdAt,
-			})
-			.onConflictDoNothing();
-	}
 }

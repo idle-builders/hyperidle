@@ -15,7 +15,6 @@ export { default as pocSessionNotes } from "./poc-session-notes.js";
 export { assembledKnowledgeScenarios } from "./assembled-knowledge.js";
 
 export { composedPromptScenarios } from "./composed-prompt.js";
-export { createArtifactScenarios } from "./create-artifact.js";
 export { createConflictReviewScenarios } from "./create-conflict-review.js";
 export { createItemScenarios } from "./create-item.js";
 export { createTaskScenarios } from "./create-task.js";

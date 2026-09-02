@@ -93,14 +93,7 @@ const PARTS: Part[] = [
 		kind: "prose",
 		author: author(ATLAS),
 		createdAt: "2026-06-17T09:12:00.000Z",
-		embeds: [
-			{
-				kind: "block",
-				title: "Auth migration plan · §2",
-				target: { route: "host", hostKind: "knowledge_item", hostId: "k-auth-plan" },
-			},
-			{ kind: "session-reference", sessionId: "s-2" },
-		],
+		embeds: [{ kind: "session-reference", sessionId: "s-2" }],
 		text: "Context for the dual-auth window and the flow diagram:",
 	},
 	{

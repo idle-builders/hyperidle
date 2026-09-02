@@ -11,17 +11,16 @@
  */
 
 import { createContext } from "react";
-import type { BlockHostKind } from "../block/types.js";
 
 /**
  * A context reference with a display label for the chip (label is NOT
  * persisted in the message payload — only the wire fields travel over the wire).
  *
- * @lore T4: AssistantContextRef is a discriminated union mirroring InlineRef.
- * Entity refs carry (kind, id, label); block refs carry (kind, blockId, hostKind, hostId, label).
- * The label is display-only and never serialized into the API payload.
- *
  * @lore AD8b: Renamed from CocContextRef → AssistantContextRef.
+ * @lore artifacts-become-knowledge: BlockRef (kind:"block") removed — a block id rots
+ * the moment the source is edited. Replaced by kind:"pending_block" which captures the
+ * block's text at attach time and creates a real knowledge item parented to the thread on
+ * send. No pointer, no degradation.
  */
 export type AssistantContextRef =
 	| {
@@ -31,11 +30,16 @@ export type AssistantContextRef =
 			label: string;
 	  }
 	| {
-			kind: "block";
-			blockId: string;
-			hostKind: BlockHostKind;
-			hostId: string;
-			/** Display label for the chip in the overlay composer area. */
+			/**
+			 * A block whose content is captured at attach time. On send,
+			 * POST /api/knowledge creates a real knowledge item parented to the
+			 * thread. The content is a snapshot — editing the source afterwards
+			 * leaves this item unchanged.
+			 */
+			kind: "pending_block";
+			/** Full plain-text content of the block at attach time. */
+			content: string;
+			/** Display label for the chip. */
 			label: string;
 	  };
 

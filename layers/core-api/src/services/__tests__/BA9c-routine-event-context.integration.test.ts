@@ -24,7 +24,6 @@
 import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	agentWorkIntents,
-	artifacts,
 	type HyperIdleDb,
 	items,
 	routineRuns,
@@ -80,7 +79,6 @@ function makePorts(): RoutineSchedulerPorts {
 				};
 			},
 			getItemById: (db, id) => work.get(db, "item", id),
-			getArtifactById: (db, id) => work.get(db, "artifact", id),
 			createItem: (exec, values) => work.create(exec, "item", values),
 			findRetroItemByThreadIds: async (db, threadIds, marker) => {
 				const rows = await work.list(db, "item", { threadIds, bodyMarker: marker });
@@ -593,76 +591,6 @@ describe("BA9c — knowledge_created produces kind:knowledge-item rich subject",
 			// BA9c: knowledge_created → rich kind:"knowledge-item" subject
 			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("knowledge-item");
 			expect(baked.contextBundle.triggerEvent.subject.item.title).toBe("BA9c-KI-TITLE-PROBE");
-		} finally {
-			scheduler.stop();
-		}
-	});
-});
-
-describe("BA9c — artifact_created produces kind:artifact rich subject", () => {
-	test("artifact_created: bundle has triggerEvent with artifact subject loaded from DB", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		const { ownerAgentId } = await seedTeamAndOwner(db, "ba9c-art-1");
-		const routineId = "ba9c-art-1-routine";
-		const artifactId = "artifact-ba9c-1";
-		const betId = "bet-ba9c-art-1";
-		const taskId = "task-ba9c-art-1";
-
-		// Seed bet and task (artifact needs producing task)
-		await seedBet(db, betId, "ba9c-art-1-team");
-		await seedTask(db, taskId, betId, "ba9c-art-1-team");
-
-		// Seed artifact
-		await db.insert(artifacts).values({
-			id: artifactId,
-			producingTaskId: taskId,
-			kind: "document",
-			label: "BA9c artifact label",
-			previewJson: null,
-			createdAt: NOW,
-		});
-
-		await seedEventRoutine(db, routineId, ownerAgentId, "artifact_created");
-
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
-		try {
-			eventBus.emit({
-				type: "artifact_created",
-				streamId: artifactId,
-				artifactId,
-				taskId,
-				kind: "document",
-				timestamp: Date.now(),
-			});
-
-			await vi.waitFor(
-				async () => {
-					const runs = await db
-						.select()
-						.from(routineRuns)
-						.where(eq(routineRuns.routineId, routineId));
-					expect(runs).toHaveLength(1);
-				},
-				{ timeout: 2000 },
-			);
-
-			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
-			const [intent] = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
-			const baked = JSON.parse(intent!.bakedRequestJson!);
-
-			expect(baked.contextBundle.triggerEvent.type).toBe("artifact_created");
-			// BA9c: artifact_created → rich kind:"artifact" subject
-			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("artifact");
-			expect(baked.contextBundle.triggerEvent.subject.artifact.kind).toBe("document");
 		} finally {
 			scheduler.stop();
 		}

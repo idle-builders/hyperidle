@@ -56,7 +56,6 @@ function makePorts(
 			// without crashing when a task_state_changed event carries taskId.
 			getTaskById: () => Promise.resolve(undefined),
 			getItemById: unreachable("work.getItemById"),
-			getArtifactById: unreachable("work.getArtifactById"),
 			createItem: unreachable("work.createItem"),
 			findRetroItemByThreadIds: unreachable("work.findRetroItemByThreadIds"),
 		},
