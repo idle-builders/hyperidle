@@ -1161,6 +1161,36 @@ export const ATTACKS: readonly Attack[] = [
 			messageContains: "attack-unaudienced",
 		},
 	},
+
+	// --- artifact-is-not-a-storage-concept -------------------------------------------------------
+
+	{
+		id: "artifact-storage-concept-banned-token",
+		detail:
+			"a production file that introduces `producingTaskId` — a field that only exists if the artifact storage model has come back — is reported",
+		rules: ["artifact-is-not-a-storage-concept"],
+		mutate: {
+			[a.layerEntry]: (existing) =>
+				`${existing}export const attackProducingTaskIdLeak = { producingTaskId: "" };\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: a.layerEntry,
+			ruleId: "artifact-is-not-a-storage-concept",
+			messageContains: "producingTaskId",
+		},
+	},
+	{
+		id: "artifact-storage-concept-control",
+		detail:
+			"a production file that names a knowledge item id (not an artifact storage concept) is not reported",
+		rules: ["artifact-is-not-a-storage-concept"],
+		mutate: {
+			[a.layerEntryControl]: (existing) =>
+				`${existing}export const attackKnowledgeItemRef = { knowledgeItemId: "" };\n`,
+		},
+		expect: { sort: "clean", file: a.layerEntryControl },
+	},
 ];
 
 // ---------------------------------------------------------------------------------------------

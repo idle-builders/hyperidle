@@ -44,8 +44,6 @@ import {
 	type ConversationThreadView,
 	type CoreApiPort,
 	type CoreApiTransport,
-	type CreateArtifactRequest,
-	type CreateArtifactResponse,
 	type CreateItemRequest,
 	type CreateItemResponse,
 	type CreateKnowledgeConflictRequest,
@@ -190,7 +188,6 @@ interface CoreApiHcClient {
 		};
 	};
 	readonly artifacts: {
-		$post(args: { readonly json: CreateArtifactRequest }): Promise<Response>;
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 		};
@@ -466,14 +463,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("work.findItemByReasoningMarker", res);
 				const { items } = (await res.json()) as { readonly items: ReadonlyArray<{ id: string }> };
 				return items[0] ? { id: items[0].id } : undefined;
-			},
-
-			async createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse> {
-				const res = await client.artifacts.$post({
-					json: { ...input, preview: input.preview ?? null },
-				});
-				if (!res.ok) return throwSeamError("work.createArtifact", res);
-				return (await res.json()) as CreateArtifactResponse;
 			},
 
 			async getArtifactById(id: string): Promise<ArtifactView | undefined> {

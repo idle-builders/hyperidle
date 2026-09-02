@@ -25,7 +25,6 @@ import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
-	artifactPreviewSchema,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
 	KNOWLEDGE_LAYERS,
@@ -39,11 +38,7 @@ import {
 	type ScopeKind,
 	TASK_STATES,
 } from "@hyperidle/domain-model";
-import {
-	type ArtifactCreatedEvent,
-	EVENT_TYPES,
-	type TaskStateChangedEvent,
-} from "@hyperidle/event-bus";
+import { EVENT_TYPES, type TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
@@ -1517,27 +1512,15 @@ function makeLogTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<LogTaskI
 // ─────────────────────────────────────────────────────────────────────────────
 
 const createArtifactInputSchema = z.object({
-	kind: z
-		.enum(ARTIFACT_KINDS)
-		.describe(
-			"The fundamental content type. Determines the review experience:\n" +
-				"- 'text': markdown/prose (contracts, emails, decisions, analyses)\n" +
-				"- 'code': source code diffs\n" +
-				"- 'image': visual assets (screenshots, designs, diagrams)\n" +
-				"- 'data': structured metrics and tables\n" +
-				"- 'html': rich rendered content (dashboards, charts, visualizations)\n" +
-				"- 'url': references to external resources (deployed services, PRs)",
-		),
-	label: z
+	title: z.string().min(1).describe("Short, descriptive title for the produced item."),
+	body: z
 		.string()
-		.regex(/^[a-z][a-z0-9_]*$/, "Label must be lowercase_snake_case")
-		.max(64)
-		.optional()
-		.nullable()
+		.min(1)
 		.describe(
-			"Optional business-domain tag (e.g., 'contract', 'email', 'dashboard'). Does not affect rendering.",
+			"The content in markdown. " +
+				"Interactive HTML (dashboards, charts, rich visualizations) goes in a fenced ```html block — " +
+				"do NOT put raw HTML directly in the markdown body, it mis-derives.",
 		),
-	preview: artifactPreviewSchema.nullable(),
 });
 
 type CreateArtifactInput = z.infer<typeof createArtifactInputSchema>;
@@ -1548,66 +1531,68 @@ function makeCreateArtifactTool<TDb>(
 	return {
 		name: "create_artifact",
 		description:
-			"Record an artifact produced by the current agent session. " +
-			"The artifact is linked to the current task via context — the producingTaskId is never taken from input.\n\n" +
-			"Kind determines the review experience:\n" +
-			"- 'text': markdown/prose (contracts, emails, decisions, analyses)\n" +
-			"- 'code': source code diffs\n" +
-			"- 'image': visual assets (screenshots, designs, diagrams)\n" +
-			"- 'data': structured metrics and tables\n" +
-			"- 'html': rich rendered content (dashboards, charts, visualizations)\n" +
-			"- 'url': references to external resources (deployed services, PRs)\n\n" +
-			"Optional label provides business context (e.g., label='contract' on a text artifact).",
+			"Produce a knowledge item attached to the current task or conversation. " +
+			"The parent is resolved from context — never passed as input.\n\n" +
+			"Write the content as markdown in `body`. " +
+			"Interactive HTML (dashboards, charts, rich visualizations) goes inside a fenced ```html block; " +
+			"do NOT place raw HTML directly in the markdown body.\n\n" +
+			"Returns the id of the created knowledge item.",
 		inputSchema: createArtifactInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = createArtifactInputSchema.safeParse(args);
 			if (!parsed.success) {
 				return err("INVALID_INPUT", parsed.error.message);
 			}
-			const input = parsed.data;
+			const { title, body } = parsed.data;
 
-			if (input.preview !== null && input.preview.kind !== input.kind) {
+			// @lore artifacts-become-knowledge: parent is the current task when the
+			// agent is running in a task session (ctx.taskId non-empty), or the
+			// calling thread when in an assistant/conversation session. Neither
+			// means the produced item has nowhere to live — return an error.
+			let parentKind: "task" | "thread";
+			let parentId: string;
+			if (ctx.taskId) {
+				parentKind = "task";
+				parentId = ctx.taskId;
+			} else if (ctx.threadId) {
+				parentKind = "thread";
+				parentId = ctx.threadId;
+			} else {
 				return err(
-					"KIND_MISMATCH",
-					`Preview kind '${input.preview.kind}' does not match artifact kind '${input.kind}'`,
+					"NO_PARENT",
+					"create_artifact requires an active task or a calling thread — neither is available in this context",
 				);
 			}
 
-			const taskRow = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
-			if (!taskRow) {
-				return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
-			}
+			// Scope resolution: same logic as write_memory — ctx.teamId first,
+			// then task row, then fall back to factory scope.
+			const teamId: string | null =
+				ctx.teamId ??
+				(ctx.taskId
+					? await ports.coreApi
+							.getTaskById(ctx.taskId, ctx.agentId)
+							.then((row) => row?.teamId ?? null)
+					: null);
+			const scopeKind: ScopeKind = teamId ? "product" : "factory";
+			const scopeId: string | null = teamId;
 
-			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
-			// `POST /artifacts` route a human caller uses — instead of the raw
-			// `ports.work.createArtifact` DI call (deleted). The route generates
-			// the artifact's id server-side; `created.id` replaces the
-			// client-generated `randomUUID()` the raw DI path used. `preview` is
-			// re-spread into a fresh object literal — Mechanism C's opaque
-			// `Record<string, unknown>` seam shape (same idiom as
-			// `tool-handlers-bindings.ts`'s `searchKnowledgeForTool`).
-			const created = await ports.coreApi.createArtifact(
+			const created = await ports.coreApi.create(
 				{
-					producingTaskId: ctx.taskId,
-					kind: input.kind,
-					label: input.label ?? null,
-					preview: input.preview !== null ? { ...input.preview } : null,
+					layer: null,
+					scopeKind,
+					scopeId,
+					title,
+					body,
+					format: "markdown",
+					status: "draft",
+					updatedBy: `agent:${ctx.agentId}`,
+					parentKind,
+					parentId,
 				},
 				ctx.agentId,
 			);
-			const artifactId = created.id;
 
-			const event: ArtifactCreatedEvent = {
-				type: "artifact_created",
-				streamId: randomUUID(),
-				artifactId,
-				taskId: ctx.taskId,
-				kind: input.kind,
-				timestamp: Date.now(),
-			};
-			ctx.eventBus.emit(event);
-
-			return ok({ artifactId, kind: input.kind });
+			return ok({ knowledgeItemId: created.id });
 		},
 	};
 }

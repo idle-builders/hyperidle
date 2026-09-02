@@ -124,7 +124,6 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 				seamPortForActor(actorId).work.createItem(widenCreateItemInput(input)),
 			findItemByReasoningMarker: (marker, actorId) =>
 				seamPortForActor(actorId).work.findItemByReasoningMarker(marker),
-			createArtifact: (input, actorId) => seamPortForActor(actorId).work.createArtifact(input),
 			// `submit_review` uses this to confirm a stored `artifactRef` resolves
 			// to an artifact this task actually produced, over `GET /artifacts/:id`
 			// — same shape as `getTaskById`.

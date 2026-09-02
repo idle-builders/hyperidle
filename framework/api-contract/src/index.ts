@@ -33,8 +33,6 @@ export type {
 	CoreApiTransport,
 	CoreApiUsersPort,
 	CoreApiWorkPort,
-	CreateArtifactRequest,
-	CreateArtifactResponse,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
 	CreateItemRequest,
 	CreateItemResponse,

@@ -132,26 +132,6 @@ export interface CreateItemResponse {
 }
 
 /**
- * Mirrors `POST /artifacts`'s validated request body (`createArtifactSchema`,
- * `routes/artifacts.ts`). `preview` is opaque (Mechanism C: `tool-handlers`
- * never imports `@hyperidle/domain-model`'s `ArtifactPreview` union here) — the
- * route validates/serializes it; this seam only forwards it.
- */
-export interface CreateArtifactRequest {
-	readonly producingTaskId: string;
-	readonly kind: string;
-	readonly label?: string | null;
-	readonly preview?: Record<string, unknown> | null;
-}
-
-/** Mirrors `POST /artifacts`'s 201 response body — only the fields a consumer relies on. */
-export interface CreateArtifactResponse {
-	readonly id: string;
-	readonly producingTaskId: string;
-	readonly kind: string;
-}
-
-/**
  * Mirrors `GET /users/:id` / `GET /users` — only the fields a `CoreApiPort`
  * consumer relies on. `teamId` is `users.teamId` — per the AK4 two-hop
  * lore AU44 B1: after the fold, this stores `teams.id` directly.
@@ -212,7 +192,6 @@ export interface CoreApiWorkPort {
 	updateItemById(id: string, updates: UpdateItemRequest): Promise<void>;
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
 	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
-	createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse>;
 	/** Over `GET /artifacts/:id`, the same shape as `getTaskById`. */
 	getArtifactById(id: string): Promise<ArtifactView | undefined>;
 	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;

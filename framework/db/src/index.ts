@@ -10,7 +10,6 @@ export {
 	type ActionRuleRow,
 	type AgentSessionRequest,
 	type AgentWorkIntent,
-	type ArtifactRow,
 	actionRules,
 	agentRunConfig,
 	agentSessionRequests,

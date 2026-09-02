@@ -230,15 +230,6 @@ interface ToolHandlersCoreApiAccessor {
 		marker: string,
 		actorId: string,
 	): Promise<{ readonly id: string } | undefined>;
-	createArtifact(
-		input: {
-			readonly producingTaskId: string;
-			readonly kind: string;
-			readonly label: string | null;
-			readonly preview: Record<string, unknown> | null;
-		},
-		actorId: string,
-	): Promise<{ readonly id: string; readonly producingTaskId: string; readonly kind: string }>;
 	/**
 	 * Mirrors `GET /artifacts/:id`. `submit_review` uses this to confirm a
 	 * stored `artifactRef` resolves to an artifact whose `producingTaskId`
