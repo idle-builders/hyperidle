@@ -19,11 +19,11 @@ The **Principal** is the *authenticated* acting identity bound to a request — 
 | Scope | Host kinds | Visible iff |
 |---|---|---|
 | **participant-scope** | `user`, `agent` (DM / assistant / pinned configs) | `principal ∈ host.participants[]` |
-| **host-scope** | `bet`, `task`, `knowledge_item`, `artifact`, `team`, `factory` | principal can see the host entity (today: any authenticated principal; later: host membership) |
+| **host-scope** | `task`, `knowledge_item`, `artifact`, `team`, `factory` | principal can see the host entity (today: any authenticated principal; later: host membership) |
 
-Host kinds are closed (`bet|task|knowledge_item|artifact|agent|user|team|factory`). Each maps to exactly one scope; adding a kind requires updating this table first.
+Host kinds are closed (`task|knowledge_item|artifact|agent|user|team|factory`). There is no `bet` host kind — a bet is a task with no parent. Each maps to exactly one scope; adding a kind requires updating this table first.
 
-The boundary is **derived, never a user-edited ACL**. There is one decision function; every read endpoint and every WS subscribe routes through it. Host-scoped resources **must stay broadly readable** — over-restricting a bet/task/knowledge discussion is as much a defect as leaking a participant-scoped one.
+The boundary is **derived, never a user-edited ACL**. There is one decision function; every read endpoint and every WS subscribe routes through it. Host-scoped resources **must stay broadly readable** — over-restricting a task/knowledge discussion is as much a defect as leaking a participant-scoped one.
 
 `canWrite` mirrors `canRead` today; it is kept separate so future write-only tightening (e.g. only task members can transition state) has a seam.
 

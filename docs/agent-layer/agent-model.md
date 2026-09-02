@@ -50,10 +50,11 @@ One row per agent, primary-keyed on `agent_user_id`.
 ### 2.1 Identity is a knowledge document
 
 Who an agent is lives where every other piece of knowledge lives: an
-`agent_file` document bound to the agent — `scope_kind='user'` with `scope_id`
-the agent's id, which is what that role has always meant. It is read, edited,
-versioned and reviewed like any document, through the one knowledge edit
-endpoint. Editing it changes what the agent's next session runs with.
+`agent_file` document parented to the agent — `parentKind='agent'`, `parentId`
+the agent's id — with `role='agent_file'`, which is what that role has always
+meant. Its body is read, edited, versioned and reviewed like any document,
+through the one knowledge edit endpoint. Editing it changes what the agent's
+next session runs with.
 
 The identity is seeded once, where an agent comes into existence, and is the
 person's from then on. An agent with no identity document runs with no `##

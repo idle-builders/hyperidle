@@ -20,7 +20,7 @@ Target user framing behind all of these: solo founder up to a small (~10-person)
 
 ## 2. Decided, not yet executed
 
-- **Knowledge scope cleanup.** Authoring exposes all 7 scope kinds (`SCOPE_KINDS`, `framework/domain-model/src/types.ts:181`; scope enum owned by [The Canonical Store](../knowledge-architecture/the-canonical-store.md)). Founder direction: cut the user-facing choice to roughly three — whole company / this product / just me; the practice-vs-product-vs-team distinction is confusing without domain knowledge. Not shipped.
+- **Knowledge scope cleanup.** Authoring exposes all 6 scope kinds (`SCOPE_KINDS`, `framework/domain-model/src/types.ts:160`; scope enum owned by [The Canonical Store](../knowledge-architecture/the-canonical-store.md)). Founder direction: cut the user-facing choice to roughly three — whole company / this product / just me; the practice-vs-product-vs-team distinction is confusing without domain knowledge. Not shipped.
 - **Knowledge kind taxonomy under question.** Founder doubts the value of the pattern/decision/failure/brief classification and notes "skill" is missing as a kind even though skills are knowledge items. Kind now lives in the app projection as open text (`knowledgeAppProjection.kind`, `framework/db/src/schema.ts:1014`). Open product question, no resolution yet.
 - **Create-knowledge-from-discussion needs no button.** An agent can identify and capture knowledge from task discussion; the explicit UI affordance is dispensable.
 - **Org-chart settings page removal.** Founder: "nobody needs that — we have teams with a responsible human and agents inside." `layers/core-ui/src/settings/SettingsOrgChart.tsx` still exists; removal pending.
