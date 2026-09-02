@@ -4,21 +4,26 @@ Technical restatement of `plan.md`. Tier: **mvp**. Rebased onto `origin/main` at
 `bed7972d8` (PR #545, the attachment slot) on 2026-09-02.
 
 Read first: `plan.md`, `feasibility.md`, and `critique.md` — an independent critique
-returned **FAIL on 7 blockers**, and the five that need a founder decision are listed
-in §0. Everything below §0 assumes those five are still open.
+returned **FAIL on 7 blockers**. All five that needed a founder decision are now
+answered (§0); the other two are folded into §4.
 
-## 0. Open decisions — this is not buildable until they are answered
+## 0. Decisions — all five settled
 
-| # | Question | Why it blocks |
+| # | Question | Answer (founder, 2026-09-02) |
 |---|---|---|
-| D1 | What selects the knowledge an agent receives, once `layer` is gone? | `layer` is the *entire* selection (`fetchAllForLayer` L4/L2/L3 at `session-knowledge-assembler.ts:421-423`), a ranking weight (`computeLayerProximity` `:149`), and the sandbox routing key. Delete it with no replacement and agents receive **nothing**, with only a warn log. |
-| D2 | Is team visibility built, or is that AC dropped? | No team-based visibility on knowledge exists today; the only viewer filter is "not user-scoped, or you wrote it" (`knowledge-repository.ts:738-750`). The plan's "a team branch is invisible outside the team" is a new capability. |
-| D3 | Does the filename keep its id suffix? | Without it, two siblings sharing a title collide into one file and writeback resolves path→item by first match — silent cross-item body overwrite. With it, moves are detectable by id and need no batch pairing. |
-| D4 | Does an agent's new directory create an item, and does a created item inherit its parent's scope? | The watcher never reports directories (`file-watcher.ts:114`), and `handleCreate` sets no scope. The plan's own example — an agent writing `knowledge/pricing/objections.md` — creates a root item and loses the folder, and a file in a team folder is created `factory` and then rejected by invariant 2. |
-| D5 | What happens to descendants when a parent's scope narrows later? | Scope is an ordinary editable field (`routes/knowledge.ts:532,551`). Narrowing a parent leaves every descendant wider than it, with no write rejected, and they vanish from the tree for anyone who loses the parent. |
+| D1 | What selects the knowledge an agent receives, once `layer` is gone? | **The scope column already does.** Factory + its team + its own. No subtree selection. `fetchAllForLayer`'s L4/L2/L3 calls become scope queries; `computeLayerProximity` drops out of the weight sum. |
+| D2 | Is team visibility built, or the AC dropped? | **Built**, same rule on the human read path. `fetchCapabilityItems` (`session-knowledge-assembler.ts:349`) is the existing pattern; the viewer's team arrives as a route parameter, never as a join to `users`. |
+| D3 | Does the filename keep its id suffix? | **Yes.** It is the only thing making paths unique, path→item is the direction writeback resolves in, and it makes a move self-identifying. |
+| D4 | Do agent directories create items, and do created items inherit scope? | **Yes to both.** A new directory creates its item; a created item takes its parent's scope. |
+| D5 | What happens when a parent's scope narrows? | **Cascade to the subtree.** |
 
-§4, §5 and §7 are written to the recommended answers and are marked where a different
-answer changes them.
+Two further rulings landed with them:
+
+- **The status ladder collapses to `proposed | active | stale | archived`** — see §2.
+- **No authorisation checks.** `write_memory`'s layer-keyed gate
+  (`NON_FACILITATOR_MAX_LAYER`, `FACILITATOR_ROLES`, `tool-definitions.ts:231-266`)
+  is deleted with `layer` and nothing replaces it. The facilitator is gone as a
+  concept. Risk-based review may come later, earned from a real learning.
 
 ## 1. What the merged slot already gives us
 
@@ -47,6 +52,19 @@ Migration `framework/db/drizzle/0078_*.sql` — `0077` is taken. Migrations here
 - **Add** `position integer NOT NULL DEFAULT 0` to `knowledge_items`, and an index on
   `(parent_kind, parent_id, position)` for the ordered children read.
 - **Drop** `knowledge_items.topic`, and `layer` + `kind` from `knowledge_app_projection`.
+- **Collapse the status vocabulary to `proposed | active | stale | archived`.** There
+  are two enums today: `KNOWLEDGE_STATUSES` (captured, provisional, validated, active,
+  stale, archived, needs_human, `domain-model/src/knowledge.ts:19`) and
+  `KERNEL_KNOWLEDGE_STATUSES` (draft, active, archived, needs_human,
+  `domain-model/src/types.ts:61`) — nine values, with `ALLOWED_TRANSITIONS`
+  (`tool-definitions.ts:946`) spanning both. `POST /api/knowledge` defaults to `draft`
+  (`routes/knowledge.ts:481`) while writeback writes `captured`
+  (`writeback-processor.ts:240`) — the same state under two names, depending on whether a
+  human or an agent made it. `provisional` and `needs_human` have **no production
+  writer**, so auto-promotion scans for a state nothing creates and the Triage tab can
+  only fire on fixtures. Mapping: `draft`/`captured`/`provisional` → `proposed`;
+  `validated`/`active` → `active`; `stale` → `stale`; `archived`/`needs_human` →
+  `archived`. Both enums collapse into one; `ALLOWED_TRANSITIONS` shrinks to match.
 - **Reduce** `SCOPE_KINDS` to `factory | team | user`; `SCOPES_REQUIRING_ID` to `team`.
   `scope_kind` has **no CHECK constraint** today (only `ki_role_ck` and the two parent
   checks exist) — so the closed enum is TypeScript-only, the migration must *convert*
@@ -124,7 +142,7 @@ either hides capability items or leaks private titles.
 items keep their harness destinations — placement follows `role`, not tree position.
 
 **Shape.** An item with children is a directory holding `index.md`; a leaf is a file.
-**D3 decides the filename.** Recommended: keep `toFilename`'s `_${id.slice(0,8)}` suffix
+**D3 settled: keep the suffix.** Keep `toFilename`'s `_${id.slice(0,8)}` suffix
 (`context.ts:691-700`). It is the only thing making paths unique, and path→item is the
 direction writeback resolves in (`findItemByPath`, `writeback-processor.ts:120-130`,
 first match wins). Keeping it also makes a move self-identifying, which §5's move rule
@@ -140,17 +158,17 @@ not step 4.
 
 **Writeback** (`writeback-processor.ts`):
 - Create inside a directory → parent is that directory's item, `parent_kind='knowledge_item'`.
-  **D4** decides whether a new directory creates its own item and what scope a created
-  item takes.
+  **D4 settled:** a new directory creates its own item, and a created item inherits its
+  parent's scope. The watcher must therefore start reporting directories — today
+  `handleChange` drops them (`file-watcher.ts:114`, `if (!stat.isFile()) return;`).
 - The subdirectory→`kind` inference (`handleCreate:224-232`) is deleted with `kind`, and
   with it `CONTEXT_ASSEMBLY_DIRS`' legacy `knowledge/practices|decisions|failures`
   (`context.ts:714-724`), which exist only to feed it.
-- **Move detection.** With D3 answered "keep the suffix", a creation whose filename
+- **Move detection.** A creation whose filename
   carries a known id **is** a move: reparent, leave the body alone, rewrite the manifest
   path. No batch pairing, and it survives the cases pairing cannot — a directory rename
   emitting N deletions and N creations, or an agent editing a file while moving it.
-  If D3 is answered the other way, pairing is the only option and it does not survive
-  either case: the debounce is **trailing** (`file-watcher.ts:87-97`), so a batch is
+  Batch pairing was the rejected alternative; it survives neither case. The debounce is **trailing** (`file-watcher.ts:87-97`), so a batch is
   "everything until the agent goes quiet", and the fallback is not lossless —
   `handleDelete` records a conflict *and drops the manifest entry* (`:308-331`), then
   `handleCreate` makes a second row, orphaning the original with its status, scope and
@@ -230,7 +248,9 @@ One transaction. Ordering matters and the first draft had it wrong.
    a parent from `0077` (`routine`/`agent`) and must keep it — step 6 must exclude them,
    or five agent identities and every routine prompt become browsable children of
    **General**. Skills and rules are parentless and stay parentless.
-9. Drop `topic`, `layer`, `kind`; convert any residual scope value.
+9. Convert every status to the four-value ladder (§2 mapping) — this is a data
+   conversion, not a rename, and `status` has no CHECK constraint to catch a straggler.
+10. Drop `topic`, `layer`, `kind`; convert any residual scope value.
 
 `position` is assigned by `created_at` within each new parent.
 
@@ -249,11 +269,11 @@ Surfaces this change reaches:
   no FK, a caller can set a parent that does not exist or that it cannot see. Closed by
   validating existence through the owning service and visibility for the viewer, before
   the write transaction (§4 explains why not inside it).
-- **A permission gate disappears with `layer`.** `write_memory` today refuses to let a
-  non-facilitator write above L2. Deleting `layer` deletes that check. Either an
-  equivalent restriction rides the tree (which subtrees an agent may write to) or the
-  founder accepts that any agent may write anywhere. **This must not be resolved by
-  silence** — it is the only authorisation check in the knowledge write path.
+- **The one authorisation gate is deleted deliberately.** `write_memory` today refuses to
+  let a non-facilitator write above L2. That check dies with `layer` and **nothing
+  replaces it** — founder ruling, 2026-09-02: no authorisation checks; risk-based review
+  can be earned later from a real learning. Any agent may write anywhere its scope
+  reaches. Recorded here so a later reader sees a decision rather than an oversight.
 - **Agent-authored paths** become parent links. Traversal is already refused
   (`file-watcher.ts` resolves against the sandbox root and skips symlinks); keep both when
   adding directory handling.

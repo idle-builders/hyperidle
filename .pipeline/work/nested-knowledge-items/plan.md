@@ -62,6 +62,47 @@ Another session is merging artifacts with knowledge, which makes task knowledge
 and artifacts the same object. This item does not decide what that object is — only
 that it stays off the tree and can be reparented into it.
 
+### One lifecycle, no gatekeeping
+
+**Amendment, founder-approved 2026-09-02.** The status ladder collapses to
+**`proposed | active | stale | archived`**. A knowledge item starts proposed and
+becomes active when someone or something vouches for it — `active` rather than
+`approved` because the word should say *this is the current document*, not *this
+passed a review*. Stale is what the decay sweep sets; archived is out.
+
+Founder: *"the layer mechanism was too complex, rather all knowledge is dealt with
+the same way."*
+
+What that replaces is worse than the plan assumed. There are **two** status
+vocabularies today — `KNOWLEDGE_STATUSES` (captured, provisional, validated,
+active, stale, archived, needs_human) and `KERNEL_KNOWLEDGE_STATUSES` (draft,
+active, archived, needs_human) — nine distinct values between them, with a
+transition map spanning both. A human creating an item gets `draft`; an agent
+writing one through writeback gets `captured`; the two mean the same thing.
+`provisional` and `needs_human` have **no production writer at all**, so
+auto-promotion scans for a state nothing creates and the Triage tab can only fire
+on demo data.
+
+**No authorisation checks.** The layer-keyed permission gate in `write_memory`
+(`NON_FACILITATOR_MAX_LAYER`, `FACILITATOR_ROLES`) is deleted with `layer` and
+nothing replaces it. Founder: *"we don't need authorization checks. later we can
+risk based checks which isolate what needs review."* The facilitator is gone as a
+concept — a bare setup has a single agent. Review is earned from a real learning,
+never built first.
+
+### What an agent receives
+
+Settled: the scope column already answers it — an agent gets factory-scoped
+knowledge, its team's, and its own. Founder: *"the agent gets global + stuff from
+his team + stuff for his user. the scope column system takes care of that."* No
+subtree selection logic, no replacement for the layer ladder. Ranking keeps the
+existing relevance scoring minus its layer term.
+
+Human viewers get the same rule on the read path, which is what makes a
+team-scoped branch invisible outside that team. The pattern already exists for
+agents in `fetchCapabilityItems`; the human path passes the viewer's team from the
+route rather than joining to a table the knowledge service does not own.
+
 ### Agents and humans are equal here
 
 *"Agents can do anything a human can."* An agent that writes
