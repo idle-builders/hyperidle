@@ -365,13 +365,55 @@ export function Row({
 
 	// div case
 	if (onClick && hasActions) {
-		// nested-button rule: div[role=button]
-		// W2 fix: spread clickableProps directly — no hand-rolled duplicate utilities,
-		// no discarded className. commonProps className is overridden by clickableProps.
+		// @lore knowledge-attachment-slot: actions render as a SIBLING of the
+		// clickable div, never nested inside it — mirrors the li branch above
+		// exactly (which already got this right). The div branch previously put
+		// `{...clickableProps(onClick, ...)}` on the SAME element that wrapped
+		// `inner` (which includes actions), i.e. real interactive elements
+		// (RowDeleteAction's kebab/menu/confirm buttons, WorkTeam's Profile
+		// link + Customize button) sat inside the element carrying the row's
+		// own click handler. In a real browser, a click on one of those nested
+		// controls reached the row's onClick even though the control's own
+		// handler called stopPropagation() — reproduced with real mouse clicks
+		// in Chromium (jsdom's synthetic click() dispatch did not reproduce
+		// it), see knowledge-role-delete.spec.ts. Splitting the DOM — clickable
+		// div holds only lead/title/cells, actions is an outside sibling —
+		// removes the nesting outright rather than trying to out-handler it.
+		const divInnerLayoutWithActions = `flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`;
+		const innerClickableClass =
+			clickableProps(onClick, divInnerLayoutWithActions).className ?? divInnerLayoutWithActions;
 		return (
-			// biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>
-			<div {...commonProps} {...clickableProps(onClick, baseClasses)}>
-				{inner}
+			<div
+				{...dsProps("Row", "2")}
+				aria-current={commonProps["aria-current"]}
+				data-testid={commonProps["data-testid"]}
+				data-focused={commonProps["data-focused"]}
+				className={[
+					"flex items-center",
+					"border-width-thin-b border-[var(--border-subtle)] last:border-none",
+					selectedClasses,
+				]
+					.filter(Boolean)
+					.join(" ")}
+			>
+				{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside it */}
+				<div {...clickableProps(onClick, "")} className={innerClickableClass}>
+					{lead !== undefined && lead !== null && (
+						<span className="shrink-0 inline-flex items-center">{lead}</span>
+					)}
+					<span className="flex-1 min-w-0">
+						<span className="type-small block   text-[var(--text-primary)] truncate flex-1">
+							{title}
+						</span>
+						{subtitle !== undefined && subtitle !== null && (
+							<span className="type-metadata block  text-[var(--text-tertiary)] truncate">
+								{subtitle}
+							</span>
+						)}
+					</span>
+					{cells && cells.length > 0 && <>{cells.map((cell, i) => renderCell(cell, i))}</>}
+				</div>
+				<span className="shrink-0 flex gap-[3px]">{actions}</span>
 			</div>
 		);
 	}
