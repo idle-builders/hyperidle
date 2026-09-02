@@ -11,7 +11,14 @@
  *   version conflict, item not found.
  */
 
-import { type HyperIdleDb, knowledgeEditLog, knowledgeItems, tasks, teams } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeEditLog,
+	knowledgeItems,
+	tasks,
+	teams,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -37,6 +44,8 @@ async function seedTeamAndTask(db: HyperIdleDb, teamId: string, taskId: string):
 	});
 }
 
+// @lore artifacts-become-knowledge: must always pair knowledgeItems with knowledgeAppProjection —
+// the crossing-table-write rule mirrors the owner's writer which inserts both atomically.
 async function insertKnowledgeItem(
 	db: HyperIdleDb,
 	opts: {
@@ -63,6 +72,16 @@ async function insertKnowledgeItem(
 		updatedBy: "human",
 		createdAt: now,
 		updatedAt: now,
+	});
+	await db.insert(knowledgeAppProjection).values({
+		id: `${opts.id}-projection`,
+		knowledgeItemId: opts.id,
+		layer: null,
+		scopeId: null,
+		kind: null,
+		attentionScore: null,
+		confidence: null,
+		meta: null,
 	});
 }
 
