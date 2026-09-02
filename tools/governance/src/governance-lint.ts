@@ -55,6 +55,7 @@ import {
 	runRules,
 } from "./lib/governance-rules.js";
 import type { Census } from "./lib/repo-census.js";
+import { artifactIsNotAStorageConcept } from "./rules/artifact-is-not-a-storage-concept.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { crossingRules, violationsOf } from "./rules/crossings.js";
 import { dbSymbolsAllPlaced } from "./rules/db-symbols-all-placed.js";
@@ -125,6 +126,7 @@ function buildRules(
 		serviceValuesDoNotEscapeTheFace({ locate: buildPackageLocator(census.packages), readFile }),
 		deepImportsDieWithTheirEntries({ readFile }),
 		oneWorkPrimitive({ readFile }),
+		artifactIsNotAStorageConcept({ readFile }),
 		...crossingRules({
 			architecture,
 			crossings: detected.crossings,
@@ -242,6 +244,7 @@ function runLive(errorsOnly: boolean): number {
 		}),
 		deepImportsDieWithTheirEntries({ readFile: readRepoFile }),
 		oneWorkPrimitive({ readFile: readRepoFile }),
+		artifactIsNotAStorageConcept({ readFile: readRepoFile }),
 		...crossingRules(ruleInput),
 	];
 
