@@ -75,14 +75,34 @@ assumed.
 
 Each of these is a founder call made during the design interview.
 
-### One object, and the word "artifact" dies
+### One object. The word "artifact" survives — but only as a name for produced content
 
-Not kept as a view word. The `artifacts` table, `ARTIFACT_KINDS`, the kind
-registry, the artifacts routes, the `create_artifact` agent tool, and the
-`artifact` values in `HOST_KINDS` and `BLOCK_HOST_KINDS` are all deleted. A
-surviving word would keep the old mental model alive.
+**Founder call, 2026-09-02, reversing this plan's earlier decision.** An earlier
+draft said the word died outright and was "not kept as a view word", on the
+reasoning that a surviving word keeps the old mental model alive. The founder
+reversed that: *"we keep the tool called artifact, that's an established name by
+now — what's behind is just a knowledge item attached to a task or whatever the
+context."*
 
-`knowledge_items` is **not** renamed. The only naming change is subtraction.
+So the line is no longer "the word appears nowhere". It is:
+
+**"artifact" may name produced content. It may not name a storage concept.**
+
+| Survives | Dies |
+|---|---|
+| The `create_artifact` agent tool — now writing a knowledge item parented to the current context | The `artifacts` TABLE |
+| The word users see for content an agent produced into a task or a conversation | `previewJson` and the separate content model behind it |
+| The sandbox frame that runs an interactive one | `layers/core-api/src/routes/artifacts.ts` — a produced item is a knowledge item and is read as one |
+| The section on a task listing what was produced there | `ArtifactRef` — a pointer to a row that no longer exists |
+| | `ARTIFACT_KINDS`, the kind registry and the preview schemas — kind is derived from blocks, not stored |
+| | The `artifact` value in `HOST_KINDS` / `BLOCK_HOST_KINDS` — a thread now hosts on the knowledge item itself |
+
+An artifact is a **view** of a knowledge item: one that has a `task` or `thread`
+parent rather than a `knowledge_item` parent. There is no second table, no second
+content model, and no second lifecycle — which is the whole point of the change.
+What the reversal buys back is a word people already use for the thing.
+
+`knowledge_items` is **not** renamed.
 
 ### The parent slot is `knowledge_item | task | thread`
 
@@ -405,7 +425,7 @@ preview. There is no content-conversion work in this strand.
 | # | Criterion | How it is verified |
 |---|---|---|
 | AC1 | The `artifacts` table, its routes, `ARTIFACT_KINDS` and the kind registry no longer exist. | Typecheck plus a governance lint rule asserting the symbols are absent. |
-| AC2 | The string "artifact" survives nowhere in production code, UI copy, or agent tool names. | Lint rule over production files; it must be shown failing before it passes. |
+| AC2 | The word "artifact" names produced content and nothing else: it appears on no table, no route path, no stored kind or preview shape, and no ref type. | Lint rule over production files listing the banned positions; it must be shown failing before it passes. |
 | AC3 | A knowledge item whose only block is a fenced ```html block renders inside the AZ6 sandbox frame, scripts running, with the source byte-identical to what was written. | Component test on the renderer plus a derivation test asserting one `code` block, `lang: "html"`, round-trip identity. |
 | AC4 | A knowledge item parented to a task appears on that task and never in the knowledge tree. | Component test on both surfaces. |
 | AC5 | A knowledge item parented to a thread appears in that conversation, has no ancestors, and no breadcrumb or inherited-value resolution climbs past the thread. | Component test plus a unit test on the tree walk. |
