@@ -15,8 +15,9 @@ the word — founder call. The parallel nested-knowledge strand currently writes
 `UpsertPluginDocumentInput`
 (`layers/core-api/knowledge/src/knowledge-repository.ts:1358`, exported from that
 package's index) landed with the BA9 plugin work, and the BA9e/BA9f commit
-messages say "knowledge document" throughout. Two identifiers, cheap to respell —
-fold it into this strand's naming sweep rather than leaving the drift to spread.
+messages say "knowledge document" throughout. Two identifiers, cheap to respell — but
+**the nested-knowledge strand claimed them on 2026-09-02** and is doing it in
+their vocabulary sweep. Leave those two symbols alone here (see AC13).
 
 ## Why
 
@@ -142,15 +143,42 @@ natural place to look.
 
 ### Status and role of a produced item
 
-**Status `captured`, role `ordinary`.** Not a new rule — `captured` is already
-what the writeback path sets when an agent creates a knowledge item from its
-sandbox (`docs/knowledge-architecture/sync-and-conflict-resolution.md:28`,
-`handleCreate` in `writeback-processor.ts`). It is the pre-validation draft state
-(`docs/knowledge-architecture/facilitators.md:57`), which is exactly what an
-artifact was: produced, not yet vouched for.
+**Role `ordinary`.** Unchanged.
 
-The 7-value status ladder **stays**. It is kernel-owned and survives BA9 pulling
-the ritual out of core.
+**Status: `captured` when this strand lands, `proposed` immediately after.**
+
+`captured` is already what the writeback path sets when an agent creates a
+knowledge item from its sandbox (`handleCreate` in `writeback-processor.ts`,
+`docs/knowledge-architecture/sync-and-conflict-resolution.md:28`). It is the
+pre-validation draft state, which is exactly what an artifact was: produced, not
+yet vouched for. So a produced item is written `captured` here, because that is
+the value the column actually accepts at the moment this lands.
+
+**The 7-value ladder does not stay** — that line in an earlier draft of this plan
+is superseded by a founder call on 2026-09-02, relayed by the nested-knowledge
+strand and verified in code. The ladder collapses to
+**`proposed | active | stale | archived`**, with `draft`/`captured`/`provisional`
+-> `proposed`, `validated`/`active` -> `active`, `stale` -> `stale`, and
+`archived`/`needs_human` -> `archived`. `active` was picked over `approved`
+deliberately: the word should say "this is the current document", not "this
+passed a review".
+
+**That collapse is the nested-knowledge strand's migration, not this one's.**
+This strand lands first, so `captured` still exists when it does, and their
+mapping carries a produced item to `proposed` for free. Writing `proposed` here
+would mean writing a value the CHECK constraint rejects. Nothing to build, and no
+compat layer — one line to change in their migration's blast radius, already
+covered by their mapping.
+
+Worth knowing why the collapse is more than a rename, because it explains the
+duplication this strand deletes around: there are **two** status enums today.
+`KNOWLEDGE_STATUSES` (7 values, `framework/domain-model/src/knowledge.ts:19`) and
+`KERNEL_KNOWLEDGE_STATUSES` (`draft | active | archived | needs_human`,
+`framework/domain-model/src/types.ts:61`), with `ALLOWED_TRANSITIONS`
+(`tool-handlers/src/tool-definitions.ts:946`) spanning both. `POST /api/knowledge`
+defaults to `draft` while writeback writes `captured` — the same state under two
+names depending on whether a human or an agent made it. Both verified on `main`
+at `bed7972d8`.
 
 ### Thread-parented items are leaves
 
@@ -384,7 +412,7 @@ preview. There is no content-conversion work in this strand.
 | AC10 | Clicking a knowledge item in a thread or on a task opens it in the split view. | Component test asserting `SplitView` renders with the item. |
 | AC11 | `BlockRef`, `BlockRefEmbed` and `blockRefSchema` are gone, with every caller moved — no compat layer, alias or dead code. | Typecheck plus knip. |
 | AC12 | `tasks.artifacts` is renamed to `handoffFiles`, the handoff write path still round-trips, and no unrelated `artifacts:` key (review canvas, review composition, core-api port) was renamed by mistake. | Service integration test on the handoff round-trip; AC2's lint rule catches any survivor. |
-| AC13 | No production identifier says "document" for a knowledge item — `upsertPluginDocument` and `UpsertPluginDocumentInput` are respelled. | Lint rule alongside AC2's, shown failing before it passes. |
+| AC13 | ~~No production identifier says "document" for a knowledge item.~~ **Handed to the nested-knowledge strand** on 2026-09-02 — they are respelling `upsertPluginDocument` / `UpsertPluginDocumentInput` in their own vocabulary sweep. Not this strand's work; do not touch those two symbols. | n/a |
 
 AC2, AC3 and AC8 are the three that carry the change. AC3 is the one that would
 have been shipped broken without the derivation probe. AC8 is the goal.
