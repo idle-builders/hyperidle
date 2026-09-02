@@ -2,133 +2,114 @@
 
 The technical reading of `plan.md`. It decides nothing about how the program works; where this file
 and the plan disagree, the plan wins. Harness behaviour comes from `harness-research/deep-*.md` and
-from nowhere else — not from `founder-rulings.md`, which records decisions rather than measurements.
+from nowhere else — not from `founder-rulings.md`, which records decisions rather than measurements,
+and several of whose rulings turn on harness facts that later measurement refuted.
 
-## Where this starts from
+## What this is now
 
-An implementation of this same mechanism already exists on this branch (PR #542): the gate written
-per harness, an `/action-check` route, a `gate_reviews` record, a clearance keyed to rule-and-tool,
-`session_resume` as an intent kind, `gate_resume` as a session source, and the provisioner branch that
-reopens a session with the verdict. It was built before the research. The mechanism it implements is
-confirmed. Three of its per-harness details are not, and that is the substance of this document.
+There is no interception. Nothing hooks a tool call, nothing matches a rule, nothing is blocked. The
+agent is told once, in the context materialised for its session, that work deserving a person's
+agreement goes through `submit_review` — and it elects to ask.
 
-## Reconciliation — what survives, what does not
+That deleted 5,452 lines: every per-harness gate writer, the gate store, `/action-check`, the
+`action_rules` table and its route, settings surface and UI. All of it is preserved on
+`archive/action-gate-interception` at `4b4dbec21` so the follow-up package cherry-picks rather than
+rebuilds.
 
-Checked against the code on this branch, not against the spec that produced it.
-
-| Piece | Verdict |
-|---|---|
-| End-the-session-then-resume, all four | **Survives.** Confirmed for a new reason: a human may take days and a held process does not survive that. |
-| cursor `hooks.json`: `command` + `failClosed: true`, no `matcher` | **Survives.** cursor has no native `matcher`; a `preToolUse` hook fires for every call and the script dispatches on the tool name. Writing a `matcher` as an object — what cursor's own docs show — voids the entire file silently. |
-| `/action-check` per call | **Survives.** The plan requires the cleared set to be re-read per call and never to live in the gate's own configuration; an HTTP ask satisfies both. It adds a dependency on the app being reachable, which is fail-closed by construction and already proven for claude and codex. |
-| opencode `OPENCODE_PERMISSION` as `{"bash":"deny"}` | **Broken.** A whole-tool deny *removes the tool from the model's toolset*; the model never learns a rule exists and cannot ask. Only a pattern deny produces a denial the model sees. Must become a pattern form. |
-| codex hook trust | **Incomplete.** Nothing writes `[hooks.state."<key>"] trusted_hash`; the adapter passes `--dangerously-bypass-hook-trust` instead. That works but emits two error-type stream warnings and does not persist. Writing the hash makes the hook fire with no flag and no warnings. Any later edit to `hooks.json` silently disarms the gate, so the hash must be rewritten whenever the file is. |
-| cursor resume | **Broken.** `resumeSession` is handed the *new* session's `sandboxPath`. cursor binds a chat to the literal cwd string (`~/.cursor/chats/<md5(cwd)>/`); a mismatch exits 0, echoes the right id, and runs with zero context. This is the most likely cause of the unexplained hang recorded against the previous attempt. |
-| Instruction reaching the agent | **Fixed on this branch.** `SessionConfig.instruction` carries the task; `assembledPrompt` stays context. Previously the agent received 200 characters of the wrong text and could not reach the gate at all. |
-
-Nothing else in #542 was found to contradict the research. That does not mean the rest is proven —
-see *Verification*.
+It also deleted a failure class rather than mitigating one. Every harness's interception mechanism
+fails open in a way that looks like success — claude reports malformed hook JSON as a successful
+allow, codex silently skips a hook whose config hash changed, cursor voids its whole hooks file when
+the matcher is written the way its own documentation shows, opencode logs nothing at all when a plugin
+fails to import. A gate would have had to prove itself alive on every run to be worth anything.
+Nothing to disarm is simpler than something that must be checked.
 
 ## Obligations
 
-| From the plan | Implementation obligation |
-|---|---|
-| Nothing is interrupted until someone adds a rule | Provisioning resolves the applicable rules; an empty set writes no gate at all. Already true. |
-| The agent is told which rule stopped it, as a fact | The refusal carries the rule; the instruction to use `submit_review` lives in the session prompt, not the refusal. |
-| The agent asks with a real review | `submit_review` unchanged. A review is linked to the block that caused it; a review with no pending denial links nothing. |
-| Cleared once, and only if blocked first | The clearance is authorised by the link record, never by the act of filing a review. |
-| Decline is not final and does not decline the task | A decline resumes the session carrying the reasoning; the rule stays in force. No state marks the task refused. |
-| All four harnesses on their own terms | Per-harness gate writers; one shape per harness, no compatibility path. |
+| From the plan | Implementation obligation | State |
+|---|---|---|
+| The agent is told to ask | The orientation is appended to the session's context unconditionally — there is no rule list to make it conditional on | **done** |
+| The agent asks with a real review | `submit_review` unchanged. It is already one of the three return actions, so calling it satisfies the return gate and the session ends on its own — no new mechanism | **done** |
+| A verdict knows what to resume | One row per review recording the session that filed it | **done** |
+| The verdict reaches the agent | Durable intent → session request → provisioning → reopen the harness's own session with the verdict as a real user turn | **done, one defect** |
+| A decline declines the solution, not the task | The decline resumes with reasoning and marks nothing on the task | **done** |
+| All four harnesses | Resume is per-harness; the review itself is one MCP tool and identical everywhere | **one defect** |
+| Done is what the task says | No gate, no CI job. Evidence is behavioural | **outstanding** |
 
 ## Contracts
 
-**The gate seam.** Each harness's gate asks one question per tool call — *may this session run this
-tool* — and gets allow, or deny with a reason naming the rule. The transport is the existing
-`/action-check`. The answer must be computed from the session's rules and its cleared set, and must
-fail closed on any error, timeout, or unreachable server.
+**The link.** One row per review: the review message, and the session that filed it. Unique on the
+review. It carries nothing else — nothing was blocked, so there is no permission to remember and no
+rule or tool to key one to.
 
-**The clearance.** Keyed to the rule *and* the tool, spent by that action alone. Not keyed to "the
-next tool call" — a resumed session's first call is typically an unrelated read, and keying it that
-way is what made an approved action get refused again.
+**The verdict.** Three outcomes, each a fact a caller may have to act on: *no session filed this
+review* (nothing to resume, nothing wrong), *not resumable* (a session filed it but cannot be brought
+back — the human answered something that will reach nobody and must be told), and *queued*.
 
-**The link record.** One row per review a gate caused, carrying the session, the rule, and the tool.
-Unique on the review. It is the only thing that authorises a clearance.
+**The resume.** A durable intent whose source is the review verdict, drained into a session request,
+provisioned like any other session, with one branch at harness start: reopen the harness's own session
+and deliver the verdict as a real user turn.
 
-**The resume.** A verdict produces a durable intent, drained into a session request whose source is
-the gate review, provisioned like any other session, with one branch at harness start: reopen the
-harness's own session and deliver the verdict as a real user turn.
+**The instruction.** A session's opening user turn is what the agent is asked to do; for a task
+session that is the task. It is distinct from the assembled context that becomes AGENTS.md, and it is
+delivered whole. Conflating the two is what previously handed agents 200 characters of the wrong text.
 
-## Per-harness invariants the build must hold
+## The one defect left in the code
 
-Each is measured; each has a failure mode that looks like success.
+`resumeSession` is given the **new** session's sandbox path. cursor-agent binds a chat to the literal
+working directory it started in — `~/.cursor/chats/<md5(cwd)>/` — so resuming from anywhere else exits
+0, echoes back the correct session id, and runs with no context whatsoever. There is no error and
+nothing in the stream. claude finds a session by id from any directory and is unaffected; codex and
+opencode need checking against the same question. This is the most likely cause of the unexplained
+hang recorded against the earlier attempt, and it is marked in the code at the call site.
 
-- **All four fail open.** claude reports malformed hook JSON as a *successful allow*. codex skips a
-  hook whose config hash changed, with no output anywhere. cursor voids its whole hooks file on a
-  malformed matcher. opencode logs nothing at all when a plugin fails to import. Per the plan we do
-  not monitor for this — a dead gate is a failed session — but no code may treat the presence of a
-  config file as evidence the gate is live.
-- **opencode** — pattern deny, never whole-tool. Tool arguments arrive on the *second* handler
-  parameter. Concurrent runs collide on one global SQLite database; a per-run data dir is required.
-- **codex** — a rule naming one tool is a hole: blocked on `Bash` the model routes writes through
-  `apply_patch`. Per ruling 26 this is accepted behaviour, not a defect to close, but a rule set meant
-  to hold must name both. A blocked call is invisible in the JSON stream — never read the stream to
-  learn a gate fired.
-- **cursor** — resume must run in the session's own directory. The binary auto-updates itself
-  mid-session, so no behaviour may be pinned to a version string.
-- **claude** — resume finds a session anywhere by id; the caller may assign that id. Concurrent
-  resume of one session silently loses a branch, so a verdict must not race a second verdict.
+The fix is to resume in the session's own directory. That requires the sandbox to still exist when the
+human answers, which is a real constraint the plan does not yet address — a sandbox is destroyed at
+teardown, and a human may take days. **This is a plan question, not an architecture one**, and it is
+the one open item that could change the shape of the work.
+
+## Failure behaviour
+
+A verdict that cannot be delivered is reported to the human who gave it, in the thread they gave it
+in. That is the only failure path this change adds, and it exists because the defect it guards against
+— a human believing something happened when it did not — is the thing this package is for.
+
+Everything else fails as an ordinary session failure. Per the plan we do not monitor session health
+here; that is a general concern we will want anyway.
 
 ## Security
 
-This change reaches three surfaces.
+This change reaches two surfaces.
 
-**An agent-authored field reaching a human.** A review's title, reasoning and artifacts are written by
+**An agent-authored field a human acts on.** A review's title, reasoning and artifacts are written by
 a model and rendered to a person who then approves something. The abuse case is a review that
-misrepresents what will happen. The plan's answer is that what is approved is the agent's account and
-the clearance is same-kind not same-command — so a human approves a *kind of action*, and the blast
-radius is that kind. No change here makes agent text executable.
+misrepresents what it will do. What the plan approves is the agent's account, and approval grants no
+capability the agent did not already have — nothing was blocked, so nothing is unblocked. The blast
+radius of a misleading review is a human's attention, not an escalation.
 
-**A state-changing decision endpoint.** The verdict clears an action. The abuse case is an agent
-granting itself a clearance by filing a review. Closed by the link record: only a review a gate
-actually caused authorises anything, and that record is written from the gate's own account of what it
-refused, never from the tool's arguments.
+**A state-changing decision endpoint.** The verdict resumes a session. The abuse case is resuming a
+session that did not file the review; closed by the link record being written from the session's own
+identity at filing time, never from the tool's arguments.
 
-**The sandbox filesystem.** We write the gate into it, and the agent can read what we write — an agent
-was observed reading a gate plugin's source and quoting its rule back. The gate is therefore not a
-secret and must not carry one beyond the session-scoped bridge token it already holds.
-
-Not touched by this change: credentials, outbound requests to third parties, and the isolation of the
-sandbox from the user's own configuration. That last one is a real and separate exposure, recorded
-outside this package.
+Not touched: credentials, outbound requests, and sandbox isolation from the user's own configuration.
+That last is a real exposure and is recorded outside this package.
 
 ## Verification
 
-The maintainer has defined done: *the agent decides it is done according to the task and marks it
-done*. The evidence is therefore behavioural, not a gate.
+Done is behavioural — the agent decides it is done according to the task and marks it done. The
+evidence is the maintainer's: invent a task locally, let the agent raise a review, then approve it once
+and decline it once and observe each outcome, on all four harnesses.
 
-**The one piece of end-to-end evidence:** invent a task locally, let the agent hit a rule, watch it
-raise a review, then approve it once and decline it once and observe each outcome — on all four
-harnesses. This is a recorded manual check, not a new harness; the equivalent automated form has no CI
-job by design and would gate nothing.
+Existing lanes cover the parts beneath it and are adequate: unit tests for the instruction passing
+through whole, service integration for the link, the verdict path and the resume branch. Two things
+those lanes cannot show and the manual check must — that a resumed session carries its context on each
+harness, and that an agent told only by its context actually elects to ask.
 
-Existing lanes cover the rest and are adequate: unit tests for the clearance keying, service
-integration for the verdict path and the link record, and the real-binary lane for the refusal itself.
-Two things the existing lanes cannot show and the manual check must: that a resumed cursor session
-carries its context, and that an opencode refusal reaches the model rather than removing the tool.
+## Remaining work
 
-## Dependency order
-
-One technical task. The three reconciliation fixes are independent of each other and of everything
-else, and none is a seam requiring coordination:
-
-1. opencode pattern deny.
-2. codex trusted-hash write, rewritten whenever `hooks.json` is.
-3. cursor resume in the session's own directory.
-
-Then the manual proof. If the proof fails, it fails on evidence rather than on a guess about which
-harness is wrong.
+1. The cursor resume directory defect, and the sandbox-lifetime question it raises — plan first.
+2. The manual proof.
 
 ## Documentation this makes false
 
-`docs/process-layer/staged-operation.md` describes the capture mechanism that was deleted. It was
-already wrong before this change and is named here so it is not read as authority.
+`docs/process-layer/staged-operation.md` describes the capture mechanism that was deleted long before
+this change. It is named here so it is not read as authority.

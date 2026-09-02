@@ -1759,10 +1759,18 @@ async function runSession(
 	try {
 		if (!aborted) {
 			// BA2: a resumed session reopens the harness's own session and takes the
-			// verdict as a genuine user turn. Not a fabricated transcript asserting
-			// that a human approved — a real cursor-agent refused exactly that, and
-			// was right to: nothing authenticated the claim. The authority is the
-			// cleared rule at the gate, which the agent never has to believe.
+			// verdict as a genuine user turn in it — not a new session carrying a
+			// fabricated transcript asserting that a human approved. A real
+			// cursor-agent refused exactly that, and was right to: nothing
+			// authenticated the claim. A real turn in the agent's own session is not
+			// a message about a human; it is the human.
+			//
+			// KNOWN DEFECT (BA2, unfixed): `sandboxPath` here is the NEW session's
+			// sandbox. cursor-agent binds a chat to the literal working directory it
+			// started in, so resuming from anywhere else exits 0, echoes back the
+			// right session id, and runs with no context at all. claude finds a
+			// session by id from any directory; cursor does not. The resume has to
+			// run in the session's own directory.
 			if (params.resume?.harnessSessionId && harness.resumeSession) {
 				harnessHandle = await harness.resumeSession(
 					params.resume.harnessSessionId,
