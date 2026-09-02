@@ -487,3 +487,97 @@ mechanism to design, not a question to ask.
 **Migration numbering: take 0078 or higher.** The attachment-slot strand landed
 `framework/db/drizzle/0077_one_attachment_slot.sql`. The 0071 floor in
 Sequencing above is superseded.
+
+---
+
+## Decisions taken during the build
+
+Recorded here because each changes what the plan above said, and each was
+checked in code rather than assumed.
+
+### `create_artifact` keeps its name and writes a knowledge item
+
+Input is `title` + `body` (markdown). No `kind`, no `label`, no `preview` — kind
+is derived from the body's blocks at render time and nothing is stored. Parent is
+resolved from context and never passed as input: `ctx.taskId` when the agent is
+in a task session, otherwise `ctx.threadId` when it is answering in a
+conversation, and an error when it has neither, because a produced item must
+belong to something. Note `ctx.taskId` is the empty string rather than
+`undefined` in an assistant session (`provisioner.ts:1336`), so the branch tests
+truthiness, not presence. Scope reuses `write_memory`'s existing rule verbatim
+(`teamId ? "product" : "factory"`) rather than inventing a second one.
+
+### The routine artifact subject folds into the knowledge-item subject
+
+`routine-scheduler.ts` had a dedicated artifact branch (STEP 2) that read the
+artifacts table to build a `kind:"artifact"` subject, fired by
+`ArtifactCreatedEvent`. Both retire.
+
+Nothing is lost, and the fold is clean rather than a cut: a `kind:"knowledge-item"`
+subject already exists in the scheduler, already resolves off any event carrying
+`itemId` that is not `item_created`, and already carries `id`, `title`, `body`,
+`format` and `version` — strictly more than the artifact subject's
+`id`/`kind`/`label`/`producingTaskId`. `POST /api/knowledge` already emits
+`knowledge_created` with `itemId`, so a routine that triggered on produced
+content keeps triggering, on a richer subject.
+
+`ArtifactCreatedEvent` is defined twice (`framework/domain-model/src/events.ts`
+and `framework/event-bus/src/events.ts`); both go, along with the
+`ws-connection-hub` topic routing.
+
+### `POST /api/knowledge` validates the parent; the contract now says so
+
+The slot shipped with phase 1 but was reachable only from inside core-api. The
+route did not accept `parentKind`/`parentId` at all, so zod stripped them and a
+client that sent a parent got a `201` with a null parent and **no error** —
+verified against the running server before the fix. The route now accepts a
+parent, refuses a half-named one, and confirms existence through the service that
+owns the parent's table (`work` for a task, `conversation` for a thread — both
+already imported there, so no new dependency). Only `task` and `thread` are
+accepted from a client; `knowledge_item`, `routine` and `agent` stay writable
+only by the routes that already hold the parent row, so a client cannot forge a
+routine prompt or an agent identity.
+
+### Agent writeback had never worked, and that was in this strand's path
+
+`buildKnowledgeWritebackPort.create` sent no `scopeKind` (the route requires one)
+and `status: "captured"` (the route validates against its own four-value list and
+has never accepted it). Two independent rejections, so no agent has ever produced
+a knowledge item by writing a file. Proven live: that exact payload returns `400`
+naming both problems; the corrected one returns `201`.
+
+Fixed at the type level rather than by patching the call.
+`CreateKnowledgeItemRequest.scopeKind` was optional while the route's zod was
+required, so an omitting caller typechecked clean and failed only at runtime.
+Making the contract honest turned the drift into two `npm run check` failures
+that named both callers — the enforcement CLAUDE.md asks for on a static
+property, rather than a test that would have to remember to look.
+
+A written-back item now also carries a parent, read from the session's own row:
+`sessions.taskId`, else `threadId` out of `sourceCorrelationJson`. Resolving it
+is total by construction — an unresolvable parent writes a parentless item and
+never discards the agent's work. The first version threw and would have dropped
+the whole writeback batch; the existing subscriber test caught it.
+
+### The frame is reached by a sole fenced ```html block, and only that
+
+A knowledge item whose **only** derived block is a fenced ```html block renders
+in the AZ6 sandbox frame. One sitting alongside other blocks stays a code
+listing. The sole-block rule is what separates "this document IS an interactive
+artifact" from "this document contains an HTML sample", and it is deliberate — an
+earlier reading that let any fenced html block run was rejected.
+
+The decision lives in `KnowledgeBody`, where the whole block list is visible, not
+in `renderPayload`, which sees one payload at a time. `ArtifactFrame`'s props are
+untouched: `build-srcdoc.ts` deliberately exposes no sandbox or CSP knobs and a
+call site must not be able to loosen the seal.
+
+### AC2 is a boundary rule, and it names symbols rather than the word
+
+`tools/governance/src/rules/artifact-is-not-a-storage-concept.ts`. The banned
+list names identifiers — `ArtifactRow`, `producingTaskId`, `previewJson`,
+`ARTIFACT_KINDS`, `ArtifactRef`, `/api/artifacts` and so on — never the bare word
+`artifacts`. That is load-bearing: `artifacts:` is a live key in five unrelated
+shapes that all survive (the handoff filename array, the review canvas, review
+composition, the core-api port client, the threads write arm), and a rule that
+banned the word would need a carve-out for each one.
