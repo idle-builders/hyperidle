@@ -5,7 +5,7 @@
  * three facts have to outlive that session: which native session to resume, which
  * review a gate actually caused, and that "session_resume" is a kind of agent work.
  *
- * Applies 0..76 against a database that already holds a session and an intent,
+ * Applies 0..77 against a database that already holds a session and an intent,
  * then applies 0078 and checks the existing rows survived and the new shapes hold.
  */
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -51,7 +51,7 @@ describe("migration 0078: the gate return half — brownfield", () => {
 		await client.waitReady;
 		const db = drizzle(client);
 
-		const folderBefore = makeTempMigrationsFolder(76);
+		const folderBefore = makeTempMigrationsFolder(77);
 		tempDirs.push(folderBefore);
 		await migrate(db, { migrationsFolder: folderBefore });
 
@@ -67,7 +67,7 @@ describe("migration 0078: the gate return half — brownfield", () => {
 				VALUES ('sess-old', 'agent-1', 'balanced', ${NOW}, 'completed')
 			`);
 
-		const folderAfter = makeTempMigrationsFolder(77);
+		const folderAfter = makeTempMigrationsFolder(78);
 		tempDirs.push(folderAfter);
 		await migrate(db, { migrationsFolder: folderAfter });
 
@@ -98,7 +98,7 @@ describe("migration 0078: the gate return half — brownfield", () => {
 		clients.push(client);
 		await client.waitReady;
 		const db = drizzle(client);
-		const folder = makeTempMigrationsFolder(77);
+		const folder = makeTempMigrationsFolder(78);
 		tempDirs.push(folder);
 		await migrate(db, { migrationsFolder: folder });
 
@@ -114,7 +114,7 @@ describe("migration 0078: the gate return half — brownfield", () => {
 		await client.waitReady;
 		const db = drizzle(client);
 
-		const folder = makeTempMigrationsFolder(77);
+		const folder = makeTempMigrationsFolder(78);
 		tempDirs.push(folder);
 		await migrate(db, { migrationsFolder: folder });
 
