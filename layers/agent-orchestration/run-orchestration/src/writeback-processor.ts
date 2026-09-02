@@ -1,8 +1,7 @@
 /** Consolidated private capture/writeback stage. */
-import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, knowledgeEditLog, knowledgeItems, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 
@@ -35,11 +34,22 @@ interface CaptureWritebackCreateKnowledgeItemInput {
 	readonly status: "proposed";
 	readonly updatedBy: string;
 	/**
-	 * Where the produced item hangs: the session's task, or the conversation
-	 * the agent is answering in. Set explicitly at creation — never inferred
-	 * afterwards from where the file happened to sit.
+	 * @lore nested-knowledge-items §8/D4: a directory-chain or new-leaf create
+	 * places the item under its parent (and inherits the parent's scope) at
+	 * creation time — no separate reparent call for a brand-new id.
+	 */
+	readonly scopeKind?: string;
+	/**
+	 * @lore rebase-onto-#547: a parallel strand's `resolveSessionParent`
+	 * fallback — the session's task, or the conversation it is answering in —
+	 * for a leaf created directly at the `knowledge/` root, with no wrapping
+	 * directory to derive a `knowledge_item` parent from. Directory placement
+	 * always wins when both are available (see `handleCreate`); the two never
+	 * both apply to the same create.
 	 */
 	readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
+	readonly parentKind?: "knowledge_item";
+	readonly parentId?: string;
 }
 
 /** Narrowed to the three fields `writeback.ts` actually reads off a created/updated item. */
@@ -74,6 +84,18 @@ interface CaptureWritebackKnowledgeWriter {
 		expectedVersion: number,
 	): Promise<CaptureWritebackUpdateResult>;
 	recordConflict(db: HyperIdleDb, input: CaptureWritebackRecordConflictInput): Promise<void>;
+	/**
+	 * @lore nested-knowledge-items: replaces this file's own former
+	 * `getItemLink`/`setItemLink` direct-`knowledgeItems`/`knowledgeEditLog`
+	 * reads/writes for the move case (architecture.md §5's "a creation whose
+	 * filename carries a known id IS a move") — `knowledge` owns that table,
+	 * and this crossing must go through its seam like every other write here.
+	 */
+	reparentKnowledgeItem(
+		db: HyperIdleDb,
+		id: string,
+		input: { readonly parentKind: "knowledge_item"; readonly parentId: string; readonly updatedBy: string },
+	): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +108,14 @@ interface ManifestEntry {
 	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
 	source_path: string;
 	format: string;
+	/**
+	 * @lore nested-knowledge-items: carried on every entry (directories
+	 * included) so a directory's scope is known from the manifest alone — no
+	 * `knowledgeItems` read needed to look up a parent's scope before a child
+	 * inherits it (D4). Defaults to "factory" for entries written before this
+	 * field existed (manifest is process-local, not a migrated store).
+	 */
+	scopeKind: string;
 }
 
 interface Manifest {
@@ -204,95 +234,36 @@ function findManifestEntryBySuffix(
 }
 
 /**
- * Read a knowledge item's current `parentKind`/`parentId`/`scopeKind` — the
- * three fields a move or a directory-scoped create needs, and which the
- * knowledge port's `create()`/`update()` surface (deliberately narrowed to
- * `{body, updatedBy}` — see this file's top `@lore`) does not carry.
- *
- * @lore nested-knowledge-items §5: this reads/writes `knowledgeItems`
- * directly via `config.db` rather than through the `knowledge` port. That is
- * a deliberate, narrow crossing of the "knowledge owns knowledge_items"
- * table boundary — the same one the real production port crosses over HTTP
- * (a request the writeback processor cannot originate on its own without
- * that hop) — recorded here rather than silently, since it is a discretionary
- * call, not an obligation the architecture spelled out by name.
- */
-async function getItemLink(
-	db: HyperIdleDb,
-	itemId: string,
-): Promise<{ readonly parentKind: string | null; readonly parentId: string | null; readonly scopeKind: string }> {
-	const [row] = await db
-		.select({
-			parentKind: knowledgeItems.parentKind,
-			parentId: knowledgeItems.parentId,
-			scopeKind: knowledgeItems.scopeKind,
-		})
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.id, itemId))
-		.limit(1);
-	return row ?? { parentKind: null, parentId: null, scopeKind: "factory" };
-}
-
-/** Set a knowledge item's parent link (+ scope, for a fresh directory/leaf create) and log the move. */
-async function setItemLink(
-	db: HyperIdleDb,
-	sessionId: string,
-	itemId: string,
-	link: { readonly parentKind: "knowledge_item" | null; readonly parentId: string | null; readonly scopeKind?: string },
-): Promise<void> {
-	const before = await getItemLink(db, itemId);
-	await db
-		.update(knowledgeItems)
-		.set({
-			parentKind: link.parentKind,
-			parentId: link.parentId,
-			...(link.scopeKind ? { scopeKind: link.scopeKind } : {}),
-			updatedAt: new Date().toISOString(),
-		})
-		.where(eq(knowledgeItems.id, itemId));
-
-	if (before.parentId !== link.parentId || before.parentKind !== link.parentKind) {
-		await db.insert(knowledgeEditLog).values({
-			id: randomUUID(),
-			itemId,
-			editor: `session:${sessionId}`,
-			field: "parent",
-			oldValue: before.parentId ? `${before.parentKind}:${before.parentId}` : null,
-			newValue: link.parentId ? `${link.parentKind}:${link.parentId}` : null,
-			editType: "update",
-			createdAt: new Date().toISOString(),
-		});
-	}
-}
-
-/**
  * Ensure every directory from `knowledge/` down to `dirRelativePath` has a
  * knowledge item (plan.md D4: "a folder is a knowledge item"), creating any
- * that are missing, and return the immediate parent's item id (`null` at the
- * `knowledge/` root itself).
+ * that are missing, and return the immediate parent's item id + scope
+ * (`null` at the `knowledge/` root itself).
  *
  * @lore nested-knowledge-items §5 D4: a created directory item inherits its
  * own parent's scope. Manifest entries double as the directory→item index —
  * a directory's `source_path` is its own relative path, so `findItemByPath`
- * already tells this function which directories already have an item.
+ * already tells this function which directories already have an item — and
+ * now also carries that item's `scopeKind`, so a parent's scope is read from
+ * the manifest this function already holds, never a fresh `knowledgeItems`
+ * read (that table belongs to `knowledge`; this function stays inside the
+ * `knowledge` port's `create()`, which accepts `parentKind`/`parentId`/
+ * `scopeKind` directly instead of a separate post-create link step).
  */
 async function ensureDirectoryChainItem(
 	config: WritebackConfig,
 	dirRelativePath: string,
 	manifest: Manifest,
-): Promise<string | null> {
+): Promise<{ readonly id: string; readonly scopeKind: string } | null> {
 	if (dirRelativePath === "knowledge" || dirRelativePath === "." || dirRelativePath === "") {
 		return null;
 	}
 
 	const existing = findItemByPath(manifest, dirRelativePath);
-	if (existing) return existing.itemId;
+	if (existing) return { id: existing.itemId, scopeKind: existing.entry.scopeKind };
 
 	const parentDir = path.dirname(dirRelativePath);
-	const parentItemId = await ensureDirectoryChainItem(config, parentDir, manifest);
-	const parentScopeKind = parentItemId
-		? (await getItemLink(config.db, parentItemId)).scopeKind
-		: "factory";
+	const parent = await ensureDirectoryChainItem(config, parentDir, manifest);
+	const parentScopeKind = parent?.scopeKind ?? "factory";
 
 	const created = await config.knowledge.create(config.db, {
 		// A directory's title is its plain name, unlike a file's — a folder
@@ -304,19 +275,17 @@ async function ensureDirectoryChainItem(
 		format: "markdown",
 		status: "proposed",
 		updatedBy: `session:${config.sessionId}`,
-	});
-	await setItemLink(config.db, config.sessionId, created.id, {
-		parentKind: parentItemId ? "knowledge_item" : null,
-		parentId: parentItemId,
 		scopeKind: parentScopeKind,
+		...(parent ? { parentKind: "knowledge_item" as const, parentId: parent.id } : {}),
 	});
 
 	manifest.items[created.id] = {
 		version: created.version,
 		source_path: dirRelativePath,
 		format: created.format,
+		scopeKind: parentScopeKind,
 	};
-	return created.id;
+	return { id: created.id, scopeKind: parentScopeKind };
 }
 
 /** Process a batch of writeback changes. */
@@ -426,19 +395,31 @@ async function handleCreate(
 	const suffixMatch = findManifestEntryBySuffix(manifest, relativePath);
 	if (suffixMatch) {
 		const parentDir = path.dirname(relativePath);
-		const parentItemId = await ensureDirectoryChainItem(config, parentDir, manifest);
-		await setItemLink(config.db, config.sessionId, suffixMatch.itemId, {
-			parentKind: parentItemId ? "knowledge_item" : null,
-			parentId: parentItemId,
-		});
-		manifest.items[suffixMatch.itemId] = { ...suffixMatch.entry, source_path: relativePath };
+		const parent = await ensureDirectoryChainItem(config, parentDir, manifest);
+		// @lore nested-knowledge-items: `reparentKnowledgeItem` requires a
+		// non-null parent (see its own doc comment) — a move to the bare
+		// `knowledge/` root (no wrapping directory) is a known, untested gap,
+		// not silently worked around with a raw write.
+		if (parent) {
+			await config.knowledge.reparentKnowledgeItem(config.db, suffixMatch.itemId, {
+				parentKind: "knowledge_item",
+				parentId: parent.id,
+				updatedBy: `session:${config.sessionId}`,
+			});
+		}
+		manifest.items[suffixMatch.itemId] = {
+			...suffixMatch.entry,
+			source_path: relativePath,
+			scopeKind: parent?.scopeKind ?? suffixMatch.entry.scopeKind,
+		};
 		return "moved";
 	}
 
 	const body = fs.readFileSync(change.fullPath, "utf-8");
 	const title = titleFromFilename(change.relativePath);
 	const parentDir = path.dirname(relativePath);
-	const parentItemId = await ensureDirectoryChainItem(config, parentDir, manifest);
+	const parent = await ensureDirectoryChainItem(config, parentDir, manifest);
+	const scopeKind = parent?.scopeKind ?? "factory";
 
 	const item = await config.knowledge.create(config.db, {
 		title,
@@ -446,23 +427,22 @@ async function handleCreate(
 		format: "markdown",
 		status: "proposed",
 		updatedBy: `session:${config.sessionId}`,
-		...(config.parent ? { parent: config.parent } : {}),
+		// Directory placement (D4) wins when a wrapping directory exists;
+		// `config.parent` (session task/thread) is the fallback for a leaf
+		// sitting directly at the `knowledge/` root — the two never both apply.
+		...(parent
+			? { scopeKind, parentKind: "knowledge_item" as const, parentId: parent.id }
+			: config.parent
+				? { parent: config.parent }
+				: {}),
 	});
-
-	if (parentItemId) {
-		const parentScopeKind = (await getItemLink(config.db, parentItemId)).scopeKind;
-		await setItemLink(config.db, config.sessionId, item.id, {
-			parentKind: "knowledge_item",
-			parentId: parentItemId,
-			scopeKind: parentScopeKind,
-		});
-	}
 
 	// Add to manifest
 	manifest.items[item.id] = {
 		version: item.version,
 		source_path: change.relativePath,
 		format: item.format,
+		scopeKind,
 	};
 	return "created";
 }

@@ -61,6 +61,7 @@ export type {
 	PersistScaffoldedAgentsResponse,
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
+	ReparentKnowledgeItemRequest,
 	// ReviewRecipientsQuery: param of resolveReviewRecipientsForItem — no name-importers
 	RoutineView,
 	ScaffoldFromRequestInput,

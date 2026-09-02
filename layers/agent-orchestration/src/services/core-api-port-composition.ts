@@ -69,6 +69,7 @@ import {
 	type PersistScaffoldedAgentsResponse,
 	type PromoteKnowledgeItemRequest,
 	type PromoteKnowledgeItemResult,
+	type ReparentKnowledgeItemRequest,
 	type RoutineView,
 	type ScaffoldFromRequestInput,
 	type TaskView,
@@ -250,13 +251,20 @@ interface CoreApiHcClient {
 		};
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
-			/** AU31 §2.7 — the writeback processor's optimistic-lock update; same route `PATCH /knowledge/:id` the human-facing UI patches through. */
+			/**
+			 * AU31 §2.7 — the writeback processor's optimistic-lock update; same
+			 * route `PATCH /knowledge/:id` the human-facing UI patches through.
+			 * @lore nested-knowledge-items: `parentKind`/`parentId` widen this for
+			 * `reparentKnowledgeItem` — same route, its own existing move fields.
+			 */
 			$patch(args: {
 				readonly param: { readonly id: string };
 				readonly json: {
 					readonly version: number;
 					readonly updatedBy: string;
-					readonly body: string;
+					readonly body?: string;
+					readonly parentKind?: string;
+					readonly parentId?: string;
 				};
 			}): Promise<Response>;
 			readonly conflicts: {
@@ -654,6 +662,34 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 					"knowledge.findKnowledgeItemVersionById",
 					res,
 				);
+			},
+
+			/**
+			 * @lore nested-knowledge-items: fetches the current version internally
+			 * (reusing `GET /knowledge/:id`, the same idiom
+			 * `findKnowledgeItemVersionById` already rides) so the writeback
+			 * processor's move handling never has to track a version per item
+			 * itself — it only ever cared about parentage, never content version.
+			 */
+			async reparentKnowledgeItem(
+				id: string,
+				input: ReparentKnowledgeItemRequest,
+			): Promise<void> {
+				const current = await getOrUndefined<KnowledgeItemVersionView>(
+					"knowledge.reparentKnowledgeItem(lookup)",
+					await client.knowledge[":id"].$get({ param: { id } }),
+				);
+				if (!current) throw new Error(`reparentKnowledgeItem: knowledge item ${id} not found`);
+				const res = await client.knowledge[":id"].$patch({
+					param: { id },
+					json: {
+						version: current.version,
+						updatedBy: input.updatedBy,
+						parentKind: input.parentKind,
+						parentId: input.parentId,
+					},
+				});
+				if (!res.ok) return throwSeamError("knowledge.reparentKnowledgeItem", res);
 			},
 
 			async findKnowledgeItemStatusById(id: string): Promise<KnowledgeItemStatusView | undefined> {

@@ -529,6 +529,31 @@ export interface KnowledgeItemVersionView {
 	readonly version: number;
 }
 
+/**
+ * @lore nested-knowledge-items: the writeback processor's move handling
+ * (architecture.md §5 — "a creation whose filename carries a known id IS a
+ * move") used to read/write `knowledge_items`/`knowledge_edit_log` directly
+ * via `config.db`, crossing the table boundary `knowledge` owns. This request
+ * moves that write onto the seam, backed by `PATCH /knowledge/:id`'s existing
+ * `parentKind`/`parentId` fields (already routed through `reparent()`, which
+ * writes its own `field='parent'` edit-log entry — the caller supplies no
+ * version; the seam implementation fetches the current one internally, the
+ * same "reuse GET /:id" idiom `findKnowledgeItemVersionById` already uses.
+ *
+ * @lore Known gap, not silently worked around: `reparent()`'s own signature
+ * requires a non-null `parentKind`/`parentId` — there is no repository-level
+ * "detach to root" operation. A file moved to sit directly under `knowledge/`
+ * (no wrapping directory) therefore cannot be reparented through this seam.
+ * Untested by architecture.md's three writeback e2e cases and not spelled out
+ * as a requirement; widening `reparent()` to support it is a repository-level
+ * decision this leaf does not make unilaterally.
+ */
+export interface ReparentKnowledgeItemRequest {
+	readonly parentKind: string;
+	readonly parentId: string;
+	readonly updatedBy: string;
+}
+
 /** Mirrors `GET /knowledge/:id`'s response — only `status` (used by the status-lookup reuse of this route). */
 export interface KnowledgeItemStatusView {
 	readonly status: string;
@@ -597,6 +622,8 @@ export interface CoreApiKnowledgePort {
 	findKnowledgeItemParentById(
 		id: string,
 	): Promise<{ readonly parentKind: string | null; readonly parentId: string | null } | undefined>;
+	/** See {@link ReparentKnowledgeItemRequest}. */
+	reparentKnowledgeItem(id: string, input: ReparentKnowledgeItemRequest): Promise<void>;
 	findOpenConflictByItemAndProposer(
 		itemId: string,
 		proposedBy: string,

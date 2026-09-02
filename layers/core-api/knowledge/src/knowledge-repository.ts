@@ -26,7 +26,11 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 
-import type { KernelKnowledgeStatus, KnowledgeParentKind, KnowledgeRole } from "@hyperidle/domain-model";
+import type {
+	KernelKnowledgeStatus,
+	KnowledgeParentKind,
+	KnowledgeRole,
+} from "@hyperidle/domain-model";
 import { and, desc, eq, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import type { KnowledgeStatus } from "./types.js";
@@ -108,9 +112,7 @@ async function assertParentInvariants(
 		);
 	}
 	if (chain.length >= MAX_TREE_DEPTH) {
-		throw new Error(
-			`reparent: resulting depth would exceed the maximum of ${MAX_TREE_DEPTH}`,
-		);
+		throw new Error(`reparent: resulting depth would exceed the maximum of ${MAX_TREE_DEPTH}`);
 	}
 
 	const parentId = chain[0];
@@ -163,13 +165,18 @@ async function cascadeScopeNarrowing(
 	let guard = 0;
 	while (frontier.length > 0) {
 		if (guard++ > 10_000) {
-			throw new Error("cascadeScopeNarrowing: exceeded safety bound — an existing cycle in the tree");
+			throw new Error(
+				"cascadeScopeNarrowing: exceeded safety bound — an existing cycle in the tree",
+			);
 		}
 		const children = await tx
 			.select({ id: knowledgeItems.id, scopeKind: knowledgeItems.scopeKind })
 			.from(knowledgeItems)
 			.where(
-				and(eq(knowledgeItems.parentKind, "knowledge_item"), inArray(knowledgeItems.parentId, [...frontier])),
+				and(
+					eq(knowledgeItems.parentKind, "knowledge_item"),
+					inArray(knowledgeItems.parentId, [...frontier]),
+				),
 			);
 		const toNarrow = children.filter((c) => scopeRank(c.scopeKind) < scopeRank(newScopeKind));
 		if (toNarrow.length > 0) {
@@ -1205,7 +1212,9 @@ export async function list(
 		return db
 			.select({ id: knowledgeItems.id, title: knowledgeItems.title })
 			.from(knowledgeItems)
-			.where(and(eq(knowledgeItems.parentKind, "knowledge_item"), eq(knowledgeItems.parentId, parentId)))
+			.where(
+				and(eq(knowledgeItems.parentKind, "knowledge_item"), eq(knowledgeItems.parentId, parentId)),
+			)
 			.orderBy(knowledgeItems.position, knowledgeItems.title);
 	}
 

@@ -34,7 +34,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { knowledgeItems } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { createWritebackProcessor } from "../writeback-processor.js";
@@ -48,6 +48,13 @@ type KnowledgeWriter = Parameters<typeof writeback.subscribe>[0]["knowledge"];
  * real id — so a "move" (a delete immediately followed by a create at the
  * same known id) can be told apart from a genuinely new item by querying the
  * real table afterwards.
+ *
+ * @lore nested-knowledge-items: `create` now writes `input.parentKind`/
+ * `parentId`/`scopeKind` (the production port's `POST /knowledge` already
+ * accepts them; the writeback processor folds a directory/leaf's parent link
+ * into its create call instead of a separate post-create write), and
+ * `reparentKnowledgeItem` writes the move directly — same "real table,
+ * discretionary test-only seam" style this stub already documents.
  */
 function makeRealDbKnowledgeWriter(
 	db: HyperIdleDb,
@@ -61,8 +68,10 @@ function makeRealDbKnowledgeWriter(
 			const now = new Date().toISOString();
 			await db.insert(knowledgeItems).values({
 				id,
-				scopeKind: "factory",
+				scopeKind: input.scopeKind ?? "factory",
 				scopeId: null,
+				parentKind: input.parentKind ?? null,
+				parentId: input.parentId ?? null,
 				title: input.title,
 				body: input.body,
 				format: input.format,
@@ -72,6 +81,8 @@ function makeRealDbKnowledgeWriter(
 				createdAt: now,
 				updatedAt: now,
 			});
+			// Kernel row and projection travel together, as knowledge always writes them.
+			await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 			return { id, version: 1, format: input.format };
 		},
 		async update(_db, id, patch, _expectedVersion) {
@@ -89,6 +100,17 @@ function makeRealDbKnowledgeWriter(
 		},
 		async recordConflict() {
 			// Not exercised by these cases.
+		},
+		async reparentKnowledgeItem(_db, id, input) {
+			await db
+				.update(knowledgeItems)
+				.set({
+					parentKind: input.parentKind,
+					parentId: input.parentId,
+					updatedBy: input.updatedBy,
+					updatedAt: new Date().toISOString(),
+				})
+				.where(eq(knowledgeItems.id, id));
 		},
 	};
 }

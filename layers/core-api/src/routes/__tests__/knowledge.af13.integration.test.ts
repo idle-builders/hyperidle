@@ -38,7 +38,6 @@ async function seedFounder(db: HyperIdleDb, userId: string): Promise<void> {
 	});
 }
 
-
 // ---------------------------------------------------------------------------
 // §1 Create-status contract: POST with status:"active" → active
 // ---------------------------------------------------------------------------

@@ -14,7 +14,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { knowledgeItems, users } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -115,11 +115,18 @@ describe("a plugin's agent comes with an identity", () => {
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 		const identityId = `ki_af_${agent?.id}`;
 
-		// Simulate a row written before the parent column existed.
+		// Simulate a row written before the parent column existed. Kernel row
+		// and projection are touched together, as knowledge always writes
+		// them — the projection value is unchanged, this just keeps the pair
+		// in the same statement group.
 		await db
 			.update(knowledgeItems)
 			.set({ parentKind: null, parentId: null })
 			.where(eq(knowledgeItems.id, identityId));
+		await db
+			.update(knowledgeAppProjection)
+			.set({ scopeId: agent?.id ?? null })
+			.where(eq(knowledgeAppProjection.knowledgeItemId, identityId));
 		const [before] = await db
 			.select()
 			.from(knowledgeItems)

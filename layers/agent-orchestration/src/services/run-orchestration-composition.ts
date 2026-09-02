@@ -244,8 +244,11 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 			 */
 			readonly status: "proposed";
 			readonly updatedBy: string;
-			/** Where the produced item hangs — the session's task, or the conversation it is answering in. */
+			readonly scopeKind?: string;
+			/** Where the produced item hangs — the session's task, or the conversation it is answering in — when no wrapping directory places it instead. */
 			readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
+			readonly parentKind?: "knowledge_item";
+			readonly parentId?: string;
 		},
 	): Promise<{ readonly id: string; readonly version: number; readonly format: string }>;
 	update(
@@ -270,6 +273,18 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 			readonly proposedBy: string;
 		},
 	): Promise<void>;
+	/**
+	 * @lore nested-knowledge-items: replaces the writeback processor's own
+	 * direct `knowledge_items`/`knowledge_edit_log` reads/writes for the
+	 * move case — `PATCH /knowledge/:id`'s existing `parentKind`/`parentId`
+	 * fields, which already route through `reparent()` (tree invariants +
+	 * its own `field='parent'` edit-log entry).
+	 */
+	reparentKnowledgeItem(
+		_db: HyperIdleDb,
+		id: string,
+		input: { readonly parentKind: "knowledge_item"; readonly parentId: string; readonly updatedBy: string },
+	): Promise<void>;
 } {
 	const port = buildCoreApiPort(transport);
 	return {
@@ -280,7 +295,12 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 				format: input.format,
 				status: input.status,
 				updatedBy: input.updatedBy,
-				...(input.parent ? { parentKind: input.parent.kind, parentId: input.parent.id } : {}),
+				scopeKind: input.scopeKind,
+				...(input.parentKind
+					? { parentKind: input.parentKind, parentId: input.parentId }
+					: input.parent
+						? { parentKind: input.parent.kind, parentId: input.parent.id }
+						: {}),
 			});
 			return { id: created.id, version: created.version, format: input.format };
 		},
@@ -301,6 +321,13 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 				proposedMeta: null,
 				proposedBy: input.proposedBy,
 				createdAt: new Date().toISOString(),
+			});
+		},
+		async reparentKnowledgeItem(_db, id, input) {
+			await port.knowledge.reparentKnowledgeItem(id, {
+				parentKind: input.parentKind,
+				parentId: input.parentId,
+				updatedBy: input.updatedBy,
 			});
 		},
 	};
