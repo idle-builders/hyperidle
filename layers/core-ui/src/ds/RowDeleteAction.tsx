@@ -19,6 +19,14 @@
  * row (SettingsAgents' assistant row) still gets the same kebab+Menu chrome
  * without a destructive item or confirm step, instead of forking a second
  * "just a menu" component for one row.
+ *
+ * @lore knowledge-attachment-slot: the Menu below is always anchored
+ * (`anchorRef`) rather than inline-positioned. A row-level kebab can sit in
+ * any list container, including a "boxed" ItemList (`overflow-hidden`, for
+ * the rounded-corner clip) — a single-row boxed list has no room inside that
+ * box for an absolutely-positioned menu to open into, so it gets clipped at
+ * the box edge with the Delete item invisible. Anchoring escapes that
+ * ancestor entirely; see Menu.tsx's lore for the mechanism.
  */
 
 import { type JSX, useCallback, useRef, useState } from "react";
@@ -50,6 +58,7 @@ export function RowDeleteAction({
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [confirming, setConfirming] = useState(false);
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const triggerRef = useRef<HTMLDivElement>(null);
 
 	const clearPendingRevert = useCallback((): void => {
 		if (timeoutRef.current) {
@@ -105,7 +114,7 @@ export function RowDeleteAction({
 		: items;
 
 	return (
-		<div className="relative">
+		<div ref={triggerRef} className="relative">
 			<button
 				type="button"
 				aria-label={triggerLabel}
@@ -130,6 +139,7 @@ export function RowDeleteAction({
 				label={menuLabel}
 				align="end"
 				items={menuItems}
+				anchorRef={triggerRef}
 			/>
 		</div>
 	);

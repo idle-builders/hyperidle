@@ -199,7 +199,15 @@ export function KnowledgeRoleList({
 									/>
 								</>
 							}
-							href={`/knowledge/${item.id}`}
+							// @lore knowledge-attachment-slot: onClick, not href. Row's own
+							// contract (Row.tsx) forbids nested real <button>/<a> inside an
+							// href row's actions — RowDeleteAction's kebab+Menu+confirm/cancel
+							// are all real buttons, needed for the delete flow. The row stays
+							// clickable to navigate, but as a div[role=button] (Row's own
+							// heuristic for onClick+actions), not a real anchor — so it loses
+							// ⌘-click/middle-click/"copy link"/hover-preview. That trade is the
+							// honest one here: this row's job is create/delete, not link-sharing.
+							onClick={() => navigate(`/knowledge/${item.id}`)}
 						/>
 					))}
 				</ItemList>
