@@ -283,7 +283,11 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 	reparentKnowledgeItem(
 		_db: HyperIdleDb,
 		id: string,
-		input: { readonly parentKind: "knowledge_item"; readonly parentId: string; readonly updatedBy: string },
+		input: {
+			readonly parentKind: "knowledge_item";
+			readonly parentId: string;
+			readonly updatedBy: string;
+		},
 	): Promise<void>;
 } {
 	const port = buildCoreApiPort(transport);

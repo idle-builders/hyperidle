@@ -81,7 +81,9 @@ async function seedItem(
 		body: overrides.body ?? "Seed body content.",
 		format: "markdown",
 		status: overrides.status ?? "active",
-		...(overrides.parentKind ? { parentKind: overrides.parentKind, parentId: overrides.parentId } : {}),
+		...(overrides.parentKind
+			? { parentKind: overrides.parentKind, parentId: overrides.parentId }
+			: {}),
 		updatedBy: "u-seed",
 	});
 	// Return the kernel row.

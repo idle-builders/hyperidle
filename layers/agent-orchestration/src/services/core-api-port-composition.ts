@@ -671,10 +671,7 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 			 * processor's move handling never has to track a version per item
 			 * itself — it only ever cared about parentage, never content version.
 			 */
-			async reparentKnowledgeItem(
-				id: string,
-				input: ReparentKnowledgeItemRequest,
-			): Promise<void> {
+			async reparentKnowledgeItem(id: string, input: ReparentKnowledgeItemRequest): Promise<void> {
 				const current = await getOrUndefined<KnowledgeItemVersionView>(
 					"knowledge.reparentKnowledgeItem(lookup)",
 					await client.knowledge[":id"].$get({ param: { id } }),

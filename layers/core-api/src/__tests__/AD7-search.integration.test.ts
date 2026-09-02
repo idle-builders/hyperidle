@@ -158,7 +158,9 @@ async function seedKnowledgeItem(
 		updatedAt: NOW,
 	});
 	// The owner writes the projection row alongside the item.
-	await db.insert(knowledgeAppProjection).values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
+	await db
+		.insert(knowledgeAppProjection)
+		.values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
 }
 
 // ─── TC-1: Missing `q` parameter returns 400 ────────────────────────────────

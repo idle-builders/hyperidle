@@ -82,7 +82,9 @@ function makeRealDbKnowledgeWriter(
 				updatedAt: now,
 			});
 			// Kernel row and projection travel together, as knowledge always writes them.
-			await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
+			await db
+				.insert(knowledgeAppProjection)
+				.values({ id: `${id}-projection`, knowledgeItemId: id });
 			return { id, version: 1, format: input.format };
 		},
 		async update(_db, id, patch, _expectedVersion) {

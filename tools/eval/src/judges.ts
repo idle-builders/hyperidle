@@ -365,8 +365,6 @@ export function judgeCreateConflictReviewCalled(): RubricDimension {
 // Parameterized judges
 // ---------------------------------------------------------------------------
 
-
-
 /** Judge: the scenario task is in the expected state. */
 export function judgeTaskState(expectedState: TaskState): RubricDimension {
 	return {
