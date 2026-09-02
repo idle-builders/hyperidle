@@ -30,7 +30,6 @@ vi.mock("../shell/HostThreadSection", () => ({
 
 vi.mock("../components/ArtifactSection", () => ({
 	ArtifactSection: () => <div data-testid="artifact-section" />,
-	useArtifactOpen: () => vi.fn(),
 }));
 
 // ── Fixture helpers ─────────────────────────────────────────────────────────

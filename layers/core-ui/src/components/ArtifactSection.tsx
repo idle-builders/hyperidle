@@ -180,15 +180,3 @@ export function ArtifactSection({
 		</section>
 	);
 }
-
-/**
- * @deprecated The artifact open hook navigated to /artifacts/:id. After the
- * migration, produced items open in the SplitView managed by ArtifactSection.
- * This export is kept only to avoid breaking callers while the deletion pass
- * is pending; remove it when ArtifactSection callers are all migrated.
- */
-export function useArtifactOpen(): (artifactId: string) => void {
-	return (_artifactId: string): void => {
-		// no-op — navigation to /artifacts/:id is replaced by the split view
-	};
-}

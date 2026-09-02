@@ -23,7 +23,6 @@ import { WorkTeam } from "../WorkTeam";
 
 vi.mock("../../components/ArtifactSection.js", () => ({
 	ArtifactSection: () => null,
-	useArtifactOpen: () => vi.fn(),
 }));
 
 const mockApiFetch = vi.fn();

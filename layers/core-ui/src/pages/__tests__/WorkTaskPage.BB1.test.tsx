@@ -33,7 +33,6 @@ vi.mock("../../services/api-fetch.js", () => ({
 
 vi.mock("../../components/ArtifactSection.js", () => ({
 	ArtifactSection: () => null,
-	useArtifactOpen: () => vi.fn(),
 }));
 
 vi.mock("../../shell/HostThreadSection.js", () => ({

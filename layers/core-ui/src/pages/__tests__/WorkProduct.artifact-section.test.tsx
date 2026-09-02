@@ -29,7 +29,6 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 });
 
 // ArtifactSection is NOT rendered by WorkTeam — no mock needed.
-// useArtifactOpen is still exported as a deprecated no-op; no need to mock it here.
 
 // @lore U1: TeamDetail replaces ProductDetail. `team` (TeamSummary) replaces
 // `product` (ProductSummary). `teamMembers` replaces `team` (membership group).
