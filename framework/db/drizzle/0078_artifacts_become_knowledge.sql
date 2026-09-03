@@ -19,11 +19,23 @@
 -- were dropped rather than migrated.
 --
 -- Threads hosted on an artifact lose their host, so they go with it, and their
--- messages go with them. threads.host_kind/host_id is an unconstrained
+-- children go with them. threads.host_kind/host_id is an unconstrained
 -- polymorphic pair with no FK, so nothing would have stopped those rows from
 -- pointing at a table that no longer exists; they would simply have stopped
 -- resolving, silently, which is worse than being gone.
+--
+-- threads.id has THREE inbound foreign keys, all ON DELETE RESTRICT, and every
+-- one of them has to be cleared before the thread row can go: `messages`
+-- (schema.ts, notNull), `items` (notNull) and `tasks.thread_id` (nullable).
+-- Clearing only messages would let a single `items` row — a proposal or review
+-- posted in an artifact's discussion — abort the DELETE with a foreign-key
+-- violation AFTER the messages were already gone, leaving a destructive
+-- migration half applied. Order matters: children first, then the parent.
+DELETE FROM items WHERE thread_id IN (SELECT id FROM threads WHERE host_kind = 'artifact');
+--> statement-breakpoint
 DELETE FROM messages WHERE thread_id IN (SELECT id FROM threads WHERE host_kind = 'artifact');
+--> statement-breakpoint
+UPDATE tasks SET thread_id = NULL WHERE thread_id IN (SELECT id FROM threads WHERE host_kind = 'artifact');
 --> statement-breakpoint
 DELETE FROM threads WHERE host_kind = 'artifact';
 --> statement-breakpoint
