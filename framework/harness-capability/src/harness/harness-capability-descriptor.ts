@@ -18,7 +18,6 @@ import type { ModelProvider } from "@hyperidle/domain-model";
  *   "settings-codex"  — HyperIdle writes .codex/hooks.json Stop hook (BLOCKING)
  *   "process-reengage"— no native block — HyperIdle re-invokes the CLI in its sandbox (opencode, remote default)
  *   "soft-continue"   — native soft re-prompt (inert until spawnable)
- *   "settings-cursor" — HyperIdle writes .cursor/hooks.json preToolUse hook (cursor-agent)
  *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
  *
  * @lore The non-optional field is the forcing function: npm run check fails any adapter
@@ -31,7 +30,6 @@ export type ReturnEnforcementChannel =
 	| "settings-codex"
 	| "process-reengage"
 	| "soft-continue"
-	| "settings-cursor"
 	| "none";
 
 export type HarnessReadinessState =

@@ -368,7 +368,6 @@ function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "codex") return "settings-codex";
 	if (binary === "opencode") return "process-reengage";
 	if (binary === "claude") return "settings-claude";
-	if (binary === "cursor-agent") return "settings-cursor";
 	return "none";
 }
 
@@ -604,20 +603,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 		// ── Per-session opencode gate env injection.
 		//
-		// XDG_CONFIG_HOME: isolates opencode's config dir so the gate plugin in
-		// <sandbox>/.opencode/plugin/ loads while the user's global plugins do not.
+		// XDG_CONFIG_HOME isolates opencode's config dir so the return-signal plugin
+		// in <sandbox>/.opencode/ loads while the user's global plugins do not.
 		// Replaces the removed --pure flag (which also disabled the sandbox plugin).
-		// Only injected when installActionGate wrote the xdg config dir marker.
-		//
-		// OPENCODE_PERMISSION: broad backstop when the gate plugin fails to load.
-		// installActionGate writes the permission JSON to .hyperidle/opencode-permission.json.
 		//
 		// @lore BA2: CODEX_HOME injection pattern; neither var is in envAllowlist.
 		if (this.config.binary === "opencode") {
-			// Always inject XDG_CONFIG_HOME for opencode — gated or not — to ensure
-			// the user's global ~/.config/opencode plugins/config cannot reach into
-			// the session. The xdg-config dir is created here when installActionGate
-			// did not already create it (ungated sessions).
+			// Always inject XDG_CONFIG_HOME for opencode, so the user's global
+			// ~/.config/opencode plugins and config cannot reach into the session.
 			const xdgConfigDir = path.join(config.sandboxPath, ".hyperidle", "opencode-xdg-config");
 			try {
 				fs.mkdirSync(xdgConfigDir, { recursive: true });
@@ -625,28 +618,21 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			} catch {
 				// sandbox dir not yet created (test harness with fake path) — skip XDG isolation
 			}
-			const permissionFile = path.join(
-				config.sandboxPath,
-				".hyperidle",
-				"opencode-permission.json",
-			);
-			try {
-				const permission = fs.readFileSync(permissionFile, "utf-8").trim();
-				if (permission) resolvedEnvMap.OPENCODE_PERMISSION = permission;
-			} catch {
-				// No permission file — gate not provisioned. Default to allow-all so opencode
-				// operates in non-interactive mode (without this, opencode prompts for each tool
-				// call and auto-rejects in non-interactive spawned processes).
-				// @lore BA2 opencode-permission-default: OPENCODE_PERMISSION={"*":"allow"} is
-				// required even for ungated sessions. Without it, opencode's default permission
-				// model asks the user interactively before each tool call. In non-interactive
-				// mode (no TTY), this auto-rejects every tool — the write/read tools fail with
-				// "The user rejected permission to use this specific tool call." Verified
-				// 2026-09-01: {} (empty object) also rejects; {"*":"allow"} grants non-
-				// interactive auto-approval for all tools. The gate plugin (when installed) still
-				// fires BEFORE the tool executes and can deny independently.
-				resolvedEnvMap.OPENCODE_PERMISSION = '{"*":"allow"}';
-			}
+			// @lore BA2: OPENCODE_PERMISSION is unconditional now. It used to be read
+			// from `.hyperidle/opencode-permission.json` when the interception
+			// installer had written one, falling back to allow-all when it had not.
+			// That installer is deleted, so nothing ever wrote the file and the read
+			// always threw into the fallback — a branch that could not be taken,
+			// reading a path nothing produces. The fallback was always the real
+			// behaviour, so it is the only behaviour.
+			//
+			// It is required even though nothing is being gated: without it opencode
+			// asks the user before each tool call, and in a non-interactive spawned
+			// process (no TTY) that auto-REJECTS every tool — write and read fail with
+			// "The user rejected permission to use this specific tool call." Verified
+			// 2026-09-01: {} also rejects; {"*":"allow"} grants non-interactive
+			// auto-approval.
+			resolvedEnvMap.OPENCODE_PERMISSION = '{"*":"allow"}';
 		}
 
 		// ── AL7 delta: Per-session MCP token env var injection.

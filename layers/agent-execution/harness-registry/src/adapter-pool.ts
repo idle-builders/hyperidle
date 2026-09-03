@@ -248,7 +248,7 @@ export class AdapterPool {
 			// Mirrors `select`'s filter exactly — no harness is exempt from being
 			// disabled any more, so neither is this diagnostic.
 			const enabled = live.filter(
-				(entry) => !entry.meta.type || !disabled.includes(entry.meta.type),
+				(entry) => !(entry.meta.type && disabled.includes(entry.meta.type)),
 			);
 			if (enabled.length === 0) {
 				return `every available harness type is disabled in settings (disabled: ${disabled.join(", ")})`;
@@ -580,9 +580,14 @@ const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	envMap: {},
 	eventFormat: "ndjson",
 	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
-	// @lore BA2: "settings-cursor" distinguishes cursor from the true "none" floor.
-	// installActionGate dispatches on this value to write .cursor/hooks.json.
-	returnEnforcementChannel: "settings-cursor",
+	// @lore BA2: back to the true floor. This briefly said "settings-cursor", a
+	// channel that existed so the interception installer could write
+	// `.cursor/hooks.json`. That installer is deleted, so the channel named an
+	// enforcement nothing performed — cursor-agent has never had one, and saying
+	// so is the honest floor. Its turns are held only by the drain-end gate,
+	// which is why a cursor session sometimes returns its work and sometimes
+	// just stops. Fixing that is BA13.
+	returnEnforcementChannel: "none",
 	eventDialect: "claude-stream-json",
 	mcpConfig: { dialect: "cursor-json" },
 };

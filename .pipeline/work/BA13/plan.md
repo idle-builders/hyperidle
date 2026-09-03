@@ -34,8 +34,16 @@ session in the BA2 runs crashed without returning anything — no thread, no not
 to see.
 
 **cursor-agent.** Files a review on some runs and simply stops on others; the same task, the same
-agent, minutes apart. Its forcing is `.cursor/hooks.json`, which the BA2 harness research recorded as
-being voided wholesale when the matcher is written the way cursor's own documentation shows.
+agent, minutes apart. The cause is simpler than the harness research suggests: cursor-agent's
+`returnEnforcementChannel` is `"none"`. **No enforcement artifact is written for it at all** — its
+turns are held only by the drain-end gate, which observes and reports but cannot re-prompt. So
+whether a cursor session hands its work back is entirely the model's own choice that run.
+
+A channel called `"settings-cursor"` existed briefly on BA2's branch, added so the interception
+installer could write `.cursor/hooks.json`. That installer was deleted with interception and the
+channel with it, back to the `"none"` it has on main. Building cursor's enforcement means writing a
+hook cursor actually honours — and the research's finding still stands as a trap: cursor voids its
+whole hooks file when the matcher is written the way its own documentation shows.
 
 ### Not in this
 

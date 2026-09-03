@@ -95,8 +95,16 @@ the durable fact — and the test asserts the directory on disk.
 | codex | yes | yes | yes | no — ends without returning |
 | opencode | no | — | — | — |
 
-**cursor-agent** files a real review some runs and simply stops on others. Nothing forces it: its
-hooks file is the one the research found voided when the matcher is written the way its own docs show.
+**cursor-agent** files a real review some runs and simply stops on others. Nothing forces it, and the
+reason is plain rather than subtle: its `returnEnforcementChannel` is `"none"` — no enforcement
+artifact is written for cursor at all, so only the drain-end gate holds its turns, and that observes
+without re-prompting.
+
+This is worth separating from what BA2 removed. **Interception is gone and stays gone.** The return
+gate is a different, older mechanism: it blocks nothing an agent wants to do, it only refuses to let a
+turn END without one of the three return actions. `submit_review` is one of them, which is why BA2
+needed no mechanism of its own — the ask IS a return. That gate reaches each harness through its own
+channel, and for two of them that channel is a hook or a plugin.
 
 **codex** asks reliably and its resume genuinely carries context — proved directly against the real
 binary: a thread told to remember a word answered with it after `exec resume`. What it does not do is
