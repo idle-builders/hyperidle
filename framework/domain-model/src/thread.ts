@@ -130,7 +130,12 @@ export interface AnchorRef {
  * kind:"artifact" on the wire so ReviewPage can still find the anchor ref written
  * by host-threads.ts without modification.
  */
-export type InlineRefKind = "knowledge_item" | "task" | "message" | "mention";
+/**
+ * DERIVED from the union rather than restated. A hand-written list drifts the
+ * moment a member is added or removed — this one already had, omitting the
+ * `"artifact"` that `CanvasArtifactRef` contributes.
+ */
+export type InlineRefKind = InlineRef["kind"];
 
 export interface EntityRef {
 	readonly kind: "knowledge_item" | "task" | "message";
