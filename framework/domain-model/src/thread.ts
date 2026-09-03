@@ -159,21 +159,6 @@ export interface MentionRef {
 
 export type InlineRef = EntityRef | MentionRef;
 
-/**
- * @lore `kind` widened from the deleted `ArtifactViewShape` to `string`
- * (open vocabulary) rather than narrowed to the closed `ArtifactKind` —
- * same treatment `ArtifactThreadSummary.artifactKind` below already has
- * (`@lore AE6`), for the same reason: this value is never trusted by a
- * reader (the loader resolves the real kind off the artifact row), so a
- * closed union here buys no safety and would force every existing typed
- * fixture across the tree onto the new six-value vocabulary. Optional for
- * the same reason the write/read zod schemas both mark it `.optional()`: a
- * category error — not a wrong value — is the one thing `.optional()` can
- * guard against, so it only ever guards absence. The WRITE-time boundary is
- * where the real enforcement lives: `reviewPayloadSchema`'s
- * `z.enum(ARTIFACT_KINDS)` (`threads-schema.ts`) and `submit_review`'s own
- * copy (`tool-definitions.ts`).
- */
 // `ArtifactRef` is DELETED. It pointed at a row in the `artifacts` table, and
 // that table is gone — produced content is a knowledge item, referenced by its
 // own id. `ReviewPayload.producedItemId` replaces it; the `kind` it carried is
@@ -403,44 +388,9 @@ export function verdictDecisionLabel(decision: VerdictDecision): string {
 // @lore AE6: ArtifactKind import removed — artifactKind widened to string
 // (open vocabulary: registered 6 fundamental kinds + unregistered kinds pass through).
 
-/**
- * Per-artifact thread summary row returned by
- * `GET /api/bets/:id/artifact-thread-summary`.
- *
- * @lore L18: threadId is null when no thread exists for the artifact yet
- * (i.e. the artifact appears in the bet but has never had a message posted).
- * messageCount=0 means "exists but empty" (rare; never rendered in the summary
- * list because the endpoint filters to messageCount >= 1).
- */
-export interface ArtifactThreadSummary {
-	artifactId: string;
-	/** @lore AE6: Widened from ArtifactKind (closed 13-member union) to string (open vocabulary). */
-	artifactKind: string;
-	/** Derived display label per artifactDisplayTitle() rules. */
-	artifactTitle: string;
-	/** Null when no thread exists yet for this artifact. */
-	threadId: string | null;
-	/** Count of messages in the artifact's thread (0 when no messages). */
-	messageCount: number;
-	/** ISO8601 timestamp of last message, null when no messages. */
-	lastMessageAt: string | null;
-	/** First ~80 chars of the last plain-message payload, null when no messages. */
-	lastMessageSnippet: string | null;
-	/** True when the thread has an unresolved review message. */
-	hasUnresolvedReview: boolean;
-}
-
-/**
- * Response envelope for `GET /api/bets/:id/artifact-thread-summary`.
- * Server enforces a cap of 10 summaries; truncated=true when more exist.
- */
-export interface ArtifactThreadSummaryResponse {
-	summaries: ArtifactThreadSummary[];
-	/** Total count of artifacts with at least one thread message (unbounded). */
-	totalCount: number;
-	/** True when totalCount > 10 (server-enforced cap). */
-	truncated: boolean;
-}
+// `ArtifactThreadSummary` and `ArtifactThreadSummaryResponse` are DELETED with
+// the endpoint they described (`GET /api/bets/:id/artifact-thread-summary`) and the
+// artifacts table behind it. Threads hang off the knowledge item itself now.
 
 /**
  * L18: Extended plain payload that includes an optional blockId for
