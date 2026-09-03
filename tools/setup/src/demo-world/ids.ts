@@ -78,16 +78,13 @@ export const TASK_DOWNGRADE_UI = "demo-task-downgrade-ui";
 export const TASK_CHURN_SIGNALS = "demo-task-churn-signals";
 export const TASK_CHURN_DASH = "demo-task-churn-dash";
 
-// ── Artifacts ───────────────────────────────────────────────────────────────
+// ── Produced knowledge items (ids reused from the former artifacts table) ───
+// @lore artifacts-become-knowledge: these ids were "artifact" ids; the table
+// is gone. Content is a knowledge item parented to the producing task.
 export const ART_PRICING_PAGE = "demo-art-pricing-page";
-export const ART_PRICING_COPY = "demo-art-pricing-copy";
-export const ART_PRICING_HERO = "demo-art-pricing-hero";
 export const ART_TRIAL_FLOW = "demo-art-trial-flow";
 export const ART_TRIAL_METRICS = "demo-art-trial-metrics";
 export const ART_SEARCH_RANKING = "demo-art-search-ranking";
-export const ART_SEARCH_EVAL = "demo-art-search-eval";
-export const ART_ONBOARD_AUDIT = "demo-art-onboard-audit";
-export const ART_MOBILE_RESEARCH = "demo-art-mobile-research";
 
 // ── Threads ─────────────────────────────────────────────────────────────────
 export const THREAD_ASSISTANT = "demo-thread-assistant";
