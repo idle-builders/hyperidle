@@ -81,8 +81,18 @@ It survives untouched, as does `AnchorRef.artifactId`, which points at one.
 - **Thread-parented items are leaves.** `item → thread → item` is expressible and
   is made inert rather than illegal: every tree walk stops at the first
   non-knowledge-item parent.
-- **Provenance is history, not a column.** `producingTaskId` is gone. The
-  original task survives only as the `oldValue` of graduation's edit-log entry.
+- **Provenance is history, not a column — and history has no reader.**
+  `producingTaskId` is gone. The original task survives as the `oldValue` of
+  graduation's edit-log entry (`editType: "graduate"`), which is written and
+  tested. But **nothing can read it**: there is no history endpoint, no UI, and
+  the only production code touching `knowledge_edit_log` is attention scoring,
+  counting human edits. Recovering where a produced item came from means
+  querying the database by hand.
+
+  The plan justified dropping the column by saying provenance lives in history
+  and history "is the natural place to look". Half of that is true: the data is
+  kept, the looking is not built. Nothing is lost, but the claim was stronger
+  than the system.
 
 ## What this plan got wrong
 
