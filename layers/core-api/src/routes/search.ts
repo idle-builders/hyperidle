@@ -39,15 +39,17 @@ const MAX_PER_CATEGORY = 5;
 
 /**
  * Map DB hostKind to frontend conversation kind.
- * bet/task/knowledge_item/artifact → "review"
+ * task/knowledge_item → "review"
  * agent/user/team/factory → "chat"
+ *
+ * @lore BB1: "bet" removed — the bets table is deleted; every bet became a root task.
+ * @lore artifacts-become-knowledge: "artifact" removed — threads hang off the
+ * knowledge item itself; there is no artifact host kind.
  */
 function hostKindToConversationKind(hostKind: string): "review" | "chat" {
 	switch (hostKind) {
-		case "bet":
 		case "task":
 		case "knowledge_item":
-		case "artifact":
 			return "review";
 		default:
 			return "chat";

@@ -34,7 +34,6 @@ export const HOST_SCOPE: Readonly<Record<HostKind, AccessScope>> = {
 	agent: "participant",
 	task: "host",
 	knowledge_item: "host",
-	artifact: "host",
 	team: "host",
 	factory: "host",
 };

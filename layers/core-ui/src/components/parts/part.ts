@@ -15,26 +15,28 @@
  * distinct is what makes the renderer source-agnostic (concept hard-rule 4).
  *
  * @lore AM1 C1: a block/entity routes to its HOST surface via the `host`
- * OpenTarget — total over `BlockHostKind` (the page resolves it through the
+ * OpenTarget — total over `HostKind` (the page resolves it through the
  * existing `resolveHostRoute`). No fabricated `knowledgeId`, no unhandled host.
  *
- * @lore AM1 W5: `EntityRef.kind === "message"` has no permalink route and is
- * excluded from `BlockHostKind` → it collapses to the `unknown` Embed
- * (label-only, no target). The adapter dispatch over `EntityRef.kind` is
- * exhaustive across all 5 members via `exhaustiveAssert`.
+ * @lore AM1 W5: `EntityRef.kind === "message"` has no permalink route → it
+ * collapses to the `unknown` Embed (label-only, no target). EntityRef.kind is
+ * now 3 members (knowledge_item, task, message); CanvasArtifactRef carries
+ * kind:"artifact" as a separate union member and also renders as unknown Embed.
+ * The adapter dispatches over the full InlineRef union via exhaustiveAssert.
  */
 
 import type {
 	ActivityEntry,
 	EntityRef,
+	HostKind,
 	InlineRef,
 	Message,
 	VerdictPayload,
 } from "@hyperidle/domain-model";
 import { isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
+
 // AM3: session-activity type (NORMALIZED union — no harness-type param in adapter).
 // The adapter body (and ONLY the adapter body) imports the source types.
-import type { BlockHostKind } from "../../block/types.js";
 
 function exhaustiveAssert(value: never): never {
 	throw new Error(`Unhandled: ${String(value)}`);
@@ -198,7 +200,7 @@ export type Embed =
 export type OpenTarget =
 	| {
 			readonly route: "host";
-			readonly hostKind: BlockHostKind;
+			readonly hostKind: HostKind;
 			readonly hostId: string;
 			/** @lore AM5 T8: optional block anchor. open-handler appends #block-<encodeURIComponent(blockId)>
 			 *  to the resolved path; KnowledgeDetail scrolls to the matching data-block-id element.
@@ -280,19 +282,21 @@ function resolveAuthor(
 // through to "Artifact"; the six current entries are what a NEW row can
 // actually carry.
 
-/** Map one InlineRef to one Embed. Exhaustive over all InlineRef kinds. */
+/** Map one InlineRef to one Embed. Exhaustive over all InlineRef union members. */
 function inlineRefToEmbed(ref: InlineRef): Embed {
 	if (ref.kind === "mention") {
 		return { kind: "mention", identityId: ref.identityId, displayName: ref.displayName };
 	}
-	// EntityRef — exhaustive over all 5 EntityRef.kind members (W5).
+	// CanvasArtifactRef (kind:"artifact") — points to a review canvas artifact,
+	// not a navigable page route. Renders as a non-navigating label so the chip
+	// appears in the conversation without trying to open a deleted /artifacts/:id.
+	// @lore artifacts-become-knowledge: ReviewPage reads this ref by kind to
+	// reconstruct the AnchorRef; the embed here is only for the conversation view.
+	if (ref.kind === "artifact") {
+		return { kind: "unknown", label: ref.id };
+	}
+	// EntityRef — exhaustive over all 3 EntityRef.kind members (W5).
 	switch (ref.kind) {
-		case "artifact":
-			return {
-				kind: "artifact",
-				label: "Artifact",
-				target: { route: "artifact", artifactId: ref.id },
-			};
 		case "knowledge_item":
 		case "task":
 			return {

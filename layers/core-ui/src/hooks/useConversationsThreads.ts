@@ -63,7 +63,6 @@ export interface UseConversationsThreadsResult {
 const HOST_KIND_SET: ReadonlySet<string> = new Set<string>([
 	"task",
 	"knowledge_item",
-	"artifact",
 	"agent",
 	"user",
 	"team",

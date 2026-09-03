@@ -2,10 +2,13 @@
  * L18 — host-threads.ts service tests.
  *
  * AC coverage:
- *  - resolveOrCreateHostThread round-trips on each host kind (bet, task, knowledge_item, artifact)
+ *  - resolveOrCreateHostThread round-trips on each host kind (task, knowledge_item)
  *  - resolveOrCreateHostThread idempotency: returns existing thread id when already exists
  *  - postPlainHostMessage forwards blockId in payload when provided
  *  - postPlainHostMessage works without blockId (plain message)
+ *
+ * @lore artifacts-become-knowledge: "artifact" removed from host kind coverage —
+ * artifact is no longer a valid HostKind; threads hang off knowledge items instead.
  */
 
 import type { AnchorRef } from "@hyperidle/domain-model";
@@ -63,7 +66,7 @@ describe("resolveOrCreateHostThread (L18)", () => {
 		vi.restoreAllMocks();
 	});
 
-	for (const hostKind of ["task", "task", "knowledge_item", "artifact"] as const) {
+	for (const hostKind of ["task", "task", "knowledge_item"] as const) {
 		it(`resolveOrCreateHostThread round-trips on host_kind='${hostKind}'`, async () => {
 			fetchSpy.mockResolvedValueOnce(makeThreadListResponse([{ id: EXISTING_THREAD_ID }]));
 
@@ -105,7 +108,7 @@ describe("resolveOrCreateHostThread (L18)", () => {
 	it("idempotent: returns existing thread id when GET returns >=1 thread", async () => {
 		fetchSpy.mockResolvedValueOnce(makeThreadListResponse([{ id: EXISTING_THREAD_ID }]));
 
-		const result = await resolveOrCreateHostThread("artifact", "art-1", FOUNDER_ID, AGENT_ID);
+		const result = await resolveOrCreateHostThread("knowledge_item", "ki-1", FOUNDER_ID, AGENT_ID);
 
 		expect(result).toBe(EXISTING_THREAD_ID);
 		// Only one fetch — no POST needed

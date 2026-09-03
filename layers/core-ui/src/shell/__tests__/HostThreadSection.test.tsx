@@ -147,16 +147,5 @@ describe("HostThreadSection (L18)", () => {
 		expect(useHostThread).toHaveBeenCalledWith("knowledge_item", "k-123");
 	});
 
-	it("calls useHostThread with correct hostKind=artifact", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: null,
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
-
-		render(<HostThreadSection hostKind="artifact" hostId="art-456" title="Discussion" />);
-
-		expect(useHostThread).toHaveBeenCalledWith("artifact", "art-456");
-	});
+	// @lore artifacts-become-knowledge: hostKind="artifact" test removed — artifact is no longer a valid HostKind
 });

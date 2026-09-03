@@ -196,6 +196,7 @@ export type {
 	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
 	BlockHostKind,
 	BlockId,
+	CanvasArtifactRef,
 	EntityRef,
 	HeadCollapseResult,
 	HostKind,

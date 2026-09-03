@@ -40,14 +40,9 @@ describe("AC2: open-handler block anchor", () => {
 			`/knowledge/ki-2#block-${encodeURIComponent("block with spaces")}`,
 		);
 	});
-
-	it("blockId on artifact host → /artifacts/:id#block-<id>", () => {
-		const nav = vi.fn();
-		const handler = createOpenHandler(nav, {});
-		handler({ route: "host", hostKind: "artifact", hostId: "art-1", blockId: "para-1" });
-		expect(nav).toHaveBeenCalledWith("/artifacts/art-1#block-para-1");
-	});
 });
+// @lore artifacts-become-knowledge: test for hostKind:"artifact" with blockId removed —
+// "artifact" is no longer a valid HostKind; the /artifacts/:id page is deleted.
 
 // ── 2. AC6: same target from two contexts → identical path ────────────────────
 describe("AC6: block-anchored target → same path from any context", () => {

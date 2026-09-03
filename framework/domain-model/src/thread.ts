@@ -18,19 +18,11 @@ export type BlockId = string & { readonly __brand: "BlockId" };
 // @lore BB1: `"bet"` removed — a bet is a task with no parent, and migration
 // 0068 flipped every thread whose host_kind was "bet" to "task" (the host_id was
 // already correct, since each bet kept its id as a root task).
-export type BlockHostKind = "task" | "knowledge_item" | "artifact" | "agent" | "user";
+export type BlockHostKind = "task" | "knowledge_item" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 
-export const HOST_KINDS = [
-	"task",
-	"knowledge_item",
-	"artifact",
-	"agent",
-	"user",
-	"team",
-	"factory",
-] as const;
+export const HOST_KINDS = ["task", "knowledge_item", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
 export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict"] as const;
@@ -123,20 +115,42 @@ export interface AnchorRef {
  * T4: InlineRef is a discriminated union of EntityRef and BlockRef.
  * The discriminant is `kind` — entity refs use 5 entity kinds; block refs use "block".
  *
- * @lore T4: InlineRef was previously a flat interface (kind + id). Refactored to
- * discriminated union so block refs can carry the full (blockId, hostKind, hostId)
- * triple without optional fields on the entity path. Narrowing on `ref.kind !== "block"`
- * gives you an EntityRef with `id`; narrowing on `ref.kind === "block"` gives BlockRef.
+ * @lore T4: InlineRef is a discriminated union of EntityRef, MentionRef, and
+ * CanvasArtifactRef on the "kind" discriminant. Entity refs use 3 entity kinds;
+ * MentionRef uses "mention"; CanvasArtifactRef uses "artifact" to name a review
+ * canvas payload, NOT a deleted artifacts-table row.
  *
- * @lore AE5: InlineRef widened from 2 to 3 variants — MentionRef added as the 7th kind.
- * Any exhaustive switch on InlineRefKind must add a "mention" case. Known switch sites:
+ * @lore AE5: MentionRef added as a third union member. Any exhaustive switch on
+ * InlineRefKind must include a "mention" case. Known switch sites:
  * renderRefEmbedsForConversations (Conversations.tsx filters by kind, no switch needed),
  * CommentRow (uses segmentMentions to locate mention spans inline).
+ *
+ * @lore artifacts-become-knowledge: "artifact" removed from EntityRef.kind and
+ * InlineRefKind (no stored artifact row exists). CanvasArtifactRef preserves
+ * kind:"artifact" on the wire so ReviewPage can still find the anchor ref written
+ * by host-threads.ts without modification.
  */
-export type InlineRefKind = "knowledge_item" | "task" | "artifact" | "message" | "mention";
+export type InlineRefKind = "knowledge_item" | "task" | "message" | "mention";
 
 export interface EntityRef {
-	readonly kind: "knowledge_item" | "task" | "artifact" | "message";
+	readonly kind: "knowledge_item" | "task" | "message";
+	readonly id: string;
+}
+
+/**
+ * Review canvas anchor ref — points to a ReviewCanvasArtifact (inside a review
+ * message payload) by id. The kind "artifact" is kept on the wire so ReviewPage's
+ * `isArtifactEntityRef` guard can identify the anchor without modification.
+ *
+ * This is NOT a pointer to a deleted artifacts-table row. The artifactId here is
+ * the id field of a ReviewCanvasArtifact from a review message's `artifacts` array.
+ *
+ * @lore artifacts-become-knowledge: separated from EntityRef so EntityRef.kind no
+ * longer includes "artifact" (which named a stored row) while the wire format for
+ * review anchors is preserved unchanged.
+ */
+export interface CanvasArtifactRef {
+	readonly kind: "artifact";
 	readonly id: string;
 }
 
@@ -157,7 +171,7 @@ export interface MentionRef {
 	readonly sourceText: string;
 }
 
-export type InlineRef = EntityRef | MentionRef;
+export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
 
 // `ArtifactRef` is DELETED. It pointed at a row in the `artifacts` table, and
 // that table is gone — produced content is a knowledge item, referenced by its

@@ -25,10 +25,29 @@ const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
 /**
  * T4: entityRefSchema validates entity refs (kind, id).
  * Exported for testing.
+ *
+ * @lore artifacts-become-knowledge: "artifact" removed — no stored artifact row
+ * exists; review canvas anchors use canvasArtifactRefSchema below.
+ * @lore BB1: "bet" removed — a bet is a task; the bets table was deleted.
  */
 export const entityRefSchema = z.object({
-	kind: z.enum(["knowledge_item", "task", "artifact", "bet", "message"]),
+	kind: z.enum(["knowledge_item", "task", "message"]),
 	id: z.string(),
+});
+
+/**
+ * Review canvas anchor ref — preserves kind:"artifact" on the wire so
+ * ReviewPage's isArtifactEntityRef guard can locate the anchor without change.
+ * This is NOT a pointer to a deleted artifacts-table row; the id here is the
+ * id of a ReviewCanvasArtifact inside a review message's `artifacts` array.
+ *
+ * @lore artifacts-become-knowledge: kept separate from entityRefSchema so the
+ * entity enum no longer includes "artifact" while the wire format for review
+ * anchors (written by host-threads.ts's postPlainHostMessage) stays unchanged.
+ */
+const canvasArtifactRefSchema = z.object({
+	kind: z.literal("artifact"),
+	id: z.string().min(1),
 });
 
 /**
@@ -50,9 +69,15 @@ export const mentionRefSchema = z.object({
 /**
  * T4: inlineRefSchema is a discriminated union on "kind".
  * AE5: Extended to include mentionRefSchema as the third member.
+ * artifacts-become-knowledge: Extended to include canvasArtifactRefSchema so
+ * review anchor refs (kind:"artifact") pass wire validation.
  * Exported for testing.
  */
-export const inlineRefSchema = z.discriminatedUnion("kind", [entityRefSchema, mentionRefSchema]);
+export const inlineRefSchema = z.discriminatedUnion("kind", [
+	entityRefSchema,
+	mentionRefSchema,
+	canvasArtifactRefSchema,
+]);
 
 /*
  * The two `artifactRef` schemas are DELETED, write arm and read arm both. They
