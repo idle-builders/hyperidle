@@ -3,6 +3,9 @@
  * (practice/product/factory) are DELETED — a knowledge item's place in the
  * tree (parentId/parentKind/position) says what it is about; `scope` says
  * only who sees it. See plan.md "The two jobs, separated".
+ * `KNOWLEDGE_TOPIC_HEALTHS`/`KnowledgeTopicHealth` are DELETED with `topic` —
+ * their only caller was `fixtures/knowledge-data.ts`'s topic-cohort math,
+ * itself dead once `topic` no longer exists.
  *
  * The status ladder collapses from two 7/4-value vocabularies to one:
  * proposed | active | stale | archived. `proposed` replaces
@@ -18,9 +21,6 @@ export const KNOWLEDGE_STATUS_LABEL: Record<KnowledgeStatus, string> = {
 	stale: "Stale",
 	archived: "Archived",
 };
-
-export const KNOWLEDGE_TOPIC_HEALTHS = ["fresh", "some_stale", "mostly_stale"] as const;
-export type KnowledgeTopicHealth = (typeof KNOWLEDGE_TOPIC_HEALTHS)[number];
 
 export type KnowledgeAccessorKind = "human" | "agent";
 

@@ -79,8 +79,11 @@ describe("O1 kernel type additions to @hyperidle/domain-model", () => {
 			expect("KNOWLEDGE_SORT_OPTIONS" in sharedIndex).toBe(true);
 		});
 
-		it("KNOWLEDGE_TOPIC_HEALTHS is exported from shared", () => {
-			expect("KNOWLEDGE_TOPIC_HEALTHS" in sharedIndex).toBe(true);
+		// @lore nested-knowledge-items AC6: KNOWLEDGE_TOPIC_HEALTHS is DELETED
+		// with `topic` — its only caller was the topic-cohort math in
+		// fixtures/knowledge-data.ts, itself dead once `topic` is gone.
+		it("KNOWLEDGE_TOPIC_HEALTHS is gone", () => {
+			expect("KNOWLEDGE_TOPIC_HEALTHS" in sharedIndex).toBe(false);
 		});
 	});
 });

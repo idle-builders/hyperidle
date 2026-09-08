@@ -6,7 +6,7 @@
  * iterable" (`writeOrdinaryItem` iterates `item.parentChain`
  * unconditionally, and the field is required as of this migration).
  *
- * Same brownfield discipline as migration-0080-nested-knowledge-brownfield:
+ * Same brownfield discipline as migration-0080-brownfield:
  * real migrations 0..79, hand-seeded pre-state, then the real pending `0080`.
  */
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";

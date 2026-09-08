@@ -99,7 +99,6 @@ export type {
 	KnowledgeRole,
 	KnowledgeSortOption,
 	KnowledgeStatus,
-	KnowledgeTopicHealth,
 	PropagationLevel,
 } from "./knowledge.js";
 export {
@@ -109,7 +108,6 @@ export {
 	KNOWLEDGE_SORT_OPTIONS,
 	KNOWLEDGE_STATUS_LABEL,
 	KNOWLEDGE_STATUSES,
-	KNOWLEDGE_TOPIC_HEALTHS,
 } from "./knowledge.js";
 // MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 export type { MentionCandidate, ResolvedMention } from "./mention.js";
