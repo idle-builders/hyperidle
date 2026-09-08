@@ -34,6 +34,7 @@ import {
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../utils/scope-labels.js";
+import { ParentPicker } from "./knowledge/ParentPicker.js";
 
 interface CreateKnowledgePayload {
 	title: string;
@@ -68,6 +69,11 @@ export function KnowledgeCreate(): JSX.Element {
 	};
 	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(defaultScope);
 	const [scopeId, setScopeId] = useState("");
+	/**
+	 * @lore nested-knowledge-items: "" is top level (a root) — plan.md AC2,
+	 * "the create flow picks a parent, defaulting to none (a root)."
+	 */
+	const [parentId, setParentId] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -120,6 +126,34 @@ export function KnowledgeCreate(): JSX.Element {
 		}
 
 		const created = (await res.json()) as CreateKnowledgeResponse;
+
+		// @lore nested-knowledge-items: POST /api/knowledge never accepts a
+		// knowledge_item parent (routes/knowledge.ts's own
+		// CLIENT_WRITABLE_PARENT_KINDS doc comment: nesting under an existing
+		// item is create-then-PATCH-reparent, not a single create call). A
+		// chosen parent is applied as a second PATCH right after create.
+		if (parentId !== "") {
+			const patchRes = await apiFetch(`/api/knowledge/${encodeURIComponent(created.id)}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					version: 1,
+					updatedBy: user?.id ?? "human",
+					parentKind: "knowledge_item",
+					parentId,
+				}),
+			});
+			if (!patchRes.ok) {
+				const data = (await patchRes.json().catch(() => ({}))) as { error?: string };
+				setSubmitting(false);
+				setError(
+					data.error ??
+						`Item created, but could not nest under the chosen parent: ${patchRes.status}`,
+				);
+				return;
+			}
+		}
+
 		setSubmitting(false);
 		navigate(`/knowledge/${created.id}`);
 	};
@@ -236,6 +270,10 @@ export function KnowledgeCreate(): JSX.Element {
 									if (next) {
 										setSelectedScope(next);
 										setScopeId("");
+										// A parent legal under the old scope may not be legal
+										// under the new one (the narrowing rule) — reset rather
+										// than offer a stale, possibly-illegal choice.
+										setParentId("");
 									}
 								}}
 								ariaLabel="Scope"
@@ -253,6 +291,14 @@ export function KnowledgeCreate(): JSX.Element {
 								disabled={submitting}
 							/>
 						)}
+						{/* @lore nested-knowledge-items: plan.md AC2 — "the create flow
+						    picks a parent, defaulting to none (a root)." */}
+						<ParentPicker
+							value={parentId}
+							onChange={setParentId}
+							childScopeKind={selectedScope.scopeKind}
+							disabled={submitting}
+						/>
 					</div>
 				</aside>
 			</div>

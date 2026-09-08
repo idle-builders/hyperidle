@@ -35,6 +35,16 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
+// @lore nested-knowledge-items: KnowledgeCreate now mounts ParentPicker, which
+// fetches GET /api/knowledge via useFetch (itself built on apiFetch). Left
+// unmocked, that call resolves to whatever apiFetch above is mocked to return
+// for the POST assertions, consuming the same Response body handleCreate then
+// tries to read again. Stub useFetch directly — these tests don't exercise
+// the parent picker's own data.
+vi.mock("../hooks/useFetch.js", () => ({
+	useFetch: () => ({ data: { items: [] }, isLoading: false, error: null }),
+}));
+
 // @lore AF13: vi.mock() calls are hoisted to top regardless of scope (describe/it/beforeEach).
 // Multiple vi.mock() calls for the same module path in one file → LAST factory wins for ALL tests.
 // Fix: single file-level vi.mock with a vi.fn() stub; configure per-describe via mockReturnValue.
