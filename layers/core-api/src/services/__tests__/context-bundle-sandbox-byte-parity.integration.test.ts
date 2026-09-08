@@ -234,7 +234,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 			});
 
 			// -- Assert: every knowledge/ file's content is byte-exact, matching
-			// the SAME seeded item bodies (nested-knowledge-items D1: scope
+			// the SAME seeded item bodies (architecture.md D1: scope
 			// alone selects reach now — no more layer zones under context/). --
 			const newKnowledgeFiles = listFilesRecursive(path.join(newSandbox, "knowledge"));
 			expect(newKnowledgeFiles.length).toBeGreaterThan(0);

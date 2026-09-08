@@ -838,7 +838,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const now = new Date().toISOString();
 
 			// After O2: knowledge_items has no layer/kind columns.
-			// nested-knowledge-items: `topic` is dropped too; status collapses
+			// `topic` is dropped too (architecture.md §2); status collapses
 			// to the 4-value ladder (proposed | active | stale | archived).
 			// Insert using the stripped schema columns only.
 			await db.execute(

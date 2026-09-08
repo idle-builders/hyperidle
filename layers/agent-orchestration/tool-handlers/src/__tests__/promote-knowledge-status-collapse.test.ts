@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items — the promote_knowledge tool's ALLOWED_TRANSITIONS
+ * The promote_knowledge tool's ALLOWED_TRANSITIONS
  * table runs against the collapsed four-value status ladder
  * (architecture.md §2): proposed | active | stale | archived. Migration
  * `0080` is full and destructive — every row is converted, so no legacy

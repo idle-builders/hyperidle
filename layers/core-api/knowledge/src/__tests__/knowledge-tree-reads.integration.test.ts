@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items — tree reads (architecture.md §4).
+ * Knowledge tree reads (architecture.md §4).
  *
  * The tree read excludes any row whose `parent_kind` is not `knowledge_item`
  * — today's live population of such rows is agent identities
@@ -19,7 +19,7 @@ import { knowledgeItems } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { create, list } from "../knowledge-repository.js";
 
-describe("nested-knowledge-items: tree reads", () => {
+describe("knowledge tree reads (architecture.md §4)", () => {
 	test("excludes items whose parent_kind is not 'knowledge_item' — agent identities and routine prompts never appear", async ({
 		db,
 	}) => {

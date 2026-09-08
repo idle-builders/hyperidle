@@ -1,5 +1,5 @@
 /**
- * Brownfield migration test for the nested-knowledge-items migration
+ * Brownfield migration test for the knowledge-tree migration
  * (architecture.md §7 — numbered `0078` at the time this test was written;
  * two parallel strands (`0078_BA2_review_return_half`,
  * `0079_artifacts_become_knowledge`) claimed 0078 and 0079 first, so this
@@ -48,7 +48,7 @@ const DRIZZLE_FOLDER = resolve(DIRNAME, "../../drizzle");
 const NESTED_KNOWLEDGE_MIGRATION_IDX = 80;
 
 function makeTempMigrationsFolder(upToIdx: number): string {
-	const tmpDir = mkdtempSync(join(tmpdir(), "drizzle-brownfield-nested-knowledge-"));
+	const tmpDir = mkdtempSync(join(tmpdir(), "drizzle-brownfield-knowledge-tree-"));
 	cpSync(DRIZZLE_FOLDER, tmpDir, { recursive: true });
 	const journal = JSON.parse(readFileSync(join(DRIZZLE_FOLDER, "meta/_journal.json"), "utf-8")) as {
 		entries: Array<{ idx: number }>;
@@ -89,7 +89,7 @@ async function insertKnowledgeItem(
 		`);
 }
 
-describe("nested-knowledge-items migration: brownfield", () => {
+describe("knowledge-tree migration: brownfield", () => {
 	const clients: PGlite[] = [];
 	const tempDirs: string[] = [];
 

@@ -29,7 +29,7 @@ function makeItem(overrides: {
 		format: overrides.format ?? "markdown",
 		version: overrides.version ?? 1,
 		layer: overrides.layer ?? null,
-		// nested-knowledge-items §5/D4: required, not defaulted inside
+		// architecture.md §5/D4: required, not defaulted inside
 		// toBakedContextKnowledgeItems — every caller supplies its own.
 		parentChain: [],
 		scopeKind: "factory",

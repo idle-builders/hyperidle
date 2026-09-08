@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items — "A person opens Knowledge, sees a tree, clicks a
+ * "A person opens Knowledge, sees a tree, clicks a
  * parent, and reads it as a knowledge item with its children listed on it."
  * (plan.md "Success looks like").
  */

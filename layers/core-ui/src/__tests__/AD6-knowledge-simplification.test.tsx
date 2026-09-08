@@ -6,8 +6,8 @@
  *
  * AC coverage:
  * 1. Static scope pills (All/Shared/Team/Private) always render in KnowledgeList
- * 2. "Shared" filter shows factory items (nested-knowledge-items: product/
- *    practice retired as scope values — Shared is factory alone now)
+ * 2. "Shared" filter shows factory items (product/practice retired as
+ *    scope values — Shared is factory alone now)
  * 3. "Private" filter shows only user-scoped items
  * 4. Kind badge NOT rendered in list rows
  * 5. Archive button calls POST /api/knowledge/:id/archive

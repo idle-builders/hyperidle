@@ -19,7 +19,7 @@
 import { describe, expect, it } from "vitest";
 import { SCOPE_KINDS, SCOPES_REQUIRING_ID } from "../types.js";
 
-describe("nested-knowledge-items: SCOPE_KINDS and ScopeKind", () => {
+describe("SCOPE_KINDS and ScopeKind (architecture.md §2)", () => {
 	it("exports exactly 3 scope kinds", () => {
 		expect(SCOPE_KINDS).toHaveLength(3);
 	});

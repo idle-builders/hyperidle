@@ -531,7 +531,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		const matResult = assembled.context;
 
 		// Assert: the item is present in the assembled workspace
-		// The item materialises into knowledge/ (nested-knowledge-items D1)
+		// The item materialises into knowledge/ (architecture.md D1)
 		expect(matResult.itemCount).toBeGreaterThan(0);
 
 		// Verify the specific item filename appears in the manifest

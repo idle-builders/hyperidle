@@ -7,7 +7,7 @@
  *
  * The protected legacy source-text assertion continues to live in
  * KnowledgeDetail.test.tsx. The "company"/"belief" Kind-row assertion that
- * used to live here is DELETED by nested-knowledge-items — `kind` is
+ * used to live here is DELETED — `kind` is
  * retired vocabulary (AC6) and the row itself no longer renders.
  */
 

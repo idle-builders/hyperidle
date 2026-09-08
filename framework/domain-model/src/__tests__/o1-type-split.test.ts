@@ -27,7 +27,7 @@ describe("O1 kernel type additions to @hyperidle/domain-model", () => {
 			expect((val as unknown[]).length).toBe(4);
 		});
 
-		it("contains proposed, active, archived (nested-knowledge-items status collapse)", () => {
+		it("contains proposed, active, archived (status collapse, architecture.md §2)", () => {
 			const val = (sharedIndex as Record<string, unknown>)["KERNEL_KNOWLEDGE_STATUSES"] as string[];
 			expect(val).toContain("proposed");
 			expect(val).toContain("active");

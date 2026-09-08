@@ -171,7 +171,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("assembleSessionKnowledge — scope-only selection (nested-knowledge-items D1)", () => {
+describe("assembleSessionKnowledge — scope-only selection (architecture.md D1)", () => {
 	test("returns exactly the expected item-id set for the fixed corpus (budget/scope filter)", async ({
 		db,
 	}) => {

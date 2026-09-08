@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items — status collapse (architecture.md §2, plan.md
+ * Knowledge status collapse (architecture.md §2, plan.md
  * "One lifecycle, no gatekeeping").
  *
  * The two status vocabularies — `KNOWLEDGE_STATUSES` (captured, provisional,
@@ -14,7 +14,7 @@ import { KERNEL_KNOWLEDGE_STATUSES } from "../types.js";
 
 const COLLAPSED_STATUSES = ["proposed", "active", "stale", "archived"];
 
-describe("nested-knowledge-items: status vocabulary collapses to proposed | active | stale | archived", () => {
+describe("knowledge status vocabulary collapses to proposed | active | stale | archived", () => {
 	it("KNOWLEDGE_STATUSES is exactly the four-value ladder", () => {
 		expect([...KNOWLEDGE_STATUSES].sort()).toEqual([...COLLAPSED_STATUSES].sort());
 	});

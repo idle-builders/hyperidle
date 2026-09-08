@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items — tree invariants (architecture.md §3, §7 D5).
+ * Knowledge tree invariants (architecture.md §3, §7 D5).
  *
  * Three rules must hold on every write that sets a parent, checked INSIDE the
  * same transaction as the write (architecture §3):
@@ -26,7 +26,7 @@ import { eq, sql } from "drizzle-orm";
 // now exports `reparent` with this exact signature.
 import { create, reparent, update } from "../knowledge-repository.js";
 
-describe("nested-knowledge-items: tree invariants", () => {
+describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 	describe("cycle rejection", () => {
 		test("self-parent is rejected", async ({ db }) => {
 			const item = await create(db, {

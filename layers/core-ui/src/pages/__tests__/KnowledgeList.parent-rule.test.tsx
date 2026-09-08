@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items — KnowledgeList's `role !== "skill" && role !== "rule"`
+ * KnowledgeList's `role !== "skill" && role !== "rule"`
  * filter (KnowledgeList.tsx:858) is REPLACED by the parent rule, not extended
  * (architecture.md §4): "Excluding non-knowledge_item parents removes them
  * structurally; delete the role filter rather than extending it."

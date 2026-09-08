@@ -15,8 +15,9 @@
  * @lore R7: KnowledgeList filters items by API status field:
  *   - triage: status === "proposed"
  *   - curated: status === "active"
- * The write_memory fix (default "proposed", originally "draft" pre-
- * nested-knowledge-items) makes agent-created items appear in triage. This
+ * The write_memory fix (default "proposed", originally "draft" before
+ * the status vocabulary collapsed) makes agent-created items appear in
+ * triage. This
  * test verifies the UI correctly renders both groups.
  */
 

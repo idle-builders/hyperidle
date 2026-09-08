@@ -191,7 +191,7 @@ describe("AX1: lived-in demo world", () => {
 	test("knowledge corpus fills curated + triage with provenance and logs", async ({ db }) => {
 		await seedWorld(db);
 
-		// nested-knowledge-items: the practice-folder items (`demo-ki-practice-*`)
+		// the practice-folder items (`demo-ki-practice-*`)
 		// also match `id LIKE 'demo-%'`, so this bound still holds comfortably.
 		expect(await count(db, "knowledge_items", "WHERE id LIKE 'demo-%'")).toBeGreaterThanOrEqual(35);
 

@@ -125,7 +125,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// + 1 AU27 Increment 2: reply = 18
 		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
 		// + 1 BA9d wave 3: run_knowledge_sweep = 21
-		// nested-knowledge-items: query_practice deleted = 20
+		// query_practice deleted = 20
 		expect(names).toHaveLength(20);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);

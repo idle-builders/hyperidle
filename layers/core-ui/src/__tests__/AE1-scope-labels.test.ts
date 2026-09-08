@@ -2,7 +2,7 @@
  * AE1 — Purge False Knowledge & Doc Hygiene.
  *
  * AC3 + AC4 originally locked "product" → "Team" and SCOPE_PILL_OPTIONS
- * placing "product" in the Team pill. nested-knowledge-items retired
+ * placing "product" in the Team pill. That work retired
  * `product` (and `practice`/`task`/`bet`) as scope values entirely — the
  * 3-value contract these tests now lock is what survived that collapse.
  */

@@ -8,10 +8,10 @@
  * - PATCH /scope with correct version → 200
  * - PATCH /scope with stale version → 409
  *
- * @lore nested-knowledge-items: the §5 `relatedItems` describe block is
+ * @lore knowledge-parent-tree: the §5 `relatedItems` describe block is
  * DELETED — it tested topic-based relatedness ("same-topic items"), and
  * `topic` no longer exists. `relatedItems` (Backlinks) is now children ∪
- * siblings via the tree, covered by the frozen nested-knowledge-items tests
+ * siblings via the tree, covered by the frozen tree-reads tests
  * (knowledge-tree-reads.integration.test.ts), not re-derived here.
  */
 
