@@ -114,19 +114,34 @@ Recorded because each was believed and checked:
 
 ## Deferrals, stated
 
-- **The harness lane was RUN, against a measured baseline.** 17 failed / 60
-  passed / 4 skipped on this branch, versus 16 / 61 / 4 on `origin/main` — the
-  same eleven failing files either side. The lane is substantially red on main
-  already (agents not calling `reply()`, model selection on cursor-agent and
-  claude, MCP provisioning, return-enforcement hooks); none of it touches
-  artifacts, knowledge items or the parent slot. The one extra failing test, a
-  codex return-enforcement hook, passes in isolation on BOTH branch and main —
-  a flake under full-lane load, not a regression.
+- **The harness lane is GREEN on this branch.** 17 files, 79 passed, 0 failed,
+  all four harnesses authenticated, with live MCP proofs on claude
+  (`.mcp.json` Bearer), codex (`config.toml` bearer) and opencode (inline
+  Authorization), plus seven real tool-call proofs. An earlier run showed 17
+  failures; every one was an expired claude OAuth session and an unauthenticated
+  cursor-agent, not code.
 
-  What the lane still does not do is drive AC8's parity end to end: the two
-  payloads are transcribed from their call sites rather than driven through the
-  agent harness and the browser. That limitation is written into
-  `human-agent-parity.integration.test.ts` itself.
+- **The `create_artifact` eval runs on all four, and the tool was tuned by it.**
+  Given a goal and nothing else — no mention of the tool, no mechanics — every
+  harness now produces a correctly shaped interactive artifact:
+  `artifact_produced`, `sole_html_block` and the content-quality judge all 1.00
+  on claude, codex, cursor-agent and opencode.
+
+  Getting there needed three fixes to the eval framework itself, all
+  pre-existing and all invisible: agents had no MCP bridge, agents were never
+  told their task (`inputTokens: 10`, "task-free session"), and the LLM judge
+  drove the Anthropic SDK at OpenRouter and 404'd into a silent `0.0`.
+
+  The eval then found a real tool defect: claude wrapped its dashboard in prose,
+  so an interactive artifact would have rendered as a code listing instead of
+  running. The description named the fenced ```html block but not that it must
+  be the ONLY block. Tuned, and claude went 0.62 → 1.00.
+
+  **opencode still reports `not_returned`** even though it produces a correct
+  artifact — its JSONL events normalise to `unknown`, so the return gate never
+  observes its tool calls. Documented in `adapter-pool.ts` as a known gap
+  awaiting an opencode pre-map; not this strand's.
+
 - **`upsertPluginDocument` / `UpsertPluginDocumentInput`** are the
   nested-knowledge strand's vocabulary sweep, not this one's.
 - **The status ladder collapse** (`captured` → `proposed`) is that strand's
