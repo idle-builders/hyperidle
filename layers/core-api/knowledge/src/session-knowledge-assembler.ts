@@ -23,7 +23,11 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
-import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
+import type {
+	KnowledgeItemWithProjection,
+	KnowledgeParentChainAncestor,
+} from "./knowledge-repository.js";
+import { resolveParentChain } from "./knowledge-repository.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import type { ScoredItem } from "./token-budget.js";
@@ -342,6 +346,17 @@ async function fetchCapabilityItems(
 }
 
 /**
+ * `assembleSessionKnowledge`'s output — `KnowledgeItemWithProjection` plus
+ * the ancestor chain `BakedContextKnowledgeItem.parentChain` needs (review.md
+ * B4). Populated for ordinary items only; a capability item (skill/rule/
+ * agent_file) is placed by role, never by tree position, so it carries an
+ * empty chain.
+ */
+export interface SessionKnowledgeItem extends KnowledgeItemWithProjection {
+	readonly parentChain: readonly KnowledgeParentChainAncestor[];
+}
+
+/**
  * Assemble the ranked + budgeted knowledge bundle a session needs at launch:
  * fetch factory-wide + team-scoped + the agent's own ordinary items, then
  * rank + budget them against the task's scoring context — exactly what
@@ -364,7 +379,7 @@ async function fetchCapabilityItems(
 export async function assembleSessionKnowledge(
 	db: HyperIdleDb,
 	input: SessionKnowledgeInput,
-): Promise<readonly KnowledgeItemWithProjection[]> {
+): Promise<readonly SessionKnowledgeItem[]> {
 	// A team-less agent gets no team-scoped items — never every team's.
 	const [factoryItems, teamItems, ownItems, capabilityItems] = await Promise.all([
 		fetchOrdinaryItemsByScope(db, "factory", null),
@@ -382,10 +397,25 @@ export async function assembleSessionKnowledge(
 		productId: input.teamId,
 	});
 
+	// architecture.md §5: an ordinary item's ancestor chain can only be
+	// resolved here, at bake time — `writeContextBundle` does zero DB reads
+	// (review.md B4). A capability item is placed by role, not tree
+	// position, so it never needs one.
+	const rankedWithChain: SessionKnowledgeItem[] = await Promise.all(
+		rankedItems.map(async (item) => ({
+			...item,
+			parentChain: await resolveParentChain(db, item.id),
+		})),
+	);
+	const capabilityWithChain: SessionKnowledgeItem[] = capabilityItems.map((item) => ({
+		...item,
+		parentChain: [],
+	}));
+
 	// Capability items are appended after ranked ordinary items. No dedupe
 	// needed: the scope fetches above are role:"ordinary" only and
 	// `fetchCapabilityItems` fetches skill/rule/agent_file only — the two
 	// lists are disjoint by role, so a factory-scoped skill can no longer
 	// arrive through both paths.
-	return [...rankedItems, ...capabilityItems];
+	return [...rankedWithChain, ...capabilityWithChain];
 }

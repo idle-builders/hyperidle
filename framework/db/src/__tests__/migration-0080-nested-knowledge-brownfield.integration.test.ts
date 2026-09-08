@@ -266,9 +266,13 @@ describe("nested-knowledge-items migration: brownfield", () => {
 
 		// `task` row: parent_kind='task', parent_id=scope_id.
 		const taskRow = await db.execute(sql`
-					SELECT parent_kind, parent_id FROM knowledge_items WHERE id = 'ki-task-scoped'
+					SELECT parent_kind, parent_id, status FROM knowledge_items WHERE id = 'ki-task-scoped'
 				`);
-		expect(taskRow.rows[0]).toEqual({ parent_kind: "task", parent_id: "task-root-1" });
+		expect(taskRow.rows[0]).toMatchObject({ parent_kind: "task", parent_id: "task-root-1" });
+		// `needs_human` and `draft` are the same state — an item awaiting human
+		// attention, not one that is done with — so `needs_human` must land on
+		// `proposed`, never `archived`.
+		expect((taskRow.rows[0] as { status: string }).status).toBe("proposed");
 
 		// A topicless factory row lands under "General".
 		const generalRow = await db.execute(sql`

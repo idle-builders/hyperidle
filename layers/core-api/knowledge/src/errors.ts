@@ -27,4 +27,25 @@ class ItemDeletedError extends Error {
 	}
 }
 
-export { ItemDeletedError, VersionConflictError };
+/**
+ * @lore nested-knowledge-items architecture.md §3 (review.md B12): the three
+ * tree invariants — no cycle, scope no wider than the parent's, depth ≤ 32 —
+ * plus the polymorphic parent's existence check, all thrown from
+ * `assertParentInvariants`. Before this type existed they were plain
+ * `Error`s the route's `catch` block never recognised, so a caller naming an
+ * illegal move got a 500 "Internal server error" instead of the 4xx
+ * architecture §3 promises ("refused with a 4xx naming the rule").
+ * `rule` is the stable, switchable discriminant; `message` stays the
+ * detailed human-readable string already in the thrown text.
+ */
+class InvalidReparentError extends Error {
+	readonly rule: "cycle" | "scope-too-wide" | "depth-exceeded" | "parent-not-found";
+
+	constructor(rule: InvalidReparentError["rule"], message: string) {
+		super(message);
+		this.name = "InvalidReparentError";
+		this.rule = rule;
+	}
+}
+
+export { InvalidReparentError, ItemDeletedError, VersionConflictError };

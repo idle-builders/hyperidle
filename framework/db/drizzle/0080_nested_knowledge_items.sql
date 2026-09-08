@@ -17,6 +17,11 @@
 --      `role = 'ordinary'`, so they keep the parent 0077 gave them.
 --   9. collapse status onto proposed | active | stale | archived.
 --  10. drop topic (kernel) and layer/kind (projection).
+--  11. fail any pending/claimed agent_work_intents row whose baked
+--      contextBundle predates this migration (architecture.md §7: "either
+--      drain the queue as a migration step or rewrite the persisted
+--      payloads. Name which, and do it." — draining is the one that does
+--      not require re-deriving a parent chain inside a migration).
 --
 -- Destructive, per house rule: no compat column, no dual-write, no alias.
 
@@ -172,11 +177,11 @@ UPDATE "knowledge_items" SET status = CASE status
   WHEN 'draft' THEN 'proposed'
   WHEN 'captured' THEN 'proposed'
   WHEN 'provisional' THEN 'proposed'
+  WHEN 'needs_human' THEN 'proposed'
   WHEN 'validated' THEN 'active'
   WHEN 'active' THEN 'active'
   WHEN 'stale' THEN 'stale'
   WHEN 'archived' THEN 'archived'
-  WHEN 'needs_human' THEN 'archived'
   ELSE status
 END;
 --> statement-breakpoint
@@ -188,3 +193,32 @@ ALTER TABLE "knowledge_items" DROP COLUMN "topic";
 ALTER TABLE "knowledge_app_projection" DROP COLUMN "layer";
 --> statement-breakpoint
 ALTER TABLE "knowledge_app_projection" DROP COLUMN "kind";
+--> statement-breakpoint
+
+-- 11. `BakedContextKnowledgeItem.parentChain`/`.scopeKind` are REQUIRED as of
+--     this migration (framework/domain-model/src/work-intent.ts) — the
+--     drain path iterates `item.parentChain` unconditionally
+--     (writeOrdinaryItem, context.ts). A row baked before this change has
+--     knowledge items carrying `layer` and no `parentChain` at all; draining
+--     it after this migration would throw ("undefined is not iterable")
+--     instead of the pre-change behaviour (log + skip). Fail it outright —
+--     the same terminal state the retry-exhaustion path already uses
+--     (service.ts's admission-failure branch) — so the drain never meets
+--     the old shape. A fresh intent re-emitted after this migration bakes
+--     the new shape and is unaffected.
+UPDATE "agent_work_intents" SET
+  status = 'failed',
+  claim_token = NULL,
+  claim_expires_at = NULL,
+  last_error = '0080: baked contextBundle predates the nested-knowledge-items parentChain contract; re-emit this intent',
+  last_error_code = 'STALE_BAKED_CONTEXT',
+  updated_at = now()::text
+WHERE status IN ('pending', 'claimed')
+  AND baked_request_json IS NOT NULL
+  AND EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(
+      COALESCE((baked_request_json::jsonb) -> 'contextBundle' -> 'knowledge', '[]'::jsonb)
+    ) AS item
+    WHERE NOT (item ? 'parentChain')
+  );

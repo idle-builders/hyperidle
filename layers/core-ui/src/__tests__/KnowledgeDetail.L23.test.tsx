@@ -5,8 +5,10 @@
  * T9: Edit-mode preview pane is a KnowledgeBody instance, not a <pre>.
  * T10: LEGACY_DETAILS and LEGACY_SOURCES constants are gone (R1-gated).
  *
- * The protected legacy assertions (k1 "company"/"belief" strings, source text)
- * continue to live in KnowledgeDetail.test.tsx and must not regress.
+ * The protected legacy source-text assertion continues to live in
+ * KnowledgeDetail.test.tsx. The "company"/"belief" Kind-row assertion that
+ * used to live here is DELETED by nested-knowledge-items — `kind` is
+ * retired vocabulary (AC6) and the row itself no longer renders.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -54,16 +56,10 @@ describe("KnowledgeDetail — T8 body is not a <pre>", () => {
 		expect(screen.getByText(/JWT-based authentication with refresh tokens/)).toBeInTheDocument();
 	});
 
-	it("'belief' kind still renders in the metadata aside Kind row (AD6: layer 'company' removed)", () => {
-		// AD6: kind Tag removed from the header metadata bar; layer Tag removed entirely.
-		// "belief" (kind) still appears in the metadata aside Kind row.
-		// "company" (layer) is no longer rendered anywhere — layer is internal taxonomy.
-		renderPage("k1");
-		const aside = screen.getByTestId("knowledge-metadata-aside");
-		expect(aside.textContent).toContain("belief");
-		// company (layer) must NOT appear anywhere
-		expect(screen.queryByText("company")).not.toBeInTheDocument();
-	});
+	// @lore nested-knowledge-items AC6: the Kind row assertion here is DELETED,
+	// not adapted — `kind` is retired vocabulary and the row itself no longer
+	// renders. "company" (layer) staying absent is now trivially true (there
+	// is no Kind/layer row at all), so it is not worth a separate assertion.
 });
 
 // ── T9 — Edit mode uses BodyEditor (no split preview pane) ──

@@ -4,10 +4,13 @@
  * Covers:
  * - AC §2: editability predicate — self-authored factory item → Edit visible
  *          agent-authored factory item → Edit absent (protected test stays green)
- * - §5: kind aside renders "—" for null/undefined kind
  * - §4A: ScopeChangeDialog select renders 3 labeled options (Shared/Team/Private),
  *         no raw enum values
  * - §4A SUGGESTION: default-option maps factory AND practice → "Shared" (no phantom)
+ *
+ * @lore nested-knowledge-items: §5 ("kind aside renders '—' for null/undefined
+ * kind") is DELETED, not adapted — `kind` is retired vocabulary (AC6) and the
+ * Kind row itself is gone from KnowledgeDetail.tsx, not just its fallback text.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -167,65 +170,6 @@ describe("AF13 §2 — Editability: agent-authored factory item stays read-only"
 		);
 		// Must remain read-only — preserves "agent-curated org knowledge is read-only" invariant
 		expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
-	});
-});
-
-// ---------------------------------------------------------------------------
-// §5 — kind renders "—" for null/undefined kind in the metadata aside
-// ---------------------------------------------------------------------------
-
-describe("AF13 §5 — Kind aside renders '—' for unknown/null kind", () => {
-	beforeEach(async () => {
-		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
-		vi.mocked(useCurrentUser).mockReturnValue({
-			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-			status: "ready",
-			error: null,
-			retry: vi.fn(),
-		});
-
-		// API item with no kind
-		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
-		vi.mocked(useKnowledgeItem).mockReturnValue({
-			data: {
-				id: "item-no-kind",
-				title: "Unclassified Item",
-				body: "content",
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: "u1",
-				scopeKind: "factory",
-				scopeId: null,
-				createdAt: "2024-01-01T00:00:00Z",
-				updatedAt: "2024-01-01T00:00:00Z",
-			},
-			isLoading: false,
-			error: null,
-		});
-	});
-
-	afterEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it("renders '—' in the Kind metadata row when kind is undefined", () => {
-		render(
-			<MemoryRouter initialEntries={["/knowledge/item-no-kind"]}>
-				<Routes>
-					<Route
-						path="/knowledge/:knowledgeId"
-						element={<KnowledgeDetail overrideKnowledgeId="item-no-kind" />}
-					/>
-				</Routes>
-			</MemoryRouter>,
-		);
-		// The Kind row in the metadata aside must show "—" not raw "undefined" or be blank
-		// This test fails until `{item.kind}` is changed to `{item.kind ?? "—"}`
-		const aside = screen.getByTestId("knowledge-metadata-aside");
-
-		// The aside must contain "—" somewhere (for the Kind row)
-		expect(aside).toHaveTextContent("—");
 	});
 });
 

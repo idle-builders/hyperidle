@@ -44,7 +44,7 @@
 // -- attention engine (recompute service) --
 export { recomputeAttention } from "./attention-service.js";
 // -- errors --
-export { ItemDeletedError, VersionConflictError } from "./errors.js";
+export { InvalidReparentError, ItemDeletedError, VersionConflictError } from "./errors.js";
 // -- conflicts (knowledgeConflicts accessors) --
 export {
 	findOpenConflict,
@@ -93,5 +93,5 @@ export { attentionReviewReasoningMarker, createReviewItem } from "./review-item-
 // -- session context assembly (AU21 §9 Increment 12, Decision H3 — the
 // requireRunnableAgent-precedent shared assembler; per-kind resolvers call
 // this intra-layer instead of run-orchestration reading knowledge back) --
-export type { SessionKnowledgeInput } from "./session-knowledge-assembler.js";
+export type { SessionKnowledgeInput, SessionKnowledgeItem } from "./session-knowledge-assembler.js";
 export { assembleSessionKnowledge } from "./session-knowledge-assembler.js";

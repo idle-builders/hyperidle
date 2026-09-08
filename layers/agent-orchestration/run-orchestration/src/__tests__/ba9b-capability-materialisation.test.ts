@@ -39,6 +39,7 @@ function makeBundle(
 			format: k.format ?? "markdown",
 			version: k.version ?? 1,
 			parentChain: [],
+			scopeKind: "factory",
 			role: k.role ?? "ordinary",
 			agentBindingId: k.agentBindingId ?? null,
 		})),

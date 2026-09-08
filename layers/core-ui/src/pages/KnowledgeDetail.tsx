@@ -95,15 +95,6 @@ import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
 interface DetailItem {
 	id: string;
 	title: string;
-	/**
-	 * @lore nested-knowledge-items: `layer` is never rendered — the legacy
-	 * k1/k2 LEGACY_DETAILS map is the only thing that still sets it (its own
-	 * "company"/"belief" values, asserted by a protected test). Optional
-	 * because the real API no longer has a `layer` column at all.
-	 */
-	layer?: string;
-	/** AF13 §5: kind is optional — undefined renders as "—" in the metadata aside */
-	kind?: string;
 	status: KnowledgeStatus;
 	timestamp: string;
 	content: string;
@@ -130,7 +121,6 @@ interface DetailItem {
 	 * children". Distinct from `structuredRelatedItems` (children ∪ siblings).
 	 */
 	children?: ReadonlyArray<{ id: string; title: string }>;
-	topic?: string;
 	/** W3 AC-40: 30-day access count from API */
 	accessCount?: number;
 	/** W3 AC-40: last editor name */
@@ -149,8 +139,6 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 	k1: {
 		id: "k1",
 		title: "Architecture Decision: Auth Strategy",
-		layer: "company",
-		kind: "belief",
 		status: "active",
 		timestamp: "1d ago",
 		content:
@@ -158,14 +146,11 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 		scope: "practice",
 		originAgent: "Architect Agent",
 		confidence: 0.92,
-		topic: "Architecture",
 		relatedItems: ["k2", "k7"],
 	},
 	k2: {
 		id: "k2",
 		title: "API Rate Limiting Best Practices",
-		layer: "product",
-		kind: "fact",
 		status: "active",
 		timestamp: "2d ago",
 		content:
@@ -173,7 +158,6 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 		scope: "practice",
 		originAgent: "Developer Agent",
 		confidence: 0.78,
-		topic: "Architecture",
 		relatedItems: ["k1"],
 	},
 	/**
@@ -186,15 +170,12 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 	"k-team-scoped": {
 		id: "k-team-scoped",
 		title: "Team Knowledge: Nimmly Onboarding Guide",
-		layer: "L1",
-		kind: "pattern",
 		status: "active",
 		timestamp: "3d ago",
 		content: "Steps for onboarding new team members to the Nimmly workspace.",
 		scope: "practice",
 		originAgent: "Onboarding Agent",
 		confidence: 0.85,
-		topic: "Onboarding",
 		scopeKind: "team",
 		scopeName: "Team Nimmly",
 	},
@@ -206,15 +187,12 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 	"k-archived": {
 		id: "k-archived",
 		title: "Archived Decision",
-		layer: "company",
-		kind: "belief",
 		status: "archived",
 		timestamp: "7d ago",
 		content: "This item was archived.",
 		scope: "practice",
 		originAgent: "Architect Agent",
 		confidence: 0.5,
-		topic: "Architecture",
 	},
 };
 
@@ -232,8 +210,6 @@ const LEGACY_SOURCES: Record<string, string> = {
 const FALLBACK_DETAIL: DetailItem = {
 	id: "unknown",
 	title: "Unknown Knowledge Item",
-	layer: "unknown",
-	kind: "unknown",
 	status: "proposed",
 	timestamp: "—",
 	content: "This knowledge item was not found.",
@@ -266,8 +242,6 @@ function fromFixture(item: MockKnowledgeItem): DetailItem {
 	return {
 		id: item.id,
 		title: item.title,
-		layer: item.layer,
-		kind: item.kind,
 		status: item.status,
 		timestamp: item.timestamp,
 		content: item.content ?? "",
@@ -276,7 +250,6 @@ function fromFixture(item: MockKnowledgeItem): DetailItem {
 		confidence: item.confidence,
 		version: item.version,
 		relatedItems: item.relatedItems,
-		topic: item.topic,
 	};
 }
 
@@ -287,19 +260,21 @@ function findDetail(id: string | undefined): DetailItem | undefined {
 	return fixture ? fromFixture(fixture) : undefined;
 }
 
+/**
+ * @lore nested-knowledge-items: the topic-based fallback ("items sharing the
+ * same topic string") is deleted with `topic` itself — architecture §4: "the
+ * tree answers 'what is near this' better than a shared word did." This
+ * fixture-fallback path only ever backed `relatedItems` (explicit ids); the
+ * real API-driven path already gets children ∪ siblings from the server
+ * (`structuredRelatedItems`).
+ */
 function findRelated(item: DetailItem): ReadonlyArray<MockKnowledgeItem> {
 	const explicit = new Set(item.relatedItems ?? []);
-	const byTopic = item.topic
-		? knowledgeItems.filter(
-				(i) => i.id !== item.id && i.topic === item.topic && i.scope === item.scope,
-			)
-		: [];
 	const merged = new Map<string, MockKnowledgeItem>();
 	for (const id of explicit) {
 		const match = knowledgeItems.find((i) => i.id === id);
 		if (match) merged.set(match.id, match);
 	}
-	for (const i of byTopic) merged.set(i.id, i);
 	return Array.from(merged.values());
 }
 
@@ -896,7 +871,6 @@ function KnowledgeDetailView({
 								// When scopeName absent (fixture/legacy path), omit the segment entirely.
 								// The deprecated KnowledgeScope item.scope is NOT read here (WARNING-A3).
 								...(item.scopeName ? [{ label: item.scopeName }] : []),
-								...(item.topic ? [{ label: item.topic }] : []),
 								{ label: item.title },
 							]}
 							leading={
@@ -1131,11 +1105,6 @@ function KnowledgeDetailView({
 					{/* Metadata card */}
 					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
 						<SectionLabel label="Metadata" as="h2" />
-						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
-							<span className="text-[var(--text-tertiary)]">Kind</span>
-							{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
-							<span className="type-small text-[var(--text-primary)] ">{item.kind ?? "—"}</span>
-						</div>
 						{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
 						<div
 							className="type-small border-width-thin-b flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "

@@ -1,15 +1,17 @@
 /**
  * nested-knowledge-items — the promote_knowledge tool's ALLOWED_TRANSITIONS
- * table collapses onto the four-value status ladder (architecture.md §2):
- * proposed | active | stale | archived. `captured` (a legacy value that
- * collapses into `proposed`, per the mapping table) must transition exactly
- * as `proposed` now does.
+ * table runs against the collapsed four-value status ladder
+ * (architecture.md §2): proposed | active | stale | archived. Migration
+ * `0080` is full and destructive — every row is converted, so no legacy
+ * value (draft/captured/provisional/validated/needs_human) can ever be read
+ * back. `normalizeKnowledgeStatus` therefore has no legacy mapping to
+ * perform; it only validates that a stored status is one of the four.
  *
  * Handler-level contract test, following merge-split-knowledge.test.ts's
  * pattern: fake `ToolHandlersPorts`, no DB. `ALLOWED_TRANSITIONS` and
- * `isAnyKnowledgeStatus` are module-private in tool-definitions.ts, so the
- * collapsed ladder is proven through the public handler contract — the same
- * seam every other tool-definitions test in this package uses.
+ * `normalizeKnowledgeStatus` are module-private in tool-definitions.ts, so
+ * the collapsed ladder is proven through the public handler contract — the
+ * same seam every other tool-definitions test in this package uses.
  */
 import * as os from "node:os";
 import * as path from "node:path";
@@ -52,20 +54,25 @@ function findPromoteTool(ports: ToolHandlersPorts) {
 	return tool;
 }
 
-describe("promote_knowledge: ALLOWED_TRANSITIONS collapses to proposed | active | stale | archived", () => {
+describe("promote_knowledge: ALLOWED_TRANSITIONS is proposed | active | stale | archived only", () => {
 	it("a proposed item can be promoted to active", async () => {
 		const tool = findPromoteTool(makePorts("proposed"));
 		const result = await tool.handler({ knowledgeItemId: "ki-1", toStatus: "active" }, makeCtx());
 		expect(result.success).toBe(true);
 	});
 
-	it("'captured' — a legacy value the mapping collapses into 'proposed' — transitions to active exactly as 'proposed' now does", async () => {
-		// AC: draft/captured/provisional -> proposed. A row an unmigrated read
-		// still reports as 'captured' must be promotable straight to 'active',
-		// the same as a 'proposed' row — not restricted to captured's old,
-		// narrower ALLOWED_TRANSITIONS['captured'] = ['provisional'].
+	it("a legacy status value ('captured') is no longer a valid stored state and is rejected, not silently normalized", async () => {
+		// Migration 0080 converts every row before this tool can ever read it,
+		// so a live row reporting 'captured' means the read is stale or the
+		// data is corrupt — either way it must not be treated as 'proposed'.
 		const tool = findPromoteTool(makePorts("captured"));
 		const result = await tool.handler({ knowledgeItemId: "ki-1", toStatus: "active" }, makeCtx());
-		expect(result.success).toBe(true);
+		expect(result.success).toBe(false);
+	});
+
+	it("archived is terminal — no transition out of it is allowed", async () => {
+		const tool = findPromoteTool(makePorts("archived"));
+		const result = await tool.handler({ knowledgeItemId: "ki-1", toStatus: "active" }, makeCtx());
+		expect(result.success).toBe(false);
 	});
 });

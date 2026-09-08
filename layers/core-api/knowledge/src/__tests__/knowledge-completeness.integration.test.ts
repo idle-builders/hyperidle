@@ -580,10 +580,10 @@ describe("conflicts: recordConflict and findOpenConflict", () => {
 });
 
 // ===========================================================================
-// Q. listVisibleWithSignals — dispatch / UI context (Q2 auth boundary)
+// Q. list({tree}) — dispatch / UI context (Q2 auth boundary)
 // ===========================================================================
 
-describe("listVisibleWithSignals auth boundary and access signal aggregation", () => {
+describe("list({tree}) auth boundary and access signal aggregation", () => {
 	test("excludes user-scoped items not owned by the viewer", async ({ db }) => {
 		// Shared item — always visible.
 		await create(db, {
@@ -613,7 +613,7 @@ describe("listVisibleWithSignals auth boundary and access signal aggregation", (
 			updatedBy: "u-other",
 		});
 
-		const rows = await list(db, { visibleWithSignals: "u-viewer" });
+		const rows = await list(db, { tree: { viewerUserId: "u-viewer", viewerTeamId: null } });
 
 		const titles = rows.map((r) => r.title);
 		expect(titles).toContain("Factory item");

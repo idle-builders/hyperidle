@@ -872,28 +872,10 @@ function makeScoreAttentionTool<TDb>(
 // promote_knowledge
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * @lore nested-knowledge-items §2: the two status vocabularies collapse into
- * one four-value ladder — proposed | active | stale | archived. A row an
- * unmigrated read still reports under a legacy name (draft/captured/
- * provisional/validated/needs_human) normalizes through this map before the
- * transition table is consulted, so it transitions exactly as its collapsed
- * value would.
- */
-const LEGACY_STATUS_TO_CURRENT: Readonly<Record<string, KnowledgeStatus>> = {
-	draft: "proposed",
-	captured: "proposed",
-	provisional: "proposed",
-	proposed: "proposed",
-	validated: "active",
-	active: "active",
-	stale: "stale",
-	archived: "archived",
-	needs_human: "archived",
-};
-
 function normalizeKnowledgeStatus(value: string): KnowledgeStatus | null {
-	return LEGACY_STATUS_TO_CURRENT[value] ?? null;
+	return (KNOWLEDGE_STATUSES as readonly string[]).includes(value)
+		? (value as KnowledgeStatus)
+		: null;
 }
 
 const ALLOWED_TRANSITIONS: Record<KnowledgeStatus, readonly KnowledgeStatus[]> = {
@@ -937,10 +919,8 @@ function makePromoteKnowledgeTool<TDb>(
 			}
 
 			const editor = `agent:${ctx.agentId}`;
-			// The CAS conditional-UPDATE downstream matches on the row's LITERAL
-			// current value, not the normalized one — an unmigrated "captured"
-			// row must be compared for equality against "captured", or the CAS
-			// matches zero rows and reports a false CONCURRENT_MODIFICATION.
+			// The CAS conditional-UPDATE downstream matches on the row's current
+			// value, so it must be given the literal `row.status`.
 			const result = await ports.coreApi.promoteKnowledgeItem(
 				{
 					knowledgeItemId,
@@ -1073,7 +1053,6 @@ function makeMergeKnowledgeTool<TDb>(
 const splitKnowledgeItemSchema = z.object({
 	title: z.string().min(1),
 	body: z.string().min(1),
-	topic: z.string().optional(),
 });
 
 const splitKnowledgeInputSchema = z.object({
@@ -1092,7 +1071,7 @@ function makeSplitKnowledgeTool<TDb>(
 	return {
 		name: "split_knowledge",
 		description:
-			"Split a knowledge item into two or more focused items. The original is archived; each new item starts in draft. Use when a knowledge item covers multiple distinct topics that should be managed independently.",
+			"Split a knowledge item into two or more focused items. The original is archived; each new item starts proposed. Use when a knowledge item covers multiple distinct concerns that should be managed independently.",
 		inputSchema: splitKnowledgeInputSchema,
 		roles: ["assistant", "facilitator", "product_manager"],
 		handler: async (args, ctx) => {

@@ -7,12 +7,12 @@
  * - triage-count endpoint uses same auth middleware (requires API key)
  *
  * @lore nested-knowledge-items: the status ladder collapsed from 7 values to
- * 4 (proposed | active | stale | archived). `draft`/`captured`/`provisional`
- * folded into `proposed`; `needs_human` folded into `archived` (the
- * escalation signal now lives on `knowledge_conflicts`, not the status
- * column). Triage is therefore just `status === "proposed"` — the former
- * "PATCH accepts needs_human status" describe block tested a status value
- * that no longer exists and is deleted, not adapted.
+ * 4 (proposed | active | stale | archived). `draft`/`captured`/`provisional`/
+ * `needs_human` all fold into `proposed` — `needs_human` is the same state as
+ * `draft`, an item awaiting human attention, not one that is done with.
+ * Triage is therefore just `status === "proposed"` — the former "PATCH
+ * accepts needs_human status" describe block tested a status value that no
+ * longer exists and is deleted, not adapted.
  */
 
 import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";

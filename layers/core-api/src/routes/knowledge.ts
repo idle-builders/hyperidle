@@ -50,6 +50,7 @@ import {
 	GraduationNotAllowedError,
 	get as getKnowledgeItem,
 	graduate as graduateKnowledgeItem,
+	InvalidReparentError,
 	ItemDeletedError,
 	transition as knowledgeTransition,
 	list as listKnowledgeItems,
@@ -108,6 +109,18 @@ export async function resolveScopeName(
 
 	// Unknown scopeKind — safe fallback.
 	return scopeKindToLabel(scopeKind);
+}
+
+/**
+ * nested-knowledge-items architecture.md §4 D2: the viewer's team, resolved
+ * through the users service's own port (`findUser`) — never a join to
+ * `users` from inside the knowledge repository (table ownership,
+ * tools/governance/table-owners.json gives `users` to the users service and
+ * `knowledge_items` to knowledge).
+ */
+async function resolveViewerTeamId(db: HyperIdleDb, userId: string): Promise<string | null> {
+	const user = await findUser(db, { id: userId });
+	return user?.teamId ?? null;
 }
 
 /**
@@ -349,14 +362,17 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
 		// access-signal aggregation all moved into the repository's
-		// listVisibleWithSignals — see knowledge-repository.ts §6.
+		// list({tree}) — see knowledge-repository.ts §6.
 		// @lore AU44 batch 4: L22 signals (accessCount30d, lastActivityAt etc.) removed per
 		// FULL-AUDIT.md row 13. attentionScore (PLUGIN-owned, still in schema) is parsed from
 		// the stored text to a number here — same as the detail route does for confidence.
-		// @lore nested-knowledge-items: visibleWithSignals returns the whole tree
-		// (root + knowledge_item-parented rows) — a task/thread-parented produced
-		// item is excluded and fetched separately via ?parentKind+parentId.
-		const rows = await listKnowledgeItems(db, { visibleWithSignals: userId });
+		// @lore nested-knowledge-items §4/D2: {tree} returns the whole tree (root +
+		// knowledge_item-parented rows), filtered by BOTH the Q2 private-user rule
+		// and the team-scope rule — a task/thread-parented produced item is
+		// excluded and fetched separately via ?parentKind+parentId (review.md B3:
+		// {visibleWithSignals} applied only the Q2 half and is deleted with it).
+		const viewerTeamId = await resolveViewerTeamId(db, userId);
+		const rows = await listKnowledgeItems(db, { tree: { viewerUserId: userId, viewerTeamId } });
 		const items = rows.map((item) => ({
 			...item,
 			attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
@@ -406,11 +422,18 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
+		const viewerTeamId = await resolveViewerTeamId(db, userId);
 		const [relatedItems, children] = await Promise.all([
 			listKnowledgeItems(db, {
 				childrenAndSiblings: { itemId: row.id, viewerUserId: userId, limit: 10 },
 			}),
-			listKnowledgeItems(db, { childrenOf: { parentId: row.id } }),
+			// review.md B3: children had no visibility filter at all — a
+			// non-member opening a shared parent saw every team-scoped and
+			// private child's title through ChildrenCard. Same combined
+			// visibility rule as the tree read.
+			listKnowledgeItems(db, {
+				childrenOf: { parentId: row.id, viewerUserId: userId, viewerTeamId },
+			}),
 		]);
 
 		// O2: emit knowledge_accessed event
@@ -567,7 +590,40 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 400);
 		}
 
+		// review.md B13: a task/thread target must exist before anything is
+		// written — the same check POST already runs. A `knowledge_item`
+		// target's existence is checked inside reparent()'s own transaction
+		// (assertParentInvariants); a `routine`/`agent` target is not
+		// client-writable through this route in practice (written exclusively
+		// by core-api's own routes, per CLIENT_WRITABLE_PARENT_KINDS' own
+		// doc comment) and is not validated here either.
+		if (
+			body.parentKind !== undefined &&
+			body.parentId !== undefined &&
+			body.parentKind !== null &&
+			body.parentId !== null &&
+			(body.parentKind === "task" || body.parentKind === "thread") &&
+			!(await parentExists(db, body.parentKind, body.parentId))
+		) {
+			const response: ApiErrorResponse = {
+				error: `no ${body.parentKind} with id '${body.parentId}'`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
 		try {
+			// review.md B12: reparent runs BEFORE the field update. An illegal
+			// move (cycle, scope too wide, depth exceeded, missing parent) must
+			// refuse the whole PATCH — not commit a title/body/status change and
+			// then fail the move, leaving a half-applied edit behind.
+			if (body.parentKind !== undefined && body.parentId !== undefined) {
+				await reparentKnowledgeItem(db, id, {
+					parentKind: body.parentKind,
+					parentId: body.parentId,
+					updatedBy: body.updatedBy,
+				});
+			}
 			await updateKnowledgeItem(
 				db,
 				id,
@@ -582,14 +638,17 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				},
 				body.version,
 			);
-			if (body.parentKind !== undefined && body.parentId !== undefined) {
-				await reparentKnowledgeItem(db, id, {
-					parentKind: body.parentKind,
-					parentId: body.parentId,
-					updatedBy: body.updatedBy,
-				});
-			}
 		} catch (error) {
+			// architecture.md §3: "violations are refused with a 4xx naming the
+			// rule, never recorded and repaired."
+			if (error instanceof InvalidReparentError) {
+				const response: ApiErrorResponse = {
+					error: error.message,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+					details: { rule: error.rule },
+				};
+				return c.json(response, 400);
+			}
 			if (error instanceof VersionConflictError) {
 				const response: ApiErrorResponse = {
 					error: `Version conflict: expected ${body.version}, current is ${error.currentVersion}`,

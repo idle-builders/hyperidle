@@ -49,14 +49,10 @@ describe("KnowledgeDetail", () => {
 		expect(screen.queryByText("1d ago")).not.toBeInTheDocument();
 	});
 
-	it("renders kind in the metadata aside", () => {
-		// AD6: kind Tag removed from the header metadata bar. Kind still appears
-		// in the metadata aside card (Kind row). Layer tag removed entirely.
-		renderPage("k1");
-		const aside = screen.getByTestId("knowledge-metadata-aside");
-		// "belief" is the kind value for k1 — appears in the aside's Kind row
-		expect(aside.textContent).toContain("belief");
-	});
+	// @lore nested-knowledge-items AC6: "renders kind in the metadata aside" is
+	// DELETED, not adapted — `kind` is retired vocabulary and the Kind row
+	// itself no longer exists on the page (it always read as "Kind —" against
+	// real API data, since the real schema has no `kind` column at all).
 
 	it("renders fallback for unknown knowledge item", () => {
 		renderPage("nonexistent");

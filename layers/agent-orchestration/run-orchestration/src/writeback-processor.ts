@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
+import type { Manifest, ManifestEntry } from "./manifest-types.js";
 
 // ---- capture-writeback-ports ----
 // ---------------------------------------------------------------------------
@@ -108,32 +109,14 @@ interface CaptureWritebackKnowledgeWriter {
 }
 
 // ---------------------------------------------------------------------------
-// context-assembly — Manifest/ManifestEntry (pure-type structural mirror;
-// see this file's top `@lore` for why this isn't a port method)
+// context-assembly — Manifest/ManifestEntry
+//
+// @lore nested-knowledge-items (review.md B5): this used to be a second,
+// independently-declared copy of the writer's (context.ts) shape — same
+// fields, two interfaces, so TypeScript never compared them and the writer's
+// missing `scopeKind` went uncaught. Both files now import the one shared
+// declaration in manifest-types.ts.
 // ---------------------------------------------------------------------------
-
-interface ManifestEntry {
-	version: number;
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	source_path: string;
-	format: string;
-	/**
-	 * @lore nested-knowledge-items: carried on every entry (directories
-	 * included) so a directory's scope is known from the manifest alone — no
-	 * `knowledgeItems` read needed to look up a parent's scope before a child
-	 * inherits it (D4). Defaults to "factory" for entries written before this
-	 * field existed (manifest is process-local, not a migrated store).
-	 */
-	scopeKind: string;
-}
-
-interface Manifest {
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	session_id: string;
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	assembled_at: string;
-	items: Record<string, ManifestEntry>;
-}
 
 // ---- writeback ----
 interface WritebackConfig {

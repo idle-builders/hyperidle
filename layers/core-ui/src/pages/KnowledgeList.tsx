@@ -89,6 +89,49 @@ export function sortItems(items: ApiKnowledgeItem[]): ApiKnowledgeItem[] {
 	});
 }
 
+/**
+ * @lore nested-knowledge-items AC1: turns a flat, already-sorted item array
+ * into DFS tree order (each item immediately followed by its own children,
+ * recursively) with a per-item depth for indentation. The Curated tab is a
+ * tree, not a topic-grouped or flat list.
+ *
+ * An item whose `parentId` does not resolve inside this array (its parent is
+ * filtered out — e.g. a "proposed" parent with an "active" child) renders as
+ * its own root rather than being silently dropped: a status filter must not
+ * make an item unreachable.
+ */
+export interface KnowledgeTreeRow {
+	item: ApiKnowledgeItem;
+	depth: number;
+}
+
+export function buildKnowledgeTree(items: ApiKnowledgeItem[]): KnowledgeTreeRow[] {
+	const ids = new Set(items.map((i) => i.id));
+	const childrenByParent = new Map<string, ApiKnowledgeItem[]>();
+	const roots: ApiKnowledgeItem[] = [];
+	for (const item of items) {
+		if (item.parentId && ids.has(item.parentId)) {
+			const siblings = childrenByParent.get(item.parentId) ?? [];
+			siblings.push(item);
+			childrenByParent.set(item.parentId, siblings);
+		} else {
+			roots.push(item);
+		}
+	}
+
+	const rows: KnowledgeTreeRow[] = [];
+	const visited = new Set<string>();
+	function visit(item: ApiKnowledgeItem, depth: number): void {
+		// Depth-32 cycle backstop (architecture §3) — a malformed tree must not hang the tab.
+		if (visited.has(item.id) || depth > 32) return;
+		visited.add(item.id);
+		rows.push({ item, depth });
+		for (const child of childrenByParent.get(item.id) ?? []) visit(child, depth + 1);
+	}
+	for (const root of roots) visit(root, 0);
+	return rows;
+}
+
 function isKnowledgeSortOption(value: string | null): value is KnowledgeSortOption {
 	return (VISIBLE_SORT_OPTIONS as readonly string[]).includes(value ?? "");
 }
@@ -125,6 +168,8 @@ interface ApiKnowledgeItem {
 	 * `role !== "skill" && role !== "rule"` filter.
 	 */
 	parentKind?: string | null;
+	/** @lore nested-knowledge-items AC1: the tree parent this item nests under. */
+	parentId?: string | null;
 }
 
 interface ApiKnowledgeListResponse {
@@ -203,6 +248,12 @@ function KnowledgeListContent({
 	const filteredCuratedItems = normalizedQuery
 		? curatedItems.filter((i) => i.title.toLowerCase().includes(normalizedQuery))
 		: curatedItems;
+	// @lore nested-knowledge-items AC1: the Curated tab renders as a tree —
+	// each parent immediately followed by its own children, indented.
+	const curatedTreeRows = useMemo(
+		() => buildKnowledgeTree(filteredCuratedItems),
+		[filteredCuratedItems],
+	);
 
 	// Y4: keyboard navigation handler for triage tab
 	useEffect(() => {
@@ -578,15 +629,32 @@ function KnowledgeListContent({
 							/>
 						</div>
 					) : (
-						<ItemList variant="flush" as="ul" isEmpty={filteredCuratedItems.length === 0}>
-							{filteredCuratedItems.map((item) => {
+						<ItemList variant="flush" as="ul" isEmpty={curatedTreeRows.length === 0}>
+							{curatedTreeRows.map(({ item, depth }) => {
 								const isPrivate = item.scopeKind === "user";
+								// AQ-001: indent step is 18px (numeric Hearth vocabulary),
+								// capped so a pathological depth never pushes a row off-screen.
+								const indent = Math.min(depth, 6) * 18;
 								return (
 									<Row
 										key={item.id}
 										as="li"
 										data-testid="knowledge-row"
-										title={item.title}
+										title={
+											<span
+												style={indent > 0 ? { paddingLeft: `${indent}px` } : undefined}
+											>
+												{depth > 0 && (
+													<span
+														aria-hidden="true"
+														className="type-metadata text-[var(--text-tertiary)]"
+													>
+														{"└ "}
+													</span>
+												)}
+												{item.title}
+											</span>
+										}
 										subtitle={
 											item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
 										}

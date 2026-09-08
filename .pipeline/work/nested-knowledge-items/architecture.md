@@ -62,9 +62,12 @@ Migration `framework/db/drizzle/0078_*.sql` — `0077` is taken. Migrations here
   (`writeback-processor.ts:240`) — the same state under two names, depending on whether a
   human or an agent made it. `provisional` and `needs_human` have **no production
   writer**, so auto-promotion scans for a state nothing creates and the Triage tab can
-  only fire on fixtures. Mapping: `draft`/`captured`/`provisional` → `proposed`;
-  `validated`/`active` → `active`; `stale` → `stale`; `archived`/`needs_human` →
-  `archived`. Both enums collapse into one; `ALLOWED_TRANSITIONS` shrinks to match.
+  only fire on fixtures. Mapping: `draft`/`captured`/`provisional`/`needs_human` → `proposed`;
+  `validated`/`active` → `active`; `stale` → `stale`; `archived` →
+  `archived`. `draft` and `needs_human` are the same state — an item awaiting
+  human attention, not one that is done with — and the sidebar's triage badge
+  already counts the pair together. Both enums collapse into one;
+  `ALLOWED_TRANSITIONS` shrinks to match.
 - **Reduce** `SCOPE_KINDS` to `factory | team | user`; `SCOPES_REQUIRING_ID` to `team`.
   `scope_kind` has **no CHECK constraint** today (only `ki_role_ck` and the two parent
   checks exist) — so the closed enum is TypeScript-only, the migration must *convert*
@@ -254,12 +257,17 @@ One transaction. Ordering matters and the first draft had it wrong.
 
 `position` is assigned by `created_at` within each new parent.
 
-**Data the migration does not reach.** `agent_work_intents.baked_request_json`
-(`schema.ts:397`) persists baked bundles carrying `layer` and no parent. An intent baked
-before `0078` and drained after it routes through `writeBundleKnowledge`'s unknown-zone
-branch (`context.ts:914-921`) and is silently skipped. CLAUDE.md rule 2 requires all data
-to move in the same change: either drain the queue as a migration step or rewrite the
-persisted payloads. Name which, and do it.
+**Data the migration does not reach — resolved: drain the queue.**
+`agent_work_intents.baked_request_json` (`schema.ts:397`) persists baked bundles carrying
+`layer` and no `parentChain`. `parentChain`/`scopeKind` are required fields as of this
+migration (`BakedContextKnowledgeItem`), so `writeOrdinaryItem` iterating
+`item.parentChain` unconditionally would throw on a pre-migration row instead of the old
+log-and-skip. Migration `0080` step 11 fails (not silently drops) any `pending`/`claimed`
+intent whose baked `contextBundle.knowledge` lacks `parentChain` on any item — the drain
+never meets the old shape, and a fresh re-emit after the migration bakes the new one.
+Rewriting the persisted JSON in place was rejected: re-deriving a correct `parentChain` per
+embedded item would mean a live per-item DB read inside the migration, which is more
+surface than draining a queue that self-heals on re-emit.
 
 ## 8. Security
 

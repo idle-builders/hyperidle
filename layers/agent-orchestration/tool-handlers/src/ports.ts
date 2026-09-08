@@ -492,7 +492,6 @@ interface ToolHandlersCoreApiAccessor {
 		newItems: ReadonlyArray<{
 			readonly title: string;
 			readonly body: string;
-			readonly topic?: string;
 		}>,
 		updatedBy: string,
 		actorId: string,

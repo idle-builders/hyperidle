@@ -32,7 +32,7 @@ import type {
 	KnowledgeRole,
 } from "@hyperidle/domain-model";
 import { and, desc, eq, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
-import { ItemDeletedError, VersionConflictError } from "./errors.js";
+import { InvalidReparentError, ItemDeletedError, VersionConflictError } from "./errors.js";
 import type { KnowledgeStatus } from "./types.js";
 
 /**
@@ -107,12 +107,16 @@ async function assertParentInvariants(
 	const chain = await walkKnowledgeItemAncestorChain(tx, input.newParentId);
 
 	if (input.itemId && chain.includes(input.itemId)) {
-		throw new Error(
+		throw new InvalidReparentError(
+			"cycle",
 			`reparent: parenting ${input.itemId} under ${input.newParentId} would create a cycle`,
 		);
 	}
 	if (chain.length >= MAX_TREE_DEPTH) {
-		throw new Error(`reparent: resulting depth would exceed the maximum of ${MAX_TREE_DEPTH}`);
+		throw new InvalidReparentError(
+			"depth-exceeded",
+			`reparent: resulting depth would exceed the maximum of ${MAX_TREE_DEPTH}`,
+		);
 	}
 
 	const parentId = chain[0];
@@ -122,10 +126,14 @@ async function assertParentInvariants(
 		.where(eq(knowledgeItems.id, parentId ?? input.newParentId))
 		.limit(1);
 	if (!parentRow) {
-		throw new Error(`reparent: parent knowledge item ${input.newParentId} does not exist`);
+		throw new InvalidReparentError(
+			"parent-not-found",
+			`reparent: parent knowledge item ${input.newParentId} does not exist`,
+		);
 	}
 	if (scopeRank(input.childScopeKind) < scopeRank(parentRow.scopeKind)) {
-		throw new Error(
+		throw new InvalidReparentError(
+			"scope-too-wide",
 			`reparent: scope '${input.childScopeKind}' is wider than parent scope '${parentRow.scopeKind}'`,
 		);
 	}
@@ -1130,6 +1138,59 @@ export async function get(
 	}
 }
 
+/**
+ * One ancestor in a knowledge item's parent chain, as `BakedContextKnowledgeItem`
+ * needs it: enough to materialise the ancestor's own directory + manifest
+ * entry without a second DB read at write time (architecture.md §5 —
+ * `writeContextBundle` does zero DB reads).
+ */
+export interface KnowledgeParentChainAncestor {
+	readonly id: string;
+	readonly title: string;
+	readonly scopeKind: string;
+	readonly version: number;
+}
+
+/**
+ * Walk a knowledge item's ancestors, root first, stopping at the first
+ * non-`knowledge_item` parent (architecture.md §3: "walks stop at the first
+ * non-knowledge_item parent") or at the depth-32 backstop. Called once per
+ * ordinary item at bake time (session-knowledge-assembler.ts) — this is the
+ * only place `BakedContextKnowledgeItem.parentChain` can be populated,
+ * since the sandbox write path itself does no DB reads (review.md B4).
+ */
+export async function resolveParentChain(
+	db: HyperIdleDb,
+	itemId: string,
+): Promise<readonly KnowledgeParentChainAncestor[]> {
+	const chain: KnowledgeParentChainAncestor[] = [];
+	let cursorId: string = itemId;
+	for (let depth = 0; depth < 32; depth++) {
+		const [row] = await db
+			.select({ parentKind: knowledgeItems.parentKind, parentId: knowledgeItems.parentId })
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, cursorId))
+			.limit(1);
+		if (!row || row.parentKind !== "knowledge_item" || !row.parentId) break;
+
+		const [ancestor] = await db
+			.select({
+				id: knowledgeItems.id,
+				title: knowledgeItems.title,
+				scopeKind: knowledgeItems.scopeKind,
+				version: knowledgeItems.version,
+			})
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, row.parentId))
+			.limit(1);
+		if (!ancestor) break;
+
+		chain.unshift(ancestor);
+		cursorId = ancestor.id;
+	}
+	return chain;
+}
+
 /** Rank order for scope visibility — a viewer sees factory + their own team + their own. */
 function scopeVisibleCondition(viewerTeamId: string | null): SQL | undefined {
 	// architecture.md §4 D2: a team-scoped branch is invisible outside that
@@ -1141,14 +1202,28 @@ function scopeVisibleCondition(viewerTeamId: string | null): SQL | undefined {
 }
 
 /**
+ * Combines the two independent visibility predicates a human read must
+ * satisfy: Q2 (a `user`-scoped row is private to its author) AND D2 (a
+ * `team`-scoped row is invisible outside that team). Neither alone is a
+ * complete visibility check — review.md B3.
+ */
+function humanVisibleCondition(viewerUserId: string, viewerTeamId: string | null): SQL | undefined {
+	return and(visibleToViewer(viewerUserId), scopeVisibleCondition(viewerTeamId));
+}
+
+/**
  * List knowledge items with a discriminated filter.
  *
  * Discriminated variants (first matching wins):
- * - `{visibleWithSignals}` → all items visible to viewerUserId with L22 signals
  * - `{titlesByIds}` → batched title lookup
  * - `{tree}` → roots + ordinary tree nodes, excluding any row whose parent is
- *   not a knowledge item (architecture §4) — a team-scoped branch is
- *   invisible outside that team (D2)
+ *   not a knowledge item (architecture §4) — a `user`-scoped row stays
+ *   private to its author (Q2) AND a `team`-scoped branch is invisible
+ *   outside that team (D2). This is the one read GET /api/knowledge uses;
+ *   there is no separate "all items" variant with a weaker filter.
+ * - `{childrenOf}` → this item's own ordered children, same combined
+ *   visibility filter as `{tree}` (review.md B3 — a non-member must not see
+ *   a team-scoped or private child's title through the parent's page)
  * - `{childrenAndSiblings}` → the Backlinks card: this item's children union
  *   its siblings (architecture §4 — replaces the deleted topic-match query)
  * - base `ListFilters` → projection-joined filtered list
@@ -1161,15 +1236,13 @@ function scopeVisibleCondition(viewerTeamId: string | null): SQL | undefined {
  */
 export function list(
 	db: HyperIdleDb,
-	filter: { readonly visibleWithSignals: string },
-): Promise<KnowledgeItemWithProjection[]>;
-export function list(
-	db: HyperIdleDb,
 	filter: { readonly titlesByIds: readonly string[] },
 ): Promise<Array<{ id: string; title: string }>>;
 export function list(
 	db: HyperIdleDb,
-	filter: { readonly tree: { readonly viewerTeamId: string | null } },
+	filter: {
+		readonly tree: { readonly viewerUserId: string; readonly viewerTeamId: string | null };
+	},
 ): Promise<KnowledgeItemWithProjection[]>;
 export function list(
 	db: HyperIdleDb,
@@ -1187,16 +1260,29 @@ export function list(
 ): Promise<KnowledgeItemWithProjection[]>;
 export function list(
 	db: HyperIdleDb,
-	filter: { readonly childrenOf: { readonly parentId: string } },
+	filter: {
+		readonly childrenOf: {
+			readonly parentId: string;
+			readonly viewerUserId: string;
+			readonly viewerTeamId: string | null;
+		};
+	},
 ): Promise<KnowledgeItemChildRef[]>;
 export function list(db: HyperIdleDb, filter?: ListFilters): Promise<KnowledgeItemWithProjection[]>;
 export async function list(
 	db: HyperIdleDb,
 	filter?:
-		| { readonly visibleWithSignals: string }
 		| { readonly titlesByIds: readonly string[] }
-		| { readonly tree: { readonly viewerTeamId: string | null } }
-		| { readonly childrenOf: { readonly parentId: string } }
+		| {
+				readonly tree: { readonly viewerUserId: string; readonly viewerTeamId: string | null };
+		  }
+		| {
+				readonly childrenOf: {
+					readonly parentId: string;
+					readonly viewerUserId: string;
+					readonly viewerTeamId: string | null;
+				};
+		  }
 		| {
 				readonly childrenAndSiblings: {
 					readonly itemId: string;
@@ -1215,33 +1301,18 @@ export async function list(
 	if (!filter) return listBase(db);
 
 	if ("childrenOf" in filter) {
-		const { parentId } = filter.childrenOf;
+		const { parentId, viewerUserId, viewerTeamId } = filter.childrenOf;
 		return db
 			.select({ id: knowledgeItems.id, title: knowledgeItems.title })
 			.from(knowledgeItems)
 			.where(
-				and(eq(knowledgeItems.parentKind, "knowledge_item"), eq(knowledgeItems.parentId, parentId)),
+				and(
+					eq(knowledgeItems.parentKind, "knowledge_item"),
+					eq(knowledgeItems.parentId, parentId),
+					humanVisibleCondition(viewerUserId, viewerTeamId),
+				),
 			)
 			.orderBy(knowledgeItems.position, knowledgeItems.title);
-	}
-
-	if ("visibleWithSignals" in filter) {
-		// Visible items: Q2 filter — include if scope_kind != 'user' OR updatedBy = viewer.
-		// @lore nested-knowledge-items: the whole tree, not just roots — a row
-		// parented under another knowledge_item is still browsable general
-		// knowledge, unlike a task/thread/routine/agent-parented row (excluded
-		// by `parentIsKnowledgeItemOrRoot`, same predicate `{tree}` uses below).
-		// A caller wanting task/thread-parented produced items uses { byParent }.
-		const viewerUserId = filter.visibleWithSignals;
-		const rows = await db
-			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
-			.from(knowledgeItems)
-			.leftJoin(
-				knowledgeAppProjection,
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(and(visibleToViewer(viewerUserId), parentIsKnowledgeItemOrRoot()));
-		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 
 	if ("byParent" in filter) {
@@ -1275,13 +1346,19 @@ export async function list(
 	}
 
 	if ("tree" in filter) {
-		const { viewerTeamId } = filter.tree;
+		const { viewerUserId, viewerTeamId } = filter.tree;
 		const rows = await db
-			.select()
+			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
 			.from(knowledgeItems)
-			.where(and(parentIsKnowledgeItemOrRoot(), scopeVisibleCondition(viewerTeamId)))
+			.leftJoin(
+				knowledgeAppProjection,
+				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
+			)
+			.where(
+				and(parentIsKnowledgeItemOrRoot(), humanVisibleCondition(viewerUserId, viewerTeamId)),
+			)
 			.orderBy(knowledgeItems.position, knowledgeItems.title);
-		return rows.map((item) => mergeWithProjection(item, null));
+		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 
 	if ("childrenAndSiblings" in filter) {

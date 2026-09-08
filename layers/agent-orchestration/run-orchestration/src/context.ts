@@ -9,6 +9,7 @@ import type {
 	RoutineTriggerEvent,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { Manifest, ManifestEntry } from "./manifest-types.js";
 
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave C — `context.ts` is now pure
@@ -658,20 +659,8 @@ function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptComp
 	return { assembledPrompt, personaToolsTokens };
 }
 
-interface ManifestEntry {
-	version: number;
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	source_path: string;
-	format: string;
-}
-
-interface Manifest {
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	session_id: string;
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	assembled_at: string;
-	items: Record<string, ManifestEntry>;
-}
+// `ManifestEntry`/`Manifest` are shared with writeback-processor.ts's reader
+// (review.md B5) — see manifest-types.ts.
 
 function toFilename(title: string, itemId?: string): string {
 	const suffix = itemId ? `_${itemId.slice(0, 8)}` : "";
@@ -780,8 +769,19 @@ function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: s
  * directory-with-index materialised (plan.md: "a path with a missing middle
  * means nothing") — the index holds only the ancestor's own title, since the
  * baked chain carries no body for it; that is incomplete, not fabricated.
+ *
+ * @lore nested-knowledge-items §5 (review.md B5): every ancestor directory
+ * also gets its own manifest entry, written directly into `manifestItems` —
+ * without one, writeback's `ensureDirectoryChainItem` cannot find the
+ * directory it is already looking at and mints a duplicate folder item the
+ * first time an agent creates a file inside it. `!manifestItems[ancestor.id]`
+ * dedupes across items in the same bundle that share an ancestor.
  */
-function writeOrdinaryItem(sandboxPath: string, item: BakedContextKnowledgeItem): string {
+function writeOrdinaryItem(
+	sandboxPath: string,
+	item: BakedContextKnowledgeItem,
+	manifestItems: Record<string, ManifestEntry>,
+): string {
 	let cursor = "knowledge";
 	for (const ancestor of item.parentChain) {
 		cursor = `${cursor}/${toSkillDirName(ancestor.title)}`;
@@ -790,6 +790,14 @@ function writeOrdinaryItem(sandboxPath: string, item: BakedContextKnowledgeItem)
 		const indexPath = path.join(fullDir, "index.md");
 		if (!fs.existsSync(indexPath)) {
 			fs.writeFileSync(indexPath, `# ${ancestor.title}\n`);
+		}
+		if (!manifestItems[ancestor.id]) {
+			manifestItems[ancestor.id] = {
+				version: ancestor.version,
+				source_path: cursor,
+				format: "markdown",
+				scopeKind: ancestor.scopeKind,
+			};
 		}
 	}
 	return writeItem(sandboxPath, item, cursor);
@@ -890,6 +898,7 @@ function writeBundleKnowledge(
 				version: item.version,
 				source_path: relativePath,
 				format: item.format,
+				scopeKind: item.scopeKind,
 			};
 			continue;
 		}
@@ -900,6 +909,7 @@ function writeBundleKnowledge(
 				version: item.version,
 				source_path: relativePath,
 				format: item.format,
+				scopeKind: item.scopeKind,
 			};
 			continue;
 		}
@@ -921,17 +931,21 @@ function writeBundleKnowledge(
 				version: item.version,
 				source_path: relativePath,
 				format: item.format,
+				scopeKind: item.scopeKind,
 			};
 			continue;
 		}
 
 		// role === 'ordinary': materialise into knowledge/, shaped like its
 		// real ancestor chain (architecture.md §5) — not a layer zone.
-		const relativePath = writeOrdinaryItem(sandboxPath, item);
+		// writeOrdinaryItem also registers a manifest entry for every ancestor
+		// directory it creates (review.md B5), writing directly into manifestItems.
+		const relativePath = writeOrdinaryItem(sandboxPath, item, manifestItems);
 		manifestItems[item.id] = {
 			version: item.version,
 			source_path: relativePath,
 			format: item.format,
+			scopeKind: item.scopeKind,
 		};
 	}
 	return manifestItems;

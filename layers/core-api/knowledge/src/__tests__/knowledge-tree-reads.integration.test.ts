@@ -11,15 +11,9 @@
  * Visibility: a team-scoped branch is invisible to a viewer outside that
  * team, children included. The viewer's team arrives as a parameter — the
  * knowledge service may not join to `users` (table ownership,
- * tools/governance/table-owners.json).
- *
- * @lore RED phase (nested-knowledge-items): no tree-read variant exists on
- * `list()` yet. This file calls `list(db, { tree: { viewerTeamId } })`,
- * which is not a legal overload today — the smallest, most consistent-with-
- * existing-style shape for the green phase to implement. The `@ts-expect-error`
- * markers are the red signal for that gap; the call itself still executes at
- * runtime (falls through the discriminated union's base-filter branch) so the
- * resulting (wrong) rows can be asserted against.
+ * tools/governance/table-owners.json). `GET /api/knowledge` and
+ * `GET /knowledge/:id`'s children read both call this same `{tree}` /
+ * `{childrenOf}` variant (review.md B2/B3) — this is not a dead read.
  */
 import { knowledgeItems } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -70,7 +64,7 @@ describe("nested-knowledge-items: tree reads", () => {
 			updatedAt: new Date().toISOString(),
 		});
 
-		const treeItems = await list(db, { tree: { viewerTeamId: null } });
+		const treeItems = await list(db, { tree: { viewerUserId: "u-1", viewerTeamId: null } });
 		const ids = treeItems.map((i: { id: string }) => i.id);
 
 		expect(ids).toContain(ordinary.id);
@@ -102,14 +96,40 @@ describe("nested-knowledge-items: tree reads", () => {
 			parentId: teamRoot.id,
 		});
 
-		const forOutsider = await list(db, { tree: { viewerTeamId: "team-2" } });
+		const forOutsider = await list(db, { tree: { viewerUserId: "u-1", viewerTeamId: "team-2" } });
 		const outsiderIds = forOutsider.map((i: { id: string }) => i.id);
 		expect(outsiderIds).not.toContain(teamRoot.id);
 		expect(outsiderIds).not.toContain(teamChild.id);
 
-		const forMember = await list(db, { tree: { viewerTeamId: "team-1" } });
+		const forMember = await list(db, { tree: { viewerUserId: "u-1", viewerTeamId: "team-1" } });
 		const memberIds = forMember.map((i: { id: string }) => i.id);
 		expect(memberIds).toContain(teamRoot.id);
 		expect(memberIds).toContain(teamChild.id);
+	});
+
+	test("a user-scoped item stays private to its author (Q2), same {tree} read as the team check", async ({
+		db,
+	}) => {
+		const mine = await create(db, {
+			title: "My private note",
+			body: "b",
+			format: "markdown",
+			status: "active",
+			updatedBy: "u-1",
+			scopeKind: "user",
+		});
+		const theirs = await create(db, {
+			title: "Their private note",
+			body: "b",
+			format: "markdown",
+			status: "active",
+			updatedBy: "u-2",
+			scopeKind: "user",
+		});
+
+		const forViewer = await list(db, { tree: { viewerUserId: "u-1", viewerTeamId: null } });
+		const ids = forViewer.map((i: { id: string }) => i.id);
+		expect(ids).toContain(mine.id);
+		expect(ids).not.toContain(theirs.id);
 	});
 });
