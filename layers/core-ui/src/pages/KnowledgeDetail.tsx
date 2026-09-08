@@ -441,11 +441,7 @@ function BacklinksCard({
 				</ul>
 			) : (
 				/* UI-021: use EmptyState compact for consistency */
-				<EmptyState
-					compact
-					title="No backlinks"
-					description="Related items will appear here."
-				/>
+				<EmptyState compact title="No backlinks" description="Related items will appear here." />
 			)}
 		</div>
 	);

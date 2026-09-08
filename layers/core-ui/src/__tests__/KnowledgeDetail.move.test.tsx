@@ -48,7 +48,13 @@ vi.mock("../hooks/useFetch.js", () => ({
 	useFetch: () => ({
 		data: {
 			items: [
-				{ id: "item-1", title: "Auth Policy", scopeKind: "team", parentId: "root-a", parentKind: "knowledge_item" },
+				{
+					id: "item-1",
+					title: "Auth Policy",
+					scopeKind: "team",
+					parentId: "root-a",
+					parentKind: "knowledge_item",
+				},
 				{ id: "root-a", title: "Root A", scopeKind: "factory", parentId: null, parentKind: null },
 				{ id: "root-b", title: "Root B", scopeKind: "factory", parentId: null, parentKind: null },
 			],

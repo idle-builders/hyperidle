@@ -46,7 +46,9 @@ vi.mock("../hooks/useCurrentUser.js", () => ({
 vi.mock("../hooks/useFetch.js", () => ({
 	useFetch: () => ({
 		data: {
-			items: [{ id: "root-a", title: "Root A", scopeKind: "factory", parentId: null, parentKind: null }],
+			items: [
+				{ id: "root-a", title: "Root A", scopeKind: "factory", parentId: null, parentKind: null },
+			],
 		},
 		isLoading: false,
 		error: null,
@@ -59,8 +61,8 @@ vi.mock("react-router-dom", async (importOriginal) => {
 	return { ...original, useNavigate: () => mockNavigate };
 });
 
-import { apiFetch } from "../services/api-fetch.js";
 import { KnowledgeCreate } from "../pages/KnowledgeCreate.js";
+import { apiFetch } from "../services/api-fetch.js";
 
 async function fillAndSubmit(): Promise<ReturnType<typeof userEvent.setup>> {
 	const user = userEvent.setup();

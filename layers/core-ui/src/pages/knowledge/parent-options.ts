@@ -50,7 +50,10 @@ function isTreeNode(item: ParentCandidate): boolean {
 }
 
 /** Every id that is `excludeId` itself or a descendant of it, within `treeItems`. */
-function descendantsOf(treeItems: readonly ParentCandidate[], excludeId: string): ReadonlySet<string> {
+function descendantsOf(
+	treeItems: readonly ParentCandidate[],
+	excludeId: string,
+): ReadonlySet<string> {
 	const childrenByParent = new Map<string, ParentCandidate[]>();
 	for (const item of treeItems) {
 		if (!item.parentId) continue;
