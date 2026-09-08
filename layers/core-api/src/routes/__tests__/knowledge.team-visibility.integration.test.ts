@@ -152,4 +152,40 @@ describe("knowledge team-scope visibility at the real route", () => {
 		const memberBody = (await memberRes.json()) as { children: Array<{ id: string }> };
 		expect(memberBody.children.map((c) => c.id)).toContain("ki-child-team");
 	});
+
+	// review.md B1: the team filter landed on the Children card but not the
+	// Backlinks card (`relatedItems`, `childrenAndSiblings`) directly beneath
+	// it — a viewer outside the item's team saw every team-scoped child's
+	// title through Backlinks even though Children correctly hid it.
+	test("GET /knowledge/:id relatedItems excludes a team-scoped child for a non-member — BacklinksCard must not leak the title", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedTeam(db, "team-1");
+		await seedTeam(db, "team-2");
+		await seedUser(db, "u-member", "team-1");
+		await seedUser(db, "u-outsider", "team-2");
+		await seedKnowledgeItem(db, "ki-parent", { scopeKind: "factory", updatedBy: "u-member" });
+		await seedKnowledgeItem(db, "ki-child-team", {
+			scopeKind: "team",
+			scopeId: "team-1",
+			updatedBy: "u-member",
+			parentKind: "knowledge_item",
+			parentId: "ki-parent",
+		});
+
+		const app = await createTestApp({ db, eventBus });
+
+		const outsiderRes = await app.request("/api/knowledge/ki-parent", {
+			headers: authHeaders("u-outsider"),
+		});
+		const outsiderBody = (await outsiderRes.json()) as { relatedItems: Array<{ id: string }> };
+		expect(outsiderBody.relatedItems.map((r) => r.id)).not.toContain("ki-child-team");
+
+		const memberRes = await app.request("/api/knowledge/ki-parent", {
+			headers: authHeaders("u-member"),
+		});
+		const memberBody = (await memberRes.json()) as { relatedItems: Array<{ id: string }> };
+		expect(memberBody.relatedItems.map((r) => r.id)).toContain("ki-child-team");
+	});
 });

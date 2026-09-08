@@ -1,20 +1,34 @@
-# Implementation review — nested knowledge items
+# Implementation review — nested knowledge items (retry, round 2)
 
-Independent, cold read of `git diff origin/main...HEAD` (157 files, merge base
-`bed7972d8`, HEAD `8d7ea0653`). Depth: full. Nothing was taken on trust from a
-builder report, a commit message or a code comment; every finding below cites a
-file/line I read or a command I ran.
+Cold re-read of the fix cycle. Base moved: the branch was rebased onto
+`origin/main` at `0f4e4d852` (PR #547 artifacts-become-knowledge, plus BA2),
+and the migration renumbered `0078` → `0080`. HEAD `4ba4275f1`.
+
+Scope of this pass: the delta since the round-1 review (`8d7ea0653`), plus
+everything round 1 passed that the delta could plausibly have broken. Unchanged
+PASS entries are carried forward and marked as such. Nothing was taken from a
+builder report, a commit message or a code comment; every finding cites a file
+I read, a command I ran, or a painted screen I looked at.
 
 ## Verdict
 
 **NOT DONE.**
 
-Four of the six plan acceptance criteria fail on the shipping path. The tree
-never reaches the interface, the human-built tree never reaches the sandbox, the
-team-visibility read has no production caller, and three of the five retired
-words are still live. The parts that are done — the migration, the transaction
-invariants, the status collapse, the gate deletion, the table-ownership
-reroute — are done well.
+The fix cycle is real work and most of it lands. The tree now renders — I saw
+it painted, with real seeded data, three levels deep. Team visibility is wired
+on both the list and the children read, and proven from both sides. The bake
+contract carries a real `parentChain`, the manifest is one shared type,
+directories get entries, scope inheritance works. The hollow e2e test is gone
+and its replacement drives the real repository and, under its flag, the real
+`fs.watch`. The `needs_human` data bug is fixed.
+
+Four things still fail. One is new information: the team-scope filter was
+added to the Children card and **not** to the Backlinks card directly beneath
+it, so a non-member still reads every team-scoped child's title on the
+shipping page. I proved it on the running app. The other three are unchanged
+from round 1 and were not attempted: no human can nest or move an item, the
+retired vocabulary is still live in a production interface file, and the item
+id is still in 29 test files plus five filenames.
 
 ---
 
@@ -22,575 +36,390 @@ reroute — are done well.
 
 | Command | Result |
 |---|---|
-| `npm run test:full` | **520 files / 5362 tests passed** |
-| `npm run test:integration:service` | **310 passed / 1 skipped, 2247 tests passed** |
-| `npx vitest --config vitest.integration.config.ts --project service` on the four new integration files | **4 files / 15 tests passed** |
-| `npm run knip` | clean (configuration hints only) |
-| `npx biome check` on the four most-changed source files | 0 errors, 12 warnings |
-| `npx playwright screenshot http://localhost:5173/knowledge` against a live `npm run dev` | rendered (see AC1) |
+| `npm run check` | **exit 0** — 38/38 packages, 0 errors |
+| `npm run lint` | **exit 0** — biome + eslint + 3 governance passes, 0 violations at error |
+| `npm run test:full` | **505 files / 5069 tests passed**, exit 0 |
+| `npm run test:integration:service` | **320 passed / 1 skipped, 2205 tests**, exit 0 |
+| `npm run knip` | exit 0 (configuration hints only) |
+| new e2e integration file, default lane | 5 passed / 1 skipped |
+| same file, `HYPERIDLE_REAL_FS_WATCH_TESTS=1` | **6 passed** — the gated real-`fs.watch` block runs and is green |
+| the six knowledge integration files | 15 tests passed |
+| `npm run setup --demo` into a scratch PGlite dir + `npm run dev` + Playwright | tree, detail, and the leak below, all looked at |
 
-I did **not** re-run the full `npm run check` / `npm run lint`. The founder's
-independent confirmation of exit 0 at `8d7ea0653` is consistent with what I saw
-(biome reports only warnings on the changed files), and I have no evidence to
-dispute it. Working tree is clean apart from an untracked
-`.pipeline/work/nested-knowledge-items/checks-latest.log`.
+The founder's independent `check`/`lint` exit 0 at `4ba4275f1` is confirmed —
+I re-ran both myself. The injected check cache was stale (it still named
+`0078` and reported `1 error` in `KnowledgeDetail.tsx`); the live run
+disagrees and the live run is right. Working tree clean.
 
 ---
 
 ## Acceptance criteria
 
-| # | Criterion | Verdict |
-|---|---|---|
-| 1 | A tree renders; a parent opens as a knowledge item with its children listed | **FAIL** (children half passes; there is no tree) |
-| 2 | Nesting and moving work and the tree keeps up | **FAIL** (API only; no human affordance) |
-| 3 | Agent nested folders → same tree; human tree → sandbox directories | **FAIL** (both halves) |
-| 4 | A team-scoped branch is invisible outside that team | **FAIL** (implementation has no caller) |
-| 5 | A task's knowledge appears on the task, never in the tree | **PARTIAL** (off-tree proven; on-task surface does not exist — plan defers the object) |
-| 6 | `topic`/`kind`/`layer`/`product`/`practice` gone from schema, interface, agent tools | **FAIL** (schema passes; interface and agent tools do not) |
+| # | Criterion | Round 1 | Now |
+|---|---|---|---|
+| 1 | A tree renders; a parent opens as a knowledge item with its children listed | FAIL | **PASS** — verified on the painted page |
+| 2 | Nesting and moving work and the tree keeps up | FAIL | **FAIL** (unchanged — API only, no human affordance) |
+| 3 | Agent nested folders → same tree; human tree → sandbox directories | FAIL | **PASS** |
+| 4 | A team-scoped branch is invisible outside that team | FAIL | **FAIL** (list + children closed; Backlinks leaks — B1) |
+| 5 | A task's knowledge appears on the task, never in the tree | PARTIAL | **PASS** (off-tree filter + `ArtifactSection` on the task page, from #547) |
+| 6 | `topic`/`kind`/`layer`/`product`/`practice` gone from schema, interface, agent tools | FAIL | **FAIL** (schema + agent tools now pass; interface does not — B3) |
 
-| Founder ruling | Verdict |
+| Founder ruling (architecture §0) | Now |
 |---|---|
-| Status is exactly `proposed \| active \| stale \| archived`, both enums collapsed, §2 mapping applied to real rows | **PASS** (with a compat shim — B11) |
-| Layer-keyed gate deleted with nothing replacing it | **PASS** |
-| Agent receives factory + its team + its own, straight off scope | **PASS** |
-| Filenames keep the id suffix | **PASS** |
-| A new directory creates its item | **PASS** (in the processor) |
-| A created item inherits its parent's scope | **FAIL** (B6 — always falls back to `factory` in production) |
-| Narrowing a parent cascades | **PASS** |
-| The three invariants run inside the write transaction | **PASS** |
+| Status is exactly `proposed \| active \| stale \| archived`, both enums collapsed, mapping applied to real rows | **PASS** — and `needs_human → proposed` is now correct (`0080_nested_knowledge_items.sql:180`) |
+| Layer-keyed gate deleted with nothing replacing it | **PASS** (carried forward) |
+| Agent receives factory + its team + its own, straight off scope | **PASS** (carried forward) |
+| Filenames keep the id suffix | **PASS** (carried forward) |
+| A new directory creates its item | **PASS** (carried forward) |
+| A created item inherits its parent's scope | **PASS** — now real, and the test can fail (B6 closed) |
+| Narrowing a parent cascades | **PASS** (carried forward) |
+| The three invariants run inside the write transaction | **PASS** (carried forward) |
+| The status shim is gone | **PASS** — `LEGACY_STATUS_TO_CURRENT` deleted, zero matches repo-wide |
 
 ---
 
 ## BLOCKING
 
-### B1 — AC1: the Knowledge list is flat. There is no tree.
+### B1 — AC4: the Backlinks card leaks every team-scoped child title. Proven on the running app.
 
-`layers/core-ui/src/pages/KnowledgeList.tsx:27-33` states it outright:
-
-> `@lore nested-knowledge-items: topic grouping … is REMOVED … The Curated tab
-> is now a flat sorted list, same rendering shape as Triage. Browsing the actual
-> tree (parent/child nesting) lives on the detail page's children list, not here.`
-
-Topic grouping was deleted (`KnowledgeTopicGroup.tsx` gone) and replaced with a
-flat `ItemList` (`KnowledgeList.tsx:421`, `:581`). The sidebar fast-nav is flat
-too (`layers/core-ui/src/layouts/AppShell.tsx:564-576` — filter, `.slice(0,5)`,
-`{id,title}`). I confirmed on the painted output: `/knowledge` renders
-Curated/Triage tabs, All/Shared/Team/Private pills and a recency sort bar — no
-expander, no indentation, no nesting affordance anywhere.
-
-**Impact:** AC1's first clause ("opens Knowledge, sees a tree") is not
-delivered. The second clause is: `ChildrenCard`
-(`layers/core-ui/src/pages/KnowledgeDetail.tsx:390-421`) renders the ordered
-children `GET /knowledge/:id` now returns
-(`layers/core-api/src/routes/knowledge.ts:333-338`).
-
-**Governing:** plan.md "Success looks like" bullet 1. plan.md's "Not in this
-item" excludes only drag-to-reorder and *the sidebar navigator's own design* —
-not the tree itself.
-
-### B2 — AC1/AC4: the tree read exists and nothing calls it.
-
-`list(db, { tree: { viewerTeamId } })`
-(`layers/core-api/knowledge/src/knowledge-repository.ts:982-985, 1059-1067`) and
-its `scopeVisibleCondition` (`:946-953`) are the only implementation of the
-depth-bounded tree read and of team visibility. I searched the whole repo:
-
-```
-rg -n "\btree:\s*\{" layers/ framework/ applications/ tools/
-→ knowledge-repository.ts (declaration) + knowledge-tree-reads.integration.test.ts (3 call sites)
-rg -n "viewerTeamId" layers/ framework/ applications/ tools/
-→ same file + same test, nothing else
-```
-
-There is no `/tree` route (`rg -n "tree" layers/core-api/src/routes/knowledge.ts`
-returns comments only). The code is reachable **only from its own test**. Under
-the standing rule that test-only-reachable code is dead, this is a
-green test proving nothing about the product.
-
-### B3 — AC4: `GET /api/knowledge` applies no team filter, and `children` applies none at all.
-
-The list route the interface actually calls uses
-`listKnowledgeItems(db, { visibleWithSignals: userId })`
-(`layers/core-api/src/routes/knowledge.ts:281`), whose only visibility predicate
-is the pre-existing Q2 one — `scope_kind != 'user' OR updatedBy = viewer`
-(`knowledge-repository.ts:1035-1046`). Team-scoped rows are returned to
-everybody.
-
-Worse, `list(db, { childrenOf: { parentId } })`
-(`knowledge-repository.ts:1024-1033`) has **no visibility filter of any kind** —
-not the team condition, not `visibleToViewer`. `GET /knowledge/:id` returns that
-array verbatim (`routes/knowledge.ts:337`) and `ChildrenCard` renders it. A
-non-member opening a factory-scoped parent sees the titles of, and links to,
-every team-scoped and every private child underneath it.
-
-**Governing:** plan.md "Success looks like" bullet 4; architecture.md §0 D2
-("Built, same rule on the human read path"); architecture.md §4 ("a team-scoped
-branch is invisible outside that team, **children included**").
-
-### B4 — AC3: a human-built tree does not arrive in the sandbox as directories.
-
-`writeOrdinaryItem` (`layers/agent-orchestration/run-orchestration/src/context.ts:794-806`)
-walks `item.parentChain` to create the ancestor directories. `parentChain` has
-**no producer anywhere in production**:
-
-```
-rg -n "parentChain" layers/core-api/ framework/api-contract/ layers/agent-orchestration/src/
-→ exit 1, zero matches
-```
-
-The only writer is `toBakedContextKnowledgeItems`
-(`framework/domain-model/src/work-intent.ts:264`) doing `item.parentChain ?? []`,
-fed by rows from `assembleSessionKnowledge` that carry no such field. So the
-chain is permanently `[]` and every ordinary item is written flat into
-`knowledge/`.
-
-The repo's own end-to-end integration test says so. `context-bundle-sandbox-byte-parity.integration.test.ts:238-246`
-drives the real assembler → real bake → real sandbox against a real DB and
-asserts:
-
-```
-expect(newKnowledgeFiles).toEqual([
-  "Factory-wide_practice_item-i12.md",
-  "The_agent_s_own_note_item-i12.md",
-  "Team-scoped_product_knowledge_item-i12.md",
-].sort());
-```
-
-— three files, no directories. And `context-bundle-consumption.test.ts:156-157`
-records the intent explicitly: *"every ordinary item (empty parentChain here)
-materialises flat into knowledge/."*
-
-Architecture §9 step 3 named this as its own task ("Bake contract
-(`BakedContextKnowledgeItem` gains the parent chain)"). The **field** landed;
-the **value** never did.
-
-### B5 — AC3: an agent writing inside an already-materialised folder mints a duplicate folder item.
-
-Two manifests describe the same file, `.fabric/manifest.json`, and they disagree:
-
-- writer — `context.ts:671-676`: `ManifestEntry = { version, source_path, format }`
-- reader — `writeback-processor.ts:93-107`: `ManifestEntry = { version, source_path, format, scopeKind: string }`
-
-They are separate structural types in separate packages, so TypeScript never
-compares them.
-
-`writeBundleKnowledge` writes a manifest entry only for **leaf items**
-(`context.ts:899-945`). Directories created by `writeOrdinaryItem` get none.
-`ensureDirectoryChainItem` (`writeback-processor.ts:216-259`) resolves a parent
-directory purely through `findItemByPath(manifest, dirRelativePath)` — a lookup
-that will always miss for a materialised directory — and on a miss it **creates a
-new knowledge item** for it.
-
-So on a real session: an agent adds `knowledge/Product/Pricing/note.md` inside a
-directory pair the materialiser wrote from the real tree; writeback creates a
-brand-new "Product" item and a brand-new "Pricing" item under it, and parents the
-note under the duplicate. It does not join the tree it was handed. AC3's first
-clause — "produces **that same** tree" — fails.
-
-(The title also does not round-trip: the materialiser slugifies via
-`toSkillDirName(ancestor.title)` (`context.ts:797`); writeback re-titles from
-`path.basename(dirRelativePath)` (`writeback-processor.ts:243`).)
-
-### B6 — D4: a created item does not inherit its parent's scope in production, and the test for it cannot fail.
-
-Because the materialiser never writes `scopeKind` into a manifest entry (B5),
-`existing.entry.scopeKind` is `undefined` for every real entry, and
-`ensureDirectoryChainItem`'s `parent?.scopeKind ?? "factory"`
-(`writeback-processor.ts:230`) plus `handleCreate`'s
-`const scopeKind = parent?.scopeKind ?? "factory"`
-(`writeback-processor.ts:396`) both resolve to `"factory"`. A file an agent
-creates inside a team-scoped folder is created **factory-scoped** — a silent
-scope widening, and a second breach of AC4 from the write side.
-
-The end-to-end test's assertion for this is inert:
+`GET /knowledge/:id` builds two lists side by side
+(`layers/core-api/src/routes/knowledge.ts:426-437`). `children` now passes
+`viewerTeamId`; `relatedItems` (`childrenAndSiblings`) does not — and the
+repository branch for it applies only the Q2 private-user predicate:
 
 ```ts
-// nested-knowledge-writeback.integration.test.ts:164
-expect(childItem[0]?.scopeKind).toBe(pricingFolderItem[0]?.scopeKind);
+// layers/core-api/knowledge/src/knowledge-repository.ts:1383-1392
+.where(and(or(siblingCondition, childCondition), ne(knowledgeItems.id, itemId),
+           visibleToViewer(viewerUserId)))
 ```
 
-The test's own stub writer defaults `scopeKind: input.scopeKind ?? "factory"`
-(`:71`), and both rows in that test are created in the same fresh sandbox, so
-both are `"factory"`. The assertion reads `"factory" === "factory"` and would
-still pass with scope propagation deleted entirely.
+`scopeVisibleCondition` (`:1195`) is absent. `humanVisibleCondition` (`:1210`)
+is the combined rule and is used by `{tree}` and `{childrenOf}` only.
 
-### B7 — the end-to-end evidence proves the middle of the wire, not the wire.
+Live, against a real seeded database, as `demo-founder` (`teamId = null`):
 
-Architecture §10 required "a service integration test driving real files into a
-real sandbox against a real database … This is the **watcher → writeback →
-repository** wire, and it is the one most likely to break silently."
-
-`layers/agent-orchestration/run-orchestration/src/__tests__/nested-knowledge-writeback.integration.test.ts`
-delivers real files, a real temp sandbox, a real PGlite database and the real
-`createWritebackProcessor()`. It passes (I ran it). But:
-
-- **The watcher is absent.** Every change event is hand-written as a literal
-  (`:144`, `:180-186`, `:205-216`, …). `file-watcher.ts` — including the
-  directory reporting this item changed at `file-watcher.ts:114` — is never
-  invoked.
-- **The repository is replaced.** `makeRealDbKnowledgeWriter` (`:59-118`) is a
-  hand-rolled Drizzle adapter written inside the test file. It bypasses
-  `knowledge-repository.ts` entirely: no `assertParentInvariants`, no
-  `nextPositionForParent`, no edit-log row, no `reparent()` transaction, no
-  route, no port. The header calls it "a deliberate, discretionary test-only
-  seam"; the effect is that the two ends of the named wire are stand-ins.
-
-Combined with B4/B5/B6, this test is precisely why three production defects on
-the same path shipped green.
-
-### B8 — AC6: `topic` is still in a live agent tool.
-
-`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts:1076-1080`:
-
-```ts
-const splitKnowledgeItemSchema = z.object({
-	title: z.string().min(1),
-	body: z.string().min(1),
-	topic: z.string().optional(),
-});
+```
+GET /api/knowledge/ki-mig-root-product
+  children:     []                       ← correctly filtered
+  relatedItems: 8 team-scoped titles     ← "Decision: two-tier pricing structure",
+                                           "Annual discount policy — needs founder sign-off", …
 ```
 
-and `layers/agent-orchestration/tool-handlers/src/ports.ts:496-502` still
-declares `readonly topic?: string`. The api-contract on the other side of the
-seam **removed** it (`framework/api-contract/src/core-api-port.ts`, `newItems`
-lost `topic?: string`), so a `topic` an agent supplies is now accepted by the
-schema and silently discarded. AC6 names agent tools explicitly.
+`demo-ki-two-tier-pricing` is `scopeKind=team`, `scopeId=demo-team-acme`. I
+looked at the painted page: the Product detail page renders **no** Children
+card and a **Backlinks** card listing all eight of them, as clickable links.
+This is round 1's B3 closed on one card and left open on the card directly
+below it.
 
-Same tool's description (`:1098`) still says "each new item starts in **draft**"
-— a status that no longer exists.
+**Governing:** plan.md "Success looks like" bullet 4; architecture §0 D2 and §4
+("a team-scoped branch is invisible outside that team, children included").
 
-### B9 — AC6: `kind`, `topic`, `layer`, `practice`, `product` are still in the interface.
+### B2 — AC2: no human can nest or move a knowledge item. Unchanged, not attempted.
 
-- `layers/core-ui/src/pages/KnowledgeDetail.tsx:1131-1134` renders a **"Kind"**
-  row in the Metadata card. Against real API data `item.kind` is now always
-  undefined, so the shipping detail page shows a permanent `Kind —` row for a
-  vocabulary that was deleted.
-- `KnowledgeDetail.tsx:896` still emits a breadcrumb segment from `item.topic`.
-- `KnowledgeDetail.tsx:292-296` still computes `byTopic` related items.
-- `layers/core-ui/src/fixtures/knowledge-data.ts` — a **production** file by
-  CLAUDE.md's own world rule (no `__` segment, under `layers/`) — still carries
-  `layer: string`, `kind: string`, `topic: string` and `scope: "practice"` /
-  `"product"` on every row (`:28-31`, `:82`, `:139-145`, `:182-188` …). The diff
-  only widened the types from the deleted unions to `string`. That is the
-  definition of deprecating rather than deleting.
-- `framework/domain-model/src/knowledge.ts:22-23` still exports
-  `KNOWLEDGE_TOPIC_HEALTHS` / `KnowledgeTopicHealth`, alive only for that
-  fixture's `deriveTopicHealth` and a test.
-
-### B10 — in-flight `agent_work_intents.baked_request_json` crashes on drain.
-
-Architecture §7 named this and gave a direct instruction: *"CLAUDE.md rule 2
-requires all data to move in the same change: either drain the queue as a
-migration step or rewrite the persisted payloads. **Name which, and do it.**"*
-Neither was done — `git diff origin/main...HEAD | rg baked_request_json` matches
-only the architecture document itself.
-
-`layers/agent-orchestration/session-requests/src/service.ts:563-566` parses the
-stored payload with a raw cast and no re-bake:
-
-```ts
-return JSON.parse(intent.bakedRequestJson) as BakedWorkIntentRequest;
-```
-
-A row persisted before this branch has knowledge items with `layer` and **no**
-`parentChain`. `writeBundleKnowledge` now falls through to
-`writeOrdinaryItem` unconditionally (`context.ts:938`), whose first statement is
-`for (const ancestor of item.parentChain)` (`:797`) — `TypeError: undefined is
-not iterable`. Context assembly for that intent dies.
-
-The pre-change behaviour for the same drift was a `logger.warn` and a skip
-(`context.ts:924-931`, deleted in this diff). The upgrade path got strictly
-worse than architecture §7 predicted.
-
-### B11 — a status compat shim survives a destructive migration.
-
-`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts:879-905`:
-
-```ts
-const LEGACY_STATUS_TO_CURRENT: Readonly<Record<string, KnowledgeStatus>> = {
-	draft: "proposed", captured: "proposed", provisional: "proposed",
-	proposed: "proposed", validated: "active", active: "active",
-	stale: "stale", archived: "archived", needs_human: "archived",
-};
-```
-
-plus the CAS comment at `:944-947` explaining that `fromStatus: row.status`
-passes the **literal legacy value** so an "unmigrated `captured` row" compares
-correctly. Migration `0078` step 9
-(`framework/db/drizzle/0078_nested_knowledge_items.sql:171-181`) converts every
-row; there is no unmigrated read. This is handling for a state that cannot
-occur.
-
-**Governing:** CLAUDE.md ABSOLUTE RULE 2 — "no compat layer, alias, shim,
-dual-write or dead code left behind". Small to remove; blocking by the letter of
-a rule the project calls non-negotiable.
-
-### B12 — an illegal move returns 500, and the accompanying edit is already committed.
-
-`reparent()` throws plain `Error`s: `"…would create a cycle"`,
-`"…is wider than parent scope…"`, `"…would exceed the maximum of 32"`,
-`"…parent knowledge item X does not exist"`
-(`knowledge-repository.ts:110-131`). `PATCH /knowledge/:id` catches only
-`VersionConflictError` and `ItemDeletedError`
-(`layers/core-api/src/routes/knowledge.ts:508-524`) and rethrows. The global
-handler (`layers/core-api/src/middleware/error-handler.ts`) maps none of those
-messages — no `"not found"` substring, no mapped `name` — so the caller gets
-**500 `{"error":"Internal server error"}`**.
-
-Architecture §3: *"Violations are refused with a **4xx naming the rule**."*
-plan.md: *"A move that breaks one of the three rules is refused outright and
-reported back."* Neither holds.
-
-Compounding it: the route runs `updateKnowledgeItem(...)` **before**
-`reparentKnowledgeItem(...)` (`routes/knowledge.ts:487-506`), in two separate
-transactions. A PATCH that changes the title and an illegal parent together
-commits the title change and bumps the version, then 500s. The refusal is
-partial, which is exactly the "recorded and repaired" outcome the plan rejects.
-
-No test covers the HTTP path for a rejected move — the invariant tests call
-`create`/`reparent` directly.
-
-### B13 — parent existence is never validated at the API boundary.
-
-plan.md states this as the accepted cost of the polymorphic parent:
-
-> *"Accepted cost: the parent is no longer a plain foreign key, so existence is
-> validated at the API boundary."*
-
-Architecture §8 repeats it for `POST`/`PATCH /api/knowledge` and prescribes
-"validating existence through the owning service … before the write
-transaction".
-
-Neither route does. `POST` checks only pairing
-(`routes/knowledge.ts:381-387`); `PATCH` checks only pairing and null-symmetry
-(`:469-484`). `assertParentInvariants` validates existence **only** when
-`parentKind === 'knowledge_item'` (`knowledge-repository.ts:404`, `:513`). A
-caller may write `parentKind: 'task'` with any string and it is stored.
-`work`/`conversation`/`routine`/`agent` are never consulted.
-
-### B14 — the item id leaks into code outside `.pipeline/**`.
-
-166 occurrences of `nested-knowledge-items` outside `.pipeline/**` in non-markdown
-files. 132 are `@lore` tags (exempt under the standing rule). **34 are not**,
-including five in production files:
-
-- `tools/repo-gates/src/design-profile-census.ts:44`
-- `layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx:51`
-- `layers/core-ui/src/ds/status-mapping.ts:31`
-- `layers/core-ui/src/pages/KnowledgeDetail.tsx:1201`
-- `layers/core-ui/src/hooks/useKnowledgeItem.ts:36`
-
-and 29 in test headers and `describe(...)` strings (e.g.
-`knowledge-tree-invariants.integration.test.ts:29`,
-`migration-0078-nested-knowledge-brownfield.integration.test.ts:90`,
-`nested-knowledge-writeback.integration.test.ts:131`). The migration **filename**
-also carries it: `framework/db/drizzle/0078_nested_knowledge_items.sql`.
-
-Reproduce:
-`rg -n "nested-knowledge-items" --glob '!.pipeline/**' -g '!*.md' . | rg -v "@lore"`
-
-### B15 — AC2: no human can nest or move a knowledge item.
-
-`rg -n "parentId|parentKind" layers/core-ui/src --glob '!__tests__'` returns four
-hits, all read-side filters (`AppShell.tsx:558-571`, `KnowledgeList.tsx:127`,
-`:694-696`). There is no parent picker on the create page, no "Move" action on
-the detail page, no drop target, no breadcrumb-based reparent. The capability
-exists on `PATCH /knowledge/:id` and is exercised only by tests and by writeback.
+`rg -n "parentId|parentKind" layers/core-ui/src --glob '!**/__tests__/**'`
+returns read-side filters only (`KnowledgeList.tsx:113-116, 760-762`) plus the
+two `ArtifactSection` mount points that pass a task/thread id. The detail
+page's overflow menu is `Change scope` / `Archive` / `Promote to task`
+(`KnowledgeDetail.tsx:486, 494, 502`) — no Move. `KnowledgeCreate.tsx` has no
+parent field. `POST /:id/graduate` exists on the server (from #547) and has no
+caller in `core-ui`.
 
 plan.md AC2 is "**A person** can nest and move knowledge items, and the tree
-keeps up." The "Not in this item" list excludes drag-to-*reorder*, which is a
-different thing from nesting and moving at all.
+keeps up." "Not in this item" excludes drag-to-*reorder*, which is a different
+thing from being able to nest or move at all. Round 1 escalated this as a
+scope question; it came back unanswered and unbuilt.
 
-### B16 — the visual gate architecture §10 booked was never run.
+### B3 — AC6: retired vocabulary is still live in the production interface.
 
-Architecture §10: *"replacing a topic-grouped list with a tree is visually novel
+AC6 says these words are **gone, not deprecated**.
+
+- `layers/core-ui/src/fixtures/knowledge-data.ts` is a **production-world**
+  file by CLAUDE.md's own rule (under `layers/`, no `__` segment) and is
+  imported by the shipping page (`KnowledgeDetail.tsx:68`). It still declares
+  `layer: string` (`:25`), `kind: string` (`:26`), `topic: string` (`:30`) and
+  populates them on every row (`:77-82`, `:95-100`, …), including
+  `scope: "practice"` ×5 and `scope: "product"` ×3 (`:118-212`).
+- `framework/domain-model/src/knowledge.ts:22-23` still exports
+  `KNOWLEDGE_TOPIC_HEALTHS` / `KnowledgeTopicHealth`, re-exported from the
+  package index (`index.ts:102, 112`), alive only for that fixture's
+  `deriveTopicHealth`.
+- `KnowledgeDetail.tsx:436` still ships the user-visible string "Related and
+  **same-topic** items will appear here."
+
+The fix cycle called this "a legacy fixture path, wider blast radius". The
+blast radius is the argument for a follow-up, not for the AC being met — and
+the governance ledger already records this file as production-path-really-
+development whose fix "is the API, not a relocation", which is a different
+open problem, not a licence to keep the deleted words.
+
+The other half of round 1's B9 **is** closed and I verified it on the painted
+page: no "Kind" row in the Metadata card, no topic breadcrumb, no `byTopic`
+related list.
+
+### B4 — the item id is still in code outside `.pipeline/**`.
+
+29 non-`@lore` occurrences remain, all in development-world test files:
+
+```
+rg -n "nested-knowledge-items" --glob '!.pipeline/**' -g '!*.md' -g '!**/dist/**' . | rg -v "@lore"
+→ 29 hits across 22 files
+```
+
+e.g. `knowledge-tree-invariants.integration.test.ts:2, :29`,
+`nested-knowledge-status-collapse.test.ts:2, :17`,
+`scope-kinds.test.ts:22`, `KnowledgeList.parent-rule.test.tsx:2`,
+`tool-registry.integration.test.ts:25, :101, :139, :155`.
+
+Five **filenames** also carry it: `framework/db/drizzle/0080_nested_knowledge_items.sql`,
+`migration-0080-nested-knowledge-brownfield.integration.test.ts`,
+`nested-knowledge-status-collapse.test.ts`,
+`nested-knowledge-parent-chain.integration.test.ts`,
+`nested-knowledge-materialisation.test.ts`.
+
+The five production-file leaks round 1 named **are** closed (`status-mapping.ts`,
+`useKnowledgeItem.ts`, `KnowledgeDetail.tsx`, `ScopeChangeDialog.tsx`,
+`design-profile-census.ts` — each now an `@lore` tag, which is exempt). The
+standing rule has no development-world carve-out: ids live in `.pipeline/**`
+and nowhere else.
+
+### B5 — the founder live-render review architecture §10 booked was never held.
+
+Architecture §10: "replacing a topic-grouped list with a tree is visually novel
 and high-exposure, so `.claude/rules/visual-regression.md` makes founder review
 of the live render the primary gate. **Book it before the interface work is
-called done.**"* `.pipeline/work/nested-knowledge-items/` contains no design or
-review artifact, and no `plans/nested-knowledge-items/` folder exists. The rule's
-own non-negotiable — "Never claim a UI change is done without looking at the
-painted output" — is unmet for a change that rewrote `KnowledgeList.tsx`
-(370 lines), `KnowledgeDetail.tsx` and deleted `KnowledgeTopicGroup.tsx`.
+called done.**" `.pipeline/work/nested-knowledge-items/` still holds only
+plan/architecture/critique/feasibility/review/checks-log. No design artifact,
+no recorded review.
+
+I drove the app and looked at it myself, and I report what I saw below — that
+is reviewer evidence, not the founder gate. The rule is explicit that nothing
+substitutes for it.
 
 ---
 
 ## NON-BLOCKING DEFECTS
 
-### N1 — `position` is never assigned in the migration.
+### N1 — the triage badge counts items the triage list cannot show. Live-proven.
 
-Architecture §7 closes with *"`position` is assigned by `created_at` within each
-new parent."* `0078` adds the column with `DEFAULT 0`
-(`0078_nested_knowledge_items.sql:24`) and never runs an assignment. Every
-migrated row is `position = 0`; ordering falls through to `title`
-(`knowledge-repository.ts:1032`, `:1065`). The brownfield test asserts only that
-the column exists (`migration-0078-…test.ts:305-309`).
+`count({triageVisible})` (`knowledge-repository.ts:1420-1433`) filters
+`status='proposed' AND role='ordinary' AND visibleToViewer` — it gained
+neither `parentIsKnowledgeItemOrRoot()` nor the team-scope condition that
+`list({tree})` gained. On the running app:
 
-### N2 — the migration does not convert residual scope values.
+```
+GET /api/knowledge/triage-count → {"count":7}
+GET /api/knowledge              → 6 proposed items
+```
 
-`0078` step 10's stated job includes "convert any residual scope value"
-(architecture §7). The SQL drops the three columns and stops
-(`0078_…sql:184-190`). Every reparenting step is scoped to `role = 'ordinary'`
-(correctly — that is what protects `0077`'s rows), so any `skill`/`rule`/
-`prompt`/`agent_file` row carrying `product`/`practice`/`task` scope survives
-with a scope kind TypeScript no longer admits. `scope_kind` has no CHECK
-constraint, so nothing catches it. The population is probably empty today; the
-guard the migration uses elsewhere (`RAISE EXCEPTION`) is the honest way to prove
-it.
+The sidebar badge shows **7** while the Triage tab shows **6** rows — a count
+the user cannot clear. Before this change both reads used the same predicate;
+this is a regression the change introduced. It is also a (weak) second-order
+AC4 signal: the extra unit is an item the viewer is not allowed to see.
 
-### N3 — the triage badge and the triage list now disagree.
+### N2 — `position` is still never assigned by the migration.
 
-`list({visibleWithSignals})` gained `parentIsKnowledgeItemOrRoot()`
-(`knowledge-repository.ts:1045`); `count({triageVisible})` did not
-(`:1126-1138`). After `0078` every former task-scoped row is `parent_kind='task'`
-and every `captured`/`draft` row is `proposed`, so such rows now increment the
-sidebar badge while appearing in neither Triage nor Curated — a count the user
-cannot clear. That is the exact class of bug the `role = 'ordinary'` filter on
-the same function was added to close (`:1115-1119`).
+Architecture §7 closes with "`position` is assigned by `created_at` within each
+new parent." `0080_nested_knowledge_items.sql:29` adds the column with
+`DEFAULT 0` and no assignment step exists. Every migrated row is `0`; ordering
+falls through to `title` (`knowledge-repository.ts:1315`, `:1394`). Carried
+forward from round 1 N1, unaddressed.
+
+### N3 — the migration still does not convert residual scope values.
+
+`0080` step 10 drops the three columns and stops (`:189-196`). Every
+reparenting step is scoped to `role = 'ordinary'` (correctly), so a
+`skill`/`rule`/`prompt`/`agent_file` row carrying `product`/`practice`/`task`
+scope survives with a value TypeScript no longer admits and no CHECK
+constraint to catch. Carried forward from round 1 N2.
 
 ### N4 — invariant 2 is still breachable from the child's own scope edit.
 
-D5 closed the parent side (`cascadeScopeNarrowing`,
-`knowledge-repository.ts:159-195`, called at `:719-721`). The child side is open:
-`update()` accepts `scopeKind` through `KERNEL_EDITABLE_FIELDS`
-(`:573-581`) and never checks the item's own new scope against its parent's. A
-`PATCH {scopeKind: "factory"}` on a `team`-scoped child of a `team`-scoped parent
-produces a factory-visible node under an invisible one. `reparent()` checks this;
-`update()` does not.
+`update()` runs `cascadeScopeNarrowing` downward (`knowledge-repository.ts:742,
+:772`) and never compares the item's **own** new scope to its parent's.
+`PATCH {scopeKind:"factory"}` on a `team`-scoped child of a `team`-scoped
+parent still produces a factory-visible node under an invisible one.
+`reparent()` checks this; `update()` does not. Carried forward from round 1 N4.
 
 ### N5 — the cross-scope repetition signal was approximated, not deleted.
 
-plan.md: *"The cross-scope repetition signal is deleted rather than approximated;
-without `topic` there is no honest version of it."* Architecture §4 repeats it
-verbatim. `layers/core-api/knowledge/src/attention-scoring.ts:48`, `:66-68`,
-`:89-97` keep it, re-keyed on `(parentKind, parentId)`. Contained (nothing
-renders an attention score) but it is the opposite of the approved decision.
+plan.md and architecture §4 both say it is "deleted rather than approximated;
+without `topic` there is no honest version of it."
+`layers/core-api/knowledge/src/attention-scoring.ts:48, :67-69, :84-85` keep
+it, re-keyed on `(parentKind, parentId)`. Contained — nothing renders an
+attention score — but it is the opposite of an approved decision, stated twice.
+Carried forward from round 1 N5.
 
-### N6 — two identical status enums where the architecture said one.
+### N6 — two byte-identical status enums where architecture §2 said one.
 
-Architecture §2: *"Both enums collapse into one."* `KNOWLEDGE_STATUSES`
-(`framework/domain-model/src/knowledge.ts:11`) and `KERNEL_KNOWLEDGE_STATUSES`
-(`framework/domain-model/src/types.ts:60`) are now two exported constants with
-byte-identical members and two type aliases over them.
+`KNOWLEDGE_STATUSES` (`framework/domain-model/src/knowledge.ts:12`) and
+`KERNEL_KNOWLEDGE_STATUSES` (`types.ts:61`) now hold the same four members and
+are both exported. Carried forward from round 1 N6.
 
-### N7 — dead topic vocabulary kept alive by a test.
+### N7 — a live eval prompt still asks the agent about L2/L3/L4.
 
-`deriveTopicHealth` and `MOCK_KNOWLEDGE_ITEMS`
-(`layers/core-ui/src/fixtures/knowledge-data.ts:282`, `:72`) have no production
-reader other than `KnowledgeDetail`'s fixture fallback.
-`layers/core-ui/src/__tests__/knowledge-data.test.ts:10-17, 53, 61` asserts on
-`scope === "practice"` — a value AC6 deletes. Test-only-reachable code is dead
-code by the project's own standing rule.
+`tools/eval/src/scenarios/assembled-knowledge.ts:39-43, :58` instructs the
+agent to "Note which knowledge layer each came from (L2, L3, or L4)" against a
+store where layers do not exist. Carried forward from round 1 N8.
 
-### N8 — a live eval prompt still asks the agent about L2/L3/L4.
+### N8 — agent-facing persona prompts still teach the deleted layer vocabulary.
 
-`tools/eval/src/scenarios/assembled-knowledge.ts:41-43` and `:58` instruct the
-agent to *"Note which knowledge layer each came from (L2, L3, or L4)"* against a
-context assembled from a store where layers no longer exist. The seeding in the
-same file was migrated to `team`/`factory`; the prompt was not. Comments at
-`:63`, `:72`, `:80` are stale for the same reason.
+`plugins/role-personas/personas/product-manager.md:26` ("Capture L2
+facilitation-level learnings via `write_memory`") and
+`facilitator.md:10, :15` ("organize the L3 practice knowledge"). `write_memory`
+no longer accepts `layer` at all. New finding — these are shipped prompts an
+agent reads, and this change is what made them false.
 
-### N9 — stale comments describing deleted behaviour.
+### N9 — `KnowledgeList.tsx`'s own header contradicts its body.
 
-- `framework/domain-model/src/types.ts:144` — "maps scope_kind → layer via `scopeToLayer()`".
-- `knowledge-repository.ts:1111`, `:1117` — "draft + needs_human" (the code reads `proposed`).
-- `layers/core-ui/src/shell/Sidebar.tsx:113` — "draft + needs_human".
-- `tools/setup/src/demo-world/knowledge.ts:116`, `:207` — "Product scope (L2)", "Practice scope (L3)".
-- `tool-definitions.ts:1098` — `split_knowledge` "starts in draft".
+`:27-32` still states "The Curated tab is now a flat sorted list… Browsing the
+actual tree (parent/child nesting) lives on the detail page's children list,
+**not here**." Sixty lines below, `:94-96` and `:253` build and render the
+tree. A reader who trusts the header learns the wrong thing about the file the
+tree was just added to.
+
+### N10 — `docs/` now describes a model that does not exist.
+
+Architecture §11 names five pages made false and says `/pipeline:write-docs` is
+not optional here. `git diff <merge-base>...HEAD -- docs/` is **empty**;
+`docs/knowledge-architecture/the-five-layers.md` and its neighbours still teach
+L0–L4, topic cohorts and practice communities. Not a retry-loop blocker if the
+orchestrator routes the docs phase, but it must close before this ships —
+`docs/` is declared ground truth.
+
+### N11 — a public package export widened for a test only.
+
+`createWritebackProcessor` was made public on `@hyperidle/run-orchestration`
+(`src/index.ts:92-103`) solely so the new e2e test can reach it from
+`core-api`. The reasoning in the `@lore` is sound (the import edge leaves no
+other legal home) and the function itself has an in-package production caller —
+but the *public surface* is now test-only reachable. Worth a conscious nod
+rather than a silent widening.
 
 ---
 
 ## FOLLOW-UP / NOTES
 
-- **AC5's on-task half.** There is no surface anywhere that lists a task's
-  knowledge children (`rg -ni knowledge layers/core-ui/src/pages/WorkTaskPage.tsx`
-  finds only a header comment). plan.md defers *what that object is* to the
-  artifact/knowledge strand, so I read the display surface as out of scope here —
-  but the AC as written is not fully met, and that is the founder's call, not
-  mine.
-- **`factory` scope with a non-null `scope_id`.** `0078` step 7 sets
-  `scope_kind='factory'` on task-scoped rows while leaving `scope_id` = the task
-  id (`0078_…sql:163-167`). It happens to keep those rows out of every agent's
-  bundle, because `fetchOrdinaryItemsByScope(db,"factory",null)` requires
-  `scope_id IS NULL` (`session-knowledge-assembler.ts:250`). That is a lucky
-  interaction, not a stated invariant; a later reader will not know it is load
-  bearing.
-- **`0078` status conversion uses `ELSE status`** (`:180`), so an unrecognised
-  status survives unchanged. All nine known values are mapped, and `status` has
-  no CHECK constraint to catch a straggler either way.
+- **Two transactions still bracket a PATCH that both moves and edits.**
+  `reparent` now runs first (`routes/knowledge.ts:618-635`), which is the right
+  order and closes round 1's B12 half-commit: an illegal move refuses the whole
+  PATCH. `reparent` does not bump `version` (`applyParentMove` is called
+  without `versionBump`, `knowledge-repository.ts:586`), so the following
+  `update()` still matches. A failure *between* them would still leave the move
+  committed and the field edit not. Narrow, and outside what the architecture
+  demanded.
+- **The tree read is a flat SELECT, not the recursive CTE architecture §4
+  describes** (`knowledge-repository.ts:1349-1358`), with the tree assembled
+  client-side and a depth-32 backstop there (`KnowledgeList.tsx:126`). Same
+  outcome, less machinery — a good deviation, but it means the depth bound is
+  not enforced server-side.
+- **`routine`/`agent` parent existence is still unvalidated in PATCH**
+  (`routes/knowledge.ts:596-611` validates `task`/`thread` only). The comment
+  reasons it from `CLIENT_WRITABLE_PARENT_KINDS`; I checked and those kinds are
+  written by core-api's own routes today. Acceptable to ship: the surface is
+  not client-reachable, and the no-FK design already permits a dangling parent.
+- **Backlinks duplicates the Children card.** On a parent, the two cards render
+  overlapping content (children appear in both) — architecture §4 asked for
+  children ∪ siblings, so this is per spec, but on a real page it reads as the
+  same list twice.
+- **Row excerpts are not indented with their titles.** The tree indent is
+  applied to the title span only (`KnowledgeList.tsx:644`), so every subtitle
+  starts at the same x as a root title. Visible on the painted page: the
+  indentation reads as ragged rather than as a hierarchy.
 
 ---
 
 ## What is genuinely good
 
-Reported in full, because it is a large share of the change and it holds up.
+Reported in full, because most of the fix cycle holds up.
 
-- **Migration `0078` is correct on every risk that was called out.** I read the
-  SQL line by line and ran the brownfield test, which builds its pre-state from
-  the **real** migrations 0..77 and then applies the real `0078`
-  (`migration-0078-nested-knowledge-brownfield.integration.test.ts:47-58`). Every
-  reparenting step is scoped to `role = 'ordinary'` and `parent_kind IS NULL`
-  (`0078_…sql:48, 61, 72, 84, 90, 113, 119, 129, 138, 144, 167`), so `0077`'s
-  agent identities (`role='agent_file'`) and routine prompts (`role='prompt'`,
-  set at `0077…sql:66`) keep the parent they were given — asserted at
-  `…test.ts:280-285`. `product` rows keep `scope_id` (`:109-113`, asserted
-  `:223-227`). Practice rows keep their topic as an item beneath their practice
-  (`:69-84`, asserted `:238-243`). The task backfill is guarded with a
-  `RAISE EXCEPTION` (`:151-161`), and a practice row with no `scope_id` is
-  refused rather than dumped in General (`:95-103`) — a good call the
-  architecture did not ask for.
-- **The three invariants really do run inside the write transaction.**
-  `assertParentInvariants` takes the `tx` executor and is called from inside
-  `db.transaction` in both `create` (`knowledge-repository.ts:398-406`) and
-  `reparent` (`:495-519`); `reparent` additionally runs at
-  `{ isolationLevel: "serializable" }` (`:554`). The concurrency argument in
-  architecture §3 is honoured, not just cited.
-- **The table-ownership crossing is closed.** `writeback-processor.ts` no longer
-  touches `knowledgeItems`/`knowledgeEditLog` anywhere — the only occurrences left
-  are in `@lore` comments explaining the removal. The move now rides
-  `reparentKnowledgeItem` on the api-contract seam
-  (`framework/api-contract/src/core-api-port.ts`, `ReparentKnowledgeItemRequest`).
-  I scanned every changed non-knowledge production file for the five
-  knowledge-owned tables; nothing crosses.
-- **The layer-keyed gate is gone with nothing behind it.**
-  `NON_FACILITATOR_MAX_LAYER`, `FACILITATOR_ROLES` and the role lookup are
-  deleted outright (`tool-definitions.ts`, removed at the old `:231-266`), with a
-  comment recording it as a decision. `query_practice` is deleted, its port
-  method `search` with it.
-- **D1 is exactly what the founder said.** `assembleSessionKnowledge`
-  (`session-knowledge-assembler.ts:364-391`) fetches factory + team + own by
-  scope, with a team-less agent getting no team items rather than every team's.
-- **The promotion-sweep degeneration is genuinely fixed**, not papered over — the
-  `(layer, topic, kind)` signature becomes the sibling set
-  (`promotion-pipeline.ts:94-135`), which is what stops a scheduled sweep
-  mass-promoting the store.
-- **The status collapse is complete at the data layer** — both enums, the
-  transition table (`tool-definitions.ts:906-911`), the route default, the
-  writeback default, the UI mapping, and a real data conversion in `0078`.
-- **The frozen red-phase tests were not bent.** I diffed all eight files
-  `9766c84b9..HEAD`. Seven contain only `@ts-expect-error` removals and removal
-  of the dead `layer: null` argument. The eighth
-  (`nested-knowledge-writeback.integration.test.ts`) has a stub-shape update
-  (`scopeKind`/`parentKind`/`parentId`/`reparentKnowledgeItem`, projection insert)
-  and one **added** test. No assertion was weakened, none deleted. The founder's
-  own check was right.
-- **`CreateKnowledgeItemInput.layer` really is gone** (commit `9a94cd41c`), and I
-  found no second field of that kind on the create/update inputs.
-- **Both suites are green and I ran them**, not read a report: 5362 unit/component
-  tests and 2247 service-integration tests.
+- **The tree renders, and I looked at it.** `/knowledge` → Curated, against a
+  freshly migrated + demo-seeded database: `General` → `└ This quarter's focus`;
+  `Practices` → `└ builder practice` → `└ Session notes are the handoff
+  contract`. Three levels, DFS order, 18px per level, capped at 6
+  (`KnowledgeList.tsx:637`). `buildKnowledgeTree` (`:108-131`) promotes an item
+  whose parent is not in the array to a root rather than dropping it, and
+  `KnowledgeList.tree.test.tsx` asserts DOM order *and* the padding, so the
+  component test can fail.
+- **The detail page renders its children, and I looked at that too.**
+  `ki-mig-root-practices` shows a CHILDREN card with all eight practice
+  folders, and no "Kind" row anywhere.
+- **`list({tree})` has a real production caller.** `routes/knowledge.ts:374-375`,
+  with the viewer's team resolved through the owning service
+  (`resolveViewerTeamId` → `findUser`, `:121-124`) — no join into `users` from
+  the knowledge repository, so the table-ownership rule holds.
+- **The team-visibility test is honest.** `knowledge.team-visibility.integration.test.ts`
+  drives the real HTTP route with two real users in two real teams and asserts
+  **both** directions — the outsider does not see it, the member does. That
+  second assertion is what makes the first one mean something.
+- **The new e2e test is real, and I ran it both ways.** It wires the actual
+  `create`/`update`/`recordConflict`/`reparent` from `@hyperidle/knowledge`
+  into the actual `createWritebackProcessor` against a real PGlite database and
+  real files on disk. The scope assertion now compares a genuinely `team`-scoped
+  parent against a child that would default to `"factory"` — the two sides come
+  from different sources, so it can fail (and would fail either on the value or
+  on the scope-too-wide invariant). It also asserts a real
+  `knowledge_edit_log` row with `field='parent'`, which the old hand-rolled
+  stub could never produce, and includes a cycle refusal *and* a legal-move
+  success as a positive control. The gated `HYPERIDLE_REAL_FS_WATCH_TESTS=1`
+  block is not decorative: I ran it, the real `startWatcher` picked up a real
+  file write and the row landed in the real database. Gating it is what
+  `.claude/rules/testing.md` explicitly asks for.
+- **`parentChain` has a real producer.** `resolveParentChain`
+  (`knowledge-repository.ts:1161-1191`) walks ancestors root-first and stops at
+  the first non-`knowledge_item` parent, exactly as architecture §3 requires;
+  `assembleSessionKnowledge:404-409` attaches it to every ranked ordinary item
+  at bake time, with capability items carrying `[]` by role. Both are covered
+  against a real DB (`nested-knowledge-parent-chain.integration.test.ts`,
+  including the task-parented stop case).
+- **The manifest is one type now.** `manifest-types.ts` is imported by both the
+  writer (`context.ts:12`) and the reader (`writeback-processor.ts:7`), so the
+  two shapes are compared by the compiler. `writeOrdinaryItem:794-801` writes an
+  entry per ancestor directory carrying its real `scopeKind`, which is what
+  stops writeback minting a duplicate folder item, and
+  `nested-knowledge-materialisation.test.ts` proves it against real files with
+  poisoned ports (so a DB read inside `writeContextBundle` fails the test).
+- **The drain crash is closed by a migration step, not a shim.** `0080:209-224`
+  fails any `pending`/`claimed` intent whose baked bundle has an item without
+  `parentChain`, with a named error code, and
+  `migration-0080-stale-baked-intents.integration.test.ts` covers it.
+- **`needs_human → proposed`** at `0080:180` — the founder-caught inversion is
+  fixed, and the brownfield test (which builds its pre-state from the real
+  migrations 0..79) passes.
+- **An illegal move is now a 4xx naming the rule.** `InvalidReparentError`
+  carries a `rule` discriminant (`errors.ts`), the route maps it to 400 with
+  `details.rule` (`routes/knowledge.ts:643-650`), and `reparent` runs *before*
+  `update` so nothing half-commits. The test asserts the status band, the rule
+  name, and that title/version/parent are all untouched afterwards.
+- **`topic` is gone from the agent tools.** `split_knowledge`'s schema and
+  `ports.ts` no longer carry it; the only matches left are `@lore` comments
+  recording the deletion. The `draft` reference in the tool description is gone
+  too.
+- **`LEGACY_STATUS_TO_CURRENT` is deleted** — zero matches repo-wide.
+- **The design-profile census was updated honestly, not silenced.** `+1
+  metadata` for the tree-indent marker, `-2 small` / `-1 thin` for the deleted
+  Kind row — each matches what I saw change on the painted page.
+- **No scope excess.** The fix cycle's production delta is ~750 lines across 21
+  files; the rest of the ~2000 is tests. I traced each production file to a
+  named round-1 finding. The `?parentKind&parentId` list endpoint and
+  `POST /:id/graduate` are **upstream** (#547), not additions here. Nothing in
+  the delta is capability nobody asked for.
+- **No test was bent.** The only test assertion deleted in the fix cycle is
+  W3's "Kind field" check (`4ba4275f1`), which asserted the presence of a row
+  AC6 deletes — deleting it is the AC, not an accommodation. Every other test
+  change is an addition or a shape update forced by a real contract change.
 
 ---
 
 ## Escalations for the orchestrator
 
-1. **B1/B15 are scope questions, not bugs.** The plan's ACs ask for a tree in the
-   interface and a human nest/move affordance. The implementation delivered the
-   data model and the detail-page children list and stopped. Either the ACs are
-   met by building those surfaces, or the founder amends the ACs explicitly.
-   Neither is mine to decide, and a silent cut is not available.
-2. **B4/B5/B6 are one shape of defect** — the bake contract and the sandbox
-   manifest are each missing exactly one field the other end already expects
-   (`parentChain`, `scopeKind`), plus a missing manifest entry per directory.
-   They should be fixed together, and B7 should be fixed with them, or the next
-   green will be as hollow as this one.
-3. **B16 needs the founder personally.** No agent can substitute for the live-render
-   review the architecture booked.
+1. **B2 is still the founder's call, and it came back untouched.** Either the
+   nest/move affordance gets built, or AC2 is amended in writing. A second
+   silent pass over it is not available.
+2. **B1 is a one-line omission with a user-visible consequence** — pass
+   `viewerTeamId` into `childrenAndSiblings` and use `humanVisibleCondition`,
+   the way `childrenOf` already does. It should not need a round of its own,
+   but it does need one.
+3. **B5 needs the founder personally.** I drove the app and can report the tree
+   renders correctly; I cannot hold the review the architecture booked.
+4. **N10 (docs) needs routing**, not a retry — five authoritative pages now
+   describe a deleted model.

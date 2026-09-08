@@ -1250,6 +1250,7 @@ export function list(
 		readonly childrenAndSiblings: {
 			readonly itemId: string;
 			readonly viewerUserId: string;
+			readonly viewerTeamId: string | null;
 			readonly limit: number;
 		};
 	},
@@ -1287,6 +1288,7 @@ export async function list(
 				readonly childrenAndSiblings: {
 					readonly itemId: string;
 					readonly viewerUserId: string;
+					readonly viewerTeamId: string | null;
 					readonly limit: number;
 				};
 		  }
@@ -1360,7 +1362,7 @@ export async function list(
 	}
 
 	if ("childrenAndSiblings" in filter) {
-		const { itemId, viewerUserId, limit } = filter.childrenAndSiblings;
+		const { itemId, viewerUserId, viewerTeamId, limit } = filter.childrenAndSiblings;
 		const [subject] = await db
 			.select({ parentKind: knowledgeItems.parentKind, parentId: knowledgeItems.parentId })
 			.from(knowledgeItems)
@@ -1387,7 +1389,12 @@ export async function list(
 				and(
 					or(siblingCondition, childCondition),
 					ne(knowledgeItems.id, itemId),
-					visibleToViewer(viewerUserId),
+					// review.md B1: this card applied only the Q2 private-user half of
+					// the combined visibility rule — a viewer outside the item's team
+					// still read every team-scoped sibling's title. `childrenOf` (the
+					// Children card right above it) already uses the combined rule;
+					// this is the same fix applied to the same query shape.
+					humanVisibleCondition(viewerUserId, viewerTeamId),
 				),
 			)
 			.orderBy(knowledgeItems.position, knowledgeItems.title)

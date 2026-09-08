@@ -425,7 +425,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const viewerTeamId = await resolveViewerTeamId(db, userId);
 		const [relatedItems, children] = await Promise.all([
 			listKnowledgeItems(db, {
-				childrenAndSiblings: { itemId: row.id, viewerUserId: userId, limit: 10 },
+				childrenAndSiblings: { itemId: row.id, viewerUserId: userId, viewerTeamId, limit: 10 },
 			}),
 			// review.md B3: children had no visibility filter at all — a
 			// non-member opening a shared parent saw every team-scoped and
