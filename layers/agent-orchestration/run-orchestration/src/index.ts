@@ -56,6 +56,18 @@ export type {
 } from "./contracts.js";
 export { endRunForHandoff } from "./end-run-for-handoff.js";
 export { startWatcher } from "./file-watcher.js";
+/**
+ * @lore nested-knowledge-items (review.md B7): the writeback processor was
+ * only reachable from a test *inside* this package, via a relative import —
+ * `startRuntime` (already public) is the only production caller and it
+ * calls `createWritebackProcessor().subscribe(...)` internally as one line.
+ * A true end-to-end test needs `process`/`subscribe` directly, wired to the
+ * REAL knowledge repository (`@hyperidle/knowledge`) — which this package
+ * may not import (the agent-orchestration -> core-api edge AU26 B1a
+ * forbids). That test can only live where BOTH are legal to import
+ * (core-api's own test directory), so the factory itself must be public.
+ */
+export { createWritebackProcessor } from "./writeback-processor.js";
 export {
 	type FilesystemForProvisioning,
 	type InjectedFilesystemsReaderPort,
