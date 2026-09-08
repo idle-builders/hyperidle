@@ -216,6 +216,10 @@ export async function seedKnowledge(
 		updatedBy: string;
 		/** Knowledge lifecycle status. Defaults to "active". Use "captured", "provisional", etc. for promotion pipeline scenarios. */
 		status?: string;
+		/** Parent entity kind, e.g. "task" or "thread". When omitted, the item has no parent. */
+		parentKind?: string;
+		/** Parent entity ID. Required when parentKind is provided. */
+		parentId?: string;
 	},
 ): Promise<{ knowledgeItemId: string }> {
 	const itemId = opts.itemId ?? randomUUID();
@@ -231,6 +235,8 @@ export async function seedKnowledge(
 		status: opts.status ?? "active",
 		version: opts.status === "captured" ? 0 : 1,
 		updatedBy: opts.updatedBy,
+		parentKind: opts.parentKind ?? null,
+		parentId: opts.parentId ?? null,
 		createdAt: now,
 		updatedAt: now,
 	});

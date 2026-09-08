@@ -678,6 +678,18 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				);
 			},
 
+			async findKnowledgeItemParentById(
+				id: string,
+			): Promise<
+				{ readonly parentKind: string | null; readonly parentId: string | null } | undefined
+			> {
+				const res = await client.knowledge[":id"].$get({ param: { id } });
+				return getOrUndefined<{
+					readonly parentKind: string | null;
+					readonly parentId: string | null;
+				}>("knowledge.findKnowledgeItemParentById", res);
+			},
+
 			async findOpenConflictByItemAndProposer(
 				itemId: string,
 				proposedBy: string,

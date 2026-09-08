@@ -293,18 +293,19 @@ function HardAggregate({
 /**
  * Changed files panel — per-session file changes (aspect f, architecture §d).
  * Surfaces ALL file diffs from the session's tool Parts regardless of aggregation.
- * "View diff" fires `onOpen` with the diff Embed's `OpenTarget` → `ReviewCodeDiff`.
+ * The changed-file list is a label, not a control — see the panel below.
  *
  * @lore AM3: Diffs are NEVER lost to folding — this panel always surfaces them.
- * The diff OpenTarget uses file-path as artifactId (placeholder until the harness
- * emits a real artifactId — see `diffEmbed` in part.ts line ~440).
+ *
+ * The panel is READ-ONLY. Its rows used to be buttons firing an OpenTarget whose
+ * `artifactId` was the file PATH — a placeholder, as the note this replaces said
+ * outright, that never resolved to anything. It named the files then and it names
+ * them now; the difference is that it no longer offers a click that does nothing.
  */
 function ChangedFilesPanel({
 	toolParts,
-	onOpen,
 }: {
 	toolParts: ReadonlyArray<Extract<Part, { kind: "tool" }>>;
-	onOpen: OpenHandler;
 }): JSX.Element | null {
 	const diffs = toolParts.flatMap((t) =>
 		t.embeds.filter((e) => e.kind === "diff").map((e) => ({ embed: e, toolId: t.id })),
@@ -338,21 +339,13 @@ function ChangedFilesPanel({
 					<span className="type-small  text-[var(--status-error)]">−{totalRemoved}</span>
 				</span>
 				<span className="flex-1" />
-				{/* View diff fires onOpen → ReviewCodeDiff (first diff as anchor) */}
-				{diffs[0] && diffs[0].embed.kind === "diff" ? (
-					<button
-						type="button"
-						onClick={() => {
-							const first = diffs[0];
-							if (first && first.embed.kind === "diff") {
-								onOpen(first.embed.target);
-							}
-						}}
-						className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:text-[var(--text-primary)]"
-					>
-						View diff
-					</button>
-				) : null}
+				{/*
+				 * There is no "View diff" button. It fired `onOpen` with a target of
+				 * `/artifacts/<file path>`, which never resolved to a row even while
+				 * that route existed — a control that has never done anything. The
+				 * changed-file list below names the files and their counts, which is
+				 * what this panel actually knows.
+				 */}
 			</div>
 			<div className="border-width-thin-t  border-[var(--border-subtle)] px-[12px] py-[9px]">
 				{diffs.map(({ embed, toolId }) => {
@@ -361,11 +354,9 @@ function ChangedFilesPanel({
 					const name = label.slice(label.lastIndexOf("/") + 1);
 					const dir = label.slice(0, label.lastIndexOf("/") + 1);
 					return (
-						<button
-							type="button"
+						<div
 							key={`${toolId}-${label}`}
-							onClick={() => onOpen(embed.target)}
-							className="type-control flex w-full items-center gap-[9px] py-[3px]   text-left   hover:text-[var(--text-primary)]"
+							className="type-control flex w-full items-center gap-[9px] py-[3px]   text-left"
 						>
 							<span className="min-w-0 flex-1 truncate">
 								<span className="text-[var(--text-tertiary)]">{dir}</span>
@@ -379,7 +370,7 @@ function ChangedFilesPanel({
 									{embed.meta.split("/")[1]}
 								</span>
 							</span>
-						</button>
+						</div>
 					);
 				})}
 			</div>
@@ -734,7 +725,7 @@ export function SessionView({
 						<SessionStream parts={parts} onOpen={onOpen} />
 
 						{/* Changed files panel — surfaces all file diffs regardless of fold */}
-						<ChangedFilesPanel toolParts={toolParts} onOpen={onOpen} />
+						<ChangedFilesPanel toolParts={toolParts} />
 
 						{/* queued messages — right-aligned, muted, cancellable */}
 						{queuedMessages.map((q) => (

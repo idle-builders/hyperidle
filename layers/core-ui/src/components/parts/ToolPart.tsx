@@ -6,8 +6,8 @@
  * Output reveals as an indented capped mono `<pre>` on click.
  * Only `failed` uses the destructive color token (`--status-error`).
  *
- * Reuses `ReviewCodeDiff` for file diffs via the `diff` Embed's OpenTarget
- * (fires `onOpen`). No new diff renderer (AM3 hard-rule).
+ * The diff chip is a label, not a control — it has no destination.
+ * No new diff renderer (AM3 hard-rule).
  *
  * @lore AM3: Agent-authored fields (`verb`/`target`/`output`) render as
  * React-escaped TEXT only — no `dangerouslySetInnerHTML` in the activity path
@@ -172,16 +172,14 @@ export function ToolPart({
 					<span className="flex-1" />
 				)}
 
-				{/* diff chip — fires onOpen with the diff Embed's target (opens ReviewCodeDiff) */}
+				{/*
+				 * The diff chip is a LABEL, not a control. It has nowhere to go: its
+				 * target was `/artifacts/<file path>`, which never resolved to a row
+				 * even while that route existed. Rendering it as a button promised a
+				 * destination that was never there.
+				 */}
 				{diffEmbed?.kind === "diff" ? (
-					<button
-						type="button"
-						onClick={(e) => {
-							e.stopPropagation();
-							onOpen(diffEmbed.target);
-						}}
-						className="border-width-thin inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]   hover:border-[var(--border-default)]"
-					>
+					<span className="border-width-thin inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]">
 						<span className="type-data   text-[var(--text-tertiary)]">
 							{diffEmbed.label.split("/").pop()}
 						</span>
@@ -193,7 +191,7 @@ export function ToolPart({
 								{diffEmbed.meta.split("/")[1]}
 							</span>
 						</span>
-					</button>
+					</span>
 				) : null}
 
 				{/* sub-agent → open nested session view */}

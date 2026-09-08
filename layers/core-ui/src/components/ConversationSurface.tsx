@@ -41,7 +41,7 @@
  * affordances are visible but inert).
  */
 
-import { type JSX, useEffect, useRef, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ComposerSubmitInput } from "../ds";
 import { Composer as DSComposer, PageHeader } from "../ds";
@@ -76,6 +76,12 @@ export interface ConversationSurfaceProps {
 	scroll?: boolean;
 	/** Read mode keeps context in the readable lane; pane mode owns split identity. */
 	headerPresentation?: "read" | "pane";
+	/**
+	 * What this conversation produced, rendered at the foot of the message
+	 * column. A slot rather than a direct dependency: this component renders a
+	 * conversation and does not know how produced items are fetched.
+	 */
+	produced?: ReactNode;
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -295,6 +301,7 @@ export default function ConversationSurface({
 	onSend,
 	scroll = false,
 	headerPresentation = "pane",
+	produced,
 }: ConversationSurfaceProps): JSX.Element {
 	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
 	const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -390,6 +397,14 @@ export default function ConversationSurface({
 						{/* The message column is rendered by the PRODUCTION renderer — the
 						    approved design and PartList cannot drift. */}
 						<PartList parts={parts} onOpen={onOpen} onAnswer={(text) => void onSend(text)} />
+						{/*
+						 * What was produced in this conversation, inside the scrolling
+						 * column and ABOVE the composer. It belongs with the messages it
+						 * came from; rendered after the whole surface it landed under the
+						 * composer, which reads as though the conversation continues past
+						 * the place you type.
+						 */}
+						{produced}
 					</div>
 				</div>
 				{/* UI-062: single DS Composer; insert affordance via leading slot; iconSend matches Hearth design.

@@ -171,18 +171,21 @@ export type Part =
 			readonly reason: "wire-unrecognised-type" | "redacted";
 	  });
 
+// The `artifact` Embed variant is DELETED with its only producer,
+// `artifactRefToEmbed` — a review's `artifactRef` pointed at a row in the
+// artifacts table, and both the field and the table are gone.
 export type Embed =
 	| {
-			readonly kind: "artifact";
-			readonly label: string;
-			readonly meta?: string;
-			readonly target: OpenTarget;
-	  }
-	| {
+			/**
+			 * A file diff in an agent's tool activity. It carries NO target, because
+			 * there is nothing to open. Its `artifactId` used to be the file PATH, so
+			 * the `/artifacts/<path>` it pointed at could never have resolved to a row
+			 * even while that route existed — the chip was a dead click before the
+			 * artifacts table was deleted, not because of it.
+			 */
 			readonly kind: "diff";
 			readonly label: string;
 			readonly meta: string;
-			readonly target: OpenTarget;
 	  }
 	| { readonly kind: "session-reference"; readonly sessionId: string; readonly summary?: string }
 	| {
@@ -208,7 +211,6 @@ export type OpenTarget =
 			 *  concatenated into a querySelector (selector-injection mitigation). */
 			readonly blockId?: string;
 	  }
-	| { readonly route: "artifact"; readonly artifactId: string }
 	| {
 			readonly route: "review";
 			readonly reviewId: string;
@@ -455,7 +457,6 @@ function diffEmbed(label: string, added: number, removed: number): Embed {
 		kind: "diff",
 		label,
 		meta: `+${added}/−${removed}`,
-		target: { route: "artifact", artifactId: label },
 	};
 }
 

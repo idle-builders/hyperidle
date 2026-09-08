@@ -73,10 +73,9 @@ const PARTS: Part[] = [
 		embeds: [
 			{ kind: "session-reference", sessionId: "s-1", summary: "Worked for 1m 12s" },
 			{
-				kind: "artifact",
+				kind: "diff",
 				label: "auth/passkey.ts",
 				meta: "+2 −1",
-				target: { route: "artifact", artifactId: "art-1" },
 			},
 			{
 				kind: "entity-ref",
@@ -121,10 +120,9 @@ const PARTS: Part[] = [
 		embeds: [],
 		title: "Approve deploy of passkey login to staging",
 		changeSet: {
-			kind: "artifact",
+			kind: "diff",
 			label: "auth/passkey.ts",
 			meta: "+2 −1",
-			target: { route: "artifact", artifactId: "art-1" },
 		},
 		reviewTarget: { reviewId: "rv-1" },
 	},

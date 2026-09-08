@@ -97,7 +97,6 @@ export function ToolPartEdit(): JSX.Element {
 							kind: "diff",
 							label: "server/chat/stream.ts",
 							meta: "+9/−2",
-							target: { route: "artifact", artifactId: "server/chat/stream.ts" },
 						},
 					],
 				})}

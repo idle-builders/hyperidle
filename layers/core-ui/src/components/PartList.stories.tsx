@@ -39,10 +39,9 @@ const PARTS: Part[] = [
 		embeds: [],
 		title: "Approve deploy of passkey login to staging",
 		changeSet: {
-			kind: "artifact",
+			kind: "diff",
 			label: "auth/passkey.ts",
 			meta: "+2 −1",
-			target: { route: "artifact", artifactId: "art-1" },
 		},
 		reviewTarget: { reviewId: "m3" },
 	},

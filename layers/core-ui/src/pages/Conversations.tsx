@@ -564,32 +564,36 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 					if (mode === "fold-back") setInspection(null);
 				}}
 				origin={
-					<>
-						<ConversationSurface
-							parts={parts}
-							onOpen={openTarget}
-							header={header}
-							participants={participants}
-							onSend={onSend}
-							scroll
-							headerPresentation={inspection ? "pane" : "read"}
-						/>
-						{/*
-						 * What was produced in this conversation. A human and an agent
-						 * put things here the same way, and this is where they land.
-						 *
-						 * `onOpen` rather than the section's own split: this page already
-						 * owns a SplitView, and opening through its existing `path`
-						 * inspection reuses it instead of nesting a second one.
-						 */}
-						<ArtifactSection
-							parentKind="thread"
-							parentId={threadId}
-							heading="Artifacts"
-							emptyDescription="Artifacts produced in this conversation appear here."
-							onOpen={(itemId) => setInspection({ kind: "path", path: `/knowledge/${itemId}` })}
-						/>
-					</>
+					<ConversationSurface
+						parts={parts}
+						onOpen={openTarget}
+						header={header}
+						participants={participants}
+						onSend={onSend}
+						scroll
+						headerPresentation={inspection ? "pane" : "read"}
+						produced={
+							/*
+							 * What was produced in this conversation. A human and an agent
+							 * put things here the same way, and this is where they land.
+							 *
+							 * It goes in the surface's own slot, not after it: rendered as a
+							 * sibling it landed BELOW the composer, which reads as though the
+							 * conversation carries on past the place you type.
+							 *
+							 * `onOpen` rather than the section's own split — this page already
+							 * owns a SplitView, and opening through its existing `path`
+							 * inspection reuses it instead of nesting a second one.
+							 */
+							<ArtifactSection
+								parentKind="thread"
+								parentId={threadId}
+								heading="Artifacts"
+								emptyDescription="Artifacts produced in this conversation appear here."
+								onOpen={(itemId) => setInspection({ kind: "path", path: `/knowledge/${itemId}` })}
+							/>
+						}
+					/>
 				}
 				destination={inspectionDestination}
 			/>

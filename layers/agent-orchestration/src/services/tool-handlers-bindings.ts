@@ -192,6 +192,8 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 				seamPortForActor(actorId).knowledge.findKnowledgeItemVersionById(id),
 			findKnowledgeItemStatusById: (id, actorId) =>
 				seamPortForActor(actorId).knowledge.findKnowledgeItemStatusById(id),
+			findKnowledgeItemParentById: (id, actorId) =>
+				seamPortForActor(actorId).knowledge.findKnowledgeItemParentById(id),
 			findOpenConflictByItemAndProposer: (itemId, proposedBy, actorId) =>
 				seamPortForActor(actorId).knowledge.findOpenConflictByItemAndProposer(itemId, proposedBy),
 			createKnowledgeConflict: (input, actorId) =>

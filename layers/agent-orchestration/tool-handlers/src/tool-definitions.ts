@@ -670,6 +670,12 @@ const submitReviewInputSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).min(1).max(16),
 	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
+	/**
+	 * ID of a knowledge item produced by this task, to attach as evidence.
+	 * Must exist and be parented to the calling task (parentKind="task",
+	 * parentId=ctx.taskId). Replaces the deleted `artifactRef`.
+	 */
+	producedItemId: z.string().min(1).optional(),
 });
 
 type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
@@ -740,6 +746,25 @@ function makeSubmitReviewTool<TDb>(
 			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 
+			// Invariant: a review may not claim proof it does not have.
+			// The named produced item must exist and be parented to the calling
+			// task — the direct analogue of the old `artifactRef` check.
+			if (input.producedItemId !== undefined) {
+				const parent = await ports.coreApi.findKnowledgeItemParentById(
+					input.producedItemId,
+					ctx.agentId,
+				);
+				if (parent === undefined) {
+					return err("NOT_FOUND", `producedItemId '${input.producedItemId}' not found`);
+				}
+				if (parent.parentKind !== "task" || parent.parentId !== ctx.taskId) {
+					return err(
+						"FORBIDDEN",
+						`producedItemId '${input.producedItemId}' is not owned by task '${ctx.taskId}'`,
+					);
+				}
+			}
+
 			const now = new Date().toISOString();
 			const threadId = await resolveReviewThreadId(
 				ports,
@@ -752,12 +777,14 @@ function makeSubmitReviewTool<TDb>(
 			// The route generates the message's id server-side; `created.id`
 			// replaces the client-generated `randomUUID()` the raw DI path used.
 			let created: { readonly id: string };
-			// A review carrying canvas artifacts is a review; an agent that
-			// supplies none still gets today's plain-message fallback.
-			if (input.artifacts?.length) {
+			// A review carrying canvas artifacts or a producedItemId is a
+			// review-typed message; an agent that supplies neither falls back to
+			// a plain message with the review summary.
+			if (input.artifacts?.length || input.producedItemId !== undefined) {
 				const payload: ReviewPayload = {
 					title: input.title,
 					reasoning: input.reasoning,
+					...(input.producedItemId !== undefined ? { producedItemId: input.producedItemId } : {}),
 					...(input.artifacts ? { artifacts: input.artifacts } : {}),
 				};
 				created = await ports.coreApi.insertMessage(

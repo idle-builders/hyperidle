@@ -40,11 +40,10 @@ function prose(over: Partial<Part> & { id: string; author: typeof ME; text: stri
 	} as Part;
 }
 
-const artifactEmbed: Embed = {
-	kind: "artifact",
+const diffEmbed: Embed = {
+	kind: "diff",
 	label: "auth/passkey.ts",
 	meta: "+2 −1",
-	target: { route: "artifact", artifactId: "art-1" },
 };
 const sessionEmbed: Embed = {
 	kind: "session-reference",
@@ -99,7 +98,7 @@ describe("AM1 PartList — inline embeds (AC2)", () => {
 	it("renders an artifact embed as a ReferenceChip", () => {
 		render(
 			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "diff", embeds: [artifactEmbed] })]}
+				parts={[prose({ id: "m1", author: ATLAS, text: "diff", embeds: [diffEmbed] })]}
 				onOpen={vi.fn()}
 			/>,
 		);
@@ -130,7 +129,7 @@ describe("AM1 PartList — message-type Parts (AC3)", () => {
 		createdAt: "2026-06-17T10:00:00.000Z",
 		embeds: [],
 		title: "Adopt passkeys",
-		changeSet: artifactEmbed,
+		changeSet: diffEmbed,
 		reviewTarget: { reviewId: "rv1" },
 	} as Part;
 
@@ -227,12 +226,14 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 		const onOpen = vi.fn();
 		render(
 			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [artifactEmbed] })]}
+				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [diffEmbed] })]}
 				onOpen={onOpen}
 			/>,
 		);
+		// A file diff has no destination. The chip names the file; clicking it
+		// must not fire a navigation, because there is nowhere to navigate to.
 		fireEvent.click(screen.getByText("auth/passkey.ts"));
-		expect(onOpen).toHaveBeenCalledWith({ route: "artifact", artifactId: "art-1" });
+		expect(onOpen).not.toHaveBeenCalled();
 	});
 
 	it("clicking Open review fires onOpen({route:review,...})", () => {
@@ -244,7 +245,7 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 			createdAt: "2026-06-17T10:00:00.000Z",
 			embeds: [],
 			title: "Adopt passkeys",
-			changeSet: artifactEmbed,
+			changeSet: diffEmbed,
 			reviewTarget: { reviewId: "rv1" },
 		} as Part;
 		render(<PartList parts={[reviewPart]} onOpen={onOpen} />);
@@ -267,7 +268,7 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 	it("mounts NO destination view inline (the conversation owns no viewer)", () => {
 		render(
 			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [artifactEmbed] })]}
+				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [diffEmbed] })]}
 				onOpen={vi.fn()}
 			/>,
 		);
