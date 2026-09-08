@@ -7,11 +7,9 @@ export {
 export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export * as schema from "./schema.js";
 export {
-	type ActionRuleRow,
 	type AgentSessionRequest,
 	type AgentWorkIntent,
 	type ArtifactRow,
-	actionRules,
 	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
@@ -38,7 +36,6 @@ export {
 	loginSessions,
 	type Message,
 	messages,
-	type NewActionRuleRow,
 	type NewAgentRunConfigRow,
 	type NewFilesystem,
 	type NewFilesystemInjection,
@@ -47,6 +44,7 @@ export {
 	type NewLoginSession,
 	type NewMessage,
 	type NewNotificationQueueRow,
+	type NewReviewSessionRow,
 	type NewRoutine,
 	type NewRoutineRun,
 	type NewServiceConnectionRow,
@@ -61,7 +59,9 @@ export {
 	pluginConfigurationDefaults,
 	pluginContributions,
 	plugins,
+	type ReviewSessionRow,
 	type Routine,
+	reviewSessions,
 	routineRuns,
 	routines,
 	type ServerCredential,

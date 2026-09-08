@@ -19,11 +19,13 @@
  */
 
 import type {
+	AgentOrchestrationReviewVerdictInput,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
@@ -32,6 +34,7 @@ import {
 	endRunForHandoff,
 	readAgentRunConfig,
 	readAgentRunConfigs,
+	recordReviewVerdict,
 	requestRunStopForTasks,
 	writeAgentRunConfig,
 } from "@hyperidle/run-orchestration";
@@ -51,6 +54,7 @@ const WORK_INTENT_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_run",
+	"session_resume",
 ] as const;
 
 function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentKind {
@@ -69,13 +73,31 @@ function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentK
  * `idempotencyKey` all type-check structurally with no cast at all.
  */
 function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentInput {
+	// @lore BA2: session_resume carries a resume, not a start request. Splitting here
+	// keeps the cast audited per field on both branches.
+	if (body.kind === "session_resume") {
+		return {
+			kind: "session_resume",
+			sourceKind: "review_verdict",
+			sourceId: body.sourceId,
+			requestedBy: body.requestedBy,
+			idempotencyKey: body.idempotencyKey,
+			resume: body.resume as Extract<WorkIntentInput, { kind: "session_resume" }>["resume"],
+		};
+	}
 	return {
 		kind: body.kind,
-		sourceKind: body.sourceKind as WorkIntentInput["sourceKind"],
+		sourceKind: body.sourceKind as Exclude<
+			WorkIntentInput,
+			{ kind: "session_resume" }
+		>["sourceKind"],
 		sourceId: body.sourceId,
 		requestedBy: body.requestedBy,
 		idempotencyKey: body.idempotencyKey,
-		bakedRequest: body.bakedRequest as WorkIntentInput["bakedRequest"],
+		bakedRequest: body.bakedRequest as Exclude<
+			WorkIntentInput,
+			{ kind: "session_resume" }
+		>["bakedRequest"],
 	};
 }
 
@@ -86,7 +108,19 @@ const workIntentInputSchema = z.object({
 	requestedBy: z.string().optional(),
 	idempotencyKey: z.string().min(1),
 	bakedRequest: z.unknown().optional(),
+	resume: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationWorkIntentInput>;
+
+const gateVerdictInputSchema = z.object({
+	reviewMessageId: z.string().min(1),
+	decision: z.enum(["approve", "decline"]),
+	decidedBy: z.string().min(1),
+	threadId: z.string().min(1),
+	// Carried opaque, like `bakedRequest` on the intent schema above. Declared
+	// because zod strips what it does not name, and a silently dropped agent
+	// config surfaces much later as "agent is not runnable".
+	agentConfig: z.unknown().optional(),
+}) satisfies z.ZodType<AgentOrchestrationReviewVerdictInput>;
 
 export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -96,6 +130,29 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		const body = c.req.valid("json");
 		const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
 		return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
+	});
+
+	// ── intents.recordReviewVerdict — POST /agent-orchestration/review-verdicts ──
+	//
+	// @lore BA2: the verdict half of the review loop. `review_sessions` and `sessions` are
+	// this layer's tables, so the whole decision — is this a gate review, is its
+	// session resumable — is made here and the answer crosses back as data.
+	router.post("/review-verdicts", validateBody(gateVerdictInputSchema), async (c) => {
+		const body = c.req.valid("json");
+		// One audited cast, same idiom as `toWorkIntentInput`'s: the wire carries the
+		// agent config opaque and nothing here inspects it, only forwards it.
+		const outcome = await recordReviewVerdict(
+			db,
+			{
+				reviewMessageId: body.reviewMessageId,
+				decision: body.decision,
+				decidedBy: body.decidedBy,
+				threadId: body.threadId,
+				...(body.agentConfig ? { agentConfig: body.agentConfig as BakedAgentRunnableConfig } : {}),
+			},
+			(input) => enqueueWorkIntent(db, input),
+		);
+		return c.json(outcome);
 	});
 
 	// ── requests.listPendingIntentsByKind — GET /agent-orchestration/requests/pending-intents?kind= ──

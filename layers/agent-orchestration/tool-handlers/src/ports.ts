@@ -512,7 +512,20 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
+/**
+ * How `submit_review` records which session filed a review.
+ *
+ * @lore BA2: One call, and deliberately not a question the agent can answer —
+ * the session comes from the tool context, never from the tool's arguments, so
+ * an agent cannot file its way to resuming a session that is not its own.
+ */
+export interface ToolHandlersReviewAccessor {
+	/** Record that this session filed this review, so a verdict knows what to resume. */
+	linkReviewToSession(sessionId: string, reviewMessageId: string): Promise<void>;
+}
+
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts {
 	readonly coreApi: ToolHandlersCoreApiAccessor;
+	readonly gate: ToolHandlersReviewAccessor;
 }

@@ -163,6 +163,7 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 				return { sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-config" };
 			},
 			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
 			destroy: async () => undefined,
 		},
 	};
@@ -317,7 +318,11 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 
 		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
 
-		expect(admitted.systemPromptText).toBe("You are Atlas. You never ship broken builds.");
+		// BA2: every session's context also carries the standing instruction to ask
+		// for a review when work deserves a person's agreement, so the persona is the
+		// start of this rather than the whole of it.
+		expect(admitted.systemPromptText).toContain("You are Atlas. You never ship broken builds.");
+		expect(admitted.systemPromptText.startsWith("You are Atlas.")).toBe(true);
 	});
 
 	test("an agent with no identity document runs with no persona, not a broken one", async ({
@@ -355,6 +360,9 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 
 		// Empty, so `assemblePrompt` emits no "## Identity" section at all —
 		// proven by `context-assembly-prompt.test.ts`.
-		expect(admitted.systemPromptText).toBe("");
+		// BA2: no identity document means no persona — but the review instruction is
+		// unconditional, so what remains is that and nothing else.
+		expect(admitted.systemPromptText).not.toContain("You are");
+		expect(admitted.systemPromptText).toContain("submit_review");
 	});
 });

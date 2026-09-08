@@ -167,6 +167,7 @@ function buildDeps(
 				return { sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-fs" };
 			},
 			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
 			destroy: async () => undefined,
 		},
 		// AO2 Phase 4.5 only runs mount when a mounter is present.

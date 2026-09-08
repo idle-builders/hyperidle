@@ -51,7 +51,7 @@ import type {
 	InsertRoutineRequest,
 	UpdateRoutineRequest,
 } from "@hyperidle/api-contract";
-import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
+import type { ToolHandlersPorts, ToolHandlersReviewAccessor } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions as buildToolDefinitionsFromPorts } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, withActorTransport } from "./core-api-port-composition.js";
 
@@ -91,7 +91,10 @@ function widenUpdateRoutineInput(input: unknown): UpdateRoutineRequest {
  * THIS transport with the calling agent's identity fresh on every
  * invocation, since a different tool call may come from a different agent.
  */
-export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandlersPorts {
+export function buildToolHandlersPorts(
+	transport: CoreApiTransport,
+	gate: ToolHandlersReviewAccessor,
+): ToolHandlersPorts {
 	function seamPortForActor(actorId: string): CoreApiPort {
 		return buildCoreApiPort(withActorTransport(transport, { userId: actorId }));
 	}
@@ -100,6 +103,7 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 	// use createTask with parentTaskId=null for root tasks.
 
 	return {
+		gate,
 		// AU21 §6 Decision L3: `work.routeItem` (the last standalone same-process
 		// `work` DI capability) is DELETED outright as vestigial — every `work`
 		// read/write now crosses the `coreApi` seam below.
@@ -223,6 +227,7 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 /** Production-wired tool definitions, fresh per `CoreApiTransport` value — every real call site builds through this. */
 export function buildToolDefinitions(
 	transport: CoreApiTransport,
+	gate: ToolHandlersReviewAccessor,
 ): ReturnType<typeof buildToolDefinitionsFromPorts> {
-	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport));
+	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport, gate));
 }

@@ -286,7 +286,10 @@ export type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	BakedContextKnowledgeItem,
+	BakedSessionResumeRequest,
 	BakedWorkIntentRequest,
+	ReviewVerdictOutcome,
+	ReviewVerdictRecorderFn,
 	RoutineTriggerEvent,
 	SessionKnowledgeItemLike,
 } from "./work-intent.js";

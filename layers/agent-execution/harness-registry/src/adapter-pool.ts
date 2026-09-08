@@ -248,7 +248,7 @@ export class AdapterPool {
 			// Mirrors `select`'s filter exactly — no harness is exempt from being
 			// disabled any more, so neither is this diagnostic.
 			const enabled = live.filter(
-				(entry) => !entry.meta.type || !disabled.includes(entry.meta.type),
+				(entry) => !(entry.meta.type && disabled.includes(entry.meta.type)),
 			);
 			if (enabled.length === 0) {
 				return `every available harness type is disabled in settings (disabled: ${disabled.join(", ")})`;
@@ -379,8 +379,8 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// declaration in config.toml} → runs; {git repo, trust declared} → runs;
 		// {not a git repo, trust declared} → fails with the exact same message;
 		// {not a git repo, no trust declared} → fails. `trust_level = "trusted"`
-		// makes no observed difference in either direction — the earlier BA2
-		// ruling 18 comment asserted the opposite ("it is not a git-repo check")
+		// makes no observed difference in either direction — a prior
+		// comment asserted the opposite ("it is not a git-repo check")
 		// on the strength of a probe that never tried a git repo WITHOUT a trust
 		// declaration, so it never saw that the trust entry was doing nothing.
 		// Ruling 18's other claim — that a prior commit "removed"
@@ -394,7 +394,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// for why it cannot run before mounting. `writeCliMcpConfig`'s
 		// codex-toml dialect still writes the `[projects."<sandbox>"]
 		// trust_level = "trusted"` block (cli-mcp-config.ts, `buildCodexTrustBlock`)
-		// per BA2 ruling 22: kept deliberately, as the general shape — where a
+		// Kept deliberately as the general shape — where a
 		// harness has its own trusted-directory mechanism, declare the
 		// filesystems we inject as trusted through it — even though it was not
 		// observed to be load-bearing for this specific codex-cli precondition.
@@ -434,23 +434,16 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// - `run <prompt>` delivers the seed prompt.
 		// - `--dir {{sandbox}}` sets cwd for config resolution (opencode.json).
 		// - `--format json` emits JSONL per-event output (eventFormat: "ndjson").
-		// - `--pure` disables TUI / interactive fallback.
 		// - `--model {{model}}` requires provider-prefixed id (e.g. openrouter/~anthropic/claude-haiku-latest).
 		// @lore AL7 W4: {{model}} resolves from config.resolvedModel?.model (cli-harness-adapter.ts:303).
 		// opencode run requires a provider-prefixed model id; a bare id fails. The model resolution
 		// for opencode agents must produce the provider-prefixed form.
 		// @lore AK1: {{sandbox}} is the renamed template var (was {{workspace}}).
-		args: [
-			"run",
-			"{{prompt}}",
-			"--dir",
-			"{{sandbox}}",
-			"--format",
-			"json",
-			"--pure",
-			"--model",
-			"{{model}}",
-		],
+		// @lore BA2: --pure was removed because it silently disables all external plugins including
+		// the sandbox's own gate plugin. XDG_CONFIG_HOME=<sandbox>/.hyperidle/opencode-xdg-config
+		// is injected by cli-harness-adapter (same pattern as CODEX_HOME) to provide the same
+		// config isolation --pure used to claim but never actually delivered.
+		args: ["run", "{{prompt}}", "--dir", "{{sandbox}}", "--format", "json", "--model", "{{model}}"],
 		// @lore opencode used to be handed a stored API key here, under whichever
 		// variable its provider reads, plus a provider block for a brought
 		// OpenAI-compatible endpoint. Both are gone: opencode authenticates through
@@ -587,6 +580,13 @@ const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
 	envMap: {},
 	eventFormat: "ndjson",
 	envAllowlist: ["PATH", "HOME", "LANG", "USER", "LOGNAME"],
+	// @lore BA2: back to the true floor. This briefly said "settings-cursor", a
+	// channel that existed so the interception installer could write
+	// `.cursor/hooks.json`. That installer is deleted, so the channel named an
+	// enforcement nothing performed — cursor-agent has never had one, and saying
+	// so is the honest floor. Its turns are held only by the drain-end gate,
+	// which is why a cursor session sometimes returns its work and sometimes
+	// just stops. Fixing that is BA13.
 	returnEnforcementChannel: "none",
 	eventDialect: "claude-stream-json",
 	mcpConfig: { dialect: "cursor-json" },

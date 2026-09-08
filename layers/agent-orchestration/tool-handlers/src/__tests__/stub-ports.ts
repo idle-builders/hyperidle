@@ -11,6 +11,7 @@ function notImplemented(): never {
 }
 
 export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
+	gate: { linkReviewToSession: notImplemented },
 	coreApi: {
 		getTaskById: notImplemented,
 		createTask: notImplemented,

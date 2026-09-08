@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
+import type {
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	BakedSessionResumeRequest,
+} from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -132,6 +136,13 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
  * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
  * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
  */
+/** @lore BA2: the resume a `review_resume` request carries. Absent for every other kind. */
+function parseBakedResume(request: AgentSessionRequest): BakedSessionResumeRequest | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as { resume?: BakedSessionResumeRequest };
+	return payload?.resume;
+}
+
 function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBundle | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
@@ -498,6 +509,9 @@ async function consumeAgentSessionRequest(
 	const transcript = rawTranscript
 		? mapTranscriptToMessages(rawTranscript, claimedRequest.agentId)
 		: undefined;
+	// @lore BA2: a review_resume request carries the resume on its payload. Everything a
+	// resume needs was baked when the human decided, so nothing is read here.
+	const resume = parseBakedResume(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -513,6 +527,7 @@ async function consumeAgentSessionRequest(
 		...(harnessDisabled ? { harnessDisabled } : {}),
 		...(callingThreadId ? { callingThreadId } : {}),
 		...(transcript ? { transcript } : {}),
+		...(resume ? { resume } : {}),
 		requestContext: {
 			requestId: claimedRequest.id,
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,

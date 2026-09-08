@@ -10,7 +10,7 @@ export interface ProvisionOptions {
 	readonly channel?: ReturnEnforcementChannel;
 	readonly forceBudget?: number;
 	/**
-	 * BA2 ruling 18: the session's mounted filesystems, threaded down to the
+	 * The session's mounted filesystems, threaded down to the
 	 * dialect writer so a harness with a trust precondition (codex) can declare
 	 * them trusted alongside the sandbox. See cli-mcp-config.ts's
 	 * `HarnessMcpConfigParams.trustedPaths`.

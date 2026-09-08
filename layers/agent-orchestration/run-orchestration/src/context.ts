@@ -1039,13 +1039,30 @@ function isWritableBundle(
 	return bundle !== undefined && (bundle.kind === "task" || bundle.kind === "routine");
 }
 
+/**
+ * Write a file that may already exist and may already be read-only.
+ *
+ * @lore BA2: context files are chmod-ed to 0444 after assembly so an agent
+ * cannot edit its own context. That was safe while every session got a brand
+ * new directory. A resumed session runs in the directory of the session it is
+ * resuming, so `context/session.toon` is already there and already read-only,
+ * and a plain write fails with EACCES before the agent ever starts — the human
+ * approved, and nothing happened. The bundle path already handles this by
+ * chmod-ing and deleting the whole tree first (`cleanDirectory`); this is the
+ * same thing for the two files the bundle-less path writes on its own.
+ */
+function writeOverwritable(filePath: string, contents: string): void {
+	fs.rmSync(filePath, { force: true });
+	fs.writeFileSync(filePath, contents);
+}
+
 function assembleAgentContext(input: AssembleAgentContextInput): AgentContextAssemblyOutcome {
 	const manifestPath = path.join(input.sandboxPath, ".fabric/manifest.json");
 
 	if (!isWritableBundle(input.contextBundle)) {
 		fs.mkdirSync(path.join(input.sandboxPath, ".fabric"), { recursive: true });
 		fs.mkdirSync(path.join(input.sandboxPath, "context"), { recursive: true });
-		fs.writeFileSync(
+		writeOverwritable(
 			path.join(input.sandboxPath, "context/session.toon"),
 			[
 				`session_id: ${input.sessionId}`,
@@ -1056,7 +1073,7 @@ function assembleAgentContext(input: AssembleAgentContextInput): AgentContextAss
 				`correlation_json: ${JSON.stringify(input.sourceCorrelation ?? {})}`,
 			].join("\n"),
 		);
-		fs.writeFileSync(
+		writeOverwritable(
 			manifestPath,
 			JSON.stringify(
 				{

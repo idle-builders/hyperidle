@@ -34,13 +34,15 @@ import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
-import { createActionRulesRoutes } from "./routes/settings-action-rules.js";
 import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
-import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
+import {
+	buildSeamBackedReviewVerdictRecorder,
+	buildSeamBackedWorkIntentRecorder,
+} from "./services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "./services/harness-capability-reader.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
@@ -171,6 +173,13 @@ interface AppOptions {
 	 * tests may override for isolation.
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
+	/**
+	 * @lore BA2: Application-injected verdict recorder for the review loop, injected for
+	 * the same reason as `agentWorkIntentRecorder` above — `review_sessions` belongs
+	 * to agent-orchestration and `routes/threads.ts` may not read it. Defaults to
+	 * the seam-backed recorder; tests may override.
+	 */
+	reviewVerdictRecorder?: import("@hyperidle/domain-model").ReviewVerdictRecorderFn;
 	/**
 	 * BA9d D12: base directory where plugin files are persisted on install.
 	 * When provided, `installPlugin` copies the plugin source to
@@ -348,6 +357,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			);
 		}
 		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
+		const defaultGateVerdictRecorder = buildSeamBackedReviewVerdictRecorder(agentOrchestration);
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
@@ -374,6 +384,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				options.db,
 				eventBus,
 				options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder,
+				options.reviewVerdictRecorder ?? defaultGateVerdictRecorder,
 				options.wsHub,
 			),
 		);
@@ -399,7 +410,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
-		api.route("/settings/action-rules", createActionRulesRoutes(options.db));
 		api.route("/plugins", createPluginRoutes(options.db, options.pluginsBaseDir));
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 

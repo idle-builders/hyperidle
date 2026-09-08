@@ -23,6 +23,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { ArtifactPreview } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -32,7 +33,7 @@ import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 function buildCreateArtifactTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR).find(
 		(t) => t.name === "create_artifact",
 	)!;
 }

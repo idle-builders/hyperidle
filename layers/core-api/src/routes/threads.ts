@@ -33,10 +33,13 @@ import type {
 	MessageType,
 	PlainPayload,
 	RedactedPayload,
+	ReviewVerdictOutcome,
+	ReviewVerdictRecorderFn,
 	Thread,
 } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
+	bakeAgentRunnableConfig,
 	extractMentionCandidates,
 	headCollapsePredicate,
 	resolveMentions,
@@ -128,9 +131,19 @@ async function buildThreadListRowForPush(
 ): Promise<Record<string, unknown>> {
 	const thread = rowToThread(row);
 	const titleMap = await resolveThreadTitles(db, [row], requestingUserId);
+	// @lore BA2: this used to be hardcoded `false`. The sidebar's blocking badge
+	// and the list's "behind" chip are both derived from it, so a pushed row said
+	// "nothing is waiting" however many reviews were — and an agent asking a human
+	// for agreement showed up nowhere at all until the app was restarted. Computed
+	// the same way the list route computes it.
+	const unresolved = await listMessages(db, {
+		threadIds: [row.id],
+		types: ["review", "questionnaire"],
+		unresolved: true,
+	});
 	return {
 		...thread,
-		hasUnresolvedReview: false,
+		hasUnresolvedReview: unresolved.length > 0,
 		title: titleMap.get(row.id) ?? "Untitled conversation",
 	};
 }
@@ -648,6 +661,12 @@ export function createThreadRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentWorkIntentRecorder: AgentWorkIntentRecorderFn,
+	/**
+	 * @lore BA2: the verdict half of the review loop. Injected for the same reason
+	 * `agentWorkIntentRecorder` is — `review_sessions` belongs to the
+	 * agent-orchestration layer and this route may not read it.
+	 */
+	reviewVerdictRecorder: ReviewVerdictRecorderFn,
 	wsHub?: WsPushTarget,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -1501,6 +1520,59 @@ export function createThreadRoutes(
 			// resolves/creates/executes the request. This route has no
 			// assistant-execution dependency at all.
 
+			// @lore BA2: if this verdict decided the review an agent filed, the
+			// agent that asked has to be brought back to its own session with the
+			// answer. Post-commit, like the intent recording above and for the same
+			// reason — the message is committed, so the resume can never reference
+			// a review that does not exist.
+			let verdictOutcome: ReviewVerdictOutcome | undefined;
+			if (input.type === "verdict" && resolvesMessageRow) {
+				try {
+					// The agent that asked is the review's own sender. Its runnable
+					// config is core state, so it is baked here and carried across —
+					// admission treats a missing bake as a deactivated agent.
+					const askingAgent = await findUser(db, { id: resolvesMessageRow.senderId });
+					const persona = askingAgent ? await getAgentIdentity(db, askingAgent.id) : null;
+					verdictOutcome = await reviewVerdictRecorder({
+						...(askingAgent ? { agentConfig: bakeAgentRunnableConfig(askingAgent, persona) } : {}),
+						reviewMessageId: resolvesMessageRow.id,
+						// Two of the five verdict decisions clear the action; the other
+						// three send the agent back with a no. "approve-with-comments" is
+						// still an approval — the comments are for the agent to read, not
+						// a reason to withhold what the human said yes to.
+						decision:
+							input.payload.decision === "approve" ||
+							input.payload.decision === "approve-with-comments"
+								? "approve"
+								: "decline",
+						decidedBy: senderId,
+						threadId,
+					});
+				} catch (gateErr) {
+					verdictOutcome = {
+						status: "not_resumable",
+						reason: gateErr instanceof Error ? gateErr.message : "unknown error",
+					};
+				}
+			}
+
+			// The approving human is told when the agent cannot be sent back. An
+			// approval that reaches nobody is exactly the silent failure this work
+			// package exists to remove, so it is reported in the thread they are in.
+			if (verdictOutcome?.status === "not_resumable") {
+				await insertMessage(db, {
+					id: crypto.randomUUID(),
+					threadId,
+					senderId,
+					type: "plain",
+					payload: JSON.stringify({
+						text: `This action was approved but could not be carried out: ${verdictOutcome.reason}. The agent has not been told, and the action has not run.`,
+					}),
+					clientKey: crypto.randomUUID(),
+					createdAt: new Date().toISOString(),
+				});
+			}
+
 			if (input.type === "verdict" && resolvesMessageRow) {
 				const resolvedEvent: ThreadResolvedEvent = {
 					type: "thread_resolved",
@@ -1535,6 +1607,18 @@ export function createThreadRoutes(
 				message: rowToMessage(created),
 				senderIdentity: await buildSenderIdentityForPush(db, senderId),
 			});
+			// @lore BA2: the same append also changes the thread's row in every
+			// participant's LIST — its position, its time, and whether it is now
+			// waiting on someone. Only the `thread:<id>` topic was pushed, which
+			// nobody is subscribed to unless they already have that thread open, so
+			// a review filed while a human sat in the app appeared nowhere until the
+			// app was restarted.
+			pushUpdate(
+				wsHub,
+				"conversations",
+				"thread_message_appended",
+				await buildThreadListRowForPush(db, updatedThread, senderId),
+			);
 			if (input.type === "verdict" && resolvesMessageRow) {
 				pushUpdate(wsHub, `thread:${threadId}`, "thread_resolved", {
 					resolvedAt: updatedThread.resolvedAt,

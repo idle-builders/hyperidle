@@ -17,6 +17,13 @@
  * `undefined` `tool` throws, taking the whole review page down. Assertions
  * below check for the full shape, not merely that an id came back.
  *
+ * @lore BA2 REVERSED the narrowness this file's original @lore records. Scoping
+ * the loader to `artifacts`/`artifactRef` alone was refuted by running a real
+ * agent review through the surface: it iterates five lists with no guard, so a
+ * review carrying only a title and reasoning crashed the page and no human could
+ * answer it. What survives is the principle, not the scope — an empty list where
+ * we have nothing, never an invented value. Original note follows.
+ *
  * @lore scoped deliberately narrow to the `artifacts`/`artifactRef` fields
  * only — a wider "composed fallback for every missing field" (tokens,
  * tools, taskId, rootTaskId, ...) belongs to a separate, unrelated loader
@@ -219,13 +226,18 @@ describe("GET /api/reviews/:id — the loader layers a resolved artifactRef onto
 		// unconditionally render must be present, or the page crashes.
 		expectRenderableArtifact(responseArtifacts?.[0]);
 
-		// No invented values: fields the loader does not own (tokens/tools/
-		// resultKpis) stay absent rather than defaulted into something
-		// plausible. Capable of going red the moment a future change adds a
-		// `?? "0"`/`?? []` convenience default here instead of leaving it out.
-		expect(body.tokens).toBeUndefined();
-		expect(body.tools).toBeUndefined();
-		expect(body.resultKpis).toBeUndefined();
+		// @lore BA2: this used to assert `tokens`/`tools`/`resultKpis` were
+		// ABSENT — the loader was deliberately scoped to the artifact fields and
+		// nothing else. Running a real agent review through the surface refuted
+		// that: it calls `.map` on `tools` and `resultKpis` with no guard, so a
+		// sparse review crashed the page and no human could answer it. They are
+		// composed now, and the rule the old assertion was protecting still
+		// holds: nothing plausible is invented. An empty list says "we have
+		// none", a blank string renders as nothing, and neither claims a number
+		// we did not measure.
+		expect(body.tokens).toBe("");
+		expect(body.tools).toEqual([]);
+		expect(body.resultKpis).toEqual([]);
 	});
 
 	test("an inline canvas artifacts array and a resolved artifactRef both survive to the loader's output", async ({
@@ -293,7 +305,13 @@ describe("GET /api/reviews/:id — the loader layers a resolved artifactRef onto
 
 		// `work.get` returns nothing for a row that doesn't exist — the loader
 		// must not invent a stand-in entry for it. `artifacts` stays exactly
-		// what the payload already carried (nothing, here).
-		expect(body.artifacts).toBeUndefined();
+		// what the payload already carried, which here is nothing.
+		//
+		// @lore BA2: an EMPTY LIST, not an absent key. The review surface calls
+		// `.find` on it unconditionally, so absence crashed the page. Empty is
+		// the honest answer to "what evidence is attached" when a referenced
+		// artifact no longer exists — what must never appear is an entry
+		// standing in for it.
+		expect(body.artifacts).toEqual([]);
 	});
 });

@@ -137,6 +137,18 @@ function sourceInput(
 					teamId: "team-au6",
 				},
 			};
+		case "review_resume":
+			return {
+				...base,
+				sourceKind,
+				taskId: null,
+				promptMode: "resume",
+				sourceCorrelation: {
+					reviewMessageId: `review-${suffix}`,
+					threadId: "thread-au6",
+					resumedSessionId: `sess-${suffix}`,
+				},
+			};
 	}
 }
 

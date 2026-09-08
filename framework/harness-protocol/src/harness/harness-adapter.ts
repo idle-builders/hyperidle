@@ -53,6 +53,21 @@ export interface SessionConfig {
 	 * new name: "assembled prompt" replaces "composed prompt".
 	 */
 	readonly assembledPrompt: string;
+	/**
+	 * What the agent is being asked to do — the session's opening user turn.
+	 *
+	 * Distinct from `assembledPrompt`, which is CONTEXT and goes to AGENTS.md:
+	 * who the agent is, what it knows, what tools it has. This is the ask. For a
+	 * task session it is the task, because when a task is assigned to an agent the
+	 * task is basically all there is to say.
+	 *
+	 * @lore BA10: the adapter used to build this itself as
+	 * `assembledPrompt.slice(0, 200)` with newlines flattened. A real agent read
+	 * the result and replied "your initial message appears to have been cut off" —
+	 * it had been, at 200 characters. Context is not an instruction, and an
+	 * instruction must arrive whole.
+	 */
+	readonly instruction?: string;
 	readonly modelTier: ModelTier;
 	readonly tools: readonly string[];
 	/**

@@ -31,6 +31,8 @@
 
 import type {
 	AgentOrchestrationPort,
+	AgentOrchestrationReviewVerdictInput,
+	AgentOrchestrationReviewVerdictOutcome,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationRunConfigView,
 	AgentOrchestrationSessionWireRow,
@@ -44,6 +46,7 @@ import type { WriteExecutor } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
+	ReviewVerdictRecorderFn,
 } from "@hyperidle/domain-model";
 import type { OrgUserDirectory } from "@hyperidle/org";
 import type { Hono } from "hono";
@@ -64,6 +67,9 @@ interface AgentOrchestrationHcClient {
 		};
 		readonly intents: {
 			$post(args: { readonly json: AgentOrchestrationWorkIntentInput }): Promise<Response>;
+		};
+		readonly "review-verdicts": {
+			$post(args: { readonly json: AgentOrchestrationReviewVerdictInput }): Promise<Response>;
 		};
 		readonly requests: {
 			readonly "pending-intents": {
@@ -205,6 +211,13 @@ export function buildAgentOrchestrationPort(
 				if (!res.ok) return throwSeamError("intents.submit", res);
 				return (await res.json()) as AgentOrchestrationWorkIntentReceipt;
 			},
+			async recordReviewVerdict(
+				input: AgentOrchestrationReviewVerdictInput,
+			): Promise<AgentOrchestrationReviewVerdictOutcome> {
+				const res = await client["agent-orchestration"]["review-verdicts"].$post({ json: input });
+				if (!res.ok) return throwSeamError("intents.recordReviewVerdict", res);
+				return (await res.json()) as AgentOrchestrationReviewVerdictOutcome;
+			},
 		},
 		requests: {
 			async listPendingIntentsByKind(kind: AgentOrchestrationWorkIntentKind): Promise<
@@ -342,6 +355,18 @@ export function buildSeamBackedWorkIntentRecorder(
 	port: AgentOrchestrationPort,
 ): AgentWorkIntentRecorderFn {
 	return (input: AgentWorkIntentRecorderInput) => port.intents.submit(input);
+}
+
+/**
+ * @lore BA2: the same mechanism for the review loop's verdict half. `review_sessions` belongs to
+ * agent-orchestration, so the thread route asks across the seam rather than
+ * reading the table, and gets back what happened — including that the agent
+ * cannot be resumed, which the human then has to be told.
+ */
+export function buildSeamBackedReviewVerdictRecorder(
+	port: AgentOrchestrationPort,
+): ReviewVerdictRecorderFn {
+	return (input) => port.intents.recordReviewVerdict(input);
 }
 
 /**
