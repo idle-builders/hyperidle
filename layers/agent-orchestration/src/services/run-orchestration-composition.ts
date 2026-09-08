@@ -88,20 +88,6 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 	readonly adapterPool?: unknown;
 	readonly workspace?: unknown;
 	readonly pluginMcpContributions?: PluginMcpContributionsPort;
-	/**
-	 * Action rules resolver — threaded inline (not importing provisioner's
-	 * SessionActionRule) so the composition boundary stays clean. Structural
-	 * compatibility with provisioner.ts's ProvisionSessionDeps.actionRulesPort
-	 * is checked when the deps object is cast to RuntimeInput.
-	 */
-	readonly actionRulesPort?: {
-		resolveFor(
-			agentId: string,
-			teamId?: string | null,
-		): Promise<
-			readonly { readonly id: string; readonly pattern: string; readonly description: string }[]
-		>;
-	};
 };
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];
