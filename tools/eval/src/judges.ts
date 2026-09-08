@@ -506,19 +506,53 @@ Respond with a JSON object containing exactly two fields:
 Respond ONLY with the JSON object. No preamble, no markdown.`;
 
 			try {
-				const { Anthropic } = await import("@anthropic-ai/sdk");
-				const client = new Anthropic({
-					apiKey: ctx.judgeModel.apiKey,
-					baseURL: ctx.judgeModel.baseUrl,
-				});
-
-				const response = await client.messages.create({
-					model: ctx.judgeModel.model,
-					max_tokens: 256,
-					messages: [{ role: "user", content: prompt }],
-				});
-
-				const rawText = response.content[0]?.type === "text" ? response.content[0].text : "";
+				/*
+				 * Two wire protocols, chosen by where the judge actually lives.
+				 *
+				 * This used to drive the Anthropic SDK at whatever `baseUrl` it was
+				 * handed, including OpenRouter's. The SDK appends `/v1/messages`, so
+				 * an OpenRouter base of `.../api/v1` became `.../api/v1/v1/messages`
+				 * and returned OpenRouter's HTML 404 page. The catch below turned
+				 * that into `score: 0.0` — so with the default judge (OpenRouter),
+				 * EVERY llm-judged dimension has silently scored zero, and a broken
+				 * judge was indistinguishable from an agent that produced nothing.
+				 */
+				const isAnthropic = ctx.judgeModel.baseUrl.includes("api.anthropic.com");
+				let rawText: string;
+				if (isAnthropic) {
+					const { Anthropic } = await import("@anthropic-ai/sdk");
+					const client = new Anthropic({
+						apiKey: ctx.judgeModel.apiKey,
+						baseURL: ctx.judgeModel.baseUrl,
+					});
+					const response = await client.messages.create({
+						model: ctx.judgeModel.model,
+						max_tokens: 256,
+						messages: [{ role: "user", content: prompt }],
+					});
+					rawText = response.content[0]?.type === "text" ? response.content[0].text : "";
+				} else {
+					// OpenAI-compatible (OpenRouter and anything else pointed at here).
+					const res = await fetch(`${ctx.judgeModel.baseUrl}/chat/completions`, {
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${ctx.judgeModel.apiKey}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							model: ctx.judgeModel.model,
+							max_tokens: 256,
+							messages: [{ role: "user", content: prompt }],
+						}),
+					});
+					if (!res.ok) {
+						throw new Error(`judge HTTP ${res.status} from ${ctx.judgeModel.baseUrl}`);
+					}
+					const body = (await res.json()) as {
+						choices?: Array<{ message?: { content?: string } }>;
+					};
+					rawText = body.choices?.[0]?.message?.content ?? "";
+				}
 
 				// Parse JSON response
 				const parsed = JSON.parse(rawText) as { score: number; reasoning: string };

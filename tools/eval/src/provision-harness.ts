@@ -51,8 +51,12 @@ import {
 	type McpToolBridge,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
+import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
+import * as work from "@hyperidle/work";
+import { bakeTaskContextBundle } from "@hyperidle/work";
 import type { TriggerResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -263,6 +267,34 @@ export async function runEvalSession(
 		// regression versus the pre-Wave-E behavior (which performed this exact
 		// check live, inside `admitSession`, every eval run).
 		const agent = await requireRunnableAgent(deps.db, params.agentId);
+
+		// Bake the task context the way the emit-time pipeline does.
+		//
+		// Without this the agent arrives at a "task-free session" and replies "what
+		// would you like to work on?" — read from claude's own transcript, with
+		// `inputTokens: 10`. Every eval scored ~0 for that reason alone, on every
+		// feature and every harness: the scenario seeds a task, and the agent was
+		// never told about it.
+		//
+		// `provisionSession` is called directly here, bypassing the durable emit-time
+		// pipeline, so this seam has to supply what that pipeline bakes. It calls the
+		// SAME `bakeTaskContextBundle` that pipeline uses, so an eval exercises the
+		// prompt production actually ships rather than a lookalike.
+		//
+		// It bakes directly instead of going through `resolveTaskRunRequest`, because
+		// that path needs a dispatch attempt and an attempt needs a predecessor
+		// session. In production every attempt comes from a handoff, which always has
+		// one; an eval IS the first session, so there is no honest value to put there.
+		const evalTask = await work.get(deps.db, "task", params.taskId);
+		if (!evalTask) throw new Error(`Eval task not found: ${params.taskId}`);
+		const contextBundle = await bakeTaskContextBundle(
+			deps.db,
+			evalTask,
+			[],
+			agent,
+			(db, id) => getTeam(db, { id }),
+			assembleSessionKnowledge,
+		);
 		const { harnessDisabled } = await readServerConfig(deps.db);
 
 		const composition = buildRunOrchestrationComposition({
@@ -295,6 +327,7 @@ export async function runEvalSession(
 					// with. A CLI harness brings its own auth; the model it should run
 					// arrives as `selectedModel`, off the agent's own `model_id`.
 					agentConfig: bakeAgentRunnableConfig(agent),
+					...(contextBundle ? { contextBundle } : {}),
 					harnessDisabled,
 					// No cost cap during eval — cost is tracked but not capped.
 				},

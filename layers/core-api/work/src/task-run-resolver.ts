@@ -142,7 +142,13 @@ export interface BakedTaskRunRequest {
  * missing team would be a data-integrity surprise, not a reason to fail the
  * whole run's bake.
  */
-async function bakeTaskContextBundle(
+/**
+ * Exported so a caller that provisions a session WITHOUT going through the
+ * emit-time pipeline can bake the same bundle the pipeline would — the eval
+ * harness is one, and it must run the prompt production actually ships rather
+ * than assembling a lookalike by hand.
+ */
+export async function bakeTaskContextBundle(
 	db: HyperIdleDb,
 	task: Task,
 	ancestors: readonly Task[],

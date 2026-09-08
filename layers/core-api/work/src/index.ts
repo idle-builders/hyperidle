@@ -53,7 +53,7 @@ export type {
 	ResolveInput,
 	TaskRunResolverDeps,
 } from "./task-run-resolver.js";
-export { resolveTaskRunRequest } from "./task-run-resolver.js";
+export { bakeTaskContextBundle, resolveTaskRunRequest } from "./task-run-resolver.js";
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
 export { assertNoCycle, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";

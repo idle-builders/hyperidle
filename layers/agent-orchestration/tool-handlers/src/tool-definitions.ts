@@ -1533,8 +1533,10 @@ function makeCreateArtifactTool<TDb>(
 			"Produce a knowledge item attached to the current task or conversation. " +
 			"The parent is resolved from context — never passed as input.\n\n" +
 			"Write the content as markdown in `body`. " +
-			"Interactive HTML (dashboards, charts, rich visualizations) goes inside a fenced ```html block; " +
-			"do NOT place raw HTML directly in the markdown body.\n\n" +
+			"For interactive HTML (a dashboard, chart or visualization the reader should SEE running), " +
+			"the body must be ONE fenced ```html block and nothing else — no title line, no explanation " +
+			"before or after it. That is what makes it render live. Add any prose and it becomes a code " +
+			"listing of your HTML instead. Never put raw HTML straight into the markdown body.\n\n" +
 			"Returns the id of the created knowledge item.",
 		inputSchema: createArtifactInputSchema,
 		handler: async (args, ctx) => {
