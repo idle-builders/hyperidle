@@ -12,6 +12,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.112.1",
+		"@hono/node-server": "^2.0.6",
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/core-api": "*",

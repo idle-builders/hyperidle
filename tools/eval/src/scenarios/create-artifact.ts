@@ -1,17 +1,29 @@
 /**
- * `create_artifact` scenarios — a real agent producing real content.
+ * `create_artifact` — an eval, which means the TOOL is what is under test.
  *
- * These were deleted with the artifacts table and are restored here in the new
- * shape. The tool survives, by founder call: "artifact" is still the word for
- * something an agent produced. What changed is what sits behind it — a
- * knowledge item parented to the task the agent was working on, with a markdown
- * body, instead of a row in a second table with a JSON preview blob.
+ * These scenarios give the agent a goal and nothing else. They deliberately do
+ * not say "call create_artifact", do not name the parameters, and do not
+ * describe the body format. Everything the agent knows about how to produce an
+ * artifact, it learns from the tool's own `description` — which is exactly the
+ * thing an eval is supposed to let us tune.
  *
- * So the rubric changed with it. There is no `kind` to get right and no preview
- * shape to validate: kind is derived from the body's blocks at render time.
- * What is worth judging now is whether the agent produced anything at all,
- * whether it hung it off the right thing, and whether the CONTENT is any good —
- * which is what an eval is for and what a schema check never was.
+ * That is the difference between this and the integration test beside it. The
+ * test (`create-artifact-end-to-end.integration.test.ts`) proves the tool
+ * round-trips when called correctly. This asks whether an agent, handed a
+ * normal piece of work, uses it correctly WITHOUT being told how. A prompt that
+ * spells out the mechanics can only ever score the model's instruction
+ * following; it can never surface a tool that is badly described.
+ *
+ * So a low score here is a finding about the tool, not the model. In
+ * particular: the description tells an agent that interactive HTML goes in a
+ * fenced ```html block, but not that it must be the ONLY block for the item to
+ * render live rather than as source. If `sole_html_block` scores badly across
+ * harnesses, that sentence is what needs to change.
+ *
+ * @lore artifacts-become-knowledge: there is no `kind` to judge and no preview
+ * shape to validate — kind is derived from the body's blocks at render time.
+ * What is judgeable is whether something was produced, whether it hangs off the
+ * right thing, and whether the content is any good.
  */
 
 import { knowledgeItems } from "@hyperidle/db";
@@ -66,16 +78,11 @@ const caCodeBuilderDevops: EvalScenario = {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure changes.
-When you complete implementation work, record the output with create_artifact.
-It takes a title and a markdown body — there is no kind and no preview. Put code in a fenced block.`,
+When you finish a piece of work, leave the output where your team can find it.`,
 			taskTitle: "Refactor Kubernetes deployment manifest",
-			taskDescription: `Refactor the Kubernetes deployment manifest to add resource limits and health checks.
+			taskDescription: `Add resource limits and readiness/liveness probes to the Kubernetes deployment manifest.
 
-When you are done, call create_artifact with:
-- title: a short name for what you produced
-- body: markdown containing the manifest in a fenced yaml block
-
-Document your changes in session notes.`,
+The team needs the finished manifest itself, not a summary of it.`,
 			betDescription: "Kubernetes deployment hardening",
 			betDoneCondition: "Deployment manifest updated with resource limits and health checks.",
 		});
@@ -108,14 +115,12 @@ const caInteractiveDesignerFrontend: EvalScenario = {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "designer",
 			agentSystemPrompt: `You are a designer agent.
-When you produce something a person should LOOK at rather than read, record it with create_artifact.
-Interactive HTML goes inside a single fenced \`\`\`html block and nothing else — that is what makes it
-render as a live document rather than as source. Never put raw HTML directly in the markdown body.`,
+When you make something a person should look at rather than read, leave it where the team can see it.`,
 			taskTitle: "Build the trial-conversion dashboard",
-			taskDescription: `Produce a small self-contained HTML dashboard showing trial conversion.
+			taskDescription: `The team wants to see how trials are converting.
 
-Call create_artifact with a body that is ONE fenced html block containing the whole document —
-no prose before or after it. Anything else and it renders as source instead of running.`,
+Build a small self-contained dashboard they can open and look at — it should render, not be
+described. Use the sample figures already in the task thread.`,
 			betDescription: "Trial conversion visibility",
 			betDoneCondition: "Dashboard produced and viewable.",
 		});
@@ -145,7 +150,10 @@ no prose before or after it. Anything else and it renders as source instead of r
 							note: `Has an html fence but not as the sole block (fences=${fences}, opens=${opensHtml}, ends=${endsFence}) — renders as a code listing, not in the frame`,
 						};
 					}
-					return { score: 0.0, note: "No fenced html block — raw HTML mis-derives into many blocks" };
+					return {
+						score: 0.0,
+						note: "No fenced html block — raw HTML mis-derives into many blocks",
+					};
 				},
 			},
 			judgeLlmQuality({
@@ -171,12 +179,11 @@ const caDecisionPmHealthcare: EvalScenario = {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager in the healthcare domain.
-Record significant product decisions with create_artifact, which hangs the record off the task you
-are working on. Healthcare decisions need rationale citing regulatory constraints (HIPAA, HL7 FHIR).`,
+Decisions you make need to be findable later by whoever has to live with them.`,
 			taskTitle: "Document data retention policy decision for patient records",
-			taskDescription: `Make and document a formal decision about patient data retention policy.
-
-Call create_artifact with a title and a markdown body stating the decision and the rationale behind it.`,
+			taskDescription: `Decide how long patient records are retained, and record the decision so the
+team can act on it. This is a regulated domain — whoever reads it later needs to know what
+constrained the choice.`,
 			betDescription: "Healthcare compliance posture",
 			betDoneCondition: "Retention policy decided and recorded.",
 		});

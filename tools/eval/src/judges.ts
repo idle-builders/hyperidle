@@ -139,7 +139,10 @@ export function judgeCreateArtifactCalled(): RubricDimension {
 				return { score: 0.0, note: `No knowledge item parented to task ${ctx.seedResult.taskId}` };
 			}
 			if (item.parentKind !== "task") {
-				return { score: 0.5, note: `Item found but parentKind is "${item.parentKind}", not "task"` };
+				return {
+					score: 0.5,
+					note: `Item found but parentKind is "${item.parentKind}", not "task"`,
+				};
 			}
 			return { score: 1.0 };
 		},
