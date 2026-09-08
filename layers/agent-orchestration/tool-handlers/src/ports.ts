@@ -113,6 +113,13 @@ interface ToolHandlersCreateKnowledgeItemInput {
 	readonly format: string;
 	readonly status: string;
 	readonly updatedBy: string;
+	/**
+	 * @lore rebase-onto-#547: `create_artifact`'s rewrite (a produced item is a
+	 * knowledge item parented to the task or thread that produced it) needs
+	 * these — `write_memory`, the accessor's other caller, never sets them.
+	 */
+	readonly parentKind?: "task" | "thread";
+	readonly parentId?: string;
 	readonly attentionScore?: number | null;
 	readonly confidence?: number | null;
 	readonly meta?: string | null;

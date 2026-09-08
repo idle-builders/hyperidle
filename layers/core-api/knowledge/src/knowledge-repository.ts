@@ -564,7 +564,10 @@ export async function reparent(
 			}
 
 			const { parentKind, parentId } = input;
-			if ((parentKind === null || parentId === null) && (parentKind !== null || parentId !== null)) {
+			if (
+				(parentKind === null || parentId === null) &&
+				(parentKind !== null || parentId !== null)
+			) {
 				throw new Error(
 					"reparent: parentKind and parentId must both be null (detach to root) or both be set — never one without the other",
 				);

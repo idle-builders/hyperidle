@@ -119,6 +119,48 @@ function requiresScopeId(kind: string): boolean {
 	return SCOPES_REQUIRING_ID.has(kind as Parameters<typeof SCOPES_REQUIRING_ID.has>[0]);
 }
 
+/**
+ * The parent kinds a client may name at creation time. A deliberate subset of
+ * `KNOWLEDGE_PARENT_KINDS` — see `createKnowledgeSchema.parentKind`.
+ *
+ * @lore rebase-onto-#547 correction: an earlier pass on this rebase widened
+ * `createKnowledgeSchema.parentKind` to the full `KNOWLEDGE_PARENT_KINDS`,
+ * reasoning from this WP's own final branch state. `knowledge.parent.
+ * integration.test.ts` (also merged from #547) proved that wrong — it pins,
+ * as a real tested contract, that a client naming `knowledge_item`/`routine`/
+ * `agent` gets a 400, and that a named `task`/`thread` must exist (checked
+ * via `parentExists`, the owning service). No caller in this WP — UI or
+ * test — creates with `parentKind: "knowledge_item"` through this route
+ * (nesting a NEW item under an existing one happens via `PATCH` → `reparent()`
+ * after creation, not at create time), so restoring the narrower, tested
+ * contract costs this WP nothing. `updateKnowledgeSchema.parentKind` below
+ * stays on the full `KNOWLEDGE_PARENT_KINDS` — moving an item INTO the tree
+ * via PATCH is this WP's own real feature and untouched by that test file.
+ */
+const CLIENT_WRITABLE_PARENT_KINDS = ["task", "thread"] as const;
+type ClientWritableParentKind = (typeof CLIENT_WRITABLE_PARENT_KINDS)[number];
+
+/**
+ * Confirm a named parent actually exists, asking the service that OWNS its
+ * table rather than reading that table here — `work` for a task,
+ * `conversation` for a thread. Both are already imported by this route, so
+ * this costs no new dependency.
+ *
+ * The slot carries no foreign key (it points at five tables), so this check is
+ * the only thing standing between a typo and a knowledge item hanging off
+ * nothing.
+ */
+async function parentExists(
+	db: HyperIdleDb,
+	kind: ClientWritableParentKind,
+	id: string,
+): Promise<boolean> {
+	if (kind === "task") {
+		return (await work.get(db, "task", id)) !== undefined;
+	}
+	return (await findThread(db, { id })) !== undefined;
+}
+
 const createKnowledgeSchema = z.object({
 	title: z.string(),
 	body: z.string(),
@@ -139,25 +181,15 @@ const createKnowledgeSchema = z.object({
 	 */
 	role: z.enum(KNOWLEDGE_ROLES).optional(),
 	/**
-	 * @lore nested-knowledge-items §8: a caller may place a new item under an
-	 * existing knowledge item, task, thread, routine or agent. Both present or
-	 * neither — the kernel table's `ki_parent_pair_ck` mirrors this at the DB
-	 * layer. Existence/invariant validation for a `knowledge_item` parent runs
-	 * inside `create()`'s own transaction; other parent kinds are accepted at
-	 * face value, matching the no-FK design's own best-effort guarantee.
-	 *
-	 * @lore rebase-onto-#547: a parallel strand narrowed this to a
-	 * `CLIENT_WRITABLE_PARENT_KINDS = ["task", "thread"]` subset (routing
-	 * `knowledge_item`/`routine`/`agent` exclusively through server-side
-	 * callers) plus a cross-service `parentExists` existence check for
-	 * task/thread. This WP's design is the wider, already-reviewed one: full
-	 * `KNOWLEDGE_PARENT_KINDS` accepted at creation (§8), no existence check
-	 * at this layer — both narrower pieces are dropped rather than kept
-	 * alongside, since keeping both would mean two different validation
-	 * strengths for the same field depending on which code path a reviewer
-	 * happens to read.
+	 * Where a produced item hangs at creation time. Only `task` and `thread`
+	 * are accepted from a client (`CLIENT_WRITABLE_PARENT_KINDS` above) — the
+	 * other three `KNOWLEDGE_PARENT_KINDS` (`knowledge_item`, `routine`,
+	 * `agent`) are written exclusively by core-api's own routes, which already
+	 * hold the parent row for other reasons. Nesting a new item directly under
+	 * an existing tree node is a create-then-`PATCH`-reparent, not a single
+	 * create call — see `updateKnowledgeSchema.parentKind` below.
 	 */
-	parentKind: z.enum(KNOWLEDGE_PARENT_KINDS).optional(),
+	parentKind: z.enum(CLIENT_WRITABLE_PARENT_KINDS).optional(),
 	parentId: z.string().optional(),
 });
 
@@ -428,6 +460,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				code: API_ERROR_CODES.VALIDATION_ERROR,
 			};
 			return c.json(response, 400);
+		}
+
+		if (body.parentKind !== undefined && body.parentId !== undefined) {
+			if (!(await parentExists(db, body.parentKind, body.parentId))) {
+				const response: ApiErrorResponse = {
+					error: `no ${body.parentKind} with id '${body.parentId}'`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
 		}
 
 		// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
