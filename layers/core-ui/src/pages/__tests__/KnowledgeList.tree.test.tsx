@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items AC1 — the Curated tab renders as a tree: a parent
+ * @lore nested-knowledge-items AC1 — the Curated tab renders as a tree: a parent
  * row is immediately followed by its own children, indented, instead of a
  * flat recency-sorted list (review.md B1). Reproduces the exact scenario the
  * review's live-render check found missing: no nesting affordance anywhere.

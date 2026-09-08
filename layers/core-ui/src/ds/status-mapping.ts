@@ -28,9 +28,10 @@ export const TASK_STATE_MAP: Record<TaskState, Status> = {
 
 /**
  * Knowledge lifecycle status → presentation Status. Exhaustive over the
- * 4-value KnowledgeStatus ladder (nested-knowledge-items collapsed the old
- * 7-value set: captured/provisional/needs_human → proposed, validated →
- * active).
+ * 4-value KnowledgeStatus ladder.
+ *
+ * @lore nested-knowledge-items: collapsed the old 7-value set —
+ * captured/provisional/needs_human → proposed, validated → active.
  */
 export const KNOWLEDGE_STATUS_MAP: Record<KnowledgeStatus, Status> = {
 	proposed: "behind",

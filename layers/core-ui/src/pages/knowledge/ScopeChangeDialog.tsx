@@ -48,8 +48,9 @@ export interface ScopeChangeDialogProps {
  * Maps a raw scopeKind to the matching SCOPE_CREATE_OPTIONS entry.
  * "factory" → "Shared", "team" → "Team", "user" → "Private" — a direct 1:1
  * match, since ScopeKind and SCOPE_CREATE_OPTIONS are both exactly these
- * three values (nested-knowledge-items retired product/practice/task).
+ * three values.
  *
+ * @lore nested-knowledge-items: retired product/practice/task.
  * @lore AV3 A2: the label-based fallback below predates that collapse, back
  * when a scopeKind could lack an exact SCOPE_CREATE_OPTIONS entry. It is
  * unreachable now but kept as a defensive default rather than deleted —

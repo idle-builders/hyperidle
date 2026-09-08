@@ -33,7 +33,9 @@ export interface KnowledgeItemData {
 	accessCount?: number;
 	/**
 	 * W3 AC-41: children ∪ siblings (Backlinks card) — replaces the deleted
-	 * topic-match query (nested-knowledge-items §4).
+	 * topic-match query.
+	 *
+	 * @lore nested-knowledge-items §4.
 	 */
 	relatedItems?: ReadonlyArray<{ id: string; title: string }>;
 	/**

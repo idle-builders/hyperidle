@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items architecture.md §3 / review.md B12 & B13 —
+ * @lore nested-knowledge-items architecture.md §3 / review.md B12 & B13 —
  * `PATCH /api/knowledge/:id` refuses an illegal move with a 4xx naming the
  * rule, and never partially commits: a title change bundled with an illegal
  * move must not land while the move is refused.

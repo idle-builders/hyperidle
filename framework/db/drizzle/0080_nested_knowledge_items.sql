@@ -210,7 +210,7 @@ UPDATE "agent_work_intents" SET
   status = 'failed',
   claim_token = NULL,
   claim_expires_at = NULL,
-  last_error = '0080: baked contextBundle predates the nested-knowledge-items parentChain contract; re-emit this intent',
+  last_error = '0080: baked contextBundle predates the required knowledge parentChain contract; re-emit this intent',
   last_error_code = 'STALE_BAKED_CONTEXT',
   updated_at = now()::text
 WHERE status IN ('pending', 'claimed')

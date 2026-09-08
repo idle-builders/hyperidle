@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items architecture.md §7 / review.md B10 — migration
+ * @lore nested-knowledge-items architecture.md §7 / review.md B10 — migration
  * `0080` step 11 fails any pending/claimed `agent_work_intents` row whose
  * baked `contextBundle.knowledge` predates the `parentChain` contract,
  * instead of leaving it to crash the drain path with "undefined is not
@@ -36,7 +36,7 @@ function makeTempMigrationsFolder(upToIdx: number): string {
 
 const NOW = "2026-01-01T00:00:00.000Z";
 
-describe("nested-knowledge-items migration: stale baked agent_work_intents (B10)", () => {
+describe("migration 0080: stale baked agent_work_intents", () => {
 	const clients: PGlite[] = [];
 	const tempDirs: string[] = [];
 

@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items architecture.md §5 / review.md B4 — the ancestor
+ * @lore nested-knowledge-items architecture.md §5 / review.md B4 — the ancestor
  * chain a bake needs is resolved once, at bake time, by
  * `resolveParentChain`, and `assembleSessionKnowledge` attaches it to every
  * ordinary item it ranks. Before this fix, `BakedContextKnowledgeItem.parentChain`

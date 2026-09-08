@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items architecture.md §5 / review.md B4 & B5 — a
+ * @lore nested-knowledge-items architecture.md §5 / review.md B4 & B5 — a
  * `BakedContextKnowledgeItem` carrying a real `parentChain` materialises as
  * nested directories (not flat), and every ancestor directory gets its own
  * `.fabric/manifest.json` entry (id → {source_path, scopeKind, version}) so

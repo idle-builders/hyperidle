@@ -112,9 +112,9 @@ export async function resolveScopeName(
 }
 
 /**
- * nested-knowledge-items architecture.md §4 D2: the viewer's team, resolved
- * through the users service's own port (`findUser`) — never a join to
- * `users` from inside the knowledge repository (table ownership,
+ * @lore nested-knowledge-items architecture.md §4 D2: the viewer's team,
+ * resolved through the users service's own port (`findUser`) — never a join
+ * to `users` from inside the knowledge repository (table ownership,
  * tools/governance/table-owners.json gives `users` to the users service and
  * `knowledge_items` to knowledge).
  */

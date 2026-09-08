@@ -1,7 +1,7 @@
 /**
  * The `.fabric/manifest.json` shape — shared by the writer (`context.ts`,
  * bake-time materialisation) and the reader (`writeback-processor.ts`,
- * session-time capture). Before nested-knowledge-items these were two
+ * session-time capture). @lore nested-knowledge-items: before this work these were two
  * independent structural interfaces, one per file, that happened to look
  * alike: TypeScript never compared them (review.md B5), so the writer never
  * noticed it was missing a field (`scopeKind`) the reader had declared as

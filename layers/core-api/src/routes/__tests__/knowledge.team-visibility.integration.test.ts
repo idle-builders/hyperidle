@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items architecture.md §4 D2 / review.md B2 & B3 — the
+ * @lore nested-knowledge-items architecture.md §4 D2 / review.md B2 & B3 — the
  * team-scope visibility rule, proven at the real HTTP route, not just the
  * repository function. Before this fix `GET /api/knowledge` used
  * `{visibleWithSignals}`, whose only predicate was the pre-existing Q2
@@ -79,7 +79,7 @@ async function seedKnowledgeItem(
 	});
 }
 
-describe("nested-knowledge-items: team-scope visibility at the real route", () => {
+describe("knowledge team-scope visibility at the real route", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});

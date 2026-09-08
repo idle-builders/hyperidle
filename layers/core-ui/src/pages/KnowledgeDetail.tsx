@@ -1170,7 +1170,7 @@ function KnowledgeDetailView({
 						</div>
 					</div>
 
-					{/* nested-knowledge-items: this item's own children */}
+					{/* @lore nested-knowledge-items: this item's own children */}
 					<ChildrenCard>{item.children}</ChildrenCard>
 
 					{/* W3 AC-41: backlinks card */}
