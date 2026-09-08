@@ -296,6 +296,29 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 	});
 });
 
+/**
+ * Route the page's reads and its PATCH by method rather than by call order.
+ * The page issues two independent reads on mount (the task tree and the task's
+ * sessions); which of them lands first is a race, so a chain of
+ * `mockResolvedValueOnce` hands the PATCH's canned response to whichever read
+ * happens to be second. Keying on the method is order-free.
+ */
+function mockTreeAndPatch(
+	fetchMock: ReturnType<typeof vi.fn>,
+	task: ReturnType<typeof makeTask>,
+	patchResponse: { ok: boolean; status?: number },
+): void {
+	fetchMock.mockImplementation(async (_url: string, opts?: RequestInit) => {
+		if (opts?.method === "PATCH") {
+			return { ...patchResponse, json: async () => ({}) };
+		}
+		return {
+			ok: true,
+			json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
+		};
+	});
+}
+
 // ── AC10: edit submit issues PATCH ───────────────────────────────────────────
 
 describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
@@ -378,16 +401,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 	it("clicking Save issues PATCH /api/tasks/:id with the changed fields", async () => {
 		const task = makeTask("task-1", "My task");
 
-		// First call: tree fetch; second call: PATCH
-		fetchMock
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({}),
-			});
+		mockTreeAndPatch(fetchMock, task, { ok: true });
 
 		renderPage("task-1");
 
@@ -421,12 +435,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 
 	it("shows 'Saved' confirmation after a successful PATCH", async () => {
 		const task = makeTask("task-1", "My task");
-		fetchMock
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
-			})
-			.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+		mockTreeAndPatch(fetchMock, task, { ok: true });
 
 		renderPage("task-1");
 
@@ -446,12 +455,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 
 	it("shows error message when PATCH fails", async () => {
 		const task = makeTask("task-1", "My task");
-		fetchMock
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
-			})
-			.mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({}) });
+		mockTreeAndPatch(fetchMock, task, { ok: false, status: 409 });
 
 		renderPage("task-1");
 
