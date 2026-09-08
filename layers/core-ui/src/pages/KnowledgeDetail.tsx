@@ -79,6 +79,7 @@ import { scopeKindToLabel } from "../utils/scope-labels.js";
 import { absoluteDateTime } from "../utils/time.js";
 
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
+import { MoveDialog } from "./knowledge/MoveDialog";
 import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
 
 /**
@@ -127,6 +128,14 @@ interface DetailItem {
 	updatedBy?: string;
 	/** AV3: resolved human-readable scope name — from server, response-only */
 	scopeName?: string;
+	/**
+	 * @lore nested-knowledge-items: the tree parent — MoveDialog's own
+	 * pre-selection. Absent for a fixture/legacy item, which MoveDialog reads
+	 * as "already a root" (the same fallback ScopeChangeDialog uses for a
+	 * pre-Q2 item's scopeKind).
+	 */
+	parentId?: string | null;
+	parentKind?: string | null;
 }
 
 /**
@@ -333,6 +342,8 @@ export function KnowledgeDetail({
 			confidence: apiItem.confidence,
 			accessCount: apiItem.accessCount,
 			updatedBy: apiItem.updatedBy,
+			parentId: apiItem.parentId,
+			parentKind: apiItem.parentKind,
 			structuredRelatedItems: apiItem.relatedItems,
 			children: apiItem.children,
 			// AV3 WARNING-A3: must assign on the object, not only on the interface.
@@ -460,6 +471,7 @@ function KnowledgeOverflowMenu({
 	onClose,
 	onArchive,
 	onChangeScope,
+	onMove,
 	onPromoteToTask,
 	archiving,
 	itemStatus,
@@ -470,6 +482,7 @@ function KnowledgeOverflowMenu({
 	onClose: () => void;
 	onArchive: () => void;
 	onChangeScope: () => void;
+	onMove: () => void;
 	onPromoteToTask: () => void;
 	archiving: boolean;
 	/** AK5: used to disable "Promote to task" when item is archived. */
@@ -478,6 +491,8 @@ function KnowledgeOverflowMenu({
 	 * AV3 WARNING-D2: gate the "Change scope" item behind !isReadOnly so the
 	 * read-only state is coherent — no scope-change affordance anywhere on a
 	 * read-only/factory item. Presentation-only; no server gate added (WARNING-A4).
+	 * @lore nested-knowledge-items: Move is gated the same way — an item you
+	 * cannot edit is an item you cannot reparent either.
 	 */
 	isReadOnly: boolean;
 }): JSX.Element {
@@ -486,6 +501,13 @@ function KnowledgeOverflowMenu({
 		label: "Change scope",
 		onSelect: onChangeScope,
 		dataAttrs: { "data-testid": "knowledge-change-scope" },
+	};
+
+	const moveItem: MenuItem = {
+		id: "move",
+		label: "Move",
+		onSelect: onMove,
+		dataAttrs: { "data-testid": "knowledge-move" },
 	};
 
 	const items: MenuItem[] = [
@@ -505,7 +527,7 @@ function KnowledgeOverflowMenu({
 			dataAttrs: { "data-testid": "knowledge-promote-task" },
 		},
 		// AV3: only include change-scope for editable items (WARNING-D2 coherence fix).
-		...(isReadOnly ? [] : [changeScopeItem]),
+		...(isReadOnly ? [] : [changeScopeItem, moveItem]),
 	];
 
 	return (
@@ -626,6 +648,8 @@ function KnowledgeDetailView({
 
 	// Q2: Scope change dialog state.
 	const [scopeChangeOpen, setScopeChangeOpen] = useState(false);
+	// @lore nested-knowledge-items: Move dialog state — plan.md AC2.
+	const [moveOpen, setMoveOpen] = useState(false);
 
 	// AD6: Archive in-flight state + error.
 	const [archiving, setArchiving] = useState(false);
@@ -945,6 +969,10 @@ function KnowledgeDetailView({
 										setScopeChangeOpen(true);
 										closeOverflow();
 									}}
+									onMove={() => {
+										setMoveOpen(true);
+										closeOverflow();
+									}}
 									onPromoteToTask={() => void handlePromoteToTask()}
 									archiving={archiving}
 									itemStatus={item.status}
@@ -1100,6 +1128,22 @@ function KnowledgeDetailView({
 						knowledgeId={effectiveKnowledgeId}
 						currentVersion={item.versionNum ?? 1}
 						currentScopeKind={item.scopeKind ?? "factory"}
+					/>
+
+					{/* @lore nested-knowledge-items: Move dialog — plan.md AC2. A move
+					    changes the tree shape the whole page renders (breadcrumb,
+					    Children/Backlinks), so a full reload is the same choice the
+					    conflict banner's own Reload button already makes rather than
+					    reaching for a second data-refresh path. */}
+					<MoveDialog
+						open={moveOpen}
+						onClose={() => setMoveOpen(false)}
+						onSaved={() => window.location.reload()}
+						knowledgeId={effectiveKnowledgeId}
+						currentVersion={item.versionNum ?? 1}
+						currentParentId={item.parentId ?? null}
+						currentParentKind={item.parentKind ?? null}
+						scopeKind={item.scopeKind ?? "factory"}
 					/>
 
 					{/* Metadata card */}

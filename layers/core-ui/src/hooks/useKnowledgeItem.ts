@@ -46,6 +46,14 @@ export interface KnowledgeItemData {
 	children?: ReadonlyArray<{ id: string; title: string }>;
 	/** AV3: resolved human-readable scope name — response-only, never persisted */
 	scopeName?: string;
+	/**
+	 * @lore nested-knowledge-items: the tree parent — MoveDialog's own
+	 * pre-selection. `null`/`"knowledge_item"` means the item is on the tree
+	 * (a root, or nested under another item); anything else (task/thread/
+	 * routine/agent) is off-tree by design.
+	 */
+	parentId?: string | null;
+	parentKind?: string | null;
 }
 
 export function useKnowledgeItem(id: string | undefined): FetchState<KnowledgeItemData> {
