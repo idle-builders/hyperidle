@@ -114,10 +114,19 @@ Recorded because each was believed and checked:
 
 ## Deferrals, stated
 
-- **AC8 was not proven on the harness lane.** Parity is proven at the service
-  level against a real database; the two payloads are transcribed from their call
-  sites rather than driven through the agent harness and the browser. The harness
-  lane has no CI runner by design.
+- **The harness lane was RUN, against a measured baseline.** 17 failed / 60
+  passed / 4 skipped on this branch, versus 16 / 61 / 4 on `origin/main` — the
+  same eleven failing files either side. The lane is substantially red on main
+  already (agents not calling `reply()`, model selection on cursor-agent and
+  claude, MCP provisioning, return-enforcement hooks); none of it touches
+  artifacts, knowledge items or the parent slot. The one extra failing test, a
+  codex return-enforcement hook, passes in isolation on BOTH branch and main —
+  a flake under full-lane load, not a regression.
+
+  What the lane still does not do is drive AC8's parity end to end: the two
+  payloads are transcribed from their call sites rather than driven through the
+  agent harness and the browser. That limitation is written into
+  `human-agent-parity.integration.test.ts` itself.
 - **`upsertPluginDocument` / `UpsertPluginDocumentInput`** are the
   nested-knowledge strand's vocabulary sweep, not this one's.
 - **The status ladder collapse** (`captured` → `proposed`) is that strand's
