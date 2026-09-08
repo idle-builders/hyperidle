@@ -117,6 +117,35 @@ export function judgeWriteMemoryCalled(): RubricDimension {
 	};
 }
 
+/**
+ * Judge: `create_artifact` was called — a knowledge item parented to the task
+ * the agent was working on.
+ *
+ * The parent is what distinguishes this from `write_memory`: both write a
+ * knowledge item, and only a produced one hangs off the task that produced it.
+ */
+export function judgeCreateArtifactCalled(): RubricDimension {
+	return {
+		id: "artifact_produced",
+		label: "Artifact Produced (create_artifact called)",
+		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+			const [item] = await ctx.db
+				.select({ id: knowledgeItems.id, parentKind: knowledgeItems.parentKind })
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.parentId, ctx.seedResult.taskId))
+				.limit(1);
+
+			if (item === undefined) {
+				return { score: 0.0, note: `No knowledge item parented to task ${ctx.seedResult.taskId}` };
+			}
+			if (item.parentKind !== "task") {
+				return { score: 0.5, note: `Item found but parentKind is "${item.parentKind}", not "task"` };
+			}
+			return { score: 1.0 };
+		},
+	};
+}
+
 /** Judge: create_task was called — tasks row with ownerAgentId = agentId and state = "proposed". */
 export function judgeCreateTaskCalled(): RubricDimension {
 	return {
