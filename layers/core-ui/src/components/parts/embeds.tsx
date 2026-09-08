@@ -21,17 +21,9 @@ import type { Embed, OpenHandler } from ".";
 /** Render a single Embed. Returns null for embeds with no inline render (mention is rendered inline by prose). */
 export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX.Element | null {
 	switch (embed.kind) {
-		case "artifact":
-			return (
-				<ReferenceChip
-					key={key}
-					kind="artifact"
-					label={embed.label}
-					meta={embed.meta}
-					mode="posted"
-					onOpen={() => onOpen(embed.target)}
-				/>
-			);
+		// A file diff has no destination — see the `diff` variant's own note in
+		// `part.ts`. The chip names the file and its counts; it does not pretend
+		// to open something.
 		case "diff":
 			return (
 				<ReferenceChip
@@ -40,17 +32,6 @@ export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX
 					label={embed.label}
 					meta={embed.meta}
 					mode="posted"
-					onOpen={() => onOpen(embed.target)}
-				/>
-			);
-		case "block":
-			return (
-				<ReferenceChip
-					key={key}
-					kind="block"
-					label={embed.title}
-					mode="posted"
-					onOpen={() => onOpen(embed.target)}
 				/>
 			);
 		case "entity-ref":

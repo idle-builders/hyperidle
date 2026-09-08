@@ -23,7 +23,7 @@
 import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
-import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
+import { ArtifactSection } from "../components/ArtifactSection.js";
 import {
 	Breadcrumb,
 	type BreadcrumbSegment,
@@ -438,7 +438,6 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const taskId = overrideTaskId ?? routeTaskId;
 	const { data, loading, error, refresh } = useTaskTree(taskId);
 	const { data: sessionsData } = useTaskSessions(taskId);
-	const onOpenArtifact = useArtifactOpen();
 
 	// Position reordering — PATCH /api/tasks/:id with { position } then re-read
 	// the tree so the order the user sees matches what the server stored.
@@ -647,13 +646,12 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 					)}
 				</section>
 
-				{/* Artifacts */}
+				{/* Artifacts — knowledge items parented to this task (AC4) */}
 				<ArtifactSection
-					filter={{ axis: "task", taskId: taskId ?? "" }}
-					layout="stack"
+					parentKind="task"
+					parentId={taskId ?? ""}
 					heading="Artifacts"
 					emptyDescription="Artifacts will appear here once agents produce output for this task."
-					onOpen={onOpenArtifact}
 				/>
 
 				{/* Discussion */}

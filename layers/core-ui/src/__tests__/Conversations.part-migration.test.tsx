@@ -68,7 +68,7 @@ const REVIEW_MSG = {
 	payload: {
 		title: "Approve the pricing overhaul",
 		reasoning: ["one"],
-		artifactRef: { id: "art-1", kind: "text_diff" },
+		producedItemId: "art-1",
 	},
 };
 
@@ -85,7 +85,7 @@ const RESOLVED_REVIEW_MSG = {
 	payload: {
 		title: "Resolved review echo",
 		reasoning: ["done"],
-		artifactRef: { id: "art-2", kind: "text_diff" },
+		producedItemId: "art-2",
 	},
 };
 

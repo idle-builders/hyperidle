@@ -49,7 +49,7 @@ function review(id: string, offsetMin: number, opts: { resolvedAt?: string | nul
 		payload: {
 			title: `review-${id}`,
 			reasoning: ["because"],
-			artifactRef: { id: "a1", kind: "text_diff" },
+			producedItemId: "a1",
 		},
 	};
 }
@@ -140,10 +140,10 @@ describe("closed enums (AC-4)", () => {
 		);
 	});
 
-	it('HOST_KINDS has exactly 7 entries (BB1: "bet" removed)', () => {
-		expect(HOST_KINDS.length).toBe(7);
+	it('HOST_KINDS has exactly 6 entries (BB1: "bet" removed, artifacts-become-knowledge: "artifact" removed)', () => {
+		expect(HOST_KINDS.length).toBe(6);
 		expect(new Set(HOST_KINDS)).toEqual(
-			new Set(["task", "knowledge_item", "artifact", "agent", "user", "team", "factory"]),
+			new Set(["task", "knowledge_item", "agent", "user", "team", "factory"]),
 		);
 	});
 });

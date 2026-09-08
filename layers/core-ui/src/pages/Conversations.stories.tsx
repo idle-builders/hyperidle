@@ -102,7 +102,7 @@ const REVIEW_THREAD = {
 			payload: {
 				title: "Pricing overhaul",
 				reasoning: ["Market analysis shows a 20% gap vs. competitors."],
-				artifactRef: { id: "art-1", kind: "text_diff" },
+				producedItemId: "art-1",
 			},
 		},
 	],

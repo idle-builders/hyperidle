@@ -112,7 +112,7 @@ describe("ToolPart", () => {
 		expect(screen.queryByRole("button")).not.toBeInTheDocument();
 	});
 
-	it("fires onOpen when diff chip is clicked", () => {
+	it("shows the diff chip as a label, not a control — it has nowhere to go", () => {
 		const onOpen = vi.fn();
 		const part = mkToolPart({
 			status: "ok",
@@ -121,15 +121,19 @@ describe("ToolPart", () => {
 					kind: "diff",
 					label: "server/chat/stream.ts",
 					meta: "9/2",
-					target: { route: "review", reviewId: "rev-1" },
 				},
 			],
 		});
 		render(<ToolPart part={part} onOpen={onOpen} />);
-		const diffChip = screen.getByRole("button", { name: /stream\.ts/i });
-		fireEvent.click(diffChip);
-		expect(onOpen).toHaveBeenCalledTimes(1);
-		expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ route: "review" }));
+
+		// The file and its counts are shown.
+		expect(screen.getByText("stream.ts")).toBeInTheDocument();
+
+		// But it is not a button. Its target used to be `/artifacts/<file path>`,
+		// which never resolved to a row even while that route existed, so the
+		// click had never done anything.
+		expect(screen.queryByRole("button", { name: /stream\.ts/i })).toBeNull();
+		expect(onOpen).not.toHaveBeenCalled();
 	});
 
 	it("fires onOpen with session route when sub-agent open button is clicked", () => {

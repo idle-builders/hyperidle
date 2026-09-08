@@ -73,10 +73,9 @@ const PARTS: Part[] = [
 		embeds: [
 			{ kind: "session-reference", sessionId: "s-1", summary: "Worked for 1m 12s" },
 			{
-				kind: "artifact",
+				kind: "diff",
 				label: "auth/passkey.ts",
 				meta: "+2 −1",
-				target: { route: "artifact", artifactId: "art-1" },
 			},
 			{
 				kind: "entity-ref",
@@ -93,14 +92,7 @@ const PARTS: Part[] = [
 		kind: "prose",
 		author: author(ATLAS),
 		createdAt: "2026-06-17T09:12:00.000Z",
-		embeds: [
-			{
-				kind: "block",
-				title: "Auth migration plan · §2",
-				target: { route: "host", hostKind: "knowledge_item", hostId: "k-auth-plan" },
-			},
-			{ kind: "session-reference", sessionId: "s-2" },
-		],
+		embeds: [{ kind: "session-reference", sessionId: "s-2" }],
 		text: "Context for the dual-auth window and the flow diagram:",
 	},
 	{
@@ -128,10 +120,9 @@ const PARTS: Part[] = [
 		embeds: [],
 		title: "Approve deploy of passkey login to staging",
 		changeSet: {
-			kind: "artifact",
+			kind: "diff",
 			label: "auth/passkey.ts",
 			meta: "+2 −1",
-			target: { route: "artifact", artifactId: "art-1" },
 		},
 		reviewTarget: { reviewId: "rv-1" },
 	},

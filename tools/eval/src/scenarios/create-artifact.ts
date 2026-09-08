@@ -1,11 +1,32 @@
 /**
- * X8: Create artifact scenarios (interaction 4).
+ * `create_artifact` — an eval, which means the TOOL is what is under test.
  *
- * Tests the create_artifact tool: code (pure content) preview, decision content, verification preview.
- * @lore AM5 K4b: code_diff kind + {file,hunks} shape PURGED. Now uses kind="code" + {path,lang,text}.
+ * These scenarios give the agent a goal and nothing else. They deliberately do
+ * not say "call create_artifact", do not name the parameters, and do not
+ * describe the body format. Everything the agent knows about how to produce an
+ * artifact, it learns from the tool's own `description` — which is exactly the
+ * thing an eval is supposed to let us tune.
+ *
+ * That is the difference between this and the integration test beside it. The
+ * test (`create-artifact-end-to-end.integration.test.ts`) proves the tool
+ * round-trips when called correctly. This asks whether an agent, handed a
+ * normal piece of work, uses it correctly WITHOUT being told how. A prompt that
+ * spells out the mechanics can only ever score the model's instruction
+ * following; it can never surface a tool that is badly described.
+ *
+ * So a low score here is a finding about the tool, not the model. In
+ * particular: the description tells an agent that interactive HTML goes in a
+ * fenced ```html block, but not that it must be the ONLY block for the item to
+ * render live rather than as source. If `sole_html_block` scores badly across
+ * harnesses, that sentence is what needs to change.
+ *
+ * @lore artifacts-become-knowledge: there is no `kind` to judge and no preview
+ * shape to validate — kind is derived from the body's blocks at render time.
+ * What is judgeable is whether something was produced, whether it hangs off the
+ * right thing, and whether the content is any good.
  */
 
-import { artifacts } from "@hyperidle/db";
+import { knowledgeItems } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeCreateArtifactCalled, judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -19,519 +40,164 @@ import type {
 	TriggerResult,
 } from "../types.js";
 
+/** The body of whatever the agent produced for the scenario's task, or "". */
+async function producedBody(ctx: JudgeContext): Promise<string> {
+	const [item] = await ctx.db
+		.select({ body: knowledgeItems.body })
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.parentId, ctx.seedResult.taskId))
+		.limit(1);
+	return item?.body ?? "";
+}
+
+function trigger(ctx: TriggerContext): Promise<TriggerResult> {
+	return runEvalSession(
+		{
+			db: ctx.db,
+			eventBus: ctx.eventBus,
+			sandboxBasePath: ctx.seedResult.sandboxBasePath,
+		},
+		{
+			taskId: ctx.seedResult.taskId,
+			agentId: ctx.seedResult.agentId,
+			teamId: ctx.seedResult.teamId,
+		},
+	);
+}
+
 // ---------------------------------------------------------------------------
-// ca-code-diff-builder-devops
+// ca-code-builder-devops — code content in a fenced block
 // ---------------------------------------------------------------------------
 
-// AM5 K4b: renamed from ca-code-diff-builder-devops to ca-code-builder-devops
-const caCodeDiffBuilderDevops: EvalScenario = {
+const caCodeBuilderDevops: EvalScenario = {
 	id: "ca-code-builder-devops",
-	description: "Builder creates a code artifact with pure {path,lang,text} preview for DevOps task",
+	description: "Builder produces a code artifact as a fenced block in a markdown body",
 	feature: "create_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure changes.
-When you complete implementation work, you MUST record the output as an artifact using create_artifact.
-For code changes, use kind="code" and provide a structured preview showing the file path, language, and content.`,
+When you finish a piece of work, leave the output where your team can find it.`,
 			taskTitle: "Refactor Kubernetes deployment manifest",
-			taskDescription: `Refactor the Kubernetes deployment manifest to add resource limits and health checks.
+			taskDescription: `Add resource limits and readiness/liveness probes to the Kubernetes deployment manifest.
 
-After analyzing the required changes, use create_artifact with:
-- kind: "code"
-- preview: { kind: "code", path: "k8s/deployment.yaml", lang: "yaml", text: "replicas: 3\\nresources:\\n  limits:\\n    cpu: 500m" }
-
-Document your changes in session notes.`,
+The team needs the finished manifest itself, not a summary of it.`,
 			betDescription: "Kubernetes deployment hardening",
 			betDoneCondition: "Deployment manifest updated with resource limits and health checks.",
 		});
 	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		return await runEvalSession(
-			{
-				db: ctx.db,
-				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
-			},
-			{
-				taskId: ctx.seedResult.taskId,
-				agentId: ctx.seedResult.agentId,
-				teamId: ctx.seedResult.teamId,
-			},
-		);
-	},
+	trigger,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
 			judgeCreateArtifactCalled(),
-			{
-				id: "kind_correctness",
-				// AM5 K4b: kind changed from code_diff to code
-				label: "Artifact Kind Correct (code)",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ kind: artifacts.kind })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					const correct = artifact?.kind === "code";
-					return {
-						score: correct ? 1.0 : artifact ? 0.5 : 0.0,
-						note: correct
-							? undefined
-							: artifact
-								? `Wrong kind: ${artifact.kind}`
-								: "No artifact created",
-					};
-				},
-			},
-			{
-				id: "preview_valid",
-				// AM5 K4b: preview shape changed from {file,hunks} to {path,lang,text}
-				label: "Preview JSON Structure Valid (pure code shape)",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ previewJson: artifacts.previewJson })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					if (!artifact?.previewJson) {
-						return { score: 0.0, note: "No preview JSON found" };
-					}
-					try {
-						const preview = JSON.parse(artifact.previewJson) as Record<string, unknown>;
-						const hasPath = typeof preview.path === "string";
-						const hasText = typeof preview.text === "string";
-						if (hasPath && hasText) {
-							return { score: 1.0 };
-						}
-						return {
-							score: 0.5,
-							note: `Preview missing fields: path=${hasPath}, text=${hasText}`,
-						};
-					} catch {
-						return { score: 0.0, note: "Preview JSON parse error" };
-					}
-				},
-			},
+			judgeLlmQuality({
+				id: "code_content_quality",
+				label: "Produced body carries real manifest content",
+				extractContent: producedBody,
+				criteria: `Score 1.0 if the body contains a fenced code block holding a Kubernetes manifest with BOTH resource limits and a health check (readiness or liveness probe). Score 0.5 if a manifest is present but missing one of them, or is not in a fenced block. Score 0.0 if there is no manifest content.`,
+			}),
 		],
 	},
 };
 
 // ---------------------------------------------------------------------------
-// ca-decision-pm-healthcare
+// ca-interactive-designer-frontend — the interactive-document case
+// ---------------------------------------------------------------------------
+
+const caInteractiveDesignerFrontend: EvalScenario = {
+	id: "ca-interactive-designer-frontend",
+	description: "Designer produces an interactive artifact as a sole fenced html block",
+	feature: "create_artifact",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		return await seedMinimalWorld(ctx.db, {
+			agentRole: "designer",
+			agentSystemPrompt: `You are a designer agent.
+When you make something a person should look at rather than read, leave it where the team can see it.`,
+			taskTitle: "Build the trial-conversion dashboard",
+			taskDescription: `The team wants to see how trials are converting.
+
+Build a small self-contained dashboard they can open and look at — it should render, not be
+described. Use the sample figures already in the task thread.`,
+			betDescription: "Trial conversion visibility",
+			betDoneCondition: "Dashboard produced and viewable.",
+		});
+	},
+	trigger,
+	rubric: {
+		dimensions: [
+			judgeSessionCompleted(),
+			judgeCreateArtifactCalled(),
+			{
+				id: "sole_html_block",
+				label: "Body is a single fenced html block (renders in the sandbox frame)",
+				judge: async (ctx: JudgeContext) => {
+					const body = (await producedBody(ctx)).trim();
+					if (body.length === 0) return { score: 0.0, note: "Nothing produced" };
+
+					const fences = body.match(/```/g)?.length ?? 0;
+					const opensHtml = body.startsWith("```html");
+					const endsFence = body.endsWith("```");
+
+					// Exactly one fenced block, tagged html, with nothing outside it —
+					// the condition `KnowledgeBody` checks before using the frame.
+					if (opensHtml && endsFence && fences === 2) return { score: 1.0 };
+					if (body.includes("```html")) {
+						return {
+							score: 0.5,
+							note: `Has an html fence but not as the sole block (fences=${fences}, opens=${opensHtml}, ends=${endsFence}) — renders as a code listing, not in the frame`,
+						};
+					}
+					return {
+						score: 0.0,
+						note: "No fenced html block — raw HTML mis-derives into many blocks",
+					};
+				},
+			},
+			judgeLlmQuality({
+				id: "dashboard_quality",
+				label: "Dashboard content is real",
+				extractContent: producedBody,
+				criteria: `Score 1.0 if the HTML is a self-contained document with visible structure (headings or labels) AND presents conversion data — numbers, a chart, or a table. Score 0.5 if it renders something but is a bare stub with no data. Score 0.0 if there is no HTML document.`,
+			}),
+		],
+	},
+};
+
+// ---------------------------------------------------------------------------
+// ca-decision-pm-healthcare — prose content, and the parent that matters
 // ---------------------------------------------------------------------------
 
 const caDecisionPmHealthcare: EvalScenario = {
 	id: "ca-decision-pm-healthcare",
-	description: "PM creates a decision artifact with compliance rationale for healthcare",
+	description: "PM produces a decision artifact hung off the task, not filed as team knowledge",
 	feature: "create_artifact",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager in the healthcare domain.
-When making significant product decisions, record them as decision artifacts using create_artifact.
-Healthcare decisions require thorough rationale citing regulatory constraints (HIPAA, HL7 FHIR).
-Use kind="decision" with a structured preview that includes your claim and rationale.`,
+Decisions you make need to be findable later by whoever has to live with them.`,
 			taskTitle: "Document data retention policy decision for patient records",
-			taskDescription: `Make and document a formal decision about patient data retention policy.
-
-The decision context:
-- HIPAA requires minimum 6-year retention for adults
-- State law may require longer retention (up to 10 years in some states)
-- Storage costs are a secondary concern
-
-Use create_artifact with:
-- kind: "decision"
-- preview: a structured decision with your claim (recommended policy) and rationale
-
-Your decision should cite specific regulatory requirements.`,
-			betDescription: "HIPAA compliance data governance",
-			betDoneCondition: "Data retention policy decision documented with regulatory rationale.",
+			taskDescription: `Decide how long patient records are retained, and record the decision so the
+team can act on it. This is a regulated domain — whoever reads it later needs to know what
+constrained the choice.`,
+			betDescription: "Healthcare compliance posture",
+			betDoneCondition: "Retention policy decided and recorded.",
 		});
 	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		return await runEvalSession(
-			{
-				db: ctx.db,
-				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
-			},
-			{
-				taskId: ctx.seedResult.taskId,
-				agentId: ctx.seedResult.agentId,
-				teamId: ctx.seedResult.teamId,
-			},
-		);
-	},
+	trigger,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
 			judgeCreateArtifactCalled(),
-			{
-				id: "kind_correctness",
-				label: "Artifact Kind Correct (decision)",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ kind: artifacts.kind })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					const correct = artifact?.kind === "decision";
-					return {
-						score: correct ? 1.0 : artifact ? 0.5 : 0.0,
-						note: correct ? undefined : artifact ? `Wrong kind: ${artifact.kind}` : "No artifact",
-					};
-				},
-			},
 			judgeLlmQuality({
-				id: "decision_quality",
-				label: "Decision Rationale Quality",
-				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [artifact] = await ctx.db
-						.select({ previewJson: artifacts.previewJson })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					return artifact?.previewJson ?? "";
-				},
-				criteria: `Score 1.0 if the decision preview contains a specific claim (the chosen policy) AND rationale that cites a regulatory requirement (HIPAA, state law, or specific year requirements). Score 0.5 if a claim is present but rationale is generic (no specific regulatory cite). Score 0.0 if no claim or no rationale.`,
-			}),
-		],
-	},
-};
-
-// ---------------------------------------------------------------------------
-// ca-verification-builder-frontend
-// ---------------------------------------------------------------------------
-
-const caVerificationBuilderFrontend: EvalScenario = {
-	id: "ca-verification-builder-frontend",
-	description: "Builder creates a verification artifact with test counts for frontend work",
-	feature: "create_artifact",
-	tags: [],
-	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
-			agentRole: "builder",
-			agentSystemPrompt: `You are a builder agent implementing frontend components.
-After verifying your work with tests, record the verification results as an artifact using create_artifact.
-Use kind="verification" with a preview showing the test suite name, total tests, passed count, and failed count.`,
-			taskTitle: "Verify accessible modal component test suite",
-			taskDescription: `You have implemented an accessible modal component. Record the verification results as an artifact.
-
-Use create_artifact with:
-- kind: "verification"
-- preview: { kind: "verification", suite: "Modal accessibility suite", total: 12, passed: 12, failed: 0 }
-
-The numbers should reflect a passing test run (all 12 tests pass).
-Also write session notes summarizing the verification outcome.`,
-			betDescription: "Frontend accessibility component library",
-			betDoneCondition: "Modal component verified with test results documented.",
-		});
-	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		return await runEvalSession(
-			{
-				db: ctx.db,
-				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
-			},
-			{
-				taskId: ctx.seedResult.taskId,
-				agentId: ctx.seedResult.agentId,
-				teamId: ctx.seedResult.teamId,
-			},
-		);
-	},
-	rubric: {
-		dimensions: [
-			judgeSessionCompleted(),
-			judgeCreateArtifactCalled(),
-			{
-				id: "kind_correctness",
-				label: "Artifact Kind Correct (verification)",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ kind: artifacts.kind })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					const correct = artifact?.kind === "verification";
-					return {
-						score: correct ? 1.0 : artifact ? 0.5 : 0.0,
-						note: correct ? undefined : artifact ? `Wrong kind: ${artifact.kind}` : "No artifact",
-					};
-				},
-			},
-			{
-				id: "preview_valid",
-				label: "Verification Preview Has Numeric Fields",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ previewJson: artifacts.previewJson })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					if (!artifact?.previewJson) {
-						return { score: 0.0, note: "No preview JSON" };
-					}
-					try {
-						const preview = JSON.parse(artifact.previewJson) as Record<string, unknown>;
-						const hasTotal = typeof preview.total === "number";
-						const hasPassed = typeof preview.passed === "number";
-						const hasFailed = typeof preview.failed === "number";
-						if (hasTotal && hasPassed && hasFailed) {
-							return { score: 1.0 };
-						}
-						return {
-							score: 0.5,
-							note: `Missing numeric fields: total=${hasTotal}, passed=${hasPassed}, failed=${hasFailed}`,
-						};
-					} catch {
-						return { score: 0.0, note: "Preview parse error" };
-					}
-				},
-			},
-		],
-	},
-};
-
-// ---------------------------------------------------------------------------
-// ca-design-artifact-designer-frontend
-// ---------------------------------------------------------------------------
-
-const caDesignArtifactDesignerFrontend: EvalScenario = {
-	id: "ca-design-artifact-designer-frontend",
-	description: "Designer creates a design artifact with component spec preview for frontend work",
-	feature: "create_artifact",
-	tags: [],
-	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
-			agentRole: "designer",
-			agentSystemPrompt: `You are a product designer on the frontend team.
-You own the user experience. When you complete a component specification, record it as a design artifact.
-Use create_artifact with kind="design" and a preview describing the component name, interaction states, and key interactions.
-You do NOT write application code. Shape the interaction model and hand off to the Builder.`,
-			taskTitle: "Create component specification for the notification center redesign",
-			taskDescription: `Create a component specification artifact for the notification center redesign.
-
-The notification center needs:
-- A bell icon in the header with unread count badge
-- A dropdown panel showing recent notifications grouped by type
-- Individual notification rows with dismiss and mark-as-read actions
-- Empty state for "no notifications"
-
-Use create_artifact with:
-- kind: "design"
-- preview: { kind: "design", component: "NotificationCenter", states: ["idle", "open", "empty", "loading"], interactions: ["dismiss", "mark-read", "view-all"] }
-
-Document the design rationale in session notes.`,
-			betDescription: "Frontend notification center redesign",
-			betDoneCondition: "Component specification delivered to builder for implementation.",
-		});
-	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		return await runEvalSession(
-			{
-				db: ctx.db,
-				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
-			},
-			{
-				taskId: ctx.seedResult.taskId,
-				agentId: ctx.seedResult.agentId,
-				teamId: ctx.seedResult.teamId,
-			},
-		);
-	},
-	rubric: {
-		dimensions: [
-			judgeSessionCompleted(),
-			judgeCreateArtifactCalled(),
-			{
-				id: "kind_correctness",
-				label: "Artifact Kind Correct (design)",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ kind: artifacts.kind })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					const correct = artifact?.kind === "design";
-					return {
-						score: correct ? 1.0 : artifact ? 0.5 : 0.0,
-						note: correct ? undefined : artifact ? `Wrong kind: ${artifact.kind}` : "No artifact",
-					};
-				},
-			},
-			{
-				id: "preview_valid",
-				label: "Design Preview Has Component Spec Fields",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ previewJson: artifacts.previewJson })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					if (!artifact?.previewJson) {
-						return { score: 0.0, note: "No preview JSON found" };
-					}
-					try {
-						const preview = JSON.parse(artifact.previewJson) as Record<string, unknown>;
-						const hasComponent = typeof preview.component === "string";
-						const hasStates = Array.isArray(preview.states) && preview.states.length > 0;
-						if (hasComponent && hasStates) {
-							return { score: 1.0 };
-						}
-						return {
-							score: 0.5,
-							note: `Preview missing fields: component=${hasComponent}, states=${hasStates}`,
-						};
-					} catch {
-						return { score: 0.0, note: "Preview JSON parse error" };
-					}
-				},
-			},
-			judgeLlmQuality({
-				id: "body_quality",
-				label: "Design Artifact Describes Real UI Component",
-				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [artifact] = await ctx.db
-						.select({ previewJson: artifacts.previewJson })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					return artifact?.previewJson ?? "";
-				},
-				criteria: `Score 1.0 if the preview describes a real UI component with named states (like idle, open, empty) and/or named interactions (like dismiss, mark-read). Score 0.5 if a component is named but states/interactions are generic or missing. Score 0.0 if the preview has no UI component content.`,
-			}),
-		],
-	},
-};
-
-// ---------------------------------------------------------------------------
-// ca-runbook-ops-devops
-//
-// @lore AB0 CRITICAL-3: "runbook" is NOT in WRITABLE_ARTIFACT_KINDS. Ops operational
-// documentation is created using "comm_draft" (the closest writable kind for
-// structured procedural text). The preview carries the procedure steps.
-// ---------------------------------------------------------------------------
-
-const caRunbookOpsDevops: EvalScenario = {
-	id: "ca-runbook-ops-devops",
-	description:
-		"Ops creates a comm_draft artifact documenting database failover procedure (runbook-style)",
-	feature: "create_artifact",
-	tags: [],
-	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		return await seedMinimalWorld(ctx.db, {
-			agentRole: "ops",
-			agentSystemPrompt: `You are an ops agent responsible for production reliability.
-When you complete an operational procedure, document it as an artifact for future reference.
-Use create_artifact with kind="comm_draft" to record runbook-style operational documentation.
-The preview should include the procedure steps, prerequisites, and rollback procedure.
-You do NOT write application feature code. Your gate is operational readiness.`,
-			taskTitle: "Create runbook artifact for database failover procedure",
-			taskDescription: `You have successfully tested the database failover procedure. Document it as an artifact.
-
-The failover procedure tested:
-Prerequisites: read replica in sync (lag < 5s), standby instance healthy, maintenance window confirmed
-
-Steps:
-1. Enable maintenance mode (disable ingress load balancer)
-2. Wait for in-flight transactions to drain (30s)
-3. Promote read replica to primary
-4. Update connection string in all services
-5. Verify health checks pass on new primary
-6. Re-enable ingress
-
-Rollback: revert connection string, demote promoted instance, restore from backup if needed
-
-Use create_artifact with:
-- kind: "comm_draft"
-- preview: { kind: "comm_draft", subject: "Database Failover Runbook", body: <procedure steps as text> }
-
-Document the test outcome in session notes.`,
-			betDescription: "Database reliability and failover readiness",
-			betDoneCondition: "Failover procedure tested and documented.",
-		});
-	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		return await runEvalSession(
-			{
-				db: ctx.db,
-				eventBus: ctx.eventBus,
-				sandboxBasePath: ctx.seedResult.sandboxBasePath,
-			},
-			{
-				taskId: ctx.seedResult.taskId,
-				agentId: ctx.seedResult.agentId,
-				teamId: ctx.seedResult.teamId,
-			},
-		);
-	},
-	rubric: {
-		dimensions: [
-			judgeSessionCompleted(),
-			judgeCreateArtifactCalled(),
-			{
-				id: "kind_correctness",
-				label: "Artifact Kind Correct (comm_draft for runbook)",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ kind: artifacts.kind })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					const correct = artifact?.kind === "comm_draft";
-					return {
-						score: correct ? 1.0 : artifact ? 0.5 : 0.0,
-						note: correct ? undefined : artifact ? `Wrong kind: ${artifact.kind}` : "No artifact",
-					};
-				},
-			},
-			{
-				id: "preview_valid",
-				label: "Runbook Preview Has Subject and Body",
-				judge: async (ctx: JudgeContext) => {
-					const [artifact] = await ctx.db
-						.select({ previewJson: artifacts.previewJson })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					if (!artifact?.previewJson) {
-						return { score: 0.0, note: "No preview JSON found" };
-					}
-					try {
-						const preview = JSON.parse(artifact.previewJson) as Record<string, unknown>;
-						const hasSubject = typeof preview.subject === "string";
-						const hasBody = typeof preview.body === "string" && preview.body.length > 20;
-						if (hasSubject && hasBody) {
-							return { score: 1.0 };
-						}
-						return {
-							score: 0.5,
-							note: `Preview missing fields: subject=${hasSubject}, body=${hasBody}`,
-						};
-					} catch {
-						return { score: 0.0, note: "Preview JSON parse error" };
-					}
-				},
-			},
-			judgeLlmQuality({
-				id: "body_quality",
-				label: "Runbook Contains Actionable Operational Steps",
-				extractContent: async (ctx: JudgeContext): Promise<string> => {
-					const [artifact] = await ctx.db
-						.select({ previewJson: artifacts.previewJson })
-						.from(artifacts)
-						.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-						.limit(1);
-					return artifact?.previewJson ?? "";
-				},
-				criteria: `Score 1.0 if the artifact body contains numbered/ordered operational steps AND mentions either prerequisites, rollback procedure, or specific technical actions (promote, connection string, health check). Score 0.5 if steps are present but lack specifics. Score 0.0 if no actionable procedure content.`,
+				id: "decision_rationale_quality",
+				label: "Decision carries regulatory rationale",
+				extractContent: producedBody,
+				criteria: `Score 1.0 if the body states a concrete retention decision (a duration or rule) AND cites at least one specific regulatory constraint by name (HIPAA, HL7 FHIR, or an equivalent). Score 0.5 if a decision is stated without regulatory grounding. Score 0.0 if there is no decision.`,
 			}),
 		],
 	},
@@ -542,9 +208,7 @@ Document the test outcome in session notes.`,
 // ---------------------------------------------------------------------------
 
 export const createArtifactScenarios: EvalScenario[] = [
-	caCodeDiffBuilderDevops,
+	caCodeBuilderDevops,
+	caInteractiveDesignerFrontend,
 	caDecisionPmHealthcare,
-	caVerificationBuilderFrontend,
-	caDesignArtifactDesignerFrontend,
-	caRunbookOpsDevops,
 ];

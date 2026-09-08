@@ -172,7 +172,6 @@ describe("AX1: lived-in demo world", () => {
 			`SELECT th.id FROM threads th
 			  WHERE (th.host_kind = 'task' AND NOT EXISTS (SELECT 1 FROM tasks t WHERE t.id = th.host_id))
 			     OR (th.host_kind = 'knowledge_item' AND NOT EXISTS (SELECT 1 FROM knowledge_items k WHERE k.id = th.host_id))
-			     OR (th.host_kind = 'artifact' AND NOT EXISTS (SELECT 1 FROM artifacts a WHERE a.id = th.host_id))
 			     OR (th.host_kind = 'agent' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = th.host_id))
 			     OR (th.host_kind = 'user' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = th.host_id))
 			     OR (th.host_kind = 'team' AND NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = th.host_id))`,
@@ -187,30 +186,6 @@ describe("AX1: lived-in demo world", () => {
 
 		expect(await count(db, "threads")).toBeGreaterThanOrEqual(12);
 		expect(await count(db, "messages")).toBeGreaterThanOrEqual(100);
-	});
-
-	test("every review message resolves to a real artifact", async ({ db }) => {
-		await seedWorld(db);
-
-		const reviews = await rows<{ payload: string }>(
-			db,
-			"SELECT payload FROM messages WHERE type = 'review'",
-		);
-		expect(reviews.length).toBeGreaterThanOrEqual(3);
-		for (const review of reviews) {
-			const payload = JSON.parse(review.payload) as { artifactRef?: { id?: string } };
-			const artifactId = payload.artifactRef?.id;
-			expect(artifactId, "review carries artifactRef").toBeTruthy();
-			const found = await count(db, "artifacts", `WHERE id = '${artifactId}'`);
-			expect(found, `artifact ${artifactId} exists`).toBe(1);
-		}
-
-		// Artifact kind coverage for a varied Work view.
-		const kinds = await rows<{ kind: string }>(db, "SELECT DISTINCT kind FROM artifacts");
-		const kindSet = new Set(kinds.map((k) => k.kind));
-		for (const expected of ["code", "text", "data", "url"]) {
-			expect(kindSet.has(expected), `artifact kind ${expected}`).toBe(true);
-		}
 	});
 
 	test("knowledge corpus fills curated + triage with provenance and logs", async ({ db }) => {
@@ -349,6 +324,7 @@ describe("AX1: lived-in demo world", () => {
 		await seedWorld(db);
 
 		// @lore BB1: "bets" removed from table list — the table is dropped.
+		// @lore artifacts-become-knowledge: "artifacts" removed — the table is dropped.
 		const tables = [
 			"users",
 			"teams",
@@ -360,7 +336,6 @@ describe("AX1: lived-in demo world", () => {
 			"knowledge_edit_log",
 			"knowledge_access_log",
 			"knowledge_conflicts",
-			"artifacts",
 			"sessions",
 			"routines",
 			"routine_runs",

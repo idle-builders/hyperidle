@@ -119,7 +119,7 @@ describe("T4 — KnowledgeDetail: AssistantAttachButton on blocks (AC-4)", () =>
 });
 
 describe("T4 — KnowledgeDetail: clicking '+' calls attachContext (AC-5)", () => {
-	it("clicking AssistantAttachButton calls attachContext with block ref for knowledge_item", async () => {
+	it("clicking AssistantAttachButton calls attachContext with pending_block (content snapshot, no pointer)", async () => {
 		const user = userEvent.setup();
 		const attachContext = vi.fn();
 		renderKnowledgeDetail(attachContext, true);
@@ -133,9 +133,10 @@ describe("T4 — KnowledgeDetail: clicking '+' calls attachContext (AC-5)", () =
 
 		expect(attachContext).toHaveBeenCalledOnce();
 		const calledRef = attachContext.mock.calls[0]![0] as AssistantContextRef;
-		expect(calledRef.kind).toBe("block");
-		if ("hostKind" in calledRef) {
-			expect(calledRef.hostKind).toBe("knowledge_item");
-		}
+		// artifacts-become-knowledge: block attach is now a content snapshot, not a pointer.
+		// kind is "pending_block"; on send, AssistantOverlay creates a knowledge item parented
+		// to the thread. No blockId, no hostKind — the content is the value.
+		expect(calledRef.kind).toBe("pending_block");
+		expect("content" in calledRef).toBe(true);
 	});
 });

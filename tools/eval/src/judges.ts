@@ -13,7 +13,6 @@
  */
 
 import {
-	artifacts,
 	items,
 	knowledgeAppProjection,
 	knowledgeEditLog,
@@ -114,6 +113,38 @@ export function judgeWriteMemoryCalled(): RubricDimension {
 				score: created ? 1.0 : 0.0,
 				note: created ? undefined : `No knowledge item with updatedBy="${agentUpdatedBy}"`,
 			};
+		},
+	};
+}
+
+/**
+ * Judge: `create_artifact` was called — a knowledge item parented to the task
+ * the agent was working on.
+ *
+ * The parent is what distinguishes this from `write_memory`: both write a
+ * knowledge item, and only a produced one hangs off the task that produced it.
+ */
+export function judgeCreateArtifactCalled(): RubricDimension {
+	return {
+		id: "artifact_produced",
+		label: "Artifact Produced (create_artifact called)",
+		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+			const [item] = await ctx.db
+				.select({ id: knowledgeItems.id, parentKind: knowledgeItems.parentKind })
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.parentId, ctx.seedResult.taskId))
+				.limit(1);
+
+			if (item === undefined) {
+				return { score: 0.0, note: `No knowledge item parented to task ${ctx.seedResult.taskId}` };
+			}
+			if (item.parentKind !== "task") {
+				return {
+					score: 0.5,
+					note: `Item found but parentKind is "${item.parentKind}", not "task"`,
+				};
+			}
+			return { score: 1.0 };
 		},
 	};
 }
@@ -253,29 +284,6 @@ export function judgeHandoffCalled(): RubricDimension {
 				note: handoffed
 					? undefined
 					: `Session state=${session.state}, endedAt=${session.endedAt ?? "null"}`,
-			};
-		},
-	};
-}
-
-/** Judge: create_artifact was called — artifacts row with producingTaskId = taskId. */
-export function judgeCreateArtifactCalled(): RubricDimension {
-	return {
-		id: "artifact_created",
-		label: "Artifact Created (create_artifact called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [artifact] = await ctx.db
-				.select({ id: artifacts.id, kind: artifacts.kind })
-				.from(artifacts)
-				.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-				.limit(1);
-
-			const created = artifact !== undefined;
-			return {
-				score: created ? 1.0 : 0.0,
-				note: created
-					? `Artifact kind: ${artifact.kind}`
-					: "No artifact created for task (create_artifact not called)",
 			};
 		},
 	};
@@ -498,19 +506,53 @@ Respond with a JSON object containing exactly two fields:
 Respond ONLY with the JSON object. No preamble, no markdown.`;
 
 			try {
-				const { Anthropic } = await import("@anthropic-ai/sdk");
-				const client = new Anthropic({
-					apiKey: ctx.judgeModel.apiKey,
-					baseURL: ctx.judgeModel.baseUrl,
-				});
-
-				const response = await client.messages.create({
-					model: ctx.judgeModel.model,
-					max_tokens: 256,
-					messages: [{ role: "user", content: prompt }],
-				});
-
-				const rawText = response.content[0]?.type === "text" ? response.content[0].text : "";
+				/*
+				 * Two wire protocols, chosen by where the judge actually lives.
+				 *
+				 * This used to drive the Anthropic SDK at whatever `baseUrl` it was
+				 * handed, including OpenRouter's. The SDK appends `/v1/messages`, so
+				 * an OpenRouter base of `.../api/v1` became `.../api/v1/v1/messages`
+				 * and returned OpenRouter's HTML 404 page. The catch below turned
+				 * that into `score: 0.0` — so with the default judge (OpenRouter),
+				 * EVERY llm-judged dimension has silently scored zero, and a broken
+				 * judge was indistinguishable from an agent that produced nothing.
+				 */
+				const isAnthropic = ctx.judgeModel.baseUrl.includes("api.anthropic.com");
+				let rawText: string;
+				if (isAnthropic) {
+					const { Anthropic } = await import("@anthropic-ai/sdk");
+					const client = new Anthropic({
+						apiKey: ctx.judgeModel.apiKey,
+						baseURL: ctx.judgeModel.baseUrl,
+					});
+					const response = await client.messages.create({
+						model: ctx.judgeModel.model,
+						max_tokens: 256,
+						messages: [{ role: "user", content: prompt }],
+					});
+					rawText = response.content[0]?.type === "text" ? response.content[0].text : "";
+				} else {
+					// OpenAI-compatible (OpenRouter and anything else pointed at here).
+					const res = await fetch(`${ctx.judgeModel.baseUrl}/chat/completions`, {
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${ctx.judgeModel.apiKey}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							model: ctx.judgeModel.model,
+							max_tokens: 256,
+							messages: [{ role: "user", content: prompt }],
+						}),
+					});
+					if (!res.ok) {
+						throw new Error(`judge HTTP ${res.status} from ${ctx.judgeModel.baseUrl}`);
+					}
+					const body = (await res.json()) as {
+						choices?: Array<{ message?: { content?: string } }>;
+					};
+					rawText = body.choices?.[0]?.message?.content ?? "";
+				}
 
 				// Parse JSON response
 				const parsed = JSON.parse(rawText) as { score: number; reasoning: string };
@@ -692,29 +734,6 @@ export function judgePromoteKnowledgeCalledByAgent(): RubricDimension {
 				note: called
 					? "promote_knowledge was called"
 					: "promote_knowledge was not called (no edit log entry)",
-			};
-		},
-	};
-}
-
-/** Judge: no artifact was created during this session. */
-export function judgeNoArtifactCreated(): RubricDimension {
-	return {
-		id: "no_artifact_created",
-		label: "No Artifact Created",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [artifact] = await ctx.db
-				.select({ id: artifacts.id })
-				.from(artifacts)
-				.where(eq(artifacts.producingTaskId, ctx.seedResult.taskId))
-				.limit(1);
-
-			const noArtifact = artifact === undefined;
-			return {
-				score: noArtifact ? 1.0 : 0.0,
-				note: noArtifact
-					? "No artifact created (correct — PM should coordinate, not implement)"
-					: "Artifact was created — PM violated delegation constraint",
 			};
 		},
 	};

@@ -5,17 +5,11 @@
  */
 
 import {
-	ARTIFACT_KINDS,
 	HOST_KINDS,
 	type MESSAGE_TYPES,
 	REVIEW_CANVAS_KINDS,
 	VERDICT_DECISIONS,
 } from "@hyperidle/domain-model";
-
-// @lore AU44-b8: BLOCK_HOST_KINDS moved to core-ui (blocks/types.ts).
-// Inlined here since core-api cannot import core-ui (cross-layer governance rule).
-// BB1: "bet" removed — tasks are the single work primitive.
-const BLOCK_HOST_KINDS = ["task", "knowledge_item", "artifact", "agent", "user"] as const;
 
 import z from "zod";
 
@@ -31,25 +25,29 @@ const clientKeySchema = z.string().min(8).max(128).regex(CLIENT_KEY_RE);
 /**
  * T4: entityRefSchema validates entity refs (kind, id).
  * Exported for testing.
+ *
+ * @lore artifacts-become-knowledge: "artifact" removed — no stored artifact row
+ * exists; review canvas anchors use canvasArtifactRefSchema below.
+ * @lore BB1: "bet" removed — a bet is a task; the bets table was deleted.
  */
 export const entityRefSchema = z.object({
-	kind: z.enum(["knowledge_item", "task", "artifact", "bet", "message"]),
+	kind: z.enum(["knowledge_item", "task", "message"]),
 	id: z.string(),
 });
 
 /**
- * T4: blockRefSchema validates block refs (kind, blockId, hostKind, hostId).
- * Exported for testing.
+ * Review canvas anchor ref — preserves kind:"artifact" on the wire so
+ * ReviewPage's isArtifactEntityRef guard can locate the anchor without change.
+ * This is NOT a pointer to a deleted artifacts-table row; the id here is the
+ * id of a ReviewCanvasArtifact inside a review message's `artifacts` array.
  *
- * @lore T4: z.discriminatedUnion takes its options as a TUPLE (typed [A, B, ...]),
- * not a plain array — each member carries its own literal discriminator prop.
- * Both entityRefSchema (z.enum) and blockRefSchema (z.literal) use "kind".
+ * @lore artifacts-become-knowledge: kept separate from entityRefSchema so the
+ * entity enum no longer includes "artifact" while the wire format for review
+ * anchors (written by host-threads.ts's postPlainHostMessage) stays unchanged.
  */
-export const blockRefSchema = z.object({
-	kind: z.literal("block"),
-	blockId: z.string().min(1),
-	hostKind: z.enum(BLOCK_HOST_KINDS),
-	hostId: z.string().min(1),
+const canvasArtifactRefSchema = z.object({
+	kind: z.literal("artifact"),
+	id: z.string().min(1),
 });
 
 /**
@@ -71,35 +69,27 @@ export const mentionRefSchema = z.object({
 /**
  * T4: inlineRefSchema is a discriminated union on "kind".
  * AE5: Extended to include mentionRefSchema as the third member.
+ * artifacts-become-knowledge: Extended to include canvasArtifactRefSchema so
+ * review anchor refs (kind:"artifact") pass wire validation.
  * Exported for testing.
  */
 export const inlineRefSchema = z.discriminatedUnion("kind", [
 	entityRefSchema,
-	blockRefSchema,
 	mentionRefSchema,
+	canvasArtifactRefSchema,
 ]);
 
-/**
- * WRITE arm — `kind` speaks the consolidated `ARTIFACT_KINDS` vocabulary,
- * not the retired five-value `ArtifactViewShape`. `.optional()` on the
- * field itself (not just the value) because the loader never trusts this
- * copy anyway — it re-reads the real kind off the artifact row.
+/*
+ * The two `artifactRef` schemas are DELETED, write arm and read arm both. They
+ * validated a pointer at a row in the `artifacts` table, which no longer exists.
+ *
+ * A review now names the produced item under review by its knowledge item id —
+ * `producedItemId`, a plain string. The `kind` the ref carried is gone with no
+ * replacement: an item's kind is derived from its own blocks at render time, so
+ * there is nothing to validate and nothing that could drift. The read arm's
+ * whole reason for existing — tolerating a stale `kind` a row already carried —
+ * goes with it.
  */
-const artifactRefSchema = z.object({
-	id: z.string(),
-	kind: z.enum(ARTIFACT_KINDS).optional(),
-});
-
-/**
- * READ arm — tolerant of whatever a row already carries, including a
- * pre-consolidation value like `"text_diff"` written before this change. A
- * strict enum here throws `.parse()` on every such row, taking out
- * `GET /threads/:id` for the whole thread.
- */
-const artifactRefSchemaRow = z.object({
-	id: z.string(),
-	kind: z.string().optional(),
-});
 
 /**
  * The canvas-envelope channel: `submit_review`'s primary path for
@@ -189,25 +179,19 @@ export const plainPayloadSchemaWithToolCalls = plainPayloadSchema.extend({
 });
 
 /**
- * WRITE arm. `artifactRef` is optional (a canvas-only review has none to
- * give) and `artifacts` is DECLARED — a bare `z.object` strips unknown keys
- * by default, which would otherwise silently drop the array on write.
+ * `producedItemId` is optional (a canvas-only review names no produced item)
+ * and `artifacts` is DECLARED — a bare `z.object` strips unknown keys by
+ * default, which would otherwise silently drop the array on write.
+ *
+ * There is no separate read arm any more. The write and read arms differed only
+ * in how tolerant they were of a stale `artifactRef.kind`; with no stored kind
+ * to be stale, one schema serves both directions.
  */
 const reviewPayloadSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).max(16),
-	artifactRef: artifactRefSchema.optional(),
+	producedItemId: z.string().optional(),
 	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
-});
-
-/**
- * READ arm, extending the write arm exactly as
- * `plainPayloadSchemaWithToolCalls` extends `plainPayloadSchema` above:
- * only `artifactRef.kind` differs, tolerant of a pre-consolidation value a
- * row already carries.
- */
-const reviewPayloadSchemaRow = reviewPayloadSchema.extend({
-	artifactRef: artifactRefSchemaRow.optional(),
 });
 
 const questionnairePayloadSchema = z.object({
@@ -269,9 +253,7 @@ export const messageRowSchema = z.discriminatedUnion("type", [
 	}),
 	z.object({
 		type: z.literal("review"),
-		// READ arm — tolerant of a pre-consolidation `artifactRef.kind` an
-		// existing row already carries.
-		payload: z.union([reviewPayloadSchemaRow, redactedPayloadSchema]),
+		payload: z.union([reviewPayloadSchema, redactedPayloadSchema]),
 	}),
 	z.object({
 		type: z.literal("questionnaire"),

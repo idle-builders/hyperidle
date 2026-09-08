@@ -24,8 +24,6 @@ import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	ARTIFACT_KINDS,
-	artifactPreviewSchema,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
 	KNOWLEDGE_LAYERS,
@@ -39,11 +37,7 @@ import {
 	type ScopeKind,
 	TASK_STATES,
 } from "@hyperidle/domain-model";
-import {
-	type ArtifactCreatedEvent,
-	EVENT_TYPES,
-	type TaskStateChangedEvent,
-} from "@hyperidle/event-bus";
+import { EVENT_TYPES, type TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
@@ -656,18 +650,6 @@ function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTas
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Respelled from the retired `ARTIFACT_VIEW_SHAPES` (zero overlap with what
- * `create_artifact` emits) to the consolidated `ARTIFACT_KINDS`.
- * `.optional()` on `kind` for the same reason as `threads-schema.ts`'s twin
- * copy of this schema: the value is never trusted — the loader re-reads the
- * real kind off the artifact row.
- */
-const artifactRefSchema = z.object({
-	id: z.string().min(1),
-	kind: z.enum(ARTIFACT_KINDS).optional(),
-});
-
-/**
  * The canvas-envelope channel: an agent attaches canvas payloads directly,
  * with no stored artifact or `create_artifact` producer required. `kind`
  * validates against the nine `REVIEW_CANVAS_KINDS`; `payload` stays opaque
@@ -687,8 +669,13 @@ const reviewCanvasArtifactSchema = z.object({
 const submitReviewInputSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).min(1).max(16),
-	artifactRef: artifactRefSchema.optional(),
 	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
+	/**
+	 * ID of a knowledge item produced by this task, to attach as evidence.
+	 * Must exist and be parented to the calling task (parentKind="task",
+	 * parentId=ctx.taskId). Replaces the deleted `artifactRef`.
+	 */
+	producedItemId: z.string().min(1).optional(),
 });
 
 type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
@@ -749,28 +736,34 @@ function makeSubmitReviewTool<TDb>(
 	return {
 		name: "submit_review",
 		description:
-			"Submit a review for the current task's work. Posts a review-type message to the task's own thread — the task's existing thread if it has one, otherwise a new thread attached to the task (never the bet's thread — a task can exist without a bet). Attach evidence either as `artifacts` — inline canvas payloads (kind is one of: outcome_summary, field_change_set, action_operation, rendered_in_context, metrics_moved, visual_diff, code_diff, batch, browser_preview; payload shape is validated at render time, not here) — or as `artifactRef`, a reference to an artifact this task already produced via create_artifact. Evidence is optional: a review with only a title and reasoning is still a review, and is what an agent files when it wants agreement before acting rather than sign-off on something already built.",
+			"Submit a review for the current task's work. Posts a review-type message to the task's own thread — the task's existing thread if it has one, otherwise a new thread attached to the task (never the bet's thread — a task can exist without a bet). Attach evidence either as `artifacts` — inline canvas payloads (kind is one of: outcome_summary, field_change_set, action_operation, rendered_in_context, metrics_moved, visual_diff, code_diff, batch, browser_preview; payload shape is validated at render time, not here) — or as `producedItemId`, the id of a knowledge item this task already produced via create_artifact. Evidence is optional: a review with only a title and reasoning is still a review, and is what an agent files when it wants agreement before acting rather than sign-off on something already built.",
 		inputSchema: submitReviewInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = submitReviewInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			// A review may not claim proof it does not have: the referenced
-			// artifact must exist and belong to the calling task, the same
-			// binding `create_artifact` itself enforces.
-			if (input.artifactRef) {
-				const referenced = await ports.coreApi.getArtifactById(input.artifactRef.id, ctx.agentId);
-				if (!referenced || referenced.producingTaskId !== ctx.taskId) {
+			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
+			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
+
+			// Invariant: a review may not claim proof it does not have.
+			// The named produced item must exist and be parented to the calling
+			// task — the direct analogue of the old `artifactRef` check.
+			if (input.producedItemId !== undefined) {
+				const parent = await ports.coreApi.findKnowledgeItemParentById(
+					input.producedItemId,
+					ctx.agentId,
+				);
+				if (parent === undefined) {
+					return err("NOT_FOUND", `producedItemId '${input.producedItemId}' not found`);
+				}
+				if (parent.parentKind !== "task" || parent.parentId !== ctx.taskId) {
 					return err(
-						"INVALID_INPUT",
-						`artifactRef ${input.artifactRef.id} does not resolve to an artifact produced by task ${ctx.taskId}`,
+						"FORBIDDEN",
+						`producedItemId '${input.producedItemId}' is not owned by task '${ctx.taskId}'`,
 					);
 				}
 			}
-
-			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
-			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 
 			const now = new Date().toISOString();
 			const threadId = await resolveReviewThreadId(
@@ -782,8 +775,8 @@ function makeSubmitReviewTool<TDb>(
 			);
 
 			// @lore BA2: evidence is optional but the message TYPE is not. This
-			// used to write a plain message when an agent supplied neither
-			// artifactRef nor artifacts, which silently broke the whole loop: only
+			// used to write a plain message when an agent supplied neither a
+			// produced item nor artifacts, which silently broke the whole loop: only
 			// a `review` message renders the card that carries the verdict
 			// buttons, so a plain "Review requested: ..." can never be approved or
 			// declined, and the session that filed it is never resumed. The link
@@ -794,7 +787,7 @@ function makeSubmitReviewTool<TDb>(
 			const payload: ReviewPayload = {
 				title: input.title,
 				reasoning: input.reasoning,
-				...(input.artifactRef ? { artifactRef: input.artifactRef } : {}),
+				...(input.producedItemId !== undefined ? { producedItemId: input.producedItemId } : {}),
 				...(input.artifacts ? { artifacts: input.artifacts } : {}),
 			};
 			// The route generates the message's id server-side; `created.id`
@@ -1520,97 +1513,91 @@ function makeLogTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<LogTaskI
 // ─────────────────────────────────────────────────────────────────────────────
 
 const createArtifactInputSchema = z.object({
-	kind: z
-		.enum(ARTIFACT_KINDS)
-		.describe(
-			"The fundamental content type. Determines the review experience:\n" +
-				"- 'text': markdown/prose (contracts, emails, decisions, analyses)\n" +
-				"- 'code': source code diffs\n" +
-				"- 'image': visual assets (screenshots, designs, diagrams)\n" +
-				"- 'data': structured metrics and tables\n" +
-				"- 'html': rich rendered content (dashboards, charts, visualizations)\n" +
-				"- 'url': references to external resources (deployed services, PRs)",
-		),
-	label: z
+	title: z.string().min(1).describe("Short, descriptive title for the produced item."),
+	body: z
 		.string()
-		.regex(/^[a-z][a-z0-9_]*$/, "Label must be lowercase_snake_case")
-		.max(64)
-		.optional()
-		.nullable()
+		.min(1)
 		.describe(
-			"Optional business-domain tag (e.g., 'contract', 'email', 'dashboard'). Does not affect rendering.",
+			"The content in markdown. " +
+				"Interactive HTML (dashboards, charts, rich visualizations) goes in a fenced ```html block — " +
+				"do NOT put raw HTML directly in the markdown body, it mis-derives.",
 		),
-	preview: artifactPreviewSchema.nullable(),
 });
 
-type CreateArtifactInput = z.infer<typeof createArtifactInputSchema>;
+type CreateKnowledgeItemInput = z.infer<typeof createArtifactInputSchema>;
 
 function makeCreateArtifactTool<TDb>(
 	ports: ToolHandlersPorts,
-): ToolDefinition<CreateArtifactInput, TDb> {
+): ToolDefinition<CreateKnowledgeItemInput, TDb> {
 	return {
 		name: "create_artifact",
 		description:
-			"Record an artifact produced by the current agent session. " +
-			"The artifact is linked to the current task via context — the producingTaskId is never taken from input.\n\n" +
-			"Kind determines the review experience:\n" +
-			"- 'text': markdown/prose (contracts, emails, decisions, analyses)\n" +
-			"- 'code': source code diffs\n" +
-			"- 'image': visual assets (screenshots, designs, diagrams)\n" +
-			"- 'data': structured metrics and tables\n" +
-			"- 'html': rich rendered content (dashboards, charts, visualizations)\n" +
-			"- 'url': references to external resources (deployed services, PRs)\n\n" +
-			"Optional label provides business context (e.g., label='contract' on a text artifact).",
+			"Produce a knowledge item attached to the current task or conversation. " +
+			"The parent is resolved from context — never passed as input.\n\n" +
+			"Write the content as markdown in `body`. " +
+			"For interactive HTML (a dashboard, chart or visualization the reader should SEE running), " +
+			"the body must be ONE fenced ```html block and nothing else — no title line, no explanation " +
+			"before or after it. That is what makes it render live. Add any prose and it becomes a code " +
+			"listing of your HTML instead. Never put raw HTML straight into the markdown body.\n\n" +
+			"Returns the id of the created knowledge item.",
 		inputSchema: createArtifactInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = createArtifactInputSchema.safeParse(args);
 			if (!parsed.success) {
 				return err("INVALID_INPUT", parsed.error.message);
 			}
-			const input = parsed.data;
+			const { title, body } = parsed.data;
 
-			if (input.preview !== null && input.preview.kind !== input.kind) {
+			// @lore artifacts-become-knowledge: parent is the current task when the
+			// agent is running in a task session (ctx.taskId non-empty), or the
+			// calling thread when in an assistant/conversation session. Neither
+			// means the produced item has nowhere to live — return an error.
+			let parentKind: "task" | "thread";
+			let parentId: string;
+			if (ctx.taskId) {
+				parentKind = "task";
+				parentId = ctx.taskId;
+			} else if (ctx.threadId) {
+				parentKind = "thread";
+				parentId = ctx.threadId;
+			} else {
 				return err(
-					"KIND_MISMATCH",
-					`Preview kind '${input.preview.kind}' does not match artifact kind '${input.kind}'`,
+					"NO_PARENT",
+					"create_artifact requires an active task or a calling thread — neither is available in this context",
 				);
 			}
 
-			const taskRow = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
-			if (!taskRow) {
-				return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
-			}
+			// Scope resolution: same logic as write_memory — ctx.teamId first,
+			// then task row, then fall back to factory scope.
+			const teamId: string | null =
+				ctx.teamId ??
+				(ctx.taskId
+					? await ports.coreApi
+							.getTaskById(ctx.taskId, ctx.agentId)
+							.then((row) => row?.teamId ?? null)
+					: null);
+			const scopeKind: ScopeKind = teamId ? "product" : "factory";
+			const scopeId: string | null = teamId;
 
-			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
-			// `POST /artifacts` route a human caller uses — instead of the raw
-			// `ports.work.createArtifact` DI call (deleted). The route generates
-			// the artifact's id server-side; `created.id` replaces the
-			// client-generated `randomUUID()` the raw DI path used. `preview` is
-			// re-spread into a fresh object literal — Mechanism C's opaque
-			// `Record<string, unknown>` seam shape (same idiom as
-			// `tool-handlers-bindings.ts`'s `searchKnowledgeForTool`).
-			const created = await ports.coreApi.createArtifact(
+			const created = await ports.coreApi.create(
 				{
-					producingTaskId: ctx.taskId,
-					kind: input.kind,
-					label: input.label ?? null,
-					preview: input.preview !== null ? { ...input.preview } : null,
+					// `layer` is deliberately OMITTED, not sent as null: the route
+					// rejects an explicit null and derives the layer from the scope
+					// when the field is absent. This tool has no opinion about layer.
+					scopeKind,
+					scopeId,
+					title,
+					body,
+					format: "markdown",
+					status: "draft",
+					updatedBy: `agent:${ctx.agentId}`,
+					parentKind,
+					parentId,
 				},
 				ctx.agentId,
 			);
-			const artifactId = created.id;
 
-			const event: ArtifactCreatedEvent = {
-				type: "artifact_created",
-				streamId: randomUUID(),
-				artifactId,
-				taskId: ctx.taskId,
-				kind: input.kind,
-				timestamp: Date.now(),
-			};
-			ctx.eventBus.emit(event);
-
-			return ok({ artifactId, kind: input.kind });
+			return ok({ knowledgeItemId: created.id });
 		},
 	};
 }

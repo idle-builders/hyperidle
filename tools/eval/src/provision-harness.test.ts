@@ -11,10 +11,54 @@ import { runEvalSession } from "./provision-harness.js";
  * return an object whose `runSession` is the spy, same mocking intent as
  * before (this test's concern is adapter-pool selection, not the
  * composition's own wiring).
+ *
+ * @lore artifacts-become-knowledge: `runEvalSession` now boots a real HTTP
+ * server (`startEvalLiveServer`) before calling `runSession`. The new
+ * dependencies (`bootAgentOrchestration`, `bootCoreApi`, `composeApiApplication`,
+ * `serve`) are mocked here so the unit test stays a unit test — the concern
+ * is still adapter-pool selection, not server boot.
  */
 const runSession = vi.fn();
 vi.mock("@hyperidle/agent-orchestration", () => ({
 	buildRunOrchestrationComposition: () => ({ runSession }),
+	bootAgentOrchestration: vi.fn(async () => ({
+		app: {},
+		registerPreAuthRoutes: vi.fn(),
+		inheritedReach: { refresh: vi.fn() },
+		dispose: vi.fn(),
+		joinLifecycleDrain: vi.fn(async () => {}),
+	})),
+	createInProcessCoreApiTransport: vi.fn(() => vi.fn()),
+}));
+
+vi.mock("@hyperidle/core-api", () => ({
+	buildAgentOrchestrationPort: vi.fn(() => ({})),
+	composeApiApplication: vi.fn(() => ({ fetch: vi.fn() })),
+	createInProcessAgentOrchestrationTransport: vi.fn(() => vi.fn()),
+}));
+
+vi.mock("@hyperidle/core-api/boot", () => ({
+	bootCoreApi: vi.fn(async () => ({
+		app: {},
+		registerPreAuthRoutes: vi.fn(),
+		middleware: {
+			cors: vi.fn((_c, next) => next()),
+			auth: vi.fn((_c, next) => next()),
+			errorHandler: vi.fn(),
+		},
+		disposers: [],
+		disposeWebSocket: vi.fn(),
+		wsHub: {},
+		upgradeTokenStore: null,
+		cipher: { encrypt: vi.fn(), decrypt: vi.fn() },
+	})),
+}));
+
+vi.mock("@hono/node-server", () => ({
+	serve: vi.fn((_opts, callback) => {
+		callback({ port: 12345 });
+		return { close: vi.fn((cb) => cb()) };
+	}),
 }));
 
 /**
@@ -37,6 +81,14 @@ vi.mock("@hyperidle/harness-registry", () => ({
 }));
 vi.mock("@hyperidle/harness-registry/mcp", () => ({
 	returnStatusTool: { forRegistry: vi.fn() },
+	createMcpToolBridge: vi.fn(() => ({
+		router: {},
+		open: vi.fn(async () => ({
+			token: "test-token",
+			url: "http://127.0.0.1:12345/api/mcp/test-token",
+		})),
+		close: vi.fn(async () => {}),
+	})),
 }));
 
 // AU21 §9 Increment 12 (Decision H3), Wave E: `runEvalSession` now performs a
@@ -61,8 +113,25 @@ vi.mock("@hyperidle/users", () => ({
 			}) as unknown as User,
 	),
 }));
+/*
+ * The context bake reads the real task and assembles the real knowledge
+ * bundle. This test's subject is which adapter pool the eval drives, so the
+ * bake is mocked to a minimal task rather than handed a database — the bake
+ * itself is covered by running the eval for real against a live harness.
+ */
+vi.mock("@hyperidle/work", () => ({
+	get: vi.fn(async () => ({ id: "task", teamId: "team", title: "T", description: "d" })),
+	bakeTaskContextBundle: vi.fn(async () => undefined),
+}));
+vi.mock("@hyperidle/org", () => ({
+	getTeam: vi.fn(async () => ({ id: "team", name: "Team" })),
+}));
+vi.mock("@hyperidle/knowledge", () => ({
+	assembleSessionKnowledge: vi.fn(async () => []),
+}));
 vi.mock("@hyperidle/settings", () => ({
 	readServerConfig: vi.fn(async () => ({ harnessDisabled: [] })),
+	updateServerConfig: vi.fn(),
 }));
 
 describe("eval harness provisioning", () => {

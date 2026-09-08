@@ -8,14 +8,13 @@
  * test drives `createOpenHandler(spiedNavigate)` with the real `resolveHostRoute`).
  *
  * Route map (the §6 routing contract):
- *   host    → resolveHostRoute(hostKind, hostId)   (total over BlockHostKind; null = no-op, e.g. user)
- *   artifact→ /artifacts/:id
+ *   host    → resolveHostRoute(hostKind, hostId)   (total over HostKind; null = no-op, e.g. user)
  *   review  → /reviews/:reviewId
  *   session → AM3 dial-in — NO destination yet; documented no-op (R3). AM1 must
  *             not invent a fabricated path.
  *
  * @lore AM1 C1: a block/entity routes to its HOST surface via `resolveHostRoute`
- * — the existing resolver, total over `BlockHostKind`. No new route table, no
+ * — the existing resolver, total over `HostKind`. No new route table, no
  * fabricated `knowledgeId`. `user` resolves to null → no navigation (matching
  * the resolver's existing null return).
  *
@@ -52,7 +51,6 @@ function objectKindForHost(hostKind: HostKind): ProductObjectKind | null {
 	switch (hostKind) {
 		case "task":
 		case "knowledge_item":
-		case "artifact":
 		case "agent":
 		case "team":
 			return hostKind;
@@ -90,9 +88,6 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				);
 				return;
 			}
-			case "artifact":
-				openInspect("artifact", `/artifacts/${target.artifactId}`, navigate, ctx);
-				return;
 			case "review": {
 				const path = `/reviews/${target.reviewId}`;
 				if (target.intent === "inspect") openInspect("review", path, navigate, ctx);

@@ -33,7 +33,6 @@ import { WorkTeam } from "../WorkTeam";
 // Mock ArtifactSection to prevent it consuming fetch mocks
 vi.mock("../../components/ArtifactSection.js", () => ({
 	ArtifactSection: () => null,
-	useArtifactOpen: () => vi.fn(),
 }));
 
 // Mock apiFetch for dialog save/create calls

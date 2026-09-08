@@ -12,7 +12,6 @@ import type { RouteObject } from "react-router-dom";
 import { createBrowserRouter, Navigate, RouterProvider, useParams } from "react-router-dom";
 import { AppShell } from "./layouts/AppShell";
 import { AgentProfile } from "./pages/AgentProfile";
-import { ArtifactPermalink } from "./pages/ArtifactPermalink";
 import { Conversations } from "./pages/Conversations";
 import { FirstRunRedirect } from "./pages/FirstRunRedirect";
 import { KnowledgeCreate } from "./pages/KnowledgeCreate";
@@ -97,8 +96,6 @@ function buildRoutes(): RouteObject[] {
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/new", element: <KnowledgeCreate /> },
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
-				// L3 review fix Arch-M1 / D-M4: wire the ArtifactPermalink page.
-				{ path: "artifacts/:id", element: <ArtifactPermalink /> },
 				// @lore FR-18: /settings is now a real route (was ?settings=open overlay).
 				// Sidebar marks the settings button active when pathname starts with /settings.
 				{ path: "settings", element: <SettingsPage /> },
@@ -108,18 +105,6 @@ function buildRoutes(): RouteObject[] {
 		// Rendered outside AppShell per error-states.html mockup (standalone page, no sidebar).
 		{ path: "*", element: <NotFound /> },
 	];
-
-	if (import.meta.env.DEV) {
-		// L3 throwaway: AC-10 evidence surface; permanent mounts ship in L11/L12.
-		routes.push({
-			path: "/_dev/artifacts",
-			lazy: async () => {
-				const { ArtifactDemo } = await import("./pages/_dev/ArtifactDemo.js");
-				// biome-ignore lint/style/useNamingConvention: React Router lazy() API requires PascalCase Component key
-				return { Component: ArtifactDemo };
-			},
-		});
-	}
 
 	return routes;
 }

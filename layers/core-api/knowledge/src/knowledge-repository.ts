@@ -526,6 +526,151 @@ export async function update(
 }
 
 // ---------------------------------------------------------------------------
+// Graduate — narrow transition that moves a produced item into the tree.
+// ---------------------------------------------------------------------------
+
+/**
+ * @lore graduation: graduation is a one-way, narrow transition — not a generic
+ * parent edit. Role must be `ordinary` (skills/rules/prompts/agent_files are
+ * immovably pinned to their creator). The current parent must be `task` or
+ * `thread` (that is what "produced item" means). Reopening the parent field on
+ * the ordinary PATCH path would let a person repoint a routine prompt or an
+ * agent identity — this path avoids that by checking role before acting.
+ *
+ * The edit-log entry for parentId carries oldValue = original task/thread id.
+ * That is the only surviving record of provenance once the parent is cleared —
+ * `producingTaskId` does not exist as a column; this entry IS the provenance.
+ */
+
+export class GraduationNotAllowedError extends Error {
+	constructor(public readonly reason: string) {
+		super(reason);
+		this.name = "GraduationNotAllowedError";
+	}
+}
+
+export interface GraduateInput {
+	/** The target parent. `null` means top of tree (no parent). */
+	readonly newParentKind: "knowledge_item" | null;
+	readonly newParentId: string | null;
+	readonly updatedBy: string;
+}
+
+export async function graduate(
+	db: HyperIdleDb,
+	id: string,
+	input: GraduateInput,
+	expectedVersion: number,
+	options: WriteOptions = {},
+): Promise<KnowledgeItemWithProjection> {
+	const result = await db.transaction(
+		async (tx): Promise<{ updated: KnowledgeItemWithProjection }> => {
+			const [existing] = await tx
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+
+			if (!existing) {
+				throw new Error(`Knowledge item ${id} not found`);
+			}
+			if (existing.version !== expectedVersion) {
+				throw new VersionConflictError(id, existing.version);
+			}
+
+			// Role guard: only ordinary items can graduate.
+			if (existing.role !== "ordinary") {
+				throw new GraduationNotAllowedError(
+					`Only items with role 'ordinary' can graduate; this item has role '${existing.role}'`,
+				);
+			}
+
+			// Parent guard: only task- or thread-parented items are "produced items".
+			if (existing.parentKind !== "task" && existing.parentKind !== "thread") {
+				throw new GraduationNotAllowedError(
+					`Item must have parentKind 'task' or 'thread' to graduate; current parentKind is '${existing.parentKind ?? "null"}'`,
+				);
+			}
+
+			// Self-reparent guard.
+			if (input.newParentId !== null && input.newParentId === id) {
+				throw new GraduationNotAllowedError(`Item cannot graduate onto itself`);
+			}
+
+			const timestamp = options.timestamp ?? now();
+			const newVersion = existing.version + 1;
+
+			// Write the update with optimistic-lock WHERE clause.
+			const updateRows = await tx
+				.update(knowledgeItems)
+				.set({
+					parentKind: input.newParentKind,
+					parentId: input.newParentId,
+					version: newVersion,
+					updatedAt: timestamp,
+					updatedBy: input.updatedBy,
+				})
+				.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.version, expectedVersion)))
+				.returning({ id: knowledgeItems.id });
+
+			if (updateRows.length === 0) {
+				// Lost a TOCTOU race — re-read and throw the conflict.
+				const [current] = await tx
+					.select({ version: knowledgeItems.version })
+					.from(knowledgeItems)
+					.where(eq(knowledgeItems.id, id))
+					.limit(1);
+				throw new VersionConflictError(id, current?.version ?? expectedVersion);
+			}
+
+			// Edit-log entries for parentKind and parentId, following buildDiff's shape.
+			const editBase = {
+				editor: input.updatedBy,
+				editType: "graduate" as const,
+				createdAt: timestamp,
+			};
+
+			await tx.insert(knowledgeEditLog).values([
+				{
+					id: generateId(),
+					itemId: id,
+					field: "parentKind",
+					oldValue: existing.parentKind,
+					newValue: input.newParentKind,
+					...editBase,
+				},
+				{
+					id: generateId(),
+					itemId: id,
+					field: "parentId",
+					oldValue: existing.parentId,
+					newValue: input.newParentId,
+					...editBase,
+				},
+			]);
+
+			const [updated] = await tx
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!updated) {
+				throw new Error(`Failed to read back graduated knowledge item ${id}`);
+			}
+			const [updatedProjection] = await tx
+				.select()
+				.from(knowledgeAppProjection)
+				.where(eq(knowledgeAppProjection.knowledgeItemId, id))
+				.limit(1);
+
+			return { updated: mergeWithProjection(updated, updatedProjection ?? null) };
+		},
+	);
+
+	return result.updated;
+}
+
+// ---------------------------------------------------------------------------
 // READ operations — K1-reads: get / list / count / search
 // ---------------------------------------------------------------------------
 
@@ -731,6 +876,10 @@ export function list(
 		};
 	},
 ): Promise<Array<{ id: string; title: string }>>;
+export function list(
+	db: HyperIdleDb,
+	filter: { readonly byParent: { readonly parentKind: string; readonly parentId: string } },
+): Promise<KnowledgeItemWithProjection[]>;
 export function list(db: HyperIdleDb, filter?: ListFilters): Promise<KnowledgeItemWithProjection[]>;
 export async function list(
 	db: HyperIdleDb,
@@ -746,6 +895,7 @@ export async function list(
 					readonly limit: number;
 				};
 		  }
+		| { readonly byParent: { readonly parentKind: string; readonly parentId: string } }
 		| ListFilters,
 ): Promise<
 	| KnowledgeItemWithProjection[]
@@ -757,6 +907,8 @@ export async function list(
 
 	if ("visibleWithSignals" in filter) {
 		// Visible items: Q2 filter — include if scope_kind != 'user' OR updatedBy = viewer.
+		// AC4/AC5: exclude parented items — they belong to their task or thread surface,
+		// not the knowledge tree. A caller wanting parented items uses { byParent }.
 		const viewerUserId = filter.visibleWithSignals;
 		const rows = await db
 			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
@@ -765,7 +917,27 @@ export async function list(
 				knowledgeAppProjection,
 				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
-			.where(visibleToViewer(viewerUserId));
+			.where(and(visibleToViewer(viewerUserId), isNull(knowledgeItems.parentKind)));
+		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
+	}
+
+	if ("byParent" in filter) {
+		// Return all items whose parent matches exactly. No scope/visibility filter —
+		// access to the parent implies access to its produced items.
+		const { parentKind, parentId } = filter.byParent;
+		const rows = await db
+			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
+			.from(knowledgeItems)
+			.leftJoin(
+				knowledgeAppProjection,
+				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
+			)
+			.where(
+				and(
+					eq(knowledgeItems.parentKind, parentKind as KnowledgeParentKind),
+					eq(knowledgeItems.parentId, parentId),
+				),
+			);
 		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 

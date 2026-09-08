@@ -1,18 +1,16 @@
 /**
- * L12 — WorkTeam: ArtifactSection mount tests.
+ * WorkTeam: ArtifactSection absence tests.
  *
- * AC coverage:
- *  - ArtifactSection replaces the placeholder at team-artifact-slot
- *  - filter has axis="product" and the teamId from route params
- *  - layout="stack", limit=10
- *  - heading "Artifacts" is rendered
+ * Produced items are knowledge items parented to tasks — there is no team-level
+ * parent concept, so ArtifactSection does NOT appear on the WorkTeam page. Tasks
+ * each surface their own produced items via ArtifactSection with parentKind="task".
  *
  * @lore U5: Renamed from WorkProduct → WorkTeam. File name kept for git history tracing.
  */
 
 // @lore U1: ProductDetail → TeamDetail; `product` → `team`; `team` → `teamMembers`.
 import type { TeamDetail } from "@hyperidle/domain-model";
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkTeam } from "../../pages/WorkTeam";
@@ -30,34 +28,7 @@ vi.mock("../../shell/ToastRegion.js", async () => {
 	};
 });
 
-// Mock ArtifactSection to capture props.
-// useArtifactOpen must also be exported since WorkTeamLoaded calls it.
-// @lore U1: ArtifactFilterAxis for "product" axis uses `teamId` (not `productId`).
-vi.mock("../../components/ArtifactSection", () => ({
-	ArtifactSection: ({
-		filter,
-		layout,
-		limit,
-		heading,
-	}: {
-		filter: { axis: string; teamId?: string };
-		layout: string;
-		limit?: number;
-		heading?: string;
-	}) => (
-		<div
-			data-testid="artifact-section"
-			data-filter-axis={filter.axis}
-			data-filter-team-id={filter.axis === "product" ? filter.teamId : ""}
-			data-layout={layout}
-			data-limit={limit !== undefined ? String(limit) : ""}
-			data-heading={heading ?? ""}
-		>
-			ArtifactSection
-		</div>
-	),
-	useArtifactOpen: () => vi.fn(),
-}));
+// ArtifactSection is NOT rendered by WorkTeam — no mock needed.
 
 // @lore U1: TeamDetail replaces ProductDetail. `team` (TeamSummary) replaces
 // `product` (ProductSummary). `teamMembers` replaces `team` (membership group).
@@ -93,22 +64,13 @@ describe("WorkTeam ArtifactSection mount (L12)", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("mounts ArtifactSection with product filter, stack layout, and limit 10", () => {
+	it("does NOT render ArtifactSection — produced items are on tasks, not the team", () => {
 		renderTeam("prod-l12");
 
-		const section = screen.getByTestId("artifact-section");
-		expect(section).toBeInTheDocument();
-		expect(section).toHaveAttribute("data-filter-axis", "product");
-		expect(section).toHaveAttribute("data-filter-team-id", "prod-l12");
-		expect(section).toHaveAttribute("data-layout", "stack");
-		expect(section).toHaveAttribute("data-limit", "10");
-	});
-
-	it("passes heading='Artifacts' to ArtifactSection", () => {
-		renderTeam("prod-l12");
-
-		const section = screen.getByTestId("artifact-section");
-		expect(section).toHaveAttribute("data-heading", "Artifacts");
+		// WorkTeam has no team-level artifact section; produced items are task-parented.
+		// ArtifactSection renders on individual task pages (WorkTaskPage), not here.
+		const section = document.querySelector("[data-testid='artifact-section']");
+		expect(section).toBeNull();
 	});
 
 	it("old placeholder artifact slot does not exist (ArtifactSection renders inline)", () => {

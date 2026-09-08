@@ -1,9 +1,9 @@
 // L3 RED — protected test: closed view family for Artifact components.
 //
 // Asserts:
-// 1. The DS export boundary publishes EXACTLY the 7 named exports (3 layouts + 4 sub-primitives).
+// 1. The DS export boundary publishes EXACTLY the 1 named export (ArtifactFrame).
 // 2. There is NO ambiguous `Artifact` or `ArtifactCard` export.
-// 3. There is NO 4th layout file in `framework/design-system/src/Artifact*.tsx` outside the allow-list.
+// 3. There is NO unlisted Artifact*.tsx file in ds/ outside the allow-list.
 //
 // @lore AU21 Increment 14a: ArtifactCostChip (a sub-primitive) is deleted
 // along with the rest of the cost feature — the family shrinks from 8 to 7.
@@ -16,24 +16,22 @@
 //
 // @lore AU43 bundle-03: ArtifactEmbed deleted — only door was /_dev/artifacts (DEV-ONLY).
 // Family shrinks from 8 to 7.
+//
+// @lore artifacts-become-knowledge: ArtifactGalleryCard, ArtifactKindBadge,
+// ArtifactPreview, ArtifactPreviewSurface, ArtifactStackItem, ArtifactTimestamp
+// deleted by prior builders when artifacts became knowledge items. Only ArtifactFrame
+// survives — it renders the HTML sandbox iframe for html-kind knowledge items.
+// Family shrinks from 7 to 1.
 
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as Ds from "../index.js";
 
-const ALLOWED = [
-	"ArtifactFrame",
-	"ArtifactKindBadge",
-	"ArtifactTimestamp",
-	"ArtifactPreviewSurface",
-	"ArtifactGalleryCard",
-	"ArtifactStackItem",
-	"ArtifactPreview",
-] as const;
+const ALLOWED = ["ArtifactFrame"] as const;
 
 describe("Artifact closed view family — export boundary (protected)", () => {
-	it("exports exactly the 7 allowed Artifact* names — no more, no less", () => {
+	it("exports exactly the 1 allowed Artifact* name — no more, no less", () => {
 		const exported = Object.keys(Ds).filter((k) => /^Artifact/.test(k));
 		expect(exported.sort()).toEqual([...ALLOWED].sort());
 	});
@@ -46,7 +44,7 @@ describe("Artifact closed view family — export boundary (protected)", () => {
 		expect(Object.keys(Ds)).not.toContain("ArtifactCard");
 	});
 
-	it("there is no unlisted Artifact* file in design-system/src/ outside the allow-list", () => {
+	it("there is no unlisted Artifact*.tsx file in ds/ outside the allow-list", () => {
 		const dir = resolve(__dirname, "..");
 		const files = readdirSync(dir).filter(
 			(f) => /^Artifact[A-Z][A-Za-z]*\.tsx$/.test(f) && !/\.stories\.tsx$/.test(f),

@@ -28,8 +28,8 @@ import { isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, useMemo } from "react";
 import { deriveBlocks } from "../../block/index.js";
 import { AssistantAttachButton } from "../../components/AssistantAttachButton.js";
-import { Block } from "../../ds";
-import { blockExcerptFromPayload } from "../../utils/block-excerpt.js";
+import { ArtifactFrame, Block } from "../../ds";
+import { blockExcerptFromPayload, blockTextFromPayload } from "../../utils/block-excerpt.js";
 import { sanitizeHtml } from "../../utils/sanitize-html.js";
 
 export interface KnowledgeBodyProps {
@@ -122,6 +122,19 @@ export function KnowledgeBody({
 		return out;
 	}, [messagesByBlockId, blocks]);
 
+	// Sole-html-block rule: exactly one block that is a code fence tagged `html`.
+	// This is the condition that distinguishes "this document IS an interactive artifact"
+	// from "this document contains an HTML code sample". Must be decided here, where the
+	// full block list is known — renderPayload sees one payload at a time and cannot see this.
+	// @lore artifacts-become-knowledge: a fenced html block alongside other blocks stays a code
+	// listing; only when it is the ONLY block does it run in the sandbox frame.
+	if (blocks.length === 1) {
+		const sole = blocks.at(0);
+		if (sole !== undefined && sole.payload.kind === "code" && sole.payload.lang === "html") {
+			return <ArtifactFrame html={sole.payload.text} title={documentTitle} />;
+		}
+	}
+
 	return (
 		<div data-knowledge-body data-testid={testId} className="flex flex-col">
 			{blocks.length === 0 ? (
@@ -147,10 +160,8 @@ export function KnowledgeBody({
 						{/* T4: AssistantAttachButton — shows when Assistant overlay is open */}
 						<AssistantAttachButton
 							ref={{
-								kind: "block",
-								blockId: block.id,
-								hostKind: "knowledge_item",
-								hostId: hostId,
+								kind: "pending_block",
+								content: blockTextFromPayload(block.payload),
 								label: blockExcerptFromPayload(block.payload),
 							}}
 						/>

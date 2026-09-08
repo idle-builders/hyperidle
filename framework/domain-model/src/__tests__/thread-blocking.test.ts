@@ -60,7 +60,7 @@ const unresolvedReview: Message = {
 	payload: {
 		title: "review",
 		reasoning: ["a"],
-		artifactRef: { id: "a1", kind: "text_diff" },
+		producedItemId: "a1",
 	},
 };
 

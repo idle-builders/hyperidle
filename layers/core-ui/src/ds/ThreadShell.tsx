@@ -25,8 +25,6 @@
 
 import type {
 	AgentSessionStateSnapshot,
-	ArtifactRef,
-	InlineRef,
 	Message,
 	MessageType,
 	Thread,
@@ -63,7 +61,6 @@ export interface ThreadShellProps {
 	thread: Thread;
 	messages: ReadonlyArray<Message>;
 	identities: Record<string, ThreadShellIdentity>;
-	artifactSlot?: (ref: ArtifactRef | undefined) => ReactNode;
 	onAppendMessage: (input: ThreadShellAppendInput) => Promise<void>;
 	loading?: boolean;
 	error?: string;
@@ -94,16 +91,6 @@ export interface ThreadShellProps {
 	 * DOMPurify here; design-system stays free of DOMPurify dependency.
 	 */
 	sanitizeHtml?: (raw: string) => string;
-	/**
-	 * T4: Optional render function for inline ref embeds. Called per-message
-	 * with the message's refs array. The web consumer provides BlockRefEmbed
-	 * instances; the design-system stays free of data-fetching components.
-	 *
-	 * @lore T4: ThreadShell cannot import BlockRefEmbed (web-layer) directly.
-	 * The render prop keeps the design-system pure while enabling inline embeds
-	 * in any ThreadShell consumer (CocOverlay, Conversations).
-	 */
-	renderRefEmbeds?: (refs: ReadonlyArray<InlineRef>) => ReactNode;
 	/**
 	 * AD8b B3.1: Optional render function for per-message extra content.
 	 * Called per plain message; return value is appended after the message
@@ -159,10 +146,7 @@ interface RichSlotsForRow {
 	actions: ReactNode;
 }
 
-function buildRichSlots(
-	message: Message,
-	artifactSlot: ((ref: ArtifactRef | undefined) => ReactNode) | undefined,
-): RichSlotsForRow | null {
+function buildRichSlots(message: Message): RichSlotsForRow | null {
 	if (message.type === "review") {
 		const { payload } = message;
 		if (isRedactedPayload(payload)) return null;
@@ -187,7 +171,7 @@ function buildRichSlots(
 					) : null}
 				</>
 			),
-			body: artifactSlot ? artifactSlot(payload.artifactRef) : null,
+			body: null,
 			actions: null,
 		};
 	}
@@ -236,7 +220,6 @@ export function ThreadShell({
 	thread,
 	messages,
 	identities,
-	artifactSlot,
 	onAppendMessage,
 	loading,
 	error,
@@ -245,7 +228,6 @@ export function ThreadShell({
 	hostHref,
 	hideHostBanner = false,
 	sanitizeHtml,
-	renderRefEmbeds,
 	renderMessageExtra,
 }: ThreadShellProps): JSX.Element {
 	// Sort ASC by createdAt with id as a stability tiebreaker.
@@ -435,11 +417,6 @@ export function ThreadShell({
 															role: identityFor(identities, m.senderId).role,
 														}}
 														blocking={resolvedProps ? false : blocking}
-														artifactSlot={
-															!resolvedProps && m.type === "review" && !isRedactedPayload(m.payload)
-																? artifactSlot?.(m.payload.artifactRef)
-																: undefined
-														}
 														onAction={
 															resolvedProps
 																? (): void => undefined
@@ -463,7 +440,7 @@ export function ThreadShell({
 										(message.type === "review" || message.type === "questionnaire") &&
 										message.resolvedAt === null
 									) {
-										const slots = buildRichSlots(message, artifactSlot);
+										const slots = buildRichSlots(message);
 										if (slots) {
 											return (
 												<CommentRow
@@ -484,24 +461,9 @@ export function ThreadShell({
 											);
 										}
 									}
-									// T4: compute afterBody for plain messages with refs.
-									// AD8b B3.1: also append renderMessageExtra output (tool-call rows).
-									const refEmbeds =
-										renderRefEmbeds &&
-										message.type === "plain" &&
-										!isRedactedPayload(message.payload) &&
-										message.payload.refs &&
-										message.payload.refs.length > 0
-											? renderRefEmbeds(message.payload.refs)
-											: null;
+									// AD8b B3.1: append renderMessageExtra output (tool-call rows).
 									const messageExtra = renderMessageExtra ? renderMessageExtra(message) : null;
-									const afterBody =
-										refEmbeds || messageExtra ? (
-											<>
-												{refEmbeds}
-												{messageExtra}
-											</>
-										) : undefined;
+									const afterBody = messageExtra ? messageExtra : undefined;
 									return (
 										<CommentRow
 											key={message.id}

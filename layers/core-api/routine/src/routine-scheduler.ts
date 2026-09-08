@@ -361,7 +361,6 @@ async function assembleTriggerEvent(
 		transition ? { ...t, transition } : t;
 
 	// actor = the agent or user who performed the action (senderId, accessorId).
-	// Declared here so the early artifact check below can use it.
 	const actorId =
 		(typeof rec.senderId === "string" ? rec.senderId : undefined) ??
 		(typeof rec.accessorId === "string" ? rec.accessorId : undefined);
@@ -446,31 +445,7 @@ async function assembleTriggerEvent(
 		});
 	}
 
-	// ── STEP 2: Artifact check before task ──────────────────────────────────────
-	// artifact_created carries taskId (producing task) as a secondary FK reference.
-	// Check artifactId first (only artifact_created carries it) so artifact events
-	// produce kind:"artifact" rather than kind:"task".
-	if (typeof rec.artifactId === "string") {
-		const artifact = await ports.work.getArtifactById(db, rec.artifactId);
-		if (artifact) {
-			return withTransition({
-				...base,
-				subject: {
-					kind: "artifact",
-					artifact: {
-						id: artifact.id,
-						kind: artifact.kind,
-						label: artifact.label,
-						producingTaskId: artifact.producingTaskId,
-					},
-					...(actorId !== undefined ? { actorId } : {}),
-				},
-			});
-		}
-		return withTransition({ ...base, subject: genericSubject("artifact", rec.artifactId) });
-	}
-
-	// ── STEP 3: Field-priority scan for remaining events ─────────────────────────
+	// ── STEP 2: Field-priority scan for remaining events ─────────────────────────
 	// Session and routine_fired events are already dispatched above.
 	// Safe to check taskId now — no session event reaches here.
 	// @lore BB1: betId removed from priority chain — bet is now a root task.

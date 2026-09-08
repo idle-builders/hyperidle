@@ -19,9 +19,21 @@ interface CaptureWritebackCreateKnowledgeItemInput {
 	readonly title: string;
 	readonly body: string;
 	readonly format: string;
-	/** `writeback.ts` always creates items in "captured" state — narrowed to the one literal it uses. */
-	readonly status: "captured";
+	/**
+	 * `draft`, not `captured`. This path sent `captured` for its whole life and
+	 * the route has never accepted that value — it validates status against its
+	 * own four-value list — so every writeback create was rejected before it
+	 * reached the database. `draft` is the same state under the name the route
+	 * knows.
+	 */
+	readonly status: "draft";
 	readonly updatedBy: string;
+	/**
+	 * Where the produced item hangs: the session's task, or the conversation
+	 * the agent is answering in. Set explicitly at creation — never inferred
+	 * afterwards from where the file happened to sit.
+	 */
+	readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
 }
 
 /** Narrowed to the three fields `writeback.ts` actually reads off a created/updated item. */
@@ -88,6 +100,13 @@ interface WritebackConfig {
 	sessionId: string;
 	manifestPath: string;
 	knowledge: CaptureWritebackKnowledgeWriter;
+	/**
+	 * What this session is working on, if anything — the parent every item it
+	 * writes back hangs off. A task session parents to its task; a conversation
+	 * session parents to its thread. A session with neither (a routine, a
+	 * knowledge run) writes parentless items, as before.
+	 */
+	parent?: { readonly kind: "task" | "thread"; readonly id: string };
 }
 
 interface WritebackChange {
@@ -237,8 +256,9 @@ async function handleCreate(
 		title,
 		body,
 		format: "markdown",
-		status: "captured",
+		status: "draft",
 		updatedBy: `session:${config.sessionId}`,
+		...(config.parent ? { parent: config.parent } : {}),
 	});
 
 	// Add to manifest
@@ -352,30 +372,71 @@ interface CaptureWritebackSubscriberDeps {
  * `processWriteback` for the batch. Returns a dispose function to
  * unsubscribe (for server shutdown).
  */
+/**
+ * What a session is working on, which is what everything it writes back hangs
+ * off. A task session parents to its task; a conversation session parents to
+ * the thread it is answering in. A routine or knowledge run has neither and
+ * writes parentless items.
+ *
+ * Read from the session row rather than threaded through the watcher event:
+ * this is not an inference about where a file happened to land, it is the
+ * session's own identity, and `sessions` is this package's own table.
+ */
+async function resolveSessionParent(
+	db: WritebackConfig["db"],
+	sessionId: string,
+): Promise<WritebackConfig["parent"]> {
+	// Total by construction: not knowing where a session sits must never stop
+	// the writeback itself. An unresolvable parent writes a parentless item —
+	// the content is what matters, and a parentless item can be reparented
+	// later. Throwing here would discard the agent's work instead.
+	try {
+		const [row] = await db
+			.select({ taskId: sessions.taskId, correlation: sessions.sourceCorrelationJson })
+			.from(sessions)
+			.where(eq(sessions.id, sessionId))
+			.limit(1);
+		if (row === undefined) return undefined;
+		if (row.taskId !== null && row.taskId !== "") return { kind: "task", id: row.taskId };
+		if (row.correlation === null) return undefined;
+		const parsed = JSON.parse(row.correlation) as { readonly threadId?: unknown };
+		return typeof parsed.threadId === "string" && parsed.threadId.length > 0
+			? { kind: "thread", id: parsed.threadId }
+			: undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function registerCaptureWriteback(deps: CaptureWritebackSubscriberDeps): () => void {
 	const { db, eventBus, knowledge } = deps;
 
 	const dispose = eventBus.on("sandbox_writeback_changes_detected", (event) => {
 		// Fire-and-forget, matching file-watcher.ts's pre-inversion behavior
 		// (that flush() was never awaited by its own caller either).
-		void processWriteback(
-			{
-				db,
-				sandboxPath: event.sandboxPath,
-				sessionId: event.sessionId,
-				manifestPath: event.manifestPath,
-				knowledge,
-			},
-			[...event.changes],
-		).catch((err: unknown) => {
-			if (err !== null && typeof err === "object" && "code" in err && err.code === "ENOENT") {
-				// Sandbox removed before processing (test cleanup, session end with
-				// sandbox reaper) — no-op, matches prior file-watcher suppression.
-				return;
-			}
-			// Re-throw non-ENOENT errors as unhandled rejections, matching prior behavior.
-			throw err;
-		});
+		void resolveSessionParent(db, event.sessionId)
+			.then((parent) =>
+				processWriteback(
+					{
+						db,
+						sandboxPath: event.sandboxPath,
+						sessionId: event.sessionId,
+						manifestPath: event.manifestPath,
+						knowledge,
+						...(parent ? { parent } : {}),
+					},
+					[...event.changes],
+				),
+			)
+			.catch((err: unknown) => {
+				if (err !== null && typeof err === "object" && "code" in err && err.code === "ENOENT") {
+					// Sandbox removed before processing (test cleanup, session end with
+					// sandbox reaper) — no-op, matches prior file-watcher suppression.
+					return;
+				}
+				// Re-throw non-ENOENT errors as unhandled rejections, matching prior behavior.
+				throw err;
+			});
 	});
 
 	return dispose;

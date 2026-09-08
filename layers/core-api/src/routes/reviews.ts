@@ -27,6 +27,13 @@ import { Hono } from "hono";
  * outcome. The agent's reasoning becomes the outcome text because that is the
  * only place the surface shows it, and a review whose reasoning is invisible is
  * a review a human cannot judge.
+ *
+ * @lore artifacts-become-knowledge: `artifacts` is now exactly the canvas list
+ * the payload carries. The route used to ALSO resolve an `artifactRef` against
+ * the `artifacts` table and append the row it found; that table is gone, and a
+ * `producedItemId` names a knowledge item, which is not a review canvas and has
+ * no canvas kind to render as. It travels through on the payload for a caller
+ * that wants to link to it, rather than being dressed up as evidence here.
  */
 
 interface VerdictMessagePayload {
@@ -86,54 +93,18 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			verdict = { decision: payload.decision, resolvedAt: m.createdAt };
 		}
 
-		// Resolve an optional artifactRef to a full artifact entry and append it.
-		//
-		// @lore layer, never replace: a resolved `artifactRef` is APPENDED to
-		// whatever `artifacts` the payload already carries (never to an empty
-		// list, and never in place of it).
-		const artifactRef = reviewPayload.artifactRef as { readonly id?: unknown } | undefined;
-		const artifactRefId = typeof artifactRef?.id === "string" ? artifactRef.id : undefined;
-		const referencedArtifact = artifactRefId
-			? await work.get(db, "artifact", artifactRefId)
-			: undefined;
-
-		const existingArtifacts = Array.isArray(reviewPayload.artifacts)
+		// The canvas evidence the payload carries, and nothing else. An empty
+		// list is the honest answer to "what is attached" when it carries none —
+		// the surface calls `.find` on it unconditionally, so absence crashes it.
+		const artifacts = Array.isArray(reviewPayload.artifacts)
 			? (reviewPayload.artifacts as Array<Record<string, unknown>>)
 			: [];
-		// `ReviewArtifact` (the shape the review UI renders every entry as,
-		// `layers/core-ui/src/pages/review/review-artifact.ts`) requires
-		// `tool`/`app`/`title`/`payload` — every entry is rendered through
-		// `ToolLogo`/`KindBadge`/a canvas component with no per-field
-		// optionality, so leaving any of them out crashes the page, not just
-		// looks incomplete. A bare stored artifact has no per-tool
-		// provenance (no SaaS connector produced it), so `tool`/`app` use
-		// the same self-attributed sentinel the fixtures already use for
-		// HyperIdle-native evidence (`"hyperidle"`/`"HyperIdle"`, see
-		// `review-subject.ts`'s `outcomeArtifact`) rather than fabricating a
-		// false external identity. `title` falls back to the artifact's own
-		// id when it has no `label` — never blank. `sourceHref` is a real,
-		// derivable value — the artifact's own permalink. `payload` is
-		// intentionally opaque (`{}`).
-		const artifacts = referencedArtifact
-			? [
-					...existingArtifacts,
-					{
-						id: referencedArtifact.id,
-						tool: "hyperidle",
-						app: "HyperIdle",
-						kind: referencedArtifact.kind,
-						sourceHref: `/artifacts/${referencedArtifact.id}`,
-						title: referencedArtifact.label ?? referencedArtifact.id,
-						payload: {},
-					},
-				]
-			: existingArtifacts;
 
-		// @lore layer, never replace (second reading): the composed fields go
-		// UNDER the payload, not over it. A review that already carries `tokens`
-		// or its own `artifacts` keeps them; composition only fills what is
-		// missing. Spreading the payload first and the defaults after silently
-		// blanked a demo review's own values.
+		// @lore layer, never replace: the composed fields go UNDER the payload,
+		// not over it. A review that already carries `tokens` or its own
+		// `artifacts` keeps them; composition only fills what is missing.
+		// Spreading the payload first and the defaults after silently blanked a
+		// demo review's own values.
 		return c.json({
 			id: reviewMsg.id,
 			title,

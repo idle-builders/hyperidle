@@ -15,13 +15,22 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { NO_LINK_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
-import { artifacts, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeItems,
+	messages,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import { seedKnowledgeItem } from "./_helpers.js";
 
 /**
  * @lore AU31 §3.2/B2: this file's tool handler(s) reach `ports.coreApi.*`
@@ -69,17 +78,14 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	// `submit_review` now checks a stored `artifactRef` resolves to an
-	// artifact produced by the calling task before attaching it; a real row
-	// is required for the AC2 happy-path test below.
-	await db.insert(artifacts).values({
-		id: "art-1",
-		producingTaskId: "task-1",
-		kind: "text",
-		label: null,
-		previewJson: null,
-		createdAt: NOW,
-	});
+	// `submit_review` checks a named `producedItemId` exists AND is parented to
+	// the calling task before attaching it; a real row is required for the AC2
+	// happy-path test below.
+	await seedKnowledgeItem(db, { id: "ki-1", title: "Produced item", scopeKind: "team" });
+	await db
+		.update(knowledgeItems)
+		.set({ parentKind: "task", parentId: "task-1" })
+		.where(eq(knowledgeItems.id, "ki-1"));
 }
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
@@ -95,8 +101,8 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 }
 
 describe("submit_review tool", () => {
-	// AC2 happy path: full ReviewPayload with artifactRef
-	describe("AC2: review message with artifactRef", () => {
+	// AC2 happy path: full ReviewPayload naming the item this task produced
+	describe("AC2: review message with producedItemId", () => {
 		test("creates review-type message on the task's own thread (founder ruling 7: never the bet's)", async ({
 			db,
 			app,
@@ -107,7 +113,7 @@ describe("submit_review tool", () => {
 				{
 					title: "Work complete",
 					reasoning: ["All tests pass", "Code reviewed"],
-					artifactRef: { id: "art-1", kind: "text" },
+					producedItemId: "ki-1",
 				},
 				makeContext(db),
 			);
@@ -131,12 +137,11 @@ describe("submit_review tool", () => {
 			const payload = JSON.parse(msg?.payload ?? "{}") as {
 				title: string;
 				reasoning: string[];
-				artifactRef: { id: string; kind: string };
+				producedItemId: string;
 			};
 			expect(payload.title).toBe("Work complete");
 			expect(payload.reasoning).toEqual(["All tests pass", "Code reviewed"]);
-			expect(payload.artifactRef.id).toBe("art-1");
-			expect(payload.artifactRef.kind).toBe("text");
+			expect(payload.producedItemId).toBe("ki-1");
 
 			// Founder ruling 7: the review lands on the TASK's own thread, never
 			// the bet's.
@@ -153,7 +158,7 @@ describe("submit_review tool", () => {
 
 	/**
 	 * @lore BA2: this used to assert the opposite — that a review with no
-	 * `artifactRef` produced a `plain` message reading "Review requested: …".
+	 * evidence produced a `plain` message reading "Review requested: …".
 	 * That fallback was the defect. Only a `review` message renders the card
 	 * carrying the verdict buttons, so the ordinary case — an agent asking for
 	 * agreement BEFORE it acts, with nothing built yet to attach — could never

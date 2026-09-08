@@ -104,7 +104,13 @@ export interface JudgeModel {
 }
 
 /** The judge's default when `--judge-model` is not given. */
-const DEFAULT_JUDGE_MODEL = "deepseek/deepseek-v4-pro";
+/**
+ * Pinned to a VERSIONED slug. The unversioned `deepseek/deepseek-v4-pro` was
+ * retired from OpenRouter and now 404s, which every LLM-judged dimension
+ * silently absorbed as a 0.00 — the judge failing looks identical to the
+ * agent producing nothing.
+ */
+const DEFAULT_JUDGE_MODEL = "deepseek/deepseek-v4-pro-0813";
 
 function resolveJudgeModel(modelOverride?: string): JudgeModel {
 	const model = modelOverride ?? DEFAULT_JUDGE_MODEL;
@@ -256,6 +262,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 			seedResult = await scenario.seed({ db });
 
 			// Step 2: Trigger
+			process.stderr.write(`[eval]   sandbox=${seedResult.sandboxBasePath}\n`);
 			const eventBus = new EventBus();
 			const triggerCtx = {
 				db,

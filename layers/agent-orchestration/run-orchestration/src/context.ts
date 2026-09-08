@@ -541,17 +541,6 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 				if (ev.subject.actorId) {
 					parts.push(`- **Actor:** ${ev.subject.actorId}`);
 				}
-			} else if (ev.subject.kind === "artifact") {
-				parts.push("");
-				parts.push("**Artifact that triggered this run:**");
-				parts.push(`- **Kind:** ${ev.subject.artifact.kind}`);
-				if (ev.subject.artifact.label) {
-					parts.push(`- **Label:** ${ev.subject.artifact.label}`);
-				}
-				parts.push(`- **Producing task:** ${ev.subject.artifact.producingTaskId}`);
-				if (ev.subject.actorId) {
-					parts.push(`- **Actor:** ${ev.subject.actorId}`);
-				}
 			} else if (ev.subject.kind === "team") {
 				parts.push("");
 				parts.push("**Team that triggered this run:**");

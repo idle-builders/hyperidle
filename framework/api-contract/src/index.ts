@@ -22,7 +22,6 @@ export type {
 	AgentOrchestrationWorkIntentReceipt,
 } from "./agent-orchestration-port.js";
 export type {
-	ArtifactView,
 	// @lore BB1: BetView deleted — bet is now a root task.
 	// ConversationInboxMessageView: field of ConversationInboxRowView — reachable, no name-importers
 	ConversationInboxRowView,
@@ -35,8 +34,6 @@ export type {
 	CoreApiTransport,
 	CoreApiUsersPort,
 	CoreApiWorkPort,
-	CreateArtifactRequest,
-	CreateArtifactResponse,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
 	CreateItemRequest,
 	CreateItemResponse,

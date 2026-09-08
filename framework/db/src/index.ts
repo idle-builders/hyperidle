@@ -9,11 +9,9 @@ export * as schema from "./schema.js";
 export {
 	type AgentSessionRequest,
 	type AgentWorkIntent,
-	type ArtifactRow,
 	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
-	artifacts,
 	type ConfigurationOverrideRow,
 	configurationOverrides,
 	type ExplicitSessionStart,

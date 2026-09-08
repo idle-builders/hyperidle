@@ -1,7 +1,7 @@
 /**
  * X8: Submit review scenarios (interaction 10).
  *
- * Tests the submit_review tool: structured review with artifactRef, plain fallback,
+ * Tests the submit_review tool: structured review with producedItemId, plain fallback,
  * quality-focused, and bet-thread targeting.
  */
 
@@ -9,7 +9,7 @@ import { messages, threads } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeSubmitReviewCalled } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import { seedArtifact, seedMinimalWorld, seedThread } from "../seeding.js";
+import { seedKnowledge, seedMinimalWorld, seedThread } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -24,46 +24,58 @@ import type {
 // sr-with-artifact-builder-devops
 // ---------------------------------------------------------------------------
 
-// AM5 K4b: code_diff → code; preview shape {file,hunks} → {path,lang,text}
-const srWithArtifactBuilderDevops: EvalScenario = {
-	id: "sr-with-artifact-builder-devops",
-	description: "Builder submits structured review with artifactRef linking to seeded code artifact",
+const srWithProducedItemBuilderDevops: EvalScenario = {
+	id: "sr-with-produced-item-builder-devops",
+	description:
+		"Builder submits structured review with producedItemId linking to a task-parented knowledge item",
 	feature: "submit_review",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
-When you complete work and have produced an artifact, submit a review using submit_review.
-Include an artifactRef pointing to the artifact you produced.
+When you complete work and have produced a knowledge item, submit a review using submit_review.
+Include a producedItemId pointing to the knowledge item you produced.
 Your review reasoning should explain what was implemented and what to verify.`,
 			taskTitle: "Refactor monitoring configuration",
 			taskDescription: `Review your implementation of the monitoring configuration refactor.
 
-You have already produced a code artifact for this task.
-The artifact ID is available in your task context.
+You have already produced a knowledge item for this task that captures the implementation details.
 
 Submit a review using submit_review with:
 - title: "Monitoring configuration refactor ready for review"
 - reasoning: at least 2 points about what was changed and what to verify
-- artifactRef: { id: "<the artifact ID>", kind: "code" }
+- producedItemId: "<the knowledge item ID>"
+
+The knowledge item ID is: PRODUCED_ITEM_ID_PLACEHOLDER
 
 Your reasoning should mention: what was changed and what the reviewer should check.`,
 			betDescription: "Infrastructure monitoring improvements",
 			betDoneCondition: "Monitoring configuration refactored and reviewed.",
 		});
 
-		// Pre-seed the artifact that the agent will reference
-		await seedArtifact(ctx.db, {
-			producingTaskId: world.taskId,
-			kind: "code",
-			previewJson: JSON.stringify({
-				kind: "code",
-				path: "config/prometheus.yml",
-				lang: "yaml",
-				text: "scrape_interval: 15s\nevaluation_interval: 15s",
-			}),
+		// Seed a task-parented knowledge item so the agent can reference it.
+		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
+			scopeKind: "practice",
+			title: "Monitoring configuration refactor — implementation notes",
+			body: "Updated Prometheus scrape intervals, added VictoriaMetrics, removed legacy exporters.",
+			updatedBy: world.agentId,
+			parentKind: "task",
+			parentId: world.taskId,
 		});
+
+		// Patch the task description to inject the real item ID.
+		const { tasks } = await import("@hyperidle/db");
+		const { eq } = await import("drizzle-orm");
+		const [task] = await ctx.db.select().from(tasks).where(eq(tasks.id, world.taskId));
+		if (task?.description) {
+			await ctx.db
+				.update(tasks)
+				.set({
+					description: task.description.replace("PRODUCED_ITEM_ID_PLACEHOLDER", knowledgeItemId),
+				})
+				.where(eq(tasks.id, world.taskId));
+		}
 
 		return world;
 	},
@@ -87,7 +99,7 @@ Your reasoning should mention: what was changed and what the reviewer should che
 			judgeSubmitReviewCalled(),
 			{
 				id: "message_type_correct",
-				label: "Review Message Type Correct (review or plain)",
+				label: "Review Message Type Correct (review when producedItemId provided)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [msg] = await ctx.db
 						.select({ type: messages.type, payload: messages.payload })
@@ -102,13 +114,13 @@ Your reasoning should mention: what was changed and what the reviewer should che
 						score: isReviewType ? 1.0 : 0.5,
 						note: isReviewType
 							? undefined
-							: `Message type is "${msg.type}" (expected "review" when artifactRef is provided)`,
+							: `Message type is "${msg.type}" (expected "review" when producedItemId is provided)`,
 					};
 				},
 			},
 			{
-				id: "artifact_ref_present",
-				label: "ArtifactRef in Review Message",
+				id: "produced_item_id_present",
+				label: "producedItemId in Review Message",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [msg] = await ctx.db
 						.select({ payload: messages.payload })
@@ -120,10 +132,10 @@ Your reasoning should mention: what was changed and what the reviewer should che
 					}
 					try {
 						const payload = JSON.parse(msg.payload) as Record<string, unknown>;
-						const hasArtifactRef = "artifactRef" in payload;
+						const hasProducedItemId = "producedItemId" in payload;
 						return {
-							score: hasArtifactRef ? 1.0 : 0.0,
-							note: hasArtifactRef ? undefined : "No artifactRef in review payload",
+							score: hasProducedItemId ? 1.0 : 0.0,
+							note: hasProducedItemId ? undefined : "No producedItemId in review payload",
 						};
 					} catch {
 						return { score: 0.0, note: "Could not parse message payload" };
@@ -570,7 +582,7 @@ Use submit_review with:
 // ---------------------------------------------------------------------------
 
 export const submitReviewScenarios: EvalScenario[] = [
-	srWithArtifactBuilderDevops,
+	srWithProducedItemBuilderDevops,
 	srPlainFallbackBuilderMarketing,
 	srReviewQualityPmHealthcare,
 	srBetThreadTargetingBuilderFrontend,

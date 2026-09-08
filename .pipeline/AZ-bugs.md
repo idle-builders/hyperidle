@@ -26,6 +26,7 @@ Highest severity. A user hits these and the product does nothing or the wrong th
 - [ ] **UI-005** "Open review" silently does nothing — *thread `demo-thread-pricing-review`* · Now: full-contrast primary, not disabled, click produces no navigation and no message (`open-handler.ts:78` documents the no-op) · Done: when the destination can't be resolved the action is not rendered as available; when it can, it opens the review · **S**
 - [ ] **UI-006** Conversation kebab injects unrelated fixture attachments — *thread header → "Conversation actions"* · Now: adds `auth/passkey.ts — TS · 3 lines` and `auth-flow.png — 82 KB` to the composer; demo content reachable from a normal control · Done: no fixture content in a normal session; the control's effect is discoverable from its label · **S**
 - [ ] **UI-007** Scope filter pill is disabled but looks and behaves enabled — *`/knowledge/new`, "Team"* · Now: `disabled` yet styled identically to its siblings and keeps `cursor: pointer` · Done: reads as unavailable and does not respond · **S**
+- [ ] **UI-008** Deleting a knowledge item leaves it on screen — *Settings → Skills & Rules, delete a row; also `/knowledge`* · Now: the archive returns 200 and writes `status='archived'`, but `GET /api/knowledge` never filters on status (`visibleToViewer` has only ever filtered scope), so the row comes back and survives reloads · Done: an archived item is not in the list response; a component test whose fixture CONTAINS an archived row goes red without the filter · **S** · pre-existing, found driving the app during `artifacts-become-knowledge`; same defect the `knowledge-attachment-slot` retro recorded
 
 ## Batch B — honest states
 
@@ -117,6 +118,7 @@ Cheapest batch, largest effect on whether the product feels real.
 - [x] **UI-108** Unknown-artifact state is a shouty uppercase machine string with no explanation and no route to the source · **S**
 - [ ] **UI-109** Setup illustration is three grey skeleton-cards — reads as content that failed to load · Done: remove or replace · **S**
 - [ ] **UI-110** Setup shows four disabled harness rows ("Install to use") occupying more space than the one usable option · **S**
+- [ ] **UI-111** Demo discussion promises hero mock-ups that do not exist — *thread `demo-thread-bet-pricing`, and the pricing review* · Now: the seeded copy says "Hero options A and B are in the artifacts" and "I put B in the review artifact", but the four produced items seeded are pricing-page, trial-flow, trial-metrics and search-ranking — there is no hero A/B anywhere, so a reader goes looking for content that was never seeded · Done: either seed the item the copy names, or say what the demo actually contains · **S** · noticed during `artifacts-become-knowledge`; the copy predates it and is not a regression from that change
 
 ## Batch G — layout defects
 

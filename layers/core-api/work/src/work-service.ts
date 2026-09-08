@@ -41,7 +41,6 @@
 
 import { randomUUID } from "node:crypto";
 import {
-	artifacts,
 	items,
 	type NewItem,
 	type NewTask,
@@ -174,20 +173,14 @@ const NOTE_SEPARATOR = "\n\n---\n\n";
 // barrel (index.ts) only re-exports get/list. Callers that need the old named
 // functions as DI-port bindings wrap them in lambdas at the composition root.
 //
-// artifact-store read functions now accept WriteExecutor (see artifact-store.ts
-// AU20 change), so get/list can call them with the same exec they receive.
-// ---------------------------------------------------------------------------
-
-import type { ArtifactRow, ArtifactWithTaskTitle, CreateArtifactInput } from "./artifact-store.js";
 
 /** Discriminant union of all work-owned entity kinds. */
-export type WorkEntity = "task" | "item" | "artifact";
+export type WorkEntity = "task" | "item";
 
 /** Maps each entity discriminant to its plain (non-joined) row type. */
 interface WorkEntityRowMap {
 	task: Task;
 	item: Item;
-	artifact: ArtifactRow;
 }
 
 /**
@@ -238,25 +231,13 @@ export interface WorkFilter {
 
 // -- get() overloads ---------------------------------------------------------
 
-/** Artifact with task-title join (getArtifactWithTaskTitleById). */
-export function get(
-	exec: WriteExecutor,
-	entity: "artifact",
-	id: string,
-	opts: { include: "taskTitle" },
-): Promise<ArtifactWithTaskTitle | undefined>;
 /** Plain get-by-id — return type discriminated by entity literal. */
 export function get<E extends WorkEntity>(
 	exec: WriteExecutor,
 	entity: E,
 	id: string,
 ): Promise<WorkEntityRowMap[E] | undefined>;
-export async function get(
-	exec: WriteExecutor,
-	entity: WorkEntity,
-	id: string,
-	opts?: { include?: string },
-): Promise<unknown> {
+export async function get(exec: WriteExecutor, entity: WorkEntity, id: string): Promise<unknown> {
 	switch (entity) {
 		case "task": {
 			const [row] = await exec.select().from(tasks).where(eq(tasks.id, id)).limit(1);
@@ -266,17 +247,6 @@ export async function get(
 			const [row] = await exec.select().from(items).where(eq(items.id, id)).limit(1);
 			return row;
 		}
-		case "artifact":
-			if (opts?.include === "taskTitle") {
-				const [row] = await exec
-					.select({ artifact: artifacts, taskTitle: tasks.title })
-					.from(artifacts)
-					.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
-					.where(eq(artifacts.id, id))
-					.limit(1);
-				return row;
-			}
-			return (await exec.select().from(artifacts).where(eq(artifacts.id, id)).limit(1))[0];
 	}
 }
 
@@ -288,12 +258,6 @@ export function list(
 	entity: WorkEntity,
 	filter: WorkFilter & { count: true },
 ): Promise<number>;
-/** Artifacts page join (full ArtifactWithTaskTitle shape). */
-export function list(
-	exec: WriteExecutor,
-	entity: "artifact",
-	filter: WorkFilter & { include: "taskTitle" },
-): Promise<ArtifactWithTaskTitle[]>;
 /** Plain entity list — return type discriminated by entity literal. */
 export function list<E extends WorkEntity>(
 	exec: WriteExecutor,
@@ -333,29 +297,6 @@ export async function list(
 	}
 
 	// ── enriched includes ────────────────────────────────────────────────────
-	if (entity === "artifact" && f.include === "taskTitle") {
-		if (f.taskIds !== null && f.taskIds !== undefined && f.taskIds.length === 0) return [];
-		const conditions = [];
-		if (f.taskIds !== null && f.taskIds !== undefined)
-			conditions.push(inArray(artifacts.producingTaskId, [...f.taskIds]));
-		if (f.cursor) {
-			const cursorCondition = or(
-				lt(artifacts.createdAt, f.cursor.createdAt),
-				and(eq(artifacts.createdAt, f.cursor.createdAt), lt(artifacts.id, f.cursor.id)),
-			);
-			if (cursorCondition) conditions.push(cursorCondition);
-		}
-		const query = exec
-			.select({ artifact: artifacts, taskTitle: tasks.title })
-			.from(artifacts)
-			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId));
-		return conditions.length > 0
-			? query
-					.where(and(...conditions))
-					.orderBy(desc(artifacts.createdAt), desc(artifacts.id))
-					.limit(f.limit ?? 50)
-			: query.orderBy(desc(artifacts.createdAt), desc(artifacts.id)).limit(f.limit ?? 50);
-	}
 	// ── task dispatches ──────────────────────────────────────────────────────
 	if (entity === "task") {
 		if (f.ids !== undefined)
@@ -464,25 +405,6 @@ export async function list(
 		return exec.select().from(items);
 	}
 
-	// ── artifact plain dispatches ────────────────────────────────────────────
-	if (entity === "artifact") {
-		if (f.taskIds !== null && f.taskIds !== undefined) {
-			if (f.taskIds.length === 0) return [];
-			return exec
-				.select()
-				.from(artifacts)
-				.where(inArray(artifacts.producingTaskId, Array.from(f.taskIds)));
-		}
-		if (f.ids !== undefined) {
-			if (f.ids.length === 0) return [];
-			return exec
-				.select()
-				.from(artifacts)
-				.where(inArray(artifacts.id, Array.from(f.ids)));
-		}
-		return exec.select().from(artifacts);
-	}
-
 	return [];
 }
 
@@ -517,7 +439,6 @@ type ItemUpdatePatch = ItemPatch;
 interface WorkEntityCreateMap {
 	task: NewTask;
 	item: NewItem;
-	artifact: CreateArtifactInput;
 }
 
 /** Maps each entity discriminant to its update-patch type (excluding artifact). */
@@ -551,7 +472,6 @@ export interface TransitionSpec<P = unknown> {
 /** Maps each entity discriminant to its transition-patch type. Note: "item" is excluded — items have no guard-able state column, no transition() callers. */
 interface WorkEntityTransitionPatchMap {
 	task: TaskPatch;
-	artifact: Partial<ArtifactRow>;
 }
 
 export type { ItemUpdatePatch, TaskPatch, TaskUpdatePatch };
@@ -679,15 +599,6 @@ function buildTaskGuardCond(guard: TransitionGuard): SQL {
 	throw new Error(`Unknown task field for transition guard: ${guard.field}`);
 }
 
-function buildArtifactGuardCond(guard: TransitionGuard): SQL {
-	if (guard.field === "previewJson") {
-		return isNullGuard(guard)
-			? isNull(artifacts.previewJson)
-			: eq(artifacts.previewJson, guard.equals);
-	}
-	throw new Error(`Unknown artifact field for transition guard: ${guard.field}`);
-}
-
 // -- maxSiblingPosition() -----------------------------------------------------
 
 /**
@@ -733,9 +644,6 @@ export async function create<E extends WorkEntity>(
 			return;
 		case "item":
 			await exec.insert(items).values(values as NewItem);
-			return;
-		case "artifact":
-			await exec.insert(artifacts).values(values as CreateArtifactInput);
 			return;
 	}
 }
@@ -833,17 +741,6 @@ export async function transition<E extends keyof WorkEntityTransitionPatchMap>(
 				.set(patch as TaskPatch)
 				.where(whereCond)
 				.returning({ id: tasks.id });
-			break;
-		}
-		case "artifact": {
-			const guardCond = buildArtifactGuardCond(spec.guard);
-			const whereCond =
-				spec.id !== undefined ? and(eq(artifacts.id, spec.id), guardCond) : guardCond;
-			rows = await exec
-				.update(artifacts)
-				.set(patch as Partial<ArtifactRow>)
-				.where(whereCond)
-				.returning({ id: artifacts.id });
 			break;
 		}
 		default: {

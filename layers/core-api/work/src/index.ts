@@ -33,11 +33,6 @@
 // AU20 Ag5b — read functions collapsed into get/list;
 // AU20 Ag5c — createArtifact/setArtifactPreviewIfAbsent folded into generic
 //             create()/transition() primitives below; only row types remain.) --
-export type {
-	ArtifactRow,
-	ArtifactWithTaskTitle,
-	CreateArtifactInput,
-} from "./artifact-store.js";
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
 export { checkAndUnblockDependents } from "./dependency-watcher.js";
 export {
@@ -58,7 +53,7 @@ export type {
 	ResolveInput,
 	TaskRunResolverDeps,
 } from "./task-run-resolver.js";
-export { resolveTaskRunRequest } from "./task-run-resolver.js";
+export { bakeTaskContextBundle, resolveTaskRunRequest } from "./task-run-resolver.js";
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
 export { assertNoCycle, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";

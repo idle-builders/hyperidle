@@ -40,21 +40,10 @@ function prose(over: Partial<Part> & { id: string; author: typeof ME; text: stri
 	} as Part;
 }
 
-const blockEmbed: Embed = {
-	kind: "block",
-	title: "Auth migration plan · §2",
-	target: { route: "host", hostKind: "knowledge_item", hostId: "k-1" },
-};
-const betBlockEmbed: Embed = {
-	kind: "block",
-	title: "Bet brief · §1",
-	target: { route: "host", hostKind: "task", hostId: "bet-9" },
-};
-const artifactEmbed: Embed = {
-	kind: "artifact",
+const diffEmbed: Embed = {
+	kind: "diff",
 	label: "auth/passkey.ts",
 	meta: "+2 −1",
-	target: { route: "artifact", artifactId: "art-1" },
 };
 const sessionEmbed: Embed = {
 	kind: "session-reference",
@@ -106,22 +95,10 @@ describe("AM1 PartList — calm author-grouped column (AC1)", () => {
 // ── AC2 — embeds render inline ───────────────────────────────────
 
 describe("AM1 PartList — inline embeds (AC2)", () => {
-	it("renders a block embed as a ReferenceChip (title only)", () => {
-		render(
-			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "see", embeds: [blockEmbed] })]}
-				onOpen={vi.fn()}
-			/>,
-		);
-		const chip = document.querySelector('[data-ds-component="ReferenceChip"]');
-		expect(chip).not.toBeNull();
-		expect(screen.getByText("Auth migration plan · §2")).toBeDefined();
-	});
-
 	it("renders an artifact embed as a ReferenceChip", () => {
 		render(
 			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "diff", embeds: [artifactEmbed] })]}
+				parts={[prose({ id: "m1", author: ATLAS, text: "diff", embeds: [diffEmbed] })]}
 				onOpen={vi.fn()}
 			/>,
 		);
@@ -152,7 +129,7 @@ describe("AM1 PartList — message-type Parts (AC3)", () => {
 		createdAt: "2026-06-17T10:00:00.000Z",
 		embeds: [],
 		title: "Adopt passkeys",
-		changeSet: artifactEmbed,
+		changeSet: diffEmbed,
 		reviewTarget: { reviewId: "rv1" },
 	} as Part;
 
@@ -245,44 +222,18 @@ describe("AM1 PartList — unknown fallback (AC7)", () => {
 // ── AC8 — routing seam: onOpen fires with the resolved OpenTarget ─
 
 describe("AM1 PartList — onOpen routing seam (AC8)", () => {
-	it("clicking a knowledge-hosted block chip fires onOpen({route:host,knowledge_item})", () => {
-		const onOpen = vi.fn();
-		render(
-			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [blockEmbed] })]}
-				onOpen={onOpen}
-			/>,
-		);
-		fireEvent.click(screen.getByText("Auth migration plan · §2"));
-		expect(onOpen).toHaveBeenCalledWith({
-			route: "host",
-			hostKind: "knowledge_item",
-			hostId: "k-1",
-		});
-	});
-
-	it("clicking a BET-hosted block chip fires onOpen({route:host,bet}) (C1 — non-knowledge case)", () => {
-		const onOpen = vi.fn();
-		render(
-			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [betBlockEmbed] })]}
-				onOpen={onOpen}
-			/>,
-		);
-		fireEvent.click(screen.getByText("Bet brief · §1"));
-		expect(onOpen).toHaveBeenCalledWith({ route: "host", hostKind: "task", hostId: "bet-9" });
-	});
-
 	it("clicking an artifact chip fires onOpen({route:artifact})", () => {
 		const onOpen = vi.fn();
 		render(
 			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [artifactEmbed] })]}
+				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [diffEmbed] })]}
 				onOpen={onOpen}
 			/>,
 		);
+		// A file diff has no destination. The chip names the file; clicking it
+		// must not fire a navigation, because there is nowhere to navigate to.
 		fireEvent.click(screen.getByText("auth/passkey.ts"));
-		expect(onOpen).toHaveBeenCalledWith({ route: "artifact", artifactId: "art-1" });
+		expect(onOpen).not.toHaveBeenCalled();
 	});
 
 	it("clicking Open review fires onOpen({route:review,...})", () => {
@@ -294,7 +245,7 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 			createdAt: "2026-06-17T10:00:00.000Z",
 			embeds: [],
 			title: "Adopt passkeys",
-			changeSet: artifactEmbed,
+			changeSet: diffEmbed,
 			reviewTarget: { reviewId: "rv1" },
 		} as Part;
 		render(<PartList parts={[reviewPart]} onOpen={onOpen} />);
@@ -317,7 +268,7 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 	it("mounts NO destination view inline (the conversation owns no viewer)", () => {
 		render(
 			<PartList
-				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [blockEmbed, artifactEmbed] })]}
+				parts={[prose({ id: "m1", author: ATLAS, text: "x", embeds: [diffEmbed] })]}
 				onOpen={vi.fn()}
 			/>,
 		);

@@ -63,22 +63,6 @@ export interface RoutineSchedulerPorts {
 			  }
 			| undefined
 		>;
-		/**
-		 * BA9c: Load an artifact row for trigger event subject assembly.
-		 * Called for artifact_created events.
-		 */
-		getArtifactById(
-			db: HyperIdleDb,
-			id: string,
-		): Promise<
-			| {
-					readonly id: string;
-					readonly kind: string;
-					readonly label: string | null;
-					readonly producingTaskId: string;
-			  }
-			| undefined
-		>;
 		createItem(exec: WriteExecutor, values: NewItem): Promise<void>;
 		findRetroItemByThreadIds(
 			db: HyperIdleDb,

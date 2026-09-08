@@ -33,19 +33,6 @@ export interface TaskView {
 	readonly notes: string | null;
 }
 
-/**
- * Mirrors `GET /artifacts/:id`'s response — only the fields a `CoreApiPort`
- * consumer relies on. `submit_review` uses this to confirm a stored
- * `artifactRef` resolves to an artifact whose `producingTaskId` matches the
- * calling task before attaching it — a review may not claim proof it does
- * not have.
- */
-export interface ArtifactView {
-	readonly id: string;
-	readonly producingTaskId: string;
-	readonly kind: string;
-}
-
 // @lore BB1: UpdateBetRequest DELETED — bet fields are now task fields; PATCH /tasks/:id.
 
 /**
@@ -132,26 +119,6 @@ export interface CreateItemResponse {
 }
 
 /**
- * Mirrors `POST /artifacts`'s validated request body (`createArtifactSchema`,
- * `routes/artifacts.ts`). `preview` is opaque (Mechanism C: `tool-handlers`
- * never imports `@hyperidle/domain-model`'s `ArtifactPreview` union here) — the
- * route validates/serializes it; this seam only forwards it.
- */
-export interface CreateArtifactRequest {
-	readonly producingTaskId: string;
-	readonly kind: string;
-	readonly label?: string | null;
-	readonly preview?: Record<string, unknown> | null;
-}
-
-/** Mirrors `POST /artifacts`'s 201 response body — only the fields a consumer relies on. */
-export interface CreateArtifactResponse {
-	readonly id: string;
-	readonly producingTaskId: string;
-	readonly kind: string;
-}
-
-/**
  * Mirrors `GET /users/:id` / `GET /users` — only the fields a `CoreApiPort`
  * consumer relies on. `teamId` is `users.teamId` — per the AK4 two-hop
  * lore AU44 B1: after the fold, this stores `teams.id` directly.
@@ -212,9 +179,6 @@ export interface CoreApiWorkPort {
 	updateItemById(id: string, updates: UpdateItemRequest): Promise<void>;
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
 	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
-	createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse>;
-	/** Over `GET /artifacts/:id`, the same shape as `getTaskById`. */
-	getArtifactById(id: string): Promise<ArtifactView | undefined>;
 	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;
 }
 
@@ -504,8 +468,24 @@ export interface CoreApiRoutinePort {
  * have a `kind`/explicit-`layer` concept the HTTP UI caller never needed).
  */
 export interface CreateKnowledgeItemRequest {
-	readonly layer: string | null;
-	readonly scopeKind?: string | null;
+	/**
+	 * Optional, and `null` is NOT a legal value — the route's zod is
+	 * `z.enum(KNOWLEDGE_LAYERS).optional()`, which accepts a layer or the field's
+	 * absence and rejects an explicit null. A caller with no opinion about layer
+	 * must OMIT this, not send null; the route then derives it from the scope.
+	 * `create_artifact` sent `layer: null` and 400'd on every call until a parity
+	 * test drove it through the real route.
+	 */
+	readonly layer?: string;
+	/**
+	 * Required, because the route requires it. It was optional here for a long
+	 * time and the route's zod was not, so a caller that omitted it typechecked
+	 * clean and 400'd at runtime — which is exactly what the agent writeback
+	 * path did, for its whole life. Making the contract tell the truth is what
+	 * turns that class of drift into a `npm run check` failure instead of a
+	 * silent seam error nobody reads.
+	 */
+	readonly scopeKind: string;
 	readonly scopeId?: string | null;
 	readonly kind?: string | null;
 	readonly topic?: string | null;
@@ -514,6 +494,13 @@ export interface CreateKnowledgeItemRequest {
 	readonly format: string;
 	readonly status: string;
 	readonly updatedBy: string;
+	/**
+	 * Where the item hangs. A produced item is parented to the task or the
+	 * conversation that produced it; only those two kinds are accepted from a
+	 * client (see `createKnowledgeSchema` in core-api's knowledge route).
+	 */
+	readonly parentKind?: "task" | "thread";
+	readonly parentId?: string;
 }
 
 /** Mirrors `POST /knowledge`'s 201 response body — only the fields a `CoreApiPort` consumer relies on. */
@@ -627,6 +614,14 @@ export interface CoreApiKnowledgePort {
 	): Promise<UpdateKnowledgeItemContentResult>;
 	findKnowledgeItemVersionById(id: string): Promise<KnowledgeItemVersionView | undefined>;
 	findKnowledgeItemStatusById(id: string): Promise<KnowledgeItemStatusView | undefined>;
+	/**
+	 * Returns parentKind and parentId for the item, or undefined if not found.
+	 * Used by submit_review to enforce the invariant: a named produced item must
+	 * exist and be parented to the calling task.
+	 */
+	findKnowledgeItemParentById(
+		id: string,
+	): Promise<{ readonly parentKind: string | null; readonly parentId: string | null } | undefined>;
 	findOpenConflictByItemAndProposer(
 		itemId: string,
 		proposedBy: string,

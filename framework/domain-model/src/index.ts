@@ -33,7 +33,6 @@ export type {
 // isAgentWorkIntentKind, isAgentWorkIntentSourceKind moved to agent-orchestration (AU44-b8)
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
-export { artifactPreviewSchema, fallbackPreviewSchema } from "./artifact-preview.js";
 export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
 // Block types moved to layers/core-ui/src/block/types.ts (AU44 batch8).
@@ -92,10 +91,8 @@ export type { HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 // HyperIdleEnv, ValidatedJson, constantTimeStringEqual, validateBody: server-only (node:crypto).
 // Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
-export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
 // unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
-export { ARTIFACT_KINDS, getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
 export type {
 	KnowledgeAccessorKind,
 	KnowledgeKind,
@@ -194,15 +191,12 @@ export type {
 export type {
 	AgentSessionStateSnapshot,
 	AnchorRef,
-	ArtifactRef,
-	ArtifactThreadSummary,
-	ArtifactThreadSummaryResponse,
 	AssistantNotice,
-	// BlockId + BlockHostKind: wire types embedded in AnchorRef/BlockRef; inlined in
+	// BlockId + BlockHostKind: wire types embedded in AnchorRef; inlined in
 	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
 	BlockHostKind,
 	BlockId,
-	BlockRef,
+	CanvasArtifactRef,
 	EntityRef,
 	HeadCollapseResult,
 	HostKind,
@@ -238,13 +232,6 @@ export {
 	verdictDecisionLabel,
 	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts (AU44 batch 8)
 } from "./thread.js";
-export type {
-	Artifact,
-	ArtifactFilterAxis,
-	ArtifactPage,
-	ArtifactPreview,
-	ArtifactQuery,
-} from "./types/artifact.js";
 // artifactDisplayTitle, summarizePreview MERGE → core-ui/ds/artifact-display-helpers.ts (AU44 batch 8)
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
 export type {

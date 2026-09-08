@@ -13,7 +13,7 @@
  * because the discriminant is exhaustive.
  */
 
-import type { ArtifactRef, Message, Thread } from "@hyperidle/domain-model";
+import type { Message, Thread } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";
@@ -30,7 +30,6 @@ export interface ThreadDetail {
 	 * comes from `agent-orchestration`'s own API where a surface needs it.
 	 */
 	identities: Record<string, { name: string; role?: string; isAgent?: boolean }>;
-	artifactRef?: ArtifactRef;
 	/** AE5: Host entity title for context link. Null when unresolvable. */
 	hostTitle?: string | null;
 }

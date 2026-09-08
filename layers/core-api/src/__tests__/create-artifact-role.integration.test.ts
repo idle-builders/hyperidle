@@ -1,13 +1,17 @@
 /**
- * R6 AC5: create_artifact tool is available to all agent roles.
+ * `create_artifact` is available to every agent role, and its input schema asks
+ * for content and nothing else.
  *
- * The architecture plan §3 states that create_artifact has no `roles`
- * restriction — all agent roles (builder, facilitator, growth,
- * @lore AD8a: role string stays until AD8b. chief_of_staff, etc.) can produce artifacts.
+ * The tool has no `roles` restriction — builder, facilitator, assistant and
+ * growth all get it — and the parent it attaches to is read from the calling
+ * context, never accepted as input. A role filter or a parent that a caller can
+ * name are both silent regressions: the tool simply stops appearing, or starts
+ * letting an agent attach its output to someone else's task.
  *
- * These tests WILL fail until:
- *   - create-artifact.ts is implemented (Task 3)
- *   - createArtifactTool is added to ALL_TOOL_DEFINITIONS in tool-registry.ts (Task 3)
+ * @lore artifacts-become-knowledge: this file was deleted with the artifacts
+ * table and restored on review — nothing in it depended on that table. What did
+ * change is the schema assertion below, which named the old `kind`/`preview`
+ * fields; an artifact is written as a title and a markdown body now.
  */
 
 import * as os from "node:os";
@@ -36,7 +40,7 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 	};
 }
 
-describe("R6 AC5: create_artifact availability across agent roles", () => {
+describe("create_artifact availability across agent roles", () => {
 	test("create_artifact is available to builder role", async ({ db, app }) => {
 		const registry = buildToolRegistryFromDefinitions(
 			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR),
@@ -91,11 +95,13 @@ describe("R6 AC5: create_artifact availability across agent roles", () => {
 		const spec = specs.find((s) => s.name === "create_artifact");
 		expect(spec).toBeDefined();
 		expect(spec?.input_schema.type).toBe("object");
-		// The schema must require 'kind' and have 'preview' as a property.
-		expect(spec?.input_schema.properties).toHaveProperty("kind");
-		expect(spec?.input_schema.properties).toHaveProperty("preview");
-		// 'producingTaskId' must NOT be in the input schema (read from ctx instead).
-		expect(spec?.input_schema.properties).not.toHaveProperty("producingTaskId");
+		// An artifact is a title and a markdown body.
+		expect(spec?.input_schema.properties).toHaveProperty("title");
+		expect(spec?.input_schema.properties).toHaveProperty("body");
+		// The parent is read from the calling context, never named by the agent —
+		// otherwise an agent can attach its output to a task that is not its own.
+		expect(spec?.input_schema.properties).not.toHaveProperty("parentKind");
+		expect(spec?.input_schema.properties).not.toHaveProperty("parentId");
 	});
 
 	test("invoking create_artifact with role=builder returns FORBIDDEN if filtered, or succeeds if registered", async ({

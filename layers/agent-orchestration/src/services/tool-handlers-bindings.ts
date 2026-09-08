@@ -128,11 +128,6 @@ export function buildToolHandlersPorts(
 				seamPortForActor(actorId).work.createItem(widenCreateItemInput(input)),
 			findItemByReasoningMarker: (marker, actorId) =>
 				seamPortForActor(actorId).work.findItemByReasoningMarker(marker),
-			createArtifact: (input, actorId) => seamPortForActor(actorId).work.createArtifact(input),
-			// `submit_review` uses this to confirm a stored `artifactRef` resolves
-			// to an artifact this task actually produced, over `GET /artifacts/:id`
-			// — same shape as `getTaskById`.
-			getArtifactById: (id, actorId) => seamPortForActor(actorId).work.getArtifactById(id),
 			getUserById: (id, actorId) => seamPortForActor(actorId).users.getUserById(id),
 			listUsersByTeam: (teamMembersId, actorId) =>
 				seamPortForActor(actorId).users.listUsersByTeam(teamMembersId),
@@ -201,6 +196,8 @@ export function buildToolHandlersPorts(
 				seamPortForActor(actorId).knowledge.findKnowledgeItemVersionById(id),
 			findKnowledgeItemStatusById: (id, actorId) =>
 				seamPortForActor(actorId).knowledge.findKnowledgeItemStatusById(id),
+			findKnowledgeItemParentById: (id, actorId) =>
+				seamPortForActor(actorId).knowledge.findKnowledgeItemParentById(id),
 			findOpenConflictByItemAndProposer: (itemId, proposedBy, actorId) =>
 				seamPortForActor(actorId).knowledge.findOpenConflictByItemAndProposer(itemId, proposedBy),
 			createKnowledgeConflict: (input, actorId) =>

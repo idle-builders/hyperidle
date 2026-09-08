@@ -102,9 +102,16 @@ interface ToolHandlersCreateTeamInput {
  * widen to `string` (Mechanism C: never importing `knowledge`'s own types).
  */
 interface ToolHandlersCreateKnowledgeItemInput {
-	readonly layer: string | null;
-	readonly scopeKind?: string | null;
+	readonly layer?: string;
+	/** Required, mirroring `CreateKnowledgeItemRequest` — see the note there. */
+	readonly scopeKind: string;
 	readonly scopeId?: string | null;
+	/**
+	 * Where the item hangs. A produced item — what used to be an artifact — is
+	 * parented to the task or the conversation that produced it.
+	 */
+	readonly parentKind?: "task" | "thread";
+	readonly parentId?: string;
 	readonly kind?: string | null;
 	readonly topic?: string | null;
 	readonly title: string;
@@ -223,27 +230,6 @@ interface ToolHandlersCoreApiAccessor {
 		marker: string,
 		actorId: string,
 	): Promise<{ readonly id: string } | undefined>;
-	createArtifact(
-		input: {
-			readonly producingTaskId: string;
-			readonly kind: string;
-			readonly label: string | null;
-			readonly preview: Record<string, unknown> | null;
-		},
-		actorId: string,
-	): Promise<{ readonly id: string; readonly producingTaskId: string; readonly kind: string }>;
-	/**
-	 * Mirrors `GET /artifacts/:id`. `submit_review` uses this to confirm a
-	 * stored `artifactRef` resolves to an artifact whose `producingTaskId`
-	 * matches `ctx.taskId` before attaching it — a review may not claim
-	 * proof it does not have.
-	 */
-	getArtifactById(
-		id: string,
-		actorId: string,
-	): Promise<
-		{ readonly id: string; readonly producingTaskId: string; readonly kind: string } | undefined
-	>;
 	getUserById(
 		id: string,
 		actorId: string,
@@ -430,6 +416,15 @@ interface ToolHandlersCoreApiAccessor {
 		id: string,
 		actorId: string,
 	): Promise<{ readonly status: string } | undefined>;
+	/**
+	 * Returns parentKind and parentId for the item, or undefined if not found.
+	 * Used by submit_review to enforce the producedItemId invariant: the named
+	 * item must exist and be parented to the calling task.
+	 */
+	findKnowledgeItemParentById(
+		id: string,
+		actorId: string,
+	): Promise<{ readonly parentKind: string | null; readonly parentId: string | null } | undefined>;
 	findOpenConflictByItemAndProposer(
 		itemId: string,
 		proposedBy: string,

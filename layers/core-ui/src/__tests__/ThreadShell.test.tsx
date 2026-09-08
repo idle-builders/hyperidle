@@ -43,7 +43,7 @@ const reviewMessage: Message = {
 	payload: {
 		title: "Review me",
 		reasoning: ["one"],
-		artifactRef: { id: "art-1", kind: "text_diff" },
+		producedItemId: "art-1",
 	},
 };
 

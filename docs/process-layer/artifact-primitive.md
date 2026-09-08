@@ -1,149 +1,148 @@
-# Artifact primitive (L3)
+# Artifact
 
-The function-agnostic, task-rooted record of something the team has produced. An Artifact roots on exactly one producing Task; Team/Portfolio surfaces aggregate Artifacts, they never own them.
+**An artifact is a knowledge item that hangs off the thing that produced it.**
 
-This path is frozen — code cites it directly (`framework/domain-model/src/thread.ts`, `framework/conversation-parts/src/part.ts`).
+There is no artifacts table, no separate content model, and no second lifecycle.
+An artifact is the ordinary knowledge item every other part of the system already
+knows how to store, version, scope, edit and discuss — carrying a parent that
+says *where it came from*: the task it was produced in, or the conversation it
+was produced in.
 
-## Canonical shape
+The word stays because people use it. What it names has changed: it is a stage a
+knowledge item is at, not a different kind of thing.
 
-The `artifacts` table (`framework/db/src/schema.ts`):
+## Why the second table went
+
+An artifact used to be a receipt: `id`, `producing_task_id`, `kind`, `label`,
+`preview_json`, `created_at`. No body. No status. No version. No scope. No
+history. It could not exist without a task, it was never edited, and its whole
+content lived in an untyped JSON preview column.
+
+A knowledge item is a document: scope, title, markdown body, status, version,
+role, an edit log, an access log, and a place in the knowledge tree.
+
+They were the same thing at different stages of being kept. Modelling that as two
+tables bought a receipt that could never grow into a document, and a document
+that could never be produced by a task. Removing the second one closes the
+product thesis: everything is a thread, a task, or a knowledge item.
+
+## The shape
+
+An artifact is a row in `knowledge_items` (`framework/db/src/schema.ts`) where
+the parent slot points at a task or a thread:
 
 ```
-Artifact {
-  id                  # opaque, stable, immutable
-  producing_task_id   # the unique producing Task — required, immutable
-                      # (notNull FK → tasks, onDelete restrict)
-  kind                # fundamental content type determining the renderer.
-                      # OPEN vocabulary (AE6), stored as text, normalised to
-                      # ARTIFACT_KINDS at the API boundary. Initial 6:
-                      # text | code | image | data | html | url
-  label               # (AE6) optional business-domain tag (e.g. "contract",
-                      # "email"). Context only; never affects rendering.
-                      # Freeform lowercase_snake_case, max 64.
-  preview_json        # short representation for gallery / stack rendering;
-                      # null until populated; once populated, immutable
-  created_at
-}
+parent_kind = 'task'   + parent_id = <task id>     # produced while working
+parent_kind = 'thread' + parent_id = <thread id>   # produced in a conversation
 ```
 
-**No cost columns.** O2 stripped `cost_money_micros` / `cost_tokens_*` from the kernel artifacts table — cost is a strategy concern (`schema.ts`). See §Cost.
+The parent slot carries no foreign key — it can point at five different tables —
+so existence is confirmed at the API boundary by the service that owns the
+parent's table: `work` for a task, `conversation` for a thread. A half-named
+parent (a kind with no id, or an id with no kind) is refused.
 
-**Preview is write-once.** `PATCH /:id/preview` succeeds only while `preview_json IS NULL` (race-safe conditional UPDATE); otherwise 409 `IMMUTABLE` (`layers/core-api/src/routes/artifacts.ts`). A null preview renders an explicit `NoPreviewText` placeholder — never a fake thumbnail (`ArtifactPreviewSurface.tsx`).
+Only `task` and `thread` may be named by a client. The other parent kinds
+(`knowledge_item`, `routine`, `agent`) are written exclusively by core-api's own
+routes, which already hold the parent row for other reasons — so nothing outside
+can forge a routine's prompt or an agent's identity.
 
-**Preview content is pure (AM5).** Per-kind preview schemas carry content only — the `code` preview is `{path, text, lang}` (`framework/domain-model/src/kinds/registry.ts`), just code, no diff. The diff belongs to the Review composition, built from two pure-`code` instances (see §Compositions).
+## Content is markdown. There is no preview column.
 
-## The fundamental kinds (AE6) and the base primitives they compose (AM5)
+The body is the content. Every kind an artifact used to have is expressible as
+markdown, and the block layer already derives them: an image item's body is an
+image, a code item's is one fenced block, a data item's is one table.
 
-Kind answers "what format did the agent produce?" — not "what business domain is this about?" (that's the label). Each kind renders by composing base primitives from the block-payload layer (`framework/design-system/src/block/*`) — the same primitives the Block subsystem composes. Dispatch lives in `design-system/src/kinds/compose-artifact-body.tsx`.
+**An interactive HTML artifact stores its content as a fenced ` ```html ` block.**
+This is not cosmetic. Measured against the real `deriveBlocks`: a realistic
+self-contained HTML document placed raw in a markdown body derives to *six*
+blocks and mis-parses a chunk of CSS as a paragraph, leaving `</style>` as
+literal text — CommonMark terminates HTML blocks at blank lines. Fenced, it
+derives to exactly one `code` block with `lang: "html"`, and the text comes back
+byte-identical.
 
-| Kind (pure content) | What the agent produced | Composes | Review experience (the Review composition) |
-|---|---|---|---|
-| `text` | Markdown/prose | Text family via `deriveBlocks(body)` + Block stream | Prose before→after |
-| `code` | Source code as a file — `{path, text, lang}` | `CodePayload` (syntax highlighting still TODO) | Diff built from two pure-`code` instances |
-| `image` | Visual asset (screenshot, design, diagram) | `ImagePayload` | Visual comparison |
-| `data` | Structured metrics/tables/charts | `KpiStat` + a bespoke rows table + `Sparkline` | Metrics/table view |
-| `html` | Rich rendered content (dashboards, visualizations) | `HtmlPayload` (sandboxed) | Rendered preview |
-| `url` | Reference to something external (PR, deployed service, page) | inline Link primitive | Action summary / status |
+The deciding argument against a payload column was the file watcher. A
+payload-backed item could only ever be made through an API call, never by writing
+a file, which would split the system into file-backed and payload-backed items
+forever.
 
-`html` is the universal escape hatch — anything rich that doesn't fit the others renders as HTML.
+**Kind is derived, never stored.** An item's kind is a property of its blocks,
+computed at render, the same way blocks themselves are. There is no `kind` column
+and no stored discriminant.
 
-**The `data` kind is NOT TablePayload.** `data.rows` is a freeform `Record<string,string>[]` key/value grid, incompatible with `TablePayload`'s GFM `InlineNode[][][]` shape; the composition uses a lifted bespoke rows table plus the extracted `KpiStat` and `Sparkline` primitives (`compose-artifact-body.tsx`).
+## How one gets made
 
-## ArtifactRef — a review message's reference to a stored Artifact
+Three ways, and they produce the same row.
 
-`ARTIFACT_VIEW_SHAPES` — a pre-consolidation, five-value closed enum
-(`text_diff | content_preview | visual_comparison | action_summary |
-data_metrics`) that predated the six fundamental kinds above — is DELETED,
-not migrated: it had zero overlap with the `ARTIFACT_KINDS` `create_artifact`
-actually emits.
+- **An agent calls `create_artifact`** with a title and a markdown body. The
+  parent is taken from the agent's own context and never passed as input: the
+  task it is working in, or the conversation it is answering in. Neither is an
+  error — a produced item must belong to something.
+- **An agent writes a file** into `knowledge/` in its sandbox. The writeback path
+  turns it into a knowledge item parented to whatever the session is working on,
+  read from the session's own row.
+- **A human clicks "+"** on a block and sends it. That puts a knowledge item into
+  the conversation, parented to the thread.
 
-`ArtifactRef.kind` (`framework/domain-model/src/thread.ts`) now respells onto
-that same six-value `ARTIFACT_KINDS` vocabulary at write time
-(`reviewPayloadSchema`'s write arm, `layers/core-api/src/routes/threads-schema.ts`).
-The type itself stays `kind?: string` — never a closed union — because
-nothing that reads it trusts the value: `GET /api/reviews/:id`
-(`layers/core-api/src/routes/reviews.ts`) re-reads the REAL kind off the
-referenced artifact row instead. The read arm (`reviewPayloadSchemaRow`)
-stays tolerant of a retired value a row already carries, so an existing
-review persisted before this respell still reads back instead of taking out
-the whole thread. `layers/core-ui/src/components/parts/part.ts`'s
-`artifactRefToEmbed` renders both vocabularies: the retired `text_diff` (a
-legacy row) and its current-vocabulary successor `code` both map to the diff
-embed.
+The last one is the point of the design: **a human and an agent put something
+into a conversation the same way, and the result is the same row.** That is the
+parity requirement, not a nice-to-have.
 
-## Base primitives × compositions × placements (AM5)
+## Where one shows up
 
-An artifact view is selected by three orthogonal concerns.
+- A **task-parented** item appears on that task, and never in the knowledge tree.
+- A **thread-parented** item appears in that conversation, and never in the
+  knowledge tree.
+- Clicking either opens it in the split view, rendered through the same body path
+  a knowledge item's own page uses — so an interactive one runs in the sandbox
+  frame there too.
 
-1. **Base primitives** (WHAT renders) — the block-payload layer `framework/design-system/src/block/*` IS the one canonical content-renderer family: Text family (Paragraph/Heading/List/Quote/Divider + inline nodes), Code, Image, inline Link, Html, Table, plus `KpiStat` and `Sparkline` (extracted from the old `data` renderer). A base primitive is pure, irreducible content — no diff, no comparison, no empty/error/loading state. Documented in [docs/blocks/](../blocks/index.md).
-2. **Compositions** (HOW primitives are presented; owner of states) — CLOSED at three:
-   - **Artifact (single)** — one base-primitive instance, standalone: `composeArtifactBody`, pure of states; the `ArtifactPreviewSurface` gate owns empty/error/loading.
-   - **Review (diff)** — a comparison BUILT from two base-primitive instances. The DS `diff/` foundation (`code-delta-renderer.tsx`, `select-diff.tsx`) sits low in `framework/design-system`; the review experience in `layers/core-ui/src/pages/review/` layers only chrome (header, bands, verdict affordances, file navigation) — no parallel content family. Review canvases are the review primitive's territory — see [review-primitive](../human-interface-layer/review-primitive.md).
-   - **Block (mixed)** — many instances composed into one body via `deriveBlocks` + the same payloads. Owned by [docs/blocks/](../blocks/index.md).
+Keeping produced items out of the tree is what stops the tree filling with
+per-task residue.
 
-   An Artifact (single) and a Block body of one content type share the same underlying primitive — the difference is the composition wrapper, not the renderer. Every surface reaches a composition through the one open contract — see [open-contract](../human-interface-layer/open-contract.md).
-3. **Placements** (WHERE the view sits) — CLOSED at four; adding a layout requires a concept-doc update first:
-   1. `gallery_card` — collection surfaces (`ArtifactGalleryCard`)
-   2. `stack_item` — vertical lists alongside other items (`ArtifactStackItem`)
-   3. `single_full_preview` — the Artifact's own detail surface (`ArtifactPreviewSurface`; "single" is a placement word, not the composition)
-   4. `review_message_embed` — inside review messages (`ArtifactEmbed`; the ArtifactView shapes live here)
+**Thread-parented items are leaves.** A thread can be hosted on a knowledge item
+and a knowledge item can be parented to a thread, so `item → thread → item` is
+expressible. The cycle is made *inert, not illegal* — forbidding it would forbid
+an item hosting a thread that produces an item, which is the use case. Every tree
+walk stops at the first non-knowledge-item parent, so a thread-parented item has
+no ancestors and inherits nothing.
 
-The AE6 `kinds/*-renderer.tsx` layer is deleted; a negative-existence test bans `getRenderer` / `*Renderer` re-exports (`web/src/__tests__/AE6-kind-renderers.test.tsx`).
+## Graduating into the knowledge tree
 
-## Kind extensibility (AE6)
+Giving a produced item a knowledge-item parent is how it becomes part of the
+team's knowledge rather than residue of one task.
 
-The kind vocabulary is **open at the data layer** (any `lowercase_snake_case` string stores; reads are open) but **create-time is constrained** to the 6 registered fundamentals (`z.enum(ARTIFACT_KINDS)`, `routes/artifacts.ts`).
+This is a **narrow, dedicated transition**, not an editable field. The parent is
+create-only everywhere else, deliberately: otherwise a person could repoint a
+routine's prompt or an agent's identity at something else. Graduation is allowed
+only when the item's role is `ordinary` and its current parent is a task or a
+thread, and only onto a knowledge item that exists — or onto nothing, meaning the
+top of the tree.
 
-This contrasts with BlockKind, which is closed — blocks decompose prose into renderable regions (the kind set IS the AST vocabulary), while artifact kinds classify output format. Both compose the same base primitives; BlockKind is owned by [docs/blocks/canonical-shapes.md](../blocks/canonical-shapes.md).
+**Provenance lives in that transition's history.** There is no `producing_task_id`
+column any more, and none is wanted: `parent_id` means where an item sits, not
+where it came from. Graduating overwrites it — but the update path logs old and
+new values per field, so the original task id survives as that edit-log entry's
+`oldValue`. Looking for provenance means reading history, which is the natural
+place to look, and it is the *only* place it is kept.
 
-**Kind Definition** — a static config module in `framework/domain-model/src/kinds/` binding a kind string to (`kind-definition.ts`):
-- a Zod preview schema (pure content only — no diff, no comparison, no state field)
-- a display-title extractor
-- a summary function
+## Status and role
 
-A Kind Definition does NOT bind a renderer or base primitive — rendering dispatch is hardcoded in `compose-artifact-body.tsx`.
+A produced item is created with role `ordinary`. Its status is the ordinary
+pre-validation draft state — produced, not yet vouched for — which is exactly
+what an artifact always was.
 
-**Registration is a hand-maintained Map** (`registry.ts`). Adding a kind = create the Kind Definition module + one import + one Map entry. Build-time auto-discovery was rejected — `import.meta.glob` is Vite-only and breaks the Node server. Kind Definitions are code modules, not database entities, and the registry is the only registration mechanism.
+## What "artifact" may and may not name
 
-**Unregistered kinds** render a generic *content* fallback — kind label + raw content via `UnknownPayload` — never crash, never blank. This fallback is not an empty/error/loading state; those belong to the composition. The old `unknown_kind` sentinel is retired.
+The word names produced content. It does not name a storage concept. Enforced by
+`artifact-is-not-a-storage-concept` in `tools/governance/`, which bans the
+identifiers of the old model — a table, a row type, a route, a stored kind, a
+stored preview, a pointer to a row — rather than the word itself.
 
-**Legacy kind normalization is LIVE.** `rowToArtifact` applies `OLD_KIND_MAP` at read time — 13 legacy kinds (e.g. `code_diff` → `code`) map to a new kind+label pair (`routes/artifacts.ts`, `framework/domain-model/src/kinds/old-kind-map.ts`). Only the legacy `{file,hunks}` *preview-shape* normalization was deleted (AM5, pre-alpha clean rewrite — no migration); old code previews read as null.
+That distinction matters: `artifacts:` remains a live key in several unrelated
+shapes that all survive (the handoff filename array, the review canvas, review
+composition, the core-api port client). A rule that banned the word would need a
+carve-out for each of them, and a carve-out is the thing that gets widened later.
 
-## Fetching contract
-
-`GET /api/artifacts?axis=task|product|portfolio` (`routes/artifacts.ts`; `ArtifactFilterAxis` in `framework/domain-model/src/types/artifact.ts`). Product/Portfolio aggregate via task-id fan-out (capped at 1000). The product axis resolves `teamId` (U1 productId→teamId rename; both query params accepted).
-
-## Permalinks
-
-Every Artifact has a permalink page: route `artifacts/:id` → `ArtifactPermalink` (`web/src/router.tsx`, `web/src/pages/ArtifactPermalink.tsx`). It renders the full preview surface and the Artifact's thread.
-
-## Cost
-
-An artifact carries no cost. It never did as a stored column, and there is no longer an accumulator behind it either.
-
-- `GET` returns `{money: null, tokens: null}` per artifact, and `PATCH /:id/cost` does not exist (`layers/core-api/src/routes/artifacts.ts`).
-- The agent/team cost accumulators the `POST` payload used to feed are deleted — the whole cost-accounting mechanism went with the cost cap. See [wip-and-cost-limits](wip-and-cost-limits.md), which records the deletion and why nothing replaced it: the real spend ceiling lives at the upstream provider account, not in HyperIdle.
-
-## Hard rules
-
-- Artifacts root on Tasks. Team/Portfolio surfaces aggregate; they never own. (The fetch API still accepts `axis=product` for wire compatibility — U1 productId→teamId rename.)
-- Threads attach to Artifacts via the artifact→task chain (`routes/threads.ts`); thread grammar owned by [thread-primitive](../human-interface-layer/thread-primitive.md).
-- Compositions closed at three; placements closed at four; ArtifactView shapes closed at five.
-- No fake thumbnails — when `preview` is null, render an explicit placeholder.
-- Base-primitive purity (AM5): a base primitive carries no diff, no comparison, no state branch. The diff is the Review composition; states belong to the composition (Artifact owns empty/error/loading; Review owns no-changes; Block owns absence).
-- One canonical content-renderer family: the block-payload layer. Artifact (single) composes the same primitives Block (mixed) composes.
-- Kind determines the composed primitives; labels MUST NOT affect renderer selection (`schema.ts`; dispatch is kind-only).
-- Kind Definitions are the only mechanism for registering kinds; no ad-hoc per-kind logic in core files. Adding a kind touches the new module plus the single registry Map entry — nothing else.
-- Unknown content renders the content fallback — never crash, never blank. "Unknown content" ≠ "no content".
-
-## Vocabulary
-
-| Term | Aliases not to use |
-|---|---|
-| Artifact | Output, File, Deliverable, Result, Asset, Document |
-| Artifact Kind | artifact type, artifact category, artifact class |
-| Artifact Label | artifact tag |
-| Kind Definition | kind plugin, kind extension, kind registration |
-| Registered Kind | known kind, supported kind, built-in kind |
-| Unregistered Kind | unknown kind (retired sentinel), unsupported kind |
-| ArtifactView | never a synonym for the Artifact primitive |
+Separately, a **review canvas artifact** is a different concept that merely shares
+the word — a UI evidence envelope on a review, with its own nine-value
+vocabulary. It is untouched by any of the above.

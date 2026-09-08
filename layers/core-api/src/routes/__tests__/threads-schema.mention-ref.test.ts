@@ -79,16 +79,6 @@ describe("AE5 — inlineRefSchema discriminated union (with mention)", () => {
 		}
 	});
 
-	it("existing block refs still accepted after widening", () => {
-		const result = inlineRefSchema.safeParse({
-			kind: "block",
-			blockId: "blk:v1:abc",
-			hostKind: "task",
-			hostId: "bet-1",
-		});
-		expect(result.success).toBe(true);
-	});
-
 	it("rejects unknown kind in the union", () => {
 		const result = inlineRefSchema.safeParse({
 			kind: "unknown-kind",

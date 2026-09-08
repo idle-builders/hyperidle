@@ -58,7 +58,7 @@ Each task (at any depth) has:
 
 When all subtasks of a parent reach a terminal state (`done` or `killed`), the parent transitions automatically, walking up the tree until the root is reached.
 
-Tasks are the unique producers of artifacts. A task that builds the signup flow produces a code artifact. A task that writes landing page copy produces a content artifact. The parent aggregates its subtree's artifacts read-only.
+An artifact is something the team produced, hanging off whatever produced it. A task that builds the signup flow produces a code artifact; a task that writes landing page copy produces a content artifact; an agent answering in a conversation produces one there, and so does a person. Underneath they are all knowledge items with a parent, which is why any of them can later be kept as team knowledge rather than staying task residue.
 
 **No central planner.** There is no orchestrator agent deciding what all agents should do. The Product Manager integrates and unblocks but does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks on hold move to accepted. The Dependency Watcher (`layers/core-api/work/src/dependency-watcher.ts`) handles this automatically.
 

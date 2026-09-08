@@ -36,7 +36,6 @@
  */
 
 import {
-	type ArtifactView,
 	// @lore BB1: BetView deleted — bet is now a root task.
 	CORE_API_ACTOR_OVERRIDE_HEADER,
 	type ConversationInboxRowView,
@@ -44,8 +43,6 @@ import {
 	type ConversationThreadView,
 	type CoreApiPort,
 	type CoreApiTransport,
-	type CreateArtifactRequest,
-	type CreateArtifactResponse,
 	type CreateItemRequest,
 	type CreateItemResponse,
 	type CreateKnowledgeConflictRequest,
@@ -190,7 +187,6 @@ interface CoreApiHcClient {
 		};
 	};
 	readonly artifacts: {
-		$post(args: { readonly json: CreateArtifactRequest }): Promise<Response>;
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 		};
@@ -468,19 +464,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return items[0] ? { id: items[0].id } : undefined;
 			},
 
-			async createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse> {
-				const res = await client.artifacts.$post({
-					json: { ...input, preview: input.preview ?? null },
-				});
-				if (!res.ok) return throwSeamError("work.createArtifact", res);
-				return (await res.json()) as CreateArtifactResponse;
-			},
-
-			async getArtifactById(id: string): Promise<ArtifactView | undefined> {
-				const res = await client.artifacts[":id"].$get({ param: { id } });
-				return getOrUndefined<ArtifactView>("work.getArtifactById", res);
-			},
-
 			async handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse> {
 				const res = await client.tasks[":id"].handoff.$post({ param: { id: taskId }, json: input });
 				if (!res.ok) return throwSeamError("work.handoffTask", res);
@@ -693,6 +676,18 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 					"knowledge.findKnowledgeItemStatusById",
 					res,
 				);
+			},
+
+			async findKnowledgeItemParentById(
+				id: string,
+			): Promise<
+				{ readonly parentKind: string | null; readonly parentId: string | null } | undefined
+			> {
+				const res = await client.knowledge[":id"].$get({ param: { id } });
+				return getOrUndefined<{
+					readonly parentKind: string | null;
+					readonly parentId: string | null;
+				}>("knowledge.findKnowledgeItemParentById", res);
 			},
 
 			async findOpenConflictByItemAndProposer(

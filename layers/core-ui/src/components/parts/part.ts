@@ -15,27 +15,28 @@
  * distinct is what makes the renderer source-agnostic (concept hard-rule 4).
  *
  * @lore AM1 C1: a block/entity routes to its HOST surface via the `host`
- * OpenTarget — total over `BlockHostKind` (the page resolves it through the
+ * OpenTarget — total over `HostKind` (the page resolves it through the
  * existing `resolveHostRoute`). No fabricated `knowledgeId`, no unhandled host.
  *
- * @lore AM1 W5: `EntityRef.kind === "message"` has no permalink route and is
- * excluded from `BlockHostKind` → it collapses to the `unknown` Embed
- * (label-only, no target). The adapter dispatch over `EntityRef.kind` is
- * exhaustive across all 5 members via `exhaustiveAssert`.
+ * @lore AM1 W5: `EntityRef.kind === "message"` has no permalink route → it
+ * collapses to the `unknown` Embed (label-only, no target). EntityRef.kind is
+ * now 3 members (knowledge_item, task, message); CanvasArtifactRef carries
+ * kind:"artifact" as a separate union member and also renders as unknown Embed.
+ * The adapter dispatches over the full InlineRef union via exhaustiveAssert.
  */
 
 import type {
 	ActivityEntry,
-	ArtifactRef,
 	EntityRef,
+	HostKind,
 	InlineRef,
 	Message,
 	VerdictPayload,
 } from "@hyperidle/domain-model";
 import { isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
+
 // AM3: session-activity type (NORMALIZED union — no harness-type param in adapter).
 // The adapter body (and ONLY the adapter body) imports the source types.
-import type { BlockHostKind } from "../../block/types.js";
 
 function exhaustiveAssert(value: never): never {
 	throw new Error(`Unhandled: ${String(value)}`);
@@ -170,19 +171,21 @@ export type Part =
 			readonly reason: "wire-unrecognised-type" | "redacted";
 	  });
 
+// The `artifact` Embed variant is DELETED with its only producer,
+// `artifactRefToEmbed` — a review's `artifactRef` pointed at a row in the
+// artifacts table, and both the field and the table are gone.
 export type Embed =
 	| {
-			readonly kind: "artifact";
-			readonly label: string;
-			readonly meta?: string;
-			readonly target: OpenTarget;
-	  }
-	| { readonly kind: "block"; readonly title: string; readonly target: OpenTarget }
-	| {
+			/**
+			 * A file diff in an agent's tool activity. It carries NO target, because
+			 * there is nothing to open. Its `artifactId` used to be the file PATH, so
+			 * the `/artifacts/<path>` it pointed at could never have resolved to a row
+			 * even while that route existed — the chip was a dead click before the
+			 * artifacts table was deleted, not because of it.
+			 */
 			readonly kind: "diff";
 			readonly label: string;
 			readonly meta: string;
-			readonly target: OpenTarget;
 	  }
 	| { readonly kind: "session-reference"; readonly sessionId: string; readonly summary?: string }
 	| {
@@ -200,7 +203,7 @@ export type Embed =
 export type OpenTarget =
 	| {
 			readonly route: "host";
-			readonly hostKind: BlockHostKind;
+			readonly hostKind: HostKind;
 			readonly hostId: string;
 			/** @lore AM5 T8: optional block anchor. open-handler appends #block-<encodeURIComponent(blockId)>
 			 *  to the resolved path; KnowledgeDetail scrolls to the matching data-block-id element.
@@ -208,7 +211,6 @@ export type OpenTarget =
 			 *  concatenated into a querySelector (selector-injection mitigation). */
 			readonly blockId?: string;
 	  }
-	| { readonly route: "artifact"; readonly artifactId: string }
 	| {
 			readonly route: "review";
 			readonly reviewId: string;
@@ -281,66 +283,22 @@ function resolveAuthor(
 // stay here so an existing row keeps a real label instead of falling
 // through to "Artifact"; the six current entries are what a NEW row can
 // actually carry.
-// `text_diff` and `code` are deliberately absent: `artifactRefToEmbed` below
-// handles both before ever reaching this map (the `ref.kind === "text_diff"
-// || ref.kind === "code"` branch returns early), so an entry here for either
-// would be dead code — never read.
-const ARTIFACT_KIND_LABEL: Partial<Record<string, string>> = {
-	// Retired (`ARTIFACT_VIEW_SHAPES`) — legacy rows only.
-	content_preview: "Artifact",
-	visual_comparison: "Comparison",
-	action_summary: "Summary",
-	data_metrics: "Data",
-	// Current (`ARTIFACT_KINDS`) — what `create_artifact`/`submit_review`
-	// actually write today.
-	text: "Text",
-	image: "Image",
-	data: "Data",
-	html: "Preview",
-	url: "Link",
-};
 
-/**
- * Map an ArtifactRef to an artifact/diff Embed. Both the retired `text_diff`
- * value (a row persisted before the respell) and its current-vocabulary
- * successor `code` render as the diff embed — the same review-changeset
- * meaning survives the respell.
- *
- * @lore `ArtifactRef` is optional on `ReviewPayload` now that a canvas-only
- * review (see `artifacts`) has no stored artifact to reference — `undefined`
- * here means "no changeSet embed to show", not a bug.
- */
-function artifactRefToEmbed(ref: ArtifactRef | undefined): Embed | null {
-	if (!ref) return null;
-	const target: OpenTarget = { route: "artifact", artifactId: ref.id };
-	if (ref.kind === "text_diff" || ref.kind === "code") {
-		return { kind: "diff", label: "Changes", meta: "", target };
-	}
-	const label = (ref.kind ? ARTIFACT_KIND_LABEL[ref.kind] : undefined) ?? "Artifact";
-	return { kind: "artifact", label, target };
-}
-
-/** Map one InlineRef to one Embed. Exhaustive over all InlineRef kinds. */
+/** Map one InlineRef to one Embed. Exhaustive over all InlineRef union members. */
 function inlineRefToEmbed(ref: InlineRef): Embed {
-	if (ref.kind === "block") {
-		return {
-			kind: "block",
-			title: ref.blockId,
-			// @lore AM5 T8: thread blockId so the open-handler can append #block-<id>
-			target: { route: "host", hostKind: ref.hostKind, hostId: ref.hostId, blockId: ref.blockId },
-		};
-	}
 	if (ref.kind === "mention") {
 		return { kind: "mention", identityId: ref.identityId, displayName: ref.displayName };
 	}
-	// EntityRef — exhaustive over all 5 EntityRef.kind members (W5).
+	// CanvasArtifactRef (kind:"artifact") — points to a review canvas artifact,
+	// not a navigable page route. Renders as a non-navigating label so the chip
+	// appears in the conversation without trying to open a deleted /artifacts/:id.
+	// @lore artifacts-become-knowledge: ReviewPage reads this ref by kind to
+	// reconstruct the AnchorRef; the embed here is only for the conversation view.
+	if (ref.kind === "artifact") {
+		return { kind: "unknown", label: ref.id };
+	}
+	// EntityRef — exhaustive over all 3 EntityRef.kind members (W5).
 	switch (ref.kind) {
-		case "artifact":
-			return {
-				kind: "artifact",
-				label: "Artifact",
-				target: { route: "artifact", artifactId: ref.id },
-			};
 		case "knowledge_item":
 		case "task":
 			return {
@@ -429,7 +387,7 @@ export function derivePartsFromMessages(
 						...base,
 						kind: "review",
 						title: message.payload.title,
-						changeSet: artifactRefToEmbed(message.payload.artifactRef),
+						changeSet: null,
 						reviewTarget,
 					});
 				}
@@ -499,7 +457,6 @@ function diffEmbed(label: string, added: number, removed: number): Embed {
 		kind: "diff",
 		label,
 		meta: `+${added}/−${removed}`,
-		target: { route: "artifact", artifactId: label },
 	};
 }
 

@@ -18,19 +18,11 @@ export type BlockId = string & { readonly __brand: "BlockId" };
 // @lore BB1: `"bet"` removed — a bet is a task with no parent, and migration
 // 0068 flipped every thread whose host_kind was "bet" to "task" (the host_id was
 // already correct, since each bet kept its id as a root task).
-export type BlockHostKind = "task" | "knowledge_item" | "artifact" | "agent" | "user";
+export type BlockHostKind = "task" | "knowledge_item" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 
-export const HOST_KINDS = [
-	"task",
-	"knowledge_item",
-	"artifact",
-	"agent",
-	"user",
-	"team",
-	"factory",
-] as const;
+export const HOST_KINDS = ["task", "knowledge_item", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
 export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict"] as const;
@@ -123,34 +115,48 @@ export interface AnchorRef {
  * T4: InlineRef is a discriminated union of EntityRef and BlockRef.
  * The discriminant is `kind` — entity refs use 5 entity kinds; block refs use "block".
  *
- * @lore T4: InlineRef was previously a flat interface (kind + id). Refactored to
- * discriminated union so block refs can carry the full (blockId, hostKind, hostId)
- * triple without optional fields on the entity path. Narrowing on `ref.kind !== "block"`
- * gives you an EntityRef with `id`; narrowing on `ref.kind === "block"` gives BlockRef.
+ * @lore T4: InlineRef is a discriminated union of EntityRef, MentionRef, and
+ * CanvasArtifactRef on the "kind" discriminant. Entity refs use 3 entity kinds;
+ * MentionRef uses "mention"; CanvasArtifactRef uses "artifact" to name a review
+ * canvas payload, NOT a deleted artifacts-table row.
  *
- * @lore AE5: InlineRef widened from 2 to 3 variants — MentionRef added as the 7th kind.
- * Any exhaustive switch on InlineRefKind must add a "mention" case. Known switch sites:
+ * @lore AE5: MentionRef added as a third union member. Any exhaustive switch on
+ * InlineRefKind must include a "mention" case. Known switch sites:
  * renderRefEmbedsForConversations (Conversations.tsx filters by kind, no switch needed),
  * CommentRow (uses segmentMentions to locate mention spans inline).
+ *
+ * @lore artifacts-become-knowledge: "artifact" removed from EntityRef.kind and
+ * InlineRefKind (no stored artifact row exists). CanvasArtifactRef preserves
+ * kind:"artifact" on the wire so ReviewPage can still find the anchor ref written
+ * by host-threads.ts without modification.
  */
-export type InlineRefKind =
-	| "knowledge_item"
-	| "task"
-	| "artifact"
-	| "message"
-	| "block"
-	| "mention";
+/**
+ * DERIVED from the union rather than restated. A hand-written list drifts the
+ * moment a member is added or removed — this one already had, omitting the
+ * `"artifact"` that `CanvasArtifactRef` contributes.
+ */
+export type InlineRefKind = InlineRef["kind"];
 
 export interface EntityRef {
-	readonly kind: "knowledge_item" | "task" | "artifact" | "message";
+	readonly kind: "knowledge_item" | "task" | "message";
 	readonly id: string;
 }
 
-export interface BlockRef {
-	readonly kind: "block";
-	readonly blockId: string;
-	readonly hostKind: BlockHostKind;
-	readonly hostId: string;
+/**
+ * Review canvas anchor ref — points to a ReviewCanvasArtifact (inside a review
+ * message payload) by id. The kind "artifact" is kept on the wire so ReviewPage's
+ * `isArtifactEntityRef` guard can identify the anchor without modification.
+ *
+ * This is NOT a pointer to a deleted artifacts-table row. The artifactId here is
+ * the id field of a ReviewCanvasArtifact from a review message's `artifacts` array.
+ *
+ * @lore artifacts-become-knowledge: separated from EntityRef so EntityRef.kind no
+ * longer includes "artifact" (which named a stored row) while the wire format for
+ * review anchors is preserved unchanged.
+ */
+export interface CanvasArtifactRef {
+	readonly kind: "artifact";
+	readonly id: string;
 }
 
 /**
@@ -170,27 +176,12 @@ export interface MentionRef {
 	readonly sourceText: string;
 }
 
-export type InlineRef = EntityRef | BlockRef | MentionRef;
+export type InlineRef = EntityRef | MentionRef | CanvasArtifactRef;
 
-/**
- * @lore `kind` widened from the deleted `ArtifactViewShape` to `string`
- * (open vocabulary) rather than narrowed to the closed `ArtifactKind` —
- * same treatment `ArtifactThreadSummary.artifactKind` below already has
- * (`@lore AE6`), for the same reason: this value is never trusted by a
- * reader (the loader resolves the real kind off the artifact row), so a
- * closed union here buys no safety and would force every existing typed
- * fixture across the tree onto the new six-value vocabulary. Optional for
- * the same reason the write/read zod schemas both mark it `.optional()`: a
- * category error — not a wrong value — is the one thing `.optional()` can
- * guard against, so it only ever guards absence. The WRITE-time boundary is
- * where the real enforcement lives: `reviewPayloadSchema`'s
- * `z.enum(ARTIFACT_KINDS)` (`threads-schema.ts`) and `submit_review`'s own
- * copy (`tool-definitions.ts`).
- */
-export interface ArtifactRef {
-	readonly id: string;
-	readonly kind?: string;
-}
+// `ArtifactRef` is DELETED. It pointed at a row in the `artifacts` table, and
+// that table is gone — produced content is a knowledge item, referenced by its
+// own id. `ReviewPayload.producedItemId` replaces it; the `kind` it carried is
+// derived from the item's blocks at render time and is not stored anywhere.
 
 /**
  * AD8b: ToolCallSummary — metadata for a single tool invocation by the assistant.
@@ -243,8 +234,15 @@ export interface PlainPayload {
 export interface ReviewPayload {
 	readonly title: string;
 	readonly reasoning: ReadonlyArray<string>;
-	/** @lore optional — a canvas-only review (see `artifacts` below) has no stored artifact to reference at all. */
-	readonly artifactRef?: ArtifactRef;
+	/**
+	 * The produced item under review — a knowledge item id.
+	 *
+	 * @lore optional: a canvas-only review (see `artifacts` below) references no
+	 * produced item at all. Replaces the deleted `artifactRef`, which pointed at
+	 * a row in a table that no longer exists and carried a `kind` that is now
+	 * derived from the item's own blocks rather than stored.
+	 */
+	readonly producedItemId?: string;
 	/**
 	 * @lore The primary canvas channel — an agent attaches canvas payloads
 	 * directly, with no stored artifact required. Byte-identical to what the
@@ -409,44 +407,9 @@ export function verdictDecisionLabel(decision: VerdictDecision): string {
 // @lore AE6: ArtifactKind import removed — artifactKind widened to string
 // (open vocabulary: registered 6 fundamental kinds + unregistered kinds pass through).
 
-/**
- * Per-artifact thread summary row returned by
- * `GET /api/bets/:id/artifact-thread-summary`.
- *
- * @lore L18: threadId is null when no thread exists for the artifact yet
- * (i.e. the artifact appears in the bet but has never had a message posted).
- * messageCount=0 means "exists but empty" (rare; never rendered in the summary
- * list because the endpoint filters to messageCount >= 1).
- */
-export interface ArtifactThreadSummary {
-	artifactId: string;
-	/** @lore AE6: Widened from ArtifactKind (closed 13-member union) to string (open vocabulary). */
-	artifactKind: string;
-	/** Derived display label per artifactDisplayTitle() rules. */
-	artifactTitle: string;
-	/** Null when no thread exists yet for this artifact. */
-	threadId: string | null;
-	/** Count of messages in the artifact's thread (0 when no messages). */
-	messageCount: number;
-	/** ISO8601 timestamp of last message, null when no messages. */
-	lastMessageAt: string | null;
-	/** First ~80 chars of the last plain-message payload, null when no messages. */
-	lastMessageSnippet: string | null;
-	/** True when the thread has an unresolved review message. */
-	hasUnresolvedReview: boolean;
-}
-
-/**
- * Response envelope for `GET /api/bets/:id/artifact-thread-summary`.
- * Server enforces a cap of 10 summaries; truncated=true when more exist.
- */
-export interface ArtifactThreadSummaryResponse {
-	summaries: ArtifactThreadSummary[];
-	/** Total count of artifacts with at least one thread message (unbounded). */
-	totalCount: number;
-	/** True when totalCount > 10 (server-enforced cap). */
-	truncated: boolean;
-}
+// `ArtifactThreadSummary` and `ArtifactThreadSummaryResponse` are DELETED with
+// the endpoint they described (`GET /api/bets/:id/artifact-thread-summary`) and the
+// artifacts table behind it. Threads hang off the knowledge item itself now.
 
 /**
  * L18: Extended plain payload that includes an optional blockId for

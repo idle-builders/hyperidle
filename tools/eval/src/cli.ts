@@ -81,7 +81,7 @@ Options:
   --harness <name>             Harness to run: ${EVAL_HARNESSES.join(" | ")} (default: codex)
   --model, -m <model-id>       Harness-native model to run (default: the harness's own)
   --judge-model <model-id>     Gateway model for the LLM-as-judge
-                               (default: deepseek/deepseek-v4-pro via OpenRouter)
+                               (default: deepseek/deepseek-v4-pro-0813 via OpenRouter)
   --quick, -q                  Run only quick-tagged scenarios
   --scenario, -s <id>          Run a single scenario by ID
   --feature, -f <name>         Run scenarios for a specific interaction feature
@@ -177,7 +177,7 @@ async function main(): Promise<void> {
 	process.stderr.write(`[eval] Harness: ${args.harness ?? "codex"}\n`);
 	process.stderr.write(`[eval] Model: ${args.model ?? "(harness default)"}\n`);
 	process.stderr.write(
-		`[eval] Judge model: ${args.judgeModel ?? "deepseek/deepseek-v4-pro (OpenRouter default)"}\n`,
+		`[eval] Judge model: ${args.judgeModel ?? "deepseek/deepseek-v4-pro-0813 (OpenRouter default)"}\n`,
 	);
 	if (args.quick) {
 		process.stderr.write("[eval] Mode: quick (tagged scenarios only)\n");

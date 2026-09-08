@@ -26,9 +26,7 @@ describe("AE5 — resolveHostRoute", () => {
 		expect(resolveHostRoute("knowledge_item", "ki-789")).toBe("/knowledge/ki-789");
 	});
 
-	it("resolves artifact to /artifacts/:id (AM5 H5 fix, was /work/artifact/:id)", () => {
-		expect(resolveHostRoute("artifact", "art-001")).toBe("/artifacts/art-001");
-	});
+	// @lore artifacts-become-knowledge: artifact test removed — "artifact" is no longer a valid HostKind
 
 	it("resolves agent to /work/agent/:id", () => {
 		expect(resolveHostRoute("agent", "agent-001")).toBe("/agents/agent-001");

@@ -29,10 +29,6 @@ describe("HOST_SCOPE map", () => {
 		expect(HOST_SCOPE.knowledge_item).toBe("host");
 	});
 
-	it("artifact → host-scope", () => {
-		expect(HOST_SCOPE.artifact).toBe("host");
-	});
-
 	it("team → host-scope", () => {
 		expect(HOST_SCOPE.team).toBe("host");
 	});
@@ -47,10 +43,10 @@ describe("HOST_SCOPE map", () => {
 // ---------------------------------------------------------------------------
 
 describe("canRead — host-scope", () => {
+	// @lore artifacts-become-knowledge: "artifact" removed — no longer a valid HostKind
 	const hostKinds: Array<AuthorizableResource["hostKind"]> = [
 		"task",
 		"knowledge_item",
-		"artifact",
 		"team",
 		"factory",
 	];

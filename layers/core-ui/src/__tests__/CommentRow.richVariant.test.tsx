@@ -30,7 +30,7 @@ function review(): Message {
 		payload: {
 			title: "Second review",
 			reasoning: ["Renders as a rich row"],
-			artifactRef: { id: "art-2", kind: "text_diff" },
+			producedItemId: "art-2",
 		},
 	};
 }

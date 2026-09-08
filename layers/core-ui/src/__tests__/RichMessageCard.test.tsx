@@ -39,7 +39,7 @@ function reviewMessage(
 				"Headline tightens the hero by ~12 chars.",
 				"CTA copy aligns with the activation eval.",
 			],
-			artifactRef: { id: "art-1", kind: "text_diff" },
+			producedItemId: "art-1",
 		},
 	};
 }

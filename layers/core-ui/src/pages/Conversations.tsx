@@ -31,6 +31,7 @@
 
 import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { ArtifactSection } from "../components/ArtifactSection";
 import ConversationSurface, {
 	type ConversationSurfaceParticipant,
 } from "../components/ConversationSurface";
@@ -61,7 +62,6 @@ import { apiFetch } from "../services/api-fetch.js";
 import { resolveHostRoute } from "../services/host-route.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { ToastContext } from "../shell/ToastRegion";
-import { ArtifactPermalink } from "./ArtifactPermalink.js";
 import { KnowledgeDetail } from "./KnowledgeDetail.js";
 import { ReviewPage } from "./review/ReviewPage.js";
 
@@ -277,8 +277,6 @@ function classifyHttpError(status: number): string {
 
 function InspectDestination({ path }: { path: string }): JSX.Element {
 	const [pathname, hash = ""] = path.split("#");
-	const artifact = pathname?.match(/^\/artifacts\/([^/]+)$/);
-	if (artifact?.[1]) return <ArtifactPermalink overrideId={artifact[1]} presentation="pane" />;
 	const knowledge = pathname?.match(/^\/knowledge\/([^/]+)$/);
 	if (knowledge?.[1]) {
 		return (
@@ -574,6 +572,27 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						onSend={onSend}
 						scroll
 						headerPresentation={inspection ? "pane" : "read"}
+						produced={
+							/*
+							 * What was produced in this conversation. A human and an agent
+							 * put things here the same way, and this is where they land.
+							 *
+							 * It goes in the surface's own slot, not after it: rendered as a
+							 * sibling it landed BELOW the composer, which reads as though the
+							 * conversation carries on past the place you type.
+							 *
+							 * `onOpen` rather than the section's own split — this page already
+							 * owns a SplitView, and opening through its existing `path`
+							 * inspection reuses it instead of nesting a second one.
+							 */
+							<ArtifactSection
+								parentKind="thread"
+								parentId={threadId}
+								heading="Artifacts"
+								emptyDescription="Artifacts produced in this conversation appear here."
+								onOpen={(itemId) => setInspection({ kind: "path", path: `/knowledge/${itemId}` })}
+							/>
+						}
 					/>
 				}
 				destination={inspectionDestination}

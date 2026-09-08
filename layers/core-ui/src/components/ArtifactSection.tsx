@@ -1,145 +1,126 @@
 /**
- * ArtifactSection — shared section wrapper for the artifact view family.
+ * ArtifactSection — produced-item section for task and thread surfaces.
  *
- * Renders artifacts fetched from useArtifacts in one of three layouts:
- *  - "gallery": ArtifactGalleryCard grid (formerly WorkPortfolio; AD9: WorkPortfolio retired)
- *  - "stack":   ArtifactStackItem list (WorkTeam, WorkBet)
- *  - "single":  ArtifactPreview for items[0] (TaskSheet)
+ * Shows knowledge items parented to a task or thread. "Artifact" is the word
+ * users see for content an agent produced — the founder call, per plan. The
+ * storage concept (artifacts table) is gone; produced items are knowledge items
+ * with a parent slot.
  *
- * State machine:
- *  - loading  → SkeletonCard(s) or SkeletonList
- *  - error    → ErrorState
- *  - empty + heading  → EmptyState
- *  - empty without heading → null (TaskSheet pattern — no chrome when no artifact)
- *  - populated → layout-specific rendering
+ * Data: GET /api/knowledge?parentKind=<kind>&parentId=<id> — parented items
+ * excluded from the default knowledge list (AC4/AC5).
  *
- * Overflow: when nextCursor !== null, a non-interactive <span> "View all" is
- * rendered. It is NOT a link — the target page doesn't exist yet.
+ * Interaction (AC10): clicking a row enters split mode — the list stays as
+ * origin, the selected item's body renders as destination. Uses SplitView from
+ * the DS, the standard pattern across settings surfaces.
  *
- * @lore L12 (B-3): "View all" is deliberately a non-interactive <span>, NOT
- * an <a> or <button>. The target page does not exist at the time of this
- * workpackage. Using a link would be a dead link; using a button would imply
- * an action. The span is a visual affordance only. A TODO marks the upgrade
- * point.
- *
- * @lore L12 (B-4): In "single" layout, items[0] access is guarded by the
- * empty check above the layout branch. If we reach the "single" branch,
- * items.length >= 1 is guaranteed.
+ * @lore ArtifactSection repoint: the previous version called useArtifacts and
+ * read /api/artifacts. That route still exists while the deletion pass is
+ * pending; this component is now decoupled from it.
  */
 
-import type { ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/domain-model";
-import type { JSX } from "react";
-import { useNavigate } from "react-router-dom";
+import { type JSX, useState } from "react";
 import {
-	ArtifactGalleryCard,
-	ArtifactPreview,
-	ArtifactStackItem,
 	EmptyState,
 	ErrorState,
-	SkeletonCard,
+	type FoldMode,
+	ItemList,
+	Row,
+	SectionLabel,
 	SkeletonList,
+	SplitView,
 } from "../ds";
-import { useArtifacts } from "../hooks/useArtifacts.js";
-import { sanitizeHtml } from "../utils/sanitize-html.js";
-
-export type ArtifactSectionLayout = "gallery" | "stack" | "single";
+import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
+import { useParentedKnowledgeItems } from "../hooks/useParentedKnowledgeItems.js";
+import { useUiPreference } from "../hooks/useUiPreference.js";
+import { KnowledgeBody } from "../pages/knowledge/KnowledgeBody.js";
 
 export interface ArtifactSectionProps {
-	filter: ArtifactFilterAxis;
-	layout: ArtifactSectionLayout;
-	limit?: number;
+	parentKind: "task" | "thread";
+	parentId: string;
 	heading?: string;
-	/**
-	 * Surface-specific description shown in the empty state. Falls back to a
-	 * generic description when not provided.
-	 *
-	 * @lore L12 review (W-4): each surface has distinct copy per approved design.
-	 */
 	emptyDescription?: string;
 	/**
-	 * Called when the user opens an artifact. If not provided, ArtifactSection
-	 * navigates to /artifacts/:id using useNavigate internally.
+	 * Hand the click to the caller instead of splitting here.
 	 *
-	 * @lore L12: onOpen is optional so callers (like TaskSheet) don't need to
-	 * hold a useNavigate reference — the default behavior is navigate-to-permalink.
-	 * Callers that override onOpen can intercept navigation (e.g. for analytics).
+	 * A surface that already owns a `SplitView` — the conversation page does —
+	 * must not have a second one nested inside it: two splits on one screen
+	 * fight over the same gesture and the same width. When this is given, the
+	 * section is just the list, and the caller decides what "open" means.
 	 */
-	onOpen?: (artifactId: string) => void;
-	/**
-	 * AM5 WIRE: Called when "View all" is activated (overflow present, nextCursor !== null).
-	 * When not provided, the overflow affordance renders as an inert label.
-	 *
-	 * @lore AM5 T9: Previously the overflow span was non-interactive (L12 B-3 lore).
-	 * The /artifacts/:id route now exists (H5 fix) and can be driven through the open contract.
-	 * Callers that know the full-listing context supply this callback.
-	 */
-	onViewAll?: () => void;
+	onOpen?: (itemId: string) => void;
 }
 
-/** Number of skeletons to show per layout while loading. */
-const SKELETON_COUNT: Record<ArtifactSectionLayout, number> = {
-	gallery: 3,
-	stack: 2,
-	single: 1,
-};
+/**
+ * Detail pane rendered inside the SplitView destination when an item is
+ * selected. Fetches the full body and renders it through `KnowledgeBody` — the
+ * same path a knowledge item's own page takes.
+ *
+ * That shared path is the point, not a convenience. It is what makes a produced
+ * item that IS an interactive document — a body whose only block is a fenced
+ * ```html block — run in the sandbox frame here too. Rendering the body as
+ * `<pre>` text instead would show an interactive artifact as its own source,
+ * which is precisely the thing this change exists to stop.
+ */
+function ArtifactDetailPane({ itemId }: { itemId: string }): JSX.Element {
+	const { data, isLoading } = useKnowledgeItem(itemId);
+
+	if (isLoading) {
+		return (
+			<div data-testid="artifact-section-detail" className="p-[24px]">
+				<SkeletonList rows={3} ariaLabel="Loading artifact" />
+			</div>
+		);
+	}
+
+	if (!data) {
+		return (
+			<div data-testid="artifact-section-detail" className="p-[24px]">
+				<EmptyState compact title="Not found" description="Could not load this artifact." />
+			</div>
+		);
+	}
+
+	return (
+		<div data-testid="artifact-section-detail" className="flex flex-col gap-[12px] p-[24px]">
+			<h2 className="type-title">{data.title}</h2>
+			<KnowledgeBody body={data.body} hostId={data.id} documentTitle={data.title} />
+		</div>
+	);
+}
 
 export function ArtifactSection({
-	filter,
-	layout,
-	limit,
+	parentKind,
+	parentId,
 	heading,
 	emptyDescription,
 	onOpen,
-	onViewAll,
 }: ArtifactSectionProps): JSX.Element | null {
-	const navigate = useNavigate();
-	const query: Pick<ArtifactQuery, "limit"> | undefined =
-		limit !== undefined ? { limit } : undefined;
-	const { data, error, isLoading } = useArtifacts(filter, query);
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
+	const [ratio, setRatio] = useUiPreference("artifact-section", 0.42);
 
-	// Default open handler: navigate to /artifacts/:id.
-	const handleOpen = onOpen ?? ((id: string) => navigate(`/artifacts/${encodeURIComponent(id)}`));
+	const { data, error, isLoading } = useParentedKnowledgeItems(parentKind, parentId);
 
-	// ── Loading ────────────────────────────────────────────────────────────────
+	// ── Loading ──────────────────────────────────────────────────────────────
 
 	if (isLoading) {
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
-				{heading && (
-					<h2 className="type-label    uppercase  text-[var(--text-tertiary)] mb-[6px]">
-						{heading}
-					</h2>
-				)}
-				{layout === "stack" ? (
-					<SkeletonList rows={SKELETON_COUNT.stack} ariaLabel="Loading artifacts" />
-				) : (
-					<div
-						className={
-							layout === "gallery"
-								? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[12px]"
-								: undefined
-						}
-					>
-						{Array.from({ length: SKELETON_COUNT[layout] }).map((_, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: fixed-count skeleton placeholders
-							<SkeletonCard key={i} ariaLabel="Loading artifact" />
-						))}
-					</div>
-				)}
+				{heading && <SectionLabel label={heading} divider />}
+				<SkeletonList rows={2} ariaLabel="Loading artifacts" />
 			</section>
 		);
 	}
 
-	// ── Error ──────────────────────────────────────────────────────────────────
+	// ── Error ─────────────────────────────────────────────────────────────────
 
 	if (error !== null) {
-		// @lore L12 review (W-3): collapse entirely when there's no heading and an
-		// error occurs — matches the TaskSheet "nothing useful to show" pattern.
 		if (!heading) return null;
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading}>
-				<h2 className="type-label    uppercase  text-[var(--text-tertiary)] mb-[6px]">{heading}</h2>
+				<SectionLabel label={heading} divider />
 				<ErrorState
+					compact
 					title="Failed to load artifacts"
 					description="An error occurred while loading artifacts."
 				/>
@@ -147,16 +128,17 @@ export function ArtifactSection({
 		);
 	}
 
-	// ── Empty ──────────────────────────────────────────────────────────────────
+	// ── Empty ─────────────────────────────────────────────────────────────────
 
-	if (data === null || !Array.isArray(data.items) || data.items.length === 0) {
-		// Without heading: render null (TaskSheet / single layout pattern — no chrome).
+	const items = data?.items ?? [];
+
+	if (items.length === 0) {
 		if (!heading) return null;
-
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading}>
-				<h2 className="type-label    uppercase  text-[var(--text-tertiary)] mb-[6px]">{heading}</h2>
+				<SectionLabel label={heading} divider />
 				<EmptyState
+					compact
 					title="No artifacts yet"
 					description={
 						emptyDescription ??
@@ -167,82 +149,66 @@ export function ArtifactSection({
 		);
 	}
 
-	// ── Populated ─────────────────────────────────────────────────────────────
+	// ── Populated ────────────────────────────────────────────────────────────
 
-	const { items, nextCursor } = data;
+	const origin = (
+		<div className="flex flex-col gap-[9px]">
+			{heading && <SectionLabel label={heading} divider />}
+			<ItemList variant="flush" isEmpty={false}>
+				{items.map((item) => (
+					<Row
+						key={item.id}
+						as="div"
+						title={item.title}
+						subtitle={item.status}
+						selected={onOpen ? false : selectedId === item.id}
+						onClick={() => {
+							if (onOpen) {
+								onOpen(item.id);
+								return;
+							}
+							setSelectedId(item.id);
+							setSplitMode("split");
+						}}
+					/>
+				))}
+			</ItemList>
+		</div>
+	);
+
+	const destination = selectedId ? (
+		<ArtifactDetailPane itemId={selectedId} />
+	) : (
+		<EmptyState compact title="Select an artifact" description="Click a row to view its content." />
+	);
+
+	if (onOpen) {
+		return (
+			<section
+				data-testid="artifact-section-container"
+				aria-label={heading ?? "Artifacts"}
+				className="flex flex-col"
+			>
+				{origin}
+			</section>
+		);
+	}
 
 	return (
-		<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
-			{heading && (
-				<h2 className="type-label    uppercase  text-[var(--text-tertiary)] mb-[6px]">{heading}</h2>
-			)}
-
-			{layout === "gallery" && (
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[12px]">
-					{items.map((artifact) => (
-						<ArtifactGalleryCard
-							key={artifact.id}
-							data={artifact}
-							onOpen={() => handleOpen(artifact.id)}
-							href={`/artifacts/${encodeURIComponent(artifact.id)}`}
-						/>
-					))}
-				</div>
-			)}
-
-			{layout === "stack" && (
-				<div className="flex flex-col divide-y divide-[var(--border-subtle)]">
-					{items.map((artifact) => (
-						<ArtifactStackItem
-							key={artifact.id}
-							data={artifact}
-							onOpen={() => handleOpen(artifact.id)}
-							href={`/artifacts/${encodeURIComponent(artifact.id)}`}
-						/>
-					))}
-				</div>
-			)}
-
-			{layout === "single" && (
-				// @lore L12 (B-4): items[0] access is guarded by the empty check above.
-				// If we reach this branch, items.length >= 1 is guaranteed.
-				<ArtifactPreview data={items[0]} sanitizeHtml={sanitizeHtml} />
-			)}
-
-			{/* @lore AM5 T9 (was L12 B-3): wired via onViewAll callback (the /artifacts/:id route
-			    now exists via the H5 fix). When onViewAll is provided, renders as a button
-			    routed through the open contract; when absent, falls back to an inert label. */}
-			{nextCursor !== null &&
-				(onViewAll ? (
-					<button
-						type="button"
-						data-testid="artifact-section-view-all"
-						onClick={onViewAll}
-						className="type-control  text-[var(--text-tertiary)] mt-[9px] inline-block hover:text-[var(--text-secondary)]  "
-					>
-						View all
-					</button>
-				) : (
-					<span
-						data-testid="artifact-section-view-all"
-						className="type-metadata  text-[var(--text-tertiary)] mt-[9px] inline-block"
-					>
-						View all
-					</span>
-				))}
+		<section
+			data-testid="artifact-section-container"
+			aria-label={heading ?? "Artifacts"}
+			className="flex flex-col"
+		>
+			<SplitView
+				surfaceKey="artifact-section"
+				mode={splitMode}
+				onModeChange={setSplitMode}
+				dividerRatio={ratio}
+				onRatioChange={setRatio}
+				origin={origin}
+				destination={destination}
+			/>
 		</section>
 	);
-}
-
-/**
- * useArtifactOpen — returns an onOpen callback that navigates to /artifacts/:id.
- *
- * @lore L12: all onOpen callbacks navigate to /artifacts/:id using useNavigate.
- * This hook is used by each surface to avoid duplicating the navigate pattern.
- */
-export function useArtifactOpen(): (artifactId: string) => void {
-	const navigate = useNavigate();
-	return (artifactId: string): void => {
-		navigate(`/artifacts/${encodeURIComponent(artifactId)}`);
-	};
 }

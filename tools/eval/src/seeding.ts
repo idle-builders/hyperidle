@@ -11,10 +11,11 @@
  * most eval scenarios. These helpers insert only what the scenario needs.
  */
 
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import {
 	agentRunConfig,
-	artifacts,
 	type HyperIdleDb,
 	items,
 	knowledgeAppProjection,
@@ -217,6 +218,10 @@ export async function seedKnowledge(
 		updatedBy: string;
 		/** Knowledge lifecycle status. Defaults to "active". Use "captured", "provisional", etc. for promotion pipeline scenarios. */
 		status?: string;
+		/** Parent entity kind, e.g. "task" or "thread". When omitted, the item has no parent. */
+		parentKind?: string;
+		/** Parent entity ID. Required when parentKind is provided. */
+		parentId?: string;
 	},
 ): Promise<{ knowledgeItemId: string }> {
 	const itemId = opts.itemId ?? randomUUID();
@@ -232,6 +237,8 @@ export async function seedKnowledge(
 		status: opts.status ?? "active",
 		version: opts.status === "captured" ? 0 : 1,
 		updatedBy: opts.updatedBy,
+		parentKind: opts.parentKind ?? null,
+		parentId: opts.parentId ?? null,
 		createdAt: now,
 		updatedAt: now,
 	});
@@ -273,6 +280,11 @@ export async function seedMinimalWorld(
 	}
 > {
 	const sandboxBasePath = `/tmp/eval-workspace-${randomUUID()}`;
+	// Harness CLIs (especially codex) require the sandbox cwd to be a git repo.
+	// Create the directory and git-init it, mirroring what the harness
+	// integration test does in beforeEach.
+	mkdirSync(sandboxBasePath, { recursive: true });
+	execFileSync("git", ["init"], { cwd: sandboxBasePath, stdio: "ignore" });
 
 	const { teamId } = await seedTeam(db);
 	const { founderId } = await seedFounder(db);
@@ -413,30 +425,6 @@ export async function seedItem(
 	});
 
 	return { itemId };
-}
-
-/** Create an artifact. Used by submit_review scenarios (need existing artifact for artifactRef). */
-export async function seedArtifact(
-	db: HyperIdleDb,
-	opts: {
-		artifactId?: string;
-		producingTaskId: string;
-		kind: string;
-		previewJson?: string;
-	},
-): Promise<{ artifactId: string }> {
-	const artifactId = opts.artifactId ?? randomUUID();
-	const now = new Date().toISOString();
-
-	await db.insert(artifacts).values({
-		id: artifactId,
-		producingTaskId: opts.producingTaskId,
-		kind: opts.kind,
-		previewJson: opts.previewJson ?? null,
-		createdAt: now,
-	});
-
-	return { artifactId };
 }
 
 /** Create a knowledge conflict. Used by promote_knowledge scenarios (conflict gate blocks validated promotion). */

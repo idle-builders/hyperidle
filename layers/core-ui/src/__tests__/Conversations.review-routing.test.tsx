@@ -53,7 +53,7 @@ const FAKE_REVIEW = {
 	payload: {
 		title: "Approve the deploy",
 		reasoning: ["one"],
-		artifactRef: { id: "art-am1", kind: "text_diff" },
+		producedItemId: "art-am1",
 	},
 };
 
@@ -203,7 +203,7 @@ const TASK_FAKE_REVIEW = {
 	payload: {
 		title: "Approve the deploy (task-hosted)",
 		reasoning: ["a task-hosted review carries no bet"],
-		artifactRef: { id: "art-task", kind: "text_diff" },
+		producedItemId: "art-task",
 	},
 };
 

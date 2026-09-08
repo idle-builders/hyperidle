@@ -27,7 +27,7 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 
-import { insertThread } from "@hyperidle/conversation";
+import { findThread, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
@@ -53,7 +53,9 @@ import {
 	count as countKnowledgeItems,
 	create as createKnowledgeItem,
 	findOpenConflict as findOpenKnowledgeConflict,
+	GraduationNotAllowedError,
 	get as getKnowledgeItem,
+	graduate as graduateKnowledgeItem,
 	ItemDeletedError,
 	transition as knowledgeTransition,
 	list as listKnowledgeItems,
@@ -181,6 +183,13 @@ function requiresScopeId(kind: string): boolean {
 	return SCOPES_REQUIRING_ID.has(kind as Parameters<typeof SCOPES_REQUIRING_ID.has>[0]);
 }
 
+/**
+ * The parent kinds a client may name. A deliberate subset of
+ * `KNOWLEDGE_PARENT_KINDS` — see `createKnowledgeSchema.parentKind`.
+ */
+const CLIENT_WRITABLE_PARENT_KINDS = ["task", "thread"] as const;
+type ClientWritableParentKind = (typeof CLIENT_WRITABLE_PARENT_KINDS)[number];
+
 const createKnowledgeSchema = z.object({
 	// AU21 §9 Increment 2 (knowledge wave): widened to accept an explicit
 	// `null` alongside `undefined` — `write_memory`'s seam call always passes
@@ -212,7 +221,42 @@ const createKnowledgeSchema = z.object({
 	 * has always produced.
 	 */
 	role: z.enum(KNOWLEDGE_ROLES).optional(),
+	/**
+	 * Where the item hangs. A produced item — what used to be an artifact row —
+	 * is a knowledge item whose parent is the task or the conversation that
+	 * produced it.
+	 *
+	 * Only `task` and `thread` are accepted from a client. The other three
+	 * parent kinds in `KNOWLEDGE_PARENT_KINDS` (`knowledge_item`, `routine`,
+	 * `agent`) are written exclusively by core-api's own routes, which already
+	 * hold the parent row for other reasons and so never need a client to name
+	 * it. Accepting them here would be a way to forge a routine's prompt or an
+	 * agent's identity from outside.
+	 */
+	parentKind: z.enum(CLIENT_WRITABLE_PARENT_KINDS).optional(),
+	parentId: z.string().optional(),
 });
+
+/**
+ * Confirm a named parent actually exists, asking the service that OWNS its
+ * table rather than reading that table here — `work` for a task,
+ * `conversation` for a thread. Both are already imported by this route, so
+ * this costs no new dependency.
+ *
+ * The slot carries no foreign key (it points at five tables), so this check is
+ * the only thing standing between a typo and a knowledge item hanging off
+ * nothing.
+ */
+async function parentExists(
+	db: HyperIdleDb,
+	kind: ClientWritableParentKind,
+	id: string,
+): Promise<boolean> {
+	if (kind === "task") {
+		return (await work.get(db, "task", id)) !== undefined;
+	}
+	return (await findThread(db, { id })) !== undefined;
+}
 
 const updateKnowledgeSchema = z.object({
 	version: z.number(),
@@ -338,6 +382,28 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// for every scope kind (user/team/bet/task). Detail endpoint resolves one item in one call.
 	router.get("/", async (c) => {
 		const userId = c.get("userId");
+		const parentKind = c.req.query("parentKind");
+		const parentId = c.req.query("parentId");
+
+		// AC4/AC5: when parentKind+parentId are provided, return only items for that
+		// parent. Both must be present — one without the other is a malformed request.
+		if (parentKind !== undefined || parentId !== undefined) {
+			if (!(parentKind && parentId)) {
+				return c.json(
+					{ error: "parentKind and parentId must both be provided", code: "INVALID_QUERY" },
+					400,
+				);
+			}
+			if (parentKind !== "task" && parentKind !== "thread") {
+				return c.json({ error: "parentKind must be task or thread", code: "INVALID_QUERY" }, 400);
+			}
+			const rows = await listKnowledgeItems(db, { byParent: { parentKind, parentId } });
+			const items = rows.map((item) => ({
+				...item,
+				attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
+			}));
+			return c.json({ items });
+		}
 
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
 		// access-signal aggregation all moved into the repository's
@@ -345,6 +411,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// @lore AU44 batch 4: L22 signals (accessCount30d, lastActivityAt etc.) removed per
 		// FULL-AUDIT.md row 13. attentionScore (PLUGIN-owned, still in schema) is parsed from
 		// the stored text to a number here — same as the detail route does for confidence.
+		// @lore AC4/AC5: visibleWithSignals now excludes parented items — they belong to
+		// their task or thread surface and are fetched via ?parentKind+parentId.
 		const rows = await listKnowledgeItems(db, { visibleWithSignals: userId });
 		const items = rows.map((item) => ({
 			...item,
@@ -453,6 +521,28 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 400);
 		}
 
+		// The parent is both-or-neither: a kind with no id names nowhere, and an
+		// id with no kind names five tables at once. The column constraint
+		// (`ki_parent_pair_ck`) says the same thing, but a 500 from a constraint
+		// violation is a worse answer than a 400 that says which half is missing.
+		if ((body.parentKind === undefined) !== (body.parentId === undefined)) {
+			const response: ApiErrorResponse = {
+				error: "parentKind and parentId must be given together",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
+		if (body.parentKind !== undefined && body.parentId !== undefined) {
+			if (!(await parentExists(db, body.parentKind, body.parentId))) {
+				const response: ApiErrorResponse = {
+					error: `no ${body.parentKind} with id '${body.parentId}'`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+		}
+
 		// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
 		const resolvedScopeId =
 			body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
@@ -480,6 +570,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// O2: default status is "draft" (was "captured" in old implementation)
 			status: body.status ?? "draft",
 			role: body.role,
+			parentKind: body.parentKind,
+			parentId: body.parentId,
 			updatedBy: body.updatedBy,
 		});
 
@@ -781,6 +873,100 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
 		return c.json(result);
+	});
+
+	// POST /:id/graduate — narrow transition that moves a produced item into the knowledge tree.
+	//
+	// Only allowed when:
+	//   - role is `ordinary` (skills/rules/prompts/agent_files cannot be reparented here)
+	//   - current parentKind is `task` or `thread` (that is what "produced item" means)
+	//   - newParentId names an existing knowledge item, or is absent (top of tree)
+	//   - item cannot graduate onto itself
+	//
+	// @lore graduation: this is the one path that writes parentKind/parentId after
+	// create, and it is deliberately narrow. The generic PATCH omits parent so a
+	// person cannot repoint a routine prompt or an agent identity. This endpoint
+	// carries its own preconditions to preserve that guarantee.
+	const graduateSchema = z.object({
+		version: z.number().int().positive(),
+		updatedBy: z.string().min(1),
+		newParentKind: z.literal("knowledge_item").optional(),
+		newParentId: z.string().min(1).optional(),
+	});
+	router.post("/:id/graduate", validateBody(graduateSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof graduateSchema>;
+
+		const existing = await getKnowledgeItem(db, id);
+		if (!existing) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		// Optimistic locking: early check so the error message is specific.
+		if (existing.version !== body.version) {
+			const response: ApiErrorResponse = {
+				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
+				code: API_ERROR_CODES.CONFLICT,
+				details: { currentVersion: existing.version },
+			};
+			return c.json(response, 409);
+		}
+
+		// Both-or-neither: a kind with no id is ambiguous, an id with no kind is too.
+		if ((body.newParentKind === undefined) !== (body.newParentId === undefined)) {
+			const response: ApiErrorResponse = {
+				error: "newParentKind and newParentId must be given together",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
+		// When a knowledge-item parent is named, it must exist.
+		if (body.newParentKind === "knowledge_item" && body.newParentId !== undefined) {
+			const target = await getKnowledgeItem(db, body.newParentId);
+			if (!target) {
+				const response: ApiErrorResponse = {
+					error: `no knowledge_item with id '${body.newParentId}'`,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+		}
+
+		try {
+			const updated = await graduateKnowledgeItem(
+				db,
+				id,
+				{
+					newParentKind: body.newParentKind ?? null,
+					newParentId: body.newParentId ?? null,
+					updatedBy: body.updatedBy,
+				},
+				body.version,
+			);
+			return c.json(updated);
+		} catch (error) {
+			if (error instanceof GraduationNotAllowedError) {
+				const response: ApiErrorResponse = {
+					error: error.reason,
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				};
+				return c.json(response, 400);
+			}
+			if (error instanceof VersionConflictError) {
+				const response: ApiErrorResponse = {
+					error: `Version conflict: expected ${body.version}, current is ${error.currentVersion}`,
+					code: API_ERROR_CODES.CONFLICT,
+					details: { currentVersion: error.currentVersion },
+				};
+				return c.json(response, 409);
+			}
+			throw error;
+		}
 	});
 
 	// POST /sweep — agent-callable knowledge sweep (BA9d: replaces dead builtin routine path).

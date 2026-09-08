@@ -43,7 +43,7 @@ describe("AE5 — MentionRef in InlineRef union", () => {
 		const refs: InlineRef[] = [
 			{ kind: "knowledge_item", id: "k-1" },
 			{ kind: "mention", identityId: "u-abc", displayName: "Alice", sourceText: "@Alice" },
-			{ kind: "block", blockId: "blk-1", hostKind: "task", hostId: "task-1" },
+			{ kind: "task", id: "t-1" },
 		];
 
 		const mentionRefs = refs.filter((r): r is MentionRef => r.kind === "mention");
@@ -60,7 +60,6 @@ describe("AE5 — MentionRef in InlineRef union", () => {
 			{ kind: "artifact", id: "a-1" },
 			{ kind: "message", id: "m-1" },
 			{ kind: "knowledge_item", id: "k-1" },
-			{ kind: "block", blockId: "blk-1", hostKind: "task", hostId: "t-2" },
 		];
 
 		for (const ref of refs) {

@@ -45,7 +45,7 @@ function review(id: string, createdAt: string, resolvedAt: string | null = null)
 		payload: {
 			title: `Review ${id}`,
 			reasoning: ["one"],
-			artifactRef: { id: `art-${id}`, kind: "text_diff" },
+			producedItemId: `art-${id}`,
 		},
 	};
 }

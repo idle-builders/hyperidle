@@ -415,17 +415,6 @@ export interface RoutineTriggerEvent {
 				readonly actorId?: string;
 		  }
 		| {
-				/** BA9c: DB-loaded artifact subject (artifact_created events). */
-				readonly kind: "artifact";
-				readonly artifact: {
-					readonly id: string;
-					readonly kind: string;
-					readonly label: string | null;
-					readonly producingTaskId: string;
-				};
-				readonly actorId?: string;
-		  }
-		| {
 				/**
 				 * BA9c: DB-loaded team subject (team_created, work_selection_requested events).
 				 * Reuses BakedContextBundle team shape: {id, name}.
