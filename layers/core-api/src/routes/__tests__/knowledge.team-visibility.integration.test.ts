@@ -13,7 +13,13 @@
  * missing piece review.md named directly — a production caller wiring that
  * read into the route a real request hits.
  */
-import { type HyperIdleDb, knowledgeItems, teams, users } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -77,6 +83,9 @@ async function seedKnowledgeItem(
 		createdAt: now,
 		updatedAt: now,
 	});
+	// governance: knowledge always writes knowledgeItems + knowledgeAppProjection
+	// together — a row without its projection is a state production never produces.
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 describe("knowledge team-scope visibility at the real route", () => {
@@ -95,7 +104,11 @@ describe("knowledge team-scope visibility at the real route", () => {
 		await seedTeam(db, "team-2");
 		await seedUser(db, "u-member", "team-1");
 		await seedUser(db, "u-outsider", "team-2");
-		await seedKnowledgeItem(db, "ki-team-1", { scopeKind: "team", scopeId: "team-1", updatedBy: "u-member" });
+		await seedKnowledgeItem(db, "ki-team-1", {
+			scopeKind: "team",
+			scopeId: "team-1",
+			updatedBy: "u-member",
+		});
 
 		const app = await createTestApp({ db, eventBus });
 

@@ -144,7 +144,13 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 
 		await writeback.process(
 			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, knowledge },
-			[{ type: "create", relativePath: "knowledge/old-home/note_a1b2c3d4.md", fullPath: originalPath }],
+			[
+				{
+					type: "create",
+					relativePath: "knowledge/old-home/note_a1b2c3d4.md",
+					fullPath: originalPath,
+				},
+			],
 		);
 
 		const beforeMove = await db
@@ -161,8 +167,16 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 		await writeback.process(
 			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, knowledge },
 			[
-				{ type: "delete", relativePath: "knowledge/old-home/note_a1b2c3d4.md", fullPath: originalPath },
-				{ type: "create", relativePath: "knowledge/new-home/note_a1b2c3d4.md", fullPath: movedPath },
+				{
+					type: "delete",
+					relativePath: "knowledge/old-home/note_a1b2c3d4.md",
+					fullPath: originalPath,
+				},
+				{
+					type: "create",
+					relativePath: "knowledge/new-home/note_a1b2c3d4.md",
+					fullPath: movedPath,
+				},
 			],
 		);
 
@@ -237,7 +251,7 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 		// wrote the columns, no cycle check).
 		const rootId = rootDir[0]?.id;
 		const childId = childDir[0]?.id;
-		if (!rootId || !childId) throw new Error("setup failed");
+		if (!(rootId && childId)) throw new Error("setup failed");
 		await expect(
 			reparent(db, rootId, {
 				parentKind: "knowledge_item",
@@ -247,10 +261,7 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 		).rejects.toThrow(/cycle/);
 
 		// And the tree is unchanged — refused, not recorded and repaired.
-		const [rootAfter] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, rootId));
+		const [rootAfter] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, rootId));
 		expect(rootAfter?.parentId).toBeNull();
 	});
 

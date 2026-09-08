@@ -45,97 +45,105 @@ describe("migration 0080: stale baked agent_work_intents", () => {
 		for (const d of tempDirs) rmSync(d, { recursive: true, force: true });
 	});
 
-	it(
-		"fails a pending intent baked before the parentChain contract; leaves a fresh-shape pending intent untouched",
-		{ timeout: 180_000 },
-		async () => {
-			const client = new PGlite();
-			clients.push(client);
-			await client.waitReady;
-			const db = drizzle(client);
+	it("fails a pending intent baked before the parentChain contract; leaves a fresh-shape pending intent untouched", {
+		timeout: 180_000,
+	}, async () => {
+		const client = new PGlite();
+		clients.push(client);
+		await client.waitReady;
+		const db = drizzle(client);
 
-			const folder79 = makeTempMigrationsFolder(79);
-			tempDirs.push(folder79);
-			await migrate(db, { migrationsFolder: folder79 });
+		const folder79 = makeTempMigrationsFolder(79);
+		tempDirs.push(folder79);
+		await migrate(db, { migrationsFolder: folder79 });
 
-			// Pre-migration shape: a knowledge item with `layer`, no `parentChain`.
-			const staleBundle = {
-				contextBundle: {
-					kind: "task",
-					knowledge: [{ id: "k-1", title: "x", body: "b", format: "markdown", version: 1, layer: "L2", role: "ordinary" }],
-				},
-			};
-			await db.execute(sql`
+		// Pre-migration shape: a knowledge item with `layer`, no `parentChain`.
+		const staleBundle = {
+			contextBundle: {
+				kind: "task",
+				knowledge: [
+					{
+						id: "k-1",
+						title: "x",
+						body: "b",
+						format: "markdown",
+						version: 1,
+						layer: "L2",
+						role: "ordinary",
+					},
+				],
+			},
+		};
+		await db.execute(sql`
 				INSERT INTO agent_work_intents
 					(id, kind, source_kind, source_id, idempotency_key, status, baked_request_json, created_at, updated_at)
 				VALUES
 					('intent-stale', 'task_run', 'task_dispatch_attempt', 'src-stale', 'idem-stale', 'pending', ${JSON.stringify(staleBundle)}, ${NOW}, ${NOW})
 			`);
-			await db.execute(sql`
+		await db.execute(sql`
 				INSERT INTO agent_work_intents
 					(id, kind, source_kind, source_id, idempotency_key, status, claim_token, claim_expires_at, baked_request_json, created_at, updated_at)
 				VALUES
 					('intent-stale-claimed', 'task_run', 'task_dispatch_attempt', 'src-stale-2', 'idem-stale-2', 'claimed', 'tok-1', ${NOW}, ${JSON.stringify(staleBundle)}, ${NOW}, ${NOW})
 			`);
 
-			// Post-migration shape: every item carries parentChain (possibly empty).
-			const freshBundle = {
-				contextBundle: {
-					kind: "task",
-					knowledge: [
-						{
-							id: "k-2",
-							title: "y",
-							body: "b",
-							format: "markdown",
-							version: 1,
-							parentChain: [],
-							scopeKind: "factory",
-							role: "ordinary",
-						},
-					],
-				},
-			};
-			await db.execute(sql`
+		// Post-migration shape: every item carries parentChain (possibly empty).
+		const freshBundle = {
+			contextBundle: {
+				kind: "task",
+				knowledge: [
+					{
+						id: "k-2",
+						title: "y",
+						body: "b",
+						format: "markdown",
+						version: 1,
+						parentChain: [],
+						scopeKind: "factory",
+						role: "ordinary",
+					},
+				],
+			},
+		};
+		await db.execute(sql`
 				INSERT INTO agent_work_intents
 					(id, kind, source_kind, source_id, idempotency_key, status, baked_request_json, created_at, updated_at)
 				VALUES
 					('intent-fresh', 'task_run', 'task_dispatch_attempt', 'src-fresh', 'idem-fresh', 'pending', ${JSON.stringify(freshBundle)}, ${NOW}, ${NOW})
 			`);
 
-			// An already-terminal intent with a stale shape must not be resurrected.
-			await db.execute(sql`
+		// An already-terminal intent with a stale shape must not be resurrected.
+		await db.execute(sql`
 				INSERT INTO agent_work_intents
 					(id, kind, source_kind, source_id, idempotency_key, status, baked_request_json, created_at, updated_at)
 				VALUES
 					('intent-stale-done', 'task_run', 'task_dispatch_attempt', 'src-stale-done', 'idem-stale-done', 'superseded', ${JSON.stringify(staleBundle)}, ${NOW}, ${NOW})
 			`);
 
-			const folderPending = makeTempMigrationsFolder(NESTED_KNOWLEDGE_MIGRATION_IDX);
-			tempDirs.push(folderPending);
-			await migrate(db, { migrationsFolder: folderPending });
+		const folderPending = makeTempMigrationsFolder(NESTED_KNOWLEDGE_MIGRATION_IDX);
+		tempDirs.push(folderPending);
+		await migrate(db, { migrationsFolder: folderPending });
 
-			const rows = await db.execute(sql`
+		const rows = await db.execute(sql`
 				SELECT id, status, claim_token, claim_expires_at, last_error_code
 				FROM agent_work_intents
 				ORDER BY id
 			`);
-			const byId = new Map((rows.rows as Array<Record<string, unknown>>).map((r) => [r.id, r]));
+		const byId = new Map((rows.rows as Array<Record<string, unknown>>).map((r) => [r.id, r]));
 
-			expect(byId.get("intent-stale")).toMatchObject({
-				status: "failed",
-				claim_token: null,
-				claim_expires_at: null,
-				last_error_code: "STALE_BAKED_CONTEXT",
-			});
-			expect(byId.get("intent-stale-claimed")).toMatchObject({
-				status: "failed",
-				claim_token: null,
-				claim_expires_at: null,
-				last_error_code: "STALE_BAKED_CONTEXT",
-			});
-			expect(byId.get("intent-fresh")).toMatchObject({ status: "pending" });
-			expect(byId.get("intent-stale-done")).toMatchObject({ status: "superseded" });
-		},
-	);
+		expect(byId.get("intent-stale")).toMatchObject({
+			status: "failed",
+			claim_token: null,
+			claim_expires_at: null,
+			last_error_code: "STALE_BAKED_CONTEXT",
+		});
+		expect(byId.get("intent-stale-claimed")).toMatchObject({
+			status: "failed",
+			claim_token: null,
+			claim_expires_at: null,
+			last_error_code: "STALE_BAKED_CONTEXT",
+		});
+		expect(byId.get("intent-fresh")).toMatchObject({ status: "pending" });
+		expect(byId.get("intent-stale-done")).toMatchObject({ status: "superseded" });
+	});
 });

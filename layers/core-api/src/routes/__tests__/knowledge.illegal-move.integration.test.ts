@@ -4,7 +4,7 @@
  * rule, and never partially commits: a title change bundled with an illegal
  * move must not land while the move is refused.
  */
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -46,6 +46,9 @@ async function seedItem(
 		createdAt: now,
 		updatedAt: now,
 	});
+	// governance: knowledge always writes knowledgeItems + knowledgeAppProjection
+	// together — a row without its projection is a state production never produces.
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 describe("PATCH /api/knowledge/:id — illegal move (review.md B12/B13)", () => {
@@ -86,7 +89,11 @@ describe("PATCH /api/knowledge/:id — illegal move (review.md B12/B13)", () => 
 
 		// Nothing was written: title unchanged, version unchanged, parent unchanged.
 		const getRes = await app.request("/api/knowledge/ki-root", { headers: authHeaders() });
-		const item = (await getRes.json()) as { title: string; version: number; parentId: string | null };
+		const item = (await getRes.json()) as {
+			title: string;
+			version: number;
+			parentId: string | null;
+		};
 		expect(item.title).toBe("Root");
 		expect(item.version).toBe(1);
 		expect(item.parentId).toBeNull();
@@ -170,7 +177,11 @@ describe("PATCH /api/knowledge/:id — illegal move (review.md B12/B13)", () => 
 		});
 
 		expect(res.status).toBe(200);
-		const updated = (await res.json()) as { title: string; parentId: string | null; version: number };
+		const updated = (await res.json()) as {
+			title: string;
+			parentId: string | null;
+			version: number;
+		};
 		expect(updated.title).toBe("Leaf 2 — renamed");
 		expect(updated.parentId).toBe("ki-root-2");
 		expect(updated.version).toBe(2);

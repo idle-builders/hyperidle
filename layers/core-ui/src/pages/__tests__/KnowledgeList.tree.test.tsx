@@ -7,8 +7,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { buildKnowledgeTree } from "../KnowledgeList";
-import { KnowledgeList } from "../KnowledgeList";
+import { buildKnowledgeTree, KnowledgeList } from "../KnowledgeList";
 
 vi.mock("../../hooks/useFetch", () => ({
 	useFetch: (url: string | null) => {

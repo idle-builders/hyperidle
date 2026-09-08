@@ -79,7 +79,7 @@ async function walkKnowledgeItemAncestorChain(
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, currentId))
 			.limit(1);
-		if (!row || row.parentKind !== "knowledge_item" || !row.parentId) break;
+		if (row?.parentKind !== "knowledge_item" || !row.parentId) break;
 		currentId = row.parentId;
 	}
 	return chain;
@@ -1171,7 +1171,7 @@ export async function resolveParentChain(
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, cursorId))
 			.limit(1);
-		if (!row || row.parentKind !== "knowledge_item" || !row.parentId) break;
+		if (row?.parentKind !== "knowledge_item" || !row.parentId) break;
 
 		const [ancestor] = await db
 			.select({
@@ -1354,9 +1354,7 @@ export async function list(
 				knowledgeAppProjection,
 				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
-			.where(
-				and(parentIsKnowledgeItemOrRoot(), humanVisibleCondition(viewerUserId, viewerTeamId)),
-			)
+			.where(and(parentIsKnowledgeItemOrRoot(), humanVisibleCondition(viewerUserId, viewerTeamId)))
 			.orderBy(knowledgeItems.position, knowledgeItems.title);
 		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
@@ -1575,6 +1573,7 @@ export async function transition(
 				}>;
 				readonly updatedBy: string;
 		  },
+	// biome-ignore lint/suspicious/noConfusingVoidType: must match the first overload's `Promise<void>` exactly, or TS2394 (overload/implementation mismatch) fires — `undefined` is not interchangeable with `void` here.
 ): Promise<PromoteTransitionResult | void | KnowledgeItem | KnowledgeItem[]> {
 	switch (ctx.target) {
 		case "recomputeAttention": {

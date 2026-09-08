@@ -641,15 +641,13 @@ function KnowledgeListContent({
 										as="li"
 										data-testid="knowledge-row"
 										title={
-											<span
-												style={indent > 0 ? { paddingLeft: `${indent}px` } : undefined}
-											>
+											<span style={indent > 0 ? { paddingLeft: `${indent}px` } : undefined}>
 												{depth > 0 && (
 													<span
 														aria-hidden="true"
 														className="type-metadata text-[var(--text-tertiary)]"
 													>
-														{"└ "}
+														└{" "}
 													</span>
 												)}
 												{item.title}

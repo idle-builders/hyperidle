@@ -93,7 +93,10 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 		const leafFile = leafPath.find((f) => f !== "index.md");
 		expect(leafFile).toBeDefined();
 		expect(
-			fs.readFileSync(path.join(sandboxPath, "knowledge/Product/Pricing", leafFile as string), "utf8"),
+			fs.readFileSync(
+				path.join(sandboxPath, "knowledge/Product/Pricing", leafFile as string),
+				"utf8",
+			),
 		).toBe("leaf body");
 
 		// Every ancestor gets an index, holding only its own title (no
@@ -111,7 +114,11 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 		const manifest = JSON.parse(
 			fs.readFileSync(path.join(sandboxPath, ".fabric/manifest.json"), "utf8"),
 		) as {
-			items: Record<string, { source_path: string; scopeKind: string; version: number }>;
+			items: Record<
+				string,
+				// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
+				{ source_path: string; scopeKind: string; version: number }
+			>;
 		};
 		expect(manifest.items["k-root"]).toEqual({
 			source_path: "knowledge/Product",
