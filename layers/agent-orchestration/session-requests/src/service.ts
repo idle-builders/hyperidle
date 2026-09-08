@@ -568,7 +568,7 @@ function parseBakedRequest(intent: AgentWorkIntent): BakedWorkIntentRequest | un
 }
 
 /**
- * BA2: the `session_resume` kind bakes a resume, not a start request. Same
+ * @lore BA2: the `session_resume` kind bakes a resume, not a start request. Same
  * column, different shape — see `insertIntentInternal`.
  */
 function parseBakedResume(intent: AgentWorkIntent): BakedSessionResumeRequest | undefined {
@@ -1092,7 +1092,7 @@ export type WorkIntentInput =
 	  }
 	| {
 			/**
-			 * BA2: return an agent to a session it already had, carrying a human's
+			 * @lore BA2: return an agent to a session it already had, carrying a human's
 			 * verdict. Nothing is started, so nothing is resolved or assembled —
 			 * `resume` is the whole payload, and it takes `bakedRequest`'s column.
 			 */

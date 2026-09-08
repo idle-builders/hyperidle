@@ -227,7 +227,7 @@ interface SessionLifecycleSandboxHandle {
 
 interface SessionLifecycleSandboxAdapter {
 	spawn(baseDir: string): Promise<SessionLifecycleSandboxHandle>;
-	/** Take ownership of a directory that already exists — see BA2 in Phase 4. */
+	/** Take ownership of a directory that already exists — see the Phase 4 lore. */
 	adopt(path: string): Promise<SessionLifecycleSandboxHandle>;
 	exec(
 		handle: SessionLifecycleSandboxHandle,
@@ -940,7 +940,7 @@ interface ProvisionSessionParams {
 	 */
 	readonly transcript?: readonly ConversationMessage[];
 	/**
-	 * BA2: present only when this session returns an agent to a session it already
+	 * @lore BA2: present only when this session returns an agent to a session it already
 	 * had, carrying a human's verdict.
 	 *
 	 * Its presence changes exactly one thing: where the harness starts. Everything
@@ -1770,7 +1770,7 @@ async function runSession(
 	// on errors.
 	try {
 		if (!aborted) {
-			// BA2: a resumed session reopens the harness's own session and takes the
+			// @lore BA2: a resumed session reopens the harness's own session and takes the
 			// verdict as a genuine user turn in it — not a new session carrying a
 			// fabricated transcript asserting that a human approved. A real
 			// cursor-agent refused exactly that, and was right to: nothing
@@ -1876,8 +1876,8 @@ async function runSession(
 	}
 
 	// The harness's own id for this session, written down before teardown drops
-	// the handle. Without it there is nothing to resume, and the return half of
-	// the action gate cannot bring the agent back after a human decides.
+	// the handle. Without it there is nothing to resume, and a verdict cannot
+	// bring the agent back after a human decides.
 	//
 	// @lore BA2: Read AFTER the stream drained — claude assigns its id at start,
 	// but codex, cursor-agent and opencode only report theirs in the event stream.

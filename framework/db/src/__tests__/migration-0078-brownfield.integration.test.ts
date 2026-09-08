@@ -79,8 +79,8 @@ describe("migration 0078: the gate return half — brownfield", () => {
 			null,
 		);
 
-		// One review per gate denial. A second row for the same review message is
-		// the shape of the bug where approving one review clears more than one action.
+		// One session per review. A second row for the same review message is the
+		// shape of the bug where one verdict resumes more than one session.
 		await db.execute(sql`
 				INSERT INTO review_sessions (id, review_message_id, session_id, created_at)
 				VALUES ('gr-1', 'msg-1', 'sess-old', ${NOW})

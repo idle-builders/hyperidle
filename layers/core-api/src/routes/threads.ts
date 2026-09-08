@@ -662,7 +662,7 @@ export function createThreadRoutes(
 	eventBus: EventBus,
 	agentWorkIntentRecorder: AgentWorkIntentRecorderFn,
 	/**
-	 * BA2: the verdict half of the action gate. Injected for the same reason
+	 * @lore BA2: the verdict half of the review loop. Injected for the same reason
 	 * `agentWorkIntentRecorder` is — `review_sessions` belongs to the
 	 * agent-orchestration layer and this route may not read it.
 	 */
@@ -1520,7 +1520,7 @@ export function createThreadRoutes(
 			// resolves/creates/executes the request. This route has no
 			// assistant-execution dependency at all.
 
-			// BA2: if this verdict decided the review a gate denial produced, the
+			// @lore BA2: if this verdict decided the review an agent filed, the
 			// agent that asked has to be brought back to its own session with the
 			// answer. Post-commit, like the intent recording above and for the same
 			// reason — the message is committed, so the resume can never reference

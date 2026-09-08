@@ -255,7 +255,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		eventBus,
 		adapterPool: agentExecution.adapters.pool,
 		workspace: agentExecution.adapters.sandbox,
-		// Without this the action gate cannot fire in the desktop app at all:
 	} satisfies ApplicationProvisionSessionDeps;
 
 	if (!coreApi.upgradeTokenStore) {

@@ -73,7 +73,7 @@ function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentK
  * `idempotencyKey` all type-check structurally with no cast at all.
  */
 function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentInput {
-	// BA2: session_resume carries a resume, not a start request. Splitting here
+	// @lore BA2: session_resume carries a resume, not a start request. Splitting here
 	// keeps the cast audited per field on both branches.
 	if (body.kind === "session_resume") {
 		return {
@@ -134,7 +134,7 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 
 	// ── intents.recordReviewVerdict — POST /agent-orchestration/review-verdicts ──
 	//
-	// BA2: the verdict half of the action gate. `review_sessions` and `sessions` are
+	// @lore BA2: the verdict half of the review loop. `review_sessions` and `sessions` are
 	// this layer's tables, so the whole decision — is this a gate review, is its
 	// session resumable — is made here and the answer crosses back as data.
 	router.post("/review-verdicts", validateBody(gateVerdictInputSchema), async (c) => {

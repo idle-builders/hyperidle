@@ -174,7 +174,7 @@ interface AppOptions {
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
 	/**
-	 * BA2: Application-injected verdict recorder for the action gate, injected for
+	 * @lore BA2: Application-injected verdict recorder for the review loop, injected for
 	 * the same reason as `agentWorkIntentRecorder` above — `review_sessions` belongs
 	 * to agent-orchestration and `routes/threads.ts` may not read it. Defaults to
 	 * the seam-backed recorder; tests may override.

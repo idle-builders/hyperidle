@@ -52,7 +52,7 @@ export interface RunContextBundle {
 	readonly callingThreadId?: string;
 	readonly transcript?: readonly ConversationMessage[];
 	/**
-	 * BA2: present only for a `review_resume` request. Its presence is what makes
+	 * @lore BA2: present only for a `review_resume` request. Its presence is what makes
 	 * this a resumed session rather than a new one — the harness reopens its own
 	 * session and takes the verdict as a user turn, so nothing is composed.
 	 */

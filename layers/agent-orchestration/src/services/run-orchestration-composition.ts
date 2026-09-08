@@ -301,12 +301,12 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 }
 
 /**
- * `submit_review`'s view of the action gate, built per registry so it closes
- * over that session's own `db` handle.
+ * `submit_review`'s way of recording which session filed a review, built per
+ * registry so it closes over that session's own `db` handle.
  *
- * @lore BA2: The pending denial is read from the gate's own record of what it
- * refused, never from the tool's arguments — an agent cannot file its way to a
- * permission it was never denied.
+ * @lore BA2: The link is written from the session's own identity at filing
+ * time, never from the tool's arguments — an agent cannot file its way to
+ * resuming a session that is not its own.
  */
 function buildGateAccessor(db: HyperIdleDb): ToolHandlersReviewAccessor {
 	return {

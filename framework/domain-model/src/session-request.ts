@@ -12,7 +12,7 @@ export const AGENT_SESSION_SOURCE_KINDS = [
 	"routine",
 	"knowledge",
 	/**
-	 * BA2: a human's verdict on the review a gate denial produced. The session it
+	 * @lore BA2: a human's verdict on the review an agent filed. The session it
 	 * asks for is not a new piece of work — it returns an agent to a session it
 	 * already had, so it composes no prompt and assembles no context.
 	 */
@@ -25,7 +25,7 @@ export const AGENT_SESSION_PROMPT_MODES = [
 	"routine",
 	"knowledge",
 	/**
-	 * BA2: not a prompt at all — the verdict arrives as a user turn in a session
+	 * @lore BA2: not a prompt at all — the verdict arrives as a user turn in a session
 	 * the harness replays for itself. Named so the request row stays honest about
 	 * having no prompt to compose rather than borrowing one that misdescribes it.
 	 */
@@ -105,7 +105,7 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
 });
 
 /**
- * BA2: the request that returns an agent to its own session carrying a verdict.
+ * @lore BA2: the request that returns an agent to its own session carrying a verdict.
  *
  * It has no `taskId` requirement and no context to assemble — everything it needs
  * is the harness session to reopen and what to say. The correlation names the

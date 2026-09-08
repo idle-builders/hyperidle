@@ -358,7 +358,7 @@ export function buildSeamBackedWorkIntentRecorder(
 }
 
 /**
- * BA2: the same mechanism for the gate's verdict half. `review_sessions` belongs to
+ * @lore BA2: the same mechanism for the review loop's verdict half. `review_sessions` belongs to
  * agent-orchestration, so the thread route asks across the seam rather than
  * reading the table, and gets back what happened — including that the agent
  * cannot be resumed, which the human then has to be told.

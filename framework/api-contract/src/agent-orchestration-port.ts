@@ -104,7 +104,7 @@ export interface AgentOrchestrationWorkIntentInput {
 	readonly idempotencyKey: string;
 	readonly bakedRequest?: unknown;
 	/**
-	 * BA2: `session_resume`'s payload, carried opaque like `bakedRequest` beside
+	 * @lore BA2: `session_resume`'s payload, carried opaque like `bakedRequest` beside
 	 * it. A separate field rather than a reuse of `bakedRequest` because the two
 	 * describe different things — one starts a session, the other returns to one —
 	 * and a reader should not have to know the kind to know which shape arrived.
@@ -119,7 +119,7 @@ export interface AgentOrchestrationWorkIntentReceipt {
 }
 
 /**
- * BA2: what a verdict did about the review a gate denial produced. Mirrors
+ * @lore BA2: what a verdict did about the review an agent filed. Mirrors
  * `ReviewVerdictOutcome` — the port carries it as data so a core-api route can
  * tell the human without ever reading `review_sessions`.
  */
@@ -128,7 +128,7 @@ export type AgentOrchestrationReviewVerdictOutcome =
 	| { readonly status: "not_a_review_session" }
 	| { readonly status: "not_resumable"; readonly reason: string };
 
-/** BA2: a human's verdict on a review, as it crosses into agent-orchestration. */
+/** @lore BA2: a human's verdict on a review, as it crosses into agent-orchestration. */
 export interface AgentOrchestrationReviewVerdictInput {
 	readonly reviewMessageId: string;
 	readonly decision: "approve" | "decline";
@@ -150,7 +150,7 @@ export interface AgentOrchestrationIntentsPort {
 	/** The durable enqueue — mirrors `enqueueWorkIntent`'s row-level identity/idempotency semantics. */
 	submit(input: AgentOrchestrationWorkIntentInput): Promise<AgentOrchestrationWorkIntentReceipt>;
 	/**
-	 * BA2: record a verdict on a gate-caused review and queue the resume that
+	 * @lore BA2: record a verdict on a review an agent filed and queue the resume that
 	 * carries it back to the agent. Returns what happened, because the human who
 	 * approved has to be told when the agent cannot be sent back.
 	 */

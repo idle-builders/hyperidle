@@ -136,7 +136,7 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
  * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
  * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
  */
-/** BA2: the resume a `review_resume` request carries. Absent for every other kind. */
+/** @lore BA2: the resume a `review_resume` request carries. Absent for every other kind. */
 function parseBakedResume(request: AgentSessionRequest): BakedSessionResumeRequest | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as { resume?: BakedSessionResumeRequest };
@@ -509,7 +509,7 @@ async function consumeAgentSessionRequest(
 	const transcript = rawTranscript
 		? mapTranscriptToMessages(rawTranscript, claimedRequest.agentId)
 		: undefined;
-	// BA2: a review_resume request carries the resume on its payload. Everything a
+	// @lore BA2: a review_resume request carries the resume on its payload. Everything a
 	// resume needs was baked when the human decided, so nothing is read here.
 	const resume = parseBakedResume(claimedRequest);
 	const provisionParams: RunContextBundle = {

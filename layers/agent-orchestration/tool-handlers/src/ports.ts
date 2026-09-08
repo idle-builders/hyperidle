@@ -513,19 +513,14 @@ interface ToolHandlersCoreApiAccessor {
 }
 
 /**
- * The action gate, as `submit_review` needs to see it.
+ * How `submit_review` records which session filed a review.
  *
- * @lore BA2: This exists so a review can be tied to the block that caused it at
- * the moment it is filed. It is one call and it is deliberately not a question
- * the agent can answer — the pending denial comes from the gate's own record of
- * what it refused, never from the tool's arguments.
+ * @lore BA2: One call, and deliberately not a question the agent can answer —
+ * the session comes from the tool context, never from the tool's arguments, so
+ * an agent cannot file its way to resuming a session that is not its own.
  */
 export interface ToolHandlersReviewAccessor {
-	/**
-	 * Record this review as the one a gate denial produced, when the session has
-	 * a denial pending. Does nothing for an ordinary review, which is what stops
-	 * approving a design review from clearing an action.
-	 */
+	/** Record that this session filed this review, so a verdict knows what to resume. */
 	linkReviewToSession(sessionId: string, reviewMessageId: string): Promise<void>;
 }
 

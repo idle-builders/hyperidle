@@ -37,7 +37,7 @@ export type AgentWorkIntentSourceKind =
 	| "routine_run"
 	| "task_dispatch_attempt"
 	/**
-	 * BA2: a human's verdict on the review a gate denial produced. The source id
+	 * @lore BA2: a human's verdict on the review an agent filed. The source id
 	 * is that review's message id — the one thing that identifies both the block
 	 * and the session to bring back.
 	 */

@@ -606,7 +606,7 @@ export type AgentWorkIntentRecorderInput =
 	  }
 	| {
 			/**
-			 * BA2: a human decided on the review a gate denial produced, and the agent
+			 * @lore BA2: a human decided on the review an agent filed, and the agent
 			 * that asked has to be brought back to its own session with the answer.
 			 *
 			 * This kind does NOT start a session, so it bakes no
@@ -691,8 +691,8 @@ export type ReviewVerdictOutcome =
 	| { readonly status: "not_resumable"; readonly reason: string };
 
 /**
- * Records a human's verdict on the review a gate denial produced, and queues the
- * resume that carries it back to the agent.
+ * Records a human's verdict on a review an agent filed, and queues the resume
+ * that carries it back to the agent.
  *
  * Injected into the core-api thread route the same way `AgentWorkIntentRecorderFn`
  * is, and for the same reason: `review_sessions` belongs to the agent-orchestration
