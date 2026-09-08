@@ -113,6 +113,22 @@ vi.mock("@hyperidle/users", () => ({
 			}) as unknown as User,
 	),
 }));
+/*
+ * The context bake reads the real task and assembles the real knowledge
+ * bundle. This test's subject is which adapter pool the eval drives, so the
+ * bake is mocked to a minimal task rather than handed a database — the bake
+ * itself is covered by running the eval for real against a live harness.
+ */
+vi.mock("@hyperidle/work", () => ({
+	get: vi.fn(async () => ({ id: "task", teamId: "team", title: "T", description: "d" })),
+	bakeTaskContextBundle: vi.fn(async () => undefined),
+}));
+vi.mock("@hyperidle/org", () => ({
+	getTeam: vi.fn(async () => ({ id: "team", name: "Team" })),
+}));
+vi.mock("@hyperidle/knowledge", () => ({
+	assembleSessionKnowledge: vi.fn(async () => []),
+}));
 vi.mock("@hyperidle/settings", () => ({
 	readServerConfig: vi.fn(async () => ({ harnessDisabled: [] })),
 	updateServerConfig: vi.fn(),
