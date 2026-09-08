@@ -433,7 +433,7 @@ function BacklinksCard({
 				<EmptyState
 					compact
 					title="No backlinks"
-					description="Related and same-topic items will appear here."
+					description="Related items will appear here."
 				/>
 			)}
 		</div>

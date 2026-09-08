@@ -6,28 +6,26 @@
  * the shape so the UI can render against it; server wiring is deferred to a
  * future work package. Treat the values here as representative, not canonical.
  *
- * @lore J6: the "practice" scope is the default landing (no ?scope= param).
- * The 5 original fixture titles from the pre-J6 KnowledgeList sit in the
- * practice scope so the protected KnowledgeList tests continue to pass
+ * @lore J6: the 5 original fixture titles from the pre-J6 KnowledgeList are
+ * `scope: "factory"` so the protected KnowledgeList tests continue to pass
  * without modification.
+ *
+ * @lore nested-knowledge-items AC6: `layer`, `kind` and `topic` are deleted
+ * fields — this fixture predates a real API and never fed the real kernel
+ * columns, so there is nothing downstream to migrate. `scope` keeps the
+ * plain-string shape (never fed the real `scopeKind` column either) but its
+ * values are now only the surviving three (`factory`/`team`/`user`) — the
+ * retired `practice`/`product` values are respelled per the real migration
+ * mapping (architecture.md §7: practice → factory, product → team).
  */
-import type { KnowledgeStatus, KnowledgeTopicHealth } from "@hyperidle/domain-model";
+import type { KnowledgeStatus } from "@hyperidle/domain-model";
 
 export interface MockKnowledgeItem {
 	id: string;
 	title: string;
-	/**
-	 * @lore nested-knowledge-items: `layer`/`kind` and the 3-value
-	 * `KnowledgeScope` union are deleted vocabulary — this fixture predates
-	 * a real API and never fed the real kernel columns, so both stay plain
-	 * strings rather than importing a type that no longer exists.
-	 */
-	layer: string;
-	kind: string;
 	status: KnowledgeStatus;
 	timestamp: string;
 	scope: string;
-	topic: string;
 	/**
 	 * 0..100 — higher means more urgent human attention.
 	 * Server-computed in production; mock values below.
@@ -57,29 +55,28 @@ export interface MockKnowledgeItem {
 	 */
 	version?: string;
 	/**
-	 * IDs of items related via shared topic or explicit link (J7 sidebar).
+	 * IDs of explicitly related items (J7 sidebar).
 	 */
 	relatedItems?: ReadonlyArray<string>;
 }
 
 /**
- * Practice scope carries the 5 original pre-J6 titles so the protected
- * KnowledgeList tests continue to pass without modification. Product and
- * Factory scopes provide additional items so scope filtering, topic
- * grouping, and triage sort can all be demonstrated.
+ * The 5 original pre-J6 items are `scope: "factory"` so the protected
+ * KnowledgeList tests continue to pass without modification. The rest
+ * exercise the surviving `team`/`user` scopes and triage sort.
+ *
+ * @lore nested-knowledge-items AC6: scope values follow the real migration
+ * mapping (architecture.md §7) — the retired `practice` scope respells to
+ * `factory`, the retired `product` scope respells to `team`.
  */
 // eslint-disable-next-line design/no-mock-data-symbol -- tracked in #93
 export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
-	// Practice scope — Architecture (original pre-J6 items)
 	{
 		id: "k1",
 		title: "Architecture Decision: Auth Strategy",
-		layer: "L0",
-		kind: "decision",
 		status: "active",
 		timestamp: "1d ago",
-		scope: "practice",
-		topic: "Architecture",
+		scope: "factory",
 		attentionScore: 10,
 		whyNow: "Recently validated, no action needed",
 		content:
@@ -92,12 +89,9 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 	{
 		id: "k2",
 		title: "API Rate Limiting Best Practices",
-		layer: "L1",
-		kind: "pattern",
 		status: "active",
 		timestamp: "2d ago",
-		scope: "practice",
-		topic: "Architecture",
+		scope: "factory",
 		attentionScore: 12,
 		whyNow: "Applied 4 times this cycle",
 		content:
@@ -107,55 +101,39 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		version: "v2.0",
 		relatedItems: ["k1"],
 	},
-	// Practice scope — Research
 	{
 		id: "k3",
 		title: "User Interview Notes Q1",
-		layer: "L0",
-		kind: "brief",
 		status: "stale",
 		timestamp: "2w ago",
-		scope: "practice",
-		topic: "Research",
+		scope: "factory",
 		attentionScore: 68,
 		whyNow: "Contradicted by kb-c1",
 	},
-	// Practice scope — Component Library
 	{
 		id: "k4",
 		title: "Component Library Guidelines",
-		layer: "L1",
-		kind: "principle",
 		status: "active",
 		timestamp: "3d ago",
-		scope: "practice",
-		topic: "Component Library",
+		scope: "factory",
 		attentionScore: 15,
 		whyNow: "Applied 12 times this cycle",
 	},
-	// Practice scope — Process (needs_human so Triage is default)
 	{
 		id: "k5",
 		title: "Sprint Retro Outcomes",
-		layer: "L2",
-		kind: "reflection",
 		status: "proposed",
 		timestamp: "5h ago",
-		scope: "practice",
-		topic: "Process",
+		scope: "factory",
 		attentionScore: 32,
 		whyNow: "Pending validation from cycle review",
 	},
-	// Practice scope — Process (additional items to demonstrate grouping)
 	{
 		id: "k6",
 		title: "Review Queue Triage Heuristics",
-		layer: "L1",
-		kind: "principle",
 		status: "proposed",
 		timestamp: "5h ago",
-		scope: "practice",
-		topic: "Process",
+		scope: "factory",
 		attentionScore: 92,
 		whyNow: "3 new observations since review",
 		content:
@@ -163,54 +141,39 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		originAgent: "Practice Facilitator",
 		confidence: 0.55,
 	},
-	// Practice scope — Architecture (stale item to drive topic health)
 	{
 		id: "k7",
 		title: "Legacy Service Mesh Pattern",
-		layer: "L1",
-		kind: "pattern",
 		status: "stale",
 		timestamp: "2w ago",
-		scope: "practice",
-		topic: "Architecture",
+		scope: "factory",
 		attentionScore: 74,
 		whyNow: "Unused for 2 cycles",
 	},
-	// Product scope — Onboarding
 	{
 		id: "k8",
 		title: "Welcome Email Copy Principle",
-		layer: "L1",
-		kind: "principle",
 		status: "proposed",
 		timestamp: "6h ago",
-		scope: "product",
-		topic: "Onboarding",
+		scope: "team",
 		attentionScore: 85,
 		whyNow: "Awaiting sign-off from brand-voice agent",
 	},
 	{
 		id: "k9",
 		title: "Activation Funnel Snapshot",
-		layer: "L0",
-		kind: "brief",
 		status: "active",
 		timestamp: "1d ago",
-		scope: "product",
-		topic: "Onboarding",
+		scope: "team",
 		attentionScore: 40,
 		whyNow: "Used by 3 tasks this cycle",
 	},
-	// Product scope — UI Kit
 	{
 		id: "k10",
 		title: "Deprecated Button Variants",
-		layer: "L2",
-		kind: "anti_pattern",
 		status: "archived",
 		timestamp: "1mo ago",
-		scope: "product",
-		topic: "UI Kit",
+		scope: "team",
 		attentionScore: 5,
 		whyNow: "Archived — see replacement",
 		content: "Use `btn-primary` instead of the deprecated ghost+accent combo.",
@@ -218,16 +181,12 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		confidence: 0.4,
 		relatedItems: [],
 	},
-	// Factory scope — Governance
 	{
 		id: "k11",
 		title: "Agent Autonomy Policy",
-		layer: "L0",
-		kind: "decision",
 		status: "active",
 		timestamp: "1w ago",
 		scope: "factory",
-		topic: "Governance",
 		attentionScore: 18,
 		whyNow: "Under amendment review",
 		content:
@@ -239,12 +198,9 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 	{
 		id: "k12",
 		title: "Repeated Test Failure Escalation Protocol",
-		layer: "L1",
-		kind: "pattern",
 		status: "proposed",
 		timestamp: "1d ago",
 		scope: "factory",
-		topic: "Governance",
 		attentionScore: 78,
 		whyNow: "3 consecutive CI failures this cycle",
 		content:
@@ -253,16 +209,12 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		confidence: 0.7,
 		version: "v1.4",
 	},
-	// Factory scope — Agents
 	{
 		id: "k13",
 		title: "Architect Agent Brief",
-		layer: "L0",
-		kind: "brief",
 		status: "active",
 		timestamp: "2d ago",
 		scope: "factory",
-		topic: "Agents",
 		attentionScore: 22,
 		whyNow: "Cited by 8 tasks",
 		content: "Architect agent designs high-level system architecture and reviews tradeoffs.",
@@ -271,50 +223,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		version: "v3.0",
 	},
 ];
-
-/**
- * Derive topic health from the share of stale items in the group.
- * 0 stale => fresh, < 50% => some_stale, >= 50% => mostly_stale.
- *
- * @lore J6: "stale" here is *visual*-stale — status === "stale". This is a
- * UI presentation rule, not an authoritative knowledge-lifecycle judgement.
- */
-export function deriveTopicHealth(totalCount: number, staleCount: number): KnowledgeTopicHealth {
-	if (totalCount === 0 || staleCount === 0) return "fresh";
-	const ratio = staleCount / totalCount;
-	if (ratio >= 0.5) return "mostly_stale";
-	return "some_stale";
-}
-
-/**
- * Group items by topic, preserving the original fixture order within each
- * group. Returns a stable-ordered list so tests and UI match.
- */
-export function groupItemsByTopic(items: ReadonlyArray<MockKnowledgeItem>): Array<{
-	topic: string;
-	items: ReadonlyArray<MockKnowledgeItem>;
-	staleCount: number;
-	health: KnowledgeTopicHealth;
-}> {
-	const byTopic = new Map<string, MockKnowledgeItem[]>();
-	for (const item of items) {
-		const bucket = byTopic.get(item.topic);
-		if (bucket) {
-			bucket.push(item);
-		} else {
-			byTopic.set(item.topic, [item]);
-		}
-	}
-	return Array.from(byTopic.entries()).map(([topic, topicItems]) => {
-		const staleCount = topicItems.filter((i) => i.status === "stale").length;
-		return {
-			topic,
-			items: topicItems,
-			staleCount,
-			health: deriveTopicHealth(topicItems.length, staleCount),
-		};
-	});
-}
 
 /**
  * Neutral-name re-exports for use in runtime pages (tracked in #93).
