@@ -149,4 +149,7 @@ Recorded because each was believed and checked:
   constraint accepts at this point, and their mapping carries it.
 - **Archived items still appear in `GET /api/knowledge`.** Pre-existing on main —
   `visibleToViewer` has never filtered status. Found while driving the app,
-  filed separately, deliberately not fixed here.
+  registered as **UI-008** in `.pipeline/AZ-bugs.md`, deliberately not fixed here.
+- **Demo discussion copy names hero mock-ups that were never seeded.** Predates
+  this change and is not a regression from it. Registered as **UI-111** in
+  `.pipeline/AZ-bugs.md`.
