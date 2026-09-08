@@ -8,6 +8,7 @@ import type {
 	AgentSessionSourceKind,
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	BakedSessionResumeRequest,
 	ModelTier,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
@@ -46,6 +47,7 @@ import {
 // Filesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
 import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
+import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -146,6 +148,25 @@ interface SessionLifecycleHarnessAdapter {
 		readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
 	};
 	getForceReturnCount?(sessionId: string): number;
+	/**
+	 * The harness's own id for this session, once it has one. Optional because an
+	 * adapter with no resume support never reports one.
+	 */
+	getNativeSessionId?(handle: SessionHandle): string | undefined;
+	/**
+	 * Reopen a session the harness already had, delivering `message` as a fresh
+	 * user turn. Optional because not every adapter supports resumption.
+	 */
+	resumeSession?(
+		nativeSessionId: string,
+		message: string,
+		config: {
+			readonly sandboxPath: string;
+			readonly modelTier: ModelTier;
+			readonly selectedModel?: string;
+			readonly mcpTokenEnv?: Readonly<Record<string, string>>;
+		},
+	): Promise<SessionHandle>;
 }
 
 interface SessionLifecycleAdapterMeta {
@@ -206,6 +227,8 @@ interface SessionLifecycleSandboxHandle {
 
 interface SessionLifecycleSandboxAdapter {
 	spawn(baseDir: string): Promise<SessionLifecycleSandboxHandle>;
+	/** Take ownership of a directory that already exists — see the Phase 4 lore. */
+	adopt(path: string): Promise<SessionLifecycleSandboxHandle>;
 	exec(
 		handle: SessionLifecycleSandboxHandle,
 		command: string,
@@ -237,7 +260,7 @@ interface SessionLifecycleHarnessRuntime {
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
-		/** BA2 ruling 18: the session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
+		/** The session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
 		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 	/** @lore BA9b B2: write plugin stdio MCP entries in the harness's dialect. Dialect knowledge lives in cli-mcp-config.ts. */
@@ -916,6 +939,16 @@ interface ProvisionSessionParams {
 	 * transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
+	/**
+	 * @lore BA2: present only when this session returns an agent to a session it already
+	 * had, carrying a human's verdict.
+	 *
+	 * Its presence changes exactly one thing: where the harness starts. Everything
+	 * else — the MCP bridge, the stream drain, token accounting, posting output
+	 * back to the thread, teardown — is the same path every other session takes,
+	 * because a resumed session is a session.
+	 */
+	readonly resume?: BakedSessionResumeRequest;
 }
 
 interface ProvisionSessionResult {
@@ -934,6 +967,33 @@ interface ProvisionSessionResult {
 	readonly forceReturnCount: number;
 	readonly metrics?: SessionMetrics;
 }
+
+/**
+ * What a gated agent is told, once, in its prompt.
+ *
+ * @lore BA2 (ruling 6): the push-back is delivered in two pieces. The gate's deny
+ * carries only the fact that a rule blocked the call and which rule; the
+ * instruction for what to do about it lives here. A deny message that told the
+ * model what to do next was refused by a real model as a suspected injection —
+ * an instruction arriving through the same channel an attacker could write to.
+ *
+ * Only added when the session actually has rules. On a fresh system the list is
+ * empty and nothing is said, because nothing can be blocked.
+ */
+/**
+ * @lore BA2: nothing intercepts. This text used to open with "if a tool call is
+ * refused because a rule blocked it" — it was written for a gate that no longer
+ * exists, and an agent reading it would wait for a refusal that never comes. The
+ * whole mechanism now IS this paragraph: the agent is told that some work
+ * deserves a person's agreement and how to ask, and it elects to ask. What
+ * agents choose to ask about is the evidence any future interception list would
+ * be built from, so the wording deliberately leaves the judgement with them
+ * rather than enumerating what to ask about.
+ */
+const REVIEW_ORIENTATION = `
+
+## When work needs a person
+Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask with \`submit_review\`: say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer. A declined review declines that solution, not the task — keep working toward the same goal another way.`;
 
 /**
  * AF7 §2: The synchronous result of admission (phases 1-7). Carries everything
@@ -1033,7 +1093,9 @@ async function admitSession(
 	// baked onto the request core-side. It cannot be read here: `knowledge_items`
 	// belongs to the knowledge service, while `agent_run_config` — read just above
 	// — is orchestration's own.
-	const systemPromptText = agentConfig.persona ?? "";
+	const persona = agentConfig.persona ?? "";
+
+	const systemPromptText = `${persona}${REVIEW_ORIENTATION}`;
 
 	// @lore The tier used to be chosen: explicit param > the agent's own
 	// `modelTierPreference` > "workhorse". That dial is gone. It named which model
@@ -1117,9 +1179,17 @@ async function admitSession(
 	let sandboxPath: string;
 	let mountedFilesystems: Filesystem[] = [];
 	// ── Phase 4: spawn sandbox via adapter.
-	const sandboxHandle: SessionLifecycleSandboxHandle = await workspace.spawn(
-		params.sandboxBasePath,
-	);
+	//
+	// @lore BA2: a resumed session does not get a new directory — it adopts the
+	// one the session it is resuming ran in. Two reasons, and either alone is
+	// enough. The agent is coming back to its own work, and cursor-agent finds
+	// its chat by an md5 of the cwd STRING, so resuming from anywhere else runs
+	// with no context at all, exits 0, and says nothing. Adopting also settles
+	// who deletes it: this session does, at its own teardown, unless it too ends
+	// by asking a human.
+	const sandboxHandle: SessionLifecycleSandboxHandle = params.resume?.sandboxPath
+		? await workspace.adopt(params.resume.sandboxPath)
+		: await workspace.spawn(params.sandboxBasePath);
 	sandboxPath = sandboxHandle.path;
 
 	// ── Phase 5: insert session row.
@@ -1284,6 +1354,58 @@ async function admitSession(
  * Registers itself in the `sessionRunRegistry` (AF7 §4/§5) at harness-start so a
  * PATCH/handoff can cooperatively abort it, and deregisters at teardown.
  */
+/**
+ * What the human's verdict says to the agent when its session reopens.
+ *
+ * @lore BA2 (ruling 16): the wording is load-bearing. A bare "Approved. Go ahead."
+ * complied 3 of 6 on cursor-agent, and the objection was about MECHANISM rather
+ * than suspicion — a chat message saying approved is not the approval mechanism a
+ * policy requires. Naming what actually happened took it to 8 of 8. Tune this
+ * wording; do not route around a model that objects to it.
+ */
+function buildVerdictMessage(resume: BakedSessionResumeRequest): string {
+	if (resume.decision === "approve") {
+		return (
+			"A human read the review you submitted and approved it. Go ahead with what you proposed, " +
+			"then carry on with your work and decide when you are done."
+		);
+	}
+	return (
+		"A human read the review you submitted and declined it. What was declined is the approach you " +
+		"proposed, not the task itself — keep working toward the same goal another way, and submit " +
+		"another review if you want to make a different case."
+	);
+}
+
+/**
+ * What the agent is being asked to do, for a session that has a task.
+ *
+ * @lore BA10: when a task is assigned to an agent, the task is basically all
+ * there is as the user prompt. This is deliberately NOT the assembled context —
+ * that goes to AGENTS.md and says who the agent is and what it knows, not what
+ * to do. The two were conflated, and the agent received a 200-character slice of
+ * the wrong one.
+ *
+ * Returns undefined when the session has no task to state — a routine waking on a
+ * heartbeat, or an assistant turn, whose opening turn comes from elsewhere.
+ */
+function composeTaskInstruction(params: ProvisionSessionParams): string | undefined {
+	const bundle = params.contextBundle;
+	if (bundle?.kind !== "task") return undefined;
+	const { title, description } = bundle.task;
+	const parts = [`Your task: ${title}`];
+	if (description) parts.push(description);
+	if (bundle.ancestors.length > 0) {
+		// The goal chain this task serves, root first — a leaf task read alone can
+		// be followed to the letter and still miss the point of the work above it.
+		const chain = bundle.ancestors
+			.map((a) => (a.doneCondition ? `${a.title} (done when: ${a.doneCondition})` : a.title))
+			.join(" → ");
+		parts.push(`This serves: ${chain}`);
+	}
+	return parts.join("\n\n");
+}
+
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: run coordinates harness lifecycle, event-stream consumption, abort, and teardown
 async function runSession(
 	deps: ProvisionSessionDeps,
@@ -1418,6 +1540,10 @@ async function runSession(
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
+	// BA10: what the agent is asked to do, as opposed to what it is told about
+	// itself. Composed from the task the session was dispatched for.
+	const taskInstruction = composeTaskInstruction(params);
+
 	// Retrieve adapter capabilities once.
 	const adapterCapabilities = harness.getCapabilities();
 
@@ -1484,7 +1610,7 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 		if (adapterCapabilities.cliMcpDialect) {
-			// BA2 ruling 18: the session's mounted filesystems (AO2, phase 4.5
+			// The session's mounted filesystems (AO2, phase 4.5
 			// above) are the trusted directories — tell the harness what the
 			// filesystem primitive already declared, alongside the sandbox.
 			const trustedPaths = mountedFilesystems
@@ -1600,6 +1726,8 @@ async function runSession(
 		sessionId,
 		sandboxPath,
 		assembledPrompt,
+		// BA10: the ask, whole and separate from the context above.
+		...(taskInstruction ? { instruction: taskInstruction } : {}),
 		modelTier,
 		tools: allowedToolNames,
 		// Absent when the agent chose nothing, so the harness keeps its own default
@@ -1642,7 +1770,35 @@ async function runSession(
 	// on errors.
 	try {
 		if (!aborted) {
-			harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
+			// @lore BA2: a resumed session reopens the harness's own session and takes the
+			// verdict as a genuine user turn in it — not a new session carrying a
+			// fabricated transcript asserting that a human approved. A real
+			// cursor-agent refused exactly that, and was right to: nothing
+			// authenticated the claim. A real turn in the agent's own session is not
+			// a message about a human; it is the human.
+			//
+			// The resume runs in the ORIGINAL session's directory, not this one's.
+			// cursor-agent keys a chat on an md5 of the cwd string
+			// (`~/.cursor/chats/<md5(cwd)>/`), so resuming from anywhere else exits 0,
+			// echoes back the right session id, and runs with no context at all —
+			// silently, with nothing in the stream. The chat itself lives outside the
+			// sandbox, so what has to match is the path, not what is in it. claude
+			// finds a session by id from any directory and is unaffected either way.
+			if (params.resume?.harnessSessionId && harness.resumeSession) {
+				harnessHandle = await harness.resumeSession(
+					params.resume.harnessSessionId,
+					buildVerdictMessage(params.resume),
+					{
+						// Phase 4 adopted the original session's directory, so this IS it.
+						sandboxPath,
+						modelTier,
+						...(selectedModel ? { selectedModel } : {}),
+						...(mcpTokenEnv ? { mcpTokenEnv } : {}),
+					},
+				);
+			} else {
+				harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
+			}
 			ports.sessionRequests.registerSessionRun(sessionId, {
 				signalAbort: () => {
 					aborted = true;
@@ -1659,6 +1815,15 @@ async function runSession(
 				for await (const event of harness.streamEvents(harnessHandle)) {
 					// Observe every event FIRST — the gate is read-only.
 					returnGate.observe(event);
+
+					// @lore BA2: a session that ends by filing a review is not
+					// finished, it is waiting — a human may take days to answer, and
+					// when they do, the agent is resumed IN THIS DIRECTORY. Destroying
+					// it at teardown does not merely lose the agent's files: the resume
+					// spawns the harness with a cwd that no longer exists, and every
+					// harness hangs rather than failing, so the verdict reaches nobody
+					// and nothing says why. The filesystem belongs to the work, and the
+					// work is not done until the agent says it is.
 
 					if (aborted) {
 						break;
@@ -1708,6 +1873,33 @@ async function runSession(
 	} finally {
 		// W1: release the adapter pool slot EXACTLY ONCE after the single run.
 		adapterPool.release(adapterId);
+	}
+
+	// The harness's own id for this session, written down before teardown drops
+	// the handle. Without it there is nothing to resume, and a verdict cannot
+	// bring the agent back after a human decides.
+	//
+	// @lore BA2: Read AFTER the stream drained — claude assigns its id at start,
+	// but codex, cursor-agent and opencode only report theirs in the event stream.
+	// A harness that reported none leaves the column null: that session genuinely
+	// cannot be resumed, and the verdict path says so rather than resuming nothing.
+	if (harnessHandle) {
+		const nativeSessionId = harness.getNativeSessionId?.(harnessHandle);
+		if (nativeSessionId) {
+			try {
+				await deps.db
+					.update(sessions)
+					.set({ harnessSessionId: nativeSessionId })
+					.where(eq(sessions.id, sessionId));
+			} catch (persistErr) {
+				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+				console.warn(
+					`[session-provisioning] could not persist harness session id for ${sessionId}; ` +
+						`this session will not be resumable:`,
+					persistErr,
+				);
+			}
+		}
 	}
 
 	// ── Phase 11: teardown.
@@ -1835,7 +2027,19 @@ async function runSession(
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
-	await workspace.destroy(sandboxHandle);
+	// @lore BA2: the filesystem belongs to the work, not to the session. A session
+	// that ended by filing a review is not finished, it is waiting — a human may
+	// take days — and when the verdict comes the agent is resumed IN THIS
+	// DIRECTORY. Deleting it now does not merely lose the agent's files: the
+	// resume spawns the harness with a working directory that no longer exists,
+	// and it hangs instead of failing, so the answer reaches nobody and nothing
+	// says why. The question is asked of the `review_sessions` row `submit_review`
+	// wrote, not of the tool-call event: a return action reaches this function by
+	// one of two paths depending on whether the MCP bridge is open, and watching
+	// only the stream was green in a test and dead on every real run.
+	if (!(await sessionAwaitsVerdict(db, sessionId))) {
+		await workspace.destroy(sandboxHandle);
+	}
 	ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 
 	if (beforeHarnessStartError) {

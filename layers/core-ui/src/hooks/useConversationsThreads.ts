@@ -240,15 +240,23 @@ export function useConversationsThreads(
 		const unsubscribe = wsClient.subscribe("conversations", (raw) => {
 			if (typeof raw !== "object" || raw === null) return;
 			const msg = raw as Record<string, unknown>;
-			if (msg.type !== "update" || msg.topic !== "conversations" || msg.kind !== "thread_created") {
+			if (msg.type !== "update" || msg.topic !== "conversations") return;
+			// @lore BA2: `thread_message_appended` joins `thread_created` here. A
+			// thread the human already has does not change identity when an agent
+			// files a review in it — it changes its time, its place in the list and
+			// whether it is now waiting on them — and none of that arrived. So a
+			// review filed while they sat in the app was invisible until a restart.
+			if (msg.kind !== "thread_created" && msg.kind !== "thread_message_appended") {
 				return;
 			}
 			if (!participantId) return;
 			const row = msg.data;
 			if (!(isThreadListRow(row) && row.participants.includes(participantId))) return;
 			setThreads((prev) => {
-				if (prev.some((t) => t.id === row.id)) return prev; // idempotent
-				const next = [...prev, rowToItem(row)];
+				// Upsert, not insert-only: skipping a known id was right while the
+				// only push announced a NEW thread, and drops every update to one
+				// that already exists.
+				const next = [...prev.filter((t) => t.id !== row.id), rowToItem(row)];
 				next.sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
 				return next.slice(0, 50);
 			});

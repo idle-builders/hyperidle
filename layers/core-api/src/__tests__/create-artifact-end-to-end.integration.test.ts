@@ -21,6 +21,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -36,9 +37,10 @@ function authHeaders(): Record<string, string> {
 }
 
 function createArtifactTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	const tool = buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
-		(t) => t.name === "create_artifact",
-	);
+	const tool = buildToolDefinitions(
+		createInProcessCoreApiTransport(app),
+		THROWING_REVIEW_ACCESSOR,
+	).find((t) => t.name === "create_artifact");
 	if (!tool) throw new Error("create_artifact tool not found in the built definitions");
 	return tool;
 }

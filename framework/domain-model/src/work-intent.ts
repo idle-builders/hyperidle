@@ -592,7 +592,67 @@ export type AgentWorkIntentRecorderInput =
 			readonly idempotencyKey: string;
 			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts` (AU21 Increment 3). */
 			readonly bakedRequest?: BakedWorkIntentRequest;
+	  }
+	| {
+			/**
+			 * @lore BA2: a human decided on the review an agent filed, and the agent
+			 * that asked has to be brought back to its own session with the answer.
+			 *
+			 * This kind does NOT start a session, so it bakes no
+			 * `BakedWorkIntentRequest` — there is no agent to resolve, no context to
+			 * assemble and no prompt to compose. Everything a resume needs is the
+			 * session to return to and what to tell it.
+			 */
+			readonly kind: "session_resume";
+			readonly sourceKind: "review_verdict";
+			/** The review message the human decided on. */
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			readonly resume: BakedSessionResumeRequest;
 	  };
+
+/**
+ * What a resume needs, baked when the verdict is recorded.
+ *
+ * @lore BA2: Baked rather than read at drain time for the same reason every
+ * other kind bakes — the drain does zero domain reads. It also means the record
+ * of what was approved is fixed at the moment a human decided it, not
+ * reconstructed later from rows that may have moved on.
+ */
+export interface BakedSessionResumeRequest {
+	/** The HyperIdle session to bring back. */
+	readonly sessionId: string;
+	/**
+	 * The harness's own id for that session. Absent when the harness never
+	 * reported one, which means the session cannot be resumed — the drain surfaces
+	 * that to the human rather than silently doing nothing.
+	 */
+	readonly harnessSessionId?: string | null;
+	/** What the human decided. A decline resumes too, carrying the reasoning back. */
+	readonly decision: "approve" | "decline";
+	/**
+	 * The working directory the original session ran in.
+	 *
+	 * @lore BA2: cursor-agent keys a chat on an md5 of the cwd STRING —
+	 * `~/.cursor/chats/<md5(cwd)>/` — so a resume from any other directory exits 0,
+	 * echoes back the right session id, and runs with no context at all, silently.
+	 * The chat content lives outside the sandbox, so what has to match is the path,
+	 * not the directory's contents. claude finds a session by id from anywhere and
+	 * does not care.
+	 */
+	readonly sandboxPath?: string | null;
+	/** The thread the review lives in, where a failure has to be reported. */
+	readonly threadId: string;
+	/** The agent whose session this is. */
+	readonly agentId: string;
+	/**
+	 * The asking agent's runnable-config snapshot. Baked when the human decides,
+	 * like every other intent kind — `admitSession` treats an absent bake as a
+	 * deactivated agent and refuses the run.
+	 */
+	readonly agentConfig?: BakedAgentRunnableConfig;
+}
 
 /**
  * Plain function type replacing the former `AgentWorkIntentRecorder<TTx>` interface.
@@ -602,3 +662,39 @@ export type AgentWorkIntentRecorderInput =
 export type AgentWorkIntentRecorderFn = (
 	input: AgentWorkIntentRecorderInput,
 ) => Promise<{ readonly id: string; readonly idempotencyKey: string }>;
+
+/**
+ * What happened when a verdict tried to send an agent back to its work.
+ *
+ * @lore BA2: A status rather than void, because the acceptance criterion is that
+ * a failure REACHES the human who approved. Silent failure is the defect this
+ * package exists to fix — a human sees "approved" and assumes the action
+ * happened — so reproducing it here would fail the work.
+ */
+export type ReviewVerdictOutcome =
+	/** The resume is queued. The agent will be brought back. */
+	| { readonly status: "queued" }
+	/** No session filed this review. Nothing to resume, and nothing wrong. */
+	| { readonly status: "not_a_review_session" }
+	/** A session filed it but cannot be brought back. The human has to be told. */
+	| { readonly status: "not_resumable"; readonly reason: string };
+
+/**
+ * Records a human's verdict on a review an agent filed, and queues the resume
+ * that carries it back to the agent.
+ *
+ * Injected into the core-api thread route the same way `AgentWorkIntentRecorderFn`
+ * is, and for the same reason: `review_sessions` belongs to the agent-orchestration
+ * layer, and a core-api route may not read it.
+ */
+export type ReviewVerdictRecorderFn = (input: {
+	/** The review message the verdict resolved. */
+	readonly reviewMessageId: string;
+	readonly decision: "approve" | "decline";
+	/** The human who decided. */
+	readonly decidedBy: string;
+	/** The thread the review lives in — where a failure has to be reported. */
+	readonly threadId: string;
+	/** The asking agent's runnable-config snapshot, baked by the caller (core state). */
+	readonly agentConfig?: BakedAgentRunnableConfig;
+}) => Promise<ReviewVerdictOutcome>;

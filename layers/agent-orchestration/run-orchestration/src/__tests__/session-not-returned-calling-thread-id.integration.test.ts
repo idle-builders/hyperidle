@@ -140,6 +140,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 			workspace: {
 				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
 				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
 				destroy: async () => undefined,
 			},
 		};
@@ -210,6 +211,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 			workspace: {
 				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
 				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
 				destroy: async () => undefined,
 			},
 		};

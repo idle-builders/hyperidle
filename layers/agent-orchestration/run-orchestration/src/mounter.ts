@@ -193,7 +193,7 @@ function isLocalRepoPath(
 }
 
 /**
- * BA2 ruling 18 — the real local path a mounted filesystem stands on, if any.
+ * The real local path a mounted filesystem stands on, if any.
  *
  * `LocalFolderAdapter` symlinks `resourceRef.folder` (an absolute path
  * elsewhere on disk) INTO the sandbox rather than copying it, and
@@ -221,7 +221,7 @@ export function localTrustedPath(filesystem: Filesystem): string | undefined {
 }
 
 /**
- * BA2 ruling 18 defect fix: `isLocalRepoPath` accepts `~/`, `./`, `../` and
+ * `isLocalRepoPath` accepts `~/`, `./`, `../` and
  * `file://` spellings (a repo ref is user-configured, not machine-generated),
  * but a harness's trust config wants a real filesystem path — `[projects."~/repo"]`
  * is not a path codex's own trust store resolves against `~`. Expand `~`,
@@ -303,7 +303,7 @@ export class RegistryFilesystemMounter {
 }
 
 /**
- * BA2 founder ruling 22: every session sandbox is a git repository — codex-cli
+ * Every session sandbox is a git repository — codex-cli
  * refuses to run outside a directory it recognizes as one ("Not inside a
  * trusted directory"), a SEPARATE precondition from the `trust_level =
  * "trusted"` declaration (cli-mcp-config.ts) — and a versioned scratch

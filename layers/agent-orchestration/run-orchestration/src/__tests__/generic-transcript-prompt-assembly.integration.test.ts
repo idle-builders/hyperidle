@@ -113,6 +113,28 @@ describe("generic transcript delivery (Increment 4)", () => {
 		}
 	});
 
+	/**
+	 * The task-backed variant. A session with a task assembles agent context and a
+	 * prompt, which the task-free scenarios above deliberately forbid — the two new
+	 * tests below assert on `instruction`, which is composed from the task and does
+	 * not depend on either.
+	 */
+	function buildTaskHarnessPorts(): SessionLifecyclePorts {
+		const base = buildHarnessPorts();
+		return {
+			...base,
+			contextAssembly: {
+				...base.contextAssembly,
+				assembleAgentContext: async () => ({
+					itemCount: 0,
+					durationMs: 0,
+					manifestPath: "",
+				}),
+				assemblePrompt: async () => ({ assembledPrompt: "context", personaToolsTokens: 0 }),
+			},
+		};
+	}
+
 	async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 		await db.insert(users).values({
 			id,
@@ -176,6 +198,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 			workspace: {
 				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
 				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
 				destroy: async () => undefined,
 			},
 			onBeforeHarnessStart: (ctx) => {
@@ -296,5 +319,149 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
 		expect(prompt).toContain("Correlation:");
 		expect(prompt).not.toContain("## Conversation");
+	});
+
+	/**
+	 * A gated agent has to be told, once, that some actions need a person and how
+	 * to ask — because the deny message deliberately will not tell it.
+	 *
+	 * @lore BA2 (ruling 6): the push-back is two pieces. The gate's deny carries
+	 * only the fact that a rule blocked the call; an imperative in a deny message
+	 * is what a real model once refused as a suspected injection, arriving as it
+	 * does through the same channel an attacker could write to. So the instruction
+	 * lives in the prompt or nowhere.
+	 */
+	test("every session is told in its prompt that some work needs a person", async ({ db }) => {
+		await seedAgent(db, "agent-gated-1");
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-gate-prompt-"));
+		sandboxDirs.push(sandboxPath);
+
+		const provisioner = createProvisioner(buildHarnessPorts());
+		const captured: { sessionConfig?: SessionConfig } = {};
+		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const params = baseParams("agent-gated-1", sandboxPath);
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
+		expect(prompt).toContain("## When work needs a person");
+		expect(prompt, "the agent must be told HOW to ask").toContain("submit_review");
+		// Nothing intercepts, so the agent has to know the judgement is its own.
+		// Text written for a gate would have it waiting for a refusal that never
+		// comes.
+		expect(prompt, "the agent elects to ask; nothing stops it").toContain("Nothing here stops you");
+		expect(prompt, "a decline must not read as the task being refused").toContain(
+			"declines that solution, not the task",
+		);
+	});
+
+	/**
+	 * A task session's instruction is the task.
+	 *
+	 * @lore BA10: `assembledPrompt` is CONTEXT — it is written to AGENTS.md and
+	 * CLAUDE.md, and its own doc comment says so. What the agent is being ASKED to
+	 * do is a different thing, and for a task session it is the task. It used to be
+	 * neither: the durable path rendered the task's id and its raw correlation JSON
+	 * and no title or description at all, and a real agent replied "I don't see an
+	 * actual task description or request in this session".
+	 */
+	test("a task session is instructed with the task itself", async ({ db }) => {
+		await seedAgent(db, "agent-instruction-1");
+		await seedTask(db as HyperIdleDb, "task-instruction-1");
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba10-instruction-"));
+		sandboxDirs.push(sandboxPath);
+
+		const provisioner = createProvisioner(buildTaskHarnessPorts());
+		const captured: { sessionConfig?: SessionConfig } = {};
+		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+
+		// The durable shape: a requestContext IS present, which is the production
+		// path and precisely the case that used to fall through to a task-free prompt.
+		const params = {
+			...baseParams("agent-instruction-1", sandboxPath),
+			taskId: "task-instruction-1",
+			contextBundle: {
+				kind: "task",
+				task: {
+					id: "task-instruction-1",
+					title: "Write the proof file",
+					description: "Create a file called proof.txt containing exactly OK.",
+					state: "in_progress",
+				},
+				ancestors: [],
+				agent: { id: "agent-instruction-1", name: "Builder", role: "builder" },
+				team: { id: "team-1", name: "Team" },
+				knowledge: [],
+			},
+			requestContext: {
+				requestId: "req-1",
+				sourceKind: "task",
+				sourceId: "task-instruction-1",
+				sourceCorrelation: { taskId: "task-instruction-1", teamId: "team-1" },
+			},
+		} as unknown as ProvisionSessionParams;
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		const instruction = captured.sessionConfig?.instruction ?? "";
+		expect(instruction, "the agent must be told the task's title").toContain(
+			"Write the proof file",
+		);
+		expect(instruction, "and what the task actually asks for").toContain(
+			"Create a file called proof.txt containing exactly OK.",
+		);
+		expect(instruction, "raw correlation JSON is not an instruction").not.toContain(
+			"sourceCorrelation",
+		);
+	});
+
+	/**
+	 * @lore BA10: the instruction used to be `assembledPrompt.slice(0, 200)` with
+	 * newlines flattened. A real agent read the result and replied "your initial
+	 * message appears to have been cut off" — it had been, at 200 characters.
+	 */
+	test("the instruction is delivered whole, not truncated", async ({ db }) => {
+		await seedAgent(db, "agent-instruction-2");
+		await seedTask(db as HyperIdleDb, "task-instruction-2");
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba10-instruction-"));
+		sandboxDirs.push(sandboxPath);
+
+		const longDescription = `Step one: ${"x".repeat(400)}. Step two: finish.`;
+
+		const provisioner = createProvisioner(buildTaskHarnessPorts());
+		const captured: { sessionConfig?: SessionConfig } = {};
+		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
+		const params = {
+			...baseParams("agent-instruction-2", sandboxPath),
+			taskId: "task-instruction-2",
+			contextBundle: {
+				kind: "task",
+				task: {
+					id: "task-instruction-2",
+					title: "A task with a long description",
+					description: longDescription,
+					state: "in_progress",
+				},
+				ancestors: [],
+				agent: { id: "agent-instruction-2", name: "Builder", role: "builder" },
+				team: { id: "team-1", name: "Team" },
+				knowledge: [],
+			},
+			requestContext: {
+				requestId: "req-2",
+				sourceKind: "task",
+				sourceId: "task-instruction-2",
+				sourceCorrelation: { taskId: "task-instruction-2", teamId: "team-1" },
+			},
+		} as unknown as ProvisionSessionParams;
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		const instruction = captured.sessionConfig?.instruction ?? "";
+		expect(instruction, "the end of the instruction must survive").toContain("Step two: finish.");
+		expect(instruction.length).toBeGreaterThan(200);
 	});
 });

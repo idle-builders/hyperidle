@@ -10,6 +10,8 @@ export type {
 	// Sub-port interfaces reachable as AgentOrchestrationPort["<member>"] —
 	// not named-imported by anyone; removed from barrel, kept in source.
 	AgentOrchestrationPort,
+	AgentOrchestrationReviewVerdictInput,
+	AgentOrchestrationReviewVerdictOutcome,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationRunConfigView,
 	AgentOrchestrationSessionWireRow,

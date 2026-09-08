@@ -9,6 +9,7 @@ import type {
 	AgentSessionSourceKind,
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	BakedSessionResumeRequest,
 	ModelTier,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
@@ -50,6 +51,12 @@ export interface RunContextBundle {
 	readonly harnessDisabled?: readonly string[];
 	readonly callingThreadId?: string;
 	readonly transcript?: readonly ConversationMessage[];
+	/**
+	 * @lore BA2: present only for a `review_resume` request. Its presence is what makes
+	 * this a resumed session rather than a new one — the harness reopens its own
+	 * session and takes the verdict as a user turn, so nothing is composed.
+	 */
+	readonly resume?: BakedSessionResumeRequest;
 }
 
 /** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession`. */

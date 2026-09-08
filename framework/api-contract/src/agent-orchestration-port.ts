@@ -88,7 +88,8 @@ export type AgentOrchestrationWorkIntentKind =
 	| "session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "task_run";
+	| "task_run"
+	| "session_resume";
 
 /**
  * Mirrors `AgentWorkIntentRecorderInput` — `bakedRequest` is carried opaque
@@ -102,6 +103,13 @@ export interface AgentOrchestrationWorkIntentInput {
 	readonly requestedBy?: string;
 	readonly idempotencyKey: string;
 	readonly bakedRequest?: unknown;
+	/**
+	 * @lore BA2: `session_resume`'s payload, carried opaque like `bakedRequest` beside
+	 * it. A separate field rather than a reuse of `bakedRequest` because the two
+	 * describe different things — one starts a session, the other returns to one —
+	 * and a reader should not have to know the kind to know which shape arrived.
+	 */
+	readonly resume?: unknown;
 }
 
 /** Mirrors the row `enqueueWorkIntent` returns — `id` + `idempotencyKey` only, the AC-9 shape. */
@@ -110,10 +118,45 @@ export interface AgentOrchestrationWorkIntentReceipt {
 	readonly idempotencyKey: string;
 }
 
+/**
+ * @lore BA2: what a verdict did about the review an agent filed. Mirrors
+ * `ReviewVerdictOutcome` — the port carries it as data so a core-api route can
+ * tell the human without ever reading `review_sessions`.
+ */
+export type AgentOrchestrationReviewVerdictOutcome =
+	| { readonly status: "queued" }
+	| { readonly status: "not_a_review_session" }
+	| { readonly status: "not_resumable"; readonly reason: string };
+
+/** @lore BA2: a human's verdict on a review, as it crosses into agent-orchestration. */
+export interface AgentOrchestrationReviewVerdictInput {
+	readonly reviewMessageId: string;
+	readonly decision: "approve" | "decline";
+	readonly decidedBy: string;
+	readonly threadId: string;
+	/**
+	 * The asking agent's runnable-config snapshot, baked core-side because
+	 * `users` is core state.
+	 *
+	 * Every intent kind bakes this — a missing bake is a hard provisioning
+	 * failure, never a silent allow — and a resume is no exception. Carried
+	 * opaque here for the same reason `bakedRequest` is.
+	 */
+	readonly agentConfig?: unknown;
+}
+
 /** The intent-write family (`intents.*`). */
 export interface AgentOrchestrationIntentsPort {
 	/** The durable enqueue — mirrors `enqueueWorkIntent`'s row-level identity/idempotency semantics. */
 	submit(input: AgentOrchestrationWorkIntentInput): Promise<AgentOrchestrationWorkIntentReceipt>;
+	/**
+	 * @lore BA2: record a verdict on a review an agent filed and queue the resume that
+	 * carries it back to the agent. Returns what happened, because the human who
+	 * approved has to be told when the agent cannot be sent back.
+	 */
+	recordReviewVerdict(
+		input: AgentOrchestrationReviewVerdictInput,
+	): Promise<AgentOrchestrationReviewVerdictOutcome>;
 }
 
 /** The requests family — outstanding-work readers and session-start lifecycle writers. */

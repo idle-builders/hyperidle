@@ -368,7 +368,6 @@ function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "codex") return "settings-codex";
 	if (binary === "opencode") return "process-reengage";
 	if (binary === "claude") return "settings-claude";
-	if (binary === "cursor-agent") return "none";
 	return "none";
 }
 
@@ -442,7 +441,7 @@ function extractClaudeResultMetrics(obj: Record<string, unknown>): {
 	// "cacheWriteTokens":9070}`. Without this fallback every cursor-agent
 	// session silently reports 0 input/output tokens regardless of real
 	// spend — the exact thing that made a real, reasoned model refusal look
-	// like "the prompt never arrived" in BA2's resumed-session investigation.
+	// like "the prompt never arrived" in a resumed-session investigation.
 	return {
 		durationMs: finiteNonNegative(obj.duration_ms),
 		apiDurationMs: finiteNonNegative(obj.duration_api_ms),
@@ -519,13 +518,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		// Build template variable map
-		// @lore {{prompt}} resolves to the assembled prompt (first 200 chars
-		// as a seed summary) or "proceed" as a safe default. Codex exec uses this as the
-		// initial user message in the session; AGENTS.md in sandboxPath provides the full
-		// system context. Full prompt is written to AGENTS.md by session-provisioning.
-		const promptSeed = config.assembledPrompt
-			? config.assembledPrompt.slice(0, 200).replace(/\n/g, " ").trim() || "proceed"
-			: "proceed";
+		// @lore BA10: {{prompt}} is the session's opening user turn — what the agent
+		// is being ASKED to do — and it is delivered whole. `assembledPrompt` is
+		// context and goes to AGENTS.md; it is not an instruction and is no longer
+		// used as one. This used to be `assembledPrompt.slice(0, 200)` with newlines
+		// flattened, and a real agent replied "your initial message appears to have
+		// been cut off". "proceed" remains the default for a session with nothing to
+		// ask — a routine waking on a heartbeat has no instruction of its own.
+		const promptSeed = config.instruction?.trim() || "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
 			// The agent's own choice, and nothing else. A fallback to the model
@@ -599,6 +599,40 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// --dangerously-bypass-hook-trust: bypass hash-check so hook runs without
 			// requiring the user to have pre-approved the hook command.
 			extraArgs = ["--dangerously-bypass-hook-trust"];
+		}
+
+		// ── Per-session opencode gate env injection.
+		//
+		// XDG_CONFIG_HOME isolates opencode's config dir so the return-signal plugin
+		// in <sandbox>/.opencode/ loads while the user's global plugins do not.
+		// Replaces the removed --pure flag (which also disabled the sandbox plugin).
+		//
+		// @lore BA2: CODEX_HOME injection pattern; neither var is in envAllowlist.
+		if (this.config.binary === "opencode") {
+			// Always inject XDG_CONFIG_HOME for opencode, so the user's global
+			// ~/.config/opencode plugins and config cannot reach into the session.
+			const xdgConfigDir = path.join(config.sandboxPath, ".hyperidle", "opencode-xdg-config");
+			try {
+				fs.mkdirSync(xdgConfigDir, { recursive: true });
+				resolvedEnvMap.XDG_CONFIG_HOME = xdgConfigDir;
+			} catch {
+				// sandbox dir not yet created (test harness with fake path) — skip XDG isolation
+			}
+			// @lore BA2: OPENCODE_PERMISSION is unconditional now. It used to be read
+			// from `.hyperidle/opencode-permission.json` when the interception
+			// installer had written one, falling back to allow-all when it had not.
+			// That installer is deleted, so nothing ever wrote the file and the read
+			// always threw into the fallback — a branch that could not be taken,
+			// reading a path nothing produces. The fallback was always the real
+			// behaviour, so it is the only behaviour.
+			//
+			// It is required even though nothing is being gated: without it opencode
+			// asks the user before each tool call, and in a non-interactive spawned
+			// process (no TTY) that auto-REJECTS every tool — write and read fail with
+			// "The user rejected permission to use this specific tool call." Verified
+			// 2026-09-01: {} also rejects; {"*":"allow"} grants non-interactive
+			// auto-approval.
+			resolvedEnvMap.OPENCODE_PERMISSION = '{"*":"allow"}';
 		}
 
 		// ── AL7 delta: Per-session MCP token env var injection.

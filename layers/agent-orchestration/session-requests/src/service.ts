@@ -12,6 +12,7 @@ import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 	BakedContextBundle,
+	BakedSessionResumeRequest,
 } from "@hyperidle/domain-model";
 import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
@@ -565,6 +566,63 @@ function parseBakedRequest(intent: AgentWorkIntent): BakedWorkIntentRequest | un
 	if (!intent.bakedRequestJson) return undefined;
 	return JSON.parse(intent.bakedRequestJson) as BakedWorkIntentRequest;
 }
+
+/**
+ * @lore BA2: the `session_resume` kind bakes a resume, not a start request. Same
+ * column, different shape — see `insertIntentInternal`.
+ */
+function parseBakedResume(intent: AgentWorkIntent): BakedSessionResumeRequest | undefined {
+	if (!intent.bakedRequestJson) return undefined;
+	return JSON.parse(intent.bakedRequestJson) as BakedSessionResumeRequest;
+}
+
+/**
+ * Turn a baked resume into the session request that carries it.
+ *
+ * @lore BA2: A resumed session IS a session — it takes the same provisioning
+ * path as any other, which already opens the MCP bridge, drains the stream,
+ * accounts tokens, posts output back to the thread and tears down once. The
+ * difference is one branch at harness start, and it is expressed here as a
+ * source kind of its own rather than by borrowing one that misdescribes it.
+ */
+async function createResumeRequestInternal(
+	db: HyperIdleDb,
+	intent: AgentWorkIntent,
+	resume: BakedSessionResumeRequest,
+): Promise<{ readonly request: AgentSessionRequest }> {
+	const requestInput = agentSessionRequestInputSchema.parse({
+		sourceKind: "review_resume",
+		sourceId: intent.sourceId,
+		streamId: `review_resume:${intent.sourceId}`,
+		agentId: resume.agentId,
+		taskId: null,
+		promptMode: "resume",
+		idempotencyKey: intent.idempotencyKey,
+		sourceCorrelation: {
+			reviewMessageId: intent.sourceId,
+			threadId: resume.threadId,
+			resumedSessionId: resume.sessionId,
+		},
+		// `agentConfig` rides the same key every other kind uses, so the drain's
+		// existing `parseBakedAgentConfig` finds it with no special case.
+		//
+		// @lore BA2: `callingThreadId` is the thread the human gave the verdict in,
+		// and a resumed session needs it for the same reason any other session with
+		// a calling thread does — it is where the agent's answer belongs, and it is
+		// where the never-silent net posts when a turn ends without returning.
+		// Without it a resumed agent that says nothing leaves the human who
+		// approved staring at silence, which is the exact defect this package
+		// exists to remove. Observed on codex: the resume ran, carried its context,
+		// and ended `not_returned` with nothing posted anywhere.
+		payloadJson: JSON.stringify({
+			resume,
+			callingThreadId: resume.threadId,
+			...(resume.agentConfig ? { agentConfig: resume.agentConfig } : {}),
+		}),
+	});
+	const request = await insertRequestInternal(db, requestInput);
+	return { request };
+}
 /**
  * AU21 §9 Increment 3 co-existence scaffolding — an already-baked request is
  * used DIRECTLY (zero domain reads): reconstruct the full `triggered` request
@@ -676,6 +734,18 @@ async function processIntentsInternal(
 			// @lore AU44: unbaked intents are production-unreachable (bakedRequest is
 			// required at emit time), but legacy rows with bakedRequestJson=null must
 			// fail cleanly via INVALID_WORK_SOURCE rather than being stuck claimed.
+			if (intent.kind === "session_resume") {
+				const resume = parseBakedResume(intent);
+				if (!resume) {
+					throw new InvalidAgentWorkSourceError(
+						`Intent ${intent.id} (kind: session_resume) has no baked resume`,
+					);
+				}
+				await handOffInternal(db, intent, claimToken, now, (tx) =>
+					createResumeRequestInternal(tx as HyperIdleDb, intent, resume),
+				);
+				continue;
+			}
 			const baked = parseBakedRequest(intent);
 			if (baked) {
 				await handOffInternal(db, intent, claimToken, now, (tx) =>
@@ -718,7 +788,13 @@ async function insertIntentInternal(db: WriteExecutor, input: WorkIntentInput) {
 			requestedBy: input.requestedBy ?? null,
 			idempotencyKey: input.idempotencyKey,
 			status: "pending",
-			bakedRequestJson: JSON.stringify(input.bakedRequest),
+			// @lore BA2: session_resume bakes a resume rather than a start request —
+			// it returns to a session that already exists, so there is no agent to
+			// resolve and no context to assemble. Same column, different shape,
+			// read back by the drain branch that owns the kind.
+			bakedRequestJson: JSON.stringify(
+				input.kind === "session_resume" ? input.resume : input.bakedRequest,
+			),
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		})
@@ -995,24 +1071,38 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	knowledge: "knowledge",
 };
 
-export type WorkIntentInput = {
-	readonly kind:
-		| "assistant_turn"
-		| "session_start"
-		| "knowledge_action"
-		| "routine_run"
-		| "task_run";
-	readonly sourceKind:
-		| "thread_message"
-		| "explicit_session_start"
-		| "knowledge_action"
-		| "routine_run"
-		| "task_dispatch_attempt";
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-	readonly bakedRequest: BakedWorkIntentRequest;
-};
+export type WorkIntentInput =
+	| {
+			readonly kind:
+				| "assistant_turn"
+				| "session_start"
+				| "knowledge_action"
+				| "routine_run"
+				| "task_run";
+			readonly sourceKind:
+				| "thread_message"
+				| "explicit_session_start"
+				| "knowledge_action"
+				| "routine_run"
+				| "task_dispatch_attempt";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			readonly bakedRequest: BakedWorkIntentRequest;
+	  }
+	| {
+			/**
+			 * @lore BA2: return an agent to a session it already had, carrying a human's
+			 * verdict. Nothing is started, so nothing is resolved or assembled —
+			 * `resume` is the whole payload, and it takes `bakedRequest`'s column.
+			 */
+			readonly kind: "session_resume";
+			readonly sourceKind: "review_verdict";
+			readonly sourceId: string;
+			readonly requestedBy?: string;
+			readonly idempotencyKey: string;
+			readonly resume: BakedSessionResumeRequest;
+	  };
 /**
  * Extended baked work-intent payload for session-requests' own drain logic.
  *

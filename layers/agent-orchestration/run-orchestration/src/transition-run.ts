@@ -8,6 +8,7 @@ import type {
 import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import type { createProvisioner } from "./provisioner.js";
+import { sessionAwaitsVerdict } from "./review-sessions.js";
 
 interface IngestionHandle {
 	dispose(): void;
@@ -238,6 +239,16 @@ async function endSession(
 	// 6. Delete workspace directory
 	// @lore I6: use async fs.promises.rm() instead of sync fs.rmSync() to avoid
 	// blocking the event loop during large workspace cleanup.
+	//
+	// @lore BA2: unless a human owes this session an answer. A session that ended
+	// by filing a review is not finished, it is waiting — a human may take days —
+	// and when the verdict comes the agent is resumed IN THIS DIRECTORY. Deleting
+	// it now does not merely lose the agent's files: the resume spawns the harness
+	// with a working directory that no longer exists, and it hangs instead of
+	// failing, so the answer reaches nobody and nothing anywhere says why. This is
+	// the delete that matters — `workspace.destroy` in the provisioner removes an
+	// already-removed tree — so a guard placed only there does nothing.
+	if (await sessionAwaitsVerdict(db, context.sessionId)) return;
 	try {
 		await fs.promises.rm(context.sandboxPath, { recursive: true, force: true });
 	} catch {

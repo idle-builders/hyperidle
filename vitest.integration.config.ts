@@ -35,7 +35,6 @@ const HARNESS_INCLUDE = [
 	// `layers/**` include and hard-fails CI where the binaries are absent.
 	"layers/agent-orchestration/connections/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
 	"layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts",
-	"layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
 	"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts",
 	"layers/core-api/src/__tests__/BA9c-routine-event-context-harness.integration.test.ts",

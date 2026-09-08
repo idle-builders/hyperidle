@@ -552,7 +552,14 @@
 			"idx": 78,
 			"version": "7",
 			"when": 1785693606000,
-			"tag": "0078_artifacts_become_knowledge",
+			"tag": "0078_BA2_review_return_half",
+			"breakpoints": true
+		},
+		{
+			"idx": 79,
+			"version": "7",
+			"when": 1785693607000,
+			"tag": "0079_artifacts_become_knowledge",
 			"breakpoints": true
 		}
 	]

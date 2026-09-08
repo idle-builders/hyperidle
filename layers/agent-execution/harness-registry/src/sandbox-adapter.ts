@@ -12,6 +12,17 @@ export interface SandboxHandle {
 
 export interface SandboxAdapter {
 	spawn(baseDir: string): Promise<SandboxHandle>;
+	/**
+	 * Take ownership of a directory that already exists, so it can be destroyed
+	 * later like any spawned sandbox.
+	 *
+	 * @lore BA2: a session that ends by asking a human for agreement keeps its
+	 * directory — the agent is resumed IN it, and a resume into a directory that
+	 * no longer exists hangs the harness instead of failing. The resumed session
+	 * adopts that directory rather than spawning a fresh one, so the work the
+	 * agent comes back to is its own, and so exactly one session owns the delete.
+	 */
+	adopt(path: string): Promise<SandboxHandle>;
 	destroy(handle: SandboxHandle): Promise<void>;
 }
 

@@ -20,6 +20,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
@@ -123,9 +124,10 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 		db = handle.db;
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
-		createItemTool = buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
-			(t) => t.name === "create_item",
-		)!;
+		createItemTool = buildToolDefinitions(
+			createInProcessCoreApiTransport(app),
+			THROWING_REVIEW_ACCESSOR,
+		).find((t) => t.name === "create_item")!;
 		await seedBase(db);
 	});
 

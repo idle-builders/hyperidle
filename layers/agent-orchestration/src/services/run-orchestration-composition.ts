@@ -35,6 +35,7 @@ import {
 	type RunTransitionSpec,
 	type RuntimeDeps,
 	type RuntimePorts,
+	recordReviewSession,
 	runSession as runSessionInternal,
 	startRuntime as startRuntimeInternal,
 	startWatcher,
@@ -51,7 +52,10 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
+import {
+	buildToolRegistry as buildToolRegistryFromDefinitions,
+	type ToolHandlersReviewAccessor,
+} from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
 import { buildToolDefinitions } from "./tool-handlers-bindings.js";
 
@@ -310,21 +314,55 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 	};
 }
 
+/**
+ * `submit_review`'s way of recording which session filed a review, built per
+ * registry so it closes over that session's own `db` handle.
+ *
+ * @lore BA2: The link is written from the session's own identity at filing
+ * time, never from the tool's arguments — an agent cannot file its way to
+ * resuming a session that is not its own.
+ */
+function buildGateAccessor(db: HyperIdleDb): ToolHandlersReviewAccessor {
+	return {
+		async linkReviewToSession(sessionId, reviewMessageId) {
+			await recordReviewSession(db, { reviewMessageId, sessionId }, new Date().toISOString());
+		},
+	};
+}
+
+/**
+ * For call sites that only enumerate tool names. Any handler that reaches it is
+ * a wiring mistake, and it says so rather than silently recording nothing —
+ * a gate that quietly does nothing is the failure mode this package exists to fix.
+ */
+function unusableGateAccessor(): ToolHandlersReviewAccessor {
+	return {
+		linkReviewToSession: () => {
+			throw new Error(
+				"tool-handlers gate accessor: reached from a name-only tool listing; build the registry through buildToolRegistry instead",
+			);
+		},
+	};
+}
+
 function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
 ): SessionLifecyclePorts["toolProvider"] {
 	return {
 		buildToolRegistry(ctx, options) {
-			const definitions = buildToolDefinitions(coreApiTransport);
-			return buildToolRegistryFromDefinitions(definitions, widenToToolContext(ctx), {
+			const toolCtx = widenToToolContext(ctx);
+			const definitions = buildToolDefinitions(coreApiTransport, buildGateAccessor(toolCtx.db));
+			return buildToolRegistryFromDefinitions(definitions, toolCtx, {
 				role: options.role,
 				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
 				useOnlyExtraTools: options.useOnlyExtraTools,
 			});
 		},
 		toolsForRole(role) {
-			return buildToolDefinitions(coreApiTransport).filter(
+			// Names and roles only — no handler runs, so the gate accessor here is
+			// one that refuses rather than one that quietly does nothing.
+			return buildToolDefinitions(coreApiTransport, unusableGateAccessor()).filter(
 				(d) => d.roles === undefined || d.roles.includes(role),
 			);
 		},

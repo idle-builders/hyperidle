@@ -296,6 +296,16 @@ export const sessions = pgTable(
 		effectivenessRecordedAt: text("effectiveness_recorded_at"),
 		/** AC1: User ID (or agent ID) of the actor who last recorded the effectiveness score. */
 		effectivenessRecordedBy: text("effectiveness_recorded_by"),
+		/**
+		 * The harness's own id for this session, which is what `resumeSession`
+		 * needs to bring the agent back after a human decides.
+		 *
+		 * @lore BA2: Null for a session whose harness never reported one — an
+		 * error before the first stream event, or an adapter with no resume
+		 * support. A null here means the session cannot be resumed, which the
+		 * verdict path must surface to the human rather than fail silently.
+		 */
+		harnessSessionId: text("harness_session_id"),
 	},
 	(table) => [
 		index("sessions_task_id_idx").on(table.taskId),
@@ -419,11 +429,11 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run')`,
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','session_resume')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','review_verdict')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -442,6 +452,7 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
+				or (${table.kind} = 'session_resume' and ${table.sourceKind} = 'review_verdict')
 			`,
 		),
 		/**
@@ -1520,55 +1531,37 @@ export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
 // --- Action rules (scoped items for agent action approval) ---
 
 /**
- * Action rules define which agent actions require human approval before
- * an agent may take them.
+ * The reviews a gate actually caused.
  *
- * @lore BA2: The rule list is EMPTY on a fresh install — nothing interrupts
- * an agent until a human adds a rule. Scope is global, team, or agent.
- * Resolution at provisioning is by UNION: global rules + the agent's team's
- * rules + that specific agent's rules. An empty result means no action is
- * ever interrupted.
+ * A row is written only when an agent files a review while the gate is holding
+ * a denial against its session. Approving that review clears the denied action,
+ * once; approving any other review clears nothing.
  *
- * @lore BA2 (ruling 20): No clearance table, no state machine, no risk tiers.
- * The design is deliberately minimal: rules are plain scoped rows, resolution
- * is a SQL union, and session-level enforcement happens in the hook layer.
+ * @lore BA2: This is the answer to a real defect in an abandoned attempt, which
+ * registered on every `submit_review` — so approving an ordinary design review
+ * granted a bypass. The link is the record that the review and the block are the
+ * same event, and it is why the clearance cannot be forged by filing a review.
  *
- * @lore BA2 (ruling 1): No rule is pre-loaded on a fresh install. An empty
- * list is the correct, designed starting state — security is never preemptive.
+ * @lore BA2: `toolName` is stored because the clearance is keyed to the ACTION,
+ * not to "the next tool call". An earlier attempt let the resumed session's first
+ * call — a harmless read — spend the one-time pass, so the action that was
+ * actually cleared got denied again.
  */
-export const actionRules = pgTable(
-	"action_rules",
+export const reviewSessions = pgTable(
+	"review_sessions",
 	{
 		id: text("id").primaryKey(),
-		/**
-		 * A name or pattern identifying the action to gate, e.g. "git push",
-		 * "rm -rf", "deploy". Matched by our enforcement code at provisioning time, not by the harness's own hook config.
-		 */
-		pattern: text("pattern").notNull(),
-		/** Human-readable label shown in the settings surface. */
-		description: text("description").notNull(),
-		/** 'global' | 'team' | 'agent' */
-		scope: text("scope").notNull(),
-		/**
-		 * null when scope='global';
-		 * teams.id when scope='team';
-		 * users.id (agent row) when scope='agent'.
-		 *
-		 * No FK constraint — the rule stays if the team or agent is removed,
-		 * and the hook simply finds no matching entry when resolving.
-		 */
-		scopeId: text("scope_id"),
+		/** The `messages` row of type "review" that the agent filed. */
+		reviewMessageId: text("review_message_id").notNull(),
+		/** The session the gate denied, and the one a verdict resumes. */
+		sessionId: text("session_id").notNull(),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [
-		check("action_rules_scope_ck", sql`${table.scope} IN ('global', 'team', 'agent')`),
-		check(
-			"action_rules_scope_id_ck",
-			sql`(${table.scope} = 'global' AND ${table.scopeId} IS NULL) OR (${table.scope} IN ('team', 'agent') AND ${table.scopeId} IS NOT NULL)`,
-		),
-		index("action_rules_scope_idx").on(table.scope, table.scopeId),
+		uniqueIndex("review_sessions_review_message_id_uq").on(table.reviewMessageId),
+		index("review_sessions_session_id_idx").on(table.sessionId),
 	],
 );
 
-export type ActionRuleRow = typeof actionRules.$inferSelect;
-export type NewActionRuleRow = typeof actionRules.$inferInsert;
+export type ReviewSessionRow = typeof reviewSessions.$inferSelect;
+export type NewReviewSessionRow = typeof reviewSessions.$inferInsert;

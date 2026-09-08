@@ -22,6 +22,10 @@ export class DisabledSandboxAdapter implements SandboxAdapter {
 		return this.fail();
 	}
 
+	adopt(_path: string): Promise<SandboxHandle> {
+		return this.fail();
+	}
+
 	destroy(_handle: SandboxHandle): Promise<void> {
 		return this.fail();
 	}

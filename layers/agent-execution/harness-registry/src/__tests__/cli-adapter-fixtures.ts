@@ -60,7 +60,6 @@ export function cliAdapterFixture(
 					"{{sandbox}}",
 					"--format",
 					"json",
-					"--pure",
 					"--model",
 					"{{model}}",
 				],
