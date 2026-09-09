@@ -7,10 +7,13 @@
  * installed harness CLI inside a real sandbox and watches it actually read
  * and write the nested tree.
  *
- * Four things, each proven against every installed harness:
+ * Five things, each proven against every installed harness:
  *   1. Materialisation — a nested tree lands as real directories, an
  *      unselected ancestor still gets its index (title-only, no fabricated
  *      body), and the real binary reads a file nested two levels down.
+ *   1b. A selected parent WITH a body AND selected children — the ordinary
+ *      shape of a real knowledge tree — gets its real body in its own
+ *      `index.md`, with no stray sibling leaf file next to its directory.
  *   2. Scope — the agent's slice is factory + its own team + its own; a
  *      branch scoped to another team is entirely absent from the sandbox,
  *      proven both by our own file walk and by asking the real agent.
@@ -26,15 +29,19 @@
  * @lore nested-knowledge-real: a probe run against `writeContextBundle`
  * directly (hand-built bundle, two items sharing a parent, both independently
  * selected) showed a parent-with-children item that is ALSO independently
- * selected gets its real body dumped into a stray sibling leaf file
+ * selected got its real body dumped into a stray sibling leaf file
  * (`Title_<id8>.md`) next to its own directory, while the directory's
- * `index.md` still only ever gets the bare title — never the real body, even
- * though it was available. This contradicts plan.md's "a parent as a
- * directory containing index.md with its own body." It is a pre-existing
- * production behaviour, not introduced by this test, and per instructions
- * this file does not fix it — every fixture below is built so no selected
- * item is simultaneously an ancestor of another selected item, which avoids
- * exercising that path. Reported in full in the builder's final report.
+ * `index.md` only ever got the bare title — never the real body, even
+ * though it was available. This contradicted plan.md's "a parent as a
+ * directory containing index.md with its own body." FIXED in
+ * `writeOrdinaryItems` (run-orchestration/src/context.ts) — the ordinary-item
+ * write moved to a two-pass materialiser: pass 1 creates every ancestor
+ * directory, pass 2 writes each item's own content, and an item that pass 1
+ * already turned into a directory (because it is an ancestor of another
+ * selected item) gets its real body written into that directory's
+ * `index.md` instead of a separate leaf file. Regression-covered at the unit
+ * level in `run-orchestration/src/__tests__/knowledge-materialisation.test.ts`
+ * and, below, test 1b covers the same path against real harness binaries.
  *
  * HARNESS LANE: real binaries, real LLM calls, zero stubs.
  * Gate: requireHarness() — hard-fail (never skip) if a binary is absent.
@@ -376,6 +383,8 @@ for (const harness of HARNESSES) {
 				const leafSecret = `LEAF-${randomUUID().slice(0, 8).toUpperCase()}`;
 				const teamSecret = `TEAM-${randomUUID().slice(0, 8).toUpperCase()}`;
 				const rivalSecret = `RIVAL-${randomUUID().slice(0, 8).toUpperCase()}`;
+				const parentBodySecret = `PARENTBODY-${randomUUID().slice(0, 8).toUpperCase()}`;
+				const childOfParentSecret = `CHILDOFPARENT-${randomUUID().slice(0, 8).toUpperCase()}`;
 
 				// Ancestor NOT independently selected: it belongs to a different
 				// user, so fetchOrdinaryItemsByScope("user", AGENT_ID) never fetches
@@ -422,6 +431,34 @@ for (const harness of HARNESSES) {
 					scopeId: OTHER_TEAM_ID,
 				});
 
+				// @lore nested-knowledge-real: a selected parent WITH a body AND
+				// selected children — the ordinary shape of a real knowledge tree.
+				// Both "Roadmap" and its child are independently selected (own team
+				// scope, fetched directly by fetchOrdinaryItemsByScope), so Roadmap
+				// is ALSO reached as an ancestor through the child's parentChain.
+				// Proves the fix in writeOrdinaryItems: Roadmap's real body lands in
+				// its own directory's index.md, not a stray sibling leaf file.
+				const selectedParent = await create(db, {
+					title: "Roadmap",
+					body: `Roadmap parent body.\nPARENT_TOKEN: ${parentBodySecret}`,
+					format: "markdown",
+					status: "active",
+					updatedBy: "seed",
+					scopeKind: "team",
+					scopeId: TEAM_ID,
+				});
+				const childOfParent = await create(db, {
+					title: "Q3 Plan",
+					body: `Child under selected parent.\nCHILD_TOKEN: ${childOfParentSecret}`,
+					format: "markdown",
+					status: "active",
+					updatedBy: "seed",
+					scopeKind: "team",
+					scopeId: TEAM_ID,
+					parentKind: "knowledge_item",
+					parentId: selectedParent.id,
+				});
+
 				await assembleIntoSandbox(db, sandboxPath, `sess-${harness}-read`);
 
 				// --- Deterministic, sanity-break-sensitive assertions ---------
@@ -465,14 +502,37 @@ for (const harness of HARNESSES) {
 					expect(fs.readFileSync(path.join(sandboxPath, p), "utf8")).not.toContain(rivalSecret);
 				}
 
+				// A selected parent WITH a body AND selected children: its real
+				// body lands in its own directory's index.md...
+				const roadmapDir = path.join(sandboxPath, "knowledge", "Roadmap");
+				const roadmapIndexBody = fs.readFileSync(path.join(roadmapDir, "index.md"), "utf8");
+				expect(roadmapIndexBody).toContain(parentBodySecret);
+				// ...no stray sibling leaf file next to its own directory...
+				const knowledgeRootEntries = fs.readdirSync(path.join(sandboxPath, "knowledge"));
+				const strayParentLeaf = knowledgeRootEntries.find((f) =>
+					f.startsWith(`Roadmap_${selectedParent.id.slice(0, 8)}`),
+				);
+				expect(strayParentLeaf).toBeUndefined();
+				// ...and its selected child still lands inside its directory.
+				const roadmapEntries = fs.readdirSync(roadmapDir);
+				const childOfParentFilename = roadmapEntries.find((f) =>
+					f.startsWith(`Q3_Plan_${childOfParent.id.slice(0, 8)}`),
+				);
+				expect(childOfParentFilename).toBeDefined();
+				expect(
+					fs.readFileSync(path.join(roadmapDir, childOfParentFilename as string), "utf8"),
+				).toContain(childOfParentSecret);
+
 				// --- Real agent injection proof --------------------------------
 				const prompt =
 					`Inside the "knowledge" directory of your current working directory, find a nested document ` +
 					`about a "Deploy Checklist" and report the exact value after "SECRET:". Also find a document ` +
-					`about "Team Rituals" and report the exact value after "TEAM_TOKEN:". Finally, search the ENTIRE ` +
-					`knowledge directory tree for the exact string "RIVAL_TOKEN" and state YES if you find it or NO ` +
-					`if you do not. Respond with exactly three lines, in this format and nothing else:\n` +
-					`SECRET=<value>\nTEAM_TOKEN=<value>\nRIVAL_TOKEN_FOUND=<YES or NO>`;
+					`about "Team Rituals" and report the exact value after "TEAM_TOKEN:". Also find the "Roadmap" ` +
+					`document itself (its own index file, not one of its children) and report the exact value after ` +
+					`"PARENT_TOKEN:". Finally, search the ENTIRE knowledge directory tree for the exact string ` +
+					`"RIVAL_TOKEN" and state YES if you find it or NO if you do not. Respond with exactly four ` +
+					`lines, in this format and nothing else:\n` +
+					`SECRET=<value>\nTEAM_TOKEN=<value>\nPARENT_TOKEN=<value>\nRIVAL_TOKEN_FOUND=<YES or NO>`;
 
 				const stdout =
 					harness === "opencode"
@@ -486,6 +546,7 @@ for (const harness of HARNESSES) {
 
 				expect(stdout).toContain(leafSecret);
 				expect(stdout).toContain(teamSecret);
+				expect(stdout).toContain(parentBodySecret);
 				expect(stdout).not.toContain(rivalSecret);
 
 				fs.rmSync(sandboxPath, { recursive: true, force: true });

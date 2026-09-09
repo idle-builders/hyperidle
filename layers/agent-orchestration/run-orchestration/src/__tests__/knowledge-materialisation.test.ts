@@ -136,4 +136,105 @@ describe("writeContextBundle: nested materialisation (review.md B4/B5)", () => {
 		// scopeKind too, not an undefined field the reader defaults away.
 		expect(manifest.items["k-leaf"]).toMatchObject({ scopeKind: "team" });
 	});
+
+	// @lore nested-knowledge-real: the ordinary shape of a real knowledge tree
+	// — a parent document with a body of its own AND selected children, both
+	// independently selected into the same bundle. Previously the parent's
+	// real body was dumped into a stray sibling leaf file next to its own
+	// directory, while the directory's index.md stayed title-only forever —
+	// contradicting plan.md's "a parent as a directory containing index.md
+	// with its own body."
+	test("a selected parent with a body AND selected children writes its real body into index.md, with no stray sibling leaf", async () => {
+		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "tree-materialisation-parent-"));
+		const assembler = createContextAssembler(poisonedPorts());
+
+		const bundle: BakedContextBundle = {
+			kind: "task",
+			task: { id: "task-tree-2", title: "Do the thing", description: null, state: "in_progress" },
+			ancestors: [],
+			agent: { id: "agent-tree-2", name: "Ada", role: "builder" },
+			team: { id: "team-tree-2", name: "Alpha" },
+			knowledge: [
+				{
+					id: "k-parent",
+					title: "Pricing",
+					body: "PARENT BODY — must land in index.md, not a stray sibling file",
+					format: "markdown",
+					version: 5,
+					role: "ordinary",
+					scopeKind: "team",
+					agentBindingId: null,
+					parentChain: [{ id: "k-root", title: "Product", scopeKind: "factory", version: 3 }],
+				},
+				{
+					id: "k-child",
+					title: "Objection handling",
+					body: "child body",
+					format: "markdown",
+					version: 1,
+					role: "ordinary",
+					scopeKind: "team",
+					agentBindingId: null,
+					parentChain: [
+						{ id: "k-root", title: "Product", scopeKind: "factory", version: 3 },
+						{ id: "k-parent", title: "Pricing", scopeKind: "team", version: 5 },
+					],
+				},
+			],
+		} as unknown as BakedContextBundle;
+
+		const input = {
+			sandboxPath,
+			sessionId: "session-tree-2",
+			taskId: "task-tree-2",
+			agentId: "agent-tree-2",
+			agentRole: "builder",
+			teamId: "team-tree-2",
+			isRoutine: false,
+			sourceKind: null,
+			sourceId: null,
+			sourceCorrelation: null,
+			contextBundle: bundle,
+		} as unknown as AssembleAgentContextInput;
+
+		await assembler.assembleAgentContext(input);
+
+		const pricingDir = path.join(sandboxPath, "knowledge/Product/Pricing");
+		expect(fs.readFileSync(path.join(pricingDir, "index.md"), "utf8")).toBe(
+			"PARENT BODY — must land in index.md, not a stray sibling file",
+		);
+
+		// No stray sibling leaf for the parent next to its own directory —
+		// only its own title-only index.md and the Pricing directory.
+		const productEntries = fs.readdirSync(path.join(sandboxPath, "knowledge/Product")).sort();
+		expect(productEntries).toEqual(["Pricing", "index.md"]);
+
+		// The child still lands inside the parent's directory, body intact.
+		const pricingEntries = fs.readdirSync(pricingDir);
+		const childFile = pricingEntries.find((f) => f !== "index.md");
+		expect(childFile).toBeDefined();
+		expect(fs.readFileSync(path.join(pricingDir, childFile as string), "utf8")).toBe("child body");
+
+		// The unselected root ancestor still only gets a title-only index —
+		// that behaviour must not regress.
+		expect(fs.readFileSync(path.join(sandboxPath, "knowledge/Product/index.md"), "utf8")).toBe(
+			"# Product\n",
+		);
+
+		const manifest = JSON.parse(
+			fs.readFileSync(path.join(sandboxPath, ".fabric/manifest.json"), "utf8"),
+		) as {
+			items: Record<
+				string,
+				// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
+				{ source_path: string; scopeKind: string; version: number }
+			>;
+		};
+		expect(manifest.items["k-parent"]).toEqual({
+			source_path: "knowledge/Product/Pricing",
+			scopeKind: "team",
+			version: 5,
+			format: "markdown",
+		});
+	});
 });

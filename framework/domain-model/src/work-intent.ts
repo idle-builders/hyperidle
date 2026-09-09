@@ -168,7 +168,7 @@ export function bakeAgentRunnableConfig(
 
 /**
  * @lore nested-knowledge-items §5: one ancestor in `BakedContextKnowledgeItem.parentChain` —
- * everything `writeOrdinaryItem` (context.ts) needs to materialise that
+ * everything `writeOrdinaryItems` (context.ts) needs to materialise that
  * ancestor's own directory + manifest entry without a DB read.
  */
 export interface BakedKnowledgeAncestor {

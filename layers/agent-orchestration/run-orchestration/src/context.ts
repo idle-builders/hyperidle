@@ -760,47 +760,86 @@ function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: s
 }
 
 /**
- * Write an ordinary item into `knowledge/`, shaped like its real ancestor
- * chain (architecture.md §5). `writeContextBundle` does zero DB reads —
+ * Materialise every ordinary item, shaped like its real ancestor chain
+ * (architecture.md §5). `writeContextBundle` does zero DB reads —
  * `item.parentChain` (baked at emit time, root first) is the only source for
  * "where in the tree does this go".
  *
- * An ancestor that is not itself among the selected items still gets its
- * directory-with-index materialised (plan.md: "a path with a missing middle
- * means nothing") — the index holds only the ancestor's own title, since the
- * baked chain carries no body for it; that is incomplete, not fabricated.
+ * Two passes, because which items are directories is only knowable once
+ * every item's chain has been walked:
  *
- * @lore nested-knowledge-items §5 (review.md B5): every ancestor directory
- * also gets its own manifest entry, written directly into `manifestItems` —
- * without one, writeback's `ensureDirectoryChainItem` cannot find the
- * directory it is already looking at and mints a duplicate folder item the
- * first time an agent creates a file inside it. `!manifestItems[ancestor.id]`
- * dedupes across items in the same bundle that share an ancestor.
+ * Pass 1 creates every ancestor directory, a title-only `index.md`
+ * placeholder (plan.md: "a path with a missing middle means nothing" — an
+ * ancestor not itself among the selected items still gets one; that is
+ * incomplete, not fabricated), and its own manifest entry.
+ * `!fs.existsSync`/`!manifestItems[ancestor.id]` dedupe across items that
+ * share an ancestor (review.md B5 — without a manifest entry, writeback's
+ * `ensureDirectoryChainItem` mints a duplicate folder item).
+ *
+ * Pass 2 writes each item's own content. An item whose id was already
+ * materialised as a directory in pass 1 — a parent-with-children that is
+ * ALSO independently selected — gets its REAL body written into that
+ * directory's `index.md` (overwriting the placeholder) and no separate leaf
+ * file. @lore nested-knowledge-real: previously that combination dumped the
+ * parent's real body into a stray sibling leaf file next to its own
+ * directory, while the directory's index.md stayed title-only forever —
+ * contradicting plan.md's "a parent as a directory containing index.md with
+ * its own body." Everything else still writes as an ordinary leaf.
  */
-function writeOrdinaryItem(
+function writeOrdinaryItems(
 	sandboxPath: string,
-	item: BakedContextKnowledgeItem,
+	items: readonly BakedContextKnowledgeItem[],
 	manifestItems: Record<string, ManifestEntry>,
-): string {
-	let cursor = "knowledge";
-	for (const ancestor of item.parentChain) {
-		cursor = `${cursor}/${toSkillDirName(ancestor.title)}`;
-		const fullDir = path.join(sandboxPath, cursor);
-		fs.mkdirSync(fullDir, { recursive: true });
-		const indexPath = path.join(fullDir, "index.md");
-		if (!fs.existsSync(indexPath)) {
-			fs.writeFileSync(indexPath, `# ${ancestor.title}\n`);
-		}
-		if (!manifestItems[ancestor.id]) {
-			manifestItems[ancestor.id] = {
-				version: ancestor.version,
-				source_path: cursor,
-				format: "markdown",
-				scopeKind: ancestor.scopeKind,
-			};
+): void {
+	const dirPathByAncestorId: Record<string, string> = {};
+
+	for (const item of items) {
+		let cursor = "knowledge";
+		for (const ancestor of item.parentChain) {
+			cursor = `${cursor}/${toSkillDirName(ancestor.title)}`;
+			const fullDir = path.join(sandboxPath, cursor);
+			fs.mkdirSync(fullDir, { recursive: true });
+			dirPathByAncestorId[ancestor.id] = cursor;
+			const indexPath = path.join(fullDir, "index.md");
+			if (!fs.existsSync(indexPath)) {
+				fs.writeFileSync(indexPath, `# ${ancestor.title}\n`);
+			}
+			if (!manifestItems[ancestor.id]) {
+				manifestItems[ancestor.id] = {
+					version: ancestor.version,
+					source_path: cursor,
+					format: "markdown",
+					scopeKind: ancestor.scopeKind,
+				};
+			}
 		}
 	}
-	return writeItem(sandboxPath, item, cursor);
+
+	for (const item of items) {
+		const ownDirPath = dirPathByAncestorId[item.id];
+		if (ownDirPath !== undefined) {
+			fs.writeFileSync(path.join(sandboxPath, ownDirPath, "index.md"), item.body);
+			manifestItems[item.id] = {
+				version: item.version,
+				source_path: ownDirPath,
+				format: item.format,
+				scopeKind: item.scopeKind,
+			};
+			continue;
+		}
+
+		let cursor = "knowledge";
+		for (const ancestor of item.parentChain) {
+			cursor = `${cursor}/${toSkillDirName(ancestor.title)}`;
+		}
+		const relativePath = writeItem(sandboxPath, item, cursor);
+		manifestItems[item.id] = {
+			version: item.version,
+			source_path: relativePath,
+			format: item.format,
+			scopeKind: item.scopeKind,
+		};
+	}
 }
 
 function setContextReadOnly(sandboxPath: string): void {
@@ -881,6 +920,7 @@ function writeBundleKnowledge(
 	agentId: string,
 ): Record<string, ManifestEntry> {
 	const manifestItems: Record<string, ManifestEntry> = {};
+	const ordinaryItems: BakedContextKnowledgeItem[] = [];
 	for (const item of knowledge) {
 		const role = item.role;
 
@@ -937,17 +977,12 @@ function writeBundleKnowledge(
 		}
 
 		// role === 'ordinary': materialise into knowledge/, shaped like its
-		// real ancestor chain (architecture.md §5) — not a layer zone.
-		// writeOrdinaryItem also registers a manifest entry for every ancestor
-		// directory it creates (review.md B5), writing directly into manifestItems.
-		const relativePath = writeOrdinaryItem(sandboxPath, item, manifestItems);
-		manifestItems[item.id] = {
-			version: item.version,
-			source_path: relativePath,
-			format: item.format,
-			scopeKind: item.scopeKind,
-		};
+		// real ancestor chain (architecture.md §5) — not a layer zone. Deferred
+		// to writeOrdinaryItems below, which needs every ordinary item at once
+		// to tell a directory-owning parent from a plain leaf.
+		ordinaryItems.push(item);
 	}
+	writeOrdinaryItems(sandboxPath, ordinaryItems, manifestItems);
 	return manifestItems;
 }
 

@@ -3,7 +3,7 @@
  * `0080` step 11 fails any pending/claimed `agent_work_intents` row whose
  * baked `contextBundle.knowledge` predates the `parentChain` contract,
  * instead of leaving it to crash the drain path with "undefined is not
- * iterable" (`writeOrdinaryItem` iterates `item.parentChain`
+ * iterable" (`writeOrdinaryItems` iterates `item.parentChain`
  * unconditionally, and the field is required as of this migration).
  *
  * Same brownfield discipline as migration-0080-brownfield:
