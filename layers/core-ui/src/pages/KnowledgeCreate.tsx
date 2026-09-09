@@ -19,7 +19,7 @@
 
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
-import { Link as RRLink, useNavigate } from "react-router-dom";
+import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
 // hearth-internal-padding
 import {
 	BodyEditor,
@@ -60,6 +60,7 @@ interface CreateKnowledgeResponse {
 
 export function KnowledgeCreate(): JSX.Element {
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
 	const { user } = useCurrentUser();
 
 	const [title, setTitle] = useState("");
@@ -79,8 +80,11 @@ export function KnowledgeCreate(): JSX.Element {
 	/**
 	 * @lore nested-knowledge-items: "" is top level (a root) — plan.md AC2,
 	 * "the create flow picks a parent, defaulting to none (a root)."
+	 * Tree "Add child" and detail ChildrenCard navigate here with
+	 * `?parentId=` so the ParentPicker opens preselected — init only;
+	 * submit payload shape is unchanged.
 	 */
-	const [parentId, setParentId] = useState("");
+	const [parentId, setParentId] = useState(() => searchParams.get("parentId") ?? "");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 

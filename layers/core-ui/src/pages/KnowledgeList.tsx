@@ -26,11 +26,10 @@
  *
  * @lore nested-knowledge-items: topic grouping (KnowledgeTopicGroup, "curated
  * = topic buckets") is REMOVED — `topic` no longer exists on the kernel row.
- * The Curated tab is now a flat sorted list, same rendering shape as Triage.
- * Browsing the actual tree (parent/child nesting) lives on the detail page's
- * children list, not here. The old scope URL param (`?scope=practice|product`)
- * used dead scope values and drove nothing but a hidden sr-only indicator —
- * removed along with the values it read.
+ * The Curated tab is a nestable tree (KnowledgeTreeList): collapse/expand,
+ * indent guides, add-child in place. Detail still lists children on the item.
+ * The old scope URL param (`?scope=practice|product`) used dead scope values
+ * and drove nothing but a hidden sr-only indicator — removed with those values.
  */
 
 import type { KnowledgeSortOption, KnowledgeStatus } from "@hyperidle/domain-model";
@@ -64,6 +63,11 @@ import { clipExcerpt } from "../utils/clip-excerpt.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 import { stripMarkdown } from "../utils/strip-markdown.js";
 import { relativeShort } from "../utils/time.js";
+import { buildKnowledgeTree } from "./knowledge/build-knowledge-tree.js";
+import { KnowledgeTreeList } from "./knowledge/KnowledgeTreeList.js";
+
+/** Re-export for existing tests that import the tree builder from this page. */
+export { buildKnowledgeTree, type KnowledgeTreeRow } from "./knowledge/build-knowledge-tree.js";
 
 type KnowledgeTab = "triage" | "curated";
 
@@ -87,49 +91,6 @@ export function sortItems(items: ApiKnowledgeItem[]): ApiKnowledgeItem[] {
 		if (cmp !== 0) return cmp;
 		return a.title.localeCompare(b.title);
 	});
-}
-
-/**
- * @lore nested-knowledge-items AC1: turns a flat, already-sorted item array
- * into DFS tree order (each item immediately followed by its own children,
- * recursively) with a per-item depth for indentation. The Curated tab is a
- * tree, not a topic-grouped or flat list.
- *
- * An item whose `parentId` does not resolve inside this array (its parent is
- * filtered out — e.g. a "proposed" parent with an "active" child) renders as
- * its own root rather than being silently dropped: a status filter must not
- * make an item unreachable.
- */
-export interface KnowledgeTreeRow {
-	item: ApiKnowledgeItem;
-	depth: number;
-}
-
-export function buildKnowledgeTree(items: ApiKnowledgeItem[]): KnowledgeTreeRow[] {
-	const ids = new Set(items.map((i) => i.id));
-	const childrenByParent = new Map<string, ApiKnowledgeItem[]>();
-	const roots: ApiKnowledgeItem[] = [];
-	for (const item of items) {
-		if (item.parentId && ids.has(item.parentId)) {
-			const siblings = childrenByParent.get(item.parentId) ?? [];
-			siblings.push(item);
-			childrenByParent.set(item.parentId, siblings);
-		} else {
-			roots.push(item);
-		}
-	}
-
-	const rows: KnowledgeTreeRow[] = [];
-	const visited = new Set<string>();
-	function visit(item: ApiKnowledgeItem, depth: number): void {
-		// Depth-32 cycle backstop (architecture §3) — a malformed tree must not hang the tab.
-		if (visited.has(item.id) || depth > 32) return;
-		visited.add(item.id);
-		rows.push({ item, depth });
-		for (const child of childrenByParent.get(item.id) ?? []) visit(child, depth + 1);
-	}
-	for (const root of roots) visit(root, 0);
-	return rows;
 }
 
 function isKnowledgeSortOption(value: string | null): value is KnowledgeSortOption {
@@ -216,6 +177,8 @@ interface KnowledgeListContentProps {
 	onSearchChange: (query: string) => void;
 	/** FR-19: navigate to new knowledge item creation. */
 	onNewItem: () => void;
+	/** Navigate to create a child under the given parent item. */
+	onNewChild: (parentId: string) => void;
 }
 
 function KnowledgeListContent({
@@ -237,6 +200,7 @@ function KnowledgeListContent({
 	onTabChange,
 	onSearchChange,
 	onNewItem,
+	onNewChild,
 }: KnowledgeListContentProps): JSX.Element {
 	// Y4: keyboard navigation state for triage items (-1 = no focus)
 	const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -629,63 +593,11 @@ function KnowledgeListContent({
 							/>
 						</div>
 					) : (
-						<ItemList variant="flush" as="ul" isEmpty={curatedTreeRows.length === 0}>
-							{curatedTreeRows.map(({ item, depth }) => {
-								const isPrivate = item.scopeKind === "user";
-								// AQ-001: indent step is 18px (numeric Hearth vocabulary),
-								// capped so a pathological depth never pushes a row off-screen.
-								const indent = Math.min(depth, 6) * 18;
-								return (
-									<Row
-										key={item.id}
-										as="li"
-										data-testid="knowledge-row"
-										title={
-											<span style={indent > 0 ? { paddingLeft: `${indent}px` } : undefined}>
-												{depth > 0 && (
-													<span
-														aria-hidden="true"
-														className="type-metadata text-[var(--text-tertiary)]"
-													>
-														└{" "}
-													</span>
-												)}
-												{item.title}
-											</span>
-										}
-										subtitle={
-											item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
-										}
-										cells={[
-											...(isPrivate
-												? [
-														{
-															content: (
-																<span
-																	className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
-																	style={{
-																		background: "var(--surface-container)",
-																		color: "var(--text-secondary)",
-																	}}
-																	title="Private — only visible to you"
-																>
-																	Private
-																</span>
-															),
-															"data-testid": "private-badge" as const,
-														},
-													]
-												: []),
-											{
-												content: relativeShort(item.updatedAt),
-												"data-testid": "knowledge-time" as const,
-											},
-										]}
-										onClick={() => onNavigate(item.id)}
-									/>
-								);
-							})}
-						</ItemList>
+						<KnowledgeTreeList
+							rows={curatedTreeRows}
+							onNavigate={onNavigate}
+							onNewChild={onNewChild}
+						/>
 					)}
 				</div>
 			)}
@@ -960,6 +872,7 @@ export function KnowledgeList({
 					onTabChange={handleTabChange}
 					onSearchChange={setSearchQuery}
 					onNewItem={() => navigate("/knowledge/new")}
+					onNewChild={(parentId) => navigate(`/knowledge/new?parentId=${parentId}`)}
 				/>
 			)}
 		</PageScaffold>

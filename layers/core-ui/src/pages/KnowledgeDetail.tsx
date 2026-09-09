@@ -374,36 +374,59 @@ export function KnowledgeDetail({
 // AG4: KnowledgeDetailBreadcrumb local fn deleted — replaced by DS Breadcrumb in KnowledgeDetailView.
 
 /**
- * @lore nested-knowledge-items: "a parent renders its children" — a plain
- * list of this item's own children, ordered by position (server-side).
- * Distinct from Backlinks (children ∪ siblings): this card is empty for a
- * leaf item and renders nothing at all rather than an empty-state, since a
- * leaf having no children is the normal case, not an absence worth noting.
+ * ChildrenCard — this item's own children (ordered by position).
+ *
+ * @lore nested-knowledge-items tree-ui: Row-like child links + "Add child"
+ * shortcut. Always shown so the first nest is available from detail (not only
+ * when children already exist). Distinct from Backlinks (children ∪ siblings).
  */
 function ChildrenCard({
 	children: items,
+	parentId,
 }: {
 	children?: ReadonlyArray<{ id: string; title: string }>;
-}): JSX.Element | null {
-	if (!items || items.length === 0) return null;
+	parentId: string;
+}): JSX.Element {
+	const list = items ?? [];
 	return (
 		<div
 			data-testid="knowledge-children-card"
-			className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]"
+			className="bg-[var(--surface-page)] rounded-[var(--r-default)] overflow-hidden"
 		>
-			<SectionLabel label="Children" as="h2" />
-			<ul className="flex flex-col">
-				{items.map((child) => (
-					<li key={child.id} data-testid="knowledge-child-item">
-						<RRLink
-							to={`/knowledge/${child.id}`}
-							className="type-control flex items-center gap-[9px] py-[6px]  text-[var(--accent-deep)] hover:underline cursor-pointer"
+			<div className="px-[18px] pt-[18px] pb-[9px] flex items-center justify-between gap-[12px]">
+				<SectionLabel label="Children" as="h2" />
+				<RRLink
+					to={`/knowledge/new?parentId=${parentId}`}
+					className="type-metadata shrink-0 min-h-[44px] inline-flex items-center text-[var(--accent-deep)] hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+					data-testid="knowledge-add-child"
+				>
+					Add child
+				</RRLink>
+			</div>
+			{list.length === 0 ? (
+				<div className="px-[18px] pb-[18px]">
+					<p className="type-metadata text-[var(--text-tertiary)]">
+						No nested items yet. Nest related knowledge under this one.
+					</p>
+				</div>
+			) : (
+				<ul className="flex flex-col pb-[9px]">
+					{list.map((child) => (
+						<li
+							key={child.id}
+							data-testid="knowledge-child-item"
+							className="border-width-thin-t border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 						>
-							{child.title}
-						</RRLink>
-					</li>
-				))}
-			</ul>
+							<RRLink
+								to={`/knowledge/${child.id}`}
+								className="type-control flex items-center min-h-[44px] px-[18px] py-[9px] text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+							>
+								{child.title}
+							</RRLink>
+						</li>
+					))}
+				</ul>
+			)}
 		</div>
 	);
 }
@@ -674,6 +697,16 @@ function KnowledgeDetailView({
 	// L18: Fetch the host thread for inline anchored messages
 	const { data: threadData } = useHostThread("knowledge_item", item.id);
 
+	/**
+	 * @lore nested-knowledge-items tree-ui: fetch the direct parent's title so
+	 * the breadcrumb shows true ancestry rather than scope. Conditional on
+	 * parentKind === "knowledge_item" — items parented to tasks/threads/agents
+	 * don't appear in the tree and get no ancestor breadcrumb.
+	 */
+	const parentFetchId =
+		item.parentId && item.parentKind === "knowledge_item" ? item.parentId : undefined;
+	const { data: parentItemData } = useKnowledgeItem(parentFetchId);
+
 	// T2: Auto-save version tracking
 	const [version, setVersion] = useState<number>(item.versionNum ?? 1);
 	const [conflictVersion, setConflictVersion] = useState<number | null>(null);
@@ -883,14 +916,34 @@ function KnowledgeDetailView({
 					reservePaneControls={presentation === "pane"}
 					title={item.title}
 					leading={
-						/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn */
+						/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn.
+						 * @lore nested-knowledge-items tree-ui: breadcrumb reflects TRUE
+						 * ancestry (parent chain) rather than scope. When parentItemData
+						 * is available, it replaces the old scopeName segment. A "…"
+						 * segment is shown when the parent itself has a parent, signalling
+						 * deeper nesting without cascading fetches. scopeName falls back
+						 * when item is off-tree (parentKind != knowledge_item) — it remains
+						 * the correct label there (scope, not ancestry).
+						 */
 						<Breadcrumb
 							segments={[
 								{ label: "Knowledge", to: "/knowledge" },
-								// AV3 AC-3: replace deprecated item.scope with resolved item.scopeName.
-								// When scopeName absent (fixture/legacy path), omit the segment entirely.
-								// The deprecated KnowledgeScope item.scope is NOT read here (WARNING-A3).
-								...(item.scopeName ? [{ label: item.scopeName }] : []),
+								// True ancestry: prefer parent item title over scope label.
+								...(parentItemData
+									? [
+											// Signal deeper nesting without extra fetches.
+											...(parentItemData.parentId && parentItemData.parentKind === "knowledge_item"
+												? [{ label: "…" }]
+												: []),
+											{
+												label: parentItemData.title,
+												to: `/knowledge/${item.parentId}`,
+											},
+										]
+									: // Fallback: scope label for off-tree items (task/thread/agent parent)
+										item.scopeName
+										? [{ label: item.scopeName }]
+										: []),
 								{ label: item.title },
 							]}
 							leading={
@@ -1211,7 +1264,7 @@ function KnowledgeDetailView({
 					</div>
 
 					{/* @lore nested-knowledge-items: this item's own children */}
-					<ChildrenCard>{item.children}</ChildrenCard>
+					<ChildrenCard parentId={effectiveKnowledgeId}>{item.children}</ChildrenCard>
 
 					{/* W3 AC-41: backlinks card */}
 					<BacklinksCard
