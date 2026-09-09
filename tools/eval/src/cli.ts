@@ -89,7 +89,7 @@ Options:
   --help, -h                   Show this help
 
 Harness model examples:
-  --harness codex        --model gpt-5.4-mini
+  --harness codex        --model gpt-5.6-luna
   --harness claude       --model haiku
   --harness opencode     --model openrouter/z-ai/glm-4.7-flash
   --harness cursor-agent --model auto

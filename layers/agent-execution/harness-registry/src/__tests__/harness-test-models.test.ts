@@ -28,8 +28,8 @@ describe("HARNESS_TEST_MODELS — locked matrix shape", () => {
 		expect(HARNESS_TEST_MODELS.claude.model).toBe("haiku");
 	});
 
-	test("codex → locked model gpt-5.4-mini (tiny baseline; nano rejected by ChatGPT-account codex)", () => {
-		expect(HARNESS_TEST_MODELS.codex.model).toBe("gpt-5.4-mini");
+	test("codex → locked model gpt-5.6-luna (tiny baseline; nano rejected by ChatGPT-account codex)", () => {
+		expect(HARNESS_TEST_MODELS.codex.model).toBe("gpt-5.6-luna");
 	});
 
 	test("opencode → locked model openrouter/z-ai/glm-4.7-flash", () => {

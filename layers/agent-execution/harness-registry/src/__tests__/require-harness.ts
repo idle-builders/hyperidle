@@ -111,7 +111,7 @@ export function requireHarness(...names: HarnessName[]): void {
  * ════════════════════════════════════════════════════════════════════════════
  * TINY-MODEL BASELINE — READ THIS BEFORE TOUCHING ANY VALUE.
  * Every entry is DELIBERATELY the SMALLEST/cheapest model its harness's actual
- * auth allows (claude → `haiku`, codex → `gpt-5.4-mini` — the floor under a
+ * auth allows (claude → `haiku`, codex → `gpt-5.6-luna` — the floor under a
  * ChatGPT-account codex login, since nano is API-key-only and rejected there;
  * builtin → deepseek `…-flash`, opencode → glm `…-flash`). A harness integration test MUST pass on these tiny
  * models. That is the whole point: if the feature only works on a bigger model,
@@ -141,10 +141,20 @@ export function requireHarness(...names: HarnessName[]): void {
  * isolated red flag rather than a routine reach.
  *
  * @lore AR7: Values are founder-set 2026-06-30. `haiku` is the claude CLI tier
- * alias resolving to the latest Haiku (smallest tier); `gpt-5.4-mini` is the
- * smallest codex tier our ChatGPT-account login accepts (nano/codex-mini are
- * rejected there). Both are the TINY baseline — see the header block. Every
- * harness authenticates itself, so none of these carry a key.
+ * alias resolving to the latest Haiku (smallest tier); `gpt-5.6-luna` is the
+ * smallest codex tier our ChatGPT-account login accepts. `gpt-5.4-mini` (the
+ * prior entry) was retired by OpenAI — codex now rejects it outright with
+ * "GPT-5.4 Mini is no longer available", and offers `gpt-5.6-luna` as its
+ * direct replacement (the CLI's own migration message names it as such); nano
+ * and `gpt-5-codex-mini` remain API-key-only and rejected under the
+ * ChatGPT-account login. Re-verified live 2026-09-09: enumerated candidate
+ * slugs against `codex exec --model <id> "say hi"` — unknown ids fail fast
+ * with "Model metadata ... not found" plus a 400 from the account gate;
+ * `gpt-5.6-luna` returned a real completion with no warning. The slug itself
+ * was confirmed by grepping the installed `codex` binary's embedded strings
+ * for its model registry (`"slug": "gpt-5.6-luna"`), not guessed. Both entries
+ * are the TINY baseline — see the header block. Every harness authenticates
+ * itself, so none of these carry a key.
  *
  * @lore AR7: All four harnesses are argument-enforced on the model — each
  * receives it via `--model {{model}}` in its adapter config, resolved from
@@ -167,13 +177,19 @@ export const HARNESS_TEST_MODELS = {
 		model: "haiku",
 	},
 	codex: {
-		// TINY-BASELINE: `gpt-5.4-mini` is the SMALLEST codex tier usable here. nano is
+		// TINY-BASELINE: `gpt-5.6-luna` is the SMALLEST codex tier usable here. nano is
 		// NOT it — codex with a ChatGPT-account login rejects `gpt-5.4-nano` and
 		// `gpt-5-codex-mini` (400 "not supported when using Codex with a ChatGPT
-		// account"; verified live 2026-06-30). nano is API-key-only; our codex auth is
-		// the inherited ChatGPT/keychain login, so mini is the floor. Enforced via
+		// account"; verified live 2026-06-30). `gpt-5.4-mini` (the prior entry here)
+		// was retired by OpenAI and now hard-fails with "GPT-5.4 Mini is no longer
+		// available"; the CLI's own migration message names `gpt-5.6-luna` as its
+		// replacement. Re-verified live 2026-09-09 via `codex exec --model
+		// gpt-5.6-luna "say hi"` (real completion, no warning) after confirming the
+		// slug against the installed binary's own model registry — see the header
+		// @lore above for the full method. nano is API-key-only; our codex auth is
+		// the inherited ChatGPT/keychain login, so luna is the floor. Enforced via
 		// CLI_TOOL_CONFIGS.codex.args `--model {{model}}` on codex exec. See header.
-		model: "gpt-5.4-mini",
+		model: "gpt-5.6-luna",
 	},
 	opencode: {
 		model: "openrouter/z-ai/glm-4.7-flash",

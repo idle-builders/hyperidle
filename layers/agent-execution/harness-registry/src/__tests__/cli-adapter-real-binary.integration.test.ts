@@ -399,7 +399,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 			modelTier: "workhorse" as const,
 			tools: [],
-			selectedModel: "gpt-5.4-mini",
+			selectedModel: "gpt-5.6-luna",
 			mcpConnectionInfo: undefined,
 		};
 
