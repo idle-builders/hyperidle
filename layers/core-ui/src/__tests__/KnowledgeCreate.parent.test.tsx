@@ -2,11 +2,9 @@
  * KnowledgeCreate — the nest-at-create-time half of plan.md AC2: "the create
  * flow picks a parent, defaulting to none (a root)."
  *
- * POST /api/knowledge never accepts a `knowledge_item` parent (see
- * routes/knowledge.ts's own `CLIENT_WRITABLE_PARENT_KINDS` doc comment —
- * nesting under an existing item is create-then-PATCH-reparent, not a
- * single create call). So a chosen parent is applied as a second PATCH
- * right after the create succeeds.
+ * @lore nested-knowledge-items, founder ruling: nesting under an existing
+ * item is ONE write — the chosen parent rides POST /api/knowledge as
+ * parentKind/parentId. There is no follow-up PATCH.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -91,7 +89,7 @@ describe("KnowledgeCreate — parent picker", () => {
 		expect(select.value).toBe("");
 	});
 
-	it("creating with no parent selected does not follow up with a PATCH", async () => {
+	it("creating with no parent selected omits parentKind and parentId from the POST", async () => {
 		vi.mocked(apiFetch).mockResolvedValue({
 			ok: true,
 			json: async () => ({ id: "new-item-id" }),
@@ -101,14 +99,16 @@ describe("KnowledgeCreate — parent picker", () => {
 
 		await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/knowledge/new-item-id"));
 		expect(apiFetch).toHaveBeenCalledTimes(1);
+		const [url, options] = vi.mocked(apiFetch).mock.calls[0] as [string, RequestInit];
+		expect(url).toBe("/api/knowledge");
+		expect(options.method).toBe("POST");
+		const body = JSON.parse(options.body as string) as Record<string, unknown>;
+		expect(body).not.toHaveProperty("parentKind");
+		expect(body).not.toHaveProperty("parentId");
 	});
 
-	it("creating with a parent selected POSTs then PATCHes the new item under it", async () => {
-		vi.mocked(apiFetch).mockResolvedValueOnce({
-			ok: true,
-			json: async () => ({ id: "new-item-id" }),
-		} as Response);
-		vi.mocked(apiFetch).mockResolvedValueOnce({
+	it("creating with a parent selected sends ONE POST carrying parentKind+parentId — no follow-up PATCH", async () => {
+		vi.mocked(apiFetch).mockResolvedValue({
 			ok: true,
 			json: async () => ({ id: "new-item-id" }),
 		} as Response);
@@ -117,22 +117,18 @@ describe("KnowledgeCreate — parent picker", () => {
 		await user.selectOptions(screen.getByTestId("parent-picker"), "root-a");
 		await user.click(screen.getByTestId("knowledge-create-submit"));
 
-		await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(2));
-		const [patchUrl, patchOptions] = vi.mocked(apiFetch).mock.calls[1] as [string, RequestInit];
-		expect(patchUrl).toBe("/api/knowledge/new-item-id");
-		expect(patchOptions.method).toBe("PATCH");
-		const body = JSON.parse(patchOptions.body as string);
-		expect(body).toMatchObject({ parentKind: "knowledge_item", parentId: "root-a", version: 1 });
+		await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
+		const [url, options] = vi.mocked(apiFetch).mock.calls[0] as [string, RequestInit];
+		expect(url).toBe("/api/knowledge");
+		expect(options.method).toBe("POST");
+		const body = JSON.parse(options.body as string);
+		expect(body).toMatchObject({ parentKind: "knowledge_item", parentId: "root-a" });
 
 		await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/knowledge/new-item-id"));
 	});
 
-	it("shows the server-named reason and does not navigate when nesting fails", async () => {
-		vi.mocked(apiFetch).mockResolvedValueOnce({
-			ok: true,
-			json: async () => ({ id: "new-item-id" }),
-		} as Response);
-		vi.mocked(apiFetch).mockResolvedValueOnce({
+	it("shows the server-named reason and does not navigate when nesting fails on create", async () => {
+		vi.mocked(apiFetch).mockResolvedValue({
 			ok: false,
 			status: 400,
 			json: async () => ({
@@ -149,6 +145,7 @@ describe("KnowledgeCreate — parent picker", () => {
 		expect(await screen.findByTestId("knowledge-create-error")).toHaveTextContent(
 			/exceed the maximum of 32/,
 		);
+		expect(apiFetch).toHaveBeenCalledTimes(1);
 		expect(mockNavigate).not.toHaveBeenCalled();
 	});
 });
