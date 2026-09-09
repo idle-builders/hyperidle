@@ -14,7 +14,7 @@
  * TC-4:  Returns matching conversations (thread + message match)
  * TC-5:  Excludes conversations where user is not a participant (AUTH BOUNDARY)
  * TC-6:  Returns matching work items (bets with team name)
- * TC-7:  Returns matching knowledge items (with fabric layer/kind)
+ * TC-7:  Returns matching knowledge items
  * TC-8:  Excludes user-scoped knowledge from other users (AUTH BOUNDARY)
  * TC-9:  Returns results across all three categories
  * TC-10: Limits results to 5 per category
@@ -142,8 +142,6 @@ async function seedKnowledgeItem(
 		body: string;
 		scopeKind: string;
 		updatedBy: string;
-		layer?: string;
-		kind?: string;
 		status?: string;
 	},
 ): Promise<void> {
@@ -159,15 +157,10 @@ async function seedKnowledgeItem(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-
-	if (opts.layer !== undefined || opts.kind !== undefined) {
-		await db.insert(knowledgeAppProjection).values({
-			id: `ksf-${opts.id}`,
-			knowledgeItemId: opts.id,
-			layer: opts.layer ?? null,
-			kind: opts.kind ?? null,
-		});
-	}
+	// The owner writes the projection row alongside the item.
+	await db
+		.insert(knowledgeAppProjection)
+		.values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
 }
 
 // ─── TC-1: Missing `q` parameter returns 400 ────────────────────────────────
@@ -329,9 +322,9 @@ describe("GET /api/search — AD7 search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-7: Matching knowledge items with fabric layer/kind ──────────────
+	// ─── TC-7: Matching knowledge items ──────────────
 
-	test("TC-7: returns matching knowledge items with id, title, layer, kind, status, timestamp", async ({
+	test("TC-7: returns matching knowledge items with id, title, status, timestamp", async ({
 		app,
 		db,
 	}) => {
@@ -345,8 +338,6 @@ describe("GET /api/search — AD7 search backend", () => {
 			body: "Step 1: Read the docs",
 			scopeKind: "factory",
 			updatedBy: userId,
-			layer: "process",
-			kind: "guide",
 		});
 
 		const res = await app.request("/api/search?q=onboarding+checklist", {
@@ -357,8 +348,6 @@ describe("GET /api/search — AD7 search backend", () => {
 			knowledge: Array<{
 				id: string;
 				title: string;
-				layer: string | null;
-				kind: string | null;
 				status: string;
 				timestamp: string;
 			}>;
@@ -369,8 +358,6 @@ describe("GET /api/search — AD7 search backend", () => {
 		expect(ki).toBeDefined();
 		expect(ki?.id).toBe("ki-search-1");
 		expect(ki?.title).toContain("Onboarding");
-		expect(ki?.layer).toBe("process");
-		expect(ki?.kind).toBe("guide");
 		expect(ki?.status).toBe("active");
 		expect(ki?.timestamp).toBeTruthy();
 		vi.unstubAllEnvs();

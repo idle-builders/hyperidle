@@ -8,17 +8,36 @@
  * discarding the one field that says where a thing belongs is worse than
  * refusing it.
  *
- * Two kinds are accepted from a client: `task` and `thread`. The other three
- * (`knowledge_item`, `routine`, `agent`) are written only by core-api's own
- * routes, which already hold the parent row for other reasons.
+ * Three kinds are accepted from a client: `task`, `thread`, and (nested-
+ * knowledge-items, founder ruling: "two writes for a nested item is weird...
+ * the write should accept that") `knowledge_item` — nesting a new item under
+ * an existing tree node is now ONE write, not a create-then-PATCH-reparent.
+ * The other two (`routine`, `agent`) stay refused from the client — those are
+ * written only by core-api's own routes, which already hold the parent row
+ * for other reasons (attaching a routine's prompt or an agent's identity).
  *
- * Existence is checked by the service that OWNS the parent's table — `work`
- * for a task, `conversation` for a thread — never by reading their tables
- * here. Both are already imported by this route, so this costs no new
- * coupling.
+ * Existence for `task`/`thread` is checked by the service that OWNS the
+ * parent's table — `work` for a task, `conversation` for a thread — never by
+ * reading their tables here. Both are already imported by this route, so
+ * this costs no new coupling. Existence and the tree invariants (scope no
+ * wider than the parent, depth <= 32) for a `knowledge_item` parent are
+ * checked inside `create()`'s own transaction, the same way `reparent()`
+ * checks them for a move — see `knowledge-tree-invariants.integration.test.ts`
+ * for that coverage. This file additionally proves the parent must be
+ * VISIBLE to the caller, not merely exist — a caller may not nest a new item
+ * under someone else's private note.
  */
 
-import { type HyperIdleDb, knowledgeItems, tasks, teams, threads, users } from "@hyperidle/db";
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
+import {
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -29,8 +48,12 @@ import { test } from "../../__testing__/test-fixtures.js";
 const TEST_API_KEY = "test-key-knowledge-parent";
 const NOW = "2026-09-02T00:00:00.000Z";
 
-function authHeaders(): Record<string, string> {
-	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
+function authHeaders(actorId?: string): Record<string, string> {
+	return {
+		"X-API-Key": TEST_API_KEY,
+		"Content-Type": "application/json",
+		...(actorId ? { [CORE_API_ACTOR_OVERRIDE_HEADER]: actorId } : {}),
+	};
 }
 
 async function seedHosts(
@@ -72,6 +95,29 @@ async function seedHosts(
 	});
 
 	return { taskId, threadId };
+}
+
+/** Seeds a bare knowledge item (kernel row + its required projection row). */
+async function seedKnowledgeItem(
+	db: HyperIdleDb,
+	id: string,
+	opts: { scopeKind: string; scopeId?: string | null; updatedBy: string },
+): Promise<void> {
+	const now = "2026-09-09T00:00:00.000Z";
+	await db.insert(knowledgeItems).values({
+		id,
+		title: `Item ${id}`,
+		body: "body",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: opts.updatedBy,
+		scopeKind: opts.scopeKind,
+		scopeId: opts.scopeId ?? null,
+		createdAt: now,
+		updatedAt: now,
+	});
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 function createBody(extra: Record<string, unknown>): string {
@@ -185,13 +231,116 @@ describe("a knowledge item is created with a parent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("is refused for a parent kind only core-api's own routes may write", async ({ db, app }) => {
+	test("is refused for a parent kind only core-api's own routes may write (agent)", async ({
+		db,
+		app,
+	}) => {
 		const { taskId } = await seedHosts(db, "kp-internal");
 
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
 			body: createBody({ parentKind: "agent", parentId: taskId }),
+		});
+
+		expect(res.status).toBe(400);
+	});
+
+	test("is refused for a parent kind only core-api's own routes may write (routine)", async ({
+		db,
+		app,
+	}) => {
+		const { taskId } = await seedHosts(db, "kp-internal-routine");
+
+		const res = await app.request("/api/knowledge", {
+			method: "POST",
+			headers: authHeaders(),
+			body: createBody({ parentKind: "routine", parentId: taskId }),
+		});
+
+		expect(res.status).toBe(400);
+	});
+
+	// @lore nested-knowledge-items: the founder ruling ("a knowledge item can
+	// have a parent and the write should accept that") — nesting a new item
+	// under an EXISTING knowledge item is now a single POST, not a
+	// create-then-PATCH-reparent.
+	test("hangs off a knowledge_item that exists — ONE write, no follow-up PATCH", async ({
+		db,
+		app,
+	}) => {
+		await seedKnowledgeItem(db, "kp-ki-parent", { scopeKind: "factory", updatedBy: "u-founder" });
+
+		const res = await app.request("/api/knowledge", {
+			method: "POST",
+			headers: authHeaders(),
+			body: createBody({ parentKind: "knowledge_item", parentId: "kp-ki-parent" }),
+		});
+
+		expect(res.status).toBe(201);
+		const created = (await res.json()) as { id: string; parentKind?: string; parentId?: string };
+
+		const [row] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, created.id))
+			.limit(1);
+
+		expect(row?.parentKind).toBe("knowledge_item");
+		expect(row?.parentId).toBe("kp-ki-parent");
+	});
+
+	test("is refused when the named knowledge_item does not exist", async ({ db, app }) => {
+		await seedHosts(db, "kp-noki");
+
+		const res = await app.request("/api/knowledge", {
+			method: "POST",
+			headers: authHeaders(),
+			body: createBody({ parentKind: "knowledge_item", parentId: "ki-not-there" }),
+		});
+
+		expect(res.status).toBe(400);
+	});
+
+	// Existence alone is not enough — the parent must be visible to the caller.
+	test("is refused when the named knowledge_item exists but is private to another user", async ({
+		db,
+		app,
+	}) => {
+		await db.insert(users).values({
+			id: "kp-owner",
+			kind: "human",
+			name: "Owner",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
+		await db.insert(users).values({
+			id: "kp-outsider",
+			kind: "human",
+			name: "Outsider",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
+		await seedKnowledgeItem(db, "kp-private-parent", {
+			scopeKind: "user",
+			scopeId: "kp-owner",
+			updatedBy: "kp-owner",
+		});
+
+		const res = await app.request("/api/knowledge", {
+			method: "POST",
+			headers: authHeaders("kp-outsider"),
+			body: JSON.stringify({
+				title: "Produced item",
+				body: "# What the agent made",
+				format: "markdown",
+				updatedBy: "kp-outsider",
+				scopeKind: "user",
+				parentKind: "knowledge_item",
+				parentId: "kp-private-parent",
+			}),
 		});
 
 		expect(res.status).toBe(400);

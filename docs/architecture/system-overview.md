@@ -41,7 +41,7 @@ yet.
 admission, provisioning, context assembly, capture and writeback, lifecycle events.
 `agent-execution` owns the harness itself and holds no database access.
 
-Knowledge moves through five maturity layers L0–L4 (`framework/domain-model/src/knowledge.ts`); L0 is per-session context serialized as TOON. The taxonomy is owned by [The Five Layers](../knowledge-architecture/the-five-layers.md).
+Knowledge lives in one nested tree, not a layer ladder: where an item sits says what it is about, and `scope` (`factory | team | user`, `framework/domain-model/src/knowledge.ts`) says who can see it. Per-session task/team/routine state is serialized separately as `context/session.toon`. Owned by [Knowledge Architecture](../knowledge-architecture/index.md).
 
 Agents run as host processes in a local working directory — there is no isolation layer by default; opt-in sandboxing is a planned follow-up (AQ2). See [Run-Unit Model](./run-unit-model.md).
 

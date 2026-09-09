@@ -163,7 +163,6 @@ async function createRoutinePromptDocument(
 	},
 ): Promise<string> {
 	const created = await createKnowledgeItem(db, {
-		layer: input.ownerTeamId ? "L2" : "L4",
 		scopeKind: input.ownerTeamId ? "team" : "factory",
 		scopeId: input.ownerTeamId,
 		title: `${input.routineName || "Routine"} — prompt`,

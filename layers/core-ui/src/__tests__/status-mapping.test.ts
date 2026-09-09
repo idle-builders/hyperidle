@@ -82,16 +82,14 @@ describe("taskStateToStatus", () => {
 });
 
 describe("knowledgeStatusToStatus", () => {
-	it("maps captured to paused", () => {
-		expect(knowledgeStatusToStatus("captured")).toBe("paused" satisfies Status);
-	});
-
-	it("maps provisional to behind", () => {
-		expect(knowledgeStatusToStatus("provisional")).toBe("behind" satisfies Status);
-	});
-
-	it("maps validated to healthy", () => {
-		expect(knowledgeStatusToStatus("validated")).toBe("healthy" satisfies Status);
+	// @lore nested-knowledge-items: the 7-value KnowledgeStatus ladder collapsed
+	// to 4 (proposed | active | stale | archived) — captured/provisional/
+	// needs_human folded into proposed, validated folded into active.
+	it("maps proposed to behind", () => {
+		// I4 S2 intent preserved: proposed is the action-required state —
+		// explicitly not `healthy` (would mislead the founder into thinking the
+		// item needs no input).
+		expect(knowledgeStatusToStatus("proposed")).toBe("behind" satisfies Status);
 	});
 
 	it("maps active to healthy", () => {
@@ -107,34 +105,17 @@ describe("knowledgeStatusToStatus", () => {
 	});
 
 	it("covers all KnowledgeStatus values", () => {
-		const allStatuses: KnowledgeStatus[] = [
-			"captured",
-			"provisional",
-			"validated",
-			"active",
-			"stale",
-			"archived",
-			"needs_human",
-		];
+		const allStatuses: KnowledgeStatus[] = ["proposed", "active", "stale", "archived"];
 		for (const ks of allStatuses) {
 			const result = knowledgeStatusToStatus(ks);
 			expect(typeof result).toBe("string");
 		}
 	});
 
-	it("maps needs_human to a non-healthy attention-required Status", () => {
-		// I4 S2: `needs_human` must map to a value that surfaces the
-		// action-required state — explicitly not `healthy` (would mislead the
-		// founder into thinking the item needs no input).
-		const result = knowledgeStatusToStatus("needs_human");
-		expect(result).not.toBe("healthy");
-		expect(VALID_STATUSES).toContain(result);
-	});
-
 	it("exhaustively maps every KNOWLEDGE_STATUSES value to a valid Status", () => {
 		// I4 S2/S6: runtime iteration over the shared KNOWLEDGE_STATUSES array
 		// — catches additions to the union.
-		expect(KNOWLEDGE_STATUSES).toHaveLength(7);
+		expect(KNOWLEDGE_STATUSES).toHaveLength(4);
 		for (const ks of KNOWLEDGE_STATUSES) {
 			const result = knowledgeStatusToStatus(ks);
 			expect(VALID_STATUSES).toContain(result);

@@ -27,21 +27,17 @@ export const TASK_STATE_MAP: Record<TaskState, Status> = {
 };
 
 /**
- * Knowledge lifecycle status → presentation Status. Exhaustive over all 7
- * KnowledgeStatus values.
+ * Knowledge lifecycle status → presentation Status. Exhaustive over the
+ * 4-value KnowledgeStatus ladder.
  *
- * @lore I4 (CONFUSION resolved): `needs_human` maps to `behind` — the
- * literal name signals action-required, not idle. Mapping to `paused` would
- * read as awaiting silently, which underplays the founder-attention need.
+ * @lore nested-knowledge-items: collapsed the old 7-value set —
+ * captured/provisional/needs_human → proposed, validated → active.
  */
 export const KNOWLEDGE_STATUS_MAP: Record<KnowledgeStatus, Status> = {
-	captured: "paused",
-	provisional: "behind",
-	validated: "healthy",
+	proposed: "behind",
 	active: "healthy",
 	stale: "error",
 	archived: "done",
-	needs_human: "behind",
 };
 
 export function taskStateToStatus(state: TaskState): Status {

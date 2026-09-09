@@ -245,13 +245,13 @@ describe("[harness:codex] the configured reasoning effort is the effort codex ru
 					sessionId: sessionId("model-opt-codex"),
 					sandboxPath,
 					assembledPrompt: "Reply with exactly the token OPTION_OK and nothing else.",
-					selectedModel: "gpt-5.4-mini",
+					selectedModel: "gpt-5.6-luna",
 					modelOptions: { model_reasoning_effort: effort },
 					mcpConnectionInfo: undefined,
 				});
 				const ctx = codexTurnContext(stdout, path.join(sandboxPath, ".codex-home"));
 				expect(ctx, "codex recorded no turn context").toBeDefined();
-				expect(ctx?.model).toBe("gpt-5.4-mini");
+				expect(ctx?.model).toBe("gpt-5.6-luna");
 				expect(ctx?.effort, `codex ran at ${ctx?.effort}, not the requested ${effort}`).toBe(
 					effort,
 				);

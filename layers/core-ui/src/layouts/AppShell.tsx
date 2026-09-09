@@ -555,15 +555,21 @@ export function AppShell(): JSX.Element {
 		error: knowledgeError,
 		refetch: refetchSidebarKnowledge,
 	} = useFetch<{
-		items: ReadonlyArray<{ id: string; title: string; role?: string }>;
+		items: ReadonlyArray<{ id: string; title: string; parentKind?: string | null }>;
 	}>("/api/knowledge");
-	// The same "general knowledge only"
-	// filter KnowledgeList applies — a skill or rule item is reached from its
-	// own list (Settings → Skills & rules), not the fast-nav.
+	// @lore nested-knowledge-items §4: the same parent rule KnowledgeList
+	// applies — a role-carrying binding (skill/rule/agent identity/routine
+	// prompt) has a non-`knowledge_item` parent and is reached from its own
+	// surface, not the fast-nav.
 	const sidebarKnowledgeItems = useMemo(
 		() =>
 			(knowledgeListData?.items ?? [])
-				.filter((k) => k.role !== "skill" && k.role !== "rule")
+				.filter(
+					(k) =>
+						k.parentKind === null ||
+						k.parentKind === undefined ||
+						k.parentKind === "knowledge_item",
+				)
 				.slice(0, 5)
 				.map((k) => ({ id: k.id, title: k.title })),
 		[knowledgeListData],

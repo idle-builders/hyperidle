@@ -1,16 +1,16 @@
 # Facilitators
 
-Most agent systems have workers (agents that do things) and maybe an orchestrator (routes work). They're missing the role that actually makes knowledge compound: **the facilitator** — a dedicated agent per layer whose entire job is to organize the layer's knowledge, score what needs human attention, and collect exactly the feedback that converts information into knowledge. The role a great librarian, community manager, or editor plays in a human org. Without them, information accumulates but knowledge doesn't.
+Most agent systems have workers (agents that do things) and maybe an orchestrator (routes work). They're missing the role that actually makes knowledge compound: **the facilitator** — a dedicated agent whose entire job is to organize knowledge, score what needs human attention, and collect exactly the feedback that converts information into knowledge. The role a great librarian, community manager, or editor plays in a human org. Without them, information accumulates but knowledge doesn't.
 
 > **Load-bearing doc.** `layers/core-api/knowledge/src/promotion-pipeline.ts` quotes the auto-promotion sentence in §Auto-promotion verbatim (code comment still references `KNOWLEDGE_ARCHITECTURE.md §6.5` — the old monolith path; update that comment when renaming). Change that section and the code comment together.
 
 ## The facilitator family
 
-| Layer | Agent | What they organize |
+| Scope of care | Agent | What they organize |
 |-------|-------|--------------------|
-| L4 Factory | **System Agent** (factory-level singleton, `layers/core-api/src/bootstrap/factory-state.ts`) | Factory-level knowledge above the per-product teams |
-| L3 Practice | **Facilitator** (one per community: build/product/growth/ops, plus facilitation itself) | Role-specific practices, anti-patterns, conflicts, community-wide learnings |
-| L2 Product | **Product Manager** (one per product) | Product cycles, team coordination, task shaping, cross-function handoffs — and its own facilitation quality |
+| Factory-wide | **System Agent** (factory-level singleton, `layers/core-api/src/bootstrap/factory-state.ts`) | Factory-scoped knowledge above the per-product teams |
+| Practice (per community) | **Facilitator** (one per community: build/product/growth/ops, plus facilitation itself) | Role-specific practices, anti-patterns, conflicts, community-wide learnings |
+| Product (per team) | **Product Manager** (one per product) | Product cycles, team coordination, task shaping, cross-function handoffs — and its own facilitation quality |
 
 In code: role `facilitator`, category `individual` (`framework/domain-model/src/agent-roles.ts` — renamed from `practice_facilitator`, @lore AD8c; moved from `strategy` to `individual` in BA9d). Facilitators are now provided by the knowledge-management plugin (BA9d wave 2), not seeded at factory boot. The Product Manager is a `team`-category agent ("Team lead") — its facilitator hat is a conceptual framing, not a code category. The assistant is a per-user individual agent with guardrails (@lore AD8b). Role identity and the full taxonomy live in [agent-model](../agent-layer/agent-model.md).
 
@@ -20,21 +20,17 @@ Worker agents sit in a **matrix**: each reports vertically to its Product
 Manager and belongs horizontally to a community of practice led by a
 facilitator.
 
-**A practice is a role.** It used to be a `community` field on each catalog role
-plus a `communityForRole()` mapping onto `build/product/growth/ops/facilitation`
-— but nothing ever scoped knowledge to a community name (the demo world scopes
-practice knowledge by role), so the mapping did no work and went with the role
-catalog in BA9g. L3 practice knowledge is scoped by role: `scope_kind='practice'`
-with `scope_id` the role. A new role is its own practice, with nothing to
-maintain.
+**A practice is a role, and a practice is now a tree location, not a scope value.** `scope_kind='practice'` is gone — `SCOPE_KINDS` is exactly `factory | team | user` (`framework/domain-model/src/types.ts`). Every practice is instead an ordinary knowledge item nested under a "Practices" root (seeded once, migration `0080`), one folder per practice, named for the role it serves — `Building`, `Product Manager`, `Growth`, and so on. A practice can nest its own knowledge inside it exactly the way any other knowledge item can. Because Practices items are `factory`-scoped, they reach every session the same way any other factory item does — there is no subtree selection that hands an agent only "its" practice; every agent's session receives every practice folder, same as every other factory item.
 
-The fifth facilitator — for **facilitation itself** — means the facilitators form their own community of practice (`seed-agent-pf-facilitation`). Turtles stop there.
+**Matching an agent to its own practice is title matching, and it is a deliberate stopgap, not a mechanism.** Nothing in the schema or the assembler ties an agent's `role` string to a specific practice item's id — the practice folder is simply named after the role it serves, by convention, at seed time (`PRACTICE_FOLDER_ID`, `tools/setup/src/demo-world/knowledge.ts`). Founder: *"for now whatever works and later we will launch a session to rework that entire role/practice aspect since it seems broken."* Whether a practice and an agent role are one thing, and whether agents should be assigned practices by id instead of by name, is an open question for a future session — not something this doc should describe as settled.
+
+The fifth practice — for **facilitation itself** — means the facilitators form their own community of practice (`seed-agent-pf-facilitation`). Turtles stop there.
 
 ## What facilitators do
 
-1. **Continuously organize.** Merge duplicates, resolve conflicts (`knowledgeConflicts`, `framework/db/src/schema.ts:962`; see [sync-and-conflict-resolution](./sync-and-conflict-resolution.md)), archive stale items (stale sweep, `layers/core-api/knowledge/src/promotion-pipeline.ts:83`), link and tag for retrievability.
+1. **Continuously organize.** Merge duplicates, resolve conflicts (`knowledgeConflicts`, `framework/db/src/schema.ts:962`; see [sync-and-conflict-resolution](./sync-and-conflict-resolution.md)), archive stale items (stale sweep, `layers/core-api/knowledge/src/promotion-pipeline.ts`), nest and reorder for retrievability.
 2. **Score every item for human attention.** Weighted 8-signal attention score, threshold 0.7 → review item. Signal and question tables live in [relevance-and-attention](./relevance-and-attention.md).
-3. **Shape the human's queue for their layer.** The facilitator curates the Knowledge view triage queue; the Product Manager shapes the coming cycle's tasks.
+3. **Shape the human's queue for their scope.** The facilitator curates the Knowledge view triage queue; the Product Manager shapes the coming cycle's tasks.
 4. **Ask for the right kind of feedback.** A contradicting pair needs *resolution*; a novel pattern needs *validation*; a stable-but-stale practice needs *retirement or extension*. The facilitator picks the question — the question-kind routing table is in [relevance-and-attention](./relevance-and-attention.md). (Design intent; the question strings aren't in code yet.)
 5. **Close the loop.** Human feedback is written back into the knowledge store (`layers/agent-orchestration/run-orchestration/src/writeback-processor.ts`) and bumps confidence/attention scores.
 
@@ -43,32 +39,23 @@ The fifth facilitator — for **facilitation itself** — means the facilitators
 Raw capture is not knowledge. A task outcome, a failed attempt, a decision record — these are *information*. They become *knowledge* only when validated, contextualized, and proven reusable. Every item has a status:
 
 ```
-CAPTURED      ─┐
-               │  (a task failed, a decision was made, a pattern appeared)
-               ▼
-PROVISIONAL    ─┐
-               │  (picked up by a facilitator, organized, linked)
-               ▼
-NEEDS HUMAN    ─┐
-               │  (scored high enough to surface for human review)
-               ▼
-VALIDATED      ─┐
-               │  (human confirmed, sharpened, or explicitly retired)
+PROPOSED       ─┐
+               │  (created — by a human, by an agent's writeback, by a directory materialising)
                ▼
 ACTIVE         ─┐
-               │  (in use by other agents, being referenced)
+               │  (a human vouches for it, or it auto-promotes on repetition)
                ▼
 STALE          ─┐
-               │  (no reads, no references, decaying)
+               │  (no reads, no references, decaying — the weekly sweep sets this)
                ▼
 ARCHIVED
 ```
 
-Implemented as `KNOWLEDGE_STATUSES` (`framework/domain-model/src/knowledge.ts:20-28`) — the full 7-value lifecycle is the single kernel-owned status set; there is no separate, narrower kernel enum anymore (the old kernel/strategy split on status was retired along with the fabric package). `captured`, `provisional`, and `needs_human` are **pre-validation drafts**.
+Implemented as `KNOWLEDGE_STATUSES` — `proposed | active | stale | archived` (`framework/domain-model/src/knowledge.ts`). This collapses what used to be **two** status vocabularies — a 7-value kernel enum (`captured`/`provisional`/`validated`/`active`/`stale`/`archived`/`needs_human`) and a 4-value strategy-side one — into one. `needs_human` is gone entirely: crossing the attention threshold creates a review item directly (see below); it no longer gates or blocks an item's own status. There is no separate authorization/facilitator-role gate on who may promote an item — the layer-keyed permission check this used to have (`NON_FACILITATOR_MAX_LAYER`, `FACILITATOR_ROLES`) is deleted along with `layer`, and nothing replaces it. Founder: *"we don't need authorization checks. later we can risk based checks which isolate what needs review."*
 
 ### Auto-promotion
 
-**Most items never need a human.** If the same pattern shows up in 5 products and never gets contradicted, the facilitator can auto-promote it from PROVISIONAL straight to VALIDATED via repetition. Implemented in `layers/core-api/knowledge/src/promotion-pipeline.ts` — cross-scope repetition on the same `(layer, topic, kind)` signature, threshold 5, edit-log editor marker `system:auto-promotion` (`AUTO_PROMOTION_EDITOR`). Human attention is the scarcest resource; facilitators exist so humans only see the items where their specific judgment actually matters.
+**Most items never need a human.** If the same finding shows up independently under 5+ distinct scopes and never gets contradicted, it auto-promotes from `proposed` straight to `active` via repetition. Implemented in `layers/core-api/knowledge/src/promotion-pipeline.ts` — the grouping key used to be `(layer, topic, kind)`; with those three vocabularies deleted, the signature is now the sibling set — same `parentKind`/`parentId` — counted by distinct `scope_id` among those siblings (threshold 5, edit-log editor marker `system:auto-promotion`, `AUTO_PROMOTION_EDITOR`). An open conflict on the item blocks its own promotion. Human attention is the scarcest resource; facilitators exist so humans only see the items where their specific judgment actually matters.
 
 ## The Product Manager's two jobs
 
@@ -80,7 +67,7 @@ The self-improvement loop is the critical move. Without it, the Product Manager 
 
 ## The org stays flat
 
-The agent side is **always flat**: one layer of product teams, each with its own Product Manager, under one factory-level system assistant. There is never a business-facilitator or any middle-management agent layer — `AGENT_ROLE_CATALOG` has no such role (`agent-roles.ts:44-198`), and scope kinds include `product` but no `business` (`SCOPE_KINDS`, `framework/domain-model/src/types.ts:181-189`).
+The agent side is **always flat**: one layer of product teams, each with its own Product Manager, under one factory-level system assistant. There is never a business-facilitator or any middle-management agent layer — the roles in use are the distinct role strings among the agents that actually exist (`roleLabel`, `framework/domain-model/src/agent-roles.ts`; there is no hardcoded role catalog to check against, by design — see the @lore there), and `SCOPE_KINDS` has never had a `business` value.
 
 A product team owns *a unit of value* — standalone product or part of a larger multi-product business — but the business dimension lives as human-maintained metadata, never as a nested agent hierarchy. **Business leaders are always the humans:** suite-level strategy, pricing, positioning, bundling.
 
@@ -93,25 +80,24 @@ A product team owns *a unit of value* — standalone product or part of a larger
 > knowledge should live in git at all is an open product question for a future
 > knowledge work package, not a description of the system.
 >
-> The shape below is kept as the design sketch it always was:
+> The shape below is kept as the design sketch it always was — updated only to
+> drop the two scope values (`product`, `practice`) that no longer exist; the
+> sketch was never implemented against either shape:
 
 ```
-products/
-  <scopeId>/
-    BRIEF.md, ARCHITECTURE.md, BRAND.md, PRINCIPLES.md   # L2 items
 factory/
   PRINCIPLES.md, FOCUS.md
   PORTFOLIO.md                # human-maintained: which products belong to which business
-  REFLECTIONS/<topic>.md      # L4 REFLECTION items
+  REFLECTIONS/<name>.md
 ```
 
-- Sketched kinds: `BRIEF`, `ARCHITECTURE`, `BRAND`, `PRINCIPLES`, `FOCUS`, `PORTFOLIO`, `REFLECTION`.
-- Sketched rule: only `active` and `validated` items would export; pre-validation drafts (`captured`/`provisional`/`needs_human`) and `archived` tombstones would stay out.
+- Sketched kinds: `PRINCIPLE`, `FOCUS`, `PORTFOLIO`, `REFLECTION` — design vocabulary only; `kind` itself no longer exists as a column.
+- Sketched rule: only `active` items would export; `proposed` drafts and `archived` tombstones would stay out.
 - No `businesses/` directory, no nesting. Business-level framing is human-maintained at the factory level — the agent structure stays dead simple.
 
 ## The learning loop
 
-Agents produce information → the attention engine scores it (`layers/core-api/knowledge/src/attention-scoring.ts`, `ATTENTION_THRESHOLD` 0.7 in `scoring-config.ts:91`) → high-signal items become review items (`createReviewItemForKnowledge`, `layers/core-api/review/src/review-item-factory.ts`) → surfaced to the matching human view (view routing rules in [items-and-routing](../human-interface-layer/items-and-routing.md)) → humans validate → writeback updates status + confidence/attention → validated knowledge is assembled into future sessions.
+Agents produce information → the attention engine scores it (`layers/core-api/knowledge/src/attention-scoring.ts`, `ATTENTION_THRESHOLD` 0.7 in `scoring-config.ts`) → high-signal items become review items (`createReviewItem`, `layers/core-api/knowledge/src/review-item-factory.ts`) → surfaced to the matching human view (view routing rules in [items-and-routing](../human-interface-layer/items-and-routing.md)) → humans validate → writeback updates status + confidence/attention → validated knowledge is assembled into future sessions.
 
 ## Why facilitators exist
 

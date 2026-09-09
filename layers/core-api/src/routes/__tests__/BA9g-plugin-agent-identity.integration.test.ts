@@ -125,7 +125,7 @@ describe("a plugin's agent comes with an identity", () => {
 			.where(eq(knowledgeItems.id, identityId));
 		await db
 			.update(knowledgeAppProjection)
-			.set({ layer: null })
+			.set({ scopeId: agent?.id ?? null })
 			.where(eq(knowledgeAppProjection.knowledgeItemId, identityId));
 		const [before] = await db
 			.select()

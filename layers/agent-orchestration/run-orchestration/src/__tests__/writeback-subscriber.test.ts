@@ -26,6 +26,9 @@ function mkKnowledgeWriter(
 		async recordConflict() {
 			throw new Error("recordConflict should not be called in this test");
 		},
+		async reparentKnowledgeItem() {
+			throw new Error("reparentKnowledgeItem should not be called in this test");
+		},
 	};
 }
 
@@ -131,6 +134,9 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 			async recordConflict() {
 				throw new Error("recordConflict should not be called");
 			},
+			async reparentKnowledgeItem() {
+				throw new Error("reparentKnowledgeItem should not be called");
+			},
 		};
 
 		const result = await writeback.process(
@@ -170,6 +176,9 @@ describe("registerCaptureWriteback (§10.3 filesystems ⚠ capture-writeback Eve
 			},
 			async recordConflict(_db, input) {
 				conflictCalls.push(input);
+			},
+			async reparentKnowledgeItem() {
+				throw new Error("reparentKnowledgeItem should not be called");
 			},
 		};
 

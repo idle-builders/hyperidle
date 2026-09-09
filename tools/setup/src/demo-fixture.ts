@@ -119,7 +119,6 @@ async function upsertDemoRunConfig(
 				id: identityId,
 				scopeKind: "user",
 				scopeId: agentUserId,
-				topic: null,
 				// The agent's display name, matching what the migration and the create
 				// route write — the knowledge view shows this title.
 				title: `${agentName || agentUserId} — identity`,
@@ -143,7 +142,6 @@ async function upsertDemoRunConfig(
 			.values({
 				id: `kp_af_${agentUserId}`,
 				knowledgeItemId: identityId,
-				layer: null,
 				scopeId: agentUserId,
 			})
 			.onConflictDoNothing();

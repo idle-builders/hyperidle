@@ -91,7 +91,8 @@ const BUNDLE: BakedContextBundle = {
 			body: "factory-wide body",
 			format: "markdown",
 			version: 1,
-			layer: "L4",
+			parentChain: [],
+			scopeKind: "factory",
 			role: "ordinary",
 			agentBindingId: null,
 		},
@@ -101,7 +102,8 @@ const BUNDLE: BakedContextBundle = {
 			body: "team-scoped body",
 			format: "markdown",
 			version: 1,
-			layer: "L2",
+			parentChain: [],
+			scopeKind: "factory",
 			role: "ordinary",
 			agentBindingId: null,
 		},
@@ -111,7 +113,8 @@ const BUNDLE: BakedContextBundle = {
 			body: "community-scoped body",
 			format: "markdown",
 			version: 1,
-			layer: "L3",
+			parentChain: [],
+			scopeKind: "factory",
 			role: "ordinary",
 			agentBindingId: null,
 		},
@@ -124,7 +127,7 @@ describe("assembleAgentContext — contextBundle consumption (Increment 12 Wave 
 		if (sandboxPath) fs.rmSync(sandboxPath, { recursive: true, force: true });
 	});
 
-	test("writes session.toon + context/{product,practices,factory} from the baked bundle with ZERO port reads", async () => {
+	test("writes session.toon + knowledge/ from the baked bundle with ZERO port reads", async () => {
 		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "i12-context-bundle-"));
 		const assembler = createContextAssembler(poisonedPorts());
 
@@ -153,28 +156,18 @@ describe("assembleAgentContext — contextBundle consumption (Increment 12 Wave 
 		expect(toon).toContain("Alpha");
 		expect(toon).toContain("Ada");
 
-		const factoryDir = path.join(sandboxPath, "context/factory");
-		const productDir = path.join(sandboxPath, "context/product");
-		const practicesDir = path.join(sandboxPath, "context/practices");
-		expect(fs.existsSync(factoryDir)).toBe(true);
-		expect(fs.existsSync(productDir)).toBe(true);
-		expect(fs.existsSync(practicesDir)).toBe(true);
-
-		const factoryFiles = fs.readdirSync(factoryDir);
-		const productFiles = fs.readdirSync(productDir);
-		const practicesFiles = fs.readdirSync(practicesDir);
-		expect(factoryFiles.length).toBe(1);
-		expect(productFiles.length).toBe(1);
-		expect(practicesFiles.length).toBe(1);
-
-		expect(fs.readFileSync(path.join(factoryDir, factoryFiles[0] as string), "utf8")).toBe(
-			"factory-wide body",
-		);
-		expect(fs.readFileSync(path.join(productDir, productFiles[0] as string), "utf8")).toBe(
-			"team-scoped body",
-		);
-		expect(fs.readFileSync(path.join(practicesDir, practicesFiles[0] as string), "utf8")).toBe(
-			"community-scoped body",
+		// @lore nested-knowledge-items D1: layer zones are gone — every ordinary
+		// item (empty parentChain here) materialises flat into knowledge/.
+		const knowledgeDir = path.join(sandboxPath, "knowledge");
+		expect(fs.existsSync(knowledgeDir)).toBe(true);
+		const knowledgeFiles = fs
+			.readdirSync(knowledgeDir, { withFileTypes: true })
+			.filter((entry) => entry.isFile())
+			.map((entry) => entry.name);
+		expect(knowledgeFiles.length).toBe(3);
+		const bodies = knowledgeFiles.map((f) => fs.readFileSync(path.join(knowledgeDir, f), "utf8"));
+		expect(bodies.sort()).toEqual(
+			["factory-wide body", "team-scoped body", "community-scoped body"].sort(),
 		);
 
 		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");

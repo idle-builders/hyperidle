@@ -1,11 +1,11 @@
 /**
  * R7 — Knowledge & Bet Cycles: KnowledgeList triage/curated rendering tests.
  *
- * AC-6: KnowledgeList triage tab shows items with status="draft"
+ * AC-6: KnowledgeList triage tab shows items with status="proposed"
  * AC-6: KnowledgeList curated tab shows items with status="active"
  *
  * These tests verify the UI-side mapping works correctly:
- * - "draft" items must appear in the triage tab
+ * - "proposed" items must appear in the triage tab
  * - "active" items must appear in the curated tab
  * - Items created by agents (via write_memory) must be visible in triage
  *
@@ -13,10 +13,12 @@
  * from the backend status-default issue.
  *
  * @lore R7: KnowledgeList filters items by API status field:
- *   - triage: status === "draft"
+ *   - triage: status === "proposed"
  *   - curated: status === "active"
- * The write_memory fix (default "draft") makes agent-created items appear
- * in triage. This test verifies the UI correctly renders both groups.
+ * The write_memory fix (default "proposed", originally "draft" before
+ * the status vocabulary collapsed) makes agent-created items appear in
+ * triage. This
+ * test verifies the UI correctly renders both groups.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -64,7 +66,7 @@ function makeDraftItem(id: string, title: string, topic?: string): MockKnowledge
 		title,
 		body: "Body content from agent.",
 		format: "markdown",
-		status: "draft", // triage tab
+		status: "proposed", // triage tab
 		version: 1,
 		updatedBy: `agent:agent-r7`,
 		createdAt: "2026-05-30T00:00:00.000Z",
@@ -224,7 +226,7 @@ describe("R7 AC-6: Agent-created knowledge items appear in triage tab", () => {
 				body: "This pattern was captured by the builder agent during work.",
 				format: "markdown",
 				// After R7 fix: status is "draft" (was "active" before fix)
-				status: "draft",
+				status: "proposed",
 				version: 1,
 				updatedBy: "agent:builder-001", // agent-created
 				createdAt: "2026-05-30T12:00:00.000Z",

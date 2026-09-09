@@ -41,7 +41,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		getRoutineById: notImplemented,
 		updateRoutineById: notImplemented,
 		handoffTask: notImplemented,
-		search: notImplemented,
 		create: notImplemented,
 		findKnowledgeItemVersionById: notImplemented,
 		findKnowledgeItemStatusById: notImplemented,

@@ -213,10 +213,8 @@ export async function seedKnowledge(
 		scopeId?: string;
 		title: string;
 		body: string;
-		layer?: string;
-		kind?: string;
 		updatedBy: string;
-		/** Knowledge lifecycle status. Defaults to "active". Use "captured", "provisional", etc. for promotion pipeline scenarios. */
+		/** Knowledge lifecycle status. Defaults to "active". Use "proposed" for promotion pipeline scenarios. */
 		status?: string;
 		/** Parent entity kind, e.g. "task" or "thread". When omitted, the item has no parent. */
 		parentKind?: string;
@@ -235,7 +233,7 @@ export async function seedKnowledge(
 		body: opts.body,
 		format: "markdown",
 		status: opts.status ?? "active",
-		version: opts.status === "captured" ? 0 : 1,
+		version: opts.status === "proposed" ? 0 : 1,
 		updatedBy: opts.updatedBy,
 		parentKind: opts.parentKind ?? null,
 		parentId: opts.parentId ?? null,
@@ -247,9 +245,7 @@ export async function seedKnowledge(
 	await db.insert(knowledgeAppProjection).values({
 		id: randomUUID(),
 		knowledgeItemId: itemId,
-		layer: opts.layer ?? "factory",
 		scopeId: opts.scopeId ?? null,
-		kind: opts.kind ?? "context",
 	});
 
 	return { knowledgeItemId: itemId };
@@ -322,8 +318,6 @@ export async function seedMinimalWorld(
 		scopeKind: "factory",
 		title: "Eval Context",
 		body: "This is an automated evaluation scenario. Complete the task as described.",
-		layer: "factory",
-		kind: "context",
 		updatedBy: `user:${founderId}`,
 	});
 

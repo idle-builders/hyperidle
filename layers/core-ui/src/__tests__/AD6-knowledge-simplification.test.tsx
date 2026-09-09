@@ -6,7 +6,8 @@
  *
  * AC coverage:
  * 1. Static scope pills (All/Shared/Team/Private) always render in KnowledgeList
- * 2. "Shared" filter shows factory+product+practice items
+ * 2. "Shared" filter shows factory items (product/practice retired as
+ *    scope values — Shared is factory alone now)
  * 3. "Private" filter shows only user-scoped items
  * 4. Kind badge NOT rendered in list rows
  * 5. Archive button calls POST /api/knowledge/:id/archive
@@ -215,14 +216,16 @@ describe("AD6 — KnowledgeList static scope pills", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. "Shared" filter shows factory+practice items (not product — moved to Team)
+// 2. "Shared" filter shows factory items only
 // ---------------------------------------------------------------------------
 
+// @lore nested-knowledge-items: product/practice retired as scope values —
+// SCOPE_PILL_OPTIONS collapsed from {factory,practice}/{team,product} to a
+// direct 1:1 with the 3 real scope kinds. This test now locks that: Shared
+// shows factory only.
 describe("AD6 — KnowledgeList Shared scope filter", () => {
 	const MIXED_ITEMS = [
 		makeItem("k-factory", "active", "factory", "Factory knowledge"),
-		makeItem("k-product", "active", "product", "Product knowledge"),
-		makeItem("k-practice", "active", "practice", "Practice knowledge"),
 		makeItem("k-team", "active", "team", "Team knowledge"),
 		makeItem("k-user", "active", "user", "Private knowledge"),
 	];
@@ -239,9 +242,7 @@ describe("AD6 — KnowledgeList Shared scope filter", () => {
 		vi.clearAllMocks();
 	});
 
-	it("clicking Shared shows factory+practice items (product moved to Team pill)", async () => {
-		// @lore AE1: "product" scope moved from Shared to Team pill. Shared now only
-		// includes factory and practice. Product-scoped knowledge appears under Team.
+	it("clicking Shared shows factory items only", async () => {
 		const user = userEvent.setup();
 		renderList();
 
@@ -252,9 +253,7 @@ describe("AD6 — KnowledgeList Shared scope filter", () => {
 
 		const curatedView = screen.getByTestId("knowledge-curated-view");
 		expect(within(curatedView).getByText("Factory knowledge")).toBeInTheDocument();
-		expect(within(curatedView).getByText("Practice knowledge")).toBeInTheDocument();
-		// Product, Team, and Private should be hidden under Shared
-		expect(within(curatedView).queryByText("Product knowledge")).not.toBeInTheDocument();
+		// Team and Private should be hidden under Shared
 		expect(within(curatedView).queryByText("Team knowledge")).not.toBeInTheDocument();
 		expect(within(curatedView).queryByText("Private knowledge")).not.toBeInTheDocument();
 	});
@@ -629,14 +628,17 @@ describe("AD6 — scope-labels utility", () => {
 		expect(labels).toContain("Private");
 	});
 
-	it("SCOPE_CREATE_OPTIONS includes core buckets plus Role", async () => {
+	// @lore nested-knowledge-items: the Role option (scopeKind: "practice") is
+	// gone with the practice scope value — role-scoped patterns are now tree
+	// children under the Practices root, not a scope pick.
+	it("SCOPE_CREATE_OPTIONS includes exactly the 3 real scope kinds", async () => {
 		const { SCOPE_CREATE_OPTIONS } = await import("../utils/scope-labels");
-		expect(SCOPE_CREATE_OPTIONS).toHaveLength(4);
+		expect(SCOPE_CREATE_OPTIONS).toHaveLength(3);
 		const labels = SCOPE_CREATE_OPTIONS.map((o) => o.label);
 		expect(labels).toContain("Shared");
 		expect(labels).toContain("Team");
 		expect(labels).toContain("Private");
-		expect(labels).toContain("Role");
+		expect(labels).not.toContain("Role");
 		// AU26 F2 (founder ruling): the Filesystem scope is gone.
 		expect(labels).not.toContain("Filesystem");
 	});
@@ -659,9 +661,9 @@ describe("AD6 — scope-labels utility", () => {
 		expect(team?.scopeKind).toBe("team");
 	});
 
-	it("Role option maps to the practice scopeKind", async () => {
+	it("no Role or Filesystem option exists (both retired)", async () => {
 		const { SCOPE_CREATE_OPTIONS } = await import("../utils/scope-labels");
-		expect(SCOPE_CREATE_OPTIONS.find((o) => o.label === "Role")?.scopeKind).toBe("practice");
+		expect(SCOPE_CREATE_OPTIONS.find((o) => o.label === "Role")).toBeUndefined();
 		expect(SCOPE_CREATE_OPTIONS.find((o) => o.label === "Filesystem")).toBeUndefined();
 	});
 
@@ -670,10 +672,12 @@ describe("AD6 — scope-labels utility", () => {
 		expect(scopeKindToLabel("factory")).toBe("Shared");
 	});
 
-	it("scopeKindToLabel returns Team for product", async () => {
-		// @lore AE1: Changed from "Shared" to "Team" — product scope renamed in U1.
+	// @lore nested-knowledge-items: "product" is a retired scope value — it no
+	// longer gets the special "Team" mapping U1/AE1 gave it; it falls through
+	// to the same unknown-kind fallback as any other unrecognized string.
+	it("scopeKindToLabel returns Shared for product (retired scope value)", async () => {
 		const { scopeKindToLabel } = await import("../utils/scope-labels.js");
-		expect(scopeKindToLabel("product")).toBe("Team");
+		expect(scopeKindToLabel("product")).toBe("Shared");
 	});
 
 	it("scopeKindToLabel returns Shared for practice", async () => {

@@ -43,8 +43,6 @@ Complete these steps in order:
 1. Review the project context available to you.
 2. Write session notes using the write_session_notes tool, capturing your findings and a summary of what you did.
 3. Create a knowledge item using the write_memory tool with:
-   - layer: "factory"
-   - kind: "reflection"
    - title: "Project Status Summary"
    - body: A brief summary of the project status based on what you know.
 

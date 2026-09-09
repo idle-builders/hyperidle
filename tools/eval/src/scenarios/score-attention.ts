@@ -55,11 +55,9 @@ Document your prioritization decision in session notes.`,
 		});
 
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "HIPAA Patient Data Handling Requirements",
 			body: "PHI must be encrypted at rest (AES-256) and in transit (TLS 1.2+). Access must be role-based with audit logging. Minimum necessary access principle applies.",
-			layer: "L3",
-			kind: "process",
 			updatedBy: `user:${world.founderId}`,
 		});
 		saOverrideKnowledgeItemId = knowledgeItemId;
@@ -160,11 +158,9 @@ Document what you did in session notes.`,
 		});
 
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Kubernetes Resource Limits Best Practices",
 			body: "Always set CPU and memory limits on all pods. Use Vertical Pod Autoscaler (VPA) for automatic adjustment. Resource limits prevent noisy neighbor problems in shared clusters.",
-			layer: "L3",
-			kind: "pattern",
 			updatedBy: `user:${world.founderId}`,
 		});
 		saRecomputeKnowledgeItemId = knowledgeItemId;

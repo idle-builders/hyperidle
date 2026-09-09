@@ -2,14 +2,22 @@
  * Y4 — Knowledge Triage Improvements: KnowledgeList frontend tests.
  *
  * Covers:
- * - Triage tab includes both draft and needs_human items
- * - Auto-tab default logic checks needs_human (not just draft)
+ * - Triage tab includes proposed items
+ * - Auto-tab default logic checks for proposed items
  * - Keyboard navigation: j/k moves focus, v validates, x rejects, Enter opens
  * - After validation/rejection, next item is immediately visible (auto-advance)
  * - Optimistic removal: item disappears from triage list immediately
  *
  * @lore AU44 batch 4: "sorted by attention score" removed (FULL-AUDIT.md row 13).
  * Triage is now a plain recency list; attentionScore field kept flat (PLUGIN-owned).
+ *
+ * @lore nested-knowledge-items: this file originally proved "draft" and
+ * "needs_human" both count as triage-worthy — the status ladder collapsed
+ * both (plus captured/provisional) into one value, `proposed`, so every
+ * literal in this file that said "draft" or "needs_human" now says
+ * `proposed`. Tests that exercised the draft/needs_human distinction are
+ * now redundant with each other (both branches use the same status) but
+ * still correct, and were left as-is rather than restructured.
  */
 
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -87,7 +95,7 @@ describe("Y4 — KnowledgeList triage tab includes needs_human items", () => {
 		mockUseFetch.mockReturnValue({
 			data: {
 				items: [
-					makeItem("k-nh", "needs_human", 0.8, "Flagged for human review"),
+					makeItem("k-nh", "proposed", 0.8, "Flagged for human review"),
 					makeItem("k-active", "active"),
 				],
 			},
@@ -109,8 +117,8 @@ describe("Y4 — KnowledgeList triage tab includes needs_human items", () => {
 		mockUseFetch.mockReturnValue({
 			data: {
 				items: [
-					makeItem("k-draft", "draft", 0.5, "Draft item"),
-					makeItem("k-nh", "needs_human", 0.9, "Needs human item"),
+					makeItem("k-draft", "proposed", 0.5, "Draft item"),
+					makeItem("k-nh", "proposed", 0.9, "Needs human item"),
 					makeItem("k-active", "active", null, "Active item"),
 				],
 			},
@@ -169,10 +177,7 @@ describe("Y4 — Auto-tab default checks needs_human (not only draft)", () => {
 	it("defaults to Triage tab when only needs_human items exist (no draft)", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [
-					makeItem("k-nh", "needs_human", 0.85, "Flagged item"),
-					makeItem("k-active", "active"),
-				],
+				items: [makeItem("k-nh", "proposed", 0.85, "Flagged item"), makeItem("k-active", "active")],
 			},
 			error: null,
 			isLoading: false,
@@ -224,8 +229,8 @@ describe("Y4 — Triage keyboard navigation", () => {
 		mockUseFetch.mockReturnValue({
 			data: {
 				items: [
-					makeItem("k1", "draft", 0.9, "First item"),
-					makeItem("k2", "draft", 0.5, "Second item"),
+					makeItem("k1", "proposed", 0.9, "First item"),
+					makeItem("k2", "proposed", 0.5, "Second item"),
 				],
 			},
 			error: null,
@@ -254,8 +259,8 @@ describe("Y4 — Triage keyboard navigation", () => {
 		mockUseFetch.mockReturnValue({
 			data: {
 				items: [
-					makeItem("k1", "draft", 0.9, "First item"),
-					makeItem("k2", "draft", 0.5, "Second item"),
+					makeItem("k1", "proposed", 0.9, "First item"),
+					makeItem("k2", "proposed", 0.5, "Second item"),
 				],
 			},
 			error: null,
@@ -285,7 +290,7 @@ describe("Y4 — Triage keyboard navigation", () => {
 	it("pressing Escape clears focus", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [makeItem("k1", "draft", 0.9, "Focusable item")],
+				items: [makeItem("k1", "proposed", 0.9, "Focusable item")],
 			},
 			error: null,
 			isLoading: false,
@@ -367,7 +372,7 @@ describe("Y4 — Triage actions with keyboard shortcuts", () => {
 	it("pressing v on focused item calls PATCH with status=active", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [makeItem("k1", "draft", 0.8, "Item to validate")],
+				items: [makeItem("k1", "proposed", 0.8, "Item to validate")],
 			},
 			error: null,
 			isLoading: false,
@@ -396,7 +401,7 @@ describe("Y4 — Triage actions with keyboard shortcuts", () => {
 	it("pressing x on focused item calls PATCH with status=archived", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [makeItem("k1", "draft", 0.8, "Item to reject")],
+				items: [makeItem("k1", "proposed", 0.8, "Item to reject")],
 			},
 			error: null,
 			isLoading: false,
@@ -424,7 +429,7 @@ describe("Y4 — Triage actions with keyboard shortcuts", () => {
 	it("pressing v does not fire PATCH when no item is focused", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [makeItem("k1", "draft", 0.8, "Unfocused item")],
+				items: [makeItem("k1", "proposed", 0.8, "Unfocused item")],
 			},
 			error: null,
 			isLoading: false,
@@ -475,8 +480,8 @@ describe("Y4 — Auto-advance after triage action", () => {
 		mockUseFetch.mockReturnValue({
 			data: {
 				items: [
-					makeItem("k1", "draft", 0.9, "Item to validate"),
-					makeItem("k2", "draft", 0.5, "Second item"),
+					makeItem("k1", "proposed", 0.9, "Item to validate"),
+					makeItem("k2", "proposed", 0.5, "Second item"),
 				],
 			},
 			error: null,
@@ -506,8 +511,8 @@ describe("Y4 — Auto-advance after triage action", () => {
 		mockUseFetch.mockReturnValue({
 			data: {
 				items: [
-					makeItem("k1", "draft", 0.9, "First item"),
-					makeItem("k2", "draft", 0.5, "Second item"),
+					makeItem("k1", "proposed", 0.9, "First item"),
+					makeItem("k2", "proposed", 0.5, "Second item"),
 				],
 			},
 			error: null,
@@ -537,7 +542,7 @@ describe("Y4 — Auto-advance after triage action", () => {
 	it("triage shows empty state after the last item is processed", async () => {
 		mockUseFetch.mockReturnValue({
 			data: {
-				items: [makeItem("k1", "draft", 0.9, "Last item")],
+				items: [makeItem("k1", "proposed", 0.9, "Last item")],
 			},
 			error: null,
 			isLoading: false,

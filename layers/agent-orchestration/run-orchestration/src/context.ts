@@ -9,6 +9,7 @@ import type {
 	RoutineTriggerEvent,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { Manifest, ManifestEntry } from "./manifest-types.js";
 
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave C — `context.ts` is now pure
@@ -23,7 +24,7 @@ import type { EventBus } from "@hyperidle/event-bus";
  * calling the shared `@hyperidle/knowledge`'s `assembleSessionKnowledge`
  * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
  * below consumes the baked `contextBundle` carried on the session request and
- * writes `session.toon` + `context/{product,practices,factory}/*` — ZERO db
+ * writes `context/session.toon` + the nested `knowledge/**` tree — ZERO db
  * reads, zero `ContextAssemblyPorts` domain members (`knowledge`/`work`/
  * `users`/`routine`/`org` are gone; only `filesystems` remains, for
  * `beginAgentWriteback`'s watcher).
@@ -353,15 +354,8 @@ const WORKSPACE_SECTION = `## Workspace
 
 Your workspace is organized as follows:
 
-- \`context/\` -- Read-only context files. Product knowledge, practice knowledge, factory-wide knowledge, and your session context (session.toon).
-  - \`product/\` -- Product-specific knowledge items (L2).
-  - \`practices/\` -- Practice community knowledge items (L3).
-  - \`factory/\` -- Factory-wide knowledge items (L4).
-  - \`session.toon\` -- Encoded session context (task, ancestors, agent, team data).
-- \`knowledge/\` -- Knowledge files you can read and update.
-  - \`practices/\` -- Practice knowledge.
-  - \`decisions/\` -- Decision records.
-  - \`failures/\` -- Failure postmortems.
+- \`context/\` -- Read-only. Your session context (session.toon: task, ancestors, agent, team data).
+- \`knowledge/\` -- Knowledge you can read, edit, and reorganize. It mirrors the real knowledge tree: a folder holds an \`index.md\` (that item's own content) plus its children as files or nested folders. Create, edit, move, and nest items here -- changes save back automatically.
   - \`rules/\` -- Rules and guidelines that apply to your work.
 - \`work/\` -- Your working area.
   - \`artifacts/\` -- Output artifacts.
@@ -658,20 +652,8 @@ function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptComp
 	return { assembledPrompt, personaToolsTokens };
 }
 
-interface ManifestEntry {
-	version: number;
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	source_path: string;
-	format: string;
-}
-
-interface Manifest {
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	session_id: string;
-	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
-	assembled_at: string;
-	items: Record<string, ManifestEntry>;
-}
+// `ManifestEntry`/`Manifest` are shared with writeback-processor.ts's reader
+// (review.md B5) — see manifest-types.ts.
 
 function toFilename(title: string, itemId?: string): string {
 	const suffix = itemId ? `_${itemId.slice(0, 8)}` : "";
@@ -697,17 +679,16 @@ function cleanDirectory(dirPath: string): void {
 	fs.rmSync(dirPath, { recursive: true, force: true });
 }
 
-const CONTEXT_ASSEMBLY_DIRS = [
-	".fabric",
-	"context/product",
-	"context/practices",
-	"context/factory",
-	"knowledge/practices",
-	"knowledge/decisions",
-	"knowledge/failures",
-	"knowledge/rules",
-	"work/artifacts",
-] as const;
+/**
+ * @lore nested-knowledge-items §5: the per-layer `context/product|practices|
+ * factory` zones and the `knowledge/practices|decisions|failures` legacy
+ * kind-inference subdirectories are GONE — there is one writable, watched
+ * `knowledge/` tree shaped like the real tree, not a set of layer buckets. An
+ * agent's own materialised knowledge writes wherever its parent chain says;
+ * `knowledge/rules` survives because role='rule' items land there regardless
+ * of tree position (placement follows role, not tree position).
+ */
+const CONTEXT_ASSEMBLY_DIRS = [".fabric", "context", "knowledge/rules", "work/artifacts"] as const;
 
 /**
  * @lore BA9b: Per-harness skill directories — empirically verified 2026-08-26.
@@ -771,6 +752,89 @@ function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: s
 	return relativePath;
 }
 
+/**
+ * Materialise every ordinary item, shaped like its real ancestor chain
+ * (architecture.md §5). `writeContextBundle` does zero DB reads —
+ * `item.parentChain` (baked at emit time, root first) is the only source for
+ * "where in the tree does this go".
+ *
+ * Two passes, because which items are directories is only knowable once
+ * every item's chain has been walked:
+ *
+ * Pass 1 creates every ancestor directory, a title-only `index.md`
+ * placeholder (plan.md: "a path with a missing middle means nothing" — an
+ * ancestor not itself among the selected items still gets one; that is
+ * incomplete, not fabricated), and its own manifest entry.
+ * `!fs.existsSync`/`!manifestItems[ancestor.id]` dedupe across items that
+ * share an ancestor (review.md B5 — without a manifest entry, writeback's
+ * `ensureDirectoryChainItem` mints a duplicate folder item).
+ *
+ * Pass 2 writes each item's own content. An item whose id was already
+ * materialised as a directory in pass 1 — a parent-with-children that is
+ * ALSO independently selected — gets its REAL body written into that
+ * directory's `index.md` (overwriting the placeholder) and no separate leaf
+ * file. @lore nested-knowledge-real: previously that combination dumped the
+ * parent's real body into a stray sibling leaf file next to its own
+ * directory, while the directory's index.md stayed title-only forever —
+ * contradicting plan.md's "a parent as a directory containing index.md with
+ * its own body." Everything else still writes as an ordinary leaf.
+ */
+function writeOrdinaryItems(
+	sandboxPath: string,
+	items: readonly BakedContextKnowledgeItem[],
+	manifestItems: Record<string, ManifestEntry>,
+): void {
+	const dirPathByAncestorId: Record<string, string> = {};
+
+	for (const item of items) {
+		let cursor = "knowledge";
+		for (const ancestor of item.parentChain) {
+			cursor = `${cursor}/${toSkillDirName(ancestor.title)}`;
+			const fullDir = path.join(sandboxPath, cursor);
+			fs.mkdirSync(fullDir, { recursive: true });
+			dirPathByAncestorId[ancestor.id] = cursor;
+			const indexPath = path.join(fullDir, "index.md");
+			if (!fs.existsSync(indexPath)) {
+				fs.writeFileSync(indexPath, `# ${ancestor.title}\n`);
+			}
+			if (!manifestItems[ancestor.id]) {
+				manifestItems[ancestor.id] = {
+					version: ancestor.version,
+					source_path: cursor,
+					format: "markdown",
+					scopeKind: ancestor.scopeKind,
+				};
+			}
+		}
+	}
+
+	for (const item of items) {
+		const ownDirPath = dirPathByAncestorId[item.id];
+		if (ownDirPath !== undefined) {
+			fs.writeFileSync(path.join(sandboxPath, ownDirPath, "index.md"), item.body);
+			manifestItems[item.id] = {
+				version: item.version,
+				source_path: ownDirPath,
+				format: item.format,
+				scopeKind: item.scopeKind,
+			};
+			continue;
+		}
+
+		let cursor = "knowledge";
+		for (const ancestor of item.parentChain) {
+			cursor = `${cursor}/${toSkillDirName(ancestor.title)}`;
+		}
+		const relativePath = writeItem(sandboxPath, item, cursor);
+		manifestItems[item.id] = {
+			version: item.version,
+			source_path: relativePath,
+			format: item.format,
+			scopeKind: item.scopeKind,
+		};
+	}
+}
+
 function setContextReadOnly(sandboxPath: string): void {
 	const contextDir = path.join(sandboxPath, "context");
 	if (!fs.existsSync(contextDir)) return;
@@ -789,13 +853,6 @@ function setContextReadOnly(sandboxPath: string): void {
 
 	setReadOnlyRecursive(contextDir);
 }
-
-/** Sandbox zone (relative to sandboxPath) a baked knowledge item's `layer` writes into. */
-const ZONE_BY_LAYER: Record<string, string> = {
-	L4: "context/factory",
-	L2: "context/product",
-	L3: "context/practices",
-};
 
 /**
  * @lore BA9b: Slugify a skill title into a safe directory name.
@@ -849,8 +906,6 @@ function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): s
  * `toBakedContextKnowledgeItems` (`@hyperidle/domain-model`), and this
  * function only ever compares the already-derived value.
  *
- * Items with role='ordinary' and an unrecognized/absent layer are skipped
- * (defensive — assembleSessionKnowledge only produces L4/L2/L3 ordinary items).
  */
 function writeBundleKnowledge(
 	sandboxPath: string,
@@ -858,6 +913,7 @@ function writeBundleKnowledge(
 	agentId: string,
 ): Record<string, ManifestEntry> {
 	const manifestItems: Record<string, ManifestEntry> = {};
+	const ordinaryItems: BakedContextKnowledgeItem[] = [];
 	for (const item of knowledge) {
 		const role = item.role;
 
@@ -875,6 +931,7 @@ function writeBundleKnowledge(
 				version: item.version,
 				source_path: relativePath,
 				format: item.format,
+				scopeKind: item.scopeKind,
 			};
 			continue;
 		}
@@ -885,6 +942,7 @@ function writeBundleKnowledge(
 				version: item.version,
 				source_path: relativePath,
 				format: item.format,
+				scopeKind: item.scopeKind,
 			};
 			continue;
 		}
@@ -906,26 +964,18 @@ function writeBundleKnowledge(
 				version: item.version,
 				source_path: relativePath,
 				format: item.format,
+				scopeKind: item.scopeKind,
 			};
 			continue;
 		}
 
-		// role === 'ordinary': route by layer (existing behavior).
-		const zone = item.layer ? ZONE_BY_LAYER[item.layer] : undefined;
-		if (!zone) {
-			logger.warn("skipping baked knowledge item with unrecognized layer", {
-				itemId: item.id,
-				layer: item.layer,
-			});
-			continue;
-		}
-		const relativePath = writeItem(sandboxPath, item, zone);
-		manifestItems[item.id] = {
-			version: item.version,
-			source_path: relativePath,
-			format: item.format,
-		};
+		// role === 'ordinary': materialise into knowledge/, shaped like its
+		// real ancestor chain (architecture.md §5) — not a layer zone. Deferred
+		// to writeOrdinaryItems below, which needs every ordinary item at once
+		// to tell a directory-owning parent from a plain leaf.
+		ordinaryItems.push(item);
 	}
+	writeOrdinaryItems(sandboxPath, ordinaryItems, manifestItems);
 	return manifestItems;
 }
 

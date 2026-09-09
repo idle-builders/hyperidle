@@ -107,17 +107,6 @@ export interface RoutineSchedulerPorts {
 			thresholdMs: number | undefined,
 			options: { readonly silent: boolean },
 		): Promise<{ readonly markedIds: readonly string[] }>;
-		listRecentByLayers(
-			db: HyperIdleDb,
-			layers: readonly string[],
-			updatedSince: string,
-		): Promise<
-			readonly {
-				readonly title: string;
-				readonly updatedAt: string;
-				readonly layer: string | null;
-			}[]
-		>;
 		recomputeAttentionForCandidates(
 			db: HyperIdleDb,
 			eventBus: EventBus,

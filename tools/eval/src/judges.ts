@@ -365,78 +365,6 @@ export function judgeCreateConflictReviewCalled(): RubricDimension {
 // Parameterized judges
 // ---------------------------------------------------------------------------
 
-/** Judge: knowledge item created by agent has correct layer in strategy fabric. */
-export function judgeKnowledgeLayerCorrect(expectedLayer: string): RubricDimension {
-	return {
-		id: "layer_correctness",
-		label: `Knowledge Layer Correct (expected: ${expectedLayer})`,
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
-			const [item] = await ctx.db
-				.select({ id: knowledgeItems.id })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
-				.limit(1);
-
-			if (!item) {
-				return { score: 0.0, note: "No knowledge item created by agent" };
-			}
-
-			const [fabric] = await ctx.db
-				.select({ layer: knowledgeAppProjection.layer })
-				.from(knowledgeAppProjection)
-				.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
-				.limit(1);
-
-			if (!fabric) {
-				return { score: 0.0, note: "No strategy fabric row for agent-created item" };
-			}
-
-			const correct = fabric.layer === expectedLayer;
-			return {
-				score: correct ? 1.0 : 0.0,
-				note: correct ? undefined : `Layer: ${fabric.layer ?? "null"} (expected: ${expectedLayer})`,
-			};
-		},
-	};
-}
-
-/** Judge: knowledge item created by agent has correct kind in strategy fabric. */
-export function judgeKnowledgeKindCorrect(expectedKind: string): RubricDimension {
-	return {
-		id: "kind_correctness",
-		label: `Knowledge Kind Correct (expected: ${expectedKind})`,
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
-			const [item] = await ctx.db
-				.select({ id: knowledgeItems.id })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
-				.limit(1);
-
-			if (!item) {
-				return { score: 0.0, note: "No knowledge item created by agent" };
-			}
-
-			const [fabric] = await ctx.db
-				.select({ kind: knowledgeAppProjection.kind })
-				.from(knowledgeAppProjection)
-				.where(eq(knowledgeAppProjection.knowledgeItemId, item.id))
-				.limit(1);
-
-			if (!fabric) {
-				return { score: 0.0, note: "No strategy fabric row for agent-created item" };
-			}
-
-			const correct = fabric.kind === expectedKind;
-			return {
-				score: correct ? 1.0 : 0.0,
-				note: correct ? undefined : `Kind: ${fabric.kind ?? "null"} (expected: ${expectedKind})`,
-			};
-		},
-	};
-}
-
 /** Judge: the scenario task is in the expected state. */
 export function judgeTaskState(expectedState: TaskState): RubricDimension {
 	return {
@@ -952,12 +880,8 @@ export function judgeKnowledgeCaptured(): RubricDimension {
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
 			const [item] = await ctx.db
-				.select({ id: knowledgeItems.id, kind: knowledgeAppProjection.kind })
+				.select({ id: knowledgeItems.id, title: knowledgeItems.title })
 				.from(knowledgeItems)
-				.leftJoin(
-					knowledgeAppProjection,
-					eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-				)
 				.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
 				.limit(1);
 
@@ -965,7 +889,7 @@ export function judgeKnowledgeCaptured(): RubricDimension {
 			return {
 				score: captured ? 1.0 : 0.0,
 				note: captured
-					? `Knowledge captured (kind: ${item.kind ?? "unknown"})`
+					? `Knowledge captured (title: ${item.title})`
 					: "No knowledge item created by agent",
 			};
 		},

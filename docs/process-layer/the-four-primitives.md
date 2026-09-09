@@ -29,7 +29,7 @@ Knowledge in a healthy flat company doesn't flow one way. The founders set direc
 
 ### 2.1 Top-down: vision and focus, not assignments
 
-- **`PRINCIPLES` and `FOCUS`** — canonical L4 knowledge items. Context assembly fetches all L4 items from `knowledge_items` and writes them into the session sandbox. (There is no git export — see [facilitators](../knowledge-architecture/facilitators.md).) Edited by humans through the assistant thread and approved through Conversations.
+- **`PRINCIPLES` and `FOCUS`** — canonical `factory`-scoped knowledge items. Context assembly fetches every `factory`-scoped item from `knowledge_items` and writes them into the session sandbox. (There is no git export — see [facilitators](../knowledge-architecture/facilitators.md).) Edited by humans through the assistant thread and approved through Conversations.
 - **The assistant conversation** — the persistent thread where founders shape direction in dialogue with the assistant; the assistant distills it into proposed updates that loop back through Conversations for approval.
 - **Creating a root task in the Work view** — a direct top-down signal: "this is what we're doing next."
 
@@ -37,7 +37,7 @@ Top-down means direction, never task assignment. Tasks emerge from the team.
 
 ### 2.2 Bottom-up: learnings, data, surfaced insights
 
-- **The practice layer (L3)** is the primary channel: agents capture observations into their practice; facilitators surface the highest-attention items via the Knowledge view. See [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md) and [../knowledge-architecture/the-five-layers.md](../knowledge-architecture/the-five-layers.md).
+- **Practice knowledge** is the primary channel: agents capture observations into their practice's own folder in the tree; facilitators surface the highest-attention items via the Knowledge view. See [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
 - **Task retros** record what was learned and create a knowledge item. The retro is a **plugin skill** (`plugins/knowledge-management/skills/post-task-retro/`), not core machinery — it fires when a task reaches `done`. See [routines-and-retros.md](routines-and-retros.md).
 - **Agent-initiated chat** — any agent that notices something the founders should know can post a thread directly. See [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 - **Revising the goal** — when the team learns a task's premise is wrong, it edits the goal directly; the audit trail carries the change and its reasoning.

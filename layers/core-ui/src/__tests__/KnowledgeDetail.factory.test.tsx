@@ -13,6 +13,13 @@ function renderPage(knowledgeId: string): ReturnType<typeof render> {
 	);
 }
 
+// @lore nested-knowledge-items: the "Amendable under review" banner keyed off
+// `status === "needs_human"` is removed along with that status value — the
+// 4-value status ladder (proposed | active | stale | archived) has no
+// equivalent, and the migration folds needs_human into archived (the
+// escalation signal now lives on `knowledge_conflicts`, not the coarse
+// status column). The banner feature and its tests go with it; the
+// remaining factory-treatment assertion (no Edit button) survives.
 describe("KnowledgeDetail — J7 factory scope treatment", () => {
 	it("does NOT render an Edit button for a factory-scope item", () => {
 		// k11 is a factory-scope item (Agent Autonomy Policy)
@@ -20,23 +27,8 @@ describe("KnowledgeDetail — J7 factory scope treatment", () => {
 		expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
 	});
 
-	it("renders the 'Amendable under review' banner when a factory item needs_human", () => {
-		// k12 is factory-scope with status=needs_human
-		renderPage("k12");
-		const banner = screen.getByTestId("factory-amendable-banner");
-		expect(banner).toBeInTheDocument();
-		expect(banner).toHaveClass("alert-info");
-		expect(banner).toHaveTextContent(/Amendable under review/i);
-	});
-
-	it("does NOT render the banner for an active factory item", () => {
+	it("does NOT render the amendable banner for an active factory item", () => {
 		renderPage("k11");
-		expect(screen.queryByTestId("factory-amendable-banner")).not.toBeInTheDocument();
-	});
-
-	it("does NOT render the banner for a non-factory item even if needs_human", () => {
-		// k6 is practice-scope with status=needs_human
-		renderPage("k6");
 		expect(screen.queryByTestId("factory-amendable-banner")).not.toBeInTheDocument();
 	});
 });

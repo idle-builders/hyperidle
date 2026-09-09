@@ -5,8 +5,6 @@ import { KnowledgeRow } from "../ds";
 describe("KnowledgeRow — J7 factory mode", () => {
 	const defaultProps = {
 		title: "Agent Autonomy Policy",
-		layer: "L0" as const,
-		kind: "decision" as const,
 		status: "active" as const,
 		timestamp: "1w ago",
 	};

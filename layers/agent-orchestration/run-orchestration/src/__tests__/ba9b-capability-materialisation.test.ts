@@ -22,7 +22,6 @@ function makeBundle(
 		body: string;
 		format?: string;
 		version?: number;
-		layer?: string | null;
 		role?: string;
 		agentBindingId?: string | null;
 	}>,
@@ -39,7 +38,8 @@ function makeBundle(
 			body: k.body,
 			format: k.format ?? "markdown",
 			version: k.version ?? 1,
-			layer: k.layer ?? null,
+			parentChain: [],
+			scopeKind: "factory",
 			role: k.role ?? "ordinary",
 			agentBindingId: k.agentBindingId ?? null,
 		})),
@@ -113,7 +113,7 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 
 	it("skills do NOT appear in knowledge/ or context/", async () => {
 		const bundle = makeBundle("agent-1", [
-			{ id: "skill-3", title: "plan", body: "Planning skill.", role: "skill", layer: "L4" },
+			{ id: "skill-3", title: "plan", body: "Planning skill.", role: "skill" },
 		]);
 
 		await assembler.assembleAgentContext({
@@ -279,7 +279,6 @@ describe("a prompt item never reaches the sandbox", () => {
 				title: "Routine — prompt",
 				body: "Sweep the stale items.",
 				role: "prompt",
-				layer: "L4",
 			},
 		]);
 
@@ -324,14 +323,16 @@ describe("a prompt item never reaches the sandbox", () => {
 });
 
 describe("BA9b: ordinary items are unaffected", () => {
-	it("ordinary item with L4 layer still goes to context/factory", async () => {
+	// @lore nested-knowledge-items D1: layer zones (context/factory etc.) are
+	// gone — an ordinary item now materialises into knowledge/, shaped by its
+	// (baked) parent chain rather than routed by layer.
+	it("ordinary item materialises into knowledge/", async () => {
 		const bundle = makeBundle("agent-1", [
 			{
 				id: "ord-1",
 				title: "Factory Guideline",
 				body: "A factory-wide rule.",
 				role: "ordinary",
-				layer: "L4",
 			},
 		]);
 
@@ -349,9 +350,9 @@ describe("BA9b: ordinary items are unaffected", () => {
 			contextBundle: bundle,
 		});
 
-		const factoryDir = path.join(sandboxPath, "context/factory");
-		expect(fs.existsSync(factoryDir)).toBe(true);
-		const files = fs.readdirSync(factoryDir);
+		const knowledgeDir = path.join(sandboxPath, "knowledge");
+		expect(fs.existsSync(knowledgeDir)).toBe(true);
+		const files = fs.readdirSync(knowledgeDir);
 		expect(files.length).toBeGreaterThan(0);
 	});
 });

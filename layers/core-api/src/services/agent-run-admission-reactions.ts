@@ -60,7 +60,6 @@ async function flagStalledKnowledgeAction(
 	});
 	return flagStalledKnowledgeReviewItem(db, eventBus, {
 		knowledgeItemId,
-		layer: null,
 		title: "Agent work stalled: knowledge action",
 		body: `Knowledge item ${knowledgeItemId} could not be admitted for agent work (${event.failureCode}).`,
 		riskTier: "low",

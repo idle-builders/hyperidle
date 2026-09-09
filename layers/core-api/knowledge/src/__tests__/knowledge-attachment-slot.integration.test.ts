@@ -36,7 +36,7 @@ async function insertKnowledgeItem(
 		scopeId?: string | null;
 		parentKind?: KnowledgeParentKind | null;
 		parentId?: string | null;
-		status?: "active" | "draft" | "archived";
+		status?: "active" | "proposed" | "archived";
 	},
 ): Promise<string> {
 	const id = opts.id ?? generateId();
@@ -45,7 +45,6 @@ async function insertKnowledgeItem(
 		id,
 		scopeKind: opts.scopeKind ?? "factory",
 		scopeId: opts.scopeId ?? null,
-		topic: null,
 		title: opts.title,
 		body: opts.body,
 		format: "markdown",

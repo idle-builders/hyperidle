@@ -26,32 +26,187 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 
-import {
-	type KernelKnowledgeStatus,
-	type KnowledgeParentKind,
-	type KnowledgeRole,
-	type SCOPE_KINDS,
-	scopeToLayer,
+import type {
+	KernelKnowledgeStatus,
+	KnowledgeParentKind,
+	KnowledgeRole,
 } from "@hyperidle/domain-model";
-import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
-import { ItemDeletedError, VersionConflictError } from "./errors.js";
-import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
+import { and, desc, eq, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
+import { InvalidReparentError, ItemDeletedError, VersionConflictError } from "./errors.js";
+import type { KnowledgeStatus } from "./types.js";
+
+/**
+ * @lore nested-knowledge-items §3: scope narrows as you descend — factory is
+ * widest, user is narrowest. A child's rank must be >= its parent's.
+ */
+const SCOPE_RANK: Readonly<Record<string, number>> = { factory: 0, team: 1, user: 2 };
+
+function scopeRank(scopeKind: string): number {
+	return SCOPE_RANK[scopeKind] ?? 0;
+}
+
+/** Any executor `create`/`update`/`reparent` can run their invariant checks against. */
+type Executor = HyperIdleDb | WriteExecutor;
+
+/** Max tree depth (architecture.md §3) — a backstop; the real guard is the cycle check. */
+const MAX_TREE_DEPTH = 32;
+
+/**
+ * Walk up the `knowledge_item` parent chain starting at `startId`, stopping
+ * at the first non-`knowledge_item` parent or a root. Returns `[startId,
+ * ..., topmostKnowledgeItemAncestor]` — `chain.length` is exactly the number
+ * of `knowledge_item` ancestors a child parented under `startId` would
+ * inherit, so `chain.length + 1` is that child's resulting depth.
+ */
+async function walkKnowledgeItemAncestorChain(
+	tx: Executor,
+	startId: string,
+): Promise<readonly string[]> {
+	const chain: string[] = [];
+	let currentId: string | null = startId;
+	let guard = 0;
+	while (currentId) {
+		// A real cycle already in the stored tree would otherwise spin forever
+		// (architecture §3) — this bound only exists to fail loud instead.
+		if (guard++ > 10_000) {
+			throw new Error(
+				"walkKnowledgeItemAncestorChain: exceeded safety bound — an existing cycle in the stored tree",
+			);
+		}
+		chain.push(currentId);
+		const [row] = await tx
+			.select({ parentKind: knowledgeItems.parentKind, parentId: knowledgeItems.parentId })
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, currentId))
+			.limit(1);
+		if (row?.parentKind !== "knowledge_item" || !row.parentId) break;
+		currentId = row.parentId;
+	}
+	return chain;
+}
+
+/**
+ * The three tree invariants (architecture.md §3), run inside the same
+ * transaction as the write that sets a parent — a reparent must re-read live
+ * state, not the pre-transaction snapshot, or two concurrent reparents can
+ * each look legal and together produce a cycle.
+ *
+ * Only evaluated when the new parent is a `knowledge_item` — a task/thread/
+ * routine/agent parent inherits nothing and is never part of a cycle
+ * (architecture §3, "walks stop at the first non-knowledge_item parent").
+ */
+async function assertParentInvariants(
+	tx: Executor,
+	input: {
+		/** Omitted for `create()` — a brand-new id cannot already be an ancestor. */
+		readonly itemId?: string;
+		readonly newParentId: string;
+		readonly childScopeKind: string;
+	},
+): Promise<void> {
+	const chain = await walkKnowledgeItemAncestorChain(tx, input.newParentId);
+
+	if (input.itemId && chain.includes(input.itemId)) {
+		throw new InvalidReparentError(
+			"cycle",
+			`reparent: parenting ${input.itemId} under ${input.newParentId} would create a cycle`,
+		);
+	}
+	if (chain.length >= MAX_TREE_DEPTH) {
+		throw new InvalidReparentError(
+			"depth-exceeded",
+			`reparent: resulting depth would exceed the maximum of ${MAX_TREE_DEPTH}`,
+		);
+	}
+
+	const parentId = chain[0];
+	const [parentRow] = await tx
+		.select({ scopeKind: knowledgeItems.scopeKind })
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.id, parentId ?? input.newParentId))
+		.limit(1);
+	if (!parentRow) {
+		throw new InvalidReparentError(
+			"parent-not-found",
+			`reparent: parent knowledge item ${input.newParentId} does not exist`,
+		);
+	}
+	if (scopeRank(input.childScopeKind) < scopeRank(parentRow.scopeKind)) {
+		throw new InvalidReparentError(
+			"scope-too-wide",
+			`reparent: scope '${input.childScopeKind}' is wider than parent scope '${parentRow.scopeKind}'`,
+		);
+	}
+}
+
+/** Append-at-end position for a new or moved child of one parent (or among roots). */
+async function nextPositionForParent(
+	tx: Executor,
+	parentKind: string | null,
+	parentId: string | null,
+): Promise<number> {
+	const condition =
+		parentKind === null || parentId === null
+			? and(isNull(knowledgeItems.parentKind), isNull(knowledgeItems.parentId))
+			: and(eq(knowledgeItems.parentKind, parentKind), eq(knowledgeItems.parentId, parentId));
+	const [row] = await tx
+		.select({ maxPos: sql<number | null>`MAX(${knowledgeItems.position})` })
+		.from(knowledgeItems)
+		.where(condition);
+	const max = row?.maxPos;
+	return max == null ? 0 : Number(max) + 1;
+}
+
+/**
+ * D5 — narrowing a parent's scope cascades to its subtree. Walks the tree
+ * breadth-first from `rootId`; a descendant whose own scope is now WIDER
+ * than `newScopeKind` is clamped to it (a descendant already narrower than
+ * the new parent scope is left alone — cascading must never WIDEN a scope
+ * someone deliberately narrowed).
+ */
+async function cascadeScopeNarrowing(
+	tx: Executor,
+	rootId: string,
+	newScopeKind: string,
+): Promise<void> {
+	let frontier: readonly string[] = [rootId];
+	let guard = 0;
+	while (frontier.length > 0) {
+		if (guard++ > 10_000) {
+			throw new Error(
+				"cascadeScopeNarrowing: exceeded safety bound — an existing cycle in the tree",
+			);
+		}
+		const children = await tx
+			.select({ id: knowledgeItems.id, scopeKind: knowledgeItems.scopeKind })
+			.from(knowledgeItems)
+			.where(
+				and(
+					eq(knowledgeItems.parentKind, "knowledge_item"),
+					inArray(knowledgeItems.parentId, [...frontier]),
+				),
+			);
+		const toNarrow = children.filter((c) => scopeRank(c.scopeKind) < scopeRank(newScopeKind));
+		if (toNarrow.length > 0) {
+			await tx
+				.update(knowledgeItems)
+				.set({ scopeKind: newScopeKind })
+				.where(
+					inArray(
+						knowledgeItems.id,
+						toNarrow.map((c) => c.id),
+					),
+				);
+		}
+		frontier = children.map((c) => c.id);
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Input shapes (public — used by callers of create/update)
 // ---------------------------------------------------------------------------
 
 export interface CreateKnowledgeItemInput {
-	/**
-	 * @lore AU14: widened to accept `null` alongside the existing symmetric `kind`
-	 * widening. The HTTP route passes `scopeToLayer(scopeKind)` (returns `null` for
-	 * team/bet/user/filesystem scopes — see @hyperidle/domain-model SCOPE_TO_LAYER), which
-	 * is exactly what the pre-AU14 route's `upsertProjectionLayer` wrote into the
-	 * (nullable) `knowledgeAppProjection.layer` column for those scopes. Existing
-	 * callers (`write-memory.ts`, `writeback.ts`) always pass a concrete layer, so
-	 * this is behavior-neutral for them.
-	 */
-	layer: KnowledgeLayer | null;
 	/** @lore R7: scopeKind written to the kernel table so items are queryable by
 	 * scope without a JOIN against the extension table. Defaults to "factory"
 	 * when not provided (preserves existing behavior for callers that don't set scope). */
@@ -64,21 +219,17 @@ export interface CreateKnowledgeItemInput {
 	 */
 	role?: KnowledgeRole;
 	/**
-	 * @lore knowledge-attachment-slot: which entity this item hangs off, and
-	 * the role it occupies there — a routine's prompt, an agent's identity.
-	 * Optional: "no parent" is the ordinary case, and every caller would
-	 * otherwise write `null` as noise. Both present or both absent — the
-	 * kernel table's `ki_parent_pair_ck` enforces the pairing.
+	 * @lore knowledge-attachment-slot / nested-knowledge-items: which entity
+	 * this item hangs off — another knowledge item (the tree), a routine's
+	 * prompt, an agent's identity, a task, a thread. Optional: "no parent" is
+	 * a root. Both present or both absent — the kernel table's
+	 * `ki_parent_pair_ck` enforces the pairing. Setting `parentKind:
+	 * 'knowledge_item'` runs the tree invariants (cycle — vacuous for a
+	 * brand-new id, scope-no-wider-than-parent, depth<=32) inside the same
+	 * transaction as the insert.
 	 */
 	parentKind?: KnowledgeParentKind | null;
 	parentId?: string | null;
-	/**
-	 * @lore AU14: made optional so callers with no `kind` concept (the HTTP route)
-	 * can omit it and keep `projection.kind` null, matching pre-AU14 route behavior.
-	 * `write-memory.ts`/`writeback.ts` always pass `kind` — `?? null` never fires for them.
-	 */
-	kind?: KnowledgeKind | null;
-	topic?: string | null;
 	title: string;
 	body: string;
 	/**
@@ -106,10 +257,7 @@ export interface CreateKnowledgeItemInput {
 }
 
 export interface UpdateKnowledgeItemInput {
-	layer?: KnowledgeLayer;
 	scopeId?: string | null;
-	kind?: KnowledgeKind;
-	topic?: string | null;
 	title?: string;
 	body?: string;
 	/** @lore AU14: same `string` widening as CreateKnowledgeItemInput.format — see there. */
@@ -122,8 +270,19 @@ export interface UpdateKnowledgeItemInput {
 	 * Scope lives on the kernel row, and `scopeId` is mirrored onto the
 	 * projection after the kernel write — `list()` matches either column with an
 	 * OR, so leaving one behind silently changes who can find the document.
+	 *
+	 * @lore nested-knowledge-items D5: narrowing an item's scope cascades to
+	 * its subtree (`update()` runs `cascadeScopeNarrowing` in the same
+	 * transaction as this write).
 	 */
 	scopeKind?: string;
+	/**
+	 * @lore nested-knowledge-items: reparenting is NOT here — `reparent()` is
+	 * a separate entry point because it runs the tree invariants (cycle,
+	 * scope, depth) against LIVE state inside its own transaction, which a
+	 * generic field-diff update cannot do safely for a self-referential
+	 * column.
+	 */
 	updatedBy?: string;
 	/** @lore AU44 batch 4: retained so the retro upsert (Ruling 3 PLUGIN row) can write
 	 * reflection metadata until the BA curation plugin track provides a replacement. */
@@ -132,7 +291,6 @@ export interface UpdateKnowledgeItemInput {
 
 /** Base filter for list() — filters on kernel + projection table fields. */
 export interface ListFilters {
-	layer?: KnowledgeLayer;
 	/** Matches scope stored on either the canonical row or its app projection. */
 	scopeId?: string | null;
 	/**
@@ -160,8 +318,6 @@ export type KnowledgeItemView = "summary" | "full";
  * Only declare NEW fields from knowledgeAppProjection here.
  */
 export interface KnowledgeItemWithProjection extends KnowledgeItem {
-	layer?: string | null;
-	kind?: string | null;
 	attentionScore?: string | null;
 	confidence?: string | null;
 	meta?: string | null;
@@ -171,18 +327,11 @@ export interface KnowledgeItemWithProjection extends KnowledgeItem {
 	// cannot write them) but stay readable here so the PLUGIN can read + return them.
 }
 
-// ---------------------------------------------------------------------------
-// Local (non-exported) return-shape types — used in overload signatures.
-// These replaced the former exported row types (KnowledgeListRow,
-// KnowledgeDetailRow, etc.) deleted in AU20 K1-reads.
-// ---------------------------------------------------------------------------
-
-/** Row shape for list({recentByLayers}) — replaces exported RecentLayeredKnowledgeItemRow. */
-type RecentRow = {
+/** One tree child — the shape `KnowledgeDetail`'s "children" list and the tree read need. */
+export interface KnowledgeItemChildRef {
+	readonly id: string;
 	readonly title: string;
-	readonly updatedAt: string;
-	readonly layer: string | null;
-};
+}
 
 // ---------------------------------------------------------------------------
 // Private helpers
@@ -226,12 +375,10 @@ function mergeWithProjection(
 	if (!projection) return item;
 	return {
 		...item,
-		layer: projection.layer,
 		// @lore AU44 batch 4: projection.scopeId is a denormalized copy that may be null
 		// (e.g. minimal test fixtures, or items created before the projection column existed).
 		// Fall back to the kernel's scopeId so resolveScopeName receives the real value.
 		scopeId: projection.scopeId ?? item.scopeId,
-		kind: projection.kind,
 		// @lore AU44 batch 4: attentionScore stays readable per the KnowledgeItemWithProjection
 		// interface lore — the PLUGIN attention service writes it, callers may read it.
 		// Removed from Create/UpdateKnowledgeItemInput (callers cannot write it).
@@ -252,66 +399,212 @@ export async function create(
 ): Promise<KnowledgeItemWithProjection> {
 	const id = generateId();
 	const timestamp = options.timestamp ?? now();
+	const scopeKind = input.scopeKind ?? "factory";
+	const parentKind = input.parentKind ?? null;
+	const parentId = input.parentId ?? null;
 
-	// Insert into canonical table (projection fields excluded, except scopeKind/scopeId
-	// which live on the kernel for efficient scope queries without a JOIN)
-	await db.insert(knowledgeItems).values({
-		id,
-		scopeKind: input.scopeKind ?? "factory",
-		scopeId: input.scopeId ?? null,
-		topic: input.topic ?? null,
-		title: input.title,
-		body: input.body,
-		format: input.format,
-		status: input.status,
-		// Absent leaves the column default (`ordinary`), which is what every
-		// caller predating an authorable role produced.
-		...(input.role ? { role: input.role } : {}),
-		parentKind: input.parentKind ?? null,
-		parentId: input.parentId ?? null,
-		version: 1,
-		updatedBy: input.updatedBy,
-		createdAt: timestamp,
-		updatedAt: timestamp,
+	return db.transaction(async (tx): Promise<KnowledgeItemWithProjection> => {
+		// The tree invariants (cycle, scope-no-wider-than-parent, depth<=32) run
+		// inside the same transaction as the write that sets a parent
+		// (architecture.md §3). A brand-new id cannot already be an ancestor of
+		// anything, so the cycle check is vacuous here — it still matters for
+		// depth and scope.
+		if (parentKind === "knowledge_item" && parentId) {
+			await assertParentInvariants(tx, { newParentId: parentId, childScopeKind: scopeKind });
+		}
+		const position = await nextPositionForParent(tx, parentKind, parentId);
+
+		await tx.insert(knowledgeItems).values({
+			id,
+			scopeKind,
+			scopeId: input.scopeId ?? null,
+			title: input.title,
+			body: input.body,
+			format: input.format,
+			status: input.status,
+			// Absent leaves the column default (`ordinary`), which is what every
+			// caller predating an authorable role produced.
+			...(input.role ? { role: input.role } : {}),
+			parentKind,
+			parentId,
+			position,
+			version: 1,
+			updatedBy: input.updatedBy,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+		});
+
+		// Insert into app projection table.
+		await tx.insert(knowledgeAppProjection).values({
+			id: generateId(),
+			knowledgeItemId: id,
+			scopeId: input.scopeId ?? null,
+			meta: input.meta ?? null,
+		});
+
+		// Edit log for create
+		await tx.insert(knowledgeEditLog).values({
+			id: generateId(),
+			itemId: id,
+			editor: input.updatedBy,
+			field: "*",
+			oldValue: null,
+			newValue: null,
+			editType: "create",
+			createdAt: timestamp,
+		});
+
+		// @lore AU14: no domain event emitted here (deliberately). The route owns the
+		// EventBus emit (live subscribers: ws-broadcaster, observability
+		// dispatcher); non-HTTP callers (tools/writeback) never emitted on the bus
+		// before this WP and continue not to — emitting here would be a NEW event for
+		// them, a behavior change the WP forbids.
+		const [created] = await tx
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, id))
+			.limit(1);
+		if (!created) {
+			throw new Error(`Failed to read back created knowledge item ${id}`);
+		}
+		const [projectionRow] = await tx
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, id))
+			.limit(1);
+		return mergeWithProjection(created, projectionRow ?? null);
 	});
+}
 
-	// Insert into app projection table.
-	await db.insert(knowledgeAppProjection).values({
-		id: generateId(),
-		knowledgeItemId: id,
-		layer: input.layer,
-		scopeId: input.scopeId ?? null,
-		kind: input.kind ?? null,
-		meta: input.meta ?? null,
-	});
-
-	// Edit log for create
-	await db.insert(knowledgeEditLog).values({
-		id: generateId(),
-		itemId: id,
-		editor: input.updatedBy,
-		field: "*",
-		oldValue: null,
-		newValue: null,
-		editType: "create",
-		createdAt: timestamp,
-	});
-
-	// @lore AU14: no domain event emitted here (deliberately). The route owns the
-	// EventBus emit (live subscribers: ws-broadcaster, observability
-	// dispatcher); non-HTTP callers (tools/writeback) never emitted on the bus
-	// before this WP and continue not to — emitting here would be a NEW event for
-	// them, a behavior change the WP forbids.
-	const [created] = await db
-		.select()
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.id, id))
-		.limit(1);
-	if (!created) {
-		throw new Error(`Failed to read back created knowledge item ${id}`);
+/**
+ * Shared write path for `reparent()` and `graduate()` — re-checks the tree
+ * invariants against LIVE state (only when the new parent is a
+ * `knowledge_item`; a task/thread/routine/agent parent inherits nothing and
+ * is never part of a cycle), computes the append-at-end position under the
+ * new parent, and performs the row update.
+ *
+ * @lore nested-knowledge-items / graduation consolidation: `graduate()` used
+ * to duplicate this — its own copy of the update statement never called
+ * `assertParentInvariants` or `nextPositionForParent`, so graduating onto a
+ * `knowledge_item` parent skipped the cycle/depth/scope checks and left the
+ * moved item's `position` stale (whatever it was under its old task/thread
+ * parent). Neither gap had a test — graduation's fixtures never build a deep
+ * tree or a scope-wider descendant — so this is a latent-bug fix that rides
+ * along with the consolidation, not a deliberate behavior change. Optimistic
+ * locking (`versionBump`) is optional because `reparent()` itself is
+ * version-less (its callers re-read after the fact); `graduate()` supplies
+ * it to get the same WHERE-clause race protection `update()` uses.
+ */
+async function applyParentMove(
+	tx: Executor,
+	id: string,
+	existing: { readonly scopeKind: string },
+	target: { readonly parentKind: KnowledgeParentKind | null; readonly parentId: string | null },
+	updatedBy: string,
+	timestamp: string,
+	versionBump?: { readonly expectedVersion: number },
+): Promise<{ readonly matched: boolean }> {
+	if (target.parentKind === "knowledge_item" && target.parentId) {
+		await assertParentInvariants(tx, {
+			itemId: id,
+			newParentId: target.parentId,
+			childScopeKind: existing.scopeKind,
+		});
 	}
-	const projectionRow = await getProjectionRow(db, id);
-	return mergeWithProjection(created, projectionRow);
+
+	const position = await nextPositionForParent(tx, target.parentKind, target.parentId);
+
+	const setValues: Record<string, unknown> = {
+		parentKind: target.parentKind,
+		parentId: target.parentId,
+		position,
+		updatedBy,
+		updatedAt: timestamp,
+	};
+	if (versionBump) {
+		setValues.version = versionBump.expectedVersion + 1;
+	}
+	const where = versionBump
+		? and(eq(knowledgeItems.id, id), eq(knowledgeItems.version, versionBump.expectedVersion))
+		: eq(knowledgeItems.id, id);
+
+	const updateRows = await tx
+		.update(knowledgeItems)
+		.set(setValues)
+		.where(where)
+		.returning({ id: knowledgeItems.id });
+	return { matched: updateRows.length > 0 };
+}
+
+/**
+ * Change an existing item's parent. A separate entry point from `update()`
+ * (architecture.md §3): the tree invariants — no cycle, scope no wider than
+ * the new parent's, depth<=32 — must re-read LIVE state inside this write's
+ * own transaction, because two reparents that each look legal against the
+ * pre-transaction snapshot can together produce a cycle no single read would
+ * catch.
+ *
+ * @lore nested-knowledge-items defect 2: `parentKind`/`parentId` are both
+ * nullable — null,null detaches the item to the top level (a root), mirroring
+ * `ki_parent_pair_ck`'s both-or-neither pairing. A root has no parent to walk,
+ * so the cycle/scope/depth invariants are vacuously satisfied and simply
+ * never run for that case, rather than being asked a question that has no
+ * answer.
+ */
+export async function reparent(
+	db: HyperIdleDb,
+	id: string,
+	input: {
+		readonly parentKind: KnowledgeParentKind | null;
+		readonly parentId: string | null;
+		readonly updatedBy: string;
+	},
+): Promise<KnowledgeItem> {
+	return db.transaction(
+		async (tx): Promise<KnowledgeItem> => {
+			const [existing] = await tx
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!existing) {
+				throw new Error(`reparent: knowledge item ${id} not found`);
+			}
+
+			const { parentKind, parentId } = input;
+			if (
+				(parentKind === null || parentId === null) &&
+				(parentKind !== null || parentId !== null)
+			) {
+				throw new Error(
+					"reparent: parentKind and parentId must both be null (detach to root) or both be set — never one without the other",
+				);
+			}
+
+			const timestamp = now();
+			await applyParentMove(tx, id, existing, input, input.updatedBy, timestamp);
+
+			await tx.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: id,
+				editor: input.updatedBy,
+				field: "parent",
+				oldValue: existing.parentId ? `${existing.parentKind}:${existing.parentId}` : null,
+				newValue: parentId ? `${parentKind}:${parentId}` : null,
+				editType: "update",
+				createdAt: timestamp,
+			});
+
+			const [updated] = await tx
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!updated) throw new Error(`reparent: failed to read back knowledge item ${id}`);
+			return updated;
+		},
+		{ isolationLevel: "serializable" },
+	);
 }
 
 /**
@@ -330,7 +623,6 @@ export async function create(
  * from a PATCH body before it ever reaches this function.
  */
 const KERNEL_EDITABLE_FIELDS = [
-	"topic",
 	"title",
 	"body",
 	"format",
@@ -344,7 +636,7 @@ const KERNEL_EDITABLE_FIELDS = [
 // onto the projection after the kernel write, so the two cannot disagree. Listing
 // it here made the generic update write the projection while the (now deleted)
 // `/scope` route wrote the kernel — two writers, two tables, free to diverge.
-const PROJECTION_EDITABLE_FIELDS = ["layer", "kind", "meta"] as const;
+const PROJECTION_EDITABLE_FIELDS = ["meta"] as const;
 
 interface DiffResult {
 	readonly kernelChanges: Record<string, unknown>;
@@ -444,17 +736,13 @@ export async function update(
 
 			// Mirror the kernel's scopeId onto the projection in the same
 			// transaction, so the two columns `list()` ORs together cannot drift.
-			// A changed scopeKind also re-derives the fabric layer: the layer IS a
-			// function of the scope, and leaving it behind would strand the document
-			// in the layer its old scope implied.
 			// `kernelChanges` is an untyped diff bag, so the two scope fields are
 			// narrowed here rather than asserted at each use.
 			const nextScopeId = kernelChanges.scopeId as string | null | undefined;
-			const nextScopeKind = kernelChanges.scopeKind as (typeof SCOPE_KINDS)[number] | undefined;
+			const nextScopeKind = kernelChanges.scopeKind as string | undefined;
 			const mirroredProjectionChanges = {
 				...projectionChanges,
 				...("scopeId" in kernelChanges ? { scopeId: nextScopeId ?? null } : {}),
-				...(nextScopeKind ? { layer: scopeToLayer(nextScopeKind) } : {}),
 			};
 
 			const updateRows = await tx
@@ -475,6 +763,13 @@ export async function update(
 					.limit(1);
 				if (!current) throw new ItemDeletedError(id);
 				throw new VersionConflictError(id, current.version);
+			}
+
+			// D5 — narrowing an item's scope cascades to its subtree, inside this
+			// same transaction (architecture.md §3, critique blocker #7: the
+			// invariant is otherwise only guarded on the CHILD's own write).
+			if (nextScopeKind) {
+				await cascadeScopeNarrowing(tx, id, nextScopeKind);
 			}
 
 			// Update extension table if there are projection changes.
@@ -598,22 +893,21 @@ export async function graduate(
 			}
 
 			const timestamp = options.timestamp ?? now();
-			const newVersion = existing.version + 1;
 
-			// Write the update with optimistic-lock WHERE clause.
-			const updateRows = await tx
-				.update(knowledgeItems)
-				.set({
-					parentKind: input.newParentKind,
-					parentId: input.newParentId,
-					version: newVersion,
-					updatedAt: timestamp,
-					updatedBy: input.updatedBy,
-				})
-				.where(and(eq(knowledgeItems.id, id), eq(knowledgeItems.version, expectedVersion)))
-				.returning({ id: knowledgeItems.id });
+			// Write the move (tree invariants + position, shared with reparent())
+			// with the optimistic-lock WHERE clause `applyParentMove` adds when
+			// given `versionBump`.
+			const { matched } = await applyParentMove(
+				tx,
+				id,
+				existing,
+				{ parentKind: input.newParentKind, parentId: input.newParentId },
+				input.updatedBy,
+				timestamp,
+				{ expectedVersion },
+			);
 
-			if (updateRows.length === 0) {
+			if (!matched) {
 				// Lost a TOCTOU race — re-read and throw the conflict.
 				const [current] = await tx
 					.select({ version: knowledgeItems.version })
@@ -696,7 +990,7 @@ async function listBase(
 	db: HyperIdleDb,
 	filters: ListFilters = {},
 ): Promise<KnowledgeItemWithProjection[]> {
-	const hasProjectionFilter = filters.layer !== undefined || filters.scopeId !== undefined;
+	const hasProjectionFilter = filters.scopeId !== undefined;
 
 	const limit = filters.limit ?? 50;
 	const offset = filters.offset ?? 0;
@@ -722,9 +1016,6 @@ async function listBase(
 	// @lore O2: projection filter queries must JOIN with knowledgeAppProjection.
 	const conditions: SQL[] = [];
 
-	if (filters.layer !== undefined) {
-		conditions.push(eq(knowledgeAppProjection.layer, filters.layer));
-	}
 	if (filters.scopeId !== undefined) {
 		const scopeCondition =
 			filters.scopeId === null
@@ -795,6 +1086,20 @@ function visibleToViewer(viewerUserId: string): SQL | undefined {
 	);
 }
 
+/**
+ * @lore nested-knowledge-items §4: replaces the old client-side
+ * `role !== "skill" && role !== "rule"` filter (`KnowledgeList.tsx:858`).
+ * Every `role='ordinary'` row now lives in the tree (parented under one of
+ * the three roots or a descendant of one). A row whose parent is set but is
+ * NOT `knowledge_item` (agent/task/thread/routine) is a role-carrying item
+ * (skill/rule/agent_file/prompt) — excluding it structurally removes the
+ * whole role-carrying population from general browsing without naming any
+ * role, so a future role added to that set is excluded automatically too.
+ */
+function parentIsKnowledgeItemOrRoot(): SQL | undefined {
+	return or(isNull(knowledgeItems.parentKind), eq(knowledgeItems.parentKind, "knowledge_item"));
+}
+
 export function get(
 	db: HyperIdleDb,
 	id: string,
@@ -834,15 +1139,93 @@ export async function get(
 }
 
 /**
+ * One ancestor in a knowledge item's parent chain, as `BakedContextKnowledgeItem`
+ * needs it: enough to materialise the ancestor's own directory + manifest
+ * entry without a second DB read at write time (architecture.md §5 —
+ * `writeContextBundle` does zero DB reads).
+ */
+export interface KnowledgeParentChainAncestor {
+	readonly id: string;
+	readonly title: string;
+	readonly scopeKind: string;
+	readonly version: number;
+}
+
+/**
+ * Walk a knowledge item's ancestors, root first, stopping at the first
+ * non-`knowledge_item` parent (architecture.md §3: "walks stop at the first
+ * non-knowledge_item parent") or at the depth-32 backstop. Called once per
+ * ordinary item at bake time (session-knowledge-assembler.ts) — this is the
+ * only place `BakedContextKnowledgeItem.parentChain` can be populated,
+ * since the sandbox write path itself does no DB reads (review.md B4).
+ */
+export async function resolveParentChain(
+	db: HyperIdleDb,
+	itemId: string,
+): Promise<readonly KnowledgeParentChainAncestor[]> {
+	const chain: KnowledgeParentChainAncestor[] = [];
+	let cursorId: string = itemId;
+	for (let depth = 0; depth < 32; depth++) {
+		const [row] = await db
+			.select({ parentKind: knowledgeItems.parentKind, parentId: knowledgeItems.parentId })
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, cursorId))
+			.limit(1);
+		if (row?.parentKind !== "knowledge_item" || !row.parentId) break;
+
+		const [ancestor] = await db
+			.select({
+				id: knowledgeItems.id,
+				title: knowledgeItems.title,
+				scopeKind: knowledgeItems.scopeKind,
+				version: knowledgeItems.version,
+			})
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, row.parentId))
+			.limit(1);
+		if (!ancestor) break;
+
+		chain.unshift(ancestor);
+		cursorId = ancestor.id;
+	}
+	return chain;
+}
+
+/** Rank order for scope visibility — a viewer sees factory + their own team + their own. */
+function scopeVisibleCondition(viewerTeamId: string | null): SQL | undefined {
+	// architecture.md §4 D2: a team-scoped branch is invisible outside that
+	// team. `scope` is a readability filter, not access control — nothing
+	// here joins `users`; the viewer's team is a caller-supplied parameter.
+	return viewerTeamId
+		? or(ne(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, viewerTeamId))
+		: ne(knowledgeItems.scopeKind, "team");
+}
+
+/**
+ * Combines the two independent visibility predicates a human read must
+ * satisfy: Q2 (a `user`-scoped row is private to its author) AND D2 (a
+ * `team`-scoped row is invisible outside that team). Neither alone is a
+ * complete visibility check — review.md B3.
+ */
+function humanVisibleCondition(viewerUserId: string, viewerTeamId: string | null): SQL | undefined {
+	return and(visibleToViewer(viewerUserId), scopeVisibleCondition(viewerTeamId));
+}
+
+/**
  * List knowledge items with a discriminated filter.
  *
  * Discriminated variants (first matching wins):
- * - `{scope}` → items in scopeKind+scopeId on kernel table (replaces listByScope)
- * - `{visibleWithSignals}` → all items visible to viewerUserId with L22 signals
  * - `{titlesByIds}` → batched title lookup
- * - `{recentByLayers}` → items in given layers updated since a cutoff
- * - `{exportable}` → items with matching layer/status for git export
- * - `{relatedByTopic}` → same-topic items visible to viewer
+ * - `{tree}` → roots + ordinary tree nodes, excluding any row whose parent is
+ *   not a knowledge item (architecture §4) — a `user`-scoped row stays
+ *   private to its author (Q2) AND a `team`-scoped branch is invisible
+ *   outside that team (D2). This is the one read GET /api/knowledge uses;
+ *   there is no separate "all items" variant with a weaker filter.
+ * - `{childrenOf}` → this item's own ordered children, same combined
+ *   visibility filter as `{tree}` (review.md B3 — a non-member must not see
+ *   a team-scoped or private child's title through the parent's page)
+ * - `{childrenAndSiblings}` → the Backlinks card: this item's children union
+ *   its siblings (architecture §4 — replaces the deleted topic-match query)
  * - base `ListFilters` → projection-joined filtered list
  *
  * @lore Ag7b: Each variant has a unique required discriminant property so TypeScript
@@ -853,25 +1236,21 @@ export async function get(
  */
 export function list(
 	db: HyperIdleDb,
-	filter: { readonly visibleWithSignals: string },
-): Promise<KnowledgeItemWithProjection[]>;
-export function list(
-	db: HyperIdleDb,
 	filter: { readonly titlesByIds: readonly string[] },
 ): Promise<Array<{ id: string; title: string }>>;
 export function list(
 	db: HyperIdleDb,
 	filter: {
-		readonly recentByLayers: { readonly layers: readonly string[]; readonly since: string };
+		readonly tree: { readonly viewerUserId: string; readonly viewerTeamId: string | null };
 	},
-): Promise<readonly RecentRow[]>;
+): Promise<KnowledgeItemWithProjection[]>;
 export function list(
 	db: HyperIdleDb,
 	filter: {
-		readonly relatedByTopic: {
-			readonly topic: string;
-			readonly excludeId: string;
+		readonly childrenAndSiblings: {
+			readonly itemId: string;
 			readonly viewerUserId: string;
+			readonly viewerTeamId: string | null;
 			readonly limit: number;
 		};
 	},
@@ -880,18 +1259,36 @@ export function list(
 	db: HyperIdleDb,
 	filter: { readonly byParent: { readonly parentKind: string; readonly parentId: string } },
 ): Promise<KnowledgeItemWithProjection[]>;
+export function list(
+	db: HyperIdleDb,
+	filter: {
+		readonly childrenOf: {
+			readonly parentId: string;
+			readonly viewerUserId: string;
+			readonly viewerTeamId: string | null;
+		};
+	},
+): Promise<KnowledgeItemChildRef[]>;
 export function list(db: HyperIdleDb, filter?: ListFilters): Promise<KnowledgeItemWithProjection[]>;
 export async function list(
 	db: HyperIdleDb,
 	filter?:
-		| { readonly visibleWithSignals: string }
 		| { readonly titlesByIds: readonly string[] }
-		| { readonly recentByLayers: { readonly layers: readonly string[]; readonly since: string } }
 		| {
-				readonly relatedByTopic: {
-					readonly topic: string;
-					readonly excludeId: string;
+				readonly tree: { readonly viewerUserId: string; readonly viewerTeamId: string | null };
+		  }
+		| {
+				readonly childrenOf: {
+					readonly parentId: string;
 					readonly viewerUserId: string;
+					readonly viewerTeamId: string | null;
+				};
+		  }
+		| {
+				readonly childrenAndSiblings: {
+					readonly itemId: string;
+					readonly viewerUserId: string;
+					readonly viewerTeamId: string | null;
 					readonly limit: number;
 				};
 		  }
@@ -901,24 +1298,23 @@ export async function list(
 	| KnowledgeItemWithProjection[]
 	| null
 	| readonly { id: string; title: string }[]
-	| readonly RecentRow[]
+	| KnowledgeItemChildRef[]
 > {
 	if (!filter) return listBase(db);
 
-	if ("visibleWithSignals" in filter) {
-		// Visible items: Q2 filter — include if scope_kind != 'user' OR updatedBy = viewer.
-		// AC4/AC5: exclude parented items — they belong to their task or thread surface,
-		// not the knowledge tree. A caller wanting parented items uses { byParent }.
-		const viewerUserId = filter.visibleWithSignals;
-		const rows = await db
-			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
+	if ("childrenOf" in filter) {
+		const { parentId, viewerUserId, viewerTeamId } = filter.childrenOf;
+		return db
+			.select({ id: knowledgeItems.id, title: knowledgeItems.title })
 			.from(knowledgeItems)
-			.leftJoin(
-				knowledgeAppProjection,
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
+			.where(
+				and(
+					eq(knowledgeItems.parentKind, "knowledge_item"),
+					eq(knowledgeItems.parentId, parentId),
+					humanVisibleCondition(viewerUserId, viewerTeamId),
+				),
 			)
-			.where(and(visibleToViewer(viewerUserId), isNull(knowledgeItems.parentKind)));
-		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
+			.orderBy(knowledgeItems.position, knowledgeItems.title);
 	}
 
 	if ("byParent" in filter) {
@@ -951,43 +1347,58 @@ export async function list(
 			.where(inArray(knowledgeItems.id, ids as string[]));
 	}
 
-	if ("recentByLayers" in filter) {
-		// Inlined from former listRecentByLayers.
-		const { layers, since } = filter.recentByLayers;
+	if ("tree" in filter) {
+		const { viewerUserId, viewerTeamId } = filter.tree;
 		const rows = await db
-			.select({ item: knowledgeItems, fabric: knowledgeAppProjection })
+			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
 			.from(knowledgeItems)
-			.innerJoin(
+			.leftJoin(
 				knowledgeAppProjection,
 				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
-			.where(
-				and(
-					inArray(knowledgeAppProjection.layer, layers as string[]),
-					gte(knowledgeItems.updatedAt, since),
-				),
-			);
-		return rows.map((r) => ({
-			title: r.item.title,
-			updatedAt: r.item.updatedAt,
-			layer: r.fabric.layer,
-		}));
+			.where(and(parentIsKnowledgeItemOrRoot(), humanVisibleCondition(viewerUserId, viewerTeamId)))
+			.orderBy(knowledgeItems.position, knowledgeItems.title);
+		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 
-	if ("relatedByTopic" in filter) {
-		// Inlined from former findRelatedByTopic.
-		const opts = filter.relatedByTopic;
+	if ("childrenAndSiblings" in filter) {
+		const { itemId, viewerUserId, viewerTeamId, limit } = filter.childrenAndSiblings;
+		const [subject] = await db
+			.select({ parentKind: knowledgeItems.parentKind, parentId: knowledgeItems.parentId })
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, itemId))
+			.limit(1);
+		if (!subject) return [];
+
+		const siblingCondition =
+			subject.parentKind === null || subject.parentId === null
+				? and(isNull(knowledgeItems.parentKind), isNull(knowledgeItems.parentId))
+				: and(
+						eq(knowledgeItems.parentKind, subject.parentKind),
+						eq(knowledgeItems.parentId, subject.parentId),
+					);
+		const childCondition = and(
+			eq(knowledgeItems.parentKind, "knowledge_item"),
+			eq(knowledgeItems.parentId, itemId),
+		);
+
 		return db
 			.select({ id: knowledgeItems.id, title: knowledgeItems.title })
 			.from(knowledgeItems)
 			.where(
 				and(
-					eq(knowledgeItems.topic, opts.topic),
-					ne(knowledgeItems.id, opts.excludeId),
-					visibleToViewer(opts.viewerUserId),
+					or(siblingCondition, childCondition),
+					ne(knowledgeItems.id, itemId),
+					// review.md B1: this card applied only the Q2 private-user half of
+					// the combined visibility rule — a viewer outside the item's team
+					// still read every team-scoped sibling's title. `childrenOf` (the
+					// Children card right above it) already uses the combined rule;
+					// this is the same fix applied to the same query shape.
+					humanVisibleCondition(viewerUserId, viewerTeamId),
 				),
 			)
-			.limit(opts.limit);
+			.orderBy(knowledgeItems.position, knowledgeItems.title)
+			.limit(limit);
 	}
 
 	// Base ListFilters case
@@ -1020,7 +1431,7 @@ export async function count(
 		.from(knowledgeItems)
 		.where(
 			and(
-				inArray(knowledgeItems.status, ["draft", "needs_human"]),
+				eq(knowledgeItems.status, "proposed"),
 				eq(knowledgeItems.role, "ordinary"),
 				visibleToViewer(viewerUserId),
 			),
@@ -1056,7 +1467,7 @@ export async function search(
 ): Promise<KnowledgeItemWithProjection[]> {
 	const { visibility, limit = 50, offset = 0 } = options;
 
-	// ILIKE-based text search across title, body, and topic.
+	// ILIKE-based text search across title and body.
 	// @lore AU44: the mode branch died with the FTS path (every production caller passed
 	// "text"); the LIKE escape is inlined here because query-escaping was dissolved.
 	const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
@@ -1066,7 +1477,6 @@ export async function search(
 	const textFilter = or(
 		sql`${knowledgeItems.title} ILIKE ${pattern} ESCAPE '\\'`,
 		sql`${knowledgeItems.body} ILIKE ${pattern} ESCAPE '\\'`,
-		sql`${knowledgeItems.topic} ILIKE ${pattern} ESCAPE '\\'`,
 	);
 
 	const whereClause = authFilter != null ? and(authFilter, textFilter) : textFilter;
@@ -1089,40 +1499,6 @@ export async function search(
 // ---------------------------------------------------------------------------
 // Write operations continued (scope / archive)
 // ---------------------------------------------------------------------------
-
-/**
- * Write or upsert a knowledgeAppProjection row for the given knowledge item.
- */
-async function upsertProjectionLayer(
-	db: HyperIdleDb,
-	knowledgeItemId: string,
-	scopeKind: string,
-): Promise<void> {
-	const layer = scopeToLayer(
-		// Safe cast: scopeKind is always a validated SCOPE_KINDS member by the time
-		// it reaches here (route-side zod validation for scope/create/split callers).
-		scopeKind as (typeof SCOPE_KINDS)[number],
-	);
-
-	const [existing] = await db
-		.select()
-		.from(knowledgeAppProjection)
-		.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId))
-		.limit(1);
-
-	if (existing) {
-		await db
-			.update(knowledgeAppProjection)
-			.set({ layer })
-			.where(eq(knowledgeAppProjection.knowledgeItemId, knowledgeItemId));
-	} else {
-		await db.insert(knowledgeAppProjection).values({
-			id: generateId(),
-			knowledgeItemId,
-			layer,
-		});
-	}
-}
 
 // ---------------------------------------------------------------------------
 // transition — unified lifecycle write (replaces flagItem/mergeItems/
@@ -1178,7 +1554,6 @@ export function transition(
 		readonly newItems: ReadonlyArray<{
 			readonly title: string;
 			readonly body: string;
-			readonly topic?: string;
 		}>;
 		readonly updatedBy: string;
 	},
@@ -1202,10 +1577,10 @@ export async function transition(
 				readonly newItems: ReadonlyArray<{
 					readonly title: string;
 					readonly body: string;
-					readonly topic?: string;
 				}>;
 				readonly updatedBy: string;
 		  },
+	// biome-ignore lint/suspicious/noConfusingVoidType: must match the first overload's `Promise<void>` exactly, or TS2394 (overload/implementation mismatch) fires — `undefined` is not interchangeable with `void` here.
 ): Promise<PromoteTransitionResult | void | KnowledgeItem | KnowledgeItem[]> {
 	switch (ctx.target) {
 		case "recomputeAttention": {
@@ -1230,7 +1605,9 @@ export async function transition(
 			const isoNow = new Date().toISOString();
 
 			return db.transaction(async (tx): Promise<PromoteTransitionResult> => {
-				if (toStatus === "validated") {
+				// @lore nested-knowledge-items: "validated" collapsed into "active" —
+				// the open-conflict gate now fires on promotion to active.
+				if (toStatus === "active") {
 					const [openConflict] = await tx
 						.select()
 						.from(knowledgeConflicts)
@@ -1339,22 +1716,31 @@ export async function transition(
 
 			for (const newItem of newItems) {
 				const newId = generateId();
+				const position = await nextPositionForParent(db, original.parentKind, original.parentId);
 				await db.insert(knowledgeItems).values({
 					id: newId,
 					scopeKind: original.scopeKind,
 					scopeId: original.scopeId,
-					topic: newItem.topic ?? original.topic,
 					title: newItem.title,
 					body: newItem.body,
 					format: original.format,
-					status: "draft",
+					status: "proposed",
 					version: 1,
+					// A split item is a sibling of the original — it inherits the same
+					// parent, the same as any other newly created child would.
+					parentKind: original.parentKind,
+					parentId: original.parentId,
+					position,
 					updatedBy,
 					createdAt: timestamp,
 					updatedAt: timestamp,
 				});
 
-				await upsertProjectionLayer(db, newId, original.scopeKind);
+				await db.insert(knowledgeAppProjection).values({
+					id: generateId(),
+					knowledgeItemId: newId,
+					scopeId: original.scopeId,
+				});
 
 				const [row] = await db
 					.select()
@@ -1441,7 +1827,7 @@ export async function remove(
 // Plugin-managed skill operations (BA9b)
 // ---------------------------------------------------------------------------
 
-export interface UpsertPluginDocumentInput {
+export interface UpsertKnowledgeDocumentInput {
 	id: string;
 	pluginId: string;
 	/** The document's title — a skill's directory name, or a routine's prompt title. */
@@ -1449,8 +1835,6 @@ export interface UpsertPluginDocumentInput {
 	body: string;
 	scopeKind: string;
 	scopeId: string | null;
-	/** A real topic, or none. It no longer carries provenance — the registry does. */
-	topic: string | null;
 	ts: string;
 	/** Defaults to `skill`. A routine's prompt is an ordinary document. */
 	role?: KnowledgeRole;
@@ -1627,7 +2011,6 @@ export async function upsertAgentIdentity(
 			id,
 			scopeKind: "user",
 			scopeId: input.agentId,
-			topic: null,
 			title: `${input.agentName || input.agentId} — identity`,
 			body: input.body,
 			format: "markdown",
@@ -1647,7 +2030,6 @@ export async function upsertAgentIdentity(
 		.values({
 			id: `kp_af_${input.agentId}`,
 			knowledgeItemId: id,
-			layer: null,
 			scopeId: input.agentId,
 		})
 		.onConflictDoNothing();
@@ -1723,9 +2105,9 @@ export async function getRoutinePromptBodies(
 	});
 }
 
-export async function upsertPluginDocument(
+export async function upsertKnowledgeDocument(
 	db: HyperIdleDb,
-	input: UpsertPluginDocumentInput,
+	input: UpsertKnowledgeDocumentInput,
 ): Promise<void> {
 	await db
 		.insert(knowledgeItems)
@@ -1733,7 +2115,6 @@ export async function upsertPluginDocument(
 			id: input.id,
 			scopeKind: input.scopeKind,
 			scopeId: input.scopeId,
-			topic: input.topic,
 			title: input.title,
 			body: input.body,
 			format: "markdown",
@@ -1756,7 +2137,6 @@ export async function upsertPluginDocument(
 				// D5: body is NOT in the update set — the user's edit wins.
 				scopeKind: input.scopeKind,
 				scopeId: input.scopeId,
-				topic: input.topic,
 				// A reinstall over a row created before the parent column existed
 				// must repair the binding, exactly as this set already repairs
 				// scope and status. The parent is not a person's field, so nothing
@@ -1785,7 +2165,6 @@ export async function upsertPluginDocument(
 		.values({
 			id: `kp_${input.id}`,
 			knowledgeItemId: input.id,
-			layer: scopeToLayer(input.scopeKind as (typeof SCOPE_KINDS)[number]),
 			scopeId: input.scopeId,
 		})
 		.onConflictDoNothing();

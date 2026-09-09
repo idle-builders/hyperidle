@@ -60,11 +60,11 @@ This is the bottom-up signal path. Without it, the team learns in its own memory
 
 ### 6.2 Practice contribution loop — continuous, agent-driven
 
-The biggest learning channel isn't retros — it's the continuous contribution every agent makes to its practice. There is no meeting: agents capture findings into their practice as they work, each landing as a provisional knowledge item. `knowledge-promotion` (librarian-owned, weekly) promotes the provisional items that meet the repetition threshold into practice knowledge (L3); `knowledge-decay` retires what has gone stale. Layer taxonomy: [The five layers](../knowledge-architecture/the-five-layers.md).
+The biggest learning channel isn't retros — it's the continuous contribution every agent makes to its practice. There is no meeting: agents capture findings into their practice's knowledge folder as they work, each landing as a `proposed` knowledge item. `knowledge-promotion` (librarian-owned, weekly) promotes the items that meet the repetition threshold to `active`; `knowledge-decay` sets `stale` on what has gone unused. See [Facilitators](../knowledge-architecture/facilitators.md).
 
-The loop closes through context assembly: the next task session's sandbox is assembled fresh from the canonical `knowledge_items` store, so anything the practice decided is simply *there* — `context/product/` and `context/practices/` — with no broadcast notification needed. See [knowledge movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md). Every team member is also a practice member, so the team stays current on its practice by construction.
+The loop closes through context assembly: the next task session's sandbox is assembled fresh from the canonical `knowledge_items` store, so anything the practice decided is simply *there* — nested under `knowledge/` at the team's and the practice's own position in the tree — with no broadcast notification needed. See [knowledge movement](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md). Every team member is also a practice member, so the team stays current on its practice by construction.
 
-Item lifecycle (captured → active) and the promotion pipeline are owned by [Facilitators](../knowledge-architecture/facilitators.md).
+Item lifecycle (`proposed` → `active`) and the promotion pipeline are owned by [Facilitators](../knowledge-architecture/facilitators.md).
 
 ### 6.3 Human curation — weekly, async
 

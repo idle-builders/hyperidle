@@ -372,7 +372,6 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 		await db.insert(knowledgeAppProjection).values({
 			id: "proj-trun-ctx-l4",
 			knowledgeItemId: "item-trun-ctx-l4",
-			layer: "L4",
 			scopeId: null,
 		});
 

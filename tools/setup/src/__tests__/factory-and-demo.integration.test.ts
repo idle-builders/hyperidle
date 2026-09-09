@@ -110,7 +110,6 @@ describe("A2: Seed script", () => {
 		expect(teamMembers[0]?.id).toBeTruthy();
 		expect(teamMembers[0]?.capacity).toBeGreaterThan(0);
 
-		// @lore O2: layer moved to knowledgeAppProjection; query via JOIN.
 		const kiRows = await queryRows<{ id: string; version: number }>(
 			db,
 			"SELECT id, version FROM knowledge_items LIMIT 1",
@@ -118,12 +117,16 @@ describe("A2: Seed script", () => {
 		expect(kiRows[0]?.id).toBeTruthy();
 		expect(kiRows[0]?.version).toBeGreaterThanOrEqual(1);
 
-		// Verify layer is accessible via the extension table
-		const ksfRows = await queryRows<{ layer: string | null }>(
+		// @lore nested-knowledge-items: `layer` is DELETED from
+		// knowledge_app_projection — a knowledge item's place in the tree says
+		// what it is about now, not a flat layer vocabulary. Verify the
+		// projection row itself still exists (kernel + projection always
+		// write together) instead of a column that no longer exists.
+		const ksfRows = await queryRows<{ id: string }>(
 			db,
-			`SELECT layer FROM knowledge_app_projection WHERE knowledge_item_id = '${kiRows[0]?.id}'`,
+			`SELECT id FROM knowledge_app_projection WHERE knowledge_item_id = '${kiRows[0]?.id}'`,
 		);
-		expect(ksfRows[0]?.layer).toBeTruthy();
+		expect(ksfRows[0]?.id).toBeTruthy();
 	});
 
 	test("is idempotent (running twice does not error)", async ({ db }) => {

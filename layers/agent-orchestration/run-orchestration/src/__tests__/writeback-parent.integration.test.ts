@@ -41,6 +41,9 @@ function mkKnowledgeWriter(): KnowledgeWriter & { readonly createCalls: unknown[
 		async recordConflict() {
 			throw new Error("recordConflict should not be called in this test");
 		},
+		async reparentKnowledgeItem() {
+			throw new Error("reparentKnowledgeItem should not be called in this test");
+		},
 	};
 }
 
@@ -119,7 +122,7 @@ describe("a written-back item hangs off what the session is working on", () => {
 
 		expect(await runWriteback(db, "wp-sess-task")).toMatchObject({
 			parent: { kind: "task", id: "wp-task" },
-			status: "draft",
+			status: "proposed",
 		});
 	});
 

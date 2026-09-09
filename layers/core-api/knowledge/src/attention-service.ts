@@ -79,11 +79,8 @@ interface AttentionRecomputeSummary {
 }
 
 interface AttentionServiceFilter {
-	readonly layer?: string;
 	readonly scopeId?: string;
 	readonly status?: string;
-	readonly kind?: string;
-	readonly topic?: string;
 	readonly ids?: readonly string[];
 }
 
@@ -167,8 +164,9 @@ function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
 	): Promise<ReadonlyArray<AttentionRecomputeResult>> {
 		if (ids.length === 0) return [];
 
-		// @lore O2: JOIN with knowledgeAppProjection to get projection fields
-		// (layer, scopeId, kind, attentionScore, confidence) needed for scoring.
+		// @lore nested-knowledge-items: layer/kind are gone with the projection
+		// fields that carried them; scopeId now lives on the kernel row too, so
+		// this still LEFT JOINs for attentionScore/confidence/meta only.
 		const rows = await db
 			.select({ item: knowledgeItems, fabric: knowledgeAppProjection })
 			.from(knowledgeItems)
@@ -183,9 +181,7 @@ function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
 		// Merge canonical item row + projection row into KnowledgeItemWithProjection.
 		const loadedItems: KnowledgeItemWithProjection[] = rows.map(({ item, fabric }) => ({
 			...item,
-			layer: fabric?.layer ?? null,
-			scopeId: fabric?.scopeId ?? null,
-			kind: fabric?.kind ?? null,
+			scopeId: fabric?.scopeId ?? item.scopeId,
 			attentionScore: fabric?.attentionScore ?? null,
 			confidence: fabric?.confidence ?? null,
 			meta: fabric?.meta ?? null,
@@ -289,8 +285,6 @@ function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
 						// local `createReviewItemFn` instead of the former DI port.
 						await createReviewItemFn(tx as HyperIdleDb, eventBus, {
 							knowledgeItemId: item.id,
-							// @lore O2: layer comes from the projection item (may be null)
-							layer: item.layer ?? null,
 							title: `Knowledge item needs attention: ${item.title}`,
 							body: bodySummary,
 							riskTier,
@@ -339,58 +333,36 @@ function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
 	async function recomputeScope(
 		filter: AttentionServiceFilter,
 	): Promise<AttentionRecomputeScopeResult> {
-		// @lore O2: projection fields (layer, scopeId, kind) are in knowledgeAppProjection.
-		// Canonical fields (status, topic, ids) are on knowledgeItems.
-		// When projection filters are present we JOIN; otherwise we query canonical rows only.
-		const hasProjectionFilter = !!(filter.layer || filter.scopeId || filter.kind);
-		const hasAnyFilter =
-			hasProjectionFilter ||
-			!!(filter.status || filter.topic || (filter.ids && filter.ids.length > 0));
+		// @lore nested-knowledge-items: scopeId now lives on the kernel row —
+		// no more projection JOIN needed for any recomputeScope filter.
+		const hasAnyFilter = !!(
+			filter.scopeId ||
+			filter.status ||
+			(filter.ids && filter.ids.length > 0)
+		);
 
 		if (!hasAnyFilter) {
 			return {
 				ok: false,
 				error: {
 					code: "FILTER_REQUIRED",
-					message:
-						"recomputeScope requires at least one of: layer, scopeId, status, kind, topic, ids",
+					message: "recomputeScope requires at least one of: scopeId, status, ids",
 				},
 			};
 		}
 
 		const kernelConditions = [];
-		const projectionConditions = [];
 
 		if (filter.status) kernelConditions.push(eq(knowledgeItems.status, filter.status));
-		if (filter.topic) kernelConditions.push(eq(knowledgeItems.topic, filter.topic));
+		if (filter.scopeId) kernelConditions.push(eq(knowledgeItems.scopeId, filter.scopeId));
 		if (filter.ids && filter.ids.length > 0) {
 			kernelConditions.push(inArray(knowledgeItems.id, Array.from(filter.ids)));
 		}
-		if (filter.layer) projectionConditions.push(eq(knowledgeAppProjection.layer, filter.layer));
-		if (filter.scopeId) {
-			projectionConditions.push(eq(knowledgeAppProjection.scopeId, filter.scopeId));
-		}
-		if (filter.kind) projectionConditions.push(eq(knowledgeAppProjection.kind, filter.kind));
 
-		let rows: Array<{ id: string }>;
-
-		if (hasProjectionFilter) {
-			// Need JOIN when filtering by projection fields.
-			const allConditions = [...kernelConditions, ...projectionConditions];
-			rows = await db
-				.select({ id: knowledgeItems.id })
-				.from(knowledgeItems)
-				.innerJoin(
-					knowledgeAppProjection,
-					eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-				)
-				.where(and(...allConditions));
-		} else {
-			rows = await db
-				.select({ id: knowledgeItems.id })
-				.from(knowledgeItems)
-				.where(and(...kernelConditions));
-		}
+		const rows = await db
+			.select({ id: knowledgeItems.id })
+			.from(knowledgeItems)
+			.where(and(...kernelConditions));
 
 		if (rows.length > ATTENTION_BATCH_LIMIT) {
 			return {

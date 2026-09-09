@@ -1,57 +1,26 @@
-import type { ScopeKind } from "./types.js";
-
-export const KNOWLEDGE_LAYERS = ["L0", "L1", "L2", "L3", "L4"] as const;
-export type KnowledgeLayer = (typeof KNOWLEDGE_LAYERS)[number];
-
-export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> = {
-	factory: "L4",
-	product: "L2",
-	practice: "L3",
-	task: "L1",
-	team: null,
-	user: null,
-};
-
-export function scopeToLayer(scopeKind: ScopeKind): KnowledgeLayer | null {
-	return SCOPE_TO_LAYER[scopeKind] ?? null;
-}
-
-export const KNOWLEDGE_STATUSES = [
-	"captured",
-	"provisional",
-	"validated",
-	"active",
-	"stale",
-	"archived",
-	"needs_human",
-] as const;
+/**
+ * @lore nested-knowledge-items: `layer` (L0-L4), `kind`, `KNOWLEDGE_SCOPES`
+ * (practice/product/factory) are DELETED — a knowledge item's place in the
+ * tree (parentId/parentKind/position) says what it is about; `scope` says
+ * only who sees it. See plan.md "The two jobs, separated".
+ * `KNOWLEDGE_TOPIC_HEALTHS`/`KnowledgeTopicHealth` are DELETED with `topic` —
+ * their only caller was `fixtures/knowledge-data.ts`'s topic-cohort math,
+ * itself dead once `topic` no longer exists.
+ *
+ * The status ladder collapses from two 7/4-value vocabularies to one:
+ * proposed | active | stale | archived. `proposed` replaces
+ * draft/captured/provisional; `active` replaces validated/active; `archived`
+ * replaces archived/needs_human.
+ */
+export const KNOWLEDGE_STATUSES = ["proposed", "active", "stale", "archived"] as const;
 export type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
 
 export const KNOWLEDGE_STATUS_LABEL: Record<KnowledgeStatus, string> = {
-	captured: "Captured",
-	provisional: "Provisional",
-	validated: "Validated",
+	proposed: "Proposed",
 	active: "Active",
 	stale: "Stale",
-	archived: "Stale",
-	needs_human: "Needs review",
+	archived: "Archived",
 };
-
-export type KnowledgeKind =
-	| "pattern"
-	| "anti_pattern"
-	| "brief"
-	| "principle"
-	| "decision"
-	| "failure"
-	| "reflection"
-	| "focus";
-
-export const KNOWLEDGE_SCOPES = ["practice", "product", "factory"] as const;
-export type KnowledgeScope = (typeof KNOWLEDGE_SCOPES)[number];
-
-export const KNOWLEDGE_TOPIC_HEALTHS = ["fresh", "some_stale", "mostly_stale"] as const;
-export type KnowledgeTopicHealth = (typeof KNOWLEDGE_TOPIC_HEALTHS)[number];
 
 export type KnowledgeAccessorKind = "human" | "agent";
 
@@ -82,6 +51,11 @@ export type KnowledgeRole = (typeof KNOWLEDGE_ROLES)[number];
  * has to `ki_role_ck`. Phase 1 writes only `routine` and `agent`; the other
  * three ship now so phase 2 and the nested-knowledge strand never reopen the
  * constraint.
+ *
+ * @lore nested-knowledge-items: `knowledge_item` is now a real, live parent
+ * kind — a knowledge item's parent may be another knowledge item, forming the
+ * tree. Walks stop at the first non-`knowledge_item` parent (plan.md "The
+ * tree").
  */
 export const KNOWLEDGE_PARENT_KINDS = [
 	"knowledge_item",

@@ -5,8 +5,8 @@ Three scoring engines exist. They answer different questions, consume disjoint i
 | Engine | Question | Consumer | Code |
 |---|---|---|---|
 | **`relevanceScore`** (L22) | "Of the items a user could read right now, which are most worth their attention?" | Knowledge view ranking (`layers/core-ui/src/pages/KnowledgeList.tsx`) | `layers/core-api/knowledge/src/relevance-engine.ts` + `relevance-service.ts` |
-| **`attentionScore`** | "Which items need human judgement applied?" | needs-human triage queue | `layers/core-api/knowledge/src/attention-scoring.ts` |
-| **Assembly scoring** | "Which items get loaded into an agent session under the token budget?" | [Knowledge Fabric context assembly](./the-knowledge-fabric-how-knowledge-moves.md) | `layers/core-api/knowledge/src/relevance-scoring.ts` + `token-budget.ts` |
+| **`attentionScore`** | "Which items need human judgement applied?" | facilitator review-item queue | `layers/core-api/knowledge/src/attention-scoring.ts` |
+| **Assembly scoring** | "Which items get loaded into an agent session under the token budget?" | [Knowledge Fabric context assembly](./the-knowledge-fabric-how-knowledge-moves.md) | `layers/core-api/knowledge/src/session-knowledge-assembler.ts` + `token-budget.ts` |
 
 `relevanceScore` and `attentionScore` are separate columns on the `knowledge_app_projection` extension table (`framework/db/src/schema.ts:1004-1021` — O2 moved all strategy signals off `knowledge_items`). A high `relevanceScore` does not imply a high `attentionScore` — the most-accessed item in the system may be perfectly settled and need no human input.
 
@@ -71,18 +71,20 @@ citationSaturation    = 5
 
 ## `attentionScore` — facilitator queue
 
-When an item's score crosses the threshold, it enters the needs-human triage surface (`GET /api/knowledge/triage-count`, status `needs_human`). Low score → the [facilitator](./facilitators.md) handles it autonomously. The score is a weighted sum (`scoreAttention`, `attention-scoring.ts`; weights `DEFAULT_ATTENTION_WEIGHTS` in `scoring-config.ts:79-88`). These are fixed constants, not DB-tunable:
+When an item's score crosses the threshold upward (prior `< 0.7`, current `>= 0.7`), a review item is created directly (`createReviewItem`, `layers/core-api/knowledge/src/review-item-factory.ts`) — there is no intermediate status change on the knowledge item itself; `needs_human` is gone from the status vocabulary, and `attentionScore` alone drives the crossing. `GET /api/knowledge/triage-count` counts `proposed` items visible to the requester, a distinct surface from the attention-driven review queue. Low score → the [facilitator](./facilitators.md) handles it autonomously. The score is a weighted sum (`scoreAttention`, `attention-scoring.ts`; weights `DEFAULT_ATTENTION_WEIGHTS` in `scoring-config.ts`). These are fixed constants, not DB-tunable:
 
 | Signal | Why it matters | Default weight |
 |---|---|---|
-| **Novelty** | Have we seen this pattern before? New patterns carry more information. Cohort of 10+ identical (layer, scope, topic, kind) items → novelty saturates at 0. | 0.20 |
+| **Novelty** | Have we seen this pattern before? New patterns carry more information. Cohort of 10+ items sharing the same `(parentKind, parentId, scope_id)` — i.e. siblings, in the same scope — → novelty saturates at 0 (`COHORT_NOVELTY_CEILING`, `attention-scoring.ts`). | 0.20 |
 | **Impact** | If wrong, how much is affected? **Hardcoded 0 since L22** (per-kind priors deleted); the weight remains for a future trustworthy source. | 0.20 |
 | **Conflict** | Open `knowledge_conflicts` row → contradiction forces a choice. | 0.15 |
-| **Repetition** | Shown up independently in 5+ other scopes → saturates; reduces need for human review. | 0.10 |
+| **Repetition** | The same `(parentKind, parentId)` pair shown up independently under 5+ other distinct `scope_id` values → saturates; reduces need for human review (`REPETITION_SATURATION`, `attention-scoring.ts`). | 0.10 |
 | **Confidence** | High confidence reduces need. | 0.10 |
 | **Taste sensitivity** | Brand voice, aesthetics, strategic framing — things agents can't generate. | 0.15 |
 | **Recency of review** | Human edit within 7 days → 0; 90+ days without → 1. | 0.05 |
 | **Usage frequency** | **Hardcoded 0 until a trustworthy reference-count source exists** (L23+). | 0.05 |
+
+**Cohort identity changed shape, not meaning.** It used to be `(layer, scope_id, topic, kind)` — four flat vocabulary fields, three of which (`layer`, `topic`, `kind`) are deleted. The sibling set — same tree parent, same scope — replaces it: "novel" now means "no sibling under this parent has already said this," and "repeated" means "the same parent's content keeps reappearing across different scopes." Both auto-promotion (below) and the weekly stale sweep use the same sibling grouping.
 
 Both scores read `knowledge_edit_log`, but they are computed and stored separately because they answer different questions and have different consumers.
 
@@ -94,7 +96,7 @@ The facilitator also chooses *what kind* of feedback to ask for:
 | Conflict | "A and B contradict. Which applies when?" (resolution) |
 | Stale but popular | "This is old but still referenced. Still true?" (refresh) |
 | Taste-sensitive | "Does this feel right for our brand/customer?" (judgment) |
-| Cross-layer promotion | "Should this practice become a team-wide principle?" (elevation) |
+| Cross-scope promotion | "Should this team's pattern become factory-wide?" (elevation) |
 
 This last column is the real point. Most agent systems either dump everything on humans (inbox hell) or auto-act on everything (drift). The facilitator's job is to ask the *right kind of question* about the *right item* at the *right time* — that's the work that converts information into knowledge.
 
@@ -106,18 +108,18 @@ Not all knowledge loads into every session. The [Knowledge Fabric](./the-knowled
 
 ### Scoring factors
 
-Weights (`DEFAULT_WEIGHTS`, `scoring-config.ts:23-30`) are fixed constants, not DB-tunable:
+Weights (`DEFAULT_WEIGHTS`, `scoring-config.ts:26-31`) are fixed constants, not DB-tunable:
 
 | Factor | Default weight | Semantics |
 |---|---|---|
-| Tag match | 0.35 | Item tags vs task tags |
-| Role match | 0.15 | Item role vs agent role |
-| Recency | 0.15 | 30-day linear decay from `updatedAt` |
-| Confidence | 0.10 | Stored `confidence` in [0,1] |
-| Layer proximity | 0.15 | session (L0) 1.0 → L1 0.9 → L2 0.7 → L3 0.5 → L4 0.3 — layer definitions in [the-five-layers](./the-five-layers.md) |
+| Tag match | 0.55 | Item title + `meta.tags` vs task tags |
+| Recency | 0.20 | 30-day linear decay from `updatedAt` |
+| Confidence | 0.15 | Stored `confidence` in [0,1] |
 | attentionScore | 0.10 | Feeds the attention engine's output in; null → neutral 0.5 |
 
-Score is normalised to 0–100 (`scoreItem`, `relevance-scoring.ts`). Note the factor set is distinct from the L22 relevanceScore signals — usage frequency is NOT an assembly factor.
+Score is normalised to 0–100 (`scoreItem`, `session-knowledge-assembler.ts`). Note the factor set is distinct from the L22 relevanceScore signals — usage frequency is NOT an assembly factor.
+
+**Role match and layer proximity are deleted, not replaced.** `roleMatch` scored against a role→community map that never actually matched seeded data in practice — the fuzzy substring fallback did all the work — and `layerProximity` scored the now-deleted layer ladder. What an agent receives is answered entirely by scope (factory + its team + its own — see [the-canonical-store.md](./the-canonical-store.md#scope-kernel)); there is no subtree-proximity weight standing in for it.
 
 ### Budget enforcement
 
@@ -128,4 +130,4 @@ CONTEXT_WINDOW_TOKENS      = 200,000
 KNOWLEDGE_ALLOCATION_RATIO = 0.2   → DEFAULT_KNOWLEDGE_BUDGET = 40,000 tokens
 ```
 
-`enforceBudget` (`token-budget.ts:30-71`) fills greedily by score descending against that single flat budget — with one exception: **L4 items are always included first, non-negotiable, even over budget**. There is no further zone-level split (task/session/general/factory allocation) — that's the whole allocation. The budget is generous by design; the real filter is relevance. The cap exists to prevent degenerate cases (a scope with thousands of items) from blowing up session costs.
+`enforceBudget` (`token-budget.ts:30-71`) fills greedily by score descending against that single flat budget — with one exception: **factory-scoped items are always included first, non-negotiable, even over budget** (`scopeKind === 'factory'` — the same "everyone always gets this" rule the old `layer === 'L4'` check used to express). There is no further zone-level split — that's the whole allocation. The budget is generous by design; the real filter is relevance. The cap exists to prevent degenerate cases (a scope with thousands of items) from blowing up session costs.

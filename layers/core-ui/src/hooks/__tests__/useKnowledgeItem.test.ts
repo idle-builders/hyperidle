@@ -26,9 +26,8 @@ const MOCK_ITEM: KnowledgeItemData = {
 	status: "active",
 	version: 3,
 	updatedBy: "user-1",
-	scopeKind: "practice",
+	scopeKind: "factory",
 	scopeId: null,
-	topic: "Testing",
 	createdAt: "2026-01-01T00:00:00Z",
 	updatedAt: "2026-01-02T00:00:00Z",
 };
@@ -77,7 +76,7 @@ describe("useKnowledgeItem", () => {
 			id: "k-abc",
 			title: "Test Knowledge Item",
 			version: 3,
-			scopeKind: "practice",
+			scopeKind: "factory",
 		});
 		expect(result.current.error).toBeNull();
 	});

@@ -9,7 +9,7 @@
  *
  * Consumer demand:
  *   export surface:    listExportableItems, getProjectionByItemId
- *   dispatch:          runAutoPromotionSweep, runStaleSweep, listRecentByLayers,
+ *   dispatch:          runAutoPromotionSweep, runStaleSweep,
  *                      recomputeAttentionForCandidates
  *   session-requests:  findById
  *   tool-handlers:     search, create, findKnowledgeItemVersionById,
@@ -24,6 +24,13 @@
  *   - runStaleSweep / markStale: CAS conditional-UPDATE (active only)
  *   - update(): VersionConflictError on stale version, ItemDeletedError on missing row
  *   - upsertKnowledgeAppProjectionAttentionScore: upsert (update-or-insert)
+ *
+ * @lore nested-knowledge-items: `layer`/`kind`/`topic` are gone with the
+ * vocabularies they carried (plan.md "the two jobs, separated"). Cases G
+ * (`list({recentByLayers})`) and the layer/kind half of case D are DELETED —
+ * that vocabulary no longer exists to round-trip. Case K's cross-scope
+ * repetition signature moves from `(layer, topic, kind)` to the sibling set
+ * (`parentKind`/`parentId`) — see `promotion-pipeline.ts`.
  */
 import {
 	type HyperIdleDb,
@@ -39,7 +46,7 @@ import { VersionConflictError } from "../errors.js";
 import { findOpenConflict, recordConflict } from "../knowledge-conflicts.js";
 import { count, create, get, list, search, transition, update } from "../knowledge-repository.js";
 import { sweep } from "../promotion-pipeline.js";
-import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "../types.js";
+import type { KnowledgeStatus } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -63,21 +70,20 @@ async function seedItem(
 		status?: KnowledgeStatus | KernelKnowledgeStatus;
 		scopeKind?: string;
 		scopeId?: string | null;
-		topic?: string | null;
-		layer?: KnowledgeLayer | null;
-		kind?: KnowledgeKind | null;
+		parentKind?: "knowledge_item";
+		parentId?: string | null;
 	} = {},
 ): Promise<typeof knowledgeItems.$inferSelect> {
 	const created = await create(db, {
-		layer: overrides.layer ?? null,
 		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
-		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Seed item",
 		body: overrides.body ?? "Seed body content.",
 		format: "markdown",
 		status: overrides.status ?? "active",
-		kind: overrides.kind ?? null,
+		...(overrides.parentKind
+			? { parentKind: overrides.parentKind, parentId: overrides.parentId }
+			: {}),
 		updatedBy: "u-seed",
 	});
 	// Return the kernel row.
@@ -99,15 +105,12 @@ describe("create: writes kernel row + projection row + edit-log in one operation
 		db,
 	}) => {
 		const item = await create(db, {
-			layer: "L2",
 			scopeKind: "team",
 			scopeId: "t-1",
-			topic: "process",
 			title: "How we ship",
 			body: "We ship weekly.",
 			format: "markdown",
 			status: "active",
-			kind: "reflection",
 			updatedBy: "u-author",
 		});
 
@@ -117,14 +120,12 @@ describe("create: writes kernel row + projection row + edit-log in one operation
 		expect(item.version).toBe(1);
 		expect(item.scopeKind).toBe("team");
 
-		// Projection row was created with the layer + kind.
+		// Projection row was created.
 		const [proj] = await db
 			.select()
 			.from(knowledgeAppProjection)
 			.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
 		expect(proj).toBeDefined();
-		expect(proj?.layer).toBe("L2");
-		expect(proj?.kind).toBe("reflection");
 
 		// Edit-log row with editType 'create'.
 		const logs = await db
@@ -164,14 +165,15 @@ describe("get: summary view returns kernel row or null", () => {
 // ===========================================================================
 
 describe("get(id, {view:'full'}): returns kernel item merged with projection fields", () => {
-	test("returns item with layer and kind from projection table", async ({ db }) => {
-		const seeded = await seedItem(db, { layer: "L1", kind: "reflection" });
+	test("returns item with its parent chain fields present", async ({ db }) => {
+		const parent = await seedItem(db, { title: "Parent" });
+		const seeded = await seedItem(db, { parentKind: "knowledge_item", parentId: parent.id });
 
 		const full = await get(db, seeded.id, { view: "full" });
 		expect(full).not.toBeNull();
 		expect(full?.id).toBe(seeded.id);
-		expect(full?.layer).toBe("L1");
-		expect(full?.kind).toBe("reflection");
+		expect(full?.parentKind).toBe("knowledge_item");
+		expect(full?.parentId).toBe(parent.id);
 	});
 });
 
@@ -210,77 +212,37 @@ describe("update: version-checked update writes edit-log and bumps version", () 
 });
 
 // ===========================================================================
-// G. list({recentByLayers}) — dispatch.listRecentByLayers
-// ===========================================================================
-
-describe("list({recentByLayers}): returns items in given layers updated since cutoff", () => {
-	test("returns items in requested layers updated after since, excludes older items", async ({
-		db,
-	}) => {
-		// Item that is recent in L2.
-		const recent = await seedItem(db, { layer: "L2", title: "Recent L2" });
-		// Item in L3 (different layer — excluded by filter).
-		await seedItem(db, { layer: "L3", title: "L3 item" });
-
-		// Make a 'recent' cutoff well before the items' timestamps.
-		const since = new Date(Date.now() - 60_000).toISOString(); // 1 minute ago
-
-		const rows = await list(db, { recentByLayers: { layers: ["L2"], since } });
-
-		expect(rows.map((r) => r.title)).toContain("Recent L2");
-		expect(rows.some((r) => r.title === "L3 item")).toBe(false);
-		expect(rows.find((r) => r.title === "Recent L2")?.layer).toBe("L2");
-
-		// An item updated BEFORE the cutoff is excluded.
-		const staleTs = new Date(Date.now() - 120_000).toISOString(); // 2 minutes ago
-		await db
-			.update(knowledgeItems)
-			.set({ updatedAt: staleTs })
-			.where(eq(knowledgeItems.id, recent.id));
-
-		const rowsAfterStale = await list(db, {
-			recentByLayers: { layers: ["L2"], since: new Date(Date.now() - 60_000).toISOString() },
-		});
-		expect(rowsAfterStale.some((r) => r.title === "Recent L2")).toBe(false);
-	});
-});
-
-// ===========================================================================
 // H. count (triage visible) — UI triage count with Q2 auth boundary
 // ===========================================================================
 
-describe("countTriageVisible auth boundary on draft and needs-human items", () => {
-	test("counts draft and needs_human items; excludes user-scoped items not owned by viewer", async ({
-		db,
-	}) => {
+describe("countTriageVisible auth boundary on proposed items", () => {
+	test("counts proposed items; excludes user-scoped items not owned by viewer", async ({ db }) => {
 		// Non-user items — always visible.
-		await seedItem(db, { status: "draft", scopeKind: "factory" });
-		await seedItem(db, { status: "needs_human", scopeKind: "team" });
+		await seedItem(db, { status: "proposed", scopeKind: "factory" });
+		await seedItem(db, { status: "proposed", scopeKind: "team" });
 		// User-scoped item owned by the viewer — visible.
 		await create(db, {
-			layer: null,
 			scopeKind: "user",
-			title: "My draft",
+			title: "My proposal",
 			body: "x",
 			format: "markdown",
-			status: "draft",
+			status: "proposed",
 			updatedBy: "u-viewer",
 		});
 		// User-scoped item owned by someone else — excluded.
 		await create(db, {
-			layer: null,
 			scopeKind: "user",
-			title: "Other draft",
+			title: "Other proposal",
 			body: "x",
 			format: "markdown",
-			status: "draft",
+			status: "proposed",
 			updatedBy: "u-other",
 		});
 		// Active item — not triage.
 		await seedItem(db, { status: "active" });
 
 		const triageCount = await count(db, { triageVisible: "u-viewer" });
-		// factory-draft + team-needs_human + viewer's own user-draft = 3.
+		// factory-proposed + team-proposed + viewer's own user-proposed = 3.
 		expect(triageCount).toBe(3);
 	});
 });
@@ -320,26 +282,26 @@ describe("search: full-text search returns matching items", () => {
 // ===========================================================================
 
 describe("transition({target:'promote'}): atomic CAS status transition", () => {
-	test("succeeds when item is in fromStatus and no open conflicts block to-validated", async ({
+	test("succeeds when item is in fromStatus and no open conflicts block to-active", async ({
 		db,
 	}) => {
-		const item = await seedItem(db, { status: "provisional" });
+		const item = await seedItem(db, { status: "proposed" });
 
 		const result = await transition(db, item.id, {
 			target: "promote",
-			fromStatus: "provisional",
-			toStatus: "validated",
+			fromStatus: "proposed",
+			toStatus: "active",
 			reason: "meets criteria",
 			editor: "u-facilitator",
 		});
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.fromStatus).toBe("provisional");
+			expect(result.fromStatus).toBe("proposed");
 		}
 
 		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, item.id));
-		expect(row?.status).toBe("validated");
+		expect(row?.status).toBe("active");
 
 		// Edit-log row written for the transition.
 		const logs = await db
@@ -348,14 +310,12 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 			.where(eq(knowledgeEditLog.itemId, item.id));
 		const promotionLog = logs.find((l) => l.field === "status");
 		expect(promotionLog).toBeDefined();
-		expect(promotionLog?.oldValue).toBe("provisional");
-		expect(promotionLog?.newValue).toContain("validated");
+		expect(promotionLog?.oldValue).toBe("proposed");
+		expect(promotionLog?.newValue).toContain("active");
 	});
 
-	test("returns CONFLICT_OPEN when an open conflict blocks promotion to validated", async ({
-		db,
-	}) => {
-		const item = await seedItem(db, { status: "provisional" });
+	test("returns CONFLICT_OPEN when an open conflict blocks promotion to active", async ({ db }) => {
+		const item = await seedItem(db, { status: "proposed" });
 
 		// Insert an open conflict on this item.
 		await recordConflict(db, {
@@ -371,8 +331,8 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 
 		const result = await transition(db, item.id, {
 			target: "promote",
-			fromStatus: "provisional",
-			toStatus: "validated",
+			fromStatus: "proposed",
+			toStatus: "active",
 			reason: undefined,
 			editor: "u-facilitator",
 		});
@@ -383,19 +343,19 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 		}
 		// Status unchanged.
 		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, item.id));
-		expect(row?.status).toBe("provisional");
+		expect(row?.status).toBe("proposed");
 	});
 
 	test("returns CONCURRENT_MODIFICATION when status no longer matches fromStatus", async ({
 		db,
 	}) => {
-		const item = await seedItem(db, { status: "provisional" });
+		const item = await seedItem(db, { status: "proposed" });
 
-		// First promotion changes the status to validated.
+		// First promotion changes the status to active.
 		await transition(db, item.id, {
 			target: "promote",
-			fromStatus: "provisional",
-			toStatus: "validated",
+			fromStatus: "proposed",
+			toStatus: "active",
 			reason: undefined,
 			editor: "u-1",
 		});
@@ -403,8 +363,8 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 		// Second attempt with stale fromStatus.
 		const result = await transition(db, item.id, {
 			target: "promote",
-			fromStatus: "provisional",
-			toStatus: "validated",
+			fromStatus: "proposed",
+			toStatus: "active",
 			reason: undefined,
 			editor: "u-2",
 		});
@@ -418,28 +378,28 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 
 // ===========================================================================
 // K. runAutoPromotionSweep — dispatch.runAutoPromotionSweep
+// @lore nested-knowledge-items §4: the cross-scope repetition key is now the
+// sibling set (same parentKind/parentId), replacing (layer, topic, kind).
 // ===========================================================================
 
-describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope repetitions", () => {
+describe("runAutoPromotionSweep: promotes proposed items at 5+ cross-scope repetitions", () => {
 	test("promotes items that meet the cross-scope repetition threshold (5+)", async ({ db }) => {
-		// Create 5 provisional items with the same (layer, topic, kind) signature
-		// but different scopeIds so cross-scope count reaches threshold=5.
+		const parent = await seedItem(db, { title: "Shared pattern parent" });
 		const promotable: string[] = [];
 		for (let i = 1; i <= 5; i++) {
 			const item = await seedItem(db, {
-				status: "provisional",
-				layer: "L2",
-				kind: "pattern",
-				topic: "shared-pattern",
-				scopeKind: "bet",
-				scopeId: `product-${i}`,
+				status: "proposed",
+				scopeKind: "team",
+				scopeId: `team-${i}`,
+				parentKind: "knowledge_item",
+				parentId: parent.id,
 			});
 			promotable.push(item.id);
 		}
 
 		const result = await sweep(db, mockEventBus, "autoPromotion");
 
-		// All 5 items should be promoted (no open conflicts, no L4 contradiction).
+		// All 5 items should be promoted (no open conflicts).
 		expect(result.promotedIds.length).toBeGreaterThanOrEqual(5);
 		for (const id of promotable) {
 			expect(result.promotedIds).toContain(id);
@@ -449,20 +409,20 @@ describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope re
 		// DB rows updated.
 		for (const id of promotable) {
 			const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id));
-			expect(row?.status).toBe("validated");
+			expect(row?.status).toBe("active");
 		}
 	});
 
 	test("skips items with fewer than 5 distinct scopes", async ({ db }) => {
+		const parent = await seedItem(db, { title: "Small pattern parent" });
 		// Only 3 items — not enough for auto-promotion.
 		for (let i = 1; i <= 3; i++) {
 			await seedItem(db, {
-				status: "provisional",
-				layer: "L2",
-				kind: "principle",
-				topic: "small-pattern",
-				scopeKind: "bet",
+				status: "proposed",
+				scopeKind: "team",
 				scopeId: `scope-${i}`,
+				parentKind: "knowledge_item",
+				parentId: parent.id,
 			});
 		}
 
@@ -549,7 +509,7 @@ describe("runStaleSweep: marks active items older than threshold as stale (CAS)"
 
 describe("transition({recomputeAttention}): writes attention score to projection row", () => {
 	test("sets attentionScore on existing projection row", async ({ db }) => {
-		const item = await seedItem(db, { layer: "L2" });
+		const item = await seedItem(db);
 
 		await transition(db, item.id, { target: "recomputeAttention", attentionScore: 0.85 });
 
@@ -620,14 +580,13 @@ describe("conflicts: recordConflict and findOpenConflict", () => {
 });
 
 // ===========================================================================
-// Q. listVisibleWithSignals — dispatch / UI context (Q2 auth boundary)
+// Q. list({tree}) — dispatch / UI context (Q2 auth boundary)
 // ===========================================================================
 
-describe("listVisibleWithSignals auth boundary and access signal aggregation", () => {
+describe("list({tree}) auth boundary and access signal aggregation", () => {
 	test("excludes user-scoped items not owned by the viewer", async ({ db }) => {
 		// Shared item — always visible.
 		await create(db, {
-			layer: null,
 			scopeKind: "factory",
 			title: "Factory item",
 			body: "x",
@@ -637,7 +596,6 @@ describe("listVisibleWithSignals auth boundary and access signal aggregation", (
 		});
 		// Viewer's own user-scoped item — visible.
 		await create(db, {
-			layer: null,
 			scopeKind: "user",
 			title: "My item",
 			body: "x",
@@ -647,7 +605,6 @@ describe("listVisibleWithSignals auth boundary and access signal aggregation", (
 		});
 		// Other user's item — excluded.
 		await create(db, {
-			layer: null,
 			scopeKind: "user",
 			title: "Hidden item",
 			body: "x",
@@ -656,7 +613,7 @@ describe("listVisibleWithSignals auth boundary and access signal aggregation", (
 			updatedBy: "u-other",
 		});
 
-		const rows = await list(db, { visibleWithSignals: "u-viewer" });
+		const rows = await list(db, { tree: { viewerUserId: "u-viewer", viewerTeamId: null } });
 
 		const titles = rows.map((r) => r.title);
 		expect(titles).toContain("Factory item");

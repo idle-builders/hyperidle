@@ -232,21 +232,23 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 	create(
 		_db: HyperIdleDb,
 		input: {
-			readonly layer: "L1" | "L2" | "L3";
-			readonly kind: "pattern" | "decision" | "failure" | "reflection";
 			readonly title: string;
 			readonly body: string;
 			readonly format: string;
 			/**
-			 * `draft`, not `captured`. The route has never accepted `captured` —
-			 * it validates status against its own four-value list, so every
-			 * writeback create 400'd for the whole life of this path. `draft` is
-			 * the same state under the name the route knows.
+			 * @lore rebase-onto-#547: a parallel strand found the route never
+			 * accepted `captured` (its whole life) and fixed this forward to
+			 * `draft`. `draft` doesn't exist any more — this WP's status collapse
+			 * replaces the whole draft/captured/provisional ladder with one
+			 * starting state, `proposed` (see `KNOWLEDGE_STATUSES`).
 			 */
-			readonly status: "draft";
+			readonly status: "proposed";
 			readonly updatedBy: string;
-			/** Where the produced item hangs — the session's task, or the conversation it is answering in. */
+			readonly scopeKind?: string;
+			/** Where the produced item hangs — the session's task, or the conversation it is answering in — when no wrapping directory places it instead. */
 			readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
+			readonly parentKind?: "knowledge_item";
+			readonly parentId?: string;
 		},
 	): Promise<{ readonly id: string; readonly version: number; readonly format: string }>;
 	update(
@@ -271,24 +273,42 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 			readonly proposedBy: string;
 		},
 	): Promise<void>;
+	/**
+	 * @lore nested-knowledge-items: replaces the writeback processor's own
+	 * direct `knowledge_items`/`knowledge_edit_log` reads/writes for the
+	 * move case — `PATCH /knowledge/:id`'s existing `parentKind`/`parentId`
+	 * fields, which already route through `reparent()` (tree invariants +
+	 * its own `field='parent'` edit-log entry).
+	 *
+	 * @lore nested-knowledge-items defect 2: `parentKind`/`parentId` both
+	 * null together detaches the item to the top level (a move to sit
+	 * directly under `knowledge/`, no wrapping directory).
+	 */
+	reparentKnowledgeItem(
+		_db: HyperIdleDb,
+		id: string,
+		input: {
+			readonly parentKind: "knowledge_item" | null;
+			readonly parentId: string | null;
+			readonly updatedBy: string;
+		},
+	): Promise<void>;
 } {
 	const port = buildCoreApiPort(transport);
 	return {
 		async create(_db, input) {
 			const created = await port.knowledge.create({
-				layer: input.layer,
-				// The route requires a scope and this call never sent one, so
-				// every writeback create was rejected before it reached the
-				// database. `factory` is what the column default would have been
-				// had the row ever been written.
-				scopeKind: "factory",
-				kind: input.kind,
 				title: input.title,
 				body: input.body,
 				format: input.format,
 				status: input.status,
 				updatedBy: input.updatedBy,
-				...(input.parent ? { parentKind: input.parent.kind, parentId: input.parent.id } : {}),
+				scopeKind: input.scopeKind,
+				...(input.parentKind
+					? { parentKind: input.parentKind, parentId: input.parentId }
+					: input.parent
+						? { parentKind: input.parent.kind, parentId: input.parent.id }
+						: {}),
 			});
 			return { id: created.id, version: created.version, format: input.format };
 		},
@@ -309,6 +329,13 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 				proposedMeta: null,
 				proposedBy: input.proposedBy,
 				createdAt: new Date().toISOString(),
+			});
+		},
+		async reparentKnowledgeItem(_db, id, input) {
+			await port.knowledge.reparentKnowledgeItem(id, {
+				parentKind: input.parentKind,
+				parentId: input.parentId,
+				updatedBy: input.updatedBy,
 			});
 		},
 	};

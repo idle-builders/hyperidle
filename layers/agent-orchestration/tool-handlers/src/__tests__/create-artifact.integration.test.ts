@@ -129,14 +129,14 @@ describe("create_artifact tool (knowledge item shape)", () => {
 			expect(capturedCreate?.body).toContain("All tests passed");
 		});
 
-		it("calls create with status=draft", async () => {
+		it("calls create with status=proposed", async () => {
 			const result = await createArtifactTool.handler(
 				{ title: "Plan", body: "Implementation plan" },
 				makeContext(db, eventBus),
 			);
 
 			expect(result.success).toBe(true);
-			expect(capturedCreate?.status).toBe("draft");
+			expect(capturedCreate?.status).toBe("proposed");
 		});
 
 		it("resolves scope from task's teamId when ctx.teamId is absent", async () => {
@@ -146,8 +146,8 @@ describe("create_artifact tool (knowledge item shape)", () => {
 			);
 
 			expect(result.success).toBe(true);
-			// task-1 belongs to team-1, so scopeKind=product, scopeId=team-1
-			expect(capturedCreate?.scopeKind).toBe("product");
+			// task-1 belongs to team-1, so scopeKind=team, scopeId=team-1
+			expect(capturedCreate?.scopeKind).toBe("team");
 			expect(capturedCreate?.scopeId).toBe("team-1");
 		});
 

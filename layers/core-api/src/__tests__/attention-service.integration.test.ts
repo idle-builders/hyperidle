@@ -72,10 +72,9 @@ function createAttentionApi(deps: Parameters<typeof recomputeAttention>[0]) {
 
 interface SeedKiOverrides {
 	readonly id: string;
-	readonly layer?: string | null;
 	readonly scopeId?: string | null;
-	readonly kind?: string | null;
-	readonly topic?: string | null;
+	readonly parentKind?: string | null;
+	readonly parentId?: string | null;
 	readonly title?: string;
 	readonly body?: string;
 	readonly format?: string;
@@ -103,7 +102,6 @@ async function seedKi(
 ): Promise<SeedKiOverrides & { id: string }> {
 	const kernelRow = {
 		id: overrides.id,
-		topic: overrides.topic ?? null,
 		title: overrides.title ?? "Test",
 		body: overrides.body ?? "Body",
 		format: overrides.format ?? "markdown",
@@ -112,6 +110,9 @@ async function seedKi(
 		updatedBy: overrides.updatedBy ?? "agent-1",
 		createdAt: overrides.createdAt ?? NOW,
 		updatedAt: overrides.updatedAt ?? NOW,
+		parentKind: overrides.parentKind ?? null,
+		parentId: overrides.parentId ?? null,
+		scopeId: overrides.scopeId ?? null,
 	};
 	await db.insert(knowledgeItems).values(kernelRow);
 
@@ -119,9 +120,7 @@ async function seedKi(
 	await db.insert(knowledgeAppProjection).values({
 		id: `ksf-${overrides.id}`,
 		knowledgeItemId: overrides.id,
-		layer: overrides.layer ?? "L3",
 		scopeId: overrides.scopeId ?? null,
-		kind: overrides.kind ?? "pattern",
 		attentionScore: overrides.attentionScore != null ? String(overrides.attentionScore) : null,
 		confidence: overrides.confidence != null ? String(overrides.confidence) : null,
 		meta: overrides.meta ?? null,
@@ -221,8 +220,7 @@ describe("attention-service", () => {
 		// Seed item with strong attention signals (conflict + taste-sensitive + low confidence)
 		await seedKi(db, {
 			id: "ki-crosses",
-			kind: "brief",
-			topic: "brand",
+			title: "Brand guidance",
 			confidence: 0.1,
 			attentionScore: 0.3,
 		});
@@ -259,8 +257,7 @@ describe("attention-service", () => {
 	}) => {
 		await seedKi(db, {
 			id: "ki-stable-high",
-			kind: "brief",
-			topic: "brand",
+			title: "Brand guidance",
 			confidence: 0.1,
 			attentionScore: 0.85,
 		});
@@ -286,8 +283,6 @@ describe("attention-service", () => {
 		// Low-attention technical item, high confidence — should stay low
 		await seedKi(db, {
 			id: "ki-low",
-			kind: "pattern",
-			topic: "auth",
 			confidence: 0.95,
 			attentionScore: 0.1,
 		});
@@ -319,10 +314,7 @@ describe("attention-service", () => {
 			const id = `ki-${i}`;
 			await seedKi(db, {
 				id,
-				layer: "L3",
 				scopeId: `scope-${i % 10}`,
-				kind: i % 2 === 0 ? "pattern" : "brief",
-				topic: i % 3 === 0 ? "brand" : "auth",
 				confidence: (i % 100) / 100,
 				attentionScore: 0.1,
 			});
@@ -349,17 +341,20 @@ describe("attention-service", () => {
 		eventBus,
 	}) => {
 		// Seed 3 crossing and 2 non-crossing items.
-		// @lore L22: each crossing item uses a UNIQUE topic so cohort size = 1
-		// (novelty = 1.0). After L22's IMPACT_BY_KIND deletion (impact = 0),
-		// sharing a cohort (topic="brand" for all three) drops novelty to
-		// 1/sqrt(3) ≈ 0.577 and the maximum reachable score falls below 0.7.
-		// Unique topics keep novelty = 1 and the score reaches ~0.74, crossing.
+		// @lore nested-knowledge-items: each crossing item gets a UNIQUE parent
+		// so cohort size = 1 (novelty = 1.0) — the cohort key is now
+		// (parentKind, parentId, scopeId), not (layer, topic, kind). After
+		// L22's IMPACT_BY_KIND deletion (impact = 0), sharing a cohort drops
+		// novelty to 1/sqrt(3) ≈ 0.577 and the maximum reachable score falls
+		// below 0.7. Unique parents keep novelty = 1 and the score reaches
+		// ~0.74, crossing.
 		const crossing = ["c1", "c2", "c3"];
 		for (const [i, id] of crossing.entries()) {
 			await seedKi(db, {
 				id,
-				kind: "brief",
-				topic: `brand-unique-${i}`,
+				title: "Brand guidance",
+				parentKind: "task",
+				parentId: `unique-cohort-${i}`,
 				confidence: 0.1,
 				attentionScore: 0.3,
 			});
@@ -367,15 +362,11 @@ describe("attention-service", () => {
 		}
 		await seedKi(db, {
 			id: "ok1",
-			kind: "pattern",
-			topic: "auth",
 			confidence: 0.95,
 			attentionScore: 0.1,
 		});
 		await seedKi(db, {
 			id: "ok2",
-			kind: "pattern",
-			topic: "auth",
 			confidence: 0.95,
 			attentionScore: 0.1,
 		});
@@ -425,29 +416,29 @@ describe("attention-service", () => {
 		}
 	});
 
-	test("recomputeScope({layer:'L3', scopeId:'build'}) updates only L3/build items", async ({
+	test("recomputeScope({scopeId:'build', status:'active'}) updates only matching items", async ({
 		db,
 		eventBus,
 	}) => {
 		// @lore O2: attentionScore is now in knowledgeAppProjection, not knowledgeItems
 		await seedKi(db, {
 			id: "a",
-			layer: "L3",
 			scopeId: "build",
+			status: "active",
 			confidence: 0.5,
 			attentionScore: 0.1,
 		});
 		await seedKi(db, {
 			id: "b",
-			layer: "L3",
 			scopeId: "other",
+			status: "active",
 			confidence: 0.5,
 			attentionScore: 0.1,
 		});
 		await seedKi(db, {
 			id: "c",
-			layer: "L2",
 			scopeId: "build",
+			status: "stale",
 			confidence: 0.5,
 			attentionScore: 0.1,
 		});
@@ -459,7 +450,7 @@ describe("attention-service", () => {
 			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
-		const result = await service.recomputeScope({ layer: "L3", scopeId: "build" });
+		const result = await service.recomputeScope({ scopeId: "build", status: "active" });
 
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
@@ -505,8 +496,7 @@ describe("attention-service", () => {
 	}) => {
 		await seedKi(db, {
 			id: "ki-dup",
-			kind: "brief",
-			topic: "brand",
+			title: "Brand guidance",
 			confidence: 0.1,
 			attentionScore: 0.3,
 		});
@@ -555,8 +545,7 @@ describe("attention-service", () => {
 	}) => {
 		await seedKi(db, {
 			id: "ki-race",
-			kind: "brief",
-			topic: "brand",
+			title: "Brand guidance",
 			confidence: 0.1,
 			attentionScore: 0.3,
 		});
@@ -609,9 +598,14 @@ describe("attention-service", () => {
 		eventBus,
 	}) => {
 		const BATCH_OVER = MAX_RECOMPUTE_BATCH + 1;
-		// Insert MAX+1 rows with the same layer so the filter matches all.
+		// Insert MAX+1 rows with the same scope so the filter matches all.
 		for (let i = 0; i < BATCH_OVER; i++) {
-			await seedKi(db, { id: `k-big-${i}`, layer: "L9", confidence: 0.5, attentionScore: 0.1 });
+			await seedKi(db, {
+				id: `k-big-${i}`,
+				scopeId: "big-batch",
+				confidence: 0.5,
+				attentionScore: 0.1,
+			});
 		}
 		const service = createAttentionApi({
 			db,
@@ -620,7 +614,7 @@ describe("attention-service", () => {
 			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
-		const result = await service.recomputeScope({ layer: "L9" });
+		const result = await service.recomputeScope({ scopeId: "big-batch" });
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
 		expect(result.error.code).toBe("BATCH_TOO_LARGE");
@@ -628,23 +622,16 @@ describe("attention-service", () => {
 		expect(result.error.size).toBe(BATCH_OVER);
 	});
 
-	test("recomputeScope accepts `kind`, `topic`, and `ids` filter fields", async ({
-		db,
-		eventBus,
-	}) => {
+	test("recomputeScope accepts `scopeId` and `ids` filter fields", async ({ db, eventBus }) => {
 		await seedKi(db, {
 			id: "m-1",
-			layer: "L3",
-			kind: "brief",
-			topic: "brand",
+			scopeId: "brand-team",
 			confidence: 0.5,
 			attentionScore: 0.1,
 		});
 		await seedKi(db, {
 			id: "m-2",
-			layer: "L3",
-			kind: "pattern",
-			topic: "auth",
+			scopeId: "auth-team",
 			confidence: 0.5,
 			attentionScore: 0.1,
 		});
@@ -656,15 +643,10 @@ describe("attention-service", () => {
 			now: () => NOW_MS,
 		});
 
-		const byKind = await service.recomputeScope({ kind: "brief" });
-		expect(byKind.ok).toBe(true);
-		if (!byKind.ok) return;
-		expect(byKind.summary.updated).toBe(1);
-
-		const byTopic = await service.recomputeScope({ topic: "auth" });
-		expect(byTopic.ok).toBe(true);
-		if (!byTopic.ok) return;
-		expect(byTopic.summary.updated).toBe(1);
+		const byScope = await service.recomputeScope({ scopeId: "brand-team" });
+		expect(byScope.ok).toBe(true);
+		if (!byScope.ok) return;
+		expect(byScope.summary.updated).toBe(1);
 
 		const byIds = await service.recomputeScope({ ids: ["m-1", "m-2"] });
 		expect(byIds.ok).toBe(true);
@@ -680,8 +662,7 @@ describe("attention-service", () => {
 	}) => {
 		await seedKi(db, {
 			id: "edge-just-below",
-			kind: "brief",
-			topic: "brand",
+			title: "Brand guidance",
 			confidence: 0.1,
 			attentionScore: 0.6999,
 		});
@@ -689,8 +670,7 @@ describe("attention-service", () => {
 
 		await seedKi(db, {
 			id: "edge-at",
-			kind: "brief",
-			topic: "brand",
+			title: "Brand guidance",
 			confidence: 0.1,
 			attentionScore: 0.7,
 		});
@@ -735,8 +715,6 @@ describe("attention-service", () => {
 	}) => {
 		await seedKi(db, {
 			id: "det-1",
-			kind: "pattern",
-			topic: "auth",
 			confidence: 0.5,
 			attentionScore: 0.1,
 		});

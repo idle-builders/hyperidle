@@ -181,13 +181,18 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems still has 'topic' column", async ({ db }) => {
+		// @lore nested-knowledge-items: migration 0078 drops `topic` — a knowledge
+		// item's place in the tree says what it is about now, not a free-text
+		// field. Was "knowledgeItems still has 'topic' column"; inverted rather
+		// than deleted, since the column's absence is exactly as worth locking
+		// down as its O2-era presence was.
+		test("knowledgeItems no longer has a 'topic' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).toContain("topic");
+			expect(colNames).not.toContain("topic");
 			vi.unstubAllEnvs();
 		});
 	});
@@ -366,6 +371,19 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("cost_estimate");
+			vi.unstubAllEnvs();
+		});
+
+		// @lore nested-knowledge-items cleanup: `layer` was write-only dead code
+		// (sourced from knowledgeAppProjection.layer, dropped in 0080 — every
+		// writer could only ever pass null). Migration 0081 drops the column.
+		test("items no longer has 'layer' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
+			);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
+			expect(colNames).not.toContain("layer");
 			vi.unstubAllEnvs();
 		});
 	});
@@ -706,7 +724,9 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
 
 	describe("9. Knowledge item status simplified to draft | active | archived", () => {
-		test("POST /api/knowledge creates item with status 'draft' (not 'captured')", async ({
+		// @lore nested-knowledge-items: the status ladder collapsed further —
+		// draft/captured/provisional all fold into `proposed` now.
+		test("POST /api/knowledge creates item with status 'proposed' (not 'captured')", async ({
 			app,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -714,7 +734,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					topic: "testing",
 					title: "Status Test",
 					body: "Body.",
 					format: "markdown",
@@ -724,7 +743,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			});
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.status).toBe("draft");
+			expect(body.status).toBe("proposed");
 			vi.unstubAllEnvs();
 		});
 
@@ -832,10 +851,12 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			const now = new Date().toISOString();
 
 			// After O2: knowledge_items has no layer/kind columns.
+			// `topic` is dropped too (architecture.md §2); status collapses
+			// to the 4-value ladder (proposed | active | stale | archived).
 			// Insert using the stripped schema columns only.
 			await db.execute(
-				sql.raw(`INSERT INTO knowledge_items (id, topic, title, body, format, status, version, updated_by, created_at, updated_at)
-				 VALUES ('${itemId}', 'test', 'Test', 'Body', 'markdown', 'draft', 1, 'human', '${now}', '${now}')`),
+				sql.raw(`INSERT INTO knowledge_items (id, title, body, format, status, version, updated_by, created_at, updated_at)
+				 VALUES ('${itemId}', 'Test', 'Body', 'markdown', 'proposed', 1, 'human', '${now}', '${now}')`),
 			);
 
 			// Insert a strategy extension row — table must exist with FK cascade

@@ -35,6 +35,17 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
+// @lore nested-knowledge-items: KnowledgeCreate now mounts ParentPicker, which
+// fetches GET /api/knowledge via useFetch (itself built on apiFetch). Left
+// unmocked, that call resolves to whatever apiFetch above is mocked to return
+// for the POST assertions, consuming the same Response body handleCreate then
+// tries to read again. Stub useFetch directly — these tests don't exercise
+// the parent picker's own data unless a test overrides the return value (see
+// the one-write nesting test below, which needs a real parent option to pick).
+vi.mock("../hooks/useFetch.js", () => ({
+	useFetch: vi.fn(() => ({ data: { items: [] }, isLoading: false, error: null, refetch: vi.fn() })),
+}));
+
 // @lore AF13: vi.mock() calls are hoisted to top regardless of scope (describe/it/beforeEach).
 // Multiple vi.mock() calls for the same module path in one file → LAST factory wins for ALL tests.
 // Fix: single file-level vi.mock with a vi.fn() stub; configure per-describe via mockReturnValue.
@@ -104,6 +115,94 @@ describe("AF13 §1 — KnowledgeCreate sends status:active in create payload", (
 				}),
 			);
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Nesting under an existing item is ONE write
+// @lore nested-knowledge-items: founder ruling — create accepts parentKind/parentId
+// ---------------------------------------------------------------------------
+
+describe("KnowledgeCreate nests in one write", () => {
+	beforeEach(async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+			retry: vi.fn(),
+		});
+	});
+
+	afterEach(async () => {
+		vi.clearAllMocks();
+		// Restore useFetch's default (no parent options) for every other
+		// describe block in this file — mockReturnValue persists across
+		// vi.clearAllMocks(), which only clears call history.
+		const { useFetch } = await import("../hooks/useFetch.js");
+		vi.mocked(useFetch).mockReturnValue({
+			data: { items: [] },
+			isLoading: false,
+			error: null,
+			refetch: vi.fn(),
+		});
+	});
+
+	it("picking a parent sends ONE POST carrying parentKind+parentId — no follow-up PATCH", async () => {
+		const { useFetch } = await import("../hooks/useFetch.js");
+		vi.mocked(useFetch).mockReturnValue({
+			data: {
+				items: [
+					{ id: "ki-existing", title: "Existing parent", scopeKind: "factory", parentId: null },
+				],
+			},
+			isLoading: false,
+			error: null,
+			refetch: vi.fn(),
+		});
+
+		const { apiFetch } = await import("../services/api-fetch.js");
+		const mockFetch = vi.mocked(apiFetch);
+		mockFetch.mockResolvedValue(
+			new Response(JSON.stringify({ id: "new-nested-item-id" }), {
+				status: 201,
+				headers: { "Content-Type": "application/json" },
+			}),
+		);
+
+		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
+		const user = userEvent.setup();
+
+		render(
+			<MemoryRouter initialEntries={["/knowledge/new"]}>
+				<KnowledgeCreate />
+			</MemoryRouter>,
+		);
+
+		await user.type(screen.getByTestId("knowledge-create-title"), "Nested item");
+		await user.type(screen.getByTestId("body-editor-textarea"), "Some content");
+
+		await user.selectOptions(screen.getByTestId("parent-picker"), "ki-existing");
+
+		await user.click(screen.getByTestId("knowledge-create-submit"));
+
+		// Exactly one call to apiFetch — the create — carrying the parent.
+		await waitFor(() => {
+			expect(mockFetch).toHaveBeenCalledTimes(1);
+		});
+		expect(mockFetch).toHaveBeenCalledWith(
+			"/api/knowledge",
+			expect.objectContaining({
+				method: "POST",
+				body: expect.stringContaining('"parentKind":"knowledge_item"'),
+			}),
+		);
+		expect(mockFetch).toHaveBeenCalledWith(
+			"/api/knowledge",
+			expect.objectContaining({
+				body: expect.stringContaining('"parentId":"ki-existing"'),
+			}),
+		);
 	});
 });
 

@@ -29,8 +29,6 @@ export function attentionReviewReasoningMarker(knowledgeItemId: string): string 
 /** Input for creating a review `items` row tied to a knowledge item. */
 export interface CreateReviewItemInput {
 	readonly knowledgeItemId: string;
-	/** @lore O2: layer comes from knowledgeAppProjection and may be null when no projection row exists. */
-	readonly layer: string | null;
 	readonly title: string;
 	readonly body: string;
 	readonly riskTier: "low" | "medium" | "high";
@@ -107,7 +105,6 @@ export function createReviewItem(
 		await deps.work.createItem(db, {
 			id: itemId,
 			sourceAgentId: null,
-			layer: input.layer,
 			verb: "review",
 			kind: "knowledge",
 			title: input.title,

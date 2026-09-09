@@ -44,7 +44,7 @@
 // -- attention engine (recompute service) --
 export { recomputeAttention } from "./attention-service.js";
 // -- errors --
-export { ItemDeletedError, VersionConflictError } from "./errors.js";
+export { InvalidReparentError, ItemDeletedError, VersionConflictError } from "./errors.js";
 // -- conflicts (knowledgeConflicts accessors) --
 export {
 	findOpenConflict,
@@ -69,18 +69,20 @@ export {
 	getRoutinePrompt,
 	getRoutinePromptBodies,
 	graduate,
+	type KnowledgeItemChildRef,
 	list,
 	listItemIdsByParent,
 	listParentedItemBodies,
 	remove,
+	reparent,
 	restorePluginDocumentBody,
 	search,
 	setKnowledgeStatus,
 	transition,
-	type UpsertPluginDocumentInput,
+	type UpsertKnowledgeDocumentInput,
 	update,
 	upsertAgentIdentity,
-	upsertPluginDocument,
+	upsertKnowledgeDocument,
 } from "./knowledge-repository.js";
 export { sweep } from "./promotion-pipeline.js";
 // -- review-item factory (moved from @hyperidle/review, AU44 batch 4 rows 9/10 MERGE) --
@@ -91,5 +93,5 @@ export { attentionReviewReasoningMarker, createReviewItem } from "./review-item-
 // -- session context assembly (AU21 §9 Increment 12, Decision H3 — the
 // requireRunnableAgent-precedent shared assembler; per-kind resolvers call
 // this intra-layer instead of run-orchestration reading knowledge back) --
-export type { SessionKnowledgeInput } from "./session-knowledge-assembler.js";
+export type { SessionKnowledgeInput, SessionKnowledgeItem } from "./session-knowledge-assembler.js";
 export { assembleSessionKnowledge } from "./session-knowledge-assembler.js";

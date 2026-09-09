@@ -15,7 +15,7 @@ Live columns (`framework/db/src/schema.ts`):
 Item {
   id               # stable, addressable
   source_agent_id  # which agent sent this — uses agent identity
-  layer            # knowledge-architecture layer; see docs/knowledge-architecture/the-five-layers.md
+  layer            # column still exists but is always written null — the knowledge layer ladder it named is gone; see docs/knowledge-architecture/index.md
   verb             # the human activity: review | prioritize | assist | curate
   kind             # the rendering shape: review | chat | skill_change | work | knowledge
   title            # one-line, decidable

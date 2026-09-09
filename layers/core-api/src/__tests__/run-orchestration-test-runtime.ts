@@ -15,7 +15,7 @@ import {
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
-import { create, recordConflict, update } from "@hyperidle/knowledge";
+import { create, recordConflict, reparent, update } from "@hyperidle/knowledge";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 
 /**
@@ -90,6 +90,9 @@ export function startTestRuntime(
 							return { ok: true, item: await update(db2, id, patch, expectedVersion) };
 						},
 						recordConflict,
+						async reparentKnowledgeItem(db2, id, input) {
+							await reparent(db2, id, input);
+						},
 					},
 				},
 				worker: {

@@ -115,18 +115,17 @@ describe("BA9d lifecycle: disable deactivates materialised rows", () => {
 
 	test("after disable: skills archived", async ({ db, app }) => {
 		await installKmPlugin(app);
+		const contributedIds = [...(await contributed(db, "knowledge"))];
 		const before = await db
 			.select()
 			.from(knowledgeItems)
-			.where(
-				and(eq(knowledgeItems.topic, `plugin:${PLUGIN_ID}`), eq(knowledgeItems.status, "active")),
-			);
+			.where(and(inArray(knowledgeItems.id, contributedIds), eq(knowledgeItems.status, "active")));
 		await app.request(`/api/plugins/${PLUGIN_ID}/disable`, { method: "POST", headers: auth() });
 		const after = await db
 			.select()
 			.from(knowledgeItems)
 			.where(
-				and(eq(knowledgeItems.topic, `plugin:${PLUGIN_ID}`), eq(knowledgeItems.status, "archived")),
+				and(inArray(knowledgeItems.id, contributedIds), eq(knowledgeItems.status, "archived")),
 			);
 		expect(after.length).toBe(before.length);
 	});

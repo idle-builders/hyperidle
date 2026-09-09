@@ -1,34 +1,12 @@
 /**
- * App runtime knowledge taxonomy, scoring, and propagation types.
+ * App runtime knowledge status vocabulary.
  *
- * @lore O1: these types were moved from @hyperidle/domain-model as part of the
- * runtime split. Shared UI code imports public app vocabulary from
- * @hyperidle/domain-model; server app runtime keeps its local compatibility types here.
+ * @lore nested-knowledge-items: `KnowledgeLayer` and `KnowledgeKind` are
+ * DELETED — a knowledge item's place in the tree says what it is about now,
+ * not a flat layer/kind vocabulary. `KnowledgeStatus` re-exports
+ * `@hyperidle/domain-model`'s `KNOWLEDGE_STATUSES` (the two status
+ * vocabularies collapsed into one), kept as a local re-export so existing
+ * `../types.js` imports in this package do not need to change their
+ * specifier.
  */
-
-// --- Knowledge taxonomy ---
-
-export type KnowledgeLayer = "L0" | "L1" | "L2" | "L3" | "L4";
-
-const KNOWLEDGE_STATUSES = [
-	"captured",
-	"provisional",
-	"validated",
-	"active",
-	"stale",
-	"archived",
-	"needs_human",
-] as const;
-export type KnowledgeStatus = (typeof KNOWLEDGE_STATUSES)[number];
-
-export type KnowledgeKind =
-	| "pattern"
-	| "anti_pattern"
-	| "brief"
-	| "principle"
-	| "decision"
-	| "failure"
-	| "reflection"
-	| "focus";
-
-export { KNOWLEDGE_STATUSES };
+export { KNOWLEDGE_STATUSES, type KnowledgeStatus } from "@hyperidle/domain-model";

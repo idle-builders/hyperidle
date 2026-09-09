@@ -3,27 +3,16 @@
  * Increment 12 test (b) requires: "baked ranking output matches the
  * pre-migration ranking for a fixed corpus."
  *
- * Exercises `@hyperidle/knowledge`'s `assembleSessionKnowledge` (Wave A —
- * the relocated `list`+`rank` core-side, the exact logic `context.ts`'s
- * DB-reading `assembleContext` used to run at launch, verbatim) against a
- * fixed corpus (two teams, two practice communities, one factory-wide item)
- * so a genuine relocation bug (wrong scope, wrong community mapping, wrong
- * budget cutoff) shows up as a set mismatch against the hardcoded expected
- * membership below.
+ * Exercises `@hyperidle/knowledge`'s `assembleSessionKnowledge` against a
+ * fixed corpus (two teams, one agent-bound item, one factory-wide item) so a
+ * genuine relocation bug (wrong scope, wrong budget cutoff) shows up as a set
+ * mismatch against the hardcoded expected membership below.
  *
- * @lore Wave C (GREEN, revised — flagged for reviewer): the RED-phase version
- * of this test additionally ran `runSession(...,{mode:"assemble", input:
- * {db,...}})` (the pre-migration DB-reading `assembleContext` path, wired to
- * the real `contextPorts.knowledge.{list,rankAndBudget}`) to derive an
- * "old path" id set to diff against. Wave C deletes that path AND
- * `contextPorts.knowledge`/`.org` entirely (required for
- * `context-assembly-anti-regrowth.test.ts` to prove ZERO
- * `run-orchestration -> knowledge/org` edges) — there is no live "old path"
- * left to run. The hardcoded anchor assertions below (membership +
- * exclusions) already fully specify the expected set independent of any
- * "old path" comparison, so dropping that comparison does not weaken this
- * test's proof obligation — it removes a comparison against code that no
- * longer exists, keeping the equally-strong direct assertions.
+ * @lore nested-knowledge-items D1: "what an agent receives" collapses onto
+ * scope alone — factory + its team + its own — replacing the L4/L2/L3 layer
+ * fetch and the practice/community matching this test originally pinned.
+ * The corpus below is rewritten to exercise the surviving three scope kinds
+ * instead of the deleted layer/practice vocabulary.
  */
 
 import {
@@ -42,7 +31,8 @@ const NOW = "2026-07-31T00:00:00.000Z";
 const TEAM_ID = "team-i12-parity";
 const OTHER_TEAM_ID = "team-i12-other";
 const AGENT_ID = "agent-i12-parity";
-const AGENT_ROLE = "builder"; // BA9g: the practice IS the role — `communityForRole` is deleted.
+const OTHER_AGENT_ID = "agent-i12-other";
+const AGENT_ROLE = "builder";
 const TASK_ID = "task-i12-parity";
 const ROOT_TASK_ID = "bet-i12-parity";
 const TASK_DESCRIPTION = "Ship the boundary seam parity check.";
@@ -80,13 +70,13 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 
-	// L4 — factory-wide, always included regardless of team/community.
+	// factory — always included regardless of team/agent.
 	await db.insert(knowledgeItems).values({
-		id: "item-i12-l4",
+		id: "item-i12-factory",
 		scopeKind: "factory",
 		scopeId: null,
 		title: "Factory-wide practice",
-		body: "Applies to every team and every community.",
+		body: "Applies to every team and every agent.",
 		format: "markdown",
 		status: "active",
 		version: 1,
@@ -95,15 +85,14 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-l4",
-		knowledgeItemId: "item-i12-l4",
-		layer: "L4",
+		id: "proj-i12-factory",
+		knowledgeItemId: "item-i12-factory",
 		scopeId: null,
 	});
 
-	// L2 — scoped to TEAM_ID (must be included).
+	// team — scoped to TEAM_ID (must be included).
 	await db.insert(knowledgeItems).values({
-		id: "item-i12-l2-in",
+		id: "item-i12-team-in",
 		scopeKind: "team",
 		scopeId: TEAM_ID,
 		title: "Team-scoped product knowledge",
@@ -116,15 +105,14 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-l2-in",
-		knowledgeItemId: "item-i12-l2-in",
-		layer: "L2",
+		id: "proj-i12-team-in",
+		knowledgeItemId: "item-i12-team-in",
 		scopeId: TEAM_ID,
 	});
 
-	// L2 — scoped to OTHER_TEAM_ID (must be EXCLUDED from a TEAM_ID assembly).
+	// team — scoped to OTHER_TEAM_ID (must be EXCLUDED from a TEAM_ID assembly).
 	await db.insert(knowledgeItems).values({
-		id: "item-i12-l2-out",
+		id: "item-i12-team-out",
 		scopeKind: "team",
 		scopeId: OTHER_TEAM_ID,
 		title: "Other team's product knowledge",
@@ -137,27 +125,18 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-l2-out",
-		knowledgeItemId: "item-i12-l2-out",
-		layer: "L2",
+		id: "proj-i12-team-out",
+		knowledgeItemId: "item-i12-team-out",
 		scopeId: OTHER_TEAM_ID,
 	});
 
-	// L3 — scoped to the agent's practice, which IS its role. Was `"building"`,
-	// the community `communityForRole("builder")` mapped it into.
-	//
-	// @lore BA9g: the role catalog carried that mapping — 16 roles onto four
-	// communities — and it went with the catalog. `knowledge.ts` already
-	// documented the truth ("practice scopeId is a role id"): the product scopes
-	// practice knowledge by ROLE everywhere, including the demo world, and this
-	// fixture was the only thing that ever used a community name. A practice is a
-	// role, so a new role is its own practice with no mapping to maintain.
+	// user — bound to AGENT_ID (must be included: "its own").
 	await db.insert(knowledgeItems).values({
-		id: "item-i12-l3-in",
-		scopeKind: "practice",
-		scopeId: "builder",
-		title: "Building practice knowledge",
-		body: "Relevant to the builder community.",
+		id: "item-i12-own-in",
+		scopeKind: "user",
+		scopeId: AGENT_ID,
+		title: "The agent's own note",
+		body: "Relevant only to this agent.",
 		format: "markdown",
 		status: "active",
 		version: 1,
@@ -166,36 +145,34 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-l3-in",
-		knowledgeItemId: "item-i12-l3-in",
-		layer: "L3",
-		scopeId: "building",
+		id: "proj-i12-own-in",
+		knowledgeItemId: "item-i12-own-in",
+		scopeId: AGENT_ID,
 	});
 
-	// L3 — scoped to "growth" (a different community), must be EXCLUDED.
+	// user — bound to a DIFFERENT agent, must be EXCLUDED.
 	await db.insert(knowledgeItems).values({
-		id: "item-i12-l3-out",
-		scopeKind: "practice",
-		scopeId: "growth",
-		title: "Growth practice knowledge",
-		body: "Not relevant to the builder community.",
+		id: "item-i12-own-out",
+		scopeKind: "user",
+		scopeId: OTHER_AGENT_ID,
+		title: "Someone else's note",
+		body: "Not relevant to this agent.",
 		format: "markdown",
 		status: "active",
 		version: 1,
-		updatedBy: AGENT_ID,
+		updatedBy: OTHER_AGENT_ID,
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-l3-out",
-		knowledgeItemId: "item-i12-l3-out",
-		layer: "L3",
-		scopeId: "growth",
+		id: "proj-i12-own-out",
+		knowledgeItemId: "item-i12-own-out",
+		scopeId: OTHER_AGENT_ID,
 	});
 }
 
-describe("assembleSessionKnowledge — ranking parity with the pre-migration path (Increment 12)", () => {
-	test("returns exactly the expected item-id set for the fixed corpus (budget/scope/community filter)", async ({
+describe("assembleSessionKnowledge — scope-only selection (architecture.md D1)", () => {
+	test("returns exactly the expected item-id set for the fixed corpus (budget/scope filter)", async ({
 		db,
 	}) => {
 		await seedFixedCorpus(db);
@@ -209,16 +186,16 @@ describe("assembleSessionKnowledge — ranking parity with the pre-migration pat
 		const ids = new Set(budgeted.map((item) => item.id));
 
 		// Anchor the actual expected membership — the corpus mixes in-scope and
-		// out-of-scope items on purpose (team + community exclusion), so a
+		// out-of-scope items on purpose (team + agent exclusion), so a
 		// coincidental empty-set match can't silently pass.
-		expect([...ids].sort()).toEqual(["item-i12-l2-in", "item-i12-l3-in", "item-i12-l4"].sort());
-		expect(ids.has("item-i12-l2-out")).toBe(false);
-		expect(ids.has("item-i12-l3-out")).toBe(false);
+		expect([...ids].sort()).toEqual(
+			["item-i12-team-in", "item-i12-own-in", "item-i12-factory"].sort(),
+		);
+		expect(ids.has("item-i12-team-out")).toBe(false);
+		expect(ids.has("item-i12-own-out")).toBe(false);
 	});
 
-	test("each returned item's layer identifies the correct sandbox zone it belongs to", async ({
-		db,
-	}) => {
+	test("each returned item carries the scope that put it in reach", async ({ db }) => {
 		await seedFixedCorpus(db);
 
 		const budgeted = await assembleSessionKnowledge(db, {
@@ -228,21 +205,15 @@ describe("assembleSessionKnowledge — ranking parity with the pre-migration pat
 			agentId: AGENT_ID,
 		});
 
-		const zoneByLayer: Record<string, string> = {
-			L4: "context/factory",
-			L2: "context/product",
-			L3: "context/practices",
-		};
-		const expectedLayerById: Record<string, string> = {
-			"item-i12-l4": "L4",
-			"item-i12-l2-in": "L2",
-			"item-i12-l3-in": "L3",
+		const expectedScopeById: Record<string, string> = {
+			"item-i12-factory": "factory",
+			"item-i12-team-in": "team",
+			"item-i12-own-in": "user",
 		};
 
 		expect(budgeted.length).toBe(3);
 		for (const item of budgeted) {
-			expect(item.layer).toBe(expectedLayerById[item.id]);
-			expect(item.layer ? zoneByLayer[item.layer] : undefined).toBeDefined();
+			expect(item.scopeKind).toBe(expectedScopeById[item.id]);
 		}
 	});
 
@@ -257,7 +228,7 @@ describe("assembleSessionKnowledge — ranking parity with the pre-migration pat
 		const [row] = await db
 			.select({ id: knowledgeItems.id })
 			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "item-i12-l2-out"));
+			.where(eq(knowledgeItems.id, "item-i12-team-out"));
 		expect(row).toBeDefined();
 
 		const budgeted = await assembleSessionKnowledge(db, {
@@ -267,8 +238,8 @@ describe("assembleSessionKnowledge — ranking parity with the pre-migration pat
 			agentId: AGENT_ID,
 		});
 		const ids = new Set(budgeted.map((item) => item.id));
-		expect(ids.has("item-i12-l2-out")).toBe(false);
-		expect(ids.has("item-i12-l3-out")).toBe(false);
-		expect(ids.has("item-i12-l4")).toBe(true);
+		expect(ids.has("item-i12-team-out")).toBe(false);
+		expect(ids.has("item-i12-own-out")).toBe(false);
+		expect(ids.has("item-i12-factory")).toBe(true);
 	});
 });

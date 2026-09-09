@@ -1,20 +1,19 @@
 # Knowledge Promotion with Attention Recompute
 
-Use this skill when you need to promote high-quality draft or review knowledge items to active status, and to refresh attention scores across the knowledge base.
+Use this skill when you need to promote high-quality proposed knowledge items to active status, and to refresh attention scores across the knowledge base.
 
 ## When to use
 
 - Scheduled weekly sweep (Sundays at 4am, after the decay sweep)
-- When there is a backlog of draft items waiting for promotion
+- When there is a backlog of proposed items waiting for promotion
 - When attention scores are stale and need refreshing
 
 ## What this skill does
 
-1. Find all knowledge items in `draft` or `review` status
-2. Recompute attention scores using `score_attention(mode:"recompute")`
-3. Promote items with high attention scores (above 0.7) to `active` status using the `promote_knowledge` tool
-4. Report which items were promoted and which remain in review
+1. Run `run_knowledge_sweep(kind:"autoPromotion")` — it promotes every `proposed` item whose finding repeats across 5 or more scopes to `active`, in one call.
+2. For items the sweep did not promote, recompute attention scores using `score_attention(mode:"recompute")` so their standing is current even while they wait.
+3. Report which items were promoted and which remain proposed.
 
 ## Guidance
 
-Use `search_knowledge` to find items by status. For each candidate, recompute its attention score first. Only promote items that are clearly valuable and well-formed. Items that need more work should stay in draft. Write a brief summary of promotions made.
+`run_knowledge_sweep` is the promotion mechanism — do not try to list or filter proposed items by hand, there is no tool for that. Only recompute attention on items the sweep left proposed; do not promote by hand outside the sweep's own repetition rule. Write a brief summary of what the sweep did.

@@ -35,8 +35,10 @@ describe("status-union runtime constants", () => {
 			expect(KERNEL_KNOWLEDGE_STATUSES).toHaveLength(4);
 		});
 
-		it("includes draft, active, archived", () => {
-			const expected: readonly KernelKnowledgeStatus[] = ["draft", "active", "archived"];
+		it("includes proposed, active, archived", () => {
+			// @lore nested-knowledge-items: the status ladder collapsed to
+			// proposed | active | stale | archived — draft/needs_human are gone.
+			const expected: readonly KernelKnowledgeStatus[] = ["proposed", "active", "archived"];
 			for (const ks of expected) {
 				expect(KERNEL_KNOWLEDGE_STATUSES).toContain(ks);
 			}

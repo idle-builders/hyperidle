@@ -101,7 +101,7 @@ There's no need for a session-length cap beyond the natural one: when context co
 
 Three layers of memory bridge sessions on the same task, all mediated by Core knowledge services:
 
-- **L2 (agent's private memory)** — the agent's own notes about what it's doing and what it believes. Stored as knowledge items whose layer lives on the `knowledge_app_projection` extension table (`framework/db/src/schema.ts`). Assembled into `context/` at session start. Survives across sessions for the same agent.
+- **The agent's private memory** — the agent's own notes about what it's doing and what it believes. Stored as `user`-scoped knowledge items (`framework/db/src/schema.ts`). Assembled into `context/` at session start. Survives across sessions for the same agent.
 - **The task's notes** (`tasks.notes`) — written continuously during the session (synced back via the file watcher) by whoever was working it. Any session by any agent can read them. This is how agent B picks up where agent A left off, and how agent A picks up tomorrow what it did today.
 - **The task's thread** (when it exists) — the conversation around the work. Comments, questions, review feedback. Read on demand, not by default.
 

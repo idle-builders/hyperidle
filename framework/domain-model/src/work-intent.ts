@@ -166,6 +166,18 @@ export function bakeAgentRunnableConfig(
 	};
 }
 
+/**
+ * @lore nested-knowledge-items §5: one ancestor in `BakedContextKnowledgeItem.parentChain` —
+ * everything `writeOrdinaryItems` (context.ts) needs to materialise that
+ * ancestor's own directory + manifest entry without a DB read.
+ */
+export interface BakedKnowledgeAncestor {
+	readonly id: string;
+	readonly title: string;
+	readonly scopeKind: string;
+	readonly version: number;
+}
+
 /** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle`. */
 export interface BakedContextKnowledgeItem {
 	readonly id: string;
@@ -173,7 +185,22 @@ export interface BakedContextKnowledgeItem {
 	readonly body: string;
 	readonly format: string;
 	readonly version: number;
-	readonly layer: string | null;
+	/**
+	 * @lore nested-knowledge-items §5: the chain of ancestor knowledge items
+	 * this item sits under, root first. `writeContextBundle` does zero DB
+	 * reads ("every byte comes from `bundle`"), so an ancestor that was not
+	 * itself selected still needs its directory-with-index materialised, AND
+	 * its own manifest entry (review.md B5 — without one, an agent later
+	 * writing inside that already-materialised directory mints a duplicate
+	 * folder item). Each ancestor therefore carries its own `scopeKind` and
+	 * `version`, not just `id`/`title` — everything a manifest entry needs,
+	 * with zero DB reads at write time. Empty for a root item or one whose
+	 * parent is not a knowledge item (task/thread/routine/agent — walks never
+	 * cross that hop).
+	 */
+	readonly parentChain: readonly BakedKnowledgeAncestor[];
+	/** @lore nested-knowledge-items §5/D4: this item's own scope — every manifest entry needs one (review.md B6). */
+	readonly scopeKind: string;
 	/**
 	 * @lore BA9b: Role determines how context assembly materialises this item.
 	 * Defaults to 'ordinary' for all items that pre-date the role column.
@@ -204,8 +231,6 @@ export interface BakedContextKnowledgeItem {
  * dependency (Mechanism C: none of those packages may import
  * `@hyperidle/knowledge` directly) without needing that Service's own type.
  * `layer` stays optional (matching `KnowledgeItemWithProjection`'s own
- * optional `layer?: string | null`) — `toBakedContextKnowledgeItems` below
- * normalizes it to the required-but-nullable `BakedContextKnowledgeItem.layer`.
  * `role`, `parentKind` and `parentId` are required: all three come from the
  * kernel `knowledgeItems` table, which is always present in a DB row. role is
  * NOT NULL DEFAULT 'ordinary'; `parentKind`/`parentId` are nullable but always
@@ -213,6 +238,13 @@ export interface BakedContextKnowledgeItem {
  * which this interface no longer needs (its only reader was the
  * agentBindingId derivation below). No compat shim — callers provide the real
  * DB values.
+ *
+ * @lore nested-knowledge-items §5 (review.md B4): `parentChain` and
+ * `scopeKind` are REQUIRED, not optional with a silent `?? []` fallback —
+ * that fallback is exactly how B4 shipped unnoticed (every real caller
+ * resolved to flat placement, and the type system never complained). Every
+ * caller must resolve the real chain, via `resolveParentChain` (the only
+ * caller today, `assembleSessionKnowledge` in `@hyperidle/knowledge`, does).
  */
 export interface SessionKnowledgeItemLike {
 	readonly id: string;
@@ -220,7 +252,10 @@ export interface SessionKnowledgeItemLike {
 	readonly body: string;
 	readonly format: string;
 	readonly version: number;
-	readonly layer?: string | null;
+	/** @lore nested-knowledge-items §5: see `BakedContextKnowledgeItem.parentChain`. */
+	readonly parentChain: readonly BakedKnowledgeAncestor[];
+	/** @lore nested-knowledge-items §5/D4: see `BakedContextKnowledgeItem.scopeKind`. */
+	readonly scopeKind: string;
 	/**
 	 * @lore BA9b: Kernel table column, NOT NULL DEFAULT 'ordinary'. Required.
 	 * Every DB row carries a non-null role after migration 0062.
@@ -253,7 +288,8 @@ export function toBakedContextKnowledgeItems(
 		body: item.body,
 		format: item.format,
 		version: item.version,
-		layer: item.layer ?? null,
+		parentChain: item.parentChain,
+		scopeKind: item.scopeKind,
 		role: item.role,
 		// @lore knowledge-attachment-slot: the binding is the parent, not the
 		// scope — always derived, never set explicitly (no shim path). One

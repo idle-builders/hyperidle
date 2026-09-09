@@ -45,11 +45,11 @@ Shapes and semantics: [process-layer/the-four-primitives.md](../process-layer/th
 
 ## F-3: Knowledge
 
-Layer taxonomy (L0–L4) is owned by [knowledge-architecture/the-five-layers.md](../knowledge-architecture/the-five-layers.md); store semantics by [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
+Tree structure and scope are owned by [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
 
-**F-3.1** All knowledge lives in the canonical `knowledge_items` store (PGlite locally, Postgres on a server). Kernel columns live on the base table; strategy signals (layer, kind, attentionScore, relevanceScore, confidence, citations) live in the `knowledge_strategy_fabric` extension table. The Knowledge Fabric projects the one store into two surfaces: the Knowledge view for humans and assembled file sandboxes for agents.
+**F-3.1** All knowledge lives in the canonical `knowledge_items` store (PGlite locally, Postgres on a server). Kernel columns live on the base table; strategy signals (attentionScore, relevanceScore, confidence, citations) live in the `knowledge_app_projection` extension table. The Knowledge Fabric projects the one store into two surfaces: the Knowledge view for humans and assembled file sandboxes for agents.
 
-**F-3.2** Knowledge is layered L0 (session) → L1 (task) → L2 (team) → L3 (practice) → L4 (factory). One-liners only here — the taxonomy doc owns the definitions.
+**F-3.2** Knowledge is nested, not layered: a knowledge item can contain knowledge items, and where an item sits says what it is about. `scope` (`factory | team | user`) says only who sees it. One-liners only here — the taxonomy doc owns the definitions.
 
 **F-3.3** Context assembly at session start writes a three-zone sandbox — `context/` (read-only), `knowledge/` (proposed changes), `work/` (scratch) — under a token budget, with TOON packs for structured data. Depth: [knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md).
 

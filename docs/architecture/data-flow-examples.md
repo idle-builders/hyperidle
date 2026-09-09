@@ -1,6 +1,6 @@
 # Data Flow Examples
 
-Five end-to-end flows, verified against live code. Each names the real mechanism (service, table, column) that carries the step. Lifecycle semantics belong to the owning docs — task/session lifecycle in [tasks-and-sessions](../process-layer/tasks-and-sessions.md), knowledge layers and promotion in [knowledge-architecture](../knowledge-architecture/index.md), item routing in [items-and-routing](../human-interface-layer/items-and-routing.md).
+Five end-to-end flows, verified against live code. Each names the real mechanism (service, table, column) that carries the step. Lifecycle semantics belong to the owning docs — task/session lifecycle in [tasks-and-sessions](../process-layer/tasks-and-sessions.md), knowledge nesting and promotion in [knowledge-architecture](../knowledge-architecture/index.md), item routing in [items-and-routing](../human-interface-layer/items-and-routing.md).
 
 ## 1. A Task Tree Completes
 
@@ -42,21 +42,22 @@ Five end-to-end flows, verified against live code. Each names the real mechanism
 
 ## 3. A Team Learns Something (the contribution loop)
 
-Layer taxonomy (L0–L4) and knowledge statuses are owned by [the-five-layers](../knowledge-architecture/the-five-layers.md); the promotion loop by [facilitators](../knowledge-architecture/facilitators.md).
+The tree and its statuses are owned by [the-canonical-store](../knowledge-architecture/the-canonical-store.md); the promotion loop by [facilitators](../knowledge-architecture/facilitators.md).
 
 ```
 1. A Builder discovers chunked upload >10MB works better
 2. Builder logs the finding to task notes at session end (before compaction)
-3. A facilitator collects the finding and creates a knowledge item:
+3. A facilitator collects the finding and creates a knowledge item,
+   nested under its practice's folder:
    "chunked upload for files >10MB"
-   (status: captured, attention_score computed)
+   (status: proposed, attention_score computed)
 4. Score is moderate → doesn't surface to a human in the Knowledge view yet
 5. Two weeks later, a Builder on another team independently discovers
    the same thing
-6. The promotion pipeline's repetition signal promotes it → validated
-7. The item is now active in L3
+6. The promotion pipeline's repetition signal promotes it → active
+7. The item is now active, nested under its practice
 8. Next time any Builder starts a task session:
-   a. Context assembly queries L3 for relevant patterns
+   a. Context assembly queries that practice's folder for relevant patterns
    b. This pattern matches the task type → included in the TOON pack
    c. The Builder has the knowledge without anyone pushing a notification
 ```
@@ -93,7 +94,7 @@ Layer taxonomy (L0–L4) and knowledge statuses are owned by [the-five-layers](.
 3. Model tier selected: fast (tiers: reasoning | workhorse | fast —
    see ../agent-layer/model-routing-and-cost.md)
 4. Session starts, agent queries for new copy artifacts since the last run
-5. Agent summarizes patterns into its own L2 memory
+5. Agent summarizes patterns into its own private memory (user scope)
    ("we shifted to a more formal tone this week")
 6. Session ends → session_ended event
 7. No Item created, no thread, no notification

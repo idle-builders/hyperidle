@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
-import {
-	deriveTopicHealth,
-	groupItemsByTopic,
-	MOCK_KNOWLEDGE_ITEMS,
-} from "../fixtures/knowledge-data";
+import { MOCK_KNOWLEDGE_ITEMS } from "../fixtures/knowledge-data";
 
 describe("knowledge-data fixtures (J6)", () => {
-	it("fixture items cover all three scopes", () => {
+	// @lore nested-knowledge-items AC6: the retired practice/product scope
+	// values are gone — the fixture now only carries the surviving three.
+	it("fixture items cover the surviving scopes only", () => {
 		const scopes = new Set(MOCK_KNOWLEDGE_ITEMS.map((i) => i.scope));
-		expect(scopes.has("practice")).toBe(true);
-		expect(scopes.has("product")).toBe(true);
+		expect(scopes.has("practice")).toBe(false);
+		expect(scopes.has("product")).toBe(false);
 		expect(scopes.has("factory")).toBe(true);
+		expect(scopes.has("team")).toBe(true);
 	});
 
-	it("practice scope retains the 5 original fixture titles for protected tests", () => {
-		const titles = MOCK_KNOWLEDGE_ITEMS.filter((i) => i.scope === "practice").map((i) => i.title);
+	it("factory scope retains the 5 original fixture titles for protected tests", () => {
+		const titles = MOCK_KNOWLEDGE_ITEMS.filter((i) => i.scope === "factory").map((i) => i.title);
 		for (const title of [
 			"Architecture Decision: Auth Strategy",
 			"API Rate Limiting Best Practices",
@@ -24,44 +23,5 @@ describe("knowledge-data fixtures (J6)", () => {
 		]) {
 			expect(titles).toContain(title);
 		}
-	});
-});
-
-describe("deriveTopicHealth (J6)", () => {
-	it("returns fresh when no items are stale", () => {
-		expect(deriveTopicHealth(5, 0)).toBe("fresh");
-	});
-
-	it("returns fresh when the topic is empty", () => {
-		expect(deriveTopicHealth(0, 0)).toBe("fresh");
-	});
-
-	it("returns some_stale when < 50% of items are stale", () => {
-		expect(deriveTopicHealth(4, 1)).toBe("some_stale");
-		expect(deriveTopicHealth(10, 4)).toBe("some_stale");
-	});
-
-	it("returns mostly_stale when >= 50% of items are stale", () => {
-		expect(deriveTopicHealth(4, 2)).toBe("mostly_stale");
-		expect(deriveTopicHealth(10, 5)).toBe("mostly_stale");
-		expect(deriveTopicHealth(3, 3)).toBe("mostly_stale");
-	});
-});
-
-describe("groupItemsByTopic (J6)", () => {
-	it("groups items with stable topic order matching first-seen", () => {
-		const items = MOCK_KNOWLEDGE_ITEMS.filter((i) => i.scope === "practice");
-		const groups = groupItemsByTopic(items);
-		const topics = groups.map((g) => g.topic);
-		// First practice item is Architecture, so Architecture should be first.
-		expect(topics[0]).toBe("Architecture");
-	});
-
-	it("counts stale items per topic correctly", () => {
-		const items = MOCK_KNOWLEDGE_ITEMS.filter((i) => i.scope === "practice");
-		const groups = groupItemsByTopic(items);
-		const architecture = groups.find((g) => g.topic === "Architecture");
-		expect(architecture?.staleCount).toBe(1); // k7 is stale
-		expect(architecture?.items).toHaveLength(3); // k1, k2, k7
 	});
 });

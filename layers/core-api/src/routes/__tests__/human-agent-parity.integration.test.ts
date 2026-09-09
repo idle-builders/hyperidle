@@ -92,7 +92,7 @@ describe("a human and an agent put an item into a conversation the same way", ()
 				title: "Produced by the agent",
 				body: BODY,
 				format: "markdown",
-				status: "draft",
+				status: "proposed",
 				updatedBy: "agent:pa-agent",
 				scopeKind: "factory",
 				parentKind: "thread",

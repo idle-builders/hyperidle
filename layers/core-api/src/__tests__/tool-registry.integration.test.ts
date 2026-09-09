@@ -21,8 +21,9 @@ import { test as baseTest } from "../__testing__/test-fixtures.js";
  * so every call site below is unchanged.
  * @lore AU20 repair: read_inbox, write_session_notes, commit_file were deleted
  * by the AU20 destroyer pass. Tests that used them as dispatch vehicles are
- * ported to surviving tools (query_practice for handler routing; query_practice
- * with bad limit for INVALID_INPUT).
+ * ported to surviving tools (write_memory for handler routing and for
+ * INVALID_INPUT — query_practice was itself deleted, its
+ * only filter was `layer === 'L3'`).
  */
 const test = baseTest.extend<{
 	buildToolRegistry: (
@@ -62,7 +63,6 @@ describe("buildToolRegistry", () => {
 				"create_item",
 				"handoff_to",
 				"log_task",
-				"query_practice",
 				"send_message",
 				// AU27 Increment 2: the generic reply tool.
 				"reply",
@@ -98,7 +98,8 @@ describe("buildToolRegistry", () => {
 		// + 1 AU27: reply = 18
 		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
 		// + 1 BA9d wave 3: run_knowledge_sweep = 21
-		expect(registry.definitions).toHaveLength(21);
+		// query_practice deleted = 20
+		expect(registry.definitions).toHaveLength(20);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({
@@ -134,9 +135,13 @@ describe("buildToolRegistry", () => {
 
 		test("routes to the matching handler by name", async ({ db, eventBus, buildToolRegistry }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
-			// query_practice with an empty knowledge store returns success: true with empty items list.
-			// @lore AU20 repair: was read_inbox (deleted) — ported to query_practice.
-			const result = await registry.invoke("query_practice", { query: "test" });
+			// @lore AU20 repair: was read_inbox (deleted) — ported to query_practice, which
+			// was then deleted too (its only filter was `layer === 'L3'`).
+			// write_memory is the new dispatch vehicle.
+			const result = await registry.invoke("write_memory", {
+				title: "Routing check",
+				body: "Proves dispatch reaches the handler.",
+			});
 			expect(result.success).toBe(true);
 		});
 
@@ -146,11 +151,10 @@ describe("buildToolRegistry", () => {
 			buildToolRegistry,
 		}) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
-			// limit must be a positive integer — passing a string triggers Zod validation error.
-			// @lore AU20 repair: was read_inbox { limit: "not-a-number" } (deleted) — ported to query_practice.
-			const result = await registry.invoke("query_practice", {
-				query: "test",
-				limit: "not-a-number",
+			// @lore AU20 repair: was read_inbox { limit: "not-a-number" } (deleted) — ported to
+			// query_practice, which was then deleted too. `title` is required.
+			const result = await registry.invoke("write_memory", {
+				body: "No title.",
 			});
 			expect(result.success).toBe(false);
 			if (!result.success) {

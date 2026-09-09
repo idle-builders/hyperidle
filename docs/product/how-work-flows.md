@@ -70,7 +70,7 @@ A session is one agent's bounded run on a task. When an agent picks up a task, i
 
 A task can span many sessions. Mika works a session on Acme payments, makes progress, hits a question about Stripe fee structure, and hands off to a human. The human answers. Mika starts a new session and continues. Two weeks later, the original session notes and handoff history are still there.
 
-The agent's memory persists between sessions through product knowledge (L2) and practice knowledge (L3) — see [the five layers](../knowledge-architecture/the-five-layers.md). Sessions give resumability without locking the model into a single long-running process.
+The agent's memory persists between sessions through team-scoped knowledge and its practice's knowledge folder — see [Knowledge Architecture](../knowledge-architecture/index.md). Sessions give resumability without locking the model into a single long-running process.
 
 ---
 

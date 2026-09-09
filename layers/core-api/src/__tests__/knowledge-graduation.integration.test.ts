@@ -60,7 +60,6 @@ async function insertKnowledgeItem(
 		id: opts.id,
 		scopeKind: "factory",
 		scopeId: null,
-		topic: null,
 		title: "Test item",
 		body: "Body.",
 		format: "markdown",
@@ -76,9 +75,7 @@ async function insertKnowledgeItem(
 	await db.insert(knowledgeAppProjection).values({
 		id: `${opts.id}-projection`,
 		knowledgeItemId: opts.id,
-		layer: null,
 		scopeId: null,
-		kind: null,
 		attentionScore: null,
 		confidence: null,
 		meta: null,

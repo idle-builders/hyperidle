@@ -213,9 +213,7 @@ describe("AppShell", () => {
 							{
 								id: "k7",
 								title: "Arch doc",
-								layer: "L2",
-								kind: "pattern",
-								status: "validated",
+								status: "active",
 								timestamp: "now",
 							},
 						],

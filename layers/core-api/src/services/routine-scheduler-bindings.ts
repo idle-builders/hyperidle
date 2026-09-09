@@ -31,7 +31,6 @@ import {
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getRoutinePrompt,
-	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
 } from "@hyperidle/knowledge";
@@ -117,8 +116,6 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
 			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
 				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
-			listRecentByLayers: (db, layers, since) =>
-				listKnowledgeItems(db, { recentByLayers: { layers, since } }),
 			recomputeAttentionForCandidates,
 			// BA9c: getItemById — knowledge item for knowledge_* events.
 			getItemById: async (db, id) => {

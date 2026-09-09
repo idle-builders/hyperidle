@@ -4,10 +4,13 @@
  * Covers:
  * - AC §2: editability predicate — self-authored factory item → Edit visible
  *          agent-authored factory item → Edit absent (protected test stays green)
- * - §5: kind aside renders "—" for null/undefined kind
  * - §4A: ScopeChangeDialog select renders 3 labeled options (Shared/Team/Private),
  *         no raw enum values
  * - §4A SUGGESTION: default-option maps factory AND practice → "Shared" (no phantom)
+ *
+ * @lore nested-knowledge-items: §5 ("kind aside renders '—' for null/undefined
+ * kind") is DELETED, not adapted — `kind` is retired vocabulary (AC6) and the
+ * Kind row itself is gone from KnowledgeDetail.tsx, not just its fallback text.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -90,7 +93,6 @@ describe("AF13 §2 — Editability: self-authored factory item shows Edit button
 				updatedBy: "u1",
 				scopeKind: "factory",
 				scopeId: null,
-				topic: null,
 				createdAt: "2024-01-01T00:00:00Z",
 				updatedAt: "2024-01-01T00:00:00Z",
 			},
@@ -143,7 +145,6 @@ describe("AF13 §2 — Editability: agent-authored factory item stays read-only"
 				updatedBy: "agent-x",
 				scopeKind: "factory",
 				scopeId: null,
-				topic: null,
 				createdAt: "2024-01-01T00:00:00Z",
 				updatedAt: "2024-01-01T00:00:00Z",
 			},
@@ -173,67 +174,6 @@ describe("AF13 §2 — Editability: agent-authored factory item stays read-only"
 });
 
 // ---------------------------------------------------------------------------
-// §5 — kind renders "—" for null/undefined kind in the metadata aside
-// ---------------------------------------------------------------------------
-
-describe("AF13 §5 — Kind aside renders '—' for unknown/null kind", () => {
-	beforeEach(async () => {
-		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
-		vi.mocked(useCurrentUser).mockReturnValue({
-			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
-			status: "ready",
-			error: null,
-			retry: vi.fn(),
-		});
-
-		// API item with no kind
-		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
-		vi.mocked(useKnowledgeItem).mockReturnValue({
-			data: {
-				id: "item-no-kind",
-				title: "Unclassified Item",
-				body: "content",
-				format: "markdown",
-				status: "active",
-				version: 1,
-				updatedBy: "u1",
-				scopeKind: "factory",
-				scopeId: null,
-				topic: null,
-				createdAt: "2024-01-01T00:00:00Z",
-				updatedAt: "2024-01-01T00:00:00Z",
-				kind: undefined, // no kind from API
-			},
-			isLoading: false,
-			error: null,
-		});
-	});
-
-	afterEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it("renders '—' in the Kind metadata row when kind is undefined", () => {
-		render(
-			<MemoryRouter initialEntries={["/knowledge/item-no-kind"]}>
-				<Routes>
-					<Route
-						path="/knowledge/:knowledgeId"
-						element={<KnowledgeDetail overrideKnowledgeId="item-no-kind" />}
-					/>
-				</Routes>
-			</MemoryRouter>,
-		);
-		// The Kind row in the metadata aside must show "—" not raw "undefined" or be blank
-		// This test fails until `{item.kind}` is changed to `{item.kind ?? "—"}`
-		const aside = screen.getByTestId("knowledge-metadata-aside");
-
-		// The aside must contain "—" somewhere (for the Kind row)
-		expect(aside).toHaveTextContent("—");
-	});
-});
-
-// ---------------------------------------------------------------------------
 // §4A — ScopeChangeDialog vocabulary: labeled options, no raw enums
 // ---------------------------------------------------------------------------
 
@@ -252,7 +192,7 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		vi.clearAllMocks();
 	});
 
-	it("renders labeled scope pills including Role — not raw enums", () => {
+	it("renders labeled scope pills — not raw enums", () => {
 		render(
 			<MemoryRouter>
 				<ScopeChangeDialog
@@ -276,9 +216,12 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		expect(optionTexts).toContain("Shared");
 		expect(optionTexts).toContain("Team");
 		expect(optionTexts).toContain("Private");
-		expect(optionTexts).toContain("Role");
 		// AU26 F2 (founder ruling): the Filesystem scope is gone.
 		expect(optionTexts).not.toContain("Filesystem");
+		// @lore nested-knowledge-items: the Role option (scopeKind: "practice")
+		// is gone with the practice scope value — role-scoped patterns are now
+		// tree children under the Practices root, not a scope pick.
+		expect(optionTexts).not.toContain("Role");
 
 		expect(optionTexts).not.toContain("factory");
 		expect(optionTexts).not.toContain("practice");
@@ -286,7 +229,7 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		expect(optionTexts).not.toContain("task");
 		expect(optionTexts).not.toContain("product");
 
-		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(4);
+		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(3);
 	});
 });
 
@@ -327,7 +270,10 @@ describe("AF13 §4A SUGGESTION — default-option resolution", () => {
 		expect(screen.getByTestId("scope-pill-change-shared")).toHaveAttribute("data-active", "true");
 	});
 
-	it("when currentScopeKind is practice, the Role option is selected", () => {
+	// @lore nested-knowledge-items: "practice" is no longer a valid ScopeKind
+	// (retired with the Role option) — this test now exercises "team", the
+	// direct 1:1 exact-match case resolveDefaultOption always takes today.
+	it("when currentScopeKind is team, the Team option is selected", () => {
 		render(
 			<MemoryRouter>
 				<ScopeChangeDialog
@@ -336,12 +282,12 @@ describe("AF13 §4A SUGGESTION — default-option resolution", () => {
 					onSaved={() => {}}
 					knowledgeId="k1"
 					currentVersion={1}
-					currentScopeKind="practice"
+					currentScopeKind="team"
 				/>
 			</MemoryRouter>,
 		);
 
-		expect(screen.getByTestId("scope-pill-change-role")).toHaveAttribute("data-active", "true");
+		expect(screen.getByTestId("scope-pill-change-team")).toHaveAttribute("data-active", "true");
 
 		const group = screen.getByRole("radiogroup", { name: "Scope kind" });
 		const optionTexts = Array.from(group.querySelectorAll('[role="radio"]')).map(

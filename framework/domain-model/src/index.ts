@@ -95,28 +95,19 @@ export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 // unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
 export type {
 	KnowledgeAccessorKind,
-	KnowledgeKind,
-	KnowledgeLayer,
 	KnowledgeParentKind,
 	KnowledgeRole,
-	KnowledgeScope,
 	KnowledgeSortOption,
 	KnowledgeStatus,
-	KnowledgeTopicHealth,
 	PropagationLevel,
 } from "./knowledge.js";
 export {
-	KNOWLEDGE_LAYERS,
 	KNOWLEDGE_PARENT_KINDS,
 	KNOWLEDGE_ROLE_LABEL,
 	KNOWLEDGE_ROLES,
-	KNOWLEDGE_SCOPES,
 	KNOWLEDGE_SORT_OPTIONS,
 	KNOWLEDGE_STATUS_LABEL,
 	KNOWLEDGE_STATUSES,
-	KNOWLEDGE_TOPIC_HEALTHS,
-	SCOPE_TO_LAYER,
-	scopeToLayer,
 } from "./knowledge.js";
 // MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 export type { MentionCandidate, ResolvedMention } from "./mention.js";

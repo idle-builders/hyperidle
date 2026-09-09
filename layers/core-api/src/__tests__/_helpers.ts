@@ -130,7 +130,6 @@ export interface SeedKnowledgeItemOptions {
 	readonly id?: string;
 	readonly scopeKind?: string;
 	readonly scopeId?: string | null;
-	readonly topic?: string | null;
 	readonly title?: string;
 	readonly body?: string;
 	readonly format?: string;
@@ -140,8 +139,6 @@ export interface SeedKnowledgeItemOptions {
 	readonly createdAt?: string;
 	readonly updatedAt?: string;
 	readonly projectionId?: string;
-	readonly layer?: string | null;
-	readonly kind?: string | null;
 	readonly attentionScore?: string | null;
 	readonly confidence?: string | null;
 	readonly meta?: string | null;
@@ -165,11 +162,10 @@ export async function seedKnowledgeItem(
 		id,
 		scopeKind: options.scopeKind ?? "factory",
 		scopeId: options.scopeId ?? null,
-		topic: options.topic ?? null,
 		title: options.title ?? "T",
 		body: options.body ?? "B",
 		format: options.format ?? "markdown",
-		status: options.status ?? "captured",
+		status: options.status ?? "proposed",
 		version: options.version ?? 1,
 		updatedBy: options.updatedBy ?? "agent-fac",
 		createdAt,
@@ -178,9 +174,7 @@ export async function seedKnowledgeItem(
 	await db.insert(knowledgeAppProjection).values({
 		id: projectionId,
 		knowledgeItemId: id,
-		layer: options.layer ?? null,
 		scopeId: options.scopeId ?? null,
-		kind: options.kind ?? null,
 		attentionScore: options.attentionScore ?? null,
 		confidence: options.confidence ?? null,
 		meta: options.meta ?? null,

@@ -166,12 +166,10 @@ Document your edit in session notes.`,
 
 		// Seed a knowledge item that will be assembled into the workspace
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "product",
+			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Accessibility Pattern: Modal Focus Trapping",
 			body: "# Modal Focus Trapping\nUse JavaScript to trap focus within open modals. Listen for Tab and Shift+Tab keydown events and cycle through focusable elements.",
-			layer: "L2",
-			kind: "pattern",
 			updatedBy: `user:${world.founderId}`,
 		});
 		kwEditExistingItemId = knowledgeItemId;

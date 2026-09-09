@@ -77,8 +77,8 @@ vi.mock("../../hooks/useKnowledgeItem", () => ({
 			status: "active",
 			kind: "decision",
 			layer: "L2",
-			// W3: scopeKind must be "practice" so the Edit button renders (factory items are read-only)
-			scopeKind: "practice",
+			// W3: scopeKind must not be "factory" so the Edit button renders (factory items are read-only)
+			scopeKind: "team",
 			scopeId: null,
 			version: 1,
 			format: "markdown",
@@ -225,7 +225,6 @@ describe("W3 AC-35 — KnowledgeRow preview and no status dots", () => {
 			<KnowledgeRow
 				id="k1"
 				title="Auth Strategy Decision"
-				kind="decision"
 				status="active"
 				timestamp="2026-01-01"
 				preview="We decided to use JWT."
@@ -239,7 +238,6 @@ describe("W3 AC-35 — KnowledgeRow preview and no status dots", () => {
 			<KnowledgeRow
 				id="k1"
 				title="Auth Strategy Decision"
-				kind="decision"
 				status="active"
 				timestamp="2026-01-01"
 			/>,
@@ -342,11 +340,9 @@ describe("W3 AC-40 — Knowledge detail two-column layout", () => {
 		expect(aside).not.toBeNull();
 	});
 
-	it("metadata aside shows Kind field", () => {
-		renderKnowledgeDetail();
-		const aside = document.querySelector("[data-testid='knowledge-metadata-aside']");
-		expect(aside).toHaveTextContent(/kind/i);
-	});
+	// @lore nested-knowledge-items AC6: "metadata aside shows Kind field" is
+	// DELETED, not adapted — `kind` is retired vocabulary and the Kind row
+	// itself no longer exists (KnowledgeDetail.tsx).
 
 	it("metadata aside shows Status field", () => {
 		renderKnowledgeDetail();

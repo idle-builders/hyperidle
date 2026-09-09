@@ -93,11 +93,15 @@ describe("scope row + breadcrumb show resolved scope name, not bucket label", ()
 			retry: vi.fn(),
 		});
 		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
-		vi.mocked(useKnowledgeItem).mockReturnValue({
-			data: makeApiItem(),
+		// @lore nested-knowledge-items tree-ui: KnowledgeDetail calls useKnowledgeItem
+		// twice — once for the item itself, once for the parent (with undefined when no
+		// parentId). mockImplementation discriminates so the parent fetch returns null,
+		// allowing scopeName to appear in the breadcrumb fallback path.
+		vi.mocked(useKnowledgeItem).mockImplementation((id) => ({
+			data: id !== undefined ? makeApiItem() : null,
 			isLoading: false,
 			error: null,
-		});
+		}));
 	});
 
 	afterEach(() => {
@@ -153,11 +157,11 @@ describe("breadcrumb scope segment driven by scopeName, not deprecated Knowledge
 			retry: vi.fn(),
 		});
 		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
-		vi.mocked(useKnowledgeItem).mockReturnValue({
-			data: makeApiItem({ scopeName: "Team Nimmly" }),
+		vi.mocked(useKnowledgeItem).mockImplementation((id) => ({
+			data: id !== undefined ? makeApiItem({ scopeName: "Team Nimmly" }) : null,
 			isLoading: false,
 			error: null,
-		});
+		}));
 		renderDetail();
 		const breadcrumb = screen.getByRole("navigation", { name: /breadcrumb/i });
 		expect(within(breadcrumb).getByText("Team Nimmly")).toBeInTheDocument();

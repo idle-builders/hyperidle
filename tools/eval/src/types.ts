@@ -230,7 +230,7 @@ export interface EvalReport {
 
 export interface RunOptions {
 	/**
-	 * The harness-native model the agent runs, e.g. `gpt-5.4-mini` for codex.
+	 * The harness-native model the agent runs, e.g. `gpt-5.6-luna` for codex.
 	 * Absent leaves the harness on its own default.
 	 */
 	readonly model?: string;

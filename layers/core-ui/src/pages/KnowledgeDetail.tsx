@@ -43,7 +43,6 @@ import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/dom
 import {
 	isRedactedPayload,
 	KNOWLEDGE_STATUSES,
-	type KnowledgeScope,
 	type KnowledgeStatus,
 	SCOPE_KINDS,
 } from "@hyperidle/domain-model";
@@ -80,6 +79,7 @@ import { scopeKindToLabel } from "../utils/scope-labels.js";
 import { absoluteDateTime } from "../utils/time.js";
 
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
+import { MoveDialog } from "./knowledge/MoveDialog";
 import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
 
 /**
@@ -96,13 +96,16 @@ import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";
 interface DetailItem {
 	id: string;
 	title: string;
-	layer: string;
-	/** AF13 §5: kind is optional — undefined renders as "—" in the metadata aside */
-	kind?: string;
 	status: KnowledgeStatus;
 	timestamp: string;
 	content: string;
-	scope?: KnowledgeScope;
+	/**
+	 * @lore nested-knowledge-items: the deprecated `KnowledgeScope` union
+	 * (practice/product/factory) is gone — this field only ever fed the
+	 * fixture's own local topic-grouping (see `fixtures/knowledge-data.ts`),
+	 * never the real `scopeKind` column, so it stays a plain string.
+	 */
+	scope?: string;
 	originAgent?: string;
 	confidence?: number;
 	version?: string;
@@ -113,13 +116,26 @@ interface DetailItem {
 	relatedItems?: ReadonlyArray<string>;
 	/** W3 AC-41: structured related items with title (from API) */
 	structuredRelatedItems?: ReadonlyArray<{ id: string; title: string }>;
-	topic?: string;
+	/**
+	 * @lore nested-knowledge-items: this item's own children (parent-kind
+	 * `knowledge_item`, ordered by position) — "a parent renders its
+	 * children". Distinct from `structuredRelatedItems` (children ∪ siblings).
+	 */
+	children?: ReadonlyArray<{ id: string; title: string }>;
 	/** W3 AC-40: 30-day access count from API */
 	accessCount?: number;
 	/** W3 AC-40: last editor name */
 	updatedBy?: string;
 	/** AV3: resolved human-readable scope name — from server, response-only */
 	scopeName?: string;
+	/**
+	 * @lore nested-knowledge-items: the tree parent — MoveDialog's own
+	 * pre-selection. Absent for a fixture/legacy item, which MoveDialog reads
+	 * as "already a root" (the same fallback ScopeChangeDialog uses for a
+	 * pre-Q2 item's scopeKind).
+	 */
+	parentId?: string | null;
+	parentKind?: string | null;
 }
 
 /**
@@ -132,8 +148,6 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 	k1: {
 		id: "k1",
 		title: "Architecture Decision: Auth Strategy",
-		layer: "company",
-		kind: "belief",
 		status: "active",
 		timestamp: "1d ago",
 		content:
@@ -141,14 +155,11 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 		scope: "practice",
 		originAgent: "Architect Agent",
 		confidence: 0.92,
-		topic: "Architecture",
 		relatedItems: ["k2", "k7"],
 	},
 	k2: {
 		id: "k2",
 		title: "API Rate Limiting Best Practices",
-		layer: "product",
-		kind: "fact",
 		status: "active",
 		timestamp: "2d ago",
 		content:
@@ -156,7 +167,6 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 		scope: "practice",
 		originAgent: "Developer Agent",
 		confidence: 0.78,
-		topic: "Architecture",
 		relatedItems: ["k1"],
 	},
 	/**
@@ -169,15 +179,12 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 	"k-team-scoped": {
 		id: "k-team-scoped",
 		title: "Team Knowledge: Nimmly Onboarding Guide",
-		layer: "L1",
-		kind: "pattern",
 		status: "active",
 		timestamp: "3d ago",
 		content: "Steps for onboarding new team members to the Nimmly workspace.",
 		scope: "practice",
 		originAgent: "Onboarding Agent",
 		confidence: 0.85,
-		topic: "Onboarding",
 		scopeKind: "team",
 		scopeName: "Team Nimmly",
 	},
@@ -189,15 +196,12 @@ const LEGACY_DETAILS: Record<string, DetailItem> = {
 	"k-archived": {
 		id: "k-archived",
 		title: "Archived Decision",
-		layer: "company",
-		kind: "belief",
 		status: "archived",
 		timestamp: "7d ago",
 		content: "This item was archived.",
 		scope: "practice",
 		originAgent: "Architect Agent",
 		confidence: 0.5,
-		topic: "Architecture",
 	},
 };
 
@@ -215,9 +219,7 @@ const LEGACY_SOURCES: Record<string, string> = {
 const FALLBACK_DETAIL: DetailItem = {
 	id: "unknown",
 	title: "Unknown Knowledge Item",
-	layer: "unknown",
-	kind: "unknown",
-	status: "provisional",
+	status: "proposed",
 	timestamp: "—",
 	content: "This knowledge item was not found.",
 };
@@ -233,7 +235,7 @@ function formatConfidence(score: number | undefined): string {
  */
 function toKnowledgeStatus(raw: string): KnowledgeStatus {
 	const statuses: ReadonlyArray<string> = KNOWLEDGE_STATUSES;
-	return statuses.includes(raw) ? (raw as KnowledgeStatus) : "provisional";
+	return statuses.includes(raw) ? (raw as KnowledgeStatus) : "proposed";
 }
 
 /**
@@ -249,8 +251,6 @@ function fromFixture(item: MockKnowledgeItem): DetailItem {
 	return {
 		id: item.id,
 		title: item.title,
-		layer: item.layer,
-		kind: item.kind,
 		status: item.status,
 		timestamp: item.timestamp,
 		content: item.content ?? "",
@@ -259,7 +259,6 @@ function fromFixture(item: MockKnowledgeItem): DetailItem {
 		confidence: item.confidence,
 		version: item.version,
 		relatedItems: item.relatedItems,
-		topic: item.topic,
 	};
 }
 
@@ -270,19 +269,21 @@ function findDetail(id: string | undefined): DetailItem | undefined {
 	return fixture ? fromFixture(fixture) : undefined;
 }
 
+/**
+ * @lore nested-knowledge-items: the topic-based fallback ("items sharing the
+ * same topic string") is deleted with `topic` itself — architecture §4: "the
+ * tree answers 'what is near this' better than a shared word did." This
+ * fixture-fallback path only ever backed `relatedItems` (explicit ids); the
+ * real API-driven path already gets children ∪ siblings from the server
+ * (`structuredRelatedItems`).
+ */
 function findRelated(item: DetailItem): ReadonlyArray<MockKnowledgeItem> {
 	const explicit = new Set(item.relatedItems ?? []);
-	const byTopic = item.topic
-		? knowledgeItems.filter(
-				(i) => i.id !== item.id && i.topic === item.topic && i.scope === item.scope,
-			)
-		: [];
 	const merged = new Map<string, MockKnowledgeItem>();
 	for (const id of explicit) {
 		const match = knowledgeItems.find((i) => i.id === id);
 		if (match) merged.set(match.id, match);
 	}
-	for (const i of byTopic) merged.set(i.id, i);
 	return Array.from(merged.values());
 }
 
@@ -333,8 +334,6 @@ export function KnowledgeDetail({
 		item = {
 			id: apiItem.id,
 			title: apiItem.title,
-			layer: apiItem.layer ?? "unknown",
-			kind: apiItem.kind,
 			status: toKnowledgeStatus(apiItem.status),
 			timestamp: apiItem.updatedAt,
 			content: apiItem.body,
@@ -343,7 +342,10 @@ export function KnowledgeDetail({
 			confidence: apiItem.confidence,
 			accessCount: apiItem.accessCount,
 			updatedBy: apiItem.updatedBy,
+			parentId: apiItem.parentId,
+			parentKind: apiItem.parentKind,
 			structuredRelatedItems: apiItem.relatedItems,
+			children: apiItem.children,
 			// AV3 WARNING-A3: must assign on the object, not only on the interface.
 			scopeName: apiItem.scopeName,
 		};
@@ -370,6 +372,64 @@ export function KnowledgeDetail({
 }
 
 // AG4: KnowledgeDetailBreadcrumb local fn deleted — replaced by DS Breadcrumb in KnowledgeDetailView.
+
+/**
+ * ChildrenCard — this item's own children (ordered by position).
+ *
+ * @lore nested-knowledge-items tree-ui: Row-like child links + "Add child"
+ * shortcut. Always shown so the first nest is available from detail (not only
+ * when children already exist). Distinct from Backlinks (children ∪ siblings).
+ */
+function ChildrenCard({
+	children: items,
+	parentId,
+}: {
+	children?: ReadonlyArray<{ id: string; title: string }>;
+	parentId: string;
+}): JSX.Element {
+	const list = items ?? [];
+	return (
+		<div
+			data-testid="knowledge-children-card"
+			className="bg-[var(--surface-page)] rounded-[var(--r-default)] overflow-hidden"
+		>
+			<div className="px-[18px] pt-[18px] pb-[9px] flex items-center justify-between gap-[12px]">
+				<SectionLabel label="Children" as="h2" />
+				<RRLink
+					to={`/knowledge/new?parentId=${parentId}`}
+					className="type-metadata shrink-0 min-h-[44px] inline-flex items-center text-[var(--accent-deep)] hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+					data-testid="knowledge-add-child"
+				>
+					Add child
+				</RRLink>
+			</div>
+			{list.length === 0 ? (
+				<div className="px-[18px] pb-[18px]">
+					<p className="type-metadata text-[var(--text-tertiary)]">
+						No nested items yet. Nest related knowledge under this one.
+					</p>
+				</div>
+			) : (
+				<ul className="flex flex-col pb-[9px]">
+					{list.map((child) => (
+						<li
+							key={child.id}
+							data-testid="knowledge-child-item"
+							className="border-width-thin-t border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
+						>
+							<RRLink
+								to={`/knowledge/${child.id}`}
+								className="type-control flex items-center min-h-[44px] px-[18px] py-[9px] text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+							>
+								{child.title}
+							</RRLink>
+						</li>
+					))}
+				</ul>
+			)}
+		</div>
+	);
+}
 
 /** Backlinks card shown in the aside */
 function BacklinksCard({
@@ -404,11 +464,7 @@ function BacklinksCard({
 				</ul>
 			) : (
 				/* UI-021: use EmptyState compact for consistency */
-				<EmptyState
-					compact
-					title="No backlinks"
-					description="Related and same-topic items will appear here."
-				/>
+				<EmptyState compact title="No backlinks" description="Related items will appear here." />
 			)}
 		</div>
 	);
@@ -434,6 +490,7 @@ function KnowledgeOverflowMenu({
 	onClose,
 	onArchive,
 	onChangeScope,
+	onMove,
 	onPromoteToTask,
 	archiving,
 	itemStatus,
@@ -444,6 +501,7 @@ function KnowledgeOverflowMenu({
 	onClose: () => void;
 	onArchive: () => void;
 	onChangeScope: () => void;
+	onMove: () => void;
 	onPromoteToTask: () => void;
 	archiving: boolean;
 	/** AK5: used to disable "Promote to task" when item is archived. */
@@ -452,6 +510,8 @@ function KnowledgeOverflowMenu({
 	 * AV3 WARNING-D2: gate the "Change scope" item behind !isReadOnly so the
 	 * read-only state is coherent — no scope-change affordance anywhere on a
 	 * read-only/factory item. Presentation-only; no server gate added (WARNING-A4).
+	 * @lore nested-knowledge-items: Move is gated the same way — an item you
+	 * cannot edit is an item you cannot reparent either.
 	 */
 	isReadOnly: boolean;
 }): JSX.Element {
@@ -460,6 +520,13 @@ function KnowledgeOverflowMenu({
 		label: "Change scope",
 		onSelect: onChangeScope,
 		dataAttrs: { "data-testid": "knowledge-change-scope" },
+	};
+
+	const moveItem: MenuItem = {
+		id: "move",
+		label: "Move",
+		onSelect: onMove,
+		dataAttrs: { "data-testid": "knowledge-move" },
 	};
 
 	const items: MenuItem[] = [
@@ -479,7 +546,7 @@ function KnowledgeOverflowMenu({
 			dataAttrs: { "data-testid": "knowledge-promote-task" },
 		},
 		// AV3: only include change-scope for editable items (WARNING-D2 coherence fix).
-		...(isReadOnly ? [] : [changeScopeItem]),
+		...(isReadOnly ? [] : [changeScopeItem, moveItem]),
 	];
 
 	return (
@@ -570,7 +637,6 @@ function KnowledgeDetailView({
 	// T4: AssistantContext for block share action
 	const { overlayOpen, attachContext } = useContext(AssistantContext);
 	const isFactory = item.scope === "factory" || item.scopeKind === "factory";
-	const amendableBanner = isFactory && item.status === "needs_human";
 	const initialContent = item.content ?? "";
 	const [savedContent, setSavedContent] = useState<string>(initialContent);
 	const [editing, setEditing] = useState(false);
@@ -601,6 +667,8 @@ function KnowledgeDetailView({
 
 	// Q2: Scope change dialog state.
 	const [scopeChangeOpen, setScopeChangeOpen] = useState(false);
+	// @lore nested-knowledge-items: Move dialog state — plan.md AC2.
+	const [moveOpen, setMoveOpen] = useState(false);
 
 	// AD6: Archive in-flight state + error.
 	const [archiving, setArchiving] = useState(false);
@@ -628,6 +696,16 @@ function KnowledgeDetailView({
 
 	// L18: Fetch the host thread for inline anchored messages
 	const { data: threadData } = useHostThread("knowledge_item", item.id);
+
+	/**
+	 * @lore nested-knowledge-items tree-ui: fetch the direct parent's title so
+	 * the breadcrumb shows true ancestry rather than scope. Conditional on
+	 * parentKind === "knowledge_item" — items parented to tasks/threads/agents
+	 * don't appear in the tree and get no ancestor breadcrumb.
+	 */
+	const parentFetchId =
+		item.parentId && item.parentKind === "knowledge_item" ? item.parentId : undefined;
+	const { data: parentItemData } = useKnowledgeItem(parentFetchId);
 
 	// T2: Auto-save version tracking
 	const [version, setVersion] = useState<number>(item.versionNum ?? 1);
@@ -838,15 +916,34 @@ function KnowledgeDetailView({
 					reservePaneControls={presentation === "pane"}
 					title={item.title}
 					leading={
-						/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn */
+						/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn.
+						 * @lore nested-knowledge-items tree-ui: breadcrumb reflects TRUE
+						 * ancestry (parent chain) rather than scope. When parentItemData
+						 * is available, it replaces the old scopeName segment. A "…"
+						 * segment is shown when the parent itself has a parent, signalling
+						 * deeper nesting without cascading fetches. scopeName falls back
+						 * when item is off-tree (parentKind != knowledge_item) — it remains
+						 * the correct label there (scope, not ancestry).
+						 */
 						<Breadcrumb
 							segments={[
 								{ label: "Knowledge", to: "/knowledge" },
-								// AV3 AC-3: replace deprecated item.scope with resolved item.scopeName.
-								// When scopeName absent (fixture/legacy path), omit the segment entirely.
-								// The deprecated KnowledgeScope item.scope is NOT read here (WARNING-A3).
-								...(item.scopeName ? [{ label: item.scopeName }] : []),
-								...(item.topic ? [{ label: item.topic }] : []),
+								// True ancestry: prefer parent item title over scope label.
+								...(parentItemData
+									? [
+											// Signal deeper nesting without extra fetches.
+											...(parentItemData.parentId && parentItemData.parentKind === "knowledge_item"
+												? [{ label: "…" }]
+												: []),
+											{
+												label: parentItemData.title,
+												to: `/knowledge/${item.parentId}`,
+											},
+										]
+									: // Fallback: scope label for off-tree items (task/thread/agent parent)
+										item.scopeName
+										? [{ label: item.scopeName }]
+										: []),
 								{ label: item.title },
 							]}
 							leading={
@@ -921,6 +1018,10 @@ function KnowledgeDetailView({
 										setScopeChangeOpen(true);
 										closeOverflow();
 									}}
+									onMove={() => {
+										setMoveOpen(true);
+										closeOverflow();
+									}}
 									onPromoteToTask={() => void handlePromoteToTask()}
 									archiving={archiving}
 									itemStatus={item.status}
@@ -941,16 +1042,6 @@ function KnowledgeDetailView({
 			>
 				{/* Main content column */}
 				<div className="flex flex-col gap-[24px] flex-1 min-w-0">
-					{amendableBanner && (
-						<div
-							role="alert"
-							className="type-small alert-info flex items-start gap-[9px] px-[12px] py-[9px]  bg-[var(--status-info-dim)] text-[var(--status-info)] rounded-[var(--r-subtle)]"
-							data-testid="factory-amendable-banner"
-						>
-							<span>Amendable under review — edits route through the review queue.</span>
-						</div>
-					)}
-
 					{/* AD6: Archive error — shown when POST /archive fails */}
 					{archiveError !== null && (
 						<div
@@ -1088,14 +1179,25 @@ function KnowledgeDetailView({
 						currentScopeKind={item.scopeKind ?? "factory"}
 					/>
 
+					{/* @lore nested-knowledge-items: Move dialog — plan.md AC2. A move
+					    changes the tree shape the whole page renders (breadcrumb,
+					    Children/Backlinks), so a full reload is the same choice the
+					    conflict banner's own Reload button already makes rather than
+					    reaching for a second data-refresh path. */}
+					<MoveDialog
+						open={moveOpen}
+						onClose={() => setMoveOpen(false)}
+						onSaved={() => window.location.reload()}
+						knowledgeId={effectiveKnowledgeId}
+						currentVersion={item.versionNum ?? 1}
+						currentParentId={item.parentId ?? null}
+						currentParentKind={item.parentKind ?? null}
+						scopeKind={item.scopeKind ?? "factory"}
+					/>
+
 					{/* Metadata card */}
 					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
 						<SectionLabel label="Metadata" as="h2" />
-						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
-							<span className="text-[var(--text-tertiary)]">Kind</span>
-							{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
-							<span className="type-small text-[var(--text-primary)] ">{item.kind ?? "—"}</span>
-						</div>
 						{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
 						<div
 							className="type-small border-width-thin-b flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
@@ -1160,6 +1262,9 @@ function KnowledgeDetailView({
 							)}
 						</div>
 					</div>
+
+					{/* @lore nested-knowledge-items: this item's own children */}
+					<ChildrenCard parentId={effectiveKnowledgeId}>{item.children}</ChildrenCard>
 
 					{/* W3 AC-41: backlinks card */}
 					<BacklinksCard

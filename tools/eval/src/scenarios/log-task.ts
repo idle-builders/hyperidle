@@ -54,7 +54,7 @@ Your logs should be specific and actionable, not generic.`,
 		});
 
 		await seedKnowledge(ctx.db, {
-			scopeKind: "product",
+			scopeKind: "team",
 			scopeId: world.teamId,
 			title: "Contract Review Standards",
 			body: `# Contract Review Standards
@@ -63,8 +63,6 @@ Your logs should be specific and actionable, not generic.`,
 - Review termination notice requirements (60 days minimum)
 - Audit privacy and data handling clauses
 - Validate indemnification limits`,
-			layer: "L2",
-			kind: "process",
 			updatedBy: `user:${world.founderId}`,
 		});
 

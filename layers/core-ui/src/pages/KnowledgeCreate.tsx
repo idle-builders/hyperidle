@@ -19,7 +19,7 @@
 
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
-import { Link as RRLink, useNavigate } from "react-router-dom";
+import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
 // hearth-internal-padding
 import {
 	BodyEditor,
@@ -34,6 +34,7 @@ import {
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../utils/scope-labels.js";
+import { ParentPicker } from "./knowledge/ParentPicker.js";
 
 interface CreateKnowledgePayload {
 	title: string;
@@ -44,6 +45,13 @@ interface CreateKnowledgePayload {
 	updatedBy: string;
 	/** AF13 §1: human-authored items are created as active immediately. */
 	status: "active";
+	/**
+	 * @lore nested-knowledge-items: founder ruling — "a knowledge item can have
+	 * a parent and the write should accept that." A chosen parent rides the
+	 * create call itself; there is no follow-up PATCH.
+	 */
+	parentKind?: "knowledge_item";
+	parentId?: string;
 }
 
 interface CreateKnowledgeResponse {
@@ -52,6 +60,7 @@ interface CreateKnowledgeResponse {
 
 export function KnowledgeCreate(): JSX.Element {
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
 	const { user } = useCurrentUser();
 
 	const [title, setTitle] = useState("");
@@ -68,6 +77,14 @@ export function KnowledgeCreate(): JSX.Element {
 	};
 	const [selectedScope, setSelectedScope] = useState<ScopeCreateOption>(defaultScope);
 	const [scopeId, setScopeId] = useState("");
+	/**
+	 * @lore nested-knowledge-items: "" is top level (a root) — plan.md AC2,
+	 * "the create flow picks a parent, defaulting to none (a root)."
+	 * Tree "Add child" and detail ChildrenCard navigate here with
+	 * `?parentId=` so the ParentPicker opens preselected — init only;
+	 * submit payload shape is unchanged.
+	 */
+	const [parentId, setParentId] = useState(() => searchParams.get("parentId") ?? "");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -105,6 +122,10 @@ export function KnowledgeCreate(): JSX.Element {
 		if (needsScopeId) {
 			payload.scopeId = scopeId.trim();
 		}
+		if (parentId !== "") {
+			payload.parentKind = "knowledge_item";
+			payload.parentId = parentId;
+		}
 
 		const res = await apiFetch("/api/knowledge", {
 			method: "POST",
@@ -120,6 +141,7 @@ export function KnowledgeCreate(): JSX.Element {
 		}
 
 		const created = (await res.json()) as CreateKnowledgeResponse;
+
 		setSubmitting(false);
 		navigate(`/knowledge/${created.id}`);
 	};
@@ -236,6 +258,10 @@ export function KnowledgeCreate(): JSX.Element {
 									if (next) {
 										setSelectedScope(next);
 										setScopeId("");
+										// A parent legal under the old scope may not be legal
+										// under the new one (the narrowing rule) — reset rather
+										// than offer a stale, possibly-illegal choice.
+										setParentId("");
 									}
 								}}
 								ariaLabel="Scope"
@@ -253,6 +279,14 @@ export function KnowledgeCreate(): JSX.Element {
 								disabled={submitting}
 							/>
 						)}
+						{/* @lore nested-knowledge-items: plan.md AC2 — "the create flow
+						    picks a parent, defaulting to none (a root)." */}
+						<ParentPicker
+							value={parentId}
+							onChange={setParentId}
+							childScopeKind={selectedScope.scopeKind}
+							disabled={submitting}
+						/>
 					</div>
 				</aside>
 			</div>

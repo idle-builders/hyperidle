@@ -31,7 +31,7 @@ Formation criteria:
 
 ## 2. Persistence and muscle memory
 
-The team persists for the life of the product. Successive tasks pass through the same team. The team's shared knowledge lives in the **team scope** — its own scope kind, read by every member. Team scope is *not* a knowledge layer: `scopeToLayer` maps task→L1, product→L2, practice→L3, factory→L4, and **team→null** (`scopeToLayer`, `framework/domain-model/src/knowledge.ts`). For the layer taxonomy, see [The five layers](../knowledge-architecture/the-five-layers.md).
+The team persists for the life of the product. Successive tasks pass through the same team. The team's shared knowledge lives in the **team scope** — one of the three `SCOPE_KINDS` (`factory | team | user`), read by every member. There is no layer ladder any more — `scopeToLayer` is gone from the codebase along with `layer` itself. Where an item sits in the tree says what it is about; scope says only who sees it. See [The Canonical Store](../knowledge-architecture/the-canonical-store.md).
 
 This is what makes the second root task faster than the first, and the tenth faster than the second. Every completed task adds to the team's muscle memory: which assumptions held, which broke, which failure modes are common in this product, which artifacts are reusable.
 

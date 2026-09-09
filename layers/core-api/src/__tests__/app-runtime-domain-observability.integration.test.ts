@@ -42,9 +42,12 @@ describe("app runtime domain observability", () => {
 
 			// @lore the raw projection UPDATE this test used to run is gone: the owner's `create`
 			// (invoked by POST /api/knowledge) already inserts the projection row, so a second write
-			// completing it is a rewrite, not a fix — and `layer`/`kind` are accepted directly in the
-			// POST body, which is all this test actually asserts on (the three score fields the old
-			// UPDATE also set were never read by any assertion here).
+			// completing it is a rewrite, not a fix.
+			// @lore nested-knowledge-items: `layer`/`kind` are DELETED — a knowledge
+			// item's place in the tree says what it is about now, not a flat
+			// layer/kind vocabulary. The assertion narrows to what still exists:
+			// the projection row is created alongside the kernel row, and the
+			// detail route returns the item back.
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -54,8 +57,6 @@ describe("app runtime domain observability", () => {
 					format: "markdown",
 					updatedBy: "u-au3-founder",
 					scopeKind: "factory",
-					kind: "decision",
-					layer: "L4",
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -68,8 +69,6 @@ describe("app runtime domain observability", () => {
 				.limit(1);
 			expect(projection).toMatchObject({
 				knowledgeItemId: created.id,
-				layer: "L4",
-				kind: "decision",
 			});
 
 			const detailRes = await app.request(`/api/knowledge/${created.id}`, {
@@ -77,8 +76,8 @@ describe("app runtime domain observability", () => {
 				headers: authHeaders(),
 			});
 			expect(detailRes.status).toBe(200);
-			const detail = (await detailRes.json()) as { layer?: string; kind?: string };
-			expect(detail).toMatchObject({ layer: "L4", kind: "decision" });
+			const detail = (await detailRes.json()) as { id?: string; title?: string };
+			expect(detail).toMatchObject({ id: created.id, title: "AU3 preserved knowledge" });
 
 			// @lore AU20 Ag6b: `enqueueNotification` removed from public API; use `enqueue`.
 			// @lore AU44 batch 4: flush/deliver deleted — dispatcher abstraction removed.

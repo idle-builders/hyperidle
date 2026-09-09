@@ -88,7 +88,7 @@ production puts it, and it reaches the harness as `SessionConfig.selectedModel`:
 | Harness | Model | Notes |
 |---|---|---|
 | claude | `haiku` | Smallest claude tier; inherited keychain login |
-| codex | `gpt-5.4-mini` | ChatGPT-account floor — nano is API-key-only and rejected; enforced via `--model {{model}}` in `CLI_TOOL_CONFIGS.codex.args` |
+| codex | `gpt-5.6-luna` | ChatGPT-account floor — nano is API-key-only and rejected; `gpt-5.4-mini` was retired by OpenAI (2026-09) and `gpt-5.6-luna` is its replacement; enforced via `--model {{model}}` in `CLI_TOOL_CONFIGS.codex.args` |
 | opencode | `openrouter/z-ai/glm-4.7-flash` | Provider-prefixed; `--model` requires the `openrouter/` prefix |
 | cursor-agent | `auto` | Cursor's default/cheapest routing tier |
 

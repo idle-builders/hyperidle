@@ -772,7 +772,6 @@ export const items = pgTable(
 	{
 		id: text("id").primaryKey(),
 		sourceAgentId: text("source_agent_id").references(() => users.id, { onDelete: "restrict" }),
-		layer: text("layer"),
 		verb: text("verb"),
 		kind: text("kind"),
 		title: text("title").notNull(),
@@ -843,7 +842,6 @@ export const knowledgeItems = pgTable(
 		 */
 		scopeKind: text("scope_kind").notNull().default("factory"),
 		scopeId: text("scope_id"),
-		topic: text("topic"),
 		title: text("title").notNull(),
 		body: text("body").notNull(),
 		format: text("format").notNull(),
@@ -876,13 +874,20 @@ export const knowledgeItems = pgTable(
 		 */
 		parentKind: text("parent_kind"),
 		parentId: text("parent_id"),
+		/**
+		 * @lore nested-knowledge-items: sibling ordering within one parent (or
+		 * among roots, for `parentId IS NULL`). Defaults to creation order;
+		 * `position`/`title` is the ORDER BY the tree read and the children
+		 * read both use. No hand-ordering interface yet — this column exists
+		 * so one can be added later without a schema change.
+		 */
+		position: integer("position").notNull().default(0),
 		updatedBy: text("updated_by").notNull(),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},
 	(table) => [
 		index("ki_scope_idx").on(table.scopeKind, table.scopeId),
-		index("ki_topic_idx").on(table.topic),
 		index("ki_status_idx").on(table.status),
 		index("ki_updated_desc_idx").on(table.updatedAt),
 		index("ki_role_idx").on(table.role),
@@ -891,9 +896,13 @@ export const knowledgeItems = pgTable(
 			sql`${table.role} IN ('ordinary', 'skill', 'rule', 'agent_file', 'prompt')`,
 		),
 		index("ki_parent_idx").on(table.parentKind, table.parentId),
+		// The ordered-children read: every ordinary child of one parent, by
+		// position. Non-partial (unlike ki_parent_slot_uq below) — the tree
+		// read walks ordinary children just as often as it resolves a named slot.
+		index("ki_parent_position_idx").on(table.parentKind, table.parentId, table.position),
 		// One item per named role per parent — a routine's prompt, an agent's
 		// identity. `role <> 'ordinary'` leaves a parent free to hold many
-		// ordinary children (the nested-knowledge tree, phase 2), and Postgres
+		// ordinary children (the nested-knowledge tree), and Postgres
 		// treats NULLs as distinct by default, so unparented rows never collide.
 		uniqueIndex("ki_parent_slot_uq")
 			.on(table.parentKind, table.parentId, table.role)
@@ -1009,9 +1018,7 @@ export const knowledgeAppProjection = pgTable(
 			.notNull()
 			.unique()
 			.references(() => knowledgeItems.id, { onDelete: "cascade" }),
-		layer: text("layer"),
 		scopeId: text("scope_id"),
-		kind: text("kind"),
 		attentionScore: text("attention_score"),
 		relevanceScore: text("relevance_score"),
 		confidence: text("confidence"),
@@ -1019,11 +1026,7 @@ export const knowledgeAppProjection = pgTable(
 		lastCitedAt: text("last_cited_at"),
 		meta: text("meta"),
 	},
-	(table) => [
-		index("ksf_knowledge_item_id_idx").on(table.knowledgeItemId),
-		index("ksf_layer_idx").on(table.layer),
-		index("ksf_kind_idx").on(table.kind),
-	],
+	(table) => [index("ksf_knowledge_item_id_idx").on(table.knowledgeItemId)],
 );
 
 // --- Notification queue (H2) ---

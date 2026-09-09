@@ -56,7 +56,7 @@ Your reasoning should mention: what was changed and what the reviewer should che
 
 		// Seed a task-parented knowledge item so the agent can reference it.
 		const { knowledgeItemId } = await seedKnowledge(ctx.db, {
-			scopeKind: "practice",
+			scopeKind: "factory",
 			title: "Monitoring configuration refactor — implementation notes",
 			body: "Updated Prometheus scrape intervals, added VictoriaMetrics, removed legacy exporters.",
 			updatedBy: world.agentId,

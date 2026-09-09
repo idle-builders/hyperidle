@@ -123,7 +123,6 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	await db.insert(knowledgeAppProjection).values({
 		id: "proj-i12c-l4",
 		knowledgeItemId: "item-i12c-l4",
-		layer: "L4",
 		scopeId: null,
 	});
 
@@ -143,16 +142,15 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	await db.insert(knowledgeAppProjection).values({
 		id: "proj-i12c-l2",
 		knowledgeItemId: "item-i12c-l2",
-		layer: "L2",
 		scopeId: TEAM_ID,
 	});
 
 	await db.insert(knowledgeItems).values({
 		id: "item-i12c-l3",
-		scopeKind: "practice",
-		scopeId: "builder",
-		title: "Building practice knowledge",
-		body: "Relevant to the builder community.",
+		scopeKind: "user",
+		scopeId: AGENT_ID,
+		title: "The agent's own note",
+		body: "Relevant only to this agent.",
 		format: "markdown",
 		status: "active",
 		version: 1,
@@ -163,8 +161,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	await db.insert(knowledgeAppProjection).values({
 		id: "proj-i12c-l3",
 		knowledgeItemId: "item-i12c-l3",
-		layer: "L3",
-		scopeId: "builder",
+		scopeId: AGENT_ID,
 	});
 }
 
@@ -197,7 +194,7 @@ function poisonedPorts(): Parameters<typeof createContextAssembler>[0] {
 }
 
 describe("context.ts sandbox output — bundle-consuming byte parity for a fixed corpus (Increment 12 Wave C)", () => {
-	test("context/session.toon + context/{product,practices,factory} are byte-exact for the baked bundle, with ZERO port reads", async ({
+	test("context/session.toon + knowledge/ are byte-exact for the baked bundle, with ZERO port reads", async ({
 		db,
 	}) => {
 		await seedFixedCorpus(db);
@@ -236,34 +233,33 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 				contextBundle: bundle,
 			});
 
-			// -- Assert: every zone's file content is byte-exact, matching the
-			// SAME seeded item bodies (the pre-migration behavior this bundle-
-			// consuming rewrite must preserve). --
-			const newContextFiles = listFilesRecursive(path.join(newSandbox, "context"));
-			expect(newContextFiles.length).toBeGreaterThan(0);
-			expect(newContextFiles).toEqual(
+			// -- Assert: every knowledge/ file's content is byte-exact, matching
+			// the SAME seeded item bodies (architecture.md D1: scope
+			// alone selects reach now — no more layer zones under context/). --
+			const newKnowledgeFiles = listFilesRecursive(path.join(newSandbox, "knowledge"));
+			expect(newKnowledgeFiles.length).toBeGreaterThan(0);
+			expect(newKnowledgeFiles).toEqual(
 				[
-					"factory/Factory-wide_practice_item-i12.md",
-					"practices/Building_practice_knowledge_item-i12.md",
-					"product/Team-scoped_product_knowledge_item-i12.md",
-					"session.toon",
+					"Factory-wide_practice_item-i12.md",
+					"The_agent_s_own_note_item-i12.md",
+					"Team-scoped_product_knowledge_item-i12.md",
 				].sort(),
 			);
 
 			const factoryBody = fs.readFileSync(
-				path.join(newSandbox, "context/factory/Factory-wide_practice_item-i12.md"),
+				path.join(newSandbox, "knowledge/Factory-wide_practice_item-i12.md"),
 			);
 			expect(factoryBody.toString("utf8")).toBe("Applies to every team and every community.");
 
 			const productBody = fs.readFileSync(
-				path.join(newSandbox, "context/product/Team-scoped_product_knowledge_item-i12.md"),
+				path.join(newSandbox, "knowledge/Team-scoped_product_knowledge_item-i12.md"),
 			);
 			expect(productBody.toString("utf8")).toBe("Specific to the parity team's product.");
 
-			const practicesBody = fs.readFileSync(
-				path.join(newSandbox, "context/practices/Building_practice_knowledge_item-i12.md"),
+			const ownBody = fs.readFileSync(
+				path.join(newSandbox, "knowledge/The_agent_s_own_note_item-i12.md"),
 			);
-			expect(practicesBody.toString("utf8")).toBe("Relevant to the builder community.");
+			expect(ownBody.toString("utf8")).toBe("Relevant only to this agent.");
 
 			// -- session.toon encodes the exact baked task/bet/agent/team fields. --
 			const toon = fs.readFileSync(path.join(newSandbox, "context/session.toon"), "utf8");

@@ -51,7 +51,6 @@ import {
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getParentedItem,
-	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
 } from "@hyperidle/knowledge";
@@ -106,8 +105,6 @@ function makePorts(): RoutineSchedulerPorts {
 			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
 			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
 				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
-			listRecentByLayers: (db, layers, since) =>
-				listKnowledgeItems(db, { recentByLayers: { layers, since } }),
 			recomputeAttentionForCandidates: async (
 				db: HyperIdleDb,
 				eventBus: EventBus,

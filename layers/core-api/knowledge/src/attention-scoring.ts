@@ -1,6 +1,5 @@
 import {
 	type HyperIdleDb,
-	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -13,13 +12,15 @@ import type { AttentionWeights } from "./scoring-config.js";
 /**
  * Cohort ceiling — 10+ identical items → novelty saturates at 0.
  *
- * @lore G2: cohort identity is (layer, scope_id, topic, kind). Higher ceilings
- * leave novelty high for too long; lower ceilings over-penalize normal
- * clusters of related knowledge.
+ * @lore nested-knowledge-items §4: cohort identity used to be
+ * (layer, scope_id, topic, kind); those three vocabularies are gone, so the
+ * sibling set — (parentKind, parentId, scope_id) — replaces it. Higher
+ * ceilings leave novelty high for too long; lower ceilings over-penalize
+ * normal clusters of related knowledge.
  */
 const COHORT_NOVELTY_CEILING = 10;
 
-/** Repetition saturation — 5+ other scopes with the same topic/kind → full. */
+/** Repetition saturation — 5+ other scopes among the same siblings → full. */
 const REPETITION_SATURATION = 5;
 
 /** Review recency window — human edit within 7 days → recency signal = 0. */
@@ -42,9 +43,9 @@ const REVIEW_RECENCY_SATURATION_MS = 90 * 24 * 60 * 60 * 1000;
 interface AttentionScoringContext {
 	/** Current time (ms epoch) — injected for deterministic tests. */
 	readonly now: number;
-	/** Items in the same (layer, scope_id, topic, kind) cohort → counts. */
+	/** Items in the same (parentKind, parentId, scope_id) cohort → counts. */
 	readonly cohortSizeByKey: ReadonlyMap<string, number>;
-	/** Same (layer, topic, kind) across OTHER scopes → distinct-scope counts. */
+	/** Same (parentKind, parentId) across OTHER scopes → distinct-scope counts. */
 	readonly crossScopeCountByKey: ReadonlyMap<string, number>;
 	/** Ids with an OPEN knowledge_conflicts row. */
 	readonly conflictedIds: ReadonlySet<string>;
@@ -54,19 +55,18 @@ interface AttentionScoringContext {
 	readonly lastHumanEditAt: ReadonlyMap<string, number>;
 }
 
-/** Build a (layer, scope_id, topic, kind) cohort key. */
+/** Build a (parentKind, parentId, scope_id) sibling-cohort key. */
 function cohortKey(
-	layer: string | null,
+	parentKind: string | null,
+	parentId: string | null,
 	scopeId: string | null,
-	topic: string | null,
-	kind: string | null,
 ): string {
-	return `${layer ?? ""}|${scopeId ?? ""}|${topic ?? ""}|${kind ?? ""}`;
+	return `${parentKind ?? ""}|${parentId ?? ""}|${scopeId ?? ""}`;
 }
 
-/** Build a (layer, topic, kind) cross-scope key. */
-function crossScopeKey(layer: string | null, topic: string | null, kind: string | null): string {
-	return `${layer ?? ""}|${topic ?? ""}|${kind ?? ""}`;
+/** Build a (parentKind, parentId) cross-scope key. */
+function crossScopeKey(parentKind: string | null, parentId: string | null): string {
+	return `${parentKind ?? ""}|${parentId ?? ""}`;
 }
 
 function clamp01(x: number): number {
@@ -81,7 +81,7 @@ function round6(x: number): number {
 }
 
 function computeNovelty(item: KnowledgeItemWithProjection, ctx: AttentionScoringContext): number {
-	const key = cohortKey(item.layer ?? null, item.scopeId ?? null, item.topic, item.kind ?? null);
+	const key = cohortKey(item.parentKind ?? null, item.parentId ?? null, item.scopeId ?? null);
 	const size = ctx.cohortSizeByKey.get(key) ?? 1;
 	return clamp01(1 - size / COHORT_NOVELTY_CEILING);
 }
@@ -90,7 +90,7 @@ function computeRepetitionSignal(
 	item: KnowledgeItemWithProjection,
 	ctx: AttentionScoringContext,
 ): number {
-	const key = crossScopeKey(item.layer ?? null, item.topic, item.kind ?? null);
+	const key = crossScopeKey(item.parentKind ?? null, item.parentId ?? null);
 	const nScopes = ctx.crossScopeCountByKey.get(key) ?? 1;
 	// (nScopes - 1): a single-scope item yields 0; 5+ scopes saturates.
 	return clamp01((nScopes - 1) / REPETITION_SATURATION);
@@ -197,18 +197,18 @@ function scoreAttentionBatch(
 }
 
 /**
- * Build an AttentionScoringContext for a list of items. Executes a small
- * fixed number of aggregate queries — the cost is O(distinct cohorts), not
- * O(items) — which is what makes the 1000-item AC6 budget achievable.
+ * Build an AttentionScoringContext for a list of items.
  *
- * @lore O2: cohort/cross-scope counts are now computed by JOINing
- * knowledge_items with the app projection extension table. The items passed in must
- * be KnowledgeItemWithProjection (projection fields are optional — items without
- * a projection row contribute null layer/kind/scopeId to the cohort keys).
+ * @lore nested-knowledge-items §4: cohort/cross-scope counts are computed
+ * from `knowledgeItems.parentKind`/`parentId`/`scopeId` directly — all three
+ * now live on the kernel row, so this no longer joins the app projection
+ * table at all. Unlike the old layer-filtered query, there is no cheap
+ * indexed prefilter for "which parents are in play", so this scans every
+ * non-archived row and filters to the needed keys in JS — correct, and
+ * simpler, at the cost of the old layer-based prefilter's narrower scan.
  *
  * @lore Confidence correctness over raw SQL: Drizzle's composite-key IN
- * support varies; we filter in-app rather than risk adapter quirks. The
- * outer GROUP BY runs server-side; the subset-of-batch filter happens in JS.
+ * support varies; we filter in-app rather than risk adapter quirks.
  */
 async function buildAttentionContext(
 	db: HyperIdleDb,
@@ -234,10 +234,8 @@ async function buildAttentionContext(
 	const neededCohortKeys = new Set<string>();
 	const neededCrossScopeKeys = new Set<string>();
 	for (const it of items) {
-		neededCohortKeys.add(
-			cohortKey(it.layer ?? null, it.scopeId ?? null, it.topic, it.kind ?? null),
-		);
-		neededCrossScopeKeys.add(crossScopeKey(it.layer ?? null, it.topic, it.kind ?? null));
+		neededCohortKeys.add(cohortKey(it.parentKind ?? null, it.parentId ?? null, it.scopeId ?? null));
+		neededCrossScopeKeys.add(crossScopeKey(it.parentKind ?? null, it.parentId ?? null));
 	}
 
 	// 1) Open conflicts
@@ -247,45 +245,24 @@ async function buildAttentionContext(
 		.where(and(eq(knowledgeConflicts.status, "open"), inArray(knowledgeConflicts.itemId, ids)));
 	const conflictedIds = new Set<string>(conflictRows.map((r) => r.itemId));
 
-	// 2) Cohort sizes — JOIN with app projection to get layer/kind/scopeId.
-	//    @lore O2: projection fields (layer, kind, scopeId) moved to
-	//    knowledgeAppProjection. We LEFT JOIN so canonical-only items (no projection
-	//    row) still appear in the result with null projection fields.
-	const distinctLayers = new Set<string>(
-		items.map((i) => i.layer).filter((l): l is string => l != null),
-	);
-
-	// Only query if we have layers to filter on; otherwise cohort counts are 0.
-	const cohortRows =
-		distinctLayers.size > 0
-			? await db
-					.select({
-						layer: knowledgeAppProjection.layer,
-						scopeId: knowledgeAppProjection.scopeId,
-						topic: knowledgeItems.topic,
-						kind: knowledgeAppProjection.kind,
-					})
-					.from(knowledgeItems)
-					.innerJoin(
-						knowledgeAppProjection,
-						eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-					)
-					.where(
-						and(
-							ne(knowledgeItems.status, "archived"),
-							inArray(knowledgeAppProjection.layer, Array.from(distinctLayers)),
-						),
-					)
-			: [];
+	// 2) Cohort sizes — parent/scope now live on the kernel row directly.
+	const cohortRows = await db
+		.select({
+			parentKind: knowledgeItems.parentKind,
+			parentId: knowledgeItems.parentId,
+			scopeId: knowledgeItems.scopeId,
+		})
+		.from(knowledgeItems)
+		.where(ne(knowledgeItems.status, "archived"));
 
 	const cohortSizeByKey = new Map<string, number>();
 	const crossScopeSetsByKey = new Map<string, Set<string>>();
 	for (const r of cohortRows) {
-		const ck = cohortKey(r.layer, r.scopeId, r.topic, r.kind);
+		const ck = cohortKey(r.parentKind, r.parentId, r.scopeId);
 		if (neededCohortKeys.has(ck)) {
 			cohortSizeByKey.set(ck, (cohortSizeByKey.get(ck) ?? 0) + 1);
 		}
-		const xk = crossScopeKey(r.layer, r.topic, r.kind);
+		const xk = crossScopeKey(r.parentKind, r.parentId);
 		if (neededCrossScopeKeys.has(xk) && r.scopeId != null) {
 			let s = crossScopeSetsByKey.get(xk);
 			if (!s) {

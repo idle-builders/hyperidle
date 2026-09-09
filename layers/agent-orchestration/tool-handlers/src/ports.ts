@@ -98,27 +98,28 @@ interface ToolHandlersCreateTeamInput {
  * (`knowledge-repository.ts`) — same reasoning as
  * `ToolHandlersCreateTeamInput`: `knowledge.create` reads these
  * specific fields, so this cannot stay the opaque `Record<string, unknown>`
- * shape. `KnowledgeLayer`/`KnowledgeKind`/`KnowledgeStatus` literal unions
- * widen to `string` (Mechanism C: never importing `knowledge`'s own types).
+ * shape. `KnowledgeStatus` literal union widens to `string` (Mechanism C:
+ * never importing `knowledge`'s own types).
+ *
+ * @lore nested-knowledge-items: `layer`/`kind`/`topic` are DELETED — a
+ * knowledge item's place in the tree says what it is about now, not a flat
+ * layer/kind/topic vocabulary.
  */
 interface ToolHandlersCreateKnowledgeItemInput {
-	readonly layer?: string;
-	/** Required, mirroring `CreateKnowledgeItemRequest` — see the note there. */
-	readonly scopeKind: string;
+	readonly scopeKind?: string | null;
 	readonly scopeId?: string | null;
-	/**
-	 * Where the item hangs. A produced item — what used to be an artifact — is
-	 * parented to the task or the conversation that produced it.
-	 */
-	readonly parentKind?: "task" | "thread";
-	readonly parentId?: string;
-	readonly kind?: string | null;
-	readonly topic?: string | null;
 	readonly title: string;
 	readonly body: string;
 	readonly format: string;
 	readonly status: string;
 	readonly updatedBy: string;
+	/**
+	 * @lore rebase-onto-#547: `create_artifact`'s rewrite (a produced item is a
+	 * knowledge item parented to the task or thread that produced it) needs
+	 * these — `write_memory`, the accessor's other caller, never sets them.
+	 */
+	readonly parentKind?: "task" | "thread";
+	readonly parentId?: string;
 	readonly attentionScore?: number | null;
 	readonly confidence?: number | null;
 	readonly meta?: string | null;
@@ -392,18 +393,9 @@ interface ToolHandlersCoreApiAccessor {
 	 * findOpenConflict, recordConflict}` row) — the agent acting on core
 	 * "just like the user would", same as every other Increment 2 migration.
 	 *
-	 * Returned search items are opaque (`Record<string, unknown>`) plus the
-	 * one field `query_practice`'s handler filters on (`layer`, optional/
-	 * nullable — a structural mirror, not a type import). The handler
-	 * forwards the whole item back to its caller (`ok({ items })`) —
-	 * narrowing the return shape to `{layer}` only would silently drop every
-	 * other field (`id`/`title`/`body`/...) real callers need.
+	 * @lore nested-knowledge-items: `search` is DELETED — its only consumer,
+	 * `query_practice`, is gone (its one filter was `layer === 'L3'`).
 	 */
-	search(
-		query: string,
-		opts: { readonly limit: number },
-		actorId: string,
-	): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>>;
 	create(
 		input: ToolHandlersCreateKnowledgeItemInput,
 		actorId: string,
@@ -500,7 +492,6 @@ interface ToolHandlersCoreApiAccessor {
 		newItems: ReadonlyArray<{
 			readonly title: string;
 			readonly body: string;
-			readonly topic?: string;
 		}>,
 		updatedBy: string,
 		actorId: string,

@@ -6,7 +6,10 @@
  * AC-4: KnowledgeListRow bespoke component removed; composed via Row.
  *
  * Protected testids (time-vocabulary.spec, L13-product-drilldown.spec) must survive:
- *   knowledge-row, knowledge-time, kind-badge, status-badge, private-badge, data-focused.
+ *   knowledge-row, knowledge-time, status-badge, private-badge, data-focused.
+ * @lore nested-knowledge-items: kind-badge removed from the protected list —
+ * `kind` vocabulary is deleted (see AD6-knowledge-simplification.test.tsx,
+ * which already asserted zero kind-badges).
  *
  * Tests FAIL until T8 (KnowledgeList migration) is complete.
  */
@@ -74,14 +77,14 @@ function renderPage() {
 // ── AC-2: Knowledge rows rendered via Row primitive ──────────────────────────
 
 describe("AG6 AC-2 — KnowledgeList rows via Row primitive (T8)", () => {
-	it("knowledge rows carry data-ds-component=Row marker", () => {
+	it("knowledge rows render as treeitem inside KnowledgeTreeList", () => {
+		// @lore nested-knowledge-items tree-ui: curated tab migrated from Row/ItemList
+		// to KnowledgeTreeList — rows are <li role="treeitem"> not Row primitives.
 		renderPage();
+		const treeEl = document.querySelector("[data-ds-component='KnowledgeTreeList']");
+		expect(treeEl).not.toBeNull();
 		const knowledgeRows = screen.getAllByTestId("knowledge-row");
 		expect(knowledgeRows.length).toBeGreaterThan(0);
-		for (const row of knowledgeRows) {
-			const rowEl = row.closest("[data-ds-component='Row']") ?? row;
-			expect(rowEl.getAttribute("data-ds-component")).toBe("Row");
-		}
 	});
 
 	// Protected testids (time-vocabulary.spec / L13 spec) must survive T8
@@ -97,21 +100,21 @@ describe("AG6 AC-2 — KnowledgeList rows via Row primitive (T8)", () => {
 		expect(times.length).toBeGreaterThan(0);
 	});
 
-	it("kind-badge testid preserved (L13 protected)", () => {
-		renderPage();
-		const badges = screen.getAllByTestId("kind-badge");
-		expect(badges.length).toBeGreaterThan(0);
-	});
+	// @lore nested-knowledge-items: the "kind-badge preserved" assertion this
+	// test made is now factually false — `kind` vocabulary is deleted and
+	// AD6-knowledge-simplification.test.tsx already asserts zero kind-badges
+	// in both views (that test is the current source of truth; this one
+	// forced the badge to render by abusing `scopeKind: "pattern"` as a fake
+	// kind value in its mock data).
 
-	it("ItemList variant=flush applied to knowledge list (no surface-container on list wrapper)", () => {
+	it("KnowledgeTreeList renders inside curated view (no contained surface)", () => {
+		// @lore nested-knowledge-items tree-ui: the curated tab uses KnowledgeTreeList
+		// which renders a <ul role="tree"> without a surface-container wrapper.
 		renderPage();
-		// flush variant → the list wrapper does NOT have surface-container class
 		const list = screen.getByTestId("knowledge-curated-view");
-		// The ItemList inside curated view should be flush (no contained surface)
-		// Look for an element with data-ds-component=ItemList inside the curated view
-		const itemListEl = list.querySelector("[data-ds-component='ItemList']");
-		expect(itemListEl).not.toBeNull();
-		expect(itemListEl?.className ?? "").not.toContain("surface-container");
+		const treeEl = list.querySelector("[data-ds-component='KnowledgeTreeList']");
+		expect(treeEl).not.toBeNull();
+		expect(treeEl?.className ?? "").not.toContain("surface-container");
 	});
 });
 

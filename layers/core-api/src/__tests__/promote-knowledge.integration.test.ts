@@ -65,37 +65,42 @@ async function seedConflict(
 }
 
 describe("promote_knowledge tool", () => {
-	test("AC5: transitions captured → provisional and persists", async ({ db, app }) => {
+	// @lore nested-knowledge-items: the status ladder collapsed from 7 values
+	// to 4 (proposed | active | stale | archived). `captured`/`provisional`
+	// both fold into `proposed`, so "captured -> provisional" is now a no-op
+	// (proposed -> proposed), which ALLOWED_TRANSITIONS does not permit —
+	// every test below targets a real transition on the new ladder instead.
+	test("AC5: transitions proposed → active and persists", async ({ db, app }) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
-		await seedKnowledgeItem(db, "ki-a", "captured");
+		await seedKnowledgeItem(db, "ki-a", "proposed");
 		const result = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-a", toStatus: "provisional" },
+			{ knowledgeItemId: "ki-a", toStatus: "active" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
 		if (!result.success) return;
 
 		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-a"));
-		expect(row?.status).toBe("provisional");
+		expect(row?.status).toBe("active");
 
 		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
 			.where(and(eq(knowledgeEditLog.itemId, "ki-a"), eq(knowledgeEditLog.field, "status")));
 		expect(logs.length).toBeGreaterThanOrEqual(1);
-		const statusLog = logs.find((l) => l.newValue === "provisional");
+		const statusLog = logs.find((l) => l.newValue === "active");
 		expect(statusLog).toBeDefined();
-		expect(statusLog?.oldValue).toBe("captured");
-		expect(statusLog?.newValue).toBe("provisional");
+		expect(statusLog?.oldValue).toBe("proposed");
+		expect(statusLog?.newValue).toBe("active");
 	});
 
-	test("returns INVALID_TRANSITION for captured → validated", async ({ db, app }) => {
+	test("returns INVALID_TRANSITION for proposed → stale", async ({ db, app }) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
-		await seedKnowledgeItem(db, "ki-b", "captured");
+		await seedKnowledgeItem(db, "ki-b", "proposed");
 		const result = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-b", toStatus: "validated" },
+			{ knowledgeItemId: "ki-b", toStatus: "stale" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(false);
@@ -108,7 +113,7 @@ describe("promote_knowledge tool", () => {
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-c", "archived");
 		const result = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-c", toStatus: "provisional" },
+			{ knowledgeItemId: "ki-c", toStatus: "active" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(false);
@@ -116,16 +121,16 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("INVALID_TRANSITION");
 	});
 
-	test("blocks promotion to validated when an open conflict exists (CONFLICT_OPEN)", async ({
+	test("blocks promotion to active when an open conflict exists (CONFLICT_OPEN)", async ({
 		db,
 		app,
 	}) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
-		await seedKnowledgeItem(db, "ki-d", "provisional");
+		await seedKnowledgeItem(db, "ki-d", "proposed");
 		await seedConflict(db, "conf-1", "ki-d", "open");
 		const result = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-d", toStatus: "validated" },
+			{ knowledgeItemId: "ki-d", toStatus: "active" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(false);
@@ -133,29 +138,29 @@ describe("promote_knowledge tool", () => {
 		expect(result.code).toBe("CONFLICT_OPEN");
 	});
 
-	test("allows promotion to validated when the only conflicts are resolved/discarded", async ({
+	test("allows promotion to active when the only conflicts are resolved/discarded", async ({
 		db,
 		app,
 	}) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
-		await seedKnowledgeItem(db, "ki-e", "provisional");
+		await seedKnowledgeItem(db, "ki-e", "proposed");
 		await seedConflict(db, "conf-2", "ki-e", "resolved");
 		await seedConflict(db, "conf-3", "ki-e", "discarded");
 		const result = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-e", toStatus: "validated" },
+			{ knowledgeItemId: "ki-e", toStatus: "active" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(true);
 		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-e"));
-		expect(row?.status).toBe("validated");
+		expect(row?.status).toBe("active");
 	});
 
 	test("returns NOT_FOUND for unknown id", async ({ db, app }) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
 		const result = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "does-not-exist", toStatus: "provisional" },
+			{ knowledgeItemId: "does-not-exist", toStatus: "active" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(false);
@@ -166,9 +171,9 @@ describe("promote_knowledge tool", () => {
 	test("does NOT bump version on status change", async ({ db, app }) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
-		await seedKnowledgeItem(db, "ki-f", "captured", 3);
+		await seedKnowledgeItem(db, "ki-f", "proposed", 3);
 		await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-f", toStatus: "provisional" },
+			{ knowledgeItemId: "ki-f", toStatus: "active" },
 			makeContext(db),
 		);
 		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-f"));
@@ -181,26 +186,26 @@ describe("promote_knowledge tool", () => {
 	}) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
-		await seedKnowledgeItem(db, "ki-g", "provisional");
+		await seedKnowledgeItem(db, "ki-g", "proposed");
 		// Simulate a concurrent racing caller that has already promoted the
-		// item to `validated`. Our caller is still trying to promote from
-		// `provisional` — the conditional UPDATE must reject with 0 rows
+		// item to `active`. Our caller is still trying to promote from
+		// `proposed` — the conditional UPDATE must reject with 0 rows
 		// changed rather than silently stomp the other caller's write.
 		const first = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-g", toStatus: "validated" },
+			{ knowledgeItemId: "ki-g", toStatus: "active" },
 			makeContext(db),
 		);
 		expect(first.success).toBe(true);
 		const second = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-g", toStatus: "validated" },
+			{ knowledgeItemId: "ki-g", toStatus: "active" },
 			makeContext(db),
 		);
 		expect(second.success).toBe(false);
 		if (second.success) return;
-		// Either INVALID_TRANSITION (validated -> validated is not allowed) or
+		// Either INVALID_TRANSITION (active -> active is not allowed) or
 		// CONCURRENT_MODIFICATION if the transition would have been legal but
 		// the status changed. Assert the first explicitly since our allowed
-		// table does not include validated -> validated.
+		// table does not include active -> active.
 		expect(second.code).toBe("INVALID_TRANSITION");
 	});
 
@@ -211,7 +216,7 @@ describe("promote_knowledge tool", () => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
 		// Simulates schema drift / upstream bug: the row's status column holds
-		// a value outside the 6 known statuses. The tool must refuse rather
+		// a value outside the 4 known statuses. The tool must refuse rather
 		// than unsafely cast and branch.
 		await db.insert(knowledgeItems).values({
 			id: "ki-bad-state",
@@ -228,7 +233,7 @@ describe("promote_knowledge tool", () => {
 			.insert(knowledgeAppProjection)
 			.values({ id: "ki-bad-state-projection", knowledgeItemId: "ki-bad-state" });
 		const result = await promoteKnowledgeTool.handler(
-			{ knowledgeItemId: "ki-bad-state", toStatus: "provisional" },
+			{ knowledgeItemId: "ki-bad-state", toStatus: "active" },
 			makeContext(db),
 		);
 		expect(result.success).toBe(false);
@@ -239,11 +244,11 @@ describe("promote_knowledge tool", () => {
 	test("persists reason into the edit log when provided", async ({ db, app }) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
-		await seedKnowledgeItem(db, "ki-reason", "captured");
+		await seedKnowledgeItem(db, "ki-reason", "proposed");
 		const result = await promoteKnowledgeTool.handler(
 			{
 				knowledgeItemId: "ki-reason",
-				toStatus: "provisional",
+				toStatus: "active",
 				reason: "used 3 times this week",
 			},
 			makeContext(db),
@@ -254,13 +259,13 @@ describe("promote_knowledge tool", () => {
 			.from(knowledgeEditLog)
 			.where(and(eq(knowledgeEditLog.itemId, "ki-reason"), eq(knowledgeEditLog.field, "status")));
 		expect(logs.length).toBe(1);
-		expect(logs[0]!.newValue).toContain("provisional");
+		expect(logs[0]!.newValue).toContain("active");
 		expect(logs[0]!.newValue).toContain("used 3 times this week");
 	});
 
 	test("INVALID_INPUT surfaces via registry dispatch on missing toStatus", async ({ db, app }) => {
 		await seedBase(db);
-		await seedKnowledgeItem(db, "ki-bad", "captured");
+		await seedKnowledgeItem(db, "ki-bad", "proposed");
 		// I2 B1-B4: registry requires explicit role; promote_knowledge is
 		// facilitator-only.
 		const registry = buildToolRegistryFromDefinitions(
