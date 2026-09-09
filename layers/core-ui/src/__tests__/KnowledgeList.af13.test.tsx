@@ -129,7 +129,8 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 		// This fails until sortItems is applied to curated groups
 		await waitFor(() => {
 			const curatedView = screen.getByTestId("knowledge-curated-view");
-			const rows = within(curatedView).getAllByRole("listitem");
+			// @lore nested-knowledge-items tree-ui: curated rows are <li role="treeitem">
+			const rows = within(curatedView).getAllByRole("treeitem");
 			const texts = rows.map((r) => r.textContent ?? "");
 
 			const newestIdx = texts.findIndex((t) => t.includes("Newest Item"));
