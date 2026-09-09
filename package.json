@@ -47,7 +47,6 @@
 		"verify": "npm run check && npm run lint && npm run knip && npm run knip:production && npm run deps:check && npm run mock-inventory:check && npm run build && npm run -w @hyperidle/desktop build",
 		"verify:release": "npm run verify && npm run test:full && npm run test:integration && npm run test:e2e:full",
 		"verify:quick": "npm run check && npm run lint && npm run knip && npm run knip:production && npm run deps:check",
-		"db:generate": "npm run -w @hyperidle/db generate",
 		"db:migrate": "npm run -w @hyperidle/db migrate",
 		"db:seed:pg": "npx tsx tools/setup/src/seed-pg-cli.ts",
 		"setup": "tsx tools/setup/src/setup-cli.ts",
