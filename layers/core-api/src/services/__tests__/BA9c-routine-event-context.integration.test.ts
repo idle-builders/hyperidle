@@ -482,7 +482,6 @@ describe("BA9c — item_created produces kind:item rich subject", () => {
 			kind: "review",
 			body: "Item body",
 			sourceAgentId: ownerAgentId,
-			layer: "meta",
 			riskTier: "low",
 			threadId,
 			createdAt: NOW,

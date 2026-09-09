@@ -332,7 +332,6 @@ const createItemInputSchema = z.object({
 	body: z.string().optional(),
 	kind: z.enum(ITEM_KINDS).optional(),
 	verb: z.enum(ITEM_VERBS).optional(),
-	layer: z.string().optional(),
 	riskTier: z.enum(RISK_TIERS_ITEM).optional(),
 	attentionScore: z.number().int().optional(),
 	blocking: z.boolean().optional(),
@@ -408,7 +407,6 @@ function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			const created = await ports.coreApi.createItem(
 				{
 					sourceAgentId: ctx.agentId,
-					layer: input.layer ?? null,
 					verb: input.verb ?? null,
 					kind: input.kind ?? null,
 					title: input.title,

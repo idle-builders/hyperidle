@@ -285,9 +285,6 @@ function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
 						// local `createReviewItemFn` instead of the former DI port.
 						await createReviewItemFn(tx as HyperIdleDb, eventBus, {
 							knowledgeItemId: item.id,
-							// @lore nested-knowledge-items: a knowledge item no longer carries
-							// a layer concept at all — nothing invented in its place.
-							layer: null,
 							title: `Knowledge item needs attention: ${item.title}`,
 							body: bodySummary,
 							riskTier,

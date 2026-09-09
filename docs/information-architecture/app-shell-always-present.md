@@ -25,7 +25,7 @@ Team capacity/status is **not** surfaced in the shell — that stat strip lives 
 ### 1.1 Badges
 
 - **Conversations** section header carries a numeric blocking-count badge (`conversations-blocking-badge`).
-- **Knowledge** section header carries a triage-count badge for draft + needs_human items (`knowledge-triage-badge`).
+- **Knowledge** section header carries a triage-count badge for `proposed` items (`knowledge-triage-badge`).
 
 Both testids are set conditionally on a single `<span>` element via a ternary on `view` (`Sidebar.tsx:209-222`).
 - **Notifications** shows a red unseen-notification dot. Notification behavior itself: [human-interface-layer/notification-primitive](../human-interface-layer/notification-primitive.md).

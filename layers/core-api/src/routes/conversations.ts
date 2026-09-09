@@ -33,7 +33,6 @@ import z from "zod";
  */
 const createItemSchema = z.object({
 	sourceAgentId: z.string().nullish(),
-	layer: z.string().nullish(),
 	verb: z.string().nullish(),
 	kind: z.string().nullish(),
 	title: z.string().min(1),
@@ -148,7 +147,6 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 		await work.create(db, "item", {
 			id,
 			sourceAgentId: body.sourceAgentId ?? null,
-			layer: body.layer ?? null,
 			verb: body.verb ?? null,
 			kind: body.kind ?? null,
 			title: body.title,

@@ -373,6 +373,19 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(colNames).not.toContain("cost_estimate");
 			vi.unstubAllEnvs();
 		});
+
+		// @lore nested-knowledge-items cleanup: `layer` was write-only dead code
+		// (sourced from knowledgeAppProjection.layer, dropped in 0080 — every
+		// writer could only ever pass null). Migration 0081 drops the column.
+		test("items no longer has 'layer' column", async ({ db }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			const result = await db.execute(
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"items"}`,
+			);
+			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
+			expect(colNames).not.toContain("layer");
+			vi.unstubAllEnvs();
+		});
 	});
 
 	// ---------------------------------------------------------------------------

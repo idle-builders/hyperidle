@@ -772,7 +772,6 @@ export const items = pgTable(
 	{
 		id: text("id").primaryKey(),
 		sourceAgentId: text("source_agent_id").references(() => users.id, { onDelete: "restrict" }),
-		layer: text("layer"),
 		verb: text("verb"),
 		kind: text("kind"),
 		title: text("title").notNull(),

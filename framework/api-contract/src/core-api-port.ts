@@ -101,7 +101,6 @@ export interface CreateItemRequest {
 	readonly threadId: string;
 	readonly title: string;
 	readonly sourceAgentId?: string | null;
-	readonly layer?: string | null;
 	readonly verb?: string | null;
 	readonly kind?: string | null;
 	readonly body?: string | null;
