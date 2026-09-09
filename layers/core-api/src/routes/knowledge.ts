@@ -228,9 +228,11 @@ const createKnowledgeSchema = z.object({
 	 * `knowledge_item` are accepted from a client (`CLIENT_WRITABLE_PARENT_KINDS`
 	 * above) — the other two `KNOWLEDGE_PARENT_KINDS` (`routine`, `agent`) are
 	 * written exclusively by core-api's own routes, which already hold the
-	 * parent row for other reasons. Nesting a new item directly under an
-	 * existing tree node is ONE write — founder ruling, nested-knowledge-items:
-	 * "a knowledge item can have a parent and the write should accept that."
+	 * parent row for other reasons.
+	 *
+	 * @lore nested-knowledge-items, founder ruling: nesting a new item directly
+	 * under an existing tree node is ONE write — "a knowledge item can have a
+	 * parent and the write should accept that."
 	 */
 	parentKind: z.enum(CLIENT_WRITABLE_PARENT_KINDS).optional(),
 	parentId: z.string().optional(),

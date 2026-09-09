@@ -1,5 +1,5 @@
 /**
- * nested-knowledge-items — proof against a REAL agent, real harness binaries.
+ * @lore nested-knowledge-items: proof against a REAL agent, real harness binaries.
  *
  * The founder's ask: "testing this against agents and then the nested
  * structure works on their setup materialised." Every other lane proves the

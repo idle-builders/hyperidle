@@ -119,10 +119,11 @@ describe("AF13 §1 — KnowledgeCreate sends status:active in create payload", (
 });
 
 // ---------------------------------------------------------------------------
-// nested-knowledge-items — nesting under an existing item is ONE write
+// Nesting under an existing item is ONE write
+// @lore nested-knowledge-items: founder ruling — create accepts parentKind/parentId
 // ---------------------------------------------------------------------------
 
-describe("nested-knowledge-items — KnowledgeCreate nests in one write", () => {
+describe("KnowledgeCreate nests in one write", () => {
 	beforeEach(async () => {
 		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
 		vi.mocked(useCurrentUser).mockReturnValue({
