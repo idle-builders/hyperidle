@@ -217,10 +217,10 @@ which lists up to ten items sharing a topic string. It becomes children plus
 siblings — the tree answers "what is near this" better than a shared word did.
 
 The weekly decay sweep's cohort — how many neighbours say the same thing — becomes
-siblings. The cross-scope repetition signal is deleted rather than approximated;
-without `topic` there is no honest version of it. Nothing in the interface renders
-an attention score today, so this changes what the sweep archives, not what anyone
-sees.
+siblings. The cross-scope repetition signal keeps the same mechanism, re-keyed from
+`(layer, topic, kind)` to the sibling set (`parentKind`, `parentId`) — not deleted.
+Nothing in the interface renders an attention score today, so this changes what the
+sweep archives, not what anyone sees.
 
 Two more queries turned out to have no callers at all — the layer-filtered git
 export and the recent-by-layer digest. They are deleted, not ported.

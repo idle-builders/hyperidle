@@ -24,7 +24,7 @@ import type { Manifest, ManifestEntry } from "./manifest-types.js";
  * calling the shared `@hyperidle/knowledge`'s `assembleSessionKnowledge`
  * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
  * below consumes the baked `contextBundle` carried on the session request and
- * writes `session.toon` + `context/{product,practices,factory}/*` — ZERO db
+ * writes `context/session.toon` + the nested `knowledge/**` tree — ZERO db
  * reads, zero `ContextAssemblyPorts` domain members (`knowledge`/`work`/
  * `users`/`routine`/`org` are gone; only `filesystems` remains, for
  * `beginAgentWriteback`'s watcher).
@@ -354,15 +354,8 @@ const WORKSPACE_SECTION = `## Workspace
 
 Your workspace is organized as follows:
 
-- \`context/\` -- Read-only context files. Product knowledge, practice knowledge, factory-wide knowledge, and your session context (session.toon).
-  - \`product/\` -- Product-specific knowledge items (L2).
-  - \`practices/\` -- Practice community knowledge items (L3).
-  - \`factory/\` -- Factory-wide knowledge items (L4).
-  - \`session.toon\` -- Encoded session context (task, ancestors, agent, team data).
-- \`knowledge/\` -- Knowledge files you can read and update.
-  - \`practices/\` -- Practice knowledge.
-  - \`decisions/\` -- Decision records.
-  - \`failures/\` -- Failure postmortems.
+- \`context/\` -- Read-only. Your session context (session.toon: task, ancestors, agent, team data).
+- \`knowledge/\` -- Knowledge you can read, edit, and reorganize. It mirrors the real knowledge tree: a folder holds an \`index.md\` (that item's own content) plus its children as files or nested folders. Create, edit, move, and nest items here -- changes save back automatically.
   - \`rules/\` -- Rules and guidelines that apply to your work.
 - \`work/\` -- Your working area.
   - \`artifacts/\` -- Output artifacts.
