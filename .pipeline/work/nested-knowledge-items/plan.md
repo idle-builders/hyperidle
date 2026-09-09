@@ -169,22 +169,21 @@ still land wherever the harness looks for them, because that is decided by what
 they are, not where they sit.
 
 A parent materialises as a directory with an `index.md` inside holding its own
-text. Filenames are plain human names — no ids, no front matter. The sandbox
-manifest already maps each knowledge item to its path, so identity has a home and the
-knowledge item does not have to carry a machine number in its name or its body. When a
-selected knowledge item has an unselected ancestor, that ancestor's index is written
-anyway: a path with a missing middle means nothing.
+text. Filenames stay human-readable titles plus a short `_${id.slice(0,8)}`
+suffix — the only uniqueness and path→item key writeback trusts; no front matter.
+When a selected knowledge item has an unselected ancestor, that ancestor's index
+is written anyway: a path with a missing middle means nothing. A new directory
+creates its own knowledge item; a created child inherits its parent's scope.
+Narrowing a parent's scope cascades to the subtree.
 
 ### A move is an edit
 
 A file appearing inside a directory becomes a knowledge item whose parent is that
-directory's knowledge item. Moves are the interesting case. The watcher cannot get a
-reliable move event from the operating system, and does not need one: it batches
-changes on a short debounce, so both halves of a move — the disappearance and the
-appearance — arrive together. When a batch holds exactly one of each and the
-manifest knows the vanished path, that is a move: reparent, leave the body alone.
-Anything ambiguous falls back to today's behaviour, where a disappearance opens a
-conflict for review and nothing is lost.
+directory's knowledge item. Moves resolve by the id suffix in the filename: a
+creation whose name carries a known id is a reparent (body untouched, manifest
+path rewritten). Batch pairing of delete+create was rejected — it fails directory
+renames and edit-while-move. Ambiguous disappearances still open a conflict for
+review.
 
 The thread parent is not a new capability — it is the honest version of one that
 has been half-built since T4. Content is attached to a conversation today as a
@@ -270,3 +269,23 @@ The task-hierarchy work removes `bet` from the scope kinds; this work removes
 first and ours subsumes it. The artifact/knowledge merge decides what a
 task-parented knowledge item *is*; this work needs only that it stays off the tree and
 can be reparented into it.
+
+## As built (durable)
+
+- **Parent slot** already on `main` (attachment PR): `parent_kind` ∈
+  `knowledge_item | task | thread | routine | agent`, paired with `parent_id`, no
+  FK; walks stop at the first non-`knowledge_item` parent. This item added
+  `position` and the tree invariants (cycle, scope descent, depth ≤ 32) in the
+  same write transaction.
+- **One-write create.** Nesting names a `knowledge_item` parent on `POST` (not
+  create-then-PATCH). Illegal or invisible parents → 400.
+- **Tree UI.** Curated list uses real tree chrome (`KnowledgeTreeList`: chevron,
+  18px indent guides depth-capped at 6, expand-by-default, in-place Add child via
+  `?parentId=`, keyboard collapse/expand). Detail always shows Children with Add
+  child; ancestry breadcrumb for knowledge parents; Move stays in overflow. No
+  drag-to-reorder. Page-local list, not a DS primitive.
+- **Founder live-render.** Approved 2026-09-09 (`proceed`) for the nestable
+  Curated tree and nested detail — closes the visual gate booked for this surface.
+- **Accepted limitations.** Practice↔agent role is still title/name matching
+  (stopgap). Docs that still teach L0–L4 / topic filing need a separate write-docs
+  pass. Scope remains readability, not ACL.
