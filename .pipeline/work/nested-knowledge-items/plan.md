@@ -288,4 +288,11 @@ can be reparented into it.
   Curated tree and nested detail — closes the visual gate booked for this surface.
 - **Accepted limitations.** Practice↔agent role is still title/name matching
   (stopgap). Docs that still teach L0–L4 / topic filing need a separate write-docs
-  pass. Scope remains readability, not ACL.
+  pass. Scope remains readability, not ACL. `routine`/`agent` parent existence is
+  not validated on `PATCH` (only `task`/`thread` are) — not client-reachable today
+  and the no-FK design already permits a dangling parent, so left open rather than
+  fixed here. The status badge renders the design-system tone word (e.g.
+  "Healthy") rather than the status label — pre-existing, not introduced by this
+  item. The harness lane that proves agent materialisation has no CI job by
+  design and depends on local CLI credentials, so nothing mechanically reruns it
+  after this ships.
