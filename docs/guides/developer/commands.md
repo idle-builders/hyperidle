@@ -84,9 +84,13 @@ Both `lint:governance` and `lint:governance:fixtures` also run inside `npm run l
 
 ## Database
 
+Migrations are hand-written — there is no generator. A new migration is a
+hand-authored `.sql` file in `framework/db/drizzle/` plus a matching entry in
+`framework/db/drizzle/meta/_journal.json`. See `framework/db/drizzle/README.md`
+for why.
+
 | Command | Purpose |
 |---------|---------|
-| `npm run db:generate` | Generate migration from schema changes |
 | `npm run db:migrate` | Apply migrations |
 | `npm run db:bootstrap:pg` | Bootstrap a Postgres database |
 | `npm run db:seed:pg` | Seed a Postgres database |

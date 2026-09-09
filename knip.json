@@ -45,11 +45,7 @@
 		"framework/event-bus": {},
 		"framework/harness-protocol": {},
 		"framework/db": {
-			"entry": [
-				"src/migrate-pg.ts!",
-				"src/__testing__/pg-test-runner.ts!",
-				"__scripts__/strip-public-schema.ts!"
-			],
+			"entry": ["src/migrate-pg.ts!", "src/__testing__/pg-test-runner.ts!"],
 			// pg-test-runner.ts spawns the `vitest` binary; vitest is a devDependency, which
 			// the --production lane does not count, so only that lane reports it.
 			"ignoreBinaries": ["vitest"]

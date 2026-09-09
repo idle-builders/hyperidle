@@ -91,8 +91,7 @@ See `docs/deployment/` for the full operator guide.
 | `npm run lint` | Biome + ESLint |
 | `npm run lint:fix` | Auto-fix lint issues |
 | `npm run test` | Vitest (unit + integration) |
-| `npm run db:generate` | Generate a new Drizzle migration |
-| `npm run db:migrate` | Apply migrations |
+| `npm run db:migrate` | Apply migrations (migrations are hand-written — see `framework/db/drizzle/README.md`) |
 | `npm run ds:serve` | Design-system component viewer (`:8098`) |
 | `npm run ds:sync` | HTML ↔ TSX visual regression check |
 | `bin/service` | Manage a macOS LaunchAgent for the prod server |
