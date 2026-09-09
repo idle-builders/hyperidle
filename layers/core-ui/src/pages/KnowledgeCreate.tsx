@@ -45,6 +45,13 @@ interface CreateKnowledgePayload {
 	updatedBy: string;
 	/** AF13 §1: human-authored items are created as active immediately. */
 	status: "active";
+	/**
+	 * @lore nested-knowledge-items: founder ruling — "a knowledge item can have
+	 * a parent and the write should accept that." A chosen parent rides the
+	 * create call itself; there is no follow-up PATCH.
+	 */
+	parentKind?: "knowledge_item";
+	parentId?: string;
 }
 
 interface CreateKnowledgeResponse {
@@ -111,6 +118,10 @@ export function KnowledgeCreate(): JSX.Element {
 		if (needsScopeId) {
 			payload.scopeId = scopeId.trim();
 		}
+		if (parentId !== "") {
+			payload.parentKind = "knowledge_item";
+			payload.parentId = parentId;
+		}
 
 		const res = await apiFetch("/api/knowledge", {
 			method: "POST",
@@ -126,33 +137,6 @@ export function KnowledgeCreate(): JSX.Element {
 		}
 
 		const created = (await res.json()) as CreateKnowledgeResponse;
-
-		// @lore nested-knowledge-items: POST /api/knowledge never accepts a
-		// knowledge_item parent (routes/knowledge.ts's own
-		// CLIENT_WRITABLE_PARENT_KINDS doc comment: nesting under an existing
-		// item is create-then-PATCH-reparent, not a single create call). A
-		// chosen parent is applied as a second PATCH right after create.
-		if (parentId !== "") {
-			const patchRes = await apiFetch(`/api/knowledge/${encodeURIComponent(created.id)}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					version: 1,
-					updatedBy: user?.id ?? "human",
-					parentKind: "knowledge_item",
-					parentId,
-				}),
-			});
-			if (!patchRes.ok) {
-				const data = (await patchRes.json().catch(() => ({}))) as { error?: string };
-				setSubmitting(false);
-				setError(
-					data.error ??
-						`Item created, but could not nest under the chosen parent: ${patchRes.status}`,
-				);
-				return;
-			}
-		}
 
 		setSubmitting(false);
 		navigate(`/knowledge/${created.id}`);
