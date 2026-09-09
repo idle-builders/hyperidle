@@ -20,5 +20,5 @@ HyperIdle puts you at the head of a flat team of humans and AI agents. You shape
 - [Agent model](../../agent-layer/agent-model.md) — agent composition, identity, categories, and lifecycle
 - [Tasks and the task tree](../../process-layer/the-four-primitives.md) — how tasks work, subtasks, and the recursive tree
 - [Tasks and sessions](../../process-layer/tasks-and-sessions.md) — how agents pick up and execute work
-- [Knowledge architecture](../../knowledge-architecture/the-five-layers.md) — five knowledge layers and how they compound
+- [Knowledge architecture](../../knowledge-architecture/index.md) — how knowledge nests as a tree and compounds across the team
 - [WIP limits](../../process-layer/wip-and-cost-limits.md) — how concurrency is bounded

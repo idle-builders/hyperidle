@@ -39,7 +39,7 @@ Code-verified decision log for the system architecture. Each entry records a set
 ## Knowledge
 
 - **Knowledge fabric sync: continuous writeback.** A file watcher on `knowledge/` and `work/` writes back changes incrementally (500ms debounce, `layers/agent-orchestration/run-orchestration/src/file-watcher.ts:30`) with WebSocket push to open Knowledge view tabs — no session-boundary dependency. Mechanics: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
-- **Layer precedence: L4 > L3 > L2 > L1 > L0.** Taxonomy: [the five layers](../knowledge-architecture/the-five-layers.md); precedence rules: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
+- **Conflict resolution: version check, not layer precedence.** There is no layer ladder and no precedence order — a version mismatch on modify, or any delete, always opens a review record rather than resolving automatically. Mechanics: [sync and conflict resolution](../knowledge-architecture/sync-and-conflict-resolution.md).
 - **Edit log for facilitator learning.** Every human edit is logged in `knowledge_edit_log` (`framework/db/src/schema.ts:912`) as a training signal for improving facilitator proposals over time.
 - **Facilitators are not a SPOF.** Practice facilitation is an async self-improvement loop that never interferes with task execution; if a facilitator is down, agents keep working and simply miss new practice updates until the next context assembly.
 - **Knowledge misses are acceptable.** Agents will sometimes miss relevant knowledge — a feature, not a bug; it's part of how new approaches get discovered. The system optimizes for relevance at context-assembly time and doesn't guarantee completeness.

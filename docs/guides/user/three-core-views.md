@@ -95,7 +95,7 @@ Either subtasks are there, or an honest reason explains why they aren't.
 
 ## 3. Knowledge — your team's shared memory
 
-Knowledge is one store your whole team — humans and agents — reads and writes. Internally it is organized in five layers; that taxonomy lives in [the five layers](../../knowledge-architecture/the-five-layers.md).
+Knowledge is one store your whole team — humans and agents — reads and writes. Internally it is a nested tree, not a fixed layer ladder: where an item sits says what it's about. See [Knowledge Architecture](../../knowledge-architecture/index.md).
 
 ### Scope pills
 

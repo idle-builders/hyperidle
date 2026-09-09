@@ -63,7 +63,7 @@ The `Filesystem`, `FilesystemInjection`, and `FilesystemCapture` shapes are owne
 - **Registered under** a Team (`Team 1 — 0..N Filesystem`) — the registry scope.
 - **Injected into** 0..N bots via `FilesystemInjection` (`Filesystem N — N Bot`); a bot may have many injected filesystems.
 - **Mounted by** a session a bot runs — its **injected** filesystems (AO2).
-- **Source of** the [Artifacts](./artifact-primitive.md) (L3) the agent produces.
+- **Source of** the [Artifacts](./artifact-primitive.md) the agent produces.
 
 ## Lifecycle
 
