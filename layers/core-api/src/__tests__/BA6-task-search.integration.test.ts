@@ -41,6 +41,7 @@ async function insertTask(
 	teamId: string,
 	title: string,
 	parentTaskId: string | null = null,
+	state: "proposed" | "killed" = "proposed",
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
@@ -48,7 +49,7 @@ async function insertTask(
 		parentTaskId,
 		teamId,
 		title,
-		state: "proposed",
+		state,
 		createdAt: now,
 		updatedAt: now,
 	});
@@ -95,5 +96,28 @@ describe("BA6: GET /api/tasks?q= — the dependency picker's search door", () =>
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Array<{ id: string; title: string }>;
 		expect(body).toEqual([]);
+	});
+
+	// ---------------------------------------------------------------------
+	// B1 (fix round) — the picker must not offer a corpse. A killed task can
+	// never finish, so it is not a legitimate dependency target; excluding it
+	// here is the affordance half of the write-time refusal.
+	// ---------------------------------------------------------------------
+	test("a killed task is not returned by search", async ({ db, app }) => {
+		await seedTeam(db, "ba6-search-t4");
+		await insertTask(
+			db,
+			"ba6-search-dead",
+			"ba6-search-t4",
+			"Retired onboarding rewrite",
+			null,
+			"killed",
+		);
+
+		const res = await app.request("/api/tasks?q=onboarding%20rewrite", { headers: authHeaders() });
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Array<{ id: string; title: string }>;
+		expect(body.map((t) => t.id)).not.toContain("ba6-search-dead");
 	});
 });

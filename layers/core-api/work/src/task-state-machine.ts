@@ -11,6 +11,8 @@ import { eq } from "drizzle-orm";
 import {
 	CapacityExceededError,
 	TaskCycleError,
+	TaskDependencyBlockedError,
+	TaskDependencyKilledError,
 	TaskDependencyNotFoundError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
@@ -127,8 +129,19 @@ async function dependsOnTransitively(
  * the resulting graph must have no cycle. Called from inside the same
  * transaction as the write (both `POST /tasks` and `PATCH /tasks/:id`).
  *
- * Throws `TaskDependencyNotFoundError` for a dangling id (mapped to 404) or
- * `TaskCycleError` for a self-dependency or cycle (mapped to 409 `TASK_CYCLE`).
+ * Throws `TaskDependencyNotFoundError` for a dangling id (mapped to 404),
+ * `TaskDependencyKilledError` for a dependency that can never finish (mapped
+ * to 409 `TASK_DEPENDENCY_KILLED`), or `TaskCycleError` for a self-dependency
+ * or cycle (mapped to 409 `TASK_CYCLE`).
+ *
+ * @lore BA6 (fix round): a `killed` task is a legitimate-looking id — it
+ * exists, so the dangling-id check alone waves it through — but it can never
+ * reach `done`, so a dependent parked on it waits forever with no watcher
+ * left to free it (`handleDependencyKilled` only cleans up dependents that
+ * existed AT kill time; one added afterward is never visited). Refused here,
+ * at write time, on both doors, rather than patched at kill time again.
+ * Depending on an already-`done` task stays legal — only `killed` is a dead
+ * end.
  */
 export async function assertValidDependencies(
 	exec: WriteExecutor,
@@ -142,6 +155,9 @@ export async function assertValidDependencies(
 		const dep = await work.get(exec, "task", depId);
 		if (!dep) {
 			throw new TaskDependencyNotFoundError(depId);
+		}
+		if (dep.state === "killed") {
+			throw new TaskDependencyKilledError(depId);
 		}
 		if (await dependsOnTransitively(exec, depId, taskId)) {
 			throw new TaskCycleError(taskId, depId, "dependency");
@@ -236,23 +252,39 @@ export async function transitionTask(
 			// BA6: the enforcing half. Parking (`-> hold`) is the visible half;
 			// this is what actually stops a task with an unfinished dependency
 			// from being dispatched, no matter who calls for `accepted` — human,
-			// agent, or a direct state edit. Reuses `TaskInvalidTransitionError`
-			// rather than a new error class: while a named dependency is unmet,
-			// `-> accepted` is not a legal move for this task, which is exactly
-			// what that error already means.
+			// agent, or a direct state edit.
 			//
-			// Covers `-> in_progress` too, not only `-> accepted`: `accepted` is
-			// reachable with a stale dependency still attached (e.g. dependencies
-			// were added to an already-`accepted` task), and `accepted ->
-			// in_progress` is a legal edge in `TASK_STATE_TRANSITIONS`. Without
-			// this second check, a task could sit `accepted` holding an unfinished
-			// dependency and then be picked up via the `session_started ->
-			// in_progress` reaction — the exact "not picked up for work" AC this
-			// package exists to satisfy, entered through a different door.
-			if (toState === "accepted" || toState === "in_progress") {
+			// Covers `accepted -> in_progress` too, not only `-> accepted`:
+			// `accepted` is reachable with a stale dependency still attached
+			// (e.g. dependencies were added to an already-`accepted` task), and
+			// `accepted -> in_progress` is a legal edge in
+			// `TASK_STATE_TRANSITIONS`. Without this second check, a task could
+			// sit `accepted` holding an unfinished dependency and then be picked
+			// up via the `session_started -> in_progress` reaction — the exact
+			// "not picked up for work" AC this package exists to satisfy,
+			// entered through a different door.
+			//
+			// @lore BA6 (fix round, B2): NARROWED to the genuine pick-up path
+			// only — `-> accepted` (from `proposed`/`hold`), and `accepted ->
+			// in_progress` (the dispatch step). The guard originally fired for
+			// EVERY `-> in_progress` regardless of source, which also refused
+			// `blocked -> in_progress` and `review -> in_progress` — a resume or
+			// rework, not a pick-up. The plan says dependencies gate BEING
+			// PICKED UP, and "a task already in progress is not rewound by a
+			// later dependency": a task in `blocked` or `review` has already
+			// been picked up once: it should not need every original
+			// dependency to still be finished just to resume.
+			//
+			// @lore BA6 (fix round): throws `TaskDependencyBlockedError`, not
+			// `TaskInvalidTransitionError` — the edge itself is legal grammar in
+			// `TASK_STATE_TRANSITIONS`; the wait is what refuses it, and the
+			// message must say so rather than reading as a generic illegal edge.
+			const isPickup =
+				toState === "accepted" || (toState === "in_progress" && fromState === "accepted");
+			if (isPickup) {
 				const depIds = parseDependencyIds(task.dependencies);
 				if (depIds.length > 0 && (await hasUnfinishedDependency(tx, depIds))) {
-					throw new TaskInvalidTransitionError(taskId, fromState, toState);
+					throw new TaskDependencyBlockedError(taskId, fromState, toState);
 				}
 			}
 

@@ -106,6 +106,45 @@ export class TaskDependencyNotFoundError extends Error {
 }
 
 /**
+ * BA6 (fix round): thrown when a `dependencies` write names a task that is
+ * `killed` — it can never reach `done`, so depending on it would park the
+ * dependent forever with no watcher left to free it (the kill-time cleanup
+ * only fires for dependents that existed AT kill time). Distinct from
+ * `TaskDependencyNotFoundError`: the task exists, it just can never finish.
+ * Depending on an already-`done` task stays legal.
+ */
+export class TaskDependencyKilledError extends Error {
+	constructor(public readonly dependencyId: string) {
+		super(`Dependency task ${dependencyId} is killed and can never finish`);
+		this.name = "TaskDependencyKilledError";
+	}
+}
+
+/**
+ * BA6 (fix round): thrown by `transitionTask` when a genuine pick-up
+ * transition (`-> accepted`, or `accepted -> in_progress`) is refused
+ * because the task still carries an unfinished dependency. Distinct from
+ * `TaskInvalidTransitionError` — the edge itself IS legal grammar in
+ * `TASK_STATE_TRANSITIONS`; the wait is what refuses it, and the message
+ * must say so rather than reading as a generic illegal edge. Never thrown
+ * for a resume/rework move (`blocked -> in_progress`, `review ->
+ * in_progress`) — a task already picked up is not re-gated by a later
+ * dependency.
+ */
+export class TaskDependencyBlockedError extends Error {
+	constructor(
+		public readonly taskId: string,
+		public readonly fromState: TaskState,
+		public readonly toState: TaskState,
+	) {
+		super(
+			`Task ${taskId} cannot move from '${fromState}' to '${toState}': it has an unfinished dependency`,
+		);
+		this.name = "TaskDependencyBlockedError";
+	}
+}
+
+/**
  * BB1: thrown when a team is already at its WIP limit — `teams.capacity`
  * tasks are `in_progress`. Was raised on bet activation; now raised when a task
  * starts, at any depth.

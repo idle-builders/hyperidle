@@ -22,6 +22,8 @@ import {
 	hasUnfinishedDependency,
 	InvalidTransitionError,
 	TaskCycleError,
+	TaskDependencyBlockedError,
+	TaskDependencyKilledError,
 	TaskDependencyNotFoundError,
 	transitionTask,
 } from "@hyperidle/work";
@@ -411,6 +413,9 @@ export function createTaskRoutes(
 			if (err instanceof TaskDependencyNotFoundError) {
 				return c.json({ error: err.message, code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
+			if (err instanceof TaskDependencyKilledError) {
+				return c.json({ error: err.message, code: "TASK_DEPENDENCY_KILLED" }, 409);
+			}
 			if (err instanceof TaskCycleError) {
 				return c.json({ error: err.message, code: "TASK_CYCLE" }, 409);
 			}
@@ -614,8 +619,14 @@ export function createTaskRoutes(
 			if (err instanceof TaskDependencyNotFoundError) {
 				return c.json({ error: err.message, code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
+			if (err instanceof TaskDependencyKilledError) {
+				return c.json({ error: err.message, code: "TASK_DEPENDENCY_KILLED" }, 409);
+			}
 			if (err instanceof TaskCycleError) {
 				return c.json({ error: err.message, code: "TASK_CYCLE" }, 409);
+			}
+			if (err instanceof TaskDependencyBlockedError) {
+				return c.json({ error: err.message, code: "TASK_DEPENDENCY_BLOCKED" }, 409);
 			}
 			if (err instanceof InvalidTransitionError) {
 				return c.json({ error: err.message, code: "INVALID_TRANSITION" }, 409);

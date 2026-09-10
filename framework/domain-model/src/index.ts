@@ -82,6 +82,8 @@ export {
 	MissingCredentialError,
 	SeamRequestError,
 	TaskCycleError,
+	TaskDependencyBlockedError,
+	TaskDependencyKilledError,
 	TaskDependencyNotFoundError,
 	TaskInvalidTransitionError,
 } from "./errors.js";

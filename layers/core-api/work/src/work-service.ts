@@ -49,7 +49,7 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, exists, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, like, lt, ne, or, sql } from "drizzle-orm";
 
 export type Task = typeof tasks.$inferSelect;
 
@@ -333,10 +333,17 @@ export async function list(
 				.select()
 				.from(tasks)
 				.where(
-					or(
-						sql`${tasks.title} ILIKE ${pattern} ESCAPE '\\'`,
-						sql`${tasks.description} ILIKE ${pattern} ESCAPE '\\'`,
-						sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
+					and(
+						or(
+							sql`${tasks.title} ILIKE ${pattern} ESCAPE '\\'`,
+							sql`${tasks.description} ILIKE ${pattern} ESCAPE '\\'`,
+							sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
+						),
+						// BA6 (fix round): a `killed` task can never be a legitimate
+						// dependency target (see `assertValidDependencies`), and this
+						// door is what the dependency picker searches — offering a
+						// corpse in results is the affordance half of that refusal.
+						ne(tasks.state, "killed"),
 					),
 				)
 				.orderBy(rank, desc(tasks.createdAt), tasks.id)

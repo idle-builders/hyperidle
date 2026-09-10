@@ -359,4 +359,155 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			).resolves.not.toThrow();
 		});
 	});
+
+	// ---------------------------------------------------------------------
+	// B1 (second fix round) — the killed-dependency rule was only implemented
+	// for one ordering: kill a task dependents already point at, and the
+	// cleanup runs. Point a NEW dependency at a task that is ALREADY killed
+	// and nothing catches it. Refused at write time, on both doors.
+	// ---------------------------------------------------------------------
+	describe("B1: a dependency naming an already-killed task is refused on both doors", () => {
+		test("POST /tasks refuses a dependency naming an already-killed task", async ({ db, app }) => {
+			await seedTeam(db, "ba6-b1c-post");
+			await insertTask(db, "ba6-b1c-post-dead", "ba6-b1c-post", "killed");
+
+			const res = await app.request("/api/tasks", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					teamId: "ba6-b1c-post",
+					title: "Depends on a corpse",
+					dependencies: ["ba6-b1c-post-dead"],
+				}),
+			});
+
+			expect(res.status).toBe(409);
+			const body = (await res.json()) as { error: string; code: string };
+			expect(body.error.toLowerCase()).toContain("killed");
+			expect(body.code).toBe("TASK_DEPENDENCY_KILLED");
+		});
+
+		test("PATCH /tasks/:id refuses a dependency naming an already-killed task", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "ba6-b1c-patch");
+			await insertTask(db, "ba6-b1c-patch-dead", "ba6-b1c-patch", "killed");
+			await insertTask(db, "ba6-b1c-patch-dependent", "ba6-b1c-patch", "proposed");
+
+			const res = await app.request("/api/tasks/ba6-b1c-patch-dependent", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["ba6-b1c-patch-dead"] }),
+			});
+
+			expect(res.status).toBe(409);
+			const body = (await res.json()) as { error: string; code: string };
+			expect(body.error.toLowerCase()).toContain("killed");
+			expect(body.code).toBe("TASK_DEPENDENCY_KILLED");
+
+			// Refused — the dependent must not have been parked on the dead id.
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b1c-patch-dependent"));
+			expect(row?.state).toBe("proposed");
+			expect(row?.dependencies).toBeNull();
+		});
+
+		test("depending on an already-done task stays legal (only killed is refused)", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "ba6-b1c-done");
+			await insertTask(db, "ba6-b1c-done-finished", "ba6-b1c-done", "done");
+
+			const res = await app.request("/api/tasks", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					teamId: "ba6-b1c-done",
+					title: "Depends on a finished task",
+					dependencies: ["ba6-b1c-done-finished"],
+				}),
+			});
+
+			expect(res.status).toBe(201);
+			const created = (await res.json()) as { id: string; state: string };
+			// A finished dependency does not park the task.
+			expect(created.state).toBe("proposed");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// B2 (second fix round) — the guard refused `-> in_progress` from ANY
+	// source while a dependency was unfinished, including `blocked` and
+	// `review`. Those are resume/rework moves, not a pick-up, and must be
+	// unaffected by a dependency that was already there when the task was
+	// first accepted.
+	// ---------------------------------------------------------------------
+	describe("B2: the dependency guard narrows to the genuine pick-up path only", () => {
+		test("blocked -> in_progress is allowed while a dependency is unfinished", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "ba6-b2b-blocked");
+			await insertTask(db, "ba6-b2b-blocked-dep", "ba6-b2b-blocked", "proposed");
+			await insertTask(db, "ba6-b2b-blocked-task", "ba6-b2b-blocked", "blocked", [
+				"ba6-b2b-blocked-dep",
+			]);
+
+			await expect(
+				transitionTask(db, eventBus, "ba6-b2b-blocked-task", "in_progress", testDeps),
+			).resolves.not.toThrow();
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b2b-blocked-task"));
+			expect(row?.state).toBe("in_progress");
+		});
+
+		test("review -> in_progress is allowed while a dependency is unfinished", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "ba6-b2b-review");
+			await insertTask(db, "ba6-b2b-review-dep", "ba6-b2b-review", "proposed");
+			await insertTask(db, "ba6-b2b-review-task", "ba6-b2b-review", "review", [
+				"ba6-b2b-review-dep",
+			]);
+
+			await expect(
+				transitionTask(db, eventBus, "ba6-b2b-review-task", "in_progress", testDeps),
+			).resolves.not.toThrow();
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b2b-review-task"));
+			expect(row?.state).toBe("in_progress");
+		});
+
+		test("-> accepted is still refused with a message naming the dependency", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "ba6-b2b-accepted");
+			await insertTask(db, "ba6-b2b-accepted-dep", "ba6-b2b-accepted", "proposed");
+			await insertTask(db, "ba6-b2b-accepted-task", "ba6-b2b-accepted", "hold", [
+				"ba6-b2b-accepted-dep",
+			]);
+
+			await expect(
+				transitionTask(db, eventBus, "ba6-b2b-accepted-task", "accepted", testDeps),
+			).rejects.toThrow(/unfinished dependency/);
+		});
+
+		test("accepted -> in_progress is still refused with a message naming the dependency", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "ba6-b2b-accepted2");
+			await insertTask(db, "ba6-b2b-accepted2-dep", "ba6-b2b-accepted2", "proposed");
+			await insertTask(db, "ba6-b2b-accepted2-task", "ba6-b2b-accepted2", "accepted", [
+				"ba6-b2b-accepted2-dep",
+			]);
+
+			await expect(
+				transitionTask(db, eventBus, "ba6-b2b-accepted2-task", "in_progress", testDeps),
+			).rejects.toThrow(/unfinished dependency/);
+		});
+	});
 });
