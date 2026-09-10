@@ -45,5 +45,15 @@ describe("task transition contract", () => {
 			expect(canTransitionTaskState(state, "done")).toBe(true);
 		}
 	});
+
+	/**
+	 * BA6: `hold` is the single waiting state, entered when a task is created
+	 * or edited with an unfinished dependency. A task is born `proposed`, so
+	 * without this edge nothing can ever enter the chain the watcher already
+	 * carries onward — see `.pipeline/work/BA6/plan.md` "How it works".
+	 */
+	it("allows proposed -> hold (BA6: the entrance to the dependency-wait chain)", () => {
+		expect(canTransitionTaskState("proposed", "hold")).toBe(true);
+	});
 });
 // TaskInvalidTransitionError is tested in @hyperidle/work (layers/core-api/work/src/__tests__/errors.test.ts)
