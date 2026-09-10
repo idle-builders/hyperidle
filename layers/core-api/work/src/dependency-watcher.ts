@@ -40,7 +40,7 @@ export async function checkAndUnblockDependents(
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
 	// quoted completedTaskId. The LIKE pattern wraps the id in JSON quotes
 	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.
-	const candidates = await list(db, "task", { dependencyId: completedTaskId });
+	const candidates = await list(db, "task", { dependencyId: completedTaskId, state: "hold" });
 
 	for (const task of candidates) {
 		if (!task.dependencies) continue;
@@ -102,17 +102,20 @@ export async function checkAndUnblockDependents(
 }
 
 /**
- * BA6: after a task is killed, every task holding on it as a dependency
- * returns to `proposed` for re-planning — the premise it was planned under is
- * gone, so it is not freed to start the way a finished dependency frees it.
- * The killed id is dropped from the dependent's `dependencies` list at the
- * same time: left in place it is a prerequisite that can never be satisfied,
- * which would park the task forever the next time it is accepted.
+ * BA6: after a task is killed, the killed id is dropped from every dependent
+ * that carries it, WHATEVER state that dependent is in — left in place it is
+ * a prerequisite that can never be satisfied, which parks the task forever
+ * the next time it is accepted. Separately, only the dependents that were
+ * actually WAITING on it (`hold`) are reset to `proposed` for re-planning —
+ * the premise they were planned under is gone, so they are not freed to
+ * start the way a finished dependency frees them. A dependent in any other
+ * state (still `proposed`, already `accepted`, or already `in_progress`) just
+ * loses the stale id; it is not rewound.
  *
- * Mirrors `checkAndUnblockDependents`'s SQL pre-filter + JSON-array shape,
- * but reacts to a DIFFERENT "finished" signal (`killed`, not `done`) and a
- * different destination state (`proposed`, not `accepted`) — see that
- * function's own `@lore` for why the pre-filter and quoting matter.
+ * Queries with NO state filter — the id must be found and cleaned up
+ * regardless of the dependent's current state, unlike
+ * `checkAndUnblockDependents`'s `hold`-only query. See `work-service.ts`'s
+ * `dependencyId` filter for why `state` had to become optional there.
  */
 export async function handleDependencyKilled(
 	db: WriteExecutor,
@@ -148,10 +151,17 @@ export async function handleDependencyKilled(
 
 		const remaining = deplist.filter((id) => id !== killedTaskId);
 
-		await transitionTask(db, eventBus, task.id, "proposed", deps);
+		// Drop the stale id regardless of state.
 		await update(db, "task", task.id, {
 			dependencies: remaining.length > 0 ? JSON.stringify(remaining) : null,
 		});
+
+		// Only a dependent actually WAITING on it is reset — not one already
+		// past the wait (`in_progress`, etc.) and not one that never entered
+		// it (still `proposed`).
+		if (task.state !== "hold") continue;
+
+		await transitionTask(db, eventBus, task.id, "proposed", deps);
 
 		eventBus.emit({
 			type: "notification",

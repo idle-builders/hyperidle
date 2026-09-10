@@ -307,11 +307,20 @@ export async function list(
 						.from(tasks)
 						.where(inArray(tasks.id, [...f.ids]));
 		if (f.dependencyId !== undefined) {
+			// BA6: `state` is OPTIONAL here on purpose — the `done` watcher only
+			// ever cares about `hold` dependents (pass `state: "hold"`), but the
+			// `killed` watcher must find a dependent CARRYING the id in ANY
+			// state (a task can be `proposed`, `accepted`, or `in_progress` while
+			// still listing a since-killed dependency), so it omits `state` and
+			// filters by outcome itself. Hardcoding `hold` here silently excluded
+			// every non-`hold` dependent from the killed-dependency cleanup.
 			const escaped = f.dependencyId.replace(/[\\%_]/g, "\\$&");
+			const conds: SQL[] = [like(tasks.dependencies, `%"${escaped}"%`)];
+			if (f.state !== undefined) conds.push(eq(tasks.state, f.state));
 			return exec
 				.select()
 				.from(tasks)
-				.where(and(eq(tasks.state, "hold"), like(tasks.dependencies, `%"${escaped}"%`)));
+				.where(and(...conds));
 		}
 		if (f.text !== undefined) {
 			// BB1: moved off the deleted bet dispatch. A task's searchable prose is

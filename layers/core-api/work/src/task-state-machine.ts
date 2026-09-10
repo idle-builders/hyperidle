@@ -240,7 +240,16 @@ export async function transitionTask(
 			// rather than a new error class: while a named dependency is unmet,
 			// `-> accepted` is not a legal move for this task, which is exactly
 			// what that error already means.
-			if (toState === "accepted") {
+			//
+			// Covers `-> in_progress` too, not only `-> accepted`: `accepted` is
+			// reachable with a stale dependency still attached (e.g. dependencies
+			// were added to an already-`accepted` task), and `accepted ->
+			// in_progress` is a legal edge in `TASK_STATE_TRANSITIONS`. Without
+			// this second check, a task could sit `accepted` holding an unfinished
+			// dependency and then be picked up via the `session_started ->
+			// in_progress` reaction — the exact "not picked up for work" AC this
+			// package exists to satisfy, entered through a different door.
+			if (toState === "accepted" || toState === "in_progress") {
 				const depIds = parseDependencyIds(task.dependencies);
 				if (depIds.length > 0 && (await hasUnfinishedDependency(tx, depIds))) {
 					throw new TaskInvalidTransitionError(taskId, fromState, toState);

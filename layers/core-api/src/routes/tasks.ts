@@ -588,14 +588,20 @@ export function createTaskRoutes(
 			await applyStateChange(state, existing.state, taskId);
 
 			// BA6: setting dependencies parks the task automatically — but only
-			// when the caller didn't ALSO ask for an explicit state change, and
+			// when the caller didn't ALSO ask for an explicit state CHANGE, and
 			// only when hold is a legal move from the task's CURRENT state.
+			// `state === existing.state` is not a change — the same no-op the
+			// state transition above already treats identically (see
+			// `applyStateChange`'s "@lore BB1" above): the edit panel submits
+			// every field it renders, including the unchanged state dropdown, so
+			// gating on `state === undefined` alone missed every edit-panel save
+			// (it always sends `state`) and never parked anything.
 			// `TASK_STATE_TRANSITIONS` has no edge into `hold` from `in_progress`
 			// or `blocked`, so a task already running is never rewound by a
 			// later dependencies write — the same chain that forbids a direct
 			// `hold -> in_progress` shortcut also forbids this one.
 			if (
-				state === undefined &&
+				(state === undefined || state === existing.state) &&
 				dependencies !== undefined &&
 				dependencies !== null &&
 				dependencies.length > 0 &&

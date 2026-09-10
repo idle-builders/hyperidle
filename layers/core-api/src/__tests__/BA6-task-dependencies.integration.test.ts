@@ -264,4 +264,99 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			expect(JSON.parse(dependent?.dependencies ?? "[]")).toEqual(["ba6-still-unfinished"]);
 		});
 	});
+
+	// ---------------------------------------------------------------------
+	// B1 (fix round) — the edit panel's PATCH body always includes `state`,
+	// set to the task's OWN current value (the form submits every field it
+	// renders, including the unchanged state dropdown). Parking must not
+	// require `state` to be absent — only that it isn't an actual CHANGE.
+	// ---------------------------------------------------------------------
+	describe("B1: the edit-panel PATCH body (state included, unchanged) still parks", () => {
+		test("PATCH carrying the SAME state plus an unfinished dependency parks the task", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "ba6-b1a");
+			await insertTask(db, "ba6-b1a-dep", "ba6-b1a", "proposed");
+			await insertTask(db, "ba6-b1a-dependent", "ba6-b1a", "proposed");
+
+			// Exactly what WorkTaskPage's edit panel sends: every field it
+			// renders, including `state` set to the value it already has.
+			const res = await app.request("/api/tasks/ba6-b1a-dependent", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "proposed", dependencies: ["ba6-b1a-dep"] }),
+			});
+
+			expect(res.status).toBe(200);
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b1a-dependent"));
+			expect(row?.state).toBe("hold");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// B1 (fix round), second half — the guard must also cover `-> in_progress`,
+	// not only `-> accepted`. A task can reach `accepted` still carrying an
+	// unfinished dependency (e.g. dependencies added to an already-`accepted`
+	// task), and `accepted -> in_progress` is otherwise a legal edge.
+	// ---------------------------------------------------------------------
+	describe("B1: transitionTask also refuses accepted -> in_progress while a dependency is unfinished", () => {
+		test("an accepted task holding an unfinished dependency cannot move to in_progress", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "ba6-b1b");
+			await insertTask(db, "ba6-b1b-dep", "ba6-b1b", "proposed");
+			// Directly seeded `accepted` carrying an unfinished dependency — the
+			// state the reviewer showed is reachable despite the parking guard
+			// (e.g. a race, or dependencies attached while already accepted).
+			await insertTask(db, "ba6-b1b-dependent", "ba6-b1b", "accepted", ["ba6-b1b-dep"]);
+
+			await expect(
+				transitionTask(db, eventBus, "ba6-b1b-dependent", "in_progress", testDeps),
+			).rejects.toThrow();
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b1b-dependent"));
+			expect(row?.state).toBe("accepted");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// B2 (fix round) — a dependent that is NOT in `hold` still carries the
+	// killed dependency's id forever under the old `state = 'hold'`-only
+	// filter, which permanently bricks it (the next `-> accepted` throws
+	// `Invalid transition`, since the guard above now also checks the stale
+	// id). The id must be dropped from a dependent in ANY state.
+	// ---------------------------------------------------------------------
+	describe("B2: a killed dependency drops its id from a dependent that is NOT in hold", () => {
+		test("a `proposed` dependent loses the killed id and stays acceptable afterward", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
+			await seedTeam(db, "ba6-b2");
+			await insertTask(db, "ba6-b2-killable", "ba6-b2", "done");
+			// F: proposed, not hold — created after E already finished, so it was
+			// never parked; it still carries E's id.
+			await insertTask(db, "ba6-b2-dependent", "ba6-b2", "proposed", ["ba6-b2-killable"]);
+
+			const res = await app.request("/api/tasks/ba6-b2-killable", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "killed" }),
+			});
+			expect(res.status).toBe(200);
+
+			const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b2-dependent"));
+			// Not rewound — it was never waiting.
+			expect(dependent?.state).toBe("proposed");
+			// The stale id is gone, not left behind to brick every future accept.
+			expect(JSON.parse(dependent?.dependencies ?? "[]")).toEqual([]);
+
+			// Proof it isn't bricked: accepting it now succeeds.
+			await expect(
+				transitionTask(db, eventBus, "ba6-b2-dependent", "accepted", testDeps),
+			).resolves.not.toThrow();
+		});
+	});
 });

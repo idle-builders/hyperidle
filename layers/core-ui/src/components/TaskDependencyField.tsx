@@ -7,18 +7,23 @@
  * `WorkTaskCreate` and `WorkTaskPage`'s edit panel — the two surfaces the
  * plan names.
  *
- * @lore BA6: no existing design-system control fits. `ScopePicker` and
- * `RoleCombobox` both pick from a small closed catalog; a dependency can
- * point at ANY task under any root (no restriction, per the plan), and there
- * is no task-search endpoint or hook to build a title-based picker against
- * today — that is real, separate work, not a detail of this field. Building
- * one here would be inventing scope the plan didn't ask for, so this is
- * deliberately the plainest thing: type a task id, add it, remove it. A
- * title-based picker is a reasonable follow-up, not a defect in this control.
+ * @lore BA6: no existing design-system control fits the PICKER shape.
+ * `ScopePicker` and `RoleCombobox` both pick from a small closed catalog; a
+ * dependency can point at ANY task under any root (no restriction, per the
+ * plan), and there is no task-search endpoint or hook to build a
+ * title-based picker against today — that is real, separate work, not a
+ * detail of this field. Building one here would be inventing scope the plan
+ * didn't ask for, so this is deliberately the plainest interaction: type a
+ * task id, add it, remove it. A title-based picker is a reasonable
+ * follow-up, not a defect in this control.
+ *
+ * The CHIP that shows an added id, though, is not a new shape — it is
+ * `ReferenceChip`'s existing `mode="draft"` (open body + trailing ✕ remove),
+ * extended with a `"task"` kind rather than hand-rolled a second time.
  */
 
 import { type JSX, useState } from "react";
-import { Button, Input } from "../ds/index.js";
+import { Button, Input, ReferenceChip } from "../ds/index.js";
 
 export interface TaskDependencyFieldProps {
 	dependencies: readonly string[];
@@ -46,33 +51,23 @@ export function TaskDependencyField({
 
 	return (
 		<div data-testid="task-dependency-field" className="flex flex-col gap-[6px]">
-			<span className="type-label uppercase text-[var(--text-tertiary)]">
-				Depends on (waits until these finish)
-			</span>
 			{dependencies.length > 0 && (
 				<ul className="flex flex-wrap items-center gap-[6px]" data-testid="task-dependency-list">
 					{dependencies.map((id) => (
-						<li key={id}>
-							<span className="type-metadata border-width-thin inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px]">
-								<span className="truncate text-[var(--text-primary)]">{id}</span>
-								<button
-									type="button"
-									onClick={() => removeDependency(id)}
-									disabled={disabled}
-									aria-label={`Remove dependency ${id}`}
-									data-testid={`task-dependency-remove-${id}`}
-									className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
-								>
-									×
-								</button>
-							</span>
+						<li key={id} data-testid={`task-dependency-remove-${id}`}>
+							<ReferenceChip
+								kind="task"
+								label={id}
+								mode="draft"
+								onRemove={disabled ? undefined : () => removeDependency(id)}
+							/>
 						</li>
 					))}
 				</ul>
 			)}
 			<div className="flex items-center gap-[6px]">
 				<Input
-					aria-label="Task id to depend on"
+					label="Depends on (waits until these finish)"
 					value={draft}
 					onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value)}
 					onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
