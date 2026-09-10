@@ -6,7 +6,6 @@ export default {
 	tier: "1" as const,
 	order: [
 		"Empty",
-		"WithLabel",
 		"WithValue",
 		"Loading",
 		"WithKeyboardShortcut",
@@ -18,15 +17,6 @@ export default {
 export const Empty = (): React.JSX.Element => (
 	<div className="w-72">
 		<SearchField placeholder="Search..." />
-	</div>
-);
-
-export const WithLabel = (): React.JSX.Element => (
-	<div className="w-72">
-		<SearchField
-			label="Depends on (waits until these finish)"
-			placeholder="Search tasks by title…"
-		/>
 	</div>
 );
 

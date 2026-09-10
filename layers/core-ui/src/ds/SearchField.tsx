@@ -9,13 +9,7 @@ export interface SearchFieldProps {
 	shortcutKey?: string;
 	/** BA6: freezes the input and hides the clear button — real `disabled`, mirrors RoleCombobox. */
 	disabled?: boolean;
-	/**
-	 * BA6 (fix round): a visible field label, rendered above the input —
-	 * mirrors `Input`'s `label` prop (same `type-small` profile, same
-	 * `htmlFor`/`id` pairing) so a search field used as a form control
-	 * (not a page-chrome search bar) can still say what it is for.
-	 */
-	label?: string;
+	/** BA6: lets a caller that owns its own visible label (e.g. `TaskDependencyField`) point its `htmlFor` at this input. */
 	id?: string;
 	/** Placed on the `<input>` itself — unlike RoleCombobox's closed-field button, the input IS the control here. */
 	"data-testid"?: string;
@@ -29,21 +23,13 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 		loading = false,
 		shortcutKey,
 		disabled = false,
-		label,
 		id,
 		"data-testid": dataTestId,
 	},
 	ref,
 ): JSX.Element {
-	const inputId =
-		id ?? (label ? `search-field-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
 	return (
 		<div {...dsProps("SearchField", "1")} className="flex w-full flex-col gap-[6px]">
-			{label && (
-				<label htmlFor={inputId} className="type-small text-[var(--text-primary)]">
-					{label}
-				</label>
-			)}
 			<div className="relative flex w-full items-center">
 				<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-tertiary)]">
 					{loading ? (
@@ -89,7 +75,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 					data-az16-profile="input thin"
 					data-testid={dataTestId}
 					ref={ref}
-					id={inputId}
+					id={id}
 					type="text"
 					// @lore AZ7 B3 (review round 1): fill was --surface-container (a recessed
 					// fill, wrong job for an input — Set 3 gives text inputs

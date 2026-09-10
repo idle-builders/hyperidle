@@ -72,7 +72,11 @@ const EXPECTED = {
 		//   +1 ReviewFieldChangeSet.tsx (the unchanged-fields row now uses
 		//   `type-metadata` instead of a stray `type-control` left from when the row
 		//   was a disclosure button).
-		small: 205, // @lore BA6 label-order fix-round +1: TaskDependencyField.tsx now owns its
+		small: 204, // @lore BA6 cleanup round -1: SearchField.tsx's `label` prop deleted (test-only-reachable —
+		// its sole caller, TaskDependencyField, moved to owning its own label and passing SearchField
+		// only an `id`; the only other consumer was the WithLabel story, deleted with it), taking its
+		// `type-small` `<label>` site with it. Net against the fix-round +1 immediately below.
+		// @lore BA6 label-order fix-round +1: TaskDependencyField.tsx now owns its
 		// own visible label (same `type-small text-primary` profile SearchField used to render
 		// for it) so it can sit before the chip list instead of between chips and input;
 		// SearchField's own `label`-prop site is unchanged (still there for other future
