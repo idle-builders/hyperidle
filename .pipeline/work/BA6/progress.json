@@ -2,7 +2,7 @@
   "id": "BA6",
   "track": "BA",
   "status": "in-progress",
-  "phase": "built; blocking review findings fixed; delta re-review running; gate not yet presented",
+  "phase": "all acceptance criteria proven; awaiting maintainer approval at the gate",
   "dials": {
     "complexity": "feature",
     "ambiguity": "established context (resolved by the 2026-09-09 interview)",
@@ -10,7 +10,8 @@
   },
   "gates": {
     "agreed": [
-      "before shipping: the three validation scenarios plus the dependency control, shown on the running app"
+      "before shipping: the three validation scenarios plus the dependency control, shown on the running app",
+      "2026-09-10 gate: maintainer rejected the paste-a-task-id control and ruled harnesses are desktop-only"
     ],
     "passed": []
   },
@@ -55,6 +56,26 @@
     {
       "sha": "e7ca8c23e",
       "what": "fixes for the three blocking review findings"
+    },
+    {
+      "sha": "4a1cd074e",
+      "what": "plan + progress artifacts"
+    },
+    {
+      "sha": "70ffe77c3",
+      "what": "search picker replaces paste-a-task-id; GET /api/tasks?q= already existed, no server change needed"
+    },
+    {
+      "sha": "8903f5a3f",
+      "what": "restore the field label; fix the aborted-lookup title loss"
+    },
+    {
+      "sha": "2a481dbb6",
+      "what": "label precedes chips, not between them"
+    },
+    {
+      "sha": "814c99082",
+      "what": "delete SearchField.label \u2014 orphaned, story-only-reachable"
     }
   ],
   "liveProof": {
@@ -64,12 +85,17 @@
       "edit door: a PATCH shaped exactly as the edit panel sends it now parks the task (was B1, re-verified after fix)",
       "cycle refused with the reason shown to the person next to Save changes (UI, screenshotted)",
       "last dependency finishes -> dependent leaves hold and reaches accepted with no human action (twice, two separate task pairs)",
-      "killed dependency: id dropped from a non-hold dependent and the dependent is acceptable again (was B2, re-verified after fix)"
+      "killed dependency: id dropped from a non-hold dependent and the dependent is acceptable again (was B2, re-verified after fix)",
+      "search picker: typing 'Design' returns 'Design the schema'; picking it shows the TITLE on the chip and the new task parks in hold (create surface)",
+      "search picker on the create surface: type 'Design' -> 'Design the schema' returned by title; picking it shows the TITLE; dependent parks in hold",
+      "task detail surface: existing dependency resolves to its title, label present, order is label -> chips -> input",
+      "DESKTOP (packaged app, factory DB, port 59361): all four harnesses Ready at boot; a task owned by a claude-code agent went hold -> accepted -> in_progress with no human action, and a real session is active with no errors"
     ],
-    "notProvenLive": {
-      "what": "accepted -> in_progress for an agent-owned task",
-      "why": "every agent session dies at pre-admission with NoEligibleHarnessError \u2014 harness adapters pool only at boot and boot probing fails on this host; see Proposed items 1 in plan.md. Code BA6 does not touch.",
-      "coveredBy": "BA6-dependency-freed.integration.test.ts AC3 \u2014 real watcher, real dispatch bookkeeping, real promotion reaction"
+    "desktop": {
+      "build": "applications/desktop/release/mac-arm64/HyperIdle.app, built from this branch",
+      "why": "maintainer ruling \u2014 harnesses are only available through the desktop app",
+      "userDataHandling": "the real 42M DB was backed up, moved aside for a factory boot, and RESTORED afterwards; the factory DB is kept as hyperidle-pg.ba6-factory-174209",
+      "screenshots": "none \u2014 screen-control access was declined; evidence is the packaged app's own API plus its server log"
     }
   },
   "reviews": [
@@ -77,6 +103,16 @@
       "pass": "full diff vs origin/main",
       "verdict": "blocking findings (3)",
       "outcome": "all three fixed in e7ca8c23e; B1 and B2 independently re-verified live by the orchestrator"
+    },
+    {
+      "pass": "delta over the fix commit",
+      "verdict": "approve",
+      "outcome": "no blocking findings; regression checks on the shared query filter and ReferenceChip both came back clean"
     }
-  ]
+  ],
+  "maintainerRulings2026_09_10": [
+    "searching a task must be possible \u2014 you type part of a title and pick; the chip shows the title",
+    "harnesses are only available through the desktop app; the accepted->in_progress proof must be driven there with computer-use"
+  ],
+  "openDefects": []
 }

@@ -93,9 +93,12 @@ around the hold by anyone — human, agent, or a direct state edit.
 
 **Reachable controls.** The write door already exists and is unguarded; what is missing is any way to
 reach it. A dependency control goes on the task create and edit surfaces, and `dependencies` goes on the
-`create_task` and `edit_task` tool schemas and the seam's `CreateTaskRequest`. The control follows
-whatever picker pattern the task surfaces already use — if none fits, that comes back to the gate rather
-than inventing one.
+`create_task` and `edit_task` tool schemas and the seam's `CreateTaskRequest`.
+
+**You find the task by searching for it.** Maintainer ruling at the 2026-09-10 gate: a control that
+makes a person paste a task id is not acceptable. You type part of a title and pick from the results,
+and the chip shows the title. Searching is not a substitute for guarding the door — the server still
+checks existence, self-dependency and cycles for any caller that skips the picker.
 
 ## How we work on this
 
@@ -120,6 +123,11 @@ tools, UI). Failing tests first, then the code.
 
 **Gates.** One: before shipping, on the running app — the three validation scenarios plus the dependency
 control, shown rather than described.
+
+**Where the proof has to run.** Maintainer ruling 2026-09-10: harnesses are only available through the
+**desktop app**. The dev web server cannot run one, so the hop from `accepted` into `in_progress` for an
+agent-owned task can only be shown by driving the packaged desktop build with computer-use. The earlier
+reading — that boot-time harness detection was failing under load — was wrong about the cause.
 
 **Review.** One fresh reviewer over the integrated diff, per complexity x exposure.
 
