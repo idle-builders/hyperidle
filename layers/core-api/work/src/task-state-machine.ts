@@ -8,7 +8,12 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { CapacityExceededError, TaskCycleError, TaskInvalidTransitionError } from "./errors.js";
+import {
+	CapacityExceededError,
+	TaskCycleError,
+	TaskDependencyNotFoundError,
+	TaskInvalidTransitionError,
+} from "./errors.js";
 import type { AgentWorkIntentRecorder, TeamCapacityReader } from "./ports.js";
 import type { TaskRunResolverDeps } from "./task-run-resolver.js";
 import { resolveTaskRunRequest } from "./task-run-resolver.js";
@@ -80,6 +85,87 @@ export {
 	TaskInvalidTransitionError as InvalidTransitionError,
 };
 
+/** BA6: read a task's `dependencies` JSON-text column as a string array. */
+function parseDependencyIds(dependencies: string | null): readonly string[] {
+	if (!dependencies) return [];
+	try {
+		const parsed: unknown = JSON.parse(dependencies);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter((v): v is string => typeof v === "string");
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * BA6: true when `fromId`'s dependency graph (followed transitively) already
+ * reaches `targetId` — i.e. setting `targetId -> fromId` as a NEW dependency
+ * edge would close a loop. Depth-capped at `MAX_TASK_DEPTH`, the same backstop
+ * `listSubtreeIds`/`listAncestorIds` use for the parent tree: `dependencies`
+ * is a JSON text blob, not a column a recursive CTE can join on, so the walk
+ * happens in application code instead.
+ */
+async function dependsOnTransitively(
+	exec: WriteExecutor,
+	fromId: string,
+	targetId: string,
+	depth = 0,
+): Promise<boolean> {
+	if (depth >= work.MAX_TASK_DEPTH) return false;
+	const from = await work.get(exec, "task", fromId);
+	const depIds = parseDependencyIds(from?.dependencies ?? null);
+	for (const depId of depIds) {
+		if (depId === targetId) return true;
+		if (await dependsOnTransitively(exec, depId, targetId, depth + 1)) return true;
+	}
+	return false;
+}
+
+/**
+ * BA6: validate a task's proposed `dependencies` list before it is written —
+ * every id must name a task that exists, a task may not depend on itself, and
+ * the resulting graph must have no cycle. Called from inside the same
+ * transaction as the write (both `POST /tasks` and `PATCH /tasks/:id`).
+ *
+ * Throws `TaskDependencyNotFoundError` for a dangling id (mapped to 404) or
+ * `TaskCycleError` for a self-dependency or cycle (mapped to 409 `TASK_CYCLE`).
+ */
+export async function assertValidDependencies(
+	exec: WriteExecutor,
+	taskId: string,
+	dependencyIds: readonly string[],
+): Promise<void> {
+	for (const depId of dependencyIds) {
+		if (depId === taskId) {
+			throw new TaskCycleError(taskId, depId, "dependency");
+		}
+		const dep = await work.get(exec, "task", depId);
+		if (!dep) {
+			throw new TaskDependencyNotFoundError(depId);
+		}
+		if (await dependsOnTransitively(exec, depId, taskId)) {
+			throw new TaskCycleError(taskId, depId, "dependency");
+		}
+	}
+}
+
+/**
+ * BA6: true when any of the given dependency ids names a task that is not
+ * `done` — the same "finished" definition the dependency watcher's own
+ * all-deps check uses (`dependency-watcher.ts`), kept consistent on purpose.
+ * A missing/dangling id counts as unfinished (never satisfies the wait).
+ */
+export async function hasUnfinishedDependency(
+	exec: WriteExecutor,
+	dependencyIds: readonly string[],
+): Promise<boolean> {
+	for (const depId of dependencyIds) {
+		const dep = await work.get(exec, "task", depId);
+		if (dep?.state !== "done") return true;
+	}
+	return false;
+}
+
 /**
  * Transition a task to a new state, validating the transition, updating the DB,
  * logging to the audit trail, and emitting a task_state_changed event.
@@ -145,6 +231,20 @@ export async function transitionTask(
 			const fromState = task.state as TaskState;
 			if (!canTransitionTaskState(fromState, toState)) {
 				throw new TaskInvalidTransitionError(taskId, fromState, toState);
+			}
+
+			// BA6: the enforcing half. Parking (`-> hold`) is the visible half;
+			// this is what actually stops a task with an unfinished dependency
+			// from being dispatched, no matter who calls for `accepted` — human,
+			// agent, or a direct state edit. Reuses `TaskInvalidTransitionError`
+			// rather than a new error class: while a named dependency is unmet,
+			// `-> accepted` is not a legal move for this task, which is exactly
+			// what that error already means.
+			if (toState === "accepted") {
+				const depIds = parseDependencyIds(task.dependencies);
+				if (depIds.length > 0 && (await hasUnfinishedDependency(tx, depIds))) {
+					throw new TaskInvalidTransitionError(taskId, fromState, toState);
+				}
 			}
 
 			const now = new Date().toISOString();

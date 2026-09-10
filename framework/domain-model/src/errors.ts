@@ -70,14 +70,38 @@ export class InvalidTransitionError extends Error {
  * A cycle is not merely invalid data: a recursive read that meets one does not
  * error, it spins. So this is rejected at write time, and the recursive CTEs
  * additionally carry a depth cap as a backstop.
+ *
+ * @lore BA6: reused for the dependency graph rather than inventing a second
+ * cycle error and code — a cycle is a cycle regardless of which edge closed
+ * it. `relation` only changes the message, which must name dependencies
+ * rather than the parent tree when that is the edge that closed the loop
+ * (the founder ruling this package was built against).
  */
 export class TaskCycleError extends Error {
 	constructor(
 		public readonly taskId: string,
 		public readonly parentTaskId: string,
+		relation: "parent" | "dependency" = "parent",
 	) {
-		super(`Task ${taskId} cannot be a child of ${parentTaskId}: that would form a cycle`);
+		super(
+			relation === "dependency"
+				? `Task ${taskId} cannot depend on ${parentTaskId}: that would form a cycle`
+				: `Task ${taskId} cannot be a child of ${parentTaskId}: that would form a cycle`,
+		);
 		this.name = "TaskCycleError";
+	}
+}
+
+/**
+ * BA6: thrown when a `dependencies` write names a task id that does not
+ * exist. Distinct from `TaskCycleError` (409) — a dangling id is refused
+ * outright with 404, matching the existing precedent for a missing
+ * `parentTaskId` on `POST /tasks`.
+ */
+export class TaskDependencyNotFoundError extends Error {
+	constructor(public readonly dependencyId: string) {
+		super(`Dependency task not found: ${dependencyId}`);
+		this.name = "TaskDependencyNotFoundError";
 	}
 }
 
@@ -116,5 +140,30 @@ export class TaskInvalidTransitionError extends InvalidTransitionError {
 		super(fromState, toState);
 		this.message = `Invalid transition for task ${taskId}: ${fromState} -> ${toState}`;
 		this.name = "InvalidTransitionError";
+	}
+}
+
+/**
+ * BA6: thrown by the `CoreApiPort` seam client on a non-2xx response, carrying
+ * the response's machine-readable `code` (when the body is `{ error, code }`
+ * JSON) alongside the status and a formatted message.
+ *
+ * @lore BA6: the seam previously collapsed every non-2xx into a generic
+ * `Error`, so a caller like `edit_task` had no way to distinguish a cycle
+ * rejection from any other failure without string-matching the message. A
+ * tool handler that needs to turn a structured route rejection (e.g. 409
+ * `{ code: "TASK_CYCLE" }`) into a structured `err(code, message)` catches
+ * this by `instanceof` and reads `.code`, rather than parsing the thrown
+ * message text.
+ */
+export class SeamRequestError extends Error {
+	constructor(
+		public readonly status: number,
+		/** The response body's `code` field, when present and a string. */
+		public readonly code: string | undefined,
+		message: string,
+	) {
+		super(message);
+		this.name = "SeamRequestError";
 	}
 }

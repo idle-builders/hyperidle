@@ -2,7 +2,7 @@ import type { WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
-import { get, list } from "./work-service.js";
+import { get, list, update } from "./work-service.js";
 
 const logger = createLogger({ pkg: "work.dependency-watcher" });
 
@@ -96,6 +96,69 @@ export async function checkAndUnblockDependents(
 			targetId: task.id,
 			kind: "auto_unblock",
 			message: `Task ${task.id} auto-transitioned to accepted: all dependencies are done`,
+			timestamp: Date.now(),
+		});
+	}
+}
+
+/**
+ * BA6: after a task is killed, every task holding on it as a dependency
+ * returns to `proposed` for re-planning — the premise it was planned under is
+ * gone, so it is not freed to start the way a finished dependency frees it.
+ * The killed id is dropped from the dependent's `dependencies` list at the
+ * same time: left in place it is a prerequisite that can never be satisfied,
+ * which would park the task forever the next time it is accepted.
+ *
+ * Mirrors `checkAndUnblockDependents`'s SQL pre-filter + JSON-array shape,
+ * but reacts to a DIFFERENT "finished" signal (`killed`, not `done`) and a
+ * different destination state (`proposed`, not `accepted`) — see that
+ * function's own `@lore` for why the pre-filter and quoting matter.
+ */
+export async function handleDependencyKilled(
+	db: WriteExecutor,
+	eventBus: EventBus,
+	killedTaskId: string,
+	deps: TaskStateMachineDeps,
+): Promise<void> {
+	const candidates = await list(db, "task", { dependencyId: killedTaskId });
+
+	for (const task of candidates) {
+		if (!task.dependencies) continue;
+
+		let deplist: string[];
+		try {
+			const parsed = JSON.parse(task.dependencies);
+			if (!Array.isArray(parsed)) {
+				logger.warn("dependency-watcher: dependencies is not a JSON array", {
+					taskId: task.id,
+					value: task.dependencies,
+				});
+				continue;
+			}
+			deplist = parsed.filter((v): v is string => typeof v === "string");
+		} catch (err) {
+			logger.warn("dependency-watcher: failed to parse dependencies JSON", {
+				taskId: task.id,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			continue;
+		}
+
+		if (!deplist.includes(killedTaskId)) continue;
+
+		const remaining = deplist.filter((id) => id !== killedTaskId);
+
+		await transitionTask(db, eventBus, task.id, "proposed", deps);
+		await update(db, "task", task.id, {
+			dependencies: remaining.length > 0 ? JSON.stringify(remaining) : null,
+		});
+
+		eventBus.emit({
+			type: "notification",
+			streamId: task.id,
+			targetId: task.id,
+			kind: "auto_unblock",
+			message: `Task ${task.id} returned to proposed: dependency ${killedTaskId} was killed`,
 			timestamp: Date.now(),
 		});
 	}

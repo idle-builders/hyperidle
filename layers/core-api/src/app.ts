@@ -441,6 +441,14 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 					});
 				});
 			}
+			// @lore BA6: NOT subscribed here on `toState === "killed"` — unlike the
+			// `done` reaction above, a killed dependency's reset has to be visible
+			// the moment the kill's own response returns (proven by a real test
+			// failure: subscribing here raced `cascadeTaskKill`'s own synchronous
+			// per-task loop and double-applied the reset, throwing
+			// `proposed -> proposed`). `cascadeTaskKill` — the ONLY production
+			// path that ever reaches `killed` — calls `handleDependencyKilled`
+			// itself, awaited, right after each task's kill transition.
 		});
 		disposers.push(unsubDepWatcher);
 

@@ -52,6 +52,12 @@ export interface CreateTaskRequest {
 	readonly description?: string | null;
 	readonly doneCondition?: string | null;
 	readonly ownerAgentId?: string | null;
+	/**
+	 * BA6: a list of task ids this task waits on. Wire shape is an ARRAY, not
+	 * a JSON-encoded string — the route encodes it to the `dependencies`
+	 * column's JSON-text shape server-side.
+	 */
+	readonly dependencies?: readonly string[];
 	/** When true, finishing this task sends it to `review` rather than `done`. */
 	readonly needsReview?: boolean;
 	/** AK5 provenance — the knowledge item this task was promoted from. */
@@ -64,7 +70,8 @@ export interface UpdateTaskRequest {
 	readonly description?: string | null;
 	readonly doneCondition?: string | null;
 	readonly ownerAgentId?: string | null;
-	readonly dependencies?: string | null;
+	/** BA6: a list of task ids, or `null` to clear. See `CreateTaskRequest.dependencies`. */
+	readonly dependencies?: readonly string[] | null;
 	readonly parentTaskId?: string | null;
 	readonly state?: string;
 }

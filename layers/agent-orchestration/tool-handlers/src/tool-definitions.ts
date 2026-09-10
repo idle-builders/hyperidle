@@ -31,6 +31,7 @@ import {
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
+	SeamRequestError,
 	TASK_STATES,
 } from "@hyperidle/domain-model";
 import { EVENT_TYPES, type TaskStateChangedEvent } from "@hyperidle/event-bus";
@@ -449,6 +450,11 @@ const createTaskInputSchema = z.object({
 	doneCondition: z.string().max(65_536).optional(),
 	/** Explicit parent — any depth. Omit to nest under the session's own task. */
 	parentTaskId: z.string().min(1).optional(),
+	/**
+	 * BA6: task ids this task waits on. While any is unfinished the new task
+	 * starts in `hold` instead of `proposed`.
+	 */
+	dependencies: z.array(z.string()).optional(),
 	/** When true, finishing this task sends it to `review` rather than `done`. */
 	needsReview: z.boolean().optional(),
 });
@@ -494,6 +500,7 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 					description: input.description ?? null,
 					doneCondition: input.doneCondition ?? null,
 					ownerAgentId: ctx.agentId,
+					...(input.dependencies !== undefined ? { dependencies: input.dependencies } : {}),
 					...(input.needsReview !== undefined ? { needsReview: input.needsReview } : {}),
 				},
 				ctx.agentId,
@@ -536,6 +543,8 @@ const editTaskInputSchema = z.object({
 	ownerAgentId: z.string().min(1).optional(),
 	/** `null` promotes the task to a root — the same reach the human door has. */
 	parentTaskId: z.string().min(1).nullable().optional(),
+	/** BA6: task ids this task waits on. `null` clears the list. */
+	dependencies: z.array(z.string()).nullable().optional(),
 	state: z.enum(TASK_STATES).optional(),
 	/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
 	position: z.number().int().nonnegative().optional(),
@@ -562,6 +571,7 @@ function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTas
 				doneCondition?: string | null;
 				ownerAgentId?: string | null;
 				parentTaskId?: string | null;
+				dependencies?: readonly string[] | null;
 				state?: string;
 				position?: number;
 				needsReview?: boolean;
@@ -571,6 +581,7 @@ function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTas
 			if (input.doneCondition !== undefined) updates.doneCondition = input.doneCondition;
 			if (input.ownerAgentId !== undefined) updates.ownerAgentId = input.ownerAgentId;
 			if (input.parentTaskId !== undefined) updates.parentTaskId = input.parentTaskId;
+			if (input.dependencies !== undefined) updates.dependencies = input.dependencies;
 			if (input.state !== undefined) updates.state = input.state;
 			if (input.position !== undefined) updates.position = input.position;
 			if (input.needsReview !== undefined) updates.needsReview = input.needsReview;
@@ -579,7 +590,18 @@ function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTas
 				return err("INVALID_INPUT", "No fields to update.");
 			}
 
-			await ports.coreApi.updateTaskById(input.taskId, updates, ctx.agentId);
+			// BA6: a rejection from the write door (e.g. a dependency cycle) must
+			// reach the caller as a structured failure, not an uncaught throw —
+			// `SeamRequestError.code` carries the route's machine-readable code
+			// (e.g. "TASK_CYCLE") straight through.
+			try {
+				await ports.coreApi.updateTaskById(input.taskId, updates, ctx.agentId);
+			} catch (e) {
+				if (e instanceof SeamRequestError && e.code) {
+					return err(e.code, e.message);
+				}
+				throw e;
+			}
 			return ok({ taskId: input.taskId });
 		},
 	};

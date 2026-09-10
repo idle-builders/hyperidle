@@ -7,10 +7,8 @@
  * app behind `createInProcessCoreApiTransport`, no stub of the seam or the
  * route.
  *
- * @lore BA6 assumption: `dependencies` stays a JSON-encoded string on the
- * tool schemas too, matching `UpdateTaskRequest.dependencies?: string | null`
- * — see the sibling file `BA6-task-dependencies.integration.test.ts` for the
- * full rationale.
+ * `dependencies` crosses the tool schemas as `string[]` too, same as the
+ * human doors — see `BA6-task-dependencies.integration.test.ts`.
  */
 
 import * as os from "node:os";
@@ -100,7 +98,7 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 		const createTaskTool = buildTool(app, "create_task");
 
 		const result = await createTaskTool.handler(
-			{ title: "Waits on parent", dependencies: JSON.stringify(["ba6-agent-parent"]) },
+			{ title: "Waits on parent", dependencies: ["ba6-agent-parent"] },
 			makeContext(db, eventBus),
 		);
 
@@ -129,7 +127,7 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 		const editTaskTool = buildTool(app, "edit_task");
 
 		const result = await editTaskTool.handler(
-			{ taskId: "ba6-agent-editable", dependencies: JSON.stringify(["ba6-agent-parent"]) },
+			{ taskId: "ba6-agent-editable", dependencies: ["ba6-agent-parent"] },
 			makeContext(db, eventBus),
 		);
 
@@ -175,12 +173,13 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 		const editTaskTool = buildTool(app, "edit_task");
 
 		const result = await editTaskTool.handler(
-			{ taskId: "ba6-agent-cycle-b", dependencies: JSON.stringify(["ba6-agent-cycle-a"]) },
+			{ taskId: "ba6-agent-cycle-b", dependencies: ["ba6-agent-cycle-a"] },
 			makeContext(db, eventBus),
 		);
 
 		expect(result.success).toBe(false);
 		if (result.success) return;
 		expect(result.code).not.toBe("INVALID_INPUT");
+		expect(result.code).toBe("TASK_CYCLE");
 	});
 });

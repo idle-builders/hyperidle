@@ -83,7 +83,7 @@ describe("BA6 AC3: last dependency finishes, agent owns it -> in_progress with n
 				teamId: "ba6-freed-owned",
 				title: "Dependent",
 				ownerAgentId: "ba6-freed-agent",
-				dependencies: JSON.stringify([dep.id]),
+				dependencies: [dep.id],
 			}),
 		});
 		expect(dependentRes.status).toBe(201);
@@ -140,7 +140,7 @@ describe("BA6 AC4: last dependency finishes, nobody owns it -> waits at accepted
 			body: JSON.stringify({
 				teamId: "ba6-freed-unowned",
 				title: "Dependent, unowned",
-				dependencies: JSON.stringify([dep.id]),
+				dependencies: [dep.id],
 			}),
 		});
 		expect(dependentRes.status).toBe(201);

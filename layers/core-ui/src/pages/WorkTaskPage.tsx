@@ -24,6 +24,7 @@ import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection } from "../components/ArtifactSection.js";
+import { TaskDependencyField } from "../components/TaskDependencyField.js";
 import {
 	Breadcrumb,
 	type BreadcrumbSegment,
@@ -54,6 +55,18 @@ interface EditState {
 	doneCondition: string;
 	ownerAgentId: string;
 	state: TaskState;
+	dependencies: readonly string[];
+}
+
+/** BA6: `Task.dependencies` is the column's raw JSON-text; malformed/absent reads as none. */
+function parseDependencies(dependencies: string | null): readonly string[] {
+	if (!dependencies) return [];
+	try {
+		const parsed: unknown = JSON.parse(dependencies);
+		return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+	} catch {
+		return [];
+	}
 }
 
 function taskToEditState(task: Task): EditState {
@@ -63,7 +76,15 @@ function taskToEditState(task: Task): EditState {
 		doneCondition: task.doneCondition ?? "",
 		ownerAgentId: task.ownerAgentId ?? "",
 		state: task.state,
+		dependencies: parseDependencies(task.dependencies),
 	};
+}
+
+/** Same-set comparison, order-insensitive — the field re-adds/removes freely. */
+function sameDependencySet(a: readonly string[], b: readonly string[]): boolean {
+	if (a.length !== b.length) return false;
+	const bSet = new Set(b);
+	return a.every((id) => bSet.has(id));
 }
 
 // ── Task state select options ───────────────────────────────────────────────
@@ -295,7 +316,7 @@ function SessionRow({
  */
 function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.Element {
 	const [fields, setFields] = useState<EditState>(() => taskToEditState(task));
-	const { status, patch } = useTaskPatch(onSaved);
+	const { status, patch, errorMessage } = useTaskPatch(onSaved);
 
 	// When the task prop changes (e.g. after a refresh), re-sync the form
 	useEffect(() => {
@@ -307,16 +328,18 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 		fields.description !== (task.description ?? "") ||
 		fields.doneCondition !== (task.doneCondition ?? "") ||
 		fields.ownerAgentId !== (task.ownerAgentId ?? "") ||
-		fields.state !== task.state;
+		fields.state !== task.state ||
+		!sameDependencySet(fields.dependencies, parseDependencies(task.dependencies));
 
 	const handleSubmit = useCallback((): void => {
 		if (!isDirty || status === "saving") return;
-		const body: Record<string, string | null> = {
+		const body: Record<string, string | string[] | null> = {
 			title: fields.title.trim() || task.title,
 			description: fields.description.trim() || null,
 			doneCondition: fields.doneCondition.trim() || null,
 			ownerAgentId: fields.ownerAgentId.trim() || null,
 			state: fields.state,
+			dependencies: [...fields.dependencies],
 		};
 		patch(task.id, body);
 	}, [isDirty, status, fields, task, patch]);
@@ -378,6 +401,12 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 						disabled={isSaving}
 					/>
 				</div>
+				{/* Dependencies */}
+				<TaskDependencyField
+					dependencies={fields.dependencies}
+					onChange={(dependencies) => setFields((f) => ({ ...f, dependencies }))}
+					disabled={isSaving}
+				/>
 				{/* State */}
 				<div>
 					<Select
@@ -414,7 +443,9 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 							className="type-metadata text-[var(--status-error)]"
 							data-testid="task-save-error"
 						>
-							Save failed — try again
+							{/* BA6 AC5: show the rejection's reason (e.g. a dependency cycle)
+							    when the server sent one, instead of always the generic line. */}
+							{errorMessage ?? "Save failed — try again"}
 						</span>
 					)}
 				</div>

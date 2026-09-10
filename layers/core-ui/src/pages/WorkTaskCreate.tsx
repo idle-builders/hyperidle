@@ -19,6 +19,7 @@
 
 import { type JSX, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
+import { TaskDependencyField } from "../components/TaskDependencyField.js";
 import { Breadcrumb, Button, Input, PageHeader, PageScaffold, Select } from "../ds/index.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
@@ -40,6 +41,7 @@ export function WorkTaskCreate(): JSX.Element {
 	const [description, setDescription] = useState("");
 	const [doneCondition, setDoneCondition] = useState("");
 	const [teamId, setTeamId] = useState("");
+	const [dependencies, setDependencies] = useState<readonly string[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -64,13 +66,14 @@ export function WorkTaskCreate(): JSX.Element {
 		setSubmitting(true);
 		setError(null);
 
-		const payload: Record<string, string | undefined> = {
+		const payload: Record<string, string | string[] | undefined> = {
 			title: title.trim(),
 			description: description.trim() || undefined,
 			doneCondition: doneCondition.trim() || undefined,
 			parentTaskId,
 			teamId: parentTaskId != null ? undefined : resolvedTeamId,
 			sourceKnowledgeItemId: fromKnowledgeId,
+			dependencies: dependencies.length > 0 ? [...dependencies] : undefined,
 		};
 
 		// Remove undefined keys
@@ -86,11 +89,17 @@ export function WorkTaskCreate(): JSX.Element {
 			});
 
 			if (!res.ok) {
-				const body = (await res.json().catch(() => null)) as { code?: string } | null;
+				const body = (await res.json().catch(() => null)) as {
+					error?: string;
+					code?: string;
+				} | null;
 				setError(
 					body?.code === "CAPACITY_EXCEEDED"
 						? "Team is at its concurrent task limit."
-						: "Failed to create task. Please try again.",
+						: // BA6 AC5: a dependency rejection (cycle, self, dangling id) names
+							// the rule it broke — show it rather than a generic failure.
+							(body?.code === "TASK_CYCLE" && body.error) ||
+								"Failed to create task. Please try again.",
 				);
 				setSubmitting(false);
 				return;
@@ -192,6 +201,12 @@ export function WorkTaskCreate(): JSX.Element {
 					rows={2}
 					disabled={submitting}
 					data-testid="task-create-done-condition"
+				/>
+
+				<TaskDependencyField
+					dependencies={dependencies}
+					onChange={setDependencies}
+					disabled={submitting}
 				/>
 
 				{/* Team select — shown only for root tasks when there are multiple teams */}

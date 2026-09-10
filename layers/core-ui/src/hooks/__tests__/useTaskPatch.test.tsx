@@ -44,7 +44,7 @@ describe("useTaskPatch — AC5: surfaces the response body on failure", () => {
 		const { result } = renderHook(() => useTaskPatch());
 
 		act(() => {
-			result.current.patch("task-1", { dependencies: JSON.stringify(["ba6-cycle-b"]) });
+			result.current.patch("task-1", { dependencies: ["ba6-cycle-b"] });
 		});
 
 		await waitFor(() => {

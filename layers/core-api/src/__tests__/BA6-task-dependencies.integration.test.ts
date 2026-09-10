@@ -13,13 +13,8 @@
  *   - "Decided without asking": a dependency may point at a task under any
  *     root — no restriction.
  *
- * @lore BA6 assumption: the wire shape for `dependencies` stays the SAME
- * JSON-encoded string the (currently unreachable) PATCH field already
- * declares (`UpdateTaskRequest.dependencies?: string | null`) — every array
- * value below is `JSON.stringify([...ids])`. The plan says "a list of task
- * ids" but does not commit to an array-typed wire shape; reusing the
- * existing string type is the smaller diff across all four doors. Flagged
- * for the green phase / reviewer to confirm.
+ * `dependencies` crosses the wire as `string[]` on the request bodies below —
+ * storage stays the same JSON-text column, encoded/decoded at the route.
  */
 
 import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
@@ -90,7 +85,7 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 				body: JSON.stringify({
 					teamId: "ba6-t1",
 					title: "Depends on dep-1",
-					dependencies: JSON.stringify(["ba6-dep-1"]),
+					dependencies: ["ba6-dep-1"],
 				}),
 			});
 
@@ -121,7 +116,7 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			const res = await app.request("/api/tasks/ba6-dependent", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: JSON.stringify(["ba6-cross-dep"]) }),
+				body: JSON.stringify({ dependencies: ["ba6-cross-dep"] }),
 			});
 
 			expect(res.status).toBe(200);
@@ -168,7 +163,7 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			const first = await app.request("/api/tasks/ba6-cycle-b", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: JSON.stringify(["ba6-cycle-a"]) }),
+				body: JSON.stringify({ dependencies: ["ba6-cycle-a"] }),
 			});
 			expect(first.status).toBe(200);
 
@@ -176,12 +171,13 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			const res = await app.request("/api/tasks/ba6-cycle-a", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: JSON.stringify(["ba6-cycle-b"]) }),
+				body: JSON.stringify({ dependencies: ["ba6-cycle-b"] }),
 			});
 
 			expect(res.status).toBe(409);
-			const body = (await res.json()) as { error: string };
+			const body = (await res.json()) as { error: string; code: string };
 			expect(body.error.toLowerCase()).toContain("cycle");
+			expect(body.code).toBe("TASK_CYCLE");
 		});
 
 		test("a task cannot depend on itself", async ({ db, app }) => {
@@ -191,10 +187,12 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			const res = await app.request("/api/tasks/ba6-self", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: JSON.stringify(["ba6-self"]) }),
+				body: JSON.stringify({ dependencies: ["ba6-self"] }),
 			});
 
 			expect(res.status).toBe(409);
+			const body = (await res.json()) as { code: string };
+			expect(body.code).toBe("TASK_CYCLE");
 		});
 
 		test("a dependency naming a task that does not exist is refused", async ({ db, app }) => {
@@ -204,10 +202,33 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			const res = await app.request("/api/tasks/ba6-dangling", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: JSON.stringify(["ba6-does-not-exist"]) }),
+				body: JSON.stringify({ dependencies: ["ba6-does-not-exist"] }),
 			});
 
 			expect(res.status).toBe(404);
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// "Decided without asking": dependencies gate being picked up; a task
+	// already in progress is not rewound by a later dependencies write.
+	// ---------------------------------------------------------------------
+	describe("a task already in_progress is not rewound by a later dependencies write", () => {
+		test("PATCH dependencies on an in_progress task leaves it in_progress", async ({ db, app }) => {
+			await seedTeam(db, "ba6-t8");
+			await insertTask(db, "ba6-unfinished-dep", "ba6-t8", "in_progress");
+			await insertTask(db, "ba6-running", "ba6-t8", "in_progress");
+
+			const res = await app.request("/api/tasks/ba6-running", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["ba6-unfinished-dep"] }),
+			});
+
+			expect(res.status).toBe(200);
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-running"));
+			expect(row?.state).toBe("in_progress");
+			expect(row?.dependencies).toBe(JSON.stringify(["ba6-unfinished-dep"]));
 		});
 	});
 
