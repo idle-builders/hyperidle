@@ -96,9 +96,14 @@ export function WorkTaskCreate(): JSX.Element {
 				setError(
 					body?.code === "CAPACITY_EXCEEDED"
 						? "Team is at its concurrent task limit."
-						: // BA6 AC5: a dependency rejection (cycle, self, dangling id) names
-							// the rule it broke — show it rather than a generic failure.
-							(body?.code === "TASK_CYCLE" && body.error) ||
+						: // BA6 AC5: a dependency rejection (cycle, self, dangling id, or a
+							// killed target) names the rule it broke — show it rather than a
+							// generic failure. `TASK_DEPENDENCY_KILLED` (fix round, "Also
+							// fix") was missing here even though the PATCH side already
+							// mapped it — a killed-dependency refusal on create fell through
+							// to the generic message.
+							((body?.code === "TASK_CYCLE" || body?.code === "TASK_DEPENDENCY_KILLED") &&
+								body.error) ||
 								"Failed to create task. Please try again.",
 				);
 				setSubmitting(false);

@@ -438,10 +438,14 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 
 	// ---------------------------------------------------------------------
 	// B2 (second fix round) — the guard refused `-> in_progress` from ANY
-	// source while a dependency was unfinished, including `blocked` and
-	// `review`. Those are resume/rework moves, not a pick-up, and must be
-	// unaffected by a dependency that was already there when the task was
-	// first accepted.
+	// source while a dependency was unfinished, including `blocked`. That is a
+	// genuine resume, not a pick-up, and must be unaffected by a dependency
+	// that was already there when the task was first accepted. `review` was
+	// ALSO exempted in that same round — wrongly, per the B1 fix (round 3):
+	// `review` is reachable from `proposed`/`accepted`/`hold`, none of which
+	// prove the task was ever worked, so it stays gated like `accepted`. Only
+	// `blocked` (reachable exclusively from `in_progress`) proves a genuine
+	// prior pick-up.
 	// ---------------------------------------------------------------------
 	describe("B2: the dependency guard narrows to the genuine pick-up path only", () => {
 		test("blocked -> in_progress is allowed while a dependency is unfinished", async ({
@@ -462,7 +466,15 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			expect(row?.state).toBe("in_progress");
 		});
 
-		test("review -> in_progress is allowed while a dependency is unfinished", async ({
+		// @lore BA6 (fix round 2, B1): this test used to assert the OPPOSITE —
+		// "review -> in_progress is allowed while a dependency is unfinished" —
+		// which encoded the hole itself as intended behaviour. `review` is
+		// reachable from `proposed`, `accepted` AND `hold` (see
+		// `TASK_STATE_TRANSITIONS`), none of which prove the task was ever
+		// worked, unlike `blocked` (reachable only from `in_progress`). Corrected
+		// to assert the refusal; see the live-route walk below for the door this
+		// closes end to end.
+		test("review -> in_progress is refused while a dependency is unfinished", async ({
 			db,
 			eventBus,
 		}) => {
@@ -474,10 +486,10 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 
 			await expect(
 				transitionTask(db, eventBus, "ba6-b2b-review-task", "in_progress", testDeps),
-			).resolves.not.toThrow();
+			).rejects.toThrow(/unfinished dependency/);
 
 			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b2b-review-task"));
-			expect(row?.state).toBe("in_progress");
+			expect(row?.state).toBe("review");
 		});
 
 		test("-> accepted is still refused with a message naming the dependency", async ({
@@ -508,6 +520,44 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			await expect(
 				transitionTask(db, eventBus, "ba6-b2b-accepted2-task", "in_progress", testDeps),
 			).rejects.toThrow(/unfinished dependency/);
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// B1 (fix round 3) — the live route walk. Two clicks in the shipped state
+	// dropdown (`hold -> review`, then `review -> in_progress`) reached
+	// `in_progress` with an unfinished dependency, because `review ->
+	// in_progress` was unguarded. Drives the real PATCH door end to end rather
+	// than calling `transitionTask` directly, since a direct-call test alone
+	// would not have caught this — the hole was two hops from `hold`, not one.
+	// ---------------------------------------------------------------------
+	describe("B1 (fix round 3): the hold -> review -> in_progress door is closed", () => {
+		test("hold -> review succeeds, then review -> in_progress is refused, dependency still unfinished", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "ba6-b1c3");
+			await insertTask(db, "ba6-b1c3-dep", "ba6-b1c3", "proposed");
+			await insertTask(db, "ba6-b1c3-task", "ba6-b1c3", "hold", ["ba6-b1c3-dep"]);
+
+			const toReview = await app.request("/api/tasks/ba6-b1c3-task", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "review" }),
+			});
+			expect(toReview.status).toBe(200);
+
+			const toInProgress = await app.request("/api/tasks/ba6-b1c3-task", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "in_progress" }),
+			});
+			expect(toInProgress.status).toBe(409);
+			const body = (await toInProgress.json()) as { code?: string };
+			expect(body.code).toBe("TASK_DEPENDENCY_BLOCKED");
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b1c3-task"));
+			expect(row?.state).toBe("review");
 		});
 	});
 });

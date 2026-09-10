@@ -214,6 +214,16 @@ export interface WorkFilter {
 	parentTaskId?: string | null;
 	ownerAgentId?: string;
 	dependencyId?: string;
+	/**
+	 * @lore BA6 (fix round 2, B2): opt-in only. The first fix round put
+	 * `ne(tasks.state,"killed")` unconditionally in the shared `text` branch,
+	 * which is also `GET /api/search`'s door — a killed task became
+	 * unfindable by global search, which exists to show state (killed
+	 * included). Only the dependency picker (`GET /api/tasks?q=`) wants a
+	 * corpse excluded from its candidate list; it must ask for that
+	 * explicitly rather than get it for free from every `text` search.
+	 */
+	excludeKilled?: true;
 	// item-specific
 	threadId?: string;
 	threadIds?: readonly string[];
@@ -329,23 +339,23 @@ export async function list(
 			const escaped = f.text.replace(/[\\%_]/g, "\\$&");
 			const pattern = `%${escaped}%`;
 			const rank = sql<number>`CASE WHEN ${tasks.title} ILIKE ${`${escaped}%`} ESCAPE '\\' THEN 0 WHEN ${tasks.title} ILIKE ${`% ${escaped}%`} ESCAPE '\\' THEN 1 ELSE 2 END`;
+			const textConds: SQL[] = [
+				or(
+					sql`${tasks.title} ILIKE ${pattern} ESCAPE '\\'`,
+					sql`${tasks.description} ILIKE ${pattern} ESCAPE '\\'`,
+					sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
+				) as SQL,
+			];
+			// BA6 (fix round 2, B2): moved off the unconditional shared branch — see
+			// the `excludeKilled` doc on `WorkFilter`. A `killed` task can never be a
+			// legitimate dependency target (see `assertValidDependencies`), so the
+			// dependency picker's door opts in explicitly; global search never sets
+			// this flag.
+			if (f.excludeKilled) textConds.push(ne(tasks.state, "killed"));
 			return exec
 				.select()
 				.from(tasks)
-				.where(
-					and(
-						or(
-							sql`${tasks.title} ILIKE ${pattern} ESCAPE '\\'`,
-							sql`${tasks.description} ILIKE ${pattern} ESCAPE '\\'`,
-							sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
-						),
-						// BA6 (fix round): a `killed` task can never be a legitimate
-						// dependency target (see `assertValidDependencies`), and this
-						// door is what the dependency picker searches — offering a
-						// corpse in results is the affordance half of that refusal.
-						ne(tasks.state, "killed"),
-					),
-				)
+				.where(and(...textConds))
 				.orderBy(rank, desc(tasks.createdAt), tasks.id)
 				.limit(f.limit ?? 50);
 		}

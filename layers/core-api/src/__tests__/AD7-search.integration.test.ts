@@ -322,6 +322,43 @@ describe("GET /api/search — AD7 search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
+	// ---------------------------------------------------------------------
+	// BA6 (fix round 2, B2) — a `killed` root task must still be findable here.
+	// The fix round that excluded killed tasks from the DEPENDENCY PICKER
+	// (`GET /api/tasks?q=`, covered by `BA6-task-search.integration.test.ts`)
+	// put the exclusion in the shared `work.list(..., { text })` primitive
+	// that this route also calls — so killing a task made it vanish from
+	// global search too, even though `status: row.state` below exists
+	// specifically to show state, killed included.
+	// ---------------------------------------------------------------------
+	test("BA6 B2: a killed root task is still returned by global search", async ({ app, db }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+
+		await seedTeam(db, "team-killed", "Killed Team");
+		await db.insert(tasks).values({
+			id: "task-search-killed",
+			parentTaskId: null,
+			teamId: "team-killed",
+			title: "Retired payments migration",
+			state: "killed",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+
+		const res = await app.request("/api/search?q=payments+migration", {
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			work: Array<{ id: string; status: string }>;
+		};
+
+		expect(body.work.map((w) => w.id)).toContain("task-search-killed");
+		const workItem = body.work.find((w) => w.id === "task-search-killed");
+		expect(workItem?.status).toBe("killed");
+		vi.unstubAllEnvs();
+	});
+
 	// ─── TC-7: Matching knowledge items ──────────────
 
 	test("TC-7: returns matching knowledge items with id, title, status, timestamp", async ({

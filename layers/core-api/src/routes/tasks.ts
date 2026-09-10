@@ -260,7 +260,10 @@ export function createTaskRoutes(
 			...(teamId ? { teamId } : {}),
 			...(state ? { state } : {}),
 			...(owner ? { ownerAgentId: owner } : {}),
-			...(q ? { text: q } : {}),
+			// BA6 (fix round 2, B2): this door is the dependency picker — a
+			// `killed` task can never be a legitimate dependency target, so it
+			// opts into `excludeKilled` explicitly. See the doc on `WorkFilter`.
+			...(q ? { text: q, excludeKilled: true as const } : {}),
 		});
 
 		return c.json(result);

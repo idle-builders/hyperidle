@@ -264,23 +264,30 @@ export async function transitionTask(
 			// "not picked up for work" AC this package exists to satisfy,
 			// entered through a different door.
 			//
-			// @lore BA6 (fix round, B2): NARROWED to the genuine pick-up path
-			// only — `-> accepted` (from `proposed`/`hold`), and `accepted ->
-			// in_progress` (the dispatch step). The guard originally fired for
-			// EVERY `-> in_progress` regardless of source, which also refused
-			// `blocked -> in_progress` and `review -> in_progress` — a resume or
-			// rework, not a pick-up. The plan says dependencies gate BEING
-			// PICKED UP, and "a task already in progress is not rewound by a
-			// later dependency": a task in `blocked` or `review` has already
-			// been picked up once: it should not need every original
-			// dependency to still be finished just to resume.
+			// @lore BA6 (fix round 2, B1): corrected narrowing. The first fix-round
+			// narrowed this to `-> accepted` plus `accepted -> in_progress`, on the
+			// theory that `blocked` and `review` had "already been picked up once".
+			// That theory was wrong for `review`: per `TASK_STATE_TRANSITIONS`,
+			// `review` is reachable from `proposed`, `accepted` AND `hold` — none of
+			// which prove the task was ever worked — and `review -> in_progress` is
+			// a legal edge. That let a task go `hold -> review -> in_progress` with
+			// its dependency still unfinished: two clicks in the state dropdown, no
+			// guard at all on the last hop.
+			//
+			// `blocked` is the only state that DOES prove genuine prior work: it is
+			// reachable ONLY from `in_progress` (see `TASK_STATE_TRANSITIONS`), so
+			// `blocked -> in_progress` is a real resume, never a first pick-up.
+			// `review` proves nothing and must be gated like `accepted`.
+			//
+			// So: refuse `-> accepted` always, and refuse `-> in_progress` from
+			// every source except `blocked`.
 			//
 			// @lore BA6 (fix round): throws `TaskDependencyBlockedError`, not
 			// `TaskInvalidTransitionError` — the edge itself is legal grammar in
 			// `TASK_STATE_TRANSITIONS`; the wait is what refuses it, and the
 			// message must say so rather than reading as a generic illegal edge.
 			const isPickup =
-				toState === "accepted" || (toState === "in_progress" && fromState === "accepted");
+				toState === "accepted" || (toState === "in_progress" && fromState !== "blocked");
 			if (isPickup) {
 				const depIds = parseDependencyIds(task.dependencies);
 				if (depIds.length > 0 && (await hasUnfinishedDependency(tx, depIds))) {
