@@ -30,6 +30,16 @@
  * open body is a plain span here (no `onOpen` passed) — this field lists
  * references, it doesn't drill into them, so draft mode no longer ships a
  * dead "Open <label>" button when a caller has nothing to open.
+ *
+ * @lore BA6 (small fix round): `SearchField`'s own `label` prop renders the
+ * label immediately above its input — right, when the field IS the input,
+ * wrong here, where the chip list sits between the two. Every other field on
+ * this form is label-then-control; this one was label-in-the-middle. Rather
+ * than teach `SearchField` a second internal layout for one caller, this
+ * component owns the label itself (same `type-small`/`text-primary` profile
+ * SearchField uses) and points it at the input via an explicit shared `id` —
+ * `SearchField` never receives a `label`, so it renders none, and the
+ * `htmlFor`/`id` pairing survives untouched.
  */
 
 import { type JSX, useMemo, useState } from "react";
@@ -78,9 +88,13 @@ export function TaskDependencyField({
 	};
 
 	const showResults = query.trim() !== "";
+	const searchFieldId = "task-dependency-search-field";
 
 	return (
 		<div data-testid="task-dependency-field" className="flex flex-col gap-[6px]">
+			<label htmlFor={searchFieldId} className="type-small text-[var(--text-primary)]">
+				Depends on (waits until these finish)
+			</label>
 			{dependencies.length > 0 && (
 				<ul className="flex flex-wrap items-center gap-[6px]" data-testid="task-dependency-list">
 					{dependencies.map((id) => (
@@ -99,7 +113,7 @@ export function TaskDependencyField({
 			)}
 			<div className="relative flex flex-col gap-[3px]">
 				<SearchField
-					label="Depends on (waits until these finish)"
+					id={searchFieldId}
 					placeholder="Search tasks by title…"
 					value={query}
 					onChange={setQuery}

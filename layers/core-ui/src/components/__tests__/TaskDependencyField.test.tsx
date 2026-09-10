@@ -57,6 +57,26 @@ describe("TaskDependencyField — BA6 search picker", () => {
 		expect(screen.getByText("Depends on (waits until these finish)")).toBeInTheDocument();
 	});
 
+	it("renders label, then selected chips, then the search input — never label in the middle", async () => {
+		fetchSpy.mockImplementation(stubFetch([], [{ id: "task-old", title: "Existing dependency" }]));
+		render(<TaskDependencyField dependencies={["task-old"]} onChange={vi.fn()} />);
+
+		await screen.findByText("Existing dependency");
+
+		const label = screen.getByText("Depends on (waits until these finish)");
+		const chipList = screen.getByTestId("task-dependency-list");
+		const searchInput = screen.getByTestId("task-dependency-search");
+
+		// DOCUMENT_POSITION_FOLLOWING (4) means the argument comes AFTER the node.
+		expect(label.compareDocumentPosition(chipList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(
+			chipList.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+
+		// The label still names the input for assistive tech.
+		expect(label).toHaveAttribute("for", searchInput.getAttribute("id"));
+	});
+
 	it("types a query, shows matching results by title, and picking one adds it as a chip showing the title", async () => {
 		fetchSpy.mockImplementation(stubFetch([{ id: "task-xyz", title: "Ship the search picker" }]));
 		const onChange = vi.fn();
