@@ -1,0 +1,82 @@
+{
+  "id": "BA6",
+  "track": "BA",
+  "status": "in-progress",
+  "phase": "built; blocking review findings fixed; delta re-review running; gate not yet presented",
+  "dials": {
+    "complexity": "feature",
+    "ambiguity": "established context (resolved by the 2026-09-09 interview)",
+    "exposure": "user-facing surface"
+  },
+  "gates": {
+    "agreed": [
+      "before shipping: the three validation scenarios plus the dependency control, shown on the running app"
+    ],
+    "passed": []
+  },
+  "reviewDepth": "one fresh reviewer over the integrated diff (feature x user-facing surface)",
+  "worktree": "/Users/tg/hyperidle/.claude/worktrees/pipeline-ba6-a2e167",
+  "branch": "feature/pipeline-ba6-a2e167",
+  "base": "origin/main @ f88b71434",
+  "artifacts": [
+    {
+      "path": ".pipeline/work/BA6/plan.md",
+      "role": "the plan \u2014 restructured into the five-section shape 2026-09-09, facts corrected against code"
+    },
+    {
+      "path": "scratchpad/ba6-ground-truth.md",
+      "role": "planner's verified read of the current code: claim verdicts, surfaces, traps, existing tests",
+      "note": "scratchpad is session-local: /private/tmp/claude-501/-Users-tg-hyperidle--claude-worktrees-pipeline-ba6-a2e167/b935987a-9a00-45c8-beae-36d2b6509b57/scratchpad"
+    }
+  ],
+  "decidedWithoutAsking": [
+    "Setting a dependency parks the task automatically \u2014 the plan's outcome already says it waits.",
+    "A write naming a task id that does not exist is refused.",
+    "Dependencies gate pick-up only; a task already in progress is not rewound by a later dependency.",
+    "wire shape is string[] on every door; storage stays the JSON-text column",
+    "a dangling dependency id is refused with 404, matching the parentTaskId precedent",
+    "a cycle reuses TaskCycleError -> 409 TASK_CYCLE rather than a second code",
+    "a killed dependency drops its id from every dependent in any state, but resets to proposed only those that were waiting in hold"
+  ],
+  "openWithMaintainer": [
+    "gate: approve the result before ship",
+    "the dependency control takes a pasted task id \u2014 no title search; deliberate, flagged for the human decision"
+  ],
+  "since": null,
+  "commits": [
+    {
+      "sha": "9bba5b7ac",
+      "what": "red tests \u2014 13 failing across 5 files, zero production files touched (verified)"
+    },
+    {
+      "sha": "1dcee60e6",
+      "what": "implementation"
+    },
+    {
+      "sha": "e7ca8c23e",
+      "what": "fixes for the three blocking review findings"
+    }
+  ],
+  "liveProof": {
+    "server": "dev server from this worktree, ports 3001/5173",
+    "proven": [
+      "create door: a task created with an unfinished dependency lands in hold (UI, screenshotted)",
+      "edit door: a PATCH shaped exactly as the edit panel sends it now parks the task (was B1, re-verified after fix)",
+      "cycle refused with the reason shown to the person next to Save changes (UI, screenshotted)",
+      "last dependency finishes -> dependent leaves hold and reaches accepted with no human action (twice, two separate task pairs)",
+      "killed dependency: id dropped from a non-hold dependent and the dependent is acceptable again (was B2, re-verified after fix)"
+    ],
+    "notProvenLive": {
+      "what": "accepted -> in_progress for an agent-owned task",
+      "why": "every agent session dies at pre-admission with NoEligibleHarnessError \u2014 harness adapters pool only at boot and boot probing fails on this host; see Proposed items 1 in plan.md. Code BA6 does not touch.",
+      "coveredBy": "BA6-dependency-freed.integration.test.ts AC3 \u2014 real watcher, real dispatch bookkeeping, real promotion reaction"
+    }
+  },
+  "reviews": [
+    {
+      "pass": "full diff vs origin/main",
+      "verdict": "blocking findings (3)",
+      "outcome": "all three fixed in e7ca8c23e; B1 and B2 independently re-verified live by the orchestrator"
+    }
+  ]
+}
