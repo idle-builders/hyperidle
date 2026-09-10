@@ -12,6 +12,16 @@
  *
  * @lore AM1: `label`/`meta` render as React-escaped TEXT content, never HTML
  * (§8 injection guard). The block chip shows the title only — never code.
+ *
+ * @lore BA6: two extensions, both additive (existing callers are unaffected):
+ * - `disabled` makes BOTH buttons genuinely inert (real `disabled` attribute,
+ *   not just an omitted handler) — a caller mid-save can freeze the whole chip.
+ * - In `draft` mode, the open body renders as a `<button>` only when `onOpen`
+ *   is supplied; with no `onOpen` it is a plain non-interactive span. Before
+ *   this, draft mode always rendered a focusable "Open <label>" control even
+ *   when nobody wired an action for it — a dead control ships wherever a
+ *   caller has nothing to open (e.g. a dependency chip that only lists a
+ *   reference, never drills into it).
  */
 
 import type { JSX } from "react";
@@ -27,6 +37,10 @@ export interface ReferenceChipProps {
 	mode: ReferenceChipMode;
 	onOpen?: () => void;
 	onRemove?: () => void;
+	/** Freezes both the open and remove controls — real `disabled`, not an omitted handler. */
+	disabled?: boolean;
+	/** testid for the remove button specifically — the actual control a "remove" test targets. */
+	removeTestId?: string;
 }
 
 // Inline icon set — currentColor, no emoji-as-icon (AQ-105). 16-box.
@@ -71,6 +85,8 @@ export function ReferenceChip({
 	mode,
 	onOpen,
 	onRemove,
+	disabled = false,
+	removeTestId,
 }: ReferenceChipProps): JSX.Element {
 	const openBody = (
 		<>
@@ -88,12 +104,13 @@ export function ReferenceChip({
 			<button
 				type="button"
 				onClick={onOpen}
+				disabled={disabled}
 				aria-label={`Open ${label}`}
 				title={`Open ${label}`}
 				{...dsProps("ReferenceChip", "1")}
 				data-ds-mode="posted"
 				data-ds-kind={kind}
-				className={`type-control ${`${SHELL} pr-[9px] text-left`}`}
+				className={`type-control disabled:cursor-not-allowed disabled:opacity-50 ${`${SHELL} pr-[9px] text-left`}`}
 			>
 				{openBody}
 				<span
@@ -106,7 +123,8 @@ export function ReferenceChip({
 		);
 	}
 
-	// draft mode — body = open, trailing ✕ = remove (two distinct hit targets).
+	// draft mode — body = open (only when `onOpen` is wired), trailing ✕ = remove
+	// (two distinct hit targets when both are present).
 	return (
 		<span
 			{...dsProps("ReferenceChip", "1")}
@@ -114,21 +132,28 @@ export function ReferenceChip({
 			data-ds-kind={kind}
 			className={`type-metadata ${SHELL}`}
 		>
-			<button
-				type="button"
-				onClick={onOpen}
-				aria-label={`Open ${label}`}
-				title={`Open ${label}`}
-				className="flex min-w-0 items-center gap-[6px] text-left"
-			>
-				{openBody}
-			</button>
+			{onOpen ? (
+				<button
+					type="button"
+					onClick={onOpen}
+					disabled={disabled}
+					aria-label={`Open ${label}`}
+					title={`Open ${label}`}
+					className="flex min-w-0 items-center gap-[6px] text-left disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					{openBody}
+				</button>
+			) : (
+				<span className="flex min-w-0 items-center gap-[6px]">{openBody}</span>
+			)}
 			<button
 				type="button"
 				onClick={onRemove}
+				disabled={disabled}
 				aria-label={`Remove ${label}`}
 				title="Remove"
-				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
+				data-testid={removeTestId}
+				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
 			>
 				<Glyph d={ICON_REMOVE} size={11} />
 			</button>

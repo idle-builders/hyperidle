@@ -91,4 +91,60 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 		expect(document.querySelector("img")).toBeNull();
 		expect(screen.getByText("<img src=x onerror=1>")).toBeDefined();
 	});
+
+	// BA6: draft mode with no `onOpen` renders the body as plain text, not a
+	// dead focusable button — a caller with nothing to open (e.g. a
+	// dependency-only reference list) must not ship a control that no-ops.
+	it("draft mode with no onOpen: body is inert, not a focusable button", () => {
+		const onRemove = vi.fn();
+		render(<ReferenceChip kind="task" label="Some task" mode="draft" onRemove={onRemove} />);
+		expect(screen.queryByRole("button", { name: /open/i })).toBeNull();
+		expect(screen.getByText("Some task")).toBeDefined();
+		// Remove still works — only the open half is affected by the missing handler.
+		fireEvent.click(screen.getByLabelText(/remove/i));
+		expect(onRemove).toHaveBeenCalledTimes(1);
+	});
+
+	// BA6: `disabled` freezes BOTH controls — real `disabled` attribute, not
+	// merely an omitted handler (an omitted handler still leaves a focusable,
+	// clickable-but-no-op control).
+	it("disabled: both the open and remove buttons carry the real disabled attribute", () => {
+		const onOpen = vi.fn();
+		const onRemove = vi.fn();
+		render(
+			<ReferenceChip
+				kind="task"
+				label="Frozen task"
+				mode="draft"
+				onOpen={onOpen}
+				onRemove={onRemove}
+				disabled
+			/>,
+		);
+		const openButton = screen.getByLabelText(/open/i);
+		const removeButton = screen.getByLabelText(/remove/i);
+		expect(openButton).toBeDisabled();
+		expect(removeButton).toBeDisabled();
+		fireEvent.click(openButton);
+		fireEvent.click(removeButton);
+		expect(onOpen).not.toHaveBeenCalled();
+		expect(onRemove).not.toHaveBeenCalled();
+	});
+
+	// BA6: `removeTestId` targets the ACTUAL remove control, not a wrapping
+	// element with no remove behaviour of its own.
+	it("removeTestId is applied to the remove button itself", () => {
+		render(
+			<ReferenceChip
+				kind="task"
+				label="Task x"
+				mode="draft"
+				onRemove={() => undefined}
+				removeTestId="my-remove-testid"
+			/>,
+		);
+		const el = screen.getByTestId("my-remove-testid");
+		expect(el.tagName).toBe("BUTTON");
+		expect(el.getAttribute("aria-label")).toBe("Remove Task x");
+	});
 });

@@ -7,10 +7,22 @@ export interface SearchFieldProps {
 	onChange?: (value: string) => void;
 	loading?: boolean;
 	shortcutKey?: string;
+	/** BA6: freezes the input and hides the clear button — real `disabled`, mirrors RoleCombobox. */
+	disabled?: boolean;
+	/** Placed on the `<input>` itself — unlike RoleCombobox's closed-field button, the input IS the control here. */
+	"data-testid"?: string;
 }
 
 export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function SearchField(
-	{ placeholder, value, onChange, loading = false, shortcutKey },
+	{
+		placeholder,
+		value,
+		onChange,
+		loading = false,
+		shortcutKey,
+		disabled = false,
+		"data-testid": dataTestId,
+	},
 	ref,
 ): JSX.Element {
 	return (
@@ -50,6 +62,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 			</span>
 			<input
 				data-az16-profile="input thin"
+				data-testid={dataTestId}
 				ref={ref}
 				type="text"
 				// @lore AZ7 B3 (review round 1): fill was --surface-container (a recessed
@@ -58,13 +71,14 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				// state that swapped to --surface-page, giving the page-canvas token a
 				// second job on focus (the same defect fixed on Button's hover tint).
 				// Matches Input.tsx's pattern: one fill,  + ring for focus.
-				className="type-input border-width-thin w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
+				className="type-input border-width-thin w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50"
 				placeholder={placeholder}
 				value={value}
+				disabled={disabled}
 				onChange={(e) => onChange?.(e.target.value)}
 			/>
 			<span className="absolute right-[8px] flex items-center gap-[3px]">
-				{value && (
+				{value && !disabled && (
 					<button
 						type="button"
 						className="type-control inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] cursor-pointer border-none p-0 hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]"

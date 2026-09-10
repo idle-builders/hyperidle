@@ -406,6 +406,7 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 					dependencies={fields.dependencies}
 					onChange={(dependencies) => setFields((f) => ({ ...f, dependencies }))}
 					disabled={isSaving}
+					currentTaskId={task.id}
 				/>
 				{/* State */}
 				<div>
