@@ -11,6 +11,18 @@
  *
  * Best-effort: a lookup failure leaves the id unresolved and the caller
  * falls back to showing the id rather than blocking the chip from rendering.
+ *
+ * @lore BA6 (fix round): `knownRef` used to mark ids "known" the instant a
+ * fetch for them started, not when it resolved. React StrictMode
+ * double-invokes effects in dev — mount, cleanup (abort), mount again — and
+ * the cleanup fired before the fetch settled, so the id was already marked
+ * known when the second mount's effect ran and saw nothing missing. The
+ * aborted first request's title was lost and nothing ever re-requested it,
+ * which is exactly the bug the maintainer found live (a dependency chip
+ * showing a raw UUID on `WorkTaskPage`). Fix: only mark an id known once its
+ * title actually resolves; the cleanup releases any id whose fetch never
+ * settled, so a later effect run (StrictMode's second mount, or a real
+ * remount) retries it instead of silently giving up.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -33,7 +45,10 @@ export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, s
 	useEffect(() => {
 		const missing = ids.filter((id) => !knownRef.current.has(id));
 		if (missing.length === 0) return;
+		// In flight, not yet known — knownRef only gains an id once its title
+		// actually resolves (below), so an aborted/failed attempt can be retried.
 		for (const id of missing) knownRef.current.add(id);
+		let settled = false;
 
 		const ac = new AbortController();
 		(async (): Promise<void> => {
@@ -45,6 +60,7 @@ export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, s
 				const raw: unknown = await res.json();
 				if (ac.signal.aborted || !Array.isArray(raw)) return;
 				const resolved = raw.filter(isTitledRow);
+				settled = true;
 				if (resolved.length === 0) return;
 				setTitles((prev) => {
 					const next = { ...prev };
@@ -52,11 +68,15 @@ export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, s
 					return next;
 				});
 			} catch {
-				// Best-effort — an unresolved id falls back to itself in the caller.
+				// Best-effort — an unresolved id falls back to itself in the caller,
+				// and stays released below so a later run retries it.
 			}
 		})();
 
-		return () => ac.abort();
+		return () => {
+			ac.abort();
+			if (!settled) for (const id of missing) knownRef.current.delete(id);
+		};
 	}, [ids]);
 
 	return titles;

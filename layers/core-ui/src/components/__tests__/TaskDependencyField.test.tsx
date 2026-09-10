@@ -50,6 +50,13 @@ describe("TaskDependencyField — BA6 search picker", () => {
 		vi.restoreAllMocks();
 	});
 
+	it("shows a visible label naming what the field is for", () => {
+		fetchSpy.mockImplementation(stubFetch([]));
+		render(<TaskDependencyField dependencies={[]} onChange={vi.fn()} />);
+
+		expect(screen.getByText("Depends on (waits until these finish)")).toBeInTheDocument();
+	});
+
 	it("types a query, shows matching results by title, and picking one adds it as a chip showing the title", async () => {
 		fetchSpy.mockImplementation(stubFetch([{ id: "task-xyz", title: "Ship the search picker" }]));
 		const onChange = vi.fn();

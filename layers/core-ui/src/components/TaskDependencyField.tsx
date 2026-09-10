@@ -16,6 +16,12 @@
  * lookup door, `GET /api/tasks?ids=a,b,c` (`useTaskLookup`) — both reused,
  * neither a new endpoint.
  *
+ * @lore BA6 (fix round): the search-picker rewrite dropped the field's
+ * visible label entirely (`Input`'s `label` prop went away with `Input`
+ * itself) — a person saw a bare search box with no name. `SearchField`
+ * gained the same `label` prop `Input` has, rendered above the input with
+ * the same profile, rather than a hand-rolled span next to it.
+ *
  * @lore BA6: `ReferenceChip` (not forked) renders each picked dependency.
  * Extended with `disabled` (real `disabled` attribute on both its buttons —
  * the old version only dropped the `onRemove` handler, leaving a focusable
@@ -93,6 +99,7 @@ export function TaskDependencyField({
 			)}
 			<div className="relative flex flex-col gap-[3px]">
 				<SearchField
+					label="Depends on (waits until these finish)"
 					placeholder="Search tasks by title…"
 					value={query}
 					onChange={setQuery}
