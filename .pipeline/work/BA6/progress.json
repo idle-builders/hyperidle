@@ -2,7 +2,7 @@
   "id": "BA6",
   "track": "BA",
   "status": "in-progress",
-  "phase": "all acceptance criteria proven; awaiting maintainer approval at the gate",
+  "phase": "all lanes green, 16/16 on the rebuilt desktop app; delta review of the B1/B2 fix running; then ship",
   "dials": {
     "complexity": "feature",
     "ambiguity": "established context (resolved by the 2026-09-09 interview)",
@@ -76,6 +76,14 @@
     {
       "sha": "814c99082",
       "what": "delete SearchField.label \u2014 orphaned, story-only-reachable"
+    },
+    {
+      "sha": "b9568a14f",
+      "what": "docs: dependency validation, hold as shared wait state, kill cascade"
+    },
+    {
+      "sha": "c4f05f016",
+      "what": "refuse depending on an already-killed task (B1); narrow the pick-up guard so a resume is not blocked (B2)"
     }
   ],
   "liveProof": {
@@ -92,10 +100,10 @@
       "DESKTOP (packaged app, factory DB, port 59361): all four harnesses Ready at boot; a task owned by a claude-code agent went hold -> accepted -> in_progress with no human action, and a real session is active with no errors"
     ],
     "desktop": {
-      "build": "applications/desktop/release/mac-arm64/HyperIdle.app, built from this branch",
-      "why": "maintainer ruling \u2014 harnesses are only available through the desktop app",
-      "userDataHandling": "the real 42M DB was backed up, moved aside for a factory boot, and RESTORED afterwards; the factory DB is kept as hyperidle-pg.ba6-factory-174209",
-      "screenshots": "none \u2014 screen-control access was declined; evidence is the packaged app's own API plus its server log"
+      "build": "rebuilt from final code (c4f05f016)",
+      "db": "nuked at maintainer instruction; proof ran on a fresh factory DB",
+      "result": "16/16 acceptance checks pass, including a live claude-code session started by a freed task",
+      "harnesses": "all four ready at boot"
     }
   },
   "reviews": [
@@ -108,11 +116,24 @@
       "pass": "delta over the fix commit",
       "verdict": "approve",
       "outcome": "no blocking findings; regression checks on the shared query filter and ReferenceChip both came back clean"
+    },
+    {
+      "pass": "fresh full diff",
+      "verdict": "1 blocking (B1: depending on an already-killed task parks forever)",
+      "outcome": "fixed in c4f05f016 and re-verified live by the orchestrator"
     }
   ],
   "maintainerRulings2026_09_10": [
     "searching a task must be possible \u2014 you type part of a title and pick; the chip shows the title",
     "harnesses are only available through the desktop app; the accepted->in_progress proof must be driven there with computer-use"
   ],
-  "openDefects": []
+  "openDefects": [],
+  "testLanes": {
+    "test:full": "518 files / 5108 tests green",
+    "test:integration:service": "324 files / 2238 tests green",
+    "e2e": "full suite 198 passed / 14 skipped (the affected-only run was vacuous \u2014 0 tests)",
+    "check": "38/38 packages",
+    "lint": "clean bar one pre-existing ledgered warning",
+    "harness lane": "deliberately not run \u2014 BA6 touches no harness code, the lane is known-red on origin/main, and the real harness path was proven directly on the desktop app"
+  }
 }
