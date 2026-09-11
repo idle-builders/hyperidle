@@ -63,7 +63,8 @@ under is gone. This runs synchronously inside `cascadeTaskKill`, the only produc
 code so `edit_task` returns a structured `err(code, message)` instead of throwing.
 
 **Finding the task.** You type part of a title and pick from the results; the chip shows the title. The
-picker is the design system's `Combobox` (generalized from `RoleCombobox`, which the agent editor also
+picker is the design system's `Combobox` — one control now used by every entity picker in the app (task
+owner, plugin team, message recipient, add-agent role, knowledge parent, routine agent, org-chart people) (generalized from `RoleCombobox`, which the agent editor also
 uses) in search-driven mode, with full keyboard navigation. Arrow keys and Enter do nothing while results
 load, so a result from the previous query can never be picked, and a failed search can be retried. The
 picker's search (`GET /api/tasks?q=`) searches every depth and opts out of killed tasks; global search
@@ -100,3 +101,6 @@ diff, and again over each scope-bearing change.
 - For about 200 ms after the search box is cleared or reopened, the previous results stay on screen and
   can be picked; they are visible, so a person picks what they see.
 - An empty role in the agent editor shows placeholder text where `main` showed nothing; hard to reach.
+- Tabbing back to a dropdown's button and pressing Escape does nothing — the same on `main`.
+- The settings agents list keeps its own agents fetch: it is one leg of a combined load whose rows are
+  spliced locally after edits, so adopting the shared hook would add code, not remove it.
