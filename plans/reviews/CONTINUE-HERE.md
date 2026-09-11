@@ -69,6 +69,20 @@ answers "may this happen" and "is this button enabled" — the UI's affordance l
 agent's valid-tool list are one function. Services collapse to one `edit` per object: apply,
 check invariants, emit `<object>.changed`. Founder expects ~100% rewrite.
 
+## Roadmap, as the founder states it (2026-09-11)
+
+1. Service & layer split — done (AU track).
+2. **Interface restructure — now.** Actions & events are the domain contract between the
+   user (UI and MCP) and the backend. That contract is settled (`ACTIONS.md`). The open
+   question is **the layer below it**: does the current route shape and service shape make
+   sense as-is, or does another route shape or another interface technology (GraphQL, tRPC,
+   MCP-as-API, …) fit better? What is the simplest setup that enables this interface?
+   Simplification and destructive rework are in scope. Research first (`research/`), then decide.
+3. UI rework, and possibly the whole "what is the agent's workspace" — after.
+
+`EVOLUTION-PATH.md` was drafted before this reframe; its step 2 ("the declaration") is the
+question above, unanswered. Treat the rest of that file as sequencing input, not a plan.
+
 ## What's next — the evolution path
 
 **Produce:** an ordered list of changes. For each: what it deletes, what it builds, what must
