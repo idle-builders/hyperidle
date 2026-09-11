@@ -2,10 +2,11 @@
  * useAgents — thin one-shot fetch hook for GET /api/agents.
  *
  * Every agent in the backend, unfiltered — for pickers that offer any agent
- * as a choice (e.g. a task's owner) rather than one team's roster
- * (`useTeamAgents` stays the roster-scoped hook; this is the unscoped one).
+ * as a choice (e.g. a task's owner) rather than one team's roster.
+ * `useTeamAgents` is a filter over this hook's result, not a second fetch —
+ * the one fetch here is the whole agent-loading surface.
  *
- * @lore BA6: same shape as `useTeams` — no caching, no retry beyond the
+ * @lore: same shape as `useTeams` — no caching, no retry beyond the
  * exposed `refetch`.
  */
 

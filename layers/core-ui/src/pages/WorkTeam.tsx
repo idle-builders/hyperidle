@@ -261,9 +261,10 @@ function WorkTeamLoaded({
 	const [createRoutineOpen, setCreateRoutineOpen] = useState(false);
 
 	// AB3: fetch full agent configs for the roster.
-	// @lore AB3: rosterAgentIds MUST be memoized — passing an inline array on
-	// every render triggers a new fetch on every render cycle. useMemo ensures
-	// the array reference only changes when the roster content changes.
+	// @lore: `useTeamAgents` fetches nothing itself (it filters `useAgents`'
+	// one shared fetch), so an unmemoized `rosterAgentIds` can no longer cause
+	// a refetch loop. Kept memoized anyway — a stable reference avoids
+	// recomputing the filtered `agents` map on every unrelated render.
 	const rosterAgentIds = useMemo(() => roster.map((m) => m.agentId), [roster]);
 	const { agents: agentConfigs, refetch: refetchAgents } = useTeamAgents(rosterAgentIds);
 
