@@ -174,7 +174,8 @@
 			"!tools/eval/eval-results.json",
 			"!tools/eval/*.json",
 			"!eval-results.json",
-			"!eval-results-*.json"
+			"!eval-results-*.json",
+			"!**/kept-copies"
 		]
 	},
 	"css": { "parser": { "tailwindDirectives": true } },

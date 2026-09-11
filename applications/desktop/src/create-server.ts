@@ -58,6 +58,8 @@ export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
 	readonly topology: "local" | "disabled";
 	readonly sandboxBasePath?: string;
+	/** BA5 §5.2: override for where a remote git filesystem's kept copies live. */
+	readonly keptCopiesRoot?: string;
 	readonly hostname?: string;
 }
 
@@ -152,6 +154,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// servers never reached a session, because the merge skips a plugin without
 	// an install path.
 	let pluginsBaseDir: string | undefined;
+	// BA5 §5.2: where a remote git filesystem's ONE kept copy lives — beside
+	// the database, like `pluginsBaseDir`, and never under `sandboxBasePath`
+	// (the sandbox reaper deletes an unowned folder there after 24h).
+	let keptCopiesRoot: string | undefined;
 	if (deps.db) {
 		db = deps.db;
 	} else {
@@ -164,6 +170,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// plugin SOURCE directory, and install `rmSync`s the destination before
 		// copying — so installing would delete the sources it was built from.
 		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
+		keptCopiesRoot = deps.keptCopiesRoot ?? path.join(path.dirname(dbUrl), "kept-copies");
 	}
 	const eventBus = new EventBus();
 
@@ -280,6 +287,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			actionTools: coreApi.actionTools,
 			session: runtimeSessionDeps,
 			sandboxBasePath,
+			keptCopiesRoot,
 			worker: {
 				pool: agentExecution.adapters.pool,
 				// @lore AU31/AU34: passed straight through (not re-wrapped with a

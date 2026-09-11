@@ -117,6 +117,14 @@ export interface AgentOrchestrationRuntimeOptions {
 	/** The session-provisioning deps `startRuntime`'s poller threads to every admitted session — same shape the Application built for the deleted direct `startRuntime` call, minus the four provisioning reads this boot now builds itself (§5.1). */
 	readonly session: ApplicationProvisionSessionDeps;
 	readonly sandboxBasePath?: string;
+	/**
+	 * BA5 §5.2: where a remote git filesystem's ONE kept copy lives — the
+	 * application's own data folder, never under `sandboxBasePath` (the sandbox
+	 * reaper deletes any folder there with no session row after 24h). Absent →
+	 * a remote git filesystem cannot mount ("this server has no folder to keep
+	 * repository copies in"); a local repo and a folder mount are unaffected.
+	 */
+	readonly keptCopiesRoot?: string;
 	/** For worker WebSocket registration (`registerWorkerWebSocket`) — the local `AdapterPool` instance and its remote-adapter factory, both from the execution adapters bundle. Absent on a `remote-server`-shaped boot with no local pool of its own. */
 	readonly worker?: {
 		readonly pool: NonNullable<RuntimeDeps["composition"]["worker"]>["pool"];
@@ -306,6 +314,7 @@ interface OrchestrationProvisioningReads {
 function buildProvisioningReads(
 	db: HyperIdleDb,
 	sandboxBasePath: string | undefined,
+	keptCopiesRoot: string | undefined,
 	resolveProvisioningOwnerUserId: (() => Promise<string | null>) | undefined,
 	decrypt: (ciphertext: string) => string | null,
 ): OrchestrationProvisioningReads {
@@ -314,6 +323,7 @@ function buildProvisioningReads(
 			? {
 					mounter: new RegistryFilesystemMounter({
 						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
+						keptCopiesRoot,
 					}),
 				}
 			: {}),
@@ -391,6 +401,7 @@ export async function bootAgentOrchestration(
 		provisioningReads = buildProvisioningReads(
 			db,
 			runtime.sandboxBasePath,
+			runtime.keptCopiesRoot,
 			runtime.resolveProvisioningOwnerUserId,
 			decrypt,
 		);
