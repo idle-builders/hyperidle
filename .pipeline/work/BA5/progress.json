@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Architecture written 2026-09-11 and hit the 1,000-line stop. Awaiting maintainer: accept size / cut / split. Architecture critique running in parallel (tests a claim-time-filter alternative to the waiting mechanism). Nothing built.",
+  "resume": "Architecture revised (\u00a718 overrides). Still awaiting maintainer at the size stop: A accept / B split / C cut. Nothing built.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "d38eb819b",
@@ -85,5 +85,43 @@
       "separate CLI list": "~120"
     },
     "rule": "CLAUDE.md simplicity check: 1,000+ added lines -> stop, explain assumptions, ask"
-  }
+  },
+  "verdicts": [
+    {
+      "round": "architecture-critique-1",
+      "at": "2026-09-11",
+      "on": "6fe3ce5cc",
+      "verdict": "not PASS",
+      "blockers": [
+        "B1: the sandbox reaper (runtime-reapers.ts:78-99, on in desktop create-server.ts:289-290) deletes <sandboxBasePath>/kept-copies after 24h with no session row, under live worktrees",
+        "B2: a public github.com repo is held when gh is not installed (\u00a77.1/\u00a77.2/\u00a77.3/\u00a74.2) \u2014 the plan says a public repo needs only git"
+      ],
+      "endorsedSimplifications": [
+        "C1 claim-time filter replaces the waiting mechanism (~190 lines), conditions: drain returns or re-reads exclusions on the new code; reserved session row deleted not crashed",
+        "drop the clis list and cliStatus.installed (~120)",
+        "drop the per-copy lock (~30)",
+        "fold T6 into T8 (~120)"
+      ],
+      "declined": [
+        "optional drop of forgetKeptCopy \u2014 kept: the maintainer was told a kept copy is deleted with its filesystem"
+      ],
+      "revisedSize": "~1,850-2,250 added (production ~1,000-1,250) \u2014 still over 1,000",
+      "nonBlockingNotes": [
+        "\u00a76.1 merges the agent env inside `if (serviceConnectionResolver) try {\u2026}` (provisioner.ts:1644-1661); it must sit outside, or a filesystem PAT depends on connections being set up and on that try not failing.",
+        "Wrong citation: adapter-pool.ts:540 is a comment; the allowlists are at :551 and :582.",
+        "Pre-existing: connection setup writes MCP bearer tokens into .mcp.json and opencode.json inside the workspace (connection-provisioning.ts:286-330) \u2014 not this change's git path.",
+        "Governance can't see the new event: architecture.json:134 points at a stale copy of the events file (\u00a717.7).",
+        "Deleting Provisioner.mount and capture does one of the plan's separate proposed items early; the full-migration rule forces it.",
+        "Resolved: createAgentOrchestrationApp is called at boot.ts:394.",
+        "Still UNVERIFIED: whether CI has openssl and git-http-backend; the helper fails hard if missing, so no false green."
+      ]
+    },
+    {
+      "round": "architecture-revision-1",
+      "at": "2026-09-11",
+      "result": "all critique items applied; B1 kept copies -> app data folder (desktop userData/kept-copies), B2 reach remote first, gh only on connection or 401",
+      "revisedSize": "production ~1,050-1,250 + tests ~950-1,150 = ~2,000-2,400; no cut keeping G2's list gets production under 1,000",
+      "orchestratorOverrides": "architecture.md \u00a718: connection health narrow cut (keep inherited detection); notice names all picked agents; Postgres remote-server limit; drain return"
+    }
+  ]
 }

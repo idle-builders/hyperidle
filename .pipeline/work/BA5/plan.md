@@ -101,4 +101,7 @@ would break inherited logins.
 - **Install the CLIs a workspace needs, and guide login through them** — maintainer, 2026-09-11, "later".
 - **Rename `sandbox` → `workspace`** — reverses AK1; 2,012 occurrences plus a column migration.
 - **Correct BA14's recorded cause** — this package now fixes it; touching BA14's folder needs your word.
-- **Dead `Provisioner.mount`** — no callers, tests included.
+- **Dead `Provisioner.mount`** — no callers, tests included. (The full-migration rule now deletes it inside
+  this package.)
+- **Connections page shows GitHub working whenever `gh` is installed, even logged out** — an existing
+  detection bug found by the critique; not fixed here.
