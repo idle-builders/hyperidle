@@ -10,24 +10,10 @@ starts.
 tasks whose prerequisites are not done and produce work that has to be thrown away. Sequencing that
 enforces itself is what makes a set of tasks a plan rather than a list.
 
-**What exists today** (verified against the code 2026-09-09, correcting the registration seed):
-- The column exists: `tasks.dependencies`, a nullable TEXT holding a JSON array of task ids, present
-  since the first migration. No join table, no foreign key, no shape validation.
-- The watcher exists and works: `checkAndUnblockDependents` fires on `task_state_changed` to `done`,
-  finds `hold` tasks whose `dependencies` text contains the finished id, and moves them to `accepted`
-  once every dependency is `done`.
-- A writer exists but is unreachable and unvalidated: `PATCH /api/tasks/:id` accepts `dependencies` and
-  writes it verbatim — no shape check, no existence check, no cycle check — and does not park the task.
-  No UI control and no agent tool exposes the field. `POST /tasks` rejects it outright. So the seed's
-  "nothing writes dependencies" is nearly true in effect, but the door is already open and unguarded.
-- Accepting a task never reads dependencies: `transitionTask` checks team capacity, then dispatches.
-- The chain is as described — `hold → accepted`, then a reaction to `session_started` promotes
-  agent-owned tasks to `in_progress`, correctly leaving unowned tasks at `accepted` for a human.
-- **The chain cannot be entered.** A task is born `proposed`, and `proposed → hold` is not a legal edge.
-
-**Missing delta.** Give dependencies a validated, reachable writer; get a task with unfinished
-dependencies into the waiting state and keep it from being picked up; let the existing chain carry a
-freed task into progress.
+**Where it started.** `tasks.dependencies` (a JSON-array TEXT column) and the `done` watcher already
+existed. `PATCH /api/tasks/:id` already wrote the field — unvalidated, unparked, and reachable from no UI
+control or agent tool. Accepting a task never read it, and `proposed → hold` was not a legal edge, so the
+waiting chain had no entrance.
 
 **Constraints.**
 - A dependency cycle must be rejected when it is created. A cycle that is accepted parks every task in
@@ -38,8 +24,7 @@ freed task into progress.
   transition.
 
 **Out of scope.** Reintroducing automatic decomposition of a bet into tasks. Visualising the dependency
-tree beyond what is needed to set and see dependencies. Emitting `dependency_met` — the event type is
-declared and never emitted, and BA8 owns it.
+tree beyond what is needed to set and see dependencies. Emitting `dependency_met` — BA8 owns it.
 
 ## Acceptance criteria
 
@@ -50,123 +35,61 @@ declared and never emitted, and BA8 owns it.
 - When a task's last dependency finishes and no agent owns it, it waits for a human rather than starting.
 - An attempt to create a dependency cycle is refused, and the person or agent attempting it is told why.
 
-## Validation scenarios
-
-- Given task B depends on task A and A is unfinished, when work is picked up, then B is not started.
-- Given task B depends only on task A and an agent owns B, when A finishes, then B moves into progress on
-  its own.
-- Given task B depends on task A, when someone tries to make A depend on B, then the change is refused.
-
 ## How it works
 
-**Setting dependencies.** `POST /tasks` and `PATCH /tasks/:id` both accept a list of task ids. Both
-doors validate the same way, in the same transaction as the write: every id must name a task that
-exists, a task may not depend on itself, and the resulting graph must have no cycle. A rejected write
-returns 409 with a message that says which rule it broke.
+**Setting dependencies.** `POST /tasks` and `PATCH /tasks/:id` both take a list of task ids and validate
+it inside the write's transaction: every id must exist (404), a task may not depend on itself, the graph
+may not cycle (409 `TASK_CYCLE`), and no dependency may be a `killed` task, because it can never finish
+(409 `TASK_DEPENDENCY_KILLED`). Depending on a `done` task is legal and does not park. A dependency may
+point at any task in any tree; cycle rejection is what keeps that safe.
 
-There is no restriction on where a dependency points — a task may depend on any task, in any tree.
-Cycle rejection is what keeps that safe.
+**Waiting.** `hold` is the one waiting state, for any kind of wait. A valid write naming an unfinished
+dependency moves the task to `hold`; `proposed → hold` was added as the chain's entrance.
 
-**Waiting.** `hold` is the one waiting state, whatever the wait is for. After a valid write, if any
-named dependency is unfinished, the task moves to `hold`. A task is born `proposed` and `proposed →
-hold` is not a legal edge today, so that edge is added — it is the entrance to the chain the seed
-already told us to reuse, not a shortcut past it.
+**Not picked up.** Parking is the visible half; `transitionTask` is the enforcing half. While a task has
+an unfinished dependency it refuses `→ accepted` from anywhere, and `→ in_progress` from every state
+except `blocked` (409 `TASK_DEPENDENCY_BLOCKED`). `blocked` is exempt because its only predecessor is
+`in_progress` — a blocked task was genuinely picked up, so resuming it is not a pick-up. `review` is not
+exempt: it is reachable from `hold`. A test pins `blocked`'s single predecessor; changing the transition
+table there means revisiting this guard.
 
-**Not picked up.** Parking is the visible half; the guard is the enforcing half. `transitionTask`
-refuses a move to `accepted` while the task has unfinished dependencies, so a task cannot be dispatched
-around the hold by anyone — human, agent, or a direct state edit.
+**Being freed.** The last dependency reaching `done` moves the task `hold → accepted` (the existing
+watcher). A dependency being **killed** drops its id from every dependent in any state, and returns the
+dependents that were waiting in `hold` to `proposed` for re-planning — the premise they were planned
+under is gone. This runs synchronously inside `cascadeTaskKill`, the only production route to `killed`.
 
-**Being freed.** Two ways out, and they are not the same:
-- The last dependency **finishes**: the existing watcher moves the task `hold → accepted`. Unchanged.
-- A dependency is **killed**: the premise the task was planned under is gone, so it returns to
-  `proposed` for re-planning rather than starting. The killed id is dropped from its dependency list at
-  the same time — left in place it is a prerequisite that can never be satisfied, which parks the task
-  forever the next time it is accepted.
+**Starting.** Unchanged: `accepted` with an agent owner dispatches, `session_started` promotes to
+`in_progress`, an unowned task stops at `accepted` for a human.
 
-**Starting.** Nothing new. `accepted` with an agent owner dispatches, `session_started` promotes to
-`in_progress`, and an unowned task stops at `accepted` for a human, exactly as today.
+**Being told why.** The UI patch hook surfaces the server's message; the agent seam carries the error
+code so `edit_task` returns a structured `err(code, message)` instead of throwing.
 
-**Being told why.** Neither side can currently carry the reason, and both are in scope:
-- the UI patch hook discards the response body on a non-2xx, so the message never reaches the person;
-- the agent seam collapses a 409 into a generic thrown `Error` that the task tools do not catch, so the
-  agent gets a failure instead of a reason.
-
-**Reachable controls.** The write door already exists and is unguarded; what is missing is any way to
-reach it. A dependency control goes on the task create and edit surfaces, and `dependencies` goes on the
-`create_task` and `edit_task` tool schemas and the seam's `CreateTaskRequest`.
-
-**You find the task by searching for it.** Maintainer ruling at the 2026-09-10 gate: a control that
-makes a person paste a task id is not acceptable. You type part of a title and pick from the results,
-and the chip shows the title. Searching is not a substitute for guarding the door — the server still
-checks existence, self-dependency and cycles for any caller that skips the picker.
+**Finding the task.** You type part of a title and pick from the results; the chip shows the title. The
+picker's search (`GET /api/tasks?q=`) searches every depth and opts out of killed tasks; global search
+still returns them. The server guards the door regardless of the picker.
 
 ## How we work on this
 
-**Dials.** complexity: feature · ambiguity: established context (was: new context — resolved by the
-2026-09-09 interview) · exposure: user-facing surface.
+**Dials.** complexity: feature · ambiguity: established context · exposure: user-facing surface.
 
-**Decided in the interview (2026-09-09).**
-- `hold` is the single waiting state — "any type of we need to wait". No new state, no migration.
-- A killed dependency sends its dependents back to `proposed` to be refined again, rather than freeing
-  them to start.
-- No restriction on which tasks may depend on which. Simplest wins.
+**Maintainer rulings.** `hold` is the single waiting state. A killed dependency sends its dependents back
+to be refined, not freed to start. No restriction on which tasks may depend on which — simplest wins.
+At the 2026-09-10 gate: pasting a task id is not acceptable, searching a task must be possible; and
+harnesses only run through the desktop app, so the agent-owned proof runs on the packaged build.
 
-**Decided without asking.** Setting a dependency parks the task automatically (the outcome already says
-it waits). A write naming a task that does not exist is refused. Dependencies gate being picked up; a
-task already in progress is not rewound by a later dependency.
+**Gate and review.** One gate before shipping, on the running app. Review by a fresh agent over the
+integrated diff; six passes ran and the last approved with no blocking findings.
 
-**Rounds.** No separate design or architecture round. The ground-truth pass named every surface, and the
-three open decisions were settled by interview.
+## Accepted limitations
 
-**Structure.** One builder, sequential — the work is heterogeneous (state machine, service, routes, agent
-tools, UI). Failing tests first, then the code.
-
-**Gates.** One: before shipping, on the running app — the three validation scenarios plus the dependency
-control, shown rather than described.
-
-**Where the proof has to run.** Maintainer ruling 2026-09-10: harnesses are only available through the
-**desktop app**. The dev web server cannot run one, so the hop from `accepted` into `in_progress` for an
-agent-owned task can only be shown by driving the packaged desktop build with computer-use. The earlier
-reading — that boot-time harness detection was failing under load — was wrong about the cause.
-
-**Review.** One fresh reviewer over the integrated diff, per complexity x exposure.
-
-## Confusions
-
-Execution added two, both fixed in `e7ca8c23e` after review: auto-parking was gated on the request
-omitting `state`, which the edit panel never does, so the one human door never parked anything; and the
-killed-dependency cleanup reused a query that hardcodes `state = 'hold'`, so any dependent in another
-state kept a dead id and could never be accepted again — a permanent park that this package's own guard
-turned from inert into fatal.
-
-Raised by the ground-truth pass. 1, 2, 5 and 6 were settled by the 2026-09-09 interview and
-are recorded under "How it works"; 3, 4 and 7 are real work this package now carries.
-1. "Waiting" has no state of its own. The waiting state is `hold`, which is also the state a person picks
-   by hand to pause something ("On hold" in the dropdown). The two are indistinguishable in the data.
-2. The constraint "reuse the chain, do not add a transition" cannot be satisfied as written — the chain
-   has no entrance from `proposed`. Either an edge is added or create writes `hold` directly.
-3. "Told why" is not achievable with today's error plumbing on either side: the UI hook discards the
-   response body on a non-2xx, and the agent seam collapses a 409 into a generic thrown Error that the
-   `edit_task` handler does not catch.
-4. "A task can be given dependencies when it is created" needs three surfaces opened, not one:
-   `POST /tasks` (which currently rejects the key), the agent seam's `CreateTaskRequest`, and the
-   `create_task` tool schema.
-5. The seed's out-of-scope line "dependencies that cross bets" has no meaning post-BB1, where a bet is a
-   root task. Either it means "stay within one root task's subtree" or it should be dropped.
-6. Only `done` frees a dependent. A `killed` dependency parks its dependents forever, silently.
-7. Nothing stops a dangling dependency id. The watcher reads `undefined` for a deleted task and parks the
-   dependent forever, silently.
-
-## Proposed items
-
-Found while proving BA6 on the running app. Separate work — not this package's to fix.
-
-1. **Harness adapters are pooled only at boot, and a failed boot probe is unrecoverable without a
-   restart.** `POST /api/harnesses/redetect` re-probes and updates what the app *reports* — all four
-   CLIs flipped from "not installed or not on PATH" to Ready — but it does not register adapters. The
-   adapter pool is built once, at server creation, from boot-time discovery. So on a host where the
-   boot probe fails, the settings screen says Ready while every agent session dies at pre-admission
-   with `NoEligibleHarnessError: no harness adapters are registered`, and nothing in the UI hints that
-   a restart is the cure. Observed repeatedly on this machine; the probe reads `process.env.PATH` and
-   the PATH was correct in the running server process, so the boot probe appears to fail under load
-   rather than for a missing binary. This is what stopped BA6's last hop being shown live.
+- `POST /api/sessions` checks only that the task exists, not its state or dependencies. No UI reaches it,
+  and the task's state still cannot change, but "not picked up" is enforced at the state label rather
+  than at session admission.
+- A parked task can still be marked `done` (`hold → done` is legal, and lifecycle propagation can drive a
+  `hold` parent to `done`), which frees its own dependents. Dependencies are not transitive.
+- The cycle check and the kill cleanup read without row locks, so two conflicting simultaneous writes
+  can both pass — the same founder-accepted limit as the parent-tree `assertNoCycle`.
+- Clearing the field stores `"[]"` rather than `null`; duplicate ids are stored as given.
+- A write that changes `state` and `dependencies` together does not park; the guard still stops pick-up.
+- A dangling-id refusal on create shows the generic error; cycle and killed refusals show the reason.
+- `create_task` does not catch the seam error the way `edit_task` does; only a dangling id reaches it.
