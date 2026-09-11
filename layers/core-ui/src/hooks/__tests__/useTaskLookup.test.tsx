@@ -1,5 +1,5 @@
 /**
- * BA6 fix-round RED — useTaskLookup: resolving a pre-existing dependency's
+ * useTaskLookup: resolving a pre-existing dependency's
  * title must not depend on render timing.
  *
  * Regression: `knownRef` used to mark an id "known" the instant its fetch
@@ -22,7 +22,7 @@ vi.mock("../../services/api-fetch.js", () => ({
 
 import { useTaskLookup } from "../useTaskLookup.js";
 
-describe("useTaskLookup — BA6 fix round", () => {
+describe("useTaskLookup", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {

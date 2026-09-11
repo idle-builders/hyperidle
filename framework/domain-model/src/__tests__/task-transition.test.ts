@@ -47,17 +47,17 @@ describe("task transition contract", () => {
 	});
 
 	/**
-	 * BA6: `hold` is the single waiting state, entered when a task is created
+	 * `hold` is the single waiting state, entered when a task is created
 	 * or edited with an unfinished dependency. A task is born `proposed`, so
 	 * without this edge nothing can ever enter the chain the watcher already
-	 * carries onward — see `.pipeline/work/BA6/plan.md` "How it works".
+	 * carries onward.
 	 */
-	it("allows proposed -> hold (BA6: the entrance to the dependency-wait chain)", () => {
+	it("allows proposed -> hold (the entrance to the dependency-wait chain)", () => {
 		expect(canTransitionTaskState("proposed", "hold")).toBe(true);
 	});
 
 	/**
-	 * BA6: the pick-up guard in `task-state-machine.ts` exempts `blocked` from
+	 * The pick-up guard in `task-state-machine.ts` exempts `blocked` from
 	 * the "must come from accepted" pick-up check, and that exemption is only
 	 * sound because `blocked` is reachable from `in_progress` alone — so a task
 	 * in `blocked` was genuinely picked up once. This derives the set of
@@ -66,7 +66,7 @@ describe("task transition contract", () => {
 	 * revisit the pick-up guard's `blocked` exemption before it walks a
 	 * parked task past pick-up undetected.
 	 */
-	it("blocked is reachable only from in_progress (BA6 pick-up guard depends on this)", () => {
+	it("blocked is reachable only from in_progress (the pick-up guard depends on this)", () => {
 		const sourcesIntoBlocked = Object.entries(TASK_STATE_TRANSITIONS)
 			.filter(([, targets]) => targets.includes("blocked"))
 			.map(([from]) => from);

@@ -1,5 +1,5 @@
 /**
- * BA6 RED — TaskDependencyField: the search-and-pick door replaces the
+ * TaskDependencyField: the search-and-pick door replaces the
  * paste-a-task-id field the maintainer rejected.
  *
  * Covers:
@@ -37,7 +37,7 @@ function stubFetch(searchResults: TaskRow[], lookupRows: TaskRow[] = []): Return
 	});
 }
 
-describe("TaskDependencyField — BA6 search picker", () => {
+describe("TaskDependencyField — search picker", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {

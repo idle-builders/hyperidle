@@ -451,7 +451,7 @@ const createTaskInputSchema = z.object({
 	/** Explicit parent — any depth. Omit to nest under the session's own task. */
 	parentTaskId: z.string().min(1).optional(),
 	/**
-	 * BA6: task ids this task waits on. While any is unfinished the new task
+	 * Task ids this task waits on. While any is unfinished the new task
 	 * starts in `hold` instead of `proposed`.
 	 */
 	dependencies: z.array(z.string()).optional(),
@@ -543,7 +543,7 @@ const editTaskInputSchema = z.object({
 	ownerAgentId: z.string().min(1).optional(),
 	/** `null` promotes the task to a root — the same reach the human door has. */
 	parentTaskId: z.string().min(1).nullable().optional(),
-	/** BA6: task ids this task waits on. `null` clears the list. */
+	/** Task ids this task waits on. `null` clears the list. */
 	dependencies: z.array(z.string()).nullable().optional(),
 	state: z.enum(TASK_STATES).optional(),
 	/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
@@ -590,7 +590,7 @@ function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTas
 				return err("INVALID_INPUT", "No fields to update.");
 			}
 
-			// BA6: a rejection from the write door (e.g. a dependency cycle) must
+			// A rejection from the write door (e.g. a dependency cycle) must
 			// reach the caller as a structured failure, not an uncaught throw —
 			// `SeamRequestError.code` carries the route's machine-readable code
 			// (e.g. "TASK_CYCLE") straight through.

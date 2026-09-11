@@ -144,7 +144,7 @@ async function propagateSessionToTask(
 	// still working. The second run's end then sees a task that is no longer
 	// `in_progress` and quietly does nothing. That is recoverable —
 	// `review -> in_progress` is a legal move, refused only while the task
-	// still carries an unfinished dependency (BA6) — and under ETHOS.md a
+	// still carries an unfinished dependency — and under ETHOS.md a
 	// preemptive wall against a state only a hand-made API call reaches is
 	// not worth a cross-Layer read. Founder-ruled. No replacement
 	// event, no counter, no downward call.

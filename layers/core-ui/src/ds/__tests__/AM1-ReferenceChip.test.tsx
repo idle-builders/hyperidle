@@ -92,7 +92,7 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 		expect(screen.getByText("<img src=x onerror=1>")).toBeDefined();
 	});
 
-	// BA6: draft mode with no `onOpen` renders the body as plain text, not a
+	// Draft mode with no `onOpen` renders the body as plain text, not a
 	// dead focusable button — a caller with nothing to open (e.g. a
 	// dependency-only reference list) must not ship a control that no-ops.
 	it("draft mode with no onOpen: body is inert, not a focusable button", () => {
@@ -105,7 +105,7 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 		expect(onRemove).toHaveBeenCalledTimes(1);
 	});
 
-	// BA6: `disabled` freezes BOTH controls — real `disabled` attribute, not
+	// `disabled` freezes BOTH controls — real `disabled` attribute, not
 	// merely an omitted handler (an omitted handler still leaves a focusable,
 	// clickable-but-no-op control).
 	it("disabled: both the open and remove buttons carry the real disabled attribute", () => {
@@ -131,7 +131,7 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 		expect(onRemove).not.toHaveBeenCalled();
 	});
 
-	// BA6: `removeTestId` targets the ACTUAL remove control, not a wrapping
+	// `removeTestId` targets the ACTUAL remove control, not a wrapping
 	// element with no remove behaviour of its own.
 	it("removeTestId is applied to the remove button itself", () => {
 		render(

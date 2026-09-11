@@ -93,7 +93,7 @@ export class TaskCycleError extends Error {
 }
 
 /**
- * BA6: thrown when a `dependencies` write names a task id that does not
+ * Thrown when a `dependencies` write names a task id that does not
  * exist. Distinct from `TaskCycleError` (409) — a dangling id is refused
  * outright with 404, matching the existing precedent for a missing
  * `parentTaskId` on `POST /tasks`.
@@ -106,7 +106,7 @@ export class TaskDependencyNotFoundError extends Error {
 }
 
 /**
- * BA6 (fix round): thrown when a `dependencies` write names a task that is
+ * Thrown when a `dependencies` write names a task that is
  * `killed` — it can never reach `done`, so depending on it would park the
  * dependent forever with no watcher left to free it (the kill-time cleanup
  * only fires for dependents that existed AT kill time). Distinct from
@@ -121,7 +121,7 @@ export class TaskDependencyKilledError extends Error {
 }
 
 /**
- * BA6 (fix round): thrown by `transitionTask` when a genuine pick-up
+ * Thrown by `transitionTask` when a genuine pick-up
  * transition (`-> accepted`, or `accepted -> in_progress`) is refused
  * because the task still carries an unfinished dependency. Distinct from
  * `TaskInvalidTransitionError` — the edge itself IS legal grammar in
@@ -183,7 +183,7 @@ export class TaskInvalidTransitionError extends InvalidTransitionError {
 }
 
 /**
- * BA6: thrown by the `CoreApiPort` seam client on a non-2xx response, carrying
+ * Thrown by the `CoreApiPort` seam client on a non-2xx response, carrying
  * the response's machine-readable `code` (when the body is `{ error, code }`
  * JSON) alongside the status and a formatted message.
  *

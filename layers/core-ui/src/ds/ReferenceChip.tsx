@@ -52,7 +52,7 @@ const ICON: Record<ReferenceChipKind, string> = {
 	knowledge:
 		"M3 1.5h7l3 3v9.5a.5.5 0 01-.5.5H3a.5.5 0 01-.5-.5v-12a.5.5 0 01.5-.5zm6.5 1.2V4.5h1.8L9.5 2.7zM4.5 6.3h7v1.2h-7V6.3zm0 2.6h7v1.2h-7V8.9zm0 2.6h4.6v1.2H4.5v-1.2z",
 	block: "M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h-7V9.7z",
-	// BA6: checkbox-with-check — a dependency chip references another TASK,
+	// Checkbox-with-check — a dependency chip references another TASK,
 	// distinct from the file/knowledge/block shapes above.
 	task: "M2.5 2.5h11v11h-11v-11zm1.5 1.5v8h8v-8h-8zm1.6 4.3l1.6 1.6 3-3 1.1 1.1-4.1 4.1-2.7-2.7z",
 };

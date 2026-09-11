@@ -1,8 +1,8 @@
 /**
- * BA6 RED — useTaskSearch: the picker's search door.
+ * useTaskSearch: the picker's search door.
  *
  * The route itself (`GET /api/tasks?q=`) is proven by
- * `BA6-task-search.integration.test.ts` (title match, non-root findable).
+ * `task-search.integration.test.ts` (title match, non-root findable).
  * This hook test covers the client-side half: excluding the task being
  * edited and tasks already in the dependency list from the results the
  * picker offers.
@@ -17,7 +17,7 @@ vi.mock("../../services/api-fetch.js", () => ({
 
 import { useTaskSearch } from "../useTaskSearch.js";
 
-describe("useTaskSearch — BA6", () => {
+describe("useTaskSearch", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {

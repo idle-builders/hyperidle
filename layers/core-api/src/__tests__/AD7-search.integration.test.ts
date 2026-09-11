@@ -323,15 +323,15 @@ describe("GET /api/search — AD7 search backend", () => {
 	});
 
 	// ---------------------------------------------------------------------
-	// BA6 (fix round 2, B2) — a `killed` root task must still be findable here.
-	// The fix round that excluded killed tasks from the DEPENDENCY PICKER
-	// (`GET /api/tasks?q=`, covered by `BA6-task-search.integration.test.ts`)
-	// put the exclusion in the shared `work.list(..., { text })` primitive
-	// that this route also calls — so killing a task made it vanish from
-	// global search too, even though `status: row.state` below exists
-	// specifically to show state, killed included.
+	// A `killed` root task must still be findable here. Excluding killed tasks
+	// from the DEPENDENCY PICKER (`GET /api/tasks?q=`, covered by
+	// `task-search.integration.test.ts`) put the exclusion in the shared
+	// `work.list(..., { text })` primitive that this route also calls — so
+	// killing a task made it vanish from global search too, even though
+	// `status: row.state` below exists specifically to show state, killed
+	// included.
 	// ---------------------------------------------------------------------
-	test("BA6 B2: a killed root task is still returned by global search", async ({ app, db }) => {
+	test("a killed root task is still returned by global search", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await seedTeam(db, "team-killed", "Killed Team");

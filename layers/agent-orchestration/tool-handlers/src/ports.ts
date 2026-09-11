@@ -173,7 +173,7 @@ interface ToolHandlersCoreApiAccessor {
 			readonly description: string | null;
 			readonly doneCondition: string | null;
 			readonly ownerAgentId: string | null;
-			/** BA6: a list of task ids this task waits on. */
+			/** A list of task ids this task waits on. */
 			readonly dependencies?: readonly string[];
 			/** When true, finishing this task sends it to `review` rather than `done`. */
 			readonly needsReview?: boolean;
@@ -193,7 +193,7 @@ interface ToolHandlersCoreApiAccessor {
 			readonly description?: string | null;
 			readonly doneCondition?: string | null;
 			readonly ownerAgentId?: string | null;
-			/** BA6: a list of task ids, or `null` to clear. */
+			/** A list of task ids, or `null` to clear. */
 			readonly dependencies?: readonly string[] | null;
 			readonly parentTaskId?: string | null;
 			readonly state?: string;

@@ -1,5 +1,5 @@
 /**
- * BA6 RED — "Tasks wait for the tasks they depend on, then start themselves".
+ * "Tasks wait for the tasks they depend on, then start themselves".
  *
  * Covers, against the real `{ db, app, eventBus }` fixtures:
  *   - AC1 (human doors): POST /tasks and PATCH /tasks/:id both accept
@@ -28,7 +28,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
-const TEST_API_KEY = "test-key-ba6-deps";
+const TEST_API_KEY = "test-key-task-deps";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
@@ -67,7 +67,7 @@ async function insertTask(
 	});
 }
 
-describe("BA6: task dependencies — write doors, guard, cycle rejection", () => {
+describe("task dependencies — write doors, guard, cycle rejection", () => {
 	// ---------------------------------------------------------------------
 	// AC1: create door
 	// ---------------------------------------------------------------------
@@ -76,23 +76,23 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "ba6-t1");
-			await insertTask(db, "ba6-dep-1", "ba6-t1", "in_progress");
+			await seedTeam(db, "dep-t1");
+			await insertTask(db, "dep-dep-1", "dep-t1", "in_progress");
 
 			const res = await app.request("/api/tasks", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "ba6-t1",
+					teamId: "dep-t1",
 					title: "Depends on dep-1",
-					dependencies: ["ba6-dep-1"],
+					dependencies: ["dep-dep-1"],
 				}),
 			});
 
 			expect(res.status).toBe(201);
 			const created = (await res.json()) as { id: string };
 			const [row] = await db.select().from(tasks).where(eq(tasks.id, created.id));
-			expect(row?.dependencies).toBe(JSON.stringify(["ba6-dep-1"]));
+			expect(row?.dependencies).toBe(JSON.stringify(["dep-dep-1"]));
 			expect(row?.state).toBe("hold");
 		});
 	});
@@ -105,23 +105,23 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "ba6-t2");
+			await seedTeam(db, "dep-t2");
 			// Two separate root tasks — different trees.
-			await insertTask(db, "ba6-root-a", "ba6-t2", "in_progress");
-			await insertTask(db, "ba6-root-b", "ba6-t2", "in_progress");
+			await insertTask(db, "dep-root-a", "dep-t2", "in_progress");
+			await insertTask(db, "dep-root-b", "dep-t2", "in_progress");
 			// The dependency lives under root-b; the dependent lives under root-a.
-			await insertTask(db, "ba6-cross-dep", "ba6-t2", "in_progress");
-			await insertTask(db, "ba6-dependent", "ba6-t2", "proposed");
+			await insertTask(db, "dep-cross-dep", "dep-t2", "in_progress");
+			await insertTask(db, "dep-dependent", "dep-t2", "proposed");
 
-			const res = await app.request("/api/tasks/ba6-dependent", {
+			const res = await app.request("/api/tasks/dep-dependent", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: ["ba6-cross-dep"] }),
+				body: JSON.stringify({ dependencies: ["dep-cross-dep"] }),
 			});
 
 			expect(res.status).toBe(200);
 			const updated = (await res.json()) as { state: string; dependencies: string | null };
-			expect(updated.dependencies).toBe(JSON.stringify(["ba6-cross-dep"]));
+			expect(updated.dependencies).toBe(JSON.stringify(["dep-cross-dep"]));
 			expect(updated.state).toBe("hold");
 		});
 	});
@@ -134,15 +134,15 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			eventBus,
 		}) => {
-			await seedTeam(db, "ba6-t3");
-			await insertTask(db, "ba6-guard-dep", "ba6-t3", "in_progress");
-			await insertTask(db, "ba6-guard-dependent", "ba6-t3", "hold", ["ba6-guard-dep"]);
+			await seedTeam(db, "dep-t3");
+			await insertTask(db, "dep-guard-dep", "dep-t3", "in_progress");
+			await insertTask(db, "dep-guard-dependent", "dep-t3", "hold", ["dep-guard-dep"]);
 
 			await expect(
-				transitionTask(db, eventBus, "ba6-guard-dependent", "accepted", testDeps),
+				transitionTask(db, eventBus, "dep-guard-dependent", "accepted", testDeps),
 			).rejects.toThrow();
 
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-guard-dependent"));
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-guard-dependent"));
 			expect(row?.state).toBe("hold");
 		});
 	});
@@ -155,23 +155,23 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "ba6-t4");
-			await insertTask(db, "ba6-cycle-a", "ba6-t4", "proposed");
-			await insertTask(db, "ba6-cycle-b", "ba6-t4", "proposed");
+			await seedTeam(db, "dep-t4");
+			await insertTask(db, "dep-cycle-a", "dep-t4", "proposed");
+			await insertTask(db, "dep-cycle-b", "dep-t4", "proposed");
 
 			// B depends on A first — legal on its own.
-			const first = await app.request("/api/tasks/ba6-cycle-b", {
+			const first = await app.request("/api/tasks/dep-cycle-b", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: ["ba6-cycle-a"] }),
+				body: JSON.stringify({ dependencies: ["dep-cycle-a"] }),
 			});
 			expect(first.status).toBe(200);
 
 			// Now A depends on B — closes the loop.
-			const res = await app.request("/api/tasks/ba6-cycle-a", {
+			const res = await app.request("/api/tasks/dep-cycle-a", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: ["ba6-cycle-b"] }),
+				body: JSON.stringify({ dependencies: ["dep-cycle-b"] }),
 			});
 
 			expect(res.status).toBe(409);
@@ -181,13 +181,13 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 		});
 
 		test("a task cannot depend on itself", async ({ db, app }) => {
-			await seedTeam(db, "ba6-t5");
-			await insertTask(db, "ba6-self", "ba6-t5", "proposed");
+			await seedTeam(db, "dep-t5");
+			await insertTask(db, "dep-self", "dep-t5", "proposed");
 
-			const res = await app.request("/api/tasks/ba6-self", {
+			const res = await app.request("/api/tasks/dep-self", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: ["ba6-self"] }),
+				body: JSON.stringify({ dependencies: ["dep-self"] }),
 			});
 
 			expect(res.status).toBe(409);
@@ -196,13 +196,13 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 		});
 
 		test("a dependency naming a task that does not exist is refused", async ({ db, app }) => {
-			await seedTeam(db, "ba6-t6");
-			await insertTask(db, "ba6-dangling", "ba6-t6", "proposed");
+			await seedTeam(db, "dep-t6");
+			await insertTask(db, "dep-dangling", "dep-t6", "proposed");
 
-			const res = await app.request("/api/tasks/ba6-dangling", {
+			const res = await app.request("/api/tasks/dep-dangling", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: ["ba6-does-not-exist"] }),
+				body: JSON.stringify({ dependencies: ["dep-does-not-exist"] }),
 			});
 
 			expect(res.status).toBe(404);
@@ -215,20 +215,20 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 	// ---------------------------------------------------------------------
 	describe("a task already in_progress is not rewound by a later dependencies write", () => {
 		test("PATCH dependencies on an in_progress task leaves it in_progress", async ({ db, app }) => {
-			await seedTeam(db, "ba6-t8");
-			await insertTask(db, "ba6-unfinished-dep", "ba6-t8", "in_progress");
-			await insertTask(db, "ba6-running", "ba6-t8", "in_progress");
+			await seedTeam(db, "dep-t8");
+			await insertTask(db, "dep-unfinished-dep", "dep-t8", "in_progress");
+			await insertTask(db, "dep-running", "dep-t8", "in_progress");
 
-			const res = await app.request("/api/tasks/ba6-running", {
+			const res = await app.request("/api/tasks/dep-running", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: ["ba6-unfinished-dep"] }),
+				body: JSON.stringify({ dependencies: ["dep-unfinished-dep"] }),
 			});
 
 			expect(res.status).toBe(200);
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-running"));
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-running"));
 			expect(row?.state).toBe("in_progress");
-			expect(row?.dependencies).toBe(JSON.stringify(["ba6-unfinished-dep"]));
+			expect(row?.dependencies).toBe(JSON.stringify(["dep-unfinished-dep"]));
 		});
 	});
 
@@ -241,15 +241,15 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "ba6-t7");
-			await insertTask(db, "ba6-killable", "ba6-t7", "in_progress");
-			await insertTask(db, "ba6-still-unfinished", "ba6-t7", "in_progress");
-			await insertTask(db, "ba6-dependent-of-killed", "ba6-t7", "hold", [
-				"ba6-killable",
-				"ba6-still-unfinished",
+			await seedTeam(db, "dep-t7");
+			await insertTask(db, "dep-killable", "dep-t7", "in_progress");
+			await insertTask(db, "dep-still-unfinished", "dep-t7", "in_progress");
+			await insertTask(db, "dep-dependent-of-killed", "dep-t7", "hold", [
+				"dep-killable",
+				"dep-still-unfinished",
 			]);
 
-			const res = await app.request("/api/tasks/ba6-killable", {
+			const res = await app.request("/api/tasks/dep-killable", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "killed" }),
@@ -259,9 +259,9 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			const [dependent] = await db
 				.select()
 				.from(tasks)
-				.where(eq(tasks.id, "ba6-dependent-of-killed"));
+				.where(eq(tasks.id, "dep-dependent-of-killed"));
 			expect(dependent?.state).toBe("proposed");
-			expect(JSON.parse(dependent?.dependencies ?? "[]")).toEqual(["ba6-still-unfinished"]);
+			expect(JSON.parse(dependent?.dependencies ?? "[]")).toEqual(["dep-still-unfinished"]);
 		});
 	});
 
@@ -276,20 +276,20 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "ba6-b1a");
-			await insertTask(db, "ba6-b1a-dep", "ba6-b1a", "proposed");
-			await insertTask(db, "ba6-b1a-dependent", "ba6-b1a", "proposed");
+			await seedTeam(db, "dep-b1a");
+			await insertTask(db, "dep-b1a-dep", "dep-b1a", "proposed");
+			await insertTask(db, "dep-b1a-dependent", "dep-b1a", "proposed");
 
 			// Exactly what WorkTaskPage's edit panel sends: every field it
 			// renders, including `state` set to the value it already has.
-			const res = await app.request("/api/tasks/ba6-b1a-dependent", {
+			const res = await app.request("/api/tasks/dep-b1a-dependent", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ state: "proposed", dependencies: ["ba6-b1a-dep"] }),
+				body: JSON.stringify({ state: "proposed", dependencies: ["dep-b1a-dep"] }),
 			});
 
 			expect(res.status).toBe(200);
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b1a-dependent"));
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b1a-dependent"));
 			expect(row?.state).toBe("hold");
 		});
 	});
@@ -305,18 +305,18 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			eventBus,
 		}) => {
-			await seedTeam(db, "ba6-b1b");
-			await insertTask(db, "ba6-b1b-dep", "ba6-b1b", "proposed");
+			await seedTeam(db, "dep-b1b");
+			await insertTask(db, "dep-b1b-dep", "dep-b1b", "proposed");
 			// Directly seeded `accepted` carrying an unfinished dependency — the
 			// state the reviewer showed is reachable despite the parking guard
 			// (e.g. a race, or dependencies attached while already accepted).
-			await insertTask(db, "ba6-b1b-dependent", "ba6-b1b", "accepted", ["ba6-b1b-dep"]);
+			await insertTask(db, "dep-b1b-dependent", "dep-b1b", "accepted", ["dep-b1b-dep"]);
 
 			await expect(
-				transitionTask(db, eventBus, "ba6-b1b-dependent", "in_progress", testDeps),
+				transitionTask(db, eventBus, "dep-b1b-dependent", "in_progress", testDeps),
 			).rejects.toThrow();
 
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b1b-dependent"));
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b1b-dependent"));
 			expect(row?.state).toBe("accepted");
 		});
 	});
@@ -334,20 +334,20 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			app,
 			eventBus,
 		}) => {
-			await seedTeam(db, "ba6-b2");
-			await insertTask(db, "ba6-b2-killable", "ba6-b2", "done");
+			await seedTeam(db, "dep-b2");
+			await insertTask(db, "dep-b2-killable", "dep-b2", "done");
 			// F: proposed, not hold — created after E already finished, so it was
 			// never parked; it still carries E's id.
-			await insertTask(db, "ba6-b2-dependent", "ba6-b2", "proposed", ["ba6-b2-killable"]);
+			await insertTask(db, "dep-b2-dependent", "dep-b2", "proposed", ["dep-b2-killable"]);
 
-			const res = await app.request("/api/tasks/ba6-b2-killable", {
+			const res = await app.request("/api/tasks/dep-b2-killable", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "killed" }),
 			});
 			expect(res.status).toBe(200);
 
-			const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b2-dependent"));
+			const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dep-b2-dependent"));
 			// Not rewound — it was never waiting.
 			expect(dependent?.state).toBe("proposed");
 			// The stale id is gone, not left behind to brick every future accept.
@@ -355,7 +355,7 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 
 			// Proof it isn't bricked: accepting it now succeeds.
 			await expect(
-				transitionTask(db, eventBus, "ba6-b2-dependent", "accepted", testDeps),
+				transitionTask(db, eventBus, "dep-b2-dependent", "accepted", testDeps),
 			).resolves.not.toThrow();
 		});
 	});
@@ -368,16 +368,16 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 	// ---------------------------------------------------------------------
 	describe("B1: a dependency naming an already-killed task is refused on both doors", () => {
 		test("POST /tasks refuses a dependency naming an already-killed task", async ({ db, app }) => {
-			await seedTeam(db, "ba6-b1c-post");
-			await insertTask(db, "ba6-b1c-post-dead", "ba6-b1c-post", "killed");
+			await seedTeam(db, "dep-b1c-post");
+			await insertTask(db, "dep-b1c-post-dead", "dep-b1c-post", "killed");
 
 			const res = await app.request("/api/tasks", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "ba6-b1c-post",
+					teamId: "dep-b1c-post",
 					title: "Depends on a corpse",
-					dependencies: ["ba6-b1c-post-dead"],
+					dependencies: ["dep-b1c-post-dead"],
 				}),
 			});
 
@@ -391,14 +391,14 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "ba6-b1c-patch");
-			await insertTask(db, "ba6-b1c-patch-dead", "ba6-b1c-patch", "killed");
-			await insertTask(db, "ba6-b1c-patch-dependent", "ba6-b1c-patch", "proposed");
+			await seedTeam(db, "dep-b1c-patch");
+			await insertTask(db, "dep-b1c-patch-dead", "dep-b1c-patch", "killed");
+			await insertTask(db, "dep-b1c-patch-dependent", "dep-b1c-patch", "proposed");
 
-			const res = await app.request("/api/tasks/ba6-b1c-patch-dependent", {
+			const res = await app.request("/api/tasks/dep-b1c-patch-dependent", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ dependencies: ["ba6-b1c-patch-dead"] }),
+				body: JSON.stringify({ dependencies: ["dep-b1c-patch-dead"] }),
 			});
 
 			expect(res.status).toBe(409);
@@ -407,7 +407,7 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			expect(body.code).toBe("TASK_DEPENDENCY_KILLED");
 
 			// Refused — the dependent must not have been parked on the dead id.
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b1c-patch-dependent"));
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b1c-patch-dependent"));
 			expect(row?.state).toBe("proposed");
 			expect(row?.dependencies).toBeNull();
 		});
@@ -416,16 +416,16 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "ba6-b1c-done");
-			await insertTask(db, "ba6-b1c-done-finished", "ba6-b1c-done", "done");
+			await seedTeam(db, "dep-b1c-done");
+			await insertTask(db, "dep-b1c-done-finished", "dep-b1c-done", "done");
 
 			const res = await app.request("/api/tasks", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "ba6-b1c-done",
+					teamId: "dep-b1c-done",
 					title: "Depends on a finished task",
-					dependencies: ["ba6-b1c-done-finished"],
+					dependencies: ["dep-b1c-done-finished"],
 				}),
 			});
 
@@ -452,17 +452,17 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			eventBus,
 		}) => {
-			await seedTeam(db, "ba6-b2b-blocked");
-			await insertTask(db, "ba6-b2b-blocked-dep", "ba6-b2b-blocked", "proposed");
-			await insertTask(db, "ba6-b2b-blocked-task", "ba6-b2b-blocked", "blocked", [
-				"ba6-b2b-blocked-dep",
+			await seedTeam(db, "dep-b2b-blocked");
+			await insertTask(db, "dep-b2b-blocked-dep", "dep-b2b-blocked", "proposed");
+			await insertTask(db, "dep-b2b-blocked-task", "dep-b2b-blocked", "blocked", [
+				"dep-b2b-blocked-dep",
 			]);
 
 			await expect(
-				transitionTask(db, eventBus, "ba6-b2b-blocked-task", "in_progress", testDeps),
+				transitionTask(db, eventBus, "dep-b2b-blocked-task", "in_progress", testDeps),
 			).resolves.not.toThrow();
 
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b2b-blocked-task"));
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b2b-blocked-task"));
 			expect(row?.state).toBe("in_progress");
 		});
 
@@ -478,17 +478,17 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			eventBus,
 		}) => {
-			await seedTeam(db, "ba6-b2b-review");
-			await insertTask(db, "ba6-b2b-review-dep", "ba6-b2b-review", "proposed");
-			await insertTask(db, "ba6-b2b-review-task", "ba6-b2b-review", "review", [
-				"ba6-b2b-review-dep",
+			await seedTeam(db, "dep-b2b-review");
+			await insertTask(db, "dep-b2b-review-dep", "dep-b2b-review", "proposed");
+			await insertTask(db, "dep-b2b-review-task", "dep-b2b-review", "review", [
+				"dep-b2b-review-dep",
 			]);
 
 			await expect(
-				transitionTask(db, eventBus, "ba6-b2b-review-task", "in_progress", testDeps),
+				transitionTask(db, eventBus, "dep-b2b-review-task", "in_progress", testDeps),
 			).rejects.toThrow(/unfinished dependency/);
 
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b2b-review-task"));
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b2b-review-task"));
 			expect(row?.state).toBe("review");
 		});
 
@@ -496,14 +496,14 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			eventBus,
 		}) => {
-			await seedTeam(db, "ba6-b2b-accepted");
-			await insertTask(db, "ba6-b2b-accepted-dep", "ba6-b2b-accepted", "proposed");
-			await insertTask(db, "ba6-b2b-accepted-task", "ba6-b2b-accepted", "hold", [
-				"ba6-b2b-accepted-dep",
+			await seedTeam(db, "dep-b2b-accepted");
+			await insertTask(db, "dep-b2b-accepted-dep", "dep-b2b-accepted", "proposed");
+			await insertTask(db, "dep-b2b-accepted-task", "dep-b2b-accepted", "hold", [
+				"dep-b2b-accepted-dep",
 			]);
 
 			await expect(
-				transitionTask(db, eventBus, "ba6-b2b-accepted-task", "accepted", testDeps),
+				transitionTask(db, eventBus, "dep-b2b-accepted-task", "accepted", testDeps),
 			).rejects.toThrow(/unfinished dependency/);
 		});
 
@@ -511,14 +511,14 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			eventBus,
 		}) => {
-			await seedTeam(db, "ba6-b2b-accepted2");
-			await insertTask(db, "ba6-b2b-accepted2-dep", "ba6-b2b-accepted2", "proposed");
-			await insertTask(db, "ba6-b2b-accepted2-task", "ba6-b2b-accepted2", "accepted", [
-				"ba6-b2b-accepted2-dep",
+			await seedTeam(db, "dep-b2b-accepted2");
+			await insertTask(db, "dep-b2b-accepted2-dep", "dep-b2b-accepted2", "proposed");
+			await insertTask(db, "dep-b2b-accepted2-task", "dep-b2b-accepted2", "accepted", [
+				"dep-b2b-accepted2-dep",
 			]);
 
 			await expect(
-				transitionTask(db, eventBus, "ba6-b2b-accepted2-task", "in_progress", testDeps),
+				transitionTask(db, eventBus, "dep-b2b-accepted2-task", "in_progress", testDeps),
 			).rejects.toThrow(/unfinished dependency/);
 		});
 	});
@@ -536,18 +536,18 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			db,
 			app,
 		}) => {
-			await seedTeam(db, "ba6-b1c3");
-			await insertTask(db, "ba6-b1c3-dep", "ba6-b1c3", "proposed");
-			await insertTask(db, "ba6-b1c3-task", "ba6-b1c3", "hold", ["ba6-b1c3-dep"]);
+			await seedTeam(db, "dep-b1c3");
+			await insertTask(db, "dep-b1c3-dep", "dep-b1c3", "proposed");
+			await insertTask(db, "dep-b1c3-task", "dep-b1c3", "hold", ["dep-b1c3-dep"]);
 
-			const toReview = await app.request("/api/tasks/ba6-b1c3-task", {
+			const toReview = await app.request("/api/tasks/dep-b1c3-task", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "review" }),
 			});
 			expect(toReview.status).toBe(200);
 
-			const toInProgress = await app.request("/api/tasks/ba6-b1c3-task", {
+			const toInProgress = await app.request("/api/tasks/dep-b1c3-task", {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "in_progress" }),
@@ -556,7 +556,7 @@ describe("BA6: task dependencies — write doors, guard, cycle rejection", () =>
 			const body = (await toInProgress.json()) as { code?: string };
 			expect(body.code).toBe("TASK_DEPENDENCY_BLOCKED");
 
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, "ba6-b1c3-task"));
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b1c3-task"));
 			expect(row?.state).toBe("review");
 		});
 	});

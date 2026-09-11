@@ -78,7 +78,7 @@ const createTaskSchema = z
 		doneCondition: z.string().nullish(),
 		ownerAgentId: z.string().nullish(),
 		/**
-		 * BA6: a list of task ids this task waits on. Validated on write —
+		 * A list of task ids this task waits on. Validated on write —
 		 * every id must name a task that exists, no self-dependency, no cycle.
 		 * A non-empty list with any unfinished dependency parks the new task
 		 * in `hold` instead of `proposed`.
@@ -120,7 +120,7 @@ const patchTaskSchema = z
 		description: z.string().nullable().optional(),
 		doneCondition: z.string().nullable().optional(),
 		ownerAgentId: z.string().nullable().optional(),
-		/** BA6: a list of task ids, or `null` to clear. Same validation as create. */
+		/** A list of task ids, or `null` to clear. Same validation as create. */
 		dependencies: z.array(z.string()).nullable().optional(),
 		parentTaskId: z.string().nullable().optional(),
 		state: z.enum(enumValues(TASK_STATES)).optional(),
@@ -260,7 +260,7 @@ export function createTaskRoutes(
 			...(teamId ? { teamId } : {}),
 			...(state ? { state } : {}),
 			...(owner ? { ownerAgentId: owner } : {}),
-			// BA6 (fix round 2, B2): this door is the dependency picker — a
+			// This door is the dependency picker — a
 			// `killed` task can never be a legitimate dependency target, so it
 			// opts into `excludeKilled` explicitly. See the doc on `WorkFilter`.
 			...(q ? { text: q, excludeKilled: true as const } : {}),
@@ -385,7 +385,7 @@ export function createTaskRoutes(
 
 		try {
 			await db.transaction(async (tx) => {
-				// BA6: validate + decide the initial state INSIDE the same
+				// Validate + decide the initial state INSIDE the same
 				// transaction as the insert — every id must exist, no
 				// self-dependency, no cycle.
 				let initialState: TaskState = "proposed";
@@ -488,7 +488,7 @@ export function createTaskRoutes(
 		const now = new Date().toISOString();
 
 		/**
-		 * BA6: validate `dependencies` INSIDE the same transaction as the write
+		 * Validate `dependencies` INSIDE the same transaction as the write
 		 * that carries it — every id must name a task that exists, no
 		 * self-dependency, no cycle — and encode the array back to the column's
 		 * JSON-text shape. `undefined` means the caller didn't touch the field.
@@ -595,7 +595,7 @@ export function createTaskRoutes(
 			//
 			await applyStateChange(state, existing.state, taskId);
 
-			// BA6: setting dependencies parks the task automatically — but only
+			// Setting dependencies parks the task automatically — but only
 			// when the caller didn't ALSO ask for an explicit state CHANGE, and
 			// only when hold is a legal move from the task's CURRENT state.
 			// `state === existing.state` is not a change — the same no-op the

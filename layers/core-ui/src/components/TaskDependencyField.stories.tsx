@@ -1,5 +1,5 @@
 /**
- * BA6: TaskDependencyField stories — search-and-pick, not paste-an-id.
+ * TaskDependencyField stories — search-and-pick, not paste-an-id.
  *
  * Mocks `window.fetch` the same way `RecipientPicker.stories.tsx` does: the
  * component calls `GET /api/tasks?q=` (search) and `GET /api/tasks?ids=`

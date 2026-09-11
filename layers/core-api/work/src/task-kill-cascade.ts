@@ -137,7 +137,7 @@ export async function cascadeTaskKill(
 		// suppression above — a kill is not progress.
 		await transitionTask(db, eventBus, task.id, "killed", deps, undefined, { cascade: true });
 		tasksKilled.push(task.id);
-		// BA6: reset every dependent of this now-killed task to `proposed` and
+		// Reset every dependent of this now-killed task to `proposed` and
 		// drop the killed id from its list, IN this request rather than as a
 		// decoupled ambient `eventBus.on("task_state_changed", …)` reaction like
 		// the `done` watcher (`app.ts`) uses. A person killing a task expects the

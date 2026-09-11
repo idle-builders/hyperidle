@@ -7,9 +7,9 @@ export interface SearchFieldProps {
 	onChange?: (value: string) => void;
 	loading?: boolean;
 	shortcutKey?: string;
-	/** BA6: freezes the input and hides the clear button — real `disabled`, mirrors RoleCombobox. */
+	/** Freezes the input and hides the clear button — real `disabled`, mirrors RoleCombobox. */
 	disabled?: boolean;
-	/** BA6: lets a caller that owns its own visible label (e.g. `TaskDependencyField`) point its `htmlFor` at this input. */
+	/** Lets a caller that owns its own visible label (e.g. `TaskDependencyField`) point its `htmlFor` at this input. */
 	id?: string;
 	/** Placed on the `<input>` itself — unlike RoleCombobox's closed-field button, the input IS the control here. */
 	"data-testid"?: string;

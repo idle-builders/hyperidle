@@ -21,7 +21,7 @@ export interface UseTaskPatchResult {
 	status: TaskPatchStatus;
 	patch: (taskId: string, body: TaskPatchBody) => void;
 	/**
-	 * BA6 AC5: the rejection's `error` message on a non-2xx response (e.g. a
+	 * AC5: the rejection's `error` message on a non-2xx response (e.g. a
 	 * dependency cycle's `409 { error, code: "TASK_CYCLE" }`), so the person
 	 * who triggered it is told why rather than just seeing "failed". `null`
 	 * outside the `error` status, or when the body carried no `error` string.
@@ -61,7 +61,7 @@ export function useTaskPatch(onSaved?: () => void): UseTaskPatchResult {
 			.then(async (res: Response): Promise<void> => {
 				if (unmountedRef.current) return;
 				if (!res.ok) {
-					// BA6: surface the body's `error` message instead of discarding
+					// Surface the body's `error` message instead of discarding
 					// it — a non-JSON or shapeless body still lands the person on a
 					// clear "error" status, just without a specific reason.
 					const message = await res

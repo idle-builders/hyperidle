@@ -1,5 +1,5 @@
 /**
- * useTaskLookup — BA6: resolve task ids to titles for the dependency chips.
+ * useTaskLookup — resolve task ids to titles for the dependency chips.
  *
  * A dependency chip must show the task's title, not its id (searching by
  * title and then displaying a raw id is half a fix). Freshly-picked

@@ -87,7 +87,7 @@ export {
 	TaskInvalidTransitionError as InvalidTransitionError,
 };
 
-/** BA6: read a task's `dependencies` JSON-text column as a string array. */
+/** Read a task's `dependencies` JSON-text column as a string array. */
 function parseDependencyIds(dependencies: string | null): readonly string[] {
 	if (!dependencies) return [];
 	try {
@@ -100,7 +100,7 @@ function parseDependencyIds(dependencies: string | null): readonly string[] {
 }
 
 /**
- * BA6: true when `fromId`'s dependency graph (followed transitively) already
+ * True when `fromId`'s dependency graph (followed transitively) already
  * reaches `targetId` — i.e. setting `targetId -> fromId` as a NEW dependency
  * edge would close a loop. Depth-capped at `MAX_TASK_DEPTH`, the same backstop
  * `listSubtreeIds`/`listAncestorIds` use for the parent tree: `dependencies`
@@ -124,7 +124,7 @@ async function dependsOnTransitively(
 }
 
 /**
- * BA6: validate a task's proposed `dependencies` list before it is written —
+ * Validate a task's proposed `dependencies` list before it is written —
  * every id must name a task that exists, a task may not depend on itself, and
  * the resulting graph must have no cycle. Called from inside the same
  * transaction as the write (both `POST /tasks` and `PATCH /tasks/:id`).
@@ -166,7 +166,7 @@ export async function assertValidDependencies(
 }
 
 /**
- * BA6: true when any of the given dependency ids names a task that is not
+ * True when any of the given dependency ids names a task that is not
  * `done` — the same "finished" definition the dependency watcher's own
  * all-deps check uses (`dependency-watcher.ts`), kept consistent on purpose.
  * A missing/dangling id counts as unfinished (never satisfies the wait).
@@ -249,7 +249,7 @@ export async function transitionTask(
 				throw new TaskInvalidTransitionError(taskId, fromState, toState);
 			}
 
-			// BA6: the enforcing half. Parking (`-> hold`) is the visible half;
+			// The enforcing half. Parking (`-> hold`) is the visible half;
 			// this is what actually stops a task with an unfinished dependency
 			// from being dispatched, no matter who calls for `accepted` — human,
 			// agent, or a direct state edit.

@@ -1,5 +1,5 @@
 /**
- * BA6 RED — AC1's agent half (`create_task` / `edit_task` tool schemas carry
+ * AC1's agent half (`create_task` / `edit_task` tool schemas carry
  * `dependencies`) and AC5's agent half (a cycle rejection reaches the agent as
  * a structured `err(code, message)`, not a generic thrown `Error`).
  *
@@ -8,7 +8,7 @@
  * route.
  *
  * `dependencies` crosses the tool schemas as `string[]` too, same as the
- * human doors — see `BA6-task-dependencies.integration.test.ts`.
+ * human doors — see `task-dependencies.integration.test.ts`.
  */
 
 import * as os from "node:os";
@@ -42,30 +42,30 @@ function buildTool(
 async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: "ba6-agent-team", name: "Team", phase: "build", createdAt: NOW });
+		.values({ id: "agenttools-agent-team", name: "Team", phase: "build", createdAt: NOW });
 	await db.insert(users).values({
-		id: "ba6-agent-a",
+		id: "agenttools-agent-a",
 		kind: "ai",
 		name: "Builder Agent",
 		role: "builder",
-		teamId: "ba6-agent-team",
+		teamId: "agenttools-agent-team",
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-		id: "ba6-agent-parent",
+		id: "agenttools-agent-parent",
 		parentTaskId: null,
-		teamId: "ba6-agent-team",
+		teamId: "agenttools-agent-team",
 		title: "Parent",
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
-		id: "ba6-agent-own-task",
-		parentTaskId: "ba6-agent-parent",
-		teamId: "ba6-agent-team",
-		ownerAgentId: "ba6-agent-a",
+		id: "agenttools-agent-own-task",
+		parentTaskId: "agenttools-agent-parent",
+		teamId: "agenttools-agent-team",
+		ownerAgentId: "agenttools-agent-a",
 		title: "Own task",
 		state: "in_progress",
 		createdAt: NOW,
@@ -80,15 +80,15 @@ function makeContext(
 	return {
 		db,
 		eventBus,
-		agentId: "ba6-agent-a",
-		sessionId: "ba6-session-1",
-		taskId: "ba6-agent-own-task",
-		sandboxPath: path.join(os.tmpdir(), `hi-ba6-agenttools-${Date.now()}`),
+		agentId: "agenttools-agent-a",
+		sessionId: "agenttools-session-1",
+		taskId: "agenttools-agent-own-task",
+		sandboxPath: path.join(os.tmpdir(), `hi-agenttools-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
 }
 
-describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
+describe("agent doors: create_task / edit_task carry dependencies", () => {
 	test("create_task persists a dependencies value passed by the caller", async ({
 		db,
 		eventBus,
@@ -98,7 +98,7 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 		const createTaskTool = buildTool(app, "create_task");
 
 		const result = await createTaskTool.handler(
-			{ title: "Waits on parent", dependencies: ["ba6-agent-parent"] },
+			{ title: "Waits on parent", dependencies: ["agenttools-agent-parent"] },
 			makeContext(db, eventBus),
 		);
 
@@ -106,7 +106,7 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 		if (!result.success) return;
 		const data = result.data as { taskId: string };
 		const [inserted] = await db.select().from(tasks).where(eq(tasks.id, data.taskId));
-		expect(inserted?.dependencies).toBe(JSON.stringify(["ba6-agent-parent"]));
+		expect(inserted?.dependencies).toBe(JSON.stringify(["agenttools-agent-parent"]));
 	});
 
 	test("edit_task persists a dependencies value passed by the caller", async ({
@@ -116,9 +116,9 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 	}) => {
 		await seed(db);
 		await db.insert(tasks).values({
-			id: "ba6-agent-editable",
-			parentTaskId: "ba6-agent-parent",
-			teamId: "ba6-agent-team",
+			id: "agt-editable",
+			parentTaskId: "agenttools-agent-parent",
+			teamId: "agenttools-agent-team",
 			title: "Editable",
 			state: "proposed",
 			createdAt: NOW,
@@ -127,14 +127,14 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 		const editTaskTool = buildTool(app, "edit_task");
 
 		const result = await editTaskTool.handler(
-			{ taskId: "ba6-agent-editable", dependencies: ["ba6-agent-parent"] },
+			{ taskId: "agt-editable", dependencies: ["agenttools-agent-parent"] },
 			makeContext(db, eventBus),
 		);
 
 		expect(result.success).toBe(true);
 		if (!result.success) return;
-		const [updated] = await db.select().from(tasks).where(eq(tasks.id, "ba6-agent-editable"));
-		expect(updated?.dependencies).toBe(JSON.stringify(["ba6-agent-parent"]));
+		const [updated] = await db.select().from(tasks).where(eq(tasks.id, "agt-editable"));
+		expect(updated?.dependencies).toBe(JSON.stringify(["agenttools-agent-parent"]));
 	});
 
 	// AC5, agent half: a cycle refusal must reach the agent as a structured
@@ -151,19 +151,19 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 		await seed(db);
 		await db.insert(tasks).values([
 			{
-				id: "ba6-agent-cycle-a",
-				parentTaskId: "ba6-agent-parent",
-				teamId: "ba6-agent-team",
+				id: "agenttools-agent-cycle-a",
+				parentTaskId: "agenttools-agent-parent",
+				teamId: "agenttools-agent-team",
 				title: "A",
 				state: "proposed",
-				dependencies: JSON.stringify(["ba6-agent-cycle-b"]),
+				dependencies: JSON.stringify(["agenttools-agent-cycle-b"]),
 				createdAt: NOW,
 				updatedAt: NOW,
 			},
 			{
-				id: "ba6-agent-cycle-b",
-				parentTaskId: "ba6-agent-parent",
-				teamId: "ba6-agent-team",
+				id: "agenttools-agent-cycle-b",
+				parentTaskId: "agenttools-agent-parent",
+				teamId: "agenttools-agent-team",
 				title: "B",
 				state: "proposed",
 				createdAt: NOW,
@@ -173,7 +173,7 @@ describe("BA6 agent doors: create_task / edit_task carry dependencies", () => {
 		const editTaskTool = buildTool(app, "edit_task");
 
 		const result = await editTaskTool.handler(
-			{ taskId: "ba6-agent-cycle-b", dependencies: ["ba6-agent-cycle-a"] },
+			{ taskId: "agenttools-agent-cycle-b", dependencies: ["agenttools-agent-cycle-a"] },
 			makeContext(db, eventBus),
 		);
 

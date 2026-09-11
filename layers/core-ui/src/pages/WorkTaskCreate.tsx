@@ -96,12 +96,10 @@ export function WorkTaskCreate(): JSX.Element {
 				setError(
 					body?.code === "CAPACITY_EXCEEDED"
 						? "Team is at its concurrent task limit."
-						: // BA6 AC5: a dependency rejection names the rule it broke for the
-							// two codes mapped below — `TASK_CYCLE` and `TASK_DEPENDENCY_KILLED`
-							// (fix round, "Also fix": the latter was missing here even though
-							// the PATCH side already mapped it). A dangling id returns 404 with
-							// `code: NOT_FOUND`, which is not mapped, so it still falls through
-							// to the generic message.
+						: // AC5: a dependency rejection names the rule it broke for the
+							// two codes mapped below — `TASK_CYCLE` and `TASK_DEPENDENCY_KILLED`.
+							// A dangling id returns 404 with `code: NOT_FOUND`, which is not
+							// mapped, so it still falls through to the generic message.
 							((body?.code === "TASK_CYCLE" || body?.code === "TASK_DEPENDENCY_KILLED") &&
 								body.error) ||
 								"Failed to create task. Please try again.",

@@ -317,7 +317,7 @@ export async function list(
 						.from(tasks)
 						.where(inArray(tasks.id, [...f.ids]));
 		if (f.dependencyId !== undefined) {
-			// BA6: `state` is OPTIONAL here on purpose — the `done` watcher only
+			// `state` is OPTIONAL here on purpose — the `done` watcher only
 			// ever cares about `hold` dependents (pass `state: "hold"`), but the
 			// `killed` watcher must find a dependent CARRYING the id in ANY
 			// state (a task can be `proposed`, `accepted`, or `in_progress` while
@@ -346,7 +346,7 @@ export async function list(
 					sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
 				) as SQL,
 			];
-			// BA6 (fix round 2, B2): moved off the unconditional shared branch — see
+			// Moved off the unconditional shared branch — see
 			// the `excludeKilled` doc on `WorkFilter`. A `killed` task can never be a
 			// legitimate dependency target (see `assertValidDependencies`), so the
 			// dependency picker's door opts in explicitly; global search never sets

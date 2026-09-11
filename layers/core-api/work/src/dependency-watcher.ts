@@ -102,7 +102,7 @@ export async function checkAndUnblockDependents(
 }
 
 /**
- * BA6: after a task is killed, the killed id is dropped from every dependent
+ * After a task is killed, the killed id is dropped from every dependent
  * that carries it, WHATEVER state that dependent is in — left in place it is
  * a prerequisite that can never be satisfied, which parks the task forever
  * the next time it is accepted. Separately, only the dependents that were

@@ -1,5 +1,5 @@
 /**
- * BA6 RED — AC3/AC4: what happens when a task's last dependency finishes.
+ * What happens when a task's last dependency finishes.
  *
  * AC3: an agent-owned task moves all the way into `in_progress` with no
  * human action — the existing chain (watcher hold->accepted, dispatch,
@@ -7,10 +7,8 @@
  * AC4: an unowned task stops at `accepted` and waits for a human.
  *
  * Both tests create the dependent task through the real `POST /tasks` door
- * WITH a `dependencies` value, so they are red today for the same reason as
- * `BA6-task-dependencies.integration.test.ts`'s create-door test: the door
- * does not exist yet (`.strict()` rejects the key with 400) — before any
- * chain behavior is even reached.
+ * WITH a `dependencies` value — see `task-dependencies.integration.test.ts`'s
+ * create-door test for the door's own validation.
  *
  * The "dispatch" and "session admission" steps are real production code
  * (`transitionTask`'s own dispatch-attempt bookkeeping via the real
@@ -26,7 +24,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
 
-const TEST_API_KEY = "test-key-ba6-freed";
+const TEST_API_KEY = "test-key-dependency-freed";
 const NOW = new Date().toISOString();
 
 function authHeaders(): Record<string, string> {
@@ -56,21 +54,21 @@ async function seedRunnableAgent(db: HyperIdleDb, agentId: string, teamId: strin
 	});
 }
 
-describe("BA6 AC3: last dependency finishes, agent owns it -> in_progress with no human action", () => {
+describe("AC3: last dependency finishes, agent owns it -> in_progress with no human action", () => {
 	test("hold -> accepted (watcher) -> in_progress (session_started reaction), unattended", async ({
 		db,
 		app,
 		eventBus,
 		agentOrchestration,
 	}) => {
-		await seedTeam(db, "ba6-freed-owned");
-		await seedRunnableAgent(db, "ba6-freed-agent", "ba6-freed-owned");
+		await seedTeam(db, "dep-freed-owned");
+		await seedRunnableAgent(db, "dep-freed-agent", "dep-freed-owned");
 
 		// The dependency: created via the same real door, no dependencies.
 		const depRes = await app.request("/api/tasks", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ teamId: "ba6-freed-owned", title: "Dependency" }),
+			body: JSON.stringify({ teamId: "dep-freed-owned", title: "Dependency" }),
 		});
 		expect(depRes.status).toBe(201);
 		const dep = (await depRes.json()) as { id: string };
@@ -80,9 +78,9 @@ describe("BA6 AC3: last dependency finishes, agent owns it -> in_progress with n
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "ba6-freed-owned",
+				teamId: "dep-freed-owned",
 				title: "Dependent",
-				ownerAgentId: "ba6-freed-agent",
+				ownerAgentId: "dep-freed-agent",
 				dependencies: [dep.id],
 			}),
 		});
@@ -109,9 +107,9 @@ describe("BA6 AC3: last dependency finishes, agent owns it -> in_progress with n
 		// the real reaction promotes the task the rest of the way.
 		const sessionStarted: SessionStartedEvent = {
 			type: "session_started",
-			streamId: "ba6-freed-session",
-			sessionId: "ba6-freed-session",
-			agentId: "ba6-freed-agent",
+			streamId: "dep-freed-session",
+			sessionId: "dep-freed-session",
+			agentId: "dep-freed-agent",
 			taskId: dependent.id,
 			timestamp: Date.now(),
 		};
@@ -123,14 +121,14 @@ describe("BA6 AC3: last dependency finishes, agent owns it -> in_progress with n
 	});
 });
 
-describe("BA6 AC4: last dependency finishes, nobody owns it -> waits at accepted", () => {
+describe("AC4: last dependency finishes, nobody owns it -> waits at accepted", () => {
 	test("hold -> accepted, and stays there with no dispatch", async ({ db, app }) => {
-		await seedTeam(db, "ba6-freed-unowned");
+		await seedTeam(db, "dep-freed-unowned");
 
 		const depRes = await app.request("/api/tasks", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ teamId: "ba6-freed-unowned", title: "Dependency" }),
+			body: JSON.stringify({ teamId: "dep-freed-unowned", title: "Dependency" }),
 		});
 		const dep = (await depRes.json()) as { id: string };
 
@@ -138,7 +136,7 @@ describe("BA6 AC4: last dependency finishes, nobody owns it -> waits at accepted
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "ba6-freed-unowned",
+				teamId: "dep-freed-unowned",
 				title: "Dependent, unowned",
 				dependencies: [dep.id],
 			}),

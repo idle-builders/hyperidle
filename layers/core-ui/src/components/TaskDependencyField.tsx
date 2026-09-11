@@ -1,7 +1,7 @@
 /**
  * TaskDependencyField — set and see a task's dependencies.
  *
- * BA6: the write door (`POST /tasks`, `PATCH /tasks/:id`) already validates
+ * The write door (`POST /tasks`, `PATCH /tasks/:id`) already validates
  * `dependencies` and parks the task while any named one is unfinished; this
  * is the one control that reaches it from a human surface. Shared between
  * `WorkTaskCreate` and `WorkTaskPage`'s edit panel — the two surfaces the

@@ -58,7 +58,7 @@ interface EditState {
 	dependencies: readonly string[];
 }
 
-/** BA6: `Task.dependencies` is the column's raw JSON-text; malformed/absent reads as none. */
+/** `Task.dependencies` is the column's raw JSON-text; malformed/absent reads as none. */
 function parseDependencies(dependencies: string | null): readonly string[] {
 	if (!dependencies) return [];
 	try {
@@ -444,7 +444,7 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 							className="type-metadata text-[var(--status-error)]"
 							data-testid="task-save-error"
 						>
-							{/* BA6 AC5: show the rejection's reason (e.g. a dependency cycle)
+							{/* AC5: show the rejection's reason (e.g. a dependency cycle)
 							    when the server sent one, instead of always the generic line. */}
 							{errorMessage ?? "Save failed — try again"}
 						</span>

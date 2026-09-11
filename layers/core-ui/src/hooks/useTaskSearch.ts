@@ -1,5 +1,5 @@
 /**
- * useTaskSearch — BA6: search tasks by title for the dependency picker.
+ * useTaskSearch — search tasks by title for the dependency picker.
  *
  * @lore BA6: the door this hook calls, `GET /api/tasks?q=<query>`, already
  * existed before this WP (`layers/core-api/src/routes/tasks.ts` → `work.list(db,

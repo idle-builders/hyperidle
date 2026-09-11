@@ -1,7 +1,6 @@
 /**
- * BA6 fix-round — WorkTaskPage's edit panel: the dependency picker must not
- * offer the task being edited, nor a task already picked (requirement 3 of
- * the original brief). `TaskDependencyField`'s own unit test proves the
+ * WorkTaskPage's edit panel: the dependency picker must not
+ * offer the task being edited, nor a task already picked. `TaskDependencyField`'s own unit test proves the
  * exclusion logic in isolation; this proves the real wiring on the page
  * that actually ships it — `currentTaskId` and `dependencies` both have to
  * reach the field with the right values for the exclusion to hold live.
@@ -62,8 +61,8 @@ function makeTask(overrides: Partial<Record<string, unknown>> = {}): Record<stri
 	};
 }
 
-const ROOT_ID = "ba6-root";
-const PICKED_ID = "ba6-picked";
+const ROOT_ID = "dep-excl-root";
+const PICKED_ID = "dep-excl-picked";
 
 const rootTask = makeTask({
 	id: ROOT_ID,
@@ -102,7 +101,7 @@ function setupFetch(): void {
 					Promise.resolve([
 						{ id: ROOT_ID, title: "Root task" },
 						{ id: PICKED_ID, title: "Already picked" },
-						{ id: "ba6-fresh", title: "A fresh candidate" },
+						{ id: "dep-excl-fresh", title: "A fresh candidate" },
 					]),
 			});
 		}
@@ -120,7 +119,7 @@ function renderPage(): void {
 	);
 }
 
-describe("WorkTaskPage — dependency picker exclusion (BA6 fix round R3)", () => {
+describe("WorkTaskPage — dependency picker exclusion", () => {
 	beforeEach(() => {
 		mockApiFetch.mockReset();
 	});

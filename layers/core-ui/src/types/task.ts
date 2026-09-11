@@ -73,7 +73,7 @@ export interface TaskPatchBody {
 	description?: string | null;
 	doneCondition?: string | null;
 	ownerAgentId?: string | null;
-	/** BA6: a list of task ids, or `null` to clear. Wire shape is an ARRAY. */
+	/** A list of task ids, or `null` to clear. Wire shape is an ARRAY. */
 	dependencies?: readonly string[] | null;
 	parentTaskId?: string | null;
 	state?: TaskState;

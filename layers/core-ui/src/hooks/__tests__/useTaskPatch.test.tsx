@@ -1,5 +1,5 @@
 /**
- * BA6 RED — AC5's UI half: `useTaskPatch` currently discards the response
+ * AC5's UI half: `useTaskPatch` currently discards the response
  * body on a non-2xx (`status="error"` and nothing else), so a cycle
  * rejection's message never reaches the person who triggered it. This test
  * asserts the hook surfaces that message instead.
