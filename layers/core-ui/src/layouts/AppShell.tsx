@@ -101,6 +101,29 @@ export function sanitizeRouteId(id: string): string | null {
 	return encodeURIComponent(id);
 }
 
+/**
+ * True when `target` sits inside an open combobox/listbox popover — a
+ * document-level Escape handler must not act on that key press, or it steals
+ * Escape before the popover's own bubble-phase handler ever sees it.
+ *
+ * @lore Combobox's open popover renders as a SIBLING of its `role="combobox"`
+ * trigger button (both children of one wrapper div), not nested inside it —
+ * so `target.closest('[aria-expanded="true"]')` alone can't find the trigger
+ * from focus inside the popover's filter input. Walking up and checking each
+ * ancestor for a `role="listbox"` (the popover) or a still-open combobox
+ * trigger among its descendants covers the actual DOM shape.
+ */
+function isEscapeInsideOpenPopover(target: EventTarget | null): boolean {
+	if (!(target instanceof Element)) return false;
+	let el: Element | null = target;
+	while (el) {
+		if (el.matches('[role="listbox"]')) return true;
+		if (el.querySelector('[role="combobox"][aria-expanded="true"]')) return true;
+		el = el.parentElement;
+	}
+	return false;
+}
+
 export function AppShell(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -404,10 +427,19 @@ export function AppShell(): JSX.Element {
 
 	// P4 AC-21: Escape navigates back from /settings.
 	// @lore FR-18: settingsOpen is now path-derived. Closing settings = navigate(-1).
+	// @lore Escape-vs-combobox: this listener runs in the CAPTURE phase on
+	// document, ahead of any Settings combobox's own bubble-phase Escape
+	// handling — so without the guard below, the first Escape while a
+	// dropdown was open closed all of Settings instead of just the dropdown.
+	// When the key belongs to an open popover, do nothing and let it
+	// propagate normally so the popover's own handler closes just itself; a
+	// second Escape (popover already closed) falls through to navigate(-1)
+	// same as before.
 	useEffect(() => {
 		if (!settingsOpen) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
+				if (isEscapeInsideOpenPopover(e.target)) return;
 				e.preventDefault();
 				e.stopImmediatePropagation();
 				navigate(-1);

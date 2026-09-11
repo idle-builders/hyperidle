@@ -220,6 +220,48 @@ describe("AppShell — P4 Settings overlay", () => {
 		});
 	});
 
+	// Bug: the settings-level Escape handler ran in the capture phase on
+	// document, ahead of a Combobox's own bubble-phase Escape handling, so the
+	// first Escape while a Settings combobox was open closed all of Settings
+	// instead of just the dropdown.
+	it("Escape with an open combobox closes the dropdown first, without leaving Settings", async () => {
+		const user = userEvent.setup();
+		renderShell();
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
+		});
+		await user.click(screen.getByRole("button", { name: /settings/i }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("add-edge-btn")).toBeInTheDocument();
+		});
+		await user.click(screen.getByTestId("add-edge-btn"));
+
+		const fromTrigger = await screen.findByRole("combobox", { name: /^from/i });
+		await user.click(fromTrigger);
+
+		await waitFor(() => {
+			expect(document.getElementById("org-from-list")).toBeInTheDocument();
+		});
+
+		await user.keyboard("{Escape}");
+
+		// Dropdown closed, but Settings is still open (first Escape only closed the combobox).
+		await waitFor(() => {
+			expect(document.getElementById("org-from-list")).not.toBeInTheDocument();
+		});
+		expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
+		expect(document.activeElement).toBe(fromTrigger);
+
+		// Second Escape (combobox already closed) leaves Settings as before.
+		await user.keyboard("{Escape}");
+
+		await waitFor(() => {
+			expect(screen.queryByText("Settings")).not.toBeInTheDocument();
+		});
+	});
+
 	// @lore U6: AC-23 (rail wrapper opacity-60) removed — Rail deleted in U6.
 	// @lore AD8a: historical — The Sidebar does not have a rail wrapper to dim.
 
