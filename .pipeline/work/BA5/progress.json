@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "L1 done and verified (ef7c6a5bd). L2 builder running. Then L3-L6, phase review, G2.",
+  "resume": "L1, L2 done and verified. L3 builder running (one git adapter, placement, instructions, teardown). Then L4-L6, phase review, G2.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -156,12 +156,26 @@
       {
         "id": "L2",
         "what": "git runner and credentials",
-        "state": "in-progress"
+        "state": "done",
+        "commits": [
+          "42ec02e39",
+          "5f8dc5f0f"
+        ],
+        "gate": "verify:quick exit 0; affected slice 285 files/2461 tests pass; biome clean on 9 changed files (builder-reported)",
+        "deviations": [
+          "clone/worktreeAdd keep their old signatures until L3, where the adapters that need the new shape are replaced in the same change (full-migration rule)",
+          "gitCredentialEnv deferred to L3 and cli-status/ghAuthStatus to L4 \u2014 both would have been test-only-reachable dead code in L2; knip:production confirmed it",
+          "mounter-ports.ts no longer mirrors lsRemote; L3 adds the verbs it needs matching the runner's real shape"
+        ],
+        "notes": [
+          "new offline github.com stand-in at layers/agent-orchestration/src/__testing__/github-stand-in.ts: TLS-terminating proxy + git-http-backend, real git + real gh, supports private+token, receivepack for push, and a gh login; added to knip.json ignore like the existing require-binary entries",
+          "looksLikeAuthRequested regex verified against real git 2.39.5 / gh 2.92.0 only"
+        ]
       },
       {
         "id": "L3",
         "what": "one git adapter, placement, kept copies, agent instructions, teardown",
-        "state": "pending"
+        "state": "in-progress"
       },
       {
         "id": "L4",
