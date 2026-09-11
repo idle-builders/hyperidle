@@ -7,7 +7,7 @@
  * parentKind/parentId. There is no follow-up PATCH.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -74,6 +74,13 @@ async function fillAndSubmit(): Promise<ReturnType<typeof userEvent.setup>> {
 	return user;
 }
 
+/** Opens the ParentPicker combobox and picks the option with this label. */
+async function pickParent(user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> {
+	const picker = screen.getByTestId("parent-picker");
+	await user.click(within(picker).getByRole("combobox"));
+	await user.click(within(picker).getByText(label));
+}
+
 describe("KnowledgeCreate — parent picker", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -85,8 +92,8 @@ describe("KnowledgeCreate — parent picker", () => {
 				<KnowledgeCreate />
 			</MemoryRouter>,
 		);
-		const select = screen.getByTestId("parent-picker") as HTMLSelectElement;
-		expect(select.value).toBe("");
+		const trigger = within(screen.getByTestId("parent-picker")).getByRole("combobox");
+		expect(trigger).toHaveTextContent("No parent (top level)");
 	});
 
 	it("creating with no parent selected omits parentKind and parentId from the POST", async () => {
@@ -114,7 +121,7 @@ describe("KnowledgeCreate — parent picker", () => {
 		} as Response);
 
 		const user = await fillAndSubmit();
-		await user.selectOptions(screen.getByTestId("parent-picker"), "root-a");
+		await pickParent(user, "Root A");
 		await user.click(screen.getByTestId("knowledge-create-submit"));
 
 		await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
@@ -139,7 +146,7 @@ describe("KnowledgeCreate — parent picker", () => {
 		} as Response);
 
 		const user = await fillAndSubmit();
-		await user.selectOptions(screen.getByTestId("parent-picker"), "root-a");
+		await pickParent(user, "Root A");
 		await user.click(screen.getByTestId("knowledge-create-submit"));
 
 		expect(await screen.findByTestId("knowledge-create-error")).toHaveTextContent(

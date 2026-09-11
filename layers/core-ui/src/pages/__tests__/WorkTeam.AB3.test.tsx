@@ -572,7 +572,8 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 		await waitFor(() => {
 			expect(screen.getByRole("dialog")).toBeInTheDocument();
 			expect(screen.getByRole("textbox", { name: /agent name/i })).toBeInTheDocument();
-			expect(screen.getByRole("combobox", { name: /role/i })).toBeInTheDocument();
+			// The role field is the shared Combobox — sole combobox in this dialog.
+			expect(screen.getByRole("combobox")).toBeInTheDocument();
 		});
 	});
 

@@ -4,7 +4,7 @@
  * knowledge-scope-name.test.tsx's own mocking pattern for the overflow menu.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -127,8 +127,8 @@ describe("editable knowledge item: Move affordance", () => {
 		await user.click(screen.getByRole("button", { name: /more options/i }));
 		await user.click(screen.getByTestId("knowledge-move"));
 		expect(screen.getByText("Move")).toBeInTheDocument();
-		const select = screen.getByTestId("parent-picker") as HTMLSelectElement;
-		expect(select.value).toBe("root-a");
+		const trigger = within(screen.getByTestId("parent-picker")).getByRole("combobox");
+		expect(trigger).toHaveTextContent("Root A");
 	});
 });
 

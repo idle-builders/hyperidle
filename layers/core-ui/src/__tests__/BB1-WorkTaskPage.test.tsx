@@ -397,7 +397,8 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 					(opts as RequestInit | undefined)?.method === "PATCH",
 			);
 			expect(patchCall).toBeDefined();
-			const body = JSON.parse((patchCall?.[1] as RequestInit).body as string) as {
+			const patchOpts = patchCall?.[1] as RequestInit;
+			const body = JSON.parse(patchOpts.body as string) as {
 				ownerAgentId: string | null;
 			};
 			expect(body.ownerAgentId).toBe("agent-7");
@@ -433,7 +434,8 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 					(opts as RequestInit | undefined)?.method === "PATCH",
 			);
 			expect(patchCall).toBeDefined();
-			const body = JSON.parse((patchCall?.[1] as RequestInit).body as string) as {
+			const patchOpts = patchCall?.[1] as RequestInit;
+			const body = JSON.parse(patchOpts.body as string) as {
 				ownerAgentId: string | null;
 			};
 			expect(body.ownerAgentId).toBeNull();

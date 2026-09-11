@@ -179,7 +179,8 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 				([, opts]) => (opts as RequestInit | undefined)?.method === "PUT",
 			);
 			expect(putCall).toBeDefined();
-			const body = JSON.parse((putCall?.[1] as RequestInit).body as string) as {
+			const putOpts = putCall?.[1] as RequestInit;
+			const body = JSON.parse(putOpts.body as string) as {
 				fromUserId: string;
 				mechanism: string;
 				target: string;

@@ -106,7 +106,8 @@ describe("AgentAddDialog — role field is a Combobox (BA6)", () => {
 				([, opts]) => (opts as RequestInit | undefined)?.method === "POST",
 			);
 			expect(call).toBeDefined();
-			const body = JSON.parse((call?.[1] as RequestInit).body as string) as { role: string };
+			const opts = call?.[1] as RequestInit;
+			const body = JSON.parse(opts.body as string) as { role: string };
 			expect(body.role).toBe("scout");
 		});
 	});

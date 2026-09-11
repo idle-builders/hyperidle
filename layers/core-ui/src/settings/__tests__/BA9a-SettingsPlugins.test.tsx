@@ -137,7 +137,8 @@ describe("SettingsPlugins", () => {
 					([, opts]) => (opts as RequestInit | undefined)?.method === "POST",
 				);
 				expect(postCall).toBeDefined();
-				const body = JSON.parse((postCall?.[1] as RequestInit).body as string) as {
+				const postOpts = postCall?.[1] as RequestInit;
+				const body = JSON.parse(postOpts.body as string) as {
 					scope: { kind: string; teamId: string };
 				};
 				expect(body.scope).toEqual({ kind: "team", teamId: "team-alpha" });
