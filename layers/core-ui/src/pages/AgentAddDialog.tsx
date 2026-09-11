@@ -16,8 +16,9 @@
 import { roleLabel } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
-import { Button, Dialog, Input, KeyValue, Select } from "../ds";
+import { Button, Combobox, Dialog, Input, KeyValue } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
+import { roleOptions } from "../settings/role-options.js";
 import { useToast } from "../shell/ToastRegion.js";
 
 export interface AgentAddDialogProps {
@@ -54,6 +55,10 @@ const INITIAL_FORM: AddFormValues = {
  * closed <Select> — you could only add an agent in one of 15 roles the product
  * had decided on. A role is data now: the picker offers the roles the team's
  * agents actually have, and typing a new one introduces it.
+ *
+ * @lore BA6: the <Select> itself is gone too — the role field is now the same
+ * `Combobox` + `allowCustomValue` + `roleOptions()` catalog `AgentEditor`'s
+ * role field uses, not a second hand-rolled equivalent.
  */
 
 export function AgentAddDialog({
@@ -154,22 +159,18 @@ export function AgentAddDialog({
 					value={formValues.name}
 					onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
 				/>
-				<div className="form-control">
-					<label className="label" htmlFor="add-dialog-role">
-						<span className="label-text text-[var(--text-secondary)]">Role</span>
-					</label>
-					<Select
-						id="add-dialog-role"
-						aria-label="Role"
-						size="sm"
-						value={formValues.role}
-						onChange={(e) => handleRoleChange(e.target.value)}
-						options={[...new Set([...(rolesInUse ?? []), formValues.role])]
-							.filter((role) => role.length > 0)
-							.sort()
-							.map((role) => ({ value: role, label: roleLabel(role) }))}
-					/>
-				</div>
+				<Combobox
+					id="add-dialog-role"
+					label="Role"
+					options={roleOptions([...(rolesInUse ?? []), formValues.role])}
+					value={formValues.role}
+					allowCustomValue
+					placeholder="Filter roles or type a new one…"
+					listAriaLabel="Roles"
+					inputAriaLabel="Filter or define a role"
+					customValuePrefix="Use new role: "
+					onChange={handleRoleChange}
+				/>
 				{roleDescription && (
 					<p className="type-metadata  text-[var(--text-tertiary)]">{roleDescription}</p>
 				)}
