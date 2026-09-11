@@ -324,7 +324,7 @@ return hook on the harness layer; none hides an action a person would say.
 ## Events
 
 The other half. Same objects, and what happened to them. Symmetric with the actions — one
-*edit* per object on the way in, one *changed* per object on the way out.
+*edit* per object on the way in, one *changed* per object on the way out. No read events.
 
 | Event | Today's events that fold into it |
 |---|---|
@@ -334,12 +334,11 @@ The other half. Same objects, and what happened to them. Symmetric with the acti
 | `conversation.message` | `thread_message_appended` · `item_created` |
 | `conversation.changed` | `thread_resolved` · `thread_reopened` |
 | `document.created` | `knowledge_created` |
-| `document.changed` | `knowledge_updated` · `knowledge_archived` |
-| `document.read` | `knowledge_accessed` |
+| `document.changed` | `knowledge_updated` · `knowledge_archived` · (`knowledge_accessed` deleted — nobody subscribes to a read) |
 | `person.created` | `user_created` · `agent_added` · `team_created` — a team is created by a person joining it |
 | `person.changed` | — |
 
-Ten events. All seventeen kept events map in. `notification` goes — it was the human render
+Nine events. All seventeen kept events map in or are deleted. `notification` goes — it was the human render
 of every other row. `routine_fired` goes — a run is a session, and a session is `task.changed`.
 
 A person's *subscriptions* name these. An agent's subscription runs a document; a human's
@@ -350,4 +349,4 @@ sends a notification. That is the whole event side.
 `tool_call_recorded` · `propagation_applied` · `propagation_failed`.
 
 **Delete:** `bet_revised` · `bet_state_changed` · `dependency_met` · `thread_archived` ·
-`work_selection_requested` · `notification` · `routine_fired`.
+`work_selection_requested` · `notification` · `routine_fired` · `knowledge_accessed`.
