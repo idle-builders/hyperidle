@@ -107,21 +107,20 @@ export function sanitizeRouteId(id: string): string | null {
  * Escape before the popover's own bubble-phase handler ever sees it.
  *
  * @lore Combobox's open popover renders as a SIBLING of its `role="combobox"`
- * trigger button (both children of one wrapper div), not nested inside it —
- * so `target.closest('[aria-expanded="true"]')` alone can't find the trigger
- * from focus inside the popover's filter input. Walking up and checking each
- * ancestor for a `role="listbox"` (the popover) or a still-open combobox
- * trigger among its descendants covers the actual DOM shape.
+ * trigger button (both children of one `[data-ds-component="Combobox"]`
+ * wrapper), not nested inside it — so `target.closest('[aria-expanded="true"]')`
+ * alone can't find the trigger from focus inside the popover's filter input.
+ * Scoping to the nearest Combobox wrapper (rather than walking every ancestor
+ * up to `<body>`) is load-bearing: `<body>` contains every open combobox on
+ * the page, so an unscoped `querySelector` at that level always matched,
+ * regardless of where focus actually was — the guard fired even with focus
+ * outside any popover, and Escape could never leave Settings.
  */
 function isEscapeInsideOpenPopover(target: EventTarget | null): boolean {
 	if (!(target instanceof Element)) return false;
-	let el: Element | null = target;
-	while (el) {
-		if (el.matches('[role="listbox"]')) return true;
-		if (el.querySelector('[role="combobox"][aria-expanded="true"]')) return true;
-		el = el.parentElement;
-	}
-	return false;
+	const comboboxRoot = target.closest('[data-ds-component="Combobox"]');
+	if (!comboboxRoot) return false;
+	return comboboxRoot.querySelector('[role="combobox"][aria-expanded="true"]') !== null;
 }
 
 export function AppShell(): JSX.Element {
