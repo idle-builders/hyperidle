@@ -65,6 +65,9 @@ under is gone. This runs synchronously inside `cascadeTaskKill`, the only produc
 code so `edit_task` returns a structured `err(code, message)` instead of throwing.
 
 **Finding the task.** You type part of a title and pick from the results; the chip shows the title. The
+picker is the design system's `Combobox` (generalized from `RoleCombobox`, which the agent editor also
+uses) in search-driven mode, with full keyboard navigation. Arrow keys and Enter do nothing while results
+load, so a result from the previous query can never be picked, and a failed search can be retried. The
 picker's search (`GET /api/tasks?q=`) searches every depth and opts out of killed tasks; global search
 still returns them. The server guards the door regardless of the picker.
 
@@ -76,9 +79,12 @@ still returns them. The server guards the door regardless of the picker.
 to be refined, not freed to start. No restriction on which tasks may depend on which — simplest wins.
 At the 2026-09-10 gate: pasting a task id is not acceptable, searching a task must be possible; and
 harnesses only run through the desktop app, so the agent-owned proof runs on the packaged build.
+On 2026-09-11: search-and-pick must reuse the design system (a combobox already existed); the web
+version runs only remote harnesses by design, so the desktop build is the only local test and a failing
+desktop build means the change broke it; the desktop database is demo data, to delete rather than keep.
 
-**Gate and review.** One gate before shipping, on the running app. Review by a fresh agent over the
-integrated diff; six passes ran and the last approved with no blocking findings.
+**Gate and review.** One gate before shipping, on the running app. A fresh agent reviews the integrated
+diff, and again over each scope-bearing change.
 
 ## Accepted limitations
 
@@ -93,3 +99,5 @@ integrated diff; six passes ran and the last approved with no blocking findings.
 - A write that changes `state` and `dependencies` together does not park; the guard still stops pick-up.
 - A dangling-id refusal on create shows the generic error; cycle and killed refusals show the reason.
 - `create_task` does not catch the seam error the way `edit_task` does; only a dangling id reaches it.
+- Clicking outside or tabbing away does not close the dependency dropdown — the same as every combobox on
+  `main`.
