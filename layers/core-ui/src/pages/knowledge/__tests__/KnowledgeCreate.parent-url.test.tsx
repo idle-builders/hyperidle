@@ -50,7 +50,7 @@ describe("KnowledgeCreate parentId from URL", () => {
 			</MemoryRouter>,
 		);
 
-		const trigger = screen.getAllByRole("combobox").find((c) => c.id === "knowledge-parent-picker");
+		const trigger = screen.getByRole("combobox", { name: "Parent" });
 		expect(trigger).toHaveTextContent("Pricing");
 	});
 });

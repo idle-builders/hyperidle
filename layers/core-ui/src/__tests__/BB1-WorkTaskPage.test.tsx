@@ -362,9 +362,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 		expect(screen.getByTestId("task-title-input")).toBeInTheDocument();
 		expect(screen.getByTestId("task-description-input")).toBeInTheDocument();
 		expect(screen.getByTestId("task-done-condition-input")).toBeInTheDocument();
-		expect(
-			screen.getAllByRole("combobox").find((c) => c.id === "task-owner-combobox"),
-		).toBeInTheDocument();
+		expect(screen.getByRole("combobox", { name: "Owner agent" })).toBeInTheDocument();
 		expect(screen.getByTestId("task-state-select")).toBeInTheDocument();
 	});
 
@@ -380,11 +378,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 			expect(screen.getByTestId("task-edit-panel")).toBeInTheDocument();
 		});
 
-		const trigger = await waitFor(() => {
-			const found = screen.getAllByRole("combobox").find((c) => c.id === "task-owner-combobox");
-			expect(found).toBeDefined();
-			return found as HTMLElement;
-		});
+		const trigger = await screen.findByRole("combobox", { name: "Owner agent" });
 		fireEvent.click(trigger);
 		fireEvent.click(await screen.findByText("Scout"));
 		fireEvent.click(screen.getByTestId("task-save-btn"));
@@ -417,11 +411,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 			expect(screen.getByTestId("task-edit-panel")).toBeInTheDocument();
 		});
 
-		const trigger = await waitFor(() => {
-			const found = screen.getAllByRole("combobox").find((c) => c.id === "task-owner-combobox");
-			expect(found).toBeDefined();
-			return found as HTMLElement;
-		});
+		const trigger = await screen.findByRole("combobox", { name: "Owner agent" });
 		fireEvent.click(trigger);
 		fireEvent.click(await screen.findByText("No owner"));
 		fireEvent.click(screen.getByTestId("task-save-btn"));

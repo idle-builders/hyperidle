@@ -494,6 +494,23 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 		expect(screen.queryByText("ROLE")).not.toBeInTheDocument();
 	});
 
+	it("the role Combobox trigger has 'Role' as its accessible name", () => {
+		render(
+			<AgentEditor
+				agentId="agent-1"
+				draft={NORMAL_AGENT_DRAFT}
+				onDraftChange={vi.fn()}
+				harnesses={[OPENCODE_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+			/>,
+		);
+
+		expect(screen.getByRole("combobox", { name: "Role" })).toBeInTheDocument();
+	});
+
 	it("when harness has no models, Model label text content is 'Model', not 'MODEL'", () => {
 		render(
 			<AgentEditor

@@ -394,6 +394,7 @@ function AddEdgeForm({
 					<Combobox
 						id="org-from"
 						label="From"
+						triggerAriaLabel="From user"
 						value={fromUserId}
 						onChange={onFromChange}
 						disabled={adding}
@@ -423,6 +424,7 @@ function AddEdgeForm({
 						<Combobox
 							id="org-target"
 							label="Target"
+							triggerAriaLabel="Target user"
 							value={target}
 							onChange={onTargetChange}
 							disabled={adding}
@@ -444,6 +446,7 @@ function AddEdgeForm({
 						<Combobox
 							id="org-target"
 							label="Target"
+							triggerAriaLabel="Target team"
 							value={target}
 							onChange={onTargetChange}
 							disabled={adding}

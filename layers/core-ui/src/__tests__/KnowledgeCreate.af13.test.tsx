@@ -8,7 +8,7 @@
  *                   but now data-driven not hardcoded)
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -182,9 +182,8 @@ describe("KnowledgeCreate nests in one write", () => {
 		await user.type(screen.getByTestId("knowledge-create-title"), "Nested item");
 		await user.type(screen.getByTestId("body-editor-textarea"), "Some content");
 
-		const parentPicker = screen.getByTestId("parent-picker");
-		await user.click(within(parentPicker).getByRole("combobox"));
-		await user.click(within(parentPicker).getByText("Existing parent"));
+		await user.click(screen.getByRole("combobox", { name: "Parent" }));
+		await user.click(screen.getByText("Existing parent"));
 
 		await user.click(screen.getByTestId("knowledge-create-submit"));
 

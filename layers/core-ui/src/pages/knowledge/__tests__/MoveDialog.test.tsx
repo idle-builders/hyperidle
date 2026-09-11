@@ -5,7 +5,7 @@
  * surfacing.
  */
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../services/api-fetch.js", () => ({
@@ -64,7 +64,7 @@ describe("MoveDialog", () => {
 
 	it("renders the parent picker preselected to the item's current parent", () => {
 		render(<MoveDialog {...BASE_PROPS} />);
-		const trigger = within(screen.getByTestId("parent-picker")).getByRole("combobox");
+		const trigger = screen.getByRole("combobox", { name: "Parent" });
 		expect(trigger).toHaveTextContent("Root A");
 	});
 
@@ -76,9 +76,8 @@ describe("MoveDialog", () => {
 	it("moving to a different parent PATCHes with the new parentKind/parentId", async () => {
 		mockOk();
 		render(<MoveDialog {...BASE_PROPS} />);
-		const picker = screen.getByTestId("parent-picker");
-		fireEvent.click(within(picker).getByRole("combobox"));
-		fireEvent.click(within(picker).getByText("Root B"));
+		fireEvent.click(screen.getByRole("combobox", { name: "Parent" }));
+		fireEvent.click(screen.getByText("Root B"));
 		fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
 		await waitFor(() => expect(apiFetch).toHaveBeenCalled());
@@ -97,9 +96,8 @@ describe("MoveDialog", () => {
 	it("moving to the top level PATCHes with parentKind/parentId both null", async () => {
 		mockOk();
 		render(<MoveDialog {...BASE_PROPS} />);
-		const picker = screen.getByTestId("parent-picker");
-		fireEvent.click(within(picker).getByRole("combobox"));
-		fireEvent.click(within(picker).getByText("No parent (top level)"));
+		fireEvent.click(screen.getByRole("combobox", { name: "Parent" }));
+		fireEvent.click(screen.getByText("No parent (top level)"));
 		fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
 		await waitFor(() => expect(apiFetch).toHaveBeenCalled());
@@ -120,9 +118,8 @@ describe("MoveDialog", () => {
 			}),
 		} as Response);
 		render(<MoveDialog {...BASE_PROPS} />);
-		const picker = screen.getByTestId("parent-picker");
-		fireEvent.click(within(picker).getByRole("combobox"));
-		fireEvent.click(within(picker).getByText("Root B"));
+		fireEvent.click(screen.getByRole("combobox", { name: "Parent" }));
+		fireEvent.click(screen.getByText("Root B"));
 		fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent(/would create a cycle/);

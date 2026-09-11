@@ -73,21 +73,30 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		vi.restoreAllMocks();
 	});
 
-	// AC1: picker is accessible (search reachable via the combobox trigger)
-	it("renders a combobox trigger on mount", async () => {
+	// AC1: opening "New thread" puts focus in the search field immediately —
+	// no click needed to start typing a recipient's name.
+	it("renders a search input on mount and focuses it", async () => {
 		stubFetch();
 
 		renderPicker();
-		expect(screen.getByRole("combobox")).toBeInTheDocument();
+		const input = screen.getByRole("textbox");
+		expect(input).toHaveFocus();
 	});
 
-	// AC2: recipient list is rendered from API response, once opened
-	it("renders a list of recipients after loading", async () => {
-		const user = (await import("@testing-library/user-event")).default.setup();
+	// AC1: the trigger has a real accessible name — a <span> next to the
+	// button (pre-fix) leaves it name:"" for assistive tech.
+	it("names the combobox trigger for assistive tech", () => {
 		stubFetch();
 
 		renderPicker();
-		await user.click(screen.getByRole("combobox"));
+		expect(screen.getByRole("combobox", { name: "Recipient" })).toBeInTheDocument();
+	});
+
+	// AC2: recipient list is rendered from API response, once loaded
+	it("renders a list of recipients after loading", async () => {
+		stubFetch();
+
+		renderPicker();
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
@@ -97,11 +106,9 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 	// AC2: agents with active sessions show a "Live" indicator
 	it("shows a live indicator for agents with an active session", async () => {
-		const user = (await import("@testing-library/user-event")).default.setup();
 		stubFetch();
 
 		renderPicker();
-		await user.click(screen.getByRole("combobox"));
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
@@ -117,7 +124,6 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		stubFetch();
 
 		renderPicker();
-		await user.click(screen.getByRole("combobox"));
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
@@ -142,7 +148,6 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		}) as unknown as typeof fetch;
 
 		renderPicker({ onCancel });
-		await user.click(screen.getByRole("combobox"));
 		const input = screen.getByRole("textbox");
 		await user.click(input);
 		await user.keyboard("{Escape}");
@@ -152,14 +157,12 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 	// AC2: empty state when no recipients found
 	it("shows empty state when search yields no results", async () => {
-		const user = (await import("@testing-library/user-event")).default.setup();
 		global.fetch = vi.fn().mockResolvedValue({
 			ok: true,
 			json: () => Promise.resolve({ recipients: [] }),
 		}) as unknown as typeof fetch;
 
 		renderPicker();
-		await user.click(screen.getByRole("combobox"));
 		await waitFor(() => {
 			// Should render some "no results" message
 			const noMatch = screen.queryByText(/no/i);
@@ -213,8 +216,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 		renderPicker({ onSelect });
 
-		// Open the combobox and wait for the recipient list to load
-		await user.click(screen.getByRole("combobox"));
+		// Wait for the recipient list to load
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});

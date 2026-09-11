@@ -6,7 +6,7 @@
  * user override, contribution expand shows detached tag + restore button.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsPlugins } from "../SettingsPlugins.js";
@@ -125,8 +125,7 @@ describe("SettingsPlugins", () => {
 			await user.selectOptions(screen.getByTestId("plugin-scope-kind"), "team");
 			await user.type(screen.getByTestId("plugin-source-value"), "https://github.com/org/plugin");
 
-			const teamField = screen.getByTestId("plugin-scope-team-id");
-			const trigger = within(teamField).getByRole("combobox");
+			const trigger = screen.getByRole("combobox", { name: "Team" });
 			await user.click(trigger);
 			await user.click(await screen.findByText("Alpha Team"));
 

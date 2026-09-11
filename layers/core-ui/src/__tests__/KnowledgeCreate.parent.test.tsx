@@ -7,7 +7,7 @@
  * parentKind/parentId. There is no follow-up PATCH.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -76,9 +76,8 @@ async function fillAndSubmit(): Promise<ReturnType<typeof userEvent.setup>> {
 
 /** Opens the ParentPicker combobox and picks the option with this label. */
 async function pickParent(user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> {
-	const picker = screen.getByTestId("parent-picker");
-	await user.click(within(picker).getByRole("combobox"));
-	await user.click(within(picker).getByText(label));
+	await user.click(screen.getByRole("combobox", { name: "Parent" }));
+	await user.click(screen.getByText(label));
 }
 
 describe("KnowledgeCreate — parent picker", () => {
@@ -92,7 +91,7 @@ describe("KnowledgeCreate — parent picker", () => {
 				<KnowledgeCreate />
 			</MemoryRouter>,
 		);
-		const trigger = within(screen.getByTestId("parent-picker")).getByRole("combobox");
+		const trigger = screen.getByRole("combobox", { name: "Parent" });
 		expect(trigger).toHaveTextContent("No parent (top level)");
 	});
 

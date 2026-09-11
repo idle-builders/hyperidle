@@ -71,18 +71,16 @@ export function ParentPicker({
 	}, [data, excludeId, childScopeKind]);
 
 	return (
-		<div data-testid="parent-picker">
-			<Combobox
-				id="knowledge-parent-picker"
-				label="Parent"
-				value={value}
-				onChange={onChange}
-				disabled={disabled || isLoading}
-				placeholder="No parent (top level)"
-				listAriaLabel="Knowledge items"
-				inputAriaLabel="Filter knowledge items"
-				options={options}
-			/>
-		</div>
+		<Combobox
+			id="knowledge-parent-picker"
+			label="Parent"
+			value={value}
+			onChange={onChange}
+			disabled={disabled || isLoading}
+			placeholder="No parent (top level)"
+			listAriaLabel="Knowledge items"
+			inputAriaLabel="Filter knowledge items"
+			options={options}
+		/>
 	);
 }

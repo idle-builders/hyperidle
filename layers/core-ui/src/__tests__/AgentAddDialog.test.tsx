@@ -69,7 +69,7 @@ describe("AH4 AC2 — AgentAddDialog placement affordance", () => {
 	});
 });
 
-describe("AgentAddDialog — role field is a Combobox (BA6)", () => {
+describe("AgentAddDialog — role field is a Combobox", () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it("picks a role through the combobox and creates the agent with it", async () => {
@@ -95,7 +95,7 @@ describe("AgentAddDialog — role field is a Combobox (BA6)", () => {
 
 		await user.type(screen.getByLabelText("Agent name"), "Newbie");
 
-		const trigger = screen.getByRole("combobox");
+		const trigger = screen.getByRole("combobox", { name: "Role" });
 		await user.click(trigger);
 		await user.click(await screen.findByText("Scout"));
 

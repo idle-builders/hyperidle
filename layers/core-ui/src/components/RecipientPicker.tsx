@@ -36,7 +36,7 @@ export interface RecipientPickerProps {
 
 type PickerState = "browsing" | "selected" | "sending";
 
-/** The Combobox row's description line — role, status, and (BA6) the live dot's replacement. */
+/** The Combobox row's description line — role, status, and the live-session indicator. */
 function recipientDescription(r: Recipient): string {
 	const parts = [r.role, r.status];
 	if (r.hasActiveSession) parts.push("Live");
@@ -156,6 +156,11 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 		>
 			{pickerState === "browsing" && (
 				<Combobox
+					label="Recipient"
+					// Opens on mount: before the Combobox migration this was a plain,
+					// always-visible search field a person could type into right away.
+					// Defaulting to closed would cost that — a click just to start typing.
+					defaultOpen
 					options={options}
 					onChange={handleSelectRecipient}
 					onQueryChange={setQuery}
