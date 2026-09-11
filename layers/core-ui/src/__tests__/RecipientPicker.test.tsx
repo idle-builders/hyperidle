@@ -73,21 +73,21 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		vi.restoreAllMocks();
 	});
 
-	// AC1: picker is accessible (search field rendered)
-	it("renders a search input on mount", async () => {
+	// AC1: picker is accessible (search reachable via the combobox trigger)
+	it("renders a combobox trigger on mount", async () => {
 		stubFetch();
 
 		renderPicker();
-		// Search field should be present (may be labeled "Search" or have placeholder)
-		const input = screen.getByRole("textbox");
-		expect(input).toBeInTheDocument();
+		expect(screen.getByRole("combobox")).toBeInTheDocument();
 	});
 
-	// AC2: recipient list is rendered from API response
+	// AC2: recipient list is rendered from API response, once opened
 	it("renders a list of recipients after loading", async () => {
+		const user = (await import("@testing-library/user-event")).default.setup();
 		stubFetch();
 
 		renderPicker();
+		await user.click(screen.getByRole("combobox"));
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
@@ -95,11 +95,13 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		expect(screen.getByText("Founder")).toBeInTheDocument();
 	});
 
-	// AC2: agents with active sessions show "Live" indicator
+	// AC2: agents with active sessions show a "Live" indicator
 	it("shows a live indicator for agents with an active session", async () => {
+		const user = (await import("@testing-library/user-event")).default.setup();
 		stubFetch();
 
 		renderPicker();
+		await user.click(screen.getByRole("combobox"));
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
@@ -115,6 +117,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		stubFetch();
 
 		renderPicker();
+		await user.click(screen.getByRole("combobox"));
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
@@ -128,7 +131,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		});
 	});
 
-	// AC1: Escape calls onCancel
+	// AC1: Escape (while the popover's search is open) calls onCancel
 	it("pressing Escape calls onCancel", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 		const onCancel = vi.fn();
@@ -139,6 +142,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		}) as unknown as typeof fetch;
 
 		renderPicker({ onCancel });
+		await user.click(screen.getByRole("combobox"));
 		const input = screen.getByRole("textbox");
 		await user.click(input);
 		await user.keyboard("{Escape}");
@@ -148,12 +152,14 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 	// AC2: empty state when no recipients found
 	it("shows empty state when search yields no results", async () => {
+		const user = (await import("@testing-library/user-event")).default.setup();
 		global.fetch = vi.fn().mockResolvedValue({
 			ok: true,
 			json: () => Promise.resolve({ recipients: [] }),
 		}) as unknown as typeof fetch;
 
 		renderPicker();
+		await user.click(screen.getByRole("combobox"));
 		await waitFor(() => {
 			// Should render some "no results" message
 			const noMatch = screen.queryByText(/no/i);
@@ -207,7 +213,8 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 		renderPicker({ onSelect });
 
-		// Wait for recipient list to load
+		// Open the combobox and wait for the recipient list to load
+		await user.click(screen.getByRole("combobox"));
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
