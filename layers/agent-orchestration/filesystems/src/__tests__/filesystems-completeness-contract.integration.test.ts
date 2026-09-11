@@ -70,7 +70,6 @@ function newFilesystem(id: string, teamId: string, folder: string) {
 		kind: "doc_set",
 		connectionId: null,
 		resourceRef: JSON.stringify({ kind: "doc_set", folder }),
-		writeback: "file",
 		state: "attached",
 		createdAt: NOW,
 	};

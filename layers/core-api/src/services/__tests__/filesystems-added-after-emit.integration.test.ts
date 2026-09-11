@@ -136,7 +136,6 @@ async function assignFilesystem(db: HyperIdleDb, id: string): Promise<void> {
 		kind: "doc_set",
 		connectionId: null,
 		resourceRef: JSON.stringify({ kind: "doc_set", folder: vaultDir }),
-		writeback: "file",
 		state: "attached",
 		createdAt: NOW,
 	});

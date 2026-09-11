@@ -16,8 +16,8 @@ function row(resourceRef: unknown, connectionId: string | null = null) {
 		kind: "code",
 		connectionId,
 		resourceRef: JSON.stringify(resourceRef),
-		writeback: "git",
 		state: "attached",
+		attentionReason: null,
 		createdAt: "now",
 	};
 }

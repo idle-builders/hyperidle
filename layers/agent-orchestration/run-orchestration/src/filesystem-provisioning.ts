@@ -53,7 +53,6 @@ export interface FilesystemForProvisioning {
 	readonly kind: string;
 	readonly connectionId: string | null;
 	readonly resourceRef: unknown;
-	readonly writeback: string;
 	readonly state: string;
 	readonly createdAt: string;
 }
@@ -104,7 +103,6 @@ export async function mountFilesystemsForAgent(params: {
 		kind: row.kind as Filesystem["kind"],
 		connectionId: row.connectionId ?? null,
 		resourceRef: row.resourceRef as Filesystem["resourceRef"],
-		writeback: row.writeback as Filesystem["writeback"],
 		state: row.state as Filesystem["state"],
 		createdAt: row.createdAt,
 	}));

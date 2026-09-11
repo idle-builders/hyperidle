@@ -26,8 +26,8 @@ interface FilesystemApiItem {
 	kind: string;
 	connectionId: string | null;
 	resourceRef: { kind: string; repo?: string; branch?: string; folder?: string };
-	writeback: string;
 	state: string;
+	attentionReason: string | null;
 	createdAt: string;
 }
 

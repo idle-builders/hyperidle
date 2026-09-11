@@ -74,8 +74,6 @@ const registerFilesystemSchema = z.object({
 	kind: z.enum(["code", "doc_set"]),
 	connectionId: z.string().nullable().optional(),
 	resourceRef: resourceRefSchema,
-	// @lore AU44 b2: inlined from WRITEBACK_MODES constant (dissolved with filesystem-contract).
-	writeback: z.enum(["git", "file", "none"]),
 	// Optional hint: when the NoopAuthResolver can't derive source, the caller may supply it.
 	// The route trusts it only when the resolver yields null (architecture §3, open Q7).
 	sourceHint: z.string().optional(),
@@ -95,8 +93,8 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
 		kind: row.kind as Filesystem["kind"],
 		connectionId: row.connectionId ?? null,
 		resourceRef,
-		writeback: row.writeback as Filesystem["writeback"],
 		state: row.state as Filesystem["state"],
+		attentionReason: row.attentionReason ?? null,
 		createdAt: row.createdAt,
 	};
 }
@@ -196,7 +194,6 @@ export function createFilesystemRoutes(
 				kind: body.kind,
 				connectionId,
 				resourceRef: JSON.stringify(body.resourceRef),
-				writeback: body.writeback,
 				state: "attached",
 				createdAt: now,
 			});

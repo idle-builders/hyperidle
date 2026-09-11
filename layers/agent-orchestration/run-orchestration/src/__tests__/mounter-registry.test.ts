@@ -23,7 +23,6 @@ function filesystem(overrides: Partial<Filesystem>): Filesystem {
 		kind: "doc_set",
 		connectionId: null,
 		resourceRef: { kind: "doc_set", folder: "/tmp" },
-		writeback: "file",
 		state: "reachable",
 		createdAt: "2025-01-01T00:00:00Z",
 		...overrides,

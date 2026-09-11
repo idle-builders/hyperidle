@@ -206,7 +206,6 @@ describe("admitSession mounts what the live injection record says", () => {
 			kind: "doc_set",
 			connectionId: null,
 			resourceRef: { kind: "doc_set", folder: "/docs" },
-			writeback: "file",
 			state: "attached",
 			createdAt: now,
 		};

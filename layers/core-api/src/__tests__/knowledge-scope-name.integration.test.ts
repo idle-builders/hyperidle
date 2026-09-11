@@ -211,7 +211,6 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 			source: "github",
 			kind: "code",
 			resourceRef: JSON.stringify({ kind: "code", repo: "owner/nimmly", branch: "main" }),
-			writeback: "git",
 			state: "attached",
 			createdAt: new Date().toISOString(),
 		});

@@ -71,7 +71,6 @@ async function seedFilesystem(
 		kind: "code",
 		connectionId: null,
 		resourceRef: { kind: "code", repo: repoPath, branch: "main" },
-		writeback: "git",
 		state: "reachable",
 		createdAt: new Date().toISOString(),
 	};
@@ -82,7 +81,6 @@ async function seedFilesystem(
 		kind: "code",
 		connectionId: null,
 		resourceRef: JSON.stringify(fsDef.resourceRef),
-		writeback: "git",
 		state: "reachable",
 		createdAt: fsDef.createdAt,
 	});

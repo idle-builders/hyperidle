@@ -215,7 +215,6 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 			source: "local",
 			kind: "code",
 			resourceRef: JSON.stringify({ kind: "code", repo: "x", branch: "main" }),
-			writeback: "none",
 			state: "attached",
 			createdAt: NOW,
 		});
@@ -324,7 +323,6 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 			source: "local",
 			kind: "code",
 			resourceRef: JSON.stringify({ kind: "code", repo: "x", branch: "main" }),
-			writeback: "none",
 			state: "attached",
 			createdAt: NOW,
 		});

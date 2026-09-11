@@ -10,7 +10,7 @@
  * Lane B: LOCAL-ONLY, real PAT + real GitHub → see AO1-reachability-lane-b.integration.test.ts
  *
  * Coverage:
- *   AC5  — resolveFilesystemState: writeback:none → reachable; local probe → real result;
+ *   AC5  — resolveFilesystemState: local probe → real result;
  *            NoopAuthResolver + connectionId → needs_attention
  *   AC3  — FILESYSTEM_KINDS does not include SoR kinds
  *   AC2  — FilesystemTokenResolver seam: resolveToken
@@ -78,25 +78,6 @@ const noopAuthResolver = {
 // ─── resolveFilesystemState — pure logic ─────────────────────────────────────
 
 describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
-	it("writeback:'none' → 'reachable' regardless of connectionId (no probe)", async () => {
-		const state = await resolveFilesystemState(
-			{
-				id: "fs-1",
-				teamId: "team-1",
-				source: "github",
-				kind: "code",
-				connectionId: "conn-abc",
-				// A non-existent path — proves writeback:none short-circuits before any probe.
-				resourceRef: JSON.stringify({ kind: "code", repo: "/definitely/not/real", branch: "main" }),
-				writeback: "none",
-				state: "attached",
-				createdAt: "2026-06-26T00:00:00.000Z",
-			},
-			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
-		);
-		expect(state).toBe("reachable");
-	});
-
 	it("bare-local code (connectionId null) + real existing path → 'reachable'", async () => {
 		const state = await resolveFilesystemState(
 			{
@@ -107,8 +88,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				connectionId: null,
 				// tempRepoDir is a real directory — access(R_OK) succeeds.
 				resourceRef: JSON.stringify({ kind: "code", repo: tempRepoDir, branch: "main" }),
-				writeback: "git",
 				state: "attached",
+				attentionReason: null,
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
 			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
@@ -125,8 +106,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				kind: "code",
 				connectionId: null,
 				resourceRef: JSON.stringify({ kind: "code", repo: missingPath, branch: "main" }),
-				writeback: "git",
 				state: "attached",
+				attentionReason: null,
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
 			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
@@ -143,8 +124,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				kind: "doc_set",
 				connectionId: null,
 				resourceRef: JSON.stringify({ kind: "doc_set", folder: existingDir }),
-				writeback: "file",
 				state: "attached",
+				attentionReason: null,
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
 			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
@@ -161,8 +142,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				kind: "doc_set",
 				connectionId: null,
 				resourceRef: JSON.stringify({ kind: "doc_set", folder: missingPath }),
-				writeback: "file",
 				state: "attached",
+				attentionReason: null,
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
 			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
@@ -183,8 +164,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 					repo: "https://github.com/owner/repo",
 					branch: "main",
 				}),
-				writeback: "git",
 				state: "attached",
+				attentionReason: null,
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
 			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },
@@ -213,8 +194,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 					repo: `file://${tempRepoDir}`,
 					branch: "main",
 				}),
-				writeback: "git",
 				state: "attached",
+				attentionReason: null,
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
 			{ authResolver: fakeResolver, gitRunnerFactory: createGitRunner },
@@ -231,8 +212,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 				kind: "doc_set",
 				connectionId: "conn-gdrive",
 				resourceRef: JSON.stringify({ kind: "doc_set", folder: "/notes" }),
-				writeback: "file",
 				state: "attached",
+				attentionReason: null,
 				createdAt: "2026-06-26T00:00:00.000Z",
 			},
 			{ authResolver: noopAuthResolver, gitRunnerFactory: createGitRunner },

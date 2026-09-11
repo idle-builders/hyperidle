@@ -22,7 +22,7 @@
  * @lore AE2: Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
  * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
  * derivePrimaryHarness() wired into POST /api/teams body.
- * Folder → inspect-path + register filesystem (best-effort, writeback:"none").
+ * Folder → inspect-path + register filesystem (best-effort).
  * @lore AW1 + follow-up: setup collects no credential at all. A harness arrives
  * already logged in, or it is not choosable — the key lives in the harness's own
  * login, never in HyperIdle.
@@ -314,7 +314,6 @@ export function SetupFlow(): JSX.Element {
 
 				// Step 4 (best-effort): Register folder as filesystem.
 				// @lore AV1 Decision 3: inspect result determines kind (code+branch | doc_set).
-				// writeback:"none" is the literal — WRITEBACK_MODES[0] is "git", never use index-0.
 				// Failure is swallowed: team creation already succeeded.
 				if (createdTeamId && repoPath.trim()) {
 					const path = repoPath.trim();
@@ -354,7 +353,6 @@ export function SetupFlow(): JSX.Element {
 								teamId: createdTeamId,
 								kind: isCode ? "code" : "doc_set",
 								resourceRef,
-								writeback: "none",
 								connectionId: null,
 							}),
 						});

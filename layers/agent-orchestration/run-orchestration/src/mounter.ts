@@ -33,7 +33,6 @@ export interface Filesystem {
 	kind: string;
 	connectionId: string | null;
 	resourceRef: { kind: "code"; repo: string; branch: string } | { kind: "doc_set"; folder: string };
-	writeback: "git" | "file" | "none";
 	state: string;
 	createdAt: string;
 }

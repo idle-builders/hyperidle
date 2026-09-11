@@ -68,7 +68,6 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 			kind: "doc_set",
 			connectionId: null,
 			resourceRef: { kind: "doc_set", folder: "/repo" },
-			writeback: "git",
 			state: "attached",
 			createdAt: "2026-08-02T00:00:00.000Z",
 			...overrides,

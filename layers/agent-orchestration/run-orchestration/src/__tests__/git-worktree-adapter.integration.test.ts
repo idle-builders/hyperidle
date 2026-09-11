@@ -41,7 +41,6 @@ function makeFs(repoPath: string): Filesystem {
 		kind: "code",
 		connectionId: null,
 		resourceRef: { kind: "code", repo: repoPath, branch: "main" },
-		writeback: "git",
 		state: "reachable",
 		createdAt: "2025-01-01T00:00:00Z",
 	};

@@ -27,7 +27,7 @@
  *     the DS — `Tag` IS the catalogued mark, so we reuse it.
  *   - `Tag` (neutral) for the `kind` label;
  *   - `StatusChip` for state (incl. needs_attention → behind/amber);
- *   - `KeyValue` for the inspect grid (source / resource / branch / kind / write-back
+ *   - `KeyValue` for the inspect grid (source / resource / branch / kind
  *     / connection / state), split into a files cluster and an auth cluster by a
  *     hairline so Filesystem ⟂ Connection stays structurally legible.
  *
@@ -54,7 +54,6 @@ import { Button, KeyValue, type Status, StatusChip, Tag } from "../ds";
 
 type FsSource = "local" | "github" | "gdrive" | "obsidian";
 type FilesystemKind = "code" | "doc_set";
-type WriteBack = "git" | "file" | "none";
 type FsState = "attached" | "reachable" | "needs_attention";
 
 interface FilesystemView {
@@ -66,7 +65,6 @@ interface FilesystemView {
 	/** code: branch; doc_set: undefined. */
 	branch?: string;
 	kind: FilesystemKind;
-	writeback: WriteBack;
 	state: FsState;
 	/** Connection display name (the auth axis) or null for bare-local. */
 	connection: string | null;
@@ -85,7 +83,6 @@ const FILESYSTEMS: FilesystemView[] = [
 		resource: "acme/storefront",
 		branch: "main",
 		kind: "code",
-		writeback: "git",
 		state: "reachable",
 		connection: "GitHub · acme-bot",
 		injectedInto: 3,
@@ -96,7 +93,6 @@ const FILESYSTEMS: FilesystemView[] = [
 		resource: "acme/marketing-site",
 		branch: "release",
 		kind: "code",
-		writeback: "git",
 		state: "needs_attention",
 		connection: "GitHub · acme-bot",
 		injectedInto: 1,
@@ -107,7 +103,6 @@ const FILESYSTEMS: FilesystemView[] = [
 		source: "obsidian",
 		resource: "~/vaults/product-notes",
 		kind: "doc_set",
-		writeback: "file",
 		state: "reachable",
 		connection: null,
 		injectedInto: 2,
@@ -117,7 +112,6 @@ const FILESYSTEMS: FilesystemView[] = [
 		source: "gdrive",
 		resource: "Marketing / Brand",
 		kind: "doc_set",
-		writeback: "file",
 		state: "reachable",
 		connection: "Google Drive · acme.com",
 		injectedInto: 1,
@@ -127,7 +121,6 @@ const FILESYSTEMS: FilesystemView[] = [
 		source: "local",
 		resource: "~/work/scratch",
 		kind: "doc_set",
-		writeback: "none",
 		state: "attached",
 		connection: null,
 		injectedInto: 0,
@@ -161,13 +154,6 @@ function kindLabel(k: FilesystemKind): string {
 	return k === "code" ? "code" : "doc_set";
 }
 
-/** Inspect-grid write-back value (the capability axis). */
-function writebackValue(w: WriteBack): string {
-	if (w === "git") return "git · commit → PR";
-	if (w === "file") return "file · last write wins";
-	return "none · read-only";
-}
-
 function injectionLabel(n: number): string {
 	if (n === 0) return "Injected into no bots yet";
 	if (n === 1) return "Injected into 1 bot";
@@ -182,7 +168,7 @@ function bySeverity(a: FilesystemView, b: FilesystemView): number {
 
 // ---------------------------------------------------------------------------
 // Inline inspect — design-system KeyValue grid (Source / Resource / Branch /
-// Kind / Write-back / Connection / State). Two clusters split by a hairline so
+// Kind / Connection / State). Two clusters split by a hairline so
 // the Connection/auth axis sits visibly apart from the files axis (Filesystem ⟂
 // Connection). Maps to GET /api/filesystems/:id.
 // ---------------------------------------------------------------------------
@@ -198,7 +184,6 @@ function FilesystemInspect({ fs }: { fs: FilesystemView }): JSX.Element {
 				<KeyValue label="Resource" value={fs.resource} />
 				<KeyValue label="Branch" value={fs.branch ?? "—"} />
 				<KeyValue label="Kind" value={kindLabel(fs.kind)} />
-				<KeyValue label="Write-back" value={writebackValue(fs.writeback)} />
 			</div>
 			{/* Auth axis — apart from the resource cluster (Filesystem ⟂ Connection). */}
 			<div className="flex flex-col gap-[6px] border-t border-[var(--border-subtle)] pt-[12px]">

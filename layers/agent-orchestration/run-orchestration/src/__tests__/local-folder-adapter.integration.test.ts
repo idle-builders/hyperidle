@@ -21,7 +21,6 @@ function makeFs(folderPath: string): Filesystem {
 		kind: "doc_set",
 		connectionId: null,
 		resourceRef: { kind: "doc_set", folder: folderPath },
-		writeback: "file",
 		state: "reachable",
 		createdAt: "2025-01-01T00:00:00Z",
 	};

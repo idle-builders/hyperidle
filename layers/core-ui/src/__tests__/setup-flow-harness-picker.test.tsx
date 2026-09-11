@@ -512,7 +512,6 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 		expect(captureRef.body?.["kind"]).toBe("code");
 		const ref = captureRef.body?.["resourceRef"] as Record<string, unknown> | undefined;
 		expect(ref?.["branch"]).toBe("main");
-		expect(captureRef.body?.["writeback"]).toBe("none");
 	});
 
 	it("git repo with no resolvable branch (null) → POST /api/filesystems body has kind:'doc_set', not 400", async () => {
@@ -540,6 +539,5 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 		// Must NOT have sent kind:"code" with an empty branch (that would 400)
 		const ref = captureRef.body?.["resourceRef"] as Record<string, unknown> | undefined;
 		expect(ref?.["branch"]).toBeUndefined();
-		expect(captureRef.body?.["writeback"]).toBe("none");
 	});
 });

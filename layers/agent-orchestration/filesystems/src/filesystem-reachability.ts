@@ -75,10 +75,9 @@ export async function resolveFilesystemState(
 	deps: { authResolver: FilesystemTokenResolver; gitRunnerFactory: FilesystemsGitRunnerFactory },
 	opts?: { timeoutMs?: number },
 ): Promise<FilesystemState> {
-	if (row.writeback === "none") {
-		return "reachable";
-	}
-
+	// @lore BA5 §12: the write-back axis (and its "none" → always-reachable
+	// bypass) is retired with migration 0082 — every filesystem now goes
+	// through the real probe below, connection-backed or not.
 	if (row.connectionId == null) {
 		const localPath = extractLocalPath(row);
 		if (localPath == null) {

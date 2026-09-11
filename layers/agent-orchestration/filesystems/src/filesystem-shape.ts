@@ -20,7 +20,8 @@ export interface Filesystem {
 	kind: string;
 	connectionId: string | null;
 	resourceRef: { kind: "code"; repo: string; branch: string } | { kind: "doc_set"; folder: string };
-	writeback: "git" | "file" | "none";
 	state: "attached" | "reachable" | "needs_attention";
+	/** What to fix, plain words, redacted. Set with state:"needs_attention"; null otherwise. */
+	attentionReason: string | null;
 	createdAt: string;
 }

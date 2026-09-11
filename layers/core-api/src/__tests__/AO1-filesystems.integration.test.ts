@@ -104,7 +104,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: "conn-github-1",
 					resourceRef: { kind: "code", repo: "owner/hyperidle", branch: "main" },
-					writeback: "git",
 					// sourceHint provided so the NoopAuthResolver fallback yields 'github'
 					sourceHint: "github",
 				}),
@@ -131,7 +130,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/home/user/myrepo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 
@@ -152,7 +150,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 
@@ -177,7 +174,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/myrepo", branch: "develop" },
-					writeback: "git",
 				}),
 			});
 
@@ -192,7 +188,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(got.id).toBe(id);
 			expect(got.source).toBeDefined();
 			expect(got.kind).toBe("code");
-			expect(got.writeback).toBe("git");
+			expect(got).not.toHaveProperty("writeback");
 			expect(got.state).toBeDefined();
 			expect(got.resourceRef).toBeDefined();
 			// resourceRef should expose the parsed object, not raw JSON string
@@ -215,7 +211,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 			expect(res.status).toBe(404);
@@ -234,7 +229,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: "conn-abc",
 					resourceRef: { kind: "code", repo: "owner/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 
@@ -268,7 +262,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 			const { id: fsId } = (await createRes.json()) as { id: string };
@@ -298,7 +291,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 			const { id: fsId } = (await createRes.json()) as { id: string };
@@ -329,7 +321,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 			const { id: fsId } = (await createRes.json()) as { id: string };
@@ -372,7 +363,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 			const { id: fsId } = (await createRes.json()) as { id: string };
@@ -406,7 +396,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 			const { id: fsId } = (await createRes.json()) as { id: string };
@@ -468,7 +457,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 			const { id: fsId } = (await createRes.json()) as { id: string };
@@ -502,7 +490,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: "conn-x-123",
 					resourceRef: { kind: "code", repo: "owner/hyperidle", branch: "feat/ao1" },
-					writeback: "git",
 				}),
 			});
 			expect(res.status).toBe(201);
@@ -531,7 +518,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "doc_set",
 					connectionId: null,
 					resourceRef: { kind: "doc_set", folder: "/Users/me/notes" },
-					writeback: "file",
 				}),
 			});
 			expect(res.status).toBe(201);
@@ -550,7 +536,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "inbox",
 					connectionId: "conn-gmail",
 					resourceRef: { kind: "inbox", account: "user@example.com" },
-					writeback: "none",
 				}),
 			});
 			expect(res.status).toBe(400);
@@ -569,7 +554,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "crm",
 					connectionId: "conn-salesforce",
 					resourceRef: { kind: "crm", orgId: "sf-org" },
-					writeback: "none",
 				}),
 			});
 			expect(res.status).toBe(400);
@@ -586,7 +570,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "ticket_queue",
 					connectionId: "conn-linear",
 					resourceRef: { kind: "ticket_queue", project: "hyperidle" },
-					writeback: "none",
 				}),
 			});
 			expect(res.status).toBe(400);
@@ -616,7 +599,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 
@@ -642,7 +624,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 
@@ -682,7 +663,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: "missing-conn-xyz",
 					resourceRef: { kind: "code", repo: missingLocalRepo, branch: "main" },
-					writeback: "git",
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -717,7 +697,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: realPath, branch: "main" },
-					writeback: "git",
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -730,7 +709,11 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(got.state).toBe("reachable");
 		});
 
-		test("writeback:'none' filesystem → state:'reachable' regardless of connectionId", async ({
+		// BA5 §12: the write-back axis (and its "none" bypass to reachable) is
+		// retired with migration 0082. A doc_set with a connectionId has no
+		// probe path that can resolve it, so it now needs attention honestly
+		// instead of being waved through.
+		test("doc_set filesystem with a connectionId → state:'needs_attention' (no probe path resolves it)", async ({
 			db,
 			app,
 		}) => {
@@ -744,7 +727,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "doc_set",
 					connectionId: "some-conn-id",
 					resourceRef: { kind: "doc_set", folder: "/notes" },
-					writeback: "none",
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -752,8 +734,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 			const getRes = await app.request(`/api/filesystems/${id}`, { headers: auth() });
 			const got = (await getRes.json()) as Record<string, unknown>;
-			// writeback:none = read-only ref → reachable regardless of connection resolution
-			expect(got.state).toBe("reachable");
+			expect(got.state).toBe("needs_attention");
 		});
 	});
 
@@ -777,7 +758,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
-					writeback: "git",
 				}),
 			});
 			const { id: fsId } = (await createRes.json()) as { id: string };
@@ -864,11 +844,13 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(cols).toContain("kind");
 			expect(cols).toContain("connection_id");
 			expect(cols).toContain("resource_ref");
-			expect(cols).toContain("writeback");
+			expect(cols).toContain("attention_reason");
 			expect(cols).toContain("state");
 			expect(cols).toContain("created_at");
 			// The old single-owner column must NOT be present (model correction)
 			expect(cols).not.toContain("agent_user_id");
+			// BA5 §12: the write-back capability axis is retired (migration 0082).
+			expect(cols).not.toContain("writeback");
 		});
 
 		test("filesystem_injections has composite PK (agent_user_id, filesystem_id) — UNIQUE enforcement", async ({
