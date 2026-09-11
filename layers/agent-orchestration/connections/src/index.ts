@@ -34,10 +34,5 @@ export {
 } from "./inherited-reach.js";
 // -- resolveHeldToken (1) — sole decrypted-held-token path (replaces ServiceConnectionResolver) --
 export { resolveHeldToken } from "./service-connection-resolver.js";
-// -- ConnectionStore (4) — service_connections list/insert/update/delete --
-export {
-	deleteConnection,
-	insertConnection,
-	listConnections,
-	updateConnection,
-} from "./service-connection-store.js";
+// -- ConnectionStore (3) — service_connections list/insert/delete --
+export { deleteConnection, insertConnection, listConnections } from "./service-connection-store.js";

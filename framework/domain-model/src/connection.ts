@@ -41,6 +41,14 @@ export type HeldAuthSource = (typeof HELD_AUTH_SOURCES)[number];
  *
  * @lore AN1: No `trustTier` field — ETHOS §2 kills preemptive security gates.
  * Adding one requires a concept-doc update first.
+ *
+ * @lore BA5 §18: `health` is present only for *inherited* (detected) rows —
+ * that is live CLI detection, kept on purpose. A *held* (stored) row has no
+ * health of its own since `service_connections.health`/`last_validated_at`
+ * and the validate route that wrote them are gone (migration 0082); the UI
+ * renders no chip for a held row rather than fabricate a value nobody
+ * computed. This is the narrow cut, not the wide one: the closed set and its
+ * inherited-side calculation are unchanged.
  */
 export interface ServiceConnectionView {
 	/** sc-<uuid> (held) | inherited:<harness>:<name> (projected) */
@@ -50,7 +58,8 @@ export interface ServiceConnectionView {
 	/** Server-constructed description of where the tools come from. */
 	via: string;
 	authSource: ConnectionAuthSource;
-	health: ConnectionHealth;
+	/** Only ever set for authSource:"inherited" rows. */
+	health?: ConnectionHealth;
 	/** false for inherited (HyperIdle stores nothing; no DELETE target exists). */
 	removable: boolean;
 }

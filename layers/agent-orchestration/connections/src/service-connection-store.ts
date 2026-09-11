@@ -1,10 +1,9 @@
 /**
  * `serviceConnections` read/write surface for the `service_connections` table.
  *
- * Four composable operations replace the old per-intent methods:
+ * Three composable operations replace the old per-intent methods:
  *   listConnections  — filter by userId / authSource / id (any combination)
  *   insertConnection — plain insert (caller handles unique-violation → 409)
- *   updateConnection — health/validation write-back by id
  *   deleteConnection — delete scoped to owning user (no-op if not owned)
  *
  * @lore AU20 Am4: collapsed from 7 per-intent getters/mutators
@@ -17,6 +16,10 @@
  * @lore AU19 Increment 5 item 4: this file's original form closed
  * routes/connections.ts + server-factory.ts raw queries. The AU20 collapse
  * further de-fragments without changing SQL semantics.
+ *
+ * @lore BA5 §12: `updateConnection` (the health/validation write-back) is
+ * deleted — its only caller, `POST /:id/validate`, is gone with the stored
+ * `health`/`last_validated_at` columns (migration 0082).
  */
 
 import {
@@ -68,29 +71,6 @@ export async function insertConnection(
 	values: NewServiceConnectionRow,
 ): Promise<void> {
 	await db.insert(serviceConnections).values(values);
-}
-
-/**
- * Atomically write back a validate-probe outcome for the connection matching
- * both id and owning user. A mismatched owner leaves the row unchanged.
- */
-export async function updateConnection(
-	db: HyperIdleDb,
-	params: { id: string; userId: string },
-	patch: {
-		readonly health: string;
-		readonly lastValidatedAt: string;
-		readonly updatedAt: string;
-	},
-): Promise<void> {
-	await db
-		.update(serviceConnections)
-		.set({
-			health: patch.health,
-			lastValidatedAt: patch.lastValidatedAt,
-			updatedAt: patch.updatedAt,
-		})
-		.where(and(eq(serviceConnections.id, params.id), eq(serviceConnections.userId, params.userId)));
 }
 
 /**

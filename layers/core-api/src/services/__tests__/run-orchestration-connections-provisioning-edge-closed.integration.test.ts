@@ -101,8 +101,6 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			authSource: "token",
 			encryptedToken,
 			serverUrl: "https://mcp.stripe.com",
-			health: "needs-attention",
-			lastValidatedAt: null,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});

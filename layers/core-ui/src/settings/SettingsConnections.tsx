@@ -71,9 +71,9 @@ function ServiceMark({ service }: { service: string }): JSX.Element {
 	);
 }
 
-/** Health-sort within a group: needs-attention floats to the top. */
+/** Health-sort within a group: needs-attention floats to the top. Held rows carry no health. */
 function bySeverity(a: ServiceConnectionView, b: ServiceConnectionView): number {
-	const rank = (h: ConnectionHealth) => (h === "working" ? 1 : 0);
+	const rank = (h: ConnectionHealth | undefined) => (h === "working" ? 1 : 0);
 	return rank(a.health) - rank(b.health) || a.service.localeCompare(b.service);
 }
 
@@ -238,9 +238,11 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 			]
 		: [];
 
-	// Inherited rows are auto-detected and expected to work — suppress the chip when
-	// working; show it only when one needs attention. Held rows always show it.
-	const showChip = c.authSource !== "inherited" || c.health !== "working";
+	// BA5 §18 (narrow cut): health is live CLI detection, only ever computed for
+	// inherited rows. Suppress the chip when an inherited row is working; a held
+	// (stored) row has no health of its own, so it never shows one at all.
+	const chipHealth = c.authSource === "inherited" ? c.health : undefined;
+	const showChip = chipHealth !== undefined && chipHealth !== "working";
 
 	return (
 		<Row
@@ -254,8 +256,8 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 			}
 			actions={
 				<span className="flex items-center gap-[9px]">
-					{showChip ? (
-						<StatusChip status={healthToStatus(c.health)} label={healthLabel(c.health)} />
+					{showChip && chipHealth ? (
+						<StatusChip status={healthToStatus(chipHealth)} label={healthLabel(chipHealth)} />
 					) : null}
 					{c.removable ? (
 						confirming ? (

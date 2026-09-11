@@ -3,7 +3,9 @@
  *
  * AC coverage:
  *   AC1: renders inherited group + held groups (token/mcp) from props
- *   AC3: shows a 'needs-attention' health chip for unhealthy connections
+ *   BA5 §18: the health chip is inherited-only — a held row never shows one,
+ *     even when it needs attention (the narrow cut: only stored columns and
+ *     the validate route are gone; inherited detection is untouched)
  *   AC4: no trust-tier badge rendered; no raw secret value in DOM
  *   Design: inherited group appears first
  *   Design: removable held rows show overflow menu; inherited rows do not
@@ -35,12 +37,24 @@ const INHERITED_GITHUB = {
 	removable: false,
 };
 
+// BA5 §18: an inherited row that needs attention still shows a chip — the
+// narrow cut keeps inherited (live-detected) health exactly as it was.
+const INHERITED_LINEAR_NEEDS_ATTENTION = {
+	id: "inherited:claude-code:linear",
+	service: "Linear",
+	via: "claude-code · MCP server",
+	authSource: "inherited" as const,
+	health: "needs-attention" as const,
+	removable: false,
+};
+
+// Held (stored) rows carry no `health` field at all — the column and the
+// validate route that wrote it are gone (migration 0082).
 const TOKEN_STRIPE = {
 	id: "sc-stripe-001",
 	service: "Stripe",
 	via: "API key · stored encrypted",
 	authSource: "token" as const,
-	health: "working" as const,
 	removable: true,
 };
 
@@ -49,7 +63,6 @@ const TOKEN_SENDGRID_NEEDS_ATTENTION = {
 	service: "SendGrid",
 	via: "API key · stored encrypted",
 	authSource: "token" as const,
-	health: "needs-attention" as const,
 	removable: true,
 };
 
@@ -58,11 +71,16 @@ const MCP_FIGMA = {
 	service: "Figma",
 	via: "mcp.figma.com",
 	authSource: "mcp" as const,
-	health: "working" as const,
 	removable: true,
 };
 
-const ALL_CONNECTIONS = [INHERITED_GITHUB, TOKEN_STRIPE, TOKEN_SENDGRID_NEEDS_ATTENTION, MCP_FIGMA];
+const ALL_CONNECTIONS = [
+	INHERITED_GITHUB,
+	INHERITED_LINEAR_NEEDS_ATTENTION,
+	TOKEN_STRIPE,
+	TOKEN_SENDGRID_NEEDS_ATTENTION,
+	MCP_FIGMA,
+];
 
 describe("AN1 — SettingsConnections component", () => {
 	let apiFetch: ReturnType<typeof vi.fn>;
@@ -141,12 +159,21 @@ describe("AN1 — SettingsConnections component", () => {
 		});
 	});
 
-	// AC3: needs-attention health chip
-	describe("AC3 — needs-attention health chip shown", () => {
-		it("shows 'Needs attention' chip for SendGrid connection", async () => {
+	// BA5 §18: the health chip is inherited-only
+	describe("BA5 §18 — health chip is inherited-only", () => {
+		it("shows 'Needs attention' chip for the inherited Linear connection", async () => {
 			render(<SettingsConnections />);
 			const chip = await screen.findByText(/needs attention/i);
 			expect(chip).toBeDefined();
+		});
+
+		it("does not show a health chip for a held connection, even when it needs attention", async () => {
+			render(<SettingsConnections />);
+			await screen.findByText("SendGrid");
+			// Only the inherited Linear row's chip should render — SendGrid (held)
+			// gets none, so there is exactly one "Needs attention" chip in the DOM.
+			const chips = screen.getAllByText(/needs attention/i);
+			expect(chips).toHaveLength(1);
 		});
 	});
 
