@@ -10,10 +10,8 @@ starts.
 tasks whose prerequisites are not done and produce work that has to be thrown away. Sequencing that
 enforces itself is what makes a set of tasks a plan rather than a list.
 
-**Where it started.** `tasks.dependencies` (a JSON-array TEXT column) and the `done` watcher already
-existed. `PATCH /api/tasks/:id` already wrote the field — unvalidated, unparked, and reachable from no UI
-control or agent tool. Accepting a task never read it, and `proposed → hold` was not a legal edge, so the
-waiting chain had no entrance.
+**Where it started.** The `dependencies` column and the `done` watcher existed; `PATCH` wrote the field
+unguarded and nothing reached it, and `proposed → hold` was not a legal edge, so waiting had no entrance.
 
 **Constraints.**
 - A dependency cycle must be rejected when it is created. A cycle that is accepted parks every task in
@@ -76,21 +74,18 @@ still returns them. The server guards the door regardless of the picker.
 **Dials.** complexity: feature · ambiguity: established context · exposure: user-facing surface.
 
 **Maintainer rulings.** `hold` is the single waiting state. A killed dependency sends its dependents back
-to be refined, not freed to start. No restriction on which tasks may depend on which — simplest wins.
-At the 2026-09-10 gate: pasting a task id is not acceptable, searching a task must be possible; and
-harnesses only run through the desktop app, so the agent-owned proof runs on the packaged build.
-On 2026-09-11: search-and-pick must reuse the design system (a combobox already existed); the web
-version runs only remote harnesses by design, so the desktop build is the only local test and a failing
-desktop build means the change broke it; the desktop database is demo data, to delete rather than keep.
+to be refined, not freed to start. Any task may depend on any task — simplest wins. You find a task by
+searching, never by pasting an id, and the picker reuses the design system. The web version runs only
+remote harnesses by design, so agent-owned proof runs on the packaged desktop build, and a failing desktop
+build means the change broke it. The desktop database is demo data: delete it rather than keep it.
 
 **Gate and review.** One gate before shipping, on the running app. A fresh agent reviews the integrated
 diff, and again over each scope-bearing change.
 
 ## Accepted limitations
 
-- `POST /api/sessions` checks only that the task exists, not its state or dependencies. No UI reaches it,
-  and the task's state still cannot change, but "not picked up" is enforced at the state label rather
-  than at session admission.
+- `POST /api/sessions` checks only that the task exists; no UI reaches it and the task's state cannot
+  change, so "not picked up" is enforced at the state label, not at session admission.
 - A parked task can still be marked `done` (`hold → done` is legal, and lifecycle propagation can drive a
   `hold` parent to `done`), which frees its own dependents. Dependencies are not transitive.
 - The cycle check and the kill cleanup read without row locks, so two conflicting simultaneous writes
@@ -99,9 +94,7 @@ diff, and again over each scope-bearing change.
 - A write that changes `state` and `dependencies` together does not park; the guard still stops pick-up.
 - A dangling-id refusal on create shows the generic error; cycle and killed refusals show the reason.
 - `create_task` does not catch the seam error the way `edit_task` does; only a dangling id reaches it.
-- Clicking outside or tabbing away does not close the dependency dropdown — the same as every combobox on
-  `main`.
+- Clicking outside or tabbing away leaves the dependency dropdown open, as on every `main` combobox.
 - For about 200 ms after the search box is cleared or reopened, the previous results stay on screen and
   can be picked; they are visible, so a person picks what they see.
-- An empty role in the agent editor shows the placeholder text, where `main` showed nothing. New agents
-  default to a role and a custom role cannot be blank, so it is hard to reach.
+- An empty role in the agent editor shows placeholder text where `main` showed nothing; hard to reach.
