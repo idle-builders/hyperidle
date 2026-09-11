@@ -156,20 +156,34 @@ are declared. They become one loop.
 Net: the layer below shrinks by roughly half, and every line that remains is either an
 action, an invariant, a read model, or a loop.
 
-## 7. Decision points, in order
+## 7. Decisions
 
-1. **?** Interface technology: Hono + zod with a projected action list (above). Confirm or
-   name what you want instead.
-2. **?** Tools call the action modules in-process; the HTTP seam, `CoreApiPort`, and
-   `tool-handlers` are deleted. The layer split is kept by composing lists at the root.
-3. **?** `changes` table as the event log (durable, diff, who/why, feeds subscriptions and the
-   UI stream) vs keep the in-memory bus and accept loss.
-4. **?** Routes projected by a loop vs written by hand per action. (The founder said "routes
-   by hand"; the loop is 20 lines and the list is the hand-written part.)
-5. **?** `search` — one cross-object text search plus four structured lists (Notion's shape)
-   or four only.
-6. **?** UI push: SSE (recommended by tRPC/oRPC, one-way, resumable) vs keep WS.
-7. **?** The invariant split: which checks are pure (shared with the UI) and which need the
-   DB — decided per object when it is built, not now.
+Founder, 2026-09-11: "I don't care specifically about the technology. I want something that
+produces a robust and simple solution. If we can delete and simplify all the way down to the
+services I would call that a success."
 
-Open after these: the UI rebuild and the agent workspace — the next phase, not this one.
+Settled by that:
+1. **Technology** is not a founder decision. Hono + zod + the MCP SDK already in the tree;
+   no new framework. The action list is the declaration; everything else is a loop.
+2. **The services are replaced, not wrapped.** The ten service packages become six action
+   modules. `work` → `task`; `conversation` → `conversation`; `knowledge` → `document`;
+   `users` + `org` + `routine` + `notifications` + `credentials` → `person` (subscriptions,
+   team attribute, connections); `settings` → `platform`; `policy` dissolves into invariants
+   on task and conversation. Orchestration keeps `session`.
+3. **Tools call the modules in-process.** The HTTP seam, `CoreApiPort`, `tool-handlers` go.
+   The layer split stays; the composition root joins each layer's list.
+4. **`changes` table is the event log.** Written in the edit's transaction; carries object,
+   id, actor, diff, time. Subscriptions and the UI stream read it. The in-memory bus becomes
+   a wake-up, never the source of truth. Robust > clever.
+5. **Routes are a loop** over the list plus the 16 plumbing routes by hand.
+
+Build-time calls, default stated, no founder question needed:
+- **Edit input is partial; the invariant always sees the whole resulting object.** A caller
+  may pass the version it read; if passed and stale, the edit is refused. If not passed,
+  last write wins. (Linear and Notion both take partial input; no shipped API does a
+  literal replace.)
+- **Search**: one structured list per object. A cross-object text search is added only if a
+  screen needs it (Notion ships both; the list is what agents use).
+- **UI push**: one stream of the 9 events, per-person filtered. SSE or the existing WS —
+  whichever is fewer lines once the `changes` table exists.
+- **Invariant split** (pure vs needs-DB) decided per object when built.

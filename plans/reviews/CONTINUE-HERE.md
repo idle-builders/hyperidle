@@ -80,8 +80,9 @@ check invariants, emit `<object>.changed`. Founder expects ~100% rewrite.
    Simplification and destructive rework are in scope. Research first (`research/`), then decide.
 3. UI rework, and possibly the whole "what is the agent's workspace" — after.
 
-`EVOLUTION-PATH.md` was drafted before this reframe; its step 2 ("the declaration") is the
-question above, unanswered. Treat the rest of that file as sequencing input, not a plan.
+Answered 2026-09-11: `LAYER-BELOW.md` (the shape, the evidence, the decisions) and
+`EVOLUTION-PATH.md` (seven steps, rewritten against it). Founder: technology is not their
+decision; robust and simple; deleting down through the services is success.
 
 ## What's next — the evolution path
 
