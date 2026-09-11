@@ -1,5 +1,5 @@
 /**
- * AB3 — useTeamAgents: a team's roster, filtered from the full agent catalog.
+ * useTeamAgents: a team's roster, filtered from the full agent catalog.
  *
  * `useAgents` already does the one fetch this needs (`GET /api/agents`, same
  * shape, same error) — this hook is a filter over it, not a second fetch.
