@@ -89,7 +89,7 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 		await user.selectOptions(mechanismSelect, "team");
 
 		// Open the team target combobox — its popover should offer "Alpha Team"
-		const targetTrigger = await screen.findByRole("combobox", { name: "Target team" });
+		const targetTrigger = await screen.findByRole("combobox", { name: "Target" });
 		await user.click(targetTrigger);
 		await waitFor(() => {
 			expect(screen.getByText("Alpha Team")).toBeInTheDocument();
@@ -119,7 +119,7 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 		const mechanismSelect = screen.getByRole("combobox", { name: /mechanism/i });
 		await user.selectOptions(mechanismSelect, "team");
 
-		const targetTrigger = await screen.findByRole("combobox", { name: "Target team" });
+		const targetTrigger = await screen.findByRole("combobox", { name: "Target" });
 		await user.click(targetTrigger);
 
 		// Should show the "No teams yet" message
@@ -148,14 +148,14 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 		});
 		await user.click(screen.getByTestId("add-edge-btn"));
 
-		const fromTrigger = screen.getByRole("combobox", { name: "From user" });
+		const fromTrigger = screen.getByRole("combobox", { name: "From" });
 		await user.click(fromTrigger);
 		await user.click(await screen.findByText("Alice"));
 
 		const mechanismSelect = screen.getByRole("combobox", { name: /mechanism/i });
 		await user.selectOptions(mechanismSelect, "team");
 
-		const targetTrigger = await screen.findByRole("combobox", { name: "Target team" });
+		const targetTrigger = await screen.findByRole("combobox", { name: "Target" });
 		await user.click(targetTrigger);
 		await user.click(await screen.findByText("Alpha Team"));
 
@@ -197,12 +197,12 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 		});
 		await user.click(screen.getByTestId("add-edge-btn"));
 
-		const fromTrigger = screen.getByRole("combobox", { name: "From user" });
+		const fromTrigger = screen.getByRole("combobox", { name: "From" });
 		await user.click(fromTrigger);
 		await user.click(await screen.findByText("Alice"));
 
 		// Mechanism defaults to "direct" — no need to switch it.
-		const targetTrigger = screen.getByRole("combobox", { name: "Target user" });
+		const targetTrigger = screen.getByRole("combobox", { name: "Target" });
 		await user.click(targetTrigger);
 		await user.click(await screen.findByText("Bob"));
 
@@ -244,7 +244,7 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 		const mechanismSelect = screen.getByRole("combobox", { name: /mechanism/i });
 		await user.selectOptions(mechanismSelect, "team");
 
-		const targetTrigger = await screen.findByRole("combobox", { name: "Target team" });
+		const targetTrigger = await screen.findByRole("combobox", { name: "Target" });
 		await user.click(targetTrigger);
 
 		await waitFor(() => {

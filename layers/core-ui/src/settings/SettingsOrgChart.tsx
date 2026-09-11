@@ -30,12 +30,15 @@
  * (Work roster does not create teams; only SetupFlow does). Now points to the
  * function mechanism and Setup, which are real affordances.
  *
- * @lore BA6: "From" and the "direct"/"team" Target pickers are the shared
- * `Combobox` (client-filtered — `users`/`teams` are already the full list)
- * instead of a closed `<Select>`. "Mechanism" stays a `Select` — a short
- * fixed list, not an entity picker. The "no teams yet" guidance moved from a
- * disabled option that impersonated the closed trigger's value to
+ * @lore The "From" field and the "direct"/"team" Target pickers are the
+ * shared `Combobox` (client-filtered — `users`/`teams` are already the full
+ * list) instead of a closed `<Select>`. "Mechanism" stays a `Select` — a
+ * short fixed list, not an entity picker. The "no teams yet" guidance moved
+ * from a disabled option that impersonated the closed trigger's value to
  * `Combobox`'s own `emptyMessage`, shown inside the popover once opened.
+ * "From" and "Target" never render together with the same visible label —
+ * mechanism selection decides which one shows — so no accessible-name
+ * override is needed; the visible labels are already unique.
  */
 
 import { type JSX, useCallback, useEffect, useState } from "react";
@@ -394,7 +397,6 @@ function AddEdgeForm({
 					<Combobox
 						id="org-from"
 						label="From"
-						triggerAriaLabel="From user"
 						value={fromUserId}
 						onChange={onFromChange}
 						disabled={adding}
@@ -424,7 +426,6 @@ function AddEdgeForm({
 						<Combobox
 							id="org-target"
 							label="Target"
-							triggerAriaLabel="Target user"
 							value={target}
 							onChange={onTargetChange}
 							disabled={adding}
@@ -446,7 +447,6 @@ function AddEdgeForm({
 						<Combobox
 							id="org-target"
 							label="Target"
-							triggerAriaLabel="Target team"
 							value={target}
 							onChange={onTargetChange}
 							disabled={adding}

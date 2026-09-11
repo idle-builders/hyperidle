@@ -24,10 +24,7 @@
  * with `aria-activedescendant` on the filter input. The trigger's accessible
  * name comes from `label` via a real `<label htmlFor>` pointing at the
  * trigger's `id` (generated with `useId()` when the caller doesn't pass one)
- * — a `<span>` next to a `<button>` gives the button no name at all. Pass
- * `triggerAriaLabel` instead when the visible label text must stay generic
- * (e.g. two fields on one row both read "Target") but each trigger still
- * needs its own name for assistive tech.
+ * — a `<span>` next to a `<button>` gives the button no name at all.
  */
 
 import type React from "react";
@@ -49,8 +46,6 @@ export interface ComboboxProps {
 	onChange: (value: string) => void;
 	/** label rendered above the closed trigger, associated to it via `<label htmlFor>` — this is what gives the trigger its accessible name. Omit when the caller renders its own label and points it at the trigger via `id`. */
 	label?: string;
-	/** overrides the trigger's accessible name without changing the visible label text — for rows where two fields share one visible word (e.g. org chart's "Target user" vs "Target team", both shown as "Target"). Takes precedence over `label` for the accessible name only. */
-	triggerAriaLabel?: string;
 	/** placeholder for the closed trigger (when empty/hidden) and the popover's filter input. */
 	placeholder?: string;
 	/** accessible name for the listbox. */
@@ -143,7 +138,6 @@ export function Combobox({
 	value = "",
 	onChange,
 	label,
-	triggerAriaLabel,
 	placeholder,
 	listAriaLabel,
 	inputAriaLabel,
@@ -258,7 +252,6 @@ export function Combobox({
 				role="combobox"
 				aria-expanded={open}
 				aria-controls={listId}
-				{...(triggerAriaLabel ? { "aria-label": triggerAriaLabel } : {})}
 				disabled={disabled}
 				onClick={() => setOpen((o) => !o)}
 				className={`type-control border-width-thin flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left ${
