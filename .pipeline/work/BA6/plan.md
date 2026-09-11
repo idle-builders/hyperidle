@@ -101,3 +101,7 @@ diff, and again over each scope-bearing change.
 - `create_task` does not catch the seam error the way `edit_task` does; only a dangling id reaches it.
 - Clicking outside or tabbing away does not close the dependency dropdown — the same as every combobox on
   `main`.
+- For about 200 ms after the search box is cleared or reopened, the previous results stay on screen and
+  can be picked; they are visible, so a person picks what they see.
+- An empty role in the agent editor shows the placeholder text, where `main` showed nothing. New agents
+  default to a role and a custom role cannot be blank, so it is hard to reach.
