@@ -35,6 +35,27 @@ function probeLocalPath(targetPath: string): Promise<ProbeResult> {
 	});
 }
 
+/**
+ * @lore BA5 §6.3: the runner's `lsRemote` moved from a `tokenConfig` (a
+ * pre-built git-config key/value pair) to a plain `env` — this probe is the
+ * one caller left that still authenticates by header (an `extraHeader`
+ * Authorization) rather than through `gh`, because it goes away whole in L4
+ * (`checkFilesystem` replaces it) and does not need the `gh`-helper path this
+ * package may not import (`filesystems` and `run-orchestration` are sibling
+ * Services; neither may import the other's `gitCredentialEnv`).
+ */
+function tokenHeaderEnv(url: string, token: string | null | undefined): Record<string, string> {
+	if (!token) return {};
+	const parsed = parseUrlHost(url);
+	const headerKey = parsed ? `http.${parsed}/.extraHeader` : "http./.extraHeader";
+	const b64 = Buffer.from(`x-access-token:${token}`).toString("base64");
+	return {
+		GIT_CONFIG_COUNT: "1",
+		GIT_CONFIG_KEY_0: headerKey,
+		GIT_CONFIG_VALUE_0: `Authorization: Basic ${b64}`,
+	};
+}
+
 async function probeGitRemote(
 	url: string,
 	token: string | null | undefined,
@@ -43,18 +64,8 @@ async function probeGitRemote(
 	const scratchCwd = os.tmpdir();
 	const runner = gitRunnerFactory(scratchCwd);
 
-	let tokenConfig: { key: string; value: string } | undefined;
-	if (token) {
-		const parsed = parseUrlHost(url);
-		const headerKey = parsed ? `http.${parsed}/.extraHeader` : "http./.extraHeader";
-		const b64 = Buffer.from(`x-access-token:${token}`).toString("base64");
-		tokenConfig = {
-			key: headerKey,
-			value: `Authorization: Basic ${b64}`,
-		};
-	}
-
-	const result = await runner.lsRemote(url, tokenConfig ? { tokenConfig } : undefined);
+	const env = tokenHeaderEnv(url, token);
+	const result = await runner.lsRemote(url, Object.keys(env).length > 0 ? { env } : undefined);
 	if (result.reachable) {
 		return { state: "reachable" };
 	}

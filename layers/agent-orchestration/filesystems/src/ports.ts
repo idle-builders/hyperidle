@@ -1,14 +1,9 @@
-interface FilesystemsGitConfigInjection {
-	readonly key: string;
-	readonly value: string;
-}
-
 /** Minimal git-runner port: only the 3 verbs this package actually calls. */
 interface FilesystemsGitRunner {
 	revParseIsInsideWorkTree(): Promise<boolean>;
 	lsRemote(
 		url: string,
-		opts?: { tokenConfig?: FilesystemsGitConfigInjection },
+		opts?: { env?: Record<string, string> },
 	): Promise<{ reachable: boolean; reason?: string }>;
 	currentBranch(): Promise<string | null>;
 }

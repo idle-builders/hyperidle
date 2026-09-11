@@ -22,10 +22,11 @@ interface MountingGitRunner {
 	diffCached(): Promise<boolean>;
 	revParseIsInsideWorkTree(): Promise<boolean>;
 	lsFiles(): Promise<readonly string[]>;
-	lsRemote(
-		url: string,
-		opts?: { tokenConfig?: MountingGitConfigInjection },
-	): Promise<{ reachable: boolean; reason?: string }>;
+	// @lore BA5 §6.3: `lsRemote` dropped from this mirror — this package never
+	// calls it (only `clone`/`worktreeAdd`), and the real `GitRunner.lsRemote`
+	// moved to a `{env, branch}` shape for Check (§7.2), which shares no
+	// property with this port's still-`tokenConfig`-shaped `clone`. Re-add it
+	// here, matching the real shape, the day this package needs it.
 	clone(
 		url: string,
 		branch: string,
