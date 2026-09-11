@@ -183,12 +183,16 @@ describe("computeFolderNames (BA5 §5.3)", () => {
 	}
 
 	test("names a git filesystem by its repo basename, without .git", () => {
-		const names = computeFolderNames([buildFs("f1", { kind: "code", repo: "https://github.com/a/repo.git", branch: "main" })]);
+		const names = computeFolderNames([
+			buildFs("f1", { kind: "code", repo: "https://github.com/a/repo.git", branch: "main" }),
+		]);
 		expect(names.get("f1")).toBe("repo");
 	});
 
 	test("names a folder filesystem by its own basename", () => {
-		const names = computeFolderNames([buildFs("f1", { kind: "doc_set", folder: "/home/me/notes" })]);
+		const names = computeFolderNames([
+			buildFs("f1", { kind: "doc_set", folder: "/home/me/notes" }),
+		]);
 		expect(names.get("f1")).toBe("notes");
 	});
 
@@ -201,7 +205,9 @@ describe("computeFolderNames (BA5 §5.3)", () => {
 	});
 
 	test("disambiguates a name that collides with a scaffolding path", () => {
-		const names = computeFolderNames([buildFs("fs-work-1234", { kind: "doc_set", folder: "/repo/work" })]);
+		const names = computeFolderNames([
+			buildFs("fs-work-1234", { kind: "doc_set", folder: "/repo/work" }),
+		]);
 		expect(names.get("fs-work-1234")).toBe(`work-${"fs-work-1234".slice(0, 8)}`);
 	});
 });

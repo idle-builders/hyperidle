@@ -39,20 +39,16 @@ import {
 	NoEligibleHarnessError,
 	TargetAgentNotRunnableError,
 } from "./errors.js";
+import { describeMountedFilesystems } from "./filesystem-instructions.js";
 import {
 	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-import { describeMountedFilesystems } from "./filesystem-instructions.js";
 import { mergeGitConfigEnv } from "./git-credential-env.js";
 // MountedFilesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
-import {
-	ensureSandboxGitRepo,
-	excludeMountedFolders,
-	type MountedFilesystem,
-} from "./mounter.js";
+import { ensureSandboxGitRepo, excludeMountedFolders, type MountedFilesystem } from "./mounter.js";
 import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { transitionRun } from "./transition-run.js";
 
@@ -730,7 +726,7 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// ── AO2 — Phase 4.5 mount + teardown capture-back helpers ────────────────────
+// ── AO2/BA5 — Phase 4.5 mount + teardown unmount helper ────────────────────
 //
 // @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
 // (`mountFilesystemsForAgent`) relocated wholesale into this package's own
@@ -839,10 +835,10 @@ interface ProvisionSessionDeps {
 	 */
 	readonly onHarnessStarted?: () => void;
 	/**
-	 * AO2: Optional mounter for filesystem placement + capture-back.
+	 * AO2: Optional mounter for filesystem placement.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
-	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
-	 * each endSession/crashSession call.
+	 * When present, mount runs after sandbox spawn (Phase 4.5) and unmount (BA5 §5.5) runs
+	 * before each endSession/crashSession call, unless the session awaits a review verdict.
 	 */
 	readonly mounter?: FilesystemMounterPort;
 	/**
@@ -1701,7 +1697,9 @@ async function runSession(
 	// connection-provisioned `GH_TOKEN` (a filesystem's own PAT is the more
 	// specific grant). `mergeGitConfigEnv` combines every mount's env into one
 	// indexed list instead of a naive spread colliding on repeated keys.
-	const mountedAgentEnv = mergeGitConfigEnv(mountedFilesystems.map((filesystem) => filesystem.agentEnv));
+	const mountedAgentEnv = mergeGitConfigEnv(
+		mountedFilesystems.map((filesystem) => filesystem.agentEnv),
+	);
 	if (Object.keys(mountedAgentEnv).length > 0) {
 		mcpTokenEnv = { ...(mcpTokenEnv ?? {}), ...mountedAgentEnv };
 	}
@@ -1974,7 +1972,7 @@ async function runSession(
 	}
 
 	if (crashed) {
-		// ── Hook B: capture-back before crash teardown (AO2 §9).
+		// ── Hook B: unmount before crash teardown (BA5 §5.5).
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
 		}
@@ -2026,7 +2024,7 @@ async function runSession(
 			timestamp: Date.now(),
 		});
 
-		// ── Hook B: capture-back before not_returned teardown (AO2 §9).
+		// ── Hook B: unmount before not_returned teardown (BA5 §5.5).
 		if (deps.mounter && mountedFilesystems.length > 0) {
 			await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
 		}
@@ -2053,7 +2051,7 @@ async function runSession(
 		};
 	}
 
-	// ── Hook B: capture-back before normal teardown (AO2 §9).
+	// ── Hook B: unmount before normal teardown (BA5 §5.5).
 	if (deps.mounter && mountedFilesystems.length > 0) {
 		await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
 	}

@@ -56,12 +56,26 @@ export type {
 } from "./contracts.js";
 export { endRunForHandoff } from "./end-run-for-handoff.js";
 export { startWatcher } from "./file-watcher.js";
+export { describeMountedFilesystems } from "./filesystem-instructions.js";
 export {
+	computeFolderNames,
 	type FilesystemForProvisioning,
+	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-export { ensureSandboxGitRepo, RegistryFilesystemMounter } from "./mounter.js";
+export { gitCredentialEnv, mergeGitConfigEnv } from "./git-credential-env.js";
+export {
+	type AdapterDeps,
+	ensureSandboxGitRepo,
+	excludeMountedFolders,
+	type Filesystem,
+	forgetKeptCopy,
+	type MountedFilesystem,
+	type MountInput,
+	type MountResult,
+	RegistryFilesystemMounter,
+} from "./mounter.js";
 export type { MountingGitRunnerFactory } from "./mounter-ports.js";
 export type { PluginMcpContributionsPort } from "./provisioner.js";
 export {

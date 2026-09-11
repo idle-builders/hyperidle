@@ -91,7 +91,9 @@ function baseFolderName(resourceRef: Filesystem["resourceRef"]): string {
  * whole injected list so a resume gets the same names as long as the
  * injections have not changed.
  */
-export function computeFolderNames(filesystems: readonly Filesystem[]): ReadonlyMap<string, string> {
+export function computeFolderNames(
+	filesystems: readonly Filesystem[],
+): ReadonlyMap<string, string> {
 	const bases = filesystems.map((f) => baseFolderName(f.resourceRef));
 	const counts = new Map<string, number>();
 	for (const base of bases) counts.set(base, (counts.get(base) ?? 0) + 1);
@@ -99,7 +101,8 @@ export function computeFolderNames(filesystems: readonly Filesystem[]): Readonly
 	filesystems.forEach((f, i) => {
 		const base = bases[i] as string;
 		const collides =
-			(SANDBOX_SCAFFOLDING_PATHS as readonly string[]).includes(base) || (counts.get(base) ?? 0) > 1;
+			(SANDBOX_SCAFFOLDING_PATHS as readonly string[]).includes(base) ||
+			(counts.get(base) ?? 0) > 1;
 		result.set(f.id, collides ? `${base}-${f.id.slice(0, 8)}` : base);
 	});
 	return result;

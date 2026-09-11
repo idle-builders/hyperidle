@@ -9,11 +9,11 @@ import type { MountedFilesystem } from "./mounter.js";
 function describeOne(mounted: MountedFilesystem): string {
 	const header = `\`${mounted.folder}/\``;
 	if (mounted.git) {
-		const configuredBranch = mounted.filesystem.resourceRef.kind === "code"
-			? mounted.filesystem.resourceRef.repo
-			: "";
+		const configuredBranch =
+			mounted.filesystem.resourceRef.kind === "code" ? mounted.filesystem.resourceRef.repo : "";
 		const branch = mounted.git.branch;
-		const base = mounted.filesystem.resourceRef.kind === "code" ? mounted.filesystem.resourceRef.branch : "";
+		const base =
+			mounted.filesystem.resourceRef.kind === "code" ? mounted.filesystem.resourceRef.branch : "";
 		if (mounted.git.remote) {
 			return `${header} — git repository ${configuredBranch}. You are on branch \`${branch}\`, started from \`${base}\`. Commit your work here and push the branch to get it out: \`git push -u origin HEAD\`.`;
 		}

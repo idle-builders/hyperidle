@@ -107,14 +107,18 @@ class CloudNotBuiltAdapter implements MountAdapter {
 class LocalFolderAdapter implements MountAdapter {
 	mount(input: MountInput): Promise<MountResult> {
 		const ref = input.filesystem.resourceRef;
-		if (ref.kind !== "doc_set") return Promise.resolve({ ok: false, reason: "Expected doc_set resourceRef" });
+		if (ref.kind !== "doc_set")
+			return Promise.resolve({ ok: false, reason: "Expected doc_set resourceRef" });
 		try {
 			const real = normalizeLocalPath(ref.folder);
 			if (!fs.existsSync(real)) throw new Error(`folder does not exist: '${ref.folder}'`);
 			const link = path.join(input.workspacePath, input.folderName);
 			let adopted = false;
 			if (fs.existsSync(link)) {
-				if (fs.lstatSync(link).isSymbolicLink() && fs.realpathSync(link) === fs.realpathSync(real)) {
+				if (
+					fs.lstatSync(link).isSymbolicLink() &&
+					fs.realpathSync(link) === fs.realpathSync(real)
+				) {
 					adopted = true;
 				} else {
 					throw new Error(`folder '${input.folderName}' already exists in the workspace`);
@@ -133,7 +137,10 @@ class LocalFolderAdapter implements MountAdapter {
 				},
 			});
 		} catch (error) {
-			return Promise.resolve({ ok: false, reason: error instanceof Error ? error.message : String(error) });
+			return Promise.resolve({
+				ok: false,
+				reason: error instanceof Error ? error.message : String(error),
+			});
 		}
 	}
 	/** @lore BA5 §5.5: nothing to do — the symlink goes with the workspace itself. */
@@ -200,7 +207,10 @@ function resolveCommonGitDir(repoPath: string): string {
 function recognizeAdoptedWorktree(worktreePath: string, keptCopy: string): string | undefined {
 	const gitFile = path.join(worktreePath, ".git");
 	if (!fs.existsSync(gitFile) || fs.lstatSync(gitFile).isDirectory()) return undefined;
-	const pointer = fs.readFileSync(gitFile, "utf8").trim().match(/^gitdir:\s*(.+)$/)?.[1];
+	const pointer = fs
+		.readFileSync(gitFile, "utf8")
+		.trim()
+		.match(/^gitdir:\s*(.+)$/)?.[1];
 	if (!pointer) return undefined;
 	let gitDir: string;
 	let commonDir: string;
@@ -211,7 +221,7 @@ function recognizeAdoptedWorktree(worktreePath: string, keptCopy: string): strin
 		return undefined;
 	}
 	const worktreesRoot = `${path.join(commonDir, "worktrees")}${path.sep}`;
-	if (!gitDir.startsWith(worktreesRoot) || !fs.existsSync(gitDir)) return undefined;
+	if (!(gitDir.startsWith(worktreesRoot) && fs.existsSync(gitDir))) return undefined;
 	try {
 		return execFileSync("git", ["-C", worktreePath, "rev-parse", "--abbrev-ref", "HEAD"], {
 			encoding: "utf8",
@@ -273,7 +283,9 @@ class GitRepositoryAdapter implements MountAdapter {
 				resolvedKeptCopy = keptCopy as string;
 				if (!fs.existsSync(resolvedKeptCopy)) {
 					fs.mkdirSync(this.deps.keptCopiesRoot, { recursive: true });
-					await this.deps.gitRunnerFactory(this.deps.keptCopiesRoot).clone(ref.repo, resolvedKeptCopy, { env });
+					await this.deps
+						.gitRunnerFactory(this.deps.keptCopiesRoot)
+						.clone(ref.repo, resolvedKeptCopy, { env });
 				} else {
 					await this.deps.gitRunnerFactory(resolvedKeptCopy).fetch({ env });
 				}
@@ -303,7 +315,9 @@ class GitRepositoryAdapter implements MountAdapter {
 
 	async unmount(mounted: MountedFilesystem): Promise<void> {
 		if (!mounted.git) return;
-		await this.deps.gitRunnerFactory(mounted.git.keptCopy).worktreeRemove(mounted.folder, { force: true });
+		await this.deps
+			.gitRunnerFactory(mounted.git.keptCopy)
+			.worktreeRemove(mounted.folder, { force: true });
 	}
 }
 

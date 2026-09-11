@@ -61,12 +61,16 @@ function initLocalRepo(dir: string): void {
 }
 
 function worktreeList(repoDir: string): string {
-	return execFileSync("git", ["-C", repoDir, "worktree", "list", "--porcelain"], { encoding: "utf8" });
+	return execFileSync("git", ["-C", repoDir, "worktree", "list", "--porcelain"], {
+		encoding: "utf8",
+	});
 }
 
 function branchExists(repoDir: string, branch: string): boolean {
 	return (
-		execFileSync("git", ["-C", repoDir, "branch", "--list", branch], { encoding: "utf8" }).trim() !== ""
+		execFileSync("git", ["-C", repoDir, "branch", "--list", branch], {
+			encoding: "utf8",
+		}).trim() !== ""
 	);
 }
 
@@ -189,6 +193,11 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 
 		const captured: CapturedStart = {};
 		const trustedPathsSeen: string[][] = [];
+		// @lore normal completion deletes the workspace as its LAST teardown
+		// step (`transitionRun`'s `fs.promises.rm`) — `onBeforeTeardown` fires
+		// before that delete (AR2), so AGENTS.md must be read there, not after
+		// `provisioner.run` resolves.
+		let agentsMdSnapshot: string | undefined;
 		const deps = {
 			db,
 			eventBus: new EventBus(),
@@ -206,12 +215,20 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 					},
 				],
 			},
-			mounter: new RegistryFilesystemMounter({ gitRunnerFactory: (cwd: string) => createGitRunner(cwd) }),
+			mounter: new RegistryFilesystemMounter({
+				gitRunnerFactory: (cwd: string) => createGitRunner(cwd),
+			}),
 			adapterPool: {
 				select: () => ({
 					id: "fake-adapter",
 					adapter: buildFakeHarnessAdapter({ captured }),
-					meta: { name: "Fake", kind: "local", type: undefined, modelProviders: [], maxConcurrent: 5 },
+					meta: {
+						name: "Fake",
+						kind: "local",
+						type: undefined,
+						modelProviders: [],
+						maxConcurrent: 5,
+					},
 				}),
 				release: () => undefined,
 				describeSelectFailure: () => "test pool selected nothing",
@@ -221,6 +238,9 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
 				adopt: async (p: string) => ({ sandboxId: "sbx-adopted", path: p }),
 				destroy: async () => undefined,
+			},
+			onBeforeTeardown: (ctx: { sandboxPath: string }) => {
+				agentsMdSnapshot = fs.readFileSync(path.join(ctx.sandboxPath, "AGENTS.md"), "utf8");
 			},
 		} as unknown as ProvisionSessionDeps;
 
@@ -235,7 +255,7 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 
 		await provisioner.run(deps, params, admitted);
 
-		const agentsMd = fs.readFileSync(path.join(workspacePath, "AGENTS.md"), "utf8");
+		const agentsMd = agentsMdSnapshot ?? "";
 		expect(agentsMd).toContain("## Filesystems");
 		expect(agentsMd).toContain(path.basename(mountedFs.folder));
 		expect(agentsMd).toContain(mountedFs.git?.branch as string);
@@ -286,7 +306,9 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 					},
 				],
 			},
-			mounter: new RegistryFilesystemMounter({ gitRunnerFactory: (cwd: string) => createGitRunner(cwd) }),
+			mounter: new RegistryFilesystemMounter({
+				gitRunnerFactory: (cwd: string) => createGitRunner(cwd),
+			}),
 			adapterPool: {
 				select: () => ({
 					id: "fake-adapter",
@@ -295,7 +317,13 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 						toolName: "mcp__hyperidle__submit_review",
 						onReturnAction,
 					}),
-					meta: { name: "Fake", kind: "local", type: undefined, modelProviders: [], maxConcurrent: 5 },
+					meta: {
+						name: "Fake",
+						kind: "local",
+						type: undefined,
+						modelProviders: [],
+						maxConcurrent: 5,
+					},
 				}),
 				release: () => undefined,
 				describeSelectFailure: () => "test pool selected nothing",
@@ -347,7 +375,12 @@ describe("a mounted filesystem's own env reaches the harness (BA5 §6.1)", () =>
 			},
 			folder: path.join(workspacePath, "repo"),
 			trustedPath: "/tmp/kept/repo",
-			git: { keptCopy: "/tmp/kept/repo", branch: "hyperidle/session-x", base: "origin/main", remote: true },
+			git: {
+				keptCopy: "/tmp/kept/repo",
+				branch: "hyperidle/session-x",
+				base: "origin/main",
+				remote: true,
+			},
 			agentEnv: {
 				GH_TOKEN: "fs-secret-token",
 				GIT_CONFIG_COUNT: "2",
@@ -387,7 +420,13 @@ describe("a mounted filesystem's own env reaches the harness (BA5 §6.1)", () =>
 				select: () => ({
 					id: "fake-adapter",
 					adapter: buildFakeHarnessAdapter({ captured }),
-					meta: { name: "Fake", kind: "local", type: undefined, modelProviders: [], maxConcurrent: 5 },
+					meta: {
+						name: "Fake",
+						kind: "local",
+						type: undefined,
+						modelProviders: [],
+						maxConcurrent: 5,
+					},
 				}),
 				release: () => undefined,
 				describeSelectFailure: () => "test pool selected nothing",
