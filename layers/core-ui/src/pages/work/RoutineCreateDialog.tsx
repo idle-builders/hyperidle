@@ -35,11 +35,16 @@
  * product), which is a scoped feature on its own, not a review-fix-sized
  * change to an existing dialog. Left unmounted-elsewhere deliberately;
  * flagged for a future work package rather than widened here.
+ *
+ * @lore BA6: the agent field is now the shared `Combobox` (client-filtered —
+ * `agents` is already the full roster this dialog is scoped to) instead of
+ * a closed `<Select>`. The "When" / "Schedule" / "Event" selects stay —
+ * short fixed lists, not entity pickers.
  */
 
 import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
 import { type JSX, useEffect, useState } from "react";
-import { Button, Dialog, Input, Select } from "../../ds";
+import { Button, Combobox, Dialog, Input, Select } from "../../ds";
 import { apiFetch } from "../../services/api-fetch.js";
 
 export interface RoutineCreateDialogProps {
@@ -212,21 +217,20 @@ export function RoutineCreateDialog({
 					rows={2}
 				/>
 
-				{/* Agent select */}
+				{/* Agent picker */}
 				<label htmlFor="routine-create-agent" className="flex flex-col gap-[3px]">
 					<span className="type-metadata  text-[var(--text-tertiary)]">
 						Agent <span aria-hidden>(required)</span>
 					</span>
-					<Select
+					<Combobox
 						id="routine-create-agent"
-						size="sm"
-						className="w-full"
+						options={agents.map((a) => ({ id: a.id, label: a.name }))}
 						value={agentId}
-						onChange={(e) => setAgentId(e.target.value)}
+						onChange={setAgentId}
 						disabled={submitting}
-						aria-label="Agent"
 						placeholder="Select an agent…"
-						options={agents.map((a) => ({ value: a.id, label: a.name }))}
+						listAriaLabel="Agents"
+						inputAriaLabel="Filter agents"
 					/>
 				</label>
 
