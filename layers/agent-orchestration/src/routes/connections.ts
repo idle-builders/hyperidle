@@ -26,10 +26,11 @@
  * where its tables go, and this file's whole table set is `service_connections`
  * alone. Reads AND mutations moved, not just reads.
  *
- * **The paths do not change.** Both apps mount on the Application's one `/api`
- * router, so `/api/connections`, `/api/connections/:id` and
- * `/api/connections/:id/validate` are byte-identical to before and
- * `layers/core-ui` needs no change at all (AC7(c)).
+ * **The paths do not change**, except one: both apps mount on the Application's
+ * one `/api` router, so `/api/connections` and `/api/connections/:id` are
+ * byte-identical to before and `layers/core-ui` needs no change at all
+ * (AC7(c)). `/api/connections/:id/validate` is deleted (BA5 §12/§18) — its
+ * only writer, the stored `health`/`last_validated_at` columns, is gone.
  *
  * The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
  * Application-applied to that shared router and reaches this module unchanged.
