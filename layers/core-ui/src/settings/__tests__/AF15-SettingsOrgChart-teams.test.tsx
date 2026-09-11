@@ -88,7 +88,13 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 		const mechanismSelect = screen.getByRole("combobox", { name: /mechanism/i });
 		await user.selectOptions(mechanismSelect, "team");
 
-		// The team target select should show "Alpha Team" as an option
+		// Open the team target combobox — its popover should offer "Alpha Team"
+		const targetTrigger = await waitFor(() => {
+			const found = screen.getAllByRole("combobox").find((c) => c.id === "org-target");
+			expect(found).toBeDefined();
+			return found as HTMLElement;
+		});
+		await user.click(targetTrigger);
 		await waitFor(() => {
 			expect(screen.getByText("Alpha Team")).toBeInTheDocument();
 		});
@@ -117,10 +123,68 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 		const mechanismSelect = screen.getByRole("combobox", { name: /mechanism/i });
 		await user.selectOptions(mechanismSelect, "team");
 
+		const targetTrigger = await waitFor(() => {
+			const found = screen.getAllByRole("combobox").find((c) => c.id === "org-target");
+			expect(found).toBeDefined();
+			return found as HTMLElement;
+		});
+		await user.click(targetTrigger);
+
 		// Should show the "No teams yet" message
 		await waitFor(() => {
 			const text = document.body.textContent ?? "";
 			expect(text).toMatch(/no teams yet/i);
+		});
+	});
+
+	it("picks From and Target (team) through their comboboxes and PUTs that team's id", async () => {
+		const user = userEvent.setup();
+		fetchSpy.mockResolvedValue(
+			makeOrgResponse(
+				[
+					{ id: "u1", kind: "human", name: "Alice", role: "founder" },
+					{ id: "u2", kind: "human", name: "Bob", role: "engineer" },
+				],
+				[],
+				[{ id: "tm-1", name: "Alpha Team" }],
+			),
+		);
+
+		render(<SettingsOrgChart />);
+		await waitFor(() => {
+			expect(screen.getByTestId("add-edge-btn")).toBeInTheDocument();
+		});
+		await user.click(screen.getByTestId("add-edge-btn"));
+
+		const fromTrigger = screen.getAllByRole("combobox").find((c) => c.id === "org-from");
+		expect(fromTrigger).toBeDefined();
+		await user.click(fromTrigger as HTMLElement);
+		await user.click(await screen.findByText("Alice"));
+
+		const mechanismSelect = screen.getByRole("combobox", { name: /mechanism/i });
+		await user.selectOptions(mechanismSelect, "team");
+
+		const targetTrigger = await waitFor(() => {
+			const found = screen.getAllByRole("combobox").find((c) => c.id === "org-target");
+			expect(found).toBeDefined();
+			return found as HTMLElement;
+		});
+		await user.click(targetTrigger);
+		await user.click(await screen.findByText("Alpha Team"));
+
+		await user.click(screen.getByTestId("org-add-submit"));
+
+		await waitFor(() => {
+			const putCall = fetchSpy.mock.calls.find(
+				([, opts]) => (opts as RequestInit | undefined)?.method === "PUT",
+			);
+			expect(putCall).toBeDefined();
+			const body = JSON.parse((putCall?.[1] as RequestInit).body as string) as {
+				fromUserId: string;
+				mechanism: string;
+				target: string;
+			};
+			expect(body).toEqual({ fromUserId: "u1", mechanism: "team", target: "tm-1" });
 		});
 	});
 
@@ -144,6 +208,13 @@ describe("AF15 AC-6 — SettingsOrgChart: team select from real teams", () => {
 		await user.click(screen.getByTestId("add-edge-btn"));
 		const mechanismSelect = screen.getByRole("combobox", { name: /mechanism/i });
 		await user.selectOptions(mechanismSelect, "team");
+
+		const targetTrigger = await waitFor(() => {
+			const found = screen.getAllByRole("combobox").find((c) => c.id === "org-target");
+			expect(found).toBeDefined();
+			return found as HTMLElement;
+		});
+		await user.click(targetTrigger);
 
 		await waitFor(() => {
 			const text = document.body.textContent ?? "";

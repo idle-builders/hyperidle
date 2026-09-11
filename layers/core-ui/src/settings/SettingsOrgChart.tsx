@@ -29,12 +29,20 @@
  * @lore AF15: Empty team state copy fixed — no longer says "create one in Work"
  * (Work roster does not create teams; only SetupFlow does). Now points to the
  * function mechanism and Setup, which are real affordances.
+ *
+ * @lore BA6: "From" and the "direct"/"team" Target pickers are the shared
+ * `Combobox` (client-filtered — `users`/`teams` are already the full list)
+ * instead of a closed `<Select>`. "Mechanism" stays a `Select` — a short
+ * fixed list, not an entity picker. The "no teams yet" guidance moved from a
+ * disabled option that impersonated the closed trigger's value to
+ * `Combobox`'s own `emptyMessage`, shown inside the popover once opened.
  */
 
 import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import {
 	Button,
+	Combobox,
 	EmptyState,
 	ErrorState,
 	Input,
@@ -383,15 +391,16 @@ function AddEdgeForm({
 			<div className="flex gap-[12px] flex-wrap">
 				{/* From */}
 				<div className="flex-1 min-w-[120px]">
-					<Select
+					<Combobox
 						id="org-from"
 						label="From"
 						value={fromUserId}
-						onChange={(e) => onFromChange(e.target.value)}
-						aria-label="From user"
+						onChange={onFromChange}
 						disabled={adding}
 						placeholder="Select user…"
-						options={users.map((u) => ({ value: u.id, label: u.name }))}
+						listAriaLabel="Users"
+						inputAriaLabel="Filter users"
+						options={users.map((u) => ({ id: u.id, label: u.name }))}
 					/>
 				</div>
 
@@ -411,45 +420,38 @@ function AddEdgeForm({
 				{/* Target — context-aware by mechanism */}
 				<div className="flex-1 min-w-[120px]">
 					{mechanism === "direct" ? (
-						<Select
+						<Combobox
 							id="org-target"
 							label="Target"
 							value={target}
-							onChange={(e) => onTargetChange(e.target.value)}
-							aria-label="Target user"
+							onChange={onTargetChange}
 							disabled={adding}
 							placeholder="Select user…"
-							options={users.map((u) => ({ value: u.id, label: u.name }))}
+							listAriaLabel="Users"
+							inputAriaLabel="Filter users"
+							options={users.map((u) => ({ id: u.id, label: u.name }))}
 						/>
 					) : mechanism === "team" ? (
 						/* AF15: Team select from real teams (teamMembers joined to teams.name).
 						 * value=team.id (teamMembers.id — what server validates for mechanism:"team").
 						 * label=team.name (teams.name — human-readable).
-						 * Empty state: disabled option pointing to function mechanism or Setup.
 						 * @lore AF15: The old deriveTeams() derived from existing edges — circular.
-						 * Now sourced from GET /api/org `teams` array. */
-						<Select
+						 * Now sourced from GET /api/org `teams` array.
+						 * @lore BA6: the empty-teams guidance used to BE the closed
+						 * trigger's displayed value (a disabled option standing in for
+						 * "selected"). Combobox has no such slot, so it is `emptyMessage`
+						 * instead — shown inside the popover once opened, not before. */
+						<Combobox
 							id="org-target"
 							label="Target"
 							value={target}
-							onChange={(e) => onTargetChange(e.target.value)}
-							aria-label="Target team"
+							onChange={onTargetChange}
 							disabled={adding}
-							options={
-								teams.length === 0
-									? [
-											{
-												value: "",
-												label:
-													"No teams yet — use a Function relationship instead, or run Setup to create your first team.",
-												disabled: true,
-											},
-										]
-									: [
-											{ value: "", label: "Select team…" },
-											...teams.map((t) => ({ value: t.id, label: t.name })),
-										]
-							}
+							placeholder="Select team…"
+							listAriaLabel="Teams"
+							inputAriaLabel="Filter teams"
+							emptyMessage="No teams yet — use a Function relationship instead, or run Setup to create your first team."
+							options={teams.map((t) => ({ id: t.id, label: t.name }))}
 						/>
 					) : (
 						/* mechanism === "function": free-text input */
