@@ -7,12 +7,12 @@
  * `WorkTaskCreate` and `WorkTaskPage`'s edit panel — the two surfaces the
  * plan names.
  *
- * Built on the shared `Combobox` in server-driven mode (`filterOptions=false`,
- * options = the current search results) with `hideSelectedValue` — the
- * closed trigger always reads as a placeholder, never a chosen task, because
- * each pick hands off to the chip list this component owns rather than
- * becoming "the" value. This is also what gives the field its keyboard
- * navigation (ArrowUp/Down, Enter, Escape) for free.
+ * Built on the shared `Combobox` in server-driven mode (options = the current
+ * search results, passing `onQueryChange`) — the closed trigger always reads
+ * as a placeholder, never a chosen task, because `value` is never set: each
+ * pick hands off to the chip list this component owns rather than becoming
+ * "the" value. This is also what gives the field its keyboard navigation
+ * (ArrowUp/Down, Enter, Escape) for free.
  *
  * Existing dependency ids (the edit surface loads them bare) resolve to
  * titles via `useTaskLookup`'s bulk lookup door; freshly-picked titles are
@@ -23,7 +23,7 @@
 import { type JSX, useMemo, useState } from "react";
 import { Combobox, ReferenceChip } from "../ds/index.js";
 import { useTaskLookup } from "../hooks/useTaskLookup.js";
-import { type TaskSearchResult, useTaskSearch } from "../hooks/useTaskSearch.js";
+import { useTaskSearch } from "../hooks/useTaskSearch.js";
 
 export interface TaskDependencyFieldProps {
 	dependencies: readonly string[];
@@ -56,15 +56,14 @@ export function TaskDependencyField({
 		[results],
 	);
 
-	const addDependency = (task: TaskSearchResult): void => {
-		if (dependencies.includes(task.id) || task.id === currentTaskId) return;
-		onChange([...dependencies, task.id]);
-		setPickedTitles((prev) => ({ ...prev, [task.id]: task.title }));
-	};
-
+	// `results` is already excludeIds-filtered (see useTaskSearch), so a task
+	// found here can never be the one being edited or already a dependency —
+	// no second guard needed.
 	const handlePick = (id: string): void => {
 		const task = results.find((r) => r.id === id);
-		if (task) addDependency(task);
+		if (!task) return;
+		onChange([...dependencies, task.id]);
+		setPickedTitles((prev) => ({ ...prev, [task.id]: task.title }));
 	};
 
 	const removeDependency = (id: string): void => {
@@ -95,12 +94,9 @@ export function TaskDependencyField({
 			)}
 			<Combobox
 				id={searchFieldId}
-				data-testid="task-dependency-search"
 				options={options}
 				onChange={handlePick}
 				onQueryChange={setQuery}
-				filterOptions={false}
-				hideSelectedValue
 				disabled={disabled}
 				placeholder="Search tasks by title…"
 				inputAriaLabel="Search tasks by title"

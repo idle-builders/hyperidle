@@ -8,6 +8,11 @@
  * set). Built on `useFetch` for the request/cancel plumbing, with its own
  * debounce so fast typing doesn't fire a request per keystroke.
  *
+ * @lore BA6: the global `GET /api/search` route (`useGlobalSearch`) was
+ * rejected as this picker's door — it caps tasks at 5 and restricts to roots
+ * (`parentTaskId: null`), both wrong for a field that must find a
+ * non-root task by title at any depth.
+ *
  * Excludes `excludeIds` (the task being edited, and tasks already in the
  * dependency list) client-side — the server has no exclusion param and does
  * not need one, since the real guard against a self-dependency or a
@@ -48,13 +53,24 @@ export function useTaskSearch(query: string, excludeIds: readonly string[]): Use
 	const trimmed = query.trim();
 	const [debounced, setDebounced] = useState(trimmed);
 
+	const url = debounced === "" ? null : `/api/tasks?q=${encodeURIComponent(debounced)}`;
+	const { data, error, isLoading, refetch } = useFetch<unknown>(url);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: debounced/error/refetch are read for their value AT THE MOMENT the timer fires, not to retrigger scheduling — only `trimmed` should reset the debounce timer.
 	useEffect(() => {
-		const timer = setTimeout(() => setDebounced(trimmed), DEBOUNCE_MS);
+		const timer = setTimeout(() => {
+			setDebounced(trimmed);
+			// @lore BA6: a url-keyed fetch never re-fires when the debounced
+			// value settles back on the same string it started at (retyping the
+			// same query fast enough that no intermediate value ever commits) —
+			// `setDebounced` bails out as a no-op since the value didn't change.
+			// After an error that same string must still be retryable, so nudge
+			// `useFetch` explicitly whenever the settled query matches the one
+			// that just failed.
+			if (trimmed === debounced && trimmed !== "" && error !== null) refetch();
+		}, DEBOUNCE_MS);
 		return () => clearTimeout(timer);
 	}, [trimmed]);
-
-	const url = debounced === "" ? null : `/api/tasks?q=${encodeURIComponent(debounced)}`;
-	const { data, error, isLoading } = useFetch<unknown>(url);
 
 	const rawResults = useMemo<readonly TaskSearchResult[]>(
 		() => (Array.isArray(data) ? data.filter(isTaskSearchResult) : []),

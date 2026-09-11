@@ -29,13 +29,7 @@ ruleTester.run("typography-profile-only", typographyProfileOnly, {
 });
 
 ruleTester.run("motion-profile-only", motionProfileOnly, {
-	valid: [
-		{ code: 'const view = <button className="motion-feedback hover:opacity-80" />;' },
-		{
-			filename: "layers/core-ui/src/ds/Combobox.tsx",
-			code: "requestAnimationFrame(() => inputRef.current?.focus());",
-		},
-	],
+	valid: [{ code: 'const view = <button className="motion-feedback hover:opacity-80" />;' }],
 	invalid: [
 		{
 			code: 'const view = <button className="transition-all duration-200" />;',
@@ -56,7 +50,7 @@ ruleTester.run("motion-profile-only", motionProfileOnly, {
 		},
 		{
 			filename: "layers/core-ui/src/ds/Combobox.tsx",
-			code: "requestAnimationFrame(() => doUnrelatedWork());",
+			code: "requestAnimationFrame(() => inputRef.current?.focus());",
 			errors: [{ messageId: "forbiddenAnimationFrame" }],
 		},
 	],

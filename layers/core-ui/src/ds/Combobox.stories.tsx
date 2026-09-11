@@ -11,7 +11,6 @@ import { Combobox, type ComboboxOption } from "./Combobox.js";
 
 export default {
 	title: "Combobox",
-	group: "Settings" as const,
 };
 
 const ROLES: readonly ComboboxOption[] = [
@@ -82,7 +81,7 @@ export function OpenWithCustomAffordance(): React.JSX.Element {
 					customValuePrefix="Use new role: "
 				/>
 			</div>
-			<p className="text-[12px] text-[var(--text-tertiary)]">
+			<p className="type-metadata text-[var(--text-tertiary)]">
 				Click the field, then type e.g. “Release Manager” to see the “Use new role” affordance.
 			</p>
 		</div>
@@ -117,11 +116,8 @@ export function AsyncSearch(): React.JSX.Element {
 			<div className="w-[360px] p-[24px]">
 				<Combobox
 					options={options}
-					value=""
 					onChange={setPicked}
 					onQueryChange={handleQueryChange}
-					filterOptions={false}
-					hideSelectedValue
 					loading={loading}
 					placeholder="Search tasks by title…"
 					inputAriaLabel="Search tasks by title"

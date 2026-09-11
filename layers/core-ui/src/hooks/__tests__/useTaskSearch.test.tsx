@@ -11,6 +11,8 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const DEBOUNCE_MS = 200;
+
 vi.mock("../../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
@@ -64,5 +66,41 @@ describe("useTaskSearch", () => {
 
 		await waitFor(() => expect(result.current.status).toBe("ready"));
 		expect(result.current.results.map((r) => r.id)).toEqual(["t-new"]);
+	});
+
+	// A 502 during a server restart set the error, then the user backspaced
+	// and retyped "FINAL" fast enough that the debounced value never actually
+	// changed (it started at "FINAL" and settled back on "FINAL") — so a
+	// naive url-keyed fetch never re-fires and the error is stuck forever.
+	it("retries the same query after a failed fetch, once the query is retyped", async () => {
+		vi.useFakeTimers();
+		try {
+			fetchSpy.mockResolvedValueOnce(new Response(null, { status: 502 }));
+			fetchSpy.mockResolvedValueOnce(
+				new Response(JSON.stringify([{ id: "t-final", title: "Final push" }]), { status: 200 }),
+			);
+
+			const { result, rerender } = renderHook(({ q }) => useTaskSearch(q, []), {
+				initialProps: { q: "FINAL" },
+			});
+
+			await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+			await vi.waitFor(() => expect(result.current.status).toBe("error"));
+			expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+			// Backspace + retype "FINAL" fast — each keystroke re-renders with a
+			// new raw query, but the debounce timer never settles on anything
+			// but "FINAL" again (no pause long enough to commit an intermediate
+			// value).
+			rerender({ q: "FINA" });
+			rerender({ q: "FINAL" });
+
+			await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+			await vi.waitFor(() => expect(result.current.status).toBe("ready"));
+			expect(fetchSpy).toHaveBeenCalledTimes(2);
+			expect(result.current.results).toEqual([{ id: "t-final", title: "Final push" }]);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

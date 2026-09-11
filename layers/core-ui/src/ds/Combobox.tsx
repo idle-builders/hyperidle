@@ -3,10 +3,11 @@
  * listbox, full keyboard handling (ArrowUp/Down, Enter, Escape) and
  * `aria-activedescendant` tracking the highlighted option.
  *
- * Two option-sourcing modes:
- *  - client-filtered (default): `options` is the full catalog, filtered by the
- *    typed query against `label`/`id`/`description`.
- *  - server-driven (`filterOptions={false}`): `options` is exactly what
+ * Two option-sourcing modes, chosen by whether the caller passes
+ * `onQueryChange`:
+ *  - client-filtered (no `onQueryChange`): `options` is the full catalog,
+ *    filtered by the typed query against `label`/`id`/`description`.
+ *  - server-driven (`onQueryChange` passed): `options` is exactly what
  *    renders — the caller narrows it (e.g. from a search endpoint) and reads
  *    the typed query via `onQueryChange`.
  *
@@ -14,17 +15,17 @@
  * matches no option — for pickers whose value is an open string (e.g. a
  * role). Leave it off for pickers whose value must be one of `options`.
  *
- * `hideSelectedValue` keeps the closed trigger showing `placeholder` instead
- * of resolving `value` to a label — for a picker that hands each choice off
- * to a list the caller owns (e.g. a chip list) rather than holding one
- * persistent selection.
+ * While `loading` or `error` is set, the popover shows only that status row —
+ * ArrowUp/ArrowDown/Enter are inert and `aria-activedescendant` is omitted,
+ * so a server-driven caller's still-in-flight options can never be
+ * navigated to or committed as if they were the current query's results.
  *
  * a11y: `role="combobox"` on the trigger, `aria-expanded`, a listbox popover
  * with `aria-activedescendant` on the filter input.
  */
 
 import type React from "react";
-import { type JSX, useId, useMemo, useRef, useState } from "react";
+import { type JSX, useEffect, useId, useMemo, useRef, useState } from "react";
 import { dsProps } from "./ds-attrs.js";
 
 export interface ComboboxOption {
@@ -50,20 +51,14 @@ export interface ComboboxProps {
 	inputAriaLabel?: string;
 	disabled?: boolean;
 	id?: string;
-	"data-testid"?: string;
 	/** lets the user commit typed text that matches no option. */
 	allowCustomValue?: boolean;
 	/** text before the typed value in the custom-value row, e.g. "Use new role: ". */
 	customValuePrefix?: string;
-	/** fires on every keystroke in the filter input. */
+	/** fires on every keystroke in the filter input. Passing this switches to server-driven mode — see the docblock above. */
 	onQueryChange?: (query: string) => void;
-	/** false = `options` is already filtered by the caller; true (default) = Combobox filters `options` by the typed query itself. */
-	filterOptions?: boolean;
-	/** true = the closed trigger always shows `placeholder`, never a resolved `value`. */
-	hideSelectedValue?: boolean;
 	/** shows a loading row in the popover instead of options. */
 	loading?: boolean;
-	loadingMessage?: string;
 	/** shows an error row in the popover instead of options. */
 	error?: string | null;
 	/** shown when there is nothing to offer and no custom-value row. */
@@ -73,10 +68,9 @@ export interface ComboboxProps {
 function triggerText(
 	value: string,
 	options: readonly ComboboxOption[],
-	hideSelectedValue: boolean,
 	placeholder: string | undefined,
 ): string {
-	if (hideSelectedValue || value === "") return placeholder ?? "";
+	if (value === "") return placeholder ?? "";
 	return options.find((o) => o.id === value)?.label ?? value;
 }
 
@@ -144,23 +138,27 @@ export function Combobox({
 	inputAriaLabel,
 	disabled = false,
 	id,
-	"data-testid": dataTestId,
 	allowCustomValue = false,
 	customValuePrefix = "Use: ",
 	onQueryChange,
-	filterOptions = true,
-	hideSelectedValue = false,
 	loading = false,
-	loadingMessage = "Loading…",
 	error = null,
 	emptyMessage,
 }: ComboboxProps): JSX.Element {
+	// Server-driven mode (see the docblock above): the caller owns `options`
+	// and reads the typed query itself, so Combobox must not also filter it.
+	const filterOptions = onQueryChange === undefined;
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [highlight, setHighlight] = useState(0);
 	const generatedId = useId();
 	const listId = `${id ?? generatedId}-list`;
 	const inputRef = useRef<HTMLInputElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+
+	useEffect(() => {
+		if (open) inputRef.current?.focus();
+	}, [open]);
 
 	function setQueryAndNotify(next: string): void {
 		setQuery(next);
@@ -186,70 +184,73 @@ export function Combobox({
 	const showCustom = allowCustomValue && trimmed !== "" && !exactMatch;
 	const totalItems = filtered.length + (showCustom ? 1 : 0);
 	const showStatusOnly = loading || error !== null;
+	// Nothing is navigable/pickable while the loading or error row stands in
+	// for the list — those rows aren't options, and any options still in
+	// `filtered` belong to a query that isn't the current one.
+	const hasNavigableOptions = !showStatusOnly && totalItems > 0;
 
 	function commit(next: string): void {
 		onChange(next);
 		setOpen(false);
 		setQueryAndNotify("");
 		setHighlight(0);
+		triggerRef.current?.focus();
+	}
+
+	function moveHighlight(delta: number): void {
+		setHighlight((h) => Math.max(0, Math.min(totalItems - 1, h + delta)));
+	}
+
+	function commitHighlighted(): void {
+		if (highlight < filtered.length) {
+			const opt = filtered[highlight];
+			if (opt) commit(opt.id);
+		} else if (showCustom) {
+			commit(trimmed);
+		}
 	}
 
 	function onKeyDown(e: React.KeyboardEvent): void {
-		if (!open) {
-			if (e.key === "ArrowDown" || e.key === "Enter") {
-				setOpen(true);
-			}
-			return;
-		}
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
-			setHighlight((h) => Math.min(totalItems - 1, h + 1));
+			if (hasNavigableOptions) moveHighlight(1);
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
-			setHighlight((h) => Math.max(0, h - 1));
+			if (hasNavigableOptions) moveHighlight(-1);
 		} else if (e.key === "Enter") {
 			e.preventDefault();
-			if (highlight < filtered.length) {
-				const opt = filtered[highlight];
-				if (opt) commit(opt.id);
-			} else if (showCustom) {
-				commit(trimmed);
-			}
+			if (hasNavigableOptions) commitHighlighted();
 		} else if (e.key === "Escape") {
 			setOpen(false);
 			setQueryAndNotify("");
+			triggerRef.current?.focus();
 		}
 	}
 
+	const showingValue = value !== "";
+
 	return (
-		<div
-			{...dsProps("Combobox", "1")}
-			data-testid={dataTestId}
-			className="relative flex flex-col gap-[6px]"
-		>
+		<div {...dsProps("Combobox", "1")} className="relative flex flex-col gap-[6px]">
 			{label && <span className="type-label uppercase text-[var(--text-tertiary)]">{label}</span>}
 
 			{/* Closed field */}
 			<button
+				ref={triggerRef}
 				type="button"
 				id={id}
 				role="combobox"
 				aria-expanded={open}
 				aria-controls={listId}
 				disabled={disabled}
-				onClick={() => {
-					if (disabled) return;
-					setOpen((o) => !o);
-					requestAnimationFrame(() => inputRef.current?.focus());
-				}}
+				onClick={() => setOpen((o) => !o)}
 				className={`type-control border-width-thin flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left ${
 					disabled
 						? "cursor-not-allowed text-[var(--text-tertiary)] opacity-70"
 						: "text-[var(--text-primary)] hover:border-[var(--border-strong)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 				}`}
 			>
-				<span className="truncate">
-					{triggerText(value, options, hideSelectedValue, placeholder)}
+				<span className={`truncate ${showingValue ? "" : "text-[var(--text-tertiary)]"}`}>
+					{triggerText(value, options, placeholder)}
 				</span>
 				<span className="shrink-0 text-[var(--text-tertiary)]">
 					<ChevronIcon />
@@ -271,7 +272,9 @@ export function Combobox({
 							onKeyDown={onKeyDown}
 							placeholder={placeholder}
 							aria-label={inputAriaLabel ?? placeholder ?? "Filter options"}
-							aria-activedescendant={`${listId}-opt-${highlight}`}
+							{...(hasNavigableOptions
+								? { "aria-activedescendant": `${listId}-opt-${highlight}` }
+								: {})}
 							className="type-input w-full rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px]  text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none "
 						/>
 					</div>
@@ -285,7 +288,7 @@ export function Combobox({
 					>
 						{loading && (
 							<div className="type-small px-[9px] py-[6px] text-[var(--text-tertiary)]">
-								{loadingMessage}
+								Loading…
 							</div>
 						)}
 						{!loading && error !== null && (

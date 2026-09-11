@@ -96,6 +96,9 @@ describe("TaskDependencyField — search picker", () => {
 		expect(onChange).toHaveBeenCalledWith(["task-xyz"]);
 		// The id itself must never appear as the visible label.
 		expect(screen.queryByText("task-xyz")).toBeNull();
+		// Focus returns to the trigger, not BODY — so a person can pick several
+		// dependencies in a row from the keyboard.
+		expect(document.activeElement).toBe(screen.getByRole("combobox"));
 	});
 
 	it("resolves a pre-existing dependency (id only) to its title via the bulk lookup door", async () => {
@@ -167,6 +170,8 @@ describe("TaskDependencyField — search picker", () => {
 		fireEvent.keyDown(reopenedInput, { key: "Escape" });
 		expect(screen.queryByRole("textbox", { name: /search tasks by title/i })).toBeNull();
 		expect(onChange).toHaveBeenCalledTimes(1);
+		// Escape returns focus to the trigger, not BODY.
+		expect(document.activeElement).toBe(screen.getByRole("combobox"));
 	});
 
 	it("is genuinely inert while disabled — the remove control and the search trigger are not usable", async () => {
