@@ -38,6 +38,8 @@ export interface ComboboxOption {
 	label: string;
 	/** one-line description shown under the label in the popover */
 	description?: string;
+	/** content rendered before the label — e.g. an avatar. Omit for the plain label/description row. */
+	leading?: React.ReactNode;
 }
 
 export interface ComboboxProps {
@@ -331,16 +333,19 @@ export function Combobox({
 									highlight={i === highlight}
 									onMouseEnter={() => setHighlight(i)}
 									onClick={() => commit(opt.id)}
-									className={`flex cursor-pointer flex-col gap-[3px] rounded-[var(--r-subtle)] px-[9px] py-[6px] ${
+									className={`flex cursor-pointer items-start gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] ${
 										i === highlight ? "bg-[var(--surface-container)]" : ""
 									}`}
 								>
-									<span className="type-small   text-[var(--text-primary)]">{opt.label}</span>
-									{opt.description ? (
-										<span className="type-metadata  text-[var(--text-tertiary)]">
-											{opt.description}
-										</span>
-									) : null}
+									{opt.leading}
+									<span className="flex min-w-0 flex-col gap-[3px]">
+										<span className="type-small   text-[var(--text-primary)]">{opt.label}</span>
+										{opt.description ? (
+											<span className="type-metadata  text-[var(--text-tertiary)]">
+												{opt.description}
+											</span>
+										) : null}
+									</span>
 								</ListboxOption>
 							))}
 

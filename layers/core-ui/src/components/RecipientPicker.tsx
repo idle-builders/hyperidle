@@ -14,16 +14,15 @@
  * @lore Q1: This is a page-level composition, not a design-system primitive.
  * It lives in layers/core-ui/src/components/ alongside GlobalSearchPanel.
  *
- * @lore BA6: the hand-built listbox (role=listbox rows with an Avatar and a
- * StatusChip each) is gone with the migration to Combobox — `ComboboxOption`
- * has no icon/avatar slot, so each row's avatar is dropped and the "Live"
- * indicator folds into the row's description text instead of a separate
- * colored pill. The post-pick header (avatar + name + Change) is untouched;
- * only the browsing-state rows lost the avatar.
+ * @lore the hand-built listbox (role=listbox rows with an Avatar and a
+ * StatusChip each) is gone with the migration to Combobox — each row's
+ * avatar and live-session dot now come back through `ComboboxOption.leading`
+ * instead of a separate colored pill. The post-pick header (avatar + name +
+ * Change) was always untouched.
  */
 
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Combobox, Input } from "../ds";
+import { Avatar, Button, Combobox, Input, LiveDot } from "../ds";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
 import { apiFetch } from "../services/api-fetch.js";
@@ -36,11 +35,9 @@ export interface RecipientPickerProps {
 
 type PickerState = "browsing" | "selected" | "sending";
 
-/** The Combobox row's description line — role, status, and the live-session indicator. */
+/** The Combobox row's description line — role and status. The live-session state has its own dot in `leading` instead. */
 function recipientDescription(r: Recipient): string {
-	const parts = [r.role, r.status];
-	if (r.hasActiveSession) parts.push("Live");
-	return parts.join(" · ");
+	return [r.role, r.status].join(" · ");
 }
 
 /**
@@ -146,6 +143,16 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 		id: r.id,
 		label: r.name,
 		description: recipientDescription(r),
+		leading: (
+			<span className="flex items-center gap-[6px]">
+				<Avatar initials={deriveInitials(r.name)} size="sm" className="flex-shrink-0" />
+				{r.hasActiveSession && (
+					<span role="img" aria-label="Live session">
+						<LiveDot />
+					</span>
+				)}
+			</span>
+		),
 	}));
 
 	return (

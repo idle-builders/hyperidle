@@ -112,9 +112,22 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
-		// Live indicator label (case-insensitive)
-		const liveElements = screen.getAllByText(/live/i);
-		expect(liveElements.length).toBeGreaterThan(0);
+		// The dot carries the live signal now — its accessible name replaces
+		// the old visible "Live" word in the description text.
+		expect(screen.getByRole("img", { name: /live session/i })).toBeInTheDocument();
+	});
+
+	// Moving RecipientPicker onto Combobox dropped each row's Avatar because
+	// ComboboxOption had no slot for one — restored via `leading`.
+	it("renders each recipient row's avatar", async () => {
+		stubFetch();
+
+		renderPicker();
+		await waitFor(() => {
+			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
+		});
+		const avatars = document.querySelectorAll('[data-ds-component="Avatar"]');
+		expect(avatars.length).toBeGreaterThanOrEqual(MOCK_RECIPIENTS.length);
 	});
 
 	// AC2: clicking a recipient transitions to selected state (message input visible)

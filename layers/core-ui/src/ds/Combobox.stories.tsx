@@ -7,7 +7,9 @@
  */
 
 import { useState } from "react";
+import { Avatar } from "./Avatar.js";
 import { Combobox, type ComboboxOption } from "./Combobox.js";
+import { LiveDot } from "./LiveDot.js";
 
 export default {
 	title: "Combobox",
@@ -128,6 +130,45 @@ export function AsyncSearch(): React.JSX.Element {
 			{picked && (
 				<p className="px-[24px] text-[12px] text-[var(--text-tertiary)]">Picked: {picked}</p>
 			)}
+		</div>
+	);
+}
+
+const PEOPLE: readonly ComboboxOption[] = [
+	{
+		id: "agent-builder",
+		label: "Builder Bot",
+		description: "builder · active",
+		leading: (
+			<span className="flex items-center gap-[6px]">
+				<Avatar initials="BB" size="sm" />
+				<span role="img" aria-label="Live session">
+					<LiveDot />
+				</span>
+			</span>
+		),
+	},
+	{
+		id: "user-founder",
+		label: "Founder",
+		description: "founder · active",
+		leading: <Avatar initials="F" size="sm" />,
+	},
+];
+
+/** Each row's `leading` slot carries an avatar (and a live dot for an active session) before the label — the shape RecipientPicker restores. */
+export function WithLeadingAvatars(): React.JSX.Element {
+	const [picked, setPicked] = useState<string | null>(null);
+	return (
+		<div className="w-[360px] p-[24px]">
+			<Combobox
+				label="Recipient"
+				defaultOpen
+				options={PEOPLE}
+				value={picked ?? ""}
+				onChange={setPicked}
+				listAriaLabel="Recipients"
+			/>
 		</div>
 	);
 }

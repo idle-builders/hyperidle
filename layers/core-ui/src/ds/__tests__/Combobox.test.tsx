@@ -85,6 +85,46 @@ describe("Combobox — stale highlight when options shrink", () => {
 	});
 });
 
+describe("Combobox — leading slot", () => {
+	// RecipientPicker's rows lost their Avatar when migrated onto Combobox —
+	// ComboboxOption gained an optional `leading` node so a caller can put it
+	// back without Combobox knowing what an avatar is.
+	it("renders an option's leading content before its label", () => {
+		render(
+			<Combobox
+				options={[
+					{
+						id: "opt-a",
+						label: "Alpha",
+						leading: <span data-testid="opt-a-leading">AV</span>,
+					},
+				]}
+				onChange={vi.fn()}
+				placeholder="Search…"
+				inputAriaLabel="Search"
+			/>,
+		);
+		openInput();
+
+		expect(screen.getByTestId("opt-a-leading")).toBeInTheDocument();
+		expect(screen.getByText("Alpha")).toBeInTheDocument();
+	});
+
+	it("renders normally when an option has no leading content", () => {
+		render(
+			<Combobox
+				options={[{ id: "opt-a", label: "Alpha" }]}
+				onChange={vi.fn()}
+				placeholder="Search…"
+				inputAriaLabel="Search"
+			/>,
+		);
+		openInput();
+
+		expect(screen.getByText("Alpha")).toBeInTheDocument();
+	});
+});
+
 describe("Combobox — loading/error inertness (server-driven mode)", () => {
 	it("ArrowDown + Enter do nothing while the loading row is showing", () => {
 		const onChange = vi.fn();
