@@ -36,7 +36,7 @@ describe("useTaskPatch — AC5: surfaces the response body on failure", () => {
 
 	it("surfaces a 409 cycle rejection's message instead of discarding it", async () => {
 		const cycleBody = JSON.stringify({
-			error: "Task ba6-cycle-a cannot be a child of ba6-cycle-b: that would form a cycle",
+			error: "Task task-cycle-a cannot be a child of task-cycle-b: that would form a cycle",
 			code: "TASK_CYCLE",
 		});
 		fetchSpy.mockResolvedValueOnce(new Response(cycleBody, { status: 409 }));
@@ -44,7 +44,7 @@ describe("useTaskPatch — AC5: surfaces the response body on failure", () => {
 		const { result } = renderHook(() => useTaskPatch());
 
 		act(() => {
-			result.current.patch("task-1", { dependencies: ["ba6-cycle-b"] });
+			result.current.patch("task-1", { dependencies: ["task-cycle-b"] });
 		});
 
 		await waitFor(() => {
@@ -52,7 +52,7 @@ describe("useTaskPatch — AC5: surfaces the response body on failure", () => {
 		});
 
 		expect((result.current as { errorMessage?: string | null }).errorMessage).toBe(
-			"Task ba6-cycle-a cannot be a child of ba6-cycle-b: that would form a cycle",
+			"Task task-cycle-a cannot be a child of task-cycle-b: that would form a cycle",
 		);
 	});
 });

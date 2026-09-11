@@ -90,7 +90,7 @@ describe("AC3: last dependency finishes, agent owns it -> in_progress with no hu
 
 		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
 
-		// Finish the dependency — legal proposed -> done edge (BB1).
+		// Finish the dependency — legal proposed -> done edge.
 		const finishRes = await app.request(`/api/tasks/${dep.id}`, {
 			method: "PATCH",
 			headers: authHeaders(),
