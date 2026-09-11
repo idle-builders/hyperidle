@@ -134,14 +134,12 @@ async function dependsOnTransitively(
  * to 409 `TASK_DEPENDENCY_KILLED`), or `TaskCycleError` for a self-dependency
  * or cycle (mapped to 409 `TASK_CYCLE`).
  *
- * @lore BA6 (fix round): a `killed` task is a legitimate-looking id — it
- * exists, so the dangling-id check alone waves it through — but it can never
- * reach `done`, so a dependent parked on it waits forever with no watcher
- * left to free it (`handleDependencyKilled` only cleans up dependents that
- * existed AT kill time; one added afterward is never visited). Refused here,
- * at write time, on both doors, rather than patched at kill time again.
- * Depending on an already-`done` task stays legal — only `killed` is a dead
- * end.
+ * @lore BA6: a `killed` task is a legitimate-looking id — it exists, so the
+ * dangling-id check alone lets it through — but it can never reach `done`,
+ * so a dependent parked on it would wait forever (`handleDependencyKilled`
+ * only cleans up dependents that existed at kill time, not ones added
+ * later). Refused here at write time instead. Depending on an already-`done`
+ * task stays legal — only `killed` is a dead end.
  */
 export async function assertValidDependencies(
 	exec: WriteExecutor,
@@ -258,31 +256,16 @@ export async function transitionTask(
 			// `accepted` is reachable with a stale dependency still attached
 			// (e.g. dependencies were added to an already-`accepted` task), and
 			// `accepted -> in_progress` is a legal edge in
-			// `TASK_STATE_TRANSITIONS`. Without this second check, a task could
-			// sit `accepted` holding an unfinished dependency and then be picked
-			// up via the `session_started -> in_progress` reaction — the exact
-			// "not picked up for work" AC this package exists to satisfy,
-			// entered through a different door.
+			// `TASK_STATE_TRANSITIONS`.
 			//
-			// @lore BA6 (fix round 2, B1): corrected narrowing. The first fix-round
-			// narrowed this to `-> accepted` plus `accepted -> in_progress`, on the
-			// theory that `blocked` and `review` had "already been picked up once".
-			// That theory was wrong for `review`: per `TASK_STATE_TRANSITIONS`,
-			// `review` is reachable from `proposed`, `accepted` AND `hold` — none of
-			// which prove the task was ever worked — and `review -> in_progress` is
-			// a legal edge. That let a task go `hold -> review -> in_progress` with
-			// its dependency still unfinished: two clicks in the state dropdown, no
-			// guard at all on the last hop.
+			// @lore BA6: `blocked` is exempt from this guard because it is
+			// reachable ONLY from `in_progress` (see `TASK_STATE_TRANSITIONS`),
+			// so `blocked -> in_progress` is always a resume, never a first
+			// pick-up. `review` is NOT exempt: it is reachable from `proposed`,
+			// `accepted` AND `hold`, none of which prove the task was ever
+			// worked, so `review -> in_progress` is gated like `-> accepted`.
 			//
-			// `blocked` is the only state that DOES prove genuine prior work: it is
-			// reachable ONLY from `in_progress` (see `TASK_STATE_TRANSITIONS`), so
-			// `blocked -> in_progress` is a real resume, never a first pick-up.
-			// `review` proves nothing and must be gated like `accepted`.
-			//
-			// So: refuse `-> accepted` always, and refuse `-> in_progress` from
-			// every source except `blocked`.
-			//
-			// @lore BA6 (fix round): throws `TaskDependencyBlockedError`, not
+			// @lore BA6: throws `TaskDependencyBlockedError`, not
 			// `TaskInvalidTransitionError` — the edge itself is legal grammar in
 			// `TASK_STATE_TRANSITIONS`; the wait is what refuses it, and the
 			// message must say so rather than reading as a generic illegal edge.

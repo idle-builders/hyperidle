@@ -141,15 +141,13 @@ export async function cascadeTaskKill(
 		// drop the killed id from its list, IN this request rather than as a
 		// decoupled ambient `eventBus.on("task_state_changed", …)` reaction like
 		// the `done` watcher (`app.ts`) uses. A person killing a task expects the
-		// dependents it frees to be visible the moment the kill responds — proven
-		// by a real test failure when this was tried as an app.ts subscription
-		// instead: the subscription fired synchronously off `transitionTask`'s
-		// own emit (inside the `await` above), racing this very call and
-		// double-applying the reset (`proposed -> proposed`, thrown). Since
-		// `cascadeTaskKill` is the ONLY production path that ever reaches
-		// `killed` (routes/tasks.ts routes every `state: "killed"` PATCH through
-		// it), one direct, awaited call here is both correct and complete —
-		// there is no "other path" that would need a second, ambient one.
+		// dependents it frees to be visible the moment the kill responds. An
+		// ambient subscription would also fire off this same `transitionTask`
+		// call's own emit, racing this call and double-applying the reset
+		// (`proposed -> proposed`). Since `cascadeTaskKill` is the ONLY
+		// production path that ever reaches `killed` (routes/tasks.ts routes
+		// every `state: "killed"` PATCH through it), one direct, awaited call
+		// here is both correct and complete.
 		await handleDependencyKilled(db, eventBus, task.id, deps);
 	}
 

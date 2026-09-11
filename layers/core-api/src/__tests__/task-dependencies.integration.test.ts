@@ -266,12 +266,12 @@ describe("task dependencies — write doors, guard, cycle rejection", () => {
 	});
 
 	// ---------------------------------------------------------------------
-	// B1 (fix round) — the edit panel's PATCH body always includes `state`,
-	// set to the task's OWN current value (the form submits every field it
-	// renders, including the unchanged state dropdown). Parking must not
-	// require `state` to be absent — only that it isn't an actual CHANGE.
+	// The edit panel's PATCH body always includes `state`, set to the task's
+	// OWN current value (the form submits every field it renders, including
+	// the unchanged state dropdown). Parking must not require `state` to be
+	// absent — only that it isn't an actual CHANGE.
 	// ---------------------------------------------------------------------
-	describe("B1: the edit-panel PATCH body (state included, unchanged) still parks", () => {
+	describe("the edit-panel PATCH body (state included, unchanged) still parks", () => {
 		test("PATCH carrying the SAME state plus an unfinished dependency parks the task", async ({
 			db,
 			app,
@@ -295,21 +295,21 @@ describe("task dependencies — write doors, guard, cycle rejection", () => {
 	});
 
 	// ---------------------------------------------------------------------
-	// B1 (fix round), second half — the guard must also cover `-> in_progress`,
-	// not only `-> accepted`. A task can reach `accepted` still carrying an
-	// unfinished dependency (e.g. dependencies added to an already-`accepted`
-	// task), and `accepted -> in_progress` is otherwise a legal edge.
+	// The guard must also cover `-> in_progress`, not only `-> accepted`. A
+	// task can reach `accepted` still carrying an unfinished dependency (e.g.
+	// dependencies added to an already-`accepted` task), and
+	// `accepted -> in_progress` is otherwise a legal edge.
 	// ---------------------------------------------------------------------
-	describe("B1: transitionTask also refuses accepted -> in_progress while a dependency is unfinished", () => {
+	describe("transitionTask also refuses accepted -> in_progress while a dependency is unfinished", () => {
 		test("an accepted task holding an unfinished dependency cannot move to in_progress", async ({
 			db,
 			eventBus,
 		}) => {
 			await seedTeam(db, "dep-b1b");
 			await insertTask(db, "dep-b1b-dep", "dep-b1b", "proposed");
-			// Directly seeded `accepted` carrying an unfinished dependency — the
-			// state the reviewer showed is reachable despite the parking guard
-			// (e.g. a race, or dependencies attached while already accepted).
+			// Directly seeded `accepted` carrying an unfinished dependency —
+			// reachable despite the parking guard (e.g. a race, or dependencies
+			// attached while already accepted).
 			await insertTask(db, "dep-b1b-dependent", "dep-b1b", "accepted", ["dep-b1b-dep"]);
 
 			await expect(
@@ -322,13 +322,13 @@ describe("task dependencies — write doors, guard, cycle rejection", () => {
 	});
 
 	// ---------------------------------------------------------------------
-	// B2 (fix round) — a dependent that is NOT in `hold` still carries the
-	// killed dependency's id forever under the old `state = 'hold'`-only
-	// filter, which permanently bricks it (the next `-> accepted` throws
-	// `Invalid transition`, since the guard above now also checks the stale
-	// id). The id must be dropped from a dependent in ANY state.
+	// A dependent that is NOT in `hold` still carries the killed
+	// dependency's id — left in place it would permanently brick the
+	// dependent, since the guard above refuses `-> accepted` while any named
+	// dependency id is stale. The id must be dropped from a dependent in ANY
+	// state.
 	// ---------------------------------------------------------------------
-	describe("B2: a killed dependency drops its id from a dependent that is NOT in hold", () => {
+	describe("a killed dependency drops its id from a dependent that is NOT in hold", () => {
 		test("a `proposed` dependent loses the killed id and stays acceptable afterward", async ({
 			db,
 			app,
@@ -336,8 +336,8 @@ describe("task dependencies — write doors, guard, cycle rejection", () => {
 		}) => {
 			await seedTeam(db, "dep-b2");
 			await insertTask(db, "dep-b2-killable", "dep-b2", "done");
-			// F: proposed, not hold — created after E already finished, so it was
-			// never parked; it still carries E's id.
+			// proposed, not hold — created after its dependency already
+			// finished, so it was never parked; it still carries the stale id.
 			await insertTask(db, "dep-b2-dependent", "dep-b2", "proposed", ["dep-b2-killable"]);
 
 			const res = await app.request("/api/tasks/dep-b2-killable", {
@@ -361,12 +361,11 @@ describe("task dependencies — write doors, guard, cycle rejection", () => {
 	});
 
 	// ---------------------------------------------------------------------
-	// B1 (second fix round) — the killed-dependency rule was only implemented
-	// for one ordering: kill a task dependents already point at, and the
-	// cleanup runs. Point a NEW dependency at a task that is ALREADY killed
-	// and nothing catches it. Refused at write time, on both doors.
+	// Pointing a NEW dependency at a task that is ALREADY killed must be
+	// refused too, not only cleaned up after the fact when a dependent's
+	// existing dependency gets killed. Refused at write time, on both doors.
 	// ---------------------------------------------------------------------
-	describe("B1: a dependency naming an already-killed task is refused on both doors", () => {
+	describe("a dependency naming an already-killed task is refused on both doors", () => {
 		test("POST /tasks refuses a dependency naming an already-killed task", async ({ db, app }) => {
 			await seedTeam(db, "dep-b1c-post");
 			await insertTask(db, "dep-b1c-post-dead", "dep-b1c-post", "killed");
@@ -437,17 +436,14 @@ describe("task dependencies — write doors, guard, cycle rejection", () => {
 	});
 
 	// ---------------------------------------------------------------------
-	// B2 (second fix round) — the guard refused `-> in_progress` from ANY
-	// source while a dependency was unfinished, including `blocked`. That is a
-	// genuine resume, not a pick-up, and must be unaffected by a dependency
-	// that was already there when the task was first accepted. `review` was
-	// ALSO exempted in that same round — wrongly, per the B1 fix (round 3):
-	// `review` is reachable from `proposed`/`accepted`/`hold`, none of which
-	// prove the task was ever worked, so it stays gated like `accepted`. Only
-	// `blocked` (reachable exclusively from `in_progress`) proves a genuine
-	// prior pick-up.
+	// `blocked -> in_progress` is a genuine resume, not a pick-up, and must
+	// be unaffected by a dependency that was already there when the task was
+	// first accepted — `blocked` is reachable exclusively from `in_progress`,
+	// so it proves genuine prior work. `review` does NOT: it is reachable
+	// from `proposed`/`accepted`/`hold`, none of which prove the task was
+	// ever worked, so it stays gated like `accepted`.
 	// ---------------------------------------------------------------------
-	describe("B2: the dependency guard narrows to the genuine pick-up path only", () => {
+	describe("the dependency guard narrows to the genuine pick-up path only", () => {
 		test("blocked -> in_progress is allowed while a dependency is unfinished", async ({
 			db,
 			eventBus,
@@ -466,14 +462,12 @@ describe("task dependencies — write doors, guard, cycle rejection", () => {
 			expect(row?.state).toBe("in_progress");
 		});
 
-		// @lore BA6 (fix round 2, B1): this test used to assert the OPPOSITE —
-		// "review -> in_progress is allowed while a dependency is unfinished" —
-		// which encoded the hole itself as intended behaviour. `review` is
-		// reachable from `proposed`, `accepted` AND `hold` (see
+		// `review` is reachable from `proposed`, `accepted` AND `hold` (see
 		// `TASK_STATE_TRANSITIONS`), none of which prove the task was ever
-		// worked, unlike `blocked` (reachable only from `in_progress`). Corrected
-		// to assert the refusal; see the live-route walk below for the door this
-		// closes end to end.
+		// worked, unlike `blocked` (reachable only from `in_progress`) — so
+		// `review -> in_progress` must be refused while a dependency is
+		// unfinished. See the live-route walk below for the door this closes
+		// end to end.
 		test("review -> in_progress is refused while a dependency is unfinished", async ({
 			db,
 			eventBus,
@@ -524,14 +518,14 @@ describe("task dependencies — write doors, guard, cycle rejection", () => {
 	});
 
 	// ---------------------------------------------------------------------
-	// B1 (fix round 3) — the live route walk. Two clicks in the shipped state
-	// dropdown (`hold -> review`, then `review -> in_progress`) reached
-	// `in_progress` with an unfinished dependency, because `review ->
-	// in_progress` was unguarded. Drives the real PATCH door end to end rather
-	// than calling `transitionTask` directly, since a direct-call test alone
-	// would not have caught this — the hole was two hops from `hold`, not one.
+	// The live route walk. Two clicks in the state dropdown (`hold ->
+	// review`, then `review -> in_progress`) must not reach `in_progress`
+	// with an unfinished dependency still attached. Drives the real PATCH
+	// door end to end rather than calling `transitionTask` directly — a
+	// direct-call test alone would not catch a hole that is two hops from
+	// `hold`, not one.
 	// ---------------------------------------------------------------------
-	describe("B1 (fix round 3): the hold -> review -> in_progress door is closed", () => {
+	describe("the hold -> review -> in_progress door is closed", () => {
 		test("hold -> review succeeds, then review -> in_progress is refused, dependency still unfinished", async ({
 			db,
 			app,

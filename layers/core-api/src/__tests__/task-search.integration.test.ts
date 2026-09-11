@@ -2,11 +2,10 @@
  * The dependency picker's search door.
  *
  * The maintainer rejected the paste-a-task-id field: "searching a task
- * should be possible." The door it now reaches is the EXISTING
+ * should be possible." The door it reaches is the EXISTING
  * `GET /api/tasks?q=<query>` route (`layers/core-api/src/routes/tasks.ts` →
- * `work.list(db, "task", { text: q })`) — a previous pass concluded no such
- * door existed; it did, and this proves it against the real `{ db, app }`
- * fixtures rather than trusting that claim again.
+ * `work.list(db, "task", { text: q })`), proven here against the real
+ * `{ db, app }` fixtures.
  *
  * Covers:
  *   - a query matching a task's title returns it.

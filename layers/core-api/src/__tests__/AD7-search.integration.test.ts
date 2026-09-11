@@ -323,13 +323,12 @@ describe("GET /api/search — AD7 search backend", () => {
 	});
 
 	// ---------------------------------------------------------------------
-	// A `killed` root task must still be findable here. Excluding killed tasks
-	// from the DEPENDENCY PICKER (`GET /api/tasks?q=`, covered by
-	// `task-search.integration.test.ts`) put the exclusion in the shared
-	// `work.list(..., { text })` primitive that this route also calls — so
-	// killing a task made it vanish from global search too, even though
-	// `status: row.state` below exists specifically to show state, killed
-	// included.
+	// A `killed` root task must still be findable here. This route shares the
+	// `work.list(..., { text })` primitive with the DEPENDENCY PICKER (`GET
+	// /api/tasks?q=`, covered by `task-search.integration.test.ts`), which
+	// excludes killed tasks — excluding `killed` unconditionally in that
+	// shared primitive would also hide it here, even though `status:
+	// row.state` below exists specifically to show state, killed included.
 	// ---------------------------------------------------------------------
 	test("a killed root task is still returned by global search", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);

@@ -215,13 +215,11 @@ export interface WorkFilter {
 	ownerAgentId?: string;
 	dependencyId?: string;
 	/**
-	 * @lore BA6 (fix round 2, B2): opt-in only. The first fix round put
-	 * `ne(tasks.state,"killed")` unconditionally in the shared `text` branch,
-	 * which is also `GET /api/search`'s door — a killed task became
-	 * unfindable by global search, which exists to show state (killed
-	 * included). Only the dependency picker (`GET /api/tasks?q=`) wants a
-	 * corpse excluded from its candidate list; it must ask for that
-	 * explicitly rather than get it for free from every `text` search.
+	 * @lore BA6: opt-in only — the shared `text` branch is also `GET
+	 * /api/search`'s door, and global search exists to show state (killed
+	 * included), so it may not exclude `killed` unconditionally. Only the
+	 * dependency picker (`GET /api/tasks?q=`) wants a corpse excluded from
+	 * its candidate list, so it must ask for that explicitly.
 	 */
 	excludeKilled?: true;
 	// item-specific
@@ -346,11 +344,10 @@ export async function list(
 					sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
 				) as SQL,
 			];
-			// Moved off the unconditional shared branch — see
-			// the `excludeKilled` doc on `WorkFilter`. A `killed` task can never be a
-			// legitimate dependency target (see `assertValidDependencies`), so the
-			// dependency picker's door opts in explicitly; global search never sets
-			// this flag.
+			// A `killed` task can never be a legitimate dependency target (see
+			// `assertValidDependencies`), so the dependency picker's door opts in
+			// via `excludeKilled` (see the doc on `WorkFilter`); global search
+			// never sets this flag.
 			if (f.excludeKilled) textConds.push(ne(tasks.state, "killed"));
 			return exec
 				.select()
