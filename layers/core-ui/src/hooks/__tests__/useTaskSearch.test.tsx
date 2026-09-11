@@ -44,10 +44,7 @@ describe("useTaskSearch", () => {
 		const { result } = renderHook(() => useTaskSearch("picker", []));
 
 		await waitFor(() => expect(result.current.status).toBe("ready"));
-		expect(fetchSpy).toHaveBeenCalledWith(
-			expect.stringContaining("/api/tasks?q=picker"),
-			expect.anything(),
-		);
+		expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining("/api/tasks?q=picker"));
 		expect(result.current.results).toEqual([{ id: "t-1", title: "Ship the picker" }]);
 	});
 

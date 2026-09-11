@@ -8,7 +8,7 @@
  *  - AC-2: Codex (empty models) renders affordance, not select
  *  - AC-2: Save-payload anti-422 guard (empty modelProviders → modelProvider: null)
  *  - AC-2: Ratio persistence via onRatioChange
- *  - AC-3: RoleCombobox commits custom string and catalog role
+ *  - AC-3: Combobox commits custom string and catalog role
  *  - AC-3: Edit-open fetches role template
  */
 

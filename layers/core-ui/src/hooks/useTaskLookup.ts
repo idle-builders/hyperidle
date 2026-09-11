@@ -12,17 +12,14 @@
  * Best-effort: a lookup failure leaves the id unresolved and the caller
  * falls back to showing the id rather than blocking the chip from rendering.
  *
- * @lore BA6 (fix round): `knownRef` used to mark ids "known" the instant a
- * fetch for them started, not when it resolved. React StrictMode
- * double-invokes effects in dev — mount, cleanup (abort), mount again — and
- * the cleanup fired before the fetch settled, so the id was already marked
- * known when the second mount's effect ran and saw nothing missing. The
- * aborted first request's title was lost and nothing ever re-requested it,
- * which is exactly the bug the maintainer found live (a dependency chip
- * showing a raw UUID on `WorkTaskPage`). Fix: only mark an id known once its
- * title actually resolves; the cleanup releases any id whose fetch never
- * settled, so a later effect run (StrictMode's second mount, or a real
- * remount) retries it instead of silently giving up.
+ * @lore React StrictMode double-invokes effects in dev — mount, cleanup
+ * (abort), mount again. If an id were marked "known" the instant its fetch
+ * *started*, the cleanup's abort would fire before it resolved and the
+ * second mount would see nothing missing — the title lost for good, with
+ * nothing left to retry it. So `knownRef` only gains an id once its title
+ * actually resolves; the cleanup releases any id whose fetch never settled,
+ * so a later effect run (StrictMode's second mount, or a real remount)
+ * retries it instead of silently giving up.
  */
 
 import { useEffect, useRef, useState } from "react";

@@ -1,27 +1,22 @@
 /**
  * useTaskSearch — search tasks by title for the dependency picker.
  *
- * @lore BA6: the door this hook calls, `GET /api/tasks?q=<query>`, already
- * existed before this WP (`layers/core-api/src/routes/tasks.ts` → `work.list(db,
- * "task", { text: q })`, `work-service.ts`'s `WorkFilter.text` — an ILIKE
- * across title/description/doneCondition, ranked so title matches sort
- * first, with NO `parentTaskId` restriction so every depth is searchable). A
- * previous pass concluded "there is no task-search endpoint"; that was
- * wrong, and this hook is the fix — reuse the existing door, not a new one.
- * The global `GET /api/search` route was rejected as the door for this picker:
- * it caps tasks at 5 and restricts to roots (`parentTaskId: null`), both
- * wrong for a field that must find a non-root task by title.
+ * Calls `GET /api/tasks?q=<query>` (`work.list(db, "task", { text: q })` —
+ * an ILIKE across title/description/doneCondition, ranked so title matches
+ * sort first, with no `parentTaskId` restriction so every depth is
+ * searchable, and `excludeKilled` applied automatically whenever `q` is
+ * set). Built on `useFetch` for the request/cancel plumbing, with its own
+ * debounce so fast typing doesn't fire a request per keystroke.
  *
  * Excludes `excludeIds` (the task being edited, and tasks already in the
- * dependency list) client-side. The API has no exclusion param and does not
- * need one — the real guard against a self-dependency or a duplicate is the
- * server-side write-door validation (`assertValidDependencies`), unchanged by
- * this hook. This filtering is purely "don't offer it in the list", not a
- * security boundary.
+ * dependency list) client-side — the server has no exclusion param and does
+ * not need one, since the real guard against a self-dependency or a
+ * duplicate is the write-door's own validation. This filtering is purely
+ * "don't offer it in the list."
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { apiFetch } from "../services/api-fetch.js";
+import { useEffect, useMemo, useState } from "react";
+import { useFetch } from "./useFetch.js";
 
 export interface TaskSearchResult {
 	id: string;
@@ -36,6 +31,8 @@ export interface UseTaskSearchResult {
 	error: string | null;
 }
 
+const DEBOUNCE_MS = 200;
+
 function isTaskSearchResult(value: unknown): value is TaskSearchResult {
 	if (typeof value !== "object" || value === null) return false;
 	const v = value as Record<string, unknown>;
@@ -48,53 +45,35 @@ function isTaskSearchResult(value: unknown): value is TaskSearchResult {
  * so adding a dependency mid-search re-filters instantly without refetching.
  */
 export function useTaskSearch(query: string, excludeIds: readonly string[]): UseTaskSearchResult {
-	const [status, setStatus] = useState<TaskSearchStatus>("idle");
-	const [rawResults, setRawResults] = useState<readonly TaskSearchResult[]>([]);
-	const [error, setError] = useState<string | null>(null);
-	const abortRef = useRef<AbortController | null>(null);
+	const trimmed = query.trim();
+	const [debounced, setDebounced] = useState(trimmed);
 
 	useEffect(() => {
-		abortRef.current?.abort();
-		const trimmed = query.trim();
-		if (trimmed === "") {
-			setStatus("idle");
-			setRawResults([]);
-			setError(null);
-			return;
-		}
+		const timer = setTimeout(() => setDebounced(trimmed), DEBOUNCE_MS);
+		return () => clearTimeout(timer);
+	}, [trimmed]);
 
-		const ac = new AbortController();
-		abortRef.current = ac;
-		setStatus("loading");
-		setError(null);
+	const url = debounced === "" ? null : `/api/tasks?q=${encodeURIComponent(debounced)}`;
+	const { data, error, isLoading } = useFetch<unknown>(url);
 
-		(async (): Promise<void> => {
-			try {
-				const res = await apiFetch(`/api/tasks?q=${encodeURIComponent(trimmed)}`, {
-					signal: ac.signal,
-				});
-				if (!res.ok) {
-					throw new Error(`HTTP ${res.status}`);
-				}
-				const raw: unknown = await res.json();
-				if (ac.signal.aborted) return;
-				setRawResults(Array.isArray(raw) ? raw.filter(isTaskSearchResult) : []);
-				setStatus("ready");
-			} catch (err) {
-				if (err instanceof DOMException && err.name === "AbortError") return;
-				if (ac.signal.aborted) return;
-				setError(err instanceof Error ? err.message : "Search failed");
-				setStatus("error");
-			}
-		})();
-
-		return () => ac.abort();
-	}, [query]);
-
+	const rawResults = useMemo<readonly TaskSearchResult[]>(
+		() => (Array.isArray(data) ? data.filter(isTaskSearchResult) : []),
+		[data],
+	);
 	const results = useMemo(
 		() => rawResults.filter((r) => !excludeIds.includes(r.id)),
 		[rawResults, excludeIds],
 	);
+
+	const pendingDebounce = trimmed !== debounced;
+	const status: TaskSearchStatus =
+		trimmed === ""
+			? "idle"
+			: pendingDebounce || isLoading
+				? "loading"
+				: error !== null
+					? "error"
+					: "ready";
 
 	return { status, results, error };
 }

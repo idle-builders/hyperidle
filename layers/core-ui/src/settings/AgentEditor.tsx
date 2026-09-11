@@ -6,7 +6,7 @@
  * responsibility; the editor calls `onSave()` and lets the container decide.
  *
  * Key differences from the old inline renderEditForm:
- *  - Role field is `RoleCombobox` (catalog + custom free-text, NOT a closed Select).
+ *  - Role field is the shared `Combobox` (catalog + custom free-text, NOT a closed Select).
  *  - Model select comes from `modelOptionsForHarness(selectedDescriptor)` — DISCOVERED
  *    models only, never MODEL_CATALOG. Empty discovered list → affordance text.
  *    on mount (used when editing an existing agent whose prompt was auto-filled).
@@ -17,9 +17,10 @@
  * assistant endpoint. That routing lives in SettingsAgents (the container), not here.
  * This separation keeps the editor pure and testable without mock routing logic.
  *
- * @lore AV2: RoleCombobox replaces the closed AGENT_ROLE_CATALOG Select so custom
- * roles survive round-trips without extra schema work (role is an open string).
- * The assistant's row keeps role="assistant" disabled (immutable).
+ * @lore AV2: `Combobox` (with `allowCustomValue`) replaces the closed
+ * AGENT_ROLE_CATALOG Select so custom roles survive round-trips without extra
+ * schema work (role is an open string). The assistant's row keeps
+ * role="assistant" disabled (immutable).
  *
  * @lore AV2: The model dropdown source is descriptor.models (discovered at probe time),
  * NOT MODEL_CATALOG. An empty discovered list means the harness manages its own model
@@ -33,7 +34,7 @@ import { roleLabel } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { JSX } from "react";
 import { Link as RRLink } from "react-router-dom";
-import { Button, Input, RoleCombobox, SectionLabel, Select, Toggle } from "../ds";
+import { Button, Combobox, Input, SectionLabel, Select, Toggle } from "../ds";
 import {
 	declaredOptionsFor,
 	defaultChoiceLabel,
@@ -123,13 +124,13 @@ export interface AgentEditorProps {
  * the options are whatever is in use, and typing a new one introduces it.
  */
 function roleOptions(rolesInUse: readonly string[]): ReadonlyArray<{
-	role: string;
+	id: string;
 	label: string;
 }> {
 	return [...new Set(rolesInUse)]
 		.filter((role) => role.length > 0)
 		.sort()
-		.map((role) => ({ role, label: roleLabel(role) }));
+		.map((role) => ({ id: role, label: roleLabel(role) }));
 }
 
 /** AO1: human label for a filesystem source — the easy-to-detect mark text. */
@@ -210,15 +211,21 @@ export function AgentEditor({
 					/>
 				</div>
 
-				{/* Role — RoleCombobox (open string + catalog).
-				 * @lore FR-12: RoleCombobox renders its own "Role" label internally.
+				{/* Role — Combobox (open string + catalog).
+				 * @lore FR-12: Combobox renders its own "Role" label internally.
 				 * Do NOT add another label wrapper here — it produces "ROLE ROLE" stacked. */}
 				<div className="flex-1 min-w-[140px]">
-					<RoleCombobox
+					<Combobox
 						id={`edit-role-${agentId}`}
+						label="Role"
 						options={roleOptions(rolesInUse ?? [draft.role])}
 						value={draft.role}
 						disabled={isAssistant} // assistant role is immutable
+						allowCustomValue
+						placeholder="Filter roles or type a new one…"
+						listAriaLabel="Roles"
+						inputAriaLabel="Filter or define a role"
+						customValuePrefix="Use new role: "
 						onChange={(newRole) => {
 							onDraftChange((prev) => ({ ...prev, role: newRole }));
 						}}

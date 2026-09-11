@@ -133,16 +133,15 @@ describe("WorkTaskPage — dependency picker exclusion", () => {
 		renderPage();
 
 		await waitFor(() => {
-			expect(screen.getByTestId("task-dependency-search")).toBeInTheDocument();
+			expect(screen.getByRole("combobox", { name: /depends on/i })).toBeInTheDocument();
 		});
 
-		fireEvent.change(screen.getByTestId("task-dependency-search"), {
-			target: { value: "task" },
-		});
+		fireEvent.click(screen.getByRole("combobox", { name: /depends on/i }));
+		const input = await screen.findByRole("textbox", { name: /search tasks by title/i });
+		fireEvent.change(input, { target: { value: "task" } });
 
-		await screen.findByText("A fresh candidate");
-		expect(screen.queryByText("Root task", { selector: "button" })).toBeNull();
-		expect(screen.queryByTestId(`task-dependency-result-${ROOT_ID}`)).toBeNull();
-		expect(screen.queryByTestId(`task-dependency-result-${PICKED_ID}`)).toBeNull();
+		await screen.findByRole("option", { name: "A fresh candidate" });
+		expect(screen.queryByRole("option", { name: "Root task" })).toBeNull();
+		expect(screen.queryByRole("option", { name: "Already picked" })).toBeNull();
 	});
 });

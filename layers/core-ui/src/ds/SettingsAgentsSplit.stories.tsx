@@ -8,7 +8,7 @@
  * feedback_no_skeleton_error_in_initial_designs.
  *
  * This composes ONLY existing DS primitives (SplitView, ItemList, Row, Input,
- * Select, StatusChip, Button) + the AV2 RoleCombobox — no invention. It is the
+ * Select, StatusChip, Button, Combobox) — no invention. It is the
  * design reference the human review renders at /designsystem; production wiring
  * (fetches, save routing) is the builder's job.
  *
@@ -18,9 +18,9 @@
 
 import { useState } from "react";
 import { Button } from "./Button.js";
+import { Combobox, type ComboboxOption } from "./Combobox.js";
 import { Input } from "./Input.js";
 import { ItemList } from "./ItemList.js";
-import { RoleCombobox, type RoleOption } from "./RoleCombobox.js";
 import { Row } from "./Row.js";
 import { Select } from "./Select.js";
 import { SplitView } from "./SplitView.js";
@@ -79,24 +79,24 @@ const AGENTS: DemoAgent[] = [
 	},
 ];
 
-const ROLES: readonly RoleOption[] = [
+const ROLES: readonly ComboboxOption[] = [
 	{
-		role: "builder",
+		id: "builder",
 		label: "Builder",
 		description: "Engineer. Implements features, writes code, tests, deploys.",
 	},
 	{
-		role: "designer",
+		id: "designer",
 		label: "Designer",
 		description: "Product designer. UX research, interaction & visual design.",
 	},
 	{
-		role: "product_manager",
+		id: "product_manager",
 		label: "Product Manager",
 		description: "Team lead. Shapes pitches, coordinates cycles.",
 	},
 	{
-		role: "qa_engineer",
+		id: "qa_engineer",
 		label: "QA Engineer",
 		description: "Quality assurance. Test plans, regression, bug triage.",
 	},
@@ -132,7 +132,16 @@ function AgentEditor({ agent }: { agent: DemoAgent }): React.JSX.Element {
 
 			<Input id="ed-name" label="Name" type="text" value={agent.name} onChange={() => {}} />
 
-			<RoleCombobox options={ROLES} value={role} onChange={setRole} disabled={agent.assistant} />
+			<Combobox
+				label="Role"
+				options={ROLES}
+				value={role}
+				onChange={setRole}
+				disabled={agent.assistant}
+				allowCustomValue
+				placeholder="Filter roles or type a new one…"
+				listAriaLabel="Roles"
+			/>
 
 			<div className="flex flex-wrap gap-[12px]">
 				<div className="min-w-[160px] flex-1">

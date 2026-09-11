@@ -131,20 +131,11 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 		expect(onRemove).not.toHaveBeenCalled();
 	});
 
-	// `removeTestId` targets the ACTUAL remove control, not a wrapping
-	// element with no remove behaviour of its own.
-	it("removeTestId is applied to the remove button itself", () => {
-		render(
-			<ReferenceChip
-				kind="task"
-				label="Task x"
-				mode="draft"
-				onRemove={() => undefined}
-				removeTestId="my-remove-testid"
-			/>,
-		);
-		const el = screen.getByTestId("my-remove-testid");
+	// The accessible "remove" control found via its label IS the actual
+	// remove button, not a wrapping element with no remove behaviour of its own.
+	it("the remove control found by its accessible label is a real button", () => {
+		render(<ReferenceChip kind="task" label="Task x" mode="draft" onRemove={() => undefined} />);
+		const el = screen.getByLabelText("Remove Task x");
 		expect(el.tagName).toBe("BUTTON");
-		expect(el.getAttribute("aria-label")).toBe("Remove Task x");
 	});
 });

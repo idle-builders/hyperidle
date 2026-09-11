@@ -1,6 +1,5 @@
 /**
- * TaskDependencyField: the search-and-pick door replaces the
- * paste-a-task-id field the maintainer rejected.
+ * TaskDependencyField: search-and-pick, built on the shared `Combobox`.
  *
  * Covers:
  *  - type a title fragment, get matching results, pick one — the chip shows
@@ -10,8 +9,8 @@
  *    does) resolves and shows its title via the bulk lookup door.
  *  - remove works.
  *  - the picker never offers the task being edited or a task already picked.
- *  - `disabled` makes the search input AND the remove control genuinely
- *    inert — not just handler-less, actually unusable.
+ *  - full keyboard navigation: ArrowDown + Enter picks a result, Escape closes.
+ *  - `disabled` makes the control AND the remove buttons genuinely inert.
  */
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -37,6 +36,13 @@ function stubFetch(searchResults: TaskRow[], lookupRows: TaskRow[] = []): Return
 	});
 }
 
+/** Opens the picker's popover and types a query into its filter input. */
+async function openAndType(query: string): Promise<void> {
+	fireEvent.click(screen.getByRole("combobox"));
+	const input = await screen.findByRole("textbox", { name: /search tasks by title/i });
+	fireEvent.change(input, { target: { value: query } });
+}
+
 describe("TaskDependencyField — search picker", () => {
 	let fetchSpy: ReturnType<typeof vi.fn>;
 
@@ -57,7 +63,7 @@ describe("TaskDependencyField — search picker", () => {
 		expect(screen.getByText("Depends on (waits until these finish)")).toBeInTheDocument();
 	});
 
-	it("renders label, then selected chips, then the search input — never label in the middle", async () => {
+	it("renders label, then selected chips, then the search control — never label in the middle", async () => {
 		fetchSpy.mockImplementation(stubFetch([], [{ id: "task-old", title: "Existing dependency" }]));
 		render(<TaskDependencyField dependencies={["task-old"]} onChange={vi.fn()} />);
 
@@ -65,16 +71,16 @@ describe("TaskDependencyField — search picker", () => {
 
 		const label = screen.getByText("Depends on (waits until these finish)");
 		const chipList = screen.getByTestId("task-dependency-list");
-		const searchInput = screen.getByTestId("task-dependency-search");
+		const trigger = screen.getByRole("combobox");
 
 		// DOCUMENT_POSITION_FOLLOWING (4) means the argument comes AFTER the node.
 		expect(label.compareDocumentPosition(chipList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 		expect(
-			chipList.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING,
+			chipList.compareDocumentPosition(trigger) & Node.DOCUMENT_POSITION_FOLLOWING,
 		).toBeTruthy();
 
-		// The label still names the input for assistive tech.
-		expect(label).toHaveAttribute("for", searchInput.getAttribute("id"));
+		// The label still names the control for assistive tech.
+		expect(label).toHaveAttribute("for", trigger.getAttribute("id"));
 	});
 
 	it("types a query, shows matching results by title, and picking one adds it as a chip showing the title", async () => {
@@ -82,11 +88,9 @@ describe("TaskDependencyField — search picker", () => {
 		const onChange = vi.fn();
 		render(<TaskDependencyField dependencies={[]} onChange={onChange} />);
 
-		fireEvent.change(screen.getByTestId("task-dependency-search"), {
-			target: { value: "search picker" },
-		});
+		await openAndType("search picker");
 
-		const result = await screen.findByText("Ship the search picker");
+		const result = await screen.findByRole("option", { name: "Ship the search picker" });
 		fireEvent.click(result);
 
 		expect(onChange).toHaveBeenCalledWith(["task-xyz"]);
@@ -110,7 +114,7 @@ describe("TaskDependencyField — search picker", () => {
 		render(<TaskDependencyField dependencies={["task-old"]} onChange={onChange} />);
 
 		await screen.findByText("Existing dependency");
-		fireEvent.click(screen.getByTestId("task-dependency-remove-task-old"));
+		fireEvent.click(screen.getByLabelText("Remove Existing dependency"));
 
 		expect(onChange).toHaveBeenCalledWith([]);
 	});
@@ -131,25 +135,55 @@ describe("TaskDependencyField — search picker", () => {
 			/>,
 		);
 
-		fireEvent.change(screen.getByTestId("task-dependency-search"), { target: { value: "task" } });
+		await openAndType("task");
 
-		await screen.findByText("A fresh match");
-		expect(screen.queryByText("The task being edited")).toBeNull();
-		expect(screen.queryByText("Already a dependency")).toBeNull();
+		await screen.findByRole("option", { name: "A fresh match" });
+		expect(screen.queryByRole("option", { name: "The task being edited" })).toBeNull();
+		expect(screen.queryByRole("option", { name: "Already a dependency" })).toBeNull();
 	});
 
-	it("is genuinely inert while disabled — the remove control is not focusable or clickable", async () => {
+	it("full keyboard navigation: ArrowDown + Enter picks a result, Escape closes", async () => {
+		fetchSpy.mockImplementation(
+			stubFetch([
+				{ id: "task-a", title: "First match" },
+				{ id: "task-b", title: "Second match" },
+			]),
+		);
+		const onChange = vi.fn();
+		render(<TaskDependencyField dependencies={[]} onChange={onChange} />);
+
+		await openAndType("match");
+		await screen.findByRole("option", { name: "Second match" });
+
+		const input = screen.getByRole("textbox", { name: /search tasks by title/i });
+		fireEvent.keyDown(input, { key: "ArrowDown" });
+		fireEvent.keyDown(input, { key: "Enter" });
+
+		expect(onChange).toHaveBeenCalledWith(["task-b"]);
+
+		// Re-open and confirm Escape closes the popover without picking anything.
+		fireEvent.click(screen.getByRole("combobox"));
+		const reopenedInput = await screen.findByRole("textbox", { name: /search tasks by title/i });
+		fireEvent.keyDown(reopenedInput, { key: "Escape" });
+		expect(screen.queryByRole("textbox", { name: /search tasks by title/i })).toBeNull();
+		expect(onChange).toHaveBeenCalledTimes(1);
+	});
+
+	it("is genuinely inert while disabled — the remove control and the search trigger are not usable", async () => {
 		fetchSpy.mockImplementation(stubFetch([], [{ id: "task-old", title: "Existing dependency" }]));
 		const onChange = vi.fn();
 		render(<TaskDependencyField dependencies={["task-old"]} onChange={onChange} disabled />);
 
 		await screen.findByText("Existing dependency");
-		const removeButton = screen.getByTestId("task-dependency-remove-task-old");
+		const removeButton = screen.getByLabelText("Remove Existing dependency");
 		expect(removeButton).toBeDisabled();
 
 		fireEvent.click(removeButton);
 		expect(onChange).not.toHaveBeenCalled();
 
-		expect(screen.getByTestId("task-dependency-search")).toBeDisabled();
+		const trigger = screen.getByRole("combobox");
+		expect(trigger).toBeDisabled();
+		fireEvent.click(trigger);
+		expect(screen.queryByRole("textbox", { name: /search tasks by title/i })).toBeNull();
 	});
 });

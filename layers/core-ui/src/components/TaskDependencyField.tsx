@@ -7,43 +7,21 @@
  * `WorkTaskCreate` and `WorkTaskPage`'s edit panel — the two surfaces the
  * plan names.
  *
- * @lore BA6 (rejected-round fix): the maintainer rejected the first cut of
- * this field — "searching a task should be possible" — over a paste-a-raw-id
- * input whose chip then displayed the UUID. The search door it now reaches,
- * `GET /api/tasks?q=<query>` (`useTaskSearch`), already existed; the earlier
- * `@lore` claiming "no task-search endpoint" was wrong. Existing dependency
- * ids (the edit surface loads them bare) resolve to titles via the bulk
- * lookup door, `GET /api/tasks?ids=a,b,c` (`useTaskLookup`) — both reused,
- * neither a new endpoint.
+ * Built on the shared `Combobox` in server-driven mode (`filterOptions=false`,
+ * options = the current search results) with `hideSelectedValue` — the
+ * closed trigger always reads as a placeholder, never a chosen task, because
+ * each pick hands off to the chip list this component owns rather than
+ * becoming "the" value. This is also what gives the field its keyboard
+ * navigation (ArrowUp/Down, Enter, Escape) for free.
  *
- * @lore BA6 (fix round): the search-picker rewrite dropped the field's
- * visible label entirely (`Input`'s `label` prop went away with `Input`
- * itself) — a person saw a bare search box with no name. `SearchField`
- * gained the same `label` prop `Input` has, rendered above the input with
- * the same profile, rather than a hand-rolled span next to it.
- *
- * @lore BA6: `ReferenceChip` (not forked) renders each picked dependency.
- * Extended with `disabled` (real `disabled` attribute on both its buttons —
- * the old version only dropped the `onRemove` handler, leaving a focusable
- * control that silently no-op'd) and `removeTestId` (so a testid targets the
- * chip's own remove button, not an inert wrapping `<li>`). `mode="draft"`'s
- * open body is a plain span here (no `onOpen` passed) — this field lists
- * references, it doesn't drill into them, so draft mode no longer ships a
- * dead "Open <label>" button when a caller has nothing to open.
- *
- * @lore BA6 (small fix round): `SearchField`'s own `label` prop renders the
- * label immediately above its input — right, when the field IS the input,
- * wrong here, where the chip list sits between the two. Every other field on
- * this form is label-then-control; this one was label-in-the-middle. Rather
- * than teach `SearchField` a second internal layout for one caller, this
- * component owns the label itself (same `type-small`/`text-primary` profile
- * SearchField uses) and points it at the input via an explicit shared `id` —
- * `SearchField` never receives a `label`, so it renders none, and the
- * `htmlFor`/`id` pairing survives untouched.
+ * Existing dependency ids (the edit surface loads them bare) resolve to
+ * titles via `useTaskLookup`'s bulk lookup door; freshly-picked titles are
+ * known instantly from the search result that picked them, and win on
+ * overlap since they are never stale.
  */
 
 import { type JSX, useMemo, useState } from "react";
-import { ReferenceChip, SearchField } from "../ds/index.js";
+import { Combobox, ReferenceChip } from "../ds/index.js";
 import { useTaskLookup } from "../hooks/useTaskLookup.js";
 import { type TaskSearchResult, useTaskSearch } from "../hooks/useTaskSearch.js";
 
@@ -62,9 +40,6 @@ export function TaskDependencyField({
 	currentTaskId,
 }: TaskDependencyFieldProps): JSX.Element {
 	const [query, setQuery] = useState("");
-	// Freshly-picked titles are known instantly from the search result that
-	// picked them; pre-existing (id-only) dependencies resolve via the bulk
-	// lookup door. Picked wins on overlap — it is never stale.
 	const [pickedTitles, setPickedTitles] = useState<Readonly<Record<string, string>>>({});
 	const lookedUpTitles = useTaskLookup(dependencies);
 
@@ -76,18 +51,26 @@ export function TaskDependencyField({
 
 	const titleFor = (id: string): string => pickedTitles[id] ?? lookedUpTitles[id] ?? id;
 
+	const options = useMemo(
+		() => results.map((task) => ({ id: task.id, label: task.title })),
+		[results],
+	);
+
 	const addDependency = (task: TaskSearchResult): void => {
 		if (dependencies.includes(task.id) || task.id === currentTaskId) return;
 		onChange([...dependencies, task.id]);
 		setPickedTitles((prev) => ({ ...prev, [task.id]: task.title }));
-		setQuery("");
+	};
+
+	const handlePick = (id: string): void => {
+		const task = results.find((r) => r.id === id);
+		if (task) addDependency(task);
 	};
 
 	const removeDependency = (id: string): void => {
 		onChange(dependencies.filter((depId) => depId !== id));
 	};
 
-	const showResults = query.trim() !== "";
 	const searchFieldId = "task-dependency-search-field";
 
 	return (
@@ -104,60 +87,28 @@ export function TaskDependencyField({
 								label={titleFor(id)}
 								mode="draft"
 								disabled={disabled}
-								removeTestId={`task-dependency-remove-${id}`}
 								onRemove={() => removeDependency(id)}
 							/>
 						</li>
 					))}
 				</ul>
 			)}
-			<div className="relative flex flex-col gap-[3px]">
-				<SearchField
-					id={searchFieldId}
-					placeholder="Search tasks by title…"
-					value={query}
-					onChange={setQuery}
-					loading={status === "loading"}
-					disabled={disabled}
-					data-testid="task-dependency-search"
-				/>
-				{showResults && !disabled && (
-					<div
-						role="listbox"
-						aria-label="Matching tasks"
-						data-testid="task-dependency-results"
-						className="border-width-thin flex max-h-[220px] flex-col overflow-y-auto rounded-[var(--r-subtle)] border-[var(--border-subtle)] bg-[var(--surface-elevated)] py-[3px]"
-					>
-						{status === "loading" && (
-							<div className="type-small px-[9px] py-[6px] text-[var(--text-tertiary)]">
-								Searching…
-							</div>
-						)}
-						{status === "error" && (
-							<div className="type-small px-[9px] py-[6px] text-[var(--status-error)]" role="alert">
-								{error ?? "Search failed"}
-							</div>
-						)}
-						{status === "ready" && results.length === 0 && (
-							<div className="type-small px-[9px] py-[6px] text-[var(--text-tertiary)]">
-								No matching tasks
-							</div>
-						)}
-						{results.map((task) => (
-							<button
-								key={task.id}
-								type="button"
-								role="option"
-								data-testid={`task-dependency-result-${task.id}`}
-								className="type-small flex items-center px-[9px] py-[6px] text-left text-[var(--text-primary)] hover:bg-[var(--surface-container)]"
-								onClick={() => addDependency(task)}
-							>
-								{task.title}
-							</button>
-						))}
-					</div>
-				)}
-			</div>
+			<Combobox
+				id={searchFieldId}
+				data-testid="task-dependency-search"
+				options={options}
+				onChange={handlePick}
+				onQueryChange={setQuery}
+				filterOptions={false}
+				hideSelectedValue
+				disabled={disabled}
+				placeholder="Search tasks by title…"
+				inputAriaLabel="Search tasks by title"
+				listAriaLabel="Matching tasks"
+				loading={status === "loading"}
+				error={status === "error" ? (error ?? "Search failed") : null}
+				emptyMessage={status === "ready" ? "No matching tasks" : undefined}
+			/>
 		</div>
 	);
 }

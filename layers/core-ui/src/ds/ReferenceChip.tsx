@@ -39,8 +39,6 @@ export interface ReferenceChipProps {
 	onRemove?: () => void;
 	/** Freezes both the open and remove controls — real `disabled`, not an omitted handler. */
 	disabled?: boolean;
-	/** testid for the remove button specifically — the actual control a "remove" test targets. */
-	removeTestId?: string;
 }
 
 // Inline icon set — currentColor, no emoji-as-icon (AQ-105). 16-box.
@@ -86,7 +84,6 @@ export function ReferenceChip({
 	onOpen,
 	onRemove,
 	disabled = false,
-	removeTestId,
 }: ReferenceChipProps): JSX.Element {
 	const openBody = (
 		<>
@@ -152,7 +149,6 @@ export function ReferenceChip({
 				disabled={disabled}
 				aria-label={`Remove ${label}`}
 				title="Remove"
-				data-testid={removeTestId}
 				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
 			>
 				<Glyph d={ICON_REMOVE} size={11} />
