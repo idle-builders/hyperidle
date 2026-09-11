@@ -307,10 +307,14 @@ function mockTreeAndPatch(
 	fetchMock: ReturnType<typeof vi.fn>,
 	task: ReturnType<typeof makeTask>,
 	patchResponse: { ok: boolean; status?: number },
+	agents: ReadonlyArray<{ id: string; name: string; role: string }> = [],
 ): void {
-	fetchMock.mockImplementation(async (_url: string, opts?: RequestInit) => {
+	fetchMock.mockImplementation(async (url: string, opts?: RequestInit) => {
 		if (opts?.method === "PATCH") {
 			return { ...patchResponse, json: async () => ({}) };
+		}
+		if (url.includes("/api/agents")) {
+			return { ok: true, json: async () => agents };
 		}
 		return {
 			ok: true,
@@ -358,8 +362,82 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 		expect(screen.getByTestId("task-title-input")).toBeInTheDocument();
 		expect(screen.getByTestId("task-description-input")).toBeInTheDocument();
 		expect(screen.getByTestId("task-done-condition-input")).toBeInTheDocument();
-		expect(screen.getByTestId("task-owner-input")).toBeInTheDocument();
+		expect(
+			screen.getAllByRole("combobox").find((c) => c.id === "task-owner-combobox"),
+		).toBeInTheDocument();
 		expect(screen.getByTestId("task-state-select")).toBeInTheDocument();
+	});
+
+	it("picks an owner through the combobox and PATCHes ownerAgentId", async () => {
+		const task = makeTask("task-1", "My task");
+		mockTreeAndPatch(fetchMock, task, { ok: true }, [
+			{ id: "agent-7", name: "Scout", role: "scout" },
+		]);
+
+		renderPage("task-1");
+
+		await waitFor(() => {
+			expect(screen.getByTestId("task-edit-panel")).toBeInTheDocument();
+		});
+
+		const trigger = await waitFor(() => {
+			const found = screen.getAllByRole("combobox").find((c) => c.id === "task-owner-combobox");
+			expect(found).toBeDefined();
+			return found as HTMLElement;
+		});
+		fireEvent.click(trigger);
+		fireEvent.click(await screen.findByText("Scout"));
+		fireEvent.click(screen.getByTestId("task-save-btn"));
+
+		await waitFor(() => {
+			const patchCall = fetchMock.mock.calls.find(
+				([url, opts]) =>
+					typeof url === "string" &&
+					url.includes("/api/tasks/task-1") &&
+					(opts as RequestInit | undefined)?.method === "PATCH",
+			);
+			expect(patchCall).toBeDefined();
+			const body = JSON.parse((patchCall?.[1] as RequestInit).body as string) as {
+				ownerAgentId: string | null;
+			};
+			expect(body.ownerAgentId).toBe("agent-7");
+		});
+	});
+
+	it("picking 'No owner' saves exactly what leaving the field blank saved before", async () => {
+		const task = makeTask("task-1", "My task"); // ownerAgentId: "agent-1"
+		mockTreeAndPatch(fetchMock, task, { ok: true }, [
+			{ id: "agent-1", name: "Incumbent", role: "builder" },
+		]);
+
+		renderPage("task-1");
+
+		await waitFor(() => {
+			expect(screen.getByTestId("task-edit-panel")).toBeInTheDocument();
+		});
+
+		const trigger = await waitFor(() => {
+			const found = screen.getAllByRole("combobox").find((c) => c.id === "task-owner-combobox");
+			expect(found).toBeDefined();
+			return found as HTMLElement;
+		});
+		fireEvent.click(trigger);
+		fireEvent.click(await screen.findByText("No owner"));
+		fireEvent.click(screen.getByTestId("task-save-btn"));
+
+		await waitFor(() => {
+			const patchCall = fetchMock.mock.calls.find(
+				([url, opts]) =>
+					typeof url === "string" &&
+					url.includes("/api/tasks/task-1") &&
+					(opts as RequestInit | undefined)?.method === "PATCH",
+			);
+			expect(patchCall).toBeDefined();
+			const body = JSON.parse((patchCall?.[1] as RequestInit).body as string) as {
+				ownerAgentId: string | null;
+			};
+			expect(body.ownerAgentId).toBeNull();
+		});
 	});
 
 	it("save button is disabled when no fields are dirty", async () => {

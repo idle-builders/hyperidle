@@ -21,7 +21,7 @@
  */
 
 import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
-import { type JSX, useCallback, useEffect, useState } from "react";
+import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection } from "../components/ArtifactSection.js";
 import { TaskDependencyField } from "../components/TaskDependencyField.js";
@@ -29,6 +29,7 @@ import {
 	Breadcrumb,
 	type BreadcrumbSegment,
 	Button,
+	Combobox,
 	ErrorState,
 	Input,
 	LiveDot,
@@ -39,6 +40,7 @@ import {
 	StatusChip,
 	taskStateToStatus,
 } from "../ds/index.js";
+import { useAgents } from "../hooks/useAgents.js";
 import { useTaskPatch } from "../hooks/useTaskPatch.js";
 import { useTaskSessions } from "../hooks/useTaskSessions.js";
 import { useTaskTree } from "../hooks/useTaskTree.js";
@@ -317,6 +319,16 @@ function SessionRow({
 function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.Element {
 	const [fields, setFields] = useState<EditState>(() => taskToEditState(task));
 	const { status, patch, errorMessage } = useTaskPatch(onSaved);
+	const { agents } = useAgents();
+
+	// "No owner" (id "") is always offered first — it is what "leave blank" saves.
+	const ownerOptions = useMemo(
+		() => [
+			{ id: "", label: "No owner" },
+			...agents.map((a) => ({ id: a.id, label: a.name, description: a.role })),
+		],
+		[agents],
+	);
 
 	// When the task prop changes (e.g. after a refresh), re-sync the form
 	useEffect(() => {
@@ -390,14 +402,15 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 				</div>
 				{/* Owner */}
 				<div>
-					<Input
-						label="Owner agent ID"
+					<Combobox
+						id="task-owner-combobox"
+						label="Owner agent"
+						options={ownerOptions}
 						value={fields.ownerAgentId}
-						onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-							setFields((f) => ({ ...f, ownerAgentId: e.target.value }))
-						}
-						placeholder="Agent ID or leave blank"
-						data-testid="task-owner-input"
+						onChange={(ownerAgentId) => setFields((f) => ({ ...f, ownerAgentId }))}
+						placeholder="No owner"
+						listAriaLabel="Agents"
+						inputAriaLabel="Filter agents"
 						disabled={isSaving}
 					/>
 				</div>
