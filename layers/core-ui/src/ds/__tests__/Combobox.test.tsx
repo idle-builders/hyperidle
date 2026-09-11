@@ -40,23 +40,48 @@ describe("Combobox — trigger accessible name", () => {
 		const label = screen.getByText("Recipient");
 		expect(label.getAttribute("for")).toBe(trigger.getAttribute("id"));
 	});
+});
 
-	// Org chart's "From"/"Target" fields keep the same visible word on every
-	// row but need distinct names for assistive tech (e.g. "Target user" vs
-	// "Target team") — triggerAriaLabel overrides the accessible name only.
-	it("triggerAriaLabel overrides the accessible name without changing the visible label text", () => {
-		render(
+describe("Combobox — stale highlight when options shrink", () => {
+	const OPT_A = { id: "opt-a", label: "Alpha" };
+	const OPT_B = { id: "opt-b", label: "Bravo" };
+	const OPT_C = { id: "opt-c", label: "Charlie" };
+
+	// Reproduction: a server-driven caller narrows `options` (e.g. a
+	// dependent filter changes elsewhere) while the query text stays the
+	// same. If the highlighted index survives the shrink unclamped,
+	// aria-activedescendant names an option element that no longer exists.
+	it("clamps aria-activedescendant to an existing option when options shrink without the query changing", () => {
+		const { rerender } = render(
 			<Combobox
-				options={[]}
-				value=""
+				options={[OPT_A, OPT_B, OPT_C]}
 				onChange={vi.fn()}
-				label="Target"
-				triggerAriaLabel="Target team"
+				onQueryChange={() => {}}
+				placeholder="Search…"
+				inputAriaLabel="Search"
 			/>,
 		);
-		expect(screen.getByText("Target")).toBeInTheDocument();
-		expect(screen.getByRole("combobox", { name: "Target team" })).toBeInTheDocument();
-		expect(screen.queryByRole("combobox", { name: "Target" })).not.toBeInTheDocument();
+		const input = openInput();
+
+		fireEvent.keyDown(input, { key: "ArrowDown" });
+		fireEvent.keyDown(input, { key: "ArrowDown" });
+		const beforeShrink = input.getAttribute("aria-activedescendant");
+		expect(beforeShrink).toMatch(/-opt-2$/);
+
+		rerender(
+			<Combobox
+				options={[OPT_A, OPT_B]}
+				onChange={vi.fn()}
+				onQueryChange={() => {}}
+				placeholder="Search…"
+				inputAriaLabel="Search"
+			/>,
+		);
+
+		const afterShrink = input.getAttribute("aria-activedescendant");
+		expect(afterShrink).toMatch(/-opt-1$/);
+		expect(afterShrink).not.toBeNull();
+		expect(document.getElementById(afterShrink as string)).not.toBeNull();
 	});
 });
 

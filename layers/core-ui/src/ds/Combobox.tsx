@@ -196,6 +196,16 @@ export function Combobox({
 	// `filtered` belong to a query that isn't the current one.
 	const hasNavigableOptions = !showStatusOnly && totalItems > 0;
 
+	// @lore A caller in server-driven mode can narrow `options` (e.g. a
+	// dependent filter elsewhere) while the typed query stays the same — the
+	// query-change path already resets highlight to 0, but nothing else did.
+	// Left unclamped, aria-activedescendant kept naming an option index that
+	// no longer existed once the row it pointed at disappeared. Re-clamp on
+	// every `totalItems` change so it always names a real option, or none.
+	useEffect(() => {
+		setHighlight((h) => Math.max(0, Math.min(totalItems - 1, h)));
+	}, [totalItems]);
+
 	function commit(next: string): void {
 		onChange(next);
 		setOpen(false);
