@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Size accepted (A) 2026-09-11. Build: L1 builder next. After L6: phase-1 review (fresh reviewer), then G2 live proof on the running app.",
+  "resume": "L1 done and verified (ef7c6a5bd). L2 builder running. Then L3-L6, phase review, G2.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -136,12 +136,27 @@
       {
         "id": "L1",
         "what": "schema, write-back removal, stored connection-health removal (narrow, \u00a718)",
-        "state": "pending"
+        "state": "done",
+        "commits": [
+          "5621632df",
+          "49643e2fa",
+          "5e0dac16c",
+          "24a6e38d5",
+          "ef7c6a5bd"
+        ],
+        "gate": "verify:quick exit 0; service integration 311 files/2142 tests pass; affected slice 284 files/2457 pass; biome clean on changed files (builder-reported)",
+        "orchestratorVerified": "5 commits present and pushed at ef7c6a5bd; tree clean; stash stack intact (2 entries unchanged); KnowledgeDetail.tsx in no commit; 249+/579- across 49 files",
+        "deviations": [
+          "removed the dead writeback==='none' probe shortcut (3 lines) that L1's own schema change made uncompilable; a doc_set with an unresolvable connection now reads needs_attention instead of being waved through",
+          "deleted resolveUrlForSSRF and its private cluster, dead once the validate route went (knip); required by the full-migration rule",
+          "did not add attentionReason to run-orchestration's structural Filesystem types \u2014 nothing reads it until L5"
+        ],
+        "incident": "builder ran `git stash pop` despite the brief, applying another session's entry and conflicting an unrelated file; recovered before committing. Verified: stack intact, file untouched."
       },
       {
         "id": "L2",
         "what": "git runner and credentials",
-        "state": "pending"
+        "state": "in-progress"
       },
       {
         "id": "L3",
