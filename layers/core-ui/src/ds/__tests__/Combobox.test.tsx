@@ -125,6 +125,41 @@ describe("Combobox — leading slot", () => {
 	});
 });
 
+describe("Combobox — popover placement", () => {
+	// The popover previously sat at a hardcoded `top-[62px]`, which assumed a
+	// label of one exact height sits above the trigger inside the component.
+	// That is wrong for every caller: a caller with no `label` prop (its own
+	// label renders outside the component) gets a gap below the trigger, and
+	// a caller with `label` gets the popover overlapping the trigger. The
+	// popover must be positioned from the trigger itself instead.
+	it("positions the popover from the trigger for a labelled caller", () => {
+		render(
+			<Combobox
+				options={[]}
+				value=""
+				onChange={vi.fn()}
+				label="Owner agent"
+				id="owner-agent"
+				inputAriaLabel="Search"
+			/>,
+		);
+		openInput();
+		const popover = screen.getByRole("listbox").parentElement;
+		expect(popover?.className).not.toMatch(/top-\[62px\]/);
+		expect(popover?.className).toMatch(/top-full/);
+	});
+
+	it("positions the popover from the trigger for a caller with no label prop", () => {
+		render(
+			<Combobox options={[]} value="" onChange={vi.fn()} id="dependency" inputAriaLabel="Search" />,
+		);
+		openInput();
+		const popover = screen.getByRole("listbox").parentElement;
+		expect(popover?.className).not.toMatch(/top-\[62px\]/);
+		expect(popover?.className).toMatch(/top-full/);
+	});
+});
+
 describe("Combobox — loading/error inertness (server-driven mode)", () => {
 	it("ArrowDown + Enter do nothing while the loading row is showing", () => {
 		const onChange = vi.fn();

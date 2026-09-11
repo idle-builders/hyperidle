@@ -249,126 +249,135 @@ export function Combobox({
 	const showingValue = value !== "";
 
 	return (
-		<div {...dsProps("Combobox", "1")} className="relative flex flex-col gap-[6px]">
+		<div {...dsProps("Combobox", "1")} className="flex flex-col gap-[6px]">
 			{label && (
 				<label htmlFor={triggerId} className="type-label uppercase text-[var(--text-tertiary)]">
 					{label}
 				</label>
 			)}
 
-			{/* Closed field */}
-			<button
-				ref={triggerRef}
-				type="button"
-				id={triggerId}
-				role="combobox"
-				aria-expanded={open}
-				aria-controls={listId}
-				disabled={disabled}
-				onClick={() => setOpen((o) => !o)}
-				className={`type-control border-width-thin flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left ${
-					disabled
-						? "cursor-not-allowed text-[var(--text-tertiary)] opacity-70"
-						: "text-[var(--text-primary)] hover:border-[var(--border-strong)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
-				}`}
-			>
-				<span className={`truncate ${showingValue ? "" : "text-[var(--text-tertiary)]"}`}>
-					{triggerText(value, options, placeholder)}
-				</span>
-				<span className="shrink-0 text-[var(--text-tertiary)]">
-					<ChevronIcon />
-				</span>
-			</button>
+			{/* Trigger + popover share this wrapper so the popover can position
+			    itself off the trigger's own box (top-full) instead of a
+			    hardcoded offset that assumed one exact label height above it —
+			    wrong in opposite directions for a labelled vs. unlabelled caller. */}
+			<div className="relative">
+				{/* Closed field */}
+				<button
+					ref={triggerRef}
+					type="button"
+					id={triggerId}
+					role="combobox"
+					aria-expanded={open}
+					aria-controls={listId}
+					disabled={disabled}
+					onClick={() => setOpen((o) => !o)}
+					className={`type-control border-width-thin flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left ${
+						disabled
+							? "cursor-not-allowed text-[var(--text-tertiary)] opacity-70"
+							: "text-[var(--text-primary)] hover:border-[var(--border-strong)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+					}`}
+				>
+					<span className={`truncate ${showingValue ? "" : "text-[var(--text-tertiary)]"}`}>
+						{triggerText(value, options, placeholder)}
+					</span>
+					<span className="shrink-0 text-[var(--text-tertiary)]">
+						<ChevronIcon />
+					</span>
+				</button>
 
-			{/* Popover */}
-			{open && !disabled && (
-				<div className="border-width-thin absolute left-0 right-0 top-[62px] z-20 flex flex-col overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]">
-					<div className="border-width-thin-b  border-[var(--border-subtle)] p-[6px]">
-						<input
-							ref={inputRef}
-							type="text"
-							value={query}
-							onChange={(e) => {
-								setQueryAndNotify(e.target.value);
-								setHighlight(0);
-							}}
-							onKeyDown={onKeyDown}
-							placeholder={placeholder}
-							aria-label={inputAriaLabel ?? placeholder ?? "Filter options"}
-							{...(hasNavigableOptions
-								? { "aria-activedescendant": `${listId}-opt-${highlight}` }
-								: {})}
-							className="type-input w-full rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px]  text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none "
-						/>
-					</div>
+				{/* Popover */}
+				{open && !disabled && (
+					<div className="border-width-thin absolute left-0 right-0 top-full mt-[6px] z-20 flex flex-col overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]">
+						<div className="border-width-thin-b  border-[var(--border-subtle)] p-[6px]">
+							<input
+								ref={inputRef}
+								type="text"
+								value={query}
+								onChange={(e) => {
+									setQueryAndNotify(e.target.value);
+									setHighlight(0);
+								}}
+								onKeyDown={onKeyDown}
+								placeholder={placeholder}
+								aria-label={inputAriaLabel ?? placeholder ?? "Filter options"}
+								{...(hasNavigableOptions
+									? { "aria-activedescendant": `${listId}-opt-${highlight}` }
+									: {})}
+								className="type-input w-full rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px]  text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none "
+							/>
+						</div>
 
-					<ul
-						id={listId}
-						// biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: ul[role=listbox] is the standard ARIA pattern for a combobox popover
-						role="listbox"
-						aria-label={listAriaLabel ?? "Options"}
-						className="max-h-[280px] overflow-auto p-[3px]"
-					>
-						{loading && (
-							<div className="type-small px-[9px] py-[6px] text-[var(--text-tertiary)]">
-								Loading…
-							</div>
-						)}
-						{!loading && error !== null && (
-							<div className="type-small px-[9px] py-[6px] text-[var(--status-error)]" role="alert">
-								{error}
-							</div>
-						)}
-						{!showStatusOnly && filtered.length === 0 && !showCustom && emptyMessage && (
-							<div className="type-small px-[9px] py-[6px] text-[var(--text-tertiary)]">
-								{emptyMessage}
-							</div>
-						)}
+						<ul
+							id={listId}
+							// biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: ul[role=listbox] is the standard ARIA pattern for a combobox popover
+							role="listbox"
+							aria-label={listAriaLabel ?? "Options"}
+							className="max-h-[280px] overflow-auto p-[3px]"
+						>
+							{loading && (
+								<div className="type-small px-[9px] py-[6px] text-[var(--text-tertiary)]">
+									Loading…
+								</div>
+							)}
+							{!loading && error !== null && (
+								<div
+									className="type-small px-[9px] py-[6px] text-[var(--status-error)]"
+									role="alert"
+								>
+									{error}
+								</div>
+							)}
+							{!showStatusOnly && filtered.length === 0 && !showCustom && emptyMessage && (
+								<div className="type-small px-[9px] py-[6px] text-[var(--text-tertiary)]">
+									{emptyMessage}
+								</div>
+							)}
 
-						{!showStatusOnly &&
-							filtered.map((opt, i) => (
+							{!showStatusOnly &&
+								filtered.map((opt, i) => (
+									<ListboxOption
+										key={opt.id}
+										id={`${listId}-opt-${i}`}
+										highlight={i === highlight}
+										onMouseEnter={() => setHighlight(i)}
+										onClick={() => commit(opt.id)}
+										className={`flex cursor-pointer items-start gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] ${
+											i === highlight ? "bg-[var(--surface-container)]" : ""
+										}`}
+									>
+										{opt.leading}
+										<span className="flex min-w-0 flex-col gap-[3px]">
+											<span className="type-small   text-[var(--text-primary)]">{opt.label}</span>
+											{opt.description ? (
+												<span className="type-metadata  text-[var(--text-tertiary)]">
+													{opt.description}
+												</span>
+											) : null}
+										</span>
+									</ListboxOption>
+								))}
+
+							{!showStatusOnly && showCustom ? (
 								<ListboxOption
-									key={opt.id}
-									id={`${listId}-opt-${i}`}
-									highlight={i === highlight}
-									onMouseEnter={() => setHighlight(i)}
-									onClick={() => commit(opt.id)}
-									className={`flex cursor-pointer items-start gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] ${
-										i === highlight ? "bg-[var(--surface-container)]" : ""
+									id={`${listId}-opt-${filtered.length}`}
+									highlight={highlight === filtered.length}
+									onMouseEnter={() => setHighlight(filtered.length)}
+									onClick={() => commit(trimmed)}
+									className={`flex items-center gap-[6px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] px-[9px] py-[6px] ${
+										highlight === filtered.length ? "bg-[var(--surface-container)]" : ""
 									}`}
 								>
-									{opt.leading}
-									<span className="flex min-w-0 flex-col gap-[3px]">
-										<span className="type-small   text-[var(--text-primary)]">{opt.label}</span>
-										{opt.description ? (
-											<span className="type-metadata  text-[var(--text-tertiary)]">
-												{opt.description}
-											</span>
-										) : null}
+									<span className="type-small  text-[var(--accent-deep)]">＋</span>
+									<span className="type-small  text-[var(--text-primary)]">
+										{customValuePrefix}
+										<span className="type-small ">{trimmed}</span>
 									</span>
 								</ListboxOption>
-							))}
-
-						{!showStatusOnly && showCustom ? (
-							<ListboxOption
-								id={`${listId}-opt-${filtered.length}`}
-								highlight={highlight === filtered.length}
-								onMouseEnter={() => setHighlight(filtered.length)}
-								onClick={() => commit(trimmed)}
-								className={`flex items-center gap-[6px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] px-[9px] py-[6px] ${
-									highlight === filtered.length ? "bg-[var(--surface-container)]" : ""
-								}`}
-							>
-								<span className="type-small  text-[var(--accent-deep)]">＋</span>
-								<span className="type-small  text-[var(--text-primary)]">
-									{customValuePrefix}
-									<span className="type-small ">{trimmed}</span>
-								</span>
-							</ListboxOption>
-						) : null}
-					</ul>
-				</div>
-			)}
+							) : null}
+						</ul>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }
