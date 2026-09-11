@@ -1,8 +1,10 @@
 /**
- * AO2 — LocalFolderAdapter integration test (thin).
+ * T4 (BA5 §14.2) — LocalFolderAdapter, through the public `RegistryFilesystemMounter`.
  *
- * AC1: mount symlinks the folder into sandboxPath; files accessible.
- * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
+ * AC1: mount symlinks the folder into `<workspace>/<folderName>`; files accessible.
+ * AC2: a second mount into the SAME workspace recognises the existing symlink
+ * (`adopted: true`) instead of failing — the resume case (§5.4).
+ * AC3: unmount is a no-op — the symlink goes with the workspace itself (§5.5).
  */
 
 import { randomUUID } from "node:crypto";
@@ -32,7 +34,6 @@ describe("LocalFolderAdapter integration (thin)", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-folder-adapter-"));
-		// Create a test vault with some markdown files.
 		vaultDir = path.join(tmpDir, "my-vault");
 		fs.mkdirSync(vaultDir, { recursive: true });
 		fs.writeFileSync(path.join(vaultDir, "index.md"), "# Index\n");
@@ -51,57 +52,85 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		};
 	}
 
-	it("mount: symlinks the vault into sandboxPath/<basename>", async () => {
-		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
-		fs.mkdirSync(sandboxPath, { recursive: true });
+	it("mount: symlinks the vault into workspacePath/folderName", async () => {
+		const workspacePath = path.join(tmpDir, `sandbox-${randomUUID()}`);
+		fs.mkdirSync(workspacePath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
 		const result = await adapter.mount({
 			filesystem: makeFs(vaultDir),
-			sandboxPath,
+			workspacePath,
+			sessionId: "session-1",
+			folderName: "my-vault",
+			credential: null,
 		});
 
-		expect(result.success).toBe(true);
-		const linkPath = path.join(sandboxPath, "my-vault");
+		expect(result.ok).toBe(true);
+		const linkPath = path.join(workspacePath, "my-vault");
 		expect(fs.existsSync(linkPath)).toBe(true);
-		// Files accessible through the symlink.
 		expect(fs.existsSync(path.join(linkPath, "index.md"))).toBe(true);
 		expect(fs.existsSync(path.join(linkPath, "notes.md"))).toBe(true);
-		// It should be a symlink pointing to the real vault.
 		const stat = fs.lstatSync(linkPath);
 		expect(stat.isSymbolicLink()).toBe(true);
 		expect(fs.realpathSync(linkPath)).toBe(fs.realpathSync(vaultDir));
+		if (!result.ok) throw new Error("unreachable");
+		expect(result.mounted.trustedPath).toBe(fs.realpathSync(vaultDir));
+		expect(result.mounted.adopted).toBe(false);
 	});
 
-	it("captureBack: returns success no-op (write code removed in AU43 stage 2)", async () => {
-		const sessionId = randomUUID();
-		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
-		fs.mkdirSync(sandboxPath, { recursive: true });
-
+	it("a second mount into the same workspace recognises the existing symlink instead of failing (resume)", async () => {
+		const workspacePath = path.join(tmpDir, `sandbox-${randomUUID()}`);
+		fs.mkdirSync(workspacePath, { recursive: true });
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(vaultDir), sandboxPath });
-
-		const result = await adapter.captureBack({
+		const input = {
 			filesystem: makeFs(vaultDir),
-			sandboxPath,
-			sessionId,
-		});
+			workspacePath,
+			sessionId: "session-2",
+			folderName: "my-vault",
+			credential: null,
+		};
 
-		expect(result.success).toBe(true);
-		expect(result.captured).toBe(false);
+		await adapter.mount(input);
+		const second = await adapter.mount(input);
+
+		expect(second.ok).toBe(true);
+		if (!second.ok) throw new Error("unreachable");
+		expect(second.mounted.adopted).toBe(true);
 	});
 
-	it("mount: returns success:false when folder does not exist", async () => {
-		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
-		fs.mkdirSync(sandboxPath, { recursive: true });
+	it("unmount is a no-op — the symlink goes with the workspace", async () => {
+		const workspacePath = path.join(tmpDir, `sandbox-${randomUUID()}`);
+		fs.mkdirSync(workspacePath, { recursive: true });
+		const adapter = new RegistryFilesystemMounter(makeDeps());
+		const result = await adapter.mount({
+			filesystem: makeFs(vaultDir),
+			workspacePath,
+			sessionId: "session-3",
+			folderName: "my-vault",
+			credential: null,
+		});
+		if (!result.ok) throw new Error("mount failed");
+
+		await expect(adapter.unmount(result.mounted)).resolves.toBeUndefined();
+		// nothing removed — the folder link is still there, unaffected by unmount.
+		expect(fs.existsSync(path.join(workspacePath, "my-vault"))).toBe(true);
+	});
+
+	it("mount: returns ok:false when the folder does not exist", async () => {
+		const workspacePath = path.join(tmpDir, `sandbox-${randomUUID()}`);
+		fs.mkdirSync(workspacePath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
 		const result = await adapter.mount({
 			filesystem: makeFs("/nonexistent/vault/path"),
-			sandboxPath,
+			workspacePath,
+			sessionId: "session-4",
+			folderName: "path",
+			credential: null,
 		});
 
-		expect(result.success).toBe(false);
-		expect(result.error).toContain("does not exist");
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error("unreachable");
+		expect(result.reason).toContain("does not exist");
 	});
 });

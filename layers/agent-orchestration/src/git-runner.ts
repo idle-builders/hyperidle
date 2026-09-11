@@ -17,21 +17,6 @@ import { spawn } from "node:child_process";
 import { createLogger, type Logger } from "@hyperidle/diagnostics";
 import { redactSecrets } from "./redact-secrets.js";
 
-/**
- * Optional per-request git config injected via environment variables.
- * Token never goes in argv or URL — only in the child env via GIT_CONFIG_*
- * (verified mechanism).
- *
- * @lore AO1 v2: GIT_CONFIG_COUNT/KEY_n/VALUE_n is the ONLY safe token path.
- * Putting tokens in the URL or `-c http.extraHeader=…` in argv leaks to ps/logs.
- */
-interface GitConfigInjection {
-	/** git config key, e.g. `http.https://github.com/.extraHeader` */
-	key: string;
-	/** git config value, e.g. `Authorization: Basic <base64>` */
-	value: string;
-}
-
 interface GitRunner {
 	/** Stage paths. When `paths` is empty the runner passes `-A`. */
 	add(paths: readonly string[]): Promise<void>;
@@ -82,17 +67,18 @@ interface GitRunner {
 	 */
 	verifyCommit(ref: string): Promise<boolean>;
 	/**
-	 * Shallow clone a remote URL into the runner's cwd (the session dir).
-	 * Token is injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env — never in URL or argv.
+	 * Full clone of a remote URL into `destination` (an absolute path,
+	 * independent of the runner's own cwd — the destination does not exist yet,
+	 * so it cannot be the bound cwd). `--no-checkout`: the kept copy backs
+	 * worktrees, never a checkout of its own. Credential env only — never a
+	 * URL with userinfo or a header in argv.
 	 *
-	 * @lore AO2: cwd = sandboxPath (the session working directory). Clone INTO `.`,
-	 * not into a subdirectory, so the agent sees the repo root at sandboxPath.
+	 * @lore BA5 §6.3/§5.2: rewritten from the AO2 single-session shallow clone
+	 * (branch + depth, into the runner's own cwd) — a kept copy is cloned once,
+	 * full history so a pushed branch has one, and every session after the
+	 * first only `fetch`es it.
 	 */
-	clone(
-		url: string,
-		branch: string,
-		opts?: { depth?: number; tokenConfig?: GitConfigInjection },
-	): Promise<void>;
+	clone(url: string, destination: string, opts?: { env?: Record<string, string> }): Promise<void>;
 	/**
 	 * Bundle a named ref to a file path (shallow-safe named-ref bundle).
 	 *
@@ -101,17 +87,17 @@ interface GitRunner {
 	 */
 	bundle(bundlePath: string, ref: string): Promise<void>;
 	/**
-	 * Add a worktree at worktreePath on the given branch.
-	 * Runs against the HOST REPO (runner cwd = host repo path).
+	 * Add a worktree at `worktreePath`, on a NEW branch `newBranch`, starting
+	 * from `startPoint`. Runs against the kept copy (runner cwd = kept copy
+	 * path). Always creates the branch — a mounted worktree is always a new
+	 * branch off the filesystem's configured branch (§5.2), never a checkout
+	 * of an existing one.
 	 *
-	 * @lore AO2: createBranch=true creates a NEW branch from HEAD. Git refuses
-	 * two worktrees on the same branch — always use unique branch names.
+	 * @lore BA5 §6.3: rewritten from the AO2 shape (optional `createBranch`,
+	 * branching off HEAD) — the new shape always creates `newBranch` and always
+	 * names its own `startPoint` explicitly, rather than defaulting to HEAD.
 	 */
-	worktreeAdd(
-		worktreePath: string,
-		branch: string,
-		opts?: { createBranch?: boolean },
-	): Promise<void>;
+	worktreeAdd(worktreePath: string, newBranch: string, startPoint: string): Promise<void>;
 	/**
 	 * Remove a worktree from the host repo's worktree list.
 	 *
@@ -147,6 +133,10 @@ interface SpawnResult {
 const DEFAULT_LOCAL_MS = 5_000;
 const DEFAULT_PUSH_MS = 30_000;
 const DEFAULT_WORKTREE_MS = 120_000;
+/** @lore BA5 §5.2: a kept copy's first clone is full history, not shallow — give it room. */
+const DEFAULT_CLONE_MS = 600_000;
+/** @lore BA5 §5.2: every mount after the first only fetches — longer than a local op, shorter than a fresh clone. */
+const DEFAULT_FETCH_MS = 120_000;
 
 /** The `GH_TOKEN` value of a call's env, if any — the one secret the runner ever carries. */
 function secretsFromEnv(env: Record<string, string> | undefined): string[] {
@@ -267,6 +257,8 @@ export function createGitRunner(repoPath: string): GitRunner {
 	const localMs = DEFAULT_LOCAL_MS;
 	const longLocalMs = DEFAULT_WORKTREE_MS;
 	const pushMs = DEFAULT_PUSH_MS;
+	const cloneMs = DEFAULT_CLONE_MS;
+	const fetchMs = DEFAULT_FETCH_MS;
 
 	function run(
 		args: readonly string[],
@@ -374,19 +366,14 @@ export function createGitRunner(repoPath: string): GitRunner {
 		},
 		async clone(
 			url: string,
-			branch: string,
-			opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+			destination: string,
+			opts?: { env?: Record<string, string> },
 		): Promise<void> {
-			const args: string[] = ["clone"];
-			if (opts?.depth != null) args.push("--depth", String(opts.depth));
-			args.push("--single-branch", "--branch", branch, "--", url, ".");
-			const extraEnv: Record<string, string> = {};
-			if (opts?.tokenConfig) {
-				extraEnv.GIT_CONFIG_COUNT = "1";
-				extraEnv.GIT_CONFIG_KEY_0 = opts.tokenConfig.key;
-				extraEnv.GIT_CONFIG_VALUE_0 = opts.tokenConfig.value;
-			}
-			const result = await run(args, pushMs, extraEnv);
+			if (destination.startsWith("-"))
+				throw new Error("git clone: destination must not start with '-'");
+			const args: string[] = ["clone", "--no-checkout", "--", url, destination];
+			const extraEnv = opts?.env ?? {};
+			const result = await run(args, cloneMs, extraEnv);
 			if (result.spawnErrorCode === "ENOENT") {
 				throw new Error("git is not installed");
 			}
@@ -399,7 +386,7 @@ export function createGitRunner(repoPath: string): GitRunner {
 			}
 		},
 		async fetch(opts?: { env?: Record<string, string> }): Promise<void> {
-			await runExpectOk(["fetch", "--prune", "origin"], pushMs, opts?.env);
+			await runExpectOk(["fetch", "--prune", "origin"], fetchMs, opts?.env);
 		},
 		async worktreePrune(): Promise<void> {
 			await runExpectOk(["worktree", "prune"], longLocalMs);
@@ -414,19 +401,14 @@ export function createGitRunner(repoPath: string): GitRunner {
 				throw new Error("git bundle: bundlePath and ref must not start with '-'");
 			await runExpectOk(["bundle", "create", bundlePath, ref], longLocalMs);
 		},
-		async worktreeAdd(
-			worktreePath: string,
-			branch: string,
-			opts?: { createBranch?: boolean },
-		): Promise<void> {
-			if (worktreePath.startsWith("-") || branch.startsWith("-"))
+		async worktreeAdd(worktreePath: string, newBranch: string, startPoint: string): Promise<void> {
+			if (worktreePath.startsWith("-") || newBranch.startsWith("-") || startPoint.startsWith("-"))
 				throw new Error("git worktree add: args must not start with '-'");
-			const args: string[] = ["worktree", "add"];
-			if (opts?.createBranch) args.push("-b", branch);
-			args.push("--", worktreePath);
-			if (!opts?.createBranch) args.push(branch);
 			// @lore worktree-hook-timeout: `git worktree add` runs the post-checkout hook.
-			await runExpectOk(args, longLocalMs);
+			await runExpectOk(
+				["worktree", "add", "-b", newBranch, "--", worktreePath, startPoint],
+				longLocalMs,
+			);
 		},
 		async worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void> {
 			if (worktreePath.startsWith("-"))
@@ -458,4 +440,4 @@ export function createGitRunner(repoPath: string): GitRunner {
 	};
 }
 
-export type { GitConfigInjection, GitRunner };
+export type { GitRunner };

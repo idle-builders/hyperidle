@@ -1,34 +1,33 @@
 /**
- * AU26 F2 — `admitSession` Phase 4.5 mounts what the LIVE record says.
+ * T9 (BA5 §14.2) — a session run to completion, through the real one-git-adapter
+ * mount engine: the agent is told what it has (§9), a mounted git filesystem's
+ * worktree is unmounted at teardown while its branch stays (§5.5), a session
+ * awaiting a review verdict keeps its worktree instead, `trustedPaths` carry
+ * the kept copy (§5.6), and a mounted filesystem's OWN env (e.g. `GH_TOKEN`)
+ * reaches the harness even with no `serviceConnectionResolver` wired (§6.1).
  *
- * History: Decision F2 (AU21 §9 Increment 8) had Phase 4.5 call the seam
- * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`. AU21 §9 Increment
- * 12 replaced that seam with an emit-time BAKE frozen onto the request. AU26 F2
- * deletes the bake: `filesystems` / `filesystem_injections` are
- * agent-orchestration's own tables now, so Phase 4.5 asks
- * `ProvisionSessionDeps.injectedFilesystems` — an in-layer reader port the
- * Application backs with `@hyperidle/filesystems` — at spawn time.
- *
- * This file proves the closure at the `admitSession` level (any of the six
- * intent kinds can reach this Phase — this test exercises it directly via
- * `provisioner.admit`, kind-agnostic). The structural half of the proof is
- * unchanged and still stronger than a runtime spy: `SessionLifecyclePorts`
- * declares no `filesystems` field at all, so there is no core-api seam left for
- * Phase 4.5 to reach even if it wanted to. What changed is where the list comes
- * from — the port is asked for THIS agent, and nothing about filesystems rides
- * the request. The end-to-end staleness proof (assign after emit, still
- * mounted) lives in `filesystems-added-after-emit.integration.test.ts`.
+ * AU26 F2 (historical, still true): Phase 4.5 asks `deps.injectedFilesystems`
+ * for THIS agent, live, at spawn — `SessionLifecyclePorts` declares no
+ * `filesystems` field at all, so there is no core-api seam left to reach.
  */
 
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { describe, vi } from "vitest";
+import { afterEach, describe, vi } from "vitest";
+// `../../../src/git-runner.js` is the layer root's own runner — a relative,
+// __tests__-only cross-package reach (Mechanism C exempts `__tests__/`), same
+// precedent the deleted `git-clone-adapter.integration.test.ts` used.
+import { createGitRunner } from "../../../src/git-runner.js";
 import type { FilesystemMounterPort } from "../filesystem-provisioning.js";
-// Filesystem is a local type in mounter.ts (AU44 b2: dissolved from domain-model).
-import type { Filesystem } from "../mounter.js";
+import { RegistryFilesystemMounter } from "../index.js";
+import type { MountedFilesystem } from "../mounter.js";
 import { createProvisioner } from "../provisioner.js";
+import { recordReviewSession } from "../review-sessions.js";
 
 type CreateProvisioner = typeof createProvisioner;
 type SessionLifecyclePorts = Parameters<CreateProvisioner>[0];
@@ -37,245 +36,376 @@ type AdmitArgs = Parameters<Provisioner["admit"]>;
 type ProvisionSessionDeps = AdmitArgs[0];
 type ProvisionSessionParams = AdmitArgs[1];
 type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
-type InjectedFilesystem = Awaited<
-	ReturnType<
-		NonNullable<ProvisionSessionDeps["injectedFilesystems"]>["listInjectedForProvisioning"]
-	>
->[number];
 type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
 
-/** A harness adapter that is never actually invoked by `admitSession` (Phases 1-7 stop short of harness spawn). */
-function buildFakeHarnessAdapter(): FakeHarnessAdapter {
+const dirs: string[] = [];
+afterEach(() => {
+	for (const dir of dirs.splice(0)) {
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+function tempDir(): string {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ba5-t9-"));
+	dirs.push(dir);
+	return dir;
+}
+
+function initLocalRepo(dir: string): void {
+	execFileSync("git", ["init", "--quiet", "-b", "main", dir]);
+	execFileSync("git", ["-C", dir, "config", "user.email", "t9@hyperidle.test"]);
+	execFileSync("git", ["-C", dir, "config", "user.name", "t9"]);
+	fs.writeFileSync(path.join(dir, "README.md"), "seed\n");
+	execFileSync("git", ["-C", dir, "add", "-A"]);
+	execFileSync("git", ["-C", dir, "commit", "--quiet", "-m", "seed"]);
+}
+
+function worktreeList(repoDir: string): string {
+	return execFileSync("git", ["-C", repoDir, "worktree", "list", "--porcelain"], { encoding: "utf8" });
+}
+
+function branchExists(repoDir: string, branch: string): boolean {
+	return (
+		execFileSync("git", ["-C", repoDir, "branch", "--list", branch], { encoding: "utf8" }).trim() !== ""
+	);
+}
+
+interface CapturedStart {
+	mcpTokenEnv?: Record<string, string>;
+}
+
+function buildFakeHarnessAdapter(opts: {
+	readonly captured: CapturedStart;
+	readonly toolName?: string;
+	readonly onReturnAction?: (toolName: string) => Promise<void>;
+}): FakeHarnessAdapter {
 	return {
-		startSession: () => Promise.reject(new Error("must not be called by admitSession")),
+		startSession: async (config: { sessionId: string; mcpTokenEnv?: Record<string, string> }) => {
+			opts.captured.mcpTokenEnv = config.mcpTokenEnv;
+			return { sessionId: config.sessionId };
+		},
 		streamEvents: () => ({
-			[Symbol.asyncIterator]() {
-				throw new Error("must not be called by admitSession");
+			async *[Symbol.asyncIterator]() {
+				if (opts.toolName) {
+					await opts.onReturnAction?.(opts.toolName);
+					yield { type: "tool_call", toolName: opts.toolName, args: {} };
+				}
 			},
 		}),
-		stopSession: () => Promise.reject(new Error("must not be called by admitSession")),
+		stopSession: async () => ({ outcome: "completed" as const, tokenUsage: { byTier: {} } }),
 		getCapabilities: () => ({
 			preCompactionTrigger: false,
 			subAgents: false,
 			modelProviders: [],
 			mcpSupport: false,
 			returnEnforcement: "none" as const,
+			cliMcpDialect: "codex-toml" as const,
 		}),
-	};
+		getNativeSessionId: () => "native-abc",
+	} as unknown as FakeHarnessAdapter;
 }
 
-/**
- * Every field admitSession's Phases 1-7 do not exercise in this test's
- * scenario is a `vi.fn()` that throws if ever called — an unexpected
- * invocation fails loudly instead of silently no-op'ing.
- */
-function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLifecyclePorts {
+function buildHarnessPorts(opts: { trustedPathsSeen: string[][] }): SessionLifecyclePorts {
 	const neverCalled = (label: string) =>
 		vi.fn(() => {
 			throw new Error(`${label}: must not be called in this test scenario`);
 		});
-	const base: SessionLifecyclePorts = {
+	return {
 		sessionRequests: {
 			findSessionRequest: neverCalled("sessionRequests.findSessionRequest"),
 			listSessionRequests: neverCalled("sessionRequests.listSessionRequests"),
 			transitionSessionRequest: neverCalled("sessionRequests.transitionSessionRequest"),
 			abortSessionRun: neverCalled("sessionRequests.abortSessionRun"),
-			registerSessionRun: neverCalled("sessionRequests.registerSessionRun"),
-			deregisterSessionRun: neverCalled("sessionRequests.deregisterSessionRun"),
+			registerSessionRun: vi.fn(),
+			deregisterSessionRun: vi.fn(),
 		},
-		observability: {
-			summarizeToolArgs: () => "",
-		},
-		// The `filesystems` seam reader is DELETED from `SessionLifecyclePorts`
-		// entirely (not merely wired as `neverCalled`) — a stronger proof than a
-		// runtime spy: there is no core-api port left to call. AU26 F2: the only
-		// source `mountFilesystemsForAgent` reads from is the in-layer
-		// `ProvisionSessionDeps.injectedFilesystems` port these tests supply.
-		// AU21 Increment 14a: `SessionLifecyclePorts` no longer carries a `cost`
-		// field at all — the cap-gate port is deleted, no replacement.
+		observability: { summarizeToolArgs: () => "" },
 		harnessRuntime: {
 			enforcementRegistry: {
-				register: neverCalled("harnessRuntime.enforcementRegistry.register"),
-				get: neverCalled("harnessRuntime.enforcementRegistry.get"),
-				incrementForce: neverCalled("harnessRuntime.enforcementRegistry.incrementForce"),
-				unregister: neverCalled("harnessRuntime.enforcementRegistry.unregister"),
+				register: vi.fn(),
+				get: vi.fn(() => undefined),
+				incrementForce: vi.fn(),
+				unregister: vi.fn(),
 			},
-			createReturnGate: neverCalled("harnessRuntime.createReturnGate"),
-			evaluateReturn: neverCalled("harnessRuntime.evaluateReturn"),
-			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
-			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
-			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
-			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
-			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
+			createReturnGate: () => ({ observe: () => undefined, returned: true }),
+			evaluateReturn: () => "returned" as const,
+			provisionReturnHook: async () => undefined,
+			writeCliMcpConfig: async (params: { trustedPaths?: readonly string[] }) => {
+				opts.trustedPathsSeen.push([...(params.trustedPaths ?? [])]);
+				return {};
+			},
+			writePluginStdioMcpEntries: vi.fn(),
+			openMcpBridge: async () => ({ token: "tok", url: "http://127.0.0.1:0/mcp" }),
+			closeMcpBridge: async () => undefined,
 		},
 		toolProvider: {
-			buildToolRegistry: neverCalled("toolProvider.buildToolRegistry"),
+			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
 			toolsForRole: () => [],
-			returnStatusToolForRegistry: neverCalled("toolProvider.returnStatusToolForRegistry"),
+			returnStatusToolForRegistry: () => ({ name: "return_status" }),
 		},
 		contextAssembly: {
 			assembleAgentContext: neverCalled("contextAssembly.assembleAgentContext"),
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
-			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
+			writeSandboxAgentsMd: (sandboxPath: string, prompt: string) => {
+				fs.writeFileSync(path.join(sandboxPath, "AGENTS.md"), prompt);
+			},
 		},
-	};
-	return { ...base, ...overrides };
+	} as unknown as SessionLifecyclePorts;
 }
 
-function buildDeps(
-	db: HyperIdleDb,
-	mounter: FilesystemMounterPort,
-	injected: readonly InjectedFilesystem[] = [],
-	asked: string[] = [],
-): ProvisionSessionDeps {
-	return {
-		db,
-		// AU26 F2: the in-layer reader port. Production backs it with
-		// `@hyperidle/filesystems`' `listInjectedFilesystemsForProvisioning`;
-		// here it records which agent Phase 4.5 asked about.
-		injectedFilesystems: {
-			listInjectedForProvisioning: async (agentId: string) => {
-				asked.push(agentId);
-				return injected;
-			},
-		},
-		eventBus: new EventBus(),
-		adapterPool: {
-			select: () => ({
-				id: "fake-adapter",
-				adapter: buildFakeHarnessAdapter(),
-				meta: {
-					name: "Fake",
-					kind: "local",
-					type: undefined,
-					modelProviders: [],
-					maxConcurrent: 5,
-				},
-			}),
-			release: () => undefined,
-			describeSelectFailure: () => "test pool selected nothing",
-		},
-		workspace: {
-			// A real workspace adapter always materializes the directory it hands
-			// back (LocalSandboxAdapter.spawn) — admitSession's post-mount
-			// `ensureSandboxGitRepo` step now depends on that, so this fake must
-			// honor it too.
-			spawn: async () => {
-				fs.mkdirSync("/tmp/au21-admit-session-baked-fs", { recursive: true });
-				return { sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-fs" };
-			},
-			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
-			adopt: (path: string) => Promise.resolve({ sandboxId: "sb-adopted", path }),
-			destroy: async () => undefined,
-		},
-		// AO2 Phase 4.5 only runs mount when a mounter is present.
-		mounter,
-	};
-}
-
-describe("admitSession mounts what the live injection record says", () => {
-	test("asks the in-layer reader for THIS agent and mounts what it returns", async ({ db }) => {
-		const now = new Date().toISOString();
-		await db.insert(users).values({
-			id: "agent-baked-fs-1",
-			kind: "ai",
-			name: "Baked FS Agent",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		});
-
-		const mountCalls: Filesystem[] = [];
-		const mounter: FilesystemMounterPort = {
-			mount: async (input) => {
-				mountCalls.push(input.filesystem);
-				return { success: true, sandboxPath: input.sandboxPath };
-			},
-			captureBack: async () => ({ success: true, captured: true }),
-		};
-
-		const ports = buildHarnessPorts({});
-		const provisioner = createProvisioner(ports);
-
-		const liveFilesystem: InjectedFilesystem = {
-			id: "fs-baked-1",
-			teamId: "team-baked-1",
-			source: "local",
-			kind: "doc_set",
-			connectionId: null,
-			resourceRef: { kind: "doc_set", folder: "/docs" },
-			state: "attached",
-			createdAt: now,
-		};
-
-		const params: ProvisionSessionParams = {
-			taskId: null,
-			agentId: "agent-baked-fs-1",
-			productId: "task-free",
-			sandboxBasePath: "/tmp/au21-admit-session-baked-fs",
-			agentConfig: {
-				kind: "ai",
-				status: "active",
-				role: "builder",
-				teamId: null,
-			},
-			harnessDisabled: [],
-		} as ProvisionSessionParams;
-
-		const asked: string[] = [];
-		const admitted = await provisioner.admit(
-			buildDeps(db as HyperIdleDb, mounter, [liveFilesystem], asked),
-			params,
-		);
-
-		// Nothing about filesystems rode the request; the port was asked instead.
-		expect(asked).toEqual(["agent-baked-fs-1"]);
-		expect(admitted.mountedFilesystems).toHaveLength(1);
-		expect(admitted.mountedFilesystems[0]?.id).toBe("fs-baked-1");
-		expect(mountCalls).toHaveLength(1);
-		expect(mountCalls[0]?.resourceRef).toEqual({ kind: "doc_set", folder: "/docs" });
+async function seedAgent(db: HyperIdleDb, agentId: string): Promise<void> {
+	await db.insert(users).values({
+		id: agentId,
+		kind: "ai",
+		name: "Agent",
+		role: "builder",
+		status: "active",
+		createdAt: new Date().toISOString(),
 	});
+}
 
-	test("an agent with NO injected filesystems mounts nothing — unchanged from today's behavior", async ({
+function buildParams(agentId: string, workspacePath: string): ProvisionSessionParams {
+	return {
+		taskId: null,
+		agentId,
+		productId: "task-free",
+		sandboxBasePath: workspacePath,
+		agentConfig: { kind: "ai", status: "active", role: "builder", teamId: null },
+		harnessDisabled: [],
+	} as unknown as ProvisionSessionParams;
+}
+
+describe("a session run to completion, with a real mounted git filesystem", () => {
+	test("writes AGENTS.md naming the mount, then unmounts the worktree while the branch stays", async ({
 		db,
 	}) => {
-		const now = new Date().toISOString();
-		await db.insert(users).values({
-			id: "agent-baked-fs-2",
-			kind: "ai",
-			name: "Baked FS Agent 2",
-			role: "builder",
-			status: "active",
-			createdAt: now,
-		});
+		const repoDir = tempDir();
+		initLocalRepo(repoDir);
+		const workspacePath = tempDir();
+		const agentId = "agent-t9-1";
+		await seedAgent(db as HyperIdleDb, agentId);
 
-		const mounter: FilesystemMounterPort = {
-			mount: vi.fn(),
-			captureBack: vi.fn(),
-		} as unknown as FilesystemMounterPort;
-
-		const ports = buildHarnessPorts({});
-		const provisioner = createProvisioner(ports);
-
-		const params: ProvisionSessionParams = {
-			taskId: null,
-			agentId: "agent-baked-fs-2",
-			productId: "task-free",
-			sandboxBasePath: "/tmp/au21-admit-session-baked-fs",
-			agentConfig: {
-				kind: "ai",
-				status: "active",
-				role: "builder",
-				teamId: null,
+		const captured: CapturedStart = {};
+		const trustedPathsSeen: string[][] = [];
+		const deps = {
+			db,
+			eventBus: new EventBus(),
+			injectedFilesystems: {
+				listInjectedForProvisioning: async () => [
+					{
+						id: "fs-t9-1",
+						teamId: "team-1",
+						source: "local",
+						kind: "code",
+						connectionId: null,
+						resourceRef: { kind: "code", repo: repoDir, branch: "main" },
+						state: "attached",
+						createdAt: new Date().toISOString(),
+					},
+				],
 			},
-			harnessDisabled: [],
-		} as ProvisionSessionParams;
+			mounter: new RegistryFilesystemMounter({ gitRunnerFactory: (cwd: string) => createGitRunner(cwd) }),
+			adapterPool: {
+				select: () => ({
+					id: "fake-adapter",
+					adapter: buildFakeHarnessAdapter({ captured }),
+					meta: { name: "Fake", kind: "local", type: undefined, modelProviders: [], maxConcurrent: 5 },
+				}),
+				release: () => undefined,
+				describeSelectFailure: () => "test pool selected nothing",
+			},
+			workspace: {
+				spawn: async () => ({ sandboxId: "sbx-1", path: workspacePath }),
+				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: async (p: string) => ({ sandboxId: "sbx-adopted", path: p }),
+				destroy: async () => undefined,
+			},
+		} as unknown as ProvisionSessionDeps;
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, mounter), params);
+		const params = buildParams(agentId, workspacePath);
+		const provisioner = createProvisioner(buildHarnessPorts({ trustedPathsSeen }));
 
-		expect(admitted.mountedFilesystems).toHaveLength(0);
-		expect(mounter.mount).not.toHaveBeenCalled();
+		const admitted = await provisioner.admit(deps, params);
+		expect(admitted.mountedFilesystems).toHaveLength(1);
+		const mountedFs = admitted.mountedFilesystems[0] as MountedFilesystem;
+		expect(mountedFs.git?.remote).toBe(false);
+		expect(mountedFs.git?.keptCopy).toBe(fs.realpathSync(repoDir));
+
+		await provisioner.run(deps, params, admitted);
+
+		const agentsMd = fs.readFileSync(path.join(workspacePath, "AGENTS.md"), "utf8");
+		expect(agentsMd).toContain("## Filesystems");
+		expect(agentsMd).toContain(path.basename(mountedFs.folder));
+		expect(agentsMd).toContain(mountedFs.git?.branch as string);
+		expect(agentsMd).toContain("main");
+
+		const keptCopy = mountedFs.git?.keptCopy as string;
+		const branch = mountedFs.git?.branch as string;
+		expect(worktreeList(keptCopy)).not.toContain(mountedFs.folder);
+		expect(branchExists(keptCopy, branch)).toBe(true);
+
+		expect(trustedPathsSeen[0]).toContain(keptCopy);
+	});
+
+	test("a session that awaits a review verdict keeps its worktree instead of unmounting it", async ({
+		db,
+	}) => {
+		const repoDir = tempDir();
+		initLocalRepo(repoDir);
+		const workspacePath = tempDir();
+		const agentId = "agent-t9-2";
+		await seedAgent(db as HyperIdleDb, agentId);
+
+		let sessionIdForLink: string | undefined;
+		const onReturnAction = async (toolName: string): Promise<void> => {
+			if (!(toolName.endsWith("submit_review") && sessionIdForLink)) return;
+			await recordReviewSession(
+				db as HyperIdleDb,
+				{ reviewMessageId: `review-${sessionIdForLink}`, sessionId: sessionIdForLink },
+				new Date().toISOString(),
+			);
+		};
+
+		const captured: CapturedStart = {};
+		const deps = {
+			db,
+			eventBus: new EventBus(),
+			injectedFilesystems: {
+				listInjectedForProvisioning: async () => [
+					{
+						id: "fs-t9-2",
+						teamId: "team-1",
+						source: "local",
+						kind: "code",
+						connectionId: null,
+						resourceRef: { kind: "code", repo: repoDir, branch: "main" },
+						state: "attached",
+						createdAt: new Date().toISOString(),
+					},
+				],
+			},
+			mounter: new RegistryFilesystemMounter({ gitRunnerFactory: (cwd: string) => createGitRunner(cwd) }),
+			adapterPool: {
+				select: () => ({
+					id: "fake-adapter",
+					adapter: buildFakeHarnessAdapter({
+						captured,
+						toolName: "mcp__hyperidle__submit_review",
+						onReturnAction,
+					}),
+					meta: { name: "Fake", kind: "local", type: undefined, modelProviders: [], maxConcurrent: 5 },
+				}),
+				release: () => undefined,
+				describeSelectFailure: () => "test pool selected nothing",
+			},
+			workspace: {
+				spawn: async () => ({ sandboxId: "sbx-2", path: workspacePath }),
+				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: async (p: string) => ({ sandboxId: "sbx-adopted", path: p }),
+				destroy: async () => undefined,
+			},
+		} as unknown as ProvisionSessionDeps;
+
+		const params = buildParams(agentId, workspacePath);
+		const provisioner = createProvisioner(buildHarnessPorts({ trustedPathsSeen: [] }));
+
+		const admitted = await provisioner.admit(deps, params);
+		sessionIdForLink = admitted.sessionId;
+		const mountedFs = admitted.mountedFilesystems[0] as MountedFilesystem;
+
+		await provisioner.run(deps, params, admitted);
+
+		const keptCopy = mountedFs.git?.keptCopy as string;
+		expect(
+			worktreeList(keptCopy),
+			"the human has not answered yet; unmounting now loses the agent's uncommitted work in a worktree the resume expects to still be there",
+		).toContain(mountedFs.folder);
+		expect(fs.existsSync(workspacePath)).toBe(true);
+	});
+});
+
+describe("a mounted filesystem's own env reaches the harness (BA5 §6.1)", () => {
+	test("GH_TOKEN merges outside the connection-provisioning block, with no serviceConnectionResolver wired", async ({
+		db,
+	}) => {
+		const workspacePath = tempDir();
+		const agentId = "agent-t9-3";
+		await seedAgent(db as HyperIdleDb, agentId);
+
+		const fakeMounted: MountedFilesystem = {
+			filesystem: {
+				id: "fs-t9-3",
+				teamId: "team-1",
+				source: "github",
+				kind: "code",
+				connectionId: "conn-1",
+				resourceRef: { kind: "code", repo: "https://github.com/a/repo.git", branch: "main" },
+				state: "attached",
+				createdAt: new Date().toISOString(),
+			},
+			folder: path.join(workspacePath, "repo"),
+			trustedPath: "/tmp/kept/repo",
+			git: { keptCopy: "/tmp/kept/repo", branch: "hyperidle/session-x", base: "origin/main", remote: true },
+			agentEnv: {
+				GH_TOKEN: "fs-secret-token",
+				GIT_CONFIG_COUNT: "2",
+				GIT_CONFIG_KEY_0: "credential.https://github.com.helper",
+				GIT_CONFIG_VALUE_0: "",
+				GIT_CONFIG_KEY_1: "credential.https://github.com.helper",
+				GIT_CONFIG_VALUE_1: "!gh auth git-credential",
+			},
+			adopted: false,
+		};
+		const fakeMounter: FilesystemMounterPort = {
+			mount: async () => ({ ok: true, mounted: fakeMounted }),
+			unmount: async () => undefined,
+		};
+
+		const captured: CapturedStart = {};
+		const deps = {
+			db,
+			eventBus: new EventBus(),
+			injectedFilesystems: {
+				listInjectedForProvisioning: async () => [
+					{
+						id: fakeMounted.filesystem.id,
+						teamId: "team-1",
+						source: "github",
+						kind: "code",
+						connectionId: "conn-1",
+						resourceRef: fakeMounted.filesystem.resourceRef,
+						state: "attached",
+						createdAt: fakeMounted.filesystem.createdAt,
+					},
+				],
+			},
+			mounter: fakeMounter,
+			// deliberately absent: serviceConnectionResolver / heldConnections.
+			adapterPool: {
+				select: () => ({
+					id: "fake-adapter",
+					adapter: buildFakeHarnessAdapter({ captured }),
+					meta: { name: "Fake", kind: "local", type: undefined, modelProviders: [], maxConcurrent: 5 },
+				}),
+				release: () => undefined,
+				describeSelectFailure: () => "test pool selected nothing",
+			},
+			workspace: {
+				spawn: async () => ({ sandboxId: "sbx-3", path: workspacePath }),
+				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: async (p: string) => ({ sandboxId: "sbx-adopted", path: p }),
+				destroy: async () => undefined,
+			},
+		} as unknown as ProvisionSessionDeps;
+
+		const params = buildParams(agentId, workspacePath);
+		const provisioner = createProvisioner(buildHarnessPorts({ trustedPathsSeen: [] }));
+
+		const admitted = await provisioner.admit(deps, params);
+		await provisioner.run(deps, params, admitted);
+
+		expect(captured.mcpTokenEnv?.GH_TOKEN).toBe("fs-secret-token");
 	});
 });

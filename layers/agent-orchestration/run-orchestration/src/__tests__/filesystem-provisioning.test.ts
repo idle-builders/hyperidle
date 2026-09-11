@@ -10,11 +10,14 @@
  * `deps.filesystems` — an injected `InjectedFilesystemsReaderPort` (Mechanism
  * C), not a seam and not a frozen list.
  *
- * These cases pin the mount loop itself, which did not change: the port is
- * asked once for the agent, every row it returns is mounted, a failed mount is
- * excluded rather than thrown, and an absent port mounts nothing. The
- * end-to-end staleness proof lives in
+ * These cases pin the mount loop itself: the port is asked once for the
+ * agent, every row it returns is mounted, and an absent port mounts nothing.
+ * The end-to-end staleness proof lives in
  * `filesystems-added-after-emit.integration.test.ts`.
+ *
+ * @lore BA5 §4.2/§13 (L3 scope): a failed mount now THROWS instead of being
+ * excluded from the result — see `filesystem-provisioning.ts`'s own
+ * top-of-file `@lore`.
  */
 
 import * as fs from "node:fs";
@@ -25,6 +28,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
 import { startWatcher } from "../file-watcher.js";
 import {
+	computeFolderNames,
 	type FilesystemForProvisioning,
 	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,
@@ -81,21 +85,31 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		const mounter: FilesystemMounterPort = {
 			mount: async (input) => {
 				mounted.push({ filesystem: input.filesystem });
-				return { success: true };
+				return {
+					ok: true,
+					mounted: {
+						filesystem: input.filesystem,
+						folder: path.join(input.workspacePath, input.folderName),
+						trustedPath: "/repo",
+						agentEnv: {},
+						adopted: false,
+					},
+				};
 			},
-			captureBack: async () => ({ success: true, captured: true }),
+			unmount: async () => undefined,
 		};
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-inc12-1",
+			sessionId: "session-inc12-1",
 			filesystems: reader([row], asked),
-			sandboxPath,
+			workspacePath: sandboxPath,
 			mounter,
 		});
 
 		expect(asked).toEqual(["agent-inc12-1"]);
 		expect(result).toHaveLength(1);
-		expect(result[0]?.id).toBe("fs-inc12-1");
+		expect(result[0]?.filesystem.id).toBe("fs-inc12-1");
 		expect(mounted).toHaveLength(1);
 		expect(mounted[0]?.filesystem.resourceRef).toEqual({ kind: "doc_set", folder: "/repo" });
 	});
@@ -103,13 +117,14 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	test("an agent with NO injected filesystems mounts nothing (no throw) — unchanged from today's behavior", async () => {
 		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
-			captureBack: vi.fn(),
+			unmount: vi.fn(),
 		} as unknown as FilesystemMounterPort;
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-inc12-empty",
+			sessionId: "session-inc12-empty",
 			filesystems: reader([]),
-			sandboxPath,
+			workspacePath: sandboxPath,
 			mounter,
 		});
 
@@ -120,12 +135,13 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	test("an unwired reader port mounts nothing — the same graceful no-op an absent mounter gives", async () => {
 		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
-			captureBack: vi.fn(),
+			unmount: vi.fn(),
 		} as unknown as FilesystemMounterPort;
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-inc12-unwired",
-			sandboxPath,
+			sessionId: "session-inc12-unwired",
+			workspacePath: sandboxPath,
 			mounter,
 		});
 
@@ -133,21 +149,60 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		expect(mounter.mount).not.toHaveBeenCalled();
 	});
 
-	test("a failed mount is excluded from the result (degrade-to-today), not thrown", async () => {
+	test("a failed mount THROWS instead of being excluded from the result (BA5 §4.2/§13)", async () => {
 		const bakedRow = buildFilesystemRecord({ id: "fs-inc12-fail" });
 		const mounter: FilesystemMounterPort = {
-			mount: async () => ({ success: false, error: "mount failed" }),
-			captureBack: async () => ({ success: true, captured: true }),
+			mount: async () => ({ ok: false, reason: "mount failed" }),
+			unmount: async () => undefined,
 		};
 
-		const result = await mountFilesystemsForAgent({
-			agentId: "agent-inc12-fail",
-			filesystems: reader([bakedRow]),
-			sandboxPath,
-			mounter,
-		});
+		await expect(
+			mountFilesystemsForAgent({
+				agentId: "agent-inc12-fail",
+				sessionId: "session-inc12-fail",
+				filesystems: reader([bakedRow]),
+				workspacePath: sandboxPath,
+				mounter,
+			}),
+		).rejects.toThrow("mount failed");
+	});
+});
 
-		expect(result).toHaveLength(0);
+describe("computeFolderNames (BA5 §5.3)", () => {
+	function buildFs(id: string, resourceRef: Filesystem["resourceRef"]): Filesystem {
+		return {
+			id,
+			teamId: "team-1",
+			source: "local",
+			kind: resourceRef.kind,
+			connectionId: null,
+			resourceRef,
+			state: "attached",
+			createdAt: "2026-09-01T00:00:00.000Z",
+		};
+	}
+
+	test("names a git filesystem by its repo basename, without .git", () => {
+		const names = computeFolderNames([buildFs("f1", { kind: "code", repo: "https://github.com/a/repo.git", branch: "main" })]);
+		expect(names.get("f1")).toBe("repo");
+	});
+
+	test("names a folder filesystem by its own basename", () => {
+		const names = computeFolderNames([buildFs("f1", { kind: "doc_set", folder: "/home/me/notes" })]);
+		expect(names.get("f1")).toBe("notes");
+	});
+
+	test("disambiguates two filesystems that would otherwise collide, with the filesystem id's first 8 chars", () => {
+		const a = buildFs("fs-aaaaaaaa-1111", { kind: "doc_set", folder: "/a/notes" });
+		const b = buildFs("fs-bbbbbbbb-2222", { kind: "doc_set", folder: "/b/notes" });
+		const names = computeFolderNames([a, b]);
+		expect(names.get("fs-aaaaaaaa-1111")).toBe(`notes-${"fs-aaaaaaaa-1111".slice(0, 8)}`);
+		expect(names.get("fs-bbbbbbbb-2222")).toBe(`notes-${"fs-bbbbbbbb-2222".slice(0, 8)}`);
+	});
+
+	test("disambiguates a name that collides with a scaffolding path", () => {
+		const names = computeFolderNames([buildFs("fs-work-1234", { kind: "doc_set", folder: "/repo/work" })]);
+		expect(names.get("fs-work-1234")).toBe(`work-${"fs-work-1234".slice(0, 8)}`);
 	});
 });
 

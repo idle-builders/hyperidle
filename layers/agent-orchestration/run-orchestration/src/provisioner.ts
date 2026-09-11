@@ -44,9 +44,15 @@ import {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-// Filesystem: local to this package — sibling service boundary (Mechanism C).
+import { describeMountedFilesystems } from "./filesystem-instructions.js";
+import { mergeGitConfigEnv } from "./git-credential-env.js";
+// MountedFilesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
-import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
+import {
+	ensureSandboxGitRepo,
+	excludeMountedFolders,
+	type MountedFilesystem,
+} from "./mounter.js";
 import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { transitionRun } from "./transition-run.js";
 
@@ -732,32 +738,31 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
 // `SessionLifecycleFilesystemsReader` port type stays declared in this file.
 
 /**
- * AO2 Hook B: Capture-back mounted filesystems before endSession/crashSession.
+ * BA5 §5.5: unmount every filesystem this session placed (its git worktree —
+ * the branch stays; a folder mount has nothing to do), before teardown
+ * deletes the workspace.
  *
- * Called BEFORE each endSession (which holds the rm -rf) and before crashSession
- * on the in-runSession crash path. Best-effort: a capture failure is logged but
- * never blocks teardown (uncommitted-but-failed = same loss as today).
- *
- * The delete lives in the terminal transition, not workspace.destroy
- * (adapter-map cleanup only, runs after the delete).
- * Anchoring capture "before workspace.destroy" would capture an already-deleted tree.
- * Must be called BEFORE endSession.
+ * Skipped entirely when the session is awaiting a review verdict: that
+ * workspace is kept for the resume, and the RESUMED session unmounts it at
+ * its own end instead (its adopted mounts are in its own list). Best-effort:
+ * a failure is logged and never blocks teardown.
  */
-async function captureMountedFilesystems(
+async function unmountFilesystems(
+	db: HyperIdleDb,
 	sessionId: string,
-	sandboxPath: string,
-	mountedFilesystems: Filesystem[],
+	mounted: readonly MountedFilesystem[],
 	mounter: FilesystemMounterPort,
 ): Promise<void> {
-	if (mountedFilesystems.length === 0) return;
+	if (mounted.length === 0) return;
+	if (await sessionAwaitsVerdict(db, sessionId)) return;
 
-	for (const filesystem of mountedFilesystems) {
+	for (const filesystem of mounted) {
 		try {
-			await mounter.captureBack({ filesystem, sandboxPath, sessionId });
+			await mounter.unmount(filesystem);
 		} catch (err) {
 			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
 			console.warn(
-				`[session-provisioning] AO2 captureBack threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
+				`[session-provisioning] BA5 unmount threw for filesystem ${filesystem.filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
 			);
 		}
 	}
@@ -1032,7 +1037,7 @@ interface AdmittedSession {
 	/**
 	 * AO2: Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
-	readonly mountedFilesystems: Filesystem[];
+	readonly mountedFilesystems: MountedFilesystem[];
 }
 
 /**
@@ -1041,10 +1046,14 @@ interface AdmittedSession {
  * Runs the HTTP-observable prefix: load agent, adapter
  * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
  * pre-P5)**, task transition, workspace spawn (P4), session row insert (P5),
- * context assembly (P6), start watcher (P7), emit `session_started`. ALL admission
- * failures (ConcurrencyLimit 429 / MissingCredential 500)
- * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
- * status on the POST path and never leave a doomed row.
+ * context assembly (P6), start watcher (P7), emit `session_started`.
+ * ConcurrencyLimit/MissingCredential (429/500) throw BEFORE the P5 row insert
+ * — the detach boundary — so they map to HTTP status on the POST path and
+ * never leave a doomed row. @lore BA5: that is no longer true of every
+ * admission failure — Phase 4.5's filesystem mount runs AFTER the row insert,
+ * so a mount failure's reserved row already exists when it throws. `runtime.ts`
+ * either crashes that row (an ordinary uncaught failure) or, once the hold
+ * exists, deletes it back to `pending` (§4.2) — never left dangling.
  * @lore AU21 Increment 14a: the cost-cap pre-flight (was Phase 2, `CostCapExceeded`
  * 422) is deleted — no replacement gate. Phase numbering below keeps its
  * historical P3/P4/... labels rather than renumbering.
@@ -1180,7 +1189,7 @@ async function admitSession(
 	// `accepted`/`blocked` in the first place.
 	let sessionId: string;
 	let sandboxPath: string;
-	let mountedFilesystems: Filesystem[] = [];
+	let mountedFilesystems: MountedFilesystem[] = [];
 	// ── Phase 4: spawn sandbox via adapter.
 	//
 	// @lore BA2: a resumed session does not get a new directory — it adopts the
@@ -1239,19 +1248,23 @@ async function admitSession(
 	if (deps.mounter) {
 		mountedFilesystems = await mountFilesystemsForAgent({
 			agentId: params.agentId,
+			sessionId,
 			...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
-			sandboxPath,
+			workspacePath: sandboxPath,
 			mounter: deps.mounter,
 		});
 	}
 
-	// @lore BA2 ruling 22: guarantee the sandbox is a git repo, AFTER mounting
-	// (never before — a mounted code filesystem's `git clone`/`git worktree add`
-	// refuses a target directory that already has a `.git`; see
-	// `ensureSandboxGitRepo`'s own doc comment in mounter.ts). Unconditional —
-	// runs even when no mounter is configured, since every session sandbox
-	// benefits (codex's trust precondition; an agent's own diff/revert).
+	// @lore BA5 §5.4: `ensureSandboxGitRepo` no longer has to run strictly after
+	// mounting — a mounted filesystem now lives in its own `<folderName>`
+	// subfolder, never at the sandbox root (see the function's own doc comment
+	// in mounter.ts). Kept in this order regardless: `excludeMountedFolders`
+	// right after it needs the `.git` this call creates.
 	ensureSandboxGitRepo(sandboxPath);
+	excludeMountedFolders(
+		sandboxPath,
+		mountedFilesystems.map((m) => path.basename(m.folder)),
+	);
 
 	// ── Phase 6: assemble context into the sandbox through the agent layer.
 	if (params.taskId) {
@@ -1541,6 +1554,10 @@ async function runSession(
 	// only ever saw the second. With the built-in adapter gone the first has no
 	// reader, so the prompt section is now the single delivery.
 
+	// BA5 §9: what the agent has, and how its work gets out — appended right
+	// before the write, once, only when something was mounted.
+	assembledPrompt += describeMountedFilesystems(mountedFilesystems);
+
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
 	// BA10: what the agent is asked to do, as opposed to what it is told about
@@ -1616,12 +1633,13 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 		if (adapterCapabilities.cliMcpDialect) {
-			// The session's mounted filesystems (AO2, phase 4.5
-			// above) are the trusted directories — tell the harness what the
-			// filesystem primitive already declared, alongside the sandbox.
-			const trustedPaths = mountedFilesystems
-				.map((filesystem) => localTrustedPath(filesystem))
-				.filter((p): p is string => p !== undefined);
+			// The session's mounted filesystems (AO2, phase 4.5 above) are the
+			// trusted directories — tell the harness what the filesystem primitive
+			// already declared, alongside the sandbox. BA5 §5.6: every mount now
+			// carries its own `trustedPath` (the kept copy for git, the real
+			// folder for a folder mount) — no filter, unlike the deleted
+			// `localTrustedPath`, which returned undefined for a plain clone.
+			const trustedPaths = mountedFilesystems.map((filesystem) => filesystem.trustedPath);
 			const result = await ports.harnessRuntime.writeCliMcpConfig({
 				dialect: adapterCapabilities.cliMcpDialect,
 				sandboxPath,
@@ -1673,6 +1691,21 @@ async function runSession(
 			);
 		}
 	}
+
+	// @lore BA5 §6.1: a mounted filesystem's own `agentEnv` (e.g. a git
+	// filesystem's `GH_TOKEN`, for the agent's OWN `git push`/`gh`) merges
+	// AFTER and OUTSIDE the `serviceConnectionResolver` block above — never
+	// inside its `if`/`try`. A filesystem's credential must reach the agent
+	// even when connection provisioning is not wired at all (no
+	// `serviceConnectionResolver`) or its own `try` failed, and it overrides a
+	// connection-provisioned `GH_TOKEN` (a filesystem's own PAT is the more
+	// specific grant). `mergeGitConfigEnv` combines every mount's env into one
+	// indexed list instead of a naive spread colliding on repeated keys.
+	const mountedAgentEnv = mergeGitConfigEnv(mountedFilesystems.map((filesystem) => filesystem.agentEnv));
+	if (Object.keys(mountedAgentEnv).length > 0) {
+		mcpTokenEnv = { ...(mcpTokenEnv ?? {}), ...mountedAgentEnv };
+	}
+
 	try {
 		await mergePluginMcpContributions(
 			deps.pluginMcpContributions,
@@ -1943,7 +1976,7 @@ async function runSession(
 	if (crashed) {
 		// ── Hook B: capture-back before crash teardown (AO2 §9).
 		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
+			await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
 		}
 		await transitionRun(
 			{ db, eventBus, ports },
@@ -1995,7 +2028,7 @@ async function runSession(
 
 		// ── Hook B: capture-back before not_returned teardown (AO2 §9).
 		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
+			await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
 		}
 		await transitionRun(
 			{ db, eventBus, ports },
@@ -2022,7 +2055,7 @@ async function runSession(
 
 	// ── Hook B: capture-back before normal teardown (AO2 §9).
 	if (deps.mounter && mountedFilesystems.length > 0) {
-		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
+		await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
 	}
 	await transitionRun(
 		{ db, eventBus, ports },
@@ -2151,19 +2184,6 @@ interface Provisioner {
 		deps: ProvisionSessionDeps,
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
-	/**
-	 * AU26 F2: takes the agent id plus the live, in-layer injected-filesystem
-	 * reader — `mountFilesystemsForAgent` reads the record itself at spawn
-	 * rather than consuming a list frozen onto the request. See
-	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.
-	 */
-	mount(
-		agentId: string,
-		filesystems: InjectedFilesystemsReaderPort | undefined,
-		sandboxPath: string,
-		mounter: FilesystemMounterPort,
-	): Promise<Filesystem[]>;
-	capture: typeof captureMountedFilesystems;
 }
 
 export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
@@ -2174,13 +2194,5 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 			runSession(deps, params, admitted, ports, onHarnessStarted),
 		provision: (deps, params) => provisionSession(deps, params, ports),
 		start: (deps, params) => startSessionProvision(deps, params, ports),
-		mount: (agentId, filesystems, sandboxPath, mounter) =>
-			mountFilesystemsForAgent({
-				agentId,
-				...(filesystems ? { filesystems } : {}),
-				sandboxPath,
-				mounter,
-			}),
-		capture: (...args) => captureMountedFilesystems(...args),
 	};
 }
