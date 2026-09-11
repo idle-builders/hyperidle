@@ -77,7 +77,9 @@ still returns them. The server guards the door regardless of the picker.
 to be refined, not freed to start. Any task may depend on any task — simplest wins. You find a task by
 searching, never by pasting an id, and the picker reuses the design system. The web version runs only
 remote harnesses by design, so agent-owned proof runs on the packaged desktop build, and a failing desktop
-build means the change broke it. The desktop database is demo data: delete it rather than keep it.
+build means the change broke it. The desktop database is demo data: delete it rather than keep it. The PR also moves every entity picker onto
+the shared `Combobox`: task owner, plugin team, message recipient, add-agent role, knowledge parent, routine
+agent, and org-chart people. Short fixed-list dropdowns, global search and the `/` menu stay as they are.
 
 **Gate and review.** One gate before shipping, on the running app. A fresh agent reviews the integrated
 diff, and again over each scope-bearing change.
