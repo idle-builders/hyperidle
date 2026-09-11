@@ -88,6 +88,8 @@ would break inherited logins.
   notification, and starting after *Check*; a resume.
 - **G3 — before ship:** Drive through `rclone` proven, the filesystem doc brought up to date, one
   CI-green PR. The maintainer merges.
+- **Size accepted (maintainer, 2026-09-11):** the rulings add up to ~2,000–2,400 lines; built in six
+  ordered steps, each ending green.
 - A fresh reviewer per phase over the integrated diff. Dials: suite · new context · user-facing surface.
 
 ## Confusions

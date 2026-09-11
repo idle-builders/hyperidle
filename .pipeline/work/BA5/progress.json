@@ -1,7 +1,7 @@
 {
   "item": "BA5",
   "title": "The filesystem works",
-  "status": "awaiting-human-review",
+  "status": "in-progress",
   "since": "f88b714346822fdc19d90c07f9617263fba6925c",
   "dials": {
     "complexity": "suite",
@@ -66,12 +66,13 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Architecture revised (\u00a718 overrides). Still awaiting maintainer at the size stop: A accept / B split / C cut. Nothing built.",
+  "resume": "Size accepted (A) 2026-09-11. Build: L1 builder next. After L6: phase-1 review (fresh reviewer), then G2 live proof on the running app.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
-    "at": "d38eb819b",
+    "at": "b8b00b2f1",
     "check": "PASS (38 packages)",
-    "lint": "PASS (2539 files, 23 rules, 0 violations)",
+    "lint": "PASS (2540 files, 23 rules, 0 violations)",
+    "originMain": "f88b71434 (unmoved)",
     "ranOn": "2026-09-11"
   },
   "sizeStop": {
@@ -84,7 +85,12 @@
       "offline github.com test stand-in": "~140",
       "separate CLI list": "~120"
     },
-    "rule": "CLAUDE.md simplicity check: 1,000+ added lines -> stop, explain assumptions, ask"
+    "rule": "CLAUDE.md simplicity check: 1,000+ added lines -> stop, explain assumptions, ask",
+    "resolution": {
+      "at": "2026-09-11",
+      "decision": "A \u2014 accept (~2,000-2,400 added; production ~1,050-1,250)",
+      "by": "maintainer"
+    }
   },
   "verdicts": [
     {
@@ -123,5 +129,40 @@
       "revisedSize": "production ~1,050-1,250 + tests ~950-1,150 = ~2,000-2,400; no cut keeping G2's list gets production under 1,000",
       "orchestratorOverrides": "architecture.md \u00a718: connection health narrow cut (keep inherited detection); notice names all picked agents; Postgres remote-server limit; drain return"
     }
-  ]
+  ],
+  "build": {
+    "strategy": "one builder per leaf, sequential; red tests then code; each leaf ends green (targeted tests + check + lint); orchestrator verifies commits and pasted gate output between leaves",
+    "leaves": [
+      {
+        "id": "L1",
+        "what": "schema, write-back removal, stored connection-health removal (narrow, \u00a718)",
+        "state": "pending"
+      },
+      {
+        "id": "L2",
+        "what": "git runner and credentials",
+        "state": "pending"
+      },
+      {
+        "id": "L3",
+        "what": "one git adapter, placement, kept copies, agent instructions, teardown",
+        "state": "pending"
+      },
+      {
+        "id": "L4",
+        "what": "Check and detection",
+        "state": "pending"
+      },
+      {
+        "id": "L5",
+        "what": "hold and notification",
+        "state": "pending"
+      },
+      {
+        "id": "L6",
+        "what": "surfaces and onboarding",
+        "state": "pending"
+      }
+    ]
+  }
 }
