@@ -55,5 +55,22 @@ describe("task transition contract", () => {
 	it("allows proposed -> hold (BA6: the entrance to the dependency-wait chain)", () => {
 		expect(canTransitionTaskState("proposed", "hold")).toBe(true);
 	});
+
+	/**
+	 * BA6: the pick-up guard in `task-state-machine.ts` exempts `blocked` from
+	 * the "must come from accepted" pick-up check, and that exemption is only
+	 * sound because `blocked` is reachable from `in_progress` alone — so a task
+	 * in `blocked` was genuinely picked up once. This derives the set of
+	 * sources into `blocked` straight from the table (no copy of it here) so
+	 * that adding any other edge into `blocked` fails this test — a signal to
+	 * revisit the pick-up guard's `blocked` exemption before it walks a
+	 * parked task past pick-up undetected.
+	 */
+	it("blocked is reachable only from in_progress (BA6 pick-up guard depends on this)", () => {
+		const sourcesIntoBlocked = Object.entries(TASK_STATE_TRANSITIONS)
+			.filter(([, targets]) => targets.includes("blocked"))
+			.map(([from]) => from);
+		expect(sourcesIntoBlocked).toEqual(["in_progress"]);
+	});
 });
 // TaskInvalidTransitionError is tested in @hyperidle/work (layers/core-api/work/src/__tests__/errors.test.ts)
