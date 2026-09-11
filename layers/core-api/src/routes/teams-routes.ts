@@ -429,6 +429,7 @@ export function createTeamRoutes(
 		const result: CreateTeamResponse = {
 			team: { id: teamId, name: name.trim(), phase: "build" },
 			teamMembers: { id: teamId },
+			agentIds,
 		};
 
 		return c.json(result, 201);
