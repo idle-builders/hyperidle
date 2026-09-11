@@ -21,7 +21,7 @@ you can't tell which is which without looking at `kind`.
 **Tools first, UI follows.** Humans are more capable than agents. Design the agent's list;
 build the UI to the same structure. Designing like a desktop app is how this fails.
 
-**An action is a sentence a person would say.** Not a route (a fragment), not a god-tool (a
+**An action is a sentence a user would say.** Not a route (a fragment), not a god-tool (a
 bundle). The list is what the agent reads. Readable names and descriptions are what make
 tools separable — not fewer tools. Research: ~14 distinguishable tools is the ceiling;
 overlap, not count, is the constraint; prose alone moves outcomes ~20%.
@@ -30,33 +30,33 @@ overlap, not count, is the constraint; prose alone moves outcomes ~20%.
 
 | task | search · open · edit |
 |---|---|
-| conversation | search · open · send a message · adjust |
+| thread | search · open · send a message · adjust |
 | document | search · open · edit |
-| person | search · open · edit |
+| user | search · open · edit |
 | session | see what's running · watch · stop |
 | platform | manage plugins |
 
 Every edit is a whole-object upsert. Sending a message with an existing id overwrites it.
 
-**Nine events:** `task/conversation/document/person` × `created`/`changed`, plus
-`conversation.message`. No read events. Eight platform events stay on the bus, off the
+**Nine events:** `task/thread/document/user` × `created`/`changed`, plus
+`thread.message`. No read events. Eight platform events stay on the bus, off the
 surface. Eight are deleted.
 
 **Rulings, each confirmed by the founder:**
-- Team is an attribute on a person and a filter on the people list. Not an object.
-- Routines are **subscriptions on a person**. An agent's subscription runs a document; a
+- Team is an attribute on a user and a filter on the people list. Not an object.
+- Routines are **subscriptions on a user**. An agent's subscription runs a document; a
   human's sends a notification. Same mechanism, same vocabulary. Mute = pause a subscription.
-  "Run now" = send that person a message. No routine object.
-- Setup dissolves. Connections, folders, backends, defaults are person attributes.
+  "Run now" = send that user a message. No routine object.
+- Setup dissolves. Connections, folders, backends, defaults are user attributes.
   Plugins are the only platform thing; the one surviving key (`shared_backend_key`) lives with them.
   Defaults are plugin contributions with user overrides — the config layer already models this.
 - The attention mechanism is deleted entirely: routes, `score_attention` tool, engine.
   "What's proposed needs attention" — nothing is scored.
 - `items` becomes a message kind. `GET /recipients` becomes search people.
-- No "start a session." A person gives work — edit a task, send a message. We are a
+- No "start a session." A user gives work — edit a task, send a message. We are a
   workspace tool, not a harness.
 - Files are files. Agent: its filesystem. Human: git/S3/Drive/local. Never an object.
-  Folders sit on the person as a placeholder until the folder/filesystem/workspace redesign.
+  Folders sit on the user as a placeholder until the folder/filesystem/workspace redesign.
 - Default install ships with nothing: one agent, one subscription to everything, empty
   prompts. Every opinion (role catalog, prompt templates, team scaffolding) moves to a plugin.
 - Scope is global > team > user. Within reach everything is on by default; you switch things
@@ -105,10 +105,10 @@ Under 1,000 lines per change or stop and ask. Deletions never count.
 3. **One object end to end — task.** Three actions, one service `edit` with invariants, one
    tool each, UI following. Proves the pattern on the simplest object before touching the
    others. Task already has the fewest legacy shapes (bets are gone).
-4. **Conversation**, including `items` → message kind and the message-overwrite rule.
+4. **Thread**, including `items` → message kind and the message-overwrite rule.
 5. **Document**, including the rename from knowledge item, the tree, and merge/split/status as
    edit fields. Biggest object; most legacy routes.
-6. **Person**, including subscriptions (which kills routines and notifications as separate
+6. **User**, including subscriptions (which kills routines and notifications as separate
    systems — needs a recipient on the queue and per-user mute), the setup attributes, and
    the plugin-contribution defaults.
 7. **Session and plugins** — small.
@@ -138,7 +138,7 @@ objects it bakes change shape.
 - The UI side of every action — what "search tasks" looks like on screen. Not designed.
 - The folder / filesystem / workspace redesign. Placeholder only.
 - Whether `GET /search` is one cross-object search or four.
-- Notification read/seen — person attribute or UI-only state.
+- Notification read/seen — user attribute or UI-only state.
 - What the lint rule concretely enforces.
 - The identity literature (`research/dual-surface-patterns.md` §4) argues agents should be
   principals, not user rows. Founder's model says one row. Not resolved; noted, not blocking.

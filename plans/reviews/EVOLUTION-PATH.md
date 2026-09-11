@@ -59,9 +59,9 @@ agent and as human and gets identical results; a failed invariant greys the same
 refuses on the wire, with the reason; the rule is green for task and red for everything else
 (that red is the to-do list for steps 3–6). **Unblocks:** the pattern; 3–6 copy it.
 
-## 3. Conversation
+## 3. Thread
 
-`conversation.search · open · send a message · adjust`. `items` folds into messages as a
+`thread.search · open · send a message · adjust`. `items` folds into messages as a
 kind; sending with an existing id overwrites; the reply-to-caller rule and who-may-post-where
 become invariants; verdicts are a message kind (already are).
 
@@ -88,15 +88,15 @@ pages' own fetches.
 (`session-knowledge-assembler.ts`) is a keep; it becomes the `document.search` read model
 the session baker calls, not a separate path.
 
-## 5. Person and subscriptions
+## 5. User and subscriptions
 
-`person.search · open · edit`. The biggest structural change: routines and notifications
-become subscriptions on the person; team becomes an attribute + filter; connections,
+`user.search · open · edit`. The biggest structural change: routines and notifications
+become subscriptions on the user; team becomes an attribute + filter; connections,
 folders, backends, defaults become attributes with plugin-contributed defaults.
 
-**Builds:** the `person` module; `subscriptions` (`personId · event · documentId | null ·
+**Builds:** the `user` module; `subscriptions` (`userId · event · documentId | null ·
 paused`) — document set → the scheduler runs it; null → a notification row *with a
-recipient*; cron stays a trigger kind; the one event stream for the UI, per-person filtered.
+recipient*; cron stays a trigger kind; the one event stream for the UI, per-user filtered.
 
 **Deletes:** `users` (802) + `org` (675) + `routine` (2,176) + `notifications` (1,093) +
 `credentials` (385) as packages; `routines` table and 7 routes; `notifications-routes.ts`
@@ -127,8 +127,8 @@ four empty lists and one agent with one subscription.
 ---
 
 ```
-1 delete → 2 list + task → 3 conversation ─┐
-                         → 4 document ─────┼→ 5 person + subscriptions → 7 opinions out
+1 delete → 2 list + task → 3 thread ─┐
+                         → 4 document ─────┼→ 5 user + subscriptions → 7 opinions out
                          → 6 session + platform ──────────────────────┘
 ```
 

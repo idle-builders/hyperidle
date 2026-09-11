@@ -20,7 +20,7 @@ Two assignable primitives:
 1. **The route is the capability.** Hand-written. The route surface is designed from
    what we offer a user — never from what the layer underneath happens to expose.
 
-2. **A capability is one thing a person would say they're doing** — not one internal
+2. **A capability is one thing a user would say they're doing** — not one internal
    function, not one table write. *Post a message*, *submit a review* and *record a
    verdict* are three acts. *Change the title* and *change the status* are both
    "edit this knowledge item" — one act.
@@ -37,7 +37,7 @@ Two assignable primitives:
 5. **Within your reach, everything is on by default.** You are not handed an empty list to
    fill. Every capability in your scope is available and every event in your scope reaches
    you, and you switch off the ones you don't want. Same rule for both kinds of user:
-   a person mutes a notification, an agent has a trigger turned off. Anything can also be
+   a user mutes a notification, an agent has a trigger turned off. Anything can also be
    assigned explicitly.
 
 6. **This is spam control and ownership, not security.** Per ETHOS: security is never
@@ -57,7 +57,7 @@ Everything beyond that arrives from a **plugin** or from the user.
 That resolves what "on by default" means. There is no question of what an agent does when an
 event fires and nobody wrote a prompt, because on a fresh install there is one agent, one
 routine, and it gets everything. Scope levels (global > team > user) are not the starting
-structure — they are what appears once a plugin or a person adds teams and agents.
+structure — they are what appears once a plugin or a user adds teams and agents.
 
 ### Already half-built
 
@@ -100,7 +100,7 @@ at `kind`.
 
 ## Why the current mess exists
 
-The reach-parity audit found 17 things only a person can do, 15 only an agent can do,
+The reach-parity audit found 17 things only a user can do, 15 only an agent can do,
 4 capabilities built twice, and 6 dead doors. Those are not independent bugs. They are
 what a system produces when there is nowhere to declare a capability once — so it gets
 spelled twice, once as a route the UI calls and once as a tool, and nothing forces the

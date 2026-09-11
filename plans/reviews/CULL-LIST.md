@@ -60,15 +60,15 @@ and it got bigger, not smaller.
 
 | Verdict | Offering | Route | UI | Tool | Scope |
 |---|---|---|---|---|---|
-| KEEP | See the conversations | `GET /threads` | ✓ | — | user |
-| KEEP | Open a conversation | `GET /threads/:id` | ✓ | — | user |
-| KEEP | Start a conversation | `POST /threads` | ✓ | ✓ | user |
+| KEEP | See the threads | `GET /threads` | ✓ | — | user |
+| KEEP | Open a thread | `GET /threads/:id` | ✓ | — | user |
+| KEEP | Start a thread | `POST /threads` | ✓ | ✓ | user |
 | KEEP | Message someone directly | `POST /threads/direct` | ✓ | ✓ | user |
 | SPLIT | Post a message | `POST /threads/:id/messages` | ✓ | ✓ | user |
 | SPLIT | Submit a review | *same route* | — | ✓ | user |
 | SPLIT | Record a verdict | *same route* | ✓ | — | user |
 | SPLIT | Answer a question | *same route* | ✓ | — | user |
-| KEEP | Rename a conversation | `PATCH /threads/:id` | — | ✓ | user |
+| KEEP | Rename a thread | `PATCH /threads/:id` | — | ✓ | user |
 | KEEP | Open a review | `GET /reviews/:reviewMessageId` | ✓ | — | user |
 | KEEP | Look up a recipient | `GET /recipients` | ✓ | — | user |
 | DELETE | Inbox rollup (seam only) | `GET /threads/inbox` | — | ✓ | — |
@@ -99,14 +99,14 @@ and it got bigger, not smaller.
 | DELETE | Triage badge count | `GET /knowledge/triage-count` | ✓ | — | — |
 | **KEEP** | **Search everything** | `GET /search` | ✓ | **—** | global |
 
-The last row is the hole. A person searches; an agent cannot.
+The last row is the hole. A user searches; an agent cannot.
 
 # USERS AND ORG
 
 | Verdict | Offering | Route | UI | Tool | Scope |
 |---|---|---|---|---|---|
 | KEEP | See the people | `GET /users` | ✓ | ✓ | global |
-| KEEP | Open a person | `GET /users/:id` | ✓ | ✓ | global |
+| KEEP | Open a user | `GET /users/:id` | ✓ | ✓ | global |
 | KEEP | Join (first run) | `POST /users` | ✓ | — | global |
 | KEEP | Edit your profile | `PATCH /users/:id` | ✓ | — | user |
 | KEEP | Read your assistant's setup | `GET /users/:id/assistant` | ✓ | — | user |
@@ -233,10 +233,10 @@ two events about a primitive that was deleted.
 | KEEP | `session_started` | an agent started working | team |
 | KEEP | `session_ended` | an agent finished working | team |
 | KEEP | `session_not_returned` | an agent's turn ended without answering | user |
-| KEEP | `thread_created` | a new conversation started | user |
+| KEEP | `thread_created` | a new thread started | user |
 | KEEP | `thread_message_appended` | someone posted a message | user |
-| KEEP | `thread_resolved` | a conversation was resolved | user |
-| KEEP | `thread_reopened` | a conversation was reopened | user |
+| KEEP | `thread_resolved` | a thread was resolved | user |
+| KEEP | `thread_reopened` | a thread was reopened | user |
 | KEEP | `item_created` | something needs a decision | team |
 | KEEP | `knowledge_created` | a document was created | global |
 | KEEP | `knowledge_updated` | a document changed | global |
@@ -244,7 +244,7 @@ two events about a primitive that was deleted.
 | KEEP | `knowledge_accessed` | someone read a document | user |
 | KEEP | `team_created` | a new team was set up | global |
 | KEEP | `agent_added` | an agent joined a team | team |
-| KEEP | `user_created` | a person joined | global |
+| KEEP | `user_created` | a user joined | global |
 | KEEP | `routine_fired` | a routine ran | user |
 | DELETE | `notification` | a wrapper that exists only because people have no event vocabulary | — |
 
@@ -275,7 +275,7 @@ Re-verify these against the rebase before acting; they were found on the old bas
 | Approve/reject on 3 review canvases — props undeclared | `pages/review/review-artifact.ts` |
 | Per-field approve — mutates a `Set` nothing reads | `pages/review/ReviewFieldChangeSet.tsx` |
 | `navigate-settings` CustomEvent — nothing listens | `shell/AssistantOverlay.tsx` |
-| Conversations filter — clearable, never set | `components/ThreadSections.tsx` |
+| Threads filter — clearable, never set | `components/ThreadSections.tsx` |
 | No shortcut help surface, ~12 undiscoverable keys | shell-wide |
 
 ---

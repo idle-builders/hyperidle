@@ -9,7 +9,7 @@ Verdict per row: where it lands, or **why it doesn't**.
 
 ## The action surface under test
 
-**The criterion: an action is something a person would say they're doing, and the list is
+**The criterion: an action is something a user would say they're doing, and the list is
 what the agent reads.** A route is a fragment of an action; a god-tool with an `object`
 parameter is a bundle of them. Both fail the same test. The unit is the sentence.
 
@@ -18,13 +18,13 @@ Your 13, per object:
 | Object | Actions |
 |---|---|
 | **task** | search tasks · open a task · edit a task |
-| **thread** | search conversations · open a conversation · send a message · adjust a conversation |
+| **thread** | search threads · open a thread · send a message · adjust a thread |
 | **document** | search documents · open a document · edit a document |
-| **user** | search people · open a person · edit a person |
+| **user** | search people · open a user · edit a user |
 
 "Edit" is new-or-existing and covers every field — for a task that includes state,
 attachments and assignment; for a document it includes status, move, merge, split and
-conflicts; for a person it includes prompt, skills, edges and team. "Send a message" takes a
+conflicts; for a user it includes prompt, skills, edges and team. "Send a message" takes a
 thread id or a list of recipients, and the message may be plain, a review, a verdict, an
 answer, or carry a file.
 
@@ -51,16 +51,16 @@ with the surface held constant.
 
 | Capability | Lands in |
 |---|---|
-| see the conversations | search conversations |
-| open a conversation | open a conversation |
-| start a conversation | send a message to recipients |
+| see the threads | search threads |
+| open a thread | open a thread |
+| start a thread | send a message to recipients |
 | message someone directly | send a message to recipients |
 | post a message | send a message |
 | submit a review | send a message, kind `review` |
 | record a verdict | send a message, kind `verdict` |
 | answer a question | send a message, kind `answer` |
-| rename a conversation | adjust a conversation |
-| open a review | open a conversation — a review is a message in it |
+| rename a thread | adjust a thread |
+| open a review | open a thread — a review is a message in it |
 | look up a recipient | search people — **recipients are users**; `GET /recipients` disappears |
 | attach a file | send a message carrying a file reference |
 | raise / open / update an item | send a message, kind `item` — **`items` becomes a message kind** |
@@ -95,19 +95,19 @@ the first thing that routine would do on its own.
 | Capability | Lands in |
 |---|---|
 | see the people · see the agents | search people — `kind` is a filter |
-| open a person · open an agent | open a person |
-| join (first run) | edit a person (new) |
-| edit your profile · edit an agent | edit a person |
-| read your assistant's setup | open a person — the assistant is a user; its prompt is a document parented to it |
-| add an agent | edit a person (new, kind `ai`) |
-| remove an agent | edit a person — status `retired`; the docs already say "pause/retire, never delete" |
-| remove a team member | edit a person — team is a field |
+| open a user · open an agent | open a user |
+| join (first run) | edit a user (new) |
+| edit your profile · edit an agent | edit a user |
+| read your assistant's setup | open a user — the assistant is a user; its prompt is a document parented to it |
+| add an agent | edit a user (new, kind `ai`) |
+| remove an agent | edit a user — status `retired`; the docs already say "pause/retire, never delete" |
+| remove a team member | edit a user — team is a field |
 | **see the teams** | **doesn't land** |
 | **open a team** | **doesn't land** |
 | **create a team** | **doesn't land** |
 | **edit a team** | **doesn't land** |
 | **see the org chart** | **doesn't land** |
-| **add · remove an org edge** | **doesn't land** — unless edges are a field on edit a person |
+| **add · remove an org edge** | **doesn't land** — unless edges are a field on edit a user |
 | **dissolve a team** | **doesn't land** |
 
 **Team is a fifth object your draft doesn't have.** Seven capabilities have no home. Three
@@ -118,7 +118,7 @@ ways out, none decided:
    is edit a document. The tree already allows `parentKind = 'knowledge_item'`.
 3. **Team is only a property of users.** `users.teamId` exists; the "team" is the set of users
    sharing it. No create — the first user to name a team creates it. Org edges likewise live
-   on edit a person, which is what your draft already says ("edges" is in the user's edit list).
+   on edit a user, which is what your draft already says ("edges" is in the user's edit list).
 
 Option 3 is the smallest and matches your draft literally. It gives up "a team has a name,
 a phase, a lead" as first-class — those become either a document or nothing.
@@ -136,7 +136,7 @@ Held for the routines discussion below. One observation now: every routine capab
 | see the sessions · see the runs | open a task — sessions belong to what they ran for |
 | **watch a session live** | **doesn't land** — it's a stream, not a read |
 | **send into a running session** | probably send a message to the session's thread |
-| **stop an agent** | edit a task (stop work) or edit a person (pause) — undecided |
+| **stop an agent** | edit a task (stop work) or edit a user (pause) — undecided |
 
 A session is execution, not content. Reading one is part of reading its task. Watching one
 live is the one genuinely stream-shaped thing in the whole surface.
@@ -145,9 +145,9 @@ live is the one genuinely stream-shaped thing in the whole surface.
 
 | Capability | Lands in |
 |---|---|
-| see your notifications | open a person (yourself) — the inbox is a property of the user |
-| mark read · mark seen | edit a person — or UI-only state that never needs a tool |
-| turn one off · see what's off | edit a person — **subscriptions are a field on the user** |
+| see your notifications | open a user (yourself) — the inbox is a property of the user |
+| mark read · mark seen | edit a user — or UI-only state that never needs a tool |
+| turn one off · see what's off | edit a user — **subscriptions are a field on the user** |
 
 That last row is the one that matters. See routines.
 
@@ -155,7 +155,7 @@ That last row is the one that matters. See routines.
 
 Held. One observation: nearly all of it is **a thing attached to a user or a team** — a
 credential belongs to a user, a filesystem and a connection to a team. Plugins and backends
-are global. If the objects hold their attachments, most of this is edit a person / edit a team
+are global. If the objects hold their attachments, most of this is edit a user / edit a team
 with more fields, and the rest is a global-scope edit on something that isn't an object yet.
 
 ### Tally
@@ -171,7 +171,7 @@ with more fields, and the rest is a global-scope edit on something that isn't an
 
 ## Routines — a proposal, not a ruling
 
-Your own symmetry rule: a person gets a notification, an agent gets a routine trigger, and
+Your own symmetry rule: a user gets a notification, an agent gets a routine trigger, and
 underneath it is one thing. Take that literally.
 
 **A routine is an agent's subscription with a prompt attached.**
@@ -181,7 +181,7 @@ underneath it is one thing. Take that literally.
   prompt (which is already a document).
 
 Then there is no routine object. There is a **subscriptions** field on every user — human or
-agent — edited through edit a person. Muting a notification and disabling a routine are the
+agent — edited through edit a user. Muting a notification and disabling a routine are the
 same edit. "Run a routine now" is send a message to the agent saying "do this now."
 
 What this collapses: 7 routine capabilities, 5 notification capabilities, the
@@ -234,7 +234,7 @@ precisely.
 Today validation is **per route, on the input**: `POST /agents` checks the harness/model/
 provider triple; `PATCH /knowledge/:id` checks the version; `POST /knowledge/:id/promote`
 checks for open conflicts. Each check lives in the one route that happens to touch it. That's
-why a person validating in Triage skips the conflict check the agent's route enforces —
+why a user validating in Triage skips the conflict check the agent's route enforces —
 the check is on the wrong route.
 
 Under one edit per object, validation is **per object, on the state**: after applying this

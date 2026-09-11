@@ -1,12 +1,14 @@
 # Actions
 
-The human-readable list of what a person or an agent does in HyperIdle. This is what the
+*Renamed 2026-09-11 by the founder: the objects are **task · thread · document · user**. "Conversation" and "person" were working names and are not nouns we use.*
+
+The human-readable list of what a user or an agent does in HyperIdle. This is what the
 agent reads. Base `origin/main` @ `f88b71434`.
 
-**Rule:** an action is something a person would say they're doing. A route is a fragment of
+**Rule:** an action is something a user would say they're doing. A route is a fragment of
 one; a god-tool is a bundle of them. Neither is on this list.
 
-**Team is not an object.** It's an attribute on a person and a filter on the people list.
+**Team is not an object.** It's an attribute on a user and a filter on the people list.
 Created and seen through the actions below, never its own.
 
 ---
@@ -21,14 +23,14 @@ Created and seen through the actions below, never its own.
 | **Open a task** | Everything about it — content, state, assignment, subtasks, sessions that ran on it, attachments. |
 | **Edit a task** | New or existing. Title, content, state, attachments, assignment (which is handoff), outcome, notes. |
 
-### Conversation
+### Thread
 
 | Action | What it does |
 |---|---|
-| **Search conversations** | With or without a parameter. |
-| **Open a conversation** | Every message and its parts, title, recipients, attachments, reviews. |
-| **Send a message** | To a conversation id, or to recipients — which starts a new conversation. The message may be plain, a review, a verdict, an answer, an item, or carry a file. Sending with an existing message id overwrites that message. |
-| **Adjust a conversation** | Title, recipients, delete. |
+| **Search threads** | With or without a parameter. |
+| **Open a thread** | Every message and its parts, title, recipients, attachments, reviews. |
+| **Send a message** | To a thread id, or to recipients — which starts a new thread. The message may be plain, a review, a verdict, an answer, an item, or carry a file. Sending with an existing message id overwrites that message. |
+| **Adjust a thread** | Title, recipients, delete. |
 
 ### Document
 
@@ -38,18 +40,18 @@ Created and seen through the actions below, never its own.
 | **Open a document** | Content, meta, path, conflicts, children — everything. |
 | **Edit a document** | New or existing. Title, content, type, meta, status, move, merge, split, conflicts. |
 
-### Person  *(human or agent — same actions)*
+### User  *(human or agent — same actions)*
 
 | Action | What it does |
 |---|---|
 | **Search people** | With or without parameters. Team is a filter. Kind (human / agent) is a filter. |
-| **Open a person** | Role, team, org edges, prompt, skills, subscriptions, notifications, everything attached. |
-| **Edit a person** | New or existing. Name, prompt, skills, edges, team, status, harness and model, filesystems. |
+| **Open a user** | Role, team, org edges, prompt, skills, subscriptions, notifications, everything attached. |
+| **Edit a user** | New or existing. Name, prompt, skills, edges, team, status, harness and model, filesystems. |
 
 ### Files
 
 Not an action. An attachment anywhere is a file. An agent sees it in its filesystem; a
-person reaches it as a file — git, S3, Drive, local.
+user reaches it as a file — git, S3, Drive, local.
 
 ---
 
@@ -60,18 +62,18 @@ harness itself offers — so this is the smallest surface that works today, not 
 
 | Action | What it does |
 |---|---|
-| **See what's running** | Sessions and runs, filterable by task, by person, by state. |
+| **See what's running** | Sessions and runs, filterable by task, by user, by state. |
 | **Watch a session** | The live stream of what an agent is doing. The one genuinely stream-shaped thing in the system. |
 | **Stop a session** | Abort it. Today's `POST /agent-orchestration/runs/abort`, seam-only. |
 
-There is no *start a session*. A person doesn't start an agent — they give it work, through
+There is no *start a session*. A user doesn't start an agent — they give it work, through
 *edit a task* (assign it) or *send a message* (ask it). That's already how it works.
 
 ## Plugins
 
 The one platform thing. Everything else that used to be "setup" turned out to be an
-attribute of a person — what an agent runs on, can reach, can see — and lives on *open /
-edit a person*. Task, conversation and document have no settings at all.
+attribute of a user — what an agent runs on, can reach, can see — and lives on *open /
+edit a user*. Task, thread and document have no settings at all.
 
 | Action | What it does |
 |---|---|
@@ -84,20 +86,20 @@ contribution, not a separate thing.
 ## Routines — why it feels wrong, and a proposal
 
 A routine today is **an owner + a trigger + a prompt + a state**. Under the new model the
-prompt is already a document and the owner is already a person. What's left is the trigger:
-"when X happens, this person runs this document."
+prompt is already a document and the owner is already a user. What's left is the trigger:
+"when X happens, this user runs this document."
 
-That's not a thing. It's a **binding** — an edge between a person and a document, keyed by an
+That's not a thing. It's a **binding** — an edge between a user and a document, keyed by an
 event. It feels wrong as an object because it isn't one; it's a relationship that lives on
 one of its ends.
 
-**Proposal: it lives on the person.** A person has *subscriptions*. For an agent, a
+**Proposal: it lives on the user.** A user has *subscriptions*. For an agent, a
 subscription says: when this event fires, run this document. For a human, the same
 subscription says: when this event fires, tell me. That is your symmetry rule, made literal.
 
-- *Open a person* shows their subscriptions.
-- *Edit a person* adds, changes, pauses, removes them.
-- "Run it now" is *send a message* to that person: do your X now.
+- *Open a user* shows their subscriptions.
+- *Edit a user* adds, changes, pauses, removes them.
+- "Run it now" is *send a message* to that user: do your X now.
 - Muting a notification is the same edit on a human.
 
 No new actions. The seven routine routes and the two mute routes land on actions that
@@ -110,7 +112,7 @@ asymmetry the model exists to remove.
 ## Plumbing
 
 Internal seams, auth, health. A route, nothing else, ever. Sixteen of the 126, plus the MCP
-return hook on the harness layer; none hides an action a person would say.
+return hook on the harness layer; none hides an action a user would say.
 
 ---
 
@@ -135,14 +137,14 @@ return hook on the harness layer; none hides an action a person would say.
 
 | Route | → |
 |---|---|
-| `GET /threads` | search conversations |
-| `GET /threads/:id` | open a conversation |
+| `GET /threads` | search threads |
+| `GET /threads/:id` | open a thread |
 | `POST /threads` | send a message (to recipients) |
 | `POST /threads/direct` | send a message (to recipients) |
 | `POST /threads/:id/messages` | send a message |
-| `PATCH /threads/:id` | adjust a conversation |
+| `PATCH /threads/:id` | adjust a thread |
 | `GET /threads/inbox` | **delete** — seam rollup |
-| `GET /reviews/:reviewMessageId` | open a conversation — a review is a message in it |
+| `GET /reviews/:reviewMessageId` | open a thread — a review is a message in it |
 | `GET /recipients` | search people |
 
 ### conversations/items
@@ -150,7 +152,7 @@ return hook on the harness layer; none hides an action a person would say.
 | Route | → |
 |---|---|
 | `POST /conversations/items` | send a message (kind: item) |
-| `GET /conversations/items/:id` | open a conversation |
+| `GET /conversations/items/:id` | open a thread |
 | `PATCH /conversations/items/:id` | send a message > resending a message with a message id overwrite the message |
 | `GET /conversations/items` | **delete** — marker lookup |
 
@@ -180,21 +182,21 @@ return hook on the harness layer; none hides an action a person would say.
 | Route | → |
 |---|---|
 | `GET /users` | search people |
-| `GET /users/:id` | open a person |
-| `POST /users` | edit a person (new) |
-| `PATCH /users/:id` | edit a person |
-| `GET /users/:id/assistant` | open a person |
+| `GET /users/:id` | open a user |
+| `POST /users` | edit a user (new) |
+| `PATCH /users/:id` | edit a user |
+| `GET /users/:id/assistant` | open a user |
 | `GET /agents` | search people |
-| `GET /agents/:id/profile` | open a person |
-| `POST /agents` | edit a person (new) |
-| `PATCH /agents/:id` | edit a person |
-| `DELETE /agents/:id` | edit a person — status |
+| `GET /agents/:id/profile` | open a user |
+| `POST /agents` | edit a user (new) |
+| `PATCH /agents/:id` | edit a user |
+| `DELETE /agents/:id` | edit a user — status |
 | `GET /org` | search people — people and their edges |
-| `PUT /org/edges` | edit a person |
-| `DELETE /org/edges/:id` | edit a person |
+| `PUT /org/edges` | edit a user |
+| `DELETE /org/edges/:id` | edit a user |
 | `GET /teams` | search people — team is a filter |
 | `GET /teams/:teamId` | search people — team is a filter |
-| `POST /teams` | **delete** — a team is created by editing a person |
+| `POST /teams` | **delete** — a team is created by editing a user |
 | `PATCH /teams/:teamId` | **delete** — team has no functionality of its own |
 | `GET /org/teams/:teamId` | **delete** — seam |
 | `GET /org/teams/:teamId/membership` | **delete** — seam |
@@ -208,23 +210,23 @@ return hook on the harness layer; none hides an action a person would say.
 
 | Route | → |
 |---|---|
-| `GET /routines` | open a person — subscriptions are shown on the person |
-| `GET /routines/:id` | open a person |
-| `POST /routines` | edit a person — add a subscription |
-| `PATCH /routines/:id` | edit a person — change or pause it |
-| `DELETE /routines/:id` | edit a person — remove it |
+| `GET /routines` | open a user — subscriptions are shown on the user |
+| `GET /routines/:id` | open a user |
+| `POST /routines` | edit a user — add a subscription |
+| `PATCH /routines/:id` | edit a user — change or pause it |
+| `DELETE /routines/:id` | edit a user — remove it |
 | `POST /routines/:id/trigger` | send a message — "do your X now" |
-| `GET /routines/event-types` | **the subscription vocabulary** — becomes the event list, read inside open a person or as reference; not a route |
+| `GET /routines/event-types` | **the subscription vocabulary** — becomes the event list, read inside open a user or as reference; not a route |
 
 ### notifications
 
 | Route | → |
 |---|---|
-| `GET /notifications/inbox` | open a person — yourself |
-| `POST /notifications/:id/read` | edit a person — or UI-only state |
-| `POST /notifications/seen` | edit a person — or UI-only state |
-| `GET /notifications/mute` | open a person — subscriptions |
-| `PUT /notifications/mute/:key` | edit a person — pause a subscription |
+| `GET /notifications/inbox` | open a user — yourself |
+| `POST /notifications/:id/read` | edit a user — or UI-only state |
+| `POST /notifications/seen` | edit a user — or UI-only state |
+| `GET /notifications/mute` | open a user — subscriptions |
+| `PUT /notifications/mute/:key` | edit a user — pause a subscription |
 | `GET /notifications/config` | **delete** |
 | `PATCH /notifications/config` | **delete** |
 
@@ -249,20 +251,20 @@ return hook on the harness layer; none hides an action a person would say.
 | `PUT /credentials/:name` | manage plugins |
 | `DELETE /credentials/:name` | manage plugins |
 | `POST /credentials/:name/validate` | manage plugins — validation inside |
-| `GET /connections` | open a person — what this agent can reach |
-| `POST /connections` | edit a person — connect a service for this agent |
-| `DELETE /connections/:id` | edit a person — disconnect |
-| `POST /connections/:id/validate` | edit a person — validation inside |
-| `GET /filesystems` · `GET /filesystems/:id` | open a person — its folders (placeholder until the folder redesign) |
-| `POST /filesystems` | edit a person — add a folder |
-| `DELETE /filesystems/:id` | edit a person — remove a folder |
-| `POST /filesystems/inspect-path` | edit a person — validation inside |
-| `POST /filesystems/:id/injections` | edit a person — give an agent a folder |
-| `DELETE /filesystems/:id/injections/:u` | edit a person — take it away |
-| `GET /harnesses` | open a person — what it can run on |
-| `POST /harnesses/redetect` | edit a person — look again |
-| `GET /settings/agent-behavior/config` | open a person — defaults are contributions with overrides |
-| `PATCH /settings/agent-behavior/config/:id` | edit a person — override a contribution |
+| `GET /connections` | open a user — what this agent can reach |
+| `POST /connections` | edit a user — connect a service for this agent |
+| `DELETE /connections/:id` | edit a user — disconnect |
+| `POST /connections/:id/validate` | edit a user — validation inside |
+| `GET /filesystems` · `GET /filesystems/:id` | open a user — its folders (placeholder until the folder redesign) |
+| `POST /filesystems` | edit a user — add a folder |
+| `DELETE /filesystems/:id` | edit a user — remove a folder |
+| `POST /filesystems/inspect-path` | edit a user — validation inside |
+| `POST /filesystems/:id/injections` | edit a user — give an agent a folder |
+| `DELETE /filesystems/:id/injections/:u` | edit a user — take it away |
+| `GET /harnesses` | open a user — what it can run on |
+| `POST /harnesses/redetect` | edit a user — look again |
+| `GET /settings/agent-behavior/config` | open a user — defaults are contributions with overrides |
+| `PATCH /settings/agent-behavior/config/:id` | edit a user — override a contribution |
 | `GET /plugins` | manage plugins |
 | `POST /plugins` | manage plugins — install |
 | `DELETE /plugins/:id` | manage plugins — remove |
@@ -282,7 +284,7 @@ return hook on the harness layer; none hides an action a person would say.
 | `GET /agent-orchestration/requests/pending-intents` | plumbing — seam |
 | `POST /agent-orchestration/requests/explicit-starts/:id/fail` | plumbing — seam |
 | `POST /agent-orchestration/runs/end-for-handoff` | plumbing — seam |
-| `GET·PATCH /agent-orchestration/run-config/:agentId` | plumbing — seam behind edit a person |
+| `GET·PATCH /agent-orchestration/run-config/:agentId` | plumbing — seam behind edit a user |
 | `POST /agent-orchestration/run-config/batch` | plumbing — seam |
 | `GET /agent-orchestration/filesystems/:id/team` | plumbing — seam |
 | `POST /agent-orchestration/filesystems/:id/injections/persist` | plumbing — seam |
@@ -313,9 +315,9 @@ return hook on the harness layer; none hides an action a person would say.
 | The seventeen | |
 |---|---|
 | task | search · open · edit |
-| conversation | search · open · send a message · adjust |
+| thread | search · open · send a message · adjust |
 | document | search · open · edit |
-| person | search · open · edit |
+| user | search · open · edit |
 | session | see what's running · watch · stop |
 | platform | manage plugins |
 
@@ -330,18 +332,18 @@ The other half. Same objects, and what happened to them. Symmetric with the acti
 |---|---|
 | `task.created` | — |
 | `task.changed` | `task_state_changed` · `session_started` · `session_ended` · `session_not_returned` — a session is part of its task |
-| `conversation.created` | `thread_created` |
-| `conversation.message` | `thread_message_appended` · `item_created` |
-| `conversation.changed` | `thread_resolved` · `thread_reopened` |
+| `thread.created` | `thread_created` |
+| `thread.message` | `thread_message_appended` · `item_created` |
+| `thread.changed` | `thread_resolved` · `thread_reopened` |
 | `document.created` | `knowledge_created` |
 | `document.changed` | `knowledge_updated` · `knowledge_archived` · (`knowledge_accessed` deleted — nobody subscribes to a read) |
-| `person.created` | `user_created` · `agent_added` · `team_created` — a team is created by a person joining it |
-| `person.changed` | — |
+| `user.created` | `user_created` · `agent_added` · `team_created` — a team is created by a user joining it |
+| `user.changed` | — |
 
 Nine events. All seventeen kept events map in or are deleted. `notification` goes — it was the human render
 of every other row. `routine_fired` goes — a run is a session, and a session is `task.changed`.
 
-A person's *subscriptions* name these. An agent's subscription runs a document; a human's
+A user's *subscriptions* name these. An agent's subscription runs a document; a human's
 sends a notification. That is the whole event side.
 
 **Off the surface, on the bus:** `agent_work_intent_recorded` · `agent_run_admission_failed` ·

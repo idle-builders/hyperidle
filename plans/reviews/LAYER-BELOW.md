@@ -14,7 +14,7 @@ Decision points are marked **?**. One at a time.
 
 - **Routes are the fattest layer and own the wrong things.** 9,584 lines of routes against
   15,822 of services. Routes own authz, actor read, id generation, transaction opening, most
-  event emission, response shaping, WS push. The conversation service says it in its own
+  event emission, response shaping, WS push. The thread service says it in its own
   header: "owns the ROW WRITE ONLY — no event emission, no transaction orchestration". The
   message-post handler is ~350 lines in one function.
 - **Nothing is derived; everything is mirrored by hand.** `CoreApiPort` is 43 hand-typed
@@ -92,7 +92,7 @@ run          (ctx, input) => result   ctx = { actor, db, changes }
   list view (the join done once). `open`: one get, with what the view needs.
 - **Write.** `edit`: load → apply the partial → `invariants(next)` → write in one transaction
   → append one row to `changes` (object, id, actor, before/after diff, at) → commit → wake.
-  The change row *is* the event. `conversation.message` is the same path on a message.
+  The change row *is* the event. `thread.message` is the same path on a message.
 - **Actor.** `ctx.actor` is a user id resolved once by whatever transport delivered the call
   (login session, API key, MCP session token). No impersonation header. Human or agent is
   just `kind` on the row.
@@ -111,7 +111,7 @@ Core never imports orchestration and vice versa.
 | HTTP | 126 hand-written routes, 9,584 lines | one mount loop: `POST /api/<object>/<action>` per entry, parse with `input`, call `run`, return. Plus the 16 plumbing routes by hand. |
 | MCP | 20 tools re-implemented over an HTTP client seam (2,316 + 1,083 + ~900 lines) | `registerTool(name, {description, inputSchema}, run)` per entry, filtered by what the actor may do. In-process. The seam, `CoreApiPort`, `tool-handlers`: gone. |
 | UI | 95 raw fetches, 1 wire type, 32 hooks | one typed client derived from the list's types: `call("task.edit", input)`; `invariants` imported for affordances; the server answers the DB-dependent half. |
-| Events | in-memory bus + 2 hand-pushed WS sites | `changes` table is the log; one stream (SSE or the existing WS) of the 9 events, filtered per person; subscriptions (agent → run a document, human → notification) read the same rows. |
+| Events | in-memory bus + 2 hand-pushed WS sites | `changes` table is the log; one stream (SSE or the existing WS) of the 9 events, filtered per user; subscriptions (agent → run a document, human → notification) read the same rows. |
 | Lint | 15 governance rules, none about the surface | one rule: every entry is mounted, registered, and referenced; every route is an entry or plumbing; every tool is an entry; every emitted event is one of 9 + 8 platform. |
 
 ## 5. Interface technology — the call
@@ -139,8 +139,8 @@ are declared. They become one loop.
 | 6 action modules (4 objects + session + platform), each with search/open/edit + invariants | the services, re-cut; most is moved, not new |
 | `changes` table + one migration + one append helper | small |
 | HTTP mount loop, MCP register loop, UI client type + `call` | ~200 |
-| one event stream, per-person filter | ~150 |
-| subscriptions on person (replaces routines + notification queue) | ~300 |
+| one event stream, per-user filter | ~150 |
+| subscriptions on user (replaces routines + notification queue) | ~300 |
 | one governance rule | ~100 |
 
 | Deletes | Lines |
@@ -166,10 +166,10 @@ Settled by that:
 1. **Technology** is not a founder decision. Hono + zod + the MCP SDK already in the tree;
    no new framework. The action list is the declaration; everything else is a loop.
 2. **The services are replaced, not wrapped.** The ten service packages become six action
-   modules. `work` → `task`; `conversation` → `conversation`; `knowledge` → `document`;
-   `users` + `org` + `routine` + `notifications` + `credentials` → `person` (subscriptions,
+   modules. `work` → `task`; `conversation` → `thread`; `knowledge` → `document`;
+   `users` + `org` + `routine` + `notifications` + `credentials` → `user` (subscriptions,
    team attribute, connections); `settings` → `platform`; `policy` dissolves into invariants
-   on task and conversation. Orchestration keeps `session`.
+   on task and thread. Orchestration keeps `session`.
 3. **Tools call the modules in-process.** The HTTP seam, `CoreApiPort`, `tool-handlers` go.
    The layer split stays; the composition root joins each layer's list.
 4. **`changes` table is the event log.** Written in the edit's transaction; carries object,
@@ -184,6 +184,6 @@ Build-time calls, default stated, no founder question needed:
   literal replace.)
 - **Search**: one structured list per object. A cross-object text search is added only if a
   screen needs it (Notion ships both; the list is what agents use).
-- **UI push**: one stream of the 9 events, per-person filtered. SSE or the existing WS —
+- **UI push**: one stream of the 9 events, per-user filtered. SSE or the existing WS —
   whichever is fewer lines once the `changes` table exists.
 - **Invariant split** (pure vs needs-DB) decided per object when built.
