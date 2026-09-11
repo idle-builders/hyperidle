@@ -23,6 +23,43 @@ function openInput(): HTMLElement {
 	return screen.getByRole("textbox", { name: /search/i });
 }
 
+describe("Combobox — trigger accessible name", () => {
+	// A `<span>` next to a `<button>` gives the button no accessible name at
+	// all — every migrated picker regressed to name:"" this way. The fix is a
+	// real `<label htmlFor>` pointing at the trigger's id.
+	it("names the trigger from the label prop", () => {
+		render(
+			<Combobox options={[]} value="" onChange={vi.fn()} label="Owner agent" id="owner-agent" />,
+		);
+		expect(screen.getByRole("combobox", { name: "Owner agent" })).toBeInTheDocument();
+	});
+
+	it("associates the label to a generated id when the caller passes none", () => {
+		render(<Combobox options={[]} value="" onChange={vi.fn()} label="Recipient" />);
+		const trigger = screen.getByRole("combobox", { name: "Recipient" });
+		const label = screen.getByText("Recipient");
+		expect(label.getAttribute("for")).toBe(trigger.getAttribute("id"));
+	});
+
+	// Org chart's "From"/"Target" fields keep the same visible word on every
+	// row but need distinct names for assistive tech (e.g. "Target user" vs
+	// "Target team") — triggerAriaLabel overrides the accessible name only.
+	it("triggerAriaLabel overrides the accessible name without changing the visible label text", () => {
+		render(
+			<Combobox
+				options={[]}
+				value=""
+				onChange={vi.fn()}
+				label="Target"
+				triggerAriaLabel="Target team"
+			/>,
+		);
+		expect(screen.getByText("Target")).toBeInTheDocument();
+		expect(screen.getByRole("combobox", { name: "Target team" })).toBeInTheDocument();
+		expect(screen.queryByRole("combobox", { name: "Target" })).not.toBeInTheDocument();
+	});
+});
+
 describe("Combobox — loading/error inertness (server-driven mode)", () => {
 	it("ArrowDown + Enter do nothing while the loading row is showing", () => {
 		const onChange = vi.fn();

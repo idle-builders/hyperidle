@@ -21,7 +21,13 @@
  * navigated to or committed as if they were the current query's results.
  *
  * a11y: `role="combobox"` on the trigger, `aria-expanded`, a listbox popover
- * with `aria-activedescendant` on the filter input.
+ * with `aria-activedescendant` on the filter input. The trigger's accessible
+ * name comes from `label` via a real `<label htmlFor>` pointing at the
+ * trigger's `id` (generated with `useId()` when the caller doesn't pass one)
+ * — a `<span>` next to a `<button>` gives the button no name at all. Pass
+ * `triggerAriaLabel` instead when the visible label text must stay generic
+ * (e.g. two fields on one row both read "Target") but each trigger still
+ * needs its own name for assistive tech.
  */
 
 import type React from "react";
@@ -41,8 +47,10 @@ export interface ComboboxProps {
 	options: readonly ComboboxOption[];
 	value?: string;
 	onChange: (value: string) => void;
-	/** label rendered above the closed trigger. Omit when the caller renders its own label and points it at the trigger via `id`. */
+	/** label rendered above the closed trigger, associated to it via `<label htmlFor>` — this is what gives the trigger its accessible name. Omit when the caller renders its own label and points it at the trigger via `id`. */
 	label?: string;
+	/** overrides the trigger's accessible name without changing the visible label text — for rows where two fields share one visible word (e.g. org chart's "Target user" vs "Target team", both shown as "Target"). Takes precedence over `label` for the accessible name only. */
+	triggerAriaLabel?: string;
 	/** placeholder for the closed trigger (when empty/hidden) and the popover's filter input. */
 	placeholder?: string;
 	/** accessible name for the listbox. */
@@ -51,6 +59,8 @@ export interface ComboboxProps {
 	inputAriaLabel?: string;
 	disabled?: boolean;
 	id?: string;
+	/** seeds the popover open on mount instead of closed — for a picker whose whole point is instant search (e.g. RecipientPicker), where hiding the field behind a click would cost the person the ability to type immediately. */
+	defaultOpen?: boolean;
 	/** lets the user commit typed text that matches no option. */
 	allowCustomValue?: boolean;
 	/** text before the typed value in the custom-value row, e.g. "Use new role: ". */
@@ -133,11 +143,13 @@ export function Combobox({
 	value = "",
 	onChange,
 	label,
+	triggerAriaLabel,
 	placeholder,
 	listAriaLabel,
 	inputAriaLabel,
 	disabled = false,
 	id,
+	defaultOpen = false,
 	allowCustomValue = false,
 	customValuePrefix = "Use: ",
 	onQueryChange,
@@ -148,11 +160,12 @@ export function Combobox({
 	// Server-driven mode (see the docblock above): the caller owns `options`
 	// and reads the typed query itself, so Combobox must not also filter it.
 	const filterOptions = onQueryChange === undefined;
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useState(defaultOpen);
 	const [query, setQuery] = useState("");
 	const [highlight, setHighlight] = useState(0);
 	const generatedId = useId();
-	const listId = `${id ?? generatedId}-list`;
+	const triggerId = id ?? generatedId;
+	const listId = `${triggerId}-list`;
 	const inputRef = useRef<HTMLInputElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -231,16 +244,21 @@ export function Combobox({
 
 	return (
 		<div {...dsProps("Combobox", "1")} className="relative flex flex-col gap-[6px]">
-			{label && <span className="type-label uppercase text-[var(--text-tertiary)]">{label}</span>}
+			{label && (
+				<label htmlFor={triggerId} className="type-label uppercase text-[var(--text-tertiary)]">
+					{label}
+				</label>
+			)}
 
 			{/* Closed field */}
 			<button
 				ref={triggerRef}
 				type="button"
-				id={id}
+				id={triggerId}
 				role="combobox"
 				aria-expanded={open}
 				aria-controls={listId}
+				{...(triggerAriaLabel ? { "aria-label": triggerAriaLabel } : {})}
 				disabled={disabled}
 				onClick={() => setOpen((o) => !o)}
 				className={`type-control border-width-thin flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left ${
