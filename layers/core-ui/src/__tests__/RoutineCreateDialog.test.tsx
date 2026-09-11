@@ -89,6 +89,17 @@ describe("RoutineCreateDialog", () => {
 		expect(screen.getByText("Review Agent")).toBeInTheDocument();
 	});
 
+	// The agent Combobox used to sit inside a <label htmlFor="routine-create-agent">.
+	// Clicking an option committed and closed the popover, then the browser's
+	// label click-activation clicked the trigger again and reopened it.
+	it("closes the agent picker after picking an option, instead of reopening it", () => {
+		renderDialog();
+		pickAgent("Digest Agent");
+
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		expect(screen.getByRole("combobox", { name: "Agent" })).toHaveTextContent("Digest Agent");
+	});
+
 	it("renders schedule picker with preset options", () => {
 		renderDialog();
 		// Schedule picker should have preset options
