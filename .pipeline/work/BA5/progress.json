@@ -1,0 +1,66 @@
+{
+  "item": "BA5",
+  "title": "The filesystem works",
+  "status": "in-progress",
+  "since": "f88b714346822fdc19d90c07f9617263fba6925c",
+  "dials": {
+    "complexity": "suite",
+    "ambiguity": "new context",
+    "exposure": "user-facing surface",
+    "notes": "Raised from the registered M/backend on 2026-09-10 after the maintainer voided the old plan and widened it to the whole filesystem. Ambiguity stays at new-context for phase 2: the Drive scope question is unverified externally."
+  },
+  "phases": [
+    {
+      "id": "phase-1",
+      "scope": "git repositories (local and remote, public and private) and local folders, end to end, work back out"
+    },
+    {
+      "id": "phase-2",
+      "scope": "Google Drive as a cloud folder, synced with rclone bisync"
+    }
+  ],
+  "gates": [
+    {
+      "id": "G1-approach",
+      "what": "maintainer approves 'How it works' and the user-facing surfaces before any build",
+      "state": "passed",
+      "passedAt": "2026-09-11"
+    },
+    {
+      "id": "G2-phase-1-proven",
+      "what": "phase 1 built, reviewed, and shown working on the running app, credentialed and not; Drive's OAuth/scope decision taken here",
+      "state": "proposed"
+    },
+    {
+      "id": "G3-pre-ship",
+      "what": "phase 2 built, reviewed, and shown working; the always-present gate before shipping",
+      "state": "proposed"
+    }
+  ],
+  "review": "suite: reviewed in phases \u2014 one fresh reviewer over each phase's integrated diff",
+  "shipping": "one branch, one PR, shipped after G3 (no stacked PRs)",
+  "baseline": {
+    "check": "PASS (38 packages)",
+    "lint": "PASS",
+    "at": "f88b714346822fdc19d90c07f9617263fba6925c"
+  },
+  "artifacts": [
+    {
+      "path": ".pipeline/work/BA5/plan.md",
+      "for": "maintainer's document: rulings, evidence, decisions"
+    },
+    {
+      "path": ".pipeline/work/BA5/progress.json",
+      "for": "machine state: dials, gates, verdicts"
+    },
+    {
+      "path": ".pipeline/work/BA5/research.md",
+      "for": "evidence behind the build-vs-adopt and workspace-location rulings (web research, 2026-09-10)"
+    },
+    {
+      "path": ".pipeline/work/BA5/seams.md",
+      "for": "phase-1 repository evidence: agents\u2194filesystems, credential seam, push auth, adapters, check, failure surfacing, UI, proof harness"
+    }
+  ],
+  "resume": "G1 passed 2026-09-11. Next: architecture for phase 1 (planner), one critique, then write-tests + write-code (one builder). Stop at G2."
+}
