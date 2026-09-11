@@ -1,7 +1,7 @@
 {
   "item": "BA5",
   "title": "The filesystem works",
-  "status": "in-progress",
+  "status": "awaiting-human-review",
   "since": "f88b714346822fdc19d90c07f9617263fba6925c",
   "dials": {
     "complexity": "suite",
@@ -60,7 +60,30 @@
     {
       "path": ".pipeline/work/BA5/seams.md",
       "for": "phase-1 repository evidence: agents\u2194filesystems, credential seam, push auth, adapters, check, failure surfacing, UI, proof harness"
+    },
+    {
+      "path": ".pipeline/work/BA5/architecture.md",
+      "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "G1 passed 2026-09-11. Next: architecture for phase 1 (planner), one critique, then write-tests + write-code (one builder). Stop at G2."
+  "resume": "Architecture written 2026-09-11 and hit the 1,000-line stop. Awaiting maintainer: accept size / cut / split. Architecture critique running in parallel (tests a claim-time-filter alternative to the waiting mechanism). Nothing built.",
+  "preSpawn": {
+    "command": "npm run check && npm run lint",
+    "at": "d38eb819b",
+    "check": "PASS (38 packages)",
+    "lint": "PASS (2539 files, 23 rules, 0 violations)",
+    "ranOn": "2026-09-11"
+  },
+  "sizeStop": {
+    "at": "2026-09-11",
+    "estimate": "~2,300-2,700 added lines (production ~1,150-1,400, tests ~1,100-1,300)",
+    "drivers": {
+      "waiting instead of failing": "~600 with tests",
+      "Add filesystem dialog + Check": "~490",
+      "kept copy + worktree": "~150",
+      "offline github.com test stand-in": "~140",
+      "separate CLI list": "~120"
+    },
+    "rule": "CLAUDE.md simplicity check: 1,000+ added lines -> stop, explain assumptions, ask"
+  }
 }
