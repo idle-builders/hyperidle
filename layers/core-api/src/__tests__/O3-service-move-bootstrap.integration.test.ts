@@ -94,6 +94,14 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_ended subscription"],
 			},
+			// BA5 §8/§13 (L5): the filesystem-hold's inbox producer — orchestration's
+			// ONE subscriber for `filesystem_needs_attention` (architecture.md §4.6:
+			// orchestration reads zero core-api state).
+			{
+				owner: "filesystem-attention reactions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["filesystem_needs_attention subscription"],
+			},
 			// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
 			// Wave D: the POST-SESSION `task` dispatch-attempt finalize reaction
 			// PLUS the bet per-tier token-writeback reaction (Wave D's additive
@@ -248,6 +256,13 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// for real.
 				{
 					unsubscribedEvents: ["session_ended"],
+					clearedIntervals: 0,
+				},
+				// BA5 §8/§13 (L5): `registerFilesystemAttentionReactions` — not
+				// pre-registered on the `eventBus` test fixture either, so its one
+				// `filesystem_needs_attention` subscription unsubscribes for real.
+				{
+					unsubscribedEvents: ["filesystem_needs_attention"],
 					clearedIntervals: 0,
 				},
 				// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)

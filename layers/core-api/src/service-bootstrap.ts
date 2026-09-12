@@ -38,6 +38,7 @@ import { registerAgentHealthSessionEndReactions } from "./services/agent-health-
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import { registerFilesystemAttentionReactions } from "./services/filesystem-attention-reactions.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
@@ -296,6 +297,18 @@ export function registerCoreDomainServices(ctx: {
 			"agent-health session-end reactions",
 			"unsubscribe",
 			["session_ended subscription"],
+		),
+	);
+
+	// BA5 §8/§13 (L5): the filesystem-hold's inbox producer. Orchestration
+	// never reads core-api state (architecture.md §4.6) — its one outward act
+	// is the `filesystem_needs_attention` event; this is its only subscriber.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerFilesystemAttentionReactions(db, eventBus),
+			"filesystem-attention reactions",
+			"unsubscribe",
+			["filesystem_needs_attention subscription"],
 		),
 	);
 
