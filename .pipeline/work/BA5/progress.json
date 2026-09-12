@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Phase 1 built, reviewed PASS, harness discharged. Running the unblocked two-thirds of G2 on the live app; the two credentialed cases and the PR wait on the maintainer.",
+  "resume": "G2 under way on the live app (fresh db via .env; maintainer's own hyperidle-pg untouched). Migration proof done. Next: onboarding with the local-repo fixture, then folder + public remote, Check, broken case, dispatch, resume.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -415,6 +415,19 @@
       "a private remote through the gh login \u2014 needs a repo the agent may clone and push to",
       "a private remote through a stored token \u2014 the maintainer must paste the token themselves",
       "whether to open the draft PR"
+    ],
+    "evidence": [
+      {
+        "case": "migration 0082 applies to a real, populated, out-of-date database",
+        "how": "a copy of the worktree's own 41 MB pglite database, 25 versions behind (57 applied of 82); the maintainer's original left untouched",
+        "result": "26 migrations applied cleanly, 57 -> 83, in 0.2s. After the upgrade: filesystems.attention_reason and users.owner_user_id present; filesystems.writeback, service_connections.health and last_validated_at gone.",
+        "caveat": "that database held zero filesystem rows, so this proves the upgrade path, not row preservation"
+      },
+      {
+        "case": "the app boots on a fresh database",
+        "how": "DATABASE_URL pointed at a new pglite directory outside the repo via the gitignored .env",
+        "result": "no server errors; the onboarding screen renders"
+      }
     ]
   }
 }
