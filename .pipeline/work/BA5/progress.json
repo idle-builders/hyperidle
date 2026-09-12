@@ -68,7 +68,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Phase 1 COMPLETE and proven live (incl. private repo via gh login in the packaged desktop app). Now: phase 2 architecture (Drive via a CLI), then build, then ship. Stored-PAT case still needs the maintainer.",
+  "resume": "Phase 1 complete and proven live. Phase 2 architecture in flight. Phase 2 buildable without rclone; its LIVE proof needs the maintainer (Google consent + rclone install). Stored-PAT case also needs the maintainer. Then ship.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -519,5 +519,11 @@
       "isolationPlan": "launch with Electron's --user-data-dir pointed at a throwaway profile, so the real desktop database is never opened or migrated; the backup is the fallback if that flag does not take",
       "state": "awaiting the packaged build"
     }
+  },
+  "phase2Environment": {
+    "rclone": "NOT installed on this machine; Homebrew is available, so installing it is possible but it is a persistent change to the maintainer's environment \u2014 not done unilaterally",
+    "googleDriveForDesktop": "NOT present (~/Library/CloudStorage/GoogleDrive* absent), so the zero-integration 'Drive folder is just a folder' path cannot be demonstrated either",
+    "consequence": "phase 2 can be BUILT and proven for everything that does not need a real Drive \u2014 detection and its reason strings, placement, adapter selection, the hold reusing phase 1's mechanism. The LIVE Drive proof needs the maintainer: authorising Google is an account consent flow the orchestrator will not perform, and rclone's own setup requires the person to create their own Google Cloud OAuth client (no tool can script the Google-side step).",
+    "recorded": "2026-09-12"
   }
 }
