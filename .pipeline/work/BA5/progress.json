@@ -368,6 +368,15 @@
       "session-handles: cursor-agent"
     ],
     "concern": "the recorded main baseline was ~5 failures in codex (MCP readiness) and opencode (step_finish). This profile is larger and different \u2014 claude and cursor adapters failing with prompt-shaped symptoms, and this branch changed session provisioning and prompt assembly. Must not be attributed to the branch or to main without the comparison run.",
-    "comparison": "running the identical lane on a throwaway origin/main worktree, alone on the machine"
+    "comparison": "running the identical lane on a throwaway origin/main worktree, alone on the machine",
+    "branchSideAnalysis": {
+      "at": "2026-09-12",
+      "duration": "1692.54s (~28 min), exit 1",
+      "blastRadius": "this branch changes ZERO files in layers/agent-execution/harness-registry, where 7 of the 8 failures live; the 8th is core-api knowledge-tree. The three changed files in the failing tests' dependency path are contracts.ts (one optional field), index.ts (additive exports) and start-runtime.ts (the drain hold) \u2014 none touches harness invocation or knowledge materialisation; writeback-processor.ts verified unchanged.",
+      "dominantSignature": "the CLI answers an EMPTY prompt \u2014 phase 1 text is literally '||' \u2014 across claude-code, codex and cursor-agent; claude replies 'I don't have any prior context about what you'd like me to work on'. The 8th is opencode on qwen3-8b missing values its sandbox demonstrably contained, plus one attempt killed by opencode auto-rejecting a doom_loop glob permission.",
+      "baselineIsStale": "the recorded main baseline (~5 failed / 62 passed, codex MCP readiness + opencode step_finish) does not describe this run: all four AN2 MCP live proofs PASSED and step_finish appears nowhere, and that baseline counted 62 tests against this run's 93. It cannot serve as the comparison \u2014 hence the real main run.",
+      "provisioningVocabulary": "the only match across the whole log is a PASS \u2014 '[AN2 real-harness gh] LIVE PROOF: GH_TOKEN env injection -> gh auth status succeeded with injected token.' No failure mentions filesystems, mounting, workspaces, kept copies or credentials.",
+      "conclusionWithheld": "no failure will be called pre-existing until the origin/main run lands"
+    }
   }
 }
