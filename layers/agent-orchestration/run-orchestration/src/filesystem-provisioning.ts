@@ -66,6 +66,14 @@ export interface FilesystemForProvisioning {
  */
 export interface InjectedFilesystemsReaderPort {
 	listInjectedForProvisioning(agentId: string): Promise<readonly FilesystemForProvisioning[]>;
+	/**
+	 * BA5 §2.4/§13 (L4): the PAT resolved as the connection's OWNER (never a
+	 * per-request user) — backed by `resolveConnectionToken`. Optional: an
+	 * absent method, like an absent port entirely, mounts every connection-
+	 * backed filesystem with `credential: null` — the same "no credential yet"
+	 * shape a public remote already needs nothing for.
+	 */
+	resolveCredential?(connectionId: string): Promise<string | null>;
 }
 
 /** A path segment charset a folder name is reduced to (BA5 §5.3). */
@@ -151,15 +159,20 @@ export async function mountFilesystemsForAgent(params: {
 	const mounted: MountedFilesystem[] = [];
 	for (const filesystem of fsList) {
 		const folderName = folderNames.get(filesystem.id) ?? filesystem.id;
-		// @lore BA5 §13 (L3 scope): credential resolution (`resolveConnectionToken`,
-		// §2.4) is L4's — this leaf mounts every filesystem with no credential, the
-		// same "no credential yet" shape a public remote already needs nothing for.
+		// @lore BA5 §2.4/§13 (L4): resolved as the connection's OWNER, never a
+		// per-request user — a filesystem row has no user of its own. No
+		// connectionId, or no `resolveCredential` wired at all, mounts with
+		// `credential: null`, same as a public remote already needs.
+		const credential =
+			filesystem.connectionId != null && filesystems?.resolveCredential
+				? await filesystems.resolveCredential(filesystem.connectionId)
+				: null;
 		const result = await mounter.mount({
 			filesystem,
 			workspacePath,
 			sessionId,
 			folderName,
-			credential: null,
+			credential,
 		});
 		if (!result.ok) {
 			throw new Error(`could not mount filesystem ${filesystem.id}: ${result.reason}`);

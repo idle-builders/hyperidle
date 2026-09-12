@@ -149,7 +149,13 @@ class LocalFolderAdapter implements MountAdapter {
 	}
 }
 
-function isLocalRepoPath(
+/**
+ * @lore BA5 §7.2 (L4): exported — `checkFilesystem` (`filesystem-check.ts`,
+ * same package) needs the SAME local-vs-remote decision `mount` uses, so
+ * Check and placement never disagree about what a `code` filesystem's `repo`
+ * string means.
+ */
+export function isLocalRepoPath(
 	ref: { kind: "code"; repo: string } | { kind: string; folder?: string },
 ): boolean {
 	if (ref.kind !== "code") return false;
@@ -175,7 +181,7 @@ function isLocalRepoPath(
  * by the time this runs the mount phase has already created it, but a defensive
  * fallback beats throwing out of a trust-declaration helper.
  */
-function normalizeLocalPath(raw: string): string {
+export function normalizeLocalPath(raw: string): string {
 	let resolved = raw;
 	if (resolved.startsWith("file://")) {
 		resolved = fileURLToPath(resolved);

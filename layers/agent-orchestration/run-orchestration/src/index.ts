@@ -56,6 +56,12 @@ export type {
 } from "./contracts.js";
 export { endRunForHandoff } from "./end-run-for-handoff.js";
 export { startWatcher } from "./file-watcher.js";
+export {
+	checkFilesystem,
+	type FilesystemCheckDeps,
+	type FilesystemCheckResult,
+	type GhAuthState,
+} from "./filesystem-check.js";
 export { describeMountedFilesystems } from "./filesystem-instructions.js";
 export {
 	computeFolderNames,
@@ -71,9 +77,11 @@ export {
 	excludeMountedFolders,
 	type Filesystem,
 	forgetKeptCopy,
+	isLocalRepoPath,
 	type MountedFilesystem,
 	type MountInput,
 	type MountResult,
+	normalizeLocalPath,
 	RegistryFilesystemMounter,
 } from "./mounter.js";
 export type { MountingGitRunnerFactory } from "./mounter-ports.js";

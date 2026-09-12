@@ -149,6 +149,113 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		expect(mounter.mount).not.toHaveBeenCalled();
 	});
 
+	test("BA5 §2.4/§13 (L4): a connection-backed filesystem's credential is resolved through the port and handed to the mounter", async () => {
+		const withConnection = buildFilesystemRecord({ id: "fs-cred-1", connectionId: "conn-1" });
+		const resolvedFor: string[] = [];
+		const mounted: Array<{ credential: string | null }> = [];
+		const mounter: FilesystemMounterPort = {
+			mount: async (input) => {
+				mounted.push({ credential: input.credential });
+				return {
+					ok: true,
+					mounted: {
+						filesystem: input.filesystem,
+						folder: path.join(input.workspacePath, input.folderName),
+						trustedPath: "/repo",
+						agentEnv: {},
+						adopted: false,
+					},
+				};
+			},
+			unmount: async () => undefined,
+		};
+
+		const result = await mountFilesystemsForAgent({
+			agentId: "agent-cred-1",
+			sessionId: "session-cred-1",
+			filesystems: {
+				listInjectedForProvisioning: async () => [withConnection],
+				resolveCredential: async (connectionId: string) => {
+					resolvedFor.push(connectionId);
+					return "pat-value-1";
+				},
+			},
+			workspacePath: sandboxPath,
+			mounter,
+		});
+
+		expect(resolvedFor).toEqual(["conn-1"]);
+		expect(mounted).toEqual([{ credential: "pat-value-1" }]);
+		expect(result[0]?.filesystem.id).toBe("fs-cred-1");
+	});
+
+	test("a filesystem with no connectionId never calls resolveCredential — mounted with credential:null", async () => {
+		const noConnection = buildFilesystemRecord({ id: "fs-no-cred", connectionId: null });
+		const resolveCredential = vi.fn(async () => "should-not-be-used");
+		const mounted: Array<{ credential: string | null }> = [];
+		const mounter: FilesystemMounterPort = {
+			mount: async (input) => {
+				mounted.push({ credential: input.credential });
+				return {
+					ok: true,
+					mounted: {
+						filesystem: input.filesystem,
+						folder: path.join(input.workspacePath, input.folderName),
+						trustedPath: "/repo",
+						agentEnv: {},
+						adopted: false,
+					},
+				};
+			},
+			unmount: async () => undefined,
+		};
+
+		await mountFilesystemsForAgent({
+			agentId: "agent-no-cred",
+			sessionId: "session-no-cred",
+			filesystems: {
+				listInjectedForProvisioning: async () => [noConnection],
+				resolveCredential,
+			},
+			workspacePath: sandboxPath,
+			mounter,
+		});
+
+		expect(resolveCredential).not.toHaveBeenCalled();
+		expect(mounted).toEqual([{ credential: null }]);
+	});
+
+	test("a connection-backed filesystem with no resolveCredential on the port mounts with credential:null (graceful degrade)", async () => {
+		const withConnection = buildFilesystemRecord({ id: "fs-cred-nodep", connectionId: "conn-2" });
+		const mounted: Array<{ credential: string | null }> = [];
+		const mounter: FilesystemMounterPort = {
+			mount: async (input) => {
+				mounted.push({ credential: input.credential });
+				return {
+					ok: true,
+					mounted: {
+						filesystem: input.filesystem,
+						folder: path.join(input.workspacePath, input.folderName),
+						trustedPath: "/repo",
+						agentEnv: {},
+						adopted: false,
+					},
+				};
+			},
+			unmount: async () => undefined,
+		};
+
+		await mountFilesystemsForAgent({
+			agentId: "agent-cred-nodep",
+			sessionId: "session-cred-nodep",
+			filesystems: reader([withConnection]),
+			workspacePath: sandboxPath,
+			mounter,
+		});
+
+		expect(mounted).toEqual([{ credential: null }]);
+	});
+
 	test("a failed mount THROWS instead of being excluded from the result (BA5 §4.2/§13)", async () => {
 		const bakedRow = buildFilesystemRecord({ id: "fs-inc12-fail" });
 		const mounter: FilesystemMounterPort = {

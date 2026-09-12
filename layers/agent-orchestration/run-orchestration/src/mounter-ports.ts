@@ -11,18 +11,23 @@
  * `git-runner.ts`, injected by the Application.
  *
  * @lore BA5 §6.3: narrowed to exactly the verbs `GitRepositoryAdapter`
- * (`mounter.ts`) calls — `add`/`commit`/`diffCached`/`revParseIsInsideWorkTree`/
- * `lsFiles`/`restoreStaged` were never called by anything in this package (a
- * relic from when this port mirrored the FULL real `GitRunner` shape) and are
- * dropped rather than carried forward unused. `clone`/`worktreeAdd` are
- * reshaped to match the real runner's post-§6.3 signatures (env-based
- * credentials, an explicit new branch + start point) — the two this package
- * still leaves for a caller to re-add when it needs them: `lsRemote` (Check,
- * §7.2, shares no property with this mirror) and `bundle`/`restoreStaged`
- * (no caller here at all).
+ * (`mounter.ts`) calls — `add`/`commit`/`diffCached`/`lsFiles`/`restoreStaged`
+ * were never called by anything in this package (a relic from when this port
+ * mirrored the FULL real `GitRunner` shape) and are dropped rather than
+ * carried forward unused. `clone`/`worktreeAdd` are reshaped to match the real
+ * runner's post-§6.3 signatures (env-based credentials, an explicit new
+ * branch + start point).
+ *
+ * @lore BA5 §2.5/§14.2 (L4): `revParseIsInsideWorkTree` and `lsRemote`
+ * re-added — `checkFilesystem` (`filesystem-check.ts`) needs both (a local
+ * git check and the remote reachability gate, §7.2) and is the first caller
+ * in this package that does. `bundle`/`restoreStaged` still have no caller
+ * here at all and stay dropped.
  */
 
 interface MountingGitRunner {
+	/** True when the runner's cwd is inside a git work tree. Never throws. */
+	revParseIsInsideWorkTree(): Promise<boolean>;
 	/** Full clone into `destination` — see the real `GitRunner.clone`'s doc comment. */
 	clone(url: string, destination: string, opts?: { env?: Record<string, string> }): Promise<void>;
 	/** `git fetch --prune origin` against the runner's cwd (a kept copy). */
@@ -36,6 +41,21 @@ interface MountingGitRunner {
 	verifyCommit(ref: string): Promise<boolean>;
 	/** The currently checked-out branch name, or `null` when it cannot be resolved. Never throws. */
 	currentBranch(): Promise<string | null>;
+	/**
+	 * `git ls-remote --exit-code -- <url> refs/heads/<branch>` — see the real
+	 * `GitRunner.lsRemote`'s doc comment for the full result shape. Never
+	 * throws.
+	 */
+	lsRemote(
+		url: string,
+		opts?: { env?: Record<string, string>; branch?: string },
+	): Promise<{
+		reachable: boolean;
+		reason?: string;
+		found?: boolean;
+		branchMissing?: boolean;
+		authRequested?: boolean;
+	}>;
 }
 
 export type MountingGitRunnerFactory = (cwd: string) => MountingGitRunner;
