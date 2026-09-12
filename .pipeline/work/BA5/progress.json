@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Both blockers fixed (c3a2948e0, 32dc9ae0d) and verified by the orchestrator; re-review of that delta in flight. Then G2 \u2014 blocked on the maintainer's repo/token/PR answers.",
+  "resume": "Phase 1 built, reviewed PASS, harness discharged. Running the unblocked two-thirds of G2 on the live app; the two credentialed cases and the PR wait on the maintainer.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -161,6 +161,14 @@
         "the two authoritative docs are now false (validate route, health, write-back, capture-back) \u2014 deferred to G3 by the plan"
       ],
       "verifiedPositives": "check 38/38; lint 0 violations across three governance passes and 6551 crossings; knip and knip:production exit 0; credentials env-only with no git config write, URL userinfo rejected at POST, every runner string redacted, and absence asserted from payload_json and the sessions row; the hold's claim filter takes plain ids and imports no filesystems table; one notice per episode proven twice; every old shape's scan finds no survivor; no live-network test remains; both suppressions legitimate; the two process incidents left nothing unrelated in the diff"
+    },
+    {
+      "round": "fix-delta-review",
+      "at": "2026-09-12",
+      "on": "32dc9ae0d",
+      "verdict": "PASS",
+      "evidence": "the reviewer sabotaged the fix twice itself: forcing recognizeAdoptedWorktree to return undefined gave 'expected false to be true' at :199, and forcing a wrong branch gave 'expected not-the-real-branch to be hyperidle/sess-adopt-1' at :202 \u2014 so the test proves recognition, not merely absence of a throw. Restore verified clean after each. B2: od -c confirms a single 0x1F where the NUL was; zero NULs in any tracked file under layers/framework/applications; the PR diff against origin/main renders 72 lines of text. No skips, no suppressions, no weakened gates; check 38/38.",
+      "scope": "the two fix commits only; the rest of phase 1 stays as previously judged"
     }
   ],
   "build": {
@@ -394,5 +402,19 @@
         "cancelled": "a further re-run of the diverging knowledge-tree case was stopped: it would have competed with the fix round, and the verdict does not depend on it"
       }
     }
+  },
+  "g2": {
+    "runnableNow": [
+      "a local git repository",
+      "a public remote with no credentials",
+      "a plain folder",
+      "a broken filesystem holding an agent, its single notification, and release after Check",
+      "a resumed session finding its work intact"
+    ],
+    "blockedOnMaintainer": [
+      "a private remote through the gh login \u2014 needs a repo the agent may clone and push to",
+      "a private remote through a stored token \u2014 the maintainer must paste the token themselves",
+      "whether to open the draft PR"
+    ]
   }
 }
