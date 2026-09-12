@@ -8,7 +8,7 @@
 
 **Missing delta.** The `document` module with three actions; the rename knowledge item → document across schema, code and UI in this one change; tree and parent kinds kept; merge, split, status, promote, conflict as fields of edit with invariants; versions and the edit log folded into `changes`; context assembly becomes the read model `document.search` returns to the session baker. Deletes the package, the routes, the seven tools, the hooks.
 
-**Depends on.** BC2 — copies the proven pattern and the loops. Independent of BC3.
+**Depends on.** BC3 — document's conflict opens a review thread; lands with thread already a module.
 
 **Dials (provisional).** complexity: suite · ambiguity: established context · exposure: public contract
 

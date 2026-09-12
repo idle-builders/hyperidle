@@ -8,7 +8,7 @@
 
 **Missing delta.** The `session` module (orchestration) and `platform` module (settings) as list entries; the composition root joins each layer's action list; the session WS folded into the one stream. Deletes the twelve routes and the separate WS.
 
-**Depends on.** BC2 — the loops and the rule.
+**Depends on.** BC4 — sequential by the module-link rule; its task link is rewired by BC5.
 
 **Dials (provisional).** complexity: feature · ambiguity: established context · exposure: public contract
 

@@ -187,3 +187,35 @@ Build-time calls, default stated, no founder question needed:
 - **UI push**: one stream of the 9 events, per-user filtered. SSE or the existing WS —
   whichever is fewer lines once the `changes` table exists.
 - **Invariant split** (pure vs needs-DB) decided per object when built.
+
+## 8. Layers — what crosses them, and how
+
+The layer split stays. What changes is what crosses it.
+
+| Layer | Today | Under the list |
+|---|---|---|
+| `framework` | `api-contract`: 43 + 13 hand-mirrored port methods | **The declarations live here**: name, sentence, input shape and the pure invariants of all 17 actions. The UI and the layers both import them — `core-ui` cannot import `core-api`, so this is the only place a button can read an invariant from. Replaces `api-contract`. |
+| `core-api` | 10 services, 126 routes, 14 reaction files, the seam client | Four modules (task, thread, document, user) implementing `run`; own their tables. Declares one port: *run this work*. |
+| `agent-orchestration` | run-orchestration, session-requests, tool-handlers, connections, filesystems, session routes + WS | The `session` module (see what's running · watch · stop) over the same queue and provisioner. Loses tool-handlers and the seam client; connections and folders move to the user module (BC5). Declares one port: *record what happened on this task*. |
+| `agent-execution` | harness adapters, sandbox, MCP bridge, remote workers | Unchanged in role. The MCP bridge receives the composed list as a value and registers it. Identity from the session, as today. |
+| `applications` | composes routers on one Hono root | Composes modules: binds the two ports, joins the lists, mounts the HTTP loop, hands the list to the MCP bridge, runs the one event stream. |
+
+**Core ↔ orchestration.** Orchestration is a blind, request-driven executor: it never reads core,
+core never pushes it state. Two ports, both bound at the root:
+- *Run this work* (core → orchestration): `task.edit` accepts an owned task, commits, then calls the
+  port with the baked bundle. Today the work-intent seam over HTTP in the same process; tomorrow a
+  bound function. Same direction, same content.
+- *Record what happened* (orchestration → core): a session ends; the port is bound to `task.edit`.
+  Today `session_ended` + a reaction file in core. Tomorrow the same edit a person would make, so
+  the lint sees it. This is how session start/end fold into `task.changed`.
+
+Agents no longer pass through orchestration to reach core: the MCP bridge calls the modules
+directly. `api-contract` shrinks from 56 mirrored methods to two ports.
+
+**Between modules.** A module reaches another only through that module's actions: `open`/`search`
+to read, `edit`/`send a message` to write — after its own commit, as the same actor, in-process.
+Never the other's tables, never its internals, never a shared transaction. Ids stay ids; storing a
+thread's id needs no thread code. The lint enforces it: a module imports the declarations and
+nothing else of another module. Consequence for the track: while a neighbour is still a legacy
+service, the link calls the legacy service and whoever lands second swaps it — so BC3, BC4 and BC6
+run in sequence, not in parallel.

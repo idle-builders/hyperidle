@@ -8,7 +8,7 @@
 
 **Missing delta.** Those opinions moved into a plugin; a fresh install with no plugin boots to four empty lists and one agent with one subscription. Deletes the builtin catalog, templates and scaffolding from core.
 
-**Depends on.** BC5 and BC6 — the user module's defaults and the platform module's contributions are what make them movable.
+**Depends on.** BC5 — the user module's defaults and the platform module's contributions are what make them movable.
 
 **Dials (provisional).** complexity: feature · ambiguity: established context · exposure: user-facing surface
 

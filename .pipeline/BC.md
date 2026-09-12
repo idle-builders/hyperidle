@@ -45,28 +45,32 @@ Each item here only re-points existing screens at `call` and `invariants`.
 
 | ID | Title | Type | Complexity | Depends | Status |
 |---|---|---|---|---|---|
-| BC1 | Delete: 22 routes, 8 events, the attention engine, the stale events fork, dead controls | backend + frontend | feature | — | planned |
+| BC1 | Delete: 22 routes, 8 events, the attention engine, the stale events fork, dead controls | backend + frontend | feature | — | planned — ready to run; plan complete, hand to a builder via `/pipeline` |
 | BC2 | The action list, proven end to end on task (shape, `changes` table, three loops, lint rule) | backend + frontend | suite | BC1 | planned |
 | BC3 | Thread as a module: search · open · send a message · adjust; `items` becomes a message kind | backend + frontend | suite | BC2 | planned |
-| BC4 | Document as a module: search · open · edit; knowledge item renamed; tree, status, merge, split as edit | backend + frontend | suite | BC2 | planned |
-| BC5 | User as a module with subscriptions: routines and notifications become one mechanism; team an attribute; setup dissolves | backend + frontend | suite | BC3, BC4 | planned |
-| BC6 | Session and platform as modules: see what's running · watch · stop; manage plugins | backend + frontend | feature | BC2 | planned |
-| BC7 | Opinions out: role catalog, prompt templates, team scaffolding move to a plugin; fresh install is empty | backend + plugin | feature | BC5, BC6 | planned |
+| BC4 | Document as a module: search · open · edit; knowledge item renamed; tree, status, merge, split as edit | backend + frontend | suite | BC3 | planned |
+| BC5 | User as a module with subscriptions: routines and notifications become one mechanism; team an attribute; setup dissolves | backend + frontend | suite | BC6 | planned |
+| BC6 | Session and platform as modules: see what's running · watch · stop; manage plugins | backend + frontend | feature | BC4 | planned |
+| BC7 | Opinions out: role catalog, prompt templates, team scaffolding move to a plugin; fresh install is empty | backend + plugin | feature | BC5 | planned |
 
 ## Dependency graph
+
+Sequential. Every module links to its neighbours (a task has a thread, a document has a parent, a
+session runs on a task) and a module reaches a neighbour only through the neighbour's actions. While
+a neighbour is still a legacy service the link calls the legacy service, and whoever lands second
+swaps it. Running BC3, BC4 and BC6 in parallel would put the same swaps on three branches.
 
 - `BC1` depends on nothing. Pure reduction; the governance rule it adds names what may not return.
 - `BC2` depends on `BC1`: the rule's plumbing list must be the real sixteen, and the attention
   column must be gone before the task read model is cut.
-- `BC3`, `BC4`, `BC6` each depend only on `BC2`: they copy the pattern it proves. They are
-  independent of each other and can run in any order or in parallel.
-- `BC5` depends on `BC3` and `BC4`: a subscription names the nine events, which only exist once each
-  object emits them from its own `changes` rows.
-- `BC7` depends on `BC5` and `BC6`: it moves what the user module's defaults and the plugin module's
+- `BC3` depends on `BC2`: copies the pattern; thread is what task leans on most.
+- `BC4` depends on `BC3`: document's conflict opens a review thread; lands with thread a module.
+- `BC6` depends on `BC4`: smallest; its task link is rewired by BC5 anyway, so it goes last before it.
+- `BC5` depends on `BC6`: a subscription names the nine events, which exist once every object emits
+  them; connections and folders move from orchestration once session is a module.
+- `BC7` depends on `BC5`: moves what the user module's defaults and the platform module's
   contributions then make movable.
 
 ```
-BC1 → BC2 → BC3 ─┐
-           → BC4 ─┼→ BC5 → BC7
-           → BC6 ─┘
+BC1 → BC2 → BC3 → BC4 → BC6 → BC5 → BC7
 ```

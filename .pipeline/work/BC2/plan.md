@@ -63,6 +63,18 @@ item, made from inside edit-a-task after commit — the founder's rule is that o
 request-driven executor and this is the request. BC5 replaces it with the owner's subscription; BC6
 removes the seam's other direction.
 
+**Where the declaration lives.** The three actions' names, sentences, input shapes and pure
+invariants go in `framework`, because the UI cannot import `core-api` and must read the same
+invariant the server runs. The task module in `core-api` implements what they do. This is what
+replaces `api-contract`'s hand-mirrored types.
+
+**Modules reach each other only through actions.** When a later item needs the task from another
+module — a verdict message finishing a task, a session end recording tokens — it calls edit-a-task
+after its own commit, as the same actor, in-process. Never the task table, never a shared
+transaction. Ids stay ids. Orchestration's session end reaches the task through one port the
+composition root binds to edit-a-task; core's accept reaches orchestration through one port bound
+to *run this work*. Those two ports are all that is left of the seam.
+
 **Screens follow, not rebuilt.** The task page and the task tree stop calling routes and call the
 list. Controls read the invariants. No redesign — that is the next phase.
 

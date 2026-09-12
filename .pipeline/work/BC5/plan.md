@@ -8,7 +8,7 @@
 
 **Missing delta.** The `user` module with three actions; `subscriptions` on the user (`userId · event · documentId | null · paused`): a document set means the runner runs it, null means a notification row with a recipient; cron stays a trigger kind; the one event stream for the UI, per-user filtered; team as a column + filter; connections, folders, backends, defaults as attributes with plugin defaults and user overrides. Deletes the five packages, the routines table and routes, the notification routes and mute singleton, the team/org routes, the four tools, the setup and settings pages except plugins, and the `notification` event BC1 left alive.
 
-**Depends on.** BC3 and BC4 — a subscription names the nine events, which exist once each object emits them from its own `changes` rows.
+**Depends on.** BC6 — a subscription names the nine events, which exist once every object emits them; connections and folders move from orchestration once session is a module.
 
 **Dials (provisional).** complexity: suite · ambiguity: established context · exposure: user-facing surface
 
