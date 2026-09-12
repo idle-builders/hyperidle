@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Desktop data backed up; plan is to launch against a throwaway --user-data-dir profile. Build in flight. Then: private-repo-via-gh-login proof, resume case, ship. Stored-PAT case still needs the maintainer.",
+  "resume": "Credentialed-mount proof COMPLETE in the packaged desktop app. Remaining: the resume case, then ship (verify, PR, CI green). Stored-PAT case still needs the maintainer to paste a token.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -486,6 +486,13 @@
         "how": "ran git ls-remote against the private repo twice with GIT_CONFIG_GLOBAL=/dev/null and GIT_CONFIG_SYSTEM=/dev/null, i.e. the ambient configuration suppressed",
         "result": "WITHOUT the injected environment: 'fatal: could not read Username for https://github.com' \u2014 unreachable. WITH exactly the GIT_CONFIG_COUNT/KEY_0/VALUE_0 credential.<host>.helper = '!gh auth git-credential' that this branch injects per process: returns the private repo's real ref 80ecbef. So authentication rides gh, configured for that one process, with nothing written to the person's git config.",
         "caveat": "the printed exit=0 lines were head's exit status, not git's; the evidence is the error message versus the returned ref"
+      },
+      {
+        "case": "BA5's headline: an agent works in a filesystem that needs credentials \u2014 proven in the PACKAGED DESKTOP APP",
+        "how": "built the app from this branch, launched it against a throwaway --user-data-dir profile (the maintainer's real desktop data untouched and separately backed up), created a team, registered https://github.com/tobias-ambrovia/ba5-filesystem-proof.git (PRIVATE) with NO connection so it had to authenticate through the person's gh login, picked it for the agent, then dispatched a task",
+        "result": "the filesystem registered 'reachable'; the app cloned the private repo into its kept-copies store; that clone's remote is the private repo, its HEAD is 80ecbef (the exact commit pushed), and reading PROOF.md out of it yields 'MARKER: PRIVATEREPO-A77C31' \u2014 real private content. The agent's session then ran to completion (run done/completed, 17s) and the task reached 'done'.",
+        "security": "no credential in the clone's .git/config and no userinfo in the remote URL \u2014 authentication rode gh per process and was never persisted",
+        "gap": "the task carried no threadId (tasks created through the API get no thread), so the agent's own words could not be quoted; the filesystem evidence stands on its own"
       }
     ],
     "proofRepo": {
