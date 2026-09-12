@@ -43,7 +43,7 @@
 // hearth-internal-padding
 
 import { type JSX, useState } from "react";
-import { Button, KeyValue, type Status, StatusChip, Tag } from "../ds";
+import { Button, Dialog, Input, KeyValue, Select, type Status, StatusChip, Tag } from "../ds";
 
 // ---------------------------------------------------------------------------
 // Fixture shape — the registered Filesystem as the UI sees it (mirrors the
@@ -262,6 +262,69 @@ function FilesystemRow({
 }
 
 // ---------------------------------------------------------------------------
+// Add filesystem dialog — static visual only, no submit wiring (the live
+// behaviour is `AddFilesystemDialog` in SettingsFilesystems.tsx, proven by
+// settings-filesystems.test.tsx). Mirrors AddConnectionDialog's story shape
+// in SettingsConnections.stories.tsx.
+// ---------------------------------------------------------------------------
+
+function AddFilesystemDialog({
+	open,
+	onClose,
+}: {
+	open: boolean;
+	onClose: () => void;
+}): JSX.Element {
+	const [kind, setKind] = useState<"code" | "doc_set">("code");
+	return (
+		<Dialog
+			open={open}
+			onClose={onClose}
+			title="Add a filesystem"
+			size="md"
+			footer={
+				<div className="flex justify-end gap-[9px]">
+					<Button variant="ghost" onClick={onClose}>
+						Cancel
+					</Button>
+					<Button variant="primary">Add</Button>
+				</div>
+			}
+		>
+			<div className="flex flex-col gap-[18px]">
+				<Select
+					id="story-add-filesystem-kind"
+					label="Kind"
+					value={kind}
+					onChange={(e) => setKind(e.target.value as "code" | "doc_set")}
+					options={[
+						{ value: "code", label: "Git repository" },
+						{ value: "doc_set", label: "Folder" },
+					]}
+				/>
+				<Input
+					label="Location"
+					placeholder={
+						kind === "code" ? "https://github.com/acme/app or /path/to/repo" : "/path/to/folder"
+					}
+				/>
+				{kind === "code" ? <Input label="Branch" placeholder="main" /> : null}
+				{kind === "code" ? (
+					<Select
+						id="story-add-filesystem-connection"
+						label="GitHub token (optional)"
+						value=""
+						onChange={() => {}}
+						placeholder="No token — use my gh login"
+						options={[{ value: "sc-gh", label: "GitHub" }]}
+					/>
+				) : null}
+			</div>
+		</Dialog>
+	);
+}
+
+// ---------------------------------------------------------------------------
 // Story
 // ---------------------------------------------------------------------------
 
@@ -301,3 +364,12 @@ export const Populated = (): JSX.Element => {
 	);
 };
 Populated.storyName = "Filesystems registry (Settings section)";
+
+export const OpenDialog = (): JSX.Element => {
+	return (
+		<div className="flex flex-col gap-[24px] bg-[var(--surface-page)] p-[24px]">
+			<AddFilesystemDialog open onClose={() => {}} />
+		</div>
+	);
+};
+OpenDialog.storyName = "Add filesystem dialog (open)";
