@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "G2: onboarding + pick-for-agent proven live. Next: folder and public-remote via the new Add dialog, Check, broken filesystem (hold + one notification), dispatch, resume. Credentialed cases and draft PR still need the maintainer.",
+  "resume": "G2 live: onboarding+pick, Add dialog, public remote, Check all proven. In flight: folder case and broken-filesystem case (hold + one notification). Then dispatch, resume. Credentialed cases and draft PR need the maintainer.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -440,6 +440,21 @@
         "how": "live app, fresh database: baseline showed zero teams; completed onboarding with a real local git repository as the project folder",
         "result": "team 'local-repo' created with its agent; filesystem f7490a99 registered (kind code, source local, state 'reachable', no reason, no connection); GET /api/filesystems?agentUserId= for that agent returns that filesystem, so it is picked for the agent rather than sitting unmounted",
         "notes": "Check ran at registration and returned reachable without a separate step"
+      },
+      {
+        "case": "the Add filesystem dialog exists and works (its button had no handler at all before)",
+        "how": "live app, Settings -> Filesystems",
+        "result": "dialog offers Kind (Git repository / Folder), Location and Branch; a GitHub token picker appears only once a github.com URL is typed, offering 'No token \u2014 use my gh login'"
+      },
+      {
+        "case": "a public remote repository needs only git \u2014 review blocker B2",
+        "how": "registered https://github.com/octocat/Hello-World.git with no connection and no token",
+        "result": "state 'reachable', source 'github', connectionId null, no reason \u2014 Check at registration passed without gh being asked for a credential"
+      },
+      {
+        "case": "Check on a healthy local repository",
+        "how": "pressed Check on the onboarding-registered row",
+        "result": "stays REACHABLE, which is the correct answer"
       }
     ]
   }
