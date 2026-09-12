@@ -1,7 +1,7 @@
 {
   "item": "BA5",
   "title": "The filesystem works",
-  "status": "in-progress",
+  "status": "awaiting-human-review",
   "since": "f88b714346822fdc19d90c07f9617263fba6925c",
   "dials": {
     "complexity": "suite",
@@ -72,14 +72,14 @@
       "for": "phase-2 architecture: Drive as a filesystem through rclone"
     }
   ],
-  "resume": "Phase 2 architecture written and AT the 1,000-line stop. Awaiting the maintainer: accept ~1,000-1,150, or cut the Add-dialog Drive branch to ~850. Then build D1-D5, then ship.",
+  "resume": "Phase 1 complete and proven live. Phase 2 architecture committed (db9c479db) and AT the 1,000-line stop; awaiting the maintainer: accept ~1,000-1,150 or cut the Add-dialog Drive branch to ~850. Pre-build checks green. Also needing the maintainer: live Drive proof (Google consent + rclone install) and the stored-PAT case. Then ship.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
-    "at": "b8b00b2f1",
+    "at": "db9c479db",
     "check": "PASS (38 packages)",
-    "lint": "PASS (2540 files, 23 rules, 0 violations)",
-    "originMain": "f88b71434 (unmoved)",
-    "ranOn": "2026-09-11"
+    "lint": "PASS (2555 files, 23 rules, 0 violations)",
+    "ranOn": "2026-09-12",
+    "for": "the phase-2 build"
   },
   "sizeStop": {
     "at": "2026-09-11",
