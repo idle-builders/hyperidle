@@ -1,33 +1,65 @@
 /**
- * AO1 RED — Integration tests for the Filesystem registry + per-bot injection primitive.
+ * AO1 — Integration tests for the Filesystem registry + per-bot injection primitive.
  *
- * These tests FAIL until the implementation ships:
- *   - `framework/filesystem-contract/src/filesystem.ts` (FILESYSTEM_KINDS, types, FilesystemAuthResolver seam)
- *   - `framework/db/src/schema.ts` (filesystems + filesystemInjections tables)
- *   - migration 0039_AO1_filesystems.sql applied
- *   - `packages/server/src/routes/filesystems.ts` (createFilesystemRoutes)
- *   - `packages/server/src/app.ts` mounts /filesystems
- *   - NoopAuthResolver + resolveFilesystemState pure fn
+ * @lore BA5 §2.7/§12: rewritten for the real `checkFilesystem` (registration and
+ * `POST /:id/check` both run it and persist the result) replacing the old
+ * live-probe-on-`GET /:id` design — that route is deleted. POST now returns
+ * `{ filesystem, check }`, `sourceHint`/`writeback` are gone, and a
+ * `connectionId` must name a real held `token` connection whose `service` is
+ * `github`, for an `https://github.com/` repo — anything else is a 400.
  *
  * Coverage:
- *   AC1  — register + source derivation, GET list/inspect
+ *   AC1  — register + source derivation, list; GET /:id is gone
  *   AC1b — inject/eject/share, UNIQUE enforcement, DELETE injection only
- *   AC2  — connection_id + resourceRef stored, NO credential on the row
+ *   AC2  — connection_id + resourceRef stored, NO credential on the row; POST validation (§2.7)
  *   AC3  — doc_set accepted; SoR kinds rejected at validation boundary
  *   AC4  — filesystem distinct from knowledge_items + server config
- *   AC5  — NoopAuthResolver → needs_attention for connection-backed; local → reachable
+ *   AC5  — Check runs on registration: needs_attention / reachable on the POST response itself
  *   AC6  — DELETE filesystem cascades injections
  *   AC8  — migration: filesystems + filesystem_injections tables, correct columns, no agent_user_id
  */
 
 import * as os from "node:os";
-import { type HyperIdleDb, knowledgeItems, serverConfig, teams, users } from "@hyperidle/db";
+import { encryptCredentialValue } from "@hyperidle/credentials";
+import {
+	type HyperIdleDb,
+	knowledgeItems,
+	serverConfig,
+	serviceConnections,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ao1";
 const NOW = "2026-06-26T00:00:00.000Z";
+const CREDENTIAL_KEY = "ao1-filesystems-test-credential-key";
+
+/**
+ * BA5 §2.7: `connectionId` on a POST body must now name a real, held `token`
+ * connection whose `service` is `github` — seed one for real, encrypted with
+ * the real cipher, exactly as `resolveConnectionToken` will read it back.
+ */
+async function seedGithubTokenConnection(
+	db: HyperIdleDb,
+	ownerId: string,
+	token: string,
+): Promise<string> {
+	const id = `sc-ao1-${ownerId}`;
+	await db.insert(serviceConnections).values({
+		id,
+		userId: ownerId,
+		service: "github",
+		authSource: "token",
+		encryptedToken: encryptCredentialValue(token),
+		serverUrl: null,
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+	return id;
+}
 
 function auth(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
@@ -90,7 +122,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC1: Register a filesystem (team-scoped) with derived source", () => {
-		test("POST /api/filesystems with code kind returns 201 and stores source", async ({
+		test("POST /api/filesystems with a github.com URL returns 201 and derives source 'github'", async ({
 			db,
 			app,
 		}) => {
@@ -102,24 +134,26 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				body: JSON.stringify({
 					teamId,
 					kind: "code",
-					connectionId: "conn-github-1",
-					resourceRef: { kind: "code", repo: "owner/hyperidle", branch: "main" },
-					// sourceHint provided so the NoopAuthResolver fallback yields 'github'
-					sourceHint: "github",
+					connectionId: null,
+					resourceRef: {
+						kind: "code",
+						repo: "https://github.com/owner/hyperidle.git",
+						branch: "main",
+					},
 				}),
 			});
 
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.teamId).toBe(teamId);
-			expect(body.kind).toBe("code");
-			expect(body.source).toBeDefined();
-			expect(typeof body.source).toBe("string");
+			const body = (await res.json()) as { filesystem: Record<string, unknown>; check: unknown };
+			expect(body.filesystem.teamId).toBe(teamId);
+			expect(body.filesystem.kind).toBe("code");
+			expect(body.filesystem.source).toBe("github");
 			// source must NOT be agent-owned: no agentUserId field on the row
-			expect(body).not.toHaveProperty("agentUserId");
+			expect(body.filesystem).not.toHaveProperty("agentUserId");
+			expect(body.check).toBeDefined();
 		});
 
-		test("POST with null connectionId → source 'local'", async ({ db, app }) => {
+		test("POST with a local path and null connectionId → source 'local'", async ({ db, app }) => {
 			const { teamId } = await seedTeamAndBots(db, "ac1b");
 
 			const res = await app.request("/api/filesystems", {
@@ -134,9 +168,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			});
 
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.source).toBe("local");
-			expect(body.connectionId).toBeNull();
+			const body = (await res.json()) as { filesystem: Record<string, unknown> };
+			expect(body.filesystem.source).toBe("local");
+			expect(body.filesystem.connectionId).toBeNull();
 		});
 
 		test("GET /api/filesystems?teamId= lists the registered filesystem", async ({ db, app }) => {
@@ -160,7 +194,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(listBody.filesystems.length).toBeGreaterThanOrEqual(1);
 		});
 
-		test("GET /api/filesystems/:id returns the filesystem with all required fields", async ({
+		test("POST /api/filesystems returns the filesystem with all required fields (GET /:id is gone, BA5 §12)", async ({
 			db,
 			app,
 		}) => {
@@ -178,25 +212,24 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			});
 
 			expect(createRes.status).toBe(201);
-			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created.id as string;
-			expect(id).toBeDefined();
-
-			const getRes = await app.request(`/api/filesystems/${id}`, { headers: auth() });
-			expect(getRes.status).toBe(200);
-			const got = (await getRes.json()) as Record<string, unknown>;
-			expect(got.id).toBe(id);
-			expect(got.source).toBeDefined();
-			expect(got.kind).toBe("code");
-			expect(got).not.toHaveProperty("writeback");
-			expect(got.state).toBeDefined();
-			expect(got.resourceRef).toBeDefined();
+			const { filesystem } = (await createRes.json()) as { filesystem: Record<string, unknown> };
+			expect(filesystem.id).toBeDefined();
+			expect(filesystem.source).toBeDefined();
+			expect(filesystem.kind).toBe("code");
+			expect(filesystem).not.toHaveProperty("writeback");
+			expect(filesystem.state).toBeDefined();
+			expect(filesystem.resourceRef).toBeDefined();
 			// resourceRef should expose the parsed object, not raw JSON string
-			expect(typeof got.resourceRef).toBe("object");
+			expect(typeof filesystem.resourceRef).toBe("object");
 		});
 
-		test("GET /api/filesystems/:id → 404 for unknown id", async ({ app }) => {
-			const res = await app.request("/api/filesystems/does-not-exist", { headers: auth() });
+		test("POST /api/filesystems/:id/check → 404 for unknown id (GET /:id is gone, BA5 §12)", async ({
+			app,
+		}) => {
+			const res = await app.request("/api/filesystems/does-not-exist/check", {
+				method: "POST",
+				headers: auth(),
+			});
 			expect(res.status).toBe(404);
 		});
 
@@ -227,19 +260,19 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				body: JSON.stringify({
 					teamId,
 					kind: "code",
-					connectionId: "conn-abc",
-					resourceRef: { kind: "code", repo: "owner/repo", branch: "main" },
+					connectionId: null,
+					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
 				}),
 			});
 
 			expect(createRes.status).toBe(201);
-			const body = (await createRes.json()) as Record<string, unknown>;
+			const { filesystem } = (await createRes.json()) as { filesystem: Record<string, unknown> };
 			// No credential fields ever on the filesystem row (AC2 hard rule)
-			expect(body).not.toHaveProperty("token");
-			expect(body).not.toHaveProperty("secret");
-			expect(body).not.toHaveProperty("credential");
-			expect(body).not.toHaveProperty("auth");
-			expect(body).not.toHaveProperty("password");
+			expect(filesystem).not.toHaveProperty("token");
+			expect(filesystem).not.toHaveProperty("secret");
+			expect(filesystem).not.toHaveProperty("credential");
+			expect(filesystem).not.toHaveProperty("auth");
+			expect(filesystem).not.toHaveProperty("password");
 		});
 	});
 
@@ -264,7 +297,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
 				}),
 			});
-			const { id: fsId } = (await createRes.json()) as { id: string };
+			const {
+				filesystem: { id: fsId },
+			} = (await createRes.json()) as { filesystem: { id: string } };
 
 			const injRes = await app.request(`/api/filesystems/${fsId}/injections`, {
 				method: "POST",
@@ -293,7 +328,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
 				}),
 			});
-			const { id: fsId } = (await createRes.json()) as { id: string };
+			const {
+				filesystem: { id: fsId },
+			} = (await createRes.json()) as { filesystem: { id: string } };
 
 			await app.request(`/api/filesystems/${fsId}/injections`, {
 				method: "POST",
@@ -323,7 +360,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
 				}),
 			});
-			const { id: fsId } = (await createRes.json()) as { id: string };
+			const {
+				filesystem: { id: fsId },
+			} = (await createRes.json()) as { filesystem: { id: string } };
 
 			const inj1 = await app.request(`/api/filesystems/${fsId}/injections`, {
 				method: "POST",
@@ -365,7 +404,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
 				}),
 			});
-			const { id: fsId } = (await createRes.json()) as { id: string };
+			const {
+				filesystem: { id: fsId },
+			} = (await createRes.json()) as { filesystem: { id: string } };
 
 			await app.request(`/api/filesystems/${fsId}/injections`, {
 				method: "POST",
@@ -398,7 +439,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
 				}),
 			});
-			const { id: fsId } = (await createRes.json()) as { id: string };
+			const {
+				filesystem: { id: fsId },
+			} = (await createRes.json()) as { filesystem: { id: string } };
 
 			await app.request(`/api/filesystems/${fsId}/injections`, {
 				method: "POST",
@@ -417,8 +460,11 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			});
 			expect(repeatedDelRes.status).toBe(404);
 
-			// Filesystem itself still exists
-			const stillThere = await app.request(`/api/filesystems/${fsId}`, { headers: auth() });
+			// Filesystem itself still exists (GET /:id is gone, BA5 §12 — Check is the proxy)
+			const stillThere = await app.request(`/api/filesystems/${fsId}/check`, {
+				method: "POST",
+				headers: auth(),
+			});
 			expect(stillThere.status).toBe(200);
 
 			// Bot's injection list is now empty for this fs
@@ -459,7 +505,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
 				}),
 			});
-			const { id: fsId } = (await createRes.json()) as { id: string };
+			const {
+				filesystem: { id: fsId },
+			} = (await createRes.json()) as { filesystem: { id: string } };
 
 			// Try to inject into a bot from a different team → 400
 			const injRes = await app.request(`/api/filesystems/${fsId}/injections`, {
@@ -476,11 +524,16 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC2: code filesystem records connection_id + resourceRef, no token", () => {
+		beforeEach(() => {
+			vi.stubEnv("HYPERIDLE_CREDENTIAL_KEY", CREDENTIAL_KEY);
+		});
+
 		test("POST stores connectionId and resourceRef (JSON selector) on the row", async ({
 			db,
 			app,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac2a");
+			const { teamId, botId } = await seedTeamAndBots(db, "ac2a");
+			const connectionId = await seedGithubTokenConnection(db, botId, "ac2a-token");
 
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
@@ -488,17 +541,85 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				body: JSON.stringify({
 					teamId,
 					kind: "code",
-					connectionId: "conn-x-123",
-					resourceRef: { kind: "code", repo: "owner/hyperidle", branch: "feat/ao1" },
+					connectionId,
+					resourceRef: {
+						kind: "code",
+						repo: "https://github.com/owner/hyperidle.git",
+						branch: "feat/ao1",
+					},
 				}),
 			});
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.connectionId).toBe("conn-x-123");
+			const { filesystem } = (await res.json()) as { filesystem: Record<string, unknown> };
+			expect(filesystem.connectionId).toBe(connectionId);
 			// resourceRef should be the parsed object (not raw JSON text)
-			const ref = body.resourceRef as Record<string, unknown>;
-			expect(ref.repo).toBe("owner/hyperidle");
+			const ref = filesystem.resourceRef as Record<string, unknown>;
+			expect(ref.repo).toBe("https://github.com/owner/hyperidle.git");
 			expect(ref.branch).toBe("feat/ao1");
+		});
+
+		test("a connectionId that does not name a held GitHub token connection → 400", async ({
+			db,
+			app,
+		}) => {
+			const { teamId } = await seedTeamAndBots(db, "ac2b");
+
+			const res = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId,
+					kind: "code",
+					connectionId: "conn-does-not-exist",
+					resourceRef: {
+						kind: "code",
+						repo: "https://github.com/owner/hyperidle.git",
+						branch: "main",
+					},
+				}),
+			});
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as Record<string, unknown>;
+			expect(body.code).toBe("VALIDATION_ERROR");
+		});
+
+		test("a URL carrying userinfo → 400 (credentials belong in a connection)", async ({
+			db,
+			app,
+		}) => {
+			const { teamId } = await seedTeamAndBots(db, "ac2c");
+
+			const res = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId,
+					kind: "code",
+					connectionId: null,
+					resourceRef: {
+						kind: "code",
+						repo: "https://user:pass@github.com/owner/hyperidle.git",
+						branch: "main",
+					},
+				}),
+			});
+			expect(res.status).toBe(400);
+		});
+
+		test("a branch starting with '-' → 400 (never reaches argv as a flag)", async ({ db, app }) => {
+			const { teamId } = await seedTeamAndBots(db, "ac2d");
+
+			const res = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId,
+					kind: "code",
+					connectionId: null,
+					resourceRef: { kind: "code", repo: "/repo", branch: "-x" },
+				}),
+			});
+			expect(res.status).toBe(400);
 		});
 	});
 
@@ -521,8 +642,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				}),
 			});
 			expect(res.status).toBe(201);
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.kind).toBe("doc_set");
+			const { filesystem } = (await res.json()) as { filesystem: Record<string, unknown> };
+			expect(filesystem.kind).toBe("doc_set");
 		});
 
 		test("POST with kind='inbox' (SoR) → 400 VALIDATION_ERROR", async ({ db, app }) => {
@@ -636,23 +757,18 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// AC5 — NoopAuthResolver: connection-backed → needs_attention; local → reachable
 	// ─────────────────────────────────────────────────────────────────────
 
-	describe("AC5: needs_attention surfaces when connection is unresolvable", () => {
-		test("code+git filesystem with connectionId → state:'needs_attention' (NoopAuthResolver)", async ({
+	describe("AC5: needs_attention surfaces on registration, through the real Check (BA5 §2.7)", () => {
+		test("a local git filesystem whose path does not exist → state:'needs_attention' on the POST response itself", async ({
 			db,
 			app,
 		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac5a");
 
-			// Use a non-existent absolute local path so git ls-remote exits non-zero
-			// without ANY network call. repoToUrl("/no/such/repo") → file:///no/such/repo
-			// → git ls-remote file:///no/such/repo → exit non-zero → needs_attention.
-			// @lore AO1 v2 M1 fix: the old "owner/repo" short form became a local file://
-			// path accidentally (the M1 bug). Now that repoToUrl correctly maps "owner/repo"
-			// → https://github.com/…, using it here would hit the network in CI. This
-			// hermetic scenario uses a missing local path (absolute) instead — the real
-			// git probe still runs (Lane A, no network), and the result is still needs_attention
-			// for the right reason: NoopAuthResolver.resolveToken() → null (no token) + git
-			// ls-remote against a non-existent file:// → non-zero exit.
+			// A missing local path: `checkFilesystem` runs a real, offline
+			// `git rev-parse --is-inside-work-tree` against it (no network) and
+			// fails, so registration itself persists needs_attention — no
+			// separate GET/probe step exists any more (BA5 §2.7: Check runs on
+			// registration).
 			const missingLocalRepo = `/ao1-test-nonexistent-repo-${Date.now().toString(36)}`;
 
 			const createRes = await app.request("/api/filesystems", {
@@ -661,32 +777,28 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				body: JSON.stringify({
 					teamId,
 					kind: "code",
-					connectionId: "missing-conn-xyz",
+					connectionId: null,
 					resourceRef: { kind: "code", repo: missingLocalRepo, branch: "main" },
 				}),
 			});
 			expect(createRes.status).toBe(201);
-			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created.id as string;
-
-			// On GET, the reachability check runs:
-			// - resolveToken("missing-conn-xyz") → null (NoopAuthResolver)
-			// - repoToUrl(missingLocalRepo) → file:///ao1-test-nonexistent-… (absolute path)
-			// - git ls-remote file:///no/such/path → exit non-zero → needs_attention
-			const getRes = await app.request(`/api/filesystems/${id}`, { headers: auth() });
-			expect(getRes.status).toBe(200);
-			const got = (await getRes.json()) as Record<string, unknown>;
-			expect(got.state).toBe("needs_attention");
+			const { filesystem, check } = (await createRes.json()) as {
+				filesystem: Record<string, unknown>;
+				check: { ok: boolean };
+			};
+			expect(check.ok).toBe(false);
+			expect(filesystem.state).toBe("needs_attention");
+			expect(filesystem.attentionReason).toBeTruthy();
 		});
 
-		test("local filesystem (connectionId null, real existing path) → state:'reachable'", async ({
+		test("a local filesystem with a real, existing path → state:'reachable' on the POST response itself", async ({
 			db,
 			app,
 		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac5b");
 
-			// Use os.tmpdir() — guaranteed to exist on every platform.
-			// @lore AO1 v2: The real probe checks fs.access(R_OK) — must use a real path.
+			// Use os.tmpdir() — guaranteed to exist on every platform. It is not
+			// itself a git repo, so this exercises the doc_set path instead.
 			const realPath = os.tmpdir();
 
 			const createRes = await app.request("/api/filesystems", {
@@ -694,29 +806,26 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				headers: auth(),
 				body: JSON.stringify({
 					teamId,
-					kind: "code",
+					kind: "doc_set",
 					connectionId: null,
-					resourceRef: { kind: "code", repo: realPath, branch: "main" },
+					resourceRef: { kind: "doc_set", folder: realPath },
 				}),
 			});
 			expect(createRes.status).toBe(201);
-			const { id } = (await createRes.json()) as { id: string };
-
-			const getRes = await app.request(`/api/filesystems/${id}`, { headers: auth() });
-			expect(getRes.status).toBe(200);
-			const got = (await getRes.json()) as Record<string, unknown>;
-			// Local (no connection) + real path exists → reachable
-			expect(got.state).toBe("reachable");
+			const { filesystem, check } = (await createRes.json()) as {
+				filesystem: Record<string, unknown>;
+				check: { ok: boolean };
+			};
+			expect(check.ok).toBe(true);
+			expect(filesystem.state).toBe("reachable");
+			expect(filesystem.attentionReason).toBeNull();
 		});
 
-		// BA5 §12: the write-back axis (and its "none" bypass to reachable) is
-		// retired with migration 0082. A doc_set with a connectionId has no
-		// probe path that can resolve it, so it now needs attention honestly
-		// instead of being waved through.
-		test("doc_set filesystem with a connectionId → state:'needs_attention' (no probe path resolves it)", async ({
-			db,
-			app,
-		}) => {
+		// BA5 §2.7: a `connectionId` is only valid for a `code` filesystem whose
+		// repo is already an `https://github.com/` URL — a doc_set can never
+		// carry one. This is now caught at the validation boundary, not waved
+		// through to a probe that could never have resolved it anyway.
+		test("a doc_set filesystem with a connectionId → 400 at registration", async ({ db, app }) => {
 			const { teamId } = await seedTeamAndBots(db, "ac5c");
 
 			const createRes = await app.request("/api/filesystems", {
@@ -729,12 +838,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					resourceRef: { kind: "doc_set", folder: "/notes" },
 				}),
 			});
-			expect(createRes.status).toBe(201);
-			const { id } = (await createRes.json()) as { id: string };
-
-			const getRes = await app.request(`/api/filesystems/${id}`, { headers: auth() });
-			const got = (await getRes.json()) as Record<string, unknown>;
-			expect(got.state).toBe("needs_attention");
+			expect(createRes.status).toBe(400);
+			const body = (await createRes.json()) as Record<string, unknown>;
+			expect(body.code).toBe("VALIDATION_ERROR");
 		});
 	});
 
@@ -760,7 +866,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 					resourceRef: { kind: "code", repo: "/repo", branch: "main" },
 				}),
 			});
-			const { id: fsId } = (await createRes.json()) as { id: string };
+			const {
+				filesystem: { id: fsId },
+			} = (await createRes.json()) as { filesystem: { id: string } };
 
 			// Inject into both bots
 			await app.request(`/api/filesystems/${fsId}/injections`, {
@@ -781,8 +889,11 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			});
 			expect(delRes.status).toBe(204);
 
-			// Filesystem GET → 404
-			const notFound = await app.request(`/api/filesystems/${fsId}`, { headers: auth() });
+			// Filesystem gone (GET /:id is deleted, BA5 §12 — Check is the proxy for "does it exist")
+			const notFound = await app.request(`/api/filesystems/${fsId}/check`, {
+				method: "POST",
+				headers: auth(),
+			});
 			expect(notFound.status).toBe(404);
 
 			// Both bots' injection lists no longer contain this filesystem

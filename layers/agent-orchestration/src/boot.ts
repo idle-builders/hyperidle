@@ -45,6 +45,7 @@ import {
 	createInheritedReach,
 	type InheritedReach,
 	listConnections,
+	resolveConnectionToken,
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
@@ -352,6 +353,11 @@ function buildProvisioningReads(
 		injectedFilesystems: {
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),
+			// BA5 §2.4/§13 (L4): resolved as the connection's OWNER, never a
+			// per-request user — wired now so a real mount carries a real
+			// credential instead of always `null` (L3's placeholder).
+			resolveCredential: (connectionId: string) =>
+				resolveConnectionToken(db, connectionId, decrypt),
 		},
 		serviceConnectionResolver: {
 			resolve: (userId: string, connectionId: string) =>
@@ -419,6 +425,8 @@ export async function bootAgentOrchestration(
 		getRecentActivity: (sessionId) => activityBuffer.getActivity(sessionId),
 		inheritedReach,
 		...(cipher ? { cipher } : {}),
+		eventBus,
+		...(runtime?.keptCopiesRoot ? { keptCopiesRoot: runtime.keptCopiesRoot } : {}),
 	});
 
 	return {

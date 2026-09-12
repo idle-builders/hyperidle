@@ -21,10 +21,15 @@
  * JSON `ApiErrorResponse` 404, never Hono's `text/plain` default (AC10).
  */
 
-import { type InheritedReach, resolveHeldToken } from "@hyperidle/connections";
+import {
+	type InheritedReach,
+	listConnections,
+	resolveConnectionToken,
+} from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
+import type { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
@@ -51,13 +56,21 @@ export interface AgentOrchestrationAppOptions {
 		readonly encrypt: (plaintext: string) => string;
 		readonly decrypt: (ciphertext: string) => string | null;
 	};
+	/**
+	 * BA5 §4.3/§4.4 — the filesystems routes' `POST /:id/check` and
+	 * registration publish `filesystem_needs_attention` through this. Absent
+	 * (bare test apps) → the write still lands, nothing is emitted.
+	 */
+	readonly eventBus?: EventBus;
+	/** BA5 §5.2/§4.4 — where a remote git filesystem's kept copy lives; absent → DELETE has nothing to forget. */
+	readonly keptCopiesRoot?: string;
 }
 
 export function createAgentOrchestrationApp(
 	options: AgentOrchestrationAppOptions,
 ): Hono<HyperIdleEnv> {
 	const app = new Hono<HyperIdleEnv>();
-	const { db, getRecentActivity, inheritedReach, cipher } = options;
+	const { db, getRecentActivity, inheritedReach, cipher, eventBus, keptCopiesRoot } = options;
 
 	app.route("/sessions", createOrchestrationSessionRoutes(db, getRecentActivity));
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
@@ -66,14 +79,23 @@ export function createAgentOrchestrationApp(
 	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
 	app.route("/connections", createConnectionRoutes(db, inheritedReach, cipher));
-	// AU26 F2: `/api/filesystems` — same story. The reachability probe needs the
-	// held-connection decrypt path, and `service_connections` is this Layer's own
-	// table since E3, so the resolver is wired via cipher.decrypt → resolveHeldToken.
-	const fileSystemsResolver = {
-		resolve: (userId: string, connectionId: string) =>
-			resolveHeldToken(db, userId, connectionId, cipher?.decrypt ?? (() => null)),
-	};
-	app.route("/filesystems", createFilesystemRoutes(db, fileSystemsResolver));
+	// AU26 F2: `/api/filesystems` — same story. BA5 §2.4: a filesystem row has no
+	// user of its own, so Check/registration resolve its connection's token AS
+	// THE CONNECTION'S OWNER (`resolveConnectionToken`), not per-request userId
+	// like the deleted probe did.
+	const decrypt = cipher?.decrypt ?? (() => null);
+	app.route(
+		"/filesystems",
+		createFilesystemRoutes(db, {
+			eventBus,
+			keptCopiesRoot,
+			resolveCredential: (connectionId) => resolveConnectionToken(db, connectionId, decrypt),
+			lookupConnection: async (connectionId) => {
+				const [row] = await listConnections(db, { id: connectionId });
+				return row ? { service: row.service, authSource: row.authSource } : null;
+			},
+		}),
+	);
 
 	return app;
 }
