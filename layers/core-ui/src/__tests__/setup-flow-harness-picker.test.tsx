@@ -541,3 +541,123 @@ describe("SetupFlow filesystem kind decision (isCode client logic)", () => {
 		expect(ref?.["branch"]).toBeUndefined();
 	});
 });
+
+// ── BA5 T11: onboarding picks the registered filesystem for its agent ────────
+
+describe("SetupFlow picks the registered filesystem for the team's agent", () => {
+	beforeEach(() => {
+		vi.stubGlobal("__HYPERIDLE__", undefined);
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	/**
+	 * BA5 §2.1/§10: POST /api/teams returns `agentIds` (the agent(s) the team
+	 * was created with). Onboarding reads that and injects the just-registered
+	 * filesystem into each — nothing was ever mounted before this (plan break #2).
+	 */
+	function setupFetchMockWithAgentIds(
+		agentIds: string[],
+		injectionCalls: Array<{ url: string; body: Record<string, unknown> | null }>,
+	): void {
+		global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+			const method = (options?.method ?? "GET").toUpperCase();
+
+			if (method === "GET" && url.includes("/api/harnesses")) {
+				return Promise.resolve({ ok: true, status: 200, json: async () => [OPENCODE_READY] });
+			}
+			if (method === "POST" && url.includes("/api/filesystems/inspect-path")) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: async () => ({ exists: true, isGitRepo: true, branch: "main" }),
+				});
+			}
+			if (method === "POST" && url.includes("/api/filesystems") && url.endsWith("/injections")) {
+				let body: Record<string, unknown> | null = null;
+				try {
+					body = JSON.parse(options?.body as string) as Record<string, unknown>;
+				} catch {
+					body = null;
+				}
+				injectionCalls.push({ url, body });
+				return Promise.resolve({ ok: true, status: 204, json: async () => ({}) });
+			}
+			if (method === "POST" && url.includes("/api/filesystems")) {
+				return Promise.resolve({
+					ok: true,
+					status: 201,
+					json: async () => ({
+						filesystem: {
+							id: "fs-onboard-1",
+							teamId: "team-1",
+							source: "local",
+							kind: "code",
+							connectionId: null,
+							resourceRef: { kind: "code", repo: "/home/alice/myrepo", branch: "main" },
+							state: "attached",
+							attentionReason: null,
+							createdAt: "2026-09-12T00:00:00.000Z",
+						},
+						check: { ok: true, reason: null },
+					}),
+				});
+			}
+			// users, teams
+			return Promise.resolve({
+				ok: true,
+				status: 201,
+				json: async () => ({
+					user: { id: "u-1", name: "Alice" },
+					team: { id: "team-1", name: "My Team", phase: "build" },
+					teamMembers: { id: "tm-1" },
+					agentIds,
+				}),
+			});
+		}) as typeof fetch;
+	}
+
+	it("injects the just-registered filesystem into the agent named in the team response", async () => {
+		const user = userEvent.setup();
+		const injectionCalls: Array<{ url: string; body: Record<string, unknown> | null }> = [];
+		setupFetchMockWithAgentIds(["agent-1"], injectionCalls);
+
+		renderSetupFlow();
+
+		await user.type(screen.getByLabelText(/your name/i), "Alice");
+		await user.type(screen.getByRole("textbox", { name: /folder/i }), "/home/alice/myrepo");
+		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("work-page")).toBeInTheDocument();
+		});
+
+		await waitFor(() => {
+			expect(injectionCalls).toHaveLength(1);
+		});
+		expect(injectionCalls[0]?.url).toContain("/api/filesystems/fs-onboard-1/injections");
+		expect(injectionCalls[0]?.body).toEqual({ agentUserId: "agent-1" });
+	});
+
+	it("injects into every agent the team response names", async () => {
+		const user = userEvent.setup();
+		const injectionCalls: Array<{ url: string; body: Record<string, unknown> | null }> = [];
+		setupFetchMockWithAgentIds(["agent-1", "agent-2"], injectionCalls);
+
+		renderSetupFlow();
+
+		await user.type(screen.getByLabelText(/your name/i), "Alice");
+		await user.type(screen.getByRole("textbox", { name: /folder/i }), "/home/alice/myrepo");
+		await user.click(screen.getByRole("button", { name: /start hyperidle/i }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("work-page")).toBeInTheDocument();
+		});
+
+		await waitFor(() => {
+			expect(injectionCalls).toHaveLength(2);
+		});
+		expect(injectionCalls.map((c) => c.body?.agentUserId).sort()).toEqual(["agent-1", "agent-2"]);
+	});
+});
