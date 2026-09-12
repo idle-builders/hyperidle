@@ -88,6 +88,22 @@ export async function markFilesystemReachable(exec: WriteExecutor, id: string): 
 		.where(eq(filesystems.id, id));
 }
 
+/**
+ * BA5 §2.2/§4.1/§13 (L5) — every agent currently held by a `needs_attention`
+ * filesystem: the drain's claim-time exclusion list. Leaving the state needs
+ * no release code (§4.3) — this read simply stops returning an agent once
+ * `markFilesystemReachable` moves its filesystem out, the injection is
+ * removed, or the filesystem is deleted (its injections cascade).
+ */
+export async function listHeldAgentIds(exec: WriteExecutor): Promise<string[]> {
+	const rows = await exec
+		.selectDistinct({ agentUserId: filesystemInjections.agentUserId })
+		.from(filesystemInjections)
+		.innerJoin(filesystems, eq(filesystemInjections.filesystemId, filesystems.id))
+		.where(eq(filesystems.state, "needs_attention"));
+	return rows.map((row) => row.agentUserId);
+}
+
 export async function deleteFilesystem(exec: WriteExecutor, id: string): Promise<void> {
 	await exec.delete(filesystems).where(eq(filesystems.id, id));
 }

@@ -10,6 +10,7 @@ import {
 	deleteInjection,
 	getFilesystem,
 	listFilesystems,
+	listHeldAgentIds,
 	markFilesystemNeedsAttention,
 	markFilesystemReachable,
 	saveFilesystem,
@@ -192,5 +193,47 @@ describe("filesystem attention writers (BA5 §2.2/§4.5)", () => {
 		expect(await db.select().from(filesystemInjections)).toEqual(
 			expect.not.arrayContaining([expect.objectContaining({ filesystemId })]),
 		);
+	});
+});
+
+describe("listHeldAgentIds (BA5 §2.2/§4.1/§13) — the drain's claim-time exclusion list", () => {
+	test("an agent using a needs_attention filesystem is held; a reachable one is not; leaving the state ends the hold", async ({
+		db,
+	}) => {
+		const suffix = randomUUID();
+		const { teamId, agentId: heldAgentId } = await seedIdentity(db, suffix);
+		const { agentId: freeAgentId } = await seedIdentity(db, `${suffix}-free`);
+		const brokenId = `filesystem-held-broken-${suffix}`;
+		const okId = `filesystem-held-ok-${suffix}`;
+		await saveFilesystem(db, newFilesystem(brokenId, teamId, temporaryDirectory("held-broken")));
+		await saveFilesystem(db, newFilesystem(okId, teamId, temporaryDirectory("held-ok")));
+		await saveInjection(db, { agentUserId: heldAgentId, filesystemId: brokenId, createdAt: NOW });
+		await saveInjection(db, { agentUserId: freeAgentId, filesystemId: okId, createdAt: NOW });
+
+		expect(await listHeldAgentIds(db)).not.toContain(heldAgentId);
+
+		await markFilesystemNeedsAttention(db, brokenId, "branch not found");
+		const held = await listHeldAgentIds(db);
+		expect(held).toContain(heldAgentId);
+		expect(held).not.toContain(freeAgentId);
+
+		await markFilesystemReachable(db, brokenId);
+		expect(await listHeldAgentIds(db)).not.toContain(heldAgentId);
+	});
+
+	test("an agent held by two broken filesystems is returned once, not twice", async ({ db }) => {
+		const suffix = randomUUID();
+		const { teamId, agentId } = await seedIdentity(db, suffix);
+		const firstId = `filesystem-held-dup-a-${suffix}`;
+		const secondId = `filesystem-held-dup-b-${suffix}`;
+		await saveFilesystem(db, newFilesystem(firstId, teamId, temporaryDirectory("held-dup-a")));
+		await saveFilesystem(db, newFilesystem(secondId, teamId, temporaryDirectory("held-dup-b")));
+		await saveInjection(db, { agentUserId: agentId, filesystemId: firstId, createdAt: NOW });
+		await saveInjection(db, { agentUserId: agentId, filesystemId: secondId, createdAt: NOW });
+		await markFilesystemNeedsAttention(db, firstId, "reason one");
+		await markFilesystemNeedsAttention(db, secondId, "reason two");
+
+		const held = await listHeldAgentIds(db);
+		expect(held.filter((id) => id === agentId)).toHaveLength(1);
 	});
 });

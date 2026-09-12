@@ -10,6 +10,7 @@ export {
 	deleteInjection,
 	getFilesystem,
 	listFilesystems,
+	listHeldAgentIds,
 	markFilesystemNeedsAttention,
 	markFilesystemReachable,
 	saveFilesystem,
