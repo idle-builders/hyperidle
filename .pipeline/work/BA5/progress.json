@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "G2: database migrated in place (57->83), app restarting on it. Next: onboarding with the local-repo fixture, then folder + public remote, Check, broken case, dispatch, resume. Credentialed cases and the draft PR still need the maintainer.",
+  "resume": "G2 live run: db migrated in place (57->83), harnesses re-detected via POST /api/harnesses/redetect (boot snapshot was stale). Next: complete onboarding with the local-repo fixture, then folder + public remote, Check, broken case, dispatch, resume.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -353,7 +353,8 @@
   "nonBlockingNotes": [
     "Pre-existing, not ours: the harness vitest project's include list has an entry 'layers/core-api/src/routes/__tests__/*-real.integration.test.ts' that matches zero files \u2014 inert, and by CLAUDE.md's own rule a scan matching nothing reads as passing forever. Worth its own item.",
     "Pre-existing, NOT ours: a byte-accurate scan of 2,090 source files found two more files containing NUL bytes \u2014 layers/core-ui/src/block/block-id.ts (production) and its test layers/core-ui/src/block/__tests__/derive-blocks.test.ts. Same defect class as B2: git shows them as binary, so they are unreviewable in any diff and invisible to plain grep. Untouched by this branch. Its own item.",
-    "Dev-environment finding, not ours: `remote-server` reads no .env file \u2014 there is no dotenv and no --env-file anywhere in it \u2014 so DATABASE_URL cannot be set that way for `npm run dev`. The only levers are the real process environment or .claude/launch.json. Worth knowing before anyone tries to point a dev run at a different database."
+    "Dev-environment finding, not ours: `remote-server` reads no .env file \u2014 there is no dotenv and no --env-file anywhere in it \u2014 so DATABASE_URL cannot be set that way for `npm run dev`. The only levers are the real process environment or .claude/launch.json. Worth knowing before anyone tries to point a dev run at a different database.",
+    "Dev-environment finding, not ours: after boot the server reported all four harnesses as 'missing \u2014 not installed or not on PATH', which disables onboarding's submit entirely. The binaries were present and on the server's PATH the whole time (verified via its process environment), answer --version in 0.03-0.42s, and running discoverLocalHarnesses directly in the tree reports all four 'ready'. POST /api/harnesses/redetect fixes it in place \u2014 so the boot-time discovery snapshot can be stale, and nothing in the UI tells a person to re-detect. Worth its own item: a first-run user would conclude HyperIdle cannot see their CLIs."
   ],
   "harnessLane": {
     "binaries": {
