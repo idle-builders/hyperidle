@@ -16,7 +16,7 @@ import type {
 } from "@hyperidle/domain-model";
 import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
-import { and, asc, eq, gt, inArray, lt, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { executeRows } from "./execute-rows.js";
 import { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./guards.js";
 
@@ -171,21 +171,29 @@ async function insertRequestInternal(db: HyperIdleDb, input: AgentSessionRequest
 async function claimNextRequestInternal(
 	db: HyperIdleDb,
 	workerId: string,
-	options: Pick<ClaimOptions, "now" | "leaseMs">,
+	options: Pick<ClaimOptions, "now" | "leaseMs" | "excludeAgentIds">,
 ) {
 	const now = options.now.toISOString();
+	// BA5 §2.3/§4.1/§13 (L5): the hold's claim-time filter — wraps BOTH
+	// branches of the candidate `or(...)`, so a held agent's row is never
+	// picked up whether it is still `pending` or a stale `claimed` lease.
+	const excludeAgentIds = options.excludeAgentIds ?? [];
+	const notHeld =
+		excludeAgentIds.length > 0
+			? notInArray(agentSessionRequests.agentId, [...excludeAgentIds])
+			: undefined;
+	const pendingCondition = notHeld
+		? and(eq(agentSessionRequests.status, "pending"), notHeld)
+		: eq(agentSessionRequests.status, "pending");
+	const expiredClaimCondition = and(
+		eq(agentSessionRequests.status, "claimed"),
+		lt(agentSessionRequests.claimExpiresAt, now),
+		...(notHeld ? [notHeld] : []),
+	);
 	const candidates = await db
 		.select()
 		.from(agentSessionRequests)
-		.where(
-			or(
-				eq(agentSessionRequests.status, "pending"),
-				and(
-					eq(agentSessionRequests.status, "claimed"),
-					lt(agentSessionRequests.claimExpiresAt, now),
-				),
-			),
-		)
+		.where(or(pendingCondition, expiredClaimCondition))
 		.orderBy(asc(agentSessionRequests.createdAt))
 		.limit(1);
 	const candidate = candidates[0];
@@ -1267,6 +1275,17 @@ export interface ClaimOptions {
 	readonly workerId: string;
 	readonly now: Date;
 	readonly leaseMs: number;
+	/**
+	 * BA5 §2.3/§4.1/§13 (L5) — the filesystem hold's claim-time filter: agents
+	 * currently held by a `needs_attention` filesystem. `claimNextRequestInternal`
+	 * excludes their pending/expired-claimed rows from the `{next:true}` candidate
+	 * query so nothing retries a broken filesystem in a busy loop; the by-id
+	 * selector (`claimRequestIdInternal`) ignores this field entirely — it is
+	 * only ever reached with a request the drain already claimed for itself.
+	 * This Service reads no filesystems table: the caller (`start-runtime.ts`)
+	 * hands plain agent ids through the boot-wired filesystems port.
+	 */
+	readonly excludeAgentIds?: readonly string[];
 }
 type DurableQueueDeps = {
 	readonly db: HyperIdleDb;
@@ -1356,10 +1375,20 @@ export function claimSessionRequest(
 	selector: { readonly next: true } | { readonly id: string },
 	options: ClaimOptions,
 ) {
-	const claim = { now: options.now, leaseMs: options.leaseMs };
-	return "id" in selector
-		? claimRequestIdInternal(exec, selector.id, options.workerId, claim)
-		: claimNextRequestInternal(exec, options.workerId, claim);
+	// BA5 §2.3/§13 (L5): `excludeAgentIds` only ever reaches the `{next:true}`
+	// candidate query — the by-id selector is reached only with a request this
+	// same drain already claimed for itself, so the hold cannot apply to it.
+	if ("id" in selector) {
+		return claimRequestIdInternal(exec, selector.id, options.workerId, {
+			now: options.now,
+			leaseMs: options.leaseMs,
+		});
+	}
+	return claimNextRequestInternal(exec, options.workerId, {
+		now: options.now,
+		leaseMs: options.leaseMs,
+		excludeAgentIds: options.excludeAgentIds,
+	});
 }
 export function renewClaim(
 	exec: HyperIdleDb,
