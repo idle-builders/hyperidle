@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "L1-L4 done and verified (f868e87f7). L5 builder running (hold and notification). Then fix D1, L6, phase review, harness lane, G2.",
+  "resume": "L1-L5 done and verified. L6 builder running (screens, onboarding, plus the D1 fix). Then phase review, harness lane locally, G2.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -232,12 +232,34 @@
       {
         "id": "L5",
         "what": "hold and notification",
-        "state": "in-progress"
+        "state": "done",
+        "commits": [
+          "c911a5ec1",
+          "53c3aefaa",
+          "c84213b3f",
+          "6f83d973a",
+          "4a3364e7d",
+          "6d91b09ed"
+        ],
+        "gate": "verify:quick exit 0; agent-orchestration+core-api service integration 282 files/2037 pass; unit 28 files/180 pass (builder-reported)",
+        "provenEndToEnd": [
+          "task stays accepted through a failing attempt \u2014 never in_progress, never failed",
+          "the request returns to pending, no sessions row survives, the workspace directory is gone",
+          "exactly one event and one inbox row; a second failing re-check only updates the reason",
+          "a second request for the same agent never even reaches workspace spawn across two drain ticks",
+          "Check passing clears both pending requests on the next tick"
+        ],
+        "deviations": [
+          "port kept its existing name with the new members optional, matching how L4 added resolveCredential",
+          "added filesystemCheckDeps so a placement failure can re-run Check for a better reason (intra-package, not a new cross-package port)",
+          "T8 uses a local repo, not the github stand-in \u2014 the credential proofs are T1/T3/T5's",
+          "chose 503 for the new failure code; architecture did not specify"
+        ]
       },
       {
         "id": "L6",
         "what": "surfaces and onboarding",
-        "state": "pending"
+        "state": "in-progress"
       }
     ]
   },
@@ -248,7 +270,7 @@
       "where": "layers/agent-orchestration/run-orchestration/src/__tests__/filesystem-check.integration.test.ts, the 'wrong PAT on a token connection' case",
       "what": "it passes the real ghAuthStatus, which spawns `gh auth status` with GH_TOKEN; gh validates the token against api.github.com, so this service-lane test requires the live internet and would flake in CI",
       "fix": "stub ghAuthStatus to logged_out for that case (the code maps logged_out + connection to the rejected-token reason); the genuine rejection with a real PAT is already G2's live proof",
-      "state": "open \u2014 apply after L5 lands, before the phase review"
+      "state": "assigned to the L6 builder as its first, separate commit"
     }
   ]
 }
