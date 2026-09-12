@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Maintainer authorised the desktop build and repo creation. Private proof repo created. Desktop build in flight; then drive the app for the private-repo-via-gh-login proof and the resume case, then ship. The stored-PAT case still needs the maintainer to paste a token.",
+  "resume": "Credential path proven against real GitHub (ambient config suppressed). Desktop build in flight; then the app-driven proofs (private repo mounted + agent reads marker, resume), then ship. Stored-PAT case still needs the maintainer to paste a token.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -479,6 +479,13 @@
         "case": "a held filesystem is released by Check, and the held work is claimed immediately",
         "how": "restored the missing repository on disk, then pressed Check on that row",
         "result": "state flipped needs_attention -> reachable, and the previously held request was claimed within seconds \u2014 a run appeared for the task. The session then failed at phase 'pre-admission' with NoEligibleHarnessError, BEFORE mounting runs, so it says nothing about this package's code."
+      },
+      {
+        "case": "the credential path is HyperIdle's own, proven against REAL GitHub on a real private repository",
+        "why": "this machine's global git config already wires gh as a credential helper, so a plain successful clone would prove nothing about this branch",
+        "how": "ran git ls-remote against the private repo twice with GIT_CONFIG_GLOBAL=/dev/null and GIT_CONFIG_SYSTEM=/dev/null, i.e. the ambient configuration suppressed",
+        "result": "WITHOUT the injected environment: 'fatal: could not read Username for https://github.com' \u2014 unreachable. WITH exactly the GIT_CONFIG_COUNT/KEY_0/VALUE_0 credential.<host>.helper = '!gh auth git-credential' that this branch injects per process: returns the private repo's real ref 80ecbef. So authentication rides gh, configured for that one process, with nothing written to the person's git config.",
+        "caveat": "the printed exit=0 lines were head's exit status, not git's; the evidence is the error message versus the returned ref"
       }
     ],
     "proofRepo": {
