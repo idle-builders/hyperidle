@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "G2 live run: db migrated in place (57->83), harnesses re-detected via POST /api/harnesses/redetect (boot snapshot was stale). Next: complete onboarding with the local-repo fixture, then folder + public remote, Check, broken case, dispatch, resume.",
+  "resume": "G2: onboarding + pick-for-agent proven live. Next: folder and public-remote via the new Add dialog, Check, broken filesystem (hold + one notification), dispatch, resume. Credentialed cases and draft PR still need the maintainer.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -434,6 +434,12 @@
         "case": "migration 0082 applied in place to the worktree's own dev database",
         "how": "the running server was stopped first (PGlite allows a single holder), then the migrator ran against ./hyperidle-pg",
         "result": "57 -> 83 applied, no errors; this is the database the live G2 run now uses"
+      },
+      {
+        "case": "onboarding registers a filesystem AND picks it for the agent it creates \u2014 the BA14 break",
+        "how": "live app, fresh database: baseline showed zero teams; completed onboarding with a real local git repository as the project folder",
+        "result": "team 'local-repo' created with its agent; filesystem f7490a99 registered (kind code, source local, state 'reachable', no reason, no connection); GET /api/filesystems?agentUserId= for that agent returns that filesystem, so it is picked for the agent rather than sitting unmounted",
+        "notes": "Check ran at registration and returned reachable without a separate step"
       }
     ]
   }
