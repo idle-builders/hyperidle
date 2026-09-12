@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Harness lane on branch: 8 failed/83 passed. Comparison run against origin/main in flight. Fix round (B1, B2) deliberately queued behind it so it cannot contaminate the comparison. Then re-review, then G2.",
+  "resume": "Harness branch lane: 8 failed/83 passed. ONE main comparison lane running (pid 57994, /private/tmp/ba5-harness-main at f88b71434), watched by the orchestrator. Do not start another. Next: compare, then the B1/B2 fix round, then re-review the delta, then G2. Cleanup owed: git worktree remove /private/tmp/ba5-harness-main.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -377,6 +377,11 @@
       "baselineIsStale": "the recorded main baseline (~5 failed / 62 passed, codex MCP readiness + opencode step_finish) does not describe this run: all four AN2 MCP live proofs PASSED and step_finish appears nowhere, and that baseline counted 62 tests against this run's 93. It cannot serve as the comparison \u2014 hence the real main run.",
       "provisioningVocabulary": "the only match across the whole log is a PASS \u2014 '[AN2 real-harness gh] LIVE PROOF: GH_TOKEN env injection -> gh auth status succeeded with injected token.' No failure mentions filesystems, mounting, workspaces, kept copies or credentials.",
       "conclusionWithheld": "no failure will be called pre-existing until the origin/main run lands"
+    },
+    "comparisonRun": {
+      "incident": "the orchestrator spawned a second agent for the main comparison while the first was still doing it. The first agent's script began with `pkill -f ba5-harness-main`, which killed the second's lane one second in (exit 144 = killed by signal). Lesson: check for a live agent before spawning another for the same job.",
+      "resolution": "stopped the second agent; kept the surviving lane (pid 57994) at f88b71434 in /private/tmp/ba5-harness-main, running on the node_modules the stopped agent's npm ci had already produced at the same commit; armed an orchestrator-owned watcher on its log so the result survives the agent dropping again",
+      "state": "running; log at scratchpad/harness-main2.log"
     }
   }
 }
