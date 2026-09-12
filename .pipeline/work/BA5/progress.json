@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Credential path proven against real GitHub (ambient config suppressed). Desktop build in flight; then the app-driven proofs (private repo mounted + agent reads marker, resume), then ship. Stored-PAT case still needs the maintainer to paste a token.",
+  "resume": "Desktop data backed up; plan is to launch against a throwaway --user-data-dir profile. Build in flight. Then: private-repo-via-gh-login proof, resume case, ship. Stored-PAT case still needs the maintainer.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -494,6 +494,11 @@
       "marker": "PRIVATEREPO-A77C31 in PROOF.md",
       "created": "2026-09-12 by the orchestrator, with the maintainer's authorisation",
       "cleanup": "the maintainer deletes it when done \u2014 deleting repositories is not mine to do"
+    },
+    "desktopRun": {
+      "maintainerDataBackedUp": "~/Library/Application Support/@hyperidle/desktop/hyperidle-pg (41 MB) copied to scratchpad/ba5-proof/desktop-pg-backup before anything ran \u2014 this branch's migration DROPS writeback, health and last_validated_at, which is irreversible against real data",
+      "isolationPlan": "launch with Electron's --user-data-dir pointed at a throwaway profile, so the real desktop database is never opened or migrated; the backup is the fallback if that flag does not take",
+      "state": "awaiting the packaged build"
     }
   }
 }
