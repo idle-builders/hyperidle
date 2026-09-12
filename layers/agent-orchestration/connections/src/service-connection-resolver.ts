@@ -20,6 +20,35 @@ import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 
 /**
+ * BA5 §2.4 — resolve a token connection's plaintext AS THE CONNECTION'S OWNER,
+ * with no caller-supplied `userId`. Unlike `resolveHeldToken`, the caller here
+ * (filesystem mounting) has only a `connectionId` — a filesystem row has no
+ * user of its own (seams §2) — so this reads the row first to learn its
+ * owner, then delegates to the same per-user, existence-safe resolver.
+ *
+ * Returns null for: a non-existent connection, a non-`token` connection (mcp
+ * has no stored secret), a missing server secret, or a tampered/undecryptable
+ * value. Never throws.
+ */
+export async function resolveConnectionToken(
+	db: HyperIdleDb,
+	connectionId: string,
+	decrypt: (ciphertext: string) => string | null,
+): Promise<string | null> {
+	try {
+		const [row] = await db
+			.select()
+			.from(serviceConnections)
+			.where(eq(serviceConnections.id, connectionId))
+			.limit(1);
+		if (!row || row.authSource !== "token") return null;
+		return resolveHeldToken(db, row.userId, connectionId, decrypt);
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Resolve the plaintext token for a held token connection.
  *
  * Returns the decrypted token for the OWNING USER only.
