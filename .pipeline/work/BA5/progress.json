@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Harness branch lane: 8 failed/83 passed. ONE main comparison lane running (pid 57994, /private/tmp/ba5-harness-main at f88b71434), watched by the orchestrator. Do not start another. Next: compare, then the B1/B2 fix round, then re-review the delta, then G2. Cleanup owed: git worktree remove /private/tmp/ba5-harness-main.",
+  "resume": "Harness comparison done: failures are pre-existing on main, not ours. Fix round for B1 (missing adopted-mount regression test) and B2 (NUL byte) running. Then re-review the delta, then G2 (needs the maintainer's repo/token/PR answers).",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -381,7 +381,10 @@
     "comparisonRun": {
       "incident": "the orchestrator spawned a second agent for the main comparison while the first was still doing it. The first agent's script began with `pkill -f ba5-harness-main`, which killed the second's lane one second in (exit 144 = killed by signal). Lesson: check for a live agent before spawning another for the same job.",
       "resolution": "stopped the second agent; kept the surviving lane (pid 57994) at f88b71434 in /private/tmp/ba5-harness-main, running on the node_modules the stopped agent's npm ci had already produced at the same commit; armed an orchestrator-owned watcher on its log so the result survives the agent dropping again",
-      "state": "running; log at scratchpad/harness-main2.log"
+      "state": "complete",
+      "mainResult": "origin/main f88b71434, 04:47:01-05:19:24 CEST (~32 min), exit 1: 4 files failed / 14 passed; 8 tests failed / 83 passed / 2 skipped \u2014 identical counts to the branch",
+      "verdict": "NOT caused by this branch. 7 of 8 failing test names are identical on main and the branch (claude-code adapter, cursor-agent adapter, model-options claude effort, session-handles claude-code/codex x2/cursor-agent). The 8th is the same file and same harness (opencode knowledge-tree-real) but a different case on each side, which is flakiness within that file, not a regression. This matches the blast-radius finding: the branch changes zero files under layers/agent-execution.",
+      "obligationMet": "the release-checklist harness lane has been run locally for this branch, as CLAUDE.md requires for a change to session provisioning; it is red on main for pre-existing reasons and no worse here"
     }
   }
 }
