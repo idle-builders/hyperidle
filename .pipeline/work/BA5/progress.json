@@ -66,9 +66,13 @@
     {
       "path": ".pipeline/work/BA5/architecture.md",
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
+    },
+    {
+      "path": ".pipeline/work/BA5/architecture-phase2.md",
+      "for": "phase-2 architecture: Drive as a filesystem through rclone"
     }
   ],
-  "resume": "Phase 1 complete and proven live. Phase 2 architecture in flight. Phase 2 buildable without rclone; its LIVE proof needs the maintainer (Google consent + rclone install). Stored-PAT case also needs the maintainer. Then ship.",
+  "resume": "Phase 2 architecture written and AT the 1,000-line stop. Awaiting the maintainer: accept ~1,000-1,150, or cut the Add-dialog Drive branch to ~850. Then build D1-D5, then ship.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -525,5 +529,12 @@
     "googleDriveForDesktop": "NOT present (~/Library/CloudStorage/GoogleDrive* absent), so the zero-integration 'Drive folder is just a folder' path cannot be demonstrated either",
     "consequence": "phase 2 can be BUILT and proven for everything that does not need a real Drive \u2014 detection and its reason strings, placement, adapter selection, the hold reusing phase 1's mechanism. The LIVE Drive proof needs the maintainer: authorising Google is an account consent flow the orchestrator will not perform, and rclone's own setup requires the person to create their own Google Cloud OAuth client (no tool can script the Google-side step).",
     "recorded": "2026-09-12"
+  },
+  "sizeStopPhase2": {
+    "at": "2026-09-12",
+    "estimate": "~470 production + ~605 test = ~1,000-1,150 added lines \u2014 at the stop line",
+    "biggestDriver": "a real Add-dialog Drive branch (~155), which the plan's phase-1 surfaces list never named for Drive; cutting it reaches ~850",
+    "architectWouldNotCut": "the local-only real-rclone lane (~170) \u2014 cutting it leaves the one integration point this phase exists to drive proven only against a fake",
+    "rule": "CLAUDE.md simplicity check: 1,000+ added lines -> stop, explain the assumptions, ask"
   }
 }
