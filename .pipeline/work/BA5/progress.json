@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "G2 part-proven on the live app; everything not needing a locally-running agent passes. The agent-in-repo and resume proofs need the desktop app (remote-server has no local harness by design). Awaiting maintainer: private repo, token they paste, draft PR, and whether to build the desktop app for the remaining two proofs.",
+  "resume": "Maintainer authorised the desktop build and repo creation. Private proof repo created. Desktop build in flight; then drive the app for the private-repo-via-gh-login proof and the resume case, then ship. The stored-PAT case still needs the maintainer to paste a token.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -480,6 +480,13 @@
         "how": "restored the missing repository on disk, then pressed Check on that row",
         "result": "state flipped needs_attention -> reachable, and the previously held request was claimed within seconds \u2014 a run appeared for the task. The session then failed at phase 'pre-admission' with NoEligibleHarnessError, BEFORE mounting runs, so it says nothing about this package's code."
       }
-    ]
+    ],
+    "proofRepo": {
+      "url": "https://github.com/tobias-ambrovia/ba5-filesystem-proof",
+      "private": true,
+      "marker": "PRIVATEREPO-A77C31 in PROOF.md",
+      "created": "2026-09-12 by the orchestrator, with the maintainer's authorisation",
+      "cleanup": "the maintainer deletes it when done \u2014 deleting repositories is not mine to do"
+    }
   }
 }
