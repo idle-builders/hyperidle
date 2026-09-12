@@ -1,17 +1,14 @@
-/** Minimal git-runner port: only the 3 verbs this package actually calls. */
+/**
+ * Minimal git-runner port: only the 2 verbs this package actually calls
+ * (`inspect-local-path.ts`).
+ *
+ * @lore BA5 §2.2/§12: `lsRemote` deleted with the reachability probe —
+ * `checkFilesystem` (`@hyperidle/run-orchestration`) replaces it, against the
+ * layer root's own full `GitRunner`, not this package's minimal port.
+ */
 interface FilesystemsGitRunner {
 	revParseIsInsideWorkTree(): Promise<boolean>;
-	lsRemote(
-		url: string,
-		opts?: { env?: Record<string, string> },
-	): Promise<{ reachable: boolean; reason?: string }>;
 	currentBranch(): Promise<string | null>;
 }
 
 export type FilesystemsGitRunnerFactory = (cwd: string) => FilesystemsGitRunner;
-
-/** The live auth token hook used by the reachability probe.
- *  Replaces the deleted FilesystemAuthResolver seam — only resolveToken was ever called. */
-export interface FilesystemTokenResolver {
-	resolveToken(connectionId: string): Promise<string | null>;
-}

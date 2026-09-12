@@ -4,17 +4,16 @@
 // time, and an agent-orchestration package may not import a core-api Service
 // directly (Mechanism B).
 
-export type { FilesystemState } from "./filesystem-reachability.js";
-export { refreshFilesystemState, resolveFilesystemState } from "./filesystem-reachability.js";
 export type { FilesystemFilter } from "./filesystem-registry.js";
 export {
 	deleteFilesystem,
 	deleteInjection,
 	getFilesystem,
 	listFilesystems,
+	markFilesystemNeedsAttention,
+	markFilesystemReachable,
 	saveFilesystem,
 	saveInjection,
-	updateFilesystemState,
 } from "./filesystem-registry.js";
 export type { Filesystem } from "./filesystem-shape.js";
 // AU26 F2 — the LIVE, in-layer read one spawn performs. It replaces AU21 §9
@@ -24,7 +23,4 @@ export type { Filesystem } from "./filesystem-shape.js";
 export { listInjectedFilesystemsForProvisioning } from "./injected-filesystems-for-provisioning.js";
 export type { LocalPathInfo } from "./inspect-local-path.js";
 export { inspectLocalPath } from "./inspect-local-path.js";
-export type {
-	FilesystemsGitRunnerFactory,
-	FilesystemTokenResolver,
-} from "./ports.js";
+export type { FilesystemsGitRunnerFactory } from "./ports.js";

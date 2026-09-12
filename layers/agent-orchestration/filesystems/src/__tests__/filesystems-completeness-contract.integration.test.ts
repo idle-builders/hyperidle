@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { sessions, teams, users } from "@hyperidle/db";
+import { filesystemInjections, sessions, teams, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, describe, expect } from "vitest";
 import {
@@ -10,9 +10,10 @@ import {
 	deleteInjection,
 	getFilesystem,
 	listFilesystems,
+	markFilesystemNeedsAttention,
+	markFilesystemReachable,
 	saveFilesystem,
 	saveInjection,
-	updateFilesystemState,
 } from "../index.js";
 
 // @lore AU21 §9 Increment 8 (Decision F2): the watcher-specific describe
@@ -94,7 +95,7 @@ describe("filesystems completeness contract", () => {
 			[firstId, secondId].sort(),
 		);
 
-		await updateFilesystemState(db, firstId, "reachable");
+		await markFilesystemReachable(db, firstId);
 		expect((await getFilesystem(db, firstId))?.state).toBe("reachable");
 		await deleteFilesystem(db, secondId);
 		expect(await getFilesystem(db, secondId)).toBeUndefined();
@@ -118,5 +119,78 @@ describe("filesystems completeness contract", () => {
 		expect(await deleteInjection(db, agentId, filesystemId)).toBe(true);
 		expect(await deleteInjection(db, agentId, filesystemId)).toBe(false);
 		expect(await listFilesystems(db, { agentId })).toEqual([]);
+	});
+});
+
+describe("filesystem attention writers (BA5 §2.2/§4.5)", () => {
+	test("entering needs_attention returns entered:true with the picked agent ids; a second failure only updates the reason", async ({
+		db,
+	}) => {
+		const suffix = randomUUID();
+		const { teamId, agentId } = await seedIdentity(db, suffix);
+		const filesystemId = `filesystem-attention-a-${suffix}`;
+		await saveFilesystem(
+			db,
+			newFilesystem(filesystemId, teamId, temporaryDirectory("attention-a")),
+		);
+		await saveInjection(db, { agentUserId: agentId, filesystemId, createdAt: NOW });
+
+		const first = await markFilesystemNeedsAttention(db, filesystemId, "git is not installed");
+		expect(first).toEqual({ entered: true, agentIds: [agentId] });
+		expect(await getFilesystem(db, filesystemId)).toMatchObject({
+			state: "needs_attention",
+			attentionReason: "git is not installed",
+		});
+
+		const second = await markFilesystemNeedsAttention(db, filesystemId, "branch 'main' not found");
+		expect(second).toEqual({ entered: false, agentIds: [] });
+		expect(await getFilesystem(db, filesystemId)).toMatchObject({
+			state: "needs_attention",
+			attentionReason: "branch 'main' not found",
+		});
+	});
+
+	test("markFilesystemReachable clears the reason and re-arms the next failure as a new episode", async ({
+		db,
+	}) => {
+		const suffix = randomUUID();
+		const { teamId } = await seedIdentity(db, suffix);
+		const filesystemId = `filesystem-attention-b-${suffix}`;
+		await saveFilesystem(
+			db,
+			newFilesystem(filesystemId, teamId, temporaryDirectory("attention-b")),
+		);
+
+		await markFilesystemNeedsAttention(db, filesystemId, "folder does not exist");
+		await markFilesystemReachable(db, filesystemId);
+		expect(await getFilesystem(db, filesystemId)).toMatchObject({
+			state: "reachable",
+			attentionReason: null,
+		});
+
+		const reEntered = await markFilesystemNeedsAttention(db, filesystemId, "folder does not exist");
+		expect(reEntered?.entered).toBe(true);
+	});
+
+	test("markFilesystemNeedsAttention on an unknown id returns null", async ({ db }) => {
+		expect(await markFilesystemNeedsAttention(db, "no-such-filesystem", "unused")).toBeNull();
+	});
+
+	test("entering needs_attention with no injected agents returns an empty agentIds list", async ({
+		db,
+	}) => {
+		const suffix = randomUUID();
+		const { teamId } = await seedIdentity(db, suffix);
+		const filesystemId = `filesystem-attention-c-${suffix}`;
+		await saveFilesystem(
+			db,
+			newFilesystem(filesystemId, teamId, temporaryDirectory("attention-c")),
+		);
+
+		const result = await markFilesystemNeedsAttention(db, filesystemId, "no CLI");
+		expect(result).toEqual({ entered: true, agentIds: [] });
+		expect(await db.select().from(filesystemInjections)).toEqual(
+			expect.not.arrayContaining([expect.objectContaining({ filesystemId })]),
+		);
 	});
 });
