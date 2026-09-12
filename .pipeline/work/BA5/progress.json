@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Harness comparison done: failures are pre-existing on main, not ours. Fix round for B1 (missing adopted-mount regression test) and B2 (NUL byte) running. Then re-review the delta, then G2 (needs the maintainer's repo/token/PR answers).",
+  "resume": "Both blockers fixed (c3a2948e0, 32dc9ae0d) and verified by the orchestrator; re-review of that delta in flight. Then G2 \u2014 blocked on the maintainer's repo/token/PR answers.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -331,7 +331,7 @@
       "where": "layers/agent-orchestration/run-orchestration/src/git-credential-env.ts (mergeGitConfigEnv's dedupe key)",
       "what": "a literal NUL byte in a template literal makes git classify this production source file as BINARY \u2014 it shows as 'Bin 0 -> 3011 bytes' with no reviewable diff, and plain grep skips it. Functionally fine; a real hazard for review and for every future audit that greps.",
       "fix": "use a separator that is not a control character (e.g. the unit separator \\u001f, or JSON.stringify of the pair)",
-      "state": "open \u2014 confirmed as review blocker B2"
+      "state": "fixed in 32dc9ae0d \u2014 0 NUL bytes, one unit separator; the PR diff against origin/main shows 72 text insertions, not Bin"
     },
     {
       "id": "B1",
@@ -339,11 +339,12 @@
       "where": "layers/agent-orchestration/run-orchestration/src/__tests__/git-repository-adapter.integration.test.ts",
       "what": "the resumed-workspace fix has no regression guard for the git case",
       "fix": "add the adopted:true case",
-      "state": "open \u2014 for the fix round"
+      "state": "fixed in c3a2948e0 \u2014 the new case asserts second.mounted.adopted === true"
     }
   ],
   "nonBlockingNotes": [
-    "Pre-existing, not ours: the harness vitest project's include list has an entry 'layers/core-api/src/routes/__tests__/*-real.integration.test.ts' that matches zero files \u2014 inert, and by CLAUDE.md's own rule a scan matching nothing reads as passing forever. Worth its own item."
+    "Pre-existing, not ours: the harness vitest project's include list has an entry 'layers/core-api/src/routes/__tests__/*-real.integration.test.ts' that matches zero files \u2014 inert, and by CLAUDE.md's own rule a scan matching nothing reads as passing forever. Worth its own item.",
+    "Pre-existing, NOT ours: a byte-accurate scan of 2,090 source files found two more files containing NUL bytes \u2014 layers/core-ui/src/block/block-id.ts (production) and its test layers/core-ui/src/block/__tests__/derive-blocks.test.ts. Same defect class as B2: git shows them as binary, so they are unreviewable in any diff and invisible to plain grep. Untouched by this branch. Its own item."
   ],
   "harnessLane": {
     "binaries": {

@@ -105,5 +105,9 @@ would break inherited logins.
 - **Correct BA14's recorded cause** — this package now fixes it; touching BA14's folder needs your word.
 - **Dead `Provisioner.mount`** — no callers, tests included. (The full-migration rule now deletes it inside
   this package.)
+- **Two more files carry NUL bytes** — `layers/core-ui/src/block/block-id.ts` and its test. Git shows them
+  as binary, so they are unreviewable in any diff and invisible to plain grep. Pre-existing; found by the scan
+  this package's own fix prompted. (The full-migration rule now deletes it inside
+  this package.)
 - **Connections page shows GitHub working whenever `gh` is installed, even logged out** — an existing
   detection bug found by the critique; not fixed here.
