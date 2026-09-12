@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "L1-L5 done and verified. L6 builder running (screens, onboarding, plus the D1 fix). Then phase review, harness lane locally, G2.",
+  "resume": "Phase 1 built. Phase review + harness lane running. Then G2 (needs the maintainer's repo/token/PR answers).",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -259,9 +259,29 @@
       {
         "id": "L6",
         "what": "surfaces and onboarding",
-        "state": "in-progress"
+        "state": "done",
+        "commits": [
+          "109a474a8",
+          "920f1b72e",
+          "06dcf347f",
+          "65672824d"
+        ],
+        "gate": "check 38/38; verify:quick exit 0; core-ui project 3045/3046 (one pre-existing baseline failure); affected slice 5103/5104 (builder-reported)",
+        "delivered": [
+          "a real Add filesystem dialog (git repo or folder, optional GitHub token connection, branch prefilled from a local path)",
+          "a Check action per row, updating that row in place",
+          "needs_attention rows show their reason in place of the connection line",
+          "onboarding now picks the filesystem it registers for the team's agents \u2014 the BA14 break"
+        ],
+        "deviations": [
+          "extracted registerFilesystemAndInject to keep a pre-existing complexity warning from growing",
+          "the new row shows its own reason rather than a second transient one inside the dialog",
+          "the dialog filters token connections case-insensitively while the server compares the exact string 'github' \u2014 a G2 hand-check"
+        ],
+        "incident": "a second git stash violation: stashed once during a sanity-break, popped immediately, self-reported"
       }
-    ]
+    ],
+    "state": "all six leaves done"
   },
   "defects": [
     {
@@ -270,7 +290,7 @@
       "where": "layers/agent-orchestration/run-orchestration/src/__tests__/filesystem-check.integration.test.ts, the 'wrong PAT on a token connection' case",
       "what": "it passes the real ghAuthStatus, which spawns `gh auth status` with GH_TOKEN; gh validates the token against api.github.com, so this service-lane test requires the live internet and would flake in CI",
       "fix": "stub ghAuthStatus to logged_out for that case (the code maps logged_out + connection to the rejected-token reason); the genuine rejection with a real PAT is already G2's live proof",
-      "state": "assigned to the L6 builder as its first, separate commit"
+      "state": "fixed in 109a474a8 \u2014 ghAuthStatus stubbed for the wrong-PAT case; no live-network test remains"
     }
   ]
 }
