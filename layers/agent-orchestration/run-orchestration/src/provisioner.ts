@@ -35,13 +35,16 @@ import {
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
 	ConcurrencyLimitError,
+	FilesystemUnavailableError,
 	NoAvailableHarnessError,
 	NoEligibleHarnessError,
 	TargetAgentNotRunnableError,
 } from "./errors.js";
+import { checkFilesystem, type FilesystemCheckDeps } from "./filesystem-check.js";
 import { describeMountedFilesystems } from "./filesystem-instructions.js";
 import {
 	type FilesystemMounterPort,
+	FilesystemMountFailure,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
@@ -842,6 +845,16 @@ interface ProvisionSessionDeps {
 	 */
 	readonly mounter?: FilesystemMounterPort;
 	/**
+	 * BA5 §4.2/§13 (L5): what a placement failure needs to re-run `checkFilesystem`
+	 * once, so the hold's reason names what to fix (a missing CLI, a rejected
+	 * token) rather than the mount adapter's own raw error text. Absent → the
+	 * adapter's own `FilesystemMountFailure.reason` is used as-is (the plan's
+	 * own fallback, §4.2 — "If Check unexpectedly passes, the adapter's own
+	 * error text is used instead", extended to "if there is no way to check at
+	 * all").
+	 */
+	readonly filesystemCheckDeps?: Pick<FilesystemCheckDeps, "gitRunnerFactory" | "ghAuthStatus">;
+	/**
 	 * BA9b: Plugin MCP server contributions for this session's team scope.
 	 * When absent, no plugin MCP servers are merged into the session config.
 	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
@@ -1241,14 +1254,59 @@ async function admitSession(
 	// ── Phase 4.5: mount injected filesystems (AO2). AU26 F2: reads the
 	// injection record LIVE, in-layer, at spawn — no seam, and no emit-time bake
 	// to go stale (see this file's own top-of-file `filesystems` `@lore`).
+	//
+	// @lore BA5 §4.2/§13 (L5): a mount failure runs the full hold here, in the
+	// exact order the plan requires — (1) unmount what THIS admission already
+	// placed (never an adopted resume's own mounts, which belong to the
+	// session it is resuming); (2) release the adapter slot, as the
+	// concurrency-limit branch above does; (3) destroy the spawned workspace,
+	// UNLESS this is a resume (an adopted workspace is the agent's own work);
+	// (4) mark the filesystem `needs_attention` and AWAIT it, so the once-
+	// per-episode notice (§4.5) is guaranteed to have run before this throws;
+	// (5) only then throw `FilesystemUnavailableError`. `runtime.ts` reacts to
+	// that name by deleting the reserved `sessions` row instead of crashing it
+	// and releasing the request's claim back to `pending` (§4.2) — the task
+	// itself is never touched: no `agent_run_admission_failed`, no lifecycle
+	// event, nothing core could see as a failed dispatch attempt.
 	if (deps.mounter) {
-		mountedFilesystems = await mountFilesystemsForAgent({
-			agentId: params.agentId,
-			sessionId,
-			...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
-			workspacePath: sandboxPath,
-			mounter: deps.mounter,
-		});
+		try {
+			mountedFilesystems = await mountFilesystemsForAgent({
+				agentId: params.agentId,
+				sessionId,
+				...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
+				workspacePath: sandboxPath,
+				mounter: deps.mounter,
+			});
+		} catch (mountErr) {
+			if (!(mountErr instanceof FilesystemMountFailure)) throw mountErr;
+
+			for (const already of mountErr.mounted) {
+				if (!already.adopted) {
+					await deps.mounter.unmount(already);
+				}
+			}
+			adapterPool.release(adapterId);
+			if (!params.resume?.sandboxPath) {
+				await workspace.destroy(sandboxHandle);
+			}
+
+			// The plan's own reason source: re-run Check once on the failing
+			// filesystem so the notice says what to fix. Falls back to the mount
+			// adapter's own text when there is no way to check (no
+			// `filesystemCheckDeps` wired) or Check unexpectedly passes.
+			let reason = mountErr.reason;
+			if (deps.filesystemCheckDeps) {
+				const recheck = await checkFilesystem(mountErr.filesystem, {
+					credential: mountErr.credential,
+					gitRunnerFactory: deps.filesystemCheckDeps.gitRunnerFactory,
+					ghAuthStatus: deps.filesystemCheckDeps.ghAuthStatus,
+				});
+				if (!recheck.ok && recheck.reason) reason = recheck.reason;
+			}
+
+			await deps.injectedFilesystems?.markNeedsAttention?.(mountErr.filesystemId, reason);
+			throw new FilesystemUnavailableError(mountErr.filesystemId, reason);
+		}
 	}
 
 	// @lore BA5 §5.4: `ensureSandboxGitRepo` no longer has to run strictly after

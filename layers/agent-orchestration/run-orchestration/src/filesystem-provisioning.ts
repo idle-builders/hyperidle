@@ -23,12 +23,20 @@
  * `resourceRef` arrives ALREADY PARSED (the reader's own mapping mirrors the
  * route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
  *
- * @lore BA5 §4.2/§13 (L3 scope): a mount failure now THROWS a plain `Error`
- * instead of being swallowed to `console.warn` and excluded from the result —
- * the old degrade-to-today behaviour silently ran an agent in an empty
- * folder (plan break #4). The full hold — unmount what admission already
- * placed, release the adapter, mark the filesystem `needs_attention`, keep
- * the task ready — is L5's job; this leaf only stops swallowing the error.
+ * @lore BA5 §4.2/§13 (L3 scope): a mount failure now THROWS instead of being
+ * swallowed to `console.warn` and excluded from the result — the old
+ * degrade-to-today behaviour silently ran an agent in an empty folder (plan
+ * break #4).
+ *
+ * @lore BA5 §4.2/§13 (L5): the throw is now `FilesystemMountFailure` (this
+ * file, below), not a plain `Error` — `admitSession`'s Phase 4.5 needs the
+ * failing filesystem's id, the adapter's own reason text, the filesystem row
+ * and credential (for a Check re-run's better-phrased reason), and every
+ * filesystem THIS admission already placed (so it can unmount exactly those,
+ * never an adopted resume's) before it runs the full hold: release the
+ * adapter, destroy the workspace unless resuming, mark the filesystem
+ * `needs_attention`, and only then throw `FilesystemUnavailableError` — the
+ * task stays ready throughout (§4.2).
  */
 
 import type { Filesystem, MountedFilesystem, MountInput, MountResult } from "./mounter.js";
@@ -74,6 +82,46 @@ export interface InjectedFilesystemsReaderPort {
 	 * shape a public remote already needs nothing for.
 	 */
 	resolveCredential?(connectionId: string): Promise<string | null>;
+	/**
+	 * BA5 §2.5/§4.1/§13 (L5): every agent currently held by a `needs_attention`
+	 * filesystem — the drain's claim-time exclusion list (`start-runtime.ts`).
+	 * Optional, like `resolveCredential`: absent excludes nobody, the same
+	 * "no hold wired" posture an absent port entirely already gives.
+	 */
+	listHeldAgentIds?(): Promise<readonly string[]>;
+	/**
+	 * BA5 §4.2/§4.3/§13 (L5): placement failed — mark the filesystem
+	 * `needs_attention` with this reason (and notify once, if it just entered).
+	 * Optional: absent means a placement failure cannot record the hold, so
+	 * `admitSession` still throws `FilesystemUnavailableError` but the
+	 * filesystem's own row and the notice never happen — a test-fixture
+	 * posture, never production (boot always wires this, §4.4).
+	 */
+	markNeedsAttention?(filesystemId: string, reason: string): Promise<void>;
+}
+
+/**
+ * BA5 §4.2/§13 (L5) — thrown by `mountFilesystemsForAgent` when a filesystem
+ * cannot be placed. Carries what `admitSession`'s Phase 4.5 needs to run the
+ * full hold: which filesystem broke, the mount adapter's own reason text (the
+ * fallback the plan names for when a Check re-run unexpectedly passes), the
+ * filesystem row and resolved credential (so a Check re-run can phrase a
+ * better reason, §4.2), and every filesystem THIS admission had already
+ * mounted before the failure (so the caller can unmount them — an adopted
+ * resume's mounts must never be unmounted here, that is the caller's call to
+ * make, not this function's).
+ */
+export class FilesystemMountFailure extends Error {
+	constructor(
+		public readonly filesystemId: string,
+		public readonly reason: string,
+		public readonly filesystem: Filesystem,
+		public readonly credential: string | null,
+		public readonly mounted: readonly MountedFilesystem[],
+	) {
+		super(`could not mount filesystem ${filesystemId}: ${reason}`);
+		this.name = "FilesystemMountFailure";
+	}
 }
 
 /** A path segment charset a folder name is reduced to (BA5 §5.3). */
@@ -175,7 +223,13 @@ export async function mountFilesystemsForAgent(params: {
 			credential,
 		});
 		if (!result.ok) {
-			throw new Error(`could not mount filesystem ${filesystem.id}: ${result.reason}`);
+			throw new FilesystemMountFailure(
+				filesystem.id,
+				result.reason,
+				filesystem,
+				credential,
+				mounted,
+			);
 		}
 		mounted.push(result.mounted);
 	}

@@ -31,11 +31,12 @@ import {
 	computeFolderNames,
 	type FilesystemForProvisioning,
 	type FilesystemMounterPort,
+	FilesystemMountFailure,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "../filesystem-provisioning.js";
 // Filesystem is a local type in mounter.ts (AU44 b2: dissolved from domain-model).
-import type { Filesystem } from "../mounter.js";
+import type { Filesystem, MountedFilesystem } from "../mounter.js";
 
 let sandboxPath: string;
 beforeEach(() => {
@@ -272,6 +273,51 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 				mounter,
 			}),
 		).rejects.toThrow("mount failed");
+	});
+
+	test("a failed mount throws FilesystemMountFailure carrying what admitSession's Phase 4.5 needs to run the hold (BA5 §4.2/§13, L5)", async () => {
+		const okRow = buildFilesystemRecord({ id: "fs-hold-ok", connectionId: "conn-hold" });
+		const failingRow = buildFilesystemRecord({ id: "fs-hold-fail" });
+		const okMounted: MountedFilesystem = {
+			filesystem: okRow as unknown as Filesystem,
+			folder: path.join(sandboxPath, "ok"),
+			trustedPath: "/ok",
+			agentEnv: {},
+			adopted: false,
+		};
+		const mounter: FilesystemMounterPort = {
+			mount: async (input) =>
+				input.filesystem.id === "fs-hold-ok"
+					? { ok: true, mounted: okMounted }
+					: { ok: false, reason: "repo path does not exist" },
+			unmount: async () => undefined,
+		};
+
+		let caught: unknown;
+		try {
+			await mountFilesystemsForAgent({
+				agentId: "agent-hold",
+				sessionId: "session-hold",
+				filesystems: {
+					listInjectedForProvisioning: async () => [okRow, failingRow],
+					resolveCredential: async () => "pat-hold-1",
+				},
+				workspacePath: sandboxPath,
+				mounter,
+			});
+		} catch (err) {
+			caught = err;
+		}
+
+		expect(caught).toBeInstanceOf(FilesystemMountFailure);
+		const failure = caught as FilesystemMountFailure;
+		expect(failure.filesystemId).toBe("fs-hold-fail");
+		expect(failure.reason).toBe("repo path does not exist");
+		expect(failure.credential).toBeNull(); // fs-hold-fail has no connectionId
+		expect(failure.filesystem.id).toBe("fs-hold-fail");
+		// Everything mounted BEFORE the failing one — so the caller can unmount
+		// exactly what THIS admission placed, never anything from a resume.
+		expect(failure.mounted).toEqual([okMounted]);
 	});
 });
 

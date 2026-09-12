@@ -67,6 +67,7 @@ export {
 	computeFolderNames,
 	type FilesystemForProvisioning,
 	type FilesystemMounterPort,
+	FilesystemMountFailure,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";

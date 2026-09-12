@@ -88,10 +88,24 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 	if (!deps.runtime) return 0;
 	let consumed = 0;
 	for (;;) {
+		// BA5 §4.1/§13 (L5) — the hold, mechanically: a held agent's pending rows
+		// are never even candidates for this claim. Built fresh on every
+		// iteration (not once per `drainAgentSessionRequests` call) so a
+		// filesystem fixed mid-drain is picked up within the same pass, and a
+		// filesystem that JUST broke stops being claimed from the very next
+		// iteration on. Nothing here releases a hold — leaving `needs_attention`
+		// (Check passing, the injection removed, the filesystem deleted) is what
+		// shrinks this list; the exclusion just reads it fresh each time (§4.3).
+		const excludeAgentIds = (await deps.runtime.injectedFilesystems?.listHeldAgentIds?.()) ?? [];
 		const request = await deps.ports.sessionRequests.claimSessionRequest(
 			deps.db,
 			{ next: true },
-			{ workerId: "agent-layer", now: new Date(), leaseMs: 30_000 },
+			{
+				workerId: "agent-layer",
+				now: new Date(),
+				leaseMs: 30_000,
+				...(excludeAgentIds.length > 0 ? { excludeAgentIds } : {}),
+			},
 		);
 		if (!request) return consumed;
 		// @lore AU9: explicitSessionStarts.requestId is only populated by THIS
@@ -169,7 +183,11 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// like every other kind's: the claim sits released/claimed until its
 			// lease expires and is re-claimed, not terminalized here — a known,
 			// pre-existing gap for every kind, not special-cased for the assistant.
-			if (explicitStartId) {
+			// @lore BA5 §4.2/§13 (L5): `FILESYSTEM_UNAVAILABLE` skips this
+			// projection too — the request is not terminal, it is held and released
+			// back to `pending` by `runtime.ts`'s own catch branch, the same as
+			// `CONCURRENCY_LIMIT` already does below.
+			if (explicitStartId && failure.code !== "FILESYSTEM_UNAVAILABLE") {
 				await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
 					target: "explicitStart",
 					to: "failed",
@@ -193,7 +211,12 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// Every OTHER failure kind still terminalizes the request to `failed`
 			// (see the lore above), so it will not be reclaimed again at all —
 			// only `CONCURRENCY_LIMIT` needs this.
-			if (failure.code === "CONCURRENCY_LIMIT") return consumed;
+			// BA5 §4.1/§4.2/§13 (L5): the same fail-safe `return` as
+			// `CONCURRENCY_LIMIT` (see the lore just above) — never a busy retry
+			// within this call. The next wake (≤1s) reads the exclusion list fresh
+			// (§4.1), so the held agent's request is simply skipped from then on.
+			if (failure.code === "CONCURRENCY_LIMIT" || failure.code === "FILESYSTEM_UNAVAILABLE")
+				return consumed;
 		}
 	}
 }
@@ -205,12 +228,15 @@ type AgentAdmissionFailureCode =
 	| "CONCURRENCY_LIMIT"
 	| "MISSING_CREDENTIAL"
 	| "NO_ELIGIBLE_HARNESS"
+	// BA5 §4.2/§13 (L5): a placement failure that already ran the full hold
+	// (unmount, release, mark needs_attention) in `provisioner.ts`.
+	| "FILESYSTEM_UNAVAILABLE"
 	| "INTERNAL_ERROR";
 
 /** Stable public projection; private runtime messages never cross the API boundary. */
 function classifyAdmissionFailure(error: unknown): {
 	readonly code: AgentAdmissionFailureCode;
-	readonly status: 422 | 429 | 500;
+	readonly status: 422 | 429 | 500 | 503;
 } {
 	const name = error instanceof Error ? error.name : "Error";
 	switch (name) {
@@ -220,6 +246,11 @@ function classifyAdmissionFailure(error: unknown): {
 			return { code: "MISSING_CREDENTIAL", status: 500 };
 		case "NoEligibleHarnessError":
 			return { code: "NO_ELIGIBLE_HARNESS", status: 422 };
+		// BA5 §4.2/§13 (L5): the full hold already ran (unmount, release, mark
+		// needs_attention) before this was thrown — see `errors.ts`'s
+		// `FilesystemUnavailableError`.
+		case "FilesystemUnavailableError":
+			return { code: "FILESYSTEM_UNAVAILABLE", status: 503 };
 		default:
 			return { code: "INTERNAL_ERROR", status: 500 };
 	}
