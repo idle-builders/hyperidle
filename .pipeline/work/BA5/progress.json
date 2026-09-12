@@ -384,7 +384,14 @@
       "state": "complete",
       "mainResult": "origin/main f88b71434, 04:47:01-05:19:24 CEST (~32 min), exit 1: 4 files failed / 14 passed; 8 tests failed / 83 passed / 2 skipped \u2014 identical counts to the branch",
       "verdict": "NOT caused by this branch. 7 of 8 failing test names are identical on main and the branch (claude-code adapter, cursor-agent adapter, model-options claude effort, session-handles claude-code/codex x2/cursor-agent). The 8th is the same file and same harness (opencode knowledge-tree-real) but a different case on each side, which is flakiness within that file, not a regression. This matches the blast-radius finding: the branch changes zero files under layers/agent-execution.",
-      "obligationMet": "the release-checklist harness lane has been run locally for this branch, as CLAUDE.md requires for a change to session provisioning; it is red on main for pre-existing reasons and no worse here"
+      "obligationMet": "the release-checklist harness lane has been run locally for this branch, as CLAUDE.md requires for a change to session provisioning; it is red on main for pre-existing reasons and no worse here",
+      "closed": {
+        "at": "2026-09-12",
+        "detail": "Both lanes: 8 failed / 83 passed / 2 skipped of 93, 4 of 18 files. Seven failing test names identical on both sides, all in layers/agent-execution/harness-registry, which this branch does not touch in a single file. The eighth diverges only in which case of the same opencode knowledge-tree file failed \u2014 branch: model reported NOT_FOUND for values that were present; main: the agent created no files at all. Both are 'the 8B model did not perform the task' shapes.",
+        "provisioningVocabulary": "appears on both sides only as passes, never in a failure \u2014 including '[AN2 real-harness gh] LIVE PROOF: GH_TOKEN env injection -> gh auth status succeeded with injected token', plus all three MCP live proofs green on both.",
+        "staleBaselineNote": "the recorded baseline (codex MCP readiness, opencode step_finish, ~5 failed/62 passed) did not reproduce: those MCP proofs pass, step_finish appears nowhere, and both runs have 93 tests, not 62. That note is stale; this same-machine main run is the real comparison.",
+        "cancelled": "a further re-run of the diverging knowledge-tree case was stopped: it would have competed with the fix round, and the verdict does not depend on it"
+      }
     }
   }
 }
