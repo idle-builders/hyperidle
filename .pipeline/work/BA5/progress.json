@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "L1, L2 done and verified. L3 builder running (one git adapter, placement, instructions, teardown). Then L4-L6, phase review, G2.",
+  "resume": "L1-L3 done and verified (85428a954). L4 builder running (Check and detection). Then L5, L6, phase review, G2.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -175,12 +175,35 @@
       {
         "id": "L3",
         "what": "one git adapter, placement, kept copies, agent instructions, teardown",
-        "state": "in-progress"
+        "state": "done",
+        "commits": [
+          "c1da6ccff",
+          "58a0db70b",
+          "2bb8568cc",
+          "85428a954"
+        ],
+        "gate": "check PASS 38/38; verify:quick exit 0 (run twice, once against pushed HEAD); service integration lane 319 files/2222 pass; affected slice 286 files/2469 pass; biome 0 errors on changed files (builder-reported)",
+        "orchestratorVerified": "4 commits pushed at 85428a954; tree clean; stash intact; no .pipeline or foreign files in any commit; kept-copies excluded in .gitignore and biome.json; phase-1 total 2713+/1952-",
+        "provenAgainstRealBinaries": [
+          "PAT auth clone with no token in the kept copy, the worktree or ~/.gitconfig",
+          "gh-login auth with no credential stored",
+          "the agent's own git push landing on the offline github stand-in",
+          "public remote with gh absent from PATH",
+          "clone once then fetch, not re-clone",
+          "two same-basename filesystems get distinct folders"
+        ],
+        "deviations": [
+          "FilesystemMounterPort/InjectedFilesystemsReaderPort keep their names; the merged FilesystemsPort of \u00a72.5 waits for its real callers in L4/L5",
+          "mountFilesystemsForAgent passes credential: null with a comment marking it L4's job",
+          "MountingGitRunner trimmed to the verbs actually called; the unused old surface was not carried forward",
+          "added mergeGitConfigEnv so several github filesystems merge their config entries instead of one silently dropping another"
+        ],
+        "incident": "a stray `git add -A` made 58a0db70b carry more than its message says; final tree verified correct, history not rewritten"
       },
       {
         "id": "L4",
         "what": "Check and detection",
-        "state": "pending"
+        "state": "in-progress"
       },
       {
         "id": "L5",
