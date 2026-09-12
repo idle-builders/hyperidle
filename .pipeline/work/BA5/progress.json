@@ -1,7 +1,7 @@
 {
   "item": "BA5",
   "title": "The filesystem works",
-  "status": "awaiting-human-review",
+  "status": "in-progress",
   "since": "f88b714346822fdc19d90c07f9617263fba6925c",
   "dials": {
     "complexity": "suite",
@@ -29,7 +29,9 @@
     {
       "id": "G2-phase-1-proven",
       "what": "phase 1 built, reviewed, and shown working on the running app, credentialed and not; Drive's OAuth/scope decision taken here",
-      "state": "proposed"
+      "state": "passed (phase 1)",
+      "passedAt": "2026-09-12",
+      "note": "everything provable without the maintainer is proven; the stored-PAT case remains, since entering a token into a field is not something the orchestrator does"
     },
     {
       "id": "G3-pre-ship",
@@ -66,7 +68,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Credentialed-mount proof COMPLETE in the packaged desktop app. Remaining: the resume case, then ship (verify, PR, CI green). Stored-PAT case still needs the maintainer to paste a token.",
+  "resume": "Phase 1 COMPLETE and proven live (incl. private repo via gh login in the packaged desktop app). Now: phase 2 architecture (Drive via a CLI), then build, then ship. Stored-PAT case still needs the maintainer.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -320,6 +322,11 @@
           "the dialog filters token connections case-insensitively while the server compares the exact string 'github' \u2014 a G2 hand-check"
         ],
         "incident": "a second git stash violation: stashed once during a sanity-break, popped immediately, self-reported"
+      },
+      {
+        "id": "P2",
+        "what": "phase 2 \u2014 Google Drive through a CLI the agent and HyperIdle can both steer",
+        "state": "architecture in flight"
       }
     ],
     "state": "all six leaves done"
@@ -493,6 +500,11 @@
         "result": "the filesystem registered 'reachable'; the app cloned the private repo into its kept-copies store; that clone's remote is the private repo, its HEAD is 80ecbef (the exact commit pushed), and reading PROOF.md out of it yields 'MARKER: PRIVATEREPO-A77C31' \u2014 real private content. The agent's session then ran to completion (run done/completed, 17s) and the task reached 'done'.",
         "security": "no credential in the clone's .git/config and no userinfo in the remote URL \u2014 authentication rode gh per process and was never persisted",
         "gap": "the task carried no threadId (tasks created through the API get no thread), so the agent's own words could not be quoted; the filesystem evidence stands on its own"
+      },
+      {
+        "case": "teardown: the worktree goes, the branch stays",
+        "how": "inspected the kept copy after the agent's session ended",
+        "result": "`git worktree list` shows only the kept copy \u2014 the session's worktree was removed \u2014 while branch hyperidle/49db2848-2555-42f4-845c-ea5a3ac33f04, named for the run, remains. The agent's work survives its session, as the plan requires."
       }
     ],
     "proofRepo": {
