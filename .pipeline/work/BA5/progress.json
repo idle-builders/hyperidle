@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "G2 live: onboarding+pick, Add dialog, public remote, Check all proven. In flight: folder case and broken-filesystem case (hold + one notification). Then dispatch, resume. Credentialed cases and draft PR need the maintainer.",
+  "resume": "G2: hold proven (task stays accepted, no runs, one notification). vanished-repo restored on disk. Next: press Check to prove release + session start + agent reads PROOF.md, then the resume case. Credentialed cases and draft PR still need the maintainer.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -461,6 +461,17 @@
         "case": "a plain document folder registers and is worked in place",
         "how": "Add filesystem dialog, Kind = Folder, pointed at a real folder on disk",
         "result": "registered as kind doc_set, source local, state reachable, no connection"
+      },
+      {
+        "case": "a broken filesystem holds the agent's sessions \u2014 not the task (the maintainer's ruling)",
+        "how": "registered a filesystem pointing at a path that does not exist, picked it for local-repo Agent (which already had a healthy one), then created a task owned by that agent and accepted it, firing dispatch",
+        "result": "after 9s the task still reads 'accepted' \u2014 ready, not started; runs by task = [], runs by agent = [], active run counts = {}; so no session started and nothing failed the task",
+        "notificationBehaviour": "exactly ONE inbox row, titled 'Filesystem needs attention: <path>', linking to Settings. Adding the broken filesystem to an agent that already had a healthy one raised no second notice, and the dispatch that was then held raised none either."
+      },
+      {
+        "case": "registration refuses nothing but reports honestly",
+        "how": "POST /api/filesystems with a non-existent path",
+        "result": "201 with state needs_attention and a reason naming the path \u2014 Check runs at registration, so the row is honest from the moment it exists"
       }
     ]
   }
