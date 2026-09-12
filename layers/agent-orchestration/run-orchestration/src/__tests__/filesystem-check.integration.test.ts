@@ -197,7 +197,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 		expect(result.reason).toContain("gh auth login");
 	});
 
-	it("a wrong PAT on a token connection → not ok, names the rejected token (real GitHub really rejects it)", async () => {
+	it("a wrong PAT on a token connection → not ok, names the rejected token", async () => {
 		standIn.createRepo("t5-wrong-pat", { private: true, token: "the-real-token", branch: "main" });
 		vi.stubEnv("HOME", standIn.home());
 
@@ -214,7 +214,16 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 			{
 				credential: "definitely-not-a-real-github-token-t5",
 				gitRunnerFactory,
-				ghAuthStatus,
+				// Stubbed, like the neighbouring "PAT ok" and "gh logged in" cases: a real
+				// ghAuthStatus here spawns `gh auth status` with this token as GH_TOKEN,
+				// which gh validates against the live GitHub API and makes this service-lane
+				// test depend on the internet. `checkFilesystem` is only ever HANDED
+				// ghAuthStatus as a dependency (deps.ghAuthStatus), and production maps
+				// `logged_out` plus a set connectionId to REASON_TOKEN_REJECTED regardless
+				// of *why* gh reports logged_out -- so stubbing the outcome leaves the
+				// behaviour under test unchanged. The real rejection with a real token is
+				// G2's live proof on the running app.
+				ghAuthStatus: async () => "logged_out",
 			},
 		);
 		expect(result.ok).toBe(false);
