@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "L1-L3 done and verified (85428a954). L4 builder running (Check and detection). Then L5, L6, phase review, G2.",
+  "resume": "L1-L4 done and verified (f868e87f7). L5 builder running (hold and notification). Then fix D1, L6, phase review, harness lane, G2.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -203,12 +203,36 @@
       {
         "id": "L4",
         "what": "Check and detection",
-        "state": "in-progress"
+        "state": "done",
+        "commits": [
+          "0aa93a395",
+          "0206f9c26",
+          "b7e3cd2e6",
+          "c9a274fff",
+          "b3fb0bc86",
+          "f868e87f7"
+        ],
+        "gate": "verify:quick exit 0; service integration lane 323 files/2249 pass; typecheck 38/38; biome clean on changed files (builder-reported)",
+        "orchestratorVerified": "6 commits pushed at f868e87f7; tree clean; stash intact (2); package-lock.json updated for the removed devDependencies",
+        "checkReturns": {
+          "public repo, gh absent": "ok",
+          "private repo, working token": "ok",
+          "revoked/wrong token": "The GitHub token was rejected. Replace it in Settings \u2192 Connections",
+          "gh missing with a connection": "Install the GitHub CLI (gh)...",
+          "gh missing, remote asked for login": "needs a GitHub login...",
+          "gh logged out": "Run `gh auth login`, or add a GitHub token connection",
+          "missing branch": "branch '<b>' not found",
+          "folder or repo gone": "folder does not exist / is not a git repository"
+        },
+        "deviations": [
+          "the 'PAT ok' and 'gh logged in' cases stub ghAuthStatus, because gh validates a token against the real GitHub API and no fake-but-valid PAT can pass offline; the real proof is G2's",
+          "recordFilesystemNeedsAttention re-reads the row to derive the filesystem's label, since its signature carries no label"
+        ]
       },
       {
         "id": "L5",
         "what": "hold and notification",
-        "state": "pending"
+        "state": "in-progress"
       },
       {
         "id": "L6",
@@ -216,5 +240,15 @@
         "state": "pending"
       }
     ]
-  }
+  },
+  "defects": [
+    {
+      "id": "D1",
+      "found": "2026-09-12 by the orchestrator while verifying L4",
+      "where": "layers/agent-orchestration/run-orchestration/src/__tests__/filesystem-check.integration.test.ts, the 'wrong PAT on a token connection' case",
+      "what": "it passes the real ghAuthStatus, which spawns `gh auth status` with GH_TOKEN; gh validates the token against api.github.com, so this service-lane test requires the live internet and would flake in CI",
+      "fix": "stub ghAuthStatus to logged_out for that case (the code maps logged_out + connection to the rejected-token reason); the genuine rejection with a real PAT is already G2's live proof",
+      "state": "open \u2014 apply after L5 lands, before the phase review"
+    }
+  ]
 }
