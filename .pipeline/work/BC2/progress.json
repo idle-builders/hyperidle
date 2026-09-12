@@ -1,0 +1,33 @@
+{
+  "id": "BC2",
+  "status": "in-progress",
+  "dials": {
+    "complexity": "suite",
+    "ambiguity": "established context",
+    "exposure": "public contract"
+  },
+  "gates": [
+    {
+      "name": "before-ship",
+      "passed": false,
+      "shows": [
+        "task page + tree through the list",
+        "edit_task 422 problems for a bad state change",
+        "edit_task listed from MCP registry",
+        "governance rule green task / red others",
+        "review findings + added line count"
+      ]
+    }
+  ],
+  "worktree": ".claude/worktrees/task-action-list",
+  "branch": "feature/task-action-list",
+  "base": "efa28dd59",
+  "since": "efa28dd59",
+  "artifacts": {
+    "plan": ".pipeline/work/BC2/plan.md",
+    "architecture": ".pipeline/work/BC2/architecture.md",
+    "critique": ".pipeline/work/BC2/critique.md (pending)"
+  },
+  "verdicts": {},
+  "started": "2026-09-12"
+}

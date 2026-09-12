@@ -90,6 +90,33 @@ which is what happens today.
 
 ## How we work on this
 
+**Confirmed 2026-09-12.** The three calls in *How it works* stand: the old `task_state_changed` is
+emitted from the change row until BC5; accepting an agent-owned task still records a work intent
+through the seam until BC6; `audit_trail` is dropped, the change rows replace it. One PR. Roughly a
+thousand added lines of code accepted up front; `work`, the task routes, the four tools, the hooks
+and the wire type are deleted in the same change. No bridge.
+
+**Parallel with BC1.** BC1 runs in another session. This branch is cut from `origin/main` before
+BC1 merges; it rebases onto BC1 once BC1 is on `main`, before ship. The two known overlaps are the
+`attention_score` column in the task read model and the plumbing list in the governance rule. The
+PR may not merge before BC1.
+
+**Dials.** complexity: suite · ambiguity: established context · exposure: public contract.
+
+**Order.** One critique of `architecture.md` first, cheap against a thousand-line build. Then one
+builder: red tests, then code, in the dependency order the architecture gives. Then one fresh
+reviewer over the integrated diff, in two passes: the mechanism and task module first, the
+projections and screens second. Only blocking findings go back.
+
+**Gates.** One, before ship: the founder sees the task page and tree running through the list,
+`POST /api/actions/edit_task` returning problems for a bad state change, the tool listed from the
+MCP registry, the governance rule green for task and red for the other objects, the review's
+findings, and the line count. Then retro and ship to a CI-green open PR. Nobody merges.
+
+**Verification.** `npm run verify`, `npm run test`, `npm run test:integration:service`; the new
+task-actions integration test; the harness lane locally once at the end because the MCP bridge
+receives the composed tool list.
+
 ## Confusions
 
 ## Proposed items
