@@ -1,26 +1,28 @@
 /**
  * Q1 §4.4: RecipientPicker component.
  *
- * Inline recipient picker for new DM thread creation. Assembled from
- * design-system primitives (SearchField, StatusChip, Tag) and DaisyUI.
+ * Inline recipient picker for new DM thread creation. Built on the shared
+ * `Combobox` in server-driven mode (options = `useRecipients`' current
+ * results, passing `onQueryChange`) — the same pattern `TaskDependencyField`
+ * uses for searching tasks.
  *
  * States:
- * - browsing: search field + recipient list visible
+ * - browsing: Combobox (closed trigger + popover search) visible
  * - selected: recipient chosen, message textarea visible
  * - sending: POST /api/threads in flight, inputs disabled
  *
  * @lore Q1: This is a page-level composition, not a design-system primitive.
  * It lives in layers/core-ui/src/components/ alongside GlobalSearchPanel.
  *
- * @lore AG5: Not folded into Menu (AG5): a searchable entity-directory panel with
- * browse/selected/sending states + composer, not a transient action menu.
- * Uses role=listbox (entity directory), not role=menu (action list) — different
- * ARIA semantics, different interaction model. The no-handrolled-control lint
- * rule does not flag it because it does not use DaisyUI control classes.
+ * @lore the hand-built listbox (role=listbox rows with an Avatar and a
+ * StatusChip each) is gone with the migration to Combobox — each row's
+ * avatar and live-session dot now come back through `ComboboxOption.leading`
+ * instead of a separate colored pill. The post-pick header (avatar + name +
+ * Change) was always untouched.
  */
 
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Input, SearchField, StatusChip, Tag } from "../ds";
+import { Avatar, Button, Combobox, Input, LiveDot } from "../ds";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
 import { apiFetch } from "../services/api-fetch.js";
@@ -33,17 +35,9 @@ export interface RecipientPickerProps {
 
 type PickerState = "browsing" | "selected" | "sending";
 
-function getStatusForRecipient(status: string): "healthy" | "paused" | "blocked" | "done" {
-	switch (status) {
-		case "active":
-			return "healthy";
-		case "paused":
-			return "paused";
-		case "retired":
-			return "blocked";
-		default:
-			return "done";
-	}
+/** The Combobox row's description line — role and status. The live-session state has its own dot in `leading` instead. */
+function recipientDescription(r: Recipient): string {
+	return [r.role, r.status].join(" · ");
 }
 
 /**
@@ -61,15 +55,9 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	const [selected, setSelected] = useState<Recipient | null>(null);
 	const [message, setMessage] = useState("");
 	const [sendError, setSendError] = useState<string | null>(null);
-	const searchRef = useRef<HTMLInputElement>(null);
 	const messageRef = useRef<HTMLTextAreaElement>(null);
 
-	const { status, recipients } = useRecipients(query || undefined);
-
-	// Auto-focus search on mount
-	useEffect(() => {
-		searchRef.current?.focus();
-	}, []);
+	const { status, recipients, error } = useRecipients(query || undefined);
 
 	// Auto-focus message textarea on recipient selection
 	useEffect(() => {
@@ -78,10 +66,15 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 		}
 	}, [pickerState]);
 
-	const handleSelectRecipient = useCallback((recipient: Recipient): void => {
-		setSelected(recipient);
-		setPickerState("selected");
-	}, []);
+	const handleSelectRecipient = useCallback(
+		(id: string): void => {
+			const recipient = recipients.find((r) => r.id === id);
+			if (!recipient) return;
+			setSelected(recipient);
+			setPickerState("selected");
+		},
+		[recipients],
+	);
 
 	const handleSend = useCallback(async (): Promise<void> => {
 		if (!(selected && message.trim())) return;
@@ -146,9 +139,21 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 		[onCancel, handleSend],
 	);
 
-	const filteredRecipients = query
-		? recipients.filter((r) => r.name.toLowerCase().includes(query.toLowerCase()))
-		: recipients;
+	const options = recipients.map((r) => ({
+		id: r.id,
+		label: r.name,
+		description: recipientDescription(r),
+		leading: (
+			<span className="flex items-center gap-[6px]">
+				<Avatar initials={deriveInitials(r.name)} size="sm" className="flex-shrink-0" />
+				{r.hasActiveSession && (
+					<span role="img" aria-label="Live session">
+						<LiveDot />
+					</span>
+				)}
+			</span>
+		),
+	}));
 
 	return (
 		<div
@@ -157,69 +162,22 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 			onKeyDown={handleKeyDown}
 		>
 			{pickerState === "browsing" && (
-				<>
-					<SearchField
-						ref={searchRef}
-						placeholder="Search agents and users..."
-						value={query}
-						onChange={setQuery}
-					/>
-					<div
-						className="flex flex-col gap-[3px] max-h-[320px] overflow-y-auto"
-						role="listbox"
-						aria-label="Recipients"
-					>
-						{status === "loading" && (
-							<div className="type-small py-[8px] text-center text-[var(--text-tertiary)] ">
-								Loading...
-							</div>
-						)}
-						{status === "ready" && filteredRecipients.length === 0 && (
-							<div className="type-small py-[8px] text-center text-[var(--text-tertiary)] ">
-								No recipients found
-							</div>
-						)}
-						{status === "ready" &&
-							filteredRecipients.map((recipient) => (
-								<button
-									key={recipient.id}
-									type="button"
-									role="option"
-									aria-selected={false}
-									className="flex items-center gap-[9px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none   hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
-									onClick={() => handleSelectRecipient(recipient)}
-								>
-									{/* AI5: shared Avatar primitive (initials now uppercased via deriveInitials). */}
-									<Avatar
-										initials={deriveInitials(recipient.name)}
-										size="sm"
-										className="flex-shrink-0"
-									/>
-									<span className="flex-1 min-w-0">
-										<span className="flex items-center gap-[6px]">
-											<span className="type-small  text-[var(--text-primary)]  truncate">
-												{recipient.name}
-											</span>
-											{recipient.hasActiveSession && (
-												<span
-													data-spacing-role="compact-pill"
-													className="type-label inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)]   uppercase "
-													aria-label="Live session"
-												>
-													<span className="motion-activity w-[5px] h-[5px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] " />
-													Live
-												</span>
-											)}
-										</span>
-										<span className="type-metadata  text-[var(--text-tertiary)]">
-											<Tag label={recipient.role} />
-										</span>
-									</span>
-									<StatusChip status={getStatusForRecipient(recipient.status)} />
-								</button>
-							))}
-					</div>
-				</>
+				<Combobox
+					label="Recipient"
+					// Opens on mount: before the Combobox migration this was a plain,
+					// always-visible search field a person could type into right away.
+					// Defaulting to closed would cost that — a click just to start typing.
+					defaultOpen
+					options={options}
+					onChange={handleSelectRecipient}
+					onQueryChange={setQuery}
+					placeholder="Search agents and users…"
+					inputAriaLabel="Search agents and users"
+					listAriaLabel="Recipients"
+					loading={status === "loading"}
+					error={status === "error" ? (error ?? "Failed to load recipients") : null}
+					emptyMessage={status === "ready" ? "No recipients found" : undefined}
+				/>
 			)}
 
 			{(pickerState === "selected" || pickerState === "sending") && selected && (

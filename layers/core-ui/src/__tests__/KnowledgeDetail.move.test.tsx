@@ -127,8 +127,8 @@ describe("editable knowledge item: Move affordance", () => {
 		await user.click(screen.getByRole("button", { name: /more options/i }));
 		await user.click(screen.getByTestId("knowledge-move"));
 		expect(screen.getByText("Move")).toBeInTheDocument();
-		const select = screen.getByTestId("parent-picker") as HTMLSelectElement;
-		expect(select.value).toBe("root-a");
+		const trigger = screen.getByRole("combobox", { name: "Parent" });
+		expect(trigger).toHaveTextContent("Root A");
 	});
 });
 

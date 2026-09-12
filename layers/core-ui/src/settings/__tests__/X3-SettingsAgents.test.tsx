@@ -10,7 +10,7 @@
  * AV2 changes vs original X3:
  *  - Table layout removed → ItemList + Row (no role="table", no column headers)
  *  - Edit button removed → clicking a row opens SplitView destination (AgentEditor)
- *  - Role field changed from <select> to RoleCombobox (custom combobox, not a native select)
+ *  - Role field changed from <select> to Combobox (custom combobox, not a native select)
  *  - Delete button has aria-label="Delete <agentName>" — match by label not by text content
  *
  * @lore X3: SettingsAgents follows the SettingsOrgChart pattern — fetch on

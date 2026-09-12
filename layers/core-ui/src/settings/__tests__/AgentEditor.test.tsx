@@ -8,7 +8,7 @@
  *  - AC-2: Codex (empty models) renders affordance, not select
  *  - AC-2: Save-payload anti-422 guard (empty modelProviders → modelProvider: null)
  *  - AC-2: Ratio persistence via onRatioChange
- *  - AC-3: RoleCombobox commits custom string and catalog role
+ *  - AC-3: Combobox commits custom string and catalog role
  *  - AC-3: Edit-open fetches role template
  */
 
@@ -492,6 +492,23 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 		// are hardcoded all-caps.
 		expect(screen.getAllByText("Role").length).toBeGreaterThan(0);
 		expect(screen.queryByText("ROLE")).not.toBeInTheDocument();
+	});
+
+	it("the role Combobox trigger has 'Role' as its accessible name", () => {
+		render(
+			<AgentEditor
+				agentId="agent-1"
+				draft={NORMAL_AGENT_DRAFT}
+				onDraftChange={vi.fn()}
+				harnesses={[OPENCODE_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+			/>,
+		);
+
+		expect(screen.getByRole("combobox", { name: "Role" })).toBeInTheDocument();
 	});
 
 	it("when harness has no models, Model label text content is 'Model', not 'MODEL'", () => {

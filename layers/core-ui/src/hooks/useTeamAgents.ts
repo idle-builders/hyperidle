@@ -1,23 +1,20 @@
 /**
- * AB3 — useTeamAgents: fetches full agent config for a team's roster.
+ * useTeamAgents: a team's roster, filtered from the full agent catalog.
  *
- * Fetches from GET /api/agents (the existing list endpoint) and filters
- * client-side to agents whose id appears in rosterAgentIds.
+ * `useAgents` already does the one fetch this needs (`GET /api/agents`, same
+ * shape, same error) — this hook is a filter over it, not a second fetch.
+ * `WorkTeam` only reads `agents`/`refetch` from the result, never `loading`,
+ * so folding the fetch didn't change any caller's observable behavior.
  *
  * @lore AB3: We do NOT extend the team endpoint with system-prompt/config data.
  * Team endpoint stays lean (serves portfolio + other consumers). Agent
  * config (including systemPrompt up to 50KB) is fetched separately and
  * cached for the duration of the page session.
- *
- * @lore AB3: The caller MUST memoize the rosterAgentIds array (e.g.
- * with useMemo) to prevent re-fetch loops. A new array reference on
- * every render will re-trigger the useEffect dependency check and
- * initiate a new fetch on every render cycle.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiFetch } from "../services/api-fetch.js";
+import { useMemo } from "react";
 import type { AgentConfig } from "../settings/settings-types.js";
+import { useAgents } from "./useAgents.js";
 
 export interface UseTeamAgentsResult {
 	/** Full agent configs keyed by agent id for O(1) lookup. */
@@ -29,71 +26,19 @@ export interface UseTeamAgentsResult {
 }
 
 export function useTeamAgents(rosterAgentIds: readonly string[]): UseTeamAgentsResult {
-	const [agents, setAgents] = useState<Map<string, AgentConfig>>(new Map());
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<Error | null>(null);
-	// fetchCount increments on refetch() to trigger the effect.
-	const [fetchCount, setFetchCount] = useState(0);
+	const { agents: allAgents, loading, error, refetch } = useAgents();
 
-	// Stable reference for rosterAgentIds as a Set for O(1) membership check.
-	// We convert to a JSON key so the effect dep doesn't change on every render.
-	const idsKey = useMemo(
-		() => [...rosterAgentIds].sort().join(","),
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		// @lore AB3: Intentionally re-compute only when the sorted id list changes,
-		// not on every render. Callers passing an inline array will trigger this
-		// once per unique set of IDs.
-		[rosterAgentIds],
-	);
+	// Sorted+joined so an inline (unmemoized) array from the caller only
+	// changes this key — and re-runs the filter below — when its CONTENT
+	// changes, not on every render.
+	const idsKey = useMemo(() => [...rosterAgentIds].sort().join(","), [rosterAgentIds]);
 
-	const idsRef = useRef<ReadonlySet<string>>(new Set(rosterAgentIds));
-	useEffect(() => {
-		idsRef.current = new Set(rosterAgentIds);
-	}, [rosterAgentIds]);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: fetchCount is intentionally used as a refetch trigger only — it is not read inside the effect body. eslint-disable-next-line react-hooks/exhaustive-deps
-	useEffect(() => {
-		if (!idsKey) {
-			setAgents(new Map());
-			setLoading(false);
-			setError(null);
-			return;
-		}
-
-		let cancelled = false;
-		setLoading(true);
-		setError(null);
-
-		apiFetch("/api/agents")
-			.then((res) => {
-				if (!res.ok) throw new Error(`Agent fetch failed: ${res.status}`);
-				return res.json() as Promise<AgentConfig[]>;
-			})
-			.then((all) => {
-				if (!cancelled) {
-					const filtered = all.filter((a) => idsRef.current.has(a.id));
-					const map = new Map(filtered.map((a) => [a.id, a]));
-					setAgents(map);
-					setLoading(false);
-				}
-			})
-			.catch((err: unknown) => {
-				if (!cancelled) {
-					setError(err instanceof Error ? err : new Error(String(err)));
-					setLoading(false);
-				}
-			});
-
-		return (): void => {
-			cancelled = true;
-		};
-		// Re-run when the set of IDs changes OR when refetch() is called.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [idsKey, fetchCount]);
-
-	const refetch = useCallback((): void => {
-		setFetchCount((c) => c + 1);
-	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: idsKey stands in for rosterAgentIds' content — see above. Depending on rosterAgentIds directly would recompute on every render for a caller passing an inline array.
+	const agents = useMemo(() => {
+		if (idsKey === "") return new Map<string, AgentConfig>();
+		const idsSet = new Set(rosterAgentIds);
+		return new Map(allAgents.filter((a) => idsSet.has(a.id)).map((a) => [a.id, a]));
+	}, [allAgents, idsKey]);
 
 	return { agents, loading, error, refetch };
 }

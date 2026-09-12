@@ -22,6 +22,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RoutineCreateDialog } from "../pages/work/RoutineCreateDialog.js";
 import * as apiFetchModule from "../services/api-fetch.js";
 
+/** Opens the agent Combobox and picks the option with this label. */
+function pickAgent(label: string): void {
+	fireEvent.click(screen.getByLabelText(/agent/i));
+	fireEvent.click(screen.getByText(label));
+}
+
 // Mock apiFetch for submit tests
 vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
@@ -76,10 +82,22 @@ describe("RoutineCreateDialog", () => {
 		expect(screen.getByPlaceholderText(/instruction for the agent/i)).toBeInTheDocument();
 	});
 
-	it("renders agent select with provided agents", () => {
+	it("renders agent picker offering the provided agents", () => {
 		renderDialog();
+		fireEvent.click(screen.getByLabelText(/agent/i));
 		expect(screen.getByText("Digest Agent")).toBeInTheDocument();
 		expect(screen.getByText("Review Agent")).toBeInTheDocument();
+	});
+
+	// The agent Combobox used to sit inside a <label htmlFor="routine-create-agent">.
+	// Clicking an option committed and closed the popover, then the browser's
+	// label click-activation clicked the trigger again and reopened it.
+	it("closes the agent picker after picking an option, instead of reopening it", () => {
+		renderDialog();
+		pickAgent("Digest Agent");
+
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		expect(screen.getByRole("combobox", { name: "Agent" })).toHaveTextContent("Digest Agent");
 	});
 
 	it("renders schedule picker with preset options", () => {
@@ -101,8 +119,7 @@ describe("RoutineCreateDialog", () => {
 		fireEvent.change(nameInput, { target: { value: "My routine" } });
 
 		// Schedule is pre-selected to first preset, agent selected first
-		const agentSelect = screen.getByLabelText(/agent/i);
-		fireEvent.change(agentSelect, { target: { value: "agent-1" } });
+		pickAgent("Digest Agent");
 
 		const createBtn = screen.getByRole("button", { name: /create/i });
 		expect(createBtn).not.toBeDisabled();
@@ -134,8 +151,7 @@ describe("RoutineCreateDialog", () => {
 		const nameInput = screen.getByLabelText(/name/i);
 		fireEvent.change(nameInput, { target: { value: "Test Routine" } });
 
-		const agentSelect = screen.getByLabelText(/agent/i);
-		fireEvent.change(agentSelect, { target: { value: "agent-1" } });
+		pickAgent("Digest Agent");
 
 		fireEvent.click(screen.getByRole("button", { name: /create/i }));
 
@@ -145,6 +161,12 @@ describe("RoutineCreateDialog", () => {
 				expect.objectContaining({ method: "POST" }),
 			);
 		});
+
+		const [, options] = mockApiFetch.mock.calls.find(
+			([, opts]) => (opts as RequestInit | undefined)?.method === "POST",
+		) as [string, RequestInit];
+		const body = JSON.parse(options.body as string) as { ownerAgentId: string };
+		expect(body.ownerAgentId).toBe("agent-1");
 
 		await waitFor(() => {
 			expect(onCreated).toHaveBeenCalledOnce();
@@ -167,8 +189,7 @@ describe("RoutineCreateDialog", () => {
 		const nameInput = screen.getByLabelText(/name/i);
 		fireEvent.change(nameInput, { target: { value: "Bad Routine" } });
 
-		const agentSelect = screen.getByLabelText(/agent/i);
-		fireEvent.change(agentSelect, { target: { value: "agent-1" } });
+		pickAgent("Digest Agent");
 
 		fireEvent.click(screen.getByRole("button", { name: /create/i }));
 

@@ -2,7 +2,7 @@ import type { WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
-import { get, list } from "./work-service.js";
+import { get, list, update } from "./work-service.js";
 
 const logger = createLogger({ pkg: "work.dependency-watcher" });
 
@@ -40,7 +40,7 @@ export async function checkAndUnblockDependents(
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
 	// quoted completedTaskId. The LIKE pattern wraps the id in JSON quotes
 	// so substrings of unrelated IDs ("dep-1" vs "dep-12") don't match.
-	const candidates = await list(db, "task", { dependencyId: completedTaskId });
+	const candidates = await list(db, "task", { dependencyId: completedTaskId, state: "hold" });
 
 	for (const task of candidates) {
 		if (!task.dependencies) continue;
@@ -96,6 +96,79 @@ export async function checkAndUnblockDependents(
 			targetId: task.id,
 			kind: "auto_unblock",
 			message: `Task ${task.id} auto-transitioned to accepted: all dependencies are done`,
+			timestamp: Date.now(),
+		});
+	}
+}
+
+/**
+ * After a task is killed, the killed id is dropped from every dependent
+ * that carries it, WHATEVER state that dependent is in — left in place it is
+ * a prerequisite that can never be satisfied, which parks the task forever
+ * the next time it is accepted. Separately, only the dependents that were
+ * actually WAITING on it (`hold`) are reset to `proposed` for re-planning —
+ * the premise they were planned under is gone, so they are not freed to
+ * start the way a finished dependency frees them. A dependent in any other
+ * state (still `proposed`, already `accepted`, or already `in_progress`) just
+ * loses the stale id; it is not rewound.
+ *
+ * Queries with NO state filter — the id must be found and cleaned up
+ * regardless of the dependent's current state, unlike
+ * `checkAndUnblockDependents`'s `hold`-only query. See `work-service.ts`'s
+ * `dependencyId` filter for why `state` had to become optional there.
+ */
+export async function handleDependencyKilled(
+	db: WriteExecutor,
+	eventBus: EventBus,
+	killedTaskId: string,
+	deps: TaskStateMachineDeps,
+): Promise<void> {
+	const candidates = await list(db, "task", { dependencyId: killedTaskId });
+
+	for (const task of candidates) {
+		if (!task.dependencies) continue;
+
+		let deplist: string[];
+		try {
+			const parsed = JSON.parse(task.dependencies);
+			if (!Array.isArray(parsed)) {
+				logger.warn("dependency-watcher: dependencies is not a JSON array", {
+					taskId: task.id,
+					value: task.dependencies,
+				});
+				continue;
+			}
+			deplist = parsed.filter((v): v is string => typeof v === "string");
+		} catch (err) {
+			logger.warn("dependency-watcher: failed to parse dependencies JSON", {
+				taskId: task.id,
+				error: err instanceof Error ? err.message : String(err),
+			});
+			continue;
+		}
+
+		if (!deplist.includes(killedTaskId)) continue;
+
+		const remaining = deplist.filter((id) => id !== killedTaskId);
+
+		// Drop the stale id regardless of state.
+		await update(db, "task", task.id, {
+			dependencies: remaining.length > 0 ? JSON.stringify(remaining) : null,
+		});
+
+		// Only a dependent actually WAITING on it is reset — not one already
+		// past the wait (`in_progress`, etc.) and not one that never entered
+		// it (still `proposed`).
+		if (task.state !== "hold") continue;
+
+		await transitionTask(db, eventBus, task.id, "proposed", deps);
+
+		eventBus.emit({
+			type: "notification",
+			streamId: task.id,
+			targetId: task.id,
+			kind: "auto_unblock",
+			message: `Task ${task.id} returned to proposed: dependency ${killedTaskId} was killed`,
 			timestamp: Date.now(),
 		});
 	}

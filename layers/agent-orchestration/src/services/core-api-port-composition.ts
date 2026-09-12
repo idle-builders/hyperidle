@@ -85,6 +85,7 @@ import {
 	type UpdateThreadRequest,
 	type UserView,
 } from "@hyperidle/api-contract";
+import { SeamRequestError } from "@hyperidle/domain-model";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 
@@ -340,10 +341,35 @@ function buildCoreApiHcClient(fetchAdapter: typeof fetch): CoreApiHcClient {
 	return client as CoreApiHcClient;
 }
 
-/** Throws a uniform, method-attributed error for a non-2xx seam response. */
+/**
+ * Throws a uniform, method-attributed error for a non-2xx seam response.
+ *
+ * @lore BA6: throws `SeamRequestError` (carries `.status` and, when the body
+ * is `{ error, code }` JSON, `.code`) rather than a bare `Error` — a caller
+ * like `edit_task` needs the route's machine-readable rejection code (e.g.
+ * 409 `TASK_CYCLE`) to turn it into a structured `err(code, message)`
+ * instead of letting a generic thrown error escape uncaught.
+ */
 async function throwSeamError(method: string, res: Response): Promise<never> {
 	const body = await res.text();
-	throw new Error(`CoreApiPort.${method}: request failed (${res.status}): ${body}`);
+	let code: string | undefined;
+	try {
+		const parsed: unknown = JSON.parse(body);
+		if (
+			parsed !== null &&
+			typeof parsed === "object" &&
+			typeof (parsed as { code?: unknown }).code === "string"
+		) {
+			code = (parsed as { code: string }).code;
+		}
+	} catch {
+		// Not JSON — code stays undefined, message still carries the raw body.
+	}
+	throw new SeamRequestError(
+		res.status,
+		code,
+		`CoreApiPort.${method}: request failed (${res.status}): ${body}`,
+	);
 }
 
 /** GET helper: 404 → `undefined`, non-2xx (incl. auth failures) → throw, else parse JSON. */

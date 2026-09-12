@@ -12,12 +12,22 @@
  *
  * @lore AM1: `label`/`meta` render as React-escaped TEXT content, never HTML
  * (§8 injection guard). The block chip shows the title only — never code.
+ *
+ * @lore BA6: two extensions, both additive (existing callers are unaffected):
+ * - `disabled` makes BOTH buttons genuinely inert (real `disabled` attribute,
+ *   not just an omitted handler) — a caller mid-save can freeze the whole chip.
+ * - In `draft` mode, the open body renders as a `<button>` only when `onOpen`
+ *   is supplied; with no `onOpen` it is a plain non-interactive span. Before
+ *   this, draft mode always rendered a focusable "Open <label>" control even
+ *   when nobody wired an action for it — a dead control ships wherever a
+ *   caller has nothing to open (e.g. a dependency chip that only lists a
+ *   reference, never drills into it).
  */
 
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 
-export type ReferenceChipKind = "artifact" | "image" | "knowledge" | "block";
+export type ReferenceChipKind = "artifact" | "image" | "knowledge" | "block" | "task";
 export type ReferenceChipMode = "draft" | "posted";
 
 export interface ReferenceChipProps {
@@ -27,6 +37,8 @@ export interface ReferenceChipProps {
 	mode: ReferenceChipMode;
 	onOpen?: () => void;
 	onRemove?: () => void;
+	/** Freezes both the open and remove controls — real `disabled`, not an omitted handler. */
+	disabled?: boolean;
 }
 
 // Inline icon set — currentColor, no emoji-as-icon (AQ-105). 16-box.
@@ -38,6 +50,9 @@ const ICON: Record<ReferenceChipKind, string> = {
 	knowledge:
 		"M3 1.5h7l3 3v9.5a.5.5 0 01-.5.5H3a.5.5 0 01-.5-.5v-12a.5.5 0 01.5-.5zm6.5 1.2V4.5h1.8L9.5 2.7zM4.5 6.3h7v1.2h-7V6.3zm0 2.6h7v1.2h-7V8.9zm0 2.6h4.6v1.2H4.5v-1.2z",
 	block: "M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h-7V9.7z",
+	// Checkbox-with-check — a dependency chip references another TASK,
+	// distinct from the file/knowledge/block shapes above.
+	task: "M2.5 2.5h11v11h-11v-11zm1.5 1.5v8h8v-8h-8zm1.6 4.3l1.6 1.6 3-3 1.1 1.1-4.1 4.1-2.7-2.7z",
 };
 const ICON_ARROW = "M3 8h8.2L8 4.8 9.2 3.6 14.4 8l-5.2 4.4L8 11.2 11.2 8H3V8z";
 const ICON_REMOVE =
@@ -68,6 +83,7 @@ export function ReferenceChip({
 	mode,
 	onOpen,
 	onRemove,
+	disabled = false,
 }: ReferenceChipProps): JSX.Element {
 	const openBody = (
 		<>
@@ -85,12 +101,13 @@ export function ReferenceChip({
 			<button
 				type="button"
 				onClick={onOpen}
+				disabled={disabled}
 				aria-label={`Open ${label}`}
 				title={`Open ${label}`}
 				{...dsProps("ReferenceChip", "1")}
 				data-ds-mode="posted"
 				data-ds-kind={kind}
-				className={`type-control ${`${SHELL} pr-[9px] text-left`}`}
+				className={`type-control disabled:cursor-not-allowed disabled:opacity-50 ${`${SHELL} pr-[9px] text-left`}`}
 			>
 				{openBody}
 				<span
@@ -103,7 +120,8 @@ export function ReferenceChip({
 		);
 	}
 
-	// draft mode — body = open, trailing ✕ = remove (two distinct hit targets).
+	// draft mode — body = open (only when `onOpen` is wired), trailing ✕ = remove
+	// (two distinct hit targets when both are present).
 	return (
 		<span
 			{...dsProps("ReferenceChip", "1")}
@@ -111,21 +129,27 @@ export function ReferenceChip({
 			data-ds-kind={kind}
 			className={`type-metadata ${SHELL}`}
 		>
-			<button
-				type="button"
-				onClick={onOpen}
-				aria-label={`Open ${label}`}
-				title={`Open ${label}`}
-				className="flex min-w-0 items-center gap-[6px] text-left"
-			>
-				{openBody}
-			</button>
+			{onOpen ? (
+				<button
+					type="button"
+					onClick={onOpen}
+					disabled={disabled}
+					aria-label={`Open ${label}`}
+					title={`Open ${label}`}
+					className="flex min-w-0 items-center gap-[6px] text-left disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					{openBody}
+				</button>
+			) : (
+				<span className="flex min-w-0 items-center gap-[6px]">{openBody}</span>
+			)}
 			<button
 				type="button"
 				onClick={onRemove}
+				disabled={disabled}
 				aria-label={`Remove ${label}`}
 				title="Remove"
-				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
+				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
 			>
 				<Glyph d={ICON_REMOVE} size={11} />
 			</button>

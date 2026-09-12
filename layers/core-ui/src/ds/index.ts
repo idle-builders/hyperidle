@@ -53,6 +53,8 @@ export type { TablePayloadProps } from "./block/TablePayload.js";
 export { TablePayload } from "./block/TablePayload.js";
 export type { CheckboxProps } from "./Checkbox.js";
 export { Checkbox } from "./Checkbox.js";
+export type { ComboboxOption, ComboboxProps } from "./Combobox.js";
+export { Combobox } from "./Combobox.js";
 export type { CommentRowProps, CommentRowSender } from "./CommentRow.js";
 export { CommentRow } from "./CommentRow.js";
 export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
@@ -123,8 +125,6 @@ export type {
 	RichMessageCardState,
 } from "./RichMessageCard.js";
 export { RichMessageCard } from "./RichMessageCard.js";
-export type { RoleComboboxProps, RoleOption } from "./RoleCombobox.js";
-export { RoleCombobox } from "./RoleCombobox.js";
 export type { ItemListContextValue, RowCell, RowProps } from "./Row.js";
 export { ItemListContext, Row } from "./Row.js";
 export type { RowDeleteActionProps } from "./RowDeleteAction.js";

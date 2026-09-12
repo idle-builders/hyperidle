@@ -74,6 +74,12 @@ async function fillAndSubmit(): Promise<ReturnType<typeof userEvent.setup>> {
 	return user;
 }
 
+/** Opens the ParentPicker combobox and picks the option with this label. */
+async function pickParent(user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> {
+	await user.click(screen.getByRole("combobox", { name: "Parent" }));
+	await user.click(screen.getByText(label));
+}
+
 describe("KnowledgeCreate — parent picker", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -85,8 +91,8 @@ describe("KnowledgeCreate — parent picker", () => {
 				<KnowledgeCreate />
 			</MemoryRouter>,
 		);
-		const select = screen.getByTestId("parent-picker") as HTMLSelectElement;
-		expect(select.value).toBe("");
+		const trigger = screen.getByRole("combobox", { name: "Parent" });
+		expect(trigger).toHaveTextContent("No parent (top level)");
 	});
 
 	it("creating with no parent selected omits parentKind and parentId from the POST", async () => {
@@ -114,7 +120,7 @@ describe("KnowledgeCreate — parent picker", () => {
 		} as Response);
 
 		const user = await fillAndSubmit();
-		await user.selectOptions(screen.getByTestId("parent-picker"), "root-a");
+		await pickParent(user, "Root A");
 		await user.click(screen.getByTestId("knowledge-create-submit"));
 
 		await waitFor(() => expect(apiFetch).toHaveBeenCalledTimes(1));
@@ -139,7 +145,7 @@ describe("KnowledgeCreate — parent picker", () => {
 		} as Response);
 
 		const user = await fillAndSubmit();
-		await user.selectOptions(screen.getByTestId("parent-picker"), "root-a");
+		await pickParent(user, "Root A");
 		await user.click(screen.getByTestId("knowledge-create-submit"));
 
 		expect(await screen.findByTestId("knowledge-create-error")).toHaveTextContent(

@@ -6,12 +6,17 @@
  * The label is "TEAM" (uppercase) and the value is the team name.
  */
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentAddDialog } from "../pages/AgentAddDialog";
 import { ToastRegion } from "../shell/ToastRegion";
 
-function renderDialog(teamName: string, open = true): ReturnType<typeof render> {
+function renderDialog(
+	teamName: string,
+	open = true,
+	rolesInUse?: readonly string[],
+): ReturnType<typeof render> {
 	return render(
 		<ToastRegion>
 			<AgentAddDialog
@@ -20,6 +25,7 @@ function renderDialog(teamName: string, open = true): ReturnType<typeof render> 
 				teamName={teamName}
 				onClose={vi.fn()}
 				onCreated={vi.fn()}
+				{...(rolesInUse ? { rolesInUse } : {})}
 			/>
 		</ToastRegion>,
 	);
@@ -60,5 +66,49 @@ describe("AH4 AC2 — AgentAddDialog placement affordance", () => {
 	it("does not render when open=false", () => {
 		renderDialog("Acme", false);
 		expect(screen.queryByText("Add agent")).not.toBeInTheDocument();
+	});
+});
+
+describe("AgentAddDialog — role field is a Combobox", () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it("picks a role through the combobox and creates the agent with it", async () => {
+		const user = userEvent.setup();
+		const fetchSpy = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ id: "agent-new" }),
+		});
+		vi.stubGlobal("fetch", fetchSpy);
+
+		render(
+			<ToastRegion>
+				<AgentAddDialog
+					open
+					teamMembersId="tm-acme"
+					teamName="Acme"
+					onClose={vi.fn()}
+					onCreated={vi.fn()}
+					rolesInUse={["scout", "builder"]}
+				/>
+			</ToastRegion>,
+		);
+
+		await user.type(screen.getByLabelText("Agent name"), "Newbie");
+
+		const trigger = screen.getByRole("combobox", { name: "Role" });
+		await user.click(trigger);
+		await user.click(await screen.findByText("Scout"));
+
+		await user.click(screen.getByRole("button", { name: /create/i }));
+
+		await waitFor(() => {
+			const call = fetchSpy.mock.calls.find(
+				([, opts]) => (opts as RequestInit | undefined)?.method === "POST",
+			);
+			expect(call).toBeDefined();
+			const opts = call?.[1] as RequestInit;
+			const body = JSON.parse(opts.body as string) as { role: string };
+			expect(body.role).toBe("scout");
+		});
 	});
 });

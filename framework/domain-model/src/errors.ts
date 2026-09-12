@@ -70,14 +70,77 @@ export class InvalidTransitionError extends Error {
  * A cycle is not merely invalid data: a recursive read that meets one does not
  * error, it spins. So this is rejected at write time, and the recursive CTEs
  * additionally carry a depth cap as a backstop.
+ *
+ * @lore BA6: reused for the dependency graph rather than inventing a second
+ * cycle error and code — a cycle is a cycle regardless of which edge closed
+ * it. `relation` only changes the message, which must name dependencies
+ * rather than the parent tree when that is the edge that closed the loop
+ * (the founder ruling this package was built against).
  */
 export class TaskCycleError extends Error {
 	constructor(
 		public readonly taskId: string,
 		public readonly parentTaskId: string,
+		relation: "parent" | "dependency" = "parent",
 	) {
-		super(`Task ${taskId} cannot be a child of ${parentTaskId}: that would form a cycle`);
+		super(
+			relation === "dependency"
+				? `Task ${taskId} cannot depend on ${parentTaskId}: that would form a cycle`
+				: `Task ${taskId} cannot be a child of ${parentTaskId}: that would form a cycle`,
+		);
 		this.name = "TaskCycleError";
+	}
+}
+
+/**
+ * Thrown when a `dependencies` write names a task id that does not
+ * exist. Distinct from `TaskCycleError` (409) — a dangling id is refused
+ * outright with 404, matching the existing precedent for a missing
+ * `parentTaskId` on `POST /tasks`.
+ */
+export class TaskDependencyNotFoundError extends Error {
+	constructor(public readonly dependencyId: string) {
+		super(`Dependency task not found: ${dependencyId}`);
+		this.name = "TaskDependencyNotFoundError";
+	}
+}
+
+/**
+ * Thrown when a `dependencies` write names a task that is
+ * `killed` — it can never reach `done`, so depending on it would park the
+ * dependent forever with no watcher left to free it (the kill-time cleanup
+ * only fires for dependents that existed AT kill time). Distinct from
+ * `TaskDependencyNotFoundError`: the task exists, it just can never finish.
+ * Depending on an already-`done` task stays legal.
+ */
+export class TaskDependencyKilledError extends Error {
+	constructor(public readonly dependencyId: string) {
+		super(`Dependency task ${dependencyId} is killed and can never finish`);
+		this.name = "TaskDependencyKilledError";
+	}
+}
+
+/**
+ * Thrown by `transitionTask` when a genuine pick-up
+ * transition (`-> accepted`, or `accepted -> in_progress`) is refused
+ * because the task still carries an unfinished dependency. Distinct from
+ * `TaskInvalidTransitionError` — the edge itself IS legal grammar in
+ * `TASK_STATE_TRANSITIONS`; the wait is what refuses it, and the message
+ * must say so rather than reading as a generic illegal edge. Never thrown
+ * for a resume/rework move (`blocked -> in_progress`, `review ->
+ * in_progress`) — a task already picked up is not re-gated by a later
+ * dependency.
+ */
+export class TaskDependencyBlockedError extends Error {
+	constructor(
+		public readonly taskId: string,
+		public readonly fromState: TaskState,
+		public readonly toState: TaskState,
+	) {
+		super(
+			`Task ${taskId} cannot move from '${fromState}' to '${toState}': it has an unfinished dependency`,
+		);
+		this.name = "TaskDependencyBlockedError";
 	}
 }
 
@@ -116,5 +179,30 @@ export class TaskInvalidTransitionError extends InvalidTransitionError {
 		super(fromState, toState);
 		this.message = `Invalid transition for task ${taskId}: ${fromState} -> ${toState}`;
 		this.name = "InvalidTransitionError";
+	}
+}
+
+/**
+ * Thrown by the `CoreApiPort` seam client on a non-2xx response, carrying
+ * the response's machine-readable `code` (when the body is `{ error, code }`
+ * JSON) alongside the status and a formatted message.
+ *
+ * @lore BA6: the seam previously collapsed every non-2xx into a generic
+ * `Error`, so a caller like `edit_task` had no way to distinguish a cycle
+ * rejection from any other failure without string-matching the message. A
+ * tool handler that needs to turn a structured route rejection (e.g. 409
+ * `{ code: "TASK_CYCLE" }`) into a structured `err(code, message)` catches
+ * this by `instanceof` and reads `.code`, rather than parsing the thrown
+ * message text.
+ */
+export class SeamRequestError extends Error {
+	constructor(
+		public readonly status: number,
+		/** The response body's `code` field, when present and a string. */
+		public readonly code: string | undefined,
+		message: string,
+	) {
+		super(message);
+		this.name = "SeamRequestError";
 	}
 }

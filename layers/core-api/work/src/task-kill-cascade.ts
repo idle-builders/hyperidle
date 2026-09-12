@@ -1,5 +1,6 @@
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
+import { handleDependencyKilled } from "./dependency-watcher.js";
 import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
 import * as work from "./work-service.js";
 
@@ -136,6 +137,18 @@ export async function cascadeTaskKill(
 		// suppression above — a kill is not progress.
 		await transitionTask(db, eventBus, task.id, "killed", deps, undefined, { cascade: true });
 		tasksKilled.push(task.id);
+		// Reset every dependent of this now-killed task to `proposed` and
+		// drop the killed id from its list, IN this request rather than as a
+		// decoupled ambient `eventBus.on("task_state_changed", …)` reaction like
+		// the `done` watcher (`app.ts`) uses. A person killing a task expects the
+		// dependents it frees to be visible the moment the kill responds. An
+		// ambient subscription would also fire off this same `transitionTask`
+		// call's own emit, racing this call and double-applying the reset
+		// (`proposed -> proposed`). Since `cascadeTaskKill` is the ONLY
+		// production path that ever reaches `killed` (routes/tasks.ts routes
+		// every `state: "killed"` PATCH through it), one direct, awaited call
+		// here is both correct and complete.
+		await handleDependencyKilled(db, eventBus, task.id, deps);
 	}
 
 	return { tasksKilled, sessionsStopped };

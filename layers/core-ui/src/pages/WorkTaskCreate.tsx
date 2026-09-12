@@ -19,6 +19,7 @@
 
 import { type JSX, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
+import { TaskDependencyField } from "../components/TaskDependencyField.js";
 import { Breadcrumb, Button, Input, PageHeader, PageScaffold, Select } from "../ds/index.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
@@ -40,6 +41,7 @@ export function WorkTaskCreate(): JSX.Element {
 	const [description, setDescription] = useState("");
 	const [doneCondition, setDoneCondition] = useState("");
 	const [teamId, setTeamId] = useState("");
+	const [dependencies, setDependencies] = useState<readonly string[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -64,13 +66,14 @@ export function WorkTaskCreate(): JSX.Element {
 		setSubmitting(true);
 		setError(null);
 
-		const payload: Record<string, string | undefined> = {
+		const payload: Record<string, string | string[] | undefined> = {
 			title: title.trim(),
 			description: description.trim() || undefined,
 			doneCondition: doneCondition.trim() || undefined,
 			parentTaskId,
 			teamId: parentTaskId != null ? undefined : resolvedTeamId,
 			sourceKnowledgeItemId: fromKnowledgeId,
+			dependencies: dependencies.length > 0 ? [...dependencies] : undefined,
 		};
 
 		// Remove undefined keys
@@ -86,11 +89,20 @@ export function WorkTaskCreate(): JSX.Element {
 			});
 
 			if (!res.ok) {
-				const body = (await res.json().catch(() => null)) as { code?: string } | null;
+				const body = (await res.json().catch(() => null)) as {
+					error?: string;
+					code?: string;
+				} | null;
 				setError(
 					body?.code === "CAPACITY_EXCEEDED"
 						? "Team is at its concurrent task limit."
-						: "Failed to create task. Please try again.",
+						: // AC5: a dependency rejection names the rule it broke for the
+							// two codes mapped below — `TASK_CYCLE` and `TASK_DEPENDENCY_KILLED`.
+							// A dangling id returns 404 with `code: NOT_FOUND`, which is not
+							// mapped, so it still falls through to the generic message.
+							((body?.code === "TASK_CYCLE" || body?.code === "TASK_DEPENDENCY_KILLED") &&
+								body.error) ||
+								"Failed to create task. Please try again.",
 				);
 				setSubmitting(false);
 				return;
@@ -192,6 +204,12 @@ export function WorkTaskCreate(): JSX.Element {
 					rows={2}
 					disabled={submitting}
 					data-testid="task-create-done-condition"
+				/>
+
+				<TaskDependencyField
+					dependencies={dependencies}
+					onChange={setDependencies}
+					disabled={submitting}
 				/>
 
 				{/* Team select — shown only for root tasks when there are multiple teams */}

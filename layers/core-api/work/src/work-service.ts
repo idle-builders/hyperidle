@@ -49,7 +49,7 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, exists, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, like, lt, ne, or, sql } from "drizzle-orm";
 
 export type Task = typeof tasks.$inferSelect;
 
@@ -214,6 +214,14 @@ export interface WorkFilter {
 	parentTaskId?: string | null;
 	ownerAgentId?: string;
 	dependencyId?: string;
+	/**
+	 * @lore BA6: opt-in only — the shared `text` branch is also `GET
+	 * /api/search`'s door, and global search exists to show state (killed
+	 * included), so it may not exclude `killed` unconditionally. Only the
+	 * dependency picker (`GET /api/tasks?q=`) wants a corpse excluded from
+	 * its candidate list, so it must ask for that explicitly.
+	 */
+	excludeKilled?: true;
 	// item-specific
 	threadId?: string;
 	threadIds?: readonly string[];
@@ -307,11 +315,20 @@ export async function list(
 						.from(tasks)
 						.where(inArray(tasks.id, [...f.ids]));
 		if (f.dependencyId !== undefined) {
+			// `state` is OPTIONAL here on purpose — the `done` watcher only
+			// ever cares about `hold` dependents (pass `state: "hold"`), but the
+			// `killed` watcher must find a dependent CARRYING the id in ANY
+			// state (a task can be `proposed`, `accepted`, or `in_progress` while
+			// still listing a since-killed dependency), so it omits `state` and
+			// filters by outcome itself. Hardcoding `hold` here silently excluded
+			// every non-`hold` dependent from the killed-dependency cleanup.
 			const escaped = f.dependencyId.replace(/[\\%_]/g, "\\$&");
+			const conds: SQL[] = [like(tasks.dependencies, `%"${escaped}"%`)];
+			if (f.state !== undefined) conds.push(eq(tasks.state, f.state));
 			return exec
 				.select()
 				.from(tasks)
-				.where(and(eq(tasks.state, "hold"), like(tasks.dependencies, `%"${escaped}"%`)));
+				.where(and(...conds));
 		}
 		if (f.text !== undefined) {
 			// BB1: moved off the deleted bet dispatch. A task's searchable prose is
@@ -320,16 +337,22 @@ export async function list(
 			const escaped = f.text.replace(/[\\%_]/g, "\\$&");
 			const pattern = `%${escaped}%`;
 			const rank = sql<number>`CASE WHEN ${tasks.title} ILIKE ${`${escaped}%`} ESCAPE '\\' THEN 0 WHEN ${tasks.title} ILIKE ${`% ${escaped}%`} ESCAPE '\\' THEN 1 ELSE 2 END`;
+			const textConds: SQL[] = [
+				or(
+					sql`${tasks.title} ILIKE ${pattern} ESCAPE '\\'`,
+					sql`${tasks.description} ILIKE ${pattern} ESCAPE '\\'`,
+					sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
+				) as SQL,
+			];
+			// A `killed` task can never be a legitimate dependency target (see
+			// `assertValidDependencies`), so the dependency picker's door opts in
+			// via `excludeKilled` (see the doc on `WorkFilter`); global search
+			// never sets this flag.
+			if (f.excludeKilled) textConds.push(ne(tasks.state, "killed"));
 			return exec
 				.select()
 				.from(tasks)
-				.where(
-					or(
-						sql`${tasks.title} ILIKE ${pattern} ESCAPE '\\'`,
-						sql`${tasks.description} ILIKE ${pattern} ESCAPE '\\'`,
-						sql`${tasks.doneCondition} ILIKE ${pattern} ESCAPE '\\'`,
-					),
-				)
+				.where(and(...textConds))
 				.orderBy(rank, desc(tasks.createdAt), tasks.id)
 				.limit(f.limit ?? 50);
 		}

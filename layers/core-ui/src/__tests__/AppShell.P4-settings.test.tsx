@@ -220,6 +220,89 @@ describe("AppShell — P4 Settings overlay", () => {
 		});
 	});
 
+	// Bug: the settings-level Escape handler ran in the capture phase on
+	// document, ahead of a Combobox's own bubble-phase Escape handling, so the
+	// first Escape while a Settings combobox was open closed all of Settings
+	// instead of just the dropdown.
+	it("Escape with an open combobox closes the dropdown first, without leaving Settings", async () => {
+		const user = userEvent.setup();
+		renderShell();
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
+		});
+		await user.click(screen.getByRole("button", { name: /settings/i }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("add-edge-btn")).toBeInTheDocument();
+		});
+		await user.click(screen.getByTestId("add-edge-btn"));
+
+		const fromTrigger = await screen.findByRole("combobox", { name: /^from/i });
+		await user.click(fromTrigger);
+
+		await waitFor(() => {
+			expect(document.getElementById("org-from-list")).toBeInTheDocument();
+		});
+
+		await user.keyboard("{Escape}");
+
+		// Dropdown closed, but Settings is still open (first Escape only closed the combobox).
+		await waitFor(() => {
+			expect(document.getElementById("org-from-list")).not.toBeInTheDocument();
+		});
+		expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
+		expect(document.activeElement).toBe(fromTrigger);
+
+		// Second Escape (combobox already closed) leaves Settings as before.
+		await user.keyboard("{Escape}");
+
+		await waitFor(() => {
+			expect(screen.queryByText("Settings")).not.toBeInTheDocument();
+		});
+	});
+
+	// Regression: the guard previously walked every ancestor up to <body> and
+	// matched if that ancestor CONTAINED any open combobox anywhere on the
+	// page — which body always does, so it matched no matter where focus was.
+	// Clicking outside a Combobox does not close it (documented limitation),
+	// so focus can genuinely sit outside the popover while it is still open.
+	// Escape must still close Settings in that case.
+	it("Escape closes Settings when focus is outside an open combobox popover", async () => {
+		const user = userEvent.setup();
+		renderShell();
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
+		});
+		await user.click(screen.getByRole("button", { name: /settings/i }));
+
+		await waitFor(() => {
+			expect(screen.getByTestId("add-edge-btn")).toBeInTheDocument();
+		});
+		await user.click(screen.getByTestId("add-edge-btn"));
+
+		const fromTrigger = await screen.findByRole("combobox", { name: /^from/i });
+		await user.click(fromTrigger);
+
+		await waitFor(() => {
+			expect(document.getElementById("org-from-list")).toBeInTheDocument();
+		});
+
+		// Focus moves away from the popover (e.g. clicking outside), but the
+		// dropdown itself stays open — clicking outside does not close it.
+		expect(document.activeElement).toBeInstanceOf(HTMLElement);
+		(document.activeElement as HTMLElement).blur();
+		expect(document.activeElement).toBe(document.body);
+		expect(document.getElementById("org-from-list")).toBeInTheDocument();
+
+		await user.keyboard("{Escape}");
+
+		await waitFor(() => {
+			expect(screen.queryByText("Settings")).not.toBeInTheDocument();
+		});
+	});
+
 	// @lore U6: AC-23 (rail wrapper opacity-60) removed — Rail deleted in U6.
 	// @lore AD8a: historical — The Sidebar does not have a rail wrapper to dim.
 

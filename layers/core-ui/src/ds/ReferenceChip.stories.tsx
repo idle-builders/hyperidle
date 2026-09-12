@@ -8,7 +8,7 @@ export default {
 	order: ["PostedKinds", "DraftKinds", "WithMeta"],
 };
 
-const KINDS: ReferenceChipKind[] = ["artifact", "image", "knowledge", "block"];
+const KINDS: ReferenceChipKind[] = ["artifact", "image", "knowledge", "block", "task"];
 
 export const PostedKinds = (): JSX.Element => (
 	<div className="flex flex-wrap gap-[6px]">

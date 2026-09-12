@@ -73,7 +73,8 @@ export interface TaskPatchBody {
 	description?: string | null;
 	doneCondition?: string | null;
 	ownerAgentId?: string | null;
-	dependencies?: string | null;
+	/** A list of task ids, or `null` to clear. Wire shape is an ARRAY. */
+	dependencies?: readonly string[] | null;
 	parentTaskId?: string | null;
 	state?: TaskState;
 	/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */

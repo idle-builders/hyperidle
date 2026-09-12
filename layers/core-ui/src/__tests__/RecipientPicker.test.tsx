@@ -73,17 +73,26 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		vi.restoreAllMocks();
 	});
 
-	// AC1: picker is accessible (search field rendered)
-	it("renders a search input on mount", async () => {
+	// AC1: opening "New thread" puts focus in the search field immediately —
+	// no click needed to start typing a recipient's name.
+	it("renders a search input on mount and focuses it", async () => {
 		stubFetch();
 
 		renderPicker();
-		// Search field should be present (may be labeled "Search" or have placeholder)
 		const input = screen.getByRole("textbox");
-		expect(input).toBeInTheDocument();
+		expect(input).toHaveFocus();
 	});
 
-	// AC2: recipient list is rendered from API response
+	// AC1: the trigger has a real accessible name — a <span> next to the
+	// button (pre-fix) leaves it name:"" for assistive tech.
+	it("names the combobox trigger for assistive tech", () => {
+		stubFetch();
+
+		renderPicker();
+		expect(screen.getByRole("combobox", { name: "Recipient" })).toBeInTheDocument();
+	});
+
+	// AC2: recipient list is rendered from API response, once loaded
 	it("renders a list of recipients after loading", async () => {
 		stubFetch();
 
@@ -95,7 +104,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		expect(screen.getByText("Founder")).toBeInTheDocument();
 	});
 
-	// AC2: agents with active sessions show "Live" indicator
+	// AC2: agents with active sessions show a "Live" indicator
 	it("shows a live indicator for agents with an active session", async () => {
 		stubFetch();
 
@@ -103,9 +112,22 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});
-		// Live indicator label (case-insensitive)
-		const liveElements = screen.getAllByText(/live/i);
-		expect(liveElements.length).toBeGreaterThan(0);
+		// The dot carries the live signal now — its accessible name replaces
+		// the old visible "Live" word in the description text.
+		expect(screen.getByRole("img", { name: /live session/i })).toBeInTheDocument();
+	});
+
+	// Moving RecipientPicker onto Combobox dropped each row's Avatar because
+	// ComboboxOption had no slot for one — restored via `leading`.
+	it("renders each recipient row's avatar", async () => {
+		stubFetch();
+
+		renderPicker();
+		await waitFor(() => {
+			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
+		});
+		const avatars = document.querySelectorAll('[data-ds-component="Avatar"]');
+		expect(avatars.length).toBeGreaterThanOrEqual(MOCK_RECIPIENTS.length);
 	});
 
 	// AC2: clicking a recipient transitions to selected state (message input visible)
@@ -128,7 +150,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		});
 	});
 
-	// AC1: Escape calls onCancel
+	// AC1: Escape (while the popover's search is open) calls onCancel
 	it("pressing Escape calls onCancel", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 		const onCancel = vi.fn();
@@ -207,7 +229,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 		renderPicker({ onSelect });
 
-		// Wait for recipient list to load
+		// Wait for the recipient list to load
 		await waitFor(() => {
 			expect(screen.getByText("Builder Bot")).toBeInTheDocument();
 		});

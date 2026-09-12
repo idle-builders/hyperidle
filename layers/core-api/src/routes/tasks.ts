@@ -1,7 +1,12 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
-import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/domain-model";
+import {
+	API_ERROR_CODES,
+	canTransitionTaskState,
+	TASK_OUTCOME_VERDICTS,
+	TASK_STATES,
+} from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { get as getKnowledgeItem } from "@hyperidle/knowledge";
@@ -11,10 +16,15 @@ import type { Task, TaskKillCascadeDeps, TaskStateMachineDeps } from "@hyperidle
 import * as work from "@hyperidle/work";
 import {
 	assertNoCycle,
+	assertValidDependencies,
 	CapacityExceededError,
 	cascadeTaskKill,
+	hasUnfinishedDependency,
 	InvalidTransitionError,
 	TaskCycleError,
+	TaskDependencyBlockedError,
+	TaskDependencyKilledError,
+	TaskDependencyNotFoundError,
 	transitionTask,
 } from "@hyperidle/work";
 import { Hono } from "hono";
@@ -67,6 +77,13 @@ const createTaskSchema = z
 		description: z.string().nullish(),
 		doneCondition: z.string().nullish(),
 		ownerAgentId: z.string().nullish(),
+		/**
+		 * A list of task ids this task waits on. Validated on write —
+		 * every id must name a task that exists, no self-dependency, no cycle.
+		 * A non-empty list with any unfinished dependency parks the new task
+		 * in `hold` instead of `proposed`.
+		 */
+		dependencies: z.array(z.string()).optional(),
 		/** When true, finishing this task sends it to `review` rather than `done`. */
 		needsReview: z.boolean().optional(),
 		/**
@@ -103,7 +120,8 @@ const patchTaskSchema = z
 		description: z.string().nullable().optional(),
 		doneCondition: z.string().nullable().optional(),
 		ownerAgentId: z.string().nullable().optional(),
-		dependencies: z.string().nullable().optional(),
+		/** A list of task ids, or `null` to clear. Same validation as create. */
+		dependencies: z.array(z.string()).nullable().optional(),
 		parentTaskId: z.string().nullable().optional(),
 		state: z.enum(enumValues(TASK_STATES)).optional(),
 		position: z.number().int().nonnegative().optional(),
@@ -242,7 +260,10 @@ export function createTaskRoutes(
 			...(teamId ? { teamId } : {}),
 			...(state ? { state } : {}),
 			...(owner ? { ownerAgentId: owner } : {}),
-			...(q ? { text: q } : {}),
+			// This door is the dependency picker — a
+			// `killed` task can never be a legitimate dependency target, so it
+			// opts into `excludeKilled` explicitly. See the doc on `WorkFilter`.
+			...(q ? { text: q, excludeKilled: true as const } : {}),
 		});
 
 		return c.json(result);
@@ -360,21 +381,49 @@ export function createTaskRoutes(
 		const siblingMax = await work.maxSiblingPosition(db, resolvedParentTaskId, resolvedTeamId);
 
 		const taskId = crypto.randomUUID();
-		await work.create(db, "task", {
-			id: taskId,
-			parentTaskId: resolvedParentTaskId,
-			teamId: resolvedTeamId,
-			title: body.title,
-			description: body.description ?? null,
-			doneCondition: body.doneCondition ?? null,
-			ownerAgentId: body.ownerAgentId ?? null,
-			state: "proposed",
-			position: siblingMax + 1,
-			needsReview: body.needsReview ?? false,
-			sourceKnowledgeItemId: body.sourceKnowledgeItemId ?? null,
-			createdAt: now,
-			updatedAt: now,
-		});
+		const dependencyIds = body.dependencies ?? [];
+
+		try {
+			await db.transaction(async (tx) => {
+				// Validate + decide the initial state INSIDE the same
+				// transaction as the insert — every id must exist, no
+				// self-dependency, no cycle.
+				let initialState: TaskState = "proposed";
+				if (dependencyIds.length > 0) {
+					await assertValidDependencies(tx, taskId, dependencyIds);
+					if (await hasUnfinishedDependency(tx, dependencyIds)) {
+						initialState = "hold";
+					}
+				}
+				await work.create(tx, "task", {
+					id: taskId,
+					parentTaskId: resolvedParentTaskId,
+					teamId: resolvedTeamId,
+					title: body.title,
+					description: body.description ?? null,
+					doneCondition: body.doneCondition ?? null,
+					ownerAgentId: body.ownerAgentId ?? null,
+					state: initialState,
+					dependencies: dependencyIds.length > 0 ? JSON.stringify(dependencyIds) : null,
+					position: siblingMax + 1,
+					needsReview: body.needsReview ?? false,
+					sourceKnowledgeItemId: body.sourceKnowledgeItemId ?? null,
+					createdAt: now,
+					updatedAt: now,
+				});
+			});
+		} catch (err) {
+			if (err instanceof TaskDependencyNotFoundError) {
+				return c.json({ error: err.message, code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
+			if (err instanceof TaskDependencyKilledError) {
+				return c.json({ error: err.message, code: "TASK_DEPENDENCY_KILLED" }, 409);
+			}
+			if (err instanceof TaskCycleError) {
+				return c.json({ error: err.message, code: "TASK_CYCLE" }, 409);
+			}
+			throw err;
+		}
 
 		const created = await work.get(db, "task", taskId);
 		return c.json(created, 201);
@@ -425,8 +474,10 @@ export function createTaskRoutes(
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof patchTaskSchema>;
 
-		// Separate state, parentTaskId, and position from the plain-field patch.
-		const { state, parentTaskId, position, ...plainFields } = body;
+		// Separate state, parentTaskId, position and dependencies from the
+		// plain-field patch. `dependencies` needs its own validation +
+		// JSON encoding, so it is never spread verbatim into `plainFields`.
+		const { state, parentTaskId, position, dependencies, ...plainFields } = body;
 
 		// Verify the task exists before any writes.
 		const existing = await work.get(db, "task", taskId);
@@ -435,6 +486,21 @@ export function createTaskRoutes(
 		}
 
 		const now = new Date().toISOString();
+
+		/**
+		 * Validate `dependencies` INSIDE the same transaction as the write
+		 * that carries it — every id must name a task that exists, no
+		 * self-dependency, no cycle — and encode the array back to the column's
+		 * JSON-text shape. `undefined` means the caller didn't touch the field.
+		 */
+		async function resolveDependenciesFragment(
+			tx: WriteExecutor,
+		): Promise<{ dependencies?: string | null }> {
+			if (dependencies === undefined) return {};
+			if (dependencies === null) return { dependencies: null };
+			await assertValidDependencies(tx, taskId, dependencies);
+			return { dependencies: JSON.stringify(dependencies) };
+		}
 
 		try {
 			// -- parentTaskId reparent (must assertNoCycle INSIDE the transaction) --
@@ -450,6 +516,7 @@ export function createTaskRoutes(
 					const newParentMax = await work.maxSiblingPosition(tx, parentTaskId, existing.teamId);
 					const patch: Record<string, unknown> = {
 						...plainFields,
+						...(await resolveDependenciesFragment(tx)),
 						parentTaskId,
 						position: newParentMax + 1,
 						updatedAt: now,
@@ -464,8 +531,13 @@ export function createTaskRoutes(
 				// so two concurrent moves cannot interleave into a corrupt order.
 				await db.transaction(async (tx) => {
 					// Apply any other plain-field changes alongside the reorder.
-					if (Object.keys(plainFields).length > 0) {
-						await work.update(tx, "task", taskId, { ...plainFields, updatedAt: now });
+					const dependenciesFragment = await resolveDependenciesFragment(tx);
+					if (Object.keys(plainFields).length > 0 || Object.keys(dependenciesFragment).length > 0) {
+						await work.update(tx, "task", taskId, {
+							...plainFields,
+							...dependenciesFragment,
+							updatedAt: now,
+						});
 					}
 
 					// Read all siblings (including this task) ordered by current position.
@@ -500,9 +572,15 @@ export function createTaskRoutes(
 						await work.update(tx, "task", row.id, { position: i, updatedAt: now });
 					}
 				});
-			} else if (Object.keys(plainFields).length > 0) {
-				// Plain field writes only.
-				await work.update(db, "task", taskId, { ...plainFields, updatedAt: now });
+			} else if (Object.keys(plainFields).length > 0 || dependencies !== undefined) {
+				// Plain field writes, possibly including dependencies.
+				await db.transaction(async (tx) => {
+					await work.update(tx, "task", taskId, {
+						...plainFields,
+						...(await resolveDependenciesFragment(tx)),
+						updatedAt: now,
+					});
+				});
 			}
 
 			// -- state transition (after plain writes so the task is already in its new shape) --
@@ -516,9 +594,40 @@ export function createTaskRoutes(
 			// transition; only an actual CHANGE of state goes through the machine.
 			//
 			await applyStateChange(state, existing.state, taskId);
+
+			// Setting dependencies parks the task automatically — but only
+			// when the caller didn't ALSO ask for an explicit state CHANGE, and
+			// only when hold is a legal move from the task's CURRENT state.
+			// `state === existing.state` counts as no explicit change, the same
+			// no-op the state transition above already treats identically (see
+			// `applyStateChange`'s "@lore BB1" above) — the edit panel always
+			// submits every field it renders, including the unchanged state
+			// dropdown, so `state === undefined` alone would never match its
+			// saves. `TASK_STATE_TRANSITIONS` has no edge into `hold` from
+			// `in_progress` or `blocked`, so a task already running is never
+			// rewound by a later dependencies write.
+			if (
+				(state === undefined || state === existing.state) &&
+				dependencies !== undefined &&
+				dependencies !== null &&
+				dependencies.length > 0 &&
+				canTransitionTaskState(existing.state as TaskState, "hold") &&
+				(await hasUnfinishedDependency(db, dependencies))
+			) {
+				await transitionTask(db, eventBus, taskId, "hold", buildTaskDeps(agentOrchestration));
+			}
 		} catch (err) {
+			if (err instanceof TaskDependencyNotFoundError) {
+				return c.json({ error: err.message, code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
+			if (err instanceof TaskDependencyKilledError) {
+				return c.json({ error: err.message, code: "TASK_DEPENDENCY_KILLED" }, 409);
+			}
 			if (err instanceof TaskCycleError) {
 				return c.json({ error: err.message, code: "TASK_CYCLE" }, 409);
+			}
+			if (err instanceof TaskDependencyBlockedError) {
+				return c.json({ error: err.message, code: "TASK_DEPENDENCY_BLOCKED" }, 409);
 			}
 			if (err instanceof InvalidTransitionError) {
 				return c.json({ error: err.message, code: "INVALID_TRANSITION" }, 409);

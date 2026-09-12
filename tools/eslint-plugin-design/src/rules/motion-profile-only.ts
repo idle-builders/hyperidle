@@ -45,11 +45,6 @@ function animationFrameIdentity(
 ): string | null {
 	const normalized = filename.replace(/\\/g, "/");
 	const source = normalizedSource(context, node);
-	if (normalized.endsWith("layers/core-ui/src/ds/RoleCombobox.tsx")) {
-		return source === "requestAnimationFrame(()=>inputRef.current?.focus())"
-			? "role-combobox-focus"
-			: null;
-	}
 	if (normalized.endsWith("layers/core-ui/src/pages/KnowledgeDetail.tsx")) {
 		const parent = node.parent as AstNode | undefined;
 		const id =
@@ -90,7 +85,7 @@ export const motionProfileOnly: Rule.RuleModule = createRule({
 			forbiddenMotionApi:
 				"Authored animation and smooth-scroll APIs are forbidden; use a CSS motion profile.",
 			forbiddenAnimationFrame:
-				"requestAnimationFrame is allowed only for the four named focus/anchor/restore scheduling calls.",
+				"requestAnimationFrame is allowed only for the three named anchor/restore scheduling calls.",
 		},
 	},
 	create(context) {

@@ -1,0 +1,557 @@
+/**
+ * "Tasks wait for the tasks they depend on, then start themselves".
+ *
+ * Covers, against the real `{ db, app, eventBus }` fixtures:
+ *   - AC1 (human doors): POST /tasks and PATCH /tasks/:id both accept
+ *     `dependencies` and validate it on write.
+ *   - AC2 (the enforcing half): `transitionTask` itself refuses a move to
+ *     `accepted` while an unfinished dependency remains — proven directly
+ *     against the function, not only through the route.
+ *   - AC5: a dependency cycle, a self-dependency, and a dependency naming a
+ *     task that does not exist are all refused with a message identifying
+ *     the rule.
+ *   - "Decided without asking": a dependency may point at a task under any
+ *     root — no restriction.
+ *
+ * `dependencies` crosses the wire as `string[]` on the request bodies below —
+ * storage stays the same JSON-text column, encoded/decoded at the route.
+ */
+
+import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import type { TaskState } from "@hyperidle/domain-model";
+import { getAgentIdentity } from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
+import { requireRunnableAgent } from "@hyperidle/users";
+import type { TaskStateMachineDeps } from "@hyperidle/work";
+import { transitionTask } from "@hyperidle/work";
+import { eq } from "drizzle-orm";
+import { describe, expect } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
+
+const TEST_API_KEY = "test-key-task-deps";
+
+function authHeaders(): Record<string, string> {
+	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
+}
+
+const testDeps: TaskStateMachineDeps = {
+	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
+	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
+	teamCapacity: { getByTeamId: (exec, teamId) => getTeam(exec, { id: teamId }) },
+};
+
+async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
+	const now = new Date().toISOString();
+	await db
+		.insert(teams)
+		.values({ id: teamId, name: `Team ${teamId}`, phase: "build", createdAt: now });
+}
+
+async function insertTask(
+	db: HyperIdleDb,
+	id: string,
+	teamId: string,
+	state: TaskState,
+	dependencies?: string[],
+): Promise<void> {
+	const now = new Date().toISOString();
+	await db.insert(tasks).values({
+		id,
+		parentTaskId: null,
+		teamId,
+		title: `Task ${id}`,
+		state,
+		dependencies: dependencies ? JSON.stringify(dependencies) : null,
+		createdAt: now,
+		updatedAt: now,
+	});
+}
+
+describe("task dependencies — write doors, guard, cycle rejection", () => {
+	// ---------------------------------------------------------------------
+	// AC1: create door
+	// ---------------------------------------------------------------------
+	describe("AC1: POST /tasks accepts dependencies", () => {
+		test("creates a task carrying dependencies and parks it while the dependency is unfinished", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "dep-t1");
+			await insertTask(db, "dep-dep-1", "dep-t1", "in_progress");
+
+			const res = await app.request("/api/tasks", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					teamId: "dep-t1",
+					title: "Depends on dep-1",
+					dependencies: ["dep-dep-1"],
+				}),
+			});
+
+			expect(res.status).toBe(201);
+			const created = (await res.json()) as { id: string };
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, created.id));
+			expect(row?.dependencies).toBe(JSON.stringify(["dep-dep-1"]));
+			expect(row?.state).toBe("hold");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// AC1 (edit door) + "no restriction on where a dependency points"
+	// ---------------------------------------------------------------------
+	describe("AC1: PATCH /tasks/:id accepts dependencies and parks the task", () => {
+		test("a dependency may point at a task under a DIFFERENT root — no restriction", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "dep-t2");
+			// Two separate root tasks — different trees.
+			await insertTask(db, "dep-root-a", "dep-t2", "in_progress");
+			await insertTask(db, "dep-root-b", "dep-t2", "in_progress");
+			// The dependency lives under root-b; the dependent lives under root-a.
+			await insertTask(db, "dep-cross-dep", "dep-t2", "in_progress");
+			await insertTask(db, "dep-dependent", "dep-t2", "proposed");
+
+			const res = await app.request("/api/tasks/dep-dependent", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["dep-cross-dep"] }),
+			});
+
+			expect(res.status).toBe(200);
+			const updated = (await res.json()) as { state: string; dependencies: string | null };
+			expect(updated.dependencies).toBe(JSON.stringify(["dep-cross-dep"]));
+			expect(updated.state).toBe("hold");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// AC2: the enforcing half — direct against transitionTask
+	// ---------------------------------------------------------------------
+	describe("AC2: transitionTask refuses accepted while a dependency is unfinished", () => {
+		test("hold -> accepted is refused while a named dependency is not done", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "dep-t3");
+			await insertTask(db, "dep-guard-dep", "dep-t3", "in_progress");
+			await insertTask(db, "dep-guard-dependent", "dep-t3", "hold", ["dep-guard-dep"]);
+
+			await expect(
+				transitionTask(db, eventBus, "dep-guard-dependent", "accepted", testDeps),
+			).rejects.toThrow();
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-guard-dependent"));
+			expect(row?.state).toBe("hold");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// AC5: cycle / self-dependency / dangling dependency rejection
+	// ---------------------------------------------------------------------
+	describe("AC5: dependency cycles and invalid dependencies are refused", () => {
+		test("a cycle (A depends on B, B depends on A) is refused with a message naming the rule", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "dep-t4");
+			await insertTask(db, "dep-cycle-a", "dep-t4", "proposed");
+			await insertTask(db, "dep-cycle-b", "dep-t4", "proposed");
+
+			// B depends on A first — legal on its own.
+			const first = await app.request("/api/tasks/dep-cycle-b", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["dep-cycle-a"] }),
+			});
+			expect(first.status).toBe(200);
+
+			// Now A depends on B — closes the loop.
+			const res = await app.request("/api/tasks/dep-cycle-a", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["dep-cycle-b"] }),
+			});
+
+			expect(res.status).toBe(409);
+			const body = (await res.json()) as { error: string; code: string };
+			expect(body.error.toLowerCase()).toContain("cycle");
+			expect(body.code).toBe("TASK_CYCLE");
+		});
+
+		test("a task cannot depend on itself", async ({ db, app }) => {
+			await seedTeam(db, "dep-t5");
+			await insertTask(db, "dep-self", "dep-t5", "proposed");
+
+			const res = await app.request("/api/tasks/dep-self", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["dep-self"] }),
+			});
+
+			expect(res.status).toBe(409);
+			const body = (await res.json()) as { code: string };
+			expect(body.code).toBe("TASK_CYCLE");
+		});
+
+		test("a dependency naming a task that does not exist is refused", async ({ db, app }) => {
+			await seedTeam(db, "dep-t6");
+			await insertTask(db, "dep-dangling", "dep-t6", "proposed");
+
+			const res = await app.request("/api/tasks/dep-dangling", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["dep-does-not-exist"] }),
+			});
+
+			expect(res.status).toBe(404);
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// "Decided without asking": dependencies gate being picked up; a task
+	// already in progress is not rewound by a later dependencies write.
+	// ---------------------------------------------------------------------
+	describe("a task already in_progress is not rewound by a later dependencies write", () => {
+		test("PATCH dependencies on an in_progress task leaves it in_progress", async ({ db, app }) => {
+			await seedTeam(db, "dep-t8");
+			await insertTask(db, "dep-unfinished-dep", "dep-t8", "in_progress");
+			await insertTask(db, "dep-running", "dep-t8", "in_progress");
+
+			const res = await app.request("/api/tasks/dep-running", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["dep-unfinished-dep"] }),
+			});
+
+			expect(res.status).toBe(200);
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-running"));
+			expect(row?.state).toBe("in_progress");
+			expect(row?.dependencies).toBe(JSON.stringify(["dep-unfinished-dep"]));
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// AC6: a killed dependency sends its dependents back to `proposed` and
+	// drops the killed id from their dependency list.
+	// ---------------------------------------------------------------------
+	describe("AC6: a killed dependency resets its dependents", () => {
+		test("dependent returns to proposed and the killed id is dropped from its list", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "dep-t7");
+			await insertTask(db, "dep-killable", "dep-t7", "in_progress");
+			await insertTask(db, "dep-still-unfinished", "dep-t7", "in_progress");
+			await insertTask(db, "dep-dependent-of-killed", "dep-t7", "hold", [
+				"dep-killable",
+				"dep-still-unfinished",
+			]);
+
+			const res = await app.request("/api/tasks/dep-killable", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "killed" }),
+			});
+			expect(res.status).toBe(200);
+
+			const [dependent] = await db
+				.select()
+				.from(tasks)
+				.where(eq(tasks.id, "dep-dependent-of-killed"));
+			expect(dependent?.state).toBe("proposed");
+			expect(JSON.parse(dependent?.dependencies ?? "[]")).toEqual(["dep-still-unfinished"]);
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// The edit panel's PATCH body always includes `state`, set to the task's
+	// OWN current value (the form submits every field it renders, including
+	// the unchanged state dropdown). Parking must not require `state` to be
+	// absent — only that it isn't an actual CHANGE.
+	// ---------------------------------------------------------------------
+	describe("the edit-panel PATCH body (state included, unchanged) still parks", () => {
+		test("PATCH carrying the SAME state plus an unfinished dependency parks the task", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "dep-b1a");
+			await insertTask(db, "dep-b1a-dep", "dep-b1a", "proposed");
+			await insertTask(db, "dep-b1a-dependent", "dep-b1a", "proposed");
+
+			// Exactly what WorkTaskPage's edit panel sends: every field it
+			// renders, including `state` set to the value it already has.
+			const res = await app.request("/api/tasks/dep-b1a-dependent", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "proposed", dependencies: ["dep-b1a-dep"] }),
+			});
+
+			expect(res.status).toBe(200);
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b1a-dependent"));
+			expect(row?.state).toBe("hold");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// The guard must also cover `-> in_progress`, not only `-> accepted`. A
+	// task can reach `accepted` still carrying an unfinished dependency (e.g.
+	// dependencies added to an already-`accepted` task), and
+	// `accepted -> in_progress` is otherwise a legal edge.
+	// ---------------------------------------------------------------------
+	describe("transitionTask also refuses accepted -> in_progress while a dependency is unfinished", () => {
+		test("an accepted task holding an unfinished dependency cannot move to in_progress", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "dep-b1b");
+			await insertTask(db, "dep-b1b-dep", "dep-b1b", "proposed");
+			// Directly seeded `accepted` carrying an unfinished dependency —
+			// reachable despite the parking guard (e.g. a race, or dependencies
+			// attached while already accepted).
+			await insertTask(db, "dep-b1b-dependent", "dep-b1b", "accepted", ["dep-b1b-dep"]);
+
+			await expect(
+				transitionTask(db, eventBus, "dep-b1b-dependent", "in_progress", testDeps),
+			).rejects.toThrow();
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b1b-dependent"));
+			expect(row?.state).toBe("accepted");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// A dependent that is NOT in `hold` still carries the killed
+	// dependency's id — left in place it would permanently brick the
+	// dependent, since the guard above refuses `-> accepted` while any named
+	// dependency id is stale. The id must be dropped from a dependent in ANY
+	// state.
+	// ---------------------------------------------------------------------
+	describe("a killed dependency drops its id from a dependent that is NOT in hold", () => {
+		test("a `proposed` dependent loses the killed id and stays acceptable afterward", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
+			await seedTeam(db, "dep-b2");
+			await insertTask(db, "dep-b2-killable", "dep-b2", "done");
+			// proposed, not hold — created after its dependency already
+			// finished, so it was never parked; it still carries the stale id.
+			await insertTask(db, "dep-b2-dependent", "dep-b2", "proposed", ["dep-b2-killable"]);
+
+			const res = await app.request("/api/tasks/dep-b2-killable", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "killed" }),
+			});
+			expect(res.status).toBe(200);
+
+			const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dep-b2-dependent"));
+			// Not rewound — it was never waiting.
+			expect(dependent?.state).toBe("proposed");
+			// The stale id is gone, not left behind to brick every future accept.
+			expect(JSON.parse(dependent?.dependencies ?? "[]")).toEqual([]);
+
+			// Proof it isn't bricked: accepting it now succeeds.
+			await expect(
+				transitionTask(db, eventBus, "dep-b2-dependent", "accepted", testDeps),
+			).resolves.not.toThrow();
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// Pointing a NEW dependency at a task that is ALREADY killed must be
+	// refused too, not only cleaned up after the fact when a dependent's
+	// existing dependency gets killed. Refused at write time, on both doors.
+	// ---------------------------------------------------------------------
+	describe("a dependency naming an already-killed task is refused on both doors", () => {
+		test("POST /tasks refuses a dependency naming an already-killed task", async ({ db, app }) => {
+			await seedTeam(db, "dep-b1c-post");
+			await insertTask(db, "dep-b1c-post-dead", "dep-b1c-post", "killed");
+
+			const res = await app.request("/api/tasks", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					teamId: "dep-b1c-post",
+					title: "Depends on a corpse",
+					dependencies: ["dep-b1c-post-dead"],
+				}),
+			});
+
+			expect(res.status).toBe(409);
+			const body = (await res.json()) as { error: string; code: string };
+			expect(body.error.toLowerCase()).toContain("killed");
+			expect(body.code).toBe("TASK_DEPENDENCY_KILLED");
+		});
+
+		test("PATCH /tasks/:id refuses a dependency naming an already-killed task", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "dep-b1c-patch");
+			await insertTask(db, "dep-b1c-patch-dead", "dep-b1c-patch", "killed");
+			await insertTask(db, "dep-b1c-patch-dependent", "dep-b1c-patch", "proposed");
+
+			const res = await app.request("/api/tasks/dep-b1c-patch-dependent", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ dependencies: ["dep-b1c-patch-dead"] }),
+			});
+
+			expect(res.status).toBe(409);
+			const body = (await res.json()) as { error: string; code: string };
+			expect(body.error.toLowerCase()).toContain("killed");
+			expect(body.code).toBe("TASK_DEPENDENCY_KILLED");
+
+			// Refused — the dependent must not have been parked on the dead id.
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b1c-patch-dependent"));
+			expect(row?.state).toBe("proposed");
+			expect(row?.dependencies).toBeNull();
+		});
+
+		test("depending on an already-done task stays legal (only killed is refused)", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "dep-b1c-done");
+			await insertTask(db, "dep-b1c-done-finished", "dep-b1c-done", "done");
+
+			const res = await app.request("/api/tasks", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					teamId: "dep-b1c-done",
+					title: "Depends on a finished task",
+					dependencies: ["dep-b1c-done-finished"],
+				}),
+			});
+
+			expect(res.status).toBe(201);
+			const created = (await res.json()) as { id: string; state: string };
+			// A finished dependency does not park the task.
+			expect(created.state).toBe("proposed");
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// `blocked -> in_progress` is a genuine resume, not a pick-up, and must
+	// be unaffected by a dependency that was already there when the task was
+	// first accepted — `blocked` is reachable exclusively from `in_progress`,
+	// so it proves genuine prior work. `review` does NOT: it is reachable
+	// from `proposed`/`accepted`/`hold`, none of which prove the task was
+	// ever worked, so it stays gated like `accepted`.
+	// ---------------------------------------------------------------------
+	describe("the dependency guard narrows to the genuine pick-up path only", () => {
+		test("blocked -> in_progress is allowed while a dependency is unfinished", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "dep-b2b-blocked");
+			await insertTask(db, "dep-b2b-blocked-dep", "dep-b2b-blocked", "proposed");
+			await insertTask(db, "dep-b2b-blocked-task", "dep-b2b-blocked", "blocked", [
+				"dep-b2b-blocked-dep",
+			]);
+
+			await expect(
+				transitionTask(db, eventBus, "dep-b2b-blocked-task", "in_progress", testDeps),
+			).resolves.not.toThrow();
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b2b-blocked-task"));
+			expect(row?.state).toBe("in_progress");
+		});
+
+		// `review` is reachable from `proposed`, `accepted` AND `hold` (see
+		// `TASK_STATE_TRANSITIONS`), none of which prove the task was ever
+		// worked, unlike `blocked` (reachable only from `in_progress`) — so
+		// `review -> in_progress` must be refused while a dependency is
+		// unfinished. See the live-route walk below for the door this closes
+		// end to end.
+		test("review -> in_progress is refused while a dependency is unfinished", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "dep-b2b-review");
+			await insertTask(db, "dep-b2b-review-dep", "dep-b2b-review", "proposed");
+			await insertTask(db, "dep-b2b-review-task", "dep-b2b-review", "review", [
+				"dep-b2b-review-dep",
+			]);
+
+			await expect(
+				transitionTask(db, eventBus, "dep-b2b-review-task", "in_progress", testDeps),
+			).rejects.toThrow(/unfinished dependency/);
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b2b-review-task"));
+			expect(row?.state).toBe("review");
+		});
+
+		test("-> accepted is still refused with a message naming the dependency", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "dep-b2b-accepted");
+			await insertTask(db, "dep-b2b-accepted-dep", "dep-b2b-accepted", "proposed");
+			await insertTask(db, "dep-b2b-accepted-task", "dep-b2b-accepted", "hold", [
+				"dep-b2b-accepted-dep",
+			]);
+
+			await expect(
+				transitionTask(db, eventBus, "dep-b2b-accepted-task", "accepted", testDeps),
+			).rejects.toThrow(/unfinished dependency/);
+		});
+
+		test("accepted -> in_progress is still refused with a message naming the dependency", async ({
+			db,
+			eventBus,
+		}) => {
+			await seedTeam(db, "dep-b2b-accepted2");
+			await insertTask(db, "dep-b2b-accepted2-dep", "dep-b2b-accepted2", "proposed");
+			await insertTask(db, "dep-b2b-accepted2-task", "dep-b2b-accepted2", "accepted", [
+				"dep-b2b-accepted2-dep",
+			]);
+
+			await expect(
+				transitionTask(db, eventBus, "dep-b2b-accepted2-task", "in_progress", testDeps),
+			).rejects.toThrow(/unfinished dependency/);
+		});
+	});
+
+	// ---------------------------------------------------------------------
+	// The live route walk. Two clicks in the state dropdown (`hold ->
+	// review`, then `review -> in_progress`) must not reach `in_progress`
+	// with an unfinished dependency still attached. Drives the real PATCH
+	// door end to end rather than calling `transitionTask` directly — a
+	// direct-call test alone would not catch a hole that is two hops from
+	// `hold`, not one.
+	// ---------------------------------------------------------------------
+	describe("the hold -> review -> in_progress door is closed", () => {
+		test("hold -> review succeeds, then review -> in_progress is refused, dependency still unfinished", async ({
+			db,
+			app,
+		}) => {
+			await seedTeam(db, "dep-b1c3");
+			await insertTask(db, "dep-b1c3-dep", "dep-b1c3", "proposed");
+			await insertTask(db, "dep-b1c3-task", "dep-b1c3", "hold", ["dep-b1c3-dep"]);
+
+			const toReview = await app.request("/api/tasks/dep-b1c3-task", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "review" }),
+			});
+			expect(toReview.status).toBe(200);
+
+			const toInProgress = await app.request("/api/tasks/dep-b1c3-task", {
+				method: "PATCH",
+				headers: authHeaders(),
+				body: JSON.stringify({ state: "in_progress" }),
+			});
+			expect(toInProgress.status).toBe(409);
+			const body = (await toInProgress.json()) as { code?: string };
+			expect(body.code).toBe("TASK_DEPENDENCY_BLOCKED");
+
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, "dep-b1c3-task"));
+			expect(row?.state).toBe("review");
+		});
+	});
+});

@@ -34,11 +34,14 @@
 // AU20 Ag5c — createArtifact/setArtifactPreviewIfAbsent folded into generic
 //             create()/transition() primitives below; only row types remain.) --
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
-export { checkAndUnblockDependents } from "./dependency-watcher.js";
+export { checkAndUnblockDependents, handleDependencyKilled } from "./dependency-watcher.js";
 export {
 	CapacityExceededError,
 	InvalidTransitionError,
 	TaskCycleError,
+	TaskDependencyBlockedError,
+	TaskDependencyKilledError,
+	TaskDependencyNotFoundError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
 // -- task kill cascade (AF12; BB1 made it recursive over the subtree) --
@@ -56,7 +59,13 @@ export type {
 export { bakeTaskContextBundle, resolveTaskRunRequest } from "./task-run-resolver.js";
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
-export { assertNoCycle, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
+export {
+	assertNoCycle,
+	assertValidDependencies,
+	hasUnfinishedDependency,
+	transitionTask,
+	VALID_TRANSITIONS,
+} from "./task-state-machine.js";
 // -- work-service (bets/tasks/items repository — the sole table path) --
 // AU20 Ag5b: old read exports collapsed into get()/list() general primitives.
 // AU20 Ag5c: old write exports (createBet/createTask/createItem/appendTaskNote/

@@ -1,7 +1,7 @@
 [
   {
     "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
-    "line": 346,
+    "line": 347,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -10,7 +10,7 @@
   },
   {
     "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
-    "line": 348,
+    "line": 349,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

@@ -66,6 +66,25 @@ function setupFetch(plugins: unknown[]): void {
 	);
 }
 
+/** Routes GET /api/teams separately so the team picker has real rows to offer. */
+function setupFetchWithTeams(
+	plugins: unknown[],
+	teams: Array<{ id: string; name: string }>,
+): ReturnType<typeof vi.fn> {
+	const fetchSpy = vi.fn(async (input: RequestInfo | URL) => {
+		const url = typeof input === "string" ? input : input.toString();
+		if (url.includes("/api/teams")) {
+			return { ok: true, json: async () => ({ teams }) };
+		}
+		if (url.includes("/api/plugins") && !url.includes("POST")) {
+			return { ok: true, json: async () => ({ plugins }) };
+		}
+		return { ok: true, json: async () => ({ plugins }) };
+	});
+	vi.stubGlobal("fetch", fetchSpy);
+	return fetchSpy;
+}
+
 describe("SettingsPlugins", () => {
 	afterEach(() => vi.restoreAllMocks());
 
@@ -93,6 +112,36 @@ describe("SettingsPlugins", () => {
 			const scopeSelect = screen.getByTestId("plugin-scope-kind");
 			await user.selectOptions(scopeSelect, "team");
 			expect(screen.getByTestId("plugin-scope-team-id")).toBeInTheDocument();
+		});
+
+		it("picks a team through the combobox and installs with that team's id", async () => {
+			const user = userEvent.setup();
+			const fetchSpy = setupFetchWithTeams([], [{ id: "team-alpha", name: "Alpha Team" }]);
+			render(<SettingsPlugins />);
+			await waitFor(() => {
+				expect(screen.getByTestId("plugin-scope-kind")).toBeInTheDocument();
+			});
+
+			await user.selectOptions(screen.getByTestId("plugin-scope-kind"), "team");
+			await user.type(screen.getByTestId("plugin-source-value"), "https://github.com/org/plugin");
+
+			const trigger = screen.getByRole("combobox", { name: "Team" });
+			await user.click(trigger);
+			await user.click(await screen.findByText("Alpha Team"));
+
+			await user.click(screen.getByTestId("plugin-install-btn"));
+
+			await waitFor(() => {
+				const postCall = fetchSpy.mock.calls.find(
+					([, opts]) => (opts as RequestInit | undefined)?.method === "POST",
+				);
+				expect(postCall).toBeDefined();
+				const postOpts = postCall?.[1] as RequestInit;
+				const body = JSON.parse(postOpts.body as string) as {
+					scope: { kind: string; teamId: string };
+				};
+				expect(body.scope).toEqual({ kind: "team", teamId: "team-alpha" });
+			});
 		});
 
 		it("renders empty state when no plugins installed", async () => {

@@ -19,6 +19,7 @@
 import { type JSX, useCallback, useEffect, useState } from "react";
 import {
 	Button,
+	Combobox,
 	EmptyState,
 	ErrorState,
 	Input,
@@ -29,6 +30,7 @@ import {
 	StatusChip,
 	Tag,
 } from "../ds";
+import { useTeams } from "../hooks/useTeams.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 
@@ -95,6 +97,8 @@ interface InstallFormProps {
 
 function InstallForm({ onInstalled }: InstallFormProps): JSX.Element {
 	const { showToast } = useToast();
+	const { data: teamsData } = useTeams();
+	const teamOptions = (teamsData?.teams ?? []).map((t) => ({ id: t.id, label: t.name }));
 	const [sourceKind, setSourceKind] = useState<SourceKind>("git");
 	const [value, setValue] = useState("");
 	const [scopeKind, setScopeKind] = useState<ScopeKind>("factory");
@@ -182,13 +186,16 @@ function InstallForm({ onInstalled }: InstallFormProps): JSX.Element {
 					data-testid="plugin-scope-kind"
 				/>
 				{scopeKind === "team" && (
-					<div className="flex-1">
-						<Input
-							label="Team ID"
-							placeholder="team-id"
+					<div className="flex-1" data-testid="plugin-scope-team-id">
+						<Combobox
+							id="plugin-scope-team-id-combobox"
+							label="Team"
+							options={teamOptions}
 							value={teamId}
-							onChange={(e) => setTeamId(e.target.value)}
-							data-testid="plugin-scope-team-id"
+							onChange={setTeamId}
+							placeholder="Select a team…"
+							listAriaLabel="Teams"
+							inputAriaLabel="Filter teams"
 						/>
 					</div>
 				)}

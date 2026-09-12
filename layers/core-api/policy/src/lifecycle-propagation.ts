@@ -143,9 +143,10 @@ async function propagateSessionToTask(
 	// first to finish flips the task `in_progress -> review` while the second is
 	// still working. The second run's end then sees a task that is no longer
 	// `in_progress` and quietly does nothing. That is recoverable —
-	// `review -> in_progress` is a legal move anyone can make — and under
-	// ETHOS.md a preemptive wall against a state only a hand-made API call
-	// reaches is not worth a cross-Layer read. Founder-ruled. No replacement
+	// `review -> in_progress` is a legal move, refused only while the task
+	// still carries an unfinished dependency — and under ETHOS.md a
+	// preemptive wall against a state only a hand-made API call reaches is
+	// not worth a cross-Layer read. Founder-ruled. No replacement
 	// event, no counter, no downward call.
 
 	// DB reads and transition inside the catch so any read error is reported via

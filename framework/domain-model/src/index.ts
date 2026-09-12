@@ -80,7 +80,11 @@ export {
 	HttpError,
 	InvalidTransitionError,
 	MissingCredentialError,
+	SeamRequestError,
 	TaskCycleError,
+	TaskDependencyBlockedError,
+	TaskDependencyKilledError,
+	TaskDependencyNotFoundError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
 // Event vocabulary dissolved to framework/event-bus (AU44 batch 8).

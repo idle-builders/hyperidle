@@ -20,10 +20,18 @@ export type TaskPatchStatus = "idle" | "saving" | "saved" | "error";
 export interface UseTaskPatchResult {
 	status: TaskPatchStatus;
 	patch: (taskId: string, body: TaskPatchBody) => void;
+	/**
+	 * AC5: the rejection's `error` message on a non-2xx response (e.g. a
+	 * dependency cycle's `409 { error, code: "TASK_CYCLE" }`), so the person
+	 * who triggered it is told why rather than just seeing "failed". `null`
+	 * outside the `error` status, or when the body carried no `error` string.
+	 */
+	errorMessage: string | null;
 }
 
 export function useTaskPatch(onSaved?: () => void): UseTaskPatchResult {
 	const [status, setStatus] = useState<TaskPatchStatus>("idle");
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const unmountedRef = useRef(false);
 	const onSavedRef = useRef(onSaved);
@@ -43,15 +51,29 @@ export function useTaskPatch(onSaved?: () => void): UseTaskPatchResult {
 	const patch = useCallback((taskId: string, body: TaskPatchBody): void => {
 		if (unmountedRef.current) return;
 		setStatus("saving");
+		setErrorMessage(null);
 
 		apiFetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(body),
 		})
-			.then((res: Response): void => {
+			.then(async (res: Response): Promise<void> => {
 				if (unmountedRef.current) return;
 				if (!res.ok) {
+					// Surface the body's `error` message instead of discarding
+					// it — a non-JSON or shapeless body still lands the person on a
+					// clear "error" status, just without a specific reason.
+					const message = await res
+						.json()
+						.then((parsed: unknown) =>
+							typeof (parsed as { error?: unknown })?.error === "string"
+								? (parsed as { error: string }).error
+								: null,
+						)
+						.catch(() => null);
+					if (unmountedRef.current) return;
+					setErrorMessage(message);
 					setStatus("error");
 					return;
 				}
@@ -68,5 +90,5 @@ export function useTaskPatch(onSaved?: () => void): UseTaskPatchResult {
 			});
 	}, []);
 
-	return { status, patch };
+	return { status, patch, errorMessage };
 }

@@ -182,7 +182,8 @@ describe("KnowledgeCreate nests in one write", () => {
 		await user.type(screen.getByTestId("knowledge-create-title"), "Nested item");
 		await user.type(screen.getByTestId("body-editor-textarea"), "Some content");
 
-		await user.selectOptions(screen.getByTestId("parent-picker"), "ki-existing");
+		await user.click(screen.getByRole("combobox", { name: "Parent" }));
+		await user.click(screen.getByText("Existing parent"));
 
 		await user.click(screen.getByTestId("knowledge-create-submit"));
 

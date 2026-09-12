@@ -101,6 +101,28 @@ export function sanitizeRouteId(id: string): string | null {
 	return encodeURIComponent(id);
 }
 
+/**
+ * True when `target` sits inside an open combobox/listbox popover — a
+ * document-level Escape handler must not act on that key press, or it steals
+ * Escape before the popover's own bubble-phase handler ever sees it.
+ *
+ * @lore Combobox's open popover renders as a SIBLING of its `role="combobox"`
+ * trigger button (both children of one `[data-ds-component="Combobox"]`
+ * wrapper), not nested inside it — so `target.closest('[aria-expanded="true"]')`
+ * alone can't find the trigger from focus inside the popover's filter input.
+ * Scoping to the nearest Combobox wrapper (rather than walking every ancestor
+ * up to `<body>`) is load-bearing: `<body>` contains every open combobox on
+ * the page, so an unscoped `querySelector` at that level always matched,
+ * regardless of where focus actually was — the guard fired even with focus
+ * outside any popover, and Escape could never leave Settings.
+ */
+function isEscapeInsideOpenPopover(target: EventTarget | null): boolean {
+	if (!(target instanceof Element)) return false;
+	const comboboxRoot = target.closest('[data-ds-component="Combobox"]');
+	if (!comboboxRoot) return false;
+	return comboboxRoot.querySelector('[role="combobox"][aria-expanded="true"]') !== null;
+}
+
 export function AppShell(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -404,10 +426,19 @@ export function AppShell(): JSX.Element {
 
 	// P4 AC-21: Escape navigates back from /settings.
 	// @lore FR-18: settingsOpen is now path-derived. Closing settings = navigate(-1).
+	// @lore Escape-vs-combobox: this listener runs in the CAPTURE phase on
+	// document, ahead of any Settings combobox's own bubble-phase Escape
+	// handling — so without the guard below, the first Escape while a
+	// dropdown was open closed all of Settings instead of just the dropdown.
+	// When the key belongs to an open popover, do nothing and let it
+	// propagate normally so the popover's own handler closes just itself; a
+	// second Escape (popover already closed) falls through to navigate(-1)
+	// same as before.
 	useEffect(() => {
 		if (!settingsOpen) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
+				if (isEscapeInsideOpenPopover(e.target)) return;
 				e.preventDefault();
 				e.stopImmediatePropagation();
 				navigate(-1);

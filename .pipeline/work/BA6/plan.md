@@ -1,6 +1,6 @@
 # BA6 — Tasks wait for the tasks they depend on, then start themselves
 
-## Work package
+## What we need
 
 **Outcome.** A task can be declared to depend on other tasks. While any of them are unfinished it waits
 instead of being picked up. When the last one finishes, it stops waiting and, if an agent owns it,
@@ -10,33 +10,19 @@ starts.
 tasks whose prerequisites are not done and produce work that has to be thrown away. Sequencing that
 enforces itself is what makes a set of tasks a plan rather than a list.
 
-**What exists today.** A dependency column exists on tasks and a watcher exists to unblock dependents,
-but **nothing writes dependencies** — the writer was bet decomposition, which was deliberately removed —
-so the watcher has matched zero rows since. Accepting a task dispatches it with no dependency check at
-all. There is no direct transition from waiting to in-progress: the existing chain moves a task from
-waiting to accepted, dispatch prepares the run, and a reaction then moves agent-owned tasks to
-in-progress, correctly leaving unowned tasks at accepted for a human.
-
-**Missing delta.** Give dependencies a writer, gate acceptance on them, and let the existing chain carry
-a freed task into progress.
-
-**Depends on.** None.
-
-**Complexity.** M
-
-**Engineering tier.** mvp
-
-**Pre-build.** Not required — the outcome is clear and the state machine already provides the path.
+**Where it started.** The `dependencies` column and the `done` watcher existed; `PATCH` wrote the field
+unguarded and nothing reached it, and `proposed → hold` was not a legal edge, so waiting had no entrance.
 
 **Constraints.**
 - A dependency cycle must be rejected when it is created. A cycle that is accepted parks every task in
   it forever, which is worse than refusing it.
 - Unowned tasks must still stop at accepted and wait for a human. Automatic progression applies only to
   tasks an agent owns.
-- Reuse the existing waiting → accepted → in-progress chain. Do not add a direct transition.
+- Reuse the existing waiting → accepted → in-progress chain. Do not add a direct waiting → in-progress
+  transition.
 
-**Out of scope.** Reintroducing automatic decomposition of a bet into tasks. Dependencies that cross
-bets. Visualising the dependency tree beyond what is needed to set and see dependencies.
+**Out of scope.** Reintroducing automatic decomposition of a bet into tasks. Visualising the dependency
+tree beyond what is needed to set and see dependencies. Emitting `dependency_met` — BA8 owns it.
 
 ## Acceptance criteria
 
@@ -47,9 +33,74 @@ bets. Visualising the dependency tree beyond what is needed to set and see depen
 - When a task's last dependency finishes and no agent owns it, it waits for a human rather than starting.
 - An attempt to create a dependency cycle is refused, and the person or agent attempting it is told why.
 
-## Validation scenarios
+## How it works
 
-- Given task B depends on task A and A is unfinished, when work is picked up, then B is not started.
-- Given task B depends only on task A and an agent owns B, when A finishes, then B moves into progress on
-  its own.
-- Given task B depends on task A, when someone tries to make A depend on B, then the change is refused.
+**Setting dependencies.** `POST /tasks` and `PATCH /tasks/:id` both take a list of task ids and validate
+it inside the write's transaction: every id must exist (404), a task may not depend on itself, the graph
+may not cycle (409 `TASK_CYCLE`), and no dependency may be a `killed` task, because it can never finish
+(409 `TASK_DEPENDENCY_KILLED`). Depending on a `done` task is legal and does not park. A dependency may
+point at any task in any tree; cycle rejection is what keeps that safe.
+
+**Waiting.** `hold` is the one waiting state, for any kind of wait. A valid write naming an unfinished
+dependency moves the task to `hold`; `proposed → hold` was added as the chain's entrance.
+
+**Not picked up.** Parking is the visible half; `transitionTask` is the enforcing half. While a task has
+an unfinished dependency it refuses `→ accepted` from anywhere, and `→ in_progress` from every state
+except `blocked` (409 `TASK_DEPENDENCY_BLOCKED`). `blocked` is exempt because its only predecessor is
+`in_progress` — a blocked task was genuinely picked up, so resuming it is not a pick-up. `review` is not
+exempt: it is reachable from `hold`. A test pins `blocked`'s single predecessor; changing the transition
+table there means revisiting this guard.
+
+**Being freed.** The last dependency reaching `done` moves the task `hold → accepted` (the existing
+watcher). A dependency being **killed** drops its id from every dependent in any state, and returns the
+dependents that were waiting in `hold` to `proposed` for re-planning — the premise they were planned
+under is gone. This runs synchronously inside `cascadeTaskKill`, the only production route to `killed`.
+
+**Starting.** Unchanged: `accepted` with an agent owner dispatches, `session_started` promotes to
+`in_progress`, an unowned task stops at `accepted` for a human.
+
+**Being told why.** The UI patch hook surfaces the server's message; the agent seam carries the error
+code so `edit_task` returns a structured `err(code, message)` instead of throwing.
+
+**Finding the task.** You type part of a title and pick from the results; the chip shows the title. The
+picker is the design system's `Combobox` — one control now used by every entity picker in the app (task
+owner, plugin team, message recipient, add-agent role, knowledge parent, routine agent, org-chart people) (generalized from `RoleCombobox`, which the agent editor also
+uses) in search-driven mode, with full keyboard navigation. Arrow keys and Enter do nothing while results
+load, so a result from the previous query can never be picked, and a failed search can be retried. The
+picker's search (`GET /api/tasks?q=`) searches every depth and opts out of killed tasks; global search
+still returns them. The server guards the door regardless of the picker.
+
+## How we work on this
+
+**Dials.** complexity: feature · ambiguity: established context · exposure: user-facing surface.
+
+**Maintainer rulings.** `hold` is the single waiting state. A killed dependency sends its dependents back
+to be refined, not freed to start. Any task may depend on any task — simplest wins. You find a task by
+searching, never by pasting an id, and the picker reuses the design system. The web version runs only
+remote harnesses by design, so agent-owned proof runs on the packaged desktop build, and a failing desktop
+build means the change broke it. The desktop database is demo data: delete it rather than keep it. The PR also moves every entity picker onto
+the shared `Combobox`: task owner, plugin team, message recipient, add-agent role, knowledge parent, routine
+agent, and org-chart people. Short fixed-list dropdowns, global search and the `/` menu stay as they are.
+
+**Gate and review.** One gate before shipping, on the running app. A fresh agent reviews the integrated
+diff, and again over each scope-bearing change.
+
+## Accepted limitations
+
+- `POST /api/sessions` checks only that the task exists; no UI reaches it and the task's state cannot
+  change, so "not picked up" is enforced at the state label, not at session admission.
+- A parked task can still be marked `done` (`hold → done` is legal, and lifecycle propagation can drive a
+  `hold` parent to `done`), which frees its own dependents. Dependencies are not transitive.
+- The cycle check and the kill cleanup read without row locks, so two conflicting simultaneous writes
+  can both pass — the same founder-accepted limit as the parent-tree `assertNoCycle`.
+- Clearing the field stores `"[]"` rather than `null`; duplicate ids are stored as given.
+- A write that changes `state` and `dependencies` together does not park; the guard still stops pick-up.
+- A dangling-id refusal on create shows the generic error; cycle and killed refusals show the reason.
+- `create_task` does not catch the seam error the way `edit_task` does; only a dangling id reaches it.
+- Clicking outside or tabbing away leaves the dependency dropdown open, as on every `main` combobox.
+- For about 200 ms after the search box is cleared or reopened, the previous results stay on screen and
+  can be picked; they are visible, so a person picks what they see.
+- An empty role in the agent editor shows placeholder text where `main` showed nothing; hard to reach.
+- Tabbing back to a dropdown's button and pressing Escape does nothing — the same on `main`.
+- The settings agents list keeps its own agents fetch: it is one leg of a combined load whose rows are
+  spliced locally after edits, so adopting the shared hook would add code, not remove it.
