@@ -291,6 +291,29 @@
       "what": "it passes the real ghAuthStatus, which spawns `gh auth status` with GH_TOKEN; gh validates the token against api.github.com, so this service-lane test requires the live internet and would flake in CI",
       "fix": "stub ghAuthStatus to logged_out for that case (the code maps logged_out + connection to the rejected-token reason); the genuine rejection with a real PAT is already G2's live proof",
       "state": "fixed in 109a474a8 \u2014 ghAuthStatus stubbed for the wrong-PAT case; no live-network test remains"
+    },
+    {
+      "id": "D2",
+      "found": "2026-09-12 by the orchestrator while measuring the diff",
+      "where": "layers/agent-orchestration/run-orchestration/src/git-credential-env.ts (mergeGitConfigEnv's dedupe key)",
+      "what": "a literal NUL byte in a template literal makes git classify this production source file as BINARY \u2014 it shows as 'Bin 0 -> 3011 bytes' with no reviewable diff, and plain grep skips it. Functionally fine; a real hazard for review and for every future audit that greps.",
+      "fix": "use a separator that is not a control character (e.g. the unit separator \\u001f, or JSON.stringify of the pair)",
+      "state": "open \u2014 for the fix round"
     }
-  ]
+  ],
+  "nonBlockingNotes": [
+    "Pre-existing, not ours: the harness vitest project's include list has an entry 'layers/core-api/src/routes/__tests__/*-real.integration.test.ts' that matches zero files \u2014 inert, and by CLAUDE.md's own rule a scan matching nothing reads as passing forever. Worth its own item."
+  ],
+  "harnessLane": {
+    "binaries": {
+      "claude": "2.1.247",
+      "codex": "codex-cli 0.150.1",
+      "opencode": "1.18.25",
+      "cursor-agent": "2026.09.08-6caf4ff",
+      "gh": "2.92.0",
+      "missing": "none"
+    },
+    "state": "running since 2026-09-12 04:12:43 CEST, detached; log at scratchpad/harness-branch.log",
+    "note": "already red on origin/main (~5 failed / 62 passed previously recorded) \u2014 failures must be compared against main before being blamed on this branch"
+  }
 }
