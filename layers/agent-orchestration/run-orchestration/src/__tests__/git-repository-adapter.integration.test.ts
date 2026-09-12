@@ -164,6 +164,47 @@ describe("GitRepositoryAdapter — local repo (T3a)", () => {
 			}).trim(),
 		).toBe("hyperidle/sess-local-1");
 	});
+
+	it("a second mount into the same workspace under a new session id recognises the existing worktree instead of failing (resume, §5.4/T4)", async () => {
+		const repoDir = tracked("t3-local-adopt-");
+		initLocalRepo(repoDir);
+		const workspacePath = tracked("t3-ws-adopt-");
+		const mounter = new RegistryFilesystemMounter(deps());
+		const filesystem = makeFilesystem({
+			id: "fs-local-adopt",
+			resourceRef: { kind: "code", repo: repoDir, branch: "main" },
+		});
+
+		const first = await mounter.mount({
+			filesystem,
+			workspacePath,
+			sessionId: "sess-adopt-1",
+			folderName: "repo",
+			credential: null,
+		});
+		expect(first.ok).toBe(true);
+		if (!first.ok) throw new Error("unreachable");
+
+		// The agent leaves uncommitted work in the worktree before the resume.
+		fs.writeFileSync(path.join(first.mounted.folder, "uncommitted.txt"), "agent work\n");
+
+		const second = await mounter.mount({
+			filesystem,
+			workspacePath,
+			sessionId: "sess-adopt-2",
+			folderName: "repo",
+			credential: null,
+		});
+
+		expect(second.ok).toBe(true);
+		if (!second.ok) throw new Error("unreachable");
+		expect(second.mounted.adopted).toBe(true);
+		expect(second.mounted.git?.branch).toBe(first.mounted.git?.branch);
+		expect(second.mounted.folder).toBe(first.mounted.folder);
+		expect(fs.readFileSync(path.join(second.mounted.folder, "uncommitted.txt"), "utf8")).toBe(
+			"agent work\n",
+		);
+	});
 });
 
 describe("GitRepositoryAdapter — remote, through the offline github-stand-in (T3b-i)", () => {
