@@ -246,6 +246,39 @@ describe("AF8 — NotificationPopover component (AC10)", () => {
 			expect(muteTypeMock).toHaveBeenCalledWith("review_request");
 		});
 	});
+
+	// BA5 §8/§14.3: `filesystem_needs_attention` rows leave `typeKey` null, the
+	// same shape agent-health rows already use (unverified by architecture —
+	// checked here). A null typeKey must render the row without crashing: no
+	// type label, everything else — title, time, dismiss — as usual.
+	it("renders a row whose typeKey is null (the filesystem-attention/agent-health shape) without crashing", async () => {
+		const { useNotifications } = await import("../hooks/useNotifications");
+		vi.mocked(useNotifications).mockReturnValue({
+			unseenCount: 1,
+			rows: [
+				makeMockRow({
+					id: "notif-fs-attention",
+					// The wire value is genuinely null for these rows; NotificationRow.typeKey's
+					// `string` type is a lie pre-dating this change (agent-health rows already
+					// do this) — cast through `unknown` rather than `any` to prove the same shape.
+					typeKey: null as unknown as string,
+					title: "Filesystem needs attention: acme/app",
+					urgency: "ambient",
+				}),
+			],
+			status: "ready",
+			refetch: refetchMock,
+			markSeen: markSeenMock,
+			markRead: markReadMock,
+			muteType: muteTypeMock,
+		} as unknown as import("../hooks/useNotifications.js").UseNotificationsResult);
+
+		const { NotificationPopover } = await import("../shell/NotificationPopover.js");
+		render(<NotificationPopover open={true} onClose={vi.fn()} />);
+
+		expect(screen.getByText("Filesystem needs attention: acme/app")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /dismiss notification/i })).toBeInTheDocument();
+	});
 });
 
 describe("AF8 — Sidebar unread dot affordance (AC10)", () => {
