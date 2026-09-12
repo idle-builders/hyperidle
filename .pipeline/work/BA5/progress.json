@@ -66,7 +66,7 @@
       "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
     }
   ],
-  "resume": "Phase 1 built. Phase review + harness lane running. Then G2 (needs the maintainer's repo/token/PR answers).",
+  "resume": "Phase review NOT PASS: B1 (no test for the resumed git mount) and B2 (NUL byte makes a production file binary). Fix round waits for the harness lane to finish so it is not contaminated. Then re-review the delta, then G2.",
   "preSpawn": {
     "command": "npm run check && npm run lint",
     "at": "b8b00b2f1",
@@ -128,6 +128,39 @@
       "result": "all critique items applied; B1 kept copies -> app data folder (desktop userData/kept-copies), B2 reach remote first, gh only on connection or 401",
       "revisedSize": "production ~1,050-1,250 + tests ~950-1,150 = ~2,000-2,400; no cut keeping G2's list gets production under 1,000",
       "orchestratorOverrides": "architecture.md \u00a718: connection health narrow cut (keep inherited detection); notice names all picked agents; Postgres remote-server limit; drain return"
+    },
+    {
+      "round": "phase-1-review",
+      "at": "2026-09-12",
+      "on": "65672824d",
+      "verdict": "NOT PASS",
+      "blockers": [
+        {
+          "id": "B1",
+          "what": "break #6 (a resumed session's mount) ships with no test that can fail: only the folder half of T4 exists; no git mount anywhere asserts adopted:true. The reviewer executed the path and confirmed the CODE is correct \u2014 mounting a local repo twice into one workspace returns {adopted:true, branch:'hyperidle/s1'} and preserves the agent's uncommitted file \u2014 but deleting recognizeAdoptedWorktree's body leaves the whole service lane green.",
+          "fix": "one case in the existing git-repository-adapter.integration.test.ts"
+        },
+        {
+          "id": "B2",
+          "what": "= D2. A literal NUL at git-credential-env.ts:55 makes the one file that builds the credential env binary to git, grep and every rg-based scan; its contents have never appeared in a diff and will not appear in the PR.",
+          "fix": "one character"
+        }
+      ],
+      "nonBlockingCarriedForward": [
+        "N1 git-runner.ts keeps add, commit, diffCached, lsFiles, bundle, restoreStaged (~90 lines) with no caller anywhere; knip cannot see object-literal members, so the 'delete whatever knip reports dead' step removed nothing.",
+        "N2 filesystem-check.ts:67-68: a local repo whose folder is gone reports \"'X' is not a git repository\" \u2014 the plan's 'folder moved' case gets a misleading reason.",
+        "N3 SettingsFilesystems.tsx:275 labels every token connection 'GitHub' (two GitHub tokens are indistinguishable); :417 shows 'Connection: <raw uuid>'.",
+        "N4 The dialog filters connections case-insensitively while routes/filesystems.ts:175 requires exactly 'github' and service is free text \u2014 an offered option can 400.",
+        "N5 markNeedsAttention being optional on the port means an unwired port turns each held request into a per-tick retry forever; boot always wires it, so production is safe, but the contract no longer enforces it.",
+        "N6 SetupFlow.tsx registerFilesystemAndInject swallows every per-agent failure \u2014 onboarding can still silently finish with a filesystem picked for nobody (break #2's exact shape) with nothing shown."
+      ],
+      "unclear": [
+        "whether break #6 is discharged by G2's live resume alone or needs a regression test",
+        "no HTTP status was specified for the hold; the builder chose 503 \u2014 a public projection nobody approved",
+        "what a connection-backed row should name its connection as; the implementation shows the raw id",
+        "the two authoritative docs are now false (validate route, health, write-back, capture-back) \u2014 deferred to G3 by the plan"
+      ],
+      "verifiedPositives": "check 38/38; lint 0 violations across three governance passes and 6551 crossings; knip and knip:production exit 0; credentials env-only with no git config write, URL userinfo rejected at POST, every runner string redacted, and absence asserted from payload_json and the sessions row; the hold's claim filter takes plain ids and imports no filesystems table; one notice per episode proven twice; every old shape's scan finds no survivor; no live-network test remains; both suppressions legitimate; the two process incidents left nothing unrelated in the diff"
     }
   ],
   "build": {
@@ -298,6 +331,14 @@
       "where": "layers/agent-orchestration/run-orchestration/src/git-credential-env.ts (mergeGitConfigEnv's dedupe key)",
       "what": "a literal NUL byte in a template literal makes git classify this production source file as BINARY \u2014 it shows as 'Bin 0 -> 3011 bytes' with no reviewable diff, and plain grep skips it. Functionally fine; a real hazard for review and for every future audit that greps.",
       "fix": "use a separator that is not a control character (e.g. the unit separator \\u001f, or JSON.stringify of the pair)",
+      "state": "open \u2014 confirmed as review blocker B2"
+    },
+    {
+      "id": "B1",
+      "found": "2026-09-12 phase review",
+      "where": "layers/agent-orchestration/run-orchestration/src/__tests__/git-repository-adapter.integration.test.ts",
+      "what": "the resumed-workspace fix has no regression guard for the git case",
+      "fix": "add the adopted:true case",
       "state": "open \u2014 for the fix round"
     }
   ],
