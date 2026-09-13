@@ -127,4 +127,14 @@ receives the composed tool list.
 
 ## Confusions
 
+- The plan says "sessions that ran on it" are part of opening a task. That would make core read
+  orchestration, which the AU26 ruling forbids; sessions stay a page-side read from orchestration
+  until BC6. Decided 2026-09-13.
+- The plan does not say whether the new `task.changed` event fires in this item. It does not; only
+  the old `task_state_changed` fires, from the change row, until BC5.
+- The plan's delete list named three hooks and four tools. The real reach was seven UI surfaces,
+  three surviving tools reading tasks through the seam, and six background writers; all found at
+  the architecture critique, not at refinement.
+- The task page reads attachments twice once open-a-task returns them. BC4's to clean.
+
 ## Proposed items
