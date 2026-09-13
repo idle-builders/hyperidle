@@ -96,6 +96,14 @@ through the seam until BC6; `audit_trail` is dropped, the change rows replace it
 thousand added lines of code accepted up front; `work`, the task routes, the four tools, the hooks
 and the wire type are deleted in the same change. No bridge.
 
+**Confirmed 2026-09-13, after the architecture critique.** The honest count is 1,600–1,800 added
+lines of code, a third of it tests, stories and specs that mocked the deleted routes; accepted, the
+change is net red. Handoff is an edit that sets the owner: the caller names a user, role targeting
+and the escalation thread go, the running session still ends through the existing seam after commit
+until BC6. Every background writer of task state (session started, dependency unblock, lifecycle
+propagation, kill cascade) goes through edit-a-task in-process, so nothing changes a task without a
+change row.
+
 **Parallel with BC1.** BC1 runs in another session. This branch is cut from `origin/main` before
 BC1 merges; it rebases onto BC1 once BC1 is on `main`, before ship. The two known overlaps are the
 `attention_score` column in the task read model and the plumbing list in the governance rule. The
