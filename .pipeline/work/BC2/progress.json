@@ -19,15 +19,19 @@
       ]
     }
   ],
-  "worktree": ".claude/worktrees/task-action-list",
+  "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
   "branch": "feature/task-action-list",
   "base": "efa28dd59",
-  "since": "efa28dd59",
+  "since": "834407115",
   "artifacts": {
     "plan": ".pipeline/work/BC2/plan.md",
     "architecture": ".pipeline/work/BC2/architecture.md",
-    "critique": ".pipeline/work/BC2/critique.md (pending)"
+    "critique": ".pipeline/work/BC2/critique.md (BLOCKED, resolved)",
+    "critique-2": ".pipeline/work/BC2/critique-2.md (BLOCKED, resolving)"
   },
-  "verdicts": {},
+  "verdicts": {
+    "architecture-critique-1": "BLOCKED \u2192 amended",
+    "architecture-critique-2": "BLOCKED \u2192 amending"
+  },
   "started": "2026-09-12"
 }
