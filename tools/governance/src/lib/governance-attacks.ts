@@ -1185,11 +1185,45 @@ export const ATTACKS: readonly Attack[] = [
 		detail:
 			"a production file that names a knowledge item id (not an artifact storage concept) is not reported",
 		rules: ["artifact-is-not-a-storage-concept"],
+		// @lore layerEntryControl (app.ts) contains retired-surface tokens on the untouched tree
+		// (createHintRoutes, /hint-progress) and so cannot serve as a clean control while those
+		// routes exist. otherLayerBarrel is clean and is a stable anchor for this case.
 		mutate: {
-			[a.layerEntryControl]: (existing) =>
+			[a.otherLayerBarrel]: (existing) =>
 				`${existing}export const attackKnowledgeItemRef = { knowledgeItemId: "" };\n`,
 		},
-		expect: { sort: "clean", file: a.layerEntryControl },
+		expect: { sort: "clean", file: a.otherLayerBarrel },
+	},
+
+	// --- retired-surfaces-absent -------------------------------------------------------------
+
+	{
+		id: "retired-surfaces-banned-token",
+		detail:
+			"a production file that introduces `createCoachRoutes` — a symbol tied to the deleted /coach route — is reported",
+		rules: ["retired-surfaces-absent"],
+		mutate: {
+			[a.layerEntry]: (existing) =>
+				`${existing}export const attackRetiredSurface = { createCoachRoutes: null };\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: a.layerEntry,
+			ruleId: "retired-surfaces-absent",
+			messageContains: "createCoachRoutes",
+		},
+	},
+	{
+		id: "retired-surfaces-control",
+		detail:
+			"a new production file that names only live symbols is not reported by retired-surfaces-absent",
+		rules: ["retired-surfaces-absent"],
+		// Overlay a new file — no conflict with the attack case's layerEntry mutation.
+		overlay: {
+			[`${a.serviceDir}/attack-retired-surface-control.ts`]:
+				`export const liveRef = { createThreadRoutes: null };\n`,
+		},
+		expect: { sort: "clean", file: `${a.serviceDir}/attack-retired-surface-control.ts` },
 	},
 ];
 
