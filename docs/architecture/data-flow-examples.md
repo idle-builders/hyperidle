@@ -72,10 +72,10 @@ The tree and its statuses are owned by [the-canonical-store](../knowledge-archit
    picks it up for the practice
 4. Product Manager notices the direction has shifted:
    the done condition is no longer valid
-5. Product Manager edits the task via PATCH /api/tasks/:id:
+5. Product Manager edits the task via `edit_task`:
    - Revised doneCondition: adjust acceptance criteria for the
      due-diligence flow
-   - Reasoning: appended to auditTrail
+   - Reasoning: recorded as a `changes` row
 6. Product Manager creates Item: task revision review thread
    (kind: review, risk_tier: high)
 7. Router → Conversations + push notification → both founders (strategic)

@@ -56,7 +56,7 @@ interface TaskViewBody {
 }
 
 async function call<T>(
-	app: { request: (path: string, init: RequestInit) => Promise<Response> },
+	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
 	name: string,
 	body: Record<string, unknown>,
 	headers: Record<string, string> = authHeaders(),

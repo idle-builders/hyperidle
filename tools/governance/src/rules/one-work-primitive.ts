@@ -48,7 +48,7 @@ const BANNED: readonly { readonly token: RegExp; readonly why: string }[] = [
 	{ token: /\bhypothesis\b/, why: "`hypothesis` is cut — a task's goal is its `doneCondition`" },
 	{
 		token: /\brevisionLog\b|\brevision_log\b/,
-		why: "`revision_log` is cut — `audit_trail` is the one audit mechanism",
+		why: "`revision_log` is cut — the `changes` table is the one audit mechanism",
 	},
 	{
 		token: /\bactiveBets\b|\bactive_bets\b/,

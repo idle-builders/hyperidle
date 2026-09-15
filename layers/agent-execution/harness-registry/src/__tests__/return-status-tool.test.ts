@@ -196,7 +196,7 @@ describe("return_status tool", () => {
 			expect(msg).not.toBeNull();
 			if (msg) {
 				expect(msg).toContain("submit_review");
-				expect(msg).toContain("handoff_to");
+				expect(msg).toContain("edit_task");
 				expect(msg).toContain("send_message");
 			}
 		}

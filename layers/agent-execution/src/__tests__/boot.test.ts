@@ -170,7 +170,7 @@ describe("bootAgentExecution", () => {
 				topology: "disabled",
 				mcpBaseUrl: "http://localhost:9999",
 			});
-			const gate = boot.adapters.harnessRuntime.createReturnGate(["handoff_to"]);
+			const gate = boot.adapters.harnessRuntime.createReturnGate(["edit_task"]);
 
 			gate.observe({ type: "tool_call", toolName: "send_message", args: {} });
 

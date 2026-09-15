@@ -3,7 +3,7 @@
  * narrowing. Plain membership in the closed return set both under-binds a
  * session with a specific required action (a session could satisfy the gate
  * with any of the four names, not the one it actually needs) and
- * over-permits one (the assistant has `send_message`/`handoff_to`/
+ * over-permits one (the assistant has `send_message`/`edit_task`/
  * `submit_review` in its ordinary registry too). `isRequiredReturnAction`/
  * `buildForceReturnMessage`/`shouldForceReturn`'s `required` param close
  * that gap — the requirement is a SET, never a lone string.
@@ -29,7 +29,7 @@ describe("isRequiredReturnAction — return predicate narrowed to a required sub
 
 	it("a gate required to ['reply'] is NOT satisfied by send_message", () => {
 		expect(isRequiredReturnAction("send_message", ["reply"])).toBe(false);
-		expect(isRequiredReturnAction("handoff_to", ["reply"])).toBe(false);
+		expect(isRequiredReturnAction("edit_task", ["reply"], { ownerAgentId: "agent-7" })).toBe(false);
 		expect(isRequiredReturnAction("submit_review", ["reply"])).toBe(false);
 	});
 
@@ -38,7 +38,7 @@ describe("isRequiredReturnAction — return predicate narrowed to a required sub
 	});
 
 	it("symmetrically, a gate required to the trio is NOT satisfied by reply", () => {
-		const trio = ["submit_review", "handoff_to", "send_message"];
+		const trio = ["submit_review", "edit_task", "send_message"];
 		expect(isRequiredReturnAction("reply", trio)).toBe(false);
 		expect(isRequiredReturnAction("submit_review", trio)).toBe(true);
 	});
@@ -64,7 +64,7 @@ describe("buildForceReturnMessage — tailored forcing message", () => {
 		const msg = buildForceReturnMessage(["reply"]);
 		expect(msg).toContain("reply");
 		expect(msg).not.toContain("submit_review");
-		expect(msg).not.toContain("handoff_to");
+		expect(msg).not.toContain("edit_task");
 		expect(msg).not.toContain("send_message");
 	});
 

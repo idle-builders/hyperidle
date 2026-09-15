@@ -37,7 +37,7 @@ Work comes in as tasks. A task is a unit of work with an explicit done condition
 
 **No deadlines or sprint lengths.** The created and completed timestamps are recorded for retros — their delta is informational, never a budget. What is bounded is concurrency: how many sessions and tasks run at once. See [WIP limits](../process-layer/wip-and-cost-limits.md).
 
-**Changes go through one door.** Done conditions, descriptions, titles, and ownership can be revised through `PATCH /api/tasks/:id`. There is no draft-only gate and no approval gate — whoever is closest to the work edits it, human or agent. Every change lands in the task's audit trail.
+**Changes go through one door.** Done conditions, descriptions, titles, and ownership can be revised through `edit_task`. There is no draft-only gate and no approval gate — whoever is closest to the work edits it, human or agent. Every change lands as a row in the `changes` table.
 
 Depth: [Tasks and sessions](../process-layer/tasks-and-sessions.md).
 

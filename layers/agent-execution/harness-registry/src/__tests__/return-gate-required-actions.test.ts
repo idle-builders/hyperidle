@@ -1,7 +1,7 @@
 /**
  * AU27 Increment 3 (Decision 3) — `createGate(requiredReturnActions?)`'s
  * predicate narrowing. A gate required to `["reply"]` is not flipped by
- * `send_message`/`handoff_to`/`submit_review` — only by `reply` itself.
+ * `send_message`/`edit_task`/`submit_review` — only by `reply` itself.
  * Absent `requiredReturnActions` preserves the pre-Increment-3 default (any
  * member of the closed return set flips the gate) — proven against the SAME
  * `createReturnEnforcement()` singleton `return-gate.test.ts` exercises,
@@ -52,7 +52,7 @@ describe("createGate(requiredReturnActions) narrows the return predicate", () =>
 
 	it("required with the trio — reply does NOT flip a trio-required gate (symmetric over-permission guard)", () => {
 		const enforcement = createReturnEnforcement();
-		const gate = enforcement.createGate(["submit_review", "handoff_to", "send_message"]);
+		const gate = enforcement.createGate(["submit_review", "edit_task", "send_message"]);
 		gate.observe(toolCallEvent("reply"));
 		expect(gate.returned).toBe(false);
 		gate.observe(toolCallEvent("submit_review"));

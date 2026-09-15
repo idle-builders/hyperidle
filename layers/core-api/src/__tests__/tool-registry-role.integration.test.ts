@@ -59,6 +59,9 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 
 	test("B1: builder registry still contains the base tools", ({ db, app }) => {
 		// @lore AU20 repair: read_inbox + write_session_notes deleted — removed from assertions.
+		// the architecture doc §7/§8 B1: handoff_to and log_task are deleted —
+		// projected from the action list instead, composed in only at
+		// `buildToolRegistry`'s real call site, not this direct-definitions fixture.
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR, THROWING_OPEN_TASK),
 			makeContext(db),
@@ -67,9 +70,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("send_message")).toBe(true);
 		expect(names.has("reply")).toBe(true);
-		expect(names.has("log_task")).toBe(true);
 		expect(names.has("write_memory")).toBe(true);
-		expect(names.has("handoff_to")).toBe(true);
 		expect(names.has("create_item")).toBe(true);
 	});
 
@@ -105,10 +106,12 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	// @lore BB1: create_bet + edit_bet deleted, edit_task added → 22 → 21.
-	// @lore nested-knowledge-items: query_practice deleted → 21 → 20 (its
-	// only filter was `layer === 'L3'`, and layer is gone).
-	test("B3: assistant registry includes all 20 tools", ({ db, app }) => {
+	// the architecture doc §7/§8 B1: handoff_to, create_task, edit_task (the
+	// old tool body) and log_task are deleted — projected instead from the
+	// action list, composed in only at `buildToolRegistry`'s real call site,
+	// not this direct-definitions fixture. 20 → 14 (also minus the two
+	// attention tools deleted with the attention engine).
+	test("B3: assistant registry includes all 14 tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR, THROWING_OPEN_TASK),
 			makeContext(db),
@@ -121,7 +124,9 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// + 1 AU27 Increment 2: reply = 18
 		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
 		// score_attention and run_knowledge_sweep were deleted, leaving 18
-		expect(names).toHaveLength(18);
+		// handoff_to, create_task, edit_task (old body) and log_task deleted
+		// with the task action list — projected instead — leaving 14
+		expect(names).toHaveLength(14);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}

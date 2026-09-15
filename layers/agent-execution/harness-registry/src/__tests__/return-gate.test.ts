@@ -61,11 +61,18 @@ describe("ReturnGate — AC3: detection (not_returned when no return seen)", () 
 		expect(evaluateReturn(gate, "completed")).toBe("returned");
 	});
 
-	it("verdicts 'returned' when handoff_to is observed", () => {
+	it("verdicts 'returned' when edit_task is observed setting ownerAgentId (a handoff)", () => {
 		const gate = createReturnGate();
-		gate.observe(toolCallEvent("handoff_to", { role: "reviewer" }));
+		gate.observe(toolCallEvent("edit_task", { ownerAgentId: "agent-7" }));
 
 		expect(evaluateReturn(gate, "completed")).toBe("returned");
+	});
+
+	it("verdicts 'not_returned' when edit_task is observed WITHOUT ownerAgentId (an ordinary edit)", () => {
+		const gate = createReturnGate();
+		gate.observe(toolCallEvent("edit_task", { title: "Renamed" }));
+
+		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
 	});
 
 	it("verdicts 'returned' when send_message is observed", () => {
@@ -199,7 +206,7 @@ describe("shared forcing constants", () => {
 		expect(typeof FORCE_RETURN_MESSAGE).toBe("string");
 		expect(FORCE_RETURN_MESSAGE.length).toBeGreaterThan(0);
 		expect(FORCE_RETURN_MESSAGE).toContain("submit_review");
-		expect(FORCE_RETURN_MESSAGE).toContain("handoff_to");
+		expect(FORCE_RETURN_MESSAGE).toContain("edit_task");
 		expect(FORCE_RETURN_MESSAGE).toContain("send_message");
 	});
 
