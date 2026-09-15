@@ -99,9 +99,10 @@ describe("BB1 AC10 — basic page render", () => {
 
 	beforeEach(() => {
 		// Default: always return a valid open_task response so refreshes after edit don't throw
-		fetchMock = vi
-			.fn()
-			.mockResolvedValue({ ok: true, json: async () => openTaskBody(makeTask("task-default", "Default task")) });
+		fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => openTaskBody(makeTask("task-default", "Default task")),
+		});
 		vi.stubGlobal("fetch", fetchMock);
 	});
 
@@ -142,7 +143,10 @@ describe("BB1 AC10 — basic page render", () => {
 	it("renders error state on fetch failure", async () => {
 		fetchMock.mockResolvedValue({
 			ok: true,
-			json: async () => ({ ok: false, problems: [{ code: "not_found", message: "Task not found" }] }),
+			json: async () => ({
+				ok: false,
+				problems: [{ code: "not_found", message: "Task not found" }],
+			}),
 		});
 		renderPage("task-error");
 		await waitFor(() => {
@@ -157,9 +161,10 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		fetchMock = vi
-			.fn()
-			.mockResolvedValue({ ok: true, json: async () => openTaskBody(makeTask("task-default", "Default task")) });
+		fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => openTaskBody(makeTask("task-default", "Default task")),
+		});
 		vi.stubGlobal("fetch", fetchMock);
 	});
 
@@ -295,9 +300,10 @@ describe("BB1 AC10 — edit submit issues edit_task", () => {
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		fetchMock = vi
-			.fn()
-			.mockResolvedValue({ ok: true, json: async () => openTaskBody(makeTask("task-default", "Default task")) });
+		fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => openTaskBody(makeTask("task-default", "Default task")),
+		});
 		vi.stubGlobal("fetch", fetchMock);
 	});
 
@@ -325,7 +331,9 @@ describe("BB1 AC10 — edit submit issues edit_task", () => {
 
 	it("picks an owner through the combobox and edits ownerAgentId", async () => {
 		const task = makeTask("task-1", "My task");
-		mockTreeAndPatch(fetchMock, task, { ok: true }, [{ id: "agent-7", name: "Scout", role: "scout" }]);
+		mockTreeAndPatch(fetchMock, task, { ok: true }, [
+			{ id: "agent-7", name: "Scout", role: "scout" },
+		]);
 
 		renderPage("task-1");
 
@@ -488,9 +496,10 @@ describe("BB1 AC10 — Add subtask affordance", () => {
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		fetchMock = vi
-			.fn()
-			.mockResolvedValue({ ok: true, json: async () => openTaskBody(makeTask("task-default", "Default task")) });
+		fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => openTaskBody(makeTask("task-default", "Default task")),
+		});
 		vi.stubGlobal("fetch", fetchMock);
 	});
 

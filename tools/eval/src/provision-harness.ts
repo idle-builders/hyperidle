@@ -54,9 +54,9 @@ import {
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
-import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/task";
 import { bakeTaskContextBundle } from "@hyperidle/task";
+import { requireRunnableAgent } from "@hyperidle/users";
 import type { TriggerResult } from "./types.js";
 
 // ---------------------------------------------------------------------------

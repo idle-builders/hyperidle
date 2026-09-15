@@ -5,7 +5,7 @@
  * client and an agent's MCP tool both use.
  */
 
-import { type ActionResult, TASK_ACTIONS } from "@hyperidle/domain-model";
+import type { ActionResult, TASK_ACTIONS } from "@hyperidle/domain-model";
 import type { z } from "zod";
 import { apiFetch } from "./api-fetch.js";
 

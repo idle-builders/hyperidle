@@ -16,7 +16,10 @@
  * provides an execute/dispatch/kernel-capability surface.
  */
 
-import { THROWING_OPEN_TASK, THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import {
+	THROWING_OPEN_TASK,
+	THROWING_REVIEW_ACCESSOR,
+} from "@hyperidle/agent-orchestration/testing";
 import { describe, expect, it } from "vitest";
 
 describe("AC12: no kernel-executor surface in the trust-first model", () => {

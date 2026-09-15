@@ -32,8 +32,8 @@ import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/n
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { findUser } from "@hyperidle/users";
 import * as taskDb from "@hyperidle/task";
+import { findUser } from "@hyperidle/users";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
@@ -184,7 +184,8 @@ function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
 			getTaskById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "task", id),
 			listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
 				taskDb.list(exec, "task", { parentTaskId }),
-			listAncestorIds: (exec: WriteExecutor, taskId: string) => taskDb.listAncestorIds(exec, taskId),
+			listAncestorIds: (exec: WriteExecutor, taskId: string) =>
+				taskDb.listAncestorIds(exec, taskId),
 		},
 		conversation: {
 			insertMessage,

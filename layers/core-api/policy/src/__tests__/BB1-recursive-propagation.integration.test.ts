@@ -133,7 +133,9 @@ function makeEditTask(): PolicyEditTask {
 		if (toState !== fromState && !canTransitionTaskState(fromState, toState)) {
 			return {
 				ok: false,
-				problems: [{ code: "invalid_transition", message: `Cannot move from ${fromState} to ${toState}` }],
+				problems: [
+					{ code: "invalid_transition", message: `Cannot move from ${fromState} to ${toState}` },
+				],
 			};
 		}
 		if (toState !== fromState) {

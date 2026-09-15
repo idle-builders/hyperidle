@@ -10,8 +10,8 @@ import { get as getKnowledgeItem, listItemIdsByParent } from "@hyperidle/knowled
 import { getTeam } from "@hyperidle/org";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { findUser } from "@hyperidle/users";
-import type { Action } from "./action.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
+import type { Action } from "./action.js";
 
 function buildTaskActionsDeps(agentOrchestration: AgentOrchestrationPort): TaskActionsDeps {
 	return {

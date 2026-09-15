@@ -6,8 +6,8 @@
 
 import {
 	agentWorkIntents,
-	type HyperIdleDb,
 	changes,
+	type HyperIdleDb,
 	sessions,
 	taskDispatchAttempts,
 	tasks,

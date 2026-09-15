@@ -49,8 +49,8 @@ import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/task";
+import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 

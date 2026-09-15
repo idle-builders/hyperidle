@@ -1225,7 +1225,8 @@ export const ATTACKS: readonly Attack[] = [
 	// --- actions-projected --------------------------------------------------------------------
 	{
 		id: "actions-projected-unclassified-route",
-		detail: "a route registration that is neither plumbing nor a LEGACY_ROUTES entry — how a deleted door comes back",
+		detail:
+			"a route registration that is neither plumbing nor a LEGACY_ROUTES entry — how a deleted door comes back",
 		rules: ["actions-projected"],
 		overlay: {
 			"layers/core-api/src/routes/attack-task-overlay.ts":
@@ -1240,7 +1241,8 @@ export const ATTACKS: readonly Attack[] = [
 	},
 	{
 		id: "actions-projected-legacy-route-control",
-		detail: "mutating an already-legacy door's handler body, without adding a registration, is clean",
+		detail:
+			"mutating an already-legacy door's handler body, without adding a registration, is clean",
 		rules: ["actions-projected"],
 		isolate: true,
 		mutate: {

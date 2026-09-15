@@ -414,7 +414,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				const { items } = (await res.json()) as { readonly items: ReadonlyArray<{ id: string }> };
 				return items[0] ? { id: items[0].id } : undefined;
 			},
-
 		},
 		users: {
 			async getUserById(id: string): Promise<UserView | undefined> {

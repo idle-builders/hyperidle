@@ -21,7 +21,10 @@ export function actionsAsTools(actions: readonly Action[]): readonly RegisteredT
 			);
 			return result.ok
 				? ok(result.data)
-				: err(result.problems[0]?.code ?? "problem", result.problems.map((p) => p.message).join("; "));
+				: err(
+						result.problems[0]?.code ?? "problem",
+						result.problems.map((p) => p.message).join("; "),
+					);
 		},
 	}));
 }

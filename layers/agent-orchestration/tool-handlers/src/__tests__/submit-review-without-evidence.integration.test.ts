@@ -45,7 +45,9 @@ const ports: ToolHandlersPorts = {
 		...STUB_TOOL_HANDLERS_PORTS.coreApi,
 		openTask: async (id: string) => {
 			const [row] = await sharedDb.select().from(tasks).where(eq(tasks.id, id));
-			return row ? { task: { parentTaskId: row.parentTaskId ?? null, teamId: row.teamId } } : undefined;
+			return row
+				? { task: { parentTaskId: row.parentTaskId ?? null, teamId: row.teamId } }
+				: undefined;
 		},
 		resolveReviewRecipientsForItem: async () => [HUMAN_ID],
 		getFirstThreadByHost: async (hostKind: string, hostId: string) => {

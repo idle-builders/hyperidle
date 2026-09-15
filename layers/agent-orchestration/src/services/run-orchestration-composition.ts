@@ -394,10 +394,7 @@ function buildOpenTaskBinding(
 	const openTaskTool = actionTools.find((t) => t.name === "open_task");
 	return async (id, actorId) => {
 		if (!openTaskTool) return undefined;
-		const result = await openTaskTool.handler(
-			{ id },
-			{ ...toolCtx, agentId: actorId },
-		);
+		const result = await openTaskTool.handler({ id }, { ...toolCtx, agentId: actorId });
 		if (!result.success) return undefined;
 		return result.data as { task: { parentTaskId: string | null; teamId: string } };
 	};

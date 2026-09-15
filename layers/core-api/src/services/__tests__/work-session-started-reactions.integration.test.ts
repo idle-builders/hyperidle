@@ -53,8 +53,8 @@ import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { buildCoreActions } from "../../actions/compose.js";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../work-session-started-reactions.js";
 
 /** §6 row 1: the reaction takes `edit_task`'s bound `run` now, not `agentOrchestration` directly. */

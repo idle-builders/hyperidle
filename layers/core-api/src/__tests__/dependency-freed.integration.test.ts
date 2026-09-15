@@ -21,8 +21,8 @@ import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { buildCoreActions } from "../actions/compose.js";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
 
 const TEST_API_KEY = "test-key-dependency-freed";
@@ -35,7 +35,10 @@ function authHeaders(): Record<string, string> {
 async function editTaskRequest(
 	app: Hono,
 	body: Record<string, unknown>,
-): Promise<{ readonly status: number; readonly json: { readonly data?: { readonly task: { readonly id: string } } } }> {
+): Promise<{
+	readonly status: number;
+	readonly json: { readonly data?: { readonly task: { readonly id: string } } };
+}> {
 	const res = await app.request("/api/actions/edit_task", {
 		method: "POST",
 		headers: authHeaders(),

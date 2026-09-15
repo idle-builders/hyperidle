@@ -27,8 +27,8 @@
 
 import {
 	type EditTaskInput,
-	type Task,
 	TASK_STATE_LABEL,
+	type Task,
 	type TaskNode,
 	type TaskState,
 	type TaskView,
@@ -338,6 +338,7 @@ function useOpenTask(taskId: string | undefined): UseOpenTaskResult {
 		error: null,
 	});
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: refreshCounter triggers re-fetches on demand via refresh()
 	useEffect(() => {
 		if (!taskId) {
 			setState({ data: null, loading: false, error: null });
@@ -481,7 +482,14 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 				},
 				task,
 			),
-		[task, fields.title, fields.description, fields.doneCondition, fields.ownerAgentId, fields.state],
+		[
+			task,
+			fields.title,
+			fields.description,
+			fields.doneCondition,
+			fields.ownerAgentId,
+			fields.state,
+		],
 	);
 
 	const handleSubmit = useCallback((): void => {

@@ -16,7 +16,10 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_OPEN_TASK, THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import {
+	THROWING_OPEN_TASK,
+	THROWING_REVIEW_ACCESSOR,
+} from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -43,14 +46,18 @@ import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-r
  * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
 function buildPromoteKnowledgeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR, THROWING_OPEN_TASK).find(
-		(t) => t.name === "promote_knowledge",
-	)!;
+	return buildToolDefinitions(
+		createInProcessCoreApiTransport(app),
+		THROWING_REVIEW_ACCESSOR,
+		THROWING_OPEN_TASK,
+	).find((t) => t.name === "promote_knowledge")!;
 }
 function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR, THROWING_OPEN_TASK).find(
-		(t) => t.name === "write_memory",
-	)!;
+	return buildToolDefinitions(
+		createInProcessCoreApiTransport(app),
+		THROWING_REVIEW_ACCESSOR,
+		THROWING_OPEN_TASK,
+	).find((t) => t.name === "write_memory")!;
 }
 
 // ── Fixtures ────────────────────────────────────────────────────────────────

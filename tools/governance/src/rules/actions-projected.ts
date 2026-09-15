@@ -286,7 +286,7 @@ function scanRouteRegistrations(
 		for (const match of source.matchAll(ROUTE_CALL)) {
 			const verb = match[1]?.toUpperCase();
 			const route = match[2];
-			if (!verb || !route) continue;
+			if (!(verb && route)) continue;
 			found.set(`${path}|${verb} ${route}`, path);
 		}
 	}
@@ -367,7 +367,10 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 
 			// -- clause 1: every action name is reachable from the UI ------------
 			const uiFiles = census.files.filter(
-				(f) => f.kind === "production" && f.path.startsWith("layers/core-ui/src/") && /\.tsx?$/.test(f.path),
+				(f) =>
+					f.kind === "production" &&
+					f.path.startsWith("layers/core-ui/src/") &&
+					/\.tsx?$/.test(f.path),
 			);
 			for (const name of TASK_ACTION_NAMES) {
 				const matcher = buildCallSiteMatcher(name);

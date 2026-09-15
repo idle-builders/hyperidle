@@ -23,11 +23,11 @@ import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
-import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/task";
+import { findUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
-import { buildCoreActions } from "../actions/compose.js";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 
 /**
  * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes injected
@@ -44,37 +44,41 @@ function buildPolicyDeps(agentOrchestration: Parameters<typeof buildCoreActions>
 	);
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return {
-	work: {
-		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
-			work.list(exec, "task", { parentTaskId }),
-		listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById: (exec: WriteExecutor, id: string, patch) =>
-			work.update(exec, "item", id, patch),
-		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
-			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
-	},
-	conversation: {
-		insertMessage,
-		insertThread,
-		listMessagesByThread: (db, threadId, opts) =>
-			listMessages(db, {
-				threadId,
-				types: opts?.type ? [opts.type] : undefined,
-				order: opts?.order,
-				dir: opts?.dir,
-				limit: opts?.limit,
-			}),
-		resolveMessageIfUnresolved,
-		updateThread,
-		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
-			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
-		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
-			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
-	},
-	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	editTask: editTaskAction.run as PolicyDeps["editTask"],
+		work: {
+			getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+			listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
+				work.list(exec, "task", { parentTaskId }),
+			listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
+			getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+			updateItemById: (exec: WriteExecutor, id: string, patch) =>
+				work.update(exec, "item", id, patch),
+			listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
+				work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
+		},
+		conversation: {
+			insertMessage,
+			insertThread,
+			listMessagesByThread: (db, threadId, opts) =>
+				listMessages(db, {
+					threadId,
+					types: opts?.type ? [opts.type] : undefined,
+					order: opts?.order,
+					dir: opts?.dir,
+					limit: opts?.limit,
+				}),
+			resolveMessageIfUnresolved,
+			updateThread,
+			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+				listMessages(db, {
+					threadInitiatorId: initiatorId,
+					types: ["verdict"],
+					since: windowStart,
+				}),
+			listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+				listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+		},
+		users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
+		editTask: editTaskAction.run as PolicyDeps["editTask"],
 	};
 }
 

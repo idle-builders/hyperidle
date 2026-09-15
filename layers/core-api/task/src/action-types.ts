@@ -1,5 +1,5 @@
-import type { ActionDeclaration, ActionResult } from "@hyperidle/domain-model";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { ActionDeclaration, ActionResult } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
 /**

@@ -11,15 +11,17 @@ export type {
 	TaskView,
 } from "./actions/task.js";
 export {
-	editTask,
+	canTransitionTaskState,
 	EditTaskInputSchema,
+	editTask,
 	openTask,
-	searchTasks,
 	SearchTasksInputSchema,
+	searchTasks,
 	TASK_ACTIONS,
+	TASK_STATE_TRANSITIONS,
 	TaskSchema,
-	taskInvariants,
 	TaskViewSchema,
+	taskInvariants,
 } from "./actions/task.js";
 export type {
 	AgentBehaviorConfigKind,
@@ -183,7 +185,6 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-export { canTransitionTaskState, TASK_STATE_TRANSITIONS } from "./actions/task.js";
 export type {
 	AgentHealthLevel,
 	AgentOperationalStatus,

@@ -37,12 +37,7 @@
  * the RIGHT action, though — see `shouldForceReturn`'s `required` param and
  * `harness-registry`'s `createGate(requiredReturnActions?)`.
  */
-export const RETURN_ACTION_NAMES = [
-	"submit_review",
-	"edit_task",
-	"send_message",
-	"reply",
-] as const;
+export const RETURN_ACTION_NAMES = ["submit_review", "edit_task", "send_message", "reply"] as const;
 
 /** Finite union of all valid return-action tool names. */
 export type ReturnActionName = (typeof RETURN_ACTION_NAMES)[number];
@@ -95,7 +90,8 @@ function stripMcpNamespace(toolName: string): string {
 export function isReturnAction(toolName: string, args?: Record<string, unknown>): boolean {
 	const bare = stripMcpNamespace(toolName);
 	if (!RETURN_ACTION_SET.has(bare)) return false;
-	if (bare === "edit_task") return typeof args?.ownerAgentId === "string" && args.ownerAgentId !== "";
+	if (bare === "edit_task")
+		return typeof args?.ownerAgentId === "string" && args.ownerAgentId !== "";
 	return true;
 }
 

@@ -97,7 +97,10 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 			expect(status).toBe(200);
 			expect(json.ok).toBe(true);
 			const created = json.data?.task;
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, created?.id ?? ""));
+			const [row] = await db
+				.select()
+				.from(tasks)
+				.where(eq(tasks.id, created?.id ?? ""));
 			expect(row?.dependencies).toBe(JSON.stringify(["dep-dep-1"]));
 			expect(row?.state).toBe("hold");
 		});
@@ -134,7 +137,10 @@ describe("task dependencies — the edit_task door, the guard, cycle rejection",
 	// AC2: the enforcing half — direct against edit_task
 	// ---------------------------------------------------------------------
 	describe("AC2: edit_task refuses accepted while a dependency is unfinished", () => {
-		test("hold -> accepted is refused while a named dependency is not done", async ({ db, app }) => {
+		test("hold -> accepted is refused while a named dependency is not done", async ({
+			db,
+			app,
+		}) => {
 			await seedTeam(db, "dep-t3");
 			await insertTask(db, "dep-guard-dep", "dep-t3", "in_progress");
 			await insertTask(db, "dep-guard-dependent", "dep-t3", "hold", ["dep-guard-dep"]);

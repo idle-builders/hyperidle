@@ -2,25 +2,25 @@ import { randomUUID } from "node:crypto";
 import type { HyperIdleDb, NewChange, NewTask, Team, User, WriteExecutor } from "@hyperidle/db";
 import {
 	type AgentWorkIntentRecorderInput,
+	type Task as DomainTask,
+	type EditTaskInput,
 	editTask as editTaskDeclaration,
 	openTask as openTaskDeclaration,
-	type EditTaskInput,
 	type Problem,
-	searchTasks as searchTasksDeclaration,
 	type SearchTasksInput,
-	type Task as DomainTask,
-	taskInvariants,
+	searchTasks as searchTasksDeclaration,
 	type TaskListItem,
 	type TaskNode,
 	type TaskView,
+	taskInvariants,
 } from "@hyperidle/domain-model";
 import type { Action, ActionContext } from "./action-types.js";
 import { handleDependencyKilled } from "./dependency-watcher.js";
 import type { BakedTaskRunRequest, TaskRunResolverDeps } from "./task-run-resolver.js";
 import { resolveTaskRunRequest } from "./task-run-resolver.js";
+import type { Task } from "./task-service.js";
 import * as taskDb from "./task-service.js";
 import { taskDispatchAttemptStore } from "./task-service.js";
-import type { Task } from "./task-service.js";
 
 /**
  * the task module's outward-facing deps: every one is a sibling
@@ -215,7 +215,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 	): Promise<{ ok: true; data: TaskView } | { ok: false; problems: readonly Problem[] }> {
 		const task = await taskDb.get(ctx.db, "task", input.id);
 		if (!task) {
-			return { ok: false, problems: [{ code: "not_found", message: `Task ${input.id} not found` }] };
+			return {
+				ok: false,
+				problems: [{ code: "not_found", message: `Task ${input.id} not found` }],
+			};
 		}
 
 		const ancestorIds = await taskDb.listAncestorIds(ctx.db, input.id);
@@ -388,7 +391,11 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			(await hasUnfinishedDependency(ctx.db, input.dependencies))
 		) {
 			resolvedState = "hold";
-		} else if (!prev && dependencyIds.length > 0 && (await hasUnfinishedDependency(ctx.db, dependencyIds))) {
+		} else if (
+			!prev &&
+			dependencyIds.length > 0 &&
+			(await hasUnfinishedDependency(ctx.db, dependencyIds))
+		) {
 			resolvedState = "hold";
 		}
 
@@ -401,7 +408,11 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// -- 3. server invariants (need the database) ------------------------------
 		if (input.parentTaskId !== undefined && input.parentTaskId !== null && prev) {
 			if (input.parentTaskId === prev.id) {
-				problems.push({ code: "cycle", message: "A task cannot be its own parent.", path: "parentTaskId" });
+				problems.push({
+					code: "cycle",
+					message: "A task cannot be its own parent.",
+					path: "parentTaskId",
+				});
 			} else {
 				const subtree = await taskDb.listSubtreeIds(ctx.db, prev.id);
 				if (subtree.includes(input.parentTaskId)) {
@@ -416,7 +427,11 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		if (input.dependencies) {
 			for (const depId of input.dependencies) {
 				if (prev && depId === prev.id) {
-					problems.push({ code: "cycle", message: "A task cannot depend on itself.", path: "dependencies" });
+					problems.push({
+						code: "cycle",
+						message: "A task cannot depend on itself.",
+						path: "dependencies",
+					});
 					continue;
 				}
 				const dep = await taskDb.get(ctx.db, "task", depId);
@@ -445,7 +460,11 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			}
 		}
 		const wasPickup = prev !== null && isPickup(resolvedState, prev.state);
-		if (wasPickup && dependencyIds.length > 0 && (await hasUnfinishedDependency(ctx.db, dependencyIds))) {
+		if (
+			wasPickup &&
+			dependencyIds.length > 0 &&
+			(await hasUnfinishedDependency(ctx.db, dependencyIds))
+		) {
 			problems.push({
 				code: "dependency_blocked",
 				message: "This task is waiting on a dependency that has not finished.",
@@ -479,7 +498,11 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		) {
 			const owner = await deps.users.getUserById(ctx.db, input.ownerAgentId);
 			if (!owner) {
-				problems.push({ code: "owner_not_found", message: "Owner does not exist.", path: "ownerAgentId" });
+				problems.push({
+					code: "owner_not_found",
+					message: "Owner does not exist.",
+					path: "ownerAgentId",
+				});
 			}
 		}
 
@@ -544,14 +567,19 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					state: resolvedState,
 					dependencies: next.dependencies,
 					position:
-						next.position || (await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,
+						next.position ||
+						(await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,
 					needsReview: next.needsReview,
 					sourceKnowledgeItemId: next.sourceKnowledgeItemId,
 					createdAt: now,
 					updatedAt: now,
 				};
 				await taskDb.create(tx, "task", values);
-				const { before, after } = diffFields(taskId, null, values as unknown as Record<string, unknown>);
+				const { before, after } = diffFields(
+					taskId,
+					null,
+					values as unknown as Record<string, unknown>,
+				);
 				await deps.changes.appendChange(tx, {
 					id: randomUUID(),
 					object: "task",
@@ -566,7 +594,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				const { before, after } = diffFields(taskId, prev, patch);
 				await taskDb.update(tx, "task", taskId, patch as never);
 				if (input.appendNote) {
-					await taskDb.update(tx, "task", taskId, { notes: { appendNote: `[${now} ${ctx.actor}] ${input.appendNote}` } });
+					await taskDb.update(tx, "task", taskId, {
+						notes: { appendNote: `[${now} ${ctx.actor}] ${input.appendNote}` },
+					});
 					after.appendNote = `[${now} ${ctx.actor}] ${input.appendNote}`;
 				}
 				await deps.changes.appendChange(tx, {
@@ -604,7 +634,12 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					{ kind: "task_run", attemptId: inserted.id },
 					deps.taskRunResolver,
 				);
-				dispatch = { attemptId: inserted.id, ownerAgentId: next.ownerAgentId, occasion, bakedRequest };
+				dispatch = {
+					attemptId: inserted.id,
+					ownerAgentId: next.ownerAgentId,
+					occasion,
+					bakedRequest,
+				};
 			} else if (
 				input.ownerAgentId !== undefined &&
 				input.ownerAgentId !== null &&

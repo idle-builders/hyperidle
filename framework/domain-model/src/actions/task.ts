@@ -247,7 +247,11 @@ export function taskInvariants(next: Task, prev: Task | null): Problem[] {
 			path: "teamId",
 		});
 	}
-	if (prev !== null && next.state !== prev.state && !canTransitionTaskState(prev.state, next.state)) {
+	if (
+		prev !== null &&
+		next.state !== prev.state &&
+		!canTransitionTaskState(prev.state, next.state)
+	) {
 		problems.push({
 			code: "invalid_transition",
 			message: `A task cannot move from "${prev.state}" to "${next.state}".`,

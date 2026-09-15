@@ -45,8 +45,8 @@ import {
 } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
-import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/task";
+import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";

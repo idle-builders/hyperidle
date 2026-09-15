@@ -16,12 +16,12 @@ import {
 import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
-import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/task";
+import { findUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
-import { buildCoreActions } from "../actions/compose.js";
 import { test } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 
 /**
  * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes
@@ -65,7 +65,11 @@ function buildLifecyclePropagationDeps(
 			resolveMessageIfUnresolved,
 			updateThread,
 			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
-				listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
+				listMessages(db, {
+					threadInitiatorId: initiatorId,
+					types: ["verdict"],
+					since: windowStart,
+				}),
 			listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
 				listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 		},

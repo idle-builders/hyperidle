@@ -42,7 +42,9 @@ const ports: ToolHandlersPorts = {
 		...STUB_TOOL_HANDLERS_PORTS.coreApi,
 		openTask: async (id: string) => {
 			const [row] = await sharedDb.select().from(tasks).where(eq(tasks.id, id));
-			return row ? { task: { parentTaskId: row.parentTaskId ?? null, teamId: row.teamId } } : undefined;
+			return row
+				? { task: { parentTaskId: row.parentTaskId ?? null, teamId: row.teamId } }
+				: undefined;
 		},
 		// Backed by the real `users` table so the test genuinely exercises
 		// team-scoped resolution — humans on the team, falling back to all

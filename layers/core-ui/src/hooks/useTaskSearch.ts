@@ -69,6 +69,7 @@ export function useTaskSearch(query: string, excludeIds: readonly string[]): Use
 		return () => clearTimeout(timer);
 	}, [trimmed]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: retryToken triggers a re-run on demand (the retry-after-error path above) without being read inside the effect.
 	useEffect(() => {
 		if (debounced === "") {
 			setResults([]);
@@ -79,7 +80,11 @@ export function useTaskSearch(query: string, excludeIds: readonly string[]): Use
 		setIsLoading(true);
 		setError(null);
 		(async (): Promise<void> => {
-			const result = await call("search_tasks", { text: debounced, excludeIds, excludeKilled: true });
+			const result = await call("search_tasks", {
+				text: debounced,
+				excludeIds,
+				excludeKilled: true,
+			});
 			if (cancelled) return;
 			setIsLoading(false);
 			if (result.ok) {

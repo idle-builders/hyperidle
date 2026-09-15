@@ -13,8 +13,8 @@ import {
 } from "@hyperidle/db";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq, sql } from "drizzle-orm";
-import { buildCoreActions } from "../actions/compose.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
 const authHeaders = {

@@ -2,9 +2,9 @@ import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { ActionResult, EditTaskInput, TaskState, TaskView } from "@hyperidle/domain-model";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
 import { buildCoreActions } from "../actions/compose.js";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 // §6 row 2: `checkAndUnblockDependents` writes through `edit_task` now —
 // see dependency-watcher.integration.test.ts for the same helper shape.
@@ -100,7 +100,11 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		}
 
 		const start = performance.now();
-		await checkAndUnblockDependents(makeCtx(db, eventBus), "target", makeEditTask(agentOrchestration));
+		await checkAndUnblockDependents(
+			makeCtx(db, eventBus),
+			"target",
+			makeEditTask(agentOrchestration),
+		);
 		const elapsedMs = performance.now() - start;
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
@@ -168,7 +172,11 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		await insertTask(db, "dep-12", "in_progress");
 		await insertTask(db, "dependent", "hold", ["dep-12"]);
 
-		await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
+		await checkAndUnblockDependents(
+			makeCtx(db, eventBus),
+			"dep-1",
+			makeEditTask(agentOrchestration),
+		);
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		// Must remain in hold — dep-12 is NOT done.
@@ -185,7 +193,11 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		await insertTask(db, "dep-100", "in_progress");
 		await insertTask(db, "sibling", "hold", ["dep-100"]);
 
-		await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
+		await checkAndUnblockDependents(
+			makeCtx(db, eventBus),
+			"dep-1",
+			makeEditTask(agentOrchestration),
+		);
 
 		const [sibling] = await db.select().from(tasks).where(eq(tasks.id, "sibling"));
 		expect(sibling?.state).toBe("hold");

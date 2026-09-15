@@ -5,7 +5,10 @@ import {
 	createInProcessCoreApiTransport,
 	unconfiguredCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_OPEN_TASK, THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import {
+	THROWING_OPEN_TASK,
+	THROWING_REVIEW_ACCESSOR,
+} from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -81,7 +84,11 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		// introspection only) — the unconfigured transport (throws only if
 		// actually dialled) is honest here.
 		const registry = buildToolRegistry(
-			buildToolDefinitions(unconfiguredCoreApiTransport(), THROWING_REVIEW_ACCESSOR, THROWING_OPEN_TASK),
+			buildToolDefinitions(
+				unconfiguredCoreApiTransport(),
+				THROWING_REVIEW_ACCESSOR,
+				THROWING_OPEN_TASK,
+			),
 			{
 				db: null as unknown as HyperIdleDb,
 				eventBus: new EventBus(),

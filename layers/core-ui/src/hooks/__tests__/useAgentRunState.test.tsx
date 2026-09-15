@@ -63,8 +63,7 @@ function stubFetch(runs: RunRow[], tasks: TaskRow[]): { taskCalls: string[]; run
 		const wanted = new Set(body.ids ?? []);
 		return Promise.resolve({
 			ok: true,
-			json: () =>
-				Promise.resolve({ ok: true, data: tasks.filter((t) => wanted.has(t.id)) }),
+			json: () => Promise.resolve({ ok: true, data: tasks.filter((t) => wanted.has(t.id)) }),
 		});
 	});
 	vi.stubGlobal("fetch", fetchMock);
@@ -154,16 +153,14 @@ describe("useAgentRunState", () => {
 	it("reports status 'error' when the run read fails — it never claims healthy (W6)", async () => {
 		vi.stubGlobal(
 			"fetch",
-			vi
-				.fn()
-				.mockImplementation((url: string) =>
-					url.includes("/agent-orchestration/")
-						? Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) })
-						: Promise.resolve({
-								ok: true,
-								json: () => Promise.resolve({ ok: true, data: [] }),
-							}),
-				),
+			vi.fn().mockImplementation((url: string) =>
+				url.includes("/agent-orchestration/")
+					? Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) })
+					: Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ ok: true, data: [] }),
+						}),
+			),
 		);
 
 		const { result } = renderHook(() => useAgentRunState("a1", true));

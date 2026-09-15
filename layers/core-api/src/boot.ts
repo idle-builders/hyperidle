@@ -168,7 +168,9 @@ export interface CoreApiBoot {
 	 * "one composed list, built once", never a second construction site.
 	 * Present whenever `db` is provided.
 	 */
-	readonly actionTools: ReadonlyArray<import("@hyperidle/harness-protocol").RegisteredTool<HyperIdleDb>>;
+	readonly actionTools: ReadonlyArray<
+		import("@hyperidle/harness-protocol").RegisteredTool<HyperIdleDb>
+	>;
 }
 
 /**

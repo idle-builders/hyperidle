@@ -1,8 +1,8 @@
 import { EVENT_TYPES } from "@hyperidle/event-bus";
 import { describe } from "vitest";
-import { buildCoreActions } from "../actions/compose.js";
 import { expect, test, vi } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
+import { buildCoreActions } from "../actions/compose.js";
 import type { AppOptions } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
 

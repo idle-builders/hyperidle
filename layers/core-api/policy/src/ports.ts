@@ -1,4 +1,13 @@
-import type { HyperIdleDb, Item, Message, NewItem, NewThread, Task, User, WriteExecutor } from "@hyperidle/db";
+import type {
+	HyperIdleDb,
+	Item,
+	Message,
+	NewItem,
+	NewThread,
+	Task,
+	User,
+	WriteExecutor,
+} from "@hyperidle/db";
 import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -11,7 +20,12 @@ import type { EventBus } from "@hyperidle/event-bus";
  * (the architecture doc §6 rows 4/5).
  */
 export type PolicyEditTask = (
-	ctx: { readonly actor: string; readonly db: HyperIdleDb; readonly eventBus: EventBus; readonly now: string },
+	ctx: {
+		readonly actor: string;
+		readonly db: HyperIdleDb;
+		readonly eventBus: EventBus;
+		readonly now: string;
+	},
 	input: EditTaskInput,
 ) => Promise<ActionResult<TaskView>>;
 

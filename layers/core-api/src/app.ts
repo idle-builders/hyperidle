@@ -10,13 +10,13 @@ import {
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
+import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import * as taskDb from "@hyperidle/task";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
 import { Hono } from "hono";
-import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type { Action, ActionContext } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
