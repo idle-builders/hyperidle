@@ -4,7 +4,7 @@
  * These tests verify:
  * - The KernelEvent subset (locally typed) covers 16 members exhaustively
  * - DomainEvent is a flat union (KernelEvent/StrategyEvent split removed in BA9d)
- * - New knowledge events: KnowledgeCreatedEvent, KnowledgeArchivedEvent, KnowledgeAccessedEvent
+ * - New knowledge events: KnowledgeCreatedEvent, KnowledgeArchivedEvent
  * - SessionEndedEvent has NO costDelta field
  * - BetShippedEvent, BetCommittedEvent, ResponseRecordedEvent are NOT exported
  * - KnowledgeUpdatedEvent.action accepts string values
@@ -50,18 +50,6 @@ describe("O1 event split", () => {
 			expect(_domainEvent.type).toBe("knowledge_archived");
 		});
 
-		it("knowledge_accessed is a valid DomainEvent discriminant with accessorKind", () => {
-			const event = {
-				type: "knowledge_accessed" as const,
-				streamId: "stream-1",
-				itemId: "ki-1",
-				accessorKind: "human" as const,
-				accessorId: "u-1",
-				timestamp: Date.now(),
-			};
-			const _domainEvent: DomainEvent = event as DomainEvent;
-			expect(_domainEvent.type).toBe("knowledge_accessed");
-		});
 	});
 
 	describe("SessionEndedEvent has no costDelta field", () => {
@@ -123,13 +111,10 @@ describe("O1 event split", () => {
 				"thread_message_appended",
 				"thread_resolved",
 				"thread_reopened",
-				"thread_archived",
 				"item_created",
-				"dependency_met",
 				"knowledge_created",
 				"knowledge_updated",
 				"knowledge_archived",
-				"knowledge_accessed",
 				// @lore AU21 Increment 14a: "cost_cap_warning"/"cost_cap_breached"
 				// removed from this expected-types set — both events are
 				// HARD-DELETED along with the rest of the cost feature, no
@@ -137,7 +122,6 @@ describe("O1 event split", () => {
 				"notification",
 				"propagation_applied",
 				"propagation_failed",
-				"routine_fired",
 				"tool_call_recorded",
 			]);
 			expect(expectedTypes.has("bet_shipped")).toBe(false);
@@ -159,7 +143,8 @@ describe("O1 event split", () => {
 			// here, `bun run check` fails with "Not all code paths return a value."
 			// Add the case and update the count in the comment above.
 			// @lore BB1: "bet_state_changed" and "bet_revised" removed from KernelEvent.
-			// Count drops from 16 to 14.
+			// @lore BC1: thread_archived, dependency_met, knowledge_accessed removed — deleted events.
+			// Count drops from 16 to 11.
 			type KernelEvent = Extract<
 				DomainEvent,
 				{
@@ -171,13 +156,10 @@ describe("O1 event split", () => {
 						| "thread_message_appended"
 						| "thread_resolved"
 						| "thread_reopened"
-						| "thread_archived"
 						| "item_created"
-						| "dependency_met"
 						| "knowledge_created"
 						| "knowledge_updated"
-						| "knowledge_archived"
-						| "knowledge_accessed";
+						| "knowledge_archived";
 				}
 			>;
 
@@ -197,19 +179,13 @@ describe("O1 event split", () => {
 						return event.type;
 					case "thread_reopened":
 						return event.type;
-					case "thread_archived":
-						return event.type;
 					case "item_created":
-						return event.type;
-					case "dependency_met":
 						return event.type;
 					case "knowledge_created":
 						return event.type;
 					case "knowledge_updated":
 						return event.type;
 					case "knowledge_archived":
-						return event.type;
-					case "knowledge_accessed":
 						return event.type;
 				}
 			}

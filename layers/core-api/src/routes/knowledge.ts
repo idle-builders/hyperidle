@@ -37,7 +37,6 @@ import {
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type {
 	EventBus,
-	KnowledgeAccessedEvent,
 	KnowledgeArchivedEvent,
 	KnowledgeCreatedEvent,
 	KnowledgeUpdatedEvent,
@@ -417,17 +416,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				childrenOf: { parentId: row.id, viewerUserId: userId, viewerTeamId },
 			}),
 		]);
-
-		// O2: emit knowledge_accessed event
-		const accessedEvent: KnowledgeAccessedEvent = {
-			type: "knowledge_accessed",
-			streamId: `knowledge:${row.id}`,
-			itemId: row.id,
-			accessorKind: "human",
-			accessorId: "browser",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(accessedEvent);
 
 		// AV3: resolve scopeName — response-only derived field, never persisted.
 		const scopeName = await resolveScopeName(db, row.scopeKind, row.scopeId);

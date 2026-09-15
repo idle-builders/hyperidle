@@ -299,30 +299,6 @@ export interface KnowledgeArchivedEvent {
 	timestamp: number;
 }
 
-export interface KnowledgeAccessedEvent {
-	type: "knowledge_accessed";
-	streamId: string;
-	itemId: string;
-	accessorKind: "human" | "agent";
-	accessorId: string;
-	timestamp: number;
-}
-
-export interface RoutineFiredEvent {
-	type: "routine_fired";
-	streamId: string;
-	routineId: string;
-	agentId: string;
-	timestamp: number;
-}
-
-export interface DependencyMetEvent {
-	type: "dependency_met";
-	streamId: string;
-	taskId: string;
-	dependencyId: string;
-	timestamp: number;
-}
 
 /** A single detected file-level writeback change (create/modify/delete). */
 export interface SandboxWritebackChange {
@@ -414,12 +390,6 @@ export interface ThreadReopenedEvent {
 	timestamp: number;
 }
 
-export interface ThreadArchivedEvent {
-	type: "thread_archived";
-	streamId: string;
-	threadId: string;
-	timestamp: number;
-}
 
 /**
  * @lore O1: PropagationLevel moved to @hyperidle/server (packages/server/src/knowledge/types.ts). This inline literal
@@ -464,31 +434,6 @@ export interface PropagationFailedEvent {
 	timestamp: number;
 }
 
-/**
- * AK7: Emitted by the Kernel at a selection point BEFORE an owner is chosen.
- * Observable announcement of "work needs an agent" (AC1). The owner decision
- * is made via the synchronous selectAgent port call, NOT by a subscriber to
- * this event. Carried for audit + AK8 + future async subscribers.
- *
- * streamId = teamId for per-team routing (bet_* surfaces).
- *
- * @lore AK7: This event is audit-only in AK7 — no subscriber acts on it to
- * mutate state. Emit-then-call ordering (event fires BEFORE selectAgent is
- * called) makes the occasion observable without being the reply channel.
- * Idempotency: a crash between emit and the ownerAgentId write leaves only
- * an orphan audit record; re-running re-emits and existing CAS/owner-already-set
- * guards prevent double-assignment.
- */
-export interface WorkSelectionRequestedEvent {
-	type: "work_selection_requested";
-	streamId: string; // = teamId for bet_* surfaces
-	teamId: string;
-	surface: "bet_task" | "bet_decomposer" | "routine_delegate";
-	/** The bet/routine the work is keyed to (for audit correlation). */
-	workKey: string;
-	roleHint: string | null;
-	at: string;
-}
 
 /**
  * AK6: Emitted by POST /api/teams (and create-team tool) AFTER the team,
@@ -561,23 +506,17 @@ export type DomainEvent =
 	| ThreadMessageAppendedEvent
 	| ThreadResolvedEvent
 	| ThreadReopenedEvent
-	| ThreadArchivedEvent
 	| ItemCreatedEvent
-	| DependencyMetEvent
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
 	| KnowledgeCreatedEvent
 	| KnowledgeUpdatedEvent
 	| KnowledgeArchivedEvent
-	| KnowledgeAccessedEvent
 	// AK6: creation events
 	| TeamCreatedEvent
 	| AgentAddedEvent
 	| UserCreatedEvent
-	// AK7: selection occasion event
-	| WorkSelectionRequestedEvent
 	| NotificationEvent
 	| PropagationAppliedEvent
 	| PropagationFailedEvent
-	| RoutineFiredEvent
 	| ToolCallRecordedEvent;

@@ -254,14 +254,6 @@ export async function fireGenericRoutine(
 		lastRunAt,
 		nextRunAt: nextRunAt || null,
 	});
-	eventBus.emit({
-		type: "routine_fired",
-		streamId: `routine:${routine.id}`,
-		routineId: routine.id,
-		agentId: bakedRequest.defaultAgentId,
-		timestamp: Date.now(),
-	});
-
 	return { fired: true, runId };
 }
 
@@ -291,8 +283,6 @@ function isRoutineSourceKind(k: string | undefined): boolean {
  * origin-tracking through every event contract.
  */
 async function originRoutineId(db: HyperIdleDb, event: DomainEvent): Promise<string | null> {
-	if (event.type === "routine_fired") return event.routineId;
-
 	const sourceKind = "sourceKind" in event ? event.sourceKind : undefined;
 	if (!isRoutineSourceKind(sourceKind)) return null;
 
@@ -426,32 +416,13 @@ async function assembleTriggerEvent(
 		});
 	}
 
-	// routine_fired carries both routineId and agentId. The primary entity is the
-	// routine (what fired), not the agent (who owns it). Dispatch by event type to
-	// prevent agentId winning in the field-priority scan below.
-	// @lore BA9c: routineId stays generic — a routine waking about another routine
-	//   is thin by nature; no shape richer than {entityKind, entityId} is warranted.
-	//   Do not promote to a kind:"routine" subject.
-	if (event.type === "routine_fired" && typeof rec.routineId === "string") {
-		const routineActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
-		return withTransition({
-			...base,
-			subject: {
-				kind: "generic",
-				entityKind: "routine",
-				entityId: rec.routineId,
-				...(routineActor !== undefined ? { actorId: routineActor } : {}),
-			},
-		});
-	}
-
 	// ── STEP 2: Field-priority scan for remaining events ─────────────────────────
-	// Session and routine_fired events are already dispatched above.
+	// Session events are already dispatched above.
 	// Safe to check taskId now — no session event reaches here.
 	// @lore BB1: betId removed from priority chain — bet is now a root task.
 	// Priority: taskId → threadId → itemId → sessionId → agentId → teamId → userId
 
-	// Task subject: task_state_changed, dependency_met
+	// Task subject: task_state_changed
 	const taskId = typeof rec.taskId === "string" ? rec.taskId : null;
 	if (taskId) {
 		const task = await ports.work.getTaskById(db, taskId);
