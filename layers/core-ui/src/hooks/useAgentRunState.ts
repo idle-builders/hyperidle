@@ -30,7 +30,7 @@ import type {
 } from "@hyperidle/domain-model";
 import { useEffect, useMemo, useState } from "react";
 import { fetchRunsByAgentIds } from "../services/agent-runs.js";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import type {
 	AgentActiveSession,
 	AgentHealthSignals,
@@ -64,7 +64,8 @@ interface TaskRef {
  * @lore AU26 review W4: this was `GET /api/tasks/:id` per task — the exact N+1
  * `@lore AB1 S2` had removed server-side ("Replaced N+1 pattern (one query per
  * session) with a single Drizzle query that JOINs sessions with tasks"), moved
- * into the browser by the J4 composition. `GET /api/tasks?ids=` batches it back.
+ * into the browser by the J4 composition. `search_tasks`'s `ids` filter
+ * batches it back.
  */
 async function fetchTaskRefs(
 	taskIds: ReadonlyArray<string>,
@@ -74,17 +75,10 @@ async function fetchTaskRefs(
 	const unique = [...new Set(taskIds)];
 	if (unique.length === 0) return refs;
 
-	const res = await apiFetch(`/api/tasks?ids=${encodeURIComponent(unique.join(","))}`, { signal });
-	if (!res.ok) throw new Error(`HTTP ${res.status}`);
-	const rows = (await res.json()) as ReadonlyArray<{
-		id?: unknown;
-		title?: unknown;
-	}>;
-	for (const row of rows) {
-		if (typeof row.id !== "string") continue;
-		refs.set(row.id, {
-			title: typeof row.title === "string" ? row.title : row.id,
-		});
+	const result = await call("search_tasks", { ids: unique }, signal);
+	if (!result.ok) throw new Error(result.problems[0]?.message ?? "search_tasks failed");
+	for (const row of result.data) {
+		refs.set(row.id, { title: row.title });
 	}
 	return refs;
 }

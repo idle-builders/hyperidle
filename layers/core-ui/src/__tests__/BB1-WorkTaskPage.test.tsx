@@ -4,7 +4,7 @@
  * AC10: One recursive task surface. Proves:
  * - A 3-level tree renders all levels (root → child → grandchild).
  * - The breadcrumb is built from ancestors (not a fixed 2-level structure).
- * - Task fields are editable and changing a field issues PATCH /api/tasks/:id.
+ * - Task fields are editable and changing a field issues `edit_task`.
  * - No BetCard, WorkBet, or WorkTask references remain in the page.
  *
  * Acceptance criterion (from plan.md):
@@ -49,11 +49,11 @@ function makeTask(
 		description: `Description of ${title}`,
 		doneCondition: null,
 		state,
+		position: 0,
+		needsReview: false,
 		dependencies: null,
-		artifacts: null,
 		threadId: null,
 		notes: null,
-		auditTrail: null,
 		outcomeVerdict: null,
 		outcomeSummary: null,
 		outcomeRecordedAt: null,
@@ -63,6 +63,19 @@ function makeTask(
 		createdAt: "2026-08-30T10:00:00.000Z",
 		updatedAt: "2026-08-30T10:00:00.000Z",
 		completedAt: null,
+	};
+}
+
+/** Wraps a task/ancestors/children triple as `open_task`'s `ActionResult<TaskView>` body. */
+function openTaskBody(
+	task: object,
+	ancestors: object[] = [],
+	children: object[] = [],
+	tokensActualRollup: number | null = null,
+): { ok: true; data: object } {
+	return {
+		ok: true,
+		data: { task, ancestors, children, tokensActualRollup, threadId: null, attachments: [] },
 	};
 }
 
@@ -85,16 +98,10 @@ describe("BB1 AC10 — basic page render", () => {
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		// Default: always return a valid tree response so refreshes after PATCH don't throw
-		fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				task: makeTask("task-default", "Default task"),
-				ancestors: [],
-				children: [],
-				tokensActualRollup: null,
-			}),
-		});
+		// Default: always return a valid open_task response so refreshes after edit don't throw
+		fetchMock = vi
+			.fn()
+			.mockResolvedValue({ ok: true, json: async () => openTaskBody(makeTask("task-default", "Default task")) });
 		vi.stubGlobal("fetch", fetchMock);
 	});
 
@@ -105,15 +112,7 @@ describe("BB1 AC10 — basic page render", () => {
 
 	it("renders the task detail page wrapper", async () => {
 		const rootTask = makeTask("root-1", "Root task");
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				task: rootTask,
-				ancestors: [],
-				children: [],
-				tokensActualRollup: null,
-			}),
-		});
+		fetchMock.mockResolvedValue({ ok: true, json: async () => openTaskBody(rootTask) });
 
 		renderPage("root-1");
 
@@ -124,15 +123,7 @@ describe("BB1 AC10 — basic page render", () => {
 
 	it("renders the task title in the page header", async () => {
 		const rootTask = makeTask("root-1", "User auth revamp");
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				task: rootTask,
-				ancestors: [],
-				children: [],
-				tokensActualRollup: null,
-			}),
-		});
+		fetchMock.mockResolvedValue({ ok: true, json: async () => openTaskBody(rootTask) });
 
 		renderPage("root-1");
 
@@ -149,7 +140,10 @@ describe("BB1 AC10 — basic page render", () => {
 	});
 
 	it("renders error state on fetch failure", async () => {
-		fetchMock.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+		fetchMock.mockResolvedValue({
+			ok: true,
+			json: async () => ({ ok: false, problems: [{ code: "not_found", message: "Task not found" }] }),
+		});
 		renderPage("task-error");
 		await waitFor(() => {
 			expect(screen.getByTestId("task-page-error")).toBeInTheDocument();
@@ -163,15 +157,9 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				task: makeTask("task-default", "Default task"),
-				ancestors: [],
-				children: [],
-				tokensActualRollup: null,
-			}),
-		});
+		fetchMock = vi
+			.fn()
+			.mockResolvedValue({ ok: true, json: async () => openTaskBody(makeTask("task-default", "Default task")) });
 		vi.stubGlobal("fetch", fetchMock);
 	});
 
@@ -187,12 +175,8 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 
 		fetchMock.mockResolvedValue({
 			ok: true,
-			json: async () => ({
-				task: root,
-				ancestors: [],
-				children: [{ ...child, children: [{ ...grandchild, children: [] }] }],
-				tokensActualRollup: null,
-			}),
+			json: async () =>
+				openTaskBody(root, [], [{ ...child, children: [{ ...grandchild, children: [] }] }]),
 		});
 
 		renderPage("root-1");
@@ -217,12 +201,8 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 
 		fetchMock.mockResolvedValue({
 			ok: true,
-			json: async () => ({
-				task: root,
-				ancestors: [],
-				children: [{ ...child, children: [{ ...grandchild, children: [] }] }],
-				tokensActualRollup: null,
-			}),
+			json: async () =>
+				openTaskBody(root, [], [{ ...child, children: [{ ...grandchild, children: [] }] }]),
 		});
 
 		renderPage("root-1");
@@ -242,12 +222,7 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 
 		fetchMock.mockResolvedValue({
 			ok: true,
-			json: async () => ({
-				task: grandchild,
-				ancestors: [root, child],
-				children: [],
-				tokensActualRollup: null,
-			}),
+			json: async () => openTaskBody(grandchild, [root, child], []),
 		});
 
 		renderPage("gc-1");
@@ -262,10 +237,7 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 
 	it("shows 'Root task' depth label when task has no ancestors", async () => {
 		const root = makeTask("root-1", "Root task");
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({ task: root, ancestors: [], children: [], tokensActualRollup: null }),
-		});
+		fetchMock.mockResolvedValue({ ok: true, json: async () => openTaskBody(root) });
 
 		renderPage("root-1");
 
@@ -278,15 +250,7 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 		const child = makeTask("child-1", "Child task", "root-1");
 		const root = makeTask("root-1", "Root task");
 
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				task: child,
-				ancestors: [root],
-				children: [],
-				tokensActualRollup: null,
-			}),
-		});
+		fetchMock.mockResolvedValue({ ok: true, json: async () => openTaskBody(child, [root], []) });
 
 		renderPage("child-1");
 
@@ -297,47 +261,43 @@ describe("BB1 AC10 — recursive render (3-level tree)", () => {
 });
 
 /**
- * Route the page's reads and its PATCH by method rather than by call order.
- * The page issues two independent reads on mount (the task tree and the task's
- * sessions); which of them lands first is a race, so a chain of
- * `mockResolvedValueOnce` hands the PATCH's canned response to whichever read
- * happens to be second. Keying on the method is order-free.
+ * Route the page's reads and its `edit_task` call by which action name the
+ * URL names, rather than by call order. The page issues two independent
+ * reads on mount (`open_task` and the task's sessions); which of them lands
+ * first is a race, so keying on the action name is order-free.
  */
 function mockTreeAndPatch(
 	fetchMock: ReturnType<typeof vi.fn>,
 	task: ReturnType<typeof makeTask>,
-	patchResponse: { ok: boolean; status?: number },
+	patchResponse: { ok: boolean; problems?: ReadonlyArray<{ code: string; message: string }> },
 	agents: ReadonlyArray<{ id: string; name: string; role: string }> = [],
 ): void {
-	fetchMock.mockImplementation(async (url: string, opts?: RequestInit) => {
-		if (opts?.method === "PATCH") {
-			return { ...patchResponse, json: async () => ({}) };
+	fetchMock.mockImplementation(async (url: string) => {
+		if (url.includes("/api/actions/edit_task")) {
+			return {
+				ok: true,
+				json: async () =>
+					patchResponse.ok
+						? openTaskBody(task)
+						: { ok: false, problems: patchResponse.problems ?? [] },
+			};
 		}
 		if (url.includes("/api/agents")) {
 			return { ok: true, json: async () => agents };
 		}
-		return {
-			ok: true,
-			json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
-		};
+		return { ok: true, json: async () => openTaskBody(task) };
 	});
 }
 
-// ── AC10: edit submit issues PATCH ───────────────────────────────────────────
+// ── AC10: edit submit issues edit_task ───────────────────────────────────────
 
-describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
+describe("BB1 AC10 — edit submit issues edit_task", () => {
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				task: makeTask("task-default", "Default task"),
-				ancestors: [],
-				children: [],
-				tokensActualRollup: null,
-			}),
-		});
+		fetchMock = vi
+			.fn()
+			.mockResolvedValue({ ok: true, json: async () => openTaskBody(makeTask("task-default", "Default task")) });
 		vi.stubGlobal("fetch", fetchMock);
 	});
 
@@ -348,10 +308,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 
 	it("renders the edit panel with title, description, goal, owner, state fields", async () => {
 		const task = makeTask("task-1", "My task");
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
-		});
+		fetchMock.mockResolvedValue({ ok: true, json: async () => openTaskBody(task) });
 
 		renderPage("task-1");
 
@@ -366,11 +323,9 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 		expect(screen.getByTestId("task-state-select")).toBeInTheDocument();
 	});
 
-	it("picks an owner through the combobox and PATCHes ownerAgentId", async () => {
+	it("picks an owner through the combobox and edits ownerAgentId", async () => {
 		const task = makeTask("task-1", "My task");
-		mockTreeAndPatch(fetchMock, task, { ok: true }, [
-			{ id: "agent-7", name: "Scout", role: "scout" },
-		]);
+		mockTreeAndPatch(fetchMock, task, { ok: true }, [{ id: "agent-7", name: "Scout", role: "scout" }]);
 
 		renderPage("task-1");
 
@@ -384,17 +339,12 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 		fireEvent.click(screen.getByTestId("task-save-btn"));
 
 		await waitFor(() => {
-			const patchCall = fetchMock.mock.calls.find(
-				([url, opts]) =>
-					typeof url === "string" &&
-					url.includes("/api/tasks/task-1") &&
-					(opts as RequestInit | undefined)?.method === "PATCH",
+			const editCall = fetchMock.mock.calls.find(
+				([url]) => typeof url === "string" && url.includes("/api/actions/edit_task"),
 			);
-			expect(patchCall).toBeDefined();
-			const patchOpts = patchCall?.[1] as RequestInit;
-			const body = JSON.parse(patchOpts.body as string) as {
-				ownerAgentId: string | null;
-			};
+			expect(editCall).toBeDefined();
+			const editOpts = editCall?.[1] as RequestInit;
+			const body = JSON.parse(editOpts.body as string) as { ownerAgentId: string | null };
 			expect(body.ownerAgentId).toBe("agent-7");
 		});
 	});
@@ -417,27 +367,19 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 		fireEvent.click(screen.getByTestId("task-save-btn"));
 
 		await waitFor(() => {
-			const patchCall = fetchMock.mock.calls.find(
-				([url, opts]) =>
-					typeof url === "string" &&
-					url.includes("/api/tasks/task-1") &&
-					(opts as RequestInit | undefined)?.method === "PATCH",
+			const editCall = fetchMock.mock.calls.find(
+				([url]) => typeof url === "string" && url.includes("/api/actions/edit_task"),
 			);
-			expect(patchCall).toBeDefined();
-			const patchOpts = patchCall?.[1] as RequestInit;
-			const body = JSON.parse(patchOpts.body as string) as {
-				ownerAgentId: string | null;
-			};
+			expect(editCall).toBeDefined();
+			const editOpts = editCall?.[1] as RequestInit;
+			const body = JSON.parse(editOpts.body as string) as { ownerAgentId: string | null };
 			expect(body.ownerAgentId).toBeNull();
 		});
 	});
 
 	it("save button is disabled when no fields are dirty", async () => {
 		const task = makeTask("task-1", "My task");
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
-		});
+		fetchMock.mockResolvedValue({ ok: true, json: async () => openTaskBody(task) });
 
 		renderPage("task-1");
 
@@ -450,10 +392,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 
 	it("save button enables after changing the title field", async () => {
 		const task = makeTask("task-1", "My task");
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
-		});
+		fetchMock.mockResolvedValue({ ok: true, json: async () => openTaskBody(task) });
 
 		renderPage("task-1");
 
@@ -468,7 +407,7 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 		expect(screen.getByTestId("task-save-btn")).not.toBeDisabled();
 	});
 
-	it("clicking Save issues PATCH /api/tasks/:id with the changed fields", async () => {
+	it("clicking Save issues edit_task with the changed fields", async () => {
 		const task = makeTask("task-1", "My task");
 
 		mockTreeAndPatch(fetchMock, task, { ok: true });
@@ -486,24 +425,20 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 		fireEvent.click(screen.getByTestId("task-save-btn"));
 
 		await waitFor(() => {
-			// The second fetch call should be the PATCH
 			const calls = fetchMock.mock.calls;
-			const patchCall = calls.find(
-				([url, opts]) =>
-					typeof url === "string" &&
-					url.includes("/api/tasks/task-1") &&
-					(opts as RequestInit | undefined)?.method === "PATCH",
+			const editCall = calls.find(
+				([url]) => typeof url === "string" && url.includes("/api/actions/edit_task"),
 			);
-			expect(patchCall).toBeDefined();
+			expect(editCall).toBeDefined();
 
 			// Body should include the new title
-			const patchOpts = patchCall?.[1] as RequestInit;
-			const body = JSON.parse(patchOpts.body as string) as { title: string };
+			const editOpts = editCall?.[1] as RequestInit;
+			const body = JSON.parse(editOpts.body as string) as { title: string };
 			expect(body.title).toBe("New title");
 		});
 	});
 
-	it("shows 'Saved' confirmation after a successful PATCH", async () => {
+	it("shows 'Saved' confirmation after a successful edit", async () => {
 		const task = makeTask("task-1", "My task");
 		mockTreeAndPatch(fetchMock, task, { ok: true });
 
@@ -523,9 +458,12 @@ describe("BB1 AC10 — edit submit issues PATCH /api/tasks/:id", () => {
 		});
 	});
 
-	it("shows error message when PATCH fails", async () => {
+	it("shows error message when edit_task fails", async () => {
 		const task = makeTask("task-1", "My task");
-		mockTreeAndPatch(fetchMock, task, { ok: false, status: 409 });
+		mockTreeAndPatch(fetchMock, task, {
+			ok: false,
+			problems: [{ code: "stale", message: "The task changed since you last read it." }],
+		});
 
 		renderPage("task-1");
 
@@ -550,15 +488,9 @@ describe("BB1 AC10 — Add subtask affordance", () => {
 	let fetchMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				task: makeTask("task-default", "Default task"),
-				ancestors: [],
-				children: [],
-				tokensActualRollup: null,
-			}),
-		});
+		fetchMock = vi
+			.fn()
+			.mockResolvedValue({ ok: true, json: async () => openTaskBody(makeTask("task-default", "Default task")) });
 		vi.stubGlobal("fetch", fetchMock);
 	});
 
@@ -569,10 +501,7 @@ describe("BB1 AC10 — Add subtask affordance", () => {
 
 	it("renders the Add subtask button", async () => {
 		const task = makeTask("task-1", "Root task");
-		fetchMock.mockResolvedValue({
-			ok: true,
-			json: async () => ({ task, ancestors: [], children: [], tokensActualRollup: null }),
-		});
+		fetchMock.mockResolvedValue({ ok: true, json: async () => openTaskBody(task) });
 
 		renderPage("task-1");
 

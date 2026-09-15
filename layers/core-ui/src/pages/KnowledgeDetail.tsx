@@ -73,6 +73,7 @@ import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { scopeKindToLabel } from "../utils/scope-labels.js";
@@ -822,8 +823,8 @@ function KnowledgeDetailView({
 	}
 
 	/**
-	 * @lore BB1: Promote-to-task handler — POSTs to /api/tasks.
-	 * Single-team: POST /api/tasks with sourceKnowledgeItemId → navigate to /work/task/:id.
+	 * @lore BB1: Promote-to-task handler — `edit_task`, no `id` (create).
+	 * Single-team: create with sourceKnowledgeItemId → navigate to /work/task/:id.
 	 * Multi-team: navigate to /work/task/new?fromKnowledge=:id (team picker in WorkTaskCreate).
 	 *
 	 * @lore AK5: team resolution uses useTeams(). Single-team auto-resolves (the
@@ -847,25 +848,19 @@ function KnowledgeDetailView({
 
 		setPromoteError(null);
 		try {
-			const res = await apiFetch("/api/tasks", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					teamId,
-					// BB1: POST /api/tasks requires a non-empty title (the deleted
-					// POST /bets had only `description`). The item's own title is
-					// the task's title; its body becomes the description.
-					title: item.title,
-					description: savedContent || item.content,
-					sourceKnowledgeItemId: effectiveKnowledgeId,
-				}),
+			const result = await call("edit_task", {
+				teamId,
+				// BB1: `edit_task` requires a non-empty title (the deleted
+				// POST /bets had only `description`). The item's own title is
+				// the task's title; its body becomes the description.
+				title: item.title,
+				description: savedContent || item.content,
+				sourceKnowledgeItemId: effectiveKnowledgeId,
 			});
-			if (res.ok) {
-				const data = (await res.json()) as { id: string };
-				navigate(`/work/task/${data.id}`);
+			if (result.ok) {
+				navigate(`/work/task/${result.data.task.id}`);
 			} else {
-				const data = (await res.json().catch(() => ({}))) as { error?: string };
-				setPromoteError(data.error ?? `Promote failed: ${res.status}`);
+				setPromoteError(result.problems[0]?.message ?? "Promote failed");
 			}
 		} catch {
 			setPromoteError("Promote failed: network error");

@@ -16,8 +16,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
+vi.mock("../../services/call.js", () => ({
+	call: vi.fn(),
 }));
 
 import { TaskDependencyField } from "../TaskDependencyField.js";
@@ -27,13 +27,28 @@ interface TaskRow {
 	title: string;
 }
 
-function stubFetch(searchResults: TaskRow[], lookupRows: TaskRow[] = []): ReturnType<typeof vi.fn> {
-	return vi.fn().mockImplementation((url: string) => {
-		if (url.includes("ids=")) {
-			return Promise.resolve(new Response(JSON.stringify(lookupRows), { status: 200 }));
-		}
-		return Promise.resolve(new Response(JSON.stringify(searchResults), { status: 200 }));
-	});
+/**
+ * Both `useTaskLookup` and `useTaskSearch` now go through `search_tasks`;
+ * distinguish the two by which input shape each sends — `ids` (lookup) vs
+ * `text` (search) — and apply `excludeIds` the way the real server does,
+ * since `TaskDependencyField`'s "never offer this task" behavior is now a
+ * server-side filter, not a client-side one.
+ */
+function stubCall(searchResults: TaskRow[], lookupRows: TaskRow[] = []): ReturnType<typeof vi.fn> {
+	return vi
+		.fn()
+		.mockImplementation(
+			(_name: string, input: { ids?: readonly string[]; excludeIds?: readonly string[] }) => {
+				if (input.ids) {
+					return Promise.resolve({ ok: true, data: lookupRows });
+				}
+				const exclude = new Set(input.excludeIds ?? []);
+				return Promise.resolve({
+					ok: true,
+					data: searchResults.filter((t) => !exclude.has(t.id)),
+				});
+			},
+		);
 }
 
 /** Opens the picker's popover and types a query into its filter input. */
@@ -44,12 +59,12 @@ async function openAndType(query: string): Promise<void> {
 }
 
 describe("TaskDependencyField — search picker", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
+	let callSpy: ReturnType<typeof vi.fn>;
 
 	beforeEach(async () => {
-		const { apiFetch } = await import("../../services/api-fetch.js");
-		fetchSpy = vi.mocked(apiFetch);
-		fetchSpy.mockReset();
+		const { call } = await import("../../services/call.js");
+		callSpy = vi.mocked(call);
+		callSpy.mockReset();
 	});
 
 	afterEach(() => {
@@ -57,14 +72,14 @@ describe("TaskDependencyField — search picker", () => {
 	});
 
 	it("shows a visible label naming what the field is for", () => {
-		fetchSpy.mockImplementation(stubFetch([]));
+		callSpy.mockImplementation(stubCall([]));
 		render(<TaskDependencyField dependencies={[]} onChange={vi.fn()} />);
 
 		expect(screen.getByText("Depends on (waits until these finish)")).toBeInTheDocument();
 	});
 
 	it("renders label, then selected chips, then the search control — never label in the middle", async () => {
-		fetchSpy.mockImplementation(stubFetch([], [{ id: "task-old", title: "Existing dependency" }]));
+		callSpy.mockImplementation(stubCall([], [{ id: "task-old", title: "Existing dependency" }]));
 		render(<TaskDependencyField dependencies={["task-old"]} onChange={vi.fn()} />);
 
 		await screen.findByText("Existing dependency");
@@ -84,7 +99,7 @@ describe("TaskDependencyField — search picker", () => {
 	});
 
 	it("types a query, shows matching results by title, and picking one adds it as a chip showing the title", async () => {
-		fetchSpy.mockImplementation(stubFetch([{ id: "task-xyz", title: "Ship the search picker" }]));
+		callSpy.mockImplementation(stubCall([{ id: "task-xyz", title: "Ship the search picker" }]));
 		const onChange = vi.fn();
 		render(<TaskDependencyField dependencies={[]} onChange={onChange} />);
 
@@ -102,7 +117,7 @@ describe("TaskDependencyField — search picker", () => {
 	});
 
 	it("resolves a pre-existing dependency (id only) to its title via the bulk lookup door", async () => {
-		fetchSpy.mockImplementation(stubFetch([], [{ id: "task-old", title: "Existing dependency" }]));
+		callSpy.mockImplementation(stubCall([], [{ id: "task-old", title: "Existing dependency" }]));
 		render(<TaskDependencyField dependencies={["task-old"]} onChange={vi.fn()} />);
 
 		await waitFor(() => {
@@ -112,7 +127,7 @@ describe("TaskDependencyField — search picker", () => {
 	});
 
 	it("removes a dependency via the chip's remove control", async () => {
-		fetchSpy.mockImplementation(stubFetch([], [{ id: "task-old", title: "Existing dependency" }]));
+		callSpy.mockImplementation(stubCall([], [{ id: "task-old", title: "Existing dependency" }]));
 		const onChange = vi.fn();
 		render(<TaskDependencyField dependencies={["task-old"]} onChange={onChange} />);
 
@@ -123,8 +138,8 @@ describe("TaskDependencyField — search picker", () => {
 	});
 
 	it("does not offer the task being edited or a task already in the list", async () => {
-		fetchSpy.mockImplementation(
-			stubFetch([
+		callSpy.mockImplementation(
+			stubCall([
 				{ id: "task-self", title: "The task being edited" },
 				{ id: "task-picked", title: "Already a dependency" },
 				{ id: "task-fresh", title: "A fresh match" },
@@ -146,8 +161,8 @@ describe("TaskDependencyField — search picker", () => {
 	});
 
 	it("full keyboard navigation: ArrowDown + Enter picks a result, Escape closes", async () => {
-		fetchSpy.mockImplementation(
-			stubFetch([
+		callSpy.mockImplementation(
+			stubCall([
 				{ id: "task-a", title: "First match" },
 				{ id: "task-b", title: "Second match" },
 			]),
@@ -175,7 +190,7 @@ describe("TaskDependencyField — search picker", () => {
 	});
 
 	it("is genuinely inert while disabled — the remove control and the search trigger are not usable", async () => {
-		fetchSpy.mockImplementation(stubFetch([], [{ id: "task-old", title: "Existing dependency" }]));
+		callSpy.mockImplementation(stubCall([], [{ id: "task-old", title: "Existing dependency" }]));
 		const onChange = vi.fn();
 		render(<TaskDependencyField dependencies={["task-old"]} onChange={onChange} disabled />);
 

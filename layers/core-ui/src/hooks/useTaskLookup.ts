@@ -5,9 +5,8 @@
  * title and then displaying a raw id is half a fix). Freshly-picked
  * dependencies already carry a title from the search result that picked
  * them; dependencies loaded from the server (the edit surface's existing
- * list) carry only ids. This hook resolves those via the existing bulk
- * lookup door, `GET /api/tasks?ids=a,b,c` (already exercised by
- * `tasks.batch-ids.integration.test.ts`) — no new endpoint.
+ * list) carry only ids. This hook resolves those via `search_tasks`'s
+ * `ids` filter — the same batch lookup, now the action door.
  *
  * Best-effort: a lookup failure leaves the id unresolved and the caller
  * falls back to showing the id rather than blocking the chip from rendering.
@@ -23,13 +22,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { apiFetch } from "../services/api-fetch.js";
-
-function isTitledRow(value: unknown): value is { id: string; title: string } {
-	if (typeof value !== "object" || value === null) return false;
-	const v = value as Record<string, unknown>;
-	return typeof v.id === "string" && typeof v.title === "string";
-}
+import { call } from "../services/call.js";
 
 /** Maps each id in `ids` to its title, once resolved. Ids never seen resolve on the next id set that includes them. */
 export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, string>> {
@@ -47,21 +40,16 @@ export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, s
 		for (const id of missing) knownRef.current.add(id);
 		let settled = false;
 
-		const ac = new AbortController();
+		let cancelled = false;
 		(async (): Promise<void> => {
 			try {
-				const res = await apiFetch(`/api/tasks?ids=${missing.map(encodeURIComponent).join(",")}`, {
-					signal: ac.signal,
-				});
-				if (!res.ok) return;
-				const raw: unknown = await res.json();
-				if (ac.signal.aborted || !Array.isArray(raw)) return;
-				const resolved = raw.filter(isTitledRow);
+				const result = await call("search_tasks", { ids: missing });
+				if (cancelled || !result.ok) return;
 				settled = true;
-				if (resolved.length === 0) return;
+				if (result.data.length === 0) return;
 				setTitles((prev) => {
 					const next = { ...prev };
-					for (const row of resolved) next[row.id] = row.title;
+					for (const row of result.data) next[row.id] = row.title;
 					return next;
 				});
 			} catch {
@@ -71,7 +59,7 @@ export function useTaskLookup(ids: readonly string[]): Readonly<Record<string, s
 		})();
 
 		return () => {
-			ac.abort();
+			cancelled = true;
 			if (!settled) for (const id of missing) knownRef.current.delete(id);
 		};
 	}, [ids]);

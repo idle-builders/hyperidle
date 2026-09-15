@@ -4,9 +4,9 @@ import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// @lore BB1: useBet mock removed — useBet is deleted; useTaskTree replaces it.
-vi.mock("../hooks/useTaskTree.js", () => ({
-	useTaskTree: () => ({ data: null, loading: true, error: null, refresh: vi.fn() }),
+// @lore BB1: useBet mock removed — useBet is deleted; `call("open_task", …)` replaces it.
+vi.mock("../services/call.js", () => ({
+	call: () => new Promise(() => undefined),
 }));
 vi.mock("../hooks/useTeams", () => ({
 	useTeams: () => ({ data: null, loading: true, error: null, refetch: vi.fn() }),
