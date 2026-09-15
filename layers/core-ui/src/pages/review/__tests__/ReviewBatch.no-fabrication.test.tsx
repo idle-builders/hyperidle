@@ -32,7 +32,6 @@ const SENTINEL_PAYLOAD: BatchPayload = {
 	flagged: [{ id: "zx-flag-1", ref: "Zx Ref Corvid", reason: "Zx Reason Corvid detail" }],
 	auto: [{ id: "zx-auto-1", label: "Zx Auto Group Label", count: 18 }],
 	drafted: [{ id: "zx-drafted-1", label: "Zx Drafted Group Label", count: 22 }],
-	approveAllExcept: [],
 };
 
 const CHROME = [
@@ -50,17 +49,11 @@ const CHROME = [
 	"send",
 	"flagged",
 	"routine",
-	"Approve",
-	"all",
-	"except",
 	"Held",
 	"for",
 	"your",
 	"review",
 	"why",
-	"Take",
-	"over",
-	"Hold",
 	"Hide",
 	"more",
 	"open",

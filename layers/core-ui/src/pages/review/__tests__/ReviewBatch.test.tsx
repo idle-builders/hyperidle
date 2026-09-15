@@ -29,12 +29,6 @@ describe("ReviewBatch canvas", () => {
 		expect(link.textContent).toContain("↗");
 	});
 
-	it("exposes the batch verdict affordance", () => {
-		renderCanvas();
-
-		expect(screen.getByRole("button", { name: /Approve all except flagged/i })).toBeInTheDocument();
-	});
-
 	it("pins flagged items before collapsed routine groups", () => {
 		renderCanvas();
 

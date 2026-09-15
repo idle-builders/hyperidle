@@ -99,7 +99,6 @@ function RenderPane({
 
 export interface ReviewVisualDiffProps {
 	readonly diff: VisualDiff;
-	readonly onApprove?: () => void;
 	readonly onFlag?: (region: string) => void;
 }
 

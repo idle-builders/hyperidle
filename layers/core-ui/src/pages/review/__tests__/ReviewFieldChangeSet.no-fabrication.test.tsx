@@ -59,10 +59,6 @@ const CHROME = [
 	"Hide",
 	"added",
 	"unchanged",
-	"of",
-	"approved",
-	"Approve",
-	"all",
 	"Open",
 	"in",
 ];
@@ -107,7 +103,6 @@ describe("ReviewFieldChangeSet — no fabrication", () => {
 		2, // fields.length
 		1, // needsYouCount (one field carries needsYou)
 		SENTINEL_PAYLOAD.unchangedCount,
-		0, // "0 of 2 fields approved" — none approved by default
 		"Z", // ToolLogo's neutral monogram for the unrecognized "zx-tool-field" id
 	];
 

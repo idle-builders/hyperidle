@@ -37,30 +37,13 @@ const SENTINEL_PAYLOAD: ActionOperationPayload = {
 };
 
 // Fixed interface chrome: labels a region, asserts nothing about this review.
-const CHROME = [
-	"Blast",
-	"radius",
-	"reversibility",
-	"What",
-	"this",
-	"touches",
-	"Reject",
-	"Approve",
-	"Open",
-	"in",
-].flat();
+const CHROME = ["Blast", "radius", "reversibility", "What", "this", "touches", "Open", "in"];
 
 function domTextOf(container: HTMLElement): string {
 	return domText(container);
 }
 
 describe("ReviewActionOperation — no fabrication", () => {
-	it('does not label the approve action "refund" for a non-refund operation', () => {
-		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
-
-		expect(screen.queryByRole("button", { name: /refund/i })).not.toBeInTheDocument();
-	});
-
 	it("does not claim irreversible for an operation the payload marks reversible", () => {
 		render(
 			<Canvas

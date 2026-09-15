@@ -300,7 +300,6 @@ const batchArtifact: ReviewArtifact<BatchPayload> = {
 		flagged: [{ id: "f1", ref: "#20418", reason: "Churn threat on $48k renewal" }],
 		auto: [{ id: "g-auto", label: "Auto-resolved", count: 18 }],
 		drafted: [{ id: "g-draft", label: "Drafted", count: 19 }],
-		approveAllExcept: ["f1"],
 	},
 };
 

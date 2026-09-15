@@ -209,7 +209,6 @@ export interface BatchPayload {
 		readonly label: string;
 		readonly count: number;
 	}[];
-	readonly approveAllExcept: readonly string[];
 }
 
 export interface BrowserPreviewPayload {
