@@ -22,9 +22,14 @@
  * All spec files import from "./fixtures" instead of "@playwright/test".
  */
 
-import type { TaskCardSummary, TeamDetail } from "@hyperidle/domain-model";
+import type {
+	Task,
+	TaskCardSummary,
+	TaskNode,
+	TaskView,
+	TeamDetail,
+} from "@hyperidle/domain-model";
 import { test as base, expect } from "@playwright/test";
-import type { Task, TaskNode, TaskTreeResponse } from "../src/types/task.js";
 
 /** Default mock response for GET /api/auth/me */
 const DEFAULT_AUTH_ME = {
@@ -145,7 +150,7 @@ export const test = base.extend<CoreApiFixtures>({
 				}
 			});
 
-			// GET /api/tasks/:id/tree — WorkTaskPage's only data source.
+			// POST /api/actions/open_task — WorkTaskPage's only data source.
 			//
 			// @lore BB1: a fallback, exactly like the /api/teams one above. Many
 			// specs open a task page purely as a vehicle (layout, scroll, nav,
@@ -153,20 +158,26 @@ export const test = base.extend<CoreApiFixtures>({
 			// would each need their own mock, and a spec that forgot one would hang
 			// on the loading state rather than fail with something readable.
 			// A spec that DOES care calls mockTaskTree(), which wins on LIFO.
-			await page.route("**/api/tasks/*/tree", async (route) => {
-				if (route.request().method() !== "GET") {
+			await page.route("**/api/actions/open_task", async (route) => {
+				if (route.request().method() !== "POST") {
 					await route.continue();
 					return;
 				}
-				const id = new URL(route.request().url()).pathname.split("/").at(-2) ?? "task-default";
+				const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+				const id = input.id ?? "task-default";
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({
-						task: makeTask(id),
-						ancestors: [],
-						children: [],
-						tokensActualRollup: null,
+						ok: true,
+						data: {
+							task: makeTask(id),
+							ancestors: [],
+							children: [],
+							tokensActualRollup: null,
+							threadId: null,
+							attachments: [],
+						},
 					}),
 				});
 			});
@@ -265,10 +276,8 @@ export function makeTask(id: string, overrides: Partial<Task> = {}): Task {
 		position: 0,
 		needsReview: false,
 		dependencies: null,
-		artifacts: null,
 		threadId: null,
 		notes: null,
-		auditTrail: null,
 		outcomeVerdict: null,
 		outcomeSummary: null,
 		outcomeRecordedAt: null,
@@ -300,16 +309,17 @@ export interface MockTaskTreeOptions {
 	readonly children?: readonly TaskNode[];
 	readonly tokensActualRollup?: number | null;
 	/**
-	 * When set, PATCH /api/tasks/:id replies with this status instead of 200.
-	 * Use it to drive the save-error path.
+	 * When set, `edit_task` replies with this HTTP status instead of 200. Use
+	 * it to drive the save-error path.
 	 */
 	readonly patchStatus?: number;
 }
 
 /**
- * Mock `GET /api/tasks/:id/tree` (what WorkTaskPage loads) and `PATCH
- * /api/tasks/:id` (what its edit panel writes). The PATCH echoes the merged
- * task back, so a spec can assert the page re-renders from the response.
+ * Mock `open_task` (what WorkTaskPage loads) and `edit_task` (what its edit
+ * panel writes) — both `POST /api/actions/<name>`. `edit_task` echoes the
+ * merged task back as an `ActionResult<TaskView>`, so a spec can assert the
+ * page re-renders from the response.
  *
  * Registered per-test, so it wins over the auto-use fallbacks (Playwright
  * matches routes LIFO).
@@ -318,24 +328,40 @@ export async function mockTaskTree(
 	page: import("@playwright/test").Page,
 	opts: MockTaskTreeOptions,
 ): Promise<void> {
-	const body: TaskTreeResponse = {
+	const body: TaskView = {
 		task: opts.task,
 		ancestors: [...(opts.ancestors ?? [])],
 		children: [...(opts.children ?? [])],
 		tokensActualRollup: opts.tokensActualRollup ?? null,
+		threadId: null,
+		attachments: [],
 	};
 
-	await page.route(`**/api/tasks/${opts.task.id}/tree`, async (route) => {
+	await page.route("**/api/actions/open_task", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+		if (input.id !== opts.task.id) {
+			// @lore route.continue() sends straight to the network, skipping every
+			// OTHER registered handler for this same glob — wrong here, since a
+			// spec that calls mockTaskTree() more than once (one task's action
+			// door is the same URL for every task, unlike the old per-id
+			// `/api/tasks/:id/tree` path) needs this non-matching call to fall
+			// through to the NEXT-registered mockTaskTree handler, not the network.
+			await route.fallback();
+			return;
+		}
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify(body),
+			body: JSON.stringify({ ok: true, data: body }),
 		});
 	});
 
-	await page.route(`**/api/tasks/${opts.task.id}`, async (route) => {
-		if (route.request().method() !== "PATCH") {
-			await route.continue();
+	await page.route("**/api/actions/edit_task", async (route) => {
+		const patch = JSON.parse(route.request().postData() ?? "{}") as Partial<Task> & { id?: string };
+		if (patch.id !== opts.task.id) {
+			// @lore see the open_task handler above — fallback(), not continue(),
+			// so a second mockTaskTree() call's handler gets a turn.
+			await route.fallback();
 			return;
 		}
 		const status = opts.patchStatus ?? 200;
@@ -343,15 +369,17 @@ export async function mockTaskTree(
 			await route.fulfill({
 				status,
 				contentType: "application/json",
-				body: JSON.stringify({ error: "Patch rejected", code: "VALIDATION_ERROR" }),
+				body: JSON.stringify({
+					ok: false,
+					problems: [{ code: "validation_error", message: "Edit rejected" }],
+				}),
 			});
 			return;
 		}
-		const patch = JSON.parse(route.request().postData() ?? "{}") as Partial<Task>;
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ ...opts.task, ...patch }),
+			body: JSON.stringify({ ok: true, data: { ...body, task: { ...opts.task, ...patch } } }),
 		});
 	});
 }

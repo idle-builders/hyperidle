@@ -84,7 +84,7 @@ test.beforeEach(async ({ page }) => {
 	);
 	await page.route("**/api/sessions*", (route) => fulfillJson(route, { sessions: [] }));
 	// @lore BB1: the task page is reached at /work/task/:taskId now — there is no
-	// bet segment in front of it — and it loads GET /api/tasks/:id/tree.
+	// bet segment in front of it — and it loads open_task.
 	await mockTaskTree(page, { task: makeTask("task-orientation", { title: TASK_TITLE }) });
 });
 

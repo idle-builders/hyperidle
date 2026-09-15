@@ -147,7 +147,7 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 	test.use({ viewport: MOBILE });
 
 	// @lore BB1: was a hand-rolled `/api/bets/b1` body. WorkTaskPage loads
-	// `GET /api/tasks/:id/tree`; the shared fixture owns that shape so this
+	// `open_task`; the shared fixture owns that shape so this
 	// route stays hermetic on CI where there is no DB.
 	// @lore L13: WorkProduct calls useProduct. Mock /api/teams/p1 so the
 	// product drilldown route is also hermetic.
