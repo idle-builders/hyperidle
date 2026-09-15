@@ -135,6 +135,12 @@ receives the composed tool list.
 - The plan's delete list named three hooks and four tools. The real reach was seven UI surfaces,
   three surviving tools reading tasks through the seam, and six background writers; all found at
   the architecture critique, not at refinement.
+- The plan says the rule is "red for the other objects". Every governance rule is at error and
+  lands green, so the rule instead carries three explicit lists of what is still legacy (routes,
+  tools, events) that may only shrink; those lists are the to-do for BC3–BC6. Plan wording to amend
+  at the gate.
+- Nothing in production writes the session id onto a task's dispatch attempt, so "end the running
+  session on handoff" had no source; one write in the session-started reaction repairs it.
 - The task page reads attachments twice once open-a-task returns them. BC4's to clean.
 
 ## Proposed items

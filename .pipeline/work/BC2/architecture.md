@@ -11,12 +11,23 @@ layer face, the single composed tool list, the three loop signatures, the lint r
 attack case, the six re-pointed task writers, the seam test. Left to the builder: file layout inside
 the task module, helper names, query shapes.
 
-Two seam directions survive this item and are carried to BC6, the two `plan.md:76` names:
-(1) core → `AgentOrchestrationPort.intents.submit`, the work intent after an accept;
-(2) core → `AgentOrchestrationPort.runs.endForHandoff`, the running session ended when an owner
-changes off an agent. Nothing else on the seam grows. In particular `open_task` does **not** read a
-task's sessions — founder ruling 2026-09-13, upholding AU26 J4: the browser keeps combining
-orchestration data itself.
+**Two seam directions survive this item**, the two `plan.md:76` names. A direction is a direction,
+not a method count — which is how "those two ports are all that is left of the seam" stays true:
+
+1. **core → orchestration: run this work, and stop it.** One direction, three verbs, all already on
+   `AgentOrchestrationPort` at this base: `intents.submit` (the work intent after an accept or a
+   handoff), `runs.stopForTasks(taskIds)` (`api-contract/src/agent-orchestration-port.ts:189` — the
+   runs stopped when a subtree is killed) and `runs.endForHandoff(sessionId, endedAt)` (:190 — the
+   predecessor's run ended when the owner changes off an agent). Start and stop are one direction:
+   `edit_task` tells the executor what to run and what to stop running, and reads nothing back but
+   the ids it stopped. BC6 removes the direction whole.
+2. **orchestration → core: record what happened.** The session lifecycle events on the in-process
+   bus, which the two core reactions (`work-session-started-reactions.ts`,
+   `work-session-end-reactions.ts`) turn into an `edit_task` call and a dispatch-attempt update.
+
+Nothing else on the seam grows and no port gains an operation in this item. In particular `open_task`
+does **not** read a task's sessions — founder ruling 2026-09-13, upholding AU26 J4: the browser keeps
+combining orchestration data itself.
 
 ---
 
@@ -28,13 +39,26 @@ orchestration data itself.
 | 4 task tools | `create_task` (:466), `edit_task` (:559), `handoff_to` (:256), `log_task` (:1441) in `tool-handlers/src/tool-definitions.ts`; seam methods `getTaskById · createTask · updateTaskById · appendTaskNote · handoffTask` on `CoreApiWorkPort` (`api-contract/src/core-api-port.ts:179,188,…`) | the four tools deleted; **all five** seam methods deleted — but `getTaskById` has three surviving callers that are re-pointed first (§8, B1) |
 | `work` package, 14 methods | `layers/core-api/work` — also owns `items` and `taskDispatchAttempts` (`table-owners.json:15,16,41`) and exports `bakeTaskContextBundle · resolveTaskRunRequest` used by the run path | package renamed to `layers/core-api/task` (`@hyperidle/task`); all three table rows move with it; `items` keeps a surface until BC3 (`policy-engine`'s item append and the `create_item`/`get_item` seam methods still reach it); the two resolvers stay, private to the module |
 | three UI hooks + one wire type | `useTaskPatch · useTaskTree · useTaskSessions`, `core-ui/src/types/task.ts` | `useTaskPatch`, `useTaskTree` and `types/task.ts` deleted. **`useTaskSessions` stays** — it calls `GET /api/agent-orchestration/runs?task_id=`, not a task route, so this item does not touch it (founder ruling 2026-09-13); BC6 owns it. Five more surfaces call the deleted routes and are re-pointed in the same step (§8, B2) |
-| `audit_trail` dropped | written by `work-service.ts`, `policy/handoff-protocol.ts`, `policy/policy-engine.ts`, `policy/lifecycle-propagation.ts:41-49`; typed by `core-ui/src/types/task.ts:37`; no production reader renders it | column dropped in the migration; every writer above loses its append; `handoff-protocol.ts` is deleted outright (§8, B4); `policy-engine`'s *item* append survives until BC3 |
+| `audit_trail` dropped | written by `work-service.ts`, `policy/handoff-protocol.ts`, `policy/policy-engine.ts`, `policy/lifecycle-propagation.ts:41-49`; typed by `core-ui/src/types/task.ts:37`; no production reader renders it | column dropped in the migration; every writer above loses its append; `handoff-protocol.ts` is deleted outright (§8, B4); `policy-engine`'s *item* append survives until BC3. One prose edit rides along: `one-work-primitive.ts:50-53` justifies banning `revision_log` with "`audit_trail` is the one audit mechanism", which this item makes false — the `why` becomes "the `changes` table is the one audit mechanism" |
 | dependencies wait then start (#550) | `task-state-machine.ts` holds a task with unmet dependencies; `done` frees dependents via `checkAndUnblockDependents` (`app.ts:429`) | "may not accept with unmet dependencies" becomes a server-side invariant inside `edit_task`; the unblock reaction keeps subscribing to `task_state_changed` but writes through `edit_task` (§6) |
 | old event keeps firing | `task_state_changed` emitted at the tail of `transitionTask` (`task-state-machine.ts:384-394`); subscribers `app.ts:429`, `policy/lifecycle-propagation.ts:435` | emitted by `edit_task` after commit whenever `state` changed, same payload including the `cascade: true` flag a kill carries |
 | sessions still start | `await deps.workIntents({ kind: "task_run", … })` after commit (`task-state-machine.ts:375-383`) through `AgentOrchestrationPort.intents.submit` | unchanged call, made from `edit_task` after commit. **The live dep is a callable, not `deps.workIntents.record(...)`** — the `.record` spelling survives only in the `@lore` at `task-state-machine.ts:206` |
-| governance bus registry | `architecture.json` `eventBus.typesModule` = `framework/domain-model/src/events.ts` (the stale fork BC1 deletes) | BC1 repoints it; BC2 reads event names from `framework/event-bus/src/events.ts`' `EVENT_TYPES` (:637-668) |
+| governance bus registry | `architecture.json` `eventBus.typesModule` = `framework/domain-model/src/events.ts` (the stale fork BC1 deletes) | BC1 repoints it; BC2 reads event names from `framework/event-bus/src/events.ts`' `EVENT_TYPES` (:637-667) |
 
-No symbol the plan names is missing. No plan amendment needed.
+No symbol the plan names is missing. No plan amendment needed for the target shape. One number the
+founder already owns changes at the gate: §13's line count.
+
+**One live defect this item has to fix to work at all.** `task_dispatch_attempts.requestId` and
+`.sessionId` are **never written in production** at this base. The only production writes to that
+table are `insertAttempt` (`work-service.ts:70-96`, which sets neither) and `markFailed` (:131-138).
+`work-session-end-reactions.ts:36` finalizes an attempt with
+`taskDispatchAttemptStore.updateIfActive(db, event.requestId, { status, sessionId })`, and that
+update is keyed `eq(taskDispatchAttempts.requestId, requestId)` (`work-service.ts:119`) — against a
+column nothing ever fills, so it matches zero rows every time. Its integration test fills
+`requestId` in its own fixture, which is why the hole survived. The consequence for this item:
+`status` stays `requested` forever and `sessionId` stays null, so the table cannot answer "does this
+task have a live session" — the question `edit_task` step 5b has to ask (§5). The repair is one
+write, named in §5 and §6 row 1.
 
 ## 2. Names on the wire — locked
 
@@ -84,7 +108,8 @@ teamId · ownerAgentId · title · description · doneCondition · state · posi
 dependencies · outcome{verdict,summary} · sourceKnowledgeItemId · appendNote? · version?`. `.strict()`.
 
 - **Handoff is `ownerAgentId`.** Founder decision (`plan.md:100-103`). Role targeting, human
-  escalation and the escalation thread/item go with `handoff-protocol.ts` (§8, B4).
+  escalation and the escalation thread/item go with `handoff-protocol.ts` (§8, B4). What does **not**
+  go is the re-dispatch: setting the owner still starts the new owner's session (§5 step 5d, §8 B4).
 - **`appendNote` is not a partial field.** Notes keep their atomic-append semantics: today
   `log_task` writes through one `UPDATE … CASE` with no pre-read
   (`tool-definitions.ts:1455-1457`; `work-service.ts:682-687`, the `{ notes: AppendNoteOp }`
@@ -149,13 +174,18 @@ row never re-serialises the whole notes blob. The migration is a hand-written `.
 `meta/_journal.json` entry per `framework/db/drizzle/README.md`; no backfill, because nothing reads
 `audit_trail`.
 
-**Three registry edits go with the table, not one.** `changes` also needs its drizzle declaration in
-`framework/db/src/schema.ts` — `registries-honest` validates `table-owners.json` against the live
-table set the census derives from the schema module
+**The table registry needs five edits, not two, and one of them is a number.** `changes` also needs
+its drizzle declaration in `framework/db/src/schema.ts` — `registries-honest` validates
+`table-owners.json` against the live table set the census derives from the schema module
 (`tools/governance/src/rules/registries-honest.ts:34-43`), so an owner row for a table the schema
-does not declare fails the build. In `tools/governance/table-owners.json`: `changes → "changes"`
-(new), and `tasks` (:15), `items` (:16) and `taskDispatchAttempts` (:41) move from `"work"` to
-`"task"`. Three rows, not two.
+does not declare fails the build. In `tools/governance/table-owners.json`:
+
+1. `changes → "changes"`, a new owner row;
+2. `tasks` (:15), `items` (:16) and `taskDispatchAttempts` (:41) move from `"work"` to `"task"`;
+3. **`totals.tables` and `totals.owned` go `34 → 35`** (`table-owners.json:4-8`).
+   `validateTableOwners` throws when `registry.totals.tables !== liveTables.size`
+   (`tools/governance/src/lib/governance-registry.ts:165-169`), so adding the table without the
+   totals fails the whole lint run with a registry error, not a finding.
 
 ## 5. The task module — `layers/core-api/task`
 
@@ -173,9 +203,9 @@ export interface TaskActionsDeps {
     appendChange(exec: WriteExecutor, row: NewChange): Promise<unknown>;
   };
   readonly agentOrchestration: {
-    // seam direction 1 — the work intent after an accept (BC6 removes it)
+    // one direction, three verbs — see the header. BC6 removes all three together.
     submitWorkIntent(input: AgentWorkIntentRecorderInput): Promise<void>;
-    // seam direction 2 — the running session ended when the owner changes off an agent
+    stopRunsForTasks(taskIds: readonly string[]): Promise<readonly { taskId: string; sessionId: string }[]>;
     endRunForHandoff(sessionId: string, endedAt: string): Promise<void>;
   };
   readonly org:       { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
@@ -187,10 +217,13 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[];
 
 Every dep is a sibling Service or the seam, which a nested Service may not import directly — the
 same Mechanism-C injection `TaskStateMachineDeps` already uses (`task-state-machine.ts:38-47`). The
-bag is bound in `layers/core-api/src/service-bootstrap.ts`, next to the equivalents at :176-177. The
-layer face (`layers/core-api/src/index.ts`) exports `buildCoreActions(bindings): readonly Action[]`
-whose body **calls** `createTaskActions(...)` — a bare Service identifier in direct callee position,
-which is the sanctioned shape. No Service value is ever named on the face.
+bag is bound in `layers/core-api/src/service-bootstrap.ts`, next to the equivalents at :176-177.
+`stopRunsForTasks` binds to the seam method the deleted `routes/tasks.ts:54-61` binds today —
+`(taskIds) => agentOrchestration.runs.stopForTasks(taskIds)` — with the dead `_exec` first parameter
+dropped, since the stop is post-commit and never runs on an executor. The layer face
+(`layers/core-api/src/index.ts`) exports `buildCoreActions(bindings): readonly Action[]` whose body
+**calls** `createTaskActions(...)` — a bare Service identifier in direct callee position, which is
+the sanctioned shape. No Service value is ever named on the face.
 
 ```ts
 // layers/core-api/src/actions/action.ts — the layer's own composition code,
@@ -207,7 +240,12 @@ export interface Action<I = unknown, O = unknown> {
 }
 ```
 
+`ActionContext` carries no session id and gains none. Everything step 5 needs about a running
+session it reads from the task-owned `task_dispatch_attempts` table.
+
 ### `edit_task.run`, in order — the plan's paragraph as steps
+
+**Before the transaction**
 
 1. load `prev` by `id` (null → create; then `teamId` is required unless `parentTaskId` supplies it,
    exactly as `routes/tasks.ts:339-355` does today, including the "parent not found" and
@@ -218,19 +256,93 @@ export interface Action<I = unknown, O = unknown> {
    `assertNoCycle` (`task-state-machine.ts:69`), team capacity on accept-with-owner
    (`countTeamTasksInProgress` + `teams.capacity`), owner exists (`deps.users.getUserById`), unmet
    dependencies on accept (the #550 guard). Any problems → `{ ok: false, problems }`, no write;
-4. **one transaction**: upsert `tasks`; apply `appendNote` through the `AppendNoteOp` overload;
-   sibling renumber when `position` changed (moved from `routes/tasks.ts:442-465`); when
-   `state === "killed"`, the kill cascade runs **inside this transaction** as module-internal code
-   (§6); auto-park to `hold` when dependencies were added to a task that can still reach `hold`
-   (moved from `routes/tasks.ts:600-618`); then `deps.changes.appendChange(tx, { object: "task",
-   objectId, kind, actor: ctx.actor, before, after, at: ctx.now })` — **one row per task touched**,
-   so a cascade kill writes one row per killed descendant;
-5. after commit, in this order: if `state` changed, `ctx.eventBus.emit(task_state_changed)` with
-   today's payload (`cascade: true` preserved for cascade rows); if the owner changed **off an agent
-   that has a running session**, `deps.agentOrchestration.endRunForHandoff(sessionId, ctx.now)`; if
-   the edit accepted a task with an agent owner, `deps.agentOrchestration.submitWorkIntent({ kind:
-   "task_run", … })` exactly as `task-state-machine.ts:375-383` does today. Steps 5b and 5c are the
-   two seam calls carried to BC6;
+
+**Inside one transaction (step 4)**
+
+4. upsert `tasks`; apply `appendNote` through the `AppendNoteOp` overload; sibling renumber when
+   `position` changed (moved from `routes/tasks.ts:442-465`); when `state === "killed"`, the kill
+   cascade's **task writes** run here as module-internal code (§6 row 6) — deepest-first, terminal
+   descendants skipped; auto-park to `hold` when dependencies were added to a task that can still
+   reach `hold` (moved from `routes/tasks.ts:600-618`); `deps.changes.appendChange(tx, …)` once per
+   task touched, so a cascade kill writes one row per killed descendant, all carrying the root
+   edit's actor; and — when the edit dispatches work — **the dispatch-attempt insert and the bake,
+   in this transaction**, exactly where `task-state-machine.ts:331-355` has them today. That pair
+   stays in-tx on purpose: `resolveTaskRunRequest` reads the attempt row the insert just wrote
+   (`@lore` AU31 §3.1 site 6, `task-state-machine.ts:353-363`). Only the seam write moves out.
+
+   The edit dispatches work in exactly two situations — an accept and an owner change — and the
+   `occasion` column says which:
+
+   | Case | `occasion` | `predecessorSessionId` |
+   |---|---|---|
+   | state became `accepted` and the owner is an agent, from a non-`hold` state | `accepted` | null |
+   | …from `hold` | `retry` | null |
+   | `ownerAgentId` changed to an agent while the task is `accepted` or `in_progress` | `owner_handoff` | the predecessor's live session id, or null |
+
+   The predecessor's live session id is read **once**, here, on the transaction's executor — the
+   query is in 5b below, over the task-owned table. It is the `owner_handoff` attempt's
+   `predecessorSessionId` and it is the argument 5b passes; the value is carried out of the
+   transaction, never re-read.
+
+   The insert is `taskDispatchAttemptStore.insertAttempt` unchanged (`work-service.ts:70-96`) with
+   `predecessorSessionId` widened to optional, plus `.onConflictDoNothing()`: migration
+   `0047_AU9_durable_custody.sql:45` carries a second unique index
+   `(task_id, occasion, coalesce(predecessor_session_id,''), agent_id)` that `schema.ts` does not
+   declare, and handing a task with no live session back and forth between the same two agents
+   collides on it. A swallowed conflict means no new attempt row, and therefore no intent in 5d.
+
+**After commit (step 5), in this order**
+
+5. a. **stop the runs of a kill.** If this edit killed a subtree,
+   `deps.agentOrchestration.stopRunsForTasks(killedIds)` with every killed id, including a `done`
+   root — the `@lore` at `task-kill-cascade.ts:104-113` is why it is not pre-filtered. This moves
+   from *before* the kills (where `task-kill-cascade.ts:114` has it) to *after commit*, the ordinary
+   post-commit order this module uses everywhere. Its return value fed `cascadeTaskKill`'s
+   `sessionsStopped`, which no caller reads once the kill is an edit; it is dropped.
+   b. **end the predecessor's run of a handoff.** If `ownerAgentId` changed off an agent and step 4
+   found a live session id, `deps.agentOrchestration.endRunForHandoff(sessionId, ctx.now)`. The query
+   step 4 ran is over the task-owned table and nothing else:
+
+   ```sql
+   SELECT session_id FROM task_dispatch_attempts
+   WHERE task_id = $1 AND session_id IS NOT NULL
+     AND status IN ('requested', 'running')
+   ORDER BY ordinal DESC LIMIT 1
+   ```
+
+   `status` is the column that says a run ended: `work-session-end-reactions.ts:36`'s
+   `updateIfActive` writes `completed`/`failed`/`cancelled` on `agent_run_lifecycle_changed`, which
+   is terminal-only (`event-bus/src/events.ts:96`). For that to be true of production rows, the
+   started reaction has to fill `requestId` and `sessionId` first — §1's live defect, repaired in
+   §6 row 1. No new port operation, no session id on `ActionContext`, no read of the orchestration-
+   owned `sessions` table.
+   **The stale-id risk is real and accepted.** `endRunForHandoff` has no CAS:
+   `run-orchestration/src/end-run-for-handoff.ts:40` is a bare
+   `update(sessions).set({ state: "done", endedAt }).where(eq(sessions.id, sessionId))`, and its own
+   header (:14-16, :25-28) says there is no safety net — a handed-off run left `active` stays
+   `active` forever, and an id that is stale by a tick closes a session that had already moved on.
+   We do not add a guard in this item: the attempt row is only ever handed a session id by the
+   session-started reaction and only ever keeps it while `status` is live, which is the same
+   confidence the tool path had when it passed its own `sessionContext.sessionId`. That header also
+   asks to be called on the caller's `tx`; the port form takes no executor
+   (`agent-orchestration-port.ts:190`), so cross-layer atomicity was already relinquished at the
+   seam — `handoff-protocol.ts:118` relinquished it in the other direction by calling before its own
+   transaction (AU31 §3.1 site 7). Accepted as-is; BC6 owns the direction and can put the CAS where
+   the write is.
+   c. **emit the old event.** If `state` changed, `ctx.eventBus.emit(task_state_changed)` with
+   today's payload, one emit per task whose state changed, `cascade: true` preserved on the
+   descendants of a kill.
+   d. **submit the work intent**, when step 4 inserted an attempt row: `deps.agentOrchestration
+   .submitWorkIntent({ kind: "task_run", sourceKind: "task_dispatch_attempt", sourceId: attemptId,
+   requestedBy: ownerAgentId, idempotencyKey: "task-dispatch:" + attemptId, bakedRequest })` —
+   character for character what `task-state-machine.ts:375-383` submits after an accept and what
+   `handoff-protocol.ts:362-371` submits after a handoff. This is the step that keeps a handoff a
+   handoff: 5b ends the predecessor's run, 5d starts the new owner's.
+   e. **free the dependents of anything killed.** For each killed id, the dependency reaction (§6
+   row 3) runs, each dependent edited by its own `edit_task.run` call in its own transaction as
+   `system:propagation`. Awaited here rather than left to an ambient subscription, preserving the
+   reason `task-kill-cascade.ts:140-150` gives: a person killing a task expects the freed dependents
+   to be visible in the response.
 6. return `open_task.run(ctx, { id })`.
 
 ### `open_task.run`
@@ -247,10 +359,10 @@ what `open_task` returns; the founder ruled on 2026-09-13 that it does not, upho
 the ui instead of in the core api service"* (`hooks/useTaskSessions.ts:6-14`). So the task page keeps
 reading runs itself through `useTaskSessions` → `services/agent-runs.ts:33-42` →
 `GET /api/agent-orchestration/runs?task_id=`
-(`agent-orchestration/src/routes/agent-orchestration-sessions.ts:115-131`) until BC6. That keeps the
-seam at the two directions `plan.md:76` names: `AgentOrchestrationSessionsPort` stays
-`getById(sessionId)` only (`api-contract/src/agent-orchestration-port.ts:64-69`), with no new port
-operation and no new client method.
+(`agent-orchestration/src/routes/agent-orchestration-sessions.ts:115-131`) until BC6. That keeps
+`AgentOrchestrationSessionsPort` at `getById(sessionId)` only
+(`api-contract/src/agent-orchestration-port.ts:64-69`), with no new port operation and no new client
+method.
 
 ### `search_tasks.run`
 
@@ -269,12 +381,18 @@ nothing outside `edit_task` appends a task `changes` row.** Today six production
 
 | # | Call site today | Becomes | Actor |
 |---|---|---|---|
-| 1 | `core-api/src/services/work-session-started-reactions.ts:79` — session started → `in_progress` | the same reaction, calling `edit_task.run(ctx, { id: event.taskId, state: "in_progress" })` in-process; the `TaskInvalidTransitionError` swallow becomes "problems returned → log and return", because `edit_task` returns problems instead of throwing | `event.agentId` — the session's own agent (`SessionStartedEvent.agentId`, `event-bus/src/events.ts:160`) |
-| 2 | `core-api/task/src/dependency-watcher.ts:89` — last dependency met → `accepted` | `edit_task.run(ctx, { id, state: "accepted" })`; the accept's work-intent submit now happens once, inside `edit_task` step 5c, instead of inside `transitionTask` | `system:propagation` |
-| 3 | `core-api/task/src/dependency-watcher.ts:164` — a dependency was killed → dependent back to `proposed` | `edit_task.run(ctx, { id, state: "proposed" })` | `system:propagation` |
+| 1 | `core-api/src/services/work-session-started-reactions.ts:79` — session started → `in_progress` | the same reaction, calling `edit_task.run(ctx, { id: event.taskId, state: "in_progress" })` in-process; the `TaskInvalidTransitionError` swallow becomes "problems returned → log and return", because `edit_task` returns problems instead of throwing. **It gains one write**, the repair §1 names: before the transition, mark the task's latest `requested` attempt row running — `taskDispatchAttemptStore.markRunning(db, { taskId: event.taskId, requestId: event.requestId, sessionId: event.sessionId, now })`, a new store method that sets `requestId`, `sessionId` and `status: "running"` on the highest-ordinal `requested` row for the task. `SessionStartedEvent` carries all three fields (`event-bus/src/events.ts:156-168`) and `provisioner.ts:1294-1308` fills them for every request-backed session, so the row is honest from the moment a session exists. A `session_started` with no `requestId` — the legacy bare-insert path this file's own header names — marks nothing and is not an error. That is what makes step 5b's query answerable and what makes `work-session-end-reactions`' `updateIfActive` match a row for the first time | `event.agentId` — the session's own agent (`SessionStartedEvent.agentId`, `event-bus/src/events.ts:160`) |
+| 2 | `core-api/task/src/dependency-watcher.ts:89` — last dependency met → `accepted` | `edit_task.run(ctx, { id, state: "accepted" })`; the accept's work-intent submit now happens once, inside `edit_task` step 5d, instead of inside `transitionTask` | `system:propagation` |
+| 3 | `core-api/task/src/dependency-watcher.ts:120-166` — a dependency was killed → drop the stale id, and a dependent still waiting goes back to `proposed` | **a reaction, never part of the kill's transaction.** `handleDependencyKilled` stays a function in the watcher and is called by `edit_task` after commit (§5 step 5e), once per killed id. For each dependent it makes **its own** `edit_task.run(ctx, { id, dependencies: remaining, ...(state === "hold" ? { state: "proposed" } : {}) })` — one call, one transaction, one `changes` row per dependent, so the stale-id drop (`update(db, "task", …)` at :155-157 today) stops being a table write that records nothing. It cannot nest inside the kill's transaction: `edit_task.run` opens its own, would not see the uncommitted kills, and would commit ahead of them | `system:propagation` |
 | 4 | `core-api/policy/src/lifecycle-propagation.ts:164` — session ended → task to `review` or `done` | `edit_task.run(ctx, { id: taskId, state: target })`. The file's own private `transitionTask` helper (:18-78) is **deleted** — that is "the task half" `plan.md:9` removes. Its `auditTrail` JSON append (:41-49) dies with the column; its `work.transitionTaskState` port dep (`policy/src/ports.ts:33`) goes. The two subscriptions, the sibling/ancestor decision logic, `createShipConfirmationThread` (:336) and the `propagation_applied`/`propagation_failed` emits all stay | `system:propagation` — the constant already in the file at :86, seeded unconditionally by `core-api/src/bootstrap/factory-state.ts:36-41` |
 | 5 | `core-api/policy/src/lifecycle-propagation.ts:271` — ancestor rollup | same as #4, same helper, same actor | `system:propagation` |
-| 6 | `core-api/task/src/task-kill-cascade.ts:138` — kill each non-terminal task in the subtree | **internal to `edit_task`.** A kill is an edit with `state: "killed"`; descendants are collateral, never a second decision — the BB1 governance rule `one-work-primitive`'s reading. `cascadeTaskKill` stops being an exported entry point and becomes a private step inside `edit_task`'s transaction (§5 step 4), writing one `changes` row per killed descendant. Its downward run-stop dep and its awaited `handleDependencyKilled` call (:145-150) move with it unchanged | whoever issued the edit — a human's `userId` or the calling agent. A cascade inherits the root kill's actor; there is no second actor |
+| 6 | `core-api/task/src/task-kill-cascade.ts:138` — kill each non-terminal task in the subtree | **collateral, inside `edit_task`'s own transaction.** A kill is an edit with `state: "killed"`; the root is the decision and the descendants are collateral, never a second decision — the BB1 governance rule `one-work-primitive`'s reading. `cascadeTaskKill` stops being an exported entry point: its subtree select, its terminal filter (:97-100) and its deepest-first walk (:122-138) become a private step inside step 4, writing the task rows and one `changes` row each **in that one transaction**. Nothing re-enters `edit_task` from inside it. Its two outward calls both move **out** of the transaction: the run stop to step 5a, `handleDependencyKilled` to step 5e (row 3) | the actor who issued the edit — a human's `userId` or the calling agent. Every collateral row carries the root kill's actor; there is no second actor and no `system:propagation` here |
+
+Rows 3 and 6 are two different mechanisms and the difference is the point. **Descendants of a killed
+root are collateral**: same transaction, same actor, one `changes` row each, no separate decision.
+**Dependents of a killed task are a reaction**: after commit, its own transaction per dependent,
+actor `system:propagation`, and a refusal stops that dependent alone. Collapsing either into the
+other is what makes `edit_task` call itself from inside its own open transaction.
 
 Consequences a builder must not miss:
 
@@ -289,6 +407,11 @@ Consequences a builder must not miss:
   already uses for `deps.work`.
 - Every one of these calls is **in-process, after the caller's own commit, as the named actor** —
   `plan.md:71-76`. Never a shared transaction, never the table.
+- The existing re-entrancy is preserved, not created: `lifecycle-propagation.ts:435` still subscribes
+  to `task_state_changed` and its own ancestor transition still re-emits it (:205-212 documents the
+  loop), terminating on `SKIP_ANCESTOR_STATES`, the all-children-terminal check and the refusal. The
+  refusal changes shape — a returned problem list instead of a thrown `TaskInvalidTransitionError` —
+  and stops the walk the same way.
 
 ## 7. The loops
 
@@ -308,6 +431,10 @@ export function createActionsRouter(actions: readonly Action[], deps: { db; even
 already needs (`routes/tasks.ts:336`), and omitting it costs a typecheck round. Mounted at
 `api.route("/actions", …)` in `app.ts` behind the existing auth middleware; 404 for an unknown name
 falls out of Hono. `app.ts` receives `actions` from the root the same way it receives `db`.
+
+Mounting is structural, not something to check: the loop mounts every declaration or none. That is
+why the lint rule below has no "is it mounted" clause — one path over the same list cannot disagree
+with itself, and the route name is a template literal the rule's scan deliberately does not see.
 
 ### MCP — `layers/core-api/src/actions/actions-as-tools.ts`
 
@@ -369,115 +496,229 @@ export async function call<N extends keyof Actions>(name: N, input: z.input<Acti
 
 ### Lint — `tools/governance/src/rules/actions-projected.ts`
 
-Registry file `tools/governance/actions.json`, read through the census's injected `readFile` the
-same way `noPerFileAllowances` reads its input:
+**There is no new file at `tools/governance/`'s root, and no `pending` map.** An earlier draft put a
+registry at `tools/governance/actions.json`. It cannot exist: `no-per-file-allowances` reports every
+direct child of that folder that is not one of seven declared names
+(`CLOSED_SET`, `tools/governance/src/rules/no-per-file-allowances.ts:52-62`;
+`isDirectChildOfGovernanceDir` :64-66; the report loop :117-126), and the census it runs over is
+`git ls-files --cached --others --exclude-standard` across the repo, so a `.json` there is in scope.
+Its other clause only inspects the two CLI entry points' argv comparisons (`CLI_ENTRY_POINTS`
+:68-71, `DECLARED_FLAGS` :73, the check :128-147).
+**A module under `src/rules/` is outside both clauses by design** — "The closed set is scoped to this
+folder's own root only; `src/` is the engine's real source and grows by design"
+(`tools/governance/README.md:87-91`, and the rule's own `@lore` at :29-35). So the rule carries its
+own data as constants in its own file. Nothing is a registry edit, nothing is a clause
+edit in `governance-model.ts`, and no founder ruling is required for the mechanism.
 
-```json
-{ "plumbing": [ …the sixteen from ACTIONS.md § plumbing, derived from BC1's list, not retyped… ],
-  "pending":  { "thread":   ["routes/conversations.ts", "routes/threads.ts", "routes/reviews.ts"],
-                "document": ["routes/knowledge.ts", "routes/search.ts"],
-                "user":     ["routes/users.ts", "routes/org.ts", "routes/teams-routes.ts",
-                             "routes/agents.ts", "routes/recipients.ts", "routes/credentials.ts",
-                             "routes/filesystems.ts", "routes/harnesses.ts",
-                             "routes/settings-agent-behavior.ts", "routes/routines-routes.ts",
-                             "routes/notifications-routes.ts", "routes/assistant.ts",
-                             "routes/coach.ts", "routes/hints.ts",
-                             "agent-orchestration/src/routes/connections.ts",
-                             "agent-orchestration/src/routes/filesystems.ts"],
-                "session":  ["agent-orchestration/src/routes/sessions.ts",
-                             "agent-orchestration/src/routes/agent-orchestration-sessions.ts"],
-                "platform": ["routes/plugins.ts"] },
-  "events":   ["task.created","task.changed","thread.created","thread.message","thread.changed",
-               "document.created","document.changed","user.created","user.changed",
-               "agent_work_intent_recorded","agent_run_admission_failed","agent_run_lifecycle_changed",
-               "session_handoff_completed","sandbox_writeback_changes_detected","tool_call_recorded",
-               "propagation_applied","propagation_failed"],
-  "legacyEvents": ["task_state_changed","session_started","session_ended","session_not_returned",
-                   "thread_created","thread_message_appended","thread_resolved","thread_reopened",
-                   "thread_archived","item_created","dependency_met","knowledge_created",
-                   "knowledge_updated","knowledge_archived","knowledge_accessed","team_created",
-                   "agent_added","user_created","work_selection_requested","notification",
-                   "routine_fired"] }
+A path-keyed `pending` map would also have been the exact shape that rule exists to refuse — an
+allowance that passes a file *because it is listed*. The three constants below are not that: they are
+a **census of what exists at `efa28dd59`**, every entry required to still exist, and the entry is
+deleted in the pull request that removes the thing.
+
+The file holds six constants. Three are **vocabulary** that does not shrink — `PLUMBING_ROUTES` (the
+seventeen registrations that realise `ACTIONS.md`'s sixteen plumbing doors), `OBJECT_EVENTS` (the
+nine) and `PLATFORM_EVENTS` (the eight). Three are the **shrink lists**:
+
+```ts
+/** Every route registered in a production file at efa28dd59 that is neither a task action route
+ *  nor one of the sixteen plumbing doors. 107 entries. Only shrinks: an entry whose route is gone
+ *  is a finding, so the deletion and the row land in the same PR. */
+const LEGACY_ROUTES: readonly string[] = [
+  "layers/core-api/src/routes/threads.ts|POST /:id/messages",
+  …
+];
+/** Every tool name declared in a production ToolDefinition literal that is not an action. 17. */
+const LEGACY_TOOLS: readonly string[] = ["add_agent", "create_artifact", …];
+/** Every EVENT_TYPES member that is neither one of the nine object events nor one of the eight
+ *  platform events. 21. */
+const LEGACY_EVENTS: readonly string[] = ["task_state_changed", …];
 ```
 
-Four clauses, each over a population the rule derives and hard-fails at zero on:
+**Four clauses, each over a population the rule derives from the code and hard-fails at zero on.**
 
-1. every `name` declared in `framework/domain-model/src/actions/*` is referenced by string in
-   `core-ui/src/**` (a `call("<name>"`) — else a finding;
-2. every `router.<verb>("<path>"` in a **production** file is in `plumbing`, or its file belongs to
-   an object still in `pending` — else a finding. In BC2: `routes/tasks.ts` must be gone. The
-   population is **derived by scanning every production file for `router.<verb>(`**, not by a
-   `layers/*/src/routes/**` glob — that glob misses
-   `layers/agent-execution/harness-registry/src/mcp/mcp-route.ts:82` (`POST /mcp/:token/return-status`,
-   one of the sixteen plumbing entries) and `layers/core-api/src/app.ts:272` (`GET /health`,
-   likewise). A rule wired to a subset is the `au6` shape `.pipeline/rules/architecture.md:30-39`
-   warns about. (`layers/core-api/src/__testing__/test-routes.ts` is a development file — a path
-   segment starting with `__` — so the production predicate already excludes it, and that is the
-   whole reason the predicate is "production file", not "file under `src/`".)
-3. every tool `name:` in `tool-definitions.ts` belongs to an object still in `pending` — else a
-   finding;
-4. **the event clause, and it lands in this item** — not BC5. `plan.md:48-52` puts it here and
-   `plan.md:93-105` records only three carry-overs; this is not one of them. The population is the
-   compile-time-complete `EVENT_TYPES` array in `framework/event-bus/src/events.ts:637-668`, parsed
-   through `readFile`. Every name in it must be in `events` or in `legacyEvents`; anything in
-   neither is a finding. `EVENT_TYPES` is a superset of what is actually emitted — a type that can
-   ride the bus is a type something may emit — so the clause cannot pass by missing an emit site,
-   which a hand-rolled `eventBus.emit(` scan would. It is also compile-time-enforced complete
-   (`:669-675`), so a new event type cannot slip past it.
+1. **Every action name is reachable from the UI.** Every `name` declared in
+   `framework/domain-model/src/actions/*` is referenced as a string in `core-ui/src/**` (a
+   `call("<name>"`). Mounting and tool registration are loops over the same list (above), so there is
+   nothing to check there; the UI is the one projection a loop cannot guarantee.
+2. **Every route is an action, plumbing, or legacy.** The population is derived by scanning **every
+   production file** for a `.<verb>(` call whose first string-literal argument starts with `/` — the
+   verb call and the literal may sit on different lines, which is why a single-line regex is wrong
+   (`agent-orchestration-intake.ts` alone registers seven routes that way). At this base that scan
+   yields **132** registrations. The scan must not be a `layers/*/src/routes/**` glob and must not
+   require the receiver to be called `router`: `layers/core-api/src/app.ts:272` (`api.get("/health")`),
+   `layers/core-api/src/routes/health.ts:7,26` (`health` / `authHealth`),
+   `layers/core-api/src/routes/reviews.ts:47` (`app`), `layers/core-api/src/routes/ws.ts:92`
+   (`apiApp`) and `layers/agent-orchestration/src/routes/session-stream-ws.ts:87` (`apiRouter`) all
+   register on a differently-named receiver, and
+   `layers/agent-execution/harness-registry/src/mcp/mcp-route.ts:82` is outside any `routes/` folder.
+   A rule wired to a subset is the `au6` shape `.pipeline/rules/architecture.md:30-39` warns about.
+   (`layers/core-api/src/__testing__/test-routes.ts` is a development file — a path segment starting
+   with `__` — so the production predicate already excludes it, and that is the whole reason the
+   predicate is "production file" rather than "file under `src/`".)
+   A registration is a finding unless it is plumbing or in `LEGACY_ROUTES`; and a `LEGACY_ROUTES`
+   entry the scan no longer finds is a finding too.
+3. **Every tool is an action or legacy.** The population is every `name: "<snake_case>"` property in
+   a production file within ten lines of an `inputSchema:` property — i.e. every hand-written
+   `ToolDefinition` literal. At this base that is **21** names: the twenty in
+   `tool-handlers/src/tool-definitions.ts` and `return_status` in
+   `harness-registry/src/return-status-tool.ts:110`. The three action tools are built from
+   declarations, not literals, so they never appear in this population — which is correct: the
+   adapter is a loop. Same two directions as clause 2.
+4. **Every event is classified.** The population is the compile-time-complete `EVENT_TYPES` array in
+   `framework/event-bus/src/events.ts:637-667`, parsed through the injected `readFile`. Every name is
+   in the nine object events, the eight platform events, or `LEGACY_EVENTS`; anything else is a
+   finding, and a `LEGACY_EVENTS` name no longer in `EVENT_TYPES` is a finding. `EVENT_TYPES` is a
+   superset of what is emitted — a type that can ride the bus is a type something may emit — so the
+   clause cannot pass by missing an emit site, which a hand-rolled `eventBus.emit(` scan would. It is
+   compile-time-enforced complete (:669-674), so a new event type cannot slip past it.
 
-`legacyEvents` is the twenty-one names that are neither one of the nine nor one of the eight
-platform events at `efa28dd59`. It **only shrinks**, same discipline as `misplaced-files.json`:
-BC3–BC6 delete their entries in the PR that replaces them, and a name may never be added back.
-Three of the twenty-one — `thread_archived`, `dependency_met`, `work_selection_requested` — are
-declared on the bus with **no production emitter** at this base (verified: the only live mentions
-are comments in `core-api/routine/src/routine-scheduler.ts` and `domain-model/src/work-intent.ts`).
-They are the three cheapest to delete and the honest first shrink; BC2 does not delete them because
+**The ratchet, and why it is a ratchet.** `misplaced-files.json` keeps a committed `resolvedFiles`
+count and fails in **both** directions (`tools/governance/README.md:96-101`) — that is the discipline
+being copied, and copying it needs no count here because the population is live code. A legacy entry
+is a claim that something still exists; when it stops existing the rule goes red until the entry is
+deleted, which forces the deletion and the row into the same pull request. A name cannot be added
+back to a list without the reviewer seeing a list grow in the diff, which is exactly the two-line
+diff review is expected to challenge. Nothing derives these lists for you a second time; they are
+derived **once, by running the scan**, not typed out of `ACTIONS.md`.
+
+**This is how `plan.md`'s "red for the other objects" is honoured without a red build, and the
+founder hears it at the gate.** `plan.md:51-52` and the gate line at `plan.md:120-121` both say the
+rule is green for task and red for every other object. A rule that is red fails `npm run lint`,
+therefore `verify`, therefore the PR — and `.pipeline/rules/architecture.md:27-28` is explicit that
+every architectural rule is `error` and lands with its violations cleared in the same pull request.
+Both cannot be true at once. What ships instead: the three constants **are** the red. They are a
+written-down, mechanically-enforced, only-shrinking list of every door, tool and event that is not
+yet an action — 107 routes across 29 files, 17 tools, 21 events — and BC3–BC6 each delete their
+share in the PR that lands their module. That is a plan amendment, small but real, and it is stated
+to the founder at the gate rather than discovered later.
+
+#### `LEGACY_ROUTES` — 107 entries, derived from the route files
+
+The scan finds **132** registrations at `efa28dd59`. Seventeen are plumbing: `routes/auth.ts:55,80,107`
+(`GET /me`, `POST /ws-token`, `POST /worker-token`), the three health registrations
+(`app.ts:272`'s authed `/api/health`, `routes/health.ts:7`'s unauthenticated probe mounted at `/` by
+both roots — `desktop/src/create-server.ts:310`, `remote-server/src/create-server.ts:432` — and
+`routes/health.ts:26`'s `/api/health/auth`; `ACTIONS.md:281` counts these as two doors because
+`/health` is registered twice), the ten seam registrations in `agent-orchestration-intake.ts`
+(:129, :140, :159, :180, :236, :247, :254, :268, :295, :305) and
+`mcp-route.ts:82`. Eight are the task routes this item deletes. The remaining **107** are the list,
+by file, with each file's count. (`ACTIONS.md:114` tallies 126 routes where this scan finds 132
+registrations: that tally counts doors and folds rows like `GET /health · GET /health/auth` into one
+line, while a scan can only count registrations.)
+
+| File (under `layers/`) | n | Routes |
+|---|---|---|
+| `agent-execution/harness-registry/src/mcp/mcp-route.ts` | 1 | `ALL /mcp/:token` |
+| `agent-orchestration/run-orchestration/src/worker-ingress.ts` | 1 | `GET /ws/worker` |
+| `agent-orchestration/src/routes/agent-orchestration-intake.ts` | 2 | `POST /runs/abort` · `POST /runs/stop-for-tasks` |
+| `agent-orchestration/src/routes/agent-orchestration-sessions.ts` | 4 | `GET /sessions/:sessionId` · `GET /runs/active-counts` · `GET /runs/latest-outcomes` · `GET /runs` |
+| `agent-orchestration/src/routes/connections.ts` | 4 | `GET /` · `POST /` · `DELETE /:id` · `POST /:id/validate` |
+| `agent-orchestration/src/routes/filesystems.ts` | 6 | `POST /` · `POST /inspect-path` · `GET /` · `GET /:id` · `DELETE /:id` · `DELETE /:id/injections/:agentUserId` |
+| `agent-orchestration/src/routes/session-stream-ws.ts` | 1 | `GET /agent-orchestration/ws` |
+| `agent-orchestration/src/routes/sessions.ts` | 2 | `GET /` · `GET /:id/activity` |
+| `core-api/src/routes/agents.ts` | 5 | `GET /:id/profile` · `GET /` · `POST /` · `PATCH /:id` · `DELETE /:id` |
+| `core-api/src/routes/assistant.ts` | 1 | `GET /` |
+| `core-api/src/routes/coach.ts` | 1 | `GET /` |
+| `core-api/src/routes/conversations.ts` | 4 | `GET /items` · `GET /items/:id` · `PATCH /items/:id` · `POST /items` |
+| `core-api/src/routes/credentials.ts` | 4 | `GET /` · `PUT /:name` · `DELETE /:name` · `POST /:name/validate` |
+| `core-api/src/routes/filesystems.ts` | 1 | `POST /:id/injections` |
+| `core-api/src/routes/harnesses.ts` | 2 | `GET /` · `POST /redetect` |
+| `core-api/src/routes/hints.ts` | 2 | `GET /` · `POST /:hintId/dismiss` |
+| `core-api/src/routes/knowledge.ts` | 15 | `GET /` · `GET /triage-count` · `GET /:id` · `POST /` · `PATCH /:id` · `POST /:id/merge` · `POST /:id/split` · `POST /:id/archive` · `GET /:id/conflicts` · `POST /:id/conflicts` · `POST /:id/promote` · `PATCH /:id/attention-score` · `POST /:id/recompute-attention` · `POST /:id/graduate` · `POST /sweep` |
+| `core-api/src/routes/notifications-routes.ts` | 7 | `GET /config` · `PATCH /config` · `GET /inbox` · `POST /seen` · `POST /:id/read` · `GET /mute` · `PUT /mute/:key` |
+| `core-api/src/routes/org.ts` | 10 | `GET /` · `PUT /edges` · `DELETE /edges/:id` · `GET /review-recipients` · `GET /teams/:teamId` · `GET /teams/:teamId/membership` · `GET /team-members/:teamMembersId` · `POST /teams` · `POST /scaffolded-agents` · `POST /scaffold-request` |
+| `core-api/src/routes/plugins.ts` | 6 | `GET /` · `POST /` · `POST /:id/enable` · `POST /:id/disable` · `DELETE /:id` · `POST /:id/contributions/restore` |
+| `core-api/src/routes/recipients.ts` | 1 | `GET /` |
+| `core-api/src/routes/reviews.ts` | 1 | `GET /:reviewMessageId` |
+| `core-api/src/routes/routines-routes.ts` | 7 | `GET /event-types` · `POST /` · `GET /` · `DELETE /:id` · `GET /:id` · `PATCH /:id` · `POST /:id/trigger` |
+| `core-api/src/routes/search.ts` | 1 | `GET /` |
+| `core-api/src/routes/settings-agent-behavior.ts` | 2 | `GET /config` · `PATCH /config/:id` |
+| `core-api/src/routes/teams-routes.ts` | 4 | `GET /` · `POST /` · `PATCH /:teamId` · `GET /:teamId` |
+| `core-api/src/routes/threads.ts` | 7 | `POST /direct` · `GET /inbox` · `PATCH /:id` · `GET /` · `GET /:id` · `POST /` · `POST /:id/messages` |
+| `core-api/src/routes/users.ts` | 4 | `POST /` · `GET /` · `GET /:id` · `PATCH /:id` |
+| `core-api/src/routes/ws.ts` | 1 | `GET /ws` |
+
+Three groups in that table are legacy only because `ACTIONS.md`'s plumbing row does not name them,
+and a builder should not read them as future actions:
+
+- `agent-orchestration-intake.ts`'s `POST /runs/abort` and `POST /runs/stop-for-tasks` are seam
+  routes, but `ACTIONS.md:241-242` files them under *stop a session*, not plumbing. BC6 decides.
+- the four transports — `mcp-route.ts`'s `ALL /mcp/:token`, `worker-ingress.ts`'s `GET /ws/worker`,
+  `ws.ts`'s `GET /ws` and `session-stream-ws.ts`'s `GET /agent-orchestration/ws` — are sockets and a
+  protocol mount, not object doors. They leave the list by being reclassified as plumbing, the same
+  way `return_status` does, not by becoming actions.
+- `routes/coach.ts` and `routes/hints.ts` are on `ACTIONS.md:297-298`'s *delete outright* list. They
+  are entries only so BC2 is green, and whichever item deletes those files deletes their rows in the
+  same PR — which the ratchet enforces rather than hopes for.
+
+#### `LEGACY_TOOLS` — 17 entries
+
+`add_agent · create_artifact · create_conflict_review · create_item · create_routine · create_team ·
+merge_knowledge · promote_knowledge · reply · run_knowledge_sweep · score_attention · send_message ·
+split_knowledge · submit_review · update_routine · write_memory` (the sixteen left in
+`tool-definitions.ts` once `create_task`, `edit_task`, `handoff_to` and `log_task` are deleted), plus
+`return_status`. `return_status` is the tool twin of the `POST /mcp/:token/return-status` plumbing
+route and will never become an object action; it carries an inline comment saying so, and it leaves
+the list by being reclassified when BC6 gives the tool clause a plumbing set, not by being deleted.
+Everything else on the list leaves by being replaced.
+
+#### `LEGACY_EVENTS` — 21 entries
+
+`task_state_changed · session_started · session_ended · session_not_returned · thread_created ·
+thread_message_appended · thread_resolved · thread_reopened · thread_archived · item_created ·
+dependency_met · knowledge_created · knowledge_updated · knowledge_archived · knowledge_accessed ·
+team_created · agent_added · user_created · work_selection_requested · notification · routine_fired`
+— `EVENT_TYPES`' twenty-nine names minus the eight platform events. Three of them —
+`thread_archived`, `dependency_met`, `work_selection_requested` — have **no production emitter** at
+this base (the only live mentions are comments in `core-api/routine/src/routine-scheduler.ts` and
+`domain-model/src/work-intent.ts`). They are the cheapest first shrink; BC2 does not take it, because
 the routine trigger surface still offers them as subscribable names.
 
-**`pending` is a map, not a list, and that is load-bearing.** Clause 2 has to answer "which object
-does this route file belong to", and no scan can derive that — `routes/credentials.ts` is *edit a
-user* only because `ACTIONS.md` says so. So the mapping is written down once, keyed by object, with
-every live route file on exactly one key. Two properties the rule checks and the builder must not
-skip: every production route file found by the scan appears under exactly one key or is `plumbing`
-(an unlisted file is a finding, so a new route file cannot arrive unclassified), and every listed
-path exists (a stale path is a finding, so a rename fails loudly rather than quietly exempting
-nothing). `routes/coach.ts` and `routes/hints.ts` are on the *delete outright* list at
-`ACTIONS.md:298-303`, not on any action — they sit under `user` here only so BC2 is green, and
-whichever item deletes them removes the rows too.
+The nine object events (`task.created · task.changed · thread.created · thread.message ·
+thread.changed · document.created · document.changed · user.created · user.changed`) and the eight
+platform events (`agent_work_intent_recorded · agent_run_admission_failed ·
+agent_run_lifecycle_changed · session_handoff_completed · sandbox_writeback_changes_detected ·
+tool_call_recorded · propagation_applied · propagation_failed`) are the rule's `OBJECT_EVENTS` and
+`PLATFORM_EVENTS` constants — unchanging vocabulary, not a shrink list. Note that clause 4 is **satisfied by construction at this
+base**: it can only go red when a new `EventType` is added without classifying it. That is a real
+check — a new event must be classified — but it proves nothing about task, and the gate should hear
+"the event clause ships green because nothing is unclassified", not "the event clause proves the
+mechanism".
 
-`pending` only shrinks too; BC3–BC6 each delete their entry in the PR that lands the module.
-`minScope: 1`. Registered in **both** rule lists in `tools/governance/src/governance-lint.ts` —
-`buildRules` (:104, the list `--attacks` shares) and `runLive`'s own `RULES` (:217). Registering in
-one only means the rule is either break-tested but never run, or run but never break-tested.
+**Registration.** `minScope: 1`. Registered in **both** rule lists in
+`tools/governance/src/governance-lint.ts` — `buildRules` (:104, the list `--attacks` shares) and
+`runLive`'s own `RULES` (:217). Registering in one only means the rule is either break-tested but
+never run, or run but never break-tested.
 
-**Attack case — required, or the build fails.** `tools/governance/README.md` property 4: a
-registered rule with no positive attack case is a build error, and every case needs a control twin
+**Attack case — required, or the build fails.** `tools/governance/README.md` property 4: a registered
+rule with no positive attack case is a build error, and every case needs a control twin
 (`src/lib/governance-attacks.ts:20-31`). Add to `ATTACKS`:
 
 - **positive** `actions-projected-unclassified-route` — `overlay`
   `layers/core-api/src/routes/attack-task-overlay.ts` containing
-  `router.get("/tasks/:id/summary", …)`: a new route file on an object that is not in `pending` and
-  not `plumbing`, which is exactly how a deleted door comes back.
-  `expect: { sort: "finding", file: …, ruleId: "actions-projected", messageContains: "actions.json" }`.
-- **control** `actions-projected-pending-route-control` — the same act on an object that *is*
-  pending, written the legal way: `mutate` the existing
-  `layers/core-api/src/routes/threads.ts` to add one more `router.get("/:id/summary", …)`.
-  `expect: { sort: "clean", file: "layers/core-api/src/routes/threads.ts" }`. Scoped to the file,
-  like every other control here.
+  `router.get("/tasks/:id/summary", …)`: a route registration that is neither plumbing nor in
+  `LEGACY_ROUTES`, which is exactly how a deleted door comes back.
+  `expect: { sort: "finding", file: …, ruleId: "actions-projected", messageContains: "LEGACY_ROUTES" }`.
+- **control** `actions-projected-legacy-route-control` — the same act on a door that is already
+  legacy, written the legal way: `mutate` `layers/core-api/src/routes/threads.ts` to change an
+  existing registration's handler body without adding a registration.
+  `expect: { sort: "clean", file: "layers/core-api/src/routes/threads.ts" }`. Scoped to the file, like
+  every other control here.
 
-  The control has to *mutate* rather than *overlay*, because `pending` is a map of real paths (above)
-  and a brand-new overlay file is unclassified on either object — it would report, and the control
-  would pass for the wrong reason. The harness's own rule 3 backs this: an overlay path must not
-  already exist and a mutated path must.
+  The control must **mutate** rather than **overlay**, and it must not add a route: `LEGACY_ROUTES` is
+  keyed by file *and* route, so a brand-new registration in a legacy file is unclassified too and
+  would report — the control would pass for the wrong reason. The harness's own rule 3 backs the
+  mutate/overlay half: an overlay path must not already exist and a mutated path must.
 
-One more anchor edit comes with the rename: `ATTACK_ANCHORS.serviceDir` and `.serviceBarrel` point
-at `layers/core-api/work/src` and `…/work/src/index.ts` (`governance-attacks.ts:119-122`). The
-runner asserts those paths exist, so renaming `work` → `task` without updating them fails the
-attack suite loudly — which is the design, but it is one more edit in this PR, not a surprise.
+One more anchor edit comes with the rename: `ATTACK_ANCHORS.serviceDir` and `.serviceBarrel` point at
+`layers/core-api/work/src` and `…/work/src/index.ts` (`governance-attacks.ts:119-122`). The runner
+asserts those paths exist, so renaming `work` → `task` without updating them fails the attack suite
+loudly — which is the design, but it is one more edit in this PR, not a surprise.
 
-Registry edits in this item: `table-owners.json` (four rows, §4), `actions.json` (new),
-`ATTACK_ANCHORS` (two paths). **No clause change in `governance-model.ts` — no founder ruling
-needed.** A new rule is a decided rule, and it lands with its violations cleared in the same PR.
+Registry edits in this item: `table-owners.json` only (four rows and the totals block, §4), plus
+`ATTACK_ANCHORS` (two paths, source, not a registry). **No new governance record file, and no clause
+change in `governance-model.ts`.** A new rule is a decided rule, and it lands with its violations
+cleared in the same PR — which is what the three constants make possible.
 
 ## 8. Deletions, and the callers re-pointed in the same change
 
@@ -494,7 +735,7 @@ points. `@hyperidle/work` becomes `@hyperidle/task`: re-point every import found
 
 `CoreApiWorkPort.getTaskById` has five call sites in `tool-definitions.ts`, and only one belongs to
 a tool this item deletes. The other three belong to tools that survive, so they are re-pointed to
-`open_task` **in this PR**, in step 3 of §13, before the seam method is removed. Same actor in every
+`open_task` **in this PR**, in step 4 of §13, before the seam method is removed. Same actor in every
 case — `ctx.agentId`, which is what `getTaskById(id, actorId)` passes today.
 
 | Tool | Call site | Becomes |
@@ -504,9 +745,16 @@ case — `ctx.agentId`, which is what `getTaskById(id, actorId)` passes today.
 | `create_artifact` (:1489) | `:1536-1540` — same `teamId` resolution as `write_memory` | `open_task` in-process |
 | `create_task` (:466) | `:487` — parent lookup | deleted with the tool |
 
-Because `open_task` is in the composed list these three tools already live alongside, the re-point
-is an in-process call, not an HTTP hop — the first place the new mechanism pays for itself. Once
-they are moved, all five `CoreApiWorkPort` task methods and their client mirrors
+**"In-process" means through a port, not an import.** Those three tools live in
+`layers/agent-orchestration/tool-handlers`; `open_task` lives in `core-api`. The re-point is a new
+entry on `ToolHandlersPorts`, bound at the composition root — the same shape
+`tool-handlers-bindings.ts:112` uses for the seam method being deleted — and **never** an
+`import "@hyperidle/core-api"` from that layer, which is the layer violation this would otherwise
+become. Topologically it is sound: `remote-worker` composes `agent-execution` only, so both roots
+co-boot the two layers. The gain is still real — the bound function calls the action directly
+instead of dialling core over HTTP, which is the first place the new mechanism pays for itself.
+
+Once they are moved, all five `CoreApiWorkPort` task methods and their client mirrors
 (`agent-orchestration/src/services/core-api-port-composition.ts:447-449,502-504`,
 `tool-handlers-bindings.ts:112,188-189`, `tool-handlers/src/ports.ts:372`) are deleted. Note the
 name collision: `policy/src/ports.ts:26`, `routine/src/ports.ts:37` and `service-bootstrap.ts:176`
@@ -515,7 +763,7 @@ not the seam method, and they are untouched by B1 — they die with the `work` r
 
 ### B2 — seven UI surfaces, not three
 
-Deleting `routes/tasks.ts` breaks every one of these. All are re-pointed in step 4 of §13:
+Deleting `routes/tasks.ts` breaks every one of these. All are re-pointed in step 6 of §13:
 
 | Surface | Calls today | Becomes |
 |---|---|---|
@@ -530,7 +778,7 @@ Deleting `routes/tasks.ts` breaks every one of these. All are re-pointed in step
 `useAgentRunState` is the one the first critique pass missed; it is why `ids` is in
 `SearchTasksInput` rather than only `excludeIds`.
 
-### B4 — handoff is an edit; `handoff-protocol.ts` is deleted
+### B4 — handoff is an edit; `handoff-protocol.ts` is deleted; the re-dispatch survives
 
 Founder decision, `plan.md:100-103`: *"Handoff is an edit that sets the owner: the caller names a
 user, role targeting and the escalation thread go, the running session still ends through the
@@ -538,24 +786,42 @@ existing seam after commit until BC6."* So `layers/core-api/policy/src/handoff-p
 lines) is deleted outright, with `buildHandoff` (`policy/src/index.ts:27`), `buildProductionHandoff`
 and `buildHandoffDeps` (`core-api/src/services/policy-bindings.ts:48,54,143-147`), the
 `HandoffParams`/`HandoffResult`/`HandoffMetadata` types, and the `claimTaskHandoff` CAS port
-(`policy/src/ports.ts:28`, `work-service.ts`). What goes with it, named so the founder sees the
-whole cut in one place:
+(`policy/src/ports.ts:28`, `work-service.ts`). What goes and what stays, named so the founder sees
+the whole cut in one place:
 
 - `toRole` / `toHuman` target resolution (:68-120, `users.findActiveTeammateByRole`) — **gone.** The
   caller names a user id.
 - the escalation thread + escalation item (:230-259) — **gone.**
-- the `session_handoff_completed` emit and the audit-trail `handoff` entry — **gone** with the
-  column; a `changes` row with `before.ownerAgentId`/`after.ownerAgentId` is the record now.
-- `deps.runOrchestration.endRunForHandoff` (:118) — **kept**, as `edit_task` step 5b. It moves from
-  *before* the transaction to *after commit*, which is the ordinary post-commit order every other
-  seam call in this module uses; the named residue changes from "run ended, task untouched" to
-  "task updated, run still live", which is the repairable direction.
+- the `session_handoff_completed` emit (:373-379) and the audit-trail `handoff` entry (:309-320) —
+  **gone** with the column; a `changes` row with `before.ownerAgentId`/`after.ownerAgentId` is the
+  record now.
 - the CAS transaction over the task — **replaced** by `edit_task`'s optional `version`.
+- `deps.runOrchestration.endRunForHandoff` (:118) — **kept**, as `edit_task` step 5b. It moves from
+  *before* the transaction to *after commit*. The residue changes from "run ended, task untouched"
+  to "task updated, run still live", and that second one is **not** self-repairing:
+  `end-run-for-handoff.ts:25-28` says a handed-off run left `active` stays `active` forever, because
+  the stale sweep only selects routine sessions. Accepted knowingly at this tier (§5 step 5b); BC6
+  owns the direction.
+- **the re-dispatch — kept, and it is the point of a handoff.** `handoff-protocol.ts:322-344` inserts
+  a `taskDispatchAttempts` row with `occasion: "owner_handoff"` and
+  `predecessorSessionId: sessionContext.sessionId`, bakes the run request in the same transaction,
+  and records the work intent post-commit (:362-371) so the **new** owner's session starts. All of
+  that survives as one branch of `edit_task`'s own dispatch path: step 4's third occasion row and
+  step 5d. Nothing about it is new code — it is the same two calls the accept path already makes,
+  reached by a second condition. Without it, changing an owner would end the old run and start
+  nothing, which is a feature deletion `plan.md:100-103` does not authorise.
+- `deps.sessionRequests.abort(sessionId)` (:381) — **cut.** It aborts the predecessor's in-process
+  registry entry after `endRunForHandoff` has already written the session `done`; with the end call
+  now post-commit and immediately before the new intent, the abort is a second stop of the same run
+  with no observable effect on the task. `AgentOrchestrationRunsPort.abort`
+  (`api-contract/src/agent-orchestration-port.ts:192`) keeps its other callers and is not deleted.
 
-This answers the critique's open question about `POST /agent-orchestration/runs/end-for-handoff`
-(`agent-orchestration/src/routes/agent-orchestration-intake.ts:241`): `edit_task` calls it, through
-`AgentOrchestrationPort.runs.endForHandoff` (`api-contract/src/agent-orchestration-port.ts:190`).
-It stays a plumbing seam route, as `ACTIONS.md:286` keeps it, with exactly one caller.
+This answers the earlier open question about `POST /agent-orchestration/runs/end-for-handoff`
+(`agent-orchestration/src/routes/agent-orchestration-intake.ts:236`): `edit_task` calls it, through
+`AgentOrchestrationPort.runs.endForHandoff` (:190). It stays a plumbing seam route, as
+`ACTIONS.md:286` keeps it, with exactly one caller. Note the two spellings — the port takes
+`(sessionId, endedAt)` while core's current dep takes `(exec, sessionId, endedAt)`
+(`handoff-protocol.ts:118`); `TaskActionsDeps` uses the port shape, so no `exec` is threaded.
 
 `policy/src/lifecycle-propagation.ts` is **not** deleted — only its task-writing half is (§6, row 4).
 That is what `plan.md:9` lists, and what an earlier draft of this document had backwards.
@@ -572,8 +838,11 @@ That is what `plan.md:9` lists, and what an earlier draft of this document had b
   today — no retry, no counter.
 - Two concurrent edits: last write wins unless the loser passed `version` (then `stale`). Same as
   today plus the version option.
-- A crash between commit and the post-commit emit loses the *nudge*, not the record; the `changes`
-  row is there. Subscribers that need replay get it in BC5 from `listChanges`.
+- A crash between commit and the post-commit steps loses the *nudge*, not the record: the `changes`
+  row and the task are committed, and what is skipped is an emit, a run stop, a run end or an intent.
+  Each is a named residue, not a silent one — the run stop and the intent are the two the `hold` /
+  re-dispatch path already repairs; the run end is the one that does not (§8 B4). Subscribers that
+  need replay get it in BC5 from `listChanges`.
 
 ## 10. Security — surfaces this change reaches
 
@@ -596,14 +865,20 @@ No new gate, per `.pipeline/rules/security.md`.
 `{ db, app, eventBus }` fixture. Red first. It asserts: `edit_task` create as human (API key, no
 actor header) and as agent (actor header) → identical rows; a refused transition → 422 with a
 `Problem`; `open_task` returns `ancestors`, the nested `children` subtree, `tokensActualRollup` and
-attachments, **and no `sessions`**; `search_tasks` filters, including `ids` and `excludeIds`; a `changes` row
-exists after each edit carrying the field diff; a cascade kill writes one `changes` row per killed
-descendant with the root's actor; two concurrent `appendNote` calls both survive; `task_state_changed`
-emits on state change; accept-with-owner records the work intent; an owner change off an agent with
-a running session calls `endRunForHandoff`.
+attachments, **and no `sessions`**; `search_tasks` filters, including `ids` and `excludeIds`; a
+`changes` row exists after each edit carrying the field diff; a cascade kill writes one `changes` row
+per killed descendant **with the root's actor**, and one `changes` row per freed dependent **with
+`system:propagation`** — the two mechanisms of §6 asserted apart; two concurrent `appendNote` calls
+both survive; `task_state_changed` emits on state change; accept-with-owner inserts one dispatch
+attempt and records the work intent; **an owner change on an `in_progress` task inserts a second
+attempt with `occasion: "owner_handoff"` and records a second intent** (the re-dispatch, §8 B4); a
+session-started event fills that attempt's `sessionId`, and an owner change off that agent then calls
+`endRunForHandoff` with exactly that id; a kill calls `stopRunsForTasks` with every killed id
+including a `done` root.
 
 **New rule test** — the attack pair in `governance-attacks.ts` (§7). Demonstrate it red once by
-deleting the `pending` entry for `thread`, per the build's own property-4 discipline.
+deleting one `LEGACY_ROUTES` entry, per the build's own property-4 discipline; that also demonstrates
+the ratchet's second direction, since deleting the entry while the route still exists is a finding.
 
 **Deleted and replaced by the seam test** — fourteen route- and tool-suite files whose subject is a
 door that no longer exists: `src/__tests__/tasks.integration.test.ts` ·
@@ -623,7 +898,8 @@ Their assertions move into the seam test; none is dropped silently.
 **Re-pointed, core-api** — `AD7-search` · `agent-work-intent-production` · `api-availability` ·
 `api-e2e` · `dependency-freed` · `task-dependencies` · `routes/__tests__/AF11-authz` ·
 `services/__tests__/core-api-port` · `services/__tests__/core-api-port-increment2-org-routine-handoff`
-(loses its handoff third) · `services/__tests__/work-session-end-reactions` ·
+(loses its handoff third) · `services/__tests__/work-session-end-reactions` (its fixture stopped being
+a fixture — production now fills `requestId`, so the test asserts the real path) ·
 `services/__tests__/work-session-started-reactions` · `tool-registry` · `tool-registry-role` ·
 `tool-schemas` (the tool roster shrinks by four and grows by three) ·
 `real-harness-return-enforcement-realbinary` · `M3-lifecycle-propagation-auth` ·
@@ -664,10 +940,14 @@ red on main.
 **End-to-end evidence**: run the app, open a task, set a state the invariant refuses → the control
 is greyed with the reason; set a valid state → the page refreshes and `SELECT * FROM changes` shows
 one row with `before`/`after`. Then kill a parent with live children and show one `changes` row per
-descendant. Judged in the running app, not from a screenshot in the diff.
+descendant. Then hand a running task to another agent and show the predecessor session `done` and a
+second dispatch attempt row. Judged in the running app, not from a screenshot in the diff.
 
-`npm run verify` green; the new rule green for task and red for nothing — `pending` and
-`legacyEvents` cover the rest.
+`npm run verify` green, which by definition means the new rule is **green** — it is at `error` like
+every other rule, and a red rule cannot ship. What the founder sees at the gate is the red *written
+down*: `LEGACY_ROUTES` (107), `LEGACY_TOOLS` (17) and `LEGACY_EVENTS` (21), the to-do list for
+BC3–BC6, each entry mechanically required to still exist. §7 says why that is the honest reading of
+`plan.md:51-52` and what the amendment costs.
 
 ## 12. Documentation made false
 
@@ -683,17 +963,23 @@ Prose, so it does not count toward §13.
 One PR. The order is a dependency order, not a preference — each step compiles on the one before.
 
 1. declarations (§3) + the `changes` package, its `schema.ts` declaration and the migration (§4) +
-   the four `table-owners.json` rows;
-2. the task module (§5) — `createTaskActions`, the three actions, the moved invariants — plus the
-   HTTP loop and the new seam test. Red first, then green;
-3. the tools adapter and the composed list threaded through both roots (§7) + the three surviving
-   tools re-pointed to `open_task` (§8 B1) + delete the four tools and all five seam methods;
-4. re-point the six background writers (§6) + delete `handoff-protocol.ts` and
+   the four `table-owners.json` rows and the totals block;
+2. the dispatch-attempt repair (§1, §6 row 1): `markRunning` on the store, the started reaction
+   filling `requestId`/`sessionId`, and a test that `updateIfActive` now finalizes a real production
+   row. It comes before the module because step 3's step-5b query depends on it, and it depends on nothing;
+3. the task module (§5) — `createTaskActions`, the three actions, the moved invariants, the dispatch
+   branch and the post-commit sequence — plus the HTTP loop and the new seam test. Red first, then
+   green;
+4. the tools adapter and the composed list threaded through both roots (§7) + the three surviving
+   tools re-pointed to `open_task` through the new `ToolHandlersPorts` entry (§8 B1) + delete the four
+   tools and all five seam methods;
+5. re-point the six background writers (§6) + delete `handoff-protocol.ts` and
    `lifecycle-propagation.ts`'s private helper (§8 B4);
-5. the UI — `call.ts`, the `zod` manifest row, the eight surfaces (§8 B2), the two pages' invariant
+6. the UI — `call.ts`, the `zod` manifest row, the seven surfaces (§8 B2), the two pages' invariant
    wiring — and delete the hooks and the wire type;
-6. the lint rule, `actions.json`, the attack pair and the `ATTACK_ANCHORS` rename (§7); delete
-   `routes/tasks.ts` and the `work` remnants; the docs sweep.
+7. the lint rule with its three constants, the attack pair and the `ATTACK_ANCHORS` rename (§7);
+   delete `routes/tasks.ts` and the `work` remnants; the `one-work-primitive` `why` edit (§1); the
+   docs sweep.
 
 ### Added lines of code — honestly counted
 
@@ -701,22 +987,24 @@ One PR. The order is a dependency order, not a preference — each step compiles
 |---|---|
 | Declarations, `framework/domain-model/src/actions/` (§3) | 200 |
 | `changes` package scaffolding + `schema.ts` declaration + migration + journal (§4) | 170 |
-| Task module: factory, three actions, read models, moved invariants (§5) | 510 |
-| Six background writers re-pointed, kill cascade internalised (§6) | 150 |
+| Dispatch-attempt repair: `markRunning`, the started reaction's write (§1, §6 row 1) | 50 |
+| Task module: factory, three actions, read models, moved invariants, dispatch branch, post-commit sequence (§5) | 580 |
+| Six background writers re-pointed, kill cascade internalised, `handleDependencyKilled` re-pointed (§6) | 160 |
 | The loops: HTTP router, tools adapter, action types, composition threading through five files, `call.ts` (§7) | 270 |
 | Seven UI surfaces re-pointed, two pages on `taskInvariants` (§8 B2) | 260 |
-| Governance rule + `actions.json` + attack pair + anchor rename (§7) | 250 |
-| New `task-actions.integration.test.ts` (§11) | 250 |
+| Governance rule + three constants (145 data lines) + attack pair + anchor rename (§7) | 320 |
+| New `task-actions.integration.test.ts` (§11) | 280 |
 | Re-pointed tests, stories and e2e specs (§11) | 350 |
-| **Total** | **≈ 2,410** |
+| **Total** | **≈ 2,640** |
 
-Honest band: **2,300–2,500**. Deletions are larger — `work` alone is 1,814 lines, `routes/tasks.ts`
-736, `handoff-protocol.ts` 385, the four tool bodies and fourteen deleted test files on top — so the
-change is net red by a wide margin.
-
-This is above the 1,600–1,800 at `plan.md:99-100`; the founder accepted the real number on
-2026-09-13 — *"size doesn't matter too much, we are net red cleaning up"* — so the builder proceeds
-on it rather than stopping to ask.
+Honest band: **2,550–2,750**. That is **above** the 2,300–2,500 this document carried before the
+second critique, and well above `plan.md:99-100`'s 1,600–1,800. The growth is not new scope: it is
+the three constants written out (§7), the handoff re-dispatch that was being cut by omission
+(§8 B4), the dispatch-attempt repair (§1) and the run-stop dependency (§5). The founder accepted the
+principle on 2026-09-13 — *"size doesn't matter too much, we are net red cleaning up"* — and the new
+number is a gate line, not a reason to stop: deletions are far larger (`work` alone is 1,814 lines,
+`routes/tasks.ts` 736, `handoff-protocol.ts` 385, plus the four tool bodies and fourteen deleted test
+files), so the change stays net red by a wide margin.
 
 Splitting into two PRs would leave the old routes and the new actions both alive across a merge —
 a bridge — so one PR stands.
@@ -726,9 +1014,11 @@ a bridge — so one PR stands.
 `plan.md:107-110` names two. The third is the migration filename.
 
 1. the `attention_score` column in the task read model;
-2. the plumbing list in the governance rule — keep it **derived from BC1's list**, never retyped.
-   (An earlier draft's example list included `/ws`, which is not one of the sixteen at
-   `ACTIONS.md:274-291`. That is the failure mode a derived list avoids.)
+2. the plumbing list in the governance rule. §7's `PLUMBING_ROUTES` is the seventeen registrations
+   that realise `ACTIONS.md:276-291`'s sixteen doors, derived by running the scan rather than typed
+   out; at the rebase it is cross-checked against BC1's list, which owns that vocabulary. (An earlier
+   draft's hand-typed example included `/ws`, which is not one of the sixteen — the failure mode a
+   derived list avoids.)
 3. `0082_changes_and_task_edit.sql`. BC1 drops two tables and a column
    (`.pipeline/work/BC1/plan.md:53`), so it takes `0082` first at `framework/db/drizzle/` — the last
    entry today is `0081_drop_items_layer` (`meta/_journal.json`, `idx: 81`). **Renumber this item's
@@ -738,9 +1028,13 @@ a bridge — so one PR stands.
 
 1. **BC2 emits no `task.changed`** — confirmed 2026-09-13. `plan.md:54-58` says the module hands the
    change row to the bus as a wake-up; `plan.md:57-58` says the old `task_state_changed` is emitted
-   from the change row until BC5. So BC2 emits **only** `task_state_changed`. `task.changed` is
-   declared in `actions.json`'s `events` (so the rule's clause is complete) but is not a member of
+   from the change row until BC5. So BC2 emits **only** `task_state_changed`. `task.changed` is one of
+   the rule's nine object-event names (so clause 4's vocabulary is complete) but is not a member of
    `EVENT_TYPES` and nothing emits it.
 2. **`WorkTaskPage` reads attachments twice.** Once `open_task` returns `attachments`, the page's
    existing `useParentedKnowledgeItems` is a second reach at the same data. Not in scope to delete
    here; BC4 owns it.
+3. **The rule ships green, and the plan's gate line says red.** §7 and §11 state the reconciliation
+   plainly — the three constants are the red, written down and ratcheted. It is a plan amendment and
+   the founder decides it at the gate.
+4. **The size band moved to 2,550–2,750** (§13). The founder owns that number at the gate too.
