@@ -389,7 +389,7 @@ export async function seedMessage(
 	return { messageId };
 }
 
-/** Create an item (human interface surface). Used by score_attention scenarios. */
+/** Create an item (human interface surface). */
 export async function seedItem(
 	db: HyperIdleDb,
 	opts: {

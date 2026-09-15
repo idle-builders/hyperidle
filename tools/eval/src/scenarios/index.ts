@@ -28,7 +28,6 @@ export { logTaskScenarios } from "./log-task.js";
 export { promoteKnowledgeScenarios } from "./promote-knowledge.js";
 export { readInboxScenarios } from "./read-inbox.js";
 export { routineSessionsScenarios } from "./routine-sessions.js";
-export { scoreAttentionScenarios } from "./score-attention.js";
 export { sendMessageScenarios } from "./send-message.js";
 export { sessionScenarios } from "./session.js";
 export { submitReviewScenarios } from "./submit-review.js";

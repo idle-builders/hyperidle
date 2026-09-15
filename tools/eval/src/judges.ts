@@ -14,7 +14,6 @@
 
 import {
 	items,
-	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
 	messages,
@@ -23,7 +22,7 @@ import {
 	tasks,
 } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
-import { and, eq, isNotNull, like, ne } from "drizzle-orm";
+import { and, eq, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -308,29 +307,6 @@ export function judgePromoteKnowledgeCalled(): RubricDimension {
 				note: promoted
 					? `Promoted to status: ${editLog.newValue}`
 					: `No knowledge edit log with editor="${agentEditor}" and field="status"`,
-			};
-		},
-	};
-}
-
-/** Judge: score_attention on knowledge_item was called — knowledgeAppProjection.attentionScore changed. */
-export function judgeScoreAttentionCalled(): RubricDimension {
-	return {
-		id: "score_set",
-		label: "Attention Score Set (score_attention called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [fabric] = await ctx.db
-				.select({ attentionScore: knowledgeAppProjection.attentionScore })
-				.from(knowledgeAppProjection)
-				.where(isNotNull(knowledgeAppProjection.attentionScore))
-				.limit(1);
-
-			const set = fabric !== undefined;
-			return {
-				score: set ? 1.0 : 0.0,
-				note: set
-					? `Attention score: ${fabric.attentionScore}`
-					: "No knowledgeAppProjection row has attentionScore set",
 			};
 		},
 	};
