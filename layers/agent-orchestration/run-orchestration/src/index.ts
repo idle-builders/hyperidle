@@ -82,7 +82,6 @@ export {
 	countActiveRunsByAgent,
 	endSessionByCas,
 	findSessionById,
-	listLatestOutcomeByTask,
 	listRunSummaries,
 	listSessions,
 	writeSessionNotes,

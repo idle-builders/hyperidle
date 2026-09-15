@@ -17,7 +17,6 @@ import {
 	findThread,
 	insertMessage,
 	insertThread,
-	listInbox,
 	listMessages,
 	listThreads,
 	resolveAssistantTurnRequest,
@@ -65,11 +64,9 @@ import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { createAssistantThreadRoute } from "./assistant.js";
-import { createCoachRoutes } from "./coach.js";
 import {
 	createThreadBodySchema,
 	directThreadBodySchema,
-	inboxQuerySchema,
 	type inlineRefSchema,
 	listThreadsQuerySchema,
 	messageInputSchema,
@@ -676,12 +673,6 @@ export function createThreadRoutes(
 	// thread id by the Hono wildcard handler.
 	router.route("/assistant", createAssistantThreadRoute(db, eventBus));
 
-	// --- GET /api/threads/coach --------------------------------------------
-	// @lore L21: mounted BEFORE /:id so "coach" is not swallowed as a thread
-	// id by the Hono wildcard handler. Hono matches routes in registration
-	// order — the first match wins.
-	router.route("/coach", createCoachRoutes(db, eventBus));
-
 	// --- POST /api/threads/direct ---------------------------------------------
 	// AU21 §9 Increment 2: DM find-or-create composite — the
 	// `CoreApiConversationPort.findOrCreateDirectThread` seam door. The sender
@@ -704,29 +695,6 @@ export function createThreadRoutes(
 		const now = new Date().toISOString();
 		const threadId = await findOrCreateDirectThread(db, senderId, parsed.data.recipientId, now);
 		return c.json({ id: threadId }, 200);
-	});
-
-	// --- GET /api/threads/inbox ------------------------------------------------
-	// AU21 §9 Increment 2: sender-exclusion inbox join — the
-	// `CoreApiConversationPort.listInboxBySenderExclusion` seam door. The
-	// excluded sender always derives from the calling actor, never a client-
-	// supplied query param (same IDOR shape `GET /api/threads`'s
-	// `participant_id` guard already closes).
-	// @lore mounted BEFORE /:id so "inbox" is not swallowed as a thread id.
-	router.get("/inbox", async (c) => {
-		const parsed = inboxQuerySchema.safeParse({ limit: c.req.query("limit") });
-		if (!parsed.success) {
-			const e = err("validation_error", "Invalid query params", 400);
-			return c.json(e.body, e.status);
-		}
-		const excludeSenderId = c.get("userId");
-		const rows = await listInbox(db, { excludeSenderId, limit: parsed.data.limit });
-		return c.json({
-			items: rows.map((row) => ({
-				participants: threadParticipantsSchema.parse(JSON.parse(row.participants)),
-				message: rowToMessage(row.message),
-			})),
-		});
 	});
 
 	// --- PATCH /api/threads/:id -------------------------------------------------

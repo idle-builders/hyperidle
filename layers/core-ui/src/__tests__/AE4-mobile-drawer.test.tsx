@@ -38,12 +38,6 @@ function stubFetch(): void {
 					json: async () => ({ teams: [] }),
 				} as Response;
 			}
-			if (url.includes("/api/knowledge/triage-count")) {
-				return {
-					ok: true,
-					json: async () => ({ count: 0 }),
-				} as Response;
-			}
 			return {
 				ok: true,
 				json: async () => ({ threads: [], nextCursor: null }),

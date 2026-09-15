@@ -22,11 +22,6 @@
  * used to wire together itself — same shape `dispatch`'s own (historical)
  * `DispatchKnowledgeAccessor.recomputeAttentionForCandidates` collapse
  * already established:
- *  - `score-attention.ts`'s recompute mode used to build a
- *    `buildCreateReviewItemForKnowledge({conversation,work})` store and pass
- *    it into `buildAttentionService({db,eventBus,work,review})
- *    .recomputeOne(id)` — collapsed into ONE
- *    `ToolHandlersCoreApiAccessor.recomputeAttentionScoreForItem` method.
  *  - `create-item.ts`'s `resolveReviewRecipients(db, ctx, orgUsers)` —
  *    collapsed into ONE `ToolHandlersCoreApiAccessor.resolveReviewRecipientsForItem`.
  *  - `add-agent.ts`/`create-team.ts`'s `persistScaffoldedAgents(db, orgUsers,
@@ -230,10 +225,6 @@ interface ToolHandlersCoreApiAccessor {
 		actorId: string,
 	): Promise<void>;
 	createItem(input: Record<string, unknown>, actorId: string): Promise<{ readonly id: string }>;
-	findItemByReasoningMarker(
-		marker: string,
-		actorId: string,
-	): Promise<{ readonly id: string } | undefined>;
 	getUserById(
 		id: string,
 		actorId: string,
@@ -262,7 +253,7 @@ interface ToolHandlersCoreApiAccessor {
 	 * @lore AU21 §9 Increment 2 (conversation wave): every
 	 * `ToolHandlersConversationAccessor` capability moved onto this seam
 	 * (`edge-disposition.md`'s `conversation.{findThread, insertThread,
-	 * insertMessage, updateThread, findOrCreateDirectThread, listInbox}` row) —
+	 * insertMessage, updateThread, findOrCreateDirectThread}` row) —
 	 * the agent acting on core "just like the user would", same as `work`'s
 	 * Increment 2 migration. Structural mirror of
 	 * `@hyperidle/api-contract`'s `ConversationThreadView` (Mechanism C: no import).
@@ -321,11 +312,6 @@ interface ToolHandlersCoreApiAccessor {
 		teamId: string,
 		actorId: string,
 	): Promise<{ readonly id: string } | undefined>;
-	/** `team_members.id` -> the full row (incl. `teamId`, i.e. `teams.id`) — the AK4 two-hop resolution's second hop. */
-	getTeamMembersById(
-		teamMembersId: string,
-		actorId: string,
-	): Promise<{ readonly teamId: string } | undefined>;
 	/** Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant). */
 	createTeam(input: ToolHandlersCreateTeamInput, actorId: string): Promise<void>;
 	/** Update team-owned columns (phase on `teams`, leadAgentId on `teamMembers`). */
@@ -446,36 +432,6 @@ interface ToolHandlersCoreApiAccessor {
 				readonly message: string;
 		  }
 	>;
-	upsertKnowledgeAppProjectionAttentionScore(
-		knowledgeItemId: string,
-		attentionScore: string,
-		actorId: string,
-	): Promise<void>;
-	/**
-	 * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
-	 * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` —
-	 * see this file's top `@lore` (same shape `dispatch`'s own
-	 * `recomputeAttentionForCandidates` collapse already established). The
-	 * seam never threads a same-process `EventBus` handle over the HTTP
-	 * boundary — dropped from this signature vs. the pre-migration raw
-	 * `ToolHandlersKnowledgeAccessor.recomputeAttentionScoreForItem(db,
-	 * eventBus, knowledgeItemId)`.
-	 */
-	recomputeAttentionScoreForItem(
-		knowledgeItemId: string,
-		actorId: string,
-	): Promise<{ readonly current: number }>;
-	/**
-	 * Run a knowledge sweep.
-	 * kind="autoPromotion" promotes provisional items meeting the repetition threshold.
-	 * kind="stale" marks active items not referenced recently as stale.
-	 * @lore BA9d: replaces the dead builtin-routine sweep path; exposed as an agent tool
-	 * so the Librarian can trigger sweeps from plugin routines.
-	 */
-	runKnowledgeSweep(
-		kind: "autoPromotion" | "stale",
-		actorId: string,
-	): Promise<{ readonly kind: string; readonly processed: number }>;
 	/**
 	 * Merge sourceId into targetId: appends source body to target, archives source.
 	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).

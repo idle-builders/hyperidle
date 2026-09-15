@@ -72,7 +72,7 @@ describe("buildToolRegistry", () => {
 				"submit_review",
 				// G1 facilitator tools (`route_item` deleted outright as vestigial —
 				// AU21 §6 Decision L3, not merely re-narrowed)
-				"score_attention",
+				// BC1: score_attention + run_knowledge_sweep deleted
 				"promote_knowledge",
 				"create_conflict_review",
 				// R6 artifact tools
@@ -87,8 +87,6 @@ describe("buildToolRegistry", () => {
 				// BA9d wave 2: knowledge merge and split
 				"merge_knowledge",
 				"split_knowledge",
-				// BA9d wave 3: knowledge sweep
-				"run_knowledge_sweep",
 				// @lore AU20 repair: read_inbox, write_session_notes, commit_file removed
 			].sort(),
 		);
@@ -97,9 +95,8 @@ describe("buildToolRegistry", () => {
 		// BB1: create_bet + edit_bet deleted; edit_task added = 17
 		// + 1 AU27: reply = 18
 		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
-		// + 1 BA9d wave 3: run_knowledge_sweep = 21
-		// query_practice deleted = 20
-		expect(registry.definitions).toHaveLength(20);
+		// BC1: score_attention + run_knowledge_sweep deleted = 18
+		expect(registry.definitions).toHaveLength(18);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({

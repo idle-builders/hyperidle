@@ -55,6 +55,47 @@ them. If a later item needs the attention history it is in git.
 
 ## How we work on this
 
+**Dials confirmed.** complexity: feature · ambiguity: established context · exposure: internal
+detail. The plan is complete and the founder's dispatch settles the boundary, so no refinement,
+no program-design, no design round and no architecture round run.
+
+**The rule is the red phase.** The governance rule is written first, naming every deleted route
+path, tool name and event name. It fails on the untouched tree — that is the failing evidence.
+Deletion proceeds until it is green. No new test is written for a deletion; the existing suites
+staying green is the regression evidence, and `.claude/rules/testing.md` puts a static property of
+the source in the linter, never in a test.
+
+**One builder, sequential.** The deletions interact — a route, its service method, its table, its
+UI caller and the event it emitted are one thread to pull. Fanning out would put conflicting edits
+on the route registry, the event union and the governance config. Order: rule → routes and their
+dead callers → events → attention engine → events fork and repoints → dead controls → migration.
+
+**Review.** One fresh reviewer over the integrated diff, checking that nothing surviving lost a
+caller and that the diff is deletions plus the rule, the two repoints and the migration.
+
+**Gates.** One: the founder sees the CI-green open PR before it merges. A human merges.
+
 ## Confusions
 
+- `pipeline.config.yml` points the `taste` and `visual` rule slots at `.claude/rules/taste.md` and
+  `.claude/rules/visual-regression.md`, but `.claude/rules/` holds only six files and neither is
+  among them. Both exist under `.pipeline/rules/`. Pre-existing config drift, unrelated to this
+  item; phases here read the `.pipeline/rules/` copies.
+- `npm install` in a fresh worktree re-adds three workspace deps to one `package-lock.json` entry.
+  The drift is on `origin/main`, not introduced here, and is kept out of this item's diff.
+
 ## Proposed items
+
+- **Seven routes on the delete list are live.** `POST /teams` (first-run setup), `PATCH /teams/:teamId`,
+  `GET /org/teams/:teamId`, `GET /org/teams/:teamId/membership`, `POST /org/teams`,
+  `POST /org/scaffold-request` (all five behind the `create_team` and `add_agent` agent tools) and
+  `GET /runs/active-counts` (two rendering settings controls). Deleting them needs the capability that
+  replaces them, which is BC5 and BC7 work, or a decision to delete those two agent tools as well.
+  They are left in place here and are not named by the new rule. The founder owns the call.
+- **Routine rows may name a deleted event.** `triggerConfig` stores an event name as JSON text and the
+  scheduler matches by string, so a saved routine whose trigger is one of the seven deleted events
+  stops firing silently. No compile error and no guard. The same is already true for `bet_state_changed`
+  after BB1. Cleaning those rows is a data decision outside this item's stated migration.
+- **`design/no-op-button` misses most dead controls.** It caught one site; the rest evade it because
+  they are design-system `Button`s without `onClick`, or an `<a>` whose handler only calls
+  `preventDefault()`. Worth widening in its own item.

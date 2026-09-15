@@ -96,23 +96,22 @@ describe("buildToolDefinitions — role filtering", () => {
 
 	const ASSISTANT_ONLY = ["create_team", "add_agent", "create_routine", "update_routine"] as const;
 
+	// BC1: run_knowledge_sweep + score_attention deleted
 	const MULTI_ROLE = [
-		"run_knowledge_sweep",
-		"score_attention",
 		"promote_knowledge",
 		"create_conflict_review",
 		"merge_knowledge",
 		"split_knowledge",
 	] as const;
 
-	it("returns all 20 tools when no opts provided", () => {
+	it("returns all 18 tools when no opts provided", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
-		expect(tools).toHaveLength(20);
+		expect(tools).toHaveLength(18);
 	});
 
-	it("returns all 20 tools when opts.role is undefined", () => {
+	it("returns all 18 tools when opts.role is undefined", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: undefined });
-		expect(tools).toHaveLength(20);
+		expect(tools).toHaveLength(18);
 	});
 
 	it("returns same tool set for undefined and no-opts (identity guarantee)", () => {
@@ -125,10 +124,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		expect(noOpts).toEqual(withUndefined);
 	});
 
-	describe("role: 'assistant' (all 20 tools)", () => {
-		it("returns 20 tools — assistant sees the full catalog", () => {
+	describe("role: 'assistant' (all 18 tools)", () => {
+		it("returns 18 tools — assistant sees the full catalog", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "assistant" });
-			expect(tools).toHaveLength(20);
+			expect(tools).toHaveLength(18);
 		});
 
 		it("includes all unrestricted tools", () => {
@@ -147,7 +146,7 @@ describe("buildToolDefinitions — role filtering", () => {
 			}
 		});
 
-		it("includes multi-role tools (score_attention, promote_knowledge, create_conflict_review)", () => {
+		it("includes multi-role tools (promote_knowledge, create_conflict_review, merge_knowledge, split_knowledge)", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "assistant" });
 			const names = new Set(tools.map((t) => t.name));
 			for (const name of MULTI_ROLE) {
@@ -156,10 +155,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'facilitator' (16 tools — unrestricted + multi-role, not assistant-only)", () => {
-		it("returns 16 tools for facilitator", () => {
+	describe("role: 'facilitator' (14 tools — unrestricted + multi-role, not assistant-only)", () => {
+		it("returns 14 tools for facilitator", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "facilitator" });
-			expect(tools).toHaveLength(16);
+			expect(tools).toHaveLength(14);
 		});
 
 		it("includes unrestricted tools", () => {
@@ -170,7 +169,7 @@ describe("buildToolDefinitions — role filtering", () => {
 			}
 		});
 
-		it("includes multi-role tools (score_attention, promote_knowledge, create_conflict_review)", () => {
+		it("includes multi-role tools (promote_knowledge, create_conflict_review)", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "facilitator" });
 			const names = new Set(tools.map((t) => t.name));
 			for (const name of MULTI_ROLE) {
@@ -189,10 +188,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'product_manager' (16 tools — unrestricted + multi-role, not assistant-only)", () => {
-		it("returns 16 tools for product_manager", () => {
+	describe("role: 'product_manager' (14 tools — unrestricted + multi-role, not assistant-only)", () => {
+		it("returns 14 tools for product_manager", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "product_manager" });
-			expect(tools).toHaveLength(16);
+			expect(tools).toHaveLength(14);
 		});
 
 		it("excludes assistant-only tools", () => {

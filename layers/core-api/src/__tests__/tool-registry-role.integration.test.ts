@@ -4,7 +4,7 @@
  *
  * Today the registry returns every tool to every caller. Builders can
  * therefore call facilitator-only tools (`promote_knowledge`,
- * `score_attention`, `create_conflict_review`) directly through `invoke()`.
+ * `create_conflict_review`) directly through `invoke()`.
  * (`route_item` was a 4th facilitator-only tool here — AU21 §6 Decision L3
  * deleted it outright as vestigial, not merely re-narrowed.)
  * Defence in depth (the harness already filters tool names by role) is not
@@ -31,7 +31,6 @@ import { test } from "../__testing__/test-fixtures.js";
 
 const FACILITATOR_ONLY = [
 	"promote_knowledge",
-	"score_attention",
 	"create_conflict_review",
 ] as const;
 
@@ -124,9 +123,8 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// BB1: create_bet + edit_bet deleted; edit_task added = 17
 		// + 1 AU27 Increment 2: reply = 18
 		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
-		// + 1 BA9d wave 3: run_knowledge_sweep = 21
-		// query_practice deleted = 20
-		expect(names).toHaveLength(20);
+		// BC1: score_attention + run_knowledge_sweep deleted = 18
+		expect(names).toHaveLength(18);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}

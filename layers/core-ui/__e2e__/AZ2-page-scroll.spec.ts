@@ -103,14 +103,8 @@ async function scrollToEndOfContainer(page: Page, selector: string): Promise<voi
 // Shared app-shell mocks (mirrors AG1-team-composition.spec.ts's mockAppShell).
 // ---------------------------------------------------------------------------
 
-async function mockAppShell(page: Page): Promise<void> {
-	await page.route("**/api/hint-progress*", async (route: Route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ dismissed: [] }),
-		});
-	});
+async function mockAppShell(_page: Page): Promise<void> {
+	// hint-progress route removed; no stubs needed
 }
 
 // ---------------------------------------------------------------------------

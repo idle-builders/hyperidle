@@ -1,0 +1,92 @@
+{
+  "id": "BC1",
+  "status": "in-progress",
+  "dials": {
+    "complexity": "feature",
+    "ambiguity": "established context",
+    "exposure": "internal detail"
+  },
+  "gates": [
+    {
+      "name": "ship",
+      "description": "founder sees the CI-green open PR before merge",
+      "passed": false
+    }
+  ],
+  "worktree": ".worktrees/dead-surface-purge",
+  "branch": "chore/dead-surface-purge",
+  "base": "origin/main",
+  "artifacts": [
+    {
+      "path": ".pipeline/work/BC1/plan.md",
+      "what": "the plan; How-we-work, Confusions and Proposed items written this run"
+    },
+    {
+      "path": "scratchpad/map-routes.md",
+      "what": "route deletion map (session scratch)"
+    },
+    {
+      "path": "scratchpad/map-attention-events.md",
+      "what": "attention engine, events, fork, push gateway map (session scratch)"
+    },
+    {
+      "path": "scratchpad/map-ui.md",
+      "what": "dead UI controls map (session scratch)"
+    },
+    {
+      "path": "scratchpad/CONTESTED.md",
+      "what": "the seven live routes left in place"
+    },
+    {
+      "path": "scratchpad/rule-red-proof.txt",
+      "what": "per-token red proof for the new rule"
+    }
+  ],
+  "since": "efa28dd5",
+  "phase": "build",
+  "baseline": {
+    "commit": "efa28dd5",
+    "check": "PASS 38 packages",
+    "lint": "PASS (fixtures 61, attacks 68)",
+    "test_full": "5136 passed"
+  },
+  "scope_decision": {
+    "deleting": "14 of 21 routes, 2 tools, 7 events, attention engine, events fork, push gateway, dead controls, hint_progress + attention_score migration",
+    "left_in_place_pending_founder": [
+      "POST /teams",
+      "PATCH /teams/:teamId",
+      "GET /org/teams/:teamId",
+      "GET /org/teams/:teamId/membership",
+      "POST /org/teams",
+      "POST /org/scaffold-request",
+      "GET /agent-orchestration/runs/active-counts"
+    ],
+    "why": "each has a live production caller (first-run setup, create_team/add_agent tools, settings busy indicators); the item forbids building their replacement"
+  },
+  "build": {
+    "attempt": 3,
+    "history": [
+      "attempt 1 interrupted by user after staging the rule",
+      "attempt 2 stalled (watchdog 600s) after committing the rule c975afb60 and ~1/3 of route deletions uncommitted; ran npm run check from primary checkout by mistake"
+    ],
+    "leaves": [
+      {
+        "name": "backend",
+        "scope": "finish routes, tools, events, attention engine, events fork + repoints, push gateway",
+        "status": "in-progress"
+      },
+      {
+        "name": "ui-migration-gates",
+        "scope": "dead UI controls, 0082 migration + journal + table-owners, restore artifact control attack case, full gates",
+        "status": "pending"
+      }
+    ],
+    "known_fixes": [
+      "reword c975afb60 message (contains work-package id)",
+      "artifact attack control case repointed to otherLayerBarrel \u2014 restore to origin/main form once app.ts is clean"
+    ]
+  },
+  "notes": [
+    "primary checkout has an unrelated uncommitted edit to governance-attacks.ts (bet->task work from another session on ca76816f5); left untouched"
+  ]
+}

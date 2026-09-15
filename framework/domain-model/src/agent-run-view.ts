@@ -47,14 +47,6 @@ export interface AgentRunActiveCountsResponse {
 	readonly counts: Readonly<Record<string, number>>;
 }
 
-/**
- * `GET /api/agent-orchestration/runs/latest-outcomes?task_ids=…`.
- * A task with no run is absent from the map.
- */
-export interface AgentRunLatestOutcomesResponse {
-	readonly outcomes: Readonly<Record<string, string | null>>;
-}
-
 // @lore AU44-b8: HealthSignalInput, computeHealthSignals, deriveHealthLevel,
 // deriveHealthDetail moved to layers/core-ui/src/hooks/agent-health.ts.
 // The browser is the sole consumer (AU26 J4 — profile page fetches run rows

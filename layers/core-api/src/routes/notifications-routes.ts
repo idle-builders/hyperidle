@@ -1,64 +1,16 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { Logger } from "@hyperidle/diagnostics";
-import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse, NotificationTypeKey } from "@hyperidle/domain-model";
 import { API_ERROR_CODES, NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import { validateBody } from "@hyperidle/domain-model/http";
 import {
 	listNotifications,
 	markNotifications,
-	type NotificationConfigPatch,
 	type NotificationsDeps,
-	readConfig,
 	readPreferences,
-	type SafeNotificationConfig,
-	updateConfig,
 	updatePreferences,
 } from "@hyperidle/notifications";
 import { Hono } from "hono";
 import z from "zod";
-
-/**
- * @lore AU44 batch 4: channelEnum, primaryChannel, digestChannel,
- * recipientEmail, recipientNtfyTopic, ntfyBaseUrl, ntfyAuthToken,
- * floodMaxPerMinute, floodCoalesceWindowMs, testMaxPerHour, smtpIgnoreTls,
- * digestCron removed from patchConfigSchema. Only SMTP fields survive.
- */
-const patchConfigSchema = z
-	.object({
-		enabled: z.boolean().optional(),
-		smtpHost: z.union([z.string().max(253), z.null()]).optional(),
-		smtpPort: z.number().int().min(1).max(65535).optional(),
-		smtpSecure: z.boolean().optional(),
-		smtpUsername: z.union([z.string().max(256), z.null()]).optional(),
-		smtpPassword: z.union([z.string().max(1024), z.null()]).optional(),
-		smtpFrom: z.union([z.string().max(254), z.null()]).optional(),
-	})
-	.strict();
-
-/**
- * Sanitize a config patch for the audit log — booleans / enums kept,
- * secret strings replaced with `"***"`. We never persist the full patch
- * body.
- */
-function auditDiff(body: NotificationConfigPatch): Record<string, unknown> {
-	const SECRET_FIELDS: ReadonlyArray<keyof NotificationConfigPatch> = [
-		"smtpPassword",
-		"smtpUsername",
-	];
-	const out: Record<string, unknown> = {};
-	for (const [key, value] of Object.entries(body) as Array<
-		[keyof NotificationConfigPatch, unknown]
-	>) {
-		if (value === undefined) continue;
-		if (SECRET_FIELDS.includes(key)) {
-			out[key] = value === null ? null : "***";
-			continue;
-		}
-		out[key] = value;
-	}
-	return out;
-}
 
 export interface CreateNotificationRoutesOptions {
 	/**
@@ -70,11 +22,6 @@ export interface CreateNotificationRoutesOptions {
 	 */
 	deps: NotificationsDeps;
 	now?: () => Date;
-	/**
-	 * Logger used for the admin-audit log. Injectable so tests can
-	 * assert the `config_changed` event shape without grepping stdout.
-	 */
-	logger?: Logger;
 }
 
 export function createNotificationRoutes(
@@ -83,44 +30,6 @@ export function createNotificationRoutes(
 ): Hono {
 	const router = new Hono();
 	const nowFn = opts.now ?? ((): Date => new Date());
-	const auditLogger: Logger = opts.logger ?? createLogger({ pkg: "notifications.audit" });
-
-	router.get("/config", async (c) => {
-		const cfg = await readConfig(db, opts.deps);
-		return c.json(cfg);
-	});
-
-	router.patch("/config", validateBody(patchConfigSchema), async (c) => {
-		const body = c.req.valid("json");
-		const diff = auditDiff(body);
-		let updated: SafeNotificationConfig;
-		try {
-			updated = await updateConfig(db, body, opts.deps);
-		} catch (err) {
-			if (
-				err instanceof Error &&
-				(err as { code?: string }).code === "NOTIFICATIONS_VALIDATION_ERROR"
-			) {
-				const response: ApiErrorResponse = {
-					error: err.message,
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 400);
-			}
-			throw err;
-		}
-		// @lore Emit an admin-action audit record on every PATCH so any
-		// rewrite of `recipientEmail`, `ntfyBaseUrl`, or SMTP creds is
-		// attributable. Secret fields are replaced with "***" before
-		// logging; we never log plaintext passwords or tokens.
-		auditLogger.info("config_changed", {
-			resource: "notifications.config",
-			actor: "api-key",
-			diff,
-			timestamp: nowFn().toISOString(),
-		});
-		return c.json(updated);
-	});
 
 	// ──────────────────────────────────────────────────────────────────────────
 	// AF8: In-app notification popover API

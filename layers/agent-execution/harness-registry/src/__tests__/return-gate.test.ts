@@ -122,7 +122,6 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 			"query_practice",
 			"write_session_notes",
 			"create_task",
-			"score_attention",
 			"promote_knowledge",
 		];
 		for (const name of midTurnTools) {

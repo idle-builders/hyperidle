@@ -25,7 +25,6 @@ import type { AgentOrchestrationSessionWireRow } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type AgentRunActiveCountsResponse,
-	type AgentRunLatestOutcomesResponse,
 	type AgentRunsResponse,
 	API_ERROR_CODES,
 } from "@hyperidle/domain-model";
@@ -33,7 +32,6 @@ import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import {
 	countActiveRunsByAgent,
 	findSessionById,
-	listLatestOutcomeByTask,
 	listRunSummaries,
 } from "@hyperidle/run-orchestration";
 import type { Context } from "hono";
@@ -90,24 +88,6 @@ export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<Hy
 		}
 		const counts = await countActiveRunsByAgent(db, agentIds);
 		return c.json({ counts } satisfies AgentRunActiveCountsResponse);
-	});
-
-	// GET /agent-orchestration/runs/latest-outcomes?task_ids=a,b,c
-	// The outcome of the NEWEST run per task by `startedAt`. A task with no run
-	// is absent from the map (the UI renders that as `null`).
-	router.get("/runs/latest-outcomes", async (c) => {
-		const taskIds = parseIdList(c.req.query("task_ids"));
-		if (taskIds === undefined) {
-			return missingParam(c, "task_ids");
-		}
-		if (taskIds.length === 0) {
-			return c.json({ outcomes: {} });
-		}
-		if (taskIds.length > MAX_ID_LIST) {
-			return tooManyIds(c, "task_ids");
-		}
-		const outcomes = await listLatestOutcomeByTask(db, taskIds);
-		return c.json({ outcomes } satisfies AgentRunLatestOutcomesResponse);
 	});
 
 	// GET /agent-orchestration/runs?task_id=…  |  ?agent_ids=a,b,c

@@ -17,8 +17,8 @@
  * @lore AU20 Am5: redesigned from 29 bespoke functions toward 14 general ones.
  * The ~10 thread-list variants and 6 verdict/review projections collapsed into
  * `findThread`/`listThreads` + `findMessage`/`listMessages` parameterised by
- * `ThreadFilter`/`MessageFilter`. Two inbox variants → `listInbox(InboxFilter)`.
- * `VerdictMessageRow` and `MessageListOpts` dissolved — callers that need the
+ * `ThreadFilter`/`MessageFilter`. The inbox variant (`listInbox`) was retired
+ * in BC1. `VerdictMessageRow` and `MessageListOpts` dissolved — callers that need the
  * old projected shapes derive them from the full `Message` row. Each kept
  * function earns its place: CRUD writes (irreducible), `countThreads`
  * (aggregate), `resolveMessageIfUnresolved` (CAS), `findOrCreateDirectThread`
@@ -35,7 +35,7 @@ import {
 	type Thread,
 	threads,
 } from "@hyperidle/db";
-import { and, asc, desc, eq, gte, inArray, isNull, ne, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, type SQL, sql } from "drizzle-orm";
 
 // =============================================================================
 // Filter types — the parameterisation layer (AU20 Am5)
@@ -101,15 +101,6 @@ export interface MessageFilter {
 	readonly dir?: "asc" | "desc";
 	/** Secondary `id` sort in the same direction as `dir`. */
 	readonly tiebreakId?: boolean;
-	readonly limit?: number;
-}
-
-/**
- * Predicate bag for `listInbox`. `excludeSenderId` selects the inbox variant.
- */
-export interface InboxFilter {
-	/** Exclude messages sent by this id (sender-exclusion inbox). */
-	readonly excludeSenderId?: string;
 	readonly limit?: number;
 }
 
@@ -345,36 +336,6 @@ export function listMessages(exec: HyperIdleDb, f: MessageFilter): Promise<Messa
 	return q;
 }
 
-// =============================================================================
-// Inbox join surface — two variants → one (AU20 Am5)
-// =============================================================================
-
-/** One inbox row: the full message plus its thread's `participants` JSON for JS membership filtering. */
-export interface InboxRow {
-	readonly message: Message;
-	readonly participants: string;
-}
-
-/**
- * Inbox over-fetch, newest first. Two variants selected by filter field:
- *  - `excludeSenderId` → messages the agent did NOT send, newest first, capped.
- *  - `participantProbe` → messages in threads whose participants LIKE-match,
- *    newest first, page-limited.
- *
- * @lore AU20 Am5: replaces `listInboxBySenderExclusion` and
- * `listInboxByParticipantProbe` (2 → 1).
- */
-export async function listInbox(exec: HyperIdleDb, f: InboxFilter): Promise<InboxRow[]> {
-	const limit = f.limit ?? 50;
-	const rows = await exec
-		.select()
-		.from(messages)
-		.innerJoin(threads, eq(messages.threadId, threads.id))
-		.where(f.excludeSenderId !== undefined ? ne(messages.senderId, f.excludeSenderId) : undefined)
-		.orderBy(desc(messages.createdAt))
-		.limit(limit);
-	return rows.map((r) => ({ message: r.messages, participants: r.threads.participants }));
-}
 
 // =============================================================================
 // Joined / aggregate surfaces — distinct product capabilities, kept (AU20 Am5)

@@ -38,7 +38,6 @@
 import {
 	// @lore BB1: BetView deleted — bet is now a root task.
 	CORE_API_ACTOR_OVERRIDE_HEADER,
-	type ConversationInboxRowView,
 	type ConversationMessageType,
 	type ConversationThreadView,
 	type CoreApiPort,
@@ -63,7 +62,6 @@ import {
 	type KnowledgeConflictView,
 	type KnowledgeItemStatusView,
 	type KnowledgeItemVersionView,
-	type OrgTeamMembersByIdView,
 	type OrgTeamMembershipView,
 	type OrgTeamView,
 	type PersistScaffoldedAgentsResponse,
@@ -149,11 +147,6 @@ interface CoreApiHcClient {
 				};
 			};
 		};
-		readonly "team-members": {
-			readonly ":teamMembersId": {
-				$get(args: { readonly param: { readonly teamMembersId: string } }): Promise<Response>;
-			};
-		};
 		readonly "review-recipients": {
 			$get(args: {
 				readonly query: {
@@ -163,21 +156,12 @@ interface CoreApiHcClient {
 				};
 			}): Promise<Response>;
 		};
-		readonly "scaffolded-agents": {
-			$post(args: {
-				readonly json: {
-					readonly teamMembersId: string | null;
-					readonly specs: readonly Record<string, unknown>[];
-				};
-			}): Promise<Response>;
-		};
 		readonly "scaffold-request": {
 			$post(args: { readonly json: ScaffoldFromRequestInput }): Promise<Response>;
 		};
 	};
 	readonly conversations: {
 		readonly items: {
-			$get(args: { readonly query: { readonly reasoningMarker: string } }): Promise<Response>;
 			$post(args: { readonly json: CreateItemRequest }): Promise<Response>;
 			readonly ":id": {
 				$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
@@ -222,9 +206,6 @@ interface CoreApiHcClient {
 		readonly direct: {
 			$post(args: { readonly json: { readonly recipientId: string } }): Promise<Response>;
 		};
-		readonly inbox: {
-			$get(args: { readonly query: { readonly limit: string } }): Promise<Response>;
-		};
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 			$patch(args: {
@@ -245,11 +226,6 @@ interface CoreApiHcClient {
 	};
 	readonly knowledge: {
 		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
-		readonly sweep: {
-			$post(args: {
-				readonly json: { readonly kind: "autoPromotion" | "stale" };
-			}): Promise<Response>;
-		};
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 			/**
@@ -290,15 +266,6 @@ interface CoreApiHcClient {
 						readonly editor: string;
 					};
 				}): Promise<Response>;
-			};
-			readonly "attention-score": {
-				$patch(args: {
-					readonly param: { readonly id: string };
-					readonly json: { readonly attentionScore: string };
-				}): Promise<Response>;
-			};
-			readonly "recompute-attention": {
-				$post(args: { readonly param: { readonly id: string } }): Promise<Response>;
 			};
 			readonly merge: {
 				$post(args: {
@@ -490,15 +457,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return (await res.json()) as CreateItemResponse;
 			},
 
-			async findItemByReasoningMarker(
-				marker: string,
-			): Promise<{ readonly id: string } | undefined> {
-				const res = await client.conversations.items.$get({ query: { reasoningMarker: marker } });
-				if (!res.ok) return throwSeamError("work.findItemByReasoningMarker", res);
-				const { items } = (await res.json()) as { readonly items: ReadonlyArray<{ id: string }> };
-				return items[0] ? { id: items[0].id } : undefined;
-			},
-
 			async handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse> {
 				const res = await client.tasks[":id"].handoff.$post({ param: { id: taskId }, json: input });
 				if (!res.ok) return throwSeamError("work.handoffTask", res);
@@ -551,17 +509,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return { id: body.message.id };
 			},
 
-			async listInboxBySenderExclusion(
-				limit: number,
-			): Promise<ReadonlyArray<ConversationInboxRowView>> {
-				const res = await client.threads.inbox.$get({ query: { limit: String(limit) } });
-				if (!res.ok) return throwSeamError("conversation.listInboxBySenderExclusion", res);
-				const body = (await res.json()) as {
-					readonly items: ReadonlyArray<ConversationInboxRowView>;
-				};
-				return body.items;
-			},
-
 			async findOrCreateDirectThread(recipientId: string): Promise<DirectThreadResponse> {
 				const res = await client.threads.direct.$post({ json: { recipientId } });
 				if (!res.ok) return throwSeamError("conversation.findOrCreateDirectThread", res);
@@ -587,13 +534,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 			async getTeamMembersByTeamId(teamId: string): Promise<OrgTeamMembershipView | undefined> {
 				const res = await client.org.teams[":teamId"].membership.$get({ param: { teamId } });
 				return getOrUndefined<OrgTeamMembershipView>("org.getTeamMembersByTeamId", res);
-			},
-
-			async getTeamMembersById(teamMembersId: string): Promise<OrgTeamMembersByIdView | undefined> {
-				const res = await client.org["team-members"][":teamMembersId"].$get({
-					param: { teamMembersId },
-				});
-				return getOrUndefined<OrgTeamMembersByIdView>("org.getTeamMembersById", res);
 			},
 
 			async createTeam(input: CreateOrgTeamRequest): Promise<void> {
@@ -780,36 +720,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				});
 				if (!res.ok) return throwSeamError("knowledge.promoteKnowledgeItem", res);
 				return (await res.json()) as PromoteKnowledgeItemResult;
-			},
-
-			async upsertKnowledgeAppProjectionAttentionScore(
-				knowledgeItemId: string,
-				attentionScore: string,
-			): Promise<void> {
-				const res = await client.knowledge[":id"]["attention-score"].$patch({
-					param: { id: knowledgeItemId },
-					json: { attentionScore },
-				});
-				if (!res.ok)
-					return throwSeamError("knowledge.upsertKnowledgeAppProjectionAttentionScore", res);
-			},
-
-			async recomputeAttentionScoreForItem(
-				knowledgeItemId: string,
-			): Promise<{ readonly current: number }> {
-				const res = await client.knowledge[":id"]["recompute-attention"].$post({
-					param: { id: knowledgeItemId },
-				});
-				if (!res.ok) return throwSeamError("knowledge.recomputeAttentionScoreForItem", res);
-				return (await res.json()) as { readonly current: number };
-			},
-
-			async runKnowledgeSweep(
-				kind: "autoPromotion" | "stale",
-			): Promise<{ readonly kind: string; readonly processed: number }> {
-				const res = await client.knowledge.sweep.$post({ json: { kind } });
-				if (!res.ok) return throwSeamError("knowledge.runKnowledgeSweep", res);
-				return (await res.json()) as { readonly kind: string; readonly processed: number };
 			},
 
 			async mergeKnowledgeItem(

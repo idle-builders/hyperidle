@@ -26,7 +26,6 @@ export { roleLabel } from "./agent-roles.js";
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
 	AgentRunActiveCountsResponse,
-	AgentRunLatestOutcomesResponse,
 	AgentRunSummary,
 	AgentRunsResponse,
 } from "./agent-run-view.js";
@@ -91,8 +90,6 @@ export {
 // Callers import event types from @hyperidle/event-bus.
 // SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
 export type { SessionOutcome } from "./events.js";
-export type { HintId } from "./hint.js";
-export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 // HyperIdleEnv, ValidatedJson, constantTimeStringEqual, validateBody: server-only (node:crypto).
 // Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview

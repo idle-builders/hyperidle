@@ -63,19 +63,6 @@ const createOrgTeamSchema = z.object({
 	formedAt: z.string().optional(),
 });
 
-const scaffoldSpecSchema = z.object({
-	role: z.string().min(1),
-	name: z.string().min(1),
-	agentCategory: z.enum(["team", "individual"]),
-	systemPrompt: z.string().nullable(),
-	idHint: z.string().optional(),
-});
-
-const persistScaffoldedAgentsSchema = z.object({
-	teamMembersId: z.string().nullable(),
-	specs: z.array(scaffoldSpecSchema).min(1),
-});
-
 /**
  * @lore AU44 AU20-fd: backs `CoreApiOrgPort.scaffoldFromRequest` — widens the
  * scaffold seam so agent-orchestration passes the request instead of pre-resolved
@@ -240,20 +227,6 @@ export function createOrgRoutes(
 		return c.json({ id: team.id });
 	});
 
-	// GET /team-members/:teamMembersId — AU44 B1: teamMembersId IS teams.id after fold.
-	router.get("/team-members/:teamMembersId", async (c) => {
-		const teamMembersId = c.req.param("teamMembersId");
-		const team = await getTeam(db, { id: teamMembersId });
-		if (!team) {
-			return c.json(
-				{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
-				404,
-			);
-		}
-		// After fold, teamMembersId = teams.id — return the same id as teamId for backward compat.
-		return c.json({ teamId: team.id });
-	});
-
 	// POST /teams — the atomic `teams`+`teamMembers` insert ONLY (never the
 	// heavier `POST /teams` UI flow, which also scaffolds the default agent
 	// roster + provisions routines + writes an org edge + drafts a welcome
@@ -263,29 +236,6 @@ export function createOrgRoutes(
 		const body = c.req.valid("json" as never) as z.infer<typeof createOrgTeamSchema>;
 		await createTeam(db, body);
 		return c.json({ id: body.id, teamMembersId: body.teamMembersId }, 201);
-	});
-
-	// POST /scaffolded-agents — the collapsed Kernel-persist helper
-	// (`persistScaffoldedAgents`). Even `POST /teams` calls the underlying
-	// function directly in-process, never via HTTP — no UI route exists to
-	// reuse.
-	router.post("/scaffolded-agents", validateBody(persistScaffoldedAgentsSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
-		const result = await persistScaffoldedAgents(
-			db,
-			{
-				getUserById: (db2, id) => findUser(db2, { id }),
-				insertUser,
-				upsertAgentIdentity,
-				// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
-				// @hyperidle/run-orchestration import (crossing-di) — now the
-				// seam-backed adapter.
-				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
-			},
-			body.teamMembersId,
-			body.specs,
-		);
-		return c.json(result, 201);
 	});
 
 	// POST /scaffold-request — resolve-then-persist seam for agent-orchestration.

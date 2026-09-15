@@ -23,12 +23,9 @@ import { type HyperIdleDb, notificationQueue } from "@hyperidle/db";
 import {
 	deliver,
 	enqueue,
-	readConfig,
 	readPreferences,
-	updateConfig,
 	updatePreferences,
 } from "@hyperidle/notifications";
-import { afterEach, beforeEach, vi } from "vitest";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
@@ -103,47 +100,7 @@ describe("enqueue — queue-cap eviction", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. readConfig — direct function call, secrets redacted
-// ---------------------------------------------------------------------------
-
-describe("readConfig — direct call", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-readconfig-completeness");
-	});
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("returns SafeNotificationConfig with SMTP password redacted", async ({ db }) => {
-		await updateConfig(
-			db,
-			{
-				enabled: true,
-				smtpHost: "smtp.example.com",
-				smtpPassword: "super-secret",
-				smtpFrom: "ops@example.com",
-			},
-			notificationsDeps,
-		);
-
-		const cfg = await readConfig(db, notificationsDeps);
-
-		expect(cfg.enabled).toBe(true);
-		expect(cfg.smtp.passwordSet).toBe(true);
-		expect(cfg.smtp.password).toBe("***");
-
-		const serialized = JSON.stringify(cfg as unknown);
-		expect(serialized).not.toContain("super-secret");
-	});
-
-	test("returns disabled config before any config write", async ({ db }) => {
-		const cfg = await readConfig(db, notificationsDeps);
-		expect(cfg.enabled).toBe(false);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// 3–4. readPreferences — direct function call
+// 2–3. readPreferences — direct function call
 // ---------------------------------------------------------------------------
 
 describe("readPreferences — direct call", () => {
@@ -202,34 +159,3 @@ describe("deliver test — direct call", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// 6. updateConfig — validation
-// ---------------------------------------------------------------------------
-
-describe("updateConfig — validation (direct call)", () => {
-	test("throws NOTIFICATIONS_VALIDATION_ERROR for SMTP username with CR/LF injection", async ({
-		db,
-	}) => {
-		await expect(
-			updateConfig(db, { smtpUsername: "user\r\nDATA\r\nSubject: injected" }, notificationsDeps),
-		).rejects.toMatchObject({ code: "NOTIFICATIONS_VALIDATION_ERROR" });
-	});
-
-	test("persists a valid partial patch and returns the updated SafeNotificationConfig", async ({
-		db,
-	}) => {
-		const cfg = await updateConfig(
-			db,
-			{
-				enabled: true,
-				smtpHost: "smtp.example.com",
-				smtpFrom: "ops@example.com",
-			},
-			notificationsDeps,
-		);
-
-		expect(cfg.enabled).toBe(true);
-		expect(cfg.smtp.host).toBe("smtp.example.com");
-		expect(cfg.smtp.from).toBe("ops@example.com");
-	});
-});

@@ -23,8 +23,6 @@ export type {
 } from "./agent-orchestration-port.js";
 export type {
 	// @lore BB1: BetView deleted — bet is now a root task.
-	// ConversationInboxMessageView: field of ConversationInboxRowView — reachable, no name-importers
-	ConversationInboxRowView,
 	ConversationMessageType,
 	ConversationThreadView,
 	CoreApiConversationPort,
@@ -55,7 +53,6 @@ export type {
 	KnowledgeConflictView,
 	KnowledgeItemStatusView,
 	KnowledgeItemVersionView,
-	OrgTeamMembersByIdView,
 	OrgTeamMembershipView,
 	OrgTeamView,
 	PersistScaffoldedAgentsResponse,

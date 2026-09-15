@@ -10,9 +10,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 beforeEach(() => {
 	global.fetch = vi.fn(async (url: string | URL | Request) => {
 		const urlStr = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
-		if (urlStr.includes("/api/knowledge/triage-count")) {
-			return { ok: true, json: async () => ({ count: 0 }) };
-		}
 		if (urlStr.includes("/api/knowledge")) {
 			return {
 				ok: true,

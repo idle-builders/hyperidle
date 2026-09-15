@@ -21,21 +21,9 @@
  * abstraction over one channel) removed from the public surface.
  */
 
-export type {
-	DeliveryResult,
-	DeliverySpec,
-	NotificationConfigPatch,
-	SafeNotificationConfig,
-} from "./install.js";
+export type { DeliveryResult, DeliverySpec } from "./install.js";
 
-export {
-	deliver,
-	installNotifications,
-	readConfig,
-	readPreferences,
-	updateConfig,
-	updatePreferences,
-} from "./install.js";
+export { deliver, installNotifications, readPreferences, updatePreferences } from "./install.js";
 export type {
 	NotificationFilter,
 	NotificationPatch,
