@@ -55,6 +55,7 @@ import {
 	runRules,
 } from "./lib/governance-rules.js";
 import type { Census } from "./lib/repo-census.js";
+import { actionsProjected } from "./rules/actions-projected.js";
 import { artifactIsNotAStorageConcept } from "./rules/artifact-is-not-a-storage-concept.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { crossingRules, violationsOf } from "./rules/crossings.js";
@@ -129,6 +130,7 @@ function buildRules(
 		oneWorkPrimitive({ readFile }),
 		artifactIsNotAStorageConcept({ readFile }),
 		retiredSurfacesAbsent({ readFile }),
+		actionsProjected({ readFile }),
 		...crossingRules({
 			architecture,
 			crossings: detected.crossings,
@@ -248,6 +250,7 @@ function runLive(errorsOnly: boolean): number {
 		oneWorkPrimitive({ readFile: readRepoFile }),
 		artifactIsNotAStorageConcept({ readFile: readRepoFile }),
 		retiredSurfacesAbsent({ readFile: readRepoFile }),
+		actionsProjected({ readFile: readRepoFile }),
 		...crossingRules(ruleInput),
 	];
 
