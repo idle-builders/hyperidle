@@ -25,9 +25,7 @@ function focusSiblingBlock(current: HTMLElement, direction: 1 | -1): boolean {
 
 function handleBlockKey(
 	e: ReactKeyboardEvent<HTMLDivElement>,
-	id: BlockId,
 	onOpenActions: (() => void) | undefined,
-	onCopyPermalink: ((id: BlockId) => void) | undefined,
 ): void {
 	const target = e.target as HTMLElement;
 	const editable = isEditableTarget(target);
@@ -41,11 +39,6 @@ function handleBlockKey(
 		onOpenActions?.();
 		return;
 	}
-	if ((e.key === "l" || e.key === "L") && (e.metaKey || e.ctrlKey)) {
-		e.preventDefault();
-		onCopyPermalink?.(id);
-		return;
-	}
 	if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !editable) {
 		const dir = e.key === "ArrowDown" ? 1 : -1;
 		if (focusSiblingBlock(e.currentTarget, dir)) e.preventDefault();
@@ -53,7 +46,6 @@ function handleBlockKey(
 }
 
 export interface BlockSlots {
-	gutterLeading?: ReactNode;
 	inlineAfterPayload?: ReactNode;
 }
 
@@ -64,8 +56,6 @@ export interface BlockProps {
 	slots?: BlockSlots;
 	sanitizeHtml?: (raw: string) => string;
 	className?: string;
-	/** Invoked when the user copies a permalink (⌘L / Ctrl+L). */
-	onCopyPermalink?: (id: BlockId) => void;
 	/** Invoked when the user opens the actions popover (Enter / Space). */
 	onOpenActions?: () => void;
 	/** Page-owned outline shift for authored content. */
@@ -76,11 +66,7 @@ export interface BlockProps {
  * @lore L2 AC-32: data-ds-component is LOWERCASE ("block"), not PascalCase.
  * The ds-attrs.ts default-exported `dsProps` produces PascalCase names — Block
  * renders the marker manually so the kebab-case contract holds. The same
- * applies to BlockHandle and BlockActionsPopover.
- *
- * @lore Block carries the Tailwind `group` class so per-row gutter affordances
- * (the BlockHandle, scoped via `group-hover:` / `group-focus-within:`) reveal
- * on hover/focus of the block shell. Without `group`, the gutter never appears.
+ * applies to BlockActionsPopover.
  */
 export function Block({
 	id,
@@ -89,7 +75,6 @@ export function Block({
 	slots,
 	sanitizeHtml,
 	className,
-	onCopyPermalink,
 	onOpenActions,
 	outline,
 }: BlockProps): JSX.Element {
@@ -98,9 +83,9 @@ export function Block({
 
 	const onKeyDown = useCallback(
 		(e: ReactKeyboardEvent<HTMLDivElement>): void => {
-			handleBlockKey(e, id, onOpenActions, onCopyPermalink);
+			handleBlockKey(e, onOpenActions);
 		},
-		[id, onCopyPermalink, onOpenActions],
+		[onOpenActions],
 	);
 
 	return (
@@ -119,9 +104,7 @@ export function Block({
 			<div
 				data-block-gutter
 				className="flex justify-end items-start pt-[3px] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:opacity-40"
-			>
-				{slots?.gutterLeading}
-			</div>
+			/>
 			<div className="flex flex-col gap-[9px] min-w-0">
 				{/* @lore Suppress only the heading payload; filtering the Block would sever its stable anchor, handle, and discussion slots. */}
 				{renderPayload(payload, sanitizeHtml, outline)}

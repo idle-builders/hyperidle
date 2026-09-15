@@ -14,7 +14,7 @@
  *
  * @lore L23: `slots` is intentionally omitted from <Block /> calls. FU-1
  * (floating-ui wiring) and FU-2 (mobile sheet) are L26 prereqs; the popover is
- * not wired in L23. BlockHandle never renders without gutterLeading.
+ * not wired in L23.
  *
  * @lore L18: `onOpenBlockActions` and `messagesByBlockId` are added to wire the
  * L18 block popover and inline anchored-message slots. When provided, blocks

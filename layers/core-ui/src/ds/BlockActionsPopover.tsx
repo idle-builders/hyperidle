@@ -11,7 +11,7 @@ export interface BlockAction {
 }
 
 export interface BlockActionsPopoverProps {
-	/** Required popover id; the matching `aria-controls` lives on the BlockHandle. */
+	/** Required popover id; the matching `aria-controls` lives on the block that opened it. */
 	id: string;
 	open: boolean;
 	onClose: () => void;
@@ -22,7 +22,8 @@ export interface BlockActionsPopoverProps {
 const COPY_FEEDBACK_MS = 1500;
 
 /**
- * Right-start popover anchored to the BlockHandle. Built without
+ * Right-start popover anchored to the block whose actions were opened
+ * (Enter/Space on the block, via `onOpenActions`). Built without
  * @floating-ui/react in the unit-test path (jsdom can't measure positions);
  * positioning is host-side via absolute/fixed CSS in the live UI. Test
  * surface: role=menu, items role=menuitem, Escape closes, click invokes.

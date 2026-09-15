@@ -120,7 +120,6 @@ describe("<Block />", () => {
 		it("PascalCase 'Block' MUST NOT appear in data-ds-component", async () => {
 			await renderBlock(PARA);
 			expect(container.innerHTML).not.toContain('data-ds-component="Block"');
-			expect(container.innerHTML).not.toContain('data-ds-component="BlockHandle"');
 		});
 	});
 
@@ -150,13 +149,12 @@ describe("<Block />", () => {
 				outline: { documentTitle: "hello!", blockIndex: 0, levelOffset: 1 },
 				onOpenActions: () => opened++,
 				slots: {
-					gutterLeading: <button type="button">Handle</button>,
 					inlineAfterPayload: "Discuss",
 				},
 			});
 			const shell = container.querySelector("article[data-block-id]") as HTMLElement;
 			expect(shell.querySelector("h1,h2,h3,h4,h5,h6")).toBeNull();
-			expect(shell).toHaveTextContent("HandleDiscuss");
+			expect(shell).toHaveTextContent("Discuss");
 			shell.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 			expect(opened).toBe(1);
 
@@ -247,7 +245,7 @@ describe("<Block />", () => {
 	});
 
 	describe("Rejected list (AC-43, AC-44, AC-45, AC-46)", () => {
-		it("BlockHandle has no draggable / aria-grabbed / cursor-grab markers", async () => {
+		it("Block renders no draggable / aria-grabbed / cursor-grab markers", async () => {
 			await renderBlock(PARA);
 			const html = container.innerHTML;
 			expect(html).not.toContain("aria-grabbed");
