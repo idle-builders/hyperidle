@@ -15,8 +15,7 @@
  *
  * Grammar extracted from SettingsHarnesses.tsx (the closest dense-list sibling):
  *   - outer wrapper `flex flex-col gap-[12px]`;
- *   - ONE uppercase section-label header (tracking-caps-sm, text-tertiary) with a
- *     trailing ghost `+ Add filesystem` Button — same shape as "PROVIDERS" / Refresh;
+ *   - ONE uppercase section-label header (tracking-caps-sm, text-tertiary);
  *   - ONE `--surface-elevated` bordered container with `h-px` hairline row dividers
  *     (`overflow-hidden`) — the AM4 "Agent backends" container rule;
  *   - inline Inspect-expand below a row (as SettingsAgents/SettingsModels expand).
@@ -302,9 +301,6 @@ export const Populated = (): JSX.Element => {
 					<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
 						Registered filesystems
 					</span>
-					<Button variant="ghost" size="sm" aria-label="Add a filesystem to the team registry">
-						+ Add filesystem
-					</Button>
 				</div>
 				{/* ONE bordered container with hairline-divided rows — the whole registry. */}
 				<div className="overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]">

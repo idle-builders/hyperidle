@@ -12,7 +12,7 @@
 import type { JSX } from "react";
 import { useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
-import { Button, type Status, StatusChip, Tag } from "../ds";
+import { type Status, StatusChip, Tag } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 
 // ---------------------------------------------------------------------------
@@ -136,9 +136,6 @@ export function SettingsFilesystems(): JSX.Element {
 					<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 						Registered filesystems
 					</span>
-					<Button variant="ghost" size="sm" aria-label="Add a filesystem to the team registry">
-						+ Add filesystem
-					</Button>
 				</div>
 				{filesystems.length === 0 ? (
 					<p className="type-metadata  text-[var(--text-tertiary)]">

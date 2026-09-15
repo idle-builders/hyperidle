@@ -81,7 +81,8 @@ interface NoticeConfig {
 	title: string;
 	description: string;
 	colorToken: string;
-	affordance: JSX.Element;
+	/** Absent when the notice has no live action — the message stands alone. */
+	affordance?: JSX.Element;
 }
 
 function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeConfig {
@@ -90,42 +91,15 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 			return {
 				title: "No API key yet",
 				description:
-					"I can't think until an API key is set. Add your Anthropic key to get started.",
+					"I can't think until an API key is set. Add your Anthropic key under Settings → Credentials to get started.",
 				colorToken: "var(--status-warning)",
-				affordance: (
-					<Button
-						variant="primary"
-						size="sm"
-						onClick={() => {
-							// Navigate to Settings → Credentials
-							// @lore AH3: settings navigation is via existing nav patterns
-							window.dispatchEvent(
-								new CustomEvent("navigate-settings", { detail: { tab: "credentials" } }),
-							);
-						}}
-					>
-						Settings → Credentials
-					</Button>
-				),
 			};
 		case "missing_harness":
 			return {
 				title: "Runtime not configured",
-				description: "I don't have a runtime selected. Pick a harness for me and I'll be ready.",
+				description:
+					"I don't have a runtime selected. Pick a harness for me under Agent settings and I'll be ready.",
 				colorToken: "var(--status-warning)",
-				affordance: (
-					<Button
-						variant="primary"
-						size="sm"
-						onClick={() => {
-							window.dispatchEvent(
-								new CustomEvent("navigate-settings", { detail: { tab: "agents" } }),
-							);
-						}}
-					>
-						Open Agent settings
-					</Button>
-				),
 			};
 		case "provider_error":
 			return {
@@ -205,7 +179,7 @@ function AssistantNoticeCard({
 					</code>
 				)}
 			</div>
-			<div style={{ marginTop: "3px" }}>{config.affordance}</div>
+			{config.affordance ? <div style={{ marginTop: "3px" }}>{config.affordance}</div> : null}
 		</div>
 	);
 }
