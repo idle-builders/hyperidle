@@ -193,7 +193,6 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		id: `${skillId}-proj`,
 		knowledgeItemId: skillId,
 		scopeId: null,
-		attentionScore: null,
 		confidence: null,
 		meta: null,
 	});

@@ -139,7 +139,6 @@ export interface SeedKnowledgeItemOptions {
 	readonly createdAt?: string;
 	readonly updatedAt?: string;
 	readonly projectionId?: string;
-	readonly attentionScore?: string | null;
 	readonly confidence?: string | null;
 	readonly meta?: string | null;
 }
@@ -175,7 +174,6 @@ export async function seedKnowledgeItem(
 		id: projectionId,
 		knowledgeItemId: id,
 		scopeId: options.scopeId ?? null,
-		attentionScore: options.attentionScore ?? null,
 		confidence: options.confidence ?? null,
 		meta: options.meta ?? null,
 	});

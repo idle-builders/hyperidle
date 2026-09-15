@@ -70,7 +70,6 @@ function inertPorts(): RoutineSchedulerPorts {
 		knowledge: {
 			runAutoPromotionSweep: unreachable("knowledge.runAutoPromotionSweep"),
 			runStaleSweep: unreachable("knowledge.runStaleSweep"),
-			recomputeAttentionForCandidates: unreachable("knowledge.recomputeAttentionForCandidates"),
 			getItemById: unreachable("knowledge.getItemById"),
 		},
 		settings: { readServerConfig: unreachable("settings.readServerConfig") },

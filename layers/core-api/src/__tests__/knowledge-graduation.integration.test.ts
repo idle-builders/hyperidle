@@ -76,7 +76,6 @@ async function insertKnowledgeItem(
 		id: `${opts.id}-projection`,
 		knowledgeItemId: opts.id,
 		scopeId: null,
-		attentionScore: null,
 		confidence: null,
 		meta: null,
 	});

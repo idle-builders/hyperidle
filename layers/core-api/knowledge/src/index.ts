@@ -41,8 +41,6 @@
  * (functions + the two types needed for inline-typed call sites).
  */
 
-// -- attention engine (recompute service) --
-export { recomputeAttention } from "./attention-service.js";
 // -- errors --
 export { InvalidReparentError, ItemDeletedError, VersionConflictError } from "./errors.js";
 // -- conflicts (knowledgeConflicts accessors) --

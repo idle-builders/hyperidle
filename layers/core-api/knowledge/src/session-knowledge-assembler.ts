@@ -130,20 +130,6 @@ function computeConfidence(item: KnowledgeItemWithProjection): number {
 	return Math.max(0, Math.min(1, val));
 }
 
-/** Compute attention score factor (0-1). attentionScore stored as string in projection table. */
-function computeAttentionScore(item: KnowledgeItemWithProjection): number {
-	// @lore O2: attentionScore moved to knowledgeAppProjection as text column.
-	if (item.attentionScore == null) {
-		return 0.5; // neutral default
-	}
-	const val =
-		typeof item.attentionScore === "string"
-			? Number.parseFloat(item.attentionScore)
-			: item.attentionScore;
-	if (!Number.isFinite(val)) return 0.5;
-	// @lore I3: same fix as `computeConfidence` — drop the `/ 100` divisor.
-	return Math.max(0, Math.min(1, val));
-}
 
 /** Score a single knowledge item against the given context. Returns 0-100. */
 function scoreItem(
@@ -157,17 +143,14 @@ function scoreItem(
 	const tagMatch = computeTagMatch(item, context.taskTags);
 	const recency = computeRecency(item, timestamp);
 	const confidence = computeConfidence(item);
-	const attentionScoreFactor = computeAttentionScore(item);
 
 	const weighted =
 		tagMatch * weights.tagMatch +
 		recency * weights.recency +
-		confidence * weights.confidence +
-		attentionScoreFactor * weights.attentionScore;
+		confidence * weights.confidence;
 
 	// Normalize to 0-100
-	const totalWeight =
-		weights.tagMatch + weights.recency + weights.confidence + weights.attentionScore;
+	const totalWeight = weights.tagMatch + weights.recency + weights.confidence;
 
 	if (totalWeight === 0) {
 		return 0;
@@ -266,7 +249,6 @@ async function fetchOrdinaryItemsByScope(
 
 	return rows.map(({ item, projection }) => ({
 		...item,
-		attentionScore: projection?.attentionScore ?? null,
 		confidence: projection?.confidence ?? null,
 		meta: projection?.meta ?? null,
 		scopeId: projection?.scopeId ?? item.scopeId,
@@ -338,7 +320,6 @@ async function fetchCapabilityItems(
 
 	return rows.map(({ item, projection }) => ({
 		...item,
-		attentionScore: projection?.attentionScore ?? null,
 		confidence: projection?.confidence ?? null,
 		meta: projection?.meta ?? null,
 		scopeId: projection?.scopeId ?? item.scopeId,

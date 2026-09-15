@@ -33,16 +33,14 @@ import {
 	teams,
 	threads,
 	users,
-	type WriteExecutor,
 } from "@hyperidle/db";
 // BB1: BetStateChangedEvent deleted — bet is now a root task.
-import type { EventBus, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import type { TaskStateChangedEvent } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getParentedItem,
-	recomputeAttention,
 	sweep,
 } from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
@@ -94,29 +92,6 @@ function makePorts(): RoutineSchedulerPorts {
 			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
 			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
 				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
-			recomputeAttentionForCandidates: async (
-				db: HyperIdleDb,
-				eventBus: EventBus,
-				candidateIds: readonly string[],
-			) => {
-				const result = await recomputeAttention(
-					{
-						db,
-						eventBus,
-						work: {
-							findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
-								const rows = await work.list(exec, "item", { marker });
-								return rows[0] ? { id: rows[0].id } : undefined;
-							},
-							createItem: (exec, values) => work.create(exec, "item", values),
-						},
-						conversation: { insertThread },
-					},
-					{ filter: { ids: candidateIds as string[] } },
-				);
-				if (!("ok" in result)) throw new Error("unexpected attention result");
-				return result;
-			},
 			getItemById: async (db, id) => {
 				const item = await getKnowledgeItem(db, id);
 				return item ?? undefined;

@@ -63,7 +63,6 @@ async function flagStalledKnowledgeAction(
 		title: "Agent work stalled: knowledge action",
 		body: `Knowledge item ${knowledgeItemId} could not be admitted for agent work (${event.failureCode}).`,
 		riskTier: "low",
-		attentionScore: 0,
 		reasoning: { failureCode: event.failureCode, intentId: event.intentId },
 		nowMs: event.timestamp,
 	});

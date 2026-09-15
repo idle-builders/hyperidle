@@ -178,11 +178,6 @@ interface SeamCoreApiPortIncrement2Knowledge {
 			readonly reason: string | undefined;
 			readonly editor: string;
 		}): Promise<SeamPromoteResult | SeamPromoteConflictResult>;
-		upsertKnowledgeAppProjectionAttentionScore(
-			knowledgeItemId: string,
-			attentionScore: string,
-		): Promise<void>;
-		recomputeAttentionScoreForItem(knowledgeItemId: string): Promise<{ readonly current: number }>;
 	};
 }
 
@@ -481,53 +476,3 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 	});
 });
 
-describe("CoreApiPort.knowledge attention-score methods — Increment 2 knowledge wave (RED)", () => {
-	test("upsertKnowledgeAppProjectionAttentionScore reaches the real attention-score route (projection row upserted)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-attention");
-		await seedAgent(db, "agent-know-attention1");
-		await seedKnowledgeItem(db, { id: "ki-attention-1" });
-
-		const port = buildSeamPort("agent-know-attention1", app);
-		await port.knowledge.upsertKnowledgeAppProjectionAttentionScore("ki-attention-1", "0.75");
-
-		const [row] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, "ki-attention-1"))
-			.limit(1);
-		expect(row?.attentionScore).toBe("0.75");
-	});
-
-	test("recomputeAttentionScoreForItem reaches the real recompute route and returns the recomputed score", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-recompute");
-		await seedAgent(db, "agent-know-recompute1");
-		await seedKnowledgeItem(db, { id: "ki-recompute-1" });
-
-		const port = buildSeamPort("agent-know-recompute1", app);
-		const result = await port.knowledge.recomputeAttentionScoreForItem("ki-recompute-1");
-
-		expect(typeof result.current).toBe("number");
-	});
-
-	test("an attention-score write with no credentials is rejected, not silently bypassed (auth/boundary middleware ran)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-attention-noauth");
-		await seedKnowledgeItem(db, { id: "ki-attention-noauth" });
-
-		const port = buildCoreApiPort(
-			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
-		) as unknown as SeamCoreApiPortIncrement2Knowledge;
-
-		await expect(
-			port.knowledge.upsertKnowledgeAppProjectionAttentionScore("ki-attention-noauth", "0.9"),
-		).rejects.toThrow();
-	});
-});

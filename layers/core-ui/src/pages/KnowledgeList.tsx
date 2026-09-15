@@ -119,7 +119,6 @@ interface ApiKnowledgeItem {
 	scopeId?: string | null;
 	createdAt: string;
 	updatedAt: string;
-	attentionScore?: number | null;
 	/**
 	 * @lore nested-knowledge-items §4: already in the payload (a kernel
 	 * column), just previously undeclared here. `null` or `"knowledge_item"`

@@ -1019,7 +1019,6 @@ export const knowledgeAppProjection = pgTable(
 			.unique()
 			.references(() => knowledgeItems.id, { onDelete: "cascade" }),
 		scopeId: text("scope_id"),
-		attentionScore: text("attention_score"),
 		relevanceScore: text("relevance_score"),
 		confidence: text("confidence"),
 		citationCount: integer("citation_count"),

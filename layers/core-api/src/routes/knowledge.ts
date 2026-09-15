@@ -343,11 +343,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json({ error: "parentKind must be task or thread", code: "INVALID_QUERY" }, 400);
 			}
 			const rows = await listKnowledgeItems(db, { byParent: { parentKind, parentId } });
-			const items = rows.map((item) => ({
-				...item,
-				attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
-			}));
-			return c.json({ items });
+			return c.json({ items: rows });
 		}
 
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
@@ -363,12 +359,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// {visibleWithSignals} applied only the Q2 half and is deleted with it).
 		const viewerTeamId = await resolveViewerTeamId(db, userId);
 		const rows = await listKnowledgeItems(db, { tree: { viewerUserId: userId, viewerTeamId } });
-		const items = rows.map((item) => ({
-			...item,
-			attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
-		}));
-
-		return c.json({ items });
+		return c.json({ items: rows });
 	});
 
 	// GET /:id — single item, emit knowledge_accessed event
