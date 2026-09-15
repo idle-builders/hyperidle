@@ -1185,14 +1185,11 @@ export const ATTACKS: readonly Attack[] = [
 		detail:
 			"a production file that names a knowledge item id (not an artifact storage concept) is not reported",
 		rules: ["artifact-is-not-a-storage-concept"],
-		// @lore layerEntryControl (app.ts) contains retired-surface tokens on the untouched tree
-		// (createHintRoutes, /hint-progress) and so cannot serve as a clean control while those
-		// routes exist. otherLayerBarrel is clean and is a stable anchor for this case.
 		mutate: {
-			[a.otherLayerBarrel]: (existing) =>
+			[a.layerEntryControl]: (existing) =>
 				`${existing}export const attackKnowledgeItemRef = { knowledgeItemId: "" };\n`,
 		},
-		expect: { sort: "clean", file: a.otherLayerBarrel },
+		expect: { sort: "clean", file: a.layerEntryControl },
 	},
 
 	// --- retired-surfaces-absent -------------------------------------------------------------
