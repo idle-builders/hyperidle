@@ -12,8 +12,11 @@
 // so the union shrinks from six kinds to five.
 
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "../events.js";
-import type { AgentWorkIntentRecorderInput } from "../work-intent.js";
+import {
+	AGENT_WORK_INTENT_KINDS,
+	type AgentWorkIntentKind,
+	type AgentWorkIntentRecorderInput,
+} from "../work-intent.js";
 
 describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
 	it("contains exactly the six canonical kinds", () => {

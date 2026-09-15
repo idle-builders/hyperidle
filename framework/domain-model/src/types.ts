@@ -237,3 +237,17 @@ export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle",
 	error: "Error",
 	idle: "Idle",
 };
+
+/**
+ * "not_returned" is a non-completed outcome for a turn that exhausted its
+ * stream without a return action (after force budget spent, or on a Tier-2
+ * harness). Every switch(outcome) consumer MUST handle this member — see the
+ * exhaustiveness guard in session-lifecycle.ts.
+ *
+ * @lore BC1: relocated from the deleted domain-model events fork (`events.ts`)
+ * — this was the fork's only surviving export. core-ui reads it via the
+ * `@hyperidle/domain-model` barrel (it cannot reach `@hyperidle/event-bus`),
+ * and `framework/event-bus/src/events.ts` imports it back from here, so it
+ * lives in this general types module rather than moving to event-bus.
+ */
+export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";

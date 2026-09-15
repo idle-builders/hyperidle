@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import ts from "typescript";
 
-export const EVENTS_FILE = "framework/domain-model/src/events.ts";
+export const EVENTS_FILE = "framework/event-bus/src/events.ts";
 export const SCHEMA_FILE = "framework/db/src/schema.ts";
 
 export function schemaTableSymbols(): Set<string> {

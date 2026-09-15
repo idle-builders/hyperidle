@@ -649,6 +649,29 @@ export type AgentWorkIntentRecorderInput =
 	  };
 
 /**
+ * The canonical runtime-checkable list `AgentWorkIntentRecorderInput`'s `kind`
+ * discriminant is built from — kept in lockstep with `agent_work_intents_kind_ck`
+ * (`framework/db/src/schema.ts`) so a kind-set drift test can derive its
+ * accept-list mechanically from this single source instead of a second
+ * hardcoded copy.
+ *
+ * @lore BC1: relocated from the deleted domain-model events fork (`events.ts`)
+ * — this is the recorder input's own canonical list, not the (differently
+ * scoped) `AGENT_WORK_INTENT_KINDS` in `@hyperidle/event-bus`, which covers
+ * `AgentWorkIntentEvent`'s `intentKind` and omits `session_resume`.
+ */
+export const AGENT_WORK_INTENT_KINDS = [
+	"assistant_turn",
+	"session_start",
+	"knowledge_action",
+	"routine_run",
+	"task_run",
+	"session_resume",
+] as const;
+
+export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
+
+/**
  * What a resume needs, baked when the verdict is recorded.
  *
  * @lore BA2: Baked rather than read at drain time for the same reason every

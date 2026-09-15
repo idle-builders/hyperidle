@@ -89,7 +89,9 @@ export {
 // Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
 // Callers import event types from @hyperidle/event-bus.
 // SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
-export type { SessionOutcome } from "./events.js";
+// @lore BC1: lives in types.js now — the domain-model events fork it used to
+// live in (events.js) is deleted (dead: zero importers outside its own tests).
+export type { SessionOutcome } from "./types.js";
 // HyperIdleEnv, ValidatedJson, constantTimeStringEqual, validateBody: server-only (node:crypto).
 // Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview

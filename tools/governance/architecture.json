@@ -54,7 +54,7 @@
 		},
 		"framework/event-bus": {
 			"reach": ["core-api", "agent-execution", "agent-orchestration", "service", "application"],
-			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot \u2014 so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types in framework/domain-model."
+			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot \u2014 so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types (SessionOutcome, the one exception) via framework/domain-model."
 		},
 		"framework/harness-protocol": {
 			"reach": [
@@ -131,7 +131,7 @@
 	},
 	"eventBus": {
 		"host": "framework",
-		"typesModule": "framework/domain-model/src/events.ts",
+		"typesModule": "framework/event-bus/src/events.ts",
 		"typesNote": "Every event the bus can carry, declared as `readonly type: \"...\"`. An emit or subscribe naming something absent from this module is not a bus event \u2014 filtering on it is what keeps ordinary `.on()` and `.emit()` calls from being counted as crossings.",
 		"why": "the framework provides the bus. A framework package that also publishes on it is both the pipe and the water, and the bus can no longer be reasoned about from the outside."
 	},
