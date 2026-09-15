@@ -118,8 +118,8 @@ export interface AttackResult {
  */
 export const ATTACK_ANCHORS = {
 	/** A service in one layer, whose barrel is the laundering vector. */
-	serviceDir: "layers/core-api/work/src",
-	serviceBarrel: "layers/core-api/work/src/index.ts",
+	serviceDir: "layers/core-api/task/src",
+	serviceBarrel: "layers/core-api/task/src/index.ts",
 	/** A service in ANOTHER layer, for a cross-layer reach. */
 	otherLayerBarrel: "layers/agent-orchestration/src/index.ts",
 	/** A layer's own source root. */
@@ -144,7 +144,7 @@ export const ATTACK_ANCHORS = {
 	 */
 	harnessAudienceDir: "layers/agent-orchestration/run-orchestration/src",
 	/** A manifest a cross-layer dependency can be added to. */
-	serviceManifest: "layers/core-api/work/package.json",
+	serviceManifest: "layers/core-api/task/package.json",
 	/** A layer's own manifest — R1's `exports` field is mutated against this. */
 	layerManifest: "layers/core-api/package.json",
 	/** One of the layer's own entry files, reachable from its `exports` map — R2's face-population root. */
@@ -741,7 +741,7 @@ export const ATTACKS: readonly Attack[] = [
 		mutate: {
 			[a.layerManifest]: (existing) => {
 				const parsed = JSON.parse(existing) as { exports?: Record<string, string> };
-				parsed.exports = { ...parsed.exports, "./attack-r1-nested-service": "./work/src/index.ts" };
+				parsed.exports = { ...parsed.exports, "./attack-r1-nested-service": "./task/src/index.ts" };
 				return JSON.stringify(parsed, null, "\t");
 			},
 		},
@@ -1220,6 +1220,37 @@ export const ATTACKS: readonly Attack[] = [
 			[`${a.serviceDir}/attack-retired-surface-control.ts`]: `export const liveRef = { createThreadRoutes: null };\n`,
 		},
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-retired-surface-control.ts` },
+	},
+
+	// --- actions-projected --------------------------------------------------------------------
+	{
+		id: "actions-projected-unclassified-route",
+		detail: "a route registration that is neither plumbing nor a LEGACY_ROUTES entry — how a deleted door comes back",
+		rules: ["actions-projected"],
+		overlay: {
+			"layers/core-api/src/routes/attack-task-overlay.ts":
+				'router.get("/tasks/:id/summary", async (c) => {\n\treturn c.json({});\n});\n',
+		},
+		expect: {
+			sort: "finding",
+			file: "layers/core-api/src/routes/attack-task-overlay.ts",
+			ruleId: "actions-projected",
+			messageContains: "LEGACY_ROUTES",
+		},
+	},
+	{
+		id: "actions-projected-legacy-route-control",
+		detail: "mutating an already-legacy door's handler body, without adding a registration, is clean",
+		rules: ["actions-projected"],
+		isolate: true,
+		mutate: {
+			"layers/core-api/src/routes/threads.ts": (existing) =>
+				existing.replace(
+					'router.get("/", async (c) => {',
+					'router.get("/", async (c) => {\n\t\t// attack-actions-projected-control: no new registration here.',
+				),
+		},
+		expect: { sort: "clean", file: "layers/core-api/src/routes/threads.ts" },
 	},
 ];
 
