@@ -136,8 +136,9 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// rest of the cost feature — no replacement.
 			// @lore AU20 row 38/40: the "relevance listener" (knowledge_accessed
 			// subscriber that called recomputeRelevance) is HARD-DELETED — the
-			// whole relevance engine goes; the knowledge_accessed event stays as
-			// an extension surface for plugins.
+			// whole relevance engine goes. The knowledge_accessed event itself
+			// was later retired outright — the knowledge read route no longer
+			// emits it.
 			{
 				owner: "policy registration",
 				cleanupEffect: "unsubscribe",

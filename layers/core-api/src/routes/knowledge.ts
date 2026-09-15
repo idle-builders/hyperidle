@@ -362,7 +362,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json({ items: rows });
 	});
 
-	// GET /:id — single item, emit knowledge_accessed event
+	// GET /:id — single item
 	// Q2: returns 404 for user-scoped items not authored by the requesting user.
 	// @lore nested-knowledge-items: `relatedItems` (Backlinks) is now children
 	// ∪ siblings — the tree answers "what is near this" instead of a shared

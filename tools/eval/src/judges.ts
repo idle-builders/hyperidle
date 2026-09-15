@@ -476,11 +476,11 @@ Respond ONLY with the JSON object. No preamble, no markdown.`;
 // Routine-specific judges
 // ---------------------------------------------------------------------------
 
-/** Judge: routine was fired — routines.lastRunAt updated. */
-export function judgeRoutineFired(routineId: string): RubricDimension {
+/** Judge: routine ran — routines.lastRunAt updated. */
+export function judgeRoutineRan(routineId: string): RubricDimension {
 	return {
-		id: "routine_fired",
-		label: "Routine Fired",
+		id: "routine_ran",
+		label: "Routine Ran",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const [routine] = await ctx.db
 				.select({ lastRunAt: routines.lastRunAt })
@@ -495,7 +495,7 @@ export function judgeRoutineFired(routineId: string): RubricDimension {
 			const fired = routine.lastRunAt !== null;
 			return {
 				score: fired ? 1.0 : 0.0,
-				note: fired ? `lastRunAt: ${routine.lastRunAt}` : "routine.lastRunAt is null (not fired)",
+				note: fired ? `lastRunAt: ${routine.lastRunAt}` : "routine.lastRunAt is null (not ran)",
 			};
 		},
 	};

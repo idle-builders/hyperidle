@@ -283,7 +283,7 @@ describe("BA9c — task_state_changed event fires routine with task+bet subject 
 // ---------------------------------------------------------------------------
 
 // @lore BB1: bet_state_changed deleted — a root task changing state fires task_state_changed.
-describe("BA9c — bet_state_changed event fires routine with bet subject in bundle", () => {
+describe("BA9c — task_state_changed event fires routine with root-task subject in bundle", () => {
 	test("baked bundle carries triggerEvent with bet assembled from the DB", async ({
 		db,
 		eventBus,

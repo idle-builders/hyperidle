@@ -156,8 +156,8 @@ const delSuccessfulDelegation: EvalScenario = {
 	rubric: {
 		dimensions: [
 			{
-				id: "routine_fired_despite_owner_wip",
-				label: "Routine Fires Despite Owner WIP (AU15: fire-time no longer gates on WIP)",
+				id: "routine_ran_despite_owner_wip",
+				label: "Routine Runs Despite Owner WIP (AU15: fire-time no longer gates on WIP)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [routine] = await ctx.db
 						.select({ lastRunAt: routines.lastRunAt })

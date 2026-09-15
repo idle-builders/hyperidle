@@ -1,8 +1,8 @@
 /**
  * L1a — Event Bus events for the Thread primitive (plan §6.3).
  *
- * Five new events: thread_created, thread_message_appended,
- * thread_resolved, thread_reopened, thread_archived. `streamId`
+ * Four events: thread_created, thread_message_appended,
+ * thread_resolved, thread_reopened. `streamId`
  * = `threadId` so per-thread events arrive in order.
  */
 

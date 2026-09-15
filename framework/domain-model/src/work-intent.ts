@@ -348,8 +348,8 @@ export interface RoutineTriggerEvent {
 	/**
 	 * The entity the event concerns, assembled as fully as possible.
 	 *
-	 * - `task`: the task plus its ancestor chain, DB-loaded (task_state_changed /
-	 *           dependency_met). BB1 removed the separate `bet` variant — a bet is
+	 * - `task`: the task plus its ancestor chain, DB-loaded (task_state_changed).
+	 *           BB1 removed the separate `bet` variant — a bet is
 	 *           a root task now, so a bet event IS a task event.
 	 * - `generic`: for all other event types that carry a named entity id (threadId,
 	 *   itemId, sessionId, artifactId, teamId, agentId, userId, routineId, …).
@@ -434,7 +434,7 @@ export interface RoutineTriggerEvent {
 		| {
 				/**
 				 * BA9c: DB-loaded knowledge-base subject (knowledge_created /
-				 * knowledge_updated / knowledge_archived / knowledge_accessed events —
+				 * knowledge_updated / knowledge_archived events —
 				 * rows from the `knowledge_items` table). This is the knowledge layer:
 				 * captured learnings, skills, memory — owned by @hyperidle/knowledge,
 				 * written through create() which writes kernel + app-projection together.
@@ -452,7 +452,7 @@ export interface RoutineTriggerEvent {
 		  }
 		| {
 				/**
-				 * BA9c: DB-loaded team subject (team_created, work_selection_requested events).
+				 * BA9c: DB-loaded team subject (team_created event).
 				 * Reuses BakedContextBundle team shape: {id, name}.
 				 */
 				readonly kind: "team";

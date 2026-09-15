@@ -72,7 +72,7 @@ describe("computeRoutineNextRunAt — post-fold equivalence (AU44 B3)", () => {
 	test("event trigger returns null (no schedule)", () => {
 		const result = computeRoutineNextRunAt(
 			"event",
-			JSON.stringify({ eventType: "bet_state_changed" }),
+			JSON.stringify({ eventType: "task_state_changed" }),
 			REFERENCE_NOW,
 		);
 		expect(result).toBeNull();

@@ -311,7 +311,7 @@ describe("routines routes", () => {
 	 * BA9d D11 — silent-disable footgun.
 	 *
 	 * eventTransitionTo on a non-transition event type (anything other than
-	 * task_state_changed or bet_state_changed) silently never fires because the
+	 * task_state_changed) silently never fires because the
 	 * event carries no fromState/toState. The route must reject this at creation
 	 * time with 400 so the author gets immediate feedback instead of a routine
 	 * that appears active but never runs.
@@ -346,7 +346,7 @@ describe("routines routes", () => {
 
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { error: string };
-			expect(body.error).toMatch(/task_state_changed|bet_state_changed/);
+			expect(body.error).toMatch(/only task_state_changed qualifies/);
 		});
 
 		test("eventTransitionTo with task_state_changed returns 201", async ({ db, app }) => {

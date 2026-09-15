@@ -197,17 +197,18 @@ describe("assembleRoutinePrompt", () => {
 	});
 
 	// After BA9c: thread events now produce kind:"thread" (rich shape), not kind:"generic".
-	// kind:"generic" is kept for event kinds with no core entity (e.g. "routine").
-	it("renders generic subject when entityKind has no rich shape (e.g. routine)", async () => {
+	// kind:"generic" is the fallback used when the DB lookup for the entity misses
+	// (e.g. a "team" subject whose team row is gone by fire time).
+	it("renders generic subject when entityKind has no rich shape (e.g. team)", async () => {
 		const context = {
 			...routineContext(),
 			triggerEvent: {
-				type: "routine_fired",
+				type: "team_created",
 				timestamp: 1_700_000_000_000,
 				subject: {
 					kind: "generic" as const,
-					entityKind: "routine",
-					entityId: "routine-abc-123",
+					entityKind: "team",
+					entityId: "team-abc-123",
 					actorId: "agent-456",
 				},
 			},
@@ -220,7 +221,7 @@ describe("assembleRoutinePrompt", () => {
 		});
 
 		expect(result.assembledPrompt).toContain("### Trigger Event");
-		expect(result.assembledPrompt).toContain("routine-abc-123");
+		expect(result.assembledPrompt).toContain("team-abc-123");
 		expect(result.assembledPrompt).toContain("agent-456");
 		expect(result.assembledPrompt).toContain("**When:**");
 	});

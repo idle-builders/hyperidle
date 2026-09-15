@@ -328,7 +328,7 @@ async function assembleTriggerEvent(
 	const rec = event as unknown as Record<string, unknown>;
 
 	// Some events carry `at` (ISO-8601 string) rather than `timestamp` (number).
-	// work_selection_requested, team_created, agent_added, user_created use `at`.
+	// team_created, agent_added, user_created use `at`.
 	const rawTimestamp =
 		typeof rec.timestamp === "number"
 			? rec.timestamp
@@ -455,7 +455,7 @@ async function assembleTriggerEvent(
 	// task_state_changed; the task subject above handles them.
 
 	// Thread events: thread_created, thread_message_appended, thread_resolved,
-	//               thread_reopened, thread_archived
+	//               thread_reopened
 	if (typeof rec.threadId === "string") {
 		const thread = await ports.conversation.findThreadById(db, rec.threadId);
 		if (thread) {
@@ -581,7 +581,7 @@ async function assembleTriggerEvent(
 		return withTransition({ ...base, subject: genericSubject("agent", rec.agentId) });
 	}
 
-	// Team events: team_created, work_selection_requested
+	// Team events: team_created
 	// (agent_added handled above via agentId; team_created has agentIds[] not agentId)
 	if (typeof rec.teamId === "string") {
 		if (ports.getTeamById) {
