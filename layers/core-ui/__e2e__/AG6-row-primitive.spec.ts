@@ -224,7 +224,6 @@ async function mockKnowledgeRoutes(page: import("@playwright/test").Page): Promi
 			await route.continue();
 		}
 	});
-
 }
 
 // ---------------------------------------------------------------------------

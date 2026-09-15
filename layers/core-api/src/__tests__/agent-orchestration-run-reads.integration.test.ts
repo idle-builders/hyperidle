@@ -17,10 +17,7 @@
  */
 
 import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
-import type {
-	AgentRunActiveCountsResponse,
-	AgentRunsResponse,
-} from "@hyperidle/domain-model";
+import type { AgentRunActiveCountsResponse, AgentRunsResponse } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
 

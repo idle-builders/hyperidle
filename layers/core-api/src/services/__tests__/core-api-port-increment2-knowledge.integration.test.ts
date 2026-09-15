@@ -475,4 +475,3 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 		expect(row?.status).toBe("proposed");
 	});
 });
-

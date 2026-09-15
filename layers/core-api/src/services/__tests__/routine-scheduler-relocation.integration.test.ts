@@ -38,13 +38,7 @@
  */
 
 import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
-import {
-	type HyperIdleDb,
-	routineRuns,
-	routines,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import {
 	getAgentIdentity,
 	get as getKnowledgeItem,

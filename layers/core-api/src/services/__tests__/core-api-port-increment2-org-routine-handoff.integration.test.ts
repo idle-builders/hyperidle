@@ -114,7 +114,7 @@ interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
 	readonly org: {
 		getTeamById(teamId: string): Promise<SeamTeamView | undefined>;
 		getTeamMembersByTeamId(teamId: string): Promise<{ readonly id: string } | undefined>;
-createTeam(input: {
+		createTeam(input: {
 			readonly id: string;
 			readonly name: string;
 			readonly phase: string;

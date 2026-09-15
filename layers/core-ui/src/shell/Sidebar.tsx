@@ -784,11 +784,7 @@ export function Sidebar({
 						}}
 						href={VIEW_HREFS[view]}
 						drawerMode={drawerMode}
-						badgeCount={
-							view === "conversations"
-								? conversationsBlockingCount
-								: undefined
-						}
+						badgeCount={view === "conversations" ? conversationsBlockingCount : undefined}
 					/>
 				))}
 			</nav>

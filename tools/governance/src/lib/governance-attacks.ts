@@ -1217,8 +1217,7 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["retired-surfaces-absent"],
 		// Overlay a new file — no conflict with the attack case's layerEntry mutation.
 		overlay: {
-			[`${a.serviceDir}/attack-retired-surface-control.ts`]:
-				`export const liveRef = { createThreadRoutes: null };\n`,
+			[`${a.serviceDir}/attack-retired-surface-control.ts`]: `export const liveRef = { createThreadRoutes: null };\n`,
 		},
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-retired-surface-control.ts` },
 	},

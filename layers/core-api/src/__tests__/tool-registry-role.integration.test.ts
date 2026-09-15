@@ -29,10 +29,7 @@ import { buildToolRegistry } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
-const FACILITATOR_ONLY = [
-	"promote_knowledge",
-	"create_conflict_review",
-] as const;
+const FACILITATOR_ONLY = ["promote_knowledge", "create_conflict_review"] as const;
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 	return {

@@ -120,6 +120,4 @@ describe("AD5 — AC-4: Sidebar conversations blocking badge", () => {
 		// Should render without error when prop is omitted
 		expect(() => render(<Sidebar {...defaultProps} />)).not.toThrow();
 	});
-
 });
-

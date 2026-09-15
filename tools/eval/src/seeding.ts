@@ -17,7 +17,6 @@ import { mkdirSync } from "node:fs";
 import {
 	agentRunConfig,
 	type HyperIdleDb,
-	items,
 	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeItems,
@@ -387,38 +386,6 @@ export async function seedMessage(
 	});
 
 	return { messageId };
-}
-
-/** Create an item (human interface surface). */
-export async function seedItem(
-	db: HyperIdleDb,
-	opts: {
-		itemId?: string;
-		sourceAgentId: string;
-		title: string;
-		threadId: string;
-		kind?: string;
-		verb?: string;
-		riskTier?: string;
-		body?: string;
-	},
-): Promise<{ itemId: string }> {
-	const itemId = opts.itemId ?? randomUUID();
-	const now = new Date().toISOString();
-
-	await db.insert(items).values({
-		id: itemId,
-		sourceAgentId: opts.sourceAgentId,
-		title: opts.title,
-		threadId: opts.threadId,
-		kind: opts.kind ?? null,
-		verb: opts.verb ?? null,
-		riskTier: opts.riskTier ?? null,
-		body: opts.body ?? null,
-		createdAt: now,
-	});
-
-	return { itemId };
 }
 
 /** Create a knowledge conflict. Used by promote_knowledge scenarios (conflict gate blocks validated promotion). */

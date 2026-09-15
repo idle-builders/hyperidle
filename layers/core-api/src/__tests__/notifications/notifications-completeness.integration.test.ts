@@ -20,12 +20,7 @@
 
 import type { NewNotificationQueueRow } from "@hyperidle/db";
 import { type HyperIdleDb, notificationQueue } from "@hyperidle/db";
-import {
-	deliver,
-	enqueue,
-	readPreferences,
-	updatePreferences,
-} from "@hyperidle/notifications";
+import { deliver, enqueue, readPreferences, updatePreferences } from "@hyperidle/notifications";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
@@ -158,4 +153,3 @@ describe("deliver test — direct call", () => {
 		expect(await allRows(db)).toHaveLength(0);
 	});
 });
-

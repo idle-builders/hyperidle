@@ -336,7 +336,6 @@ export function listMessages(exec: HyperIdleDb, f: MessageFilter): Promise<Messa
 	return q;
 }
 
-
 // =============================================================================
 // Joined / aggregate surfaces — distinct product capabilities, kept (AU20 Am5)
 // =============================================================================

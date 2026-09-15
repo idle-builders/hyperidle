@@ -48,8 +48,6 @@ async function computedZIndex(
 // ---------------------------------------------------------------------------
 
 async function setupAppShellMocks(page: import("@playwright/test").Page): Promise<void> {
-	// triage-count route removed in BC1
-	);
 	// threads/assistant — useAssistantThread hook (loads when AssistantOverlay mounts)
 	await page.route("**/api/threads/assistant", (route) =>
 		route.fulfill({

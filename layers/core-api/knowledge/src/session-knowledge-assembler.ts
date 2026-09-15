@@ -130,7 +130,6 @@ function computeConfidence(item: KnowledgeItemWithProjection): number {
 	return Math.max(0, Math.min(1, val));
 }
 
-
 /** Score a single knowledge item against the given context. Returns 0-100. */
 function scoreItem(
 	item: KnowledgeItemWithProjection,
@@ -145,9 +144,7 @@ function scoreItem(
 	const confidence = computeConfidence(item);
 
 	const weighted =
-		tagMatch * weights.tagMatch +
-		recency * weights.recency +
-		confidence * weights.confidence;
+		tagMatch * weights.tagMatch + recency * weights.recency + confidence * weights.confidence;
 
 	// Normalize to 0-100
 	const totalWeight = weights.tagMatch + weights.recency + weights.confidence;

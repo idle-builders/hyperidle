@@ -332,7 +332,6 @@ export interface KnowledgeArchivedEvent {
 	timestamp: number;
 }
 
-
 /** A single detected file-level writeback change (create/modify/delete). */
 export interface SandboxWritebackChange {
 	readonly type: "create" | "modify" | "delete";
@@ -424,7 +423,6 @@ export interface ThreadReopenedEvent {
 	timestamp: number;
 }
 
-
 /**
  * @lore O1: PropagationLevel moved to @hyperidle/server (packages/server/src/knowledge/types.ts). This inline literal
  * union avoids importing from fabric in shared (boundary rule: kernel never
@@ -467,7 +465,6 @@ export interface PropagationFailedEvent {
 	failureReason: string;
 	timestamp: number;
 }
-
 
 /**
  * AK6: Emitted by POST /api/teams (and create-team tool) AFTER the team,
