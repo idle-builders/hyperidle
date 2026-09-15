@@ -53,7 +53,6 @@ import {
 	resolveCredential,
 } from "@hyperidle/credentials";
 
-import type { EventBus } from "@hyperidle/event-bus";
 import { getPluginMcpContributions } from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
@@ -66,7 +65,6 @@ import {
 	takeAppDisposers,
 } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
-import { registerWorkStatePushGateway } from "./services/work-state-push-gateway.js";
 import { WsConnectionHub } from "./ws-connection-hub.js";
 import { createDbSubscribeAuthorizer } from "./ws-subscribe-authorizer.js";
 
@@ -214,8 +212,8 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	}
 
 	// AU21 §6 Decision L4 / AU26 J3 / AU31 §5.2: the hub is built ONCE, here,
-	// carrying core-api's own topics only (`thread:<id>`, `conversations`,
-	// `work`). A caller-supplied `wsHub` (tests) is respected as-is.
+	// carrying core-api's own topics only (`thread:<id>`, `conversations`).
+	// A caller-supplied `wsHub` (tests) is respected as-is.
 	const wsHub =
 		options?.wsHub instanceof WsConnectionHub
 			? options.wsHub
@@ -226,10 +224,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 						}),
 					)
 				: new WsConnectionHub();
-
-	const eventBus: EventBus | undefined = options?.eventBus;
-	const workStatePushGatewayDispose =
-		db && eventBus ? registerWorkStatePushGateway(eventBus, wsHub) : undefined;
 
 	// S2-F01 / AU31 §5.2: build the production WS-route registrar from this
 	// boot's OWN `wsHub`, when the Application supplied its Node-specific
@@ -269,13 +263,11 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	});
 
 	// AU21 §9 Increment 14d / AU31 §5.2: kept as its OWN phase, separate from
-	// `disposers` — the Application's shutdown sequence disposes the socket +
-	// its push forwarder as a distinct, named, awaited step
-	// (`create-server.ts`'s "websocket" phase), same ordering it had before
-	// this boot absorbed their construction.
+	// `disposers` — the Application's shutdown sequence disposes the socket
+	// as a distinct, named, awaited step (`create-server.ts`'s "websocket"
+	// phase), same ordering it had before this boot absorbed its construction.
 	const disposeWebSocket = (): void => {
 		wsRouteDispose?.();
-		workStatePushGatewayDispose?.();
 	};
 
 	const disposers: Array<() => void> = [...takeAppDisposers(app)];

@@ -12,7 +12,7 @@
  *
  * @lore AU26 J3: there are now TWO sockets, not one, because there are two
  * Layers and each serves its own topics. `getWsClient()` talks to core-api's
- * `/api/ws` (`thread:<id>`, `conversations`, `work`); `getSessionStreamClient()`
+ * `/api/ws` (`thread:<id>`, `conversations`); `getSessionStreamClient()`
  * talks to `agent-orchestration`'s `/api/agent-orchestration/ws`
  * (`session:<id>`). Founder ruling: *"session dial in is 1000% orchestration and
  * has nothing to do with core."* A second browser socket is the accepted price
@@ -202,12 +202,12 @@ class WsClient {
 	/**
 	 * Determine whether an incoming WS message belongs to a subscribed topic.
 	 * Topics have the form `<kind>:<id>` (e.g. `session:sess-1`, `thread:thr-1`)
-	 * or are global names (`conversations`, `work`).
+	 * or are global names (`conversations`).
 	 *
-	 * @lore AU21 §6 Decision L4 / §9 Increment 14d: `conversations`/`work`/
+	 * @lore AU21 §6 Decision L4 / §9 Increment 14d: `conversations`/
 	 * `thread:<id>` now carry a PUSH envelope with the actual changed data
 	 * (`{ type: "update", topic, kind, data }`, see `ws-connection-hub.ts` +
-	 * `routes/threads.ts` + `work-state-push-gateway.ts`) — matched directly
+	 * `routes/threads.ts`) — matched directly
 	 * on the envelope's own `topic` field, same matching shape as the prior
 	 * `{ type: "invalidate", … }` ping this supersedes (founder: "there is no
 	 * refetch … core submits the changed version"). `session:<id>` is
@@ -252,7 +252,7 @@ class WsClient {
 	}
 }
 
-/** core-api's socket: `thread:<id>`, `conversations`, `work`. */
+/** core-api's socket: `thread:<id>`, `conversations`. */
 const CORE_WS_PATH = "/api/ws";
 /** agent-orchestration's socket: `session:<id>` only. */
 const SESSION_STREAM_WS_PATH = "/api/agent-orchestration/ws";
