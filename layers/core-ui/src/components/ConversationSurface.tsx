@@ -36,12 +36,10 @@
  * @lore AM1 task 11: the fixture (`PARTS`/`FOUNDER`/`MARA`/`ATLAS`) moved OUT of
  * this component and INTO `ConversationSurface.stories.tsx` — it is now passed in
  * as props. The story render stays byte-identical (it passes what was previously
- * module-internal). Composer "+" menu items are visible affordances that do NOT
- * yet mutate the draft (AM1 §12.6 — honest minimum: send works, rich-compose
- * affordances are visible but inert).
+ * module-internal).
  */
 
-import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import type { ComposerSubmitInput } from "../ds";
 import { Composer as DSComposer, PageHeader } from "../ds";
@@ -83,34 +81,6 @@ export interface ConversationSurfaceProps {
 	 */
 	produced?: ReactNode;
 }
-
-// ───────────────────────────────────────────────────────────────────
-// Inline icon set — currentColor, no emoji-as-icon (AQ-105). 16-box.
-// ───────────────────────────────────────────────────────────────────
-function Glyph({ d, size = 14 }: { d: string; size?: number }): JSX.Element {
-	return (
-		<svg
-			viewBox="0 0 16 16"
-			fill="currentColor"
-			className="shrink-0"
-			style={{ width: size, height: size }}
-			aria-hidden="true"
-		>
-			<path d={d} />
-		</svg>
-	);
-}
-const ICON_PLUS = "M7.25 2h1.5v5.25H14v1.5H8.75V14h-1.5V8.75H2v-1.5h5.25V2z";
-const ICON_PAPERCLIP =
-	"M11.5 3.5a2.5 2.5 0 013.5 3.5l-7 7a4 4 0 11-5.6-5.6l6.3-6.3 1 1L3.4 9.4a2.6 2.6 0 003.6 3.6l7-7a1 1 0 00-1.4-1.4L6 11.2a.5.5 0 00.7.7l5-5 1 1-5 5A2 2 0 014 10.2l6.5-6.5z";
-const ICON_DOC = "M4 1h5l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1.5V4h1.5L9 2.5z";
-const ICON_FORMAT_AA =
-	"M5.6 3h1.6l3.1 8H8.6l-.62-1.7H4.84L4.22 11H2.5l3.1-8zm.18 2.1L4.36 7.9h2.84L5.78 5.1zM12 6.4h1.5V11H12v-.5a1.7 1.7 0 01-1.2.6c-1 0-1.7-.7-1.7-1.6 0-.95.8-1.5 2-1.5h.9v-.15c0-.5-.3-.75-.85-.75-.42 0-.78.16-1.1.42l-.58-.95A3 3 0 0111.2 6.3c.3 0 .55.04.8.1zm-.2 2.85h-.7c-.5 0-.78.2-.78.55 0 .3.24.5.62.5.45 0 .82-.3.86-.75v-.3z";
-const ICON_AT =
-	"M8 1a7 7 0 100 14c1.4 0 2.7-.4 3.8-1.1l-.8-1.2A5.5 5.5 0 118 2.5 5.5 5.5 0 0113.5 8c0 1-.6 1.5-1.2 1.5S11 9 11 8V5.2H9.5V6A2.8 2.8 0 108 11a2.7 2.7 0 002-.9 2.3 2.3 0 002.3 1.4C14 11.5 15 10.1 15 8A7 7 0 008 1zm0 8.5A1.5 1.5 0 118 6.5a1.5 1.5 0 010 3z";
-const ICON_EMOJI =
-	"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM5.6 6.2a.95.95 0 110 1.9.95.95 0 010-1.9zm4.8 0a.95.95 0 110 1.9.95.95 0 010-1.9zM4.9 9.4h6.2a3.2 3.2 0 01-6.2 0z";
-const ICON_BLOCKS = "M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h-7V9.7z";
 
 // ───────────────────────────────────────────────────────────────────
 // Avatar — human vs agent tint + a stronger agent ring.
@@ -209,83 +179,8 @@ function ConversationHeader({
 	);
 }
 
-// ───────────────────────────────────────────────────────────────────
-// COMPOSER — UNIFIED tool affordance. ONE "+" button opens ONE menu with
-// every compose action, each labeled + single-purpose. No duplicate icon strip.
-// AM1 §12.6: the menu items are VISIBLE AFFORDANCES — picking one closes the
-// menu but does NOT yet mutate the draft (rich-compose wiring is deferred).
-// @lore AM5 T9 DEFER: InsertMenu open contract wiring (clicking an item → open
-// the referenced artifact/block) is OUT OF SCOPE for AM5. This is a draft-mutation/
-// rich-compose concern. Affordance stays visible; a later composer WP wires it.
-// ───────────────────────────────────────────────────────────────────
-function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
-	const items = [
-		{ d: ICON_BLOCKS, label: "Insert block", hint: "heading · list · code · table", key: true },
-		{ d: ICON_PAPERCLIP, label: "Attach file", hint: "image, document", key: false },
-		{ d: ICON_AT, label: "Mention", hint: "@person, @agent", key: false },
-		{ d: ICON_DOC, label: "Reference item", hint: "knowledge, artifact", key: false },
-		{ d: ICON_FORMAT_AA, label: "Format", hint: "bold, italic, code", key: false },
-		{ d: ICON_EMOJI, label: "Emoji", hint: "react in body", key: false },
-	];
-	return (
-		<div
-			data-ds-component="InsertMenu"
-			role="menu"
-			aria-label="Insert"
-			style={{
-				bottom: "calc(100% + 6px)",
-				left: 0,
-				background: "var(--surface-overlay)",
-				zIndex: 50,
-			}}
-			className="border-width-thin absolute w-[238px] rounded-[var(--r-default)]  border-[var(--border-default)] p-[3px] shadow-[var(--shadow-elevated)]"
-		>
-			{items.map((it) => (
-				<button
-					key={it.label}
-					type="button"
-					role="menuitem"
-					onClick={onPick}
-					// This is a full menu ROW (icon + label + hint), not a Button — a
-					// dedicated backlog item already tracks this composer's
-					// consolidation onto the DS Composer (which owns its own menu
-					// shape); a partial Button swap here would be rework once that
-					// lands.
-					className={`flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left   ${
-						// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
-						// selected tint — no longer a no-handrolled-control violation
-						// (the rule's predicate excludes this exact token).
-						it.key ? "bg-[var(--accent-primary-dim)]" : "hover:bg-[var(--surface-container)]"
-					}`}
-				>
-					<span
-						className={`flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] ${
-							it.key
-								? "bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
-								: "bg-[var(--surface-container)] text-[var(--text-tertiary)]"
-						}`}
-					>
-						<Glyph d={it.d} size={13} />
-					</span>
-					<span className="type-small min-w-0 ">
-						<span
-							className={`type-small ${`block   ${it.key ? "text-[var(--accent-deep)]" : "text-[var(--text-primary)]"}`}`}
-						>
-							{it.label}
-						</span>
-						<span className="type-metadata block truncate  text-[var(--text-tertiary)]">
-							{it.hint}
-						</span>
-					</span>
-				</button>
-			))}
-		</div>
-	);
-}
-
 // ComposerInputRow and Composer (hand-rolled local composer) removed.
-// @lore UI-062: consolidated onto DS Composer via leading slot + iconSend.
-// InsertMenu stays as a local helper — passed as `leading` into DS Composer.
+// @lore UI-062: consolidated onto DS Composer via iconSend.
 
 // ───────────────────────────────────────────────────────────────────
 // The conversation surface — INTERACTIVE, prop-driven. The conversation column
@@ -303,8 +198,6 @@ export default function ConversationSurface({
 	headerPresentation = "pane",
 	produced,
 }: ConversationSurfaceProps): JSX.Element {
-	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
-	const menuButtonRef = useRef<HTMLButtonElement | null>(null);
 	// @lore UI-003: scroll the message column to the newest message on load and
 	// when new messages arrive via WS push. Only applies when scroll=true (the page
 	// layout — not the story which renders at natural height without overflow).
@@ -315,51 +208,6 @@ export default function ConversationSurface({
 	const handleDSSubmit = async (input: ComposerSubmitInput): Promise<void> => {
 		await onSend(input.text);
 	};
-
-	// @lore UI-062: insert button passed as `leading` into DS Composer so the affordance
-	// is preserved without a separate hand-rolled composer implementation.
-	const insertLeading = (
-		<div className="relative shrink-0">
-			{insertMenuOpen && <InsertMenu onPick={() => setInsertMenuOpen(false)} />}
-			<button
-				ref={menuButtonRef}
-				type="button"
-				aria-label="Insert"
-				aria-expanded={insertMenuOpen}
-				aria-haspopup="menu"
-				title="Insert block, attach, mention, reference, format"
-				onClick={() => setInsertMenuOpen((v) => !v)}
-				className={
-					insertMenuOpen
-						? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
-						: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--border-default)] text-[var(--text-secondary)]   hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
-				}
-			>
-				<Glyph d={ICON_PLUS} size={14} />
-			</button>
-		</div>
-	);
-
-	// Outside-click / Escape closes the Insert menu (real popover behavior).
-	useEffect(() => {
-		if (!insertMenuOpen) return;
-		const onDown = (e: MouseEvent): void => {
-			const menu = document.querySelector("[data-ds-component='InsertMenu']");
-			const target = e.target as Node;
-			if (menu?.contains(target)) return;
-			if (menuButtonRef.current?.contains(target)) return;
-			setInsertMenuOpen(false);
-		};
-		const onKey = (e: KeyboardEvent): void => {
-			if (e.key === "Escape") setInsertMenuOpen(false);
-		};
-		document.addEventListener("mousedown", onDown);
-		document.addEventListener("keydown", onKey);
-		return () => {
-			document.removeEventListener("mousedown", onDown);
-			document.removeEventListener("keydown", onKey);
-		};
-	}, [insertMenuOpen]);
 
 	// @lore UI-003: scroll to the bottom (newest message) whenever parts update.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: parts reference identity changes on each push; scroll on every update is intentional.
@@ -415,7 +263,6 @@ export default function ConversationSurface({
 						<DSComposer
 							threadId={`${header.hostKind}:${header.hostTitle}`}
 							onSubmit={handleDSSubmit}
-							leading={insertLeading}
 							placeholder={`Message ${participants
 								.slice(0, 2)
 								.map((p) => p.name)
