@@ -48,11 +48,7 @@ import {
 	type CreateKnowledgeItemRequest,
 	type CreateKnowledgeItemResponse,
 	type CreateOrgTeamRequest,
-	type CreateTaskRequest,
-	type CreateTaskResponse,
 	type DirectThreadResponse,
-	type HandoffTaskRequest,
-	type HandoffTaskResponse,
 	type InsertMessageRequest,
 	type InsertMessageResponse,
 	type InsertRoutineRequest,
@@ -70,7 +66,6 @@ import {
 	type ReparentKnowledgeItemRequest,
 	type RoutineView,
 	type ScaffoldFromRequestInput,
-	type TaskView,
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
 	type UpdateItemRequest,
 	type UpdateKnowledgeItemContentRequest,
@@ -79,7 +74,7 @@ import {
 	type UpdateOrgTeamRequest,
 	type UpdateRoutineRequest,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
-	type UpdateTaskRequest,
+	// @lore TaskView/UpdateTaskRequest deleted — the task action list replaces the seam.
 	type UpdateThreadRequest,
 	type UserView,
 } from "@hyperidle/api-contract";
@@ -97,28 +92,6 @@ import { hc } from "hono/client";
  * methods reuse or newly expose.
  */
 interface CoreApiHcClient {
-	readonly tasks: {
-		$post(args: { readonly json: CreateTaskRequest }): Promise<Response>;
-		readonly ":id": {
-			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
-			$patch(args: {
-				readonly param: { readonly id: string };
-				readonly json: UpdateTaskRequest;
-			}): Promise<Response>;
-			readonly notes: {
-				$patch(args: {
-					readonly param: { readonly id: string };
-					readonly json: { readonly entry: string };
-				}): Promise<Response>;
-			};
-			readonly handoff: {
-				$post(args: {
-					readonly param: { readonly id: string };
-					readonly json: HandoffTaskRequest;
-				}): Promise<Response>;
-			};
-		};
-	};
 	readonly teams: {
 		readonly ":teamId": {
 			$patch(args: {
@@ -409,34 +382,10 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 
 	return {
 		work: {
-			// @lore BB1: createBet, getBetById, updateBetById DELETED — bet is now a root task.
-
-			async getTaskById(id: string): Promise<TaskView | undefined> {
-				const res = await client.tasks[":id"].$get({ param: { id } });
-				return getOrUndefined<TaskView>("work.getTaskById", res);
-			},
-
-			async updateTaskById(id: string, updates: UpdateTaskRequest): Promise<void> {
-				const res = await client.tasks[":id"].$patch({ param: { id }, json: updates });
-				if (!res.ok) return throwSeamError("work.updateTaskById", res);
-			},
-
-			async createTask(input: CreateTaskRequest): Promise<CreateTaskResponse> {
-				const res = await client.tasks.$post({ json: input });
-				if (!res.ok) return throwSeamError("work.createTask", res);
-				return (await res.json()) as CreateTaskResponse;
-			},
-
-			async appendTaskNote(
-				taskId: string,
-				entry: string,
-			): Promise<{ readonly id: string } | undefined> {
-				const res = await client.tasks[":id"].notes.$patch({
-					param: { id: taskId },
-					json: { entry },
-				});
-				return getOrUndefined<{ readonly id: string }>("work.appendTaskNote", res);
-			},
+			// `getTaskById`/`createTask`/`updateTaskById`/`appendTaskNote`/
+			// `handoffTask` DELETED — the task action list replaces them; the
+			// three surviving readers bind `openTask` directly to the `open_task`
+			// action, in-process (the architecture doc §8 B1).
 
 			async getItemById(id: string): Promise<ItemView | undefined> {
 				const res = await client.conversations.items[":id"].$get({ param: { id } });
@@ -457,11 +406,15 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return (await res.json()) as CreateItemResponse;
 			},
 
-			async handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse> {
-				const res = await client.tasks[":id"].handoff.$post({ param: { id: taskId }, json: input });
-				if (!res.ok) return throwSeamError("work.handoffTask", res);
-				return (await res.json()) as HandoffTaskResponse;
+			async findItemByReasoningMarker(
+				marker: string,
+			): Promise<{ readonly id: string } | undefined> {
+				const res = await client.conversations.items.$get({ query: { reasoningMarker: marker } });
+				if (!res.ok) return throwSeamError("work.findItemByReasoningMarker", res);
+				const { items } = (await res.json()) as { readonly items: ReadonlyArray<{ id: string }> };
+				return items[0] ? { id: items[0].id } : undefined;
 			},
+
 		},
 		users: {
 			async getUserById(id: string): Promise<UserView | undefined> {

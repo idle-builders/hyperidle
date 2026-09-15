@@ -40,7 +40,7 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { asc, eq } from "drizzle-orm";
-import { taskDispatchAttemptStore } from "../work-service.js";
+import { taskDispatchAttemptStore } from "../task-service.js";
 
 const AGENT_ID = "agent-dispatch-ordinal";
 const SESSION_IDS = ["session-ord-1", "session-ord-2", "session-ord-3", "session-ord-4"] as const;

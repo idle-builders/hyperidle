@@ -59,7 +59,7 @@ import {
 } from "@hyperidle/knowledge";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";

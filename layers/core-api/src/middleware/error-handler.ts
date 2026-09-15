@@ -1,7 +1,7 @@
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
-import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/work";
+import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/task";
 import type { ErrorHandler } from "hono";
 
 const log = createLogger({ pkg: "server" });

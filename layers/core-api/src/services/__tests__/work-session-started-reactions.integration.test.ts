@@ -53,9 +53,20 @@ import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
+import { buildCoreActions } from "../../actions/compose.js";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
-// NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { registerWorkSessionStartedReactions } from "../work-session-started-reactions.js";
+
+/** §6 row 1: the reaction takes `edit_task`'s bound `run` now, not `agentOrchestration` directly. */
+function editTaskFrom(
+	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+): Parameters<typeof registerWorkSessionStartedReactions>[2] {
+	const editTaskAction = buildCoreActions(agentOrchestration).find(
+		(a) => a.declaration.name === "edit_task",
+	);
+	if (!editTaskAction) throw new Error("edit_task action not found");
+	return editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2];
+}
 
 const NOW = new Date().toISOString();
 
@@ -145,7 +156,7 @@ describe("registerWorkSessionStartedReactions", () => {
 			taskState: "accepted",
 		});
 		await seedSession(db, "wssr-accepted-session", { agentId, taskId });
-		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
+		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-accepted-session", agentId, taskId }));
 
@@ -163,7 +174,7 @@ describe("registerWorkSessionStartedReactions", () => {
 			taskState: "blocked",
 		});
 		await seedSession(db, "wssr-blocked-session", { agentId, taskId });
-		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
+		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-blocked-session", agentId, taskId }));
 
@@ -181,7 +192,7 @@ describe("registerWorkSessionStartedReactions", () => {
 			taskState: "in_progress",
 		});
 		await seedSession(db, "wssr-handoff-session", { agentId, taskId });
-		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
+		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-handoff-session", agentId, taskId }));
 
@@ -200,7 +211,7 @@ describe("registerWorkSessionStartedReactions", () => {
 			taskState: "accepted",
 		});
 		await seedSession(db, "wssr-idempotent-session", { agentId, taskId });
-		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
+		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-idempotent-session", agentId, taskId }));
 		await vi.waitFor(async () => {
@@ -225,7 +236,7 @@ describe("registerWorkSessionStartedReactions", () => {
 	}) => {
 		const { agentId } = await seedTaskAndAgent(db, "wssr-taskfree", { taskState: "accepted" });
 		await seedSession(db, "wssr-taskfree-session", { agentId });
-		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
+		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		// Must not throw for a null taskId.
 		expect(() =>

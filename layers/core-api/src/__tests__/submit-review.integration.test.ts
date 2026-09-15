@@ -14,7 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { NO_LINK_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import { NO_LINK_REVIEW_ACCESSOR, THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeItems,
@@ -38,7 +38,7 @@ import { seedKnowledgeItem } from "./_helpers.js";
  * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
 function buildSubmitReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), NO_LINK_REVIEW_ACCESSOR).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), NO_LINK_REVIEW_ACCESSOR, THROWING_OPEN_TASK).find(
 		(t) => t.name === "submit_review",
 	)!;
 }

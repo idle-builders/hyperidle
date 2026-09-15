@@ -11,12 +11,16 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
 import type { NotificationsDeps } from "@hyperidle/notifications";
-import { getTeam } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import * as taskDb from "@hyperidle/task";
+import { checkAndUnblockDependents } from "@hyperidle/task";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
+import type { RegisteredTool } from "@hyperidle/harness-protocol";
+import type { Action, ActionContext } from "./actions/action.js";
+import { actionsAsTools } from "./actions/actions-as-tools.js";
+import { createActionsRouter } from "./actions/actions-router.js";
+import { buildCoreActions } from "./actions/compose.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createConversationRoutes } from "./routes/conversations.js";
@@ -33,7 +37,6 @@ import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
-import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
@@ -42,7 +45,6 @@ import {
 	buildSeamBackedWorkIntentRecorder,
 } from "./services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "./services/harness-capability-reader.js";
-import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
 /**
  * The minimal shape a route needs to push data onto the WS connection hub —
@@ -77,6 +79,17 @@ interface AppOptions {
 		db: HyperIdleDb;
 		eventBus: EventBus;
 		agentOrchestration: AgentOrchestrationPort;
+		/**
+		 * `edit_task`'s own bound `run`, so a background writer
+		 * (`registerWorkSessionStartedReactions`) can call it in-process instead
+		 * of the deleted `transitionTask`. the architecture doc §6.
+		 */
+		editTask: (
+			ctx: import("./actions/action.js").ActionContext,
+			input: import("@hyperidle/domain-model").EditTaskInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").TaskView>
+		>;
 	}) => Array<() => void>;
 	/**
 	/**
@@ -197,6 +210,15 @@ interface AppOptions {
  * patterns — disposers are garbage-collected with the app.
  */
 const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
+/**
+ * §7 — the composed action list's tool projection, keyed the same way
+ * disposers are: it must not appear on the public Hono surface, and
+ * `bootCoreApi` (`boot.ts`) reads it exactly once to grow `CoreApiBoot`'s
+ * `actionTools` field, which `create-server.ts` threads into
+ * `bootAgentOrchestration` so the MCP registry and the tool provider see the
+ * SAME composed list (architecture.md §7's "one composed list, built once").
+ */
+const APP_ACTION_TOOLS = new WeakMap<Hono, ReadonlyArray<RegisteredTool<HyperIdleDb>>>();
 const appLogger = createLogger({ pkg: "server.app" });
 
 /**
@@ -227,7 +249,7 @@ const notificationsDeps: NotificationsDeps = {
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
 	work: {
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		getItemById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "item", id),
 	},
 };
 
@@ -364,7 +386,22 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			"/teams",
 			createTeamRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
 		);
-		api.route("/tasks", createTaskRoutes(options.db, eventBus, agentOrchestration));
+		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
+		// `POST /api/actions/<name>` — one loop over the composed list, never a
+		// per-object route factory. the architecture doc §7.
+		const actions: readonly Action[] = buildCoreActions(agentOrchestration);
+		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
+		APP_ACTION_TOOLS.set(api, actionsAsTools(actions));
+		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
+		if (!editTaskAction) {
+			throw new Error("buildCoreActions did not produce an edit_task action");
+		}
+		const editTask = editTaskAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").EditTaskInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").TaskView>
+		>;
 		api.route("/reviews", createReviewRoutes(options.db));
 		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
 		// `POST /:id/injections`, whose team-consistency gate reads `users` +
@@ -412,27 +449,24 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		const db = options.db;
 		const disposers: Array<() => void> = [];
 
-		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus, agentOrchestration }) ?? [];
+		const serviceDisposers =
+			options.serviceBootstrap?.({ db, eventBus, agentOrchestration, editTask }) ?? [];
 		disposers.push(...serviceDisposers);
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
 		// @lore AD5 option-A: handler lives in app.ts (server layer) — fabric cannot
 		// import from server (layer violation). checkAndUnblockDependents relocated
-		// to `@hyperidle/work` (AU20 Ag2 barrel collapse) — it exclusively calls
-		// work's own table paths, so `work` is its correct home. The `work:` DI-port
-		// sub-object is gone; only the against-grain `session-requests` recorder
-		// (`workIntents`) remains injected — AU31 §3.1/§3.2: seam-backed, so this
-		// write is now the same relinquished-atomicity shape as `transitionTask`'s
-		// own site 6 (`checkAndUnblockDependents` calls `transitionTask` directly).
+		// to `@hyperidle/task` (renamed from `@hyperidle/work`) — it
+		// exclusively calls task's own table paths, so `task` is its correct
+		// home. §6 row 2: it now writes through `edit_task` instead of the
+		// deleted `transitionTask`, injected as a plain function (Mechanism C).
 		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
 			if (event.toState === "done") {
-				void checkAndUnblockDependents(db, eventBus, event.taskId, {
-					workIntents: defaultAgentWorkIntentRecorder,
-					taskRunResolver: taskRunResolverDeps,
-					teamCapacity: {
-						getByTeamId: (exec: WriteExecutor, teamId: string) => getTeam(exec, { id: teamId }),
-					},
-				}).catch((err) => {
+				void checkAndUnblockDependents(
+					{ actor: "system:propagation", db, eventBus, now: new Date().toISOString() },
+					event.taskId,
+					editTask,
+				).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,
 						error: err instanceof Error ? err.message : String(err),
@@ -485,6 +519,19 @@ export function takeAppDisposers(hono: Hono): Array<() => void> {
 	const bag = APP_DISPOSERS.get(hono) ?? [];
 	APP_DISPOSERS.delete(hono);
 	return bag;
+}
+
+/**
+ * §7 — detach and return the composed action list's tool projection.
+ * `undefined` when `db` was never supplied (no actions were built). Read
+ * exactly once, by `bootCoreApi`.
+ */
+export function takeAppActionTools(
+	hono: Hono,
+): ReadonlyArray<RegisteredTool<HyperIdleDb>> | undefined {
+	const tools = APP_ACTION_TOOLS.get(hono);
+	APP_ACTION_TOOLS.delete(hono);
+	return tools;
 }
 
 /**

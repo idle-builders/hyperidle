@@ -16,7 +16,7 @@ import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
-import type { TaskRunResolverDeps } from "@hyperidle/work";
+import type { TaskRunResolverDeps } from "@hyperidle/task";
 import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";
 
 // AU31 §7.2 (R2): each dependency is a wrapping arrow, never the raw service

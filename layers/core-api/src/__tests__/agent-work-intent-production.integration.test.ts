@@ -1,24 +1,19 @@
 import {
 	agentRunConfig,
-	agentSessionRequests,
 	agentWorkIntents,
 	type HyperIdleDb,
 	messages,
 	routineRuns,
 	routines,
-	sessions,
 	taskDispatchAttempts,
 	tasks,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import { getAgentIdentity } from "@hyperidle/knowledge";
-import { getTeam } from "@hyperidle/org";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import { requireRunnableAgent } from "@hyperidle/users";
-import { checkAndUnblockDependents } from "@hyperidle/work";
+import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq, sql } from "drizzle-orm";
+import { buildCoreActions } from "../actions/compose.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
@@ -195,6 +190,7 @@ describe("atomic production handoffs", () => {
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedExplicitSessionAuthority(db);
 		const now = new Date().toISOString();
@@ -211,25 +207,18 @@ describe("atomic production handoffs", () => {
 		});
 		await db.update(tasks).set({ state: "done" }).where(eq(tasks.id, "au9-production-task"));
 
-		// AgentWorkIntentRecorderFn is a plain function — capture db in a closure so the
-		// intent is written to the real DB (tx was ignored by the sole production impl).
-		// @lore AU44: AgentWorkIntentRecorderInput still declares bakedRequest? for back-compat
-		// with the proposed-call liveness path; production always provides it.
-		// Cast via unknown avoids the contravariance mismatch — safe since
-		// checkAndUnblockDependents always bakes before calling the recorder.
-		// @lore AU44: AgentWorkIntentRecorderInput still declares bakedRequest? for back-compat.
-		// Cast via unknown avoids the contravariance mismatch — safe since production always bakes.
-		const workIntentsImpl: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn = (input) =>
-			enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]);
-		const localDeps = {
-			workIntents: workIntentsImpl,
-			taskRunResolver: { requireRunnableAgent, getAgentIdentity },
-			teamCapacity: {
-				getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) =>
-					getTeam(exec, { id: teamId }),
-			},
-		};
-		await checkAndUnblockDependents(db, eventBus, "au9-production-task", localDeps);
+		// §6 row 2: `checkAndUnblockDependents` writes through the real
+		// composed `edit_task` action now — this proves the whole chain against
+		// the real seam, not a hand-rolled `workIntents` closure.
+		const editTaskAction = buildCoreActions(agentOrchestration).find(
+			(a) => a.declaration.name === "edit_task",
+		);
+		if (!editTaskAction) throw new Error("edit_task action not found");
+		await checkAndUnblockDependents(
+			{ actor: "system:propagation", db, eventBus, now: new Date().toISOString() },
+			"au9-production-task",
+			editTaskAction.run as Parameters<typeof checkAndUnblockDependents>[2],
+		);
 
 		const [dependent] = await db
 			.select()
@@ -332,89 +321,13 @@ describe("atomic production handoffs", () => {
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 
-	async function proveHandoffOccasion(
-		db: HyperIdleDb,
-		request: (path: string, init: RequestInit) => Response | Promise<Response>,
-		target: { toAgent?: string; toRole?: string },
-	) {
-		await seedExplicitSessionAuthority(db);
-		const now = new Date().toISOString();
-		await db.insert(users).values({
-			id: "au9-production-source-agent",
-			kind: "ai",
-			name: "Source",
-			role: "product_manager",
-			status: "active",
-			teamId: "au9-production-team",
-			createdAt: now,
-		});
-		await db.insert(threads).values({
-			id: "au9-production-task-thread",
-			hostKind: "task",
-			hostId: "au9-production-task",
-			initiatorId: "au9-production-source-agent",
-			participants: JSON.stringify(["au9-production-source-agent"]),
-			lastActiveAt: now,
-			createdAt: now,
-		});
-		await db
-			.update(tasks)
-			.set({
-				ownerAgentId: "au9-production-source-agent",
-				threadId: "au9-production-task-thread",
-			})
-			.where(eq(tasks.id, "au9-production-task"));
-		await db.insert(sessions).values({
-			id: "au9-production-source-session",
-			taskId: "au9-production-task",
-			agentId: "au9-production-source-agent",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-		});
-
-		const response = await request("/api/tasks/au9-production-task/handoff", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({
-				sessionId: "au9-production-source-session",
-				...target,
-				reason: "Continue with builder",
-			}),
-		});
-		expect(response.status).toBe(200);
-		const attempts = await db
-			.select()
-			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-task"));
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
-		expect(intents).toHaveLength(1);
-		expect(attempts[0]).toMatchObject({
-			occasion: "owner_handoff",
-			agentId: "au9-production-agent",
-		});
-		expect(intents[0]).toMatchObject({
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
-			requestedBy: "au9-production-agent",
-		});
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
-	}
-
-	test("task handoff toAgent records owner-change occasion atomically", async ({ db, app }) => {
-		await proveHandoffOccasion(db, (path, init) => Promise.resolve(app.request(path, init)), {
-			toAgent: "au9-production-agent",
-		});
-	});
-
-	test("task handoff toRole records owner-change occasion atomically", async ({ db, app }) => {
-		await proveHandoffOccasion(db, (path, init) => Promise.resolve(app.request(path, init)), {
-			toRole: "builder",
-		});
-	});
+	// §8 B4: `POST /tasks/:id/handoff` is deleted — handoff is
+	// `edit_task({ ownerAgentId })` now, and `toRole`/`toHuman` targeting is
+	// gone with it (the caller names a user id). The owner-change dispatch
+	// occasion this used to prove atomically is the new seam test's job:
+	// `layers/core-api/src/__tests__/task-actions.integration.test.ts`
+	// ("an owner change on an in_progress task inserts a second attempt with
+	// occasion: owner_handoff and records a second intent").
 
 	// POST /api/tasks/:id/transition (door #40) deleted. Retry-transition test removed.
 });

@@ -28,8 +28,8 @@ import type {
 	SessionKnowledgeItemLike,
 } from "@hyperidle/domain-model";
 import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
-import * as work from "./work-service.js";
-import { taskDispatchAttemptStore } from "./work-service.js";
+import * as work from "./task-service.js";
+import { taskDispatchAttemptStore } from "./task-service.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
 export interface TaskRunResolverDeps {

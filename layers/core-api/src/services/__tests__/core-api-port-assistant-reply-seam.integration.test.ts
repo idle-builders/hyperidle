@@ -18,7 +18,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import { THROWING_OPEN_TASK, THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
@@ -34,7 +34,7 @@ import { test } from "../../__testing__/test-fixtures.js";
  * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
 function buildReplyTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR).find(
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR, THROWING_OPEN_TASK).find(
 		(t) => t.name === "reply",
 	)!;
 }

@@ -55,8 +55,8 @@ import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { bakeTaskContextBundle } from "@hyperidle/work";
+import * as work from "@hyperidle/task";
+import { bakeTaskContextBundle } from "@hyperidle/task";
 import type { TriggerResult } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -292,7 +292,7 @@ export async function runEvalSession(
 			evalTask,
 			[],
 			agent,
-			(db, id) => getTeam(db, { id }),
+			(db: HyperIdleDb, id: string) => getTeam(db, { id }),
 			assembleSessionKnowledge,
 		);
 		const { harnessDisabled } = await readServerConfig(deps.db);

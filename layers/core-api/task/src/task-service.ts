@@ -49,7 +49,7 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
-import { and, desc, eq, exists, inArray, isNull, like, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNotNull, isNull, like, lt, ne, or, sql } from "drizzle-orm";
 
 export type Task = typeof tasks.$inferSelect;
 
@@ -73,7 +73,7 @@ export const taskDispatchAttemptStore = {
 			readonly taskId: string;
 			readonly occasion: string;
 			readonly agentId: string;
-			readonly predecessorSessionId: string;
+			readonly predecessorSessionId?: string | null;
 			readonly now: string;
 		},
 	): Promise<{ id: string }> => {
@@ -82,18 +82,28 @@ export const taskDispatchAttemptStore = {
 			.from(taskDispatchAttempts)
 			.where(eq(taskDispatchAttempts.taskId, input.taskId));
 		const id = randomUUID();
-		await exec.insert(taskDispatchAttempts).values({
-			id,
-			taskId: input.taskId,
-			occasion: input.occasion,
-			agentId: input.agentId,
-			predecessorSessionId: input.predecessorSessionId,
-			ordinal: existing.length + 1,
-			status: "requested",
-			createdAt: input.now,
-			updatedAt: input.now,
-		});
-		return { id };
+		// §5 step 4: `.onConflictDoNothing()` — migration 0047 carries a
+		// second unique index `schema.ts` does not declare
+		// (`(task_id, occasion, coalesce(predecessor_session_id,''), agent_id)`),
+		// and handing a task with no live session back and forth between the
+		// same two agents collides on it. A swallowed conflict means no new
+		// attempt row is inserted; `returning()` then yields no row.
+		const inserted = await exec
+			.insert(taskDispatchAttempts)
+			.values({
+				id,
+				taskId: input.taskId,
+				occasion: input.occasion,
+				agentId: input.agentId,
+				predecessorSessionId: input.predecessorSessionId ?? null,
+				ordinal: existing.length + 1,
+				status: "requested",
+				createdAt: input.now,
+				updatedAt: input.now,
+			})
+			.onConflictDoNothing()
+			.returning({ id: taskDispatchAttempts.id });
+		return { id: inserted[0]?.id ?? id };
 	},
 	get: async (exec: WriteExecutor, id: string) => {
 		const [row] = await exec
@@ -102,6 +112,66 @@ export const taskDispatchAttemptStore = {
 			.where(eq(taskDispatchAttempts.id, id))
 			.limit(1);
 		return row;
+	},
+	/**
+	 * §1/§6 row 1 — the dispatch-attempt repair. `requestId`/`sessionId`
+	 * were never written in production: the only writers were `insertAttempt`
+	 * (neither) and `markFailed` (neither), so `updateIfActive`'s
+	 * `eq(taskDispatchAttempts.requestId, requestId)` matched zero rows,
+	 * always. Called from the session-started reaction, before the
+	 * `in_progress` edit, on the task's highest-ordinal `requested` row — the
+	 * one the session that just started was dispatched for.
+	 */
+	markRunning: async (
+		exec: WriteExecutor,
+		input: {
+			readonly taskId: string;
+			readonly requestId: string;
+			readonly sessionId: string;
+			readonly now: string;
+		},
+	): Promise<void> => {
+		const [row] = await exec
+			.select({ id: taskDispatchAttempts.id })
+			.from(taskDispatchAttempts)
+			.where(
+				and(
+					eq(taskDispatchAttempts.taskId, input.taskId),
+					eq(taskDispatchAttempts.status, "requested"),
+				),
+			)
+			.orderBy(desc(taskDispatchAttempts.ordinal))
+			.limit(1);
+		if (!row) return;
+		await exec
+			.update(taskDispatchAttempts)
+			.set({
+				requestId: input.requestId,
+				sessionId: input.sessionId,
+				status: "running",
+				updatedAt: input.now,
+			})
+			.where(eq(taskDispatchAttempts.id, row.id));
+	},
+	/**
+	 * §5 step 5b — the predecessor's live session id for a handoff,
+	 * read once inside `edit_task`'s own transaction, over this task-owned
+	 * table only.
+	 */
+	findLiveSessionId: async (exec: WriteExecutor, taskId: string): Promise<string | undefined> => {
+		const [row] = await exec
+			.select({ sessionId: taskDispatchAttempts.sessionId })
+			.from(taskDispatchAttempts)
+			.where(
+				and(
+					eq(taskDispatchAttempts.taskId, taskId),
+					isNotNull(taskDispatchAttempts.sessionId),
+					inArray(taskDispatchAttempts.status, ["requested", "running"]),
+				),
+			)
+			.orderBy(desc(taskDispatchAttempts.ordinal))
+			.limit(1);
+		return row?.sessionId ?? undefined;
 	},
 	updateIfActive: async (
 		exec: WriteExecutor,

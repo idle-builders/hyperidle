@@ -15,6 +15,7 @@
 	},
 	"dependencies": {
 		"@hyperidle/api-contract": "*",
+		"@hyperidle/changes": "*",
 		"@hyperidle/conversation": "*",
 		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",
@@ -30,7 +31,7 @@
 		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/users": "*",
-		"@hyperidle/work": "*",
+		"@hyperidle/task": "*",
 		"hono": "^4.12.27",
 		"zod": "^4.3.6"
 	},

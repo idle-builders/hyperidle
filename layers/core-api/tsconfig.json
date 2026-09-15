@@ -48,6 +48,9 @@
 			"path": "../agent-orchestration/tool-handlers"
 		},
 		{
+			"path": "changes"
+		},
+		{
 			"path": "conversation"
 		},
 		{
@@ -72,10 +75,10 @@
 			"path": "settings"
 		},
 		{
-			"path": "users"
+			"path": "task"
 		},
 		{
-			"path": "work"
+			"path": "users"
 		}
 	]
 }

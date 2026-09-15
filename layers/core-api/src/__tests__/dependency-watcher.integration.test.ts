@@ -1,25 +1,34 @@
 import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
-import type { TaskState } from "@hyperidle/domain-model";
+import type { ActionResult, EditTaskInput, TaskState, TaskView } from "@hyperidle/domain-model";
 import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
-import { getAgentIdentity } from "@hyperidle/knowledge";
-import { getTeam } from "@hyperidle/org";
-import { requireRunnableAgent } from "@hyperidle/users";
-import { checkAndUnblockDependents } from "@hyperidle/work";
+import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq } from "drizzle-orm";
+import type { ActionContext } from "../actions/action.js";
+import { buildCoreActions } from "../actions/compose.js";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
-// @lore AU20 Ag2: `checkAndUnblockDependents` relocated to `@hyperidle/work`
-// and simplified — the `work:` sub-object is gone (function calls work
-// internals directly). Only the against-grain `workIntents` recorder remains injected.
-// AgentWorkIntentRecorderFn is a plain function (tx was ignored by the sole production impl).
-const depWatcherDeps = {
-	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
-	teamCapacity: {
-		getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) =>
-			getTeam(exec, { id: teamId }),
-	},
-};
+/**
+ * §6 row 2: `checkAndUnblockDependents` writes through `edit_task` now —
+ * this test builds the real composed action off the `agentOrchestration`
+ * fixture and calls it directly, the same shape `app.ts`'s ambient
+ * `task_state_changed` subscription uses.
+ */
+function makeEditTask(
+	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+): (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>> {
+	const editTaskAction = buildCoreActions(agentOrchestration).find(
+		(a) => a.declaration.name === "edit_task",
+	);
+	if (!editTaskAction) throw new Error("edit_task action not found");
+	return editTaskAction.run as (
+		ctx: ActionContext,
+		input: EditTaskInput,
+	) => Promise<ActionResult<TaskView>>;
+}
+
+function makeCtx(db: HyperIdleDb, eventBus: ActionContext["eventBus"]): ActionContext {
+	return { actor: "system:propagation", db, eventBus, now: new Date().toISOString() };
+}
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -58,56 +67,68 @@ async function insertTask(
 
 describe("Dependency Watcher", () => {
 	describe("single dependency completion", () => {
-		test("unblocks a dependent task when its only dependency is done", async ({ db, eventBus }) => {
+		test("unblocks a dependent task when its only dependency is done", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("accepted");
 		});
 
-		test("does not unblock a task that is not in hold state", async ({ db, eventBus }) => {
+		test("does not unblock a task that is not in hold state", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "in_progress", ["dep-1"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("in_progress");
 		});
 
-		test("handles tasks with no dependents gracefully", async ({ db, eventBus }) => {
+		test("handles tasks with no dependents gracefully", async ({ db, eventBus, agentOrchestration }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "standalone", "done");
 			// Should not throw
-			await checkAndUnblockDependents(db, eventBus, "standalone", depWatcherDeps);
+			await checkAndUnblockDependents(
+				makeCtx(db, eventBus),
+				"standalone",
+				makeEditTask(agentOrchestration),
+			);
 		});
 	});
 
 	describe("multi-dependency completion", () => {
-		test("only unblocks when ALL dependencies are done", async ({ db, eventBus }) => {
+		test("only unblocks when ALL dependencies are done", async ({ db, eventBus, agentOrchestration }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dep-2", "in_progress");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
 		});
 
-		test("unblocks when the last dependency completes", async ({ db, eventBus }) => {
+		test("unblocks when the last dependency completes", async ({ db, eventBus, agentOrchestration }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dep-2", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1", "dep-2"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-2", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-2", makeEditTask(agentOrchestration));
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("accepted");
@@ -115,7 +136,7 @@ describe("Dependency Watcher", () => {
 	});
 
 	describe("notification emission", () => {
-		test("emits notification event on auto-transition", async ({ db, eventBus }) => {
+		test("emits notification event on auto-transition", async ({ db, eventBus, agentOrchestration }) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
@@ -123,7 +144,7 @@ describe("Dependency Watcher", () => {
 			const notifications: NotificationEvent[] = [];
 			eventBus.on("notification", (e) => notifications.push(e));
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
 
 			expect(notifications).toHaveLength(1);
 			expect(notifications[0]!.targetId).toBe("dependent");
@@ -131,7 +152,11 @@ describe("Dependency Watcher", () => {
 			expect(notifications[0]!.message).toContain("accepted");
 		});
 
-		test("emits task_state_changed event on auto-transition", async ({ db, eventBus }) => {
+		test("emits task_state_changed event on auto-transition", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent", "hold", ["dep-1"]);
@@ -139,7 +164,7 @@ describe("Dependency Watcher", () => {
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
 
 			expect(events).toHaveLength(1);
 			expect(events[0]!.taskId).toBe("dependent");
@@ -147,7 +172,11 @@ describe("Dependency Watcher", () => {
 			expect(events[0]!.toState).toBe("accepted");
 		});
 
-		test("does not emit notification when task stays in hold", async ({ db, eventBus }) => {
+		test("does not emit notification when task stays in hold", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dep-2", "in_progress");
@@ -156,7 +185,7 @@ describe("Dependency Watcher", () => {
 			const notifications: NotificationEvent[] = [];
 			eventBus.on("notification", (e) => notifications.push(e));
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
 
 			expect(notifications).toHaveLength(0);
 		});
@@ -167,19 +196,16 @@ describe("Dependency Watcher", () => {
 	// match unrelated dependents. UUIDs don't contain these chars but
 	// the escape is defence-in-depth for future ID formats.
 	describe("LIKE wildcard escape (W3)", () => {
-		test("treats `%` in completedTaskId as a literal, not a wildcard", async ({ db, eventBus }) => {
+		test("treats `%` in completedTaskId as a literal, not a wildcard", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedPrerequisites(db);
-			// The literal completedTaskId is "any%id". A dependent task
-			// listing "anyREALLYid" as a dependency must NOT be unblocked
-			// by completion of "any%id" — the `%` must be treated literally.
 			await insertTask(db, "anyREALLYid", "done");
 			await insertTask(db, "dependent", "hold", ["anyREALLYid"]);
 
-			// Caller "completes" a task whose id contains `%`. Without the
-			// escape, the SQL LIKE pattern `%"any%id"%` would match the
-			// stored dependency `"anyREALLYid"`. With the escape it
-			// doesn't.
-			await checkAndUnblockDependents(db, eventBus, "any%id", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "any%id", makeEditTask(agentOrchestration));
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
@@ -188,14 +214,13 @@ describe("Dependency Watcher", () => {
 		test("treats `_` in completedTaskId as a literal, not a single-char wildcard", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "depX1", "done");
 			await insertTask(db, "dependent", "hold", ["depX1"]);
 
-			// SQL `_` is single-char wildcard; without escape `dep_1` would
-			// match `depX1`. Escape forces literal.
-			await checkAndUnblockDependents(db, eventBus, "dep_1", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep_1", makeEditTask(agentOrchestration));
 
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 			expect(task?.state).toBe("hold");
@@ -206,13 +231,14 @@ describe("Dependency Watcher", () => {
 		test("unblocks multiple tasks that depend on the same completed task", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedPrerequisites(db);
 			await insertTask(db, "dep-1", "done");
 			await insertTask(db, "dependent-a", "hold", ["dep-1"]);
 			await insertTask(db, "dependent-b", "hold", ["dep-1"]);
 
-			await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+			await checkAndUnblockDependents(makeCtx(db, eventBus), "dep-1", makeEditTask(agentOrchestration));
 
 			const [taskA] = await db.select().from(tasks).where(eq(tasks.id, "dependent-a"));
 			const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "dependent-b"));

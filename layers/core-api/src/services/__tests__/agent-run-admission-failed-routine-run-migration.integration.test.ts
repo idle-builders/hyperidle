@@ -55,7 +55,7 @@ import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 import { eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";

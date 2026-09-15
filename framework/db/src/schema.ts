@@ -179,7 +179,9 @@ export const tasks = pgTable(
 		dependencies: text("dependencies"),
 		threadId: text("thread_id").references(() => threads.id, { onDelete: "restrict" }),
 		notes: text("notes"),
-		auditTrail: text("audit_trail"),
+		// `auditTrail` dropped — the `changes` table (0082) is the audit
+		// mechanism now. See `one-work-primitive.ts`'s `@lore` for the ban this
+		// makes true rather than stale.
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 		/** AC1: Task outcome verdict. Closed enum: met|met_with_rework|partially_met|not_met. Null = not evaluated. */
@@ -551,6 +553,36 @@ export const taskDispatchAttempts = pgTable(
 			"task_dispatch_attempts_status_ck",
 			sql`${table.status} in ('requested','running','completed','failed','cancelled')`,
 		),
+	],
+);
+
+/**
+ * the event log the action mechanism writes to, once per touched
+ * object, in the same transaction as the write. Not an audit control and
+ * adds no gate — the source for subscriptions and the UI stream from BC5
+ * onward, and `task`'s replacement for the dropped `tasks.audit_trail`
+ * column. `before`/`after` hold only the fields that differ (plus `id`), not
+ * the whole row.
+ */
+export const changes = pgTable(
+	"changes",
+	{
+		id: text("id").primaryKey(),
+		object: text("object").notNull(),
+		objectId: text("object_id").notNull(),
+		kind: text("kind").notNull(),
+		actor: text("actor")
+			.notNull()
+			.references(() => users.id, { onDelete: "restrict" }),
+		before: text("before"),
+		after: text("after").notNull(),
+		at: text("at").notNull(),
+	},
+	(table) => [
+		index("changes_object_idx").on(table.object, table.objectId, table.at),
+		index("changes_at_idx").on(table.at),
+		check("changes_object_ck", sql`${table.object} in ('task','thread','document','user')`),
+		check("changes_kind_ck", sql`${table.kind} in ('created','changed')`),
 	],
 );
 
@@ -1414,6 +1446,9 @@ export type NewAgentRunConfigRow = typeof agentRunConfig.$inferInsert;
 
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
+
+export type Change = typeof changes.$inferSelect;
+export type NewChange = typeof changes.$inferInsert;
 
 export type Session = typeof sessions.$inferSelect;
 

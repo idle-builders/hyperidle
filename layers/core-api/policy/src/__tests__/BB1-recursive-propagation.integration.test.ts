@@ -23,7 +23,6 @@
 import {
 	type HyperIdleDb,
 	type Item,
-	type NewTask,
 	type Task,
 	tasks,
 	teams,
@@ -31,11 +30,18 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { test as dbTest, describe, expect } from "@hyperidle/db/test-fixtures";
-import type { TaskState } from "@hyperidle/domain-model";
+import {
+	type ActionResult,
+	canTransitionTaskState,
+	type EditTaskInput,
+	type TaskState,
+	type TaskView,
+} from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { type PolicyDeps, registerPolicy } from "../index.js";
+import type { PolicyEditTask } from "../ports.js";
 
 // ─── Manual port implementations (raw Drizzle, no @hyperidle/work dep) ────────
 //
@@ -48,18 +54,6 @@ function makeWorkPort(): PolicyDeps["work"] {
 		getTaskById: async (exec: WriteExecutor, id: string): Promise<Task | undefined> => {
 			const [row] = await exec.select().from(tasks).where(eq(tasks.id, id));
 			return row;
-		},
-
-		transitionTaskState: async (
-			exec: WriteExecutor,
-			args: { taskId: string; fromState: string; patch: Partial<NewTask> },
-		): Promise<{ applied: boolean }> => {
-			const result = await exec
-				.update(tasks)
-				.set({ ...args.patch })
-				.where(and(eq(tasks.id, args.taskId), eq(tasks.state, args.fromState)))
-				.returning({ id: tasks.id });
-			return { applied: result.length > 0 };
 		},
 
 		listChildTasks: async (exec: WriteExecutor, parentTaskId: string): Promise<Task[]> => {
@@ -116,6 +110,60 @@ const usersStub: PolicyDeps["users"] = {
 	getFirstUserByKind: async () => undefined,
 };
 
+/**
+ * a minimal `edit_task` stand-in for THIS test file only: `policy`
+ * cannot import `@hyperidle/task` (Mechanism C), so the test hand-rolls the
+ * CAS-write-then-emit shape the real action provides, using the SAME pure
+ * `canTransitionTaskState` grammar the real action's invariants run over.
+ * Sufficient for what these tests exercise (ancestor cascade logic driven
+ * off `task_state_changed`) — no dispatch, no `changes` row.
+ */
+function makeEditTask(): PolicyEditTask {
+	return async (ctx, input: EditTaskInput): Promise<ActionResult<TaskView>> => {
+		const taskId = input.id;
+		if (!taskId) {
+			return { ok: false, problems: [{ code: "not_found", message: "id is required" }] };
+		}
+		const [prevRow] = await ctx.db.select().from(tasks).where(eq(tasks.id, taskId));
+		if (!prevRow) {
+			return { ok: false, problems: [{ code: "not_found", message: `Task ${taskId} not found` }] };
+		}
+		const fromState = prevRow.state as TaskState;
+		const toState = (input.state ?? fromState) as TaskState;
+		if (toState !== fromState && !canTransitionTaskState(fromState, toState)) {
+			return {
+				ok: false,
+				problems: [{ code: "invalid_transition", message: `Cannot move from ${fromState} to ${toState}` }],
+			};
+		}
+		if (toState !== fromState) {
+			const result = await ctx.db
+				.update(tasks)
+				.set({ state: toState, updatedAt: ctx.now })
+				.where(and(eq(tasks.id, taskId), eq(tasks.state, fromState)))
+				.returning({ id: tasks.id });
+			if (result.length === 0) {
+				return {
+					ok: false,
+					problems: [{ code: "invalid_transition", message: "lost the CAS race" }],
+				};
+			}
+			ctx.eventBus.emit({
+				type: "task_state_changed",
+				streamId: taskId,
+				taskId,
+				fromState,
+				toState,
+				timestamp: Date.now(),
+			});
+		}
+		return {
+			ok: true,
+			data: { task: { ...prevRow, state: toState } } as unknown as TaskView,
+		};
+	};
+}
+
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
 const NOW = new Date().toISOString();
@@ -170,19 +218,21 @@ async function getTaskState(db: HyperIdleDb, id: string): Promise<string | undef
 async function completeTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	policyDeps: PolicyDeps,
+	_policyDeps: PolicyDeps,
 	taskId: string,
 	fromState: TaskState,
 	toState: "done" | "killed",
 	/** BB1: mark the emit as part of a deliberate subtree kill. */
 	cascade = false,
 ): Promise<void> {
-	const { applied } = await policyDeps.work.transitionTaskState(db, {
-		taskId,
-		fromState,
-		patch: { state: toState, updatedAt: new Date().toISOString() },
-	});
-	expect(applied).toBe(true);
+	// Direct write + emit — this simulates a leaf task reaching a terminal
+	// state (the trigger for ancestor propagation), not `edit_task` itself.
+	const result = await db
+		.update(tasks)
+		.set({ state: toState, updatedAt: new Date().toISOString() })
+		.where(and(eq(tasks.id, taskId), eq(tasks.state, fromState)))
+		.returning({ id: tasks.id });
+	expect(result.length > 0).toBe(true);
 	eventBus.emit({
 		type: "task_state_changed",
 		streamId: taskId,
@@ -223,6 +273,7 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 			work: makeWorkPort(),
 			conversation: conversationStub,
 			users: usersStub,
+			editTask: makeEditTask(),
 		};
 		const unregister = registerPolicy(db, eventBus, policyDeps);
 
@@ -274,6 +325,7 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 			work: makeWorkPort(),
 			conversation: conversationStub,
 			users: usersStub,
+			editTask: makeEditTask(),
 		};
 		const unregister = registerPolicy(db, eventBus, policyDeps);
 
@@ -357,6 +409,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 				work: makeWorkPort(),
 				conversation: conversationStub,
 				users: usersStub,
+				editTask: makeEditTask(),
 			};
 			const unregister = registerPolicy(db, eventBus, policyDeps);
 
@@ -421,6 +474,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 				work: makeWorkPort(),
 				conversation: conversationStub,
 				users: usersStub,
+				editTask: makeEditTask(),
 			};
 			const unregister = registerPolicy(db, eventBus, policyDeps);
 
@@ -483,6 +537,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 			work: makeWorkPort(),
 			conversation: conversationStub,
 			users: usersStub,
+			editTask: makeEditTask(),
 		};
 		const unregister = registerPolicy(db, eventBus, policyDeps);
 
@@ -540,6 +595,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 			work: makeWorkPort(),
 			conversation: conversationStub,
 			users: usersStub,
+			editTask: makeEditTask(),
 		};
 		const unregister = registerPolicy(db, eventBus, policyDeps);
 
@@ -563,7 +619,7 @@ describe("BB1 — a cascade kill does not complete its ancestors", () => {
 	/**
 	 * `cascadeTaskKill` kills deepest-first and every kill emits
 	 * `task_state_changed(killed)`. This handler listens for `killed` on purpose
-	 * — so that killing the last live child still advances its parent — and it
+	 * so that killing the last live child still advances its parent — and it
 	 * only ever moves ancestors to `done`/`review`, never `killed`. On the shared
 	 * production bus that meant killing a subtree raced its own completion:
 	 * ancestors were marked `done` (stamping `completedAt` on cancelled work, and
@@ -587,6 +643,7 @@ describe("BB1 — a cascade kill does not complete its ancestors", () => {
 			work: makeWorkPort(),
 			conversation: conversationStub,
 			users: usersStub,
+			editTask: makeEditTask(),
 		};
 		const unsub = registerPolicy(db, eventBus, policyDeps);
 		try {
@@ -622,6 +679,7 @@ describe("BB1 — a cascade kill does not complete its ancestors", () => {
 			work: makeWorkPort(),
 			conversation: conversationStub,
 			users: usersStub,
+			editTask: makeEditTask(),
 		};
 		const unsub = registerPolicy(db, eventBus, policyDeps);
 		try {

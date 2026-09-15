@@ -30,7 +30,7 @@ import {
 import type { WriteExecutor } from "@hyperidle/db";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 
 export const notificationsDeps: NotificationsDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },

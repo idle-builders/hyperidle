@@ -394,10 +394,11 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 			createdAt: now,
 		});
 
-		// BB1: /api/bets/:id deleted — root tasks are accessible via /api/tasks/:id
-		const res = await app.request("/api/tasks/bet-ac5", {
-			method: "GET",
+		// /api/tasks/:id deleted — root tasks are accessible via open_task.
+		const res = await app.request("/api/actions/open_task", {
+			method: "POST",
 			headers: authHeaders({ "X-Identity": "u-ac5-user" }),
+			body: JSON.stringify({ id: "bet-ac5" }),
 		});
 		// Host-scope root tasks should remain readable (Hard Rule 5 — no over-restriction)
 		expect(res.status).toBe(200);

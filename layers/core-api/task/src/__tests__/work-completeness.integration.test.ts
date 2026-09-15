@@ -1,7 +1,7 @@
 /** AU20 Stage 1: consumer-demand completeness contract for the work service. */
 import { type HyperIdleDb, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { create, list } from "../work-service.js";
+import { create, list } from "../task-service.js";
 
 async function seedItemDeps(
 	db: HyperIdleDb,

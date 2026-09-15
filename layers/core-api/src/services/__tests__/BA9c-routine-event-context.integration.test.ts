@@ -48,7 +48,7 @@ import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";

@@ -22,10 +22,9 @@
 // -- approval rate (AD4) --
 export type { ApprovalRateResult } from "./approval-rate.js";
 export { computeApprovalRate } from "./approval-rate.js";
-// -- handoff protocol --
-export type { HandoffMetadata, HandoffParams, HandoffResult } from "./handoff-protocol.js";
-export { buildHandoff } from "./handoff-protocol.js";
+// handoff protocol DELETED — handoff is `edit_task({ ownerAgentId })`
+// now. the architecture doc §8 B4.
 // -- aggregate injection contract + cross-boundary types --
-export type { PolicyDeps, PolicySessionContext } from "./ports.js";
+export type { PolicyDeps } from "./ports.js";
 // -- unified policy registration --
 export { registerPolicy } from "./register-policy.js";

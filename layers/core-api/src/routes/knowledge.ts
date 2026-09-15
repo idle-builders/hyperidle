@@ -60,7 +60,7 @@ import {
 import { getTeam } from "@hyperidle/org";
 import { markDetached } from "@hyperidle/settings";
 import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 import { Hono } from "hono";
 import z from "zod";
 

@@ -582,6 +582,13 @@
 			"when": 1785693610000,
 			"tag": "0082_drop_hint_progress_and_attention_score",
 			"breakpoints": true
+		},
+		{
+			"idx": 83,
+			"version": "7",
+			"when": 1785693611000,
+			"tag": "0083_changes_and_task_edit",
+			"breakpoints": true
 		}
 	]
 }

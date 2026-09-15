@@ -22,7 +22,7 @@ import type {
 	EventBus,
 	SessionEndedEvent,
 } from "@hyperidle/event-bus";
-import { get, taskDispatchAttemptStore, update } from "@hyperidle/work";
+import { get, taskDispatchAttemptStore, update } from "@hyperidle/task";
 
 const logger = createLogger({ pkg: "core-api.work-session-end-reactions" });
 const registeredBuses = new WeakSet<EventBus>();

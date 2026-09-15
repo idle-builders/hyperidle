@@ -85,6 +85,19 @@ function widenUpdateRoutineInput(input: unknown): UpdateRoutineRequest {
 }
 
 /**
+ * §8 B1 — the three surviving tools (`write_memory`, `submit_review`,
+ * `create_artifact`) read a task through `open_task`, bound directly to the
+ * action's own `run` — in-process, never a second HTTP hop. Structural
+ * mirror of `ToolHandlersCoreApiAccessor.openTask`'s return shape.
+ */
+export type ToolHandlersOpenTask = (
+	id: string,
+	actorId: string,
+) => Promise<
+	{ readonly task: { readonly parentTaskId: string | null; readonly teamId: string } } | undefined
+>;
+
+/**
  * Builds a fresh `ToolHandlersPorts`, every `coreApi` field closing over the
  * ONE `CoreApiTransport` value passed in — never an ambient lookup. Per-call
  * actor attribution (§12) still happens per call: `seamPortForActor` wraps
@@ -94,6 +107,7 @@ function widenUpdateRoutineInput(input: unknown): UpdateRoutineRequest {
 export function buildToolHandlersPorts(
 	transport: CoreApiTransport,
 	gate: ToolHandlersReviewAccessor,
+	openTask: ToolHandlersOpenTask,
 ): ToolHandlersPorts {
 	function seamPortForActor(actorId: string): CoreApiPort {
 		return buildCoreApiPort(withActorTransport(transport, { userId: actorId }));
@@ -109,12 +123,7 @@ export function buildToolHandlersPorts(
 		// read/write now crosses the `coreApi` seam below.
 		// @lore BB1: createBet, getBetById, updateBetById removed — bet is now a root task.
 		coreApi: {
-			getTaskById: (id, actorId) => seamPortForActor(actorId).work.getTaskById(id),
-			createTask: (input, actorId) => seamPortForActor(actorId).work.createTask(input),
-			updateTaskById: (id, updates, actorId) =>
-				seamPortForActor(actorId).work.updateTaskById(id, updates),
-			appendTaskNote: (taskId, entry, actorId) =>
-				seamPortForActor(actorId).work.appendTaskNote(taskId, entry),
+			openTask,
 			getItemById: (id, actorId) => seamPortForActor(actorId).work.getItemById(id),
 			updateItemById: (id, updates, actorId) =>
 				seamPortForActor(actorId).work.updateItemById(id, updates),
@@ -181,8 +190,6 @@ export function buildToolHandlersPorts(
 			getRoutineById: (id, actorId) => seamPortForActor(actorId).routine.getRoutineById(id),
 			updateRoutineById: (id: string, updates: Record<string, unknown>, actorId: string) =>
 				seamPortForActor(actorId).routine.updateRoutineById(id, widenUpdateRoutineInput(updates)),
-			handoffTask: (taskId, input, actorId) =>
-				seamPortForActor(actorId).work.handoffTask(taskId, input),
 			// AU21 §9 Increment 2 (knowledge wave): every former
 			// `ToolHandlersKnowledgeAccessor` capability moved onto this seam —
 			// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.
@@ -212,6 +219,7 @@ export function buildToolHandlersPorts(
 export function buildToolDefinitions(
 	transport: CoreApiTransport,
 	gate: ToolHandlersReviewAccessor,
+	openTask: ToolHandlersOpenTask,
 ): ReturnType<typeof buildToolDefinitionsFromPorts> {
-	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport, gate));
+	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport, gate, openTask));
 }

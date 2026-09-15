@@ -1,7 +1,7 @@
 import { findMessage, findThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 import { Hono } from "hono";
 
 /**

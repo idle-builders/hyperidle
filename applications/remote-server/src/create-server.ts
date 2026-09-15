@@ -390,6 +390,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
 			coreApiTransport,
+			// §7 — one composed list, built once: core-api's actions, projected
+			// onto this Layer's own MCP tool seam.
+			actionTools: coreApi.actionTools,
 			session: runtimeSessionDeps,
 			sandboxBasePath,
 			worker: {

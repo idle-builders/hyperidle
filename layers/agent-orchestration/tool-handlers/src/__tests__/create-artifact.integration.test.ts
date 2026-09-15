@@ -21,7 +21,7 @@ import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
-import * as work from "@hyperidle/work";
+import * as task from "@hyperidle/task";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ToolHandlersPorts } from "../ports.js";
 import { buildToolDefinitions } from "../tool-definitions.js";
@@ -46,7 +46,10 @@ const ports: ToolHandlersPorts = {
 	...STUB_TOOL_HANDLERS_PORTS,
 	coreApi: {
 		...STUB_TOOL_HANDLERS_PORTS.coreApi,
-		getTaskById: (id: string) => work.get(sharedDb, "task", id),
+		openTask: async (id: string) => {
+			const row = await task.get(sharedDb, "task", id);
+			return row ? { task: { parentTaskId: row.parentTaskId, teamId: row.teamId } } : undefined;
+		},
 		create: async (input) => {
 			capturedCreate = input;
 			return { id: "ki-fake-id", version: 1 };

@@ -43,7 +43,7 @@ import {
 } from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 
 /**
  * AU31 §3.2 — builds `RoutineSchedulerPorts` for ONE composition's port.

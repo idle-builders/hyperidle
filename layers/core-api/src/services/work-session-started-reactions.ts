@@ -15,22 +15,22 @@
  * `session_ended` token-writeback half, which needed the additive
  * `tokensByTier` field).
  *
- * Calls `@hyperidle/work`'s real `transitionTask` state machine — the SAME
- * function `run-orchestration-composition.ts`'s deleted `workAccessor` used
- * to call, now invoked core-side with the SAME fully-wired
- * `TaskStateMachineDeps` every other real `task_run`-baking call site already
- * uses (`routes/tasks.ts`, `routes/bets.ts`, `app.ts`'s dependency-watcher) —
- * `enqueueWorkIntent` (`@hyperidle/session-requests`) + the shared
- * `taskRunResolverDeps` singleton (`task-run-resolver-bindings.ts`).
+ * §6 row 1: calls `edit_task.run` in-process instead of the deleted
+ * `transitionTask` — the injected function is `edit_task`'s own bound `run`,
+ * built by `app.ts` from the composed actions list and threaded through
+ * `serviceBootstrap`'s ctx. Before the transition, this reaction repairs the
+ * dispatch-attempt row: `requestId`/`sessionId` were never written in
+ * production (§1's live defect), so `markRunning` fills them on the task's
+ * highest-ordinal `requested` attempt — the write that makes
+ * `work-session-end-reactions`' `updateIfActive` finalize a real row for the
+ * first time, and that makes step 5b's "find the predecessor's live session"
+ * query answerable.
  *
- * Idempotent by construction, mirroring `routine-run-session-end-reactions.ts`'s
- * `onlyIfRunning`-style guard: `transitionTask` validates the transition
- * against the task's CURRENT state inside its own CAS transaction. A task
- * already `in_progress` (a handoff re-dispatch launching a second session for
- * a task already mid-flight, OR a duplicate/redelivered `session_started`)
- * throws `TaskInvalidTransitionError` (`in_progress -> in_progress` is not a
- * member of `TASK_STATE_TRANSITIONS`) — swallowed here as a safe no-op,
- * never propagated as an unexpected failure.
+ * Idempotent by construction: `edit_task` validates the transition against
+ * the task's CURRENT state and returns a `Problem` rather than throwing. A
+ * task already `in_progress` (a handoff re-dispatch launching a second
+ * session for a task already mid-flight, OR a duplicate/redelivered
+ * `session_started`) is a safe no-op — logged, not propagated.
  *
  * `taskId: null` (a task-free session — an `assistant_turn`/
  * explicit non-task session request) is a no-op.
@@ -45,43 +45,48 @@
  * already use.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
+import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";
 import type { EventBus, SessionStartedEvent } from "@hyperidle/event-bus";
-import { getTeam } from "@hyperidle/org";
-import {
-	TaskInvalidTransitionError,
-	type TaskStateMachineDeps,
-	transitionTask,
-} from "@hyperidle/work";
-import { buildSeamBackedWorkIntentRecorder } from "./agent-orchestration-port-composition.js";
-import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
+import { taskDispatchAttemptStore } from "@hyperidle/task";
+import type { ActionContext } from "../actions/action.js";
 
 const logger = createLogger({ pkg: "core-api.work-session-started-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
+
+/** `edit_task`'s own bound `run` function. */
+type EditTask = (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>>;
 
 async function reactToSessionStarted(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	event: SessionStartedEvent,
-	agentOrchestration: AgentOrchestrationPort,
+	editTask: EditTask,
 ): Promise<void> {
 	if (!event.taskId) return;
-	const transitionDeps: TaskStateMachineDeps = {
-		workIntents: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-		taskRunResolver: taskRunResolverDeps,
-		teamCapacity: {
-			getByTeamId: (exec: WriteExecutor, teamId: string) => getTeam(exec, { id: teamId }),
-		},
-	};
-	try {
-		await transitionTask(db, eventBus, event.taskId, "in_progress", transitionDeps);
-	} catch (error) {
+	const now = new Date().toISOString();
+	// §1/§6 row 1 — the repair. A `session_started` with no `requestId`
+	// (the legacy bare-insert path) marks nothing and is not an error.
+	if (event.requestId && event.sessionId) {
+		await taskDispatchAttemptStore.markRunning(db, {
+			taskId: event.taskId,
+			requestId: event.requestId,
+			sessionId: event.sessionId,
+			now,
+		});
+	}
+	const result = await editTask(
+		{ actor: event.agentId, db, eventBus, now },
+		{ id: event.taskId, state: "in_progress" },
+	);
+	if (!result.ok) {
 		// A task already in_progress (handoff re-dispatch) or any other invalid
 		// source state is a safe no-op — never an unexpected failure.
-		if (error instanceof TaskInvalidTransitionError) return;
-		throw error;
+		logger.warn("session_started task in_progress transition refused", {
+			taskId: event.taskId,
+			problems: result.problems,
+		});
 	}
 }
 
@@ -94,7 +99,7 @@ async function reactToSessionStarted(
 export function registerWorkSessionStartedReactions(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	agentOrchestration: AgentOrchestrationPort,
+	editTask: EditTask,
 ): () => void {
 	if (registeredBuses.has(eventBus)) {
 		return () => {};
@@ -102,7 +107,7 @@ export function registerWorkSessionStartedReactions(
 	registeredBuses.add(eventBus);
 
 	const unsubscribe = eventBus.on("session_started", (event) => {
-		void reactToSessionStarted(db, eventBus, event, agentOrchestration).catch((error: unknown) => {
+		void reactToSessionStarted(db, eventBus, event, editTask).catch((error: unknown) => {
 			logger.error("session_started task in_progress transition reaction failed", {
 				taskId: event.taskId,
 				error: error instanceof Error ? error.message : String(error),

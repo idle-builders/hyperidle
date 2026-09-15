@@ -2,7 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { canTransitionTaskState, type TaskState } from "@hyperidle/domain-model";
+import type { TaskState } from "@hyperidle/domain-model";
 import type {
 	EventBus,
 	PropagationAppliedEvent,
@@ -13,8 +13,15 @@ import type {
 import { TaskInvalidTransitionError } from "./errors.js";
 import type { PolicyDeps } from "./ports.js";
 
-type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "conversation" | "users">;
+type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "conversation" | "users" | "editTask">;
 
+/**
+ * §6 rows 4/5: writes through `edit_task` instead of the deleted private
+ * `transitionTask` helper. `edit_task` appends its own `changes` row and
+ * emits `task_state_changed` after commit — this function no longer does
+ * either. A refusal (a `Problem`, not a throw) becomes
+ * `TaskInvalidTransitionError`, the shape every caller here already catches.
+ */
 async function transitionTask(
 	db: HyperIdleDb,
 	eventBus: EventBus,
@@ -22,59 +29,19 @@ async function transitionTask(
 	toState: TaskState,
 	deps: LifecyclePropagationDeps,
 ): Promise<void> {
-	const transitioned = await db.transaction(
-		async (tx): Promise<{ fromState: TaskState } | null> => {
-			// Re-read INSIDE the tx so the audit read and the CAS write serialize together.
-			// @lore AU13 addendum §A6: MUST stay `tx` (not pooled `db`) — inside
-			// propagation's CAS tx.
-			const task = await deps.work.getTaskById(tx, taskId);
-			if (!task) {
-				throw new Error(`Task not found: ${taskId}`);
-			}
-
-			const fromState = task.state as TaskState;
-			if (!canTransitionTaskState(fromState, toState)) {
-				throw new TaskInvalidTransitionError(taskId, fromState, toState);
-			}
-
-			// Build audit trail
-			const existingAudit: Array<{ from: string; to: string; timestamp: string }> = task.auditTrail
-				? (JSON.parse(task.auditTrail) as Array<{ from: string; to: string; timestamp: string }>)
-				: [];
-			existingAudit.push({
-				from: fromState,
-				to: toState,
-				timestamp: new Date().toISOString(),
-			});
-
-			const { applied } = await deps.work.transitionTaskState(tx, {
-				taskId,
-				fromState,
-				patch: {
-					state: toState,
-					auditTrail: JSON.stringify(existingAudit),
-					updatedAt: new Date().toISOString(),
-				},
-			});
-
-			if (!applied) {
-				throw new TaskInvalidTransitionError(taskId, fromState, toState);
-			}
-
-			return { fromState };
-		},
+	const task = await deps.work.getTaskById(db, taskId);
+	if (!task) {
+		throw new Error(`Task not found: ${taskId}`);
+	}
+	const fromState = task.state as TaskState;
+	const now = new Date().toISOString();
+	const result = await deps.editTask(
+		{ actor: SYSTEM_PROPAGATION_AGENT_ID, db, eventBus, now },
+		{ id: taskId, state: toState },
 	);
-
-	if (!transitioned) return;
-
-	eventBus.emit({
-		type: "task_state_changed",
-		streamId: taskId,
-		taskId,
-		fromState: transitioned.fromState,
-		toState,
-		timestamp: Date.now(),
-	});
+	if (!result.ok) {
+		throw new TaskInvalidTransitionError(taskId, fromState, toState);
+	}
 }
 
 /** Type guard: check if an error is an InvalidTransitionError from either source. */
