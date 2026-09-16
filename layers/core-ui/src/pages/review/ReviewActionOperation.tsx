@@ -7,11 +7,11 @@
 //
 // 3-layer drill-down (brief §1):
 //   L1 — one glance: action headline + the AMOUNT (large, tabular) + Stripe logo +
-//        an irreversible marker. You can approve/reject on L1 alone.
+//        an irreversible marker.
 //   L2 — the receipt: the structured fields that define the operation (charge,
 //        customer, reason, idempotency key, net-after).
 //   L3 — on demand: blast-radius (what it touches) + reversibility/undo (why it's
-//        irreversible) + the pre-commit Approve / Reject gate (pill buttons).
+//        irreversible). The review frame owns the pre-commit verdict gate.
 //
 // Tokens by NAME only (Hearth + CP1). Money + irreversibility lean on
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
@@ -49,15 +49,9 @@ interface Operation {
 
 export interface ReviewActionOperationProps {
 	readonly operation: Operation;
-	readonly onApprove?: () => void;
-	readonly onReject?: () => void;
 }
 
-function ReviewActionOperationView({
-	operation,
-	onApprove,
-	onReject,
-}: ReviewActionOperationProps): JSX.Element {
+function ReviewActionOperationView({ operation }: ReviewActionOperationProps): JSX.Element {
 	// L3 starts expanded so the layering is visible in a single screenshot;
 	// in the thread it collapses to keep the canvas at L1+L2 by default.
 	const [showDetail, setShowDetail] = useState<boolean>(true);
@@ -203,29 +197,6 @@ function ReviewActionOperationView({
 					</section>
 				</div>
 			) : null}
-
-			{/* ── L3 · the pre-commit verdict gate ── */}
-			<footer className="border-width-thin-t mt-[6px] flex items-center justify-end gap-[9px]  border-[var(--border-subtle)] px-[18px] py-[12px]">
-				<button
-					type="button"
-					onClick={onReject}
-					className="motion-feedback type-control px-[18px] py-[7px]   text-[var(--text-secondary)]  hover:opacity-80"
-					style={{ borderRadius: "var(--r-pill)" }}
-				>
-					Reject
-				</button>
-				<button
-					type="button"
-					onClick={onApprove}
-					className="motion-feedback type-control px-[18px] py-[7px]   text-[var(--text-on-accent)]  hover:opacity-90"
-					style={{
-						borderRadius: "var(--r-pill)",
-						background: "var(--accent-primary)",
-					}}
-				>
-					Approve
-				</button>
-			</footer>
 		</article>
 	);
 }

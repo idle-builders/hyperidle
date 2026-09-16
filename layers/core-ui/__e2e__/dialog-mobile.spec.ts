@@ -102,13 +102,6 @@ test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 				body: JSON.stringify({ items: [] }),
 			}),
 		);
-		await page.route("**/api/knowledge/triage-count", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ count: 0 }),
-			}),
-		);
 		await page.route("**/api/threads**", (route) =>
 			route.fulfill({
 				status: 200,

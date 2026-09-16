@@ -46,7 +46,7 @@
   },
   {
     "path": "layers/core-ui/src/fixtures/knowledge-data.ts",
-    "line": 73,
+    "line": 68,
     "symbol": "MOCK_KNOWLEDGE_ITEMS",
     "kind": "symbol",
     "shape": "array",

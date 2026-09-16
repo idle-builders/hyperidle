@@ -9,10 +9,10 @@
 //   L2 — the proof: a before→after field grid. Each changed row reads
 //        old (strikethrough/dim) → new (highlighted). Unchanged fields collapse
 //        under "+12 unchanged". Relevance-ordered: the needs-you field floats up.
-//   L3 — on demand: per-field source line ("from the Jun 12 discovery call") +
-//        select-to-approve checkbox. The Amount row carries a needs-you flag.
+//   L3 — on demand: per-field source line ("from the Jun 12 discovery call").
+//        The Amount row carries a needs-you flag.
 //
-// Presentational isolation: local useState for expand/select; callbacks no-op.
+// Presentational isolation: local useState for expand.
 // Hearth + CP1 tokens by NAME only (no hex outside ToolLogo). 6px grid. Pill
 // buttons. Left-aligned. tabular-nums on money. Animate transform/opacity only.
 //
@@ -67,45 +67,21 @@ const isMoney = (s: string | null): boolean => s?.trim().startsWith("$") ?? fals
 interface RowProps {
 	readonly field: FieldChange;
 	readonly tool: string;
-	readonly approved: boolean;
 	readonly expanded: boolean;
-	readonly onToggleApprove: (id: string) => void;
 	readonly onToggleExpand: (id: string) => void;
 }
 
-function FieldRow({
-	field,
-	tool,
-	approved,
-	expanded,
-	onToggleApprove,
-	onToggleExpand,
-}: RowProps): JSX.Element {
+function FieldRow({ field, tool, expanded, onToggleExpand }: RowProps): JSX.Element {
 	const needs = field.needsYou != null;
 	const money = isMoney(field.after) || isMoney(field.before);
 
 	return (
 		<div
 			className="border-width-thin-b border-none  border-[var(--border-subtle)] "
-			style={
-				needs
-					? { background: "var(--accent-secondary-dim)" }
-					: approved
-						? { background: "var(--accent-primary-dim)" }
-						: undefined
-			}
+			style={needs ? { background: "var(--accent-secondary-dim)" } : undefined}
 		>
 			{/* L2 — the before→after row */}
 			<div className="flex items-start gap-[12px] px-[18px] py-[12px]">
-				{/* select-to-approve (L3 affordance, always visible per row) */}
-				<input
-					type="checkbox"
-					checked={approved}
-					onChange={() => onToggleApprove(field.id)}
-					aria-label={`Approve ${field.label}`}
-					className="mt-[3px] h-[16px] w-[16px] shrink-0 accent-[var(--accent-primary)] cursor-pointer"
-				/>
-
 				<div className="min-w-0 flex-1">
 					<div className="flex items-baseline gap-[9px]">
 						<span className="type-metadata w-[96px] shrink-0   text-[var(--text-tertiary)]">
@@ -203,23 +179,11 @@ export function ReviewFieldChangeSetView({
 		(a, b) => Number(b.needsYou != null) - Number(a.needsYou != null),
 	);
 
-	const [approved, setApproved] = useState<ReadonlySet<string>>(new Set());
 	// Derived from the real payload's own top-relevance field, so the default
 	// expansion is correct for any payload.
 	const [expanded, setExpanded] = useState<string | null>(
 		() => defaultExpandedId ?? ordered[0]?.id ?? null,
 	);
-
-	const toggleApprove = (id: string): void =>
-		setApproved((prev) => {
-			const next = new Set(prev);
-			if (next.has(id)) {
-				next.delete(id);
-			} else {
-				next.add(id);
-			}
-			return next;
-		});
 
 	const toggleExpand = (id: string): void => setExpanded((prev) => (prev === id ? null : id));
 
@@ -265,9 +229,7 @@ export function ReviewFieldChangeSetView({
 						key={field.id}
 						field={field}
 						tool={changeSet.tool}
-						approved={approved.has(field.id)}
 						expanded={expanded === field.id}
-						onToggleApprove={toggleApprove}
 						onToggleExpand={toggleExpand}
 					/>
 				))}
@@ -285,24 +247,6 @@ export function ReviewFieldChangeSetView({
 				}}
 			>
 				<span>+{changeSet.unchangedCount} unchanged</span>
-			</div>
-
-			{/* ── footer — per-field approve rollup (frame owns the final verdict) ── */}
-			<div
-				className="border-width-thin-t flex items-center justify-between  border-[var(--border-default)] px-[18px] py-[12px]"
-				style={{ background: "var(--surface-page)" }}
-			>
-				<span className="type-metadata  text-[var(--text-secondary)]">
-					{approved.size} of {changeSet.changed.length} fields approved
-				</span>
-				<button
-					type="button"
-					onClick={() => setApproved(new Set(changeSet.changed.map((f) => f.id)))}
-					className="type-control rounded-[var(--r-pill)] px-[12px] py-[6px]   text-[var(--text-on-accent)]"
-					style={{ background: "var(--accent-primary)" }}
-				>
-					Approve all fields
-				</button>
 			</div>
 		</div>
 	);

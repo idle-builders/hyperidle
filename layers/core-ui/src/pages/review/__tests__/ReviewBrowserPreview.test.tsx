@@ -29,26 +29,9 @@ describe("ReviewBrowserPreview canvas", () => {
 		expect(link.textContent).toContain("↗");
 	});
 
-	it("exposes a detail affordance from the payload", () => {
+	it("renders the payload's URL in the chrome bar", () => {
 		renderCanvas();
 
-		expect(screen.getByRole("button", { name: /Reload preview/i })).toBeInTheDocument();
-	});
-
-	it("renders a clickable Open link for a safe payload URL", () => {
-		renderCanvas();
-
-		const openLink = screen.getByRole("link", { name: /Open preview/i });
-		expect(openLink).toHaveAttribute("href", artifact.payload.url);
-	});
-
-	it("renders a disabled Open span for an unsafe payload URL", () => {
-		renderCanvas({
-			...artifact,
-			payload: { ...artifact.payload, url: "javascript:alert(1)" },
-		});
-
-		expect(screen.queryByRole("link", { name: /Open preview/i })).not.toBeInTheDocument();
-		expect(screen.getByText("Open")).toBeInTheDocument();
+		expect(screen.getByText(artifact.payload.url)).toBeInTheDocument();
 	});
 });

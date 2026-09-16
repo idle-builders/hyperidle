@@ -64,23 +64,6 @@ const updateItemSchema = z.object({
 export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// AU21 §9 Increment 2 — `CoreApiPort.work.findItemByReasoningMarker`'s backing
-	// route. Registered BEFORE `GET /:threadId` (a single-segment param route)
-	// so the literal `/items` segment can never be shadowed by it.
-	// GET /items?reasoningMarker=... — search items by a `reasoning` LIKE marker.
-	router.get("/items", async (c) => {
-		const reasoningMarker = c.req.query("reasoningMarker");
-		if (!reasoningMarker) {
-			const response: ApiErrorResponse = {
-				error: "reasoningMarker query param is required",
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const found = await work.list(db, "item", { marker: reasoningMarker });
-		return c.json({ items: found });
-	});
-
 	// AU21 §9 Increment 2 — `CoreApiPort.work.getItemById`'s backing route.
 	// GET /items/:id — bare item detail (no bare detail route existed before this).
 	router.get("/items/:id", async (c) => {

@@ -27,11 +27,6 @@ export interface MockKnowledgeItem {
 	timestamp: string;
 	scope: string;
 	/**
-	 * 0..100 — higher means more urgent human attention.
-	 * Server-computed in production; mock values below.
-	 */
-	attentionScore: number;
-	/**
 	 * Template-based "Why now" reason string. Max 60 chars per AC; truncated
 	 * with ellipsis in the UI when exceeded. Server emits this.
 	 */
@@ -77,7 +72,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "active",
 		timestamp: "1d ago",
 		scope: "factory",
-		attentionScore: 10,
 		whyNow: "Recently validated, no action needed",
 		content:
 			"JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes. Refresh tokens in 7 days. All tokens stored in httpOnly cookies, never localStorage.",
@@ -92,7 +86,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "active",
 		timestamp: "2d ago",
 		scope: "factory",
-		attentionScore: 12,
 		whyNow: "Applied 4 times this cycle",
 		content:
 			"Rate limiting at 100 requests/minute per API key. Sliding window algorithm. Returns 429 with Retry-After header. Exemptions for internal service accounts.",
@@ -107,7 +100,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "stale",
 		timestamp: "2w ago",
 		scope: "factory",
-		attentionScore: 68,
 		whyNow: "Contradicted by kb-c1",
 	},
 	{
@@ -116,7 +108,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "active",
 		timestamp: "3d ago",
 		scope: "factory",
-		attentionScore: 15,
 		whyNow: "Applied 12 times this cycle",
 	},
 	{
@@ -125,7 +116,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "proposed",
 		timestamp: "5h ago",
 		scope: "factory",
-		attentionScore: 32,
 		whyNow: "Pending validation from cycle review",
 	},
 	{
@@ -134,7 +124,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "proposed",
 		timestamp: "5h ago",
 		scope: "factory",
-		attentionScore: 92,
 		whyNow: "3 new observations since review",
 		content:
 			"Triage highest attention-score items first. Escalate items with conflicting observations to the System Agent.",
@@ -147,7 +136,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "stale",
 		timestamp: "2w ago",
 		scope: "factory",
-		attentionScore: 74,
 		whyNow: "Unused for 2 cycles",
 	},
 	{
@@ -156,7 +144,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "proposed",
 		timestamp: "6h ago",
 		scope: "team",
-		attentionScore: 85,
 		whyNow: "Awaiting sign-off from brand-voice agent",
 	},
 	{
@@ -165,7 +152,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "active",
 		timestamp: "1d ago",
 		scope: "team",
-		attentionScore: 40,
 		whyNow: "Used by 3 tasks this cycle",
 	},
 	{
@@ -174,7 +160,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "archived",
 		timestamp: "1mo ago",
 		scope: "team",
-		attentionScore: 5,
 		whyNow: "Archived — see replacement",
 		content: "Use `btn-primary` instead of the deprecated ghost+accent combo.",
 		originAgent: "Designer Agent",
@@ -187,7 +172,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "active",
 		timestamp: "1w ago",
 		scope: "factory",
-		attentionScore: 18,
 		whyNow: "Under amendment review",
 		content:
 			"Agents at autonomy level 3 may act without founder approval for reversible actions. Irreversible actions always require review.",
@@ -201,7 +185,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "proposed",
 		timestamp: "1d ago",
 		scope: "factory",
-		attentionScore: 78,
 		whyNow: "3 consecutive CI failures this cycle",
 		content:
 			"On 3 consecutive CI failures for the same bet: pause the agent, notify founders, queue an amendment proposal for the next review cycle.",
@@ -215,7 +198,6 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		status: "active",
 		timestamp: "2d ago",
 		scope: "factory",
-		attentionScore: 22,
 		whyNow: "Cited by 8 tasks",
 		content: "Architect agent designs high-level system architecture and reviews tradeoffs.",
 		originAgent: "Founding Team",

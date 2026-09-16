@@ -23,8 +23,8 @@
  * with `topic`.
  */
 
-import { findThread, insertThread } from "@hyperidle/conversation";
-import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { findThread } from "@hyperidle/conversation";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
@@ -37,14 +37,12 @@ import {
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type {
 	EventBus,
-	KnowledgeAccessedEvent,
 	KnowledgeArchivedEvent,
 	KnowledgeCreatedEvent,
 	KnowledgeUpdatedEvent,
 } from "@hyperidle/event-bus";
 import {
 	remove as archiveKnowledgeItem,
-	count as countKnowledgeItems,
 	create as createKnowledgeItem,
 	findOpenConflict as findOpenKnowledgeConflict,
 	GraduationNotAllowedError,
@@ -54,10 +52,8 @@ import {
 	ItemDeletedError,
 	transition as knowledgeTransition,
 	list as listKnowledgeItems,
-	recomputeAttention,
 	recordConflict as recordKnowledgeConflict,
 	reparent as reparentKnowledgeItem,
-	sweep as runKnowledgeSweep,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
@@ -316,44 +312,6 @@ const promoteSchema = z.object({
 	editor: z.string().min(1),
 });
 
-const attentionScoreSchema = z.object({
-	attentionScore: z.string().min(1),
-});
-
-/**
- * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
- * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` — the
- * exact same composition `dispatch-bindings.ts`'s own
- * `recomputeAttentionForCandidates` and (pre-migration)
- * `tool-handlers-bindings.ts`'s own `recomputeAttentionScoreForItem` already
- * perform, now wired inside core-api behind a real HTTP door instead of a
- * raw same-process DI call reaching across a Service boundary.
- */
-async function recomputeAttentionScoreForKnowledgeItem(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	knowledgeItemId: string,
-): Promise<{ readonly current: number }> {
-	const result = await recomputeAttention(
-		{
-			db,
-			eventBus,
-			work: {
-				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
-					const rows = await work.list(exec, "item", { marker });
-					return rows[0] ? { id: rows[0].id } : undefined;
-				},
-				createItem: (exec, values) => work.create(exec, "item", values),
-			},
-			conversation: { insertThread },
-		},
-		{ itemId: knowledgeItemId },
-	);
-	if (Array.isArray(result) || !("current" in result))
-		throw new Error("unexpected attention result");
-	return result;
-}
-
 /**
  * Create Hono routes for knowledge endpoints.
  * Q2: upgraded to Hono<HyperIdleEnv> to read userId from auth middleware.
@@ -385,11 +343,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json({ error: "parentKind must be task or thread", code: "INVALID_QUERY" }, 400);
 			}
 			const rows = await listKnowledgeItems(db, { byParent: { parentKind, parentId } });
-			const items = rows.map((item) => ({
-				...item,
-				attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
-			}));
-			return c.json({ items });
+			return c.json({ items: rows });
 		}
 
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
@@ -405,24 +359,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// {visibleWithSignals} applied only the Q2 half and is deleted with it).
 		const viewerTeamId = await resolveViewerTeamId(db, userId);
 		const rows = await listKnowledgeItems(db, { tree: { viewerUserId: userId, viewerTeamId } });
-		const items = rows.map((item) => ({
-			...item,
-			attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
-		}));
-
-		return c.json({ items });
+		return c.json({ items: rows });
 	});
 
-	// GET /triage-count — count of proposed items visible to the requesting user.
-	// Y4: lightweight endpoint for the sidebar badge.
-	// Must be registered before /:id to avoid route conflict.
-	router.get("/triage-count", async (c) => {
-		const userId = c.get("userId");
-		const count = await countKnowledgeItems(db, { triageVisible: userId });
-		return c.json({ count });
-	});
-
-	// GET /:id — single item, emit knowledge_accessed event
+	// GET /:id — single item
 	// Q2: returns 404 for user-scoped items not authored by the requesting user.
 	// @lore nested-knowledge-items: `relatedItems` (Backlinks) is now children
 	// ∪ siblings — the tree answers "what is near this" instead of a shared
@@ -467,17 +407,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				childrenOf: { parentId: row.id, viewerUserId: userId, viewerTeamId },
 			}),
 		]);
-
-		// O2: emit knowledge_accessed event
-		const accessedEvent: KnowledgeAccessedEvent = {
-			type: "knowledge_accessed",
-			streamId: `knowledge:${row.id}`,
-			itemId: row.id,
-			accessorKind: "human",
-			accessorId: "browser",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(accessedEvent);
 
 		// AV3: resolve scopeName — response-only derived field, never persisted.
 		const scopeName = await resolveScopeName(db, row.scopeKind, row.scopeId);
@@ -921,26 +850,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json(result);
 	});
 
-	// PATCH /:id/attention-score — wraps transition({target:"recomputeAttention",...}).
-	router.patch("/:id/attention-score", validateBody(attentionScoreSchema), async (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof attentionScoreSchema>;
-
-		await knowledgeTransition(db, id, {
-			target: "recomputeAttention",
-			attentionScore: Number(body.attentionScore),
-		});
-
-		return c.json({ ok: true });
-	});
-
-	// POST /:id/recompute-attention — the collapsed score_attention(mode:"recompute") helper.
-	router.post("/:id/recompute-attention", async (c) => {
-		const id = c.req.param("id");
-		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
-		return c.json(result);
-	});
-
 	// POST /:id/graduate — narrow transition that moves a produced item into the knowledge tree.
 	//
 	// Only allowed when:
@@ -1033,20 +942,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			}
 			throw error;
 		}
-	});
-
-	// POST /sweep — agent-callable knowledge sweep (BA9d: replaces dead builtin routine path).
-	// kind="autoPromotion": promote proposed items that meet the repetition threshold.
-	// kind="stale": mark active items that have not been referenced recently as stale.
-	const sweepBodySchema = z.object({ kind: z.enum(["autoPromotion", "stale"]) });
-	router.post("/sweep", validateBody(sweepBodySchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof sweepBodySchema>;
-		const result =
-			body.kind === "autoPromotion"
-				? await runKnowledgeSweep(db, eventBus, "autoPromotion")
-				: await runKnowledgeSweep(db, eventBus, "stale", { nowMs: Date.now() });
-		const processed = "promotedIds" in result ? result.promotedIds.length : result.markedIds.length;
-		return c.json({ kind: body.kind, processed });
 	});
 
 	return router;

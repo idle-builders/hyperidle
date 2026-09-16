@@ -512,7 +512,6 @@ function SessionStream({
 
 // ── Composer ─────────────────────────────────────────────────────────
 
-const ICON_PLUS = "M7.25 2h1.5v5.25H14v1.5H8.75V14h-1.5V8.75H2v-1.5h5.25V2z";
 const ICON_SEND = "M2 8l12-6-5.2 12-1.8-4.8L2 8z";
 
 function ComposerGlyph({ d, size = 14 }: { d: string; size?: number }): JSX.Element {
@@ -570,15 +569,6 @@ function SessionComposer({
 			className="border-width-thin rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
-				{/* eslint-disable-next-line design/no-op-button -- Insert opens an attachment picker; AM3 scope covers the shell only, action is a future affordance -- tracked in #429 */}
-				<button
-					type="button"
-					aria-label="Insert"
-					aria-haspopup="menu"
-					className="border-width-thin flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--border-default)] text-[var(--text-secondary)]   hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
-				>
-					<ComposerGlyph d={ICON_PLUS} size={14} />
-				</button>
 				<textarea
 					value={text}
 					onChange={(e) => setText(e.target.value)}

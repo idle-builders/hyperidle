@@ -22,7 +22,6 @@ export interface KnowledgeTreeItem {
 	scopeId?: string | null;
 	createdAt: string;
 	updatedAt: string;
-	attentionScore?: number | null;
 	parentKind?: string | null;
 	parentId?: string | null;
 }

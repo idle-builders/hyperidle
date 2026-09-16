@@ -45,7 +45,7 @@ Each item here only re-points existing screens at `call` and `invariants`.
 
 | ID | Title | Type | Complexity | Depends | Status |
 |---|---|---|---|---|---|
-| BC1 | Delete: 22 routes, 8 events, the attention engine, the stale events fork, dead controls | backend + frontend | feature | — | planned — ready to run; plan complete, hand to a builder via `/pipeline` |
+| BC1 | Delete: 14 routes, 7 events, the attention engine, the stale events fork, dead controls | backend + frontend | feature | — | in review — PR #552, CI green at head `18883167e`; open, not merged. Scope cut from 22 routes and 8 events by founder ruling: delete means unused or unreachable, so seven still-called routes stay, and `notification` stays for the item that replaces its queue. |
 | BC2 | The action list, proven end to end on task (shape, `changes` table, three loops, lint rule) | backend + frontend | suite | BC1 | planned |
 | BC3 | Thread as a module: search · open · send a message · adjust; `items` becomes a message kind | backend + frontend | suite | BC2 | planned |
 | BC4 | Document as a module: search · open · edit; knowledge item renamed; tree, status, merge, split as edit | backend + frontend | suite | BC3 | planned |

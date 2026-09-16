@@ -7,8 +7,7 @@
 //   L2  the sorted list   — 4 flagged pinned to top (red), routine collapsed to
 //                           ONE group row each ("18 auto-resolved", "19 drafted").
 //   L3  the expanded item — a flagged ticket opened: customer card + the agent's
-//                           drafted reply rendered + per-item Approve / Edit / Hold.
-//   plus a batch verdict  — "Approve all except flagged" (the 37 routine in one tap).
+//                           drafted reply rendered for read-through.
 //
 // Tool-grounded (Zendesk mini-logo + real-shaped fixture). Hearth + CP1 tokens by
 // NAME only; no hex lives here (brand color is owned by ToolLogo). 6px grid, pill
@@ -20,7 +19,7 @@
 // review frame owns the final verdict.
 
 import { type JSX, useState } from "react";
-import { Button, StatusChip } from "../../ds";
+import { StatusChip } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isNumber, isPlainObject } from "./payload-guard";
 import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
@@ -203,14 +202,12 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 				) : null}
 			</section>
 
-			{/* batch verdict — clear the routine 37 in one tap, leave the 4 for judgment */}
+			{/* batch rollup line — routine count without a batch-verdict action; the
+			    review frame owns the single Approve button (ReviewComposition.test.tsx). */}
 			<div className="flex items-center justify-between gap-[12px] mt-[12px] mb-[6px] px-[3px]">
 				<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 					{batch.needsYou} flagged · {routineCount} routine
 				</span>
-				<Button variant="secondary" size="sm">
-					Approve all except flagged ({routineCount})
-				</Button>
 			</div>
 
 			{/* L2 — flagged items pinned to the top (red), each one row */}
@@ -325,21 +322,6 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 											<span className="type-metadata   text-[var(--text-secondary)]">
 												{item.draftNote}
 											</span>
-										</div>
-
-										{/* per-item verdict — Approve / Edit / Hold */}
-										<div className="flex items-center gap-[9px]">
-											<Button variant="primary" size="sm">
-												{item.draftedReply ? "Approve & send" : "Take over"}
-											</Button>
-											{item.draftedReply ? (
-												<Button variant="secondary" size="sm">
-													Edit
-												</Button>
-											) : null}
-											<Button variant="ghost" size="sm">
-												Hold
-											</Button>
 										</div>
 									</div>
 								) : null}

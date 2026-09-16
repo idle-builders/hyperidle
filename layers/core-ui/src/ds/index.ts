@@ -20,8 +20,6 @@ export type {
 	BlockActionsPopoverProps,
 } from "./BlockActionsPopover.js";
 export { BlockActionsPopover } from "./BlockActionsPopover.js";
-export type { BlockHandleProps } from "./BlockHandle.js";
-export { BlockHandle } from "./BlockHandle.js";
 // ── T1: BodyEditor — TipTap WYSIWYG editor ──
 export type { BodyEditorProps } from "./BodyEditor.js";
 export { BodyEditor } from "./BodyEditor.js";

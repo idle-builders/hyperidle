@@ -114,7 +114,6 @@ interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
 	readonly org: {
 		getTeamById(teamId: string): Promise<SeamTeamView | undefined>;
 		getTeamMembersByTeamId(teamId: string): Promise<{ readonly id: string } | undefined>;
-		getTeamMembersById(teamMembersId: string): Promise<{ readonly teamId: string } | undefined>;
 		createTeam(input: {
 			readonly id: string;
 			readonly name: string;
@@ -239,20 +238,6 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 		const found = await port.org.getTeamMembersByTeamId(teamId);
 
 		expect(found?.id).toBe(teamMembersId);
-	});
-
-	test("getTeamMembersById reaches the real second-hop route (keyed by teamMembers.id)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-org-key-membersbyid");
-		const { teamId, teamMembersId } = await seedTeam(db, { suffix: "membersbyid1" });
-		await seedAgent(db, "agent-org-membersbyid1");
-
-		const port = buildSeamPort("agent-org-membersbyid1", app);
-		const found = await port.org.getTeamMembersById(teamMembersId);
-
-		expect(found?.teamId).toBe(teamId);
 	});
 
 	test("createTeam reaches the real atomic team+teamMembers insert route (real rows land in the DB, no scaffolding side effects)", async ({

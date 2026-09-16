@@ -254,14 +254,6 @@ export async function fireGenericRoutine(
 		lastRunAt,
 		nextRunAt: nextRunAt || null,
 	});
-	eventBus.emit({
-		type: "routine_fired",
-		streamId: `routine:${routine.id}`,
-		routineId: routine.id,
-		agentId: bakedRequest.defaultAgentId,
-		timestamp: Date.now(),
-	});
-
 	return { fired: true, runId };
 }
 
@@ -291,8 +283,6 @@ function isRoutineSourceKind(k: string | undefined): boolean {
  * origin-tracking through every event contract.
  */
 async function originRoutineId(db: HyperIdleDb, event: DomainEvent): Promise<string | null> {
-	if (event.type === "routine_fired") return event.routineId;
-
 	const sourceKind = "sourceKind" in event ? event.sourceKind : undefined;
 	if (!isRoutineSourceKind(sourceKind)) return null;
 
@@ -338,7 +328,7 @@ async function assembleTriggerEvent(
 	const rec = event as unknown as Record<string, unknown>;
 
 	// Some events carry `at` (ISO-8601 string) rather than `timestamp` (number).
-	// work_selection_requested, team_created, agent_added, user_created use `at`.
+	// team_created, agent_added, user_created use `at`.
 	const rawTimestamp =
 		typeof rec.timestamp === "number"
 			? rec.timestamp
@@ -426,32 +416,13 @@ async function assembleTriggerEvent(
 		});
 	}
 
-	// routine_fired carries both routineId and agentId. The primary entity is the
-	// routine (what fired), not the agent (who owns it). Dispatch by event type to
-	// prevent agentId winning in the field-priority scan below.
-	// @lore BA9c: routineId stays generic — a routine waking about another routine
-	//   is thin by nature; no shape richer than {entityKind, entityId} is warranted.
-	//   Do not promote to a kind:"routine" subject.
-	if (event.type === "routine_fired" && typeof rec.routineId === "string") {
-		const routineActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
-		return withTransition({
-			...base,
-			subject: {
-				kind: "generic",
-				entityKind: "routine",
-				entityId: rec.routineId,
-				...(routineActor !== undefined ? { actorId: routineActor } : {}),
-			},
-		});
-	}
-
 	// ── STEP 2: Field-priority scan for remaining events ─────────────────────────
-	// Session and routine_fired events are already dispatched above.
+	// Session events are already dispatched above.
 	// Safe to check taskId now — no session event reaches here.
 	// @lore BB1: betId removed from priority chain — bet is now a root task.
 	// Priority: taskId → threadId → itemId → sessionId → agentId → teamId → userId
 
-	// Task subject: task_state_changed, dependency_met
+	// Task subject: task_state_changed
 	const taskId = typeof rec.taskId === "string" ? rec.taskId : null;
 	if (taskId) {
 		const task = await ports.work.getTaskById(db, taskId);
@@ -484,7 +455,7 @@ async function assembleTriggerEvent(
 	// task_state_changed; the task subject above handles them.
 
 	// Thread events: thread_created, thread_message_appended, thread_resolved,
-	//               thread_reopened, thread_archived
+	//               thread_reopened
 	if (typeof rec.threadId === "string") {
 		const thread = await ports.conversation.findThreadById(db, rec.threadId);
 		if (thread) {
@@ -610,7 +581,7 @@ async function assembleTriggerEvent(
 		return withTransition({ ...base, subject: genericSubject("agent", rec.agentId) });
 	}
 
-	// Team events: team_created, work_selection_requested
+	// Team events: team_created
 	// (agent_added handled above via agentId; team_created has agentIds[] not agentId)
 	if (typeof rec.teamId === "string") {
 		if (ports.getTeamById) {

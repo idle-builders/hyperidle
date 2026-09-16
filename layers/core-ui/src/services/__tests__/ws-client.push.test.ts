@@ -3,7 +3,7 @@
  *
  * `ws-client.ts`'s `messageMatchesTopic` matches a PUSH envelope
  * (`{ type: "update", topic, kind, data }` — see `ws-connection-hub.ts` +
- * `routes/threads.ts` + `work-state-push-gateway.ts`) by its own `topic`
+ * `routes/threads.ts`) by its own `topic`
  * field — a message for "thread:thr-2" must never reach a "thread:thr-1"
  * subscriber's handler. This supersedes the old `{ type: "invalidate", … }`
  * ping (founder: "there is no refetch … core submits the changed version").
@@ -81,10 +81,10 @@ describe("ws-client — push envelope topic matching", () => {
 	it("dispatches a push envelope only to subscribers of its own `topic` field (conversations)", async () => {
 		const { getWsClient } = await import("../ws-client.js");
 		const convHandler = vi.fn();
-		const workHandler = vi.fn();
+		const threadHandler = vi.fn();
 		const client = getWsClient();
 		client.subscribe("conversations", convHandler);
-		client.subscribe("work", workHandler);
+		client.subscribe("thread:thr-9", threadHandler);
 
 		const socket = await connectAndOpen();
 
@@ -98,7 +98,7 @@ describe("ws-client — push envelope topic matching", () => {
 		});
 
 		expect(convHandler).toHaveBeenCalledTimes(1);
-		expect(workHandler).not.toHaveBeenCalled();
+		expect(threadHandler).not.toHaveBeenCalled();
 	});
 
 	it("dispatches a push envelope only to the matching thread:<id> subscriber, never a sibling thread", async () => {

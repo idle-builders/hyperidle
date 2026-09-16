@@ -19,7 +19,7 @@
  *     only caller was the task-free-session branch.
  *
  * What remains is what this file was named for: thread topics. Core's socket
- * serves `conversations`, `work` and `thread:<id>`; `agent-orchestration` serves
+ * serves `conversations` and `thread:<id>`; `agent-orchestration` serves
  * `session:<id>` on its own socket, authorized from its own table
  * (`agent-orchestration/src/services/session-stream-hub.ts`).
  */
@@ -62,7 +62,7 @@ export interface SubscribeAuthorizerDeps {
 /**
  * Build an authorizer that allows:
  *  - any authenticated identity to subscribe to global topics
- *    (`conversations`, `work`)
+ *    (`conversations`)
  *  - only thread participants to subscribe to `thread:<id>` topics
  *
  * Everything else — including `session:<id>`, which this socket no longer
@@ -79,7 +79,7 @@ export function createDbSubscribeAuthorizer(
 	db: HyperIdleDb,
 	deps: SubscribeAuthorizerDeps,
 ): SubscribeAuthorizer {
-	const GLOBAL_TOPICS = new Set(["conversations", "work"]);
+	const GLOBAL_TOPICS = new Set(["conversations"]);
 	async function senderInThread(senderId: string, threadId: string): Promise<boolean> {
 		const row = await deps.conversation.getThreadById(db, threadId);
 		if (!row) return false;

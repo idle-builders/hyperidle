@@ -120,20 +120,4 @@ describe("AD5 — AC-4: Sidebar conversations blocking badge", () => {
 		// Should render without error when prop is omitted
 		expect(() => render(<Sidebar {...defaultProps} />)).not.toThrow();
 	});
-
-	it("knowledge triage badge and conversations badge are independent", () => {
-		render(<Sidebar {...defaultProps} conversationsBlockingCount={3} knowledgeTriageCount={5} />);
-
-		// Both badges should be present
-		const convBadge = screen.getByTestId("conversations-blocking-badge");
-		const knowledgeBadge = screen.queryByTestId("knowledge-triage-badge");
-
-		expect(convBadge).toBeInTheDocument();
-		// Knowledge badge also renders when knowledgeTriageCount > 0
-		expect(knowledgeBadge).toBeInTheDocument();
-
-		// They show different counts
-		expect(convBadge).toHaveTextContent("3");
-		expect(knowledgeBadge).toHaveTextContent("5");
-	});
 });

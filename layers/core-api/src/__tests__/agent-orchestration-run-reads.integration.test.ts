@@ -17,11 +17,7 @@
  */
 
 import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
-import type {
-	AgentRunActiveCountsResponse,
-	AgentRunLatestOutcomesResponse,
-	AgentRunsResponse,
-} from "@hyperidle/domain-model";
+import type { AgentRunActiveCountsResponse, AgentRunsResponse } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
 
@@ -216,27 +212,6 @@ describe("agent-orchestration run reads", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as AgentRunActiveCountsResponse;
 		expect(body.counts).toEqual({ "agent-1": 1 });
-	});
-
-	test("latest outcome per task, newest run wins, unknown task absent", async ({ db, app }) => {
-		await seed(db);
-		const res = await app.request(
-			"/api/agent-orchestration/runs/latest-outcomes?task_ids=task-1,task-2,task-none",
-			{ headers: authHeaders() },
-		);
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as AgentRunLatestOutcomesResponse;
-		// task-1's newest run is run-b (active, no outcome yet) — null, not "completed".
-		expect(body.outcomes).toEqual({ "task-1": null, "task-2": "crashed" });
-	});
-
-	test("an empty task_ids list returns an empty map", async ({ db, app }) => {
-		await seed(db);
-		const res = await app.request("/api/agent-orchestration/runs/latest-outcomes?task_ids=", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		expect(((await res.json()) as AgentRunLatestOutcomesResponse).outcomes).toEqual({});
 	});
 
 	test("the run reads are read-only — POST is not served", async ({ db, app }) => {

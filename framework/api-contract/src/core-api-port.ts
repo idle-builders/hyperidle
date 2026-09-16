@@ -184,7 +184,6 @@ export interface CoreApiWorkPort {
 	getItemById(id: string): Promise<ItemView | undefined>;
 	updateItemById(id: string, updates: UpdateItemRequest): Promise<void>;
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
-	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
 	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;
 }
 
@@ -264,21 +263,6 @@ export interface InsertMessageResponse {
 	readonly id: string;
 }
 
-/** One inbox message's fields a `CoreApiPort` consumer relies on (mirrors the route's `rowToMessage` output). */
-export interface ConversationInboxMessageView {
-	readonly id: string;
-	readonly senderId: string;
-	readonly threadId: string;
-	readonly type: string;
-	readonly payload: Record<string, unknown>;
-}
-
-/** One inbox row — mirrors `GET /threads/inbox`'s response element. */
-export interface ConversationInboxRowView {
-	readonly participants: readonly string[];
-	readonly message: ConversationInboxMessageView;
-}
-
 /** Mirrors `POST /threads/direct`'s response body. */
 export interface DirectThreadResponse {
 	readonly id: string;
@@ -288,7 +272,7 @@ export interface DirectThreadResponse {
  * The agent's tool-facing `conversation` capability family (Decision C,
  * Increment 2's conversation wave) — `edge-disposition.md`'s
  * `conversation.{findThread, insertThread, insertMessage, updateThread,
- * findOrCreateDirectThread, listInbox}` row, plus `dispatch`'s own
+ * findOrCreateDirectThread}` row, plus `dispatch`'s own
  * assistant-turn `insertMessage`/`updateThread` writes (same two methods,
  * reused — see `core-api-port-composition.ts`'s `buildCoreApiPort`).
  */
@@ -297,7 +281,6 @@ export interface CoreApiConversationPort {
 	insertThread(input: InsertThreadRequest): Promise<InsertThreadResponse>;
 	updateThread(id: string, updates: UpdateThreadRequest): Promise<void>;
 	insertMessage(input: InsertMessageRequest): Promise<InsertMessageResponse>;
-	listInboxBySenderExclusion(limit: number): Promise<ReadonlyArray<ConversationInboxRowView>>;
 	findOrCreateDirectThread(recipientId: string): Promise<DirectThreadResponse>;
 	getFirstThreadByHost(
 		hostKind: string,
@@ -314,11 +297,6 @@ export interface OrgTeamView {
 /** Mirrors `GET /org/teams/:teamId/membership`'s response (`teamMembers` row keyed by `teams.id`). */
 export interface OrgTeamMembershipView {
 	readonly id: string;
-}
-
-/** Mirrors `GET /org/team-members/:teamMembersId`'s response — the AK4 two-hop resolution's second hop. */
-export interface OrgTeamMembersByIdView {
-	readonly teamId: string;
 }
 
 /**
@@ -391,7 +369,6 @@ export interface ScaffoldFromRequestInput {
 export interface CoreApiOrgPort {
 	getTeamById(teamId: string): Promise<OrgTeamView | undefined>;
 	getTeamMembersByTeamId(teamId: string): Promise<OrgTeamMembershipView | undefined>;
-	getTeamMembersById(teamMembersId: string): Promise<OrgTeamMembersByIdView | undefined>;
 	createTeam(input: CreateOrgTeamRequest): Promise<void>;
 	updateTeam(teamId: string, patch: UpdateOrgTeamRequest): Promise<void>;
 	resolveReviewRecipientsForItem(ctx: ReviewRecipientsQuery): Promise<readonly string[]>;
@@ -633,18 +610,6 @@ export interface CoreApiKnowledgePort {
 	): Promise<KnowledgeConflictView | undefined>;
 	createKnowledgeConflict(input: CreateKnowledgeConflictRequest): Promise<void>;
 	promoteKnowledgeItem(input: PromoteKnowledgeItemRequest): Promise<PromoteKnowledgeItemResult>;
-	upsertKnowledgeAppProjectionAttentionScore(
-		knowledgeItemId: string,
-		attentionScore: string,
-	): Promise<void>;
-	/**
-	 * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
-	 * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` on
-	 * the core-api side of the seam (`POST /knowledge/:id/recompute-attention`)
-	 * — the seam itself never threads a same-process `EventBus` handle over
-	 * the HTTP boundary.
-	 */
-	recomputeAttentionScoreForItem(knowledgeItemId: string): Promise<{ readonly current: number }>;
 	mergeKnowledgeItem(
 		targetId: string,
 		sourceId: string,
@@ -658,16 +623,6 @@ export interface CoreApiKnowledgePort {
 		}>,
 		updatedBy: string,
 	): Promise<ReadonlyArray<{ readonly id: string }>>;
-	/**
-	 * Run a knowledge sweep.
-	 * kind="autoPromotion" promotes provisional items meeting the repetition threshold.
-	 * kind="stale" marks active items not referenced recently as stale.
-	 * @lore BA9d: replaces the dead builtin-routine sweep path; exposed as an agent tool
-	 * so the Librarian can trigger sweeps from plugin routines.
-	 */
-	runKnowledgeSweep(
-		kind: "autoPromotion" | "stale",
-	): Promise<{ readonly kind: string; readonly processed: number }>;
 }
 
 /**

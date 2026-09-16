@@ -41,8 +41,6 @@ const LATER = "2026-04-28T10:05:00.000Z";
 const FOUNDER_ID = "u-founder";
 const AGENT_ID = "a-aria";
 
-// identities is NOT returned by GET /api/threads/:id — only by GET /api/threads/coach
-
 interface BaseMessageFixture {
 	id: string;
 	threadId: string;

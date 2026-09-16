@@ -318,13 +318,8 @@ export type KnowledgeItemView = "summary" | "full";
  * Only declare NEW fields from knowledgeAppProjection here.
  */
 export interface KnowledgeItemWithProjection extends KnowledgeItem {
-	attentionScore?: string | null;
 	confidence?: string | null;
 	meta?: string | null;
-	// @lore AU44: attentionScore/confidence/meta are intentionally retained in this
-	// interface. The PLUGIN attention service writes them via transition({recomputeAttention}).
-	// They are removed from CreateKnowledgeItemInput/UpdateKnowledgeItemInput (callers
-	// cannot write them) but stay readable here so the PLUGIN can read + return them.
 }
 
 /** One tree child — the shape `KnowledgeDetail`'s "children" list and the tree read need. */
@@ -379,10 +374,6 @@ function mergeWithProjection(
 		// (e.g. minimal test fixtures, or items created before the projection column existed).
 		// Fall back to the kernel's scopeId so resolveScopeName receives the real value.
 		scopeId: projection.scopeId ?? item.scopeId,
-		// @lore AU44 batch 4: attentionScore stays readable per the KnowledgeItemWithProjection
-		// interface lore — the PLUGIN attention service writes it, callers may read it.
-		// Removed from Create/UpdateKnowledgeItemInput (callers cannot write it).
-		attentionScore: projection.attentionScore,
 		confidence: projection.confidence,
 		meta: projection.meta,
 	};
@@ -1528,11 +1519,6 @@ export type PromoteTransitionResult =
 export function transition(
 	db: HyperIdleDb,
 	id: string,
-	ctx: { readonly target: "recomputeAttention"; readonly attentionScore: number },
-): Promise<void>;
-export function transition(
-	db: HyperIdleDb,
-	id: string,
 	ctx: {
 		readonly target: "promote";
 		readonly fromStatus: string;
@@ -1563,7 +1549,6 @@ export async function transition(
 	db: HyperIdleDb,
 	id: string,
 	ctx:
-		| { readonly target: "recomputeAttention"; readonly attentionScore: number }
 		| {
 				readonly target: "promote";
 				readonly fromStatus: string;
@@ -1580,26 +1565,8 @@ export async function transition(
 				}>;
 				readonly updatedBy: string;
 		  },
-	// biome-ignore lint/suspicious/noConfusingVoidType: must match the first overload's `Promise<void>` exactly, or TS2394 (overload/implementation mismatch) fires — `undefined` is not interchangeable with `void` here.
-): Promise<PromoteTransitionResult | void | KnowledgeItem | KnowledgeItem[]> {
+): Promise<PromoteTransitionResult | KnowledgeItem | KnowledgeItem[]> {
 	switch (ctx.target) {
-		case "recomputeAttention": {
-			// Projection-only atomic upsert: computed scores are derived state, not
-			// canonical knowledge edits. Deliberately no item version/update timestamp
-			// change and no knowledge_edit_log entry.
-			await db
-				.insert(knowledgeAppProjection)
-				.values({
-					id: generateId(),
-					knowledgeItemId: id,
-					attentionScore: String(ctx.attentionScore),
-				})
-				.onConflictDoUpdate({
-					target: knowledgeAppProjection.knowledgeItemId,
-					set: { attentionScore: String(ctx.attentionScore) },
-				});
-			return;
-		}
 		case "promote": {
 			const { fromStatus, toStatus, reason, editor } = ctx;
 			const isoNow = new Date().toISOString();

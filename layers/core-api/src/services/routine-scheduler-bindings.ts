@@ -24,14 +24,13 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
-import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
 	assembleSessionKnowledge,
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getRoutinePrompt,
-	recomputeAttention,
 	sweep,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
@@ -45,36 +44,6 @@ import {
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-
-/**
- * @lore AU19 Increment 3h (relocated from `dispatch-bindings.ts`, AU21 §9
- * Increment 4): collapses `knowledge-promotion`'s former
- * `buildAttentionService({db, eventBus, work, review}).recomputeScope(filter)`
- * wiring into a single bound call.
- */
-async function recomputeAttentionForCandidates(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	candidateIds: readonly string[],
-) {
-	const result = await recomputeAttention(
-		{
-			db,
-			eventBus,
-			work: {
-				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
-					const rows = await work.list(exec, "item", { marker });
-					return rows[0] ? { id: rows[0].id } : undefined;
-				},
-				createItem: (exec, values) => work.create(exec, "item", values),
-			},
-			conversation: { insertThread },
-		},
-		{ filter: { ids: candidateIds as string[] } },
-	);
-	if (!("ok" in result)) throw new Error("unexpected attention result");
-	return result;
-}
 
 /**
  * AU31 §3.2 — builds `RoutineSchedulerPorts` for ONE composition's port.
@@ -116,7 +85,6 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
 			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
 				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
-			recomputeAttentionForCandidates,
 			// BA9c: getItemById — knowledge item for knowledge_* events.
 			getItemById: async (db, id) => {
 				const item = await getKnowledgeItem(db, id);

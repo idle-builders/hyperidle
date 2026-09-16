@@ -107,17 +107,9 @@ export interface RoutineSchedulerPorts {
 			thresholdMs: number | undefined,
 			options: { readonly silent: boolean },
 		): Promise<{ readonly markedIds: readonly string[] }>;
-		recomputeAttentionForCandidates(
-			db: HyperIdleDb,
-			eventBus: EventBus,
-			candidateIds: readonly string[],
-		): Promise<
-			| { readonly ok: true }
-			| { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
-		>;
 		/**
 		 * BA9c: Load a knowledge item row for trigger event subject assembly.
-		 * Called for knowledge_created/updated/archived/accessed events.
+		 * Called for knowledge_created/updated/archived events.
 		 */
 		getItemById(
 			db: HyperIdleDb,

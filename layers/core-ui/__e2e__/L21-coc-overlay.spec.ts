@@ -101,16 +101,6 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 			return;
 		}
 
-		// GET /api/threads/coach — resolves the coach thread.
-		if (url.includes("/api/threads/coach")) {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(COACH_THREAD_FIXTURE),
-			});
-			return;
-		}
-
 		// GET /api/threads?... — thread list (Conversations submenu, useHostThread).
 		if (url.includes("/api/threads?") || url.match(/\/api\/threads$/)) {
 			await route.fulfill({
@@ -122,8 +112,7 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 		}
 
 		// GET /api/threads/:id — individual thread detail.
-		if (url.match(/\/api\/threads\/[^/]+$/) && !url.includes("/coach")) {
-			// @lore AD8a: /api/threads/coach path stays; route renamed in AD8b
+		if (url.match(/\/api\/threads\/[^/]+$/)) {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",

@@ -9,7 +9,7 @@
  * 2. Kernel table columns stripped (knowledgeItems, tasks, sessions, items, artifacts)
  * 3. Knowledge route URL shape changed (/:layer/... → /:id or /)
  * 4. Route purity: no routeToFounder/routeItem/createRelevanceService inline calls
- * 5. Knowledge events emitted correctly (knowledge_created, knowledge_accessed, etc.)
+ * 5. Knowledge events emitted correctly (knowledge_created, knowledge_updated, etc.)
  * 6. FK cascade delete on extension tables
  * 7. Status simplified to draft | active | archived
  */
@@ -606,39 +606,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 				(e) => (e as Record<string, unknown>).type === "knowledge_created",
 			);
 			expect(knowledgeCreated).toHaveLength(1);
-			vi.unstubAllEnvs();
-		});
-
-		test("GET /api/knowledge/:id emits 'knowledge_accessed' event", async ({ app, eventBus }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			// Create item first
-			const createRes = await app.request("/api/knowledge", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					topic: "testing",
-					title: "Access Event",
-					body: "Body.",
-					format: "markdown",
-					scopeKind: "factory",
-					updatedBy: "human",
-				}),
-			});
-			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created.id as string;
-
-			const events: unknown[] = [];
-			eventBus.on("*", (e: DomainEvent) => events.push(e));
-
-			const getRes = await app.request(`/api/knowledge/${id}`, {
-				headers: authHeaders(),
-			});
-			expect(getRes.status).toBe(200);
-
-			const accessedEvents = events.filter(
-				(e) => (e as Record<string, unknown>).type === "knowledge_accessed",
-			);
-			expect(accessedEvents).toHaveLength(1);
 			vi.unstubAllEnvs();
 		});
 

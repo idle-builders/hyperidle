@@ -298,15 +298,6 @@ export const directThreadBodySchema = z.object({
 	recipientId: z.string().min(1),
 });
 
-/** AU21 §9 Increment 2: `GET /threads/inbox`'s validated query params. */
-export const inboxQuerySchema = z.object({
-	limit: z
-		.string()
-		.optional()
-		.transform((v) => (v ? Number(v) : 50))
-		.pipe(z.number().int().min(1).max(200)),
-});
-
 export const listThreadsQuerySchema = z.object({
 	host_kind: z.enum(HOST_KINDS).optional(),
 	host_id: z.string().optional(),

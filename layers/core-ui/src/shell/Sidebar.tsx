@@ -110,12 +110,6 @@ export interface SidebarProps {
 	userInitials?: string;
 
 	/**
-	 * Y4: count of items needing triage (draft + needs_human). When > 0,
-	 * a numeric badge is rendered adjacent to the Knowledge section header.
-	 */
-	knowledgeTriageCount?: number;
-
-	/**
 	 * AD5: count of threads with unresolved reviews (blocking).
 	 * When > 0, a numeric badge renders adjacent to the Conversations header.
 	 */
@@ -601,7 +595,6 @@ export function Sidebar({
 	onSettingsClick,
 	settingsOpen,
 	onSearchClick,
-	knowledgeTriageCount,
 	conversationsBlockingCount,
 	unseenNotificationCount,
 	onNotificationClick,
@@ -791,13 +784,7 @@ export function Sidebar({
 						}}
 						href={VIEW_HREFS[view]}
 						drawerMode={drawerMode}
-						badgeCount={
-							view === "conversations"
-								? conversationsBlockingCount
-								: view === "knowledge"
-									? knowledgeTriageCount
-									: undefined
-						}
+						badgeCount={view === "conversations" ? conversationsBlockingCount : undefined}
 					/>
 				))}
 			</nav>

@@ -26,7 +26,6 @@ export { roleLabel } from "./agent-roles.js";
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
 	AgentRunActiveCountsResponse,
-	AgentRunLatestOutcomesResponse,
 	AgentRunSummary,
 	AgentRunsResponse,
 } from "./agent-run-view.js";
@@ -87,12 +86,6 @@ export {
 	TaskDependencyNotFoundError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
-// Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
-// Callers import event types from @hyperidle/event-bus.
-// SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
-export type { SessionOutcome } from "./events.js";
-export type { HintId } from "./hint.js";
-export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 // HyperIdleEnv, ValidatedJson, constantTimeStringEqual, validateBody: server-only (node:crypto).
 // Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
@@ -229,6 +222,11 @@ export {
 } from "./thread.js";
 // artifactDisplayTitle, summarizePreview MERGE → core-ui/ds/artifact-display-helpers.ts (AU44 batch 8)
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
+// Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
+// Callers import event types from @hyperidle/event-bus.
+// SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
+// @lore BC1: lives in types.js now — the domain-model events fork it used to
+// live in (events.js) is deleted (dead: zero importers outside its own tests).
 export type {
 	AgentCategory,
 	HarnessType,
@@ -242,6 +240,7 @@ export type {
 	ModelTier as MoneyModelTier,
 	OrgEdgeMechanism,
 	ScopeKind,
+	SessionOutcome,
 	TaskOutcomeVerdict,
 	TaskState,
 	TriggerType,

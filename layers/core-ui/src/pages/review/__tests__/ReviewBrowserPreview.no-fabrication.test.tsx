@@ -31,13 +31,12 @@ const SENTINEL_PAYLOAD: BrowserPreviewPayload = {
 	previewBody: "Zx preview body sentence about the deployed page",
 };
 
-// Fixed interface chrome: review-frame verdict controls, reused across every
-// preview regardless of what page is under review. "Open"/"in" is
-// CanvasSourceHeader's own "Open in {app}" jump-off link — untouched shared
-// chrome, present verbatim in every sibling no-fabrication CHROME list
-// (ReviewMetricsMoved, ReviewBatch, ReviewCodeDiff, ReviewFieldChangeSet,
-// ReviewRenderedInContext, ReviewActionOperation all include both tokens).
-const CHROME = ["Approve", "Request", "changes", "Reload", "preview", "Open", "in"];
+// Fixed interface chrome: "Open"/"in" is CanvasSourceHeader's own
+// "Open in {app}" jump-off link — untouched shared chrome, present verbatim
+// in every sibling no-fabrication CHROME list (ReviewMetricsMoved,
+// ReviewBatch, ReviewCodeDiff, ReviewFieldChangeSet, ReviewRenderedInContext,
+// ReviewActionOperation all include both tokens).
+const CHROME = ["Open", "in"];
 
 describe("ReviewBrowserPreview — no fabrication", () => {
 	it("does not invent a nav bar the payload never supplied", () => {

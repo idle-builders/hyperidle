@@ -1191,6 +1191,36 @@ export const ATTACKS: readonly Attack[] = [
 		},
 		expect: { sort: "clean", file: a.layerEntryControl },
 	},
+
+	// --- retired-surfaces-absent -------------------------------------------------------------
+
+	{
+		id: "retired-surfaces-banned-token",
+		detail:
+			"a production file that introduces `createCoachRoutes` — a symbol tied to the deleted /coach route — is reported",
+		rules: ["retired-surfaces-absent"],
+		mutate: {
+			[a.layerEntry]: (existing) =>
+				`${existing}export const attackRetiredSurface = { createCoachRoutes: null };\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: a.layerEntry,
+			ruleId: "retired-surfaces-absent",
+			messageContains: "createCoachRoutes",
+		},
+	},
+	{
+		id: "retired-surfaces-control",
+		detail:
+			"a new production file that names only live symbols is not reported by retired-surfaces-absent",
+		rules: ["retired-surfaces-absent"],
+		// Overlay a new file — no conflict with the attack case's layerEntry mutation.
+		overlay: {
+			[`${a.serviceDir}/attack-retired-surface-control.ts`]: `export const liveRef = { createThreadRoutes: null };\n`,
+		},
+		expect: { sort: "clean", file: `${a.serviceDir}/attack-retired-surface-control.ts` },
+	},
 ];
 
 // ---------------------------------------------------------------------------------------------

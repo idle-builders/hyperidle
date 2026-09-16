@@ -34,10 +34,6 @@ vi.mock("../../shell/ToastRegion.js", () => ({
 	useToast: () => ({ showToast: vi.fn() }),
 }));
 
-vi.mock("../../hooks/useHints", () => ({
-	useHint: vi.fn().mockReturnValue({ visible: false, testId: "hint", copy: "", dismiss: vi.fn() }),
-}));
-
 vi.mock("../../hooks/useTeamAgents", () => ({
 	useTeamAgents: vi.fn().mockReturnValue({ agents: new Map(), refetch: vi.fn() }),
 }));

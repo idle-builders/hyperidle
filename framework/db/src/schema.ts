@@ -1019,7 +1019,6 @@ export const knowledgeAppProjection = pgTable(
 			.unique()
 			.references(() => knowledgeItems.id, { onDelete: "cascade" }),
 		scopeId: text("scope_id"),
-		attentionScore: text("attention_score"),
 		relevanceScore: text("relevance_score"),
 		confidence: text("confidence"),
 		citationCount: integer("citation_count"),
@@ -1345,29 +1344,6 @@ export const configurationOverrides = pgTable(
 		),
 		check("configuration_overrides_state_ck", sql`${table.state} IN ('active', 'deleted')`),
 	],
-);
-
-// --- P5: First-time hint progress ---
-
-/**
- * Records which first-time hints each user has explicitly dismissed.
- * Composite PK on (userId, hintId) prevents duplicate dismissals.
- * Cascade delete ensures rows are cleaned up when the user is deleted.
- *
- * @lore P5: hint progress is kernel-level CRUD, not strategy logic.
- * The hint catalog lives in @hyperidle/domain-model; this table only stores
- * the userId + hintId + seenAt dismissal record.
- */
-export const hintProgress = pgTable(
-	"hint_progress",
-	{
-		userId: text("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		hintId: text("hint_id").notNull(),
-		seenAt: text("seen_at").notNull(),
-	},
-	(table) => [primaryKey({ columns: [table.userId, table.hintId] })],
 );
 
 // --- S1: Authentication tables ---

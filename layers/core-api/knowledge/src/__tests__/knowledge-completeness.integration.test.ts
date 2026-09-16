@@ -504,24 +504,6 @@ describe("runStaleSweep: marks active items older than threshold as stale (CAS)"
 });
 
 // ===========================================================================
-// M. attentionScore via transition({recomputeAttention})
-// ===========================================================================
-
-describe("transition({recomputeAttention}): writes attention score to projection row", () => {
-	test("sets attentionScore on existing projection row", async ({ db }) => {
-		const item = await seedItem(db);
-
-		await transition(db, item.id, { target: "recomputeAttention", attentionScore: 0.85 });
-
-		const [after] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
-		expect(after?.attentionScore).toBe("0.85");
-	});
-});
-
-// ===========================================================================
 // N. Conflicts — tool-handlers.findOpenConflict / recordConflict
 // @lore AU20 K2-writes: createKnowledgeConflict → recordConflict (unified);
 // findOpenConflictByItemAndProposer → findOpenConflict (returns null not undefined).

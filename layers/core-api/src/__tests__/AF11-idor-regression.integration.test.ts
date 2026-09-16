@@ -163,55 +163,6 @@ describe("AF11 CRITICAL-1 — GET /api/threads/assistant IDOR via X-Identity", (
 });
 
 // ────────────────────────────────────────────────────────────────────────────
-// CRITICAL-1 (sibling): GET /api/threads/coach — IDOR via X-Identity
-// ────────────────────────────────────────────────────────────────────────────
-
-describe("AF11 CRITICAL-1 sibling — GET /api/threads/coach IDOR via X-Identity", () => {
-	test("spoofed X-Identity header is ignored — returns attacker's own coach thread, not victim's", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		const ATK = "atk-A";
-		const VIC = "vic-B";
-
-		await seedAttacker(db, ATK);
-		await seedVictim(db, VIC);
-		await seedSystemAgent(db);
-
-		const now = new Date().toISOString();
-
-		// Pre-create victim's pinned coach thread
-		await db.insert(threads).values({
-			id: `thr-coach-${VIC}`,
-			hostKind: "user",
-			hostId: VIC,
-			initiatorId: VIC,
-			participants: JSON.stringify([VIC, "seed-agent-cos"].sort()),
-			pinned: true,
-			resolvedAt: null,
-			lastActiveAt: now,
-			createdAt: now,
-		});
-
-		// Attacker requests with spoofed X-Identity: vic-B
-		const res = await app.request("/api/threads/coach", {
-			headers: authHeaders({ "X-Identity": VIC }),
-		});
-
-		expect([200, 201]).toContain(res.status);
-
-		const body = (await res.json()) as { thread?: { hostId?: string } };
-		// Thread hostId must be ATK (authenticated principal), NOT VIC (spoofed header)
-		expect(body.thread?.hostId).toBe(ATK);
-		expect(body.thread?.hostId).not.toBe(VIC);
-
-		vi.unstubAllEnvs();
-	});
-});
-
-// ────────────────────────────────────────────────────────────────────────────
 // CRITICAL-2: POST /api/threads/:id/messages — non-participant + spoofed sender
 // ────────────────────────────────────────────────────────────────────────────
 

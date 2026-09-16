@@ -7,12 +7,12 @@
  * `ToolHandlersConversationAccessor` capabilities named in
  * `edge-disposition.md`'s `tool-handlers` table row:
  * `conversation.{findThread, insertThread, insertMessage, updateThread,
- * findOrCreateDirectThread, listInbox}` (§4 seam — "agent sends/reads
- * messages = UI's door").
+ * findOrCreateDirectThread}` (§4 seam — "agent sends/reads
+ * messages = UI's door"). `listInbox` was retired.
  *
- * Covers exactly the seven `ToolHandlersConversationAccessor` methods
+ * Covers exactly the six `ToolHandlersConversationAccessor` methods
  * (`tool-handlers/src/ports.ts:69-88`): `getThreadById`, `insertThread`,
- * `updateThread`, `insertMessage`, `listInboxBySenderExclusion`,
+ * `updateThread`, `insertMessage`,
  * `findOrCreateDirectThread`, `getFirstThreadByHost`.
  *
  * None of these exist yet on `CoreApiPort`/`buildCoreApiPort` — `conversation`
@@ -57,13 +57,6 @@
  *    `senderId: ctx.agentId` explicitly (`send_message`, `submit_review`)
  *    switch to using the response's `id`, matching the `createBet`/
  *    `createTask`/`createItem` precedent.
- *  - `listInboxBySenderExclusion` → NEW `GET /api/threads/inbox`. No
- *    existing route serves the sender-exclusion inbox join
- *    (`listInbox({excludeSenderId})`, `conversation-store.ts:390`). Derives
- *    the excluded sender from `c.get("userId")` (the calling agent's own
- *    identity) — NEVER a client-supplied query param — closing the same
- *    IDOR shape `GET /api/threads`'s `participant_id` guard (AD1) already
- *    closes for the human-facing list route.
  *  - `findOrCreateDirectThread` → NEW `POST /api/threads/direct`. No
  *    existing route serves the DM find-or-create composite
  *    (`findOrCreateDirectThread`, `conversation-store.ts:180`). Accepts only
@@ -118,11 +111,6 @@ interface ConversationThreadView {
 	readonly participants: readonly string[];
 }
 
-interface InboxRowView {
-	readonly participants: readonly string[];
-	readonly message: { readonly id: string; readonly senderId: string };
-}
-
 interface SeamCoreApiPortIncrement2Conversation {
 	readonly conversation: {
 		getThreadById(id: string): Promise<ConversationThreadView | undefined>;
@@ -146,7 +134,6 @@ interface SeamCoreApiPortIncrement2Conversation {
 			readonly payload: Record<string, unknown>;
 			readonly clientKey: string;
 		}): Promise<{ readonly id: string }>;
-		listInboxBySenderExclusion(limit: number): Promise<ReadonlyArray<InboxRowView>>;
 		findOrCreateDirectThread(recipientId: string): Promise<{ readonly id: string }>;
 		getFirstThreadByHost(
 			hostKind: string,
@@ -309,50 +296,6 @@ describe("CoreApiPort.conversation — Increment 2 conversation wave (RED)", () 
 		expect(row).toBeDefined();
 		expect(row?.senderId).toBe("agent-conv-insertmessage");
 		expect(JSON.parse(row?.payload ?? "{}")).toMatchObject({ text: "hello from the seam" });
-	});
-
-	test("listInboxBySenderExclusion reaches a real sender-exclusion inbox route, scoped to the calling actor", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-inbox");
-		await seedAgent(db, "agent-conv-inbox-self");
-		await seedAgent(db, "agent-conv-inbox-other");
-		const threadId = "thread-conv-inbox";
-		await db.insert(threads).values({
-			id: threadId,
-			hostKind: "agent",
-			hostId: "agent-conv-inbox-self",
-			initiatorId: "agent-conv-inbox-other",
-			participants: JSON.stringify(["agent-conv-inbox-self", "agent-conv-inbox-other"]),
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		});
-		await db.insert(messages).values({
-			id: "msg-conv-inbox-from-other",
-			senderId: "agent-conv-inbox-other",
-			threadId,
-			type: "plain",
-			payload: JSON.stringify({ text: "for you" }),
-			clientKey: "ck-inbox-other",
-			createdAt: NOW,
-		});
-		await db.insert(messages).values({
-			id: "msg-conv-inbox-from-self",
-			senderId: "agent-conv-inbox-self",
-			threadId,
-			type: "plain",
-			payload: JSON.stringify({ text: "from me" }),
-			clientKey: "ck-inbox-self",
-			createdAt: NOW,
-		});
-
-		const port = buildSeamPort("agent-conv-inbox-self", app);
-		const rows = await port.conversation.listInboxBySenderExclusion(50);
-
-		const ids = rows.map((r) => r.message.id);
-		expect(ids).toContain("msg-conv-inbox-from-other");
-		expect(ids).not.toContain("msg-conv-inbox-from-self");
 	});
 
 	test("findOrCreateDirectThread reaches a real DM find-or-create route (sender derives from the actor)", async ({

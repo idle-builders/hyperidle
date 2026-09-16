@@ -203,18 +203,6 @@ async function mockTeamRoutes(page: import("@playwright/test").Page): Promise<vo
 		}
 	});
 
-	await page.route("**/api/hint-progress*", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ dismissed: [] }),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
 	await page.route("**/api/artifacts*", async (route) => {
 		await route.fulfill({
 			status: 200,
@@ -231,18 +219,6 @@ async function mockKnowledgeRoutes(page: import("@playwright/test").Page): Promi
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify(makeKnowledgeFixture()),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
-	await page.route("**/api/hint-progress*", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ dismissed: [] }),
 			});
 		} else {
 			await route.continue();

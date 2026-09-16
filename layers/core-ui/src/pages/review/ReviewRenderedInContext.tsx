@@ -15,7 +15,7 @@
 // email, not like Hearth chrome). Tool-brand color lives only in <ToolLogo>.
 //
 // Presentational isolation component: local useState for the desktop/mobile
-// toggle + flag-panel expand; verdict callbacks are no-ops in the story.
+// toggle + flag-panel expand. The review frame owns the verdict gate.
 
 import type { AnchorRef } from "@hyperidle/domain-model";
 import type { JSX } from "react";
@@ -182,8 +182,6 @@ export interface ReviewRenderedInContextProps {
 	readonly documentTitle?: string;
 	readonly artifactId?: string;
 	readonly blocks?: ReadonlyArray<Block>;
-	readonly onApprove?: () => void;
-	readonly onRequestChanges?: () => void;
 }
 
 /**
@@ -203,8 +201,6 @@ function ReviewRenderedInContextView({
 	documentTitle,
 	artifactId = "",
 	blocks = [],
-	onApprove,
-	onRequestChanges,
 }: ReviewRenderedInContextProps): JSX.Element {
 	const [viewport, setViewport] = useState<Viewport>("desktop");
 	// needs-you emphasis: flags open by default when there are flagged claims.
@@ -405,38 +401,6 @@ function ReviewRenderedInContextView({
 					</div>
 				) : null}
 			</section>
-
-			{/* verdict gate — the canvas surfaces it; the frame owns resolution */}
-			<div
-				className="flex items-center gap-[9px] pt-[12px]"
-				style={{ borderTop: "var(--bw-thin) solid var(--border-subtle)" }}
-			>
-				<button
-					type="button"
-					onClick={() => onApprove?.()}
-					className="type-control px-[18px] py-[10px]   "
-					style={{
-						background: "var(--accent-primary)",
-						color: "var(--surface-page)",
-						borderRadius: "var(--r-pill)",
-					}}
-				>
-					Approve send
-				</button>
-				<button
-					type="button"
-					onClick={() => onRequestChanges?.()}
-					className="type-control px-[18px] py-[10px]   "
-					style={{
-						background: "var(--surface-elevated)",
-						color: "var(--text-primary)",
-						border: "var(--bw-thin) solid var(--border-default)",
-						borderRadius: "var(--r-pill)",
-					}}
-				>
-					Request changes
-				</button>
-			</div>
 		</div>
 	);
 }

@@ -19,9 +19,9 @@
  *  - Populated (default): the WHOLE conversation at natural height (no internal
  *    scroll clip) with a RESTING composer — so the full thread is legible in one
  *    frame for design review.
- *  - ComposerInsertBlock: the conversation tail + the composer in its ACTIVE
- *    Insert-Block state (reply banner · inserted rich code block · attachment ·
- *    open Insert menu · Send) — the composer's killer feature.
+ *  - ComposerInsertBlock: the conversation tail + the composer at a fixed
+ *    scrolled height, anchored under the thread — a resting composer, not a
+ *    special state.
  */
 
 import type { JSX } from "react";
@@ -191,8 +191,8 @@ export const Populated = (): JSX.Element => (
 	</MemoryRouter>
 );
 
-// The composer's killer feature: active Insert-Block state, anchored under the
-// conversation tail (fixed-height scroll so the composer detail dominates).
+// The conversation tail with a resting composer, anchored under a fixed-height
+// scroll clip so the composer sits at the bottom of the frame.
 export const ComposerInsertBlock = (): JSX.Element => (
 	<MemoryRouter>
 		<div className="w-full bg-[var(--surface-page)] p-[24px]">

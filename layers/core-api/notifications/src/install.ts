@@ -12,11 +12,9 @@
  * installNotifications now registers a single event listener. deliver() only
  * handles the "test" kind. Config/prefs CRUD is SMTP-only.
  *
- * Census surface after AU44 (6m / 4t):
- *   6 methods: installNotifications, deliver, readConfig, updateConfig,
- *              readPreferences, updatePreferences
- *   4 types:   DeliverySpec, DeliveryResult, NotificationConfigPatch,
- *              SafeNotificationConfig
+ * Census surface after those removals (4m / 2t):
+ *   4 methods: installNotifications, deliver, readPreferences, updatePreferences
+ *   2 types:   DeliverySpec, DeliveryResult
  */
 
 import * as crypto from "node:crypto";
@@ -48,8 +46,6 @@ type MuteDeps = Pick<NotificationsDeps, "serverConfig">;
 // ---------------------------------------------------------------------------
 
 const SMTP_PASSWORD_CREDENTIAL_NAME = "notifications_smtp_password";
-
-const REDACTED = "***" as const;
 
 // @lore AU44 batch 4: NotificationConfig is now SMTP-only. primaryChannel,
 // digestChannel, ntfy, flood, testMaxPerHour, smtpIgnoreTls, digestCron all
@@ -90,37 +86,6 @@ export type DeliveryResult = {
 	retriable?: boolean;
 };
 
-/**
- * Partial patch for notification config.
- * @lore AU44 batch 4: ntfy, flood, testMaxPerHour, smtpIgnoreTls, digestCron,
- * primaryChannel, digestChannel, recipientEmail, recipientNtfyTopic, ntfyAuthToken removed.
- */
-export interface NotificationConfigPatch {
-	enabled?: boolean;
-	smtpHost?: string | null;
-	smtpPort?: number;
-	smtpSecure?: boolean;
-	smtpUsername?: string | null;
-	smtpPassword?: string | null;
-	smtpFrom?: string | null;
-}
-
-/**
- * External wire shape: NotificationConfig with SMTP password replaced by REDACTED when set.
- */
-export type SafeNotificationConfig = {
-	readonly enabled: boolean;
-	readonly smtp: {
-		readonly host: string | null;
-		readonly port: number;
-		readonly secure: boolean;
-		readonly username: string | null;
-		readonly password: typeof REDACTED | null;
-		readonly passwordSet: boolean;
-		readonly from: string | null;
-	};
-};
-
 // ---------------------------------------------------------------------------
 // Private: credential helpers
 // ---------------------------------------------------------------------------
@@ -129,50 +94,6 @@ async function readSecret(db: HyperIdleDb, name: string, deps: ConfigDeps): Prom
 	const row = await deps.credentialStore.findByName(db, name);
 	if (!row) return null;
 	return deps.credentialCipher.decryptCredentialValue(row.encryptedValue);
-}
-
-/**
- * @lore AU20 Am4: encryptCredentialValue now throws MISSING_ROOT_SECRET when
- * no secret is set; we catch that code and no-op, preserving prior behaviour.
- */
-async function writeSecret(
-	db: HyperIdleDb,
-	name: string,
-	value: string | null,
-	now: string,
-	deps: ConfigDeps,
-): Promise<void> {
-	if (value === null || value.length === 0) {
-		await deps.credentialStore.deleteByName(db, name);
-		return;
-	}
-	let encryptedValue: string;
-	try {
-		encryptedValue = deps.credentialCipher.encryptCredentialValue(value);
-	} catch (error) {
-		if (
-			typeof error === "object" &&
-			error !== null &&
-			"code" in error &&
-			error.code === "MISSING_ROOT_SECRET"
-		) {
-			return;
-		}
-		throw error;
-	}
-	await deps.credentialStore.upsert(db, {
-		name,
-		encryptedValue,
-		validationState: "present_untested",
-		lastValidatedAt: null,
-		updatedAt: now,
-	});
-}
-
-function normalizeEmptyToNull(value: string | null | undefined): string | null | undefined {
-	if (value === undefined) return undefined;
-	if (value === null || value.length === 0) return null;
-	return value;
 }
 
 async function readNotificationConfig(
@@ -193,102 +114,6 @@ async function readNotificationConfig(
 		},
 	};
 }
-
-async function updateNotificationConfig(
-	db: HyperIdleDb,
-	patch: NotificationConfigPatch,
-	deps: ConfigDeps,
-): Promise<NotificationConfig> {
-	const now = new Date().toISOString();
-	await deps.serverConfig.update(db, {
-		notifications: {
-			delivery: {
-				...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
-				...(patch.smtpHost !== undefined ? { smtpHost: normalizeEmptyToNull(patch.smtpHost) } : {}),
-				...(patch.smtpPort !== undefined ? { smtpPort: patch.smtpPort } : {}),
-				...(patch.smtpSecure !== undefined ? { smtpSecure: patch.smtpSecure } : {}),
-				...(patch.smtpUsername !== undefined
-					? { smtpUsername: normalizeEmptyToNull(patch.smtpUsername) }
-					: {}),
-				...(patch.smtpFrom !== undefined ? { smtpFrom: normalizeEmptyToNull(patch.smtpFrom) } : {}),
-			},
-		},
-	});
-	if (patch.smtpPassword !== undefined) {
-		await writeSecret(
-			db,
-			SMTP_PASSWORD_CREDENTIAL_NAME,
-			normalizeEmptyToNull(patch.smtpPassword) ?? null,
-			now,
-			deps,
-		);
-	}
-	return readNotificationConfig(db, deps);
-}
-
-function redactNotificationConfig(cfg: NotificationConfig): SafeNotificationConfig {
-	return {
-		enabled: cfg.enabled,
-		smtp: {
-			host: cfg.smtp.host,
-			port: cfg.smtp.port,
-			secure: cfg.smtp.secure,
-			username: cfg.smtp.username,
-			passwordSet: cfg.smtp.password !== null,
-			password: cfg.smtp.password !== null ? REDACTED : null,
-			from: cfg.smtp.from,
-		},
-	};
-}
-
-// ---------------------------------------------------------------------------
-// Private: config sanitizers (kept for SMTP field validation)
-// ---------------------------------------------------------------------------
-
-function sanitizeSmtpHost(input: string): { ok: true } | { ok: false; reason: string } {
-	if (typeof input !== "string" || input.length === 0)
-		return { ok: false, reason: "smtp host must be a non-empty string" };
-	if (input.length > 253) return { ok: false, reason: "smtp host must be <= 253 chars" };
-	if (input.startsWith("-")) return { ok: false, reason: "smtp host must not begin with '-'" };
-	if (/[\0\r\n\s]/.test(input))
-		return { ok: false, reason: "smtp host must not contain whitespace or control chars" };
-	if (!/^[A-Za-z0-9.\-:]+$/.test(input))
-		return { ok: false, reason: "smtp host must match [A-Za-z0-9.\\-:]+" };
-	return { ok: true };
-}
-
-function sanitizeSmtpCredential(input: string): { ok: true } | { ok: false; reason: string } {
-	if (typeof input !== "string") return { ok: false, reason: "smtp credential must be a string" };
-	if (input.length === 0) return { ok: false, reason: "smtp credential must not be empty" };
-	if (input.length > 1024) return { ok: false, reason: "smtp credential must be <= 1024 chars" };
-	if (/[\0\r\n]/.test(input))
-		return { ok: false, reason: "smtp credential must not contain control characters" };
-	return { ok: true };
-}
-
-function sanitizeEmail(input: string): { ok: true } | { ok: false; reason: string } {
-	if (typeof input !== "string" || input.length === 0)
-		return { ok: false, reason: "email must be a non-empty string" };
-	if (input.length > 254) return { ok: false, reason: "email must be <= 254 chars" };
-	if (/[\0\r\n]/.test(input))
-		return { ok: false, reason: "email must not contain control characters" };
-	if (input.startsWith("-")) return { ok: false, reason: "email must not begin with '-'" };
-	if (!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(input))
-		return { ok: false, reason: "email must be a valid address" };
-	return { ok: true };
-}
-
-type SanitizeFn = (input: string) => { ok: true } | { ok: false; reason: string };
-
-const PATCH_SANITIZERS: ReadonlyArray<{
-	field: keyof NotificationConfigPatch;
-	sanitize: SanitizeFn;
-}> = [
-	{ field: "smtpHost", sanitize: sanitizeSmtpHost },
-	{ field: "smtpFrom", sanitize: sanitizeEmail },
-	{ field: "smtpUsername", sanitize: sanitizeSmtpCredential },
-	{ field: "smtpPassword", sanitize: sanitizeSmtpCredential },
-];
 
 // ---------------------------------------------------------------------------
 // Private: credential scrubbing (for SMTP error messages)
@@ -594,38 +419,6 @@ export async function deliver(
 			// best-effort teardown
 		}
 	}
-}
-
-/** Read + redact the notification config. Never exposes raw secrets. */
-export async function readConfig(
-	db: HyperIdleDb,
-	deps: NotificationsDeps,
-): Promise<SafeNotificationConfig> {
-	const cfg = await readNotificationConfig(db, toConfigDeps(deps));
-	return redactNotificationConfig(cfg);
-}
-
-/**
- * Validate, persist, and return the updated (redacted) config.
- * Throws an Error tagged `code: "NOTIFICATIONS_VALIDATION_ERROR"` when a field
- * fails sanitization — the caller can discriminate and return 400.
- */
-export async function updateConfig(
-	db: HyperIdleDb,
-	patch: NotificationConfigPatch,
-	deps: NotificationsDeps,
-): Promise<SafeNotificationConfig> {
-	for (const { field, sanitize } of PATCH_SANITIZERS) {
-		const value = patch[field as keyof typeof patch];
-		if (value === undefined || value === null) continue;
-		if (typeof value !== "string") continue;
-		const r = sanitize(value);
-		if (!r.ok) {
-			throw Object.assign(new Error(r.reason), { code: "NOTIFICATIONS_VALIDATION_ERROR" as const });
-		}
-	}
-	const updated = await updateNotificationConfig(db, patch, toConfigDeps(deps));
-	return redactNotificationConfig(updated);
 }
 
 /** Return the list of currently-muted notification type keys. */

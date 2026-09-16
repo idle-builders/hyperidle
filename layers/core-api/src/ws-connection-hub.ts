@@ -8,10 +8,10 @@
  * it "a dumb pub/sub socket transport", and its other three callers each
  * declared a local one-method `{ broadcast(topic, data) }` interface
  * specifically to avoid depending on it. It could NOT move to
- * `agent-orchestration`: three of its four production topics are core-domain
- * (`thread:<id>` and `conversations` from `routes/threads.ts`, `work` from
- * `services/work-state-push-gateway.ts`). So it lands here, in the `core-api`
- * Layer, as Layer transport — not a Service. The three local `{ broadcast }`
+ * `agent-orchestration`: its production topics are core-domain
+ * (`thread:<id>` and `conversations` from `routes/threads.ts`). So it lands
+ * here, in the `core-api` Layer, as Layer transport — not a Service. The
+ * three local `{ broadcast }`
  * structural interfaces stay exactly as they are; they are already the right
  * shape, and `agent-orchestration` receives that one-method sink injected by
  * the Application, so there is still exactly ONE WS listener and ONE topic
@@ -37,15 +37,14 @@
  * forwarder + its `start()`/`stop()` lifecycle are DELETED outright; this
  * class is renamed to `WsConnectionHub` to honestly describe what remains —
  * pure connection/subscription/authz/broadcast transport, no domain
- * knowledge, no EventBus dependency of its own. Real per-domain push sites:
+ * knowledge, no EventBus dependency of its own. Real per-domain push site:
  * `layers/core-api/src/routes/threads.ts` (per-thread + conversations-list,
- * called directly at the same write that has the full record in hand) and
- * `layers/core-api/src/services/work-state-push-gateway.ts` (task/bet
- * state — the event already carries `toState`, so a thin EventBus-driven
- * forwarder suffices, same shape as `session-activity-gateway.ts`'s (c)
- * concern). `item_created`/`knowledge_updated`/`artifact_created`/
+ * called directly at the same write that has the full record in hand).
+ * `item_created`/`knowledge_updated`/`artifact_created`/
  * `propagation_applied`/`propagation_failed` had zero real frontend
  * consumers (verified) and are dropped entirely, not re-homed.
+ * @lore BC1: the `work`-topic push forwarder (`work-state-push-gateway.ts`)
+ * is deleted too — zero production frontend ever subscribed to `work`.
  */
 export interface WsClient {
 	send(data: string): void;

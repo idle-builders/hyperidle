@@ -573,10 +573,6 @@ export function AppShell(): JSX.Element {
 		return match ? (match[1] ?? null) : null;
 	}, [location.pathname]);
 
-	// Y4: fetch triage count for the sidebar badge
-	const { data: triageCountData } = useFetch<{ count: number }>("/api/knowledge/triage-count");
-	const knowledgeTriageCount = triageCountData?.count ?? 0;
-
 	// AD9: fetch knowledge items for the Knowledge fast-nav list in the sidebar.
 	// Only the head of the list (first 5) is shown; the full list is on /knowledge.
 	// @lore NEW-24: refetch exposed so KnowledgeList's Retry can also clear the sidebar error.
@@ -616,7 +612,7 @@ export function AppShell(): JSX.Element {
 	);
 
 	// AE4: notification dot on hamburger — signals "items need attention".
-	const hasAttentionItems = conversationsBlockingCount > 0 || knowledgeTriageCount > 0;
+	const hasAttentionItems = conversationsBlockingCount > 0;
 
 	// AE4: page title for mobile header.
 	const pageTitle = useMemo((): string => {
@@ -680,7 +676,6 @@ export function AppShell(): JSX.Element {
 					.slice(0, 2)
 					.toUpperCase()
 			: undefined,
-		knowledgeTriageCount,
 		conversationsBlockingCount,
 		onNotificationClick: handleNotificationClick,
 		notificationPopoverOpen: notifOpen,

@@ -322,7 +322,7 @@ let silentRoutineOwnerId = "";
 
 /**
  * The de-skilled survivor of the retired `ska-l4-silent` skill-autonomy
- * scenario. Its `routine_fired` + `no_review_item` pair is the only assertion
+ * scenario. Its `routine_ran` + `no_review_item` pair is the only assertion
  * in the eval set that a `humanReview: false` routine produces NO review item;
  * the third judge it used to carry read the per-skill autonomy score sheet,
  * which the product removed along with its storage.
@@ -367,8 +367,8 @@ const rsSilentNoReviewItem: EvalScenario = {
 	rubric: {
 		dimensions: [
 			{
-				id: "routine_fired",
-				label: "Silent Routine Fired",
+				id: "routine_ran",
+				label: "Silent Routine Ran",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [routine] = await ctx.db
 						.select({ lastRunAt: routines.lastRunAt })

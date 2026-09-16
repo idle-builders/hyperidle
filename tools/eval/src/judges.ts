@@ -14,7 +14,6 @@
 
 import {
 	items,
-	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
 	messages,
@@ -23,7 +22,7 @@ import {
 	tasks,
 } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
-import { and, eq, isNotNull, like, ne } from "drizzle-orm";
+import { and, eq, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -313,29 +312,6 @@ export function judgePromoteKnowledgeCalled(): RubricDimension {
 	};
 }
 
-/** Judge: score_attention on knowledge_item was called — knowledgeAppProjection.attentionScore changed. */
-export function judgeScoreAttentionCalled(): RubricDimension {
-	return {
-		id: "score_set",
-		label: "Attention Score Set (score_attention called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [fabric] = await ctx.db
-				.select({ attentionScore: knowledgeAppProjection.attentionScore })
-				.from(knowledgeAppProjection)
-				.where(isNotNull(knowledgeAppProjection.attentionScore))
-				.limit(1);
-
-			const set = fabric !== undefined;
-			return {
-				score: set ? 1.0 : 0.0,
-				note: set
-					? `Attention score: ${fabric.attentionScore}`
-					: "No knowledgeAppProjection row has attentionScore set",
-			};
-		},
-	};
-}
-
 /** Judge: create_conflict_review was called — knowledgeConflicts row with proposedBy = "agent:<agentId>". */
 export function judgeCreateConflictReviewCalled(): RubricDimension {
 	return {
@@ -500,11 +476,11 @@ Respond ONLY with the JSON object. No preamble, no markdown.`;
 // Routine-specific judges
 // ---------------------------------------------------------------------------
 
-/** Judge: routine was fired — routines.lastRunAt updated. */
-export function judgeRoutineFired(routineId: string): RubricDimension {
+/** Judge: routine ran — routines.lastRunAt updated. */
+export function judgeRoutineRan(routineId: string): RubricDimension {
 	return {
-		id: "routine_fired",
-		label: "Routine Fired",
+		id: "routine_ran",
+		label: "Routine Ran",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const [routine] = await ctx.db
 				.select({ lastRunAt: routines.lastRunAt })
@@ -519,7 +495,7 @@ export function judgeRoutineFired(routineId: string): RubricDimension {
 			const fired = routine.lastRunAt !== null;
 			return {
 				score: fired ? 1.0 : 0.0,
-				note: fired ? `lastRunAt: ${routine.lastRunAt}` : "routine.lastRunAt is null (not fired)",
+				note: fired ? `lastRunAt: ${routine.lastRunAt}` : "routine.lastRunAt is null (not ran)",
 			};
 		},
 	};

@@ -32,8 +32,6 @@ export interface CreateReviewItemInput {
 	readonly title: string;
 	readonly body: string;
 	readonly riskTier: "low" | "medium" | "high";
-	/** @lore O2: attentionScore no longer stored as a column on items; embedded in reasoningBlob. */
-	readonly attentionScore: number;
 	/** Additional payload to merge into the reasoning JSON. */
 	readonly reasoning: Readonly<Record<string, unknown>>;
 	readonly nowMs: number;
@@ -94,8 +92,6 @@ export function createReviewItem(
 		const reasoningBlob = {
 			source: ATTENTION_REVIEW_SOURCE,
 			knowledgeItemId: input.knowledgeItemId,
-			// @lore O2: attentionScore embedded here since it has no column on items
-			attentionScore: input.attentionScore,
 			...input.reasoning,
 		};
 

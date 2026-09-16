@@ -75,27 +75,6 @@ export async function countActiveRunsByAgent(
 }
 
 /**
- * The outcome of the newest run per task by `startedAt`. A task with no run is
- * absent from the map.
- */
-export async function listLatestOutcomeByTask(
-	db: HyperIdleDb,
-	taskIds: readonly string[],
-): Promise<Record<string, string | null>> {
-	const rows = await db
-		.select({ taskId: sessions.taskId, outcome: sessions.outcome })
-		.from(sessions)
-		.where(inArray(sessions.taskId, [...taskIds]))
-		.orderBy(desc(sessions.startedAt));
-	const outcomes: Record<string, string | null> = {};
-	for (const row of rows) {
-		// Ordered newest-first, so the first row seen per task is the latest.
-		if (row.taskId !== null && !(row.taskId in outcomes)) outcomes[row.taskId] = row.outcome;
-	}
-	return outcomes;
-}
-
-/**
  * The eight fields every run-state render in the app actually consumes.
  *
  * @lore AU26 J4: deliberately NOT the session wire row's 18 columns.

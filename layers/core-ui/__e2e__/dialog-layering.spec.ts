@@ -48,14 +48,6 @@ async function computedZIndex(
 // ---------------------------------------------------------------------------
 
 async function setupAppShellMocks(page: import("@playwright/test").Page): Promise<void> {
-	// knowledge/triage-count — AppShell useFetch (sidebar badge)
-	await page.route("**/api/knowledge/triage-count", (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ count: 0 }),
-		}),
-	);
 	// threads/assistant — useAssistantThread hook (loads when AssistantOverlay mounts)
 	await page.route("**/api/threads/assistant", (route) =>
 		route.fulfill({
@@ -244,13 +236,6 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 					kind: "note",
 					layer: "team",
 				}),
-			}),
-		);
-		await page.route("**/api/knowledge/triage-count", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ count: 0 }),
 			}),
 		);
 		await page.route("**/api/artifacts**", (route) =>

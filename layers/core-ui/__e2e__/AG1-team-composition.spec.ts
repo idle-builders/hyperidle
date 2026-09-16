@@ -166,19 +166,6 @@ async function mockTeamRoute(
 		}
 	});
 
-	// Stub hint-progress endpoint (prevents real API calls from hint hooks)
-	await page.route("**/api/hint-progress*", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ dismissed: [] }),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
 	// Stub artifacts endpoint
 	await page.route("**/api/artifacts*", async (route) => {
 		await route.fulfill({

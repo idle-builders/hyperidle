@@ -39,7 +39,6 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					// @lore: `file_leases` was dropped in older migrations
 					"users",
 					// @lore BB1: `bets` table dropped — tasks carry parentTaskId self-FK.
-					"hint_progress",
 					"invite_codes",
 					"items",
 					"knowledge_edit_log",

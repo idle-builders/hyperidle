@@ -538,27 +538,6 @@ describe("E2E API Integration (I5)", () => {
 	});
 
 	// -------------------------------------------------------
-	// 12. Notifications
-	// -------------------------------------------------------
-	describe("Notifications", () => {
-		// GET /api/notifications root (door #129) deleted. Test removed with the route.
-
-		test("GET /api/notifications/config returns notification config", async ({ db, app }) => {
-			// @lore AU44 batch 4: config is now SMTP-only — primaryChannel and other
-			// channel-union fields removed. SafeNotificationConfig has { enabled, smtp }.
-			await seedBase(db);
-			const res = await app.request("/api/notifications/config", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { enabled: boolean; smtp: { host: string | null } };
-			expect(typeof body.enabled).toBe("boolean");
-			expect(typeof body.smtp).toBe("object");
-		});
-
-		// GET /api/notifications/queue (door #133) deleted. Tests removed with the route.
-		// POST /api/notifications/test deleted — founder decision: if SMTP is broken you notice. Tests removed with the route.
-	});
-
-	// -------------------------------------------------------
 	// 14. 404 handling
 	// -------------------------------------------------------
 	describe("404 handling", () => {

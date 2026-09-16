@@ -1,0 +1,135 @@
+{
+  "id": "BC1",
+  "status": "awaiting-human-review",
+  "dials": {
+    "complexity": "feature",
+    "ambiguity": "established context",
+    "exposure": "internal detail"
+  },
+  "gates": [
+    {
+      "name": "ship",
+      "description": "founder sees the CI-green open PR before merge",
+      "passed": false
+    }
+  ],
+  "worktree": ".worktrees/dead-surface-purge",
+  "branch": "chore/dead-surface-purge",
+  "base": "origin/main",
+  "artifacts": [
+    {
+      "path": ".pipeline/work/BC1/plan.md",
+      "what": "the plan; How-we-work, Confusions and Proposed items written this run"
+    },
+    {
+      "path": "scratchpad/map-routes.md",
+      "what": "route deletion map (session scratch)"
+    },
+    {
+      "path": "scratchpad/map-attention-events.md",
+      "what": "attention engine, events, fork, push gateway map (session scratch)"
+    },
+    {
+      "path": "scratchpad/map-ui.md",
+      "what": "dead UI controls map (session scratch)"
+    },
+    {
+      "path": "scratchpad/CONTESTED.md",
+      "what": "the seven live routes left in place"
+    },
+    {
+      "path": "scratchpad/rule-red-proof.txt",
+      "what": "per-token red proof for the new rule"
+    }
+  ],
+  "since": "efa28dd5",
+  "phase": "ship",
+  "baseline": {
+    "commit": "efa28dd5",
+    "check": "PASS 38 packages",
+    "lint": "PASS (fixtures 61, attacks 68)",
+    "test_full": "5136 passed"
+  },
+  "build": {
+    "attempt": 5,
+    "history": [
+      "attempt 1 interrupted by user after staging the rule",
+      "attempt 2 stalled (watchdog 600s) after committing the rule c975afb60 and ~1/3 of route deletions uncommitted; ran npm run check from primary checkout by mistake",
+      "attempt 3 stalled (watchdog) after committing rule reword 6362f3664, routes 9f85f2e9b, tools c7b3c977d, events e94d7dc47, attention ba2f0b37a",
+      "fork leaf dropped on ECONNRESET after committing aacfb7a8c (fork deleted, SessionOutcome in domain-model types.ts, both readers repointed); gateway deletion uncommitted"
+    ],
+    "leaves": [
+      {
+        "name": "all build leaves",
+        "status": "done"
+      }
+    ],
+    "known_fixes": [
+      "reword c975afb60 message (contains work-package id)",
+      "artifact attack control case repointed to otherLayerBarrel \u2014 restore to origin/main form once app.ts is clean"
+    ],
+    "final_gates": {
+      "check": "PASS all 38 packages",
+      "lint": "exit 0; fixtures 61 PASS, attacks 70 PASS, governance-lint PASS, retired-surfaces-absent zero findings",
+      "test:full": "514 files / 5077 tests passed",
+      "test:integration:service": "312 files passed, 1 skipped; 2121 passed, 5 skipped",
+      "verify": "exit 0 through the desktop build"
+    }
+  },
+  "notes": [
+    "primary checkout has an unrelated uncommitted edit to governance-attacks.ts (bet->task work from another session on ca76816f5); left untouched"
+  ],
+  "rulings": [
+    "delete = unused/unreachable; the 7 live routes stay (2026-09-15)",
+    "no active routines or deployments; no routine-row cleanup (2026-09-15)"
+  ],
+  "confusions": [
+    "`timeout` is not installed on this macOS host (no coreutils, no gtimeout). Commands wrapped in it exit 127 silently. A first gate run reported five clean exits that were all command-not-found; builders were also told to wrap long commands in it, so any typecheck they reported through it proves nothing. The full gate rerun without it is the authority."
+  ],
+  "evidence": {
+    "gates_on_13_commits": {
+      "check": "exit 0 \u2014 typecheck-gate PASS, all 38 packages",
+      "test:full": "exit 0 \u2014 514 files, 5077 tests passed",
+      "test:integration:service": "exit 0 \u2014 312 files passed, 1 skipped; 2121 tests passed, 5 skipped",
+      "lint": "exit 1 \u2014 16 errors introduced by this branch (14 unformatted files, 1 export-order in domain-model barrel, 1 parse error in dialog-layering.spec.ts); repair leaf running",
+      "verify": "exit 1 \u2014 same lint failure"
+    },
+    "app_render": {
+      "seeded": "npm run setup -- --demo, migrations applied on boot",
+      "task": "/work/task/demo-task-onboarding \u2014 heading, status, owner, sessions, edit form render",
+      "thread": "/conversations \u2014 four demo threads listed",
+      "knowledge": "/knowledge \u2014 Curated/Triage tabs, scope filters, list render",
+      "settings": "/settings \u2014 Profile, Org chart, Agents render",
+      "console_errors": "none",
+      "network": "no 404s; every /api call 200, including runs/active-counts (a kept route) "
+    }
+  },
+  "review": {
+    "verdict": "no blocking findings",
+    "confirmed": [
+      "no stranded callers",
+      "survivors intact and wired",
+      "notification event untouched",
+      "assembler and promotion changes surgical",
+      "no import cycle after SessionOutcome move",
+      "rule has zero false positives on surviving production code",
+      "attack file diff purely additive",
+      "test edits stricter, not looser",
+      "migration, journal and table owners correct"
+    ],
+    "non_blocking": [
+      "ws-subscribe-authorizer.ts still authorizes the 'work' topic whose only publisher this branch deleted \u2014 dead code this change created; being fixed here",
+      "ds/Block.tsx keeps an always-empty 32px gutter column after the handle slot was removed \u2014 removing it shifts block layout, so it is proposed separately",
+      "the knowledge-count token in the rule is generic enough that a future unrelated helper could false-positive; stripComments ignores trailing comments"
+    ]
+  },
+  "pr": {
+    "number": 552,
+    "url": "https://github.com/ambrovia/hyperidle/pull/552",
+    "base": "main",
+    "ci": "green at 18883167e (npm run verify pass, release verify pass, release-guard pass, release tests skipping)",
+    "state": "OPEN",
+    "merged": false
+  },
+  "next_action": "founder reviews the CI-green PR; retro runs on approval, then a human merges"
+}

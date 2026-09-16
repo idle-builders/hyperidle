@@ -31,7 +31,7 @@
  * `listVerdictMessagesByItemIds`, `listInboxBySenderExclusion`,
  * `listInboxByParticipantProbe`, `VerdictMessageRow`, `MessageListOpts`.
  * Replaced by: `findThread`, `listThreads`, `findMessage`, `listMessages`,
- * `listInbox` with `ThreadFilter`, `MessageFilter`, `InboxFilter`.
+ * `ThreadFilter`, `MessageFilter`. The inbox surface was retired.
  */
 
 // -- assistant-turn resolver (AU21 §6 Decision B — emit-time resolve+bake) --
@@ -43,8 +43,6 @@ export { resolveAssistantTurnRequest } from "./assistant-turn-resolver.js";
 // Filter types
 // Shared row types
 export type {
-	InboxFilter,
-	InboxRow,
 	MessageFilter,
 	ThreadFilter,
 	ThreadSearchRow,
@@ -59,7 +57,6 @@ export {
 	findThread,
 	insertMessage,
 	insertThread,
-	listInbox,
 	listMessages,
 	listThreads,
 	resolveMessageIfUnresolved,

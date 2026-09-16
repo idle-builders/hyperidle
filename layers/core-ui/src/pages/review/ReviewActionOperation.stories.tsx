@@ -1,8 +1,8 @@
 // AL1 review canvas #3 — story.
-// Presentational isolation: callbacks no-op, local useState owns the L3 expand.
+// Presentational isolation: local useState owns the L3 expand.
 // Renders L1 (action + amount + irreversible) + L2 (receipt) with L3
-// (blast-radius + reversibility + verdict gate) expanded so the 3-layer
-// drill-down reads in a single screenshot.
+// (blast-radius + reversibility) expanded so the 3-layer drill-down reads in
+// a single screenshot. The review frame owns the verdict gate.
 
 import type { JSX } from "react";
 import { MOCK_REVIEW_SUBJECT } from "./__fixtures__/review-subject.fixture";

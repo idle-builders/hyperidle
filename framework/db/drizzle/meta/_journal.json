@@ -575,6 +575,13 @@
 			"when": 1785693609000,
 			"tag": "0081_drop_items_layer",
 			"breakpoints": true
+		},
+		{
+			"idx": 82,
+			"version": "7",
+			"when": 1785693610000,
+			"tag": "0082_drop_hint_progress_and_attention_score",
+			"breakpoints": true
 		}
 	]
 }

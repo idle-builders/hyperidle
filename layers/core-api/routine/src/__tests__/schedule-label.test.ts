@@ -25,9 +25,9 @@ describe("humanizeSchedule (AA1)", () => {
 	// — not `triggerConfig` — and the label is DERIVED from the name, not
 	// mapped through a closed four-name table (§2.6: the old table would
 	// have rendered "On event" for 30 of the 34 authorable events).
-	it('maps event + bet_state_changed to "On bet state changed"', () => {
-		const result = humanizeSchedule("event", null, "bet_state_changed");
-		expect(result).toBe("On bet state changed");
+	it('maps event + task_state_changed to "On task state changed"', () => {
+		const result = humanizeSchedule("event", null, "task_state_changed");
+		expect(result).toBe("On task state changed");
 	});
 
 	// calendar with null config — graceful fallback

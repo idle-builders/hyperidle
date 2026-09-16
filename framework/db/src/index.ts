@@ -19,7 +19,6 @@ export {
 	type FilesystemRow,
 	filesystemInjections,
 	filesystems,
-	hintProgress,
 	type InviteCode,
 	type Item,
 	inviteCodes,

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import type { SessionEndedEvent, SessionStartedEvent } from "../events.js";
 import {
 	type AgentSessionRequestInput,
 	agentSessionRequestInputSchema,
@@ -91,7 +90,7 @@ describe("agent session request contract", () => {
 				assistantAgentId: "assistant-1",
 			},
 		};
-		const started: SessionStartedEvent = {
+		const started = {
 			type: "session_started",
 			streamId: "thread:thread-1",
 			sessionId: "session-1",
@@ -100,7 +99,7 @@ describe("agent session request contract", () => {
 			timestamp: Date.now(),
 			...correlation,
 		};
-		const ended: SessionEndedEvent = {
+		const ended = {
 			type: "session_ended",
 			streamId: "thread:thread-1",
 			sessionId: "session-1",

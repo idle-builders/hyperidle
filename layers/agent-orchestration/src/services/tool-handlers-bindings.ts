@@ -126,8 +126,6 @@ export function buildToolHandlersPorts(
 			// not an `X as unknown as T` double-assertion — `design/no-unknown-cast`).
 			createItem: (input: Record<string, unknown>, actorId: string) =>
 				seamPortForActor(actorId).work.createItem(widenCreateItemInput(input)),
-			findItemByReasoningMarker: (marker, actorId) =>
-				seamPortForActor(actorId).work.findItemByReasoningMarker(marker),
 			getUserById: (id, actorId) => seamPortForActor(actorId).users.getUserById(id),
 			listUsersByTeam: (teamMembersId, actorId) =>
 				seamPortForActor(actorId).users.listUsersByTeam(teamMembersId),
@@ -152,8 +150,6 @@ export function buildToolHandlersPorts(
 			getTeamById: (teamId, actorId) => seamPortForActor(actorId).org.getTeamById(teamId),
 			getTeamMembersByTeamId: (teamId, actorId) =>
 				seamPortForActor(actorId).org.getTeamMembersByTeamId(teamId),
-			getTeamMembersById: (teamMembersId, actorId) =>
-				seamPortForActor(actorId).org.getTeamMembersById(teamMembersId),
 			createTeam: (input, actorId) => seamPortForActor(actorId).org.createTeam(input),
 			updateTeam: (teamId, patch, actorId) =>
 				seamPortForActor(actorId).org.updateTeam(teamId, patch),
@@ -204,19 +200,10 @@ export function buildToolHandlersPorts(
 				seamPortForActor(actorId).knowledge.createKnowledgeConflict(input),
 			promoteKnowledgeItem: (input, actorId) =>
 				seamPortForActor(actorId).knowledge.promoteKnowledgeItem(input),
-			upsertKnowledgeAppProjectionAttentionScore: (knowledgeItemId, attentionScore, actorId) =>
-				seamPortForActor(actorId).knowledge.upsertKnowledgeAppProjectionAttentionScore(
-					knowledgeItemId,
-					attentionScore,
-				),
-			recomputeAttentionScoreForItem: (knowledgeItemId, actorId) =>
-				seamPortForActor(actorId).knowledge.recomputeAttentionScoreForItem(knowledgeItemId),
 			mergeKnowledgeItem: (targetId, sourceId, updatedBy, actorId) =>
 				seamPortForActor(actorId).knowledge.mergeKnowledgeItem(targetId, sourceId, updatedBy),
 			splitKnowledgeItem: (itemId, newItems, updatedBy, actorId) =>
 				seamPortForActor(actorId).knowledge.splitKnowledgeItem(itemId, newItems, updatedBy),
-			runKnowledgeSweep: (kind, actorId) =>
-				seamPortForActor(actorId).knowledge.runKnowledgeSweep(kind),
 		},
 	};
 }

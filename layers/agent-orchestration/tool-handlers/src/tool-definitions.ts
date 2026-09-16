@@ -782,113 +782,6 @@ function makeSubmitReviewTool<TDb>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// run_knowledge_sweep
-// ─────────────────────────────────────────────────────────────────────────────
-
-const runKnowledgeSweepInputSchema = z.object({
-	kind: z.enum(["autoPromotion", "stale"]),
-});
-
-type RunKnowledgeSweepInput = z.infer<typeof runKnowledgeSweepInputSchema>;
-
-function makeRunKnowledgeSweepTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<RunKnowledgeSweepInput, TDb> {
-	return {
-		name: "run_knowledge_sweep",
-		description:
-			"Run a knowledge sweep. kind='autoPromotion' promotes provisional knowledge items that meet the repetition threshold to validated status. kind='stale' marks active items that have not been referenced recently as stale. Call this from a scheduled routine, not from an interactive session.",
-		inputSchema: runKnowledgeSweepInputSchema,
-		roles: ["assistant", "facilitator", "product_manager"],
-		handler: async (args, ctx) => {
-			const result = await ports.coreApi.runKnowledgeSweep(args.kind, ctx.agentId);
-			return ok(result);
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// score_attention
-// ─────────────────────────────────────────────────────────────────────────────
-
-const scoreAttentionInputSchema = z
-	.object({
-		target: z.enum(["item", "knowledge_item"]),
-		id: z.string().min(1),
-		score: z.number().min(0).max(1).optional(),
-		mode: z.enum(["override", "recompute"]).optional(),
-	})
-	.superRefine((val, ctx) => {
-		const mode = val.mode ?? "override";
-		if (mode === "recompute" && val.score !== undefined) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				path: ["score"],
-				message: "'score' must be omitted when mode='recompute' (engine computes the score)",
-			});
-		}
-		if (mode !== "recompute" && val.score === undefined) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				path: ["score"],
-				message: "'score' is required when mode='override' (the default)",
-			});
-		}
-	});
-
-type ScoreAttentionInput = z.infer<typeof scoreAttentionInputSchema>;
-
-function makeScoreAttentionTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<ScoreAttentionInput, TDb> {
-	return {
-		name: "score_attention",
-		description:
-			"Set an attention score on an item or knowledge_item. Two modes: 'override' (default; uses the provided score directly — G1 behavior) and 'recompute' (runs the G2 attention engine; ignores the provided score; knowledge_item only).",
-		inputSchema: scoreAttentionInputSchema,
-		roles: ["assistant", "facilitator", "product_manager"],
-		handler: async (args, ctx) => {
-			const { target, id } = args;
-			const mode = args.mode ?? "override";
-
-			if (mode === "recompute") {
-				if (target !== "knowledge_item") {
-					return err(
-						"INVALID_INPUT",
-						"recompute mode is only supported for target='knowledge_item'",
-					);
-				}
-				const existing = await ports.coreApi.findKnowledgeItemVersionById(id, ctx.agentId);
-				if (!existing) return err("NOT_FOUND", `Knowledge item not found: ${id}`);
-				const result = await ports.coreApi.recomputeAttentionScoreForItem(id, ctx.agentId);
-				return ok({ target, id, score: result.current, mode });
-			}
-
-			if (args.score === undefined) {
-				return err("INVALID_INPUT", "'score' is required when mode='override'");
-			}
-			const score = args.score;
-
-			if (target === "knowledge_item") {
-				const row = await ports.coreApi.findKnowledgeItemVersionById(id, ctx.agentId);
-				if (!row) return err("NOT_FOUND", `Knowledge item not found: ${id}`);
-				await ports.coreApi.upsertKnowledgeAppProjectionAttentionScore(
-					id,
-					String(score),
-					ctx.agentId,
-				);
-				return ok({ target, id, score, mode });
-			}
-
-			const row = await ports.coreApi.getItemById(id, ctx.agentId);
-			if (!row) return err("NOT_FOUND", `Item not found: ${id}`);
-			// @lore O2: items.attentionScore removed — no-op on items score writes.
-			return ok({ target, id, score, mode });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // promote_knowledge
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1600,8 +1493,6 @@ export function buildToolDefinitions(
 		toRegistered(makeEditTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
-		toRegistered(makeRunKnowledgeSweepTool(ports)),
-		toRegistered(makeScoreAttentionTool(ports)),
 		toRegistered(makePromoteKnowledgeTool(ports)),
 		toRegistered(makeCreateConflictReviewTool(ports)),
 		toRegistered(makeMergeKnowledgeTool(ports)),

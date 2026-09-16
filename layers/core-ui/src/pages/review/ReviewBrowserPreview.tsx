@@ -3,20 +3,20 @@
 // Founder direction (human-design-review round 1): "not all stuff will be combined
 // and fancy — some things will be a simple browser window to look at." This canvas
 // is the deliberately-basic member of the family: a browser chrome frame (traffic
-// lights + URL bar + reload + open↗) wrapping a faithful render of a deployed page.
+// lights + URL bar) wrapping a faithful render of a deployed page.
 // The frame IS the framing — no inbox row, no diff panel, no flags. Look, then verdict.
 //
 // @lore The "web page" inside is hand-built from divs with neutral, email-safe-style
 // inline styling, NOT a live <iframe>. The prototype/component viewer runs offline
 // with no deploy to point an iframe at, and an iframe wouldn't be diffable in the
 // DOM-snapshot net. So the page is a styled render of a real deployed pricing page.
-// The REVIEW CHROME (header, URL bar, verdict pills) uses Hearth/CP1 tokens by name
+// The REVIEW CHROME (header, URL bar) uses Hearth/CP1 tokens by name
 // only (AQ-008); the rendered page is the one place neutral page styling is allowed,
 // because that IS the artifact under review (it must read as a real web page).
 // Tool-brand color lives only in <ToolLogo> (via CanvasSourceHeader).
 //
-// Presentational isolation component: verdict callbacks are no-ops in the story; no
-// local state needed (the page is static — there is nothing to toggle).
+// Presentational isolation component: no local state needed (the page is static —
+// there is nothing to toggle). The verdict gate lives in the review frame, not here.
 
 import type { JSX } from "react";
 import { headingIdentityMatches } from "../../ds";
@@ -24,7 +24,6 @@ import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
 import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { BrowserPreviewPayload, ReviewCanvasProps } from "./review-artifact";
-import { isSafeSourceHref } from "./source-link-guard";
 
 // ── The page under review ──────────────────────────────────────────────────
 // `BrowserPreviewPayload` is `{url, title, previewBody}` — nothing else, so
@@ -135,27 +134,20 @@ function TrafficLights(): JSX.Element {
 export interface ReviewBrowserPreviewProps {
 	readonly data: PreviewPage;
 	readonly documentTitle?: string;
-	readonly onApprove?: () => void;
-	readonly onRequestChanges?: () => void;
 }
 
 /**
  * Browser-preview review canvas — the LOW-fidelity proof. A browser chrome frame
- * (traffic lights + URL bar + reload + open↗) wrapping a faithful render of a
- * deployed page. The reviewer's whole job: look at the page, then call it.
+ * (traffic lights + URL bar) wrapping a faithful render of a deployed page. The
+ * reviewer's whole job: look at the page, then call it in the review frame.
  *
  * States (this story shows `populated`):
  *  - empty:   no preview deploy yet → EmptyState ("No preview to look at").
  *  - loading: chrome with a shimmering page area.
  *  - error:   deploy failed → inline error inside the frame with a retry link.
- *  - populated (shown here): the deployed pricing page, ready for a verdict.
+ *  - populated (shown here): the deployed pricing page.
  */
-function ReviewBrowserPreviewView({
-	data,
-	documentTitle,
-	onApprove,
-	onRequestChanges,
-}: ReviewBrowserPreviewProps): JSX.Element {
+function ReviewBrowserPreviewView({ data, documentTitle }: ReviewBrowserPreviewProps): JSX.Element {
 	return (
 		<div
 			className="type-small flex flex-col gap-[18px] p-[18px] text-left"
@@ -174,7 +166,7 @@ function ReviewBrowserPreviewView({
 					boxShadow: "var(--shadow-default)",
 				}}
 			>
-				{/* chrome bar: traffic lights + URL bar + reload + open↗ */}
+				{/* chrome bar: traffic lights + URL bar */}
 				<div
 					className="flex items-center gap-[12px] px-[12px] py-[9px]"
 					style={{
@@ -201,76 +193,11 @@ function ReviewBrowserPreviewView({
 						<span className="type-data truncate " style={{ color: "var(--text-secondary)" }}>
 							{data.url}
 						</span>
-						<button
-							type="button"
-							aria-label="Reload preview"
-							className="type-control ml-auto shrink-0  "
-							style={{ color: "var(--text-tertiary)" }}
-							onClick={() => {
-								// no-op: presentational reload affordance.
-							}}
-						>
-							↻
-						</button>
 					</div>
-					{isSafeSourceHref(data.url) ? (
-						<a
-							href={data.url}
-							target="_blank"
-							rel="noopener noreferrer"
-							onClick={(e) => e.preventDefault()}
-							aria-label="Open preview in a new tab"
-							className="type-control shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--accent-deep)] "
-						>
-							Open
-							<span aria-hidden="true">↗</span>
-						</a>
-					) : (
-						<span
-							aria-disabled="true"
-							title="Unsafe source link"
-							className="type-metadata shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-tertiary)]"
-						>
-							Open
-							<span aria-hidden="true">↗</span>
-						</span>
-					)}
 				</div>
 
 				{/* the rendered page (the artifact) */}
 				<RenderedPage data={data} documentTitle={documentTitle} />
-			</div>
-
-			{/* verdict gate — basic pill pair; the frame owns resolution */}
-			<div
-				className="flex items-center gap-[9px] pt-[12px]"
-				style={{ borderTop: "var(--bw-thin) solid var(--border-subtle)" }}
-			>
-				<button
-					type="button"
-					onClick={() => onApprove?.()}
-					className="type-control px-[18px] py-[10px]   "
-					style={{
-						background: "var(--accent-primary)",
-						color: "var(--surface-page)",
-						borderRadius: "var(--r-pill)",
-					}}
-				>
-					Approve
-				</button>
-				<button
-					type="button"
-					onClick={() => onRequestChanges?.()}
-					className="type-control px-[18px] py-[10px]   "
-					style={{
-						background: "var(--surface-elevated)",
-						color: "var(--text-primary)",
-						border: "var(--bw-thin) solid var(--border-default)",
-						borderRadius: "var(--r-pill)",
-					}}
-				>
-					Request changes
-				</button>
 			</div>
 		</div>
 	);

@@ -69,6 +69,7 @@ import { noProductionImportsDevelopment } from "./rules/no-production-imports-de
 import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
 import { oneWorkPrimitive } from "./rules/one-work-primitive.js";
 import { registriesHonest } from "./rules/registries-honest.js";
+import { retiredSurfacesAbsent } from "./rules/retired-surfaces-absent.js";
 import { serviceValuesDoNotEscapeTheFace } from "./rules/service-values-do-not-escape-the-face.js";
 
 function runFixtures(): number {
@@ -127,6 +128,7 @@ function buildRules(
 		deepImportsDieWithTheirEntries({ readFile }),
 		oneWorkPrimitive({ readFile }),
 		artifactIsNotAStorageConcept({ readFile }),
+		retiredSurfacesAbsent({ readFile }),
 		...crossingRules({
 			architecture,
 			crossings: detected.crossings,
@@ -245,6 +247,7 @@ function runLive(errorsOnly: boolean): number {
 		deepImportsDieWithTheirEntries({ readFile: readRepoFile }),
 		oneWorkPrimitive({ readFile: readRepoFile }),
 		artifactIsNotAStorageConcept({ readFile: readRepoFile }),
+		retiredSurfacesAbsent({ readFile: readRepoFile }),
 		...crossingRules(ruleInput),
 	];
 

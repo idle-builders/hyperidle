@@ -1,14 +1,13 @@
 /**
  * L1a — Event Bus events for the Thread primitive (plan §6.3).
  *
- * Five new events: thread_created, thread_message_appended,
- * thread_resolved, thread_reopened, thread_archived. `streamId`
+ * Four events: thread_created, thread_message_appended,
+ * thread_resolved, thread_reopened. `streamId`
  * = `threadId` so per-thread events arrive in order.
  */
 
 import type {
 	DomainEvent,
-	ThreadArchivedEvent,
 	ThreadCreatedEvent,
 	ThreadMessageAppendedEvent,
 	ThreadReopenedEvent,
@@ -103,26 +102,7 @@ describe("L1a — Thread primitive events on EventBus", () => {
 		expect(received!.reopenedByMessageId).toBe("rev-m-2");
 	});
 
-	it("thread_archived event delivers", () => {
-		const bus = new EventBus();
-		let received: ThreadArchivedEvent | null = null;
-		bus.on("thread_archived", (e) => {
-			received = e;
-		});
-
-		const event: ThreadArchivedEvent = {
-			type: "thread_archived",
-			streamId: "thr-1",
-			threadId: "thr-1",
-			timestamp: 5,
-		};
-		bus.emit(event);
-
-		expect(received).not.toBeNull();
-		expect(received!.threadId).toBe("thr-1");
-	});
-
-	it("DomainEvent union covers the 5 new event types (compile-time)", () => {
+	it("DomainEvent union covers the 4 surviving thread event types (compile-time)", () => {
 		const events: DomainEvent[] = [
 			{
 				type: "thread_created",
@@ -156,13 +136,7 @@ describe("L1a — Thread primitive events on EventBus", () => {
 				reopenedByMessageId: "r",
 				timestamp: 4,
 			},
-			{
-				type: "thread_archived",
-				streamId: "s",
-				threadId: "t",
-				timestamp: 5,
-			},
 		];
-		expect(events.length).toBe(5);
+		expect(events.length).toBe(4);
 	});
 });

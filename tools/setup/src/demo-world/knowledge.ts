@@ -70,7 +70,6 @@ interface KnowledgeSpec {
 	readonly createdAt: string;
 	readonly updatedAt: string;
 	readonly version?: number;
-	readonly attentionScore?: string;
 	readonly citationCount?: number;
 }
 
@@ -134,7 +133,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			createdAt: clock.daysAgo(43),
 			updatedAt: clock.daysAgo(12),
 			version: 3,
-			attentionScore: "0.88",
 			citationCount: 9,
 		},
 		{
@@ -149,7 +147,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(38),
 			updatedAt: clock.daysAgo(38),
-			attentionScore: "0.52",
 			citationCount: 3,
 		},
 		{
@@ -164,7 +161,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(36),
 			updatedAt: clock.daysAgo(9),
-			attentionScore: "0.74",
 			citationCount: 6,
 		},
 		{
@@ -180,7 +176,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			createdAt: clock.daysAgo(13),
 			updatedAt: clock.daysAgo(11),
 			version: 3,
-			attentionScore: "0.91",
 			citationCount: 4,
 		},
 		{
@@ -195,7 +190,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(2),
 			updatedAt: clock.hoursAgo(26),
-			attentionScore: "0.95",
 		},
 		{
 			id: "demo-ki-rounding",
@@ -252,7 +246,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(14),
 			updatedAt: clock.daysAgo(13),
-			attentionScore: "0.81",
 			citationCount: 2,
 		},
 		{
@@ -281,7 +274,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(5),
 			updatedAt: clock.daysAgo(5),
-			attentionScore: "0.66",
 		},
 		{
 			id: "demo-ki-email-deliverability",
@@ -309,7 +301,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(3),
 			updatedAt: clock.hoursAgo(2),
-			attentionScore: "0.71",
 		},
 		{
 			id: KI_CHURN_SIGNALS,
@@ -323,7 +314,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: MAYA_ID,
 			createdAt: clock.daysAgo(10),
 			updatedAt: clock.daysAgo(6),
-			attentionScore: "0.89",
 			citationCount: 3,
 		},
 		{
@@ -366,7 +356,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(8),
 			updatedAt: clock.daysAgo(8),
-			attentionScore: "0.77",
 			citationCount: 1,
 		},
 		{
@@ -381,7 +370,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(6),
 			updatedAt: clock.daysAgo(6),
-			attentionScore: "0.62",
 		},
 		{
 			id: "demo-ki-onboarding-dropoff",
@@ -437,7 +425,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: MAYA_ID,
 			createdAt: clock.daysAgo(4),
 			updatedAt: clock.daysAgo(4),
-			attentionScore: "0.58",
 		},
 		{
 			id: "demo-ki-copy-review-checklist",
@@ -479,7 +466,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(13),
 			updatedAt: clock.daysAgo(13),
-			attentionScore: "0.83",
 			citationCount: 2,
 		},
 		{
@@ -508,7 +494,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(28),
 			updatedAt: clock.daysAgo(28),
-			attentionScore: "0.55",
 		},
 		// ── User scope: private items ──────────────────────────────────────
 		{
@@ -523,7 +508,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: FOUNDER_ID,
 			createdAt: clock.daysAgo(12),
 			updatedAt: clock.daysAgo(11),
-			attentionScore: "0.86",
 		},
 		{
 			id: "demo-ki-founder-notes",
@@ -537,7 +521,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: FOUNDER_ID,
 			createdAt: clock.daysAgo(7),
 			updatedAt: clock.daysAgo(7),
-			attentionScore: "0.6",
 		},
 		// ── Stale and archived: a corpus that ages ─────────────────────────
 		{
@@ -552,7 +535,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(42),
 			updatedAt: clock.daysAgo(13),
-			attentionScore: "0.2",
 		},
 		{
 			id: "demo-ki-old-onboarding",
@@ -566,7 +548,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(40),
 			updatedAt: clock.daysAgo(6),
-			attentionScore: "0.18",
 		},
 		{
 			id: "demo-ki-legacy-slack",
@@ -659,7 +640,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(8),
 			updatedAt: clock.daysAgo(8),
-			attentionScore: "0.5",
 		},
 		{
 			id: "demo-ki-uptime-runbook",
@@ -767,7 +747,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 				id: `demo-kp-${spec.id.slice("demo-ki-".length)}`,
 				knowledgeItemId: spec.id,
 				scopeId: spec.scopeId,
-				attentionScore: spec.attentionScore ?? null,
 				relevanceScore: "0.7",
 				confidence: spec.status === "active" ? "0.9" : "0.6",
 				citationCount: spec.citationCount ?? 0,

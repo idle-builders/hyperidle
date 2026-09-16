@@ -39,7 +39,6 @@ function makeItem(
 		updatedBy: "u-1",
 		createdAt: now,
 		updatedAt: now,
-		attentionScore: null,
 		confidence: null,
 		meta: null,
 		role: "ordinary",
