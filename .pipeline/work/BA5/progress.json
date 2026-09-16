@@ -34,6 +34,11 @@
       "note": "everything provable without the maintainer is proven; the stored-PAT case remains, since entering a token into a field is not something the orchestrator does"
     },
     {
+      "id": "G2b-no-teardown-proven",
+      "what": "session end leaves the worktree and the kept copy; a resume finds the files; task done removes the worktree and keeps the branch",
+      "state": "pending"
+    },
+    {
       "id": "G3-pre-ship",
       "what": "phase 2 built, reviewed, and shown working; the always-present gate before shipping",
       "state": "proposed"
@@ -328,9 +333,16 @@
         "incident": "a second git stash violation: stashed once during a sanity-break, popped immediately, self-reported"
       },
       {
+        "id": "L7",
+        "what": "no teardown (ruling 2026-09-16, absorbs BA12): worktree moves to <keptCopiesRoot>/worktrees/<taskKey>/ and is symlinked into the workspace; every session-end unmount/destroy/rm deleted; releaseForTask behind the existing door, called by a core reaction on task done + session_ended, never with --force; reaper skips verdict-awaiting sessions",
+        "architecture": "architecture-no-teardown.md (critique: critique-no-teardown.md, B1/B2 fixed)",
+        "state": "building",
+        "startedAt": "2026-09-16"
+      },
+      {
         "id": "P2",
         "what": "phase 2 \u2014 Google Drive through a CLI the agent and HyperIdle can both steer",
-        "state": "architecture in flight"
+        "state": "architecture revised to the no-teardown ruling (kept copy per Drive filesystem); starts after L7"
       }
     ],
     "state": "all six leaves done"
@@ -531,10 +543,14 @@
     "recorded": "2026-09-12"
   },
   "sizeStopPhase2": {
-    "at": "2026-09-12",
-    "estimate": "~470 production + ~605 test = ~1,000-1,150 added lines \u2014 at the stop line",
-    "biggestDriver": "a real Add-dialog Drive branch (~155), which the plan's phase-1 surfaces list never named for Drive; cutting it reaches ~850",
-    "architectWouldNotCut": "the local-only real-rclone lane (~170) \u2014 cutting it leaves the one integration point this phase exists to drive proven only against a fake",
-    "rule": "CLAUDE.md simplicity check: 1,000+ added lines -> stop, explain the assumptions, ask"
-  }
+    "at": "2026-09-16",
+    "recount": "production only: A ~465 (with the Add-dialog Drive branch) / B ~370 \u2014 under the 1,000-line stop; the 2026-09-12 figure had added test lines",
+    "decision": "A \u2014 B ships a filesystem kind the product cannot create; no stop needed"
+  },
+  "rulings": [
+    {
+      "at": "2026-09-16",
+      "what": "no teardown: folder/Drive live until manually deleted, shareable across teams; only a git worktree is disposable, removed at task done; teardown is a doesn't-matter op; BA12 absorbed"
+    }
+  ]
 }
