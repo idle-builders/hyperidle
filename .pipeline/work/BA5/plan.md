@@ -102,7 +102,8 @@ would break inherited logins.
 - **G3 — before ship:** Drive through `rclone` proven, the filesystem doc brought up to date, one
   CI-green PR. The maintainer merges. **Status 2026-09-17:** Drive proven against a local rclone backend;
   the real Google account proof is the maintainer's (`architecture-phase2.md` §9.4); the doc is updated;
-  the branch is rebased on main; the harness lane is running; the PR follows.
+  the branch is rebased on main; the harness lane ran with zero branch-only failures; **PR #554 is open and
+  CI-green** — the maintainer merges.
 - **Size accepted (maintainer, 2026-09-11):** the rulings add up to ~2,000–2,400 lines; built in six
   ordered steps, each ending green. The no-teardown change (2026-09-16) is mostly deletion.
 - A fresh reviewer per phase over the integrated diff. Dials: suite · new context · user-facing surface.

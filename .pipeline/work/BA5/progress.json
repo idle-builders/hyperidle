@@ -1,7 +1,7 @@
 {
   "item": "BA5",
   "title": "The filesystem works",
-  "status": "shipping \u2014 PR #554 open",
+  "status": "shipped to a CI-green open PR (#554), 2026-09-17",
   "since": "f88b714346822fdc19d90c07f9617263fba6925c",
   "dials": {
     "complexity": "suite",
@@ -43,15 +43,17 @@
     {
       "id": "G3-pre-ship",
       "what": "phase 2 built, reviewed, and shown working; the always-present gate before shipping",
-      "state": "proposed"
+      "state": "passed except the maintainer's items",
+      "passedAt": "2026-09-17",
+      "note": "Drive proven against a local rclone backend and the argv pinned; the doc updated; PR #554 CI-green. Remaining for the maintainer: the real Google account proof (architecture-phase2.md \u00a79.4) and the stored-PAT / revoked-token cases."
     }
   ],
   "review": "suite: reviewed in phases \u2014 one fresh reviewer over each phase's integrated diff",
   "shipping": {
     "pr": "https://github.com/ambrovia/hyperidle/pull/554",
     "openedAt": "2026-09-17",
-    "head": "7dce8522f",
-    "state": "open \u2014 CI rerunning on 7dce8522f; the maintainer merges",
+    "head": "4a06fe9d2",
+    "state": "CI-green OPEN PR \u2014 the maintainer merges; never auto-merged",
     "ci": [
       {
         "head": "cd850422a",
@@ -60,7 +62,7 @@
       {
         "head": "7dce8522f",
         "fix": "tests build PATH forward from a temp dir holding only git (layers/agent-orchestration/src/__testing__/path-only-git.ts); impossible-spawn case uses an empty temp dir; test-only change",
-        "result": "running"
+        "result": "verify PASS (18m39s) on 4a06fe9d2; release verify pass; mergeStateStatus CLEAN"
       }
     ]
   },
