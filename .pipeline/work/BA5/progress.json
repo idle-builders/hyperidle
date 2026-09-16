@@ -443,7 +443,7 @@
       "gh": "2.92.0",
       "missing": "none"
     },
-    "state": "ran on the branch 2026-09-12 04:12:43-04:40:56 CEST (~28 min), exit 1",
+    "state": "ran on the final commit 2026-09-17; all 9 failures pre-exist on origin/main",
     "note": "already red on origin/main (~5 failed / 62 passed previously recorded) \u2014 failures must be compared against main before being blamed on this branch",
     "result": "4 files failed / 14 passed; 8 tests failed / 83 passed / 2 skipped",
     "failures": [
@@ -483,9 +483,23 @@
       }
     },
     "rerun": {
-      "at": "2026-09-17",
-      "head": "890aa48d4",
-      "state": "running"
+      "at": "2026-09-17 00:xx CEST",
+      "head": "890aa48d4 (rebased on f49720426)",
+      "exit": 1,
+      "result": "5 files failed / 15 passed; 9 tests failed / 91 passed / 2 skipped; 1922s",
+      "failures": [
+        "AN2-connection-provisioning: codex config.toml bearer \u2014 codex exits 1 (Model metadata for gpt-6-astra not found; API 400 invalid_request)",
+        "cli-adapter-real-binary: claude-code",
+        "cli-adapter-real-binary: cursor-agent",
+        "model-options-real-binary: [harness:claude] configured effort",
+        "session-handles: claude-code",
+        "session-handles: codex thread_id",
+        "session-handles: codex resumed session can write files",
+        "session-handles: cursor-agent",
+        "real-harness-return-enforcement-realbinary: [harness:codex] CODEX_HOME \u2014 codex exits 1, forceCount=0"
+      ],
+      "comparison": "7 of 9 are the recorded baseline set; knowledge-tree-real opencode no longer fails; the 2 others (AN2 codex, return-enforcement codex) were re-run on a clean origin/main worktree: both fail there with the same signature (2 failed / 18 passed). gpt-6-astra is set nowhere in either tree \u2014 it comes from the installed codex CLI's own config. Verdict: zero branch-only failures.",
+      "log": "/tmp/test-harness-lane.log; main comparison /private/tmp/ba5-main-lane-two-files.log"
     }
   },
   "g2": {
