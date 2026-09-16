@@ -13,20 +13,35 @@
  * @lore BB1: `task.betId` is gone. Tokens accumulate on the worked task itself
  * (not on an ancestor). Per api-contract.md §"Token rollup": nothing writes a
  * rollup onto an ancestor — `tokensActualRollup` is summed at read time.
+ *
+ * @lore B3 fix (the architecture doc §6): the merged JSON used to land through
+ * a bare `update(db, "task", taskId, …)` straight from this file — a
+ * production writer of `tasks` outside the task module, with no `changes`
+ * row, so the writeback was invisible to the record the item exists to
+ * create. `tokensActualJson` is now a field on `EditTaskInput`; this reaction
+ * merges the counts (still its own job — `edit_task` has no tier-merge
+ * semantics) and calls `edit_task.run` in-process, as the session's own
+ * agent, exactly like `work-session-started-reactions.ts` does for the
+ * `in_progress` transition.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
+import type { ActionResult, EditTaskInput, TaskView } from "@hyperidle/domain-model";
 import type {
 	AgentRunLifecycleChangedEvent,
 	EventBus,
 	SessionEndedEvent,
 } from "@hyperidle/event-bus";
-import { get, taskDispatchAttemptStore, update } from "@hyperidle/task";
+import { get, taskDispatchAttemptStore } from "@hyperidle/task";
+import type { ActionContext } from "../actions/action.js";
 
 const logger = createLogger({ pkg: "core-api.work-session-end-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
 const processedTokenSessions = new WeakMap<EventBus, Set<string>>();
+
+/** `edit_task`'s own bound `run` function. */
+type EditTask = (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>>;
 
 function reactToLifecycleChanged(
 	db: HyperIdleDb,
@@ -40,13 +55,17 @@ function reactToLifecycleChanged(
 }
 
 /**
- * Merge `tokensByTier` into the worked task's own `tokensActualJson`.
- * Additive read-modify-write per tier. Never walks up to a parent.
+ * Merge `tokensByTier` into the worked task's own `tokensActualJson` and
+ * write it back through `edit_task`, as the session's own agent. Additive
+ * read-modify-write per tier. Never walks up to a parent.
  */
 async function mergeSessionTokensOntoTask(
 	db: HyperIdleDb,
+	eventBus: EventBus,
 	taskId: string,
+	agentId: string,
 	tokensByTier: NonNullable<SessionEndedEvent["tokensByTier"]>,
+	editTask: EditTask,
 ): Promise<void> {
 	const task = await get(db, "task", taskId);
 	if (!task) return;
@@ -69,13 +88,24 @@ async function mergeSessionTokensOntoTask(
 		};
 	}
 
-	await update(db, "task", taskId, { tokensActualJson: JSON.stringify({ byTier: merged }) });
+	const now = new Date().toISOString();
+	const result = await editTask(
+		{ actor: agentId, db, eventBus, now },
+		{ id: taskId, tokensActualJson: JSON.stringify({ byTier: merged }) },
+	);
+	if (!result.ok) {
+		logger.warn("session_ended task token writeback refused", {
+			taskId,
+			problems: result.problems,
+		});
+	}
 }
 
 function reactToSessionEndedTokens(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	event: SessionEndedEvent,
+	editTask: EditTask,
 ): Promise<void> | undefined {
 	if (!(event.taskId && event.tokensByTier) || Object.keys(event.tokensByTier).length === 0) {
 		return undefined;
@@ -87,7 +117,7 @@ function reactToSessionEndedTokens(
 	}
 	if (seen.has(event.sessionId)) return undefined;
 	seen.add(event.sessionId);
-	return mergeSessionTokensOntoTask(db, event.taskId, event.tokensByTier);
+	return mergeSessionTokensOntoTask(db, eventBus, event.taskId, event.agentId, event.tokensByTier, editTask);
 }
 
 /**
@@ -95,7 +125,11 @@ function reactToSessionEndedTokens(
  * unsubscribe function. Safe to call more than once with the SAME `eventBus`
  * instance — only the first registration takes effect.
  */
-export function registerWorkSessionEndReactions(db: HyperIdleDb, eventBus: EventBus): () => void {
+export function registerWorkSessionEndReactions(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	editTask: EditTask,
+): () => void {
 	if (registeredBuses.has(eventBus)) {
 		return () => {};
 	}
@@ -111,7 +145,7 @@ export function registerWorkSessionEndReactions(db: HyperIdleDb, eventBus: Event
 		});
 	});
 	const unsubscribeTokens = eventBus.on("session_ended", (event) => {
-		void reactToSessionEndedTokens(db, eventBus, event)?.catch((error: unknown) => {
+		void reactToSessionEndedTokens(db, eventBus, event, editTask)?.catch((error: unknown) => {
 			logger.error("session_ended task token-writeback reaction failed", {
 				sessionId: event.sessionId,
 				taskId: event.taskId,

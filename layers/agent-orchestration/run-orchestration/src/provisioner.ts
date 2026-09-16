@@ -243,7 +243,10 @@ interface SessionLifecycleHarnessRuntime {
 	 * narrows the predicate in the closure to only that subset. Absent ⇒ the
 	 * pre-Increment-3 default (any member of the closed return set).
 	 */
-	createReturnGate(requiredReturnActions?: readonly string[]): SessionLifecycleReturnGate;
+	createReturnGate(
+		requiredReturnActions?: readonly string[],
+		taskId?: string,
+	): SessionLifecycleReturnGate;
 	evaluateReturn(
 		gate: SessionLifecycleReturnGate,
 		endReason: "completed" | "crashed" | "stopped",
@@ -1567,7 +1570,10 @@ async function runSession(
 	// so the closure captures the same binding `createReturnGate()`
 	// initializes — the closure only ever fires later, once an actual tool
 	// call streams in (well after this synchronous assignment completes).
-	const returnGate = ports.harnessRuntime.createReturnGate(requiredReturnActions);
+	const returnGate = ports.harnessRuntime.createReturnGate(
+		requiredReturnActions,
+		params.taskId ?? undefined,
+	);
 	let mcpBridgeToken: string | undefined;
 	let mcpUrl: string | undefined;
 	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */

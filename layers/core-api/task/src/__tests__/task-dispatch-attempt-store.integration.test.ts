@@ -133,6 +133,18 @@ async function ordinalsFor(db: HyperIdleDb, taskId: string): Promise<number[]> {
 	return rows.map((row) => row.ordinal);
 }
 
+/**
+ * B1 fix: `insertAttempt` returns `id: string | undefined` now — `undefined`
+ * means the unique-index conflict swallowed the insert (architecture doc §5
+ * step 4). None of these fixtures hit that conflict (each attempt gets its
+ * own predecessor session), so a defined id is the invariant this helper
+ * asserts before handing callers a plain `string`.
+ */
+function requireId(inserted: { readonly id: string | undefined }): string {
+	if (!inserted.id) throw new Error("insertAttempt did not return an id — the insert was swallowed");
+	return inserted.id;
+}
+
 /** The ordinal of one specific attempt row, addressed by identity. */
 async function ordinalOf(db: HyperIdleDb, attemptId: string): Promise<number | undefined> {
 	const [row] = await db
@@ -147,20 +159,26 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 		await seedWorld(db);
 		await seedTask(db, "task-a1");
 
-		const first = await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 0));
-		const second = await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 1));
-		const third = await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 2));
+		const first = requireId(
+			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 0)),
+		);
+		const second = requireId(
+			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 1)),
+		);
+		const third = requireId(
+			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 2)),
+		);
 
 		expect(await ordinalsFor(db, "task-a1")).toEqual([1, 2, 3]);
-		expect(await ordinalOf(db, first.id)).toBe(1);
-		expect(await ordinalOf(db, second.id)).toBe(2);
-		expect(await ordinalOf(db, third.id)).toBe(3);
-		expect(new Set([first.id, second.id, third.id]).size).toBe(3);
+		expect(await ordinalOf(db, first)).toBe(1);
+		expect(await ordinalOf(db, second)).toBe(2);
+		expect(await ordinalOf(db, third)).toBe(3);
+		expect(new Set([first, second, third]).size).toBe(3);
 
 		const [row] = await db
 			.select()
 			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.id, first.id));
+			.where(eq(taskDispatchAttempts.id, first));
 		expect(row?.status).toBe("requested");
 		expect(row?.occasion).toBe("owner_handoff");
 		expect(row?.agentId).toBe(AGENT_ID);
@@ -201,12 +219,14 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 			updatedAt: now,
 		});
 
-		const inserted = await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a3"));
+		const inserted = requireId(
+			await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a3")),
+		);
 
 		// Addressed by identity, not by position: one existing row means the count
 		// rule yields 2 for the new row, where a max-based rule would yield 10. The
 		// seeded 9 must survive untouched, and no third row may appear.
-		expect(await ordinalOf(db, inserted.id)).toBe(2);
+		expect(await ordinalOf(db, inserted)).toBe(2);
 		expect(await ordinalOf(db, "attempt-a3-seed")).toBe(9);
 		expect(await ordinalsFor(db, "task-a3")).toHaveLength(2);
 	});

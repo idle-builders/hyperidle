@@ -5,6 +5,7 @@
  */
 
 import {
+	agentSessionRequests,
 	agentWorkIntents,
 	changes,
 	type HyperIdleDb,
@@ -15,8 +16,26 @@ import {
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { describe, expect, vi } from "vitest";
+import { buildCoreActions } from "../actions/compose.js";
 import { test } from "../__testing__/test-fixtures.js";
+import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
+
+/**
+ * B7 fix: `edit_task`'s own bound `run`, for registering the started
+ * reaction inline — the only way this seam test can drive a real
+ * `session_started` event through `markRunning` instead of hand-seeding
+ * `taskDispatchAttempts.sessionId`.
+ */
+function editTaskFrom(
+	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+): Parameters<typeof registerWorkSessionStartedReactions>[2] {
+	const editTaskAction = buildCoreActions(agentOrchestration).find(
+		(a) => a.declaration.name === "edit_task",
+	);
+	if (!editTaskAction) throw new Error("edit_task action not found");
+	return editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2];
+}
 
 const TEST_API_KEY = "test-key-task-actions";
 
@@ -456,6 +475,8 @@ describe("dispatch", () => {
 	test("an owner change on an in_progress task inserts a second attempt with occasion owner_handoff, ends the predecessor's run, and records a second intent", async ({
 		db,
 		app,
+		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedTeam(db, "ta-team-10");
 		await seedAgent(db, "ta-agent-10a", "ta-team-10");
@@ -479,18 +500,52 @@ describe("dispatch", () => {
 			startedAt: now,
 			state: "active",
 		});
-		// The predecessor's live dispatch attempt — what edit_task's
-		// predecessorSessionId resolution reads.
+		await db.insert(agentSessionRequests).values({
+			id: "ta-handoff-req",
+			sourceKind: "task",
+			sourceId: "ta-handoff-task",
+			streamId: "task:ta-handoff-task",
+			taskId: "ta-handoff-task",
+			agentId: "ta-agent-10a",
+			promptMode: "task",
+			sourceCorrelationJson: "{}",
+			idempotencyKey: "ta-handoff-req",
+			status: "pending",
+			createdAt: now,
+			updatedAt: now,
+		});
+		// The predecessor's live dispatch attempt, seeded the way `insertAttempt`
+		// really leaves it — no `requestId`/`sessionId` yet. B7 fix: those are
+		// filled by a REAL `session_started` event through `markRunning`
+		// (§1's repair), never hand-seeded — the exact shape that let the
+		// original defect (§1) ship unnoticed.
 		await db.insert(taskDispatchAttempts).values({
 			id: "ta-handoff-attempt-1",
 			taskId: "ta-handoff-task",
 			occasion: "accepted",
 			agentId: "ta-agent-10a",
 			ordinal: 1,
-			status: "running",
-			sessionId: "ta-handoff-session",
+			status: "requested",
 			createdAt: now,
 			updatedAt: now,
+		});
+		registerWorkSessionStartedReactions(db, eventBus, editTaskFrom(agentOrchestration));
+		eventBus.emit({
+			type: "session_started",
+			streamId: "ta-handoff-session",
+			sessionId: "ta-handoff-session",
+			agentId: "ta-agent-10a",
+			taskId: "ta-handoff-task",
+			requestId: "ta-handoff-req",
+			timestamp: Date.now(),
+		});
+		await vi.waitFor(async () => {
+			const [row] = await db
+				.select()
+				.from(taskDispatchAttempts)
+				.where(eq(taskDispatchAttempts.id, "ta-handoff-attempt-1"));
+			expect(row?.status).toBe("running");
+			expect(row?.sessionId).toBe("ta-handoff-session");
 		});
 
 		const res = await call<TaskViewBody>(app, "edit_task", {

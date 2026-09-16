@@ -89,7 +89,7 @@ export const taskDispatchAttemptStore = {
 			readonly predecessorSessionId?: string | null;
 			readonly now: string;
 		},
-	): Promise<{ id: string }> => {
+	): Promise<{ readonly id: string | undefined }> => {
 		const existing = await exec
 			.select({ id: taskDispatchAttempts.id })
 			.from(taskDispatchAttempts)
@@ -101,6 +101,9 @@ export const taskDispatchAttemptStore = {
 		// and handing a task with no live session back and forth between the
 		// same two agents collides on it. A swallowed conflict means no new
 		// attempt row is inserted; `returning()` then yields no row.
+		// @lore B1 fix: a swallowed conflict must not fabricate an id for a row
+		// that was never written — the caller reads `id === undefined` as "no
+		// attempt was inserted" and skips the bake and the work-intent submit.
 		const inserted = await exec
 			.insert(taskDispatchAttempts)
 			.values({
@@ -116,7 +119,7 @@ export const taskDispatchAttemptStore = {
 			})
 			.onConflictDoNothing()
 			.returning({ id: taskDispatchAttempts.id });
-		return { id: inserted[0]?.id ?? id };
+		return { id: inserted[0]?.id };
 	},
 	get: async (exec: WriteExecutor, id: string) => {
 		const [row] = await exec

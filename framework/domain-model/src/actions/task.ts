@@ -201,6 +201,15 @@ export const EditTaskInputSchema = z
 		sourceKnowledgeItemId: z.string().optional(),
 		/** Atomic note append — not a partial field on `notes`. */
 		appendNote: z.string().optional(),
+		/**
+		 * The session-end token writeback (architecture doc §6 row, B3). The
+		 * caller (`work-session-end-reactions.ts`) has already merged the
+		 * session's per-tier counts into the task's existing rollup and passes
+		 * the whole resulting JSON string here — `edit_task` is the only write
+		 * to `tasks`, so this is how that merge lands with a `changes` row
+		 * instead of a bare `update()` outside the module.
+		 */
+		tokensActualJson: z.string().nullable().optional(),
 		/** Optimistic-locking token, compared against `prev.updatedAt`. */
 		version: z.string().optional(),
 	})

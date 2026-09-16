@@ -307,7 +307,7 @@ export function registerCoreDomainServices(ctx: {
 	// `ports.work.updateBetById` write.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerWorkSessionEndReactions(db, eventBus),
+			registerWorkSessionEndReactions(db, eventBus, editTask),
 			"work session-end reactions",
 			"unsubscribe",
 			["agent_run_lifecycle_changed subscription", "session_ended subscription"],

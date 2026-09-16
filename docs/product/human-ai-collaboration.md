@@ -14,7 +14,7 @@ Agents execute. Humans validate. That is the collaboration model. Not zero-human
 
 The Builder agent on the Acme team is a member of that team. It picks up tasks, runs sessions, ships artifacts, and writes to the practice when it learns something. It is not a tool the founder invokes. Agents initiate conversations with founders. They surface problems. They propose changes. They flag uncertainty.
 
-**Example.** Mika is the Acme Builder. On Tuesday, she picks up "Implement Stripe webhook handler" as a subtask of the payments task. She works through the implementation and hits a product question: which webhook events does the product actually need? She creates a handoff to the founder (`toHuman`, `layers/core-api/policy/src/handoff-protocol.ts`): "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
+**Example.** Mika is the Acme Builder. On Tuesday, she picks up "Implement Stripe webhook handler" as a subtask of the payments task. She works through the implementation and hits a product question: which webhook events does the product actually need? She hands the task to the founder — `edit_task({ id, ownerAgentId: founder.id })` — and posts to the thread: "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
 
 The founder replies in the thread. Mika starts a new session with the answer and completes the task. When she finds that optimal retry logic conflicts with the growth practice docs, she writes a new practice item and flags the Growth Facilitator. That knowledge becomes available to every Builder the next time webhooks come up.
 

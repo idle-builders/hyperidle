@@ -103,7 +103,6 @@ export interface CoreApiWorkPort {
 	getItemById(id: string): Promise<ItemView | undefined>;
 	updateItemById(id: string, updates: UpdateItemRequest): Promise<void>;
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
-	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
 }
 
 /**

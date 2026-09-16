@@ -73,7 +73,7 @@ Reached from a task row in Team View or from the subtask list on a parent task. 
 | **Provenance link** | Shown when promoted from a knowledge item (AK5) | Open source item |
 | **Outcome section** | Record verdict + summary; AI retro draft; saving captures a knowledge item | Edit / save |
 | **Description / Done condition** | Task body rendered as Blocks — `deriveBlocks(description, { kind: "task", id: taskId })` → `<Block />`. Spec: [docs/blocks/](../blocks/index.md) | Inline edit with save indicator |
-| **Edit controls** | Title, description, done condition, owner, dependencies — `PATCH /api/tasks/:id` | Submit |
+| **Edit controls** | Title, description, done condition, owner, dependencies — `POST /api/actions/edit_task` | Submit |
 | **Subtasks** | Recursive task rows — title + owner/state/relative-time meta line, outcome verdict badge, `StatusChip` per state + `LiveDot` (pulsing) when `in_progress` | Click row → `/work/task/:subtaskId`; "+ Add subtask" → `/work/task/new?parentTaskId=:id` |
 | **Artifacts** | `ArtifactSection` | Open artifact |
 | **Discussion** | `HostThreadSection` chronological thread, "Write a message…" composer | Reply |
@@ -82,4 +82,4 @@ Reached from a task row in Team View or from the subtask list on a parent task. 
 
 **Kill:** `ConsequencePreviewDialog` — the reason field is required; empty reason disables the confirm button. Killing a task kills its entire subtree. Pause/resume were removed (AD5) — kill is the only terminal action from the overflow menu.
 
-**Edit gate:** none. `PATCH /api/tasks/:id` accepts the same body from a human actor and an agent actor; there is no draft-only gate, no role gate, and no approval gate. This matches ETHOS §2.
+**Edit gate:** none. `POST /api/actions/edit_task` accepts the same body from a human actor and an agent actor; there is no draft-only gate, no role gate, and no approval gate. This matches ETHOS §2.

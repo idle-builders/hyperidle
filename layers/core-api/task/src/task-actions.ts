@@ -34,8 +34,9 @@ export interface TaskActionsDeps {
 		appendChange(exec: WriteExecutor, row: NewChange): Promise<unknown>;
 	};
 	readonly agentOrchestration: {
-		// one direction, three verbs — see architecture.md's header. BC6 removes
-		// all three together.
+		// one direction, three verbs — see architecture.md's header. A later
+		// item removes all three together once orchestration's other seam
+		// direction is gone.
 		submitWorkIntent(input: AgentWorkIntentRecorderInput): Promise<void>;
 		stopRunsForTasks(
 			taskIds: readonly string[],
@@ -150,6 +151,9 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 			: {}),
 		...(input.sourceKnowledgeItemId !== undefined
 			? { sourceKnowledgeItemId: input.sourceKnowledgeItemId }
+			: {}),
+		...(input.tokensActualJson !== undefined
+			? { tokensActualJson: input.tokensActualJson }
 			: {}),
 		state: resolvedState as DomainTask["state"],
 	};
@@ -286,16 +290,25 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 	/**
 	 * Kill `rootTaskId` and its whole subtree, INSIDE the caller's own open
 	 * transaction — collateral, never a second decision
-	 * (the architecture doc §6 row 6). Returns every id killed
-	 * (root first is not guaranteed; deepest-first is) so the caller can stop
-	 * runs and free dependents after commit.
+	 * (the architecture doc §6 row 6). Returns every task killed, each with
+	 * its real prior state (root first is not guaranteed; deepest-first is)
+	 * so the caller can stop runs, free dependents and emit the true
+	 * `fromState` after commit.
+	 *
+	 * @lore B2 fix: this used to return bare ids and the caller emitted a
+	 * hardcoded `fromState: "proposed"` for every collateral kill — wrong
+	 * whenever a descendant was killed from `in_progress`/`accepted`/etc, and
+	 * a real consumer (`routine-scheduler.ts`'s transition matching) reads
+	 * that field. The real value is already in hand here (`t.state`, read for
+	 * the transition guard); it is now carried out instead of discarded.
 	 */
 	async function killSubtreeInTx(
 		tx: WriteExecutor,
 		rootTaskId: string,
 		actor: string,
 		now: string,
-	): Promise<readonly string[]> {
+		rootFromState: string,
+	): Promise<readonly { readonly id: string; readonly fromState: string }[]> {
 		const subtreeIds = await taskDb.listSubtreeIds(tx, rootTaskId);
 		if (subtreeIds.length === 0) return [];
 		// The root's own row was already flipped to "killed" by the caller's
@@ -311,14 +324,14 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		// root needs no second transition or changes row here, only inclusion
 		// in the returned id list.
 		const descendantIds = subtreeIds.filter((id) => id !== rootTaskId);
-		if (descendantIds.length === 0) return [rootTaskId];
+		if (descendantIds.length === 0) return [{ id: rootTaskId, fromState: rootFromState }];
 		const subtree = await taskDb.list(tx, "task", { ids: descendantIds });
 		const doomed = subtree.filter((t) => !TERMINAL_TASK_STATES.includes(t.state));
 		const depthOrder = new Map(subtreeIds.map((id, i) => [id, i]));
 		const deepestFirst = [...doomed].sort(
 			(a, b) => (depthOrder.get(b.id) ?? 0) - (depthOrder.get(a.id) ?? 0),
 		);
-		const killed: string[] = [];
+		const killed: { readonly id: string; readonly fromState: string }[] = [];
 		for (const t of deepestFirst) {
 			const { before, after } = diffFields(t.id, t, { state: "killed" });
 			await taskDb.transition(tx, "task", {
@@ -336,9 +349,9 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				after: JSON.stringify(after),
 				at: now,
 			});
-			killed.push(t.id);
+			killed.push({ id: t.id, fromState: t.state });
 		}
-		return [...killed, rootTaskId];
+		return [...killed, { id: rootTaskId, fromState: rootFromState }];
 	}
 
 	async function editTaskRun(
@@ -538,7 +551,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 
 		// -- 4. inside one transaction --------------------------------------------
 		const now = ctx.now;
-		let killedIds: readonly string[] = [];
+		let killedTasks: readonly { readonly id: string; readonly fromState: string }[] = [];
 		let dispatch:
 			| {
 					attemptId: string;
@@ -572,6 +585,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				position: next.position,
 				needsReview: next.needsReview,
 				sourceKnowledgeItemId: next.sourceKnowledgeItemId,
+				tokensActualJson: next.tokensActualJson,
 				updatedAt: now,
 			};
 			if (input.outcome) {
@@ -638,7 +652,13 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			}
 
 			if (resolvedState === "killed" && (!prev || prev.state !== "killed")) {
-				killedIds = await killSubtreeInTx(tx, taskId, ctx.actor, now);
+				killedTasks = await killSubtreeInTx(
+					tx,
+					taskId,
+					ctx.actor,
+					now,
+					prev?.state ?? "proposed",
+				);
 			}
 
 			// -- the dispatch branch: an accept, or an owner change to an agent --
@@ -655,17 +675,24 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					agentId: next.ownerAgentId,
 					now,
 				});
-				const bakedRequest = await resolveTaskRunRequest(
-					tx as HyperIdleDb,
-					{ kind: "task_run", attemptId: inserted.id },
-					deps.taskRunResolver,
-				);
-				dispatch = {
-					attemptId: inserted.id,
-					ownerAgentId: next.ownerAgentId,
-					occasion,
-					bakedRequest,
-				};
+				// @lore B1 fix: a swallowed unique-index conflict (§5 step 4) leaves
+				// `inserted.id` undefined — no attempt row exists to bake a request
+				// for or to submit a work intent against, so both are skipped rather
+				// than reading a fabricated id that `resolveTaskRunRequest` would
+				// then throw on inside this transaction.
+				if (inserted.id) {
+					const bakedRequest = await resolveTaskRunRequest(
+						tx as HyperIdleDb,
+						{ kind: "task_run", attemptId: inserted.id },
+						deps.taskRunResolver,
+					);
+					dispatch = {
+						attemptId: inserted.id,
+						ownerAgentId: next.ownerAgentId,
+						occasion,
+						bakedRequest,
+					};
+				}
 			} else if (
 				input.ownerAgentId !== undefined &&
 				input.ownerAgentId !== null &&
@@ -680,23 +707,27 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					predecessorSessionId: predecessorSessionId ?? null,
 					now,
 				});
-				const bakedRequest = await resolveTaskRunRequest(
-					tx as HyperIdleDb,
-					{ kind: "task_run", attemptId: inserted.id },
-					deps.taskRunResolver,
-				);
-				dispatch = {
-					attemptId: inserted.id,
-					ownerAgentId: input.ownerAgentId,
-					occasion: "owner_handoff",
-					bakedRequest,
-				};
+				// @lore B1 fix: see the accept branch above — a swallowed conflict
+				// means no row, so no bake and no dispatch.
+				if (inserted.id) {
+					const bakedRequest = await resolveTaskRunRequest(
+						tx as HyperIdleDb,
+						{ kind: "task_run", attemptId: inserted.id },
+						deps.taskRunResolver,
+					);
+					dispatch = {
+						attemptId: inserted.id,
+						ownerAgentId: input.ownerAgentId,
+						occasion: "owner_handoff",
+						bakedRequest,
+					};
+				}
 			}
 		});
 
 		// -- 5. after commit --------------------------------------------------------
-		if (killedIds.length > 0) {
-			await deps.agentOrchestration.stopRunsForTasks(killedIds);
+		if (killedTasks.length > 0) {
+			await deps.agentOrchestration.stopRunsForTasks(killedTasks.map((k) => k.id));
 		}
 		if (predecessorSessionId && dispatch?.occasion === "owner_handoff") {
 			await deps.agentOrchestration.endRunForHandoff(predecessorSessionId, now);
@@ -711,13 +742,13 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				timestamp: Date.now(),
 			});
 		}
-		for (const killedId of killedIds) {
-			if (killedId === (prev?.id ?? next.id)) continue;
+		for (const killed of killedTasks) {
+			if (killed.id === (prev?.id ?? next.id)) continue;
 			ctx.eventBus.emit({
 				type: "task_state_changed",
-				streamId: killedId,
-				taskId: killedId,
-				fromState: "proposed",
+				streamId: killed.id,
+				taskId: killed.id,
+				fromState: killed.fromState as DomainTask["state"],
 				toState: "killed",
 				timestamp: Date.now(),
 				cascade: true,
@@ -733,10 +764,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				bakedRequest: dispatch.bakedRequest,
 			});
 		}
-		for (const killedId of killedIds) {
+		for (const killed of killedTasks) {
 			await handleDependencyKilled(
 				{ actor: "system:propagation", db: ctx.db, eventBus: ctx.eventBus, now: ctx.now },
-				killedId,
+				killed.id,
 				editTaskRun,
 			);
 		}

@@ -405,15 +405,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("work.createItem", res);
 				return (await res.json()) as CreateItemResponse;
 			},
-
-			async findItemByReasoningMarker(
-				marker: string,
-			): Promise<{ readonly id: string } | undefined> {
-				const res = await client.conversations.items.$get({ query: { reasoningMarker: marker } });
-				if (!res.ok) return throwSeamError("work.findItemByReasoningMarker", res);
-				const { items } = (await res.json()) as { readonly items: ReadonlyArray<{ id: string }> };
-				return items[0] ? { id: items[0].id } : undefined;
-			},
 		},
 		users: {
 			async getUserById(id: string): Promise<UserView | undefined> {

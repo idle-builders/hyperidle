@@ -13,13 +13,13 @@ Two failure modes bracket the design space:
 - **Workflow-engine thinking.** Treat the factory as a DAG of nodes. Every transition is wired in advance; adding a step means editing the graph. Agents become DAG executors, not employees. It collapses the moment reality stops looking like the graph.
 - **Free-form agent thinking.** No structure at all. Agents are spawned, told to "go work on it," and given everything. They duplicate work, contradict each other, never know when to stop, and burn cost without producing artifacts.
 
-The middle path this layer implements: **decentralized handoffs over a shared substrate, with explicit unit primitives and explicit done conditions.** The model decides when to hand off; the system tracks state; the work has a beginning, a middle, and a known end. No DAG engine exists anywhere in the repo — sequencing is `tasks.dependencies` plus the handoff protocol.
+The middle path this layer implements: **decentralized handoffs over a shared substrate, with explicit unit primitives and explicit done conditions.** The model decides when to hand off; the system tracks state; the work has a beginning, a middle, and a known end. No DAG engine exists anywhere in the repo — sequencing is `tasks.dependencies` plus an ordinary owner edit.
 
 Three commitments distinguish it, all implemented:
 
 1. **Teams persist.** A team is the durable unit, not a per-task crew. Product merged 1:1 into Team (U1: the `teams` table is the former `products` table). Successive pieces of work pass through the same team and it accumulates muscle memory. See [teams.md](teams.md).
-2. **Task planning is decentralized and strategy-driven.** No central planner service. Tasks emerge from agent and strategy work; the work service (`layers/core-api/work/`) coordinates state without encoding a step sequence.
-3. **Change is first-class, not exceptional.** Work is meant to change as the team learns — including its goal. Any task is editable through one door by whoever is closest to it, human or agent, and every change lands in the task's audit trail.
+2. **Task planning is decentralized and strategy-driven.** No central planner service. Tasks emerge from agent and strategy work; the task module (`layers/core-api/task/`) coordinates state without encoding a step sequence.
+3. **Change is first-class, not exceptional.** Work is meant to change as the team learns — including its goal. Any task is editable through one door by whoever is closest to it, human or agent, and every change lands as a `changes` row.
 
 ---
 
@@ -64,11 +64,11 @@ about it.
 Shipped shape:
 
 - `parentTaskId` — **nullable**. `null` means a root task. This one field is the whole hierarchy.
-- `teamId`, `ownerAgentId` — owner changes via handoff
+- `teamId`, `ownerAgentId` — owner changes via `edit_task`, a handoff when the new owner is an agent
 - `title`, `description`, `doneCondition` — the goal is `doneCondition`; every task has one
 - `state` — **`proposed | accepted | hold | in_progress | blocked | review | done | killed`** (`TASK_STATES`, `framework/domain-model/src/types.ts`). One vocabulary at every depth: a root task is `in_progress`, not "active".
 - `dependencies` — Task IDs that must reach `done` first; sequences emerge from these, not from a graph
-- `threadId` — **nullable**; `notes`, `auditTrail`
+- `threadId` — **nullable**; `notes`
 - `outcomeVerdict` — `met | met_with_rework | partially_met | not_met`, null until evaluated; `outcomeSummary` alongside it
 - `tokensActualJson` — this task's OWN accumulated TokenUsage. A subtree total is summed at read time; no ancestor carries a rollup column, so there is none to drift.
 - `needsReview` — does finishing this task need a human verdict? Default `false`: work closes straight to `done`. See [tasks-and-sessions §1.1](tasks-and-sessions.md).
@@ -81,12 +81,12 @@ depth cap as a backstop.
 
 **What the merge cut, and why.** `appetite` was already dead (rejected at the API boundary). `atRisk`
 was never written to `true` anywhere in production. `hypothesis` and `revisionLog` went with the bet —
-a task's goal is its `doneCondition`, and `auditTrail` was already the audit mechanism, so a second one
-was redundant. The four-value bet status folded into the eight task states, and the
-`validated | refuted | partial | inconclusive` verdict vocabulary folded into the task's: the surviving
-question is "did the goal get met?", which reads correctly at every depth.
+a task's goal is its `doneCondition`. The four-value bet status folded into the eight task states, and
+the `validated | refuted | partial | inconclusive` verdict vocabulary folded into the task's: the
+surviving question is "did the goal get met?", which reads correctly at every depth. `auditTrail`
+itself was later dropped too — every edit's `changes` row is the record now.
 
-**Editing is not gated by who you are.** One door — `PATCH /api/tasks/:id` — and a human and an agent
+**Editing is not gated by who you are.** One door — `edit_task`, `POST /api/actions/edit_task` — and a human and an agent
 send the identical request for the identical result. Before the merge this was incoherent in both
 directions: a human could edit a bet at any status, an agent only in `draft` and only as the assistant
 and only behind an approval gate, and *nobody* could edit a task at all. Per [ETHOS](../../ETHOS.md), a

@@ -63,11 +63,12 @@ describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {
 
 describe("isReturnAction — AC2: per-tool return predicate", () => {
 	it("returns true for all members of RETURN_ACTION_NAMES, given each member's satisfying args", () => {
-		// `edit_task` is argument-gated (only a handoff is terminal) — every
-		// other member is unconditional, per the `edit_task`-specific test below.
+		// `edit_task` is argument-gated (B4: only the session's own task moving
+		// away from the agent is terminal) — every other member is
+		// unconditional, per the `edit_task`-specific test below.
 		for (const name of RETURN_ACTION_NAMES) {
-			const args = name === "edit_task" ? { ownerAgentId: "agent-7" } : {};
-			expect(isReturnAction(name, args)).toBe(true);
+			const args = name === "edit_task" ? { id: "task-1", ownerAgentId: "agent-7" } : {};
+			expect(isReturnAction(name, args, "task-1")).toBe(true);
 		}
 	});
 
@@ -76,11 +77,23 @@ describe("isReturnAction — AC2: per-tool return predicate", () => {
 		expect(isReturnAction("submit_review", { verdict: "approved" })).toBe(true);
 	});
 
-	it("returns true for edit_task only when it sets ownerAgentId (a handoff)", () => {
-		expect(isReturnAction("edit_task", { ownerAgentId: "agent-7" })).toBe(true);
-		expect(isReturnAction("edit_task", {})).toBe(false);
-		expect(isReturnAction("edit_task", { title: "Renamed" })).toBe(false);
-		expect(isReturnAction("edit_task", { ownerAgentId: "" })).toBe(false);
+	it("returns true for edit_task only on the session's own task, moving it away from the agent (B4)", () => {
+		expect(isReturnAction("edit_task", { id: "task-1", ownerAgentId: "agent-7" }, "task-1")).toBe(
+			true,
+		);
+		expect(isReturnAction("edit_task", { id: "task-1", state: "review" }, "task-1")).toBe(true);
+		expect(isReturnAction("edit_task", { id: "task-1", state: "done" }, "task-1")).toBe(true);
+		// no taskId in context — never terminal.
+		expect(isReturnAction("edit_task", { id: "task-1", ownerAgentId: "agent-7" })).toBe(false);
+		// a subtask create (no id) is never the session's own task.
+		expect(isReturnAction("edit_task", { ownerAgentId: "agent-7" }, "task-1")).toBe(false);
+		// editing a DIFFERENT task is never terminal.
+		expect(isReturnAction("edit_task", { id: "task-2", ownerAgentId: "agent-7" }, "task-1")).toBe(
+			false,
+		);
+		expect(isReturnAction("edit_task", { id: "task-1" }, "task-1")).toBe(false);
+		expect(isReturnAction("edit_task", { id: "task-1", title: "Renamed" }, "task-1")).toBe(false);
+		expect(isReturnAction("edit_task", { id: "task-1", ownerAgentId: "" }, "task-1")).toBe(false);
 	});
 
 	it("returns true for send_message unconditionally", () => {
@@ -139,8 +152,14 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 		expect(isReturnAction("mcp__hyperidle__submit_review")).toBe(true);
 	});
 
-	it("namespaced edit_task with ownerAgentId is recognised as a return action", () => {
-		expect(isReturnAction("mcp__hyperidle__edit_task", { ownerAgentId: "agent-7" })).toBe(true);
+	it("namespaced edit_task, own task with ownerAgentId, is recognised as a return action", () => {
+		expect(
+			isReturnAction(
+				"mcp__hyperidle__edit_task",
+				{ id: "task-1", ownerAgentId: "agent-7" },
+				"task-1",
+			),
+		).toBe(true);
 	});
 
 	it("bare send_message still works (builtin path — no namespace)", () => {
@@ -164,7 +183,9 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 	it("opencode hyperidle_ tool names are recognised as return actions", () => {
 		expect(isReturnAction("hyperidle_send_message")).toBe(true);
 		expect(isReturnAction("hyperidle_submit_review")).toBe(true);
-		expect(isReturnAction("hyperidle_edit_task", { ownerAgentId: "agent-7" })).toBe(true);
+		expect(
+			isReturnAction("hyperidle_edit_task", { id: "task-1", ownerAgentId: "agent-7" }, "task-1"),
+		).toBe(true);
 		expect(isReturnAction("hyperidle_reply")).toBe(true);
 		expect(isReturnAction("hyperidle_commit_file")).toBe(false);
 	});

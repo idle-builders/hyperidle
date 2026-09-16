@@ -24,8 +24,48 @@ export interface ActionsProjectedInput {
 	readonly readFile: (path: string) => string;
 }
 
-/** The task action list, as declared in `@hyperidle/domain-model`. */
-const TASK_ACTION_NAMES: readonly string[] = ["search_tasks", "open_task", "edit_task"];
+/**
+ * Every declared action's name, scanned from its declaration rather than
+ * hand-typed — clauses 2–4 all derive their populations from the tree, and a
+ * hardcoded list here would be the one clause that cannot go red while
+ * empty (B8): a fourth action added later and never wired to the UI would
+ * leave this loop iterating nothing, and a rename would leave a stale name
+ * clause 1 reports as unreachable for the wrong reason.
+ */
+const ACTION_DECLARATIONS_DIR = "framework/domain-model/src/actions/";
+const ACTION_NAME_LINE = /\bname:\s*["']([a-z][a-z0-9_]*)["']/g;
+
+function scanDeclaredActionNames(
+	census: Census,
+	readFile: (path: string) => string,
+): readonly string[] {
+	const files = census.files.filter(
+		(f) =>
+			f.kind === "production" &&
+			f.path.startsWith(ACTION_DECLARATIONS_DIR) &&
+			/\.tsx?$/.test(f.path) &&
+			!f.path.endsWith(".d.ts"),
+	);
+	const names = new Set<string>();
+	for (const f of files) {
+		let source: string;
+		try {
+			source = readFile(f.path);
+		} catch (error) {
+			if (error instanceof Error && error.message.includes("ENOENT")) continue;
+			throw error;
+		}
+		for (const match of source.matchAll(ACTION_NAME_LINE)) {
+			if (match[1]) names.add(match[1]);
+		}
+	}
+	if (names.size === 0) {
+		throw new Error(
+			`actions-projected: found zero declared action names under ${ACTION_DECLARATIONS_DIR} — the directory moved, or every action declaration lost its "name:" property.`,
+		);
+	}
+	return [...names];
+}
 
 /**
  * The seventeen registrations that realise the sixteen plumbing doors —
@@ -77,14 +117,15 @@ const PLATFORM_EVENTS: readonly string[] = [
 ];
 
 /**
- * Every route registered in a production file at efa28dd59 that is neither
- * a task action route nor one of the sixteen plumbing doors. 107 entries.
- * Only shrinks: an entry whose route is gone is a finding, so the deletion
- * and the row land in the same PR. Includes the four socket/protocol
- * transports (mcp-route, worker-ingress, ws, session-stream-ws) and the two
- * "delete outright" routes (coach, hints) — see this rule's own doc comment
- * and the architecture doc §7 for why each stays a shrink-list entry rather
- * than becoming plumbing or an action today.
+ * Every route registered in a production file that is neither a task
+ * action route nor one of the sixteen plumbing doors. Re-derived at the
+ * BC1 rebase — BC1 deleted fourteen of the 107 entries this rule started
+ * with, `coach.ts`/`hints.ts` wholesale among them, so those rows shrank
+ * ahead of this item. Only shrinks: an entry whose route is gone is a
+ * finding, so the deletion and the row land in the same PR. Includes the
+ * four socket/protocol transports (mcp-route, worker-ingress, ws,
+ * session-stream-ws) — see the architecture doc §7 for why each stays a
+ * shrink-list entry rather than becoming plumbing or an action today.
  */
 const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|ALL /mcp/:token",
@@ -93,7 +134,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/stop-for-tasks",
 	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /sessions/:sessionId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /runs/active-counts",
-	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /runs/latest-outcomes",
 	"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts|GET /runs",
 	"layers/agent-orchestration/src/routes/connections.ts|GET /",
 	"layers/agent-orchestration/src/routes/connections.ts|POST /",
@@ -114,8 +154,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/agents.ts|PATCH /:id",
 	"layers/core-api/src/routes/agents.ts|DELETE /:id",
 	"layers/core-api/src/routes/assistant.ts|GET /",
-	"layers/core-api/src/routes/coach.ts|GET /",
-	"layers/core-api/src/routes/conversations.ts|GET /items",
 	"layers/core-api/src/routes/conversations.ts|GET /items/:id",
 	"layers/core-api/src/routes/conversations.ts|PATCH /items/:id",
 	"layers/core-api/src/routes/conversations.ts|POST /items",
@@ -126,10 +164,7 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/filesystems.ts|POST /:id/injections",
 	"layers/core-api/src/routes/harnesses.ts|GET /",
 	"layers/core-api/src/routes/harnesses.ts|POST /redetect",
-	"layers/core-api/src/routes/hints.ts|GET /",
-	"layers/core-api/src/routes/hints.ts|POST /:hintId/dismiss",
 	"layers/core-api/src/routes/knowledge.ts|GET /",
-	"layers/core-api/src/routes/knowledge.ts|GET /triage-count",
 	"layers/core-api/src/routes/knowledge.ts|GET /:id",
 	"layers/core-api/src/routes/knowledge.ts|POST /",
 	"layers/core-api/src/routes/knowledge.ts|PATCH /:id",
@@ -139,12 +174,7 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/knowledge.ts|GET /:id/conflicts",
 	"layers/core-api/src/routes/knowledge.ts|POST /:id/conflicts",
 	"layers/core-api/src/routes/knowledge.ts|POST /:id/promote",
-	"layers/core-api/src/routes/knowledge.ts|PATCH /:id/attention-score",
-	"layers/core-api/src/routes/knowledge.ts|POST /:id/recompute-attention",
 	"layers/core-api/src/routes/knowledge.ts|POST /:id/graduate",
-	"layers/core-api/src/routes/knowledge.ts|POST /sweep",
-	"layers/core-api/src/routes/notifications-routes.ts|GET /config",
-	"layers/core-api/src/routes/notifications-routes.ts|PATCH /config",
 	"layers/core-api/src/routes/notifications-routes.ts|GET /inbox",
 	"layers/core-api/src/routes/notifications-routes.ts|POST /seen",
 	"layers/core-api/src/routes/notifications-routes.ts|POST /:id/read",
@@ -156,9 +186,7 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/org.ts|GET /review-recipients",
 	"layers/core-api/src/routes/org.ts|GET /teams/:teamId",
 	"layers/core-api/src/routes/org.ts|GET /teams/:teamId/membership",
-	"layers/core-api/src/routes/org.ts|GET /team-members/:teamMembersId",
 	"layers/core-api/src/routes/org.ts|POST /teams",
-	"layers/core-api/src/routes/org.ts|POST /scaffolded-agents",
 	"layers/core-api/src/routes/org.ts|POST /scaffold-request",
 	"layers/core-api/src/routes/plugins.ts|GET /",
 	"layers/core-api/src/routes/plugins.ts|POST /",
@@ -183,7 +211,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/teams-routes.ts|PATCH /:teamId",
 	"layers/core-api/src/routes/teams-routes.ts|GET /:teamId",
 	"layers/core-api/src/routes/threads.ts|POST /direct",
-	"layers/core-api/src/routes/threads.ts|GET /inbox",
 	"layers/core-api/src/routes/threads.ts|PATCH /:id",
 	"layers/core-api/src/routes/threads.ts|GET /",
 	"layers/core-api/src/routes/threads.ts|GET /:id",
@@ -198,10 +225,12 @@ const LEGACY_ROUTES: readonly string[] = [
 
 /**
  * Every tool name declared in a production `ToolDefinition` literal that is
- * not an action. 17: the sixteen left in `tool-definitions.ts` once
- * `create_task`/`edit_task`/`handoff_to`/`log_task` are deleted, plus
- * `return_status` (the tool twin of the `POST /mcp/:token/return-status`
- * plumbing route — never an object action).
+ * not an action. Re-derived at the BC1 rebase — BC1 deleted
+ * `run_knowledge_sweep`/`score_attention` with the attention engine, so
+ * those two entries shrank ahead of this item. The fourteen left in
+ * `tool-definitions.ts` once `create_task`/`edit_task`/`handoff_to`/
+ * `log_task` are deleted, plus `return_status` (the tool twin of the
+ * `POST /mcp/:token/return-status` plumbing route — never an object action).
  */
 const LEGACY_TOOLS: readonly string[] = [
 	"add_agent",
@@ -213,8 +242,6 @@ const LEGACY_TOOLS: readonly string[] = [
 	"merge_knowledge",
 	"promote_knowledge",
 	"reply",
-	"run_knowledge_sweep",
-	"score_attention",
 	"send_message",
 	"split_knowledge",
 	"submit_review",
@@ -225,9 +252,12 @@ const LEGACY_TOOLS: readonly string[] = [
 
 /**
  * Every `EVENT_TYPES` member that is neither one of the nine object events
- * nor one of the eight platform events. 21 — `EVENT_TYPES`' twenty-nine
- * names minus the eight platform events (`task_state_changed` is the
- * pre-action task-changed shape, still emitted from `edit_task` until BC5).
+ * nor one of the eight platform events. Re-derived at the BC1 rebase — BC1
+ * deleted five of these entirely (`thread_archived`, `dependency_met`,
+ * `knowledge_accessed`, `work_selection_requested`, `routine_fired`), so
+ * they shrank ahead of this item. `task_state_changed` is the pre-action
+ * task-changed shape, still emitted from `edit_task` until subscriptions
+ * replace it.
  */
 const LEGACY_EVENTS: readonly string[] = [
 	"task_state_changed",
@@ -238,19 +268,14 @@ const LEGACY_EVENTS: readonly string[] = [
 	"thread_message_appended",
 	"thread_resolved",
 	"thread_reopened",
-	"thread_archived",
 	"item_created",
-	"dependency_met",
 	"knowledge_created",
 	"knowledge_updated",
 	"knowledge_archived",
-	"knowledge_accessed",
 	"team_created",
 	"agent_added",
 	"user_created",
-	"work_selection_requested",
 	"notification",
-	"routine_fired",
 ];
 
 /** Path to the event-bus vocabulary this rule's clause 4 reads. */
@@ -364,6 +389,7 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 		evaluate: (census: Census): readonly Finding[] => {
 			const findings: Finding[] = [];
 			const productionFiles = population(census);
+			const taskActionNames = scanDeclaredActionNames(census, readFile);
 
 			// -- clause 1: every action name is reachable from the UI ------------
 			const uiFiles = census.files.filter(
@@ -372,7 +398,7 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 					f.path.startsWith("layers/core-ui/src/") &&
 					/\.tsx?$/.test(f.path),
 			);
-			for (const name of TASK_ACTION_NAMES) {
+			for (const name of taskActionNames) {
 				const matcher = buildCallSiteMatcher(name);
 				const reachable = uiFiles.some((f) => {
 					try {
@@ -420,7 +446,7 @@ export function actionsProjected(input: ActionsProjectedInput): Rule {
 			// -- clause 3: every tool is an action or legacy ----------------------
 			const toolFound = scanToolNames(productionFiles, readFile);
 			const legacyToolSet = new Set(LEGACY_TOOLS);
-			const taskActionSet = new Set(TASK_ACTION_NAMES);
+			const taskActionSet = new Set(taskActionNames);
 			for (const [name, path] of toolFound) {
 				if (taskActionSet.has(name) || legacyToolSet.has(name)) continue;
 				findings.push({
