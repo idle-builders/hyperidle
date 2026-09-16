@@ -1,6 +1,6 @@
 {
   "id": "BC1",
-  "status": "in-progress",
+  "status": "awaiting-human-review",
   "dials": {
     "complexity": "feature",
     "ambiguity": "established context",
@@ -43,7 +43,7 @@
     }
   ],
   "since": "efa28dd5",
-  "phase": "verify",
+  "phase": "ship",
   "baseline": {
     "commit": "efa28dd5",
     "check": "PASS 38 packages",
@@ -60,51 +60,21 @@
     ],
     "leaves": [
       {
-        "name": "backend",
-        "status": "done",
-        "commits": [
-          "6362f3664",
-          "9f85f2e9b",
-          "c7b3c977d",
-          "e94d7dc47",
-          "ba2f0b37a",
-          "aacfb7a8c"
-        ]
-      },
-      {
-        "name": "gateway + event test refs + migration + attack restore",
-        "status": "done",
-        "commits": [
-          "9c83d1fab",
-          "266f99d34",
-          "bc57504e4"
-        ]
-      },
-      {
-        "name": "ui dead controls",
-        "status": "done",
-        "commits": [
-          "1390f65c3",
-          "c5c21a1fe",
-          "e8d984f9c",
-          "a14e7765f"
-        ],
-        "note": "built in an isolated worktree, cherry-picked; temp worktree and branch removed"
-      },
-      {
-        "name": "full gates",
-        "status": "rerunning without timeout",
-        "note": "first attempt exited 127 on every gate"
-      },
-      {
-        "name": "review",
-        "status": "in-progress"
+        "name": "all build leaves",
+        "status": "done"
       }
     ],
     "known_fixes": [
       "reword c975afb60 message (contains work-package id)",
       "artifact attack control case repointed to otherLayerBarrel \u2014 restore to origin/main form once app.ts is clean"
-    ]
+    ],
+    "final_gates": {
+      "check": "PASS all 38 packages",
+      "lint": "exit 0; fixtures 61 PASS, attacks 70 PASS, governance-lint PASS, retired-surfaces-absent zero findings",
+      "test:full": "514 files / 5077 tests passed",
+      "test:integration:service": "312 files passed, 1 skipped; 2121 passed, 5 skipped",
+      "verify": "exit 0 through the desktop build"
+    }
   },
   "notes": [
     "primary checkout has an unrelated uncommitted edit to governance-attacks.ts (bet->task work from another session on ca76816f5); left untouched"
@@ -152,5 +122,12 @@
       "ds/Block.tsx keeps an always-empty 32px gutter column after the handle slot was removed \u2014 removing it shifts block layout, so it is proposed separately",
       "the knowledge-count token in the rule is generic enough that a future unrelated helper could false-positive; stripComments ignores trailing comments"
     ]
+  },
+  "pr": {
+    "number": 552,
+    "url": "https://github.com/ambrovia/hyperidle/pull/552",
+    "base": "main",
+    "head_at_open": "ce243d896",
+    "merged": false
   }
 }
