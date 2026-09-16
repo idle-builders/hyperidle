@@ -34,6 +34,7 @@ import {
 	endRunForHandoff,
 	readAgentRunConfig,
 	readAgentRunConfigs,
+	RegistryFilesystemMounter,
 	recordReviewVerdict,
 	requestRunStopForTasks,
 	writeAgentRunConfig,
@@ -47,6 +48,7 @@ import {
 } from "@hyperidle/session-requests";
 import { Hono } from "hono";
 import { z } from "zod";
+import { createGitRunner } from "../git-runner.js";
 
 const WORK_INTENT_KINDS = [
 	"assistant_turn",
@@ -122,8 +124,15 @@ const gateVerdictInputSchema = z.object({
 	agentConfig: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationReviewVerdictInput>;
 
-export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+export function createAgentOrchestrationIntakeRoutes(
+	db: HyperIdleDb,
+	options?: {
+		/** BA5 (no-teardown) §4 — where a git filesystem's worktrees live; absent → `releaseForTask` has nothing to release. */
+		readonly keptCopiesRoot?: string;
+	},
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
+	const keptCopiesRoot = options?.keptCopiesRoot;
 
 	// ── intents.submit — POST /agent-orchestration/intents ──────────────────
 	router.post("/intents", validateBody(workIntentInputSchema), async (c) => {
@@ -339,6 +348,25 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 				ok: true,
 				injection: { agentUserId, filesystemId, createdAt: now },
 			});
+		},
+	);
+
+	// ── filesystems.releaseForTask — POST /agent-orchestration/filesystems/release-for-task ──
+	// BA5 (no-teardown) §4: release a task's git worktrees once core knows the
+	// task is done. Task-scoped, not filesystem-scoped, so it sits beside `:id`
+	// rather than under it. The liveness guard against a running session lives
+	// INSIDE `releaseForTask` itself, against this layer's own `sessions` table.
+	router.post(
+		"/filesystems/release-for-task",
+		validateBody(z.object({ taskId: z.string().min(1) })),
+		async (c) => {
+			const { taskId } = c.req.valid("json");
+			const mounter = new RegistryFilesystemMounter({
+				gitRunnerFactory: createGitRunner,
+				keptCopiesRoot,
+			});
+			await mounter.releaseForTask(db, taskId);
+			return c.json({ ok: true });
 		},
 	);
 

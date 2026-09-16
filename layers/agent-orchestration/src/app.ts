@@ -76,7 +76,9 @@ export function createAgentOrchestrationApp(
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
 	// AU31 §3: the write side of `AgentOrchestrationPort`, mounted beside the
 	// read routes above — same internal `/agent-orchestration` seam prefix.
-	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db));
+	// BA5 (no-teardown) §4: `keptCopiesRoot` is what `releaseForTask` needs —
+	// the same value `/filesystems` already holds for `forgetKeptCopy`.
+	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db, { keptCopiesRoot }));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
 	app.route("/connections", createConnectionRoutes(db, inheritedReach, cipher));
 	// AU26 F2: `/api/filesystems` — same story. BA5 §2.4: a filesystem row has no

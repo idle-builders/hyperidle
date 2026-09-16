@@ -43,6 +43,7 @@ import { registerFilesystemAttentionReactions } from "./services/filesystem-atte
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
 import { startRoutineScheduler } from "./services/routine-scheduler-bindings.js";
+import { registerTaskDoneWorktreeReactions } from "./services/task-done-worktree-reactions.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
 
@@ -324,6 +325,18 @@ export function registerCoreDomainServices(ctx: {
 			"work session-end reactions",
 			"unsubscribe",
 			["agent_run_lifecycle_changed subscription", "session_ended subscription"],
+		),
+	);
+
+	// BA5 (no-teardown) §4: release a task's git worktree once the task is
+	// done and no session of it is still running — see the reaction's own
+	// header for the two occasions and why both are needed.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerTaskDoneWorktreeReactions(db, eventBus, agentOrchestration),
+			"task-done worktree-release reactions",
+			"unsubscribe",
+			["task_state_changed subscription", "session_ended subscription"],
 		),
 	);
 
