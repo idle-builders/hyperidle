@@ -18,7 +18,7 @@
  *     root — no restriction.
  */
 
-import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -54,6 +54,29 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Team ${teamId}`, phase: "build", createdAt: now });
+	// `changes.actor` FKs to `users` — API-key auth with no seeded human row
+	// falls back to the literal "u-founder", and the dependency watcher's own
+	// edit_task calls (dependency-killed cleanup) write as "system:propagation".
+	await db
+		.insert(users)
+		.values([
+			{
+				id: "u-founder",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: now,
+			},
+			{
+				id: "system:propagation",
+				name: "Propagation System",
+				role: "system",
+				status: "active",
+				createdAt: now,
+			},
+		])
+		.onConflictDoNothing();
 }
 
 async function insertTask(

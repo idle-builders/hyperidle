@@ -1,4 +1,4 @@
-import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { ActionResult, EditTaskInput, TaskState, TaskView } from "@hyperidle/domain-model";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq } from "drizzle-orm";
@@ -43,6 +43,19 @@ function makeCtx(db: HyperIdleDb, eventBus: ActionContext["eventBus"]): ActionCo
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
+
+	// `changes.actor` FKs to `users` — the watcher's edit_task calls write as
+	// "system:propagation", which needs a real row.
+	await db
+		.insert(users)
+		.values({
+			id: "system:propagation",
+			name: "Propagation System",
+			role: "system",
+			status: "active",
+			createdAt: now,
+		})
+		.onConflictDoNothing();
 
 	await db.insert(tasks).values({
 		id: "b1",

@@ -46,6 +46,15 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			teamId: "au9-production-team",
 			createdAt: now,
 		},
+		// `changes.actor` FKs to `users` — the dependency watcher's edit_task
+		// calls below write as "system:propagation".
+		{
+			id: "system:propagation",
+			name: "Propagation System",
+			role: "system",
+			status: "active",
+			createdAt: now,
+		},
 	]);
 	await db.insert(tasks).values({
 		id: "au9-production-bet",
@@ -234,7 +243,10 @@ describe("atomic production handoffs", () => {
 			.from(agentWorkIntents)
 			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
 		expect(intents).toHaveLength(1);
-		expect(attempts[0]?.occasion).toBe("accepted");
+		// the architecture doc §5 step 4's occasion table: `hold` -> `accepted`
+		// (this dependency-watcher unblock) is the "retry" occasion, distinct
+		// from a first-time accept from a non-hold state.
+		expect(attempts[0]?.occasion).toBe("retry");
 	});
 
 	// AU31 §3.1 site 5 — INVERTED. The message insert is no longer inside the

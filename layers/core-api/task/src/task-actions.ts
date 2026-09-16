@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { HyperIdleDb, NewChange, NewTask, Team, User, WriteExecutor } from "@hyperidle/db";
 import {
 	type AgentWorkIntentRecorderInput,
+	canTransitionTaskState,
 	type Task as DomainTask,
 	type EditTaskInput,
 	editTask as editTaskDeclaration,
@@ -297,10 +298,22 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 	): Promise<readonly string[]> {
 		const subtreeIds = await taskDb.listSubtreeIds(tx, rootTaskId);
 		if (subtreeIds.length === 0) return [];
-		const subtree = await taskDb.list(tx, "task", { ids: subtreeIds });
-		const doomed = subtree.filter((t) =>
-			t.id === rootTaskId ? t.state !== "killed" : !TERMINAL_TASK_STATES.includes(t.state),
-		);
+		// The root's own row was already flipped to "killed" by the caller's
+		// main upsert/update — by the time this function re-reads the subtree
+		// via `tx`, the root's state has already moved. A doomed-filter keyed
+		// on the ROOT's CURRENT state would therefore always exclude it (it is
+		// never "not killed" here), silently dropping it from the returned id
+		// list every caller (stopRunsForTasks, handleDependencyKilled, the
+		// cascade event emit) needs it in. The guard this function is called
+		// under (`resolvedState === "killed" && prev.state !== "killed"`)
+		// already proves the root is a genuine fresh kill, and the root's own
+		// `changes` row was already appended by that main update path — so the
+		// root needs no second transition or changes row here, only inclusion
+		// in the returned id list.
+		const descendantIds = subtreeIds.filter((id) => id !== rootTaskId);
+		if (descendantIds.length === 0) return [rootTaskId];
+		const subtree = await taskDb.list(tx, "task", { ids: descendantIds });
+		const doomed = subtree.filter((t) => !TERMINAL_TASK_STATES.includes(t.state));
 		const depthOrder = new Map(subtreeIds.map((id, i) => [id, i]));
 		const deepestFirst = [...doomed].sort(
 			(a, b) => (depthOrder.get(b.id) ?? 0) - (depthOrder.get(a.id) ?? 0),
@@ -325,7 +338,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			});
 			killed.push(t.id);
 		}
-		return killed;
+		return [...killed, rootTaskId];
 	}
 
 	async function editTaskRun(
@@ -383,11 +396,19 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				? (input.dependencies ?? [])
 				: parseDependencyIds(prev?.dependencies ?? null);
 		if (
-			input.state === undefined &&
+			// Parking must not require `state` to be absent — only that it isn't
+			// an actual CHANGE. The edit panel's write always includes `state`,
+			// set to the task's own current value.
+			(input.state === undefined || input.state === prev?.state) &&
 			input.dependencies !== undefined &&
 			input.dependencies !== null &&
 			input.dependencies.length > 0 &&
 			prev !== null &&
+			// the architecture doc §5 step 4: auto-park only when the task CAN
+			// still reach hold — a task already in_progress (or any other state
+			// with no edge to hold) keeps its state; adding a dependency to it
+			// is not rewound.
+			canTransitionTaskState(prev.state as DomainTask["state"], "hold") &&
 			(await hasUnfinishedDependency(ctx.db, input.dependencies))
 		) {
 			resolvedState = "hold";
@@ -459,7 +480,12 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				}
 			}
 		}
-		const wasPickup = prev !== null && isPickup(resolvedState, prev.state);
+		// A task already sitting in "in_progress" (or "accepted") that keeps
+		// that state is not a pickup — only an actual transition INTO it is
+		// gated. Otherwise an unrelated edit (e.g. adding a dependency) to an
+		// already-running task would wrongly trip the unfinished-dependency guard.
+		const wasPickup =
+			prev !== null && prev.state !== resolvedState && isPickup(resolvedState, prev.state);
 		if (
 			wasPickup &&
 			dependencyIds.length > 0 &&

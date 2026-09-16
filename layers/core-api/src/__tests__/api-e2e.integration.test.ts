@@ -138,7 +138,11 @@ describe("E2E API Integration (I5)", () => {
 	describe("Auth enforcement", () => {
 		test("returns 401 when X-API-Key header is missing", async ({ db, requestWithoutAuth }) => {
 			await seedBase(db);
-			const res = await requestWithoutAuth("/api/tasks");
+			const res = await requestWithoutAuth("/api/actions/search_tasks", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			});
 			expect(res.status).toBe(401);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("UNAUTHORIZED");
@@ -146,8 +150,10 @@ describe("E2E API Integration (I5)", () => {
 
 		test("returns 401 when X-API-Key header is wrong", async ({ db, requestWithoutAuth }) => {
 			await seedBase(db);
-			const res = await requestWithoutAuth("/api/tasks", {
-				headers: { "X-API-Key": "wrong-key" },
+			const res = await requestWithoutAuth("/api/actions/search_tasks", {
+				method: "POST",
+				headers: { "X-API-Key": "wrong-key", "Content-Type": "application/json" },
+				body: JSON.stringify({}),
 			});
 			expect(res.status).toBe(401);
 			const body = (await res.json()) as { code: string };
@@ -156,7 +162,11 @@ describe("E2E API Integration (I5)", () => {
 
 		test("allows access with correct API key", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/tasks", { headers: auth() });
+			const res = await app.request("/api/actions/search_tasks", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({}),
+			});
 			expect(res.status).toBe(200);
 		});
 	});
@@ -181,72 +191,102 @@ describe("E2E API Integration (I5)", () => {
 	});
 
 	// -------------------------------------------------------
-	// 3. Root Tasks (replaced Bets in BB1)
+	// 3. Root Tasks (replaced Bets in BB1) — edit_task/open_task/search_tasks
 	// -------------------------------------------------------
 	describe("Root Tasks", () => {
 		// BB1: bets are now root tasks (parentTaskId=null). Test task creation and listing.
-		test("POST /api/tasks creates a root task and GET /api/tasks lists it", async ({ db, app }) => {
-			await seedBase(db);
-			const createRes = await app.request("/api/tasks", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({ teamId: "prod-1", title: "E2E root task" }),
-			});
-			expect(createRes.status).toBe(201);
-			const created = (await createRes.json()) as { id: string; state: string; parentTaskId: null };
-			expect(created.state).toBe("proposed");
-			expect(created.parentTaskId).toBeNull();
-
-			const listRes = await app.request("/api/tasks", { headers: auth() });
-			expect(listRes.status).toBe(200);
-			const list = (await listRes.json()) as Array<{ id: string }>;
-			expect(list.some((t) => t.id === created.id)).toBe(true);
-		});
-
-		test("POST /api/tasks returns 400 when neither teamId nor parentTaskId is supplied", async ({
+		// the architecture doc §8: the eight-route /api/tasks CRUD surface is
+		// deleted — task is an action, POST /api/actions/<name>.
+		test("edit_task (no id) creates a root task, and search_tasks lists it", async ({
 			db,
 			app,
 		}) => {
 			await seedBase(db);
-			const res = await app.request("/api/tasks", {
+			const createRes = await app.request("/api/actions/edit_task", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({ teamId: "prod-1", title: "E2E root task" }),
+			});
+			expect(createRes.status).toBe(200);
+			const createdBody = (await createRes.json()) as {
+				ok: boolean;
+				data: { task: { id: string; state: string; parentTaskId: string | null } };
+			};
+			expect(createdBody.ok).toBe(true);
+			expect(createdBody.data.task.state).toBe("proposed");
+			expect(createdBody.data.task.parentTaskId).toBeNull();
+
+			const listRes = await app.request("/api/actions/search_tasks", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({}),
+			});
+			expect(listRes.status).toBe(200);
+			const listBody = (await listRes.json()) as { ok: boolean; data: Array<{ id: string }> };
+			expect(listBody.data.some((t) => t.id === createdBody.data.task.id)).toBe(true);
+		});
+
+		test("edit_task (no id) is refused when neither teamId nor parentTaskId is supplied", async ({
+			db,
+			app,
+		}) => {
+			await seedBase(db);
+			const res = await app.request("/api/actions/edit_task", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({ title: "No team no parent" }),
 			});
-			expect(res.status).toBe(400);
+			expect(res.status).toBe(422);
+			const body = (await res.json()) as { ok: boolean; problems: Array<{ code: string }> };
+			expect(body.ok).toBe(false);
 		});
 
-		test("GET /api/tasks/:id returns 404 for nonexistent task", async ({ db, app }) => {
+		test("open_task returns 422 with not_found for a nonexistent task", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/tasks/nonexistent", { headers: auth() });
-			expect(res.status).toBe(404);
+			const res = await app.request("/api/actions/open_task", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({ id: "nonexistent" }),
+			});
+			expect(res.status).toBe(422);
+			const body = (await res.json()) as { ok: boolean; problems: Array<{ code: string }> };
+			expect(body.ok).toBe(false);
+			expect(body.problems[0]?.code).toBe("not_found");
 		});
 	});
 
 	// -------------------------------------------------------
-	// 4. Tasks
+	// 4. Tasks — search_tasks
 	// -------------------------------------------------------
 	describe("Tasks", () => {
-		test("GET /api/tasks lists all tasks", async ({ db, app }) => {
+		test("search_tasks lists all tasks", async ({ db, app }) => {
 			await seedBase(db);
 			await seedTaskData(db);
-			const res = await app.request("/api/tasks", { headers: auth() });
+			const res = await app.request("/api/actions/search_tasks", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({}),
+			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<{ id: string }>;
-			expect(body.length).toBeGreaterThanOrEqual(1);
+			const body = (await res.json()) as { ok: boolean; data: Array<{ id: string }> };
+			expect(body.data.length).toBeGreaterThanOrEqual(1);
 		});
 
-		test("GET /api/tasks?parent_id=bet-1 filters by parent task", async ({ db, app }) => {
+		test("search_tasks filters by parentTaskId", async ({ db, app }) => {
 			await seedBase(db);
 			await seedTaskData(db);
-			const res = await app.request("/api/tasks?parent_id=bet-1", { headers: auth() });
+			const res = await app.request("/api/actions/search_tasks", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({ parentTaskId: "bet-1" }),
+			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<{ parentTaskId: string }>;
-			expect(body.every((t) => t.parentTaskId === "bet-1")).toBe(true);
+			const body = (await res.json()) as { ok: boolean; data: Array<{ parentTaskId: string }> };
+			expect(body.data.every((t) => t.parentTaskId === "bet-1")).toBe(true);
 		});
 
 		// PATCH /api/tasks/:id (door #39) and POST /api/tasks/:id/transition (door #40) deleted.
-		// Tests removed with the routes.
+		// Tests removed with the routes; edit_task covers create+edit+transition together.
 	});
 
 	// -------------------------------------------------------
