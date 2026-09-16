@@ -347,3 +347,197 @@ every other is a scan.
 5. **I did not run `npm run lint`'s biome/eslint passes, knip, `test:integration:service` in full, the
    e2e suite, or the harness lane.** The harness lane is obligatory before ship (§11) and, given B4
    changes the return contract and the tool roster, it is the one lane whose result I would not assume.
+
+---
+
+# Round 2 — the fix delta, re-tested against the tree
+
+Delta read: `6802e58e1..HEAD` (`85b9fad13` fixes, `2e7d09061` formatting, `a35e86134` plan) plus the
+rebase onto `origin/main` `286628f7b` (222 files, +8,041 / −10,351 whole-branch). Every R1 blocker
+re-tested as a claim; nothing taken from the R1 text.
+
+Mechanical checks I ran myself (Node 24, this worktree):
+
+- `npm run check` → **PASS**, all 39 packages (exit 0).
+- `npm run lint` → **PASS** (exit 0). `governance-lint: PASS — 2543 files, 25 rules, 0 violations`;
+  `governance-lint --attacks: PASS — 72 break-tests` (was 70; the new pair is live).
+- `npx vitest run --config vitest.integration.config.ts --project service` over
+  `task-actions.integration.test.ts` + `work-session-started-reactions.integration.test.ts` +
+  `work-session-end-reactions.integration.test.ts` → **3 files / 28 tests passed**.
+- `npx vitest run return-actions-required-subset.test.ts return-actions.closure.test.ts
+  return-gate.test.ts` → **3 files / 72 tests passed** (exit 0).
+
+## Per-blocker verdict
+
+**B1 — fabricated dispatch-attempt id → RESOLVED.** `task-service.ts:92,122` now returns
+`{ id: string | undefined }` and yields `inserted[0]?.id` with no `?? id` fallback; both dispatch
+branches (`task-actions.ts:675`, `:703`) guard the bake and the `dispatch` assignment on
+`if (inserted.id)`, so a swallowed conflict produces no `resolveTaskRunRequest` call, no throw
+inside the transaction and no intent in 5d — exactly §5 step 4. Post-commit `endRunForHandoff` is
+also skipped, because it keys off `dispatch?.occasion === "owner_handoff"`.
+
+**B2 — fabricated `fromState` on cascade kills → RESOLVED.** `killSubtreeInTx` returns
+`{ id, fromState }` pairs carrying the row's real `t.state` (`task-actions.ts:350`), and the emit
+loop uses `killed.fromState` (`:743`). The root's own pair takes `prev?.state`, and the root is
+skipped in that loop anyway (`:738`), so `routine-scheduler.ts`'s `{from,to}` matching sees the true
+prior state again.
+
+**B3 — a production writer outside the module → RESOLVED.** `tokensActualJson` is a field on
+`EditTaskInputSchema` (`framework/domain-model/src/actions/task.ts:204-212`), threaded through
+`candidateTask` (`:155`) and the transaction's `patch` (`:586`), so the writeback lands with its
+`changes` row through the shared diff. `work-session-end-reactions.ts` no longer imports `update`;
+it calls `editTask({ actor: event.agentId, … })` and logs a refusal. Proof:
+`rg "(update|insert|delete)\(\s*tasks\s*\)"` over `layers/ framework/ applications/ tools/`
+(production only) returns writes in `layers/core-api/task/src/task-service.ts` and nowhere else —
+`tools/eval`, `tools/setup` are development seed paths; `rg 'update\((db|tx|exec)[^)]*"task"'`
+returns only the explanatory comment in the reaction.
+
+**B4 — return-gate widening → RESOLVED as decided.** `isReturnAction(name, args, taskId)` is
+terminal for `edit_task` only when `args.id === taskId` **and** (owner changes to a non-empty id, or
+`state` is `review`/`done`) — `return-actions.ts:100-108`; absent `taskId` is never terminal. The id
+is threaded `provisioner.ts:1573-1576` (`params.taskId ?? undefined`) → `boot.ts:186` →
+`return-enforcement.ts:44-52`. Covered by unit tests for own-task-owner-change, own-task
+review/done, subtask-create (no `id`), other-task (`id` mismatch), ordinary field edit, and absent
+`taskId`. **The harness lane is still owed** — the tool roster and the forcing message both changed
+and no lane result exists yet in this worktree.
+
+**B5 — item ids outside `.pipeline/` → NOT RESOLVED (still BLOCKING).** See below.
+
+**B6 — documentation sweep → RESOLVED.** `rg -n "PATCH /api/tasks|handoff_to|create_task" docs/`
+returns **zero hits** (exit 1). The rewrites are substantive, not cosmetic:
+`handoff-and-lifecycle-propagation.md` §1 is rewritten as "handoff is an `edit_task` that sets
+`ownerAgentId`" with the deleted wire shape, role targeting and human escalation removed and the
+accepted `active`-session limit stated; `tasks-and-sessions.md`'s `@source` now points at
+`task-actions.ts` and its dependency-watcher path at `core-api/task`.
+
+**B7 — the repair shipped unproven → RESOLVED.** `work-session-started-reactions.integration.test.ts`
+gains a case that seeds a `requested` attempt with **no** `requestId`/`sessionId`, emits a real
+`session_started` carrying a real `requestId`, and asserts the row goes `running` with
+`sessionId` set — plus the legacy no-`requestId` case asserting the row is untouched while the
+`in_progress` transition still fires. `work-session-end-reactions`' `seedAttempt` lost its
+`requestId`/`status` parameters entirely; every finalize case now primes through
+`primeAttemptRunning`, which registers the started reaction and emits the event. The seam test's
+handoff case does the same instead of hand-inserting `sessionId` (`task-actions.integration.test.ts`).
+
+**B8 — clause 1 hardcoded the names → RESOLVED.** `scanDeclaredActionNames`
+(`tools/governance/src/rules/actions-projected.ts:36-66`) filters the census to production
+`framework/domain-model/src/actions/*.ts(x)`, collects every `name: "<snake_case>"`, and **throws**
+on an empty set with a message naming the directory. Clause 1 and clause 3 both iterate the scanned
+set; `TASK_ACTION_NAMES` is gone. The scan yields exactly `search_tasks · open_task · edit_task` at
+HEAD.
+
+## Rebase resolutions — checked
+
+- `core-api-port.ts`: `TaskView`/`CreateTaskRequest`/`UpdateTaskRequest`/`CreateTaskResponse`/
+  `HandoffTaskRequest`/`HandoffTaskResponse` deleted, `CoreApiWorkPort` down to the three item
+  methods. `core-api-port-composition.ts`: the `tasks` hc-client block and every task/handoff type
+  import gone. **`findItemByReasoningMarker` and `handoffTask` are both absent from the port and its
+  composition** — the only surviving mentions are explanatory comments, `retired-surfaces-absent`'s
+  own detection token, and the core-internal task-service helper of the same name.
+- `governance-lint.ts`: `actionsProjected` registered in **both** lists (`buildRules` :133,
+  `runLive` :253) — break-tested and run.
+- `governance-attacks.ts`: `ATTACK_ANCHORS.serviceDir`/`.serviceBarrel`/`.serviceManifest` and the
+  R1 manifest mutation all re-pointed to `layers/core-api/task`; the attack pair is registered. The
+  control is **not** vacuous — its mutate target `router.get("/", async (c) => {` exists at
+  `layers/core-api/src/routes/threads.ts:735`, so the replace really applies.
+- `table-owners.json`: `33 → 34` (main dropped a table since the base), `changes → "changes"`,
+  `tasks`/`items`/`taskDispatchAttempts → "task"`. `registries-honest` is green, so the schema
+  declaration and the registry agree.
+- Migration renumbered `0083_changes_and_task_edit.sql` with journal `idx: 83` after main's
+  `0082_drop_hint_progress_and_attention_score`. No duplicate index, no orphan entry.
+- The three roster tests move `18 → 14` tools with the four deletions and drop the `log_task`
+  handler suite; `work-completeness` is a one-line re-point. No assertion was weakened beyond the
+  deleted tools.
+- **The legacy lists carry no entry BC1 deleted.** All three clauses implement the reverse direction
+  (`:437`, `:459`, `:487`), the rule is green, so every one of the 93 routes, 15 tools and 16 events
+  still exists. `coach`/`hints`/`triage-count`/`attention`/`sweep`/`latest-outcomes`/`inbox`/
+  `team-members`/`scaffolded-agents`/`notification-config` rows and
+  `run_knowledge_sweep`/`score_attention`/`thread_archived`/`dependency_met`/`knowledge_accessed`/
+  `work_selection_requested`/`routine_fired` were removed with them.
+
+## BLOCKING
+
+### B5 (carried, still open) — three work-package ids in shipped source, outside an `@lore` tag
+
+- **Evidence:** `rg -n "BC[0-9]" -g '!.pipeline' -g '!*.md' -g '!*.lock' -g '!package-lock.json'`
+  returns thirteen hits. Ten are `@lore BC1: …` tags and are exempt. Three are not:
+  `tools/governance/src/rules/actions-projected.ts:122`, `:228`, `:255` — each is a plain doc
+  comment reading "Re-derived at the **BC1** rebase — BC1 deleted …" with no `@lore` tag anywhere in
+  the block. The four R1 sites (the migration, `schema.ts`, `task-actions.ts`, and
+  `actions-projected.ts:230`) were reworded; these three were introduced or left in the same rewrite.
+- **Impact:** the rule file BC3–BC6 copy is the one file that teaches the next builder the
+  convention, and it teaches the wrong one.
+- **Authority:** standing project rule — work-package ids live in `.pipeline/**` only, `@lore` the
+  sole exemption; the orchestrator's own B5 decision restates it.
+- **Smallest fix:** reword the three sentences in product terms ("re-derived after the substrate
+  item landed — fourteen of these routes were deleted with it"), or tag the blocks `@lore`.
+
+## NON-BLOCKING DEFECT
+
+- **N6 — neither B1 nor B2 gained a test.** `task-dispatch-attempt-store.integration.test.ts:137-145`
+  states outright that none of its fixtures hits the unique-index conflict, and no test asserts a
+  cascade-killed descendant's `fromState`. Both fixes read correct and both are covered by
+  typechecking only; the regressions they repair would return silently. A second attempt with the
+  same `(taskId, occasion, null predecessor, agentId)` and a kill of an `in_progress` child are two
+  cheap assertions in files that already exist.
+- **N7 — the token writeback's `changes` row is unasserted.** The six `session_ended` token cases
+  assert `tokensActualJson` only; none reads `changes`. The row is produced (the shared `patch`
+  diff at `task-actions.ts:632` includes `tokensActualJson`), but the thing B3 exists to create is
+  the one thing the suite does not check.
+- **N8 — routing the writeback through `edit_task` widens a lost-update window.** `edit_task`
+  writes the **whole** `patch` derived from a `prev` snapshot read before its transaction, so a
+  token writeback that interleaves with `lifecycle-propagation`'s own `session_ended` edit can write
+  back the stale `state`. Both fire on the same event. §9 accepts last-write-wins generally, and the
+  old targeted single-column update could not do this. Naming it, not blocking it: the orchestrator
+  chose this route and `version` is available if it ever bites.
+- **N9 — a swallowed dispatch conflict is silent.** With B1 fixed, the accept path can now commit an
+  `accepted` task with no attempt row and no intent, and log nothing. That is what §5 step 4
+  specifies, but an operator sees a task that accepted and never started. One `logger.debug` at the
+  skip would make it observable.
+- N1–N5 from Round 1 re-checked against the delta: unchanged and still non-blocking.
+
+## FOLLOW-UP / NOTE
+
+- **F8 — the forcing message does not describe the narrowed gate.** `FORCE_RETURN_MESSAGE`
+  (`return-actions.ts:154-157`) still reads "edit_task (hand the task to another agent by setting
+  its owner)"; after B4 the call must also name the session's **own** task, and moving that task to
+  `review`/`done` now counts too. The message is not wrong, but it is no longer complete — and the
+  gate's dependence on `args.id` being present in the harness's `tool_call` event is exactly what
+  the harness lane has to prove per harness.
+- **F9 — `tokensActualJson` is now writable by any actor on the public action surface**, HTTP and
+  MCP alike, as an unvalidated JSON string. The read path is defensive (`sumTokensActual` catches
+  parse failures and skips non-numeric tiers), so the worst case is wrong cost reporting, not a
+  crash. Consistent with ETHOS (no preemptive gate) and with the orchestrator's decision; recorded
+  so the founder hears that cost accounting became agent-writable.
+- **F10 — production-code delta is +3,246 / −3,611** (whole branch vs `286628f7b`, excluding
+  `.pipeline`, `docs/`, tests, stories and e2e). Above §13's 2,550–2,750 band, still net red. The
+  count includes the migration SQL, the registry JSON and the 124 constant data lines in the lint
+  rule. Not a scope finding — the band is F7's gate line and the founder owns it — but the number
+  the founder hears should be this one.
+- F1–F7 from Round 1 stand; F1 (eval scenarios still driving `handoff_to`) is untouched by this
+  delta and is still a carry-forward, not a blocker.
+
+## Verdict
+
+**BLOCKED** — one blocking finding (B5, three work-package ids in `actions-projected.ts`), four new
+non-blocking defects, three new notes.
+
+Seven of the eight Round 1 blockers are genuinely closed, and closed the way the orchestrator
+decided rather than by weakening a check: the id is honest and the skip follows it through both
+dispatch branches, the kill carries the real prior state, the last out-of-module task writer is
+gone with the grep to prove it, the return gate is narrower than it was before this branch rather
+than wider, the docs sweep is a rewrite and not a search-and-replace, the repair is driven by a real
+event in all three test files, and the one clause that was a list is now a scan that throws at zero.
+What blocks is three sentences in a comment.
+
+## Confusions
+
+1. **B5 may read as pedantic and is not.** The three hits are in the file BC3–BC6 are told to copy,
+   and the exemption is `@lore`, which these blocks do not carry. If the founder wants prose
+   references to prior items allowed in governance rule files, that is a rule change, not a review
+   judgement — say so and the finding goes away.
+2. **I did not run the harness lane, the e2e suite, `test:integration` in full, or knip.** The
+   harness lane is obligatory (§11) and is the only evidence that would settle F8; a lane was
+   running in this worktree while I read, and I did not read its result.
+3. **N8's interleave is reasoned from the code, not observed.** I did not build a test to force the
+   two `session_ended` handlers to overlap.
