@@ -50,8 +50,19 @@
   "shipping": {
     "pr": "https://github.com/ambrovia/hyperidle/pull/554",
     "openedAt": "2026-09-17",
-    "head": "cb8bcd76b",
-    "state": "open \u2014 CI running; harness lane running locally; the maintainer merges"
+    "head": "7dce8522f",
+    "state": "open \u2014 CI rerunning on 7dce8522f; the maintainer merges",
+    "ci": [
+      {
+        "head": "cd850422a",
+        "result": "verify FAILED: 4 service-lane tests built a PATH without gh by subtracting gh's directory; on ubuntu gh and git share /usr/bin so git vanished too; a 4th used PATH='' which buildGhEnv drops, so the OS default path (with gh on ubuntu) applied"
+      },
+      {
+        "head": "7dce8522f",
+        "fix": "tests build PATH forward from a temp dir holding only git (layers/agent-orchestration/src/__testing__/path-only-git.ts); impossible-spawn case uses an empty temp dir; test-only change",
+        "result": "running"
+      }
+    ]
   },
   "baseline": {
     "check": "PASS (38 packages)",
