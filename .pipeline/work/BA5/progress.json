@@ -360,7 +360,7 @@
       {
         "id": "P2",
         "what": "phase 2 \u2014 Google Drive through a CLI the agent and HyperIdle can both steer",
-        "state": "built; review in flight",
+        "state": "built, reviewed, fixes applied",
         "commits": [
           "47a2499c5",
           "99c5713a3",
@@ -383,7 +383,14 @@
         "docsFlagged": [
           "docs/guides/developer/getting-started.md and docs/architecture/as-implemented-domain-architecture.md still name filesystem_captures / filesystem-contract"
         ],
-        "needsMaintainer": "real Google account proof (architecture-phase2.md \u00a79.4) at G3"
+        "needsMaintainer": "real Google account proof (architecture-phase2.md \u00a79.4) at G3",
+        "review": "review-phase2.md \u2014 2 blocking (argv had no red signal; one \u00a7-pointer comment), fixed in a6dae37cf; argv test moved to the CI unit lane in 35619d1f6",
+        "fixCommits": [
+          "a6dae37cf",
+          "35619d1f6",
+          "9e22e6888",
+          "890aa48d4"
+        ]
       }
     ],
     "state": "all six leaves done"
@@ -469,6 +476,11 @@
         "staleBaselineNote": "the recorded baseline (codex MCP readiness, opencode step_finish, ~5 failed/62 passed) did not reproduce: those MCP proofs pass, step_finish appears nowhere, and both runs have 93 tests, not 62. That note is stale; this same-machine main run is the real comparison.",
         "cancelled": "a further re-run of the diverging knowledge-tree case was stopped: it would have competed with the fix round, and the verdict does not depend on it"
       }
+    },
+    "rerun": {
+      "at": "2026-09-17",
+      "head": "890aa48d4",
+      "state": "running"
     }
   },
   "g2": {
@@ -593,5 +605,16 @@
       "at": "2026-09-16",
       "what": "no teardown: folder/Drive live until manually deleted, shareable across teams; only a git worktree is disposable, removed at task done; teardown is a doesn't-matter op; BA12 absorbed"
     }
-  ]
+  ],
+  "rebase": {
+    "at": "2026-09-17",
+    "onto": "f49720426 (#553)",
+    "head": "890aa48d4",
+    "migration": "0083_filesystem_attention renumbered to 0084 (main took 0083_changes_and_task_edit)",
+    "conflicts": [
+      "framework/db/drizzle/meta/_journal.json",
+      "layers/agent-orchestration/src/boot.ts",
+      "tools/repo-gates/src/design-profile-census.ts"
+    ]
+  }
 }
