@@ -165,6 +165,7 @@ async function provisionFilesystems(
 	return mountFilesystemsForAgent({
 		agentId: AGENT_ID,
 		sessionId: "session-au26-f2",
+		taskId: null,
 		filesystems: {
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),

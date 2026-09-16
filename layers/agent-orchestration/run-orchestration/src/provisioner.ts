@@ -52,7 +52,6 @@ import { mergeGitConfigEnv } from "./git-credential-env.js";
 // MountedFilesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
 import { ensureSandboxGitRepo, excludeMountedFolders, type MountedFilesystem } from "./mounter.js";
-import { sessionAwaitsVerdict } from "./review-sessions.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -729,43 +728,18 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// ── AO2/BA5 — Phase 4.5 mount + teardown unmount helper ────────────────────
+// ── AO2/BA5 — Phase 4.5 mount ────────────────────────────────────────────
 //
 // @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
 // (`mountFilesystemsForAgent`) relocated wholesale into this package's own
 // `filesystem-provisioning.ts` (imported above) — only the seam-facing
 // `SessionLifecycleFilesystemsReader` port type stays declared in this file.
-
-/**
- * BA5 §5.5: unmount every filesystem this session placed (its git worktree —
- * the branch stays; a folder mount has nothing to do), before teardown
- * deletes the workspace.
- *
- * Skipped entirely when the session is awaiting a review verdict: that
- * workspace is kept for the resume, and the RESUMED session unmounts it at
- * its own end instead (its adopted mounts are in its own list). Best-effort:
- * a failure is logged and never blocks teardown.
- */
-async function unmountFilesystems(
-	db: HyperIdleDb,
-	sessionId: string,
-	mounted: readonly MountedFilesystem[],
-	mounter: FilesystemMounterPort,
-): Promise<void> {
-	if (mounted.length === 0) return;
-	if (await sessionAwaitsVerdict(db, sessionId)) return;
-
-	for (const filesystem of mounted) {
-		try {
-			await mounter.unmount(filesystem);
-		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				`[session-provisioning] BA5 unmount threw for filesystem ${filesystem.filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
-			);
-		}
-	}
-}
+//
+// @lore BA5 (no-teardown, 2026-09-16): nothing is unmounted at session end
+// any more — a git worktree lives outside the session directory entirely
+// (`mounter.ts`) and is only ever removed by `releaseForTask` once its task
+// is done. The `unmountFilesystems` helper this section used to hold, and
+// its three teardown call sites, are gone with it.
 
 /**
  * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
@@ -1256,23 +1230,27 @@ async function admitSession(
 	// to go stale (see this file's own top-of-file `filesystems` `@lore`).
 	//
 	// @lore BA5 §4.2/§13 (L5): a mount failure runs the full hold here, in the
-	// exact order the plan requires — (1) unmount what THIS admission already
-	// placed (never an adopted resume's own mounts, which belong to the
-	// session it is resuming); (2) release the adapter slot, as the
-	// concurrency-limit branch above does; (3) destroy the spawned workspace,
+	// exact order the plan requires — (1) release the adapter slot, as the
+	// concurrency-limit branch above does; (2) destroy the spawned workspace,
 	// UNLESS this is a resume (an adopted workspace is the agent's own work);
-	// (4) mark the filesystem `needs_attention` and AWAIT it, so the once-
+	// (3) mark the filesystem `needs_attention` and AWAIT it, so the once-
 	// per-episode notice (§4.5) is guaranteed to have run before this throws;
-	// (5) only then throw `FilesystemUnavailableError`. `runtime.ts` reacts to
+	// (4) only then throw `FilesystemUnavailableError`. `runtime.ts` reacts to
 	// that name by deleting the reserved `sessions` row instead of crashing it
 	// and releasing the request's claim back to `pending` (§4.2) — the task
 	// itself is never touched: no `agent_run_admission_failed`, no lifecycle
 	// event, nothing core could see as a failed dispatch attempt.
+	//
+	// @lore BA5 (no-teardown): a filesystem this admission already placed is
+	// NEVER unmounted here any more — at this point it may already hold
+	// earlier work of the same task (`mounter.ts` §3), and only
+	// `releaseForTask`, once the task is done, ever removes a git worktree.
 	if (deps.mounter) {
 		try {
 			mountedFilesystems = await mountFilesystemsForAgent({
 				agentId: params.agentId,
 				sessionId,
+				taskId: params.taskId,
 				...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
 				workspacePath: sandboxPath,
 				mounter: deps.mounter,
@@ -1280,11 +1258,6 @@ async function admitSession(
 		} catch (mountErr) {
 			if (!(mountErr instanceof FilesystemMountFailure)) throw mountErr;
 
-			for (const already of mountErr.mounted) {
-				if (!already.adopted) {
-					await deps.mounter.unmount(already);
-				}
-			}
 			adapterPool.release(adapterId);
 			if (!params.resume?.sandboxPath) {
 				await workspace.destroy(sandboxHandle);
@@ -1492,7 +1465,6 @@ async function runSession(
 		db,
 		eventBus,
 		adapterPool,
-		workspace,
 		mcpBridgeRegistry,
 		mcpBaseUrl,
 		serviceConnectionResolver,
@@ -1507,7 +1479,6 @@ async function runSession(
 		modelTier,
 		modelOptions,
 		selectedModel,
-		sandboxHandle,
 		sandboxPath,
 		ingestion,
 		selectedAdapter,
@@ -1689,11 +1660,13 @@ async function runSession(
 		if (adapterCapabilities.cliMcpDialect) {
 			// The session's mounted filesystems (AO2, phase 4.5 above) are the
 			// trusted directories — tell the harness what the filesystem primitive
-			// already declared, alongside the sandbox. BA5 §5.6: every mount now
-			// carries its own `trustedPath` (the kept copy for git, the real
-			// folder for a folder mount) — no filter, unlike the deleted
-			// `localTrustedPath`, which returned undefined for a plain clone.
-			const trustedPaths = mountedFilesystems.map((filesystem) => filesystem.trustedPath);
+			// already declared, alongside the sandbox. BA5 §5.6/(no-teardown) §3:
+			// every mount now carries its own `trustedPaths` (the kept copy AND the
+			// worktree itself for git — two real paths now that the worktree lives
+			// outside the sandbox; the real folder alone for a folder mount) — no
+			// filter, unlike the deleted `localTrustedPath`, which returned
+			// undefined for a plain clone.
+			const trustedPaths = mountedFilesystems.flatMap((filesystem) => filesystem.trustedPaths);
 			const result = await ports.harnessRuntime.writeCliMcpConfig({
 				dialect: adapterCapabilities.cliMcpDialect,
 				sandboxPath,
@@ -2030,10 +2003,6 @@ async function runSession(
 	}
 
 	if (crashed) {
-		// ── Hook B: unmount before crash teardown (BA5 §5.5).
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
-		}
 		await transitionRun(
 			{ db, eventBus, ports },
 			{
@@ -2082,10 +2051,6 @@ async function runSession(
 			timestamp: Date.now(),
 		});
 
-		// ── Hook B: unmount before not_returned teardown (BA5 §5.5).
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
-		}
 		await transitionRun(
 			{ db, eventBus, ports },
 			{
@@ -2096,7 +2061,6 @@ async function runSession(
 				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
-		await workspace.destroy(sandboxHandle);
 		const notReturnedForceCount = computeForceReturnCount();
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 		return {
@@ -2109,10 +2073,6 @@ async function runSession(
 		};
 	}
 
-	// ── Hook B: unmount before normal teardown (BA5 §5.5).
-	if (deps.mounter && mountedFilesystems.length > 0) {
-		await unmountFilesystems(db, sessionId, mountedFilesystems, deps.mounter);
-	}
 	await transitionRun(
 		{ db, eventBus, ports },
 		{
@@ -2122,19 +2082,11 @@ async function runSession(
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
-	// @lore BA2: the filesystem belongs to the work, not to the session. A session
-	// that ended by filing a review is not finished, it is waiting — a human may
-	// take days — and when the verdict comes the agent is resumed IN THIS
-	// DIRECTORY. Deleting it now does not merely lose the agent's files: the
-	// resume spawns the harness with a working directory that no longer exists,
-	// and it hangs instead of failing, so the answer reaches nobody and nothing
-	// says why. The question is asked of the `review_sessions` row `submit_review`
-	// wrote, not of the tool-call event: a return action reaches this function by
-	// one of two paths depending on whether the MCP bridge is open, and watching
-	// only the stream was green in a test and dead on every real run.
-	if (!(await sessionAwaitsVerdict(db, sessionId))) {
-		await workspace.destroy(sandboxHandle);
-	}
+	// @lore BA5 (no-teardown): nothing here deletes the workspace any more —
+	// the session's own directory holds only scratch once every filesystem
+	// lives outside it (mounter.ts §2), and the workspace reaper reclaims it
+	// 24h after the session ends (`runtime-reapers.ts`), skipping one that
+	// still awaits a review verdict.
 	ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 
 	if (beforeHarnessStartError) {

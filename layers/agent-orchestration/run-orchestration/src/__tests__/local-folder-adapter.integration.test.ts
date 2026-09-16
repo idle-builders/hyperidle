@@ -3,8 +3,11 @@
  *
  * AC1: mount symlinks the folder into `<workspace>/<folderName>`; files accessible.
  * AC2: a second mount into the SAME workspace recognises the existing symlink
- * (`adopted: true`) instead of failing — the resume case (§5.4).
- * AC3: unmount is a no-op — the symlink goes with the workspace itself (§5.5).
+ * (`reused: true`) instead of failing — the resume case (§5.4).
+ *
+ * @lore BA5 (no-teardown): there is no `unmount` any more — a folder mount
+ * never had anything to remove (the symlink goes with the workspace itself),
+ * so there is nothing left to test for it.
  */
 
 import { randomUUID } from "node:crypto";
@@ -61,6 +64,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 			filesystem: makeFs(vaultDir),
 			workspacePath,
 			sessionId: "session-1",
+			taskId: null,
 			folderName: "my-vault",
 			credential: null,
 		});
@@ -74,8 +78,8 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		expect(stat.isSymbolicLink()).toBe(true);
 		expect(fs.realpathSync(linkPath)).toBe(fs.realpathSync(vaultDir));
 		if (!result.ok) throw new Error("unreachable");
-		expect(result.mounted.trustedPath).toBe(fs.realpathSync(vaultDir));
-		expect(result.mounted.adopted).toBe(false);
+		expect(result.mounted.trustedPaths).toEqual([fs.realpathSync(vaultDir)]);
+		expect(result.mounted.reused).toBe(false);
 	});
 
 	it("a second mount into the same workspace recognises the existing symlink instead of failing (resume)", async () => {
@@ -86,6 +90,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 			filesystem: makeFs(vaultDir),
 			workspacePath,
 			sessionId: "session-2",
+			taskId: null,
 			folderName: "my-vault",
 			credential: null,
 		};
@@ -95,25 +100,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 
 		expect(second.ok).toBe(true);
 		if (!second.ok) throw new Error("unreachable");
-		expect(second.mounted.adopted).toBe(true);
-	});
-
-	it("unmount is a no-op — the symlink goes with the workspace", async () => {
-		const workspacePath = path.join(tmpDir, `sandbox-${randomUUID()}`);
-		fs.mkdirSync(workspacePath, { recursive: true });
-		const adapter = new RegistryFilesystemMounter(makeDeps());
-		const result = await adapter.mount({
-			filesystem: makeFs(vaultDir),
-			workspacePath,
-			sessionId: "session-3",
-			folderName: "my-vault",
-			credential: null,
-		});
-		if (!result.ok) throw new Error("mount failed");
-
-		await expect(adapter.unmount(result.mounted)).resolves.toBeUndefined();
-		// nothing removed — the folder link is still there, unaffected by unmount.
-		expect(fs.existsSync(path.join(workspacePath, "my-vault"))).toBe(true);
+		expect(second.mounted.reused).toBe(true);
 	});
 
 	it("mount: returns ok:false when the folder does not exist", async () => {
@@ -125,6 +112,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 			filesystem: makeFs("/nonexistent/vault/path"),
 			workspacePath,
 			sessionId: "session-4",
+			taskId: null,
 			folderName: "path",
 			credential: null,
 		});

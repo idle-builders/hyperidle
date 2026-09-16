@@ -2,9 +2,13 @@
  * T3 (BA5 §14.2) — the one git adapter, through the public
  * `RegistryFilesystemMounter`. Local repo, public remote (no `gh`), private
  * remote through a PAT and through a `gh` login, the agent's own push,
- * distinct folders, a gone repo, unmount, and `forgetKeptCopy` — against the
- * real `git`/`gh` binaries and the real offline `github-stand-in` (§14.1), no
- * stub of any of it.
+ * distinct folders, a gone repo, `releaseForTask`, and `forgetKeptCopy` —
+ * against the real `git`/`gh` binaries and the real offline `github-stand-in`
+ * (§14.1), no stub of any of it.
+ *
+ * @lore BA5 (no-teardown): case (h) — the old per-session `unmount` — is
+ * gone with the method; N4-N6 below replace it with `releaseForTask`'s own
+ * behaviour (task-scoped, liveness-guarded, never `--force`).
  */
 
 import { execFile, execFileSync } from "node:child_process";
@@ -12,6 +16,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
+import { sessions, tasks, teams, users } from "@hyperidle/db";
+import { test as dbTest } from "@hyperidle/db/test-fixtures";
+import { eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
 	type GithubStandIn,
@@ -140,7 +147,7 @@ describe("GitRepositoryAdapter — local repo (T3a)", () => {
 		expect(headSha(repoDir)).not.toBe(mainSha);
 
 		const workspacePath = tracked("t3-ws-");
-		const mounter = new RegistryFilesystemMounter(deps());
+		const mounter = new RegistryFilesystemMounter(deps(tracked("t3-kept-")));
 		const filesystem = makeFilesystem({
 			id: "fs-local-1",
 			resourceRef: { kind: "code", repo: repoDir, branch: "main" },
@@ -149,6 +156,7 @@ describe("GitRepositoryAdapter — local repo (T3a)", () => {
 			filesystem,
 			workspacePath,
 			sessionId: "sess-local-1",
+			taskId: null,
 			folderName: "repo",
 			credential: null,
 		});
@@ -165,45 +173,91 @@ describe("GitRepositoryAdapter — local repo (T3a)", () => {
 		).toBe("hyperidle/sess-local-1");
 	});
 
-	it("a second mount into the same workspace under a new session id recognises the existing worktree instead of failing (resume, §5.4/T4)", async () => {
+	// N3 (BA5 no-teardown §3/§6) — the worktree is now keyed by the session's
+	// TASK, not by the session or the workspace it happens to run in. A
+	// second, non-resume session of the SAME task — a new session id AND a
+	// new workspace — must reuse the same worktree home and see the first
+	// session's uncommitted work; a DIFFERENT task must not.
+	it("N3: a second, non-resume session of the SAME task (new session id, new workspace) reuses the worktree and reports the same branch", async () => {
 		const repoDir = tracked("t3-local-adopt-");
 		initLocalRepo(repoDir);
-		const workspacePath = tracked("t3-ws-adopt-");
-		const mounter = new RegistryFilesystemMounter(deps());
+		const keptCopiesRoot = tracked("t3-kept-adopt-");
+		const mounter = new RegistryFilesystemMounter(deps(keptCopiesRoot));
 		const filesystem = makeFilesystem({
 			id: "fs-local-adopt",
 			resourceRef: { kind: "code", repo: repoDir, branch: "main" },
 		});
 
+		const firstWorkspace = tracked("t3-ws-adopt-1-");
 		const first = await mounter.mount({
 			filesystem,
-			workspacePath,
+			workspacePath: firstWorkspace,
 			sessionId: "sess-adopt-1",
+			taskId: "task-adopt-1",
 			folderName: "repo",
 			credential: null,
 		});
 		expect(first.ok).toBe(true);
 		if (!first.ok) throw new Error("unreachable");
+		expect(first.mounted.reused).toBe(false);
 
-		// The agent leaves uncommitted work in the worktree before the resume.
+		// The agent leaves uncommitted work in the worktree before its session ends.
 		fs.writeFileSync(path.join(first.mounted.folder, "uncommitted.txt"), "agent work\n");
 
+		const secondWorkspace = tracked("t3-ws-adopt-2-");
 		const second = await mounter.mount({
 			filesystem,
-			workspacePath,
+			workspacePath: secondWorkspace,
 			sessionId: "sess-adopt-2",
+			taskId: "task-adopt-1",
 			folderName: "repo",
 			credential: null,
 		});
 
 		expect(second.ok).toBe(true);
 		if (!second.ok) throw new Error("unreachable");
-		expect(second.mounted.adopted).toBe(true);
+		expect(second.mounted.reused).toBe(true);
 		expect(second.mounted.git?.branch).toBe(first.mounted.git?.branch);
-		expect(second.mounted.folder).toBe(first.mounted.folder);
+		expect(second.mounted.folder).not.toBe(first.mounted.folder);
+		expect(fs.realpathSync(second.mounted.folder)).toBe(fs.realpathSync(first.mounted.folder));
 		expect(fs.readFileSync(path.join(second.mounted.folder, "uncommitted.txt"), "utf8")).toBe(
 			"agent work\n",
 		);
+	});
+
+	it("a session of a DIFFERENT task gets its own worktree, on its own branch", async () => {
+		const repoDir = tracked("t3-local-other-");
+		initLocalRepo(repoDir);
+		const keptCopiesRoot = tracked("t3-kept-other-");
+		const mounter = new RegistryFilesystemMounter(deps(keptCopiesRoot));
+		const filesystem = makeFilesystem({
+			id: "fs-local-other",
+			resourceRef: { kind: "code", repo: repoDir, branch: "main" },
+		});
+
+		const first = await mounter.mount({
+			filesystem,
+			workspacePath: tracked("t3-ws-other-1-"),
+			sessionId: "sess-other-1",
+			taskId: "task-other-1",
+			folderName: "repo",
+			credential: null,
+		});
+		const second = await mounter.mount({
+			filesystem,
+			workspacePath: tracked("t3-ws-other-2-"),
+			sessionId: "sess-other-2",
+			taskId: "task-other-2",
+			folderName: "repo",
+			credential: null,
+		});
+
+		expect(first.ok).toBe(true);
+		expect(second.ok).toBe(true);
+		if (!(first.ok && second.ok)) throw new Error("unreachable");
+		expect(second.mounted.reused).toBe(false);
+		expect(second.mounted.git?.branch).not.toBe(first.mounted.git?.branch);
+		expect(fs.realpathSync(second.mounted.folder)).not.toBe(fs.realpathSync(first.mounted.folder));
 	});
 });
 
@@ -235,6 +289,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			filesystem,
 			workspacePath: ws1,
 			sessionId: "sess-b-1",
+			taskId: null,
 			folderName: "repo",
 			credential: null,
 		});
@@ -272,6 +327,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			filesystem,
 			workspacePath: ws2,
 			sessionId: "sess-b-2",
+			taskId: null,
 			folderName: "repo",
 			credential: null,
 		});
@@ -307,6 +363,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			filesystem,
 			workspacePath,
 			sessionId: "sess-c-1",
+			taskId: null,
 			folderName: "repo",
 			credential: "pat-secret",
 		});
@@ -341,6 +398,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			filesystem,
 			workspacePath,
 			sessionId: "sess-d-1",
+			taskId: null,
 			folderName: "repo",
 			credential: null,
 		});
@@ -366,6 +424,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			filesystem,
 			workspacePath,
 			sessionId: "sess-e-1",
+			taskId: null,
 			folderName: "repo",
 			credential: "push-token",
 		});
@@ -415,6 +474,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			}),
 			workspacePath,
 			sessionId: "sess-f-1",
+			taskId: null,
 			folderName: "repo",
 			credential: null,
 		});
@@ -430,6 +490,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			}),
 			workspacePath,
 			sessionId: "sess-f-2",
+			taskId: null,
 			folderName: "repo-fs-names",
 			credential: null,
 		});
@@ -462,6 +523,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			filesystem,
 			workspacePath,
 			sessionId: "sess-g-1",
+			taskId: null,
 			folderName: "repo",
 			credential: "some-secret-token",
 		});
@@ -470,35 +532,6 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 		if (result.ok) throw new Error("unreachable");
 		expect(result.reason.length).toBeGreaterThan(0);
 		expect(result.reason).not.toContain("some-secret-token");
-	});
-
-	it("(h) unmount removes the worktree from `git worktree list`; the branch stays", async () => {
-		vi.stubEnv("HOME", standIn.home());
-		standIn.createRepo("unmount-h", { branch: "main" });
-		const keptCopiesRoot = tracked("t3-kept-");
-		const mounter = new RegistryFilesystemMounter(deps(keptCopiesRoot));
-		const workspacePath = tracked("t3-ws-");
-		const result = await mounter.mount({
-			filesystem: makeFilesystem({
-				id: "fs-unmount-h",
-				source: "github",
-				resourceRef: { kind: "code", repo: "https://github.com/unmount-h.git", branch: "main" },
-			}),
-			workspacePath,
-			sessionId: "sess-h-1",
-			folderName: "repo",
-			credential: null,
-		});
-		expect(result.ok).toBe(true);
-		if (!result.ok) throw new Error("unreachable");
-		const keptCopy = result.mounted.git?.keptCopy as string;
-		const branch = result.mounted.git?.branch as string;
-		expect(worktreeList(keptCopy)).toContain(result.mounted.folder);
-
-		await mounter.unmount(result.mounted);
-
-		expect(worktreeList(keptCopy)).not.toContain(result.mounted.folder);
-		expect(branchExists(keptCopy, branch)).toBe(true);
 	});
 
 	it("(i) forgetKeptCopy removes a remote's kept copy, and never a local repo", async () => {
@@ -515,6 +548,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 			filesystem: remoteFs,
 			workspacePath: tracked("t3-ws-"),
 			sessionId: "sess-i-1",
+			taskId: null,
 			folderName: "repo",
 			credential: null,
 		});
@@ -534,5 +568,186 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 		});
 		await forgetKeptCopy(keptCopiesRoot, localFs);
 		expect(fs.existsSync(localRepoDir)).toBe(true);
+	});
+});
+
+describe("RegistryFilesystemMounter.releaseForTask (BA5 no-teardown §4)", () => {
+	dbTest("N4: removes a clean worktree, leaves a dirty one; both branches survive; the task directory goes only once empty; a second call is a no-op", async ({
+		db,
+	}) => {
+		const keptCopiesRoot = tracked("t3-kept-n4-");
+		const mounter = new RegistryFilesystemMounter(deps(keptCopiesRoot));
+		const taskId = "task-n4-1";
+
+		const cleanRepo = tracked("t3-n4-clean-repo-");
+		initLocalRepo(cleanRepo);
+		const dirtyRepo = tracked("t3-n4-dirty-repo-");
+		initLocalRepo(dirtyRepo);
+
+		const clean = await mounter.mount({
+			filesystem: makeFilesystem({
+				id: "fs-n4-clean",
+				resourceRef: { kind: "code", repo: cleanRepo, branch: "main" },
+			}),
+			workspacePath: tracked("t3-n4-ws-clean-"),
+			sessionId: "sess-n4-1",
+			taskId,
+			folderName: "clean-repo",
+			credential: null,
+		});
+		const dirty = await mounter.mount({
+			filesystem: makeFilesystem({
+				id: "fs-n4-dirty",
+				resourceRef: { kind: "code", repo: dirtyRepo, branch: "main" },
+			}),
+			workspacePath: tracked("t3-n4-ws-dirty-"),
+			sessionId: "sess-n4-1",
+			taskId,
+			folderName: "dirty-repo",
+			credential: null,
+		});
+		expect(clean.ok).toBe(true);
+		expect(dirty.ok).toBe(true);
+		if (!(clean.ok && dirty.ok)) throw new Error("unreachable");
+
+		// The dirty worktree has uncommitted work; the clean one has none.
+		fs.writeFileSync(path.join(dirty.mounted.folder, "uncommitted.txt"), "still working\n");
+		const dirtyKeptCopy = dirty.mounted.git?.keptCopy as string;
+		const dirtyBranch = dirty.mounted.git?.branch as string;
+		const cleanKeptCopy = clean.mounted.git?.keptCopy as string;
+		const cleanBranch = clean.mounted.git?.branch as string;
+
+		await mounter.releaseForTask(db, taskId);
+
+		expect(fs.existsSync(clean.mounted.folder)).toBe(false);
+		expect(worktreeList(cleanKeptCopy)).not.toContain(clean.mounted.folder);
+		expect(branchExists(cleanKeptCopy, cleanBranch)).toBe(true);
+
+		expect(fs.existsSync(dirty.mounted.folder)).toBe(true);
+		expect(worktreeList(dirtyKeptCopy)).toContain(dirty.mounted.folder);
+		expect(branchExists(dirtyKeptCopy, dirtyBranch)).toBe(true);
+
+		// The task directory itself survives — the dirty worktree still lives in it.
+		const worktreesTaskDir = path.join(keptCopiesRoot, "worktrees", `task-${taskId}`);
+		expect(fs.existsSync(worktreesTaskDir)).toBe(true);
+
+		// Commit the dirty worktree's work — it is clean now.
+		execFileSync("git", ["-C", dirty.mounted.folder, "add", "-A"]);
+		execFileSync("git", [
+			"-C",
+			dirty.mounted.folder,
+			"-c",
+			"user.email=agent@hyperidle.test",
+			"-c",
+			"user.name=agent",
+			"commit",
+			"--quiet",
+			"-m",
+			"agent work",
+		]);
+
+		await mounter.releaseForTask(db, taskId);
+
+		expect(fs.existsSync(dirty.mounted.folder)).toBe(false);
+		expect(branchExists(dirtyKeptCopy, dirtyBranch)).toBe(true);
+		// The task directory is empty now — it goes too.
+		expect(fs.existsSync(worktreesTaskDir)).toBe(false);
+
+		// A third call — nothing left to release — is a no-op, not a throw.
+		await expect(mounter.releaseForTask(db, taskId)).resolves.toBeUndefined();
+	});
+
+	dbTest("N5: a deleted kept copy, and a task with no worktree directory at all, both resolve without throwing", async ({
+		db,
+	}) => {
+		const keptCopiesRoot = tracked("t3-kept-n5-");
+		const mounter = new RegistryFilesystemMounter(deps(keptCopiesRoot));
+
+		// (a) the kept copy is gone by the time release runs.
+		const repo = tracked("t3-n5-repo-");
+		initLocalRepo(repo);
+		const taskId = "task-n5-gone-copy";
+		const mounted = await mounter.mount({
+			filesystem: makeFilesystem({
+				id: "fs-n5-gone",
+				resourceRef: { kind: "code", repo, branch: "main" },
+			}),
+			workspacePath: tracked("t3-n5-ws-"),
+			sessionId: "sess-n5-1",
+			taskId,
+			folderName: "repo",
+			credential: null,
+		});
+		expect(mounted.ok).toBe(true);
+		if (!mounted.ok) throw new Error("unreachable");
+		// `repo` IS the local filesystem's kept copy (mounter.ts §2) — deleting it
+		// mirrors a person deleting their own repository between mount and release.
+		fs.rmSync(repo, { recursive: true, force: true });
+
+		await expect(mounter.releaseForTask(db, taskId)).resolves.toBeUndefined();
+
+		// (b) a task that never had a worktree at all.
+		await expect(mounter.releaseForTask(db, "task-n5-never-mounted")).resolves.toBeUndefined();
+	});
+
+	dbTest("N6: a live session of the task blocks release; releasing after it ends removes the worktree", async ({
+		db,
+	}) => {
+		const NOW = "2026-09-16T00:00:00.000Z";
+		const keptCopiesRoot = tracked("t3-kept-n6-");
+		const mounter = new RegistryFilesystemMounter(deps(keptCopiesRoot));
+		const taskId = "task-n6-1";
+
+		await db.insert(teams).values({ id: "team-n6", name: "T", phase: "build", createdAt: NOW });
+		await db
+			.insert(users)
+			.values({ id: "agent-n6", name: "A", role: "builder", status: "active", createdAt: NOW });
+		await db.insert(tasks).values({
+			id: taskId,
+			parentTaskId: null,
+			teamId: "team-n6",
+			title: "n6",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+		await db.insert(sessions).values({
+			id: "sess-n6-live",
+			taskId,
+			agentId: "agent-n6",
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "active",
+		});
+
+		const repo = tracked("t3-n6-repo-");
+		initLocalRepo(repo);
+		const mounted = await mounter.mount({
+			filesystem: makeFilesystem({
+				id: "fs-n6",
+				resourceRef: { kind: "code", repo, branch: "main" },
+			}),
+			workspacePath: tracked("t3-n6-ws-"),
+			sessionId: "sess-n6-live",
+			taskId,
+			folderName: "repo",
+			credential: null,
+		});
+		expect(mounted.ok).toBe(true);
+		if (!mounted.ok) throw new Error("unreachable");
+
+		await mounter.releaseForTask(db, taskId);
+		expect(
+			fs.existsSync(mounted.mounted.folder),
+			"a session of this task is still active — release must touch nothing",
+		).toBe(true);
+
+		await db
+			.update(sessions)
+			.set({ state: "done", endedAt: NOW })
+			.where(eq(sessions.id, "sess-n6-live"));
+
+		await mounter.releaseForTask(db, taskId);
+		expect(fs.existsSync(mounted.mounted.folder)).toBe(false);
 	});
 });

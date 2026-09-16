@@ -91,18 +91,18 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 					mounted: {
 						filesystem: input.filesystem,
 						folder: path.join(input.workspacePath, input.folderName),
-						trustedPath: "/repo",
+						trustedPaths: ["/repo"],
 						agentEnv: {},
-						adopted: false,
+						reused: false,
 					},
 				};
 			},
-			unmount: async () => undefined,
 		};
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-inc12-1",
 			sessionId: "session-inc12-1",
+			taskId: null,
 			filesystems: reader([row], asked),
 			workspacePath: sandboxPath,
 			mounter,
@@ -118,12 +118,12 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	test("an agent with NO injected filesystems mounts nothing (no throw) — unchanged from today's behavior", async () => {
 		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
-			unmount: vi.fn(),
 		} as unknown as FilesystemMounterPort;
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-inc12-empty",
 			sessionId: "session-inc12-empty",
+			taskId: null,
 			filesystems: reader([]),
 			workspacePath: sandboxPath,
 			mounter,
@@ -136,12 +136,12 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	test("an unwired reader port mounts nothing — the same graceful no-op an absent mounter gives", async () => {
 		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
-			unmount: vi.fn(),
 		} as unknown as FilesystemMounterPort;
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-inc12-unwired",
 			sessionId: "session-inc12-unwired",
+			taskId: null,
 			workspacePath: sandboxPath,
 			mounter,
 		});
@@ -162,18 +162,18 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 					mounted: {
 						filesystem: input.filesystem,
 						folder: path.join(input.workspacePath, input.folderName),
-						trustedPath: "/repo",
+						trustedPaths: ["/repo"],
 						agentEnv: {},
-						adopted: false,
+						reused: false,
 					},
 				};
 			},
-			unmount: async () => undefined,
 		};
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-cred-1",
 			sessionId: "session-cred-1",
+			taskId: null,
 			filesystems: {
 				listInjectedForProvisioning: async () => [withConnection],
 				resolveCredential: async (connectionId: string) => {
@@ -202,18 +202,18 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 					mounted: {
 						filesystem: input.filesystem,
 						folder: path.join(input.workspacePath, input.folderName),
-						trustedPath: "/repo",
+						trustedPaths: ["/repo"],
 						agentEnv: {},
-						adopted: false,
+						reused: false,
 					},
 				};
 			},
-			unmount: async () => undefined,
 		};
 
 		await mountFilesystemsForAgent({
 			agentId: "agent-no-cred",
 			sessionId: "session-no-cred",
+			taskId: null,
 			filesystems: {
 				listInjectedForProvisioning: async () => [noConnection],
 				resolveCredential,
@@ -237,18 +237,18 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 					mounted: {
 						filesystem: input.filesystem,
 						folder: path.join(input.workspacePath, input.folderName),
-						trustedPath: "/repo",
+						trustedPaths: ["/repo"],
 						agentEnv: {},
-						adopted: false,
+						reused: false,
 					},
 				};
 			},
-			unmount: async () => undefined,
 		};
 
 		await mountFilesystemsForAgent({
 			agentId: "agent-cred-nodep",
 			sessionId: "session-cred-nodep",
+			taskId: null,
 			filesystems: reader([withConnection]),
 			workspacePath: sandboxPath,
 			mounter,
@@ -261,13 +261,13 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		const bakedRow = buildFilesystemRecord({ id: "fs-inc12-fail" });
 		const mounter: FilesystemMounterPort = {
 			mount: async () => ({ ok: false, reason: "mount failed" }),
-			unmount: async () => undefined,
 		};
 
 		await expect(
 			mountFilesystemsForAgent({
 				agentId: "agent-inc12-fail",
 				sessionId: "session-inc12-fail",
+				taskId: null,
 				filesystems: reader([bakedRow]),
 				workspacePath: sandboxPath,
 				mounter,
@@ -281,16 +281,15 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		const okMounted: MountedFilesystem = {
 			filesystem: okRow as unknown as Filesystem,
 			folder: path.join(sandboxPath, "ok"),
-			trustedPath: "/ok",
+			trustedPaths: ["/ok"],
 			agentEnv: {},
-			adopted: false,
+			reused: false,
 		};
 		const mounter: FilesystemMounterPort = {
 			mount: async (input) =>
 				input.filesystem.id === "fs-hold-ok"
 					? { ok: true, mounted: okMounted }
 					: { ok: false, reason: "repo path does not exist" },
-			unmount: async () => undefined,
 		};
 
 		let caught: unknown;
@@ -298,6 +297,7 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 			await mountFilesystemsForAgent({
 				agentId: "agent-hold",
 				sessionId: "session-hold",
+				taskId: null,
 				filesystems: {
 					listInjectedForProvisioning: async () => [okRow, failingRow],
 					resolveCredential: async () => "pat-hold-1",

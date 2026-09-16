@@ -1,6 +1,10 @@
 /**
  * T9 (BA5 §14.2, §9) — the `## Filesystems` section names each mounted
  * filesystem, its kind, its branch and base, and how its work gets out.
+ *
+ * N3 (BA5 no-teardown §3/S6) — a reused git worktree carries one extra
+ * sentence telling the agent to check `git status`/`git log` before it
+ * starts, since it may already hold a previous session's uncommitted work.
  */
 import { describe, expect, it } from "vitest";
 import { describeMountedFilesystems } from "../filesystem-instructions.js";
@@ -28,40 +32,41 @@ describe("describeMountedFilesystems", () => {
 		const mounted: MountedFilesystem = {
 			filesystem: baseFs({ kind: "code", repo: "https://github.com/a/repo.git", branch: "main" }),
 			folder: "/ws/repo",
-			trustedPath: "/kept/repo",
+			trustedPaths: ["/kept/repo", "/kept/worktrees/task-1/repo"],
 			git: {
 				keptCopy: "/kept/repo",
-				branch: "hyperidle/sess-1",
+				branch: "hyperidle/task-1",
 				base: "origin/main",
 				remote: true,
 			},
 			agentEnv: {},
-			adopted: false,
+			reused: false,
 		};
 
 		const section = describeMountedFilesystems([mounted]);
 
 		expect(section).toContain("## Filesystems");
 		expect(section).toContain("/ws/repo");
-		expect(section).toContain("hyperidle/sess-1");
+		expect(section).toContain("hyperidle/task-1");
 		expect(section).toContain("main");
 		expect(section).toContain("git push");
+		expect(section).not.toContain("check `git status`");
 	});
 
 	it("names a local repository's own path and says work stays there unless pushed", () => {
 		const mounted: MountedFilesystem = {
 			filesystem: baseFs({ kind: "code", repo: "/Users/me/repo", branch: "main" }),
 			folder: "/ws/repo",
-			trustedPath: "/Users/me/repo",
-			git: { keptCopy: "/Users/me/repo", branch: "hyperidle/sess-2", base: "main", remote: false },
+			trustedPaths: ["/Users/me/repo", "/kept/worktrees/task-2/repo"],
+			git: { keptCopy: "/Users/me/repo", branch: "hyperidle/task-2", base: "main", remote: false },
 			agentEnv: {},
-			adopted: false,
+			reused: false,
 		};
 
 		const section = describeMountedFilesystems([mounted]);
 
 		expect(section).toContain("/Users/me/repo");
-		expect(section).toContain("hyperidle/sess-2");
+		expect(section).toContain("hyperidle/task-2");
 		expect(section).toContain("push it if the repository has a remote");
 	});
 
@@ -69,9 +74,9 @@ describe("describeMountedFilesystems", () => {
 		const mounted: MountedFilesystem = {
 			filesystem: baseFs({ kind: "doc_set", folder: "/Users/me/docs" }),
 			folder: "/ws/docs",
-			trustedPath: "/Users/me/docs",
+			trustedPaths: ["/Users/me/docs"],
 			agentEnv: {},
-			adopted: false,
+			reused: false,
 		};
 
 		const section = describeMountedFilesystems([mounted]);
@@ -79,5 +84,22 @@ describe("describeMountedFilesystems", () => {
 		expect(section).toContain("/ws/docs");
 		expect(section).toContain("/Users/me/docs");
 		expect(section).toContain("linked in");
+	});
+
+	it("N3: a reused git worktree carries the check-before-you-start sentence", () => {
+		const mounted: MountedFilesystem = {
+			filesystem: baseFs({ kind: "code", repo: "/Users/me/repo", branch: "main" }),
+			folder: "/ws/repo",
+			trustedPaths: ["/Users/me/repo", "/kept/worktrees/task-3/repo"],
+			git: { keptCopy: "/Users/me/repo", branch: "hyperidle/task-3", base: "main", remote: false },
+			agentEnv: {},
+			reused: true,
+		};
+
+		const section = describeMountedFilesystems([mounted]);
+
+		expect(section).toContain("already holds earlier work on this task");
+		expect(section).toContain("git status");
+		expect(section).toContain("git log");
 	});
 });

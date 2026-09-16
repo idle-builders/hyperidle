@@ -182,21 +182,22 @@ function buildParams(agentId: string, workspacePath: string): ProvisionSessionPa
 }
 
 describe("a session run to completion, with a real mounted git filesystem", () => {
-	test("writes AGENTS.md naming the mount, then unmounts the worktree while the branch stays", async ({
+	test("N1: writes AGENTS.md naming the mount, then leaves the worktree, the branch, the file the agent wrote, and the session directory", async ({
 		db,
 	}) => {
 		const repoDir = tempDir();
 		initLocalRepo(repoDir);
 		const workspacePath = tempDir();
+		const keptCopiesRoot = tempDir();
 		const agentId = "agent-t9-1";
 		await seedAgent(db as HyperIdleDb, agentId);
 
 		const captured: CapturedStart = {};
 		const trustedPathsSeen: string[][] = [];
-		// @lore normal completion deletes the workspace as its LAST teardown
-		// step (`transitionRun`'s `fs.promises.rm`) — `onBeforeTeardown` fires
-		// before that delete (AR2), so AGENTS.md must be read there, not after
-		// `provisioner.run` resolves.
+		// @lore BA5 (no-teardown): nothing deletes the session directory at
+		// normal completion any more — `onBeforeTeardown` still fires before
+		// `provisioner.run` resolves (AR2), so AGENTS.md is read there for
+		// convenience, not out of necessity.
 		let agentsMdSnapshot: string | undefined;
 		const deps = {
 			db,
@@ -217,6 +218,7 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 			},
 			mounter: new RegistryFilesystemMounter({
 				gitRunnerFactory: (cwd: string) => createGitRunner(cwd),
+				keptCopiesRoot,
 			}),
 			adapterPool: {
 				select: () => ({
@@ -253,6 +255,9 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 		expect(mountedFs.git?.remote).toBe(false);
 		expect(mountedFs.git?.keptCopy).toBe(fs.realpathSync(repoDir));
 
+		// The file the agent wrote, before teardown ever runs.
+		fs.writeFileSync(path.join(mountedFs.folder, "agent-work.txt"), "done\n");
+
 		await provisioner.run(deps, params, admitted);
 
 		const agentsMd = agentsMdSnapshot ?? "";
@@ -263,8 +268,13 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 
 		const keptCopy = mountedFs.git?.keptCopy as string;
 		const branch = mountedFs.git?.branch as string;
-		expect(worktreeList(keptCopy)).not.toContain(mountedFs.folder);
+		expect(
+			worktreeList(keptCopy),
+			"nothing is torn down at session end — the worktree stays until the task is done",
+		).toContain(mountedFs.folder);
 		expect(branchExists(keptCopy, branch)).toBe(true);
+		expect(fs.readFileSync(path.join(mountedFs.folder, "agent-work.txt"), "utf8")).toBe("done\n");
+		expect(fs.existsSync(workspacePath), "the session directory is not deleted either").toBe(true);
 
 		expect(trustedPathsSeen[0]).toContain(keptCopy);
 	});
@@ -308,6 +318,7 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 			},
 			mounter: new RegistryFilesystemMounter({
 				gitRunnerFactory: (cwd: string) => createGitRunner(cwd),
+				keptCopiesRoot: tempDir(),
 			}),
 			adapterPool: {
 				select: () => ({
@@ -352,6 +363,107 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 		).toContain(mountedFs.folder);
 		expect(fs.existsSync(workspacePath)).toBe(true);
 	});
+
+	test("N2: a resume finds a file the first session wrote, through the same symlink, at the same workspace path", async ({
+		db,
+	}) => {
+		const repoDir = tempDir();
+		initLocalRepo(repoDir);
+		const workspacePath = tempDir();
+		const keptCopiesRoot = tempDir();
+		const agentId = "agent-t9-resume";
+		const taskId = "task-t9-resume-1";
+		await seedAgent(db as HyperIdleDb, agentId);
+
+		const captured: CapturedStart = {};
+		const injectedFilesystems = {
+			listInjectedForProvisioning: async () => [
+				{
+					id: "fs-t9-resume",
+					teamId: "team-1",
+					source: "local",
+					kind: "code",
+					connectionId: null,
+					resourceRef: { kind: "code", repo: repoDir, branch: "main" },
+					state: "attached",
+					createdAt: new Date().toISOString(),
+				},
+			],
+		};
+		const deps = {
+			db,
+			eventBus: new EventBus(),
+			injectedFilesystems,
+			mounter: new RegistryFilesystemMounter({
+				gitRunnerFactory: (cwd: string) => createGitRunner(cwd),
+				keptCopiesRoot,
+			}),
+			adapterPool: {
+				select: () => ({
+					id: "fake-adapter",
+					adapter: buildFakeHarnessAdapter({ captured }),
+					meta: {
+						name: "Fake",
+						kind: "local",
+						type: undefined,
+						modelProviders: [],
+						maxConcurrent: 5,
+					},
+				}),
+				release: () => undefined,
+				describeSelectFailure: () => "test pool selected nothing",
+			},
+			workspace: {
+				spawn: async () => ({ sandboxId: "sbx-resume-1", path: workspacePath }),
+				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: async (p: string) => ({ sandboxId: "sbx-resume-adopted", path: p }),
+				destroy: async () => undefined,
+			},
+		} as unknown as ProvisionSessionDeps;
+
+		// A task-bound session runs `contextAssembly.assembleAgentContext` —
+		// unlike the task-free tests above, this one has to resolve rather
+		// than reject.
+		const ports = buildHarnessPorts({ trustedPathsSeen: [] });
+		(ports as unknown as { contextAssembly: Record<string, unknown> }).contextAssembly = {
+			...(ports as unknown as { contextAssembly: Record<string, unknown> }).contextAssembly,
+			assembleAgentContext: async () => ({
+				itemCount: 0,
+				durationMs: 0,
+				manifestPath: path.join(workspacePath, ".fabric/manifest.json"),
+			}),
+		};
+		const provisioner = createProvisioner(ports);
+
+		const firstParams = { ...buildParams(agentId, workspacePath), taskId } as ProvisionSessionParams;
+		const firstAdmitted = await provisioner.admit(deps, firstParams);
+		const firstMounted = firstAdmitted.mountedFilesystems[0] as MountedFilesystem;
+		fs.writeFileSync(path.join(firstMounted.folder, "first-session.txt"), "first session\n");
+		await provisioner.run(deps, firstParams, firstAdmitted);
+
+		// The resume: same task, same workspace path — `workspace.adopt` gives
+		// back the exact directory the first session ran in.
+		const resumeParams = {
+			...buildParams(agentId, workspacePath),
+			taskId,
+			resume: {
+				sessionId: firstAdmitted.sessionId,
+				harnessSessionId: "native-abc",
+				sandboxPath: workspacePath,
+				decision: "approve" as const,
+				threadId: "thread-resume-1",
+				agentId,
+			},
+		} as ProvisionSessionParams;
+		const resumeAdmitted = await provisioner.admit(deps, resumeParams);
+		const resumedMounted = resumeAdmitted.mountedFilesystems[0] as MountedFilesystem;
+
+		expect(resumedMounted.folder).toBe(firstMounted.folder);
+		expect(resumedMounted.reused).toBe(true);
+		expect(fs.readFileSync(path.join(resumedMounted.folder, "first-session.txt"), "utf8")).toBe(
+			"first session\n",
+		);
+	});
 });
 
 describe("a mounted filesystem's own env reaches the harness (BA5 §6.1)", () => {
@@ -374,7 +486,7 @@ describe("a mounted filesystem's own env reaches the harness (BA5 §6.1)", () =>
 				createdAt: new Date().toISOString(),
 			},
 			folder: path.join(workspacePath, "repo"),
-			trustedPath: "/tmp/kept/repo",
+			trustedPaths: ["/tmp/kept/repo", "/tmp/kept/worktrees/task-1/repo"],
 			git: {
 				keptCopy: "/tmp/kept/repo",
 				branch: "hyperidle/session-x",
@@ -389,11 +501,10 @@ describe("a mounted filesystem's own env reaches the harness (BA5 §6.1)", () =>
 				GIT_CONFIG_KEY_1: "credential.https://github.com.helper",
 				GIT_CONFIG_VALUE_1: "!gh auth git-credential",
 			},
-			adopted: false,
+			reused: false,
 		};
 		const fakeMounter: FilesystemMounterPort = {
 			mount: async () => ({ ok: true, mounted: fakeMounted }),
-			unmount: async () => undefined,
 		};
 
 		const captured: CapturedStart = {};

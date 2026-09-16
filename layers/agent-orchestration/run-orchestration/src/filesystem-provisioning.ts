@@ -45,7 +45,6 @@ import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 /** Structural mounter port — run-orchestration declares the shape it needs (Mechanism C). */
 export interface FilesystemMounterPort {
 	mount(input: MountInput): Promise<MountResult>;
-	unmount(mounted: MountedFilesystem): Promise<void>;
 }
 
 /**
@@ -107,9 +106,9 @@ export interface InjectedFilesystemsReaderPort {
  * fallback the plan names for when a Check re-run unexpectedly passes), the
  * filesystem row and resolved credential (so a Check re-run can phrase a
  * better reason, §4.2), and every filesystem THIS admission had already
- * mounted before the failure (so the caller can unmount them — an adopted
- * resume's mounts must never be unmounted here, that is the caller's call to
- * make, not this function's).
+ * mounted before the failure. BA5 (no-teardown): nothing unmounts a partial
+ * placement any more — a git worktree already cut belongs to the task, not
+ * to this failed admission — so `mounted` is diagnostic only now.
  */
 export class FilesystemMountFailure extends Error {
 	constructor(
@@ -182,8 +181,7 @@ function rowToFilesystem(row: FilesystemForProvisioning): Filesystem {
  * spawn for this session.
  *
  * Called in admitSession Phase 4.5 (AFTER sandbox spawn, BEFORE context assembly).
- * Returns the placed `MountedFilesystem` records so the teardown helper can
- * unmount them without a second DB query.
+ * Returns the placed `MountedFilesystem` records.
  *
  * @lore BA5 §4.2/§13: a mount failure throws — see this file's top-of-file
  * `@lore` for why that changed from the prior best-effort catch-and-skip.
@@ -191,11 +189,13 @@ function rowToFilesystem(row: FilesystemForProvisioning): Filesystem {
 export async function mountFilesystemsForAgent(params: {
 	readonly agentId: string;
 	readonly sessionId: string;
+	/** BA5 (no-teardown) §3 — keys a git filesystem's long-lived worktree home. */
+	readonly taskId: string | null;
 	readonly filesystems?: InjectedFilesystemsReaderPort;
 	readonly workspacePath: string;
 	readonly mounter: FilesystemMounterPort;
 }): Promise<MountedFilesystem[]> {
-	const { agentId, sessionId, filesystems, workspacePath, mounter } = params;
+	const { agentId, sessionId, taskId, filesystems, workspacePath, mounter } = params;
 
 	if (!filesystems) return [];
 	const rows = await filesystems.listInjectedForProvisioning(agentId);
@@ -219,6 +219,7 @@ export async function mountFilesystemsForAgent(params: {
 			filesystem,
 			workspacePath,
 			sessionId,
+			taskId,
 			folderName,
 			credential,
 		});

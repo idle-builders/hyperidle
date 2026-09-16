@@ -16,6 +16,17 @@
  * and every session gets its own worktree off either. `captureBack` (a
  * declared no-op since AU43) is gone with them — a git filesystem's work
  * leaves through the agent's own `git push`, never a HyperIdle-side capture.
+ *
+ * @lore BA5 (no-teardown, 2026-09-16): nothing is unmounted at session end
+ * any more. A git worktree moved out of the session directory entirely —
+ * its home is now `<keptCopiesRoot>/worktrees/<taskKey>/<folderName>`,
+ * symlinked into the workspace — so it survives every session of the same
+ * task and is only ever removed by `releaseForTask` once the task is done.
+ * `MountAdapter.unmount` and `recognizeAdoptedWorktree`'s gitdir-pointer
+ * forensics are both gone: recognition is now a plain "does the task's
+ * worktree directory already exist" check. `adopted` is renamed `reused` —
+ * it now means "this place already held earlier work of this task", which
+ * the agent is told about (`filesystem-instructions.ts`).
  */
 
 import { execFileSync } from "node:child_process";
@@ -23,6 +34,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { and, eq } from "drizzle-orm";
 import { gitCredentialEnv } from "./git-credential-env.js";
 import type { MountingGitRunnerFactory } from "./mounter-ports.js";
 
@@ -59,6 +72,13 @@ export interface MountInput {
 	readonly filesystem: Filesystem;
 	readonly workspacePath: string;
 	readonly sessionId: string;
+	/**
+	 * BA5 (no-teardown) §3 — the session's task, when it has one. Keys a git
+	 * worktree's long-lived home (`task-<taskId>`); a taskless session falls
+	 * back to `session-<sessionId>` — its worktree is its own and nothing
+	 * removes it automatically.
+	 */
+	readonly taskId: string | null;
 	/** The subfolder name this filesystem gets inside the workspace (§5.3) — computed by the caller so two filesystems never collide. */
 	readonly folderName: string;
 	/** The PAT resolved as the connection's owner, or null. Never falls back to another identity. */
@@ -70,8 +90,13 @@ export interface MountedFilesystem {
 	readonly filesystem: Filesystem;
 	/** absolute: `<workspace>/<folderName>` */
 	readonly folder: string;
-	/** the kept copy (git) or the real folder (folder) — feeds codex's trust declaration */
-	readonly trustedPath: string;
+	/**
+	 * BA5 (no-teardown) §3 — every real path codex must trust: the kept copy
+	 * AND the worktree itself for a git mount (two real paths now that the
+	 * worktree lives outside the sandbox); one element (the real folder) for
+	 * a folder or Drive mount.
+	 */
+	readonly trustedPaths: readonly string[];
 	readonly git?: {
 		readonly keptCopy: string;
 		readonly branch: string;
@@ -80,15 +105,19 @@ export interface MountedFilesystem {
 	};
 	/** Env the agent's OWN process needs (e.g. `GH_TOKEN`) to push this filesystem itself. Never persisted. */
 	readonly agentEnv: Readonly<Record<string, string>>;
-	/** True when an existing workspace directory was recognised rather than freshly placed (a resume). */
-	readonly adopted: boolean;
+	/**
+	 * True when this place already held earlier work — a folder/Drive kept
+	 * copy that already existed, or a task's git worktree that a previous
+	 * session (or an earlier session of the same task) already cut. Told to
+	 * the agent (`filesystem-instructions.ts`) so it checks before it starts.
+	 */
+	readonly reused: boolean;
 }
 
 export type MountResult = { ok: true; mounted: MountedFilesystem } | { ok: false; reason: string };
 
 interface MountAdapter {
 	mount(input: MountInput): Promise<MountResult>;
-	unmount(mounted: MountedFilesystem): Promise<void>;
 }
 
 class CloudNotBuiltAdapter implements MountAdapter {
@@ -98,9 +127,6 @@ class CloudNotBuiltAdapter implements MountAdapter {
 			ok: false,
 			reason: `mount adapter not built for source '${this.source}' (built in its connector WP)`,
 		});
-	}
-	unmount(): Promise<void> {
-		return Promise.resolve();
 	}
 }
 
@@ -113,13 +139,13 @@ class LocalFolderAdapter implements MountAdapter {
 			const real = normalizeLocalPath(ref.folder);
 			if (!fs.existsSync(real)) throw new Error(`folder does not exist: '${ref.folder}'`);
 			const link = path.join(input.workspacePath, input.folderName);
-			let adopted = false;
+			let reused = false;
 			if (fs.existsSync(link)) {
 				if (
 					fs.lstatSync(link).isSymbolicLink() &&
 					fs.realpathSync(link) === fs.realpathSync(real)
 				) {
-					adopted = true;
+					reused = true;
 				} else {
 					throw new Error(`folder '${input.folderName}' already exists in the workspace`);
 				}
@@ -131,9 +157,9 @@ class LocalFolderAdapter implements MountAdapter {
 				mounted: {
 					filesystem: input.filesystem,
 					folder: link,
-					trustedPath: real,
+					trustedPaths: [real],
 					agentEnv: {},
-					adopted,
+					reused,
 				},
 			});
 		} catch (error) {
@@ -142,10 +168,6 @@ class LocalFolderAdapter implements MountAdapter {
 				reason: error instanceof Error ? error.message : String(error),
 			});
 		}
-	}
-	/** @lore BA5 §5.5: nothing to do — the symlink goes with the workspace itself. */
-	unmount(): Promise<void> {
-		return Promise.resolve();
 	}
 }
 
@@ -196,45 +218,13 @@ export function normalizeLocalPath(raw: string): string {
 	}
 }
 
-/** `git -C <repoPath> rev-parse --git-common-dir`, realpath'd. Spawns git directly — a fully local, no-network read, same precedent as `ensureSandboxGitRepo`. */
-function resolveCommonGitDir(repoPath: string): string {
-	const raw = execFileSync("git", ["-C", repoPath, "rev-parse", "--git-common-dir"], {
-		encoding: "utf8",
-	}).trim();
-	return fs.realpathSync(path.resolve(repoPath, raw));
-}
-
 /**
- * BA5 §5.4 — recognise an already-placed worktree on a resumed workspace:
- * `<worktreePath>/.git` is a FILE whose `gitdir:` pointer resolves under
- * `<keptCopy>/.git/worktrees/`, and that worktree directory still exists.
- * Returns the worktree's current branch when recognised, `undefined` otherwise.
+ * BA5 (no-teardown) §3 — a git worktree's long-lived home, keyed by the
+ * session's task (or, absent one, by the session itself — a taskless
+ * session's worktree is its own and nothing removes it automatically).
  */
-function recognizeAdoptedWorktree(worktreePath: string, keptCopy: string): string | undefined {
-	const gitFile = path.join(worktreePath, ".git");
-	if (!fs.existsSync(gitFile) || fs.lstatSync(gitFile).isDirectory()) return undefined;
-	const pointer = fs
-		.readFileSync(gitFile, "utf8")
-		.trim()
-		.match(/^gitdir:\s*(.+)$/)?.[1];
-	if (!pointer) return undefined;
-	let gitDir: string;
-	let commonDir: string;
-	try {
-		gitDir = fs.realpathSync(path.resolve(worktreePath, pointer));
-		commonDir = resolveCommonGitDir(keptCopy);
-	} catch {
-		return undefined;
-	}
-	const worktreesRoot = `${path.join(commonDir, "worktrees")}${path.sep}`;
-	if (!(gitDir.startsWith(worktreesRoot) && fs.existsSync(gitDir))) return undefined;
-	try {
-		return execFileSync("git", ["-C", worktreePath, "rev-parse", "--abbrev-ref", "HEAD"], {
-			encoding: "utf8",
-		}).trim();
-	} catch {
-		return undefined;
-	}
+function taskKeyFor(input: Pick<MountInput, "taskId" | "sessionId">): string {
+	return input.taskId ? `task-${input.taskId}` : `session-${input.sessionId}`;
 }
 
 class GitRepositoryAdapter implements MountAdapter {
@@ -243,87 +233,90 @@ class GitRepositoryAdapter implements MountAdapter {
 	async mount(input: MountInput): Promise<MountResult> {
 		const ref = input.filesystem.resourceRef;
 		if (ref.kind !== "code") return { ok: false, reason: "Expected code resourceRef" };
-		const local = isLocalRepoPath(ref);
-		const worktreePath = path.join(input.workspacePath, input.folderName);
-		const keptCopy = local
-			? normalizeLocalPath(ref.repo)
-			: this.deps.keptCopiesRoot
-				? path.join(this.deps.keptCopiesRoot, input.filesystem.id)
-				: undefined;
-
-		// BA5 §5.4: recognise an already-placed worktree on a resumed workspace.
-		if (fs.existsSync(worktreePath)) {
-			const branch = keptCopy ? recognizeAdoptedWorktree(worktreePath, keptCopy) : undefined;
-			if (branch) {
-				return {
-					ok: true,
-					mounted: {
-						filesystem: input.filesystem,
-						folder: worktreePath,
-						trustedPath: keptCopy as string,
-						git: { keptCopy: keptCopy as string, branch, base: ref.branch, remote: !local },
-						agentEnv: local ? {} : gitCredentialEnv(ref.repo, input.credential),
-						adopted: true,
-					},
-				};
-			}
-			return { ok: false, reason: `folder '${input.folderName}' already exists in the workspace` };
+		if (!this.deps.keptCopiesRoot) {
+			return { ok: false, reason: "this server has no folder to keep repository copies in" };
 		}
+		const local = isLocalRepoPath(ref);
+		const taskKey = taskKeyFor(input);
+		const home = path.join(this.deps.keptCopiesRoot, "worktrees", taskKey, input.folderName);
+		const link = path.join(input.workspacePath, input.folderName);
 
 		try {
 			const env = local ? {} : gitCredentialEnv(ref.repo, input.credential);
+			const keptCopy = local
+				? normalizeLocalPath(ref.repo)
+				: path.join(this.deps.keptCopiesRoot, input.filesystem.id);
+			const remote = !local;
+
+			const reused = fs.existsSync(home);
+			let branch: string;
 			let base: string;
-			let resolvedKeptCopy: string;
-			let remote: boolean;
-			if (local) {
-				resolvedKeptCopy = keptCopy as string;
-				remote = false;
-				const ok = await this.deps.gitRunnerFactory(resolvedKeptCopy).verifyCommit(ref.branch);
-				if (!ok) return { ok: false, reason: `branch '${ref.branch}' not found in '${ref.repo}'` };
-				base = ref.branch;
-			} else {
-				remote = true;
-				if (!this.deps.keptCopiesRoot) {
-					return { ok: false, reason: "this server has no folder to keep repository copies in" };
-				}
-				resolvedKeptCopy = keptCopy as string;
-				if (!fs.existsSync(resolvedKeptCopy)) {
-					fs.mkdirSync(this.deps.keptCopiesRoot, { recursive: true });
-					await this.deps
-						.gitRunnerFactory(this.deps.keptCopiesRoot)
-						.clone(ref.repo, resolvedKeptCopy, { env });
+			if (!reused) {
+				if (local) {
+					const ok = await this.deps.gitRunnerFactory(keptCopy).verifyCommit(ref.branch);
+					if (!ok)
+						return { ok: false, reason: `branch '${ref.branch}' not found in '${ref.repo}'` };
+					base = ref.branch;
 				} else {
-					await this.deps.gitRunnerFactory(resolvedKeptCopy).fetch({ env });
+					if (!fs.existsSync(keptCopy)) {
+						fs.mkdirSync(this.deps.keptCopiesRoot, { recursive: true });
+						await this.deps
+							.gitRunnerFactory(this.deps.keptCopiesRoot)
+							.clone(ref.repo, keptCopy, { env });
+					} else {
+						await this.deps.gitRunnerFactory(keptCopy).fetch({ env });
+					}
+					base = `origin/${ref.branch}`;
 				}
-				base = `origin/${ref.branch}`;
+				const runner = this.deps.gitRunnerFactory(keptCopy);
+				await runner.worktreePrune();
+				branch = `hyperidle/${input.taskId ?? input.sessionId}`;
+				await runner.worktreeAdd(home, branch, base);
+			} else {
+				// BA5 (no-teardown) §3 — a plain existence check replaces the old
+				// gitdir-pointer forensics: the task's worktree home either exists
+				// (this IS it, cut by an earlier session of the same task) or it
+				// does not. `base` is reported the same way the old adopted case
+				// did — the configured branch verbatim, never the `origin/`-prefixed
+				// form, since it is display-only once the worktree already exists.
+				base = ref.branch;
+				const resolvedBranch = await this.deps.gitRunnerFactory(home).currentBranch();
+				if (!resolvedBranch) {
+					return {
+						ok: false,
+						reason: `worktree at '${home}' exists but its checked-out branch could not be resolved`,
+					};
+				}
+				branch = resolvedBranch;
 			}
 
-			const runner = this.deps.gitRunnerFactory(resolvedKeptCopy);
-			await runner.worktreePrune();
-			const branch = `hyperidle/${input.sessionId}`;
-			await runner.worktreeAdd(worktreePath, branch, base);
+			if (fs.existsSync(link)) {
+				if (
+					!(fs.lstatSync(link).isSymbolicLink() && fs.realpathSync(link) === fs.realpathSync(home))
+				) {
+					return {
+						ok: false,
+						reason: `folder '${input.folderName}' already exists in the workspace`,
+					};
+				}
+			} else {
+				fs.symlinkSync(home, link);
+			}
 
 			return {
 				ok: true,
 				mounted: {
 					filesystem: input.filesystem,
-					folder: worktreePath,
-					trustedPath: resolvedKeptCopy,
-					git: { keptCopy: resolvedKeptCopy, branch, base, remote },
+					folder: link,
+					trustedPaths: [keptCopy, home],
+					git: { keptCopy, branch, base, remote },
 					agentEnv: env,
-					adopted: false,
+					reused,
 				},
 			};
 		} catch (error) {
 			return { ok: false, reason: error instanceof Error ? error.message : String(error) };
 		}
-	}
-
-	async unmount(mounted: MountedFilesystem): Promise<void> {
-		if (!mounted.git) return;
-		await this.deps
-			.gitRunnerFactory(mounted.git.keptCopy)
-			.worktreeRemove(mounted.folder, { force: true });
 	}
 }
 
@@ -343,9 +336,92 @@ export class RegistryFilesystemMounter {
 		return selectMountAdapter(input.filesystem, this.deps).mount(input);
 	}
 
-	async unmount(mounted: MountedFilesystem): Promise<void> {
-		return selectMountAdapter(mounted.filesystem, this.deps).unmount(mounted);
+	/**
+	 * BA5 (no-teardown) §4 — release a task's git worktrees once the task is
+	 * `done` and no session of it is still running. Guarded by orchestration's
+	 * OWN `sessions` table (never while a session of the task is active, the
+	 * same shape `request-run-stop-for-tasks.ts` already queries) — core
+	 * decides the task is done, orchestration decides nothing is running.
+	 *
+	 * Removal is a doesn't-matter op: `worktreeRemove` runs WITHOUT `force`,
+	 * so a worktree with uncommitted or untracked changes is refused and
+	 * stays — logged as a skip, never destroyed — and the branch is never
+	 * touched either way. A missing kept copy, a missing task directory or a
+	 * failing git call all end the same way: a log line, not a throw.
+	 */
+	async releaseForTask(db: HyperIdleDb, taskId: string): Promise<void> {
+		const [active] = await db
+			.select({ id: sessions.id })
+			.from(sessions)
+			.where(and(eq(sessions.taskId, taskId), eq(sessions.state, "active")))
+			.limit(1);
+		if (active) return;
+
+		if (!this.deps.keptCopiesRoot) return;
+		const taskDir = path.join(this.deps.keptCopiesRoot, "worktrees", `task-${taskId}`);
+		if (!fs.existsSync(taskDir)) return;
+
+		let children: string[];
+		try {
+			children = await fs.promises.readdir(taskDir);
+		} catch (err) {
+			logReleaseSkip(`could not read '${taskDir}'`, err);
+			return;
+		}
+
+		for (const child of children) {
+			const worktreePath = path.join(taskDir, child);
+			try {
+				const keptCopy = keptCopyForWorktree(worktreePath);
+				if (!keptCopy) continue;
+				await this.deps.gitRunnerFactory(keptCopy).worktreeRemove(worktreePath);
+			} catch (err) {
+				logReleaseSkip(`could not remove worktree '${worktreePath}'`, err);
+			}
+		}
+
+		try {
+			await fs.promises.rmdir(taskDir);
+		} catch {
+			// Not empty (a worktree was refused above) or already gone — a
+			// doesn't-matter op, exactly like the worktree removal itself.
+		}
 	}
+}
+
+/**
+ * BA5 (no-teardown) §4 — the repository a worktree belongs to, read off its
+ * `.git` FILE (`gitdir: <repo>/.git/worktrees/<name>`): the segment before
+ * `/worktrees/` is the repo's own `.git` directory, so its parent is the
+ * repository `worktreeRemove` must run against. `undefined` when the
+ * worktree is not (or no longer) a real git worktree — the caller logs and
+ * moves on, never throws.
+ */
+function keptCopyForWorktree(worktreePath: string): string | undefined {
+	const gitFile = path.join(worktreePath, ".git");
+	if (!fs.existsSync(gitFile) || fs.lstatSync(gitFile).isDirectory()) return undefined;
+	const pointer = fs
+		.readFileSync(gitFile, "utf8")
+		.trim()
+		.match(/^gitdir:\s*(.+)$/)?.[1];
+	if (!pointer) return undefined;
+	const marker = `${path.sep}worktrees${path.sep}`;
+	const idx = pointer.indexOf(marker);
+	if (idx === -1) return undefined;
+	return path.dirname(path.resolve(worktreePath, pointer.slice(0, idx)));
+}
+
+/**
+ * BA5 (no-teardown) §4 — every failure along `releaseForTask` is a log line,
+ * never a throw: a refused (dirty) worktree, a missing directory or a
+ * deleted kept copy are all "nothing to do right now", not an error a
+ * caller (a core reaction, best-effort by its own contract) should surface.
+ */
+function logReleaseSkip(message: string, err: unknown): void {
+	// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
+	console.warn(
+		`[filesystem-release] ${message}: ${err instanceof Error ? err.message : String(err)}`,
+	);
 }
 
 /**
