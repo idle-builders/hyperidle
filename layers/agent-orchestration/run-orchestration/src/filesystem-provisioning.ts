@@ -32,11 +32,11 @@
  * file, below), not a plain `Error` — `admitSession`'s Phase 4.5 needs the
  * failing filesystem's id, the adapter's own reason text, the filesystem row
  * and credential (for a Check re-run's better-phrased reason), and every
- * filesystem THIS admission already placed (so it can unmount exactly those,
- * never an adopted resume's) before it runs the full hold: release the
- * adapter, destroy the workspace unless resuming, mark the filesystem
- * `needs_attention`, and only then throw `FilesystemUnavailableError` — the
- * task stays ready throughout (§4.2).
+ * filesystem THIS admission already placed (diagnostic only now — nothing
+ * unmounts it) before it runs the full hold: release the adapter, destroy
+ * the workspace unless resuming, mark the filesystem `needs_attention`, and
+ * only then throw `FilesystemUnavailableError` — the task stays ready
+ * throughout (§4.2).
  */
 
 import type { Filesystem, MountedFilesystem, MountInput, MountResult } from "./mounter.js";
@@ -74,41 +74,41 @@ export interface FilesystemForProvisioning {
 export interface InjectedFilesystemsReaderPort {
 	listInjectedForProvisioning(agentId: string): Promise<readonly FilesystemForProvisioning[]>;
 	/**
-	 * BA5 §2.4/§13 (L4): the PAT resolved as the connection's OWNER (never a
-	 * per-request user) — backed by `resolveConnectionToken`. Optional: an
-	 * absent method, like an absent port entirely, mounts every connection-
-	 * backed filesystem with `credential: null` — the same "no credential yet"
-	 * shape a public remote already needs nothing for.
+	 * The PAT resolved as the connection's OWNER (never a per-request user) —
+	 * backed by `resolveConnectionToken`. Optional: an absent method, like an
+	 * absent port entirely, mounts every connection-backed filesystem with
+	 * `credential: null` — the same "no credential yet" shape a public
+	 * remote already needs nothing for.
 	 */
 	resolveCredential?(connectionId: string): Promise<string | null>;
 	/**
-	 * BA5 §2.5/§4.1/§13 (L5): every agent currently held by a `needs_attention`
-	 * filesystem — the drain's claim-time exclusion list (`start-runtime.ts`).
-	 * Optional, like `resolveCredential`: absent excludes nobody, the same
-	 * "no hold wired" posture an absent port entirely already gives.
+	 * Every agent currently held by a `needs_attention` filesystem — the
+	 * drain's claim-time exclusion list (`start-runtime.ts`). Optional, like
+	 * `resolveCredential`: absent excludes nobody, the same "no hold wired"
+	 * posture an absent port entirely already gives.
 	 */
 	listHeldAgentIds?(): Promise<readonly string[]>;
 	/**
-	 * BA5 §4.2/§4.3/§13 (L5): placement failed — mark the filesystem
-	 * `needs_attention` with this reason (and notify once, if it just entered).
-	 * Optional: absent means a placement failure cannot record the hold, so
-	 * `admitSession` still throws `FilesystemUnavailableError` but the
-	 * filesystem's own row and the notice never happen — a test-fixture
-	 * posture, never production (boot always wires this, §4.4).
+	 * Placement failed — mark the filesystem `needs_attention` with this
+	 * reason (and notify once, if it just entered). Optional: absent means a
+	 * placement failure cannot record the hold, so `admitSession` still
+	 * throws `FilesystemUnavailableError` but the filesystem's own row and
+	 * the notice never happen — a test-fixture posture, never production
+	 * (boot always wires this).
 	 */
 	markNeedsAttention?(filesystemId: string, reason: string): Promise<void>;
 }
 
 /**
- * BA5 §4.2/§13 (L5) — thrown by `mountFilesystemsForAgent` when a filesystem
- * cannot be placed. Carries what `admitSession`'s Phase 4.5 needs to run the
- * full hold: which filesystem broke, the mount adapter's own reason text (the
- * fallback the plan names for when a Check re-run unexpectedly passes), the
- * filesystem row and resolved credential (so a Check re-run can phrase a
- * better reason, §4.2), and every filesystem THIS admission had already
- * mounted before the failure. BA5 (no-teardown): nothing unmounts a partial
- * placement any more — a git worktree already cut belongs to the task, not
- * to this failed admission — so `mounted` is diagnostic only now.
+ * Thrown by `mountFilesystemsForAgent` when a filesystem cannot be placed.
+ * Carries what `admitSession`'s Phase 4.5 needs to run the full hold: which
+ * filesystem broke, the mount adapter's own reason text (the fallback the
+ * plan names for when a Check re-run unexpectedly passes), the filesystem
+ * row and resolved credential (so a Check re-run can phrase a better
+ * reason), and every filesystem THIS admission had already mounted before
+ * the failure. Nothing unmounts a partial placement any more — a git
+ * worktree already cut belongs to the task, not to this failed admission —
+ * so `mounted` is diagnostic only now.
  */
 export class FilesystemMountFailure extends Error {
 	constructor(
@@ -123,7 +123,7 @@ export class FilesystemMountFailure extends Error {
 	}
 }
 
-/** A path segment charset a folder name is reduced to (BA5 §5.3). */
+/** A path segment charset a folder name is reduced to. */
 function reduceToFolderChars(raw: string): string {
 	const reduced = raw.replace(/[^A-Za-z0-9._-]/g, "-");
 	return reduced.length > 0 ? reduced : "filesystem";
@@ -139,7 +139,7 @@ function baseFolderName(resourceRef: Filesystem["resourceRef"]): string {
 }
 
 /**
- * BA5 §5.3 — the subfolder name each filesystem gets inside a workspace: the
+ * The subfolder name each filesystem gets inside a workspace: the
  * repo/folder basename, reduced to `[A-Za-z0-9._-]`, disambiguated with the
  * filesystem id's first 8 characters when it collides with a scaffolding path
  * or with another of this agent's own filesystems. Computed from the agent's
@@ -189,7 +189,7 @@ function rowToFilesystem(row: FilesystemForProvisioning): Filesystem {
 export async function mountFilesystemsForAgent(params: {
 	readonly agentId: string;
 	readonly sessionId: string;
-	/** BA5 (no-teardown) §3 — keys a git filesystem's long-lived worktree home. */
+	/** Keys a git filesystem's long-lived worktree home. */
 	readonly taskId: string | null;
 	readonly filesystems?: InjectedFilesystemsReaderPort;
 	readonly workspacePath: string;

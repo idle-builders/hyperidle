@@ -63,38 +63,38 @@ const CLOUD_SOURCES = new Set(["gdrive", "dropbox", "s3"]);
 
 export interface AdapterDeps {
 	readonly gitRunnerFactory: MountingGitRunnerFactory;
-	/** Where remote git filesystems keep their one clone (§5.2). Absent → a remote git filesystem cannot mount. */
+	/** Where remote git filesystems keep their one clone. Absent → a remote git filesystem cannot mount. */
 	readonly keptCopiesRoot?: string;
 }
 
-/** BA5 §2.5 — what the mount engine needs to place ONE filesystem for ONE session. */
+/** What the mount engine needs to place ONE filesystem for ONE session. */
 export interface MountInput {
 	readonly filesystem: Filesystem;
 	readonly workspacePath: string;
 	readonly sessionId: string;
 	/**
-	 * BA5 (no-teardown) §3 — the session's task, when it has one. Keys a git
-	 * worktree's long-lived home (`task-<taskId>`); a taskless session falls
-	 * back to `session-<sessionId>` — its worktree is its own and nothing
-	 * removes it automatically.
+	 * The session's task, when it has one. Keys a git worktree's long-lived
+	 * home (`task-<taskId>`); a taskless session falls back to
+	 * `session-<sessionId>` — its worktree is its own and nothing removes it
+	 * automatically.
 	 */
 	readonly taskId: string | null;
-	/** The subfolder name this filesystem gets inside the workspace (§5.3) — computed by the caller so two filesystems never collide. */
+	/** The subfolder name this filesystem gets inside the workspace — computed by the caller so two filesystems never collide. */
 	readonly folderName: string;
 	/** The PAT resolved as the connection's owner, or null. Never falls back to another identity. */
 	readonly credential: string | null;
 }
 
-/** BA5 §2.5 — a placed filesystem: what the agent sees, and what codex must trust. */
+/** A placed filesystem: what the agent sees, and what codex must trust. */
 export interface MountedFilesystem {
 	readonly filesystem: Filesystem;
 	/** absolute: `<workspace>/<folderName>` */
 	readonly folder: string;
 	/**
-	 * BA5 (no-teardown) §3 — every real path codex must trust: the kept copy
-	 * AND the worktree itself for a git mount (two real paths now that the
-	 * worktree lives outside the sandbox); one element (the real folder) for
-	 * a folder or Drive mount.
+	 * Every real path codex must trust: the kept copy AND the worktree
+	 * itself for a git mount (two real paths now that the worktree lives
+	 * outside the sandbox); one element (the real folder) for a folder or
+	 * Drive mount.
 	 */
 	readonly trustedPaths: readonly string[];
 	readonly git?: {
@@ -219,9 +219,9 @@ export function normalizeLocalPath(raw: string): string {
 }
 
 /**
- * BA5 (no-teardown) §3 — a git worktree's long-lived home, keyed by the
- * session's task (or, absent one, by the session itself — a taskless
- * session's worktree is its own and nothing removes it automatically).
+ * A git worktree's long-lived home, keyed by the session's task (or, absent
+ * one, by the session itself — a taskless session's worktree is its own and
+ * nothing removes it automatically).
  */
 function taskKeyFor(input: Pick<MountInput, "taskId" | "sessionId">): string {
 	return input.taskId ? `task-${input.taskId}` : `session-${input.sessionId}`;
@@ -273,12 +273,12 @@ class GitRepositoryAdapter implements MountAdapter {
 				branch = `hyperidle/${input.taskId ?? input.sessionId}`;
 				await runner.worktreeAdd(home, branch, base);
 			} else {
-				// BA5 (no-teardown) §3 — a plain existence check replaces the old
-				// gitdir-pointer forensics: the task's worktree home either exists
-				// (this IS it, cut by an earlier session of the same task) or it
-				// does not. `base` is reported the same way the old adopted case
-				// did — the configured branch verbatim, never the `origin/`-prefixed
-				// form, since it is display-only once the worktree already exists.
+				// A plain existence check replaces the old gitdir-pointer
+				// forensics: the task's worktree home either exists (this IS it,
+				// cut by an earlier session of the same task) or it does not.
+				// `base` is reported the same way the old adopted case did — the
+				// configured branch verbatim, never the `origin/`-prefixed form,
+				// since it is display-only once the worktree already exists.
 				base = ref.branch;
 				const resolvedBranch = await this.deps.gitRunnerFactory(home).currentBranch();
 				if (!resolvedBranch) {
@@ -337,11 +337,11 @@ export class RegistryFilesystemMounter {
 	}
 
 	/**
-	 * BA5 (no-teardown) §4 — release a task's git worktrees once the task is
-	 * `done` and no session of it is still running. Guarded by orchestration's
-	 * OWN `sessions` table (never while a session of the task is active, the
-	 * same shape `request-run-stop-for-tasks.ts` already queries) — core
-	 * decides the task is done, orchestration decides nothing is running.
+	 * Release a task's git worktrees once the task is `done` and no session
+	 * of it is still running. Guarded by orchestration's OWN `sessions` table
+	 * (never while a session of the task is active, the same shape
+	 * `request-run-stop-for-tasks.ts` already queries) — core decides the
+	 * task is done, orchestration decides nothing is running.
 	 *
 	 * Removal is a doesn't-matter op: `worktreeRemove` runs WITHOUT `force`,
 	 * so a worktree with uncommitted or untracked changes is refused and
@@ -390,8 +390,8 @@ export class RegistryFilesystemMounter {
 }
 
 /**
- * BA5 (no-teardown) §4 — the repository a worktree belongs to, read off its
- * `.git` FILE (`gitdir: <repo>/.git/worktrees/<name>`): the segment before
+ * The repository a worktree belongs to, read off its `.git` FILE
+ * (`gitdir: <repo>/.git/worktrees/<name>`): the segment before
  * `/worktrees/` is the repo's own `.git` directory, so its parent is the
  * repository `worktreeRemove` must run against. `undefined` when the
  * worktree is not (or no longer) a real git worktree — the caller logs and
@@ -412,8 +412,8 @@ function keptCopyForWorktree(worktreePath: string): string | undefined {
 }
 
 /**
- * BA5 (no-teardown) §4 — every failure along `releaseForTask` is a log line,
- * never a throw: a refused (dirty) worktree, a missing directory or a
+ * Every failure along `releaseForTask` is a log line, never a throw: a
+ * refused (dirty) worktree, a missing directory or a
  * deleted kept copy are all "nothing to do right now", not an error a
  * caller (a core reaction, best-effort by its own contract) should surface.
  */
@@ -425,8 +425,8 @@ function logReleaseSkip(message: string, err: unknown): void {
 }
 
 /**
- * BA5 §5.2/§12 — remove a remote filesystem's kept copy (its ONE clone,
- * outside every session's own worktree). Never for a local repo — the kept
+ * Remove a remote filesystem's kept copy (its ONE clone, outside every
+ * session's own worktree). Never for a local repo — the kept
  * copy there IS the person's own repository, and HyperIdle must never delete
  * it. Absent `keptCopiesRoot` is a no-op: nothing was ever cloned.
  */
@@ -440,9 +440,9 @@ export async function forgetKeptCopy(
 }
 
 /**
- * BA5 §5.4 — the workspace root repository never shows a mounted filesystem's
- * folder (a worktree or a symlink) as untracked. Idempotent: appends only the
- * folder names not already present. `workspacePath` must already be a git
+ * The workspace root repository never shows a mounted filesystem's folder (a
+ * worktree or a symlink) as untracked. Idempotent: appends only the folder
+ * names not already present. `workspacePath` must already be a git
  * repository (`ensureSandboxGitRepo`, called first).
  */
 export function excludeMountedFolders(workspacePath: string, folderNames: readonly string[]): void {

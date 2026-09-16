@@ -250,11 +250,11 @@ export interface AgentOrchestrationFilesystemsPort {
 		agentUserId: string,
 	): Promise<AgentOrchestrationPersistInjectionResult>;
 	/**
-	 * BA5 (no-teardown) §4 — release a task's git worktrees, once core knows
-	 * the task is `done` and (guarded on this side of the seam, against
-	 * orchestration's OWN `sessions` table) no session of it is still
-	 * running. A doesn't-matter op: a refused (dirty) worktree, a missing
-	 * directory or a deleted kept copy all resolve without throwing.
+	 * Release a task's git worktrees, once core knows the task is `done` and
+	 * (guarded on this side of the seam, against orchestration's OWN
+	 * `sessions` table) no session of it is still running. A doesn't-matter
+	 * op: a refused (dirty) worktree, a missing directory or a deleted kept
+	 * copy all resolve without throwing.
 	 */
 	releaseForTask(taskId: string): Promise<void>;
 }

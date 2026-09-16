@@ -301,9 +301,9 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// BA5 §8/§13 (L5): the filesystem-hold's inbox producer. Orchestration
-	// never reads core-api state (architecture.md §4.6) — its one outward act
-	// is the `filesystem_needs_attention` event; this is its only subscriber.
+	// The filesystem-hold's inbox producer. Orchestration never reads
+	// core-api state — its one outward act is the `filesystem_needs_attention`
+	// event; this is its only subscriber.
 	disposers.push(
 		identifyBootstrapOwner(
 			registerFilesystemAttentionReactions(db, eventBus),
@@ -328,9 +328,9 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// BA5 (no-teardown) §4: release a task's git worktree once the task is
-	// done and no session of it is still running — see the reaction's own
-	// header for the two occasions and why both are needed.
+	// Release a task's git worktree once the task is done and no session of
+	// it is still running — see the reaction's own header for the two
+	// occasions and why both are needed.
 	disposers.push(
 		identifyBootstrapOwner(
 			registerTaskDoneWorktreeReactions(db, eventBus, agentOrchestration),

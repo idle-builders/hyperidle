@@ -57,12 +57,12 @@ export interface AgentOrchestrationAppOptions {
 		readonly decrypt: (ciphertext: string) => string | null;
 	};
 	/**
-	 * BA5 §4.3/§4.4 — the filesystems routes' `POST /:id/check` and
-	 * registration publish `filesystem_needs_attention` through this. Absent
-	 * (bare test apps) → the write still lands, nothing is emitted.
+	 * The filesystems routes' `POST /:id/check` and registration publish
+	 * `filesystem_needs_attention` through this. Absent (bare test apps) →
+	 * the write still lands, nothing is emitted.
 	 */
 	readonly eventBus?: EventBus;
-	/** BA5 §5.2/§4.4 — where a remote git filesystem's kept copy lives; absent → DELETE has nothing to forget. */
+	/** Where a remote git filesystem's kept copy lives; absent → DELETE has nothing to forget. */
 	readonly keptCopiesRoot?: string;
 }
 
@@ -76,13 +76,13 @@ export function createAgentOrchestrationApp(
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
 	// AU31 §3: the write side of `AgentOrchestrationPort`, mounted beside the
 	// read routes above — same internal `/agent-orchestration` seam prefix.
-	// BA5 (no-teardown) §4: `keptCopiesRoot` is what `releaseForTask` needs —
-	// the same value `/filesystems` already holds for `forgetKeptCopy`.
+	// `keptCopiesRoot` is what `releaseForTask` needs — the same value
+	// `/filesystems` already holds for `forgetKeptCopy`.
 	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db, { keptCopiesRoot }));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
 	app.route("/connections", createConnectionRoutes(db, inheritedReach, cipher));
-	// AU26 F2: `/api/filesystems` — same story. BA5 §2.4: a filesystem row has no
-	// user of its own, so Check/registration resolve its connection's token AS
+	// AU26 F2: `/api/filesystems` — same story. A filesystem row has no user
+	// of its own, so Check/registration resolve its connection's token AS
 	// THE CONNECTION'S OWNER (`resolveConnectionToken`), not per-request userId
 	// like the deleted probe did.
 	const decrypt = cipher?.decrypt ?? (() => null);

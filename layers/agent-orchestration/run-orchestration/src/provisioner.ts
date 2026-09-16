@@ -728,7 +728,7 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// ── AO2/BA5 — Phase 4.5 mount ────────────────────────────────────────────
+// ── AO2 — Phase 4.5 mount ────────────────────────────────────────────────
 //
 // @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
 // (`mountFilesystemsForAgent`) relocated wholesale into this package's own
@@ -814,18 +814,18 @@ interface ProvisionSessionDeps {
 	/**
 	 * AO2: Optional mounter for filesystem placement.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
-	 * When present, mount runs after sandbox spawn (Phase 4.5) and unmount (BA5 §5.5) runs
-	 * before each endSession/crashSession call, unless the session awaits a review verdict.
+	 * When present, mount runs after sandbox spawn (Phase 4.5); nothing unmounts it at
+	 * session end — a git worktree lives outside the session directory entirely and is
+	 * only ever removed by `releaseForTask` once its task is done.
 	 */
 	readonly mounter?: FilesystemMounterPort;
 	/**
-	 * BA5 §4.2/§13 (L5): what a placement failure needs to re-run `checkFilesystem`
-	 * once, so the hold's reason names what to fix (a missing CLI, a rejected
-	 * token) rather than the mount adapter's own raw error text. Absent → the
-	 * adapter's own `FilesystemMountFailure.reason` is used as-is (the plan's
-	 * own fallback, §4.2 — "If Check unexpectedly passes, the adapter's own
-	 * error text is used instead", extended to "if there is no way to check at
-	 * all").
+	 * What a placement failure needs to re-run `checkFilesystem` once, so the
+	 * hold's reason names what to fix (a missing CLI, a rejected token)
+	 * rather than the mount adapter's own raw error text. Absent → the
+	 * adapter's own `FilesystemMountFailure.reason` is used as-is, the same
+	 * fallback used when Check unexpectedly passes or there is no way to
+	 * check at all.
 	 */
 	readonly filesystemCheckDeps?: Pick<FilesystemCheckDeps, "gitRunnerFactory" | "ghAuthStatus">;
 	/**
@@ -1579,8 +1579,8 @@ async function runSession(
 	// only ever saw the second. With the built-in adapter gone the first has no
 	// reader, so the prompt section is now the single delivery.
 
-	// BA5 §9: what the agent has, and how its work gets out — appended right
-	// before the write, once, only when something was mounted.
+	// What the agent has, and how its work gets out — appended right before
+	// the write, once, only when something was mounted.
 	assembledPrompt += describeMountedFilesystems(mountedFilesystems);
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
@@ -1660,12 +1660,12 @@ async function runSession(
 		if (adapterCapabilities.cliMcpDialect) {
 			// The session's mounted filesystems (AO2, phase 4.5 above) are the
 			// trusted directories — tell the harness what the filesystem primitive
-			// already declared, alongside the sandbox. BA5 §5.6/(no-teardown) §3:
-			// every mount now carries its own `trustedPaths` (the kept copy AND the
-			// worktree itself for git — two real paths now that the worktree lives
-			// outside the sandbox; the real folder alone for a folder mount) — no
-			// filter, unlike the deleted `localTrustedPath`, which returned
-			// undefined for a plain clone.
+			// already declared, alongside the sandbox. Every mount now carries
+			// its own `trustedPaths` (the kept copy AND the worktree itself for
+			// git — two real paths now that the worktree lives outside the
+			// sandbox; the real folder alone for a folder mount) — no filter,
+			// unlike the deleted `localTrustedPath`, which returned undefined
+			// for a plain clone.
 			const trustedPaths = mountedFilesystems.flatMap((filesystem) => filesystem.trustedPaths);
 			const result = await ports.harnessRuntime.writeCliMcpConfig({
 				dialect: adapterCapabilities.cliMcpDialect,

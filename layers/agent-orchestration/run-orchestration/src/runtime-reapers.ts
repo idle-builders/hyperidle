@@ -90,12 +90,12 @@ async function reapSandboxesOnce(db: HyperIdleDb, options: SandboxReaperOptions)
 			const endedMs = session.endedAt ? Date.parse(session.endedAt) : Number.NaN;
 			const endedTime = Number.isNaN(endedMs) ? await dirMtimeMs(dirPath) : endedMs;
 			if (endedTime > cutoff) continue;
-			// BA5 (no-teardown) §7 — a session still owed a review verdict keeps
-			// its directory past the TTL too: nothing else deletes it any more
-			// (`transition-run.ts`'s own delete is gone), so this is the ONLY
-			// remaining way a resume could find its files gone. A verdict
-			// answered after the reaper already ran resumes into nothing and
-			// hangs — exactly the failure BA2's lore describes.
+			// A session still owed a review verdict keeps its directory past the
+			// TTL too: nothing else deletes it any more (`transition-run.ts`'s
+			// own delete is gone), so this is the ONLY remaining way a resume
+			// could find its files gone. A verdict answered after the reaper
+			// already ran resumes into nothing and hangs — exactly the failure
+			// BA2's lore describes.
 			if (await sessionAwaitsVerdict(db, session.id)) continue;
 		} else {
 			// Orphan dir (no matching session row) → reclaim only if older than TTL.

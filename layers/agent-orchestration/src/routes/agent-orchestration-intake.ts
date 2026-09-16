@@ -127,7 +127,7 @@ const gateVerdictInputSchema = z.object({
 export function createAgentOrchestrationIntakeRoutes(
 	db: HyperIdleDb,
 	options?: {
-		/** BA5 (no-teardown) §4 — where a git filesystem's worktrees live; absent → `releaseForTask` has nothing to release. */
+		/** Where a git filesystem's worktrees live; absent → `releaseForTask` has nothing to release. */
 		readonly keptCopiesRoot?: string;
 	},
 ): Hono<HyperIdleEnv> {
@@ -352,10 +352,10 @@ export function createAgentOrchestrationIntakeRoutes(
 	);
 
 	// ── filesystems.releaseForTask — POST /agent-orchestration/filesystems/release-for-task ──
-	// BA5 (no-teardown) §4: release a task's git worktrees once core knows the
-	// task is done. Task-scoped, not filesystem-scoped, so it sits beside `:id`
-	// rather than under it. The liveness guard against a running session lives
-	// INSIDE `releaseForTask` itself, against this layer's own `sessions` table.
+	// Release a task's git worktrees once core knows the task is done.
+	// Task-scoped, not filesystem-scoped, so it sits beside `:id` rather than
+	// under it. The liveness guard against a running session lives INSIDE
+	// `releaseForTask` itself, against this layer's own `sessions` table.
 	router.post(
 		"/filesystems/release-for-task",
 		validateBody(z.object({ taskId: z.string().min(1) })),

@@ -1,8 +1,8 @@
 /**
- * BA5 §9 — what the agent is told about what it has: each mounted
- * filesystem, where it sits in the workspace, and how its work gets out.
- * Appended to the assembled prompt right before `writeSandboxAgentsMd`
- * (`provisioner.ts`), only when something was mounted.
+ * What the agent is told about what it has: each mounted filesystem, where
+ * it sits in the workspace, and how its work gets out. Appended to the
+ * assembled prompt right before `writeSandboxAgentsMd` (`provisioner.ts`),
+ * only when something was mounted.
  */
 import type { MountedFilesystem } from "./mounter.js";
 
@@ -30,8 +30,8 @@ function describeOne(mounted: MountedFilesystem): string {
 		}
 		return `${header} — git repository at \`${mounted.git.keptCopy}\`. You are on branch \`${branch}\`, started from \`${base}\`. Your commits stay on this branch in the repository at \`${mounted.git.keptCopy}\` after the session; push it if the repository has a remote.${reusedNote}`;
 	}
-	// BA5 (no-teardown) §3: `trustedPaths[0]` is the real folder — a folder
-	// (or Drive) mount carries exactly one trusted path.
+	// `trustedPaths[0]` is the real folder — a folder (or Drive) mount
+	// carries exactly one trusted path.
 	return `${header} — the folder ${mounted.trustedPaths[0]}, linked in as it is. You are editing the real files.`;
 }
 
