@@ -117,6 +117,20 @@ const FILESYSTEMS: FilesystemView[] = [
 		injectedInto: 1,
 	},
 	{
+		// Google Drive phase: a Drive filesystem needing attention. Unlike the
+		// row above, it carries no connection at all — rclone owns its own
+		// login, so there is never a Connection row for Drive.
+		id: "fs-brand-assets",
+		source: "gdrive",
+		resource: "gdrive:Marketing/Assets",
+		kind: "doc_set",
+		state: "needs_attention",
+		connection: null,
+		injectedInto: 1,
+		attentionReason:
+			"No rclone remote named `gdrive`. Run `rclone config` to add one. Google makes you create your own OAuth client the first time; rclone's Google Drive setup walks you through it",
+	},
+	{
 		id: "fs-scratch",
 		source: "local",
 		resource: "~/work/scratch",

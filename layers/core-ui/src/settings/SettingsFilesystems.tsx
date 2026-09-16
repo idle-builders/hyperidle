@@ -32,7 +32,14 @@ interface FilesystemApiItem {
 	source: string;
 	kind: string;
 	connectionId: string | null;
-	resourceRef: { kind: string; repo?: string; branch?: string; folder?: string };
+	resourceRef: {
+		kind: string;
+		repo?: string;
+		branch?: string;
+		folder?: string;
+		remote?: string;
+		path?: string;
+	};
 	state: string;
 	attentionReason: string | null;
 	createdAt: string;
@@ -81,6 +88,7 @@ function sourceLabel(s: string): string {
 
 function resourceDisplay(item: FilesystemApiItem): string {
 	const ref = item.resourceRef;
+	if (ref.kind === "drive" && ref.remote && ref.path) return `${ref.remote}:${ref.path}`;
 	return ref.repo ?? ref.folder ?? "—";
 }
 
@@ -101,10 +109,12 @@ function AddFilesystemDialog({
 	onAdded,
 	teamId,
 }: AddFilesystemDialogProps): JSX.Element {
-	const [kind, setKind] = useState<"code" | "doc_set">("code");
+	const [kind, setKind] = useState<"code" | "doc_set" | "drive">("code");
 	const [location, setLocation] = useState("");
 	const [branch, setBranch] = useState("");
 	const [connectionId, setConnectionId] = useState("");
+	const [remote, setRemote] = useState("");
+	const [drivePath, setDrivePath] = useState("");
 	const [connections, setConnections] = useState<ConnectionApiItem[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -158,6 +168,8 @@ function AddFilesystemDialog({
 		setLocation("");
 		setBranch("");
 		setConnectionId("");
+		setRemote("");
+		setDrivePath("");
 		setError(null);
 	}, []);
 
@@ -172,10 +184,14 @@ function AddFilesystemDialog({
 			const resourceRef =
 				kind === "code"
 					? { kind: "code" as const, repo: location.trim(), branch: branch.trim() }
-					: { kind: "doc_set" as const, folder: location.trim() };
+					: kind === "drive"
+						? { kind: "drive" as const, remote: remote.trim(), path: drivePath.trim() }
+						: { kind: "doc_set" as const, folder: location.trim() };
 			const body = {
 				teamId,
-				kind,
+				// A Drive filesystem is still a "doc_set" on the wire — `resourceRef.kind`
+				// is what actually says it is Drive; `kind` stays the closed two-value enum.
+				kind: kind === "drive" ? ("doc_set" as const) : kind,
 				connectionId: isGithubUrl && connectionId ? connectionId : null,
 				resourceRef,
 			};
@@ -197,7 +213,19 @@ function AddFilesystemDialog({
 		} finally {
 			setSubmitting(false);
 		}
-	}, [teamId, kind, location, branch, connectionId, isGithubUrl, onAdded, onClose, reset]);
+	}, [
+		teamId,
+		kind,
+		location,
+		branch,
+		connectionId,
+		remote,
+		drivePath,
+		isGithubUrl,
+		onAdded,
+		onClose,
+		reset,
+	]);
 
 	return (
 		<Dialog
@@ -225,7 +253,10 @@ function AddFilesystemDialog({
 							void handleSubmit();
 						}}
 						disabled={
-							submitting || location.trim() === "" || (kind === "code" && branch.trim() === "")
+							submitting ||
+							(kind === "drive"
+								? remote.trim() === "" || drivePath.trim() === ""
+								: location.trim() === "" || (kind === "code" && branch.trim() === ""))
 						}
 					>
 						Add
@@ -238,24 +269,50 @@ function AddFilesystemDialog({
 					id="add-filesystem-kind"
 					label="Kind"
 					value={kind}
-					onChange={(e) => setKind(e.target.value as "code" | "doc_set")}
+					onChange={(e) => setKind(e.target.value as "code" | "doc_set" | "drive")}
 					options={[
 						{ value: "code", label: "Git repository" },
 						{ value: "doc_set", label: "Folder" },
+						{ value: "drive", label: "Google Drive" },
 					]}
 				/>
-				<Input
-					id="add-filesystem-location"
-					label="Location"
-					placeholder={
-						kind === "code" ? "https://github.com/acme/app or /path/to/repo" : "/path/to/folder"
-					}
-					value={location}
-					onChange={(e) => setLocation(e.target.value)}
-					onBlur={() => {
-						void handleLocationBlur();
-					}}
-				/>
+				{kind === "drive" ? (
+					<>
+						<Input
+							id="add-filesystem-remote"
+							label="Remote"
+							placeholder="gdrive"
+							value={remote}
+							onChange={(e) => setRemote(e.target.value)}
+						/>
+						<Input
+							id="add-filesystem-drive-path"
+							label="Folder in Drive"
+							placeholder="Projects/Acme"
+							value={drivePath}
+							onChange={(e) => setDrivePath(e.target.value)}
+						/>
+						<p className="type-metadata  text-[var(--text-tertiary)]">
+							Drive runs through rclone. Install it, run{" "}
+							<code className="type-metadata text-[var(--text-secondary)]">rclone config</code>, and
+							create your own Google OAuth client once — Google requires one per person, and
+							rclone's Google Drive setup walks you through it. Then put the remote name here.
+						</p>
+					</>
+				) : (
+					<Input
+						id="add-filesystem-location"
+						label="Location"
+						placeholder={
+							kind === "code" ? "https://github.com/acme/app or /path/to/repo" : "/path/to/folder"
+						}
+						value={location}
+						onChange={(e) => setLocation(e.target.value)}
+						onBlur={() => {
+							void handleLocationBlur();
+						}}
+					/>
+				)}
 				{kind === "code" ? (
 					<Input
 						id="add-filesystem-branch"

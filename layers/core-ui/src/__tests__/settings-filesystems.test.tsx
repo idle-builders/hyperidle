@@ -164,6 +164,61 @@ describe("SettingsFilesystems — Add filesystem dialog", () => {
 		expect(postCall?.body?.connectionId).toBe("sc-gh");
 		expect(postCall?.body?.teamId).toBe(TEAM_ACTUAL_ID);
 	});
+
+	it("V7: choosing Google Drive shows Remote + Folder and hides Branch and the token select", async () => {
+		const user = userEvent.setup();
+		setupFetchMock();
+		render(<SettingsFilesystems />);
+
+		await waitFor(() => {
+			expect(screen.getByText(/no filesystems registered yet/i)).toBeInTheDocument();
+		});
+		await user.click(screen.getByRole("button", { name: /add a filesystem/i }));
+		const dialog = screen.getByRole("dialog", { name: /add a filesystem/i });
+
+		await user.selectOptions(within(dialog).getByLabelText(/^kind$/i), "drive");
+
+		expect(within(dialog).getByLabelText(/^remote$/i)).toBeInTheDocument();
+		expect(within(dialog).getByLabelText(/folder in drive/i)).toBeInTheDocument();
+		expect(within(dialog).queryByLabelText(/^branch$/i)).not.toBeInTheDocument();
+		expect(within(dialog).queryByLabelText(/github token/i)).not.toBeInTheDocument();
+		expect(within(dialog).getByText(/drive runs through rclone/i)).toBeInTheDocument();
+	});
+
+	it("V7: submitting a Google Drive filesystem posts kind:'doc_set' with the drive resourceRef and connectionId:null", async () => {
+		const user = userEvent.setup();
+		const { calls } = setupFetchMock();
+		render(<SettingsFilesystems />);
+
+		await waitFor(() => {
+			expect(screen.getByText(/no filesystems registered yet/i)).toBeInTheDocument();
+		});
+		await user.click(screen.getByRole("button", { name: /add a filesystem/i }));
+		const dialog = screen.getByRole("dialog", { name: /add a filesystem/i });
+
+		await user.selectOptions(within(dialog).getByLabelText(/^kind$/i), "drive");
+		await user.type(within(dialog).getByLabelText(/^remote$/i), "gdrive");
+		await user.type(within(dialog).getByLabelText(/folder in drive/i), "Projects/Acme");
+
+		await user.click(within(dialog).getByRole("button", { name: /^add$/i }));
+
+		await waitFor(() => {
+			expect(calls.some((c) => c.method === "POST" && c.url.includes("/api/filesystems"))).toBe(
+				true,
+			);
+		});
+
+		const postCall = calls.find(
+			(c) => c.method === "POST" && c.url.includes("/api/filesystems") && !c.url.endsWith("/check"),
+		);
+		expect(postCall?.body?.kind).toBe("doc_set");
+		expect(postCall?.body?.connectionId).toBeNull();
+		expect(postCall?.body?.resourceRef).toEqual({
+			kind: "drive",
+			remote: "gdrive",
+			path: "Projects/Acme",
+		});
+	});
 });
 
 describe("SettingsFilesystems — Check", () => {
@@ -221,5 +276,37 @@ describe("SettingsFilesystems — Check", () => {
 				screen.getByText(/the github token was rejected\. replace it in settings/i),
 			).toBeInTheDocument();
 		});
+	});
+});
+
+describe("SettingsFilesystems — a Drive row", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("V7: renders remote:path, the Google Drive tag, and its attentionReason", async () => {
+		setupFetchMock({
+			filesystems: [
+				{
+					id: "fs-drive-1",
+					teamId: TEAM_ACTUAL_ID,
+					source: "gdrive",
+					kind: "doc_set",
+					connectionId: null,
+					resourceRef: { kind: "drive", remote: "gdrive", path: "Projects/Acme" },
+					state: "needs_attention",
+					attentionReason:
+						"No rclone remote named `gdrive`. Run `rclone config` to add one. Google makes you create your own OAuth client the first time; rclone's Google Drive setup walks you through it",
+					createdAt: "2026-09-16T00:00:00.000Z",
+				},
+			],
+		});
+		render(<SettingsFilesystems />);
+
+		await waitFor(() => {
+			expect(screen.getByText("gdrive:Projects/Acme")).toBeInTheDocument();
+		});
+		expect(screen.getByText("Google Drive")).toBeInTheDocument();
+		expect(screen.getByText(/no rclone remote named `gdrive`/i)).toBeInTheDocument();
 	});
 });
