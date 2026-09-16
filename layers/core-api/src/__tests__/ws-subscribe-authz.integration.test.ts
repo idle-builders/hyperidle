@@ -2,7 +2,7 @@
  * L1a step9 — WsConnectionHub subscribe-authz unit tests.
  *
  * Adv-C1 / Plan §6.2 contract:
- *  - global topics (`conversations`, `work`) accept any authenticated identity.
+ *  - global topics (`conversations`) accept any authenticated identity.
  *  - `thread:<id>` topics require `senderId ∈ thread.participants`.
  *  - subscribe returns `forbidden` on a non-participant attempt; the WS
  *    handler then sends a structured forbidden ack and DOES NOT join the
@@ -122,13 +122,12 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 		expect(result).toBe("forbidden");
 	});
 
-	test("global topics (`conversations`, `work`) accept any identity", async ({ db }) => {
+	test("global topics (`conversations`) accept any identity", async ({ db }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		const client = createMockClient();
 		hub.addClient(client, "agent-2");
 
 		expect(await hub.subscribe(client, "conversations")).toBe("ok");
-		expect(await hub.subscribe(client, "work")).toBe("ok");
 	});
 
 	test("subscribe to a non-existent thread → forbidden", async ({ db }) => {

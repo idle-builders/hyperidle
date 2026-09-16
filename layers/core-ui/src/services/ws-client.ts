@@ -261,7 +261,7 @@ const SESSION_STREAM_WS_PATH = "/api/agent-orchestration/ws";
 let wsClientInstance: WsClient | null = null;
 let sessionStreamClientInstance: WsClient | null = null;
 
-/** The core-api socket. Thread, conversation and work topics. */
+/** The core-api socket. Thread and conversation topics. */
 export function getWsClient(): WsClient {
 	if (!wsClientInstance) {
 		wsClientInstance = new WsClient(CORE_WS_PATH);
