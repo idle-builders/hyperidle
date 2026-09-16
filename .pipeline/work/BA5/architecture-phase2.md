@@ -76,7 +76,7 @@ is where the placement decision actually belongs.
 **Locked decisions:**
 
 - `path` is required and non-empty. There is no "the whole Drive" filesystem — copying a person's entire Drive
-  into a session workspace is not something any AC asks for (§11.3).
+  onto this machine is not something any AC asks for (§11.3).
 - `remote` must match `^[A-Za-z0-9._-]+$` and `path` must contain no newline and no NUL. This is the same
   idiom as `BRANCH_NAME` (`routes/filesystems.ts:104-105`) and it is what closes argv injection: because
   `remote` cannot start with `-`, the composed `remote:path` element can never be read as a flag.
@@ -226,12 +226,12 @@ mount({ filesystem, workspacePath, folderName }):
   directory into the destination, which is the shape we want. `sync` and `bisync` are the two verbs that can
   delete a person's Drive files; neither is ever used, in either direction.
 - **The refresh is the same `copy`, remote → local, before every session.** That is the plan's own sentence,
-  and it is why there is no adoption mechanism left (§2.4). It must not overwrite work the agent has not put
-  back yet, so the refresh carries rclone's `--update` (skip files newer on the destination). **UNVERIFIED** —
-  I could not reach rclone's flag documentation from here and rclone is not installed on this machine. The
-  builder confirms the flag against `rclone copy --help` on the real binary in D1 (V1 asserts it). If it does
-  not exist under that name, the honest fallback is: copy only when the kept copy does not exist yet, and say
-  in the instructions that a refresh from Drive happens only on the first session.
+  and it is why there is no adoption mechanism left (§2.4). It carries rclone's `-u, --update`, which "forces
+  rclone to skip any files which exist on the destination and have a modified time that is newer than the
+  source file" (<https://rclone.org/docs/>, fetched 2026-09-16). So an edit the agent has not copied back
+  survives the next session's refresh — **unless the same file also changed in Drive afterwards**: then the
+  remote is newer, the refresh overwrites the agent's local edit, and nothing warns. That residual case is the
+  price of not building a sync engine; it is in V6's assertions and belongs in the doc (§10).
 - **`mkdirSync` before the copy** because rclone creates the destination only when it has something to put
   there. Without it an empty Drive folder produces no folder at all and the agent's instructions would point
   at a path that does not exist.
@@ -244,9 +244,9 @@ mount({ filesystem, workspacePath, folderName }):
   (`cli-mcp-config.ts:152-163`).
 - **There is no `unmount`** — `MountAdapter` no longer has one (`architecture-no-teardown.md` §1). The copy
   lives until `DELETE /api/filesystems/:id` removes it through `forgetKeptCopy`. Work the agent did not put
-  back is **not** lost at session end any more: it stays in the copy and the next session finds it. It is lost
-  when the person deletes the filesystem, and the instructions still say plainly that the way out is the
-  agent's own `rclone copy` (§3).
+  back stays in the copy and the next session finds it — but **a later Drive-side edit to the same file still
+  wins over the agent's un-copied work** (the `--update` bullet above). The instructions say plainly that the
+  way out is the agent's own `rclone copy` (§3).
 
 ### 2.3 Folder naming and the rest of placement
 
@@ -527,7 +527,7 @@ copying the ten-line shape of `layers/agent-orchestration/connections/src/__test
 | V3 | the adapter | `run-orchestration/src/__tests__/drive-folder-adapter.test.ts` · unit (real temp dirs, fake runner) | first mount → the copy exists at `<keptCopiesRoot>/<id>`, `copyDown` called once with `(remote, path, copy)`, `folder` is a symlink to it, `trustedPaths` is `[copy]`, `agentEnv` empty; an **empty** source → the copy directory still exists; a **second session** (new workspace, new session id) → the same copy, `copyDown` called again, a file written into the copy by the first session is still there; a **resume** (same workspace) → the existing symlink is recognised, not re-created; a plain file at the link path → the collision reason; `copyDown` failing → `{ok:false}` with the §4.2 reason; `forgetKeptCopy` on a drive filesystem removes the copy | the copy moved back inside the workspace (the second session sees nothing); the refresh dropped (a Drive change never arrives); the symlink check dropped (a resume fails on an existing link) |
 | V4 | registration + Check + hold, through the real DB and app | `agent-orchestration/src/routes/__tests__/…filesystems…integration.test.ts` (extend the existing file the scan finds) · **service** | with `PATH` stubbed to exclude rclone — the `pathWithoutGh()` idiom at `filesystem-check.integration.test.ts:59-65` — POST a drive ref → 201, `source:"gdrive"`, state `needs_attention`, reason 1; **exactly one** `filesystem_needs_attention` event whose label is `remote:path`; a second `POST /:id/check` → still one event, reason refreshed; POST with `remote` containing `/` or a leading `-` → 400 | the drive branch never reached (state stays `attached`); `filesystemLabel` not extended (the notice names a UUID); the remote charset rule dropped |
 | V5 | placement failure holds the agent, not the task | covered by phase 1's existing hold test — **extend its fixture with a drive filesystem** rather than writing a second one · service | task stays `accepted`, request returns to `pending`, no `sessions` row, one notification | any new drive-specific hold path |
-| V6 | real rclone places a real folder | `run-orchestration/src/__tests__/drive-folder-adapter.integration.test.ts` · **local-only** | real rclone + local remote: `mount` copies the seeded tree into the kept copy and the agent reads it through `<workspace>/<name>`, contents match; a file the "agent" writes into the copy survives a **second mount from a new workspace** and is **not** overwritten by the refresh when a same-named file changed in the remote (this is the `--update` claim, proven on the real binary); the agent's own way out works — `rclone copy <folder> <remote>:<path>` puts a new file into the remote directory | `copy` swapped for `sync` (the locally-created file would be deleted on the way up); `--update` dropped (the agent's un-copied-back edit is clobbered) |
+| V6 | real rclone places a real folder | `run-orchestration/src/__tests__/drive-folder-adapter.integration.test.ts` · **local-only** | real rclone + local remote: `mount` copies the seeded tree into the kept copy and the agent reads it through `<workspace>/<name>`, contents match; a file the "agent" writes into the copy survives a **second mount from a new workspace** and is **not** overwritten by the refresh while the remote copy is older (the `--update` claim, on the real binary), **and is** overwritten once the remote file is newer — the documented residual case; the agent's own way out works — `rclone copy <folder> <remote>:<path>` puts a new file into the remote directory | `copy` swapped for `sync` (the locally-created file would be deleted on the way up); `--update` dropped (the agent's un-copied-back edit is clobbered) |
 | V7 | the surface | `core-ui/src/__tests__/settings-filesystems.test.tsx` (extend) · component | choosing Google Drive shows Remote + Folder and hides Branch and the token select; submitting posts `kind:"doc_set"` with `resourceRef {kind:"drive",remote,path}` and `connectionId:null`; a Drive row renders `remote:path`, the "Google Drive" tag and its `attentionReason` | the body shape drifting from §1.1; the setup line dropped |
 | V8 | the instructions | `run-orchestration/src/__tests__/filesystem-instructions.test.ts` (extend) · unit | a drive mount's section names the folder, the remote, the exact `rclone copy` command, "never deletes", and that Google Docs are not included | the gdocs sentence dropped; the command reversed (destination and source swapped — which would be a delete-shaped instruction) |
 
@@ -575,6 +575,8 @@ phase 2 adds to the list. Fix in D5:
   `layers/core-api/src/routes/filesystems.ts` — both moved long ago. Repoint at the real files.
 - Add the Google-native paragraph: `--drive-skip-gdocs` through rclone, `.gdoc` stubs through Google Drive for
   desktop, and "editing them is a tool's job".
+- The residual clobber case: a Drive-side edit newer than the agent's un-copied local edit wins on the next
+  refresh. Say it where the copy is described.
 - The **Lifecycle** block (`:68-76`) is rewritten by the no-teardown change
   (`architecture-no-teardown.md` §8). Drive adds one line to it: the copy lives where a remote repository's
   clone lives and goes only when the filesystem is deleted.
@@ -651,7 +653,6 @@ becomes unregisterable without a terminal. Phase 1 offered the same cut and the 
 **Recommendation: A.** The saving is ~95 production lines, neither option is near the stop, and B ships a kind
 of filesystem that the product cannot create.
 
-Two things that would change these numbers, both flagged above rather than hidden in them: the `--update`
-flag is UNVERIFIED (§2.2 — if it does not exist, the refresh rule shrinks and V6 with it), and the local-only
-real-rclone lane (~180 test lines) is the one thing I would not cut, because it is the only proof that is not
-green against its own fake.
+One thing I would not cut, flagged rather than hidden: the local-only real-rclone lane (~180 test lines). It
+is the only proof that is not green against its own fake, and it is where the `--update` behaviour (§2.2) is
+checked against the real binary.
