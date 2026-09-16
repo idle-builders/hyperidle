@@ -30,8 +30,6 @@ function describeOne(mounted: MountedFilesystem): string {
 		}
 		return `${header} — git repository at \`${mounted.git.keptCopy}\`. You are on branch \`${branch}\`, started from \`${base}\`. Your commits stay on this branch in the repository at \`${mounted.git.keptCopy}\` after the session; push it if the repository has a remote.${reusedNote}`;
 	}
-	// `trustedPaths[0]` is the real folder — a folder (or Drive) mount
-	// carries exactly one trusted path.
 	return `${header} — the folder ${mounted.trustedPaths[0]}, linked in as it is. You are editing the real files.`;
 }
 
