@@ -1,0 +1,38 @@
+{
+  "id": "BC3",
+  "status": "in-progress",
+  "dials": {
+    "complexity": "suite",
+    "ambiguity": "established context",
+    "exposure": "public contract"
+  },
+  "gates": [
+    {
+      "name": "program-design",
+      "description": "founder confirms how threads, tasks and agents relate",
+      "passed": true,
+      "passed_at": "2026-09-17"
+    },
+    {
+      "name": "how-we-work",
+      "description": "one PR, one gate before ship, order and verification",
+      "passed": false
+    },
+    {
+      "name": "ship-gate",
+      "description": "founder sees threads, task thread, overlay and a mention-made task through the list",
+      "passed": false
+    },
+    {
+      "name": "ship",
+      "description": "CI-green open PR; human merges",
+      "passed": false
+    }
+  ],
+  "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
+  "branch": "feature/thread-module",
+  "base": "origin/main",
+  "phase": "program-design",
+  "next_action": "founder confirms How we work on this; then architecture from the confirmed plan (the untracked architecture.md predates it and is superseded)",
+  "since": "c90326dd1"
+}
