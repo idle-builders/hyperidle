@@ -22,7 +22,7 @@
   "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
   "branch": "feature/task-action-list",
   "base": "286628f7b",
-  "since": "2e7d09061",
+  "since": "270489dbb",
   "artifacts": {
     "plan": ".pipeline/work/BC2/plan.md",
     "architecture": ".pipeline/work/BC2/architecture.md",
@@ -31,11 +31,11 @@
     "review": ".pipeline/work/BC2/review.md"
   },
   "verdicts": {
-    "architecture-critique-1": "BLOCKED \u2192 amended",
-    "architecture-critique-2": "BLOCKED \u2192 amended",
-    "code-review-1": "BLOCKED \u2192 fixed at 85b9fad13",
-    "code-review-2": "pending",
-    "harness-lane": "pending",
+    "architecture-critique-1": "BLOCKED → amended",
+    "architecture-critique-2": "BLOCKED → amended",
+    "code-review-1": "BLOCKED → fixed at 85b9fad13",
+    "code-review-2": "BLOCKED → B5 fixed at 7fef52a21; Round 3 DONE",
+    "harness-lane": "running",
     "e2e-vs-main": "pending"
   },
   "started": "2026-09-12"

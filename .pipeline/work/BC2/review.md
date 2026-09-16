@@ -541,3 +541,49 @@ What blocks is three sentences in a comment.
    running in this worktree while I read, and I did not read its result.
 3. **N8's interleave is reasoned from the code, not observed.** I did not build a test to force the
    two `session_ended` handlers to overlap.
+
+---
+
+# Round 2 retry — B5 only (`7fef52a21`)
+
+Delta: comment-only reword of the three legacy-list doc blocks in
+`tools/governance/src/rules/actions-projected.ts`. No production logic, no
+`@lore` tags added. Round 1 / Round 2 PASS and NON-BLOCKING items not re-litigated.
+
+## B5 — CLOSED
+
+The three Round-2 sites no longer name a work-package id:
+
+- `LEGACY_ROUTES` doc (`:119-129`) — "unreachable-route deletion on main"
+- `LEGACY_TOOLS` doc (`:226-234`) — "attention-engine deletion on main"
+- `LEGACY_EVENTS` doc (`:253-261`) — "dead-event deletion on main"
+
+**Grep evidence:** `rg -n 'BC[0-9]|AU[0-9]|@lore' tools/governance/src/rules/actions-projected.ts`
+→ zero matches (exit 1). No `BC\d` / `AU\d` ids remain in that file; no `@lore`
+exemption needed because none were added.
+
+**Authority satisfied:** standing constraint — work-package ids live in
+`.pipeline/**` only; `@lore` sole exemption in source.
+
+## NEW blocking (this delta)
+
+None. Diff touches only the three doc comments named above.
+
+## Verdict
+
+**PASS** — B5 CLOSED; no new blockers from `7fef52a21`.
+
+## Confusions
+
+None for this retry. The plan's standing id rule and Round 2's smallest-fix
+options were clear; the chosen fix (product-term reword, not `@lore`) matches
+the authority.
+
+---
+
+# Round 3 — B5 fix delta (fresh reviewer, same claim)
+
+Independent re-check of `7fef52a21` only. Agrees with Round 2 retry: **B5 RESOLVED**,
+verdict **DONE**. Standing `rg` shows ten `@lore BC1` exemptions elsewhere and zero
+non-exempt hits in production source; zero hits in `actions-projected.ts`. No new
+blockers. Harness/e2e remain orchestrator-owned pending verdicts.
