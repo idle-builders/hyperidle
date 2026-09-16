@@ -6,6 +6,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq, lt, sql } from "drizzle-orm";
 import type { createProvisioner } from "./provisioner.js";
+import { sessionAwaitsVerdict } from "./review-sessions.js";
 
 type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
 /**
@@ -63,15 +64,16 @@ async function reapSandboxesOnce(db: HyperIdleDb, options: SandboxReaperOptions)
 	// absolute dir path that provisioning created).
 	const sessionRows = await db
 		.select({
+			id: sessions.id,
 			sandboxSnapshot: sessions.sandboxSnapshot,
 			state: sessions.state,
 			endedAt: sessions.endedAt,
 		})
 		.from(sessions);
-	const byPath = new Map<string, { state: string; endedAt: string | null }>();
+	const byPath = new Map<string, { id: string; state: string; endedAt: string | null }>();
 	for (const row of sessionRows) {
 		if (row.sandboxSnapshot) {
-			byPath.set(row.sandboxSnapshot, { state: row.state, endedAt: row.endedAt });
+			byPath.set(row.sandboxSnapshot, { id: row.id, state: row.state, endedAt: row.endedAt });
 		}
 	}
 
@@ -88,6 +90,13 @@ async function reapSandboxesOnce(db: HyperIdleDb, options: SandboxReaperOptions)
 			const endedMs = session.endedAt ? Date.parse(session.endedAt) : Number.NaN;
 			const endedTime = Number.isNaN(endedMs) ? await dirMtimeMs(dirPath) : endedMs;
 			if (endedTime > cutoff) continue;
+			// A session still owed a review verdict keeps its directory past the
+			// TTL too: nothing else deletes it any more (`transition-run.ts`'s
+			// own delete is gone), so this is the ONLY remaining way a resume
+			// could find its files gone. A verdict answered after the reaper
+			// already ran resumes into nothing and hangs — exactly the failure
+			// BA2's lore describes.
+			if (await sessionAwaitsVerdict(db, session.id)) continue;
 		} else {
 			// Orphan dir (no matching session row) → reclaim only if older than TTL.
 			// The TTL is the deliberate margin for the P4-spawn-before-P5-insert

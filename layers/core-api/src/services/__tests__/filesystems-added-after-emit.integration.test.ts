@@ -136,7 +136,6 @@ async function assignFilesystem(db: HyperIdleDb, id: string): Promise<void> {
 		kind: "doc_set",
 		connectionId: null,
 		resourceRef: JSON.stringify({ kind: "doc_set", folder: vaultDir }),
-		writeback: "file",
 		state: "attached",
 		createdAt: NOW,
 	});
@@ -165,11 +164,13 @@ async function provisionFilesystems(
 	});
 	return mountFilesystemsForAgent({
 		agentId: AGENT_ID,
+		sessionId: "session-au26-f2",
+		taskId: null,
 		filesystems: {
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),
 		},
-		sandboxPath,
+		workspacePath: sandboxPath,
 		mounter,
 	});
 }
@@ -197,7 +198,7 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 
 		// 4. The late-assigned filesystem is mounted — a real symlink into the
 		//    real sandbox, made by the real mounter.
-		expect(mounted.map((m) => m.id)).toEqual(["fs-au26-f2-added-late"]);
+		expect(mounted.map((m) => m.filesystem.id)).toEqual(["fs-au26-f2-added-late"]);
 		const linkPath = path.join(sandboxPath, "late-vault");
 		expect(fs.lstatSync(linkPath).isSymbolicLink()).toBe(true);
 		expect(fs.readFileSync(path.join(linkPath, "index.md"), "utf-8")).toBe("# Late vault\n");

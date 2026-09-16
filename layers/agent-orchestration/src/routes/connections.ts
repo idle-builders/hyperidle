@@ -11,7 +11,7 @@
  *   - Cross-user / non-existent → 404 (never 403 — never leaks existence).
  *   - Tokens stored AES-256-GCM encrypted, NEVER returned in any response.
  *   - SSRF: serverUrl must be https:// and must not resolve to a private/loopback IP.
- *   - rate-limit: POST 20/min, DELETE 20/min, validate 3/min.
+ *   - rate-limit: POST 20/min, DELETE 20/min.
  *
  * @lore AN1: No trust tier, no broker/gate, no OAuth dance. Simple secrets and
  * MCP pointers only. OAuth services arrive inherited from the harness.
@@ -26,10 +26,11 @@
  * where its tables go, and this file's whole table set is `service_connections`
  * alone. Reads AND mutations moved, not just reads.
  *
- * **The paths do not change.** Both apps mount on the Application's one `/api`
- * router, so `/api/connections`, `/api/connections/:id` and
- * `/api/connections/:id/validate` are byte-identical to before and
- * `layers/core-ui` needs no change at all (AC7(c)).
+ * **The paths do not change**, except one: both apps mount on the Application's
+ * one `/api` router, so `/api/connections` and `/api/connections/:id` are
+ * byte-identical to before and `layers/core-ui` needs no change at all
+ * (AC7(c)). `/api/connections/:id/validate` is deleted — its
+ * only writer, the stored `health`/`last_validated_at` columns, is gone.
  *
  * The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
  * Application-applied to that shared router and reaches this module unchanged.
@@ -42,14 +43,13 @@ import {
 	type InheritedReach,
 	insertConnection,
 	listConnections,
-	updateConnection,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
+import type { ServiceConnectionView } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { Hono } from "hono";
 import { z } from "zod";
-import { isPrivateHostLiteral, resolveUrlForSSRF } from "../ssrf.js";
+import { isPrivateHostLiteral } from "../ssrf.js";
 
 // ---------------------------------------------------------------------------
 // Input validation
@@ -121,23 +121,17 @@ function buildVia(authSource: string, serverUrl: string | null | undefined): str
 }
 
 /**
- * Cast a raw DB health string to the closed 2-set.
- * Falls back to "needs-attention" for any unrecognised value.
- */
-function toHealth(raw: string): ConnectionHealth {
-	if (raw === "working" || raw === "needs-attention") return raw;
-	return "needs-attention";
-}
-
-/**
  * Build the public ServiceConnectionView from a DB row.
  * NEVER includes encryptedToken or serverUrl.
+ *
+ * @lore BA5 §18: a held row carries no `health` — the column and the validate
+ * route that wrote it are gone (migration 0082). Only the inherited half of
+ * the view (built elsewhere, from live CLI detection) still sets it.
  */
 function rowToView(row: {
 	id: string;
 	service: string;
 	authSource: string;
-	health: string;
 	serverUrl: string | null | undefined;
 }): ServiceConnectionView {
 	return {
@@ -145,7 +139,6 @@ function rowToView(row: {
 		service: row.service,
 		via: buildVia(row.authSource, row.serverUrl),
 		authSource: row.authSource as ServiceConnectionView["authSource"],
-		health: toHealth(row.health),
 		removable: true,
 	};
 }
@@ -189,7 +182,6 @@ export function createConnectionRoutes(
 	inheritedReach?: InheritedReach,
 	cipher?: {
 		readonly encrypt: (plaintext: string) => string;
-		readonly decrypt: (ciphertext: string) => string | null;
 	},
 ): Hono<HyperIdleEnv> {
 	const encrypt =
@@ -197,7 +189,6 @@ export function createConnectionRoutes(
 		(() => {
 			throw new Error("Encryption secret not configured");
 		});
-	const decrypt = cipher?.decrypt ?? (() => null);
 	const router = new Hono<HyperIdleEnv>();
 
 	// Per-router-instance rate limiters (one bucket per identity, reset per app lifecycle).
@@ -245,7 +236,7 @@ export function createConnectionRoutes(
 	/**
 	 * Create a new held connection.
 	 *
-	 * token path: encrypt the token, store health:"needs-attention".
+	 * token path: encrypt the token.
 	 * mcp path: store serverUrl, no token.
 	 * On unique violation (user × service × authSource): 409.
 	 */
@@ -291,8 +282,6 @@ export function createConnectionRoutes(
 					authSource: "token",
 					encryptedToken,
 					serverUrl: null,
-					health: "needs-attention",
-					lastValidatedAt: null,
 					createdAt: now,
 					updatedAt: now,
 				});
@@ -315,8 +304,6 @@ export function createConnectionRoutes(
 					authSource: "mcp",
 					encryptedToken: null,
 					serverUrl: body.serverUrl,
-					health: "needs-attention",
-					lastValidatedAt: null,
 					createdAt: now,
 					updatedAt: now,
 				});
@@ -370,134 +357,12 @@ export function createConnectionRoutes(
 		return c.body(null, 204);
 	});
 
-	// ── POST /:id/validate ────────────────────────────────────────────────────
-	/**
-	 * Probe health of a held connection and write back the result.
-	 *
-	 * token: presence + decrypt-OK → "working"; else → "needs-attention".
-	 * mcp: AN1 reports "needs-attention" without a live network call
-	 *   (AN2 upgrades to a real tool-call probe; the endpoint is the write-back seam).
-	 *
-	 * @lore AN1 critique WARNING §4 SSRF: the validate endpoint does NOT make
-	 * outbound HTTP calls in AN1. token → presence/decrypt only; mcp → "needs-attention"
-	 * without any network call. This eliminates the SSRF surface for AN1.
-	 * AN2 adds the live MCP reachability probe with full SSRF protection.
-	 */
-	router.post("/:id/validate", async (c) => {
-		const userId = c.get("userId");
-		const id = c.req.param("id");
-
-		const [row] = await listConnections(db, { id, userId });
-
-		if (!row) {
-			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-		}
-
-		let health: ConnectionHealth;
-
-		if (row.authSource === "token") {
-			// token: check presence + decrypt-OK
-			if (!row.encryptedToken) {
-				health = "needs-attention";
-			} else {
-				// decrypt returns null when no root secret is set
-				const plaintext = decrypt(row.encryptedToken);
-				health = plaintext ? "working" : "needs-attention";
-			}
-		} else {
-			// mcp: AN2 live MCP reachability probe.
-			// resolveUrlForSSRF → pin the resolved IP → attempt HTTP reach.
-			// This is the ONE path where AN2 owns the connect and can pin the IP
-			// to guard against DNS rebinding (W3 in the architecture critique).
-			//
-			// @lore AN2 validate-SSRF: Only /validate pins the resolved IP because
-			// AN2 owns the connect here. The provisioned-config path (spawn-time
-			// SSRF check in buildProvisioningPlan) is check-only, not pinned,
-			// because the harness owns the subsequent connect.
-			health = await probeMcpReachability(row.serverUrl);
-		}
-
-		const now = new Date().toISOString();
-		await updateConnection(db, { id, userId }, { health, lastValidatedAt: now, updatedAt: now });
-
-		return c.json({ health });
-	});
-
 	return router;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * AN2 — Live MCP reachability probe for mcp connections.
- *
- * Resolves the URL via resolveUrlForSSRF (SSRF check + pinned IP), then attempts
- * an HTTP GET to the MCP endpoint to verify it is reachable.
- *
- * This is the ONLY AN2 path that is genuinely DNS-rebinding-guarded: AN2 owns
- * the connect here and pins the resolved IP (unlike the provisioned-config path
- * where the harness owns the connect and AN2 cannot pin).
- *
- * Returns "working" if the server responds (2xx or MCP-typical 4xx like 405/404),
- * "needs-attention" if SSRF check fails, DNS resolution fails, or the server is
- * unreachable within the timeout.
- *
- * @lore AN2 validate-SSRF: Uses resolveUrlForSSRF + pinned IP for the fetch.
- * "Pinned" means we use the IP from the DNS resolution result rather than the
- * hostname, preventing a DNS rebinding attack between check and connect.
- * This guard applies ONLY here (AN2 owns the connect). The provisioned-config
- * path is check-only (harness owns the connect, pinning is impossible without
- * proxying — concept hard-rule 6).
- */
-async function probeMcpReachability(
-	serverUrl: string | null | undefined,
-): Promise<ConnectionHealth> {
-	if (!serverUrl) return "needs-attention";
-
-	const ssrfResult = await resolveUrlForSSRF(serverUrl, { label: "mcp serverUrl" });
-	if (!ssrfResult.ok) return "needs-attention";
-
-	// Pin the resolved IP to guard against DNS rebinding (only possible here because
-	// AN2 owns this connect — unlike the provisioned-config path).
-	try {
-		const parsed = new URL(serverUrl);
-		const pinnedAddress = ssrfResult.addresses[0];
-		if (!pinnedAddress) return "needs-attention";
-
-		// Build the fetch URL with the pinned IP.
-		// For https, we must send the Host header with the original hostname.
-		const pinnedUrl = new URL(serverUrl);
-		pinnedUrl.hostname =
-			pinnedAddress.family === 6 ? `[${pinnedAddress.address}]` : pinnedAddress.address;
-
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), 5_000);
-
-		try {
-			const response = await fetch(pinnedUrl.toString(), {
-				method: "GET",
-				headers: { Host: parsed.hostname },
-				signal: controller.signal,
-			});
-			clearTimeout(timer);
-
-			// MCP servers respond to GET / with various status codes (200, 404, 405).
-			// Any HTTP response means the server is reachable.
-			// Only network-level failure (no response) or SSRF blockage → needs-attention.
-			if (response.status > 0) {
-				return "working";
-			}
-			return "needs-attention";
-		} catch {
-			clearTimeout(timer);
-			return "needs-attention";
-		}
-	} catch {
-		return "needs-attention";
-	}
-}
 
 // @lore drizzle-orm 0.45.2: wraps PGlite errors — outer message is "Failed query: …",
 // original error (with code 23505 and "duplicate key" message) is in err.cause.

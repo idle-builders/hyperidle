@@ -33,11 +33,7 @@ export {
 	type InheritedReach,
 } from "./inherited-reach.js";
 // -- resolveHeldToken (1) — sole decrypted-held-token path (replaces ServiceConnectionResolver) --
-export { resolveHeldToken } from "./service-connection-resolver.js";
-// -- ConnectionStore (4) — service_connections list/insert/update/delete --
-export {
-	deleteConnection,
-	insertConnection,
-	listConnections,
-	updateConnection,
-} from "./service-connection-store.js";
+// -- resolveConnectionToken — resolves AS THE CONNECTION'S OWNER, no caller userId --
+export { resolveConnectionToken, resolveHeldToken } from "./service-connection-resolver.js";
+// -- ConnectionStore (3) — service_connections list/insert/delete --
+export { deleteConnection, insertConnection, listConnections } from "./service-connection-store.js";

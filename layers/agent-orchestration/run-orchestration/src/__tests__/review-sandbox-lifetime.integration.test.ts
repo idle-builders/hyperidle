@@ -8,10 +8,14 @@
  * longer exists, and it hangs instead of failing, so the human's answer reaches
  * nobody and nothing anywhere says why. That is exactly what a real run did.
  *
- * So: a session that asked keeps its directory; a session that ended any other
- * way destroys it as before; and the resumed session ADOPTS the original rather
- * than spawning a fresh one — both because the agent is coming back to its own
- * work, and so exactly one session owns the delete.
+ * BA5 (no-teardown, 2026-09-16): the ruling this file used to prove — one
+ * session keeps its directory, every other session destroys its own — is
+ * superseded. Nothing is torn down at session end any more, for ANY session:
+ * the workspace reaper reclaims a terminal session's directory 24h later
+ * instead (`runtime-reapers.ts`), skipping one that still awaits a verdict.
+ * So every case below now SURVIVES; what stays worth proving is that a
+ * resume still adopts the original directory rather than spawning a fresh
+ * one — the agent is coming back to its own work.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -261,18 +265,25 @@ describe("a sandbox outlives the session that asked for a verdict", () => {
 		).toBe(true);
 	});
 
-	test("a session that ended any other way still destroys it", async ({ db }) => {
+	test("a session that ended any other way still leaves its directory", async ({ db }) => {
 		const sandboxPath = tempDir();
-		const { survives } = await runOnce(db as HyperIdleDb, "agent-sent", sandboxPath, {
+		const { survives, destroyed } = await runOnce(db as HyperIdleDb, "agent-sent", sandboxPath, {
 			toolName: "mcp__hyperidle__send_message",
 		});
-		expect(survives).toBe(false);
+		expect(survives, "nothing is torn down at session end any more").toBe(true);
+		expect(destroyed, "nothing calls workspace.destroy at session end any more").toEqual([]);
 	});
 
-	test("a session that called nothing still destroys it", async ({ db }) => {
+	test("a session that called nothing still leaves its directory", async ({ db }) => {
 		const sandboxPath = tempDir();
-		const { survives } = await runOnce(db as HyperIdleDb, "agent-quiet", sandboxPath, {});
-		expect(survives).toBe(false);
+		const { survives, destroyed } = await runOnce(
+			db as HyperIdleDb,
+			"agent-quiet",
+			sandboxPath,
+			{},
+		);
+		expect(survives, "nothing is torn down at session end any more").toBe(true);
+		expect(destroyed, "nothing calls workspace.destroy at session end any more").toEqual([]);
 	});
 
 	test("a review filed through the MCP bridge keeps the directory too", async ({ db }) => {
@@ -286,18 +297,18 @@ describe("a sandbox outlives the session that asked for a verdict", () => {
 		).toBe(true);
 	});
 
-	test("through the bridge, another return action still destroys it", async ({ db }) => {
+	test("through the bridge, another return action still leaves its directory", async ({ db }) => {
 		const sandboxPath = tempDir();
 		const { survives } = await runOnce(db as HyperIdleDb, "agent-sent-bridge", sandboxPath, {
 			bridgeToolName: "mcp__hyperidle__send_message",
 		});
-		expect(survives).toBe(false);
+		expect(survives, "nothing is torn down at session end any more").toBe(true);
 	});
 
 	test("a resume adopts the original directory and runs the harness there", async ({ db }) => {
 		const fresh = tempDir();
 		const original = tempDir();
-		const { adopted, resumedIn, survives } = await runOnce(
+		const { adopted, resumedIn, survives, destroyed } = await runOnce(
 			db as HyperIdleDb,
 			"agent-resumed",
 			fresh,
@@ -308,7 +319,9 @@ describe("a sandbox outlives the session that asked for a verdict", () => {
 			resumedIn,
 			"cursor-agent finds its chat by an md5 of the cwd string; anywhere else runs with no context and says nothing",
 		).toBe(original);
-		// It returned without asking again, so this session owns the delete.
-		expect(survives).toBe(false);
+		// Nothing deletes it — either directly or through a prior session's
+		// teardown — any more.
+		expect(survives).toBe(true);
+		expect(destroyed, "nothing calls workspace.destroy at session end any more").toEqual([]);
 	});
 });

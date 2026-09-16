@@ -116,4 +116,17 @@ describe("a new team is one empty agent", () => {
 		// one agent there is no election to hold.
 		expect(body.leadAgentId ?? agent?.id).toBe(agent?.id);
 	});
+
+	// BA5 §2.1: onboarding needs the id of the agent it just created so it can
+	// pick a filesystem for it (plan break #2 — nothing was ever mounted).
+	test("the response carries the id of the agent it just created", async ({ db, app }) => {
+		await seedFounder(db);
+		const res = await createTeam(app, "Acme");
+		expect(res.status).toBe(201);
+
+		const body = (await res.json()) as { team: { id: string }; agentIds?: string[] };
+		const agents = await db.select().from(users).where(eq(users.teamId, body.team.id));
+
+		expect(body.agentIds).toEqual(agents.map((a) => a.id));
+	});
 });

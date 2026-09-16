@@ -15,21 +15,7 @@
  */
 import { spawn } from "node:child_process";
 import { createLogger, type Logger } from "@hyperidle/diagnostics";
-
-/**
- * Optional per-request git config injected via environment variables.
- * Token never goes in argv or URL — only in the child env via GIT_CONFIG_*
- * (verified mechanism).
- *
- * @lore AO1 v2: GIT_CONFIG_COUNT/KEY_n/VALUE_n is the ONLY safe token path.
- * Putting tokens in the URL or `-c http.extraHeader=…` in argv leaks to ps/logs.
- */
-interface GitConfigInjection {
-	/** git config key, e.g. `http.https://github.com/.extraHeader` */
-	key: string;
-	/** git config value, e.g. `Authorization: Basic <base64>` */
-	value: string;
-}
+import { redactSecrets } from "./redact-secrets.js";
 
 interface GitRunner {
 	/** Stage paths. When `paths` is empty the runner passes `-A`. */
@@ -43,30 +29,56 @@ interface GitRunner {
 	/** List tracked files as relative paths (`git ls-files`). */
 	lsFiles(): Promise<readonly string[]>;
 	/**
-	 * Probe a remote's refs WITHOUT cloning. Reachability check.
-	 * exit 0 → { reachable: true }; non-zero → { reachable: false, reason }.
-	 * Token injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env — NEVER in URL or argv.
+	 * Probe a remote. With no `branch`, a plain reachability check (any ref):
+	 * `reachable` true/false, `reason` set on failure — the AO1 v2 shape,
+	 * kept for the reachability probe.
+	 * With `branch`, `git ls-remote --exit-code -- <url> refs/heads/<branch>`:
+	 * `found: true` when the branch resolves, `branchMissing: true` on git's
+	 * exit code 2 (the branch does not exist — the remote IS reachable), and
+	 * on any other failure `authRequested: true` when stderr says git needed
+	 * a login it did not have (`checkFilesystem` reads this to phrase its reason).
+	 * Credential env goes in `opts.env` (GIT_CONFIG_ / GH_TOKEN) — never in the
+	 * URL or argv. Never throws — always returns a result object.
 	 *
-	 * @lore AO1 v2: This is the REAL reachability gate. The non-zero exit is
-	 * DATA (unreachable), not an exception. Never throws — always returns a result object.
-	 * Token-shape stderr is redacted before it enters the reason string.
+	 * @lore BA5 §6.3: this is the REAL reachability gate. The non-zero exit is
+	 * DATA (unreachable / branch missing), not an exception. Every reason
+	 * string is redacted before it leaves the runner.
 	 */
 	lsRemote(
 		url: string,
-		opts?: { tokenConfig?: GitConfigInjection },
-	): Promise<{ reachable: boolean; reason?: string }>;
+		opts?: { env?: Record<string, string>; branch?: string },
+	): Promise<{
+		reachable: boolean;
+		reason?: string;
+		found?: boolean;
+		branchMissing?: boolean;
+		authRequested?: boolean;
+	}>;
 	/**
-	 * Shallow clone a remote URL into the runner's cwd (the session dir).
-	 * Token is injected via GIT_CONFIG_COUNT/KEY_n/VALUE_n env — never in URL or argv.
-	 *
-	 * @lore AO2: cwd = sandboxPath (the session working directory). Clone INTO `.`,
-	 * not into a subdirectory, so the agent sees the repo root at sandboxPath.
+	 * `git fetch --prune origin` against the runner's cwd (a kept copy's
+	 * `origin`). Credential env only — never a URL with userinfo.
 	 */
-	clone(
-		url: string,
-		branch: string,
-		opts?: { depth?: number; tokenConfig?: GitConfigInjection },
-	): Promise<void>;
+	fetch(opts?: { env?: Record<string, string> }): Promise<void>;
+	/** `git worktree prune` against the runner's cwd (a kept copy). */
+	worktreePrune(): Promise<void>;
+	/**
+	 * `git rev-parse --verify --quiet <ref>^{commit}` against the runner's
+	 * cwd. True when the ref resolves to a commit; never throws.
+	 */
+	verifyCommit(ref: string): Promise<boolean>;
+	/**
+	 * Full clone of a remote URL into `destination` (an absolute path,
+	 * independent of the runner's own cwd — the destination does not exist yet,
+	 * so it cannot be the bound cwd). `--no-checkout`: the kept copy backs
+	 * worktrees, never a checkout of its own. Credential env only — never a
+	 * URL with userinfo or a header in argv.
+	 *
+	 * @lore BA5 §6.3/§5.2: rewritten from the AO2 single-session shallow clone
+	 * (branch + depth, into the runner's own cwd) — a kept copy is cloned once,
+	 * full history so a pushed branch has one, and every session after the
+	 * first only `fetch`es it.
+	 */
+	clone(url: string, destination: string, opts?: { env?: Record<string, string> }): Promise<void>;
 	/**
 	 * Bundle a named ref to a file path (shallow-safe named-ref bundle).
 	 *
@@ -75,17 +87,17 @@ interface GitRunner {
 	 */
 	bundle(bundlePath: string, ref: string): Promise<void>;
 	/**
-	 * Add a worktree at worktreePath on the given branch.
-	 * Runs against the HOST REPO (runner cwd = host repo path).
+	 * Add a worktree at `worktreePath`, on a NEW branch `newBranch`, starting
+	 * from `startPoint`. Runs against the kept copy (runner cwd = kept copy
+	 * path). Always creates the branch — a mounted worktree is always a new
+	 * branch off the filesystem's configured branch, never a checkout
+	 * of an existing one.
 	 *
-	 * @lore AO2: createBranch=true creates a NEW branch from HEAD. Git refuses
-	 * two worktrees on the same branch — always use unique branch names.
+	 * @lore BA5 §6.3: rewritten from the AO2 shape (optional `createBranch`,
+	 * branching off HEAD) — the new shape always creates `newBranch` and always
+	 * names its own `startPoint` explicitly, rather than defaulting to HEAD.
 	 */
-	worktreeAdd(
-		worktreePath: string,
-		branch: string,
-		opts?: { createBranch?: boolean },
-	): Promise<void>;
+	worktreeAdd(worktreePath: string, newBranch: string, startPoint: string): Promise<void>;
 	/**
 	 * Remove a worktree from the host repo's worktree list.
 	 *
@@ -114,30 +126,36 @@ interface SpawnResult {
 	stdout: string;
 	stderr: string;
 	exitCode: number;
+	/** Set when `spawn` itself failed with ENOENT — git is not on PATH. */
+	spawnErrorCode?: string;
 }
 
 const DEFAULT_LOCAL_MS = 5_000;
 const DEFAULT_PUSH_MS = 30_000;
 const DEFAULT_WORKTREE_MS = 120_000;
+/** @lore BA5 §5.2: a kept copy's first clone is full history, not shallow — give it room. */
+const DEFAULT_CLONE_MS = 600_000;
+/** @lore BA5 §5.2: every mount after the first only fetches — longer than a local op, shorter than a fresh clone. */
+const DEFAULT_FETCH_MS = 120_000;
 
-function redactArg(arg: string): string {
-	if (/^(https?|ssh|git|file):\/\//i.test(arg)) {
-		try {
-			const u = new URL(arg);
-			if (u.username || u.password) {
-				u.username = "";
-				u.password = "";
-				return u.toString();
-			}
-		} catch {
-			// fall through
-		}
-	}
-	return arg.replace(/gh[pousr]_[A-Za-z0-9]{20,}/g, "[REDACTED]");
+/** The `GH_TOKEN` value of a call's env, if any — the one secret the runner ever carries. */
+function secretsFromEnv(env: Record<string, string> | undefined): string[] {
+	return env?.GH_TOKEN ? [env.GH_TOKEN] : [];
 }
 
-function redactArgs(args: readonly string[]): string[] {
-	return args.map(redactArg);
+function redactArgsForLog(args: readonly string[], secrets: readonly string[]): string[] {
+	return args.map((arg) => redactSecrets(arg, secrets));
+}
+
+/**
+ * True when git's own stderr says the remote wanted a login it did not get —
+ * "no credential at all" and "a credential that was rejected" both count, the
+ * two shapes this was verified against a real github.com-shaped
+ * server (git 2.39.5): `could not read Username` (no helper answered) and
+ * `Authentication failed` (the helper's answer was wrong).
+ */
+function looksLikeAuthRequested(stderr: string): boolean {
+	return /could not read username|authentication failed/i.test(stderr);
 }
 
 /**
@@ -147,9 +165,15 @@ function redactArgs(args: readonly string[]): string[] {
  * `process.env` exposed credential.helper, http.proxy, and HYPERIDLE_API_KEY to child git.
  * Now we compose a minimal env from PATH + HOME + a small allow-list plus hardening vars.
  *
- * @lore AO1 v2: GIT_CONFIG_COUNT/KEY_n/VALUE_n is the safe env-injection path for tokens.
+ * @lore BA5 §6.3: `GIT_CONFIG_NOSYSTEM`/`GIT_CONFIG_GLOBAL=/dev/null` are gone —
+ * the plan relies on the person's OWN git setup (private GitLab, their
+ * credential helpers, a corporate proxy or CA). Apple's git ships
+ * `credential.helper=osxkeychain` in the system config; nulling both configs
+ * silently broke every one of those for filesystems that need them.
+ * `GIT_TERMINAL_PROMPT=0` / `GIT_ASKPASS=/bin/false` stay — a missing
+ * credential must fail fast, never hang on an interactive prompt.
  */
-function buildGitEnv(extraConfigs?: readonly GitConfigInjection[]): Record<string, string> {
+function buildGitEnv(): Record<string, string> {
 	const allowed = [
 		"PATH",
 		"HOME",
@@ -171,18 +195,6 @@ function buildGitEnv(extraConfigs?: readonly GitConfigInjection[]): Record<strin
 	env.GIT_TERMINAL_PROMPT = "0";
 	env.GIT_ASKPASS = "/bin/false";
 	env.GIT_OPTIONAL_LOCKS = "0";
-	env.GIT_CONFIG_NOSYSTEM = "1";
-	env.GIT_CONFIG_GLOBAL = "/dev/null";
-	if (extraConfigs && extraConfigs.length > 0) {
-		env.GIT_CONFIG_COUNT = String(extraConfigs.length);
-		for (let i = 0; i < extraConfigs.length; i++) {
-			const cfg = extraConfigs[i];
-			if (cfg) {
-				env[`GIT_CONFIG_KEY_${i}`] = cfg.key;
-				env[`GIT_CONFIG_VALUE_${i}`] = cfg.value;
-			}
-		}
-	}
 	return env;
 }
 
@@ -193,7 +205,8 @@ async function spawnGit(
 	logger: Logger,
 	extraEnv?: Record<string, string>,
 ): Promise<SpawnResult> {
-	logger.info("git spawn", { args: redactArgs(args), cwd, timeoutMs });
+	const secrets = secretsFromEnv(extraEnv);
+	logger.info("git spawn", { args: redactArgsForLog(args, secrets), cwd, timeoutMs });
 	return new Promise<SpawnResult>((resolve) => {
 		const proc = spawn("git", args, {
 			cwd,
@@ -222,9 +235,14 @@ async function spawnGit(
 				}
 			}, 500);
 		}, timeoutMs);
-		proc.on("error", (err) => {
+		proc.on("error", (err: NodeJS.ErrnoException) => {
 			clearTimeout(timer);
-			resolve({ stdout, stderr: stderr + String(err), exitCode: -1 });
+			resolve({
+				stdout,
+				stderr: stderr + String(err),
+				exitCode: -1,
+				spawnErrorCode: err.code,
+			});
 		});
 		proc.on("close", (code) => {
 			clearTimeout(timer);
@@ -239,6 +257,8 @@ export function createGitRunner(repoPath: string): GitRunner {
 	const localMs = DEFAULT_LOCAL_MS;
 	const longLocalMs = DEFAULT_WORKTREE_MS;
 	const pushMs = DEFAULT_PUSH_MS;
+	const cloneMs = DEFAULT_CLONE_MS;
+	const fetchMs = DEFAULT_FETCH_MS;
 
 	function run(
 		args: readonly string[],
@@ -248,12 +268,20 @@ export function createGitRunner(repoPath: string): GitRunner {
 		return spawnGit(args, repoPath, timeoutMs, logger, extraEnv);
 	}
 
-	async function runExpectOk(args: readonly string[], timeoutMs: number): Promise<SpawnResult> {
-		const result = await run(args, timeoutMs);
+	async function runExpectOk(
+		args: readonly string[],
+		timeoutMs: number,
+		extraEnv?: Record<string, string>,
+	): Promise<SpawnResult> {
+		const result = await run(args, timeoutMs, extraEnv);
+		if (result.spawnErrorCode === "ENOENT") {
+			throw new Error("git is not installed");
+		}
 		if (result.exitCode !== 0) {
+			const secrets = secretsFromEnv(extraEnv);
 			const tail = result.stderr.trim() || result.stdout.trim();
 			throw new Error(
-				`git ${redactArgs(args).join(" ")} failed (${result.exitCode}): ${redactArg(tail)}`,
+				`git ${redactArgsForLog(args, secrets).join(" ")} failed (${result.exitCode}): ${redactSecrets(tail, secrets)}`,
 			);
 		}
 		return result;
@@ -300,62 +328,87 @@ export function createGitRunner(repoPath: string): GitRunner {
 		},
 		async lsRemote(
 			url: string,
-			opts?: { tokenConfig?: GitConfigInjection },
-		): Promise<{ reachable: boolean; reason?: string }> {
-			const extraEnv: Record<string, string> = {};
-			if (opts?.tokenConfig) {
-				extraEnv.GIT_CONFIG_COUNT = "1";
-				extraEnv.GIT_CONFIG_KEY_0 = opts.tokenConfig.key;
-				extraEnv.GIT_CONFIG_VALUE_0 = opts.tokenConfig.value;
-			}
+			opts?: { env?: Record<string, string>; branch?: string },
+		): Promise<{
+			reachable: boolean;
+			reason?: string;
+			found?: boolean;
+			branchMissing?: boolean;
+			authRequested?: boolean;
+		}> {
+			const extraEnv = opts?.env ?? {};
+			const secrets = secretsFromEnv(extraEnv);
+			const args = opts?.branch
+				? ["ls-remote", "--exit-code", "--", url, `refs/heads/${opts.branch}`]
+				: ["ls-remote", "--quiet", "--", url];
+			let result: SpawnResult;
 			try {
-				const result = await run(["ls-remote", "--quiet", "--", url], pushMs, extraEnv);
-				if (result.exitCode === 0) return { reachable: true };
-				const raw = (result.stderr.trim() || result.stdout.trim()).slice(0, 300);
-				return { reachable: false, reason: redactArg(raw) };
+				result = await run(args, pushMs, extraEnv);
 			} catch (err) {
 				const reason = err instanceof Error ? err.message : String(err);
-				return { reachable: false, reason: redactArg(reason) };
+				return { reachable: false, reason: redactSecrets(reason, secrets) };
 			}
+			if (result.spawnErrorCode === "ENOENT") {
+				return { reachable: false, reason: "git is not installed" };
+			}
+			if (result.exitCode === 0) {
+				return { reachable: true, found: true };
+			}
+			if (opts?.branch && result.exitCode === 2) {
+				return { reachable: true, found: false, branchMissing: true };
+			}
+			const raw = (result.stderr.trim() || result.stdout.trim()).slice(0, 300);
+			return {
+				reachable: false,
+				reason: redactSecrets(raw, secrets),
+				authRequested: looksLikeAuthRequested(result.stderr),
+			};
 		},
 		async clone(
 			url: string,
-			branch: string,
-			opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+			destination: string,
+			opts?: { env?: Record<string, string> },
 		): Promise<void> {
-			const args: string[] = ["clone"];
-			if (opts?.depth != null) args.push("--depth", String(opts.depth));
-			args.push("--single-branch", "--branch", branch, "--", url, ".");
-			const extraEnv: Record<string, string> = {};
-			if (opts?.tokenConfig) {
-				extraEnv.GIT_CONFIG_COUNT = "1";
-				extraEnv.GIT_CONFIG_KEY_0 = opts.tokenConfig.key;
-				extraEnv.GIT_CONFIG_VALUE_0 = opts.tokenConfig.value;
+			if (destination.startsWith("-"))
+				throw new Error("git clone: destination must not start with '-'");
+			const args: string[] = ["clone", "--no-checkout", "--", url, destination];
+			const extraEnv = opts?.env ?? {};
+			const result = await run(args, cloneMs, extraEnv);
+			if (result.spawnErrorCode === "ENOENT") {
+				throw new Error("git is not installed");
 			}
-			const result = await run(args, pushMs, extraEnv);
 			if (result.exitCode !== 0) {
-				const tail = redactArg(result.stderr.trim() || result.stdout.trim());
+				const tail = redactSecrets(
+					result.stderr.trim() || result.stdout.trim(),
+					secretsFromEnv(extraEnv),
+				);
 				throw new Error(`git clone failed (${result.exitCode}): ${tail}`);
 			}
+		},
+		async fetch(opts?: { env?: Record<string, string> }): Promise<void> {
+			await runExpectOk(["fetch", "--prune", "origin"], fetchMs, opts?.env);
+		},
+		async worktreePrune(): Promise<void> {
+			await runExpectOk(["worktree", "prune"], longLocalMs);
+		},
+		async verifyCommit(ref: string): Promise<boolean> {
+			if (ref.startsWith("-")) return false;
+			const result = await run(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], localMs);
+			return result.exitCode === 0;
 		},
 		async bundle(bundlePath: string, ref: string): Promise<void> {
 			if (bundlePath.startsWith("-") || ref.startsWith("-"))
 				throw new Error("git bundle: bundlePath and ref must not start with '-'");
 			await runExpectOk(["bundle", "create", bundlePath, ref], longLocalMs);
 		},
-		async worktreeAdd(
-			worktreePath: string,
-			branch: string,
-			opts?: { createBranch?: boolean },
-		): Promise<void> {
-			if (worktreePath.startsWith("-") || branch.startsWith("-"))
+		async worktreeAdd(worktreePath: string, newBranch: string, startPoint: string): Promise<void> {
+			if (worktreePath.startsWith("-") || newBranch.startsWith("-") || startPoint.startsWith("-"))
 				throw new Error("git worktree add: args must not start with '-'");
-			const args: string[] = ["worktree", "add"];
-			if (opts?.createBranch) args.push("-b", branch);
-			args.push("--", worktreePath);
-			if (!opts?.createBranch) args.push(branch);
 			// @lore worktree-hook-timeout: `git worktree add` runs the post-checkout hook.
-			await runExpectOk(args, longLocalMs);
+			await runExpectOk(
+				["worktree", "add", "-b", newBranch, "--", worktreePath, startPoint],
+				longLocalMs,
+			);
 		},
 		async worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void> {
 			if (worktreePath.startsWith("-"))
@@ -387,4 +440,4 @@ export function createGitRunner(repoPath: string): GitRunner {
 	};
 }
 
-export type { GitConfigInjection, GitRunner };
+export type { GitRunner };

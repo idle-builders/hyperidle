@@ -25,6 +25,7 @@ import type {
 } from "./contracts.js";
 import {
 	ConcurrencyLimitError,
+	FilesystemUnavailableError,
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
 	TargetAgentNotRunnableError,
@@ -109,6 +110,27 @@ async function endReservedSessionAfterFailedAdmission(
 	await db
 		.update(sessions)
 		.set({ state: "crashed", outcome: "crashed", endedAt: new Date().toISOString() })
+		.where(and(eq(sessions.requestId, requestId), eq(sessions.state, "active")));
+}
+
+/**
+ * @lore: the filesystem-hold's own reserved-row cleanup: DELETED,
+ * not crashed. `reserveOrAdoptSession` adopts any existing row for a request
+ * (this file's `reserveOrAdoptSession`, above); a crashed row would be
+ * adopted by the retry that follows the request back to `pending`, and the
+ * retry would then find a session that never ran. Nothing references the row
+ * yet at this point — `session_started` only fires at the end of a
+ * successful admission, and `agent_session_requests.session_id` only on
+ * `running` — so the delete is safe; it fails loudly on a foreign-key
+ * violation if that ever stops being true. Also keeps the row out of the
+ * concurrency count the NEXT attempt reads.
+ */
+async function deleteReservedSessionAfterFilesystemHold(
+	db: HyperIdleDb,
+	requestId: string,
+): Promise<void> {
+	await db
+		.delete(sessions)
 		.where(and(eq(sessions.requestId, requestId), eq(sessions.state, "active")));
 }
 
@@ -439,6 +461,20 @@ async function runClaimedRequest(
 		return { mode: "completed", ...result };
 	} catch (err) {
 		if (err instanceof ConcurrencyLimitError) {
+			if (request.claimToken) {
+				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
+			}
+			throw err;
+		}
+		// @lore: the filesystem hold: the same shape as the
+		// concurrency release above (claim back to `pending`, no task-failure
+		// reporting), plus deleting the reserved row instead of leaving it
+		// `active` — see `deleteReservedSessionAfterFilesystemHold`'s own doc.
+		// Never reaches the generic failure path below: no
+		// `transitionAgentRunLifecycle`, so core never sees a failed dispatch
+		// attempt and the task stays exactly where it was.
+		if (err instanceof FilesystemUnavailableError) {
+			await deleteReservedSessionAfterFilesystemHold(deps.db, request.id);
 			if (request.claimToken) {
 				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
 			}

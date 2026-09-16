@@ -17,9 +17,6 @@ function makeFakeRunner(
 		async revParseIsInsideWorkTree() {
 			return isInsideWorkTree;
 		},
-		async lsRemote() {
-			return { reachable: true };
-		},
 		async currentBranch() {
 			return branch;
 		},

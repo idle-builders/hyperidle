@@ -6,7 +6,7 @@
  *   AC1: POST mcp → 201; GET → row present with authSource:"mcp" recorded
  *   AC1 (inherited): GET unions held + inherited rows from descriptors
  *   AC2: DELETE own connection → 204; GET no longer lists it
- *   AC3: freshly-created token → health:"needs-attention"; validate happy → "working"
+ *   BA5 §18: held connections carry no `health` field; POST /:id/validate is gone
  *   AC4: POST token — DB encrypted_token differs from plaintext (encrypted at rest)
  *   AC4: GET/POST responses contain NO encryptedToken, NO raw secret value
  *   AC5: user B GET excludes user A's connections (isolation)
@@ -27,6 +27,7 @@
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { createLoginSession } from "@hyperidle/users";
+import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
@@ -109,15 +110,6 @@ describe("AN1 — /api/connections routes", () => {
 			requestWithoutAuth,
 		}) => {
 			const res = await requestWithoutAuth("/api/connections/sc-nonexistent", { method: "DELETE" });
-			expect(res.status).toBe(401);
-		});
-
-		test("POST /api/connections/:id/validate returns 401 without API key", async ({
-			requestWithoutAuth,
-		}) => {
-			const res = await requestWithoutAuth("/api/connections/sc-nonexistent/validate", {
-				method: "POST",
-			});
 			expect(res.status).toBe(401);
 		});
 	});
@@ -252,10 +244,13 @@ describe("AN1 — /api/connections routes", () => {
 		});
 	});
 
-	// ─── AC3: Health tracking ──────────────────────────────────────────────────
+	// ─── BA5 §18: connection health narrow cut ──────────────────────────────────
+	// Stored (held) connections no longer carry a health field or a validate
+	// route at all — only the *inherited* (detected) view keeps health, and its
+	// calculation is untouched here.
 
-	describe("AC3 — freshly-created token → health:'needs-attention'; validate → 'working'", () => {
-		test("freshly-created token connection starts with health:'needs-attention'", async ({
+	describe("BA5 §18 — held connections carry no health, and validate is gone", () => {
+		test("freshly-created held connection has no health field in the response", async ({
 			app,
 			db,
 		}) => {
@@ -267,15 +262,36 @@ describe("AN1 — /api/connections routes", () => {
 				body: JSON.stringify({
 					service: "GitHub",
 					authSource: "token",
-					token: "gh-test-ac3-001",
+					token: "gh-test-ba5-001",
 				}),
 			});
 			const body = (await res.json()) as Record<string, unknown>;
-			// Architecture §Phase-0 decision 2: health on create = needs-attention
-			expect(body.health).toBe("needs-attention");
+			expect(body).not.toHaveProperty("health");
 		});
 
-		test("GET /api/connections/:id/validate returns 200 with health field", async ({ app, db }) => {
+		test("GET list response never carries a health field for held rows", async ({ app, db }) => {
+			await seedUserA(db);
+
+			await app.request("/api/connections", {
+				method: "POST",
+				headers: authHeadersA(),
+				body: JSON.stringify({
+					service: "Stripe",
+					authSource: "token",
+					token: "sk-ba5-list-001",
+				}),
+			});
+
+			const res = await app.request("/api/connections", { headers: authHeadersA() });
+			const list = (await res.json()) as Array<Record<string, unknown>>;
+			const held = list.filter((c) => c["authSource"] !== "inherited");
+			expect(held.length).toBeGreaterThan(0);
+			for (const row of held) {
+				expect(row).not.toHaveProperty("health");
+			}
+		});
+
+		test("POST /api/connections/:id/validate no longer exists", async ({ app, db }) => {
 			await seedUserA(db);
 
 			const createRes = await app.request("/api/connections", {
@@ -284,7 +300,7 @@ describe("AN1 — /api/connections routes", () => {
 				body: JSON.stringify({
 					service: "Stripe",
 					authSource: "token",
-					token: "sk-validate-ac3-001",
+					token: "sk-ba5-validate-gone-001",
 				}),
 			});
 			const created = (await createRes.json()) as Record<string, unknown>;
@@ -294,10 +310,22 @@ describe("AN1 — /api/connections routes", () => {
 				method: "POST",
 				headers: authHeadersA(),
 			});
-			expect(validateRes.status).toBe(200);
-			const body = (await validateRes.json()) as Record<string, unknown>;
-			expect(body).toHaveProperty("health");
-			expect(["working", "needs-attention"].includes(body.health as string)).toBe(true);
+			expect(validateRes.status).toBe(404);
+		});
+
+		test("service_connections table no longer has health or last_validated_at columns", async ({
+			db,
+		}) => {
+			const result = await db.execute(
+				sql.raw(
+					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='service_connections' ORDER BY ordinal_position`,
+				),
+			);
+			const cols = (result as { rows: Array<{ column_name: string }> }).rows.map(
+				(r) => r.column_name,
+			);
+			expect(cols).not.toContain("health");
+			expect(cols).not.toContain("last_validated_at");
 		});
 	});
 
@@ -390,11 +418,12 @@ describe("AN1 — /api/connections routes", () => {
 	// User B (via createLoginSession + sharedMode app) and prove:
 	//   (1) B's GET excludes A's real connection
 	//   (2) B's DELETE of A's real row → 404
-	//   (3) B's validate of A's real row → 404
+	//
+	// BA5 §12: test (3), B's validate of A's real row, is deleted with the route.
 	//
 	// Sanity-break evidence (documented per test):
-	//   When the WHERE clause in GET / DELETE / validate was changed to omit
-	//   `eq(serviceConnections.userId, userId)`, tests (1), (2) and (3) all went RED.
+	//   When the WHERE clause in GET / DELETE was changed to omit
+	//   `eq(serviceConnections.userId, userId)`, tests (1) and (2) both went RED.
 	//   Restoring the userId scope → GREEN.  Proves the tests exercise the real guards.
 
 	describe("AC5 — per-user isolation (real two-user Bearer flow)", () => {
@@ -496,46 +525,6 @@ describe("AN1 — /api/connections routes", () => {
 			const listA = (await listResA.json()) as Array<{ id: string }>;
 			const stillThere = listA.find((c) => c.id === aConnectionId);
 			expect(stillThere).toBeDefined();
-		});
-
-		test("(3) user B validate of user A's real id → 404", async ({ db, eventBus }) => {
-			const sharedApp = await createTestApp({
-				db,
-				eventBus,
-				sharedMode: true,
-				cipher: TEST_CIPHER,
-			});
-
-			await seedUserA(db);
-			await seedUserB(db);
-
-			// Create a connection as user A
-			const createRes = await sharedApp.request("/api/connections", {
-				method: "POST",
-				headers: authHeadersA(),
-				body: JSON.stringify({
-					service: "Stripe",
-					authSource: "token",
-					token: "sk-a-iso-real-validate-001",
-				}),
-			});
-			expect(createRes.status).toBe(201);
-			const created = (await createRes.json()) as Record<string, unknown>;
-			const aConnectionId = created["id"] as string;
-
-			// Mint Bearer session for user B
-			const { token: tokenB } = await createLoginSession(db, USER_B_ID);
-
-			// User B validates user A's real connection — must be 404
-			const validateRes = await sharedApp.request(`/api/connections/${aConnectionId}/validate`, {
-				method: "POST",
-				headers: {
-					// biome-ignore lint/style/useNamingConvention: HTTP header name
-					Authorization: `Bearer ${tokenB}`,
-				},
-			});
-			// If the userId scope guard in validate is removed, validate returns 200 → RED.
-			expect(validateRes.status).toBe(404);
 		});
 
 		test("(legacy) DELETE with non-existent id → 404 (existing baseline)", async ({ app, db }) => {

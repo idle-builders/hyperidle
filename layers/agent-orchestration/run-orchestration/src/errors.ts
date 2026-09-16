@@ -90,3 +90,23 @@ export class NoAvailableHarnessError extends Error {
 		this.name = "NoAvailableHarnessError";
 	}
 }
+
+/**
+ * @lore: thrown by `admitSession`'s Phase 4.5 once placement
+ * cleanup (unmount what THIS admission placed, release the adapter, destroy
+ * the workspace unless resuming) has already run and the filesystem has
+ * already been marked `needs_attention`. `runtime.ts`'s `runClaimedRequest`
+ * recognises this by name and deletes the reserved `sessions` row instead of
+ * crashing it — never left dangling either way. `start-runtime.ts`'s
+ * drain maps it to `FILESYSTEM_UNAVAILABLE` and `return`s without a busy
+ * retry (condition (i), §4.2's "why `return`").
+ */
+export class FilesystemUnavailableError extends Error {
+	constructor(
+		public readonly filesystemId: string,
+		public readonly reason: string,
+	) {
+		super(`Filesystem '${filesystemId}' is unavailable: ${reason}`);
+		this.name = "FilesystemUnavailableError";
+	}
+}

@@ -360,6 +360,27 @@ export interface SandboxWritebackChangesDetectedEvent {
 }
 
 /**
+ * @lore: a filesystem just ENTERED `needs_attention`, whatever the
+ * cause (a placement failure, a failing Check, a failing check at
+ * registration). Published exactly once per episode by the agent-orchestration
+ * layer root's `recordFilesystemNeedsAttention` — never on a failure that only
+ * updates the reason of a row already in that state. `agentIds` is every agent
+ * the filesystem was picked for at the moment it broke; may be empty (a
+ * failing check at registration, before any agent has it). `filesystemLabel`
+ * and `reason` are both already redacted (`redactSecrets`) before this is
+ * built.
+ */
+export interface FilesystemNeedsAttentionEvent {
+	readonly type: "filesystem_needs_attention";
+	readonly streamId: string;
+	readonly filesystemId: string;
+	readonly filesystemLabel: string;
+	readonly agentIds: readonly string[];
+	readonly reason: string;
+	readonly timestamp: number;
+}
+
+/**
  * @lore BB1: `BetRevisedEvent` DELETED — a bet is now a root task.
  * Task field updates go through normal task mutation paths; there is no
  * dedicated "bet revised" event. This removes a dead surface: nothing
@@ -540,6 +561,8 @@ export type DomainEvent =
 	| ItemCreatedEvent
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
+	// filesystem placement/Check outcome
+	| FilesystemNeedsAttentionEvent
 	| KnowledgeCreatedEvent
 	| KnowledgeUpdatedEvent
 	| KnowledgeArchivedEvent
@@ -586,6 +609,7 @@ export const EVENT_TYPES = [
 	"thread_reopened",
 	"item_created",
 	"sandbox_writeback_changes_detected",
+	"filesystem_needs_attention",
 	"knowledge_created",
 	"knowledge_updated",
 	"knowledge_archived",

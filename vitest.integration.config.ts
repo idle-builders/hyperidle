@@ -34,6 +34,13 @@ const HARNESS_INCLUDE = [
 	// explicit, and without it the file matches the service lane's
 	// `layers/**` include and hard-fails CI where the binaries are absent.
 	"layers/agent-orchestration/connections/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
+	// @lore Google Drive phase: the real-`rclone` lane — a real binary, a real
+	// local-backend remote, zero network, zero Google account. Explicit entry
+	// for the same reason as its neighbours: without one it matches the
+	// service lane's `layers/**` include and hard-fails CI where rclone is
+	// absent.
+	"layers/agent-orchestration/run-orchestration/src/__tests__/rclone-runner.integration.test.ts",
+	"layers/agent-orchestration/run-orchestration/src/__tests__/drive-folder-adapter.integration.test.ts",
 	"layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts",

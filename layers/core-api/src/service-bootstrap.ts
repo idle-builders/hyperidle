@@ -38,10 +38,12 @@ import { registerAgentHealthSessionEndReactions } from "./services/agent-health-
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import { registerFilesystemAttentionReactions } from "./services/filesystem-attention-reactions.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
 import { startRoutineScheduler } from "./services/routine-scheduler-bindings.js";
+import { registerTaskDoneWorktreeReactions } from "./services/task-done-worktree-reactions.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
 
@@ -299,6 +301,18 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
+	// The filesystem-hold's inbox producer. Orchestration never reads
+	// core-api state — its one outward act is the `filesystem_needs_attention`
+	// event; this is its only subscriber.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerFilesystemAttentionReactions(db, eventBus),
+			"filesystem-attention reactions",
+			"unsubscribe",
+			["filesystem_needs_attention subscription"],
+		),
+	);
+
 	// AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3) Wave D:
 	// task's post-session writebacks — finalizes `taskDispatchAttempts` off
 	// `agent_run_lifecycle_changed` and merges accumulated per-tier tokens
@@ -311,6 +325,18 @@ export function registerCoreDomainServices(ctx: {
 			"work session-end reactions",
 			"unsubscribe",
 			["agent_run_lifecycle_changed subscription", "session_ended subscription"],
+		),
+	);
+
+	// Release a task's git worktree once the task is done and no session of
+	// it is still running — see the reaction's own header for the two
+	// occasions and why both are needed.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerTaskDoneWorktreeReactions(db, eventBus, agentOrchestration),
+			"task-done worktree-release reactions",
+			"unsubscribe",
+			["task_state_changed subscription", "session_ended subscription"],
 		),
 	);
 

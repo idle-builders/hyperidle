@@ -8,11 +8,11 @@
 // agent-orchestration-owned, so a route whose whole table set is those two has
 // exactly one legal host and it is this Layer.
 //
-// **The paths do not change.** Both apps mount on the Application's one `/api`
-// router, so `/api/filesystems`, `/api/filesystems/:id`,
-// `/api/filesystems/inspect-path` and
-// `/api/filesystems/:id/injections/:agentUserId` are byte-identical to before
-// and `SettingsFilesystems.tsx` / `SettingsAgents.tsx` need no change at all.
+// **The paths do not change** except one: `GET /:id` is deleted
+// — its only job was the live reachability probe, which is gone with the
+// write-back axis. `/api/filesystems`, `/api/filesystems/inspect-path` and
+// `/api/filesystems/:id/injections/:agentUserId` are byte-identical to
+// before.
 //
 // **One registration did NOT come with it:** `POST /:id/injections`. Its
 // team-consistency gate reads `users` and `team_members` — core-api tables —
@@ -24,37 +24,63 @@
 //
 // The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
 // Application-applied to that shared router and reaches this module unchanged.
+//
+// @lore BA5 §2.7/§7/§12 (L4): the old live reachability probe
+// (`refreshFilesystemState`/`checkAndPersistState`, the per-request
+// `buildAuthResolver`, `sourceHint`) is replaced wholesale by `checkFilesystem`
+// (`@hyperidle/run-orchestration`) — run once on registration and again on
+// demand through the new `POST /:id/check`. Both write through
+// `recordFilesystemNeedsAttention`/`markFilesystemReachable`, never a direct
+// state write here.
 
 import type { FilesystemRow, HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
+import type { EventBus } from "@hyperidle/event-bus";
 import type { Filesystem } from "@hyperidle/filesystems";
 import {
 	deleteFilesystem,
 	deleteInjection,
-	type FilesystemTokenResolver,
 	getFilesystem,
 	inspectLocalPath,
 	listFilesystems,
-	refreshFilesystemState,
+	markFilesystemReachable,
 	saveFilesystem,
 } from "@hyperidle/filesystems";
-
-/**
- * Structural port: the shape of the service-connection resolver this route
- * needs to build per-request token resolvers. Declared here so this module
- * does not import across the Layer boundary.
- *
- * @lore AU43: formerly exported from `@hyperidle/filesystems` as
- * `FilesystemsServiceConnectionResolver`; deleted there as a dead re-export,
- * declared inline here where it is the only consumer.
- */
-interface FilesystemsServiceConnectionResolver {
-	resolve(userId: string, connectionId: string): Promise<string | null>;
-}
-
-import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
+import {
+	checkFilesystem,
+	type FilesystemCheckResult,
+	forgetKeptCopy,
+	isLocalRepoPath,
+} from "@hyperidle/run-orchestration";
 import { Hono } from "hono";
 import { z } from "zod";
+import { ghAuthStatus } from "../cli-status.js";
+import { recordFilesystemNeedsAttention } from "../filesystem-attention.js";
 import { createGitRunner } from "../git-runner.js";
+import { createRcloneRunner } from "../rclone-runner.js";
+
+// ─── Ports this route needs from the connections domain ──────────────────────
+// Declared structurally (Mechanism C idiom already used across this Layer's
+// routes, e.g. `routes/connections.ts`'s own inline types) so this module
+// never imports `@hyperidle/connections` — the Application composes both.
+
+/** Resolve a token connection's plaintext, as the connection's OWNER. */
+interface CredentialResolverPort {
+	resolve(connectionId: string): Promise<string | null>;
+}
+
+/** Enough of a held connection row to validate a POST's `connectionId`. */
+interface ConnectionLookupPort {
+	lookup(connectionId: string): Promise<{ service: string; authSource: string } | null>;
+}
+
+export interface FilesystemRoutesDeps {
+	readonly eventBus?: EventBus;
+	/** Where a remote git filesystem's kept copy lives; absent → DELETE has nothing to forget. */
+	readonly keptCopiesRoot?: string;
+	readonly resolveCredential?: CredentialResolverPort["resolve"];
+	readonly lookupConnection?: ConnectionLookupPort["lookup"];
+}
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
@@ -64,22 +90,32 @@ const codeRefSchema = z.object({
 	branch: z.string().min(1),
 });
 const docSetRefSchema = z.object({ kind: z.literal("doc_set"), folder: z.string().min(1) });
-const resourceRefSchema = z.discriminatedUnion("kind", [codeRefSchema, docSetRefSchema]);
+/** `remote` is a bare rclone remote NAME, never `remote:path` — no `:`, and it can never start with `-` (closes argv injection, same idiom as BRANCH_NAME below). */
+const driveRefSchema = z.object({
+	kind: z.literal("drive"),
+	remote: z.string().min(1),
+	path: z.string().min(1),
+});
+const resourceRefSchema = z.discriminatedUnion("kind", [
+	codeRefSchema,
+	docSetRefSchema,
+	driveRefSchema,
+]);
 
-/** Register body: `source` is NOT client-supplied — derived from the Connection (or 'local'). */
+/** `writeback` and `sourceHint` are both gone — source is always derived, never client-supplied. */
 const registerFilesystemSchema = z.object({
 	teamId: z.string().min(1),
-	// Kind constrained to committed kinds at create time (SoRs rejected here).
 	// @lore AU44 b2: inlined from FILESYSTEM_KINDS constant (dissolved with filesystem-contract).
 	kind: z.enum(["code", "doc_set"]),
 	connectionId: z.string().nullable().optional(),
 	resourceRef: resourceRefSchema,
-	// @lore AU44 b2: inlined from WRITEBACK_MODES constant (dissolved with filesystem-contract).
-	writeback: z.enum(["git", "file", "none"]),
-	// Optional hint: when the NoopAuthResolver can't derive source, the caller may supply it.
-	// The route trusts it only when the resolver yields null (architecture §3, open Q7).
-	sourceHint: z.string().optional(),
 });
+
+const GITHUB_HTTPS_REPO = /^https:\/\/github\.com\//i;
+/** A branch is a plain ref name — no shell metacharacters, no leading `-` (an argv flag). */
+const BRANCH_NAME = /^[A-Za-z0-9._/-]+$/;
+/** Same idiom as BRANCH_NAME: a bare rclone remote name can never start with `-`, so `remote:path` can never be read as a flag. */
+const REMOTE_NAME = /^[A-Za-z0-9._-]+$/;
 
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
 
@@ -95,99 +131,131 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
 		kind: row.kind as Filesystem["kind"],
 		connectionId: row.connectionId ?? null,
 		resourceRef,
-		writeback: row.writeback as Filesystem["writeback"],
 		state: row.state as Filesystem["state"],
+		attentionReason: row.attentionReason ?? null,
 		createdAt: row.createdAt,
 	};
 }
 
-// ─── Per-request resolver factory ─────────────────────────────────────────────
-
 /**
- * Build the token resolver for a specific request.
- * When a real ServiceConnectionResolver is available, creates an inline adapter
- * that closes over the request userId. Falls back to a noop resolver.
- *
- * @lore AO1 v2: The resolver MUST be constructed per-request — it closes over userId.
- * A singleton would bind to one userId across all requests.
- *
- * @lore AU26 F1 (AU21 Decision J8, bounded co-move): this route used to
- * type-import `ServiceConnectionResolver` from `@hyperidle/connections`, which
- * AU26 E2/E3 made an `agent-orchestration` Service — a core-api Layer file
- * type-importing across the Layer boundary. It now names the structural port
- * `FilesystemsServiceConnectionResolver` (`@hyperidle/filesystems`' own
- * `ports.ts`), which the concrete resolver satisfies. Zero behaviour change:
- * the Layer still composes the real resolver downward at construction.
+ * POST's `source` derivation — display only, never client-supplied.
+ * A `connectionId` is only accepted (see the handler's validation) when it
+ * already names a github.com repo, so it always yields `"github"`.
  */
-function buildAuthResolver(
-	connectionResolver: FilesystemsServiceConnectionResolver | undefined,
-	userId: string,
-): FilesystemTokenResolver {
-	if (connectionResolver) {
-		return {
-			resolveToken: (connectionId: string) => connectionResolver.resolve(userId, connectionId),
-		};
-	}
-	return {
-		resolveToken: async (_connectionId: string) => null,
-	};
+function deriveSource(body: z.infer<typeof registerFilesystemSchema>): string {
+	if (body.resourceRef.kind === "drive") return "gdrive";
+	if (body.connectionId != null) return "github";
+	if (body.resourceRef.kind !== "code") return "local";
+	if (isLocalRepoPath(body.resourceRef)) return "local";
+	return GITHUB_HTTPS_REPO.test(body.resourceRef.repo) ? "github" : "git";
 }
 
-// ─── Reachability helper (mutates stored state) ───────────────────────────────
-
 /**
- * @lore AO1 v2: list = cached state; inspect/register = live probe.
- * Delegates to refreshFilesystemState (probe + persist in one call).
+ * POST rules, everything Zod's shape checks cannot express:
+ * - a `code` URL may never carry userinfo (credentials belong in a connection);
+ * - `branch` is a plain ref name;
+ * - `connectionId`, when given, must name a `token` connection whose `service`
+ *   is `github`, and the repo must already be an `https://github.com/` URL.
+ * Returns the 400 message, or null when the body is valid.
  */
-async function checkAndPersistState(
+async function validateRegisterBody(
+	body: z.infer<typeof registerFilesystemSchema>,
+	lookupConnection: ConnectionLookupPort["lookup"] | undefined,
+): Promise<string | null> {
+	if (body.resourceRef.kind === "code") {
+		const { repo, branch } = body.resourceRef;
+		if (!BRANCH_NAME.test(branch) || branch.startsWith("-")) {
+			return "branch must be a plain ref name";
+		}
+		if (/^https?:\/\//i.test(repo)) {
+			let parsed: URL;
+			try {
+				parsed = new URL(repo);
+			} catch {
+				return "resourceRef.repo is not a valid URL";
+			}
+			if (parsed.username || parsed.password) {
+				return "credentials belong in a connection, never in the URL";
+			}
+		}
+	}
+
+	if (body.resourceRef.kind === "drive") {
+		const { remote, path } = body.resourceRef;
+		if (!REMOTE_NAME.test(remote) || remote.startsWith("-")) {
+			return "remote must be a plain rclone remote name (no ':', no path)";
+		}
+		if (path.includes("\n") || path.includes("\0")) {
+			return "path must not contain a newline or a NUL byte";
+		}
+	}
+
+	if (body.connectionId == null) return null;
+
+	if (body.resourceRef.kind !== "code" || !GITHUB_HTTPS_REPO.test(body.resourceRef.repo)) {
+		return "connectionId is only valid for an https://github.com/ repository";
+	}
+	const connection = (await lookupConnection?.(body.connectionId)) ?? null;
+	if (connection == null || connection.authSource !== "token" || connection.service !== "github") {
+		return "connectionId must name a GitHub token connection";
+	}
+	return null;
+}
+
+// ─── Check — run and persist (registration + POST /:id/check share this) ────
+
+async function runCheckAndPersist(
 	db: HyperIdleDb,
-	row: FilesystemRow,
-	authResolver: FilesystemTokenResolver,
-): Promise<FilesystemRow> {
-	return refreshFilesystemState(db, row, {
-		authResolver,
-		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`.
+	eventBus: EventBus | undefined,
+	resolveCredential: CredentialResolverPort["resolve"] | undefined,
+	filesystem: Filesystem,
+): Promise<FilesystemCheckResult> {
+	const credential =
+		filesystem.connectionId != null && resolveCredential
+			? await resolveCredential(filesystem.connectionId)
+			: null;
+	const check = await checkFilesystem(filesystem, {
+		credential,
 		gitRunnerFactory: createGitRunner,
+		ghAuthStatus,
+		rclone: createRcloneRunner(),
 	});
+	if (check.ok) {
+		await markFilesystemReachable(db, filesystem.id);
+	} else {
+		await recordFilesystemNeedsAttention(
+			db,
+			eventBus,
+			filesystem.id,
+			check.reason ?? "unreachable",
+		);
+	}
+	return check;
 }
 
 // ─── createFilesystemRoutes ───────────────────────────────────────────────────
 
 export function createFilesystemRoutes(
 	db: HyperIdleDb,
-	/**
-	 * Pass the real ServiceConnectionResolver for per-request adapter construction.
-	 * When absent (tests without AN1 resolver, non-db contexts), falls back to NoopAuthResolver.
-	 *
-	 * @lore AO1 v2: The resolver is passed at route-creation time, but the adapter
-	 * is constructed PER REQUEST (inside the handler) because it closes over userId
-	 * from c.get("userId"). A process-singleton adapter would bind to one userId — wrong.
-	 */
-	connectionResolver?: FilesystemsServiceConnectionResolver,
+	deps: FilesystemRoutesDeps = {},
 ): Hono<HyperIdleEnv> {
+	const { eventBus, keptCopiesRoot, resolveCredential, lookupConnection } = deps;
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── POST /api/filesystems — Register a filesystem ──────────────────────────
 	router.post("/", validateBody(registerFilesystemSchema), async (c) => {
 		const body = c.req.valid("json");
-		const userId = c.get("userId");
-		const authResolver = buildAuthResolver(connectionResolver, userId);
 
-		// Derive source from the Connection (via resolver) or fallback.
-		// NOTE: teamId FK validation is handled in the insert catch below (→ 404 on FK violation).
-		// The old "FK guard before insert" block was a dead no-op — see M1 in the AO1 review.
-		const connectionId = body.connectionId ?? null;
-		let source: string;
-		if (connectionId == null) {
-			source = "local";
-		} else {
-			source = body.sourceHint ?? "unknown";
+		const validationError = await validateRegisterBody(body, lookupConnection);
+		if (validationError) {
+			return c.json({ error: validationError, code: "VALIDATION_ERROR" }, 400);
 		}
 
+		const connectionId = body.connectionId ?? null;
+		const source = deriveSource(body);
 		const id = crypto.randomUUID();
 		const now = new Date().toISOString();
 
-		// Insert with 'attached' state — probe below will update if different.
 		try {
 			await saveFilesystem(db, {
 				id,
@@ -196,7 +264,6 @@ export function createFilesystemRoutes(
 				kind: body.kind,
 				connectionId,
 				resourceRef: JSON.stringify(body.resourceRef),
-				writeback: body.writeback,
 				state: "attached",
 				createdAt: now,
 			});
@@ -221,10 +288,17 @@ export function createFilesystemRoutes(
 		const inserted = await getFilesystem(db, id);
 		if (inserted == null) throw new Error("Filesystem disappeared after insert");
 
-		// Run live probe on register — persists result, returns the updated row.
-		// @lore AO1 v2: probe on register so the caller gets the real initial state.
-		const probed = await checkAndPersistState(db, inserted, authResolver);
-		return c.json(rowToFilesystem(probed), 201);
+		// Run Check on registration so the caller gets the real initial
+		// state. A failing check enters `needs_attention` and sends the notice,
+		// like any other entry.
+		const check = await runCheckAndPersist(
+			db,
+			eventBus,
+			resolveCredential,
+			rowToFilesystem(inserted),
+		);
+		const persisted = (await getFilesystem(db, id)) ?? inserted;
+		return c.json({ filesystem: rowToFilesystem(persisted), check }, 201);
 	});
 
 	// ── POST /api/filesystems/inspect-path — Probe a local path before register ─
@@ -233,9 +307,6 @@ export function createFilesystemRoutes(
 	// loosening that schema. @lore AV1: reuses createGitRunner (currentBranch verb).
 	router.post("/inspect-path", validateBody(z.object({ path: z.string().min(1) })), async (c) => {
 		const { path } = c.req.valid("json");
-		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
-		// `git-export` package it used to live in is deleted. See `@hyperidle/filesystems`'
-		// `ports.ts` top `@lore`.
 		const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
 		return c.json(info, 200);
 	});
@@ -267,24 +338,21 @@ export function createFilesystemRoutes(
 			rows = await listFilesystems(db, { agentId: agentUserId ?? "" });
 		}
 
-		// LIST route: use STORED state (do NOT live-probe every row).
-		// @lore AO1 v2: one ls-remote per list row makes team-list latency-bound on the forge.
-		// The inspect (GET /:id) and register (POST /) paths trigger live probes.
+		// LIST route: STORED state only — never a live Check per row (latency-bound
+		// on the forge otherwise). `POST /:id/check` is the on-demand path.
 		return c.json({ filesystems: rows.map(rowToFilesystem) }, 200);
 	});
 
-	// ── GET /api/filesystems/:id — Inspect one filesystem ─────────────────────
-	router.get("/:id", async (c) => {
+	// ── POST /api/filesystems/:id/check — Run Check on demand ─────────────────
+	router.post("/:id/check", async (c) => {
 		const id = c.req.param("id");
 		const row = await getFilesystem(db, id);
 		if (row == null) {
 			return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
 		}
-
-		const userId = c.get("userId");
-		const authResolver = buildAuthResolver(connectionResolver, userId);
-		const refreshed = await checkAndPersistState(db, row, authResolver);
-		return c.json(rowToFilesystem(refreshed), 200);
+		const check = await runCheckAndPersist(db, eventBus, resolveCredential, rowToFilesystem(row));
+		const persisted = (await getFilesystem(db, id)) ?? row;
+		return c.json({ filesystem: rowToFilesystem(persisted), check }, 200);
 	});
 
 	// ── DELETE /api/filesystems/:id — Remove registration (cascades injections) ─
@@ -299,6 +367,8 @@ export function createFilesystemRoutes(
 
 		// CASCADE on filesystem_injections is DB-level (onDelete: cascade).
 		await deleteFilesystem(db, id);
+		// Forget the ONE remote kept copy, if any — never a local repo.
+		await forgetKeptCopy(keptCopiesRoot, rowToFilesystem(existing));
 		return new Response(null, { status: 204 });
 	});
 

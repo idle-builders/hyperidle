@@ -54,15 +54,45 @@ export type {
 	RuntimeHandle,
 	RuntimePorts,
 } from "./contracts.js";
+export type { DriveFailureCode } from "./drive-reason.js";
+export { driveReason } from "./drive-reason.js";
 export { endRunForHandoff } from "./end-run-for-handoff.js";
 export { startWatcher } from "./file-watcher.js";
 export {
+	checkFilesystem,
+	type FilesystemCheckDeps,
+	type FilesystemCheckResult,
+	type GhAuthState,
+} from "./filesystem-check.js";
+export { describeMountedFilesystems } from "./filesystem-instructions.js";
+export {
+	computeFolderNames,
 	type FilesystemForProvisioning,
+	type FilesystemMounterPort,
+	FilesystemMountFailure,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-export { ensureSandboxGitRepo, RegistryFilesystemMounter } from "./mounter.js";
-export type { MountingGitRunnerFactory } from "./mounter-ports.js";
+export { gitCredentialEnv, mergeGitConfigEnv } from "./git-credential-env.js";
+export {
+	type AdapterDeps,
+	ensureSandboxGitRepo,
+	excludeMountedFolders,
+	type Filesystem,
+	forgetKeptCopy,
+	isLocalRepoPath,
+	type MountedFilesystem,
+	type MountInput,
+	type MountResult,
+	normalizeLocalPath,
+	RegistryFilesystemMounter,
+} from "./mounter.js";
+export type {
+	MountingGitRunnerFactory,
+	RcloneFailureCode,
+	RcloneOutcome,
+	RcloneRunner,
+} from "./mounter-ports.js";
 export type { PluginMcpContributionsPort } from "./provisioner.js";
 export {
 	requestRunStopForTasks,

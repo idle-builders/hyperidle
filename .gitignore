@@ -36,6 +36,8 @@ framework/design-system/03-hearth.html
 framework/design-system/inspiration/
 installed-plugins/
 hyperidle-pg/
+# BA5 §5.2: a remote git filesystem's kept copies, beside the dev-checkout db.
+kept-copies/
 eval-results*.json
 docs/product/.vitepress/cache
 # Astro generated types + content sync cache (applications/website)

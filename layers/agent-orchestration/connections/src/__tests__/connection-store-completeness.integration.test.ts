@@ -5,16 +5,12 @@ import {
 	deleteConnection,
 	insertConnection,
 	listConnections,
-	updateConnection,
 } from "../service-connection-store.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";
-const LATER = "2026-01-02T00:00:00.000Z";
 
 describe("connection store completeness contract", () => {
-	test("connection store composes auth-source/user/id filters and persists updates", async ({
-		db,
-	}) => {
+	test("connection store composes auth-source/user/id filters", async ({ db }) => {
 		await db.insert(users).values([
 			{
 				id: "connections-contract-a",
@@ -46,8 +42,6 @@ describe("connection store completeness contract", () => {
 				service: "github",
 				encryptedToken: row.authSource === "token" ? "encrypted" : null,
 				serverUrl: row.authSource === "mcp" ? "https://example.test/mcp" : null,
-				health: "needs-attention",
-				lastValidatedAt: null,
 				createdAt: NOW,
 				updatedAt: NOW,
 			});
@@ -63,28 +57,12 @@ describe("connection store completeness contract", () => {
 				userId: "connections-contract-b",
 			}),
 		).toEqual([]);
-
-		await updateConnection(
-			db,
-			{ id: "contract-a-token", userId: "connections-contract-b" },
-			{ health: "healthy", lastValidatedAt: LATER, updatedAt: LATER },
-		);
-		expect(await listConnections(db, { id: "contract-a-token" })).toMatchObject([
-			{ health: "needs-attention", lastValidatedAt: null, updatedAt: NOW },
-		]);
-
-		await updateConnection(
-			db,
-			{ id: "contract-a-token", userId: "connections-contract-a" },
-			{
-				health: "healthy",
-				lastValidatedAt: LATER,
-				updatedAt: LATER,
-			},
-		);
-		expect(await listConnections(db, { id: "contract-a-token" })).toMatchObject([
-			{ health: "healthy", lastValidatedAt: LATER, updatedAt: LATER },
-		]);
+		expect(
+			await listConnections(db, {
+				id: "contract-a-token",
+				userId: "connections-contract-a",
+			}),
+		).toMatchObject([{ id: "contract-a-token" }]);
 	});
 
 	test("connection deletion remains scoped to the owning user", async ({ db }) => {
@@ -104,8 +82,6 @@ describe("connection store completeness contract", () => {
 			authSource: "token",
 			encryptedToken: "encrypted",
 			serverUrl: null,
-			health: "healthy",
-			lastValidatedAt: NOW,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});

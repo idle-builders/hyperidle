@@ -47,7 +47,6 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			kind: "doc_set",
 			connectionId: null,
 			resourceRef: JSON.stringify({ kind: "doc_set", folder: "/docs" }),
-			writeback: "file",
 			state: "attached",
 			createdAt: NOW,
 		});
@@ -69,8 +68,8 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 				kind: "doc_set",
 				connectionId: null,
 				resourceRef: { kind: "doc_set", folder: "/docs" },
-				writeback: "file",
 				state: "attached",
+				attentionReason: null,
 				createdAt: NOW,
 			},
 		]);
@@ -99,7 +98,6 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 				kind: "code",
 				connectionId: null,
 				resourceRef: JSON.stringify({ kind: "code", repo: "org/repo", branch: "main" }),
-				writeback: "git",
 				state: "attached",
 				createdAt: NOW,
 			},
@@ -110,7 +108,6 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 				kind: "doc_set",
 				connectionId: null,
 				resourceRef: JSON.stringify({ kind: "doc_set", folder: "/notes" }),
-				writeback: "none",
 				state: "reachable",
 				createdAt: NOW,
 			},
@@ -131,8 +128,8 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			kind: "code",
 			connectionId: null,
 			resourceRef: { kind: "code", repo: "org/repo", branch: "main" },
-			writeback: "git",
 			state: "attached",
+			attentionReason: null,
 			createdAt: NOW,
 		});
 		expect(byId.get("fs-rifa-2b")).toEqual({
@@ -142,8 +139,8 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			kind: "doc_set",
 			connectionId: null,
 			resourceRef: { kind: "doc_set", folder: "/notes" },
-			writeback: "none",
 			state: "reachable",
+			attentionReason: null,
 			createdAt: NOW,
 		});
 	});

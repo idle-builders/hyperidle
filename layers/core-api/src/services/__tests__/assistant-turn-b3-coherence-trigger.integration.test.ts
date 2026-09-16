@@ -174,7 +174,6 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 			kind: "doc_set",
 			connectionId: null,
 			resourceRef: JSON.stringify({ kind: "doc_set", folder: "/docs" }),
-			writeback: "file",
 			state: "attached",
 			createdAt: NOW,
 		});
@@ -196,8 +195,6 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 			authSource: "token",
 			encryptedToken: "inc11-b3-coherence-encrypted-placeholder",
 			serverUrl: null,
-			health: "needs-attention",
-			lastValidatedAt: null,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});

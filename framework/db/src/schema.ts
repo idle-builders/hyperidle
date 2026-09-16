@@ -1159,10 +1159,12 @@ export const filesystems = pgTable(
 		connectionId: text("connection_id"),
 		// JSON-encoded ResourceRef, discriminated by kind.
 		resourceRef: text("resource_ref").notNull(),
-		// Capability axis: how authored changes leave the sandbox.
-		writeback: text("writeback").notNull(),
-		// Reachability lifecycle. Stored; the inspect/list route may transition + persist it.
+		// Reachability lifecycle. Written by placement (a mount failure) and by Check —
+		// never by a route transition (migration 0082).
 		state: text("state").notNull().default("attached"),
+		// What to fix, plain words, redacted. Set together with state:'needs_attention';
+		// cleared when Check passes. Migration 0082 replaces the write-back axis.
+		attentionReason: text("attention_reason"),
 		createdAt: text("created_at").notNull(),
 	},
 	(table) => [index("filesystems_team_idx").on(table.teamId)],
@@ -1522,9 +1524,6 @@ export const serviceConnections = pgTable(
 		encryptedToken: text("encrypted_token"),
 		/** https:// URL — mcp only; null for token. */
 		serverUrl: text("server_url"),
-		/** "working" | "needs-attention" — set by validate endpoint. */
-		health: text("health").notNull().default("needs-attention"),
-		lastValidatedAt: text("last_validated_at"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},

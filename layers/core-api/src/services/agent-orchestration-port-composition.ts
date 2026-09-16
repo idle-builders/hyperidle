@@ -133,6 +133,9 @@ interface AgentOrchestrationHcClient {
 					};
 				};
 			};
+			readonly "release-for-task": {
+				$post(args: { readonly json: { readonly taskId: string } }): Promise<Response>;
+			};
 		};
 	};
 }
@@ -327,6 +330,12 @@ export function buildAgentOrchestrationPort(
 							};
 					  }
 					| { readonly ok: false; readonly code: "NOT_FOUND" | "CONFLICT" };
+			},
+			async releaseForTask(taskId: string): Promise<void> {
+				const res = await client["agent-orchestration"].filesystems["release-for-task"].$post({
+					json: { taskId },
+				});
+				if (!res.ok) return throwSeamError("filesystems.releaseForTask", res);
 			},
 		},
 	};

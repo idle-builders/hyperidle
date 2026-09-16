@@ -88,6 +88,7 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|PATCH /run-config/:agentId",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /filesystems/:id/team",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /filesystems/:id/injections/persist",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /filesystems/release-for-task",
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|POST /mcp/:token/return-status",
 ];
 
@@ -104,7 +105,12 @@ const OBJECT_EVENTS: readonly string[] = [
 	"user.changed",
 ];
 
-/** The eight platform events — extension surface, never an object door. */
+/**
+ * The platform events — extension surface, never an object door.
+ * @lore BA5 +1: `filesystem_needs_attention` joins them — a filesystem hold
+ * signal that feeds core-api's inbox exactly like `agent_run_admission_failed`
+ * does, never a task/thread/document/user object door.
+ */
 const PLATFORM_EVENTS: readonly string[] = [
 	"agent_work_intent_recorded",
 	"agent_run_admission_failed",
@@ -114,6 +120,7 @@ const PLATFORM_EVENTS: readonly string[] = [
 	"tool_call_recorded",
 	"propagation_applied",
 	"propagation_failed",
+	"filesystem_needs_attention",
 ];
 
 /**
@@ -126,6 +133,10 @@ const PLATFORM_EVENTS: readonly string[] = [
  * four socket/protocol transports (mcp-route, worker-ingress, ws,
  * session-stream-ws) — see the architecture doc §7 for why each stays a
  * shrink-list entry rather than becoming plumbing or an action today.
+ * @lore BA5: `connections.ts|POST /:id/validate` and `filesystems.ts|GET /:id`
+ * are gone with their routes (this row's own deletion pass); `filesystems.ts|
+ * POST /:id/check` joins — the on-demand re-check button (SettingsFilesystems),
+ * not a task action.
  */
 const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|ALL /mcp/:token",
@@ -138,11 +149,10 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/connections.ts|GET /",
 	"layers/agent-orchestration/src/routes/connections.ts|POST /",
 	"layers/agent-orchestration/src/routes/connections.ts|DELETE /:id",
-	"layers/agent-orchestration/src/routes/connections.ts|POST /:id/validate",
 	"layers/agent-orchestration/src/routes/filesystems.ts|POST /",
 	"layers/agent-orchestration/src/routes/filesystems.ts|POST /inspect-path",
 	"layers/agent-orchestration/src/routes/filesystems.ts|GET /",
-	"layers/agent-orchestration/src/routes/filesystems.ts|GET /:id",
+	"layers/agent-orchestration/src/routes/filesystems.ts|POST /:id/check",
 	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id",
 	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id/injections/:agentUserId",
 	"layers/agent-orchestration/src/routes/session-stream-ws.ts|GET /agent-orchestration/ws",

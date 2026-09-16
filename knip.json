@@ -17,6 +17,7 @@
 		"**/__tests__/_helpers.ts",
 		"layers/agent-execution/harness-registry/src/__tests__/require-binary.ts",
 		"layers/agent-orchestration/connections/src/__tests__/require-binary.ts",
+		"layers/agent-orchestration/run-orchestration/src/__tests__/require-binary.ts",
 		"layers/agent-execution/harness-registry/src/__tests__/require-harness.ts",
 		"layers/core-api/src/__testing__/test-fixtures.ts",
 		"layers/core-ui/__e2e__/fixtures.ts",
@@ -27,6 +28,7 @@
 		"layers/core-api/src/__tests__/AL7-no-kernel-executor.test.ts",
 		"layers/core-api/src/__tests__/notifications-test-deps.ts",
 		"layers/agent-orchestration/src/test-fixtures.ts",
+		"layers/agent-orchestration/src/__testing__/github-stand-in.ts",
 		"layers/agent-orchestration/run-orchestration/src/__tests__/test-ports.ts",
 		"layers/agent-orchestration/tool-handlers/src/__tests__/stub-ports.ts"
 	],
@@ -56,6 +58,17 @@
 		// npm packages — they are installed CLIs on PATH, like `claude` and `cursor-agent`.
 		"layers/agent-execution/harness-registry": {
 			"ignoreBinaries": ["codex", "opencode"]
+		},
+		// rclone is a real CLI on PATH, like git/gh — spawned by the layer root's
+		// own rclone-runner.ts, never an npm package.
+		"layers/agent-orchestration": {
+			"ignoreBinaries": ["rclone"]
+		},
+		// The local-only real-rclone lane (drive-folder-adapter.integration.test.ts)
+		// spawns the same real `rclone` binary directly, to prove the agent's own
+		// push-back command.
+		"layers/agent-orchestration/run-orchestration": {
+			"ignoreBinaries": ["rclone"]
 		},
 		"layers/core-ui": {
 			"entry": [

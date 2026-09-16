@@ -35,19 +35,23 @@ import {
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
 	ConcurrencyLimitError,
+	FilesystemUnavailableError,
 	NoAvailableHarnessError,
 	NoEligibleHarnessError,
 	TargetAgentNotRunnableError,
 } from "./errors.js";
+import { checkFilesystem, type FilesystemCheckDeps } from "./filesystem-check.js";
+import { describeMountedFilesystems } from "./filesystem-instructions.js";
 import {
 	type FilesystemMounterPort,
+	FilesystemMountFailure,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-// Filesystem: local to this package — sibling service boundary (Mechanism C).
+import { mergeGitConfigEnv } from "./git-credential-env.js";
+// MountedFilesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
-import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
-import { sessionAwaitsVerdict } from "./review-sessions.js";
+import { ensureSandboxGitRepo, excludeMountedFolders, type MountedFilesystem } from "./mounter.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -724,44 +728,18 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  * working on a repo that tracks .mcp.json does not overwrite the real config.
  */
 
-// ── AO2 — Phase 4.5 mount + teardown capture-back helpers ────────────────────
+// ── AO2 — Phase 4.5 mount ────────────────────────────────────────────────
 //
 // @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
 // (`mountFilesystemsForAgent`) relocated wholesale into this package's own
 // `filesystem-provisioning.ts` (imported above) — only the seam-facing
 // `SessionLifecycleFilesystemsReader` port type stays declared in this file.
-
-/**
- * AO2 Hook B: Capture-back mounted filesystems before endSession/crashSession.
- *
- * Called BEFORE each endSession (which holds the rm -rf) and before crashSession
- * on the in-runSession crash path. Best-effort: a capture failure is logged but
- * never blocks teardown (uncommitted-but-failed = same loss as today).
- *
- * The delete lives in the terminal transition, not workspace.destroy
- * (adapter-map cleanup only, runs after the delete).
- * Anchoring capture "before workspace.destroy" would capture an already-deleted tree.
- * Must be called BEFORE endSession.
- */
-async function captureMountedFilesystems(
-	sessionId: string,
-	sandboxPath: string,
-	mountedFilesystems: Filesystem[],
-	mounter: FilesystemMounterPort,
-): Promise<void> {
-	if (mountedFilesystems.length === 0) return;
-
-	for (const filesystem of mountedFilesystems) {
-		try {
-			await mounter.captureBack({ filesystem, sandboxPath, sessionId });
-		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				`[session-provisioning] AO2 captureBack threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
-			);
-		}
-	}
-}
+//
+// @lore BA5 (no-teardown, 2026-09-16): nothing is unmounted at session end
+// any more — a git worktree lives outside the session directory entirely
+// (`mounter.ts`) and is only ever removed by `releaseForTask` once its task
+// is done. The `unmountFilesystems` helper this section used to hold, and
+// its three teardown call sites, are gone with it.
 
 /**
  * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
@@ -834,12 +812,25 @@ interface ProvisionSessionDeps {
 	 */
 	readonly onHarnessStarted?: () => void;
 	/**
-	 * AO2: Optional mounter for filesystem placement + capture-back.
+	 * AO2: Optional mounter for filesystem placement.
 	 * When absent, sessions run without any filesystem mount (degrade to today's behavior).
-	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
-	 * each endSession/crashSession call.
+	 * When present, mount runs after sandbox spawn (Phase 4.5); nothing unmounts it at
+	 * session end — a git worktree lives outside the session directory entirely and is
+	 * only ever removed by `releaseForTask` once its task is done.
 	 */
 	readonly mounter?: FilesystemMounterPort;
+	/**
+	 * What a placement failure needs to re-run `checkFilesystem` once, so the
+	 * hold's reason names what to fix (a missing CLI, a rejected token)
+	 * rather than the mount adapter's own raw error text. Absent → the
+	 * adapter's own `FilesystemMountFailure.reason` is used as-is, the same
+	 * fallback used when Check unexpectedly passes or there is no way to
+	 * check at all.
+	 */
+	readonly filesystemCheckDeps?: Pick<
+		FilesystemCheckDeps,
+		"gitRunnerFactory" | "ghAuthStatus" | "rclone"
+	>;
 	/**
 	 * BA9b: Plugin MCP server contributions for this session's team scope.
 	 * When absent, no plugin MCP servers are merged into the session config.
@@ -1032,7 +1023,7 @@ interface AdmittedSession {
 	/**
 	 * AO2: Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
-	readonly mountedFilesystems: Filesystem[];
+	readonly mountedFilesystems: MountedFilesystem[];
 }
 
 /**
@@ -1041,10 +1032,14 @@ interface AdmittedSession {
  * Runs the HTTP-observable prefix: load agent, adapter
  * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
  * pre-P5)**, task transition, workspace spawn (P4), session row insert (P5),
- * context assembly (P6), start watcher (P7), emit `session_started`. ALL admission
- * failures (ConcurrencyLimit 429 / MissingCredential 500)
- * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
- * status on the POST path and never leave a doomed row.
+ * context assembly (P6), start watcher (P7), emit `session_started`.
+ * ConcurrencyLimit/MissingCredential (429/500) throw BEFORE the P5 row insert
+ * — the detach boundary — so they map to HTTP status on the POST path and
+ * never leave a doomed row. @lore BA5: that is no longer true of every
+ * admission failure — Phase 4.5's filesystem mount runs AFTER the row insert,
+ * so a mount failure's reserved row already exists when it throws. `runtime.ts`
+ * either crashes that row (an ordinary uncaught failure) or, once the hold
+ * exists, deletes it back to `pending` (§4.2) — never left dangling.
  * @lore AU21 Increment 14a: the cost-cap pre-flight (was Phase 2, `CostCapExceeded`
  * 422) is deleted — no replacement gate. Phase numbering below keeps its
  * historical P3/P4/... labels rather than renumbering.
@@ -1180,7 +1175,7 @@ async function admitSession(
 	// `accepted`/`blocked` in the first place.
 	let sessionId: string;
 	let sandboxPath: string;
-	let mountedFilesystems: Filesystem[] = [];
+	let mountedFilesystems: MountedFilesystem[] = [];
 	// ── Phase 4: spawn sandbox via adapter.
 	//
 	// @lore BA2: a resumed session does not get a new directory — it adopts the
@@ -1236,22 +1231,71 @@ async function admitSession(
 	// ── Phase 4.5: mount injected filesystems (AO2). AU26 F2: reads the
 	// injection record LIVE, in-layer, at spawn — no seam, and no emit-time bake
 	// to go stale (see this file's own top-of-file `filesystems` `@lore`).
+	//
+	// @lore BA5 §4.2/§13 (L5): a mount failure runs the full hold here, in the
+	// exact order the plan requires — (1) release the adapter slot, as the
+	// concurrency-limit branch above does; (2) destroy the spawned workspace,
+	// UNLESS this is a resume (an adopted workspace is the agent's own work);
+	// (3) mark the filesystem `needs_attention` and AWAIT it, so the once-
+	// per-episode notice (§4.5) is guaranteed to have run before this throws;
+	// (4) only then throw `FilesystemUnavailableError`. `runtime.ts` reacts to
+	// that name by deleting the reserved `sessions` row instead of crashing it
+	// and releasing the request's claim back to `pending` (§4.2) — the task
+	// itself is never touched: no `agent_run_admission_failed`, no lifecycle
+	// event, nothing core could see as a failed dispatch attempt.
+	//
+	// @lore BA5 (no-teardown): a filesystem this admission already placed is
+	// NEVER unmounted here any more — at this point it may already hold
+	// earlier work of the same task (`mounter.ts` §3), and only
+	// `releaseForTask`, once the task is done, ever removes a git worktree.
 	if (deps.mounter) {
-		mountedFilesystems = await mountFilesystemsForAgent({
-			agentId: params.agentId,
-			...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
-			sandboxPath,
-			mounter: deps.mounter,
-		});
+		try {
+			mountedFilesystems = await mountFilesystemsForAgent({
+				agentId: params.agentId,
+				sessionId,
+				taskId: params.taskId,
+				...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
+				workspacePath: sandboxPath,
+				mounter: deps.mounter,
+			});
+		} catch (mountErr) {
+			if (!(mountErr instanceof FilesystemMountFailure)) throw mountErr;
+
+			adapterPool.release(adapterId);
+			if (!params.resume?.sandboxPath) {
+				await workspace.destroy(sandboxHandle);
+			}
+
+			// The plan's own reason source: re-run Check once on the failing
+			// filesystem so the notice says what to fix. Falls back to the mount
+			// adapter's own text when there is no way to check (no
+			// `filesystemCheckDeps` wired) or Check unexpectedly passes.
+			let reason = mountErr.reason;
+			if (deps.filesystemCheckDeps) {
+				const recheck = await checkFilesystem(mountErr.filesystem, {
+					credential: mountErr.credential,
+					gitRunnerFactory: deps.filesystemCheckDeps.gitRunnerFactory,
+					ghAuthStatus: deps.filesystemCheckDeps.ghAuthStatus,
+					rclone: deps.filesystemCheckDeps.rclone,
+				});
+				if (!recheck.ok && recheck.reason) reason = recheck.reason;
+			}
+
+			await deps.injectedFilesystems?.markNeedsAttention?.(mountErr.filesystemId, reason);
+			throw new FilesystemUnavailableError(mountErr.filesystemId, reason);
+		}
 	}
 
-	// @lore BA2 ruling 22: guarantee the sandbox is a git repo, AFTER mounting
-	// (never before — a mounted code filesystem's `git clone`/`git worktree add`
-	// refuses a target directory that already has a `.git`; see
-	// `ensureSandboxGitRepo`'s own doc comment in mounter.ts). Unconditional —
-	// runs even when no mounter is configured, since every session sandbox
-	// benefits (codex's trust precondition; an agent's own diff/revert).
+	// @lore BA5 §5.4: `ensureSandboxGitRepo` no longer has to run strictly after
+	// mounting — a mounted filesystem now lives in its own `<folderName>`
+	// subfolder, never at the sandbox root (see the function's own doc comment
+	// in mounter.ts). Kept in this order regardless: `excludeMountedFolders`
+	// right after it needs the `.git` this call creates.
 	ensureSandboxGitRepo(sandboxPath);
+	excludeMountedFolders(
+		sandboxPath,
+		mountedFilesystems.map((m) => path.basename(m.folder)),
+	);
 
 	// ── Phase 6: assemble context into the sandbox through the agent layer.
 	if (params.taskId) {
@@ -1425,7 +1469,6 @@ async function runSession(
 		db,
 		eventBus,
 		adapterPool,
-		workspace,
 		mcpBridgeRegistry,
 		mcpBaseUrl,
 		serviceConnectionResolver,
@@ -1440,7 +1483,6 @@ async function runSession(
 		modelTier,
 		modelOptions,
 		selectedModel,
-		sandboxHandle,
 		sandboxPath,
 		ingestion,
 		selectedAdapter,
@@ -1541,6 +1583,10 @@ async function runSession(
 	// only ever saw the second. With the built-in adapter gone the first has no
 	// reader, so the prompt section is now the single delivery.
 
+	// What the agent has, and how its work gets out — appended right before
+	// the write, once, only when something was mounted.
+	assembledPrompt += describeMountedFilesystems(mountedFilesystems);
+
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
 	// BA10: what the agent is asked to do, as opposed to what it is told about
@@ -1616,12 +1662,15 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 		if (adapterCapabilities.cliMcpDialect) {
-			// The session's mounted filesystems (AO2, phase 4.5
-			// above) are the trusted directories — tell the harness what the
-			// filesystem primitive already declared, alongside the sandbox.
-			const trustedPaths = mountedFilesystems
-				.map((filesystem) => localTrustedPath(filesystem))
-				.filter((p): p is string => p !== undefined);
+			// The session's mounted filesystems (AO2, phase 4.5 above) are the
+			// trusted directories — tell the harness what the filesystem primitive
+			// already declared, alongside the sandbox. Every mount now carries
+			// its own `trustedPaths` (the kept copy AND the worktree itself for
+			// git — two real paths now that the worktree lives outside the
+			// sandbox; the real folder alone for a folder mount) — no filter,
+			// unlike the deleted `localTrustedPath`, which returned undefined
+			// for a plain clone.
+			const trustedPaths = mountedFilesystems.flatMap((filesystem) => filesystem.trustedPaths);
 			const result = await ports.harnessRuntime.writeCliMcpConfig({
 				dialect: adapterCapabilities.cliMcpDialect,
 				sandboxPath,
@@ -1673,6 +1722,23 @@ async function runSession(
 			);
 		}
 	}
+
+	// @lore BA5 §6.1: a mounted filesystem's own `agentEnv` (e.g. a git
+	// filesystem's `GH_TOKEN`, for the agent's OWN `git push`/`gh`) merges
+	// AFTER and OUTSIDE the `serviceConnectionResolver` block above — never
+	// inside its `if`/`try`. A filesystem's credential must reach the agent
+	// even when connection provisioning is not wired at all (no
+	// `serviceConnectionResolver`) or its own `try` failed, and it overrides a
+	// connection-provisioned `GH_TOKEN` (a filesystem's own PAT is the more
+	// specific grant). `mergeGitConfigEnv` combines every mount's env into one
+	// indexed list instead of a naive spread colliding on repeated keys.
+	const mountedAgentEnv = mergeGitConfigEnv(
+		mountedFilesystems.map((filesystem) => filesystem.agentEnv),
+	);
+	if (Object.keys(mountedAgentEnv).length > 0) {
+		mcpTokenEnv = { ...(mcpTokenEnv ?? {}), ...mountedAgentEnv };
+	}
+
 	try {
 		await mergePluginMcpContributions(
 			deps.pluginMcpContributions,
@@ -1941,10 +2007,6 @@ async function runSession(
 	}
 
 	if (crashed) {
-		// ── Hook B: capture-back before crash teardown (AO2 §9).
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-		}
 		await transitionRun(
 			{ db, eventBus, ports },
 			{
@@ -1993,10 +2055,6 @@ async function runSession(
 			timestamp: Date.now(),
 		});
 
-		// ── Hook B: capture-back before not_returned teardown (AO2 §9).
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-		}
 		await transitionRun(
 			{ db, eventBus, ports },
 			{
@@ -2007,7 +2065,6 @@ async function runSession(
 				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
-		await workspace.destroy(sandboxHandle);
 		const notReturnedForceCount = computeForceReturnCount();
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 		return {
@@ -2020,10 +2077,6 @@ async function runSession(
 		};
 	}
 
-	// ── Hook B: capture-back before normal teardown (AO2 §9).
-	if (deps.mounter && mountedFilesystems.length > 0) {
-		await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-	}
 	await transitionRun(
 		{ db, eventBus, ports },
 		{
@@ -2033,19 +2086,11 @@ async function runSession(
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
-	// @lore BA2: the filesystem belongs to the work, not to the session. A session
-	// that ended by filing a review is not finished, it is waiting — a human may
-	// take days — and when the verdict comes the agent is resumed IN THIS
-	// DIRECTORY. Deleting it now does not merely lose the agent's files: the
-	// resume spawns the harness with a working directory that no longer exists,
-	// and it hangs instead of failing, so the answer reaches nobody and nothing
-	// says why. The question is asked of the `review_sessions` row `submit_review`
-	// wrote, not of the tool-call event: a return action reaches this function by
-	// one of two paths depending on whether the MCP bridge is open, and watching
-	// only the stream was green in a test and dead on every real run.
-	if (!(await sessionAwaitsVerdict(db, sessionId))) {
-		await workspace.destroy(sandboxHandle);
-	}
+	// @lore BA5 (no-teardown): nothing here deletes the workspace any more —
+	// the session's own directory holds only scratch once every filesystem
+	// lives outside it (mounter.ts §2), and the workspace reaper reclaims it
+	// 24h after the session ends (`runtime-reapers.ts`), skipping one that
+	// still awaits a review verdict.
 	ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 
 	if (beforeHarnessStartError) {
@@ -2151,19 +2196,6 @@ interface Provisioner {
 		deps: ProvisionSessionDeps,
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
-	/**
-	 * AU26 F2: takes the agent id plus the live, in-layer injected-filesystem
-	 * reader — `mountFilesystemsForAgent` reads the record itself at spawn
-	 * rather than consuming a list frozen onto the request. See
-	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.
-	 */
-	mount(
-		agentId: string,
-		filesystems: InjectedFilesystemsReaderPort | undefined,
-		sandboxPath: string,
-		mounter: FilesystemMounterPort,
-	): Promise<Filesystem[]>;
-	capture: typeof captureMountedFilesystems;
 }
 
 export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
@@ -2174,13 +2206,5 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 			runSession(deps, params, admitted, ports, onHarnessStarted),
 		provision: (deps, params) => provisionSession(deps, params, ports),
 		start: (deps, params) => startSessionProvision(deps, params, ports),
-		mount: (agentId, filesystems, sandboxPath, mounter) =>
-			mountFilesystemsForAgent({
-				agentId,
-				...(filesystems ? { filesystems } : {}),
-				sandboxPath,
-				mounter,
-			}),
-		capture: (...args) => captureMountedFilesystems(...args),
 	};
 }

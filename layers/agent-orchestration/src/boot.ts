@@ -45,19 +45,21 @@ import {
 	createInheritedReach,
 	type InheritedReach,
 	listConnections,
+	resolveConnectionToken,
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
 import { HELD_AUTH_SOURCES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
+import { listHeldAgentIds, listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import type {
 	HarnessAdapter,
 	RegisteredTool,
 	WorkerRegisterMessage,
 } from "@hyperidle/harness-protocol";
 import type {
+	FilesystemCheckDeps,
 	HeldConnectionsReaderPort,
 	InjectedFilesystemsReaderPort,
 	RunOptions,
@@ -69,7 +71,10 @@ import { RegistryFilesystemMounter } from "@hyperidle/run-orchestration";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createAgentOrchestrationApp } from "./app.js";
+import { ghAuthStatus } from "./cli-status.js";
+import { recordFilesystemNeedsAttention } from "./filesystem-attention.js";
 import { createGitRunner } from "./git-runner.js";
+import { createRcloneRunner } from "./rclone-runner.js";
 import {
 	registerSessionStreamRoute,
 	type SessionStreamTokenStore,
@@ -104,10 +109,18 @@ import { SessionActivityBuffer } from "./session-activity-buffer.js";
  * `serviceConnectionResolver` — are built INSIDE this boot now (`connections`,
  * `filesystems`, `filesystem-mounting` are all this Layer's own services), so
  * the Application-supplied session slice no longer carries them.
+ *
+ * @lore: `filesystemCheckDeps` joins them — built alongside
+ * `mounter` off this Layer's own `git-runner.ts`/`cli-status.ts`, never
+ * something an Application would have any other reason to hold.
  */
 export type ApplicationProvisionSessionDeps = Omit<
 	ProvisionSessionDeps,
-	"mounter" | "heldConnections" | "injectedFilesystems" | "serviceConnectionResolver"
+	| "mounter"
+	| "heldConnections"
+	| "injectedFilesystems"
+	| "serviceConnectionResolver"
+	| "filesystemCheckDeps"
 >;
 
 export interface AgentOrchestrationRuntimeOptions {
@@ -117,6 +130,14 @@ export interface AgentOrchestrationRuntimeOptions {
 	/** The session-provisioning deps `startRuntime`'s poller threads to every admitted session — same shape the Application built for the deleted direct `startRuntime` call, minus the four provisioning reads this boot now builds itself (§5.1). */
 	readonly session: ApplicationProvisionSessionDeps;
 	readonly sandboxBasePath?: string;
+	/**
+	 * @lore: where a remote git filesystem's ONE kept copy lives — the
+	 * application's own data folder, never under `sandboxBasePath` (the sandbox
+	 * reaper deletes any folder there with no session row after 24h). Absent →
+	 * a remote git filesystem cannot mount ("this server has no folder to keep
+	 * repository copies in"); a local repo and a folder mount are unaffected.
+	 */
+	readonly keptCopiesRoot?: string;
 	/** For worker WebSocket registration (`registerWorkerWebSocket`) — the local `AdapterPool` instance and its remote-adapter factory, both from the execution adapters bundle. Absent on a `remote-server`-shaped boot with no local pool of its own. */
 	readonly worker?: {
 		readonly pool: NonNullable<RuntimeDeps["composition"]["worker"]>["pool"];
@@ -296,6 +317,15 @@ function buildRuntimeComposition(
  */
 interface OrchestrationProvisioningReads {
 	readonly mounter?: RegistryFilesystemMounter;
+	/**
+	 * @lore: built alongside `mounter` (same `sandboxBasePath`
+	 * guard — no mounter means nothing is ever placed, so there is nothing a
+	 * placement failure could need to re-check).
+	 */
+	readonly filesystemCheckDeps?: Pick<
+		FilesystemCheckDeps,
+		"gitRunnerFactory" | "ghAuthStatus" | "rclone"
+	>;
 	readonly heldConnections?: HeldConnectionsReaderPort;
 	readonly injectedFilesystems: InjectedFilesystemsReaderPort;
 	readonly serviceConnectionResolver: {
@@ -305,7 +335,9 @@ interface OrchestrationProvisioningReads {
 
 function buildProvisioningReads(
 	db: HyperIdleDb,
+	eventBus: EventBus,
 	sandboxBasePath: string | undefined,
+	keptCopiesRoot: string | undefined,
 	resolveProvisioningOwnerUserId: (() => Promise<string | null>) | undefined,
 	decrypt: (ciphertext: string) => string | null,
 ): OrchestrationProvisioningReads {
@@ -314,7 +346,14 @@ function buildProvisioningReads(
 			? {
 					mounter: new RegistryFilesystemMounter({
 						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
+						keptCopiesRoot,
+						rclone: createRcloneRunner(),
 					}),
+					filesystemCheckDeps: {
+						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
+						ghAuthStatus,
+						rclone: createRcloneRunner(),
+					},
 				}
 			: {}),
 		...(resolveProvisioningOwnerUserId
@@ -342,6 +381,18 @@ function buildProvisioningReads(
 		injectedFilesystems: {
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),
+			// @lore: resolved as the connection's OWNER, never a
+			// per-request user — wired now so a real mount carries a real
+			// credential instead of always `null`.
+			resolveCredential: (connectionId: string) =>
+				resolveConnectionToken(db, connectionId, decrypt),
+			// the drain's claim-time exclusion list.
+			listHeldAgentIds: () => listHeldAgentIds(db),
+			// @lore: the ONE writer-and-emitter —
+			// never the registry writer directly, so the once-per-episode notice
+			// rule stays in exactly one place regardless of which caller broke.
+			markNeedsAttention: (filesystemId: string, reason: string) =>
+				recordFilesystemNeedsAttention(db, eventBus, filesystemId, reason),
 		},
 		serviceConnectionResolver: {
 			resolve: (userId: string, connectionId: string) =>
@@ -390,7 +441,9 @@ export async function bootAgentOrchestration(
 		runSession = composition.runSession;
 		provisioningReads = buildProvisioningReads(
 			db,
+			eventBus,
 			runtime.sandboxBasePath,
+			runtime.keptCopiesRoot,
 			runtime.resolveProvisioningOwnerUserId,
 			decrypt,
 		);
@@ -408,6 +461,8 @@ export async function bootAgentOrchestration(
 		getRecentActivity: (sessionId) => activityBuffer.getActivity(sessionId),
 		inheritedReach,
 		...(cipher ? { cipher } : {}),
+		eventBus,
+		...(runtime?.keptCopiesRoot ? { keptCopiesRoot: runtime.keptCopiesRoot } : {}),
 	});
 
 	return {

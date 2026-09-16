@@ -143,7 +143,13 @@ export interface RuntimePorts {
 		claimSessionRequest(
 			exec: HyperIdleDb,
 			selector: { next: true } | { id: string },
-			options: { workerId: string; now: Date; leaseMs: number },
+			options: {
+				workerId: string;
+				now: Date;
+				leaseMs: number;
+				/** @lore: the drain's claim-time hold — see `start-runtime.ts`. */
+				excludeAgentIds?: readonly string[];
+			},
 		): Promise<AgentSessionRequest | null>;
 		findSessionRequest(
 			exec: HyperIdleDb,

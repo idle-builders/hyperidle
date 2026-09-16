@@ -42,8 +42,8 @@ export async function listInjectedFilesystemsForProvisioning(exec: WriteExecutor
 		kind: row.kind,
 		connectionId: row.connectionId ?? null,
 		resourceRef: JSON.parse(row.resourceRef) as unknown,
-		writeback: row.writeback,
 		state: row.state,
+		attentionReason: row.attentionReason ?? null,
 		createdAt: row.createdAt,
 	}));
 }

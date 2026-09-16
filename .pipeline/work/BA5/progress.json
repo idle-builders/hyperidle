@@ -1,0 +1,652 @@
+{
+  "item": "BA5",
+  "title": "The filesystem works",
+  "status": "shipped to a CI-green open PR (#554), 2026-09-17",
+  "since": "f88b714346822fdc19d90c07f9617263fba6925c",
+  "dials": {
+    "complexity": "suite",
+    "ambiguity": "new context",
+    "exposure": "user-facing surface",
+    "notes": "Raised from the registered M/backend on 2026-09-10 after the maintainer voided the old plan and widened it to the whole filesystem. Ambiguity stays at new-context for phase 2: the Drive scope question is unverified externally."
+  },
+  "phases": [
+    {
+      "id": "phase-1",
+      "scope": "git repositories (local and remote, public and private) and local folders, end to end, work back out"
+    },
+    {
+      "id": "phase-2",
+      "scope": "Google Drive as a cloud folder, synced with rclone bisync"
+    }
+  ],
+  "gates": [
+    {
+      "id": "G1-approach",
+      "what": "maintainer approves 'How it works' and the user-facing surfaces before any build",
+      "state": "passed",
+      "passedAt": "2026-09-11"
+    },
+    {
+      "id": "G2-phase-1-proven",
+      "what": "phase 1 built, reviewed, and shown working on the running app, credentialed and not; Drive's OAuth/scope decision taken here",
+      "state": "passed (phase 1)",
+      "passedAt": "2026-09-12",
+      "note": "everything provable without the maintainer is proven; the stored-PAT case remains, since entering a token into a field is not something the orchestrator does"
+    },
+    {
+      "id": "G2b-no-teardown-proven",
+      "what": "session end leaves the worktree and the kept copy; a resume finds the files; task done removes the worktree and keeps the branch",
+      "state": "passed",
+      "passedAt": "2026-09-16",
+      "evidence": "packaged desktop app (HEAD 700219460, throwaway profile, port 54191): worktree at kept-copies/worktrees/task-<id>/ba5-filesystem-proof symlinked into the session workspace; clean task done -> worktree removed, branch hyperidle/<taskId> kept locally and on GitHub (e86c7a5); dirty task done -> worktree kept with the file, skip logged at info, session done/completed; kept copy .git/config holds no credential"
+    },
+    {
+      "id": "G3-pre-ship",
+      "what": "phase 2 built, reviewed, and shown working; the always-present gate before shipping",
+      "state": "passed except the maintainer's items",
+      "passedAt": "2026-09-17",
+      "note": "Drive proven against a local rclone backend and the argv pinned; the doc updated; PR #554 CI-green. Remaining for the maintainer: the real Google account proof (architecture-phase2.md \u00a79.4) and the stored-PAT / revoked-token cases."
+    }
+  ],
+  "review": "suite: reviewed in phases \u2014 one fresh reviewer over each phase's integrated diff",
+  "shipping": {
+    "pr": "https://github.com/ambrovia/hyperidle/pull/554",
+    "openedAt": "2026-09-17",
+    "head": "4a06fe9d2",
+    "state": "CI-green OPEN PR \u2014 the maintainer merges; never auto-merged",
+    "ci": [
+      {
+        "head": "cd850422a",
+        "result": "verify FAILED: 4 service-lane tests built a PATH without gh by subtracting gh's directory; on ubuntu gh and git share /usr/bin so git vanished too; a 4th used PATH='' which buildGhEnv drops, so the OS default path (with gh on ubuntu) applied"
+      },
+      {
+        "head": "7dce8522f",
+        "fix": "tests build PATH forward from a temp dir holding only git (layers/agent-orchestration/src/__testing__/path-only-git.ts); impossible-spawn case uses an empty temp dir; test-only change",
+        "result": "verify PASS (18m39s) on 4a06fe9d2; release verify pass; mergeStateStatus CLEAN"
+      }
+    ]
+  },
+  "baseline": {
+    "check": "PASS (38 packages)",
+    "lint": "PASS",
+    "at": "f88b714346822fdc19d90c07f9617263fba6925c"
+  },
+  "artifacts": [
+    {
+      "path": ".pipeline/work/BA5/plan.md",
+      "for": "maintainer's document: rulings, evidence, decisions"
+    },
+    {
+      "path": ".pipeline/work/BA5/progress.json",
+      "for": "machine state: dials, gates, verdicts"
+    },
+    {
+      "path": ".pipeline/work/BA5/research.md",
+      "for": "evidence behind the build-vs-adopt and workspace-location rulings (web research, 2026-09-10)"
+    },
+    {
+      "path": ".pipeline/work/BA5/seams.md",
+      "for": "phase-1 repository evidence: agents\u2194filesystems, credential seam, push auth, adapters, check, failure surfacing, UI, proof harness"
+    },
+    {
+      "path": ".pipeline/work/BA5/architecture.md",
+      "for": "phase-1 architecture: contracts, migration 0082, waiting mechanism, one git adapter, credential flow, check, notification, deletions, build order, verification"
+    },
+    {
+      "path": ".pipeline/work/BA5/architecture-phase2.md",
+      "for": "phase-2 architecture: Drive as a filesystem through rclone"
+    }
+  ],
+  "resume": "Phase 1 complete and proven live. Phase 2 architecture committed (db9c479db) and AT the 1,000-line stop; awaiting the maintainer: accept ~1,000-1,150 or cut the Add-dialog Drive branch to ~850. Pre-build checks green. Also needing the maintainer: live Drive proof (Google consent + rclone install) and the stored-PAT case. Then ship.",
+  "preSpawn": {
+    "command": "npm run check && npm run lint",
+    "at": "db9c479db",
+    "check": "PASS (38 packages)",
+    "lint": "PASS (2555 files, 23 rules, 0 violations)",
+    "ranOn": "2026-09-12",
+    "for": "the phase-2 build"
+  },
+  "sizeStop": {
+    "at": "2026-09-11",
+    "estimate": "~2,300-2,700 added lines (production ~1,150-1,400, tests ~1,100-1,300)",
+    "drivers": {
+      "waiting instead of failing": "~600 with tests",
+      "Add filesystem dialog + Check": "~490",
+      "kept copy + worktree": "~150",
+      "offline github.com test stand-in": "~140",
+      "separate CLI list": "~120"
+    },
+    "rule": "CLAUDE.md simplicity check: 1,000+ added lines -> stop, explain assumptions, ask",
+    "resolution": {
+      "at": "2026-09-11",
+      "decision": "A \u2014 accept (~2,000-2,400 added; production ~1,050-1,250)",
+      "by": "maintainer"
+    }
+  },
+  "verdicts": [
+    {
+      "round": "architecture-critique-1",
+      "at": "2026-09-11",
+      "on": "6fe3ce5cc",
+      "verdict": "not PASS",
+      "blockers": [
+        "B1: the sandbox reaper (runtime-reapers.ts:78-99, on in desktop create-server.ts:289-290) deletes <sandboxBasePath>/kept-copies after 24h with no session row, under live worktrees",
+        "B2: a public github.com repo is held when gh is not installed (\u00a77.1/\u00a77.2/\u00a77.3/\u00a74.2) \u2014 the plan says a public repo needs only git"
+      ],
+      "endorsedSimplifications": [
+        "C1 claim-time filter replaces the waiting mechanism (~190 lines), conditions: drain returns or re-reads exclusions on the new code; reserved session row deleted not crashed",
+        "drop the clis list and cliStatus.installed (~120)",
+        "drop the per-copy lock (~30)",
+        "fold T6 into T8 (~120)"
+      ],
+      "declined": [
+        "optional drop of forgetKeptCopy \u2014 kept: the maintainer was told a kept copy is deleted with its filesystem"
+      ],
+      "revisedSize": "~1,850-2,250 added (production ~1,000-1,250) \u2014 still over 1,000",
+      "nonBlockingNotes": [
+        "\u00a76.1 merges the agent env inside `if (serviceConnectionResolver) try {\u2026}` (provisioner.ts:1644-1661); it must sit outside, or a filesystem PAT depends on connections being set up and on that try not failing.",
+        "Wrong citation: adapter-pool.ts:540 is a comment; the allowlists are at :551 and :582.",
+        "Pre-existing: connection setup writes MCP bearer tokens into .mcp.json and opencode.json inside the workspace (connection-provisioning.ts:286-330) \u2014 not this change's git path.",
+        "Governance can't see the new event: architecture.json:134 points at a stale copy of the events file (\u00a717.7).",
+        "Deleting Provisioner.mount and capture does one of the plan's separate proposed items early; the full-migration rule forces it.",
+        "Resolved: createAgentOrchestrationApp is called at boot.ts:394.",
+        "Still UNVERIFIED: whether CI has openssl and git-http-backend; the helper fails hard if missing, so no false green."
+      ]
+    },
+    {
+      "round": "architecture-revision-1",
+      "at": "2026-09-11",
+      "result": "all critique items applied; B1 kept copies -> app data folder (desktop userData/kept-copies), B2 reach remote first, gh only on connection or 401",
+      "revisedSize": "production ~1,050-1,250 + tests ~950-1,150 = ~2,000-2,400; no cut keeping G2's list gets production under 1,000",
+      "orchestratorOverrides": "architecture.md \u00a718: connection health narrow cut (keep inherited detection); notice names all picked agents; Postgres remote-server limit; drain return"
+    },
+    {
+      "round": "phase-1-review",
+      "at": "2026-09-12",
+      "on": "65672824d",
+      "verdict": "NOT PASS",
+      "blockers": [
+        {
+          "id": "B1",
+          "what": "break #6 (a resumed session's mount) ships with no test that can fail: only the folder half of T4 exists; no git mount anywhere asserts adopted:true. The reviewer executed the path and confirmed the CODE is correct \u2014 mounting a local repo twice into one workspace returns {adopted:true, branch:'hyperidle/s1'} and preserves the agent's uncommitted file \u2014 but deleting recognizeAdoptedWorktree's body leaves the whole service lane green.",
+          "fix": "one case in the existing git-repository-adapter.integration.test.ts"
+        },
+        {
+          "id": "B2",
+          "what": "= D2. A literal NUL at git-credential-env.ts:55 makes the one file that builds the credential env binary to git, grep and every rg-based scan; its contents have never appeared in a diff and will not appear in the PR.",
+          "fix": "one character"
+        }
+      ],
+      "nonBlockingCarriedForward": [
+        "N1 git-runner.ts keeps add, commit, diffCached, lsFiles, bundle, restoreStaged (~90 lines) with no caller anywhere; knip cannot see object-literal members, so the 'delete whatever knip reports dead' step removed nothing.",
+        "N2 filesystem-check.ts:67-68: a local repo whose folder is gone reports \"'X' is not a git repository\" \u2014 the plan's 'folder moved' case gets a misleading reason.",
+        "N3 SettingsFilesystems.tsx:275 labels every token connection 'GitHub' (two GitHub tokens are indistinguishable); :417 shows 'Connection: <raw uuid>'.",
+        "N4 The dialog filters connections case-insensitively while routes/filesystems.ts:175 requires exactly 'github' and service is free text \u2014 an offered option can 400.",
+        "N5 markNeedsAttention being optional on the port means an unwired port turns each held request into a per-tick retry forever; boot always wires it, so production is safe, but the contract no longer enforces it.",
+        "N6 SetupFlow.tsx registerFilesystemAndInject swallows every per-agent failure \u2014 onboarding can still silently finish with a filesystem picked for nobody (break #2's exact shape) with nothing shown."
+      ],
+      "unclear": [
+        "whether break #6 is discharged by G2's live resume alone or needs a regression test",
+        "no HTTP status was specified for the hold; the builder chose 503 \u2014 a public projection nobody approved",
+        "what a connection-backed row should name its connection as; the implementation shows the raw id",
+        "the two authoritative docs are now false (validate route, health, write-back, capture-back) \u2014 deferred to G3 by the plan"
+      ],
+      "verifiedPositives": "check 38/38; lint 0 violations across three governance passes and 6551 crossings; knip and knip:production exit 0; credentials env-only with no git config write, URL userinfo rejected at POST, every runner string redacted, and absence asserted from payload_json and the sessions row; the hold's claim filter takes plain ids and imports no filesystems table; one notice per episode proven twice; every old shape's scan finds no survivor; no live-network test remains; both suppressions legitimate; the two process incidents left nothing unrelated in the diff"
+    },
+    {
+      "round": "fix-delta-review",
+      "at": "2026-09-12",
+      "on": "32dc9ae0d",
+      "verdict": "PASS",
+      "evidence": "the reviewer sabotaged the fix twice itself: forcing recognizeAdoptedWorktree to return undefined gave 'expected false to be true' at :199, and forcing a wrong branch gave 'expected not-the-real-branch to be hyperidle/sess-adopt-1' at :202 \u2014 so the test proves recognition, not merely absence of a throw. Restore verified clean after each. B2: od -c confirms a single 0x1F where the NUL was; zero NULs in any tracked file under layers/framework/applications; the PR diff against origin/main renders 72 lines of text. No skips, no suppressions, no weakened gates; check 38/38.",
+      "scope": "the two fix commits only; the rest of phase 1 stays as previously judged"
+    }
+  ],
+  "build": {
+    "strategy": "one builder per leaf, sequential; red tests then code; each leaf ends green (targeted tests + check + lint); orchestrator verifies commits and pasted gate output between leaves",
+    "leaves": [
+      {
+        "id": "L1",
+        "what": "schema, write-back removal, stored connection-health removal (narrow, \u00a718)",
+        "state": "done",
+        "commits": [
+          "5621632df",
+          "49643e2fa",
+          "5e0dac16c",
+          "24a6e38d5",
+          "ef7c6a5bd"
+        ],
+        "gate": "verify:quick exit 0; service integration 311 files/2142 tests pass; affected slice 284 files/2457 pass; biome clean on changed files (builder-reported)",
+        "orchestratorVerified": "5 commits present and pushed at ef7c6a5bd; tree clean; stash stack intact (2 entries unchanged); KnowledgeDetail.tsx in no commit; 249+/579- across 49 files",
+        "deviations": [
+          "removed the dead writeback==='none' probe shortcut (3 lines) that L1's own schema change made uncompilable; a doc_set with an unresolvable connection now reads needs_attention instead of being waved through",
+          "deleted resolveUrlForSSRF and its private cluster, dead once the validate route went (knip); required by the full-migration rule",
+          "did not add attentionReason to run-orchestration's structural Filesystem types \u2014 nothing reads it until L5"
+        ],
+        "incident": "builder ran `git stash pop` despite the brief, applying another session's entry and conflicting an unrelated file; recovered before committing. Verified: stack intact, file untouched."
+      },
+      {
+        "id": "L2",
+        "what": "git runner and credentials",
+        "state": "done",
+        "commits": [
+          "42ec02e39",
+          "5f8dc5f0f"
+        ],
+        "gate": "verify:quick exit 0; affected slice 285 files/2461 tests pass; biome clean on 9 changed files (builder-reported)",
+        "deviations": [
+          "clone/worktreeAdd keep their old signatures until L3, where the adapters that need the new shape are replaced in the same change (full-migration rule)",
+          "gitCredentialEnv deferred to L3 and cli-status/ghAuthStatus to L4 \u2014 both would have been test-only-reachable dead code in L2; knip:production confirmed it",
+          "mounter-ports.ts no longer mirrors lsRemote; L3 adds the verbs it needs matching the runner's real shape"
+        ],
+        "notes": [
+          "new offline github.com stand-in at layers/agent-orchestration/src/__testing__/github-stand-in.ts: TLS-terminating proxy + git-http-backend, real git + real gh, supports private+token, receivepack for push, and a gh login; added to knip.json ignore like the existing require-binary entries",
+          "looksLikeAuthRequested regex verified against real git 2.39.5 / gh 2.92.0 only"
+        ]
+      },
+      {
+        "id": "L3",
+        "what": "one git adapter, placement, kept copies, agent instructions, teardown",
+        "state": "done",
+        "commits": [
+          "c1da6ccff",
+          "58a0db70b",
+          "2bb8568cc",
+          "85428a954"
+        ],
+        "gate": "check PASS 38/38; verify:quick exit 0 (run twice, once against pushed HEAD); service integration lane 319 files/2222 pass; affected slice 286 files/2469 pass; biome 0 errors on changed files (builder-reported)",
+        "orchestratorVerified": "4 commits pushed at 85428a954; tree clean; stash intact; no .pipeline or foreign files in any commit; kept-copies excluded in .gitignore and biome.json; phase-1 total 2713+/1952-",
+        "provenAgainstRealBinaries": [
+          "PAT auth clone with no token in the kept copy, the worktree or ~/.gitconfig",
+          "gh-login auth with no credential stored",
+          "the agent's own git push landing on the offline github stand-in",
+          "public remote with gh absent from PATH",
+          "clone once then fetch, not re-clone",
+          "two same-basename filesystems get distinct folders"
+        ],
+        "deviations": [
+          "FilesystemMounterPort/InjectedFilesystemsReaderPort keep their names; the merged FilesystemsPort of \u00a72.5 waits for its real callers in L4/L5",
+          "mountFilesystemsForAgent passes credential: null with a comment marking it L4's job",
+          "MountingGitRunner trimmed to the verbs actually called; the unused old surface was not carried forward",
+          "added mergeGitConfigEnv so several github filesystems merge their config entries instead of one silently dropping another"
+        ],
+        "incident": "a stray `git add -A` made 58a0db70b carry more than its message says; final tree verified correct, history not rewritten"
+      },
+      {
+        "id": "L4",
+        "what": "Check and detection",
+        "state": "done",
+        "commits": [
+          "0aa93a395",
+          "0206f9c26",
+          "b7e3cd2e6",
+          "c9a274fff",
+          "b3fb0bc86",
+          "f868e87f7"
+        ],
+        "gate": "verify:quick exit 0; service integration lane 323 files/2249 pass; typecheck 38/38; biome clean on changed files (builder-reported)",
+        "orchestratorVerified": "6 commits pushed at f868e87f7; tree clean; stash intact (2); package-lock.json updated for the removed devDependencies",
+        "checkReturns": {
+          "public repo, gh absent": "ok",
+          "private repo, working token": "ok",
+          "revoked/wrong token": "The GitHub token was rejected. Replace it in Settings \u2192 Connections",
+          "gh missing with a connection": "Install the GitHub CLI (gh)...",
+          "gh missing, remote asked for login": "needs a GitHub login...",
+          "gh logged out": "Run `gh auth login`, or add a GitHub token connection",
+          "missing branch": "branch '<b>' not found",
+          "folder or repo gone": "folder does not exist / is not a git repository"
+        },
+        "deviations": [
+          "the 'PAT ok' and 'gh logged in' cases stub ghAuthStatus, because gh validates a token against the real GitHub API and no fake-but-valid PAT can pass offline; the real proof is G2's",
+          "recordFilesystemNeedsAttention re-reads the row to derive the filesystem's label, since its signature carries no label"
+        ]
+      },
+      {
+        "id": "L5",
+        "what": "hold and notification",
+        "state": "done",
+        "commits": [
+          "c911a5ec1",
+          "53c3aefaa",
+          "c84213b3f",
+          "6f83d973a",
+          "4a3364e7d",
+          "6d91b09ed"
+        ],
+        "gate": "verify:quick exit 0; agent-orchestration+core-api service integration 282 files/2037 pass; unit 28 files/180 pass (builder-reported)",
+        "provenEndToEnd": [
+          "task stays accepted through a failing attempt \u2014 never in_progress, never failed",
+          "the request returns to pending, no sessions row survives, the workspace directory is gone",
+          "exactly one event and one inbox row; a second failing re-check only updates the reason",
+          "a second request for the same agent never even reaches workspace spawn across two drain ticks",
+          "Check passing clears both pending requests on the next tick"
+        ],
+        "deviations": [
+          "port kept its existing name with the new members optional, matching how L4 added resolveCredential",
+          "added filesystemCheckDeps so a placement failure can re-run Check for a better reason (intra-package, not a new cross-package port)",
+          "T8 uses a local repo, not the github stand-in \u2014 the credential proofs are T1/T3/T5's",
+          "chose 503 for the new failure code; architecture did not specify"
+        ]
+      },
+      {
+        "id": "L6",
+        "what": "surfaces and onboarding",
+        "state": "done",
+        "commits": [
+          "109a474a8",
+          "920f1b72e",
+          "06dcf347f",
+          "65672824d"
+        ],
+        "gate": "check 38/38; verify:quick exit 0; core-ui project 3045/3046 (one pre-existing baseline failure); affected slice 5103/5104 (builder-reported)",
+        "delivered": [
+          "a real Add filesystem dialog (git repo or folder, optional GitHub token connection, branch prefilled from a local path)",
+          "a Check action per row, updating that row in place",
+          "needs_attention rows show their reason in place of the connection line",
+          "onboarding now picks the filesystem it registers for the team's agents \u2014 the BA14 break"
+        ],
+        "deviations": [
+          "extracted registerFilesystemAndInject to keep a pre-existing complexity warning from growing",
+          "the new row shows its own reason rather than a second transient one inside the dialog",
+          "the dialog filters token connections case-insensitively while the server compares the exact string 'github' \u2014 a G2 hand-check"
+        ],
+        "incident": "a second git stash violation: stashed once during a sanity-break, popped immediately, self-reported"
+      },
+      {
+        "id": "L7",
+        "what": "no teardown (ruling 2026-09-16, absorbs BA12): worktree moves to <keptCopiesRoot>/worktrees/<taskKey>/ and is symlinked into the workspace; every session-end unmount/destroy/rm deleted; releaseForTask behind the existing door, called by a core reaction on task done + session_ended, never with --force; reaper skips verdict-awaiting sessions",
+        "architecture": "architecture-no-teardown.md (critique: critique-no-teardown.md, B1/B2 fixed)",
+        "state": "built, reviewed, fixes applied",
+        "startedAt": "2026-09-16",
+        "commits": [
+          "69b883d51",
+          "8c99aaff5",
+          "f4d2645d2",
+          "f0cdc9e99",
+          "700219460",
+          "742825a28",
+          "145f286b6",
+          "710397a57",
+          "68796a10b",
+          "220f85aca",
+          "3e5c8407e"
+        ],
+        "review": "review-no-teardown.md \u2014 no blocker; S1-S5 applied; killed tasks release their clean worktree too (orchestrator's call, 2026-09-16)",
+        "gates": "check 0, lint 0, verify:quick 0, named service files 0, full service lane 0 (2178 passed), test:full only the pre-existing design-source failure",
+        "pending": "none \u2014 G2b passed 2026-09-16"
+      },
+      {
+        "id": "P2",
+        "what": "phase 2 \u2014 Google Drive through a CLI the agent and HyperIdle can both steer",
+        "state": "built, reviewed, fixes applied",
+        "commits": [
+          "47a2499c5",
+          "99c5713a3",
+          "971b2dcd2",
+          "cbda4dd5a",
+          "a186d2b40",
+          "578976027",
+          "f73203d3b",
+          "008105bda",
+          "b54203491"
+        ],
+        "deviations": [
+          "drive-reason.ts as a third file to avoid a mounter<->check import cycle",
+          "CloudNotBuiltAdapter renamed UnsupportedFilesystemAdapter (the design's own pseudocode name)",
+          "knip + design-profile census entries",
+          "V4 assertion rewritten to the achievable ordering (Check runs inside POST / before any injection)",
+          "explicit leading '-' check on the remote name"
+        ],
+        "builderCount": "+584/-119 production (design ~465); tests +1168/-10",
+        "docsFlagged": [
+          "docs/guides/developer/getting-started.md and docs/architecture/as-implemented-domain-architecture.md still name filesystem_captures / filesystem-contract"
+        ],
+        "needsMaintainer": "real Google account proof (architecture-phase2.md \u00a79.4) at G3",
+        "review": "review-phase2.md \u2014 2 blocking (argv had no red signal; one \u00a7-pointer comment), fixed in a6dae37cf; argv test moved to the CI unit lane in 35619d1f6",
+        "fixCommits": [
+          "a6dae37cf",
+          "35619d1f6",
+          "9e22e6888",
+          "890aa48d4"
+        ]
+      }
+    ],
+    "state": "all six leaves done"
+  },
+  "defects": [
+    {
+      "id": "D1",
+      "found": "2026-09-12 by the orchestrator while verifying L4",
+      "where": "layers/agent-orchestration/run-orchestration/src/__tests__/filesystem-check.integration.test.ts, the 'wrong PAT on a token connection' case",
+      "what": "it passes the real ghAuthStatus, which spawns `gh auth status` with GH_TOKEN; gh validates the token against api.github.com, so this service-lane test requires the live internet and would flake in CI",
+      "fix": "stub ghAuthStatus to logged_out for that case (the code maps logged_out + connection to the rejected-token reason); the genuine rejection with a real PAT is already G2's live proof",
+      "state": "fixed in 109a474a8 \u2014 ghAuthStatus stubbed for the wrong-PAT case; no live-network test remains"
+    },
+    {
+      "id": "D2",
+      "found": "2026-09-12 by the orchestrator while measuring the diff",
+      "where": "layers/agent-orchestration/run-orchestration/src/git-credential-env.ts (mergeGitConfigEnv's dedupe key)",
+      "what": "a literal NUL byte in a template literal makes git classify this production source file as BINARY \u2014 it shows as 'Bin 0 -> 3011 bytes' with no reviewable diff, and plain grep skips it. Functionally fine; a real hazard for review and for every future audit that greps.",
+      "fix": "use a separator that is not a control character (e.g. the unit separator \\u001f, or JSON.stringify of the pair)",
+      "state": "fixed in 32dc9ae0d \u2014 0 NUL bytes, one unit separator; the PR diff against origin/main shows 72 text insertions, not Bin"
+    },
+    {
+      "id": "B1",
+      "found": "2026-09-12 phase review",
+      "where": "layers/agent-orchestration/run-orchestration/src/__tests__/git-repository-adapter.integration.test.ts",
+      "what": "the resumed-workspace fix has no regression guard for the git case",
+      "fix": "add the adopted:true case",
+      "state": "fixed in c3a2948e0 \u2014 the new case asserts second.mounted.adopted === true"
+    }
+  ],
+  "nonBlockingNotes": [
+    "Pre-existing, not ours: the harness vitest project's include list has an entry 'layers/core-api/src/routes/__tests__/*-real.integration.test.ts' that matches zero files \u2014 inert, and by CLAUDE.md's own rule a scan matching nothing reads as passing forever. Worth its own item.",
+    "Pre-existing, NOT ours: a byte-accurate scan of 2,090 source files found two more files containing NUL bytes \u2014 layers/core-ui/src/block/block-id.ts (production) and its test layers/core-ui/src/block/__tests__/derive-blocks.test.ts. Same defect class as B2: git shows them as binary, so they are unreviewable in any diff and invisible to plain grep. Untouched by this branch. Its own item.",
+    "Dev-environment finding, not ours: `remote-server` reads no .env file \u2014 there is no dotenv and no --env-file anywhere in it \u2014 so DATABASE_URL cannot be set that way for `npm run dev`. The only levers are the real process environment or .claude/launch.json. Worth knowing before anyone tries to point a dev run at a different database.",
+    "Dev-environment finding, not ours: after boot the server reported all four harnesses as 'missing \u2014 not installed or not on PATH', which disables onboarding's submit entirely. The binaries were present and on the server's PATH the whole time (verified via its process environment), answer --version in 0.03-0.42s, and running discoverLocalHarnesses directly in the tree reports all four 'ready'. POST /api/harnesses/redetect fixes it in place \u2014 so the boot-time discovery snapshot can be stale, and nothing in the UI tells a person to re-detect. Worth its own item: a first-run user would conclude HyperIdle cannot see their CLIs.",
+    "Live-run finding to re-test: adding a filesystem whose path does not exist FAILED silently through the Add dialog (no new row appeared, no visible error captured), while the same payload POSTed directly to /api/filesystems returned 201 with state needs_attention. So the server behaves correctly and the dialog does not surface that outcome. Not yet diagnosed.",
+    "Corrected diagnosis: remote-server is DESIGNED to have no local harness (empty AdapterPool + createSandboxAdapter('disabled'); agents arrive as remote workers). The Settings page states it: 'Worker mode requires the desktop app.' So NoEligibleHarnessError under `npm run dev` is correct behaviour. Harness DISCOVERY still populates descriptors for display, which is why Settings shows all four 'Authenticated and ready' while no agent can actually run \u2014 a genuinely confusing pair of surfaces for a first-run user, worth its own item."
+  ],
+  "harnessLane": {
+    "binaries": {
+      "claude": "2.1.247",
+      "codex": "codex-cli 0.150.1",
+      "opencode": "1.18.25",
+      "cursor-agent": "2026.09.08-6caf4ff",
+      "gh": "2.92.0",
+      "missing": "none"
+    },
+    "state": "ran on the final commit 2026-09-17; all 9 failures pre-exist on origin/main",
+    "note": "already red on origin/main (~5 failed / 62 passed previously recorded) \u2014 failures must be compared against main before being blamed on this branch",
+    "result": "4 files failed / 14 passed; 8 tests failed / 83 passed / 2 skipped",
+    "failures": [
+      "knowledge-tree-real: opencode \u2014 nested knowledge tree",
+      "cli-adapter-real-binary: claude-code adapter \u2014 no completion containing ADAPTER_OK; claude replied 'I don't have any prior context about what you'd like me to work on' / 'I'm ready to help! What would you like me to work on?'",
+      "cli-adapter-real-binary: cursor-agent adapter \u2014 parsed completion + outcome completed",
+      "model-options-real-binary: [harness:claude] configured effort",
+      "session-handles: claude-code",
+      "session-handles: codex (thread_id resume)",
+      "session-handles: codex (resumed session can write files)",
+      "session-handles: cursor-agent"
+    ],
+    "concern": "the recorded main baseline was ~5 failures in codex (MCP readiness) and opencode (step_finish). This profile is larger and different \u2014 claude and cursor adapters failing with prompt-shaped symptoms, and this branch changed session provisioning and prompt assembly. Must not be attributed to the branch or to main without the comparison run.",
+    "comparison": "running the identical lane on a throwaway origin/main worktree, alone on the machine",
+    "branchSideAnalysis": {
+      "at": "2026-09-12",
+      "duration": "1692.54s (~28 min), exit 1",
+      "blastRadius": "this branch changes ZERO files in layers/agent-execution/harness-registry, where 7 of the 8 failures live; the 8th is core-api knowledge-tree. The three changed files in the failing tests' dependency path are contracts.ts (one optional field), index.ts (additive exports) and start-runtime.ts (the drain hold) \u2014 none touches harness invocation or knowledge materialisation; writeback-processor.ts verified unchanged.",
+      "dominantSignature": "the CLI answers an EMPTY prompt \u2014 phase 1 text is literally '||' \u2014 across claude-code, codex and cursor-agent; claude replies 'I don't have any prior context about what you'd like me to work on'. The 8th is opencode on qwen3-8b missing values its sandbox demonstrably contained, plus one attempt killed by opencode auto-rejecting a doom_loop glob permission.",
+      "baselineIsStale": "the recorded main baseline (~5 failed / 62 passed, codex MCP readiness + opencode step_finish) does not describe this run: all four AN2 MCP live proofs PASSED and step_finish appears nowhere, and that baseline counted 62 tests against this run's 93. It cannot serve as the comparison \u2014 hence the real main run.",
+      "provisioningVocabulary": "the only match across the whole log is a PASS \u2014 '[AN2 real-harness gh] LIVE PROOF: GH_TOKEN env injection -> gh auth status succeeded with injected token.' No failure mentions filesystems, mounting, workspaces, kept copies or credentials.",
+      "conclusionWithheld": "no failure will be called pre-existing until the origin/main run lands"
+    },
+    "comparisonRun": {
+      "incident": "the orchestrator spawned a second agent for the main comparison while the first was still doing it. The first agent's script began with `pkill -f ba5-harness-main`, which killed the second's lane one second in (exit 144 = killed by signal). Lesson: check for a live agent before spawning another for the same job.",
+      "resolution": "stopped the second agent; kept the surviving lane (pid 57994) at f88b71434 in /private/tmp/ba5-harness-main, running on the node_modules the stopped agent's npm ci had already produced at the same commit; armed an orchestrator-owned watcher on its log so the result survives the agent dropping again",
+      "state": "complete",
+      "mainResult": "origin/main f88b71434, 04:47:01-05:19:24 CEST (~32 min), exit 1: 4 files failed / 14 passed; 8 tests failed / 83 passed / 2 skipped \u2014 identical counts to the branch",
+      "verdict": "NOT caused by this branch. 7 of 8 failing test names are identical on main and the branch (claude-code adapter, cursor-agent adapter, model-options claude effort, session-handles claude-code/codex x2/cursor-agent). The 8th is the same file and same harness (opencode knowledge-tree-real) but a different case on each side, which is flakiness within that file, not a regression. This matches the blast-radius finding: the branch changes zero files under layers/agent-execution.",
+      "obligationMet": "the release-checklist harness lane has been run locally for this branch, as CLAUDE.md requires for a change to session provisioning; it is red on main for pre-existing reasons and no worse here",
+      "closed": {
+        "at": "2026-09-12",
+        "detail": "Both lanes: 8 failed / 83 passed / 2 skipped of 93, 4 of 18 files. Seven failing test names identical on both sides, all in layers/agent-execution/harness-registry, which this branch does not touch in a single file. The eighth diverges only in which case of the same opencode knowledge-tree file failed \u2014 branch: model reported NOT_FOUND for values that were present; main: the agent created no files at all. Both are 'the 8B model did not perform the task' shapes.",
+        "provisioningVocabulary": "appears on both sides only as passes, never in a failure \u2014 including '[AN2 real-harness gh] LIVE PROOF: GH_TOKEN env injection -> gh auth status succeeded with injected token', plus all three MCP live proofs green on both.",
+        "staleBaselineNote": "the recorded baseline (codex MCP readiness, opencode step_finish, ~5 failed/62 passed) did not reproduce: those MCP proofs pass, step_finish appears nowhere, and both runs have 93 tests, not 62. That note is stale; this same-machine main run is the real comparison.",
+        "cancelled": "a further re-run of the diverging knowledge-tree case was stopped: it would have competed with the fix round, and the verdict does not depend on it"
+      }
+    },
+    "rerun": {
+      "at": "2026-09-17 00:xx CEST",
+      "head": "890aa48d4 (rebased on f49720426)",
+      "exit": 1,
+      "result": "5 files failed / 15 passed; 9 tests failed / 91 passed / 2 skipped; 1922s",
+      "failures": [
+        "AN2-connection-provisioning: codex config.toml bearer \u2014 codex exits 1 (Model metadata for gpt-6-astra not found; API 400 invalid_request)",
+        "cli-adapter-real-binary: claude-code",
+        "cli-adapter-real-binary: cursor-agent",
+        "model-options-real-binary: [harness:claude] configured effort",
+        "session-handles: claude-code",
+        "session-handles: codex thread_id",
+        "session-handles: codex resumed session can write files",
+        "session-handles: cursor-agent",
+        "real-harness-return-enforcement-realbinary: [harness:codex] CODEX_HOME \u2014 codex exits 1, forceCount=0"
+      ],
+      "comparison": "7 of 9 are the recorded baseline set; knowledge-tree-real opencode no longer fails; the 2 others (AN2 codex, return-enforcement codex) were re-run on a clean origin/main worktree: both fail there with the same signature (2 failed / 18 passed). gpt-6-astra is set nowhere in either tree \u2014 it comes from the installed codex CLI's own config. Verdict: zero branch-only failures.",
+      "log": "/tmp/test-harness-lane.log; main comparison /private/tmp/ba5-main-lane-two-files.log"
+    }
+  },
+  "g2": {
+    "runnableNow": [
+      "a local git repository",
+      "a public remote with no credentials",
+      "a plain folder",
+      "a broken filesystem holding an agent, its single notification, and release after Check",
+      "a resumed session finding its work intact"
+    ],
+    "blockedOnMaintainer": [
+      "a private remote through the gh login \u2014 needs a repo the agent may clone and push to",
+      "a private remote through a stored token \u2014 the maintainer must paste the token themselves",
+      "whether to open the draft PR",
+      "the agent actually working in a mounted repository, and the resume case \u2014 these need the DESKTOP app; `npm run dev` (remote-server) boots an EMPTY adapter pool and a 'disabled' sandbox by design, so no agent can run locally there"
+    ],
+    "evidence": [
+      {
+        "case": "migration 0082 applies to a real, populated, out-of-date database",
+        "how": "a copy of the worktree's own 41 MB pglite database, 25 versions behind (57 applied of 82); the maintainer's original left untouched",
+        "result": "26 migrations applied cleanly, 57 -> 83, in 0.2s. After the upgrade: filesystems.attention_reason and users.owner_user_id present; filesystems.writeback, service_connections.health and last_validated_at gone.",
+        "caveat": "that database held zero filesystem rows, so this proves the upgrade path, not row preservation"
+      },
+      {
+        "case": "the app boots on a fresh database",
+        "how": "DATABASE_URL pointed at a new pglite directory outside the repo via the gitignored .env",
+        "result": "no server errors; the onboarding screen renders"
+      },
+      {
+        "case": "migration 0082 applied in place to the worktree's own dev database",
+        "how": "the running server was stopped first (PGlite allows a single holder), then the migrator ran against ./hyperidle-pg",
+        "result": "57 -> 83 applied, no errors; this is the database the live G2 run now uses"
+      },
+      {
+        "case": "onboarding registers a filesystem AND picks it for the agent it creates \u2014 the BA14 break",
+        "how": "live app, fresh database: baseline showed zero teams; completed onboarding with a real local git repository as the project folder",
+        "result": "team 'local-repo' created with its agent; filesystem f7490a99 registered (kind code, source local, state 'reachable', no reason, no connection); GET /api/filesystems?agentUserId= for that agent returns that filesystem, so it is picked for the agent rather than sitting unmounted",
+        "notes": "Check ran at registration and returned reachable without a separate step"
+      },
+      {
+        "case": "the Add filesystem dialog exists and works (its button had no handler at all before)",
+        "how": "live app, Settings -> Filesystems",
+        "result": "dialog offers Kind (Git repository / Folder), Location and Branch; a GitHub token picker appears only once a github.com URL is typed, offering 'No token \u2014 use my gh login'"
+      },
+      {
+        "case": "a public remote repository needs only git \u2014 review blocker B2",
+        "how": "registered https://github.com/octocat/Hello-World.git with no connection and no token",
+        "result": "state 'reachable', source 'github', connectionId null, no reason \u2014 Check at registration passed without gh being asked for a credential"
+      },
+      {
+        "case": "Check on a healthy local repository",
+        "how": "pressed Check on the onboarding-registered row",
+        "result": "stays REACHABLE, which is the correct answer"
+      },
+      {
+        "case": "a plain document folder registers and is worked in place",
+        "how": "Add filesystem dialog, Kind = Folder, pointed at a real folder on disk",
+        "result": "registered as kind doc_set, source local, state reachable, no connection"
+      },
+      {
+        "case": "a broken filesystem holds the agent's sessions \u2014 not the task (the maintainer's ruling)",
+        "how": "registered a filesystem pointing at a path that does not exist, picked it for local-repo Agent (which already had a healthy one), then created a task owned by that agent and accepted it, firing dispatch",
+        "result": "after 9s the task still reads 'accepted' \u2014 ready, not started; runs by task = [], runs by agent = [], active run counts = {}; so no session started and nothing failed the task",
+        "notificationBehaviour": "exactly ONE inbox row, titled 'Filesystem needs attention: <path>', linking to Settings. Adding the broken filesystem to an agent that already had a healthy one raised no second notice, and the dispatch that was then held raised none either."
+      },
+      {
+        "case": "registration refuses nothing but reports honestly",
+        "how": "POST /api/filesystems with a non-existent path",
+        "result": "201 with state needs_attention and a reason naming the path \u2014 Check runs at registration, so the row is honest from the moment it exists"
+      },
+      {
+        "case": "a held filesystem is released by Check, and the held work is claimed immediately",
+        "how": "restored the missing repository on disk, then pressed Check on that row",
+        "result": "state flipped needs_attention -> reachable, and the previously held request was claimed within seconds \u2014 a run appeared for the task. The session then failed at phase 'pre-admission' with NoEligibleHarnessError, BEFORE mounting runs, so it says nothing about this package's code."
+      },
+      {
+        "case": "the credential path is HyperIdle's own, proven against REAL GitHub on a real private repository",
+        "why": "this machine's global git config already wires gh as a credential helper, so a plain successful clone would prove nothing about this branch",
+        "how": "ran git ls-remote against the private repo twice with GIT_CONFIG_GLOBAL=/dev/null and GIT_CONFIG_SYSTEM=/dev/null, i.e. the ambient configuration suppressed",
+        "result": "WITHOUT the injected environment: 'fatal: could not read Username for https://github.com' \u2014 unreachable. WITH exactly the GIT_CONFIG_COUNT/KEY_0/VALUE_0 credential.<host>.helper = '!gh auth git-credential' that this branch injects per process: returns the private repo's real ref 80ecbef. So authentication rides gh, configured for that one process, with nothing written to the person's git config.",
+        "caveat": "the printed exit=0 lines were head's exit status, not git's; the evidence is the error message versus the returned ref"
+      },
+      {
+        "case": "BA5's headline: an agent works in a filesystem that needs credentials \u2014 proven in the PACKAGED DESKTOP APP",
+        "how": "built the app from this branch, launched it against a throwaway --user-data-dir profile (the maintainer's real desktop data untouched and separately backed up), created a team, registered https://github.com/tobias-ambrovia/ba5-filesystem-proof.git (PRIVATE) with NO connection so it had to authenticate through the person's gh login, picked it for the agent, then dispatched a task",
+        "result": "the filesystem registered 'reachable'; the app cloned the private repo into its kept-copies store; that clone's remote is the private repo, its HEAD is 80ecbef (the exact commit pushed), and reading PROOF.md out of it yields 'MARKER: PRIVATEREPO-A77C31' \u2014 real private content. The agent's session then ran to completion (run done/completed, 17s) and the task reached 'done'.",
+        "security": "no credential in the clone's .git/config and no userinfo in the remote URL \u2014 authentication rode gh per process and was never persisted",
+        "gap": "the task carried no threadId (tasks created through the API get no thread), so the agent's own words could not be quoted; the filesystem evidence stands on its own"
+      },
+      {
+        "case": "teardown: the worktree goes, the branch stays",
+        "how": "inspected the kept copy after the agent's session ended",
+        "result": "`git worktree list` shows only the kept copy \u2014 the session's worktree was removed \u2014 while branch hyperidle/49db2848-2555-42f4-845c-ea5a3ac33f04, named for the run, remains. The agent's work survives its session, as the plan requires."
+      }
+    ],
+    "proofRepo": {
+      "url": "https://github.com/tobias-ambrovia/ba5-filesystem-proof",
+      "private": true,
+      "marker": "PRIVATEREPO-A77C31 in PROOF.md",
+      "created": "2026-09-12 by the orchestrator, with the maintainer's authorisation",
+      "cleanup": "the maintainer deletes it when done \u2014 deleting repositories is not mine to do"
+    },
+    "desktopRun": {
+      "maintainerDataBackedUp": "~/Library/Application Support/@hyperidle/desktop/hyperidle-pg (41 MB) copied to scratchpad/ba5-proof/desktop-pg-backup before anything ran \u2014 this branch's migration DROPS writeback, health and last_validated_at, which is irreversible against real data",
+      "isolationPlan": "launch with Electron's --user-data-dir pointed at a throwaway profile, so the real desktop database is never opened or migrated; the backup is the fallback if that flag does not take",
+      "state": "awaiting the packaged build"
+    }
+  },
+  "phase2Environment": {
+    "rclone": "NOT installed on this machine; Homebrew is available, so installing it is possible but it is a persistent change to the maintainer's environment \u2014 not done unilaterally",
+    "googleDriveForDesktop": "NOT present (~/Library/CloudStorage/GoogleDrive* absent), so the zero-integration 'Drive folder is just a folder' path cannot be demonstrated either",
+    "consequence": "phase 2 can be BUILT and proven for everything that does not need a real Drive \u2014 detection and its reason strings, placement, adapter selection, the hold reusing phase 1's mechanism. The LIVE Drive proof needs the maintainer: authorising Google is an account consent flow the orchestrator will not perform, and rclone's own setup requires the person to create their own Google Cloud OAuth client (no tool can script the Google-side step).",
+    "recorded": "2026-09-12"
+  },
+  "sizeStopPhase2": {
+    "at": "2026-09-16",
+    "recount": "production only: A ~465 (with the Add-dialog Drive branch) / B ~370 \u2014 under the 1,000-line stop; the 2026-09-12 figure had added test lines",
+    "decision": "A \u2014 B ships a filesystem kind the product cannot create; no stop needed"
+  },
+  "rulings": [
+    {
+      "at": "2026-09-16",
+      "what": "no teardown: folder/Drive live until manually deleted, shareable across teams; only a git worktree is disposable, removed at task done; teardown is a doesn't-matter op; BA12 absorbed"
+    }
+  ],
+  "rebase": {
+    "at": "2026-09-17",
+    "onto": "f49720426 (#553)",
+    "head": "890aa48d4",
+    "migration": "0083_filesystem_attention renumbered to 0084 (main took 0083_changes_and_task_edit)",
+    "conflicts": [
+      "framework/db/drizzle/meta/_journal.json",
+      "layers/agent-orchestration/src/boot.ts",
+      "tools/repo-gates/src/design-profile-census.ts"
+    ]
+  }
+}

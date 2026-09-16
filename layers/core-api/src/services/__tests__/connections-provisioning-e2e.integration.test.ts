@@ -134,8 +134,6 @@ async function seedConnection(
 		authSource: opts.authSource,
 		encryptedToken,
 		serverUrl: opts.serverUrl ?? null,
-		health: "needs-attention",
-		lastValidatedAt: null,
 		createdAt: NOW,
 		updatedAt: NOW,
 	});

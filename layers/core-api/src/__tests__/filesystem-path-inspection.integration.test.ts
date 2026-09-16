@@ -2,8 +2,8 @@
  * Folder registered as filesystem with detected branch.
  *
  * Integration test — real DB/app + real git in temp dir.
- * - Git repo with branch → kind:"code" + branch + writeback:"none"
- * - Non-git folder → kind:"doc_set" + writeback:"none"
+ * - Git repo with branch → kind:"code" + branch
+ * - Non-git folder → kind:"doc_set"
  * - Git repo with NO commits (no resolvable branch) → kind:"doc_set" (never 400)
  */
 
@@ -129,9 +129,7 @@ describe("filesystem path inspection and registration", () => {
 		}
 	});
 
-	test("git repo with branch → filesystem registered as kind:code with branch + writeback:none", async ({
-		app,
-	}) => {
+	test("git repo with branch → filesystem registered as kind:code with branch", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const dir = join(tmpdir(), `av1-reg-git-${Date.now()}`);
@@ -158,7 +156,6 @@ describe("filesystem path inspection and registration", () => {
 					kind: "code",
 					connectionId: null,
 					resourceRef: { kind: "code", repo: dir, branch: "main" },
-					writeback: "none",
 				}),
 			});
 			expect(fsRes.status).toBe(201);
@@ -172,13 +169,11 @@ describe("filesystem path inspection and registration", () => {
 				filesystems: Array<{
 					kind: string;
 					resourceRef: { kind: string; repo?: string; branch?: string };
-					writeback: string;
 				}>;
 			};
 			const fs = listBody.filesystems[0];
 			expect(fs?.kind).toBe("code");
 			expect(fs?.resourceRef?.branch).toBe("main");
-			expect(fs?.writeback).toBe("none");
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 			vi.unstubAllEnvs();
@@ -212,7 +207,6 @@ describe("filesystem path inspection and registration", () => {
 					kind: "doc_set",
 					connectionId: null,
 					resourceRef: { kind: "doc_set", folder: dir },
-					writeback: "none",
 				}),
 			});
 			// Must NOT 400 — doc_set registration should succeed
@@ -223,18 +217,17 @@ describe("filesystem path inspection and registration", () => {
 			});
 			expect(listRes.status).toBe(200);
 			const listBody = (await listRes.json()) as {
-				filesystems: Array<{ kind: string; writeback: string }>;
+				filesystems: Array<{ kind: string }>;
 			};
 			expect(listBody.filesystems.length).toBe(1);
 			expect(listBody.filesystems[0]?.kind).toBe("doc_set");
-			expect(listBody.filesystems[0]?.writeback).toBe("none");
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 			vi.unstubAllEnvs();
 		}
 	});
 
-	test("non-git folder → registered as doc_set with writeback:none", async ({ app }) => {
+	test("non-git folder → registered as doc_set", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const dir = join(tmpdir(), `av1-doc-${Date.now()}`);
@@ -259,7 +252,6 @@ describe("filesystem path inspection and registration", () => {
 					kind: "doc_set",
 					connectionId: null,
 					resourceRef: { kind: "doc_set", folder: dir },
-					writeback: "none",
 				}),
 			});
 			expect(fsRes.status).toBe(201);
@@ -268,11 +260,10 @@ describe("filesystem path inspection and registration", () => {
 				headers: authHeaders(),
 			});
 			const listBody = (await listRes.json()) as {
-				filesystems: Array<{ kind: string; writeback: string }>;
+				filesystems: Array<{ kind: string }>;
 			};
 			const fs = listBody.filesystems[0];
 			expect(fs?.kind).toBe("doc_set");
-			expect(fs?.writeback).toBe("none");
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 			vi.unstubAllEnvs();

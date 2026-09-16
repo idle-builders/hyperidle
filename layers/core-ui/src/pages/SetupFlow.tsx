@@ -22,10 +22,15 @@
  * @lore AE2: Navigates to /work?onboarding=true to trigger assistant overlay auto-open.
  * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
  * derivePrimaryHarness() wired into POST /api/teams body.
- * Folder → inspect-path + register filesystem (best-effort, writeback:"none").
+ * Folder → inspect-path + register filesystem (best-effort).
  * @lore AW1 + follow-up: setup collects no credential at all. A harness arrives
  * already logged in, or it is not choosable — the key lives in the harness's own
  * login, never in HyperIdle.
+ * @lore BA5 §2.1/§10: POST /api/teams now returns `agentIds` — the agent(s) the
+ * team was created with. Onboarding used to register a filesystem for no agent
+ * at all, so nothing was ever mounted (plan break #2 / BA14). It now injects
+ * the just-registered filesystem into every agent the team response names,
+ * best-effort, the same way team creation itself is best-effort here.
  */
 
 import {
@@ -95,6 +100,89 @@ interface FolderInfo {
 	path: string;
 	isGitRepo: boolean;
 	branch: string | null;
+}
+
+/**
+ * Step 4 (best-effort): register the picked folder as a filesystem, then pick
+ * it for every agent the team was just created with.
+ *
+ * @lore AV1 Decision 3: inspect result determines kind (code+branch | doc_set).
+ * @lore BA5 §2.1/§10: onboarding used to register a filesystem for no agent at
+ * all, so nothing was ever mounted (plan break #2 / BA14). This now injects
+ * the just-registered filesystem into every agent `createdAgentIds` names,
+ * best-effort per agent, the same way registration itself is best-effort here.
+ * Extracted out of `handleSubmit` so that function's own control flow (steps
+ * 1–3, the outer try/catch) stays readable — this step never throws outward,
+ * a failure here must never undo a team that already exists.
+ */
+async function registerFilesystemAndInject(
+	repoPath: string,
+	createdTeamId: string,
+	createdAgentIds: readonly string[],
+	folderInfo: FolderInfo | null,
+): Promise<void> {
+	const path = repoPath.trim();
+	// Re-inspect if folderInfo is stale or wasn't fetched (typed path, not picked).
+	let info = folderInfo?.path === path ? folderInfo : null;
+	if (info === null) {
+		try {
+			const inspectRes = await apiFetch("/api/filesystems/inspect-path", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ path }),
+			});
+			if (inspectRes.ok) {
+				const raw = (await inspectRes.json()) as {
+					exists: boolean;
+					isGitRepo: boolean;
+					branch: string | null;
+				};
+				info = { path, isGitRepo: raw.isGitRepo, branch: raw.branch };
+			}
+		} catch {
+			// inspection failed — degrade to doc_set
+		}
+	}
+
+	try {
+		const branch = info?.branch ?? null;
+		const isCode = info?.isGitRepo === true && branch != null && branch !== "";
+		const resourceRef = isCode
+			? { kind: "code", repo: path, branch }
+			: { kind: "doc_set", folder: path };
+
+		const fsRes = await apiFetch("/api/filesystems", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				teamId: createdTeamId,
+				kind: isCode ? "code" : "doc_set",
+				resourceRef,
+				connectionId: null,
+			}),
+		});
+		if (!fsRes.ok) return;
+
+		const fsBody = (await fsRes.json().catch(() => null)) as {
+			filesystem?: { id?: string };
+		} | null;
+		const createdFilesystemId = fsBody?.filesystem?.id;
+		if (!createdFilesystemId) return;
+
+		for (const agentUserId of createdAgentIds) {
+			try {
+				await apiFetch(`/api/filesystems/${createdFilesystemId}/injections`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ agentUserId }),
+				});
+			} catch {
+				// injection is best-effort; swallow failure per agent
+			}
+		}
+	} catch {
+		// filesystem registration is best-effort; swallow failure
+	}
 }
 
 /**
@@ -301,66 +389,24 @@ export function SetupFlow(): JSX.Element {
 					throw new Error(body?.error ?? `Failed to create team (${teamRes.status})`);
 				}
 
-				// Capture teamId for filesystem registration below.
+				// Capture teamId for filesystem registration below, and the agent
+				// ids so a registered filesystem can be picked for them.
 				const teamBody = (await teamRes.json().catch(() => null)) as {
 					team?: { id?: string };
+					agentIds?: string[];
 				} | null;
 				const createdTeamId = teamBody?.team?.id ?? undefined;
+				const createdAgentIds = Array.isArray(teamBody?.agentIds) ? teamBody.agentIds : [];
 
 				// @lore A step here wrote the key someone typed into HyperIdle's
 				// credential store, so a harness could be run on it. Setup asks for no
 				// key at all now — a harness arrives already logged in, or it is not
 				// choosable.
 
-				// Step 4 (best-effort): Register folder as filesystem.
-				// @lore AV1 Decision 3: inspect result determines kind (code+branch | doc_set).
-				// writeback:"none" is the literal — WRITEBACK_MODES[0] is "git", never use index-0.
-				// Failure is swallowed: team creation already succeeded.
+				// Step 4 (best-effort): register the folder as a filesystem and pick it
+				// for every agent the team was created with. Never throws outward.
 				if (createdTeamId && repoPath.trim()) {
-					const path = repoPath.trim();
-					// Re-inspect if folderInfo is stale or wasn't fetched (typed path, not picked).
-					let info = folderInfo?.path === path ? folderInfo : null;
-					if (info === null) {
-						try {
-							const inspectRes = await apiFetch("/api/filesystems/inspect-path", {
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({ path }),
-							});
-							if (inspectRes.ok) {
-								const raw = (await inspectRes.json()) as {
-									exists: boolean;
-									isGitRepo: boolean;
-									branch: string | null;
-								};
-								info = { path, isGitRepo: raw.isGitRepo, branch: raw.branch };
-							}
-						} catch {
-							// inspection failed — degrade to doc_set
-						}
-					}
-
-					try {
-						const branch = info?.branch ?? null;
-						const isCode = info?.isGitRepo === true && branch != null && branch !== "";
-						const resourceRef = isCode
-							? { kind: "code", repo: path, branch }
-							: { kind: "doc_set", folder: path };
-
-						await apiFetch("/api/filesystems", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								teamId: createdTeamId,
-								kind: isCode ? "code" : "doc_set",
-								resourceRef,
-								writeback: "none",
-								connectionId: null,
-							}),
-						});
-					} catch {
-						// filesystem registration is best-effort; swallow failure
-					}
+					await registerFilesystemAndInject(repoPath, createdTeamId, createdAgentIds, folderInfo);
 				}
 
 				// AE2: Navigate to /work?onboarding=true to trigger assistant overlay auto-open.

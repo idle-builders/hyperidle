@@ -16,7 +16,7 @@ import {
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { create, recordConflict, reparent, update } from "@hyperidle/knowledge";
-import type { RuntimePorts } from "@hyperidle/run-orchestration";
+import type { RuntimeDeps, RuntimePorts } from "@hyperidle/run-orchestration";
 
 /**
  * @lore AU31 §2.1(b)/§5: `runtimeDeps`/`startRuntime` are no longer module-
@@ -65,6 +65,63 @@ export function buildTestRunOrchestrationComposition(): ReturnType<
 	});
 }
 
+/**
+ * The `writeback`/`worker` composition slice every test runtime needs
+ * (`startRuntime`'s `assertStartable` requires both present) — real knowledge
+ * writeback, an inert worker pool nothing ever actually registers against.
+ * Shared by `startTestRuntime` and `startTestRuntimeWithRealProvisioner` so
+ * the two differ only in what `ports.sessionProvisioner` resolves to.
+ */
+function testRuntimeCompositionExtras(
+	db: HyperIdleDb,
+): Pick<RuntimeDeps["composition"], "writeback" | "worker"> {
+	const workerPool = new AdapterPool();
+	return {
+		writeback: {
+			db,
+			knowledge: {
+				create,
+				async update(
+					db2: HyperIdleDb,
+					id: string,
+					patch: Parameters<typeof update>[2],
+					expectedVersion: number,
+				) {
+					return { ok: true, item: await update(db2, id, patch, expectedVersion) };
+				},
+				recordConflict,
+				async reparentKnowledgeItem(
+					db2: HyperIdleDb,
+					id: string,
+					input: Parameters<typeof reparent>[2],
+				) {
+					await reparent(db2, id, input);
+				},
+			},
+		},
+		worker: {
+			pool: workerPool,
+			adapterFactory: {
+				create: (
+					ws: unknown,
+					registration: { readonly [key: string]: unknown; readonly id: string },
+				) => {
+					const message: WorkerRegisterMessage = {
+						type: "register",
+						id: registration.id,
+						name: String(registration.name),
+						modelProviders: Array.isArray(registration.modelProviders)
+							? registration.modelProviders.map(String)
+							: [],
+						maxConcurrent: Number(registration.maxConcurrent),
+					};
+					return new RemoteHarnessAdapter(ws as WsLike, message);
+				},
+			},
+		},
+	};
+}
+
 /** Starts the public runtime with inert peripheral adapters and an injectable execution edge. */
 export function startTestRuntime(
 	db: HyperIdleDb,
@@ -75,44 +132,42 @@ export function startTestRuntime(
 	const composition = buildTestRunOrchestrationComposition();
 	const base = composition.runtimeDeps(db, eventBus);
 	if (!base.ports) throw new Error("runtimeDeps did not provide production ports");
-	const workerPool = new AdapterPool();
 	return composition.startRuntime(
 		composition.runtimeDeps(db, eventBus, {
 			runtime,
 			ports: { ...base.ports, sessionProvisioner },
-			composition: {
-				...base.composition,
-				writeback: {
-					db,
-					knowledge: {
-						create,
-						async update(db2, id, patch, expectedVersion) {
-							return { ok: true, item: await update(db2, id, patch, expectedVersion) };
-						},
-						recordConflict,
-						async reparentKnowledgeItem(db2, id, input) {
-							await reparent(db2, id, input);
-						},
-					},
-				},
-				worker: {
-					pool: workerPool,
-					adapterFactory: {
-						create: (ws, registration) => {
-							const message: WorkerRegisterMessage = {
-								type: "register",
-								id: registration.id,
-								name: String(registration.name),
-								modelProviders: Array.isArray(registration.modelProviders)
-									? registration.modelProviders.map(String)
-									: [],
-								maxConcurrent: Number(registration.maxConcurrent),
-							};
-							return new RemoteHarnessAdapter(ws as WsLike, message);
-						},
-					},
-				},
-			},
+			composition: { ...base.composition, ...testRuntimeCompositionExtras(db) },
+		}),
+	);
+}
+
+/**
+ * @lore: starts the public runtime with the REAL internal
+ * provisioner (`admitSession`/`runSession`, `provisioner.ts`), not a stubbed
+ * execution edge: `ports.sessionProvisioner` is left unset, so `startRuntime`'s
+ * own default wraps its real `createProvisioner` around
+ * `composition.provisioner` (real `harnessRuntime`/`toolProvider`/
+ * `contextAssembly`, from `buildTestRunOrchestrationComposition`). Use this
+ * when the thing under test is admission itself — the placement-failure hold
+ * (Phase 4.5), not just the drain/claim machinery `startTestRuntime` proves
+ * elsewhere. The only fake is `runtime.adapterPool`'s harness adapter — the
+ * caller supplies it, since a real CLI harness has no place in a service test.
+ */
+export function startTestRuntimeWithRealProvisioner(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	runtime: ProvisionSessionDeps,
+	sandboxBasePath?: string,
+) {
+	const composition = buildTestRunOrchestrationComposition();
+	const base = composition.runtimeDeps(db, eventBus);
+	if (!base.ports) throw new Error("runtimeDeps did not provide production ports");
+	return composition.startRuntime(
+		composition.runtimeDeps(db, eventBus, {
+			runtime,
+			...(sandboxBasePath ? { sandboxBasePath } : {}),
+			ports: base.ports,
+			composition: { ...base.composition, ...testRuntimeCompositionExtras(db) },
 		}),
 	);
 }

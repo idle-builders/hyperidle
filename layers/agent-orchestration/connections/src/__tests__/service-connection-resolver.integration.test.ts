@@ -92,8 +92,6 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			authSource: "token",
 			encryptedToken: encrypted,
 			serverUrl: null,
-			health: "needs-attention",
-			lastValidatedAt: null,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
@@ -131,8 +129,6 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			authSource: "token",
 			encryptedToken: encrypted,
 			serverUrl: null,
-			health: "needs-attention",
-			lastValidatedAt: null,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
@@ -164,8 +160,6 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			authSource: "mcp",
 			encryptedToken: null,
 			serverUrl: "https://mcp.figma.com",
-			health: "needs-attention",
-			lastValidatedAt: null,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
@@ -206,8 +200,6 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			authSource: "token",
 			encryptedToken: "this-is-not-valid-aes-gcm-base64!!!!",
 			serverUrl: null,
-			health: "needs-attention",
-			lastValidatedAt: null,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
@@ -246,8 +238,6 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			authSource: "token",
 			encryptedToken: encrypted,
 			serverUrl: null,
-			health: "needs-attention",
-			lastValidatedAt: null,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});

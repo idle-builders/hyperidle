@@ -50,7 +50,12 @@ interface ConnectionView {
 	/** Where its tools come from — for inherited, harness/CLI name; for mcp, the server host. */
 	via: string;
 	authSource: AuthSource;
-	health: Health;
+	/**
+	 * Only ever set for authSource:"inherited" — live CLI
+	 * detection. A held (stored) row carries no health of its own now that
+	 * `service_connections.health` and the validate route are gone.
+	 */
+	health?: Health;
 	/** Whether HyperIdle owns the row (held) — inherited rows are not removable. */
 	removable: boolean;
 }
@@ -82,12 +87,13 @@ const CONNECTIONS: ConnectionView[] = [
 		removable: false,
 	},
 	// Held · token — HyperIdle holds the ciphertext, resolves it server-side at spawn.
+	// No health field: it is a live-detection concept, and there is nothing left
+	// to detect it with for a stored row.
 	{
 		id: "sc-stripe",
 		service: "Stripe",
 		via: "API key · stored encrypted",
 		authSource: "token",
-		health: "working",
 		removable: true,
 	},
 	{
@@ -95,7 +101,6 @@ const CONNECTIONS: ConnectionView[] = [
 		service: "SendGrid",
 		via: "API key · stored encrypted",
 		authSource: "token",
-		health: "needs-attention",
 		removable: true,
 	},
 	// Held · mcp — a remote MCP server the user points at; the server owns its sign-in.
@@ -104,7 +109,6 @@ const CONNECTIONS: ConnectionView[] = [
 		service: "Figma",
 		via: "mcp.figma.com",
 		authSource: "mcp",
-		health: "working",
 		removable: true,
 	},
 ];
@@ -141,9 +145,9 @@ function rowMenuItems(): MenuItem[] {
 	return [{ id: "remove", label: "Remove", onSelect: () => {}, destructive: true }];
 }
 
-/** Health-sort within a group: needs-attention floats to the top. */
+/** Health-sort within a group: needs-attention floats to the top. Held rows carry no health. */
 function bySeverity(a: ConnectionView, b: ConnectionView): number {
-	const rank = (h: Health) => (h === "working" ? 1 : 0);
+	const rank = (h: Health | undefined) => (h === "working" ? 1 : 0);
 	return rank(a.health) - rank(b.health) || a.service.localeCompare(b.service);
 }
 
@@ -154,9 +158,11 @@ function bySeverity(a: ConnectionView, b: ConnectionView): number {
 function ConnectionRow({ c }: { c: ConnectionView }): JSX.Element {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const note = authNote(c.authSource);
-	// Inherited rows are auto-detected and expected to work — suppress the chip when
-	// working (it clutters); show it only when one needs attention. Held rows always show it.
-	const showChip = c.authSource !== "inherited" || c.health !== "working";
+	// Health is live CLI detection, only ever computed for
+	// inherited rows. A held (stored) row has none of its own, so it never shows
+	// a chip at all.
+	const chipHealth = c.authSource === "inherited" ? c.health : undefined;
+	const showChip = chipHealth !== undefined && chipHealth !== "working";
 	return (
 		<Row
 			lead={<ServiceMark service={c.service} />}
@@ -169,8 +175,8 @@ function ConnectionRow({ c }: { c: ConnectionView }): JSX.Element {
 			}
 			actions={
 				<span className="flex items-center gap-[9px]">
-					{showChip ? (
-						<StatusChip status={healthToStatus(c.health)} label={healthLabel(c.health)} />
+					{showChip && chipHealth ? (
+						<StatusChip status={healthToStatus(chipHealth)} label={healthLabel(chipHealth)} />
 					) : null}
 					{c.removable ? (
 						<div className="relative">

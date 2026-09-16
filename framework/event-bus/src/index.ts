@@ -14,6 +14,7 @@ export type {
 	EventByType,
 	EventHandler,
 	EventType,
+	FilesystemNeedsAttentionEvent,
 	ItemCreatedEvent,
 	KnowledgeArchivedEvent,
 	KnowledgeCreatedEvent,
