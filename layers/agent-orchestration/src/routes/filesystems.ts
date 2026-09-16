@@ -182,7 +182,7 @@ async function validateRegisterBody(
 
 	if (body.resourceRef.kind === "drive") {
 		const { remote, path } = body.resourceRef;
-		if (!REMOTE_NAME.test(remote)) {
+		if (!REMOTE_NAME.test(remote) || remote.startsWith("-")) {
 			return "remote must be a plain rclone remote name (no ':', no path)";
 		}
 		if (path.includes("\n") || path.includes("\0")) {

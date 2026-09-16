@@ -434,4 +434,115 @@ describe("the filesystem hold, end to end (BA5 §4/§8/§13, T8)", () => {
 			await handle.dispose();
 		}
 	});
+
+	// V5 (Google Drive phase, §9.2) — the SAME hold mechanics, proven again for
+	// a Drive filesystem rather than a git one: no new drive-specific hold path
+	// exists, so a mounter with no `rclone` port wired at all reaches the exact
+	// same generic `FilesystemMountFailure` -> full-hold plumbing D3 already
+	// built for git and folder filesystems.
+	test("a Drive filesystem with no rclone port wired holds the agent's sessions the same way — task stays ready, no sessions row, one notice", async ({
+		db,
+		eventBus,
+	}) => {
+		const { teamId, agentId, taskId } = await seed(db, "drive-hold");
+		const filesystemId = "t8-fs-drive-hold";
+		await db.insert(filesystems).values({
+			id: filesystemId,
+			teamId,
+			source: "gdrive",
+			kind: "doc_set",
+			connectionId: null,
+			resourceRef: JSON.stringify({ kind: "drive", remote: "gdrive", path: "Projects/Acme" }),
+			state: "attached",
+			createdAt: NOW,
+		});
+		await db
+			.insert(filesystemInjections)
+			.values({ agentUserId: agentId, filesystemId, createdAt: NOW });
+
+		const events: FilesystemNeedsAttentionEvent[] = [];
+		eventBus.on("filesystem_needs_attention", (event) => events.push(event));
+		registerFilesystemAttentionReactions(db, eventBus);
+
+		const sandboxBasePath = tempDir("sandbox-base-drive");
+		const { pool, released } = buildFakeAdapterPool();
+		const runtime = {
+			db,
+			eventBus,
+			adapterPool: pool,
+			workspace: {
+				spawn: async (base: string) => {
+					fs.mkdirSync(base, { recursive: true });
+					const spawned = fs.mkdtempSync(path.join(base, "ws-"));
+					return { sandboxId: spawned, path: spawned };
+				},
+				exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
+				adopt: async (p: string) => ({ sandboxId: p, path: p }),
+				destroy: async (handle: { path: string }) => {
+					fs.rmSync(handle.path, { recursive: true, force: true });
+				},
+			},
+			// No `rclone` field at all — `DriveFolderAdapter.mount` returns the
+			// honest "this server cannot reach Google Drive" reason (§2.2, reason 6).
+			mounter: new RegistryFilesystemMounter({
+				gitRunnerFactory: realLocalGitRunnerFactory,
+				keptCopiesRoot: tempDir("kept-copies-drive"),
+			}),
+			injectedFilesystems: {
+				listInjectedForProvisioning: (forAgentId: string) =>
+					listInjectedFilesystemsForProvisioning(db, forAgentId),
+				listHeldAgentIds: () => listHeldAgentIds(db),
+				markNeedsAttention: async (fsId: string, reason: string) => {
+					const result = await markFilesystemNeedsAttention(db, fsId, reason);
+					if (result?.entered) {
+						eventBus.emit({
+							type: "filesystem_needs_attention",
+							streamId: `filesystem:${fsId}`,
+							filesystemId: fsId,
+							filesystemLabel: fsId,
+							agentIds: result.agentIds,
+							reason,
+							timestamp: Date.now(),
+						});
+					}
+				},
+			},
+		};
+
+		await seedRequest(db, "t8-drive-req-1", taskId, agentId, teamId);
+
+		const handle = await startTestRuntimeWithRealProvisioner(
+			db,
+			eventBus,
+			runtime as unknown as ProvisionSessionDeps,
+			sandboxBasePath,
+		);
+		try {
+			await vi.waitFor(async () => {
+				const [row] = await db
+					.select()
+					.from(agentSessionRequests)
+					.where(eq(agentSessionRequests.id, "t8-drive-req-1"));
+				expect(row?.status).toBe("pending");
+			});
+
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+			expect(task?.state).toBe("accepted");
+
+			expect(
+				await db.select().from(sessions).where(eq(sessions.requestId, "t8-drive-req-1")),
+			).toHaveLength(0);
+
+			expect(released).toContain("fake-adapter-t8");
+
+			const [fsRow] = await db.select().from(filesystems).where(eq(filesystems.id, filesystemId));
+			expect(fsRow?.state).toBe("needs_attention");
+			expect(fsRow?.attentionReason).toBe("this server cannot reach Google Drive");
+
+			expect(events).toHaveLength(1);
+			expect(events[0]?.agentIds).toEqual([agentId]);
+		} finally {
+			await handle.dispose();
+		}
+	});
 });

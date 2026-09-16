@@ -19,7 +19,9 @@
  *   AC8  — migration: filesystems + filesystem_injections tables, correct columns, no agent_user_id
  */
 
+import * as fs from "node:fs";
 import * as os from "node:os";
+import * as path from "node:path";
 import { encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	type HyperIdleDb,
@@ -29,9 +31,25 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { FilesystemNeedsAttentionEvent } from "@hyperidle/event-bus";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+
+/**
+ * Google Drive phase, V4 (§9.2): real PATH with every directory that
+ * resolves `rclone` removed — same idiom `filesystem-check.integration.test.ts`
+ * already uses for `gh` — so a Drive filesystem's Check is deterministic
+ * regardless of whether this machine happens to have rclone installed.
+ */
+function pathWithoutRclone(): string {
+	const real = process.env.PATH ?? "";
+	const kept = real.split(path.delimiter).filter((dir) => {
+		if (!dir) return false;
+		return !fs.existsSync(path.join(dir, "rclone"));
+	});
+	return kept.join(path.delimiter);
+}
 
 const TEST_API_KEY = "test-key-ao1";
 const NOW = "2026-06-26T00:00:00.000Z";
@@ -1014,6 +1032,137 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				(r) => r.column_name,
 			);
 			expect(kCols).not.toContain("filesystem_id");
+		});
+	});
+
+	// ─────────────────────────────────────────────────────────────────────
+	// V4 (Google Drive phase, §9.2) — registration + Check + the hold's notice,
+	// through the real DB and app, with rclone stubbed off PATH so the result
+	// is deterministic regardless of this machine's own setup.
+	// ─────────────────────────────────────────────────────────────────────
+
+	describe("V4: a Google Drive filesystem registers, Check tells the truth, one notice", () => {
+		afterEach(() => {
+			vi.unstubAllEnvs();
+		});
+
+		test("POST a drive ref with rclone absent → 201, source 'gdrive', needs_attention, reason names installing rclone", async ({
+			db,
+			app,
+		}) => {
+			vi.stubEnv("PATH", pathWithoutRclone());
+			const { teamId } = await seedTeamAndBots(db, "v4a");
+
+			const res = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId,
+					kind: "doc_set",
+					connectionId: null,
+					resourceRef: { kind: "drive", remote: "gdrive", path: "Projects/Acme" },
+				}),
+			});
+
+			expect(res.status).toBe(201);
+			const { filesystem, check } = (await res.json()) as {
+				filesystem: Record<string, unknown>;
+				check: { ok: boolean; reason: string | null };
+			};
+			expect(filesystem.source).toBe("gdrive");
+			expect(filesystem.state).toBe("needs_attention");
+			expect(check.ok).toBe(false);
+			expect(check.reason).toContain("Install rclone");
+		});
+
+		test("exactly one filesystem_needs_attention event, labelled remote:path; a second Check keeps it at one and refreshes the reason", async ({
+			db,
+			app,
+			eventBus,
+		}) => {
+			vi.stubEnv("PATH", pathWithoutRclone());
+			const { teamId } = await seedTeamAndBots(db, "v4b");
+
+			const events: FilesystemNeedsAttentionEvent[] = [];
+			eventBus.on("filesystem_needs_attention", (e) => events.push(e));
+
+			const createRes = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId,
+					kind: "doc_set",
+					connectionId: null,
+					resourceRef: { kind: "drive", remote: "gdrive", path: "Projects/Acme" },
+				}),
+			});
+			const {
+				filesystem: { id: fsId },
+			} = (await createRes.json()) as { filesystem: { id: string } };
+
+			// Registration's own Check runs BEFORE the filesystem has any agent
+			// injected — the transition into needs_attention happens with an empty
+			// agentIds, exactly as it does for any filesystem that fails on arrival.
+			expect(events).toHaveLength(1);
+			expect(events[0]).toMatchObject({
+				filesystemId: fsId,
+				filesystemLabel: "gdrive:Projects/Acme",
+				agentIds: [],
+			});
+			expect(events[0]?.reason).toContain("Install rclone");
+
+			// A second on-demand Check re-runs against the SAME broken filesystem —
+			// still one event total (the once-per-episode guarantee), reason refreshed.
+			const checkRes = await app.request(`/api/filesystems/${fsId}/check`, {
+				method: "POST",
+				headers: auth(),
+			});
+			expect(checkRes.status).toBe(200);
+			expect(events).toHaveLength(1);
+		});
+
+		test("POST with a remote containing '/' or a leading '-' → 400", async ({ db, app }) => {
+			const { teamId } = await seedTeamAndBots(db, "v4c");
+
+			const withSlash = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId,
+					kind: "doc_set",
+					connectionId: null,
+					resourceRef: { kind: "drive", remote: "gdrive/evil", path: "Projects/Acme" },
+				}),
+			});
+			expect(withSlash.status).toBe(400);
+
+			const withDash = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId,
+					kind: "doc_set",
+					connectionId: null,
+					resourceRef: { kind: "drive", remote: "-evil", path: "Projects/Acme" },
+				}),
+			});
+			expect(withDash.status).toBe(400);
+		});
+
+		test("POST with a path carrying a newline → 400", async ({ db, app }) => {
+			const { teamId } = await seedTeamAndBots(db, "v4d");
+
+			const res = await app.request("/api/filesystems", {
+				method: "POST",
+				headers: auth(),
+				body: JSON.stringify({
+					teamId,
+					kind: "doc_set",
+					connectionId: null,
+					resourceRef: { kind: "drive", remote: "gdrive", path: "Projects/Acme\nevil" },
+				}),
+			});
+			expect(res.status).toBe(400);
 		});
 	});
 });
