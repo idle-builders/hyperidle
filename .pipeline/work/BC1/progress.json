@@ -127,7 +127,9 @@
     "number": 552,
     "url": "https://github.com/ambrovia/hyperidle/pull/552",
     "base": "main",
-    "head_at_open": "ce243d896",
+    "ci": "green at 18883167e (npm run verify pass, release verify pass, release-guard pass, release tests skipping)",
+    "state": "OPEN",
     "merged": false
-  }
+  },
+  "next_action": "founder reviews the CI-green PR; retro runs on approval, then a human merges"
 }
