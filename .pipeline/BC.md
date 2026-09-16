@@ -46,7 +46,7 @@ Each item here only re-points existing screens at `call` and `invariants`.
 | ID | Title | Type | Complexity | Depends | Status |
 |---|---|---|---|---|---|
 | BC1 | Delete: 14 routes, 7 events, the attention engine, the stale events fork, dead controls | backend + frontend | feature | — | shipped — PR #552 merged (`286628f7b`). Scope cut from 22 routes and 8 events by founder ruling: delete means unused or unreachable, so seven still-called routes stay, and `notification` stays for the item that replaces its queue. |
-| BC2 | The action list, proven end to end on task (shape, `changes` table, three loops, lint rule) | backend + frontend | suite | BC1 | in review — open PR pending number/url after create; CI pending; branch `feature/task-action-list` |
+| BC2 | The action list, proven end to end on task (shape, `changes` table, three loops, lint rule) | backend + frontend | suite | BC1 | in review — PR #553 https://github.com/ambrovia/hyperidle/pull/553 ; CI pending; branch `feature/task-action-list` |
 | BC3 | Thread as a module: search · open · send a message · adjust; `items` becomes a message kind | backend + frontend | suite | BC2 | planned |
 | BC4 | Document as a module: search · open · edit; knowledge item renamed; tree, status, merge, split as edit | backend + frontend | suite | BC3 | planned |
 | BC5 | User as a module with subscriptions: routines and notifications become one mechanism; team an attribute; setup dissolves | backend + frontend | suite | BC6 | planned |
