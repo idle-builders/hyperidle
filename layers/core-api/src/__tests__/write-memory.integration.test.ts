@@ -53,6 +53,13 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdl
 		agentId,
 		sessionId: "session-1",
 		taskId: "task-1",
+		// @lore write_memory falls back to `openTask` only when `teamId` is
+		// absent from the context — setting it here keeps every test in this
+		// file off the THROWING_OPEN_TASK stub, which is deliberately wired
+		// above so a test that DOES reach `openTask` fails loudly instead of
+		// silently exercising a stub. The "no explicit teamId" fallback path
+		// itself is covered by R7-knowledge-e2e.integration.test.ts.
+		teamId: "team-1",
 		sandboxPath: path.join(os.tmpdir(), `hi-d4-writemem-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};

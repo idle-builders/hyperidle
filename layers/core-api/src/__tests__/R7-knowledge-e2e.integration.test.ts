@@ -16,10 +16,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
-} from "@hyperidle/agent-orchestration/testing";
+import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -44,19 +41,44 @@ import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-r
  * @lore AU31 §3.2/B2: this file's tool handler(s) reach `ports.coreApi.*`
  * (the seam) — each tool is built fresh per test off THIS test's own `app`
  * (`createInProcessCoreApiTransport`), never an ambient transport global.
+ *
+ * @lore §8 B1: this file's own R7 AC-5 case tests `write_memory`'s
+ * task-reading behaviour directly ("without explicit teamId in ToolContext")
+ * — the documented case an `openTask` binding is injected for, not
+ * `THROWING_OPEN_TASK`. A direct-query real implementation (no seam hop
+ * needed for the narrow shape `write_memory` reads) rather than
+ * `THROWING_OPEN_TASK`.
  */
-function buildPromoteKnowledgeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+function realOpenTask(db: HyperIdleDb) {
+	return async (
+		id: string,
+	): Promise<
+		{ readonly task: { readonly parentTaskId: string | null; readonly teamId: string } } | undefined
+	> => {
+		const [row] = await db.select().from(tasks).where(eq(tasks.id, id));
+		if (!row) return undefined;
+		return { task: { parentTaskId: row.parentTaskId, teamId: row.teamId } };
+	};
+}
+
+function buildPromoteKnowledgeTool(
+	app: Hono,
+	db: HyperIdleDb,
+): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(
 		createInProcessCoreApiTransport(app),
 		THROWING_REVIEW_ACCESSOR,
-		THROWING_OPEN_TASK,
+		realOpenTask(db),
 	).find((t) => t.name === "promote_knowledge")!;
 }
-function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+function buildWriteMemoryTool(
+	app: Hono,
+	db: HyperIdleDb,
+): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(
 		createInProcessCoreApiTransport(app),
 		THROWING_REVIEW_ACCESSOR,
-		THROWING_OPEN_TASK,
+		realOpenTask(db),
 	).find((t) => t.name === "write_memory")!;
 }
 
@@ -115,7 +137,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		db,
 		app,
 	}) => {
-		const writeMemoryTool = buildWriteMemoryTool(app);
+		const writeMemoryTool = buildWriteMemoryTool(app, db);
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1-${Date.now()}`);
 		const ctx = makeContext(db, sandboxPath);
@@ -146,7 +168,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		db,
 		app,
 	}) => {
-		const writeMemoryTool = buildWriteMemoryTool(app);
+		const writeMemoryTool = buildWriteMemoryTool(app, db);
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1b-${Date.now()}`);
 		const ctx = makeContext(db, sandboxPath);
@@ -181,7 +203,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		db,
 		app,
 	}) => {
-		const writeMemoryTool = buildWriteMemoryTool(app);
+		const writeMemoryTool = buildWriteMemoryTool(app, db);
 		// R7 fix: the fabric extension table (knowledgeAppProjection.scopeId) must
 		// match the team ID so the team-scoped fetch can find the item.
 		await seedBase(db);
@@ -215,7 +237,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		db,
 		app,
 	}) => {
-		const writeMemoryTool = buildWriteMemoryTool(app);
+		const writeMemoryTool = buildWriteMemoryTool(app, db);
 		// Verify that items created by write_memory appear in the knowledge list endpoint
 		// with status="proposed" — the KnowledgeList triage tab filters on status === "proposed"
 		await seedBase(db);
@@ -249,7 +271,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 
 describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 	test("promote_knowledge transitions a draft item to active status", async ({ db, app }) => {
-		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
+		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app, db);
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac2a-${Date.now()}`);
 		const eventBus = new EventBus();
@@ -315,7 +337,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		db,
 		app,
 	}) => {
-		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
+		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app, db);
 		// R7 fix applied: "proposed" is now in KNOWLEDGE_STATUSES and ALLOWED_TRANSITIONS
 		// so isKnowledgeStatus("proposed") returns true and draft → active succeeds.
 		// Previously documented the INVALID_STATE failure mode; updated in write-code phase.
@@ -367,8 +389,8 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 	});
 
 	test("full triage-to-curated flow: write_memory then promote_knowledge", async ({ db, app }) => {
-		const writeMemoryTool = buildWriteMemoryTool(app);
-		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
+		const writeMemoryTool = buildWriteMemoryTool(app, db);
+		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app, db);
 		// End-to-end: agent writes item (lands in triage as "proposed"), facilitator promotes to "active" (curated)
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac2c-${Date.now()}`);
@@ -457,7 +479,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		db,
 		app,
 	}) => {
-		const writeMemoryTool = buildWriteMemoryTool(app);
+		const writeMemoryTool = buildWriteMemoryTool(app, db);
 		await seedBase(db);
 		const ctx = makeContext(db, sandboxPath);
 
@@ -558,7 +580,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		db,
 		app,
 	}) => {
-		const writeMemoryTool = buildWriteMemoryTool(app);
+		const writeMemoryTool = buildWriteMemoryTool(app, db);
 		// R7 fix: write_memory now derives teamId from the task when ctx.teamId
 		// is absent, ensuring scopeId is always set for items tied to a team task.
 		// Previously documented the null-scopeId broken state; updated in write-code phase.

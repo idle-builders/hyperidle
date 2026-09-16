@@ -21,13 +21,11 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
-} from "@hyperidle/agent-orchestration/testing";
+import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
+import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -39,11 +37,35 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-function createArtifactTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+/**
+ * @lore §8 B1: this file's `context()` never sets `teamId` (an assistant
+ * session's real shape — see its own comment), so `create_artifact`'s
+ * `ctx.teamId ?? openTask(...)` fallback is always reached — the documented
+ * case an `openTask` binding is injected for, not `THROWING_OPEN_TASK`.
+ */
+function realOpenTask(
+	db: HyperIdleDb,
+): (
+	id: string,
+	actorId: string,
+) => Promise<
+	{ readonly task: { readonly parentTaskId: string | null; readonly teamId: string } } | undefined
+> {
+	return async (id) => {
+		const [row] = await db.select().from(tasks).where(eq(tasks.id, id));
+		if (!row) return undefined;
+		return { task: { parentTaskId: row.parentTaskId, teamId: row.teamId } };
+	};
+}
+
+function createArtifactTool(
+	app: Hono,
+	db: HyperIdleDb,
+): ReturnType<typeof buildToolDefinitions>[number] {
 	const tool = buildToolDefinitions(
 		createInProcessCoreApiTransport(app),
 		THROWING_REVIEW_ACCESSOR,
-		THROWING_OPEN_TASK,
+		realOpenTask(db),
 	).find((t) => t.name === "create_artifact");
 	if (!tool) throw new Error("create_artifact tool not found in the built definitions");
 	return tool;
@@ -127,7 +149,7 @@ describe("create_artifact, driven through the real route", () => {
 		const { taskId } = await seed(db);
 		const BODY = "# Test results\n\n12 passed, 0 failed.";
 
-		const result = await createArtifactTool(app).handler(
+		const result = await createArtifactTool(app, db).handler(
 			{ title: "Test results", body: BODY },
 			context(db, eventBus, { taskId }),
 		);
@@ -155,7 +177,7 @@ describe("create_artifact, driven through the real route", () => {
 	test("in a conversation it parents to the thread instead", async ({ db, app, eventBus }) => {
 		const { threadId } = await seed(db);
 
-		const result = await createArtifactTool(app).handler(
+		const result = await createArtifactTool(app, db).handler(
 			{ title: "Produced in a conversation", body: "Content." },
 			context(db, eventBus, { threadId }),
 		);
@@ -183,7 +205,7 @@ describe("create_artifact, driven through the real route", () => {
 		// sandbox frame. If the round trip mangles it, it renders as source.
 		const BODY = '```html\n<div id="x">hi</div>\n<script>document.title="ran"</script>\n```';
 
-		const result = await createArtifactTool(app).handler(
+		const result = await createArtifactTool(app, db).handler(
 			{ title: "Interactive", body: BODY },
 			context(db, eventBus, { taskId }),
 		);
@@ -205,7 +227,7 @@ describe("create_artifact, driven through the real route", () => {
 	}) => {
 		await seed(db);
 
-		const result = await createArtifactTool(app).handler(
+		const result = await createArtifactTool(app, db).handler(
 			{ title: "Nowhere to live", body: "Content." },
 			context(db, eventBus, {}),
 		);
@@ -216,7 +238,7 @@ describe("create_artifact, driven through the real route", () => {
 	test("the produced item is NOT in the knowledge tree", async ({ db, app, eventBus }) => {
 		const { taskId } = await seed(db);
 
-		const result = await createArtifactTool(app).handler(
+		const result = await createArtifactTool(app, db).handler(
 			{ title: "Task residue", body: "Content." },
 			context(db, eventBus, { taskId }),
 		);

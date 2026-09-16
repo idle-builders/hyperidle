@@ -14,10 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	NO_LINK_REVIEW_ACCESSOR,
-	THROWING_OPEN_TASK,
-} from "@hyperidle/agent-orchestration/testing";
+import { NO_LINK_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeItems,
@@ -39,12 +36,36 @@ import { seedKnowledgeItem } from "./_helpers.js";
  * @lore AU31 §3.2/B2: this file's tool handler(s) reach `ports.coreApi.*`
  * (the seam) — the tool is built fresh per test off THIS test's own `app`
  * (`createInProcessCoreApiTransport`), never an ambient transport global.
+ *
+ * @lore §8 B1: `submit_review` unconditionally opens the calling task
+ * (`ports.coreApi.openTask(ctx.taskId, …)`, no `ctx.teamId` shortcut) — this
+ * whole file is "a test about submit_review's task-reading behaviour", the
+ * documented case an `openTask` binding is injected for, not
+ * `THROWING_OPEN_TASK`.
  */
-function buildSubmitReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+function realOpenTask(
+	db: HyperIdleDb,
+): (
+	id: string,
+	actorId: string,
+) => Promise<
+	{ readonly task: { readonly parentTaskId: string | null; readonly teamId: string } } | undefined
+> {
+	return async (id) => {
+		const [row] = await db.select().from(tasks).where(eq(tasks.id, id));
+		if (!row) return undefined;
+		return { task: { parentTaskId: row.parentTaskId, teamId: row.teamId } };
+	};
+}
+
+function buildSubmitReviewTool(
+	app: Hono,
+	db: HyperIdleDb,
+): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(
 		createInProcessCoreApiTransport(app),
 		NO_LINK_REVIEW_ACCESSOR,
-		THROWING_OPEN_TASK,
+		realOpenTask(db),
 	).find((t) => t.name === "submit_review")!;
 }
 
@@ -112,7 +133,7 @@ describe("submit_review tool", () => {
 			db,
 			app,
 		}) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
+			const submitReviewTool = buildSubmitReviewTool(app, db);
 			await seed(db);
 			const result = await submitReviewTool.handler(
 				{
@@ -172,7 +193,7 @@ describe("submit_review tool", () => {
 	 */
 	describe("a review with no evidence attached", () => {
 		test("is still a review, so a human has something to answer", async ({ db, app }) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
+			const submitReviewTool = buildSubmitReviewTool(app, db);
 			await seed(db);
 			const result = await submitReviewTool.handler(
 				{
@@ -208,7 +229,7 @@ describe("submit_review tool", () => {
 			db,
 			app,
 		}) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
+			const submitReviewTool = buildSubmitReviewTool(app, db);
 			await seed(db);
 			const first = await submitReviewTool.handler(
 				{ title: "First review", reasoning: ["Reason A"] },
@@ -232,7 +253,7 @@ describe("submit_review tool", () => {
 			db,
 			app,
 		}) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
+			const submitReviewTool = buildSubmitReviewTool(app, db);
 			await seed(db);
 			// Founder ruling 7: the review anchors on the TASK's thread — create
 			// a task thread (not a bet thread) that does NOT include agent-a.
@@ -269,7 +290,7 @@ describe("submit_review tool", () => {
 	// Error cases
 	describe("error cases", () => {
 		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, app }) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
+			const submitReviewTool = buildSubmitReviewTool(app, db);
 			await seed(db);
 			const ctx: ToolContext<HyperIdleDb> = {
 				...makeContext(db),
@@ -287,7 +308,7 @@ describe("submit_review tool", () => {
 		});
 
 		test("returns INVALID_INPUT when reasoning array is empty", async ({ db, app }) => {
-			const submitReviewTool = buildSubmitReviewTool(app);
+			const submitReviewTool = buildSubmitReviewTool(app, db);
 			await seed(db);
 			const result = await submitReviewTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid

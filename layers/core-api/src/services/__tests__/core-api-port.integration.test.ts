@@ -6,17 +6,20 @@
  *
  *  (a) Harness the §11 contract-test setup: in-process transport over a REAL
  *      core-api Hono app — no stub of the seam.
- *  (b) `CoreApiPort.work.createTask` contract: reaches the real
- *      `POST /api/tasks` route (a real row lands in the `tasks` table), the
+ *  (b) `CoreApiPort.work.createItem` contract: reaches the real
+ *      `POST /conversations/items` route (a real row lands in `items`), the
  *      SAME call succeeds over a real network transport too (location
  *      transparency, AC #1a), auth/boundary middleware genuinely ran (a
  *      request with no credentials is rejected), and the seam carries the
  *      calling agent's OWN identity as the route actor (§12) — never a
  *      hardcoded/founder constant.
  *
- * @lore BB1: `createBet` / `bets` deleted — tasks are the single recursive
- * work primitive. Tests now call `createTask` with `parentTaskId: null` for
- * root tasks and check the `tasks` table for the created row.
+ * @lore the architecture doc §8: `CoreApiWorkPort.createTask` (and
+ * `getTaskById`/`updateTaskById`/`appendTaskNote`/`handoffTask`) are DELETED
+ * — task is an action now (`POST /api/actions/edit_task`), not part of this
+ * seam. `createItem` survives on `CoreApiWorkPort` and exercises the exact
+ * same seam properties (transport-agnostic, auth-boundary, actor-identity)
+ * this file's whole point is — it is the vehicle now, not the subject.
  */
 
 import { serve } from "@hono/node-server";
@@ -26,7 +29,7 @@ import {
 	createNetworkCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, items, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
 	afterEach,
@@ -41,38 +44,42 @@ afterEach(() => vi.unstubAllEnvs());
 
 const NOW = "2026-07-27T00:00:00.000Z";
 
-interface SeamCreateTaskResponse {
+interface SeamCreateItemResponse {
 	readonly id: string;
-	readonly parentTaskId: string | null;
-	readonly teamId: string;
 }
 
 interface SeamCoreApiPort {
 	readonly work: {
-		createTask(input: {
-			readonly parentTaskId?: string;
-			readonly teamId: string;
+		createItem(input: {
+			readonly threadId: string;
 			readonly title: string;
-			readonly description?: string | null;
-			readonly doneCondition?: string | null;
-			readonly ownerAgentId?: string | null;
-		}): Promise<SeamCreateTaskResponse>;
+			readonly sourceAgentId?: string | null;
+			readonly body?: string | null;
+		}): Promise<SeamCreateItemResponse>;
 	};
 }
 
-async function seedTeamImpl(db: HyperIdleDb): Promise<{ teamId: string }> {
-	const teamId = `team-seam-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-	await db.insert(teams).values({ id: teamId, name: "Seam Team", phase: "build", createdAt: NOW });
-	return { teamId };
+async function seedThreadImpl(db: HyperIdleDb): Promise<{ threadId: string }> {
+	const threadId = `thread-seam-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "user",
+		hostId: "seam-host",
+		initiatorId: "seam-host",
+		participants: JSON.stringify(["seam-host"]),
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+	return { threadId };
 }
 
 describe("CoreApiPort write seam — §11 contract-test harness", () => {
-	test("builds a CoreApiPort over a real in-process core-api app and reaches the real POST /api/tasks route", async ({
+	test("builds a CoreApiPort over a real in-process core-api app and reaches the real POST /conversations/items route", async ({
 		db,
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "seam-test-key");
-		const { teamId } = await seedTeamImpl(db);
+		const { threadId } = await seedThreadImpl(db);
 		await db.insert(users).values({
 			id: "agent-seam-inproc",
 			kind: "ai",
@@ -87,18 +94,16 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		});
 		const port = buildCoreApiPort(transport) as unknown as SeamCoreApiPort;
 
-		const created = await port.work.createTask({
-			teamId,
+		const created = await port.work.createItem({
+			threadId,
 			title: "Created through the in-process seam",
+			sourceAgentId: "agent-seam-inproc",
 		});
 
-		expect(created.teamId).toBe(teamId);
-		expect(created.parentTaskId).toBeNull();
-
-		const [row] = await db.select().from(tasks).where(eq(tasks.id, created.id)).limit(1);
+		const [row] = await db.select().from(items).where(eq(items.id, created.id)).limit(1);
 		expect(row).toBeDefined();
 		expect(row?.title).toBe("Created through the in-process seam");
-		expect(row?.state).toBe("proposed");
+		expect(row?.threadId).toBe(threadId);
 	});
 
 	test("AC #1a — the identical call succeeds via a real network transport (location transparency)", async ({
@@ -106,7 +111,7 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "seam-test-key-network");
-		const { teamId } = await seedTeamImpl(db);
+		const { threadId } = await seedThreadImpl(db);
 		await db.insert(users).values({
 			id: "agent-seam-net",
 			kind: "ai",
@@ -133,14 +138,13 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 			});
 			const coreApiPort = buildCoreApiPort(transport) as unknown as SeamCoreApiPort;
 
-			const created = await coreApiPort.work.createTask({
-				teamId,
+			const created = await coreApiPort.work.createItem({
+				threadId,
 				title: "Created through the real network seam",
+				sourceAgentId: "agent-seam-net",
 			});
 
-			expect(created.teamId).toBe(teamId);
-
-			const [row] = await db.select().from(tasks).where(eq(tasks.id, created.id)).limit(1);
+			const [row] = await db.select().from(items).where(eq(items.id, created.id)).limit(1);
 			expect(row).toBeDefined();
 			expect(row?.title).toBe("Created through the real network seam");
 		} finally {
@@ -153,7 +157,7 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "seam-test-key-noauth");
-		const { teamId } = await seedTeamImpl(db);
+		const { threadId } = await seedThreadImpl(db);
 
 		// No withActorTransport wrapping — the raw in-process transport carries
 		// no X-API-Key. If the seam bypassed the real route's auth middleware,
@@ -163,7 +167,7 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		) as unknown as SeamCoreApiPort;
 
 		await expect(
-			port.work.createTask({ teamId, title: "Should never be created" }),
+			port.work.createItem({ threadId, title: "Should never be created" }),
 		).rejects.toThrow();
 	});
 
@@ -172,7 +176,7 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "seam-test-key-actor");
-		const { teamId } = await seedTeamImpl(db);
+		const { threadId } = await seedThreadImpl(db);
 
 		// Seed a human user too — local-mode auth's un-seamed default resolves to
 		// the first human. If the seam's actor threading were broken (falling back
@@ -199,17 +203,16 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		});
 		const port = buildCoreApiPort(transport) as unknown as SeamCoreApiPort;
 
-		// @lore BB1: tasks have no `revisionLog` field (bets did).
 		// Actor threading is verified indirectly: the seam must supply the correct
 		// X-Actor-Override header or auth fails for non-human actors in local mode.
-		// The task creation succeeds → the seam threaded "agent-seam-actor" correctly.
-		const created = await port.work.createTask({
-			teamId,
-			title: "Actor-attributed task",
+		// The item creation succeeds → the seam threaded "agent-seam-actor" correctly.
+		const created = await port.work.createItem({
+			threadId,
+			title: "Actor-attributed item",
+			sourceAgentId: "agent-seam-actor",
 		});
 
-		expect(created.teamId).toBe(teamId);
-		const [row] = await db.select().from(tasks).where(eq(tasks.id, created.id)).limit(1);
+		const [row] = await db.select().from(items).where(eq(items.id, created.id)).limit(1);
 		expect(row).toBeDefined();
 	});
 });
