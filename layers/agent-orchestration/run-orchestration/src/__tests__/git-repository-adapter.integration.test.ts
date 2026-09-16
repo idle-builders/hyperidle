@@ -24,6 +24,7 @@ import {
 	type GithubStandIn,
 	startGithubStandIn,
 } from "../../../src/__testing__/github-stand-in.js";
+import { pathWithGitOnly } from "../../../src/__testing__/path-only-git.js";
 // `../../../src/*` are the layer root's own files — a relative, __tests__-only
 // cross-package reach (Mechanism C exempts `__tests__/`), the same precedent
 // the deleted `git-clone-adapter.integration.test.ts` used.
@@ -122,16 +123,6 @@ async function gitNet(
 			...extra,
 		},
 	});
-}
-
-/** Real PATH with every directory that resolves `gh` removed. */
-function pathWithoutGh(): string {
-	const real = process.env.PATH ?? "";
-	const kept = real.split(path.delimiter).filter((dir) => {
-		if (!dir) return false;
-		return !fs.existsSync(path.join(dir, "gh"));
-	});
-	return kept.join(path.delimiter);
 }
 
 describe("GitRepositoryAdapter — local repo (T3a)", () => {
@@ -273,7 +264,7 @@ describe("GitRepositoryAdapter — remote, through the offline github-stand-in (
 
 	it("(b) a public remote with no gh on PATH: clones once, fetches (not re-clones) the second mount", async () => {
 		const { url } = standIn.createRepo("public-b", { branch: "main" });
-		vi.stubEnv("PATH", pathWithoutGh());
+		vi.stubEnv("PATH", pathWithGitOnly(tracked));
 		vi.stubEnv("HOME", standIn.home());
 
 		const keptCopiesRoot = tracked("t3-kept-");

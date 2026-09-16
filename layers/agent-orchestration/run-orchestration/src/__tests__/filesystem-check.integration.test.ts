@@ -32,6 +32,7 @@ import {
 	type GithubStandIn,
 	startGithubStandIn,
 } from "../../../src/__testing__/github-stand-in.js";
+import { pathWithGitOnly } from "../../../src/__testing__/path-only-git.js";
 import { ghAuthStatus } from "../../../src/cli-status.js";
 import { createGitRunner } from "../../../src/git-runner.js";
 import { checkFilesystem } from "../filesystem-check.js";
@@ -68,16 +69,6 @@ function initLocalRepo(dir: string): void {
 	fs.writeFileSync(path.join(dir, "README.md"), "seed\n");
 	execFileSync("git", ["-C", dir, "add", "-A"]);
 	execFileSync("git", ["-C", dir, "commit", "--quiet", "-m", "seed"]);
-}
-
-/** Real PATH with every directory that resolves `gh` removed — same idiom as T3/T5b. */
-function pathWithoutGh(): string {
-	const real = process.env.PATH ?? "";
-	const kept = real.split(path.delimiter).filter((dir) => {
-		if (!dir) return false;
-		return !fs.existsSync(path.join(dir, "gh"));
-	});
-	return kept.join(path.delimiter);
 }
 
 function makeFilesystem(
@@ -155,7 +146,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 
 	it("a public remote is ok with gh entirely absent from PATH — gh is never consulted", async () => {
 		const { url } = standIn.createRepo("t5-public", { branch: "main" });
-		vi.stubEnv("PATH", pathWithoutGh());
+		vi.stubEnv("PATH", pathWithGitOnly(tracked));
 		vi.stubEnv("HOME", standIn.home());
 
 		const result = await checkFilesystem(
@@ -170,7 +161,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 
 	it("a private remote with no connection and gh absent → names installing gh", async () => {
 		standIn.createRepo("t5-private-nogh", { private: true, token: "irrelevant", branch: "main" });
-		vi.stubEnv("PATH", pathWithoutGh());
+		vi.stubEnv("PATH", pathWithGitOnly(tracked));
 		vi.stubEnv("HOME", standIn.home());
 
 		const result = await checkFilesystem(

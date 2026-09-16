@@ -8,6 +8,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { pathWithGitOnly } from "../__testing__/path-only-git.js";
 import { ghAuthStatus } from "../cli-status.js";
 
 const dirs: string[] = [];
@@ -20,20 +21,9 @@ afterEach(() => {
 	for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-/** Real PATH with every directory that resolves `gh` removed — same helper
- * idiom as `git-repository-adapter.integration.test.ts`'s `pathWithoutGh`. */
-function pathWithoutGh(): string {
-	const real = process.env.PATH ?? "";
-	const kept = real.split(path.delimiter).filter((dir) => {
-		if (!dir) return false;
-		return !fs.existsSync(path.join(dir, "gh"));
-	});
-	return kept.join(path.delimiter);
-}
-
 describe("ghAuthStatus (T5b) — real gh binary", () => {
 	test("gh absent from PATH resolves not_installed", async () => {
-		vi.stubEnv("PATH", pathWithoutGh());
+		vi.stubEnv("PATH", pathWithGitOnly(tracked));
 		vi.stubEnv("HOME", tracked("cli-status-noph-"));
 		const result = await ghAuthStatus(null);
 		expect(result).toBe("not_installed");
@@ -48,7 +38,15 @@ describe("ghAuthStatus (T5b) — real gh binary", () => {
 	});
 
 	test("never throws even when the child spawn itself is impossible", async () => {
-		vi.stubEnv("PATH", "");
+		// An empty *string* PATH is not "impossible" on every OS: `buildGhEnv`
+		// drops env vars of zero length, so the child inherits no PATH key at
+		// all, and the OS falls back to its own default search path — which,
+		// unlike this dev machine, includes a pre-installed `gh` on the
+		// ubuntu-latest CI runner (verified: CI got `logged_out`, not
+		// `not_installed`, from this exact assertion). A real, empty
+		// directory has none of that ambiguity: the env var is non-empty (so
+		// it is kept), and the directory itself resolves nothing, on any OS.
+		vi.stubEnv("PATH", tracked("cli-status-emptypath-"));
 		vi.stubEnv("HOME", tracked("cli-status-nopath-"));
 		let threw = false;
 		let result: string | undefined;
