@@ -76,7 +76,7 @@ Column details belong to the schema file, not this doc.
 
 ## Resolver (`ServiceConnectionResolver`)
 
-`layers/agent-orchestration/connections/src/service-connection-resolver.ts` — the only path that returns a decrypted token. Two consumers: session provisioning injection (AN2) and filesystem reachability probes (AO1, via `ServiceConnectionResolverAdapter` in `filesystem-reachability.ts`). Both consume the plaintext internally; **the invariant is that plaintext never reaches a route response or a log line** — not that the resolver has a single caller.
+`layers/agent-orchestration/connections/src/service-connection-resolver.ts` — the only path that returns a decrypted token. Two consumers: session provisioning injection (AN2, `resolveHeldToken`) and a filesystem Check's credential resolution (`resolveConnectionToken`, wired from `boot.ts` into `routes/filesystems.ts` and `filesystem-provisioning.ts`; the Check itself runs in `run-orchestration/src/filesystem-check.ts`). Both consume the plaintext internally; **the invariant is that plaintext never reaches a route response or a log line** — not that the resolver has a single caller.
 
 - Queries scoped on `AND(id, userId)` — cross-user lookup returns `null`, never leaks existence.
 - Returns `null` for: cross-user, non-existent, mcp rows (no stored token), missing server secret, decryption failure. Never throws.

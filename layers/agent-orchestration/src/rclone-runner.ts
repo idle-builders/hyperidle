@@ -62,9 +62,10 @@ async function spawnRclone(
 	timeoutMs: number,
 	logger: Logger,
 ): Promise<SpawnResult> {
-	logger.info("rclone spawn", { args, timeoutMs });
+	const finalArgs = [...args, "--ask-password=false"];
+	logger.info("rclone spawn", { args: finalArgs, timeoutMs });
 	return new Promise<SpawnResult>((resolve) => {
-		const proc = spawn("rclone", [...args, "--ask-password=false"], {
+		const proc = spawn("rclone", finalArgs, {
 			env: buildRcloneEnv(),
 			stdio: ["ignore", "pipe", "pipe"],
 		});

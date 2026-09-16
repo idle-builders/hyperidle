@@ -127,8 +127,8 @@ interface MountAdapter {
 /**
  * The fallback for a `resourceRef` whose `kind` is none of the three this
  * engine knows how to place — a corrupt row, or one written by a version of
- * HyperIdle newer than this one. Selection now runs on `resourceRef.kind`
- * (§2.1), so this is never reached by a valid `code`/`doc_set`/`drive` row.
+ * HyperIdle newer than this one. Selection runs on `resourceRef.kind`, so
+ * this is never reached by a valid `code`/`doc_set`/`drive` row.
  */
 class UnsupportedFilesystemAdapter implements MountAdapter {
 	constructor(private readonly resourceRefKind: unknown) {}
