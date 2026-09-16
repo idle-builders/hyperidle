@@ -117,7 +117,14 @@ function reactToSessionEndedTokens(
 	}
 	if (seen.has(event.sessionId)) return undefined;
 	seen.add(event.sessionId);
-	return mergeSessionTokensOntoTask(db, eventBus, event.taskId, event.agentId, event.tokensByTier, editTask);
+	return mergeSessionTokensOntoTask(
+		db,
+		eventBus,
+		event.taskId,
+		event.agentId,
+		event.tokensByTier,
+		editTask,
+	);
 }
 
 /**

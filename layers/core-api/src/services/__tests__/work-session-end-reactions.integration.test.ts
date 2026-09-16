@@ -575,7 +575,11 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 		});
 	});
 
-	test("session_ended with no tokensByTier is a no-op", async ({ db, eventBus, agentOrchestration }) => {
+	test("session_ended with no tokensByTier is a no-op", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-empty");
 		await seedSession(db, "wser-tok-empty-session", agentId);
 		registerWorkSessionEndReactions(db, eventBus, editTaskFrom(agentOrchestration));
@@ -586,7 +590,11 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 		expect(await readTaskTokensActualJson(db, taskId)).toBeUndefined();
 	});
 
-	test("session_ended with taskId: null is a no-op", async ({ db, eventBus, agentOrchestration }) => {
+	test("session_ended with taskId: null is a no-op", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		const { agentId } = await seedTaskAndAgent(db, "wser-tok-notask");
 		await seedSession(db, "wser-tok-notask-session", agentId);
 		registerWorkSessionEndReactions(db, eventBus, editTaskFrom(agentOrchestration));

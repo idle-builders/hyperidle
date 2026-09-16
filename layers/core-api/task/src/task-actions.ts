@@ -152,9 +152,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		...(input.sourceKnowledgeItemId !== undefined
 			? { sourceKnowledgeItemId: input.sourceKnowledgeItemId }
 			: {}),
-		...(input.tokensActualJson !== undefined
-			? { tokensActualJson: input.tokensActualJson }
-			: {}),
+		...(input.tokensActualJson !== undefined ? { tokensActualJson: input.tokensActualJson } : {}),
 		state: resolvedState as DomainTask["state"],
 	};
 }
@@ -652,13 +650,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			}
 
 			if (resolvedState === "killed" && (!prev || prev.state !== "killed")) {
-				killedTasks = await killSubtreeInTx(
-					tx,
-					taskId,
-					ctx.actor,
-					now,
-					prev?.state ?? "proposed",
-				);
+				killedTasks = await killSubtreeInTx(tx, taskId, ctx.actor, now, prev?.state ?? "proposed");
 			}
 
 			// -- the dispatch branch: an accept, or an owner change to an agent --

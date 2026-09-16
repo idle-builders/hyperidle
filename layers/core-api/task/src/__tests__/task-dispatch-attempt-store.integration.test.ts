@@ -141,7 +141,8 @@ async function ordinalsFor(db: HyperIdleDb, taskId: string): Promise<number[]> {
  * asserts before handing callers a plain `string`.
  */
 function requireId(inserted: { readonly id: string | undefined }): string {
-	if (!inserted.id) throw new Error("insertAttempt did not return an id — the insert was swallowed");
+	if (!inserted.id)
+		throw new Error("insertAttempt did not return an id — the insert was swallowed");
 	return inserted.id;
 }
 

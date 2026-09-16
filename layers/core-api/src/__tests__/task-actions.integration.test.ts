@@ -17,8 +17,8 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { buildCoreActions } from "../actions/compose.js";
 import { test } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
 
 /**

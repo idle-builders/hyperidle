@@ -12,8 +12,8 @@ import { describe, expect, it } from "vitest";
 import {
 	buildForceReturnMessage,
 	FORCE_RETURN_MESSAGE,
-	isReturnAction,
 	isRequiredReturnAction,
+	isReturnAction,
 	shouldForceReturn,
 } from "../return-actions.js";
 
@@ -48,9 +48,7 @@ describe("isReturnAction — edit_task is gated on the session's own task moving
 	});
 
 	it("own task, ordinary field edit (title, no owner/state-away change) ⇒ NOT terminal", () => {
-		expect(isReturnAction("edit_task", { id: "task-1", title: "New title" }, "task-1")).toBe(
-			false,
-		);
+		expect(isReturnAction("edit_task", { id: "task-1", title: "New title" }, "task-1")).toBe(false);
 	});
 
 	it("own task, state stays put (e.g. accepted) ⇒ NOT terminal", () => {
