@@ -267,16 +267,18 @@ describe("a sandbox outlives the session that asked for a verdict", () => {
 
 	test("a session that ended any other way still leaves its directory", async ({ db }) => {
 		const sandboxPath = tempDir();
-		const { survives } = await runOnce(db as HyperIdleDb, "agent-sent", sandboxPath, {
+		const { survives, destroyed } = await runOnce(db as HyperIdleDb, "agent-sent", sandboxPath, {
 			toolName: "mcp__hyperidle__send_message",
 		});
 		expect(survives, "nothing is torn down at session end any more").toBe(true);
+		expect(destroyed, "nothing calls workspace.destroy at session end any more").toEqual([]);
 	});
 
 	test("a session that called nothing still leaves its directory", async ({ db }) => {
 		const sandboxPath = tempDir();
-		const { survives } = await runOnce(db as HyperIdleDb, "agent-quiet", sandboxPath, {});
+		const { survives, destroyed } = await runOnce(db as HyperIdleDb, "agent-quiet", sandboxPath, {});
 		expect(survives, "nothing is torn down at session end any more").toBe(true);
+		expect(destroyed, "nothing calls workspace.destroy at session end any more").toEqual([]);
 	});
 
 	test("a review filed through the MCP bridge keeps the directory too", async ({ db }) => {
@@ -301,7 +303,7 @@ describe("a sandbox outlives the session that asked for a verdict", () => {
 	test("a resume adopts the original directory and runs the harness there", async ({ db }) => {
 		const fresh = tempDir();
 		const original = tempDir();
-		const { adopted, resumedIn, survives } = await runOnce(
+		const { adopted, resumedIn, survives, destroyed } = await runOnce(
 			db as HyperIdleDb,
 			"agent-resumed",
 			fresh,
@@ -312,8 +314,9 @@ describe("a sandbox outlives the session that asked for a verdict", () => {
 			resumedIn,
 			"cursor-agent finds its chat by an md5 of the cwd string; anywhere else runs with no context and says nothing",
 		).toBe(original);
-		// BA5 (no-teardown): nothing deletes it — either directly or through a
-		// prior session's teardown — any more.
+		// Nothing deletes it — either directly or through a prior session's
+		// teardown — any more.
 		expect(survives).toBe(true);
+		expect(destroyed, "nothing calls workspace.destroy at session end any more").toEqual([]);
 	});
 });
