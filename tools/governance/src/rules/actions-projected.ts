@@ -118,10 +118,10 @@ const PLATFORM_EVENTS: readonly string[] = [
 
 /**
  * Every route registered in a production file that is neither a task
- * action route nor one of the sixteen plumbing doors. Re-derived at the
- * BC1 rebase — BC1 deleted fourteen of the 107 entries this rule started
- * with, `coach.ts`/`hints.ts` wholesale among them, so those rows shrank
- * ahead of this item. Only shrinks: an entry whose route is gone is a
+ * action route nor one of the sixteen plumbing doors. Re-derived after the
+ * unreachable-route deletion on main removed fourteen of the 107 entries
+ * this rule started with, `coach.ts`/`hints.ts` wholesale among them, so
+ * those rows shrank ahead of this item. Only shrinks: an entry whose route is gone is a
  * finding, so the deletion and the row land in the same PR. Includes the
  * four socket/protocol transports (mcp-route, worker-ingress, ws,
  * session-stream-ws) — see the architecture doc §7 for why each stays a
@@ -225,8 +225,8 @@ const LEGACY_ROUTES: readonly string[] = [
 
 /**
  * Every tool name declared in a production `ToolDefinition` literal that is
- * not an action. Re-derived at the BC1 rebase — BC1 deleted
- * `run_knowledge_sweep`/`score_attention` with the attention engine, so
+ * not an action. Re-derived after the attention-engine deletion on main
+ * removed `run_knowledge_sweep`/`score_attention` with it, so
  * those two entries shrank ahead of this item. The fourteen left in
  * `tool-definitions.ts` once `create_task`/`edit_task`/`handoff_to`/
  * `log_task` are deleted, plus `return_status` (the tool twin of the
@@ -252,10 +252,10 @@ const LEGACY_TOOLS: readonly string[] = [
 
 /**
  * Every `EVENT_TYPES` member that is neither one of the nine object events
- * nor one of the eight platform events. Re-derived at the BC1 rebase — BC1
- * deleted five of these entirely (`thread_archived`, `dependency_met`,
- * `knowledge_accessed`, `work_selection_requested`, `routine_fired`), so
- * they shrank ahead of this item. `task_state_changed` is the pre-action
+ * nor one of the eight platform events. Re-derived after the dead-event
+ * deletion on main removed five of these entirely (`thread_archived`,
+ * `dependency_met`, `knowledge_accessed`, `work_selection_requested`,
+ * `routine_fired`), so they shrank ahead of this item. `task_state_changed` is the pre-action
  * task-changed shape, still emitted from `edit_task` until subscriptions
  * replace it.
  */
