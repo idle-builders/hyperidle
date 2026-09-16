@@ -30,6 +30,10 @@ function describeOne(mounted: MountedFilesystem): string {
 		}
 		return `${header} — git repository at \`${mounted.git.keptCopy}\`. You are on branch \`${branch}\`, started from \`${base}\`. Your commits stay on this branch in the repository at \`${mounted.git.keptCopy}\` after the session; push it if the repository has a remote.${reusedNote}`;
 	}
+	if (mounted.filesystem.resourceRef.kind === "drive") {
+		const { remote, path } = mounted.filesystem.resourceRef;
+		return `${header} — a copy of the Google Drive folder \`${remote}:${path}\`. Your changes stay on this machine until you put them back: \`rclone copy ${mounted.folder} ${remote}:${path}\`. That adds and updates files in Drive and never deletes anything there. Work you do not put back stays in this copy and is here again next time, but nobody else can see it until you do. Google Docs, Sheets and Slides that live in this folder are **not** here — they are not files, and this filesystem does not carry them.`;
+	}
 	return `${header} — the folder ${mounted.trustedPaths[0]}, linked in as it is. You are editing the real files.`;
 }
 

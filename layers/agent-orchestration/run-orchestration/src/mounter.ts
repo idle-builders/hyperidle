@@ -36,8 +36,9 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
+import { driveReason } from "./drive-reason.js";
 import { gitCredentialEnv } from "./git-credential-env.js";
-import type { MountingGitRunnerFactory } from "./mounter-ports.js";
+import type { MountingGitRunnerFactory, RcloneRunner } from "./mounter-ports.js";
 
 /**
  * Structural local type — mirrors @hyperidle/filesystems' Filesystem shape.
@@ -62,12 +63,12 @@ export interface Filesystem {
 	createdAt: string;
 }
 
-const CLOUD_SOURCES = new Set(["gdrive", "dropbox", "s3"]);
-
 export interface AdapterDeps {
 	readonly gitRunnerFactory: MountingGitRunnerFactory;
-	/** Where remote git filesystems keep their one clone. Absent → a remote git filesystem cannot mount. */
+	/** Where remote git filesystems and Drive filesystems keep their one kept copy. Absent → neither can mount. */
 	readonly keptCopiesRoot?: string;
+	/** Absent → a Drive filesystem cannot be placed and says so. */
+	readonly rclone?: RcloneRunner;
 }
 
 /** What the mount engine needs to place ONE filesystem for ONE session. */
@@ -123,12 +124,18 @@ interface MountAdapter {
 	mount(input: MountInput): Promise<MountResult>;
 }
 
-class CloudNotBuiltAdapter implements MountAdapter {
-	constructor(private readonly source: string) {}
+/**
+ * The fallback for a `resourceRef` whose `kind` is none of the three this
+ * engine knows how to place — a corrupt row, or one written by a version of
+ * HyperIdle newer than this one. Selection now runs on `resourceRef.kind`
+ * (§2.1), so this is never reached by a valid `code`/`doc_set`/`drive` row.
+ */
+class UnsupportedFilesystemAdapter implements MountAdapter {
+	constructor(private readonly resourceRefKind: unknown) {}
 	mount(): Promise<MountResult> {
 		return Promise.resolve({
 			ok: false,
-			reason: `mount adapter not built for source '${this.source}' (built in its connector WP)`,
+			reason: `cannot place a filesystem whose resourceRef.kind is '${String(this.resourceRefKind)}' — expected code, doc_set, or drive`,
 		});
 	}
 }
@@ -323,13 +330,86 @@ class GitRepositoryAdapter implements MountAdapter {
 	}
 }
 
-function selectMountAdapter(fs: Filesystem, deps: AdapterDeps): MountAdapter {
-	if (fs.kind === "code") return new GitRepositoryAdapter(deps);
-	if (fs.kind === "doc_set") {
-		if (CLOUD_SOURCES.has(fs.source)) return new CloudNotBuiltAdapter(fs.source);
-		return new LocalFolderAdapter();
+/**
+ * A Google Drive folder's one kept copy, in the same long-lived place a
+ * remote repository's clone lives (`<keptCopiesRoot>/<filesystemId>`),
+ * refreshed with `rclone copy` remote → local on every mount — first use AND
+ * before every session — and symlinked into the workspace. No `unmount`: the
+ * copy lives until `DELETE /api/filesystems/:id` (`forgetKeptCopy`).
+ */
+class DriveFolderAdapter implements MountAdapter {
+	constructor(private readonly deps: AdapterDeps) {}
+
+	async mount(input: MountInput): Promise<MountResult> {
+		const ref = input.filesystem.resourceRef;
+		if (ref.kind !== "drive") return { ok: false, reason: "Expected drive resourceRef" };
+		if (!this.deps.rclone) {
+			return { ok: false, reason: "this server cannot reach Google Drive" };
+		}
+		if (!this.deps.keptCopiesRoot) {
+			return { ok: false, reason: "this server has no folder to keep copies in" };
+		}
+
+		const copy = path.join(this.deps.keptCopiesRoot, input.filesystem.id);
+		const link = path.join(input.workspacePath, input.folderName);
+
+		try {
+			// An EMPTY Drive folder must still give the agent a folder — rclone
+			// creates the destination only when it has something to copy into it.
+			fs.mkdirSync(copy, { recursive: true });
+
+			const outcome = await this.deps.rclone.copyDown(ref.remote, ref.path, copy);
+			if (!outcome.ok) {
+				return { ok: false, reason: driveReason(outcome.code, ref, outcome.reason) };
+			}
+
+			let reused = false;
+			if (fs.existsSync(link)) {
+				if (
+					fs.lstatSync(link).isSymbolicLink() &&
+					fs.realpathSync(link) === fs.realpathSync(copy)
+				) {
+					reused = true;
+				} else {
+					return {
+						ok: false,
+						reason: `folder '${input.folderName}' already exists in the workspace`,
+					};
+				}
+			} else {
+				fs.symlinkSync(copy, link);
+			}
+
+			return {
+				ok: true,
+				mounted: {
+					filesystem: input.filesystem,
+					folder: link,
+					trustedPaths: [copy],
+					agentEnv: {},
+					reused,
+				},
+			};
+		} catch (error) {
+			return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+		}
 	}
-	return new CloudNotBuiltAdapter(`${fs.kind}:${fs.source}`);
+}
+
+/**
+ * @lore Google Drive phase §2.1: selection moves onto `resourceRef.kind` —
+ * the ref is what actually decides how a filesystem is placed; `kind` and
+ * `source` are registry facts for display only. This is the last reader of
+ * the old `CLOUD_SOURCES`/`CloudNotBuiltAdapter`-by-source branch, now gone:
+ * a `gdrive`-sourced filesystem is placed by its resourceRef, not detected by
+ * its source string.
+ */
+function selectMountAdapter(filesystem: Filesystem, deps: AdapterDeps): MountAdapter {
+	const ref = filesystem.resourceRef;
+	if (ref.kind === "code") return new GitRepositoryAdapter(deps);
+	if (ref.kind === "drive") return new DriveFolderAdapter(deps);
+	if (ref.kind === "doc_set") return new LocalFolderAdapter();
+	return new UnsupportedFilesystemAdapter((ref as { kind: unknown }).kind);
 }
 
 export class RegistryFilesystemMounter {
@@ -428,17 +508,19 @@ function logReleaseSkip(message: string, err: unknown): void {
 }
 
 /**
- * Remove a remote filesystem's kept copy (its ONE clone, outside every
- * session's own worktree). Never for a local repo — the kept
- * copy there IS the person's own repository, and HyperIdle must never delete
- * it. Absent `keptCopiesRoot` is a no-op: nothing was ever cloned.
+ * Remove a remote filesystem's or a Drive filesystem's kept copy (its ONE
+ * clone/copy, outside every session's own worktree). Never for a local
+ * repo — the kept copy there IS the person's own repository, and never for
+ * a person's own folder — HyperIdle must never delete either. Absent
+ * `keptCopiesRoot` is a no-op: nothing was ever cloned or copied.
  */
 export async function forgetKeptCopy(
 	keptCopiesRoot: string | undefined,
 	filesystem: Filesystem,
 ): Promise<void> {
 	const ref = filesystem.resourceRef;
-	if (ref.kind !== "code" || isLocalRepoPath(ref) || !keptCopiesRoot) return;
+	const isRemoteGit = ref.kind === "code" && !isLocalRepoPath(ref);
+	if ((!isRemoteGit && ref.kind !== "drive") || !keptCopiesRoot) return;
 	await fs.promises.rm(path.join(keptCopiesRoot, filesystem.id), { recursive: true, force: true });
 }
 

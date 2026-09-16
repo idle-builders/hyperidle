@@ -86,6 +86,24 @@ describe("describeMountedFilesystems", () => {
 		expect(section).toContain("linked in");
 	});
 
+	it("V8: names a Drive mount's folder, the remote:path, the exact rclone copy command, and that Google Docs are not included", () => {
+		const mounted: MountedFilesystem = {
+			filesystem: baseFs({ kind: "drive", remote: "gdrive", path: "Projects/Acme" }),
+			folder: "/ws/acme",
+			trustedPaths: ["/kept/fs-1"],
+			agentEnv: {},
+			reused: false,
+		};
+
+		const section = describeMountedFilesystems([mounted]);
+
+		expect(section).toContain("/ws/acme");
+		expect(section).toContain("gdrive:Projects/Acme");
+		expect(section).toContain("rclone copy /ws/acme gdrive:Projects/Acme");
+		expect(section).toContain("never deletes");
+		expect(section).toContain("Google Docs, Sheets and Slides");
+	});
+
 	it("N3: a reused git worktree carries the check-before-you-start sentence", () => {
 		const mounted: MountedFilesystem = {
 			filesystem: baseFs({ kind: "code", repo: "/Users/me/repo", branch: "main" }),

@@ -54,12 +54,12 @@ export type {
 	RuntimeHandle,
 	RuntimePorts,
 } from "./contracts.js";
+export type { DriveFailureCode } from "./drive-reason.js";
+export { driveReason } from "./drive-reason.js";
 export { endRunForHandoff } from "./end-run-for-handoff.js";
 export { startWatcher } from "./file-watcher.js";
 export {
 	checkFilesystem,
-	type DriveFailureCode,
-	driveReason,
 	type FilesystemCheckDeps,
 	type FilesystemCheckResult,
 	type GhAuthState,

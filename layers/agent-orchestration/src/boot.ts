@@ -347,6 +347,7 @@ function buildProvisioningReads(
 					mounter: new RegistryFilesystemMounter({
 						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
 						keptCopiesRoot,
+						rclone: createRcloneRunner(),
 					}),
 					filesystemCheckDeps: {
 						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
