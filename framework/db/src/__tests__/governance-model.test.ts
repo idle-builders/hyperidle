@@ -683,7 +683,7 @@ describe("AU28 — the registries are honest", () => {
 			unowned: { ...tableOwners.unowned, tables: { aTableNobodyClaimed: "example" } },
 		};
 		expect(ownerOf(withUnowned, "aTableNobodyClaimed")).toBeNull();
-		expect(ownerOf(tableOwners, "tasks")).toBe("work");
+		expect(ownerOf(tableOwners, "tasks")).toBe("task");
 		expect(() => ownerOf(tableOwners, "notATable")).toThrow(RegistryError);
 	});
 
