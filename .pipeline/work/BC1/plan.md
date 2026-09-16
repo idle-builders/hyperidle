@@ -84,18 +84,31 @@ caller and that the diff is deletions plus the rule, the two repoints and the mi
 - `npm install` in a fresh worktree re-adds three workspace deps to one `package-lock.json` entry.
   The drift is on `origin/main`, not introduced here, and is kept out of this item's diff.
 
+- **Gate runs cannot use `timeout` on this host.** There is no `timeout` or `gtimeout` binary, so a
+  wrapped command exits 127 and a loop recording only exit codes reports a clean run that never
+  happened. One full gate run was lost to this. Bound long commands by backgrounding them and
+  reading their log instead, and confirm each gate by its own summary line.
+
 ## Proposed items
 
-- **Seven routes on the delete list are live.** `POST /teams` (first-run setup), `PATCH /teams/:teamId`,
-  `GET /org/teams/:teamId`, `GET /org/teams/:teamId/membership`, `POST /org/teams`,
-  `POST /org/scaffold-request` (all five behind the `create_team` and `add_agent` agent tools) and
-  `GET /runs/active-counts` (two rendering settings controls). Deleting them needs the capability that
-  replaces them, which is BC5 and BC7 work, or a decision to delete those two agent tools as well.
-  They are left in place here and are not named by the new rule. The founder owns the call.
-- **Routine rows may name a deleted event.** `triggerConfig` stores an event name as JSON text and the
-  scheduler matches by string, so a saved routine whose trigger is one of the seven deleted events
-  stops firing silently. No compile error and no guard. The same is already true for `bet_state_changed`
-  after BB1. Cleaning those rows is a data decision outside this item's stated migration.
 - **`design/no-op-button` misses most dead controls.** It caught one site; the rest evade it because
   they are design-system `Button`s without `onClick`, or an `<a>` whose handler only calls
   `preventDefault()`. Worth widening in its own item.
+
+- **An empty gutter column survives in the block component.** Deleting the unused block handle left a
+  32-pixel left column that holds nothing and whose hover reveal reveals nothing. Removing it changes
+  the left margin of every knowledge block, which is a visible layout change beyond deleting what
+  nothing reaches, so it is left standing here.
+- **The rule's knowledge-count token is the one generic name in the list.** A future, unrelated
+  counting helper could reuse that spelling and trip the rule. Nothing matches today. Also, the rule
+  strips whole-line and block comments but not a trailing comment on a line of code.
+
+## Rulings during execution
+
+- **"Delete" means unused or unreachable** (founder, 2026-09-15). Seven routes on the list have live
+  callers, so they are not deleted here and the rule does not name them: `POST /teams` (first-run
+  setup), `PATCH /teams/:teamId`, `GET /org/teams/:teamId`, `GET /org/teams/:teamId/membership`,
+  `POST /org/teams`, `POST /org/scaffold-request` (behind the `create_team` and `add_agent` tools),
+  `GET /agent-orchestration/runs/active-counts` (two settings busy indicators). Fourteen routes go.
+- **No active routines, no active deployments** (founder, 2026-09-15). Saved routine rows that name a
+  retired event need no cleanup; the migration stays table and column drops only.
