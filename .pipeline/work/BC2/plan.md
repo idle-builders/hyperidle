@@ -141,6 +141,12 @@ receives the composed tool list.
   at the gate.
 - Nothing in production writes the session id onto a task's dispatch attempt, so "end the running
   session on handoff" had no source; one write in the session-started reaction repairs it.
+- Review found the session-end token writeback still touched the task table directly. Decided:
+  tokens actual is a field of edit-a-task and the reaction edits as the session's agent.
+- Deleting the handoff tool removed the one call the return gate recognised as "the agent handed
+  its work back". Decided: edit-a-task counts as returning only when the agent moves its own task
+  away from itself (owner to someone else, or state to review or done). Creating a subtask never
+  counts. Harness lane re-run for it.
 - The task page reads attachments twice once open-a-task returns them. BC4's to clean.
 
 ## Proposed items
