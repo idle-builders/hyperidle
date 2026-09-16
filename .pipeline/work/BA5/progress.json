@@ -36,7 +36,9 @@
     {
       "id": "G2b-no-teardown-proven",
       "what": "session end leaves the worktree and the kept copy; a resume finds the files; task done removes the worktree and keeps the branch",
-      "state": "pending"
+      "state": "passed",
+      "passedAt": "2026-09-16",
+      "evidence": "packaged desktop app (HEAD 700219460, throwaway profile, port 54191): worktree at kept-copies/worktrees/task-<id>/ba5-filesystem-proof symlinked into the session workspace; clean task done -> worktree removed, branch hyperidle/<taskId> kept locally and on GitHub (e86c7a5); dirty task done -> worktree kept with the file, skip logged at info, session done/completed; kept copy .git/config holds no credential"
     },
     {
       "id": "G3-pre-ship",
@@ -353,7 +355,7 @@
         ],
         "review": "review-no-teardown.md \u2014 no blocker; S1-S5 applied; killed tasks release their clean worktree too (orchestrator's call, 2026-09-16)",
         "gates": "check 0, lint 0, verify:quick 0, named service files 0, full service lane 0 (2178 passed), test:full only the pre-existing design-source failure",
-        "pending": "G2b live proof on the packaged desktop app (running)"
+        "pending": "none \u2014 G2b passed 2026-09-16"
       },
       {
         "id": "P2",

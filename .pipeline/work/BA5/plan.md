@@ -97,7 +97,8 @@ would break inherited logins.
   through a `gh` login and through a PAT, a folder; a broken filesystem holding the agent, one
   notification, and starting after *Check*; a resume. **PASSED 2026-09-15** on the packaged desktop app.
 - **G2b — no teardown, proven on the running app:** a session end leaves the worktree and the kept copy;
-  a resume finds the files; task done removes the worktree and keeps the branch.
+  a resume finds the files; task done removes the worktree and keeps the branch. **PASSED 2026-09-16** on the
+  packaged desktop app: clean worktree removed and branch kept on GitHub; dirty worktree kept, skip logged.
 - **G3 — before ship:** Drive through `rclone` proven, the filesystem doc brought up to date, one
   CI-green PR. The maintainer merges.
 - **Size accepted (maintainer, 2026-09-11):** the rulings add up to ~2,000–2,400 lines; built in six
