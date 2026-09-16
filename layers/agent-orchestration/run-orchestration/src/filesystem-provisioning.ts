@@ -134,7 +134,8 @@ function baseFolderName(resourceRef: Filesystem["resourceRef"]): string {
 		const last = resourceRef.repo.replace(/\/+$/, "").split(/[/\\]/).pop() ?? resourceRef.repo;
 		return reduceToFolderChars(last.replace(/\.git$/i, ""));
 	}
-	const last = resourceRef.folder.replace(/\/+$/, "").split(/[/\\]/).pop() ?? resourceRef.folder;
+	const raw = resourceRef.kind === "drive" ? resourceRef.path : resourceRef.folder;
+	const last = raw.replace(/\/+$/, "").split(/[/\\]/).pop() ?? raw;
 	return reduceToFolderChars(last);
 }
 

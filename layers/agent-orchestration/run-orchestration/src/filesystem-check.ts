@@ -14,7 +14,7 @@ import * as os from "node:os";
 import { gitCredentialEnv } from "./git-credential-env.js";
 import type { Filesystem } from "./mounter.js";
 import { isLocalRepoPath, normalizeLocalPath } from "./mounter.js";
-import type { MountingGitRunnerFactory } from "./mounter-ports.js";
+import type { MountingGitRunnerFactory, RcloneRunner } from "./mounter-ports.js";
 
 export type GhAuthState = "logged_in" | "logged_out" | "not_installed";
 
@@ -23,6 +23,8 @@ export interface FilesystemCheckDeps {
 	readonly credential: string | null;
 	readonly gitRunnerFactory: MountingGitRunnerFactory;
 	readonly ghAuthStatus: (token: string | null) => Promise<GhAuthState>;
+	/** Required — Check must never silently skip the drive branch. */
+	readonly rclone: RcloneRunner;
 }
 
 export interface FilesystemCheckResult {
@@ -47,6 +49,62 @@ function ok(): FilesystemCheckResult {
 }
 function notOk(reason: string): FilesystemCheckResult {
 	return { ok: false, reason };
+}
+
+export type DriveFailureCode =
+	| "not_installed"
+	| "remote_missing"
+	| "directory_not_found"
+	| "not_a_folder"
+	| "failed";
+
+/**
+ * The one phrasing for every way a Drive filesystem can be unusable — shared
+ * by `checkFilesystem` and (once it places one) the adapter, so a person
+ * never sees two different sentences about the same failure.
+ */
+export function driveReason(
+	code: DriveFailureCode,
+	ref: { readonly remote: string; readonly path: string },
+	detail?: string,
+): string {
+	switch (code) {
+		case "not_installed":
+			return "Install rclone, then run `rclone config` to add your Google Drive remote — HyperIdle copies Drive folders through it";
+		case "remote_missing":
+			return `No rclone remote named \`${ref.remote}\`. Run \`rclone config\` to add one. Google makes you create your own OAuth client the first time; rclone's Google Drive setup walks you through it`;
+		case "directory_not_found":
+			return `Folder \`${ref.path}\` is not in the \`${ref.remote}\` Drive remote`;
+		case "not_a_folder":
+			return `\`${ref.remote}:${ref.path}\` is a file, not a folder`;
+		case "failed":
+			return `rclone could not reach \`${ref.remote}:${ref.path}\`: ${detail}. If your Drive login expired, run \`rclone config reconnect ${ref.remote}:\``;
+	}
+}
+
+async function checkDrive(
+	ref: { readonly remote: string; readonly path: string },
+	deps: FilesystemCheckDeps,
+): Promise<FilesystemCheckResult> {
+	const remotes = await deps.rclone.listRemotes();
+	if (!remotes.ok) {
+		return notOk(
+			remotes.code === "not_installed"
+				? driveReason("not_installed", ref)
+				: driveReason("failed", ref, remotes.reason),
+		);
+	}
+	if (!remotes.value.includes(ref.remote)) return notOk(driveReason("remote_missing", ref));
+
+	const stat = await deps.rclone.statPath(ref.remote, ref.path);
+	if (!stat.ok) {
+		return notOk(
+			stat.code === "directory_not_found"
+				? driveReason("directory_not_found", ref)
+				: driveReason("failed", ref, stat.reason),
+		);
+	}
+	return stat.value.isDir ? ok() : notOk(driveReason("not_a_folder", ref));
 }
 
 async function checkFolder(folder: string): Promise<FilesystemCheckResult> {
@@ -111,6 +169,7 @@ export async function checkFilesystem(
 	deps: FilesystemCheckDeps,
 ): Promise<FilesystemCheckResult> {
 	const ref = filesystem.resourceRef;
+	if (ref.kind === "drive") return checkDrive(ref, deps);
 	if (ref.kind === "doc_set") return checkFolder(ref.folder);
 	if (isLocalRepoPath(ref)) return checkLocalRepo(ref.repo, ref.branch, deps);
 	return checkRemoteRepo(filesystem, ref.repo, ref.branch, deps);

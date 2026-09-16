@@ -74,6 +74,7 @@ import { createAgentOrchestrationApp } from "./app.js";
 import { ghAuthStatus } from "./cli-status.js";
 import { recordFilesystemNeedsAttention } from "./filesystem-attention.js";
 import { createGitRunner } from "./git-runner.js";
+import { createRcloneRunner } from "./rclone-runner.js";
 import {
 	registerSessionStreamRoute,
 	type SessionStreamTokenStore,
@@ -321,7 +322,10 @@ interface OrchestrationProvisioningReads {
 	 * guard — no mounter means nothing is ever placed, so there is nothing a
 	 * placement failure could need to re-check).
 	 */
-	readonly filesystemCheckDeps?: Pick<FilesystemCheckDeps, "gitRunnerFactory" | "ghAuthStatus">;
+	readonly filesystemCheckDeps?: Pick<
+		FilesystemCheckDeps,
+		"gitRunnerFactory" | "ghAuthStatus" | "rclone"
+	>;
 	readonly heldConnections?: HeldConnectionsReaderPort;
 	readonly injectedFilesystems: InjectedFilesystemsReaderPort;
 	readonly serviceConnectionResolver: {
@@ -347,6 +351,7 @@ function buildProvisioningReads(
 					filesystemCheckDeps: {
 						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
 						ghAuthStatus,
+						rclone: createRcloneRunner(),
 					},
 				}
 			: {}),

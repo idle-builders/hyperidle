@@ -827,7 +827,10 @@ interface ProvisionSessionDeps {
 	 * fallback used when Check unexpectedly passes or there is no way to
 	 * check at all.
 	 */
-	readonly filesystemCheckDeps?: Pick<FilesystemCheckDeps, "gitRunnerFactory" | "ghAuthStatus">;
+	readonly filesystemCheckDeps?: Pick<
+		FilesystemCheckDeps,
+		"gitRunnerFactory" | "ghAuthStatus" | "rclone"
+	>;
 	/**
 	 * BA9b: Plugin MCP server contributions for this session's team scope.
 	 * When absent, no plugin MCP servers are merged into the session config.
@@ -1273,6 +1276,7 @@ async function admitSession(
 					credential: mountErr.credential,
 					gitRunnerFactory: deps.filesystemCheckDeps.gitRunnerFactory,
 					ghAuthStatus: deps.filesystemCheckDeps.ghAuthStatus,
+					rclone: deps.filesystemCheckDeps.rclone,
 				});
 				if (!recheck.ok && recheck.reason) reason = recheck.reason;
 			}

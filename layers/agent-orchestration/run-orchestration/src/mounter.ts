@@ -54,7 +54,10 @@ export interface Filesystem {
 	source: string;
 	kind: string;
 	connectionId: string | null;
-	resourceRef: { kind: "code"; repo: string; branch: string } | { kind: "doc_set"; folder: string };
+	resourceRef:
+		| { kind: "code"; repo: string; branch: string }
+		| { kind: "doc_set"; folder: string }
+		| { kind: "drive"; remote: string; path: string };
 	state: string;
 	createdAt: string;
 }

@@ -57,6 +57,7 @@ import { z } from "zod";
 import { ghAuthStatus } from "../cli-status.js";
 import { recordFilesystemNeedsAttention } from "../filesystem-attention.js";
 import { createGitRunner } from "../git-runner.js";
+import { createRcloneRunner } from "../rclone-runner.js";
 
 // ─── Ports this route needs from the connections domain ──────────────────────
 // Declared structurally (Mechanism C idiom already used across this Layer's
@@ -89,7 +90,17 @@ const codeRefSchema = z.object({
 	branch: z.string().min(1),
 });
 const docSetRefSchema = z.object({ kind: z.literal("doc_set"), folder: z.string().min(1) });
-const resourceRefSchema = z.discriminatedUnion("kind", [codeRefSchema, docSetRefSchema]);
+/** `remote` is a bare rclone remote NAME, never `remote:path` — no `:`, and it can never start with `-` (closes argv injection, same idiom as BRANCH_NAME below). */
+const driveRefSchema = z.object({
+	kind: z.literal("drive"),
+	remote: z.string().min(1),
+	path: z.string().min(1),
+});
+const resourceRefSchema = z.discriminatedUnion("kind", [
+	codeRefSchema,
+	docSetRefSchema,
+	driveRefSchema,
+]);
 
 /** `writeback` and `sourceHint` are both gone — source is always derived, never client-supplied. */
 const registerFilesystemSchema = z.object({
@@ -103,6 +114,8 @@ const registerFilesystemSchema = z.object({
 const GITHUB_HTTPS_REPO = /^https:\/\/github\.com\//i;
 /** A branch is a plain ref name — no shell metacharacters, no leading `-` (an argv flag). */
 const BRANCH_NAME = /^[A-Za-z0-9._/-]+$/;
+/** Same idiom as BRANCH_NAME: a bare rclone remote name can never start with `-`, so `remote:path` can never be read as a flag. */
+const REMOTE_NAME = /^[A-Za-z0-9._-]+$/;
 
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
 
@@ -130,6 +143,7 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
  * already names a github.com repo, so it always yields `"github"`.
  */
 function deriveSource(body: z.infer<typeof registerFilesystemSchema>): string {
+	if (body.resourceRef.kind === "drive") return "gdrive";
 	if (body.connectionId != null) return "github";
 	if (body.resourceRef.kind !== "code") return "local";
 	if (isLocalRepoPath(body.resourceRef)) return "local";
@@ -166,6 +180,16 @@ async function validateRegisterBody(
 		}
 	}
 
+	if (body.resourceRef.kind === "drive") {
+		const { remote, path } = body.resourceRef;
+		if (!REMOTE_NAME.test(remote)) {
+			return "remote must be a plain rclone remote name (no ':', no path)";
+		}
+		if (path.includes("\n") || path.includes("\0")) {
+			return "path must not contain a newline or a NUL byte";
+		}
+	}
+
 	if (body.connectionId == null) return null;
 
 	if (body.resourceRef.kind !== "code" || !GITHUB_HTTPS_REPO.test(body.resourceRef.repo)) {
@@ -194,6 +218,7 @@ async function runCheckAndPersist(
 		credential,
 		gitRunnerFactory: createGitRunner,
 		ghAuthStatus,
+		rclone: createRcloneRunner(),
 	});
 	if (check.ok) {
 		await markFilesystemReachable(db, filesystem.id);

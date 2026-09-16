@@ -36,6 +36,20 @@ import { ghAuthStatus } from "../../../src/cli-status.js";
 import { createGitRunner } from "../../../src/git-runner.js";
 import { checkFilesystem } from "../filesystem-check.js";
 import type { Filesystem } from "../mounter.js";
+import type { RcloneRunner } from "../mounter-ports.js";
+
+/**
+ * None of these cases exercise the drive branch — a real `RcloneRunner`
+ * belongs to V1/V2/V6, not here — but `FilesystemCheckDeps.rclone` is
+ * required, so every call needs one. `listRemotes`/`statPath` are never
+ * called by a `code`/`doc_set` check; this stub exists only to satisfy the
+ * type.
+ */
+const rclone: RcloneRunner = {
+	listRemotes: () => Promise.reject(new Error("not used by this suite")),
+	statPath: () => Promise.reject(new Error("not used by this suite")),
+	copyDown: () => Promise.reject(new Error("not used by this suite")),
+};
 
 const dirs: string[] = [];
 function tracked(prefix: string): string {
@@ -88,7 +102,7 @@ describe("checkFilesystem — folder (doc_set)", () => {
 		const folder = tracked("t5-folder-ok-");
 		const result = await checkFilesystem(
 			makeFilesystem({ kind: "doc_set", resourceRef: { kind: "doc_set", folder } }),
-			{ credential: null, gitRunnerFactory, ghAuthStatus },
+			{ credential: null, gitRunnerFactory, ghAuthStatus, rclone },
 		);
 		expect(result).toEqual({ ok: true, reason: null });
 	});
@@ -99,7 +113,7 @@ describe("checkFilesystem — folder (doc_set)", () => {
 				kind: "doc_set",
 				resourceRef: { kind: "doc_set", folder: "/no/such/folder-t5" },
 			}),
-			{ credential: null, gitRunnerFactory, ghAuthStatus },
+			{ credential: null, gitRunnerFactory, ghAuthStatus, rclone },
 		);
 		expect(result.ok).toBe(false);
 		expect(result.reason?.length ?? 0).toBeGreaterThan(0);
@@ -112,7 +126,7 @@ describe("checkFilesystem — local git repo", () => {
 		initLocalRepo(repoDir);
 		const result = await checkFilesystem(
 			makeFilesystem({ resourceRef: { kind: "code", repo: repoDir, branch: "main" } }),
-			{ credential: null, gitRunnerFactory, ghAuthStatus },
+			{ credential: null, gitRunnerFactory, ghAuthStatus, rclone },
 		);
 		expect(result).toEqual({ ok: true, reason: null });
 	});
@@ -122,7 +136,7 @@ describe("checkFilesystem — local git repo", () => {
 		initLocalRepo(repoDir);
 		const result = await checkFilesystem(
 			makeFilesystem({ resourceRef: { kind: "code", repo: repoDir, branch: "does-not-exist" } }),
-			{ credential: null, gitRunnerFactory, ghAuthStatus },
+			{ credential: null, gitRunnerFactory, ghAuthStatus, rclone },
 		);
 		expect(result.ok).toBe(false);
 		expect(result.reason).toContain("does-not-exist");
@@ -149,7 +163,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 				source: "github",
 				resourceRef: { kind: "code", repo: url, branch: "main" },
 			}),
-			{ credential: null, gitRunnerFactory, ghAuthStatus },
+			{ credential: null, gitRunnerFactory, ghAuthStatus, rclone },
 		);
 		expect(result).toEqual({ ok: true, reason: null });
 	});
@@ -168,7 +182,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 					branch: "main",
 				},
 			}),
-			{ credential: null, gitRunnerFactory, ghAuthStatus },
+			{ credential: null, gitRunnerFactory, ghAuthStatus, rclone },
 		);
 		expect(result.ok).toBe(false);
 		expect(result.reason).toContain("Install the GitHub CLI (gh)");
@@ -191,7 +205,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 					branch: "main",
 				},
 			}),
-			{ credential: null, gitRunnerFactory, ghAuthStatus },
+			{ credential: null, gitRunnerFactory, ghAuthStatus, rclone },
 		);
 		expect(result.ok).toBe(false);
 		expect(result.reason).toContain("gh auth login");
@@ -224,6 +238,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 				// behaviour under test unchanged. The real rejection with a real token is
 				// G2's live proof on the running app.
 				ghAuthStatus: async () => "logged_out",
+				rclone,
 			},
 		);
 		expect(result.ok).toBe(false);
@@ -246,7 +261,12 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 					branch: "main",
 				},
 			}),
-			{ credential: null, gitRunnerFactory: gitRunnerFactorySpy, ghAuthStatus: ghAuthStatusSpy },
+			{
+				credential: null,
+				gitRunnerFactory: gitRunnerFactorySpy,
+				ghAuthStatus: ghAuthStatusSpy,
+				rclone,
+			},
 		);
 
 		expect(result.ok).toBe(false);
@@ -271,6 +291,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 				credential: "good-pat-t5",
 				gitRunnerFactory,
 				ghAuthStatus: async () => "logged_in",
+				rclone,
 			},
 		);
 		expect(result).toEqual({ ok: true, reason: null });
@@ -289,7 +310,7 @@ describe("checkFilesystem — git remote, through the real offline github-stand-
 					branch: "does-not-exist",
 				},
 			}),
-			{ credential: null, gitRunnerFactory, ghAuthStatus },
+			{ credential: null, gitRunnerFactory, ghAuthStatus, rclone },
 		);
 		expect(result.ok).toBe(false);
 		expect(result.reason).toContain("does-not-exist");

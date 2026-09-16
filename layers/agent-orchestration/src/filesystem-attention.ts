@@ -18,14 +18,19 @@ interface ParsedResourceRef {
 	readonly kind?: string;
 	readonly repo?: string;
 	readonly folder?: string;
+	readonly remote?: string;
+	readonly path?: string;
 }
 
-/** The label a notice/event names the filesystem by: its repo URL/path, or its folder path. */
+/** The label a notice/event names the filesystem by: its repo URL/path, its folder path, or its Drive `remote:path`. */
 function filesystemLabel(id: string, rawResourceRef: string): string {
 	try {
 		const ref = JSON.parse(rawResourceRef) as ParsedResourceRef;
 		if (ref.kind === "code" && typeof ref.repo === "string") return ref.repo;
 		if (ref.kind === "doc_set" && typeof ref.folder === "string") return ref.folder;
+		if (ref.kind === "drive" && typeof ref.remote === "string" && typeof ref.path === "string") {
+			return `${ref.remote}:${ref.path}`;
+		}
 	} catch {
 		/* fall through to the id */
 	}

@@ -58,6 +58,8 @@ export { endRunForHandoff } from "./end-run-for-handoff.js";
 export { startWatcher } from "./file-watcher.js";
 export {
 	checkFilesystem,
+	type DriveFailureCode,
+	driveReason,
 	type FilesystemCheckDeps,
 	type FilesystemCheckResult,
 	type GhAuthState,
