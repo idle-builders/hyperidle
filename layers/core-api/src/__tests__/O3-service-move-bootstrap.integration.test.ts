@@ -113,6 +113,13 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["agent_run_lifecycle_changed subscription", "session_ended subscription"],
 			},
+			// BA5 (no-teardown) §4: release a task's git worktree once the task is
+			// done and no session of it is still running — two occasions, one door.
+			{
+				owner: "task-done worktree-release reactions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["task_state_changed subscription", "session_ended subscription"],
+			},
 			// @lore AU21 §9 Increment 12 (Decision H3) Wave D: the POST-SESSION-START
 			// task `in_progress` transition reaction — replaces
 			// `run-orchestration/provisioner.ts`'s deleted direct
@@ -273,6 +280,13 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// owner — both unsubscribe here, in registration order.
 				{
 					unsubscribedEvents: ["agent_run_lifecycle_changed", "session_ended"],
+					clearedIntervals: 0,
+				},
+				// BA5 (no-teardown) §4: `registerTaskDoneWorktreeReactions` — not
+				// pre-registered on the `eventBus` test fixture either, so both its
+				// subscriptions unsubscribe for real.
+				{
+					unsubscribedEvents: ["task_state_changed", "session_ended"],
 					clearedIntervals: 0,
 				},
 				// @lore AU21 §9 Increment 12 (Decision H3) Wave D:
