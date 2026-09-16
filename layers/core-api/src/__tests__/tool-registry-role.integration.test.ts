@@ -120,7 +120,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// BB1: create_bet + edit_bet deleted; edit_task added = 17
 		// + 1 AU27 Increment 2: reply = 18
 		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
-		// BC1: score_attention + run_knowledge_sweep deleted = 18
+		// score_attention and run_knowledge_sweep were deleted, leaving 18
 		expect(names).toHaveLength(18);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);

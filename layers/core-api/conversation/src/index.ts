@@ -31,7 +31,7 @@
  * `listVerdictMessagesByItemIds`, `listInboxBySenderExclusion`,
  * `listInboxByParticipantProbe`, `VerdictMessageRow`, `MessageListOpts`.
  * Replaced by: `findThread`, `listThreads`, `findMessage`, `listMessages`,
- * `ThreadFilter`, `MessageFilter`. The inbox surface was retired in BC1.
+ * `ThreadFilter`, `MessageFilter`. The inbox surface was retired.
  */
 
 // -- assistant-turn resolver (AU21 §6 Decision B — emit-time resolve+bake) --

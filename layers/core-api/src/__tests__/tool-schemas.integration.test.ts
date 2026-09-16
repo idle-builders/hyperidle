@@ -25,7 +25,7 @@ const EXPECTED_TOOL_NAMES = [
 	// R5 agent work loop tools
 	"create_task",
 	"submit_review",
-	// G1 facilitator tools (BC1: score_attention deleted)
+	// G1 facilitator tools (score_attention deleted)
 	"promote_knowledge",
 	"create_conflict_review",
 	// R6 artifact tools
@@ -40,7 +40,7 @@ const EXPECTED_TOOL_NAMES = [
 	// BA9d wave 2: knowledge merge and split tools
 	"merge_knowledge",
 	"split_knowledge",
-	// BC1: run_knowledge_sweep deleted
+	// run_knowledge_sweep deleted
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {

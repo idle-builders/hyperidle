@@ -17,8 +17,8 @@
  * @lore AU20 Am5: redesigned from 29 bespoke functions toward 14 general ones.
  * The ~10 thread-list variants and 6 verdict/review projections collapsed into
  * `findThread`/`listThreads` + `findMessage`/`listMessages` parameterised by
- * `ThreadFilter`/`MessageFilter`. The inbox variant (`listInbox`) was retired
- * in BC1. `VerdictMessageRow` and `MessageListOpts` dissolved — callers that need the
+ * `ThreadFilter`/`MessageFilter`. The inbox variant (`listInbox`) was retired.
+ * `VerdictMessageRow` and `MessageListOpts` dissolved — callers that need the
  * old projected shapes derive them from the full `Message` row. Each kept
  * function earns its place: CRUD writes (irreducible), `countThreads`
  * (aggregate), `resolveMessageIfUnresolved` (CAS), `findOrCreateDirectThread`

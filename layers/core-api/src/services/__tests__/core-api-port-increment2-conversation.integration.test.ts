@@ -8,7 +8,7 @@
  * `edge-disposition.md`'s `tool-handlers` table row:
  * `conversation.{findThread, insertThread, insertMessage, updateThread,
  * findOrCreateDirectThread}` (§4 seam — "agent sends/reads
- * messages = UI's door"). `listInbox` was retired in BC1.
+ * messages = UI's door"). `listInbox` was retired.
  *
  * Covers exactly the six `ToolHandlersConversationAccessor` methods
  * (`tool-handlers/src/ports.ts:69-88`): `getThreadById`, `insertThread`,

@@ -12,7 +12,7 @@
  * installNotifications now registers a single event listener. deliver() only
  * handles the "test" kind. Config/prefs CRUD is SMTP-only.
  *
- * Census surface after BC1 (4m / 2t):
+ * Census surface after those removals (4m / 2t):
  *   4 methods: installNotifications, deliver, readPreferences, updatePreferences
  *   2 types:   DeliverySpec, DeliveryResult
  */

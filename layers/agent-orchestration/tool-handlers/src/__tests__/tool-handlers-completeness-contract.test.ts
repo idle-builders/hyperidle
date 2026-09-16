@@ -96,7 +96,7 @@ describe("buildToolDefinitions — role filtering", () => {
 
 	const ASSISTANT_ONLY = ["create_team", "add_agent", "create_routine", "update_routine"] as const;
 
-	// BC1: run_knowledge_sweep + score_attention deleted
+	// run_knowledge_sweep + score_attention deleted
 	const MULTI_ROLE = [
 		"promote_knowledge",
 		"create_conflict_review",
