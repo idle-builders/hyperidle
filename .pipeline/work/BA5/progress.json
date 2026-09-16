@@ -1,7 +1,7 @@
 {
   "item": "BA5",
   "title": "The filesystem works",
-  "status": "awaiting-human-review",
+  "status": "shipping \u2014 PR #554 open",
   "since": "f88b714346822fdc19d90c07f9617263fba6925c",
   "dials": {
     "complexity": "suite",
@@ -47,7 +47,12 @@
     }
   ],
   "review": "suite: reviewed in phases \u2014 one fresh reviewer over each phase's integrated diff",
-  "shipping": "one branch, one PR, shipped after G3 (no stacked PRs)",
+  "shipping": {
+    "pr": "https://github.com/ambrovia/hyperidle/pull/554",
+    "openedAt": "2026-09-17",
+    "head": "cb8bcd76b",
+    "state": "open \u2014 CI running; harness lane running locally; the maintainer merges"
+  },
   "baseline": {
     "check": "PASS (38 packages)",
     "lint": "PASS",
