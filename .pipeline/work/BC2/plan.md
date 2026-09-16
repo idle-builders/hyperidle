@@ -118,35 +118,28 @@ projections and screens second. Only blocking findings go back.
 
 **Gates.** One, before ship: the founder sees the task page and tree running through the list,
 `POST /api/actions/edit_task` returning problems for a bad state change, the tool listed from the
-MCP registry, the governance rule green for task and red for the other objects, the review's
-findings, and the line count. Then retro and ship to a CI-green open PR. Nobody merges.
+MCP registry, the governance rule green for task with shrink-only legacy lists for everything else,
+the review's findings, and the line count. **Passed 2026-09-16** (founder: proceed). Then retro and
+ship to a CI-green open PR. Nobody merges.
 
 **Verification.** `npm run verify`, `npm run test`, `npm run test:integration:service`; the new
 task-actions integration test; the harness lane locally once at the end because the MCP bridge
 receives the composed tool list.
 
-## Confusions
+**Accepted at the gate.** Production delta ~+3,246/−3,611 vs main (excl. pipeline/docs/tests), above
+the architecture band, still net red. Harness lane: claude+opencode green; codex FULL BINARY failed
+on env/model errors with no `edit_task` in the fail log. Live e2e page proof stayed gate-owned.
+Non-blocking carry-forwards (do not block ship): `search_tasks` filter combinations that silently
+drop fields (N1); unassign (`ownerAgentId: null`) does not end the predecessor run (N2);
+lifecycle-propagation flattens Problems to `TaskInvalidTransitionError` (N3); empty action-tool list
+degrades open_task scoping silently (N4); `call()` does not distinguish transport failure from
+refusal (N5); eval scenarios still drive deleted `handoff_to` (F1).
 
-- The plan says "sessions that ran on it" are part of opening a task. That would make core read
-  orchestration, which the AU26 ruling forbids; sessions stay a page-side read from orchestration
-  until BC6. Decided 2026-09-13.
-- The plan does not say whether the new `task.changed` event fires in this item. It does not; only
-  the old `task_state_changed` fires, from the change row, until BC5.
-- The plan's delete list named three hooks and four tools. The real reach was seven UI surfaces,
-  three surviving tools reading tasks through the seam, and six background writers; all found at
-  the architecture critique, not at refinement.
-- The plan says the rule is "red for the other objects". Every governance rule is at error and
-  lands green, so the rule instead carries three explicit lists of what is still legacy (routes,
-  tools, events) that may only shrink; those lists are the to-do for BC3–BC6. Plan wording to amend
-  at the gate.
-- Nothing in production writes the session id onto a task's dispatch attempt, so "end the running
-  session on handoff" had no source; one write in the session-started reaction repairs it.
-- Review found the session-end token writeback still touched the task table directly. Decided:
-  tokens actual is a field of edit-a-task and the reaction edits as the session's agent.
-- Deleting the handoff tool removed the one call the return gate recognised as "the agent handed
-  its work back". Decided: edit-a-task counts as returning only when the agent moves its own task
-  away from itself (owner to someone else, or state to review or done). Creating a subtask never
-  counts. Harness lane re-run for it.
-- The task page reads attachments twice once open-a-task returns them. BC4's to clean.
-
-## Proposed items
+**Decisions that still explain the code.** Sessions are not part of `open_task` (page reads
+orchestration until BC6). Only legacy `task_state_changed` fires from the change row until BC5 —
+no `task.changed` yet. Governance rule is green everywhere and carries shrink-only
+`LEGACY_ROUTES` / `LEGACY_TOOLS` / `LEGACY_EVENTS` lists as the BC3–BC6 to-do. Handoff is
+`edit_task({ ownerAgentId })`; return-gate counts only when the agent moves its own task away
+from itself. Token writeback is an edit-a-task field. Dispatch-attempt conflict must not fabricate
+an id. Kill carries the real prior state; dependents are separate post-commit edits as
+`system:propagation`.
