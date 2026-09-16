@@ -336,13 +336,29 @@
         "id": "L7",
         "what": "no teardown (ruling 2026-09-16, absorbs BA12): worktree moves to <keptCopiesRoot>/worktrees/<taskKey>/ and is symlinked into the workspace; every session-end unmount/destroy/rm deleted; releaseForTask behind the existing door, called by a core reaction on task done + session_ended, never with --force; reaper skips verdict-awaiting sessions",
         "architecture": "architecture-no-teardown.md (critique: critique-no-teardown.md, B1/B2 fixed)",
-        "state": "building",
-        "startedAt": "2026-09-16"
+        "state": "built, reviewed, fixes applied",
+        "startedAt": "2026-09-16",
+        "commits": [
+          "69b883d51",
+          "8c99aaff5",
+          "f4d2645d2",
+          "f0cdc9e99",
+          "700219460",
+          "742825a28",
+          "145f286b6",
+          "710397a57",
+          "68796a10b",
+          "220f85aca",
+          "3e5c8407e"
+        ],
+        "review": "review-no-teardown.md \u2014 no blocker; S1-S5 applied; killed tasks release their clean worktree too (orchestrator's call, 2026-09-16)",
+        "gates": "check 0, lint 0, verify:quick 0, named service files 0, full service lane 0 (2178 passed), test:full only the pre-existing design-source failure",
+        "pending": "G2b live proof on the packaged desktop app (running)"
       },
       {
         "id": "P2",
         "what": "phase 2 \u2014 Google Drive through a CLI the agent and HyperIdle can both steer",
-        "state": "architecture revised to the no-teardown ruling (kept copy per Drive filesystem); starts after L7"
+        "state": "building D1-D5 per architecture-phase2.md (option A); rclone installed locally 2026-09-16 for the real-rclone lane"
       }
     ],
     "state": "all six leaves done"
