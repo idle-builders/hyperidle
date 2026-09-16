@@ -24,7 +24,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, SessionEndedEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
-import { get } from "@hyperidle/work";
+import { get } from "@hyperidle/task";
 
 const logger = createLogger({ pkg: "core-api.task-done-worktree-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
