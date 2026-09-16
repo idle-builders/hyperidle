@@ -19,18 +19,6 @@
 import { z } from "zod";
 
 /**
- * Narrow a readonly string array to the non-empty tuple form `z.enum()` requires.
- *
- * The shared constants (CURRENCY_CODES, BET_STATUSES, …) are typed as
- * `readonly string[]`, but `z.enum()` needs `[U, ...U[]]`. This is a single,
- * audited cast that asserts non-emptiness (the sources are compile-time-constant
- * non-empty arrays) and — unlike the old `as unknown as [string, ...string[]]` —
- * preserves the literal union so the schema validates the exact value set.
- */
-export const enumValues = <T extends string>(values: readonly T[]): [T, ...T[]] =>
-	values as [T, ...T[]];
-
-/**
  * Progress: task completion counter.
  * Both done and total must be non-negative integers.
  */

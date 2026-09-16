@@ -138,76 +138,29 @@ interface ToolHandlersCreateKnowledgeConflictInput {
  * via the seam's transport (a real route call through the SAME door core-ui
  * uses, architecture.md §6 Decision A/C), not a same-process DB handle.
  * `actorId` carries the calling agent's own identity as the route actor (§12)
- * — the composition root threads it onto the request, never a hardcoded/
+ * the composition root threads it onto the request, never a hardcoded/
  * founder constant.
  *
- * @lore BB1: `createBet`/`getBetById`/`updateBetById` removed — the `bets`
- * table is gone; tasks are one recursive primitive. `createTask` now takes
- * `parentTaskId` (nullable). `getTaskById` returns `parentTaskId` instead of
- * `betId`/`rootTaskId`. `updateTaskById` is added as the one edit door for
- * agents, mirroring `PATCH /api/tasks/:id` with no actor or role gate.
+ * @lore `getTaskById`/`createTask`/`updateTaskById`/`appendTaskNote`/
+ * `handoffTask` — the whole task-shaped slice of this accessor — are gone.
+ * `create_task`/`edit_task`/`handoff_to`/`log_task` are deleted (the task
+ * action list replaces them); the three tools that survive and only ever
+ * READ a task (`write_memory`, `submit_review`, `create_artifact`) call
+ * `openTask` instead, bound at the composition root directly to the
+ * `open_task` action's `run` — in-process, never a second HTTP hop
+ * (the architecture doc §8 B1).
  */
 interface ToolHandlersCoreApiAccessor {
-	/** Structural mirror of `@hyperidle/api-contract`'s `TaskView` (Mechanism C: no import). */
-	getTaskById(
+	/** Structural mirror of the fields `write_memory`/`submit_review`/`create_artifact` read off `TaskView`. */
+	openTask(
 		id: string,
 		actorId: string,
 	): Promise<
 		| {
-				readonly parentTaskId: string | null;
-				readonly teamId: string;
-				readonly notes: string | null;
+				readonly task: { readonly parentTaskId: string | null; readonly teamId: string };
 		  }
 		| undefined
 	>;
-	createTask(
-		input: {
-			readonly parentTaskId: string | null;
-			readonly teamId: string;
-			readonly title: string;
-			readonly description: string | null;
-			readonly doneCondition: string | null;
-			readonly ownerAgentId: string | null;
-			/** A list of task ids this task waits on. */
-			readonly dependencies?: readonly string[];
-			/** When true, finishing this task sends it to `review` rather than `done`. */
-			readonly needsReview?: boolean;
-		},
-		actorId: string,
-	): Promise<{ readonly id: string; readonly teamId: string }>;
-	/**
-	 * One edit door for agents: mirrors `PATCH /api/tasks/:id`.
-	 * No actor gate, no role gate — humans and agents use the same endpoint.
-	 * `state` routes through `transitionTask` server-side; all other fields
-	 * are plain writes plus `updatedAt`.
-	 */
-	updateTaskById(
-		id: string,
-		updates: {
-			readonly title?: string;
-			readonly description?: string | null;
-			readonly doneCondition?: string | null;
-			readonly ownerAgentId?: string | null;
-			/** A list of task ids, or `null` to clear. */
-			readonly dependencies?: readonly string[] | null;
-			readonly parentTaskId?: string | null;
-			readonly state?: string;
-			/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
-			readonly position?: number;
-			/** Flip whether finishing this task routes to `review` (true) or `done` (false). */
-			readonly needsReview?: boolean;
-		},
-		actorId: string,
-	): Promise<void>;
-	/**
-	 * Atomic note append via the seam. Resolves `undefined` when the task does
-	 * not exist (task-not-found signal for the `log_task` handler) — never throws.
-	 */
-	appendTaskNote(
-		taskId: string,
-		entry: string,
-		actorId: string,
-	): Promise<{ readonly id: string } | undefined>;
 	getItemById(
 		id: string,
 		actorId: string,
@@ -354,27 +307,6 @@ interface ToolHandlersCoreApiAccessor {
 		{ readonly name: string; readonly state: string; readonly deletedAt: string | null } | undefined
 	>;
 	updateRoutineById(id: string, updates: Record<string, unknown>, actorId: string): Promise<void>;
-	/** Bound `@hyperidle/policy`'s `handoff`, reached via `POST /tasks/:id/handoff`. */
-	handoffTask(
-		taskId: string,
-		input: {
-			readonly sessionId: string;
-			readonly toAgent?: string;
-			readonly toRole?: string;
-			readonly toHuman?: boolean;
-			readonly reason: string;
-			readonly artifacts?: readonly string[];
-			readonly remainingWork?: readonly string[];
-			readonly contextId?: string;
-			readonly status?: "completed" | "failed" | "blocked" | "in_progress";
-			readonly error?: string;
-		},
-		actorId: string,
-	): Promise<{
-		readonly status: "success" | "escalated";
-		readonly targetAgentId?: string;
-		readonly escalationItemId?: string;
-	}>;
 	/**
 	 * @lore AU21 §9 Increment 2 (knowledge wave): every former
 	 * `ToolHandlersKnowledgeAccessor` capability moved onto this seam

@@ -27,19 +27,26 @@ describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {
 		expect(RETURN_ACTION_NAMES.length).toBeGreaterThan(0);
 	});
 
-	it("contains exactly the four members: submit_review, handoff_to, send_message, reply", () => {
+	it("contains exactly the four members: submit_review, edit_task, send_message, reply", () => {
 		// AU27 Increment 3 (Decision 3): `reply` (Increment 2's generic
 		// session-scoped reply tool) joins the trio.
+		// the architecture doc §8 B4: `handoff_to` is deleted — `edit_task`
+		// (argument-gated on `ownerAgentId`) replaces it.
 		const names = [...RETURN_ACTION_NAMES].sort();
-		expect(names).toEqual(["handoff_to", "reply", "send_message", "submit_review"]);
+		expect(names).toEqual(["edit_task", "reply", "send_message", "submit_review"]);
 	});
 
-	it("every member maps to a real registered tool in ALL_TOOL_DEFINITIONS (closure)", () => {
+	it("every member except edit_task maps to a real registered tool in ALL_TOOL_DEFINITIONS (closure)", () => {
 		// @lore This test is the runtime enforcement of the closure guarantee.
 		// If a tool in RETURN_ACTION_NAMES is renamed in tool-registry.ts without
 		// updating return-actions.ts, this test catches the drift at CI time.
+		// `edit_task` is the one exception: it is projected from the action list
+		// (`layers/core-api/src/actions/actions-as-tools.ts`), composed in only
+		// at `buildToolRegistry`'s real call site — `ALL_TOOL_DEFINITIONS` here
+		// is built from `buildToolDefinitions` directly, which never includes it.
 		const registeredNames = new Set(ALL_TOOL_DEFINITIONS.map((d) => d.name));
 		for (const name of RETURN_ACTION_NAMES) {
+			if (name === "edit_task") continue;
 			expect(
 				registeredNames.has(name),
 				`RETURN_ACTION_NAMES includes '${name}' but it is not in ALL_TOOL_DEFINITIONS. ` +
@@ -55,9 +62,13 @@ describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {
 });
 
 describe("isReturnAction — AC2: per-tool return predicate", () => {
-	it("returns true for all members of RETURN_ACTION_NAMES", () => {
+	it("returns true for all members of RETURN_ACTION_NAMES, given each member's satisfying args", () => {
+		// `edit_task` is argument-gated (B4: only the session's own task moving
+		// away from the agent is terminal) — every other member is
+		// unconditional, per the `edit_task`-specific test below.
 		for (const name of RETURN_ACTION_NAMES) {
-			expect(isReturnAction(name, {})).toBe(true);
+			const args = name === "edit_task" ? { id: "task-1", ownerAgentId: "agent-7" } : {};
+			expect(isReturnAction(name, args, "task-1")).toBe(true);
 		}
 	});
 
@@ -66,9 +77,23 @@ describe("isReturnAction — AC2: per-tool return predicate", () => {
 		expect(isReturnAction("submit_review", { verdict: "approved" })).toBe(true);
 	});
 
-	it("returns true for handoff_to unconditionally", () => {
-		expect(isReturnAction("handoff_to", {})).toBe(true);
-		expect(isReturnAction("handoff_to", { role: "reviewer" })).toBe(true);
+	it("returns true for edit_task only on the session's own task, moving it away from the agent (B4)", () => {
+		expect(isReturnAction("edit_task", { id: "task-1", ownerAgentId: "agent-7" }, "task-1")).toBe(
+			true,
+		);
+		expect(isReturnAction("edit_task", { id: "task-1", state: "review" }, "task-1")).toBe(true);
+		expect(isReturnAction("edit_task", { id: "task-1", state: "done" }, "task-1")).toBe(true);
+		// no taskId in context — never terminal.
+		expect(isReturnAction("edit_task", { id: "task-1", ownerAgentId: "agent-7" })).toBe(false);
+		// a subtask create (no id) is never the session's own task.
+		expect(isReturnAction("edit_task", { ownerAgentId: "agent-7" }, "task-1")).toBe(false);
+		// editing a DIFFERENT task is never terminal.
+		expect(isReturnAction("edit_task", { id: "task-2", ownerAgentId: "agent-7" }, "task-1")).toBe(
+			false,
+		);
+		expect(isReturnAction("edit_task", { id: "task-1" }, "task-1")).toBe(false);
+		expect(isReturnAction("edit_task", { id: "task-1", title: "Renamed" }, "task-1")).toBe(false);
+		expect(isReturnAction("edit_task", { id: "task-1", ownerAgentId: "" }, "task-1")).toBe(false);
 	});
 
 	it("returns true for send_message unconditionally", () => {
@@ -127,8 +152,14 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 		expect(isReturnAction("mcp__hyperidle__submit_review")).toBe(true);
 	});
 
-	it("namespaced handoff_to is recognised as a return action", () => {
-		expect(isReturnAction("mcp__hyperidle__handoff_to")).toBe(true);
+	it("namespaced edit_task, own task with ownerAgentId, is recognised as a return action", () => {
+		expect(
+			isReturnAction(
+				"mcp__hyperidle__edit_task",
+				{ id: "task-1", ownerAgentId: "agent-7" },
+				"task-1",
+			),
+		).toBe(true);
 	});
 
 	it("bare send_message still works (builtin path — no namespace)", () => {
@@ -152,7 +183,9 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 	it("opencode hyperidle_ tool names are recognised as return actions", () => {
 		expect(isReturnAction("hyperidle_send_message")).toBe(true);
 		expect(isReturnAction("hyperidle_submit_review")).toBe(true);
-		expect(isReturnAction("hyperidle_handoff_to")).toBe(true);
+		expect(
+			isReturnAction("hyperidle_edit_task", { id: "task-1", ownerAgentId: "agent-7" }, "task-1"),
+		).toBe(true);
 		expect(isReturnAction("hyperidle_reply")).toBe(true);
 		expect(isReturnAction("hyperidle_commit_file")).toBe(false);
 	});

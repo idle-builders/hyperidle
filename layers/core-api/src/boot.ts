@@ -52,6 +52,7 @@ import {
 	encryptCredentialValue,
 	resolveCredential,
 } from "@hyperidle/credentials";
+import type { HyperIdleDb } from "@hyperidle/db";
 
 import { getPluginMcpContributions } from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
@@ -62,6 +63,7 @@ import {
 	type AppOptions,
 	createCoreApiApp,
 	registerCoreApiPreAuthRoutes,
+	takeAppActionTools,
 	takeAppDisposers,
 } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
@@ -158,6 +160,17 @@ export interface CoreApiBoot {
 			}[]
 		>;
 	};
+	/**
+	 * §7 — the composed action list, projected onto the MCP tool seam.
+	 * `bootAgentOrchestration` threads this into its own tool provider
+	 * (`buildToolRegistry`/`toolsForRole`) so an action is registered on the
+	 * MCP server and reachable from the CLI in the same composition pass —
+	 * "one composed list, built once", never a second construction site.
+	 * Present whenever `db` is provided.
+	 */
+	readonly actionTools: ReadonlyArray<
+		import("@hyperidle/harness-protocol").RegisteredTool<HyperIdleDb>
+	>;
 }
 
 /**
@@ -271,6 +284,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	};
 
 	const disposers: Array<() => void> = [...takeAppDisposers(app)];
+	const actionTools = takeAppActionTools(app) ?? [];
 
 	return {
 		app,
@@ -284,6 +298,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		}),
 		disposers,
 		disposeWebSocket,
+		actionTools,
 		wsHub,
 		upgradeTokenStore: tokenStore,
 		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),

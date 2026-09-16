@@ -4,7 +4,10 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import {
+	THROWING_OPEN_TASK,
+	THROWING_REVIEW_ACCESSOR,
+} from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, knowledgeEditLog, knowledgeItems, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -24,9 +27,11 @@ import { test } from "../__testing__/test-fixtures.js";
  */
 
 function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR).find(
-		(t) => t.name === "write_memory",
-	)!;
+	return buildToolDefinitions(
+		createInProcessCoreApiTransport(app),
+		THROWING_REVIEW_ACCESSOR,
+		THROWING_OPEN_TASK,
+	).find((t) => t.name === "write_memory")!;
 }
 
 const NOW = new Date().toISOString();
@@ -48,6 +53,13 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdl
 		agentId,
 		sessionId: "session-1",
 		taskId: "task-1",
+		// @lore write_memory falls back to `openTask` only when `teamId` is
+		// absent from the context — setting it here keeps every test in this
+		// file off the THROWING_OPEN_TASK stub, which is deliberately wired
+		// above so a test that DOES reach `openTask` fails loudly instead of
+		// silently exercising a stub. The "no explicit teamId" fallback path
+		// itself is covered by R7-knowledge-e2e.integration.test.ts.
+		teamId: "team-1",
 		sandboxPath: path.join(os.tmpdir(), `hi-d4-writemem-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};

@@ -9,7 +9,7 @@ import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, items, messages, teams, threads, users } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -22,7 +22,6 @@ const policyEngineDeps: PolicyDeps = {
 			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
 		// lifecycle stubs (never called in engine tests):
 		getTaskById: () => Promise.resolve(undefined),
-		transitionTaskState: () => Promise.resolve({ applied: false }),
 		listChildTasks: () => Promise.resolve([]),
 		listAncestorIds: () => Promise.resolve([]),
 	},
@@ -48,6 +47,10 @@ const policyEngineDeps: PolicyDeps = {
 	users: {
 		// lifecycle stub (never called in engine tests):
 		getFirstUserByKind: () => Promise.resolve(undefined),
+	},
+	// lifecycle stub (never called in engine tests):
+	editTask: () => {
+		throw new Error("policy-engine.integration.test.ts: editTask should never be called here");
 	},
 };
 

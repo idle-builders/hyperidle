@@ -90,6 +90,56 @@ which is what happens today.
 
 ## How we work on this
 
-## Confusions
+**Confirmed 2026-09-12.** The three calls in *How it works* stand: the old `task_state_changed` is
+emitted from the change row until BC5; accepting an agent-owned task still records a work intent
+through the seam until BC6; `audit_trail` is dropped, the change rows replace it. One PR. Roughly a
+thousand added lines of code accepted up front; `work`, the task routes, the four tools, the hooks
+and the wire type are deleted in the same change. No bridge.
 
-## Proposed items
+**Confirmed 2026-09-13, after the architecture critique.** The honest count is 1,600–1,800 added
+lines of code, a third of it tests, stories and specs that mocked the deleted routes; accepted, the
+change is net red. Handoff is an edit that sets the owner: the caller names a user, role targeting
+and the escalation thread go, the running session still ends through the existing seam after commit
+until BC6. Every background writer of task state (session started, dependency unblock, lifecycle
+propagation, kill cascade) goes through edit-a-task in-process, so nothing changes a task without a
+change row.
+
+**Parallel with BC1.** BC1 runs in another session. This branch is cut from `origin/main` before
+BC1 merges; it rebases onto BC1 once BC1 is on `main`, before ship. The two known overlaps are the
+`attention_score` column in the task read model and the plumbing list in the governance rule. The
+PR may not merge before BC1.
+
+**Dials.** complexity: suite · ambiguity: established context · exposure: public contract.
+
+**Order.** One critique of `architecture.md` first, cheap against a thousand-line build. Then one
+builder: red tests, then code, in the dependency order the architecture gives. Then one fresh
+reviewer over the integrated diff, in two passes: the mechanism and task module first, the
+projections and screens second. Only blocking findings go back.
+
+**Gates.** One, before ship: the founder sees the task page and tree running through the list,
+`POST /api/actions/edit_task` returning problems for a bad state change, the tool listed from the
+MCP registry, the governance rule green for task with shrink-only legacy lists for everything else,
+the review's findings, and the line count. **Passed 2026-09-16** (founder: proceed). Then retro and
+ship to a CI-green open PR. Nobody merges.
+
+**Verification.** `npm run verify`, `npm run test`, `npm run test:integration:service`; the new
+task-actions integration test; the harness lane locally once at the end because the MCP bridge
+receives the composed tool list.
+
+**Accepted at the gate.** Production delta ~+3,246/−3,611 vs main (excl. pipeline/docs/tests), above
+the architecture band, still net red. Harness lane: claude+opencode green; codex FULL BINARY failed
+on env/model errors with no `edit_task` in the fail log. Live e2e page proof stayed gate-owned.
+Non-blocking carry-forwards (do not block ship): `search_tasks` filter combinations that silently
+drop fields (N1); unassign (`ownerAgentId: null`) does not end the predecessor run (N2);
+lifecycle-propagation flattens Problems to `TaskInvalidTransitionError` (N3); empty action-tool list
+degrades open_task scoping silently (N4); `call()` does not distinguish transport failure from
+refusal (N5); eval scenarios still drive deleted `handoff_to` (F1).
+
+**Decisions that still explain the code.** Sessions are not part of `open_task` (page reads
+orchestration until BC6). Only legacy `task_state_changed` fires from the change row until BC5 —
+no `task.changed` yet. Governance rule is green everywhere and carries shrink-only
+`LEGACY_ROUTES` / `LEGACY_TOOLS` / `LEGACY_EVENTS` lists as the BC3–BC6 to-do. Handoff is
+`edit_task({ ownerAgentId })`; return-gate counts only when the agent moves its own task away
+from itself. Token writeback is an edit-a-task field. Dispatch-attempt conflict must not fabricate
+an id. Kill carries the real prior state; dependents are separate post-commit edits as
+`system:propagation`.

@@ -68,11 +68,28 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/event-bus";
+import type {
+	AgentRunLifecycleChangedEvent,
+	SessionEndedEvent,
+	SessionStartedEvent,
+} from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../../actions/compose.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { registerWorkSessionEndReactions } from "../work-session-end-reactions.js";
+import { registerWorkSessionStartedReactions } from "../work-session-started-reactions.js";
+
+/** B3/B7 fix: both reactions take `edit_task`'s bound `run`, not a bare `update()`. */
+function editTaskFrom(
+	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+): Parameters<typeof registerWorkSessionEndReactions>[2] {
+	const editTaskAction = buildCoreActions(agentOrchestration).find(
+		(a) => a.declaration.name === "edit_task",
+	);
+	if (!editTaskAction) throw new Error("edit_task action not found");
+	return editTaskAction.run as Parameters<typeof registerWorkSessionEndReactions>[2];
+}
 
 const NOW = new Date().toISOString();
 
@@ -158,15 +175,17 @@ async function seedSession(db: HyperIdleDb, id: string, agentId: string): Promis
 	});
 }
 
+/**
+ * B7 fix: seeds the row the way `insertAttempt` really leaves it —
+ * `status: "requested"`, no `requestId`, no `sessionId`. A test that needs
+ * the row `running` with a real `requestId` primes it through a genuine
+ * `session_started` event (`primeAttemptRunning` below) instead of hand-
+ * setting the column, which is the exact shape that let the original defect
+ * (§1) ship unnoticed.
+ */
 async function seedAttempt(
 	db: HyperIdleDb,
-	options: {
-		readonly attemptId: string;
-		readonly taskId: string;
-		readonly agentId: string;
-		readonly requestId: string;
-		readonly status?: string;
-	},
+	options: { readonly attemptId: string; readonly taskId: string; readonly agentId: string },
 ): Promise<void> {
 	await db.insert(taskDispatchAttempts).values({
 		id: options.attemptId,
@@ -174,10 +193,63 @@ async function seedAttempt(
 		occasion: "accepted",
 		agentId: options.agentId,
 		ordinal: 1,
-		status: options.status ?? "running",
-		requestId: options.requestId,
+		status: "requested",
 		createdAt: NOW,
 		updatedAt: NOW,
+	});
+}
+
+function sessionStarted(input: {
+	readonly sessionId: string;
+	readonly agentId: string;
+	readonly taskId: string | null;
+	readonly requestId: string;
+}): SessionStartedEvent {
+	return {
+		type: "session_started",
+		streamId: input.sessionId,
+		sessionId: input.sessionId,
+		agentId: input.agentId,
+		taskId: input.taskId,
+		timestamp: Date.now(),
+		requestId: input.requestId,
+	};
+}
+
+/**
+ * B7 fix — the repair, driven for real: registers the started-reaction and
+ * emits a genuine `session_started` carrying `requestId`, so `markRunning`
+ * (not the test) fills the attempt row's `requestId`/`sessionId` and flips
+ * it to `running`. Requires `sessionId` to already exist (a real FK target).
+ */
+async function primeAttemptRunning(
+	db: HyperIdleDb,
+	eventBus: Parameters<typeof registerWorkSessionStartedReactions>[1],
+	editTask: Parameters<typeof registerWorkSessionStartedReactions>[2],
+	options: {
+		readonly attemptId: string;
+		readonly taskId: string;
+		readonly agentId: string;
+		readonly requestId: string;
+		readonly sessionId: string;
+	},
+): Promise<void> {
+	registerWorkSessionStartedReactions(db, eventBus, editTask);
+	eventBus.emit(
+		sessionStarted({
+			sessionId: options.sessionId,
+			agentId: options.agentId,
+			taskId: options.taskId,
+			requestId: options.requestId,
+		}),
+	);
+	await vi.waitFor(async () => {
+		const [row] = await db
+			.select()
+			.from(taskDispatchAttempts)
+			.where(eq(taskDispatchAttempts.id, options.attemptId));
+		expect(row?.status).toBe("running");
+		expect(row?.requestId).toBe(options.requestId);
 	});
 }
 
@@ -204,18 +276,21 @@ describe("registerWorkSessionEndReactions", () => {
 	test("agent_run_lifecycle_changed completed finalizes the task dispatch-attempt row (NEW event path, zero orchestration->work write)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-completed");
 		await seedSessionRequest(db, "wser-completed-req", { taskId, agentId });
 		await seedSession(db, "wser-completed-session", agentId);
-		await seedAttempt(db, {
+		await seedAttempt(db, { attemptId: "wser-completed-attempt", taskId, agentId });
+		const editTask = editTaskFrom(agentOrchestration);
+		await primeAttemptRunning(db, eventBus, editTask, {
 			attemptId: "wser-completed-attempt",
 			taskId,
 			agentId,
 			requestId: "wser-completed-req",
-			status: "running",
+			sessionId: "wser-completed-session",
 		});
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTask);
 
 		eventBus.emit(
 			lifecycleChanged({
@@ -240,17 +315,21 @@ describe("registerWorkSessionEndReactions", () => {
 	test("agent_run_lifecycle_changed failed finalizes the dispatch-attempt row to failed", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-failed");
 		await seedSessionRequest(db, "wser-failed-req", { taskId, agentId });
-		await seedAttempt(db, {
+		await seedSession(db, "wser-failed-session", agentId);
+		await seedAttempt(db, { attemptId: "wser-failed-attempt", taskId, agentId });
+		const editTask = editTaskFrom(agentOrchestration);
+		await primeAttemptRunning(db, eventBus, editTask, {
 			attemptId: "wser-failed-attempt",
 			taskId,
 			agentId,
 			requestId: "wser-failed-req",
-			status: "running",
+			sessionId: "wser-failed-session",
 		});
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTask);
 
 		eventBus.emit(
 			lifecycleChanged({
@@ -273,17 +352,21 @@ describe("registerWorkSessionEndReactions", () => {
 	test("agent_run_lifecycle_changed cancelled finalizes the dispatch-attempt row to cancelled", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-cancelled");
 		await seedSessionRequest(db, "wser-cancelled-req", { taskId, agentId });
-		await seedAttempt(db, {
+		await seedSession(db, "wser-cancelled-session", agentId);
+		await seedAttempt(db, { attemptId: "wser-cancelled-attempt", taskId, agentId });
+		const editTask = editTaskFrom(agentOrchestration);
+		await primeAttemptRunning(db, eventBus, editTask, {
 			attemptId: "wser-cancelled-attempt",
 			taskId,
 			agentId,
 			requestId: "wser-cancelled-req",
-			status: "requested",
+			sessionId: "wser-cancelled-session",
 		});
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTask);
 
 		eventBus.emit(
 			lifecycleChanged({
@@ -306,19 +389,22 @@ describe("registerWorkSessionEndReactions", () => {
 	test("a duplicate/redelivered agent_run_lifecycle_changed event is a safe no-op (idempotency, updateIfActive's status IN ('requested','running') guard)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-idempotent");
 		await seedSessionRequest(db, "wser-idempotent-req", { taskId, agentId });
 		await seedSession(db, "wser-idempotent-session-1", agentId);
 		await seedSession(db, "wser-idempotent-session-2", agentId);
-		await seedAttempt(db, {
+		await seedAttempt(db, { attemptId: "wser-idempotent-attempt", taskId, agentId });
+		const editTask = editTaskFrom(agentOrchestration);
+		await primeAttemptRunning(db, eventBus, editTask, {
 			attemptId: "wser-idempotent-attempt",
 			taskId,
 			agentId,
 			requestId: "wser-idempotent-req",
-			status: "running",
+			sessionId: "wser-idempotent-session-1",
 		});
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTask);
 
 		eventBus.emit(
 			lifecycleChanged({
@@ -362,17 +448,21 @@ describe("registerWorkSessionEndReactions", () => {
 	test("ignores an agent_run_lifecycle_changed event for a non-task source (no bet_decomposition case exists — Decision I)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-ignore");
 		await seedSessionRequest(db, "wser-ignore-req", { taskId, agentId });
-		await seedAttempt(db, {
+		await seedSession(db, "wser-ignore-session", agentId);
+		await seedAttempt(db, { attemptId: "wser-ignore-attempt", taskId, agentId });
+		const editTask = editTaskFrom(agentOrchestration);
+		await primeAttemptRunning(db, eventBus, editTask, {
 			attemptId: "wser-ignore-attempt",
 			taskId,
 			agentId,
 			requestId: "wser-ignore-req",
-			status: "running",
+			sessionId: "wser-ignore-session",
 		});
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTask);
 
 		eventBus.emit(
 			lifecycleChanged({
@@ -432,10 +522,11 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 	test("session_ended with tokensByTier merges into the worked task's own tokensActualJson", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-merge");
 		await seedSession(db, "wser-tok-merge-session", agentId);
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(
 			sessionEnded({
@@ -455,6 +546,7 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 	test("session_ended with tokensByTier ADDS onto existing tokensActualJson (read-modify-write merge)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-add");
 		await db
@@ -466,7 +558,7 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 			})
 			.where(eq(tasks.id, taskId));
 		await seedSession(db, "wser-tok-add-session", agentId);
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(
 			sessionEnded({
@@ -483,10 +575,14 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 		});
 	});
 
-	test("session_ended with no tokensByTier is a no-op", async ({ db, eventBus }) => {
+	test("session_ended with no tokensByTier is a no-op", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-empty");
 		await seedSession(db, "wser-tok-empty-session", agentId);
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		eventBus.emit(sessionEnded({ sessionId: "wser-tok-empty-session", agentId, taskId }));
 
@@ -494,10 +590,14 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 		expect(await readTaskTokensActualJson(db, taskId)).toBeUndefined();
 	});
 
-	test("session_ended with taskId: null is a no-op", async ({ db, eventBus }) => {
+	test("session_ended with taskId: null is a no-op", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		const { agentId } = await seedTaskAndAgent(db, "wser-tok-notask");
 		await seedSession(db, "wser-tok-notask-session", agentId);
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		expect(() =>
 			eventBus.emit(
@@ -515,10 +615,11 @@ describe("registerWorkSessionEndReactions — session_ended task-token writeback
 	test("duplicate session_ended for the same session is idempotent (no double-apply)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wser-tok-idem");
 		await seedSession(db, "wser-tok-idem-session", agentId);
-		registerWorkSessionEndReactions(db, eventBus);
+		registerWorkSessionEndReactions(db, eventBus, editTaskFrom(agentOrchestration));
 
 		const event = sessionEnded({
 			sessionId: "wser-tok-idem-session",

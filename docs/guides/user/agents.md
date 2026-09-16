@@ -10,7 +10,7 @@ Every HyperIdle user has a personal **Assistant** (role `assistant`, category `i
 
 Open the Assistant overlay by clicking the **Assistant button** in the top row of the sidebar, next to the search field (no keyboard shortcut). Describe what you need in natural language; the Assistant replies in the same thread, the same way any other agent replies into a conversation it's part of.
 
-Ask the Assistant to draft a task in plain language. It uses `create_task` to place a proposed task on your team's work queue. You then review and accept it — the Assistant never changes task state on your behalf without your confirmation.
+Ask the Assistant to draft a task in plain language. It uses `edit_task` (no `id` — a create) to place a proposed task on your team's work queue. You then review and accept it — the Assistant never changes task state on your behalf without your confirmation.
 
 ## Agent categories
 

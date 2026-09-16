@@ -6,12 +6,11 @@
  * `session_started`, the promotion reaction) carries it the rest of the way.
  * AC4: an unowned task stops at `accepted` and waits for a human.
  *
- * Both tests create the dependent task through the real `POST /tasks` door
- * WITH a `dependencies` value — see `task-dependencies.integration.test.ts`'s
- * create-door test for the door's own validation.
+ * re-pointed off the deleted `POST/PATCH /tasks` routes — both tasks
+ * are created and edited through `POST /api/actions/edit_task` now.
  *
  * The "dispatch" and "session admission" steps are real production code
- * (`transitionTask`'s own dispatch-attempt bookkeeping via the real
+ * (`edit_task`'s own dispatch-attempt bookkeeping via the real
  * `agentOrchestration` seam) — only the actual session process is simulated
  * by emitting `session_started` directly, the exact same sanctioned pattern
  * `work-session-started-reactions.integration.test.ts` already uses for this
@@ -21,7 +20,9 @@
 import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
 
 const TEST_API_KEY = "test-key-dependency-freed";
@@ -29,6 +30,21 @@ const NOW = new Date().toISOString();
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
+}
+
+async function editTaskRequest(
+	app: Hono,
+	body: Record<string, unknown>,
+): Promise<{
+	readonly status: number;
+	readonly json: { readonly data?: { readonly task: { readonly id: string } } };
+}> {
+	const res = await app.request("/api/actions/edit_task", {
+		method: "POST",
+		headers: authHeaders(),
+		body: JSON.stringify(body),
+	});
+	return { status: res.status, json: await res.json() };
 }
 
 async function readTaskState(db: HyperIdleDb, taskId: string): Promise<string | undefined> {
@@ -40,6 +56,29 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Team ${teamId}`, phase: "build", createdAt: NOW });
+	// `changes.actor` FKs to `users` — API-key auth with no seeded human row
+	// falls back to the literal "u-founder", and the dependency watcher's own
+	// edit_task calls write as "system:propagation". Both need real rows.
+	await db
+		.insert(users)
+		.values([
+			{
+				id: "u-founder",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: NOW,
+			},
+			{
+				id: "system:propagation",
+				name: "Propagation System",
+				role: "system",
+				status: "active",
+				createdAt: NOW,
+			},
+		])
+		.onConflictDoNothing();
 }
 
 async function seedRunnableAgent(db: HyperIdleDb, agentId: string, teamId: string): Promise<void> {
@@ -65,42 +104,38 @@ describe("AC3: last dependency finishes, agent owns it -> in_progress with no hu
 		await seedRunnableAgent(db, "dep-freed-agent", "dep-freed-owned");
 
 		// The dependency: created via the same real door, no dependencies.
-		const depRes = await app.request("/api/tasks", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ teamId: "dep-freed-owned", title: "Dependency" }),
-		});
-		expect(depRes.status).toBe(201);
-		const dep = (await depRes.json()) as { id: string };
+		const depRes = await editTaskRequest(app, { teamId: "dep-freed-owned", title: "Dependency" });
+		expect(depRes.status).toBe(200);
+		const dep = depRes.json.data?.task;
 
 		// The dependent: created through the door under test, owned by a real agent.
-		const dependentRes = await app.request("/api/tasks", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				teamId: "dep-freed-owned",
-				title: "Dependent",
-				ownerAgentId: "dep-freed-agent",
-				dependencies: [dep.id],
-			}),
+		const dependentRes = await editTaskRequest(app, {
+			teamId: "dep-freed-owned",
+			title: "Dependent",
+			ownerAgentId: "dep-freed-agent",
+			dependencies: [dep?.id],
 		});
-		expect(dependentRes.status).toBe(201);
-		const dependent = (await dependentRes.json()) as { id: string };
-		expect(await readTaskState(db, dependent.id)).toBe("hold");
+		expect(dependentRes.status).toBe(200);
+		const dependent = dependentRes.json.data?.task;
+		expect(await readTaskState(db, dependent?.id ?? "")).toBe("hold");
 
-		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
+		const editTaskAction = buildCoreActions(agentOrchestration).find(
+			(a) => a.declaration.name === "edit_task",
+		);
+		if (!editTaskAction) throw new Error("edit_task action not found");
+		registerWorkSessionStartedReactions(
+			db,
+			eventBus,
+			editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2],
+		);
 
 		// Finish the dependency — legal proposed -> done edge.
-		const finishRes = await app.request(`/api/tasks/${dep.id}`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({ state: "done" }),
-		});
+		const finishRes = await editTaskRequest(app, { id: dep?.id, state: "done" });
 		expect(finishRes.status).toBe(200);
 
 		// The existing watcher unblocks hold -> accepted and dispatches.
 		await vi.waitFor(async () => {
-			expect(await readTaskState(db, dependent.id)).toBe("accepted");
+			expect(await readTaskState(db, dependent?.id ?? "")).toBe("accepted");
 		});
 
 		// Simulate the session that dispatch requested having actually started —
@@ -110,13 +145,13 @@ describe("AC3: last dependency finishes, agent owns it -> in_progress with no hu
 			streamId: "dep-freed-session",
 			sessionId: "dep-freed-session",
 			agentId: "dep-freed-agent",
-			taskId: dependent.id,
+			taskId: dependent?.id ?? "",
 			timestamp: Date.now(),
 		};
 		eventBus.emit(sessionStarted);
 
 		await vi.waitFor(async () => {
-			expect(await readTaskState(db, dependent.id)).toBe("in_progress");
+			expect(await readTaskState(db, dependent?.id ?? "")).toBe("in_progress");
 		});
 	});
 });
@@ -125,38 +160,26 @@ describe("AC4: last dependency finishes, nobody owns it -> waits at accepted", (
 	test("hold -> accepted, and stays there with no dispatch", async ({ db, app }) => {
 		await seedTeam(db, "dep-freed-unowned");
 
-		const depRes = await app.request("/api/tasks", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ teamId: "dep-freed-unowned", title: "Dependency" }),
-		});
-		const dep = (await depRes.json()) as { id: string };
+		const depRes = await editTaskRequest(app, { teamId: "dep-freed-unowned", title: "Dependency" });
+		const dep = depRes.json.data?.task;
 
-		const dependentRes = await app.request("/api/tasks", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				teamId: "dep-freed-unowned",
-				title: "Dependent, unowned",
-				dependencies: [dep.id],
-			}),
+		const dependentRes = await editTaskRequest(app, {
+			teamId: "dep-freed-unowned",
+			title: "Dependent, unowned",
+			dependencies: [dep?.id],
 		});
-		expect(dependentRes.status).toBe(201);
-		const dependent = (await dependentRes.json()) as { id: string };
-		expect(await readTaskState(db, dependent.id)).toBe("hold");
+		expect(dependentRes.status).toBe(200);
+		const dependent = dependentRes.json.data?.task;
+		expect(await readTaskState(db, dependent?.id ?? "")).toBe("hold");
 
-		await app.request(`/api/tasks/${dep.id}`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({ state: "done" }),
-		});
+		await editTaskRequest(app, { id: dep?.id, state: "done" });
 
 		await vi.waitFor(async () => {
-			expect(await readTaskState(db, dependent.id)).toBe("accepted");
+			expect(await readTaskState(db, dependent?.id ?? "")).toBe("accepted");
 		});
 
 		// Give any stray dispatch a beat, then confirm it never left accepted.
 		await new Promise((resolve) => setTimeout(resolve, 30));
-		expect(await readTaskState(db, dependent.id)).toBe("accepted");
+		expect(await readTaskState(db, dependent?.id ?? "")).toBe("accepted");
 	});
 });

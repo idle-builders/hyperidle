@@ -2,7 +2,10 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import {
+	THROWING_OPEN_TASK,
+	THROWING_REVIEW_ACCESSOR,
+} from "@hyperidle/agent-orchestration/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
@@ -27,6 +30,7 @@ describe("X2 MCP session custody", () => {
 		const definitions = buildToolDefinitions(
 			createInProcessCoreApiTransport(app),
 			THROWING_REVIEW_ACCESSOR,
+			THROWING_OPEN_TASK,
 		);
 		const context: ToolContext<typeof db> = {
 			db,

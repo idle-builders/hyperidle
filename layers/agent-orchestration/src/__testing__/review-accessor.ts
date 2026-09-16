@@ -10,6 +10,7 @@
  * A test about the gate injects its own accessor instead.
  */
 import type { ToolHandlersReviewAccessor } from "@hyperidle/tool-handlers";
+import type { ToolHandlersOpenTask } from "../services/tool-handlers-bindings.js";
 
 export const THROWING_REVIEW_ACCESSOR: ToolHandlersReviewAccessor = {
 	linkReviewToSession: () => {
@@ -17,6 +18,18 @@ export const THROWING_REVIEW_ACCESSOR: ToolHandlersReviewAccessor = {
 			"THROWING_REVIEW_ACCESSOR: this test built the tool stack without a real gate accessor, but a handler reached it. Inject a real one for gate behaviour.",
 		);
 	},
+};
+
+/**
+ * §8 B1 — same "throws rather than doing nothing" idiom as
+ * {@link THROWING_REVIEW_ACCESSOR}, for `openTask` (`write_memory`/
+ * `submit_review`/`create_artifact`'s task read). A test about one of those
+ * three tools' task-reading behaviour injects its own `openTask`.
+ */
+export const THROWING_OPEN_TASK: ToolHandlersOpenTask = () => {
+	throw new Error(
+		"THROWING_OPEN_TASK: this test built the tool stack without a real openTask binding, but a handler reached it. Inject a real one for task-reading behaviour.",
+	);
 };
 
 /**

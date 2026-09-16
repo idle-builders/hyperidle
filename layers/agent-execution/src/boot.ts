@@ -83,7 +83,7 @@ export interface AgentExecutionBootOptions {
  */
 export interface AgentExecutionHarnessRuntime {
 	readonly enforcementRegistry: EnforcementRegistry;
-	createReturnGate(requiredReturnActions?: readonly string[]): ReturnGate;
+	createReturnGate(requiredReturnActions?: readonly string[], taskId?: string): ReturnGate;
 	evaluateReturn(
 		gate: ReturnGate,
 		endReason: "completed" | "crashed" | "stopped",
@@ -183,8 +183,8 @@ export async function bootAgentExecution(
 
 	const harnessRuntime: AgentExecutionHarnessRuntime = {
 		enforcementRegistry,
-		createReturnGate: (requiredReturnActions) =>
-			enforcementRegistry.createGate(requiredReturnActions),
+		createReturnGate: (requiredReturnActions, taskId) =>
+			enforcementRegistry.createGate(requiredReturnActions, taskId),
 		evaluateReturn: (gate, endReason) => enforcementRegistry.evaluate(gate, endReason),
 		provisionReturnHook: async (hookOptions) => {
 			await provisionHarnessEnvironment({ ...hookOptions, token: hookOptions.bridgeToken });

@@ -20,7 +20,7 @@
  *     must see an uncommitted row written earlier in the same `tx`.
  */
 import { type HyperIdleDb, items, tasks, teams, threads, users } from "@hyperidle/db";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -439,7 +439,7 @@ describe("work-service", () => {
 			await seedTeamAndAgent(db);
 			await seedThread(db, "thread-1");
 
-			let sawInTx: import("@hyperidle/work").Item | undefined;
+			let sawInTx: import("@hyperidle/task").Item | undefined;
 			await db.transaction(async (tx) => {
 				await work.create(tx, "item", {
 					id: "item-tx",

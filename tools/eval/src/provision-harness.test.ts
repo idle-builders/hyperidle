@@ -119,7 +119,7 @@ vi.mock("@hyperidle/users", () => ({
  * bake is mocked to a minimal task rather than handed a database — the bake
  * itself is covered by running the eval for real against a live harness.
  */
-vi.mock("@hyperidle/work", () => ({
+vi.mock("@hyperidle/task", () => ({
 	get: vi.fn(async () => ({ id: "task", teamId: "team", title: "T", description: "d" })),
 	bakeTaskContextBundle: vi.fn(async () => undefined),
 }));

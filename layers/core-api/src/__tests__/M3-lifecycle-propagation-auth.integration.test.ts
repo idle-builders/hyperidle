@@ -16,56 +16,67 @@ import {
 import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import * as work from "@hyperidle/task";
 import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 
 /**
  * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes
  * injected `work`/`conversation`/`users`/`notifications` ports (Mechanism C
- * — `policy` never imports another Service). This test builds the exact
+ * `policy` never imports another Service). This test builds the exact
  * same production wiring `server-factory.ts` uses — no behavior change.
+ *
+ * §6 rows 4/5: `transitionTaskState` is gone — `editTask` is built below,
+ * per test (it needs the `agentOrchestration` fixture), and threaded in.
  */
-const lifecyclePropagationDeps: PolicyDeps = {
-	work: {
-		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		transitionTaskState: (exec, { taskId, fromState, patch }) =>
-			work.transition(exec, "task", {
-				id: taskId,
-				guard: { field: "state", equals: fromState },
-				patch,
-			}),
-		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
-			work.list(exec, "task", { parentTaskId }),
-		listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById: (exec: WriteExecutor, id: string, patch) =>
-			work.update(exec, "item", id, patch),
-		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
-			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
-	},
-	conversation: {
-		insertMessage,
-		insertThread,
-		listMessagesByThread: (db, threadId, opts) =>
-			listMessages(db, {
-				threadId,
-				types: opts?.type ? [opts.type] : undefined,
-				order: opts?.order,
-				dir: opts?.dir,
-				limit: opts?.limit,
-			}),
-		resolveMessageIfUnresolved,
-		updateThread,
-		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
-			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
-		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
-			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
-	},
-	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-};
+function buildLifecyclePropagationDeps(
+	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+): PolicyDeps {
+	const editTaskAction = buildCoreActions(agentOrchestration).find(
+		(a) => a.declaration.name === "edit_task",
+	);
+	if (!editTaskAction) throw new Error("edit_task action not found");
+	return {
+		work: {
+			getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+			listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
+				work.list(exec, "task", { parentTaskId }),
+			listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
+			getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+			updateItemById: (exec: WriteExecutor, id: string, patch) =>
+				work.update(exec, "item", id, patch),
+			listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
+				work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
+		},
+		conversation: {
+			insertMessage,
+			insertThread,
+			listMessagesByThread: (db, threadId, opts) =>
+				listMessages(db, {
+					threadId,
+					types: opts?.type ? [opts.type] : undefined,
+					order: opts?.order,
+					dir: opts?.dir,
+					limit: opts?.limit,
+				}),
+			resolveMessageIfUnresolved,
+			updateThread,
+			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+				listMessages(db, {
+					threadInitiatorId: initiatorId,
+					types: ["verdict"],
+					since: windowStart,
+				}),
+			listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+				listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+		},
+		users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
+		editTask: editTaskAction.run as PolicyDeps["editTask"],
+	};
+}
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
 
@@ -151,10 +162,11 @@ describe("M3 — lifecycle-propagation: thread participants use users-table foun
 	test("propagation thread participants include users-table founder id, not 'u-founder'", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db, "test-founder-1");
 		await seedDoneTasks(db);
-		registerPolicy(db, eventBus, lifecyclePropagationDeps);
+		registerPolicy(db, eventBus, buildLifecyclePropagationDeps(agentOrchestration));
 
 		// Trigger the propagation that creates a review thread (all tasks done)
 		// Fire a task_state_changed event to drive the propagation

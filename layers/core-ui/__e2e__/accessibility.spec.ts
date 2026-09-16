@@ -36,7 +36,7 @@ const ROUTES = [
 
 test.describe("axe-core — zero WCAG 2.1 AA violations", () => {
 	// @lore BB1: was a hand-rolled `/api/bets/b1` body. WorkTaskPage loads
-	// `GET /api/tasks/:id/tree`; the shared fixture owns that shape so this
+	// `open_task`; the shared fixture owns that shape so this
 	// route stays hermetic on CI where there is no DB.
 	// @lore L13: WorkProduct calls useProduct. Mock /api/teams/p1 so the
 	// product drilldown route is also hermetic.

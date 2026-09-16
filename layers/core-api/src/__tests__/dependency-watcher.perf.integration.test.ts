@@ -1,22 +1,29 @@
-import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
-import type { TaskState } from "@hyperidle/domain-model";
-import { getAgentIdentity } from "@hyperidle/knowledge";
-import { getTeam } from "@hyperidle/org";
-import { requireRunnableAgent } from "@hyperidle/users";
-import { checkAndUnblockDependents } from "@hyperidle/work";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import type { ActionResult, EditTaskInput, TaskState, TaskView } from "@hyperidle/domain-model";
+import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import type { ActionContext } from "../actions/action.js";
+import { buildCoreActions } from "../actions/compose.js";
 
-// @lore AU20 Ag2: `work:` sub-object removed (see dependency-watcher.integration.test.ts).
-// workIntents is now AgentWorkIntentRecorderFn — plain function, no tx parameter.
-const depWatcherDeps = {
-	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
-	teamCapacity: {
-		getByTeamId: (exec: Parameters<typeof getTeam>[0], teamId: string) =>
-			getTeam(exec, { id: teamId }),
-	},
-};
+// §6 row 2: `checkAndUnblockDependents` writes through `edit_task` now —
+// see dependency-watcher.integration.test.ts for the same helper shape.
+function makeEditTask(
+	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+): (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>> {
+	const editTaskAction = buildCoreActions(agentOrchestration).find(
+		(a) => a.declaration.name === "edit_task",
+	);
+	if (!editTaskAction) throw new Error("edit_task action not found");
+	return editTaskAction.run as (
+		ctx: ActionContext,
+		input: EditTaskInput,
+	) => Promise<ActionResult<TaskView>>;
+}
+
+function makeCtx(db: HyperIdleDb, eventBus: ActionContext["eventBus"]): ActionContext {
+	return { actor: "system:propagation", db, eventBus, now: new Date().toISOString() };
+}
 
 /**
  * I3 — dependency-watcher SQL filter & benchmark.
@@ -36,6 +43,19 @@ const depWatcherDeps = {
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
+
+	// `changes.actor` FKs to `users` — the watcher's edit_task calls write as
+	// "system:propagation", which needs a real row.
+	await db
+		.insert(users)
+		.values({
+			id: "system:propagation",
+			name: "Propagation System",
+			role: "system",
+			status: "active",
+			createdAt: now,
+		})
+		.onConflictDoNothing();
 
 	await db.insert(tasks).values({
 		id: "b1",
@@ -72,6 +92,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 	test("completes in <50ms with 500 tasks (1 dependent, 499 unrelated)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedPrerequisites(db);
 		// Target task that just completed.
@@ -92,7 +113,11 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		}
 
 		const start = performance.now();
-		await checkAndUnblockDependents(db, eventBus, "target", depWatcherDeps);
+		await checkAndUnblockDependents(
+			makeCtx(db, eventBus),
+			"target",
+			makeEditTask(agentOrchestration),
+		);
 		const elapsedMs = performance.now() - start;
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
@@ -110,6 +135,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 	test("does NOT load unrelated tasks into memory (proxy: row-read counter)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedPrerequisites(db);
 		// We can't directly observe Drizzle row-reads from the test, but we
@@ -139,7 +165,7 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		});
 
 		await expect(
-			checkAndUnblockDependents(db, eventBus, "target", depWatcherDeps),
+			checkAndUnblockDependents(makeCtx(db, eventBus), "target", makeEditTask(agentOrchestration)),
 		).resolves.not.toThrow();
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		expect(dependent?.state).toBe("accepted");
@@ -150,6 +176,7 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 	test("completing 'dep-1' does NOT unblock a task waiting on 'dep-12'", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedPrerequisites(db);
 		// dep-1 just finished.
@@ -158,7 +185,11 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 		await insertTask(db, "dep-12", "in_progress");
 		await insertTask(db, "dependent", "hold", ["dep-12"]);
 
-		await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+		await checkAndUnblockDependents(
+			makeCtx(db, eventBus),
+			"dep-1",
+			makeEditTask(agentOrchestration),
+		);
 
 		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, "dependent"));
 		// Must remain in hold — dep-12 is NOT done.
@@ -168,13 +199,18 @@ describe("I3: dependency-watcher LIKE prefix-collision guard", () => {
 	test("completing 'dep-1' does not falsely unblock a sibling whose deps array contains 'dep-100'", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedPrerequisites(db);
 		await insertTask(db, "dep-1", "done");
 		await insertTask(db, "dep-100", "in_progress");
 		await insertTask(db, "sibling", "hold", ["dep-100"]);
 
-		await checkAndUnblockDependents(db, eventBus, "dep-1", depWatcherDeps);
+		await checkAndUnblockDependents(
+			makeCtx(db, eventBus),
+			"dep-1",
+			makeEditTask(agentOrchestration),
+		);
 
 		const [sibling] = await db.select().from(tasks).where(eq(tasks.id, "sibling"));
 		expect(sibling?.state).toBe("hold");

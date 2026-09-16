@@ -52,7 +52,11 @@ import { HELD_AUTH_SOURCES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
-import type { HarnessAdapter, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import type {
+	HarnessAdapter,
+	RegisteredTool,
+	WorkerRegisterMessage,
+} from "@hyperidle/harness-protocol";
 import type {
 	HeldConnectionsReaderPort,
 	InjectedFilesystemsReaderPort,
@@ -139,6 +143,13 @@ export interface AgentOrchestrationRuntimeOptions {
 	 * observable outcome as today's empty-rows case).
 	 */
 	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
+	/**
+	 * §7 — core-api's composed action list (`CoreApiBoot.actionTools`),
+	 * projected onto the MCP tool seam. This Layer may not import `core-api`
+	 * directly, so the Application threads the value in — "one composed
+	 * list, built once", never a second construction site.
+	 */
+	readonly actionTools?: readonly RegisteredTool<HyperIdleDb>[];
 }
 
 export interface AgentOrchestrationBootOptions {
@@ -374,6 +385,7 @@ export async function bootAgentOrchestration(
 			harnessRuntime: runtime.harnessRuntime,
 			returnStatusTool: runtime.returnStatusTool,
 			coreApiTransport: runtime.coreApiTransport,
+			actionTools: runtime.actionTools,
 		});
 		runSession = composition.runSession;
 		provisioningReads = buildProvisioningReads(

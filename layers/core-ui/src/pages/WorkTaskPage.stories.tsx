@@ -1,8 +1,8 @@
 /**
  * WorkTaskPage stories — the recursive task detail page (BB1).
  *
- * Mocks window.fetch to provide GET /api/tasks/:id/tree responses
- * without a live server.
+ * Mocks window.fetch to provide `open_task`'s `ActionResult<TaskView>`
+ * responses without a live server.
  *
  * Per visual-regression.md: stories render POPULATED real state only.
  * No skeleton or error states in an initial design.
@@ -42,10 +42,8 @@ function makeTask(
 		state: overrides.state ?? "proposed",
 		position: overrides.position ?? 0,
 		dependencies: null,
-		artifacts: null,
 		threadId: null,
 		notes: null,
-		auditTrail: null,
 		outcomeVerdict: null,
 		outcomeSummary: null,
 		outcomeRecordedAt: null,
@@ -55,19 +53,29 @@ function makeTask(
 		createdAt: "2026-08-30T10:00:00.000Z",
 		updatedAt: "2026-08-30T10:00:00.000Z",
 		completedAt: null,
+		needsReview: false,
 	};
 }
 
-function setupFetchMock(treePayload: object, sessions: object[] = []): void {
+function setupFetchMock(taskView: object, sessions: object[] = []): void {
 	if (typeof window === "undefined") return;
 
 	window.fetch = async (url: RequestInfo | URL): Promise<Response> => {
 		const urlStr = typeof url === "string" ? url : url.toString();
 
-		if (urlStr.includes("/tree")) {
+		if (urlStr.includes("/api/actions/open_task")) {
 			return {
 				ok: true,
-				json: async () => treePayload,
+				json: async () => ({ ok: true, data: taskView }),
+			} as Response;
+		}
+
+		// `edit_task` (position reorder, save) — no interaction in a story, but
+		// answered as a no-op success so nothing throws if one fires.
+		if (urlStr.includes("/api/actions/edit_task")) {
+			return {
+				ok: true,
+				json: async () => ({ ok: true, data: taskView }),
 			} as Response;
 		}
 
@@ -93,18 +101,6 @@ function setupFetchMock(treePayload: object, sessions: object[] = []): void {
 					messages: [],
 					identities: {},
 				}),
-			} as Response;
-		}
-
-		// PATCH /api/tasks/:id — return 200
-		if (
-			urlStr.includes("/api/tasks/") &&
-			!urlStr.includes("/tree") &&
-			!urlStr.includes("/sessions")
-		) {
-			return {
-				ok: true,
-				json: async () => ({}),
 			} as Response;
 		}
 
@@ -161,13 +157,12 @@ export const RootTaskWithSubtasks = (): React.JSX.Element => {
 		task: rootTask,
 		ancestors: [],
 		children: [
-			{
-				task: childTask1,
-				children: [{ task: grandchildTask, children: [] }],
-			},
-			{ task: childTask2, children: [] },
+			{ ...childTask1, children: [{ ...grandchildTask, children: [] }] },
+			{ ...childTask2, children: [] },
 		],
 		tokensActualRollup: 42000,
+		threadId: null,
+		attachments: [],
 	});
 
 	return <PageWrapper taskId={ROOT_TASK_ID} />;
@@ -202,6 +197,8 @@ export const NestedSubtask = (): React.JSX.Element => {
 		ancestors: [root, child],
 		children: [],
 		tokensActualRollup: 5000,
+		threadId: null,
+		attachments: [],
 	});
 
 	return <PageWrapper taskId={GRANDCHILD_TASK_ID} />;
@@ -222,6 +219,8 @@ export const WithSessions = (): React.JSX.Element => {
 			ancestors: [],
 			children: [],
 			tokensActualRollup: 18000,
+			threadId: null,
+			attachments: [],
 		},
 		[
 			{

@@ -4,12 +4,12 @@
  * Route: /work/task/:taskId
  *
  * One page for any task at any depth. Replaces both WorkBet and WorkTask.
- * Fetches GET /api/tasks/:id/tree to get the task, its ancestors (root-first
- * for the breadcrumb), and its children (nested recursively).
+ * Calls `open_task` to get the task, its ancestors (root-first for the
+ * breadcrumb), and its nested subtree.
  *
  * The edit surface is the point: title, description, doneCondition,
- * ownerAgentId and state are all editable via PATCH /api/tasks/:id with no
- * role gate or approval step (AC7 / AC10).
+ * ownerAgentId and state are all editable via `edit_task` with no role gate
+ * or approval step (AC7 / AC10).
  *
  * @lore BB1: bets are gone; root tasks (parentTaskId === null) are the top
  * of the work tree. The breadcrumb is built from ancestors, not from a fixed
@@ -18,10 +18,23 @@
  * @lore BB1: AppShell <main> is overflow-hidden with no padding, so this page
  * uses the fixed shrink-0 header + flex-1 overflow-y-auto body pattern from
  * the existing WorkTask, WorkBet, and KnowledgeDetail pages.
+ *
+ * @lore the architecture doc: `taskInvariants` runs client-side here to grey
+ * the Save button on a doomed edit (e.g. an illegal state transition) before
+ * the round trip, not just after — the same pure function `edit_task.run`
+ * runs server-side as its first pass.
  */
 
-import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
-import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import {
+	type EditTaskInput,
+	TASK_STATE_LABEL,
+	type Task,
+	type TaskNode,
+	type TaskState,
+	type TaskView,
+	taskInvariants,
+} from "@hyperidle/domain-model";
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection } from "../components/ArtifactSection.js";
 import { TaskDependencyField } from "../components/TaskDependencyField.js";
@@ -41,13 +54,11 @@ import {
 	taskStateToStatus,
 } from "../ds/index.js";
 import { useAgents } from "../hooks/useAgents.js";
-import { useTaskPatch } from "../hooks/useTaskPatch.js";
 import { useTaskSessions } from "../hooks/useTaskSessions.js";
-import { useTaskTree } from "../hooks/useTaskTree.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
+import { call } from "../services/call.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
-import type { Task, TaskNode, TaskState } from "../types/task.js";
 
 // ── Editable field state ────────────────────────────────────────────────────
 
@@ -155,7 +166,7 @@ function SubtaskTree({
 	depth = 0,
 	onReorder,
 }: {
-	nodes: TaskNode[];
+	nodes: readonly TaskNode[];
 	depth?: number;
 	onReorder?: (taskId: string, newPosition: number) => void;
 }): JSX.Element {
@@ -309,16 +320,128 @@ function SessionRow({
 	);
 }
 
+// ── open_task / edit_task doors ─────────────────────────────────────────────
+
+interface UseOpenTaskResult {
+	data: TaskView | null;
+	loading: boolean;
+	error: Error | null;
+	refresh: () => void;
+}
+
+/** Replaces `useTaskTree` — same {data, loading, error, refresh} shape, over `open_task`. */
+function useOpenTask(taskId: string | undefined): UseOpenTaskResult {
+	const [refreshCounter, setRefreshCounter] = useState(0);
+	const [state, setState] = useState<Omit<UseOpenTaskResult, "refresh">>({
+		data: null,
+		loading: taskId !== undefined,
+		error: null,
+	});
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: refreshCounter triggers re-fetches on demand via refresh()
+	useEffect(() => {
+		if (!taskId) {
+			setState({ data: null, loading: false, error: null });
+			return;
+		}
+		let cancelled = false;
+		setState({ data: null, loading: true, error: null });
+		call("open_task", { id: taskId })
+			.then((result) => {
+				if (cancelled) return;
+				if (!result.ok) {
+					setState({
+						data: null,
+						loading: false,
+						error: new Error(result.problems[0]?.message ?? "Failed to load task"),
+					});
+					return;
+				}
+				setState({ data: result.data, loading: false, error: null });
+			})
+			.catch((err: unknown) => {
+				if (!cancelled) {
+					setState({
+						data: null,
+						loading: false,
+						error: err instanceof Error ? err : new Error(String(err)),
+					});
+				}
+			});
+		return (): void => {
+			cancelled = true;
+		};
+	}, [taskId, refreshCounter]);
+
+	const refresh = useCallback((): void => {
+		setRefreshCounter((c) => c + 1);
+	}, []);
+
+	return { ...state, refresh };
+}
+
+type EditTaskStatus = "idle" | "saving" | "saved" | "error";
+
+interface UseEditTaskResult {
+	status: EditTaskStatus;
+	errorMessage: string | null;
+	/** `id` and `version` are the caller's job — this just issues the call and tracks status. */
+	edit: (input: EditTaskInput) => void;
+}
+
+/** Replaces `useTaskPatch` — same status machine, issuing `edit_task` instead of PATCH. */
+function useEditTask(onSaved?: (view: TaskView) => void): UseEditTaskResult {
+	const [status, setStatus] = useState<EditTaskStatus>("idle");
+	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const unmountedRef = useRef(false);
+	const onSavedRef = useRef(onSaved);
+
+	useEffect(() => {
+		onSavedRef.current = onSaved;
+	}, [onSaved]);
+
+	useEffect(() => {
+		unmountedRef.current = false;
+		return (): void => {
+			unmountedRef.current = true;
+			if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
+		};
+	}, []);
+
+	const edit = useCallback((input: EditTaskInput): void => {
+		if (unmountedRef.current) return;
+		setStatus("saving");
+		setErrorMessage(null);
+		void call("edit_task", input).then((result) => {
+			if (unmountedRef.current) return;
+			if (!result.ok) {
+				setErrorMessage(result.problems[0]?.message ?? null);
+				setStatus("error");
+				return;
+			}
+			setStatus("saved");
+			onSavedRef.current?.(result.data);
+			if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
+			savedTimerRef.current = setTimeout(() => {
+				if (!unmountedRef.current) setStatus("idle");
+			}, 3000);
+		});
+	}, []);
+
+	return { status, errorMessage, edit };
+}
+
 // ── Edit panel ──────────────────────────────────────────────────────────────
 
 /**
- * EditPanel renders the editable task fields and issues PATCH on submit.
+ * EditPanel renders the editable task fields and issues `edit_task` on submit.
  * Title, description, goal, owner, and state are all editable — no approval
  * step, no role gate (AC7).
  */
 function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.Element {
 	const [fields, setFields] = useState<EditState>(() => taskToEditState(task));
-	const { status, patch, errorMessage } = useTaskPatch(onSaved);
+	const { status, errorMessage, edit } = useEditTask(onSaved);
 	const { agents } = useAgents();
 
 	// "No owner" (id "") is always offered first — it is what "leave blank" saves.
@@ -343,18 +466,45 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 		fields.state !== task.state ||
 		!sameDependencySet(fields.dependencies, parseDependencies(task.dependencies));
 
+	// The same pure check `edit_task.run` runs server-side, run here first so a
+	// doomed edit (e.g. an illegal state transition) greys the button before the
+	// round trip rather than only failing after it.
+	const invariantProblems = useMemo(
+		() =>
+			taskInvariants(
+				{
+					...task,
+					title: fields.title.trim() || task.title,
+					description: fields.description.trim() || null,
+					doneCondition: fields.doneCondition.trim() || null,
+					ownerAgentId: fields.ownerAgentId.trim() || null,
+					state: fields.state,
+				},
+				task,
+			),
+		[
+			task,
+			fields.title,
+			fields.description,
+			fields.doneCondition,
+			fields.ownerAgentId,
+			fields.state,
+		],
+	);
+
 	const handleSubmit = useCallback((): void => {
-		if (!isDirty || status === "saving") return;
-		const body: Record<string, string | string[] | null> = {
+		if (!isDirty || status === "saving" || invariantProblems.length > 0) return;
+		edit({
+			id: task.id,
+			version: task.updatedAt,
 			title: fields.title.trim() || task.title,
 			description: fields.description.trim() || null,
 			doneCondition: fields.doneCondition.trim() || null,
 			ownerAgentId: fields.ownerAgentId.trim() || null,
 			state: fields.state,
 			dependencies: [...fields.dependencies],
-		};
-		patch(task.id, body);
-	}, [isDirty, status, fields, task, patch]);
+		});
+	}, [isDirty, status, invariantProblems, fields, task, edit]);
 
 	const isSaving = status === "saving";
 
@@ -439,7 +589,7 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 					<Button
 						variant="primary"
 						onClick={handleSubmit}
-						disabled={!isDirty || isSaving}
+						disabled={!isDirty || isSaving || invariantProblems.length > 0}
 						data-testid="task-save-btn"
 					>
 						{isSaving ? "Saving…" : "Save changes"}
@@ -450,6 +600,14 @@ function EditPanel({ task, onSaved }: { task: Task; onSaved: () => void }): JSX.
 							data-testid="task-save-confirmation"
 						>
 							Saved
+						</span>
+					)}
+					{status === "idle" && invariantProblems.length > 0 && (
+						<span
+							className="type-metadata text-[var(--status-error)]"
+							data-testid="task-invariant-error"
+						>
+							{invariantProblems[0]?.message}
 						</span>
 					)}
 					{status === "error" && (
@@ -481,20 +639,20 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const { sidebarMobile } = useViewportBreakpoint();
 
 	const taskId = overrideTaskId ?? routeTaskId;
-	const { data, loading, error, refresh } = useTaskTree(taskId);
+	const { data, loading, error, refresh } = useOpenTask(taskId);
 	const { data: sessionsData } = useTaskSessions(taskId);
 
-	// Position reordering — PATCH /api/tasks/:id with { position } then re-read
-	// the tree so the order the user sees matches what the server stored.
-	// @lore BB1: useTaskPatch(refresh) wires the onSaved callback so the tree
-	// re-fetches after every successful PATCH. The re-fetch is what keeps
+	// Position reordering — `edit_task` with { id, position } then re-read the
+	// subtree so the order the user sees matches what the server stored.
+	// @lore BB1: useEditTask(refresh) wires the onSaved callback so the tree
+	// re-fetches after every successful edit. The re-fetch is what keeps
 	// server order authoritative — never an optimistic local swap.
-	const { patch: patchPosition } = useTaskPatch(refresh);
+	const { edit: editPosition } = useEditTask(refresh);
 	const onReorder = useCallback(
 		(reorderTaskId: string, newPosition: number): void => {
-			patchPosition(reorderTaskId, { position: newPosition });
+			editPosition({ id: reorderTaskId, position: newPosition });
 		},
-		[patchPosition],
+		[editPosition],
 	);
 
 	// ── Loading ────────────────────────────────────────────────────────────

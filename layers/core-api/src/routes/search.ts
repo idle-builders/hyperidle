@@ -29,7 +29,7 @@ import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 // BB1: deriveTitle removed — tasks use .title directly
 import { Hono } from "hono";
 import z from "zod";

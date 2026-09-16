@@ -7,7 +7,7 @@
  *     and the screens surface it; before this it silently swallowed the
  *     failure and returned the same empty state an agent with no runs has.
  *   - **W4, one request per screen.** Task titles are fetched in ONE batched
- *     `GET /api/tasks?ids=` call, not one call per task.
+ *     `search_tasks` call (its `ids` filter), not one call per task.
  *   - **W7, the orchestration is tested at all.** Active-run selection,
  *     group-by-agent, the task-ref/`betId` resolution and the 10-item slice
  *     were untested — every consumer mocked the hook out.
@@ -53,17 +53,17 @@ interface TaskRow {
 function stubFetch(runs: RunRow[], tasks: TaskRow[]): { taskCalls: string[]; runCalls: string[] } {
 	const taskCalls: string[] = [];
 	const runCalls: string[] = [];
-	const fetchMock = vi.fn().mockImplementation((url: string) => {
+	const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
 		if (url.includes("/agent-orchestration/")) {
 			runCalls.push(url);
 			return Promise.resolve({ ok: true, json: () => Promise.resolve({ runs }) });
 		}
 		taskCalls.push(url);
-		const ids = new URL(url, "http://localhost").searchParams.get("ids") ?? "";
-		const wanted = new Set(ids.split(",").filter((id) => id.length > 0));
+		const body = init?.body ? (JSON.parse(String(init.body)) as { ids?: string[] }) : {};
+		const wanted = new Set(body.ids ?? []);
 		return Promise.resolve({
 			ok: true,
-			json: () => Promise.resolve(tasks.filter((t) => wanted.has(t.id))),
+			json: () => Promise.resolve({ ok: true, data: tasks.filter((t) => wanted.has(t.id)) }),
 		});
 	});
 	vi.stubGlobal("fetch", fetchMock);
@@ -153,13 +153,14 @@ describe("useAgentRunState", () => {
 	it("reports status 'error' when the run read fails — it never claims healthy (W6)", async () => {
 		vi.stubGlobal(
 			"fetch",
-			vi
-				.fn()
-				.mockImplementation((url: string) =>
-					url.includes("/agent-orchestration/")
-						? Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) })
-						: Promise.resolve({ ok: true, json: () => Promise.resolve([]) }),
-				),
+			vi.fn().mockImplementation((url: string) =>
+				url.includes("/agent-orchestration/")
+					? Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) })
+					: Promise.resolve({
+							ok: true,
+							json: () => Promise.resolve({ ok: true, data: [] }),
+						}),
+			),
 		);
 
 		const { result } = renderHook(() => useAgentRunState("a1", true));

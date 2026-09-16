@@ -10,7 +10,7 @@
  * @lore BB1: the route was `/work/task/:betId/task/:taskId` — a task sat
  * exactly one level under a bet, so the path carried both ids. A task can now
  * nest at any depth, so there is ONE route, `/work/task/:taskId`, and the
- * ancestor chain comes back from `GET /api/tasks/:id/tree` instead of the URL.
+ * ancestor chain comes back from `open_task` instead of the URL.
  *
  * @lore BB1: AC-27 used to assert a team-name segment. The breadcrumb is the
  * task TREE path now — "Work", then each ancestor's title, then this task — so

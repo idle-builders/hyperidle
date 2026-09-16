@@ -1,0 +1,27 @@
+{
+	"name": "@hyperidle/task",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@hyperidle/db": "*",
+		"@hyperidle/diagnostics": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/event-bus": "*",
+		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"@hyperidle/conversation": "*",
+		"@hyperidle/knowledge": "*",
+		"@hyperidle/org": "*",
+		"@hyperidle/users": "*",
+		"vitest": "^4.1.9"
+	}
+}

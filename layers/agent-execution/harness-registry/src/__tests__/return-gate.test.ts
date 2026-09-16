@@ -22,7 +22,7 @@ import { createReturnEnforcement } from "../return-enforcement.js";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 
 const enforcement = createReturnEnforcement();
-const createReturnGate = () => enforcement.createGate();
+const createReturnGate = (taskId?: string) => enforcement.createGate(undefined, taskId);
 const evaluateReturn = (
 	gate: ReturnType<typeof createReturnGate>,
 	reason: "completed" | "crashed" | "stopped",
@@ -61,11 +61,32 @@ describe("ReturnGate — AC3: detection (not_returned when no return seen)", () 
 		expect(evaluateReturn(gate, "completed")).toBe("returned");
 	});
 
-	it("verdicts 'returned' when handoff_to is observed", () => {
-		const gate = createReturnGate();
-		gate.observe(toolCallEvent("handoff_to", { role: "reviewer" }));
+	it("verdicts 'returned' when edit_task is observed setting ownerAgentId on the session's own task (a handoff, B4)", () => {
+		const gate = createReturnGate("task-1");
+		gate.observe(toolCallEvent("edit_task", { id: "task-1", ownerAgentId: "agent-7" }));
 
 		expect(evaluateReturn(gate, "completed")).toBe("returned");
+	});
+
+	it("verdicts 'not_returned' when edit_task is observed WITHOUT ownerAgentId (an ordinary edit)", () => {
+		const gate = createReturnGate("task-1");
+		gate.observe(toolCallEvent("edit_task", { id: "task-1", title: "Renamed" }));
+
+		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
+	});
+
+	it("verdicts 'not_returned' when edit_task hands off a DIFFERENT task, not the session's own (B4)", () => {
+		const gate = createReturnGate("task-1");
+		gate.observe(toolCallEvent("edit_task", { id: "task-2", ownerAgentId: "agent-7" }));
+
+		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
+	});
+
+	it("verdicts 'not_returned' when edit_task creates a subtask with an owner (no id — not the session's own task, B4)", () => {
+		const gate = createReturnGate("task-1");
+		gate.observe(toolCallEvent("edit_task", { ownerAgentId: "agent-7" }));
+
+		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
 	});
 
 	it("verdicts 'returned' when send_message is observed", () => {
@@ -199,7 +220,7 @@ describe("shared forcing constants", () => {
 		expect(typeof FORCE_RETURN_MESSAGE).toBe("string");
 		expect(FORCE_RETURN_MESSAGE.length).toBeGreaterThan(0);
 		expect(FORCE_RETURN_MESSAGE).toContain("submit_review");
-		expect(FORCE_RETURN_MESSAGE).toContain("handoff_to");
+		expect(FORCE_RETURN_MESSAGE).toContain("edit_task");
 		expect(FORCE_RETURN_MESSAGE).toContain("send_message");
 	});
 

@@ -388,7 +388,7 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		// Must NOT fall back to the full-trio default message (this session
 		// has a SPECIFIC required action, not "any of the three").
 		expect(reEngageMessage).not.toContain("submit_review");
-		expect(reEngageMessage).not.toContain("handoff_to");
+		expect(reEngageMessage).not.toContain("edit_task");
 		expect(reEngageMessage).not.toContain("send_message");
 
 		for (let i = 1; i < children.length; i++) {

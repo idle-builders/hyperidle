@@ -27,7 +27,7 @@ import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
+import type { RegisteredTool, ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import {
 	type PluginMcpContributionsPort,
 	type RunOptions,
@@ -57,7 +57,7 @@ import {
 	type ToolHandlersReviewAccessor,
 } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
-import { buildToolDefinitions } from "./tool-handlers-bindings.js";
+import { buildToolDefinitions, type ToolHandlersOpenTask } from "./tool-handlers-bindings.js";
 
 // AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
 // root's own `seamPortForActor` helper (a fresh in-process `CoreApiPort` per
@@ -372,26 +372,60 @@ function unusableGateAccessor(): ToolHandlersReviewAccessor {
 	};
 }
 
+/** Same "reached from a name-only listing" refusal, for `openTask` — see `unusableGateAccessor`. */
+function unusableOpenTask(): ToolHandlersOpenTask {
+	return () => {
+		throw new Error(
+			"tool-handlers openTask accessor: reached from a name-only tool listing; build the registry through buildToolRegistry instead",
+		);
+	};
+}
+
+/**
+ * §8 B1 — `open_task`, bound directly to the composed action's own
+ * `run`, called in-process as `actorId` (never a second HTTP hop). `db`/
+ * `eventBus` come from the real per-session `ToolContext` a registry build
+ * always has in hand.
+ */
+function buildOpenTaskBinding(
+	actionTools: readonly RegisteredTool<HyperIdleDb>[],
+	toolCtx: ToolContext<HyperIdleDb>,
+): ToolHandlersOpenTask {
+	const openTaskTool = actionTools.find((t) => t.name === "open_task");
+	return async (id, actorId) => {
+		if (!openTaskTool) return undefined;
+		const result = await openTaskTool.handler({ id }, { ...toolCtx, agentId: actorId });
+		if (!result.success) return undefined;
+		return result.data as { task: { parentTaskId: string | null; teamId: string } };
+	};
+}
+
 function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
+	actionTools: readonly RegisteredTool<HyperIdleDb>[],
 ): SessionLifecyclePorts["toolProvider"] {
 	return {
 		buildToolRegistry(ctx, options) {
 			const toolCtx = widenToToolContext(ctx);
-			const definitions = buildToolDefinitions(coreApiTransport, buildGateAccessor(toolCtx.db));
-			return buildToolRegistryFromDefinitions(definitions, toolCtx, {
+			const definitions = buildToolDefinitions(
+				coreApiTransport,
+				buildGateAccessor(toolCtx.db),
+				buildOpenTaskBinding(actionTools, toolCtx),
+			);
+			return buildToolRegistryFromDefinitions([...actionTools, ...definitions], toolCtx, {
 				role: options.role,
 				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
 				useOnlyExtraTools: options.useOnlyExtraTools,
 			});
 		},
 		toolsForRole(role) {
-			// Names and roles only — no handler runs, so the gate accessor here is
-			// one that refuses rather than one that quietly does nothing.
-			return buildToolDefinitions(coreApiTransport, unusableGateAccessor()).filter(
-				(d) => d.roles === undefined || d.roles.includes(role),
-			);
+			// Names and roles only — no handler runs, so the gate/openTask
+			// accessors here are ones that refuse rather than quietly do nothing.
+			return [
+				...actionTools,
+				...buildToolDefinitions(coreApiTransport, unusableGateAccessor(), unusableOpenTask()),
+			].filter((d) => d.roles === undefined || d.roles.includes(role));
 		},
 		returnStatusToolForRegistry(registry) {
 			return returnStatusToolAdapter.forRegistry(registry);
@@ -429,12 +463,13 @@ function buildSessionLifecyclePorts(
 	harnessRuntimeAdapter: RunOrchestrationHarnessRuntimeAdapter,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
 	coreApiTransport: CoreApiTransport,
+	actionTools: readonly RegisteredTool<HyperIdleDb>[],
 ): SessionLifecyclePorts {
 	return {
 		sessionRequests: sessionRequestsPort,
 		observability: observabilityAccessor,
 		harnessRuntime: buildHarnessRuntime(harnessRuntimeAdapter),
-		toolProvider: buildToolProvider(coreApiTransport, returnStatusToolAdapter),
+		toolProvider: buildToolProvider(coreApiTransport, returnStatusToolAdapter, actionTools),
 	};
 }
 
@@ -542,11 +577,20 @@ export function buildRunOrchestrationComposition(config: {
 	readonly returnStatusTool: RunOrchestrationReturnStatusToolAdapter;
 	/** Absent (or a bare-app test fixture / `tools/eval`'s standalone use) → seam-backed tools throw only when actually dialled (`unconfiguredCoreApiTransport`), never at construction. */
 	readonly coreApiTransport?: CoreApiTransport;
+	/**
+	 * §7 — core-api's composed action list, projected onto the MCP tool
+	 * seam (`CoreApiBoot.actionTools`). Injected once here rather than
+	 * imported, since `agent-orchestration` may not reach into `core-api`
+	 * directly — the Application (`create-server.ts`) threads the value
+	 * through. Absent → no action tools registered (a bare-app test fixture).
+	 */
+	readonly actionTools?: readonly RegisteredTool<HyperIdleDb>[];
 }): RunOrchestrationComposition {
 	const sessionLifecyclePorts = buildSessionLifecyclePorts(
 		config.harnessRuntime,
 		config.returnStatusTool,
 		config.coreApiTransport ?? unconfiguredCoreApiTransport(),
+		config.actionTools ?? [],
 	);
 
 	// AU31 §2.7: the writeback processor's `knowledge` port, seam-backed by

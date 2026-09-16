@@ -40,7 +40,8 @@
 		"remark-parse": "^11.0.0",
 		"tippy.js": "^6.3.0",
 		"tiptap-markdown": "^0.9.0",
-		"unified": "^11.0.5"
+		"unified": "^11.0.5",
+		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.12.1",

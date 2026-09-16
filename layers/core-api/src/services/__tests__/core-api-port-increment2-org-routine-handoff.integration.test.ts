@@ -3,18 +3,20 @@
  *
  * Extends the §11 contract-test harness to the remaining `tool-handlers`
  * capabilities named in this wave's scope (`edge-disposition.md`'s
- * `org.{getTeam, getTeam, createTeam, updateTeam}`,
- * `routine.{getRoutine, insertRoutine, updateRoutine}`, and `policy.handoff`
- * rows — all `§4 seam`):
+ * `org.{getTeam, getTeam, createTeam, updateTeam}` and
+ * `routine.{getRoutine, insertRoutine, updateRoutine}` rows — both `§4
+ * seam`):
  *
  *  - `ToolHandlersOrgAccessor`: getTeamById, getTeamMembersByTeamId,
  *    getTeamMembersById, createTeam, updateTeam, resolveReviewRecipientsForItem,
  *    persistScaffoldedAgents (`tool-handlers/src/ports.ts:92-132`).
  *  - `ToolHandlersRoutineAccessor`: insertRoutine, getRoutineById,
  *    updateRoutineById (`ports.ts:151-160`).
- *  - `ToolHandlersPolicyAccessor.handoff` (`ports.ts:319-326`), reached today
- *    via `handoff_to`'s raw `ports.policy.handoff(ctx.db, ctx.eventBus, params)`
- *    call (`tool-definitions.ts:340`).
+ *
+ * @lore the architecture doc §8 B4: the `policy.handoff`/`work.handoffTask`
+ * seam this file's `handoff` third once covered is deleted — handoff is now
+ * an `edit_task` call that sets `ownerAgentId`, proven in
+ * `task-actions.integration.test.ts`, not through `CoreApiWorkPort`.
  *
  * Every method below does not exist yet on `CoreApiPort`/`buildCoreApiPort` —
  * each test fails at RUNTIME (`TypeError: ... is not a function` / `Cannot
@@ -66,10 +68,6 @@
  *    (`updateRoutineSchema` already accepts every field `update_routine`
  *    sets: name, description, state, triggerConfig — AU21 Increment 14a:
  *    `costCapPerRunMinor`/`costCapMonthlyMinor` HARD-DELETED, no replacement).
- *  - `policy.handoff`          → REUSE existing `POST /tasks/:id/handoff`
- *    (`tasks.ts:270` — the literal route `@hyperidle/policy`'s
- *    `buildHandoff` is already wired to; becomes `CoreApiWorkPort.handoffTask`
- *    since the backing route lives under `/tasks`).
  */
 
 import {
@@ -77,7 +75,7 @@ import {
 	createInProcessCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, routines, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import {
@@ -102,12 +100,6 @@ interface SeamRoutineView {
 	readonly name: string;
 	readonly state: string;
 	readonly deletedAt: string | null;
-}
-
-interface SeamHandoffResult {
-	readonly status: "success" | "escalated";
-	readonly targetAgentId?: string;
-	readonly escalationItemId?: string;
 }
 
 interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
@@ -155,20 +147,6 @@ interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
 		insertRoutine(input: Record<string, unknown>): Promise<void>;
 		getRoutineById(id: string): Promise<SeamRoutineView | undefined>;
 		updateRoutineById(id: string, updates: Record<string, unknown>): Promise<void>;
-	};
-	readonly work: {
-		handoffTask(
-			taskId: string,
-			input: {
-				readonly sessionId: string;
-				readonly toAgent?: string;
-				readonly toRole?: string;
-				readonly toHuman?: boolean;
-				readonly reason: string;
-				readonly artifacts?: readonly string[];
-				readonly remainingWork?: readonly string[];
-			},
-		): Promise<SeamHandoffResult>;
 	};
 }
 
@@ -460,89 +438,5 @@ describe("CoreApiPort.routine — Increment 2 org/routine/handoff wave (RED)", (
 			.limit(1);
 		expect(row?.name).toBe("New name");
 		expect(row?.state).toBe("paused");
-	});
-});
-
-describe("CoreApiPort.work.handoffTask — Increment 2 org/routine/handoff wave (RED)", () => {
-	async function seedHandoffFixture(
-		db: HyperIdleDb,
-		suffix: string,
-	): Promise<{ readonly taskId: string; readonly sessionId: string }> {
-		const { teamId, teamMembersId } = await seedTeam(db, { suffix: `handoff-${suffix}` });
-		await seedAgent(db, `agent-handoff-a-${suffix}`, { teamId: teamMembersId });
-		await seedAgent(db, `agent-handoff-b-${suffix}`, { teamId: teamMembersId });
-		const rootTaskId = `bet-handoff-${suffix}`;
-		await db.insert(tasks).values({
-			id: rootTaskId,
-			parentTaskId: null,
-			teamId: teamId,
-			title: "Handoff bet",
-			description: "Handoff bet",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-		const taskId = `task-handoff-${suffix}`;
-		await db.insert(tasks).values({
-			id: taskId,
-			parentTaskId: rootTaskId,
-			teamId,
-			ownerAgentId: `agent-handoff-a-${suffix}`,
-			title: "Handoff task",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-		const sessionId = `session-handoff-${suffix}`;
-		await db.insert(sessions).values({
-			id: sessionId,
-			taskId,
-			agentId: `agent-handoff-a-${suffix}`,
-			modelTier: "workhorse",
-			startedAt: NOW,
-			state: "active",
-		});
-		return { taskId, sessionId };
-	}
-
-	test("handoffTask reaches the real POST /tasks/:id/handoff route — task ownership transfers", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-handoff-key-1");
-		const { taskId, sessionId } = await seedHandoffFixture(db, "1");
-
-		const port = buildSeamPort("agent-handoff-a-1", app);
-		const result = await port.work.handoffTask(taskId, {
-			sessionId,
-			toAgent: "agent-handoff-b-1",
-			reason: "handing off via the seam",
-		});
-
-		expect(result.status).toBe("success");
-		expect(result.targetAgentId).toBe("agent-handoff-b-1");
-
-		const [row] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-		expect(row?.ownerAgentId).toBe("agent-handoff-b-1");
-	});
-
-	test("a handoff write with no credentials is rejected, not silently bypassed (auth/boundary middleware ran)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-handoff-key-noauth");
-		const { taskId, sessionId } = await seedHandoffFixture(db, "noauth");
-
-		const port = buildCoreApiPort(
-			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
-		) as unknown as SeamCoreApiPortIncrement2OrgRoutineHandoff;
-
-		await expect(
-			port.work.handoffTask(taskId, {
-				sessionId,
-				toAgent: "agent-handoff-b-noauth",
-				reason: "should never land",
-			}),
-		).rejects.toThrow();
 	});
 });

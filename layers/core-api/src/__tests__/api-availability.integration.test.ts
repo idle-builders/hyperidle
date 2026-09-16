@@ -26,9 +26,11 @@ describe("API Availability Regression Guard (I6)", () => {
 	 */
 	// Removed: /api/conversations root (door #72 DELETE), /api/status (doors #115-118 DELETE),
 	// /api/notifications root (door #129 DELETE) — these routes were convicted and removed.
+	// the architecture doc §8: /api/tasks (the eight-route CRUD surface) is
+	// deleted outright — task is an action, `POST /api/actions/<name>`, not a
+	// route module with a GET base path. See the actions-router POST check below.
 	const ROUTE_MODULES = [
 		{ path: "/api/health", description: "Health (public)" },
-		{ path: "/api/tasks", description: "Tasks" },
 		{ path: "/api/knowledge", description: "Knowledge" },
 		{ path: "/api/users", description: "Users" },
 		{ path: "/api/routines", description: "Routines" },
@@ -63,6 +65,9 @@ describe("API Availability Regression Guard (I6)", () => {
 	const RETIRED_ROUTES = [
 		// BB1: bets dissolved into tasks — /api/bets route deleted.
 		"/api/bets",
+		// the architecture doc §8: the eight-route /api/tasks CRUD surface is
+		// deleted — task is an action now, not a route module.
+		"/api/tasks",
 		"/api/git-export",
 		"/api/git-export/config",
 		"/api/git-export/run",
@@ -80,4 +85,22 @@ describe("API Availability Regression Guard (I6)", () => {
 			vi.unstubAllEnvs();
 		});
 	}
+
+	// the architecture doc §7: the actions router mounts POST-only routes (no
+	// GET base path), so it needs its own check rather than joining
+	// ROUTE_MODULES's GET sweep — a GET would 404 whether or not the router is
+	// mounted, since only POST is registered per action.
+	test("Actions (/api/actions/search_tasks) is mounted and returns non-404", async ({ app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		const res = await app.request("/api/actions/search_tasks", {
+			method: "POST",
+			headers: { ...auth(), "Content-Type": "application/json" },
+			body: JSON.stringify({}),
+		});
+		expect(
+			res.status,
+			"/api/actions/search_tasks returned 404 — router may be un-mounted",
+		).not.toBe(404);
+		vi.unstubAllEnvs();
+	});
 });

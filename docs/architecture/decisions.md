@@ -5,7 +5,7 @@ Code-verified decision log for the system architecture. Each entry records a set
 ## Formats & protocols
 
 - **TOON for context packs.** The existing TOON spec at [github.com/toon-format/toon](https://github.com/toon-format/toon); ~40% token savings over JSON for structured agent context packs. Codec: `framework/toon-codec/src/toon-codec.ts`. TOON is reserved for context packs — all inter-agent messages use JSON.
-- **A2A-inspired handoff protocol.** Structured handoff messages with context IDs, task states, reason codes, and artifact references — JSON, never TOON (`layers/core-api/policy/src/handoff-protocol.ts`, `POST /tasks/:id/handoff`). Semantics: [handoff and lifecycle propagation](../process-layer/handoff-and-lifecycle-propagation.md).
+- **Handoff is an edit.** No separate handoff protocol, structured message shape, or escalation thread — handing a task to another user is `edit_task({ id, ownerAgentId })` (`layers/core-api/task/src/task-actions.ts`), recorded as an ordinary `changes` row. The predecessor's running session ends and the new owner's session starts through the same two orchestration calls an accept makes. Semantics: [handoff and lifecycle propagation](../process-layer/handoff-and-lifecycle-propagation.md).
 
 ## Sessions & agents
 
@@ -34,7 +34,7 @@ Code-verified decision log for the system architecture. Each entry records a set
 ## Process layer
 
 - **Trust gating: approval rate × risk tier.** No fixed autonomy ladder. Surface and mechanism: [review primitive](../human-interface-layer/review-primitive.md).
-- **Task dependencies: hold state.** Tasks with unmet upstream dependencies go to `hold` (`framework/domain-model/src/types.ts:13`); the Dependency Watcher (`layers/core-api/work/src/dependency-watcher.ts`) auto-transitions them to `accepted` when upstream clears. Distinct from `blocked` (runtime blocks). Semantics: [tasks and sessions](../process-layer/tasks-and-sessions.md).
+- **Task dependencies: hold state.** Tasks with unmet upstream dependencies go to `hold` (`framework/domain-model/src/types.ts:13`); the Dependency Watcher (`layers/core-api/task/src/dependency-watcher.ts`) auto-transitions them to `accepted` when upstream clears, via `edit_task`. Distinct from `blocked` (runtime blocks). Semantics: [tasks and sessions](../process-layer/tasks-and-sessions.md).
 
 ## Knowledge
 

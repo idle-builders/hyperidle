@@ -5,7 +5,10 @@ import {
 	createInProcessCoreApiTransport,
 	unconfiguredCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import {
+	THROWING_OPEN_TASK,
+	THROWING_REVIEW_ACCESSOR,
+} from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -14,16 +17,17 @@ import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 // @lore AU20 repair: read_inbox, write_session_notes, commit_file deleted by the destroyer pass.
+// the architecture doc §7/§8 B1: handoff_to, create_task, edit_task (the old
+// tool body) and log_task are deleted from `buildToolDefinitions` — they are
+// projected instead from the action list (`search_tasks`/`open_task`/
+// `edit_task`), composed in only at `buildToolRegistry`'s real call site,
+// not this direct-definitions fixture.
 const EXPECTED_TOOL_NAMES = [
 	"create_item",
-	"handoff_to",
-	"log_task",
 	"send_message",
 	// AU27 Increment 2: the generic reply tool.
 	"reply",
 	"write_memory",
-	// R5 agent work loop tools
-	"create_task",
 	"submit_review",
 	// G1 facilitator tools (score_attention deleted)
 	"promote_knowledge",
@@ -31,12 +35,10 @@ const EXPECTED_TOOL_NAMES = [
 	// R6 artifact tools
 	"create_artifact",
 	// AE3 management tools (chief_of_staff / assistant)
-	// BB1: create_bet and edit_bet deleted — bets dissolved into tasks; edit_task added.
 	"create_team",
 	"add_agent",
 	"create_routine",
 	"update_routine",
-	"edit_task",
 	// BA9d wave 2: knowledge merge and split tools
 	"merge_knowledge",
 	"split_knowledge",
@@ -60,6 +62,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		const definitions = buildToolDefinitions(
 			createInProcessCoreApiTransport(app),
 			THROWING_REVIEW_ACCESSOR,
+			THROWING_OPEN_TASK,
 		);
 		const specs = buildToolRegistry(definitions, makeContext(db), {
 			role: "assistant",
@@ -81,7 +84,11 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		// introspection only) — the unconfigured transport (throws only if
 		// actually dialled) is honest here.
 		const registry = buildToolRegistry(
-			buildToolDefinitions(unconfiguredCoreApiTransport(), THROWING_REVIEW_ACCESSOR),
+			buildToolDefinitions(
+				unconfiguredCoreApiTransport(),
+				THROWING_REVIEW_ACCESSOR,
+				THROWING_OPEN_TASK,
+			),
 			{
 				db: null as unknown as HyperIdleDb,
 				eventBus: new EventBus(),
@@ -115,6 +122,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		const definitions = buildToolDefinitions(
 			createInProcessCoreApiTransport(app),
 			THROWING_REVIEW_ACCESSOR,
+			THROWING_OPEN_TASK,
 		);
 		const specs = buildToolRegistry(definitions, makeContext(db), {
 			role: "assistant",

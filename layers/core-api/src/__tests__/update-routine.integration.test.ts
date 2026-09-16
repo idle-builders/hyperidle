@@ -8,7 +8,10 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import {
+	THROWING_OPEN_TASK,
+	THROWING_REVIEW_ACCESSOR,
+} from "@hyperidle/agent-orchestration/testing";
 import { knowledgeItems, routines, tasks, teams, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -17,9 +20,11 @@ import { test } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW } from "./_helpers.js";
 
 function buildUpdateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR).find(
-		(t) => t.name === "update_routine",
-	)!;
+	return buildToolDefinitions(
+		createInProcessCoreApiTransport(app),
+		THROWING_REVIEW_ACCESSOR,
+		THROWING_OPEN_TASK,
+	).find((t) => t.name === "update_routine")!;
 }
 
 async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{

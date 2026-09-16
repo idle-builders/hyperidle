@@ -25,63 +25,10 @@
  * `CoreApiWorkPort`.
  */
 
-/** Mirrors `GET /tasks/:id`'s response — only the fields a `CoreApiPort` consumer relies on. */
-export interface TaskView {
-	readonly id: string;
-	readonly parentTaskId: string | null;
-	readonly teamId: string;
-	readonly notes: string | null;
-}
-
-// @lore BB1: UpdateBetRequest DELETED — bet fields are now task fields; PATCH /tasks/:id.
-
-/**
- * Mirrors `POST /tasks`'s validated request body (`createTaskSchema`, `routes/tasks.ts`).
- *
- * @lore BB1: keep this in step with the schema. The route is `.strict()`, so a field the
- * schema knows and this interface omits is not a harmless gap — it is a field no seam caller
- * can discover, while a field this interface has and the schema does not is a 400 at runtime.
- * Excess-property checking does NOT catch the drift, because the seam receives a variable
- * rather than an object literal.
- */
-export interface CreateTaskRequest {
-	readonly parentTaskId?: string | null;
-	/** Required when `parentTaskId` is omitted; inherited from the parent otherwise. */
-	readonly teamId?: string;
-	readonly title: string;
-	readonly description?: string | null;
-	readonly doneCondition?: string | null;
-	readonly ownerAgentId?: string | null;
-	/**
-	 * A list of task ids this task waits on. Wire shape is an ARRAY, not
-	 * a JSON-encoded string — the route encodes it to the `dependencies`
-	 * column's JSON-text shape server-side.
-	 */
-	readonly dependencies?: readonly string[];
-	/** When true, finishing this task sends it to `review` rather than `done`. */
-	readonly needsReview?: boolean;
-	/** AK5 provenance — the knowledge item this task was promoted from. */
-	readonly sourceKnowledgeItemId?: string;
-}
-
-/** Mirrors `PATCH /tasks/:id`'s validated request body. */
-export interface UpdateTaskRequest {
-	readonly title?: string;
-	readonly description?: string | null;
-	readonly doneCondition?: string | null;
-	readonly ownerAgentId?: string | null;
-	/** A list of task ids, or `null` to clear. See `CreateTaskRequest.dependencies`. */
-	readonly dependencies?: readonly string[] | null;
-	readonly parentTaskId?: string | null;
-	readonly state?: string;
-}
-
-/** Mirrors `POST /tasks`'s 201 response body — the created task row. */
-export interface CreateTaskResponse {
-	readonly id: string;
-	readonly parentTaskId: string | null;
-	readonly teamId: string;
-}
+// `TaskView`/`CreateTaskRequest`/`UpdateTaskRequest`/`CreateTaskResponse`
+// DELETED — the task action list (`search_tasks`/`open_task`/`edit_task`,
+// `@hyperidle/domain-model`) replaces this hand-mirrored seam entirely.
+// the architecture doc §3, §8.
 
 /** Mirrors `GET /conversations/items/:id`'s response — only the fields a consumer relies on. */
 export interface ItemView {
@@ -136,60 +83,31 @@ export interface UserView {
 	readonly teamId: string | null;
 }
 
-/**
- * Mirrors `POST /tasks/:id/handoff`'s validated request body — extended
- * (Increment 2 org/routine/handoff wave) with `contextId`/`status`/`error` so
- * the seam carries `handoff_to`'s full metadata fidelity (the route
- * previously hardcoded `context_id: session.id` and `status: "completed"` and
- * dropped `error` entirely — all three are now caller-supplied, defaulting to
- * the route's original behavior when omitted).
- */
-export interface HandoffTaskRequest {
-	readonly sessionId: string;
-	readonly toAgent?: string;
-	readonly toRole?: string;
-	readonly toHuman?: boolean;
-	readonly reason: string;
-	readonly artifacts?: readonly string[];
-	readonly remainingWork?: readonly string[];
-	readonly contextId?: string;
-	readonly status?: "completed" | "failed" | "blocked" | "in_progress";
-	readonly error?: string;
-}
-
-/** Mirrors `POST /tasks/:id/handoff`'s response body (`@hyperidle/policy`'s `HandoffResult`). */
-export interface HandoffTaskResponse {
-	readonly status: "success" | "escalated";
-	readonly targetAgentId?: string;
-	readonly escalationItemId?: string;
-}
+// `HandoffTaskRequest`/`HandoffTaskResponse` DELETED — handoff is now
+// `edit_task({ ownerAgentId })`; role targeting, human escalation and the
+// escalation thread go with `handoff-protocol.ts`
+// (the architecture doc §8 B4).
 
 /**
- * The agent's tool-facing `work` capability family (Decision C). Increment 2
- * adds reads/writes named in `edge-disposition.md`'s `work.{get, list, create,
- * update}` row, plus `handoffTask` (org/routine/handoff wave — the backing
- * route lives under `/tasks`). `routeItem` (a pure local computation, no DB,
- * no cross-layer read) was never a seam method — AU21 §6 Decision L3 later
- * deleted it outright as vestigial.
+ * The agent's tool-facing `work` capability family (Decision C) — item
+ * reads/writes only now. `routeItem` (a pure local computation, no DB, no
+ * cross-layer read) was never a seam method — AU21 §6 Decision L3 deleted it
+ * outright as vestigial.
  *
  * @lore BB1: `createBet`, `getBetById`, `updateBetById` DELETED — a bet is
- * now a root task; use `createTask`/`getTaskById`/updateTask paths instead.
+ * now a root task.
+ * @lore `getTaskById`/`createTask`/`updateTaskById`/`appendTaskNote`/
+ * `handoffTask` DELETED — the task action list replaces them.
  */
 export interface CoreApiWorkPort {
-	getTaskById(id: string): Promise<TaskView | undefined>;
-	createTask(input: CreateTaskRequest): Promise<CreateTaskResponse>;
-	updateTaskById(id: string, updates: UpdateTaskRequest): Promise<void>;
-	/** Atomic note append. Resolves `undefined` when the task does not exist (no throw). */
-	appendTaskNote(taskId: string, entry: string): Promise<{ readonly id: string } | undefined>;
 	getItemById(id: string): Promise<ItemView | undefined>;
 	updateItemById(id: string, updates: UpdateItemRequest): Promise<void>;
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
-	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;
 }
 
 /**
  * The agent's tool-facing `users` capability family (Decision C, Increment 2)
- * — `edge-disposition.md`'s `users.{findUser, listUsers}` row.
+ * `edge-disposition.md`'s `users.{findUser, listUsers}` row.
  */
 export interface CoreApiUsersPort {
 	getUserById(id: string): Promise<UserView | undefined>;
@@ -668,7 +586,7 @@ export interface CoreApiPort {
 
 /**
  * AU31 §12: the actor-override header name for the `CoreApiPort` write seam
- * — moved here from core-api's `services/actor-transport-header.ts` because
+ * moved here from core-api's `services/actor-transport-header.ts` because
  * BOTH sides of the seam need it (core-api's `middleware/auth.ts` consults
  * it server-side; agent-orchestration's `core-api-port-composition.ts` sets
  * it client-side via `withActorTransport`), and a wire-protocol constant

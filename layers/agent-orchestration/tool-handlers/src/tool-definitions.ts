@@ -31,10 +31,8 @@ import {
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
-	SeamRequestError,
-	TASK_STATES,
 } from "@hyperidle/domain-model";
-import { EVENT_TYPES, type TaskStateChangedEvent } from "@hyperidle/event-bus";
+import { EVENT_TYPES } from "@hyperidle/event-bus";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
@@ -204,8 +202,8 @@ function makeWriteMemoryTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Writ
 			const teamId =
 				ctx.teamId ??
 				(await ports.coreApi
-					.getTaskById(ctx.taskId, ctx.agentId)
-					.then((row) => row?.teamId ?? null));
+					.openTask(ctx.taskId, ctx.agentId)
+					.then((row) => row?.task.teamId ?? null));
 			const defaultScopeKind: ScopeKind = teamId ? "team" : "factory";
 			const scopeKind = requestedScopeKind ?? defaultScopeKind;
 			const scopeId =
@@ -232,77 +230,10 @@ function makeWriteMemoryTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Writ
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// handoff_to
+// handoff_to — DELETED . Handoff is now `edit_task({ ownerAgentId })`;
+// role targeting, human escalation and the escalation thread went with
+// `handoff-protocol.ts` (architecture.md §8 B4).
 // ─────────────────────────────────────────────────────────────────────────────
-
-const HANDOFF_STATUSES = ["completed", "failed", "blocked", "in_progress"] as const;
-
-const handoffToInputSchema = z.object({
-	toAgent: z.string().optional(),
-	toRole: z.string().optional(),
-	toHuman: z.boolean().optional(),
-	contextId: z.string().min(1),
-	status: z.enum(HANDOFF_STATUSES),
-	reason: z.string().min(1),
-	artifacts: z.array(z.string()).optional(),
-	remainingWork: z.array(z.string()).optional(),
-	error: z.string().optional(),
-});
-
-type HandoffToInput = z.infer<typeof handoffToInputSchema>;
-
-function makeHandoffToTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<HandoffToInput, TDb> {
-	return {
-		name: "handoff_to",
-		description:
-			"Hand off the current task to another agent (by ID), to any teammate matching a role, or to a human reviewer. Ends the current session and transfers ownership.",
-		inputSchema: handoffToInputSchema,
-		handler: async (args, ctx) => {
-			const parsed = handoffToInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const input = parsed.data;
-
-			if (!(input.toAgent || input.toRole || input.toHuman)) {
-				return err("INVALID_INPUT", "One of toAgent, toRole, or toHuman must be specified");
-			}
-
-			if (input.toAgent) {
-				const target = await ports.coreApi.getUserById(input.toAgent, ctx.agentId);
-				if (!target) return err("NOT_FOUND", `Target agent not found: ${input.toAgent}`);
-			}
-
-			// AU21 §9 Increment 2 (org/routine/handoff wave): routes through the
-			// CoreApiPort seam — the SAME `POST /tasks/:id/handoff` route a human
-			// caller's client would use — instead of the raw `ports.policy.handoff`
-			// DI call (deleted). The route resolves its own `SessionContext`
-			// server-side from the DB session row keyed by `sessionId`, so this
-			// handler no longer needs to build one locally (no `sandboxPath`/
-			// `ingestion`/`traceId` to thread through the wire).
-			const result = await ports.coreApi.handoffTask(
-				ctx.taskId,
-				{
-					sessionId: ctx.sessionId,
-					...(input.toAgent ? { toAgent: input.toAgent } : {}),
-					...(input.toRole ? { toRole: input.toRole } : {}),
-					...(input.toHuman ? { toHuman: input.toHuman } : {}),
-					reason: input.reason,
-					artifacts: input.artifacts ?? [],
-					remainingWork: input.remainingWork ?? [],
-					contextId: input.contextId,
-					status: input.status,
-					...(input.error !== undefined ? { error: input.error } : {}),
-				},
-				ctx.agentId,
-			);
-
-			return ok({
-				status: result.status,
-				...(result.targetAgentId ? { targetAgentId: result.targetAgentId } : {}),
-				...(result.escalationItemId ? { escalationItemId: result.escalationItemId } : {}),
-			});
-		},
-	};
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // create_item
@@ -370,7 +301,7 @@ function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			} else {
 				// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
 				// new `POST /threads/scaffold` route a human caller's client would use
-				// — instead of the raw `ports.conversation.insertThread` DI call
+				// instead of the raw `ports.conversation.insertThread` DI call
 				// (deleted). The route generates the thread's id server-side;
 				// `created.id` replaces the client-generated `randomUUID()`.
 				const created = await ports.coreApi.insertThread(
@@ -441,171 +372,11 @@ function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// create_task
+// create_task / edit_task — DELETED . Both fold into the `edit_task`
+// ACTION (`@hyperidle/domain-model`'s `TASK_ACTIONS`), registered on the MCP
+// seam by the composed action list, never a hand-written `ToolDefinition`
+// literal (architecture.md §7 clause 3).
 // ─────────────────────────────────────────────────────────────────────────────
-
-const createTaskInputSchema = z.object({
-	title: z.string().min(1).max(512),
-	description: z.string().max(65_536).optional(),
-	doneCondition: z.string().max(65_536).optional(),
-	/** Explicit parent — any depth. Omit to nest under the session's own task. */
-	parentTaskId: z.string().min(1).optional(),
-	/**
-	 * Task ids this task waits on. While any is unfinished the new task
-	 * starts in `hold` instead of `proposed`.
-	 */
-	dependencies: z.array(z.string()).optional(),
-	/** When true, finishing this task sends it to `review` rather than `done`. */
-	needsReview: z.boolean().optional(),
-});
-
-type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
-
-function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateTaskInput, TDb> {
-	return {
-		name: "create_task",
-		description:
-			"Create a new subtask. Supply parentTaskId to nest under any task at any depth; omit it to nest under the session's current task. The new task starts in 'proposed' state.",
-		inputSchema: createTaskInputSchema,
-		handler: async (args, ctx) => {
-			const parsed = createTaskInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const input = parsed.data;
-
-			// @lore AU21 §9 Increment 10a (Decision I): the `sourceKind ===
-			// "decomposition"` fallback branch this used to have (resolving the
-			// parent bet from a bet-decomposition PM turn's session context) is
-			// REMOVED — the built-in bet_decomposition mechanism no longer exists,
-			// so no session's `requestContext.sourceKind` can ever be
-			// `"decomposition"` (the value is gone from `AgentSessionSourceKind`
-			// itself, not merely unreachable).
-			// @lore BB1: parentTaskId is now explicit (any depth); falls back to
-			// ctx.taskId (the session's own task) when the caller omits it.
-			const parentId = input.parentTaskId ?? ctx.taskId;
-			if (!parentId) return err("NOT_FOUND", "Parent task not found");
-
-			const parentTask = await ports.coreApi.getTaskById(parentId, ctx.agentId);
-			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${parentId}`);
-
-			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
-			// `POST /tasks` route a human caller uses — instead of the raw
-			// `ports.work.createTask` DI call (deleted). The route generates the
-			// task's id server-side; `created.id` replaces the client-generated
-			// `randomUUID()` the raw DI path used.
-			const created = await ports.coreApi.createTask(
-				{
-					parentTaskId: parentId,
-					teamId: parentTask.teamId,
-					title: input.title,
-					description: input.description ?? null,
-					doneCondition: input.doneCondition ?? null,
-					ownerAgentId: ctx.agentId,
-					...(input.dependencies !== undefined ? { dependencies: input.dependencies } : {}),
-					...(input.needsReview !== undefined ? { needsReview: input.needsReview } : {}),
-				},
-				ctx.agentId,
-			);
-			const taskId = created.id;
-
-			const event = {
-				type: "task_state_changed" as const,
-				streamId: taskId,
-				taskId,
-				fromState: "proposed",
-				toState: "proposed",
-				timestamp: Date.now(),
-			};
-			ctx.eventBus.emit(event as TaskStateChangedEvent);
-
-			return ok({ taskId });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// edit_task
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * @lore BB1: this must stay field-for-field with the human `PATCH /api/tasks/:id`
- * body — the whole point of the package is one door with the same reach for
- * both. Two asymmetries were found in review and closed here: `state` was an
- * unconstrained string (the tool advertised a domain it does not have; the route
- * rejected bad values with a 400, so the schema was simply lying), and
- * `parentTaskId` could not be null, so an agent could nest a task but never
- * promote one back to a root the way a human can.
- */
-const editTaskInputSchema = z.object({
-	taskId: z.string().min(1),
-	title: z.string().min(1).max(512).optional(),
-	description: z.string().max(65_536).optional(),
-	doneCondition: z.string().max(65_536).optional(),
-	ownerAgentId: z.string().min(1).optional(),
-	/** `null` promotes the task to a root — the same reach the human door has. */
-	parentTaskId: z.string().min(1).nullable().optional(),
-	/** Task ids this task waits on. `null` clears the list. */
-	dependencies: z.array(z.string()).nullable().optional(),
-	state: z.enum(TASK_STATES).optional(),
-	/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
-	position: z.number().int().nonnegative().optional(),
-	/** Flip whether finishing this task routes to `review` (true) or `done` (false). */
-	needsReview: z.boolean().optional(),
-});
-
-type EditTaskInput = z.infer<typeof editTaskInputSchema>;
-
-function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTaskInput, TDb> {
-	return {
-		name: "edit_task",
-		description:
-			"Edit a task's fields. Supply any subset of title, description, doneCondition, ownerAgentId, parentTaskId, position, or state; omitted fields are unchanged. State transitions route through the task state machine. Setting position moves the task within its sibling list and renumbers siblings to a clean sequence.",
-		inputSchema: editTaskInputSchema,
-		handler: async (args, ctx) => {
-			const parsed = editTaskInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const input = parsed.data;
-
-			const updates: {
-				title?: string;
-				description?: string | null;
-				doneCondition?: string | null;
-				ownerAgentId?: string | null;
-				parentTaskId?: string | null;
-				dependencies?: readonly string[] | null;
-				state?: string;
-				position?: number;
-				needsReview?: boolean;
-			} = {};
-			if (input.title !== undefined) updates.title = input.title;
-			if (input.description !== undefined) updates.description = input.description;
-			if (input.doneCondition !== undefined) updates.doneCondition = input.doneCondition;
-			if (input.ownerAgentId !== undefined) updates.ownerAgentId = input.ownerAgentId;
-			if (input.parentTaskId !== undefined) updates.parentTaskId = input.parentTaskId;
-			if (input.dependencies !== undefined) updates.dependencies = input.dependencies;
-			if (input.state !== undefined) updates.state = input.state;
-			if (input.position !== undefined) updates.position = input.position;
-			if (input.needsReview !== undefined) updates.needsReview = input.needsReview;
-
-			if (Object.keys(updates).length === 0) {
-				return err("INVALID_INPUT", "No fields to update.");
-			}
-
-			// A rejection from the write door (e.g. a dependency cycle) must
-			// reach the caller as a structured failure, not an uncaught throw —
-			// `SeamRequestError.code` carries the route's machine-readable code
-			// (e.g. "TASK_CYCLE") straight through.
-			try {
-				await ports.coreApi.updateTaskById(input.taskId, updates, ctx.agentId);
-			} catch (e) {
-				if (e instanceof SeamRequestError && e.code) {
-					return err(e.code, e.message);
-				}
-				throw e;
-			}
-			return ok({ taskId: input.taskId });
-		},
-	};
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // submit_review
@@ -705,8 +476,9 @@ function makeSubmitReviewTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
-			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
+			const openedTask = await ports.coreApi.openTask(ctx.taskId, ctx.agentId);
+			if (!openedTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
+			const parentTask = openedTask.task;
 
 			// Invariant: a review may not claim proof it does not have.
 			// The named produced item must exist and be parented to the calling
@@ -770,10 +542,10 @@ function makeSubmitReviewTool<TDb>(
 			let rootTaskId = ctx.taskId;
 			let cursor: { parentTaskId: string | null } = parentTask;
 			while (cursor.parentTaskId !== null) {
-				const ancestor = await ports.coreApi.getTaskById(cursor.parentTaskId, ctx.agentId);
+				const ancestor = await ports.coreApi.openTask(cursor.parentTaskId, ctx.agentId);
 				if (!ancestor) break;
 				rootTaskId = cursor.parentTaskId;
-				cursor = ancestor;
+				cursor = ancestor.task;
 			}
 
 			return ok({ messageId, threadId, rootTaskId });
@@ -1320,42 +1092,8 @@ function makeUpdateRoutineTool<TDb>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// log_task
+// log_task — DELETED . `edit_task({ appendNote })` replaces it.
 // ─────────────────────────────────────────────────────────────────────────────
-
-const logTaskInputSchema = z.object({
-	note: z.string().min(1).max(65_536),
-});
-
-type LogTaskInput = z.infer<typeof logTaskInputSchema>;
-
-function makeLogTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<LogTaskInput, TDb> {
-	return {
-		name: "log_task",
-		description:
-			"Append a prose note to the current task's notes column. Useful for recording mid-session discoveries, decisions, or status updates. Does not touch the audit trail.",
-		inputSchema: logTaskInputSchema,
-		handler: async (args, ctx) => {
-			const parsed = logTaskInputSchema.safeParse(args);
-			if (!parsed.success) {
-				return err("INVALID_INPUT", parsed.error.message);
-			}
-			const { note } = parsed.data;
-
-			const now = new Date().toISOString();
-			const entry = `[${now} ${ctx.agentId}] ${note}`;
-
-			// Atomic append — single UPDATE with SQL CASE, no pre-read, no lost-update race.
-			// `undefined` means the task row was not found (WHERE matched no rows).
-			const result = await ports.coreApi.appendTaskNote(ctx.taskId, entry, ctx.agentId);
-			if (!result) {
-				return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
-			}
-
-			return ok({ taskId: ctx.taskId });
-		},
-	};
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // create_artifact
@@ -1428,8 +1166,8 @@ function makeCreateArtifactTool<TDb>(
 				ctx.teamId ??
 				(ctx.taskId
 					? await ports.coreApi
-							.getTaskById(ctx.taskId, ctx.agentId)
-							.then((row) => row?.teamId ?? null)
+							.openTask(ctx.taskId, ctx.agentId)
+							.then((row) => row?.task.teamId ?? null)
 					: null);
 			const scopeKind: ScopeKind = teamId ? "team" : "factory";
 			const scopeId: string | null = teamId;
@@ -1485,12 +1223,8 @@ export function buildToolDefinitions(
 	const all: readonly RegisteredTool<HyperIdleDb>[] = [
 		toRegistered(makeSendMessageTool(ports)),
 		toRegistered(makeReplyTool(ports)),
-		toRegistered(makeLogTaskTool(ports)),
 		toRegistered(makeWriteMemoryTool(ports)),
-		toRegistered(makeHandoffToTool(ports)),
 		toRegistered(makeCreateItemTool(ports)),
-		toRegistered(makeCreateTaskTool(ports)),
-		toRegistered(makeEditTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
 		toRegistered(makePromoteKnowledgeTool(ports)),

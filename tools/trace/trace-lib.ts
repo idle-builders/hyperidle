@@ -862,7 +862,7 @@ let entityTableCache: Map<string, string> | null = null;
 export function workEntityTableMap(): Map<string, string> {
 	if (entityTableCache) return entityTableCache;
 	const map = new Map<string, string>();
-	const sf = parse("layers/core-api/work/src/work-service.ts");
+	const sf = parse("layers/core-api/task/src/task-service.ts");
 	const visit = (node: ts.Node): void => {
 		if (
 			ts.isSwitchStatement(node) &&

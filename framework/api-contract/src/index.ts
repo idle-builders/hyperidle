@@ -39,11 +39,7 @@ export type {
 	CreateKnowledgeItemRequest,
 	CreateKnowledgeItemResponse,
 	CreateOrgTeamRequest,
-	CreateTaskRequest,
-	CreateTaskResponse,
 	DirectThreadResponse,
-	HandoffTaskRequest,
-	HandoffTaskResponse,
 	InsertMessageRequest,
 	InsertMessageResponse,
 	InsertRoutineRequest,
@@ -62,15 +58,15 @@ export type {
 	// ReviewRecipientsQuery: param of resolveReviewRecipientsForItem — no name-importers
 	RoutineView,
 	ScaffoldFromRequestInput,
-	TaskView,
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
+	// @lore TaskView/CreateTaskRequest/CreateTaskResponse/UpdateTaskRequest/
+	// HandoffTaskRequest/HandoffTaskResponse deleted — the task action list replaces the seam.
 	UpdateItemRequest,
 	UpdateKnowledgeItemContentRequest,
 	UpdateKnowledgeItemContentResponse,
 	UpdateKnowledgeItemContentResult,
 	UpdateOrgTeamRequest,
 	UpdateRoutineRequest,
-	UpdateTaskRequest,
 	UpdateThreadRequest,
 	UserView,
 } from "./core-api-port.js";

@@ -3,12 +3,13 @@
  *
  * Discharges AC2 directly: a page-level / data-fed surface mounts via thin
  * mock providers, with NO server, database, or real data. It mounts the REAL
- * `WorkTaskPage` — fed by a mocked window.fetch returning a TaskTreeResponse —
- * wrapped in `MockProviders`, and asserts the page renders its real heading.
+ * `WorkTaskPage` — fed by a mocked window.fetch returning `open_task`'s
+ * `ActionResult<TaskView>` — wrapped in `MockProviders`, and asserts the page
+ * renders its real heading.
  *
  * @lore BB1: WorkBet + MOCK_BETS are deleted — WorkTaskPage replaces both.
- * The overrideBet prop is gone; this test mocks window.fetch to return a
- * task tree response so the page short-circuits to the populated state.
+ * The overrideBet prop is gone; this test mocks window.fetch to return an
+ * `open_task` result so the page short-circuits to the populated state.
  *
  * This is not a synthetic test-local surface: it imports application code
  * (`WorkTaskPage`, `MockProviders`) and asserts the rendered DOM of a
@@ -33,10 +34,8 @@ const TASK = {
 	doneCondition: null,
 	state: "in_progress",
 	dependencies: null,
-	artifacts: null,
 	threadId: null,
 	notes: null,
-	auditTrail: null,
 	outcomeVerdict: null,
 	outcomeSummary: null,
 	outcomeRecordedAt: null,
@@ -46,6 +45,8 @@ const TASK = {
 	createdAt: "2026-08-30T10:00:00.000Z",
 	updatedAt: "2026-08-30T10:00:00.000Z",
 	completedAt: null,
+	position: 0,
+	needsReview: false,
 };
 
 describe("AJ3: MockProviders mounts a real data-fed page in isolation, no backend", () => {
@@ -55,10 +56,15 @@ describe("AJ3: MockProviders mounts a real data-fed page in isolation, no backen
 			vi.fn(async () => ({
 				ok: true,
 				json: async () => ({
-					task: TASK,
-					ancestors: [],
-					children: [],
-					tokensActualRollup: null,
+					ok: true,
+					data: {
+						task: TASK,
+						ancestors: [],
+						children: [],
+						tokensActualRollup: null,
+						threadId: null,
+						attachments: [],
+					},
 				}),
 			})),
 		);

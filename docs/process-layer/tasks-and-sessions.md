@@ -1,7 +1,7 @@
 # Tasks and Sessions
 
 <!-- @source framework/db/src/schema.ts -->
-<!-- @source layers/core-api/src/routes/tasks.ts -->
+<!-- @source layers/core-api/task/src/task-actions.ts -->
 
 ## 1. Task lifecycle
 
@@ -9,21 +9,21 @@ Tasks move through a small state machine — the eight states of `TASK_STATES` (
 
 - `proposed` — a team member has drafted this task. Not yet picked up.
 - `accepted` — the team lead has accepted it. The owner is committed.
-- `hold` — the single waiting state, whatever the wait is for: a person can put a task on hold by hand, and a task with unmet upstream dependencies (other tasks that must reach `done` first) is parked here too. Dependencies are set at create or edit, by a human or an agent (`POST /api/tasks`, `PATCH /api/tasks/:id`); a self-dependency, a dependency naming a task that doesn't exist, or one that would close a cycle is refused when it's set, not left to park something forever. A task may depend on any other task, in any tree — cycle rejection is what keeps that unrestricted. While any named dependency is unfinished the state machine refuses `accepted` or `in_progress`, whoever asks. **When the last upstream dependency moves to `done`, the dependency watcher (`checkAndUnblockDependents`, `layers/core-api/work/src/dependency-watcher.ts`) automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks. When a dependency is **killed** instead, the premise the task was planned under is gone: the killed id is dropped from every dependent that carries it, and dependents that were waiting on it in `hold` return to `proposed` for re-planning rather than being freed to start.
+- `hold` — the single waiting state, whatever the wait is for: a person can put a task on hold by hand, and a task with unmet upstream dependencies (other tasks that must reach `done` first) is parked here too. Dependencies are set at create or edit, by a human or an agent (`edit_task`, `POST /api/actions/edit_task`); a self-dependency, a dependency naming a task that doesn't exist, or one that would close a cycle is refused when it's set, not left to park something forever. A task may depend on any other task, in any tree — cycle rejection is what keeps that unrestricted. While any named dependency is unfinished the state machine refuses `accepted` or `in_progress`, whoever asks. **When the last upstream dependency moves to `done`, the dependency watcher (`checkAndUnblockDependents`, `layers/core-api/task/src/dependency-watcher.ts`) automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks. When a dependency is **killed** instead, the premise the task was planned under is gone: the killed id is dropped from every dependent that carries it, and dependents that were waiting on it in `hold` return to `proposed` for re-planning rather than being freed to start.
 - `in_progress` — at least one session is running or has run. The task has produced some progress.
 - `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they surface in the WorkTeam AgentRow health indicators.
 - `review` — the task is awaiting a human verdict. A task reaches `review` only if it **asked** to, via `needsReview` (see §1.1); otherwise finished work closes straight to `done`.
 - `done` — the work is finished. Reached either because the task closed on its own (the ordinary case) or because a reviewer accepted it.
 - `killed` — abandoned. Reasoning logged. Killing is a **subtree** operation: moving a
-  task to `killed` through `PATCH /api/tasks/:id` kills every task beneath it and stops
-  their running sessions (`cascadeTaskKill`). A kill only ever travels DOWN — it never
-  climbs to the parent, and never touches a sibling.
+  task to `killed` through `edit_task` kills every task beneath it, in the same
+  transaction as the root's edit, and stops their running sessions. A kill only ever
+  travels DOWN — it never climbs to the parent, and never touches a sibling.
 
 ## 1.1 How a task finishes: `done` by default, `review` on request
 
 A task finishes by going to **`done`**. It goes to **`review`** only when it asked to — the boolean
-`tasks.needs_review`, default `false`, settable on create and through `PATCH /api/tasks/:id` and the
-agent tool, by a person or an agent alike.
+`tasks.needs_review`, default `false`, settable on create and through `edit_task`, by a person or an
+agent alike.
 
 One rule, applied in both places work can finish (`lifecycle-propagation.ts`):
 
@@ -47,15 +47,16 @@ chain deliberately stops until a person acts. `done` and `review` are both reach
 non-terminal state, because a container task nobody personally worked otherwise has no legal path to
 either — which is exactly how an earlier version of this rule died silently at the first such parent.
 
-**A kill is not progress.** `cascadeTaskKill` marks its transitions, and completion propagation ignores
-them. Without that, killing a subtree raced its own completion — ancestors were marked `done`, stamping
-a completion timestamp on cancelled work, moments before the cascade killed them.
+**A kill is not progress.** `edit_task`'s kill step marks its collateral transitions, and completion
+propagation ignores them. Without that, killing a subtree raced its own completion — ancestors were
+marked `done`, stamping a completion timestamp on cancelled work, moments before the cascade killed
+them.
 
 The distinction between `hold` and `blocked` is important: `hold` is structural (the task can't start because upstream work isn't done — the system knows this from the dependency graph and resolves it automatically), while `blocked` is situational (the agent started work and hit something it can't resolve alone — requires human or external action).
 
 > **Vocabulary note.** The lower-case `blocked` workflow state described here is unrelated to the upper-case `Block` content primitive (see [`docs/blocks/`](../blocks/index.md)). They share the English word "block" and nothing else.
 
-Transitions are events in the audit trail (`tasks.auditTrail`). WorkTeam AgentRow health indicators surface blocked and held tasks prominently because they're the most actionable signal of friction.
+Every transition is a `changes` row (`changes.object = "task"`), the same record every other `edit_task` call appends. WorkTeam AgentRow health indicators surface blocked and held tasks prominently because they're the most actionable signal of friction.
 
 How state changes propagate up the task tree and how work moves between owners is covered in [handoff and lifecycle propagation](handoff-and-lifecycle-propagation.md).
 

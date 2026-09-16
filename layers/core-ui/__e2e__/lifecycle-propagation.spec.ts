@@ -180,12 +180,75 @@ async function setupCommonRoutes(
 
 	// Bets list for nav
 
-	// Tasks list
-	await page.route("**/api/tasks?**", (route) => {
+	// `open_task` — the recursive task detail page's only data source. The
+	// page opens on BET_ID; TASK_ID is its one child, carrying the state
+	// this test drives.
+	await page.route("**/api/actions/open_task", (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+		const task = makeTask(taskState);
 		return route.fulfill({
 			status: 200,
 			contentType: "application/json",
-			body: JSON.stringify({ tasks: [makeTask(taskState)], total: 1 }),
+			body: JSON.stringify({
+				ok: true,
+				data: {
+					task: {
+						id: input.id ?? BET_ID,
+						parentTaskId: null,
+						teamId: PRODUCT_ID,
+						ownerAgentId: null,
+						title: "L20 Lifecycle Bet",
+						description: null,
+						doneCondition: null,
+						state: betStatus,
+						position: 0,
+						needsReview: false,
+						dependencies: null,
+						threadId: null,
+						notes: null,
+						outcomeVerdict: null,
+						outcomeSummary: null,
+						outcomeRecordedAt: null,
+						outcomeRecordedBy: null,
+						tokensActualJson: null,
+						sourceKnowledgeItemId: null,
+						createdAt: "2026-05-06T10:00:00Z",
+						updatedAt: "2026-05-06T10:00:00Z",
+						completedAt: null,
+					},
+					ancestors: [],
+					children: [
+						{
+							id: task.id,
+							parentTaskId: BET_ID,
+							teamId: PRODUCT_ID,
+							ownerAgentId: task.ownerAgentId,
+							title: task.title,
+							description: null,
+							doneCondition: null,
+							state: task.state,
+							position: 0,
+							needsReview: false,
+							dependencies: null,
+							threadId: null,
+							notes: null,
+							outcomeVerdict: null,
+							outcomeSummary: null,
+							outcomeRecordedAt: null,
+							outcomeRecordedBy: null,
+							tokensActualJson: null,
+							sourceKnowledgeItemId: null,
+							createdAt: "2026-05-06T10:00:00Z",
+							updatedAt: "2026-05-06T10:00:00Z",
+							completedAt: null,
+							children: [],
+						},
+					],
+					tokensActualRollup: null,
+					threadId: null,
+					attachments: [],
+				},
+			}),
 		});
 	});
 }
@@ -203,8 +266,10 @@ test("L20: task shows review state after session ends with outcome=completed", a
 	await expect(page.locator('[data-testid="task-detail-page"]')).toBeVisible({ timeout: 10000 });
 
 	// Assert: a task row is visible containing our task title
+	// @lore the architecture doc's UI re-point: WorkTaskPage's subtask rows
+	// carry `data-testid="subtask-row"` (BB1), not the pre-BB1 `bet-task-row`.
 	const taskRow = page
-		.locator('[data-testid="bet-task-row"]:has-text("L20 Lifecycle Task")')
+		.locator('[data-testid="subtask-row"]:has-text("L20 Lifecycle Task")')
 		.first();
 	await expect(taskRow).toBeVisible({ timeout: 10000 });
 

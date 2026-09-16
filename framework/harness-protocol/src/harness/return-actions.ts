@@ -17,6 +17,21 @@
  * update_task_status is deferred (concept §2.1 path B) — adding it later is a
  * one-tool edit, not a model change. The `_args` param in isReturnAction is
  * pre-wired for path A (argument-gated member) without widening the set.
+ *
+ * @lore the architecture doc §8 B4, narrowed at review (B4): `handoff_to`
+ * (the standalone tool) is deleted — handoff is now an `edit_task` call that
+ * sets `ownerAgentId`. `edit_task` replaces `handoff_to` in this set as path
+ * A's first real argument-gated member, but membership on `args` alone is
+ * too wide: a routine `edit_task` call that creates a subtask (no `id`, sets
+ * `ownerAgentId` for the NEW subtask) or edits some OTHER task the session
+ * happens to touch must not satisfy the gate just because the args shape
+ * matches. `isReturnAction("edit_task", args, taskId)` is terminal only when
+ * BOTH: the edit is the session's OWN task (`args.id === taskId`) AND the
+ * edit moves the task away from the calling agent — the owner changes to
+ * someone else, or the state moves to `review`/`done`. An ordinary field
+ * edit (title, notes, state to anything else) on the session's own task
+ * still does not satisfy the gate, and neither does any edit to a
+ * different task.
  */
 
 /**
@@ -29,12 +44,7 @@
  * the RIGHT action, though — see `shouldForceReturn`'s `required` param and
  * `harness-registry`'s `createGate(requiredReturnActions?)`.
  */
-export const RETURN_ACTION_NAMES = [
-	"submit_review",
-	"handoff_to",
-	"send_message",
-	"reply",
-] as const;
+export const RETURN_ACTION_NAMES = ["submit_review", "edit_task", "send_message", "reply"] as const;
 
 /** Finite union of all valid return-action tool names. */
 export type ReturnActionName = (typeof RETURN_ACTION_NAMES)[number];
@@ -72,18 +82,36 @@ function stripMcpNamespace(toolName: string): string {
  * Per-tool return predicate. True when `toolName` is a member of the
  * closed accepted-return set AND its per-tool argument predicate holds.
  *
- * v1: all three members are unconditionally terminal (`_args` unused).
- * Path A hook: when an argument-gated member (e.g. update_task_status→done)
- * is added, extend this function with a per-name predicate — do NOT widen
- * the set to "any tool with the right args".
+ * `submit_review` / `send_message` / `reply` are unconditionally terminal
+ * (the pre-existing v1 behaviour). `edit_task` is path A's first real
+ * argument-gated member — see the `@lore` on `RETURN_ACTION_NAMES`: terminal
+ * only when the edit targets the session's OWN task (`args.id === taskId`)
+ * AND moves it away from the calling agent (an owner change, or the state
+ * moving to `review`/`done`). `taskId` absent ⇒ never terminal for
+ * `edit_task` — there is no session task to compare against, so a bare
+ * membership check would be exactly the over-wide predicate this narrowed.
+ * Do NOT widen this to "any tool with the right args" — the set stays the
+ * four named members.
  *
  * @lore AR2: MCP-namespaced tool names (`mcp__hyperidle__send_message` etc.)
  * are normalised to their bare form before the set lookup so CLI+MCP sessions
  * are verdicted correctly. A bare name passes through `stripMcpNamespace`
  * unchanged, so a harness that does not namespace is handled by the same path.
  */
-export function isReturnAction(toolName: string, _args?: Record<string, unknown>): boolean {
-	return RETURN_ACTION_SET.has(stripMcpNamespace(toolName));
+export function isReturnAction(
+	toolName: string,
+	args?: Record<string, unknown>,
+	taskId?: string,
+): boolean {
+	const bare = stripMcpNamespace(toolName);
+	if (!RETURN_ACTION_SET.has(bare)) return false;
+	if (bare === "edit_task") {
+		if (!taskId || args?.id !== taskId) return false;
+		const ownerChanged = typeof args?.ownerAgentId === "string" && args.ownerAgentId !== "";
+		const stateMovedAway = args?.state === "review" || args?.state === "done";
+		return ownerChanged || stateMovedAway;
+	}
+	return true;
 }
 
 /**
@@ -102,8 +130,9 @@ export function isRequiredReturnAction(
 	toolName: string,
 	required: readonly string[] | undefined,
 	args?: Record<string, unknown>,
+	taskId?: string,
 ): boolean {
-	if (!isReturnAction(toolName, args)) return false;
+	if (!isReturnAction(toolName, args, taskId)) return false;
 	if (!required || required.length === 0) return true;
 	return required.includes(stripMcpNamespace(toolName));
 }
@@ -124,13 +153,13 @@ export function isRequiredReturnAction(
  */
 export const FORCE_RETURN_MESSAGE =
 	"You have not yet returned your work to HyperIdle. Before this turn can end you must call exactly one of: " +
-	"submit_review (submit work for review), handoff_to (hand the task to another agent or a human), or " +
+	"submit_review (submit work for review), edit_task (hand the task to another agent by setting its owner), or " +
 	"send_message (send your result to a thread). Choose the one that fits and call it now.";
 
 /** Human-readable hint for each return action, used to build a tailored forcing message. */
 const RETURN_ACTION_HINTS: Record<ReturnActionName, string> = {
 	submit_review: "submit work for review",
-	handoff_to: "hand the task to another agent or a human",
+	edit_task: "hand the task to another agent by setting its owner",
 	send_message: "send your result to a thread",
 	reply: "answer the person or agent who triggered this session",
 };

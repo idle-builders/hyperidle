@@ -97,7 +97,7 @@ React (TypeScript) with **Tailwind CSS + DaisyUI** and the Hearth theme — `hea
 ### 3.3 The three views
 
 - **Conversations** — threaded messages; review messages embed an artifact reference plus a verdict affordance; humans can initiate conversations and dial into live sessions. Verdict grammar is owned by [Thread Primitive](../human-interface-layer/thread-primitive.md); ArtifactView's five embed shapes by [Artifact Primitive](../process-layer/artifact-primitive.md).
-- **Work** — drill-down WorkOverview → Team → Task (any depth; no Product level; scope is Team). A team's capacity cap is enforced server-side at `in_progress` transitions (`layers/core-api/src/routes/tasks.ts`). Tasks are agent-owned — no drag; state changes flow through threads.
+- **Work** — drill-down WorkOverview → Team → Task (any depth; no Product level; scope is Team). A team's capacity cap is enforced server-side at `in_progress` transitions (`layers/core-api/task/src/task-actions.ts`, `edit_task`). Tasks are agent-owned — no drag; state changes flow through threads.
 - **Knowledge** — items with relevance and attention scoring; scope changes carry a reason logged to the knowledge edit log. Scoring design: [relevance and attention](../knowledge-architecture/relevance-and-attention.md).
 
 View behavior and layout are owned by the [human-interface-layer](../human-interface-layer/the-three-views.md) and [information-architecture](../information-architecture/app-shell-always-present.md) docs.
@@ -124,7 +124,7 @@ User submits a verdict
   → Thread list refreshes via WebSocket push
 
 User creates a task
-  → POST /api/tasks (markdown body + done condition)
+  → POST /api/actions/edit_task (no `id`; markdown body + done condition)
 
 User creates knowledge
   → POST /api/knowledge (scope_kind + scope_id + markdown body)

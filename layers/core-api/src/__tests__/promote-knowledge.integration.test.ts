@@ -2,7 +2,10 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
+import {
+	THROWING_OPEN_TASK,
+	THROWING_REVIEW_ACCESSOR,
+} from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -18,9 +21,11 @@ import { test } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function buildPromoteKnowledgeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR).find(
-		(t) => t.name === "promote_knowledge",
-	)!;
+	return buildToolDefinitions(
+		createInProcessCoreApiTransport(app),
+		THROWING_REVIEW_ACCESSOR,
+		THROWING_OPEN_TASK,
+	).find((t) => t.name === "promote_knowledge")!;
 }
 
 // @lore this file's own positional (id, status, version) seeder predates and shapes ten call sites
@@ -269,7 +274,11 @@ describe("promote_knowledge tool", () => {
 		// I2 B1-B4: registry requires explicit role; promote_knowledge is
 		// facilitator-only.
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_REVIEW_ACCESSOR),
+			buildToolDefinitions(
+				createInProcessCoreApiTransport(app),
+				THROWING_REVIEW_ACCESSOR,
+				THROWING_OPEN_TASK,
+			),
 			makeContext(db),
 			{ role: "assistant" },
 		); // @lore AD8a: role string renamed to "assistant" in AD8b

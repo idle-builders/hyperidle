@@ -114,7 +114,7 @@ pair that used to be its private editor was deleted in BA9f.
 
 **Lifecycle.** Created at user registration (`layers/core-api/src/routes/users.ts`) or lazily via resolve-or-create (GET `/api/threads/assistant`). The thread starts unpinned, pins after the first real AI response, and stays pinned.
 
-**Task drafting.** `create_task`/`edit_task` are ordinary `["assistant"]`-role-scoped tools — the Assistant has the same full tool surface as every other agent kind (AU27). Creating a task requires a resolvable `teams.id`; the calling thread context determines whether that is available.
+**Task drafting.** `edit_task` (no `id` creates) is one of the ordinary action-projected tools every agent kind sees, unrestricted by role — the Assistant has the same full tool surface as every other agent kind (AU27). Creating a task requires a resolvable `teams.id`; the calling thread context determines whether that is available.
 
 **Turn lifecycle.** The assistant turn runs through the same shared `run-orchestration` poller (`drainIntents → runClaimedRequest`) as every other agent kind — no second execution entry. It answers by calling the generic `reply` tool during the session, the same mechanism a `task_run` agent uses to post a comment into its task's thread. The session's return gate requires the assistant to call `reply` before ending; the loop is capped at `MAX_TOOL_ITERATIONS=3` (~5 effective rounds via the force-return reset) and always persists a reply — never silent, even on cap exhaustion.
 

@@ -5,16 +5,16 @@
  * is created as a child; teamId is inherited from the parent. When absent
  * (creating a root task) a team must be selected.
  *
- * On 201 response, navigates to /work/task/:id.
+ * On success, navigates to /work/task/:id.
  *
- * @lore BB1: replaces WorkBetCreate. POST /api/tasks instead of POST /api/bets.
- * The parentTaskId query-param path is the subtask creation path — the "Add
- * subtask" button on WorkTaskPage passes it here.
+ * @lore BB1: replaces WorkBetCreate. `edit_task` (no `id`) instead of
+ * POST /api/bets. The parentTaskId query-param path is the subtask creation
+ * path — the "Add subtask" button on WorkTaskPage passes it here.
  *
  * @lore AK5: ?fromKnowledge=<id> is the multi-team promote path. KnowledgeDetail
  * auto-creates when there is exactly one team and sends the user here otherwise,
  * so this page is the ONLY other place that carries sourceKnowledgeItemId into
- * the POST. Dropping it here silently loses the provenance FK.
+ * the `edit_task` call. Dropping it here silently loses the provenance FK.
  */
 
 import { type JSX, useEffect, useState } from "react";
@@ -23,7 +23,7 @@ import { TaskDependencyField } from "../components/TaskDependencyField.js";
 import { Breadcrumb, Button, Input, PageHeader, PageScaffold, Select } from "../ds/index.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 
 export function WorkTaskCreate(): JSX.Element {
 	const navigate = useNavigate();
@@ -66,50 +66,34 @@ export function WorkTaskCreate(): JSX.Element {
 		setSubmitting(true);
 		setError(null);
 
-		const payload: Record<string, string | string[] | undefined> = {
-			title: title.trim(),
-			description: description.trim() || undefined,
-			doneCondition: doneCondition.trim() || undefined,
-			parentTaskId,
-			teamId: parentTaskId != null ? undefined : resolvedTeamId,
-			sourceKnowledgeItemId: fromKnowledgeId,
-			dependencies: dependencies.length > 0 ? [...dependencies] : undefined,
-		};
-
-		// Remove undefined keys
-		for (const key of Object.keys(payload)) {
-			if (payload[key] === undefined) delete payload[key];
-		}
-
 		try {
-			const res = await apiFetch("/api/tasks", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
+			const result = await call("edit_task", {
+				title: title.trim(),
+				description: description.trim() || undefined,
+				doneCondition: doneCondition.trim() || undefined,
+				parentTaskId,
+				teamId: parentTaskId != null ? undefined : resolvedTeamId,
+				sourceKnowledgeItemId: fromKnowledgeId,
+				dependencies: dependencies.length > 0 ? [...dependencies] : undefined,
 			});
 
-			if (!res.ok) {
-				const body = (await res.json().catch(() => null)) as {
-					error?: string;
-					code?: string;
-				} | null;
+			if (!result.ok) {
+				const problem = result.problems[0];
 				setError(
-					body?.code === "CAPACITY_EXCEEDED"
+					problem?.code === "capacity_exceeded"
 						? "Team is at its concurrent task limit."
 						: // AC5: a dependency rejection names the rule it broke for the
-							// two codes mapped below — `TASK_CYCLE` and `TASK_DEPENDENCY_KILLED`.
-							// A dangling id returns 404 with `code: NOT_FOUND`, which is not
-							// mapped, so it still falls through to the generic message.
-							((body?.code === "TASK_CYCLE" || body?.code === "TASK_DEPENDENCY_KILLED") &&
-								body.error) ||
+							// two codes mapped below. A dangling id's `dependency_not_found`
+							// is not mapped, so it still falls through to the generic message.
+							((problem?.code === "cycle" || problem?.code === "dependency_killed") &&
+								problem.message) ||
 								"Failed to create task. Please try again.",
 				);
 				setSubmitting(false);
 				return;
 			}
 
-			const created = (await res.json()) as { id: string };
-			navigate(`/work/task/${encodeURIComponent(created.id)}`);
+			navigate(`/work/task/${encodeURIComponent(result.data.task.id)}`);
 		} catch {
 			setError("Network error. Please try again.");
 			setSubmitting(false);

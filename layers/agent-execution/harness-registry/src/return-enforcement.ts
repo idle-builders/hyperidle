@@ -12,8 +12,12 @@ interface ReturnEnforcement extends EnforcementRegistry {
 	 * narrows the predicate in the closure: only a tool call naming one of
 	 * THESE specific return actions flips `returned`. Absent ⇒ the
 	 * pre-Increment-3 default (any member of the closed return set).
+	 *
+	 * `taskId` (B4) — the session's own task id, closed over for
+	 * `edit_task`'s own-task-and-moves-away-from-the-agent gate
+	 * (`isReturnAction`'s `@lore`). Absent for a task-free session.
 	 */
-	createGate(requiredReturnActions?: readonly string[]): ReturnGate;
+	createGate(requiredReturnActions?: readonly string[], taskId?: string): ReturnGate;
 	observe(gate: ReturnGate, event: HarnessEvent): void;
 	evaluate(
 		gate: ReturnGate,
@@ -37,13 +41,13 @@ export function createReturnEnforcement(): ReturnEnforcement {
 		unregister(sessionId) {
 			entries.delete(sessionId);
 		},
-		createGate(requiredReturnActions) {
+		createGate(requiredReturnActions, taskId) {
 			let returned = false;
 			return {
 				observe(event) {
 					if (
 						event.type === "tool_call" &&
-						isRequiredReturnAction(event.toolName, requiredReturnActions, event.args)
+						isRequiredReturnAction(event.toolName, requiredReturnActions, event.args, taskId)
 					) {
 						returned = true;
 					}

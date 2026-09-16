@@ -28,10 +28,11 @@ const THREAD = {
 };
 
 // @lore BB1: was a BetDetail for GET /api/bets/:id. WorkTaskPage loads
-// GET /api/tasks/:id/tree, so this is the tree response instead. The catch-all
-// below answers `{}` for anything it does not recognise, so an unmatched
-// task-tree request would render the page with no task at all.
-const TASK_TREE = {
+// `open_task` (POST /api/actions/open_task), so this is that action's
+// result instead. The catch-all below answers `{}` for anything it does
+// not recognise, so an unmatched open_task request would render the page
+// with no task at all.
+const TASK_VIEW = {
 	task: makeTask("task-az16", {
 		title: "Semantic design profiles",
 		teamId: "team-az16",
@@ -40,6 +41,8 @@ const TASK_TREE = {
 	ancestors: [],
 	children: [],
 	tokensActualRollup: null,
+	threadId: null,
+	attachments: [],
 };
 
 const TEAM = {
@@ -147,7 +150,7 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/teams") {
 			return json(route, { teams: [{ id: "team-az16", name: "Hearth", phase: "build" }] });
 		}
-		if (pathname === "/api/tasks/task-az16/tree") return json(route, TASK_TREE);
+		if (pathname === "/api/actions/open_task") return json(route, { ok: true, data: TASK_VIEW });
 		if (pathname === "/api/knowledge/k-az16") return json(route, KNOWLEDGE);
 		if (pathname === "/api/knowledge") return json(route, { items: [KNOWLEDGE], nextCursor: null });
 		if (pathname === "/api/org") {

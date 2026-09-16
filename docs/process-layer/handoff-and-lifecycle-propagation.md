@@ -4,60 +4,29 @@ How work moves between agents (handoff) and how state changes ripple up the prim
 
 ---
 
-## 1. Handoff: the coordination primitive
+## 1. Handoff: an edit, not a protocol
 
-The 2026 ecosystem converged on handoff as the coordination primitive: an agent has a transfer tool, calls it, and the system tracks the active agent on the task. We adopt this directly, inspired by Google's A2A (Agent-to-Agent) protocol: structured handoff messages with context IDs and explicit task states. We keep it simpler than A2A — no discovery or capability negotiation, because all agents are already known to the system.
+Handoff used to be its own mechanism — a dedicated tool, a structured message shape, a CAS transaction, an escalation thread. It no longer is. **Handing a task to another user is an ordinary `edit_task` call that sets `ownerAgentId`** (`layers/core-api/task/src/task-actions.ts`). The caller names a user id directly; there is no role-resolution or human-escalation step, and no separate wire shape to document — `edit_task`'s own input and its `changes` row are the whole record.
 
-No supervisor decides the handoff. The agent closest to the work decides, at runtime — same pattern as LangGraph Swarm or OpenAI Agents SDK handoffs. But the handoff message is structured, not just a string, making it parseable by the receiving agent and auditable by anyone reading the thread.
+The agent closest to the work still decides, at runtime — no supervisor approves a handoff. What changed is the mechanism, not who decides.
 
-### 1.1 The wire shape
+### 1.1 What happens on a handoff
 
-An agent calls the `handoff_to` tool. The implementation is `handoff()` in `layers/core-api/policy/src/handoff-protocol.ts`.
+Setting `ownerAgentId` to an agent, on a task that is `accepted` or `in_progress`, is what makes an edit a handoff (as opposed to an ordinary field change). Inside the edit's own transaction: the task row updates, one `changes` row records the before/after owner, and — because the task is already dispatched — a second `taskDispatchAttempts` row is inserted with `occasion: "owner_handoff"`, carrying the predecessor's live session id. After commit: the predecessor's session ends (`endRunForHandoff`), the old `task_state_changed` event fires if the state also changed, and the new owner's session starts (`submitWorkIntent`) — the same two calls an ordinary accept makes, reached by a second condition. Nothing about the re-dispatch is new; only the trigger and the record are.
 
-```ts
-// handoff-protocol.ts
-interface HandoffMetadata {
-  context_id: string;                                        // links handoff to task + thread
-  status: "completed" | "failed" | "blocked" | "in_progress"; // what the hander-off reports
-  reason: string;                                            // freeform — why the handoff
-  artifacts: string[];                                       // file references produced so far
-  remaining_work: string[];                                  // structured description of what's left
-  error?: string;
-}
-```
+A handoff to a human is the same call with a human user id — there is no `toHuman` flag, no separate review thread, and no escalation item. The person sees the ownership change and the message the caller posts to the task's thread, the same way any other owner change would surface.
 
-The target is a parameter, not a metadata field: `toAgent` (a specific agent id), `toRole` (e.g. `"builder"`), or `toHuman: true`. Exactly one must be given. The task comes from the session context.
+### 1.2 What is gone, deliberately
 
-Status meanings:
+Role-targeted handoff (`toRole`) and escalation-on-no-agent-available are gone — the caller names a person, not a role, and a failed lookup is the caller's problem, not the mechanism's. The dedicated `session_handoff_completed` event and the audit-trail `handoff` entry are gone with `tasks.audit_trail` itself; the `changes` row is the record now. The predecessor's run ending is not self-repairing today: a handed-off run left `active` stays `active` if the end call fails, a known and accepted limit.
 
-- `in_progress` — "I made progress but the task isn't done; pick up where I left off."
-- `completed` — "My part is done; the next phase needs a different skill."
-- `failed` — "I couldn't complete this; here's what went wrong."
-- `blocked` — "I can't proceed without input."
+### 1.3 Handoff between tasks
 
-### 1.2 One atomic transaction
+Unrelated to owner handoff: when a task completes and it was the last upstream dependency of a downstream task in `hold`, the Dependency Watcher (`layers/core-api/task/src/dependency-watcher.ts`) auto-transitions the downstream task `hold → accepted` and notifies its owner, via its own `edit_task` call. No central scheduler decides when to unblock — the state machine handles it.
 
-Every handoff runs as a single DB transaction: end the session (`state: "done"`), transfer task ownership / transition task state, write the structured handoff message to the task's thread, append the task's audit trail, and optionally create an escalation or review item. Events (`task_state_changed`, `item_created`) emit only after commit. A mid-flight failure rolls back everything — session stays active, ownership unchanged, no partial messages or items (`@lore I1`).
+### 1.4 Handoff is not workflow
 
-The receiving agent starts a session, reads the previous session's notes (synced back by the run-orchestration file watcher), the handoff message, and the task thread, and continues. Thread/message mechanics are owned by [thread-primitive.md](../human-interface-layer/thread-primitive.md).
-
-A handoff does not emit `session_ended` — cost-outcome subscribers must not fire on it.
-
-### 1.3 Role handoff is system-resolved
-
-When `toRole` is given, the system resolves it: `handoff-protocol.ts` queries `users.role` for an available agent with that role. If none is available, it creates an escalation item to a human ("No available &lt;role&gt; agent"). No facilitator or Product Manager sits in the loop.
-
-### 1.4 Handoff to a human
-
-`toHuman: true` transitions the task to `blocked` (in-transaction, audited) and creates a review thread plus a review item. When the human replies, `blocked → in_progress` is a legal transition and the agent starts a new session. Handoff to a human is the same shape as handoff to an agent — a structured message and a state change. Humans are identities like everyone else.
-
-### 1.5 Handoff between tasks
-
-When a task completes and it was the last upstream dependency of a downstream task in `hold`, the Dependency Watcher (`layers/core-api/work/src/dependency-watcher.ts`) auto-transitions the downstream task `hold → accepted` and notifies its owner. No central scheduler decides when to unblock — the state machine handles it. Task completion does **not** synthesize a handoff message; handoff messages exist only on explicit `handoff_to` calls.
-
-### 1.6 Handoff is not workflow
-
-Workflow engines wire transitions in advance. Handoff is decided at runtime by the agent that's closest to the work. The thread plus structured handoff messages are what make this safe: the entire history of who handed off what to whom, with what status and artifacts, is preserved and readable by any participant.
+Workflow engines wire transitions in advance. A handoff is decided at runtime by the agent closest to the work, and it is one field on one edit — not a separate primitive with its own lifecycle.
 
 ---
 
@@ -92,7 +61,7 @@ A completed session means the agent believes the work is done; `review` is the n
 
 When **all children** of a task reach a terminal state (`done` or `killed`) and the parent is `in_progress`, the parent transitions to `review` — same as the session→task rule. The walk continues upward: if that parent's own parent then satisfies the same condition, it propagates again, until the root is reached or a parent still has non-terminal children.
 
-The transition is CAS-guarded and appends an entry to the parent's `auditTrail` authored by `system:propagation`. There is no human gate on this transition; it mirrors the Session → Task path.
+The transition is guarded and appends a `changes` row authored by `system:propagation`. There is no human gate on this transition; it mirrors the Session → Task path.
 
 After a root task (no `parentTaskId`) completes, a `task_state_changed` event fires with the new state. Routines listening on that event — such as the `post-task-retro` routine from the knowledge-management plugin — can pick it up and fire. See [routines-and-retros.md](./routines-and-retros.md).
 
@@ -114,13 +83,13 @@ Nothing is silently dropped; every attempt is observable.
 
 ### 2.5 Race handling
 
-If a human manually transitions a task while propagation fires, the resulting `InvalidTransitionError` is caught and logged as `skipped` (not `failed`), with no retry. Human intent wins.
+If a human manually transitions a task while propagation fires, `edit_task` returns a refused-transition problem instead of throwing; propagation catches it and logs `skipped` (not `failed`), with no retry. Human intent wins.
 
 ### 2.6 Propagation log
 
 `propagation_log` is infrastructure, not UI — the user sees status chips change, not the mechanism. Terminal rows (`applied`/`skipped`) are TTL-swept on a retention schedule.
 
-Lifecycle propagation does not drive the task state machine itself — it calls the work service through an injected port (`transitionTaskState`), so the transition transaction boundary stays owned in one place. What may cross which boundary is enforced, not described here; see `tools/governance/README.md`.
+Lifecycle propagation does not drive the task state machine itself — it calls `edit_task`, injected as one function, as `system:propagation`, so the transition transaction boundary stays owned in the task module. What may cross which boundary is enforced, not described here; see `tools/governance/README.md`.
 
 ---
 

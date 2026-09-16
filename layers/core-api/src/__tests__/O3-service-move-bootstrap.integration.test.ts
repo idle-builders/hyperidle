@@ -2,6 +2,7 @@ import { EVENT_TYPES } from "@hyperidle/event-bus";
 import { describe } from "vitest";
 import { expect, test, vi } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
+import { buildCoreActions } from "../actions/compose.js";
 import type { AppOptions } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
 
@@ -13,11 +14,22 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
  * AU21 Increment 14a: cost-cap sentinel HARD-DELETED, no replacement).
  * Composing them replicates the exact same disposer set bootstrapAppRuntime
  * returned; only the grouping is new.
+ *
+ * `editTask` is derived from the SAME composed action list `app.ts`
+ * builds, off the ctx's own `agentOrchestration`.
  */
 function fullServiceBootstrap(
-	ctx: Parameters<typeof registerCoreDomainServices>[0],
+	ctx: Omit<Parameters<typeof registerCoreDomainServices>[0], "editTask">,
 ): Array<() => void> {
-	return [...registerCoreDomainServices(ctx), ...registerAgentLayerServices(ctx)];
+	const editTaskAction = buildCoreActions(ctx.agentOrchestration).find(
+		(a) => a.declaration.name === "edit_task",
+	);
+	if (!editTaskAction) throw new Error("edit_task action not found");
+	const fullCtx = {
+		...ctx,
+		editTask: editTaskAction.run as Parameters<typeof registerCoreDomainServices>[0]["editTask"],
+	};
+	return [...registerCoreDomainServices(fullCtx), ...registerAgentLayerServices(fullCtx)];
 }
 
 describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () => {

@@ -155,7 +155,7 @@ flowchart TB
   Routine -- "trigger" --> SessionRequest
 ```
 
-Task endpoints: `POST /api/tasks` (create, with optional `parentTaskId`), `GET /api/tasks/:id` (returns full subtree), `PATCH /api/tasks/:id` (edit — same door for humans and agents, no gate; `state: "killed"` cascades to the whole subtree), `POST /api/tasks/:id/handoff` (`layers/core-api/src/routes/tasks.ts`) via the handoff protocol. Lifecycle semantics: [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
+Task actions, `POST /api/actions/<name>`: `search_tasks`, `open_task` (returns the task, its ancestors, and its full subtree), `edit_task` (create when `id` is omitted, otherwise edit — same door for humans and agents, no gate; `state: "killed"` cascades to the whole subtree; setting `ownerAgentId` to another user is a handoff). Lifecycle semantics: [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
 
 ## L2 - Conversation Domain
 
@@ -419,9 +419,9 @@ Channels `"console"` | `"noop"` (`framework/diagnostics/src/observability/types.
 
 ## MCP Tool Surface
 
-Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). The tool set is declared in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: read_inbox, send_message, reply, log_task, query_practice, write_memory, handoff_to, create_item, create_artifact, write_session_notes, create_task (with optional parentTaskId), edit_task (ungated — same door for humans and agents), create_team, add_agent, create_routine, update_routine, promote_knowledge, score_attention, create_conflict_review, submit_review, commit_file.
+Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). Most are declared in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: send_message, reply, write_memory, create_item, submit_review, run_knowledge_sweep, score_attention, promote_knowledge, create_conflict_review, merge_knowledge, split_knowledge, create_team, add_agent, create_routine, update_routine, create_artifact. The rest are projected straight from the action list (`layers/core-api/src/actions/actions-as-tools.ts`) — today `search_tasks`, `open_task`, `edit_task` (ungated — same door for humans and agents; setting `ownerAgentId` is a handoff).
 
-The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/tasks/:id/handoff`, `/api/knowledge` (`/search`, `/`, `/triage-count`, `/:id`).
+The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/actions/<name>` for tasks, `/api/knowledge` (`/search`, `/`, `/triage-count`, `/:id`).
 
 ## Session Flow
 

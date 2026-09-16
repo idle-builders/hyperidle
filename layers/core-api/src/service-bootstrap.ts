@@ -32,8 +32,8 @@ import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/n
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import * as taskDb from "@hyperidle/task";
 import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
@@ -115,7 +115,7 @@ export async function reapTerminalTaskDispatchAttempts(
 	termCutoff: string,
 	batchSize: number,
 ): Promise<number> {
-	return work.taskDispatchAttemptStore.reapTerminal(db, termCutoff, batchSize);
+	return taskDb.taskDispatchAttemptStore.reapTerminal(db, termCutoff, batchSize);
 }
 
 /**
@@ -148,7 +148,7 @@ const notificationsDeps: NotificationsDeps = {
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
 	work: {
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		getItemById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "item", id),
 	},
 };
 
@@ -164,51 +164,56 @@ const notificationsDeps: NotificationsDeps = {
  * into one `PolicyDeps` aggregate. `registerPolicy` constructs the sub-shapes
  * internally; the composition root sees a single wiring point.
  */
-const policyDeps: PolicyDeps = {
-	work: {
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById: (exec: WriteExecutor, id: string, patch) =>
-			work.update(exec, "item", id, patch),
-		listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
-			const rows = await work.list(exec, "item", { sourceAgentId: agentId });
-			return rows.map((r) => r.id);
+/**
+ * §6 rows 4/5: `transitionTaskState` is gone — `lifecycle-propagation.ts`
+ * writes through `edit_task` now, injected as a plain function (Mechanism C,
+ * `policy` may not import `@hyperidle/task` directly). `policyDeps` is
+ * therefore built per-call, closing over the composed `edit_task.run` that
+ * only exists once the actions list is built (`app.ts`).
+ */
+function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
+	return {
+		work: {
+			getItemById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "item", id),
+			updateItemById: (exec: WriteExecutor, id: string, patch) =>
+				taskDb.update(exec, "item", id, patch),
+			listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
+				const rows = await taskDb.list(exec, "item", { sourceAgentId: agentId });
+				return rows.map((r) => r.id);
+			},
+			getTaskById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "task", id),
+			listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
+				taskDb.list(exec, "task", { parentTaskId }),
+			listAncestorIds: (exec: WriteExecutor, taskId: string) =>
+				taskDb.listAncestorIds(exec, taskId),
 		},
-		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		transitionTaskState: (exec, { taskId, fromState, patch }) =>
-			work.transition(exec, "task", {
-				id: taskId,
-				guard: { field: "state", equals: fromState },
-				patch,
-			}),
-		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
-			work.list(exec, "task", { parentTaskId }),
-		listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
-	},
-	conversation: {
-		insertMessage,
-		listMessagesByThread: (db, threadId, opts) =>
-			listMessages(db, {
-				threadId,
-				types: opts?.type ? [opts.type] : undefined,
-				order: opts?.order,
-				dir: opts?.dir,
-				limit: opts?.limit,
-			}),
-		resolveMessageIfUnresolved,
-		updateThread,
-		insertThread,
-		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
-			listMessages(db, {
-				threadInitiatorId: initiatorId,
-				types: ["verdict"],
-				since: windowStart,
-				noLegacyItem: true,
-			}),
-		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
-			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
-	},
-	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-};
+		conversation: {
+			insertMessage,
+			listMessagesByThread: (db, threadId, opts) =>
+				listMessages(db, {
+					threadId,
+					types: opts?.type ? [opts.type] : undefined,
+					order: opts?.order,
+					dir: opts?.dir,
+					limit: opts?.limit,
+				}),
+			resolveMessageIfUnresolved,
+			updateThread,
+			insertThread,
+			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+				listMessages(db, {
+					threadInitiatorId: initiatorId,
+					types: ["verdict"],
+					since: windowStart,
+					noLegacyItem: true,
+				}),
+			listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+				listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+		},
+		users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
+		editTask,
+	};
+}
 
 /**
  * AU11: registers CORE-owned application services against the event bus —
@@ -238,6 +243,12 @@ export function registerCoreDomainServices(ctx: {
 	 * (`app.ts`'s `serviceBootstrap` invocation) — never an ambient global.
 	 */
 	readonly agentOrchestration: AgentOrchestrationPort;
+	/**
+	 * `edit_task`'s own bound `run`, threaded from `app.ts`'s composed
+	 * actions list. See `PolicyDeps.editTask` and
+	 * `registerWorkSessionStartedReactions`.
+	 */
+	readonly editTask: PolicyDeps["editTask"];
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -253,7 +264,7 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
-	const { db, eventBus, agentOrchestration } = ctx;
+	const { db, eventBus, agentOrchestration, editTask } = ctx;
 	const disposers: Array<() => void> = [];
 
 	disposers.push(
@@ -296,7 +307,7 @@ export function registerCoreDomainServices(ctx: {
 	// `ports.work.updateBetById` write.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerWorkSessionEndReactions(db, eventBus),
+			registerWorkSessionEndReactions(db, eventBus, editTask),
 			"work session-end reactions",
 			"unsubscribe",
 			["agent_run_lifecycle_changed subscription", "session_ended subscription"],
@@ -308,7 +319,7 @@ export function registerCoreDomainServices(ctx: {
 	// provisioner.ts`'s deleted direct `ports.work.transitionTask` write.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerWorkSessionStartedReactions(db, eventBus, agentOrchestration),
+			registerWorkSessionStartedReactions(db, eventBus, editTask),
 			"work session-started reactions",
 			"unsubscribe",
 			["session_started subscription"],
@@ -360,7 +371,7 @@ export function registerCoreDomainServices(ctx: {
 
 	disposers.push(
 		identifyBootstrapOwner(
-			registerPolicy(db, eventBus, policyDeps),
+			registerPolicy(db, eventBus, buildPolicyDeps(editTask)),
 			"policy registration",
 			"unsubscribe",
 			// @lore AU44 batch6: "retry interval" removed — the 30s heartbeat

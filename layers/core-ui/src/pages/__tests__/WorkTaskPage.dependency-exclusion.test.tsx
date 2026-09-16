@@ -44,10 +44,8 @@ function makeTask(overrides: Partial<Record<string, unknown>> = {}): Record<stri
 		state: "proposed",
 		position: 0,
 		dependencies: null,
-		artifacts: null,
 		threadId: null,
 		notes: null,
-		auditTrail: null,
 		outcomeVerdict: null,
 		outcomeSummary: null,
 		outcomeRecordedAt: null,
@@ -57,6 +55,7 @@ function makeTask(overrides: Partial<Record<string, unknown>> = {}): Record<stri
 		createdAt: "2026-08-30T10:00:00.000Z",
 		updatedAt: "2026-08-30T10:00:00.000Z",
 		completedAt: null,
+		needsReview: false,
 		...overrides,
 	};
 }
@@ -70,17 +69,22 @@ const rootTask = makeTask({
 	dependencies: JSON.stringify([PICKED_ID]),
 });
 
-const TREE = {
+const TASK_VIEW = {
 	task: rootTask,
 	ancestors: [],
 	tokensActualRollup: null,
 	children: [],
+	threadId: null,
+	attachments: [],
 };
 
 function setupFetch(): void {
-	mockApiFetch.mockImplementation((url: string) => {
-		if (typeof url === "string" && url.includes("/tree")) {
-			return Promise.resolve({ ok: true, json: (): Promise<unknown> => Promise.resolve(TREE) });
+	mockApiFetch.mockImplementation((url: string, init?: RequestInit) => {
+		if (typeof url === "string" && url.includes("/api/actions/open_task")) {
+			return Promise.resolve({
+				ok: true,
+				json: (): Promise<unknown> => Promise.resolve({ ok: true, data: TASK_VIEW }),
+			});
 		}
 		if (typeof url === "string" && url.includes("/sessions")) {
 			return Promise.resolve({
@@ -88,21 +92,22 @@ function setupFetch(): void {
 				json: (): Promise<unknown> => Promise.resolve({ sessions: [] }),
 			});
 		}
-		if (typeof url === "string" && url.includes("ids=")) {
-			return Promise.resolve({
-				ok: true,
-				json: (): Promise<unknown> => Promise.resolve([{ id: PICKED_ID, title: "Already picked" }]),
-			});
-		}
-		if (typeof url === "string" && url.includes("?q=")) {
+		if (typeof url === "string" && url.includes("/api/actions/search_tasks")) {
+			const body = init?.body ? (JSON.parse(String(init.body)) as { ids?: string[] }) : {};
+			if (body.ids) {
+				return Promise.resolve({
+					ok: true,
+					json: (): Promise<unknown> =>
+						Promise.resolve({ ok: true, data: [{ id: PICKED_ID, title: "Already picked" }] }),
+				});
+			}
 			return Promise.resolve({
 				ok: true,
 				json: (): Promise<unknown> =>
-					Promise.resolve([
-						{ id: ROOT_ID, title: "Root task" },
-						{ id: PICKED_ID, title: "Already picked" },
-						{ id: "dep-excl-fresh", title: "A fresh candidate" },
-					]),
+					Promise.resolve({
+						ok: true,
+						data: [{ id: "dep-excl-fresh", title: "A fresh candidate" }],
+					}),
 			});
 		}
 		return Promise.resolve({ ok: true, json: (): Promise<unknown> => Promise.resolve({}) });

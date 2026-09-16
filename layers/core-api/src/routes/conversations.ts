@@ -4,7 +4,7 @@ import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus, ItemCreatedEvent } from "@hyperidle/event-bus";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 import { Hono } from "hono";
 import z from "zod";
 

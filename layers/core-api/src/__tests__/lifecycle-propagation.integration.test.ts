@@ -23,10 +23,11 @@ import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import * as work from "@hyperidle/task";
 import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { buildCoreActions } from "../actions/compose.js";
 
 /**
  * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes injected
@@ -37,44 +38,49 @@ import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtu
  * @lore AU20 Am1: `LifecyclePropagationDeps` removed from barrel; replaced
  * with `PolicyDeps`.
  */
-const policyDeps: PolicyDeps = {
-	work: {
-		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		transitionTaskState: (exec, { taskId, fromState, patch }) =>
-			work.transition(exec, "task", {
-				id: taskId,
-				guard: { field: "state", equals: fromState },
-				patch,
-			}),
-		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
-			work.list(exec, "task", { parentTaskId }),
-		listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-		updateItemById: (exec: WriteExecutor, id: string, patch) =>
-			work.update(exec, "item", id, patch),
-		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
-			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
-	},
-	conversation: {
-		insertMessage,
-		insertThread,
-		listMessagesByThread: (db, threadId, opts) =>
-			listMessages(db, {
-				threadId,
-				types: opts?.type ? [opts.type] : undefined,
-				order: opts?.order,
-				dir: opts?.dir,
-				limit: opts?.limit,
-			}),
-		resolveMessageIfUnresolved,
-		updateThread,
-		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
-			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
-		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
-			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
-	},
-	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-};
+function buildPolicyDeps(agentOrchestration: Parameters<typeof buildCoreActions>[0]): PolicyDeps {
+	const editTaskAction = buildCoreActions(agentOrchestration).find(
+		(a) => a.declaration.name === "edit_task",
+	);
+	if (!editTaskAction) throw new Error("edit_task action not found");
+	return {
+		work: {
+			getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+			listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
+				work.list(exec, "task", { parentTaskId }),
+			listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
+			getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+			updateItemById: (exec: WriteExecutor, id: string, patch) =>
+				work.update(exec, "item", id, patch),
+			listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
+				work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
+		},
+		conversation: {
+			insertMessage,
+			insertThread,
+			listMessagesByThread: (db, threadId, opts) =>
+				listMessages(db, {
+					threadId,
+					types: opts?.type ? [opts.type] : undefined,
+					order: opts?.order,
+					dir: opts?.dir,
+					limit: opts?.limit,
+				}),
+			resolveMessageIfUnresolved,
+			updateThread,
+			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
+				listMessages(db, {
+					threadInitiatorId: initiatorId,
+					types: ["verdict"],
+					since: windowStart,
+				}),
+			listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
+				listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
+		},
+		users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
+		editTask: editTaskAction.run as PolicyDeps["editTask"],
+	};
+}
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -159,12 +165,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	test("emits propagation_failed when task read throws (F2-A: first-failure path)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
+		const basePolicyDeps = buildPolicyDeps(agentOrchestration);
 		const failedEvents: PropagationFailedEvent[] = [];
 		const failingDeps: PolicyDeps = {
-			...policyDeps,
+			...basePolicyDeps,
 			work: {
-				...policyDeps.work,
+				...basePolicyDeps.work,
 				getTaskById: () => Promise.reject(new Error("read unavailable")),
 			},
 		};
@@ -194,12 +202,13 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	test("transitions task to review when session ends with outcome=completed and task is in_progress with no other active sessions", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
+		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act: emit session_ended with outcome=completed
 		eventBus.emit({
@@ -226,6 +235,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	test("emits propagation_applied when session->task transition succeeds", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
@@ -233,7 +243,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedSession(db, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
+		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act
 		eventBus.emit({
@@ -264,6 +274,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	test("does NOT transition task when session ends with outcome=crashed (F2: crashed stays in_progress)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
@@ -271,7 +282,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedSession(db, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
+		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act
 		eventBus.emit({
@@ -294,6 +305,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	test("does NOT transition task when session ends with outcome=stopped (F2: stopped same as crashed)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
@@ -301,7 +313,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedSession(db, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
+		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act
 		eventBus.emit({
@@ -336,13 +348,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	test("transitions task to review on a completed run even with a sibling run still active", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange: two sessions on one task, both active
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
 		await seedSession(db, "session-2", "task-1", "active");
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
+		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act: session-1 ends completed while session-2 is still active
 		eventBus.emit({
@@ -365,6 +378,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	test("does NOT transition task when task is NOT in_progress (already moved)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange: task is already in 'review'
@@ -372,7 +386,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedSession(db, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
+		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act
 		eventBus.emit({
@@ -399,6 +413,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 	test("handles concurrent race: InvalidTransitionError is caught silently (F1)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange: task manually moved away from in_progress BEFORE propagation fires
@@ -408,7 +423,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		const failedEvents: PropagationFailedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
 		eventBus.on("propagation_failed", (e) => failedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
+		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Manually transition task to 'done' to simulate race
 		await db
@@ -448,12 +463,13 @@ describe("registerLifecyclePropagation — propagation events", () => {
 	test("emits propagation_applied event when session->task propagation succeeds", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerPolicy(db, eventBus, policyDeps);
+		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
@@ -482,12 +498,16 @@ describe("registerLifecyclePropagation — propagation events", () => {
 		});
 	});
 
-	test("returns unsubscribe function that stops all event handling", async ({ db, eventBus }) => {
+	test("returns unsubscribe function that stops all event handling", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedBase(db);
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		const unsub = registerPolicy(db, eventBus, policyDeps);
+		const unsub = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Unsubscribe
 		unsub();

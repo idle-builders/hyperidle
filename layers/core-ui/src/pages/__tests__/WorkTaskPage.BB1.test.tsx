@@ -1,19 +1,19 @@
 /**
  * BB1 — WorkTaskPage: subtask reorder controls (AC12 component test).
  *
- * AC12: Subtasks can be reordered. The UI control issues PATCH with the
- * target position, then re-reads the tree so the server's canonical order
- * is what renders — never optimistic-only.
+ * AC12: Subtasks can be reordered. The UI control issues `edit_task` with
+ * the target position, then re-reads via `open_task` so the server's
+ * canonical order is what renders — never optimistic-only.
  *
  * Tests:
  *  1. Three siblings render with move-up / move-down buttons.
  *  2. "Move up" is disabled on the first sibling; "Move down" is disabled
  *     on the last sibling.
- *  3. Clicking "Move down" on the first sibling issues PATCH /api/tasks/:id
- *     with { position: 1 }.
- *  4. After PATCH, the tree is re-read and the server's order renders.
+ *  3. Clicking "Move down" on the first sibling issues `edit_task` with
+ *     { position: 1 }.
+ *  4. After the edit, `open_task` re-reads and the server's order renders.
  *  5. Reorder controls work at grandchild depth — clicking "Move down" on
- *     the first grandchild issues PATCH against the grandchild's id.
+ *     the first grandchild issues `edit_task` against the grandchild's id.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -71,11 +71,10 @@ function makeTask(
 		doneCondition: null,
 		state: overrides.state ?? "proposed",
 		position: overrides.position ?? 0,
+		needsReview: false,
 		dependencies: null,
-		artifacts: null,
 		threadId: null,
 		notes: null,
-		auditTrail: null,
 		outcomeVerdict: null,
 		outcomeSummary: null,
 		outcomeRecordedAt: null,
@@ -115,6 +114,8 @@ const INITIAL_TREE = {
 	task: rootTask,
 	ancestors: [],
 	tokensActualRollup: null,
+	threadId: null,
+	attachments: [],
 	children: [
 		{
 			...childA,
@@ -166,24 +167,24 @@ const AFTER_MOVE_X_DOWN = {
 
 /**
  * Set up apiFetch to:
- * - Return `initialTree` on the first GET /tree call
- * - Return `afterTree` on subsequent GET /tree calls (after PATCH triggers refresh)
- * - Respond 200 to PATCH
+ * - Return `initialTree` on the first `open_task` call
+ * - Return `afterTree` on subsequent `open_task` calls (after `edit_task` triggers refresh)
+ * - Respond 200 to `edit_task`
  * - Respond 200 with empty sessions
  *
- * Returns an array that captures every PATCH call's [url, body].
+ * Returns an array that captures every `edit_task` call's [url, body].
  */
 function setupFetch(initialTree: object, afterTree: object): Array<{ url: string; body: unknown }> {
-	const patchCalls: Array<{ url: string; body: unknown }> = [];
-	let treeCallCount = 0;
+	const editCalls: Array<{ url: string; body: unknown }> = [];
+	let openCallCount = 0;
 
 	mockApiFetch.mockImplementation((url: string, init?: RequestInit) => {
-		if (typeof url === "string" && url.includes("/tree")) {
-			const payload = treeCallCount === 0 ? initialTree : afterTree;
-			treeCallCount++;
+		if (typeof url === "string" && url.includes("/api/actions/open_task")) {
+			const payload = openCallCount === 0 ? initialTree : afterTree;
+			openCallCount++;
 			return Promise.resolve({
 				ok: true,
-				json: (): Promise<unknown> => Promise.resolve(payload),
+				json: (): Promise<unknown> => Promise.resolve({ ok: true, data: payload }),
 			});
 		}
 		if (typeof url === "string" && url.includes("/sessions")) {
@@ -192,14 +193,12 @@ function setupFetch(initialTree: object, afterTree: object): Array<{ url: string
 				json: (): Promise<unknown> => Promise.resolve({ sessions: [] }),
 			});
 		}
-		if (init?.method === "PATCH") {
-			patchCalls.push({
-				url: typeof url === "string" ? url : String(url),
-				body: JSON.parse(String(init.body ?? "{}")),
-			});
+		if (typeof url === "string" && url.includes("/api/actions/edit_task")) {
+			const body = JSON.parse(String(init?.body ?? "{}")) as { id?: string };
+			editCalls.push({ url: body.id ?? "", body });
 			return Promise.resolve({
 				ok: true,
-				json: (): Promise<unknown> => Promise.resolve({}),
+				json: (): Promise<unknown> => Promise.resolve({ ok: true, data: afterTree }),
 			});
 		}
 		return Promise.resolve({
@@ -208,7 +207,7 @@ function setupFetch(initialTree: object, afterTree: object): Array<{ url: string
 		});
 	});
 
-	return patchCalls;
+	return editCalls;
 }
 
 function renderPage(taskId: string): void {
@@ -270,8 +269,8 @@ describe("WorkTaskPage subtask reorder controls (BB1 AC12)", () => {
 		expect(screen.getByTestId(`move-down-${CHILD_C_ID}`)).toBeDisabled();
 	});
 
-	it("clicking Move down on the first sibling issues PATCH with position:1 then re-reads", async () => {
-		const patchCalls = setupFetch(INITIAL_TREE, AFTER_MOVE_A_DOWN);
+	it("clicking Move down on the first sibling issues edit_task with position:1 then re-reads", async () => {
+		const editCalls = setupFetch(INITIAL_TREE, AFTER_MOVE_A_DOWN);
 		renderPage(ROOT_ID);
 
 		// Wait for tree to render
@@ -282,14 +281,14 @@ describe("WorkTaskPage subtask reorder controls (BB1 AC12)", () => {
 		const user = userEvent.setup();
 		await user.click(screen.getByTestId(`move-down-${CHILD_A_ID}`));
 
-		// PATCH was called with the right position
+		// edit_task was called with the right position
 		await waitFor(() => {
-			expect(patchCalls).toHaveLength(1);
+			expect(editCalls).toHaveLength(1);
 		});
 		// Non-null: we just asserted length 1 above
-		const patch = patchCalls[0]!;
-		expect(patch.url).toMatch(`/api/tasks/${CHILD_A_ID}`);
-		expect(patch.body).toMatchObject({ position: 1 });
+		const edit = editCalls[0]!;
+		expect(edit.url).toBe(CHILD_A_ID);
+		expect(edit.body).toMatchObject({ position: 1 });
 
 		// After refresh, server order [B, A, C] is what renders
 		await waitFor(() => {
@@ -300,7 +299,7 @@ describe("WorkTaskPage subtask reorder controls (BB1 AC12)", () => {
 	});
 
 	it("reorder controls work at grandchild depth", async () => {
-		const patchCalls = setupFetch(INITIAL_TREE, AFTER_MOVE_X_DOWN);
+		const editCalls = setupFetch(INITIAL_TREE, AFTER_MOVE_X_DOWN);
 		renderPage(ROOT_ID);
 
 		await waitFor(() => {
@@ -315,10 +314,10 @@ describe("WorkTaskPage subtask reorder controls (BB1 AC12)", () => {
 		await user.click(screen.getByTestId(`move-down-${GRANDCHILD_X_ID}`));
 
 		await waitFor(() => {
-			expect(patchCalls).toHaveLength(1);
+			expect(editCalls).toHaveLength(1);
 		});
 		// Non-null: we just asserted length 1 above
-		expect(patchCalls[0]!.url).toMatch(`/api/tasks/${GRANDCHILD_X_ID}`);
-		expect(patchCalls[0]!.body).toMatchObject({ position: 1 });
+		expect(editCalls[0]!.url).toBe(GRANDCHILD_X_ID);
+		expect(editCalls[0]!.body).toMatchObject({ position: 1 });
 	});
 });

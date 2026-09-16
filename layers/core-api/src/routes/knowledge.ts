@@ -59,8 +59,8 @@ import {
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { markDetached } from "@hyperidle/settings";
+import * as work from "@hyperidle/task";
 import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 

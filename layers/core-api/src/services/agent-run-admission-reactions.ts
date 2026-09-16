@@ -36,7 +36,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/event-bus";
 import { type CreateReviewItemResult, createReviewItem } from "@hyperidle/knowledge";
 import * as routineService from "@hyperidle/routine";
-import * as work from "@hyperidle/work";
+import * as work from "@hyperidle/task";
 
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
 const registeredBuses = new WeakSet<EventBus>();

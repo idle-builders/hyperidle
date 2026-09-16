@@ -35,7 +35,7 @@ one.
 
 Shapes and semantics: [process-layer/the-four-primitives.md](../process-layer/the-four-primitives.md).
 
-**F-2.1 Task.** A unit of work with an explicit done condition, owned by a team. A task may contain subtasks to any depth; a task with no parent is a root task — the top-level commitment. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/domain-model/src/types.ts`). `hold` is the single waiting state, whatever the wait is for — a person can put a task on hold by hand, and a task with unmet upstream dependencies is parked there too. A task with unfinished dependencies cannot move to `accepted` or `in_progress`; the state machine refuses it regardless of who or what asks. Dependencies are set at create or edit, by a human or an agent; a self-dependency, a dependency on a nonexistent task, or a dependency that would close a cycle is refused with a reason. When a task's last dependency reaches `done`, the Dependency Watcher auto-transitions it hold → accepted. When a dependency is killed instead, its id is dropped from every dependent that carries it, and any dependent that was waiting on it in `hold` returns to `proposed` for re-planning rather than starting. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met), an optional thread, and `tokensActualJson` for their own session's usage (subtree totals are summed at read time). Every change to a mutable field lands in `auditTrail`. Editing is ungated — `PATCH /api/tasks/:id` accepts the same body from a human or an agent with no role or status gate. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
+**F-2.1 Task.** A unit of work with an explicit done condition, owned by a team. A task may contain subtasks to any depth; a task with no parent is a root task — the top-level commitment. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/domain-model/src/types.ts`). `hold` is the single waiting state, whatever the wait is for — a person can put a task on hold by hand, and a task with unmet upstream dependencies is parked there too. A task with unfinished dependencies cannot move to `accepted` or `in_progress`; the state machine refuses it regardless of who or what asks. Dependencies are set at create or edit, by a human or an agent; a self-dependency, a dependency on a nonexistent task, or a dependency that would close a cycle is refused with a reason. When a task's last dependency reaches `done`, the Dependency Watcher auto-transitions it hold → accepted. When a dependency is killed instead, its id is dropped from every dependent that carries it, and any dependent that was waiting on it in `hold` returns to `proposed` for re-planning rather than starting. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met), an optional thread, and `tokensActualJson` for their own session's usage (subtree totals are summed at read time). Every change to a mutable field lands as a row in the `changes` table. Editing is ungated — `edit_task` accepts the same input from a human or an agent with no role or status gate. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
 
 **F-2.2 Session.** A single agent's bounded run on a task, states `active | paused | done | crashed`. The session ends before context compaction, and the agent writes session notes back to the task before ending — notes are the bridge between sessions on the same task. Shape owned by [process-layer/the-four-primitives.md](../process-layer/the-four-primitives.md) §Sessions.
 
@@ -71,13 +71,13 @@ Duties and lifecycle: [knowledge-architecture/facilitators.md](../knowledge-arch
 
 **F-4.3** Product managers have a dual role: coordinator (integrates the task list, resolves handoffs, drafts retros) and self-improver.
 
-**F-4.4** Surfacing trajectory shifts is the product manager's judgement — no numerical thresholds. Done-condition changes and other significant task edits are visible in `auditTrail`; emitting a review item for notable changes is the product manager's call.
+**F-4.4** Surfacing trajectory shifts is the product manager's judgement — no numerical thresholds. Done-condition changes and other significant task edits are visible in the `changes` table; emitting a review item for notable changes is the product manager's call.
 
 ## F-5: Handoff
 
 Depth: [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/handoff-and-lifecycle-propagation.md).
 
-**F-5.2** Handoff is the coordination primitive: the `handoff_to` tool (toAgent / toRole / toHuman, contextId, status, reason, artifacts, remainingWork) ends the session, transfers ownership, and notifies on the task thread.
+**F-5.2** Handoff is the coordination primitive: an `edit_task` call that sets `ownerAgentId` to a named user ends the running session and starts a new one for the new owner.
 
 **F-5.3** Handoff to a human uses the same mechanism as handoff to an agent — humans are `users` rows with `kind="human"`.
 
@@ -101,7 +101,7 @@ Item shape and routing rules: [human-interface-layer/items-and-routing.md](../hu
 
 **F-7.2** Bottom-up: agents contribute findings to their practice through direct knowledge writes; the facilitator decides which become captured practice items. New practice knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
 
-**F-7.3** The two flows meet at the task: committed top-down, revised bottom-up, every revision appended to `auditTrail` with reasoning.
+**F-7.3** The two flows meet at the task: committed top-down, revised bottom-up, every revision recorded as a `changes` row with reasoning.
 
 ## F-8: Retros and Learning
 

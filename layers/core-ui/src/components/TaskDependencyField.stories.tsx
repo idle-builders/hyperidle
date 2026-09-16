@@ -2,8 +2,8 @@
  * TaskDependencyField stories — search-and-pick, not paste-an-id.
  *
  * Mocks `window.fetch` the same way `RecipientPicker.stories.tsx` does: the
- * component calls `GET /api/tasks?q=` (search) and `GET /api/tasks?ids=`
- * (title lookup for already-listed dependencies) via `apiFetch`.
+ * component calls `search_tasks` via `POST /api/actions/search_tasks` — with
+ * `text` (search) or `ids` (title lookup for already-listed dependencies).
  */
 
 import type { JSX } from "react";
@@ -29,19 +29,25 @@ const EXISTING_TITLES: Record<string, string> = {
 function useMockTaskFetch(): void {
 	useEffect(() => {
 		const original = window.fetch;
-		window.fetch = (async (url: unknown) => {
+		window.fetch = (async (url: unknown, init?: RequestInit) => {
 			const urlStr = typeof url === "string" ? url : String(url);
-			if (urlStr.includes("ids=")) {
-				const ids = new URL(urlStr, "http://localhost").searchParams.get("ids")?.split(",") ?? [];
-				const rows = ids
-					.filter((id) => id in EXISTING_TITLES)
-					.map((id) => ({ id, title: EXISTING_TITLES[id] }));
-				return new Response(JSON.stringify(rows), {
+			if (urlStr.includes("/api/actions/search_tasks")) {
+				const input = init?.body ? (JSON.parse(String(init.body)) as { ids?: string[] }) : {};
+				if (input.ids) {
+					const rows = input.ids
+						.filter((id) => id in EXISTING_TITLES)
+						.map((id) => ({ id, title: EXISTING_TITLES[id] }));
+					return new Response(JSON.stringify({ ok: true, data: rows }), {
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					});
+				}
+				return new Response(JSON.stringify({ ok: true, data: SEARCH_RESULTS }), {
 					status: 200,
 					headers: { "Content-Type": "application/json" },
 				});
 			}
-			return new Response(JSON.stringify(SEARCH_RESULTS), {
+			return new Response(JSON.stringify({ ok: true, data: [] }), {
 				status: 200,
 				headers: { "Content-Type": "application/json" },
 			});

@@ -1,3 +1,28 @@
+// the action list. `ActionDeclaration`/`Action*` are the generic shape;
+// `TASK_ACTIONS` and friends are task's own declarations — the first of the
+// per-object action lists, in `./actions/`.
+export type { ActionDeclaration, ActionResult, Problem } from "./actions/action.js";
+export type {
+	EditTaskInput,
+	SearchTasksInput,
+	Task,
+	TaskListItem,
+	TaskNode,
+	TaskView,
+} from "./actions/task.js";
+export {
+	canTransitionTaskState,
+	EditTaskInputSchema,
+	editTask,
+	openTask,
+	SearchTasksInputSchema,
+	searchTasks,
+	TASK_ACTIONS,
+	TASK_STATE_TRANSITIONS,
+	TaskSchema,
+	TaskViewSchema,
+	taskInvariants,
+} from "./actions/task.js";
 export type {
 	AgentBehaviorConfigKind,
 	AgentBehaviorConfigLink,
@@ -160,7 +185,6 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-export { canTransitionTaskState, TASK_STATE_TRANSITIONS } from "./task-transition.js";
 export type {
 	AgentHealthLevel,
 	AgentOperationalStatus,
