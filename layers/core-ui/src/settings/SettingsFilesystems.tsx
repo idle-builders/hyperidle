@@ -38,7 +38,7 @@ interface FilesystemApiItem {
 	createdAt: string;
 }
 
-/** BA5 §2.7: `GET /api/connections` returns a flat array, inherited rows first. */
+/** `GET /api/connections` returns a flat array, inherited rows first. */
 interface ConnectionApiItem {
 	id: string;
 	service: string;
@@ -111,7 +111,7 @@ function AddFilesystemDialog({
 
 	const isGithubUrl = kind === "code" && GITHUB_HTTPS_REPO.test(location.trim());
 
-	// BA5 §10: the GitHub token connection Select is populated from held token
+	// The GitHub token connection Select is populated from held token
 	// connections for the "github" service — fetched once the dialog opens.
 	useEffect(() => {
 		if (!open) return;
@@ -134,7 +134,7 @@ function AddFilesystemDialog({
 		(c) => c.authSource === "token" && c.service.toLowerCase() === "github",
 	);
 
-	// BA5 §10: prefill Branch through inspect-path for a local path — a github.com
+	// Prefill Branch through inspect-path for a local path — a github.com
 	// URL cannot be probed this way (no local filesystem to inspect).
 	const handleLocationBlur = useCallback(async (): Promise<void> => {
 		const path = location.trim();

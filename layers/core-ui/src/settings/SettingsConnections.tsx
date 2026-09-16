@@ -238,7 +238,7 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 			]
 		: [];
 
-	// BA5 §18 (narrow cut): health is live CLI detection, only ever computed for
+	// Health is live CLI detection, only ever computed for
 	// inherited rows. Suppress the chip when an inherited row is working; a held
 	// (stored) row has no health of its own, so it never shows one at all.
 	const chipHealth = c.authSource === "inherited" ? c.health : undefined;

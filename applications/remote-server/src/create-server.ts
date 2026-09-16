@@ -81,7 +81,7 @@ export interface CreateServerDeps {
 	readonly db?: HyperIdleDb;
 	readonly topology: "local" | "disabled";
 	readonly sandboxBasePath?: string;
-	/** BA5 §5.2: override for where a remote git filesystem's kept copies live. Absent on Postgres (§17.7): the database is a URL, not a folder. */
+	/** Override for where a remote git filesystem's kept copies live. Absent on Postgres: the database is a URL, not a folder. */
 	readonly keptCopiesRoot?: string;
 	/**
 	 * Interface to bind the listening socket to. Omitted → `@hono/node-server`
@@ -230,11 +230,11 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// any plugin without an install path, so a plugin's MCP servers never reached
 	// a session. Both only worked in tests, which pass a temp dir.
 	let pluginsBaseDir: string | undefined;
-	// BA5 §5.2/§17.7: where a remote git filesystem's ONE kept copy lives.
-	// Only for `pglite` — a Postgres `dbUrl` is a connection string, not a
-	// folder, so a `vps`/`cloud` profile leaves this absent (a remote git
-	// filesystem there holds with "this server has no folder to keep
-	// repository copies in"; the documented shared backend runs no agents).
+	// @lore: where a remote git filesystem's ONE kept copy lives. Only for
+	// `pglite` — a Postgres `dbUrl` is a connection string, not a folder, so a
+	// `vps`/`cloud` profile leaves this absent (a remote git filesystem there
+	// holds with "this server has no folder to keep repository copies in";
+	// the documented shared backend runs no agents).
 	let keptCopiesRoot: string | undefined;
 	if (deps.db) {
 		db = deps.db;

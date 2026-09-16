@@ -114,7 +114,7 @@ async function endReservedSessionAfterFailedAdmission(
 }
 
 /**
- * BA5 §4.2/§13 (L5) — the filesystem-hold's own reserved-row cleanup: DELETED,
+ * @lore: the filesystem-hold's own reserved-row cleanup: DELETED,
  * not crashed. `reserveOrAdoptSession` adopts any existing row for a request
  * (this file's `reserveOrAdoptSession`, above); a crashed row would be
  * adopted by the retry that follows the request back to `pending`, and the
@@ -466,7 +466,7 @@ async function runClaimedRequest(
 			}
 			throw err;
 		}
-		// BA5 §4.2/§13 (L5) — the filesystem hold: the same shape as the
+		// @lore: the filesystem hold: the same shape as the
 		// concurrency release above (claim back to `pending`, no task-failure
 		// reporting), plus deleting the reserved row instead of leaving it
 		// `active` — see `deleteReservedSessionAfterFilesystemHold`'s own doc.

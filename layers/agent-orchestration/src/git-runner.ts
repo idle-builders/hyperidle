@@ -36,7 +36,7 @@ interface GitRunner {
 	 * `found: true` when the branch resolves, `branchMissing: true` on git's
 	 * exit code 2 (the branch does not exist — the remote IS reachable), and
 	 * on any other failure `authRequested: true` when stderr says git needed
-	 * a login it did not have (§7.2's Check reads this to phrase its reason).
+	 * a login it did not have (`checkFilesystem` reads this to phrase its reason).
 	 * Credential env goes in `opts.env` (GIT_CONFIG_ / GH_TOKEN) — never in the
 	 * URL or argv. Never throws — always returns a result object.
 	 *
@@ -90,7 +90,7 @@ interface GitRunner {
 	 * Add a worktree at `worktreePath`, on a NEW branch `newBranch`, starting
 	 * from `startPoint`. Runs against the kept copy (runner cwd = kept copy
 	 * path). Always creates the branch — a mounted worktree is always a new
-	 * branch off the filesystem's configured branch (§5.2), never a checkout
+	 * branch off the filesystem's configured branch, never a checkout
 	 * of an existing one.
 	 *
 	 * @lore BA5 §6.3: rewritten from the AO2 shape (optional `createBranch`,
@@ -150,7 +150,7 @@ function redactArgsForLog(args: readonly string[], secrets: readonly string[]): 
 /**
  * True when git's own stderr says the remote wanted a login it did not get —
  * "no credential at all" and "a credential that was rejected" both count, the
- * two shapes the probe for §14.1 actually saw against a real github.com-shaped
+ * two shapes this was verified against a real github.com-shaped
  * server (git 2.39.5): `could not read Username` (no helper answered) and
  * `Authentication failed` (the helper's answer was wrong).
  */

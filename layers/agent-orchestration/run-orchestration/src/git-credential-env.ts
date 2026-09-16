@@ -1,5 +1,5 @@
 /**
- * BA5 §6.1 — the env HyperIdle's own git needs to authenticate a
+ * @lore: the env HyperIdle's own git needs to authenticate a
  * `https://github.com/` remote through `gh`'s own credential helper. Never a
  * token in argv or a URL: the helper attachment plus `GH_TOKEN` are the only
  * shapes a secret ever takes on the way to a child process (`git-runner.ts`).

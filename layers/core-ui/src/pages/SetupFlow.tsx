@@ -390,7 +390,7 @@ export function SetupFlow(): JSX.Element {
 				}
 
 				// Capture teamId for filesystem registration below, and the agent
-				// ids (BA5 §2.1) so a registered filesystem can be picked for them.
+				// ids so a registered filesystem can be picked for them.
 				const teamBody = (await teamRes.json().catch(() => null)) as {
 					team?: { id?: string };
 					agentIds?: string[];

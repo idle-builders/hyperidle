@@ -1,5 +1,5 @@
 /**
- * BA5 §2.6/§4.3/§4.5 — the ONE writer-and-emitter for a filesystem's
+ * @lore: the ONE writer-and-emitter for a filesystem's
  * `needs_attention` transition. Every caller that discovers a broken
  * filesystem — a placement failure, a failing `Check`, a failing check at
  * registration — goes through this, never the registry writer directly, so

@@ -51,7 +51,7 @@ interface ConnectionView {
 	via: string;
 	authSource: AuthSource;
 	/**
-	 * BA5 §18 (narrow cut): only ever set for authSource:"inherited" — live CLI
+	 * Only ever set for authSource:"inherited" — live CLI
 	 * detection. A held (stored) row carries no health of its own now that
 	 * `service_connections.health` and the validate route are gone.
 	 */
@@ -158,7 +158,7 @@ function bySeverity(a: ConnectionView, b: ConnectionView): number {
 function ConnectionRow({ c }: { c: ConnectionView }): JSX.Element {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const note = authNote(c.authSource);
-	// BA5 §18 (narrow cut): health is live CLI detection, only ever computed for
+	// Health is live CLI detection, only ever computed for
 	// inherited rows. A held (stored) row has none of its own, so it never shows
 	// a chip at all.
 	const chipHealth = c.authSource === "inherited" ? c.health : undefined;

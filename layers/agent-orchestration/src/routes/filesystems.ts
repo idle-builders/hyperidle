@@ -8,7 +8,7 @@
 // agent-orchestration-owned, so a route whose whole table set is those two has
 // exactly one legal host and it is this Layer.
 //
-// **The paths do not change** except one: `GET /:id` is deleted (BA5 §2.7/§12)
+// **The paths do not change** except one: `GET /:id` is deleted
 // — its only job was the live reachability probe, which is gone with the
 // write-back axis. `/api/filesystems`, `/api/filesystems/inspect-path` and
 // `/api/filesystems/:id/injections/:agentUserId` are byte-identical to
@@ -63,19 +63,19 @@ import { createGitRunner } from "../git-runner.js";
 // routes, e.g. `routes/connections.ts`'s own inline types) so this module
 // never imports `@hyperidle/connections` — the Application composes both.
 
-/** Resolve a token connection's plaintext, as the connection's OWNER (§2.4). */
+/** Resolve a token connection's plaintext, as the connection's OWNER. */
 interface CredentialResolverPort {
 	resolve(connectionId: string): Promise<string | null>;
 }
 
-/** Enough of a held connection row to validate a POST's `connectionId` (§2.7). */
+/** Enough of a held connection row to validate a POST's `connectionId`. */
 interface ConnectionLookupPort {
 	lookup(connectionId: string): Promise<{ service: string; authSource: string } | null>;
 }
 
 export interface FilesystemRoutesDeps {
 	readonly eventBus?: EventBus;
-	/** BA5 §5.2 — where a remote git filesystem's kept copy lives; absent → DELETE has nothing to forget. */
+	/** Where a remote git filesystem's kept copy lives; absent → DELETE has nothing to forget. */
 	readonly keptCopiesRoot?: string;
 	readonly resolveCredential?: CredentialResolverPort["resolve"];
 	readonly lookupConnection?: ConnectionLookupPort["lookup"];
@@ -91,7 +91,7 @@ const codeRefSchema = z.object({
 const docSetRefSchema = z.object({ kind: z.literal("doc_set"), folder: z.string().min(1) });
 const resourceRefSchema = z.discriminatedUnion("kind", [codeRefSchema, docSetRefSchema]);
 
-/** BA5 §2.7: `writeback` and `sourceHint` are both gone — source is always derived, never client-supplied. */
+/** `writeback` and `sourceHint` are both gone — source is always derived, never client-supplied. */
 const registerFilesystemSchema = z.object({
 	teamId: z.string().min(1),
 	// @lore AU44 b2: inlined from FILESYSTEM_KINDS constant (dissolved with filesystem-contract).
@@ -101,7 +101,7 @@ const registerFilesystemSchema = z.object({
 });
 
 const GITHUB_HTTPS_REPO = /^https:\/\/github\.com\//i;
-/** BA5 §2.7: a branch is a plain ref name — no shell metacharacters, no leading `-` (an argv flag). */
+/** A branch is a plain ref name — no shell metacharacters, no leading `-` (an argv flag). */
 const BRANCH_NAME = /^[A-Za-z0-9._/-]+$/;
 
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
 }
 
 /**
- * BA5 §2.7: POST's `source` derivation — display only, never client-supplied.
+ * POST's `source` derivation — display only, never client-supplied.
  * A `connectionId` is only accepted (see the handler's validation) when it
  * already names a github.com repo, so it always yields `"github"`.
  */
@@ -137,7 +137,7 @@ function deriveSource(body: z.infer<typeof registerFilesystemSchema>): string {
 }
 
 /**
- * BA5 §2.7 POST rules, everything Zod's shape checks cannot express:
+ * POST rules, everything Zod's shape checks cannot express:
  * - a `code` URL may never carry userinfo (credentials belong in a connection);
  * - `branch` is a plain ref name;
  * - `connectionId`, when given, must name a `token` connection whose `service`
@@ -263,9 +263,9 @@ export function createFilesystemRoutes(
 		const inserted = await getFilesystem(db, id);
 		if (inserted == null) throw new Error("Filesystem disappeared after insert");
 
-		// BA5 §2.7: run Check on registration so the caller gets the real initial
+		// Run Check on registration so the caller gets the real initial
 		// state. A failing check enters `needs_attention` and sends the notice,
-		// like any other entry (§4.3).
+		// like any other entry.
 		const check = await runCheckAndPersist(
 			db,
 			eventBus,
@@ -342,7 +342,7 @@ export function createFilesystemRoutes(
 
 		// CASCADE on filesystem_injections is DB-level (onDelete: cascade).
 		await deleteFilesystem(db, id);
-		// BA5 §5.2/§12: forget the ONE remote kept copy, if any — never a local repo.
+		// Forget the ONE remote kept copy, if any — never a local repo.
 		await forgetKeptCopy(keptCopiesRoot, rowToFilesystem(existing));
 		return new Response(null, { status: 204 });
 	});

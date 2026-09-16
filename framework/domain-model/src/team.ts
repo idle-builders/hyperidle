@@ -181,7 +181,7 @@ export interface CreateTeamResponse {
 	team: { id: string; name: string; phase: string };
 	teamMembers: { id: string };
 	/**
-	 * BA5 §2.1: the ids of every agent scaffolded for this team. Onboarding
+	 * @lore: the ids of every agent scaffolded for this team. Onboarding
 	 * needs them to pick a filesystem for the agent it just created — without
 	 * this, a filesystem registered during setup was never mounted anywhere.
 	 */

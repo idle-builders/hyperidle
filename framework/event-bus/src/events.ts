@@ -360,7 +360,7 @@ export interface SandboxWritebackChangesDetectedEvent {
 }
 
 /**
- * BA5 §2.1/§4.3 — a filesystem just ENTERED `needs_attention`, whatever the
+ * @lore: a filesystem just ENTERED `needs_attention`, whatever the
  * cause (a placement failure, a failing Check, a failing check at
  * registration). Published exactly once per episode by the agent-orchestration
  * layer root's `recordFilesystemNeedsAttention` — never on a failure that only
@@ -561,7 +561,7 @@ export type DomainEvent =
 	| ItemCreatedEvent
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
-	// BA5 §2.1: filesystem placement/Check outcome
+	// filesystem placement/Check outcome
 	| FilesystemNeedsAttentionEvent
 	| KnowledgeCreatedEvent
 	| KnowledgeUpdatedEvent

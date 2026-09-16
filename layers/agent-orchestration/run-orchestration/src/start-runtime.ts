@@ -88,7 +88,7 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 	if (!deps.runtime) return 0;
 	let consumed = 0;
 	for (;;) {
-		// BA5 §4.1/§13 (L5) — the hold, mechanically: a held agent's pending rows
+		// @lore: the hold, mechanically: a held agent's pending rows
 		// are never even candidates for this claim. Built fresh on every
 		// iteration (not once per `drainAgentSessionRequests` call) so a
 		// filesystem fixed mid-drain is picked up within the same pass, and a
@@ -211,10 +211,10 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// Every OTHER failure kind still terminalizes the request to `failed`
 			// (see the lore above), so it will not be reclaimed again at all —
 			// only `CONCURRENCY_LIMIT` needs this.
-			// BA5 §4.1/§4.2/§13 (L5): the same fail-safe `return` as
+			// @lore: the same fail-safe `return` as
 			// `CONCURRENCY_LIMIT` (see the lore just above) — never a busy retry
-			// within this call. The next wake (≤1s) reads the exclusion list fresh
-			// (§4.1), so the held agent's request is simply skipped from then on.
+			// within this call. The next wake (≤1s) reads the exclusion list fresh,
+			// so the held agent's request is simply skipped from then on.
 			if (failure.code === "CONCURRENCY_LIMIT" || failure.code === "FILESYSTEM_UNAVAILABLE")
 				return consumed;
 		}
@@ -228,7 +228,7 @@ type AgentAdmissionFailureCode =
 	| "CONCURRENCY_LIMIT"
 	| "MISSING_CREDENTIAL"
 	| "NO_ELIGIBLE_HARNESS"
-	// BA5 §4.2/§13 (L5): a placement failure that already ran the full hold
+	// @lore: a placement failure that already ran the full hold
 	// (unmount, release, mark needs_attention) in `provisioner.ts`.
 	| "FILESYSTEM_UNAVAILABLE"
 	| "INTERNAL_ERROR";
@@ -246,7 +246,7 @@ function classifyAdmissionFailure(error: unknown): {
 			return { code: "MISSING_CREDENTIAL", status: 500 };
 		case "NoEligibleHarnessError":
 			return { code: "NO_ELIGIBLE_HARNESS", status: 422 };
-		// BA5 §4.2/§13 (L5): the full hold already ran (unmount, release, mark
+		// @lore: the full hold already ran (unmount, release, mark
 		// needs_attention) before this was thrown — see `errors.ts`'s
 		// `FilesystemUnavailableError`.
 		case "FilesystemUnavailableError":

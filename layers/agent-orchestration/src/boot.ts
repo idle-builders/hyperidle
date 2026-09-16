@@ -109,7 +109,7 @@ import { SessionActivityBuffer } from "./session-activity-buffer.js";
  * `filesystems`, `filesystem-mounting` are all this Layer's own services), so
  * the Application-supplied session slice no longer carries them.
  *
- * BA5 §4.2/§13 (L5): `filesystemCheckDeps` joins them — built alongside
+ * @lore: `filesystemCheckDeps` joins them — built alongside
  * `mounter` off this Layer's own `git-runner.ts`/`cli-status.ts`, never
  * something an Application would have any other reason to hold.
  */
@@ -130,7 +130,7 @@ export interface AgentOrchestrationRuntimeOptions {
 	readonly session: ApplicationProvisionSessionDeps;
 	readonly sandboxBasePath?: string;
 	/**
-	 * BA5 §5.2: where a remote git filesystem's ONE kept copy lives — the
+	 * @lore: where a remote git filesystem's ONE kept copy lives — the
 	 * application's own data folder, never under `sandboxBasePath` (the sandbox
 	 * reaper deletes any folder there with no session row after 24h). Absent →
 	 * a remote git filesystem cannot mount ("this server has no folder to keep
@@ -317,7 +317,7 @@ function buildRuntimeComposition(
 interface OrchestrationProvisioningReads {
 	readonly mounter?: RegistryFilesystemMounter;
 	/**
-	 * BA5 §4.2/§13 (L5): built alongside `mounter` (same `sandboxBasePath`
+	 * @lore: built alongside `mounter` (same `sandboxBasePath`
 	 * guard — no mounter means nothing is ever placed, so there is nothing a
 	 * placement failure could need to re-check).
 	 */
@@ -375,14 +375,14 @@ function buildProvisioningReads(
 		injectedFilesystems: {
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),
-			// BA5 §2.4/§13 (L4): resolved as the connection's OWNER, never a
+			// @lore: resolved as the connection's OWNER, never a
 			// per-request user — wired now so a real mount carries a real
-			// credential instead of always `null` (L3's placeholder).
+			// credential instead of always `null`.
 			resolveCredential: (connectionId: string) =>
 				resolveConnectionToken(db, connectionId, decrypt),
-			// BA5 §4.1/§4.4/§13 (L5): the drain's claim-time exclusion list.
+			// the drain's claim-time exclusion list.
 			listHeldAgentIds: () => listHeldAgentIds(db),
-			// BA5 §4.2/§4.4/§13 (L5): the ONE writer-and-emitter (§4.3/§4.5) —
+			// @lore: the ONE writer-and-emitter —
 			// never the registry writer directly, so the once-per-episode notice
 			// rule stays in exactly one place regardless of which caller broke.
 			markNeedsAttention: (filesystemId: string, reason: string) =>

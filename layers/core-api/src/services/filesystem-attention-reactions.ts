@@ -1,5 +1,5 @@
 /**
- * BA5 §8/§13 (L5) — the filesystem-hold's inbox producer.
+ * @lore: the filesystem-hold's inbox producer.
  *
  * Orchestration is a blind, request-driven executor: it holds zero `-> users`
  * edge and never reads core-api state (architecture.md §4.6). Its one outward
@@ -16,7 +16,7 @@
  *
  * No dedupe lives here — the once-per-episode guarantee is entirely
  * orchestration's own conditional update (`markFilesystemNeedsAttention`'s
- * `WHERE state<>'needs_attention'`, BA5 §4.5): this reaction fires exactly
+ * `WHERE state<>'needs_attention'`): this reaction fires exactly
  * once per event it receives, and orchestration guarantees exactly one event
  * per episode.
  */
@@ -39,7 +39,7 @@ async function resolveAgentNames(db: HyperIdleDb, agentIds: readonly string[]): 
 	return names;
 }
 
-/** BA5 §8 — the middle sentence is dropped when the event carries no agents (a failing check at registration, before any agent has the filesystem). */
+/** The middle sentence is dropped when the event carries no agents (a failing check at registration, before any agent has the filesystem). */
 function describeBody(reason: string, agentNames: readonly string[]): string {
 	if (agentNames.length === 0) {
 		return `${reason} After fixing it, press Check in Settings → Filesystems.`;

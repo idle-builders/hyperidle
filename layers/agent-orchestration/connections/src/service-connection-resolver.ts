@@ -20,7 +20,7 @@ import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 
 /**
- * BA5 §2.4 — resolve a token connection's plaintext AS THE CONNECTION'S OWNER,
+ * @lore: resolve a token connection's plaintext AS THE CONNECTION'S OWNER,
  * with no caller-supplied `userId`. Unlike `resolveHeldToken`, the caller here
  * (filesystem mounting) has only a `connectionId` — a filesystem row has no
  * user of its own (seams §2) — so this reads the row first to learn its

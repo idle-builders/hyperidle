@@ -11,8 +11,8 @@
  * `secrets` are the literal values the caller knows are live for this one
  * call (typically `GIT_CONFIG_VALUE_n` / `GH_TOKEN` from that call's env) —
  * literal-replaced first, because a PAT does not always match the `gh*_`
- * shape (an enterprise or classic token, or a value BA5 does not yet know
- * about).
+ * shape (an enterprise or classic token, or a value this redaction does not
+ * yet know about).
  */
 export function redactSecrets(text: string, secrets: readonly string[]): string {
 	let out = text;

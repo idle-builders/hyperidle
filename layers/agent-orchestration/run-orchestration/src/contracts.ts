@@ -147,7 +147,7 @@ export interface RuntimePorts {
 				workerId: string;
 				now: Date;
 				leaseMs: number;
-				/** BA5 §2.3/§4.1/§13 (L5): the drain's claim-time hold — see `start-runtime.ts`. */
+				/** @lore: the drain's claim-time hold — see `start-runtime.ts`. */
 				excludeAgentIds?: readonly string[];
 			},
 		): Promise<AgentSessionRequest | null>;

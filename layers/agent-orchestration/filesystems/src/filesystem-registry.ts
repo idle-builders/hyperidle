@@ -46,8 +46,8 @@ export async function listFilesystems(
 /**
  * Mark a filesystem `needs_attention`, whatever the cause (a placement
  * failure, a failing Check, a failing check at registration). The `WHERE
- * state<>'needs_attention'` clause is the once-per-episode guarantee (BA5
- * §4.5): a row returns only on the transition INTO the state, and only then
+ * state<>'needs_attention'` clause is the once-per-episode guarantee: a row
+ * returns only on the transition INTO the state, and only then
  * does the caller know to publish the notice. A failure on a row already
  * there only refreshes the reason — same shape, no row back, `entered:false`.
  * Returns `null` when the filesystem does not exist.
@@ -89,9 +89,9 @@ export async function markFilesystemReachable(exec: WriteExecutor, id: string): 
 }
 
 /**
- * BA5 §2.2/§4.1/§13 (L5) — every agent currently held by a `needs_attention`
+ * @lore: every agent currently held by a `needs_attention`
  * filesystem: the drain's claim-time exclusion list. Leaving the state needs
- * no release code (§4.3) — this read simply stops returning an agent once
+ * no release code — this read simply stops returning an agent once
  * `markFilesystemReachable` moves its filesystem out, the injection is
  * removed, or the filesystem is deleted (its injections cascade).
  */

@@ -1160,10 +1160,10 @@ export const filesystems = pgTable(
 		// JSON-encoded ResourceRef, discriminated by kind.
 		resourceRef: text("resource_ref").notNull(),
 		// Reachability lifecycle. Written by placement (a mount failure) and by Check —
-		// never by a route transition (migration 0082, BA5).
+		// never by a route transition (migration 0082).
 		state: text("state").notNull().default("attached"),
 		// What to fix, plain words, redacted. Set together with state:'needs_attention';
-		// cleared when Check passes. Migration 0082 (BA5) — replaces the write-back axis.
+		// cleared when Check passes. Migration 0082 replaces the write-back axis.
 		attentionReason: text("attention_reason"),
 		createdAt: text("created_at").notNull(),
 	},

@@ -1,13 +1,13 @@
 /**
- * `checkFilesystem` — BA5 §7.2: "is this filesystem usable right now, and if
- * not, what should the person do about it." Used by three callers (§2.5): the
+ * @lore `checkFilesystem`: "is this filesystem usable right now, and if
+ * not, what should the person do about it." Used by three callers: the
  * `POST /:id/check` route, registration (`POST /`), and placement-failure
- * reason phrasing (L5) — the SAME logic decides all three, so a filesystem
+ * reason phrasing — the SAME logic decides all three, so a filesystem
  * never gets a different verdict depending on who asked.
  *
  * The remote is reached FIRST; `gh` is asked only when that answer says it is
  * needed (a token connection, or the remote itself asked for a login) — a
- * public github.com repository therefore needs no `gh` at all (§6.1, T5).
+ * public github.com repository therefore needs no `gh` at all.
  */
 import * as fs from "node:fs";
 import * as os from "node:os";

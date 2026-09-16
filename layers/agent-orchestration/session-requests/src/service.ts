@@ -174,7 +174,7 @@ async function claimNextRequestInternal(
 	options: Pick<ClaimOptions, "now" | "leaseMs" | "excludeAgentIds">,
 ) {
 	const now = options.now.toISOString();
-	// BA5 §2.3/§4.1/§13 (L5): the hold's claim-time filter — wraps BOTH
+	// @lore: the hold's claim-time filter — wraps BOTH
 	// branches of the candidate `or(...)`, so a held agent's row is never
 	// picked up whether it is still `pending` or a stale `claimed` lease.
 	const excludeAgentIds = options.excludeAgentIds ?? [];
@@ -1276,7 +1276,7 @@ export interface ClaimOptions {
 	readonly now: Date;
 	readonly leaseMs: number;
 	/**
-	 * BA5 §2.3/§4.1/§13 (L5) — the filesystem hold's claim-time filter: agents
+	 * @lore: the filesystem hold's claim-time filter: agents
 	 * currently held by a `needs_attention` filesystem. `claimNextRequestInternal`
 	 * excludes their pending/expired-claimed rows from the `{next:true}` candidate
 	 * query so nothing retries a broken filesystem in a busy loop; the by-id
@@ -1375,7 +1375,7 @@ export function claimSessionRequest(
 	selector: { readonly next: true } | { readonly id: string },
 	options: ClaimOptions,
 ) {
-	// BA5 §2.3/§13 (L5): `excludeAgentIds` only ever reaches the `{next:true}`
+	// @lore: `excludeAgentIds` only ever reaches the `{next:true}`
 	// candidate query — the by-id selector is reached only with a request this
 	// same drain already claimed for itself, so the hold cannot apply to it.
 	if ("id" in selector) {

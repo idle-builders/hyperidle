@@ -142,7 +142,7 @@ export function startTestRuntime(
 }
 
 /**
- * BA5 §4/§13 (L5, T8) — starts the public runtime with the REAL internal
+ * @lore: starts the public runtime with the REAL internal
  * provisioner (`admitSession`/`runSession`, `provisioner.ts`), not a stubbed
  * execution edge: `ports.sessionProvisioner` is left unset, so `startRuntime`'s
  * own default wraps its real `createProvisioner` around
