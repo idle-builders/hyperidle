@@ -276,7 +276,12 @@ describe("a sandbox outlives the session that asked for a verdict", () => {
 
 	test("a session that called nothing still leaves its directory", async ({ db }) => {
 		const sandboxPath = tempDir();
-		const { survives, destroyed } = await runOnce(db as HyperIdleDb, "agent-quiet", sandboxPath, {});
+		const { survives, destroyed } = await runOnce(
+			db as HyperIdleDb,
+			"agent-quiet",
+			sandboxPath,
+			{},
+		);
 		expect(survives, "nothing is torn down at session end any more").toBe(true);
 		expect(destroyed, "nothing calls workspace.destroy at session end any more").toEqual([]);
 	});

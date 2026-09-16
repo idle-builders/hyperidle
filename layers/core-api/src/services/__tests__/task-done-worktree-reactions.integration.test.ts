@@ -113,7 +113,10 @@ describe("registerTaskDoneWorktreeReactions", () => {
 		});
 	});
 
-	test("task_state_changed → killed calls the door once, for that task", async ({ db, eventBus }) => {
+	test("task_state_changed → killed calls the door once, for that task", async ({
+		db,
+		eventBus,
+	}) => {
 		await seedTask(db, "task-n7-killed", "killed");
 		const released: string[] = [];
 		registerTaskDoneWorktreeReactions(
