@@ -14,6 +14,7 @@ both ways on the running app. The registered package (2026-08-17) was voided by 
 4. A failed mount tells nobody — the agent runs in an empty folder.
 5. Checking a connection cannot catch a revoked token, and nothing in the product calls it.
 6. Every resume of an agent with a repository already fails its mount, silently.
+7. Every session end destroys the workspace, so an agent resumed after a verdict loses its files (BA12).
 
 ### Rulings
 - **The workspace is the person's own computer**, composed per agent: **everything it needs, no
@@ -30,8 +31,12 @@ both ways on the running app. The registered package (2026-08-17) was voided by 
   agent puts changes back through the Drive CLI itself.
 - **A filesystem that cannot be put in place puts the agent's sessions on hold — not the task.** The
   task stays ready, just not started. The person is told once; the sessions start when it works again.
-- **Google Drive is phase 2**, through a CLI both the agent and HyperIdle can steer. Workspace lifetime
-  stays per-session (BA12's).
+- **Google Drive is phase 2**, through a CLI both the agent and HyperIdle can steer.
+- **No teardown (2026-09-16, absorbs BA12).** A folder or Drive filesystem is a reference to a place
+  that lives until a person deletes it; it may be shared by several teams. Putting it in place only
+  coincides with an agent starting when the place does not exist here yet. Only a git worktree is
+  disposable — isolation of the repository, not removal of it — and it goes when the task is done; the
+  branch keeps everything. Removing anything is a doesn't-matter op: skipped or failed, nothing is lost.
 
 **Out:** isolation, OAuth, a sync engine, Dropbox, S3, renaming `sandbox`.
 
@@ -42,8 +47,10 @@ both ways on the running app. The registered package (2026-08-17) was voided by 
 2. **Each goes into the workspace, in its own named folder.** A **git repository** has one kept copy
    — the person's own repo if local, or one HyperIdle clones once and fetches afterwards if remote — and
    the session gets its own worktree off it, on the configured branch, on a branch of its own. A
-   **folder** is linked in as it is; the agent works on the real files. A **Google Drive** folder is
-   copied down with `rclone`; the agent puts its changes back with `rclone` itself, as it pushes git.
+   **folder** is linked in as it is; the agent works on the real files. A **Google Drive** folder has one
+   kept copy too, brought down with `rclone` once and refreshed before each session; the agent puts its
+   changes back with `rclone` itself, as it pushes git. **Every place lives outside the session's
+   directory** — the session only links to it, so losing the session directory loses nothing.
 3. **The agent is told what it has** — each filesystem, where it sits, and how its work gets out.
    Today its instructions never mention what was mounted.
 4. The agent starts.
@@ -66,11 +73,14 @@ passes, the waiting sessions start. Nothing retries a broken filesystem on its o
 **A resumed session reuses its workspace**, so a filesystem already in place is recognised and left
 alone — without this, the resume bug above would hold every resume of an agent with a repository.
 
-**When a session ends**, its worktree is removed from the person's repository; the branch stays.
+**When a session ends, nothing is torn down.** Kept copies and the person's folders stay where they are
+until the person deletes the filesystem. The worktree stays until the task is done — a session resumed
+after a verdict finds its files as it left them (BA12's case) — and is then removed; the branch stays.
+If that removal fails, nothing cares.
 
 **Surfaces**, on existing patterns: a real *Add filesystem* dialog, a *Check* action, *needs attention*
 with its reason and any missing CLI, and the inbox notification. **Goes away:** the two git adapters,
-the write-back setting, the unused connection check.
+the write-back setting, the unused connection check, the session-end unmount and workspace destroy.
 
 **Deliberately simple:** one shared inbox (BA7 adds per-person addressing); a private GitLab repository
 relies on the person's own git setup; Google Docs and Sheets are not files — editing them is a tool's
@@ -85,11 +95,13 @@ would break inherited logins.
   patterns: approved in words here, shown live at G2.
 - **G2 — phase 1 proven on the running app:** a local repository, a public remote, a private remote
   through a `gh` login and through a PAT, a folder; a broken filesystem holding the agent, one
-  notification, and starting after *Check*; a resume.
+  notification, and starting after *Check*; a resume. **PASSED 2026-09-15** on the packaged desktop app.
+- **G2b — no teardown, proven on the running app:** a session end leaves the worktree and the kept copy;
+  a resume finds the files; task done removes the worktree and keeps the branch.
 - **G3 — before ship:** Drive through `rclone` proven, the filesystem doc brought up to date, one
   CI-green PR. The maintainer merges.
 - **Size accepted (maintainer, 2026-09-11):** the rulings add up to ~2,000–2,400 lines; built in six
-  ordered steps, each ending green.
+  ordered steps, each ending green. The no-teardown change (2026-09-16) is mostly deletion.
 - A fresh reviewer per phase over the integrated diff. Dials: suite · new context · user-facing surface.
 
 ## Confusions
