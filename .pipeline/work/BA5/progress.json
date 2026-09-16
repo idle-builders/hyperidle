@@ -360,7 +360,30 @@
       {
         "id": "P2",
         "what": "phase 2 \u2014 Google Drive through a CLI the agent and HyperIdle can both steer",
-        "state": "building D1-D5 per architecture-phase2.md (option A); rclone installed locally 2026-09-16 for the real-rclone lane"
+        "state": "built; review in flight",
+        "commits": [
+          "47a2499c5",
+          "99c5713a3",
+          "971b2dcd2",
+          "cbda4dd5a",
+          "a186d2b40",
+          "578976027",
+          "f73203d3b",
+          "008105bda",
+          "b54203491"
+        ],
+        "deviations": [
+          "drive-reason.ts as a third file to avoid a mounter<->check import cycle",
+          "CloudNotBuiltAdapter renamed UnsupportedFilesystemAdapter (the design's own pseudocode name)",
+          "knip + design-profile census entries",
+          "V4 assertion rewritten to the achievable ordering (Check runs inside POST / before any injection)",
+          "explicit leading '-' check on the remote name"
+        ],
+        "builderCount": "+584/-119 production (design ~465); tests +1168/-10",
+        "docsFlagged": [
+          "docs/guides/developer/getting-started.md and docs/architecture/as-implemented-domain-architecture.md still name filesystem_captures / filesystem-contract"
+        ],
+        "needsMaintainer": "real Google account proof (architecture-phase2.md \u00a79.4) at G3"
       }
     ],
     "state": "all six leaves done"
