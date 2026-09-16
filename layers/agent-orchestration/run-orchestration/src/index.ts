@@ -85,7 +85,12 @@ export {
 	normalizeLocalPath,
 	RegistryFilesystemMounter,
 } from "./mounter.js";
-export type { MountingGitRunnerFactory } from "./mounter-ports.js";
+export type {
+	MountingGitRunnerFactory,
+	RcloneFailureCode,
+	RcloneOutcome,
+	RcloneRunner,
+} from "./mounter-ports.js";
 export type { PluginMcpContributionsPort } from "./provisioner.js";
 export {
 	requestRunStopForTasks,

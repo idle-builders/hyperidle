@@ -23,6 +23,11 @@
  * git check and the remote reachability gate, §7.2) and is the first caller
  * in this package that does. `bundle`/`restoreStaged` still have no caller
  * here at all and stay dropped.
+ *
+ * @lore Google Drive phase: `RcloneRunner`/`RcloneOutcome` declared here too —
+ * the same structural-port idiom as the git runner above, for the one other
+ * CLI a filesystem can need. Implemented once at the layer root
+ * (`rclone-runner.ts`, beside `git-runner.ts`), injected by the Application.
  */
 
 interface MountingGitRunner {
@@ -59,3 +64,19 @@ interface MountingGitRunner {
 }
 
 export type MountingGitRunnerFactory = (cwd: string) => MountingGitRunner;
+
+export type RcloneFailureCode = "not_installed" | "directory_not_found" | "failed";
+
+export type RcloneOutcome<T> =
+	| { readonly ok: true; readonly value: T }
+	| { readonly ok: false; readonly code: RcloneFailureCode; readonly reason: string };
+
+/** One `rclone` binary, driven for a Google Drive filesystem. Never repository-scoped — one value, injected directly. */
+export interface RcloneRunner {
+	/** `rclone listremotes` → configured remote names, trailing `:` stripped. */
+	listRemotes(): Promise<RcloneOutcome<readonly string[]>>;
+	/** `rclone lsjson --stat <remote>:<path>` → whether the item is a directory. */
+	statPath(remote: string, path: string): Promise<RcloneOutcome<{ readonly isDir: boolean }>>;
+	/** `rclone copy <remote>:<path> <destination> --drive-skip-gdocs -u`, remote → local only. */
+	copyDown(remote: string, path: string, destination: string): Promise<RcloneOutcome<void>>;
+}
