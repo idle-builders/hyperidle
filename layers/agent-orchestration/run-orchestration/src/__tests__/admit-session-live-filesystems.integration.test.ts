@@ -15,7 +15,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, vi } from "vitest";
@@ -271,7 +271,7 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 		expect(
 			worktreeList(keptCopy),
 			"nothing is torn down at session end — the worktree stays until the task is done",
-		).toContain(mountedFs.folder);
+		).toContain(fs.realpathSync(mountedFs.folder));
 		expect(branchExists(keptCopy, branch)).toBe(true);
 		expect(fs.readFileSync(path.join(mountedFs.folder, "agent-work.txt"), "utf8")).toBe("done\n");
 		expect(fs.existsSync(workspacePath), "the session directory is not deleted either").toBe(true);
@@ -360,7 +360,7 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 		expect(
 			worktreeList(keptCopy),
 			"the human has not answered yet; unmounting now loses the agent's uncommitted work in a worktree the resume expects to still be there",
-		).toContain(mountedFs.folder);
+		).toContain(fs.realpathSync(mountedFs.folder));
 		expect(fs.existsSync(workspacePath)).toBe(true);
 	});
 
@@ -374,6 +374,19 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 		const agentId = "agent-t9-resume";
 		const taskId = "task-t9-resume-1";
 		await seedAgent(db as HyperIdleDb, agentId);
+		const nowIso = new Date().toISOString();
+		await (db as HyperIdleDb)
+			.insert(teams)
+			.values({ id: "team-t9-resume", name: "T", phase: "build", createdAt: nowIso });
+		await (db as HyperIdleDb).insert(tasks).values({
+			id: taskId,
+			parentTaskId: null,
+			teamId: "team-t9-resume",
+			title: "resume task",
+			state: "in_progress",
+			createdAt: nowIso,
+			updatedAt: nowIso,
+		});
 
 		const captured: CapturedStart = {};
 		const injectedFilesystems = {

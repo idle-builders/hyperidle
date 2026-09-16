@@ -616,15 +616,20 @@ describe("RegistryFilesystemMounter.releaseForTask (BA5 no-teardown §4)", () =>
 		const dirtyBranch = dirty.mounted.git?.branch as string;
 		const cleanKeptCopy = clean.mounted.git?.keptCopy as string;
 		const cleanBranch = clean.mounted.git?.branch as string;
+		// `worktreeList` names the real worktree directory, not the symlink
+		// `mounted.folder` — capture it now, before release can leave the
+		// symlink dangling and `realpathSync` unable to resolve it.
+		const cleanRealPath = fs.realpathSync(clean.mounted.folder);
+		const dirtyRealPath = fs.realpathSync(dirty.mounted.folder);
 
 		await mounter.releaseForTask(db, taskId);
 
 		expect(fs.existsSync(clean.mounted.folder)).toBe(false);
-		expect(worktreeList(cleanKeptCopy)).not.toContain(clean.mounted.folder);
+		expect(worktreeList(cleanKeptCopy)).not.toContain(cleanRealPath);
 		expect(branchExists(cleanKeptCopy, cleanBranch)).toBe(true);
 
 		expect(fs.existsSync(dirty.mounted.folder)).toBe(true);
-		expect(worktreeList(dirtyKeptCopy)).toContain(dirty.mounted.folder);
+		expect(worktreeList(dirtyKeptCopy)).toContain(dirtyRealPath);
 		expect(branchExists(dirtyKeptCopy, dirtyBranch)).toBe(true);
 
 		// The task directory itself survives — the dirty worktree still lives in it.

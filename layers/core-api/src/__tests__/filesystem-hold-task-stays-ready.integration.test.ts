@@ -109,9 +109,10 @@ function realLocalGitRunnerFactory(cwd: string) {
 			const result = run(["worktree", "add", "-b", newBranch, worktreePath, startPoint]);
 			if (!result.ok) throw new Error(`git worktree add failed for '${cwd}'`);
 		},
-		async worktreeRemove(worktreePath: string, opts?: { force?: boolean }) {
-			run(["worktree", "remove", ...(opts?.force ? ["--force"] : []), worktreePath]);
-		},
+		// BA5 (no-teardown): never called by this scenario any more — nothing
+		// unmounts a placement failure's worktree, and this fixture never
+		// drives `releaseForTask` either. Kept only to satisfy the runner shape.
+		async worktreeRemove() {},
 		async verifyCommit(ref: string) {
 			return run(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]).ok;
 		},
@@ -300,7 +301,10 @@ describe("the filesystem hold, end to end (BA5 §4/§8/§13, T8)", () => {
 					fs.rmSync(handle.path, { recursive: true, force: true });
 				},
 			},
-			mounter: new RegistryFilesystemMounter({ gitRunnerFactory: realLocalGitRunnerFactory }),
+			mounter: new RegistryFilesystemMounter({
+				gitRunnerFactory: realLocalGitRunnerFactory,
+				keptCopiesRoot: tempDir("kept-copies"),
+			}),
 			injectedFilesystems: {
 				listInjectedForProvisioning: (forAgentId: string) =>
 					listInjectedFilesystemsForProvisioning(db, forAgentId),
