@@ -25,7 +25,11 @@ import { registerTaskDoneWorktreeReactions } from "../task-done-worktree-reactio
 
 const NOW = new Date().toISOString();
 
-async function seedTask(db: HyperIdleDb, id: string, state: "done" | "in_progress"): Promise<void> {
+async function seedTask(
+	db: HyperIdleDb,
+	id: string,
+	state: "done" | "in_progress" | "killed",
+): Promise<void> {
 	const teamId = `${id}-team`;
 	await db.insert(teams).values({ id: teamId, name: "T", phase: "build", createdAt: NOW });
 	await db.insert(tasks).values({
@@ -39,7 +43,7 @@ async function seedTask(db: HyperIdleDb, id: string, state: "done" | "in_progres
 	});
 }
 
-function taskStateChanged(taskId: string, toState: "done"): TaskStateChangedEvent {
+function taskStateChanged(taskId: string, toState: "done" | "killed"): TaskStateChangedEvent {
 	return {
 		type: "task_state_changed",
 		streamId: taskId,
@@ -106,6 +110,45 @@ describe("registerTaskDoneWorktreeReactions", () => {
 
 		await vi.waitFor(() => {
 			expect(released).toEqual(["task-n7-sessend-done"]);
+		});
+	});
+
+	test("task_state_changed → killed calls the door once, for that task", async ({ db, eventBus }) => {
+		await seedTask(db, "task-n7-killed", "killed");
+		const released: string[] = [];
+		registerTaskDoneWorktreeReactions(
+			db,
+			eventBus,
+			fakePort(async (taskId) => {
+				released.push(taskId);
+			}),
+		);
+
+		eventBus.emit(taskStateChanged("task-n7-killed", "killed"));
+
+		await vi.waitFor(() => {
+			expect(released).toEqual(["task-n7-killed"]);
+		});
+	});
+
+	test("session_ended whose task is already killed (core's own row) calls the door", async ({
+		db,
+		eventBus,
+	}) => {
+		await seedTask(db, "task-n7-sessend-killed", "killed");
+		const released: string[] = [];
+		registerTaskDoneWorktreeReactions(
+			db,
+			eventBus,
+			fakePort(async (taskId) => {
+				released.push(taskId);
+			}),
+		);
+
+		eventBus.emit(sessionEnded("sess-n7-killed", "task-n7-sessend-killed"));
+
+		await vi.waitFor(() => {
+			expect(released).toEqual(["task-n7-sessend-killed"]);
 		});
 	});
 
