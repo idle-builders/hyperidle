@@ -13,8 +13,8 @@ import { type HyperIdleDb, sessions, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach } from "vitest";
-import { createRuntimeReapers } from "../runtime-reapers.js";
 import { recordReviewSession } from "../review-sessions.js";
+import { createRuntimeReapers } from "../runtime-reapers.js";
 
 const NOW_MS = Date.parse("2026-09-16T00:00:00.000Z");
 const ENDED_LONG_AGO = new Date(NOW_MS - 48 * 60 * 60 * 1000).toISOString(); // 2 days ago
@@ -36,7 +36,9 @@ async function seedTerminalSession(
 ): Promise<void> {
 	const teamId = `${id}-team`;
 	const agentId = `${id}-agent`;
-	await db.insert(teams).values({ id: teamId, name: "T", phase: "build", createdAt: ENDED_LONG_AGO });
+	await db
+		.insert(teams)
+		.values({ id: teamId, name: "T", phase: "build", createdAt: ENDED_LONG_AGO });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

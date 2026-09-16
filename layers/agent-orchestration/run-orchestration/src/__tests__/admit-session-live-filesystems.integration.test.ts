@@ -448,7 +448,10 @@ describe("a session run to completion, with a real mounted git filesystem", () =
 		};
 		const provisioner = createProvisioner(ports);
 
-		const firstParams = { ...buildParams(agentId, workspacePath), taskId } as ProvisionSessionParams;
+		const firstParams = {
+			...buildParams(agentId, workspacePath),
+			taskId,
+		} as ProvisionSessionParams;
 		const firstAdmitted = await provisioner.admit(deps, firstParams);
 		const firstMounted = firstAdmitted.mountedFilesystems[0] as MountedFilesystem;
 		fs.writeFileSync(path.join(firstMounted.folder, "first-session.txt"), "first session\n");

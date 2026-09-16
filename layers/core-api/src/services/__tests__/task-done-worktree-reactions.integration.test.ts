@@ -25,11 +25,7 @@ import { registerTaskDoneWorktreeReactions } from "../task-done-worktree-reactio
 
 const NOW = new Date().toISOString();
 
-async function seedTask(
-	db: HyperIdleDb,
-	id: string,
-	state: "done" | "in_progress",
-): Promise<void> {
+async function seedTask(db: HyperIdleDb, id: string, state: "done" | "in_progress"): Promise<void> {
 	const teamId = `${id}-team`;
 	await db.insert(teams).values({ id: teamId, name: "T", phase: "build", createdAt: NOW });
 	await db.insert(tasks).values({
