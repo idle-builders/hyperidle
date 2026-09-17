@@ -261,3 +261,133 @@ Fix: pick one host for a task's thread and make §3.9, §4 step 4 and §4 step 7
   (`routes/threads.ts:65,857,1295`), and `no-header-identity-in-authz`'s sink set
   (`tools/eslint-plugin-authz/src/rules/no-header-identity-in-authz.ts:19`) does empty out. Deleting
   the rule with the functions is right; what is missing is B1's replacement invariant, not the guard.
+
+---
+
+# Round 2 — re-test against `f8c3a20ce` (architecture, 1,704 lines) and `2dff3bc64` (plan)
+
+**PASS WITH BLOCKERS** — one blocker, new, and it is a consequence of the round-1 fixes rather than a
+survivor of them. All ten of B1–B10 are genuinely fixed: I re-tested each against the code, not against
+the response table, and every code claim the response makes checks out. No non-blocking fix broke a
+locked contract.
+
+## Remaining blocker
+
+### B11 — membership has no join path, and four live paths now dead-end on `not_a_member`
+
+Round 1's B1 fix made the read/write split explicit (§3.4, §6.3–6.4, `plan.md` Confusion 6) and B10's
+fix made every task thread `team`-hosted. Together they produce a shape the document does not name:
+**`team`-, `knowledge_item`- and `factory`-hosted threads are readable by any signed-in principal and
+writable only by their members, and nothing anywhere adds a member to one.** `adjust_thread` refuses a
+non-member too (`architecture.md:429` — `not_a_member` is "for **both** send and adjust"), so a
+non-member cannot add themselves. The only join is an `@mention` by someone already inside
+(§3.6 step 5). `rg` over the revised document for handoff/join/"adds the owner" returns two hits, both
+about task *creation* (`architecture.md:652, 1496`).
+
+Today all four of these work, because `canWrite` delegates to `canRead`, which returns `true` for
+host-scoped kinds (`layers/core-api/src/auth/access-boundary.ts:35-37, 60-62, 76-77`):
+
+- **A handoff.** `edit_task` changing `ownerAgentId` on an existing task touches no thread — §3.9's
+  member seeding is creation-only (`architecture.md:626-628, 652-654`). B3 makes the new owner's
+  session talk in `task.threadId` (`architecture.md:994-1005`), whose members are the original creator
+  and the original owner. The handed-off agent's `send_message` — including the review it files, since
+  `submit_review` is gone — returns `not_a_member`.
+- **A review's verdict.** B4 deletes `submit_review`'s "task-thread resolve-or-create **seeded with
+  review recipients**" with "**gone.** The task already has a thread and the review goes in it"
+  (`architecture.md:1022`). That thread contains the creator and the owner. A human reviewer who is
+  neither can read the review (`team` host ⇒ `canReadThread` true) and cannot verdict it — the verdict
+  is a `send_message`, so `not_a_member` fires before §3.4's verdict trio ever runs. That breaks the
+  review→resume chain `plan.md:81-82` explicitly keeps.
+- **The knowledge page.** `KnowledgeDetail.tsx:699` and `HostThreadSection.tsx:181,187` (§5 B9)
+  become `search_threads({host})` + `call("send_message")`. Any authenticated user may post into a
+  `knowledge_item` thread today; after this item only its members may, and B9's stated replacement for
+  `resolveOrCreateHostThread` — "`search_threads`+`adjust_thread`" (`architecture.md:1222`) — cannot
+  help, because `adjust_thread` on an existing thread refuses the same non-member.
+- **B7b's own successor.** The new stalled-knowledge-action review posts as `system:propagation` into
+  the knowledge item's thread, resolved with `search_threads({host})` and created only when absent
+  (`architecture.md:1159-1177`). The *point* of that change is to stop making a new thread on every
+  failure — so the normal case is a thread `system:propagation` did not create and is not in.
+  `not_a_member`, silently, on the second failure onward.
+
+§4 step 4 makes the same shape visible in the migration and calls it honest: "Zero members is legal and
+produces `'[]'` — nothing can post in it until someone is added" (`architecture.md:859-861`). There is
+no "someone adds you" in the document.
+
+Fix (the planner's call, three shapes exist): let `adjust_thread`'s `members` add **yourself** to a
+thread you can read; or make posting follow `canReadThread` rather than membership on host-scoped
+kinds, keeping members-only for `user`/`agent`; or seed the memberships the deleted code seeded
+(handoff adds the new owner, a review adds `soleHumanForAgent`/`resolveReviewRecipients`,
+`system:propagation` joins the thread it posts into). Whichever it is, §3.4, §3.9, §5 B4, §5 B7b, §5 B9
+and §6.3 all have to say the same thing, and §9 needs a "a handed-off agent can post in its task's
+thread" assertion — that case is absent today.
+
+## B1–B10 — re-tested, all confirmed fixed
+
+- **B1.** `canReadThread` (`architecture.md:453-473`) is `HOST_SCOPE` moved verbatim — I checked it
+  against `access-boundary.ts:32-39,58-66`, including `factory`, which the response is right to keep.
+  Applied on `open_thread` and on **every** `search_threads` arm (`:477-482, 600-613`), `not_found`
+  rather than `forbidden` so it is not an existence oracle, and §9 asserts the `ids` and
+  `host:{kind:"user"}` arms and the MCP door (`:1486-1492`). The websocket-as-reference argument
+  (`:483-486`) holds: `ws-subscribe-authorizer.ts:95-100` is unchanged and the action is no looser.
+- **B2.** `sourceId = ${message.id}:${agentId}` (`architecture.md:725`). Verified the three downstream
+  claims myself: the session request is built from `baked.sourceId`
+  (`session-requests/src/service.ts:641`), its dedupe is `(sourceKind, sourceId, idempotencyKey)` with
+  `idempotencyKey = intent.idempotencyKey` (`service.ts:113-124, 145-153, 648`) — per-agent either way,
+  so no new collision; and `listPendingIntentsByKind` really is the only reader of the old assumption
+  (`service.ts:1293`, one production caller at `assistant-turn-coherence-trigger.ts:65`). §9's
+  assertion is now "drain the queue and assert two session requests exist" with the row-count trap
+  named (`:1469-1473`) — that is the right proof.
+- **B3.** New §5 B7b (`architecture.md:1142-1201`). `system:propagation` is a real seeded row
+  (`layers/core-api/src/bootstrap/factory-state.ts:40-47`); the `knowledge:<itemId>` source id and the
+  `knowledge_item` host are both as described; the `clientKey`-for-LIKE-probe swap is sound; B7's tables
+  now carry the second writer and the second emitter, `agent-run-admission-reactions.ts:33`'s import and
+  the four dead `RoutineDeps` ports. Verified the last one — nothing in `layers/core-api/routine/src`
+  calls them.
+- **B4.** Seven sites, and the three I named are all there with correct refs
+  (`architecture.md:1081-1088`); the two deliberately-different `AGENT_WORK_INTENT_KINDS` lists
+  (`event-bus/src/events.ts:26-32` five members, `domain-model/src/work-intent.ts:663-671` six) are
+  distinguished correctly rather than collapsed.
+- **B5.** `TaskActionsDeps.adjustThread` as a function value, the governance rule quoted, and the
+  build order fixed with a reason (`architecture.md:656-685`). Thread-first is right: `ThreadActionsDeps`
+  names no task, so the dependency is one-way and no lazy wiring is needed.
+- **B6.** §9's chain is eight steps, ends with the agent's `send_message`, and asserts the session
+  verdicts `returned` (`architecture.md:1563-1593`). The plan gained "and say so … A turn ends with the
+  agent's message" (`plan.md:62-63`). The reasoning for not widening the return set is correct and
+  R1 is preserved.
+- **B7.** `AssistantOverlay.tsx:355` → identity comparison against the overlay's own counterpart;
+  `SettingsAgents.tsx:449` → `ownerUserId !== null` (`architecture.md:1104-1105`). Both are the right
+  shape — the behaviour kept, the recognition replaced.
+- **B8.** §3.1's new preamble (`architecture.md:121-151`) edits `framework/domain-model/src/thread.ts`
+  rather than shadowing it, keeps `BlockHostKind`'s `"task"` (correct — `thread.ts:21` is a block anchor
+  host, not a thread host), and re-exports the moved row types under the same names. The
+  `participants` → `members` rename names its three real consumers; I verified `ds/ThreadShell.tsx:277`
+  and `components/RecipientPicker.tsx:91`, and that the column keeps its name so
+  `ws-subscribe-authorizer`'s raw JSON read is untouched.
+- **B9.** `users.findSoleHumanUser` and its five sites are on B4's list with
+  `deps.users.soleHumanForAgent` named as the successor (`architecture.md:1035-1042`).
+- **B10.** One host, `team`, in `edit_task`'s call (`architecture.md:626`), §3.7's explicit
+  "a task's thread never takes that default" (`:581-583`), §4 steps 4 and 7, and a migration-test
+  assertion (`:1509-1510`). Direct threads keep `user`. Consistent everywhere I looked.
+
+Non-blockers N1, N2, N4–N8 are fixed, and correctly: N1's `soleHumanForAgent` is singular and
+team-scoped and matches `plan.md:58` (`architecture.md:350-359`); N2's `WITH seed` form fixes both the
+`LIMIT`-binds-to-the-union trap and the missing `LATERAL`, and names them (`:862-880, 929-938`); N3 is
+answered honestly — §3.12 now opens by saying it describes the nudge reading only and that the choice
+is open (`:785-789`), which is the right shape while the amendment stands. N9's `tool-seam.ts:48-69`
+rebuttal is fair (declaration vs body); the `eslint.config.ts` ref is corrected to `:483`.
+
+## New non-blocking defects
+
+- **N10 — the `listPendingIntentsByKind` deletion (§3.10) misses two sites.** Its `PLUMBING_ROUTES`
+  entry `layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /requests/pending-intents`
+  (`tools/governance/src/rules/actions-projected.ts:83`) is left behind — inert, because clause 2 has no
+  reverse check for plumbing entries the way it has one for `LEGACY_ROUTES`
+  (`actions-projected.ts:433-442`), which is why this is not a blocker. Also
+  `layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts:122-135`
+  tests the deleted port method and is not in §9's deleted/re-pointed lists (compile-caught).
+- **N11 — small path drift in the B8 rename list.** `ThreadHostBanner.tsx` is
+  `layers/core-ui/src/ds/ThreadHostBanner.tsx:85`, not `components/` (`architecture.md:150`); the claim
+  about it (a local prop of a different type, not touched) is correct.
+- **N12 — `framework/event-bus/src/events.ts:394` carries `hostKind: HostKind`** on a thread event
+  payload and is not named alongside §3.1's `HOST_KINDS` edit. Harmless — nothing assigns `"task"` once
+  task hosting is gone — but it is the one remaining `HostKind` consumer outside the deleted files.

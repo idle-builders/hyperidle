@@ -119,7 +119,10 @@ the end because sessions post through the composed tool list.
    `edit_task` from a thread turn (no task on the session) is not terminal — the gate already
    returns false without a session task; pin it with a test, do not weaken it.
 6. Reads follow membership too: open and search show a thread only to its members, except
-   team- and knowledge-hosted threads, which any signed-in principal may read (today's rule).
+   team-, knowledge- and factory-hosted threads, which any signed-in principal may read and post
+   to (today's rule: whoever can read can write), and the first post makes them a member. That is
+   how a new owner after a handoff, a reviewer giving a verdict, and a visitor on a knowledge page
+   get in. Direct threads stay members-only.
 7. A task's thread is hosted by the task's team, whether migrated or created.
 3. Questionnaire stays a message kind; nothing in this item touches it.
 4. Recipients list (`GET /recipients`) is a users read and stays a legacy route until the user
