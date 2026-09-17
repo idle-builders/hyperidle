@@ -7,8 +7,9 @@ architecture (`git show 270489dbb:.pipeline/work/BC2/architecture.md`) is the te
 copies its shape and only says what is different.
 
 Locked here: the four declarations and their exact input/output shapes, `ThreadActionsDeps`, the one
-widening of `ActionContext`, the invariant split including the read invariant that replaces the deleted
-access boundary, the three `changes` row shapes, the wake rule and its intent identity, the task↔thread
+widening of `ActionContext`, the invariant split including the read/post predicate and the join that
+replace the deleted access boundary, the three `changes` row shapes, the wake rule and its intent
+identity, the task↔thread
 creation ordering and the host a task's thread carries, the migration's step order, the full consumer
 list of every deleted symbol, the return-set edit. Left to the builder: file layout inside the thread
 module, helper names, query shapes, the exact wording of every `Problem.message`. **Not locked — the one
@@ -53,6 +54,8 @@ line is the proof. One row per paragraph.
 |---|---|---|
 | One list (`:20-24`) | four declarations, one place, nothing else about thread public | §3.1, `framework/domain-model/src/actions/thread.ts`; §3.3 `createThreadActions` |
 | Send is the write that posts (`:26-37`) | thread-id **or** recipients; overwrite by message id; create-only `clientKey` dedupe; agent fallback; the four invariants; message + one `changes` row in one transaction; mentions add members in that transaction | §3.1 `SendMessageInput`, §3.4 invariants, §3.5 `changes` rows, §3.6 `send_message.run` |
+| Reads and posts follow membership (Confusion 6) | shared threads (`team`/`knowledge_item`/`factory`) readable **and** postable by any signed-in principal, first post joins; direct threads members-only for read, post and adjust | §3.4 `canReadThread`/`canWriteThread` and the join, §3.6 step 5, §6.3–6.5 |
+| A task's thread is hosted by its team (Confusion 7) | one host in a migrated and a fresh database | §3.7, §3.9, §4 steps 4 and 7 |
 | Adjust is the other write (`:39-43`) | title · members · resolved/reopen · pinned · deleted; no id ⇒ empty thread; stored title wins, computed name is the fallback; members only; one `thread.changed` | §3.1 `AdjustThreadInput`, §3.7 |
 | Two reads (`:45-48`) | one filtered list carrying `hasUnresolvedReview`; open returns thread + members + messages; neither writes; **membership governs reading as well as posting** | §3.1 `SearchThreadsInput`/`ThreadView`, §3.4 `canReadThread`, §3.8 |
 | Every task has a thread (`:50-55`) | `tasks.threadId` NOT NULL and real; created with the task; host kind `task` gone; sessions talk in it | §3.9 (ordering), §4 (migration), §5 B3 |
@@ -82,11 +85,12 @@ recorder function types (`AgentWorkIntentRecorderFn`, `ReviewVerdictRecorderFn`)
 orchestration drain, provisioner and runtime — `runtime.ts:228-233` already generalised the
 transcript mapping off `assistantAgentId` to `agentId`.
 
-**Changed.** Where a thread write lives (route handler → module action); who may post (host-kind
-predicate → membership); who may verdict (role string → `users.kind`); what wakes (the assistant
-thread → the wake rule); what a task's thread is (a `(task, id)` host lookup → a column); what the
-websocket carries (a hand-built row → the change row); the intent kind (`assistant_turn` →
-`thread_turn`).
+**Changed.** Where a thread write lives (route handler → module action); where the read/post predicate
+lives (`authorizeRead`/`authorizeWrite` in a route → `canReadThread`/`canWriteThread` in the actions,
+same reach, §3.4) and how anyone joins a shared thread (nothing → posting in it); who may verdict (role
+string → `users.kind`); what wakes (the assistant thread → the wake rule); what a task's thread is (a
+`(task, id)` host lookup → a `team`-hosted column); what the websocket carries (a hand-built row → the
+change row); the intent kind (`assistant_turn` → `thread_turn`).
 
 **Deleted.** §5, in full, with every consumer.
 
@@ -127,10 +131,13 @@ the barrel re-exports every one (`framework/domain-model/src/index.ts:203-246`).
 a second time in `actions/thread.ts` is a duplicate barrel export — a hard TS error — or two live
 host-kind vocabularies, which is the compat shape `CLAUDE.md` rule 2 forbids. So:
 
-- **`thread.ts` keeps and is edited**: `HOST_KINDS` loses `"task"` (one line, :25); `VERDICT_DECISIONS`,
-  `REVIEW_CANVAS_KINDS`, `MESSAGE_TYPES`, `isRedactedPayload`, `headCollapsePredicate`, `isBlocking`,
-  `verdictDecisionLabel`, `AnchorRef`, `InlineRef` and its three arms are untouched — display helpers
-  and vocabulary, not action shapes. **`BlockHostKind` keeps `"task"` (:21)**: it names where a *block*
+- **`thread.ts` keeps and is edited**: `HOST_KINDS` loses `"task"` (one line, :25). The one `HostKind`
+  consumer outside the files this item deletes is `framework/event-bus/src/events.ts:394`
+  (`ThreadCreatedEvent.hostKind`); it needs no edit — nothing assigns `"task"` once task hosting is
+  gone — and it is named here so a builder does not go looking for a second vocabulary that is not
+  there. `VERDICT_DECISIONS`, `REVIEW_CANVAS_KINDS`, `MESSAGE_TYPES`, `isRedactedPayload`,
+  `headCollapsePredicate`, `isBlocking`, `verdictDecisionLabel`, `AnchorRef` and `InlineRef` with its
+  three arms are untouched — display helpers and vocabulary, not action shapes. **`BlockHostKind` keeps `"task"` (:21)**: it names where a *block*
   is anchored (a task page is a real anchor host), not who hosts a thread. Do not conflate them.
 - **`thread.ts` loses**: the hand-written `Thread` (:94-104) and `Message` (:284-299) interfaces and
   the four payload interfaces (:214-264). They move to `actions/thread.ts` as zod schemas and are
@@ -147,8 +154,8 @@ host-kind vocabularies, which is the compat shape `CLAUDE.md` rule 2 forbids. So
 stays `participants` — renaming it buys nothing and costs a migration — so the mapping lives in exactly
 one place, the thread module's row-to-view function. Consumers to re-point:
 `hooks/useConversationsThreads.ts:30,87-88,254` (deleted anyway, B9), `ds/ThreadShell.tsx:277`,
-`components/RecipientPicker.tsx:91`. `ConversationSurface.tsx:70,142` and `ThreadHostBanner.tsx:85`
-declare their own local `participants` prop of a different type and are **not** touched.
+`components/RecipientPicker.tsx:91`. `components/ConversationSurface.tsx:70,142` and `ds/ThreadHostBanner.tsx:85` declare their own local
+`participants` prop of a different type and are **not** touched.
 
 ```ts
 // actions/thread.ts — the zod row shapes. They REPLACE thread.ts's hand-written
@@ -426,7 +433,7 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[];
 |---|---|---|
 | `not_found` | the thread, or the message being overwritten, does not exist | 404 |
 | `thread_deleted` | `threads.deletedAt` is set | new |
-| `not_a_member` | `ctx.actor ∉ thread.members` — for **both** send and adjust | `authorizeWrite`'s host-kind predicate (`auth/access-boundary.ts:32-77`) |
+| `not_a_member` | `canWriteThread(ctx.actor, thread) === false` — for send **and** adjust. Reachable only on a `user`/`agent`-hosted thread, where "not a member" is literally the reason | `authorizeWrite`'s host-kind predicate (`auth/access-boundary.ts:32-77`), moved |
 | `recipient_not_found` | a `recipients` entry has no `users` row | `send_message` tool's `getUserById` guard |
 | `verdict_not_human` | the verdict's sender is not `users.kind === "human"` | `role === "founder"` (R6) |
 | `verdict_self` | the verdict's sender is the review's own sender | `threads.ts:1336` |
@@ -445,34 +452,57 @@ session.
 membership, nothing more." A member may therefore rewrite any message in a thread it is in. Named,
 not overlooked; see §6.
 
-**Reads carry their own invariant — `canReadThread`.** `plan.md:92`'s "who may post is membership,
-nothing more" extends to who may read, and the read half must be stated here because §5 B13 deletes
-`authorizeRead` and the predicate behind it. One pure function, in `actions/thread.ts`, and both read
-actions run it on every row:
+#### Who may read, who may post, and how anyone ever joins
+
+`plan.md` Confusion 6 settles all three, and they have to be read together or the first two produce a
+thread nobody outside can ever enter. Two pure functions in `actions/thread.ts`, and **one of them
+delegates to the other, exactly as the code being deleted does**:
 
 ```ts
-/** The read half of membership. Replaces `canRead` + `HOST_SCOPE`
- *  (`layers/core-api/src/auth/access-boundary.ts:32-66`), which this item deletes. */
+const HOST_SCOPED: ReadonlySet<HostKind> = new Set(["team", "knowledge_item", "factory"]);
+
+/** `canRead` + `HOST_SCOPE` (`layers/core-api/src/auth/access-boundary.ts:32-66`), moved,
+ *  with `task` gone from the vocabulary. */
 export function canReadThread(
   actor: string,
   thread: { readonly hostKind: HostKind; readonly members: readonly string[] },
 ): boolean {
-  // Host-scoped: a shared surface any signed-in principal may read. This is
-  // `HOST_SCOPE`'s own list minus `task`, which stops being a host kind.
-  if (thread.hostKind === "team" || thread.hostKind === "knowledge_item" || thread.hostKind === "factory") {
-    return true;
-  }
-  // `user` and `agent` hosts — every DM and every agent thread: members only.
-  return thread.members.includes(actor);
+  if (HOST_SCOPED.has(thread.hostKind)) return true;   // a shared surface: any signed-in principal
+  return thread.members.includes(actor);               // `user`/`agent` hosts — every DM: members only
 }
+
+/** `canWrite`, which delegates to `canRead` today (`access-boundary.ts:76-77`) and
+ *  still does. Kept as its own name so a future write-only tightening has the same
+ *  seam that file's own `@lore` at `:72-74` asks for. */
+export const canWriteThread = canReadThread;
 ```
 
-`factory` is on that list because it is host-scope in `HOST_SCOPE` today (`access-boundary.ts:32-39`)
-and this function is that predicate moved, not a new policy. `task` leaves the list by leaving
-`HOST_KINDS`; a task's thread is host `team` (§3.9, §4 step 4), so it stays readable exactly as widely
+`factory` is on the host-scoped list because it is host-scope in `HOST_SCOPE` today
+(`access-boundary.ts:32-39`) and this is that predicate moved, not a new policy. `task` leaves by
+leaving `HOST_KINDS`; a task's thread is host `team` (§3.9, §4 step 4), so it stays exactly as reachable
 as it is today.
 
-Applied:
+**Posting to a host-scoped thread you are not in joins you to it, in the same transaction as the
+message.** That is the join path, and without it every shared thread is write-once by whoever happened
+to be seeded into it. Stated precisely:
+
+- the join is a consequence of a successful post, never a request — there is no "join" input and no
+  `adjust_thread` call;
+- it happens only on a **host-scoped** thread. A `user`/`agent`-hosted thread refuses a non-member
+  with `not_a_member` before anything is written, so a DM can never be joined by posting into it;
+- **no `thread.changed` row is appended for the join.** The `thread.message` row's `after` carries the
+  resulting member list (§3.5). One row records one act — the post and the joining are the same act,
+  and a second row would say a member list changed for no visible reason;
+- the same rule covers the mention-add, so there is one representation of "this send changed who is in
+  the thread" rather than two. `adjust_thread` remains the only writer of a `thread.changed` row whose
+  diff names `members`.
+
+**`adjust_thread` follows the same predicate: whoever may read a thread may adjust it.** On a
+host-scoped thread that is any signed-in principal; on a direct thread it is its members. No role check
+anywhere — `plan.md:42`'s "only a member may adjust" is the direct-thread case of one rule, not a
+second rule. An adjust does **not** join the actor: renaming a team thread is not speaking in it.
+
+Applied to the two reads:
 
 - **`open_thread`** — a thread the actor cannot read returns the **same `not_found` problem** as a
   deleted one. Not a distinct `forbidden`: the two answers must be indistinguishable or the action is
@@ -481,14 +511,31 @@ Applied:
   `host:{kind:"user"|"agent"}` are the two arms that would otherwise enumerate another person's DMs;
   `mine` is already narrower than the predicate and keeps its SQL probe as a pre-filter.
 - **The websocket is unchanged and stays the reference.** `ws-subscribe-authorizer.ts:95-100` gates
-  `thread:<id>` on the participant list. After this item a read through the action is **no looser than**
-  a read through the socket carrying the same thread — which is the property the deleted
-  `authorizeRead` gave and the one a reviewer should check.
+  `thread:<id>` on the participant list. A read through the action is **no looser than** a read through
+  the socket for a `user`/`agent` thread. For a host-scoped thread it is looser *until the first post* —
+  the socket wants membership, the action does not — which is today's asymmetry unchanged
+  (`GET /threads/:id` returns a `team`-hosted thread to any principal while the socket refuses the
+  subscription), and which the join closes for anyone who actually participates. Named, not new.
 
 `actionsAsTools` registers every action for every actor with no `roles` filter
-(`layers/core-api/src/actions/actions-as-tools.ts:14-28`), so an agent session reaches `open_thread`
-with the same predicate a browser does — which is why the predicate, and not the projection, is where
-this lives.
+(`layers/core-api/src/actions/actions-as-tools.ts:14-28`), so an agent session reaches these with the
+same predicate a browser does — which is why the predicate, and not the projection, is where it lives.
+
+#### The four paths this keeps alive
+
+Each of these works today because `canWrite` delegates to `canRead`; each is a task- or
+knowledge-hosted thread, so each still works, and each joins its actor on the first post.
+
+| Path | The thread | Why it works |
+|---|---|---|
+| **A handoff.** `edit_task` moves `ownerAgentId`; the new owner's session talks in `task.threadId` (§5 B3), whose members are the original creator and original owner | host `team` (§3.9) | host-scoped ⇒ the new owner may post; its first `send_message` — including the review it files, now that `submit_review` is gone — joins it. §3.9's member seeding stays creation-only; no handoff-time seeding is added |
+| **A verdict from a reviewer who is not on the task.** The review lives in the task's thread; the verdict is a `send_message` | host `team` | host-scoped ⇒ the reviewer may post, and the join happens in the same transaction as the verdict. Order inside `send_message.run`: `canWriteThread` first (passes), then the verdict trio (`verdict_not_human`, `verdict_self`, `verdict_foreign_review`), then the write. `not_a_member` never fires, so the review→resume chain `plan.md:81-82` keeps is intact |
+| **A visitor on a knowledge page.** `KnowledgeDetail.tsx:699` / `HostThreadSection.tsx:181,187` (§5 B9) | host `knowledge_item` | host-scoped ⇒ any authenticated user may post, as today. B9's `resolveOrCreateHostThread` replacement is `search_threads({host})` → `send_message({threadId})`, with `adjust_thread({host})` only when no thread exists yet |
+| **B7b's `system:propagation` successor.** Posts the stalled-knowledge-action review into a thread it did not create, on the second failure onward | host `knowledge_item` | host-scoped ⇒ it may post, and it joins on its first one. This is the case that made B7b's "stop creating a thread per failure" possible at all |
+
+The case that is still refused, and must be: a signed-in principal posting into someone else's DM. A
+`user`- or `agent`-hosted thread has no join path by design, which is the whole content of "direct
+threads stay members-only".
 
 ### 3.5 The `changes` rows
 
@@ -502,14 +549,22 @@ and what lets the `thread:<id>` websocket topic be keyed on it.
 |---|---|---|---|---|
 | a send opened a thread | `created` | sender | `null` | `{id, hostKind, hostId, initiatorId, members, title, pinned, createdAt}` |
 | `adjust_thread` with no id | `created` | actor | `null` | same |
-| every message created **or overwritten** | `message` | sender | `null` on create; `{messageId, type, payload}` as it was, on overwrite | `{messageId, type, payload, clientKey, blockId, createdAt}` |
+| every message created **or overwritten** | `message` | sender | `null` on create; `{messageId, type, payload}` as it was, on overwrite | `{messageId, type, payload, clientKey, blockId, createdAt}`, **plus `members` when this send changed who is in the thread** |
 | every `adjust_thread` with an id | `changed` | actor | only the fields that differ | only the fields that differ |
 | a send that resolved / reopened / bumped the thread | `changed` | sender | `{resolvedAt}` before | `{resolvedAt, lastActiveAt}` after |
-| mentions added members in the send's transaction | `changed` | sender | `{members}` before | `{members}` after |
 
-A send that opens a thread with a first message therefore writes **three** rows in one transaction —
-`created`, `message`, and (when mentions added anyone) `changed`. Every row lands in the same
-transaction as the write it records; nothing is appended after commit.
+**A send never appends a `changed` row for membership.** Both ways a send can change the member list —
+the sender joining a host-scoped thread (§3.4) and an `@mention` pulling someone in — ride
+`after.members` on the `message` row, present only when the list actually moved and absent otherwise.
+One act, one row: the post and the joining are the same act, and a second row would assert that
+membership changed for no visible reason. `adjust_thread` stays the **only** writer of a `thread.changed`
+row whose diff names `members`, which is what lets BC5 tell "someone spoke and thereby joined" from
+"someone was added".
+
+A send that opens a thread with a first message therefore writes **two** rows in one transaction —
+`created` and `message` — and a send into an existing thread writes `message` plus, when the thread's
+own state moved, `changed`. Every row lands in the same transaction as the write it records; nothing is
+appended after commit.
 
 `changes.actor` is `NOT NULL REFERENCES users(id)`, so every actor must be a real row. There is no
 synthetic sender in this module — `"policy_engine"` (`policy-engine.ts:164`, a sender id with no
@@ -537,14 +592,20 @@ synthetic sender in this module — `"policy_engine"` (`policy-engine.ts:164`, a
    `(threadId, ctx.actor, clientKey)`. Same type and payload ⇒ return that message with `ok: true`,
    no write. Divergent ⇒ `idempotency_conflict`. An overwrite carries a `messageId` and is not
    deduped — last write wins (`plan.md:90-91`).
-4. **Server invariants** (§3.4), including the `producedItemId` parent check and the verdict trio.
-   Any problem ⇒ return, no write.
+4. **Server invariants** (§3.4), in this order: `not_found` / `thread_deleted`, then
+   `canWriteThread` ⇒ `not_a_member`, then the `producedItemId` parent check, then the verdict trio
+   (`verdict_not_human`, `verdict_self`, `verdict_foreign_review`). Any problem ⇒ return, no write.
+   **The order is what makes a reviewer's verdict work**: `canWriteThread` passes on the task's
+   `team`-hosted thread even though the reviewer is not yet a member, so the verdict trio is the thing
+   that actually decides, and `not_a_member` never pre-empts it.
 
 **Inside one transaction (step 5)**
 
-5. create the thread when (2b/2d) resolved to one, and `appendChange(created)`; resolve mentions in
-   `text` and add the new member ids to `participants` atomically (`threads.ts:1348-1364, 1428-1437`,
-   moved), appending one `changed` row when the set grew; `insertMessage` (create) or `update` the
+5. create the thread when (2b/2d) resolved to one, and `appendChange(created)`; **join the sender**
+   when the thread is host-scoped and `ctx.actor ∉ members` (§3.4) and resolve mentions in `text`,
+   adding both sets of ids to `participants` in one atomic update (`threads.ts:1348-1364, 1428-1437`,
+   moved) — **no `changed` row for either; the resulting list rides the `message` row's
+   `after.members`** (§3.5); `insertMessage` (create) or `update` the
    named message's `type`/`payload`/`blockId` (overwrite); for a verdict,
    `resolveMessageIfUnresolved` — zero rows ⇒ throw the private `VerdictRaceConflict`, caught outside
    and returned as `verdict_race`; then the thread's own state: verdict ⇒ `resolvedAt = now`, a
@@ -576,13 +637,16 @@ A crash between commit and step 6 loses the nudge, never the record — §7.
 ### 3.7 `adjust_thread.run`
 
 No id ⇒ create: `initiatorId = ctx.actor`, `members = [ctx.actor]` unioned with `input.members`, one
-`created` row, and the host is **whatever the caller passed in `host`**. When `host` is omitted it
+`created` row, and the host is **whatever the caller passed in `host`**. With an id, the gate is
+`canWriteThread` (§3.4), not bare membership: any signed-in principal may adjust a host-scoped
+(`team`/`knowledge_item`/`factory`) thread, and only its members may adjust a direct one. An adjust
+never joins the actor — renaming a team thread is not speaking in it. When `host` is omitted it
 defaults to `{kind:"user", id: ctx.actor}` — a personal thread, the only sensible answer when nobody
 named a home. **A task's thread never takes that default**: `edit_task` always passes
 `host: { kind:"team", id: task.teamId }` (§3.9), which is the host §4 steps 4 and 7 give every migrated
 task thread, so the same object has the same host in a fresh database and a migrated one. With an id:
 load, refuse
-`not_a_member` and `thread_deleted`, then one `UPDATE` and one `changed` row carrying only the
+`not_a_member` (i.e. `canWriteThread` false) and `thread_deleted`, then one `UPDATE` and one `changed` row carrying only the
 fields that differ. `deleted: true` writes `deletedAt`; nothing is ever `DELETE`d. `resolved` maps to
 `resolvedAt`; `pinned` to `pinned`; `title: null` clears the stored title so the ladder answers again.
 Returns `open_thread.run(ctx, { id })` — bounded here, because an adjust is rare and the caller is a
@@ -693,7 +757,9 @@ edits to `framework/domain-model/src/actions/task.ts`; in particular **nothing i
 ### 3.10 The wake rule
 
 ```ts
-/** plan.md:57-60. Pure. Runs post-commit over the thread's FINAL member list. */
+/** plan.md:57-60. Pure. Runs post-commit over the thread's FINAL member list —
+ *  after the mention-adds AND after the sender's own join (§3.4), which is why
+ *  it is computed from what step 5 wrote, never from what step 2 loaded. */
 export function agentsToWake(input: {
   readonly members: readonly string[];      // after the send's mention-adds
   readonly senderId: string;
@@ -713,7 +779,10 @@ export function agentsToWake(input: {
 
 The two-member arm is what makes a direct thread with your own agent work with no `@`
 (`plan.md:58-59`); it is evaluated on the **final** member list, so a mention that added a third
-member turns the arm off — correct, because the mention already woke whoever it named.
+member turns the arm off — correct, because the mention already woke whoever it named. A sender
+joining a host-scoped thread has the same effect and is equally correct: a two-member team thread that
+a third person posts into is a three-member thread by the time the wake is computed, so their post does
+not wake the agent that was sitting in it. If they want it, they `@` it.
 
 For each woken agent, post-commit:
 
@@ -751,7 +820,17 @@ With the caller gone the function, its port method (`framework/api-contract/src/
 its route (`agent-orchestration-intake.ts:158-172`), its client
 (`agent-orchestration-port-composition.ts:223-233`) and its barrel export
 (`session-requests/src/index.ts:11`) have no reader and are **deleted with it** — leaving a live
-function whose doc comment is now false is the worse option.
+function whose doc comment is now false is the worse option. Two more sites go with the route, and
+neither is compile-caught in the first case:
+
+- its **`PLUMBING_ROUTES` entry**
+  `layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /requests/pending-intents`
+  (`tools/governance/src/rules/actions-projected.ts:83`). Clause 2 has a reverse check for
+  `LEGACY_ROUTES` entries whose route is gone (`actions-projected.ts:433-442`) but **none** for
+  plumbing entries, so a stale row here is inert rather than red. Delete it anyway: the list is a claim
+  about what exists, and the one clause that cannot enforce itself is the one a reviewer has to.
+- `layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts:121-137`
+  tests the deleted port method. Deleted with it (compile-caught, but it belongs on §9's list).
 
 `agent_work_intents_identity_uq` is `(kind, sourceKind, sourceId, idempotencyKey)`
 (`framework/db/src/schema.ts:421-426`), so the rows were always distinct; the index was never the
@@ -857,8 +936,9 @@ WHERE t."thread_id" IS NULL
 --    INTENDED MEMBERSHIP, stated so it can be re-derived rather than copied:
 --    the task's owner agent when it has one, plus the first human by
 --    (created_at, id) when one exists. Both, not one. Zero members is legal and
---    produces '[]' — nothing can post in it until someone is added, which is
---    honest for a task nobody owns in a database with no humans.
+--    produces '[]': the thread is host-scoped ('team'), so anyone signed in can
+--    still read it and the first person to post joins it (§3.4). A task nobody
+--    owns in a database with no humans is not a dead thread, just an empty one.
 WITH seed AS (
   SELECT t."id" AS task_id, t."team_id", t."created_at", t."updated_at",
          t."owner_agent_id",
@@ -1003,6 +1083,11 @@ sites; `callingThreadId` becomes `task.threadId`, now NOT NULL, so the `?:` opti
 `:251` and `:316` collapses to a required field. That is the whole of "sessions talk in the task's
 thread" (`plan.md:53`) — no lookup, no create, one column read.
 
+**A handed-off owner is not seeded into that thread and does not need to be.** The thread's members
+stay whoever §3.9 seeded at creation plus whoever has spoken since. Because it is `team`-hosted it is
+host-scoped, so the new owner may post, and its first `send_message` joins it (§3.4). No handoff-time
+membership write is added anywhere — `edit_task` touches `tasks`, never `threads`, on an owner change.
+
 ### B4 — the four tools and the seam they ride (step 5)
 
 `send_message` (`tool-definitions.ts:52-85`) · `reply` (`:118-160`) · `create_item` (`:286-36x`) ·
@@ -1018,7 +1103,7 @@ What each carried, and where it lands:
 | `create_item`'s thread-create, review-recipient resolution and participant mutation | **gone.** Items are gone; a review is a `send_message` with `review` |
 | `submit_review`'s produced-item-parented check (`:487-500`) | `produced_item_not_owned` (§3.4) |
 | `submit_review`'s `linkReviewToSession` (`:537`) | `ThreadActionsDeps.linkReviewToSession`, §3.6 step 6b |
-| `submit_review`'s task-thread resolve-or-create seeded with review recipients (`:430-463`) | **gone.** The task already has a thread (§3.9) and the review goes in it |
+| `submit_review`'s task-thread resolve-or-create seeded with review recipients (`:430-463`) | **gone.** The task already has a thread (§3.9) and the review goes in it. Seeding reviewers is not needed either: that thread is `team`-hosted, so any human can read the review and post the verdict, joining on that post (§3.4). `resolveReviewRecipients` itself survives in `layers/core-api/org/src/org-routing.ts:26`; only its seam wrapper and route die |
 | `submit_review`'s `rootTaskId` parent-chain walk (`:543-553`) | **gone** with the tool. Nothing consumes the returned `rootTaskId` — `rg 'rootTaskId'` finds only this tool and its own tests |
 
 Seam methods with zero remaining callers once those four are gone — verified by
@@ -1175,6 +1260,10 @@ Four things this pins, each because the naive translation gets it wrong:
   `search_threads({ host: { kind: "knowledge_item", id } })` and created with `adjust_thread` when
   absent — instead of the factory's unconditional `insertThread`, which made a **new** thread on every
   single admission failure.
+- **`system:propagation` can post into a thread it did not create.** That is the point of resolving the
+  thread instead of making a new one per failure, and it works because a `knowledge_item` host is
+  host-scoped: it may post, and its first post joins it (§3.4). From the second failure onward it is
+  already a member.
 - **The actor is `system:propagation`, not `"attention_engine"`.** The factory writes
   `initiatorId: ATTENTION_REVIEW_SOURCE` and `participants: ["attention_engine"]`
   (`:83-84`) — a synthetic identity with no `users` row, the same defect that kills the policy engine's
@@ -1219,7 +1308,7 @@ re-points to the thread module's read.
 | `hooks/useAssistantThread.ts` | 191 | `shell/AssistantOverlay.tsx:260` → B6 |
 | `hooks/useConversationsThreads.ts` | 270 | `layouts/AppShell.tsx:493` (the sidebar badge) → `call("search_threads", {mine:true})` + the `conversations` subscription |
 | `hooks/useHostThread.ts` | 108 | `shell/HostThreadSection.tsx:145`, `pages/KnowledgeDetail.tsx:699` → `call("open_thread", { id })`. **The task page's id comes from `open_task().threadId`; the knowledge page's from `call("search_threads", { host: { kind:"knowledge_item", id } })`** |
-| `services/host-threads.ts` | 151 | `HostThreadSection.tsx:181,187`, `ReviewPage.tsx:151,184` → `call("send_message", …)`; `resolveOrCreateHostThread` has no replacement for a task (the task owns its thread) and becomes `search_threads`+`adjust_thread` for a knowledge item |
+| `services/host-threads.ts` | 151 | `HostThreadSection.tsx:181,187`, `ReviewPage.tsx:151,184` → `call("send_message", …)`; `resolveOrCreateHostThread` has no replacement for a task (the task owns its thread) and becomes `search_threads({host})` → `adjust_thread({host})` **only when none exists** for a knowledge item. Posting needs no membership step: a `knowledge_item` thread is host-scoped, so any signed-in visitor may post and joins by posting (§3.4) — which is the reach `KnowledgeDetail.tsx:699` has today |
 | direct `apiFetch` posts | — | `Conversations.tsx:351`, `AssistantOverlay.tsx:285`, `RecipientPicker.tsx:85` (`POST /api/threads` to start a thread → `call("send_message", { recipients })`) |
 | `GET /api/reviews/:id` fetch | — | `ReviewPage.tsx:32` → `call("open_thread", { id })` for the messages + `call("open_task", { id })` for the task, parent title and prompt. The page composes the fields `routes/reviews.ts:107-139` composes today |
 
@@ -1298,11 +1387,13 @@ and `layers/core-api/src/auth/access-boundary.ts` with no production reader at a
 test are deleted**, and `HOST_SCOPE`'s `task: "host"` entry goes with them rather than being edited to
 match the shortened `HOST_KINDS`.
 
-**Its read half has a named successor and the deletion is not allowed to land without it.**
-`canReadThread` (§3.4) is `canRead` + `HOST_SCOPE` moved into `actions/thread.ts`, with `task` dropped
-and nothing else changed; its write half is `not_a_member`, which is strictly stronger than `canWrite`
-on every host kind. Delete `access-boundary.ts` in the same commit that adds `canReadThread`, not
-before — the ordering is what stops a window where the reads are unguarded.
+**Both halves have named successors and the deletion is not allowed to land without them.**
+`canReadThread` is `canRead` + `HOST_SCOPE` moved into `actions/thread.ts` with `task` dropped and
+nothing else changed; `canWriteThread` is `canWrite`, still delegating to the read predicate exactly as
+`access-boundary.ts:76-77` does (§3.4). Neither is stronger or weaker than what it replaces — the one
+behavioural addition is the join, which grants no read the actor did not already have. Delete
+`access-boundary.ts` in the same commit that adds the two predicates, not before; the ordering is what
+stops a window where reads or posts are unguarded.
 
 That has a consequence a builder must not walk past. Two ESLint rules key on those names:
 
@@ -1320,7 +1411,7 @@ That has a consequence a builder must not walk past. Two ESLint rules key on tho
 
 ## 6. Security — reasoned from the surfaces this change reaches
 
-Six surfaces move. Nothing else is touched: no credential, sandbox, outbound request, plugin install
+Seven surfaces move. Nothing else is touched: no credential, sandbox, outbound request, plugin install
 or artifact rendering path is in this change.
 
 1. **`POST /api/actions/*`** — behind the existing auth middleware; the actor is `c.get("userId")`
@@ -1332,29 +1423,38 @@ or artifact rendering path is in this change.
    `ctx.caller` bag is filled from the same `ToolContext` and is never read for authorization — only
    for the reply fallback, the review link and the produced-item check. An agent cannot put a session
    id in its arguments and reach another session's review link, because the argument does not exist.
-3. **Who may post: membership, and only membership.** Today a host-scoped thread (`task`,
-   `knowledge_item`, `team`, `factory`) is writable by **any** authenticated principal —
-   `canWrite` delegates to `canRead`, which returns `true` for those hosts
-   (`auth/access-boundary.ts:32-77`). `not_a_member` is strictly stronger than that on every host
-   kind. `PATCH /threads/:id`, which today lets any principal rewrite any thread's participant list
-   with no check at all (`threads.ts:705-731`), is replaced by `adjust_thread`'s members-only rule.
-   Both are tightenings, and both are earned from what the code actually allows — not preemptive.
-4. **Who may read: `canReadThread`, and it is not weaker than what it replaces.** The read half is a
-   real invariant, not an omission — §3.4. `user`- and `agent`-hosted threads (every DM, every thread
-   with an agent) are members-only, which is `HOST_SCOPE`'s participant scope
-   (`access-boundary.ts:33-34`) moved into the action; `team`/`knowledge_item`/`factory` stay readable
-   by any signed-in principal, which is `HOST_SCOPE`'s host scope (`:35-38`) moved unchanged. Both read
-   actions apply it — `open_thread` per thread, `search_threads` per row on **every** arm, so neither
-   `ids` nor `host:{kind:"user"}` enumerates a stranger's DMs. A thread the actor may not read is
-   `not_found`, the same answer a deleted one gives, so neither action is an existence oracle. The two
-   surfaces this had to match are the websocket's participant gate
-   (`ws-subscribe-authorizer.ts:95-100`, unchanged) and `GET /threads`' foreign-`participant_id` refusal
-   (`threads.ts:758`, deleted with the route); the predicate is at least as strong as both.
-5. **Verdict.** Human (`users.kind`), not the review's author, and the review must live in this
+3. **Who may read and who may post: one predicate, `HOST_SCOPE` moved.** §3.4. `user`- and
+   `agent`-hosted threads — every DM, every thread with someone's own agent — are members-only for
+   reading, posting **and** adjusting, which is `HOST_SCOPE`'s participant scope
+   (`access-boundary.ts:33-34`) moved into the actions. `team`/`knowledge_item`/`factory` stay readable
+   and postable by any signed-in principal, which is `HOST_SCOPE`'s host scope (`:35-38`) and
+   `canWrite`'s delegation to `canRead` (`:76-77`) moved unchanged. **Neither half is a tightening and
+   neither is a loosening** — it is the same predicate, at the same reach, expressed once instead of
+   behind a route. `task` leaves the vocabulary; a task's thread is `team`-hosted, so it keeps exactly
+   the reach it has today.
+4. **The reads apply it on every path, so nothing enumerates.** `open_thread` per thread,
+   `search_threads` per row on **every** arm — so neither `ids` nor `host:{kind:"user"}` lists a
+   stranger's DMs, which is the hole `GET /threads`' foreign-`participant_id` refusal
+   (`threads.ts:758`) plugs today and which would otherwise have been reopened by an action with no
+   route around it. A thread the actor may not read answers `not_found`, the same answer a deleted one
+   and a nonexistent one give, so no action is an existence oracle.
+   The websocket's participant gate (`ws-subscribe-authorizer.ts:95-100`) is unchanged and is the
+   reference for the `user`/`agent` case: the action is no looser. For a host-scoped thread the action
+   is looser than the socket until the first post, which is **today's** asymmetry
+   (`GET /threads/:id` already serves a `team`-hosted thread to any principal while the socket refuses
+   the subscription) and is not introduced here.
+5. **Posting to a shared thread joins you to it, and that is the only way to join one.** No input
+   requests it, `adjust_thread` does not grant it, and it cannot happen on a DM — a `user`/`agent`
+   thread refuses a non-member before any write. What it changes in practice: the member list of a
+   team or knowledge thread grows to whoever actually spoke there, which is what makes a handoff, a
+   third-party verdict and a knowledge-page comment work at all (§3.4's table) and what the mention
+   path already did for anyone pulled in by name. It grants no read the actor did not already have —
+   they could read the thread before they posted.
+6. **Verdict.** Human (`users.kind`), not the review's author, and the review must live in this
    thread. Same three conditions as today, with the role string replaced by the identity fact (R6),
    and the first-verdict-wins CAS (`resolveMessageIfUnresolved`) kept — it is what stops two humans
    double-resolving one review.
-6. **The `conversations` websocket topic** is global (`ws-subscribe-authorizer.ts:83`). After this
+7. **The `conversations` websocket topic** is global (`ws-subscribe-authorizer.ts:83`). After this
    item it carries a `changes` row rather than a composed list row, so it exposes `actor`, `objectId`
    and the changed **thread** fields to every authenticated identity. No message body and no member
    list beyond what a thread `changed` row names ever rides it, and `thread:<id>` stays
@@ -1362,12 +1462,19 @@ or artifact rendering path is in this change.
    authenticated member of it. Accepted; if it ever needs narrowing, the narrowing belongs in BC5
    where subscriptions are the subject.
 
-**Two deliberate non-restrictions**, named so a reviewer sees them as choices:
+**Three deliberate non-restrictions**, named so a reviewer sees them as choices:
 
 - **Any member may overwrite any message in a thread** (`plan.md:92`). There is no author check on
   `messageId`. A thread is a room you were let into; the people in it can edit what is on the wall.
   If that turns out to be wrong it will be wrong for a reason someone can point at, which is the bar
   `ETHOS.md` sets.
+- **Any signed-in principal may rename, resolve, pin or delete a shared thread.** `adjust_thread`
+  follows `canWriteThread`, so on a `team`/`knowledge_item`/`factory` thread there is no restriction at
+  all — including soft-delete. `PATCH /threads/:id` is even wider today: it takes **no** check of any
+  kind and lets any principal rewrite any thread's participant list, on a DM included
+  (`threads.ts:705-731`). So this is a tightening for direct threads and unchanged for shared ones.
+  Soft-delete is reversible (`deleted: false`) and every adjust leaves a `thread.changed` row naming its
+  actor, which is the accountability this trades for the absence of a role check.
 - **A deleted review is still resolvable and a deleted thread still accepts an idempotency lookup.**
   `deletedAt` hides a thread from search and open; it is not a capability revocation. Making it one
   would need a rule nobody has asked for.
@@ -1457,8 +1564,8 @@ the house rule forbids. One PR stands.
   divergent payload returns `idempotency_conflict`;
 - `send_message` with a `messageId` overwrites and writes a `message` row whose `before` carries the
   old payload;
-- a non-member send returns `not_a_member` — including on a `team`-hosted thread, which today's
-  `authorizeWrite` lets through;
+- a non-member send into a `user`-hosted DM returns `not_a_member`; into a `team`-hosted thread it
+  succeeds and joins — the two halves of §3.4, asserted together below;
 - a verdict from a non-human returns `verdict_not_human`; from the review's own author,
   `verdict_self`; naming a review in another thread, `verdict_foreign_review`; a second concurrent
   verdict, `verdict_race`;
@@ -1477,19 +1584,32 @@ the house rule forbids. One PR stands.
 - a `review` with `caller.sessionId` calls `linkReviewToSession` with that session and the new
   message id; a verdict on it calls `reviewVerdictRecorder`; a `not_resumable` outcome posts a
   second plain message **through the action**, so a `changes` row exists for it;
-- `adjust_thread` with no id creates a thread with the actor as its only member; a non-member adjust
-  returns `not_a_member`; `deleted:true` hides the thread from `search_threads` and makes
-  `open_thread` return `not_found`; a stored `title` wins over the computed one and `title:null`
-  restores the fallback;
+- `adjust_thread` with no id creates a thread with the actor as its only member and host
+  `{user, actor}`; `deleted:true` hides the thread from `search_threads` and makes `open_thread`
+  return `not_found`; a stored `title` wins over the computed one and `title:null` restores the
+  fallback;
 - `search_threads({mine})` returns only threads the actor is in and carries `hasUnresolvedReview`
   correctly for a thread with an open review and one with a resolved review;
-- **the read invariant** (§3.4), which is the assertion set a reviewer should look for first because it
-  replaces a deleted boundary: a non-member `open_thread` on a `user`-hosted DM returns `not_found`,
-  **byte-identical** to the answer for a deleted thread and for an id that never existed;
-  `search_threads({ ids: [<a stranger's DM>] })` returns `[]`; `search_threads({ host: { kind: "user",
-  id: <victim> } })` returns `[]`; a non-member **can** open a `team`- and a `knowledge_item`-hosted
-  thread; and the same three cases through the MCP door as an agent actor, since `actionsAsTools`
-  registers every action for every actor;
+- **the read/write/join invariant** (§3.4), which is the assertion set a reviewer should look for first
+  because it replaces a deleted boundary. Reads: a non-member `open_thread` on a `user`-hosted DM
+  returns `not_found`, **byte-identical** to the answer for a deleted thread and for an id that never
+  existed; `search_threads({ ids: [<a stranger's DM>] })` returns `[]`;
+  `search_threads({ host: { kind: "user", id: <victim> } })` returns `[]`; a non-member **can** open a
+  `team`- and a `knowledge_item`-hosted thread; and the same cases through the MCP door as an agent
+  actor, since `actionsAsTools` registers every action for every actor. Posts: a non-member
+  `send_message` into a `user`-hosted DM returns `not_a_member` and **writes nothing** (assert the
+  `messages` and `changes` counts are unchanged); a non-member `send_message` into a `team`-hosted
+  thread succeeds **and** leaves the sender in `thread.members` afterwards, with the `thread.message`
+  row's `after.members` carrying the new list and **no `thread.changed` row appended** — the row count
+  is the assertion that catches a builder re-adding one; a second post by the same sender adds no
+  duplicate member. Adjust: a non-member `adjust_thread` on a `team` thread succeeds and does **not**
+  add them as a member; on a `user`-hosted DM it returns `not_a_member`;
+- **the four paths §3.4's table keeps alive**, one assertion each, because each is a chain the round-1
+  shape broke: a **handed-off** agent that was never seeded posts in its task's thread and is a member
+  afterwards; a **human who is not on the task** posts a verdict on a review in it and the verdict trio
+  — not `not_a_member` — is what decides; a **visitor** posts into a `knowledge_item` thread they did
+  not create; and **`system:propagation`** posts a second stalled-knowledge-action review into the
+  thread it made on the first (B7b), proving the resolve-don't-recreate path;
 - `open_thread` returns members as identities, messages newest-first, `headMessageId` and
   `hostTitle`, and **writes nothing** (assert the `changes` row count is unchanged);
 - `edit_task` with no `threadId` creates a task whose `threadId` is a real thread with creator and
@@ -1524,7 +1644,9 @@ is a door that no longer exists: `src/__tests__/policy-engine.integration.test.t
 `src/services/__tests__/assistant-turn-b3-coherence-trigger.integration.test.ts` ·
 `src/services/__tests__/assistant-thread-pin-coreapi-subscriber.integration.test.ts` ·
 `conversation/src/__tests__/assistant-turn-resolver*.integration.test.ts` (two files) ·
-`tool-handlers/src/__tests__/submit-review-*.integration.test.ts` (four files). The builder runs
+`tool-handlers/src/__tests__/submit-review-*.integration.test.ts` (four files) ·
+`src/services/__tests__/agent-orchestration-port-writes.integration.test.ts:121-137`'s
+`listPendingIntentsByKind` case (the file survives; that one test does not). The builder runs
 `rg -l 'api/threads|/conversations/items|api/reviews|threads/assistant|submit_review|create_item'` under
 every `__tests__` directory and closes the list; none is dropped silently.
 
@@ -1639,10 +1761,18 @@ The builder greps `POST /api/threads`, `/api/reviews`, `submit_review`, `create_
    `useRecipients`. `GET /org/review-recipients` does **not** stay: it is a different route with a
    different purpose and both its callers are deleted tools (B4).
 5. **A task created inside a thread (plan Confusion 5)** — §3.9, second paragraph.
-6. **`approval-rate.ts` and the policy package survive** — R2/R3/R4. `plan.md:75` says the policy
+6. **Reads, posts and the join (plan Confusion 6)** — §3.4, in one place, with the four paths it keeps
+   alive tabulated there and asserted in §9. One thing the plan's sentence does not spell out and this
+   document decides: the join writes **no** `thread.changed` row, and the `@mention`-add moves onto the
+   same representation, so a send has exactly one way of saying "this changed who is in the thread"
+   (§3.5). If the plan owner wants mentions to keep their own `changed` row, that is a one-row edit to
+   §3.5 and nothing else moves.
+7. **A task's thread is team-hosted (plan Confusion 7)** — §3.7, §3.9, §4 steps 4 and 7, asserted in the
+   migration test. Direct threads keep host `user`.
+8. **`approval-rate.ts` and the policy package survive** — R2/R3/R4. `plan.md:75` says the policy
    engine's *one unique effect* goes; the package's other half (lifecycle propagation) and the
    approval-rate computation the agent profile renders are not that effect.
-7. **`notice` has no writer** — R9. Not a decision this item makes; a fact it uncovered.
+9. **`notice` has no writer** — R9. Not a decision this item makes; a fact it uncovered.
 
 ## Proposed plan amendments
 
@@ -1702,3 +1832,45 @@ line and closing brace, `:50-68` is its body; not a drift, and not worth an edit
 One thing the critique credited that is worth repeating so it is not "fixed" later: **R1 must not be
 touched.** `isReturnAction`'s `!taskId` early return (`return-actions.ts:106`) is what makes a thread
 turn's `edit_task` non-terminal, and B6's resolution depends on it staying exactly as it is.
+
+## Critique response — round 2
+
+One blocker, three non-blockers. **B11 confirmed** — the round-1 read/write split plus B10's
+`team`-hosted task threads did produce a shape with no join path, and all four paths the critic named
+were genuinely dead. The finding was right and the reasoning was right; the four `rg`-backed dead-ends
+were the useful part, because each one is now an assertion in §9.
+
+| # | Verdict | Where it is fixed |
+|---|---|---|
+| **B11** join path | **Confirmed.** Verified the four dead-ends myself against the revised document and the code: nothing but `@mention` added a member, and `adjust_thread` refused the non-member who would have to do the adding. `canWrite`'s delegation to `canRead` (`access-boundary.ts:76-77`) is what all four rely on today. | The plan owner's ruling (`plan.md` Confusion 6) applied in one place, §3.4: `canWriteThread = canReadThread`, so shared (`team`/`knowledge_item`/`factory`) threads are readable **and** postable by any signed-in principal and direct threads stay members-only for read, post and adjust; **posting a host-scoped thread you are not in joins you to it in the same transaction**; `adjust_thread` follows the same predicate. Threaded through §3.5 (`after.members` on the `message` row, **no** `thread.changed` for the join), §3.6 step 4's invariant order and step 5's join, §3.7's adjust gate, §3.10's wake over the post-join list, §4 step 4's note, §5 B3/B4/B7b/B9, §6.3–6.5, §5 B13, and §9's new post/adjust/join assertions plus one per dead-end path. |
+
+Three things inside the ruling that it did not spell out and this document decides, each flagged so
+the plan owner can reverse it in one edit:
+
+- **the `@mention`-add moves onto `after.members` too.** The ruling puts the *join* there; leaving
+  mentions on a `thread.changed` row would mean one act has two representations depending on why the
+  member list moved. One rule instead: a **send** never writes a `changed` row naming `members`;
+  `adjust_thread` is the only thing that does — which is also how BC5 tells "spoke and thereby joined"
+  from "was added". Reversing it is one row in §3.5's table.
+- **an adjust does not join its actor.** Renaming or pinning a shared thread is not speaking in it, so
+  the member list only grows from real participation. The ruling says any principal who can read a
+  shared thread may adjust it; it does not say adjusting puts them in it.
+- **the wake rule runs over the post-join list.** A stranger posting into a two-member team thread makes
+  it three, so their post does **not** wake the agent sitting in it. Consistent with the existing
+  mention rule, and the alternative — computing the arm on the pre-join list — would wake an agent
+  because of who *used* to be in the room.
+
+One asymmetry this creates that §6.4 states rather than hides: for a **host-scoped** thread the action
+is looser than the websocket until the first post, because the socket wants membership and the action
+does not. That is today's asymmetry unchanged — `GET /threads/:id` already serves a `team`-hosted
+thread to any principal while `ws-subscribe-authorizer.ts:95-100` refuses the subscription — and the
+join closes it for anyone who actually participates.
+
+| # | Verdict | Fix |
+|---|---|---|
+| **N10** | **Confirmed, both sites.** `actions-projected.ts:83` carries the `GET /requests/pending-intents` plumbing row, and clause 2's reverse check covers `LEGACY_ROUTES` only (`:433-442`), so a stale plumbing row is inert — the critic is right that this is why it is not a blocker, and right that it should still go. `agent-orchestration-port-writes.integration.test.ts:121-137` does test the deleted method. | Both added to §3.10's deletion list, with the missing-reverse-check explained rather than just asserted; the test case added to §9's deleted list. |
+| **N11** | **Confirmed.** `ThreadHostBanner.tsx` is under `ds/`, not `components/`. | Path corrected in §3.1's rename list; the claim about it was already right. |
+| **N12** | **Confirmed.** `framework/event-bus/src/events.ts:394` is `ThreadCreatedEvent.hostKind: HostKind`, the one `HostKind` consumer outside the deleted files. | Named in §3.1 with the reason it needs no edit, so a builder does not go looking for a second vocabulary. |
+
+Nothing in round 2 touched the open amendment: §3.12 still describes the nudge reading only, and the
+websocket envelope is still the one thing this document does not lock.
