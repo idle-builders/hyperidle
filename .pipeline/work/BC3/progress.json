@@ -16,7 +16,8 @@
     {
       "name": "how-we-work",
       "description": "one PR, one gate before ship, order and verification",
-      "passed": false
+      "passed": true,
+      "passed_at": "2026-09-17"
     },
     {
       "name": "ship-gate",
@@ -32,7 +33,7 @@
   "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
   "branch": "feature/thread-module",
   "base": "origin/main",
-  "phase": "program-design",
-  "next_action": "founder confirms How we work on this; then architecture from the confirmed plan (the untracked architecture.md predates it and is superseded)",
+  "phase": "architecture",
+  "next_action": "planner writes architecture.md from the confirmed plan; one critique; then one builder",
   "since": "c90326dd1"
 }
