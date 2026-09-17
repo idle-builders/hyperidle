@@ -59,8 +59,8 @@ the message, plus the other member when the thread has exactly two members and t
 agent, so a direct thread with your own agent needs no @. Waking is the existing post-commit work
 intent that today only the assistant thread records, made general: a turn for that agent on that
 thread. The agent reads the thread and decides: answer back, or create a task in this thread with
-edit-a-task — accepted when it was told to do something, proposed when it was asked to plan. The
-thread module never creates tasks. Nothing else wakes on a message; humans get theirs from
+edit-a-task and say so — accepted when it was told to do something, proposed when it was asked to
+plan. A turn ends with the agent's message, as today. The thread module never creates tasks. Nothing else wakes on a message; humans get theirs from
 subscriptions in BC5.
 
 **The assistant is your agent.** Every user's agent is an ordinary agent that the user owns. The
@@ -116,8 +116,11 @@ the end because sessions post through the composed tool list.
 1. `changes.kind` gains `message` — revises the earlier call to reuse `changed`; BC5 needs to tell
    a post from a rename without parsing `after`. Migration widens the check.
 2. Return gate: `send_message` is terminal for a session as all three posting tools are today;
-   `edit_task` creating a task from a thread turn (no task on the session, no id in the input)
-   must not read as "the agent moved its own task" — the gate compares two undefineds.
+   `edit_task` from a thread turn (no task on the session) is not terminal — the gate already
+   returns false without a session task; pin it with a test, do not weaken it.
+6. Reads follow membership too: open and search show a thread only to its members, except
+   team- and knowledge-hosted threads, which any signed-in principal may read (today's rule).
+7. A task's thread is hosted by the task's team, whether migrated or created.
 3. Questionnaire stays a message kind; nothing in this item touches it.
 4. Recipients list (`GET /recipients`) is a users read and stays a legacy route until the user
    module.
