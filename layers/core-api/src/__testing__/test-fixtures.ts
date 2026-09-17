@@ -16,8 +16,6 @@ import type { Hono } from "hono";
 import { disposeApp } from "../app.js";
 import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
 import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
-import { registerAssistantThreadPinReaction } from "../services/assistant-thread-pin-reaction.js";
-import { registerAssistantTurnCoherenceTrigger } from "../services/assistant-turn-coherence-trigger.js";
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
 
@@ -123,11 +121,9 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// a future change makes `createServer`'s boot path reachable from a test
 	// sharing the same eventBus instance.
 	//
-	// @lore AU21 §9 Increment 11 (Decision H2/F4, Wave B): the assistant-thread
-	// pin reaction (`@hyperidle/conversation`'s `registerAssistantThreadPinReaction`)
-	// and the B‴ coherence re-bake trigger (`assistant-turn-coherence-trigger.ts`)
-	// are wired here for the SAME reason — production wires the SAME two
-	// registrations inside `registerCoreDomainServices` (`server-factory.ts`).
+	// @lore BC3 architecture.md §5 B5: the assistant-thread pin reaction and
+	// the B‴ coherence re-bake trigger are DELETED — the wake rule
+	// (`@hyperidle/thread`'s `agentsToWake`) replaces both.
 	//
 	// @lore AU31 §3.2 clause 6: this fixture builds its OWN `AgentOrchestrationPort`
 	// over a throwaway `bootAgentOrchestration({db, eventBus})` — the seam's
@@ -153,15 +149,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
 		const unregister = registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration);
-		const unregisterPin = registerAssistantThreadPinReaction(db, eventBus);
-		const unregisterCoherence = registerAssistantTurnCoherenceTrigger(
-			db,
-			eventBus,
-			agentOrchestration,
-		);
 		await use(eventBus);
-		unregisterCoherence();
-		unregisterPin();
 		unregister();
 		orchestrationBoot.dispose();
 	},

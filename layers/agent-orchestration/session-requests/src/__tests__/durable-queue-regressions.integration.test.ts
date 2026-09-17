@@ -47,7 +47,7 @@ async function seedRequest(db: HyperIdleDb, suffix: string) {
 				threadId: `queue-thread-${suffix}`,
 				messageId: `queue-message-${suffix}`,
 				userId: `queue-user-${suffix}`,
-				assistantAgentId: `queue-agent-${suffix}`,
+				agentId: `queue-agent-${suffix}`,
 			}),
 			status: "pending",
 			createdAt,
@@ -63,7 +63,7 @@ async function seedIntent(db: HyperIdleDb, suffix: string, updatedAt = "2026-07-
 		.insert(agentWorkIntents)
 		.values({
 			id: `queue-intent-${suffix}`,
-			kind: "assistant_turn",
+			kind: "thread_turn",
 			sourceKind: "thread_message",
 			sourceId: `queue-source-${suffix}`,
 			idempotencyKey: `queue-intent:${suffix}`,

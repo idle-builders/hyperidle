@@ -22,11 +22,9 @@ import type {
 	AgentOrchestrationReviewVerdictInput,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationWorkIntentInput,
-	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
-import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
 import {
@@ -40,7 +38,6 @@ import {
 } from "@hyperidle/run-orchestration";
 import {
 	enqueueWorkIntent,
-	listPendingIntentsByKind,
 	sessionRunRegistry,
 	transitionSessionRequest,
 	type WorkIntentInput,
@@ -49,7 +46,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 
 const WORK_INTENT_KINDS = [
-	"assistant_turn",
+	// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn".
+	"thread_turn",
 	"session_start",
 	"knowledge_action",
 	"routine_run",
@@ -57,9 +55,6 @@ const WORK_INTENT_KINDS = [
 	"session_resume",
 ] as const;
 
-function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentKind {
-	return (WORK_INTENT_KINDS as readonly string[]).includes(value);
-}
 
 /**
  * The ONE audited cast: `AgentOrchestrationWorkIntentInput.sourceKind` is
@@ -155,23 +150,11 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		return c.json(outcome);
 	});
 
-	// ── requests.listPendingIntentsByKind — GET /agent-orchestration/requests/pending-intents?kind= ──
-	router.get("/requests/pending-intents", async (c) => {
-		const kind = c.req.query("kind");
-		if (!(kind && isWorkIntentKind(kind))) {
-			return c.json(
-				{
-					error: "kind is required and must be a known intent kind",
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				},
-				400,
-			);
-		}
-		const pending = await listPendingIntentsByKind(db, kind);
-		return c.json({
-			entries: pending.map((p) => ({ id: p.id, sourceId: p.sourceId, requestedBy: p.requestedBy })),
-		});
-	});
+	// @lore BC3 architecture.md §3.10/§5 B5: `GET .../requests/pending-intents`
+	// DELETED with its only caller, the deleted coherence trigger. Its
+	// `PLUMBING_ROUTES` row (`actions-projected.ts`) is removed in the same
+	// step — a stale plumbing row is inert (clause 2's reverse check only
+	// covers `LEGACY_ROUTES`), so nothing would have caught it otherwise.
 
 	// ── requests.failExplicitSessionStart — POST /agent-orchestration/requests/explicit-starts/:startId/fail ──
 	// Called by core-api's `session_start` admission-failure reaction to mark the

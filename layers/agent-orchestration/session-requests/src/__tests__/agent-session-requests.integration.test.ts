@@ -23,6 +23,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
@@ -261,11 +262,11 @@ describe("agent session request repository", () => {
 
 	test("concurrent intent drains process one durable attempt", async ({ db }) => {
 		const intent = await enqueueWorkIntent(db, {
-			kind: "assistant_turn",
+			kind: "thread_turn",
 			sourceKind: "thread_message",
 			sourceId: "thread:intent-lease",
 			requestedBy: "agent-intent-lease",
-			idempotencyKey: "assistant_turn:intent-lease",
+			idempotencyKey: "thread_turn:intent-lease",
 			// The drain will fail (no real FKs) — that's fine, test only proves
 			// claim-exclusivity (one attempt despite two concurrent drains).
 			bakedRequest: {
@@ -277,7 +278,7 @@ describe("agent session request repository", () => {
 					threadId: "thread:intent-lease",
 					messageId: "msg-1",
 					userId: "user-1",
-					assistantAgentId: "agent-intent-lease",
+					agentId: "agent-intent-lease",
 				},
 			},
 		});
@@ -397,6 +398,27 @@ describe("agent session request repository", () => {
 				createdAt: now,
 			},
 		]);
+		// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+		await db.insert(threads).values([
+			{
+				id: "thr-explicit-bet",
+				hostKind: "team",
+				hostId: "explicit-team",
+				initiatorId: "explicit-user",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
+			},
+			{
+				id: "thr-explicit-task",
+				hostKind: "team",
+				hostId: "explicit-team",
+				initiatorId: "explicit-user",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
+			},
+		]);
 		await db.insert(tasks).values({
 			id: "explicit-bet",
 			parentTaskId: null,
@@ -404,6 +426,7 @@ describe("agent session request repository", () => {
 			title: "Bet",
 			description: "Bet",
 			state: "in_progress",
+			threadId: "thr-explicit-bet",
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -413,6 +436,7 @@ describe("agent session request repository", () => {
 			teamId: "explicit-team",
 			title: "Task",
 			state: "accepted",
+			threadId: "thr-explicit-task",
 			createdAt: now,
 			updatedAt: now,
 		});

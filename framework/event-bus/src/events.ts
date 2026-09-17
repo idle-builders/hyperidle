@@ -24,7 +24,10 @@ import type {
  * hardcoded copy.
  */
 export const AGENT_WORK_INTENT_KINDS = [
-	"assistant_turn",
+	// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn" — a
+	// thread turn is not necessarily "the assistant"; any woken agent gets
+	// one. Migration 0085 step 8 respells the DB check constraint the same way.
+	"thread_turn",
 	"session_start",
 	"knowledge_action",
 	"routine_run",

@@ -36,8 +36,6 @@ import * as taskDb from "@hyperidle/task";
 import { findUser } from "@hyperidle/users";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
-import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
-import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
@@ -326,30 +324,12 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// AU21 §9 Increment 11 (Decision H2/F4): "pin the assistant thread after
-	// its first AI reply" — Layer-owned since it directly imports both
-	// @hyperidle/conversation and @hyperidle/users (no DI port needed).
-	disposers.push(
-		identifyBootstrapOwner(
-			registerAssistantThreadPinReaction(db, eventBus),
-			"assistant thread pin reaction",
-			"unsubscribe",
-			["thread_message_appended subscription"],
-		),
-	);
-
-	// AU21 §9 Increment 11 (Decision H2 "Coherence — reconciled via Decision
-	// B‴"): the new supersede-trigger wiring — a thread reply landing while a
-	// same-thread `assistant_turn` intent is still pending re-bakes it with
-	// the now-current transcript, reusing the Increment 3 supersede machinery.
-	disposers.push(
-		identifyBootstrapOwner(
-			registerAssistantTurnCoherenceTrigger(db, eventBus, agentOrchestration),
-			"assistant-turn B‴ coherence trigger",
-			"unsubscribe",
-			["thread_message_appended subscription"],
-		),
-	);
+	// @lore BC3 architecture.md §5 B5: the assistant-thread pin reaction and
+	// the B‴ coherence re-bake trigger are DELETED — no coherence re-bake
+	// (architecture.md §7): a thread turn may answer a transcript one message
+	// behind; accepted, because the agent reads the thread with `open_thread`
+	// anyway. The wake rule (`@hyperidle/thread`'s `agentsToWake`) replaces
+	// the structural `ast-` recognition both reactions depended on.
 
 	// AU27 Increment 5 (Decision 5): the never-silent net — a
 	// `@hyperidle/conversation`-owned reaction to the existing

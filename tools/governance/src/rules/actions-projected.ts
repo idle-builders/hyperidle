@@ -80,7 +80,8 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/health.ts|GET /auth",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /intents",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /review-verdicts",
-	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /requests/pending-intents",
+	// @lore BC3 architecture.md §5 B5/N10: `GET .../requests/pending-intents`
+	// DELETED with its only caller, the deleted coherence trigger.
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /requests/explicit-starts/:startId/fail",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /runs/end-for-handoff",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|GET /run-config/:agentId",

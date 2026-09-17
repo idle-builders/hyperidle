@@ -119,22 +119,9 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(second.id).toBe(first.id);
 	});
 
-	test("requests.listPendingIntentsByKind returns only pending/claimed intents for that kind", async ({
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-pending");
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-
-		await port.intents.submit({
-			kind: "assistant_turn",
-			sourceKind: "thread_message",
-			sourceId: "aopw-pending-msg-1",
-			idempotencyKey: "assistant:aopw-pending-msg-1",
-		});
-
-		const pending = await port.requests.listPendingIntentsByKind("assistant_turn");
-		expect(pending.some((p) => p.sourceId === "aopw-pending-msg-1")).toBe(true);
-	});
+	// @lore BC3 architecture.md §5 B5/§9: `requests.listPendingIntentsByKind`
+	// deleted with its only caller, the deleted coherence trigger — this
+	// test's subject no longer exists.
 
 	test("runConfig.write then runConfig.read round-trips through the real route", async ({
 		db,
@@ -302,9 +289,10 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		requestWithoutAuth,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-auth-boundary");
-		const res = await requestWithoutAuth(
-			"/api/agent-orchestration/requests/pending-intents?kind=assistant_turn",
-		);
+		// @lore BC3: re-pointed off the deleted `requests/pending-intents` route
+		// (architecture.md §5 B5) onto another GET on the same mount — the
+		// assertion is about the auth middleware, not this specific route.
+		const res = await requestWithoutAuth("/api/agent-orchestration/run-config/agent-1");
 		expect(res.status).not.toBe(200);
 	});
 

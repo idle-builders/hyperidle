@@ -99,7 +99,7 @@ async function reactToAdmissionFailure(
 		case "knowledge_action":
 			await flagStalledKnowledgeAction(db, eventBus, event);
 			return;
-		case "assistant_turn":
+		case "thread_turn":
 			// Informational only — no durable "run" record exists for a thread
 			// message; a user-visible surfacing is a reasonable product
 			// follow-up but not required to close AU15's guarantee.

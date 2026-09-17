@@ -39,7 +39,6 @@ import type {
 	AgentOrchestrationStoppedRun,
 	AgentOrchestrationTransport,
 	AgentOrchestrationWorkIntentInput,
-	AgentOrchestrationWorkIntentKind,
 	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
 import type { WriteExecutor } from "@hyperidle/db";
@@ -72,11 +71,6 @@ interface AgentOrchestrationHcClient {
 			$post(args: { readonly json: AgentOrchestrationReviewVerdictInput }): Promise<Response>;
 		};
 		readonly requests: {
-			readonly "pending-intents": {
-				$get(args: {
-					readonly query: { readonly kind: AgentOrchestrationWorkIntentKind };
-				}): Promise<Response>;
-			};
 			readonly "explicit-starts": {
 				readonly ":startId": {
 					readonly fail: {
@@ -220,26 +214,8 @@ export function buildAgentOrchestrationPort(
 			},
 		},
 		requests: {
-			async listPendingIntentsByKind(kind: AgentOrchestrationWorkIntentKind): Promise<
-				ReadonlyArray<{
-					readonly id: string;
-					readonly sourceId: string;
-					readonly requestedBy: string | null;
-				}>
-			> {
-				const res = await client["agent-orchestration"].requests["pending-intents"].$get({
-					query: { kind },
-				});
-				if (!res.ok) return throwSeamError("requests.listPendingIntentsByKind", res);
-				const body = (await res.json()) as {
-					readonly entries: ReadonlyArray<{
-						readonly id: string;
-						readonly sourceId: string;
-						readonly requestedBy: string | null;
-					}>;
-				};
-				return body.entries;
-			},
+			// @lore BC3 architecture.md §3.10/§5 B5: `listPendingIntentsByKind`
+			// DELETED with its only caller, the deleted coherence trigger.
 			async failExplicitSessionStart(startId: string, failureCode: string): Promise<void> {
 				const res = await client["agent-orchestration"].requests["explicit-starts"][
 					":startId"

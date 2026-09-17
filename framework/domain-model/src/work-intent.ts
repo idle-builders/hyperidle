@@ -585,12 +585,14 @@ export type BakedContextBundle =
  */
 export type AgentWorkIntentRecorderInput =
 	| {
-			readonly kind: "assistant_turn";
+			// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn" —
+			// any woken agent gets a turn, not only "the assistant".
+			readonly kind: "thread_turn";
 			readonly sourceKind: "thread_message";
 			readonly sourceId: string;
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by the `conversation` resolver (AU21 Increment 3). */
+			/** See `BakedWorkIntentRequest`. Populated at emit time by the `thread` module's wake rule. */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  }
 	| {
@@ -661,7 +663,7 @@ export type AgentWorkIntentRecorderInput =
  * `AgentWorkIntentEvent`'s `intentKind` and omits `session_resume`.
  */
 export const AGENT_WORK_INTENT_KINDS = [
-	"assistant_turn",
+	"thread_turn",
 	"session_start",
 	"knowledge_action",
 	"routine_run",

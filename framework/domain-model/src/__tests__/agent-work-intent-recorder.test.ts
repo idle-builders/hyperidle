@@ -21,7 +21,7 @@ import {
 describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
 	it("contains exactly the six canonical kinds", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toEqual([
-			"assistant_turn",
+			"thread_turn",
 			"session_start",
 			"knowledge_action",
 			"routine_run",
@@ -42,7 +42,7 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 	it("accepts every one of the six kinds as its discriminant, paired with the correct sourceKind", () => {
 		const inputs: AgentWorkIntentRecorderInput[] = [
 			{
-				kind: "assistant_turn",
+				kind: "thread_turn",
 				sourceKind: "thread_message",
 				sourceId: "s1",
 				idempotencyKey: "k1",
