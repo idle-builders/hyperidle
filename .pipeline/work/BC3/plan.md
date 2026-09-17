@@ -124,6 +124,10 @@ the end because sessions post through the composed tool list.
    how a new owner after a handoff, a reviewer giving a verdict, and a visitor on a knowledge page
    get in. Direct threads stay members-only.
 7. A task's thread is hosted by the task's team, whether migrated or created.
+8. Founder 2026-09-17: the websocket push is a nudge. It carries the change row; the page re-runs
+   its own open or search. This reverses the earlier "no refetch, core submits the changed version"
+   rule for thread surfaces; one push path for every write, no viewer-relative title composed for a
+   broadcast.
 3. Questionnaire stays a message kind; nothing in this item touches it.
 4. Recipients list (`GET /recipients`) is a users read and stays a legacy route until the user
    module.

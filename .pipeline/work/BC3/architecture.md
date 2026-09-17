@@ -1776,6 +1776,8 @@ The builder greps `POST /api/threads`, `/api/reviews`, `submit_review`, `create_
 
 ## Proposed plan amendments
 
+**Resolved 2026-09-17 by the founder: nudge.** §3.12 as written is the locked reading; `plan.md` Confusion 8 records it.
+
 One. It is a founder call, not mine, and I have not resolved it in the document above beyond stating
 the reading I recommend.
 
