@@ -903,8 +903,8 @@ rides `conversations`, and `thread:<id>` stays participant-gated. §6.
 
 ## 4. Data and migration
 
-One hand-written file, `framework/db/drizzle/0084_thread_module.sql`, plus one `meta/_journal.json`
-entry `{"idx":84,"version":"7","when":1785693612000,"tag":"0084_thread_module","breakpoints":true}`.
+One hand-written file, `framework/db/drizzle/0085_thread_module.sql` (0084 is taken by the open BA5 PR #554; if BA5 has not merged when this ships, the two do not collide by number, and whichever lands second rebases the journal), plus one `meta/_journal.json`
+entry `{"idx":85,"version":"7","when":1785693612000,"tag":"0085_thread_module","breakpoints":true}`.
 `0083_changes_and_task_edit` is the highest today. There is no generator
 (`framework/db/drizzle/README.md`). The steps are ordered; a later one depends on an earlier one.
 
@@ -964,7 +964,7 @@ UPDATE "tasks" SET "thread_id" = 'thr-' || "id" WHERE "thread_id" IS NULL;
 -- 5. the column becomes real. Guard first — a silent NULL here is a broken app.
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM "tasks" WHERE "thread_id" IS NULL) THEN
-    RAISE EXCEPTION '0084: % tasks still have no thread',
+    RAISE EXCEPTION '0085: % tasks still have no thread',
       (SELECT count(*) FROM "tasks" WHERE "thread_id" IS NULL);
   END IF;
 END $$;
@@ -983,7 +983,7 @@ UPDATE "threads" SET "host_kind" = 'user', "host_id" = "initiator_id"
 WHERE "host_kind" = 'task';
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM "threads" WHERE "host_kind" = 'task') THEN
-    RAISE EXCEPTION '0084: threads still hosted by a task';
+    RAISE EXCEPTION '0085: threads still hosted by a task';
   END IF;
 END $$;
 
@@ -1170,7 +1170,7 @@ compiling. The full list:
 | `framework/api-contract/src/agent-orchestration-port.ts:87` | `AgentOrchestrationWorkIntentKind`'s union member | `"thread_turn"` |
 | `layers/agent-orchestration/src/routes/agent-orchestration-intake.ts:52` | the intake zod enum | `"thread_turn"` |
 | `layers/core-api/src/services/agent-run-admission-reactions.ts:102` | `case "assistant_turn":` — informational, no mutation | `case "thread_turn":`, body unchanged |
-| `framework/db` check constraints | `0078`'s three | respelled in `0084` step 8 |
+| `framework/db` check constraints | `0078`'s three | respelled in `0085` step 8 |
 
 The two `AGENT_WORK_INTENT_KINDS` lists are not a duplicate to collapse in this item: `event-bus`'s is
 the raw `agent_work_intents.kind` column vocabulary and `domain-model`'s is the recorder input's, which
@@ -1522,7 +1522,7 @@ One PR (`plan.md:100`). Net red expected; size is not a gate. Each step compiles
    `TaskViewSchema.threadId` non-nullable, and `TaskActionsDeps` gains `adjustThread` (§3.9).
    `ActionContext` gains `caller` (§3.2). `Thread.participants` → `Thread.members` and its three
    consumers. Red tests first.
-2. **Schema and migration.** `0084_thread_module.sql` + the journal entry + every mirroring edit in
+2. **Schema and migration.** `0085_thread_module.sql` + the journal entry + every mirroring edit in
    `framework/db/src/schema.ts` + the four `table-owners.json` edits including the totals. This comes
    before the module because step 3's reads and writes depend on `threads.title`, `threads.deletedAt`,
    `changes.kind = 'message'` and `tasks.thread_id NOT NULL`.
@@ -1623,7 +1623,7 @@ fixture yields plus a literal `caller` — which is also how the `producedItemId
 `linkReviewToSession` cases are driven. The HTTP `app` is still used for everything else, so both doors
 are exercised in one file.
 
-**New migration test** — `framework/db/src/__tests__/migration-0084-brownfield.integration.test.ts`,
+**New migration test** — `framework/db/src/__tests__/migration-0085-brownfield.integration.test.ts`,
 the shape `migration-0078-brownfield.integration.test.ts` already uses: seed a task with a task-hosted
 thread, a task with two of them, a task with none, an `items` row and a message carrying its
 `legacyItemId`; migrate; assert every task has a thread, **every task thread has `host_kind = 'team'`
