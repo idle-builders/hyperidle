@@ -20,6 +20,13 @@
       "passed_at": "2026-09-17"
     },
     {
+      "name": "architecture",
+      "description": "architecture.md + critique PASS before build",
+      "passed": true,
+      "passed_at": "2026-09-17",
+      "note": "three critique rounds: 10 \u2192 1 \u2192 1 blockers, last one a stale line fixed by the orchestrator"
+    },
+    {
       "name": "ship-gate",
       "description": "founder sees threads, task thread, overlay and a mention-made task through the list",
       "passed": false
@@ -33,8 +40,8 @@
   "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
   "branch": "feature/thread-module",
   "base": "origin/main",
-  "phase": "architecture-critique",
-  "next_action": "planner fixes B11 (join on post); critic round 3; founder answers websocket nudge vs payload; then one builder",
+  "phase": "build",
+  "next_action": "one builder: red tests then code in architecture \u00a77 order; websocket \u00a73.12 waits for the founder (nudge vs payload)",
   "since": "c90326dd1",
   "artifacts": {
     "architecture": ".pipeline/work/BC3/architecture.md",

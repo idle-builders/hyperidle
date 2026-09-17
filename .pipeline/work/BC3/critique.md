@@ -391,3 +391,113 @@ rebuttal is fair (declaration vs body); the `eslint.config.ts` ref is corrected 
 - **N12 — `framework/event-bus/src/events.ts:394` carries `hostKind: HostKind`** on a thread event
   payload and is not named alongside §3.1's `HOST_KINDS` edit. Harmless — nothing assigns `"task"` once
   task hosting is gone — but it is the one remaining `HostKind` consumer outside the deleted files.
+
+---
+
+# Round 3 — re-test against `c613371f5` (architecture, 1,876 lines)
+
+**PASS WITH BLOCKERS** — one blocker, and it is a single stale line in §9 rather than a hole in the
+design. The B11 fix is real, complete and correctly threaded: I re-tested the four dead-end paths, the
+invariant order, the wake arm, the §9 join assertions and the B13 successor claims against the code,
+and every one holds. The three non-blockers are fixed. No earlier blocker regressed.
+
+## Remaining blocker
+
+### B12 — §9 still asserts the `thread.changed` row that §3.4 and §3.5 just abolished
+
+`architecture.md:1572`:
+
+> - an `@mention` adds the mentioned user as a member **in the send's transaction** and appends a
+>   `changed` row;
+
+§3.5:552-561 and §3.4:496-498 now say the opposite, and say it as a locked rule: "**A send never
+appends a `changed` row for membership.** Both ways a send can change the member list — the sender
+joining a host-scoped thread and an `@mention` pulling someone in — ride `after.members` on the
+`message` row … `adjust_thread` stays the **only** writer of a `thread.changed` row whose diff names
+`members`." The response flags the mention-move as a decision it made inside the ruling
+(`:1850-1854`), so the intent is unambiguous.
+
+The two assertions land in the same file and cannot both pass: `:1602-1604` asserts a non-member post
+leaves "**no `thread.changed` row appended** — the row count is the assertion that catches a builder
+re-adding one", while `:1572` tells the builder to append exactly that row for the mention case. A
+builder writing the red tests first will write one of them and be wrong either way; the row-count
+assertion is the one that would go red, which reads as the new rule being broken rather than as a stale
+line. §1's obligation row (`:56`, "mentions add members in that transaction") is fine — it does not
+name a row.
+
+Fix: `:1572` becomes "an `@mention` adds the mentioned user as a member in the send's transaction, and
+the `thread.message` row's `after.members` carries the resulting list — **no `thread.changed` row**."
+
+## B11 — re-tested, fixed
+
+- **The predicate.** `canWriteThread = canReadThread` (`:477`) is exactly `canWrite`'s delegation to
+  `canRead` today (`layers/core-api/src/auth/access-boundary.ts:76-77`), and `HOST_SCOPED` is
+  `HOST_SCOPE`'s host-scope set minus `task` (`:35-38`). Verified both against the file. §6.3's claim
+  "neither half is a tightening and neither is a loosening" is now accurate — round 1's "strictly
+  stronger" was not, and it has been corrected here and in B13 (`:1392-1394`).
+- **The four paths.** §3.4's table (`:529-534`) is right on all four, and the reasoning is the code's,
+  not an assertion: the handoff and the third-party verdict are `team`-hosted (§3.9 `:626`, §4 step 4
+  `:930-940`), the knowledge visitor and `system:propagation` are `knowledge_item`-hosted
+  (`review-item-factory.ts:81-82`). B3 now states the handoff case explicitly and says no handoff-time
+  seeding is added (`:1086-1089`), which is the honest shape — the join, not a second write, is what
+  fixes it.
+- **The invariant order.** §3.6 step 4 (`:595-600`) puts `not_found`/`thread_deleted` → `canWriteThread`
+  → produced-item → verdict trio, with the reason stated: on a `team`-hosted thread `canWriteThread`
+  passes for a non-member, so the verdict trio is what decides and `not_a_member` cannot pre-empt it.
+  That is the ordering the third-party-verdict path needs, and §9 asserts it (`:1614-1616`).
+- **The wake arm over post-join members.** Checked both directions. A stranger posting into a
+  two-member `team` thread joins in the same transaction, so `members.length === 3` when `agentsToWake`
+  runs and the arm is off (`:771-777, 782-785`) — the agent is not woken. A real two-member direct
+  thread is `user`/`agent`-hosted, which has no join path at all, so the sender is already a member,
+  `members.length` stays 2 and the counterpart agent is still woken with no `@`. Confirmed that
+  `findOrCreateDirectThread` only ever produces `hostKind` `"agent"` or `"user"`
+  (`layers/core-api/conversation/src/conversation-store.ts:157-185`), so the join can never mutate a
+  thread carrying a `directKey` and the partial unique index cannot go stale.
+- **The §9 join assertions are provable and red-able.** `:1600-1610` asserts the refusal writes
+  nothing (`messages` and `changes` counts unchanged), the success leaves the sender in
+  `thread.members`, the `message` row's `after.members` carries the new list, no `thread.changed` row
+  is appended (a row count — a check that can actually go red), a second post by the same sender adds
+  no duplicate, and an adjust succeeds without joining. All reachable through the `{db, app, eventBus}`
+  fixture. `:1611-1618` then adds one assertion per dead-end path. Apart from B12 this set is the
+  strongest part of the document.
+- **B13's successor claims are correct.** Both halves named, "delete `access-boundary.ts` in the same
+  commit that adds the two predicates, not before" (`:1391-1396`), and the join correctly characterised
+  as granting no read the actor did not already have.
+- **No regression.** B1 (`canReadThread` on `open_thread` and every `search_threads` arm, `not_found`
+  not `forbidden`), B2 (`sourceId = ${message.id}:${agentId}`, `:794`), B3/B7b, B4 (still seven sites,
+  `:1167-1169`), B5 (`TaskActionsDeps.adjustThread`, `:728`), B6 (the eight-step chain ending in
+  `send_message`, `:1686-1693`), B7 (both `ast-` rewrites, `:1189-1190`), B8 (§3.1's preamble),
+  B9 (`users.findSoleHumanUser`, `:1118`), B10 (`team` host in §3.7, §3.9, §4 steps 4/7 and the
+  migration test) all intact.
+
+**N10, N11, N12 fixed.** N10's two sites are in §3.10's deletion list with the missing-reverse-check
+explained rather than asserted (`:826-833`) and the test case is on §9's deleted list (`:1651-1653`);
+N11's path corrected to `ds/ThreadHostBanner.tsx:85` (`:157`); N12 named in §3.1 (`:135`).
+
+## New non-blocking defects
+
+- **N13 — the write path is an existence oracle for DM ids, which the read path deliberately is not.**
+  `send_message({threadId})` returns `not_found` for an id that does not exist and `not_a_member` for a
+  stranger's DM (§3.4:434-436, §3.6 step 4). §3.4:507-509 argues the opposite for reads — "the two
+  answers must be indistinguishable or the action is an existence oracle for thread ids" — and §6.4
+  repeats it. Not a regression: `POST /threads/:id/messages` already answers 404 vs 403 today. But the
+  document states a principle it then does not apply to the door it is replacing; either apply it or
+  say why the write path is different.
+- **N14 — the 0084→0085 renumber is reasoned about the filename, and the runner orders by timestamp.**
+  `framework/db/src/migrate-pg.ts:44-52` skips any migration whose journal `when` is `<= last applied
+  created_at` — silently, with no error and no `applied++`. The proposed entry keeps
+  `when: 1785693612000` (`:906-908`), one second after `0083`. If BA5's `0084` lands with a `when` at
+  or above that and is applied first, `0085` is skipped rather than rejected. Low risk in practice —
+  there are no deployments, and the document already says whichever lands second rebases — but the
+  rebase has to bump `when`, not just the number, and the note should say so. The journal gap itself is
+  harmless: the brownfield harness filters on `e.idx <= upToIdx`
+  (`framework/db/src/__tests__/migration-0078-brownfield.integration.test.ts:27-31`), which tolerates it.
+- **N15 — soft-deleting a shared thread is a genuinely new capability, not an inherited one.** §6's
+  second non-restriction (`:1474-1481`) argues from `PATCH /threads/:id` being unguarded today. That is
+  true for renaming and the participant list, but **nothing writes a thread delete today at all** —
+  `threads` has no `deleted_at` column (`framework/db/src/schema.ts:734-769`), §4 step 1 adds it. So
+  after this item any signed-in principal, and every agent session (`actionsAsTools` filters no roles),
+  can `adjust_thread({ id, deleted: true })` on any `team`-hosted thread — which after B10 is every
+  task's conversation. Reversible and `changes`-logged, and covered by the plan owner's "adjust gates
+  on the same write predicate" ruling, so this is a note rather than a defect in the reasoning: the
+  comparison drawn is to a wider existing door, and for this one verb there is no existing door at all.

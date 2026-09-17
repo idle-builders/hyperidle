@@ -1569,8 +1569,8 @@ the house rule forbids. One PR stands.
 - a verdict from a non-human returns `verdict_not_human`; from the review's own author,
   `verdict_self`; naming a review in another thread, `verdict_foreign_review`; a second concurrent
   verdict, `verdict_race`;
-- an `@mention` adds the mentioned user as a member **in the send's transaction** and appends a
-  `changed` row;
+- an `@mention` adds the mentioned user as a member **in the send's transaction**; no `changed`
+  row is appended — the `thread.message` row's `after.members` carries the new list (§3.5);
 - **the wake rule**: a mention of an agent records one `thread_turn` intent for that agent; a
   two-member thread with one agent records one for it with no mention; a three-member thread with no
   mention records none; **two mentioned agents produce two dispatches, not two rows** — drain the
