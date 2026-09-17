@@ -33,7 +33,12 @@
   "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
   "branch": "feature/thread-module",
   "base": "origin/main",
-  "phase": "architecture",
-  "next_action": "planner writes architecture.md from the confirmed plan; one critique; then one builder",
-  "since": "c90326dd1"
+  "phase": "architecture-critique",
+  "next_action": "planner fixes B11 (join on post); critic round 3; founder answers websocket nudge vs payload; then one builder",
+  "since": "c90326dd1",
+  "artifacts": {
+    "architecture": ".pipeline/work/BC3/architecture.md",
+    "critique": ".pipeline/work/BC3/critique.md (round 1 FAIL 10 blockers, round 2 PASS WITH BLOCKERS 1)",
+    "facts": ".pipeline/work/BC3/facts.md"
+  }
 }
