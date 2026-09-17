@@ -9,12 +9,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	type AgentSessionStateSnapshot,
-	isBlocking,
-	type Message,
-	type Thread,
-} from "../thread.js";
+import { type AgentSessionStateSnapshot, isBlocking } from "../thread.js";
+import type { Message, Thread } from "../actions/thread.js";
 
 const NOW = Date.parse("2026-04-19T12:00:00Z");
 
@@ -22,14 +18,20 @@ function isoAt(offsetMin: number): string {
 	return new Date(NOW + offsetMin * 60_000).toISOString();
 }
 
+// @lore BC3: hostKind "task" removed from HOST_KINDS — a task's thread is
+// team-hosted now (architecture.md §3.7, §3.9). "team" here is that host,
+// not a claim this thread belongs to a specific team row.
 const baseThread: Thread = {
 	id: "t1",
-	hostKind: "task",
-	hostId: "task-1",
+	hostKind: "team",
+	hostId: "team-1",
 	initiatorId: "u1",
-	participants: ["u1", "agent-1"],
+	members: ["u1", "agent-1"],
+	title: null,
+	computedTitle: "Untitled conversation",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: isoAt(0),
 	createdAt: isoAt(0),
 };
@@ -39,6 +41,7 @@ const plainMsg: Message = {
 	threadId: "t1",
 	senderId: "u1",
 	clientKey: "p1",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -52,6 +55,7 @@ const unresolvedReview: Message = {
 	threadId: "t1",
 	senderId: "agent-1",
 	clientKey: "r1",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -84,7 +88,7 @@ const activeForThread: AgentSessionStateSnapshot = {
 
 describe("isBlocking (concept §4.5.5)", () => {
 	it("returns false when there are no agent participants and no head", () => {
-		const thread: Thread = { ...baseThread, participants: ["u1"] };
+		const thread: Thread = { ...baseThread, members: ["u1"] };
 		expect(isBlocking(thread, [plainMsg], noAgentState)).toBe(false);
 	});
 

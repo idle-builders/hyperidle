@@ -177,7 +177,14 @@ export const tasks = pgTable(
 		doneCondition: text("done_condition"),
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
-		threadId: text("thread_id").references(() => threads.id, { onDelete: "restrict" }),
+		/**
+		 * BC3: every task has a real thread, written at creation
+		 * (migration 0085 step 5 makes this `NOT NULL`; `edit_task` creates the
+		 * thread before opening its own transaction — architecture.md §3.9).
+		 */
+		threadId: text("thread_id")
+			.notNull()
+			.references(() => threads.id, { onDelete: "restrict" }),
 		notes: text("notes"),
 		// `auditTrail` dropped — the `changes` table (0082) is the audit
 		// mechanism now. See `one-work-primitive.ts`'s `@lore` for the ban this
@@ -582,7 +589,11 @@ export const changes = pgTable(
 		index("changes_object_idx").on(table.object, table.objectId, table.at),
 		index("changes_at_idx").on(table.at),
 		check("changes_object_ck", sql`${table.object} in ('task','thread','document','user')`),
-		check("changes_kind_ck", sql`${table.kind} in ('created','changed')`),
+		// BC3 migration 0085 step 2: `message` is its own kind of change — a
+		// post is not a rename, and `objectId` stays the THREAD id either way
+		// (never a message id), so BC5 can read a thread's history with one
+		// `listChanges({object:'thread', objectId})`.
+		check("changes_kind_ck", sql`${table.kind} in ('created','changed','message')`),
 	],
 );
 
@@ -756,6 +767,13 @@ export const threads = pgTable(
 		 * is exempt (directKey=null) to avoid overlap with assistant.ts.
 		 */
 		directKey: text("direct_key"),
+		/**
+		 * BC3 migration 0085 step 1: the stored title; `null` means "use the
+		 * computed ladder's answer" (architecture.md §3.1's `ThreadSchema`).
+		 */
+		title: text("title"),
+		/** BC3 migration 0085 step 1: soft delete. Hidden from search/open; never `DELETE`d. */
+		deletedAt: text("deleted_at"),
 	},
 	(table) => [
 		index("threads_host_idx").on(table.hostKind, table.hostId, table.lastActiveAt),
@@ -785,7 +803,6 @@ export const messages = pgTable(
 		redactedAt: text("redacted_at"),
 		resolvedAt: text("resolved_at"),
 		createdAt: text("created_at").notNull(),
-		legacyItemId: text("legacy_item_id"),
 		/** T5: Structured, queryable block anchor. Dual-written alongside payload.blockId. */
 		blockId: text("block_id"),
 	},
@@ -797,34 +814,13 @@ export const messages = pgTable(
 	],
 );
 
-// --- Items & Responses (human interface contract) ---
-
-export const items = pgTable(
-	"items",
-	{
-		id: text("id").primaryKey(),
-		sourceAgentId: text("source_agent_id").references(() => users.id, { onDelete: "restrict" }),
-		verb: text("verb"),
-		kind: text("kind"),
-		title: text("title").notNull(),
-		body: text("body"),
-		attachments: text("attachments"),
-		proposedAction: text("proposed_action"),
-		options: text("options"),
-		riskTier: text("risk_tier"),
-		blocking: boolean("blocking").default(false),
-		reasoning: text("reasoning"),
-		auditTrail: text("audit_trail"),
-		threadId: text("thread_id")
-			.notNull()
-			.references(() => threads.id, { onDelete: "restrict" }),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [index("items_thread_id_idx").on(table.threadId)],
-);
-
-// L1a: `responses` table dropped — verdicts now project as `verdict`-typed
-// `messages` rows. See plan §5.2 + §5.3.
+// @lore BC3 migration 0085 step 6: the `items` table and `messages.legacyItemId`
+// are DROPPED, destructive, no compat column. `items` and the policy engine
+// die together (plan.md:71-75) — a review, a question, an escalation are
+// messages already; the table's readers were the policy engine, notification
+// links and routine subjects, all deleted with it (architecture.md §5 B7/B7b).
+// `responses` was already dropped (L1a) — verdicts project as `verdict`-typed
+// `messages` rows.
 
 // --- Org chart edges (P2) ---
 
@@ -1467,8 +1463,7 @@ export type NewThread = typeof threads.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 
-export type Item = typeof items.$inferSelect;
-export type NewItem = typeof items.$inferInsert;
+// @lore BC3: `Item`/`NewItem` deleted with the `items` table.
 
 export type KnowledgeItem = typeof knowledgeItems.$inferSelect;
 

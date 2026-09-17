@@ -40,7 +40,6 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"users",
 					// @lore BB1: `bets` table dropped — tasks carry parentTaskId self-FK.
 					"invite_codes",
-					"items",
 					"knowledge_edit_log",
 					"knowledge_items",
 					"login_sessions",
@@ -67,8 +66,11 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			expect(tableNames).not.toContain("team_members");
 			// @lore BB1: bets table dropped — parentTaskId self-FK on tasks replaces it.
 			expect(tableNames).not.toContain("bets");
-			// @lore BB1: bets table dropped — was 18, now 17.
-			expect(tableNames.length).toBeGreaterThanOrEqual(17);
+			// @lore BC3 migration 0085 step 6: `items` dropped — destructive, no
+			// compat column. Must not reappear.
+			expect(tableNames).not.toContain("items");
+			// @lore BB1: bets table dropped — was 18, then 17. BC3: items dropped — now 16.
+			expect(tableNames.length).toBeGreaterThanOrEqual(16);
 		} finally {
 			await close();
 		}
@@ -144,48 +146,10 @@ describe("I3 review C5: boolean migration is NULL-safe", () => {
 		}
 	}, 60_000);
 
-	it("default false applies to brand-new rows after migration", { timeout: 30_000 }, async () => {
-		const { db, close } = await createTestDb();
-		try {
-			await db.execute(
-				// L1a: threads now use host_kind/host_id/initiator/participants/last_active_at (plan §5.3).
-				sql`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thread-null-test', 'task', 'task-1', 'agent-1', '[]', '2026-04-18T00:00:00Z', '2026-04-18T00:00:00Z')`,
-			);
-			await db.execute(
-				sql`INSERT INTO items (id, thread_id, title, kind, created_at) VALUES ('item-default', 'thread-null-test', 'no-explicit-blocking', 'review', '2026-04-18T00:00:00Z')`,
-			);
-			const got = await db.execute(sql`SELECT blocking FROM items WHERE id='item-default'`);
-			const rows = (got as { rows: Array<{ blocking: boolean }> }).rows;
-			expect(rows[0]?.blocking).toBe(false);
-		} finally {
-			await close();
-		}
-	});
-
-	it("0004 boolean coercion is a no-op on already-boolean columns (idempotent re-run)", {
-		timeout: 30_000,
-	}, async () => {
-		// Apply all migrations once. Then re-apply only 0004 by reading the
-		// migration file directly and running its DO blocks. The DO blocks
-		// guard on `data_type='integer'` so re-run on already-boolean
-		// columns must execute zero ALTER statements.
-		const { db, close } = await createTestDb();
-		try {
-			// Pre-seed a row with blocking=true.
-			await db.execute(
-				sql`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thread-bool-test', 'task', 'task-1', 'agent-1', '[]', '2026-04-18T00:00:00Z', '2026-04-18T00:00:00Z')`,
-			);
-			await db.execute(
-				sql`INSERT INTO items (id, thread_id, title, kind, blocking, created_at) VALUES ('item-true', 'thread-bool-test', 't', 'review', true, '2026-04-18T00:00:00Z')`,
-			);
-			const got = await db.execute(sql`SELECT blocking FROM items WHERE id='item-true'`);
-			const rows = (got as { rows: Array<{ blocking: boolean }> }).rows;
-			expect(rows[0]?.blocking).toBe(true);
-
-			// Re-running migrations is the idempotency check above — already
-			// covered. The DO-block guard means this would no-op anyway.
-		} finally {
-			await close();
-		}
-	});
+	// @lore BC3 migration 0085 step 6: `items` (and its `blocking` column) is
+	// DROPPED — destructive, no compat column. The two tests that used to
+	// insert into the real, fully-migrated `items` table to exercise 0004's
+	// boolean coercion on brand-new rows are deleted with their subject; the
+	// coercion mechanism itself is still covered above by the synthetic
+	// `items_int_test` table, which never touches the real schema.
 });

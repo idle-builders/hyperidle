@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { tasks, teams } from "../schema.js";
+import { tasks, teams, threads } from "../schema.js";
 
 /**
  * I3 — foreign-key action acceptance tests.
@@ -32,12 +32,23 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 			capacity: 5,
 			createdAt: NOW,
 		});
+		// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+		await db.insert(threads).values({
+			id: "thr-t1",
+			hostKind: "team",
+			hostId: "p1",
+			initiatorId: "u1",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
 			id: "t1",
 			parentTaskId: null,
 			teamId: "p1",
 			title: "Root task",
 			state: "proposed",
+			threadId: "thr-t1",
 			createdAt: NOW,
 			updatedAt: NOW,
 		});

@@ -47,12 +47,34 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 				status: "active",
 				createdAt: NOW,
 			});
+			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			await db.insert(schema.threads).values([
+				{
+					id: "thr-root-1",
+					hostKind: "team",
+					hostId: "p1",
+					initiatorId: "a1",
+					participants: "[]",
+					lastActiveAt: NOW,
+					createdAt: NOW,
+				},
+				{
+					id: "thr-task-1",
+					hostKind: "team",
+					hostId: "p1",
+					initiatorId: "a1",
+					participants: "[]",
+					lastActiveAt: NOW,
+					createdAt: NOW,
+				},
+			]);
 			await db.insert(schema.tasks).values({
 				id: "root-1",
 				parentTaskId: null,
 				teamId: "p1",
 				title: "Root task",
 				state: "in_progress",
+				threadId: "thr-root-1",
 				createdAt: NOW,
 				updatedAt: NOW,
 			});
@@ -62,6 +84,7 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 				teamId: "p1",
 				title: "T1",
 				state: "proposed",
+				threadId: "thr-task-1",
 				createdAt: NOW,
 				updatedAt: NOW,
 			});

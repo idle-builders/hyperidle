@@ -1,7 +1,6 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import {
-	items,
 	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -38,7 +37,6 @@ describe("A2: Database Schema", () => {
 					// @lore AU18: `factory_settings` retired — `server_config` is its
 					// typed singleton-row successor.
 					"server_config",
-					"items",
 					"knowledge_edit_log",
 					"knowledge_items",
 					"messages",
@@ -50,6 +48,9 @@ describe("A2: Database Schema", () => {
 				]),
 			);
 			expect(tableNames).not.toContain("responses");
+			// @lore BC3 migration 0085 step 6: `items` dropped — the policy engine's
+			// table, destructive, no compat column. Must not reappear.
+			expect(tableNames).not.toContain("items");
 			// @lore U1: `products` table was renamed to `teams`
 			expect(tableNames).not.toContain("products");
 			// @lore BB1: `bets` table dropped — must not reappear.
@@ -117,6 +118,16 @@ describe("A2: Database Schema", () => {
 		test("inserts and reads root tasks (formerly bets)", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			await db.insert(threads).values({
+				id: "thr-root-1",
+				hostKind: "team",
+				hostId: "prod-1",
+				initiatorId: "u1",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
+			});
 			await db.insert(tasks).values({
 				id: "root-1",
 				parentTaskId: null,
@@ -125,6 +136,7 @@ describe("A2: Database Schema", () => {
 				description: "Add chunked upload support",
 				doneCondition: "Upload works for files > 100 MB",
 				state: "in_progress",
+				threadId: "thr-root-1",
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -144,12 +156,34 @@ describe("A2: Database Schema", () => {
 		test("inserts and reads tasks", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			await db.insert(threads).values([
+				{
+					id: "thr-root-1",
+					hostKind: "team",
+					hostId: "prod-1",
+					initiatorId: "u1",
+					participants: "[]",
+					lastActiveAt: now,
+					createdAt: now,
+				},
+				{
+					id: "thr-task-1",
+					hostKind: "team",
+					hostId: "prod-1",
+					initiatorId: "u1",
+					participants: "[]",
+					lastActiveAt: now,
+					createdAt: now,
+				},
+			]);
 			await db.insert(tasks).values({
 				id: "root-1",
 				parentTaskId: null,
 				teamId: "prod-1",
 				title: "Root",
 				state: "in_progress",
+				threadId: "thr-root-1",
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -159,6 +193,7 @@ describe("A2: Database Schema", () => {
 				teamId: "prod-1",
 				title: "Implement upload",
 				state: "proposed",
+				threadId: "thr-task-1",
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -178,12 +213,23 @@ describe("A2: Database Schema", () => {
 		test("updates tasks correctly", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			await db.insert(threads).values({
+				id: "thr-task-1",
+				hostKind: "team",
+				hostId: "prod-1",
+				initiatorId: "u1",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
+			});
 			await db.insert(tasks).values({
 				id: "task-1",
 				parentTaskId: null,
 				teamId: "prod-1",
 				title: "Original",
 				state: "proposed",
+				threadId: "thr-task-1",
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -210,12 +256,23 @@ describe("A2: Database Schema", () => {
 				status: "active",
 				createdAt: now,
 			});
+			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			await db.insert(threads).values({
+				id: "thr-task-1",
+				hostKind: "team",
+				hostId: "prod-1",
+				initiatorId: "agent-1",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
+			});
 			await db.insert(tasks).values({
 				id: "task-1",
 				parentTaskId: null,
 				teamId: "prod-1",
 				title: "T",
 				state: "proposed",
+				threadId: "thr-task-1",
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -319,9 +376,11 @@ describe("A2: Database Schema", () => {
 			expect(payload.text).toBe("Hello");
 		});
 
-		test("inserts and reads items and verdict messages", async ({ db }) => {
+		test("inserts and reads verdict messages", async ({ db }) => {
 			// L1a: legacy `responses` table was dropped; verdict messages
-			// (type='verdict', legacy_item_id) replace it (plan §5.2).
+			// (type='verdict') replace it (plan §5.2). BC3 migration 0085 step 6:
+			// `items` and `messages.legacyItemId` are gone — a review is a
+			// message already, resolved by a verdict message in the same thread.
 			const now = new Date().toISOString();
 			await db.insert(users).values([
 				{
@@ -343,39 +402,35 @@ describe("A2: Database Schema", () => {
 			]);
 			await db.insert(threads).values({
 				id: "thread-1",
-				hostKind: "task",
-				hostId: "task-1",
+				hostKind: "team",
+				hostId: "team-1",
 				initiatorId: "agent-1",
 				participants: JSON.stringify(["agent-1"]),
 				lastActiveAt: now,
 				createdAt: now,
 			});
-			await db.insert(items).values({
-				id: "item-1",
-				sourceAgentId: "agent-1",
-				kind: "review",
-				title: "Review upload",
-				body: "Please review",
+			await db.insert(messages).values({
+				id: "review-1",
+				senderId: "agent-1",
 				threadId: "thread-1",
+				type: "review",
+				payload: JSON.stringify({ title: "Review upload", reasoning: ["Please review"] }),
+				clientKey: "review-1",
 				createdAt: now,
 			});
-
-			const item = await db.select().from(items).where(eq(items.id, "item-1"));
-			expect(item[0]).toMatchObject({ id: "item-1", kind: "review", title: "Review upload" });
 
 			await db.insert(messages).values({
 				id: "resp-1",
 				senderId: "human-1",
 				threadId: "thread-1",
 				type: "verdict",
-				payload: JSON.stringify({ decision: "approve" }),
+				payload: JSON.stringify({ decision: "approve", resolvesMessageId: "review-1" }),
 				clientKey: "resp-1",
-				legacyItemId: "item-1",
 				createdAt: now,
 			});
 
 			const resp = await db.select().from(messages).where(eq(messages.id, "resp-1"));
-			expect(resp[0]).toMatchObject({ id: "resp-1", type: "verdict", legacyItemId: "item-1" });
+			expect(resp[0]).toMatchObject({ id: "resp-1", type: "verdict" });
 			const verdict = JSON.parse(resp[0]?.payload ?? "{}") as { decision: string };
 			expect(verdict.decision).toBe("approve");
 		});
@@ -528,6 +583,16 @@ describe("A2: Database Schema", () => {
 		test("rejects task with invalid parent_task_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			await db.insert(threads).values({
+				id: "thr-task-1",
+				hostKind: "team",
+				hostId: "prod-1",
+				initiatorId: "u1",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
+			});
 
 			await expect(
 				db.insert(tasks).values({
@@ -536,6 +601,7 @@ describe("A2: Database Schema", () => {
 					teamId: "prod-1",
 					title: "T",
 					state: "proposed",
+					threadId: "thr-task-1",
 					createdAt: now,
 					updatedAt: now,
 				}),
@@ -547,12 +613,23 @@ describe("A2: Database Schema", () => {
 		test("rejects session with invalid agent_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			await db.insert(threads).values({
+				id: "thr-task-1",
+				hostKind: "team",
+				hostId: "prod-1",
+				initiatorId: "u1",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
+			});
 			await db.insert(tasks).values({
 				id: "task-1",
 				parentTaskId: null,
 				teamId: "prod-1",
 				title: "T",
 				state: "proposed",
+				threadId: "thr-task-1",
 				createdAt: now,
 				updatedAt: now,
 			});

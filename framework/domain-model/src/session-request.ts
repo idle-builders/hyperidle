@@ -66,6 +66,14 @@ export const taskSessionRequestInputSchema = baseInput.extend({
 	}),
 });
 
+/**
+ * @lore BC3 architecture.md §5 B5: `sourceCorrelation.assistantAgentId` is
+ * renamed to `agentId` — a thread turn is not necessarily "the assistant"
+ * (any woken agent gets one), only the ONE field name assumed it was.
+ * `sourceKind`/`promptMode` stay `"assistant"`/`"conversation"`: they name
+ * what the session IS (a conversation turn with a transcript and no task),
+ * not who it belongs to.
+ */
 export const assistantSessionRequestInputSchema = baseInput.extend({
 	sourceKind: z.literal("assistant"),
 	promptMode: z.literal("conversation"),
@@ -75,7 +83,7 @@ export const assistantSessionRequestInputSchema = baseInput.extend({
 		threadId: z.string().min(1),
 		messageId: z.string().min(1),
 		userId: z.string().min(1),
-		assistantAgentId: z.string().min(1),
+		agentId: z.string().min(1),
 	}),
 });
 

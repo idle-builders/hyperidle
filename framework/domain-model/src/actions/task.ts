@@ -78,7 +78,9 @@ export const TaskSchema = z.object({
 	doneCondition: z.string().nullable(),
 	state: z.enum(TASK_STATES),
 	dependencies: z.string().nullable(),
-	threadId: z.string().nullable(),
+	// @lore BC3: every task has a thread now, written at creation
+	// (architecture.md §3.9); the column is `NOT NULL` (migration 0085 step 5).
+	threadId: z.string(),
 	notes: z.string().nullable(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
@@ -152,7 +154,7 @@ export const TaskViewSchema = z.object({
 	/** The whole nested subtree, not only direct children. */
 	children: z.array(TaskNodeSchema),
 	tokensActualRollup: z.number().nullable(),
-	threadId: z.string().nullable(),
+	threadId: z.string(),
 	/** Knowledge-item ids parented to this task. */
 	attachments: z.array(z.string()),
 });
@@ -212,6 +214,13 @@ export const EditTaskInputSchema = z
 		tokensActualJson: z.string().nullable().optional(),
 		/** Optimistic-locking token, compared against `prev.updatedAt`. */
 		version: z.string().optional(),
+		/**
+		 * BC3 architecture.md §3.9 Confusion 5: a task created inside a thread
+		 * uses that thread as its own — the caller (`open_thread`'s reader
+		 * screen) already knows which one. Absent on create ⇒ `edit_task`
+		 * creates one via `adjustThread`, hosted on the task's own team.
+		 */
+		threadId: z.string().optional(),
 	})
 	.strict();
 

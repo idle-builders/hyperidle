@@ -7,15 +7,24 @@ import type { EventBus } from "@hyperidle/event-bus";
  * `compose-api-application.ts`. Lives here, not in `framework/domain-model`,
  * because it carries `db` (the architecture doc §5).
  *
- * `ActionContext` carries no session id and gains none — everything a
- * dispatch branch needs about a running session it reads from the
- * task-owned `task_dispatch_attempts` table.
+ * BC2's `ActionContext` carried no session id. BC3 architecture.md §3.2 adds
+ * exactly one optional field, `caller` — filled ONLY by the MCP loop
+ * (`actions-as-tools.ts`) from `ToolContext`, never from a request body,
+ * never from a header. Absent for every HTTP call. No action reads `caller`
+ * for authorization; only for the thread module's no-target reply fallback,
+ * the review→session link and the produced-item-parented-to-the-calling-task
+ * check.
  */
 export interface ActionContext {
 	readonly actor: string;
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly now: string;
+	readonly caller?: {
+		readonly sessionId: string;
+		readonly taskId: string | null;
+		readonly threadId: string | null;
+	};
 }
 
 /**

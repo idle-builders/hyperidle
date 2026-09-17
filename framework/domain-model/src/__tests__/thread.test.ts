@@ -11,8 +11,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { Message } from "../thread.js";
 import { HOST_KINDS, headCollapsePredicate, MESSAGE_TYPES } from "../thread.js";
+import type { Message } from "../actions/thread.js";
 
 const NOW = Date.parse("2026-04-19T12:00:00Z");
 
@@ -26,6 +26,7 @@ function plain(id: string, offsetMin: number): Message {
 		threadId: "t1",
 		senderId: "u1",
 		clientKey: id,
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
@@ -41,6 +42,7 @@ function review(id: string, offsetMin: number, opts: { resolvedAt?: string | nul
 		threadId: "t1",
 		senderId: "u1",
 		clientKey: id,
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: opts.resolvedAt ?? null,
@@ -64,6 +66,7 @@ function questionnaire(
 		threadId: "t1",
 		senderId: "u1",
 		clientKey: id,
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: opts.resolvedAt ?? null,
@@ -140,10 +143,10 @@ describe("closed enums (AC-4)", () => {
 		);
 	});
 
-	it('HOST_KINDS has exactly 6 entries (BB1: "bet" removed, artifacts-become-knowledge: "artifact" removed)', () => {
-		expect(HOST_KINDS.length).toBe(6);
+	it('HOST_KINDS has exactly 5 entries (BB1: "bet" removed, artifacts-become-knowledge: "artifact" removed, BC3: "task" removed — a task\'s thread is team-hosted)', () => {
+		expect(HOST_KINDS.length).toBe(5);
 		expect(new Set(HOST_KINDS)).toEqual(
-			new Set(["task", "knowledge_item", "agent", "user", "team", "factory"]),
+			new Set(["knowledge_item", "agent", "user", "team", "factory"]),
 		);
 	});
 });

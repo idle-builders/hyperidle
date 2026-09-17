@@ -1,0 +1,24 @@
+{
+	"extends": "../../../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "dist",
+		"rootDir": "src",
+		"types": ["node"]
+	},
+	"include": ["src"],
+	"references": [
+		{
+			"path": "../../../framework/db"
+		},
+		{
+			"path": "../../../framework/diagnostics"
+		},
+		{
+			"path": "../../../framework/domain-model"
+		},
+		{
+			"path": "../../../framework/event-bus"
+		}
+	]
+}

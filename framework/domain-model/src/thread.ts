@@ -14,6 +14,12 @@
 // @lore AU44-b8: BlockId and BlockHostKind were in domain-model/blocks/types.ts, which dissolved
 // into layers/core-ui (batch 8). These two are wire types embedded in BlockRef/AnchorRef — domain-model
 // cannot import from layers/core-ui, so they are inlined here.
+// @lore BC3: type-only import of `Thread`/`Message` from `actions/thread.ts`,
+// which itself imports the enum vocabulary (HOST_KINDS etc.) from THIS file as
+// a value. A type-only import is erased at compile time, so this is not a
+// runtime import cycle.
+import type { Message, Thread } from "./actions/thread.js";
+
 export type BlockId = string & { readonly __brand: "BlockId" };
 // @lore BB1: `"bet"` removed — a bet is a task with no parent, and migration
 // 0068 flipped every thread whose host_kind was "bet" to "task" (the host_id was
@@ -22,7 +28,11 @@ export type BlockHostKind = "task" | "knowledge_item" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 
-export const HOST_KINDS = ["task", "knowledge_item", "agent", "user", "team", "factory"] as const;
+// @lore BC3: `"task"` removed — a task's thread is `team`-hosted (architecture.md
+// §3.7, §3.9); there is no thread hosted by a task any more. `BlockHostKind`
+// above keeps `"task"` — a block anchor's host is not a thread's host; do not
+// conflate the two vocabularies.
+export const HOST_KINDS = ["knowledge_item", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
 export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict"] as const;
@@ -90,18 +100,8 @@ export type MessageId = string;
 export type IdentityId = string;
 
 // ── Thread row ──────────────────────────────────────────────────
-
-export interface Thread {
-	readonly id: ThreadId;
-	readonly hostKind: HostKind;
-	readonly hostId: string;
-	readonly initiatorId: IdentityId;
-	readonly participants: ReadonlyArray<IdentityId>;
-	readonly pinned: boolean;
-	readonly resolvedAt: string | null;
-	readonly lastActiveAt: string;
-	readonly createdAt: string;
-}
+// @lore BC3: the hand-written `Thread` interface moved to `actions/thread.ts`
+// as `z.infer<typeof ThreadSchema>` — see the top-of-file `@lore` and §3.1.
 
 export interface AnchorRef {
 	readonly artifactId: string;
@@ -211,57 +211,12 @@ export interface AssistantNotice {
 	readonly code?: string;
 }
 
-export interface PlainPayload {
-	readonly text: string;
-	readonly refs?: ReadonlyArray<InlineRef>;
-	/**
-	 * AD8b: Optional tool-call metadata attached by the assistant session.
-	 * Low/medium-risk actions include their results here; high-risk actions
-	 * instead post a review message (not a plain message with toolCalls).
-	 */
-	readonly toolCalls?: ReadonlyArray<ToolCallSummary>;
-	/**
-	 * AH3: Optional notice discriminator for assistant error/guidance messages.
-	 * When present, the overlay renders the message as a guidance card with an
-	 * action affordance instead of a normal chat bubble.
-	 *
-	 * @lore AH3: notice is always absent on normal assistant replies. Its presence
-	 * is the signal to switch from chat rendering to error-state rendering.
-	 */
-	readonly notice?: AssistantNotice;
-}
-
-export interface ReviewPayload {
-	readonly title: string;
-	readonly reasoning: ReadonlyArray<string>;
-	/**
-	 * The produced item under review — a knowledge item id.
-	 *
-	 * @lore optional: a canvas-only review (see `artifacts` below) references no
-	 * produced item at all. Replaces the deleted `artifactRef`, which pointed at
-	 * a row in a table that no longer exists and carried a `kind` that is now
-	 * derived from the item's own blocks rather than stored.
-	 */
-	readonly producedItemId?: string;
-	/**
-	 * @lore The primary canvas channel — an agent attaches canvas payloads
-	 * directly, with no stored artifact required. Byte-identical to what the
-	 * demo world already persists and the reviews loader already serves.
-	 */
-	readonly artifacts?: ReadonlyArray<ReviewCanvasArtifact>;
-}
-
-export interface QuestionnairePayload {
-	readonly title: string;
-	readonly question: string;
-	readonly options: ReadonlyArray<string>;
-}
-
-export interface VerdictPayload {
-	readonly decision: VerdictDecision;
-	readonly resolvesMessageId: MessageId;
-	readonly note?: string;
-}
+// @lore BC3: `PlainPayload`, `ReviewPayload`, `QuestionnairePayload` and
+// `VerdictPayload` — the hand-written message-payload interfaces — moved to
+// `actions/thread.ts` (the zod schemas an action's `input`/`output` validate
+// against) and are re-exported from the barrel under the SAME names. Declaring
+// them a second time here would be the duplicate-vocabulary shape `CLAUDE.md`
+// rule 2 forbids. Same for `Thread` and `Message` below.
 
 export interface RedactedPayload {
 	readonly redacted: true;
@@ -270,34 +225,11 @@ export interface RedactedPayload {
 	readonly reason: string;
 }
 
-interface BaseMessage {
-	readonly id: MessageId;
-	readonly threadId: ThreadId;
-	readonly senderId: IdentityId;
-	readonly clientKey: string;
-	readonly deletedAt: string | null;
-	readonly redactedAt: string | null;
-	readonly resolvedAt: string | null;
-	readonly createdAt: string;
-}
-
-export type Message =
-	| (BaseMessage & {
-			readonly type: "plain";
-			readonly payload: PlainPayload | RedactedPayload;
-	  })
-	| (BaseMessage & {
-			readonly type: "review";
-			readonly payload: ReviewPayload | RedactedPayload;
-	  })
-	| (BaseMessage & {
-			readonly type: "questionnaire";
-			readonly payload: QuestionnairePayload | RedactedPayload;
-	  })
-	| (BaseMessage & {
-			readonly type: "verdict";
-			readonly payload: VerdictPayload | RedactedPayload;
-	  });
+// @lore BC3: `Thread` and `Message` — the hand-written row interfaces — moved
+// to `actions/thread.ts` as `z.infer`s of `ThreadSchema`/`MessageSchema` and
+// are re-exported from the barrel under the same names (architecture.md §3.1).
+// `headCollapsePredicate`/`isBlocking` below import them back — a type-only
+// import, erased at compile time, so this is not a runtime cycle.
 
 // ── Payload narrowing helper ─────────────────────────────────────
 
