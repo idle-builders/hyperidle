@@ -1,0 +1,1296 @@
+# BC3 — architecture
+
+Technical reading of `plan.md` § How it works and § How we work on this. Decides nothing the plan does
+not; names the contracts a builder needs. Tier: suite. **Every citation is against this branch's base
+`50cb93785`** (`feature/thread-module`, cut from `origin/main` with BC2 merged). BC2's own
+architecture (`git show 270489dbb:.pipeline/work/BC2/architecture.md`) is the template; this document
+copies its shape and only says what is different.
+
+Locked here: the four declarations and their exact input/output shapes, `ThreadActionsDeps`, the one
+widening of `ActionContext`, the invariant split, the three `changes` row shapes, the wake rule, the
+task↔thread creation ordering, the migration's step order, the websocket envelope, the full consumer
+list of every deleted symbol, the return-set edit. Left to the builder: file layout inside the thread
+module, helper names, query shapes, the exact wording of every `Problem.message`.
+
+**What BC2 already built and BC3 only extends.** `framework/domain-model/src/actions/action.ts`
+(`ActionDeclaration`, `Problem`, `ActionResult`), `layers/core-api/changes` (`appendChange`,
+`listChanges`), `layers/core-api/src/actions/{action,compose,actions-router,actions-as-tools}.ts`,
+`layers/core-ui/src/services/call.ts`, `tools/governance/src/rules/actions-projected.ts`. None of
+these gain a mechanism in this item. `compose.ts` gains one `createThreadActions(...)` call,
+`call.ts`'s `Actions` type gains `& typeof THREAD_ACTIONS`, and the rule's three shrink lists lose
+their thread rows. That is the whole of the loop work.
+
+---
+
+## Reconciliation
+
+Nine places where the plan and the code at `50cb93785` do not line up. Each is resolved here inside
+the plan's scope; none needs a new outcome. Anything that would have needed one is under
+§ Proposed plan amendments (there is one).
+
+| # | Plan says | Code at `50cb93785` | Resolution |
+|---|---|---|---|
+| R1 | "the gate compares two undefineds" (Confusion 2) | `isReturnAction` already returns false first on `!taskId` (`framework/harness-protocol/src/harness/return-actions.ts:106`). The `undefined === undefined` fall-through is unreachable. | **No fix is needed in the predicate.** The obligation becomes: do not weaken that guard, and add the regression case (`edit_task` with no `id` and no session task ⇒ not terminal) to `return-actions.closure.test.ts`. The forcing half of Confusion 2 is real and stands: `provisioner.ts:568` and `:1566` must name `send_message`. |
+| R2 | delete `register-policy.ts` | it registers `registerPolicyEngine` **and** `registerLifecyclePropagation` (`layers/core-api/policy/src/register-policy.ts:19-20`); lifecycle propagation survives BC3 | delete the file; export `registerLifecyclePropagation` from `policy/src/index.ts` and call it directly at `service-bootstrap.ts:374`. The wrapper existed only to collapse two registrations into one; with one left it is noise. |
+| R3 | delete "policy bindings" | `layers/core-api/src/services/policy-bindings.ts` also wires `computeApprovalRate`, whose live caller is `routes/agent-profile.ts:127` (the agent profile's track record) | the file survives, holding only `approvalRateDeps` + `computeApprovalRate`. Its `work.listItemIdsBySourceAgent` and `conversation.listVerdictMessagesByItemIds` entries die with `items`. |
+| R4 | "+ `approval-rate.ts` if it becomes unused" | it does **not** become unused — `agent-profile.ts:127` | `approval-rate.ts` stays. Its Path 1 (`legacyItemId` → `items.sourceAgentId`, `:26,50-55`) is deleted with the column; Path 2 (`threads.initiatorId`) becomes the only attribution, and the `noLegacyItem: true` filter goes with the column. `ApprovalRateDeps` loses its `work` half entirely. |
+| R5 | `search_threads` filters "mine / by task / by host / text" | the task→thread link lives on `tasks.thread_id`, which the thread module may not read (module-link rule) | "by task" is served by the **caller**: `open_task(id).threadId` → `open_thread(threadId)`. `search_threads` takes `mine`/`host`/`text`/`ids`. No capability is lost and no cross-module read is introduced. |
+| R6 | verdict authz: "a human who is not the review author" | today the check is the literal string `role === "founder"` (`routes/threads.ts:1333-1339`), and `"founder"` is not in `USER_ROLES` | the invariant becomes `users.kind === "human"`. That is a real widening the plan states; it is the reason the literal disappears rather than moving. |
+| R7 | `ActionContext` — BC2 locked "carries no session id and gains none" | `send_message` must (a) reach the session's calling thread for the reply fallback, (b) write `review_sessions` keyed by session id, (c) check `producedItemId` against the calling task. None is derivable from a core table. | `ActionContext` gains **one** optional field, `caller`, filled only by the MCP loop from `ToolContext` (`framework/harness-protocol/src/harness/tool-seam.ts:48-69`), never from a body. §3.2. BC2's lock was scoped to what `edit_task` step 5 needed; this is the narrowest widening that makes the plan's own rules expressible. |
+| R8 | `send_message` input as one shape | `toClaudeToolSpec` reads `json.properties`/`json.required` off `z.toJSONSchema` (`layers/agent-orchestration/tool-handlers/src/tool-types.ts:59-72`). A top-level `z.discriminatedUnion` emits `anyOf` with **no** top-level `properties`, so the Anthropic direct-API tool spec would ship an empty schema. | `SendMessageInput` is a **flat `z.object`**, not a discriminated union. The four payload shapes survive as four optional nested fields; "exactly one" is a pure invariant, not a schema rule. §3.1. |
+| R9 | `plainPayloadSchema` accepts `notice`, stripped by `sanitizeNoticeForSender` for non-`ast-*` senders | **nothing in production writes `notice`.** `rg AssistantNotice` finds only `framework/domain-model/src/thread.ts`, the two schema declarations, `AssistantOverlay.tsx`'s renderer and one e2e fixture. | `notice` is not on `send_message`'s input; `sanitizeNoticeForSender` (`routes/threads.ts:629-634`) is deleted with the route. It stays on the **read** shape so historical rows still render. The overlay's renderer is left alone — deleting a dead renderer is not this item's work. |
+
+---
+
+## 1. What the plan requires, and what each obligation costs
+
+`plan.md` has no numbered AC list; its § How it works paragraphs are the obligations and the § Gates
+line is the proof. One row per paragraph.
+
+| Plan § | Obligation | Where it lands |
+|---|---|---|
+| One list (`:20-24`) | four declarations, one place, nothing else about thread public | §3.1, `framework/domain-model/src/actions/thread.ts`; §3.3 `createThreadActions` |
+| Send is the write that posts (`:26-37`) | thread-id **or** recipients; overwrite by message id; create-only `clientKey` dedupe; agent fallback; the four invariants; message + one `changes` row in one transaction; mentions add members in that transaction | §3.1 `SendMessageInput`, §3.4 invariants, §3.5 `changes` rows, §3.6 `send_message.run` |
+| Adjust is the other write (`:39-43`) | title · members · resolved/reopen · pinned · deleted; no id ⇒ empty thread; stored title wins, computed name is the fallback; members only; one `thread.changed` | §3.1 `AdjustThreadInput`, §3.7 |
+| Two reads (`:45-48`) | one filtered list carrying `hasUnresolvedReview`; open returns thread + members + messages; neither writes | §3.1 `SearchThreadsInput`/`ThreadView`, §3.8 |
+| Every task has a thread (`:50-55`) | `tasks.threadId` NOT NULL and real; created with the task; host kind `task` gone; sessions talk in it | §3.9 (ordering), §4 (migration), §5 B3 |
+| A message wakes agents (`:57-64`) | mentioned agents + the other member of a two-member thread; the existing post-commit intent, generalised; the thread module never creates a task | §3.10 wake rule, §5 B5 (`assistant_turn` → `thread_turn`) |
+| The assistant is your agent (`:66-69`) | overlay stays a screen over the user's direct thread; the route, the structural `ast-` recognition, the pin reaction and the coherence trigger go | §5 B6 |
+| Items die; the policy engine dies (`:71-75`) | `items` dropped, `policy-engine.ts` deleted, no auto-approve | §4 step 6, §5 B7 |
+| Everything else is the BC2 loop (`:77-83`) | HTTP · MCP · `call` · governance rule gain thread; hand-pushed WS sites go; legacy bus names emitted from the change row; neighbours call send/adjust in-process | §3.11 loops, §3.12 websocket, §5 B8 |
+| Gates (`:106-108`) | conversations page, a task's thread, the overlay, a bad send returning problems, a mention waking an agent that makes a task, items and the policy engine gone, the rule green with the lists shrunk | §9 |
+
+**Rejected (`plan.md:85-88`) is a constraint, not commentary.** No `item` message kind. No separate
+edit-message action. No create-on-read anywhere. No wake of every agent in a thread. The thread
+module never creates a task. No thread-hosted-by-task lookup beside `tasks.threadId`. A builder that
+adds any of these has added an outcome.
+
+## 2. Reuse versus change
+
+**Reused unchanged.** The `messages` table and its four types; the `threads` table's existing
+columns and its `threads_direct_key_uq` partial unique index; `messages_idempotency_uq`
+(`framework/db/src/schema.ts:794`) — the create-only dedupe is that index, not new code; the four
+payload schemas (`routes/threads-schema.ts:190-241`), moved not rewritten; the five-rung title ladder
+(`routes/threads.ts:426-559`), moved and given a rung 0; `headCollapsePredicate`; the mention
+resolver (`threads.ts:313-352`); `findOrCreateDirectThread` and its `directKey` composition
+(`conversation-store.ts:157-197`); the websocket hub, its two topics, its participant authorizer
+(`ws-connection-hub.ts:103-114`, `ws-subscribe-authorizer.ts:77-101`) and the client's
+`messageMatchesTopic` (`core-ui/src/services/ws-client.ts:218-231`); `review_sessions` and both
+recorder function types (`AgentWorkIntentRecorderFn`, `ReviewVerdictRecorderFn`); the whole
+orchestration drain, provisioner and runtime — `runtime.ts:228-233` already generalised the
+transcript mapping off `assistantAgentId` to `agentId`.
+
+**Changed.** Where a thread write lives (route handler → module action); who may post (host-kind
+predicate → membership); who may verdict (role string → `users.kind`); what wakes (the assistant
+thread → the wake rule); what a task's thread is (a `(task, id)` host lookup → a column); what the
+websocket carries (a hand-built row → the change row); the intent kind (`assistant_turn` →
+`thread_turn`).
+
+**Deleted.** §5, in full, with every consumer.
+
+**Not touched, and a builder must not touch it.** `questionnaire` as a kind (`plan.md:121`);
+`GET /recipients` (`plan.md:124`); `useRecipients`, `RecipientPicker`'s recipient list;
+`knowledge_conflicts`; `blocks`/`PartList` rendering; the `session:<id>` websocket; `useTaskSessions`;
+anything under `layers/agent-execution`.
+
+## 3. Contracts
+
+### 3.1 Declarations — `framework/domain-model/src/actions/thread.ts`
+
+Same file shape as `actions/task.ts`. `domain-model` already ships zod and is already what `core-ui`
+imports; no new package, no `architecture.json` surface edit. Names on the wire, one name in four
+places, exactly as BC2 locked:
+
+| Action | `name` | HTTP | MCP tool | UI |
+|---|---|---|---|---|
+| Search threads | `search_threads` | `POST /api/actions/search_threads` | `search_threads` | `call("search_threads", …)` |
+| Open a thread | `open_thread` | `POST /api/actions/open_thread` | `open_thread` | `call("open_thread", …)` |
+| Send a message | `send_message` | `POST /api/actions/send_message` | `send_message` | `call("send_message", …)` |
+| Adjust a thread | `adjust_thread` | `POST /api/actions/adjust_thread` | `adjust_thread` | `call("adjust_thread", …)` |
+
+`send_message` reuses the name of the tool it replaces. That is deliberate: the return set, the
+forcing message and every harness prompt already say `send_message`, and the new action is a strict
+superset of the old tool's job.
+
+```ts
+// the row shapes — replace routes/threads-schema.ts's wire types and
+// core-ui's ad-hoc Thread/Message types
+export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict"] as const; // unchanged
+export const HOST_KINDS = ["knowledge_item", "agent", "user", "team", "factory"] as const; // "task" REMOVED
+
+export const ThreadSchema = z.object({
+  id: z.string(),
+  hostKind: z.enum(HOST_KINDS),
+  hostId: z.string(),
+  initiatorId: z.string(),
+  members: z.array(z.string()),          // the parsed `participants` JSON column
+  title: z.string().nullable(),          // the STORED column; null ⇒ use `computedTitle`
+  computedTitle: z.string(),             // the ladder's answer, viewer-relative, never empty
+  pinned: z.boolean(),
+  resolvedAt: z.string().nullable(),
+  deletedAt: z.string().nullable(),
+  lastActiveAt: z.string(),
+  createdAt: z.string(),
+});
+
+export const MessageSchema = z.object({
+  id: z.string(), threadId: z.string(), senderId: z.string(),
+  type: z.enum(MESSAGE_TYPES),
+  payload: z.unknown(),                  // one of the four payload shapes, or the redacted variant
+  clientKey: z.string(),
+  blockId: z.string().nullable(),
+  resolvedAt: z.string().nullable(),
+  deletedAt: z.string().nullable(), redactedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export const IdentitySchema = z.object({
+  id: z.string(), name: z.string(), role: z.string(), isAgent: z.boolean(),
+});
+```
+
+`payload` is `z.unknown()` on the **output** only, exactly as the wire carries it today
+(`messageRowSchema`'s per-type union, `threads-schema.ts:246-266`, moves here as an exported
+`parseMessagePayload` used by the UI, not as an output schema arm). Reason: the output schema is
+never used to validate — it is used to type `call()` and to describe the tool — and a
+four-arm discriminated union in an *output* buys nothing while making `z.toJSONSchema` noisy. The
+**input** side validates each payload precisely.
+
+```ts
+// ── search_threads ─────────────────────────────────────────────────────────
+export const SearchThreadsInputSchema = z.object({
+  mine: z.boolean().optional(),                 // threads the actor is a member of
+  host: z.object({ kind: z.enum(HOST_KINDS), id: z.string().min(1) }).optional(),
+  text: z.string().min(1).optional(),           // across message text and stored title
+  ids: z.array(z.string()).optional(),
+  includeResolved: z.boolean().optional(),      // default true — the sidebar shows both
+  limit: z.number().int().min(1).max(50).optional(),
+}).strict();
+
+export const ThreadListRowSchema = ThreadSchema.extend({
+  hasUnresolvedReview: z.boolean(),             // the sidebar badge; one batched query, never N+1
+  lastMessagePreview: z.string().nullable(),
+});
+
+export const searchThreads: ActionDeclaration<SearchThreadsInput, ThreadListRow[]> = {
+  name: "search_threads",
+  sentence: "Search conversations. No parameter lists the ones you are in; filter by host or text.",
+  input: SearchThreadsInputSchema, output: z.array(ThreadListRowSchema),
+};
+
+// ── open_thread ────────────────────────────────────────────────────────────
+export const OpenThreadInputSchema = z.object({
+  id: z.string().min(1),
+  blockId: z.string().min(1).max(128).optional(),   // the block-anchored comment filter, unchanged
+}).strict();
+
+export const ThreadViewSchema = z.object({
+  thread: ThreadSchema,
+  members: z.array(IdentitySchema),      // replaces GET /threads/:id's `identities` map
+  messages: z.array(MessageSchema),      // createdAt DESC, id tiebreak — today's order, unchanged
+  headMessageId: z.string().nullable(),
+  hostTitle: z.string().nullable(),
+});
+
+export const openThread: ActionDeclaration<OpenThreadInput, ThreadView> = {
+  name: "open_thread",
+  sentence: "Open a conversation: its members and every message in it, newest first.",
+  input: OpenThreadInputSchema, output: ThreadViewSchema,
+};
+
+// ── send_message ───────────────────────────────────────────────────────────
+// FLAT object, never a discriminated union — Reconciliation R8.
+export const SendMessageInputSchema = z.object({
+  threadId: z.string().min(1).optional(),
+  recipients: z.array(z.string().min(1)).min(1).optional(),
+  /** Present ⇒ overwrite that message instead of creating one. */
+  messageId: z.string().min(1).optional(),
+  /** Create-only retry key, unique per (thread, sender). Generated when absent. */
+  clientKey: z.string().min(8).max(128).regex(/^[A-Za-z0-9_\-:.]+$/).optional(),
+  // exactly one of the four bodies below — a pure invariant, not a schema rule
+  text: z.string().max(16_384).optional(),
+  refs: z.array(inlineRefSchema).optional(),          // plain only; moved verbatim
+  blockId: z.string().max(128).optional(),            // plain only
+  spotLabel: z.string().max(128).optional(),          // plain only
+  review: reviewPayloadSchema.optional(),             // { title, reasoning[], producedItemId?, artifacts? }
+  questionnaire: questionnairePayloadSchema.optional(),
+  verdict: verdictPayloadSchema.optional(),           // { decision, resolvesMessageId, note? }
+}).strict();
+
+export const SendMessageOutputSchema = z.object({
+  message: MessageSchema,
+  thread: ThreadSchema,
+});
+
+export const sendMessage: ActionDeclaration<SendMessageInput, SendMessageOutput> = {
+  name: "send_message",
+  sentence:
+    "Send a message. Name a thread, or name recipients to start one; leave both out to answer in " +
+    "the conversation you were called from. Send text, a review, a question or a verdict. " +
+    "Give a message id to replace what you already sent.",
+  input: SendMessageInputSchema, output: SendMessageOutputSchema,
+};
+
+// ── adjust_thread ──────────────────────────────────────────────────────────
+export const AdjustThreadInputSchema = z.object({
+  id: z.string().min(1).optional(),                   // absent ⇒ create an empty thread
+  host: z.object({ kind: z.enum(HOST_KINDS), id: z.string().min(1) }).optional(), // create only
+  title: z.string().max(512).nullable().optional(),   // null clears the stored title
+  members: z.array(z.string().min(1)).min(1).optional(),   // full replacement list
+  resolved: z.boolean().optional(),                   // true ⇒ resolvedAt = now; false ⇒ reopen
+  pinned: z.boolean().optional(),
+  deleted: z.boolean().optional(),                    // true ⇒ deletedAt = now; false ⇒ restore
+}).strict();
+
+export const adjustThread: ActionDeclaration<AdjustThreadInput, ThreadView> = {
+  name: "adjust_thread",
+  sentence: "Adjust a conversation, new or existing: its title, who is in it, whether it is " +
+            "resolved, pinned, or deleted.",
+  input: AdjustThreadInputSchema, output: ThreadViewSchema,   // same shape open_thread returns
+};
+
+export const THREAD_ACTIONS = {
+  search_threads: searchThreads, open_thread: openThread,
+  send_message: sendMessage, adjust_thread: adjustThread,
+} as const;
+```
+
+`adjust_thread` returns a `ThreadView`, and `send_message` returns `{message, thread}` rather than a
+`ThreadView` — a send does not re-read the whole transcript it just appended to, which for a long
+thread would be the most expensive read in the app on the hottest path. `edit_task` returns a full
+`TaskView` because a task view is bounded; a thread's is not.
+
+### 3.2 `ActionContext` — the one widening (Reconciliation R7)
+
+```ts
+// layers/core-api/src/actions/action.ts
+export interface ActionContext {
+  readonly actor: string;
+  readonly db: HyperIdleDb;
+  readonly eventBus: EventBus;
+  readonly now: string;
+  /**
+   * Who is calling and from where, when the caller is a running session.
+   * Filled ONLY by the MCP loop from `ToolContext` — never from a request
+   * body, never from a header. Absent for every HTTP call.
+   */
+  readonly caller?: {
+    readonly sessionId: string;
+    readonly taskId: string | null;      // ToolContext.taskId, "" normalised to null
+    readonly threadId: string | null;    // the session's baked calling thread
+  };
+}
+```
+
+Filled in `actions-as-tools.ts`'s handler, which already receives the full `ToolContext`:
+`caller: { sessionId: ctx.sessionId, taskId: ctx.taskId || null, threadId: ctx.threadId ?? null }`.
+`createActionsRouter` passes no `caller` at all. That is the whole change to both loops.
+
+Three obligations in the plan need exactly this and nothing more: the agent's no-thread fallback
+(`caller.threadId`), the review→session link (`caller.sessionId`), and the
+produced-item-parented-to-the-calling-task check (`caller.taskId`). No action reads `caller` for
+authorization — the actor is still `ctx.actor` alone.
+
+### 3.3 `ThreadActionsDeps` — `layers/core-api/thread/src/index.ts`
+
+The public surface is a factory, not a value, for the same reason BC2's is: a Service-imported value
+may not reach the layer face, and a bare Service identifier in direct callee position is the
+sanctioned shape (`tools/governance/README.md`, "A layer's face").
+
+```ts
+export interface ThreadActionsDeps {
+  readonly changes: { appendChange(exec: WriteExecutor, row: NewChange): Promise<unknown> };
+  readonly users: {
+    getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
+    listByIds(exec: WriteExecutor, ids: readonly string[]): Promise<readonly User[]>;
+    /** Team humans first, all humans as the fallback — the ladder the founder ruled
+     *  on at `tool-definitions.ts:441-453`. Feeds the agent's no-thread fallback. */
+    humansForAgent(exec: WriteExecutor, agentId: string): Promise<readonly User[]>;
+  };
+  readonly knowledge: {
+    /** Title rung for a `knowledge_item` host, and the produced-item parent check. */
+    getItemById(exec: WriteExecutor, id: string): Promise<{ readonly id: string; readonly title: string } | null>;
+    findParent(exec: WriteExecutor, id: string):
+      Promise<{ readonly parentKind: string; readonly parentId: string } | undefined>;
+  };
+  readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
+  readonly settings: { readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }> };
+  readonly agents: {
+    requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+    getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
+  };
+  /** Mechanism C, exactly as `routes/threads.ts:659-668` injects them today. */
+  readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
+  readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
+  /** The review→session link `submit_review` writes today (`tool-definitions.ts:537`).
+   *  A seam write keyed by session id; core may not touch `review_sessions`. */
+  readonly linkReviewToSession: (sessionId: string, reviewMessageId: string) => Promise<void>;
+  /** The push half of §3.12. Optional — tests build the module with no hub. */
+  readonly wsPush?: (topic: string, envelope: unknown) => void;
+}
+
+export function createThreadActions(deps: ThreadActionsDeps): readonly Action[];
+```
+
+Every dep is a sibling Service, the seam, or the websocket hub — the Mechanism-C shape
+`TaskActionsDeps` already uses. Bound in `layers/core-api/src/actions/compose.ts`, next to
+`buildTaskActionsDeps`. `linkReviewToSession` binds to the same
+`AgentOrchestrationPort` route `buildGateAccessor` reaches today
+(`run-orchestration-composition.ts:352-357`); it is one new port operation on the core→orchestration
+direction, and it is one the seam already serves from the other side — see §5 B4 for why it moves
+rather than dies.
+
+**`thread` may not import `@hyperidle/task`, and does not.** Nothing in `ThreadActionsDeps` names a
+task. `tasks.thread_id` is written by `edit_task`, read by `open_task`, and never read here.
+
+### 3.4 The invariants, split pure / server
+
+**Pure** — `framework/domain-model/src/actions/thread.ts`, runs in the browser to grey a control and
+again on the server as the first pass. No database.
+
+```ts
+export function sendMessageInvariants(
+  input: SendMessageInput,
+  caller: { readonly hasCallingThread: boolean },
+): Problem[];
+export function adjustThreadInvariants(input: AdjustThreadInput): Problem[];
+```
+
+| code | rule |
+|---|---|
+| `no_target` | neither `threadId` nor `recipients` and the caller has no calling thread |
+| `two_targets` | both `threadId` and `recipients` given |
+| `no_body` / `two_bodies` | not exactly one of `text` · `review` · `questionnaire` · `verdict` |
+| `plain_fields_on_non_plain` | `refs`/`blockId`/`spotLabel` given without `text` |
+| `overwrite_needs_thread` | `messageId` given without `threadId` |
+| `overwrite_with_recipients` | `messageId` and `recipients` together — an overwrite cannot open a thread |
+| `verdict_on_new_thread` | a `verdict` with `recipients` — today's `threads.ts:957` rule, kept |
+| `adjust_empty` | an `adjust_thread` with an `id` and no other field |
+| `adjust_host_on_existing` | `host` given with an `id` |
+| `members_empty` | `members: []` |
+
+**Server** — inside `send_message.run` / `adjust_thread.run`, same `Problem` shape, never a throw.
+
+| code | rule | replaces |
+|---|---|---|
+| `not_found` | the thread, or the message being overwritten, does not exist | 404 |
+| `thread_deleted` | `threads.deletedAt` is set | new |
+| `not_a_member` | `ctx.actor ∉ thread.members` — for **both** send and adjust | `authorizeWrite`'s host-kind predicate (`auth/access-boundary.ts:32-76`) |
+| `recipient_not_found` | a `recipients` entry has no `users` row | `send_message` tool's `getUserById` guard |
+| `verdict_not_human` | the verdict's sender is not `users.kind === "human"` | `role === "founder"` (R6) |
+| `verdict_self` | the verdict's sender is the review's own sender | `threads.ts:1336` |
+| `verdict_foreign_review` | `resolvesMessage.threadId !== thread.id` | `threads.ts:1330` |
+| `verdict_race` | the review was already resolved (first-verdict-wins CAS returned zero rows) | 409 `VerdictRaceConflict` |
+| `idempotency_conflict` | `(threadId, senderId, clientKey)` exists with a different type or payload | 409 |
+| `produced_item_not_owned` | `review.producedItemId` is not parented to `(task, ctx.caller.taskId)` | `submit_review`'s check (`tool-definitions.ts:487-500`) |
+| `no_reply_recipient` | an agent with no thread, no recipients, no calling thread, and no human to fall back to | `reply`'s `NO_REPLY_RECIPIENT` |
+
+**`produced_item_not_owned` runs only when `ctx.caller?.taskId` is present.** An HTTP caller naming a
+`producedItemId` is not checked against a task, because a browser is not running a task. That is the
+same reach the check has today — it only ever ran inside `submit_review`, which only ever ran in a
+session.
+
+**Deliberately absent: an "only the author may overwrite" rule.** `plan.md:92` says "Who may post is
+membership, nothing more." A member may therefore rewrite any message in a thread it is in. Named,
+not overlooked; see §6.
+
+### 3.5 The `changes` rows
+
+`changes.object` already accepts `'thread'` (`framework/db/src/schema.ts:585`). `changes.kind` widens
+to `created | changed | message` (§4 step 2). `objectId` is always the **thread** id, never a message
+id — that is what lets BC5 read a thread's history with one `listChanges({object:'thread', objectId})`
+and what lets the `thread:<id>` websocket topic be keyed on it.
+
+| when | `kind` | `actor` | `before` | `after` |
+|---|---|---|---|---|
+| a send opened a thread | `created` | sender | `null` | `{id, hostKind, hostId, initiatorId, members, title, pinned, createdAt}` |
+| `adjust_thread` with no id | `created` | actor | `null` | same |
+| every message created **or overwritten** | `message` | sender | `null` on create; `{messageId, type, payload}` as it was, on overwrite | `{messageId, type, payload, clientKey, blockId, createdAt}` |
+| every `adjust_thread` with an id | `changed` | actor | only the fields that differ | only the fields that differ |
+| a send that resolved / reopened / bumped the thread | `changed` | sender | `{resolvedAt}` before | `{resolvedAt, lastActiveAt}` after |
+| mentions added members in the send's transaction | `changed` | sender | `{members}` before | `{members}` after |
+
+A send that opens a thread with a first message therefore writes **three** rows in one transaction —
+`created`, `message`, and (when mentions added anyone) `changed`. Every row lands in the same
+transaction as the write it records; nothing is appended after commit.
+
+`changes.actor` is `NOT NULL REFERENCES users(id)`, so every actor must be a real row. There is no
+synthetic sender in this module — `"policy_engine"` (`policy-engine.ts:164`, a sender id with no
+`users` row) dies with the engine, and that is one of the reasons it dies.
+
+### 3.6 `send_message.run`, in order
+
+**Before the transaction**
+
+1. `sendMessageInvariants(input, { hasCallingThread: ctx.caller?.threadId != null })`; problems ⇒ return.
+2. **Resolve the thread.** In this order, first match wins:
+   a. `input.threadId`;
+   b. `input.recipients` ⇒ a thread will be **created** in step 5 with members `[ctx.actor, ...recipients]`
+      (a single recipient goes through `findOrCreateDirectThread`'s `directKey` so a DM is never
+      duplicated — `conversation-store.ts:157-197`, moved);
+   c. `ctx.caller?.threadId`;
+   d. the sole human for `ctx.actor`'s team, then any human (`deps.users.humansForAgent`) ⇒ a direct
+      thread with them, again through `findOrCreateDirectThread`;
+   e. none ⇒ `no_reply_recipient`.
+   (c) and (d) are the `reply` tool's rule (`tool-definitions.ts:130-146`), now an invariant of send.
+   **A human HTTP caller never reaches (c) or (d)** — `ctx.caller` is absent, so a browser that names
+   neither is stopped by the pure `no_target` invariant instead.
+3. **Idempotency.** Create only, and only when `input.clientKey` was supplied: look up
+   `(threadId, ctx.actor, clientKey)`. Same type and payload ⇒ return that message with `ok: true`,
+   no write. Divergent ⇒ `idempotency_conflict`. An overwrite carries a `messageId` and is not
+   deduped — last write wins (`plan.md:90-91`).
+4. **Server invariants** (§3.4), including the `producedItemId` parent check and the verdict trio.
+   Any problem ⇒ return, no write.
+
+**Inside one transaction (step 5)**
+
+5. create the thread when (2b/2d) resolved to one, and `appendChange(created)`; resolve mentions in
+   `text` and add the new member ids to `participants` atomically (`threads.ts:1348-1364, 1428-1437`,
+   moved), appending one `changed` row when the set grew; `insertMessage` (create) or `update` the
+   named message's `type`/`payload`/`blockId` (overwrite); for a verdict,
+   `resolveMessageIfUnresolved` — zero rows ⇒ throw the private `VerdictRaceConflict`, caught outside
+   and returned as `verdict_race`; then the thread's own state: verdict ⇒ `resolvedAt = now`, a
+   `review`/`questionnaire` into a resolved thread ⇒ `resolvedAt = null` (reopen), otherwise
+   `lastActiveAt = now`; `appendChange(message)` and, when the thread's own fields moved,
+   `appendChange(changed)`.
+
+**After commit (step 6), in this order**
+
+6. a. **the legacy bus names**, derived from the rows just written, not from the input:
+      `thread_created` · `thread_message_appended` · `thread_resolved` / `thread_reopened`, with
+      today's payloads byte for byte (`threads.ts:1473-1482, 1544-1563`). They die in BC5.
+   b. **link the review to its session.** `message.type === "review"` and `ctx.caller?.sessionId`
+      present ⇒ `deps.linkReviewToSession(ctx.caller.sessionId, message.id)`. Post-commit, so the
+      link can never point at a message that does not exist — the same reason the intent is
+      post-commit (`threads.ts:1438-1451`). Absent a caller session (a human filing a review from the
+      browser) nothing is linked, which is correct: there is no session to bring back.
+   c. **resume the agent whose review a verdict decided.** `deps.reviewVerdictRecorder(…)`, moved
+      verbatim from `threads.ts:1496-1525` including the five-decisions-to-two collapse and the
+      `try/catch` that turns a seam failure into `{status:"not_resumable"}`. `not_resumable` ⇒ a
+      second **plain** message telling the human, posted by a nested `send_message.run` call as the
+      same actor in its own transaction (`threads.ts:1530-1542` does this with a raw
+      `insertMessage` today; through the action it now records a `changes` row like everything else).
+   d. **wake** (§3.10).
+   e. **push** (§3.12).
+
+A crash between commit and step 6 loses the nudge, never the record — §7.
+
+### 3.7 `adjust_thread.run`
+
+No id ⇒ create: `host` defaults to `{kind:"user", id: ctx.actor}`, `initiatorId = ctx.actor`,
+`members = [ctx.actor]` unioned with `input.members`, one `created` row. With an id: load, refuse
+`not_a_member` and `thread_deleted`, then one `UPDATE` and one `changed` row carrying only the
+fields that differ. `deleted: true` writes `deletedAt`; nothing is ever `DELETE`d. `resolved` maps to
+`resolvedAt`; `pinned` to `pinned`; `title: null` clears the stored title so the ladder answers again.
+Returns `open_thread.run(ctx, { id })` — bounded here, because an adjust is rare and the caller is a
+screen that wants the whole thing.
+
+A deleted thread is invisible to `search_threads` and returns `not_found` from `open_thread`. It is
+**not** invisible to `send_message`'s idempotency lookup or to the `messages` FK — the rows survive,
+which is what makes `deleted: false` a real restore.
+
+### 3.8 The two reads
+
+`search_threads.run`: `mine` ⇒ the participant LIKE probe plus the JS membership re-verify that
+`threads.ts:773-790` already does (the probe is a pre-filter, never the authorization); `host` ⇒ the
+`threads_host_idx` lookup; `text` ⇒ `searchConversations` (`conversation-store.ts:357`), moved,
+extended to also match the new stored `title`; `ids` ⇒ a batched `IN`. `deletedAt IS NULL` always.
+`hasUnresolvedReview` is one batched `listMessages({threadIds, types:["review","questionnaire"],
+unresolved:true})` for the whole page — the shape `threads.ts:793-805` already uses; never per row.
+Titles come from the batched ladder (`resolveThreadTitles`, `threads.ts:426-559`, moved) with a new
+**rung 0: the stored `threads.title`**, and with the host-`task` rung deleted.
+
+`open_thread.run`: the thread, its members resolved to `IdentitySchema` rows (today's `identities`
+map, `threads.ts:229-248`), its messages `createdAt DESC` with the id tiebreak, `headMessageId`, and
+`hostTitle`. The `blockId` filter is passed straight through to the existing `messages_block_id_idx`
+query. **Neither read writes anything** — that is what kills `GET /threads/assistant`'s create-on-read
+(`assistant.ts:203`) with no replacement.
+
+`open_thread` is what the review page reads. It finds its review by message id in `messages`, and it
+gets the task from `open_task(taskId).threadId` — the caller already knows the task (§5 B9).
+
+### 3.9 Task ↔ thread: the ordering, locked
+
+`edit_task` creating a task with no `threadId` **creates the thread before it opens its own
+transaction**, by calling `adjust_thread.run(ctx, { members: [ctx.actor, ownerAgentId] })` in-process
+as the same actor (the module-link rule: through the action, never the table). The returned
+`thread.id` goes into the `tasks` INSERT.
+
+Why before rather than after: `tasks.thread_id` becomes `NOT NULL` (§4 step 5). A thread created
+after commit would need the task row to exist first with a null `thread_id`, which the constraint
+forbids, and then a second `UPDATE` — two writes, a nullable window, and a second `changes` row for
+the same decision. Creating it first is one write each, in the right order, with no window.
+
+The residue, accepted by `plan.md`: if the task transaction then fails, an empty thread with the
+creator as its only member is left behind. It is reachable — `search_threads({mine:true})` lists it —
+and the actor can delete it with `adjust_thread`. That is the price of the constraint being real, and
+it is cheaper than a nullable column plus a repair path.
+
+Creating a task **with** a `threadId` uses that thread and adds the owner as a member if absent
+(`plan.md:124`, Confusion 5) — a second `adjust_thread.run(ctx, { id: threadId, members: [...] })`
+before the transaction, same actor, skipped when the owner is already a member.
+
+`EditTaskInputSchema` therefore gains one optional field, `threadId: z.string().optional()`, and
+`TaskSchema.threadId` stops being nullable. Those are the only two edits to
+`framework/domain-model/src/actions/task.ts`. A third, unrelated to threads, rides along and is named
+so it is not mistaken for scope creep: **nothing else is added to `SearchTasksInput`** — R5.
+
+### 3.10 The wake rule
+
+```ts
+/** plan.md:57-60. Pure. Runs post-commit over the thread's FINAL member list. */
+export function agentsToWake(input: {
+  readonly members: readonly string[];      // after the send's mention-adds
+  readonly senderId: string;
+  readonly mentionedIds: readonly string[]; // resolved from the message text, this send only
+  readonly isAgent: (id: string) => boolean;
+}): readonly string[] {
+  const woken = new Set<string>();
+  for (const id of input.mentionedIds) if (input.isAgent(id)) woken.add(id);
+  if (input.members.length === 2) {
+    const other = input.members.find((m) => m !== input.senderId);
+    if (other !== undefined && input.isAgent(other)) woken.add(other);
+  }
+  woken.delete(input.senderId);
+  return [...woken];
+}
+```
+
+The two-member arm is what makes a direct thread with your own agent work with no `@`
+(`plan.md:58-59`); it is evaluated on the **final** member list, so a mention that added a third
+member turns the arm off — correct, because the mention already woke whoever it named.
+
+For each woken agent, post-commit:
+
+```ts
+const bakedRequest = await resolveThreadTurnRequest(ctx.db, message.id, agentId, deps); // §5 B5
+await deps.agentWorkIntentRecorder({
+  kind: "thread_turn",                       // was "assistant_turn"
+  sourceKind: "thread_message",
+  sourceId: message.id,
+  requestedBy: ctx.actor,
+  idempotencyKey: `thread-turn:${message.id}:${agentId}`,   // was `assistant:${messageId}`
+  bakedRequest,
+});
+```
+
+The agent id is in the key because one message may wake two agents and
+`agent_work_intents_identity_uq` is `(kind, sourceKind, sourceId, idempotencyKey)`
+(`framework/db/src/schema.ts:421-426`) — without it the second agent's intent collides with the
+first's and is silently lost.
+
+**Nothing else wakes on a message.** Humans get theirs from BC5 subscriptions. The thread module
+never creates a task; the woken agent's session does, through `edit_task` (`plan.md:60-63`).
+
+A bake that throws (`requireRunnableAgent` refusing a deactivated agent) must not lose the other
+agents' wakes and must not lose the message: each wake is attempted independently, a failure is
+logged and dropped, the message stays committed. That is a change from today, where a failed bake
+throws out of the route and the caller sees a 5xx (`threads.ts:1438-1451`) — §7.
+
+### 3.11 The loops
+
+Three one-line edits, no mechanism:
+
+- `layers/core-api/src/actions/compose.ts` — `buildThreadActionsDeps(...)` alongside
+  `buildTaskActionsDeps`, and `buildCoreActions` returns
+  `[...createTaskActions(...), ...createThreadActions(...)]`. `buildCoreActions`'s signature grows the
+  bindings the thread deps need (the two recorders, the ws hub, the gate link), which `app.ts` already
+  holds (`app.ts:189-193`, `:415-424`).
+- `layers/core-ui/src/services/call.ts` — `type Actions = typeof TASK_ACTIONS & typeof THREAD_ACTIONS`.
+- `tools/governance/src/rules/actions-projected.ts` — the three shrink lists lose their rows (§5 B10).
+
+`createActionsRouter` and `actionsAsTools` are untouched except for `caller` (§3.2). Mounting stays
+structural: the loop mounts every declaration or none, which is why the rule has no "is it mounted"
+clause.
+
+### 3.12 The websocket, precisely
+
+**The hub, its two topics, its participant authorizer and the client's `messageMatchesTopic` all
+stay.** What goes is `pushUpdate` and its nine call sites, `buildThreadListRowForPush` (with its
+viewer-relative title bug, `threads.ts:113-146`) and `buildSenderIdentityForPush`.
+
+After commit, `send_message` and `adjust_thread` push **the `changes` row itself**, once per row, on
+both topics:
+
+```
+topic `thread:<threadId>`  and  topic "conversations"
+{ type: "update", topic, kind: "thread.created" | "thread.changed" | "thread.message",
+  data: { id, object, objectId, kind, actor, before, after, at } }
+```
+
+The envelope shape is unchanged (`{type, topic, kind, data}`), so `messageMatchesTopic`
+(`ws-client.ts:218-231`) needs no edit and no new protocol exists. `kind` carries the dotted object
+event name the plan already uses; the field was typed `EventType` in the deleted `pushUpdate` and is
+typed `string` in the new pusher.
+
+**What the browser does with it: re-run its own `call()`.** That is `plan.md:81`'s "hooks are
+replaced by `call()` + the same subscription" read literally. A `thread:<id>` row ⇒
+`call("open_thread", {id})`; a `conversations` row ⇒ `call("search_threads", {mine:true})`. One rule,
+both topics, no payload assembly on the server.
+
+The cost, stated: one extra round trip per message instead of the message riding in the push. The
+gain: `buildThreadListRowForPush`'s per-viewer title is computed by the viewer that asked, so the
+long-standing wrong-title-for-non-creators bug (`threads.ts:113-123`'s own `@lore`) is gone rather
+than carried, and `PATCH`/`direct`/`assistant` — which push **nothing** today, so their writes are
+invisible until a refetch (`facts.md:112`) — start pushing like every other write.
+
+`conversations` is a global topic any authenticated identity may subscribe to
+(`ws-subscribe-authorizer.ts:83`). A change row broadcast there carries `actor`, `objectId` and the
+changed thread fields, which is a small widening over today's list row; the *message* body never
+rides `conversations`, and `thread:<id>` stays participant-gated. §6.
+
+## 4. Data and migration
+
+One hand-written file, `framework/db/drizzle/0084_thread_module.sql`, plus one `meta/_journal.json`
+entry `{"idx":84,"version":"7","when":1785693612000,"tag":"0084_thread_module","breakpoints":true}`.
+`0083_changes_and_task_edit` is the highest today. There is no generator
+(`framework/db/drizzle/README.md`). The steps are ordered; a later one depends on an earlier one.
+
+```sql
+-- 1. a thread gets its own title and a soft delete.
+ALTER TABLE "threads" ADD COLUMN "title" text;
+ALTER TABLE "threads" ADD COLUMN "deleted_at" text;
+
+-- 2. a post is its own kind of change (plan.md Confusion 1).
+ALTER TABLE "changes" DROP CONSTRAINT "changes_kind_ck";
+ALTER TABLE "changes" ADD CONSTRAINT "changes_kind_ck"
+  CHECK ("kind" in ('created','changed','message'));
+
+-- 3. a task that already has a task-hosted thread keeps it. Oldest wins when
+--    several exist — nothing forbade a second one, so pick deterministically.
+UPDATE "tasks" t SET "thread_id" = (
+  SELECT th."id" FROM "threads" th
+  WHERE th."host_kind" = 'task' AND th."host_id" = t."id"
+  ORDER BY th."created_at" ASC, th."id" ASC LIMIT 1)
+WHERE t."thread_id" IS NULL
+  AND EXISTS (SELECT 1 FROM "threads" th2
+              WHERE th2."host_kind" = 'task' AND th2."host_id" = t."id");
+
+-- 4. every remaining task gets one. Deterministic id so a re-run is a no-op.
+--    Host is the task's TEAM: a task conversation belongs to the team that owns
+--    the task, and `host_kind` stays NOT NULL with no new vocabulary.
+INSERT INTO "threads"
+  ("id","host_kind","host_id","initiator_id","participants","pinned","last_active_at","created_at")
+SELECT 'thr-' || t."id", 'team', t."team_id",
+       COALESCE(t."owner_agent_id", (SELECT u."id" FROM "users" u WHERE u."kind" = 'human'
+                                     ORDER BY u."created_at" ASC, u."id" ASC LIMIT 1), t."id"),
+       COALESCE(
+         (SELECT json_agg(DISTINCT x)::text FROM (
+            SELECT t."owner_agent_id" AS x WHERE t."owner_agent_id" IS NOT NULL
+            UNION SELECT u2."id" FROM "users" u2 WHERE u2."kind" = 'human'
+                  ORDER BY 1 LIMIT 1) s WHERE x IS NOT NULL),
+         '[]'),
+       false, t."updated_at", t."created_at"
+FROM "tasks" t WHERE t."thread_id" IS NULL;
+
+UPDATE "tasks" SET "thread_id" = 'thr-' || "id" WHERE "thread_id" IS NULL;
+
+-- 5. the column becomes real. Guard first — a silent NULL here is a broken app.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM "tasks" WHERE "thread_id" IS NULL) THEN
+    RAISE EXCEPTION '0084: % tasks still have no thread',
+      (SELECT count(*) FROM "tasks" WHERE "thread_id" IS NULL);
+  END IF;
+END $$;
+ALTER TABLE "tasks" ALTER COLUMN "thread_id" SET NOT NULL;
+
+-- 6. items die, and the pointer at them with it. Destructive, no compat column.
+ALTER TABLE "messages" DROP COLUMN "legacy_item_id";
+DROP TABLE "items";
+
+-- 7. no thread is hosted by a task any more. A thread a task now claims is
+--    re-hosted onto that task's team; an orphan (no task claims it) onto its
+--    initiator, which is always a real identity.
+UPDATE "threads" th SET "host_kind" = 'team', "host_id" = t."team_id"
+FROM "tasks" t WHERE th."host_kind" = 'task' AND t."thread_id" = th."id";
+UPDATE "threads" SET "host_kind" = 'user', "host_id" = "initiator_id"
+WHERE "host_kind" = 'task';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM "threads" WHERE "host_kind" = 'task') THEN
+    RAISE EXCEPTION '0084: threads still hosted by a task';
+  END IF;
+END $$;
+
+-- 8. the intent kind says what it is. Same three constraints 0078 wrote.
+UPDATE "agent_work_intents" SET "kind" = 'thread_turn' WHERE "kind" = 'assistant_turn';
+ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_kind_ck";
+ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_kind_source_compat_ck";
+ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_ck"
+  CHECK ("kind" in ('thread_turn','session_start','knowledge_action','routine_run','task_run','session_resume'));
+ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_source_compat_ck" CHECK (
+     ("kind" = 'thread_turn'      and "source_kind" = 'thread_message')
+  or ("kind" = 'session_start'    and "source_kind" = 'explicit_session_start')
+  or ("kind" = 'knowledge_action' and "source_kind" = 'knowledge_action')
+  or ("kind" = 'routine_run'      and "source_kind" = 'routine_run')
+  or ("kind" = 'task_run'         and "source_kind" = 'task_dispatch_attempt')
+  or ("kind" = 'session_resume'   and "source_kind" = 'review_verdict'));
+```
+
+Step 4's participants expression is the one place a builder should re-derive rather than copy: it must
+produce a JSON array of real `users.id` strings and must not produce `[null]`. There is no FK on
+`threads.participants` or `threads.initiator_id` (`schema.ts:734-769`), so nothing will catch a bad
+value at write time — the migration's own test (§9) is what catches it.
+
+**`framework/db/src/schema.ts`** mirrors every step: `threads` gains `title`/`deletedAt`; `tasks.threadId`
+loses `.references(...)`'s nullability by gaining `.notNull()`; `messages` loses `legacyItemId`; the
+`items` table declaration and its `Item`/`NewItem` types are deleted; `changes_kind_ck` and the two
+`agent_work_intents` checks are respelled.
+
+**`tools/governance/table-owners.json`** — four edits, and one of them is a number:
+`"threads": "thread"`, `"messages": "thread"` (from `"conversation"`), delete the `"items"` row, and
+`totals.tables` / `totals.owned` go **34 → 33**. `validateTableOwners` throws when
+`registry.totals.tables !== liveTables.size` (`tools/governance/src/lib/governance-registry.ts:165-169`),
+so dropping the table without the totals fails the whole lint run with a registry error rather than a
+finding.
+
+**`ATTACK_ANCHORS`** (`tools/governance/src/lib/governance-attacks.ts:119-122`) points `serviceDir` /
+`serviceBarrel` at `layers/core-api/task/src`; unaffected. But any attack case whose `mutate` path is
+`layers/core-api/src/routes/threads.ts` breaks when that file is deleted — the harness asserts a
+mutated path exists. BC2 added exactly one such control (`actions-projected-legacy-route-control`);
+re-point it at a file that survives, e.g. `layers/core-api/src/routes/knowledge.ts`.
+
+## 5. Every deleted symbol, and who reaches it
+
+Derived by `rg` over the worktree at `50cb93785`, not from `facts.md`. Each block names its step in §8.
+
+### B1 — the five route files (step 7)
+
+`routes/threads.ts` (1,619) · `routes/threads-schema.ts` (324) · `routes/conversations.ts` (167) ·
+`routes/assistant.ts` (234) · `routes/reviews.ts` (142). Their mounts: `app.ts:405` (`/reviews`),
+`:414` (`/conversations`), `:415-424` (`/threads`). `routes/recipients.ts` and its `app.ts:428` mount
+**stay** (`plan.md:124`).
+
+Importers outside the files themselves:
+
+| Reaches | File | Becomes |
+|---|---|---|
+| `messageInputSchema`, `threadParticipantsSchema`, `plainPayloadSchemaWithToolCalls`, `entityRefSchema`, `inlineRefSchema`, `mentionRefSchema`, `assistantNoticeSchema` | `routes/threads-schema.ts` | moved into `framework/domain-model/src/actions/thread.ts`; `notice` drops off the write side (R9) |
+| `createThreadRoutes` | `app.ts:415` | deleted with the mount |
+| `createAssistantThreadRoute` | `routes/threads.ts:674` | deleted |
+| `createReviewRoutes` / `createConversationRoutes` | `app.ts:405,414` | deleted |
+| `listThreads`/`listMessages`/`searchConversations` | `routes/search.ts:24,146` | the search route re-points to the thread module's own read functions; the route itself survives as a legacy row |
+
+### B2 — the `conversation` package (step 3)
+
+`layers/core-api/conversation/` — `conversation-store.ts` (392) + `assistant-turn-resolver.ts` (164)
++ `session-not-returned-notice.ts` (86) + `index.ts` (70) = 712 lines. Replaced by
+`layers/core-api/thread/`. Every function survives somewhere; nothing is dropped silently.
+
+| Export | Importers outside the package | Where it goes |
+|---|---|---|
+| `findThread` · `listThreads` · `findMessage` · `listMessages` · `insertThread` · `insertMessage` · `updateThread` · `resolveMessageIfUnresolved` · `findOrCreateDirectThread` · `searchConversations` | `routes/threads.ts`, `routes/reviews.ts`, `routes/search.ts:24`, `routes/conversations.ts`, `services/calling-thread-bindings.ts:35`, `services/policy-bindings.ts:12`, `services/assistant-turn-coherence-trigger.ts:49`, `service-bootstrap.ts:190-212`, `ws-subscribe-authorizer.ts` (via its `deps.conversation`), `routine-scheduler-bindings.ts` | private to `layers/core-api/thread/src/thread-service.ts`. The three surviving outside readers (`search.ts`, the ws authorizer, the routine scheduler binding) get typed read functions from the new module's barrel, exactly as they get them from `conversation`'s barrel today |
+| `resolveAssistantTurnRequest`, `AssistantTurnResolverDeps`, `BakedAssistantTurnRequest` | `routes/threads.ts:22`, `assistant-turn-coherence-trigger.ts:49` | generalised to `resolveThreadTurnRequest` — B5 |
+| `registerSessionNotReturnedNotice`, `SESSION_NOT_RETURNED_NOTICE_TEXT` | `service-bootstrap.ts:17,361` | moves to `layers/core-api/src/services/session-not-returned-notice.ts` and posts through `send_message.run` instead of a raw `insertMessage` |
+
+`@hyperidle/conversation` disappears from every `package.json` that names it; `@hyperidle/thread`
+replaces it. `rg -l "@hyperidle/conversation"` is the list.
+
+### B3 — `calling-thread-bindings.ts` (step 4)
+
+`resolveOrCreateCallingThread` (`layers/core-api/src/services/calling-thread-bindings.ts:74`) resolves
+the `(task, taskId)` host thread and **creates one** if absent. Its only consumer is
+`services/task-run-resolver-bindings.ts:38`, feeding `TaskRunResolverDeps.resolveOrCreateCallingThread`
+(`layers/core-api/task/src/task-run-resolver.ts:91`), used at `:238` and `:301`.
+
+**Delete the file and the dep.** `task-run-resolver.ts` already holds the loaded `task` row at both
+sites; `callingThreadId` becomes `task.threadId`, now NOT NULL, so the `?:` optionality at `:133`,
+`:251` and `:316` collapses to a required field. That is the whole of "sessions talk in the task's
+thread" (`plan.md:53`) — no lookup, no create, one column read.
+
+### B4 — the four tools and the seam they ride (step 5)
+
+`send_message` (`tool-definitions.ts:52-85`) · `reply` (`:118-160`) · `create_item` (`:286-36x`) ·
+`submit_review` (`:465-560`). All four are deleted from `buildToolDefinitions`. `send_message`
+reappears as an action; the other three do not reappear at all.
+
+What each carried, and where it lands:
+
+| Carried | Lands |
+|---|---|
+| `send_message`'s recipient-exists check and `subject\n\n body` concatenation | `recipient_not_found` invariant; the agent writes one `text` |
+| `reply`'s no-thread rule and `NO_REPLY_RECIPIENT` | §3.6 step 2c/2d, `no_reply_recipient` |
+| `create_item`'s thread-create, review-recipient resolution and participant mutation | **gone.** Items are gone; a review is a `send_message` with `review` |
+| `submit_review`'s produced-item-parented check (`:487-500`) | `produced_item_not_owned` (§3.4) |
+| `submit_review`'s `linkReviewToSession` (`:537`) | `ThreadActionsDeps.linkReviewToSession`, §3.6 step 6b |
+| `submit_review`'s task-thread resolve-or-create seeded with review recipients (`:430-463`) | **gone.** The task already has a thread (§3.9) and the review goes in it |
+| `submit_review`'s `rootTaskId` parent-chain walk (`:543-553`) | **gone** with the tool. Nothing consumes the returned `rootTaskId` — `rg 'rootTaskId'` finds only this tool and its own tests |
+
+Seam methods with zero remaining callers once those four are gone — verified by
+`rg 'coreApi\.(getThreadById|insertThread|updateThread|insertMessage|findOrCreateDirectThread|getFirstThreadByHost|getItemById|updateItemById|createItem|resolveReviewRecipientsForItem)'`,
+which returns only `tool-definitions.ts` lines:
+
+- the whole `conversation` block on `CoreApiPort` — `getThreadById`, `insertThread`, `updateThread`,
+  `insertMessage`, `findOrCreateDirectThread`, `getFirstThreadByHost`
+  (`core-api-port-composition.ts:427-467`, `framework/api-contract/src/core-api-port.ts`,
+  `tool-handlers/src/ports.ts`, `tool-handlers-bindings.ts:131-150`);
+- `work.getItemById` / `work.updateItemById` / `work.createItem` (`core-api-port-composition.ts:390-406`);
+- `org.resolveReviewRecipientsForItem` (`:492-506`), its `ReviewRecipientsQuery` type
+  (`core-api-port.ts:247-252`), its binding (`tool-handlers-bindings.ts:165`) **and its route
+  `GET /org/review-recipients` (`routes/org.ts:190`)** — the route exists only for the two deleted
+  tools.
+
+`ports.gate.linkReviewToSession` (`tool-handlers/src/ports.ts:401`) and `buildGateAccessor`
+(`run-orchestration-composition.ts:352`) invert: today core→orchestration is dialled by a tool; after
+this item core calls it directly through `AgentOrchestrationPort`. One new port operation,
+`gate.linkReview(sessionId, reviewMessageId)`, alongside the `POST /agent-orchestration/review-verdicts`
+route the verdict half already uses. `unusableGateAccessor` and
+`layers/agent-orchestration/src/__testing__/review-accessor.ts` go with the tool-side accessor.
+
+### B5 — `assistant_turn` becomes `thread_turn` (step 4)
+
+`resolveAssistantTurnRequest(db, messageId, deps)` derives its target agent as `ast-${message.senderId}`
+(`conversation/src/assistant-turn-resolver.ts:112-114, 129`). That single line is the assistant special
+case in the wake path. It becomes:
+
+```ts
+export async function resolveThreadTurnRequest(
+  db: HyperIdleDb, messageId: string, agentId: string, deps: ThreadTurnResolverDeps,
+): Promise<BakedThreadTurnRequest>
+```
+
+Everything else in that function is already general and is kept verbatim: the transcript bake, the
+`callingThreadId`, `requireRunnableAgent`, `getAgentIdentity`, `readServerConfig`,
+`bakeAgentRunnableConfig`. `BakedAssistantTurnRequest.sourceCorrelation.assistantAgentId` is renamed
+to `agentId`, which means `assistantSessionRequestInputSchema`
+(`framework/domain-model/src/session-request.ts:67-77`) respells that one field.
+`AGENT_SESSION_SOURCE_KINDS` and `AGENT_SESSION_PROMPT_MODES` are **not** touched: a thread turn is
+still `sourceKind:"assistant"`, `promptMode:"conversation"`, because those name what the session
+*is* (a conversation turn with a transcript and no task), not who it belongs to, and renaming them
+would drag in the `agent_session_requests` check constraint for no behavioural gain.
+
+Every site that names the intent kind or the `ast-` convention, and what happens to it:
+
+| Site | Today | After |
+|---|---|---|
+| `framework/event-bus/src/events.ts:27` | `"assistant_turn"` in the intent-kind vocabulary | `"thread_turn"` |
+| `framework/api-contract/src/agent-orchestration-port.ts:87` | same union member | `"thread_turn"` |
+| `layers/agent-orchestration/src/routes/agent-orchestration-intake.ts:52` | same, in the intake zod enum | `"thread_turn"` |
+| `layers/core-api/src/services/agent-run-admission-reactions.ts:102` | `case "assistant_turn":` — informational, no mutation | `case "thread_turn":`, body unchanged |
+| `framework/db` check constraints | `0078`'s three | respelled in `0084` step 8 |
+| `layers/core-api/src/services/assistant-turn-coherence-trigger.ts` (127) | re-bakes pending same-thread intents | **deleted** with its `service-bootstrap.ts:40,347` registration and its `__testing__/test-fixtures.ts:20,157` wiring |
+| `layers/core-api/src/services/assistant-thread-pin-reaction.ts` (64) | pins the assistant thread on the first AI reply | **deleted**, `service-bootstrap.ts:39,334` |
+| `routes/threads.ts:1368-1371` `recordsAssistantIntent`, `:396-404` `isAssistantThread`, `:492`, `:508`, `:630` | the structural `ast-<userId>` recognition | **deleted** — the wake rule replaces all of it |
+| `routes/assistant.ts:124-127,199` | `ast-${userId}` / `thr-ast-${userId}` | deleted with the file |
+| `routes/teams-routes.ts:333-334` | seeds a welcome message into the literal thread id `thr-ast-${userId}` | rewritten as one `send_message.run(ctx, { recipients: [assistantId], text })` as the user; the assistant-stub upsert around it (`:340-380`) stays — it is agent provisioning, not thread code |
+| `framework/domain-model/src/team.ts:166` | prose naming `thr-ast-{userId}` | comment corrected |
+| `layers/core-api/org/src/resolve-scaffold-specs.ts:79` | `idHint: ast-${ownerUserId}` — where the id is **created** | **unchanged.** `users.ownerUserId` already carries the ownership (`schema.ts:84-92`, backfilled from `ast-%` by `0059_BA1_agent_belonging.sql:10-13`), so the prefix is now only a readable id. Nothing reads it structurally once the thread code stops. |
+| `layers/core-api/src/routes/users.ts:145` | `agentIds[0] ?? ast-${id}` fallback on the `user_created` payload | unchanged, same reason |
+| `layers/core-ui/src/settings/AgentEditor.tsx:177` | `agentId.startsWith("ast-")` to disable the role field | unchanged — a UI affordance, not a rule |
+
+That table is the answer to "what, if anything, must change where the id is created": **nothing.**
+
+### B6 — the assistant route and overlay (steps 4, 6)
+
+`routes/assistant.ts` (234) creates a thread on a `GET` (`:203`). Deleted whole; `open_thread` never
+writes. `hooks/useAssistantThread.ts` (191) is deleted. `shell/AssistantOverlay.tsx` (544) **stays as
+a screen** and changes exactly three things: it resolves its thread with
+`call("send_message", { recipients: [myAgentId], text })` on the first send rather than reading
+`/api/threads/assistant`; it reads with `call("open_thread", { id })`; and it posts with
+`call("send_message", { threadId, text })` instead of its direct `apiFetch` at `:285`. "My agent" is
+`users` where `ownerUserId = me` — one `GET /api/users?…` the overlay already has a door for via
+`useCurrentUser`/`useAgents`. `contexts/AssistantContext.tsx` follows the overlay.
+
+The overlay before its first send has no thread. That is the create-on-first-send the plan asks for
+(`plan.md:67-68`), and it is why the empty state must render without a thread id.
+
+### B7 — items, the policy engine, and the notification listener (steps 2, 5)
+
+| Symbol | Every production reader/writer | Step |
+|---|---|---|
+| `items` table | `task-service.ts`'s `"item"` arm of `WorkEntity` (`:238-244, 264-269, 340, 381, 466, 754, 781, 813`), `routes/conversations.ts` (4 sites), `policy-engine.ts:57,105,169,187`, `notifications/install.ts:265-301`, `notifications/ports.ts:62-63,101`, `routine-scheduler.ts:479-521`, `routine-scheduler-bindings.ts:70-74`, `agent-run-admission-reactions.ts`'s `createItem`, `policy-bindings.ts:19-22`, `service-bootstrap.ts:151,177-181`, `app.ts`'s `work.getItemById` | dropped; `WorkEntity` collapses to `"task"`, and every generic `<E extends "task" \| "item">` signature in `task-service.ts` loses its union |
+| `messages.legacyItemId` | `policy-engine.ts:169`, `approval-rate.ts:26,50-55`, `policy-bindings.ts:31-33`, `service-bootstrap.ts:211`, `policy/ports.ts:62`, the `noLegacyItem`/`legacyItemIds` filters in `conversation-store.ts` | dropped; R4 |
+| `policy-engine.ts` (206) | registered only via `register-policy.ts:19` ← `service-bootstrap.ts:374` | deleted; R2 |
+| `item_created` event | emitted at `routes/conversations.ts:158`; consumed by `policy-engine.ts:26-48` and matched by `routine-scheduler.ts:481` | deleted from `EVENT_TYPES` and from `LEGACY_EVENTS` |
+| routine subject `kind:"item"` | the union arm at `framework/domain-model/src/work-intent.ts:432-442`, built at `routine-scheduler.ts:483-497,521`, consumed at `run-orchestration/src/context.ts` | **deleted, not rewired.** Its only trigger was `item_created`. A routine that wants to hear about a message already gets the `kind:"thread"` subject (`work-intent.ts:403-414`, built at `routine-scheduler.ts:459-476`), which stays |
+| notification classification of items | `classifyListenerItem` / `buildSourceLink` / `NotificationsWorkReader` / `registerNotificationListener` (`notifications/install.ts:244-356`) | **deleted.** `rg 'type: "notification"'` finds two production emitters: `policy-engine.ts:192` (deleted) and `dependency-watcher.ts:83,155`, whose `kind:"auto_unblock"` the listener returns early on (`install.ts:295`). With the engine gone the listener can never enqueue a row. The `notification` event type and the two `auto_unblock` emits stay; the listener does not |
+
+Everything a human needs from that machinery is a BC5 subscription (`plan.md:74-75`).
+
+### B8 — the websocket push plumbing (step 6)
+
+`pushUpdate` (`threads.ts:98-105`) and its nine call sites (`:936, :1057, :1181, :1230, :1236, :1574,
+:1584, :1591, :1596`), `buildThreadListRowForPush` (`:124-146`), `buildSenderIdentityForPush`
+(`:154-160`). `WsPushTarget`, `app.ts`'s `options.wsHub` threading, `ws-connection-hub.ts` and
+`ws-subscribe-authorizer.ts` all **stay** — §3.12. The authorizer's `deps.conversation.getThreadById`
+re-points to the thread module's read.
+
+### B9 — the UI (step 6)
+
+| Deleted | Lines | Callers, and what each becomes |
+|---|---|---|
+| `hooks/useThreadDetail.ts` | 248 | `pages/Conversations.tsx:296`, `pages/review/ReviewPage.tsx:119` → a `useThread(id)` hook over `call("open_thread")` + the `thread:<id>` subscription |
+| `hooks/useAssistantThread.ts` | 191 | `shell/AssistantOverlay.tsx:260` → B6 |
+| `hooks/useConversationsThreads.ts` | 270 | `layouts/AppShell.tsx:493` (the sidebar badge) → `call("search_threads", {mine:true})` + the `conversations` subscription |
+| `hooks/useHostThread.ts` | 108 | `shell/HostThreadSection.tsx:145`, `pages/KnowledgeDetail.tsx:699` → `call("open_thread", { id })`. **The task page's id comes from `open_task().threadId`; the knowledge page's from `call("search_threads", { host: { kind:"knowledge_item", id } })`** |
+| `services/host-threads.ts` | 151 | `HostThreadSection.tsx:181,187`, `ReviewPage.tsx:151,184` → `call("send_message", …)`; `resolveOrCreateHostThread` has no replacement for a task (the task owns its thread) and becomes `search_threads`+`adjust_thread` for a knowledge item |
+| direct `apiFetch` posts | — | `Conversations.tsx:351`, `AssistantOverlay.tsx:285`, `RecipientPicker.tsx:85` (`POST /api/threads` to start a thread → `call("send_message", { recipients })`) |
+| `GET /api/reviews/:id` fetch | — | `ReviewPage.tsx:32` → `call("open_thread", { id })` for the messages + `call("open_task", { id })` for the task, parent title and prompt. The page composes the fields `routes/reviews.ts:107-139` composes today |
+
+`pages/RedirectLegacyConversation.tsx`, `hooks/useRecipients.ts`, `components/RecipientPicker.tsx`'s
+recipient list, `PartList`/`ConversationSurface`/`ThreadSections` are render-only or recipient-only
+and are **not** touched beyond the one `POST /api/threads` above.
+
+`core-ui` already depends on `zod` and `@hyperidle/domain-model` (BC2 added the manifest row); no
+`deps:check` edit.
+
+### B10 — the governance shrink lists (step 7)
+
+`tools/governance/src/rules/actions-projected.ts`. Eleven `LEGACY_ROUTES` rows, four `LEGACY_TOOLS`
+rows, one `LEGACY_EVENTS` row. The rule stays at `error`, stays green, gains no clause and no
+per-file exemption; a row for a route that no longer exists is itself a finding, which is what forces
+the deletion and the row into the same PR.
+
+`LEGACY_ROUTES` — delete `assistant.ts|GET /` (:156); `conversations.ts|GET /items/:id`,
+`|PATCH /items/:id`, `|POST /items` (:157-159); `org.ts|GET /review-recipients` (:186);
+`reviews.ts|GET /:reviewMessageId` (:198); all six `threads.ts` rows (:213-218). **Keep**
+`recipients.ts|GET /` (:197), `search.ts|GET /` and `ws.ts|GET /ws`.
+
+`LEGACY_TOOLS` — delete `create_item`, `reply`, `send_message`, `submit_review`. `send_message` leaves
+the list because the population clause 3 scans is hand-written `ToolDefinition` **literals**; an
+action-projected tool never appears in it.
+
+`LEGACY_EVENTS` — delete `item_created`. `thread_created`, `thread_message_appended`,
+`thread_resolved`, `thread_reopened` **stay** — they are still emitted, from the change row, until
+BC5 (`plan.md:80`).
+
+### B11 — the return set (step 4)
+
+`RETURN_ACTION_NAMES` (`framework/harness-protocol/src/harness/return-actions.ts:47`) names two tools
+that cease to exist. It becomes `["edit_task", "send_message"]`. Consequences, all in the same file
+unless named:
+
+- `RETURN_ACTION_HINTS` loses its `submit_review` and `reply` entries.
+- `FORCE_RETURN_MESSAGE` (`:141-144`) is rewritten to name only the two survivors — it names
+  `submit_review` today, which after this item is a tool an agent cannot call.
+- `provisioner.ts:568` — `literalToolNamerForAdapterType(adapterType)("reply")` → `("send_message")`,
+  and the orientation sentence with it.
+- `provisioner.ts:1566` — `["reply"]` → `["send_message"]`.
+- `isReturnAction`'s `edit_task` arm is **unchanged** — R1. Its `!taskId` early return
+  (`:106`) is what makes a thread turn's `edit_task` non-terminal, and a regression test pins it.
+- `return-actions.closure.test.ts`'s exception list grows from `edit_task` to both action-projected
+  names, and its "exactly the four members" assertion becomes two.
+
+### B12 — seeds and evals that name a deleted thing (step 7)
+
+- `tools/setup/src/demo-world/conversations.ts` seeds nine `hostKind: "task"` threads
+  (`:94,102,110,118,152,160,168,200`) and writes `tasks.threadId` directly. Re-point: each seeded task
+  thread becomes `hostKind: "team"` with the task's team, and `tasks.threadId` keeps pointing at it —
+  the same shape §4 step 3/7 produces for a real database. `THREAD_ASSISTANT` (`:231`) becomes an
+  ordinary direct thread between `DEMO_FOUNDER` and `ASSISTANT_ID`.
+- `tools/eval/src/scenarios/` — `create-item.ts`, `send-message.ts`, `submit-review.ts` and
+  `read-inbox.ts` grade tools that no longer exist. `send-message.ts` re-points to the action.
+  `create-item.ts` and `submit-review.ts`'s subject becomes `send_message` with a `review`.
+  `read-inbox.ts` already names a tool the destroyer pass deleted and should be checked against
+  `main` before being touched. `force-return.ts` and `tool-authorization.ts` name `reply` and must
+  follow B11. Evals are not tests and are not a gate here (`.claude/rules/testing.md`); they are named
+  so they are not left silently red.
+
+### B13 — the access boundary, and the guard that guarded it (step 7)
+
+`rg 'authorizeRead|authorizeWrite|canRead|canWrite|HOST_SCOPE'` finds exactly one production caller:
+`routes/threads.ts:65, 857, 1295`. Deleting that file leaves `layers/core-api/src/auth/authorize.ts`
+and `layers/core-api/src/auth/access-boundary.ts` with no production reader at all — only their own
+`auth/__tests__/access-boundary.test.ts`. Test-only reachable code is dead code. **Both files and that
+test are deleted**, and `HOST_SCOPE`'s `task: "host"` entry goes with them rather than being edited to
+match the shortened `HOST_KINDS`.
+
+That has a consequence a builder must not walk past. Two ESLint rules key on those names:
+
+- `authz/no-header-identity-in-authz` (`tools/eslint-plugin-authz/src/rules/no-header-identity-in-authz.ts:19`)
+  fires only on a call to one of the four. After this item its sink set is empty — a guard that
+  matches zero sites reads as passing forever, which is the failure mode `CLAUDE.md` names outright.
+  **Delete the rule, its file and its `eslint.config.ts:481` registration** along with the functions it
+  guarded. Its property — "the actor never comes from a header" — is now structural: the actions
+  router reads `c.get("userId")` and nothing else, and there is no other door.
+- `authz/no-raw-db-in-route-bypassing-policy` fires only on a route marked
+  `requireBoundary({kind:"enforced"})`, **which was already deleted before this item**: the config's
+  own comment says so (`eslint.config.ts:462-464`, "the no-raw-db rule becomes a no-op until it is
+  rekeyed"). It is a pre-existing dead guard, not one BC3 creates, and re-keying it is not this
+  item's work. Named here so the next reviewer does not mistake it for collateral damage.
+
+## 6. Security — reasoned from the surfaces this change reaches
+
+Five surfaces move. Nothing else is touched: no credential, sandbox, outbound request, plugin install
+or artifact rendering path is in this change.
+
+1. **`POST /api/actions/*`** — behind the existing auth middleware; the actor is `c.get("userId")`
+   from the middleware only (`middleware/auth.ts:142-149`), never a body field, never `X-Identity`.
+   That is the AF11 IDOR fix (`routes/threads.ts:1272-1276`) preserved by construction: the router
+   does not read an actor from anywhere else, so there is no second path to close.
+2. **MCP `send_message` / `adjust_thread`** — actor is `ToolContext.agentId`, the session's own
+   identity, which is what `tool-handlers-bindings.ts:146-150` passes as the seam actor today. The new
+   `ctx.caller` bag is filled from the same `ToolContext` and is never read for authorization — only
+   for the reply fallback, the review link and the produced-item check. An agent cannot put a session
+   id in its arguments and reach another session's review link, because the argument does not exist.
+3. **Who may post: membership, and only membership.** Today a host-scoped thread (`task`,
+   `knowledge_item`, `team`, `factory`) is writable by **any** authenticated principal —
+   `canWrite` delegates to `canRead`, which returns `true` for those hosts
+   (`auth/access-boundary.ts:32-76`). `not_a_member` is strictly stronger than that on every host
+   kind. `PATCH /threads/:id`, which today lets any principal rewrite any thread's participant list
+   with no check at all (`threads.ts:705-731`), is replaced by `adjust_thread`'s members-only rule.
+   Both are tightenings, and both are earned from what the code actually allows — not preemptive.
+4. **Verdict.** Human (`users.kind`), not the review's author, and the review must live in this
+   thread. Same three conditions as today, with the role string replaced by the identity fact (R6),
+   and the first-verdict-wins CAS (`resolveMessageIfUnresolved`) kept — it is what stops two humans
+   double-resolving one review.
+5. **The `conversations` websocket topic** is global (`ws-subscribe-authorizer.ts:83`). After this
+   item it carries a `changes` row rather than a composed list row, so it exposes `actor`, `objectId`
+   and the changed **thread** fields to every authenticated identity. No message body and no member
+   list beyond what a thread `changed` row names ever rides it, and `thread:<id>` stays
+   participant-gated in the hub. This is a shared single-organisation backend; every subscriber is an
+   authenticated member of it. Accepted; if it ever needs narrowing, the narrowing belongs in BC5
+   where subscriptions are the subject.
+
+**Two deliberate non-restrictions**, named so a reviewer sees them as choices:
+
+- **Any member may overwrite any message in a thread** (`plan.md:92`). There is no author check on
+  `messageId`. A thread is a room you were let into; the people in it can edit what is on the wall.
+  If that turns out to be wrong it will be wrong for a reason someone can point at, which is the bar
+  `ETHOS.md` sets.
+- **A deleted review is still resolvable and a deleted thread still accepts an idempotency lookup.**
+  `deletedAt` hides a thread from search and open; it is not a capability revocation. Making it one
+  would need a rule nobody has asked for.
+
+No new gate, per `.pipeline/rules/security.md`.
+
+## 7. Failure behaviour that changes
+
+- **A refused send or adjust is `422 { ok:false, problems }` on HTTP and an `err(code, messages)`
+  `ToolResult` on the MCP seam**, replacing today's mix of 400 / 403 / 404 / 409 / 422. The five
+  codes that carried meaning — `verdict_authorization`, `verdict_race`, `idempotency_conflict`,
+  `NO_REPLY_RECIPIENT`, `FORBIDDEN` on a foreign produced item — each become a `Problem` code
+  (§3.4). Nothing throws out of an action.
+- **A failed bake no longer fails the send.** Today `resolveAssistantTurnRequest` throwing takes the
+  whole `POST /threads/:id/messages` down with a 5xx after the message is committed
+  (`threads.ts:1438-1451`'s own `@lore` names this). With two agents possibly woken by one message,
+  a throw would also lose the second agent's turn. Each wake is now attempted independently; a
+  failure is logged and dropped, the message stays, the send returns `ok`. The observable change: a
+  message to an unrunnable agent now succeeds silently instead of returning a 5xx the human retried.
+  That is the right trade — the message is the user's, the wake is the system's.
+- **No coherence re-bake.** `assistant-turn-coherence-trigger.ts` exists because a transcript baked at
+  emit goes stale when a second message lands before the drain claims the intent. Deleting it
+  (`plan.md:69`) means a thread turn may answer a transcript one message behind. Accepted: the agent
+  reads the thread with `open_thread` anyway, which is the whole point of the thread being an action.
+- **No auto-approval.** A low-risk review from a high-approval-rate agent used to resolve itself
+  (`policy-engine.ts:139-177`). It now waits for a human verdict. That is the plan's decision
+  (`plan.md:73-75`) and it is the single largest behavioural change in this item.
+- **No notification rows from a review.** §5 B7. "Tell me when a review waits" is a BC5 subscription.
+- **A crash between commit and post-commit** loses the nudge, never the record: the message, the
+  thread and the `changes` rows are committed; what is skipped is a bus emit, a review link, a resume,
+  a wake or a push. Each is named, none is silent. BC5's `listChanges` is the replay.
+- **An orphan thread** is possible when `edit_task`'s transaction fails after §3.9 created the thread.
+  Visible in `search_threads({mine:true})`, deletable with `adjust_thread`. Accepted by the plan.
+
+## 8. Order of work — one technical task, ordered steps
+
+One PR (`plan.md:100`). Net red expected; size is not a gate. Each step compiles on the one before.
+
+1. **Declarations.** `framework/domain-model/src/actions/thread.ts` — the four declarations, the row
+   schemas, the four payload schemas moved from `routes/threads-schema.ts`, the two pure invariant
+   functions, `agentsToWake`, `THREAD_ACTIONS`. `HOST_KINDS` loses `task`. `actions/task.ts` gains
+   `EditTaskInput.threadId` and makes `TaskSchema.threadId` non-nullable. `ActionContext` gains
+   `caller` (§3.2). Red tests first.
+2. **Schema and migration.** `0084_thread_module.sql` + the journal entry + every mirroring edit in
+   `framework/db/src/schema.ts` + the four `table-owners.json` edits including the totals. This comes
+   before the module because step 3's reads and writes depend on `threads.title`, `threads.deletedAt`,
+   `changes.kind = 'message'` and `tasks.thread_id NOT NULL`.
+3. **The thread module.** `layers/core-api/thread/` — `createThreadActions`, the four `run`s, the
+   moved store (`conversation-store.ts`), the moved title ladder with its new rung 0, the moved
+   mention resolver, `resolveThreadTurnRequest` (B5). `layers/core-api/conversation/` deleted;
+   `session-not-returned-notice.ts` relocated. Every `@hyperidle/conversation` importer re-pointed.
+   The HTTP loop and the seam test (§9). Red, then green.
+4. **The seam and the wake.** `compose.ts` builds the thread deps; `actionsAsTools` fills `caller`;
+   the four tools and every orphaned seam method deleted (B4); `GET /org/review-recipients` deleted;
+   `gate.linkReview` added to `AgentOrchestrationPort`; `assistant_turn` → `thread_turn` at all six
+   sites (B5); the coherence trigger and the pin reaction deleted; `calling-thread-bindings.ts`
+   deleted and `task-run-resolver.ts` re-pointed at `task.threadId` (B3); the return set and the two
+   provisioner literals (B11).
+5. **Items and the policy engine.** B7 in full, including `WorkEntity` collapsing to `"task"`,
+   `register-policy.ts` (R2), `policy-bindings.ts`'s item half (R3), `approval-rate.ts`'s Path 1 (R4),
+   and the notification listener.
+6. **The UI and the websocket.** B8 and B9: `call.ts`'s type, the four hooks and `host-threads.ts`
+   deleted, the six surfaces re-pointed, the new `useThread`/`useThreads` subscription hooks, the
+   `pushUpdate` sites replaced by the change-row projection.
+7. **Deletion and governance.** The five route files and their mounts (B1); the dead access boundary
+   and the dead guard that guarded it (B13); the shrink lists (B10); the attack-case control re-point
+   (§4); the seeds and evals (B12); the docs sweep (§10).
+
+Splitting this leaves the old routes and the new actions both alive across a merge — a bridge, which
+the house rule forbids. One PR stands.
+
+## 9. Verification
+
+**New seam test** — `layers/core-api/src/__tests__/thread-actions.integration.test.ts`, on the
+`{ db, app, eventBus }` fixture, red first. It asserts, at minimum:
+
+- `send_message` with `recipients` creates a thread with sender + recipients as members and writes a
+  `thread.created` **and** a `thread.message` row in one transaction, both with the sender as actor;
+- a second send with the same `clientKey` returns the same message and writes **no** second row; a
+  divergent payload returns `idempotency_conflict`;
+- `send_message` with a `messageId` overwrites and writes a `message` row whose `before` carries the
+  old payload;
+- a non-member send returns `not_a_member` — including on a `team`-hosted thread, which today's
+  `authorizeWrite` lets through;
+- a verdict from a non-human returns `verdict_not_human`; from the review's own author,
+  `verdict_self`; naming a review in another thread, `verdict_foreign_review`; a second concurrent
+  verdict, `verdict_race`;
+- an `@mention` adds the mentioned user as a member **in the send's transaction** and appends a
+  `changed` row;
+- **the wake rule**: a mention of an agent records one `thread_turn` intent for that agent; a
+  two-member thread with one agent records one for it with no mention; a three-member thread with no
+  mention records none; two mentioned agents record two intents with distinct idempotency keys;
+- an agent calling `send_message` with neither thread nor recipients, with `caller.threadId` set,
+  posts to that thread; with no `caller.threadId`, to a direct thread with its team's human; with
+  neither and no human, `no_reply_recipient`;
+- a `review` with `caller.sessionId` calls `linkReviewToSession` with that session and the new
+  message id; a verdict on it calls `reviewVerdictRecorder`; a `not_resumable` outcome posts a
+  second plain message **through the action**, so a `changes` row exists for it;
+- `adjust_thread` with no id creates a thread with the actor as its only member; a non-member adjust
+  returns `not_a_member`; `deleted:true` hides the thread from `search_threads` and makes
+  `open_thread` return `not_found`; a stored `title` wins over the computed one and `title:null`
+  restores the fallback;
+- `search_threads({mine})` returns only threads the actor is in and carries `hasUnresolvedReview`
+  correctly for a thread with an open review and one with a resolved review;
+- `open_thread` returns members as identities, messages newest-first, `headMessageId` and
+  `hostTitle`, and **writes nothing** (assert the `changes` row count is unchanged);
+- `edit_task` with no `threadId` creates a task whose `threadId` is a real thread with creator and
+  owner as members; with a `threadId`, uses it and adds the owner;
+- the four legacy bus names still fire with today's payloads.
+
+**New migration test** — `framework/db/src/__tests__/migration-0084-brownfield.integration.test.ts`,
+the shape `migration-0078-brownfield.integration.test.ts` already uses: seed a task with a task-hosted
+thread, a task with two of them, a task with none, an `items` row and a message carrying its
+`legacyItemId`; migrate; assert every task has a thread, no thread is hosted by a task, the
+double-hosted task took the oldest, and step 4's `participants` is a JSON array of real user ids.
+
+**Deleted, their assertions moved into the seam test.** The route- and tool-suite files whose subject
+is a door that no longer exists: `src/__tests__/policy-engine.integration.test.ts` ·
+`src/__tests__/AD4-policy-engine.integration.test.ts` ·
+`src/routes/__tests__/review-verdict-resume.integration.test.ts` ·
+`src/services/__tests__/core-api-port-assistant-reply-seam.integration.test.ts` ·
+`src/services/__tests__/assistant-turn-b3-coherence-trigger.integration.test.ts` ·
+`src/services/__tests__/assistant-thread-pin-coreapi-subscriber.integration.test.ts` ·
+`conversation/src/__tests__/assistant-turn-resolver*.integration.test.ts` (two files) ·
+`tool-handlers/src/__tests__/submit-review-*.integration.test.ts` (four files). The builder runs
+`rg -l 'api/threads|/conversations/items|api/reviews|threads/assistant|submit_review|create_item'` under
+every `__tests__` directory and closes the list; none is dropped silently.
+
+**Re-pointed, core-api** — `AF11-authz` · `AD7-search` · `agent-profile` · `AD4-agent-profile` ·
+`agent-session-request-sources` · `agent-run-admission-failed-subscribers` ·
+`access-boundary.test.ts` · `tool-registry` · `tool-registry-role` · `tool-schemas` (the roster loses
+four names and gains four) · `return-actions.closure` (B11) ·
+`tool-handlers-completeness-contract` · `stub-ports.ts` · `routine-scheduler-completeness` ·
+`api-availability` · `api-e2e`.
+
+**Re-pointed, core-ui** — every file in the `rg` list of §5 B9, plus the two stories
+`RecipientPicker.stories.tsx` and `HostThreadSection.stories.tsx`, which mock the deleted routes and
+are required to keep working per `.claude/rules/testing.md`.
+
+**Re-pointed, e2e** — `__e2e__/fixtures.ts` is the shared route mock and moves first. Forty-three
+specs name a thread route; the ones whose subject **is** the thread must be read individually rather
+than swept: `conversations.spec.ts` · `threads.spec.ts` · `thread-response.spec.ts` ·
+`task-thread.spec.ts` · `knowledge-thread.spec.ts` · `bet-thread.spec.ts` ·
+`q1-new-dm-thread.spec.ts` · `block-anchor-comment.spec.ts` · `T5-block-discussion.spec.ts` ·
+`AH3-assistant-responds.spec.ts` · `L21-coc-overlay.spec.ts` · `M3-api-wiring.spec.ts` ·
+`W3-conversations-filter.spec.ts` · `l10-conversations-filter.spec.ts` ·
+`conversations-submenu.spec.ts` · `L11-rich-messages.spec.ts`. E2E is local-only and the affected
+slice passes with zero tests — **run the full suite and compare against `origin/main`.**
+
+**Harness lane** (local, obligatory — the tool roster and the forcing message both change):
+`npm run test:integration:harness` green on all four harnesses. Compare against `origin/main` first;
+that lane has known red there. The specific claim this lane proves and nothing else can: a real CLI,
+given the new `send_message` schema through the real MCP bridge, calls it and satisfies the return
+gate with `required = ["send_message"]`.
+
+**Governance** — `npm run lint` green with the three shrink lists shorter, and the attack pair
+demonstrated red once by deleting a `LEGACY_ROUTES` entry whose route still exists.
+
+**`npm run verify` · `npm run test` · `npm run test:integration:service`** all green.
+
+**The one end-to-end proof for the gate.** Run the app. In a thread with a human and an agent, post
+`@<agent> please do X`. Then, without touching anything else, show in order: the `messages` row; the
+`changes` row with `kind = 'message'`; the `agent_work_intents` row with `kind = 'thread_turn'` and
+`idempotency_key = thread-turn:<messageId>:<agentId>`; the session that starts from it; the
+`edit_task` call that session makes, carrying `threadId` = this thread; the new `tasks` row with that
+`thread_id`; and the task appearing on the thread's own page. That single chain is the whole of
+`plan.md:57-63` and it is the thing a screenshot cannot prove — judge it in the running app and in
+the database, not from the diff.
+
+The other gate items are each one look: the conversations page, a task's thread and the overlay all
+running through the action list; a send with two bodies returning a `two_bodies` problem in the UI;
+`SELECT * FROM items` failing because the table is gone; `rg policy-engine` finding nothing.
+
+## 10. Documentation made false
+
+Prose, so it does not count toward the size of the change, and it lands in the same PR.
+
+- `docs/human-interface-layer/items-and-routing.md` — its whole subject (the `items` table, risk-tier
+  routing, the policy engine's push/queue/auto-resolve) ceases to exist. This one is a **deletion**,
+  not an edit; `docs/human-interface-layer/index.md` loses its link.
+- `docs/human-interface-layer/thread-primitive.md` — the route list, `POST /threads/:id/messages` as
+  the door, the host-kind write predicate, "thread hosted by a task".
+- `docs/human-interface-layer/review-primitive.md` — `submit_review` as a tool, `GET /reviews/:id` as
+  the review page's door, auto-approval by approval rate.
+- `docs/human-interface-layer/notification-primitive.md` and `overview.md` — item-derived
+  notifications.
+- `docs/agent-layer/return-gate-enforcement.md` — names `submit_review` and `reply` as return
+  actions; both are gone (B11).
+- `docs/agent-layer/agent-model.md` — the assistant as a special agent kind with its own thread.
+- `docs/architecture/as-implemented-domain-architecture.md` and `system-overview.md` — the
+  `conversation` package, the `items` table, the thread route surface.
+- `docs/architecture/authorization-model.md` — the host-kind read/write predicate this item replaces
+  with membership (§6).
+- `docs/process-layer/the-four-primitives.md` and `docs/process-layer/tasks-and-sessions.md` — a
+  task's thread is a host lookup; the calling thread is resolve-or-create.
+- `docs/information-architecture/app-shell-always-present.md` — the overlay's own thread route.
+
+The builder greps `POST /api/threads`, `/api/reviews`, `submit_review`, `create_item`, `reply`,
+`items table`, `policy engine` and `assistant thread` under `docs/` and closes every hit.
+
+## Confusions
+
+1. **`changes.kind = 'message'` (plan Confusion 1)** — resolved as the plan states: the check widens
+   (§4 step 2) and `objectId` stays the **thread** id so BC5 can read a thread's history in one query.
+2. **The return gate (plan Confusion 2)** — half resolved by the code already (R1), half real: the two
+   provisioner literals (B11). A builder that "fixes" `isReturnAction` is fixing something that is
+   not broken and will weaken it.
+3. **`questionnaire` (plan Confusion 3)** — untouched, as stated. It appears here only as one of the
+   four bodies `send_message` accepts and one of the two types that reopen a resolved thread.
+4. **`GET /recipients` (plan Confusion 4)** — stays, with its `LEGACY_ROUTES` row, its route file and
+   `useRecipients`. `GET /org/review-recipients` does **not** stay: it is a different route with a
+   different purpose and both its callers are deleted tools (B4).
+5. **A task created inside a thread (plan Confusion 5)** — §3.9, second paragraph.
+6. **`approval-rate.ts` and the policy package survive** — R2/R3/R4. `plan.md:75` says the policy
+   engine's *one unique effect* goes; the package's other half (lifecycle propagation) and the
+   approval-rate computation the agent profile renders are not that effect.
+7. **`notice` has no writer** — R9. Not a decision this item makes; a fact it uncovered.
+
+## Proposed plan amendments
+
+One. It is a founder call, not mine, and I have not resolved it in the document above beyond stating
+the reading I recommend.
+
+**The websocket push becomes a nudge, and the browser refetches.** `plan.md:81` says the hand-pushed
+sites go, "the change row is projected onto the existing topics", and "hooks are replaced by `call()`
++ the same subscription". §3.12 reads that as: the change row arrives, the hook re-runs its own
+`call()`, and nothing else is composed server-side. That directly reverses a founder derivation
+recorded in the code — *"there is no refetch … core submits the changed version … zero ways back"*
+(`layers/core-api/src/routes/threads.ts:91-96`, AU21 Decision L4) — for every thread surface.
+
+The two options, honestly:
+
+- **Nudge (recommended).** The push carries the `changes` row; the hook calls `open_thread` /
+  `search_threads`. Cost: one extra round trip per message, on a local or LAN backend. Gain:
+  `buildThreadListRowForPush` and `buildSenderIdentityForPush` are deleted outright, and with them
+  the viewer-relative title bug the code documents against itself
+  (`threads.ts:113-123`) — a non-creator seeing their own name as a thread's title until they
+  refetch. The three writes that push **nothing** today (`PATCH /threads/:id`, `POST /threads/direct`,
+  `GET /threads/assistant`) start pushing like everything else, because there is one push path
+  instead of nine hand-placed ones.
+- **Payload.** The push carries the composed list row and the new message, as today. Cost:
+  `buildThreadListRowForPush` survives with its bug, and the module must compose a viewer-relative
+  title for a broadcast that reaches every viewer — which is what makes the bug unfixable in that
+  shape. Gain: no refetch.
+
+Both fit `plan.md:81`'s words. The recommendation is the nudge; a two-line answer at the gate settles
+it, and the difference is contained to §3.12 and the two new UI hooks.
