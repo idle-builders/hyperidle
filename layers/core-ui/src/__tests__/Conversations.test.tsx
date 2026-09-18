@@ -14,12 +14,29 @@
  * @lore L9: tests use MemoryRouter with route-params so that
  * useParams<{ threadId? }>() returns the correct value. Rendering without
  * a :threadId child path yields State A.
+ *
+ * @lore BC3: the thread surface is `call("open_thread"|"search_tasks"|...)`,
+ * never a fetch to a deleted `/api/threads*` route. Mocks target `call`
+ * directly (see `.claude/rules/testing.md`'s UI test rule).
  */
 
+import type { ThreadView } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: () => ({
+		user: { id: "u-founder", name: "Alice Founder", email: "alice@example.com", avatarUrl: null },
+		status: "ready",
+		error: null,
+		retry: vi.fn(),
+	}),
+}));
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -27,23 +44,34 @@ import { Conversations } from "../pages/Conversations";
 
 const THREAD_ID = "t-l9-test";
 
-const FAKE_THREAD = {
-	id: THREAD_ID,
-	hostKind: "task",
-	hostId: "task-1",
-	initiatorId: "agent-1",
-	participants: ["u-founder", "agent-1"],
-	pinned: false,
-	resolvedAt: null,
-	lastActiveAt: "2026-04-19T12:00:00.000Z",
-	createdAt: "2026-04-19T12:00:00.000Z",
-};
+function makeThread(): ThreadView["thread"] {
+	return {
+		id: THREAD_ID,
+		hostKind: "team",
+		hostId: "team-1",
+		initiatorId: "agent-1",
+		members: ["u-founder", "agent-1"],
+		title: null,
+		computedTitle: "Founder / Agent",
+		pinned: false,
+		resolvedAt: null,
+		deletedAt: null,
+		lastActiveAt: "2026-04-19T12:00:00.000Z",
+		createdAt: "2026-04-19T12:00:00.000Z",
+	};
+}
 
-const FAKE_REVIEW_MESSAGE = {
+const FAKE_MEMBERS: ThreadView["members"] = [
+	{ id: "u-founder", name: "Founder", role: "founder", isAgent: false },
+	{ id: "agent-1", name: "Agent", role: "agent", isAgent: true },
+];
+
+const FAKE_REVIEW_MESSAGE: ThreadView["messages"][number] = {
 	id: "m-rev",
 	threadId: THREAD_ID,
 	senderId: "agent-1",
 	clientKey: "k-rev",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -56,11 +84,12 @@ const FAKE_REVIEW_MESSAGE = {
 	},
 };
 
-const FAKE_PLAIN_MESSAGE = {
+const FAKE_PLAIN_MESSAGE: ThreadView["messages"][number] = {
 	id: "m-plain",
 	threadId: THREAD_ID,
 	senderId: "u-founder",
 	clientKey: "k-plain",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -68,6 +97,19 @@ const FAKE_PLAIN_MESSAGE = {
 	type: "plain",
 	payload: { text: "Hello from plain message" },
 };
+
+function makeOpenThreadResult(messages: ThreadView["messages"]) {
+	return {
+		ok: true as const,
+		data: {
+			thread: makeThread(),
+			members: FAKE_MEMBERS,
+			messages,
+			headMessageId: messages[0]?.id ?? null,
+			hostTitle: "Founder / Agent",
+		},
+	};
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -103,6 +145,7 @@ function renderNoThreadId(): void {
 
 describe("Conversations page (L9)", () => {
 	afterEach(() => {
+		callMock.mockReset();
 		vi.restoreAllMocks();
 	});
 
@@ -124,13 +167,15 @@ describe("Conversations page (L9)", () => {
 	// State B — loading
 	// -----------------------------------------------------------------------
 	it("State B: renders SkeletonList while the thread fetch is pending", async () => {
-		// Never resolve — keep it in loading state
-		globalThis.fetch = vi.fn(
-			() => new Promise<Response>(() => undefined),
-		) as unknown as typeof globalThis.fetch;
+		// Never resolve open_thread — keep useThread in "loading" state. search_tasks
+		// resolves normally so useThreadTasks's call() has something to settle on.
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") return new Promise(() => undefined);
+			return { ok: true, data: [] };
+		});
 
 		renderWithThreadId(THREAD_ID);
-		// The skeleton should appear immediately before fetch resolves
+		// The skeleton should appear immediately before open_thread resolves
 		expect(screen.getByLabelText(/loading thread/i)).toBeInTheDocument();
 	});
 
@@ -138,21 +183,10 @@ describe("Conversations page (L9)", () => {
 	// State D — populated (review-shape) — AM1: ConversationSurface (Part model)
 	// -----------------------------------------------------------------------
 	it("State D: mounts ConversationSurface with a review-shape fetched thread", async () => {
-		globalThis.fetch = vi.fn(
-			async () =>
-				new Response(
-					JSON.stringify({
-						thread: FAKE_THREAD,
-						messages: [FAKE_REVIEW_MESSAGE],
-						headMessageId: FAKE_REVIEW_MESSAGE.id,
-						identities: {
-							"u-founder": { name: "Founder", role: "founder" },
-							"agent-1": { name: "Agent", role: "agent" },
-						},
-					}),
-					{ status: 200, headers: { "Content-Type": "application/json" } },
-				),
-		) as unknown as typeof globalThis.fetch;
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") return makeOpenThreadResult([FAKE_REVIEW_MESSAGE]);
+			return { ok: true, data: [] };
+		});
 
 		renderWithThreadId(THREAD_ID);
 		await waitFor(() => {
@@ -167,20 +201,10 @@ describe("Conversations page (L9)", () => {
 	// State D — populated (plain-shape) — proves no per-shape branching
 	// -----------------------------------------------------------------------
 	it("State D: mounts ConversationSurface with a plain-shape fetched thread (no per-shape branching)", async () => {
-		globalThis.fetch = vi.fn(
-			async () =>
-				new Response(
-					JSON.stringify({
-						thread: FAKE_THREAD,
-						messages: [FAKE_PLAIN_MESSAGE],
-						headMessageId: null,
-						identities: {
-							"u-founder": { name: "Founder", role: "founder" },
-						},
-					}),
-					{ status: 200, headers: { "Content-Type": "application/json" } },
-				),
-		) as unknown as typeof globalThis.fetch;
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") return makeOpenThreadResult([FAKE_PLAIN_MESSAGE]);
+			return { ok: true, data: [] };
+		});
 
 		renderWithThreadId(THREAD_ID);
 		await waitFor(() => {
@@ -191,12 +215,18 @@ describe("Conversations page (L9)", () => {
 	});
 
 	// -----------------------------------------------------------------------
-	// State E — not found (404)
+	// State E — not found (404 equivalent: open_thread refuses with not_found)
 	// -----------------------------------------------------------------------
-	it("State E: renders 'thread not found' EmptyState with a back-to-queue link on a 404", async () => {
-		globalThis.fetch = vi.fn(
-			async () => new Response("not found", { status: 404 }),
-		) as unknown as typeof globalThis.fetch;
+	it("State E: renders 'thread not found' EmptyState when open_thread answers not_found", async () => {
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") {
+				return {
+					ok: false,
+					problems: [{ code: "not_found", message: "Thread not found" }],
+				};
+			}
+			return { ok: true, data: [] };
+		});
 
 		renderWithThreadId("does-not-exist");
 		await waitFor(() => {
@@ -212,12 +242,18 @@ describe("Conversations page (L9)", () => {
 	});
 
 	// -----------------------------------------------------------------------
-	// State C — error (non-404 fetch failure)
+	// State C — error (non-not_found open_thread refusal)
 	// -----------------------------------------------------------------------
-	it("State C: renders ErrorState with retry on a non-404 fetch failure", async () => {
-		globalThis.fetch = vi.fn(
-			async () => new Response("server error", { status: 500 }),
-		) as unknown as typeof globalThis.fetch;
+	it("State C: renders ErrorState with retry when open_thread refuses with a non-not_found problem", async () => {
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") {
+				return {
+					ok: false,
+					problems: [{ code: "forbidden", message: "server error" }],
+				};
+			}
+			return { ok: true, data: [] };
+		});
 
 		renderWithThreadId(THREAD_ID);
 		await waitFor(() => {
