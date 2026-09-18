@@ -7,14 +7,14 @@
  * §3.9) and `Thread.members` replaced `participants`.
  *
  * @lore BC3: AC5/AC6/AC8/AC9 (the "Dial In" affordance from the generic
- * Conversations view) are deleted, not repointed. `Conversations.tsx` now
- * hardcodes `taskId = null` for `useActiveSessionForTask` — dial-in from this
- * generic view is retired; the task page (WorkTaskPage) shows its own active
- * sessions directly (see the BC3 build report). `dial-in-btn` can never
- * render here again, so every case whose whole subject was that affordance
- * (the button, the "Live" badge, the activity-stream split, its viewport
- * variants, and the observe-mode write guard) is gone. AC7 (interjection) and
- * the WS thread-list refresh survive — neither depends on dial-in.
+ * Conversations view) are deleted, not repointed. `Conversations.tsx` no
+ * longer has any active-session lookup for the generic view — that
+ * affordance is retired; the task page (WorkTaskPage) shows its own active
+ * sessions directly (see the BC3 build report). The button, the "Live"
+ * badge, the activity-stream split, its viewport variants, and the
+ * observe-mode write guard can never render here again, so every case whose
+ * whole subject was that affordance is gone. AC7 (interjection) and the WS
+ * thread-list refresh survive — neither depends on it.
  */
 
 import {

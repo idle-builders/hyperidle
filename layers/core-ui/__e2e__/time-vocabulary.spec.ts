@@ -8,7 +8,7 @@
  *   AC-1: Same age → same label across ≥ 4 surfaces within each register
  *   AC-3: Invalid/unparseable timestamp → TIME_PLACEHOLDER "—" on all surfaces
  *         EXCEPT CommentRow sender-header chip (carve-out: hides chip, no "—")
- *   AC-4: absoluteDate renders MMM D, YYYY; SessionActivityPanel uses 24h HH:mm:ss
+ *   AC-4: absoluteDate renders MMM D, YYYY
  *
  * Strategy: page.route() overrides (LIFO) inject seeded timestamps into the
  * core API mocks. Import from ./fixtures for the base M3 mocks.
@@ -468,9 +468,9 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 	});
 });
 
-// ── AC-4: Absolute format + SessionActivityPanel 24h ──────────────────────
+// ── AC-4: Absolute format ────────────────────────────────────────────────
 
-test.describe("AC-4: absolute format and SessionActivityPanel 24h", () => {
+test.describe("AC-4: absolute format", () => {
 	test("WorkRoutine 'Created' field renders MMM D, YYYY format", async ({ page }) => {
 		const ROUTINE_ID = "ai3-seed-routine";
 
@@ -520,113 +520,5 @@ test.describe("AC-4: absolute format and SessionActivityPanel 24h", () => {
 		const text = (await createdField.textContent()) ?? "";
 		// Must match "MMM D, YYYY" — e.g. "Mar 15, 2030"
 		expect(text).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/);
-	});
-
-	test("SessionActivityPanel entries render 24h HH:mm:ss time", async ({ page }) => {
-		const THREAD_ID = "ai3-session-thread";
-		const TASK_ID = "ai3-seed-task";
-		const SESSION_ID = "ai3-seed-session";
-
-		// Mock the thread detail — useThread calls POST /api/actions/open_thread
-		// and expects { thread, members, messages, headMessageId, hostTitle }.
-		// @lore BC3: no `task` host kind — a task's own thread is `team`-hosted
-		// (hostId=TASK_ID's team, here simplified to TASK_ID itself since the
-		// dial-in affordance this test drives is retired from the generic
-		// conversation view anyway — see Conversations.tsx's own @lore).
-		await mockThread(page, {
-			thread: {
-				id: THREAD_ID,
-				hostKind: "team",
-				hostId: TASK_ID,
-				initiatorId: "test-founder",
-				members: ["test-founder"],
-				title: "AI3 Session Thread",
-				computedTitle: "AI3 Session Thread",
-				pinned: false,
-				resolvedAt: null,
-				deletedAt: null,
-				createdAt: SEED_CREATED_AT,
-				lastActiveAt: SEED_CREATED_AT,
-			},
-			members: [{ id: "test-founder", name: "Test Founder", role: "founder", isAgent: false }],
-			messages: [],
-		});
-
-		// Mock active session for the task — useActiveSessionForTask fetches
-		// GET /api/sessions?task_id=<taskId>&state=active and expects an array.
-		await page.route(`**/api/sessions?**`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify([
-						{
-							id: SESSION_ID,
-							agentId: "test-agent",
-							taskId: TASK_ID,
-							state: "active",
-							startedAt: SEED_CREATED_AT,
-							modelTier: "standard",
-						},
-					]),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Mock activity entries.
-		// useSessionActivity expects { session: {...}, activity: [...] }
-		// where each entry is { type, timestamp: number (epoch ms), data: {...} }.
-		// For tool_call: data = { toolName: string, argsSummary: string }.
-		await page.route(`**/api/sessions/${SESSION_ID}/activity**`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						session: {
-							id: SESSION_ID,
-							agentId: "test-agent",
-							taskId: TASK_ID,
-							state: "active",
-							startedAt: SEED_CREATED_AT,
-							modelTier: "standard",
-						},
-						activity: [
-							{
-								type: "tool_call",
-								timestamp: new Date("2026-06-12T14:32:07.000Z").getTime(),
-								data: {
-									toolName: "read_file",
-									argsSummary: "path=/example.ts",
-								},
-							},
-						],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Navigate to the conversation thread
-		await page.goto(`/conversations/${THREAD_ID}`);
-
-		// Click "Dial In" to open the SessionActivityPanel
-		const dialInBtn = page.locator("[data-testid='dial-in-btn']");
-		await expect(dialInBtn).toBeVisible();
-		await dialInBtn.click();
-
-		const activityPanel = page.locator("[data-testid='session-activity-panel']").first();
-		await expect(activityPanel).toBeVisible();
-
-		// Each activity entry time must be in 24h HH:mm:ss format (no AM/PM)
-		const timeEl = activityPanel.locator("[data-testid='activity-time']").first();
-		await expect(timeEl).toBeVisible();
-		const text = (await timeEl.textContent()) ?? "";
-		// Must match /^\d{2}:\d{2}:\d{2}$/ — 24h, no am/pm
-		expect(text).toMatch(/^\d{2}:\d{2}:\d{2}$/);
-		expect(text).not.toMatch(/AM|PM/i);
 	});
 });
