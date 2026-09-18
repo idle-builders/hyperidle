@@ -17,58 +17,52 @@
  * restores the unfiltered list.
  */
 
+import type { ThreadListRow } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 import { Conversations } from "../pages/Conversations";
 
+// @lore BC3: the thread list now comes from `useThreads({mine:true})` →
+// `call("search_threads", ...)`, not `GET /api/threads`.
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
 const NOW_ISO = "2026-04-30T12:00:00.000Z";
 
-interface MockListRow {
-	id: string;
-	hostKind: string;
-	hostId: string;
-	initiatorId: string;
-	participants: string[];
-	pinned: boolean;
-	resolvedAt: string | null;
-	lastActiveAt: string;
-	createdAt: string;
-	hasUnresolvedReview: boolean;
-	blocking?: boolean;
-}
+type MockListRow = ThreadListRow;
 
 function mkRow(overrides: Partial<MockListRow>): MockListRow {
 	return {
 		id: overrides.id ?? "t1",
-		hostKind: overrides.hostKind ?? "task",
+		hostKind: overrides.hostKind ?? "team",
 		hostId: overrides.hostId ?? "host-1",
 		initiatorId: overrides.initiatorId ?? "u-founder",
-		participants: overrides.participants ?? ["u-founder"],
+		members: overrides.members ?? ["u-founder"],
+		title: overrides.title ?? null,
+		computedTitle: overrides.computedTitle ?? "Thread",
 		pinned: overrides.pinned ?? false,
 		resolvedAt: overrides.resolvedAt ?? null,
+		deletedAt: overrides.deletedAt ?? null,
 		lastActiveAt: overrides.lastActiveAt ?? NOW_ISO,
 		createdAt: overrides.createdAt ?? NOW_ISO,
 		hasUnresolvedReview: overrides.hasUnresolvedReview ?? false,
-		blocking: overrides.blocking,
+		lastMessagePreview: overrides.lastMessagePreview ?? null,
 	};
 }
 
-// Mixed fixture: 2 blocking + 3 async.
+// Mixed fixture: 2 unresolved-review + 3 without.
 const MIXED_THREADS: MockListRow[] = [
-	mkRow({ id: "b1aaaa01", blocking: true }),
-	mkRow({ id: "b2aaaa02", blocking: true }),
-	mkRow({ id: "a1aaaa03", blocking: false }),
-	mkRow({ id: "a2aaaa04", blocking: false }),
-	mkRow({ id: "a3aaaa05", blocking: false }),
+	mkRow({ id: "b1aaaa01", hasUnresolvedReview: true }),
+	mkRow({ id: "b2aaaa02", hasUnresolvedReview: true }),
+	mkRow({ id: "a1aaaa03" }),
+	mkRow({ id: "a2aaaa04" }),
+	mkRow({ id: "a3aaaa05" }),
 ];
 
 // All-async fixture (used to verify filter-empty when picking "Blocking").
-const ASYNC_ONLY: MockListRow[] = [
-	mkRow({ id: "a1aaaa01", blocking: false }),
-	mkRow({ id: "a2aaaa02", blocking: false }),
-];
+const ASYNC_ONLY: MockListRow[] = [mkRow({ id: "a1aaaa01" }), mkRow({ id: "a2aaaa02" })];
 
 function renderShellAt(initialPath: string): void {
 	const router = createMemoryRouter(
@@ -92,16 +86,14 @@ function renderShellAt(initialPath: string): void {
 const STUB_USER = { id: "u-founder-test", name: "Founder", email: "", avatarUrl: null };
 
 function stubFetchOk(rows: MockListRow[]): void {
+	callMock.mockImplementation(async (action: string) => {
+		if (action === "search_threads") return { ok: true, data: rows };
+		return { ok: true, data: [] };
+	});
 	global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = typeof input === "string" ? input : input.toString();
 		if (url.includes("/api/auth/me")) {
 			return { ok: true, json: async () => STUB_USER } as Response;
-		}
-		if (url.includes("/api/threads") && !url.match(/\/api\/threads\/[^?]/)) {
-			return {
-				ok: true,
-				json: async () => ({ threads: rows, nextCursor: null }),
-			} as Response;
 		}
 		return { ok: true, json: async () => ({}) } as Response;
 	}) as unknown as typeof fetch;
@@ -153,27 +145,37 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 		expect(screen.queryByRole("button", { name: /^blocking$/i })).not.toBeInTheDocument();
 	});
 
-	it("error state: shows error state when fetch fails", async () => {
+	function stubFetchAuthOnly(): void {
 		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
 			if (url.includes("/api/auth/me")) {
 				return { ok: true, json: async () => STUB_USER } as Response;
 			}
-			return { ok: false, status: 500, json: async () => ({ error: "boom" }) } as Response;
+			return { ok: true, json: async () => ({}) } as Response;
 		}) as unknown as typeof fetch;
+	}
+
+	it("error state: shows error state when fetch fails", async () => {
+		stubFetchAuthOnly();
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "search_threads") {
+				return { ok: false, problems: [{ code: "boom", message: "boom", path: "" }] };
+			}
+			return { ok: true, data: [] };
+		});
 		renderShellAt("/conversations");
 		await screen.findByTestId("thread-sections-error");
 	});
 
 	it("error state: error state persists when fetch fails (chips removed by AF14)", async () => {
 		// AF14 AC4: no Blocking chip to click, but error state behavior unchanged.
-		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
-			const url = typeof input === "string" ? input : input.toString();
-			if (url.includes("/api/auth/me")) {
-				return { ok: true, json: async () => STUB_USER } as Response;
+		stubFetchAuthOnly();
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "search_threads") {
+				return { ok: false, problems: [{ code: "boom", message: "boom", path: "" }] };
 			}
-			return { ok: false, status: 500, json: async () => ({ error: "boom" }) } as Response;
-		}) as unknown as typeof fetch;
+			return { ok: true, data: [] };
+		});
 		renderShellAt("/conversations");
 
 		// Wait for error state
@@ -185,14 +187,12 @@ describe("Conversations page — L10 filter wiring (via AppShell OutletContext)"
 	});
 
 	it("loading state: shows loading skeleton while fetch is in-flight", async () => {
-		// /api/auth/me resolves quickly, then threads never resolve → infinite loading.
-		global.fetch = vi.fn(async (input: RequestInfo | URL) => {
-			const url = typeof input === "string" ? input : input.toString();
-			if (url.includes("/api/auth/me")) {
-				return { ok: true, json: async () => STUB_USER } as Response;
-			}
-			return new Promise<Response>(() => {});
-		}) as unknown as typeof fetch;
+		// /api/auth/me resolves quickly, then search_threads never resolves → infinite loading.
+		stubFetchAuthOnly();
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "search_threads") return new Promise(() => {});
+			return { ok: true, data: [] };
+		});
 		renderShellAt("/conversations");
 		await screen.findByTestId("thread-sections-loading");
 
