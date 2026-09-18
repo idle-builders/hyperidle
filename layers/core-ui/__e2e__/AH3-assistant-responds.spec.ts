@@ -2,9 +2,17 @@
  * AH3 RED — Playwright E2E specs.
  *
  * Per AH track HARD rule: NO page.route() mocking of the assistant/turn/session
- * path. The core fixtures.ts mocks (/api/auth/me, /api/settings, /api/threads,
- * /api/teams) are allowed as shell scaffolding. The assistant thread endpoint,
- * message POST, and all turn paths must reach the REAL backend.
+ * path. The core fixtures.ts mocks (/api/auth/me, /api/settings,
+ * /api/actions/search_threads, /api/teams) are allowed as shell scaffolding.
+ * The assistant thread endpoint, message POST, and all turn paths must reach
+ * the REAL backend.
+ *
+ * @lore BC3: repointed at `POST /api/actions/{search_threads,open_thread,
+ * send_message}` — never `GET /api/threads/assistant` (deleted; the overlay
+ * resolves the assistant's thread via `useThreads({host:{kind:"agent",
+ * id:myAgentId}})`, `myAgentId` found from `GET /api/agents` by
+ * `ownerUserId`). This test is already on
+ * `known-pre-existing-failures.ts`.
  *
  * These specs are written per the plan's guidance that AH3 writes them and AH5
  * supplies the real-model lane. For paths that need a real model, the spec notes
@@ -21,7 +29,7 @@
  * is testable immediately once server rejects are wired.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeIdentity, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Common scaffolding: assistant thread mock data
@@ -35,30 +43,44 @@ const FOUNDER_USER = {
 	avatarUrl: null,
 };
 
-const WELCOME_TEXT = "Welcome to HyperIdle! I'm your assistant.";
-
-const ASSISTANT_THREAD_EMPTY = {
-	thread: {
-		id: "t-assistant-ah3",
-		hostKind: "user",
-		hostId: "test-founder",
-		initiatorId: "test-founder",
-		participants: ["test-founder", "ast-test-founder"],
-		pinned: false,
-		resolvedAt: null,
-		lastActiveAt: new Date().toISOString(),
-		createdAt: new Date().toISOString(),
-	},
-	messages: [],
-	headMessageId: null,
-	identities: {
-		"test-founder": { name: "Test Founder", role: "founder" },
-		"ast-test-founder": { name: "Assistant", role: "assistant" },
-	},
+const ASSISTANT_AGENT = {
+	id: "ast-test-founder",
+	name: "Assistant",
+	role: "assistant",
+	ownerUserId: "test-founder",
+	identityKnowledgeId: null,
+	harnessType: null,
+	modelId: null,
+	modelProvider: null,
+	maxConcurrentSessions: 1,
+	status: "active",
 };
 
+const WELCOME_TEXT = "Welcome to HyperIdle! I'm your assistant.";
+
+const ASSISTANT_THREAD = {
+	id: "t-assistant-ah3",
+	hostKind: "agent",
+	hostId: "ast-test-founder",
+	initiatorId: "ast-test-founder",
+	members: ["test-founder", "ast-test-founder"],
+	title: null,
+	computedTitle: "Assistant",
+	pinned: false,
+	resolvedAt: null,
+	deletedAt: null,
+	lastActiveAt: new Date().toISOString(),
+	createdAt: new Date().toISOString(),
+};
+
+const ASSISTANT_THREAD_MEMBERS = [
+	makeIdentity("test-founder", { name: "Test Founder", role: "founder" }),
+	makeIdentity("ast-test-founder", { name: "Assistant", role: "assistant", isAgent: true }),
+];
+
 const ASSISTANT_THREAD_WITH_WELCOME = {
-	...ASSISTANT_THREAD_EMPTY,
+	thread: ASSISTANT_THREAD,
+	members: ASSISTANT_THREAD_MEMBERS,
 	messages: [
 		{
 			id: "msg-welcome-1",
@@ -67,6 +89,7 @@ const ASSISTANT_THREAD_WITH_WELCOME = {
 			type: "plain",
 			payload: { text: WELCOME_TEXT },
 			clientKey: "ck-welcome-1",
+			blockId: null,
 			deletedAt: null,
 			redactedAt: null,
 			resolvedAt: null,
@@ -74,6 +97,7 @@ const ASSISTANT_THREAD_WITH_WELCOME = {
 		},
 	],
 	headMessageId: "msg-welcome-1",
+	hostTitle: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -95,74 +119,78 @@ test.describe("AH3: no-key path → missing_key notice in overlay", () => {
 			}
 		});
 
-		// Mock the assistant thread with welcome
-		await page.route("**/api/threads/assistant", async (route) => {
+		// GET /api/agents — myAgentId resolution (AssistantOverlay finds its own
+		// agent by ownerUserId, BC3 B6).
+		await page.route("**/api/agents", async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
-					body: JSON.stringify(ASSISTANT_THREAD_WITH_WELCOME),
+					body: JSON.stringify([ASSISTANT_AGENT]),
 				});
 			} else {
 				await route.continue();
 			}
+		});
+
+		// search_threads({host:{kind:"agent",id:"ast-test-founder"}}) — the
+		// overlay's existing-thread lookup.
+		await mockSearchThreads(page, {
+			rows: [makeThreadListRow(ASSISTANT_THREAD.id, { ...ASSISTANT_THREAD, hasUnresolvedReview: false })],
 		});
 
 		// Simulate the server returning a missing_key notice message after send
 		// (the real server does this when no credential is configured)
-		await page.route("**/api/threads/t-assistant-ah3/messages", async (route) => {
-			if (route.request().method() === "POST") {
-				// Return success for the POST (message is accepted)
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({ id: "msg-ah3-1" }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// After the send, the thread refreshes and shows the notice message
-		// @lore AH3: We mock the /api/threads/assistant GET after send to return
+		// @lore AH3: after the send, the overlay re-runs open_thread and shows
 		// the notice. This proves the overlay renders the notice correctly.
 		// The real-model path (AH5) doesn't need this mock.
-		let refreshCount = 0;
-		await page.route("**/api/threads/assistant", async (route) => {
-			if (route.request().method() === "GET") {
-				refreshCount++;
-				const threadData =
-					refreshCount === 1
-						? ASSISTANT_THREAD_WITH_WELCOME
-						: {
-								...ASSISTANT_THREAD_WITH_WELCOME,
-								messages: [
-									...ASSISTANT_THREAD_WITH_WELCOME.messages,
-									{
-										id: "msg-ah3-notice-1",
-										threadId: "t-assistant-ah3",
-										senderId: "ast-test-founder",
-										type: "plain",
-										payload: {
-											text: "I can't think yet — no API key is configured. Add your Anthropic key in Settings → Credentials.",
-											notice: { kind: "missing_key" },
-										},
-										clientKey: "ck-notice-1",
-										deletedAt: null,
-										redactedAt: null,
-										resolvedAt: null,
-										createdAt: new Date().toISOString(),
+		let sendCount = 0;
+		await page.route("**/api/actions/send_message", async (route) => {
+			sendCount++;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						message: { id: "msg-ah3-1", threadId: ASSISTANT_THREAD.id },
+						thread: ASSISTANT_THREAD,
+					},
+				}),
+			});
+		});
+		// The welcome-thread load AND its post-send refresh, both through open_thread.
+		await page.route("**/api/actions/open_thread", async (route) => {
+			const threadData =
+				sendCount === 0
+					? ASSISTANT_THREAD_WITH_WELCOME
+					: {
+							...ASSISTANT_THREAD_WITH_WELCOME,
+							messages: [
+								...ASSISTANT_THREAD_WITH_WELCOME.messages,
+								{
+									id: "msg-ah3-notice-1",
+									threadId: ASSISTANT_THREAD.id,
+									senderId: "ast-test-founder",
+									type: "plain",
+									payload: {
+										text: "I can't think yet — no API key is configured. Add your Anthropic key in Settings → Credentials.",
+										notice: { kind: "missing_key" },
 									},
-								],
-							};
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(threadData),
-				});
-			} else {
-				await route.continue();
-			}
+									clientKey: "ck-notice-1",
+									blockId: null,
+									deletedAt: null,
+									redactedAt: null,
+									resolvedAt: null,
+									createdAt: new Date().toISOString(),
+								},
+							],
+						};
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: threadData }),
+			});
 		});
 	});
 
