@@ -17,7 +17,7 @@
  * the one still asserted here.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 const VIEWPORT_MOBILE = { width: 375, height: 667 };
 const KNOWLEDGE_ID = "k-mobile-dialog-test";
@@ -102,13 +102,7 @@ test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 				body: JSON.stringify({ items: [] }),
 			}),
 		);
-		await page.route("**/api/threads**", (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			}),
-		);
+		await mockSearchThreads(page, { rows: [] });
 
 		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
 		await expect(page.locator("[data-testid='knowledge-detail-page']")).toBeVisible();

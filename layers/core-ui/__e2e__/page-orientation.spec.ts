@@ -1,8 +1,17 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Locator, Page, Route } from "@playwright/test";
-import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
-import { expect, makeTask, mockTaskTree, test } from "./fixtures";
+import {
+	expect,
+	makeIdentity,
+	makeMessage,
+	makeTask,
+	makeThread,
+	mockSearchThreads,
+	mockTaskTree,
+	mockThread,
+	test,
+} from "./fixtures";
 
 const EVIDENCE = resolve(process.cwd(), "test-results/page-orientation");
 const TASK_TITLE =
@@ -76,12 +85,7 @@ test.beforeEach(async ({ page }) => {
 			createdAt: "2026-08-13T09:00:00.000Z",
 		}),
 	);
-	await page.route("**/api/threads?**host_kind=artifact**", (route) =>
-		fulfillJson(route, { threads: [], nextCursor: null }),
-	);
-	await page.route("**/api/threads?**host_kind=task**", (route) =>
-		fulfillJson(route, { threads: [], nextCursor: null }),
-	);
+	await mockSearchThreads(page, { rows: [] });
 	await page.route("**/api/sessions*", (route) => fulfillJson(route, { sessions: [] }));
 	// @lore BB1: the task page is reached at /work/task/:taskId now — there is no
 	// bet segment in front of it — and it loads open_task.
@@ -105,12 +109,33 @@ for (const viewport of [
 	});
 }
 
+// @lore BC3: `GET /api/reviews/:id` is gone — `ReviewPage` loads via
+// `open_thread`, named by the `?threadId=` query string (the review
+// message's own thread), never resolved by host lookup.
+const REVIEW_THREAD_ID = "thread-review-orientation";
+
 test("review keeps one page title", async ({ page }) => {
-	await page.route("**/api/reviews/review-orientation", (route) =>
-		fulfillJson(route, { ...REVIEW_COMPOSITION_SUBJECT, title: ARTIFACT_TITLE }),
-	);
+	await mockThread(page, {
+		thread: makeThread(REVIEW_THREAD_ID, {
+			hostKind: "team",
+			hostId: "task-orientation",
+			initiatorId: "agent-1",
+			members: ["agent-1", "test-founder"],
+		}),
+		members: [
+			makeIdentity("agent-1", { name: "Agent", isAgent: true }),
+			makeIdentity("test-founder", { name: "Test Founder" }),
+		],
+		messages: [
+			makeMessage("review-orientation", REVIEW_THREAD_ID, {
+				senderId: "agent-1",
+				type: "review",
+				payload: { title: ARTIFACT_TITLE, reasoning: [] },
+			}),
+		],
+	});
 	await page.setViewportSize({ width: 1024, height: 768 });
-	await page.goto("/reviews/review-orientation");
+	await page.goto(`/reviews/review-orientation?threadId=${REVIEW_THREAD_ID}`);
 	await proveHeader(page, "review-tablet.png", ARTIFACT_TITLE);
 });
 

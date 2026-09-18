@@ -4,9 +4,14 @@
  * AC coverage:
  *  - open Bet detail → focus a pitch block → open actions popover → "Comment on this block"
  *    → composer opens with prefilled blockId reference → post → message renders inline-after-payload
+ *
+ * @lore BC3: there is no `bet`/`task` host kind — a task's own thread is
+ * `team`-hosted, and the task page already knows its id via
+ * `open_task(id).threadId` (never lazily created from the task page, unlike
+ * the knowledge page's `host`-prop path).
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeMessage, makeTask, makeThread, mockTaskTree, test } from "./fixtures";
 
 const NOW = "2026-05-05T09:00:00.000Z";
 const LATER = "2026-05-05T09:05:00.000Z";
@@ -14,118 +19,62 @@ const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-bet-anchor";
 const BET_ID = "bet-anchor-test";
 
-function makeThreadListResponse() {
-	return { threads: [], nextCursor: null };
-}
-
-function makeCreateThreadResponse() {
-	return {
-		thread: {
-			id: THREAD_ID,
-			hostKind: "bet",
-			hostId: BET_ID,
-			initiatorId: FOUNDER_ID,
-			participants: [FOUNDER_ID],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		},
-		messages: [
-			{
-				id: "msg-init",
-				threadId: THREAD_ID,
-				senderId: FOUNDER_ID,
-				type: "plain",
-				payload: { text: "Thread started." },
-				clientKey: "ck-init",
-				deletedAt: null,
-				redactedAt: null,
-				resolvedAt: null,
-				createdAt: NOW,
-			},
-		],
-	};
-}
-
 test.describe("L18 — Block-anchored comment flow", () => {
 	test("focus block → open popover → Discuss → composer prefilled → post → message inline after block", async ({
 		page,
 	}) => {
-		let threadCreated = false;
-		const postedMessages: Array<Record<string, unknown>> = [];
+		const postedMessages = [
+			makeMessage("msg-init", THREAD_ID, {
+				senderId: FOUNDER_ID,
+				payload: { text: "Thread started." },
+				clientKey: "ck-init",
+				createdAt: NOW,
+			}),
+		];
 		let postedBlockId: string | null = null;
 		const composedText = "This is my anchored comment on the block.";
 
-		await page.route(`**/api/threads?**host_kind=bet**`, async (route) => {
+		await mockTaskTree(page, { task: makeTask(BET_ID, { threadId: THREAD_ID }) });
+
+		const thread = makeThread(THREAD_ID, {
+			hostKind: "team",
+			hostId: BET_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
+
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(
-					threadCreated
-						? { threads: [makeCreateThreadResponse().thread] }
-						: makeThreadListResponse(),
-				),
+				body: JSON.stringify({
+					ok: true,
+					data: { thread, members: [], messages: postedMessages, headMessageId: null, hostTitle: null },
+				}),
 			});
 		});
 
-		await page.route("**/api/threads", async (route) => {
-			if (route.request().method() === "POST") {
-				threadCreated = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify(makeCreateThreadResponse()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						thread: makeCreateThreadResponse().thread,
-						messages: postedMessages,
-						headMessageId: null,
-						nextMessagesCursor: null,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.route(`**/api/threads/${THREAD_ID}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				const body = route.request().postDataJSON() as {
-					payload: { text: string; blockId?: string };
-				};
-				postedBlockId = body.payload.blockId ?? null;
-				const msg = {
-					id: "msg-anch-001",
-					threadId: THREAD_ID,
-					senderId: FOUNDER_ID,
-					type: "plain",
-					payload: { text: composedText, blockId: postedBlockId },
-					clientKey: "ck-anch-001",
-					deletedAt: null,
-					redactedAt: null,
-					resolvedAt: null,
-					createdAt: LATER,
-				};
-				postedMessages.push(msg);
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({ message: msg, thread: makeCreateThreadResponse().thread }),
-				});
-			} else {
-				await route.continue();
-			}
+		await page.route("**/api/actions/send_message", async (route) => {
+			const body = route.request().postDataJSON() as {
+				text: string;
+				blockId?: string;
+			};
+			postedBlockId = body.blockId ?? null;
+			const msg = makeMessage("msg-anch-001", THREAD_ID, {
+				senderId: FOUNDER_ID,
+				payload: { text: composedText, blockId: postedBlockId },
+				clientKey: "ck-anch-001",
+				blockId: postedBlockId,
+				createdAt: LATER,
+			});
+			postedMessages.push(msg);
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: { message: msg, thread } }),
+			});
 		});
 
 		await page.goto(`/work/task/${BET_ID}`);
