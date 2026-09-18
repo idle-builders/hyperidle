@@ -2,7 +2,7 @@
  * AV2 — AgentEditor: shared agent + assistant editor pane.
  *
  * A presentation component — it renders the edit form for any agent (including the
- * assistant, ast-* id). Save routing (assistant vs. agent endpoint) is the parent's
+ * assistant). Save routing (assistant vs. agent endpoint) is the parent's
  * responsibility; the editor calls `onSave()` and lets the container decide.
  *
  * Key differences from the old inline renderEditForm:
@@ -13,14 +13,20 @@
  *  - Props are fully controlled: parent owns draft + sets it on changes.
  *
  * @lore AV2: AgentEditor is deliberately endpoint-agnostic. The ONLY structural
- * requirement from the architecture (§5a) is that ast-* save routing goes to the
- * assistant endpoint. That routing lives in SettingsAgents (the container), not here.
- * This separation keeps the editor pure and testable without mock routing logic.
+ * requirement from the architecture (§5a) is that the assistant's save routing goes
+ * to the assistant endpoint. That routing lives in SettingsAgents (the container),
+ * not here. This separation keeps the editor pure and testable without mock
+ * routing logic.
  *
  * @lore AV2: `Combobox` (with `allowCustomValue`) replaces the closed
  * AGENT_ROLE_CATALOG Select so custom roles survive round-trips without extra
  * schema work (role is an open string). The assistant's row keeps
  * role="assistant" disabled (immutable).
+ *
+ * @lore BC3: whether an agent's role is locked is decided by `ownerUserId !== null`
+ * (a person-owned agent, of which the assistant is the only instance today), never
+ * by an `agentId` prefix — a team agent could be named anything, including
+ * something that happens to start with "ast-".
  *
  * @lore AV2: The model dropdown source is descriptor.models (discovered at probe time),
  * NOT MODEL_CATALOG. An empty discovered list means the harness manages its own model
@@ -74,6 +80,11 @@ export interface AgentEditorDraft {
 export interface AgentEditorProps {
 	/** The agent id being edited. Every agent, assistants included, uses /api/agents/:id. */
 	agentId: string;
+	/**
+	 * The human this agent belongs to, or null for a team-owned agent. Decides
+	 * whether the role field is locked — see the BC3 @lore above.
+	 */
+	ownerUserId: string | null;
 	/** Controlled draft state. */
 	draft: AgentEditorDraft;
 	/** Called when the user changes any draft field. */
@@ -140,6 +151,7 @@ function reconcileModelProvider(
 
 export function AgentEditor({
 	agentId,
+	ownerUserId,
 	draft,
 	onDraftChange,
 	harnesses,
@@ -174,7 +186,7 @@ export function AgentEditor({
 	// no built-in idea of what a "builder" is. A new agent starts with an empty
 	// identity you write, or a plugin's agent brings its own.
 
-	const isAssistant = agentId.startsWith("ast-");
+	const isAssistant = ownerUserId !== null;
 
 	return (
 		<div className="border-width-thin flex flex-col gap-[12px] p-[12px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">

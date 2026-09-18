@@ -466,6 +466,7 @@ export function SettingsAgents(): JSX.Element {
 				<div className="flex flex-col gap-[9px]">
 					<AgentEditor
 						agentId="new-agent"
+						ownerUserId={null}
 						draft={addDraft}
 						onDraftChange={(fn) => setAddDraft((prev) => fn(prev))}
 						harnesses={harnesses}
@@ -494,6 +495,7 @@ export function SettingsAgents(): JSX.Element {
 		selectedId && draft ? (
 			<AgentEditor
 				agentId={selectedId}
+				ownerUserId={selectedAgent?.ownerUserId ?? null}
 				draft={draft}
 				onDraftChange={(fn) => setDraft((prev) => (prev ? fn(prev) : prev))}
 				harnesses={harnesses}

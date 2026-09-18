@@ -37,6 +37,7 @@ function renderEditor(roleOptions: readonly string[]) {
 		<MemoryRouter>
 			<AgentEditor
 				agentId="a1"
+				ownerUserId={null}
 				draft={DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[]}

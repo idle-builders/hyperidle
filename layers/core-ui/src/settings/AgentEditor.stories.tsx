@@ -6,7 +6,7 @@
  *
  * States covered:
  *  - NormalAgent: editing a regular team agent (opencode harness, discovered models)
- *  - AssistantAgent: editing the assistant (ast-* id, role disabled)
+ *  - AssistantAgent: editing the assistant (ownerUserId set, role disabled)
  *  - EmptyModels: codex harness — no discovered models → affordance text
  *  - SavingState: save in progress
  *  - WithError: inline 422 error shown
@@ -171,6 +171,7 @@ function NormalAgentEditor(): JSX.Element {
 	return (
 		<AgentEditor
 			agentId="agent-atlas"
+			ownerUserId={null}
 			draft={draft}
 			onDraftChange={(fn) => setDraft((prev) => fn(prev))}
 			harnesses={ALL_HARNESSES}
@@ -185,7 +186,7 @@ function NormalAgentEditor(): JSX.Element {
 export const NormalAgent = (): JSX.Element => <NormalAgentEditor />;
 
 // ---------------------------------------------------------------------------
-// AssistantAgent: ast-* id, role disabled, assistant route hint
+// AssistantAgent: ownerUserId set, role disabled
 // ---------------------------------------------------------------------------
 
 function AssistantAgentEditor(): JSX.Element {
@@ -204,7 +205,8 @@ function AssistantAgentEditor(): JSX.Element {
 
 	return (
 		<AgentEditor
-			agentId="ast-user1"
+			agentId="agent-nova"
+			ownerUserId="user1"
 			draft={draft}
 			onDraftChange={(fn) => setDraft((prev) => fn(prev))}
 			harnesses={ALL_HARNESSES}
@@ -238,6 +240,7 @@ function EmptyModelsEditor(): JSX.Element {
 	return (
 		<AgentEditor
 			agentId="agent-kira"
+			ownerUserId={null}
 			draft={draft}
 			onDraftChange={(fn) => setDraft((prev) => fn(prev))}
 			harnesses={ALL_HARNESSES}
@@ -258,6 +261,7 @@ export const EmptyModels = (): JSX.Element => <EmptyModelsEditor />;
 export const SavingState = (): JSX.Element => (
 	<AgentEditor
 		agentId="agent-atlas"
+		ownerUserId={null}
 		draft={{
 			name: "Atlas",
 			role: "builder",
@@ -285,6 +289,7 @@ export const SavingState = (): JSX.Element => (
 export const WithError = (): JSX.Element => (
 	<AgentEditor
 		agentId="agent-atlas"
+		ownerUserId={null}
 		draft={{
 			name: "Atlas",
 			role: "builder",
@@ -312,6 +317,7 @@ export const WithError = (): JSX.Element => (
 export const WithModelOptions = (): JSX.Element => (
 	<AgentEditor
 		agentId="agent-atlas"
+		ownerUserId={null}
 		draft={{
 			name: "Atlas",
 			role: "builder",
@@ -339,6 +345,7 @@ export const WithModelOptions = (): JSX.Element => (
 export const NoModelOptions = (): JSX.Element => (
 	<AgentEditor
 		agentId="agent-atlas"
+		ownerUserId={null}
 		draft={{
 			name: "Atlas",
 			role: "builder",
