@@ -4,8 +4,10 @@ import {
 	type AdjustThreadInput,
 	adjustThread as adjustThreadDeclaration,
 	adjustThreadInvariants,
+	type AgentWorkIntentRecorderFn,
 	type AgentWorkIntentRecorderInput,
 	agentsToWake,
+	bakeAgentRunnableConfig,
 	canReadThread,
 	canWriteThread,
 	type HostKind,
@@ -15,9 +17,9 @@ import {
 	MessageSchema,
 	openThread as openThreadDeclaration,
 	type OpenThreadInput,
-	parseMessagePayload,
 	type Problem,
 	type ReviewVerdictOutcome,
+	type ReviewVerdictRecorderFn,
 	searchThreads as searchThreadsDeclaration,
 	type SearchThreadsInput,
 	sendMessage as sendMessageDeclaration,
@@ -26,7 +28,6 @@ import {
 	sendMessageInvariants,
 	threadParticipantsSchema,
 	type Thread,
-	ThreadSchema,
 	type ThreadListRow,
 	type ThreadView,
 } from "@hyperidle/domain-model";
@@ -79,16 +80,8 @@ export interface ThreadActionsDeps {
 		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 		getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	};
-	readonly agentWorkIntentRecorder: (
-		input: AgentWorkIntentRecorderInput,
-	) => Promise<{ readonly id: string; readonly idempotencyKey: string }>;
-	readonly reviewVerdictRecorder: (input: {
-		readonly reviewMessageId: string;
-		readonly decision: "approve" | "decline";
-		readonly decidedBy: string;
-		readonly threadId: string;
-		readonly agentConfig?: unknown;
-	}) => Promise<ReviewVerdictOutcome>;
+	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
+	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly linkReviewToSession: (sessionId: string, reviewMessageId: string) => Promise<void>;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }
@@ -232,9 +225,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			tiebreakId: true,
 		});
 		const messages = messageRows.map(rowToMessage);
-		const headMessageId =
-			[...messages].reverse().findLast?.((m) => (m.type === "review" || m.type === "questionnaire") && m.resolvedAt === null)
-				?.id ?? null;
+		// `messages` is createdAt DESC, so the first unresolved review/
+		// questionnaire IS the most recent by ordering — no need to reverse.
+		const headMessage = messages.find(
+			(m) => (m.type === "review" || m.type === "questionnaire") && m.resolvedAt === null,
+		);
+		const headMessageId = headMessage?.id ?? null;
 
 		const identityRows = await deps.users.listByIds(ctx.db, members);
 		const identityById = new Map(identityRows.map((u) => [u.id, toIdentity(u)]));
@@ -368,7 +364,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		// -- 2. resolve the thread -------------------------------------------
 		let threadId: string | undefined = input.threadId;
 		let creatingThread: { hostKind: HostKind; hostId: string; members: string[] } | undefined;
-		let reuseDirectThreadId: string | undefined;
 
 		if (threadId === undefined && input.recipients !== undefined) {
 			if (input.recipients.length === 1) {
@@ -383,7 +378,6 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				const directKey = `${[ctx.actor, recipientId].sort().join(":")}:${recipient.kind === "ai" ? "agent" : "user"}`;
 				const existing = await store.findThread(ctx.db, { directKey });
 				if (existing) {
-					reuseDirectThreadId = existing.id;
 					threadId = existing.id;
 				} else {
 					creatingThread = {
@@ -707,6 +701,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (input.verdict !== undefined && resolvesMessageRow) {
 			let verdictOutcome: ReviewVerdictOutcome;
 			try {
+				// The agent that asked is the review's own sender. Its runnable
+				// config is core state, so it is baked here and carried across —
+				// admission treats a missing bake as a deactivated agent.
+				const askingAgent = await deps.users.getUserById(ctx.db, resolvesMessageRow.senderId);
+				const persona = askingAgent ? await deps.agents.getAgentIdentity(ctx.db, askingAgent.id) : null;
 				verdictOutcome = await deps.reviewVerdictRecorder({
 					reviewMessageId: resolvesMessageRow.id,
 					decision:
@@ -715,6 +714,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 							: "decline",
 					decidedBy: ctx.actor,
 					threadId: effectiveThreadId,
+					...(askingAgent ? { agentConfig: bakeAgentRunnableConfig(askingAgent, persona) } : {}),
 				});
 			} catch (gateErr) {
 				verdictOutcome = { status: "not_resumable", reason: gateErr instanceof Error ? gateErr.message : "unknown error" };

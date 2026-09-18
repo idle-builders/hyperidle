@@ -15,19 +15,27 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
  * Composing them replicates the exact same disposer set bootstrapAppRuntime
  * returned; only the grouping is new.
  *
- * `editTask` is derived from the SAME composed action list `app.ts`
- * builds, off the ctx's own `agentOrchestration`.
+ * `editTask`/`sendMessage` are derived from the SAME composed action list
+ * `app.ts` builds, off the ctx's own `agentOrchestration` (BC3
+ * architecture.md §5 B2: `sendMessage` added alongside `editTask`).
  */
 function fullServiceBootstrap(
-	ctx: Omit<Parameters<typeof registerCoreDomainServices>[0], "editTask">,
+	ctx: Omit<Parameters<typeof registerCoreDomainServices>[0], "editTask" | "sendMessage">,
 ): Array<() => void> {
-	const editTaskAction = buildCoreActions(ctx.agentOrchestration).find(
-		(a) => a.declaration.name === "edit_task",
-	);
+	const actions = buildCoreActions({
+		agentOrchestration: ctx.agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+	const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
+	const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
+	if (!sendMessageAction) throw new Error("send_message action not found");
 	const fullCtx = {
 		...ctx,
 		editTask: editTaskAction.run as Parameters<typeof registerCoreDomainServices>[0]["editTask"],
+		sendMessage:
+			sendMessageAction.run as Parameters<typeof registerCoreDomainServices>[0]["sendMessage"],
 	};
 	return [...registerCoreDomainServices(fullCtx), ...registerAgentLayerServices(fullCtx)];
 }

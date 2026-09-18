@@ -21,7 +21,7 @@
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
 
-import { listMessages, listThreads, searchConversations } from "@hyperidle/conversation";
+import { listMessages, listThreads, searchConversations } from "@hyperidle/thread";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";

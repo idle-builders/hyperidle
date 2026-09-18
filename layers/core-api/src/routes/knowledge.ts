@@ -23,7 +23,7 @@
  * with `topic`.
  */
 
-import { findThread } from "@hyperidle/conversation";
+import { findThread } from "@hyperidle/thread";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {

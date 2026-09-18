@@ -9,7 +9,7 @@
  * another Service).
  */
 
-import { listMessages } from "@hyperidle/conversation";
+import { listMessages } from "@hyperidle/thread";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import * as taskDb from "@hyperidle/task";

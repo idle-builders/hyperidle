@@ -1,9 +1,14 @@
 /**
- * Work service: one repository vocabulary for all owned work entities.
- * `tasks`, `items`. Every write call site and every read call site
- * routes through one of these functions
- * instead of a direct `insert`/`update`/`delete`/`select` against the table
- * objects.
+ * Work service: one repository vocabulary for the owned `tasks` table.
+ * Every write call site and every read call site routes through one of
+ * these functions instead of a direct `insert`/`update`/`delete`/`select`
+ * against the table object.
+ *
+ * @lore BC3 architecture.md §5 B7: `items` DROPPED, destructive, no compat
+ * column — a review, a question, an escalation are messages already.
+ * `WorkEntity` collapses from `"task" | "item"` to `"task"` alone, and
+ * every generic `<E extends "task" | "item">` signature below loses its
+ * union with it.
  *
  * Mirrors `knowledge/knowledge-repository.ts`'s style (`create`/`update`
  * functions, executor-first param), widened to accept `WriteExecutor` so
@@ -40,14 +45,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import {
-	items,
-	type NewItem,
-	type NewTask,
-	taskDispatchAttempts,
-	tasks,
-	type WriteExecutor,
-} from "@hyperidle/db";
+import { type NewTask, taskDispatchAttempts, tasks, type WriteExecutor } from "@hyperidle/db";
 import type { SQL } from "drizzle-orm";
 import {
 	and,
@@ -235,13 +233,9 @@ export const taskDispatchAttemptStore = {
 		return Math.min(rows.length, batchSize);
 	},
 };
-export type Item = typeof items.$inferSelect;
-
-/** Internal raw update shapes. Consumers use the operator-aware generic patches. */
+/** Internal raw update shape. Consumers use the operator-aware generic patch. */
 /** `NewTask` widened so a patch field may carry a raw `SQL` fragment. */
 type TaskPatch = { [K in keyof NewTask]?: NewTask[K] | SQL };
-/** `NewItem` widened so a patch field may carry a raw `SQL` fragment. */
-type ItemPatch = { [K in keyof NewItem]?: NewItem[K] | SQL };
 
 // ---------------------------------------------------------------------------
 // tasks

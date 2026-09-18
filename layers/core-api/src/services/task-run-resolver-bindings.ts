@@ -17,7 +17,6 @@ import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import type { TaskRunResolverDeps } from "@hyperidle/task";
 import { requireRunnableAgent } from "@hyperidle/users";
-import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";
 
 // AU31 §7.2 (R2): each dependency is a wrapping arrow, never the raw service
 // symbol — a bag of arrows over the layer's own services IS a face's
@@ -32,9 +31,7 @@ export const taskRunResolverDeps: TaskRunResolverDeps = {
 	assembleSessionKnowledge: (...args: Parameters<typeof assembleSessionKnowledge>) =>
 		assembleSessionKnowledge(...args),
 	readServerConfig: (...args: Parameters<typeof readServerConfig>) => readServerConfig(...args),
-	// AU27 Increment 1 (Decision 0): also bake callingThreadId — every real
-	// task_run emit site (`task-state-machine.ts`, `bet-decomposition.ts`,
-	// `handoff-protocol.ts`) reaches this ONE shared binding.
-	resolveOrCreateCallingThread: (...args: Parameters<typeof resolveOrCreateCallingThread>) =>
-		resolveOrCreateCallingThread(...args),
+	// BC3 architecture.md §5 B3: `resolveOrCreateCallingThread`/
+	// `calling-thread-bindings.ts` DELETED — `task-run-resolver.ts` bakes
+	// `callingThreadId` straight from `task.threadId`, now a real column.
 };

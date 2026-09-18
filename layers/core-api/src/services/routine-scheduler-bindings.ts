@@ -23,7 +23,7 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
+import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import {

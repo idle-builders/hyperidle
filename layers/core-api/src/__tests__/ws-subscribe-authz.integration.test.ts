@@ -15,7 +15,7 @@
  * of emitting on an EventBus the hub no longer subscribes to.
  */
 
-import { findThread } from "@hyperidle/conversation";
+import { findThread } from "@hyperidle/thread";
 import { type HyperIdleDb, threads as threadsTable } from "@hyperidle/db";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

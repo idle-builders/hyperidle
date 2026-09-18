@@ -19,10 +19,10 @@ import {
 	insertThread,
 	listMessages,
 	listThreads,
-	resolveAssistantTurnRequest,
 	resolveMessageIfUnresolved,
+	resolveThreadTurnRequest,
 	updateThread,
-} from "@hyperidle/conversation";
+} from "@hyperidle/thread";
 import type { Message as DbMessage, Thread as DbThread, HyperIdleDb } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderFn,
@@ -1455,17 +1455,22 @@ export function createThreadRoutes(
 				// runnability invariant) and bake the full request onto the intent —
 				// the drain dispatches it directly, with zero domain reads. The
 				// message is already committed, so a plain (non-tx) read sees it.
-				const bakedRequest = await resolveAssistantTurnRequest(db, messageId, {
+				// BC3: `resolveAssistantTurnRequest` (`@hyperidle/conversation`) is
+				// `resolveThreadTurnRequest` (`@hyperidle/thread`) now, taking the
+				// target agent explicitly — this route's own `ast-<senderId>`
+				// convention is passed in rather than derived inside the resolver.
+				const assistantAgentId = `ast-${senderId}`;
+				const bakedRequest = await resolveThreadTurnRequest(db, messageId, assistantAgentId, {
 					requireRunnableAgent,
 					getAgentIdentity,
 					readServerConfig,
 				});
 				await agentWorkIntentRecorder({
-					kind: "assistant_turn",
+					kind: "thread_turn",
 					sourceKind: "thread_message",
-					sourceId: messageId,
+					sourceId: `${messageId}:${assistantAgentId}`,
 					requestedBy: senderId,
-					idempotencyKey: `assistant:${messageId}`,
+					idempotencyKey: `thread-turn:${messageId}:${assistantAgentId}`,
 					bakedRequest,
 				});
 			}

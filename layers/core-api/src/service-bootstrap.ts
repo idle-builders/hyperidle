@@ -14,10 +14,9 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	registerSessionNotReturnedNotice,
 	resolveMessageIfUnresolved,
 	updateThread,
-} from "@hyperidle/conversation";
+} from "@hyperidle/thread";
 import {
 	decryptCredentialValue,
 	deleteCredential,
@@ -39,6 +38,7 @@ import { registerAgentRunAdmissionReactions } from "./services/agent-run-admissi
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
+import { registerSessionNotReturnedNotice } from "./services/session-not-returned-notice.js";
 import { startRoutineScheduler } from "./services/routine-scheduler-bindings.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
@@ -247,6 +247,12 @@ export function registerCoreDomainServices(ctx: {
 	 * `registerWorkSessionStartedReactions`.
 	 */
 	readonly editTask: PolicyDeps["editTask"];
+	/**
+	 * BC3 architecture.md §5 B2: `send_message`'s own bound `run`, threaded
+	 * from `app.ts`'s composed actions list — the relocated never-silent-net
+	 * reaction posts through it instead of a raw `insertMessage`.
+	 */
+	readonly sendMessage: import("./services/session-not-returned-notice.js").SendMessageRunFn;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -262,7 +268,7 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
-	const { db, eventBus, agentOrchestration, editTask } = ctx;
+	const { db, eventBus, agentOrchestration, editTask, sendMessage } = ctx;
 	const disposers: Array<() => void> = [];
 
 	disposers.push(
@@ -331,14 +337,15 @@ export function registerCoreDomainServices(ctx: {
 	// anyway. The wake rule (`@hyperidle/thread`'s `agentsToWake`) replaces
 	// the structural `ast-` recognition both reactions depended on.
 
-	// AU27 Increment 5 (Decision 5): the never-silent net — a
-	// `@hyperidle/conversation`-owned reaction to the existing
-	// `session_not_returned` event (today only observed by the observability
-	// dispatcher), posting one plain notice into the session's calling
-	// thread when the force budget is spent without a return.
+	// AU27 Increment 5 (Decision 5): the never-silent net — a reaction to the
+	// existing `session_not_returned` event (today only observed by the
+	// observability dispatcher), posting one plain notice into the session's
+	// calling thread when the force budget is spent without a return. BC3:
+	// relocated here from `@hyperidle/conversation` (deleted), posting
+	// through the composed `send_message` action.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerSessionNotReturnedNotice(db, eventBus),
+			registerSessionNotReturnedNotice(db, eventBus, sendMessage),
 			"session-not-returned notice",
 			"unsubscribe",
 			["session_not_returned subscription"],

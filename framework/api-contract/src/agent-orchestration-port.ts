@@ -258,6 +258,20 @@ export interface AgentOrchestrationPort {
 	readonly runs: AgentOrchestrationRunsPort;
 	readonly runConfig: AgentOrchestrationRunConfigPort;
 	readonly filesystems: AgentOrchestrationFilesystemsPort;
+	readonly gate: AgentOrchestrationGatePort;
+}
+
+/**
+ * @lore BC3 architecture.md §3.3/§5 B4: `submit_review`'s way of recording
+ * which session filed a review moves from a tool-side accessor
+ * (`ports.gate.linkReviewToSession`, called in-process because the tool ran
+ * inside agent-orchestration) to a genuine core→orchestration port
+ * operation — `send_message` runs in core-api and may not touch
+ * `review_sessions` directly. Binds to the SAME write
+ * (`recordReviewSession`) `buildGateAccessor` reaches today.
+ */
+export interface AgentOrchestrationGatePort {
+	linkReview(sessionId: string, reviewMessageId: string): Promise<void>;
 }
 
 /**

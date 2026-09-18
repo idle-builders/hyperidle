@@ -32,6 +32,7 @@ import {
 	endRunForHandoff,
 	readAgentRunConfig,
 	readAgentRunConfigs,
+	recordReviewSession,
 	recordReviewVerdict,
 	requestRunStopForTasks,
 	writeAgentRunConfig,
@@ -106,6 +107,11 @@ const workIntentInputSchema = z.object({
 	resume: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationWorkIntentInput>;
 
+const gateLinkInputSchema = z.object({
+	sessionId: z.string().min(1),
+	reviewMessageId: z.string().min(1),
+});
+
 const gateVerdictInputSchema = z.object({
 	reviewMessageId: z.string().min(1),
 	decision: z.enum(["approve", "decline"]),
@@ -125,6 +131,22 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		const body = c.req.valid("json");
 		const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
 		return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
+	});
+
+	// ── gate.linkReview — POST /agent-orchestration/review-links ────────────
+	//
+	// @lore BC3 architecture.md §3.3/§5 B4: `submit_review`'s
+	// `linkReviewToSession` moves here — `send_message` runs in core-api and
+	// may not touch `review_sessions` directly. Binds to the SAME write
+	// (`recordReviewSession`) the deleted tool-side accessor reached in-process.
+	router.post("/review-links", validateBody(gateLinkInputSchema), async (c) => {
+		const body = c.req.valid("json");
+		await recordReviewSession(
+			db,
+			{ reviewMessageId: body.reviewMessageId, sessionId: body.sessionId },
+			new Date().toISOString(),
+		);
+		return c.json({ ok: true });
 	});
 
 	// ── intents.recordReviewVerdict — POST /agent-orchestration/review-verdicts ──

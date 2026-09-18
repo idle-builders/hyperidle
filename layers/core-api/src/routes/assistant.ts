@@ -19,7 +19,7 @@
  * hostId=userId + participants includes the assistant agent.
  */
 
-import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
+import { findThread, insertThread, listMessages } from "@hyperidle/thread";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	HostKind,

@@ -45,7 +45,7 @@
  * mediates every cross-face handoff, never a direct service import.
  */
 
-import { findThread } from "@hyperidle/conversation";
+import { findThread } from "@hyperidle/thread";
 import {
 	type CredentialResolver,
 	decryptCredentialValue,

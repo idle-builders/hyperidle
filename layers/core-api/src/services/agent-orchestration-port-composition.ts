@@ -70,6 +70,11 @@ interface AgentOrchestrationHcClient {
 		readonly "review-verdicts": {
 			$post(args: { readonly json: AgentOrchestrationReviewVerdictInput }): Promise<Response>;
 		};
+		readonly "review-links": {
+			$post(args: {
+				readonly json: { readonly sessionId: string; readonly reviewMessageId: string };
+			}): Promise<Response>;
+		};
 		readonly requests: {
 			readonly "explicit-starts": {
 				readonly ":startId": {
@@ -303,6 +308,14 @@ export function buildAgentOrchestrationPort(
 							};
 					  }
 					| { readonly ok: false; readonly code: "NOT_FOUND" | "CONFLICT" };
+			},
+		},
+		gate: {
+			async linkReview(sessionId: string, reviewMessageId: string): Promise<void> {
+				const res = await client["agent-orchestration"]["review-links"].$post({
+					json: { sessionId, reviewMessageId },
+				});
+				if (!res.ok) return throwSeamError("gate.linkReview", res);
 			},
 		},
 	};

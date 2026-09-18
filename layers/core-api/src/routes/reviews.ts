@@ -1,4 +1,4 @@
-import { findMessage, findThread, listMessages } from "@hyperidle/conversation";
+import { findMessage, findThread, listMessages } from "@hyperidle/thread";
 import type { HyperIdleDb } from "@hyperidle/db";
 import * as work from "@hyperidle/task";
 import { findUser } from "@hyperidle/users";

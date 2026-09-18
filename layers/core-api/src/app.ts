@@ -90,6 +90,19 @@ interface AppOptions {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").TaskView>
 		>;
+		/**
+		 * BC3 architecture.md §5 B2: `send_message`'s own bound `run`, so the
+		 * relocated never-silent-net reaction (`session-not-returned-notice.ts`)
+		 * posts through the action instead of a raw `insertMessage`.
+		 */
+		sendMessage: (
+			ctx: import("./actions/action.js").ActionContext,
+			input: import("@hyperidle/domain-model").SendMessageInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<
+				import("@hyperidle/domain-model").SendMessageOutput
+			>
+		>;
 	}) => Array<() => void>;
 	/**
 	/**
@@ -378,6 +391,8 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		}
 		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
 		const defaultGateVerdictRecorder = buildSeamBackedReviewVerdictRecorder(agentOrchestration);
+		const agentWorkIntentRecorder = options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder;
+		const reviewVerdictRecorder = options.reviewVerdictRecorder ?? defaultGateVerdictRecorder;
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
@@ -389,7 +404,17 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
 		// `POST /api/actions/<name>` — one loop over the composed list, never a
 		// per-object route factory. the architecture doc §7.
-		const actions: readonly Action[] = buildCoreActions(agentOrchestration);
+		const actions: readonly Action[] = buildCoreActions({
+			agentOrchestration,
+			agentWorkIntentRecorder,
+			reviewVerdictRecorder,
+			...(options.wsHub
+				? {
+						wsPush: (topic: string, envelope: unknown) =>
+							options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
+					}
+				: {}),
+		});
 		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
 		APP_ACTION_TOOLS.set(api, actionsAsTools(actions));
 		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
@@ -401,6 +426,18 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			input: import("@hyperidle/domain-model").EditTaskInput,
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").TaskView>
+		>;
+		const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
+		if (!sendMessageAction) {
+			throw new Error("buildCoreActions did not produce a send_message action");
+		}
+		const sendMessage = sendMessageAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").SendMessageInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<
+				import("@hyperidle/domain-model").SendMessageOutput
+			>
 		>;
 		api.route("/reviews", createReviewRoutes(options.db));
 		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
@@ -417,8 +454,8 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			createThreadRoutes(
 				options.db,
 				eventBus,
-				options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder,
-				options.reviewVerdictRecorder ?? defaultGateVerdictRecorder,
+				agentWorkIntentRecorder,
+				reviewVerdictRecorder,
 				options.wsHub,
 			),
 		);
@@ -450,7 +487,8 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		const disposers: Array<() => void> = [];
 
 		const serviceDisposers =
-			options.serviceBootstrap?.({ db, eventBus, agentOrchestration, editTask }) ?? [];
+			options.serviceBootstrap?.({ db, eventBus, agentOrchestration, editTask, sendMessage }) ??
+			[];
 		disposers.push(...serviceDisposers);
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".

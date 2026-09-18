@@ -30,7 +30,7 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { insertThread } from "@hyperidle/conversation";
+import { insertThread } from "@hyperidle/thread";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/event-bus";

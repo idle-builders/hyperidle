@@ -19,7 +19,7 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
+import { findThread, insertMessage, insertThread } from "@hyperidle/thread";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	CreateTeamRequest,
