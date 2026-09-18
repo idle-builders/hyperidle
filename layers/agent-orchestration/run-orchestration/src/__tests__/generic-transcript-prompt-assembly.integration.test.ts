@@ -366,7 +366,9 @@ describe("generic transcript delivery (Increment 4)", () => {
 
 		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
 		expect(prompt).toContain("## When work needs a person");
-		expect(prompt, "the agent must be told HOW to ask").toContain("submit_review");
+		expect(prompt, "the agent must be told HOW to ask").toContain(
+			'`send_message` with type "review"',
+		);
 		// Nothing intercepts, so the agent has to know the judgement is its own.
 		// Text written for a gate would have it waiting for a refusal that never
 		// comes.

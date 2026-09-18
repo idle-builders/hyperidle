@@ -373,6 +373,16 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus,
 	}) => {
 		await seedAgent(db, "w0-sub-knowledge-agent");
+		// `changes.actor` FKs to `users` — `flagStalledKnowledgeAction` creates the
+		// knowledge item's thread as "system:propagation", so the row must exist.
+		await db.insert(users).values({
+			id: "system:propagation",
+			kind: "ai",
+			name: "Propagation System",
+			role: "system",
+			status: "active",
+			createdAt: NOW,
+		});
 		const [item] = await db
 			.insert(knowledgeItems)
 			.values({
