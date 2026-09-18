@@ -134,13 +134,14 @@ async function seedAttempt(
 		readonly agentId: string;
 		readonly status?: string;
 		readonly ordinal?: number;
+		readonly occasion?: string;
 	},
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(taskDispatchAttempts).values({
 		id: options.attemptId,
 		taskId: options.taskId,
-		occasion: "accepted",
+		occasion: options.occasion ?? "accepted",
 		agentId: options.agentId,
 		ordinal: options.ordinal ?? 1,
 		status: options.status ?? "requested",
@@ -503,12 +504,17 @@ describe("resolveTaskRunRequest — callingThreadId baking", () => {
 			agentId: "agent-trun-thread-2",
 			status: "requested",
 		});
+		// A second dispatch attempt on the same task+agent needs a distinct
+		// `occasion` — `task_dispatch_attempts_occasion_uq` is unique on
+		// (taskId, occasion, predecessorSessionId, agentId), so a plain repeat
+		// of "accepted" with no predecessor session collides with the first.
 		await seedAttempt(db, {
 			attemptId: "attempt-trun-thread-2b",
 			taskId: "task-trun-thread-2",
 			agentId: "agent-trun-thread-2",
 			status: "requested",
 			ordinal: 2,
+			occasion: "retry",
 		});
 
 		const firstBake = await resolveTaskRunRequest(
