@@ -23,7 +23,6 @@ import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions } from "./actions/compose.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
@@ -33,12 +32,10 @@ import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createPluginRoutes } from "./routes/plugins.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
-import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
-import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import {
 	buildSeamBackedReviewVerdictRecorder,
@@ -146,13 +143,11 @@ interface AppOptions {
 	onHarnessRedetect?: () => Promise<void>;
 	/**
 	 * AU21 §6 Decision L4 / §9 Increment 14d: the WS connection hub's
-	 * broadcast-only surface. When provided, route factories that push
-	 * changed data directly (`createThreadRoutes`'s per-thread +
-	 * conversations-list pushes) call `wsHub.broadcast(topic, data)` at the
-	 * same write that has the full record in hand — no generic event→topic
-	 * forwarder, no follow-up client read. Optional so integration tests that
-	 * don't need WS pushes can omit it (routes still emit their EventBus
-	 * events unchanged either way).
+	 * broadcast-only surface. BC3: `send_message`/`adjust_thread` push the
+	 * `changes` row itself, once per row, on both topics (architecture.md
+	 * §3.12) — `wsPush` on `buildCoreActions`'s bindings wraps this same
+	 * hub. Optional so integration tests that don't need WS pushes can omit
+	 * it (actions still emit their EventBus events unchanged either way).
 	 */
 	wsHub?: WsPushTarget;
 	/**
@@ -460,7 +455,10 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
 		>;
-		api.route("/reviews", createReviewRoutes(options.db));
+		// @lore BC3 architecture.md §5 B1: `/reviews`, `/conversations`, `/threads`
+		// and their route files are DELETED — search_threads/open_thread/
+		// send_message/adjust_thread are the door now, mounted generically by
+		// createActionsRouter above. `/recipients` stays (plan.md Confusion 4).
 		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
 		// `POST /:id/injections`, whose team-consistency gate reads `users` +
 		// `team_members`. Every other registration (and the reachability probe's
@@ -469,17 +467,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
-		api.route("/conversations", createConversationRoutes(options.db, eventBus));
-		api.route(
-			"/threads",
-			createThreadRoutes(
-				options.db,
-				eventBus,
-				agentWorkIntentRecorder,
-				reviewVerdictRecorder,
-				options.wsHub,
-			),
-		);
 		api.route("/users", createUserRoutes(options.db));
 		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));

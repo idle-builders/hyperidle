@@ -10,13 +10,7 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import {
-	insertMessage,
-	insertThread,
-	listMessages,
-	resolveMessageIfUnresolved,
-	updateThread,
-} from "@hyperidle/thread";
+import { insertMessage, listMessages } from "@hyperidle/thread";
 import {
 	decryptCredentialValue,
 	deleteCredential,
@@ -29,10 +23,9 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
 import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/notifications";
 import type { PolicyDeps } from "@hyperidle/policy";
-import { registerPolicy } from "@hyperidle/policy";
+import { registerLifecyclePropagation } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import * as taskDb from "@hyperidle/task";
-import { findUser } from "@hyperidle/users";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
@@ -172,13 +165,6 @@ const notificationsDeps: NotificationsDeps = {
 function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
 	return {
 		work: {
-			getItemById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "item", id),
-			updateItemById: (exec: WriteExecutor, id: string, patch) =>
-				taskDb.update(exec, "item", id, patch),
-			listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
-				const rows = await taskDb.list(exec, "item", { sourceAgentId: agentId });
-				return rows.map((r) => r.id);
-			},
 			getTaskById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "task", id),
 			listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
 				taskDb.list(exec, "task", { parentTaskId }),
@@ -187,28 +173,13 @@ function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
 		},
 		conversation: {
 			insertMessage,
-			listMessagesByThread: (db, threadId, opts) =>
-				listMessages(db, {
-					threadId,
-					types: opts?.type ? [opts.type] : undefined,
-					order: opts?.order,
-					dir: opts?.dir,
-					limit: opts?.limit,
-				}),
-			resolveMessageIfUnresolved,
-			updateThread,
-			insertThread,
 			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 				listMessages(db, {
 					threadInitiatorId: initiatorId,
 					types: ["verdict"],
 					since: windowStart,
-					noLegacyItem: true,
 				}),
-			listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
-				listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 		},
-		users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 		editTask,
 	};
 }
@@ -365,14 +336,16 @@ export function registerCoreDomainServices(ctx: {
 	// OWN `session_ended` reaction, Increment 6's per-session cost door) is
 	// deleted along with the rest of the cost feature — no replacement.
 
+	// @lore BC3 architecture.md §5 R2: the policy engine is deleted — one
+	// registration (lifecycle propagation) is no longer worth collapsing.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerPolicy(db, eventBus, buildPolicyDeps(editTask)),
-			"policy registration",
+			registerLifecyclePropagation(db, eventBus, buildPolicyDeps(editTask)),
+			"lifecycle propagation registration",
 			"unsubscribe",
 			// @lore AU44 batch6: "retry interval" removed — the 30s heartbeat
 			// (retryFailedPropagations) is deleted with propagation_log (AU20 Ruling 2).
-			["policy engine", "lifecycle propagation"],
+			["lifecycle propagation"],
 		),
 	);
 	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener

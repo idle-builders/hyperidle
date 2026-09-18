@@ -1,5 +1,12 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ActionDeclaration, ActionResult } from "@hyperidle/domain-model";
+import type {
+	ActionDeclaration,
+	ActionResult,
+	AdjustThreadInput,
+	SendMessageInput,
+	SendMessageOutput,
+	ThreadView,
+} from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
 /**
@@ -39,3 +46,20 @@ export interface Action<I = unknown, O = unknown> {
 	readonly declaration: ActionDeclaration<I, O>;
 	readonly run: (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
+
+/**
+ * `send_message`/`adjust_thread`'s own bound `run`, as the composed action
+ * list's `sendMessageAction.run`/`adjustThreadAction.run` are cast to —
+ * ONE canonical shape so every consumer that threads them through
+ * (`session-not-returned-notice.ts`, `agent-run-admission-reactions.ts`,
+ * `service-bootstrap.ts`, `app.ts`) agrees on the same type rather than
+ * each declaring its own narrower mirror.
+ */
+export type SendMessageRunFn = (
+	ctx: ActionContext,
+	input: SendMessageInput,
+) => Promise<ActionResult<SendMessageOutput>>;
+export type AdjustThreadRunFn = (
+	ctx: ActionContext,
+	input: AdjustThreadInput,
+) => Promise<ActionResult<ThreadView>>;

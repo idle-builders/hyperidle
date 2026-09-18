@@ -7,7 +7,7 @@
  */
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { appendChange } from "@hyperidle/changes";
-import type { HyperIdleDb, User, WriteExecutor } from "@hyperidle/db";
+import type { User, WriteExecutor } from "@hyperidle/db";
 import type {
 	ActionResult,
 	AdjustThreadInput,

@@ -32,18 +32,13 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type {
-	ActionResult,
-	AdjustThreadInput,
-	SendMessageInput,
-	SendMessageOutput,
-	ThreadView,
-} from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/event-bus";
 import { findThread } from "@hyperidle/thread";
 import * as routineService from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
-import type { ActionContext } from "../actions/action.js";
+import type { ActionContext, AdjustThreadRunFn, SendMessageRunFn } from "../actions/action.js";
+
+export type { AdjustThreadRunFn, SendMessageRunFn };
 
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
@@ -52,15 +47,6 @@ const registeredBuses = new WeakSet<EventBus>();
 function knowledgeItemIdFromSourceId(sourceId: string): string {
 	return sourceId.replace(/^knowledge:/, "");
 }
-
-export type SendMessageRunFn = (
-	ctx: ActionContext,
-	input: SendMessageInput,
-) => Promise<ActionResult<SendMessageOutput>>;
-export type AdjustThreadRunFn = (
-	ctx: ActionContext,
-	input: AdjustThreadInput,
-) => Promise<ActionResult<ThreadView>>;
 
 /**
  * BC3 architecture.md §5 B7b — the second `items` writer, kept alive as a

@@ -17,18 +17,15 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus, SessionNotReturnedEvent } from "@hyperidle/event-bus";
-import type { ActionContext } from "../actions/action.js";
+import type { SendMessageRunFn } from "../actions/action.js";
+
+export type { SendMessageRunFn };
 
 const logger = createLogger({ pkg: "core-api.session-not-returned-notice" });
 const registeredBuses = new WeakSet<EventBus>();
 
 /** The one notice text posted when a session ends without returning. */
 export const SESSION_NOT_RETURNED_NOTICE_TEXT = "I couldn't finish that turn. Try asking again.";
-
-export type SendMessageRunFn = (
-	ctx: ActionContext,
-	input: { readonly threadId: string; readonly text: string },
-) => Promise<unknown>;
 
 async function reactToSessionNotReturned(
 	db: HyperIdleDb,
