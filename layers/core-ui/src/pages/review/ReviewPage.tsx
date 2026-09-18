@@ -82,12 +82,17 @@ function hostMessagesToReviewComments(
 /**
  * BC3 default loader: `GET /api/reviews/:id` is gone (B1/B10). `open_thread`
  * carries the review message and everything the review page composes from
- * real rows, the way `routes/reviews.ts` did (architecture.md §5 B9). The
- * one thing that route derived and this loader cannot — the task the
- * review's thread belongs to, and that task's parent — has no successor
- * action (a thread may hold many tasks now, and `search_tasks` gained no
- * by-thread filter, R5); those fields are left honestly empty rather than
- * guessed, exactly as the deleted route left evidence it did not have.
+ * real rows, the way `routes/reviews.ts` did (architecture.md §5 B9).
+ *
+ * The task the review belongs to: the server stamps `taskId` onto the
+ * review payload from the agent's session (`ee37000af`,
+ * `reviewPayloadSchema`) — when present, `open_task` names it and fills
+ * `taskId`/`taskTitle`/`parentTaskId` from the returned task. No `taskId`
+ * on the payload (older reviews, or a session with no task) or a refused
+ * `open_task` (e.g. the task was deleted) both leave those fields honestly
+ * empty rather than guessed, exactly as the deleted route left evidence it
+ * did not have. `betTitle` has no successor action at all — there is no
+ * "bet" row `open_task` (or anything else) returns — so it stays empty.
  */
 async function defaultLoader({
 	reviewId,
@@ -109,6 +114,22 @@ async function defaultLoader({
 	const title = isRedactedPayload(reviewPayload) ? "Review" : reviewPayload.title;
 	const reasoning = isRedactedPayload(reviewPayload) ? [] : reviewPayload.reasoning;
 	const artifacts = isRedactedPayload(reviewPayload) ? [] : (reviewPayload.artifacts ?? []);
+	const reviewTaskId = isRedactedPayload(reviewPayload) ? undefined : reviewPayload.taskId;
+
+	// The payload names the task; `open_task` is the one place that task's
+	// title and parent live. A refused lookup (task gone, no access) leaves
+	// these undefined/null rather than blocking the page.
+	let taskId: string | undefined;
+	let taskTitle: string | undefined;
+	let parentTaskId: string | null = null;
+	if (reviewTaskId) {
+		const openedTask = await call("open_task", { id: reviewTaskId });
+		if (openedTask.ok) {
+			taskId = openedTask.data.task.id;
+			taskTitle = openedTask.data.task.title;
+			parentTaskId = openedTask.data.task.parentTaskId;
+		}
+	}
 
 	const identityById = new Map(members.map((m) => [m.id, m]));
 	const author = identityById.get(reviewMsg.senderId);
@@ -139,8 +160,10 @@ async function defaultLoader({
 		id: reviewMsg.id,
 		threadId,
 		title,
-		parentTaskId: null,
+		parentTaskId,
 		betTitle: "",
+		taskId,
+		taskTitle,
 		prompt: reasoning.join("\n\n"),
 		authorName: author?.name ?? reviewMsg.senderId,
 		reviewerName,

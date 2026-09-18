@@ -216,3 +216,139 @@ describe("ReviewPage route", () => {
 		});
 	});
 });
+
+// The real (default) loader — task naming from the review payload's
+// `taskId` (server-stamped, commit ee37000af). These exercise
+// `defaultLoader` itself, unlike the suite above which always injects a
+// stub `loader` and never reaches it.
+describe("ReviewPage default loader — task naming", () => {
+	function reviewMessageWithTaskId(taskId?: string): Message {
+		return {
+			id: "rev-task-1",
+			threadId: "thread-task-review",
+			senderId: "agent-atlas",
+			clientKey: "ck-review-task",
+			blockId: null,
+			deletedAt: null,
+			redactedAt: null,
+			resolvedAt: null,
+			createdAt: new Date().toISOString(),
+			type: "review",
+			payload: {
+				title: "Ready for review",
+				reasoning: ["Ready for review"],
+				artifacts: [],
+				...(taskId ? { taskId } : {}),
+			} as unknown as ReviewPayload,
+		};
+	}
+
+	function threadViewFor(message: Message): ThreadView {
+		return {
+			thread: {
+				id: message.threadId,
+				hostKind: "team",
+				hostId: "team-1",
+				initiatorId: "u-founder",
+				members: ["u-founder", "agent-atlas"],
+				title: null,
+				computedTitle: "Review thread",
+				pinned: false,
+				resolvedAt: null,
+				deletedAt: null,
+				lastActiveAt: new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+			},
+			members: [
+				{ id: "u-founder", name: "You", role: "founder", isAgent: false },
+				{ id: "agent-atlas", name: "Atlas", role: "agent", isAgent: true },
+			],
+			messages: [message],
+			headMessageId: null,
+			hostTitle: null,
+		};
+	}
+
+	function taskViewFor(id: string, title: string) {
+		return {
+			task: {
+				id,
+				parentTaskId: null,
+				teamId: "team-1",
+				ownerAgentId: null,
+				title,
+				description: null,
+				doneCondition: null,
+				state: "proposed",
+				dependencies: null,
+				threadId: "thread-task-review",
+				notes: null,
+				createdAt: "2026-09-01T00:00:00.000Z",
+				updatedAt: "2026-09-01T00:00:00.000Z",
+				outcomeVerdict: null,
+				outcomeSummary: null,
+				outcomeRecordedAt: null,
+				outcomeRecordedBy: null,
+				tokensActualJson: null,
+				sourceKnowledgeItemId: null,
+				completedAt: null,
+				position: 0,
+				needsReview: false,
+			},
+			ancestors: [],
+			children: [],
+			tokensActualRollup: null,
+			threadId: "thread-task-review",
+			attachments: [],
+		};
+	}
+
+	function renderDefaultRoute() {
+		const router = createMemoryRouter([{ path: "/reviews/:reviewId", element: <ReviewPage /> }], {
+			initialEntries: ["/reviews/rev-task-1?threadId=thread-task-review"],
+		});
+		return render(<RouterProvider router={router} />);
+	}
+
+	afterEach(() => {
+		// The other tests in this file rely on `postMessageSpy`'s original fixed
+		// resolved value — restore it so a per-test `mockImplementation` here
+		// never leaks forward.
+		postMessageSpy.mockReset();
+		postMessageSpy.mockResolvedValue({ ok: true, data: { message: {}, thread: {} } });
+	});
+
+	it("with a taskId on the review payload: names the task and links to it", async () => {
+		const message = reviewMessageWithTaskId("task-1");
+		postMessageSpy.mockImplementation((action: unknown, input: unknown) => {
+			if (action === "open_thread") {
+				return Promise.resolve({ ok: true, data: threadViewFor(message) });
+			}
+			if (action === "open_task") {
+				expect(input).toEqual({ id: "task-1" });
+				return Promise.resolve({ ok: true, data: taskViewFor("task-1", "Fix the webhook") });
+			}
+			throw new Error(`unexpected call: ${String(action)}`);
+		});
+
+		renderDefaultRoute();
+
+		const link = await screen.findByRole("link", { name: "Fix the webhook" });
+		expect(link).toHaveAttribute("href", "/work/task/task-1");
+	});
+
+	it("without a taskId on the review payload: task fields stay empty, as today", async () => {
+		const message = reviewMessageWithTaskId();
+		postMessageSpy.mockImplementation((action: unknown) => {
+			if (action === "open_thread") {
+				return Promise.resolve({ ok: true, data: threadViewFor(message) });
+			}
+			throw new Error(`unexpected call: ${String(action)}`);
+		});
+
+		renderDefaultRoute();
+
+		await screen.findByRole("heading", { name: "Ready for review" });
+		expect(screen.queryByRole("link", { name: /Fix the webhook/ })).not.toBeInTheDocument();
+	});
+});
