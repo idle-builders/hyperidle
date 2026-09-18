@@ -7,8 +7,20 @@
 
 import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { resolveHostRoute } from "../services/host-route.js";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: () => ({
+		user: { id: "u-founder", name: "Alice Founder", email: "alice@example.com", avatarUrl: null },
+		status: "ready",
+		error: null,
+		retry: vi.fn(),
+	}),
+}));
 
 // ── resolveHostRoute unit tests (AC-3 route resolution) ──────────────────────
 
@@ -62,7 +74,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -90,7 +102,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -117,7 +129,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -143,7 +155,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -170,7 +182,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -253,109 +265,43 @@ describe("AE5 — ThreadRow presence dots", () => {
 
 // ── Conversations context link rendering (AC-3) ──────────────────────────────
 
-describe("AE5 — Conversations header context link", () => {
-	const mockThreadDetail = {
-		thread: {
-			id: "t-1",
-			hostKind: "task" as const,
-			hostId: "task-123",
-			initiatorId: "u-founder",
-			participants: ["u-founder"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: "2026-06-08T12:00:00.000Z",
-			createdAt: "2026-06-08T11:00:00.000Z",
-		},
-		messages: [],
-		headMessageId: null,
-		identities: {
-			"u-founder": { name: "Alice Founder", role: "founder" },
-		},
-		hostTitle: "My Test Task",
-	};
+// @lore BC3: the "renders host context title as link for task" case is
+// DELETED, not repointed — thread `hostKind` can no longer be "task" (a
+// task's own thread is `team`-hosted, architecture.md §3.9). There is no
+// task-hosted thread left to link to.
 
-	beforeEach(() => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(async (input: RequestInfo | URL) => {
-				const url =
-					typeof input === "string"
-						? input
-						: input instanceof URL
-							? input.href
-							: (input as Request).url;
-				if (url.includes("/api/threads/t-1")) {
-					return {
-						ok: true,
-						status: 200,
-						json: async () => mockThreadDetail,
-					} as unknown as Response;
-				}
+describe("AE5 — Conversations header context link", () => {
+	it("does not render context link when resolveHostRoute returns null (user thread)", async () => {
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") {
 				return {
 					ok: true,
-					status: 200,
-					json: async () => ({ threads: [], nextCursor: null }),
-				} as unknown as Response;
-			}),
-		);
-	});
+					data: {
+						thread: {
+							id: "t-1",
+							hostKind: "user" as const,
+							hostId: "u-founder",
+							initiatorId: "u-founder",
+							members: ["u-founder"],
+							title: null,
+							computedTitle: "My Test Task",
+							pinned: false,
+							resolvedAt: null,
+							deletedAt: null,
+							lastActiveAt: "2026-06-08T12:00:00.000Z",
+							createdAt: "2026-06-08T11:00:00.000Z",
+						},
+						members: [{ id: "u-founder", name: "Alice Founder", role: "founder", isAgent: false }],
+						messages: [],
+						headMessageId: null,
+						hostTitle: "My Test Task",
+					},
+				};
+			}
+			return { ok: true, data: [] };
+		});
 
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	// @lore BB1: task now navigates to /work/task/:id — was a no-op (AM5 H5/BLOCKER-1)
-	it("renders host context title as link for task (BB1: was text-only no-op)", async () => {
 		const { Conversations } = await import("../pages/Conversations.js");
-
-		const router = createMemoryRouter(
-			[
-				{
-					path: "/conversations/:threadId",
-					element: <Conversations />,
-				},
-			],
-			{
-				initialEntries: ["/conversations/t-1"],
-			},
-		);
-
-		render(<RouterProvider router={router} />);
-
-		// BB1: task resolveHostRoute → /work/task/task-123 (was null no-op).
-		// Wait for the thread to load.
-		const heading = await screen.findByRole("heading", { name: /My Test Task/i }).catch(() => null);
-		const hostText = await screen.findByText(/My Test Task/i).catch(() => null);
-		expect(heading ?? hostText).not.toBeNull();
-		const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-		// UI-030: threadTitle now prefers data.hostTitle ("My Test Task") over raw hostId ("task-123").
-		expect(breadcrumb).toHaveTextContent("My Test Task");
-		expect(breadcrumb).not.toHaveTextContent("task-123");
-	});
-
-	it("does not render context link when resolveHostRoute returns null (user thread)", async () => {
-		const { Conversations } = await import("../pages/Conversations.js");
-
-		const userThreadDetail = {
-			...mockThreadDetail,
-			thread: {
-				...mockThreadDetail.thread,
-				hostKind: "user" as const,
-				hostId: "u-founder",
-			},
-		};
-
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(
-				async () =>
-					({
-						ok: true,
-						status: 200,
-						json: async () => userThreadDetail,
-					}) as unknown as Response,
-			),
-		);
 
 		const router = createMemoryRouter(
 			[{ path: "/conversations/:threadId", element: <Conversations /> }],

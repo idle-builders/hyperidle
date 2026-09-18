@@ -183,10 +183,10 @@ describe("AC3: review open-handler route (regression guard)", () => {
 		const inspect = vi.fn();
 		const handler = createOpenHandler(nav, { onInspectPath: inspect });
 		handler({ route: "host", hostKind: "knowledge_item", hostId: "knowledge-1", blockId: "b 1" });
-		handler({ route: "review", reviewId: "rev-1", intent: "inspect" });
+		handler({ route: "review", reviewId: "rev-1", threadId: "th-1", intent: "inspect" });
 		expect(inspect.mock.calls.map(([path]) => path)).toEqual([
 			"/knowledge/knowledge-1#block-b%201",
-			"/reviews/rev-1",
+			"/reviews/rev-1?threadId=th-1",
 		]);
 		expect(nav).not.toHaveBeenCalled();
 	});
@@ -198,8 +198,9 @@ describe("AC3: review open-handler route (regression guard)", () => {
 		createOpenHandler(nav, { onInspectPath: inspect })({
 			route: "review",
 			reviewId: "rev-1",
+			threadId: "th-1",
 		});
-		expect(nav).toHaveBeenCalledWith("/reviews/rev-1");
+		expect(nav).toHaveBeenCalledWith("/reviews/rev-1?threadId=th-1");
 		expect(inspect).not.toHaveBeenCalled();
 	});
 });
