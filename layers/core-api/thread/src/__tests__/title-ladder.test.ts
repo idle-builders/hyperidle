@@ -29,7 +29,7 @@ function threadRow(
 	};
 }
 
-function depsFor(identities: Record<string, string | ParticipantIdentity>): TitleLadderDeps {
+function depsFor(identities: Record<string, ParticipantIdentity>): TitleLadderDeps {
 	return {
 		listUserNames: async () => new Map(Object.entries(identities)),
 		getKnowledgeItemTitle: async () => null,
@@ -99,16 +99,5 @@ describe("resolveThreadTitles — assistant rung is ownership, not id shape", ()
 			depsFor({ "ast-ops": { name: "", ownerUserId: "someone-else" } }),
 		);
 		expect(titles.get("t4")).toBe("Unknown participant");
-	});
-
-	test("a caller that only returns bare names (no ownership info) still resolves an ordinary DM title", async () => {
-		const row = threadRow({
-			id: "t5",
-			hostKind: "user",
-			hostId: "u1",
-			participants: JSON.stringify(["u1", "human-2"]),
-		});
-		const titles = await resolveThreadTitles(fakeDb, [row], "u1", depsFor({ "human-2": "Riley" }));
-		expect(titles.get("t5")).toBe("Riley");
 	});
 });

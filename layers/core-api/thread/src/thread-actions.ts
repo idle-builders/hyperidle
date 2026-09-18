@@ -185,7 +185,7 @@ async function computeComputedTitle(
 	const titles = await resolveThreadTitles(db, [row as never], actor, {
 		listUserNames: async (d, ids) => {
 			const rows = await deps.users.listByIds(d, ids);
-			return new Map(rows.map((r) => [r.id, r.name]));
+			return new Map(rows.map((r) => [r.id, { name: r.name, ownerUserId: r.ownerUserId }]));
 		},
 		getKnowledgeItemTitle: async (d, id) => {
 			const item = await deps.knowledge.getItemById(d, id);
@@ -463,7 +463,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const titles = await resolveThreadTitles(ctx.db, readable, ctx.actor, {
 			listUserNames: async (d, ids) => {
 				const users2 = await deps.users.listByIds(d, ids);
-				return new Map(users2.map((u) => [u.id, u.name]));
+				return new Map(users2.map((u) => [u.id, { name: u.name, ownerUserId: u.ownerUserId }]));
 			},
 			getKnowledgeItemTitle: async (d, id) => {
 				const item = await deps.knowledge.getItemById(d, id);

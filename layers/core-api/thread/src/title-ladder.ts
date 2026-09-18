@@ -22,11 +22,9 @@ import { threadParticipantsSchema } from "@hyperidle/domain-model";
 
 /**
  * A participant's identity as seen by the ladder. Ownership (`ownerUserId`,
- * the `users.ownerUserId` column) is optional so existing `listUserNames`
- * implementations that only return a bare name keep typechecking — the map
- * value type is covariant in `ReadonlyMap`, so a `Map<string, string>` still
- * satisfies this. Callers that want rung 1/2's ownership check to see real
- * ownership must return the richer shape instead of a bare string.
+ * the `users.ownerUserId` column) is what rung 1/2's "is this my own
+ * assistant agent" check reads — every `listUserNames` implementation must
+ * carry it, not just a bare name.
  */
 export interface ParticipantIdentity {
 	readonly name: string;
@@ -37,20 +35,16 @@ export interface TitleLadderDeps {
 	readonly listUserNames: (
 		db: HyperIdleDb,
 		ids: readonly string[],
-	) => Promise<ReadonlyMap<string, string | ParticipantIdentity>>;
+	) => Promise<ReadonlyMap<string, ParticipantIdentity>>;
 	readonly getKnowledgeItemTitle: (db: HyperIdleDb, id: string) => Promise<string | null>;
 }
 
-function identityName(entry: string | ParticipantIdentity | undefined): string | undefined {
-	if (entry === undefined) return undefined;
-	return typeof entry === "string" ? entry : entry.name;
+function identityName(entry: ParticipantIdentity | undefined): string | undefined {
+	return entry?.name;
 }
 
-function identityOwnerUserId(
-	entry: string | ParticipantIdentity | undefined,
-): string | null | undefined {
-	if (entry === undefined || typeof entry === "string") return undefined;
-	return entry.ownerUserId;
+function identityOwnerUserId(entry: ParticipantIdentity | undefined): string | null | undefined {
+	return entry?.ownerUserId;
 }
 
 function parseParticipants(raw: string): string[] {
@@ -81,7 +75,7 @@ export async function resolveThreadTitles(
 		Promise.all(kiIds.map(async (id) => [id, await deps.getKnowledgeItemTitle(db, id)] as const)),
 		allParticipantIds.size > 0
 			? deps.listUserNames(db, [...allParticipantIds])
-			: Promise.resolve(new Map<string, string>()),
+			: Promise.resolve(new Map<string, ParticipantIdentity>()),
 	]);
 	const kiMap = new Map(kiTitles);
 
