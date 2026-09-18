@@ -799,7 +799,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 				if (body.type === "plain") {
 					const text = (body.payload as { text: string }).text;
-					const { refs, newParticipantIds } = await resolveMentionsForMessage(
+					const {
+						refs,
+						newParticipantIds,
+						mentionedIds: resolvedMentionedIds,
+					} = await resolveMentionsForMessage(
 						tx as HyperIdleDb,
 						text,
 						(body.payload as { refs?: never[] }).refs ?? [],
@@ -810,10 +814,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 							listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
 						},
 					);
+					// B2: wake reads every resolved mention (including an agent
+					// already a member) — membership only grows for the NEW ones.
+					mentionedIds.push(...resolvedMentionedIds);
 					if (newParticipantIds.length > 0) {
 						finalMembers = [...new Set([...finalMembers, ...newParticipantIds])];
 						membersChanged = true;
-						mentionedIds.push(...newParticipantIds);
 					}
 					if (refs.length > 0)
 						body.payload = { ...(body.payload as Record<string, unknown>), refs };

@@ -826,6 +826,37 @@ describe("send_message — the wake rule", () => {
 		expect(requests).toHaveLength(2);
 		expect(new Set(requests.map((r) => r.agentId))).toEqual(new Set(["wk-agent-a", "wk-agent-b"]));
 	});
+
+	test("a mention of an agent already a member records one thread_turn intent and appends no changed row (B2)", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "wk-5");
+		await seedHuman(db, "wk-human-5a", "wk-5");
+		await seedHuman(db, "wk-human-5b", "wk-5");
+		await seedAgent(db, "wk-agent-5", "wk-5");
+		const threadId = await seedTaskWithThread(db, "wk5-task", "wk-5");
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["wk-human-5a", "wk-human-5b", "wk-agent-5"]) })
+			.where(eq(threads.id, threadId));
+
+		await call(
+			app,
+			"send_message",
+			{ threadId, text: "hey @wk-agent-5 already here, please help" },
+			agentHeaders("wk-human-5a"),
+		);
+
+		const intents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "thread_turn"));
+		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-5"))).toHaveLength(1);
+
+		const rows = await readChanges(db, threadId);
+		expect(rows.filter((r) => r.kind === "changed")).toHaveLength(0);
+	});
 });
 
 // ============================================================================

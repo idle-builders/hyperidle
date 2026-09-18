@@ -54,8 +54,13 @@ async function buildMentionLookup(
 
 /**
  * Resolve @mention candidates from a plain message's text. Returns the
- * enriched refs array and the set of newly-mentioned participant ids
- * (excluding the sender and anyone already a member).
+ * enriched refs array, the set of newly-mentioned participant ids
+ * (excluding the sender and anyone already a member — used to grow
+ * thread membership), and `mentionedIds` — every resolved mention id
+ * excluding the sender, whether or not it was already a member. B2:
+ * a mention of an agent already in the thread must still wake it, so
+ * the wake decision (`agentsToWake`) reads `mentionedIds`, not
+ * `newParticipantIds`.
  */
 export async function resolveMentionsForMessage(
 	db: HyperIdleDb,
@@ -64,16 +69,16 @@ export async function resolveMentionsForMessage(
 	participantIds: readonly string[],
 	senderId: string,
 	deps: MentionResolverDeps,
-): Promise<{ refs: InlineRef[]; newParticipantIds: string[] }> {
+): Promise<{ refs: InlineRef[]; newParticipantIds: string[]; mentionedIds: string[] }> {
 	const candidates = extractMentionCandidates(text);
 	if (candidates.length === 0) {
-		return { refs: [...existingRefs], newParticipantIds: [] };
+		return { refs: [...existingRefs], newParticipantIds: [], mentionedIds: [] };
 	}
 
 	const nameMap = await buildMentionLookup(db, participantIds, deps);
 	const resolved = resolveMentions(candidates, nameMap, senderId);
 	if (resolved.length === 0) {
-		return { refs: [...existingRefs], newParticipantIds: [] };
+		return { refs: [...existingRefs], newParticipantIds: [], mentionedIds: [] };
 	}
 
 	const mentionRefs: InlineRef[] = resolved.map((r) => ({
@@ -84,9 +89,12 @@ export async function resolveMentionsForMessage(
 	}));
 
 	const participantSet = new Set(participantIds);
+	const mentionedIds = resolved
+		.filter((r) => r.identityId !== senderId)
+		.map((r) => r.identityId);
 	const newParticipantIds = resolved
 		.filter((r) => r.identityId !== senderId && !participantSet.has(r.identityId))
 		.map((r) => r.identityId);
 
-	return { refs: [...existingRefs, ...mentionRefs], newParticipantIds };
+	return { refs: [...existingRefs, ...mentionRefs], newParticipantIds, mentionedIds };
 }
