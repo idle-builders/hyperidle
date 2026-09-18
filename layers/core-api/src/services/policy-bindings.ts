@@ -13,9 +13,9 @@
  * (`threads.initiatorId`) is the only attribution now.
  */
 
-import { listMessages } from "@hyperidle/thread";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
+import { listMessages } from "@hyperidle/thread";
 
 const approvalRateDeps = {
 	conversation: {

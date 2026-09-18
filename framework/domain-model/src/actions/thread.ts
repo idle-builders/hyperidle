@@ -3,8 +3,8 @@ import {
 	HOST_KINDS,
 	type HostKind,
 	MESSAGE_TYPES,
-	type RedactedPayload,
 	REVIEW_CANVAS_KINDS,
+	type RedactedPayload,
 	VERDICT_DECISIONS,
 } from "../thread.js";
 import type { ActionDeclaration, Problem } from "./action.js";
@@ -376,7 +376,7 @@ export function sendMessageInvariants(
 			message: "Give either a thread or recipients, not both.",
 			path: "threadId",
 		});
-	} else if (!hasThreadId && !hasRecipients && !caller.hasCallingThread) {
+	} else if (!(hasThreadId || hasRecipients || caller.hasCallingThread)) {
 		// resolvable later via the agent fallback (server invariant / step 2) —
 		// this pure check only refuses an HTTP caller (no `caller` at all), which
 		// `sendMessage.run` mirrors by passing `hasCallingThread: false` for it.
@@ -408,7 +408,10 @@ export function sendMessageInvariants(
 	}
 
 	const hasText = input.text !== undefined;
-	if (!hasText && (input.refs !== undefined || input.blockId !== undefined || input.spotLabel !== undefined)) {
+	if (
+		!hasText &&
+		(input.refs !== undefined || input.blockId !== undefined || input.spotLabel !== undefined)
+	) {
 		problems.push({
 			code: "plain_fields_on_non_plain",
 			message: "refs/blockId/spotLabel only apply to a text message.",

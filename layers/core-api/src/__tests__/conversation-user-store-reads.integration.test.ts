@@ -12,6 +12,7 @@
  * the bets.ts decomposition.
  */
 
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import {
 	findMessage,
 	findThread,
@@ -21,7 +22,6 @@ import {
 	listThreads,
 	searchConversations,
 } from "@hyperidle/thread";
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";

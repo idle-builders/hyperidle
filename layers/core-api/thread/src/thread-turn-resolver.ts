@@ -13,7 +13,7 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import { bakeAgentRunnableConfig, type BakedAgentRunnableConfig } from "@hyperidle/domain-model";
+import { type BakedAgentRunnableConfig, bakeAgentRunnableConfig } from "@hyperidle/domain-model";
 import { findMessage, listMessages } from "./thread-service.js";
 
 export interface ThreadTurnResolverDeps {

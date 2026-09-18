@@ -15,7 +15,13 @@
  * on the real 6h `setInterval`.
  */
 import {
-	threads, type HyperIdleDb, taskDispatchAttempts, tasks, teams, users } from "@hyperidle/db";
+	type HyperIdleDb,
+	taskDispatchAttempts,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
@@ -50,16 +56,16 @@ async function seedTaskDispatchAttempt(
 		createdAt: now.toISOString(),
 	});
 	await db.insert(threads).values({
-	id: `thr-${rootTaskId}`,
-	hostKind: "team",
-	hostId: teamId,
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now.toISOString(),
-	createdAt: now.toISOString(),
+		id: `thr-${rootTaskId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now.toISOString(),
+		createdAt: now.toISOString(),
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${rootTaskId}`,
+		threadId: `thr-${rootTaskId}`,
 		id: rootTaskId,
 		parentTaskId: null,
 		teamId: teamId,
@@ -70,16 +76,16 @@ async function seedTaskDispatchAttempt(
 		updatedAt: now.toISOString(),
 	});
 	await db.insert(threads).values({
-	id: `thr-${taskId}`,
-	hostKind: "team",
-	hostId: teamId,
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now.toISOString(),
-	createdAt: now.toISOString(),
+		id: `thr-${taskId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now.toISOString(),
+		createdAt: now.toISOString(),
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${taskId}`,
+		threadId: `thr-${taskId}`,
 		id: taskId,
 		parentTaskId: rootTaskId,
 		teamId,

@@ -12,13 +12,13 @@
  */
 
 import {
-	threads,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
 	tasks,
 	teams,
+	threads,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -35,16 +35,16 @@ const now = new Date().toISOString();
 async function seedTeamAndTask(db: HyperIdleDb, teamId: string, taskId: string): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: "Test Team", phase: "build", createdAt: now });
 	await db.insert(threads).values({
-	id: `thr-${taskId}`,
-	hostKind: "team",
-	hostId: teamId,
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now,
-	createdAt: now,
+		id: `thr-${taskId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${taskId}`,
+		threadId: `thr-${taskId}`,
 		id: taskId,
 		parentTaskId: null,
 		teamId,

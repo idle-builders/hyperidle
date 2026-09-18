@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { SendMessageInputSchema, reviewPayloadSchema } from "../actions/thread.js";
+import { reviewPayloadSchema, SendMessageInputSchema } from "../actions/thread.js";
 
 describe("reviewPayloadSchema — stored/read shape", () => {
 	it("accepts an optional taskId", () => {

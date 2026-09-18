@@ -15,8 +15,8 @@ import {
 	type TaskListItem,
 	type TaskNode,
 	type TaskView,
-	taskInvariants,
 	type ThreadView,
+	taskInvariants,
 } from "@hyperidle/domain-model";
 import type { Action, ActionContext } from "./action-types.js";
 import { handleDependencyKilled } from "./dependency-watcher.js";

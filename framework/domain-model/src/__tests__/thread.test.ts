@@ -11,8 +11,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { HOST_KINDS, headCollapsePredicate, MESSAGE_TYPES } from "../thread.js";
 import type { Message } from "../actions/thread.js";
+import { HOST_KINDS, headCollapsePredicate, MESSAGE_TYPES } from "../thread.js";
 
 const NOW = Date.parse("2026-04-19T12:00:00Z");
 

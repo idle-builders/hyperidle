@@ -19,8 +19,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { HOST_KINDS, MESSAGE_TYPES, type MessageType, VERDICT_DECISIONS } from "../thread.js";
 import type { Message } from "../actions/thread.js";
+import { HOST_KINDS, MESSAGE_TYPES, type MessageType, VERDICT_DECISIONS } from "../thread.js";
 
 function exhaustiveAssert(value: never): never {
 	throw new Error(`Unhandled message type: ${String(value)}`);

@@ -29,9 +29,9 @@
 // -- approval rate (AD4) --
 export type { ApprovalRateResult } from "./approval-rate.js";
 export { computeApprovalRate } from "./approval-rate.js";
+// -- lifecycle propagation (the policy engine itself is deleted, BC3 R2) --
+export { registerLifecyclePropagation } from "./lifecycle-propagation.js";
 // handoff protocol DELETED — handoff is `edit_task({ ownerAgentId })`
 // now. the architecture doc §8 B4.
 // -- aggregate injection contract + cross-boundary types --
 export type { PolicyDeps } from "./ports.js";
-// -- lifecycle propagation (the policy engine itself is deleted, BC3 R2) --
-export { registerLifecyclePropagation } from "./lifecycle-propagation.js";

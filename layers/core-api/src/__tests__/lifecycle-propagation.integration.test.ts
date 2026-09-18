@@ -12,12 +12,20 @@
  * or the insert will fail with a FK constraint violation (F6 from arch review).
  */
 
-import { insertMessage, listMessages } from "@hyperidle/thread";
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { type HyperIdleDb, type WriteExecutor, sessions, tasks, teams, threads, users } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	sessions,
+	tasks,
+	teams,
+	threads,
+	users,
+	type WriteExecutor,
+} from "@hyperidle/db";
 import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerLifecyclePropagation } from "@hyperidle/policy";
 import * as work from "@hyperidle/task";
+import { insertMessage, listMessages } from "@hyperidle/thread";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../actions/compose.js";
@@ -36,9 +44,7 @@ function buildPolicyDeps(agentOrchestration: AgentOrchestrationPort): PolicyDeps
 		agentOrchestration,
 		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
 		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
-	}).find(
-		(a) => a.declaration.name === "edit_task",
-	);
+	}).find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return {
 		work: {
@@ -72,16 +78,16 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	// BB1: bets replaced by root tasks (parentTaskId: null)
 	await db.insert(threads).values({
-	id: `thr-${"bet-1"}`,
-	hostKind: "team",
-	hostId: "prod-1",
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now,
-	createdAt: now,
+		id: `thr-${"bet-1"}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${"bet-1"}`,
+		threadId: `thr-${"bet-1"}`,
 		id: "bet-1",
 		parentTaskId: null,
 		teamId: "prod-1",
@@ -117,16 +123,16 @@ async function seedTask(
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(threads).values({
-	id: `thr-${id}`,
-	hostKind: "team",
-	hostId: "prod-1",
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now,
-	createdAt: now,
+		id: `thr-${id}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${id}`,
+		threadId: `thr-${id}`,
 		id,
 		parentTaskId,
 		teamId: "prod-1",

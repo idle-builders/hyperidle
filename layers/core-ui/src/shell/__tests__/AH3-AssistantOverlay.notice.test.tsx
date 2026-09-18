@@ -23,8 +23,8 @@
  * finds "my agent" off the same `useAgents` fetch every agent picker shares.
  */
 
-import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
 import type { Message } from "@hyperidle/domain-model";
+import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { UseAgentsResult } from "../../hooks/useAgents.js";
@@ -45,11 +45,11 @@ vi.mock("../../hooks/useThreads.js", () => ({
 	useThreads: vi.fn(),
 }));
 
-import { AssistantOverlay } from "../../shell/AssistantOverlay.js";
 import { useAgents } from "../../hooks/useAgents.js";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { useThread } from "../../hooks/useThread.js";
 import { useThreads } from "../../hooks/useThreads.js";
+import { AssistantOverlay } from "../../shell/AssistantOverlay.js";
 
 const NOW_ISO = new Date().toISOString();
 // A timestamp older than the turn timeout
@@ -90,9 +90,7 @@ function mockOwnershipAndUser(): void {
 	} as UseAgentsResult);
 	vi.mocked(useThreads).mockReturnValue({
 		status: "ready",
-		threads: [
-			{ ...BASE_THREAD, hasUnresolvedReview: false, lastMessagePreview: null },
-		],
+		threads: [{ ...BASE_THREAD, hasUnresolvedReview: false, lastMessagePreview: null }],
 		error: null,
 		retry: vi.fn(),
 	} as UseThreadsResult);
@@ -118,7 +116,12 @@ function makeData(messages: ReadonlyArray<Record<string, unknown>>): UseThreadRe
 
 function renderOverlay() {
 	return render(
-		<AssistantOverlay open={true} onClose={vi.fn()} contextRefs={[]} onRemoveContextRef={vi.fn()} />,
+		<AssistantOverlay
+			open={true}
+			onClose={vi.fn()}
+			contextRefs={[]}
+			onRemoveContextRef={vi.fn()}
+		/>,
 	);
 }
 

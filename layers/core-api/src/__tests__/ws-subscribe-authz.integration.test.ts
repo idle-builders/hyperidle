@@ -15,8 +15,8 @@
  * of emitting on an EventBus the hub no longer subscribes to.
  */
 
-import { findThread } from "@hyperidle/thread";
 import { type HyperIdleDb, threads as threadsTable } from "@hyperidle/db";
+import { findThread } from "@hyperidle/thread";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";

@@ -9,13 +9,13 @@
  */
 
 import {
-	threads,
 	agentSessionRequests,
 	agentWorkIntents,
 	explicitSessionStarts,
 	sessions,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
@@ -90,16 +90,16 @@ describe("agent-layer boot recovery", () => {
 			},
 		]);
 		await db.insert(threads).values({
-		id: `thr-${"boot-bet"}`,
-		hostKind: "team",
-		hostId: "boot-team",
-		initiatorId: "system:propagation",
-		participants: "[]",
-		lastActiveAt: nowIso,
-		createdAt: nowIso,
+			id: `thr-${"boot-bet"}`,
+			hostKind: "team",
+			hostId: "boot-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: nowIso,
+			createdAt: nowIso,
 		});
 		await db.insert(tasks).values({
-		threadId: `thr-${"boot-bet"}`,
+			threadId: `thr-${"boot-bet"}`,
 			id: "boot-bet",
 			parentTaskId: null,
 			teamId: "boot-team",
@@ -110,16 +110,16 @@ describe("agent-layer boot recovery", () => {
 			updatedAt: nowIso,
 		});
 		await db.insert(threads).values({
-		id: `thr-${"boot-task"}`,
-		hostKind: "team",
-		hostId: "boot-team",
-		initiatorId: "system:propagation",
-		participants: "[]",
-		lastActiveAt: nowIso,
-		createdAt: nowIso,
+			id: `thr-${"boot-task"}`,
+			hostKind: "team",
+			hostId: "boot-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: nowIso,
+			createdAt: nowIso,
 		});
 		await db.insert(tasks).values({
-		threadId: `thr-${"boot-task"}`,
+			threadId: `thr-${"boot-task"}`,
 			id: "boot-task",
 			parentTaskId: "boot-bet",
 			teamId: "boot-team",

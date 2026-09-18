@@ -8,6 +8,7 @@
  * the caller's transaction.
  */
 
+import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import {
 	findOrCreateDirectThread,
 	insertMessage,
@@ -15,7 +16,6 @@ import {
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/thread";
-import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";

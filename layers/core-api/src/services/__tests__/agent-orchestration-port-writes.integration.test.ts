@@ -9,7 +9,6 @@
  */
 
 import {
-	threads,
 	agentWorkIntents,
 	filesystemInjections,
 	filesystems,
@@ -17,6 +16,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
@@ -53,16 +53,16 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 		},
 	]);
 	await db.insert(threads).values({
-	id: `thr-${`${prefix}-bet`}`,
-	hostKind: "team",
-	hostId: `${prefix}-team-parent`,
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: NOW,
-	createdAt: NOW,
+		id: `thr-${`${prefix}-bet`}`,
+		hostKind: "team",
+		hostId: `${prefix}-team-parent`,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${`${prefix}-bet`}`,
+		threadId: `thr-${`${prefix}-bet`}`,
 		id: `${prefix}-bet`,
 		parentTaskId: null,
 		teamId: `${prefix}-team-parent`,
@@ -73,16 +73,16 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 		updatedAt: NOW,
 	});
 	await db.insert(threads).values({
-	id: `thr-${`${prefix}-task`}`,
-	hostKind: "team",
-	hostId: `${prefix}-team-parent`,
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: NOW,
-	createdAt: NOW,
+		id: `thr-${`${prefix}-task`}`,
+		hostKind: "team",
+		hostId: `${prefix}-team-parent`,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${`${prefix}-task`}`,
+		threadId: `thr-${`${prefix}-task`}`,
 		id: `${prefix}-task`,
 		parentTaskId: `${prefix}-bet`,
 		teamId: `${prefix}-team-parent`,

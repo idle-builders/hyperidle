@@ -33,9 +33,9 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/event-bus";
-import { findThread } from "@hyperidle/thread";
 import * as routineService from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import type { ActionContext, AdjustThreadRunFn, SendMessageRunFn } from "../actions/action.js";
 
 export type { AdjustThreadRunFn, SendMessageRunFn };

@@ -45,7 +45,6 @@
  * mediates every cross-face handoff, never a direct service import.
  */
 
-import { findThread } from "@hyperidle/thread";
 import {
 	type CredentialResolver,
 	decryptCredentialValue,
@@ -53,8 +52,8 @@ import {
 	resolveCredential,
 } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
-
 import { getPluginMcpContributions } from "@hyperidle/settings";
+import { findThread } from "@hyperidle/thread";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";

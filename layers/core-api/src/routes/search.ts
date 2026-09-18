@@ -21,7 +21,6 @@
  * - Knowledge: scope_kind != 'user' OR updated_by = userId.
  */
 
-import { listMessages, listThreads, searchConversations } from "@hyperidle/thread";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
@@ -30,6 +29,7 @@ import type { EventBus } from "@hyperidle/event-bus";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
 import * as work from "@hyperidle/task";
+import { listMessages, listThreads, searchConversations } from "@hyperidle/thread";
 // BB1: deriveTitle removed — tasks use .title directly
 import { Hono } from "hono";
 import z from "zod";

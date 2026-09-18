@@ -23,6 +23,57 @@ export {
 	TaskViewSchema,
 	taskInvariants,
 } from "./actions/task.js";
+// BC3 architecture.md §3.1: `Thread`, `Message` and the four payload
+// interfaces moved out of `thread.ts` into `actions/thread.ts` as zod
+// schemas — re-exported here under the SAME names so every existing
+// importer keeps compiling against the name it already uses.
+export type {
+	AdjustThreadInput,
+	Identity,
+	Message,
+	OpenThreadInput,
+	PlainPayload,
+	QuestionnairePayload,
+	ReviewPayload,
+	SearchThreadsInput,
+	SendMessageInput,
+	SendMessageOutput,
+	Thread,
+	ThreadListRow,
+	ThreadView,
+	VerdictPayload,
+} from "./actions/thread.js";
+export {
+	AdjustThreadInputSchema,
+	adjustThread,
+	adjustThreadInvariants,
+	agentsToWake,
+	canReadThread,
+	canWriteThread,
+	entityRefSchema,
+	IdentitySchema,
+	inlineRefSchema,
+	MessageSchema,
+	mentionRefSchema,
+	OpenThreadInputSchema,
+	openThread,
+	parseMessagePayload,
+	plainPayloadSchema,
+	questionnairePayloadSchema,
+	reviewPayloadSchema,
+	SearchThreadsInputSchema,
+	SendMessageInputSchema,
+	SendMessageOutputSchema,
+	searchThreads,
+	sendMessage,
+	sendMessageInvariants,
+	THREAD_ACTIONS,
+	ThreadListRowSchema,
+	ThreadSchema,
+	ThreadViewSchema,
+	threadParticipantsSchema,
+	verdictPayloadSchema,
+} from "./actions/thread.js";
 export type {
 	AgentBehaviorConfigKind,
 	AgentBehaviorConfigLink,
@@ -237,57 +288,6 @@ export {
 	verdictDecisionLabel,
 	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts (AU44 batch 8)
 } from "./thread.js";
-// BC3 architecture.md §3.1: `Thread`, `Message` and the four payload
-// interfaces moved out of `thread.ts` into `actions/thread.ts` as zod
-// schemas — re-exported here under the SAME names so every existing
-// importer keeps compiling against the name it already uses.
-export type {
-	AdjustThreadInput,
-	Identity,
-	Message,
-	OpenThreadInput,
-	PlainPayload,
-	QuestionnairePayload,
-	ReviewPayload,
-	SearchThreadsInput,
-	SendMessageInput,
-	SendMessageOutput,
-	Thread,
-	ThreadListRow,
-	ThreadView,
-	VerdictPayload,
-} from "./actions/thread.js";
-export {
-	adjustThread,
-	AdjustThreadInputSchema,
-	agentsToWake,
-	adjustThreadInvariants,
-	canReadThread,
-	canWriteThread,
-	entityRefSchema,
-	IdentitySchema,
-	inlineRefSchema,
-	MessageSchema,
-	mentionRefSchema,
-	openThread,
-	OpenThreadInputSchema,
-	parseMessagePayload,
-	plainPayloadSchema,
-	questionnairePayloadSchema,
-	reviewPayloadSchema,
-	searchThreads,
-	SearchThreadsInputSchema,
-	sendMessage,
-	sendMessageInvariants,
-	SendMessageInputSchema,
-	SendMessageOutputSchema,
-	THREAD_ACTIONS,
-	ThreadListRowSchema,
-	ThreadSchema,
-	ThreadViewSchema,
-	threadParticipantsSchema,
-	verdictPayloadSchema,
-} from "./actions/thread.js";
 // artifactDisplayTitle, summarizePreview MERGE → core-ui/ds/artifact-display-helpers.ts (AU44 batch 8)
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
 // Event vocabulary dissolved to framework/event-bus (AU44 batch 8).

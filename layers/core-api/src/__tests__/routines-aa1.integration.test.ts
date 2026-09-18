@@ -11,7 +11,14 @@
  */
 
 import {
-	threads, type HyperIdleDb, routineRuns, routines, tasks, teams, users } from "@hyperidle/db";
+	type HyperIdleDb,
+	routineRuns,
+	routines,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -527,16 +534,16 @@ describe("AA1: Routine Visibility API", () => {
 
 			// Need a bet + task for FK satisfaction in session creation
 			await db.insert(threads).values({
-			id: `thr-${"bet-trigger-test"}`,
-			hostKind: "team",
-			hostId: "team-aa1",
-			initiatorId: "system:propagation",
-			participants: "[]",
-			lastActiveAt: now,
-			createdAt: now,
+				id: `thr-${"bet-trigger-test"}`,
+				hostKind: "team",
+				hostId: "team-aa1",
+				initiatorId: "system:propagation",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
 			});
 			await db.insert(tasks).values({
-			threadId: `thr-${"bet-trigger-test"}`,
+				threadId: `thr-${"bet-trigger-test"}`,
 				id: "bet-trigger-test",
 				parentTaskId: null,
 				teamId: "team-aa1",
@@ -548,16 +555,16 @@ describe("AA1: Routine Visibility API", () => {
 			});
 
 			await db.insert(threads).values({
-			id: `thr-${"task-trigger-test"}`,
-			hostKind: "team",
-			hostId: "team-aa1",
-			initiatorId: "system:propagation",
-			participants: "[]",
-			lastActiveAt: now,
-			createdAt: now,
+				id: `thr-${"task-trigger-test"}`,
+				hostKind: "team",
+				hostId: "team-aa1",
+				initiatorId: "system:propagation",
+				participants: "[]",
+				lastActiveAt: now,
+				createdAt: now,
 			});
 			await db.insert(tasks).values({
-			threadId: `thr-${"task-trigger-test"}`,
+				threadId: `thr-${"task-trigger-test"}`,
 				id: "task-trigger-test",
 				parentTaskId: "bet-trigger-test",
 				teamId: "team-aa1",

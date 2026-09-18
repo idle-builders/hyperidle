@@ -9,8 +9,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { type AgentSessionStateSnapshot, isBlocking } from "../thread.js";
 import type { Message, Thread } from "../actions/thread.js";
+import { type AgentSessionStateSnapshot, isBlocking } from "../thread.js";
 
 const NOW = Date.parse("2026-04-19T12:00:00Z");
 

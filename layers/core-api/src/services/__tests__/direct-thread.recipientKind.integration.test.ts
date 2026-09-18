@@ -6,8 +6,8 @@
  * on the created thread. Default to "agent" for backward compatibility.
  */
 
-import { findOrCreateDirectThread } from "@hyperidle/thread";
 import { type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { findOrCreateDirectThread } from "@hyperidle/thread";
 import { describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 

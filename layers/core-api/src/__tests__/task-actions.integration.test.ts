@@ -4,6 +4,7 @@
  * architecture doc §11.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -21,7 +22,6 @@ import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 
 /**
  * B7 fix: `edit_task`'s own bound `run`, for registering the started
@@ -36,9 +36,7 @@ function editTaskFrom(
 		agentOrchestration,
 		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
 		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
-	}).find(
-		(a) => a.declaration.name === "edit_task",
-	);
+	}).find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2];
 }

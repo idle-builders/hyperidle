@@ -5,6 +5,7 @@
  * only by the MCP loop — architecture.md §3.2). See architecture.md §9.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -19,8 +20,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { adjustThreadInvariants } from "@hyperidle/domain-model";
 import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/domain-model";
+import { adjustThreadInvariants } from "@hyperidle/domain-model";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -32,7 +33,6 @@ import {
 	buildSeamBackedReviewVerdictRecorder,
 	buildSeamBackedWorkIntentRecorder,
 } from "../services/agent-orchestration-port-composition.js";
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 
 const TEST_API_KEY = "test-key-thread-actions";
 
@@ -48,7 +48,11 @@ function agentHeaders(agentId: string): Record<string, string> {
 interface ActionEnvelope<T> {
 	readonly ok: boolean;
 	readonly data?: T;
-	readonly problems?: ReadonlyArray<{ readonly code: string; readonly message: string; readonly path?: string }>;
+	readonly problems?: ReadonlyArray<{
+		readonly code: string;
+		readonly message: string;
+		readonly path?: string;
+	}>;
 }
 
 async function call<T>(
@@ -74,8 +78,21 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	await db
 		.insert(users)
 		.values([
-			{ id: FOUNDER_ID, kind: "human", name: "Founder", role: "founder", status: "active", createdAt: now },
-			{ id: "system:propagation", name: "Propagation System", role: "system", status: "active", createdAt: now },
+			{
+				id: FOUNDER_ID,
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: now,
+			},
+			{
+				id: "system:propagation",
+				name: "Propagation System",
+				role: "system",
+				status: "active",
+				createdAt: now,
+			},
 		])
 		.onConflictDoNothing();
 }
@@ -241,7 +258,9 @@ describe("send_message — thread resolution and idempotency", () => {
 		expect(res.status).toBe(200);
 		expect(res.body.ok).toBe(true);
 		const threadId = res.body.data?.thread.id as string;
-		expect(res.body.data?.thread.members).toEqual(expect.arrayContaining([FOUNDER_ID, "sm-human-1"]));
+		expect(res.body.data?.thread.members).toEqual(
+			expect.arrayContaining([FOUNDER_ID, "sm-human-1"]),
+		);
 
 		const rows = await readChanges(db, threadId);
 		expect(rows.map((r) => r.kind).sort()).toEqual(["created", "message"]);
@@ -254,11 +273,15 @@ describe("send_message — thread resolution and idempotency", () => {
 	}) => {
 		await seedTeam(db, "sm-team-2");
 		await seedHuman(db, "sm-recipient-2", "sm-team-2");
-		const first = await call<{ message: { id: string }; thread: { id: string } }>(app, "send_message", {
-			recipients: ["sm-recipient-2"],
-			text: "one",
-			clientKey: "sm-idem-key-1",
-		});
+		const first = await call<{ message: { id: string }; thread: { id: string } }>(
+			app,
+			"send_message",
+			{
+				recipients: ["sm-recipient-2"],
+				text: "one",
+				clientKey: "sm-idem-key-1",
+			},
+		);
 		expect(first.status).toBe(200);
 		const threadId = first.body.data?.thread.id as string;
 		const messageId = first.body.data?.message.id as string;
@@ -288,10 +311,14 @@ describe("send_message — thread resolution and idempotency", () => {
 	}) => {
 		await seedTeam(db, "sm-team-3");
 		await seedHuman(db, "sm-recipient-3", "sm-team-3");
-		const created = await call<{ message: { id: string }; thread: { id: string } }>(app, "send_message", {
-			recipients: ["sm-recipient-3"],
-			text: "original",
-		});
+		const created = await call<{ message: { id: string }; thread: { id: string } }>(
+			app,
+			"send_message",
+			{
+				recipients: ["sm-recipient-3"],
+				text: "original",
+			},
+		);
 		const threadId = created.body.data?.thread.id as string;
 		const messageId = created.body.data?.message.id as string;
 
@@ -307,7 +334,10 @@ describe("send_message — thread resolution and idempotency", () => {
 });
 
 describe("send_message — membership, read/write/join", () => {
-	test("a non-member send into a user-hosted DM returns not_a_member and writes nothing", async ({ db, app }) => {
+	test("a non-member send into a user-hosted DM returns not_a_member and writes nothing", async ({
+		db,
+		app,
+	}) => {
 		await seedTeam(db, "sm-team-4");
 		await seedHuman(db, "sm-victim", "sm-team-4");
 		await seedHuman(db, "sm-stranger", "sm-team-4");
@@ -321,7 +351,12 @@ describe("send_message — membership, read/write/join", () => {
 		const before = await db.select().from(messages);
 		const beforeChanges = await db.select().from(changes);
 
-		const res = await call(app, "send_message", { threadId: "sm-dm-1", text: "hi" }, agentHeaders("sm-stranger"));
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId: "sm-dm-1", text: "hi" },
+			agentHeaders("sm-stranger"),
+		);
 		expect(res.status).toBe(422);
 		expect((res.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("not_a_member");
 
@@ -342,7 +377,12 @@ describe("send_message — membership, read/write/join", () => {
 			members: [],
 		});
 
-		const res = await call(app, "send_message", { threadId: "sm-team-thread-1", text: "hi team" }, agentHeaders("sm-newcomer"));
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId: "sm-team-thread-1", text: "hi team" },
+			agentHeaders("sm-newcomer"),
+		);
 		expect(res.status).toBe(200);
 
 		const members = await readThreadMembers(db, "sm-team-thread-1");
@@ -356,7 +396,12 @@ describe("send_message — membership, read/write/join", () => {
 		expect(after.members).toEqual(expect.arrayContaining(["sm-newcomer"]));
 
 		// a second post by the same sender adds no duplicate member.
-		await call(app, "send_message", { threadId: "sm-team-thread-1", text: "again" }, agentHeaders("sm-newcomer"));
+		await call(
+			app,
+			"send_message",
+			{ threadId: "sm-team-thread-1", text: "again" },
+			agentHeaders("sm-newcomer"),
+		);
 		const membersAfter = await readThreadMembers(db, "sm-team-thread-1");
 		expect(membersAfter.filter((m) => m === "sm-newcomer")).toHaveLength(1);
 	});
@@ -385,8 +430,18 @@ describe("send_message — membership, read/write/join", () => {
 		// the OWNER, reading their own now-deleted thread, and a stranger reading
 		// a thread they never had access to, must be indistinguishable — same
 		// code, same shape — from asking about an id that never existed.
-		const nonMember = await call(app, "open_thread", { id: "sm-dm-6" }, agentHeaders("sm-outsider-6"));
-		const deleted = await call(app, "open_thread", { id: "sm-deleted-6" }, agentHeaders("sm-owner-6"));
+		const nonMember = await call(
+			app,
+			"open_thread",
+			{ id: "sm-dm-6" },
+			agentHeaders("sm-outsider-6"),
+		);
+		const deleted = await call(
+			app,
+			"open_thread",
+			{ id: "sm-deleted-6" },
+			agentHeaders("sm-owner-6"),
+		);
 		const missing = await call(app, "open_thread", { id: "sm-does-not-exist" });
 
 		expect(nonMember.status).toBe(422);
@@ -399,7 +454,10 @@ describe("send_message — membership, read/write/join", () => {
 		}
 	});
 
-	test("a non-member CAN open a team-hosted and a knowledge_item-hosted thread", async ({ db, app }) => {
+	test("a non-member CAN open a team-hosted and a knowledge_item-hosted thread", async ({
+		db,
+		app,
+	}) => {
 		await seedTeam(db, "sm-team-7");
 		await seedHuman(db, "sm-visitor-7", "sm-team-7");
 		await seedKnowledgeItem(db, "sm-ki-7");
@@ -416,8 +474,18 @@ describe("send_message — membership, read/write/join", () => {
 			members: [],
 		});
 
-		const teamRes = await call(app, "open_thread", { id: "sm-team-thread-7" }, agentHeaders("sm-visitor-7"));
-		const kiRes = await call(app, "open_thread", { id: "sm-ki-thread-7" }, agentHeaders("sm-visitor-7"));
+		const teamRes = await call(
+			app,
+			"open_thread",
+			{ id: "sm-team-thread-7" },
+			agentHeaders("sm-visitor-7"),
+		);
+		const kiRes = await call(
+			app,
+			"open_thread",
+			{ id: "sm-ki-thread-7" },
+			agentHeaders("sm-visitor-7"),
+		);
 		expect(teamRes.status).toBe(200);
 		expect(kiRes.status).toBe(200);
 	});
@@ -436,7 +504,12 @@ describe("send_message — membership, read/write/join", () => {
 			members: [FOUNDER_ID, "sm-victim-8"],
 		});
 
-		const byIds = await call<unknown[]>(app, "search_threads", { ids: ["sm-dm-8"] }, agentHeaders("sm-stranger-8"));
+		const byIds = await call<unknown[]>(
+			app,
+			"search_threads",
+			{ ids: ["sm-dm-8"] },
+			agentHeaders("sm-stranger-8"),
+		);
 		const byHost = await call<unknown[]>(
 			app,
 			"search_threads",
@@ -467,12 +540,22 @@ describe("send_message — membership, read/write/join", () => {
 			members: [FOUNDER_ID, "sm-victim-9"],
 		});
 
-		const teamAdjust = await call(app, "adjust_thread", { id: "sm-team-thread-9", pinned: true }, agentHeaders("sm-editor-9"));
+		const teamAdjust = await call(
+			app,
+			"adjust_thread",
+			{ id: "sm-team-thread-9", pinned: true },
+			agentHeaders("sm-editor-9"),
+		);
 		expect(teamAdjust.status).toBe(200);
 		const members = await readThreadMembers(db, "sm-team-thread-9");
 		expect(members).not.toContain("sm-editor-9");
 
-		const dmAdjust = await call(app, "adjust_thread", { id: "sm-dm-9", pinned: true }, agentHeaders("sm-editor-9"));
+		const dmAdjust = await call(
+			app,
+			"adjust_thread",
+			{ id: "sm-dm-9", pinned: true },
+			agentHeaders("sm-editor-9"),
+		);
 		expect(dmAdjust.status).toBe(422);
 		expect((dmAdjust.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("not_a_member");
 	});
@@ -483,7 +566,10 @@ describe("send_message — verdict trio and races", () => {
 		await seedTeam(db, "sm-vt-1");
 		await seedAgent(db, "sm-agent-vt1", "sm-vt-1");
 		const threadId = await seedTaskWithThread(db, "sm-vt1-task", "sm-vt-1");
-		await db.update(threads).set({ participants: JSON.stringify(["sm-agent-vt1"]) }).where(eq(threads.id, threadId));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["sm-agent-vt1"]) })
+			.where(eq(threads.id, threadId));
 
 		const review = await call<{ message: { id: string } }>(
 			app,
@@ -507,7 +593,10 @@ describe("send_message — verdict trio and races", () => {
 	test("a verdict from the review's own author returns verdict_self", async ({ db, app }) => {
 		await seedTeam(db, "sm-vt-2");
 		const threadId = await seedTaskWithThread(db, "sm-vt2-task", "sm-vt-2");
-		await db.update(threads).set({ participants: JSON.stringify([FOUNDER_ID]) }).where(eq(threads.id, threadId));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify([FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
 
 		const review = await call<{ message: { id: string } }>(app, "send_message", {
 			threadId,
@@ -528,8 +617,14 @@ describe("send_message — verdict trio and races", () => {
 		await seedAgent(db, "sm-agent-vt3", "sm-vt-3");
 		const threadA = await seedTaskWithThread(db, "sm-vt3-task-a", "sm-vt-3");
 		const threadB = await seedTaskWithThread(db, "sm-vt3-task-b", "sm-vt-3");
-		await db.update(threads).set({ participants: JSON.stringify(["sm-agent-vt3"]) }).where(eq(threads.id, threadA));
-		await db.update(threads).set({ participants: JSON.stringify([FOUNDER_ID]) }).where(eq(threads.id, threadB));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["sm-agent-vt3"]) })
+			.where(eq(threads.id, threadA));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify([FOUNDER_ID]) })
+			.where(eq(threads.id, threadB));
 
 		const review = await call<{ message: { id: string } }>(
 			app,
@@ -544,7 +639,9 @@ describe("send_message — verdict trio and races", () => {
 			verdict: { decision: "approve", resolvesMessageId: reviewMessageId },
 		});
 		expect(verdict.status).toBe(422);
-		expect((verdict.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("verdict_foreign_review");
+		expect((verdict.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe(
+			"verdict_foreign_review",
+		);
 	});
 
 	test("a second concurrent verdict returns verdict_race", async ({ db, app }) => {
@@ -566,7 +663,10 @@ describe("send_message — verdict trio and races", () => {
 		const reviewMessageId = review.body.data?.message.id as string;
 
 		const [first, second] = await Promise.all([
-			call(app, "send_message", { threadId, verdict: { decision: "approve", resolvesMessageId: reviewMessageId } }),
+			call(app, "send_message", {
+				threadId,
+				verdict: { decision: "approve", resolvesMessageId: reviewMessageId },
+			}),
 			call(
 				app,
 				"send_message",
@@ -577,7 +677,9 @@ describe("send_message — verdict trio and races", () => {
 		const results = [first, second];
 		const oks = results.filter((r) => r.status === 200);
 		const races = results.filter(
-			(r) => r.status === 422 && (r.body as ActionEnvelope<unknown>).problems?.[0]?.code === "verdict_race",
+			(r) =>
+				r.status === 422 &&
+				(r.body as ActionEnvelope<unknown>).problems?.[0]?.code === "verdict_race",
 		);
 		expect(oks).toHaveLength(1);
 		expect(races).toHaveLength(1);
@@ -595,7 +697,12 @@ describe("send_message — @mentions", () => {
 		const threadId = await seedTaskWithThread(db, "sm-mn1-task", "sm-mn-1");
 
 		// mention resolution is team-scoped off the SENDER's team.
-		const res = await call(app, "send_message", { threadId, text: "cc @sm-mentioned-1 please look" }, agentHeaders("sm-sender-1"));
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId, text: "cc @sm-mentioned-1 please look" },
+			agentHeaders("sm-sender-1"),
+		);
 		expect(res.status).toBe(200);
 
 		const members = await readThreadMembers(db, threadId);
@@ -622,11 +729,19 @@ describe("send_message — the wake rule", () => {
 		await seedHuman(db, "wk-human-1", "wk-1");
 		await seedAgent(db, "wk-agent-mentioned", "wk-1");
 		const threadId = await seedTaskWithThread(db, "wk1-task", "wk-1");
-		await db.update(threads).set({ participants: JSON.stringify(["wk-human-1"]) }).where(eq(threads.id, threadId));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["wk-human-1"]) })
+			.where(eq(threads.id, threadId));
 
 		// mention resolution is team-scoped off the SENDER's team — `wk-human-1`
 		// carries `teamId:"wk-1"`, unlike the bare global founder seed.
-		await call(app, "send_message", { threadId, text: "hey @wk-agent-mentioned please help" }, agentHeaders("wk-human-1"));
+		await call(
+			app,
+			"send_message",
+			{ threadId, text: "hey @wk-agent-mentioned please help" },
+			agentHeaders("wk-human-1"),
+		);
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
@@ -652,7 +767,10 @@ describe("send_message — the wake rule", () => {
 		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-dm"))).toHaveLength(1);
 	});
 
-	test("a stranger posting into a two-member team thread does not wake the agent sitting in it", async ({ db, app }) => {
+	test("a stranger posting into a two-member team thread does not wake the agent sitting in it", async ({
+		db,
+		app,
+	}) => {
 		await seedTeam(db, "wk-3");
 		await seedAgent(db, "wk-agent-3", "wk-3");
 		await seedHuman(db, "wk-stranger-3", "wk-3");
@@ -663,7 +781,12 @@ describe("send_message — the wake rule", () => {
 			members: [FOUNDER_ID, "wk-agent-3"],
 		});
 
-		await call(app, "send_message", { threadId: "wk-team-3", text: "hi" }, agentHeaders("wk-stranger-3"));
+		await call(
+			app,
+			"send_message",
+			{ threadId: "wk-team-3", text: "hi" },
+			agentHeaders("wk-stranger-3"),
+		);
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
@@ -681,7 +804,10 @@ describe("send_message — the wake rule", () => {
 		await seedAgent(db, "wk-agent-a", "wk-4");
 		await seedAgent(db, "wk-agent-b", "wk-4");
 		const threadId = await seedTaskWithThread(db, "wk4-task", "wk-4");
-		await db.update(threads).set({ participants: JSON.stringify(["wk-human-4"]) }).where(eq(threads.id, threadId));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["wk-human-4"]) })
+			.where(eq(threads.id, threadId));
 
 		const sent = await call<{ message: { id: string } }>(
 			app,
@@ -693,7 +819,10 @@ describe("send_message — the wake rule", () => {
 
 		await drainIntents({ ...queueDeps(db), eventBus });
 
-		const requests = await db.select().from(agentSessionRequests).where(eq(agentSessionRequests.sourceId, messageId));
+		const requests = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.sourceId, messageId));
 		expect(requests).toHaveLength(2);
 		expect(new Set(requests.map((r) => r.agentId))).toEqual(new Set(["wk-agent-a", "wk-agent-b"]));
 	});
@@ -732,24 +861,41 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 		if (result.ok) expect(result.data.thread.id).toBe("cf-thread-1");
 	});
 
-	test("with no caller.threadId, posts to a direct thread with its team's human", async ({ db, agentOrchestration, eventBus }) => {
+	test("with no caller.threadId, posts to a direct thread with its team's human", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
 		await seedTeam(db, "cf-2");
 		await seedAgent(db, "cf-agent-2", "cf-2");
 		await seedHuman(db, "cf-human-2", "cf-2");
 		const actions = buildRealActions(agentOrchestration);
-		const run = runnerFor<SendMessageInput, { message: { id: string }; thread: { id: string; members: string[] } }>(
-			actions,
-			"send_message",
-		);
+		const run = runnerFor<
+			SendMessageInput,
+			{ message: { id: string }; thread: { id: string; members: string[] } }
+		>(actions, "send_message");
 		const result = await run(
-			{ actor: "cf-agent-2", db, eventBus, now: new Date().toISOString(), caller: { sessionId: "sess-2", taskId: null, threadId: null } },
+			{
+				actor: "cf-agent-2",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "sess-2", taskId: null, threadId: null },
+			},
 			{ text: "no thread, falling back" },
 		);
 		expect(result.ok).toBe(true);
-		if (result.ok) expect(result.data.thread.members).toEqual(expect.arrayContaining(["cf-human-2", "cf-agent-2"]));
+		if (result.ok)
+			expect(result.data.thread.members).toEqual(
+				expect.arrayContaining(["cf-human-2", "cf-agent-2"]),
+			);
 	});
 
-	test("with neither and no human, returns no_reply_recipient", async ({ db, agentOrchestration, eventBus }) => {
+	test("with neither and no human, returns no_reply_recipient", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
 		await seedTeam(db, "cf-3");
 		await seedAgent(db, "cf-agent-3", "cf-3");
 		// delete the founder so no human exists at all — the fixture's own
@@ -758,14 +904,23 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 		const actions = buildRealActions(agentOrchestration);
 		const run = runnerFor<SendMessageInput, unknown>(actions, "send_message");
 		const result = await run(
-			{ actor: "cf-agent-3", db, eventBus, now: new Date().toISOString(), caller: { sessionId: "sess-3", taskId: null, threadId: null } },
+			{
+				actor: "cf-agent-3",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "sess-3", taskId: null, threadId: null },
+			},
 			{ text: "nobody to tell" },
 		);
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.problems[0]?.code).toBe("no_reply_recipient");
 	});
 
-	test("a human HTTP caller naming neither is stopped by the pure no_target invariant", async ({ app, db }) => {
+	test("a human HTTP caller naming neither is stopped by the pure no_target invariant", async ({
+		app,
+		db,
+	}) => {
 		await seedTeam(db, "cf-4");
 		const res = await call(app, "send_message", { text: "nowhere to go" });
 		expect(res.status).toBe(422);
@@ -781,11 +936,19 @@ describe("send_message — review link and verdict resume", () => {
 	}) => {
 		await seedTeam(db, "rl-1");
 		await seedAgent(db, "rl-agent-1", "rl-1");
-		const threadId = await seedTaskWithThread(db, "rl1-task", "rl-1", { ownerAgentId: "rl-agent-1" });
-		await db.update(threads).set({ participants: JSON.stringify(["rl-agent-1", FOUNDER_ID]) }).where(eq(threads.id, threadId));
+		const threadId = await seedTaskWithThread(db, "rl1-task", "rl-1", {
+			ownerAgentId: "rl-agent-1",
+		});
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["rl-agent-1", FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
 
 		const actions = buildRealActions(agentOrchestration);
-		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(actions, "send_message");
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
 		const result = await sendRun(
 			{
 				actor: "rl-agent-1",
@@ -800,7 +963,10 @@ describe("send_message — review link and verdict resume", () => {
 		if (!result.ok) return;
 		const messageId = result.data.message.id;
 
-		const [linked] = await db.select().from(reviewSessions).where(eq(reviewSessions.reviewMessageId, messageId));
+		const [linked] = await db
+			.select()
+			.from(reviewSessions)
+			.where(eq(reviewSessions.reviewMessageId, messageId));
 		expect(linked?.sessionId).toBe("rl-session-1");
 	});
 
@@ -811,15 +977,23 @@ describe("send_message — review link and verdict resume", () => {
 	}) => {
 		await seedTeam(db, "rl-2");
 		await seedAgent(db, "rl-agent-2", "rl-2");
-		const threadId = await seedTaskWithThread(db, "rl2-task", "rl-2", { ownerAgentId: "rl-agent-2" });
-		await db.update(threads).set({ participants: JSON.stringify(["rl-agent-2", FOUNDER_ID]) }).where(eq(threads.id, threadId));
+		const threadId = await seedTaskWithThread(db, "rl2-task", "rl-2", {
+			ownerAgentId: "rl-agent-2",
+		});
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["rl-agent-2", FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
 
 		const stubbedActions = buildCoreActions({
 			agentOrchestration,
 			agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
 			reviewVerdictRecorder: async () => ({ status: "not_resumable", reason: "agent deactivated" }),
 		});
-		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(stubbedActions, "send_message");
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			stubbedActions,
+			"send_message",
+		);
 
 		const filed = await sendRun(
 			{ actor: "rl-agent-2", db, eventBus, now: new Date().toISOString() },
@@ -835,18 +1009,19 @@ describe("send_message — review link and verdict resume", () => {
 		);
 		expect(verdict.ok).toBe(true);
 
-		const notice = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.threadId, threadId));
+		const notice = await db.select().from(messages).where(eq(messages.threadId, threadId));
 		const noticeMessage = notice.find(
-			(m) => m.type === "plain" && (JSON.parse(m.payload) as { text?: string }).text?.includes("could not be carried out"),
+			(m) =>
+				m.type === "plain" &&
+				(JSON.parse(m.payload) as { text?: string }).text?.includes("could not be carried out"),
 		);
 		expect(noticeMessage).toBeDefined();
 		const rows = await readChanges(db, threadId);
 		expect(
 			rows.some(
-				(r) => r.kind === "message" && (JSON.parse(r.after) as { messageId?: string }).messageId === noticeMessage?.id,
+				(r) =>
+					r.kind === "message" &&
+					(JSON.parse(r.after) as { messageId?: string }).messageId === noticeMessage?.id,
 			),
 		).toBe(true);
 	});
@@ -861,11 +1036,19 @@ describe("send_message — review taskId stamping (Confusion 9)", () => {
 	}) => {
 		await seedTeam(db, "tid-1");
 		await seedAgent(db, "tid-agent-1", "tid-1");
-		const threadId = await seedTaskWithThread(db, "tid1-task", "tid-1", { ownerAgentId: "tid-agent-1" });
-		await db.update(threads).set({ participants: JSON.stringify(["tid-agent-1", FOUNDER_ID]) }).where(eq(threads.id, threadId));
+		const threadId = await seedTaskWithThread(db, "tid1-task", "tid-1", {
+			ownerAgentId: "tid-agent-1",
+		});
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["tid-agent-1", FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
 
 		const actions = buildRealActions(agentOrchestration);
-		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(actions, "send_message");
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
 		const result = await sendRun(
 			{
 				actor: "tid-agent-1",
@@ -895,7 +1078,10 @@ describe("send_message — review taskId stamping (Confusion 9)", () => {
 	}) => {
 		await seedTeam(db, "tid-2");
 		const threadId = await seedTaskWithThread(db, "tid2-task", "tid-2");
-		await db.update(threads).set({ participants: JSON.stringify([FOUNDER_ID]) }).where(eq(threads.id, threadId));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify([FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
 
 		// No `caller` exists for an HTTP request (action.ts: "filled ONLY by
 		// the MCP loop... Absent for every HTTP call"), so a `taskId` in the
@@ -923,25 +1109,42 @@ describe("send_message — produced-item ownership", () => {
 	}) => {
 		await seedTeam(db, "pi-1");
 		await seedAgent(db, "pi-agent-1", "pi-1");
-		const threadId = await seedTaskWithThread(db, "pi1-task", "pi-1", { ownerAgentId: "pi-agent-1" });
+		const threadId = await seedTaskWithThread(db, "pi1-task", "pi-1", {
+			ownerAgentId: "pi-agent-1",
+		});
 		await seedKnowledgeItem(db, "pi-item-1", { parentKind: "task", parentId: "some-other-task" });
-		await db.update(threads).set({ participants: JSON.stringify(["pi-agent-1"]) }).where(eq(threads.id, threadId));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["pi-agent-1"]) })
+			.where(eq(threads.id, threadId));
 
 		const actions = buildRealActions(agentOrchestration);
 		const run = runnerFor<SendMessageInput, unknown>(actions, "send_message");
 		const result = await run(
-			{ actor: "pi-agent-1", db, eventBus, now: new Date().toISOString(), caller: { sessionId: "s", taskId: "pi1-task", threadId } },
+			{
+				actor: "pi-agent-1",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "s", taskId: "pi1-task", threadId },
+			},
 			{ threadId, review: { title: "r", reasoning: ["x"], producedItemId: "pi-item-1" } },
 		);
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.problems[0]?.code).toBe("produced_item_not_owned");
 	});
 
-	test("an HTTP caller naming a producedItemId is not checked against a task", async ({ db, app }) => {
+	test("an HTTP caller naming a producedItemId is not checked against a task", async ({
+		db,
+		app,
+	}) => {
 		await seedTeam(db, "pi-2");
 		const threadId = await seedTaskWithThread(db, "pi2-task", "pi-2");
 		await seedKnowledgeItem(db, "pi-item-2", { parentKind: "task", parentId: "unrelated" });
-		await db.update(threads).set({ participants: JSON.stringify([FOUNDER_ID]) }).where(eq(threads.id, threadId));
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify([FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
 
 		const res = await call(app, "send_message", {
 			threadId,
@@ -964,7 +1167,12 @@ describe("send_message — the four dead-end paths §3.4's table keeps alive", (
 		await seedAgent(db, "hp-new-owner", "hp-1");
 		const threadId = await seedTaskWithThread(db, "hp1-task", "hp-1");
 		// the thread's members never included the new owner — a real handoff seeds nothing.
-		const res = await call(app, "send_message", { threadId, text: "taking over" }, agentHeaders("hp-new-owner"));
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId, text: "taking over" },
+			agentHeaders("hp-new-owner"),
+		);
 		expect(res.status).toBe(200);
 		const members = await readThreadMembers(db, threadId);
 		expect(members).toContain("hp-new-owner");
@@ -977,8 +1185,13 @@ describe("send_message — the four dead-end paths §3.4's table keeps alive", (
 		await seedTeam(db, "hp-2");
 		await seedAgent(db, "hp-agent-2", "hp-2");
 		await seedHuman(db, "hp-reviewer-2", "hp-2");
-		const threadId = await seedTaskWithThread(db, "hp2-task", "hp-2", { ownerAgentId: "hp-agent-2" });
-		await db.update(threads).set({ participants: JSON.stringify(["hp-agent-2"]) }).where(eq(threads.id, threadId));
+		const threadId = await seedTaskWithThread(db, "hp2-task", "hp-2", {
+			ownerAgentId: "hp-agent-2",
+		});
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["hp-agent-2"]) })
+			.where(eq(threads.id, threadId));
 
 		const review = await call<{ message: { id: string } }>(
 			app,
@@ -1009,7 +1222,12 @@ describe("send_message — the four dead-end paths §3.4's table keeps alive", (
 			initiatorId: "system:propagation",
 			members: [],
 		});
-		const res = await call(app, "send_message", { threadId: "hp-ki-thread-3", text: "question" }, agentHeaders("hp-visitor-3"));
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId: "hp-ki-thread-3", text: "question" },
+			agentHeaders("hp-visitor-3"),
+		);
 		expect(res.status).toBe(200);
 		const members = await readThreadMembers(db, "hp-ki-thread-3");
 		expect(members).toContain("hp-visitor-3");
@@ -1047,7 +1265,10 @@ describe("send_message — the four dead-end paths §3.4's table keeps alive", (
 // ============================================================================
 
 describe("adjust_thread", () => {
-	test("with no id, creates a thread with the actor as its only member and host {user, actor}", async ({ app, db }) => {
+	test("with no id, creates a thread with the actor as its only member and host {user, actor}", async ({
+		app,
+		db,
+	}) => {
 		await seedTeam(db, "at-0");
 		const res = await call<ThreadView>(app, "adjust_thread", {});
 		expect(res.status).toBe(200);
@@ -1081,7 +1302,10 @@ describe("adjust_thread", () => {
 		expect(reopened.status).toBe(200);
 	});
 
-	test("a stored title wins over the computed one; title:null restores the fallback", async ({ db, app }) => {
+	test("a stored title wins over the computed one; title:null restores the fallback", async ({
+		db,
+		app,
+	}) => {
 		await seedTeam(db, "at-2");
 		await seedThreadRow(db, "at-thread-2", {
 			hostKind: "user",
@@ -1089,15 +1313,24 @@ describe("adjust_thread", () => {
 			initiatorId: FOUNDER_ID,
 			members: [FOUNDER_ID],
 		});
-		const withTitle = await call<ThreadView>(app, "adjust_thread", { id: "at-thread-2", title: "My custom title" });
+		const withTitle = await call<ThreadView>(app, "adjust_thread", {
+			id: "at-thread-2",
+			title: "My custom title",
+		});
 		expect(withTitle.body.data?.thread.title).toBe("My custom title");
 
-		const cleared = await call<ThreadView>(app, "adjust_thread", { id: "at-thread-2", title: null });
+		const cleared = await call<ThreadView>(app, "adjust_thread", {
+			id: "at-thread-2",
+			title: null,
+		});
 		expect(cleared.body.data?.thread.title).toBeNull();
 		expect(cleared.body.data?.thread.computedTitle).not.toBe("My custom title");
 	});
 
-	test("open_thread and adjust_thread's create-empty write no message rows", async ({ db, app }) => {
+	test("open_thread and adjust_thread's create-empty write no message rows", async ({
+		db,
+		app,
+	}) => {
 		await seedTeam(db, "at-3");
 		const before = await db.select().from(messages);
 		const res = await call(app, "adjust_thread", {});
@@ -1112,7 +1345,10 @@ describe("adjust_thread", () => {
 // ============================================================================
 
 describe("search_threads", () => {
-	test("mine returns only threads the actor is in, and carries hasUnresolvedReview correctly", async ({ db, app }) => {
+	test("mine returns only threads the actor is in, and carries hasUnresolvedReview correctly", async ({
+		db,
+		app,
+	}) => {
 		await seedTeam(db, "st-1");
 		await seedHuman(db, "st-outsider-1", "st-1");
 		await seedAgent(db, "st-agent-1", "st-1");
@@ -1141,10 +1377,17 @@ describe("search_threads", () => {
 		);
 		await call(app, "send_message", {
 			threadId: "st-mine-1",
-			verdict: { decision: "approve", resolvesMessageId: resolvedReview.body.data?.message.id as string },
+			verdict: {
+				decision: "approve",
+				resolvesMessageId: resolvedReview.body.data?.message.id as string,
+			},
 		});
 
-		const res = await call<Array<{ id: string; hasUnresolvedReview: boolean }>>(app, "search_threads", { mine: true });
+		const res = await call<Array<{ id: string; hasUnresolvedReview: boolean }>>(
+			app,
+			"search_threads",
+			{ mine: true },
+		);
 		expect(res.status).toBe(200);
 		const ids = res.body.data?.map((r) => r.id) ?? [];
 		expect(ids).toContain("st-mine-1");
@@ -1294,14 +1537,26 @@ describe("pure invariants", () => {
 	test("send_message: two_targets, no_body, two_bodies, plain_fields_on_non_plain, overwrite rules, verdict_on_new_thread", async ({
 		app,
 	}) => {
-		const twoTargets = await call(app, "send_message", { threadId: "x", recipients: [FOUNDER_ID], text: "x" });
+		const twoTargets = await call(app, "send_message", {
+			threadId: "x",
+			recipients: [FOUNDER_ID],
+			text: "x",
+		});
 		expect((twoTargets.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("two_targets");
 
 		const noBody = await call(app, "send_message", { threadId: "x" });
-		expect((noBody.body as ActionEnvelope<unknown>).problems?.some((p) => p.code === "no_body")).toBe(true);
+		expect(
+			(noBody.body as ActionEnvelope<unknown>).problems?.some((p) => p.code === "no_body"),
+		).toBe(true);
 
-		const twoBodies = await call(app, "send_message", { threadId: "x", text: "a", review: { title: "b", reasoning: [] } });
-		expect((twoBodies.body as ActionEnvelope<unknown>).problems?.some((p) => p.code === "two_bodies")).toBe(true);
+		const twoBodies = await call(app, "send_message", {
+			threadId: "x",
+			text: "a",
+			review: { title: "b", reasoning: [] },
+		});
+		expect(
+			(twoBodies.body as ActionEnvelope<unknown>).problems?.some((p) => p.code === "two_bodies"),
+		).toBe(true);
 
 		const plainFieldsOnNonPlain = await call(app, "send_message", {
 			threadId: "x",
@@ -1315,9 +1570,11 @@ describe("pure invariants", () => {
 		).toBe(true);
 
 		const overwriteNoThread = await call(app, "send_message", { messageId: "m1", text: "x" });
-		expect((overwriteNoThread.body as ActionEnvelope<unknown>).problems?.some((p) => p.code === "overwrite_needs_thread")).toBe(
-			true,
-		);
+		expect(
+			(overwriteNoThread.body as ActionEnvelope<unknown>).problems?.some(
+				(p) => p.code === "overwrite_needs_thread",
+			),
+		).toBe(true);
 
 		const overwriteWithRecipients = await call(app, "send_message", {
 			threadId: "x",
@@ -1335,12 +1592,17 @@ describe("pure invariants", () => {
 			recipients: [FOUNDER_ID],
 			verdict: { decision: "approve", resolvesMessageId: "m1" },
 		});
-		expect((verdictOnNewThread.body as ActionEnvelope<unknown>).problems?.some((p) => p.code === "verdict_on_new_thread")).toBe(
-			true,
-		);
+		expect(
+			(verdictOnNewThread.body as ActionEnvelope<unknown>).problems?.some(
+				(p) => p.code === "verdict_on_new_thread",
+			),
+		).toBe(true);
 	});
 
-	test("adjust_thread: adjust_empty, adjust_host_on_existing, members_empty", async ({ app, db }) => {
+	test("adjust_thread: adjust_empty, adjust_host_on_existing, members_empty", async ({
+		app,
+		db,
+	}) => {
 		await seedThreadRow(db, "pi-adjust-1", {
 			hostKind: "user",
 			hostId: FOUNDER_ID,
@@ -1350,8 +1612,13 @@ describe("pure invariants", () => {
 		const empty = await call(app, "adjust_thread", { id: "pi-adjust-1" });
 		expect((empty.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("adjust_empty");
 
-		const hostOnExisting = await call(app, "adjust_thread", { id: "pi-adjust-1", host: { kind: "team", id: "t" } });
-		expect((hostOnExisting.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("adjust_host_on_existing");
+		const hostOnExisting = await call(app, "adjust_thread", {
+			id: "pi-adjust-1",
+			host: { kind: "team", id: "t" },
+		});
+		expect((hostOnExisting.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe(
+			"adjust_host_on_existing",
+		);
 
 		// `members: []` never reaches the action's own invariant over HTTP — the
 		// wire schema's own `z.array(...).min(1)` refuses it first (a 400, not a
@@ -1385,18 +1652,15 @@ describe("the MCP door — actionsAsTools fills caller for every actor", () => {
 		const tools = actionsAsTools(actions);
 		const sendTool = tools.find((t) => t.name === "send_message");
 		if (!sendTool) throw new Error("send_message tool missing");
-		const result = await sendTool.handler(
-			{ threadId: "mcp-dm-1", text: "hi" },
-			{
-				db,
-				eventBus,
-				agentId: "mcp-stranger-1",
-				sessionId: "mcp-session-1",
-				taskId: "",
-				threadId: undefined,
-				teamId: "mcp-1",
-			} as never,
-		);
+		const result = await sendTool.handler({ threadId: "mcp-dm-1", text: "hi" }, {
+			db,
+			eventBus,
+			agentId: "mcp-stranger-1",
+			sessionId: "mcp-session-1",
+			taskId: "",
+			threadId: undefined,
+			teamId: "mcp-1",
+		} as never);
 		expect(result.success).toBe(false);
 		if (!result.success) expect(result.code).toBe("not_a_member");
 	});
@@ -1407,7 +1671,9 @@ describe("the MCP door — actionsAsTools fills caller for every actor", () => {
 // ============================================================================
 
 describe("HTTP door — 422 problem lists", () => {
-	test("a refused send returns a 422 with a problems array over POST /api/actions/send_message", async ({ app }) => {
+	test("a refused send returns a 422 with a problems array over POST /api/actions/send_message", async ({
+		app,
+	}) => {
 		const res = await call(app, "send_message", {});
 		expect(res.status).toBe(422);
 		expect(Array.isArray((res.body as ActionEnvelope<unknown>).problems)).toBe(true);

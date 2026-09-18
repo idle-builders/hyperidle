@@ -19,7 +19,6 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { findThread, insertMessage, insertThread } from "@hyperidle/thread";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	CreateTeamRequest,
@@ -46,6 +45,7 @@ import {
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
+import { findThread, insertMessage, insertThread } from "@hyperidle/thread";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";

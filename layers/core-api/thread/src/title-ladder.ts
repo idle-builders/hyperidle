@@ -17,7 +17,7 @@
  * Never returns a bare uuid or undefined for any row.
  */
 
-import type { HyperIdleDb, Thread as DbThread } from "@hyperidle/db";
+import type { Thread as DbThread, HyperIdleDb } from "@hyperidle/db";
 import { threadParticipantsSchema } from "@hyperidle/domain-model";
 
 export interface TitleLadderDeps {

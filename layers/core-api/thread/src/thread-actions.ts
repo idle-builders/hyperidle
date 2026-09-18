@@ -1,11 +1,19 @@
 import { randomUUID } from "node:crypto";
-import type { HyperIdleDb, NewChange, NewMessage, NewThread, Team, User, WriteExecutor } from "@hyperidle/db";
+import type {
+	HyperIdleDb,
+	NewChange,
+	NewMessage,
+	NewThread,
+	Team,
+	User,
+	WriteExecutor,
+} from "@hyperidle/db";
 import {
 	type AdjustThreadInput,
-	adjustThread as adjustThreadDeclaration,
-	adjustThreadInvariants,
 	type AgentWorkIntentRecorderFn,
 	type AgentWorkIntentRecorderInput,
+	adjustThread as adjustThreadDeclaration,
+	adjustThreadInvariants,
 	agentsToWake,
 	bakeAgentRunnableConfig,
 	canReadThread,
@@ -15,27 +23,27 @@ import {
 	IdentitySchema,
 	type Message,
 	MessageSchema,
-	openThread as openThreadDeclaration,
 	type OpenThreadInput,
+	openThread as openThreadDeclaration,
 	type Problem,
 	type ReviewVerdictOutcome,
 	type ReviewVerdictRecorderFn,
-	searchThreads as searchThreadsDeclaration,
 	type SearchThreadsInput,
-	sendMessage as sendMessageDeclaration,
 	type SendMessageInput,
 	type SendMessageOutput,
+	searchThreads as searchThreadsDeclaration,
+	sendMessage as sendMessageDeclaration,
 	sendMessageInvariants,
-	threadParticipantsSchema,
 	type Thread,
 	type ThreadListRow,
 	type ThreadView,
+	threadParticipantsSchema,
 } from "@hyperidle/domain-model";
 import type { Action, ActionContext } from "./action-types.js";
 import { resolveMentionsForMessage } from "./mention-resolver.js";
 import * as store from "./thread-service.js";
-import { resolveThreadTitles } from "./title-ladder.js";
 import { resolveThreadTurnRequest } from "./thread-turn-resolver.js";
+import { resolveThreadTitles } from "./title-ladder.js";
 
 /**
  * The thread module's outward-facing deps — every one a sibling Service, the
@@ -98,19 +106,22 @@ function parseParticipants(raw: string): string[] {
 	}
 }
 
-function rowToThread(row: {
-	id: string;
-	hostKind: string;
-	hostId: string;
-	initiatorId: string;
-	participants: string;
-	title: string | null;
-	pinned: boolean;
-	resolvedAt: string | null;
-	deletedAt: string | null;
-	lastActiveAt: string;
-	createdAt: string;
-}, computedTitle: string): Thread {
+function rowToThread(
+	row: {
+		id: string;
+		hostKind: string;
+		hostId: string;
+		initiatorId: string;
+		participants: string;
+		title: string | null;
+		pinned: boolean;
+		resolvedAt: string | null;
+		deletedAt: string | null;
+		lastActiveAt: string;
+		createdAt: string;
+	},
+	computedTitle: string,
+): Thread {
 	return {
 		id: row.id,
 		hostKind: row.hostKind as HostKind,
@@ -217,7 +228,9 @@ interface PushableChange {
 	readonly at: string;
 }
 
-function wireKindFor(kind: PushableChange["kind"]): "thread.created" | "thread.changed" | "thread.message" {
+function wireKindFor(
+	kind: PushableChange["kind"],
+): "thread.created" | "thread.changed" | "thread.message" {
 	return `thread.${kind}` as "thread.created" | "thread.changed" | "thread.message";
 }
 
@@ -251,15 +264,35 @@ function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): 
 			type: "update",
 			topic: threadTopic,
 			kind,
-			data: { id: row.id, object: "thread", objectId: row.objectId, kind, actor: row.actor, before: row.before, after: row.after, at: row.at },
+			data: {
+				id: row.id,
+				object: "thread",
+				objectId: row.objectId,
+				kind,
+				actor: row.actor,
+				before: row.before,
+				after: row.after,
+				at: row.at,
+			},
 		});
 		const conversationsAfter =
-			kind === "thread.message" ? redactMessageAfterForConversations(row.after, row.objectId, row.actor) : row.after;
+			kind === "thread.message"
+				? redactMessageAfterForConversations(row.after, row.objectId, row.actor)
+				: row.after;
 		deps.wsPush("conversations", {
 			type: "update",
 			topic: "conversations",
 			kind,
-			data: { id: row.id, object: "thread", objectId: row.objectId, kind, actor: row.actor, before: row.before, after: conversationsAfter, at: row.at },
+			data: {
+				id: row.id,
+				object: "thread",
+				objectId: row.objectId,
+				kind,
+				actor: row.actor,
+				before: row.before,
+				after: conversationsAfter,
+				at: row.at,
+			},
 		});
 	}
 }
@@ -332,8 +365,15 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	): Promise<{ ok: true; data: ThreadView } | { ok: false; problems: readonly Problem[] }> {
 		const row = await store.findThread(ctx.db, { id: input.id });
 		const members = row ? parseParticipants(row.participants) : [];
-		if (!row || row.deletedAt !== null || !canReadThread(ctx.actor, { hostKind: row.hostKind as HostKind, members })) {
-			return { ok: false, problems: [{ code: "not_found", message: `Thread ${input.id} not found` }] };
+		if (
+			!row ||
+			row.deletedAt !== null ||
+			!canReadThread(ctx.actor, { hostKind: row.hostKind as HostKind, members })
+		) {
+			return {
+				ok: false,
+				problems: [{ code: "not_found", message: `Thread ${input.id} not found` }],
+			};
 		}
 
 		return { ok: true, data: await assembleThreadView(ctx, row, input.blockId) };
@@ -348,9 +388,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 	): Promise<{ ok: true; data: ThreadListRow[] } | { ok: false; problems: readonly Problem[] }> {
 		let rows: Awaited<ReturnType<typeof store.listThreads>>;
 		if (input.ids !== undefined) {
-			rows = input.ids.length > 0 ? await store.listThreads(ctx.db, { ids: input.ids, includeDeleted: false }) : [];
+			rows =
+				input.ids.length > 0
+					? await store.listThreads(ctx.db, { ids: input.ids, includeDeleted: false })
+					: [];
 		} else if (input.host !== undefined) {
-			rows = await store.listThreads(ctx.db, { host: input.host, order: "lastActive", includeDeleted: false });
+			rows = await store.listThreads(ctx.db, {
+				host: input.host,
+				order: "lastActive",
+				includeDeleted: false,
+			});
 		} else if (input.text !== undefined) {
 			const participantProbe = `%${JSON.stringify(ctx.actor).replace(/[\\%_]/g, "\\$&")}%`;
 			const messagePattern = `%${input.text.replace(/[\\%_]/g, "\\$&")}%`;
@@ -360,7 +407,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				messagePattern,
 				input.limit ?? 50,
 			);
-			const byTitle = await store.searchThreadsByTitle(ctx.db, `%${input.text}%`, input.limit ?? 50);
+			const byTitle = await store.searchThreadsByTitle(
+				ctx.db,
+				`%${input.text}%`,
+				input.limit ?? 50,
+			);
 			const ids = [...new Set([...byMessage.map((r) => r.id), ...byTitle.map((r) => r.id)])];
 			rows = ids.length > 0 ? await store.listThreads(ctx.db, { ids, includeDeleted: false }) : [];
 		} else if (input.mine === true) {
@@ -377,7 +428,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		const readable = rows.filter((r) =>
-			canReadThread(ctx.actor, { hostKind: r.hostKind as HostKind, members: parseParticipants(r.participants) }),
+			canReadThread(ctx.actor, {
+				hostKind: r.hostKind as HostKind,
+				members: parseParticipants(r.participants),
+			}),
 		);
 		if (readable.length === 0) return { ok: true, data: [] };
 
@@ -391,7 +445,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 		const lastMessages = await Promise.all(
 			threadIds.map(async (id) => {
-				const rows2 = await store.listMessages(ctx.db, { threadId: id, order: "createdAt", dir: "desc", limit: 1 });
+				const rows2 = await store.listMessages(ctx.db, {
+					threadId: id,
+					order: "createdAt",
+					dir: "desc",
+					limit: 1,
+				});
 				return [id, rows2[0]] as const;
 			}),
 		);
@@ -420,7 +479,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					preview = null;
 				}
 			}
-			return { ...thread, hasUnresolvedReview: unresolvedThreadIds.has(row.id), lastMessagePreview: preview };
+			return {
+				...thread,
+				hasUnresolvedReview: unresolvedThreadIds.has(row.id),
+				lastMessagePreview: preview,
+			};
 		});
 		return { ok: true, data };
 	}
@@ -438,7 +501,9 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		// literally `caller.threadId != null` — an agent with a caller but no
 		// calling thread must still reach the server-side sole-human fallback
 		// (§9's own test requires this), not be pre-empted here.
-		const pureProblems = sendMessageInvariants(input, { hasCallingThread: ctx.caller !== undefined });
+		const pureProblems = sendMessageInvariants(input, {
+			hasCallingThread: ctx.caller !== undefined,
+		});
 		if (pureProblems.length > 0) return { ok: false, problems: pureProblems };
 
 		// -- 2. resolve the thread -------------------------------------------
@@ -452,7 +517,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				if (!recipient) {
 					return {
 						ok: false,
-						problems: [{ code: "recipient_not_found", message: `User ${recipientId} not found`, path: "recipients" }],
+						problems: [
+							{
+								code: "recipient_not_found",
+								message: `User ${recipientId} not found`,
+								path: "recipients",
+							},
+						],
 					};
 				}
 				const directKey = `${[ctx.actor, recipientId].sort().join(":")}:${recipient.kind === "ai" ? "agent" : "user"}`;
@@ -472,7 +543,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					if (!recipient) {
 						return {
 							ok: false,
-							problems: [{ code: "recipient_not_found", message: `User ${recipientId} not found`, path: "recipients" }],
+							problems: [
+								{
+									code: "recipient_not_found",
+									message: `User ${recipientId} not found`,
+									path: "recipients",
+								},
+							],
 						};
 					}
 				}
@@ -487,7 +564,15 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		} else if (threadId === undefined && ctx.caller !== undefined) {
 			const human = await deps.users.soleHumanForAgent(ctx.db, ctx.actor);
 			if (!human) {
-				return { ok: false, problems: [{ code: "no_reply_recipient", message: "No thread, no recipients, and no human to reply to." }] };
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "no_reply_recipient",
+							message: "No thread, no recipients, and no human to reply to.",
+						},
+					],
+				};
 			}
 			const directKey = `${[ctx.actor, human.id].sort().join(":")}:user`;
 			const existing = await store.findThread(ctx.db, { directKey });
@@ -501,23 +586,45 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const newThreadId = creatingThread ? randomUUID() : undefined;
 		const effectiveThreadId = threadId ?? newThreadId;
 		if (effectiveThreadId === undefined) {
-			return { ok: false, problems: [{ code: "no_reply_recipient", message: "No thread, no recipients." }] };
+			return {
+				ok: false,
+				problems: [{ code: "no_reply_recipient", message: "No thread, no recipients." }],
+			};
 		}
 
 		// -- 3. idempotency (create only) ------------------------------------
 		if (input.messageId === undefined && input.clientKey !== undefined && threadId !== undefined) {
-			const existing = await store.findMessage(ctx.db, { threadId, senderId: ctx.actor, clientKey: input.clientKey });
+			const existing = await store.findMessage(ctx.db, {
+				threadId,
+				senderId: ctx.actor,
+				clientKey: input.clientKey,
+			});
 			if (existing) {
 				const candidatePayload = messageBodyOf(input);
 				const sameType = existing.type === candidatePayload.type;
 				const samePayload = existing.payload === JSON.stringify(candidatePayload.payload);
 				if (sameType && samePayload) {
 					const threadRow = await store.findThread(ctx.db, { id: threadId });
-					if (!threadRow) return { ok: false, problems: [{ code: "not_found", message: "Thread not found" }] };
+					if (!threadRow)
+						return { ok: false, problems: [{ code: "not_found", message: "Thread not found" }] };
 					const computedTitle = await computeComputedTitle(ctx.db, threadRow, ctx.actor, deps);
-					return { ok: true, data: { message: rowToMessage(existing), thread: rowToThread(threadRow, computedTitle) } };
+					return {
+						ok: true,
+						data: {
+							message: rowToMessage(existing),
+							thread: rowToThread(threadRow, computedTitle),
+						},
+					};
 				}
-				return { ok: false, problems: [{ code: "idempotency_conflict", message: "clientKey already used with a different payload" }] };
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "idempotency_conflict",
+							message: "clientKey already used with a different payload",
+						},
+					],
+				};
 			}
 		}
 
@@ -528,20 +635,40 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 		if (threadId !== undefined) {
 			threadRow = await store.findThread(ctx.db, { id: threadId });
-			if (!threadRow) return { ok: false, problems: [{ code: "not_found", message: `Thread ${threadId} not found` }] };
+			if (!threadRow)
+				return {
+					ok: false,
+					problems: [{ code: "not_found", message: `Thread ${threadId} not found` }],
+				};
 			if (threadRow.deletedAt !== null) {
-				return { ok: false, problems: [{ code: "thread_deleted", message: "This thread was deleted." }] };
+				return {
+					ok: false,
+					problems: [{ code: "thread_deleted", message: "This thread was deleted." }],
+				};
 			}
 			currentMembers = parseParticipants(threadRow.participants);
-			if (!canWriteThread(ctx.actor, { hostKind: threadRow.hostKind as HostKind, members: currentMembers })) {
-				return { ok: false, problems: [{ code: "not_a_member", message: "You are not a member of this thread." }] };
+			if (
+				!canWriteThread(ctx.actor, {
+					hostKind: threadRow.hostKind as HostKind,
+					members: currentMembers,
+				})
+			) {
+				return {
+					ok: false,
+					problems: [{ code: "not_a_member", message: "You are not a member of this thread." }],
+				};
 			}
 		}
 
 		if (input.messageId !== undefined) {
 			existingMessageRow = await store.findMessage(ctx.db, { id: input.messageId });
 			if (!existingMessageRow || existingMessageRow.threadId !== threadId) {
-				return { ok: false, problems: [{ code: "not_found", message: `Message ${input.messageId} not found in this thread` }] };
+				return {
+					ok: false,
+					problems: [
+						{ code: "not_found", message: `Message ${input.messageId} not found in this thread` },
+					],
+				};
 			}
 		}
 
@@ -550,7 +677,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			if (!parent || parent.parentKind !== "task" || parent.parentId !== ctx.caller.taskId) {
 				return {
 					ok: false,
-					problems: [{ code: "produced_item_not_owned", message: "The produced item is not parented to this task." }],
+					problems: [
+						{
+							code: "produced_item_not_owned",
+							message: "The produced item is not parented to this task.",
+						},
+					],
 				};
 			}
 		}
@@ -559,17 +691,33 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (input.verdict !== undefined) {
 			resolvesMessageRow = await store.findMessage(ctx.db, { id: input.verdict.resolvesMessageId });
 			if (!resolvesMessageRow) {
-				return { ok: false, problems: [{ code: "not_found", message: "The message this verdict resolves was not found." }] };
+				return {
+					ok: false,
+					problems: [
+						{ code: "not_found", message: "The message this verdict resolves was not found." },
+					],
+				};
 			}
 			const sender = await deps.users.getUserById(ctx.db, ctx.actor);
 			if (!sender || sender.kind !== "human") {
-				return { ok: false, problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }] };
+				return {
+					ok: false,
+					problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }],
+				};
 			}
 			if (resolvesMessageRow.senderId === ctx.actor) {
-				return { ok: false, problems: [{ code: "verdict_self", message: "You cannot verdict your own review." }] };
+				return {
+					ok: false,
+					problems: [{ code: "verdict_self", message: "You cannot verdict your own review." }],
+				};
 			}
 			if (resolvesMessageRow.threadId !== effectiveThreadId) {
-				return { ok: false, problems: [{ code: "verdict_foreign_review", message: "That review lives in a different thread." }] };
+				return {
+					ok: false,
+					problems: [
+						{ code: "verdict_foreign_review", message: "That review lives in a different thread." },
+					],
+				};
 			}
 		}
 
@@ -587,7 +735,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const mentionedIds: string[] = [];
 		let finalMembers = currentMembers;
 		let membersChanged = false;
-		let resolvedAtBefore: string | null = threadRow?.resolvedAt ?? null;
+		const resolvedAtBefore: string | null = threadRow?.resolvedAt ?? null;
 		let resolvedAtAfter: string | null = resolvedAtBefore;
 		let willReopen = false;
 		const pushRows: PushableChange[] = [];
@@ -595,167 +743,205 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		try {
 			await ctx.db.transaction(async (tx) => {
 				if (creatingThread) {
-				const values: NewThread = {
-					id: newThreadId as string,
-					hostKind: creatingThread.hostKind,
-					hostId: creatingThread.hostId,
-					initiatorId: ctx.actor,
-					participants: JSON.stringify(creatingThread.members),
-					pinned: false,
-					lastActiveAt: now,
-					createdAt: now,
-				};
-				await store.insertThread(tx as HyperIdleDb, values);
-				const createdChangeId = randomUUID();
-				const createdAfter = {
-					id: values.id,
-					hostKind: values.hostKind,
-					hostId: values.hostId,
-					initiatorId: values.initiatorId,
-					members: creatingThread.members,
-					title: null,
-					pinned: false,
-					createdAt: now,
-				};
-				await deps.changes.appendChange(tx, {
-					id: createdChangeId,
-					object: "thread",
-					objectId: values.id,
-					kind: "created",
-					actor: ctx.actor,
-					before: null,
-					after: JSON.stringify(createdAfter),
-					at: now,
-				});
-				pushRows.push({ id: createdChangeId, objectId: values.id, kind: "created", actor: ctx.actor, before: null, after: createdAfter, at: now });
-				finalMembers = creatingThread.members;
-			}
-
-			// join the sender on a host-scoped thread it is not yet a member of.
-			const hostKind = (creatingThread?.hostKind ?? threadRow?.hostKind) as HostKind;
-			if (!finalMembers.includes(ctx.actor) && canWriteThread(ctx.actor, { hostKind, members: finalMembers })) {
-				finalMembers = [...finalMembers, ctx.actor];
-				membersChanged = true;
-			}
-
-			if (body.type === "plain") {
-				const text = (body.payload as { text: string }).text;
-				const { refs, newParticipantIds } = await resolveMentionsForMessage(
-					tx as HyperIdleDb,
-					text,
-					(body.payload as { refs?: never[] }).refs ?? [],
-					finalMembers,
-					ctx.actor,
-					{
-						listByIds: (d, ids) => deps.users.listByIds(d, ids),
-						listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
-					},
-				);
-				if (newParticipantIds.length > 0) {
-					finalMembers = [...new Set([...finalMembers, ...newParticipantIds])];
-					membersChanged = true;
-					mentionedIds.push(...newParticipantIds);
+					const values: NewThread = {
+						id: newThreadId as string,
+						hostKind: creatingThread.hostKind,
+						hostId: creatingThread.hostId,
+						initiatorId: ctx.actor,
+						participants: JSON.stringify(creatingThread.members),
+						pinned: false,
+						lastActiveAt: now,
+						createdAt: now,
+					};
+					await store.insertThread(tx as HyperIdleDb, values);
+					const createdChangeId = randomUUID();
+					const createdAfter = {
+						id: values.id,
+						hostKind: values.hostKind,
+						hostId: values.hostId,
+						initiatorId: values.initiatorId,
+						members: creatingThread.members,
+						title: null,
+						pinned: false,
+						createdAt: now,
+					};
+					await deps.changes.appendChange(tx, {
+						id: createdChangeId,
+						object: "thread",
+						objectId: values.id,
+						kind: "created",
+						actor: ctx.actor,
+						before: null,
+						after: JSON.stringify(createdAfter),
+						at: now,
+					});
+					pushRows.push({
+						id: createdChangeId,
+						objectId: values.id,
+						kind: "created",
+						actor: ctx.actor,
+						before: null,
+						after: createdAfter,
+						at: now,
+					});
+					finalMembers = creatingThread.members;
 				}
-				if (refs.length > 0) body.payload = { ...(body.payload as Record<string, unknown>), refs };
-			}
 
-			if (membersChanged) {
-				await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
-					participants: JSON.stringify(finalMembers),
-				});
-			}
+				// join the sender on a host-scoped thread it is not yet a member of.
+				const hostKind = (creatingThread?.hostKind ?? threadRow?.hostKind) as HostKind;
+				if (
+					!finalMembers.includes(ctx.actor) &&
+					canWriteThread(ctx.actor, { hostKind, members: finalMembers })
+				) {
+					finalMembers = [...finalMembers, ctx.actor];
+					membersChanged = true;
+				}
 
-			let messageBefore: Record<string, unknown> | null = null;
-			if (existingMessageRow) {
-				messageBefore = {
-					messageId: existingMessageRow.id,
-					type: existingMessageRow.type,
-					payload: JSON.parse(existingMessageRow.payload),
-				};
-				await store.updateMessage(tx as HyperIdleDb, messageId, {
+				if (body.type === "plain") {
+					const text = (body.payload as { text: string }).text;
+					const { refs, newParticipantIds } = await resolveMentionsForMessage(
+						tx as HyperIdleDb,
+						text,
+						(body.payload as { refs?: never[] }).refs ?? [],
+						finalMembers,
+						ctx.actor,
+						{
+							listByIds: (d, ids) => deps.users.listByIds(d, ids),
+							listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
+						},
+					);
+					if (newParticipantIds.length > 0) {
+						finalMembers = [...new Set([...finalMembers, ...newParticipantIds])];
+						membersChanged = true;
+						mentionedIds.push(...newParticipantIds);
+					}
+					if (refs.length > 0)
+						body.payload = { ...(body.payload as Record<string, unknown>), refs };
+				}
+
+				if (membersChanged) {
+					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
+						participants: JSON.stringify(finalMembers),
+					});
+				}
+
+				let messageBefore: Record<string, unknown> | null = null;
+				if (existingMessageRow) {
+					messageBefore = {
+						messageId: existingMessageRow.id,
+						type: existingMessageRow.type,
+						payload: JSON.parse(existingMessageRow.payload),
+					};
+					await store.updateMessage(tx as HyperIdleDb, messageId, {
+						type: body.type,
+						payload: JSON.stringify(body.payload),
+						blockId: body.blockId ?? null,
+					});
+				} else {
+					const values: NewMessage = {
+						id: messageId,
+						senderId: ctx.actor,
+						threadId: effectiveThreadId,
+						type: body.type,
+						payload: JSON.stringify(body.payload),
+						clientKey,
+						blockId: body.blockId ?? null,
+						createdAt: now,
+					};
+					await store.insertMessage(tx as HyperIdleDb, values);
+				}
+
+				if (input.verdict !== undefined && resolvesMessageRow) {
+					const updated = await store.resolveMessageIfUnresolved(
+						tx as HyperIdleDb,
+						resolvesMessageRow.id,
+						now,
+					);
+					if (updated.length === 0) throw new VerdictRaceConflict();
+					resolvedAtAfter = now;
+					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
+						resolvedAt: now,
+						lastActiveAt: now,
+					});
+				} else if (
+					(body.type === "review" || body.type === "questionnaire") &&
+					threadRow?.resolvedAt !== null &&
+					threadRow !== undefined
+				) {
+					willReopen = true;
+					resolvedAtAfter = null;
+					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
+						resolvedAt: null,
+						lastActiveAt: now,
+					});
+				} else {
+					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, { lastActiveAt: now });
+				}
+
+				const messageAfter: Record<string, unknown> = {
+					messageId,
 					type: body.type,
-					payload: JSON.stringify(body.payload),
-					blockId: body.blockId ?? null,
-				});
-			} else {
-				const values: NewMessage = {
-					id: messageId,
-					senderId: ctx.actor,
-					threadId: effectiveThreadId,
-					type: body.type,
-					payload: JSON.stringify(body.payload),
+					payload: body.payload,
 					clientKey,
 					blockId: body.blockId ?? null,
 					createdAt: now,
 				};
-				await store.insertMessage(tx as HyperIdleDb, values);
-			}
-
-			if (input.verdict !== undefined && resolvesMessageRow) {
-				const updated = await store.resolveMessageIfUnresolved(tx as HyperIdleDb, resolvesMessageRow.id, now);
-				if (updated.length === 0) throw new VerdictRaceConflict();
-				resolvedAtAfter = now;
-				await store.updateThread(tx as HyperIdleDb, effectiveThreadId, { resolvedAt: now, lastActiveAt: now });
-			} else if ((body.type === "review" || body.type === "questionnaire") && threadRow?.resolvedAt !== null && threadRow !== undefined) {
-				willReopen = true;
-				resolvedAtAfter = null;
-				await store.updateThread(tx as HyperIdleDb, effectiveThreadId, { resolvedAt: null, lastActiveAt: now });
-			} else {
-				await store.updateThread(tx as HyperIdleDb, effectiveThreadId, { lastActiveAt: now });
-			}
-
-			const messageAfter: Record<string, unknown> = {
-				messageId,
-				type: body.type,
-				payload: body.payload,
-				clientKey,
-				blockId: body.blockId ?? null,
-				createdAt: now,
-			};
-			if (membersChanged) messageAfter.members = finalMembers;
-			const messageChangeId = randomUUID();
-			await deps.changes.appendChange(tx, {
-				id: messageChangeId,
-				object: "thread",
-				objectId: effectiveThreadId,
-				kind: "message",
-				actor: ctx.actor,
-				before: messageBefore ? JSON.stringify(messageBefore) : null,
-				after: JSON.stringify(messageAfter),
-				at: now,
-			});
-			pushRows.push({
-				id: messageChangeId,
-				objectId: effectiveThreadId,
-				kind: "message",
-				actor: ctx.actor,
-				before: messageBefore,
-				after: messageAfter,
-				at: now,
-			});
-
-			// A resolve/reopen is the thread's OWN state moving — a `changed`
-			// row for it, never naming members (architecture.md §3.5: "adjust_thread
-			// remains the ONLY writer of a thread.changed row whose diff names
-			// members"). The routine lastActiveAt bump that rides every send is
-			// NOT independently reported here — §9's own assertion requires a
-			// plain member-adding send to append no `changed` row at all.
-			if (resolvedAtAfter !== resolvedAtBefore) {
-				const { before, after } = diffFields(effectiveThreadId, { resolvedAt: resolvedAtBefore }, { resolvedAt: resolvedAtAfter });
-				const resolveAfter = { ...after, lastActiveAt: now };
-				const resolveChangeId = randomUUID();
+				if (membersChanged) messageAfter.members = finalMembers;
+				const messageChangeId = randomUUID();
 				await deps.changes.appendChange(tx, {
-					id: resolveChangeId,
+					id: messageChangeId,
 					object: "thread",
 					objectId: effectiveThreadId,
-					kind: "changed",
+					kind: "message",
 					actor: ctx.actor,
-					before: JSON.stringify(before),
-					after: JSON.stringify(resolveAfter),
+					before: messageBefore ? JSON.stringify(messageBefore) : null,
+					after: JSON.stringify(messageAfter),
 					at: now,
 				});
-				pushRows.push({ id: resolveChangeId, objectId: effectiveThreadId, kind: "changed", actor: ctx.actor, before, after: resolveAfter, at: now });
-			}
+				pushRows.push({
+					id: messageChangeId,
+					objectId: effectiveThreadId,
+					kind: "message",
+					actor: ctx.actor,
+					before: messageBefore,
+					after: messageAfter,
+					at: now,
+				});
+
+				// A resolve/reopen is the thread's OWN state moving — a `changed`
+				// row for it, never naming members (architecture.md §3.5: "adjust_thread
+				// remains the ONLY writer of a thread.changed row whose diff names
+				// members"). The routine lastActiveAt bump that rides every send is
+				// NOT independently reported here — §9's own assertion requires a
+				// plain member-adding send to append no `changed` row at all.
+				if (resolvedAtAfter !== resolvedAtBefore) {
+					const { before, after } = diffFields(
+						effectiveThreadId,
+						{ resolvedAt: resolvedAtBefore },
+						{ resolvedAt: resolvedAtAfter },
+					);
+					const resolveAfter = { ...after, lastActiveAt: now };
+					const resolveChangeId = randomUUID();
+					await deps.changes.appendChange(tx, {
+						id: resolveChangeId,
+						object: "thread",
+						objectId: effectiveThreadId,
+						kind: "changed",
+						actor: ctx.actor,
+						before: JSON.stringify(before),
+						after: JSON.stringify(resolveAfter),
+						at: now,
+					});
+					pushRows.push({
+						id: resolveChangeId,
+						objectId: effectiveThreadId,
+						kind: "changed",
+						actor: ctx.actor,
+						before,
+						after: resolveAfter,
+						at: now,
+					});
+				}
 			});
 		} catch (e) {
 			if (e instanceof VerdictRaceConflict) {
@@ -818,11 +1004,14 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				// config is core state, so it is baked here and carried across —
 				// admission treats a missing bake as a deactivated agent.
 				const askingAgent = await deps.users.getUserById(ctx.db, resolvesMessageRow.senderId);
-				const persona = askingAgent ? await deps.agents.getAgentIdentity(ctx.db, askingAgent.id) : null;
+				const persona = askingAgent
+					? await deps.agents.getAgentIdentity(ctx.db, askingAgent.id)
+					: null;
 				verdictOutcome = await deps.reviewVerdictRecorder({
 					reviewMessageId: resolvesMessageRow.id,
 					decision:
-						input.verdict.decision === "approve" || input.verdict.decision === "approve-with-comments"
+						input.verdict.decision === "approve" ||
+						input.verdict.decision === "approve-with-comments"
 							? "approve"
 							: "decline",
 					decidedBy: ctx.actor,
@@ -830,7 +1019,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					...(askingAgent ? { agentConfig: bakeAgentRunnableConfig(askingAgent, persona) } : {}),
 				});
 			} catch (gateErr) {
-				verdictOutcome = { status: "not_resumable", reason: gateErr instanceof Error ? gateErr.message : "unknown error" };
+				verdictOutcome = {
+					status: "not_resumable",
+					reason: gateErr instanceof Error ? gateErr.message : "unknown error",
+				};
 			}
 			if (verdictOutcome.status === "not_resumable") {
 				await sendMessageRun(
@@ -847,7 +1039,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (finalMembers.length > 0) {
 			const identityRows = await deps.users.listByIds(ctx.db, finalMembers);
 			const isAgent = (id: string) => identityRows.some((u) => u.id === id && u.kind === "ai");
-			const woken = agentsToWake({ members: finalMembers, senderId: ctx.actor, mentionedIds, isAgent });
+			const woken = agentsToWake({
+				members: finalMembers,
+				senderId: ctx.actor,
+				mentionedIds,
+				isAgent,
+			});
 			for (const agentId of woken) {
 				try {
 					const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
@@ -873,13 +1070,24 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		pushChanges(deps, pushRows);
 
 		const finalThreadRow = await store.findThread(ctx.db, { id: effectiveThreadId });
-		if (!finalThreadRow) return { ok: false, problems: [{ code: "not_found", message: "Thread missing after write" }] };
+		if (!finalThreadRow)
+			return {
+				ok: false,
+				problems: [{ code: "not_found", message: "Thread missing after write" }],
+			};
 		const finalMessageRow = await store.findMessage(ctx.db, { id: messageId });
-		if (!finalMessageRow) return { ok: false, problems: [{ code: "not_found", message: "Message missing after write" }] };
+		if (!finalMessageRow)
+			return {
+				ok: false,
+				problems: [{ code: "not_found", message: "Message missing after write" }],
+			};
 		const computedTitle = await computeComputedTitle(ctx.db, finalThreadRow, ctx.actor, deps);
 		return {
 			ok: true,
-			data: { message: rowToMessage(finalMessageRow), thread: rowToThread(finalThreadRow, computedTitle) },
+			data: {
+				message: rowToMessage(finalMessageRow),
+				thread: rowToThread(finalThreadRow, computedTitle),
+			},
 		};
 	}
 
@@ -935,18 +1143,38 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					await store.updateThread(tx as HyperIdleDb, threadId, { title: input.title });
 				}
 			});
-			pushChanges(deps, [{ id: createdChangeId, objectId: threadId, kind: "created", actor: ctx.actor, before: null, after: createdAfter, at: now }]);
+			pushChanges(deps, [
+				{
+					id: createdChangeId,
+					objectId: threadId,
+					kind: "created",
+					actor: ctx.actor,
+					before: null,
+					after: createdAfter,
+					at: now,
+				},
+			]);
 			return openThreadRun(ctx, { id: threadId });
 		}
 
 		const row = await store.findThread(ctx.db, { id: input.id });
-		if (!row) return { ok: false, problems: [{ code: "not_found", message: `Thread ${input.id} not found` }] };
+		if (!row)
+			return {
+				ok: false,
+				problems: [{ code: "not_found", message: `Thread ${input.id} not found` }],
+			};
 		const members = parseParticipants(row.participants);
 		if (!canWriteThread(ctx.actor, { hostKind: row.hostKind as HostKind, members })) {
-			return { ok: false, problems: [{ code: "not_a_member", message: "You are not a member of this thread." }] };
+			return {
+				ok: false,
+				problems: [{ code: "not_a_member", message: "You are not a member of this thread." }],
+			};
 		}
 		if (row.deletedAt !== null && input.deleted !== false) {
-			return { ok: false, problems: [{ code: "thread_deleted", message: "This thread was deleted." }] };
+			return {
+				ok: false,
+				problems: [{ code: "thread_deleted", message: "This thread was deleted." }],
+			};
 		}
 
 		const before: Record<string, unknown> = {};
@@ -959,7 +1187,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 		if (input.members !== undefined) {
 			const newMembers = [...new Set(input.members)];
-			const sameSet = newMembers.length === members.length && newMembers.every((m) => members.includes(m));
+			const sameSet =
+				newMembers.length === members.length && newMembers.every((m) => members.includes(m));
 			if (!sameSet) {
 				before.members = members;
 				after.members = newMembers;
@@ -1006,7 +1235,15 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				});
 			});
 			pushChanges(deps, [
-				{ id: changeId, objectId: input.id as string, kind: "changed", actor: ctx.actor, before: changeBefore, after: changeAfter, at: now },
+				{
+					id: changeId,
+					objectId: input.id as string,
+					kind: "changed",
+					actor: ctx.actor,
+					before: changeBefore,
+					after: changeAfter,
+					at: now,
+				},
 			]);
 		}
 
@@ -1015,7 +1252,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		// `canWriteThread` above already establishes the actor may see this.
 		const finalRow = await store.findThread(ctx.db, { id: input.id as string });
 		if (!finalRow) {
-			return { ok: false, problems: [{ code: "not_found", message: `Thread ${input.id} not found` }] };
+			return {
+				ok: false,
+				problems: [{ code: "not_found", message: `Thread ${input.id} not found` }],
+			};
 		}
 		return { ok: true, data: await assembleThreadView(ctx, finalRow) };
 	}
@@ -1046,8 +1286,12 @@ function messageBodyOf(input: SendMessageInput): {
 			...(input.blockId !== undefined ? { blockId: input.blockId } : {}),
 		};
 	}
-	if (input.review !== undefined) return { type: "review", payload: input.review as unknown as Record<string, unknown> };
+	if (input.review !== undefined)
+		return { type: "review", payload: input.review as unknown as Record<string, unknown> };
 	if (input.questionnaire !== undefined)
-		return { type: "questionnaire", payload: input.questionnaire as unknown as Record<string, unknown> };
+		return {
+			type: "questionnaire",
+			payload: input.questionnaire as unknown as Record<string, unknown>,
+		};
 	return { type: "verdict", payload: input.verdict as unknown as Record<string, unknown> };
 }

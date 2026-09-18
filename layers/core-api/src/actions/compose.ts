@@ -15,7 +15,11 @@ import type {
 	ReviewVerdictRecorderFn,
 	ThreadView,
 } from "@hyperidle/domain-model";
-import { get as getKnowledgeItem, getAgentIdentity, listItemIdsByParent } from "@hyperidle/knowledge";
+import {
+	getAgentIdentity,
+	get as getKnowledgeItem,
+	listItemIdsByParent,
+} from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
@@ -84,10 +88,7 @@ function buildThreadActionsDeps(bindings: {
 
 function buildTaskActionsDeps(
 	agentOrchestration: AgentOrchestrationPort,
-	adjustThread: (
-		ctx: ActionContext,
-		input: AdjustThreadInput,
-	) => Promise<ActionResult<ThreadView>>,
+	adjustThread: (ctx: ActionContext, input: AdjustThreadInput) => Promise<ActionResult<ThreadView>>,
 ): TaskActionsDeps {
 	return {
 		changes: { appendChange },
