@@ -1202,6 +1202,64 @@ describe("send_message — direct thread find-or-create (B3)", () => {
 	});
 });
 
+// ============================================================================
+// title-ladder wiring (BC3 review-fix): the "Assistant" rung reads
+// `users.ownerUserId` off `deps.users.listByIds`'s rows, not a bare name.
+// ============================================================================
+
+describe("open_thread — computedTitle reads real ownership", () => {
+	test("a direct thread between the owner and their own agent titles 'Assistant' for the owner, and the agent's own name for someone else it also DMs", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "tw-1");
+		await seedHuman(db, "tw-owner-1", "tw-1");
+		await seedHuman(db, "tw-other-1", "tw-1");
+		const now = new Date().toISOString();
+		// An owned agent (BA1 D6 `users_belonging_ck`): ownerUserId set ⇒ teamId
+		// must be null.
+		await db.insert(users).values({
+			id: "tw-agent-1",
+			kind: "ai",
+			name: "tw-agent-1",
+			role: "builder",
+			status: "active",
+			ownerUserId: "tw-owner-1",
+			createdAt: now,
+		});
+		await seedThreadRow(db, "tw-assistant-thread-1", {
+			hostKind: "user",
+			hostId: "tw-owner-1",
+			initiatorId: "tw-owner-1",
+			members: ["tw-owner-1", "tw-agent-1"],
+		});
+		await seedThreadRow(db, "tw-other-thread-1", {
+			hostKind: "agent",
+			hostId: "tw-agent-1",
+			initiatorId: "tw-other-1",
+			members: ["tw-other-1", "tw-agent-1"],
+		});
+
+		const asOwner = await call<ThreadView>(
+			app,
+			"open_thread",
+			{ id: "tw-assistant-thread-1" },
+			agentHeaders("tw-owner-1"),
+		);
+		expect(asOwner.status).toBe(200);
+		expect(asOwner.body.data?.thread.computedTitle).toBe("Assistant");
+
+		const asOther = await call<ThreadView>(
+			app,
+			"open_thread",
+			{ id: "tw-other-thread-1" },
+			agentHeaders("tw-other-1"),
+		);
+		expect(asOther.status).toBe(200);
+		expect(asOther.body.data?.thread.computedTitle).toBe("tw-agent-1");
+	});
+});
+
 describe("send_message — review link and verdict resume", () => {
 	test("a review with caller.sessionId links the session; a verdict on it calls the recorder", async ({
 		db,
