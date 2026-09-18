@@ -204,22 +204,26 @@ function diffFields(
 class VerdictRaceConflict extends Error {}
 
 export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] {
-	// -----------------------------------------------------------------------
-	// open_thread
-	// -----------------------------------------------------------------------
-	async function openThreadRun(
+	/**
+	 * Assembles the `ThreadView` for an already-loaded, already-permission-
+	 * checked row — no `not_found`/`canReadThread` guard here. `openThreadRun`
+	 * applies that guard itself, before calling this; `adjustThreadRun`'s
+	 * with-id branch calls this directly on the row IT just wrote, because
+	 * `adjustThreadRun({id, deleted:true})` must still return the ThreadView
+	 * it just produced — routing that through `openThreadRun`'s own guard
+	 * would make a successful delete answer its own caller with `not_found`
+	 * (§3.7 "Returns open_thread.run(ctx,{id})" is bounded to the READ door;
+	 * it is not asking adjust to refuse its own write's result).
+	 */
+	async function assembleThreadView(
 		ctx: ActionContext,
-		input: OpenThreadInput,
-	): Promise<{ ok: true; data: ThreadView } | { ok: false; problems: readonly Problem[] }> {
-		const row = await store.findThread(ctx.db, { id: input.id });
-		const members = row ? parseParticipants(row.participants) : [];
-		if (!row || row.deletedAt !== null || !canReadThread(ctx.actor, { hostKind: row.hostKind as HostKind, members })) {
-			return { ok: false, problems: [{ code: "not_found", message: `Thread ${input.id} not found` }] };
-		}
-
+		row: Parameters<typeof rowToThread>[0],
+		blockId?: string,
+	): Promise<ThreadView> {
+		const members = parseParticipants(row.participants);
 		const messageRows = await store.listMessages(ctx.db, {
-			threadId: input.id,
-			...(input.blockId !== undefined ? { blockId: input.blockId } : {}),
+			threadId: row.id,
+			...(blockId !== undefined ? { blockId } : {}),
 			order: "createdAt",
 			dir: "desc",
 			tiebreakId: true,
@@ -248,15 +252,28 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const computedTitle = await computeComputedTitle(ctx.db, row, ctx.actor, deps);
 
 		return {
-			ok: true,
-			data: {
-				thread: rowToThread(row, computedTitle),
-				members: memberIdentities,
-				messages,
-				headMessageId,
-				hostTitle,
-			},
+			thread: rowToThread(row, computedTitle),
+			members: memberIdentities,
+			messages,
+			headMessageId,
+			hostTitle,
 		};
+	}
+
+	// -----------------------------------------------------------------------
+	// open_thread
+	// -----------------------------------------------------------------------
+	async function openThreadRun(
+		ctx: ActionContext,
+		input: OpenThreadInput,
+	): Promise<{ ok: true; data: ThreadView } | { ok: false; problems: readonly Problem[] }> {
+		const row = await store.findThread(ctx.db, { id: input.id });
+		const members = row ? parseParticipants(row.participants) : [];
+		if (!row || row.deletedAt !== null || !canReadThread(ctx.actor, { hostKind: row.hostKind as HostKind, members })) {
+			return { ok: false, problems: [{ code: "not_found", message: `Thread ${input.id} not found` }] };
+		}
+
+		return { ok: true, data: await assembleThreadView(ctx, row, input.blockId) };
 	}
 
 	// -----------------------------------------------------------------------
@@ -505,8 +522,9 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		let resolvedAtAfter: string | null = resolvedAtBefore;
 		let willReopen = false;
 
-		await ctx.db.transaction(async (tx) => {
-			if (creatingThread) {
+		try {
+			await ctx.db.transaction(async (tx) => {
+				if (creatingThread) {
 				const values: NewThread = {
 					id: newThreadId as string,
 					hostKind: creatingThread.hostKind,
@@ -652,7 +670,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					at: now,
 				});
 			}
-		});
+			});
+		} catch (e) {
+			if (e instanceof VerdictRaceConflict) {
+				return {
+					ok: false,
+					problems: [{ code: "verdict_race", message: "This review was already resolved." }],
+				};
+			}
+			throw e;
+		}
 
 		// -- 6. after commit -----------------------------------------------------
 		ctx.eventBus.emit({
@@ -891,7 +918,14 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			});
 		}
 
-		return openThreadRun(ctx, { id: input.id });
+		// Not `openThreadRun` — that guard would refuse a `deleted:true` adjust
+		// its own successful result (see `assembleThreadView`'s doc comment).
+		// `canWriteThread` above already establishes the actor may see this.
+		const finalRow = await store.findThread(ctx.db, { id: input.id as string });
+		if (!finalRow) {
+			return { ok: false, problems: [{ code: "not_found", message: `Thread ${input.id} not found` }] };
+		}
+		return { ok: true, data: await assembleThreadView(ctx, finalRow) };
 	}
 
 	return [
