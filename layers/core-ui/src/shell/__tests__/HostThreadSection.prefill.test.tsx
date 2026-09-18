@@ -4,7 +4,10 @@
  * AC coverage:
  *  - renders the Re: chip when prefill is set
  *  - chip has a dismiss × button that calls onClearPrefill (F5)
- *  - post forwards blockId to postPlainHostMessage when prefill contains blockId
+ *
+ * @lore BC3: re-pointed off the deleted `useHostThread`/`host-threads`
+ * service onto `useThread` — posting now goes through `call("send_message")`
+ * inside `HostThreadSection`'s own composer handler, not a mocked service.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -12,28 +15,45 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HostThreadSection } from "../../shell/HostThreadSection";
 
-vi.mock("../../hooks/useHostThread", () => ({
-	useHostThread: vi.fn(),
+vi.mock("../../hooks/useThread.js", () => ({
+	useThread: vi.fn(),
+}));
+vi.mock("../../hooks/useThreads.js", () => ({
+	useThreads: vi.fn(),
 }));
 
-vi.mock("../../services/host-threads", () => ({
-	postPlainHostMessage: vi.fn(),
-	resolveOrCreateHostThread: vi.fn(),
-}));
-
-import { useHostThread } from "../../hooks/useHostThread";
+import { useThread } from "../../hooks/useThread.js";
+import { useThreads } from "../../hooks/useThreads.js";
 
 const THREAD_FIXTURE = {
 	id: "t-prefill-001",
-	hostKind: "task" as const,
-	hostId: "task-prefill",
+	hostKind: "team" as const,
+	hostId: "team-prefill",
 	initiatorId: "u-founder",
-	participants: ["u-founder", "agent-unassigned"],
+	members: ["u-founder", "agent-unassigned"],
+	title: null,
+	computedTitle: "Discussion",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: "2026-05-05T10:00:00Z",
 	createdAt: "2026-05-05T09:00:00Z",
 };
+
+function mockReadyEmptyThread(): void {
+	vi.mocked(useThreads).mockReturnValue({
+		status: "ready",
+		threads: [],
+		error: null,
+		retry: vi.fn(),
+	});
+	vi.mocked(useThread).mockReturnValue({
+		status: "ready",
+		data: { thread: THREAD_FIXTURE, members: [], messages: [], headMessageId: null, hostTitle: null },
+		error: null,
+		refresh: vi.fn(),
+	});
+}
 
 describe("HostThreadSection prefill (L18)", () => {
 	afterEach(() => {
@@ -41,17 +61,11 @@ describe("HostThreadSection prefill (L18)", () => {
 	});
 
 	it("renders the Re: chip when prefill is set", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: [], identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockReadyEmptyThread();
 
 		render(
 			<HostThreadSection
-				hostKind="task"
-				hostId="task-prefill"
+				threadId="t-prefill-001"
 				title="Discussion"
 				prefill={{ blockId: "block-abc", blockExcerpt: "The auth cache TTL policy" }}
 			/>,
@@ -63,14 +77,9 @@ describe("HostThreadSection prefill (L18)", () => {
 	});
 
 	it("does not render the Re: chip when no prefill is set", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: [], identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockReadyEmptyThread();
 
-		render(<HostThreadSection hostKind="task" hostId="task-prefill" title="Discussion" />);
+		render(<HostThreadSection threadId="t-prefill-001" title="Discussion" />);
 
 		expect(screen.queryByTestId("host-thread-prefill-chip")).not.toBeInTheDocument();
 	});
@@ -78,17 +87,11 @@ describe("HostThreadSection prefill (L18)", () => {
 	it("dismiss × button calls onClearPrefill (F5)", async () => {
 		const user = userEvent.setup();
 		const onClearPrefill = vi.fn();
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: [], identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockReadyEmptyThread();
 
 		render(
 			<HostThreadSection
-				hostKind="task"
-				hostId="task-prefill"
+				threadId="t-prefill-001"
 				title="Discussion"
 				prefill={{ blockId: "block-abc", blockExcerpt: "The auth cache TTL policy" }}
 				onClearPrefill={onClearPrefill}
@@ -102,17 +105,11 @@ describe("HostThreadSection prefill (L18)", () => {
 	});
 
 	it("does not render dismiss button when onClearPrefill is not provided", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: [], identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockReadyEmptyThread();
 
 		render(
 			<HostThreadSection
-				hostKind="task"
-				hostId="task-prefill"
+				threadId="t-prefill-001"
 				title="Discussion"
 				prefill={{ blockId: "block-abc", blockExcerpt: "The auth cache TTL policy" }}
 			/>,
