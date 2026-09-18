@@ -116,7 +116,7 @@ export function relativeLong(input: TimestampInput, now?: number): string {
  * seconds=true → forced 24h "14:32:07" (HH:mm:ss, hour12:false — intentional ‡).
  * R3 is parameterized by BOTH precision and hour-cycle, by design.
  *
- * ‡ @lore AI3 site-15: SessionActivityPanel previously used toLocaleTimeString
+ * ‡ @lore AI3 site-15: a prior seconds-precision activity log used toLocaleTimeString
  * with no hour12 override → locale-12h on en-US renders "02:34:07 PM". clockTime
  * with seconds:true hard-codes hour12:false → "14:34:07" app-wide. Intentional
  * visible change: high-frequency tool-call log reads cleaner in 24h and disambiguates

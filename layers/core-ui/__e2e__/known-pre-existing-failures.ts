@@ -301,7 +301,6 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"team pill filters are visible (All Teams + 2 team pills)",
 	"team-back-portfolio: breadcrumb click returns to portfolio",
 	"the 7 verdict keyboard shortcuts (A/R/X/S/C/I/E) produce ZERO POSTs (AC-3)",
-	"thread-dial-in: Dial In button opens session activity panel",
 	"thread-send-message: sending a message POSTs and renders the new message",
 	"thread-verdict: clicking Approve on RichMessageCard POSTs verdict payload",
 	"toggling Blocking chip filters to blocking threads only",

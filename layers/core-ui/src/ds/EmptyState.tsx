@@ -36,7 +36,7 @@ export interface EmptyStateProps {
 	 * Compact (panel-inline) variant. When true: 18px padding, no max-width,
 	 * never renders the 48px icon block, 15px/600 title, 13px description.
 	 * @lore AI5: embodies the hand-rolled panel one-liners
-	 * (ArtifactThreadsSummary, SessionActivityPanel) so they have a primitive
+	 * (e.g. ArtifactThreadsSummary) so they have a primitive
 	 * to reach for instead of forking. Default false keeps the full page-scale
 	 * variant frozen by EmptyState.test.tsx.
 	 */

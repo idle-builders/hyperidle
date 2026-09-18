@@ -265,8 +265,8 @@ async function seedFirstBet(page: Page): Promise<void> {
 }
 
 /**
- * seedActiveWork: 2 bets, 3 threads (1 blocking with review message), 1 active session.
- * Used for testing conversations filter, verdict, and dial-in flows.
+ * seedActiveWork: 2 bets, 3 threads (1 blocking with review message).
+ * Used for testing conversations filter and verdict flows.
  */
 async function seedActiveWork(page: Page): Promise<void> {
 	await mockSearchThreads(page, {
@@ -294,30 +294,6 @@ async function seedActiveWork(page: Page): Promise<void> {
 			},
 		]),
 		[THREAD_1.id]: toThreadView(THREAD_1, [PLAIN_MESSAGE_1]),
-	});
-
-	// Mock active session for task
-	// @lore R9: fetchActiveSession expects body to be a direct array (not {sessions: [...]}).
-	// ActiveSession requires id, agentId, taskId, state, startedAt, modelTier fields.
-	await page.route("**/api/sessions?**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify([
-					{
-						id: "session-r9-1",
-						agentId: "a-aria",
-						taskId: "task-r9-1",
-						state: "active",
-						startedAt: NOW,
-						modelTier: "standard",
-					},
-				]),
-			});
-		} else {
-			await route.continue();
-		}
 	});
 }
 
@@ -884,26 +860,6 @@ test.describe("R9 — Conversations thread page", () => {
 		await card.getByRole("button", { name: /^approve$/i }).click();
 
 		await expect.poll(() => postObserved, { timeout: 5_000 }).toBe(true);
-	});
-
-	// thread-dial-in: Navigate to task thread with active session → click "Dial In" → SessionActivityPanel visible
-	test("thread-dial-in: Dial In button opens session activity panel", async ({ page }) => {
-		await seedActiveWork(page);
-		await page.goto(`/conversations/${THREAD_TASK.id}`);
-		await expect(page.locator("[data-testid='thread-shell']")).toBeVisible();
-
-		// "Dial In" button should be visible when there is an active session for this task-hosted thread
-		const dialInBtn = page.getByRole("button", { name: /dial in/i });
-		await expect(dialInBtn).toBeVisible({ timeout: 5_000 });
-
-		await dialInBtn.click();
-
-		// SessionActivityPanel or companion split layout should appear
-		await expect(
-			page
-				.locator("[data-testid='session-activity-panel']")
-				.or(page.locator("[data-testid='companion']")),
-		).toBeVisible({ timeout: 5_000 });
 	});
 });
 
