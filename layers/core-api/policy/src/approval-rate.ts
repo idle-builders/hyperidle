@@ -23,9 +23,8 @@ export interface ApprovalRateResult {
 /**
  * Compute the approval rate for an agent within a sliding window.
  *
- * Attribution logic:
- * 1. Path 1: verdict messages with legacyItemId → items.sourceAgentId = agentId
- * 2. Path 2: verdict messages with no legacyItemId on threads where initiatorId = agentId
+ * Attribution: a verdict message counts toward the agent when it landed on a
+ * thread that agent initiated (`threads.initiatorId = agentId`).
  *
  * Approval = decision is "approve" or "approve-with-comments".
  * Rate = approvals / total (0 when total = 0).
@@ -45,9 +44,6 @@ export async function computeApprovalRate(
 ): Promise<ApprovalRateResult> {
 	const windowStart = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
-	// BC3 architecture.md §5 R4: Path 1 (legacyItemId -> items.sourceAgentId)
-	// is DELETED with the items column/table. Path 2 (threads.initiatorId) is
-	// the only attribution now.
 	const allRows = await deps.conversation.listInitiatedVerdictMessages(db, agentId, windowStart);
 
 	const totalVerdicts = allRows.length;
