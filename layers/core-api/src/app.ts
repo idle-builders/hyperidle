@@ -103,6 +103,17 @@ interface AppOptions {
 				import("@hyperidle/domain-model").SendMessageOutput
 			>
 		>;
+		/**
+		 * BC3 architecture.md §5 B7b: `adjust_thread`'s own bound `run`, so the
+		 * stalled-knowledge-action reaction can resolve-or-create the knowledge
+		 * item's thread.
+		 */
+		adjustThread: (
+			ctx: import("./actions/action.js").ActionContext,
+			input: import("@hyperidle/domain-model").AdjustThreadInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
+		>;
 	}) => Array<() => void>;
 	/**
 	/**
@@ -439,6 +450,16 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				import("@hyperidle/domain-model").SendMessageOutput
 			>
 		>;
+		const adjustThreadAction = actions.find((a) => a.declaration.name === "adjust_thread");
+		if (!adjustThreadAction) {
+			throw new Error("buildCoreActions did not produce an adjust_thread action");
+		}
+		const adjustThreadRun = adjustThreadAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").AdjustThreadInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
+		>;
 		api.route("/reviews", createReviewRoutes(options.db));
 		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
 		// `POST /:id/injections`, whose team-consistency gate reads `users` +
@@ -487,8 +508,14 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		const disposers: Array<() => void> = [];
 
 		const serviceDisposers =
-			options.serviceBootstrap?.({ db, eventBus, agentOrchestration, editTask, sendMessage }) ??
-			[];
+			options.serviceBootstrap?.({
+				db,
+				eventBus,
+				agentOrchestration,
+				editTask,
+				sendMessage,
+				adjustThread: adjustThreadRun,
+			}) ?? [];
 		disposers.push(...serviceDisposers);
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".

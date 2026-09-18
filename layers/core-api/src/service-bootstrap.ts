@@ -253,6 +253,12 @@ export function registerCoreDomainServices(ctx: {
 	 * reaction posts through it instead of a raw `insertMessage`.
 	 */
 	readonly sendMessage: import("./services/session-not-returned-notice.js").SendMessageRunFn;
+	/**
+	 * BC3 architecture.md §5 B7b: `adjust_thread`'s own bound `run`, threaded
+	 * the same way — the stalled-knowledge-action reaction resolves-or-
+	 * creates the knowledge item's thread through it.
+	 */
+	readonly adjustThread: import("./services/agent-run-admission-reactions.js").AdjustThreadRunFn;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -268,12 +274,15 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
-	const { db, eventBus, agentOrchestration, editTask, sendMessage } = ctx;
+	const { db, eventBus, agentOrchestration, editTask, sendMessage, adjustThread } = ctx;
 	const disposers: Array<() => void> = [];
 
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration),
+			registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration, {
+				sendMessage,
+				adjustThread,
+			}),
 			"agent-run-admission reactions",
 			"unsubscribe",
 			["agent_run_admission_failed subscription"],

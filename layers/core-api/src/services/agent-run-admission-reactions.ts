@@ -30,13 +30,20 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { insertThread } from "@hyperidle/thread";
-import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
+import type {
+	ActionResult,
+	AdjustThreadInput,
+	SendMessageInput,
+	SendMessageOutput,
+	ThreadView,
+} from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/event-bus";
-import { type CreateReviewItemResult, createReviewItem } from "@hyperidle/knowledge";
+import { findThread } from "@hyperidle/thread";
 import * as routineService from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
+import type { ActionContext } from "../actions/action.js";
 
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
@@ -46,25 +53,61 @@ function knowledgeItemIdFromSourceId(sourceId: string): string {
 	return sourceId.replace(/^knowledge:/, "");
 }
 
+export type SendMessageRunFn = (
+	ctx: ActionContext,
+	input: SendMessageInput,
+) => Promise<ActionResult<SendMessageOutput>>;
+export type AdjustThreadRunFn = (
+	ctx: ActionContext,
+	input: AdjustThreadInput,
+) => Promise<ActionResult<ThreadView>>;
+
+/**
+ * BC3 architecture.md §5 B7b — the second `items` writer, kept alive as a
+ * `send_message` instead: "a knowledge action that could not be admitted
+ * gets flagged for a human" is the SAME behaviour, at the SAME moment, into
+ * the SAME thread (the knowledge item's, `knowledge_item`-hosted, resolved
+ * not recreated on every failure). `system:propagation` posts into it —
+ * host-scoped, so it may post, and its first post joins it (architecture.md
+ * §3.4) — never the synthetic `"attention_engine"` sender `changes.actor`'s
+ * FK would reject.
+ */
 async function flagStalledKnowledgeAction(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	event: AgentRunAdmissionFailedEvent,
-): Promise<CreateReviewItemResult> {
+	deps: { readonly sendMessage: SendMessageRunFn; readonly adjustThread: AdjustThreadRunFn },
+): Promise<void> {
 	const knowledgeItemId = knowledgeItemIdFromSourceId(event.sourceId);
-	const flagStalledKnowledgeReviewItem = createReviewItem({
-		conversation: { insertThread },
-		work: {
-			createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
+	const now = new Date(event.timestamp).toISOString();
+	const ctx: ActionContext = { actor: "system:propagation", db, eventBus, now };
+
+	const existing = await findThread(db, { host: { kind: "knowledge_item", id: knowledgeItemId } });
+	let threadId = existing?.id;
+	if (threadId === undefined) {
+		const created = await deps.adjustThread(ctx, {
+			host: { kind: "knowledge_item", id: knowledgeItemId },
+			members: ["system:propagation"],
+		});
+		if (!created.ok) {
+			logger.error("flagStalledKnowledgeAction: could not create the knowledge item's thread", {
+				knowledgeItemId,
+				problems: created.problems,
+			});
+			return;
+		}
+		threadId = created.data.thread.id;
+	}
+
+	await deps.sendMessage(ctx, {
+		threadId,
+		clientKey: `knowledge-stall:${event.intentId}`,
+		review: {
+			title: "Agent work stalled: knowledge action",
+			reasoning: [
+				`Knowledge item ${knowledgeItemId} could not be admitted for agent work (${event.failureCode}).`,
+			],
 		},
-	});
-	return flagStalledKnowledgeReviewItem(db, eventBus, {
-		knowledgeItemId,
-		title: "Agent work stalled: knowledge action",
-		body: `Knowledge item ${knowledgeItemId} could not be admitted for agent work (${event.failureCode}).`,
-		riskTier: "low",
-		reasoning: { failureCode: event.failureCode, intentId: event.intentId },
-		nowMs: event.timestamp,
 	});
 }
 
@@ -73,6 +116,7 @@ async function reactToAdmissionFailure(
 	eventBus: EventBus,
 	event: AgentRunAdmissionFailedEvent,
 	agentOrchestration: AgentOrchestrationPort,
+	threadDeps: { readonly sendMessage: SendMessageRunFn; readonly adjustThread: AdjustThreadRunFn },
 ): Promise<void> {
 	switch (event.kind) {
 		case "routine_run":
@@ -97,7 +141,7 @@ async function reactToAdmissionFailure(
 			await agentOrchestration.requests.failExplicitSessionStart(event.sourceId, event.failureCode);
 			return;
 		case "knowledge_action":
-			await flagStalledKnowledgeAction(db, eventBus, event);
+			await flagStalledKnowledgeAction(db, eventBus, event, threadDeps);
 			return;
 		case "thread_turn":
 			// Informational only — no durable "run" record exists for a thread
@@ -117,6 +161,7 @@ export function registerAgentRunAdmissionReactions(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
+	threadDeps: { readonly sendMessage: SendMessageRunFn; readonly adjustThread: AdjustThreadRunFn },
 ): () => void {
 	if (registeredBuses.has(eventBus)) {
 		return () => {};
@@ -127,7 +172,7 @@ export function registerAgentRunAdmissionReactions(
 		"agent_run_admission_failed",
 		(event: AgentRunAdmissionFailedEvent) => {
 			if (!event.terminal) return;
-			void reactToAdmissionFailure(db, eventBus, event, agentOrchestration).catch(
+			void reactToAdmissionFailure(db, eventBus, event, agentOrchestration, threadDeps).catch(
 				(error: unknown) => {
 					logger.error("agent_run_admission_failed reaction failed", {
 						kind: event.kind,

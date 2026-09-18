@@ -51,9 +51,6 @@
 			"path": "changes"
 		},
 		{
-			"path": "conversation"
-		},
-		{
 			"path": "credentials"
 		},
 		{
@@ -76,6 +73,9 @@
 		},
 		{
 			"path": "task"
+		},
+		{
+			"path": "thread"
 		},
 		{
 			"path": "users"

@@ -14,7 +14,12 @@ import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
 import type { Hono } from "hono";
 import { disposeApp } from "../app.js";
+import { buildCoreActions } from "../actions/compose.js";
 import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
+import type {
+	AdjustThreadRunFn,
+	SendMessageRunFn,
+} from "../services/agent-run-admission-reactions.js";
 import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
@@ -148,7 +153,23 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		const agentOrchestration: AgentOrchestrationPort = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
-		const unregister = registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration);
+		// BC3 architecture.md §5 B7b: the stalled-knowledge-action reaction now
+		// posts through send_message/adjust_thread — this fixture's own throwaway
+		// action bag, same shape `O3-service-move-bootstrap.integration.test.ts` builds.
+		const fixtureActions = buildCoreActions({
+			agentOrchestration,
+			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+		});
+		const sendMessageAction = fixtureActions.find((a) => a.declaration.name === "send_message");
+		const adjustThreadAction = fixtureActions.find((a) => a.declaration.name === "adjust_thread");
+		if (!(sendMessageAction && adjustThreadAction)) {
+			throw new Error("buildCoreActions did not produce send_message/adjust_thread");
+		}
+		const unregister = registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration, {
+			sendMessage: sendMessageAction.run as SendMessageRunFn,
+			adjustThread: adjustThreadAction.run as AdjustThreadRunFn,
+		});
 		await use(eventBus);
 		unregister();
 		orchestrationBoot.dispose();
