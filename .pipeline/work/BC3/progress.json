@@ -40,13 +40,13 @@
   "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
   "branch": "feature/thread-module",
   "base": "origin/main",
-  "phase": "build",
-  "next_action": "two builders in parallel: server (tests, tool deletion, websocket nudge, governance, dead code) and UI (call(), two hooks, surfaces); then review in two passes, full e2e vs main, harness lane, founder gate",
+  "phase": "review",
+  "next_action": "two read-only reviewers running (server; UI+e2e+docs); fix findings as atomic chunks; then full e2e vs main, harness lane vs main, founder gate in the running app",
   "since": "c90326dd1",
   "artifacts": {
     "architecture": ".pipeline/work/BC3/architecture.md",
     "critique": ".pipeline/work/BC3/critique.md (round 1 FAIL 10 blockers, round 2 PASS WITH BLOCKERS 1)",
     "facts": ".pipeline/work/BC3/facts.md"
   },
-  "build_notes": "first builder did steps 1-5 plus route deletion without writing the section-9 tests; module had never run when it handed over; replacement builders write the tests first"
+  "build_notes": "built as ~45 atomic chunks with disjoint paths after the first builder ran out; gates green: typecheck, unit 5020, service integration 1818, knip, deps, eslint, governance x3; design census baseline update in flight; live harness thread-turn test restored: claude/opencode/cursor pass, codex crashes (compare with main)"
 }
