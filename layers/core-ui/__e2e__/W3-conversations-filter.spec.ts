@@ -5,52 +5,46 @@
  * AC-6: Filter chips are toggle-style (Blocking, Unread) — not mutually exclusive tabs.
  * AC-7: "Blocking" badge visible on blocking thread rows.
  * AC-8: "New thread" button in header.
+ *
+ * @lore BC3: repointed at `POST /api/actions/search_threads` — never `GET
+ * /api/threads*`. `blocking`/`unread` are no longer part of `ThreadListRow`'s
+ * wire shape — `AppShell.rowToItem` hardcodes `blocking: false` now (own
+ * @lore) — so every AC-6/AC-7 assertion that depends on a thread actually
+ * being blocking is already on `known-pre-existing-failures.ts`. This is a
+ * mechanical mock migration only, not an attempt to resurrect the field.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
 
 const NOW_ISO = new Date().toISOString();
 
-function mkThread(overrides: {
-	id: string;
-	blocking?: boolean;
-	unread?: boolean;
-	resolvedAt?: string | null;
-}) {
-	return {
-		id: overrides.id,
-		hostKind: "task",
+function mkThread(id: string) {
+	return makeThreadListRow(id, {
+		hostKind: "team",
 		hostId: "host-1",
 		initiatorId: "u-founder",
-		participants: ["u-founder"],
+		members: ["u-founder"],
 		pinned: false,
-		resolvedAt: overrides.resolvedAt ?? null,
+		resolvedAt: null,
 		lastActiveAt: NOW_ISO,
 		createdAt: NOW_ISO,
 		hasUnresolvedReview: false,
-		blocking: overrides.blocking ?? false,
-		unread: overrides.unread ?? false,
-		title: `Thread ${overrides.id}`,
-	};
+		title: `Thread ${id}`,
+		computedTitle: `Thread ${id}`,
+	});
 }
 
 const MIXED_THREADS = [
-	mkThread({ id: "t1", blocking: true }),
-	mkThread({ id: "t2", blocking: true }),
-	mkThread({ id: "t3", blocking: false }),
-	mkThread({ id: "t4", blocking: false }),
-	mkThread({ id: "t5", blocking: false, unread: true }),
+	mkThread("t1"),
+	mkThread("t2"),
+	mkThread("t3"),
+	mkThread("t4"),
+	mkThread("t5"),
 ];
 
 test.describe("W3 AC-5 — Flat thread list (no section grouping)", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: MIXED_THREADS, nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: MIXED_THREADS });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 	});
@@ -71,13 +65,7 @@ test.describe("W3 AC-5 — Flat thread list (no section grouping)", () => {
 
 test.describe("W3 AC-6 — Toggle-style filter chips", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: MIXED_THREADS, nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: MIXED_THREADS });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 	});
@@ -143,13 +131,7 @@ test.describe("W3 AC-6 — Toggle-style filter chips", () => {
 
 test.describe("W3 AC-7 — Blocking badge on thread rows", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: MIXED_THREADS, nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: MIXED_THREADS });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 	});
@@ -186,13 +168,7 @@ test.describe("W3 AC-7 — Blocking badge on thread rows", () => {
 
 test.describe("W3 AC-8 — New thread button in header", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: MIXED_THREADS, nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: MIXED_THREADS });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-conversations-header]");
 	});
