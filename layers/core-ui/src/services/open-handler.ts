@@ -10,8 +10,8 @@
  * Route map (the §6 routing contract):
  *   host    → resolveHostRoute(hostKind, hostId)   (total over HostKind; null = no-op, e.g. user)
  *   review  → /reviews/:reviewId
- *   session → AM3 dial-in — NO destination yet; documented no-op (R3). AM1 must
- *             not invent a fabricated path.
+ *   session → fires the page-supplied `onOpenSession` callback (AM3); no route,
+ *             the page owns where the session view mounts
  *
  * @lore AM1 C1: a block/entity routes to its HOST surface via `resolveHostRoute`
  * — the existing resolver, total over `HostKind`. No new route table, no

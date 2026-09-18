@@ -6,9 +6,10 @@
  *
  * @lore L18: Stories use a wrapper that injects fixture data directly into
  * HostThreadSection via prop-level state injection. Since HostThreadSection
- * calls useHostThread internally and stories can't easily mock hooks, we render
- * the content DIV directly for visual stories instead of the full component.
- * The real component is tested via unit tests; stories prove the visual shape.
+ * calls useThread/useThreads internally and stories can't easily mock hooks,
+ * we render the content DIV directly for visual stories instead of the full
+ * component. The real component is tested via unit tests; stories prove the
+ * visual shape.
  *
  * @lore visual-parity-audit: WithMessages story updated to use CommentRow
  * directly so stories reflect the actual rendered output (avatar, name, timestamp)

@@ -56,9 +56,3 @@ export const AssistantContext = createContext<AssistantContextValue>({
 	overlayOpen: false,
 	attachContext: () => undefined,
 });
-
-// ---------------------------------------------------------------------------
-// AF14: Coc→Assistant rename complete. CocContext.tsx, CocOverlay.tsx,
-// CocAttachButton.tsx, useCocThread.ts are all deleted. All callers use
-// AssistantContext, AssistantOverlay, AssistantAttachButton, useAssistantThread.
-// ---------------------------------------------------------------------------

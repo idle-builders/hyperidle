@@ -523,11 +523,10 @@ export function Conversations(): JSX.Element {
 	const onNewThread = ctx?.onNewThread;
 
 	// @lore U6 review V1: Thread data is sourced from AppShell's OutletContext
-	// (single useConversationsThreads call in AppShell). Conversations.tsx no
-	// longer calls useConversationsThreads independently, avoiding the duplicate
-	// API fetch that previously occurred on every Conversations page mount.
-	// Fallback values handle the case where Conversations is rendered outside
-	// AppShell (tests that provide a partial context or no context at all).
+	// (AppShell's single `useThreads` call) — Conversations.tsx never fetches
+	// its own copy. Fallback values handle the case where Conversations is
+	// rendered outside AppShell (tests that provide a partial context or no
+	// context at all).
 	const conversationsThreads = {
 		threads: ctx?.threads ?? [],
 		status: ctx?.threadsStatus ?? ("loading" as const),

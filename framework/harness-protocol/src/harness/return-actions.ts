@@ -13,10 +13,10 @@
  * RETURN_ACTION_NAMES + ALL_TOOL_DEFINITIONS and asserts every member maps to a
  * real registered tool — drift caught at CI time).
  *
- * v1 ships the name-only trio: submit_review / handoff_to / send_message.
- * update_task_status is deferred (concept §2.1 path B) — adding it later is a
- * one-tool edit, not a model change. The `_args` param in isReturnAction is
- * pre-wired for path A (argument-gated member) without widening the set.
+ * The set is `edit_task` / `send_message`. update_task_status is deferred
+ * (concept §2.1 path B) — adding it later is a one-tool edit, not a model
+ * change. The `_args` param in isReturnAction is pre-wired for path A
+ * (argument-gated member) without widening the set.
  *
  * @lore the architecture doc §8 B4, narrowed at review (B4): `handoff_to`
  * (the standalone tool) is deleted — handoff is now an `edit_task` call that

@@ -7,8 +7,8 @@
  * handlers.
  *
  * @lore Q1: The web package had no WebSocket client until Q1. Hooks that need
- * real-time updates (useConversationsThreads, useSessionActivity) subscribe via
- * a singleton. Each singleton reconnects automatically on unexpected close.
+ * real-time updates (useThreads, useSessionActivity) subscribe via a
+ * singleton. Each singleton reconnects automatically on unexpected close.
  *
  * @lore AU26 J3: there are now TWO sockets, not one, because there are two
  * Layers and each serves its own topics. `getWsClient()` talks to core-api's
