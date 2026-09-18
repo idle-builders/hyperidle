@@ -2,23 +2,50 @@
  * Conversation store + User store runtime behavior.
  *
  * Proves the two owning modules (conversation-store, user-store) write the
- * expected rows, that get-or-create is idempotent, that the verdict-race
- * resolve is first-wins, that bulk cost reset zeroes every row, and that a
- * write function passed a live `tx` participates in — and rolls back with —
- * the caller's transaction.
+ * expected rows, that get-or-create is idempotent, that direct-thread and
+ * pinned-patch writes ride the `send_message`/`adjust_thread` actions (the
+ * store's `findOrCreateDirectThread`/`updateThread` have no production
+ * caller), and that a write function passed a live `tx` participates in —
+ * and rolls back with — the caller's transaction. The verdict-race
+ * first-wins behavior lives in thread-actions.integration.test.ts.
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import {
-	findOrCreateDirectThread,
-	insertMessage,
-	insertThread,
-	resolveMessageIfUnresolved,
-	updateThread,
-} from "@hyperidle/thread";
+import { insertMessage, insertThread } from "@hyperidle/thread";
 import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
+
+interface ActionEnvelope<T> {
+	readonly ok: boolean;
+	readonly data?: T;
+}
+
+async function sendMessageAs(
+	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
+	actorId: string,
+	body: Record<string, unknown>,
+): Promise<{ readonly status: number; readonly body: ActionEnvelope<{ thread: { id: string } }> }> {
+	const res = await app.request("/api/actions/send_message", {
+		method: "POST",
+		headers: { "Content-Type": "application/json", "x-hyperidle-actor-id": actorId },
+		body: JSON.stringify(body),
+	});
+	return { status: res.status, body: (await res.json()) as ActionEnvelope<{ thread: { id: string } }> };
+}
+
+async function adjustThreadAs(
+	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
+	actorId: string,
+	body: Record<string, unknown>,
+): Promise<{ readonly status: number }> {
+	const res = await app.request("/api/actions/adjust_thread", {
+		method: "POST",
+		headers: { "Content-Type": "application/json", "x-hyperidle-actor-id": actorId },
+		body: JSON.stringify(body),
+	});
+	return { status: res.status };
+}
 
 const NOW = new Date().toISOString();
 
@@ -76,30 +103,29 @@ describe("conversation-store row writes", () => {
 		expect(rows[0]?.threadId).toBe("t2");
 	});
 
-	test("updateThread applies a typed patch", async ({ db }) => {
+	test("adjust_thread applies a typed pinned patch (was updateThread)", async ({ db, app }) => {
 		await insertUser(db, userValues("u3"));
 		await insertThread(db, threadValues("t3", "u3"));
-		await updateThread(db, "t3", { pinned: true });
+		const res = await adjustThreadAs(app, "u3", { id: "t3", pinned: true });
+		expect(res.status).toBe(200);
 		const [row] = await db.select().from(threads).where(eq(threads.id, "t3"));
 		expect(row?.pinned).toBe(true);
 	});
 
-	test("resolveMessageIfUnresolved is first-wins", async ({ db }) => {
-		await insertUser(db, userValues("u4"));
-		await insertThread(db, threadValues("t4", "u4"));
-		await insertMessage(db, messageValues("m4", "t4", "u4"));
-		const first = await resolveMessageIfUnresolved(db, "m4", NOW);
-		expect(first).toHaveLength(1);
-		const second = await resolveMessageIfUnresolved(db, "m4", NOW);
-		expect(second).toHaveLength(0);
-	});
+	// @lore BC3: `resolveMessageIfUnresolved`'s first-wins race is already
+	// proven end to end by "a second concurrent verdict returns verdict_race"
+	// in thread-actions.integration.test.ts (one 200, one verdict_race) — no
+	// separate case needed here now that the store helper is unexported.
 
-	test("findOrCreateDirectThread reuses the same thread", async ({ db }) => {
+	test("send_message reuses the same direct thread for the same sender+recipient", async ({
+		db,
+		app,
+	}) => {
 		await insertUser(db, userValues("u5a"));
 		await insertUser(db, userValues("u5b", { kind: "human" }));
-		const first = await findOrCreateDirectThread(db, "u5a", "u5b", NOW, "user");
-		const second = await findOrCreateDirectThread(db, "u5a", "u5b", NOW, "user");
-		expect(second).toBe(first);
+		const first = await sendMessageAs(app, "u5a", { recipients: ["u5b"], text: "one" });
+		const second = await sendMessageAs(app, "u5a", { recipients: ["u5b"], text: "two" });
+		expect(second.body.data?.thread.id).toBe(first.body.data?.thread.id);
 	});
 });
 

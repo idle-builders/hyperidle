@@ -12,9 +12,8 @@
  * the bets.ts decomposition.
  */
 
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages as messagesTable, teams, users } from "@hyperidle/db";
 import {
-	findMessage,
 	findThread,
 	insertMessage,
 	insertThread,
@@ -189,12 +188,18 @@ describe("user-store reads", () => {
 });
 
 describe("conversation-store reads", () => {
-	test("findThread + findMessage return the row or undefined", async ({ db }) => {
+	test("findThread returns the row or undefined; insertMessage's row reads back by id", async ({
+		db,
+	}) => {
 		await insertUser(db, userValues("u1"));
 		await insertThread(db, threadValues("t1"));
 		await insertMessage(db, messageValues("m1", "t1", NOW));
 		expect((await findThread(db, { id: "t1" }))?.id).toBe("t1");
-		expect((await findMessage(db, { id: "m1" }))?.id).toBe("m1");
+		// @lore BC3: `findMessage` (the store's single-row-by-id read) has no
+		// production caller outside `@hyperidle/thread` itself — unexported.
+		// This is a plain fixture readback, not a call through the barrel.
+		const [messageRow] = await db.select().from(messagesTable).where(eq(messagesTable.id, "m1"));
+		expect(messageRow?.id).toBe("m1");
 		expect(await findThread(db, { id: "nope" })).toBeUndefined();
 	});
 
