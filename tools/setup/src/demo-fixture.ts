@@ -43,6 +43,7 @@ import {
 	routines,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
@@ -260,9 +261,22 @@ export async function seedDemoWorld(
 
 	// Daily digest bet (disabled by default — operator enables)
 	await db
+		.insert(threads)
+		.values({
+			id: "thr-demo-bet-daily-digest",
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: "seed-agent-cos",
+			participants: "[]",
+			lastActiveAt: clock.daysAgo(19),
+			createdAt: clock.daysAgo(19),
+		})
+		.onConflictDoNothing();
+	await db
 		.insert(tasks)
 		.values({
 			id: "demo-bet-daily-digest",
+			threadId: "thr-demo-bet-daily-digest",
 			parentTaskId: null,
 			teamId: teamId,
 			title: "Internal: daily digest scaffolding bet",
@@ -275,9 +289,22 @@ export async function seedDemoWorld(
 
 	// Daily digest anchor task
 	await db
+		.insert(threads)
+		.values({
+			id: "thr-demo-task-daily-digest",
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: "seed-agent-cos",
+			participants: "[]",
+			lastActiveAt: clock.daysAgo(19),
+			createdAt: clock.daysAgo(19),
+		})
+		.onConflictDoNothing();
+	await db
 		.insert(tasks)
 		.values({
 			id: "demo-task-daily-digest",
+			threadId: "thr-demo-task-daily-digest",
 			parentTaskId: "demo-bet-daily-digest",
 			teamId,
 			ownerAgentId: "seed-agent-cos",

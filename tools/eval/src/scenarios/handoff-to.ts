@@ -4,7 +4,7 @@
  * Tests the handoff_to tool: toAgent path, toRole path, toHuman escalation, context quality.
  */
 
-import { items, sessions } from "@hyperidle/db";
+import { messages, sessions } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -298,21 +298,21 @@ This creates a review item for a human compliance expert.`,
 				id: "review_item_created",
 				label: "Review Item Created for Human",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// toHuman=true creates an escalation review item
-					const reviewItems = await ctx.db
-						.select({ id: items.id, kind: items.kind })
-						.from(items)
-						.where(and(eq(items.sourceAgentId, ctx.seedResult.agentId)));
-					const escalationItems = reviewItems.filter(
-						(i: { id: string; kind: string | null }) =>
-							i.kind === "escalation" || i.kind === "review",
-					);
+					// @lore BC3 architecture.md §5: toHuman=true used to create an
+					// `items` row (kind "escalation"/"review"); a surfaced review
+					// is a `review`-type `messages` row now, sent by the agent.
+					const reviewMessages = await ctx.db
+						.select({ id: messages.id })
+						.from(messages)
+						.where(
+							and(eq(messages.senderId, ctx.seedResult.agentId), eq(messages.type, "review")),
+						);
 					return {
-						score: escalationItems.length > 0 ? 1.0 : 0.5,
+						score: reviewMessages.length > 0 ? 1.0 : 0.5,
 						note:
-							escalationItems.length > 0
-								? `${escalationItems.length} review/escalation item(s) created`
-								: "No review item found (handoff protocol may handle it differently)",
+							reviewMessages.length > 0
+								? `${reviewMessages.length} review message(s) created`
+								: "No review message found (handoff protocol may handle it differently)",
 					};
 				},
 			},

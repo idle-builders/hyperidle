@@ -12,15 +12,7 @@
  * W6 resolution: fewer_tool_calls uses DB side-effect count as proxy (not in-memory buffer).
  */
 
-import {
-	items,
-	knowledgeEditLog,
-	knowledgeItems,
-	messages,
-	routines,
-	sessions,
-	tasks,
-} from "@hyperidle/db";
+import { knowledgeEditLog, knowledgeItems, messages, routines, sessions, tasks } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import { and, eq, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";
@@ -170,26 +162,9 @@ export function judgeCreateTaskCalled(): RubricDimension {
 	};
 }
 
-/** Judge: create_item was called — items row with sourceAgentId = agentId. */
-export function judgeCreateItemCalled(): RubricDimension {
-	return {
-		id: "item_created",
-		label: "Item Created (create_item called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [item] = await ctx.db
-				.select({ id: items.id })
-				.from(items)
-				.where(eq(items.sourceAgentId, ctx.seedResult.agentId))
-				.limit(1);
-
-			const created = item !== undefined;
-			return {
-				score: created ? 1.0 : 0.0,
-				note: created ? undefined : "No item created by agent (create_item not called)",
-			};
-		},
-	};
-}
+// @lore BC3 architecture.md §5 B4/B12: judgeCreateItemCalled DELETED — its
+// only caller (create-item.ts's scenario) tested the create_item tool,
+// which is deleted along with the `items` table it wrote.
 
 /** Judge: log_task was called — tasks.notes contains "[timestamp agentId]" pattern. */
 export function judgeLogTaskCalled(): RubricDimension {
@@ -501,26 +476,9 @@ export function judgeRoutineRan(routineId: string): RubricDimension {
 	};
 }
 
-/** Judge: review item was created (kind="review") by the routine owner. */
-export function judgeReviewItemCreated(): RubricDimension {
-	return {
-		id: "review_item_created",
-		label: "Review Item Created",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [item] = await ctx.db
-				.select({ id: items.id })
-				.from(items)
-				.where(eq(items.kind, "review"))
-				.limit(1);
-
-			const created = item !== undefined;
-			return {
-				score: created ? 1.0 : 0.0,
-				note: created ? undefined : "No review item found in items table",
-			};
-		},
-	};
-}
+// @lore BC3 architecture.md §5 B4/B12: judgeReviewItemCreated DELETED — its
+// only caller (create-item.ts's scenario) is gone; a surfaced review is a
+// `messages` row (type "review") in a thread now, not an `items` row.
 
 /** Judge: knowledgeItems.status = expectedStatus for a specific item. */
 export function judgeKnowledgeStatusChanged(
