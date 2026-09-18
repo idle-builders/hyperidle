@@ -89,9 +89,7 @@ export async function resolveMentionsForMessage(
 	}));
 
 	const participantSet = new Set(participantIds);
-	const mentionedIds = resolved
-		.filter((r) => r.identityId !== senderId)
-		.map((r) => r.identityId);
+	const mentionedIds = resolved.filter((r) => r.identityId !== senderId).map((r) => r.identityId);
 	const newParticipantIds = resolved
 		.filter((r) => r.identityId !== senderId && !participantSet.has(r.identityId))
 		.map((r) => r.identityId);
