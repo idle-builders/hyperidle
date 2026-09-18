@@ -29,7 +29,7 @@ function makeItem(overrides: Partial<ThreadItem> = {}): ThreadItem {
 		snippet: "Latest message",
 		timestamp: "1m ago",
 		unread: false,
-		hostKind: "task",
+		hostKind: "team",
 		hasUnresolvedReview: false,
 		blocking: false,
 		pinned: false,
