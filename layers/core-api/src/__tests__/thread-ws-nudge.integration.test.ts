@@ -241,6 +241,60 @@ describe("send_message — the websocket nudge", () => {
 		});
 		expect(result.ok).toBe(true);
 	});
+
+	test("an overwrite broadcasts thread.message with no payload in before or after on conversations; thread:<id> still carries both", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "nudge-team-6");
+		await seedThreadRow(db, "nudge-thread-6", {
+			hostKind: "team",
+			hostId: "nudge-team-6",
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+
+		const broadcasts: CapturedBroadcast[] = [];
+		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
+		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
+
+		const created = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), {
+			threadId: "nudge-thread-6",
+			text: "original secret text",
+		});
+		expect(created.ok).toBe(true);
+		if (!created.ok) return;
+		const messageId = created.data.message.id;
+		broadcasts.length = 0;
+
+		const overwritten = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), {
+			threadId: "nudge-thread-6",
+			messageId,
+			text: "edited secret text",
+		});
+		expect(overwritten.ok).toBe(true);
+
+		const threadTopicMessage = broadcasts.find(
+			(b) => b.topic === `thread:nudge-thread-6` && b.envelope.kind === "thread.message",
+		);
+		expect(threadTopicMessage).toBeDefined();
+		expect(JSON.stringify(threadTopicMessage?.envelope.data.before)).toContain(
+			"original secret text",
+		);
+		expect(JSON.stringify(threadTopicMessage?.envelope.data.after)).toContain("edited secret text");
+
+		const conversationsMessage = broadcasts.find(
+			(b) => b.topic === "conversations" && b.envelope.kind === "thread.message",
+		);
+		expect(conversationsMessage).toBeDefined();
+		const before = conversationsMessage?.envelope.data.before as Record<string, unknown> | null;
+		const after = conversationsMessage?.envelope.data.after as Record<string, unknown>;
+		expect(JSON.stringify(before)).not.toContain("secret text");
+		expect(JSON.stringify(after)).not.toContain("secret text");
+		expect(before?.payload).toBeUndefined();
+		expect(after.payload).toBeUndefined();
+	});
 });
 
 describe("adjust_thread — the websocket nudge", () => {

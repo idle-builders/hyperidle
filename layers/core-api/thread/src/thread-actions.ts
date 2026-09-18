@@ -237,15 +237,18 @@ function wireKindFor(
 /**
  * `conversations` is a global topic any authenticated identity may subscribe
  * to — the message body may never ride it (architecture.md §3.12). Strip
- * the payload, keep the thread id, message id, sender and members.
+ * the payload, keep the thread id, message id, sender and members. Applied
+ * to BOTH `after` and (when present) `before` — an overwrite's `before`
+ * carries the old payload just as `after` carries the new one, and it must
+ * never ride this topic either.
  */
-function redactMessageAfterForConversations(
-	after: Record<string, unknown>,
+function redactMessageSideForConversations(
+	side: Record<string, unknown>,
 	threadId: string,
 	senderId: string,
 ): Record<string, unknown> {
-	const out: Record<string, unknown> = { threadId, messageId: after.messageId, senderId };
-	if ("members" in after) out.members = after.members;
+	const out: Record<string, unknown> = { threadId, messageId: side.messageId, senderId };
+	if ("members" in side) out.members = side.members;
 	return out;
 }
 
@@ -277,8 +280,12 @@ function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): 
 		});
 		const conversationsAfter =
 			kind === "thread.message"
-				? redactMessageAfterForConversations(row.after, row.objectId, row.actor)
+				? redactMessageSideForConversations(row.after, row.objectId, row.actor)
 				: row.after;
+		const conversationsBefore =
+			kind === "thread.message" && row.before !== null
+				? redactMessageSideForConversations(row.before, row.objectId, row.actor)
+				: row.before;
 		deps.wsPush("conversations", {
 			type: "update",
 			topic: "conversations",
@@ -289,7 +296,7 @@ function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): 
 				objectId: row.objectId,
 				kind,
 				actor: row.actor,
-				before: row.before,
+				before: conversationsBefore,
 				after: conversationsAfter,
 				at: row.at,
 			},
