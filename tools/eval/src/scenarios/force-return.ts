@@ -22,7 +22,7 @@
  * actual model — the unit/integration tests prove the structural enforcement.
  */
 
-import { judgeSessionCompleted, judgeSessionRowValid, judgeSubmitReviewCalled } from "../judges.js";
+import { judgeSendMessageCalled, judgeSessionCompleted, judgeSessionRowValid } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
 import type {
@@ -53,7 +53,7 @@ const frForcedReturnBuilder: EvalScenario = {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent.
 IMPORTANT INSTRUCTION: Do the analysis task below and then STOP your turn immediately.
-Do NOT call submit_review, handoff_to, send_message, or reply. Your job is just to analyze
+Do NOT call edit_task or send_message. Your job is just to analyze
 and end your turn without reporting back. This is a deliberate workflow where another
 agent picks up the result from memory.
 Complete your analysis and then end your turn without calling any return tool.`,
@@ -63,7 +63,7 @@ Complete your analysis and then end your turn without calling any return tool.`,
 2. Write a brief summary to memory using write_memory
 3. End your turn
 
-Do NOT call submit_review, send_message, handoff_to, or reply.
+Do NOT call edit_task or send_message.
 Your system prompt has specific instructions about how to end this task.`,
 			betDescription: "Task queue analysis",
 			betDoneCondition: "Task queue analyzed.",
@@ -201,18 +201,18 @@ const frCompliantReturnBuilder: EvalScenario = {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent. When you complete work,
-always use submit_review to report your results. This is required — your work
-is only visible to the team when you submit a review. Always call submit_review
+always use send_message with type "review" to report your results. This is required — your work
+is only visible to the team when you submit a review. Always call send_message
 at the end of your turn before stopping.`,
 			taskTitle: "Write a brief status summary",
 			taskDescription: `Write a brief status summary and submit it for review.
 
-Use submit_review with:
+Use send_message with type "review" and:
 - title: "Status Summary"
 - reasoning: a brief summary of what you did
 - No artifactRef needed
 
-This is a simple task. Complete it and call submit_review before ending your turn.`,
+This is a simple task. Complete it and call send_message before ending your turn.`,
 			betDescription: "Team status reporting",
 			betDoneCondition: "Status summary reviewed.",
 		});
@@ -237,7 +237,7 @@ This is a simple task. Complete it and call submit_review before ending your tur
 		dimensions: [
 			// Standard judges: session completed, review submitted
 			judgeSessionCompleted(),
-			judgeSubmitReviewCalled(),
+			judgeSendMessageCalled(),
 			judgeSessionRowValid(),
 
 			// Judge: NO force injection (compliant agent returns without being forced)
@@ -294,7 +294,7 @@ const frForcedReturnExternal: EvalScenario = {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent.
 IMPORTANT INSTRUCTION: Do the analysis task below and then STOP your turn immediately.
-Do NOT call submit_review, handoff_to, send_message, or reply. Your job is just to analyze
+Do NOT call edit_task or send_message. Your job is just to analyze
 and end your turn without reporting back. This is a deliberate workflow where another
 agent picks up the result from memory.
 Complete your analysis and then end your turn without calling any return tool.`,
@@ -304,7 +304,7 @@ Complete your analysis and then end your turn without calling any return tool.`,
 2. Write a brief summary to memory using write_memory
 3. End your turn
 
-Do NOT call submit_review, send_message, handoff_to, or reply.`,
+Do NOT call edit_task or send_message.`,
 			betDescription: "Task queue analysis (external harness)",
 			betDoneCondition: "Task queue analyzed.",
 		});
@@ -425,17 +425,17 @@ Do NOT call submit_review, send_message, handoff_to, or reply.`,
 //
 // Design intent:
 //   Run-1 seed: agent is given a short analysis task with a compliant disposition
-//   but no explicit instruction to call submit_review RIGHT NOW. This creates
+//   but no explicit instruction to call send_message RIGHT NOW. This creates
 //   plausible first-run ambiguity — the agent may complete the analysis without
 //   calling a return tool (it "thinks it's just one turn of analysis").
 //
 //   Run-2+ (after forcing): AGENTS.md is rewritten with FORCE_RETURN_MESSAGE.
-//   The compliant agent reads the updated file and calls submit_review.
+//   The compliant agent reads the updated file and calls send_message.
 //
 //   Judge pass condition:
 //     forceReturnCount >= 1   → Layer-B loop fired (sandbox was rewritten)
 //     outcome == "completed"  → agent returned (not rejected to not_returned)
-//     returnVerdict == "returned" → submit_review was received by the ReturnGate
+//     returnVerdict == "returned" → send_message was received by the ReturnGate
 //
 // This proves the "convert success" path on an external harness — the strongest
 // proof of the founder's bar: "this needs to work with all harnesses."
@@ -447,7 +447,7 @@ Do NOT call submit_review, send_message, handoff_to, or reply.`,
 //   fr-forced-return-external-compliant → convert success (forceReturnCount>=1, completed)
 //
 // @lore Seed tuning notes — the system prompt deliberately omits
-// "always call submit_review at the end" to avoid run-1 compliance defeating the
+// "always call send_message at the end" to avoid run-1 compliance defeating the
 // forcing signal. The task is framed as pure analysis so a neutral model naturally
 // ends its turn by describing findings rather than invoking a return tool. The
 // forcing message in AGENTS.md then explicitly triggers the return.
@@ -468,7 +468,7 @@ const frForcedReturnExternalCompliant: EvalScenario = {
 			agentRole: "builder",
 			// @lore Seed tuning — compliant but ambiguous system prompt.
 			// "You are a builder agent" → willing to comply with orchestrator directives.
-			// No "always call submit_review at end" — leaves run-1 open to end without return.
+			// No "always call send_message at end" — leaves run-1 open to end without return.
 			// When AGENTS.md is rewritten with FORCE_RETURN_MESSAGE on run-2, the
 			// compliant framing means the agent reads the forcing instruction and obeys.
 			agentSystemPrompt: `You are a builder agent on a cross-functional team.
@@ -492,7 +492,7 @@ Your response is complete once you have written the summary.`,
 		// The ExternalShapedAdapter reads AGENTS.md on each startSession.
 		// When the provisioning loop detects no return on run-1, it rewrites AGENTS.md
 		// with FORCE_RETURN_MESSAGE. The compliant agent reads it on run-2 and calls
-		// submit_review — yielding outcome=completed and returnVerdict=returned.
+		// send_message — yielding outcome=completed and returnVerdict=returned.
 		return await runEvalSession(
 			{
 				db: ctx.db,
@@ -574,12 +574,12 @@ Your response is complete once you have written the summary.`,
 				},
 			},
 
-			// Judge 3: returnVerdict = "returned" (submit_review was received by ReturnGate).
+			// Judge 3: returnVerdict = "returned" (send_message was received by ReturnGate).
 			// The combination forceReturnCount≥1 + outcome=completed + returnVerdict=returned
 			// is the exact proof the founder asked for: "forcing converts a real external agent."
 			{
 				id: "return_verdict_returned",
-				label: "returnVerdict = returned (submit_review received by ReturnGate after forcing)",
+				label: "returnVerdict = returned (send_message received by ReturnGate after forcing)",
 				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const returnVerdict = ctx.triggerResult.returnVerdict;
@@ -590,7 +590,7 @@ Your response is complete once you have written the summary.`,
 							score: 1.0,
 							note:
 								`returnVerdict=returned, outcome=${outcome} — ` +
-								"submit_review was called after forcing. Convert-success on external harness proven.",
+								"send_message was called after forcing. Convert-success on external harness proven.",
 						};
 					}
 

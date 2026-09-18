@@ -844,6 +844,69 @@ describe("send_message — review link and verdict resume", () => {
 	});
 });
 
+describe("send_message — review taskId stamping (Confusion 9)", () => {
+	test("a review sent with caller.taskId set stores that taskId, and open_thread returns it", async ({
+		db,
+		app,
+		agentOrchestration,
+		eventBus,
+	}) => {
+		await seedTeam(db, "tid-1");
+		await seedAgent(db, "tid-agent-1", "tid-1");
+		const threadId = await seedTaskWithThread(db, "tid1-task", "tid-1", { ownerAgentId: "tid-agent-1" });
+		await db.update(threads).set({ participants: JSON.stringify(["tid-agent-1", FOUNDER_ID]) }).where(eq(threads.id, threadId));
+
+		const actions = buildRealActions(agentOrchestration);
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(actions, "send_message");
+		const result = await sendRun(
+			{
+				actor: "tid-agent-1",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "tid-session-1", taskId: "tid1-task", threadId },
+			},
+			{ threadId, review: { title: "review it", reasoning: ["done"] } },
+		);
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		const messageId = result.data.message.id;
+
+		const [row] = await db.select().from(messages).where(eq(messages.id, messageId));
+		expect((JSON.parse(row?.payload ?? "{}") as { taskId?: string }).taskId).toBe("tid1-task");
+
+		const opened = await call<ThreadView>(app, "open_thread", { id: threadId });
+		expect(opened.status).toBe(200);
+		const reviewMessage = opened.body.data?.messages.find((m) => m.id === messageId);
+		expect((reviewMessage?.payload as { taskId?: string } | undefined)?.taskId).toBe("tid1-task");
+	});
+
+	test("a review sent over HTTP with a taskId smuggled into the input body is stored without it", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "tid-2");
+		const threadId = await seedTaskWithThread(db, "tid2-task", "tid-2");
+		await db.update(threads).set({ participants: JSON.stringify([FOUNDER_ID]) }).where(eq(threads.id, threadId));
+
+		// No `caller` exists for an HTTP request (action.ts: "filled ONLY by
+		// the MCP loop... Absent for every HTTP call"), so a `taskId` in the
+		// wire body can only be caller-authored input, not a server stamp.
+		// `SendMessageInputSchema.review` omits `taskId`, and the non-strict
+		// nested schema strips an unknown key rather than rejecting the
+		// request — so this returns 200 with the field silently dropped.
+		const res = await call<{ message: { id: string } }>(app, "send_message", {
+			threadId,
+			review: { title: "smuggled", reasoning: ["x"], taskId: "smuggled-task" },
+		});
+		expect(res.status).toBe(200);
+		const messageId = res.body.data?.message.id as string;
+
+		const [row] = await db.select().from(messages).where(eq(messages.id, messageId));
+		expect(JSON.parse(row?.payload ?? "{}")).not.toHaveProperty("taskId");
+	});
+});
+
 describe("send_message — produced-item ownership", () => {
 	test("a review.producedItemId not parented to the calling task returns produced_item_not_owned", async ({
 		db,

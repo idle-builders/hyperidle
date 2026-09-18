@@ -27,12 +27,9 @@ import {
 	PM_ID,
 	PROPAGATION_ID,
 	QA_ID,
-	ROOT_TASK_MOBILE,
 	ROOT_TASK_PRICING,
 	ROOT_TASK_SEARCH,
 	ROOT_TASK_TRIAL,
-	TASK_ONBOARD_SEQUENCE,
-	TASK_PRICING_ANNUAL,
 	TASK_PRICING_PAGE,
 	TASK_SEARCH_RANKING,
 	TASK_TRIAL_FLOW,
@@ -82,8 +79,11 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 	const threadSpecs: readonly ThreadSpec[] = [
 		{
 			id: THREAD_ASSISTANT,
-			hostKind: "user",
-			hostId: FOUNDER_ID,
+			// @lore BC3: the ast-<userId> structural convention is gone — the
+			// assistant is an ordinary owned agent, so its thread is host-kind
+			// "agent" like any other direct thread (architecture.md §5 B12).
+			hostKind: "agent",
+			hostId: ASSISTANT_ID,
 			initiatorId: FOUNDER_ID,
 			participants: [FOUNDER_ID, ASSISTANT_ID],
 			pinned: true,
@@ -91,32 +91,34 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: THREAD_PRICING_REVIEW,
-			hostKind: "task",
-			hostId: TASK_PRICING_PAGE,
+			// @lore BC3: no thread is hosted by a task any more — a task's
+			// conversation is team-hosted (architecture.md §3.9, §4 step 7, §5 B12).
+			hostKind: "team",
+			hostId: TEAM_ID,
 			initiatorId: DESIGNER_ID,
 			participants: [DESIGNER_ID, FOUNDER_ID, PM_ID],
 			createdAt: clock.daysAgo(3),
 		},
 		{
 			id: THREAD_PRICING_BLOCKED,
-			hostKind: "task",
-			hostId: TASK_PRICING_ANNUAL,
+			hostKind: "team",
+			hostId: TEAM_ID,
 			initiatorId: BUILDER_ID,
 			participants: [BUILDER_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(2),
 		},
 		{
 			id: THREAD_TRIAL_REVIEW,
-			hostKind: "task",
-			hostId: TASK_TRIAL_FLOW,
+			hostKind: "team",
+			hostId: TEAM_ID,
 			initiatorId: BUILDER_ID,
 			participants: [BUILDER_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(30),
 		},
 		{
 			id: THREAD_SEARCH_REVIEW,
-			hostKind: "task",
-			hostId: TASK_SEARCH_RANKING,
+			hostKind: "team",
+			hostId: TEAM_ID,
 			initiatorId: BUILDER_ID,
 			participants: [BUILDER_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(25),
@@ -146,27 +148,29 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 			createdAt: clock.daysAgo(3),
 		},
 		// @lore BB1: formerly hostKind: "bet" — root tasks replace bets as the
-		// top-level host. These threads are attached to the root task that was the former bet.
+		// top-level host. These threads discuss the root task that was the former
+		// bet; BC3 moved them from hostKind "task" to "team" (no thread is
+		// task-hosted any more), so hostId is the team, not the root task.
 		{
 			id: THREAD_BET_PRICING,
-			hostKind: "task",
-			hostId: ROOT_TASK_PRICING,
+			hostKind: "team",
+			hostId: TEAM_ID,
 			initiatorId: PM_ID,
 			participants: [PM_ID, FOUNDER_ID, BUILDER_ID, DESIGNER_ID],
 			createdAt: clock.daysAgo(21),
 		},
 		{
 			id: THREAD_BET_TRIAL_RETRO,
-			hostKind: "task",
-			hostId: ROOT_TASK_TRIAL,
+			hostKind: "team",
+			hostId: TEAM_ID,
 			initiatorId: PM_ID,
 			participants: [PM_ID, FOUNDER_ID, MAYA_ID],
 			createdAt: clock.daysAgo(14),
 		},
 		{
 			id: THREAD_BET_MOBILE_KILL,
-			hostKind: "task",
-			hostId: ROOT_TASK_MOBILE,
+			hostKind: "team",
+			hostId: TEAM_ID,
 			initiatorId: PM_ID,
 			participants: [PM_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(9),
@@ -197,8 +201,8 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 		},
 		{
 			id: THREAD_TASK_ONBOARD,
-			hostKind: "task",
-			hostId: TASK_ONBOARD_SEQUENCE,
+			hostKind: "team",
+			hostId: TEAM_ID,
 			initiatorId: GROWTH_ID,
 			participants: [GROWTH_ID, FOUNDER_ID],
 			createdAt: clock.daysAgo(2),

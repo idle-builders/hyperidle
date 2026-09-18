@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { mentionRefSchema } from "../actions/thread.js";
 import type { InlineRef, InlineRefKind, MentionRef } from "../thread.js";
 
 describe("AE5 — MentionRef in InlineRef union", () => {
@@ -77,5 +78,24 @@ describe("AE5 — MentionRef in InlineRef union", () => {
 		};
 		expect(ref.sourceText).toBe("@xenon");
 		expect(ref.displayName).toBe("Xenon");
+	});
+
+	it("mentionRefSchema requires sourceText, matching MentionRef", () => {
+		const result = mentionRefSchema.safeParse({
+			kind: "mention",
+			identityId: "u-1",
+			displayName: "Bob",
+		});
+		expect(result.success).toBe(false);
+	});
+
+	it("mentionRefSchema accepts a mention ref with sourceText", () => {
+		const result = mentionRefSchema.safeParse({
+			kind: "mention",
+			identityId: "u-1",
+			displayName: "Bob",
+			sourceText: "@Bob",
+		});
+		expect(result.success).toBe(true);
 	});
 });

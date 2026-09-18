@@ -38,7 +38,7 @@ const taStandardAgentBuilderSales: EvalScenario = {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a sales operations task.
 You have access to the standard tool set: write_memory, write_session_notes, create_artifact,
-create_item, create_task, log_task, read_inbox, send_message, submit_review, handoff_to.
+create_task, search_threads, open_thread, send_message, adjust_thread, search_tasks, open_task, edit_task.
 Complete your task using only these tools. Do not attempt to use promote_knowledge.`,
 			taskTitle: "Analyze sales pipeline data and document findings",
 			taskDescription: `Analyze the Q3 sales pipeline conversion data and document your findings.

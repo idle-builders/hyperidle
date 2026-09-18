@@ -36,11 +36,14 @@ export const entityRefSchema = z.object({
 	id: z.string(),
 });
 
+// `sourceText` is required — matches `thread.ts`'s `MentionRef.sourceText`.
+// The one production writer (`mention-resolver.ts`'s `resolveMentionsForMessage`)
+// always sets it, from `extractMentionCandidates`' `sourceText: `@${name}``.
 export const mentionRefSchema = z.object({
 	kind: z.literal("mention"),
 	identityId: z.string().min(1),
 	displayName: z.string().min(1),
-	sourceText: z.string().optional(),
+	sourceText: z.string().min(1),
 });
 
 /**
@@ -119,6 +122,12 @@ export const reviewPayloadSchema = z.object({
 	reasoning: z.array(z.string().max(1024)).max(16),
 	producedItemId: z.string().optional(),
 	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
+	/**
+	 * The task the sending session ran on, stamped by the server from
+	 * `ctx.caller.taskId` (Confusion 9) — never accepted from the caller, so
+	 * `SendMessageInputSchema.review` omits it (see below).
+	 */
+	taskId: z.string().optional(),
 });
 export type ReviewPayload = z.infer<typeof reviewPayloadSchema>;
 
@@ -289,7 +298,10 @@ export const SendMessageInputSchema = z
 		refs: z.array(inlineRefSchema).optional(), // plain only; moved verbatim
 		blockId: z.string().max(128).optional(), // plain only
 		spotLabel: z.string().max(128).optional(), // plain only
-		review: reviewPayloadSchema.optional(),
+		// `taskId` is server-stamped from `ctx.caller.taskId`, never caller
+		// input — omitted here so a smuggled `taskId` in the request body is
+		// stripped by validation rather than stored (Confusion 9).
+		review: reviewPayloadSchema.omit({ taskId: true }).optional(),
 		questionnaire: questionnairePayloadSchema.optional(),
 		verdict: verdictPayloadSchema.optional(),
 	})

@@ -578,6 +578,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const messageId = input.messageId ?? randomUUID();
 		const clientKey = input.clientKey ?? randomUUID();
 		const body = messageBodyOf(input);
+		// The review's task is stamped by the server from the calling session,
+		// never accepted from the caller's input (Confusion 9) — the input
+		// schema already omits `taskId` from `review`.
+		if (body.type === "review" && ctx.caller?.taskId) {
+			body.payload = { ...body.payload, taskId: ctx.caller.taskId };
+		}
 		const mentionedIds: string[] = [];
 		let finalMembers = currentMembers;
 		let membersChanged = false;
