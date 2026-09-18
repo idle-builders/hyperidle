@@ -220,7 +220,7 @@ async function seedAssistantTurnRequest(
 			threadId,
 			messageId,
 			userId: founderId,
-			assistantAgentId: assistantId,
+			agentId: assistantId,
 		}),
 		idempotencyKey: id,
 		status: "pending",
