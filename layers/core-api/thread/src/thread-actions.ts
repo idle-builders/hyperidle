@@ -914,11 +914,14 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, { lastActiveAt: now });
 				}
 
+				// An overwrite's `after.clientKey` is the message's OWN stored key
+				// (`updateMessage` never touches that column) — never a fresh one
+				// minted just to fill this field.
 				const messageAfter: Record<string, unknown> = {
 					messageId,
 					type: body.type,
 					payload: body.payload,
-					clientKey,
+					clientKey: existingMessageRow?.clientKey ?? clientKey,
 					blockId: body.blockId ?? null,
 					createdAt: now,
 				};

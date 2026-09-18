@@ -330,6 +330,12 @@ describe("send_message — thread resolution and idempotency", () => {
 		expect(messageRow).toBeDefined();
 		const before = JSON.parse(messageRow?.before as string) as { payload: { text: string } };
 		expect(before.payload.text).toBe("original");
+
+		// the change row's after.clientKey is the message's OWN stored key —
+		// an overwrite must never mint a fresh one just to fill this field.
+		const [storedMessage] = await db.select().from(messages).where(eq(messages.id, messageId));
+		const after = JSON.parse(messageRow?.after as string) as { clientKey: string };
+		expect(after.clientKey).toBe(storedMessage?.clientKey);
 	});
 });
 
