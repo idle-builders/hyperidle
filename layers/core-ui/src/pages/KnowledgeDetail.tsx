@@ -39,13 +39,8 @@
  * content matches editContent to prevent spurious saves on BodyEditor mount
  * (TipTap fires onChange with initial content on mount).
  */
-import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/domain-model";
-import {
-	isRedactedPayload,
-	KNOWLEDGE_STATUSES,
-	type KnowledgeStatus,
-	SCOPE_KINDS,
-} from "@hyperidle/domain-model";
+import type { Message, ScopeKind } from "@hyperidle/domain-model";
+import { KNOWLEDGE_STATUSES, type KnowledgeStatus, SCOPE_KINDS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";
@@ -68,9 +63,10 @@ import {
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
 import { useAutoSave } from "../hooks/useAutoSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
-import { useHostThread } from "../hooks/useHostThread.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
+import { useThread } from "../hooks/useThread.js";
+import { useThreads } from "../hooks/useThreads.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { call } from "../services/call.js";
@@ -695,8 +691,16 @@ function KnowledgeDetailView({
 		{ blockId: string; blockExcerpt: string } | undefined
 	>(undefined);
 
-	// L18: Fetch the host thread for inline anchored messages
-	const { data: threadData } = useHostThread("knowledge_item", item.id);
+	// L18: Fetch the host thread for inline anchored messages. BC3: resolve
+	// the knowledge_item's thread by search first (host-scoped — any
+	// signed-in visitor may read it, per architecture.md §3.4), then load it.
+	const knowledgeHostFilter = useMemo(
+		() => ({ host: { kind: "knowledge_item" as const, id: item.id } }),
+		[item.id],
+	);
+	const knowledgeThreadSearch = useThreads(knowledgeHostFilter);
+	const knowledgeThreadId = knowledgeThreadSearch.threads[0]?.id;
+	const { data: threadData } = useThread(knowledgeThreadId);
 
 	/**
 	 * @lore nested-knowledge-items tree-ui: fetch the direct parent's title so
@@ -757,12 +761,12 @@ function KnowledgeDetailView({
 		const map = new Map<string, Message[]>();
 		if (!threadData?.messages) return map;
 		for (const msg of threadData.messages) {
-			if (msg.type !== "plain") continue;
-			if (isRedactedPayload(msg.payload)) continue;
-			const blockId = (msg.payload as PlainPayloadWithBlockId).blockId;
-			if (!blockId) continue;
-			const existing = map.get(blockId) ?? [];
-			map.set(blockId, [...existing, msg]);
+			// BC3: `blockId` is a real top-level Message column now
+			// (architecture.md §3.1's `messages_block_id_idx`), not a field
+			// buried inside the plain payload.
+			if (msg.type !== "plain" || msg.blockId === null) continue;
+			const existing = map.get(msg.blockId) ?? [];
+			map.set(msg.blockId, [...existing, msg]);
 		}
 		return map;
 	}, [threadData?.messages]);
@@ -1149,8 +1153,7 @@ function KnowledgeDetailView({
 					)}
 					{/* L18: Replace ObservationLog with HostThreadSection */}
 					<HostThreadSection
-						hostKind="knowledge_item"
-						hostId={item.id}
+						host={{ kind: "knowledge_item", id: item.id }}
 						title="Discussion"
 						prefill={threadPrefill}
 						onClearPrefill={() => setThreadPrefill(undefined)}

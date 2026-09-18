@@ -269,7 +269,8 @@ function SessionViewPanel({
 const ASYNC_ACK_COPY = "Response recorded — agent will pick it up on next session.";
 
 function InspectDestination({ path }: { path: string }): JSX.Element {
-	const [pathname, hash = ""] = path.split("#");
+	const [beforeHash, hash = ""] = path.split("#");
+	const [pathname, query = ""] = (beforeHash ?? "").split("?");
 	const knowledge = pathname?.match(/^\/knowledge\/([^/]+)$/);
 	if (knowledge?.[1]) {
 		return (
@@ -281,7 +282,14 @@ function InspectDestination({ path }: { path: string }): JSX.Element {
 		);
 	}
 	const review = pathname?.match(/^\/reviews\/([^/]+)$/);
-	if (review?.[1]) return <ReviewPage overrideReviewId={review[1]} presentation="pane" />;
+	if (review?.[1]) {
+		// BC3: the review's threadId rides the query string (part.ts's
+		// `ReviewTarget`/open-handler.ts) — `open_thread` needs it directly.
+		const threadId = new URLSearchParams(query).get("threadId") ?? undefined;
+		return (
+			<ReviewPage overrideReviewId={review[1]} overrideThreadId={threadId} presentation="pane" />
+		);
+	}
 	return <EmptyState title="Unavailable" description="This reference cannot be inspected here." />;
 }
 
@@ -484,8 +492,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const threadTitle: string =
 		data.hostTitle ?? identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
-	const hostTitle =
-		data.hostTitle ?? identities[data.thread.hostId]?.name ?? data.thread.hostId;
+	const hostTitle = data.hostTitle ?? identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const header = {
 		title: threadTitle,
 		hostKind: data.thread.hostKind,

@@ -50,7 +50,7 @@ export function useThread(threadId: string | undefined | null, blockId?: string)
 					const notFound = result.problems.some((p) => p.code === "not_found");
 					setData(null);
 					setStatus(notFound ? "not-found" : "error");
-					setError(notFound ? null : result.problems[0]?.message ?? "Failed to load thread");
+					setError(notFound ? null : (result.problems[0]?.message ?? "Failed to load thread"));
 					return;
 				}
 				setData(result.data);

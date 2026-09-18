@@ -860,7 +860,7 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 				{/* Discussion */}
 				<section aria-label="Discussion">
 					<SectionLabel label="Discussion" divider />
-					<HostThreadSection hostKind="task" hostId={taskId ?? ""} inline />
+					<HostThreadSection threadId={task.threadId} inline />
 				</section>
 			</div>
 		</PageScaffold>

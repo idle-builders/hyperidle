@@ -27,13 +27,13 @@ import { useTeams } from "../hooks/useTeams";
 import { useThreads } from "../hooks/useThreads.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { parentPathFor } from "../navigation/parentPathFor.js";
-import { relativeShort } from "../utils/time.js";
 import { AssistantOverlay } from "../shell/AssistantOverlay";
 import { DesktopTitleBar } from "../shell/DesktopTitleBar";
 import { NotificationPopover } from "../shell/NotificationPopover";
 import { Sidebar } from "../shell/Sidebar";
 import type { ViewId } from "../shell/shell-types";
 import { ToastRegion } from "../shell/ToastRegion";
+import { relativeShort } from "../utils/time.js";
 
 /**
  * Outlet context surfaced by AppShell to its children. Read by
@@ -82,7 +82,8 @@ function capitalize(s: string): string {
  * shape, so the mapping lives here rather than in a hook module of its own.
  */
 function rowToItem(row: import("@hyperidle/domain-model").ThreadListRow): ThreadItem {
-	const title = row.title ?? row.computedTitle ?? `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`;
+	const title =
+		row.title ?? row.computedTitle ?? `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`;
 	return {
 		id: row.id,
 		title,

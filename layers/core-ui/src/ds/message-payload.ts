@@ -12,15 +12,20 @@
  * `parseMessagePayload` itself returns.
  */
 
-import type { AssistantNotice, CanvasArtifactRef, EntityRef, InlineRef } from "@hyperidle/domain-model";
+import type {
+	AssistantNotice,
+	CanvasArtifactRef,
+	EntityRef,
+	InlineRef,
+} from "@hyperidle/domain-model";
 import {
 	type Message,
 	type PlainPayload,
+	parseMessagePayload,
 	type QuestionnairePayload,
 	type RedactedPayload,
 	type ReviewPayload,
 	type VerdictPayload,
-	parseMessagePayload,
 } from "@hyperidle/domain-model";
 
 export function plainPayloadOf(message: Message): PlainPayload | RedactedPayload {
@@ -57,9 +62,7 @@ export function reviewPayloadOf(message: Message): ReviewPayload | RedactedPaylo
 	return parseMessagePayload("review", message.payload) as ReviewPayload | RedactedPayload;
 }
 
-export function questionnairePayloadOf(
-	message: Message,
-): QuestionnairePayload | RedactedPayload {
+export function questionnairePayloadOf(message: Message): QuestionnairePayload | RedactedPayload {
 	return parseMessagePayload("questionnaire", message.payload) as
 		| QuestionnairePayload
 		| RedactedPayload;
@@ -82,7 +85,9 @@ type WireRef =
 	| EntityRef
 	| CanvasArtifactRef;
 
-export function toInlineRefs(refs: readonly WireRef[] | undefined): ReadonlyArray<InlineRef> | undefined {
+export function toInlineRefs(
+	refs: readonly WireRef[] | undefined,
+): ReadonlyArray<InlineRef> | undefined {
 	if (refs === undefined) return undefined;
 	const out: InlineRef[] = [];
 	for (const ref of refs) {

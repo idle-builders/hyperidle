@@ -1,39 +1,28 @@
-import type { AnchorRef, Message, PlainPayload, VerdictDecision } from "@hyperidle/domain-model";
+import type { AnchorRef, Message, VerdictDecision } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import type { BlockId } from "../../block/types.js";
 import { ErrorState, PageHeader, PageScaffold } from "../../ds";
+import { plainPayloadOf, reviewPayloadOf, verdictPayloadOf } from "../../ds/message-payload.js";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
-import type { ThreadDetail } from "../../hooks/useThreadDetail.js";
-import { useThreadDetail } from "../../hooks/useThreadDetail.js";
-import { apiFetch } from "../../services/api-fetch.js";
-import { postPlainHostMessage, postVerdictHostMessage } from "../../services/host-threads.js";
+import { useThread } from "../../hooks/useThread.js";
+import { call } from "../../services/call.js";
 import { relativeShort } from "../../utils/time.js";
 import { ReviewComposition } from "./ReviewComposition.js";
 import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
 
 export type ReviewLoader = (params: {
 	readonly reviewId: string;
+	readonly threadId: string;
 }) => Promise<ComposedReviewSubject>;
 
 interface ReviewPageProps {
 	readonly loader?: ReviewLoader;
 	readonly overrideReviewId?: string;
+	readonly overrideThreadId?: string;
 	readonly presentation?: "page" | "pane";
-}
-
-async function defaultLoader({
-	reviewId,
-}: {
-	readonly reviewId: string;
-}): Promise<ComposedReviewSubject> {
-	const res = await apiFetch(`/api/reviews/${encodeURIComponent(reviewId)}`);
-	if (!res.ok) {
-		throw new Error(`Could not load review: ${res.status}`);
-	}
-	return (await res.json()) as ComposedReviewSubject;
 }
 
 function isArtifactEntityRef(ref: {
@@ -49,19 +38,16 @@ function isArtifactEntityRef(ref: {
  */
 function hostMessagesToReviewComments(
 	messages: ReadonlyArray<Message>,
-	identities: ThreadDetail["identities"],
+	identities: Record<string, { name: string; role?: string }>,
 ): ReadonlyArray<ReviewComment> {
 	const result: ReviewComment[] = [];
 	for (const m of messages) {
 		if (m.type !== "plain") continue;
-		if (isRedactedPayload(m.payload)) continue;
-		const payload = m.payload as PlainPayload;
-		const payloadRecord = payload as { blockId?: unknown; spotLabel?: unknown };
+		const payload = plainPayloadOf(m);
+		if (isRedactedPayload(payload)) continue;
 		const entityRef = payload.refs?.find(isArtifactEntityRef);
-		const blockIdString =
-			typeof payloadRecord.blockId === "string" ? payloadRecord.blockId : undefined;
-		const spotLabel =
-			typeof payloadRecord.spotLabel === "string" ? payloadRecord.spotLabel : undefined;
+		const blockIdString = payload.blockId;
+		const spotLabel = payload.spotLabel;
 
 		const identity = identities[m.senderId];
 		const author = identity?.name ?? m.senderId;
@@ -94,6 +80,85 @@ function hostMessagesToReviewComments(
 }
 
 /**
+ * BC3 default loader: `GET /api/reviews/:id` is gone (B1/B10). `open_thread`
+ * carries the review message and everything the review page composes from
+ * real rows, the way `routes/reviews.ts` did (architecture.md §5 B9). The
+ * one thing that route derived and this loader cannot — the task the
+ * review's thread belongs to, and that task's parent — has no successor
+ * action (a thread may hold many tasks now, and `search_tasks` gained no
+ * by-thread filter, R5); those fields are left honestly empty rather than
+ * guessed, exactly as the deleted route left evidence it did not have.
+ */
+async function defaultLoader({
+	reviewId,
+	threadId,
+}: {
+	readonly reviewId: string;
+	readonly threadId: string;
+}): Promise<ComposedReviewSubject> {
+	const opened = await call("open_thread", { id: threadId });
+	if (!opened.ok) {
+		throw new Error(opened.problems[0]?.message ?? "Could not load review");
+	}
+	const { messages, members } = opened.data;
+	const reviewMsg = messages.find((m) => m.id === reviewId);
+	if (!reviewMsg || reviewMsg.type !== "review") {
+		throw new Error("review_not_found");
+	}
+	const reviewPayload = reviewPayloadOf(reviewMsg);
+	const title = isRedactedPayload(reviewPayload) ? "Review" : reviewPayload.title;
+	const reasoning = isRedactedPayload(reviewPayload) ? [] : reviewPayload.reasoning;
+	const artifacts = isRedactedPayload(reviewPayload) ? [] : (reviewPayload.artifacts ?? []);
+
+	const identityById = new Map(members.map((m) => [m.id, m]));
+	const author = identityById.get(reviewMsg.senderId);
+
+	// The one human, other than the sender, in this thread — same "who has to
+	// answer" question `routes/reviews.ts` asked, over `open_thread`'s own
+	// member list instead of a second fetch.
+	let reviewerName = "";
+	for (const member of members) {
+		if (member.id === reviewMsg.senderId) continue;
+		if (!member.isAgent) {
+			reviewerName = member.name;
+			break;
+		}
+	}
+
+	// A verdict already given makes the surface read-only — find the one that
+	// resolved THIS review; a thread may hold several.
+	let verdict: { decision: VerdictDecision; resolvedAt: string } | undefined;
+	for (const m of messages) {
+		if (m.type !== "verdict") continue;
+		const payload = verdictPayloadOf(m);
+		if (isRedactedPayload(payload) || payload.resolvesMessageId !== reviewId) continue;
+		verdict = { decision: payload.decision, resolvedAt: m.createdAt };
+	}
+
+	return {
+		id: reviewMsg.id,
+		threadId,
+		title,
+		parentTaskId: null,
+		betTitle: "",
+		prompt: reasoning.join("\n\n"),
+		authorName: author?.name ?? reviewMsg.senderId,
+		reviewerName,
+		producedAgo: "",
+		tokens: "",
+		tools: [],
+		outcome: reasoning.join("\n\n"),
+		resultKpis: [],
+		intent: [],
+		needs: [],
+		conversation: [],
+		artifacts,
+		blocking: verdict === undefined,
+		...(verdict ? { verdict } : {}),
+	};
+}
+
+/**
  * AL3 — production review destination.
  *
  * Loads the review Subject for the canonical route `/reviews/:reviewId`
@@ -104,10 +169,13 @@ function hostMessagesToReviewComments(
 export function ReviewPage({
 	loader = defaultLoader,
 	overrideReviewId,
+	overrideThreadId,
 	presentation = "page",
 }: ReviewPageProps = {}): JSX.Element {
 	const { reviewId: routeReviewId = "" } = useParams<{ reviewId: string }>();
+	const [searchParams] = useSearchParams();
 	const reviewId = overrideReviewId ?? routeReviewId;
+	const threadId = overrideThreadId ?? searchParams.get("threadId") ?? "";
 	const [subject, setSubject] = useState<ComposedReviewSubject | null>(null);
 	const [error, setError] = useState<Error | null>(null);
 	const { user } = useCurrentUser();
@@ -116,22 +184,28 @@ export function ReviewPage({
 	// a host lookup (a by-host lookup resolves the first thread for that
 	// host — the WRONG thread whenever a host has more than one).
 	// `subject.threadId` is the review message's own thread.
-	const threadDetail = useThreadDetail(subject?.threadId ?? "");
+	const threadDetail = useThread(subject?.threadId ?? threadId);
 
 	const reviewSubject = useMemo<ComposedReviewSubject | null>(() => {
 		if (!subject) return null;
 		const threadMessages = threadDetail.data?.messages;
+		const identities: Record<string, { name: string; role?: string }> = threadDetail.data
+			? Object.fromEntries(
+					threadDetail.data.members.map((m) => [m.id, { name: m.name, role: m.role }]),
+				)
+			: {};
 		const threadComments =
 			threadMessages && threadMessages.length > 0
-				? hostMessagesToReviewComments(threadMessages, threadDetail.data?.identities ?? {})
+				? hostMessagesToReviewComments(threadMessages, identities)
 				: undefined;
 		if (!threadComments) return subject;
 		return { ...subject, conversation: threadComments };
 	}, [subject, threadDetail.data]);
 
 	useEffect(() => {
+		if (!threadId) return;
 		let cancelled = false;
-		loader({ reviewId })
+		loader({ reviewId, threadId })
 			.then((s) => {
 				if (!cancelled) setSubject(s);
 			})
@@ -141,25 +215,31 @@ export function ReviewPage({
 		return () => {
 			cancelled = true;
 		};
-	}, [reviewId, loader]);
+	}, [reviewId, threadId, loader]);
 
 	const handlePostComment = useCallback(
 		async ({ text, anchor }: { text: string; anchor?: AnchorRef }) => {
 			if (!(user && reviewId && reviewSubject)) return;
 			// The review message already lives in a thread — there is always one
 			// to post to, so no resolve-or-create fallback is needed.
-			await postPlainHostMessage(
-				reviewSubject.threadId,
+			const res = await call("send_message", {
+				threadId: reviewSubject.threadId,
 				text,
-				crypto.randomUUID(),
-				undefined,
-				anchor,
-			);
-			threadDetail.retry();
-			const refreshed = await loader({ reviewId });
+				clientKey: crypto.randomUUID(),
+				...(anchor
+					? {
+							blockId: anchor.blockId,
+							spotLabel: anchor.spotLabel,
+							refs: [{ kind: "artifact" as const, id: anchor.artifactId }],
+						}
+					: {}),
+			});
+			if (!res.ok) throw new Error(res.problems[0]?.message ?? "Failed to post comment");
+			threadDetail.refresh();
+			const refreshed = await loader({ reviewId, threadId });
 			setSubject(refreshed);
 		},
-		[loader, reviewId, reviewSubject, threadDetail, user],
+		[loader, reviewId, threadId, reviewSubject, threadDetail, user],
 	);
 
 	const handleSubmitVerdict = useCallback(
@@ -167,31 +247,29 @@ export function ReviewPage({
 			if (!(reviewSubject && reviewId && user)) return;
 			// The verdict resolves a specific type:"review" message. The route
 			// `reviewId` IS that message's id — the OpenTarget is built directly
-			// from the review Message (`shared/src/part.ts` reviewTarget:
+			// from the review Message (`components/parts/part.ts` reviewTarget:
 			// { reviewId: message.id }), and the server resolves the exact
 			// resolvesMessageId supplied. Reviews re-open by design, so a thread
 			// can hold multiple review messages; only the route's id is correct.
 			const reviewMessageId = reviewId;
 
-			// postVerdictHostMessage returns "ok" | "race" | "forbidden" without
-			// throwing for the two expected non-OK conditions. On success the review
-			// is resolved; on a race (409) another verdict already won; on forbidden
-			// (403) the sender lacked authority. In every case we refresh so the
-			// surface shows the authoritative resolved state, not a stale/optimistic
-			// one — which is also how the user sees a race/authz failure surface.
-			// Posted to `reviewSubject.threadId` — the thread the LOADER names —
-			// never a by-host guess.
-			await postVerdictHostMessage(
-				reviewSubject.threadId,
-				decision,
-				reviewMessageId,
-				crypto.randomUUID(),
-			);
-			threadDetail.retry();
-			const refreshed = await loader({ reviewId });
+			// A refused verdict — a race another verdict already won, or the
+			// sender lacking authority — comes back as `{ok:false, problems}`.
+			// Either way we refresh so the surface shows the authoritative
+			// resolved state rather than a stale/optimistic one.
+			const res = await call("send_message", {
+				threadId: reviewSubject.threadId,
+				clientKey: crypto.randomUUID(),
+				verdict: { decision, resolvesMessageId: reviewMessageId },
+			});
+			if (!res.ok) {
+				setError(new Error(res.problems[0]?.message ?? "Failed to submit verdict"));
+			}
+			threadDetail.refresh();
+			const refreshed = await loader({ reviewId, threadId });
 			setSubject(refreshed);
 		},
-		[loader, reviewId, reviewSubject, threadDetail, user],
+		[loader, reviewId, threadId, reviewSubject, threadDetail, user],
 	);
 
 	if (error) {

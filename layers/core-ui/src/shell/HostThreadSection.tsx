@@ -108,7 +108,8 @@ export function HostThreadSection({
 	// A `host` prop resolves lazily: search for an existing thread on that
 	// host, and adopt whichever id `search_threads` finds. `knownThreadId`
 	// (the task page) never goes through this search at all.
-	const hostFilter = knownThreadId === undefined && host !== undefined ? { host, mine: false } : undefined;
+	const hostFilter =
+		knownThreadId === undefined && host !== undefined ? { host, mine: false } : undefined;
 	const resolved = useThreads(hostFilter);
 	const resolvedThreadId = resolved.threads[0]?.id;
 	const activeThreadId = knownThreadId ?? resolvedThreadId;

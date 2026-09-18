@@ -27,7 +27,7 @@
  */
 
 import type { OpenHandler, OpenTarget } from "../components/parts";
-import { resolveHostRoute, type RouteHostKind } from "./host-route.js";
+import { type RouteHostKind, resolveHostRoute } from "./host-route.js";
 import { type ProductObjectKind, presentationFor } from "./object-presentation.js";
 
 export type NavigateFn = (path: string) => void;
@@ -88,7 +88,10 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				return;
 			}
 			case "review": {
-				const path = `/reviews/${target.reviewId}`;
+				// @lore BC3: `threadId` rides the query string — `open_thread` needs
+				// it and no action resolves it from a bare message id (part.ts's
+				// `ReviewTarget`).
+				const path = `/reviews/${target.reviewId}?threadId=${encodeURIComponent(target.threadId)}`;
 				if (target.intent === "inspect") openInspect("review", path, navigate, ctx);
 				else navigate(path);
 				return;

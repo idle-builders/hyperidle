@@ -271,7 +271,9 @@ function AssistantOverlayInner({
 	// BC3: no more `GET /api/threads/assistant` create-on-read. Resolve the
 	// existing direct thread with my agent, if any; the overlay's first send
 	// creates one via `send_message({ recipients: [myAgentId] })`.
-	const agentHostFilter = myAgentId ? { host: { kind: "agent" as const, id: myAgentId } } : undefined;
+	const agentHostFilter = myAgentId
+		? { host: { kind: "agent" as const, id: myAgentId } }
+		: undefined;
 	const threadSearch = useThreads(agentHostFilter);
 	const existingThreadId = threadSearch.threads[0]?.id;
 	const { status: threadStatus, data, error, refresh } = useThread(existingThreadId);
@@ -358,7 +360,11 @@ function AssistantOverlayInner({
 
 	const handleFirstSend = useCallback(
 		async (input: { text: string; clientKey: string }): Promise<void> => {
-			await sendToThread(undefined, { type: "plain", payload: { text: input.text }, clientKey: input.clientKey });
+			await sendToThread(undefined, {
+				type: "plain",
+				payload: { text: input.text },
+				clientKey: input.clientKey,
+			});
 			// The new thread now exists on this host — re-run the search that
 			// resolves `existingThreadId`.
 			threadSearch.retry();
@@ -425,7 +431,9 @@ function AssistantOverlayInner({
 
 	const { thread, messages } = data;
 	const identities: Record<string, { name: string; role?: string; isAgent?: boolean }> =
-		Object.fromEntries(data.members.map((m) => [m.id, { name: m.name, role: m.role, isAgent: m.isAgent }]));
+		Object.fromEntries(
+			data.members.map((m) => [m.id, { name: m.name, role: m.role, isAgent: m.isAgent }]),
+		);
 	const msgsAsc: ReadonlyArray<Message> = [...messages].sort((a, b) =>
 		a.createdAt.localeCompare(b.createdAt),
 	);
@@ -455,9 +463,7 @@ function AssistantOverlayInner({
 	// /no api key/i. Instead, we filter notice messages out of the messages
 	// array and render them separately, unrelated to that prop.
 	const plainPayloadCache = new Map(
-		msgsAsc
-			.filter((m) => m.type === "plain")
-			.map((m) => [m.id, plainReadPayloadOf(m)] as const),
+		msgsAsc.filter((m) => m.type === "plain").map((m) => [m.id, plainReadPayloadOf(m)] as const),
 	);
 	const noticeMessages = msgsAsc.filter((m) => {
 		if (m.type !== "plain") return false;

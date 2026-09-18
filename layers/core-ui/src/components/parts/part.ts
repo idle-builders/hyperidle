@@ -33,7 +33,6 @@ import type {
 	VerdictPayload,
 } from "@hyperidle/domain-model";
 import { isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
-import type { RouteHostKind } from "../../services/host-route.js";
 import {
 	plainPayloadOf,
 	questionnairePayloadOf,
@@ -41,6 +40,7 @@ import {
 	toInlineRefs,
 	verdictPayloadOf,
 } from "../../ds/message-payload.js";
+import type { RouteHostKind } from "../../services/host-route.js";
 
 // AM3: session-activity type (NORMALIZED union — no harness-type param in adapter).
 // The adapter body (and ONLY the adapter body) imports the source types.
@@ -119,6 +119,14 @@ interface BasePart {
  */
 interface ReviewTarget {
 	readonly reviewId: string;
+	/**
+	 * @lore BC3: `open_thread` needs a thread id, not a message id, and no
+	 * action resolves one from the other (`search_threads` gained no
+	 * message-id filter — R5). Every `Message` already carries its own
+	 * `threadId`, so the adapter attaches it here rather than the review
+	 * page trying to rediscover it. See the BC3 build report.
+	 */
+	readonly threadId: string;
 }
 
 export type Part =
@@ -221,6 +229,7 @@ export type OpenTarget =
 	| {
 			readonly route: "review";
 			readonly reviewId: string;
+			readonly threadId: string;
 			readonly intent?: "navigate" | "inspect";
 	  }
 	| { readonly route: "session"; readonly sessionId: string };
@@ -387,7 +396,7 @@ export function derivePartsFromMessages(
 					break;
 				}
 				const verdict = verdicts.get(message.id);
-				const reviewTarget: ReviewTarget = { reviewId: message.id };
+				const reviewTarget: ReviewTarget = { reviewId: message.id, threadId: message.threadId };
 				if (verdict !== undefined || message.resolvedAt !== null) {
 					parts.push({
 						...base,
@@ -428,7 +437,7 @@ export function derivePartsFromMessages(
 							? resolveAuthor(verdict.resolverId, viewerId, identities).name
 							: author.name,
 						summary: payload.question,
-						reviewTarget: { reviewId: message.id },
+						reviewTarget: { reviewId: message.id, threadId: message.threadId },
 					});
 				} else {
 					parts.push({

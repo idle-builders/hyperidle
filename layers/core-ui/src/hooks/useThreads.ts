@@ -75,6 +75,7 @@ export function useThreads(filter: SearchThreadsInput | undefined): UseThreadsRe
 	// "some thread this viewer might see changed"; re-run search_threads
 	// rather than reconciling the row locally (architecture.md §3.12).
 	const cancelledRef = useRef(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `filterKey` stands in for `filter` (referential stability) — subscribing/unsubscribing on every render would thrash the socket.
 	useEffect(() => {
 		if (!filter) return;
 		cancelledRef.current = false;
@@ -89,7 +90,6 @@ export function useThreads(filter: SearchThreadsInput | undefined): UseThreadsRe
 			cancelledRef.current = true;
 			unsubscribe();
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [filterKey]);
 
 	return { status, threads, error, retry };
