@@ -1,9 +1,9 @@
 /**
  * L1a — Playwright e2e for the shipping rich message types (TRACK-L:43, AC-13).
  *
- * Strategy: hermetic page.route() mocks. Each case intercepts the
- * `GET /api/threads/:id` (and any `POST /api/threads/:id/messages` follow-up)
- * the page issues and returns realistic Thread/Message payloads matching the
+ * Strategy: hermetic page.route() mocks. Each case intercepts
+ * `POST /api/actions/open_thread` (and any `send_message` follow-up) the
+ * page issues and returns realistic Thread/Message payloads matching the
  * `@hyperidle/domain-model` discriminated union. No DB seeding, no server
  * dependency — the dev server only serves the SPA bundle. A future contract
  * drift (e.g. renaming `payload.text`) breaks these mocks the same way it
@@ -16,6 +16,14 @@
  *
  * @lore L9: routes changed from `/conversations/review?id=X` to
  *   `/conversations/X` (canonical path). All `goto()` calls updated.
+ *
+ * @lore BC3: repointed at `POST /api/actions/{open_thread,send_message}` —
+ *   never `GET/POST /api/threads*`. `Thread.members` replaced `participants`;
+ *   there is no `task` host kind (a task's own thread is `team`-hosted). This
+ *   is a mechanical mock migration only — every test below is already on
+ *   `known-pre-existing-failures.ts` (AM1 removed ThreadShell/RichMessageCard/
+ *   CommentRow/inline-verdict from the conversation surface in favor of the
+ *   Part-based ConversationSurface).
  *
  * Coverage (AC-13: "at least one thread renders correctly with each shipping
  * rich message type inline"):
@@ -31,7 +39,7 @@
  * pages.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeIdentity, makeMessage, makeThread, test } from "./fixtures";
 
 // --- canonical fixture builders (shape-mirrored from @hyperidle/domain-model) ----
 
@@ -41,173 +49,110 @@ const LATER = "2026-04-28T10:05:00.000Z";
 const FOUNDER_ID = "u-founder";
 const AGENT_ID = "a-aria";
 
-interface BaseMessageFixture {
-	id: string;
-	threadId: string;
-	senderId: string;
-	clientKey: string;
-	createdAt: string;
-}
-
-function baseMessage(
-	over: Partial<BaseMessageFixture> &
-		Pick<BaseMessageFixture, "id" | "threadId" | "senderId" | "clientKey" | "createdAt">,
-): {
-	id: string;
-	threadId: string;
-	senderId: string;
-	clientKey: string;
-	deletedAt: null;
-	redactedAt: null;
-	resolvedAt: null;
-	createdAt: string;
-} {
-	return {
-		id: over.id,
-		threadId: over.threadId,
-		senderId: over.senderId,
-		clientKey: over.clientKey,
-		deletedAt: null,
-		redactedAt: null,
-		resolvedAt: null,
-		createdAt: over.createdAt,
-	};
-}
-
 function reviewThreadFixture(): {
-	thread: {
-		id: string;
-		hostKind: string;
-		hostId: string;
-		initiatorId: string;
-		participants: string[];
-		pinned: boolean;
-		resolvedAt: string | null;
-		lastActiveAt: string;
-		createdAt: string;
-	};
+	thread: ReturnType<typeof makeThread>;
+	members: ReturnType<typeof makeIdentity>[];
 	messages: Array<Record<string, unknown>>;
 	headMessageId: string;
-	nextMessagesCursor: null;
+	hostTitle: null;
 } {
 	const threadId = "t-review-1";
-	const reviewMessage = {
-		...baseMessage({
-			id: "m-review-1",
-			threadId,
-			senderId: AGENT_ID,
-			clientKey: "ck-review-msg-001",
-			createdAt: NOW,
-		}),
+	const reviewMessage = makeMessage("m-review-1", threadId, {
+		senderId: AGENT_ID,
+		clientKey: "ck-review-msg-001",
+		createdAt: NOW,
 		type: "review",
 		payload: {
 			title: "Approve copy update",
 			reasoning: ["Headline tightens to 8 words.", "CTA color now matches brand."],
-			artifactRef: { id: "art-1", kind: "text_diff" },
 		},
-	};
-	const plainFollowup = {
-		...baseMessage({
-			id: "m-plain-1",
-			threadId,
-			senderId: FOUNDER_ID,
-			clientKey: "ck-plain-msg-001",
-			createdAt: LATER,
-		}),
+	});
+	const plainFollowup = makeMessage("m-plain-1", threadId, {
+		senderId: FOUNDER_ID,
+		clientKey: "ck-plain-msg-001",
+		createdAt: LATER,
 		type: "plain",
 		payload: { text: "Looking at this now." },
-	};
+	});
 	return {
-		thread: {
-			id: threadId,
-			hostKind: "task",
+		thread: makeThread(threadId, {
+			hostKind: "team",
 			hostId: "task-42",
 			initiatorId: AGENT_ID,
-			participants: [AGENT_ID, FOUNDER_ID].sort(),
-			pinned: false,
-			resolvedAt: null,
+			members: [AGENT_ID, FOUNDER_ID].sort(),
 			lastActiveAt: LATER,
 			createdAt: NOW,
-		},
+		}),
+		members: [makeIdentity(AGENT_ID, { isAgent: true }), makeIdentity(FOUNDER_ID)],
 		// Server returns DESC by createdAt (most-recent first).
 		messages: [plainFollowup, reviewMessage],
 		headMessageId: "m-review-1",
-		nextMessagesCursor: null,
+		hostTitle: null,
 	};
 }
 
 function plainOnlyThreadFixture(): {
-	thread: Record<string, unknown>;
+	thread: ReturnType<typeof makeThread>;
+	members: ReturnType<typeof makeIdentity>[];
 	messages: Array<Record<string, unknown>>;
 	headMessageId: null;
-	nextMessagesCursor: null;
+	hostTitle: null;
 } {
 	const threadId = "t-plain-1";
-	const m = {
-		...baseMessage({
-			id: "m-plain-only-1",
-			threadId,
-			senderId: FOUNDER_ID,
-			clientKey: "ck-plain-only-001",
-			createdAt: NOW,
-		}),
+	const m = makeMessage("m-plain-only-1", threadId, {
+		senderId: FOUNDER_ID,
+		clientKey: "ck-plain-only-001",
+		createdAt: NOW,
 		type: "plain",
 		payload: { text: "Quick question for the team." },
-	};
+	});
 	return {
-		thread: {
-			id: threadId,
+		thread: makeThread(threadId, {
 			hostKind: "user",
 			hostId: FOUNDER_ID,
 			initiatorId: FOUNDER_ID,
-			participants: [FOUNDER_ID, AGENT_ID].sort(),
-			pinned: false,
-			resolvedAt: null,
+			members: [FOUNDER_ID, AGENT_ID].sort(),
 			lastActiveAt: NOW,
 			createdAt: NOW,
-		},
+		}),
+		members: [makeIdentity(FOUNDER_ID), makeIdentity(AGENT_ID, { isAgent: true })],
 		messages: [m],
 		headMessageId: null,
-		nextMessagesCursor: null,
+		hostTitle: null,
 	};
 }
 
 function legacyBackCompatThreadFixture(): {
-	thread: Record<string, unknown>;
+	thread: ReturnType<typeof makeThread>;
+	members: ReturnType<typeof makeIdentity>[];
 	messages: Array<Record<string, unknown>>;
 	headMessageId: null;
-	nextMessagesCursor: null;
+	hostTitle: null;
 } {
 	// Migration projects legacy `kind='chat'` rows into `payload.text` by
 	// concatenating `subject` and `body`. The fixture mirrors the post-
 	// migration shape exactly.
 	const threadId = "t-legacy-1";
-	const m = {
-		...baseMessage({
-			id: "m-legacy-1",
-			threadId,
-			senderId: FOUNDER_ID,
-			clientKey: "ck-legacy-mig-001",
-			createdAt: NOW,
-		}),
+	const m = makeMessage("m-legacy-1", threadId, {
+		senderId: FOUNDER_ID,
+		clientKey: "ck-legacy-mig-001",
+		createdAt: NOW,
 		type: "plain",
 		payload: { text: "Legacy subject\n\nLegacy body content." },
-	};
+	});
 	return {
-		thread: {
-			id: threadId,
+		thread: makeThread(threadId, {
 			hostKind: "user",
 			hostId: FOUNDER_ID,
 			initiatorId: FOUNDER_ID,
-			participants: [FOUNDER_ID].sort(),
-			pinned: false,
-			resolvedAt: null,
+			members: [FOUNDER_ID],
 			lastActiveAt: NOW,
 			createdAt: NOW,
-		},
+		}),
+		members: [makeIdentity(FOUNDER_ID)],
 		messages: [m],
 		headMessageId: null,
-		nextMessagesCursor: null,
+		hostTitle: null,
 	};
 }
 
@@ -219,11 +164,11 @@ test.describe("L11 — review-shape thread renders RichMessageCard inline", () =
 	}) => {
 		const fixture = reviewThreadFixture();
 
-		await page.route("**/api/threads/t-review-1", async (route) => {
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(fixture),
+				body: JSON.stringify({ ok: true, data: fixture }),
 			});
 		});
 
@@ -256,11 +201,11 @@ test.describe("L1a — plain-shape thread (chat-only)", () => {
 	}) => {
 		const fixture = plainOnlyThreadFixture();
 
-		await page.route("**/api/threads/t-plain-1", async (route) => {
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(fixture),
+				body: JSON.stringify({ ok: true, data: fixture }),
 			});
 		});
 
@@ -288,11 +233,11 @@ test.describe("L1a — back-compat (legacy review/chat collapse projection)", ()
 	test("legacy subject+body load through the new endpoint as payload.text", async ({ page }) => {
 		const fixture = legacyBackCompatThreadFixture();
 
-		await page.route("**/api/threads/t-legacy-1", async (route) => {
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(fixture),
+				body: JSON.stringify({ ok: true, data: fixture }),
 			});
 		});
 
@@ -322,45 +267,33 @@ test.describe("L1a — composer round-trips a plain message", () => {
 		// (which counts as two GETs in dev mode) and any future intermediate
 		// re-fetches the page may add.
 		let postObserved = false;
-		const newMessage = {
-			...baseMessage({
-				id: "m-plain-only-2",
-				threadId: "t-plain-1",
-				senderId: FOUNDER_ID,
-				clientKey: "ck-plain-only-002",
-				createdAt: LATER,
-			}),
+		const newMessage = makeMessage("m-plain-only-2", "t-plain-1", {
+			senderId: FOUNDER_ID,
+			clientKey: "ck-plain-only-002",
+			createdAt: LATER,
 			type: "plain",
 			payload: { text: composedText },
-		};
+		});
 		const after = {
 			...before,
 			messages: [newMessage, ...before.messages],
 		};
 
-		await page.route("**/api/threads/t-plain-1", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(postObserved ? after : before),
-				});
-				return;
-			}
-			await route.continue();
+		await page.route("**/api/actions/open_thread", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: postObserved ? after : before }),
+			});
 		});
 
-		await page.route("**/api/threads/t-plain-1/messages", async (route) => {
-			if (route.request().method() === "POST") {
-				postObserved = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({ message: newMessage, thread: before.thread }),
-				});
-				return;
-			}
-			await route.continue();
+		await page.route("**/api/actions/send_message", async (route) => {
+			postObserved = true;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: { message: newMessage, thread: before.thread } }),
+			});
 		});
 
 		await page.goto("/conversations/t-plain-1");
@@ -385,20 +318,16 @@ test.describe("L1a — verdict click resolves the review and renders APPROVED", 
 		// Robust against React StrictMode's double-effect.
 		let postObserved = false;
 
-		const verdictMessage = {
-			...baseMessage({
-				id: "m-verdict-1",
-				threadId: "t-review-1",
-				senderId: FOUNDER_ID,
-				clientKey: "ck-verdict-msg-001",
-				createdAt: LATER,
-			}),
+		const verdictMessage = makeMessage("m-verdict-1", "t-review-1", {
+			senderId: FOUNDER_ID,
+			clientKey: "ck-verdict-msg-001",
+			createdAt: LATER,
 			type: "verdict",
 			payload: {
 				decision: "approve",
 				resolvesMessageId: "m-review-1",
 			},
-		};
+		});
 		const headResolved = {
 			...before.messages[1],
 			resolvedAt: LATER,
@@ -407,37 +336,33 @@ test.describe("L1a — verdict click resolves the review and renders APPROVED", 
 		// new verdict message in the stream → headMessageId flips to null.
 		const after = {
 			thread: { ...before.thread, resolvedAt: LATER },
+			members: before.members,
 			headMessageId: null,
-			nextMessagesCursor: null,
+			hostTitle: null,
 			messages: [verdictMessage, before.messages[0], headResolved],
 		};
 
-		await page.route("**/api/threads/t-review-1", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(postObserved ? after : before),
-				});
-				return;
-			}
-			await route.continue();
+		await page.route("**/api/actions/open_thread", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: postObserved ? after : before }),
+			});
 		});
 
-		await page.route("**/api/threads/t-review-1/messages", async (route) => {
-			if (route.request().method() === "POST") {
-				postObserved = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
+		await page.route("**/api/actions/send_message", async (route) => {
+			postObserved = true;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
 						message: verdictMessage,
 						thread: { ...before.thread, resolvedAt: LATER },
-					}),
-				});
-				return;
-			}
-			await route.continue();
+					},
+				}),
+			});
 		});
 
 		await page.goto("/conversations/t-review-1");

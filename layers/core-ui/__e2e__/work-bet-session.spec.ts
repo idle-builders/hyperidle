@@ -10,15 +10,20 @@
  * side-effect API calls the AppShell and WorkBet components fire on load.
  * No DB seeding required.
  *
- * @lore L19: The AppShell always fires GET /api/threads?participant_id=…
- * (via useConversationsThreads). Without a mock this hits the Vite proxy
- * which tries to reach API port 3001 — not running during E2E. The ECONNREFUSED
+ * @lore L19: The AppShell always fires `POST /api/actions/search_threads`
+ * (via useConversationsThreads). The auto-use fixture already answers it
+ * with an empty list, but this spec registers its own override for clarity —
+ * without one, an unmocked action door would hit the Vite proxy which tries
+ * to reach API port 3001 (not running during E2E), and the ECONNREFUSED
  * causes Vite to log an error and return 502, which delays page hydration and
  * causes waitForSelector on table to time out. All API calls the page makes
  * must be mocked or explicitly absorbed.
+ *
+ * @lore BC3: repointed at `POST /api/actions/search_threads` — never
+ * `GET/POST /api/threads*`.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 const BET_ID = "bet-session-e2e";
 const _TASK_WITH_SESSION_ID = "task-with-session-001";
@@ -31,16 +36,10 @@ test.describe("L19 — WorkBet session metadata (e2e)", () => {
 
 		// Mock artifact thread summary so WorkBet renders cleanly.
 
-		// Mock all /api/threads calls (host thread list for the bet, conversations).
-		// The AppShell fires GET /api/threads?participant_id=… which must be absorbed
-		// to prevent a Vite proxy ECONNREFUSED that blocks page hydration.
-		await page.route("**/api/threads**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		// Mock search_threads (host thread list for the bet, conversations) so
+		// the AppShell absorbs it instead of hitting the Vite proxy, which would
+		// ECONNREFUSED and block page hydration.
+		await mockSearchThreads(page, { rows: [] });
 
 		await page.goto(`/work/task/${BET_ID}`);
 

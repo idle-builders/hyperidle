@@ -12,7 +12,14 @@
  * exist anywhere in `layers/core-ui/src`) — mechanical mock migration only.
  */
 
-import { expect, makeMessage, makeThread, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
+import {
+	expect,
+	makeMessage,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	test,
+} from "./fixtures";
 
 const NOW = "2026-05-05T09:00:00.000Z";
 const LATER = "2026-05-05T09:05:00.000Z";

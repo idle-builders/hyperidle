@@ -13,7 +13,14 @@
  * @lore BC3: repointed at the thread action door — never `POST /api/threads`.
  */
 
-import { expect, makeThread, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
+import {
+	expect,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	mockThread,
+	test,
+} from "./fixtures";
 
 const NOW_ISO = new Date().toISOString();
 
@@ -97,7 +104,9 @@ test.describe("Q1 — New DM Thread Creation", () => {
 
 		// Mock thread list to include the new thread after creation
 		await mockSearchThreads(page, {
-			rows: [makeThreadListRow(CREATED_THREAD.id, { ...CREATED_THREAD, hasUnresolvedReview: false })],
+			rows: [
+				makeThreadListRow(CREATED_THREAD.id, { ...CREATED_THREAD, hasUnresolvedReview: false }),
+			],
 		});
 
 		// Mock thread detail fetch
