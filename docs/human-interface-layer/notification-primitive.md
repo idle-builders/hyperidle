@@ -27,7 +27,7 @@ A **Notification** is a discrete record the system creates when something crosse
 
 **Lifecycle.** In-app: `unread → read` (read on open/dismiss/jump). Egress: `pending → sending → {sent|failed|dropped}`; `sending` is a lease; stuck leases recover on every drain tick (`layers/core-api/notifications/src/install.ts`, 1-minute interval).
 
-**Authority.** The notification **store** (`notification_queue`) is source of truth. The popover (web) reads it; the drain delivers egress. Notification-worthy events come from the policy engine and the dependency watcher.
+**Authority.** The notification **store** (`notification_queue`) is source of truth. The popover (web) reads it; the drain delivers egress. Notification-worthy events come from the dependency watcher.
 
 ## The mute model
 
@@ -51,8 +51,8 @@ The registry (`NOTIFICATION_TYPES`, `framework/domain-model/src/notifications.ts
 
 | Event source | Type (key) | Source link | Default urgency |
 |---|---|---|---|
-| `item_created`, `verb=review` | `review_request` | the review thread | `immediate`; the listener demotes to `ambient` for low-risk (risk_tier < medium, non-blocking) |
-| dependency-watcher / policy-engine "agent blocked" | `blocker_alert` | the blocked task's thread | `immediate` |
+| — *nothing produces `review_request` today; a review is a message that waits on a thread until a human posts a verdict* | `review_request` | n/a | n/a |
+| dependency-watcher "agent blocked" | `blocker_alert` | the blocked task's thread | `immediate` |
 | FYI-grade rollups | — *digest delivery mode, not a type* | n/a | — |
 | `agent.health.degraded` | — *ambient health dot, not a notification* | n/a | — |
 | dependency-watcher "task unblocked" | — *ambient / nothing* | n/a | — |

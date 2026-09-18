@@ -1,6 +1,6 @@
 # Data Flow Examples
 
-Five end-to-end flows, verified against live code. Each names the real mechanism (service, table, column) that carries the step. Lifecycle semantics belong to the owning docs — task/session lifecycle in [tasks-and-sessions](../process-layer/tasks-and-sessions.md), knowledge nesting and promotion in [knowledge-architecture](../knowledge-architecture/index.md), item routing in [items-and-routing](../human-interface-layer/items-and-routing.md).
+Five end-to-end flows, verified against live code. Each names the real mechanism (service, table, column) that carries the step. Lifecycle semantics belong to the owning docs — task/session lifecycle in [tasks-and-sessions](../process-layer/tasks-and-sessions.md), knowledge nesting and promotion in [knowledge-architecture](../knowledge-architecture/index.md).
 
 ## 1. A Task Tree Completes
 

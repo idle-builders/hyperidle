@@ -104,7 +104,7 @@ Three layers of memory bridge sessions on the same task, all mediated by Core kn
 
 - **The agent's private memory** — the agent's own notes about what it's doing and what it believes. Stored as `user`-scoped knowledge items (`framework/db/src/schema.ts`). Assembled into `context/` at session start. Survives across sessions for the same agent.
 - **The task's notes** (`tasks.notes`) — written continuously during the session (synced back via the file watcher) by whoever was working it. Any session by any agent can read them. This is how agent B picks up where agent A left off, and how agent A picks up tomorrow what it did today.
-- **The task's thread** (when it exists) — the conversation around the work. Comments, questions, review feedback. Read on demand, not by default.
+- **The task's thread** — the conversation around the work. Comments, questions, review feedback. Read on demand, not by default.
 
 Continuous writeback closes the memory loop: everything the agent writes in `knowledge/` (proposed practices, decisions, failures) and `work/` (session notes, artifacts) flows back into the canonical store within seconds, immediately available to the next session — whether by the same agent or a teammate.
 
@@ -112,6 +112,6 @@ Memory is the substrate; short bounded runs interact with it. No persistent proc
 
 ## 4. Task threads: comments, not chat
 
-The thread on a task is *optional* (`tasks.threadId` nullable FK). Most tasks ship without one. When a thread exists, it's structured like comments on a pull request — annotations, questions, clarifications, review feedback — not like a freeform chat. The task's *state* is on the task object; the thread is the narrative around it.
+Every task has a thread (`tasks.threadId`, not null), created with the task and hosted by the task's team. It's structured like comments on a pull request — annotations, questions, clarifications, review feedback — not like a freeform chat, even though most tasks stay quiet in it. The task's *state* is on the task object; the thread is the narrative around it.
 
-When a task escalates (blocked, needs human input, needs another agent), the escalation produces a review item routed to a thread and surfaces in Conversations. Blockers also appear in the WorkTeam AgentRow health indicator. The thread is the conversation; the task is the work.
+When a task escalates (blocked, needs human input, needs another agent), the escalation is a review message posted into the task's own thread and surfaces in Conversations. Blockers also appear in the WorkTeam AgentRow health indicator. The thread is the conversation; the task is the work.

@@ -47,19 +47,7 @@ Every canvas carries its source tool via `ToolLogo` and a jump-off link via `Can
 
 ## Trust gating — what reaches a human (AD4)
 
-Trust is **earned from verdict history, not assigned**. The policy engine (`layers/core-api/policy/src/policy-engine.ts`) decides, per item, whether an agent's output is pushed at a human, queued quietly, or auto-resolved — based on **approval rate × riskTier**:
-
-- **Trust signal** = the agent's approval rate over a sliding window (`trust_window_days`, default 30), computed from its verdict history (`layers/core-api/policy/src/approval-rate.ts`). Approval = `approve` or `approve-with-comments`.
-- **Decision order** (`policy-engine.ts`):
-  1. `riskTier = "high"` → always **push** to a human.
-  2. `kind = "skill_change"` → always **push**.
-  3. Non-blocking item from a silenced agent → **queue**.
-  4. Cold start: fewer than `trust_auto_resolve_min_verdicts` (default 10) verdicts → always **push** — new agents get maximum oversight until they accumulate history.
-  5. Approval rate ≥ `trust_auto_resolve_threshold` (default 0.9) and `riskTier = "low"` → **auto_resolve** (the engine writes an `approve` verdict as `policy_engine`).
-  6. Approval rate ≥ `trust_queue_threshold` (default 0.7) and `riskTier = "low"` → **queue**.
-  7. Otherwise → **push**.
-
-All thresholds live in factory settings with safe defaults. The effect the user sees: a new agent's every output lands in review; as its approval rate climbs, low-risk output stops interrupting and eventually resolves itself. Nothing is configured per skill — the gate fades as trust grows.
+There is no policy engine and no auto-approval: every review is a message that waits for a human's own verdict. Trust is still **earned from verdict history, not assigned**, but it is shown, not enforced — the agent's approval rate over a sliding window (`trust_window_days`, default 30, `layers/core-api/policy/src/approval-rate.ts`) is computed from its verdict history (approval = `approve` or `approve-with-comments`) and rendered on the agent's profile as a track record. Nothing reads that rate to route, queue, or resolve a review; a review reaches Conversations and stays there until a human posts a verdict message.
 
 ## Execution on approve (AL7)
 
@@ -89,6 +77,6 @@ The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **O
 
 ## Where it lives
 
-The registry, types, canvases, and composition component are in `layers/core-ui/src/pages/review/`. `ReviewPage` at `/reviews/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewMessageId` (`layers/core-api/src/routes/reviews.ts`) — a loader that reads the review message payload, composes the review's own `threadId` from the message row (never from the payload), and resolves an optional `artifactRef` to a full artifact entry appended to whatever artifacts the payload already carries. The route is mounted in `layers/core-api/src/app.ts`.
+The registry, types, canvases, and composition component are in `layers/core-ui/src/pages/review/`. `ReviewPage` at `/reviews/:reviewId` renders `ReviewComposition`. There is no dedicated reviews route: the page calls the thread action `open_thread({id})` for the messages (the review message carries its own `threadId`) and `open_task({id})` for the task, parent title and prompt, resolving an optional `artifactRef` to a full artifact entry appended to whatever artifacts the payload already carries.
 
 Next: [`Artifact` primitive](../process-layer/artifact-primitive.md) for the canonical data shape, or [`Thread` primitive](./thread-primitive.md) for the conversation container and verdict grammar.

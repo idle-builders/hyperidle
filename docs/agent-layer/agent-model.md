@@ -12,7 +12,7 @@ Who agents are: composition principles, identity, the categories, lifecycle, and
 
 4. **Hire and fire freely.** Agents spin up and down with the work. A new team starts with one agent; you add the rest, or a plugin does (see [teams](../process-layer/teams.md)).
 
-5. **Trust agents; humans own the consequential.** Agents hold their own credentials, run their own tools, and work with broad self-permission. We design to give agents *more* power, not less — never for paranoia or a hypothetical rogue agent (`ETHOS.md` §2). Humans step in at consequential moments via review — a collaboration checkpoint, not a cage. The gate fades as trust is earned: autonomy graduates off the review track record (verdict-history approval rate in `layers/core-api/policy/src/policy-engine.ts`, per AD4 — never a manually-set per-skill dial). Review routing surfaces are described in [review-primitive](../human-interface-layer/review-primitive.md).
+5. **Trust agents; humans own the consequential.** Agents hold their own credentials, run their own tools, and work with broad self-permission. We design to give agents *more* power, not less — never for paranoia or a hypothetical rogue agent (`ETHOS.md` §2). Humans step in at consequential moments via review — a collaboration checkpoint, not a cage. Every review waits for a human's own verdict; the agent's verdict-history approval rate (`layers/core-api/policy/src/approval-rate.ts`, per AD4) is shown as a track record on its profile, never used to auto-resolve or skip a review. Review surfaces are described in [review-primitive](../human-interface-layer/review-primitive.md).
 
 ## 2. Identity
 
@@ -105,18 +105,18 @@ plugin's shape, not something HyperIdle ships.
 
 ### 3.3 Individual agents — the Assistant
 
-Each human gets exactly one assistant: a personal operator scoped to that user. It sees what the user can see and does what the user can do — no factory-wide omniscience. Each user's assistant has its own identity document, its own pinned thread, and
-its own session history. **The assistant is the one agent HyperIdle ships with a
+Each human gets exactly one assistant: a personal operator scoped to that user. It sees what the user can see and does what the user can do — no factory-wide omniscience. Each user's assistant has its own identity document and
+its own session history; the overlay opens an ordinary direct thread with it, like any direct thread between a user and one agent. **The assistant is the one agent HyperIdle ships with a
 persona** — it is what you talk to on a fresh install, and it carries extra
 rights. It is edited through `/api/agents/:id` and the one knowledge edit
 endpoint, like every other agent; the `GET/PATCH /api/users/:userId/assistant`
 pair that used to be its private editor was deleted in BA9f.
 
-**Lifecycle.** Created at user registration (`layers/core-api/src/routes/users.ts`) or lazily via resolve-or-create (GET `/api/threads/assistant`). The thread starts unpinned, pins after the first real AI response, and stays pinned.
+**Lifecycle.** Created at user registration (`layers/core-api/src/routes/users.ts`); its thread is created on the overlay's first send (`send_message` with `recipients: [assistantId]`), the same as any other direct thread. There is no dedicated assistant thread route and no auto-pin: it starts and stays an ordinary direct thread.
 
 **Task drafting.** `edit_task` (no `id` creates) is one of the ordinary action-projected tools every agent kind sees, unrestricted by role — the Assistant has the same full tool surface as every other agent kind (AU27). Creating a task requires a resolvable `teams.id`; the calling thread context determines whether that is available.
 
-**Turn lifecycle.** The assistant turn runs through the same shared `run-orchestration` poller (`drainIntents → runClaimedRequest`) as every other agent kind — no second execution entry. It answers by calling the generic `reply` tool during the session, the same mechanism a `task_run` agent uses to post a comment into its task's thread. The session's return gate requires the assistant to call `reply` before ending; the loop is capped at `MAX_TOOL_ITERATIONS=3` (~5 effective rounds via the force-return reset) and always persists a reply — never silent, even on cap exhaustion.
+**Turn lifecycle.** The assistant turn runs through the same shared `run-orchestration` poller (`drainIntents → runClaimedRequest`) as every other agent kind — no second execution entry. It answers by calling `send_message` during the session, the same mechanism every other agent kind uses to post into a thread. The session's return gate requires the assistant to call `send_message` before ending; the loop is capped at `MAX_TOOL_ITERATIONS=3` (~5 effective rounds via the force-return reset) and always persists a reply — never silent, even on cap exhaustion.
 
 ### 3.4 Category is not role
 

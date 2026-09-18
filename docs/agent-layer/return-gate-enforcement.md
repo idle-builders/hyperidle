@@ -1,6 +1,6 @@
 # Return-Gate Enforcement
 
-Every agent turn that completes normally must invoke one of four return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — enforcement is provisioned per-harness at sandbox setup time, adjudicated by HyperIdle via a real HTTP route, and backstopped by a drain-end `ReturnGate` that no harness can bypass.
+Every agent turn that completes normally must invoke one of two return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — enforcement is provisioned per-harness at sandbox setup time, adjudicated by HyperIdle via a real HTTP route, and backstopped by a drain-end `ReturnGate` that no harness can bypass.
 
 Test-side honesty (the five-harness matrix, locked test models) is a separate mechanism — see [harness-coverage-enforcement.md](harness-coverage-enforcement.md), which also records that its execution-level floor was deleted with the attestation.
 
@@ -8,18 +8,16 @@ Test-side honesty (the five-harness matrix, locked test models) is a separate me
 
 ## 1. The Accepted-Return Set
 
-Four tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `framework/harness-protocol/src/harness/return-actions.ts`):
+Two tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `framework/harness-protocol/src/harness/return-actions.ts`):
 
 | Tool | Meaning |
 |---|---|
-| `submit_review` | Submit work for human or agent review |
 | `edit_task` | Delegate the task to another agent or human — terminal only when the edit is the session's OWN task and moves it away from the calling agent: the owner changes, or the state moves to `review`/`done`. An ordinary field edit, a subtask create, or an edit to a different task does not satisfy the gate |
-| `send_message` | Send a result or update to a thread |
-| `reply` | Answer the person or agent who triggered this session (posts into the session's calling thread, or a direct thread with the sole human user when the session has no calling thread) |
+| `send_message` | Post to a thread — a plain update, a review, a verdict, or a questionnaire. For a session with no task (a thread turn), `send_message` is the only member of the required set: creating a task with `edit_task` does not end the turn, and the agent must say so with a `send_message` after |
 
-The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturnAction(toolName, args, taskId)` is the single runtime check — three of the four members are unconditional on membership alone, `edit_task` is argument- and task-gated. Adding a member requires a deliberate edit to that tuple — there is no open fallback.
+The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturnAction(toolName, args, taskId)` is the single runtime check — `send_message` is unconditional on membership alone, `edit_task` is argument- and task-gated. Adding a member requires a deliberate edit to that tuple — there is no open fallback.
 
-**Dialect-prefix stripping (AR2 W1 fix):** CLI harnesses route tool calls through the MCP bridge, and each dialect decorates the tool name. The MCP protocol namespaces with the server prefix (`mcp__<server>__<tool>`, e.g. `mcp__hyperidle__submit_review`); OpenCode exposes tools as `<server>_<bare-name>` (e.g. `hyperidle_submit_review`). Before AR2, `isReturnAction` received the raw decorated name and returned `false` — causing CLI-harness turns that called a return action to be recorded as `not_returned`. A module-private `stripMcpNamespace(toolName)` in `return-actions.ts` strips both the `mcp__<server>__` prefix and the opencode `hyperidle_` prefix before the membership check. `isReturnAction` calls it internally, so all callers get correct behaviour without knowing the transport layer.
+**Dialect-prefix stripping (AR2 W1 fix):** CLI harnesses route tool calls through the MCP bridge, and each dialect decorates the tool name. The MCP protocol namespaces with the server prefix (`mcp__<server>__<tool>`, e.g. `mcp__hyperidle__send_message`); OpenCode exposes tools as `<server>_<bare-name>` (e.g. `hyperidle_send_message`). Before AR2, `isReturnAction` received the raw decorated name and returned `false` — causing CLI-harness turns that called a return action to be recorded as `not_returned`. A module-private `stripMcpNamespace(toolName)` in `return-actions.ts` strips both the `mcp__<server>__` prefix and the opencode `hyperidle_` prefix before the membership check. `isReturnAction` calls it internally, so all callers get correct behaviour without knowing the transport layer.
 
 ---
 
@@ -217,11 +215,11 @@ npm run eval -- --feature force_return
 
 Four scenarios:
 
-- **`fr-compliant-return-builder`** — agent instructed to call `submit_review`. Judges verify: outcome `completed`, `submit_review` called, `forceReturnCount = 0`.
+- **`fr-compliant-return-builder`** — agent instructed to call `send_message`. Judges verify: outcome `completed`, `send_message` called, `forceReturnCount = 0`.
 
 - **`fr-forced-return-builder`** — agent instructed NOT to call return tools (in-process enforcement). Judges verify: `forceReturnCount >= 1`, outcome is `completed` or `not_returned`, and the v1 regression (`completed` + `returnVerdict="not_returned"` simultaneously) did not occur.
 
-- **`fr-forced-return-external-compliant`** — agent on a `process-reengage`-shaped harness; first run ends without a return action (natural analysis response). Re-engage fires: second spawn with forcing message. Agent reads the forcing message and calls `submit_review`. Judges verify: `forceReturnCount >= 1`, `outcome = completed`, `returnVerdict = returned` — proves re-engage converts a real external non-Claude agent into returning.
+- **`fr-forced-return-external-compliant`** — agent on a `process-reengage`-shaped harness; first run ends without a return action (natural analysis response). Re-engage fires: second spawn with forcing message. Agent reads the forcing message and calls `send_message`. Judges verify: `forceReturnCount >= 1`, `outcome = completed`, `returnVerdict = returned` — proves re-engage converts a real external non-Claude agent into returning.
 
 - **`fr-forced-return-external`** — same shape, agent instructed NOT to return. Both re-engage budget rounds spent. Judges verify: `forceReturnCount >= 1`, `outcome = not_returned`. Proves the reject floor holds when the agent won't comply.
 

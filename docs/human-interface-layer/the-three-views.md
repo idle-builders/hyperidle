@@ -27,7 +27,7 @@ Each ThreadRow shows sender, subject/first-line summary, timestamp, and those tw
 
 **Session dial-in.** The founder can dial into a running session to observe the agent's live activity stream — read-only tool calls and reasoning, with `All | Tools | Reasoning` filter tabs (`layers/core-ui/src/components/SessionActivityPanel.tsx`). Toggled with the `D` key inside Conversations (`layers/core-ui/src/pages/Conversations.tsx`); the panel opens as a right-hand split. UI detail: [information-architecture/conversations-view.md](../information-architecture/conversations-view.md).
 
-Artifact embeds inside review messages (the five `ArtifactView` shapes) are owned by [process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md). The review page itself — canvases, verdict UI, trust surface — is [review-primitive.md](review-primitive.md). How items find the right view is [items-and-routing.md](items-and-routing.md); notification cadence is [notification-primitive.md](notification-primitive.md).
+Artifact embeds inside review messages (the five `ArtifactView` shapes) are owned by [process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md). The review page itself — canvases, verdict UI, trust surface — is [review-primitive.md](review-primitive.md); notification cadence is [notification-primitive.md](notification-primitive.md).
 
 ## Work — plan and track
 
@@ -62,7 +62,6 @@ Why enterprise knowledge tools fail, and the counters built in: stale content �
 Each view renders the same primitives; none owns them:
 
 - **Thread / Message / verdicts** — [thread-primitive.md](thread-primitive.md)
-- **Items and routing** — [items-and-routing.md](items-and-routing.md)
 - **Blocks** — [docs/blocks/](../blocks/index.md)
 - **Artifacts and embed shapes** — [process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md)
 - **Review surface and trust** — [review-primitive.md](review-primitive.md)

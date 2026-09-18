@@ -85,9 +85,7 @@ Depth: [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/han
 
 ## F-6: Routing and Review
 
-Item shape and routing rules: [human-interface-layer/items-and-routing.md](../human-interface-layer/items-and-routing.md).
-
-**F-6.1** **Not currently implemented.** This described `routeItem` routing every item to one of the three views by risk tier, kind, and verb (risk tier medium/high, reviews, skill changes, and chat → Conversations; knowledge → Knowledge; work/tasks → Work; fallback Conversations). Core-api itself already stopped calling this inline at item creation (`@lore O2`, `layers/core-api/src/routes/conversations.ts`), and AU21 §6 Decision L3 traced the remaining `tool-handlers` copy (`route_item` tool + `ports.work.routeItem` + the `item-router.ts` file) to be vestigial — its `view` output was consumed by nothing — and deleted it outright. Real item routing (persisted, actually driving where an item surfaces) does not exist in the codebase today; re-provisioning it is a separate, unscoped product decision, not this fix.
+**F-6.1** **Not currently implemented.** There is no `items` table and no item router. AU21 §6 Decision L3 traced the last copy of `routeItem` (the `route_item` tool + `ports.work.routeItem` + the `item-router.ts` file) to be vestigial — its `view` output was consumed by nothing — and deleted it outright; the `items` table itself was dropped later. Real item routing (persisted, actually driving where a review surfaces) does not exist in the codebase today; re-provisioning it is a separate, unscoped product decision, not this fix.
 
 **F-6.2** Human decisions on review items use the five-verdict grammar — see [human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 
