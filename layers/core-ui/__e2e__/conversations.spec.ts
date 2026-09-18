@@ -4,18 +4,15 @@
  * L9: ConversationsReview and ConversationsChat are replaced by the single
  * Conversations page. Legacy routes redirect to the canonical surface.
  * Detailed coverage lives in L9-single-detail.spec.ts and threads.spec.ts.
+ *
+ * @lore BC3: the thread door is `POST /api/actions/search_threads` — never
+ * `GET /api/threads*`.
  */
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 test.describe("Conversations — canonical routes (L9)", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 	});
 
 	test("/conversations renders the queue empty state", async ({ page }) => {
