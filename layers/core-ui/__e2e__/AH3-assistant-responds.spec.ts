@@ -136,7 +136,9 @@ test.describe("AH3: no-key path → missing_key notice in overlay", () => {
 		// search_threads({host:{kind:"agent",id:"ast-test-founder"}}) — the
 		// overlay's existing-thread lookup.
 		await mockSearchThreads(page, {
-			rows: [makeThreadListRow(ASSISTANT_THREAD.id, { ...ASSISTANT_THREAD, hasUnresolvedReview: false })],
+			rows: [
+				makeThreadListRow(ASSISTANT_THREAD.id, { ...ASSISTANT_THREAD, hasUnresolvedReview: false }),
+			],
 		});
 
 		// Simulate the server returning a missing_key notice message after send
