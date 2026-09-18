@@ -24,7 +24,7 @@ import type { ActionResult, SendMessageInput, ThreadView } from "@hyperidle/doma
 import { adjustThreadInvariants } from "@hyperidle/domain-model";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
+import { describe, expect, vi } from "vitest";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { test } from "../__testing__/test-fixtures.js";
 import type { ActionContext } from "../actions/action.js";
@@ -862,6 +862,61 @@ describe("send_message — the wake rule", () => {
 
 		const rows = await readChanges(db, threadId);
 		expect(rows.filter((r) => r.kind === "changed")).toHaveLength(0);
+	});
+
+	test("a wake that throws for one of two agents is logged and dropped — the send still answers ok, the message is committed, and the other agent's intent exists", async ({
+		db,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "wk-6");
+		await seedHuman(db, "wk-human-6", "wk-6");
+		await seedAgent(db, "wk-agent-fails-6", "wk-6");
+		await seedAgent(db, "wk-agent-ok-6", "wk-6");
+		const threadId = await seedTaskWithThread(db, "wk6-task", "wk-6");
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["wk-human-6"]) })
+			.where(eq(threads.id, threadId));
+
+		const real = buildSeamBackedWorkIntentRecorder(agentOrchestration);
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const actions = buildCoreActions({
+			agentOrchestration,
+			agentWorkIntentRecorder: (input) => {
+				if (input.sourceId.endsWith(":wk-agent-fails-6")) throw new Error("boom");
+				return real(input);
+			},
+			reviewVerdictRecorder: buildSeamBackedReviewVerdictRecorder(agentOrchestration),
+		});
+		const run = runnerFor<SendMessageInput, { message: { id: string } }>(actions, "send_message");
+
+		const result = await run(
+			{
+				actor: "wk-human-6",
+				db,
+				eventBus: new (await import("@hyperidle/event-bus")).EventBus(),
+				now: new Date().toISOString(),
+			},
+			{ threadId, text: "@wk-agent-fails-6 and @wk-agent-ok-6 please both look" },
+		);
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+
+		const written = await db.select().from(messages).where(eq(messages.id, result.data.message.id));
+		expect(written).toHaveLength(1);
+
+		const intents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "thread_turn"));
+		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-ok-6"))).toHaveLength(1);
+		expect(intents.filter((i) => i.sourceId.endsWith(":wk-agent-fails-6"))).toHaveLength(0);
+
+		expect(errorSpy).toHaveBeenCalled();
+		const logged = errorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+		expect(logged).toContain("thread turn wake failed");
+
+		errorSpy.mockRestore();
 	});
 });
 

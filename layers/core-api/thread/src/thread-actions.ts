@@ -8,6 +8,7 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
 import {
 	type AdjustThreadInput,
 	type AgentWorkIntentRecorderFn,
@@ -303,6 +304,8 @@ function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): 
 		});
 	}
 }
+
+const logger = createLogger({ pkg: "thread.thread-actions" });
 
 class VerdictRaceConflict extends Error {}
 
@@ -1099,9 +1102,16 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						idempotencyKey: `thread-turn:${messageId}:${agentId}`,
 						bakedRequest,
 					} as AgentWorkIntentRecorderInput);
-				} catch {
-					// a bake failure (e.g. a deactivated agent) drops that one wake;
-					// the message stays committed and the other wakes are unaffected.
+				} catch (error) {
+					// a bake failure (e.g. a deactivated agent) drops that one wake —
+					// the message stays committed and the other wakes are unaffected —
+					// but architecture.md §3.10 requires the drop to be LOGGED, never
+					// silent.
+					logger.error("thread turn wake failed", {
+						messageId,
+						agentId,
+						error: error instanceof Error ? error.message : String(error),
+					});
 				}
 			}
 		}
