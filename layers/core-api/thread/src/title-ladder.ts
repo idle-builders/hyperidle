@@ -20,12 +20,37 @@
 import type { Thread as DbThread, HyperIdleDb } from "@hyperidle/db";
 import { threadParticipantsSchema } from "@hyperidle/domain-model";
 
+/**
+ * A participant's identity as seen by the ladder. Ownership (`ownerUserId`,
+ * the `users.ownerUserId` column) is optional so existing `listUserNames`
+ * implementations that only return a bare name keep typechecking — the map
+ * value type is covariant in `ReadonlyMap`, so a `Map<string, string>` still
+ * satisfies this. Callers that want rung 1/2's ownership check to see real
+ * ownership must return the richer shape instead of a bare string.
+ */
+export interface ParticipantIdentity {
+	readonly name: string;
+	readonly ownerUserId?: string | null;
+}
+
 export interface TitleLadderDeps {
 	readonly listUserNames: (
 		db: HyperIdleDb,
 		ids: readonly string[],
-	) => Promise<ReadonlyMap<string, string>>;
+	) => Promise<ReadonlyMap<string, string | ParticipantIdentity>>;
 	readonly getKnowledgeItemTitle: (db: HyperIdleDb, id: string) => Promise<string | null>;
+}
+
+function identityName(entry: string | ParticipantIdentity | undefined): string | undefined {
+	if (entry === undefined) return undefined;
+	return typeof entry === "string" ? entry : entry.name;
+}
+
+function identityOwnerUserId(
+	entry: string | ParticipantIdentity | undefined,
+): string | null | undefined {
+	if (entry === undefined || typeof entry === "string") return undefined;
+	return entry.ownerUserId;
 }
 
 function parseParticipants(raw: string): string[] {
@@ -69,11 +94,12 @@ export async function resolveThreadTitles(
 
 		const parts = parseParticipants(row.participants);
 
-		// Rung 1: assistant thread.
+		// Rung 1: assistant thread — a participant owned by the requesting
+		// user (`users.ownerUserId`), never inferred from the id's shape.
 		if (
 			row.hostKind === "user" &&
 			row.hostId === requestingUserId &&
-			parts.some((p) => p === `ast-${requestingUserId}`)
+			parts.some((p) => identityOwnerUserId(userNameMap.get(p)) === requestingUserId)
 		) {
 			titleMap.set(row.id, "Assistant");
 			continue;
@@ -83,12 +109,16 @@ export async function resolveThreadTitles(
 		if ((row.hostKind === "user" || row.hostKind === "agent") && parts.length === 2) {
 			const otherId = parts.find((p) => p !== requestingUserId);
 			if (otherId !== undefined) {
-				const name = userNameMap.get(otherId);
+				const entry = userNameMap.get(otherId);
+				const name = identityName(entry);
 				if (name) {
 					titleMap.set(row.id, name);
 					continue;
 				}
-				titleMap.set(row.id, otherId.startsWith("ast-") ? "Assistant" : "Unknown participant");
+				titleMap.set(
+					row.id,
+					identityOwnerUserId(entry) === requestingUserId ? "Assistant" : "Unknown participant",
+				);
 				continue;
 			}
 		}
@@ -103,7 +133,7 @@ export async function resolveThreadTitles(
 
 		// Rung 4: group/feed — deterministic participant-name join.
 		const resolvedNames = parts
-			.map((p) => userNameMap.get(p))
+			.map((p) => identityName(userNameMap.get(p)))
 			.filter((n): n is string => n !== undefined)
 			.sort();
 		if (resolvedNames.length > 0) {
