@@ -39,17 +39,63 @@ const MOCK_RECIPIENTS = [
 	},
 ];
 
+/** A complete send_message success body — `SendMessageOutputSchema`'s shape. */
+const MOCK_SEND_MESSAGE_SUCCESS = {
+	message: {
+		id: "msg-story-1",
+		threadId: "th-story-1",
+		senderId: "user-founder",
+		type: "plain",
+		payload: { text: "Hey, can you take a look at this?" },
+		clientKey: "ck-story-1",
+		blockId: null,
+		resolvedAt: null,
+		deletedAt: null,
+		redactedAt: null,
+		createdAt: "2026-08-30T10:00:00.000Z",
+	},
+	thread: {
+		id: "th-story-1",
+		hostKind: "user",
+		hostId: "user-founder",
+		initiatorId: "user-founder",
+		members: ["user-founder", "agent-builder"],
+		title: null,
+		computedTitle: "Builder Bot",
+		pinned: false,
+		resolvedAt: null,
+		deletedAt: null,
+		lastActiveAt: "2026-08-30T10:00:00.000Z",
+		createdAt: "2026-08-30T10:00:00.000Z",
+	},
+};
+
+/** The 422 shape `sendMessageInvariants` produces — `ActionResult`'s error arm. */
+const MOCK_SEND_MESSAGE_ERROR = {
+	ok: false,
+	problems: [
+		{ code: "no_target", message: "Name a thread or recipients to send to.", path: "threadId" },
+	],
+};
+
 function useMockFetch(
 	payload: Record<string, unknown> | null,
-	createResponse?: Record<string, unknown> | null,
+	/** Controls what `POST /api/actions/send_message` answers when the story's Send button is used. */
+	sendMessageOutcome?: "success" | "error",
 ): void {
 	useEffect(() => {
 		const original = window.fetch;
 		window.fetch = (async (url: unknown) => {
 			const urlStr = typeof url === "string" ? url : String(url);
-			if (urlStr.includes("/api/threads") && createResponse !== undefined) {
-				return new Response(JSON.stringify(createResponse ?? {}), {
-					status: createResponse ? 201 : 500,
+			if (urlStr.includes("/api/actions/send_message") && sendMessageOutcome !== undefined) {
+				if (sendMessageOutcome === "error") {
+					return new Response(JSON.stringify(MOCK_SEND_MESSAGE_ERROR), {
+						status: 422,
+						headers: { "Content-Type": "application/json" },
+					});
+				}
+				return new Response(JSON.stringify({ ok: true, data: MOCK_SEND_MESSAGE_SUCCESS }), {
+					status: 200,
 					headers: { "Content-Type": "application/json" },
 				});
 			}
@@ -61,17 +107,17 @@ function useMockFetch(
 		return () => {
 			window.fetch = original;
 		};
-	}, [payload, createResponse]);
+	}, [payload, sendMessageOutcome]);
 }
 
 function Wrapper({
 	mockPayload,
-	createResponse,
+	sendMessageOutcome = "success",
 }: {
 	mockPayload?: Record<string, unknown> | null;
-	createResponse?: Record<string, unknown> | null;
+	sendMessageOutcome?: "success" | "error";
 }): JSX.Element {
-	useMockFetch(mockPayload ?? { recipients: MOCK_RECIPIENTS }, createResponse);
+	useMockFetch(mockPayload ?? { recipients: MOCK_RECIPIENTS }, sendMessageOutcome);
 	return (
 		<MemoryRouter>
 			<div className="p-[16px] max-w-[400px]">
