@@ -1660,6 +1660,92 @@ describe("adjust_thread", () => {
 		const after = await db.select().from(messages);
 		expect(after).toHaveLength(before.length);
 	});
+
+	test("members is a full replacement — removing and adding in one call; a non-member cannot use it to add themselves", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "at-4");
+		await seedHuman(db, "at-member-a", "at-4");
+		await seedHuman(db, "at-member-b", "at-4");
+		await seedHuman(db, "at-stranger", "at-4");
+		await seedThreadRow(db, "at-thread-4", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID, "at-member-a"],
+		});
+
+		const replaced = await call<ThreadView>(app, "adjust_thread", {
+			id: "at-thread-4",
+			members: [FOUNDER_ID, "at-member-b"],
+		});
+		expect(replaced.status).toBe(200);
+		expect((replaced.body.data?.members.map((m) => m.id) ?? []).sort()).toEqual(
+			[FOUNDER_ID, "at-member-b"].sort(),
+		);
+		const membersAfterReplace = await readThreadMembers(db, "at-thread-4");
+		expect(membersAfterReplace).not.toContain("at-member-a");
+
+		const refused = await call(
+			app,
+			"adjust_thread",
+			{ id: "at-thread-4", members: [FOUNDER_ID, "at-member-b", "at-stranger"] },
+			agentHeaders("at-stranger"),
+		);
+		expect(refused.status).toBe(422);
+		expect((refused.body as ActionEnvelope<unknown>).problems?.[0]?.code).toBe("not_a_member");
+		const membersAfterRefusal = await readThreadMembers(db, "at-thread-4");
+		expect(membersAfterRefusal).not.toContain("at-stranger");
+	});
+
+	test("pinned toggles and appends a changed row naming it", async ({ db, app }) => {
+		await seedTeam(db, "at-5");
+		await seedThreadRow(db, "at-thread-5", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+
+		const pinned = await call<ThreadView>(app, "adjust_thread", { id: "at-thread-5", pinned: true });
+		expect(pinned.status).toBe(200);
+		expect(pinned.body.data?.thread.pinned).toBe(true);
+
+		const unpinned = await call<ThreadView>(app, "adjust_thread", {
+			id: "at-thread-5",
+			pinned: false,
+		});
+		expect(unpinned.status).toBe(200);
+		expect(unpinned.body.data?.thread.pinned).toBe(false);
+
+		const rows = await readChanges(db, "at-thread-5");
+		expect(rows.filter((r) => r.kind === "changed" && r.after.includes('"pinned"'))).toHaveLength(2);
+	});
+
+	test("resolved:true resolves the thread; resolved:false reopens it", async ({ db, app }) => {
+		await seedTeam(db, "at-6");
+		await seedThreadRow(db, "at-thread-6", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+
+		const resolved = await call<ThreadView>(app, "adjust_thread", {
+			id: "at-thread-6",
+			resolved: true,
+		});
+		expect(resolved.status).toBe(200);
+		expect(resolved.body.data?.thread.resolvedAt).not.toBeNull();
+
+		const reopened = await call<ThreadView>(app, "adjust_thread", {
+			id: "at-thread-6",
+			resolved: false,
+		});
+		expect(reopened.status).toBe(200);
+		expect(reopened.body.data?.thread.resolvedAt).toBeNull();
+	});
 });
 
 // ============================================================================
@@ -1784,6 +1870,51 @@ describe("search_threads", () => {
 		expect(byId.get("st-preview-b")).toBe("b only");
 		expect(byId.get("st-preview-c")).toBeNull();
 	});
+
+	test("text matches message content across threads the actor can read, and canReadThread still filters a DM they are not in", async ({
+		db,
+		app,
+	}) => {
+		// `searchConversations` (message-content matches) is already gated by a
+		// participant-probe in its own SQL, so it can only ever return threads
+		// the actor is in. `searchThreadsByTitle` carries no such probe — it is
+		// the `readable = rows.filter(canReadThread...)` step afterwards that
+		// does the actual access control, and this proves it: a stored-title
+		// match on a host-scoped thread the actor never joined still comes
+		// back (any signed-in principal may read a team-hosted thread), while
+		// the same match on a user-hosted DM the actor is not a member of does
+		// not.
+		await seedTeam(db, "st-4");
+		await seedHuman(db, "st-text-outsider", "st-4");
+		await seedThreadRow(db, "st-text-mine", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+			title: "Zylophone Ops",
+		});
+		await seedThreadRow(db, "st-text-stranger-dm", {
+			hostKind: "user",
+			hostId: "st-text-outsider",
+			initiatorId: "st-text-outsider",
+			members: ["st-text-outsider"],
+			title: "Zylophone Secret",
+		});
+		await seedThreadRow(db, "st-text-team", {
+			hostKind: "team",
+			hostId: "st-4",
+			initiatorId: "system:propagation",
+			members: [],
+			title: "Zylophone Team Channel",
+		});
+
+		const res = await call<Array<{ id: string }>>(app, "search_threads", { text: "Zylophone" });
+		expect(res.status).toBe(200);
+		const ids = res.body.data?.map((r) => r.id) ?? [];
+		expect(ids).toContain("st-text-mine");
+		expect(ids).toContain("st-text-team");
+		expect(ids).not.toContain("st-text-stranger-dm");
+	});
 });
 
 // ============================================================================
@@ -1865,7 +1996,9 @@ describe("edit_task — every task gets a thread", () => {
 		expect(res.status).toBe(200);
 		expect(res.body.data?.task.threadId).toBe("et-existing-thread-2");
 		const members = await readThreadMembers(db, "et-existing-thread-2");
-		expect(members).toContain("et-owner-2");
+		// The owner is ADDED, not swapped in — the thread's original member
+		// (seeded before this edit_task call) must still be there afterwards.
+		expect(members.sort()).toEqual([FOUNDER_ID, "et-owner-2"].sort());
 	});
 });
 
