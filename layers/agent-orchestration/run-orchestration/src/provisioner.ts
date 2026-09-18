@@ -997,7 +997,7 @@ interface ProvisionSessionResult {
 const REVIEW_ORIENTATION = `
 
 ## When work needs a person
-Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask with \`submit_review\`: say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer. A declined review declines that solution, not the task — keep working toward the same goal another way.`;
+Nothing here stops you. You decide when work deserves a person's agreement before you do it — an irreversible change, something that reaches beyond this workspace, a call where being wrong would be expensive, or anything you would want a second opinion on. When you judge that it does, ask with \`send_message\` with type "review": say what you have done, what you want to do next and why, and attach the real evidence a person needs to decide. Your session ends there. A human reads it, decides, and you are brought back to carry on with their answer. A declined review declines that solution, not the task — keep working toward the same goal another way.`;
 
 /**
  * AF7 §2: The synchronous result of admission (phases 1-7). Carries everything
@@ -1706,7 +1706,7 @@ async function runSession(
 	// Register this session in the enforcement registry now that the
 	// real gate exists.
 	// The assistant is not exempt from return enforcement — it must call
-	// `reply` like every other required-return session.
+	// `send_message` like every other required-return session.
 	const exempt = ports.toolProvider.toolsForRole(agentRole).length === 0;
 	ports.harnessRuntime.enforcementRegistry.register(sessionId, {
 		gate: returnGate,
@@ -2040,8 +2040,8 @@ async function runSession(
 	// DIRECTORY. Deleting it now does not merely lose the agent's files: the
 	// resume spawns the harness with a working directory that no longer exists,
 	// and it hangs instead of failing, so the answer reaches nobody and nothing
-	// says why. The question is asked of the `review_sessions` row `submit_review`
-	// wrote, not of the tool-call event: a return action reaches this function by
+	// says why. The question is asked of the `review_sessions` row `send_message`
+	// (type "review") wrote, not of the tool-call event: a return action reaches this function by
 	// one of two paths depending on whether the MCP bridge is open, and watching
 	// only the stream was green in a test and dead on every real run.
 	if (!(await sessionAwaitsVerdict(db, sessionId))) {

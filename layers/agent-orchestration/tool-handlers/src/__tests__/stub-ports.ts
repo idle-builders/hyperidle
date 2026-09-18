@@ -32,7 +32,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		create: notImplemented,
 		findKnowledgeItemVersionById: notImplemented,
 		findKnowledgeItemStatusById: notImplemented,
-		findKnowledgeItemParentById: notImplemented,
 		findOpenConflictByItemAndProposer: notImplemented,
 		createKnowledgeConflict: notImplemented,
 		promoteKnowledgeItem: notImplemented,

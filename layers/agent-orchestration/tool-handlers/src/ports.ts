@@ -258,15 +258,6 @@ interface ToolHandlersCoreApiAccessor {
 		id: string,
 		actorId: string,
 	): Promise<{ readonly status: string } | undefined>;
-	/**
-	 * Returns parentKind and parentId for the item, or undefined if not found.
-	 * Used by submit_review to enforce the producedItemId invariant: the named
-	 * item must exist and be parented to the calling task.
-	 */
-	findKnowledgeItemParentById(
-		id: string,
-		actorId: string,
-	): Promise<{ readonly parentKind: string | null; readonly parentId: string | null } | undefined>;
 	findOpenConflictByItemAndProposer(
 		itemId: string,
 		proposedBy: string,

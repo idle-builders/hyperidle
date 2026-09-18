@@ -46,10 +46,6 @@ export interface UserView {
 // `edit_task({ ownerAgentId })`; role targeting, human escalation and the
 // escalation thread go with `handoff-protocol.ts`
 // (the architecture doc §8 B4).
-//
-// `CoreApiWorkPort` (`ItemView`/`UpdateItemRequest`/`CreateItemRequest`/
-// `CreateItemResponse`/`getItemById`/`updateItemById`/`createItem`) DELETED
-// with `create_item` and the `items` table — architecture.md §5 B4/B7.
 
 /**
  * The agent's tool-facing `users` capability family (Decision C, Increment 2)
@@ -107,10 +103,6 @@ export interface UpdateOrgTeamRequest {
 	// @lore BB1: activeBets removed — WIP limit is capacity counted live.
 	readonly leadAgentId?: string;
 }
-
-// `ReviewRecipientsQuery` DELETED with `GET /org/review-recipients` — its
-// only callers (`create_item`, `submit_review`) are gone. architecture.md
-// §5 B4.
 
 /** Mirrors `POST /org/scaffolded-agents`'s 201 response body. */
 export interface PersistScaffoldedAgentsResponse {
@@ -372,14 +364,6 @@ export interface CoreApiKnowledgePort {
 	): Promise<UpdateKnowledgeItemContentResult>;
 	findKnowledgeItemVersionById(id: string): Promise<KnowledgeItemVersionView | undefined>;
 	findKnowledgeItemStatusById(id: string): Promise<KnowledgeItemStatusView | undefined>;
-	/**
-	 * Returns parentKind and parentId for the item, or undefined if not found.
-	 * Used by submit_review to enforce the invariant: a named produced item must
-	 * exist and be parented to the calling task.
-	 */
-	findKnowledgeItemParentById(
-		id: string,
-	): Promise<{ readonly parentKind: string | null; readonly parentId: string | null } | undefined>;
 	/** See {@link ReparentKnowledgeItemRequest}. */
 	reparentKnowledgeItem(id: string, input: ReparentKnowledgeItemRequest): Promise<void>;
 	findOpenConflictByItemAndProposer(
