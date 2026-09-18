@@ -28,12 +28,19 @@
 import type {
 	ActivityEntry,
 	EntityRef,
-	HostKind,
 	InlineRef,
 	Message,
 	VerdictPayload,
 } from "@hyperidle/domain-model";
 import { isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
+import type { RouteHostKind } from "../../services/host-route.js";
+import {
+	plainPayloadOf,
+	questionnairePayloadOf,
+	reviewPayloadOf,
+	toInlineRefs,
+	verdictPayloadOf,
+} from "../../ds/message-payload.js";
 
 // AM3: session-activity type (NORMALIZED union — no harness-type param in adapter).
 // The adapter body (and ONLY the adapter body) imports the source types.
@@ -203,7 +210,7 @@ export type Embed =
 export type OpenTarget =
 	| {
 			readonly route: "host";
-			readonly hostKind: HostKind;
+			readonly hostKind: RouteHostKind;
 			readonly hostId: string;
 			/** @lore AM5 T8: optional block anchor. open-handler appends #block-<encodeURIComponent(blockId)>
 			 *  to the resolved path; KnowledgeDetail scrolls to the matching data-block-id element.
@@ -300,14 +307,16 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 	// EntityRef — exhaustive over all 3 EntityRef.kind members (W5).
 	switch (ref.kind) {
 		case "knowledge_item":
-		case "task":
+		case "task": {
+			const hostKind: RouteHostKind = ref.kind;
 			return {
 				kind: "entity-ref",
 				entityKind: ref.kind,
 				id: ref.id,
 				label: ref.id,
-				target: { route: "host", hostKind: ref.kind, hostId: ref.id },
+				target: { route: "host", hostKind, hostId: ref.id },
 			};
+		}
 		case "message":
 			// W5: no permalink route exists for a message ref → quiet, non-navigating.
 			return { kind: "unknown", label: ref.id };
@@ -326,6 +335,10 @@ function refsToEmbeds(refs: ReadonlyArray<InlineRef> | undefined): ReadonlyArray
  * message is NOT its own Part — it echoes onto the `resolved` Part of the
  * message it resolves (`resolvesMessageId`). Session activity NEVER becomes a
  * Part (concept hard-rule 3) — a session is an Embed only.
+ *
+ * @lore BC3: `Message.payload` is `unknown` on the wire (architecture.md
+ * §3.1) — each branch below parses it via the shared, per-type helpers in
+ * `ds/message-payload.ts` rather than narrowing the bare field.
  */
 export function derivePartsFromMessages(
 	messages: ReadonlyArray<Message>,
@@ -337,8 +350,10 @@ export function derivePartsFromMessages(
 	// so the resolved Part can attribute the verdict to a PERSON, not a message id.
 	const verdicts = new Map<string, { payload: VerdictPayload; resolverId: string }>();
 	for (const m of messages) {
-		if (m.type === "verdict" && !isRedactedPayload(m.payload)) {
-			verdicts.set(m.payload.resolvesMessageId, { payload: m.payload, resolverId: m.senderId });
+		if (m.type !== "verdict") continue;
+		const payload = verdictPayloadOf(m);
+		if (!isRedactedPayload(payload)) {
+			verdicts.set(payload.resolvesMessageId, { payload, resolverId: m.senderId });
 		}
 	}
 
@@ -350,23 +365,27 @@ export function derivePartsFromMessages(
 		const author = resolveAuthor(message.senderId, viewerId, identities);
 		const base = { id: message.id, author, createdAt: message.createdAt, embeds: [] as Embed[] };
 
-		// Redacted payload → quiet unknown Part.
-		if (isRedactedPayload(message.payload)) {
-			parts.push({ ...base, kind: "unknown", reason: "redacted" });
-			continue;
-		}
-
 		switch (message.type) {
 			case "plain": {
+				const payload = plainPayloadOf(message);
+				if (isRedactedPayload(payload)) {
+					parts.push({ ...base, kind: "unknown", reason: "redacted" });
+					break;
+				}
 				parts.push({
 					...base,
 					kind: "prose",
-					text: message.payload.text,
-					embeds: refsToEmbeds(message.payload.refs),
+					text: payload.text,
+					embeds: refsToEmbeds(toInlineRefs(payload.refs)),
 				});
 				break;
 			}
 			case "review": {
+				const payload = reviewPayloadOf(message);
+				if (isRedactedPayload(payload)) {
+					parts.push({ ...base, kind: "unknown", reason: "redacted" });
+					break;
+				}
 				const verdict = verdicts.get(message.id);
 				const reviewTarget: ReviewTarget = { reviewId: message.id };
 				if (verdict !== undefined || message.resolvedAt !== null) {
@@ -379,14 +398,14 @@ export function derivePartsFromMessages(
 						resolvedBy: verdict
 							? resolveAuthor(verdict.resolverId, viewerId, identities).name
 							: author.name,
-						summary: message.payload.title,
+						summary: payload.title,
 						reviewTarget,
 					});
 				} else {
 					parts.push({
 						...base,
 						kind: "review",
-						title: message.payload.title,
+						title: payload.title,
 						changeSet: null,
 						reviewTarget,
 					});
@@ -394,6 +413,11 @@ export function derivePartsFromMessages(
 				break;
 			}
 			case "questionnaire": {
+				const payload = questionnairePayloadOf(message);
+				if (isRedactedPayload(payload)) {
+					parts.push({ ...base, kind: "unknown", reason: "redacted" });
+					break;
+				}
 				const verdict = verdicts.get(message.id);
 				if (verdict !== undefined || message.resolvedAt !== null) {
 					parts.push({
@@ -403,15 +427,15 @@ export function derivePartsFromMessages(
 						resolvedBy: verdict
 							? resolveAuthor(verdict.resolverId, viewerId, identities).name
 							: author.name,
-						summary: message.payload.question,
+						summary: payload.question,
 						reviewTarget: { reviewId: message.id },
 					});
 				} else {
 					parts.push({
 						...base,
 						kind: "questionnaire",
-						question: message.payload.question,
-						options: message.payload.options,
+						question: payload.question,
+						options: payload.options,
 					});
 				}
 				break;

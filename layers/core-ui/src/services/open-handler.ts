@@ -26,9 +26,8 @@
  * to document here.
  */
 
-import type { HostKind } from "@hyperidle/domain-model";
 import type { OpenHandler, OpenTarget } from "../components/parts";
-import { resolveHostRoute } from "./host-route.js";
+import { resolveHostRoute, type RouteHostKind } from "./host-route.js";
 import { type ProductObjectKind, presentationFor } from "./object-presentation.js";
 
 export type NavigateFn = (path: string) => void;
@@ -47,7 +46,7 @@ export interface OpenHandlerContext {
 	readonly onInspectPath?: (path: string) => void;
 }
 
-function objectKindForHost(hostKind: HostKind): ProductObjectKind | null {
+function objectKindForHost(hostKind: RouteHostKind): ProductObjectKind | null {
 	switch (hostKind) {
 		case "task":
 		case "knowledge_item":
