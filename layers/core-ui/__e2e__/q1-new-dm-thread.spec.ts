@@ -4,11 +4,16 @@
  * Acceptance criteria:
  * 1. A "new thread" action is accessible from the Conversations view.
  * 2. Action opens a recipient picker with users and agents.
- * 3. Selecting a recipient + sending creates a DM thread via POST /api/threads.
+ * 3. Selecting a recipient + sending creates a DM thread via
+ *    POST /api/actions/send_message ({recipients, text}) — one call creates
+ *    the thread and sends the first message; there is no separate
+ *    thread-create door.
  * 4. New thread appears in the Conversations submenu thread list immediately.
+ *
+ * @lore BC3: repointed at the thread action door — never `POST /api/threads`.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeThread, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
 
 const NOW_ISO = new Date().toISOString();
 
@@ -42,18 +47,14 @@ const MOCK_RECIPIENTS = [
 	},
 ];
 
-const CREATED_THREAD = {
-	id: "new-dm-thread-id",
+const CREATED_THREAD = makeThread("new-dm-thread-id", {
 	hostKind: "agent",
 	hostId: "agent-builder",
 	initiatorId: "test-founder",
-	participants: ["test-founder", "agent-builder"],
-	pinned: false,
-	resolvedAt: null,
+	members: ["test-founder", "agent-builder"],
 	lastActiveAt: NOW_ISO,
 	createdAt: NOW_ISO,
-	hasUnresolvedReview: false,
-};
+});
 
 test.describe("Q1 — New DM Thread Creation", () => {
 	test.beforeEach(async ({ page }) => {
@@ -66,53 +67,41 @@ test.describe("Q1 — New DM Thread Creation", () => {
 			});
 		});
 
-		// Mock POST /api/threads
-		await page.route("**/api/threads", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
+		// Mock send_message ({recipients, text}) — creates the thread and sends
+		// the first message in one call; there is no separate thread-create door.
+		await page.route("**/api/actions/send_message", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						message: {
+							id: "msg-new-dm-001",
+							threadId: CREATED_THREAD.id,
+							senderId: "test-founder",
+							type: "plain",
+							payload: { text: "Hello from test" },
+							clientKey: "ck-new-dm-001",
+							blockId: null,
+							resolvedAt: null,
+							deletedAt: null,
+							redactedAt: null,
+							createdAt: NOW_ISO,
+						},
 						thread: CREATED_THREAD,
-						messages: [],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+					},
+				}),
+			});
 		});
 
 		// Mock thread list to include the new thread after creation
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					threads: [
-						{
-							...CREATED_THREAD,
-							id: "new-dm-thread-id",
-						},
-					],
-					nextCursor: null,
-				}),
-			});
+		await mockSearchThreads(page, {
+			rows: [makeThreadListRow(CREATED_THREAD.id, { ...CREATED_THREAD, hasUnresolvedReview: false })],
 		});
 
 		// Mock thread detail fetch
-		await page.route("**/api/threads/new-dm-thread-id", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					thread: CREATED_THREAD,
-					messages: [],
-					headMessageId: null,
-					nextMessagesCursor: null,
-					identities: {},
-				}),
-			});
-		});
+		await mockThread(page, { thread: CREATED_THREAD, messages: [] });
 	});
 
 	// AC1: "new thread" action is accessible from Conversations view
@@ -147,27 +136,38 @@ test.describe("Q1 — New DM Thread Creation", () => {
 	});
 
 	// AC3: selecting a recipient + sending creates a thread
-	test("AC3: selecting recipient and sending creates DM thread via POST /api/threads", async ({
+	test("AC3: selecting recipient and sending creates DM thread via send_message", async ({
 		page,
 	}) => {
 		const threadCreationRequests: unknown[] = [];
 
-		// Override thread POST to capture request body
-		await page.route("**/api/threads", async (route) => {
-			if (route.request().method() === "POST") {
-				const body = route.request().postDataJSON();
-				threadCreationRequests.push(body);
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
+		// Override send_message to capture request body
+		await page.route("**/api/actions/send_message", async (route) => {
+			const body = route.request().postDataJSON();
+			threadCreationRequests.push(body);
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						message: {
+							id: "msg-new-dm-001",
+							threadId: CREATED_THREAD.id,
+							senderId: "test-founder",
+							type: "plain",
+							payload: { text: "Hello from test" },
+							clientKey: "ck-new-dm-001",
+							blockId: null,
+							resolvedAt: null,
+							deletedAt: null,
+							redactedAt: null,
+							createdAt: NOW_ISO,
+						},
 						thread: CREATED_THREAD,
-						messages: [],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+					},
+				}),
+			});
 		});
 
 		await page.goto("/conversations");

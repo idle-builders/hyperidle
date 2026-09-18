@@ -15,23 +15,16 @@
  * - Settings body: 680px
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 const TEAMS_FIXTURE = {
 	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
 };
-const THREADS_FIXTURE = { threads: [], nextCursor: null };
 const KNOWLEDGE_FIXTURE = { items: [] };
 
 test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 	test("conversations thread list: content area ≤ 800px", async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(THREADS_FIXTURE),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -108,13 +101,7 @@ test.describe("W3 — Sidebar section headers styling (critique CRITICAL-1)", ()
 				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(THREADS_FIXTURE),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
 	});
@@ -152,13 +139,7 @@ test.describe("W3 — Sidebar section headers styling (critique CRITICAL-1)", ()
 
 test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 	test("conversations empty state visible when no threads", async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
