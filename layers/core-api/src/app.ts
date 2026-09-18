@@ -266,13 +266,6 @@ const notificationsDeps: NotificationsDeps = {
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
-	work: {
-			// @lore BC3 architecture.md §5 R2: the only real caller (the
-		// policy-engine "attention" review-request classifier) is deleted
-		// with the `items` table — always undefined, kept as a live
-		// extension point (see NotificationsWorkReader's own @lore).
-		getItemById: () => Promise.resolve(undefined),
-	},
 };
 
 /**
