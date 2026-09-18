@@ -275,7 +275,7 @@ describe("agent-layer boot recovery", () => {
 		// 5. A 31-day-old terminal intent — proves the retention sweep runs at boot.
 		await db.insert(agentWorkIntents).values({
 			id: "boot-old-terminal-intent",
-			kind: "assistant_turn",
+			kind: "thread_turn",
 			sourceKind: "thread_message",
 			sourceId: "boot-old-terminal-source",
 			idempotencyKey: "boot-old-terminal",
