@@ -26,6 +26,7 @@
 import type { Message } from "@hyperidle/domain-model";
 import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { UseAgentsResult } from "../../hooks/useAgents.js";
 import type { UseCurrentUserResult } from "../../hooks/useCurrentUser.js";
@@ -383,5 +384,121 @@ describe("AH3 §1.7b: crash-recovery — stale thinking state renders Retry card
 		// The assistant replied — no thinking indicator, no stale Retry
 		expect(screen.queryByText(/thinking/i)).not.toBeInTheDocument();
 		expect(screen.getByText("Sure, here is my answer.")).toBeInTheDocument();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Review fix: user-loading guard, no-agent Retry wiring, useThread "idle".
+// ---------------------------------------------------------------------------
+
+describe("Review fix: loading guard covers useCurrentUser too", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("user still loading + agents loaded shows the spinner, not the no-agent message", () => {
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: null,
+			status: "loading",
+			error: null,
+			retry: vi.fn(),
+		} as UseCurrentUserResult);
+		vi.mocked(useAgents).mockReturnValue({
+			agents: [],
+			loading: false,
+			error: null,
+			refetch: vi.fn(),
+		} as UseAgentsResult);
+		vi.mocked(useThreads).mockReturnValue({
+			status: "ready",
+			threads: [],
+			error: null,
+			retry: vi.fn(),
+		} as UseThreadsResult);
+		vi.mocked(useThread).mockReturnValue({
+			status: "loading",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		} as UseThreadResult);
+
+		const { container } = renderOverlay();
+
+		expect(screen.queryByText(/couldn't find your assistant agent/i)).not.toBeInTheDocument();
+		expect(container.querySelector(".loading-spinner")).not.toBeNull();
+	});
+});
+
+describe("Review fix: no-agent Retry calls useAgents().refetch, not threadSearch.retry", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("shows the not-found message once the user is resolved and Retry refetches agents", async () => {
+		const refetchAgents = vi.fn();
+		const retryThreads = vi.fn();
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: MY_USER_ID, name: "Founder", email: "founder@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+			retry: vi.fn(),
+		} as UseCurrentUserResult);
+		vi.mocked(useAgents).mockReturnValue({
+			agents: [],
+			loading: false,
+			error: null,
+			refetch: refetchAgents,
+		} as UseAgentsResult);
+		vi.mocked(useThreads).mockReturnValue({
+			status: "ready",
+			threads: [],
+			error: null,
+			retry: retryThreads,
+		} as UseThreadsResult);
+		vi.mocked(useThread).mockReturnValue({
+			status: "loading",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		} as UseThreadResult);
+
+		const user = userEvent.setup();
+		renderOverlay();
+
+		expect(screen.getByText(/couldn't find your assistant agent/i)).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: /retry/i }));
+
+		expect(refetchAgents).toHaveBeenCalledOnce();
+		expect(retryThreads).not.toHaveBeenCalled();
+	});
+});
+
+describe("Review fix: useThread 'idle' status is the empty say-hello state, not loading", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("renders the compose-only empty state, not a spinner, when useThread reports 'idle'", () => {
+		mockOwnershipAndUser();
+		// No existing thread — overrides mockOwnershipAndUser's default thread row.
+		vi.mocked(useThreads).mockReturnValue({
+			status: "ready",
+			threads: [],
+			error: null,
+			retry: vi.fn(),
+		} as UseThreadsResult);
+		// "idle" is the new terminal status for "no id given, nothing to open" —
+		// cast through `unknown` since UseThreadStatus may not carry it yet.
+		vi.mocked(useThread).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		} as unknown as UseThreadResult);
+
+		renderOverlay();
+
+		expect(screen.getByText(/say something to start/i)).toBeInTheDocument();
+		expect(screen.queryByText(/couldn't find your assistant agent/i)).not.toBeInTheDocument();
 	});
 });

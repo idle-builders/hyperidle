@@ -8,9 +8,11 @@
  * Dimensions: 360px wide, max-height 70vh. z-index 30 (above Main, below Settings).
  *
  * @lore AD8b: Renamed from CocOverlay → AssistantOverlay.
- * Hook: useCocThread → useAssistantThread (fetches /api/threads/assistant).
  * Context: CocContext → AssistantContext.
  * data-testid for context chips: "coc-context-chips" → "assistant-context-chips".
+ *
+ * @lore BC3 B6: resolves the viewer's own agent via useAgents()/useCurrentUser(),
+ * then reads that agent's direct thread via useThreads()/useThread().
  *
  * @lore L21 (design): overlay does NOT close on clicking outside. The user
  * must be able to interact with Main content (to select context items via the
@@ -261,12 +263,12 @@ function AssistantOverlayInner({
 	onRemoveContextRef: (index: number) => void;
 }): JSX.Element {
 	// artifacts-become-knowledge: scopeKind for knowledge items created from pending_block refs.
-	const { user } = useCurrentUser();
+	const { user, status: userStatus } = useCurrentUser();
 	// BC3 B6: "the assistant is your agent" — an ordinary agent with
 	// `ownerUserId === me`. `GET /api/agents` carries `ownerUserId` directly, so
 	// the overlay finds it straight off the one agents fetch every agent picker
 	// already shares — no second fetch.
-	const { agents, loading: agentsLoading } = useAgents();
+	const { agents, loading: agentsLoading, refetch: refetchAgents } = useAgents();
 	const myAgentId = agents.find((a) => a.ownerUserId === user?.id)?.id ?? null;
 
 	// BC3: no more `GET /api/threads/assistant` create-on-read. Resolve the
@@ -373,7 +375,10 @@ function AssistantOverlayInner({
 		[sendToThread, threadSearch],
 	);
 
-	if (agentsLoading || (myAgentId && threadSearch.status === "loading")) {
+	// BC3 review fix: `/api/auth/me` is still in flight until `userStatus`
+	// leaves "loading" — without this, `myAgentId` reads as null while the
+	// user is unresolved and the overlay flashes the no-agent message.
+	if (userStatus === "loading" || agentsLoading || (myAgentId && threadSearch.status === "loading")) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-4">
 				<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
@@ -382,12 +387,18 @@ function AssistantOverlayInner({
 	}
 
 	if (!myAgentId || threadSearch.status === "error") {
+		// BC3 review fix: with no agent, `threadSearch`'s filter is undefined
+		// and `threadSearch.retry()` is a no-op — re-fetching agents is the
+		// only thing that can resolve this state. Once an agent exists,
+		// `threadSearch.status === "error"` means the search itself failed,
+		// so its own retry is the right one.
+		const onRetry = myAgentId ? threadSearch.retry : refetchAgents;
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-[9px] p-4">
 				<p className="type-small  text-[var(--text-secondary)]">
 					{threadSearch.error ?? "Couldn't find your assistant agent."}
 				</p>
-				<Button variant="ghost" size="sm" onClick={threadSearch.retry}>
+				<Button variant="ghost" size="sm" onClick={onRetry}>
 					Retry
 				</Button>
 			</div>
