@@ -15,18 +15,19 @@ import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "re
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { RecipientPicker } from "../components/RecipientPicker";
-import type { ConversationsFilter } from "../components/ThreadSections";
+import type { ConversationsFilter, ThreadItem } from "../components/ThreadSections";
 import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
 import { ensureOverlayRoot, useDialogBehavior } from "../ds";
 import { useCommandK } from "../hooks/useCommandK";
-import { useConversationsThreads } from "../hooks/useConversationsThreads";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
 import { useHistoryAvailability } from "../hooks/useHistoryAvailability.js";
 import { useNavShortcuts } from "../hooks/useNavShortcuts.js";
 import { useTeams } from "../hooks/useTeams";
+import { useThreads } from "../hooks/useThreads.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { parentPathFor } from "../navigation/parentPathFor.js";
+import { relativeShort } from "../utils/time.js";
 import { AssistantOverlay } from "../shell/AssistantOverlay";
 import { DesktopTitleBar } from "../shell/DesktopTitleBar";
 import { NotificationPopover } from "../shell/NotificationPopover";
@@ -58,12 +59,45 @@ export interface AppShellOutletContext {
 	threadsStatus: "loading" | "ready" | "error";
 	threadsError: string | null;
 	onRetryThreads: () => void;
+
 	/** U9 AC-1: Opens the RecipientPicker for creating a new thread. */
 	onNewThread: () => void;
 	/** @lore NEW-24: retries AppShell-owned fetches (user + sidebar knowledge list) so a
 	 * full-outage recovery clears ALL sidebar error states, not just the main-pane error.
 	 * Child pages call this alongside their own domain retry. */
 	onRetryShell: () => void;
+}
+
+function capitalize(s: string): string {
+	if (s.length === 0) return s;
+	const first = s[0];
+	return first !== undefined ? first.toUpperCase() + s.slice(1) : s;
+}
+
+/**
+ * @lore BC3: replaces `useConversationsThreads.ts`'s `rowToItem` — the
+ * hand-pushed `ThreadListRow` is now `search_threads`'s own output shape
+ * (`title`/`computedTitle`/`lastMessagePreview`/`members`, no `participants`,
+ * no client-side `blocking` guess). AppShell is the sole caller of the row
+ * shape, so the mapping lives here rather than in a hook module of its own.
+ */
+function rowToItem(row: import("@hyperidle/domain-model").ThreadListRow): ThreadItem {
+	const title = row.title ?? row.computedTitle ?? `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`;
+	return {
+		id: row.id,
+		title,
+		snippet: row.lastMessagePreview ?? "",
+		timestamp: relativeShort(row.lastActiveAt),
+		lastActiveAt: row.lastActiveAt,
+		avatarUrl: null,
+		avatars: undefined,
+		hostKind: row.hostKind,
+		hasUnresolvedReview: row.hasUnresolvedReview,
+		blocking: false,
+		status: row.hasUnresolvedReview ? "behind" : undefined,
+		pinned: row.pinned,
+		resolvedAt: row.resolvedAt ?? undefined,
+	};
 }
 
 function deriveViewFromPath(pathname: string): ViewId {
@@ -489,11 +523,20 @@ export function AppShell(): JSX.Element {
 	);
 
 	// @lore M3 A11: participant id comes from useCurrentUser() — no more hardcoded demo-founder-id.
-	// @lore N5: pass user?.id directly (string | undefined). Hook short-circuits when falsy.
-	const conversationsThreads = useConversationsThreads(user?.id);
+	// @lore BC3: `useConversationsThreads` → `useThreads({mine:true})`; `undefined` when
+	// there is no viewer yet short-circuits the call entirely (N5's "no 400 on a fresh
+	// install" guard, now inside `useThreads` itself).
+	const threadsResult = useThreads(user?.id ? { mine: true } : undefined);
+	const threadItems = useMemo(() => threadsResult.threads.map(rowToItem), [threadsResult.threads]);
+	const conversationsThreads = {
+		status: threadsResult.status,
+		error: threadsResult.error,
+		threads: threadItems,
+		retry: threadsResult.retry,
+	};
 
 	// @lore UI-011/012/013 + NEW-23: when the user fetch fails, user?.id is undefined so
-	// useConversationsThreads short-circuits to status:"ready" (N5 guard — avoids a 400
+	// useThreads short-circuits to status:"ready" (N5 guard — avoids a 400
 	// "Missing scope" error on a fresh install with no users). The threads hook never fires
 	// and never errors. Propagate the user-fetch failure so the sidebar and Conversations
 	// page show "Couldn't load" instead of a false "No threads yet" empty claim.

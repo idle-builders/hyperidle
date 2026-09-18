@@ -36,6 +36,7 @@ import { CommentRow } from "./CommentRow.js";
 import { Composer } from "./Composer.js";
 import { EmptyState } from "./EmptyState.js";
 import { ErrorState } from "./ErrorState.js";
+import { questionnairePayloadOf, reviewPayloadOf, verdictPayloadOf } from "./message-payload.js";
 import { RichMessageCard, type RichMessageCardAction } from "./RichMessageCard.js";
 import { SkeletonList } from "./Skeleton.js";
 import { ThreadHostBanner } from "./ThreadHostBanner.js";
@@ -148,7 +149,7 @@ interface RichSlotsForRow {
 
 function buildRichSlots(message: Message): RichSlotsForRow | null {
 	if (message.type === "review") {
-		const { payload } = message;
+		const payload = reviewPayloadOf(message);
 		if (isRedactedPayload(payload)) return null;
 		return {
 			header: (
@@ -176,7 +177,7 @@ function buildRichSlots(message: Message): RichSlotsForRow | null {
 		};
 	}
 	if (message.type === "questionnaire") {
-		const { payload } = message;
+		const payload = questionnairePayloadOf(message);
 		if (isRedactedPayload(payload)) return null;
 		return {
 			header: (
@@ -256,13 +257,12 @@ export function ThreadShell({
 			const m = ordered[i];
 			if (m === undefined) continue;
 			if ((m.type === "review" || m.type === "questionnaire") && m.resolvedAt !== null) {
-				const verdict = ordered.find(
-					(v) =>
-						v.type === "verdict" &&
-						!isRedactedPayload(v.payload) &&
-						v.payload.resolvesMessageId === m.id,
-				);
-				if (verdict && verdict.type === "verdict" && !isRedactedPayload(verdict.payload)) {
+				const verdict = ordered.find((v) => {
+					if (v.type !== "verdict") return false;
+					const payload = verdictPayloadOf(v);
+					return !isRedactedPayload(payload) && payload.resolvesMessageId === m.id;
+				});
+				if (verdict && verdict.type === "verdict" && !isRedactedPayload(verdictPayloadOf(verdict))) {
 					return { message: m, verdict };
 				}
 				return null;
@@ -274,7 +274,7 @@ export function ThreadShell({
 		cardSubject && cardSubject.message.resolvedAt === null ? cardSubject.message : null;
 	const [reExpanded, setReExpanded] = useState(false);
 
-	const participants = thread.participants.map((id: string) => ({
+	const participants = thread.members.map((id: string) => ({
 		id,
 		name: identityFor(identities, id).name,
 	}));
@@ -397,10 +397,11 @@ export function ThreadShell({
 									? (() => {
 											const m = cardSubject.message;
 											const v = cardSubject.verdict;
+											const vPayload = v && v.type === "verdict" ? verdictPayloadOf(v) : null;
 											const resolvedProps =
-												v && v.type === "verdict" && !isRedactedPayload(v.payload)
+												v && vPayload && !isRedactedPayload(vPayload)
 													? {
-															decision: v.payload.decision,
+															decision: vPayload.decision,
 															actor: identityFor(identities, v.senderId).name,
 															timestamp: m.resolvedAt ?? "",
 															reExpanded,
