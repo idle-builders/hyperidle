@@ -24,13 +24,15 @@
  * @lore L9: there are exactly five states (A–E). State E ("Thread not found")
  * does NOT mount ConversationSurface — no message list, no composer.
  *
- * @lore Q1: Dial-in support retained. A task-hosted thread with an active session
- * shows a "Dial In" button; clicking it opens the companion split: the
- * ConversationSurface on the left, SessionActivityPanel on the right.
+ * @lore BC3: Dial-in (the "Dial In" button opening a session-activity split)
+ * is gone. It was reachable only for task-hosted threads, and that host kind
+ * no longer exists (a task's own thread is `team`-hosted — architecture.md
+ * §3.9). The task page shows a task's own active sessions directly; nothing
+ * replaces this affordance here.
  */
 
 import { TASK_STATE_LABEL, type TaskListItem, type ThreadView } from "@hyperidle/domain-model";
-import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { type JSX, useCallback, useContext, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { ArtifactSection } from "../components/ArtifactSection";
 import ConversationSurface, {
@@ -38,7 +40,6 @@ import ConversationSurface, {
 } from "../components/ConversationSurface";
 import type { PartAuthor } from "../components/parts";
 import { derivePartsFromMessages } from "../components/parts";
-import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import { SessionView } from "../components/SessionView";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
@@ -59,7 +60,6 @@ import { useThreadTasks } from "../hooks/useThreadTasks.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import type { AppShellOutletContext } from "../layouts/AppShell";
-import { apiFetch } from "../services/api-fetch.js";
 import { call } from "../services/call.js";
 import { resolveHostRoute } from "../services/host-route.js";
 import { createOpenHandler } from "../services/open-handler.js";
@@ -100,80 +100,10 @@ function identitiesToParticipants(
 }
 
 // ---------------------------------------------------------------------------
-// useActiveSessionForTask — Q1 §4.6
-// Fetches GET /api/sessions?task_id=<taskId>&state=active.
-// Returns the first active session for the task, or null.
-// ---------------------------------------------------------------------------
-
-interface ActiveSession {
-	id: string;
-	agentId: string;
-	taskId: string;
-	state: string;
-	startedAt: string;
-	modelTier: string;
-}
-
-interface UseActiveSessionResult {
-	activeSession: ActiveSession | null;
-	loading: boolean;
-}
-
-async function fetchActiveSession(
-	taskId: string,
-	signal: AbortSignal,
-): Promise<ActiveSession | null> {
-	const url = `/api/sessions?task_id=${encodeURIComponent(taskId)}&state=active`;
-	const res = await apiFetch(url, { signal });
-	if (signal.aborted || !res.ok) return null;
-	const body = (await res.json()) as unknown;
-	if (signal.aborted) return null;
-	const sessions = Array.isArray(body) ? (body as ActiveSession[]) : [];
-	return sessions.length > 0 ? (sessions[0] ?? null) : null;
-}
-
-function useActiveSessionForTask(taskId: string | null): UseActiveSessionResult {
-	const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
-	const [loading, setLoading] = useState(false);
-	const abortRef = useRef<AbortController | null>(null);
-
-	useEffect(() => {
-		if (!taskId) {
-			setActiveSession(null);
-			return;
-		}
-
-		const ac = new AbortController();
-		abortRef.current?.abort();
-		abortRef.current = ac;
-		setLoading(true);
-
-		fetchActiveSession(taskId, ac.signal)
-			.then((session) => {
-				if (ac.signal.aborted) return;
-				setActiveSession(session);
-				setLoading(false);
-			})
-			.catch((cause) => {
-				if (ac.signal.aborted) return;
-				if (cause instanceof Error && cause.name === "AbortError") return;
-				setActiveSession(null);
-				setLoading(false);
-			});
-
-		return () => {
-			ac.abort();
-		};
-	}, [taskId]);
-
-	return { activeSession, loading };
-}
-
-// ---------------------------------------------------------------------------
 // AM3: SessionViewPanel — wraps useSessionActivity + SessionView.
 // Opened by the `session` OpenTarget (session-reference Embed or sub-agent row).
-// Placement: right-panel split (same pattern as dial-in). The page owns the
-// placement; the session view has no route of its own (architecture §entry).
+// Placement: right-panel split. The page owns the placement; the session view
+// has no route of its own (architecture §entry).
 // ---------------------------------------------------------------------------
 
 interface SessionViewPanelProps {
@@ -340,43 +270,8 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// AM5 T6: SplitView ratio persistence per surface (hooks must be unconditional)
 	const [inspectRatio, setInspectRatio] = useUiPreference("conversation.inspect", 0.6);
 	const [inspection, setInspection] = useState<
-		{ kind: "dial" | "session"; sessionId: string } | { kind: "path"; path: string } | null
+		{ kind: "session"; sessionId: string } | { kind: "path"; path: string } | null
 	>(null);
-
-	// Q1 §4.6: check for active session when viewing a task-hosted thread.
-	// @lore BC3: a task's own thread is `team`-hosted now (architecture.md
-	// §3.9) — `thread.hostKind` can no longer distinguish "this is a task's
-	// thread" from an ordinary team thread, and `search_tasks` gained no
-	// by-thread filter to look one up (R5). Dial-in from this generic view
-	// is retired; the task page (WorkTaskPage) shows its own active sessions
-	// directly. See the BC3 build report.
-	const taskId: string | null = null;
-	const { activeSession } = useActiveSessionForTask(taskId);
-
-	// Q1 Task 15 / review issue #7: keyboard shortcut D toggles dial-in
-	// when the active session badge is visible. Must not fire in text inputs.
-	useEffect(() => {
-		if (!activeSession) return;
-		const handler = (e: KeyboardEvent): void => {
-			const target = e.target as HTMLElement | null;
-			if (target) {
-				const tag = target.tagName.toLowerCase();
-				if (tag === "input" || tag === "textarea" || target.isContentEditable) {
-					return;
-				}
-			}
-			if (e.key === "d" || e.key === "D") {
-				e.preventDefault();
-				setInspection((current) =>
-					current?.kind === "dial" ? null : { kind: "dial", sessionId: activeSession.id },
-				);
-			}
-		};
-		document.addEventListener("keydown", handler);
-		return () => {
-			document.removeEventListener("keydown", handler);
-		};
-	}, [activeSession]);
 
 	// AM1: the conversation send path. Sends a `plain` message via
 	// `send_message`, then refreshes. The conversation no longer emits a
@@ -469,33 +364,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		data.members.map((m) => [m.id, m]),
 	);
 
-	// Q1 §4.6: "Dial in" button — secondary style with pulsing live dot.
-	// Only shown for task threads with an active session.
-	// hearth-internal-padding
-	const dialInButton =
-		activeSession && inspection?.kind !== "dial" ? (
-			/* AI5: shared Button primitive (secondary). The live-pulse dot is one of
-			   the 3 AC3-allowlisted animate-pulse survivors and is preserved. */
-			<Button
-				variant="secondary"
-				size="sm"
-				onClick={() => setInspection({ kind: "dial", sessionId: activeSession.id })}
-				data-testid="dial-in-btn"
-			>
-				<span
-					aria-hidden="true"
-					className="motion-activity w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]  shrink-0"
-				/>
-				<span
-					className="sr-only"
-					role="status"
-					aria-label="Live session"
-					data-testid="live-session-badge"
-				/>
-				Dial in
-			</Button>
-		) : null;
-
 	// AM1: derive the render units + header/participants ONCE for both layouts.
 	// The conversation column comes from the Part adapter (the only Message-aware
 	// seam); the header/participants come from the values the page already has.
@@ -531,19 +399,12 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		hostRoute,
 	};
 
-	const agentId = activeSession?.agentId ?? data.thread.hostId;
+	const agentId = data.thread.hostId;
 	const agentIdentity = identities[agentId];
 	const agentName = agentIdentity?.name ?? agentId;
 	const viewerName = identities[viewerId]?.name ?? viewerId;
 	const inspectionDestination =
-		inspection?.kind === "dial" ? (
-			<SessionActivityPanel
-				sessionId={inspection.sessionId}
-				agentName={agentName}
-				taskTitle={data.thread.hostId}
-				onClose={() => setInspection(null)}
-			/>
-		) : inspection?.kind === "session" ? (
+		inspection?.kind === "session" ? (
 			<div data-testid="session-view-panel">
 				<SessionViewPanel
 					sessionId={inspection.sessionId}
@@ -570,28 +431,24 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 				// @lore NEW-28: on mobile (sidebarMobile) the breadcrumb is suppressed
 				// and the title is hidden md:block, so the <header> would be a 37px
 				// empty container if rendered with no visible content. Skip it entirely
-				// on mobile unless dialInButton is present (the only mobile-visible
-				// content). Desktop always renders the full header.
-				inspection ? undefined : !sidebarMobile || dialInButton ? (
+				// on mobile. Desktop always renders the full header.
+				inspection || sidebarMobile ? undefined : (
 					<PageHeader
 						title={threadTitle}
 						leading={
-							sidebarMobile ? undefined : (
-								<>
-									<Breadcrumb
-										segments={[
-											{ label: "Conversations", to: "/conversations" },
-											{ label: threadTitle },
-										]}
-										LinkComponent={Link}
-									/>
-									<ThreadTaskLinks tasks={threadTasks} />
-								</>
-							)
+							<>
+								<Breadcrumb
+									segments={[
+										{ label: "Conversations", to: "/conversations" },
+										{ label: threadTitle },
+									]}
+									LinkComponent={Link}
+								/>
+								<ThreadTaskLinks tasks={threadTasks} />
+							</>
 						}
-						actions={dialInButton}
 					/>
-				) : undefined
+				)
 			}
 			body="managed"
 		>
