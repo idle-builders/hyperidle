@@ -255,29 +255,22 @@ const NOTE_SEPARATOR = "\n\n---\n\n";
 //
 
 /** Discriminant union of all work-owned entity kinds. */
-export type WorkEntity = "task" | "item";
+export type WorkEntity = "task";
 
 /** Maps each entity discriminant to its plain (non-joined) row type. */
 interface WorkEntityRowMap {
 	task: Task;
-	item: Item;
 }
 
 /**
- * AND-composed filter for `list()`. Keys are entity-specific — supply only
- * those relevant to your entity. `count: true` short-circuits to a number.
- * `include` carries an enriched join with a CONDITIONAL return type.
+ * AND-composed filter for `list()`. `count: true` short-circuits to a
+ * number. `include` carries an enriched join with a CONDITIONAL return type.
  *
  * Key mapping to old functions:
  *   - `text`           → searchBetsByText (internally escapes via escapeLikePattern)
  *   - `ids`            → listBetsByIds / listTasksByIds
  *   - `teamId+status`  → listBetsByTeamAndStatus
  *   - `teamId+status+count:true` → countBetsByTeamAndStatus
- *   - `threadId`       → listItemsByThread
- *   - `queued+createdSince` → listQueuedItemsSince
- *   - `marker`         → findItemByReasoningMarker (returns Item[]; take [0] for {id})
- *   - `threadIds+bodyMarker` → findRetroItemByThreadIds (take [0] for {id})
- *   - `sourceAgentId`  → items filtered by sourceAgentId (map to .id for old string[])
  *   - `taskIds+include:"taskTitle"` → listArtifactsPage
  */
 export interface WorkFilter {
@@ -302,16 +295,6 @@ export interface WorkFilter {
 	 * its candidate list, so it must ask for that explicitly.
 	 */
 	excludeKilled?: true;
-	// item-specific
-	threadId?: string;
-	threadIds?: readonly string[];
-	sourceAgentId?: string;
-	/** Reasoning-field LIKE marker — maps to findItemByReasoningMarker. Take [0]. */
-	marker?: string;
-	/** Body-field LIKE marker — maps to findRetroItemByThreadIds. Take [0]. */
-	bodyMarker?: string;
-	queued?: true;
-	createdSince?: string;
 	// artifact-specific
 	taskIds?: readonly string[] | null;
 	cursor?: { readonly createdAt: string; readonly id: string } | null;
@@ -329,10 +312,6 @@ export async function get(exec: WriteExecutor, entity: WorkEntity, id: string): 
 	switch (entity) {
 		case "task": {
 			const [row] = await exec.select().from(tasks).where(eq(tasks.id, id)).limit(1);
-			return row;
-		}
-		case "item": {
-			const [row] = await exec.select().from(items).where(eq(items.id, id)).limit(1);
 			return row;
 		}
 	}
@@ -369,15 +348,6 @@ export async function list(
 			const [row] = await exec
 				.select({ n: sql<number>`count(*)` })
 				.from(tasks)
-				.where(conds.length > 0 ? and(...conds) : undefined);
-			return Number(row?.n ?? 0);
-		}
-		if (entity === "item") {
-			const conds: SQL[] = [];
-			if (f.threadId !== undefined) conds.push(eq(items.threadId, f.threadId));
-			const [row] = await exec
-				.select({ n: sql<number>`count(*)` })
-				.from(items)
 				.where(conds.length > 0 ? and(...conds) : undefined);
 			return Number(row?.n ?? 0);
 		}
@@ -456,58 +426,6 @@ export async function list(
 		return f.limit !== undefined ? query.limit(f.limit) : query;
 	}
 
-	// ── item dispatches ──────────────────────────────────────────────────────
-	if (entity === "item") {
-		if (f.threadId !== undefined)
-			return exec
-				.select()
-				.from(items)
-				.where(eq(items.threadId, f.threadId))
-				.orderBy(items.createdAt);
-		if (f.queued) {
-			return exec
-				.select()
-				.from(items)
-				.where(
-					and(
-						like(items.auditTrail, "%policy_queued%"),
-						sql`${items.createdAt} >= ${f.createdSince ?? new Date(0).toISOString()}`,
-					),
-				);
-		}
-		if (f.marker !== undefined) {
-			return exec
-				.select()
-				.from(items)
-				.where(like(items.reasoning, `%${f.marker}%`))
-				.limit(1);
-		}
-		if (f.threadIds !== undefined) {
-			if (f.threadIds.length === 0) return [];
-			const conds: SQL[] = [inArray(items.threadId, Array.from(f.threadIds))];
-			if (f.bodyMarker !== undefined) conds.push(like(items.body, `%${f.bodyMarker}%`));
-			return exec
-				.select()
-				.from(items)
-				.where(and(...conds))
-				.limit(1);
-		}
-		if (f.sourceAgentId !== undefined) {
-			return exec.select().from(items).where(eq(items.sourceAgentId, f.sourceAgentId));
-		}
-		if (f.ids !== undefined) {
-			if (f.ids.length === 0) return [];
-			return exec
-				.select()
-				.from(items)
-				.where(inArray(items.id, Array.from(f.ids)));
-		}
-		// NOTE: bare `createdSince` without `queued:true` is intentionally absent —
-		// the only real caller passes both together (hits the `f.queued` branch above).
-		// A bare-createdSince path would silently bypass the policy_queued filter.
-		return exec.select().from(items);
-	}
-
 	return [];
 }
 
@@ -535,19 +453,14 @@ type TaskUpdatePatch = Omit<TaskPatch, "notes"> & {
 	readonly notes?: TaskPatch["notes"] | AppendNoteOp;
 };
 
-/** Item update patch: same as ItemPatch (no special operators). */
-type ItemUpdatePatch = ItemPatch;
-
 /** Maps each entity discriminant to its create-values type. */
 interface WorkEntityCreateMap {
 	task: NewTask;
-	item: NewItem;
 }
 
-/** Maps each entity discriminant to its update-patch type (excluding artifact). */
+/** Maps each entity discriminant to its update-patch type. */
 interface WorkEntityUpdatePatchMap {
 	task: TaskUpdatePatch;
-	item: ItemUpdatePatch;
 }
 
 /** Guard: WHERE field = value. */
@@ -572,12 +485,12 @@ export interface TransitionSpec<P = unknown> {
 	readonly patch: P;
 }
 
-/** Maps each entity discriminant to its transition-patch type. Note: "item" is excluded — items have no guard-able state column, no transition() callers. */
+/** Maps each entity discriminant to its transition-patch type. */
 interface WorkEntityTransitionPatchMap {
 	task: TaskPatch;
 }
 
-export type { ItemUpdatePatch, TaskPatch, TaskUpdatePatch };
+export type { TaskPatch, TaskUpdatePatch };
 
 function isNullGuard(guard: TransitionGuard): guard is TransitionFieldIsNullGuard {
 	return "isNull" in guard;
@@ -745,9 +658,6 @@ export async function create<E extends WorkEntity>(
 		case "task":
 			await exec.insert(tasks).values(values as NewTask);
 			return;
-		case "item":
-			await exec.insert(items).values(values as NewItem);
-			return;
 	}
 }
 
@@ -769,10 +679,9 @@ export function update(
  * Plain by-id field-set. (@lore AU21 Increment 14a: the `costActualMinor:
  * { increment: n }` atomic-accumulation example this used to document is
  * HARD-DELETED along with the rest of the cost feature — no field on
- * `BetUpdatePatch`/`TaskUpdatePatch`/`ItemUpdatePatch` uses the `{increment}`
- * operator anymore.)
+ * `BetUpdatePatch`/`TaskUpdatePatch` uses the `{increment}` operator anymore.)
  */
-export function update<E extends "task" | "item">(
+export function update<E extends "task">(
 	exec: WriteExecutor,
 	entity: E,
 	id: string,
@@ -802,13 +711,6 @@ export async function update(
 			.update(tasks)
 			.set(patch as TaskPatch)
 			.where(eq(tasks.id, id));
-		return;
-	}
-	if (entity === "item") {
-		await exec
-			.update(items)
-			.set(patch as ItemPatch)
-			.where(eq(items.id, id));
 		return;
 	}
 	throw new Error(`update(): unsupported entity "${entity}"`);

@@ -2,8 +2,8 @@
  * Barrel for @hyperidle/task (core-api Layer, SQL-owning Service).
  *
  * renamed from `@hyperidle/work`. Typed functions only — the barrel
- * MUST NOT re-export the raw `tasks`/`items` pgTable objects, which would let
- * a consumer obtain a table transitively and defeat Table ACL (Mechanism A).
+ * MUST NOT re-export the raw `tasks` pgTable object, which would let
+ * a consumer obtain the table transitively and defeat Table ACL (Mechanism A).
  *
  * The public surface is a factory, not a value: `createTaskActions` returns
  * `readonly Action[]`, built from the three declarations in
@@ -30,11 +30,9 @@ export type {
 	TaskRunResolverDeps,
 } from "./task-run-resolver.js";
 export { bakeTaskContextBundle, resolveTaskRunRequest } from "./task-run-resolver.js";
-// -- task-service (tasks/items repository — the sole table path) --
+// -- task-service (tasks repository — the sole table path) --
 export type {
 	AppendNoteOp,
-	Item,
-	ItemUpdatePatch,
 	Task,
 	TaskPatch,
 	TaskUpdatePatch,
