@@ -132,6 +132,10 @@ the end because sessions post through the composed tool list.
 4. Recipients list (`GET /recipients`) is a users read and stays a legacy route until the user
    module.
 5. A task created inside a thread makes the task's owner a member of that thread if not already.
+9. A thread shows its tasks: search-a-task gains a by-thread filter (the task module reading its
+   own column), and the thread view lists them where the old task link sat. A review message
+   records the task its session ran on, stamped by the server from the session, so the review page
+   can name its task.
 
 ## Proposed items
 
