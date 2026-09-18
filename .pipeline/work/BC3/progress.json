@@ -41,11 +41,12 @@
   "branch": "feature/thread-module",
   "base": "origin/main",
   "phase": "build",
-  "next_action": "one builder: red tests then code in architecture \u00a77 order; websocket \u00a73.12 waits for the founder (nudge vs payload)",
+  "next_action": "two builders in parallel: server (tests, tool deletion, websocket nudge, governance, dead code) and UI (call(), two hooks, surfaces); then review in two passes, full e2e vs main, harness lane, founder gate",
   "since": "c90326dd1",
   "artifacts": {
     "architecture": ".pipeline/work/BC3/architecture.md",
     "critique": ".pipeline/work/BC3/critique.md (round 1 FAIL 10 blockers, round 2 PASS WITH BLOCKERS 1)",
     "facts": ".pipeline/work/BC3/facts.md"
-  }
+  },
+  "build_notes": "first builder did steps 1-5 plus route deletion without writing the section-9 tests; module had never run when it handed over; replacement builders write the tests first"
 }
