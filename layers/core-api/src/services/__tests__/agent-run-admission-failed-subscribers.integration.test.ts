@@ -42,7 +42,6 @@
 import {
 	explicitSessionStarts,
 	type HyperIdleDb,
-	items,
 	knowledgeAppProjection,
 	knowledgeItems,
 	messages,
@@ -54,7 +53,6 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { attentionReviewReasoningMarker } from "@hyperidle/knowledge";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
@@ -414,10 +412,15 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 		await drainIntents(deps, { maxAttempts: 1 });
 
+		// @lore BC3 architecture.md §5: `flagStalledKnowledgeAction` no longer
+		// inserts an `items` row (the table is deleted) — it posts a `review`
+		// message into the knowledge item's own thread (host kind
+		// "knowledge_item"), created on demand via `adjustThread`.
 		await vi.waitFor(async () => {
-			const reviewItems = await db.select().from(items);
-			const marker = attentionReviewReasoningMarker(item?.id ?? "");
-			const flagged = reviewItems.find((row) => (row.reasoning ?? "").includes(marker));
+			const allMessages = await db.select().from(messages).where(eq(messages.type, "review"));
+			const flagged = allMessages.find((row) =>
+				row.payload.includes(`Knowledge item ${item?.id ?? ""}`),
+			);
 			expect(flagged).toBeDefined();
 		});
 		// No durable "run" record exists for a knowledge action — nothing else to

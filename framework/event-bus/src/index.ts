@@ -14,7 +14,6 @@ export type {
 	EventByType,
 	EventHandler,
 	EventType,
-	ItemCreatedEvent,
 	KnowledgeArchivedEvent,
 	KnowledgeCreatedEvent,
 	KnowledgeUpdatedEvent,

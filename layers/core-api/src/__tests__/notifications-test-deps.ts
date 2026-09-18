@@ -27,10 +27,8 @@ import {
 	readCredentials,
 	writeCredential,
 } from "@hyperidle/credentials";
-import type { WriteExecutor } from "@hyperidle/db";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import * as work from "@hyperidle/task";
 
 export const notificationsDeps: NotificationsDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
@@ -54,6 +52,10 @@ export const notificationsDeps: NotificationsDeps = {
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
 	work: {
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
+		// @lore BC3 architecture.md §5 R2: the only real caller (the
+		// policy-engine "attention" review-request classifier) is deleted
+		// with the `items` table — always undefined, kept as a live
+		// extension point (see NotificationsWorkReader's own @lore).
+		getItemById: () => Promise.resolve(undefined),
 	},
 };

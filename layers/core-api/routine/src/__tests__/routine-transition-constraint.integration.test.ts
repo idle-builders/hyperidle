@@ -55,9 +55,6 @@ function makePorts(
 			// Returns undefined so assembleTriggerEvent falls through to generic subject
 			// without crashing when a task_state_changed event carries taskId.
 			getTaskById: () => Promise.resolve(undefined),
-			getItemById: unreachable("work.getItemById"),
-			createItem: unreachable("work.createItem"),
-			findRetroItemByThreadIds: unreachable("work.findRetroItemByThreadIds"),
 		},
 		conversation: {
 			getThreadIdsByHost: unreachable("conversation.getThreadIdsByHost"),
