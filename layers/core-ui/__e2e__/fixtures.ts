@@ -2,9 +2,15 @@
  * Shared Playwright test fixtures for HyperIdle e2e tests.
  *
  * @lore M3: M3 wired real API calls for /api/auth/me, /api/settings,
- * /api/threads, and /api/teams. Every page load now makes these requests. In
- * CI there is no backend server — only Vite serves the SPA bundle. Without mocks
- * every test would get ECONNREFUSED on the proxied /api/* calls.
+ * /api/actions/search_threads, and /api/teams. Every page load now makes
+ * these requests. In CI there is no backend server — only Vite serves the
+ * SPA bundle. Without mocks every test would get ECONNREFUSED on the
+ * proxied /api/* calls.
+ *
+ * @lore BC3: the thread door is `POST /api/actions/{search_threads,
+ * open_thread, send_message, adjust_thread}` — `{ok:true,data}` or
+ * `{ok:false,problems}` — never `GET/POST /api/threads*`. Mock the action,
+ * not the deleted REST route.
  *
  * @lore AD8a: /api/rail mock removed — the Rail API was deleted in U6 and the
  * route has been purged from the server. See packages/server/src/app.ts.
@@ -23,11 +29,16 @@
  */
 
 import type {
+	Identity,
+	Message,
 	Task,
 	TaskCardSummary,
 	TaskNode,
 	TaskView,
 	TeamDetail,
+	Thread,
+	ThreadListRow,
+	ThreadView,
 } from "@hyperidle/domain-model";
 import { test as base, expect } from "@playwright/test";
 
@@ -55,8 +66,8 @@ const DEFAULT_SETTINGS = {
 	},
 };
 
-/** Default mock response for GET /api/threads (list) */
-const DEFAULT_THREADS = { threads: [] };
+/** Default mock response for POST /api/actions/search_threads */
+const DEFAULT_THREADS: never[] = [];
 
 /** Default mock response for GET /api/teams */
 const DEFAULT_TEAMS = {
@@ -122,19 +133,18 @@ export const test = base.extend<CoreApiFixtures>({
 				}
 			});
 
-			// GET /api/threads — thread list for conversations page
-			// Uses a glob that matches /api/threads and /api/threads?cursor=...
-			// but NOT /api/threads/:id (that has its own route in thread specs).
-			await page.route("**/api/threads", async (route) => {
-				if (route.request().method() === "GET") {
-					await route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify(DEFAULT_THREADS),
-					});
-				} else {
+			// POST /api/actions/search_threads — thread list for the conversations
+			// page and every host-thread resolution (BC3: replaces GET /api/threads).
+			await page.route("**/api/actions/search_threads", async (route) => {
+				if (route.request().method() !== "POST") {
 					await route.continue();
+					return;
 				}
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ ok: true, data: DEFAULT_THREADS }),
+				});
 			});
 
 			// GET /api/teams — team list for work portfolio
@@ -220,16 +230,16 @@ export async function registerCoreMocks(page: import("@playwright/test").Page): 
 			await route.continue();
 		}
 	});
-	await page.route("**/api/threads", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(DEFAULT_THREADS),
-			});
-		} else {
+	await page.route("**/api/actions/search_threads", async (route) => {
+		if (route.request().method() !== "POST") {
 			await route.continue();
+			return;
 		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: DEFAULT_THREADS }),
+		});
 	});
 	await page.route("**/api/teams", async (route) => {
 		if (route.request().method() === "GET") {
@@ -442,6 +452,176 @@ export async function mockTeamDetail(
 			status: 200,
 			contentType: "application/json",
 			body: JSON.stringify(body),
+		});
+	});
+}
+
+// ---------------------------------------------------------------------------
+// BC3 thread fixtures
+//
+// @lore BC3: the only thread surface is `POST /api/actions/{search_threads,
+// open_thread, send_message, adjust_thread}` — `{ok:true,data}` or
+// `{ok:false,problems}`. `GET/POST /api/threads*` and `/api/conversations*`
+// are deleted. These helpers build the row shapes (`Thread`, `ThreadView`,
+// `Identity`, `Message`) and register per-test mocks, the same pattern as
+// the BB1 task fixtures above. `Thread.members` replaced the old
+// `participants` column name; there is no `task` host kind — a task's own
+// thread is `team`-hosted and the task page already knows its id via
+// `open_task(id).threadId` (HostThreadSection's `threadId` prop), never
+// resolved through `search_threads`/`host`.
+// ---------------------------------------------------------------------------
+
+/** A complete thread row. Pass only the fields the assertion depends on. */
+export function makeThread(id: string, overrides: Partial<Thread> = {}): Thread {
+	return {
+		id,
+		hostKind: "user",
+		hostId: "u-founder",
+		initiatorId: "u-founder",
+		members: ["u-founder"],
+		title: null,
+		computedTitle: `Thread ${id}`,
+		pinned: false,
+		resolvedAt: null,
+		deletedAt: null,
+		lastActiveAt: "2026-01-01T00:00:00.000Z",
+		createdAt: "2026-01-01T00:00:00.000Z",
+		...overrides,
+	};
+}
+
+/** A thread member — what `open_thread`'s `members` array holds. */
+export function makeIdentity(id: string, overrides: Partial<Identity> = {}): Identity {
+	return { id, name: id, role: "user", isAgent: false, ...overrides };
+}
+
+/** One message row. `payload` defaults to an empty plain body. */
+export function makeMessage(
+	id: string,
+	threadId: string,
+	overrides: Partial<Message> = {},
+): Message {
+	return {
+		id,
+		threadId,
+		senderId: "u-founder",
+		type: "plain",
+		payload: { text: "" },
+		clientKey: `ck-${id}`,
+		blockId: null,
+		resolvedAt: null,
+		deletedAt: null,
+		redactedAt: null,
+		createdAt: "2026-01-01T00:00:00.000Z",
+		...overrides,
+	};
+}
+
+/** One row of `search_threads`'s output — the conversations list. */
+export function makeThreadListRow(id: string, overrides: Partial<ThreadListRow> = {}): ThreadListRow {
+	return {
+		...makeThread(id),
+		hasUnresolvedReview: false,
+		lastMessagePreview: null,
+		...overrides,
+	};
+}
+
+export interface MockThreadOptions {
+	/** The thread the page opens — from `useThread(threadId)`. */
+	readonly thread: Thread;
+	readonly members?: readonly Identity[];
+	/** DESC (newest-first) — the order `open_thread` returns, unchanged. */
+	readonly messages?: readonly Message[];
+	readonly headMessageId?: string | null;
+	readonly hostTitle?: string | null;
+}
+
+/**
+ * Mock `open_thread` (what `useThread` loads) and `send_message` (what the
+ * composer posts) for one thread id — both `POST /api/actions/<name>`. A
+ * successful `send_message` call prepends the sent text as a new plain
+ * message, so a spec can post and then assert the reply renders.
+ *
+ * Registered per-test. `open_thread` has no fallback default to win over
+ * (unlike `open_task`/`search_threads`), so this is the ONLY handler most
+ * specs need for a thread detail surface.
+ */
+export async function mockThread(
+	page: import("@playwright/test").Page,
+	opts: MockThreadOptions,
+): Promise<void> {
+	const messages: Message[] = [...(opts.messages ?? [])];
+	const view = (): ThreadView => ({
+		thread: opts.thread,
+		members: [...(opts.members ?? [])],
+		messages: [...messages],
+		headMessageId: opts.headMessageId ?? null,
+		hostTitle: opts.hostTitle ?? null,
+	});
+
+	await page.route("**/api/actions/open_thread", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+		if (input.id !== opts.thread.id) {
+			// @lore see mockTaskTree's open_task handler above — fallback(), not
+			// continue(), so a spec mocking more than one thread id still works.
+			await route.fallback();
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: view() }),
+		});
+	});
+
+	await page.route("**/api/actions/send_message", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as {
+			threadId?: string;
+			text?: string;
+			clientKey?: string;
+		};
+		if (input.threadId !== opts.thread.id) {
+			await route.fallback();
+			return;
+		}
+		const message = makeMessage(`msg-${messages.length + 1}`, opts.thread.id, {
+			senderId: opts.thread.members[0] ?? "u-founder",
+			payload: { text: input.text ?? "" },
+			clientKey: input.clientKey ?? `ck-${messages.length + 1}`,
+			createdAt: new Date().toISOString(),
+		});
+		messages.unshift(message);
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: { message, thread: opts.thread } }),
+		});
+	});
+}
+
+export interface MockSearchThreadsOptions {
+	readonly rows: readonly ThreadListRow[];
+}
+
+/**
+ * Mock `search_threads` — the conversations list and every host-thread
+ * resolution (`HostThreadSection`'s `host` prop path). Registered per-test;
+ * wins over the auto-use empty-list fallback via LIFO.
+ */
+export async function mockSearchThreads(
+	page: import("@playwright/test").Page,
+	opts: MockSearchThreadsOptions,
+): Promise<void> {
+	await page.route("**/api/actions/search_threads", async (route) => {
+		if (route.request().method() !== "POST") {
+			await route.continue();
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: opts.rows }),
 		});
 	});
 }
