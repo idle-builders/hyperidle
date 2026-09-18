@@ -12,12 +12,7 @@
  * `parseMessagePayload` itself returns.
  */
 
-import type {
-	AssistantNotice,
-	CanvasArtifactRef,
-	EntityRef,
-	InlineRef,
-} from "@hyperidle/domain-model";
+import type { AssistantNotice, InlineRef } from "@hyperidle/domain-model";
 import {
 	type Message,
 	type PlainPayload,
@@ -72,37 +67,15 @@ export function verdictPayloadOf(message: Message): VerdictPayload | RedactedPay
 	return parseMessagePayload("verdict", message.payload) as VerdictPayload | RedactedPayload;
 }
 
-/** The wire shape `PlainPayload["refs"]` carries — `mentionRefSchema.sourceText`
- * is optional there even though domain-model's own `MentionRef.sourceText` is
- * required (a real drift between `actions/thread.ts` and `thread.ts`, both
- * outside this package — see the BC3 builder report). `EntityRef`/
- * `CanvasArtifactRef` entries are structurally identical either way and pass
- * through untouched; a `mention` entry with no `sourceText` cannot be located
- * in the message text regardless, so it is dropped rather than rendered with
- * a fabricated span. */
-type WireRef =
-	| { kind: "mention"; identityId: string; displayName: string; sourceText?: string }
-	| EntityRef
-	| CanvasArtifactRef;
-
+/**
+ * `PlainPayload["refs"]` (`mentionRefSchema`, `actions/thread.ts`) now
+ * requires `sourceText` on a mention ref, matching domain-model's own
+ * `MentionRef.sourceText` — the two are no longer different types, so this
+ * is an identity pass-through kept as the one seam between the wire shape
+ * and `InlineRef` for callers to depend on.
+ */
 export function toInlineRefs(
-	refs: readonly WireRef[] | undefined,
+	refs: readonly InlineRef[] | undefined,
 ): ReadonlyArray<InlineRef> | undefined {
-	if (refs === undefined) return undefined;
-	const out: InlineRef[] = [];
-	for (const ref of refs) {
-		if (ref.kind === "mention") {
-			if (typeof ref.sourceText === "string") {
-				out.push({
-					kind: "mention",
-					identityId: ref.identityId,
-					displayName: ref.displayName,
-					sourceText: ref.sourceText,
-				});
-			}
-			continue;
-		}
-		out.push(ref);
-	}
-	return out;
+	return refs;
 }
