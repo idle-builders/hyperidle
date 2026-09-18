@@ -133,8 +133,18 @@ describe("submit_review — producedItemId invariant", () => {
 			status: "active",
 			createdAt: NOW,
 		});
+		await db.insert(threads).values({
+			id: `thr-${TASK_ID}`,
+			hostKind: "team",
+			hostId: "team-pi",
+			initiatorId: "agent-pi",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
 			id: TASK_ID,
+			threadId: `thr-${TASK_ID}`,
 			parentTaskId: null,
 			teamId: "team-pi",
 			title: "Task under review",
@@ -142,8 +152,18 @@ describe("submit_review — producedItemId invariant", () => {
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
+		await db.insert(threads).values({
+			id: `thr-${OTHER_TASK_ID}`,
+			hostKind: "team",
+			hostId: "team-pi",
+			initiatorId: "agent-pi",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
 			id: OTHER_TASK_ID,
+			threadId: `thr-${OTHER_TASK_ID}`,
 			parentTaskId: null,
 			teamId: "team-pi",
 			title: "Different task",

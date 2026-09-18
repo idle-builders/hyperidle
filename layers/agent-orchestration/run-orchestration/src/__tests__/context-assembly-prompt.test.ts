@@ -260,35 +260,11 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).toContain("user-sender-ba9c");
 	});
 
-	it("renders item (work item) subject with title", async () => {
-		const context = {
-			...routineContext(),
-			triggerEvent: {
-				type: "item_created",
-				timestamp: 1_700_000_000_000,
-				subject: {
-					kind: "item" as const,
-					item: {
-						id: "item-ba9c-probe",
-						title: "BA9c-ITEM-PROBE-TITLE",
-						kind: "review",
-						body: "Item body content",
-					},
-					actorId: "agent-creator-ba9c",
-				},
-			},
-		};
-		const result = await assembler.assembleRoutinePrompt({
-			systemPromptText: "",
-			context,
-			tools: [],
-			sandboxPath: "/tmp/unused",
-		});
-
-		expect(result.assembledPrompt).toContain("### Trigger Event");
-		expect(result.assembledPrompt).toContain("BA9c-ITEM-PROBE-TITLE");
-		expect(result.assembledPrompt).toContain("**When:**");
-	});
+	// @lore BC3 architecture.md §5: it("renders item (work item) subject with
+	// title") DELETED — the kind:"item"/item_created subject variant no
+	// longer exists (the `items` table is gone); the sibling
+	// "knowledge-item" test below covers the same rendering path for the
+	// surviving subject kind.
 
 	it("renders knowledge-item subject with title and format", async () => {
 		const context = {

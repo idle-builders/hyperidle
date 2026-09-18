@@ -135,8 +135,18 @@ describe("submit_review with no artifacts", () => {
 				createdAt: NOW,
 			},
 		]);
+		await db.insert(threads).values({
+			id: `thr-${TASK_ID}`,
+			hostKind: "team",
+			hostId: TEAM_ID,
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
 			id: TASK_ID,
+			threadId: `thr-${TASK_ID}`,
 			parentTaskId: null,
 			teamId: TEAM_ID,
 			title: "Do the consequential thing",
