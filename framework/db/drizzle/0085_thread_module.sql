@@ -125,3 +125,34 @@ ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_source_
   or ("kind" = 'routine_run'      and "source_kind" = 'routine_run')
   or ("kind" = 'task_run'         and "source_kind" = 'task_dispatch_attempt')
   or ("kind" = 'session_resume'   and "source_kind" = 'review_verdict'));
+--> statement-breakpoint
+
+-- 9. `sourceCorrelation.assistantAgentId` is renamed to `agentId`
+--    (framework/domain-model/src/session-request.ts §B5). Both columns are
+--    `text` holding JSON, not `jsonb` — cast in, rename the key, cast back
+--    out. Idempotent: the WHERE guard only matches rows that still carry
+--    the old key, so a re-run touches nothing.
+--
+--    `agent_session_requests.source_correlation_json` IS the correlation
+--    object itself (the old key sits at its top level).
+UPDATE "agent_session_requests"
+SET "source_correlation_json" = (
+  ("source_correlation_json"::jsonb - 'assistantAgentId')
+    || jsonb_build_object('agentId', "source_correlation_json"::jsonb -> 'assistantAgentId')
+)::text
+WHERE "source_correlation_json"::jsonb ? 'assistantAgentId';
+--> statement-breakpoint
+
+--    `agent_work_intents.baked_request_json` is the whole baked request;
+--    the correlation object sits nested under its `sourceCorrelation` key.
+UPDATE "agent_work_intents"
+SET "baked_request_json" = jsonb_set(
+  "baked_request_json"::jsonb,
+  '{sourceCorrelation}',
+  (("baked_request_json"::jsonb -> 'sourceCorrelation') - 'assistantAgentId')
+    || jsonb_build_object(
+         'agentId',
+         "baked_request_json"::jsonb -> 'sourceCorrelation' -> 'assistantAgentId'
+       )
+)::text
+WHERE "baked_request_json"::jsonb -> 'sourceCorrelation' ? 'assistantAgentId';

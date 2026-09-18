@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
@@ -120,6 +121,34 @@ describe("migration 0085: thread as a module — brownfield", () => {
 			VALUES ('intent-assistant-1', 'assistant_turn', 'thread_message', 'msg-legacy-1', 'assistant:msg-legacy-1', ${NOW}, ${NOW})
 		`);
 
+		// a pre-rename intent whose baked request still nests the old
+		// `sourceCorrelation.assistantAgentId` key — the migration must rename it
+		// to `agentId` in place, alongside the `kind` respelling above.
+		await db.execute(sql`
+			INSERT INTO agent_work_intents
+				(id, kind, source_kind, source_id, idempotency_key, baked_request_json, created_at, updated_at)
+			VALUES (
+				'intent-assistant-corr-1', 'assistant_turn', 'thread_message', 'msg-legacy-1',
+				'assistant:msg-legacy-1:corr',
+				'{"sourceKind":"assistant","sourceCorrelation":{"threadId":"thr-legacy-item-host","messageId":"msg-legacy-1","userId":"human-older","assistantAgentId":"owner-agent-1"}}',
+				${NOW}, ${NOW}
+			)
+		`);
+
+		// a pre-rename session request whose `source_correlation_json` IS the
+		// correlation object, still carrying the old top-level key.
+		await db.execute(sql`
+			INSERT INTO agent_session_requests
+				(id, source_kind, source_id, stream_id, agent_id, user_id, prompt_mode,
+				 source_correlation_json, idempotency_key, status, created_at, updated_at)
+			VALUES (
+				'asr-corr-1', 'assistant', 'msg-legacy-1', 'thread:thr-legacy-item-host',
+				'owner-agent-1', 'human-older', 'conversation',
+				'{"threadId":"thr-legacy-item-host","messageId":"msg-legacy-1","userId":"human-older","assistantAgentId":"owner-agent-1"}',
+				'assistant:msg-legacy-1:corr', 'pending', ${NOW}, ${NOW}
+			)
+		`);
+
 		const folderAfter = makeTempMigrationsFolder(MIGRATION_IDX);
 		tempDirs.push(folderAfter);
 		await migrate(db, { migrationsFolder: folderAfter });
@@ -216,5 +245,59 @@ describe("migration 0085: thread as a module — brownfield", () => {
 			`),
 			"the old kind name must be refused by the respelled check constraint",
 		).rejects.toThrow();
+	});
+
+	it("renames sourceCorrelation.assistantAgentId to agentId in-flight, in both persisted JSON columns", async () => {
+		const db = await seedAndMigrate();
+
+		const [intentRow] = (
+			await db.execute(
+				sql`SELECT baked_request_json FROM agent_work_intents WHERE id = 'intent-assistant-corr-1'`,
+			)
+		).rows as Array<{ baked_request_json: string }>;
+		if (!intentRow) throw new Error("intent-assistant-corr-1 not found after migration");
+		const bakedRequest = JSON.parse(intentRow.baked_request_json) as {
+			sourceCorrelation: Record<string, unknown>;
+		};
+		expect(bakedRequest.sourceCorrelation.agentId).toBe("owner-agent-1");
+		expect(bakedRequest.sourceCorrelation).not.toHaveProperty("assistantAgentId");
+
+		const [requestRow] = (
+			await db.execute(sql`
+				SELECT source_id, stream_id, agent_id, user_id, source_correlation_json, idempotency_key
+				FROM agent_session_requests WHERE id = 'asr-corr-1'
+			`)
+		).rows as Array<{
+			source_id: string;
+			stream_id: string;
+			agent_id: string;
+			user_id: string;
+			source_correlation_json: string;
+			idempotency_key: string;
+		}>;
+		if (!requestRow) throw new Error("asr-corr-1 not found after migration");
+		const sourceCorrelation = JSON.parse(requestRow.source_correlation_json) as Record<
+			string,
+			unknown
+		>;
+		expect(sourceCorrelation.agentId).toBe("owner-agent-1");
+		expect(sourceCorrelation).not.toHaveProperty("assistantAgentId");
+
+		const parsed = agentSessionRequestInputSchema.parse({
+			sourceKind: "assistant",
+			promptMode: "conversation",
+			sourceId: requestRow.source_id,
+			streamId: requestRow.stream_id,
+			agentId: requestRow.agent_id,
+			userId: requestRow.user_id,
+			idempotencyKey: requestRow.idempotency_key,
+			sourceCorrelation,
+		});
+		expect(parsed.sourceCorrelation).toEqual({
+			threadId: "thr-legacy-item-host",
+			messageId: "msg-legacy-1",
+			userId: "human-older",
+			agentId: "owner-agent-1",
+		});
 	});
 });
