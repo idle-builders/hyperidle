@@ -10,6 +10,7 @@ import {
 	agentWorkIntents,
 	changes,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
 	messages,
 	reviewSessions,
@@ -180,6 +181,13 @@ async function seedKnowledgeItem(
 		...(opts?.parentId ? { parentId: opts.parentId } : {}),
 		createdAt: now,
 		updatedAt: now,
+	});
+	// @lore Ruling 13 companion rule: the owner (@hyperidle/knowledge's `create`) always writes
+	// knowledgeItems and knowledgeAppProjection together — a fixture that writes only the first
+	// builds a state production cannot produce.
+	await db.insert(knowledgeAppProjection).values({
+		id: `${id}-projection`,
+		knowledgeItemId: id,
 	});
 }
 
