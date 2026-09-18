@@ -147,15 +147,6 @@ export interface TaskStateChangedEvent {
  * event type from the extension surface.
  */
 
-export interface ItemCreatedEvent {
-	type: "item_created";
-	streamId: string;
-	itemId: string;
-	conversationId: string;
-	kind: string;
-	timestamp: number;
-}
-
 export interface SessionStartedEvent {
 	type: "session_started";
 	streamId: string;
@@ -540,7 +531,6 @@ export type DomainEvent =
 	| ThreadMessageAppendedEvent
 	| ThreadResolvedEvent
 	| ThreadReopenedEvent
-	| ItemCreatedEvent
 	// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion
 	| SandboxWritebackChangesDetectedEvent
 	| KnowledgeCreatedEvent
@@ -587,7 +577,9 @@ export const EVENT_TYPES = [
 	"thread_message_appended",
 	"thread_resolved",
 	"thread_reopened",
-	"item_created",
+	// @lore BC3 architecture.md §5: "item_created" DELETED — its only backing
+	// store, the `items` table (the founder's conversation-review "block"
+	// concept), is gone, and nothing emits it anymore.
 	"sandbox_writeback_changes_detected",
 	"knowledge_created",
 	"knowledge_updated",

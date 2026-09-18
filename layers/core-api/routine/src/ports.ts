@@ -1,5 +1,5 @@
 // @lore BB1: Bet import removed — bet is now a root task; getBetById deleted.
-import type { HyperIdleDb, NewItem, NewThread, Team, User, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, NewThread, Team, User, WriteExecutor } from "@hyperidle/db";
 import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -47,28 +47,9 @@ export interface RoutineSchedulerPorts {
 			  }
 			| undefined
 		>;
-		/**
-		 * BA9c: Load a work item row (items table) for trigger event subject assembly.
-		 * Called for item_created events.
-		 */
-		getItemById(
-			db: HyperIdleDb,
-			id: string,
-		): Promise<
-			| {
-					readonly id: string;
-					readonly title: string;
-					readonly kind: string | null;
-					readonly body: string | null;
-			  }
-			| undefined
-		>;
-		createItem(exec: WriteExecutor, values: NewItem): Promise<void>;
-		findRetroItemByThreadIds(
-			db: HyperIdleDb,
-			threadIds: string[],
-			marker: string,
-		): Promise<{ readonly id: string } | undefined>;
+		// @lore BC3 architecture.md §5: `getItemById`/`createItem` (item_created
+		// subject assembly) and `findRetroItemByThreadIds` DELETED — all three
+		// read/wrote the `items` table, which no longer exists.
 	};
 	readonly conversation: {
 		getThreadIdsByHost(db: HyperIdleDb, hostKind: string, hostId: string): Promise<string[]>;

@@ -12,7 +12,7 @@
  *   AC10 — popover API: GET /notifications/inbox, POST /seen, POST /:id/read
  */
 
-import { type HyperIdleDb, items as itemsTable, notificationQueue, threads } from "@hyperidle/db";
+import { type HyperIdleDb, notificationQueue, threads } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/event-bus";
 import { enqueue, installNotifications, updatePreferences } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, vi } from "vitest";
@@ -41,24 +41,16 @@ describe("AF8 AC2 — notification event produces typed, source-linked row", () 
 		const threadId = "thread-af8-ac2";
 		const itemId = "item-af8-ac2";
 
-		// Seed thread and item
+		// Seed thread (BC3: the `items` table this used to also seed is gone —
+		// installNotifications reacts to the NotificationEvent's targetId/kind
+		// directly, it never reads `items`).
 		await db.insert(threads).values({
 			id: threadId,
-			hostKind: "task",
+			hostKind: "team",
 			hostId: "task-af8",
 			initiatorId: "agent-1",
 			participants: JSON.stringify(["agent-1"]),
 			lastActiveAt: "2026-06-11T00:00:00.000Z",
-			createdAt: "2026-06-11T00:00:00.000Z",
-		});
-		await db.insert(itemsTable).values({
-			id: itemId,
-			kind: "review",
-			title: "Needs review",
-			body: "Please review",
-			blocking: false,
-			riskTier: "high",
-			threadId,
 			createdAt: "2026-06-11T00:00:00.000Z",
 		});
 
@@ -140,21 +132,11 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 
 		await db.insert(threads).values({
 			id: threadId,
-			hostKind: "task",
+			hostKind: "team",
 			hostId: "task-af8-mute",
 			initiatorId: "agent-1",
 			participants: JSON.stringify(["agent-1"]),
 			lastActiveAt: "2026-06-11T00:00:00.000Z",
-			createdAt: "2026-06-11T00:00:00.000Z",
-		});
-		await db.insert(itemsTable).values({
-			id: itemId,
-			kind: "review",
-			title: "Muted review",
-			body: "Should not be enqueued",
-			blocking: false,
-			riskTier: "high",
-			threadId,
 			createdAt: "2026-06-11T00:00:00.000Z",
 		});
 

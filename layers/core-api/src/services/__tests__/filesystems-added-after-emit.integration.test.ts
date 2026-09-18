@@ -99,7 +99,7 @@ async function emitAndDrain(
 	idempotencyKey: string,
 ): Promise<{ readonly payloadJson: string | null }> {
 	await enqueueWorkIntent(db, {
-		kind: "assistant_turn",
+		kind: "thread_turn",
 		sourceKind: "thread_message",
 		sourceId: `${idempotencyKey}-message`,
 		idempotencyKey,
@@ -113,7 +113,7 @@ async function emitAndDrain(
 				threadId: `${idempotencyKey}-thread`,
 				messageId: `${idempotencyKey}-message`,
 				userId: HUMAN_ID,
-				assistantAgentId: AGENT_ID,
+				agentId: AGENT_ID,
 			},
 		},
 	});

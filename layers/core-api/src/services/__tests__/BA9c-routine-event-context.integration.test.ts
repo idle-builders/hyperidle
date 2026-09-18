@@ -21,11 +21,10 @@
  * AT THE MOMENT of firing, not some earlier snapshot.
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
+import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import {
 	agentWorkIntents,
 	type HyperIdleDb,
-	items,
 	routineRuns,
 	routines,
 	sessions,
@@ -448,83 +447,11 @@ describe("BA9c — thread_message_appended produces kind:thread rich subject", (
 // AC4 (rich shapes): item_created, knowledge_created, artifact_created
 // ---------------------------------------------------------------------------
 
-describe("BA9c — item_created produces kind:item rich subject", () => {
-	test("item_created: bundle has triggerEvent with item subject loaded from DB", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		const { ownerAgentId } = await seedTeamAndOwner(db, "ba9c-item-1");
-		const routineId = "ba9c-item-1-routine";
-		const itemId = "item-ba9c-1";
-		const threadId = "thread-ba9c-item-1";
-
-		// Seed a thread to satisfy the item's FK
-		await db.insert(threads).values({
-			id: threadId,
-			hostKind: "bet",
-			hostId: "bet-ba9c-item-1",
-			initiatorId: ownerAgentId,
-			participants: JSON.stringify([ownerAgentId]),
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		});
-
-		// Seed the work item
-		await db.insert(items).values({
-			id: itemId,
-			title: "BA9c-ITEM-TITLE-PROBE",
-			kind: "review",
-			body: "Item body",
-			sourceAgentId: ownerAgentId,
-			riskTier: "low",
-			threadId,
-			createdAt: NOW,
-		});
-
-		await seedEventRoutine(db, routineId, ownerAgentId, "item_created");
-
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
-		try {
-			eventBus.emit({
-				type: "item_created",
-				streamId: itemId,
-				itemId,
-				conversationId: threadId,
-				kind: "review",
-				timestamp: Date.now(),
-			});
-
-			await vi.waitFor(
-				async () => {
-					const runs = await db
-						.select()
-						.from(routineRuns)
-						.where(eq(routineRuns.routineId, routineId));
-					expect(runs).toHaveLength(1);
-				},
-				{ timeout: 2000 },
-			);
-
-			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
-			const [intent] = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
-			const baked = JSON.parse(intent!.bakedRequestJson!);
-
-			expect(baked.contextBundle.triggerEvent.type).toBe("item_created");
-			// BA9c: item_created → rich kind:"item" subject
-			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("item");
-			expect(baked.contextBundle.triggerEvent.subject.item.title).toBe("BA9c-ITEM-TITLE-PROBE");
-		} finally {
-			scheduler.stop();
-		}
-	});
-});
+// @lore BC3 architecture.md §5: describe("BA9c — item_created produces
+// kind:item rich subject") DELETED — "item_created" and the kind:"item"
+// subject variant are both gone with the `items` table; the sibling
+// "knowledge_created produces kind:knowledge-item rich subject" describe
+// below covers the same subject-assembly shape for the surviving event.
 
 describe("BA9c — knowledge_created produces kind:knowledge-item rich subject", () => {
 	test("knowledge_created: bundle has triggerEvent with knowledge-item subject loaded from DB", async ({

@@ -19,7 +19,7 @@
  *   task_run          -> work marks the taskDispatchAttempts row failed
  *   session_start     -> work marks the explicitSessionStarts row failed (no retry)
  *   knowledge_action  -> a review-flagged item is created (no run-record mutation)
- *   assistant_turn     -> informational only, no mutation
+ *   thread_turn        -> informational only, no mutation
  *
  * All seven are currently RED: the event isn't even emitted yet (see the
  * sibling `agent-run-admission-failed-emission.integration.test.ts`), so none
@@ -429,7 +429,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		expect(reloadedItem?.status).toBe("archived");
 	});
 
-	test("assistant_turn: informational only — no mutation of the source message", async ({
+	test("thread_turn: informational only — no mutation of the source message", async ({
 		db,
 		eventBus,
 	}) => {
@@ -481,7 +481,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		// AU44: baked intent + trigger forces terminal failure.
 		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
-			kind: "assistant_turn",
+			kind: "thread_turn",
 			sourceKind: "thread_message",
 			sourceId: "w0-sub-assistant-message",
 			idempotencyKey: "w0-sub-assistant-intent",
@@ -495,7 +495,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 					threadId: "w0-sub-assistant-thread",
 					messageId: "w0-sub-assistant-message",
 					userId: "w0-sub-assistant-human",
-					assistantAgentId: "ast-w0-sub-assistant-human",
+					agentId: "ast-w0-sub-assistant-human",
 				},
 			},
 		});
@@ -505,7 +505,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		// only per §10's table) — what's provably NEW is that the event still
 		// fires for this kind, same as every other kind.
 		expect(emitted).toHaveLength(1);
-		expect(emitted[0]).toMatchObject({ kind: "assistant_turn", terminal: true });
+		expect(emitted[0]).toMatchObject({ kind: "thread_turn", terminal: true });
 
 		const [message] = await db
 			.select()

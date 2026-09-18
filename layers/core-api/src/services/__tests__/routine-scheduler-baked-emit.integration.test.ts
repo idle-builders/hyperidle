@@ -39,7 +39,7 @@ import {
 } from "@hyperidle/db";
 import type {
 	AgentRunLifecycleChangedEvent,
-	ItemCreatedEvent,
+	KnowledgeCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/event-bus";
 import {
@@ -851,8 +851,12 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 	 * cannot be resolved (`originRoutineId` returns `null`) must suppress
 	 * NOTHING. This is the direction that would quietly break the whole
 	 * feature if `originRoutineId` had a bug that returned a wrong id — a
-	 * routine authored on a plain `item_created` (no `sourceKind`/
+	 * routine authored on a plain `knowledge_created` (no `sourceKind`/
 	 * `sourceCorrelation` at all) must still fire.
+	 *
+	 * @lore BC3 architecture.md §5: the vehicle event was `item_created` —
+	 * deleted with the `items` table. `knowledge_created` is the same shape
+	 * (no source correlation) and is still live.
 	 */
 	test("an event whose origin cannot be resolved still fires the routines that match it", async ({
 		db,
@@ -867,7 +871,7 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			state: "active",
 			ownerAgentId,
 			triggerType: "event",
-			eventType: "item_created",
+			eventType: "knowledge_created",
 			active: true,
 		});
 
@@ -876,12 +880,10 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			canProvision: true,
 		});
 		try {
-			const evt: ItemCreatedEvent = {
-				type: "item_created",
+			const evt: KnowledgeCreatedEvent = {
+				type: "knowledge_created",
 				streamId: "ba1-cut3-unknown-origin-item",
 				itemId: "ba1-cut3-unknown-origin-item",
-				conversationId: "ba1-cut3-unknown-origin-thread",
-				kind: "review",
 				timestamp: Date.now(),
 			};
 			eventBus.emit(evt);

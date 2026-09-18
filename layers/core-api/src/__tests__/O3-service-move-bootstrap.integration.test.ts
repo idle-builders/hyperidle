@@ -20,7 +20,10 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
  * architecture.md §5 B2: `sendMessage` added alongside `editTask`).
  */
 function fullServiceBootstrap(
-	ctx: Omit<Parameters<typeof registerCoreDomainServices>[0], "editTask" | "sendMessage">,
+	ctx: Omit<
+		Parameters<typeof registerCoreDomainServices>[0],
+		"editTask" | "sendMessage" | "adjustThread"
+	>,
 ): Array<() => void> {
 	const actions = buildCoreActions({
 		agentOrchestration: ctx.agentOrchestration,
@@ -31,11 +34,15 @@ function fullServiceBootstrap(
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
 	if (!sendMessageAction) throw new Error("send_message action not found");
+	const adjustThreadAction = actions.find((a) => a.declaration.name === "adjust_thread");
+	if (!adjustThreadAction) throw new Error("adjust_thread action not found");
 	const fullCtx = {
 		...ctx,
 		editTask: editTaskAction.run as Parameters<typeof registerCoreDomainServices>[0]["editTask"],
 		sendMessage:
 			sendMessageAction.run as Parameters<typeof registerCoreDomainServices>[0]["sendMessage"],
+		adjustThread:
+			adjustThreadAction.run as Parameters<typeof registerCoreDomainServices>[0]["adjustThread"],
 	};
 	return [...registerCoreDomainServices(fullCtx), ...registerAgentLayerServices(fullCtx)];
 }
@@ -299,7 +306,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					// @lore AU44 batch6: clearedIntervals 1→0 — the 30s retry
 					// heartbeat (retryFailedPropagations) is deleted with propagation_log.
 					// @lore BB1: bet_state_changed subscription removed with the bet entity.
-					unsubscribedEvents: ["item_created", "session_ended", "task_state_changed"],
+					// @lore BC3 architecture.md §5: "item_created" removed —
+					// lifecycle-propagation never subscribed to it; the event type
+					// itself is deleted with the `items` table.
+					unsubscribedEvents: ["session_ended", "task_state_changed"],
 					clearedIntervals: 0,
 				},
 				// @lore AU26 C1: the "git-export handler" owner (its one

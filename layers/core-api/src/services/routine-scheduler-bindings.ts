@@ -66,13 +66,9 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 					parentTaskId: row.parentTaskId,
 				};
 			},
-			// BA9c: getItemById — work item (items table) for item_created events.
-			getItemById: (db, id) => work.get(db, "item", id),
-			createItem: (exec, values) => work.create(exec, "item", values),
-			findRetroItemByThreadIds: async (db, threadIds, marker) => {
-				const rows = await work.list(db, "item", { threadIds, bodyMarker: marker });
-				return rows[0] ? { id: rows[0].id } : undefined;
-			},
+			// @lore BC3 architecture.md §5: getItemById/createItem/
+			// findRetroItemByThreadIds DELETED — all three read/wrote the
+			// `items` table, which no longer exists.
 		},
 		conversation: {
 			getThreadIdsByHost: (db, hostKind, hostId) =>

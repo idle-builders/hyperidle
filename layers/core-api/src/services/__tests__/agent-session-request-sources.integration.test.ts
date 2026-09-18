@@ -279,7 +279,7 @@ describe("agent session request sources", () => {
 					threadId: "thread-au3-agent",
 					messageId: "msg-au3-agent",
 					userId: "u-au3-agent",
-					assistantAgentId: "ast-u-au3-agent",
+					agentId: "ast-u-au3-agent",
 				},
 				payloadJson: bakedAgentConfigPayload,
 			},

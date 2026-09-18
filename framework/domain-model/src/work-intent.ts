@@ -415,30 +415,11 @@ export interface RoutineTriggerEvent {
 		  }
 		| {
 				/**
-				 * BA9c: DB-loaded work-block subject (item_created events — rows from
-				 * the `items` table, the founder's "block" concept: action items, reviews,
-				 * planning blocks). This is NOT `knowledge_items` — it is the work layer's
-				 * block entity, owned by @hyperidle/work, created via work.create("item").
-				 * The two nouns name genuinely different entities with different owners.
-				 */
-				readonly kind: "item";
-				readonly item: {
-					readonly id: string;
-					readonly title: string;
-					/** "review", "action", etc. Nullable on the DB row. */
-					readonly kind: string | null;
-					readonly body: string | null;
-				};
-				readonly actorId?: string;
-		  }
-		| {
-				/**
 				 * BA9c: DB-loaded knowledge-base subject (knowledge_created /
 				 * knowledge_updated / knowledge_archived events —
 				 * rows from the `knowledge_items` table). This is the knowledge layer:
 				 * captured learnings, skills, memory — owned by @hyperidle/knowledge,
 				 * written through create() which writes kernel + app-projection together.
-				 * NOT the same as `kind:"item"` (work blocks). Different table, different owner.
 				 */
 				readonly kind: "knowledge-item";
 				readonly item: {

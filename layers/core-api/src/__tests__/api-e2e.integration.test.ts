@@ -1,4 +1,4 @@
-import { type HyperIdleDb, items, routines, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, routines, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -84,25 +84,6 @@ async function seedTaskData(db: HyperIdleDb): Promise<void> {
 		state: "proposed",
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
-	});
-}
-
-async function seedConversationData(db: HyperIdleDb): Promise<void> {
-	await db.insert(threads).values({
-		id: "thread-1",
-		hostKind: "task",
-		hostId: "task-1",
-		initiatorId: "agent-1",
-		participants: JSON.stringify(["agent-1"]),
-		lastActiveAt: new Date().toISOString(),
-		createdAt: new Date().toISOString(),
-	});
-
-	await db.insert(items).values({
-		id: "item-1",
-		title: "E2E item",
-		threadId: "thread-1",
-		createdAt: new Date().toISOString(),
 	});
 }
 
@@ -332,133 +313,12 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	// 5. Conversations
 	// -------------------------------------------------------
-	describe("Conversations", () => {
-		// GET /api/conversations (door #72) and GET /api/conversations/:threadId (door #76)
-		// deleted. Tests removed with the routes.
-
-		test("POST /api/conversations/items creates an item", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			await seedConversationData(db);
-			const res = await app.request("/api/conversations/items", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({ title: "New item", threadId: "thread-1" }),
-			});
-			expect(res.status).toBe(201);
-		});
-
-		test("POST /api/threads/:id/messages records a verdict (canonical L1 surface)", async ({
-			db,
-			app,
-		}) => {
-			// @lore AF11-IDOR: This test does NOT call seedBase because seedBase inserts
-			// agent-1 as kind='human' (role='builder') which would be the auth principal.
-			// A verdict requires a founder (not the review author). We seed our own users:
-			// - founder-1: kind='human', role='founder' → auth principal for this test
-			// - agent-1-e2e: non-human agent who sends the review (via X-Identity on POST /threads)
-			const now = new Date().toISOString();
-			await db
-				.insert(teams)
-				.values({ id: "prod-1", name: "E2E Product", phase: "build", createdAt: now });
-			await db.insert(threads).values({
-			id: `thr-${"bet-1"}`,
-			hostKind: "team",
-			hostId: "prod-1",
-			initiatorId: "system:propagation",
-			participants: "[]",
-			lastActiveAt: now,
-			createdAt: now,
-			});
-			await db.insert(tasks).values({
-			threadId: `thr-${"bet-1"}`,
-				id: "bet-1",
-				parentTaskId: null,
-				teamId: "prod-1",
-				title: "Test bet",
-				description: "Test bet",
-				state: "in_progress",
-				createdAt: now,
-				updatedAt: now,
-			});
-			await db.insert(threads).values({
-			id: `thr-${"task-1"}`,
-			hostKind: "team",
-			hostId: "prod-1",
-			initiatorId: "system:propagation",
-			participants: "[]",
-			lastActiveAt: now,
-			createdAt: now,
-			});
-			await db.insert(tasks).values({
-			threadId: `thr-${"task-1"}`,
-				id: "task-1",
-				parentTaskId: "bet-1",
-				teamId: "prod-1",
-				title: "Task A",
-				state: "proposed",
-				createdAt: now,
-				updatedAt: now,
-			});
-
-			// founder-1 inserted first (kind='human') → becomes auth principal
-			await db.insert(users).values({
-				id: "founder-1",
-				kind: "human",
-				name: "Founder",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			});
-			// agent-1-e2e: non-human, will be attributed review via X-Identity
-			await db.insert(users).values({
-				id: "agent-1-e2e",
-				name: "Agent",
-				role: "builder",
-				status: "active",
-				createdAt: now,
-			});
-
-			const create = await app.request("/api/threads", {
-				method: "POST",
-				headers: auth({ "X-Identity": "agent-1-e2e" }),
-				body: JSON.stringify({
-					hostKind: "task",
-					hostId: "task-1",
-					participants: ["agent-1-e2e", "founder-1"],
-					initialMessage: {
-						type: "review",
-						clientKey: "init-r-e2e",
-						payload: {
-							title: "E2E review",
-							reasoning: ["needs verdict"],
-							artifactRef: { id: "a-e2e", kind: "code" },
-						},
-					},
-				}),
-			});
-			expect(create.status).toBe(201);
-			const created = (await create.json()) as {
-				thread: { id: string };
-				messages: Array<{ id: string }>;
-			};
-
-			// founder-1 (auth principal, role='founder', NOT the review author) → 201
-			const res = await app.request(`/api/threads/${created.thread.id}/messages`, {
-				method: "POST",
-				headers: auth(), // senderId = founder-1 (auth principal)
-				body: JSON.stringify({
-					type: "verdict",
-					clientKey: "verdict-e2e",
-					payload: {
-						decision: "approve",
-						resolvesMessageId: created.messages[0]?.id ?? "",
-					},
-				}),
-			});
-			expect(res.status).toBe(201);
-		});
-	});
+	// @lore BC3 architecture.md §5: describe("Conversations") DELETED —
+	// GET /api/conversations, POST /api/conversations/items, POST
+	// /api/threads, and POST /api/threads/:id/messages are all deleted
+	// routes (the `items` table and the old thread routes are both gone;
+	// thread reads/writes are actions now — `search_thread`/`open_thread`/
+	// `send_message`/`adjust_thread`).
 
 	// -------------------------------------------------------
 	// 6. Knowledge

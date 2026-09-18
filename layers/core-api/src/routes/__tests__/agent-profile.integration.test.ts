@@ -28,7 +28,6 @@
 import {
 	agentRunConfig,
 	type HyperIdleDb,
-	items,
 	messages,
 	tasks,
 	teams,
@@ -442,27 +441,20 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 		app,
 	}) => {
 		await seedPrereqs(db);
-		// Seed a verdict by inserting directly
+		// Seed a verdict by inserting directly.
+		// @lore BC3 architecture.md §5 R4: Path 1 (legacyItemId -> items) is
+		// deleted with the `items` table — Path 2 (thread.initiatorId, already
+		// "ab1-agent-builder" below) is the only attribution now.
 		const threadId = crypto.randomUUID();
-		const itemId = crypto.randomUUID();
 		const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
 
 		await db.insert(threads).values({
 			id: threadId,
-			hostKind: "task",
+			hostKind: "team",
 			hostId: "task-ac11",
 			initiatorId: "ab1-agent-builder",
 			participants: JSON.stringify(["ab1-agent-builder"]),
 			lastActiveAt: fiveDaysAgo,
-			createdAt: fiveDaysAgo,
-		});
-		await db.insert(items).values({
-			id: itemId,
-			sourceAgentId: "ab1-agent-builder",
-			kind: "approval",
-			title: "AC-11 test item",
-			riskTier: "low",
-			threadId,
 			createdAt: fiveDaysAgo,
 		});
 		await db.insert(messages).values({
@@ -472,7 +464,6 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 			type: "verdict",
 			payload: JSON.stringify({ decision: "approve" }),
 			clientKey: `verdict-ac11-${crypto.randomUUID()}`,
-			legacyItemId: itemId,
 			createdAt: fiveDaysAgo,
 		});
 

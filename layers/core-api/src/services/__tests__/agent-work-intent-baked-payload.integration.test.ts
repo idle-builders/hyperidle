@@ -52,12 +52,12 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 				threadId: "wave0-baked-thread",
 				messageId: "wave0-baked-message",
 				userId: "wave0-baked-human",
-				assistantAgentId: "wave0-baked-agent",
+				agentId: "wave0-baked-agent",
 			},
 		};
 
 		await enqueueWorkIntent(db, {
-			kind: "assistant_turn",
+			kind: "thread_turn",
 			sourceKind: "thread_message",
 			sourceId: "wave0-baked-message",
 			idempotencyKey: "wave0-baked-persist",
@@ -97,7 +97,7 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 				threadId: "wave0-baked-thread-2",
 				messageId: "wave0-baked-message-2",
 				userId: "wave0-baked-human-2",
-				assistantAgentId: "wave0-baked-agent-2",
+				agentId: "wave0-baked-agent-2",
 			},
 		};
 		// The baked payload is trusted AS GIVEN (the emit-time resolver already
@@ -116,7 +116,7 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 		const deps = { ...queueDeps(db), eventBus };
 
 		await enqueueWorkIntent(db, {
-			kind: "assistant_turn",
+			kind: "thread_turn",
 			sourceKind: "thread_message",
 			// A source that does NOT exist — if the drain ever falls through to
 			// real resolution, it throws InvalidAgentWorkSourceError immediately.
