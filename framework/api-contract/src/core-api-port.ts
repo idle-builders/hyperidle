@@ -30,47 +30,6 @@
 // `@hyperidle/domain-model`) replaces this hand-mirrored seam entirely.
 // the architecture doc §3, §8.
 
-/** Mirrors `GET /conversations/items/:id`'s response — only the fields a consumer relies on. */
-export interface ItemView {
-	readonly id: string;
-	readonly riskTier: string | null;
-	readonly kind: string | null;
-	readonly verb: string | null;
-}
-
-/** Mirrors `PATCH /conversations/items/:id`'s validated request body. */
-export interface UpdateItemRequest {
-	readonly riskTier?: string;
-	readonly kind?: string;
-	readonly verb?: string;
-}
-
-/**
- * Mirrors `POST /conversations/items`'s validated request body
- * (`createItemSchema`, `routes/conversations.ts`) — the FULL field set the
- * route accepts (not just what the §11 contract test exercises), since
- * `create_item`'s real tool handler relies on the full shape.
- */
-export interface CreateItemRequest {
-	readonly threadId: string;
-	readonly title: string;
-	readonly sourceAgentId?: string | null;
-	readonly verb?: string | null;
-	readonly kind?: string | null;
-	readonly body?: string | null;
-	readonly attachments?: string | null;
-	readonly proposedAction?: string | null;
-	readonly options?: string | null;
-	readonly riskTier?: string | null;
-	readonly blocking?: boolean;
-	readonly reasoning?: string | null;
-}
-
-/** Mirrors `POST /conversations/items`'s 201 response body — only `id` is relied on. */
-export interface CreateItemResponse {
-	readonly id: string;
-}
-
 /**
  * Mirrors `GET /users/:id` / `GET /users` — only the fields a `CoreApiPort`
  * consumer relies on. `teamId` is `users.teamId` — per the AK4 two-hop
@@ -87,23 +46,10 @@ export interface UserView {
 // `edit_task({ ownerAgentId })`; role targeting, human escalation and the
 // escalation thread go with `handoff-protocol.ts`
 // (the architecture doc §8 B4).
-
-/**
- * The agent's tool-facing `work` capability family (Decision C) — item
- * reads/writes only now. `routeItem` (a pure local computation, no DB, no
- * cross-layer read) was never a seam method — AU21 §6 Decision L3 deleted it
- * outright as vestigial.
- *
- * @lore BB1: `createBet`, `getBetById`, `updateBetById` DELETED — a bet is
- * now a root task.
- * @lore `getTaskById`/`createTask`/`updateTaskById`/`appendTaskNote`/
- * `handoffTask` DELETED — the task action list replaces them.
- */
-export interface CoreApiWorkPort {
-	getItemById(id: string): Promise<ItemView | undefined>;
-	updateItemById(id: string, updates: UpdateItemRequest): Promise<void>;
-	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
-}
+//
+// `CoreApiWorkPort` (`ItemView`/`UpdateItemRequest`/`CreateItemRequest`/
+// `CreateItemResponse`/`getItemById`/`updateItemById`/`createItem`) DELETED
+// with `create_item` and the `items` table — architecture.md §5 B4/B7.
 
 /**
  * The agent's tool-facing `users` capability family (Decision C, Increment 2)
@@ -112,99 +58,17 @@ export interface CoreApiWorkPort {
 export interface CoreApiUsersPort {
 	getUserById(id: string): Promise<UserView | undefined>;
 	listUsersByTeam(teamMembersId: string): Promise<ReadonlyArray<UserView>>;
-	/**
-	 * AU27 Increment 1b — `reply`'s no-calling-thread fallback (routine_run
-	 * and any future thread-less kind): the sole human user in the system,
-	 * the same `findUser(db, { kind: "human" })` idiom
-	 * `calling-thread-bindings.ts` already uses for a task thread's
-	 * participants. `undefined` when no human row exists (never true in a
-	 * real seeded team).
-	 */
-	findSoleHumanUser(): Promise<UserView | undefined>;
+	// `findSoleHumanUser` DELETED with `reply` — the thread module's own
+	// `soleHumanForAgent` (team-scoped, read in-process) replaces it.
+	// architecture.md §5 B4.
 }
 
-/**
- * Mirrors `GET /threads/:id` (and `GET /threads?host_kind=&host_id=`)'s
- * thread view — only the fields a `CoreApiPort` consumer relies on.
- * `participants` is the ROUTE's own parsed `string[]` (`rowToThread`'s
- * output), never the raw JSON-string DB column.
- */
-export interface ConversationThreadView {
-	readonly id: string;
-	readonly participants: readonly string[];
-}
-
-/**
- * Mirrors `POST /threads/scaffold`'s validated request body — a bare thread
- * with no initial message (unlike `POST /threads`, which always requires
- * one via `createThreadBodySchema`).
- */
-export interface InsertThreadRequest {
-	readonly hostKind: string;
-	readonly hostId: string;
-	readonly participants: readonly string[];
-	readonly pinned?: boolean;
-}
-
-/** Mirrors `POST /threads/scaffold`'s 201 response body. */
-export interface InsertThreadResponse {
-	readonly id: string;
-}
-
-/**
- * Mirrors `PATCH /threads/:id`'s validated request body — the narrow field
- * set real call sites set today (not a general thread-patch surface).
- */
-export interface UpdateThreadRequest {
-	readonly participants?: readonly string[];
-	readonly lastActiveAt?: string;
-	readonly pinned?: boolean;
-}
-
-/** The message-type union `POST /threads/:id/messages` accepts (mirrors `messageInputSchema`'s discriminant). */
-export type ConversationMessageType = "plain" | "review" | "questionnaire" | "verdict";
-
-/**
- * Mirrors `POST /threads/:id/messages`'s validated request body. The route
- * derives `senderId` from the authenticated actor (`c.get("userId")`), never
- * from the request body — `id`/`senderId` are never accepted here.
- */
-export interface InsertMessageRequest {
-	readonly threadId: string;
-	readonly type: ConversationMessageType;
-	readonly payload: Record<string, unknown>;
-	readonly clientKey: string;
-}
-
-/** Mirrors `POST /threads/:id/messages`'s 201 response body — only the server-generated `id` is relied on. */
-export interface InsertMessageResponse {
-	readonly id: string;
-}
-
-/** Mirrors `POST /threads/direct`'s response body. */
-export interface DirectThreadResponse {
-	readonly id: string;
-}
-
-/**
- * The agent's tool-facing `conversation` capability family (Decision C,
- * Increment 2's conversation wave) — `edge-disposition.md`'s
- * `conversation.{findThread, insertThread, insertMessage, updateThread,
- * findOrCreateDirectThread}` row, plus `dispatch`'s own
- * assistant-turn `insertMessage`/`updateThread` writes (same two methods,
- * reused — see `core-api-port-composition.ts`'s `buildCoreApiPort`).
- */
-export interface CoreApiConversationPort {
-	getThreadById(id: string): Promise<ConversationThreadView | undefined>;
-	insertThread(input: InsertThreadRequest): Promise<InsertThreadResponse>;
-	updateThread(id: string, updates: UpdateThreadRequest): Promise<void>;
-	insertMessage(input: InsertMessageRequest): Promise<InsertMessageResponse>;
-	findOrCreateDirectThread(recipientId: string): Promise<DirectThreadResponse>;
-	getFirstThreadByHost(
-		hostKind: string,
-		hostId: string,
-	): Promise<ConversationThreadView | undefined>;
-}
+// `ConversationThreadView`/`InsertThreadRequest`/`InsertThreadResponse`/
+// `UpdateThreadRequest`/`ConversationMessageType`/`InsertMessageRequest`/
+// `InsertMessageResponse`/`DirectThreadResponse`/`CoreApiConversationPort`
+// DELETED — the five thread routes they mirrored are gone; `send_message`/
+// `adjust_thread` replace every one of these capabilities as an action.
+// architecture.md §5 B1/B2/B4.
 
 /** Mirrors `GET /org/teams/:teamId`'s response — only the fields a `CoreApiPort` consumer relies on. */
 export interface OrgTeamView {
@@ -244,12 +108,9 @@ export interface UpdateOrgTeamRequest {
 	readonly leadAgentId?: string;
 }
 
-/** Mirrors `GET /org/review-recipients`'s query params. */
-export interface ReviewRecipientsQuery {
-	readonly userId: string;
-	readonly agentRole: string | undefined;
-	readonly teamId: string | undefined;
-}
+// `ReviewRecipientsQuery` DELETED with `GET /org/review-recipients` — its
+// only callers (`create_item`, `submit_review`) are gone. architecture.md
+// §5 B4.
 
 /** Mirrors `POST /org/scaffolded-agents`'s 201 response body. */
 export interface PersistScaffoldedAgentsResponse {
@@ -289,7 +150,6 @@ export interface CoreApiOrgPort {
 	getTeamMembersByTeamId(teamId: string): Promise<OrgTeamMembershipView | undefined>;
 	createTeam(input: CreateOrgTeamRequest): Promise<void>;
 	updateTeam(teamId: string, patch: UpdateOrgTeamRequest): Promise<void>;
-	resolveReviewRecipientsForItem(ctx: ReviewRecipientsQuery): Promise<readonly string[]>;
 	/** @lore AU44 AU20-fd: replaces `persistScaffoldedAgents` — seam now accepts the request; core-api resolves internally. */
 	scaffoldFromRequest(input: ScaffoldFromRequestInput): Promise<PersistScaffoldedAgentsResponse>;
 }
@@ -576,9 +436,7 @@ export interface CoreApiKnowledgePort {
  * consumer).
  */
 export interface CoreApiPort {
-	readonly work: CoreApiWorkPort;
 	readonly users: CoreApiUsersPort;
-	readonly conversation: CoreApiConversationPort;
 	readonly org: CoreApiOrgPort;
 	readonly routine: CoreApiRoutinePort;
 	readonly knowledge: CoreApiKnowledgePort;

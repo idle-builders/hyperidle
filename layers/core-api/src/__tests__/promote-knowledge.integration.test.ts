@@ -4,7 +4,6 @@ import {
 } from "@hyperidle/agent-orchestration";
 import {
 	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
 } from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
@@ -23,7 +22,6 @@ import { makeContext, NOW, seedBase } from "./_helpers.js";
 function buildPromoteKnowledgeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(
 		createInProcessCoreApiTransport(app),
-		THROWING_REVIEW_ACCESSOR,
 		THROWING_OPEN_TASK,
 	).find((t) => t.name === "promote_knowledge")!;
 }
@@ -276,7 +274,6 @@ describe("promote_knowledge tool", () => {
 		const registry = buildToolRegistryFromDefinitions(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),

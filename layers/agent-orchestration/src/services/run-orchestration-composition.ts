@@ -35,7 +35,6 @@ import {
 	type RunTransitionSpec,
 	type RuntimeDeps,
 	type RuntimePorts,
-	recordReviewSession,
 	runSession as runSessionInternal,
 	startRuntime as startRuntimeInternal,
 	startWatcher,
@@ -52,10 +51,7 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import {
-	buildToolRegistry as buildToolRegistryFromDefinitions,
-	type ToolHandlersReviewAccessor,
-} from "@hyperidle/tool-handlers";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
 import { buildToolDefinitions, type ToolHandlersOpenTask } from "./tool-handlers-bindings.js";
 
@@ -341,38 +337,17 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 	};
 }
 
-/**
- * `submit_review`'s way of recording which session filed a review, built per
- * registry so it closes over that session's own `db` handle.
- *
- * @lore BA2: The link is written from the session's own identity at filing
- * time, never from the tool's arguments — an agent cannot file its way to
- * resuming a session that is not its own.
- */
-function buildGateAccessor(db: HyperIdleDb): ToolHandlersReviewAccessor {
-	return {
-		async linkReviewToSession(sessionId, reviewMessageId) {
-			await recordReviewSession(db, { reviewMessageId, sessionId }, new Date().toISOString());
-		},
-	};
-}
+// `buildGateAccessor`/`unusableGateAccessor` DELETED with `submit_review` —
+// `ThreadActionsDeps.linkReviewToSession` (bound to
+// `AgentOrchestrationPort.gate.linkReview`, which itself calls
+// `recordReviewSession` from the intake route) is the successor; core calls
+// it directly rather than a tool dialling back into agent-orchestration.
+// architecture.md §5 B4.
 
 /**
- * For call sites that only enumerate tool names. Any handler that reaches it is
- * a wiring mistake, and it says so rather than silently recording nothing —
- * a gate that quietly does nothing is the failure mode this package exists to fix.
+ * For call sites that only enumerate tool names. Any handler that reaches it
+ * is a wiring mistake, and it says so rather than silently doing nothing.
  */
-function unusableGateAccessor(): ToolHandlersReviewAccessor {
-	return {
-		linkReviewToSession: () => {
-			throw new Error(
-				"tool-handlers gate accessor: reached from a name-only tool listing; build the registry through buildToolRegistry instead",
-			);
-		},
-	};
-}
-
-/** Same "reached from a name-only listing" refusal, for `openTask` — see `unusableGateAccessor`. */
 function unusableOpenTask(): ToolHandlersOpenTask {
 	return () => {
 		throw new Error(
@@ -410,7 +385,6 @@ function buildToolProvider(
 			const toolCtx = widenToToolContext(ctx);
 			const definitions = buildToolDefinitions(
 				coreApiTransport,
-				buildGateAccessor(toolCtx.db),
 				buildOpenTaskBinding(actionTools, toolCtx),
 			);
 			return buildToolRegistryFromDefinitions([...actionTools, ...definitions], toolCtx, {
@@ -420,12 +394,11 @@ function buildToolProvider(
 			});
 		},
 		toolsForRole(role) {
-			// Names and roles only — no handler runs, so the gate/openTask
-			// accessors here are ones that refuse rather than quietly do nothing.
-			return [
-				...actionTools,
-				...buildToolDefinitions(coreApiTransport, unusableGateAccessor(), unusableOpenTask()),
-			].filter((d) => d.roles === undefined || d.roles.includes(role));
+			// Names and roles only — no handler runs, so the openTask accessor
+			// here is one that refuses rather than quietly does nothing.
+			return [...actionTools, ...buildToolDefinitions(coreApiTransport, unusableOpenTask())].filter(
+				(d) => d.roles === undefined || d.roles.includes(role),
+			);
 		},
 		returnStatusToolForRegistry(registry) {
 			return returnStatusToolAdapter.forRegistry(registry);

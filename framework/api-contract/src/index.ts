@@ -23,29 +23,17 @@ export type {
 } from "./agent-orchestration-port.js";
 export type {
 	// @lore BB1: BetView deleted — bet is now a root task.
-	ConversationMessageType,
-	ConversationThreadView,
-	CoreApiConversationPort,
 	// CoreApiKnowledgePort / CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
 	CoreApiOrgPort,
 	CoreApiPort,
 	CoreApiTransport,
 	CoreApiUsersPort,
-	CoreApiWorkPort,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
-	CreateItemRequest,
-	CreateItemResponse,
 	CreateKnowledgeConflictRequest,
 	CreateKnowledgeItemRequest,
 	CreateKnowledgeItemResponse,
 	CreateOrgTeamRequest,
-	DirectThreadResponse,
-	InsertMessageRequest,
-	InsertMessageResponse,
 	InsertRoutineRequest,
-	InsertThreadRequest,
-	InsertThreadResponse,
-	ItemView,
 	KnowledgeConflictView,
 	KnowledgeItemStatusView,
 	KnowledgeItemVersionView,
@@ -55,19 +43,22 @@ export type {
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
 	ReparentKnowledgeItemRequest,
-	// ReviewRecipientsQuery: param of resolveReviewRecipientsForItem — no name-importers
 	RoutineView,
 	ScaffoldFromRequestInput,
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
 	// @lore TaskView/CreateTaskRequest/CreateTaskResponse/UpdateTaskRequest/
 	// HandoffTaskRequest/HandoffTaskResponse deleted — the task action list replaces the seam.
-	UpdateItemRequest,
+	// @lore BC3 architecture.md §5 B4: ConversationMessageType/ConversationThreadView/
+	// CoreApiConversationPort/CoreApiWorkPort/CreateItemRequest/CreateItemResponse/
+	// DirectThreadResponse/InsertMessageRequest/InsertMessageResponse/InsertThreadRequest/
+	// InsertThreadResponse/ItemView/ReviewRecipientsQuery/UpdateItemRequest/
+	// UpdateThreadRequest deleted with the five thread routes and create_item/
+	// submit_review/reply — send_message/adjust_thread replace every one.
 	UpdateKnowledgeItemContentRequest,
 	UpdateKnowledgeItemContentResponse,
 	UpdateKnowledgeItemContentResult,
 	UpdateOrgTeamRequest,
 	UpdateRoutineRequest,
-	UpdateThreadRequest,
 	UserView,
 } from "./core-api-port.js";
 export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./core-api-port.js";

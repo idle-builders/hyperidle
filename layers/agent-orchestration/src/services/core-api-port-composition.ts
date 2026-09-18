@@ -38,23 +38,13 @@
 import {
 	// @lore BB1: BetView deleted — bet is now a root task.
 	CORE_API_ACTOR_OVERRIDE_HEADER,
-	type ConversationMessageType,
-	type ConversationThreadView,
 	type CoreApiPort,
 	type CoreApiTransport,
-	type CreateItemRequest,
-	type CreateItemResponse,
 	type CreateKnowledgeConflictRequest,
 	type CreateKnowledgeItemRequest,
 	type CreateKnowledgeItemResponse,
 	type CreateOrgTeamRequest,
-	type DirectThreadResponse,
-	type InsertMessageRequest,
-	type InsertMessageResponse,
 	type InsertRoutineRequest,
-	type InsertThreadRequest,
-	type InsertThreadResponse,
-	type ItemView,
 	type KnowledgeConflictView,
 	type KnowledgeItemStatusView,
 	type KnowledgeItemVersionView,
@@ -67,7 +57,6 @@ import {
 	type RoutineView,
 	type ScaffoldFromRequestInput,
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
-	type UpdateItemRequest,
 	type UpdateKnowledgeItemContentRequest,
 	type UpdateKnowledgeItemContentResponse,
 	type UpdateKnowledgeItemContentResult,
@@ -75,7 +64,11 @@ import {
 	type UpdateRoutineRequest,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
 	// @lore TaskView/UpdateTaskRequest deleted — the task action list replaces the seam.
-	type UpdateThreadRequest,
+	// @lore BC3 architecture.md §5 B4: ConversationMessageType/ConversationThreadView/
+	// CreateItemRequest/CreateItemResponse/DirectThreadResponse/InsertMessageRequest/
+	// InsertMessageResponse/InsertThreadRequest/InsertThreadResponse/ItemView/
+	// UpdateItemRequest/UpdateThreadRequest deleted with the five thread routes and
+	// create_item/submit_review/reply.
 	type UserView,
 } from "@hyperidle/api-contract";
 import { SeamRequestError } from "@hyperidle/domain-model";
@@ -120,29 +113,8 @@ interface CoreApiHcClient {
 				};
 			};
 		};
-		readonly "review-recipients": {
-			$get(args: {
-				readonly query: {
-					readonly userId: string;
-					readonly agentRole?: string;
-					readonly teamId?: string;
-				};
-			}): Promise<Response>;
-		};
 		readonly "scaffold-request": {
 			$post(args: { readonly json: ScaffoldFromRequestInput }): Promise<Response>;
-		};
-	};
-	readonly conversations: {
-		readonly items: {
-			$post(args: { readonly json: CreateItemRequest }): Promise<Response>;
-			readonly ":id": {
-				$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
-				$patch(args: {
-					readonly param: { readonly id: string };
-					readonly json: UpdateItemRequest;
-				}): Promise<Response>;
-			};
 		};
 	};
 	readonly artifacts: {
@@ -166,36 +138,6 @@ interface CoreApiHcClient {
 				readonly limit?: string;
 			};
 		}): Promise<Response>;
-	};
-	readonly threads: {
-		$post(args: { readonly json: InsertThreadRequest }): Promise<Response>;
-		$get(args: {
-			readonly query: {
-				readonly host_kind?: string;
-				readonly host_id?: string;
-				readonly limit?: string;
-			};
-		}): Promise<Response>;
-		readonly direct: {
-			$post(args: { readonly json: { readonly recipientId: string } }): Promise<Response>;
-		};
-		readonly ":id": {
-			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
-			$patch(args: {
-				readonly param: { readonly id: string };
-				readonly json: UpdateThreadRequest;
-			}): Promise<Response>;
-			readonly messages: {
-				$post(args: {
-					readonly param: { readonly id: string };
-					readonly json: {
-						readonly type: ConversationMessageType;
-						readonly payload: Record<string, unknown>;
-						readonly clientKey: string;
-					};
-				}): Promise<Response>;
-			};
-		};
 	};
 	readonly knowledge: {
 		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
@@ -320,36 +262,6 @@ async function getOrUndefined<T>(method: string, res: Response): Promise<T | und
 }
 
 /**
- * `GET /threads/:id`'s response body is `{thread, messages, ...}` — extract
- * only the `ConversationThreadView` fields a seam consumer relies on
- * (`thread.participants` is already the route's own parsed `string[]`).
- */
-async function getThreadViewOrUndefined(
-	method: string,
-	res: Response,
-): Promise<ConversationThreadView | undefined> {
-	if (res.status === 404) return undefined;
-	if (!res.ok) return throwSeamError(method, res);
-	const body = (await res.json()) as { readonly thread: ConversationThreadView };
-	return { id: body.thread.id, participants: body.thread.participants };
-}
-
-/**
- * `GET /threads?host_kind=&host_id=&limit=1`'s response body is
- * `{threads: [...], nextCursor}` — takes the first row, or `undefined` when
- * the array is empty (no 404 case for a list route).
- */
-async function getFirstThreadOrUndefined(
-	method: string,
-	res: Response,
-): Promise<ConversationThreadView | undefined> {
-	if (!res.ok) return throwSeamError(method, res);
-	const body = (await res.json()) as { readonly threads: ReadonlyArray<ConversationThreadView> };
-	const first = body.threads[0];
-	return first ? { id: first.id, participants: first.participants } : undefined;
-}
-
-/**
  * `GET /routines/:id`'s response body is the heavier `RoutineDetail`
  * (`{routine, runs, budget}`) — extract only the `RoutineView` fields a seam
  * consumer relies on. The route already 404s a soft-deleted routine, so a
@@ -381,31 +293,15 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 	const client = buildCoreApiHcClient(fetchAdapter);
 
 	return {
-		work: {
-			// `getTaskById`/`createTask`/`updateTaskById`/`appendTaskNote`/
-			// `handoffTask` DELETED — the task action list replaces them; the
-			// three surviving readers bind `openTask` directly to the `open_task`
-			// action, in-process (the architecture doc §8 B1).
-
-			async getItemById(id: string): Promise<ItemView | undefined> {
-				const res = await client.conversations.items[":id"].$get({ param: { id } });
-				return getOrUndefined<ItemView>("work.getItemById", res);
-			},
-
-			async updateItemById(id: string, updates: UpdateItemRequest): Promise<void> {
-				const res = await client.conversations.items[":id"].$patch({
-					param: { id },
-					json: updates,
-				});
-				if (!res.ok) return throwSeamError("work.updateItemById", res);
-			},
-
-			async createItem(input: CreateItemRequest): Promise<CreateItemResponse> {
-				const res = await client.conversations.items.$post({ json: input });
-				if (!res.ok) return throwSeamError("work.createItem", res);
-				return (await res.json()) as CreateItemResponse;
-			},
-		},
+		// `work` (getItemById/updateItemById/createItem) and `conversation`
+		// (getThreadById/insertThread/updateThread/insertMessage/
+		// findOrCreateDirectThread/getFirstThreadByHost) DELETED — the routes
+		// they mirrored are gone; `send_message`/`adjust_thread` replace every
+		// one of these capabilities as an action, never a second HTTP hop
+		// through this seam (architecture.md §5 B4). `getTaskById`/`createTask`/
+		// `updateTaskById`/`appendTaskNote`/`handoffTask` DELETED earlier — the
+		// three surviving readers bind `openTask` directly to the `open_task`
+		// action, in-process (the architecture doc §8 B1).
 		users: {
 			async getUserById(id: string): Promise<UserView | undefined> {
 				const res = await client.users[":id"].$get({ param: { id } });
@@ -417,56 +313,7 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("users.listUsersByTeam", res);
 				return (await res.json()) as ReadonlyArray<UserView>;
 			},
-
-			async findSoleHumanUser(): Promise<UserView | undefined> {
-				const res = await client.users.$get({ query: { kind: "human" } });
-				if (!res.ok) return throwSeamError("users.findSoleHumanUser", res);
-				const rows = (await res.json()) as ReadonlyArray<UserView>;
-				return rows[0];
-			},
-		},
-		conversation: {
-			async getThreadById(id: string): Promise<ConversationThreadView | undefined> {
-				const res = await client.threads[":id"].$get({ param: { id } });
-				return getThreadViewOrUndefined("conversation.getThreadById", res);
-			},
-
-			async insertThread(input: InsertThreadRequest): Promise<InsertThreadResponse> {
-				const res = await client.threads.$post({ json: input });
-				if (!res.ok) return throwSeamError("conversation.insertThread", res);
-				return (await res.json()) as InsertThreadResponse;
-			},
-
-			async updateThread(id: string, updates: UpdateThreadRequest): Promise<void> {
-				const res = await client.threads[":id"].$patch({ param: { id }, json: updates });
-				if (!res.ok) return throwSeamError("conversation.updateThread", res);
-			},
-
-			async insertMessage(input: InsertMessageRequest): Promise<InsertMessageResponse> {
-				const res = await client.threads[":id"].messages.$post({
-					param: { id: input.threadId },
-					json: { type: input.type, payload: input.payload, clientKey: input.clientKey },
-				});
-				if (!res.ok) return throwSeamError("conversation.insertMessage", res);
-				const body = (await res.json()) as { readonly message: { readonly id: string } };
-				return { id: body.message.id };
-			},
-
-			async findOrCreateDirectThread(recipientId: string): Promise<DirectThreadResponse> {
-				const res = await client.threads.direct.$post({ json: { recipientId } });
-				if (!res.ok) return throwSeamError("conversation.findOrCreateDirectThread", res);
-				return (await res.json()) as DirectThreadResponse;
-			},
-
-			async getFirstThreadByHost(
-				hostKind: string,
-				hostId: string,
-			): Promise<ConversationThreadView | undefined> {
-				const res = await client.threads.$get({
-					query: { host_kind: hostKind, host_id: hostId, limit: "1" },
-				});
-				return getFirstThreadOrUndefined("conversation.getFirstThreadByHost", res);
-			},
+			// `findSoleHumanUser` DELETED with `reply` — architecture.md §5 B4.
 		},
 		org: {
 			async getTeamById(teamId: string): Promise<OrgTeamView | undefined> {
@@ -489,22 +336,9 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("org.updateTeam", res);
 			},
 
-			async resolveReviewRecipientsForItem(ctx: {
-				readonly userId: string;
-				readonly agentRole: string | undefined;
-				readonly teamId: string | undefined;
-			}): Promise<readonly string[]> {
-				const res = await client.org["review-recipients"].$get({
-					query: {
-						userId: ctx.userId,
-						...(ctx.agentRole !== undefined ? { agentRole: ctx.agentRole } : {}),
-						...(ctx.teamId !== undefined ? { teamId: ctx.teamId } : {}),
-					},
-				});
-				if (!res.ok) return throwSeamError("org.resolveReviewRecipientsForItem", res);
-				const body = (await res.json()) as { readonly recipients: readonly string[] };
-				return body.recipients;
-			},
+			// `resolveReviewRecipientsForItem` DELETED with `GET /org/review-recipients`
+			// — its only callers (`create_item`, `submit_review`) are gone.
+			// architecture.md §5 B4.
 
 			async scaffoldFromRequest(
 				input: ScaffoldFromRequestInput,

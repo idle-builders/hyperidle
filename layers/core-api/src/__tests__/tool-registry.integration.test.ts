@@ -6,7 +6,6 @@ import {
 } from "@hyperidle/agent-orchestration";
 import {
 	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
 } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -37,7 +36,6 @@ const test = baseTest.extend<{
 	buildToolRegistry: async ({ app }, use) => {
 		const definitions = buildToolDefinitions(
 			createInProcessCoreApiTransport(app),
-			THROWING_REVIEW_ACCESSOR,
 			THROWING_OPEN_TASK,
 		);
 		await use((ctx, options) =>
@@ -70,12 +68,11 @@ describe("buildToolRegistry", () => {
 		const names = registry.definitions.map((d) => d.name).sort();
 		expect(names).toEqual(
 			[
-				"create_item",
-				"send_message",
-				// AU27 Increment 2: the generic reply tool.
-				"reply",
+				// @lore BC3 architecture.md §5 B4: create_item/send_message/reply/
+				// submit_review deleted — send_message reappears as an action,
+				// projected the same way edit_task is; the other three have no
+				// successor tool.
 				"write_memory",
-				"submit_review",
 				// G1 facilitator tools (`route_item` deleted outright as vestigial —
 				// AU21 §6 Decision L3, not merely re-narrowed)
 				// score_attention + run_knowledge_sweep deleted
@@ -111,7 +108,9 @@ describe("buildToolRegistry", () => {
 		// score_attention and run_knowledge_sweep deleted with the attention engine = 18
 		// handoff_to, create_task, edit_task (old body) and log_task deleted with
 		// the task action list = 14
-		expect(registry.definitions).toHaveLength(14);
+		// BC3 architecture.md §5 B4: create_item/send_message/reply/submit_review
+		// deleted = 10
+		expect(registry.definitions).toHaveLength(10);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({

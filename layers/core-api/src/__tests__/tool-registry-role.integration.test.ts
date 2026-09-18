@@ -23,7 +23,6 @@ import {
 } from "@hyperidle/agent-orchestration";
 import {
 	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
 } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
@@ -52,7 +51,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -69,20 +67,24 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// the architecture doc §7/§8 B1: handoff_to and log_task are deleted —
 		// projected from the action list instead, composed in only at
 		// `buildToolRegistry`'s real call site, not this direct-definitions fixture.
+		// @lore BC3 architecture.md §5 B4: send_message/reply/create_item/
+		// submit_review are deleted from this catalog — send_message reappears
+		// as an action, projected the same way edit_task is; the other three
+		// have no successor tool.
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
 			{ role: "builder" },
 		);
 		const names = new Set(registry.definitions.map((d) => d.name));
-		expect(names.has("send_message")).toBe(true);
-		expect(names.has("reply")).toBe(true);
 		expect(names.has("write_memory")).toBe(true);
-		expect(names.has("create_item")).toBe(true);
+		expect(names.has("send_message")).toBe(false);
+		expect(names.has("reply")).toBe(false);
+		expect(names.has("create_item")).toBe(false);
+		expect(names.has("submit_review")).toBe(false);
 	});
 
 	test("B2 + review W3: builder registry returns FORBIDDEN when invoking a facilitator tool that exists but is role-filtered", async ({
@@ -92,7 +94,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -113,7 +114,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -130,26 +130,21 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	// action list, composed in only at `buildToolRegistry`'s real call site,
 	// not this direct-definitions fixture. 20 → 14 (also minus the two
 	// attention tools deleted with the attention engine).
-	test("B3: assistant registry includes all 14 tools", ({ db, app }) => {
+	// @lore BC3 architecture.md §5 B4: send_message/reply/create_item/
+	// submit_review deleted too — 14 → 10; send_message reappears as an
+	// action, projected the same way edit_task is, not through this
+	// direct-definitions fixture.
+	test("B3: assistant registry includes all 10 tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
 			{ role: "assistant" },
 		);
 		const names = registry.definitions.map((d) => d.name).sort();
-		// 9 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 12
-		// + 4 AE3 management tools: create_team, add_agent, create_routine, update_routine = 16
-		// BB1: create_bet + edit_bet deleted; edit_task added = 17
-		// + 1 AU27 Increment 2: reply = 18
-		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
-		// score_attention and run_knowledge_sweep were deleted, leaving 18
-		// handoff_to, create_task, edit_task (old body) and log_task deleted
-		// with the task action list — projected instead — leaving 14
-		expect(names).toHaveLength(14);
+		expect(names).toHaveLength(10);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}
@@ -160,7 +155,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -185,7 +179,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -201,7 +194,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -217,7 +209,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -233,7 +224,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),

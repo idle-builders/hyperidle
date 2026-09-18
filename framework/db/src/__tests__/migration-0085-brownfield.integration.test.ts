@@ -163,9 +163,11 @@ describe("migration 0085: thread as a module — brownfield", () => {
 		const [task] = (
 			await db.execute(sql`SELECT thread_id FROM tasks WHERE id = 'task-c'`)
 		).rows as Array<{ thread_id: string }>;
+		if (!task) throw new Error("task-c not found after migration");
 		const [thread] = (
 			await db.execute(sql`SELECT participants, initiator_id FROM threads WHERE id = ${task.thread_id}`)
 		).rows as Array<{ participants: string; initiator_id: string }>;
+		if (!thread) throw new Error("task-c's thread not found after migration");
 
 		const members = JSON.parse(thread.participants) as string[];
 		expect(new Set(members)).toEqual(new Set(["owner-agent-1", "human-older"]));

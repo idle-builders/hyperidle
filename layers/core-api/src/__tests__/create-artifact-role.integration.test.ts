@@ -22,7 +22,6 @@ import {
 } from "@hyperidle/agent-orchestration";
 import {
 	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
 } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
@@ -48,7 +47,6 @@ describe("create_artifact availability across agent roles", () => {
 		const registry = buildToolRegistryFromDefinitions(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -63,7 +61,6 @@ describe("create_artifact availability across agent roles", () => {
 		const registry = buildToolRegistryFromDefinitions(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -77,7 +74,6 @@ describe("create_artifact availability across agent roles", () => {
 		const registry = buildToolRegistryFromDefinitions(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -91,7 +87,6 @@ describe("create_artifact availability across agent roles", () => {
 		const registry = buildToolRegistryFromDefinitions(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -108,7 +103,6 @@ describe("create_artifact availability across agent roles", () => {
 		const registry = buildToolRegistryFromDefinitions(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),
@@ -137,7 +131,6 @@ describe("create_artifact availability across agent roles", () => {
 		const registry = buildToolRegistryFromDefinitions(
 			buildToolDefinitions(
 				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
 				THROWING_OPEN_TASK,
 			),
 			makeContext(db),

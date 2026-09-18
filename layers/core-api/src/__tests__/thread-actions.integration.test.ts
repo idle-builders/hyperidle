@@ -1181,10 +1181,12 @@ describe("send_message — legacy bus names still fire", () => {
 
 		const seen: string[] = [];
 		const handler = (event: { type: string }) => seen.push(event.type);
-		eventBus.on("thread_created", handler as never);
-		eventBus.on("thread_message_appended", handler as never);
-		eventBus.on("thread_resolved", handler as never);
-		eventBus.on("thread_reopened", handler as never);
+		const unsubscribers = [
+			eventBus.on("thread_created", handler as never),
+			eventBus.on("thread_message_appended", handler as never),
+			eventBus.on("thread_resolved", handler as never),
+			eventBus.on("thread_reopened", handler as never),
+		];
 
 		const created = await call<{ message: { id: string }; thread: { id: string } }>(
 			app,
@@ -1209,10 +1211,7 @@ describe("send_message — legacy bus names still fire", () => {
 		expect(seen).toContain("thread_message_appended");
 		expect(seen).toContain("thread_resolved");
 		expect(seen).toContain("thread_reopened");
-		eventBus.off("thread_created", handler as never);
-		eventBus.off("thread_message_appended", handler as never);
-		eventBus.off("thread_resolved", handler as never);
-		eventBus.off("thread_reopened", handler as never);
+		for (const unsubscribe of unsubscribers) unsubscribe();
 	});
 });
 

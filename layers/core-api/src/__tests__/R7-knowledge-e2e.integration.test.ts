@@ -16,7 +16,6 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
 	threads,
 	type HyperIdleDb,
@@ -68,7 +67,6 @@ function buildPromoteKnowledgeTool(
 ): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(
 		createInProcessCoreApiTransport(app),
-		THROWING_REVIEW_ACCESSOR,
 		realOpenTask(db),
 	).find((t) => t.name === "promote_knowledge")!;
 }
@@ -78,7 +76,6 @@ function buildWriteMemoryTool(
 ): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(
 		createInProcessCoreApiTransport(app),
-		THROWING_REVIEW_ACCESSOR,
 		realOpenTask(db),
 	).find((t) => t.name === "write_memory")!;
 }

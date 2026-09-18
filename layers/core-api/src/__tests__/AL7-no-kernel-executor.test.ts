@@ -18,7 +18,6 @@
 
 import {
 	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
 } from "@hyperidle/agent-orchestration/testing";
 import { describe, expect, it } from "vitest";
 
@@ -74,7 +73,6 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 			() => {
 				throw new Error("AL7-no-kernel-executor never invokes a tool handler");
 			},
-			THROWING_REVIEW_ACCESSOR,
 			THROWING_OPEN_TASK,
 		);
 		const names = ALL_TOOL_DEFINITIONS.map((d: { name: string }) => d.name);

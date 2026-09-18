@@ -161,23 +161,6 @@ interface ToolHandlersCoreApiAccessor {
 		  }
 		| undefined
 	>;
-	getItemById(
-		id: string,
-		actorId: string,
-	): Promise<
-		| {
-				readonly riskTier: string | null;
-				readonly kind: string | null;
-				readonly verb: string | null;
-		  }
-		| undefined
-	>;
-	updateItemById(
-		id: string,
-		updates: Partial<{ riskTier: string; kind: string; verb: string }>,
-		actorId: string,
-	): Promise<void>;
-	createItem(input: Record<string, unknown>, actorId: string): Promise<{ readonly id: string }>;
 	getUserById(
 		id: string,
 		actorId: string,
@@ -196,58 +179,11 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<
 		ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: string | null }>
 	>;
-	/**
-	 * AU27 Increment 1b — `reply`'s no-calling-thread fallback: the sole
-	 * human user in the system, so a routine_run (or any other thread-less
-	 * kind) can still land its reply in a direct thread with a real person.
-	 */
-	findSoleHumanUser(actorId: string): Promise<{ readonly id: string } | undefined>;
-	/**
-	 * @lore AU21 §9 Increment 2 (conversation wave): every
-	 * `ToolHandlersConversationAccessor` capability moved onto this seam
-	 * (`edge-disposition.md`'s `conversation.{findThread, insertThread,
-	 * insertMessage, updateThread, findOrCreateDirectThread}` row) —
-	 * the agent acting on core "just like the user would", same as `work`'s
-	 * Increment 2 migration. Structural mirror of
-	 * `@hyperidle/api-contract`'s `ConversationThreadView` (Mechanism C: no import).
-	 */
-	getThreadById(
-		id: string,
-		actorId: string,
-	): Promise<{ readonly id: string; readonly participants: readonly string[] } | undefined>;
-	insertThread(
-		input: {
-			readonly hostKind: string;
-			readonly hostId: string;
-			readonly participants: readonly string[];
-			readonly pinned?: boolean;
-		},
-		actorId: string,
-	): Promise<{ readonly id: string }>;
-	updateThread(
-		id: string,
-		updates: Partial<{
-			participants: readonly string[];
-			lastActiveAt: string;
-			pinned: boolean;
-		}>,
-		actorId: string,
-	): Promise<void>;
-	insertMessage(
-		input: {
-			readonly threadId: string;
-			readonly type: "plain" | "review" | "questionnaire" | "verdict";
-			readonly payload: Record<string, unknown>;
-			readonly clientKey: string;
-		},
-		actorId: string,
-	): Promise<{ readonly id: string }>;
-	findOrCreateDirectThread(recipientId: string, actorId: string): Promise<{ readonly id: string }>;
-	getFirstThreadByHost(
-		hostKind: string,
-		hostId: string,
-		actorId: string,
-	): Promise<{ readonly id: string; readonly participants: readonly string[] } | undefined>;
+	// `findSoleHumanUser`/`getThreadById`/`insertThread`/`updateThread`/
+	// `insertMessage`/`findOrCreateDirectThread`/`getFirstThreadByHost`
+	// DELETED — `reply`/`send_message`/`create_item`/`submit_review` are gone;
+	// the thread module's `send_message`/`adjust_thread` actions replace every
+	// one of these capabilities. architecture.md §5 B4.
 	/**
 	 * @lore AU21 §9 Increment 2 (org/routine/handoff wave): every former
 	 * `ToolHandlersOrgAccessor`/`ToolHandlersRoutineAccessor`/
@@ -274,15 +210,8 @@ interface ToolHandlersCoreApiAccessor {
 		patch: { phase?: string; leadAgentId?: string },
 		actorId: string,
 	): Promise<void>;
-	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */
-	resolveReviewRecipientsForItem(
-		ctx: {
-			readonly userId: string;
-			readonly agentRole: string | undefined;
-			readonly teamId: string | undefined;
-		},
-		actorId: string,
-	): Promise<readonly string[]>;
+	// `resolveReviewRecipientsForItem` DELETED with `create_item`/`submit_review`
+	// — architecture.md §5 B4.
 	/**
 	 * @lore AU44 AU20-fd: replaces `persistScaffoldedAgents` — seam now accepts the scaffold
 	 * request; core-api resolves via `resolveAgentScaffoldSpecs` then persists.
@@ -389,20 +318,13 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
-/**
- * How `submit_review` records which session filed a review.
- *
- * @lore BA2: One call, and deliberately not a question the agent can answer —
- * the session comes from the tool context, never from the tool's arguments, so
- * an agent cannot file its way to resuming a session that is not its own.
- */
-export interface ToolHandlersReviewAccessor {
-	/** Record that this session filed this review, so a verdict knows what to resume. */
-	linkReviewToSession(sessionId: string, reviewMessageId: string): Promise<void>;
-}
+// `ToolHandlersReviewAccessor`/`gate.linkReviewToSession` DELETED with
+// `submit_review` — `ThreadActionsDeps.linkReviewToSession` (bound to
+// `AgentOrchestrationPort.gate.linkReview`) is the seam's own successor;
+// core calls it directly rather than a tool dialling back into
+// agent-orchestration. architecture.md §5 B4.
 
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts {
 	readonly coreApi: ToolHandlersCoreApiAccessor;
-	readonly gate: ToolHandlersReviewAccessor;
 }

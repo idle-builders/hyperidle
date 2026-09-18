@@ -87,6 +87,22 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 
+	// BC3: a person-owned agent — `ownerUserId` set, no `teamId` (the belonging
+	// check requires exactly one of the two).
+	await db.insert(users).values({
+		id: "x3-agent-owned",
+		kind: "ai",
+		name: "X3 Owned Bot",
+		role: "assistant",
+		status: "active",
+		ownerUserId: "u-founder-x3",
+		createdAt: NOW,
+	});
+	await db.insert(agentRunConfig).values({
+		agentUserId: "x3-agent-owned",
+		maxConcurrentSessions: 1,
+	});
+
 	// @lore AU18: no factorySettings seed needed — AC-8's product_manager
 	// template now resolves from the real docs/system-prompts/product-manager.md
 	// file on disk via the shared resolver.
@@ -133,6 +149,22 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("harnessType");
 		expect(agent).toHaveProperty("maxConcurrentSessions");
 		expect(agent).toHaveProperty("status");
+	});
+
+	// BC3: the UI tells "my agent" from "a team's agent" via this column.
+	test("carries ownerUserId — null for a team agent, the owner's id for a person-owned one", async ({
+		db,
+		app,
+	}) => {
+		await seedPrereqs(db);
+		const res = await app.request("/api/agents", { headers: authHeaders() });
+		const body = (await res.json()) as Array<Record<string, unknown>>;
+
+		const teamAgent = body.find((a) => a.id === "x3-agent-builder");
+		expect(teamAgent?.ownerUserId).toBeNull();
+
+		const ownedAgent = body.find((a) => a.id === "x3-agent-owned");
+		expect(ownedAgent?.ownerUserId).toBe("u-founder-x3");
 	});
 
 	test("excludes system-role agents from the response", async ({ db, app }) => {
@@ -408,6 +440,19 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 			body: JSON.stringify({ name: "Ghost" }),
 		});
 		expect(res.status).toBe(404);
+	});
+
+	// BC3: the single-agent response carries the same fact as the list.
+	test("carries ownerUserId on the updated agent", async ({ db, app }) => {
+		await seedPrereqs(db);
+		const res = await app.request("/api/agents/x3-agent-owned", {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({ name: "Renamed Owned Bot" }),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.ownerUserId).toBe("u-founder-x3");
 	});
 
 	test("can set harnessType", async ({ db, app }) => {
