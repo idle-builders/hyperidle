@@ -1,4 +1,4 @@
-import type { AnchorRef, Message, VerdictDecision } from "@hyperidle/domain-model";
+import type { AnchorRef, Message, ThreadView, VerdictDecision } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,6 +16,7 @@ import type { ComposedReviewSubject, ReviewComment } from "./review-composition.
 export type ReviewLoader = (params: {
 	readonly reviewId: string;
 	readonly threadId: string;
+	readonly thread: ThreadView;
 }) => Promise<ComposedReviewSubject>;
 
 interface ReviewPageProps {
@@ -80,9 +81,34 @@ function hostMessagesToReviewComments(
 }
 
 /**
- * BC3 default loader: `GET /api/reviews/:id` is gone (B1/B10). `open_thread`
- * carries the review message and everything the review page composes from
- * real rows, the way `routes/reviews.ts` did (architecture.md §5 B9).
+ * A verdict already given makes the surface read-only — find the one that
+ * resolved THIS review; a thread may hold several. Shared between
+ * `defaultLoader`'s initial composition and `ReviewPage`'s reactive overlay
+ * (recomputed off `useThread`'s own data on every refresh, so a verdict
+ * update never needs a second loader call — see @lore below `ReviewPage`).
+ */
+function findVerdictForReview(
+	messages: ReadonlyArray<Message>,
+	reviewId: string,
+): { decision: VerdictDecision; resolvedAt: string } | undefined {
+	let verdict: { decision: VerdictDecision; resolvedAt: string } | undefined;
+	for (const m of messages) {
+		if (m.type !== "verdict") continue;
+		const payload = verdictPayloadOf(m);
+		if (isRedactedPayload(payload) || payload.resolvesMessageId !== reviewId) continue;
+		verdict = { decision: payload.decision, resolvedAt: m.createdAt };
+	}
+	return verdict;
+}
+
+/**
+ * BC3 default loader: `GET /api/reviews/:id` is gone (B1/B10). The review
+ * message and everything the review page composes from real rows, the way
+ * `routes/reviews.ts` did (architecture.md §5 B9) — but the thread fetch
+ * itself is `useThread`'s job, not this loader's. `ReviewPage` passes the
+ * already-fetched `ThreadView` in; a second `open_thread` call here would
+ * duplicate the one the hook already made (and the websocket nudge already
+ * keeps live).
  *
  * The task the review belongs to: the server stamps `taskId` onto the
  * review payload from the agent's session (`ee37000af`,
@@ -97,17 +123,15 @@ function hostMessagesToReviewComments(
 async function defaultLoader({
 	reviewId,
 	threadId,
+	thread,
 }: {
 	readonly reviewId: string;
 	readonly threadId: string;
+	readonly thread: ThreadView;
 }): Promise<ComposedReviewSubject> {
-	const opened = await call("open_thread", { id: threadId });
-	if (!opened.ok) {
-		throw new Error(opened.problems[0]?.message ?? "Could not load review");
-	}
-	const { messages, members } = opened.data;
+	const { messages, members } = thread;
 	const reviewMsg = messages.find((m) => m.id === reviewId);
-	if (!reviewMsg || reviewMsg.type !== "review") {
+	if (reviewMsg?.type !== "review") {
 		throw new Error("review_not_found");
 	}
 	const reviewPayload = reviewPayloadOf(reviewMsg);
@@ -146,15 +170,7 @@ async function defaultLoader({
 		}
 	}
 
-	// A verdict already given makes the surface read-only — find the one that
-	// resolved THIS review; a thread may hold several.
-	let verdict: { decision: VerdictDecision; resolvedAt: string } | undefined;
-	for (const m of messages) {
-		if (m.type !== "verdict") continue;
-		const payload = verdictPayloadOf(m);
-		if (isRedactedPayload(payload) || payload.resolvesMessageId !== reviewId) continue;
-		verdict = { decision: payload.decision, resolvedAt: m.createdAt };
-	}
+	const verdict = findVerdictForReview(messages, reviewMsg.id);
 
 	return {
 		id: reviewMsg.id,
@@ -201,14 +217,24 @@ export function ReviewPage({
 	const threadId = overrideThreadId ?? searchParams.get("threadId") ?? "";
 	const [subject, setSubject] = useState<ComposedReviewSubject | null>(null);
 	const [error, setError] = useState<Error | null>(null);
+	const [verdictError, setVerdictError] = useState<string | null>(null);
 	const { user } = useCurrentUser();
 
-	// Fetch the thread the loader NAMES directly, instead of guessing it from
-	// a host lookup (a by-host lookup resolves the first thread for that
-	// host — the WRONG thread whenever a host has more than one).
-	// `subject.threadId` is the review message's own thread.
-	const threadDetail = useThread(subject?.threadId ?? threadId);
+	// The route's own `threadId` search param names the thread directly,
+	// instead of guessing it from a host lookup (a by-host lookup resolves the
+	// first thread for that host — the WRONG thread whenever a host has more
+	// than one). This is also the ONE fetch of thread data on the page —
+	// `defaultLoader` below composes the review subject from `threadDetail.data`
+	// rather than fetching it again itself (AL4/BC3 review-fix C).
+	const threadDetail = useThread(threadId);
 
+	// `subject` holds the mostly-static composition (title, task naming,
+	// reasoning, artifacts) loaded once. `conversation` and `verdict`/`blocking`
+	// are recomputed here on every `threadDetail.data` change instead of via a
+	// second loader call — this is what "derive from useThread's data" means:
+	// a post or a verdict submit below only calls `threadDetail.refresh()`
+	// (ONE refetch), and this overlay reacts to the result, matching AL4/BC3
+	// review-fix C ("one source").
 	const reviewSubject = useMemo<ComposedReviewSubject | null>(() => {
 		if (!subject) return null;
 		const threadMessages = threadDetail.data?.messages;
@@ -221,16 +247,38 @@ export function ReviewPage({
 			threadMessages && threadMessages.length > 0
 				? hostMessagesToReviewComments(threadMessages, identities)
 				: undefined;
-		if (!threadComments) return subject;
-		return { ...subject, conversation: threadComments };
+		const verdict = threadMessages
+			? findVerdictForReview(threadMessages, subject.id)
+			: subject.verdict;
+		return {
+			...subject,
+			...(threadComments ? { conversation: threadComments } : {}),
+			verdict,
+			blocking: verdict === undefined,
+		};
 	}, [subject, threadDetail.data]);
 
+	// `threadDetail.data` is read inside but deliberately excluded from the deps below —
+	// its later changes are handled by the `reviewSubject` overlay above (conversation/
+	// verdict), not by re-invoking `loader`.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
 	useEffect(() => {
+		// No thread id at all is a bad link, not a loading state — handled by
+		// the dedicated render branch below (AL4/BC3 review-fix A). Never wait
+		// on `useThread("")` here.
 		if (!threadId) return;
+		if (threadDetail.status === "error" || threadDetail.status === "not-found") {
+			setError(new Error(threadDetail.error ?? "Could not load review"));
+			return;
+		}
+		if (threadDetail.status !== "ready" || !threadDetail.data) return;
 		let cancelled = false;
-		loader({ reviewId, threadId })
+		loader({ reviewId, threadId, thread: threadDetail.data })
 			.then((s) => {
-				if (!cancelled) setSubject(s);
+				if (!cancelled) {
+					setSubject(s);
+					setError(null);
+				}
 			})
 			.catch((e: unknown) => {
 				if (!cancelled) setError(e instanceof Error ? e : new Error(String(e)));
@@ -238,7 +286,7 @@ export function ReviewPage({
 		return () => {
 			cancelled = true;
 		};
-	}, [reviewId, threadId, loader]);
+	}, [reviewId, threadId, loader, threadDetail.status, threadDetail.error]);
 
 	const handlePostComment = useCallback(
 		async ({ text, anchor }: { text: string; anchor?: AnchorRef }) => {
@@ -258,11 +306,11 @@ export function ReviewPage({
 					: {}),
 			});
 			if (!res.ok) throw new Error(res.problems[0]?.message ?? "Failed to post comment");
+			// The conversation is derived from `threadDetail.data` above — a single
+			// refresh is the only refetch a post needs.
 			threadDetail.refresh();
-			const refreshed = await loader({ reviewId, threadId });
-			setSubject(refreshed);
 		},
-		[loader, reviewId, threadId, reviewSubject, threadDetail, user],
+		[reviewId, reviewSubject, threadDetail, user],
 	);
 
 	const handleSubmitVerdict = useCallback(
@@ -276,24 +324,42 @@ export function ReviewPage({
 			// can hold multiple review messages; only the route's id is correct.
 			const reviewMessageId = reviewId;
 
-			// A refused verdict — a race another verdict already won, or the
-			// sender lacking authority — comes back as `{ok:false, problems}`.
-			// Either way we refresh so the surface shows the authoritative
-			// resolved state rather than a stale/optimistic one.
 			const res = await call("send_message", {
 				threadId: reviewSubject.threadId,
 				clientKey: crypto.randomUUID(),
 				verdict: { decision, resolvesMessageId: reviewMessageId },
 			});
-			if (!res.ok) {
-				setError(new Error(res.problems[0]?.message ?? "Failed to submit verdict"));
-			}
+			// A refused verdict — a race another verdict already won, or the
+			// sender lacking authority — comes back as `{ok:false, problems}`.
+			// That is a control-level rejection, not a page load failure: it goes
+			// in `verdictError` next to the verdict control, and the review stays
+			// visible (AL4/BC3 review-fix B). `error` stays reserved for the page
+			// failing to load at all.
+			setVerdictError(res.ok ? null : (res.problems[0]?.message ?? "Failed to submit verdict"));
+			// Either way we refresh so the surface shows the authoritative
+			// resolved state rather than a stale/optimistic one — the verdict
+			// overlay above reacts to it, so this is the only refetch a verdict
+			// submission needs.
 			threadDetail.refresh();
-			const refreshed = await loader({ reviewId, threadId });
-			setSubject(refreshed);
 		},
-		[loader, reviewId, threadId, reviewSubject, threadDetail, user],
+		[reviewId, reviewSubject, threadDetail, user],
 	);
+
+	if (!threadId) {
+		return (
+			<PageScaffold
+				frame={presentation === "page" ? "page" : "local"}
+				header={<PageHeader presentation={presentation} title="Review" />}
+			>
+				<div className="p-[24px]">
+					<ErrorState
+						title="Could not load review"
+						description="This review link is missing its conversation."
+					/>
+				</div>
+			</PageScaffold>
+		);
+	}
 
 	if (error) {
 		return (
@@ -324,6 +390,19 @@ export function ReviewPage({
 		// internally (reviewListPane / ExaminePane both nest <PageScaffold>) — it
 		// only needs a bounded flex column to size against, the managed body's job.
 		<PageScaffold body="managed">
+			{verdictError ? (
+				// AL4/BC3 review-fix B: a refused verdict is a control-level rejection,
+				// not a page load failure — it renders here, right above the verdict
+				// control ReviewComposition's FrameHeader owns, using the same inline
+				// alert styling `ds/Composer.tsx` uses for its own send failures. The
+				// review composition below stays mounted and interactive.
+				<div
+					role="alert"
+					className="type-metadata  border-width-thin-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[24px] py-[9px]  text-[var(--status-error)]"
+				>
+					{verdictError}
+				</div>
+			) : null}
 			<ReviewComposition
 				subject={reviewSubject}
 				onSubmitVerdict={handleSubmitVerdict}
