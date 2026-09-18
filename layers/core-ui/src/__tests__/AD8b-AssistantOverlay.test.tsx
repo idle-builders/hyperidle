@@ -1,5 +1,5 @@
 /**
- * AD8b — AssistantOverlay component tests (RED phase).
+ * AD8b — AssistantOverlay component tests.
  *
  * AC-7: The overlay renders artifacts and review messages (not just plain
  *       text). The coverage below proves ThreadShell renders.
@@ -8,8 +8,11 @@
  *
  * AC-9: Context can be attached (chips render when contextRefs is non-empty).
  *
- * These tests import from the planned path AssistantOverlay (not CocOverlay).
- * They will FAIL until the green phase creates AssistantOverlay.tsx.
+ * @lore BC3: re-pointed off the deleted `useAssistantThread` onto
+ * `useThread`/`useThreads`/`useAgents`/`useCurrentUser` — the overlay
+ * resolves its own agent's direct thread via `useThreads({host:{kind:"agent"}})`
+ * then reads it with `useThread(id)` (architecture.md §5 B6), same pattern as
+ * `shell/__tests__/AH3-AssistantOverlay.notice.test.tsx`.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -18,35 +21,84 @@ import { createRef } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
+import type { UseAgentsResult } from "../hooks/useAgents.js";
+import type { UseCurrentUserResult } from "../hooks/useCurrentUser.js";
+import type { UseThreadResult } from "../hooks/useThread.js";
+import type { UseThreadsResult } from "../hooks/useThreads.js";
+
+vi.mock("../hooks/useAgents.js", () => ({
+	useAgents: vi.fn(),
+}));
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: vi.fn(),
+}));
+vi.mock("../hooks/useThread.js", () => ({
+	useThread: vi.fn(),
+}));
+vi.mock("../hooks/useThreads.js", () => ({
+	useThreads: vi.fn(),
+}));
+
+import { useAgents } from "../hooks/useAgents.js";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useThread } from "../hooks/useThread.js";
+import { useThreads } from "../hooks/useThreads.js";
 import { AssistantOverlay } from "../shell/AssistantOverlay";
 
-// Module-level mock: provides a "ready" assistant thread for all AssistantOverlay tests.
-vi.mock("../hooks/useAssistantThread", () => ({
-	useAssistantThread: () => ({
+const MY_AGENT_ID = "agent-founder-assistant";
+const MY_USER_ID = "u-founder";
+
+const BASE_THREAD = {
+	id: "thr-ast-u-founder",
+	hostKind: "user" as const,
+	hostId: MY_USER_ID,
+	initiatorId: MY_USER_ID,
+	members: [MY_USER_ID, MY_AGENT_ID],
+	title: null,
+	computedTitle: "Assistant",
+	pinned: false,
+	resolvedAt: null,
+	deletedAt: null,
+	lastActiveAt: "2026-06-09T10:00:00.000Z",
+	createdAt: "2026-06-09T10:00:00.000Z",
+};
+
+/** Ready state: viewer resolved, one direct thread with their agent, no messages yet. */
+function mockReadyOverlay(): void {
+	vi.mocked(useCurrentUser).mockReturnValue({
+		user: { id: MY_USER_ID, name: "You", email: "founder@example.com", avatarUrl: null },
 		status: "ready",
-		data: {
-			thread: {
-				id: "thr-ast-u-founder",
-				hostKind: "user",
-				hostId: "u-founder",
-				initiatorId: "u-founder",
-				participants: ["u-founder", "ast-agent-id"],
-				pinned: false,
-				resolvedAt: null,
-				lastActiveAt: "2026-06-09T10:00:00.000Z",
-				createdAt: "2026-06-09T10:00:00.000Z",
-			},
-			messages: [],
-			identities: {
-				"u-founder": { name: "You" },
-				"ast-agent-id": { name: "Assistant", role: "assistant" },
-			},
-		},
 		error: null,
 		retry: vi.fn(),
+	} as UseCurrentUserResult);
+	vi.mocked(useAgents).mockReturnValue({
+		agents: [{ id: MY_AGENT_ID, ownerUserId: MY_USER_ID } as UseAgentsResult["agents"][number]],
+		loading: false,
+		error: null,
+		refetch: vi.fn(),
+	} as UseAgentsResult);
+	vi.mocked(useThreads).mockReturnValue({
+		status: "ready",
+		threads: [{ ...BASE_THREAD, hasUnresolvedReview: false, lastMessagePreview: null }],
+		error: null,
+		retry: vi.fn(),
+	} as UseThreadsResult);
+	vi.mocked(useThread).mockReturnValue({
+		status: "ready",
+		data: {
+			thread: BASE_THREAD,
+			members: [
+				{ id: MY_USER_ID, name: "You", role: "human", isAgent: false },
+				{ id: MY_AGENT_ID, name: "Assistant", role: "assistant", isAgent: true },
+			],
+			messages: [],
+			headMessageId: null,
+			hostTitle: "Assistant",
+		},
+		error: null,
 		refresh: vi.fn(),
-	}),
-}));
+	} as UseThreadResult);
+}
 
 const mockAnchorRef = createRef<HTMLButtonElement>();
 
@@ -84,16 +136,19 @@ describe("AD8b — AssistantOverlay open/close", () => {
 	});
 
 	it("renders the overlay panel when open=true", () => {
+		mockReadyOverlay();
 		renderOverlay(true);
 		expect(screen.getByRole("dialog")).toBeInTheDocument();
 	});
 
 	it("overlay has aria-label containing 'assistant'", () => {
+		mockReadyOverlay();
 		renderOverlay(true);
 		expect(screen.getByRole("dialog", { name: /assistant/i })).toBeInTheDocument();
 	});
 
 	it("calls onClose when Escape is pressed", async () => {
+		mockReadyOverlay();
 		const user = userEvent.setup();
 		const onClose = vi.fn();
 		renderOverlay(true, [], onClose);
@@ -106,6 +161,7 @@ describe("AD8b — AssistantOverlay open/close", () => {
 	// Assert via data-dialog-layer attribute which getOverlayProps emits.
 	// See architecture.md §Sanctioned assertion changes #3.
 	it("overlay has data-dialog-layer='overlay' (--z-overlay = 40, above main, below modal)", () => {
+		mockReadyOverlay();
 		renderOverlay(true);
 		const dialog = screen.getByRole("dialog");
 		expect(dialog.getAttribute("data-dialog-layer")).toBe("overlay");
@@ -117,7 +173,12 @@ describe("AD8b — AssistantOverlay open/close", () => {
 // ---------------------------------------------------------------------------
 
 describe("AD8b — AssistantOverlay message thread rendering", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it("renders ThreadShell when overlay is open", () => {
+		mockReadyOverlay();
 		renderOverlay(true);
 		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
 	});
@@ -128,7 +189,12 @@ describe("AD8b — AssistantOverlay message thread rendering", () => {
 // ---------------------------------------------------------------------------
 
 describe("AD8b — AssistantOverlay context chips", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it("renders context chips when contextRefs is non-empty", () => {
+		mockReadyOverlay();
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
 			{ kind: "task", id: "task-1", label: "Test Bet" },
 		];
@@ -137,11 +203,13 @@ describe("AD8b — AssistantOverlay context chips", () => {
 	});
 
 	it("renders no context chips when contextRefs is empty", () => {
+		mockReadyOverlay();
 		renderOverlay(true, []);
 		expect(screen.queryByTestId("assistant-context-chips")).not.toBeInTheDocument();
 	});
 
 	it("renders context chip container with correct data-testid", () => {
+		mockReadyOverlay();
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
 			{ kind: "task", id: "task-1", label: "Fix bug" },
 		];
@@ -150,6 +218,7 @@ describe("AD8b — AssistantOverlay context chips", () => {
 	});
 
 	it("calls onRemoveContextRef when chip dismiss button is clicked", async () => {
+		mockReadyOverlay();
 		const user = userEvent.setup();
 		const onRemoveContextRef = vi.fn();
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
