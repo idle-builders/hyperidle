@@ -11,7 +11,7 @@
  * caller WHICH runs were actually affected.
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { requestRunStopForTasks } from "../request-run-stop-for-tasks.js";
@@ -23,8 +23,18 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(users)
 		.values({ id: "agent-1", name: "A", role: "builder", status: "active", createdAt: NOW });
+	await db.insert(threads).values({
+		id: "thr-bet-1",
+		hostKind: "team",
+		hostId: "team-1",
+		initiatorId: "agent-1",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
 		id: "bet-1",
+		threadId: "thr-bet-1",
 		parentTaskId: null,
 		teamId: "team-1",
 		title: "d",
@@ -34,8 +44,18 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 	for (const id of ["task-a", "task-b", "task-untouched"]) {
+		await db.insert(threads).values({
+			id: `thr-${id}`,
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "agent-1",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
 			id,
+			threadId: `thr-${id}`,
 			parentTaskId: "bet-1",
 			teamId: "team-1",
 			title: id,
