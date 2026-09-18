@@ -43,8 +43,11 @@ function makeMessage(id: string, blockId?: string): Message {
 		type: "plain",
 		payload: (blockId
 			? { text: `Message anchored to ${blockId}`, blockId }
-			: { text: "Plain message" }) as PlainPayload & { blockId?: string },
+			: { text: "Plain message" }) as PlainPayload,
 		clientKey: `ck-${id}`,
+		// BC3: `blockId` is a real top-level Message column now, mirrored from the
+		// plain payload's own `blockId` (architecture.md §3.1's `messages_block_id_idx`).
+		blockId: blockId ?? null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
