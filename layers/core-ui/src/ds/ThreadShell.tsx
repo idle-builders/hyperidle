@@ -262,12 +262,11 @@ export function ThreadShell({
 					const payload = verdictPayloadOf(v);
 					return !isRedactedPayload(payload) && payload.resolvesMessageId === m.id;
 				});
-				if (
-					verdict &&
-					verdict.type === "verdict" &&
-					!isRedactedPayload(verdictPayloadOf(verdict))
-				) {
-					return { message: m, verdict };
+				if (verdict && verdict.type === "verdict") {
+					const verdictPayload = verdictPayloadOf(verdict);
+					if (!isRedactedPayload(verdictPayload)) {
+						return { message: m, verdict };
+					}
 				}
 				return null;
 			}
