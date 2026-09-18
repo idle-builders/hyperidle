@@ -289,6 +289,7 @@ describe("conversation-store reads", () => {
 			"id",
 			"lastActiveAt",
 			"participants",
+			"title",
 		]);
 	});
 });
