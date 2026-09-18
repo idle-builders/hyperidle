@@ -54,7 +54,7 @@ import {
 	SplitView,
 } from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { useSessionActivity } from "../hooks/useSessionActivity";
+import { type SessionSummary, useSessionActivity } from "../hooks/useSessionActivity";
 import { useThread } from "../hooks/useThread.js";
 import { useThreadTasks } from "../hooks/useThreadTasks.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
@@ -106,10 +106,36 @@ function identitiesToParticipants(
 // has no route of its own (architecture §entry).
 // ---------------------------------------------------------------------------
 
+/**
+ * BC3 review fix: resolve the `PartAuthor` for the agent that ran a session
+ * from the session's OWN data only — never from the hosting thread's
+ * `hostId`. A thread's host can be a team, a knowledge item, a user or an
+ * agent; only in the agent case would `hostId` even happen to name an agent,
+ * and it is not necessarily the agent that ran THIS session (e.g. a
+ * team-hosted task thread, or sub-agent recursion). `useSessionActivity`'s
+ * `summary.agentId` is the one place the session's own agent id surfaces —
+ * but by the hook's own contract it stays `null` while the session is still
+ * streaming, so there genuinely is no id to show yet. A generic, role-only
+ * placeholder is used rather than inventing or reusing an unrelated id.
+ */
+export function resolveSessionAgentAuthor(
+	summary: Pick<SessionSummary, "agentId"> | null,
+	identities: Record<string, ThreadView["members"][number]>,
+): PartAuthor {
+	if (!summary?.agentId) {
+		return { id: "", name: "Agent", isAgent: true, isMe: false };
+	}
+	return {
+		id: summary.agentId,
+		name: identities[summary.agentId]?.name ?? summary.agentId,
+		isAgent: true,
+		isMe: false,
+	};
+}
+
 interface SessionViewPanelProps {
 	sessionId: string;
-	agentName: string;
-	agentId: string;
+	identities: Record<string, ThreadView["members"][number]>;
 	threadTitle: string;
 	hostTitle: string;
 	viewerId: string;
@@ -120,8 +146,7 @@ interface SessionViewPanelProps {
 
 function SessionViewPanel({
 	sessionId,
-	agentName,
-	agentId,
+	identities,
 	threadTitle,
 	hostTitle,
 	viewerId,
@@ -129,15 +154,10 @@ function SessionViewPanel({
 	onClose,
 	onOpen,
 }: SessionViewPanelProps): JSX.Element {
-	const { entries, status } = useSessionActivity(sessionId);
+	const { entries, status, summary } = useSessionActivity(sessionId);
 
-	const agent: import("../components/parts").PartAuthor = {
-		id: agentId,
-		name: agentName,
-		isAgent: true,
-		isMe: false,
-	};
-	const viewer: import("../components/parts").PartAuthor = {
+	const agent: PartAuthor = resolveSessionAgentAuthor(summary, identities);
+	const viewer: PartAuthor = {
 		id: viewerId,
 		name: viewerName,
 		isAgent: false,
@@ -399,17 +419,13 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		hostRoute,
 	};
 
-	const agentId = data.thread.hostId;
-	const agentIdentity = identities[agentId];
-	const agentName = agentIdentity?.name ?? agentId;
 	const viewerName = identities[viewerId]?.name ?? viewerId;
 	const inspectionDestination =
 		inspection?.kind === "session" ? (
 			<div data-testid="session-view-panel">
 				<SessionViewPanel
 					sessionId={inspection.sessionId}
-					agentId={agentId}
-					agentName={agentName}
+					identities={identities}
 					threadTitle={header.title}
 					hostTitle={header.hostTitle}
 					viewerId={viewerId}

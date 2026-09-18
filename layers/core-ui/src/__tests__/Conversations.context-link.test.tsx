@@ -8,6 +8,7 @@
 import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { resolveSessionAgentAuthor } from "../pages/Conversations.js";
 import { resolveHostRoute } from "../services/host-route.js";
 
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
@@ -404,5 +405,49 @@ describe("BC3 — Conversations thread task links", () => {
 		await screen.findAllByTestId("conversations-page");
 
 		expect(screen.queryAllByRole("link", { name: /task/i })).toHaveLength(0);
+	});
+});
+
+// ── Code-review fix: session panel agent identity ────────────────────────────
+//
+// A thread's host is a team, a knowledge item, a user or an agent — only in
+// the last case is it an agent. `resolveSessionAgentAuthor` (Conversations.tsx)
+// resolves the agent shown in a session's inspect panel; it must come from the
+// session's OWN data (`useSessionActivity`'s `summary`), never from the
+// hosting thread's id — a team-hosted (task) thread's session must never be
+// labeled with the team's id.
+
+describe("Conversations — session panel agent identity (code-review fix)", () => {
+	it("gives the session's own agent id, never the (team) thread host id", () => {
+		// A team-hosted thread whose session belongs to agent-7. The team's own
+		// id/name must play no part in the resolution.
+		const teamIdentities = {
+			"team-42": { id: "team-42", name: "Team Rocket", role: "member", isAgent: false },
+		};
+		const author = resolveSessionAgentAuthor({ agentId: "agent-7" }, teamIdentities);
+		expect(author.id).toBe("agent-7");
+		expect(author.id).not.toBe("team-42");
+		expect(author.name).not.toBe("Team Rocket");
+	});
+
+	it("resolves the agent's display name from identities when known", () => {
+		const identities = {
+			"agent-7": { id: "agent-7", name: "Atlas", role: "agent", isAgent: true },
+		};
+		const author = resolveSessionAgentAuthor({ agentId: "agent-7" }, identities);
+		expect(author.name).toBe("Atlas");
+		expect(author.isAgent).toBe(true);
+	});
+
+	it("does not invent a lookup when the session carries no agent id yet (streaming)", () => {
+		// useSessionActivity's `summary` is null while streaming (AC10) — there is
+		// no session-sourced agent id available. A generic placeholder is used;
+		// the (unrelated) thread host id must never fill the gap.
+		const teamIdentities = {
+			"team-42": { id: "team-42", name: "Team Rocket", role: "member", isAgent: false },
+		};
+		const author = resolveSessionAgentAuthor(null, teamIdentities);
+		expect(author.id).not.toBe("team-42");
+		expect(author.name).not.toBe("Team Rocket");
 	});
 });
