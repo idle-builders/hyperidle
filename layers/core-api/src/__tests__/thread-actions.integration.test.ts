@@ -959,6 +959,99 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 	});
 });
 
+// ============================================================================
+// direct thread find-or-create (B3)
+// ============================================================================
+
+describe("send_message — direct thread find-or-create (B3)", () => {
+	test("two sends from the same sender to the same single recipient return the same thread.id and the thread holds both messages", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "b3-1");
+		await seedHuman(db, "b3-recipient-1", "b3-1");
+
+		const first = await call<{ thread: { id: string } }>(app, "send_message", {
+			recipients: ["b3-recipient-1"],
+			text: "first",
+		});
+		expect(first.status).toBe(200);
+		const threadId = first.body.data?.thread.id as string;
+
+		const second = await call<{ thread: { id: string } }>(app, "send_message", {
+			recipients: ["b3-recipient-1"],
+			text: "second",
+		});
+		expect(second.status).toBe(200);
+		expect(second.body.data?.thread.id).toBe(threadId);
+
+		const rows = await db.select().from(messages).where(eq(messages.threadId, threadId));
+		expect(rows).toHaveLength(2);
+	});
+
+	test("the agent no-calling-thread fallback sent twice lands in one thread", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
+		await seedTeam(db, "b3-2");
+		await seedAgent(db, "b3-agent-2", "b3-2");
+		await seedHuman(db, "b3-human-2", "b3-2");
+		const actions = buildRealActions(agentOrchestration);
+		const run = runnerFor<SendMessageInput, { thread: { id: string } }>(actions, "send_message");
+
+		const first = await run(
+			{
+				actor: "b3-agent-2",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "b3-sess-2a", taskId: null, threadId: null },
+			},
+			{ text: "first fallback" },
+		);
+		expect(first.ok).toBe(true);
+		if (!first.ok) return;
+
+		const second = await run(
+			{
+				actor: "b3-agent-2",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "b3-sess-2b", taskId: null, threadId: null },
+			},
+			{ text: "second fallback" },
+		);
+		expect(second.ok).toBe(true);
+		if (!second.ok) return;
+		expect(second.data.thread.id).toBe(first.data.thread.id);
+	});
+
+	test("A sending to B then B sending to A reuse the same thread", async ({ db, app }) => {
+		await seedTeam(db, "b3-3");
+		await seedHuman(db, "b3-a", "b3-3");
+		await seedHuman(db, "b3-b", "b3-3");
+
+		const aToB = await call<{ thread: { id: string } }>(
+			app,
+			"send_message",
+			{ recipients: ["b3-b"], text: "hi from a" },
+			agentHeaders("b3-a"),
+		);
+		expect(aToB.status).toBe(200);
+
+		const bToA = await call<{ thread: { id: string } }>(
+			app,
+			"send_message",
+			{ recipients: ["b3-a"], text: "hi from b" },
+			agentHeaders("b3-b"),
+		);
+		expect(bToA.status).toBe(200);
+		expect(bToA.body.data?.thread.id).toBe(aToB.body.data?.thread.id);
+	});
+});
+
 describe("send_message — review link and verdict resume", () => {
 	test("a review with caller.sessionId links the session; a verdict on it calls the recorder", async ({
 		db,

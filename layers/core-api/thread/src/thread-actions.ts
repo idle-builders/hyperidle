@@ -508,7 +508,9 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 		// -- 2. resolve the thread -------------------------------------------
 		let threadId: string | undefined = input.threadId;
-		let creatingThread: { hostKind: HostKind; hostId: string; members: string[] } | undefined;
+		let creatingThread:
+			| { hostKind: HostKind; hostId: string; members: string[]; directKey?: string }
+			| undefined;
 
 		if (threadId === undefined && input.recipients !== undefined) {
 			if (input.recipients.length === 1) {
@@ -535,6 +537,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						hostKind: recipient.kind === "ai" ? "agent" : "user",
 						hostId: recipientId,
 						members: [ctx.actor, recipientId],
+						directKey,
 					};
 				}
 			} else {
@@ -579,7 +582,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			if (existing) {
 				threadId = existing.id;
 			} else {
-				creatingThread = { hostKind: "user", hostId: human.id, members: [ctx.actor, human.id] };
+				creatingThread = {
+					hostKind: "user",
+					hostId: human.id,
+					members: [ctx.actor, human.id],
+					directKey,
+				};
 			}
 		}
 
@@ -749,6 +757,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						hostId: creatingThread.hostId,
 						initiatorId: ctx.actor,
 						participants: JSON.stringify(creatingThread.members),
+						// B3: a two-party create carries the SAME directKey the lookup
+						// above computed, so `threads_direct_key_uq` actually dedupes;
+						// the >1-recipient group-thread path leaves this undefined.
+						directKey: creatingThread.directKey,
 						pinned: false,
 						lastActiveAt: now,
 						createdAt: now,
