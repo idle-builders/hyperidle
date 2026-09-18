@@ -30,7 +30,7 @@
 
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, makeTask, makeTaskNode, mockTaskTree, test } from "./fixtures";
+import { expect, makeTask, makeTaskNode, mockSearchThreads, mockTaskTree, test } from "./fixtures";
 
 // ── Fixture IDs ────────────────────────────────────────────────────────────────
 const ROOT_TASK_ID = "root-ai4-proof";
@@ -97,10 +97,6 @@ function makeTeamDetailResponse() {
 	};
 }
 
-function makeEmptyThreadResponse() {
-	return { threads: [], nextCursor: null };
-}
-
 function makeEmptyMessagesResponse() {
 	return { messages: [], total: 0 };
 }
@@ -113,13 +109,7 @@ async function setupBetRoutes(
 			: never
 		: never,
 ) {
-	await page.route(`**/api/threads?**`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(makeEmptyThreadResponse()),
-		}),
-	);
+	await mockSearchThreads(page, { rows: [] });
 	await page.route(`**/api/messages?**`, (route) =>
 		route.fulfill({
 			status: 200,

@@ -14,46 +14,27 @@
  * composer's Send button, the exact control B1 was measured on.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeIdentity, makeThread, mockThread, test } from "./fixtures";
 
 const THREAD_ID = "az7-icon-geometry-thread";
 
-function makeThreadDetailResponse(): Record<string, unknown> {
-	return {
-		thread: {
-			id: THREAD_ID,
-			hostKind: "task",
-			hostId: "task-az7-icon-geometry",
-			initiatorId: "test-founder",
-			participants: ["test-founder"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: new Date().toISOString(),
-			createdAt: new Date().toISOString(),
-		},
-		messages: [],
-		headMessageId: null,
-		identities: {
-			"test-founder": { name: "Test Founder" },
-		},
-		hostTitle: "AZ7 icon geometry proof",
-	};
-}
+const AZ7_THREAD = makeThread(THREAD_ID, {
+	hostKind: "team",
+	hostId: "task-az7-icon-geometry",
+	initiatorId: "test-founder",
+	members: ["test-founder"],
+	lastActiveAt: new Date().toISOString(),
+	createdAt: new Date().toISOString(),
+});
 
 test.describe('AZ7 N12 — Button size="icon" renders its real closed-set geometry', () => {
 	test("conversation composer Send button measures 32x32 on desktop (44x44 below lg, per AQ-015)", async ({
 		page,
 	}) => {
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse()),
-				});
-			} else {
-				await route.continue();
-			}
+		await mockThread(page, {
+			thread: AZ7_THREAD,
+			members: [makeIdentity("test-founder", { name: "Test Founder" })],
+			hostTitle: "AZ7 icon geometry proof",
 		});
 
 		await page.setViewportSize({ width: 1440, height: 900 });
@@ -82,16 +63,10 @@ test.describe('AZ7 N12 — Button size="icon" renders its real closed-set geomet
 	test("conversation composer Send button widens to the 44px touch floor below the lg breakpoint (AQ-015)", async ({
 		page,
 	}) => {
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse()),
-				});
-			} else {
-				await route.continue();
-			}
+		await mockThread(page, {
+			thread: AZ7_THREAD,
+			members: [makeIdentity("test-founder", { name: "Test Founder" })],
+			hostTitle: "AZ7 icon geometry proof",
 		});
 
 		// Below Tailwind's lg breakpoint (1024px) — the mobile-first base
