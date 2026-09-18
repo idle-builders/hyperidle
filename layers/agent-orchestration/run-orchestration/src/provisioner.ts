@@ -526,8 +526,8 @@ async function assembleTaskFreePrompt(
 	_ports: SessionLifecyclePorts,
 	/**
 	 * AU27 Increment 8 (BLOCKER fix) — the selected adapter's registration
-	 * `type` (e.g. "opencode", "claude-code"), used to name the `reply` tool
-	 * literally in the orientation line below — see `literalToolNamerForAdapterType`.
+	 * `type` (e.g. "opencode", "claude-code"), used to name the `send_message`
+	 * tool literally in the orientation line below — see `literalToolNamerForAdapterType`.
 	 */
 	adapterType: string | undefined,
 ): Promise<string> {
@@ -557,21 +557,22 @@ async function assembleTaskFreePrompt(
 			: "";
 
 	// AU27 Increment 4 (Decision 3 orientation): a one-line reminder when this
-	// session's only satisfying return action is `reply`, not the trio.
+	// session's only satisfying return action is `send_message`, not the trio.
 	//
 	// AU27 Increment 8 (BLOCKER fix): name the LITERAL tool the harness
-	// exposes (e.g. `mcp__hyperidle__reply` / `hyperidle_reply`), not the bare
-	// name — a model that must resolve a bare mention itself either burns an
-	// extra round trip doing so (Claude's internal tool search) or, on a
-	// smaller model, fails outright trying to call a tool name that does not
-	// exist ("Model tried to call unavailable tool 'reply'").
-	const replyToolName = literalToolNamerForAdapterType(adapterType)("reply");
-	const replyOrientation =
+	// exposes (e.g. `mcp__hyperidle__send_message` / `hyperidle_send_message`),
+	// not the bare name — a model that must resolve a bare mention itself
+	// either burns an extra round trip doing so (Claude's internal tool
+	// search) or, on a smaller model, fails outright trying to call a tool
+	// name that does not exist ("Model tried to call unavailable tool
+	// 'send_message'").
+	const sendMessageToolName = literalToolNamerForAdapterType(adapterType)("send_message");
+	const sendMessageOrientation =
 		params.callingThreadId != null && params.taskId == null
-			? `When you are done, call \`${replyToolName}\` to answer in this conversation.`
+			? `When you are done, call \`${sendMessageToolName}\` to answer in this conversation.`
 			: "";
 
-	return [systemPromptText, sourceSection, conversationSection, replyOrientation, toolSection]
+	return [systemPromptText, sourceSection, conversationSection, sendMessageOrientation, toolSection]
 		.filter(Boolean)
 		.join("\n\n");
 }
@@ -1557,13 +1558,13 @@ async function runSession(
 	}
 
 	// A session whose output belongs in a calling thread and has no task (the
-	// assistant, and now knowledge_action too) must call `reply`, not the
-	// trio — purely structural, no `sourceKind` check anywhere. A task-bound
-	// session (task_run/session_start) also bakes
-	// a calling thread but keeps the trio available (`reply` still lands in
-	// the same thread, but so does e.g. `handoff_to`).
+	// assistant, and now knowledge_action too) must call `send_message`, not
+	// the full return set — purely structural, no `sourceKind` check
+	// anywhere. A task-bound session (task_run/session_start) also bakes a
+	// calling thread but keeps the full set available (`send_message` still
+	// lands in the same thread, but so does e.g. `edit_task`).
 	const requiredReturnActions: readonly string[] | undefined =
-		params.callingThreadId != null && params.taskId == null ? ["reply"] : undefined;
+		params.callingThreadId != null && params.taskId == null ? ["send_message"] : undefined;
 
 	// One gate per session — all events observed by this gate. Declared
 	// here (before the MCP bridge's `onToolCall` closure below references it)

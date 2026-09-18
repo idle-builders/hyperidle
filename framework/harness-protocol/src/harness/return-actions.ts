@@ -44,7 +44,7 @@
  * the RIGHT action, though — see `shouldForceReturn`'s `required` param and
  * `harness-registry`'s `createGate(requiredReturnActions?)`.
  */
-export const RETURN_ACTION_NAMES = ["submit_review", "edit_task", "send_message", "reply"] as const;
+export const RETURN_ACTION_NAMES = ["edit_task", "send_message"] as const;
 
 /** Finite union of all valid return-action tool names. */
 export type ReturnActionName = (typeof RETURN_ACTION_NAMES)[number];
@@ -153,15 +153,13 @@ export function isRequiredReturnAction(
  */
 export const FORCE_RETURN_MESSAGE =
 	"You have not yet returned your work to HyperIdle. Before this turn can end you must call exactly one of: " +
-	"submit_review (submit work for review), edit_task (hand the task to another agent by setting its owner), or " +
+	"edit_task (hand the task to another agent by setting its owner), or " +
 	"send_message (send your result to a thread). Choose the one that fits and call it now.";
 
 /** Human-readable hint for each return action, used to build a tailored forcing message. */
 const RETURN_ACTION_HINTS: Record<ReturnActionName, string> = {
-	submit_review: "submit work for review",
 	edit_task: "hand the task to another agent by setting its owner",
 	send_message: "send your result to a thread",
-	reply: "answer the person or agent who triggered this session",
 };
 
 /**

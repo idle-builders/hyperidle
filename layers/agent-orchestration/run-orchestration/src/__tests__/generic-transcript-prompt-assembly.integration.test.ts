@@ -5,8 +5,8 @@
  *   1. the `## Conversation` prompt section (every harness reads it from
  *      AGENTS.md/CLAUDE.md), replacing the raw machine-id Correlation line;
  *   2. `SessionConfig.requiredReturnActions` — Decision 3's structural rule
- *      (`callingThreadId != null && taskId == null` ⇒ `["reply"]`), plus the
- *      one-line reply orientation in the prompt.
+ *      (`callingThreadId != null && taskId == null` ⇒ `["send_message"]`), plus the
+ *      one-line send_message orientation in the prompt.
  *
  * Uses `deps.onBeforeHarnessStart`'s abort return to observe the fully
  * assembled `SessionConfig` without spawning a real harness process.
@@ -250,7 +250,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	// planning loop. A CLI harness only ever saw the prompt section. With that
 	// adapter gone the second delivery had no reader, so the prompt section is the
 	// single delivery and this test asserts it alone.
-	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['reply']", async ({
+	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['send_message']", async ({
 		db,
 	}) => {
 		await seedAgent(db, "agent-transcript-1");
@@ -279,13 +279,13 @@ describe("generic transcript delivery (Increment 4)", () => {
 		expect(prompt).toContain("## Conversation");
 		expect(prompt).toContain("What's the status of the launch?");
 		expect(prompt).toContain("On track for Friday.");
-		expect(prompt).toContain("call `reply`");
+		expect(prompt).toContain("call `send_message`");
 		expect(prompt).not.toContain("Correlation:");
 
-		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["reply"]);
+		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["send_message"]);
 	});
 
-	test("a task_run session (has a taskId) with a transcript does NOT get requiredReturnActions:['reply'] — the trio still satisfies", async ({
+	test("a task_run session (has a taskId) with a transcript does NOT get requiredReturnActions:['send_message'] — the full set still satisfies", async ({
 		db,
 	}) => {
 		await seedAgent(db, "agent-transcript-2");
