@@ -12,24 +12,28 @@
  *     ASSISTANT_TURN_TIMEOUT_MS shows Retry card, NOT infinite spinner
  *
  * @lore BC3: re-pointed off the deleted `useAssistantThread` onto
- * `useThread`/`useThreads`/`useAgentOwnership`/`useCurrentUser` — the overlay
+ * `useThread`/`useThreads`/`useAgents`/`useCurrentUser` — the overlay
  * resolves its own agent's direct thread via `useThreads({host:{kind:"agent"}})`
  * then reads it with `useThread(id)` (architecture.md §5 B6). `notice` stays
  * on the READ shape only (Reconciliation R9) — `AssistantOverlay.tsx`'s
  * renderer is unchanged, so this test is kept and re-pointed, not deleted.
+ *
+ * @lore BC3: `useAgentOwnership` (a second fetch of every AI-role user) is
+ * deleted — `GET /api/agents` carries `ownerUserId` directly, so the overlay
+ * finds "my agent" off the same `useAgents` fetch every agent picker shares.
  */
 
 import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
 import type { Message } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { UseAgentOwnershipResult } from "../../hooks/useAgentOwnership.js";
+import type { UseAgentsResult } from "../../hooks/useAgents.js";
 import type { UseCurrentUserResult } from "../../hooks/useCurrentUser.js";
 import type { UseThreadResult } from "../../hooks/useThread.js";
 import type { UseThreadsResult } from "../../hooks/useThreads.js";
 
-vi.mock("../../hooks/useAgentOwnership.js", () => ({
-	useAgentOwnership: vi.fn(),
+vi.mock("../../hooks/useAgents.js", () => ({
+	useAgents: vi.fn(),
 }));
 vi.mock("../../hooks/useCurrentUser.js", () => ({
 	useCurrentUser: vi.fn(),
@@ -42,7 +46,7 @@ vi.mock("../../hooks/useThreads.js", () => ({
 }));
 
 import { AssistantOverlay } from "../../shell/AssistantOverlay.js";
-import { useAgentOwnership } from "../../hooks/useAgentOwnership.js";
+import { useAgents } from "../../hooks/useAgents.js";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { useThread } from "../../hooks/useThread.js";
 import { useThreads } from "../../hooks/useThreads.js";
@@ -78,10 +82,12 @@ function mockOwnershipAndUser(): void {
 		error: null,
 		retry: vi.fn(),
 	} as UseCurrentUserResult);
-	vi.mocked(useAgentOwnership).mockReturnValue({
-		rows: [{ id: MY_AGENT_ID, ownerUserId: MY_USER_ID }],
+	vi.mocked(useAgents).mockReturnValue({
+		agents: [{ id: MY_AGENT_ID, ownerUserId: MY_USER_ID } as UseAgentsResult["agents"][number]],
 		loading: false,
-	} as UseAgentOwnershipResult);
+		error: null,
+		refetch: vi.fn(),
+	} as UseAgentsResult);
 	vi.mocked(useThreads).mockReturnValue({
 		status: "ready",
 		threads: [

@@ -27,7 +27,7 @@ import { type JSX, type RefObject, useCallback, useEffect } from "react";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
 import { Button, Composer, ThreadShell, useDialogBehavior } from "../ds";
 import { plainReadPayloadOf } from "../ds/message-payload.js";
-import { useAgentOwnership } from "../hooks/useAgentOwnership.js";
+import { useAgents } from "../hooks/useAgents.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useThread } from "../hooks/useThread.js";
 import { useThreads } from "../hooks/useThreads.js";
@@ -263,10 +263,11 @@ function AssistantOverlayInner({
 	// artifacts-become-knowledge: scopeKind for knowledge items created from pending_block refs.
 	const { user } = useCurrentUser();
 	// BC3 B6: "the assistant is your agent" — an ordinary agent with
-	// `ownerUserId === me`, resolved via the one hook that reads that column
-	// (`GET /api/agents` doesn't carry it — see useAgentOwnership.ts).
-	const { rows: ownershipRows, loading: ownershipLoading } = useAgentOwnership();
-	const myAgentId = ownershipRows.find((r) => r.ownerUserId === user?.id)?.id ?? null;
+	// `ownerUserId === me`. `GET /api/agents` carries `ownerUserId` directly, so
+	// the overlay finds it straight off the one agents fetch every agent picker
+	// already shares — no second fetch.
+	const { agents, loading: agentsLoading } = useAgents();
+	const myAgentId = agents.find((a) => a.ownerUserId === user?.id)?.id ?? null;
 
 	// BC3: no more `GET /api/threads/assistant` create-on-read. Resolve the
 	// existing direct thread with my agent, if any; the overlay's first send
@@ -372,7 +373,7 @@ function AssistantOverlayInner({
 		[sendToThread, threadSearch],
 	);
 
-	if (ownershipLoading || (myAgentId && threadSearch.status === "loading")) {
+	if (agentsLoading || (myAgentId && threadSearch.status === "loading")) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-4">
 				<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
@@ -443,8 +444,8 @@ function AssistantOverlayInner({
 	// Show Retry card when: last message is human AND PAST the timeout (crash recovery).
 	// @lore BC3 B5/B6: the overlay knows its own counterpart — it opened a
 	// direct thread with exactly one agent — so "the last message is human"
-	// is an identity comparison against that agent id, not a structural
-	// `ast-` prefix check (which no longer means anything once every agent
+	// is an identity comparison against that agent id, not a structural id
+	// prefix check (which no longer means anything once every agent
 	// is an ordinary owned agent).
 	const lastMessage = msgsAsc[msgsAsc.length - 1];
 	const lastMessageIsHuman = lastMessage !== undefined && lastMessage.senderId !== myAgentId;

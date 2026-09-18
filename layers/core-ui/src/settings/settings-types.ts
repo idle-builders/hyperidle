@@ -86,6 +86,13 @@ export interface AgentConfig {
 	id: string;
 	name: string;
 	role: string;
+	/**
+	 * BC3: the human this agent belongs to, or null for a team-owned agent.
+	 * "Every user's agent is an ordinary agent that the user owns" (plan.md:66) —
+	 * `GET /api/agents` carries this directly now; optional here because most
+	 * existing test fixtures for this type predate the field.
+	 */
+	ownerUserId?: string | null;
 	/** The agent's identity document, or null when it has none. */
 	identityKnowledgeId: string | null;
 	harnessType: string | null;
