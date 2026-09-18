@@ -8,24 +8,31 @@
  * 7. In dial-in mode, user can post a message (interjection) in the task thread.
  * 8. Observe mode is read-only — session not interrupted by observation.
  * 9. When session ends, dial-in view gracefully transitions to normal thread view.
+ *
+ * @lore BC3: the thread door is `POST /api/actions/{search_threads,
+ * open_thread, send_message}` — never `GET/POST /api/threads*`. There is no
+ * `task` host kind; a task's own thread is `team`-hosted (architecture.md
+ * §3.9) and `Thread.members` replaced `participants`.
  */
 
 import { expect, test } from "./fixtures";
+import { makeIdentity, makeMessage, makeThread, mockSearchThreads, mockThread } from "./fixtures";
 
 const NOW_ISO = new Date().toISOString();
 
-const TASK_THREAD = {
-	id: "task-thread-id",
-	hostKind: "task",
-	hostId: "task-1",
+const TASK_THREAD = makeThread("task-thread-id", {
+	hostKind: "team",
+	hostId: "team-1",
 	initiatorId: "agent-1",
-	participants: ["test-founder", "agent-1"],
-	pinned: false,
-	resolvedAt: null,
+	members: ["test-founder", "agent-1"],
 	lastActiveAt: NOW_ISO,
 	createdAt: NOW_ISO,
-	hasUnresolvedReview: false,
-};
+});
+
+const THREAD_MEMBERS = [
+	makeIdentity("test-founder", { name: "Test Founder", role: "founder" }),
+	makeIdentity("agent-1", { name: "Builder Bot", role: "builder", isAgent: true }),
+];
 
 const ACTIVE_SESSION = {
 	id: "sess-active",
@@ -51,56 +58,35 @@ const MOCK_ACTIVITY = [
 
 const ARTIFACT_ID = "inline-inspect-artifact";
 const THREAD_MESSAGES = [
-	...Array.from({ length: 24 }, (_, index) => ({
-		id: `context-${index}`,
-		threadId: TASK_THREAD.id,
-		senderId: "agent-1",
-		clientKey: `context-key-${index}`,
-		type: "plain",
-		payload: { text: `Preserved conversation context line ${index + 1}.`, refs: [] },
-		createdAt: NOW_ISO,
-	})),
-	{
-		id: "artifact-reference",
-		threadId: TASK_THREAD.id,
+	...Array.from({ length: 24 }, (_, index) =>
+		makeMessage(`context-${index}`, TASK_THREAD.id, {
+			senderId: "agent-1",
+			clientKey: `context-key-${index}`,
+			payload: { text: `Preserved conversation context line ${index + 1}.`, refs: [] },
+			createdAt: NOW_ISO,
+		}),
+	),
+	makeMessage("artifact-reference", TASK_THREAD.id, {
 		senderId: "agent-1",
 		clientKey: "artifact-reference-key",
-		type: "plain",
 		payload: {
 			text: "Inspect the rendered artifact without leaving this thread.",
 			refs: [{ kind: "artifact", id: ARTIFACT_ID }],
 		},
 		createdAt: NOW_ISO,
-	},
+	}),
 ];
 
 test.describe("Q1 — Session Dial-In", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock thread list with task thread
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					threads: [TASK_THREAD],
-					nextCursor: null,
-				}),
-			});
+		await mockSearchThreads(page, {
+			rows: [{ ...TASK_THREAD, hasUnresolvedReview: false, lastMessagePreview: null }],
 		});
 
-		// Mock thread detail
-		await page.route("**/api/threads/task-thread-id", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					thread: TASK_THREAD,
-					messages: THREAD_MESSAGES,
-					headMessageId: null,
-					nextMessagesCursor: null,
-					identities: { "agent-1": { name: "Builder Bot", role: "builder" } },
-				}),
-			});
+		await mockThread(page, {
+			thread: TASK_THREAD,
+			members: THREAD_MEMBERS,
+			messages: THREAD_MESSAGES,
 		});
 
 		await page.route(`**/api/artifacts/${ARTIFACT_ID}`, async (route) => {
@@ -139,34 +125,6 @@ test.describe("Q1 — Session Dial-In", () => {
 					activity: MOCK_ACTIVITY,
 				}),
 			});
-		});
-
-		// Mock POST /api/threads/task-thread-id/messages (interjection)
-		await page.route("**/api/threads/task-thread-id/messages", async (route) => {
-			if (route.request().method() === "POST") {
-				const body = route.request().postDataJSON() as Record<string, unknown>;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: {
-							id: "msg-interjection",
-							threadId: "task-thread-id",
-							senderId: "test-founder",
-							clientKey: (body.clientKey as string) ?? "k1",
-							type: "plain",
-							payload: { text: body.payload },
-							createdAt: NOW_ISO,
-							deletedAt: null,
-							redactedAt: null,
-							resolvedAt: null,
-						},
-						thread: TASK_THREAD,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
 		});
 	});
 
@@ -274,35 +232,6 @@ test.describe("Q1 — Session Dial-In", () => {
 
 	// AC7: interjection — user can post a message via the thread composer
 	test("AC7: interjection posts a message to the task thread", async ({ page }) => {
-		const posts: unknown[] = [];
-
-		await page.route("**/api/threads/task-thread-id/messages", async (route) => {
-			if (route.request().method() === "POST") {
-				posts.push(route.request().postDataJSON());
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: {
-							id: "msg-interjection",
-							threadId: "task-thread-id",
-							senderId: "test-founder",
-							clientKey: "k-interject",
-							type: "plain",
-							payload: { text: "Interject this" },
-							createdAt: NOW_ISO,
-							deletedAt: null,
-							redactedAt: null,
-							resolvedAt: null,
-						},
-						thread: TASK_THREAD,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
 		await page.goto("/conversations/task-thread-id");
 		await page.waitForLoadState("networkidle");
 
@@ -317,7 +246,7 @@ test.describe("Q1 — Session Dial-In", () => {
 			await page.keyboard.press("Enter");
 			// Give the request time to process
 			await page
-				.waitForResponse("**/api/threads/task-thread-id/messages", { timeout: 3000 })
+				.waitForResponse("**/api/actions/send_message", { timeout: 3000 })
 				.catch(() => {
 					// Composer might use Shift+Enter or button click — acceptable if no request fires
 				});

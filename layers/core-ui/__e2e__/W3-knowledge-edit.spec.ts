@@ -7,7 +7,7 @@
  * AC-46: Metadata aside stays read-only during editing.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 const KNOWLEDGE_ITEM_FIXTURE = {
 	id: "k-e2e-1",
@@ -28,11 +28,6 @@ const KNOWLEDGE_ITEM_FIXTURE = {
 
 const KNOWLEDGE_LIST_FIXTURE = {
 	items: [KNOWLEDGE_ITEM_FIXTURE],
-};
-
-const THREADS_FIXTURE = {
-	threads: [],
-	nextCursor: null,
 };
 
 test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
@@ -56,13 +51,7 @@ test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
 				});
 			}
 		});
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(THREADS_FIXTURE),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/knowledge/k-e2e-1");
 		await page.waitForSelector("[data-testid='knowledge-detail-page']");
 	});
@@ -142,13 +131,7 @@ test.describe("W3 AC-45 — Done returns to read mode", () => {
 		await page.route("**/api/knowledge*", async (route) => {
 			await route.continue();
 		});
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(THREADS_FIXTURE),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/knowledge/k-e2e-1");
 		await page.waitForSelector("[data-testid='knowledge-detail-page']");
 	});
@@ -203,13 +186,7 @@ test.describe("W3 AC-46 — Metadata aside read-only in edit mode", () => {
 		await page.route("**/api/knowledge*", async (route) => {
 			await route.continue();
 		});
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(THREADS_FIXTURE),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/knowledge/k-e2e-1");
 		await page.waitForSelector("[data-testid='knowledge-detail-page']");
 	});
