@@ -22,10 +22,10 @@
 
 import {
 	type HyperIdleDb,
-	type Item,
 	type Task,
 	tasks,
 	teams,
+	threads,
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
@@ -40,7 +40,7 @@ import {
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import { vi } from "vitest";
-import { type PolicyDeps, registerPolicy } from "../index.js";
+import { type PolicyDeps, registerLifecyclePropagation } from "../index.js";
 import type { PolicyEditTask } from "../ports.js";
 
 // ─── Manual port implementations (raw Drizzle, no @hyperidle/work dep) ────────
@@ -79,35 +79,16 @@ function makeWorkPort(): PolicyDeps["work"] {
 			}
 			return visited;
 		},
-
-		// These ports are required by PolicyDeps.work but not invoked by
-		// lifecycle propagation — stub as no-ops.
-		getItemById: async (_exec: WriteExecutor, _id: string): Promise<Item | undefined> => {
-			return undefined;
-		},
-		updateItemById: async (_exec: WriteExecutor, _id: string, _patch): Promise<void> => {},
-		listItemIdsBySourceAgent: async (_exec: WriteExecutor, _agentId: string): Promise<string[]> => {
-			return [];
-		},
 	};
 }
 
-// Minimal conversation stubs — lifecycle propagation calls insertThread +
-// insertMessage when a root task completes (ship-confirmation thread).
-// Tests assert state changes only, not thread creation.
+// Minimal conversation stub — lifecycle propagation calls insertMessage into
+// the root task's own thread when it completes (ship-confirmation review;
+// BC3 architecture.md §3.9 — no second, task-hosted thread is created any
+// more). Tests assert state changes only, not the posted message.
 const conversationStub: PolicyDeps["conversation"] = {
 	insertMessage: async () => {},
-	insertThread: async () => {},
-	listMessagesByThread: async () => [],
-	resolveMessageIfUnresolved: async () => [],
-	updateThread: async () => {},
 	listInitiatedVerdictMessages: async () => [],
-	listVerdictMessagesByItemIds: async () => [],
-};
-
-// Users stub — ship-confirmation thread reads the first human user.
-const usersStub: PolicyDeps["users"] = {
-	getFirstUserByKind: async () => undefined,
 };
 
 /**
@@ -199,6 +180,16 @@ async function seedTask(
 		needsReview?: boolean;
 	},
 ): Promise<void> {
+	// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+	await db.insert(threads).values({
+		id: `thr-${id}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
 		id,
 		parentTaskId,
@@ -206,6 +197,7 @@ async function seedTask(
 		title: `Task ${id}`,
 		state,
 		needsReview,
+		threadId: `thr-${id}`,
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
@@ -274,10 +266,9 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
-			users: usersStub,
 			editTask: makeEditTask(),
 		};
-		const unregister = registerPolicy(db, eventBus, policyDeps);
+		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
 
 		try {
 			eventBus.emit({
@@ -326,10 +317,9 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
-			users: usersStub,
 			editTask: makeEditTask(),
 		};
-		const unregister = registerPolicy(db, eventBus, policyDeps);
+		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
 
 		try {
 			eventBus.emit({
@@ -410,10 +400,9 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 			const policyDeps: PolicyDeps = {
 				work: makeWorkPort(),
 				conversation: conversationStub,
-				users: usersStub,
 				editTask: makeEditTask(),
 			};
-			const unregister = registerPolicy(db, eventBus, policyDeps);
+			const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
 
 			try {
 				await completeTask(db, eventBus, policyDeps, "bb1-p3-leaf", "in_progress", "done");
@@ -475,10 +464,9 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 			const policyDeps: PolicyDeps = {
 				work: makeWorkPort(),
 				conversation: conversationStub,
-				users: usersStub,
 				editTask: makeEditTask(),
 			};
-			const unregister = registerPolicy(db, eventBus, policyDeps);
+			const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
 
 			try {
 				await completeTask(db, eventBus, policyDeps, "bb1-p4-leaf", "in_progress", "done");
@@ -538,10 +526,9 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
-			users: usersStub,
 			editTask: makeEditTask(),
 		};
-		const unregister = registerPolicy(db, eventBus, policyDeps);
+		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
 
 		try {
 			await completeTask(db, eventBus, policyDeps, "bb1-p6a-child-b", "in_progress", "done");
@@ -596,10 +583,9 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
-			users: usersStub,
 			editTask: makeEditTask(),
 		};
-		const unregister = registerPolicy(db, eventBus, policyDeps);
+		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
 
 		try {
 			await completeTask(db, eventBus, policyDeps, "bb1-p6b-child-a", "in_progress", "done");
@@ -644,10 +630,9 @@ describe("BB1 — a cascade kill does not complete its ancestors", () => {
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
-			users: usersStub,
 			editTask: makeEditTask(),
 		};
-		const unsub = registerPolicy(db, eventBus, policyDeps);
+		const unsub = registerLifecyclePropagation(db, eventBus, policyDeps);
 		try {
 			await completeTask(db, eventBus, policyDeps, "c-child", "in_progress", "killed", true);
 			// NOT vi.waitFor: asserting "still in_progress" would pass instantly,
@@ -680,10 +665,9 @@ describe("BB1 — a cascade kill does not complete its ancestors", () => {
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
-			users: usersStub,
 			editTask: makeEditTask(),
 		};
-		const unsub = registerPolicy(db, eventBus, policyDeps);
+		const unsub = registerLifecyclePropagation(db, eventBus, policyDeps);
 		try {
 			await completeTask(db, eventBus, policyDeps, "o-child", "in_progress", "killed");
 			await vi.waitFor(async () => {
