@@ -616,6 +616,17 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			});
 			if (existing) {
 				const candidatePayload = messageBodyOf(input);
+				// The stored payload for a `review` carries the server-stamped
+				// `taskId` (Confusion 9, below) — the candidate must be stamped
+				// the same way before comparing, or a retry from a session (same
+				// review, same clientKey) mismatches its own prior write and
+				// answers `idempotency_conflict` instead of the original.
+				if (candidatePayload.type === "review" && ctx.caller?.taskId) {
+					candidatePayload.payload = {
+						...candidatePayload.payload,
+						taskId: ctx.caller.taskId,
+					};
+				}
 				const sameType = existing.type === candidatePayload.type;
 				const samePayload = existing.payload === JSON.stringify(candidatePayload.payload);
 				if (sameType && samePayload) {

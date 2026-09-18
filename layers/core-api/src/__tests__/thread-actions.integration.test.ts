@@ -1225,6 +1225,54 @@ describe("send_message — review taskId stamping (Confusion 9)", () => {
 	});
 });
 
+describe("send_message — clientKey dedupe survives the server's own taskId stamp", () => {
+	test("the same review + same clientKey + ctx.caller.taskId sent twice returns the same message id and writes one row", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+	}) => {
+		await seedTeam(db, "ck-1");
+		await seedAgent(db, "ck-agent-1", "ck-1");
+		const threadId = await seedTaskWithThread(db, "ck1-task", "ck-1", {
+			ownerAgentId: "ck-agent-1",
+		});
+		await db
+			.update(threads)
+			.set({ participants: JSON.stringify(["ck-agent-1", FOUNDER_ID]) })
+			.where(eq(threads.id, threadId));
+
+		const actions = buildRealActions(agentOrchestration);
+		const sendRun = runnerFor<SendMessageInput, { message: { id: string } }>(
+			actions,
+			"send_message",
+		);
+		const caller = { sessionId: "ck-session-1", taskId: "ck1-task", threadId };
+		const input: SendMessageInput = {
+			threadId,
+			review: { title: "review it", reasoning: ["done"] },
+			clientKey: "ck-idem-1",
+		};
+
+		const first = await sendRun(
+			{ actor: "ck-agent-1", db, eventBus, now: new Date().toISOString(), caller },
+			input,
+		);
+		expect(first.ok).toBe(true);
+		if (!first.ok) return;
+
+		const second = await sendRun(
+			{ actor: "ck-agent-1", db, eventBus, now: new Date().toISOString(), caller },
+			input,
+		);
+		expect(second.ok).toBe(true);
+		if (!second.ok) return;
+		expect(second.data.message.id).toBe(first.data.message.id);
+
+		const rows = await db.select().from(messages).where(eq(messages.threadId, threadId));
+		expect(rows).toHaveLength(1);
+	});
+});
+
 describe("send_message — produced-item ownership", () => {
 	test("a review.producedItemId not parented to the calling task returns produced_item_not_owned", async ({
 		db,
