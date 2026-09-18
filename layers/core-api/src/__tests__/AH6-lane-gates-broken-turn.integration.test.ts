@@ -174,26 +174,32 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 
 		// Auth: X-API-Key resolves the sole seeded human (founderId) as the
 		// principal in local mode (`resolveApiKeyActorUserId`) — no override
-		// header needed for a human sender.
-		const res = await app.request(`/api/threads/${threadId}/messages`, {
+		// header needed for a human sender. `POST /api/threads/:id/messages`
+		// is deleted (BC3); the door is `POST /api/actions/send_message`.
+		const res = await app.request("/api/actions/send_message", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				"X-API-Key": GATE_API_KEY,
 			},
 			body: JSON.stringify({
-				type: "plain",
-				payload: { text: "What is 1 + 1?" },
+				threadId,
+				text: "What is 1 + 1?",
 				clientKey: crypto.randomUUID(),
 			}),
 		});
 
-		// The route itself should succeed (201) — message is stored
-		expect([201, 200]).toContain(res.status);
+		// The action itself should succeed — message is stored.
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { ok: boolean };
+		expect(body.ok).toBe(true);
 
-		// AU27 Increment 6: the load-bearing property is the recorded intent,
-		// not a reply (this fixture never drains it — `test-fixtures.ts` builds
-		// `app` with no `startRuntime` poller wired).
+		// AU27 Increment 6, BC3-renamed: the load-bearing property is the
+		// recorded intent, not a reply (this fixture never drains it —
+		// `test-fixtures.ts` builds `app` with no `startRuntime` poller
+		// wired). The intent kind is `thread_turn` now (the wake rule,
+		// `@hyperidle/thread`'s `agentsToWake`, replaced `assistant_turn`),
+		// and its `sourceId` is `"<messageId>:<agentId>"`.
 		const recordedMessage = await db.select().from(messages).where(eq(messages.threadId, threadId));
 		const humanMessage = recordedMessage.find(
 			(m) => m.senderId === founderId && m.id !== triggerMsgId,
@@ -205,8 +211,8 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 			.from(agentWorkIntents)
 			.where(
 				and(
-					eq(agentWorkIntents.kind, "assistant_turn"),
-					eq(agentWorkIntents.sourceId, humanMessage?.id ?? ""),
+					eq(agentWorkIntents.kind, "thread_turn"),
+					eq(agentWorkIntents.sourceId, `${humanMessage?.id ?? ""}:${assistantId}`),
 				),
 			);
 		expect(intents).toHaveLength(1);
@@ -226,7 +232,7 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 	// intended outcome, not a broken lane.
 	// -------------------------------------------------------------------------
 
-	test("Term 2: the assistant's own message records NO assistant_turn intent (no self-retrigger)", async ({
+	test("Term 2: the assistant's own message records NO thread_turn intent (no self-retrigger)", async ({
 		db,
 		app,
 	}) => {
@@ -248,8 +254,9 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 		// (`seamPortForActor(ctx.agentId)`). `X-Identity` does not control
 		// senderId at all (AF11-IDOR) — only this header, consulted after
 		// X-API-Key auth already succeeded, can attribute a write to a
-		// non-human actor.
-		const res = await app.request(`/api/threads/${threadId}/messages`, {
+		// non-human actor. `POST /api/threads/:id/messages` is deleted
+		// (BC3); the door is `POST /api/actions/send_message`.
+		const res = await app.request("/api/actions/send_message", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -257,12 +264,14 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 				[CORE_API_ACTOR_OVERRIDE_HEADER]: assistantId,
 			},
 			body: JSON.stringify({
-				type: "plain",
-				payload: { text: "Following up on my own message." },
+				threadId,
+				text: "Following up on my own message.",
 				clientKey: crypto.randomUUID(),
 			}),
 		});
-		expect([201, 200]).toContain(res.status);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { ok: boolean };
+		expect(body.ok).toBe(true);
 
 		const allMessages = await db.select().from(messages).where(eq(messages.threadId, threadId));
 		const assistantOwnMessage = allMessages.find(
@@ -270,13 +279,18 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 		);
 		expect(assistantOwnMessage).toBeDefined();
 
+		// BC3: the self-retrigger guard is now structural — `agentsToWake`
+		// only ever wakes an AGENT member, and in this 2-member thread the
+		// other member (the founder) is human, so no wake is attempted at
+		// all. The intent kind is `thread_turn` now, sourceId
+		// `"<messageId>:<agentId>"`.
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
 			.where(
 				and(
-					eq(agentWorkIntents.kind, "assistant_turn"),
-					eq(agentWorkIntents.sourceId, assistantOwnMessage?.id ?? ""),
+					eq(agentWorkIntents.kind, "thread_turn"),
+					eq(agentWorkIntents.sourceId, `${assistantOwnMessage?.id ?? ""}:${assistantId}`),
 				),
 			);
 		expect(intents).toHaveLength(0);
