@@ -16,189 +16,52 @@
  * @lore L13: WorkTeam.tsx is deleted. TaskSheet is now mounted on WorkBet.
  * All L15 flows navigate through /work/task/:id → [data-testid="bet-task-row"]
  * instead of /work/team → task card.
+ *
+ * @lore BC3: repointed at `POST /api/actions/{search_threads,open_thread,
+ * send_message}` — never `GET/POST /api/threads*`. There is no `bet`/`task`
+ * host kind; a task's own thread is `team`-hosted. Steps 3/4-5/6 (the
+ * TaskSheet flow) are already on `known-pre-existing-failures.ts` —
+ * `TaskSheet`/`bet-task-row` no longer exist anywhere in `layers/core-ui/src`
+ * — this is a mechanical mock migration only, not an attempt to resurrect it.
  */
-import { expect, test } from "./fixtures";
+import {
+	expect,
+	makeMessage,
+	makeTask,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	mockTaskTree,
+	mockThread,
+	test,
+} from "./fixtures";
 
 const TASK_THREAD_ID = "thread-task-abc-001";
 const TASK_ID = "t1";
 const BET_ID = "b1";
+const HOST_THREAD_ID = `host-thread-${BET_ID}`;
 
 const NOW = new Date().toISOString();
 
-function makeThreadListResponse(threads: Array<{ id: string; hostId: string }>): object {
-	return {
-		threads: threads.map((t) => ({
-			id: t.id,
-			hostKind: "task",
-			hostId: t.hostId,
-			initiatorId: "u-founder",
-			participants: ["u-founder", "agent-unassigned"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: NOW,
-			createdAt: NOW,
-			hasUnresolvedReview: false,
-		})),
-		nextCursor: null,
-	};
-}
-
-function makeCreateThreadResponse(): object {
-	return {
-		thread: {
-			id: TASK_THREAD_ID,
-			hostKind: "task",
-			hostId: TASK_ID,
-			initiatorId: "u-founder",
-			participants: ["u-founder", "agent-unassigned"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		},
-		messages: [],
-	};
-}
-
-function makePostMessageResponse(): object {
-	return {
-		message: {
-			id: "msg-request-001",
-			threadId: TASK_THREAD_ID,
-			senderId: "u-founder",
-			clientKey: "ck-001",
-			type: "plain",
-			payload: { text: "Request: move to BLOCKED." },
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
-			createdAt: NOW,
-		},
-		thread: {
-			id: TASK_THREAD_ID,
-			hostKind: "task",
-			hostId: TASK_ID,
-			initiatorId: "u-founder",
-			participants: ["u-founder", "agent-unassigned"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		},
-	};
-}
-
-function makeThreadDetailResponse(): object {
-	return {
-		thread: {
-			id: TASK_THREAD_ID,
-			hostKind: "task",
-			hostId: TASK_ID,
-			initiatorId: "u-founder",
-			participants: ["u-founder", "agent-unassigned"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		},
-		headMessageId: null,
-		messages: [
-			{
-				id: "msg-request-001",
-				threadId: TASK_THREAD_ID,
-				senderId: "u-founder",
-				clientKey: "ck-001",
-				type: "plain",
-				payload: { text: "Request: move to BLOCKED." },
-				deletedAt: null,
-				redactedAt: null,
-				resolvedAt: null,
-				createdAt: NOW,
-			},
-		],
-		nextMessagesCursor: null,
-	};
-}
-
-function makeHostThreadResponse(): object {
-	return {
-		thread: {
-			id: `host-thread-${BET_ID}`,
-			hostKind: "bet",
-			hostId: BET_ID,
-			initiatorId: "u-founder",
-			participants: ["u-founder"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		},
-		headMessageId: null,
-		messages: [],
-		nextMessagesCursor: null,
-	};
-}
-
 test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)", () => {
 	test.beforeEach(async ({ page }) => {
-		// Mock /api/bets/:id so the bet detail page loads
+		await mockTaskTree(page, { task: makeTask(BET_ID, { threadId: HOST_THREAD_ID }) });
 
-		// Mock /api/bets/:id/artifact-thread-summary
-
-		// Mock host thread for the bet (HostThreadSection)
-		await page.route(`**/api/threads?host_kind=bet&host_id=${BET_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					threads: [{ ...makeHostThreadResponse().thread, hasUnresolvedReview: false }],
-					nextCursor: null,
-				}),
-			});
+		// Host thread for the bet (HostThreadSection)
+		await mockThread(page, {
+			thread: makeThread(HOST_THREAD_ID, {
+				hostKind: "team",
+				hostId: BET_ID,
+				initiatorId: "u-founder",
+				members: ["u-founder"],
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			}),
+			messages: [],
 		});
 
-		await page.route(`**/api/threads/host-thread-${BET_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeHostThreadResponse()),
-			});
-		});
-
-		// Mock all /api/threads/* calls generically for task threads
-		await page.route("**/api/threads**", async (route) => {
-			const req = route.request();
-			const url = req.url();
-			const method = req.method();
-
-			if (method === "GET" && url.includes("host_kind=task")) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadListResponse([])),
-				});
-			} else if (method === "POST" && url.endsWith("/api/threads")) {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify(makeCreateThreadResponse()),
-				});
-			} else if (method === "POST" && url.includes("/messages")) {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify(makePostMessageResponse()),
-				});
-			} else if (method === "GET" && url.includes(`/${TASK_THREAD_ID}`)) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse()),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// No task thread yet — search_threads finds nothing until step 6 overrides it.
+		await mockSearchThreads(page, { rows: [] });
 	});
 
 	test("(step 2) drag affordances are structurally absent from the bet task table", async ({
@@ -232,40 +95,44 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 		page,
 	}) => {
 		let capturedMessageText: string | null = null;
-		await page.route("**/api/threads**", async (route) => {
+		await mockThread(page, {
+			thread: makeThread(TASK_THREAD_ID, {
+				hostKind: "team",
+				hostId: TASK_ID,
+				initiatorId: "u-founder",
+				members: ["u-founder", "agent-unassigned"],
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			}),
+			messages: [],
+		});
+		await page.route("**/api/actions/send_message", async (route) => {
 			const req = route.request();
-			const url = req.url();
-			const method = req.method();
-
-			if (method === "GET" && url.includes("host_kind=task")) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadListResponse([])),
-				});
-			} else if (method === "POST" && url.endsWith("/api/threads")) {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify(makeCreateThreadResponse()),
-				});
-			} else if (method === "POST" && url.includes("/messages")) {
-				const body = req.postDataJSON() as { payload?: { text?: string } } | null;
-				capturedMessageText = body?.payload?.text ?? null;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify(makePostMessageResponse()),
-				});
-			} else if (method === "GET" && url.includes(`/${TASK_THREAD_ID}`)) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse()),
-				});
-			} else {
-				await route.continue();
-			}
+			const body = req.postDataJSON() as { text?: string } | null;
+			capturedMessageText = body?.text ?? null;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						message: makeMessage("msg-request-001", TASK_THREAD_ID, {
+							senderId: "u-founder",
+							clientKey: "ck-001",
+							payload: { text: "Request: move to BLOCKED." },
+							createdAt: NOW,
+						}),
+						thread: makeThread(TASK_THREAD_ID, {
+							hostKind: "team",
+							hostId: TASK_ID,
+							initiatorId: "u-founder",
+							members: ["u-founder", "agent-unassigned"],
+							lastActiveAt: NOW,
+							createdAt: NOW,
+						}),
+					},
+				}),
+			});
 		});
 
 		await page.goto(`/work/task/${BET_ID}`);
@@ -294,27 +161,30 @@ test.describe("L15 — Strip drag + Task request sheet (re-routed to Bet detail)
 
 	// L9: TaskSheet now navigates to /conversations/:threadId (canonical path, no ?thread= param)
 	test("(step 6) Open thread navigates to /conversations/:threadId (L9)", async ({ page }) => {
-		// For this test, mock GET threads to return an existing thread
-		await page.route("**/api/threads**", async (route) => {
-			const req = route.request();
-			const url = req.url();
-			const method = req.method();
-
-			if (method === "GET" && url.includes("host_kind=task")) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadListResponse([{ id: TASK_THREAD_ID, hostId: TASK_ID }])),
-				});
-			} else if (method === "GET" && url.includes(`/${TASK_THREAD_ID}`)) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse()),
-				});
-			} else {
-				await route.continue();
-			}
+		// For this test, search_threads returns an existing thread for the task.
+		await mockSearchThreads(page, {
+			rows: [
+				makeThreadListRow(TASK_THREAD_ID, {
+					hostKind: "team",
+					hostId: TASK_ID,
+					initiatorId: "u-founder",
+					members: ["u-founder", "agent-unassigned"],
+					lastActiveAt: NOW,
+					createdAt: NOW,
+					hasUnresolvedReview: false,
+				}),
+			],
+		});
+		await mockThread(page, {
+			thread: makeThread(TASK_THREAD_ID, {
+				hostKind: "team",
+				hostId: TASK_ID,
+				initiatorId: "u-founder",
+				members: ["u-founder", "agent-unassigned"],
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			}),
+			messages: [],
 		});
 
 		await page.goto(`/work/task/${BET_ID}`);

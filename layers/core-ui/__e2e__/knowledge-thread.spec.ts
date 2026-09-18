@@ -3,109 +3,37 @@
  *
  * AC coverage:
  *  - open a knowledge entry → thread renders (replacing observation log) → post → reload → persists
+ *
+ * @lore BC3: repointed at the thread action door — never `GET/POST
+ * /api/threads*`. `knowledge_item` is still a valid `HostKind`; the
+ * knowledge page resolves its thread lazily via `search_threads` (the
+ * `host` prop path), unlike a task page's known `threadId`.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeThread, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
 
 const NOW = "2026-05-05T09:00:00.000Z";
-const LATER = "2026-05-05T09:05:00.000Z";
 const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-knowledge-001";
 const KNOWLEDGE_ID = "k3"; // known fixture id with content
 
-function makeThreadListResponse() {
-	return {
-		threads: [
-			{
-				id: THREAD_ID,
-				hostKind: "knowledge_item",
-				hostId: KNOWLEDGE_ID,
-				initiatorId: FOUNDER_ID,
-				participants: [FOUNDER_ID],
-				pinned: false,
-				resolvedAt: null,
-				lastActiveAt: NOW,
-				createdAt: NOW,
-				hasUnresolvedReview: false,
-			},
-		],
-		nextCursor: null,
-	};
-}
+test.describe("L18 — Knowledge entry thread surface", () => {
+	test("thread renders (replacing observation log); post; reload; persists", async ({ page }) => {
+		const composedText = "Insight from reviewing this knowledge entry.";
 
-function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
-	return {
-		thread: {
-			id: THREAD_ID,
+		const thread = makeThread(THREAD_ID, {
 			hostKind: "knowledge_item",
 			hostId: KNOWLEDGE_ID,
 			initiatorId: FOUNDER_ID,
-			participants: [FOUNDER_ID],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: messages.length > 0 ? LATER : NOW,
+			members: [FOUNDER_ID],
+			lastActiveAt: NOW,
 			createdAt: NOW,
-		},
-		messages,
-		headMessageId: null,
-		nextMessagesCursor: null,
-	};
-}
-
-test.describe("L18 — Knowledge entry thread surface", () => {
-	test("thread renders (replacing observation log); post; reload; persists", async ({ page }) => {
-		const postedMessages: Array<Record<string, unknown>> = [];
-		let postObserved = false;
-		const composedText = "Insight from reviewing this knowledge entry.";
-
-		await page.route(`**/api/threads?**host_kind=knowledge_item**`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeThreadListResponse()),
-			});
 		});
 
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse(postObserved ? postedMessages : [])),
-				});
-			} else {
-				await route.continue();
-			}
+		await mockSearchThreads(page, {
+			rows: [makeThreadListRow(THREAD_ID, { ...thread, hasUnresolvedReview: false })],
 		});
-
-		await page.route(`**/api/threads/${THREAD_ID}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				const msg = {
-					id: "msg-know-001",
-					threadId: THREAD_ID,
-					senderId: FOUNDER_ID,
-					type: "plain",
-					payload: { text: composedText },
-					clientKey: "ck-know-001",
-					deletedAt: null,
-					redactedAt: null,
-					resolvedAt: null,
-					createdAt: LATER,
-				};
-				postedMessages.push(msg);
-				postObserved = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: msg,
-						thread: makeThreadDetailResponse(postedMessages).thread,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockThread(page, { thread, messages: [] });
 
 		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
 

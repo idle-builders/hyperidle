@@ -2,30 +2,42 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
-import { expect, makeTask, test } from "./fixtures";
+import {
+	expect,
+	makeIdentity,
+	makeMessage,
+	makeTask,
+	makeThread,
+	makeThreadListRow,
+	test,
+} from "./fixtures";
 
 // Screenshots are review artifacts, not pixel-diff assertions (AG1/U11 naming convention).
 const SCREENSHOTS = resolve(process.cwd(), "test-results");
 
-const THREAD = {
-	id: "t-az16",
+// @lore BC3: no `task` host kind — a task's own thread is `team`-hosted.
+const THREAD = makeThread("t-az16", {
 	title: "AZ16 profile review",
-	hostKind: "task",
+	computedTitle: "AZ16 profile review",
+	hostKind: "team",
 	hostId: "az16-proof",
 	initiatorId: "test-founder",
-	participants: ["test-founder", "agent-az16"],
-	pinned: false,
-	resolvedAt: null,
+	members: ["test-founder", "agent-az16"],
 	lastActiveAt: "2026-08-14T09:00:00.000Z",
-	kind: "chat",
-	status: "open",
-	participantIds: ["test-founder", "agent-az16"],
-	hasUnresolvedReview: false,
-	blocking: false,
 	createdAt: "2026-08-14T08:00:00.000Z",
-	betId: null,
-	taskId: null,
-};
+});
+
+const THREAD_MEMBERS = [
+	makeIdentity("test-founder", { name: "Test Founder" }),
+	makeIdentity("agent-az16", { name: "Atlas", isAgent: true }),
+];
+
+const REVIEW_MESSAGE = makeMessage("review-az16", THREAD.id, {
+	senderId: "agent-az16",
+	type: "review",
+	payload: { title: REVIEW_COMPOSITION_SUBJECT.title, reasoning: [] },
+	createdAt: "2026-08-14T09:00:00.000Z",
+});
 
 // @lore BB1: was a BetDetail for GET /api/bets/:id. WorkTaskPage loads
 // `open_task` (POST /api/actions/open_task), so this is that action's
@@ -122,30 +134,27 @@ async function installAz16Mocks(page: Page): Promise<void> {
 				},
 			});
 		}
-		if (pathname === "/api/threads/t-az16/messages") {
+		if (pathname === "/api/actions/open_thread") {
 			return json(route, {
-				messages: [
-					{
-						id: "m-az16",
-						threadId: "t-az16",
-						authorId: "agent-az16",
-						content: "All semantic profile gates are green.",
-						createdAt: "2026-08-14T09:00:00.000Z",
-						blocks: [],
-					},
-				],
-				nextCursor: null,
+				ok: true,
+				data: {
+					thread: THREAD,
+					members: THREAD_MEMBERS,
+					messages: [REVIEW_MESSAGE],
+					headMessageId: null,
+					hostTitle: null,
+				},
 			});
 		}
-		if (pathname === "/api/threads/t-az16") {
+		if (pathname === "/api/actions/search_threads") {
 			return json(route, {
-				thread: THREAD,
-				messages: [],
-				headMessageId: null,
-				nextMessagesCursor: null,
+				ok: true,
+				data: [makeThreadListRow(THREAD.id, { ...THREAD, hasUnresolvedReview: false })],
 			});
 		}
-		if (pathname === "/api/threads") return json(route, { threads: [THREAD], nextCursor: null });
+		if (pathname === "/api/actions/send_message") {
+			return json(route, { ok: true, data: { message: REVIEW_MESSAGE, thread: THREAD } });
+		}
 		if (pathname === "/api/teams/team-az16") return json(route, TEAM);
 		if (pathname === "/api/teams") {
 			return json(route, { teams: [{ id: "team-az16", name: "Hearth", phase: "build" }] });
@@ -166,9 +175,6 @@ async function installAz16Mocks(page: Page): Promise<void> {
 		if (pathname === "/api/credentials") return json(route, []);
 		if (pathname === "/api/settings/agent-behavior/config") return json(route, { items: [] });
 		if (pathname === "/api/filesystems") return json(route, { filesystems: [] });
-		if (pathname === "/api/reviews/review-az16") {
-			return json(route, { ...REVIEW_COMPOSITION_SUBJECT, id: "review-az16", taskId: "task-az16" });
-		}
 		if (pathname === "/api/sessions") return json(route, { sessions: [] });
 		if (pathname === "/api/artifacts") return json(route, { items: [], nextCursor: null });
 		if (pathname.includes("/routines")) return json(route, { routines: [] });
@@ -352,7 +358,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 		["task", "/work/task/task-az16", "task-detail-page"],
 		["knowledge", "/knowledge/k-az16", "knowledge-detail-page"],
 		["settings", "/conversations?settings=open", "settings-page"],
-		["review", "/reviews/review-az16", null],
+		["review", `/reviews/review-az16?threadId=${THREAD.id}`, null],
 	] as const;
 	for (const [name, route, testId] of routes) {
 		await page.goto(route);
