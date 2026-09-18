@@ -26,14 +26,15 @@
  * open_thread}` — never `GET /api/threads*`.
  */
 
-import { expect, test } from "./fixtures";
 import {
+	expect,
 	makeIdentity,
 	makeMessage,
 	makeThread,
 	makeThreadListRow,
 	mockSearchThreads,
 	mockThread,
+	test,
 } from "./fixtures";
 
 // ---------------------------------------------------------------------------

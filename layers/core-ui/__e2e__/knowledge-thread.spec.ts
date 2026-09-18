@@ -10,7 +10,14 @@
  * `host` prop path), unlike a task page's known `threadId`.
  */
 
-import { expect, makeThread, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
+import {
+	expect,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	mockThread,
+	test,
+} from "./fixtures";
 
 const NOW = "2026-05-05T09:00:00.000Z";
 const FOUNDER_ID = "u-founder";
