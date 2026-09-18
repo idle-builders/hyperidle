@@ -8,6 +8,7 @@ import {
 	type Task as DomainTask,
 	type EditTaskInput,
 	editTask as editTaskDeclaration,
+	type OpenThreadInput,
 	openTask as openTaskDeclaration,
 	type Problem,
 	type SearchTasksInput,
@@ -75,6 +76,16 @@ export interface TaskActionsDeps {
 	readonly adjustThread: (
 		ctx: ActionContext,
 		input: AdjustThreadInput,
+	) => Promise<ActionResult<ThreadView>>;
+	/**
+	 * Same injection shape as `adjustThread` (§3.9), for the read `adjustThread`
+	 * needs before it can decide whether a write is even necessary —
+	 * `adjust_thread.members` is a full replacement (locked), never a union, so
+	 * adding a member means reading the thread's current ones first.
+	 */
+	readonly openThread: (
+		ctx: ActionContext,
+		input: OpenThreadInput,
 	) => Promise<ActionResult<ThreadView>>;
 }
 
@@ -581,18 +592,28 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			if (input.threadId) {
 				resolvedThreadId = input.threadId;
 				// Confusion 5: a task created inside a thread makes its owner a
-				// member of that thread if not already. `adjust_thread`'s
-				// `members` field unions with the thread's current members
-				// (a builder decision — see this item's report) rather than
-				// replacing them, so this call is a no-op write when the owner
-				// is already there.
+				// member of that thread if not already. `adjust_thread.members`
+				// is a full replacement (locked), never a union with the
+				// thread's current members — so the owner must be appended to
+				// the list this actor can already see, not passed alone, or
+				// every other member of the thread is removed. Read first via
+				// `openThread` (same actor, same in-process crossing rule as
+				// `adjustThread`); skip the write entirely when the owner is
+				// already a member.
 				if (next.ownerAgentId) {
-					const addOwner = await deps.adjustThread(ctx, {
-						id: input.threadId,
-						members: [next.ownerAgentId],
-					});
-					if (!addOwner.ok) {
-						return { ok: false, problems: addOwner.problems };
+					const opened = await deps.openThread(ctx, { id: input.threadId });
+					if (!opened.ok) {
+						return { ok: false, problems: opened.problems };
+					}
+					const currentMemberIds = opened.data.members.map((m) => m.id);
+					if (!currentMemberIds.includes(next.ownerAgentId)) {
+						const addOwner = await deps.adjustThread(ctx, {
+							id: input.threadId,
+							members: [...currentMemberIds, next.ownerAgentId],
+						});
+						if (!addOwner.ok) {
+							return { ok: false, problems: addOwner.problems };
+						}
 					}
 				}
 			} else {

@@ -374,6 +374,98 @@ describe("search_tasks — threadId filter", () => {
 	});
 });
 
+describe("edit_task — thread membership on create-with-threadId (Confusion 5)", () => {
+	/**
+	 * Code-review blocker: `edit_task` given an existing `threadId` used to
+	 * call `adjustThread({ id, members: [owner] })` — `adjust_thread.members`
+	 * is a full replacement, so that call KICKED every other member out. Proven
+	 * here against a real direct thread (a human + an agent), the shape that
+	 * exposed it — the human asking in their own thread, the woken agent
+	 * calling `edit_task({ threadId, ownerAgentId: itself })`.
+	 */
+	test("adding an owner to an existing thread unions with, never replaces, the thread's current members", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "ta-thr-1");
+		await seedAgent(db, "ta-thr1-agentA", "ta-thr-1");
+		await seedAgent(db, "ta-thr1-agentB", "ta-thr-1");
+
+		const dm = await call<{ thread: { id: string } }>(
+			app,
+			"send_message",
+			{ recipients: [FOUNDER_ID], text: "hi" },
+			agentHeaders("ta-thr1-agentA"),
+		);
+		expect(dm.body.ok).toBe(true);
+		const threadId = dm.body.data?.thread.id ?? "";
+
+		const created = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-thr-1",
+			title: "Linked to a direct thread",
+			threadId,
+			ownerAgentId: "ta-thr1-agentB",
+		});
+		expect(created.status).toBe(200);
+		expect(created.body.ok).toBe(true);
+		expect(created.body.data?.threadId).toBe(threadId);
+
+		const opened = await call<{ members: readonly { id: string }[] }>(app, "open_thread", {
+			id: threadId,
+		});
+		expect(opened.status).toBe(200);
+		expect(opened.body.data?.members.map((m) => m.id).sort()).toEqual(
+			[FOUNDER_ID, "ta-thr1-agentA", "ta-thr1-agentB"].sort(),
+		);
+
+		// The human — never removed — can still open their own conversation.
+		const stillReadable = await call<{ thread: { id: string } }>(app, "open_thread", {
+			id: threadId,
+		});
+		expect(stillReadable.body.ok).toBe(true);
+	});
+
+	test("an owner already a member: no adjust_thread write, no thread.changed row", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "ta-thr-2");
+		await seedAgent(db, "ta-thr2-agentA", "ta-thr-2");
+
+		const dm = await call<{ thread: { id: string } }>(
+			app,
+			"send_message",
+			{ recipients: [FOUNDER_ID], text: "hi" },
+			agentHeaders("ta-thr2-agentA"),
+		);
+		const threadId = dm.body.data?.thread.id ?? "";
+		const beforeKinds = (await db.select().from(changes).where(eq(changes.objectId, threadId)))
+			.map((r) => r.kind)
+			.sort();
+
+		const created = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-thr-2",
+			title: "Owner already present",
+			threadId,
+			ownerAgentId: "ta-thr2-agentA",
+		});
+		expect(created.body.ok).toBe(true);
+
+		const afterKinds = (await db.select().from(changes).where(eq(changes.objectId, threadId)))
+			.map((r) => r.kind)
+			.sort();
+		expect(afterKinds).toEqual(beforeKinds);
+		expect(afterKinds).not.toContain("changed");
+
+		const opened = await call<{ members: readonly { id: string }[] }>(app, "open_thread", {
+			id: threadId,
+		});
+		expect(opened.body.data?.members.map((m) => m.id).sort()).toEqual(
+			[FOUNDER_ID, "ta-thr2-agentA"].sort(),
+		);
+	});
+});
+
 describe("the changes table", () => {
 	test("a changes row exists after each edit, carrying the field diff", async ({ db, app }) => {
 		await seedTeam(db, "ta-team-5");

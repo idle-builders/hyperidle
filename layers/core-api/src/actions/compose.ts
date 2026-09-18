@@ -12,6 +12,7 @@ import type {
 	ActionResult,
 	AdjustThreadInput,
 	AgentWorkIntentRecorderFn,
+	OpenThreadInput,
 	ReviewVerdictRecorderFn,
 	ThreadView,
 } from "@hyperidle/domain-model";
@@ -89,6 +90,7 @@ function buildThreadActionsDeps(bindings: {
 function buildTaskActionsDeps(
 	agentOrchestration: AgentOrchestrationPort,
 	adjustThread: (ctx: ActionContext, input: AdjustThreadInput) => Promise<ActionResult<ThreadView>>,
+	openThread: (ctx: ActionContext, input: OpenThreadInput) => Promise<ActionResult<ThreadView>>,
 ): TaskActionsDeps {
 	return {
 		changes: { appendChange },
@@ -111,23 +113,24 @@ function buildTaskActionsDeps(
 		},
 		taskRunResolver: taskRunResolverDeps,
 		adjustThread,
+		openThread,
 	};
 }
 
 /**
  * Runner lookup by declaration name, structurally typed — same shape both
- * `createActionsRouter`/`actionsAsTools` already loop over.
+ * `createActionsRouter`/`actionsAsTools` already loop over. Generic over the
+ * input type so both `adjust_thread` (`AdjustThreadInput`) and `open_thread`
+ * (`OpenThreadInput`) can be looked up here — both share the `ThreadView`
+ * output.
  */
-function runnerFor(
+function runnerFor<I>(
 	actions: readonly Action[],
 	name: string,
-): (ctx: ActionContext, input: AdjustThreadInput) => Promise<ActionResult<ThreadView>> {
+): (ctx: ActionContext, input: I) => Promise<ActionResult<ThreadView>> {
 	const found = actions.find((a) => a.declaration.name === name);
 	if (!found) throw new Error(`buildCoreActions: no "${name}" action in the thread bag`);
-	return found.run as (
-		ctx: ActionContext,
-		input: AdjustThreadInput,
-	) => Promise<ActionResult<ThreadView>>;
+	return found.run as (ctx: ActionContext, input: I) => Promise<ActionResult<ThreadView>>;
 }
 
 /**
@@ -146,9 +149,10 @@ export function buildCoreActions(bindings: {
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }): readonly Action[] {
 	const threadActions = createThreadActions(buildThreadActionsDeps(bindings)) as readonly Action[];
-	const adjustThread = runnerFor(threadActions, "adjust_thread");
+	const adjustThread = runnerFor<AdjustThreadInput>(threadActions, "adjust_thread");
+	const openThread = runnerFor<OpenThreadInput>(threadActions, "open_thread");
 	const taskActions = createTaskActions(
-		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread),
+		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread),
 	) as readonly Action[];
 	return [...taskActions, ...threadActions];
 }
