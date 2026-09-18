@@ -6,8 +6,13 @@
  * dialInButton is null (no active session). Before the fix this left a 37px
  * container. After the fix the header is omitted entirely — no data-ds-component
  * attribute in the DOM when there is no visible content on mobile.
+ *
+ * @lore BC3: the thread surface is `call("open_thread"|...)`, never a fetch to
+ * a deleted `/api/threads*` route. Mocks target `call` directly (see
+ * `.claude/rules/testing.md`'s UI test rule).
  */
 
+import type { ThreadView } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,60 +26,67 @@ vi.mock("../hooks/useViewportBreakpoint.js", () => ({
 	useViewportBreakpoint: vi.fn(() => ({ sidebarMobile: true })),
 }));
 
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: () => ({
+		user: { id: "u-founder", name: "Founder", email: "f@x", avatarUrl: null },
+		status: "ready",
+		error: null,
+		retry: vi.fn(),
+	}),
+}));
+
 // ---------------------------------------------------------------------------
-// Fetch mock — minimal thread detail so ConversationsDetail mounts.
+// call() mock — minimal thread detail so ConversationsDetail mounts.
 // ---------------------------------------------------------------------------
 
 const THREAD_ID = "t-new28";
-const FAKE_THREAD = {
+
+// A team-hosted thread — host kind "task" no longer exists (architecture.md
+// §3.9); a task's own thread is team-hosted.
+const FAKE_THREAD: ThreadView["thread"] = {
 	id: THREAD_ID,
-	hostKind: "task",
-	hostId: "task-1",
+	hostKind: "team",
+	hostId: "team-1",
 	initiatorId: "agent-1",
-	participants: ["u-founder", "agent-1"],
+	members: ["u-founder", "agent-1"],
+	title: null,
+	computedTitle: "Founder / Aria",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: "2026-04-19T12:00:00.000Z",
 	createdAt: "2026-04-19T12:00:00.000Z",
 };
 
-const THREAD_DETAIL = {
-	thread: FAKE_THREAD,
-	messages: [],
-	headMessageId: null,
-	identities: {
-		"u-founder": { name: "Founder", role: "founder" },
-		"agent-1": { name: "Aria", role: "agent" },
-	},
-};
-
-function installFetch(): void {
-	globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
-		const url = typeof input === "string" ? input : input.toString();
-		if (url.includes("/api/auth/me")) {
-			return new Response(
-				JSON.stringify({ id: "u-founder", name: "Founder", email: "f@x", avatarUrl: null }),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			);
-		}
-		if (url.endsWith(`/api/threads/${THREAD_ID}`)) {
-			return new Response(JSON.stringify(THREAD_DETAIL), {
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			});
-		}
-		return new Response("not found", { status: 404 });
-	}) as typeof globalThis.fetch;
-}
+const FAKE_MEMBERS: ThreadView["members"] = [
+	{ id: "u-founder", name: "Founder", role: "founder", isAgent: false },
+	{ id: "agent-1", name: "Aria", role: "agent", isAgent: true },
+];
 
 describe("NEW-28 — mobile conversation header collapses when empty", () => {
-	let originalFetch: typeof globalThis.fetch;
 	beforeEach(() => {
-		originalFetch = globalThis.fetch;
-		installFetch();
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") {
+				return {
+					ok: true,
+					data: {
+						thread: FAKE_THREAD,
+						members: FAKE_MEMBERS,
+						messages: [],
+						headMessageId: null,
+						hostTitle: "Founder / Aria",
+					},
+				};
+			}
+			return { ok: true, data: [] };
+		});
 	});
+
 	afterEach(() => {
-		globalThis.fetch = originalFetch;
+		callMock.mockReset();
 		vi.restoreAllMocks();
 	});
 
