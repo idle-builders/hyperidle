@@ -37,7 +37,7 @@
  * it; the post-bet-retro coverage above is unaffected.
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
+import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import {
 	getAgentIdentity,

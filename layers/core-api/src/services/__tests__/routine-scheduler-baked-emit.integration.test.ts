@@ -25,7 +25,7 @@
  *      today).
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
+import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import {
 	agentSessionRequests,
 	agentWorkIntents,

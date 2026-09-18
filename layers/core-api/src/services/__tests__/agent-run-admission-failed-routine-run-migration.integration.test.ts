@@ -34,7 +34,7 @@
  * path this test targets.
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
+import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import {
 	agentWorkIntents,
 	type HyperIdleDb,
