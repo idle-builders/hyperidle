@@ -518,7 +518,10 @@ export function makeMessage(
 }
 
 /** One row of `search_threads`'s output — the conversations list. */
-export function makeThreadListRow(id: string, overrides: Partial<ThreadListRow> = {}): ThreadListRow {
+export function makeThreadListRow(
+	id: string,
+	overrides: Partial<ThreadListRow> = {},
+): ThreadListRow {
 	return {
 		...makeThread(id),
 		hasUnresolvedReview: false,
