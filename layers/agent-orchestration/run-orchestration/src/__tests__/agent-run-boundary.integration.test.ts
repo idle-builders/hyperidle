@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { agentSessionRequests, tasks, teams, users } from "@hyperidle/db";
+import { agentSessionRequests, tasks, teams, threads, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -55,8 +55,18 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
+	await db.insert(threads).values({
+		id: "thr-bet-au6",
+		hostKind: "team",
+		hostId: "team-au6",
+		initiatorId: "agent-au6",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
 		id: "bet-au6",
+		threadId: "thr-bet-au6",
 		parentTaskId: null,
 		teamId: "team-au6",
 		title: "Close agent execution boundary",
@@ -65,8 +75,18 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
+	await db.insert(threads).values({
+		id: "thr-task-au6",
+		hostKind: "team",
+		hostId: "team-au6",
+		initiatorId: "agent-au6",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
 		id: "task-au6",
+		threadId: "thr-task-au6",
 		parentTaskId: "bet-au6",
 		teamId: "team-au6",
 		title: "Boundary task",
@@ -110,7 +130,7 @@ function sourceInput(
 					threadId: "thread-au6",
 					messageId: `msg-${suffix}`,
 					userId: "user-au6",
-					assistantAgentId: "agent-au6",
+					agentId: "agent-au6",
 				},
 			};
 		case "routine":

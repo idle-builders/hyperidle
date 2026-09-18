@@ -4,6 +4,7 @@ import {
 	type HyperIdleDb,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
@@ -56,8 +57,18 @@ describe("agent session runtime consumer", () => {
 			status: "active",
 			createdAt: now,
 		});
+		await db.insert(threads).values({
+			id: "thr-bet-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "agent-1",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
 			id: "bet-1",
+			threadId: "thr-bet-1",
 			parentTaskId: null,
 			teamId: "team-1",
 			title: "Bet",
@@ -66,8 +77,18 @@ describe("agent session runtime consumer", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
+		await db.insert(threads).values({
+			id: "thr-task-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "agent-1",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
 			id: "task-1",
+			threadId: "thr-task-1",
 			parentTaskId: "bet-1",
 			teamId: "team-1",
 			title: "Task",
@@ -137,8 +158,18 @@ describe("agent session runtime consumer", () => {
 			status: "active",
 			createdAt: now,
 		});
+		await db.insert(threads).values({
+			id: "thr-bet-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "agent-1",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
 			id: "bet-1",
+			threadId: "thr-bet-1",
 			parentTaskId: null,
 			teamId: "team-1",
 			title: "Bet",
@@ -147,8 +178,18 @@ describe("agent session runtime consumer", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
+		await db.insert(threads).values({
+			id: "thr-task-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "agent-1",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
 			id: "task-1",
+			threadId: "thr-task-1",
 			parentTaskId: "bet-1",
 			teamId: "team-1",
 			title: "Task",
@@ -229,7 +270,7 @@ describe("agent session runtime consumer", () => {
 				threadId: "failure-thread",
 				messageId: "failure-message",
 				userId: "failure-user",
-				assistantAgentId: "failure-agent",
+				agentId: "failure-agent",
 			},
 		});
 		const ports = buildTestPorts();
@@ -272,8 +313,18 @@ describe("agent session runtime consumer", () => {
 			status: "retired",
 			createdAt,
 		});
+		await db.insert(threads).values({
+			id: "thr-bet-race",
+			hostKind: "team",
+			hostId: "team-race",
+			initiatorId: "agent-race",
+			participants: "[]",
+			lastActiveAt: createdAt,
+			createdAt,
+		});
 		await db.insert(tasks).values({
 			id: "bet-race",
+			threadId: "thr-bet-race",
 			parentTaskId: null,
 			teamId: "team-race",
 			title: "Bet",
@@ -282,8 +333,18 @@ describe("agent session runtime consumer", () => {
 			createdAt: createdAt,
 			updatedAt: createdAt,
 		});
+		await db.insert(threads).values({
+			id: "thr-task-race",
+			hostKind: "team",
+			hostId: "team-race",
+			initiatorId: "agent-race",
+			participants: "[]",
+			lastActiveAt: createdAt,
+			createdAt,
+		});
 		await db.insert(tasks).values({
 			id: "task-race",
+			threadId: "thr-task-race",
 			parentTaskId: "bet-race",
 			teamId: "team-race",
 			title: "Task",
