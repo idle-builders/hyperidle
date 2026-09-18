@@ -119,7 +119,11 @@ describe("AC3: last dependency finishes, agent owns it -> in_progress with no hu
 		const dependent = dependentRes.json.data?.task;
 		expect(await readTaskState(db, dependent?.id ?? "")).toBe("hold");
 
-		const editTaskAction = buildCoreActions(agentOrchestration).find(
+		const editTaskAction = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	}).find(
 			(a) => a.declaration.name === "edit_task",
 		);
 		if (!editTaskAction) throw new Error("edit_task action not found");

@@ -9,6 +9,7 @@
  */
 
 import {
+	threads,
 	agentSessionRequests,
 	agentWorkIntents,
 	explicitSessionStarts,
@@ -88,7 +89,17 @@ describe("agent-layer boot recovery", () => {
 				createdAt: nowIso,
 			},
 		]);
+		await db.insert(threads).values({
+		id: `thr-${"boot-bet"}`,
+		hostKind: "team",
+		hostId: "boot-team",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: nowIso,
+		createdAt: nowIso,
+		});
 		await db.insert(tasks).values({
+		threadId: `thr-${"boot-bet"}`,
 			id: "boot-bet",
 			parentTaskId: null,
 			teamId: "boot-team",
@@ -98,7 +109,17 @@ describe("agent-layer boot recovery", () => {
 			createdAt: nowIso,
 			updatedAt: nowIso,
 		});
+		await db.insert(threads).values({
+		id: `thr-${"boot-task"}`,
+		hostKind: "team",
+		hostId: "boot-team",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: nowIso,
+		createdAt: nowIso,
+		});
 		await db.insert(tasks).values({
+		threadId: `thr-${"boot-task"}`,
 			id: "boot-task",
 			parentTaskId: "boot-bet",
 			teamId: "boot-team",

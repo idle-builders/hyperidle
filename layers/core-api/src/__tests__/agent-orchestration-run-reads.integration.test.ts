@@ -16,7 +16,7 @@
  * are `layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts`.
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import type { AgentRunActiveCountsResponse, AgentRunsResponse } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
@@ -58,6 +58,36 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			createdAt: T1,
 		},
 	]);
+	// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+	await db.insert(threads).values([
+		{
+			id: "thr-bet-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: T1,
+			createdAt: T1,
+		},
+		{
+			id: "thr-task-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: T1,
+			createdAt: T1,
+		},
+		{
+			id: "thr-task-2",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: T1,
+			createdAt: T1,
+		},
+	]);
 	await db.insert(tasks).values({
 		id: "bet-1",
 		parentTaskId: null,
@@ -65,6 +95,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		title: "Test",
 		description: "Test",
 		state: "in_progress",
+		threadId: "thr-bet-1",
 		createdAt: T1,
 		updatedAt: T1,
 	});
@@ -75,6 +106,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			teamId: "team-1",
 			title: "One",
 			state: "in_progress",
+			threadId: "thr-task-1",
 			createdAt: T1,
 			updatedAt: T1,
 		},
@@ -84,6 +116,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			teamId: "team-1",
 			title: "Two",
 			state: "review",
+			threadId: "thr-task-2",
 			createdAt: T1,
 			updatedAt: T1,
 		},

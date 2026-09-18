@@ -20,7 +20,7 @@ import {
 	listMessages,
 	listThreads,
 	searchConversations,
-} from "@hyperidle/conversation";
+} from "@hyperidle/thread";
 import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { eq } from "drizzle-orm";

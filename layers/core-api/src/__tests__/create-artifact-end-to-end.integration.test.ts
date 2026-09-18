@@ -81,7 +81,17 @@ async function seed(db: HyperIdleDb): Promise<{ taskId: string; threadId: string
 		status: "active",
 		createdAt: NOW,
 	});
+	await db.insert(threads).values({
+	id: `thr-${"ca-task"}`,
+	hostKind: "team",
+	hostId: "ca-team",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"ca-task"}`,
 		id: "ca-task",
 		parentTaskId: null,
 		teamId: "ca-team",

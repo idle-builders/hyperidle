@@ -18,6 +18,7 @@ import {
 } from "@hyperidle/agent-orchestration";
 import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
+	threads,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -98,7 +99,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 	// BB1: root task replaces bet
+	await db.insert(threads).values({
+	id: `thr-${"bet-r7"}`,
+	hostKind: "team",
+	hostId: TEAM_ID,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"bet-r7"}`,
 		id: "bet-r7",
 		parentTaskId: null,
 		teamId: TEAM_ID,
@@ -107,7 +118,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+	id: `thr-${"task-r7"}`,
+	hostKind: "team",
+	hostId: TEAM_ID,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"task-r7"}`,
 		id: "task-r7",
 		parentTaskId: "bet-r7",
 		teamId: TEAM_ID,

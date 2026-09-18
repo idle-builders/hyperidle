@@ -12,6 +12,7 @@
  */
 
 import {
+	threads,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeEditLog,
@@ -33,7 +34,17 @@ const now = new Date().toISOString();
 
 async function seedTeamAndTask(db: HyperIdleDb, teamId: string, taskId: string): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: "Test Team", phase: "build", createdAt: now });
+	await db.insert(threads).values({
+	id: `thr-${taskId}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: now,
+	createdAt: now,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${taskId}`,
 		id: taskId,
 		parentTaskId: null,
 		teamId,

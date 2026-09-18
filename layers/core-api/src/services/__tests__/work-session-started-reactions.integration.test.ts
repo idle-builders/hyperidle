@@ -50,6 +50,7 @@
  */
 
 import {
+	threads,
 	agentSessionRequests,
 	type HyperIdleDb,
 	sessions,
@@ -64,12 +65,17 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../work-session-started-reactions.js";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 
 /** §6 row 1: the reaction takes `edit_task`'s bound `run` now, not `agentOrchestration` directly. */
 function editTaskFrom(
-	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+	agentOrchestration: AgentOrchestrationPort,
 ): Parameters<typeof registerWorkSessionStartedReactions>[2] {
-	const editTaskAction = buildCoreActions(agentOrchestration).find(
+	const editTaskAction = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	}).find(
 		(a) => a.declaration.name === "edit_task",
 	);
 	if (!editTaskAction) throw new Error("edit_task action not found");
@@ -96,7 +102,17 @@ async function seedTaskAndAgent(
 		status: "active",
 		createdAt: NOW,
 	});
+	await db.insert(threads).values({
+	id: `thr-${rootTaskId}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${rootTaskId}`,
 		id: rootTaskId,
 		parentTaskId: null,
 		teamId: teamId,
@@ -106,7 +122,17 @@ async function seedTaskAndAgent(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+	id: `thr-${taskId}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${taskId}`,
 		id: taskId,
 		parentTaskId: rootTaskId,
 		teamId,

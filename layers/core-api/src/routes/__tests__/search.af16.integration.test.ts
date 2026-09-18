@@ -7,7 +7,7 @@
  * Z8-033.
  */
 
-import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -46,6 +46,27 @@ describe("AF16 T7 — Search determinism (Z8-033)", () => {
 	}) => {
 		await seedBase(db);
 		const tiedTs = "2024-01-15T10:00:00.000Z";
+		// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+		await db.insert(threads).values([
+			{
+				id: "thr-srch-bet-b",
+				hostKind: "team",
+				hostId: "srch-team",
+				initiatorId: "system:propagation",
+				participants: "[]",
+				lastActiveAt: tiedTs,
+				createdAt: tiedTs,
+			},
+			{
+				id: "thr-srch-bet-a",
+				hostKind: "team",
+				hostId: "srch-team",
+				initiatorId: "system:propagation",
+				participants: "[]",
+				lastActiveAt: tiedTs,
+				createdAt: tiedTs,
+			},
+		]);
 		// Insert bets with the same createdAt but different ids (id order: "srch-bet-a" < "srch-bet-b")
 		await db.insert(tasks).values([
 			{
@@ -54,6 +75,7 @@ describe("AF16 T7 — Search determinism (Z8-033)", () => {
 				teamId: "srch-team",
 				title: "Determinism test B",
 				state: "in_progress",
+				threadId: "thr-srch-bet-b",
 				createdAt: tiedTs,
 				updatedAt: tiedTs,
 			},
@@ -63,6 +85,7 @@ describe("AF16 T7 — Search determinism (Z8-033)", () => {
 				teamId: "srch-team",
 				title: "Determinism test A",
 				state: "in_progress",
+				threadId: "thr-srch-bet-a",
 				createdAt: tiedTs,
 				updatedAt: tiedTs,
 			},
@@ -107,6 +130,27 @@ describe("AF16 T8 — Search relevance ordering (Z8-033)", () => {
 		const olderTs = "2023-06-01T00:00:00.000Z";
 		const newerTs = "2024-06-01T00:00:00.000Z";
 
+		// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+		await db.insert(threads).values([
+			{
+				id: "thr-srch-exact",
+				hostKind: "team",
+				hostId: "srch-team",
+				initiatorId: "system:propagation",
+				participants: "[]",
+				lastActiveAt: olderTs,
+				createdAt: olderTs,
+			},
+			{
+				id: "thr-srch-substr",
+				hostKind: "team",
+				hostId: "srch-team",
+				initiatorId: "system:propagation",
+				participants: "[]",
+				lastActiveAt: newerTs,
+				createdAt: newerTs,
+			},
+		]);
 		// "srch-exact" has exact title match but is OLDER (lower recency)
 		// "srch-substr" has substring match in description and is NEWER
 		await db.insert(tasks).values([
@@ -116,6 +160,7 @@ describe("AF16 T8 — Search relevance ordering (Z8-033)", () => {
 				teamId: "srch-team",
 				title: "Hyper drive project",
 				state: "in_progress",
+				threadId: "thr-srch-exact",
 				createdAt: olderTs,
 				updatedAt: olderTs,
 			},
@@ -125,6 +170,7 @@ describe("AF16 T8 — Search relevance ordering (Z8-033)", () => {
 				teamId: "srch-team",
 				title: "We need a hyper drive to go faster",
 				state: "in_progress",
+				threadId: "thr-srch-substr",
 				createdAt: newerTs,
 				updatedAt: newerTs,
 			},

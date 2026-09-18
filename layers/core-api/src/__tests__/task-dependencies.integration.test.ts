@@ -18,7 +18,8 @@
  *     root — no restriction.
  */
 
-import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import {
+	threads, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -87,7 +88,17 @@ async function insertTask(
 	dependencies?: string[],
 ): Promise<void> {
 	const now = new Date().toISOString();
+	await db.insert(threads).values({
+	id: `thr-${id}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: now,
+	createdAt: now,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${id}`,
 		id,
 		parentTaskId: null,
 		teamId,

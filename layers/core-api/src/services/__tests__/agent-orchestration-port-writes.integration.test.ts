@@ -9,6 +9,7 @@
  */
 
 import {
+	threads,
 	agentWorkIntents,
 	filesystemInjections,
 	filesystems,
@@ -51,7 +52,17 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 			createdAt: NOW,
 		},
 	]);
+	await db.insert(threads).values({
+	id: `thr-${`${prefix}-bet`}`,
+	hostKind: "team",
+	hostId: `${prefix}-team-parent`,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${`${prefix}-bet`}`,
 		id: `${prefix}-bet`,
 		parentTaskId: null,
 		teamId: `${prefix}-team-parent`,
@@ -61,7 +72,17 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+	id: `thr-${`${prefix}-task`}`,
+	hostKind: "team",
+	hostId: `${prefix}-team-parent`,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${`${prefix}-task`}`,
 		id: `${prefix}-task`,
 		parentTaskId: `${prefix}-bet`,
 		teamId: `${prefix}-team-parent`,

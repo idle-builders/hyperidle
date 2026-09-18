@@ -83,7 +83,17 @@ async function seedTaskRequest(
 		teamId: `${id}-team`,
 		createdAt: now,
 	});
+	await db.insert(threads).values({
+	id: `thr-${`${id}-bet`}`,
+	hostKind: "team",
+	hostId: `${id}-team`,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: now,
+	createdAt: now,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${`${id}-bet`}`,
 		id: `${id}-bet`,
 		parentTaskId: null,
 		teamId: `${id}-team`,
@@ -93,7 +103,17 @@ async function seedTaskRequest(
 		createdAt: now,
 		updatedAt: now,
 	});
+	await db.insert(threads).values({
+	id: `thr-${`${id}-task`}`,
+	hostKind: "team",
+	hostId: `${id}-team`,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: now,
+	createdAt: now,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${`${id}-task`}`,
 		id: `${id}-task`,
 		parentTaskId: `${id}-bet`,
 		teamId: `${id}-team`,

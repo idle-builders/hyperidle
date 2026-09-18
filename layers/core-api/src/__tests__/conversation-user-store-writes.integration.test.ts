@@ -14,7 +14,7 @@ import {
 	insertThread,
 	resolveMessageIfUnresolved,
 	updateThread,
-} from "@hyperidle/conversation";
+} from "@hyperidle/thread";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";

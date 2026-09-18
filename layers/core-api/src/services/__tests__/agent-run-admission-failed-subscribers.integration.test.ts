@@ -197,7 +197,17 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		// The dispatch attempt's agent is not runnable (paused) — forces
 		// requireRunnableActor's InvalidAgentWorkSourceError at drain.
 		await seedAgent(db, "w0-sub-task-agent", { teamId, status: "paused" });
+		await db.insert(threads).values({
+		id: `thr-${"w0-sub-task-bet"}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+		threadId: `thr-${"w0-sub-task-bet"}`,
 			id: "w0-sub-task-bet",
 			parentTaskId: null,
 			teamId: teamId,
@@ -207,7 +217,17 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
+		await db.insert(threads).values({
+		id: `thr-${"w0-sub-task"}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+		threadId: `thr-${"w0-sub-task"}`,
 			id: "w0-sub-task",
 			parentTaskId: "w0-sub-task-bet",
 			teamId,
@@ -266,7 +286,17 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const { teamId } = await seedTeam(db, "w0-sub-start");
 		// The requested agent is not runnable — forces InvalidAgentWorkSourceError.
 		await seedAgent(db, "w0-sub-start-agent", { teamId, status: "retired" });
+		await db.insert(threads).values({
+		id: `thr-${"w0-sub-start-bet"}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+		threadId: `thr-${"w0-sub-start-bet"}`,
 			id: "w0-sub-start-bet",
 			parentTaskId: null,
 			teamId: teamId,
@@ -276,7 +306,17 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
+		await db.insert(threads).values({
+		id: `thr-${"w0-sub-start-task"}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+		threadId: `thr-${"w0-sub-start-task"}`,
 			id: "w0-sub-start-task",
 			parentTaskId: "w0-sub-start-bet",
 			teamId,

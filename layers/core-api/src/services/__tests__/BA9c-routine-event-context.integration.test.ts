@@ -149,7 +149,17 @@ async function seedBet(
 	teamId: string,
 	opts: { description?: string; status?: string } = {},
 ): Promise<void> {
+	await db.insert(threads).values({
+	id: `thr-${id}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${id}`,
 		id,
 		parentTaskId: null,
 		teamId,
@@ -168,7 +178,17 @@ async function seedTask(
 	teamId: string,
 	opts: { title?: string; state?: string } = {},
 ): Promise<void> {
+	await db.insert(threads).values({
+	id: `thr-${id}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${id}`,
 		id,
 		parentTaskId,
 		teamId,
@@ -860,7 +880,17 @@ describe("BA9c — team-less agent owner still receives triggerEvent in contextB
 			createdAt: NOW,
 		});
 		// BB1: root task replaces bet
+		await db.insert(threads).values({
+		id: `thr-${"ba9c-noteam-bet"}`,
+		hostKind: "team",
+		hostId: "ba9c-noteam-team",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+		threadId: `thr-${"ba9c-noteam-bet"}`,
 			id: "ba9c-noteam-bet",
 			parentTaskId: null,
 			teamId: "ba9c-noteam-team",

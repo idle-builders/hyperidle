@@ -56,7 +56,17 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			createdAt: now,
 		},
 	]);
+	await db.insert(threads).values({
+	id: `thr-${"au9-production-bet"}`,
+	hostKind: "team",
+	hostId: "au9-production-team",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: now,
+	createdAt: now,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"au9-production-bet"}`,
 		id: "au9-production-bet",
 		parentTaskId: null,
 		teamId: "au9-production-team",
@@ -66,7 +76,17 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 		createdAt: now,
 		updatedAt: now,
 	});
+	await db.insert(threads).values({
+	id: `thr-${"au9-production-task"}`,
+	hostKind: "team",
+	hostId: "au9-production-team",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: now,
+	createdAt: now,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"au9-production-task"}`,
 		id: "au9-production-task",
 		parentTaskId: "au9-production-bet",
 		teamId: "au9-production-team",
@@ -203,7 +223,17 @@ describe("atomic production handoffs", () => {
 	}) => {
 		await seedExplicitSessionAuthority(db);
 		const now = new Date().toISOString();
+		await db.insert(threads).values({
+		id: `thr-${"au9-production-dependent"}`,
+		hostKind: "team",
+		hostId: "au9-production-team",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+		});
 		await db.insert(tasks).values({
+		threadId: `thr-${"au9-production-dependent"}`,
 			id: "au9-production-dependent",
 			parentTaskId: "au9-production-bet",
 			teamId: "au9-production-team",
@@ -219,7 +249,11 @@ describe("atomic production handoffs", () => {
 		// §6 row 2: `checkAndUnblockDependents` writes through the real
 		// composed `edit_task` action now — this proves the whole chain against
 		// the real seam, not a hand-rolled `workIntents` closure.
-		const editTaskAction = buildCoreActions(agentOrchestration).find(
+		const editTaskAction = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	}).find(
 			(a) => a.declaration.name === "edit_task",
 		);
 		if (!editTaskAction) throw new Error("edit_task action not found");

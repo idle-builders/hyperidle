@@ -13,6 +13,7 @@ import {
 	taskDispatchAttempts,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
@@ -20,6 +21,7 @@ import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../actions/compose.js";
 import { registerWorkSessionStartedReactions } from "../services/work-session-started-reactions.js";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 
 /**
  * B7 fix: `edit_task`'s own bound `run`, for registering the started
@@ -28,9 +30,13 @@ import { registerWorkSessionStartedReactions } from "../services/work-session-st
  * `taskDispatchAttempts.sessionId`.
  */
 function editTaskFrom(
-	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+	agentOrchestration: AgentOrchestrationPort,
 ): Parameters<typeof registerWorkSessionStartedReactions>[2] {
-	const editTaskAction = buildCoreActions(agentOrchestration).find(
+	const editTaskAction = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	}).find(
 		(a) => a.declaration.name === "edit_task",
 	);
 	if (!editTaskAction) throw new Error("edit_task action not found");
@@ -116,6 +122,26 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 		.onConflictDoNothing();
 }
 
+/**
+ * BC3: every task needs a real thread now (`tasks.thread_id` is NOT NULL).
+ * Returns the thread id, deterministic from `taskId` so a caller can pass
+ * it straight into the matching `tasks.threadId` field.
+ */
+async function seedThread(db: HyperIdleDb, taskId: string, teamId: string): Promise<string> {
+	const now = new Date().toISOString();
+	const threadId = `thr-${taskId}`;
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
+	return threadId;
+}
+
 async function seedAgent(db: HyperIdleDb, agentId: string, teamId?: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users).values({
@@ -171,12 +197,14 @@ describe("edit_task — refused transition", () => {
 	test("an illegal state transition returns 422 with a Problem", async ({ db, app }) => {
 		await seedTeam(db, "ta-team-2");
 		const now = new Date().toISOString();
+		const threadId = await seedThread(db, "ta-done-task", "ta-team-2");
 		await db.insert(tasks).values({
 			id: "ta-done-task",
 			parentTaskId: null,
 			teamId: "ta-team-2",
 			title: "Done task",
 			state: "done",
+			threadId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -199,6 +227,9 @@ describe("open_task", () => {
 	}) => {
 		await seedTeam(db, "ta-team-3");
 		const now = new Date().toISOString();
+		const rootThreadId = await seedThread(db, "ta-root", "ta-team-3");
+		const midThreadId = await seedThread(db, "ta-mid", "ta-team-3");
+		const leafThreadId = await seedThread(db, "ta-leaf", "ta-team-3");
 		await db.insert(tasks).values([
 			{
 				id: "ta-root",
@@ -206,6 +237,7 @@ describe("open_task", () => {
 				teamId: "ta-team-3",
 				title: "Root",
 				state: "in_progress",
+				threadId: rootThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -215,6 +247,7 @@ describe("open_task", () => {
 				teamId: "ta-team-3",
 				title: "Mid",
 				state: "in_progress",
+				threadId: midThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -225,6 +258,7 @@ describe("open_task", () => {
 				title: "Leaf",
 				state: "in_progress",
 				tokensActualJson: JSON.stringify({ byTier: { fast: { prompt: 10, completion: 5 } } }),
+				threadId: leafThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -248,6 +282,9 @@ describe("search_tasks", () => {
 	test("filters, including ids and excludeIds", async ({ db, app }) => {
 		await seedTeam(db, "ta-team-4");
 		const now = new Date().toISOString();
+		const s1ThreadId = await seedThread(db, "ta-s1", "ta-team-4");
+		const s2ThreadId = await seedThread(db, "ta-s2", "ta-team-4");
+		const s3ThreadId = await seedThread(db, "ta-s3", "ta-team-4");
 		await db.insert(tasks).values([
 			{
 				id: "ta-s1",
@@ -255,6 +292,7 @@ describe("search_tasks", () => {
 				teamId: "ta-team-4",
 				title: "Search one",
 				state: "proposed",
+				threadId: s1ThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -264,6 +302,7 @@ describe("search_tasks", () => {
 				teamId: "ta-team-4",
 				title: "Search two",
 				state: "proposed",
+				threadId: s2ThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -273,6 +312,7 @@ describe("search_tasks", () => {
 				teamId: "ta-team-4",
 				title: "Search three",
 				state: "proposed",
+				threadId: s3ThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -322,6 +362,9 @@ describe("the changes table", () => {
 	}) => {
 		await seedTeam(db, "ta-team-6");
 		const now = new Date().toISOString();
+		const killRootThreadId = await seedThread(db, "ta-kill-root", "ta-team-6");
+		const killChildThreadId = await seedThread(db, "ta-kill-child", "ta-team-6");
+		const killDependentThreadId = await seedThread(db, "ta-kill-dependent", "ta-team-6");
 		await db.insert(tasks).values([
 			{
 				id: "ta-kill-root",
@@ -329,6 +372,7 @@ describe("the changes table", () => {
 				teamId: "ta-team-6",
 				title: "Kill root",
 				state: "in_progress",
+				threadId: killRootThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -338,6 +382,7 @@ describe("the changes table", () => {
 				teamId: "ta-team-6",
 				title: "Kill child",
 				state: "in_progress",
+				threadId: killChildThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -348,6 +393,7 @@ describe("the changes table", () => {
 				title: "Dependent on the killed child",
 				state: "hold",
 				dependencies: JSON.stringify(["ta-kill-child"]),
+				threadId: killDependentThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -410,12 +456,14 @@ describe("task_state_changed", () => {
 	test("emits on state change", async ({ db, app, eventBus }) => {
 		await seedTeam(db, "ta-team-8");
 		const now = new Date().toISOString();
+		const threadId = await seedThread(db, "ta-emit-task", "ta-team-8");
 		await db.insert(tasks).values({
 			id: "ta-emit-task",
 			parentTaskId: null,
 			teamId: "ta-team-8",
 			title: "Emits on change",
 			state: "proposed",
+			threadId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -441,6 +489,7 @@ describe("dispatch", () => {
 		await seedTeam(db, "ta-team-9");
 		await seedAgent(db, "ta-agent-9", "ta-team-9");
 		const now = new Date().toISOString();
+		const threadId = await seedThread(db, "ta-accept-task", "ta-team-9");
 		await db.insert(tasks).values({
 			id: "ta-accept-task",
 			parentTaskId: null,
@@ -448,6 +497,7 @@ describe("dispatch", () => {
 			ownerAgentId: "ta-agent-9",
 			title: "Accept me",
 			state: "proposed",
+			threadId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -482,6 +532,7 @@ describe("dispatch", () => {
 		await seedAgent(db, "ta-agent-10a", "ta-team-10");
 		await seedAgent(db, "ta-agent-10b", "ta-team-10");
 		const now = new Date().toISOString();
+		const threadId = await seedThread(db, "ta-handoff-task", "ta-team-10");
 		await db.insert(tasks).values({
 			id: "ta-handoff-task",
 			parentTaskId: null,
@@ -489,6 +540,7 @@ describe("dispatch", () => {
 			ownerAgentId: "ta-agent-10a",
 			title: "Hand me off",
 			state: "in_progress",
+			threadId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -584,6 +636,8 @@ describe("dispatch", () => {
 		await seedTeam(db, "ta-team-11");
 		await seedAgent(db, "ta-agent-11", "ta-team-11");
 		const now = new Date().toISOString();
+		const killDoneRootThreadId = await seedThread(db, "ta-kill-done-root", "ta-team-11");
+		const killLiveChildThreadId = await seedThread(db, "ta-kill-live-child", "ta-team-11");
 		await db.insert(tasks).values([
 			{
 				id: "ta-kill-done-root",
@@ -591,6 +645,7 @@ describe("dispatch", () => {
 				teamId: "ta-team-11",
 				title: "Done root",
 				state: "done",
+				threadId: killDoneRootThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -600,6 +655,7 @@ describe("dispatch", () => {
 				teamId: "ta-team-11",
 				title: "Live child",
 				state: "in_progress",
+				threadId: killLiveChildThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},

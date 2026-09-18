@@ -60,6 +60,7 @@
  */
 
 import {
+	threads,
 	agentSessionRequests,
 	type HyperIdleDb,
 	sessions,
@@ -79,12 +80,17 @@ import { buildCoreActions } from "../../actions/compose.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { registerWorkSessionEndReactions } from "../work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "../work-session-started-reactions.js";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 
 /** B3/B7 fix: both reactions take `edit_task`'s bound `run`, not a bare `update()`. */
 function editTaskFrom(
-	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+	agentOrchestration: AgentOrchestrationPort,
 ): Parameters<typeof registerWorkSessionEndReactions>[2] {
-	const editTaskAction = buildCoreActions(agentOrchestration).find(
+	const editTaskAction = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	}).find(
 		(a) => a.declaration.name === "edit_task",
 	);
 	if (!editTaskAction) throw new Error("edit_task action not found");
@@ -112,7 +118,17 @@ async function seedTaskAndAgent(
 		createdAt: NOW,
 	});
 	// BB1: root task replaces bet
+	await db.insert(threads).values({
+	id: `thr-${rootId}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${rootId}`,
 		id: rootId,
 		parentTaskId: null,
 		teamId,
@@ -121,7 +137,17 @@ async function seedTaskAndAgent(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+	id: `thr-${taskId}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${taskId}`,
 		id: taskId,
 		parentTaskId: rootId,
 		teamId,

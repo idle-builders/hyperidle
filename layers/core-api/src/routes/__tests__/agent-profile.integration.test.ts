@@ -115,7 +115,17 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	});
 
 	// Seed a bet and task for sessions
+	await db.insert(threads).values({
+	id: `thr-${"ab1-bet-1"}`,
+	hostKind: "team",
+	hostId: "ab1-team",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"ab1-bet-1"}`,
 		id: "ab1-bet-1",
 		parentTaskId: null,
 		teamId: "ab1-team",
@@ -126,7 +136,17 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 
+	await db.insert(threads).values({
+	id: `thr-${"ab1-task-1"}`,
+	hostKind: "team",
+	hostId: "ab1-team",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"ab1-task-1"}`,
 		id: "ab1-task-1",
 		parentTaskId: "ab1-bet-1",
 		teamId: "ab1-team",

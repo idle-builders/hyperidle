@@ -74,7 +74,17 @@ async function seedHosts(
 		status: "active",
 		createdAt: NOW,
 	});
+	await db.insert(threads).values({
+	id: `thr-${taskId}`,
+	hostKind: "team",
+	hostId: teamId,
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: NOW,
+	createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${taskId}`,
 		id: taskId,
 		parentTaskId: null,
 		teamId,

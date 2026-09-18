@@ -45,7 +45,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 async function seedTaskData(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teamId references `teams` domain entity (not teamMembers).
+	await db.insert(threads).values({
+	id: `thr-${"bet-1"}`,
+	hostKind: "team",
+	hostId: "prod-1",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: new Date().toISOString(),
+	createdAt: new Date().toISOString(),
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"bet-1"}`,
 		id: "bet-1",
 		parentTaskId: null,
 		teamId: "prod-1",
@@ -56,7 +66,17 @@ async function seedTaskData(db: HyperIdleDb): Promise<void> {
 		updatedAt: new Date().toISOString(),
 	});
 
+	await db.insert(threads).values({
+	id: `thr-${"task-1"}`,
+	hostKind: "team",
+	hostId: "prod-1",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: new Date().toISOString(),
+	createdAt: new Date().toISOString(),
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"task-1"}`,
 		id: "task-1",
 		parentTaskId: "bet-1",
 		teamId: "prod-1",
@@ -88,7 +108,17 @@ async function seedConversationData(db: HyperIdleDb): Promise<void> {
 
 async function seedSessionData(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teamId references `teams` domain entity (not teamMembers).
+	await db.insert(threads).values({
+	id: `thr-${"bet-s"}`,
+	hostKind: "team",
+	hostId: "prod-1",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: new Date().toISOString(),
+	createdAt: new Date().toISOString(),
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"bet-s"}`,
 		id: "bet-s",
 		parentTaskId: null,
 		teamId: "prod-1",
@@ -99,7 +129,17 @@ async function seedSessionData(db: HyperIdleDb): Promise<void> {
 		updatedAt: new Date().toISOString(),
 	});
 
+	await db.insert(threads).values({
+	id: `thr-${"task-s"}`,
+	hostKind: "team",
+	hostId: "prod-1",
+	initiatorId: "system:propagation",
+	participants: "[]",
+	lastActiveAt: new Date().toISOString(),
+	createdAt: new Date().toISOString(),
+	});
 	await db.insert(tasks).values({
+	threadId: `thr-${"task-s"}`,
 		id: "task-s",
 		parentTaskId: "bet-s",
 		teamId: "prod-1",
@@ -321,7 +361,17 @@ describe("E2E API Integration (I5)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-1", name: "E2E Product", phase: "build", createdAt: now });
+			await db.insert(threads).values({
+			id: `thr-${"bet-1"}`,
+			hostKind: "team",
+			hostId: "prod-1",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+			});
 			await db.insert(tasks).values({
+			threadId: `thr-${"bet-1"}`,
 				id: "bet-1",
 				parentTaskId: null,
 				teamId: "prod-1",
@@ -331,7 +381,17 @@ describe("E2E API Integration (I5)", () => {
 				createdAt: now,
 				updatedAt: now,
 			});
+			await db.insert(threads).values({
+			id: `thr-${"task-1"}`,
+			hostKind: "team",
+			hostId: "prod-1",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+			});
 			await db.insert(tasks).values({
+			threadId: `thr-${"task-1"}`,
 				id: "task-1",
 				parentTaskId: "bet-1",
 				teamId: "prod-1",
