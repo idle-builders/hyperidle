@@ -12,10 +12,10 @@
  * `parseMessagePayload` itself returns.
  */
 
-import type { AssistantNotice, InlineRef } from "@hyperidle/domain-model";
 import {
 	type Message,
 	type PlainPayload,
+	type PlainReadPayload,
 	parseMessagePayload,
 	type QuestionnairePayload,
 	type RedactedPayload,
@@ -30,25 +30,13 @@ export function plainPayloadOf(message: Message): PlainPayload | RedactedPayload
 /**
  * `notice`/`toolCalls` ride only the READ side of a plain payload
  * (`plainReadPayloadSchema`, R9) — a historical-render concern for
- * `AssistantOverlay`, never a write. Neither `PlainReadPayload` nor its
- * schema is re-exported from the domain-model barrel (`actions/thread.ts`
- * keeps it un-exported; only the write-shape `PlainPayload` crosses), and
- * `parseMessagePayload`'s own declared return type is `PlainPayload |
- * RedactedPayload` for a `"plain"` message even though its runtime parse
- * uses the read schema — so this type is redeclared locally, matching the
- * read schema's shape, rather than reached through an export that isn't
- * there.
+ * `AssistantOverlay`, never a write. `PlainReadPayload` is the domain-model
+ * barrel's own inferred type for that schema (`actions/thread.ts`), re-used
+ * here rather than redeclared, even though `parseMessagePayload`'s declared
+ * return type is `PlainPayload | RedactedPayload` for a `"plain"` message —
+ * its runtime parse uses the read schema, so the cast below narrows to the
+ * wider read shape.
  */
-export interface PlainReadPayload extends PlainPayload {
-	readonly notice?: AssistantNotice;
-	readonly toolCalls?: ReadonlyArray<{
-		readonly name: string;
-		readonly input: Record<string, unknown>;
-		readonly output: string;
-		readonly status: "ok" | "error";
-	}>;
-}
-
 export function plainReadPayloadOf(message: Message): PlainReadPayload | RedactedPayload {
 	return parseMessagePayload("plain", message.payload) as PlainReadPayload | RedactedPayload;
 }
@@ -65,17 +53,4 @@ export function questionnairePayloadOf(message: Message): QuestionnairePayload |
 
 export function verdictPayloadOf(message: Message): VerdictPayload | RedactedPayload {
 	return parseMessagePayload("verdict", message.payload) as VerdictPayload | RedactedPayload;
-}
-
-/**
- * `PlainPayload["refs"]` (`mentionRefSchema`, `actions/thread.ts`) now
- * requires `sourceText` on a mention ref, matching domain-model's own
- * `MentionRef.sourceText` — the two are no longer different types, so this
- * is an identity pass-through kept as the one seam between the wire shape
- * and `InlineRef` for callers to depend on.
- */
-export function toInlineRefs(
-	refs: readonly InlineRef[] | undefined,
-): ReadonlyArray<InlineRef> | undefined {
-	return refs;
 }

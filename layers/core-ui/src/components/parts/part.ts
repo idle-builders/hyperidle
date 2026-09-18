@@ -37,7 +37,6 @@ import {
 	plainPayloadOf,
 	questionnairePayloadOf,
 	reviewPayloadOf,
-	toInlineRefs,
 	verdictPayloadOf,
 } from "../../ds/message-payload.js";
 import type { RouteHostKind } from "../../services/host-route.js";
@@ -385,7 +384,7 @@ export function derivePartsFromMessages(
 					...base,
 					kind: "prose",
 					text: payload.text,
-					embeds: refsToEmbeds(toInlineRefs(payload.refs)),
+					embeds: refsToEmbeds(payload.refs),
 				});
 				break;
 			}

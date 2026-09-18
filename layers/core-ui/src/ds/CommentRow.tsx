@@ -13,12 +13,7 @@ import { derivePayloads } from "../block";
 import type { BlockPayload } from "../block/types.js";
 import type { MentionSegment } from "./mention-segments.js";
 import { segmentMentions } from "./mention-segments.js";
-import {
-	plainPayloadOf,
-	reviewPayloadOf,
-	toInlineRefs,
-	verdictPayloadOf,
-} from "./message-payload.js";
+import { plainPayloadOf, reviewPayloadOf, verdictPayloadOf } from "./message-payload.js";
 import { verdictDecisionToStatus } from "./status-mapping.js";
 
 function exhaustiveAssert(value: never): never {
@@ -222,9 +217,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			const payload = plainPayloadOf(message);
 			if (isRedactedPayload(payload)) return null;
 			const p = payload;
-			return (
-				<MessagePayloads text={p.text} refs={toInlineRefs(p.refs)} sanitizeHtml={sanitizeHtml} />
-			);
+			return <MessagePayloads text={p.text} refs={p.refs} sanitizeHtml={sanitizeHtml} />;
 		}
 		case "review": {
 			// Rich slots carry the review's substance on ThreadShell, but

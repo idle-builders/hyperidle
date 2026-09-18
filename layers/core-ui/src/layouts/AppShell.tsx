@@ -45,9 +45,8 @@ import { relativeShort } from "../utils/time.js";
  * drive filter state that lives in AppShell (session-transient, not URL).
  *
  * @lore U6 review V1: threads/threadsStatus/threadsError/onRetryThreads are
- * passed via context so Conversations.tsx can consume the single hook call
- * already made in AppShell. This avoids the double fetch that previously
- * occurred when Conversations.tsx also called useConversationsThreads().
+ * passed via context so Conversations.tsx reads AppShell's single `useThreads`
+ * call instead of fetching its own copy.
  */
 export interface AppShellOutletContext {
 	selectedThreadId: string | null;
@@ -68,12 +67,6 @@ export interface AppShellOutletContext {
 	onRetryShell: () => void;
 }
 
-function capitalize(s: string): string {
-	if (s.length === 0) return s;
-	const first = s[0];
-	return first !== undefined ? first.toUpperCase() + s.slice(1) : s;
-}
-
 /**
  * @lore BC3: replaces `useConversationsThreads.ts`'s `rowToItem` — the
  * hand-pushed `ThreadListRow` is now `search_threads`'s own output shape
@@ -82,8 +75,9 @@ function capitalize(s: string): string {
  * shape, so the mapping lives here rather than in a hook module of its own.
  */
 function rowToItem(row: import("@hyperidle/domain-model").ThreadListRow): ThreadItem {
-	const title =
-		row.title ?? row.computedTitle ?? `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`;
+	// `computedTitle` is required and never empty (ThreadListRowSchema), so
+	// this always resolves without a synthesized fallback.
+	const title = row.title ?? row.computedTitle;
 	return {
 		id: row.id,
 		title,

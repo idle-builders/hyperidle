@@ -33,6 +33,7 @@ export type {
 	Message,
 	OpenThreadInput,
 	PlainPayload,
+	PlainReadPayload,
 	QuestionnairePayload,
 	ReviewPayload,
 	SearchThreadsInput,
