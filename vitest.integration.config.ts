@@ -36,7 +36,7 @@ const HARNESS_INCLUDE = [
 	"layers/agent-orchestration/connections/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
 	"layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
-	"layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts",
+	"layers/core-api/src/__tests__/thread-turn-live-harness.integration.test.ts",
 	"layers/core-api/src/__tests__/BA9c-routine-event-context-harness.integration.test.ts",
 	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__ and
 	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run
