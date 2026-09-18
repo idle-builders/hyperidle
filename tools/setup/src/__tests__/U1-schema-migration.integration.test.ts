@@ -144,9 +144,16 @@ describe("U1 AC1: FK rename on tasks", () => {
 				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p2', 'MyTeam', 'build', '${now}')`,
 			),
 		);
+		// BC3: every task needs a real thread now (tasks.thread_id is NOT NULL) —
+		// team-hosted, matching what `edit_task` seeds for a new task.
 		await db.execute(
 			sql.raw(
-				`INSERT INTO tasks (id, parent_task_id, team_id, title, state, created_at, updated_at) VALUES ('task-fk-1', NULL, 't-p2', 'Test task', 'proposed', '${now}', '${now}')`,
+				`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-task-fk-1', 'team', 't-p2', 'system:propagation', '[]', '${now}', '${now}')`,
+			),
+		);
+		await db.execute(
+			sql.raw(
+				`INSERT INTO tasks (id, parent_task_id, team_id, thread_id, title, state, created_at, updated_at) VALUES ('task-fk-1', NULL, 't-p2', 'thr-task-fk-1', 'Test task', 'proposed', '${now}', '${now}')`,
 			),
 		);
 
