@@ -8,7 +8,7 @@
  * seam`):
  *
  *  - `ToolHandlersOrgAccessor`: getTeamById, getTeamMembersByTeamId,
- *    getTeamMembersById, createTeam, updateTeam, resolveReviewRecipientsForItem,
+ *    getTeamMembersById, createTeam, updateTeam,
  *    persistScaffoldedAgents (`tool-handlers/src/ports.ts:92-132`).
  *  - `ToolHandlersRoutineAccessor`: insertRoutine, getRoutineById,
  *    updateRoutineById (`ports.ts:151-160`).
@@ -49,9 +49,6 @@
  *    EXTENDED to accept an optional `leadAgentId` field (today only accepts
  *    `phase`) — the tool's one real call site (`create_team`'s
  *    `updateTeam(teamId, {leadAgentId})`) needs exactly this field.
- *  - `org.resolveReviewRecipientsForItem` → NEW `GET
- *    /org/review-recipients?userId=&agentRole=&teamId=` (a pure org-edge
- *    routing query — no UI action reaches it directly today).
  *  - `org.persistScaffoldedAgents` → NEW `POST /org/scaffolded-agents` (the
  *    collapsed Kernel-persist helper — even `POST /teams` calls the
  *    underlying function directly in-process, never via HTTP; no UI route
@@ -122,11 +119,6 @@ interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
 			teamId: string,
 			patch: { phase?: string; activeBets?: number; leadAgentId?: string },
 		): Promise<void>;
-		resolveReviewRecipientsForItem(ctx: {
-			readonly userId: string;
-			readonly agentRole: string | undefined;
-			readonly teamId: string | undefined;
-		}): Promise<readonly string[]>;
 		/**
 		 * @lore AU44 AU20-fd: renamed from persistScaffoldedAgents; the new seam
 		 * resolves specs inside core-api, orchestration passes a request only.
@@ -264,28 +256,6 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 
 		const [row] = await db.select().from(teams).where(eq(teams.id, teamMembersId)).limit(1);
 		expect(row?.leadAgentId).toBe("agent-org-updateteam1");
-	});
-
-	test("resolveReviewRecipientsForItem reaches the real review-routing route (fallback all humans)", async ({
-		db,
-		app,
-	}) => {
-		// @lore AU20 ruling 1: the old org-edge matrix is gone. Recipients are the
-		// humans on the agent's team; when teamId is undefined or the team has no
-		// humans, every human is returned so the review reaches someone.
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-org-key-reviewrecipients");
-		await seedAgent(db, "agent-org-reviewer-target", { role: "builder" });
-		await seedAgent(db, "human-org-reviewer", { kind: "human", role: "founder" });
-		// No teamId provided → fallback path → all humans returned.
-
-		const port = buildSeamPort("agent-org-reviewer-target", app);
-		const recipients = await port.org.resolveReviewRecipientsForItem({
-			userId: "agent-org-reviewer-target",
-			agentRole: "builder",
-			teamId: undefined,
-		});
-
-		expect(recipients).toContain("human-org-reviewer");
 	});
 
 	test("scaffoldFromRequest reaches the real scaffold-request route (real user rows land in the DB)", async ({

@@ -68,7 +68,7 @@ function scanDeclaredActionNames(
 }
 
 /**
- * The seventeen registrations that realise the sixteen plumbing doors —
+ * The eighteen registrations that realise the sixteen plumbing doors —
  * internal seams, auth, health. A route, never an action.
  */
 const PLUMBING_ROUTES: readonly string[] = [
@@ -79,6 +79,7 @@ const PLUMBING_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/health.ts|GET /health",
 	"layers/core-api/src/routes/health.ts|GET /auth",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /intents",
+	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /review-links",
 	"layers/agent-orchestration/src/routes/agent-orchestration-intake.ts|POST /review-verdicts",
 	// @lore BC3 architecture.md §5 B5/N10: `GET .../requests/pending-intents`
 	// DELETED with its only caller, the deleted coherence trigger.
@@ -180,7 +181,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/org.ts|GET /",
 	"layers/core-api/src/routes/org.ts|PUT /edges",
 	"layers/core-api/src/routes/org.ts|DELETE /edges/:id",
-	"layers/core-api/src/routes/org.ts|GET /review-recipients",
 	"layers/core-api/src/routes/org.ts|GET /teams/:teamId",
 	"layers/core-api/src/routes/org.ts|GET /teams/:teamId/membership",
 	"layers/core-api/src/routes/org.ts|POST /teams",

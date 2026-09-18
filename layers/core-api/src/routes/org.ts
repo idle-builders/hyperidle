@@ -1,6 +1,6 @@
 /**
  * /api/org routes: OrgChart API (UI) + seam routes for CoreApiPort (teams,
- * scaffold, routines, review-recipients).
+ * scaffold, routines).
  *
  * GET  /api/org/               — full org chart (edges + users + teams)
  * PUT  /api/org/edges          — upsert an edge (idempotent)
@@ -8,8 +8,12 @@
  *
  * @lore AU43 bundle-11: org-chart routes were removed by mistake — the door
  * audit marked rows 96/97/98 as KEEP because SettingsOrgChart calls them.
- * Restored here. GET /review-recipients uses the new team-scoped mechanism
- * per AU20 ruling 1 (not org edges).
+ * Restored here.
+ *
+ * @lore BC3 architecture.md §5 B4: `GET /review-recipients` DELETED — it
+ * existed only for the deleted `create_item`/`submit_review` tools.
+ * `resolveReviewRecipients` (`@hyperidle/org`) itself survives; only this
+ * route wrapper died.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
@@ -25,7 +29,6 @@ import {
 	listTeams,
 	persistScaffoldedAgents,
 	resolveAgentScaffoldSpecs,
-	resolveReviewRecipients,
 	upsertOrgEdge,
 } from "@hyperidle/org";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
@@ -178,28 +181,6 @@ export function createOrgRoutes(
 		}
 		await deleteOrgEdge(db, id);
 		return c.body(null, 204);
-	});
-
-	// GET /review-recipients — team-scoped recipient resolution for review/escalation
-	// items (AU20 ruling 1 + seam repair). Query params: teamId (optional),
-	// userId and agentRole are accepted for backward-compat but no longer drive
-	// the result (the edge matrix that used them is gone).
-	//
-	// New algorithm: humans on the agent's team (via teamId); fallback = all humans
-	// so every review still reaches someone on a single-team or cross-team org.
-	router.get("/review-recipients", async (c) => {
-		const teamId = c.req.query("teamId") ?? undefined;
-		// userId and agentRole accepted for backward-compat but not used (AU44 B1 simplification).
-
-		const recipients = await resolveReviewRecipients(
-			db,
-			{ teamId },
-			{
-				listHumans: (db2, tid) =>
-					listUsers(db2, { kind: "human", ...(tid !== undefined ? { teamIds: [tid] } : {}) }),
-			},
-		);
-		return c.json({ recipients });
 	});
 
 	// GET /teams/:teamId — narrow team view {id, name} for the CoreApiPort seam
