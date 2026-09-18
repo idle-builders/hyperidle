@@ -29,7 +29,7 @@
  * ConversationSurface on the left, SessionActivityPanel on the right.
  */
 
-import type { ThreadView } from "@hyperidle/domain-model";
+import { TASK_STATE_LABEL, type TaskListItem, type ThreadView } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { ArtifactSection } from "../components/ArtifactSection";
@@ -55,6 +55,7 @@ import {
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useSessionActivity } from "../hooks/useSessionActivity";
 import { useThread } from "../hooks/useThread.js";
+import { useThreadTasks } from "../hooks/useThreadTasks.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import type { AppShellOutletContext } from "../layouts/AppShell";
@@ -293,8 +294,38 @@ function InspectDestination({ path }: { path: string }): JSX.Element {
 	return <EmptyState title="Unavailable" description="This reference cannot be inspected here." />;
 }
 
+/**
+ * BC3 Confusion 9: a thread's own tasks, rendered where the old single
+ * host-context link to a task used to sit — a thread's `hostKind` can no
+ * longer be `task` (architecture.md §3.9), so there is no longer one link,
+ * there can be several. Same element (`Link` + `resolveHostRoute`) and same
+ * classes as the surviving host-context link (`ConversationSurface.tsx`'s
+ * `ConversationHeader`), repeated once per task. Zero tasks renders nothing.
+ */
+function ThreadTaskLinks({ tasks }: { tasks: readonly TaskListItem[] }): JSX.Element | null {
+	if (tasks.length === 0) return null;
+	return (
+		<div className="flex flex-wrap items-center gap-[9px] mt-[3px]">
+			{tasks.map((task) => {
+				const route = resolveHostRoute("task", task.id);
+				if (!route) return null;
+				return (
+					<Link
+						key={task.id}
+						to={route}
+						className="type-control truncate text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
+					>
+						{task.title} · {TASK_STATE_LABEL[task.state]}
+					</Link>
+				);
+			})}
+		</div>
+	);
+}
+
 function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const { status, data, error, refresh: retry } = useThread(threadId);
+	const { tasks: threadTasks } = useThreadTasks(threadId);
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 	// AM1: viewer identity for own-message ("You") styling in the Part column.
@@ -546,13 +577,16 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						title={threadTitle}
 						leading={
 							sidebarMobile ? undefined : (
-								<Breadcrumb
-									segments={[
-										{ label: "Conversations", to: "/conversations" },
-										{ label: threadTitle },
-									]}
-									LinkComponent={Link}
-								/>
+								<>
+									<Breadcrumb
+										segments={[
+											{ label: "Conversations", to: "/conversations" },
+											{ label: threadTitle },
+										]}
+										LinkComponent={Link}
+									/>
+									<ThreadTaskLinks tasks={threadTasks} />
+								</>
 							)
 						}
 						actions={dialInButton}

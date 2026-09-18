@@ -270,34 +270,63 @@ describe("AE5 — ThreadRow presence dots", () => {
 // task's own thread is `team`-hosted, architecture.md §3.9). There is no
 // task-hosted thread left to link to.
 
+function makeOpenThreadResult() {
+	return {
+		ok: true,
+		data: {
+			thread: {
+				id: "t-1",
+				hostKind: "user" as const,
+				hostId: "u-founder",
+				initiatorId: "u-founder",
+				members: ["u-founder"],
+				title: null,
+				computedTitle: "My Test Task",
+				pinned: false,
+				resolvedAt: null,
+				deletedAt: null,
+				lastActiveAt: "2026-06-08T12:00:00.000Z",
+				createdAt: "2026-06-08T11:00:00.000Z",
+			},
+			members: [{ id: "u-founder", name: "Alice Founder", role: "founder", isAgent: false }],
+			messages: [],
+			headMessageId: null,
+			hostTitle: "My Test Task",
+		},
+	};
+}
+
+function makeTask(id: string, title: string, state: string) {
+	return {
+		id,
+		parentTaskId: null,
+		teamId: "team-1",
+		ownerAgentId: null,
+		title,
+		description: null,
+		doneCondition: null,
+		state,
+		dependencies: null,
+		threadId: "t-1",
+		notes: null,
+		createdAt: "2026-06-08T11:00:00.000Z",
+		updatedAt: "2026-06-08T11:00:00.000Z",
+		outcomeVerdict: null,
+		outcomeSummary: null,
+		outcomeRecordedAt: null,
+		outcomeRecordedBy: null,
+		tokensActualJson: null,
+		sourceKnowledgeItemId: null,
+		completedAt: null,
+		position: 0,
+		needsReview: false,
+	};
+}
+
 describe("AE5 — Conversations header context link", () => {
 	it("does not render context link when resolveHostRoute returns null (user thread)", async () => {
 		callMock.mockImplementation(async (action: string) => {
-			if (action === "open_thread") {
-				return {
-					ok: true,
-					data: {
-						thread: {
-							id: "t-1",
-							hostKind: "user" as const,
-							hostId: "u-founder",
-							initiatorId: "u-founder",
-							members: ["u-founder"],
-							title: null,
-							computedTitle: "My Test Task",
-							pinned: false,
-							resolvedAt: null,
-							deletedAt: null,
-							lastActiveAt: "2026-06-08T12:00:00.000Z",
-							createdAt: "2026-06-08T11:00:00.000Z",
-						},
-						members: [{ id: "u-founder", name: "Alice Founder", role: "founder", isAgent: false }],
-						messages: [],
-						headMessageId: null,
-						hostTitle: "My Test Task",
-					},
-				};
-			}
+			if (action === "open_thread") return makeOpenThreadResult();
 			return { ok: true, data: [] };
 		});
 
@@ -317,5 +346,63 @@ describe("AE5 — Conversations header context link", () => {
 		// No context link for user-hosted thread
 		const links = screen.queryAllByRole("link", { name: /My Test Task/i });
 		expect(links).toHaveLength(0);
+	});
+});
+
+// ── BC3 Confusion 9: thread's own tasks replace the old task link ───────────
+
+describe("BC3 — Conversations thread task links", () => {
+	it("shows one link per task, with the right hrefs, for a thread with two tasks", async () => {
+		callMock.mockImplementation(async (action: string, input?: unknown) => {
+			if (action === "open_thread") return makeOpenThreadResult();
+			if (action === "search_tasks") {
+				expect(input).toEqual({ threadId: "t-1" });
+				return {
+					ok: true,
+					data: [
+						makeTask("task-1", "Write the doc", "in_progress"),
+						makeTask("task-2", "Ship the PR", "review"),
+					],
+				};
+			}
+			return { ok: true, data: [] };
+		});
+
+		const { Conversations } = await import("../pages/Conversations.js");
+
+		const router = createMemoryRouter(
+			[{ path: "/conversations/:threadId", element: <Conversations /> }],
+			{ initialEntries: ["/conversations/t-1"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		await screen.findAllByTestId("conversations-page");
+
+		const firstLink = await screen.findByRole("link", { name: /Write the doc/i });
+		expect(firstLink).toHaveAttribute("href", "/work/task/task-1");
+		const secondLink = screen.getByRole("link", { name: /Ship the PR/i });
+		expect(secondLink).toHaveAttribute("href", "/work/task/task-2");
+	});
+
+	it("shows no task link for a thread with no tasks", async () => {
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") return makeOpenThreadResult();
+			if (action === "search_tasks") return { ok: true, data: [] };
+			return { ok: true, data: [] };
+		});
+
+		const { Conversations } = await import("../pages/Conversations.js");
+
+		const router = createMemoryRouter(
+			[{ path: "/conversations/:threadId", element: <Conversations /> }],
+			{ initialEntries: ["/conversations/t-1"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		await screen.findAllByTestId("conversations-page");
+
+		expect(screen.queryAllByRole("link", { name: /task/i })).toHaveLength(0);
 	});
 });
