@@ -109,7 +109,7 @@ export function HostThreadSection({
 	// host, and adopt whichever id `search_threads` finds. `knownThreadId`
 	// (the task page) never goes through this search at all.
 	const hostFilter =
-		knownThreadId === undefined && host !== undefined ? { host, mine: false } : undefined;
+		knownThreadId === undefined && host !== undefined ? { host } : undefined;
 	const resolved = useThreads(hostFilter);
 	const resolvedThreadId = resolved.threads[0]?.id;
 	const activeThreadId = knownThreadId ?? resolvedThreadId;
@@ -163,7 +163,13 @@ export function HostThreadSection({
 		[activeThreadId, host, prefill?.blockId, refresh, resolved.retry, onMessagePosted],
 	);
 
-	const isLoading = status === "loading" || resolved.status === "loading";
+	// @lore BC3 review: `useThread(undefined)` is "idle", not "loading" — a
+	// host with no thread yet (search_threads → []) must not show the
+	// skeleton forever. Only count `status === "loading"` once an id has
+	// actually been resolved; while resolving the host itself, `resolved`'s
+	// own loading state already covers the skeleton.
+	const isLoading =
+		resolved.status === "loading" || (activeThreadId !== undefined && status === "loading");
 
 	if (isLoading) {
 		return (

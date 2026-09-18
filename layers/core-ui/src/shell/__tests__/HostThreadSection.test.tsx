@@ -197,7 +197,6 @@ describe("HostThreadSection (L18)", () => {
 
 		expect(useThreads).toHaveBeenCalledWith({
 			host: { kind: "knowledge_item", id: "k-123" },
-			mine: false,
 		});
 		expect(useThread).toHaveBeenCalledWith("t-resolved", undefined);
 	});

@@ -65,6 +65,34 @@ describe("useThread", () => {
 		vi.clearAllMocks();
 	});
 
+	it("returns idle with no call and no subscription when no id is given", () => {
+		const { result } = renderHook(() => useThread(undefined));
+
+		expect(result.current.status).toBe("idle");
+		expect(result.current.data).toBeNull();
+		expect(result.current.error).toBeNull();
+		expect(callMock).not.toHaveBeenCalled();
+		expect(subscribeMock).not.toHaveBeenCalled();
+	});
+
+	it("loads once an id appears after starting idle", async () => {
+		callMock.mockResolvedValue({ ok: true, data: makeThreadView() });
+
+		const { result, rerender } = renderHook(
+			({ id }: { id: string | undefined }) => useThread(id),
+			{ initialProps: { id: undefined as string | undefined } },
+		);
+
+		expect(result.current.status).toBe("idle");
+		expect(callMock).not.toHaveBeenCalled();
+
+		rerender({ id: "thread-1" });
+
+		await waitFor(() => expect(result.current.status).toBe("ready"));
+		expect(callMock).toHaveBeenCalledWith("open_thread", { id: "thread-1" });
+		expect(result.current.data?.thread.id).toBe("thread-1");
+	});
+
 	it("calls open_thread and returns the resolved data", async () => {
 		callMock.mockResolvedValue({ ok: true, data: makeThreadView() });
 

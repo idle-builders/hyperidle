@@ -15,7 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { call } from "../services/call.js";
 import { getWsClient } from "../services/ws-client.js";
 
-export type UseThreadStatus = "loading" | "ready" | "error" | "not-found";
+export type UseThreadStatus = "idle" | "loading" | "ready" | "error" | "not-found";
 
 export interface UseThreadResult {
 	status: UseThreadStatus;
@@ -25,7 +25,7 @@ export interface UseThreadResult {
 }
 
 export function useThread(threadId: string | undefined | null, blockId?: string): UseThreadResult {
-	const [status, setStatus] = useState<UseThreadStatus>(threadId ? "loading" : "loading");
+	const [status, setStatus] = useState<UseThreadStatus>(threadId ? "loading" : "idle");
 	const [data, setData] = useState<ThreadView | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [tick, setTick] = useState(0);
@@ -34,7 +34,12 @@ export function useThread(threadId: string | undefined | null, blockId?: string)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `tick` is intentionally a dependency — bumping it via refresh() re-runs the call.
 	useEffect(() => {
 		if (!threadId) {
-			setStatus("loading");
+			// @lore BC3 review: "idle" is terminal for "no id given, nothing to
+			// open" — this used to set "loading" here, which never resolved
+			// (no call, no subscription fires from the other effect either),
+			// so a caller with no id yet (e.g. HostThreadSection resolving a
+			// host before any thread exists) showed a permanent skeleton.
+			setStatus("idle");
 			setError(null);
 			setData(null);
 			return;
