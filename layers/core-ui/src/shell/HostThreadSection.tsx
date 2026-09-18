@@ -28,9 +28,16 @@
  * top-level column (architecture.md §3.1's `messages_block_id_idx`), not a
  * field buried inside the plain payload. The old `isPlainPayloadWithBlockId`
  * type-guard hack is gone with it.
+ *
+ * @lore BC3 review: this component is the *only* place that resolves the
+ * host's thread — `search_threads({host})` then `open_thread(id)`. A host
+ * page that separately needs the same data (KnowledgeDetail's block-anchored
+ * inline rendering) does not call those hooks again; it reads `onThreadView`
+ * instead. Duplicating the resolve here was the original review finding:
+ * two independent fetchers for one thread, four action calls where two do.
  */
 
-import type { HostKind, Message } from "@hyperidle/domain-model";
+import type { HostKind, Message, ThreadView } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { CommentRowSender, ComposerSubmitInput } from "../ds";
 import { CommentRow, Composer, ErrorState, SkeletonList } from "../ds";
@@ -52,11 +59,14 @@ export interface HostThreadSectionProps {
 	/** Called when the user dismisses the prefill chip. */
 	onClearPrefill?: () => void;
 	/**
-	 * Called after a message is successfully posted. Used by host pages that
-	 * independently fetch the same thread data so they can trigger their own
-	 * refresh.
+	 * BC3 review: reports the thread this section resolved and loaded, on
+	 * every load and reload (including the one that follows a first post
+	 * creating the thread). This is the single fetch — a host page that also
+	 * needs the thread's data (e.g. for its own block-anchored rendering)
+	 * reads it from here instead of resolving the same host/thread again
+	 * itself.
 	 */
-	onMessagePosted?: () => void;
+	onThreadView?: (view: ThreadView | null) => void;
 	/**
 	 * T5: When set, filters the displayed messages to only those anchored to
 	 * this blockId. A "Show all messages" toggle allows the user to exit the filter.
@@ -102,14 +112,13 @@ export function HostThreadSection({
 	inline = false,
 	prefill,
 	onClearPrefill,
-	onMessagePosted,
+	onThreadView,
 	filterBlockId,
 }: HostThreadSectionProps): JSX.Element {
 	// A `host` prop resolves lazily: search for an existing thread on that
 	// host, and adopt whichever id `search_threads` finds. `knownThreadId`
 	// (the task page) never goes through this search at all.
-	const hostFilter =
-		knownThreadId === undefined && host !== undefined ? { host } : undefined;
+	const hostFilter = knownThreadId === undefined && host !== undefined ? { host } : undefined;
 	const resolved = useThreads(hostFilter);
 	const resolvedThreadId = resolved.threads[0]?.id;
 	const activeThreadId = knownThreadId ?? resolvedThreadId;
@@ -118,6 +127,13 @@ export function HostThreadSection({
 	const composerWrapperRef = useRef<HTMLDivElement>(null);
 	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
 	const [showAll, setShowAll] = useState(false);
+
+	// BC3 review: report every load — including the reload that follows a
+	// first post creating the thread — so a host page that needs the same
+	// data (e.g. block-anchored rendering) never resolves it a second time.
+	useEffect(() => {
+		onThreadView?.(data);
+	}, [data, onThreadView]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: filterBlockId is intentionally a dep — it triggers the reset when the selected block changes.
 	useEffect(() => {
@@ -158,9 +174,8 @@ export function HostThreadSection({
 			}
 			refresh();
 			if (targetThreadId !== activeThreadId) resolved.retry();
-			onMessagePosted?.();
 		},
-		[activeThreadId, host, prefill?.blockId, refresh, resolved.retry, onMessagePosted],
+		[activeThreadId, host, prefill?.blockId, refresh, resolved.retry],
 	);
 
 	// @lore BC3 review: `useThread(undefined)` is "idle", not "loading" — a

@@ -39,7 +39,7 @@
  * content matches editContent to prevent spurious saves on BodyEditor mount
  * (TipTap fires onChange with initial content on mount).
  */
-import type { Message, ScopeKind } from "@hyperidle/domain-model";
+import type { Message, ScopeKind, ThreadView } from "@hyperidle/domain-model";
 import { KNOWLEDGE_STATUSES, type KnowledgeStatus, SCOPE_KINDS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -65,8 +65,6 @@ import { useAutoSave } from "../hooks/useAutoSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
-import { useThread } from "../hooks/useThread.js";
-import { useThreads } from "../hooks/useThreads.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { call } from "../services/call.js";
@@ -691,16 +689,12 @@ function KnowledgeDetailView({
 		{ blockId: string; blockExcerpt: string } | undefined
 	>(undefined);
 
-	// L18: Fetch the host thread for inline anchored messages. BC3: resolve
-	// the knowledge_item's thread by search first (host-scoped — any
-	// signed-in visitor may read it, per architecture.md §3.4), then load it.
-	const knowledgeHostFilter = useMemo(
-		() => ({ host: { kind: "knowledge_item" as const, id: item.id } }),
-		[item.id],
-	);
-	const knowledgeThreadSearch = useThreads(knowledgeHostFilter);
-	const knowledgeThreadId = knowledgeThreadSearch.threads[0]?.id;
-	const { data: threadData } = useThread(knowledgeThreadId);
+	// L18: The host thread, for inline anchored messages. BC3 review:
+	// `HostThreadSection` below is the only thing that resolves this
+	// knowledge_item's thread (`search_threads({host})` then `open_thread`) —
+	// it reports what it loaded here via `onThreadView` rather than this page
+	// resolving the same thread a second time.
+	const [threadView, setThreadView] = useState<ThreadView | null>(null);
 
 	/**
 	 * @lore nested-knowledge-items tree-ui: fetch the direct parent's title so
@@ -759,8 +753,8 @@ function KnowledgeDetailView({
 
 	const messagesByBlockId = useMemo((): ReadonlyMap<string, ReadonlyArray<Message>> => {
 		const map = new Map<string, Message[]>();
-		if (!threadData?.messages) return map;
-		for (const msg of threadData.messages) {
+		if (!threadView?.messages) return map;
+		for (const msg of threadView.messages) {
 			// BC3: `blockId` is a real top-level Message column now
 			// (architecture.md §3.1's `messages_block_id_idx`), not a field
 			// buried inside the plain payload.
@@ -769,7 +763,7 @@ function KnowledgeDetailView({
 			map.set(msg.blockId, [...existing, msg]);
 		}
 		return map;
-	}, [threadData?.messages]);
+	}, [threadView?.messages]);
 
 	const related = useMemo(() => findRelated(item), [item]);
 
@@ -1158,6 +1152,7 @@ function KnowledgeDetailView({
 						prefill={threadPrefill}
 						onClearPrefill={() => setThreadPrefill(undefined)}
 						filterBlockId={threadPrefill?.blockId}
+						onThreadView={setThreadView}
 					/>
 				</div>
 
