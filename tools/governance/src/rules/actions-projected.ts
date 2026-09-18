@@ -68,7 +68,7 @@ function scanDeclaredActionNames(
 }
 
 /**
- * The eighteen registrations that realise the sixteen plumbing doors —
+ * The seventeen registrations that realise the sixteen plumbing doors —
  * internal seams, auth, health. A route, never an action.
  */
 const PLUMBING_ROUTES: readonly string[] = [
