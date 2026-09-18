@@ -1,5 +1,5 @@
 /**
- * AH3 RED — AssistantOverlay notice rendering + crash-recovery component tests.
+ * AH3 — AssistantOverlay notice rendering + crash-recovery component tests.
  *
  * AC2 (overlay side):
  *   - when thread last message has payload.notice.kind=missing_key → renders
@@ -11,29 +11,41 @@
  *   - thread whose last message is a human message AND older than
  *     ASSISTANT_TURN_TIMEOUT_MS shows Retry card, NOT infinite spinner
  *
- * These tests FAIL until:
- *   - AssistantOverlay.tsx branches on payload.notice?.kind
- *   - useAssistantThread adds WS subscription (live-update support)
- *   - ASSISTANT_TURN_TIMEOUT_MS exported from @hyperidle/domain-model
+ * @lore BC3: re-pointed off the deleted `useAssistantThread` onto
+ * `useThread`/`useThreads`/`useAgentOwnership`/`useCurrentUser` — the overlay
+ * resolves its own agent's direct thread via `useThreads({host:{kind:"agent"}})`
+ * then reads it with `useThread(id)` (architecture.md §5 B6). `notice` stays
+ * on the READ shape only (Reconciliation R9) — `AssistantOverlay.tsx`'s
+ * renderer is unchanged, so this test is kept and re-pointed, not deleted.
  */
 
-import type { Message } from "@hyperidle/domain-model";
-// AH3 RED: ASSISTANT_TURN_TIMEOUT_MS added to @hyperidle/domain-model in the green phase (plan §1.7b)
 import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
+import type { Message } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AssistantThreadState } from "../../hooks/useAssistantThread.js";
+import type { UseAgentOwnershipResult } from "../../hooks/useAgentOwnership.js";
+import type { UseCurrentUserResult } from "../../hooks/useCurrentUser.js";
+import type { UseThreadResult } from "../../hooks/useThread.js";
+import type { UseThreadsResult } from "../../hooks/useThreads.js";
 
-vi.mock("../../hooks/useAssistantThread.js", () => ({
-	useAssistantThread: vi.fn(),
+vi.mock("../../hooks/useAgentOwnership.js", () => ({
+	useAgentOwnership: vi.fn(),
 }));
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
+vi.mock("../../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: vi.fn(),
+}));
+vi.mock("../../hooks/useThread.js", () => ({
+	useThread: vi.fn(),
+}));
+vi.mock("../../hooks/useThreads.js", () => ({
+	useThreads: vi.fn(),
 }));
 
-import { MemoryRouter } from "react-router-dom";
-import { useAssistantThread } from "../../hooks/useAssistantThread.js";
 import { AssistantOverlay } from "../../shell/AssistantOverlay.js";
+import { useAgentOwnership } from "../../hooks/useAgentOwnership.js";
+import { useCurrentUser } from "../../hooks/useCurrentUser.js";
+import { useThread } from "../../hooks/useThread.js";
+import { useThreads } from "../../hooks/useThreads.js";
 
 const NOW_ISO = new Date().toISOString();
 // A timestamp older than the turn timeout
@@ -41,56 +53,66 @@ const STALE_ISO = new Date(Date.now() - ASSISTANT_TURN_TIMEOUT_MS - 10_000).toIS
 // A timestamp within the turn timeout window
 const RECENT_ISO = new Date(Date.now() - 30_000).toISOString();
 
+const MY_AGENT_ID = "agent-ast-founder";
+const MY_USER_ID = "u-founder";
+
 const BASE_THREAD = {
 	id: "t-overlay-ah3",
 	hostKind: "user" as const,
-	hostId: "u-founder",
-	initiatorId: "u-founder",
-	participants: ["u-founder", "ast-u-founder"],
+	hostId: MY_USER_ID,
+	initiatorId: MY_USER_ID,
+	members: [MY_USER_ID, MY_AGENT_ID],
+	title: null,
+	computedTitle: "Assistant",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: NOW_ISO,
 	createdAt: NOW_ISO,
 };
 
-const BASE_IDENTITIES = {
-	"u-founder": { name: "Founder" },
-	"ast-u-founder": { name: "Assistant", role: "assistant" },
-};
-
-/**
- * @lore AH3 RED: messages cast via `as unknown` because PlainPayload.notice
- * doesn't exist yet — green phase adds it (see AH3-plain-payload-notice.test.ts).
- * The fixture uses record types so the test compiles; the behavioral assertion
- * (overlay renders notice card) fails because the overlay doesn't branch on
- * payload.notice?.kind yet.
- */
-function makeData(messages: ReadonlyArray<Record<string, unknown>>): AssistantThreadState {
-	return {
-		status: "ready" as const,
-		data: {
-			thread: BASE_THREAD,
-			messages: messages as unknown as ReadonlyArray<Message>,
-			identities: BASE_IDENTITIES,
-		},
+function mockOwnershipAndUser(): void {
+	vi.mocked(useCurrentUser).mockReturnValue({
+		user: { id: MY_USER_ID, name: "Founder", email: "founder@example.com", avatarUrl: null },
+		status: "ready",
 		error: null,
 		retry: vi.fn(),
+	} as UseCurrentUserResult);
+	vi.mocked(useAgentOwnership).mockReturnValue({
+		rows: [{ id: MY_AGENT_ID, ownerUserId: MY_USER_ID }],
+		loading: false,
+	} as UseAgentOwnershipResult);
+	vi.mocked(useThreads).mockReturnValue({
+		status: "ready",
+		threads: [
+			{ ...BASE_THREAD, hasUnresolvedReview: false, lastMessagePreview: null },
+		],
+		error: null,
+		retry: vi.fn(),
+	} as UseThreadsResult);
+}
+
+function makeData(messages: ReadonlyArray<Record<string, unknown>>): UseThreadResult {
+	return {
+		status: "ready",
+		data: {
+			thread: BASE_THREAD,
+			members: [
+				{ id: MY_USER_ID, name: "Founder", role: "human", isAgent: false },
+				{ id: MY_AGENT_ID, name: "Assistant", role: "assistant", isAgent: true },
+			],
+			messages: messages as unknown as Message[],
+			headMessageId: null,
+			hostTitle: "Assistant",
+		},
+		error: null,
 		refresh: vi.fn(),
 	};
 }
 
 function renderOverlay() {
-	// AM5 T9: AssistantOverlayInner now calls useNavigate() for block-ref-embed
-	// open-contract wiring. Wrap in MemoryRouter to satisfy the Router context requirement.
 	return render(
-		<MemoryRouter>
-			<AssistantOverlay
-				open={true}
-				onClose={vi.fn()}
-				contextRefs={[]}
-				onRemoveContextRef={vi.fn()}
-			/>
-		</MemoryRouter>,
+		<AssistantOverlay open={true} onClose={vi.fn()} contextRefs={[]} onRemoveContextRef={vi.fn()} />,
 	);
 }
 
@@ -100,18 +122,20 @@ describe("AH3: AssistantOverlay notice rendering", () => {
 	});
 
 	it("renders missing_key guidance card naming Settings → Credentials", () => {
-		vi.mocked(useAssistantThread).mockReturnValue(
+		mockOwnershipAndUser();
+		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-mk-1",
 					threadId: "t-overlay-ah3",
-					senderId: "ast-u-founder",
+					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
 						text: "I can't think yet — no API key is configured. Add your Anthropic key in Settings → Credentials.",
 						notice: { kind: "missing_key" },
 					},
 					clientKey: "ck-mk-1",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
@@ -129,18 +153,20 @@ describe("AH3: AssistantOverlay notice rendering", () => {
 	});
 
 	it("renders missing_harness guidance card naming Agent settings", () => {
-		vi.mocked(useAssistantThread).mockReturnValue(
+		mockOwnershipAndUser();
+		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-mh-1",
 					threadId: "t-overlay-ah3",
-					senderId: "ast-u-founder",
+					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
 						text: "My runtime isn't set up. Pick a harness for me and I'll be ready.",
 						notice: { kind: "missing_harness" },
 					},
 					clientKey: "ck-mh-1",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
@@ -158,18 +184,20 @@ describe("AH3: AssistantOverlay notice rendering", () => {
 	});
 
 	it("renders provider_error guidance card with Retry ghost button", () => {
-		vi.mocked(useAssistantThread).mockReturnValue(
+		mockOwnershipAndUser();
+		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-pe-1",
 					threadId: "t-overlay-ah3",
-					senderId: "ast-u-founder",
+					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
 						text: "The model provider returned an error and I couldn't complete that.",
 						notice: { kind: "provider_error" },
 					},
 					clientKey: "ck-pe-1",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
@@ -187,18 +215,20 @@ describe("AH3: AssistantOverlay notice rendering", () => {
 	});
 
 	it("renders notice card with role=alert (accessibility)", () => {
-		vi.mocked(useAssistantThread).mockReturnValue(
+		mockOwnershipAndUser();
+		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-alert-1",
 					threadId: "t-overlay-ah3",
-					senderId: "ast-u-founder",
+					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
 						text: "Provider error.",
 						notice: { kind: "provider_error" },
 					},
 					clientKey: "ck-alert-1",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
@@ -213,17 +243,19 @@ describe("AH3: AssistantOverlay notice rendering", () => {
 	});
 
 	it("regular plain messages without notice render as normal chat (no guidance card)", () => {
-		vi.mocked(useAssistantThread).mockReturnValue(
+		mockOwnershipAndUser();
+		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-normal-1",
 					threadId: "t-overlay-ah3",
-					senderId: "ast-u-founder",
+					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: {
 						text: "Hello! How can I help you today?",
 					},
 					clientKey: "ck-normal-1",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
@@ -245,16 +277,18 @@ describe("AH3 §1.7b: crash-recovery — stale thinking state renders Retry card
 	});
 
 	it("thread whose last message is human AND older than ASSISTANT_TURN_TIMEOUT_MS shows Retry card (not spinner)", () => {
+		mockOwnershipAndUser();
 		// Last message is a human message, older than the timeout window
-		vi.mocked(useAssistantThread).mockReturnValue(
+		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-stale-1",
 					threadId: "t-overlay-ah3",
-					senderId: "u-founder",
+					senderId: MY_USER_ID,
 					type: "plain",
 					payload: { text: "Can you help me with this?" },
 					clientKey: "ck-stale-1",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
@@ -277,15 +311,17 @@ describe("AH3 §1.7b: crash-recovery — stale thinking state renders Retry card
 	});
 
 	it("thread whose last message is human AND within ASSISTANT_TURN_TIMEOUT_MS shows thinking indicator", () => {
-		vi.mocked(useAssistantThread).mockReturnValue(
+		mockOwnershipAndUser();
+		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-recent-1",
 					threadId: "t-overlay-ah3",
-					senderId: "u-founder",
+					senderId: MY_USER_ID,
 					type: "plain",
 					payload: { text: "What do you think?" },
 					clientKey: "ck-recent-1",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
@@ -301,15 +337,17 @@ describe("AH3 §1.7b: crash-recovery — stale thinking state renders Retry card
 	});
 
 	it("thread whose last message is from the assistant shows neither thinking nor Retry", () => {
-		vi.mocked(useAssistantThread).mockReturnValue(
+		mockOwnershipAndUser();
+		vi.mocked(useThread).mockReturnValue(
 			makeData([
 				{
 					id: "msg-ast-1",
 					threadId: "t-overlay-ah3",
-					senderId: "u-founder",
+					senderId: MY_USER_ID,
 					type: "plain",
 					payload: { text: "Help me." },
 					clientKey: "ck-ast-0",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
@@ -318,10 +356,11 @@ describe("AH3 §1.7b: crash-recovery — stale thinking state renders Retry card
 				{
 					id: "msg-ast-2",
 					threadId: "t-overlay-ah3",
-					senderId: "ast-u-founder",
+					senderId: MY_AGENT_ID,
 					type: "plain",
 					payload: { text: "Sure, here is my answer." },
 					clientKey: "ck-ast-1",
+					blockId: null,
 					deletedAt: null,
 					redactedAt: null,
 					resolvedAt: null,
