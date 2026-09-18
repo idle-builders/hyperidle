@@ -10,29 +10,21 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { insertMessage, listMessages } from "@hyperidle/thread";
-import {
-	decryptCredentialValue,
-	deleteCredential,
-	encryptCredentialValue,
-	readCredentials,
-	writeCredential,
-} from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
-import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/notifications";
+import { reap } from "@hyperidle/notifications";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerLifecyclePropagation } from "@hyperidle/policy";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import * as taskDb from "@hyperidle/task";
+import { insertMessage, listMessages } from "@hyperidle/thread";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
-import { registerSessionNotReturnedNotice } from "./services/session-not-returned-notice.js";
 import { startRoutineScheduler } from "./services/routine-scheduler-bindings.js";
+import { registerSessionNotReturnedNotice } from "./services/session-not-returned-notice.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
 
@@ -108,44 +100,6 @@ export async function reapTerminalTaskDispatchAttempts(
 ): Promise<number> {
 	return taskDb.taskDispatchAttemptStore.reapTerminal(db, termCutoff, batchSize);
 }
-
-/**
- * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
- * here at the `packages/server` composition point — all five targets
- * (`settings`, `users`, `org`, `work`, `connections`) are now real,
- * already-migrated packages. `connections` closed in Increment 1h:
- * `notificationsCredentialCipher`/`notificationsCredentialStore` wire
- * directly to `@hyperidle/connections`' real exports (no more interim
- * raw-table indirection).
- */
-const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
-
-/**
- * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
- * `NotificationsDeps` bag. `installNotifications` internally extracts
- * the sub-deps it needs; the composition root sees a single wiring point.
- */
-const notificationsDeps: NotificationsDeps = {
-	serverConfig: notificationsServerConfigPort,
-	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
-	credentialStore: {
-		findByName: async (db, name) => (await readCredentials(db, { name }))[0],
-		upsert: async (db, values) =>
-			writeCredential(db, values.name, {
-				encryptedValue: values.encryptedValue,
-				validationState: values.validationState,
-				lastValidatedAt: values.lastValidatedAt,
-			}),
-		deleteByName: (db, name) => deleteCredential(db, name),
-	},
-	work: {
-			// @lore BC3 architecture.md §5 R2: the only real caller (the
-		// policy-engine "attention" review-request classifier) is deleted
-		// with the `items` table — always undefined, kept as a live
-		// extension point (see NotificationsWorkReader's own @lore).
-		getItemById: () => Promise.resolve(undefined),
-	},
-};
 
 /**
  * @lore AU19 Increment 2a: `@hyperidle/policy`'s DI ports (Mechanism C),
@@ -352,19 +306,11 @@ export function registerCoreDomainServices(ctx: {
 			["lifecycle propagation"],
 		),
 	);
-	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener
-	// + drain) collapsed into one `installNotifications` call. The delivery chain
-	// is fully internal to @hyperidle/notifications; server-factory sees one boot
-	// entry and one disposer.
-	disposers.push(
-		identifyBootstrapOwner(
-			installNotifications(db, eventBus, notificationsDeps),
-			"notifications installation",
-			"dispatcher/listener/drain all stop",
-			["dispatcher", "listener", "drain"],
-		),
-	);
-
+	// @lore BC3 architecture.md §5 B7: the notifications inbox listener
+	// (`installNotifications`) is deleted — its only trigger was the policy
+	// engine's "attention" event, deleted with `items` (R2). Nothing left to
+	// register; `reap` below is the notifications package's only remaining
+	// composition-root touchpoint.
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
 	// live here at the composition root; per-table deletes delegate to their

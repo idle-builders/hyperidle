@@ -23,7 +23,6 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
@@ -43,6 +42,7 @@ import {
 } from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 
 /**
@@ -71,9 +71,6 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			// `items` table, which no longer exists.
 		},
 		conversation: {
-			getThreadIdsByHost: (db, hostKind, hostId) =>
-				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
-			insertThread,
 			// BA9c: findThreadById — thread row for thread_* events.
 			findThreadById: (db, id) => findThread(db, { id }),
 		},

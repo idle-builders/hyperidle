@@ -21,7 +21,6 @@
  * AT THE MOMENT of firing, not some earlier snapshot.
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import {
 	agentWorkIntents,
 	type HyperIdleDb,
@@ -47,6 +46,7 @@ import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
@@ -79,9 +79,6 @@ function makePorts(): RoutineSchedulerPorts {
 			// `items` table, which no longer exists.
 		},
 		conversation: {
-			getThreadIdsByHost: (db, hostKind, hostId) =>
-				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
-			insertThread,
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
 		knowledge: {
@@ -146,16 +143,16 @@ async function seedBet(
 	opts: { description?: string; status?: string } = {},
 ): Promise<void> {
 	await db.insert(threads).values({
-	id: `thr-${id}`,
-	hostKind: "team",
-	hostId: teamId,
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: NOW,
-	createdAt: NOW,
+		id: `thr-${id}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${id}`,
+		threadId: `thr-${id}`,
 		id,
 		parentTaskId: null,
 		teamId,
@@ -175,16 +172,16 @@ async function seedTask(
 	opts: { title?: string; state?: string } = {},
 ): Promise<void> {
 	await db.insert(threads).values({
-	id: `thr-${id}`,
-	hostKind: "team",
-	hostId: teamId,
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: NOW,
-	createdAt: NOW,
+		id: `thr-${id}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${id}`,
+		threadId: `thr-${id}`,
 		id,
 		parentTaskId,
 		teamId,
@@ -805,16 +802,16 @@ describe("BA9c — team-less agent owner still receives triggerEvent in contextB
 		});
 		// BB1: root task replaces bet
 		await db.insert(threads).values({
-		id: `thr-${"ba9c-noteam-bet"}`,
-		hostKind: "team",
-		hostId: "ba9c-noteam-team",
-		initiatorId: "system:propagation",
-		participants: "[]",
-		lastActiveAt: NOW,
-		createdAt: NOW,
+			id: `thr-${"ba9c-noteam-bet"}`,
+			hostKind: "team",
+			hostId: "ba9c-noteam-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
 		});
 		await db.insert(tasks).values({
-		threadId: `thr-${"ba9c-noteam-bet"}`,
+			threadId: `thr-${"ba9c-noteam-bet"}`,
 			id: "ba9c-noteam-bet",
 			parentTaskId: null,
 			teamId: "ba9c-noteam-team",

@@ -23,7 +23,7 @@
  * getDailyDigest, now deleted).
  */
 
-import type { HyperIdleDb, ServerCredential, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, ServerCredential } from "@hyperidle/db";
 
 // ---------------------------------------------------------------------------
 // Private port interfaces (referenced by NotificationsDeps fields)
@@ -57,33 +57,6 @@ interface NotificationsConfigPatch {
 interface NotificationsServerConfigPort {
 	read(db: HyperIdleDb): Promise<{ notifications: NotificationsConfigSection }>;
 	update(db: HyperIdleDb, patch: { notifications: NotificationsConfigPatch }): Promise<unknown>;
-}
-
-/**
- * @lore BC3 architecture.md §5 R2: this port's only real caller, the
- * policy-engine "attention" review-request classifier, was deleted with
- * `policy-engine.ts` — nothing emits a `NotificationEvent{kind:"attention"}`
- * anymore, so `install.ts`'s listener never reaches this in production
- * today. Kept as a live extension point (a future "attention" producer
- * would resume it) rather than deleted outright; the shape is inlined
- * here (not the deleted `Item` type) to match `install.ts`'s own local
- * mirror of this same interface.
- */
-interface NotificationsWorkReader {
-	getItemById(
-		exec: WriteExecutor,
-		id: string,
-	): Promise<
-		| {
-				blocking: boolean | null;
-				riskTier: string | null;
-				kind: string | null;
-				threadId: string | null;
-				title: string;
-				body: string | null;
-		  }
-		| undefined
-	>;
 }
 
 interface NotificationsCredentialCipher {
@@ -121,5 +94,4 @@ export interface NotificationsDeps {
 	serverConfig: NotificationsServerConfigPort;
 	credentialCipher: NotificationsCredentialCipher;
 	credentialStore: NotificationsCredentialStore;
-	work: NotificationsWorkReader;
 }

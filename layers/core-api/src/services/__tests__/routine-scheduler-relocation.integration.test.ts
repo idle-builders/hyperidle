@@ -37,7 +37,6 @@
  * it; the post-bet-retro coverage above is unaffected.
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import {
 	getAgentIdentity,
@@ -50,6 +49,7 @@ import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
@@ -84,9 +84,6 @@ function makePorts(): RoutineSchedulerPorts {
 			// `items` table, which no longer exists.
 		},
 		conversation: {
-			getThreadIdsByHost: (db, hostKind, hostId) =>
-				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
-			insertThread,
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
 		knowledge: {

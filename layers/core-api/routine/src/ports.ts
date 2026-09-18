@@ -1,5 +1,5 @@
 // @lore BB1: Bet import removed — bet is now a root task; getBetById deleted.
-import type { HyperIdleDb, NewThread, Team, User, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, Team, User, WriteExecutor } from "@hyperidle/db";
 import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -52,8 +52,9 @@ export interface RoutineSchedulerPorts {
 		// read/wrote the `items` table, which no longer exists.
 	};
 	readonly conversation: {
-		getThreadIdsByHost(db: HyperIdleDb, hostKind: string, hostId: string): Promise<string[]>;
-		insertThread(db: HyperIdleDb, values: NewThread): Promise<void>;
+		// @lore BC3 architecture.md §5: `getThreadIdsByHost`/`insertThread`
+		// DELETED — no production caller in this package ever reached them
+		// (the post-bet-retro path that used them is already gone).
 		/**
 		 * BA9c: Load a thread row for trigger event subject assembly.
 		 * Called for thread_* events.

@@ -25,7 +25,6 @@
  *      today).
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -53,6 +52,7 @@ import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq, sql } from "drizzle-orm";
 import { vi } from "vitest";
@@ -138,9 +138,6 @@ function makePorts(): RoutineSchedulerPorts & {
 			// `items` table, which no longer exists.
 		},
 		conversation: {
-			getThreadIdsByHost: (db, hostKind, hostId) =>
-				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
-			insertThread,
 			// BA9c: findThreadById for thread rich subject
 			findThreadById: (db, id) => findThread(db, { id }),
 		},

@@ -60,8 +60,6 @@ function inertPorts(): RoutineSchedulerPorts {
 			getTaskById: unreachable("work.getTaskById"),
 		},
 		conversation: {
-			getThreadIdsByHost: unreachable("conversation.getThreadIdsByHost"),
-			insertThread: unreachable("conversation.insertThread"),
 			findThreadById: unreachable("conversation.findThreadById"),
 		},
 		knowledge: {

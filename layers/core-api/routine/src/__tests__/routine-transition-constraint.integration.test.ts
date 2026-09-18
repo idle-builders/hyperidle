@@ -57,8 +57,6 @@ function makePorts(
 			getTaskById: () => Promise.resolve(undefined),
 		},
 		conversation: {
-			getThreadIdsByHost: unreachable("conversation.getThreadIdsByHost"),
-			insertThread: unreachable("conversation.insertThread"),
 			findThreadById: unreachable("conversation.findThreadById"),
 		},
 		knowledge: {

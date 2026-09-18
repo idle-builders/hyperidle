@@ -34,7 +34,6 @@
  * path this test targets.
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/thread";
 import {
 	agentWorkIntents,
 	type HyperIdleDb,
@@ -55,6 +54,7 @@ import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
@@ -106,9 +106,6 @@ function makePorts(): RoutineSchedulerPorts & {
 			// `items` table, which no longer exists.
 		},
 		conversation: {
-			getThreadIdsByHost: (db, hostKind, hostId) =>
-				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
-			insertThread,
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
 		knowledge: {
