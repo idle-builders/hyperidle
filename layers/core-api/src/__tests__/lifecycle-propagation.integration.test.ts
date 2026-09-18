@@ -10,10 +10,16 @@
  * @lore L20: messages.senderId references agents.id (FK). Any test that
  * exercises review-thread creation must seed a "system:propagation" agent row,
  * or the insert will fail with a FK constraint violation (F6 from arch review).
+ *
+ * @lore code-review finding, BC3: the ship-confirmation review used to post
+ * through a raw `conversation.insertMessage` — no `changes` row, no websocket
+ * nudge, no `lastActiveAt` bump. It now posts through the composed
+ * `send_message.run`, injected the same way `editTask` already is, below.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
+	changes,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -22,30 +28,34 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
+import type { ActionResult, ThreadView } from "@hyperidle/domain-model";
 import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerLifecyclePropagation } from "@hyperidle/policy";
 import * as work from "@hyperidle/task";
-import { insertMessage, listMessages } from "@hyperidle/thread";
+import { listMessages } from "@hyperidle/thread";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../actions/compose.js";
 
 /**
  * @lore BC3 architecture.md §5: `registerLifecyclePropagation`'s
- * `LifecyclePropagationDeps` is now `Pick<PolicyDeps, "work"|"conversation"|
- * "editTask">` — the item-table reads (`getItemById`/`updateItemById`/
+ * `LifecyclePropagationDeps` is now `Pick<PolicyDeps, "work"|"editTask"|
+ * "sendMessage">` — the item-table reads (`getItemById`/`updateItemById`/
  * `listItemIdsBySourceAgent`) and the `users` founder lookup are gone with
  * `policy-engine.ts` (R2) and the ship-confirmation thread's own founder
  * participant computation (it now posts into the task's existing thread —
  * see `lifecycle-propagation.ts`'s `createShipConfirmationThread`).
  */
 function buildPolicyDeps(agentOrchestration: AgentOrchestrationPort): PolicyDeps {
-	const editTaskAction = buildCoreActions({
+	const actions = buildCoreActions({
 		agentOrchestration,
 		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
 		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
-	}).find((a) => a.declaration.name === "edit_task");
+	});
+	const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
+	const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
+	if (!sendMessageAction) throw new Error("send_message action not found");
 	return {
 		work: {
 			getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
@@ -54,7 +64,6 @@ function buildPolicyDeps(agentOrchestration: AgentOrchestrationPort): PolicyDeps
 			listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
 		},
 		conversation: {
-			insertMessage,
 			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 				listMessages(db, {
 					threadInitiatorId: initiatorId,
@@ -63,6 +72,7 @@ function buildPolicyDeps(agentOrchestration: AgentOrchestrationPort): PolicyDeps
 				}),
 		},
 		editTask: editTaskAction.run as PolicyDeps["editTask"],
+		sendMessage: sendMessageAction.run as PolicyDeps["sendMessage"],
 	};
 }
 
@@ -530,5 +540,67 @@ describe("registerLifecyclePropagation — propagation events", () => {
 		// Assert: no propagation happened (task stays in_progress)
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
+	});
+});
+
+describe("registerLifecyclePropagation — ship-confirmation review (code-review finding)", () => {
+	let unsubscribe: (() => void) | undefined;
+
+	afterEach(() => {
+		unsubscribe?.();
+		vi.restoreAllMocks();
+	});
+
+	test("posts the ship-confirmation review through send_message: a changes row on the root's thread, and open_thread returns it", async ({
+		db,
+		app,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedBase(db);
+		await seedTask(db, "task-1", "in_progress");
+		await seedSession(db, "session-1", "task-1", "active");
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
+
+		eventBus.emit({
+			type: "session_ended",
+			streamId: "session-1",
+			sessionId: "session-1",
+			agentId: "agent-1",
+			taskId: "task-1",
+			timestamp: Date.now(),
+			outcome: "completed",
+		});
+
+		// "bet-1" (the root) has exactly one child, task-1 — finishing it closes
+		// the root too, which is what triggers the ship-confirmation post.
+		await vi.waitFor(async () => {
+			const [root] = await db.select().from(tasks).where(eq(tasks.id, "bet-1"));
+			expect(root?.state).toBe("done");
+		});
+
+		// A `changes` row of object `thread`, kind `message`, actor
+		// `system:propagation` on the root's own thread — the module-link rule
+		// (through the action, never the table). Before this fix a raw
+		// `insertMessage` wrote no `changes` row at all.
+		const rows = await db.select().from(changes).where(eq(changes.objectId, "thr-bet-1"));
+		const messageChange = rows.find((r) => r.kind === "message");
+		expect(messageChange).toBeDefined();
+		expect(messageChange?.object).toBe("thread");
+		expect(messageChange?.actor).toBe("system:propagation");
+
+		// `open_thread` — the door every screen reads a thread through — sees
+		// the review.
+		const res = await app.request("/api/actions/open_thread", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ id: "thr-bet-1" }),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as ActionResult<ThreadView> & { ok: true };
+		expect(body.ok).toBe(true);
+		const review = body.data.messages.find((m) => m.type === "review");
+		expect(review).toBeDefined();
+		expect(review?.senderId).toBe(SYSTEM_PROPAGATION_ID);
 	});
 });

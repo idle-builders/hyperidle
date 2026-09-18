@@ -34,6 +34,7 @@ import {
 	type ActionResult,
 	canTransitionTaskState,
 	type EditTaskInput,
+	type SendMessageOutput,
 	type TaskState,
 	type TaskView,
 } from "@hyperidle/domain-model";
@@ -41,7 +42,7 @@ import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { type PolicyDeps, registerLifecyclePropagation } from "../index.js";
-import type { PolicyEditTask } from "../ports.js";
+import type { PolicyEditTask, PolicySendMessage } from "../ports.js";
 
 // ─── Manual port implementations (raw Drizzle, no @hyperidle/work dep) ────────
 //
@@ -82,14 +83,26 @@ function makeWorkPort(): PolicyDeps["work"] {
 	};
 }
 
-// Minimal conversation stub — lifecycle propagation calls insertMessage into
-// the root task's own thread when it completes (ship-confirmation review;
-// BC3 architecture.md §3.9 — no second, task-hosted thread is created any
-// more). Tests assert state changes only, not the posted message.
+// This test file exercises task-state propagation only — no test asserts on
+// the posted ship-confirmation review itself (`lifecycle-propagation.integration.test.ts`
+// in `layers/core-api/src/__tests__` does that against the real `send_message`
+// action). `listInitiatedVerdictMessages` has no reader in `lifecycle-propagation.ts`
+// either; both stubs exist only so `PolicyDeps` is satisfiable here.
 const conversationStub: PolicyDeps["conversation"] = {
-	insertMessage: async () => {},
 	listInitiatedVerdictMessages: async () => [],
 };
+
+/**
+ * Minimal `send_message` stand-in — `policy` cannot import `@hyperidle/thread`
+ * (Mechanism C). Lifecycle propagation posts the ship-confirmation review
+ * through this when a root task completes (BC3 architecture.md §3.9 —
+ * through the action, never the table); a no-op success is sufficient here
+ * since these tests assert task-state transitions, not the posted message.
+ */
+const sendMessageStub: PolicySendMessage = async (): Promise<ActionResult<SendMessageOutput>> => ({
+	ok: true,
+	data: {} as unknown as SendMessageOutput,
+});
 
 /**
  * a minimal `edit_task` stand-in for THIS test file only: `policy`
@@ -153,8 +166,8 @@ const NOW = new Date().toISOString();
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
-	// Seed system:propagation user so ship-confirmation thread inserts do not
-	// fail on an FK constraint (messages.senderId → users.id).
+	// Seed system:propagation user so seedTask's threads.initiatorId (below)
+	// does not fail its FK constraint (threads.initiatorId → users.id).
 	await db.insert(users).values({
 		id: "system:propagation",
 		name: "Propagation System",
@@ -266,6 +279,7 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
+			sendMessage: sendMessageStub,
 			editTask: makeEditTask(),
 		};
 		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
@@ -317,6 +331,7 @@ describe("BB1 AC3 — session→task propagation (needsReview fork)", () => {
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
+			sendMessage: sendMessageStub,
 			editTask: makeEditTask(),
 		};
 		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
@@ -400,6 +415,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 			const policyDeps: PolicyDeps = {
 				work: makeWorkPort(),
 				conversation: conversationStub,
+				sendMessage: sendMessageStub,
 				editTask: makeEditTask(),
 			};
 			const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
@@ -464,6 +480,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 			const policyDeps: PolicyDeps = {
 				work: makeWorkPort(),
 				conversation: conversationStub,
+				sendMessage: sendMessageStub,
 				editTask: makeEditTask(),
 			};
 			const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
@@ -526,6 +543,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
+			sendMessage: sendMessageStub,
 			editTask: makeEditTask(),
 		};
 		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
@@ -583,6 +601,7 @@ describe("BB1 AC3 — parent auto-completion cascade (needsReview fork)", () => 
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
+			sendMessage: sendMessageStub,
 			editTask: makeEditTask(),
 		};
 		const unregister = registerLifecyclePropagation(db, eventBus, policyDeps);
@@ -630,6 +649,7 @@ describe("BB1 — a cascade kill does not complete its ancestors", () => {
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
+			sendMessage: sendMessageStub,
 			editTask: makeEditTask(),
 		};
 		const unsub = registerLifecyclePropagation(db, eventBus, policyDeps);
@@ -665,6 +685,7 @@ describe("BB1 — a cascade kill does not complete its ancestors", () => {
 		const policyDeps: PolicyDeps = {
 			work: makeWorkPort(),
 			conversation: conversationStub,
+			sendMessage: sendMessageStub,
 			editTask: makeEditTask(),
 		};
 		const unsub = registerLifecyclePropagation(db, eventBus, policyDeps);

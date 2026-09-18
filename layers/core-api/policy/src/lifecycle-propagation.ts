@@ -1,7 +1,7 @@
 /** Reactive lifecycle propagation. */
 
-import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
 import type { TaskState } from "@hyperidle/domain-model";
 import type {
 	EventBus,
@@ -13,7 +13,9 @@ import type {
 import { TaskInvalidTransitionError } from "./errors.js";
 import type { PolicyDeps } from "./ports.js";
 
-type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "conversation" | "editTask">;
+const logger = createLogger({ pkg: "policy.lifecycle-propagation" });
+
+type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "editTask" | "sendMessage">;
 
 /**
  * §6 rows 4/5: writes through `edit_task` instead of the deleted private
@@ -312,6 +314,16 @@ async function propagateTaskToParent(
  * stalled-knowledge-action review uses.
  * @lore BB1: previously anchored on a `bet` row. A root task (`parentTaskId ===
  * null`) is the new bet equivalent.
+ * @lore code-review finding, BC3: posts through `sendMessage` (the injected
+ * `send_message.run`) instead of a raw `conversation.insertMessage` — the
+ * module-link rule (architecture.md §3.9: through the action, never the
+ * table). Going through the action is what appends the `changes` row, fires
+ * the websocket nudge and bumps `lastActiveAt`; the manual
+ * `thread_message_appended` emit above is gone because `send_message.run`
+ * already emits it on commit. The `clientKey` is stable (no `Date.now()`
+ * suffix) so a duplicate call for the same root task — e.g. a retriggered
+ * event — replays the same message instead of posting a second one, the
+ * same idempotency shape B7b's stalled-knowledge-action review uses.
  */
 async function createShipConfirmationThread(
 	db: HyperIdleDb,
@@ -327,31 +339,26 @@ async function createShipConfirmationThread(
 	const killedCount = allChildren.filter((t) => t.state === "killed").length;
 	const totalCount = allChildren.length;
 
-	const messageId = randomUUID();
-	await deps.conversation.insertMessage(db, {
-		id: messageId,
-		senderId: SYSTEM_PROPAGATION_AGENT_ID,
-		threadId: rootThreadId,
-		type: "review",
-		payload: JSON.stringify({
-			kind: "ship_confirmation",
-			taskId: rootTaskId,
-			taskSummary: { done: doneCount, killed: killedCount, total: totalCount },
-			message: "All subtasks on this task are complete. Confirm shipping?",
-		}),
-		clientKey: `propagation-ship-${rootTaskId}-${Date.now()}`,
-		createdAt: now,
-	});
-
-	eventBus.emit({
-		type: "thread_message_appended",
-		streamId: rootThreadId,
-		threadId: rootThreadId,
-		messageId,
-		messageType: "review",
-		senderId: SYSTEM_PROPAGATION_AGENT_ID,
-		timestamp: Date.now(),
-	});
+	const result = await deps.sendMessage(
+		{ actor: SYSTEM_PROPAGATION_AGENT_ID, db, eventBus, now },
+		{
+			threadId: rootThreadId,
+			clientKey: `propagation-ship-${rootTaskId}`,
+			review: {
+				title: "Confirm shipping?",
+				reasoning: [
+					`All subtasks on this task are complete: ${doneCount} done, ${killedCount} killed, ${totalCount} total.`,
+				],
+			},
+		},
+	);
+	if (!result.ok) {
+		logger.warn("createShipConfirmationThread: send_message refused", {
+			rootTaskId,
+			rootThreadId,
+			problems: result.problems,
+		});
+	}
 }
 
 // ─── Public registration function ─────────────────────────────────────────────

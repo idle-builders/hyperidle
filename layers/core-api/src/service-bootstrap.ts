@@ -17,7 +17,7 @@ import { reap } from "@hyperidle/notifications";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerLifecyclePropagation } from "@hyperidle/policy";
 import * as taskDb from "@hyperidle/task";
-import { insertMessage, listMessages } from "@hyperidle/thread";
+import { listMessages } from "@hyperidle/thread";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
@@ -119,8 +119,16 @@ export async function reapTerminalTaskDispatchAttempts(
  * `policy` may not import `@hyperidle/task` directly). `policyDeps` is
  * therefore built per-call, closing over the composed `edit_task.run` that
  * only exists once the actions list is built (`app.ts`).
+ *
+ * @lore code-review finding, BC3: `sendMessage` (`send_message.run`, same
+ * composed-actions closure as `editTask`) replaces the raw
+ * `conversation.insertMessage` binding — `lifecycle-propagation.ts`'s
+ * ship-confirmation review now posts through the action, never the table.
  */
-function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
+function buildPolicyDeps(
+	editTask: PolicyDeps["editTask"],
+	sendMessage: PolicyDeps["sendMessage"],
+): PolicyDeps {
 	return {
 		work: {
 			getTaskById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "task", id),
@@ -130,7 +138,6 @@ function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
 				taskDb.listAncestorIds(exec, taskId),
 		},
 		conversation: {
-			insertMessage,
 			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 				listMessages(db, {
 					threadInitiatorId: initiatorId,
@@ -139,6 +146,7 @@ function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
 				}),
 		},
 		editTask,
+		sendMessage,
 	};
 }
 
@@ -298,7 +306,7 @@ export function registerCoreDomainServices(ctx: {
 	// registration (lifecycle propagation) is no longer worth collapsing.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerLifecyclePropagation(db, eventBus, buildPolicyDeps(editTask)),
+			registerLifecyclePropagation(db, eventBus, buildPolicyDeps(editTask, sendMessage)),
 			"lifecycle propagation registration",
 			"unsubscribe",
 			// @lore AU44 batch6: "retry interval" removed — the 30s heartbeat
