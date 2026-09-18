@@ -215,11 +215,11 @@ export function judgeSendMessageCalled(): RubricDimension {
 	};
 }
 
-/** Judge: submit_review was called — messages row with senderId = agentId. */
+/** Judge: send_message with type "review" was called — messages row with senderId = agentId. */
 export function judgeSubmitReviewCalled(): RubricDimension {
 	return {
 		id: "review_submitted",
-		label: "Review Submitted (submit_review called)",
+		label: "Review Submitted (send_message with type review)",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const [msg] = await ctx.db
 				.select({ id: messages.id, type: messages.type })
@@ -230,34 +230,9 @@ export function judgeSubmitReviewCalled(): RubricDimension {
 			const submitted = msg !== undefined;
 			return {
 				score: submitted ? 1.0 : 0.0,
-				note: submitted ? undefined : "No review message sent by agent (submit_review not called)",
-			};
-		},
-	};
-}
-
-/** Judge: handoff_to was called — sessions.state = "done" AND sessions.endedAt set. */
-export function judgeHandoffCalled(): RubricDimension {
-	return {
-		id: "handoff_called",
-		label: "Handoff Performed (handoff_to called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
-				.select({ state: sessions.state, endedAt: sessions.endedAt })
-				.from(sessions)
-				.where(eq(sessions.id, ctx.triggerResult.sessionId))
-				.limit(1);
-
-			if (!session) {
-				return { score: 0.0, note: "Session row not found" };
-			}
-			// handoff_to calls endSession which sets state="done" and endedAt
-			const handoffed = session.state === "done" && session.endedAt !== null;
-			return {
-				score: handoffed ? 1.0 : 0.0,
-				note: handoffed
+				note: submitted
 					? undefined
-					: `Session state=${session.state}, endedAt=${session.endedAt ?? "null"}`,
+					: "No review message sent by agent (send_message with type review not called)",
 			};
 		},
 	};

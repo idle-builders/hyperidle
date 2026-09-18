@@ -362,7 +362,7 @@ export async function seedMinimalWorld(
 // X8 seeding additions
 // ---------------------------------------------------------------------------
 
-/** Create a thread (conversation anchor). Used by send_message, read_inbox, submit_review, create_item scenarios. */
+/** Create a thread (conversation anchor). Used by send_message, read_inbox, submit-review scenarios. */
 export async function seedThread(
 	db: HyperIdleDb,
 	opts: {
@@ -515,7 +515,7 @@ export async function seedActiveSession(
 /**
  * Composite: seed a complete world with two agents on the same team.
  * Extends seedMinimalWorld with a second agent.
- * Used by: send_message, handoff_to, read_inbox, delegation scenarios.
+ * Used by: send_message, read_inbox, delegation, and handoff (edit_task) scenarios.
  */
 export async function seedMultiAgentWorld(
 	db: HyperIdleDb,

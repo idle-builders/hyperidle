@@ -1,7 +1,13 @@
 /**
- * X8: Handoff-to scenarios (interaction 11).
+ * X8: Handoff scenarios (interaction 11).
  *
- * Tests the handoff_to tool: toAgent path, toRole path, toHuman escalation, context quality.
+ * `handoff_to` (the standalone tool) is deleted — handoff is now an `edit_task`
+ * call that sets `ownerAgentId` (architecture doc §8 B4). Role targeting and
+ * human escalation went with it: a specific teammate's agentId is the only
+ * target `edit_task` accepts, and escalating to a human is a `send_message`
+ * with type "review" instead. Tests: the `edit_task` handoff path (agent →
+ * agent, in every role pairing the old suite covered) and the `send_message`
+ * escalation path.
  */
 
 import { messages, sessions } from "@hyperidle/db";
@@ -26,14 +32,15 @@ import type {
 const htToAgentBuilderDevops: EvalScenario = {
 	id: "ht-to-agent-builder-devops",
 	description: "Builder hands off DevOps task to specific teammate with context",
-	feature: "handoff_to",
+	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on infrastructure migration.
-When you need to transfer work to a specific teammate, use handoff_to with their agentId.
-Include: contextId (your current task), status, reason, artifacts, and remaining work.
+When you need to transfer work to a specific teammate, use edit_task with id set to your
+current task and ownerAgentId set to their agentId.
+Use appendNote to record what you completed, why you're handing off, and what's left.
 Good handoffs give the receiver everything they need to continue without questions.`,
 			secondAgentRole: "builder",
 			secondAgentName: "On-call Builder",
@@ -50,13 +57,10 @@ Remaining work:
 - Run integration tests in the new environment
 - Update DNS records
 
-Use handoff_to with:
-- toAgent: your teammate's agentId (it's in your context as the second team member)
-- contextId: current task ID
-- status: "in_progress"
-- reason: why you're handing off
-- artifacts: list of completed work
-- remainingWork: list of what's left`,
+Use edit_task with:
+- id: current task ID
+- ownerAgentId: your teammate's agentId (it's in your context as the second team member)
+- appendNote: the work you completed, why you're handing off, and what's left`,
 			betDescription: "AWS VPC migration",
 			betDoneCondition: "All servers migrated to new VPC with connectivity verified.",
 		});
@@ -139,16 +143,16 @@ Use handoff_to with:
 
 const htToRoleBuilderConsulting: EvalScenario = {
 	id: "ht-to-role-builder-consulting",
-	description: "Builder hands off consulting analysis to any product_manager on the team",
-	feature: "handoff_to",
+	description: "Builder hands off consulting analysis to the team's product manager",
+	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on consulting analysis.
-When your analysis is complete and needs stakeholder communication, hand off to a product manager.
-Use handoff_to with toRole="product_manager" to route to the right person.
-The system will find an available PM on your team automatically.`,
+When your analysis is complete and needs stakeholder communication, hand off to the team's
+product manager. Use edit_task with id set to your current task and ownerAgentId set to the
+product manager's agentId (visible in your context as the second team member).`,
 			secondAgentRole: "product_manager",
 			secondAgentName: "Team PM",
 			taskTitle: "Complete competitive analysis and hand off for stakeholder communication",
@@ -159,12 +163,10 @@ Your analysis findings:
 - Competitor B has 15% lower pricing but inferior quality
 - Our key differentiator: client education and knowledge transfer included
 
-Hand off to the team product manager for stakeholder communication using handoff_to:
-- toRole: "product_manager"
-- contextId: current task ID
-- status: "completed"
-- reason: "Analysis complete, needs stakeholder communication"
-- artifacts: your completed analysis`,
+Hand off to the team product manager for stakeholder communication using edit_task:
+- id: current task ID
+- ownerAgentId: the product manager's agentId
+- appendNote: "Analysis complete, needs stakeholder communication" plus your completed analysis`,
 			betDescription: "Competitive analysis and strategy",
 			betDoneCondition: "Analysis delivered to stakeholders.",
 		});
@@ -216,7 +218,7 @@ Hand off to the team product manager for stakeholder communication using handoff
 						.limit(1);
 					return session?.notes ?? "";
 				},
-				criteria: `Score 1.0 if session notes mention the competitive analysis findings AND a handoff to a PM role. Score 0.5 if handoff is mentioned but analysis findings are absent. Score 0.0 if neither.`,
+				criteria: `Score 1.0 if session notes mention the competitive analysis findings AND a handoff to the product manager. Score 0.5 if handoff is mentioned but analysis findings are absent. Score 0.0 if neither.`,
 			}),
 		],
 	},
@@ -228,15 +230,15 @@ Hand off to the team product manager for stakeholder communication using handoff
 
 const htToHumanBuilderHealthcare: EvalScenario = {
 	id: "ht-to-human-builder-healthcare",
-	description: "Builder escalates HIPAA question to human reviewer (toHuman=true, status=blocked)",
-	feature: "handoff_to",
+	description: "Builder escalates HIPAA question to a human reviewer via a review message",
+	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on a healthcare patient data system.
 When you encounter a question requiring human judgment on patient privacy or HIPAA compliance,
-escalate to a human reviewer using handoff_to with toHuman=true and status="blocked".
+escalate to a human reviewer by sending a review message: send_message with type "review".
 HIPAA interpretation questions require human legal or compliance expertise — never guess.`,
 			taskTitle: "Implement patient data export feature",
 			taskDescription: `Implement the patient data export feature for the healthcare portal.
@@ -247,14 +249,11 @@ This may require a new Business Associate Agreement (BAA) or may be prohibited e
 
 You cannot proceed without legal guidance on whether this is permitted under HIPAA.
 
-Escalate to a human reviewer using handoff_to:
-- toHuman: true
-- contextId: current task ID
-- status: "blocked"
-- reason: describe the HIPAA compliance question blocking you
-- Include what specific guidance you need
+Escalate to a human reviewer using send_message with type "review":
+- title: a short description of the compliance question blocking you
+- reasoning: at least one point describing the specific guidance you need
 
-This creates a review item for a human compliance expert.`,
+This creates a review message a human compliance expert can see and respond to.`,
 			betDescription: "Healthcare patient data portal",
 			betDoneCondition: "Patient data export feature implemented with HIPAA compliance verified.",
 		});
@@ -277,7 +276,7 @@ This creates a review item for a human compliance expert.`,
 		dimensions: [
 			judgeSessionCompleted(),
 			{
-				id: "handoff_called",
+				id: "escalation_message_sent",
 				label: "Human Escalation Executed",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [session] = await ctx.db
@@ -295,12 +294,12 @@ This creates a review item for a human compliance expert.`,
 				},
 			},
 			{
-				id: "review_item_created",
-				label: "Review Item Created for Human",
+				id: "review_message_created",
+				label: "Review Message Created for Human",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					// @lore BC3 architecture.md §5: toHuman=true used to create an
-					// `items` row (kind "escalation"/"review"); a surfaced review
-					// is a `review`-type `messages` row now, sent by the agent.
+					// @lore BC3 architecture.md §5: human escalation is a
+					// `review`-type `messages` row, sent by the agent via
+					// send_message — there is no separate escalation path anymore.
 					const reviewMessages = await ctx.db
 						.select({ id: messages.id })
 						.from(messages)
@@ -308,11 +307,11 @@ This creates a review item for a human compliance expert.`,
 							and(eq(messages.senderId, ctx.seedResult.agentId), eq(messages.type, "review")),
 						);
 					return {
-						score: reviewMessages.length > 0 ? 1.0 : 0.5,
+						score: reviewMessages.length > 0 ? 1.0 : 0.0,
 						note:
 							reviewMessages.length > 0
 								? `${reviewMessages.length} review message(s) created`
-								: "No review message found (handoff protocol may handle it differently)",
+								: "No review message sent by agent (send_message with type review not called)",
 					};
 				},
 			},
@@ -340,14 +339,15 @@ This creates a review item for a human compliance expert.`,
 const htContextQualityPmFinance: EvalScenario = {
 	id: "ht-context-quality-pm-finance",
 	description: "PM hands off financial audit with detailed context, artifacts, and remaining work",
-	feature: "handoff_to",
+	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager coordinating a financial audit engagement.
 When handing off work, provide complete context so the receiver can continue without questions.
-Your handoffs must include: what you completed, what artifacts were produced, and what remains.
+Use edit_task with id set to your current task and ownerAgentId set to your colleague's agentId.
+Your appendNote must include: what you completed, what artifacts were produced, and what remains.
 Poor handoffs waste time — always be specific and comprehensive.`,
 			secondAgentRole: "product_manager",
 			secondAgentName: "Audit Coordinator",
@@ -364,13 +364,11 @@ Remaining for Phase 2:
 - External auditor interviews (scheduled for next Tuesday)
 - Final audit report compilation
 
-Use handoff_to with:
-- toAgent: your colleague's agentId
-- contextId: current task ID
-- status: "in_progress"
-- reason: "Phase 1 complete, transferring Phase 2 coordination"
-- artifacts: list the specific deliverables from Phase 1
-- remainingWork: list the specific Phase 2 items`,
+Use edit_task with:
+- id: current task ID
+- ownerAgentId: your colleague's agentId
+- appendNote: "Phase 1 complete, transferring Phase 2 coordination", the specific deliverables from
+  Phase 1, and the specific Phase 2 items remaining`,
 			betDescription: "Q3 financial audit coordination",
 			betDoneCondition: "Audit complete and filed with external auditors.",
 		});
@@ -448,14 +446,15 @@ Use handoff_to with:
 const htToBuilderDesignerFrontend: EvalScenario = {
 	id: "ht-to-builder-designer-frontend",
 	description: "Designer hands off completed component spec to builder for implementation",
-	feature: "handoff_to",
+	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
 			agentRole: "designer",
 			agentSystemPrompt: `You are a product designer on the frontend team.
 When your design specification is complete, hand off to the builder for implementation.
-Use handoff_to with the builder's agentId and include:
+Use edit_task with id set to your current task and ownerAgentId set to the builder's agentId.
+Your appendNote should include:
 - Design rationale: why these design decisions were made
 - Component specs: states, interactions, accessibility requirements
 - Acceptance criteria: what the builder should verify before shipping
@@ -474,13 +473,11 @@ Design decisions you made:
 - Empty state: "You're all caught up" with checkmark illustration
 - Accessibility: focus trap when open, ARIA live region for new notifications
 
-Hand off using handoff_to:
-- toAgent: the builder's agentId (your teammate)
-- contextId: current task ID
-- status: "completed" (design is done)
-- reason: "Design specification complete, ready for implementation"
-- artifacts: list the component decisions above
-- remainingWork: "Builder to implement, QA to verify accessibility with screen reader"`,
+Hand off using edit_task:
+- id: current task ID
+- ownerAgentId: the builder's agentId (your teammate)
+- appendNote: "Design specification complete, ready for implementation", the component decisions
+  above, and "Builder to implement, QA to verify accessibility with screen reader"`,
 			betDescription: "Frontend notification center redesign",
 			betDoneCondition: "Notification center designed and implemented.",
 		});
@@ -544,7 +541,7 @@ const htToBuilderOpsDevops: EvalScenario = {
 	id: "ht-to-builder-ops-devops",
 	description:
 		"Ops hands off root cause diagnosis to builder when production error is application code",
-	feature: "handoff_to",
+	feature: "edit_task",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMultiAgentWorld(ctx.db, {
@@ -552,8 +549,9 @@ const htToBuilderOpsDevops: EvalScenario = {
 			agentSystemPrompt: `You are an ops agent responsible for production reliability.
 When you investigate a production incident and determine the root cause is application code (not infrastructure),
 escalate to the Builder with your full diagnosis.
-Use handoff_to with status="blocked" because ops cannot fix application code — that's the Builder's domain.
-Your handoff must include: what you observed, what you diagnosed, the affected component, and reproduction conditions.`,
+Use edit_task with id set to your current task, ownerAgentId set to the builder's agentId, and
+state set to "blocked" because ops cannot fix application code — that's the Builder's domain.
+Your appendNote must include: what you observed, what you diagnosed, the affected component, and reproduction conditions.`,
 			secondAgentRole: "builder",
 			secondAgentName: "Application Builder",
 			taskTitle: "Investigate production error spike and hand off root cause to builder",
@@ -570,12 +568,12 @@ Your diagnosis:
 Root cause is application code — the session cache module does not handle missing cache entries
 for new agent IDs. This is not an infrastructure issue.
 
-Hand off to the builder using handoff_to:
-- toAgent: the builder's agentId
-- contextId: current task ID
-- status: "blocked" (ops cannot fix application code)
-- reason: "Root cause is application code in session-cache.ts, not infrastructure"
-- artifacts: your diagnosis with error details, affected component, and reproduction condition`,
+Hand off to the builder using edit_task:
+- id: current task ID
+- ownerAgentId: the builder's agentId
+- state: "blocked" (ops cannot fix application code)
+- appendNote: "Root cause is application code in session-cache.ts, not infrastructure", plus your
+  diagnosis with error details, affected component, and reproduction condition`,
 			betDescription: "Production incident response",
 			betDoneCondition: "Error spike resolved and root cause fixed.",
 		});
