@@ -18,6 +18,7 @@ const baseMsg: Message = {
 	threadId: "t-1",
 	senderId: "u-founder",
 	clientKey: "k-1",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
