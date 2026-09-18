@@ -10,8 +10,15 @@
  * History-preservation contract: when the user visits a legacy URL and is
  * redirected, pressing back must go to whatever was before — NOT bounce into
  * the legacy URL again. <Navigate replace /> removes the legacy URL from history.
+ *
+ * @lore BC3: repointed at `POST /api/actions/{search_threads,open_thread}` —
+ * never `GET /api/threads*`. There is no `bet`/`task` host kind — a task's
+ * own thread is `team`-hosted. AC-2 and both AC-5 tests assert
+ * `[data-testid='thread-shell']`, which AM1 removed from the conversation
+ * surface (`Conversations.tsx`'s own @lore) — they are already on
+ * `known-pre-existing-failures.ts`; this is a mechanical mock migration only.
  */
-import { expect, test } from "./fixtures";
+import { expect, makeThread, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Fixtures shared across tests
@@ -22,44 +29,14 @@ const THREAD_ID = "t-l9-e2e";
 const BET_ID = "bet-l9-e2e";
 const NOW = new Date().toISOString();
 
-function makeThreadDetail(messages: Array<Record<string, unknown>> = []) {
-	return {
-		thread: {
-			id: THREAD_ID,
-			hostKind: "task",
-			hostId: "task-l9",
-			initiatorId: FOUNDER_ID,
-			participants: [FOUNDER_ID, "agent-1"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: NOW,
-			createdAt: NOW,
-		},
-		messages,
-		headMessageId: null,
-		nextMessagesCursor: null,
-	};
-}
-
-function makeConversationsThreadList() {
-	return {
-		threads: [
-			{
-				id: THREAD_ID,
-				hostKind: "task",
-				hostId: "task-l9",
-				initiatorId: FOUNDER_ID,
-				participants: [FOUNDER_ID],
-				pinned: false,
-				resolvedAt: null,
-				lastActiveAt: NOW,
-				createdAt: NOW,
-				hasUnresolvedReview: false,
-			},
-		],
-		nextCursor: null,
-	};
-}
+const L9_THREAD = makeThread(THREAD_ID, {
+	hostKind: "team",
+	hostId: "task-l9",
+	initiatorId: FOUNDER_ID,
+	members: [FOUNDER_ID, "agent-1"],
+	lastActiveAt: NOW,
+	createdAt: NOW,
+});
 
 // ---------------------------------------------------------------------------
 // AC-5: Work → click bet's thread → /conversations/:threadId
@@ -69,13 +46,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 	test("AC-5: bare /conversations shows the 'open a thread' empty state in the Main pane", async ({
 		page,
 	}) => {
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/conversations");
 		await expect(page.getByTestId("conversations-empty")).toBeVisible();
 		// URL must stay at /conversations
@@ -83,13 +54,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 	});
 
 	test("AC-1: legacy /conversations/review redirects to /conversations", async ({ page }) => {
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/conversations/review");
 		await expect(page).toHaveURL(/\/conversations$/);
 		// The queue empty state should render (since no threads)
@@ -97,13 +62,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 	});
 
 	test("AC-1: legacy /conversations/chat redirects to /conversations", async ({ page }) => {
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/conversations/chat");
 		await expect(page).toHaveURL(/\/conversations$/);
 		await expect(page.getByTestId("conversations-empty")).toBeVisible();
@@ -112,20 +71,9 @@ test.describe("L9 — single Conversations detail surface", () => {
 	test("AC-1: legacy /conversations/review?id=X redirects to /conversations/X", async ({
 		page,
 	}) => {
-		// Mock the thread detail for the id-bearing redirect
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeThreadDetail()),
-			});
-		});
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeConversationsThreadList()),
-			});
+		await mockThread(page, { thread: L9_THREAD, messages: [] });
+		await mockSearchThreads(page, {
+			rows: [makeThreadListRow(L9_THREAD.id, { ...L9_THREAD, hasUnresolvedReview: false })],
 		});
 		await page.goto(`/conversations/review?id=${THREAD_ID}`);
 		await expect(page).toHaveURL(new RegExp(`/conversations/${THREAD_ID}`));
@@ -134,19 +82,9 @@ test.describe("L9 — single Conversations detail surface", () => {
 	test("AC-1: legacy /conversations/chat?thread=X redirects to /conversations/X", async ({
 		page,
 	}) => {
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeThreadDetail()),
-			});
-		});
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeConversationsThreadList()),
-			});
+		await mockThread(page, { thread: L9_THREAD, messages: [] });
+		await mockSearchThreads(page, {
+			rows: [makeThreadListRow(L9_THREAD.id, { ...L9_THREAD, hasUnresolvedReview: false })],
 		});
 		await page.goto(`/conversations/chat?thread=${THREAD_ID}`);
 		await expect(page).toHaveURL(new RegExp(`/conversations/${THREAD_ID}`));
@@ -156,13 +94,7 @@ test.describe("L9 — single Conversations detail surface", () => {
 		page,
 	}) => {
 		// Setup mocks for work page
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 
 		// Start on work/portfolio
 		await page.goto("/work/portfolio");
@@ -178,19 +110,9 @@ test.describe("L9 — single Conversations detail surface", () => {
 	});
 
 	test("AC-2: direct visit to /conversations/:threadId renders ThreadShell", async ({ page }) => {
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeThreadDetail()),
-			});
-		});
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeConversationsThreadList()),
-			});
+		await mockThread(page, { thread: L9_THREAD, messages: [] });
+		await mockSearchThreads(page, {
+			rows: [makeThreadListRow(L9_THREAD.id, { ...L9_THREAD, hasUnresolvedReview: false })],
 		});
 
 		await page.goto(`/conversations/${THREAD_ID}`);
@@ -201,16 +123,17 @@ test.describe("L9 — single Conversations detail surface", () => {
 	test("AC-4: unknown thread id (404) shows 'Thread not found' EmptyState — no ThreadShell", async ({
 		page,
 	}) => {
-		await page.route("**/api/threads/unknown-id-l9", async (route) => {
-			await route.fulfill({ status: 404, body: "not found" });
-		});
-		await page.route("**/api/threads?**", async (route) => {
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
+				body: JSON.stringify({
+					ok: false,
+					problems: [{ code: "not_found", message: "Thread not found", path: "id" }],
+				}),
 			});
 		});
+		await mockSearchThreads(page, { rows: [] });
 
 		await page.goto("/conversations/unknown-id-l9");
 		await expect(page.getByTestId("thread-not-found")).toBeVisible();
@@ -227,64 +150,22 @@ test.describe("L9 — single Conversations detail surface", () => {
 		page,
 	}) => {
 		const BET_THREAD_ID = "t-bet-l9";
-
-		// Mock /api/bets/:id
-
-		// Mock GET /api/threads?host_kind=bet&host_id=...
-		await page.route(`**/api/threads?**host_kind=bet**`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					threads: [
-						{
-							id: BET_THREAD_ID,
-							hostKind: "bet",
-							hostId: BET_ID,
-							initiatorId: FOUNDER_ID,
-							participants: [FOUNDER_ID],
-							pinned: false,
-							resolvedAt: null,
-							lastActiveAt: NOW,
-							createdAt: NOW,
-						},
-					],
-				}),
-			});
+		const betThread = makeThread(BET_THREAD_ID, {
+			hostKind: "team",
+			hostId: BET_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+			lastActiveAt: NOW,
+			createdAt: NOW,
 		});
 
-		// Mock GET /api/threads/:id for the bet thread
-		await page.route(`**/api/threads/${BET_THREAD_ID}`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					thread: {
-						id: BET_THREAD_ID,
-						hostKind: "bet",
-						hostId: BET_ID,
-						initiatorId: FOUNDER_ID,
-						participants: [FOUNDER_ID],
-						pinned: false,
-						resolvedAt: null,
-						lastActiveAt: NOW,
-						createdAt: NOW,
-					},
-					messages: [],
-					headMessageId: null,
-					nextMessagesCursor: null,
-				}),
-			});
+		// search_threads for the bet's own thread (HostThreadSection's host prop path)
+		await mockSearchThreads(page, {
+			rows: [makeThreadListRow(BET_THREAD_ID, { ...betThread, hasUnresolvedReview: false })],
 		});
 
-		// Also mock conversations threads for sidebar
-		await page.route("**/api/threads?**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		// open_thread for the bet thread
+		await mockThread(page, { thread: betThread, messages: [] });
 
 		// Navigate to the bet detail page
 		await page.goto(`/work/task/${BET_ID}`);
