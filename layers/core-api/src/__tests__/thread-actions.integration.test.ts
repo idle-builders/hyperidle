@@ -1717,6 +1717,73 @@ describe("search_threads", () => {
 		const mine = res.body.data?.find((r) => r.id === "st-mine-1");
 		expect(mine?.hasUnresolvedReview).toBe(true);
 	});
+
+	test("an empty input ({}) takes the same mine branch as {mine:true} — the sentence's own promise", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "st-2");
+		await seedHuman(db, "st-outsider-2", "st-2");
+		await seedThreadRow(db, "st-mine-2", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		await seedThreadRow(db, "st-not-mine-2", {
+			hostKind: "user",
+			hostId: "st-outsider-2",
+			initiatorId: "st-outsider-2",
+			members: ["st-outsider-2"],
+		});
+
+		const res = await call<Array<{ id: string }>>(app, "search_threads", {});
+		expect(res.status).toBe(200);
+		const ids = res.body.data?.map((r) => r.id) ?? [];
+		expect(ids).toContain("st-mine-2");
+		expect(ids).not.toContain("st-not-mine-2");
+	});
+
+	test("lastMessagePreview is batched, not one query per thread, and is null for a thread with no messages", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "st-3");
+		await seedThreadRow(db, "st-preview-a", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		await seedThreadRow(db, "st-preview-b", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+		await seedThreadRow(db, "st-preview-c", {
+			hostKind: "user",
+			hostId: FOUNDER_ID,
+			initiatorId: FOUNDER_ID,
+			members: [FOUNDER_ID],
+		});
+
+		await call(app, "send_message", { threadId: "st-preview-a", text: "a first" });
+		await call(app, "send_message", { threadId: "st-preview-a", text: "a latest" });
+		await call(app, "send_message", { threadId: "st-preview-b", text: "b only" });
+		// st-preview-c gets no message at all.
+
+		const res = await call<Array<{ id: string; lastMessagePreview: string | null }>>(
+			app,
+			"search_threads",
+			{ ids: ["st-preview-a", "st-preview-b", "st-preview-c"] },
+		);
+		expect(res.status).toBe(200);
+		const byId = new Map(res.body.data?.map((r) => [r.id, r.lastMessagePreview]));
+		expect(byId.get("st-preview-a")).toBe("a latest");
+		expect(byId.get("st-preview-b")).toBe("b only");
+		expect(byId.get("st-preview-c")).toBeNull();
+	});
 });
 
 // ============================================================================

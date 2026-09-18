@@ -424,7 +424,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			);
 			const ids = [...new Set([...byMessage.map((r) => r.id), ...byTitle.map((r) => r.id)])];
 			rows = ids.length > 0 ? await store.listThreads(ctx.db, { ids, includeDeleted: false }) : [];
-		} else if (input.mine === true) {
+		} else if (input.mine !== false) {
+			// `mine` defaults to the sentence's own promise — "no parameter lists
+			// the ones you are in" — so an empty `{}` input (mine `undefined`)
+			// takes this branch exactly like `{mine:true}`; only an explicit
+			// `mine:false` with no other filter falls through to `[]` below.
 			const probe = `%${JSON.stringify(ctx.actor).replace(/[\\%_]/g, "\\$&")}%`;
 			const raw = await store.listThreads(ctx.db, {
 				participantProbe: probe,
@@ -453,18 +457,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		});
 		const unresolvedThreadIds = new Set(unresolvedMsgs.map((m) => m.threadId));
 
-		const lastMessages = await Promise.all(
-			threadIds.map(async (id) => {
-				const rows2 = await store.listMessages(ctx.db, {
-					threadId: id,
-					order: "createdAt",
-					dir: "desc",
-					limit: 1,
-				});
-				return [id, rows2[0]] as const;
-			}),
-		);
-		const lastMessageById = new Map(lastMessages);
+		const lastMessageRows = await store.listLastMessagePerThread(ctx.db, threadIds);
+		const lastMessageById = new Map(lastMessageRows.map((m) => [m.threadId, m]));
 
 		const titles = await resolveThreadTitles(ctx.db, readable, ctx.actor, {
 			listUserNames: async (d, ids) => {

@@ -240,6 +240,25 @@ export function listMessages(exec: HyperIdleDb, f: MessageFilter): Promise<Messa
 	return q;
 }
 
+/**
+ * The latest non-deleted message per thread, for `search_threads`'s
+ * `lastMessagePreview` — one query for every thread id in the result page,
+ * never one `listMessages` call per thread (the N+1 this replaces). A thread
+ * with no messages simply has no row in the result; the caller looks each
+ * thread id up in a `Map` and treats a miss as "no preview".
+ */
+export function listLastMessagePerThread(
+	exec: HyperIdleDb,
+	threadIds: readonly string[],
+): Promise<Message[]> {
+	if (threadIds.length === 0) return Promise.resolve([]);
+	return exec
+		.selectDistinctOn([messages.threadId])
+		.from(messages)
+		.where(and(inArray(messages.threadId, threadIds), isNull(messages.deletedAt)))
+		.orderBy(messages.threadId, desc(messages.createdAt), desc(messages.id));
+}
+
 // =============================================================================
 // Joined / aggregate surfaces
 // =============================================================================
