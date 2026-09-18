@@ -80,11 +80,23 @@ DROP TABLE "items";
 -- 7. no thread is hosted by a task any more. A thread a task now claims is
 --    re-hosted onto that task's team; an orphan (no task claims it) onto its
 --    initiator, which is always a real identity.
+--
+--    A thread's host is immutable at the database level
+--    (`threads_host_immutable_trg`, migration 0007). That invariant is not
+--    being broken here — 0007's own note calls a migration the sanctioned
+--    way through: the host "cannot drift ... without a deliberate
+--    migration". Suspend the trigger for these two statements and restore
+--    it immediately, so every other path stays guarded (0076 set this
+--    precedent for the same trigger).
+ALTER TABLE "threads" DISABLE TRIGGER "threads_host_immutable_trg";
+--> statement-breakpoint
 UPDATE "threads" th SET "host_kind" = 'team', "host_id" = t."team_id"
 FROM "tasks" t WHERE th."host_kind" = 'task' AND t."thread_id" = th."id";
 --> statement-breakpoint
 UPDATE "threads" SET "host_kind" = 'user', "host_id" = "initiator_id"
 WHERE "host_kind" = 'task';
+--> statement-breakpoint
+ALTER TABLE "threads" ENABLE TRIGGER "threads_host_immutable_trg";
 --> statement-breakpoint
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM "threads" WHERE "host_kind" = 'task') THEN
@@ -94,11 +106,14 @@ END $$;
 --> statement-breakpoint
 
 -- 8. the intent kind says what it is. Same three constraints 0078 wrote.
-UPDATE "agent_work_intents" SET "kind" = 'thread_turn' WHERE "kind" = 'assistant_turn';
---> statement-breakpoint
+--    The constraints must drop BEFORE the data moves — the OLD check (no
+--    'thread_turn' member) still guards every row up to that point, so
+--    updating first would violate the very constraint it is about to widen.
 ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_kind_ck";
 --> statement-breakpoint
 ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_kind_source_compat_ck";
+--> statement-breakpoint
+UPDATE "agent_work_intents" SET "kind" = 'thread_turn' WHERE "kind" = 'assistant_turn';
 --> statement-breakpoint
 ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_ck"
   CHECK ("kind" in ('thread_turn','session_start','knowledge_action','routine_run','task_run','session_resume'));
