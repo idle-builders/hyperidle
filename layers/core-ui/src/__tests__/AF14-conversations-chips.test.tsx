@@ -33,7 +33,7 @@ function makeItem(overrides: Partial<ThreadItem> & { id: string }): ThreadItem {
 		snippet: "",
 		timestamp: "5m",
 		avatarUrl: null,
-		hostKind: overrides.hostKind ?? "task",
+		hostKind: overrides.hostKind ?? "team",
 		hasUnresolvedReview: false,
 		blocking: false,
 		pinned: false,

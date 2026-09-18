@@ -45,10 +45,10 @@ describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
 
 	// @lore artifacts-become-knowledge: artifact route is a no-op — /artifacts/:id page deleted
 
-	it("review → navigate('/reviews/:reviewId') (flattened, no betId needed)", () => {
+	it("review → navigate('/reviews/:reviewId?threadId=...') (flattened, no betId needed)", () => {
 		const navigate = vi.fn();
-		createOpenHandler(navigate)({ route: "review", reviewId: "rv1" });
-		expect(navigate).toHaveBeenCalledWith("/reviews/rv1");
+		createOpenHandler(navigate)({ route: "review", reviewId: "rv1", threadId: "th-1" });
+		expect(navigate).toHaveBeenCalledWith("/reviews/rv1?threadId=th-1");
 	});
 
 	it("host + user (no navigable host) does NOT call navigate (documented no-op)", () => {
