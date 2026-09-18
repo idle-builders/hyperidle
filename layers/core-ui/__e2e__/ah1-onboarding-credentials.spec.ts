@@ -13,9 +13,10 @@
  *
  * Proof type: Playwright E2E — drives the real UI. Per AH track HARD rule:
  * NO page.route() mocking of credential/session/assistant paths.
- * The fixtures.ts core mocks (/api/auth/me, /api/settings, /api/threads, /api/teams)
- * are allowed as setup-only scaffolding so the app shell renders. The credential
- * routes (/api/credentials/*) must reach the REAL backend.
+ * The fixtures.ts core mocks (/api/auth/me, /api/settings,
+ * /api/actions/search_threads, /api/teams) are allowed as setup-only
+ * scaffolding so the app shell renders. The credential routes
+ * (/api/credentials/*) must reach the REAL backend.
  *
  * @lore AH1: The existing Playwright setup runs against a Vite-only dev server
  * (port 5179, no API server). For the AH1 real-backend spec, we need a running
