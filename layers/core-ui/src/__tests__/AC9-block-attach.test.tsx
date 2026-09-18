@@ -205,7 +205,9 @@ describe("AC9 — pending_block on send creates a knowledge item, not a wire ref
 		await user.keyboard("{Meta>}{Enter}{/Meta}");
 
 		// Find the send_message call.
-		const messageCalls = callMock.mock.calls.filter((args: unknown[]) => args[0] === "send_message");
+		const messageCalls = callMock.mock.calls.filter(
+			(args: unknown[]) => args[0] === "send_message",
+		);
 		expect(messageCalls).toHaveLength(1);
 
 		const [, input] = messageCalls[0]! as [string, { refs?: unknown[] }];

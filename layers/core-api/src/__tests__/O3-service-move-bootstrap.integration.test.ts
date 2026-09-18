@@ -39,10 +39,12 @@ function fullServiceBootstrap(
 	const fullCtx = {
 		...ctx,
 		editTask: editTaskAction.run as Parameters<typeof registerCoreDomainServices>[0]["editTask"],
-		sendMessage:
-			sendMessageAction.run as Parameters<typeof registerCoreDomainServices>[0]["sendMessage"],
-		adjustThread:
-			adjustThreadAction.run as Parameters<typeof registerCoreDomainServices>[0]["adjustThread"],
+		sendMessage: sendMessageAction.run as Parameters<
+			typeof registerCoreDomainServices
+		>[0]["sendMessage"],
+		adjustThread: adjustThreadAction.run as Parameters<
+			typeof registerCoreDomainServices
+		>[0]["adjustThread"],
 	};
 	return [...registerCoreDomainServices(fullCtx), ...registerAgentLayerServices(fullCtx)];
 }

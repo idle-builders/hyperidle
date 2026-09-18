@@ -64,16 +64,16 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		},
 	]);
 	await db.insert(threads).values({
-	id: `thr-${"bet-1"}`,
-	hostKind: "team",
-	hostId: "prod-1",
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now,
-	createdAt: now,
+		id: `thr-${"bet-1"}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${"bet-1"}`,
+		threadId: `thr-${"bet-1"}`,
 		id: "bet-1",
 		parentTaskId: null,
 		teamId: "prod-1",
@@ -84,16 +84,16 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		updatedAt: now,
 	});
 	await db.insert(threads).values({
-	id: `thr-${"task-1"}`,
-	hostKind: "team",
-	hostId: "prod-1",
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now,
-	createdAt: now,
+		id: `thr-${"task-1"}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${"task-1"}`,
+		threadId: `thr-${"task-1"}`,
 		id: "task-1",
 		parentTaskId: "bet-1",
 		teamId: "prod-1",

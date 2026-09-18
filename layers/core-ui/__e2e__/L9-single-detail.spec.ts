@@ -18,7 +18,14 @@
  * surface (`Conversations.tsx`'s own @lore) — they are already on
  * `known-pre-existing-failures.ts`; this is a mechanical mock migration only.
  */
-import { expect, makeThread, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
+import {
+	expect,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	mockThread,
+	test,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Fixtures shared across tests

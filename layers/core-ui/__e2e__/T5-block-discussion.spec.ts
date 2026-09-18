@@ -28,7 +28,14 @@
  * create-on-first-post door) is never exercised and needs no mock.
  */
 
-import { expect, makeMessage, makeThread, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
+import {
+	expect,
+	makeMessage,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	test,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Shared constants
@@ -61,7 +68,10 @@ async function mockThreadList(page: import("@playwright/test").Page): Promise<vo
 	});
 }
 
-async function mockKnowledgeItem(page: import("@playwright/test").Page, body: string): Promise<void> {
+async function mockKnowledgeItem(
+	page: import("@playwright/test").Page,
+	body: string,
+): Promise<void> {
 	await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, async (route) => {
 		if (route.request().method() === "GET") {
 			await route.fulfill({
@@ -249,7 +259,13 @@ test.describe("T5 AC-2 — anchor-lost indicator for orphan messages", () => {
 				contentType: "application/json",
 				body: JSON.stringify({
 					ok: true,
-					data: { thread: THREAD, members: [], messages: [orphanMsg], headMessageId: null, hostTitle: null },
+					data: {
+						thread: THREAD,
+						members: [],
+						messages: [orphanMsg],
+						headMessageId: null,
+						hostTitle: null,
+					},
 				}),
 			});
 		});

@@ -53,7 +53,10 @@ interface CapturedBroadcast {
 	};
 }
 
-function buildActionsWithHub(agentOrchestration: AgentOrchestrationPort, broadcasts: CapturedBroadcast[]) {
+function buildActionsWithHub(
+	agentOrchestration: AgentOrchestrationPort,
+	broadcasts: CapturedBroadcast[],
+) {
 	return buildCoreActions({
 		agentOrchestration,
 		agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
@@ -75,19 +78,42 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
 	await db
 		.insert(users)
-		.values([{ id: FOUNDER_ID, kind: "human", name: "Founder", role: "founder", status: "active", createdAt: now }])
+		.values([
+			{
+				id: FOUNDER_ID,
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				createdAt: now,
+			},
+		])
 		.onConflictDoNothing();
 }
 
 async function seedHuman(db: HyperIdleDb, id: string, teamId: string): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(users).values({ id, kind: "human", name: id, role: "member", status: "active", teamId, createdAt: now });
+	await db.insert(users).values({
+		id,
+		kind: "human",
+		name: id,
+		role: "member",
+		status: "active",
+		teamId,
+		createdAt: now,
+	});
 }
 
 async function seedThreadRow(
 	db: HyperIdleDb,
 	id: string,
-	opts: { hostKind: string; hostId: string; initiatorId: string; members: readonly string[]; resolvedAt?: string | null },
+	opts: {
+		hostKind: string;
+		hostId: string;
+		initiatorId: string;
+		members: readonly string[];
+		resolvedAt?: string | null;
+	},
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(threads).values({
@@ -103,7 +129,11 @@ async function seedThreadRow(
 	});
 }
 
-function ctxFor(db: HyperIdleDb, eventBus: ActionContext["eventBus"], actor: string): ActionContext {
+function ctxFor(
+	db: HyperIdleDb,
+	eventBus: ActionContext["eventBus"],
+	actor: string,
+): ActionContext {
 	return { actor, db, eventBus, now: new Date().toISOString() };
 }
 
@@ -148,7 +178,9 @@ describe("send_message — the websocket nudge", () => {
 		const conversationsRows = broadcasts.filter((b) => b.topic === "conversations");
 		expect(conversationsRows).toHaveLength(2);
 		for (const row of conversationsRows) expect(row.envelope.topic).toBe("conversations");
-		const conversationsMessage = conversationsRows.find((b) => b.envelope.kind === "thread.message");
+		const conversationsMessage = conversationsRows.find(
+			(b) => b.envelope.kind === "thread.message",
+		);
 		expect(conversationsMessage).toBeDefined();
 		// the message body never rides `conversations` — no payload/text, only
 		// thread id, message id, sender, members.
@@ -160,7 +192,11 @@ describe("send_message — the websocket nudge", () => {
 		expect(after.senderId).toBe(FOUNDER_ID);
 	});
 
-	test("a refused send (not a member) broadcasts nothing", async ({ db, eventBus, agentOrchestration }) => {
+	test("a refused send (not a member) broadcasts nothing", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedTeam(db, "nudge-team-2");
 		await seedHuman(db, "nudge-victim", "nudge-team-2");
 		await seedHuman(db, "nudge-stranger", "nudge-team-2");
@@ -175,12 +211,19 @@ describe("send_message — the websocket nudge", () => {
 		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
 		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
 
-		const result = await sendMessage(ctxFor(db, eventBus, "nudge-stranger"), { threadId: "nudge-dm-1", text: "hi" });
+		const result = await sendMessage(ctxFor(db, eventBus, "nudge-stranger"), {
+			threadId: "nudge-dm-1",
+			text: "hi",
+		});
 		expect(result.ok).toBe(false);
 		expect(broadcasts).toHaveLength(0);
 	});
 
-	test("with no hub wired, send_message pushes nothing and does not throw", async ({ db, eventBus, agentOrchestration }) => {
+	test("with no hub wired, send_message pushes nothing and does not throw", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedTeam(db, "nudge-team-3");
 		await seedHuman(db, "nudge-human-3", "nudge-team-3");
 
@@ -192,13 +235,20 @@ describe("send_message — the websocket nudge", () => {
 		});
 		const sendMessage = runnerFor<SendMessageInput, SendMessageOutput>(actions, "send_message");
 
-		const result = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), { recipients: ["nudge-human-3"], text: "no hub here" });
+		const result = await sendMessage(ctxFor(db, eventBus, FOUNDER_ID), {
+			recipients: ["nudge-human-3"],
+			text: "no hub here",
+		});
 		expect(result.ok).toBe(true);
 	});
 });
 
 describe("adjust_thread — the websocket nudge", () => {
-	test("a resolve broadcasts thread.changed on both topics, unredacted", async ({ db, eventBus, agentOrchestration }) => {
+	test("a resolve broadcasts thread.changed on both topics, unredacted", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedTeam(db, "nudge-team-4");
 		await seedThreadRow(db, "nudge-thread-4", {
 			hostKind: "team",
@@ -211,7 +261,10 @@ describe("adjust_thread — the websocket nudge", () => {
 		const actions = buildActionsWithHub(agentOrchestration, broadcasts);
 		const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(actions, "adjust_thread");
 
-		const result = await adjustThread(ctxFor(db, eventBus, FOUNDER_ID), { id: "nudge-thread-4", resolved: true });
+		const result = await adjustThread(ctxFor(db, eventBus, FOUNDER_ID), {
+			id: "nudge-thread-4",
+			resolved: true,
+		});
 		expect(result.ok).toBe(true);
 
 		expect(broadcasts).toHaveLength(2);
@@ -225,7 +278,11 @@ describe("adjust_thread — the websocket nudge", () => {
 		}
 	});
 
-	test("a no-op adjust (nothing actually changes) broadcasts nothing", async ({ db, eventBus, agentOrchestration }) => {
+	test("a no-op adjust (nothing actually changes) broadcasts nothing", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		await seedTeam(db, "nudge-team-5");
 		await seedThreadRow(db, "nudge-thread-5", {
 			hostKind: "team",
@@ -240,7 +297,10 @@ describe("adjust_thread — the websocket nudge", () => {
 		const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(actions, "adjust_thread");
 
 		// `resolved: false` on an already-unresolved thread changes nothing.
-		const result = await adjustThread(ctxFor(db, eventBus, FOUNDER_ID), { id: "nudge-thread-5", resolved: false });
+		const result = await adjustThread(ctxFor(db, eventBus, FOUNDER_ID), {
+			id: "nudge-thread-5",
+			resolved: false,
+		});
 		expect(result.ok).toBe(true);
 		expect(broadcasts).toHaveLength(0);
 	});

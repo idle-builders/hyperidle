@@ -2,9 +2,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	THROWING_OPEN_TASK,
-} from "@hyperidle/agent-orchestration/testing";
+import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";

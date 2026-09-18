@@ -51,7 +51,13 @@ test.describe("L18 — Block-anchored comment flow", () => {
 				contentType: "application/json",
 				body: JSON.stringify({
 					ok: true,
-					data: { thread, members: [], messages: postedMessages, headMessageId: null, hostTitle: null },
+					data: {
+						thread,
+						members: [],
+						messages: postedMessages,
+						headMessageId: null,
+						hostTitle: null,
+					},
 				}),
 			});
 		});

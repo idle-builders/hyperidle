@@ -49,7 +49,13 @@ function mockReadyEmptyThread(): void {
 	});
 	vi.mocked(useThread).mockReturnValue({
 		status: "ready",
-		data: { thread: THREAD_FIXTURE, members: [], messages: [], headMessageId: null, hostTitle: null },
+		data: {
+			thread: THREAD_FIXTURE,
+			members: [],
+			messages: [],
+			headMessageId: null,
+			hostTitle: null,
+		},
 		error: null,
 		refresh: vi.fn(),
 	});

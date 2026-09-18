@@ -303,9 +303,7 @@ This creates a review message a human compliance expert can see and respond to.`
 					const reviewMessages = await ctx.db
 						.select({ id: messages.id })
 						.from(messages)
-						.where(
-							and(eq(messages.senderId, ctx.seedResult.agentId), eq(messages.type, "review")),
-						);
+						.where(and(eq(messages.senderId, ctx.seedResult.agentId), eq(messages.type, "review")));
 					return {
 						score: reviewMessages.length > 0 ? 1.0 : 0.0,
 						note:

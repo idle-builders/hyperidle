@@ -27,7 +27,10 @@ describe("sendMessageInvariants", () => {
 	});
 
 	it("two_targets: both threadId and recipients given", () => {
-		const problems = sendMessageInvariants({ threadId: "t1", recipients: ["u1"], text: "hi" }, noCaller);
+		const problems = sendMessageInvariants(
+			{ threadId: "t1", recipients: ["u1"], text: "hi" },
+			noCaller,
+		);
 		expect(problems.map((p) => p.code)).toContain("two_targets");
 	});
 
@@ -95,7 +98,9 @@ describe("adjustThreadInvariants", () => {
 	});
 
 	it("a create with a host and members has no problems", () => {
-		expect(adjustThreadInvariants({ host: { kind: "team", id: "team-1" }, members: ["u1"] })).toEqual([]);
+		expect(
+			adjustThreadInvariants({ host: { kind: "team", id: "team-1" }, members: ["u1"] }),
+		).toEqual([]);
 	});
 
 	it("an existing-id title change has no problems", () => {

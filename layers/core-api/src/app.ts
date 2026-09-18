@@ -393,7 +393,8 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		}
 		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
 		const defaultGateVerdictRecorder = buildSeamBackedReviewVerdictRecorder(agentOrchestration);
-		const agentWorkIntentRecorder = options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder;
+		const agentWorkIntentRecorder =
+			options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder;
 		const reviewVerdictRecorder = options.reviewVerdictRecorder ?? defaultGateVerdictRecorder;
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).

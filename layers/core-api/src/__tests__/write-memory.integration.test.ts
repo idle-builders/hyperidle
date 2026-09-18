@@ -4,9 +4,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	THROWING_OPEN_TASK,
-} from "@hyperidle/agent-orchestration/testing";
+import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, knowledgeEditLog, knowledgeItems, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -26,10 +24,9 @@ import { test } from "../__testing__/test-fixtures.js";
  */
 
 function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(
-		createInProcessCoreApiTransport(app),
-		THROWING_OPEN_TASK,
-	).find((t) => t.name === "write_memory")!;
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK).find(
+		(t) => t.name === "write_memory",
+	)!;
 }
 
 const NOW = new Date().toISOString();

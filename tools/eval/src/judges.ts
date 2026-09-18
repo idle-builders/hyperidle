@@ -12,7 +12,14 @@
  * W6 resolution: fewer_tool_calls uses DB side-effect count as proxy (not in-memory buffer).
  */
 
-import { knowledgeEditLog, knowledgeItems, messages, routines, sessions, tasks } from "@hyperidle/db";
+import {
+	knowledgeEditLog,
+	knowledgeItems,
+	messages,
+	routines,
+	sessions,
+	tasks,
+} from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import { and, eq, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";

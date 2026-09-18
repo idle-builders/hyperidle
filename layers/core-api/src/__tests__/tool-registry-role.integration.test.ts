@@ -21,9 +21,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	THROWING_OPEN_TASK,
-} from "@hyperidle/agent-orchestration/testing";
+import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -49,10 +47,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	test("B1: builder registry excludes all three facilitator tools", ({ db, app }) => {
 		// I2 contract: second-arg options object with `role`.
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);
@@ -72,10 +67,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// as an action, projected the same way edit_task is; the other three
 		// have no successor tool.
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);
@@ -92,10 +84,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		app,
 	}) => {
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);
@@ -112,10 +101,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		app,
 	}) => {
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);
@@ -136,10 +122,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	// direct-definitions fixture.
 	test("B3: assistant registry includes all 10 tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "assistant" },
 		);
@@ -153,10 +136,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	test("B3: facilitator registry includes the facilitator tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "facilitator" },
 		);
@@ -177,10 +157,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
 	test("AE3 AC-5: assistant registry includes all 4 management tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "assistant" },
 		);
@@ -192,10 +169,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 
 	test("AE3 AC-5: builder registry excludes all 4 management tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);
@@ -207,10 +181,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 
 	test("AE3 AC-5: facilitator registry excludes all 4 management tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "facilitator" },
 		);
@@ -222,10 +193,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 
 	test("AE3 AC-5: builder invoke of create_team returns FORBIDDEN", async ({ db, app }) => {
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);

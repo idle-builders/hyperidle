@@ -56,7 +56,6 @@ const WORK_INTENT_KINDS = [
 	"session_resume",
 ] as const;
 
-
 /**
  * The ONE audited cast: `AgentOrchestrationWorkIntentInput.sourceKind` is
  * wire-loose (`string`) at the port boundary, and `bakedRequest` is carried

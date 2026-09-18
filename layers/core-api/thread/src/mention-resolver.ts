@@ -13,11 +13,15 @@ export interface MentionResolverDeps {
 	readonly listByTeamIds: (
 		db: HyperIdleDb,
 		teamIds: readonly string[],
-	) => Promise<ReadonlyArray<{ readonly id: string; readonly name: string; readonly teamId: string | null }>>;
+	) => Promise<
+		ReadonlyArray<{ readonly id: string; readonly name: string; readonly teamId: string | null }>
+	>;
 	readonly listByIds: (
 		db: HyperIdleDb,
 		ids: readonly string[],
-	) => Promise<ReadonlyArray<{ readonly id: string; readonly name: string; readonly teamId: string | null }>>;
+	) => Promise<
+		ReadonlyArray<{ readonly id: string; readonly name: string; readonly teamId: string | null }>
+	>;
 }
 
 /**
@@ -33,7 +37,9 @@ async function buildMentionLookup(
 	if (participantIds.length === 0) return new Map();
 
 	const participantRows = await deps.listByIds(db, participantIds);
-	const teamIds = [...new Set(participantRows.map((r) => r.teamId).filter((id): id is string => id !== null))];
+	const teamIds = [
+		...new Set(participantRows.map((r) => r.teamId).filter((id): id is string => id !== null)),
+	];
 
 	const pool = teamIds.length > 0 ? await deps.listByTeamIds(db, teamIds) : participantRows;
 

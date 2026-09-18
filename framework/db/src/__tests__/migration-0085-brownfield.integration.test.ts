@@ -133,7 +133,12 @@ describe("migration 0085: thread as a module — brownfield", () => {
 		const rows = await db.execute(sql`
 			SELECT id, thread_id FROM tasks WHERE id IN ('task-a', 'task-b', 'task-c') ORDER BY id
 		`);
-		const byId = new Map((rows.rows as Array<{ id: string; thread_id: string | null }>).map((r) => [r.id, r.thread_id]));
+		const byId = new Map(
+			(rows.rows as Array<{ id: string; thread_id: string | null }>).map((r) => [
+				r.id,
+				r.thread_id,
+			]),
+		);
 		expect(byId.get("task-a")).toBe("thr-task-a-only");
 		expect(byId.get("task-b")).toBe("thr-task-b-older");
 		expect(byId.get("task-c")).toBeTruthy();
@@ -144,14 +149,26 @@ describe("migration 0085: thread as a module — brownfield", () => {
 			WHERE id IN ('thr-task-a-only', 'thr-task-b-older', 'thr-task-b-newer', ${byId.get("task-c")})
 		`);
 		const threadById = new Map(
-			(threadRows.rows as Array<{ id: string; host_kind: string; host_id: string }>).map((r) => [r.id, r]),
+			(threadRows.rows as Array<{ id: string; host_kind: string; host_id: string }>).map((r) => [
+				r.id,
+				r,
+			]),
 		);
-		expect(threadById.get("thr-task-a-only")).toMatchObject({ host_kind: "team", host_id: "team-1" });
-		expect(threadById.get("thr-task-b-older")).toMatchObject({ host_kind: "team", host_id: "team-1" });
+		expect(threadById.get("thr-task-a-only")).toMatchObject({
+			host_kind: "team",
+			host_id: "team-1",
+		});
+		expect(threadById.get("thr-task-b-older")).toMatchObject({
+			host_kind: "team",
+			host_id: "team-1",
+		});
 		// the loser is untouched by step 7 — it is not any task's thread_id, so
 		// it re-hosts to its initiator (step 7's second UPDATE), never left "task".
 		expect(threadById.get("thr-task-b-newer")?.host_kind).not.toBe("task");
-		expect(threadById.get(byId.get("task-c") as string)).toMatchObject({ host_kind: "team", host_id: "team-1" });
+		expect(threadById.get(byId.get("task-c") as string)).toMatchObject({
+			host_kind: "team",
+			host_id: "team-1",
+		});
 
 		const anyTaskHosted = await db.execute(sql`SELECT 1 FROM threads WHERE host_kind = 'task'`);
 		expect(anyTaskHosted.rows).toHaveLength(0);
@@ -160,12 +177,13 @@ describe("migration 0085: thread as a module — brownfield", () => {
 	it("step 4's seed carries BOTH the owner agent and the first human, with a real initiator_id", async () => {
 		const db = await seedAndMigrate();
 
-		const [task] = (
-			await db.execute(sql`SELECT thread_id FROM tasks WHERE id = 'task-c'`)
-		).rows as Array<{ thread_id: string }>;
+		const [task] = (await db.execute(sql`SELECT thread_id FROM tasks WHERE id = 'task-c'`))
+			.rows as Array<{ thread_id: string }>;
 		if (!task) throw new Error("task-c not found after migration");
 		const [thread] = (
-			await db.execute(sql`SELECT participants, initiator_id FROM threads WHERE id = ${task.thread_id}`)
+			await db.execute(
+				sql`SELECT participants, initiator_id FROM threads WHERE id = ${task.thread_id}`,
+			)
 		).rows as Array<{ participants: string; initiator_id: string }>;
 		if (!thread) throw new Error("task-c's thread not found after migration");
 

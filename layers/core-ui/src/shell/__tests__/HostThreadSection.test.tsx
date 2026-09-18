@@ -175,7 +175,14 @@ describe("HostThreadSection (L18)", () => {
 	it("resolves via useThreads({host}) when only a host is given (knowledge page)", () => {
 		vi.mocked(useThreads).mockReturnValue({
 			status: "ready",
-			threads: [{ ...THREAD_FIXTURE, id: "t-resolved", hasUnresolvedReview: false, lastMessagePreview: null }],
+			threads: [
+				{
+					...THREAD_FIXTURE,
+					id: "t-resolved",
+					hasUnresolvedReview: false,
+					lastMessagePreview: null,
+				},
+			],
 			error: null,
 			retry: vi.fn(),
 		});
@@ -186,9 +193,7 @@ describe("HostThreadSection (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(
-			<HostThreadSection host={{ kind: "knowledge_item", id: "k-123" }} title="Discussion" />,
-		);
+		render(<HostThreadSection host={{ kind: "knowledge_item", id: "k-123" }} title="Discussion" />);
 
 		expect(useThreads).toHaveBeenCalledWith({
 			host: { kind: "knowledge_item", id: "k-123" },

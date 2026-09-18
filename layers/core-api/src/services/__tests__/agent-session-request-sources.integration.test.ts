@@ -90,16 +90,16 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		modelProvider: "test",
 	});
 	await db.insert(threads).values({
-	id: `thr-${"bet-au3-agent"}`,
-	hostKind: "team",
-	hostId: "team-au3-agent",
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now,
-	createdAt: now,
+		id: `thr-${"bet-au3-agent"}`,
+		hostKind: "team",
+		hostId: "team-au3-agent",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${"bet-au3-agent"}`,
+		threadId: `thr-${"bet-au3-agent"}`,
 		id: "bet-au3-agent",
 		parentTaskId: null,
 		teamId: "team-au3-agent",
@@ -111,16 +111,16 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		updatedAt: now,
 	});
 	await db.insert(threads).values({
-	id: `thr-${"task-au3-agent"}`,
-	hostKind: "team",
-	hostId: "team-au3-agent",
-	initiatorId: "system:propagation",
-	participants: "[]",
-	lastActiveAt: now,
-	createdAt: now,
+		id: `thr-${"task-au3-agent"}`,
+		hostKind: "team",
+		hostId: "team-au3-agent",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
 	});
 	await db.insert(tasks).values({
-	threadId: `thr-${"task-au3-agent"}`,
+		threadId: `thr-${"task-au3-agent"}`,
 		id: "task-au3-agent",
 		parentTaskId: "bet-au3-agent",
 		teamId: "team-au3-agent",

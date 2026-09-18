@@ -19,7 +19,15 @@
  * empty — do not remove it when trimming the route list.
  */
 
-import { expect, makeThread, mockSearchThreads, mockThread, type Page, type Route, test } from "./fixtures";
+import {
+	expect,
+	makeThread,
+	mockSearchThreads,
+	mockThread,
+	type Page,
+	type Route,
+	test,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // The viewport set — named once, here, so it stops being folklore (round.md §1).

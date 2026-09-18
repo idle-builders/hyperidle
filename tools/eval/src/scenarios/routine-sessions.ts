@@ -301,10 +301,7 @@ const rsHumanReviewFlag: EvalScenario = {
 						.select({ id: messages.id })
 						.from(messages)
 						.where(
-							and(
-								eq(messages.type, "review"),
-								eq(messages.senderId, humanReviewRoutineOwnerId),
-							),
+							and(eq(messages.type, "review"), eq(messages.senderId, humanReviewRoutineOwnerId)),
 						)
 						.limit(1);
 					const created = item !== undefined;

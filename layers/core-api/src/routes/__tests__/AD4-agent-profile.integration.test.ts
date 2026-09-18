@@ -15,14 +15,7 @@
  *   and replaces skills field with reviewTrackRecord in AgentProfileResponse
  */
 
-import {
-	agentRunConfig,
-	type HyperIdleDb,
-	messages,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, messages, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 

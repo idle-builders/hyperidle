@@ -44,7 +44,12 @@
  * the move changes no conversation, only which layer hosts the wiring.
  */
 
-import type { CoreApiPort, CoreApiTransport, InsertRoutineRequest, UpdateRoutineRequest } from "@hyperidle/api-contract";
+import type {
+	CoreApiPort,
+	CoreApiTransport,
+	InsertRoutineRequest,
+	UpdateRoutineRequest,
+} from "@hyperidle/api-contract";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions as buildToolDefinitionsFromPorts } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, withActorTransport } from "./core-api-port-composition.js";
