@@ -3,115 +3,40 @@
  *
  * AC coverage:
  *  - open Bet detail → thread surface shows → post a comment → reload → message persists
+ *
+ * @lore BC3: there is no `task` host kind — a task's own thread is
+ * `team`-hosted, and `WorkTaskPage` already knows its id via
+ * `open_task(id).threadId` (`HostThreadSection`'s `threadId` prop), never
+ * resolved through `search_threads`.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeTask, makeThread, mockTaskTree, mockThread, test } from "./fixtures";
 
 const NOW = "2026-05-05T09:00:00.000Z";
-const LATER = "2026-05-05T09:05:00.000Z";
 const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-bet-001";
 const ROOT_TASK_ID = "task-thread-test";
-
-function makeThreadListResponse() {
-	return {
-		threads: [
-			{
-				id: THREAD_ID,
-				hostKind: "task",
-				hostId: ROOT_TASK_ID,
-				initiatorId: FOUNDER_ID,
-				participants: [FOUNDER_ID],
-				pinned: false,
-				resolvedAt: null,
-				lastActiveAt: NOW,
-				createdAt: NOW,
-				hasUnresolvedReview: false,
-			},
-		],
-		nextCursor: null,
-	};
-}
-
-function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
-	return {
-		thread: {
-			id: THREAD_ID,
-			hostKind: "task",
-			hostId: ROOT_TASK_ID,
-			initiatorId: FOUNDER_ID,
-			participants: [FOUNDER_ID],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: messages.length > 0 ? LATER : NOW,
-			createdAt: NOW,
-		},
-		messages,
-		headMessageId: null,
-		nextMessagesCursor: null,
-	};
-}
 
 test.describe("L18 — Task detail thread surface", () => {
 	test("thread surface shows on task detail; post a comment; reload; message persists", async ({
 		page,
 	}) => {
-		const postedMessages: Array<Record<string, unknown>> = [];
-		let postObserved = false;
 		const composedText = "This is a test comment on the bet thread.";
 
-		// Mock /api/bets/:id
-
-		// Mock GET /api/threads?host_kind=task&host_id=...
-		await page.route(`**/api/threads?**host_kind=task**`, async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeThreadListResponse()),
-			});
+		await mockTaskTree(page, {
+			task: makeTask(ROOT_TASK_ID, { threadId: THREAD_ID }),
 		});
 
-		// Mock GET /api/threads/:id
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse(postObserved ? postedMessages : [])),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Mock POST /api/threads/:id/messages
-		await page.route(`**/api/threads/${THREAD_ID}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				const msg = {
-					id: "msg-bet-001",
-					threadId: THREAD_ID,
-					senderId: FOUNDER_ID,
-					type: "plain",
-					payload: { text: composedText },
-					clientKey: "ck-bet-001",
-					deletedAt: null,
-					redactedAt: null,
-					resolvedAt: null,
-					createdAt: LATER,
-				};
-				postedMessages.push(msg);
-				postObserved = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: msg,
-						thread: makeThreadDetailResponse(postedMessages).thread,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+		await mockThread(page, {
+			thread: makeThread(THREAD_ID, {
+				hostKind: "team",
+				hostId: ROOT_TASK_ID,
+				initiatorId: FOUNDER_ID,
+				members: [FOUNDER_ID],
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			}),
+			messages: [],
 		});
 
 		await page.goto(`/work/task/${ROOT_TASK_ID}`);
