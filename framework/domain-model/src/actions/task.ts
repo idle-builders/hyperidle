@@ -118,6 +118,10 @@ export const SearchTasksInputSchema = z
 		ownerAgentId: z.string().optional(),
 		state: z.enum(TASK_STATES).optional(),
 		teamId: z.string().optional(),
+		// @lore BC3 architecture.md §3.9 Confusion 9: the task module reading its
+		// own `tasks.thread_id` column — a thread shows its tasks through this,
+		// not a lookup owned by thread.
+		threadId: z.string().optional(),
 		text: z.string().optional(),
 		excludeKilled: z.boolean().optional(),
 		limit: z.number().int().positive().optional(),
@@ -129,7 +133,8 @@ export type TaskListItem = Task;
 
 export const searchTasks: ActionDeclaration<SearchTasksInput, TaskListItem[]> = {
 	name: "search_tasks",
-	sentence: "Search tasks. No parameter lists them; filter by parent, owner, state, team or text.",
+	sentence:
+		"Search tasks. No parameter lists them; filter by parent, owner, state, team, thread or text.",
 	input: SearchTasksInputSchema,
 	output: z.array(TaskSchema),
 };

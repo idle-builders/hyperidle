@@ -33,7 +33,7 @@ const mk = (overrides: Partial<ThreadItem>): ThreadItem => ({
 	snippet: overrides.snippet ?? "Snippet",
 	timestamp: overrides.timestamp ?? "just now",
 	avatarUrl: overrides.avatarUrl ?? AVATAR,
-	hostKind: overrides.hostKind ?? "task",
+	hostKind: overrides.hostKind ?? "team",
 	hasUnresolvedReview: overrides.hasUnresolvedReview ?? false,
 	blocking: overrides.blocking ?? false,
 	pinned: overrides.pinned ?? false,

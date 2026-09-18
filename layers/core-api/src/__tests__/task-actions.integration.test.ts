@@ -332,6 +332,50 @@ describe("search_tasks", () => {
 	});
 });
 
+describe("search_tasks — threadId filter", () => {
+	test("returns exactly the tasks in that thread, and narrows (not replaces) an existing filter", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "ta-team-12");
+		const sharedThreadId = await seedThread(db, "ta-thread-shared", "ta-team-12");
+
+		const t1 = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-team-12",
+			title: "In shared thread, one",
+			threadId: sharedThreadId,
+		});
+		const t2 = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-team-12",
+			title: "In shared thread, two",
+			threadId: sharedThreadId,
+		});
+		const t3 = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-team-12",
+			title: "Elsewhere",
+		});
+		expect(t1.body.ok).toBe(true);
+		expect(t2.body.ok).toBe(true);
+		expect(t3.body.ok).toBe(true);
+		const t1Id = t1.body.data?.task.id ?? "";
+		const t2Id = t2.body.data?.task.id ?? "";
+		expect(t3.body.data?.threadId).not.toBe(sharedThreadId);
+
+		const byThread = await call<TaskRow[]>(app, "search_tasks", { threadId: sharedThreadId });
+		expect(byThread.body.data?.map((t) => t.id).sort()).toEqual([t1Id, t2Id].sort());
+
+		// Move t2 out of "proposed" — threadId + state must narrow, not replace:
+		// only t1 is still both in the shared thread AND proposed.
+		await call<TaskViewBody>(app, "edit_task", { id: t2Id, state: "review" });
+
+		const narrowed = await call<TaskRow[]>(app, "search_tasks", {
+			threadId: sharedThreadId,
+			state: "proposed",
+		});
+		expect(narrowed.body.data?.map((t) => t.id)).toEqual([t1Id]);
+	});
+});
+
 describe("the changes table", () => {
 	test("a changes row exists after each edit, carrying the field diff", async ({ db, app }) => {
 		await seedTeam(db, "ta-team-5");

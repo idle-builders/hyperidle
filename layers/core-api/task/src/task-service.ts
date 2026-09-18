@@ -283,6 +283,8 @@ export interface WorkFilter {
 	teamId?: string;
 	text?: string;
 	state?: string;
+	/** BC3: the task's own `thread_id` column — every branch honours it. */
+	threadId?: string;
 	/** BB1: direct children of this task. `null` selects ROOT tasks (no parent). */
 	parentTaskId?: string | null;
 	ownerAgentId?: string;
@@ -357,13 +359,16 @@ export async function list(
 	// ── enriched includes ────────────────────────────────────────────────────
 	// ── task dispatches ──────────────────────────────────────────────────────
 	if (entity === "task") {
-		if (f.ids !== undefined)
-			return f.ids.length === 0
-				? []
-				: exec
-						.select()
-						.from(tasks)
-						.where(inArray(tasks.id, [...f.ids]));
+		if (f.ids !== undefined) {
+			if (f.ids.length === 0) return [];
+			const idConds: SQL[] = [inArray(tasks.id, [...f.ids])];
+			// BC3: threadId narrows here too — every branch honours it.
+			if (f.threadId !== undefined) idConds.push(eq(tasks.threadId, f.threadId));
+			return exec
+				.select()
+				.from(tasks)
+				.where(and(...idConds));
+		}
 		if (f.dependencyId !== undefined) {
 			// `state` is OPTIONAL here on purpose — the `done` watcher only
 			// ever cares about `hold` dependents (pass `state: "hold"`), but the
@@ -399,6 +404,8 @@ export async function list(
 			// via `excludeKilled` (see the doc on `WorkFilter`); global search
 			// never sets this flag.
 			if (f.excludeKilled) textConds.push(ne(tasks.state, "killed"));
+			// BC3: threadId narrows here too — every branch honours it.
+			if (f.threadId !== undefined) textConds.push(eq(tasks.threadId, f.threadId));
 			return exec
 				.select()
 				.from(tasks)
@@ -411,6 +418,7 @@ export async function list(
 		if (f.state !== undefined) conditions.push(eq(tasks.state, f.state));
 		if (f.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, f.ownerAgentId));
 		if (f.teamId !== undefined) conditions.push(eq(tasks.teamId, f.teamId));
+		if (f.threadId !== undefined) conditions.push(eq(tasks.threadId, f.threadId));
 		// BB1: siblings come back in display order, always. `position` alone is not
 		// a total order (it defaults to 0 and nothing forces uniqueness), so
 		// createdAt then id break ties — otherwise the tree can render in a

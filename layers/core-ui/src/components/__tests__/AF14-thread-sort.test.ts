@@ -21,7 +21,7 @@ function makeFlatItem(overrides: Partial<ThreadItem> & { id: string }): ThreadIt
 		snippet: overrides.snippet ?? "",
 		timestamp: overrides.timestamp ?? "5m", // display string - NOT a sort key
 		avatarUrl: null,
-		hostKind: overrides.hostKind ?? "task",
+		hostKind: overrides.hostKind ?? "team",
 		hasUnresolvedReview: false,
 		blocking: false,
 		pinned: false,

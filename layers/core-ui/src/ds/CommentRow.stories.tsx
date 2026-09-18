@@ -19,6 +19,7 @@ const plainMsg: Message = {
 	threadId: "t-1",
 	senderId: "u-founder",
 	clientKey: "k",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,

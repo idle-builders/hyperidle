@@ -24,7 +24,7 @@ const mk = (overrides: Partial<ThreadItem>): ThreadItem => ({
 	snippet: "",
 	timestamp: "just now",
 	avatarUrl: AVATAR,
-	hostKind: "task",
+	hostKind: "team",
 	hasUnresolvedReview: false,
 	blocking: false,
 	pinned: false,

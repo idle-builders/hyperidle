@@ -13,12 +13,15 @@ export default {
 
 const baseThread: Thread = {
 	id: "t-1",
-	hostKind: "task",
+	hostKind: "team",
 	hostId: "task-1",
 	initiatorId: "u-founder",
-	participants: ["u-founder", "agent-1"],
+	members: ["u-founder", "agent-1"],
+	title: null,
+	computedTitle: "Migration script review",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: "2026-04-19T12:00:00.000Z",
 	createdAt: "2026-04-19T12:00:00.000Z",
 };
@@ -33,6 +36,7 @@ const reviewMessage: Message = {
 	threadId: "t-1",
 	senderId: "agent-1",
 	clientKey: "k-rev",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -50,6 +54,7 @@ const plainMessage: Message = {
 	threadId: "t-1",
 	senderId: "u-founder",
 	clientKey: "k-p",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,

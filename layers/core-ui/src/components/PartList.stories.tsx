@@ -43,7 +43,7 @@ const PARTS: Part[] = [
 			label: "auth/passkey.ts",
 			meta: "+2 −1",
 		},
-		reviewTarget: { reviewId: "m3" },
+		reviewTarget: { reviewId: "m3", threadId: "t-1" },
 	},
 	{
 		id: "m4",
@@ -63,7 +63,7 @@ const PARTS: Part[] = [
 		label: "APPROVED",
 		resolvedBy: "A. Founder",
 		summary: "approve deploy of passkey login to staging",
-		reviewTarget: { reviewId: "m3" },
+		reviewTarget: { reviewId: "m3", threadId: "t-1" },
 	},
 ];
 

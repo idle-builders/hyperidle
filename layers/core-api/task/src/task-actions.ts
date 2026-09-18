@@ -279,7 +279,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		input: SearchTasksInput,
 	): Promise<{ ok: true; data: TaskListItem[] } | { ok: false; problems: readonly Problem[] }> {
 		if (input.ids !== undefined) {
-			const rows = await taskDb.list(ctx.db, "task", { ids: input.ids });
+			const rows = await taskDb.list(ctx.db, "task", {
+				ids: input.ids,
+				...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
+			});
 			const excluded = new Set(input.excludeIds ?? []);
 			return { ok: true, data: rows.filter((r) => !excluded.has(r.id)) as unknown as DomainTask[] };
 		}
@@ -287,6 +290,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			const rows = await taskDb.list(ctx.db, "task", {
 				text: input.text,
 				...(input.excludeKilled ? { excludeKilled: true as const } : {}),
+				...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
 				...(input.limit !== undefined ? { limit: input.limit } : {}),
 			});
 			const excluded = new Set(input.excludeIds ?? []);
@@ -297,6 +301,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			...(input.ownerAgentId !== undefined ? { ownerAgentId: input.ownerAgentId } : {}),
 			...(input.state !== undefined ? { state: input.state } : {}),
 			...(input.teamId !== undefined ? { teamId: input.teamId } : {}),
+			...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
 			...(input.limit !== undefined ? { limit: input.limit } : {}),
 		});
 		const excluded = new Set(input.excludeIds ?? []);
