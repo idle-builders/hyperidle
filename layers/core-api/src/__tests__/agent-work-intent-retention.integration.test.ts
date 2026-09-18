@@ -44,7 +44,7 @@ function intent(id: string, status: string, ageDays: number) {
 	const timestamp = new Date(now.getTime() - ageDays * DAY).toISOString();
 	return {
 		id,
-		kind: "assistant_turn",
+		kind: "thread_turn",
 		sourceKind: "thread_message",
 		sourceId: `source-${id}`,
 		idempotencyKey: `key-${id}`,
