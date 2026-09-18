@@ -1111,6 +1111,95 @@ describe("send_message — direct thread find-or-create (B3)", () => {
 		expect(bToA.status).toBe(200);
 		expect(bToA.body.data?.thread.id).toBe(aToB.body.data?.thread.id);
 	});
+
+	test("an agent sending to a human first hosts the thread on the agent, not whoever is named recipients", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "b3-4");
+		await seedAgent(db, "b3-agent-4", "b3-4");
+		await seedHuman(db, "b3-human-4", "b3-4");
+
+		const res = await call<{ thread: { id: string; hostKind: string; hostId: string } }>(
+			app,
+			"send_message",
+			{ recipients: ["b3-human-4"], text: "hi from the agent" },
+			agentHeaders("b3-agent-4"),
+		);
+		expect(res.status).toBe(200);
+		expect(res.body.data?.thread.hostKind).toBe("agent");
+		expect(res.body.data?.thread.hostId).toBe("b3-agent-4");
+	});
+
+	test("a human sending to an agent first, then the same agent replying, land in the same agent-hosted thread", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "b3-5");
+		await seedAgent(db, "b3-agent-5", "b3-5");
+		await seedHuman(db, "b3-human-5", "b3-5");
+
+		const humanFirst = await call<{ thread: { id: string; hostKind: string; hostId: string } }>(
+			app,
+			"send_message",
+			{ recipients: ["b3-agent-5"], text: "hi from the human" },
+			agentHeaders("b3-human-5"),
+		);
+		expect(humanFirst.status).toBe(200);
+		expect(humanFirst.body.data?.thread.hostKind).toBe("agent");
+		expect(humanFirst.body.data?.thread.hostId).toBe("b3-agent-5");
+
+		const agentReply = await call<{ thread: { id: string; hostKind: string; hostId: string } }>(
+			app,
+			"send_message",
+			{ recipients: ["b3-human-5"], text: "reply from the agent" },
+			agentHeaders("b3-agent-5"),
+		);
+		expect(agentReply.status).toBe(200);
+		expect(agentReply.body.data?.thread.id).toBe(humanFirst.body.data?.thread.id);
+		expect(agentReply.body.data?.thread.hostKind).toBe("agent");
+		expect(agentReply.body.data?.thread.hostId).toBe("b3-agent-5");
+	});
+
+	test("the agent no-calling-thread fallback hosts the thread on the agent, and a human's first send to that same agent finds it", async ({
+		db,
+		agentOrchestration,
+		eventBus,
+		app,
+	}) => {
+		await seedTeam(db, "b3-6");
+		await seedAgent(db, "b3-agent-6", "b3-6");
+		await seedHuman(db, "b3-human-6", "b3-6");
+		const actions = buildRealActions(agentOrchestration);
+		const run = runnerFor<SendMessageInput, { thread: { id: string; hostKind: string; hostId: string } }>(
+			actions,
+			"send_message",
+		);
+
+		const fallback = await run(
+			{
+				actor: "b3-agent-6",
+				db,
+				eventBus,
+				now: new Date().toISOString(),
+				caller: { sessionId: "b3-sess-6", taskId: null, threadId: null },
+			},
+			{ text: "fallback reply" },
+		);
+		expect(fallback.ok).toBe(true);
+		if (!fallback.ok) return;
+		expect(fallback.data.thread.hostKind).toBe("agent");
+		expect(fallback.data.thread.hostId).toBe("b3-agent-6");
+
+		const humanSend = await call<{ thread: { id: string } }>(
+			app,
+			"send_message",
+			{ recipients: ["b3-agent-6"], text: "hi, replying to the fallback" },
+			agentHeaders("b3-human-6"),
+		);
+		expect(humanSend.status).toBe(200);
+		expect(humanSend.body.data?.thread.id).toBe(fallback.data.thread.id);
+	});
 });
 
 describe("send_message — review link and verdict resume", () => {

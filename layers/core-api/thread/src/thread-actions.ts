@@ -538,14 +538,37 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						],
 					};
 				}
-				const directKey = `${[ctx.actor, recipientId].sort().join(":")}:${recipient.kind === "ai" ? "agent" : "user"}`;
+				// Review-fix (BUG): the direct thread's host must not depend on who
+				// spoke first. When exactly one party is AI, that agent hosts the
+				// thread — whether it is `ctx.actor` (a welcome message, or any
+				// agent-initiated send) or `recipientId` (a human's first send) —
+				// because the assistant overlay always finds its thread as
+				// `search_threads({host:{kind:"agent", id: myAgentId}})`. Human↔human
+				// and agent↔agent keep the old recipient-decides shape: there is no
+				// "the" agent to prefer when both or neither party is one.
+				const actorUser = await deps.users.getUserById(ctx.db, ctx.actor);
+				const actorIsAgent = actorUser?.kind === "ai";
+				const recipientIsAgent = recipient.kind === "ai";
+				let directHostKind: HostKind;
+				let directHostId: string;
+				if (actorIsAgent && !recipientIsAgent) {
+					directHostKind = "agent";
+					directHostId = ctx.actor;
+				} else if (recipientIsAgent && !actorIsAgent) {
+					directHostKind = "agent";
+					directHostId = recipientId;
+				} else {
+					directHostKind = recipientIsAgent ? "agent" : "user";
+					directHostId = recipientId;
+				}
+				const directKey = `${[ctx.actor, recipientId].sort().join(":")}:${directHostKind}`;
 				const existing = await store.findThread(ctx.db, { directKey });
 				if (existing) {
 					threadId = existing.id;
 				} else {
 					creatingThread = {
-						hostKind: recipient.kind === "ai" ? "agent" : "user",
-						hostId: recipientId,
+						hostKind: directHostKind,
+						hostId: directHostId,
 						members: [ctx.actor, recipientId],
 						directKey,
 					};
@@ -587,14 +610,22 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					],
 				};
 			}
-			const directKey = `${[ctx.actor, human.id].sort().join(":")}:user`;
+			// Review-fix (BUG): this fallback only runs when a session is calling
+			// (`ctx.caller !== undefined`), so `ctx.actor` is always the agent and
+			// `human` is never one — the host is the agent, matching the
+			// single-recipient rule above. It was hardcoded "user"/`human.id`,
+			// which both mis-hosted the thread AND produced a different directKey
+			// than the single-recipient path for the same pair, so a human's first
+			// reply to the same agent created a SECOND thread instead of finding
+			// this one.
+			const directKey = `${[ctx.actor, human.id].sort().join(":")}:agent`;
 			const existing = await store.findThread(ctx.db, { directKey });
 			if (existing) {
 				threadId = existing.id;
 			} else {
 				creatingThread = {
-					hostKind: "user",
-					hostId: human.id,
+					hostKind: "agent",
+					hostId: ctx.actor,
 					members: [ctx.actor, human.id],
 					directKey,
 				};
