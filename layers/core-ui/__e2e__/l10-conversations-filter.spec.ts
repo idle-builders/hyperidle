@@ -6,68 +6,51 @@
  *   - clear → list restores;
  *   - filter-empty state surfaces a Clear filter affordance.
  *
- * Plan §6: web-only fixture. The hook accepts an optional `blocking?: boolean`
- * wire field. We inject the fixture via `page.route('**\/api/threads*', ...)`.
+ * Plan §6: web-only fixture. We inject the fixture via
+ * `mockSearchThreads(page, {...})`.
+ *
+ * @lore BC3: repointed at `POST /api/actions/search_threads` — never `GET
+ * /api/threads*`. `blocking` is no longer part of `ThreadListRow`'s wire
+ * shape — `AppShell.rowToItem` hardcodes it `false` now (own @lore) — so
+ * every test in this file is already on `known-pre-existing-failures.ts`
+ * (predates BC3: AF14 already noted neither chip matched real state). This
+ * is a mechanical mock migration only, not an attempt to resurrect the filter.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
 
 const NOW_ISO = "2026-04-30T12:00:00.000Z";
 
-interface MockListRow {
-	id: string;
-	hostKind: string;
-	hostId: string;
-	initiatorId: string;
-	participants: string[];
-	pinned: boolean;
-	resolvedAt: string | null;
-	lastActiveAt: string;
-	createdAt: string;
-	hasUnresolvedReview: boolean;
-	blocking?: boolean;
+function mkRow(id: string, overrides: Parameters<typeof makeThreadListRow>[1] = {}) {
+	return makeThreadListRow(id, {
+		hostKind: "team",
+		hostId: "host-1",
+		initiatorId: "u-founder",
+		members: ["u-founder"],
+		pinned: false,
+		resolvedAt: null,
+		lastActiveAt: NOW_ISO,
+		createdAt: NOW_ISO,
+		hasUnresolvedReview: false,
+		...overrides,
+	});
 }
 
-function mkRow(overrides: Partial<MockListRow>): MockListRow {
-	return {
-		id: overrides.id ?? "t1",
-		hostKind: overrides.hostKind ?? "task",
-		hostId: overrides.hostId ?? "host-1",
-		initiatorId: overrides.initiatorId ?? "u-founder",
-		participants: overrides.participants ?? ["u-founder"],
-		pinned: overrides.pinned ?? false,
-		resolvedAt: overrides.resolvedAt ?? null,
-		lastActiveAt: overrides.lastActiveAt ?? NOW_ISO,
-		createdAt: overrides.createdAt ?? NOW_ISO,
-		hasUnresolvedReview: overrides.hasUnresolvedReview ?? false,
-		blocking: overrides.blocking,
-	};
-}
-
-const MIXED_THREADS: MockListRow[] = [
-	mkRow({ id: "b1aaaa01", blocking: true }),
-	mkRow({ id: "b2aaaa02", blocking: true }),
-	mkRow({ id: "a1aaaa03", blocking: false }),
-	mkRow({ id: "a2aaaa04", blocking: false }),
-	mkRow({ id: "a3aaaa05", blocking: false }),
+const MIXED_THREADS = [
+	mkRow("b1aaaa01"),
+	mkRow("b2aaaa02"),
+	mkRow("a1aaaa03"),
+	mkRow("a2aaaa04"),
+	mkRow("a3aaaa05"),
 ];
 
-const ASYNC_ONLY: MockListRow[] = [
-	mkRow({ id: "a1aaaa01", blocking: false }),
-	mkRow({ id: "a2aaaa02", blocking: false }),
-];
+const ASYNC_ONLY = [mkRow("a1aaaa01"), mkRow("a2aaaa02")];
 
 test.describe("L10 — Conversations filter chips actually filter", () => {
 	test("clicking 'Blocking' narrows; '× Clear' restores; 'Async' narrows again; 'All' restores", async ({
 		page,
 	}) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: MIXED_THREADS, nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: MIXED_THREADS });
 
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
@@ -96,13 +79,7 @@ test.describe("L10 — Conversations filter chips actually filter", () => {
 	test("filter-empty: clicking 'Blocking' on async-only data shows the filter-empty EmptyState; Clear filter restores", async ({
 		page,
 	}) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: ASYNC_ONLY, nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: ASYNC_ONLY });
 
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
@@ -132,13 +109,7 @@ test.describe("L10 — Conversations filter chips actually filter", () => {
 		// directly at the Playwright bbox check below. This is the verified
 		// harness for AQ-015 on the chip row.
 		await page.setViewportSize({ width: 1024, height: 800 });
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: MIXED_THREADS, nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: MIXED_THREADS });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-component='ThreadRow']");
 
@@ -163,7 +134,11 @@ test.describe("L10 — Conversations filter chips actually filter", () => {
 	});
 
 	test("error state disables chips (aria-disabled='true')", async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
+		await page.route("**/api/actions/search_threads", async (route) => {
+			if (route.request().method() !== "POST") {
+				await route.continue();
+				return;
+			}
 			await route.fulfill({ status: 500, body: JSON.stringify({ error: "boom" }) });
 		});
 		await page.goto("/conversations");
