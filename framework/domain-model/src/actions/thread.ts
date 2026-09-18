@@ -226,7 +226,6 @@ export const SearchThreadsInputSchema = z
 		host: z.object({ kind: z.enum(HOST_KINDS), id: z.string().min(1) }).optional(),
 		text: z.string().min(1).optional(), // across message text and stored title
 		ids: z.array(z.string()).optional(),
-		includeResolved: z.boolean().optional(), // default true — the sidebar shows both
 		limit: z.number().int().min(1).max(50).optional(),
 	})
 	.strict();
