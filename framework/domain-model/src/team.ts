@@ -163,7 +163,7 @@ export interface CreateTeamRequest {
 	repoPath?: string;
 	/** AE2: optional free-text context about what is being built. */
 	buildingContext?: string;
-	/** AE2: human user id — seeds welcome message in thr-ast-{userId} when provided. */
+	/** AE2: human user id — seeds a welcome message into the user's direct thread with its assistant when provided. */
 	userId?: string;
 	/**
 	 * POLISH-060 B3: When set, all scaffolded agents carry this harness/model.

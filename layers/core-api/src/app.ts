@@ -400,10 +400,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db, agentOrchestration, options.adapterPool));
-		api.route(
-			"/teams",
-			createTeamRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
-		);
 		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
 		// `POST /api/actions/<name>` — one loop over the composed list, never a
 		// per-object route factory. the architecture doc §7.
@@ -452,6 +448,14 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
 		>;
+		// BC3 architecture.md §5 B5: `/teams` mounts after the action list is
+		// built and `sendMessage` extracted — its POST handler's welcome-message
+		// seed posts through the composed action instead of a raw
+		// `insertThread`/`insertMessage` into the literal id `thr-ast-${userId}`.
+		api.route(
+			"/teams",
+			createTeamRoutes(options.db, eventBus, agentOrchestration, sendMessage, options.adapterPool),
+		);
 		// @lore BC3 architecture.md §5 B1: `/reviews`, `/conversations`, `/threads`
 		// and their route files are DELETED — search_threads/open_thread/
 		// send_message/adjust_thread are the door now, mounted generically by
