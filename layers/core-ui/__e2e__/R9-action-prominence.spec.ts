@@ -21,8 +21,59 @@
  *   AC-7: All 27 E2E tests pass after implementation
  */
 
+import type { Thread, ThreadListRow, ThreadView } from "@hyperidle/domain-model";
 import type { Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import {
+	expect,
+	makeMessage,
+	makeTask,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	mockTaskTree,
+	test,
+} from "./fixtures";
+
+/**
+ * @lore BC3: `POST /api/actions/{search_threads,open_thread,send_message,
+ * adjust_thread}` replaces `GET/POST /api/threads*`. Several seed helpers
+ * below register `open_thread` for more than one thread id — since every
+ * thread now shares the SAME url (`/api/actions/open_thread`), a single
+ * dispatcher keyed by the posted `id` replaces the old per-id URL routes.
+ */
+async function mockOpenThreadDispatch(
+	page: Page,
+	threadsById: Record<string, ThreadView>,
+): Promise<void> {
+	await page.route("**/api/actions/open_thread", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+		const view = input.id ? threadsById[input.id] : undefined;
+		if (!view) {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: false,
+					problems: [{ code: "not_found", message: "Thread not found", path: "id" }],
+				}),
+			});
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: view }),
+		});
+	});
+}
+
+function toThreadView(thread: Thread, messages: ThreadView["messages"] = []): ThreadView {
+	return { thread, members: [], messages, headMessageId: null, hostTitle: null };
+}
+
+function toRow(thread: Thread, hasUnresolvedReview = false): ThreadListRow {
+	return makeThreadListRow(thread.id, { ...thread, hasUnresolvedReview });
+}
 
 // ---------------------------------------------------------------------------
 // Shared timestamp constants
@@ -44,47 +95,40 @@ const BET_1 = {
 	atRisk: false,
 };
 
-const THREAD_1 = {
-	id: "thread-r9-1",
+// @lore BC3: no `task` host kind — a task's own thread is `team`-hosted.
+const THREAD_1 = makeThread("thread-r9-1", {
 	hostKind: "user",
 	hostId: "test-founder",
 	initiatorId: "test-founder",
-	participants: ["test-founder"],
-	pinned: false,
-	resolvedAt: null,
+	members: ["test-founder"],
 	lastActiveAt: NOW,
 	createdAt: NOW,
-};
+});
 
-const THREAD_REVIEW = {
-	id: "thread-r9-review",
-	hostKind: "task",
+const THREAD_REVIEW = makeThread("thread-r9-review", {
+	hostKind: "team",
 	hostId: "task-r9-1",
 	initiatorId: "a-aria",
-	participants: ["a-aria", "test-founder"].sort(),
-	pinned: false,
-	resolvedAt: null,
+	members: ["a-aria", "test-founder"].sort(),
 	lastActiveAt: NOW,
 	createdAt: NOW,
-};
+});
 
-const THREAD_TASK = {
-	id: "thread-r9-task",
-	hostKind: "task",
+const THREAD_TASK = makeThread("thread-r9-task", {
+	hostKind: "team",
 	hostId: "task-r9-1",
 	initiatorId: "test-founder",
-	participants: ["test-founder"],
-	pinned: false,
-	resolvedAt: null,
+	members: ["test-founder"],
 	lastActiveAt: NOW,
 	createdAt: NOW,
-};
+});
 
 const REVIEW_MESSAGE = {
 	id: "msg-r9-review-1",
 	threadId: "thread-r9-review",
 	senderId: "a-aria",
 	clientKey: "ck-r9-review-001",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -105,6 +149,7 @@ const PLAIN_MESSAGE_1 = {
 	threadId: "thread-r9-1",
 	senderId: "test-founder",
 	clientKey: "ck-r9-plain-001",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -170,17 +215,7 @@ const KNOWLEDGE_ITEM_3 = {
  * Used for testing empty-state CTAs.
  */
 async function seedEmpty(page: Page): Promise<void> {
-	await page.route("**/api/threads?**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		} else {
-			await route.continue();
-		}
-	});
+	await mockSearchThreads(page, { rows: [] });
 
 	await page.route("**/api/knowledge", async (route) => {
 		if (route.request().method() === "GET") {
@@ -200,63 +235,17 @@ async function seedEmpty(page: Page): Promise<void> {
  * Used for testing single-bet portfolio, bet detail, team, and conversations.
  */
 async function seedFirstBet(page: Page): Promise<void> {
-	await page.route("**/api/threads?**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					threads: [
-						{
-							id: THREAD_1.id,
-							hostKind: THREAD_1.hostKind,
-							hostId: THREAD_1.hostId,
-							initiatorId: THREAD_1.initiatorId,
-							participants: THREAD_1.participants,
-							pinned: THREAD_1.pinned,
-							resolvedAt: THREAD_1.resolvedAt,
-							lastActiveAt: THREAD_1.lastActiveAt,
-							createdAt: THREAD_1.createdAt,
-							hasUnresolvedReview: false,
-							blocking: false,
-						},
-					],
-					nextCursor: null,
-				}),
-			});
-		} else {
-			await route.continue();
-		}
+	await mockSearchThreads(page, { rows: [toRow(THREAD_1)] });
+
+	await mockOpenThreadDispatch(page, {
+		[THREAD_1.id]: toThreadView(THREAD_1, [PLAIN_MESSAGE_1]),
 	});
 
-	await page.route(`**/api/threads/${THREAD_1.id}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					thread: THREAD_1,
-					messages: [PLAIN_MESSAGE_1],
-					headMessageId: null,
-					nextMessagesCursor: null,
-				}),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
-	// Mock threads for bet host (HostThreadSection)
-	await page.route("**/api/threads/host/**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ thread: THREAD_1 }),
-			});
-		} else {
-			await route.continue();
-		}
+	// @lore BC3: WorkTaskPage's HostThreadSection reads `threadId={task.threadId}`
+	// directly — never a host-based search_threads lookup — so BET_1's own task
+	// needs a known threadId, not a lazily-created one.
+	await mockTaskTree(page, {
+		task: makeTask(BET_1.id, { title: BET_1.title, threadId: THREAD_1.id }),
 	});
 
 	// @lore R9: Mock artifacts so TaskSheet's ArtifactSection doesn't hit the real
@@ -280,136 +269,31 @@ async function seedFirstBet(page: Page): Promise<void> {
  * Used for testing conversations filter, verdict, and dial-in flows.
  */
 async function seedActiveWork(page: Page): Promise<void> {
-	await page.route("**/api/threads?**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					threads: [
-						{
-							id: THREAD_REVIEW.id,
-							hostKind: THREAD_REVIEW.hostKind,
-							hostId: THREAD_REVIEW.hostId,
-							initiatorId: THREAD_REVIEW.initiatorId,
-							participants: THREAD_REVIEW.participants,
-							pinned: THREAD_REVIEW.pinned,
-							resolvedAt: THREAD_REVIEW.resolvedAt,
-							lastActiveAt: THREAD_REVIEW.lastActiveAt,
-							createdAt: THREAD_REVIEW.createdAt,
-							hasUnresolvedReview: true,
-							blocking: true,
-						},
-						{
-							id: THREAD_TASK.id,
-							hostKind: THREAD_TASK.hostKind,
-							hostId: THREAD_TASK.hostId,
-							initiatorId: THREAD_TASK.initiatorId,
-							participants: THREAD_TASK.participants,
-							pinned: THREAD_TASK.pinned,
-							resolvedAt: THREAD_TASK.resolvedAt,
-							lastActiveAt: THREAD_TASK.lastActiveAt,
-							createdAt: THREAD_TASK.createdAt,
-							hasUnresolvedReview: false,
-							blocking: false,
-						},
-						{
-							id: THREAD_1.id,
-							hostKind: THREAD_1.hostKind,
-							hostId: THREAD_1.hostId,
-							initiatorId: THREAD_1.initiatorId,
-							participants: THREAD_1.participants,
-							pinned: THREAD_1.pinned,
-							resolvedAt: THREAD_1.resolvedAt,
-							lastActiveAt: THREAD_1.lastActiveAt,
-							createdAt: THREAD_1.createdAt,
-							hasUnresolvedReview: false,
-							blocking: false,
-						},
-					],
-					nextCursor: null,
-				}),
-			});
-		} else {
-			await route.continue();
-		}
+	await mockSearchThreads(page, {
+		rows: [toRow(THREAD_REVIEW, true), toRow(THREAD_TASK), toRow(THREAD_1)],
 	});
 
-	await page.route(`**/api/threads/${THREAD_REVIEW.id}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					thread: THREAD_REVIEW,
-					messages: [REVIEW_MESSAGE],
-					headMessageId: REVIEW_MESSAGE.id,
-					nextMessagesCursor: null,
-				}),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
-	await page.route(`**/api/threads/${THREAD_TASK.id}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					thread: THREAD_TASK,
-					messages: [
-						{
-							id: "msg-r9-task-1",
-							threadId: THREAD_TASK.id,
-							senderId: "test-founder",
-							clientKey: "ck-r9-task-001",
-							deletedAt: null,
-							redactedAt: null,
-							resolvedAt: null,
-							createdAt: NOW,
-							type: "plain",
-							payload: { text: "Let us discuss the task." },
-						},
-					],
-					headMessageId: null,
-					nextMessagesCursor: null,
-				}),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
-	await page.route(`**/api/threads/${THREAD_1.id}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					thread: THREAD_1,
-					messages: [PLAIN_MESSAGE_1],
-					headMessageId: null,
-					nextMessagesCursor: null,
-				}),
-			});
-		} else {
-			await route.continue();
-		}
-	});
-
-	// Mock threads for bet host (HostThreadSection)
-	await page.route("**/api/threads/host/**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ thread: THREAD_1 }),
-			});
-		} else {
-			await route.continue();
-		}
+	await mockOpenThreadDispatch(page, {
+		[THREAD_REVIEW.id]: {
+			...toThreadView(THREAD_REVIEW, [REVIEW_MESSAGE]),
+			headMessageId: REVIEW_MESSAGE.id,
+		},
+		[THREAD_TASK.id]: toThreadView(THREAD_TASK, [
+			{
+				id: "msg-r9-task-1",
+				threadId: THREAD_TASK.id,
+				senderId: "test-founder",
+				clientKey: "ck-r9-task-001",
+				blockId: null,
+				deletedAt: null,
+				redactedAt: null,
+				resolvedAt: null,
+				createdAt: NOW,
+				type: "plain",
+				payload: { text: "Let us discuss the task." },
+			},
+		]),
+		[THREAD_1.id]: toThreadView(THREAD_1, [PLAIN_MESSAGE_1]),
 	});
 
 	// Mock active session for task
@@ -737,19 +621,6 @@ test.describe("R9 — Team page", () => {
 test.describe("R9 — Task detail page", () => {
 	test.beforeEach(async ({ page }) => {
 		await seedFirstBet(page);
-
-		// Additional mock: threads for bet host thread section
-		await page.route("**/api/threads?**", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ threads: [], nextCursor: null }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
 	});
 
 	// bet-open-task: Click task row → TaskSheet opens
@@ -781,48 +652,33 @@ test.describe("R9 — Task detail page", () => {
 	test("task-post-discussion: posting to host thread section intercepts POST", async ({ page }) => {
 		let postCalled = false;
 
-		// @lore R9: The beforeEach mock returns empty threads for **/api/threads?**.
-		// resolveOrCreateHostThread gets empty → tries to create thread via POST /api/threads.
-		// The POST /api/threads pattern has no query params — not matched by **/api/threads?**.
-		// Mock POST /api/threads to return a created thread with THREAD_1.id so the
-		// subsequent message POST goes to /api/threads/${THREAD_1.id}/messages.
-		await page.route("**/api/threads", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({ thread: THREAD_1 }),
-				});
-			} else {
+		// @lore BC3: WorkTaskPage's HostThreadSection already has BET_1's task's
+		// `threadId` (seedFirstBet's mockTaskTree wired it to THREAD_1.id) — it
+		// never resolves-or-creates via search_threads/adjust_thread. Only
+		// `send_message` needs a mock here.
+		await page.route("**/api/actions/send_message", async (route) => {
+			const input = JSON.parse(route.request().postData() ?? "{}") as { threadId?: string };
+			if (input.threadId !== THREAD_1.id) {
 				await route.fallback();
+				return;
 			}
-		});
-
-		await page.route(`**/api/threads/${THREAD_1.id}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				postCalled = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: {
-							id: "msg-r9-new",
-							threadId: THREAD_1.id,
+			postCalled = true;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						message: makeMessage("msg-r9-new", THREAD_1.id, {
 							senderId: "test-founder",
 							clientKey: "ck-r9-new",
-							deletedAt: null,
-							redactedAt: null,
-							resolvedAt: null,
-							createdAt: LATER,
-							type: "plain",
 							payload: { text: "New discussion message" },
-						},
+							createdAt: LATER,
+						}),
 						thread: THREAD_1,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+					},
+				}),
+			});
 		});
 
 		await page.goto(`/work/task/${BET_1.id}`);
@@ -930,47 +786,49 @@ test.describe("R9 — Conversations thread page", () => {
 		const composedText = "R9 test message";
 		let postObserved = false;
 
-		const newMessage = {
-			id: "msg-r9-composed",
-			threadId: THREAD_1.id,
+		const newMessage = makeMessage("msg-r9-composed", THREAD_1.id, {
 			senderId: "test-founder",
 			clientKey: "ck-r9-composed",
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
-			createdAt: LATER,
-			type: "plain",
 			payload: { text: composedText },
-		};
-
-		await page.route(`**/api/threads/${THREAD_1.id}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						thread: THREAD_1,
-						messages: postObserved ? [newMessage, PLAIN_MESSAGE_1] : [PLAIN_MESSAGE_1],
-						headMessageId: null,
-						nextMessagesCursor: null,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+			createdAt: LATER,
 		});
 
-		await page.route(`**/api/threads/${THREAD_1.id}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				postObserved = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({ message: newMessage, thread: THREAD_1 }),
-				});
-			} else {
-				await route.continue();
+		// Overrides seedFirstBet's open_thread dispatch (LIFO) — this thread's
+		// response depends on whether the message has been posted yet.
+		await page.route("**/api/actions/open_thread", async (route) => {
+			const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+			if (input.id !== THREAD_1.id) {
+				await route.fallback();
+				return;
 			}
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						thread: THREAD_1,
+						members: [],
+						messages: postObserved ? [newMessage, PLAIN_MESSAGE_1] : [PLAIN_MESSAGE_1],
+						headMessageId: null,
+						hostTitle: null,
+					},
+				}),
+			});
+		});
+
+		await page.route("**/api/actions/send_message", async (route) => {
+			const input = JSON.parse(route.request().postData() ?? "{}") as { threadId?: string };
+			if (input.threadId !== THREAD_1.id) {
+				await route.fallback();
+				return;
+			}
+			postObserved = true;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: { message: newMessage, thread: THREAD_1 } }),
+			});
 		});
 
 		await page.goto(`/conversations/${THREAD_1.id}`);
@@ -990,33 +848,29 @@ test.describe("R9 — Conversations thread page", () => {
 		await seedActiveWork(page);
 
 		let postObserved = false;
-		const verdictMessage = {
-			id: "msg-r9-verdict",
-			threadId: THREAD_REVIEW.id,
+		const verdictMessage = makeMessage("msg-r9-verdict", THREAD_REVIEW.id, {
 			senderId: "test-founder",
 			clientKey: "ck-r9-verdict",
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
-			createdAt: LATER,
 			type: "verdict",
 			payload: { decision: "approve", resolvesMessageId: REVIEW_MESSAGE.id },
-		};
+			createdAt: LATER,
+		});
 
-		await page.route(`**/api/threads/${THREAD_REVIEW.id}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				postObserved = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: verdictMessage,
-						thread: { ...THREAD_REVIEW, resolvedAt: LATER },
-					}),
-				});
-			} else {
-				await route.continue();
+		await page.route("**/api/actions/send_message", async (route) => {
+			const input = JSON.parse(route.request().postData() ?? "{}") as { threadId?: string };
+			if (input.threadId !== THREAD_REVIEW.id) {
+				await route.fallback();
+				return;
 			}
+			postObserved = true;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: { message: verdictMessage, thread: { ...THREAD_REVIEW, resolvedAt: LATER } },
+				}),
+			});
 		});
 
 		await page.goto(`/conversations/${THREAD_REVIEW.id}`);
@@ -1170,12 +1024,25 @@ test.describe("R9 — Knowledge detail page", () => {
 		// item so the Edit button is visible. PATCH is intercepted at the network level.
 		const editableItem = { ...KNOWLEDGE_ITEM_1, scopeKind: "practice" };
 
-		// @lore R9: Intercept all thread requests to prevent 500 errors.
-		await page.route("**/api/threads**", async (route) => {
+		// @lore R9: Intercept the thread action doors to prevent 500 errors —
+		// this test doesn't exercise HostThreadSection, so an empty host-thread
+		// search and a not-found open are enough (overrides seedKnowledgeActive
+		// via LIFO).
+		await page.route("**/api/actions/search_threads", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null, thread: null }),
+				body: JSON.stringify({ ok: true, data: [] }),
+			});
+		});
+		await page.route("**/api/actions/open_thread", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: false,
+					problems: [{ code: "not_found", message: "Thread not found", path: "id" }],
+				}),
 			});
 		});
 
@@ -1281,64 +1148,39 @@ test.describe("R9 — Knowledge detail page", () => {
 	}) => {
 		let postCalled = false;
 
-		// @lore R9: resolveOrCreateHostThread calls GET /api/threads?host_kind=knowledge_item&host_id=...
-		// seedActiveWork registered **/api/threads?** returning [THREAD_REVIEW, THREAD_TASK, THREAD_1].
-		// LIFO: this override runs first and returns only THREAD_1 for the knowledge item host.
-		// Without this, the first thread (THREAD_REVIEW) is used → message POSTed to wrong thread.
-		await page.route("**/api/threads?**", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						threads: [
-							{
-								id: THREAD_1.id,
-								hostKind: THREAD_1.hostKind,
-								hostId: THREAD_1.hostId,
-								initiatorId: THREAD_1.initiatorId,
-								participants: THREAD_1.participants,
-								pinned: THREAD_1.pinned,
-								resolvedAt: THREAD_1.resolvedAt,
-								lastActiveAt: THREAD_1.lastActiveAt,
-								createdAt: THREAD_1.createdAt,
-								hasUnresolvedReview: false,
-								blocking: false,
-							},
-						],
-						nextCursor: null,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+		// @lore BC3: HostThreadSection's `host` path calls `search_threads({host,
+		// mine:false})` and adopts the FIRST returned row. seedActiveWork
+		// registered search_threads returning [THREAD_REVIEW, THREAD_TASK,
+		// THREAD_1] (a dumb stub, ignoring the filter) — this override (LIFO)
+		// returns only THREAD_1 for the knowledge item host, or the message
+		// would be posted to the wrong thread.
+		await mockSearchThreads(page, {
+			rows: [makeThreadListRow(THREAD_1.id, { ...THREAD_1, hasUnresolvedReview: false })],
 		});
 
-		await page.route(`**/api/threads/${THREAD_1.id}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				postCalled = true;
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: {
-							id: "msg-r9-knowledge",
-							threadId: THREAD_1.id,
+		await page.route("**/api/actions/send_message", async (route) => {
+			const input = JSON.parse(route.request().postData() ?? "{}") as { threadId?: string };
+			if (input.threadId !== THREAD_1.id) {
+				await route.fallback();
+				return;
+			}
+			postCalled = true;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						message: makeMessage("msg-r9-knowledge", THREAD_1.id, {
 							senderId: "test-founder",
 							clientKey: "ck-r9-knowledge",
-							deletedAt: null,
-							redactedAt: null,
-							resolvedAt: null,
-							createdAt: LATER,
-							type: "plain",
 							payload: { text: "Knowledge comment" },
-						},
+							createdAt: LATER,
+						}),
 						thread: THREAD_1,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+					},
+				}),
+			});
 		});
 
 		await page.goto(`/knowledge/${KNOWLEDGE_ITEM_1.id}`);

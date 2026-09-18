@@ -17,52 +17,45 @@
  * @lore L21: The overlay does NOT close on clicking outside (Main content),
  * so the user can interact with Main to select context items while the overlay
  * remains open. Only Escape and clicking the trigger again close it.
+ *
+ * @lore BC3: repointed at `POST /api/actions/{search_threads,open_thread,
+ * send_message}` — never `GET/POST /api/threads*`. `Thread.members` replaced
+ * `participants`.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeIdentity, makeMessage, makeThread, makeThreadListRow, test } from "./fixtures";
 
 const NOW_ISO = new Date().toISOString();
 const COACH_THREAD_ID = "thr-coach-u-founder";
 const COC_AGENT_ID = "agent-coc";
 const BET_ID = "seed-bet-daily-digest";
 
+const COACH_THREAD = makeThread(COACH_THREAD_ID, {
+	hostKind: "user",
+	hostId: "u-founder",
+	initiatorId: "u-founder",
+	members: ["u-founder", COC_AGENT_ID],
+	pinned: true,
+	lastActiveAt: NOW_ISO,
+	createdAt: NOW_ISO,
+});
+
+const COACH_THREAD_MEMBERS = [
+	makeIdentity("u-founder", { name: "You" }),
+	makeIdentity(COC_AGENT_ID, { name: "System Agent", role: "assistant", isAgent: true }),
+];
+
 const COACH_THREAD_FIXTURE = {
-	thread: {
-		id: COACH_THREAD_ID,
-		hostKind: "user",
-		hostId: "u-founder",
-		initiatorId: "u-founder",
-		participants: ["u-founder", COC_AGENT_ID],
-		pinned: true,
-		resolvedAt: null,
-		lastActiveAt: NOW_ISO,
-		createdAt: NOW_ISO,
-	},
-	messages: [],
+	thread: COACH_THREAD,
+	members: COACH_THREAD_MEMBERS,
+	messages: [] as ReturnType<typeof makeMessage>[],
 	headMessageId: null,
-	identities: {
-		"u-founder": { name: "You" },
-		[COC_AGENT_ID]: { name: "System Agent", role: "assistant" },
-	},
+	hostTitle: null,
 };
 
-const THREADS_LIST_FIXTURE = {
-	threads: [
-		{
-			id: COACH_THREAD_ID,
-			hostKind: "user",
-			hostId: "u-founder",
-			initiatorId: "u-founder",
-			participants: ["u-founder", COC_AGENT_ID],
-			pinned: true,
-			resolvedAt: null,
-			lastActiveAt: NOW_ISO,
-			createdAt: NOW_ISO,
-			hasUnresolvedReview: false,
-		},
-	],
-	nextCursor: null,
-};
+const THREADS_LIST_FIXTURE = [
+	makeThreadListRow(COACH_THREAD_ID, { ...COACH_THREAD, hasUnresolvedReview: false }),
+];
 
 /** Set up mock API routes used by all CoC tests. */
 async function setupApiMocks(page: import("@playwright/test").Page): Promise<void> {
@@ -73,55 +66,46 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 		const url = route.request().url();
 		const method = route.request().method();
 
-		// POST /api/threads/:id/messages — message send.
-		if (url.includes("/api/threads/") && url.endsWith("/messages") && method === "POST") {
-			const requestBody = route.request().postDataJSON() as {
-				payload?: { text?: string };
-			} | null;
-			const text = requestBody?.payload?.text ?? "sent";
+		// POST /api/actions/send_message — message send.
+		if (url.endsWith("/api/actions/send_message") && method === "POST") {
+			const requestBody = route.request().postDataJSON() as { text?: string } | null;
+			const text = requestBody?.text ?? "sent";
 			await route.fulfill({
-				status: 201,
+				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					message: {
-						id: `msg-${Date.now()}`,
-						threadId: COACH_THREAD_ID,
-						senderId: "u-founder",
-						clientKey: `key-${Date.now()}`,
-						type: "plain",
-						payload: { text },
-						createdAt: NOW_ISO,
-						deletedAt: null,
-						redactedAt: null,
-						resolvedAt: null,
+					ok: true,
+					data: {
+						message: makeMessage(`msg-${Date.now()}`, COACH_THREAD_ID, {
+							senderId: "u-founder",
+							clientKey: `key-${Date.now()}`,
+							payload: { text },
+							createdAt: NOW_ISO,
+						}),
+						thread: COACH_THREAD_FIXTURE.thread,
 					},
-					thread: COACH_THREAD_FIXTURE.thread,
 				}),
 			});
 			return;
 		}
 
-		// GET /api/threads?... — thread list (Conversations submenu, useHostThread).
-		if (url.includes("/api/threads?") || url.match(/\/api\/threads$/)) {
+		// POST /api/actions/search_threads — thread list (Conversations submenu,
+		// the overlay's existing-thread lookup).
+		if (url.endsWith("/api/actions/search_threads") && method === "POST") {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(THREADS_LIST_FIXTURE),
+				body: JSON.stringify({ ok: true, data: THREADS_LIST_FIXTURE }),
 			});
 			return;
 		}
 
-		// GET /api/threads/:id — individual thread detail.
-		if (url.match(/\/api\/threads\/[^/]+$/)) {
+		// POST /api/actions/open_thread — individual thread detail.
+		if (url.endsWith("/api/actions/open_thread") && method === "POST") {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({
-					thread: COACH_THREAD_FIXTURE.thread,
-					messages: COACH_THREAD_FIXTURE.messages,
-					headMessageId: null,
-					nextMessagesCursor: null,
-				}),
+				body: JSON.stringify({ ok: true, data: COACH_THREAD_FIXTURE }),
 			});
 			return;
 		}
