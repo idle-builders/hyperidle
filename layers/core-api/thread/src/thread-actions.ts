@@ -201,6 +201,69 @@ function diffFields(
 	return { before: { id, ...beforeOut }, after: { id, ...afterOut } };
 }
 
+/**
+ * A `changes` row `send_message`/`adjust_thread` wrote inside its own
+ * transaction, captured for the post-commit push — architecture.md §3.12.
+ * `kind` here is the DB vocabulary (`changes_kind_ck`); the wire `kind` is
+ * derived from it, never the other way around.
+ */
+interface PushableChange {
+	readonly id: string;
+	readonly objectId: string;
+	readonly kind: "created" | "changed" | "message";
+	readonly actor: string;
+	readonly before: Record<string, unknown> | null;
+	readonly after: Record<string, unknown>;
+	readonly at: string;
+}
+
+function wireKindFor(kind: PushableChange["kind"]): "thread.created" | "thread.changed" | "thread.message" {
+	return `thread.${kind}` as "thread.created" | "thread.changed" | "thread.message";
+}
+
+/**
+ * `conversations` is a global topic any authenticated identity may subscribe
+ * to — the message body may never ride it (architecture.md §3.12). Strip
+ * the payload, keep the thread id, message id, sender and members.
+ */
+function redactMessageAfterForConversations(
+	after: Record<string, unknown>,
+	threadId: string,
+	senderId: string,
+): Record<string, unknown> {
+	const out: Record<string, unknown> = { threadId, messageId: after.messageId, senderId };
+	if ("members" in after) out.members = after.members;
+	return out;
+}
+
+/**
+ * Post-commit push, once per `changes` row, on both `thread:<threadId>` and
+ * `conversations` — the unchanged envelope `{type, topic, kind, data}`
+ * (architecture.md §3.12). A no-op when `deps.wsPush` is absent (tests that
+ * don't need WS pushes, per `app.ts`'s `WsPushTarget` doc comment).
+ */
+function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): void {
+	if (!deps.wsPush) return;
+	for (const row of rows) {
+		const kind = wireKindFor(row.kind);
+		const threadTopic = `thread:${row.objectId}`;
+		deps.wsPush(threadTopic, {
+			type: "update",
+			topic: threadTopic,
+			kind,
+			data: { id: row.id, object: "thread", objectId: row.objectId, kind, actor: row.actor, before: row.before, after: row.after, at: row.at },
+		});
+		const conversationsAfter =
+			kind === "thread.message" ? redactMessageAfterForConversations(row.after, row.objectId, row.actor) : row.after;
+		deps.wsPush("conversations", {
+			type: "update",
+			topic: "conversations",
+			kind,
+			data: { id: row.id, object: "thread", objectId: row.objectId, kind, actor: row.actor, before: row.before, after: conversationsAfter, at: row.at },
+		});
+	}
+}
+
 class VerdictRaceConflict extends Error {}
 
 export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] {
@@ -521,6 +584,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		let resolvedAtBefore: string | null = threadRow?.resolvedAt ?? null;
 		let resolvedAtAfter: string | null = resolvedAtBefore;
 		let willReopen = false;
+		const pushRows: PushableChange[] = [];
 
 		try {
 			await ctx.db.transaction(async (tx) => {
@@ -536,25 +600,28 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					createdAt: now,
 				};
 				await store.insertThread(tx as HyperIdleDb, values);
+				const createdChangeId = randomUUID();
+				const createdAfter = {
+					id: values.id,
+					hostKind: values.hostKind,
+					hostId: values.hostId,
+					initiatorId: values.initiatorId,
+					members: creatingThread.members,
+					title: null,
+					pinned: false,
+					createdAt: now,
+				};
 				await deps.changes.appendChange(tx, {
-					id: randomUUID(),
+					id: createdChangeId,
 					object: "thread",
 					objectId: values.id,
 					kind: "created",
 					actor: ctx.actor,
 					before: null,
-					after: JSON.stringify({
-						id: values.id,
-						hostKind: values.hostKind,
-						hostId: values.hostId,
-						initiatorId: values.initiatorId,
-						members: creatingThread.members,
-						title: null,
-						pinned: false,
-						createdAt: now,
-					}),
+					after: JSON.stringify(createdAfter),
 					at: now,
 				});
+				pushRows.push({ id: createdChangeId, objectId: values.id, kind: "created", actor: ctx.actor, before: null, after: createdAfter, at: now });
 				finalMembers = creatingThread.members;
 			}
 
@@ -640,14 +707,24 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				createdAt: now,
 			};
 			if (membersChanged) messageAfter.members = finalMembers;
+			const messageChangeId = randomUUID();
 			await deps.changes.appendChange(tx, {
-				id: randomUUID(),
+				id: messageChangeId,
 				object: "thread",
 				objectId: effectiveThreadId,
 				kind: "message",
 				actor: ctx.actor,
 				before: messageBefore ? JSON.stringify(messageBefore) : null,
 				after: JSON.stringify(messageAfter),
+				at: now,
+			});
+			pushRows.push({
+				id: messageChangeId,
+				objectId: effectiveThreadId,
+				kind: "message",
+				actor: ctx.actor,
+				before: messageBefore,
+				after: messageAfter,
 				at: now,
 			});
 
@@ -659,16 +736,19 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			// plain member-adding send to append no `changed` row at all.
 			if (resolvedAtAfter !== resolvedAtBefore) {
 				const { before, after } = diffFields(effectiveThreadId, { resolvedAt: resolvedAtBefore }, { resolvedAt: resolvedAtAfter });
+				const resolveAfter = { ...after, lastActiveAt: now };
+				const resolveChangeId = randomUUID();
 				await deps.changes.appendChange(tx, {
-					id: randomUUID(),
+					id: resolveChangeId,
 					object: "thread",
 					objectId: effectiveThreadId,
 					kind: "changed",
 					actor: ctx.actor,
 					before: JSON.stringify(before),
-					after: JSON.stringify({ ...after, lastActiveAt: now }),
+					after: JSON.stringify(resolveAfter),
 					at: now,
 				});
+				pushRows.push({ id: resolveChangeId, objectId: effectiveThreadId, kind: "changed", actor: ctx.actor, before, after: resolveAfter, at: now });
 			}
 			});
 		} catch (e) {
@@ -784,10 +864,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			}
 		}
 
-		if (deps.wsPush) {
-			deps.wsPush(`thread:${effectiveThreadId}`, { kind: "thread.message", objectId: effectiveThreadId });
-			deps.wsPush("conversations", { kind: "thread.message", objectId: effectiveThreadId });
-		}
+		pushChanges(deps, pushRows);
 
 		const finalThreadRow = await store.findThread(ctx.db, { id: effectiveThreadId });
 		if (!finalThreadRow) return { ok: false, problems: [{ code: "not_found", message: "Thread missing after write" }] };
@@ -825,31 +902,34 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				lastActiveAt: now,
 				createdAt: now,
 			};
+			const createdChangeId = randomUUID();
+			const createdAfter = {
+				id: threadId,
+				hostKind: host.kind,
+				hostId: host.id,
+				initiatorId: ctx.actor,
+				members,
+				title: input.title ?? null,
+				pinned: values.pinned,
+				createdAt: now,
+			};
 			await ctx.db.transaction(async (tx) => {
 				await store.insertThread(tx as HyperIdleDb, values);
 				await deps.changes.appendChange(tx, {
-					id: randomUUID(),
+					id: createdChangeId,
 					object: "thread",
 					objectId: threadId,
 					kind: "created",
 					actor: ctx.actor,
 					before: null,
-					after: JSON.stringify({
-						id: threadId,
-						hostKind: host.kind,
-						hostId: host.id,
-						initiatorId: ctx.actor,
-						members,
-						title: input.title ?? null,
-						pinned: values.pinned,
-						createdAt: now,
-					}),
+					after: JSON.stringify(createdAfter),
 					at: now,
 				});
 				if (input.title !== undefined && input.title !== null) {
 					await store.updateThread(tx as HyperIdleDb, threadId, { title: input.title });
 				}
 			});
+			pushChanges(deps, [{ id: createdChangeId, objectId: threadId, kind: "created", actor: ctx.actor, before: null, after: createdAfter, at: now }]);
 			return openThreadRun(ctx, { id: threadId });
 		}
 
@@ -903,19 +983,25 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		if (Object.keys(after).length > 0) {
+			const changeId = randomUUID();
+			const changeBefore = { id: input.id, ...before };
+			const changeAfter = { id: input.id, ...after };
 			await ctx.db.transaction(async (tx) => {
 				await store.updateThread(tx as HyperIdleDb, input.id as string, patch);
 				await deps.changes.appendChange(tx, {
-					id: randomUUID(),
+					id: changeId,
 					object: "thread",
 					objectId: input.id as string,
 					kind: "changed",
 					actor: ctx.actor,
-					before: JSON.stringify({ id: input.id, ...before }),
-					after: JSON.stringify({ id: input.id, ...after }),
+					before: JSON.stringify(changeBefore),
+					after: JSON.stringify(changeAfter),
 					at: now,
 				});
 			});
+			pushChanges(deps, [
+				{ id: changeId, objectId: input.id as string, kind: "changed", actor: ctx.actor, before: changeBefore, after: changeAfter, at: now },
+			]);
 		}
 
 		// Not `openThreadRun` — that guard would refuse a `deleted:true` adjust
