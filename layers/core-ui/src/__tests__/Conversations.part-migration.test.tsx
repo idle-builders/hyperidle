@@ -6,17 +6,35 @@
  * unified-"+" composer. This test proves:
  *  (a) a thread with plain + review + resolved messages renders the Part column
  *      (prose / review / resolved) — NO rich-message-card, NO inline Approve;
- *  (b) typing + Send POSTs a `plain` message to /api/threads/:id/messages with
- *      a uuid clientKey and refs:[], then refreshes;
- *  (c) "Open review" navigates to the review route (no verdict POST);
- *  (d) the conversation never POSTs a verdict.
+ *  (b) typing + Send calls `send_message` with a text body and a uuid clientKey,
+ *      then refreshes;
+ *  (c) "Open review" navigates to the review route with the thread's id (no
+ *      verdict send);
+ *  (d) the conversation never sends a verdict.
+ *
+ * @lore BC3: the thread surface is `call("open_thread"|"send_message"|...)`,
+ * never a fetch to a deleted `/api/threads*` route. Mocks target `call`
+ * directly (see `.claude/rules/testing.md`'s UI test rule).
  */
 
+import type { ThreadView } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: () => ({
+		user: { id: "u-founder", name: "Founder", email: "f@x", avatarUrl: null },
+		status: "ready",
+		error: null,
+		retry: vi.fn(),
+	}),
+}));
 
 let lastPath = "";
 function LocationProbe(): null {
@@ -27,26 +45,38 @@ function LocationProbe(): null {
 
 const THREAD_ID = "t-am1-migration";
 
-// ARCH-1: bet-hosted thread → the host id IS the bet, so the page sources a real
-// betId and "Open review" routes to the full valid review path.
-const BET_ID = "bet-am1-migration";
-const FAKE_THREAD = {
-	id: THREAD_ID,
-	hostKind: "task",
-	hostId: BET_ID,
-	initiatorId: "agent-1",
-	participants: ["u-founder", "agent-1"],
-	pinned: false,
-	resolvedAt: null,
-	lastActiveAt: "2026-04-19T12:00:00.000Z",
-	createdAt: "2026-04-19T12:00:00.000Z",
-};
+// A team-hosted thread — host kind "task" no longer exists (architecture.md
+// §3.9); a task's own thread is team-hosted.
+const HOST_ID = "team-am1-migration";
 
-const PLAIN_MSG = {
+function makeThread(): ThreadView["thread"] {
+	return {
+		id: THREAD_ID,
+		hostKind: "team",
+		hostId: HOST_ID,
+		initiatorId: "agent-1",
+		members: ["u-founder", "agent-1"],
+		title: null,
+		computedTitle: "Founder / Aria",
+		pinned: false,
+		resolvedAt: null,
+		deletedAt: null,
+		lastActiveAt: "2026-04-19T12:00:00.000Z",
+		createdAt: "2026-04-19T12:00:00.000Z",
+	};
+}
+
+const FAKE_MEMBERS: ThreadView["members"] = [
+	{ id: "u-founder", name: "Founder", role: "founder", isAgent: false },
+	{ id: "agent-1", name: "Aria", role: "agent", isAgent: true },
+];
+
+const PLAIN_MSG: ThreadView["messages"][number] = {
 	id: "m-plain",
 	threadId: THREAD_ID,
 	senderId: "u-founder",
 	clientKey: "k-plain",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -55,11 +85,12 @@ const PLAIN_MSG = {
 	payload: { text: "Plain hello from the founder", refs: [] },
 };
 
-const REVIEW_MSG = {
+const REVIEW_MSG: ThreadView["messages"][number] = {
 	id: "m-review",
 	threadId: THREAD_ID,
 	senderId: "agent-1",
 	clientKey: "k-review",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: null,
@@ -72,11 +103,12 @@ const REVIEW_MSG = {
 	},
 };
 
-const RESOLVED_REVIEW_MSG = {
+const RESOLVED_REVIEW_MSG: ThreadView["messages"][number] = {
 	id: "m-review-resolved",
 	threadId: THREAD_ID,
 	senderId: "agent-1",
 	clientKey: "k-review-resolved",
+	blockId: null,
 	deletedAt: null,
 	redactedAt: null,
 	resolvedAt: "2026-04-19T12:05:00.000Z",
@@ -89,69 +121,45 @@ const RESOLVED_REVIEW_MSG = {
 	},
 };
 
-interface CapturedPost {
-	url: string;
-	body: { type?: string; payload?: { text?: string; refs?: unknown[] }; clientKey?: string };
-}
-
-function installFetch(posts: CapturedPost[]): void {
-	const detail = {
-		thread: FAKE_THREAD,
-		messages: [PLAIN_MSG, REVIEW_MSG, RESOLVED_REVIEW_MSG],
-		headMessageId: REVIEW_MSG.id,
-		identities: {
-			"u-founder": { name: "Founder", role: "founder" },
-			"agent-1": { name: "Aria", role: "agent" },
-		},
-	};
-	globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-		const url = typeof input === "string" ? input : input.toString();
-		const method = (init?.method ?? "GET").toUpperCase();
-		if (method === "POST" && url.endsWith(`/api/threads/${THREAD_ID}/messages`)) {
-			const body = init?.body ? JSON.parse(init.body as string) : null;
-			posts.push({ url, body });
-			return new Response(
-				JSON.stringify({
-					message: { id: "m-new", type: body?.type ?? "plain" },
-					thread: FAKE_THREAD,
-				}),
-				{ status: 201, headers: { "Content-Type": "application/json" } },
-			);
-		}
-		if (url.includes("/api/auth/me")) {
-			return new Response(
-				JSON.stringify({ id: "u-founder", name: "Founder", email: "f@x", avatarUrl: null }),
-				{ status: 200, headers: { "Content-Type": "application/json" } },
-			);
-		}
-		if (url.endsWith(`/api/threads/${THREAD_ID}`)) {
-			return new Response(JSON.stringify(detail), {
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			});
-		}
-		return new Response("not found", { status: 404 });
-	}) as typeof globalThis.fetch;
+interface SendMessageCall {
+	input: { text?: string; verdict?: unknown; clientKey?: string; refs?: unknown[] };
 }
 
 describe("Conversations — Part-model migration (AM1 task 12)", () => {
-	let posts: CapturedPost[];
-	let originalFetch: typeof globalThis.fetch;
+	let sends: SendMessageCall[];
+
 	beforeEach(() => {
-		posts = [];
-		originalFetch = globalThis.fetch;
-		installFetch(posts);
+		sends = [];
 		lastPath = "";
+		callMock.mockImplementation(async (action: string, input?: unknown) => {
+			if (action === "open_thread") {
+				return {
+					ok: true,
+					data: {
+						thread: makeThread(),
+						members: FAKE_MEMBERS,
+						messages: [PLAIN_MSG, REVIEW_MSG, RESOLVED_REVIEW_MSG],
+						headMessageId: REVIEW_MSG.id,
+						hostTitle: "Founder / Aria",
+					},
+				};
+			}
+			if (action === "send_message") {
+				sends.push({ input: input as SendMessageCall["input"] });
+				return { ok: true, data: { message: { id: "m-new" }, thread: makeThread() } };
+			}
+			return { ok: true, data: [] };
+		});
 	});
 
 	afterEach(() => {
-		globalThis.fetch = originalFetch;
+		callMock.mockReset();
 		vi.restoreAllMocks();
 	});
 
 	function renderConversations(): void {
 		// A catch-all `*` route captures wherever the conversation navigates so the
-		// review-route param (betId opaque/AM5-owned) cannot make the router throw.
+		// review-route param cannot make the router throw.
 		const router = createMemoryRouter(
 			[
 				{
@@ -190,7 +198,7 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		expect(screen.getAllByRole("button", { name: /inspect review/i }).length).toBeGreaterThan(0);
 	});
 
-	it("types + Send POSTs a plain message with refs:[] and a uuid clientKey", async () => {
+	it("types + Send calls send_message with the text and a uuid clientKey", async () => {
 		const user = userEvent.setup();
 		renderConversations();
 		await screen.findByText("Plain hello from the founder");
@@ -199,19 +207,17 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		await user.type(textarea, "A fresh reply");
 		await user.click(screen.getByRole("button", { name: /send message/i }));
 
-		await waitFor(() => expect(posts.length).toBeGreaterThan(0));
-		const post = posts.find((p) => p.body?.type === "plain");
-		expect(post).toBeDefined();
-		expect(post?.body.payload?.text).toBe("A fresh reply");
-		expect(post?.body.payload?.refs).toEqual([]);
-		expect(typeof post?.body.clientKey).toBe("string");
-		expect((post!.body.clientKey as string).length).toBeGreaterThan(0);
+		await waitFor(() => expect(sends.length).toBeGreaterThan(0));
+		const send = sends.find((s) => s.input.text === "A fresh reply");
+		expect(send).toBeDefined();
+		expect(typeof send?.input.clientKey).toBe("string");
+		expect((send!.input.clientKey as string).length).toBeGreaterThan(0);
 
-		// The conversation NEVER POSTs a verdict.
-		expect(posts.some((p) => p.body?.type === "verdict")).toBe(false);
+		// The conversation NEVER sends a verdict.
+		expect(sends.some((s) => s.input.verdict !== undefined)).toBe(false);
 	});
 
-	it("clicking Open review navigates to the review route (no verdict POST)", async () => {
+	it("clicking Open review navigates to the review route with the thread id (no verdict sent)", async () => {
 		const user = userEvent.setup();
 		renderConversations();
 		await screen.findByText("Plain hello from the founder");
@@ -220,14 +226,12 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		await user.click(openReview);
 
 		// "Open review" fires the OpenTarget→navigate seam to the flattened
-		// `/reviews/:reviewId` route — the loader names the review's own
-		// thread directly, so the URL no longer needs a bet at all
-		// (bet-hosted included). The conversation navigates AWAY to the
-		// review route and never takes the verdict inline.
+		// `/reviews/:reviewId` route, carrying the thread id on the query string
+		// (`open_thread` needs it directly — architecture.md's review target).
 		await waitFor(() => expect(lastPath).toBe(`/reviews/${REVIEW_MSG.id}`));
 		expect(lastPath).not.toContain("//");
 		expect(lastPath).not.toContain("/conversations");
-		// No verdict was POSTed by the conversation.
-		expect(posts.some((p) => p.body?.type === "verdict")).toBe(false);
+		// No verdict was sent by the conversation.
+		expect(sends.some((s) => s.input.verdict !== undefined)).toBe(false);
 	});
 });
