@@ -68,6 +68,31 @@ export async function insertThread(exec: HyperIdleDb, values: NewThread): Promis
 	await exec.insert(threads).values(values);
 }
 
+/**
+ * Direct-thread create: `INSERT … ON CONFLICT (direct_key) DO NOTHING
+ * RETURNING *`, targeting `threads_direct_key_uq` (the partial unique index,
+ * `WHERE direct_key IS NOT NULL` — `schema.ts`). BC3 review-fix: replaces the
+ * old find-then-insert + catch-and-retry on the constraint violation. Under
+ * READ COMMITTED, a concurrent insert of the same `directKey` makes this
+ * statement wait for the other transaction to finish before deciding there's
+ * a conflict, so a `undefined` return means the winner's row is already
+ * committed — the caller re-reads it with `findThreadForUpdate`.
+ */
+export async function insertDirectThread(
+	exec: HyperIdleDb,
+	values: NewThread & { directKey: string },
+): Promise<Thread | undefined> {
+	const [row] = await exec
+		.insert(threads)
+		.values(values)
+		.onConflictDoNothing({
+			target: threads.directKey,
+			where: sql`${threads.directKey} IS NOT NULL`,
+		})
+		.returning();
+	return row;
+}
+
 export async function updateThread(
 	exec: HyperIdleDb,
 	id: string,
@@ -108,24 +133,6 @@ export function resolveMessageIfUnresolved(
 // Thread reads
 // =============================================================================
 
-/**
- * The thread row, locked (`SELECT … FOR UPDATE`) — read this, never the
- * pre-transaction snapshot, immediately before computing a membership change
- * inside a write transaction. BC3 review-fix: two different non-members
- * posting into the same shared thread at once must not both compute "add
- * myself" from the same stale read and overwrite each other's join; the lock
- * serialises the second transaction behind the first's commit so it sees the
- * already-joined list. Same pattern as `server-config.ts`'s config-row lock
- * — the only other `.for("update")` in the codebase.
- */
-export async function findThreadForUpdate(
-	exec: HyperIdleDb,
-	id: string,
-): Promise<Thread | undefined> {
-	const [row] = await exec.select().from(threads).where(eq(threads.id, id)).for("update").limit(1);
-	return row;
-}
-
 function buildThreadConds(f: ThreadFilter): SQL[] {
 	const conds: SQL[] = [];
 	if (f.id !== undefined) conds.push(eq(threads.id, f.id));
@@ -154,6 +161,29 @@ export async function findThread(exec: HyperIdleDb, q: ThreadFilter): Promise<Th
 	let base = exec.select().from(threads).$dynamic();
 	if (w !== undefined) base = base.where(w);
 	const [row] = await base.limit(1);
+	return row;
+}
+
+/**
+ * The thread row, locked (`SELECT … FOR UPDATE`) — read this, never the
+ * pre-transaction snapshot, immediately before computing a membership change
+ * inside a write transaction. BC3 review-fix: two different non-members
+ * posting into the same shared thread at once must not both compute "add
+ * myself" from the same stale read and overwrite each other's join; the lock
+ * serialises the second transaction behind the first's commit so it sees the
+ * already-joined list. Same pattern as `server-config.ts`'s config-row lock
+ * — the only other `.for("update")` in the codebase. Takes an `id` (the
+ * join-on-post path) or a `directKey` (the direct-thread create-conflict
+ * path re-reading the winner's row).
+ */
+export async function findThreadForUpdate(
+	exec: HyperIdleDb,
+	q: Pick<ThreadFilter, "id" | "directKey">,
+): Promise<Thread | undefined> {
+	const w = buildWhere(buildThreadConds(q));
+	let base = exec.select().from(threads).$dynamic();
+	if (w !== undefined) base = base.where(w);
+	const [row] = await base.for("update").limit(1);
 	return row;
 }
 
