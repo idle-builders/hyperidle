@@ -48,7 +48,7 @@ import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 
-/** BC3: every task needs a real thread now (`tasks.thread_id` is NOT NULL). */
+/** Every task needs a real thread (`tasks.thread_id` is NOT NULL). */
 async function seedThreadForTask(db: HyperIdleDb, taskId: string): Promise<string> {
 	const now = new Date().toISOString();
 	const threadId = `thr-${taskId}`;
@@ -449,10 +449,10 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 });
 
 /**
- * BC3 architecture.md §5 B3: `resolveOrCreateCallingThread` and
- * `calling-thread-bindings.ts` are DELETED — a task's thread is a real,
- * `NOT NULL` column now (architecture.md §3.9), so `callingThreadId` is one
- * read of `task.threadId`, never a resolve-or-create, and never optional.
+ * There is no `resolveOrCreateCallingThread` or `calling-thread-bindings.ts`
+ * — a task's thread is a real, `NOT NULL` column, so `callingThreadId` is
+ * one read of `task.threadId`, never a resolve-or-create, and never
+ * optional.
  */
 describe("resolveTaskRunRequest — callingThreadId baking", () => {
 	test("bakes callingThreadId from the task's own thread column", async ({ db }) => {
