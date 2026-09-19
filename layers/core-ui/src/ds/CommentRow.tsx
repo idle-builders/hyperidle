@@ -176,7 +176,7 @@ function MessagePayloads({
  * Render the per-message body. Type narrowing flows through a `switch` on
  * `message.type` so that adding a 5th `MessageType` to the vocabulary
  * triggers a TS narrowing failure at the `default` arm via
- * `exhaustiveAssert(message.type)` (plan §4 + AC-11).
+ * `exhaustiveAssert(message.type)` (AC-11).
  *
  * @lore L1 step9 (Arch-#2): the previous if/else chain fell through to
  * `null` for unhandled types, so a 5th union variant would compile clean
