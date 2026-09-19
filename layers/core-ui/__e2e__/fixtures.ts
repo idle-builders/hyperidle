@@ -41,6 +41,7 @@ import type {
 	ThreadView,
 } from "@hyperidle/domain-model";
 import { test as base, expect } from "@playwright/test";
+import type { AgentConfig } from "../src/settings/settings-types.js";
 
 /** Default mock response for GET /api/auth/me */
 const DEFAULT_AUTH_ME = {
@@ -599,6 +600,55 @@ export async function mockThread(
 			status: 200,
 			contentType: "application/json",
 			body: JSON.stringify({ ok: true, data: { message, thread: opts.thread } }),
+		});
+	});
+}
+
+/**
+ * A complete `GET /api/agents` row. Pass only the fields the assertion
+ * depends on — `ownerUserId` is the one the assistant overlay reads to find
+ * "the viewer's own agent" (BC3 B6).
+ */
+export function makeAgentConfig(id: string, overrides: Partial<AgentConfig> = {}): AgentConfig {
+	return {
+		id,
+		name: id,
+		role: "assistant",
+		ownerUserId: null,
+		identityKnowledgeId: null,
+		harnessType: null,
+		modelId: null,
+		modelProvider: null,
+		maxConcurrentSessions: 1,
+		status: "active",
+		agentCategory: null,
+		...overrides,
+	};
+}
+
+export interface MockAgentsOptions {
+	readonly agents: readonly AgentConfig[];
+}
+
+/**
+ * Mock `GET /api/agents` — every agent picker's data source, and the
+ * assistant overlay's `myAgentId = agents.find(a => a.ownerUserId ===
+ * user?.id)` lookup (BC3 B6). Registered per-test; wins over the network via
+ * LIFO (there is no auto-use fallback for this route).
+ */
+export async function mockAgents(
+	page: import("@playwright/test").Page,
+	opts: MockAgentsOptions,
+): Promise<void> {
+	await page.route("**/api/agents", async (route) => {
+		if (route.request().method() !== "GET") {
+			await route.continue();
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify(opts.agents),
 		});
 	});
 }
