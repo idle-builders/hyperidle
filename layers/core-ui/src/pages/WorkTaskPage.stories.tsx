@@ -101,7 +101,7 @@ function makeMessage(
 
 /**
  * A team-hosted `ThreadView` (`open_thread`'s output) for a task's own
- * discussion. BC3: a task's thread has no `"task"` host kind — it is hosted
+ * discussion. A task's thread has no `"task"` host kind — it is hosted
  * on the task's team.
  */
 function makeThreadView(

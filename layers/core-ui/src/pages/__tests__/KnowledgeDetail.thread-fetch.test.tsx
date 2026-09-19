@@ -1,12 +1,11 @@
 /**
- * BC3 review — knowledge page fetches its thread twice.
- *
- * `KnowledgeDetail` resolved its own `search_threads`/`open_thread` pair for
- * `messagesByBlockId` (inline anchored comments) while `HostThreadSection`
- * independently resolved the very same host's thread to render the
- * discussion itself — four action calls where two do the job. This test
- * leaves `useThreads`/`useThread`/`HostThreadSection` real (only `call` is
- * mocked) so the actual fetch chain runs, and counts the wire calls.
+ * @lore `KnowledgeDetail`'s own thread resolution and `HostThreadSection`'s
+ * thread resolution must collapse to a single `search_threads`/`open_thread`
+ * pair — `HostThreadSection` reports the `ThreadView` it loads upward via
+ * `onThreadView` rather than the page resolving the same host's thread a
+ * second time for `messagesByBlockId`. This test leaves
+ * `useThreads`/`useThread`/`HostThreadSection` real (only `call` is mocked)
+ * so the actual fetch chain runs, and counts the wire calls.
  */
 
 import type { ThreadListRow, ThreadView } from "@hyperidle/domain-model";
@@ -104,7 +103,7 @@ function renderKnowledgeDetail(id = "k1"): ReturnType<typeof render> {
 	);
 }
 
-describe("KnowledgeDetail thread fetch (BC3 review)", () => {
+describe("KnowledgeDetail thread fetch", () => {
 	afterEach(() => {
 		callMock.mockReset();
 		vi.restoreAllMocks();

@@ -689,7 +689,7 @@ function KnowledgeDetailView({
 		{ blockId: string; blockExcerpt: string } | undefined
 	>(undefined);
 
-	// L18: The host thread, for inline anchored messages. BC3 review:
+	// L18: The host thread, for inline anchored messages.
 	// `HostThreadSection` below is the only thing that resolves this
 	// knowledge_item's thread (`search_threads({host})` then `open_thread`) —
 	// it reports what it loaded here via `onThreadView` rather than this page
@@ -755,8 +755,8 @@ function KnowledgeDetailView({
 		const map = new Map<string, Message[]>();
 		if (!threadView?.messages) return map;
 		for (const msg of threadView.messages) {
-			// BC3: `blockId` is a real top-level Message column now
-			// (architecture.md §3.1's `messages_block_id_idx`), not a field
+			// `blockId` is a real top-level Message column
+			// (`messages_block_id_idx`), not a field
 			// buried inside the plain payload.
 			if (msg.type !== "plain" || msg.blockId === null) continue;
 			const existing = map.get(msg.blockId) ?? [];

@@ -3,7 +3,7 @@
  *
  * AC coverage:
  *  - block-anchored messages render inline after the block payload in the knowledge body
- *  - the anchored view updates once a first post creates the thread (BC3 review)
+ *  - the anchored view updates once a first post creates the thread
  *  - filtering the discussion to one block does not hide another block's inline
  *    comment (re-review finding — see below)
  *
@@ -49,7 +49,7 @@ vi.mock("../../services/call.js", () => ({
  * Stands in for the real HostThreadSection: reports `null` first (no thread
  * yet), exactly like a knowledge item with no discussion, then — on request —
  * the loaded view, exactly like the reload that follows create-on-first-post
- * (architecture.md §5 B9, `HostThreadSection.create.test.tsx`).
+ * (see `HostThreadSection.create.test.tsx`).
  *
  * `hostThreadMode.real` switches this to the *actual* component for the
  * re-review filter test below — that test needs the real
