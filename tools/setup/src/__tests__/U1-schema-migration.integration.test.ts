@@ -144,7 +144,7 @@ describe("U1 AC1: FK rename on tasks", () => {
 				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p2', 'MyTeam', 'build', '${now}')`,
 			),
 		);
-		// BC3: every task needs a real thread now (tasks.thread_id is NOT NULL) —
+		// Every task needs a real thread (tasks.thread_id is NOT NULL) —
 		// team-hosted, matching what `edit_task` seeds for a new task.
 		await db.execute(
 			sql.raw(

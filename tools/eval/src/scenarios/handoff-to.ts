@@ -1,13 +1,10 @@
 /**
- * X8: Handoff scenarios (interaction 11).
- *
- * `handoff_to` (the standalone tool) is deleted — handoff is now an `edit_task`
- * call that sets `ownerAgentId` (architecture doc §8 B4). Role targeting and
- * human escalation went with it: a specific teammate's agentId is the only
- * target `edit_task` accepts, and escalating to a human is a `send_message`
- * with type "review" instead. Tests: the `edit_task` handoff path (agent →
- * agent, in every role pairing the old suite covered) and the `send_message`
- * escalation path.
+ * @lore X8: handoff scenarios (interaction 11). There is no standalone
+ * `handoff_to` tool — handoff is an `edit_task` call that sets `ownerAgentId`.
+ * A specific teammate's agentId is the only target `edit_task` accepts;
+ * escalating to a human is a `send_message` with type "review" instead.
+ * Tests: the `edit_task` handoff path (agent → agent, in every role pairing)
+ * and the `send_message` escalation path.
  */
 
 import { messages, sessions } from "@hyperidle/db";
