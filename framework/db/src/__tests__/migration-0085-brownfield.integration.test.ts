@@ -149,6 +149,47 @@ describe("migration 0085: thread as a module — brownfield", () => {
 			)
 		`);
 
+		// step 10 fixture: a user U and their own assistant agent `ast-U`
+		// (owner_user_id = U), in the pre-BC3 user-hosted shape
+		// (`thr-ast-<userId>`, host_kind='user') with two messages.
+		await db.execute(sql`
+			INSERT INTO users (id, name, kind, role, status, team_id, owner_user_id, created_at) VALUES
+				('user-solo', 'Solo User', 'human', 'member', 'active', 'team-1', NULL, ${NOW}),
+				('ast-user-solo', 'Solo Assistant', 'ai', 'assistant', 'active', NULL, 'user-solo', ${NOW})
+		`);
+		await db.execute(sql`
+			INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at)
+			VALUES ('thr-ast-user-solo', 'user', 'user-solo', 'user-solo', '["user-solo","ast-user-solo"]', false, ${NOW}, ${NOW})
+		`);
+		await db.execute(sql`
+			INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at)
+			VALUES
+				('msg-ast-1', 'thr-ast-user-solo', 'user-solo', 'plain', '{"text":"hi"}', 'ck-ast-1', ${NOW}),
+				('msg-ast-2', 'thr-ast-user-solo', 'ast-user-solo', 'plain', '{"text":"hello"}', 'ck-ast-2', ${NOW})
+		`);
+
+		// control: a user-hosted thread that is NOT an assistant thread (two
+		// humans) — step 10 must leave it alone.
+		await db.execute(sql`
+			INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at)
+			VALUES ('thr-two-humans', 'user', 'human-older', 'human-older', '["human-older","human-newer"]', false, ${NOW}, ${NOW})
+		`);
+
+		// duplicate-pair fixture: two pre-BC3 user-hosted threads for the SAME
+		// (user, agent) pair, at different last_active_at — the partial unique
+		// index on direct_key can only keep one keyed row per pair.
+		await db.execute(sql`
+			INSERT INTO users (id, name, kind, role, status, team_id, owner_user_id, created_at) VALUES
+				('user-dup', 'Dup User', 'human', 'member', 'active', 'team-1', NULL, ${NOW}),
+				('ast-user-dup', 'Dup Assistant', 'ai', 'assistant', 'active', NULL, 'user-dup', ${NOW})
+		`);
+		await db.execute(sql`
+			INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at)
+			VALUES
+				('thr-dup-older', 'user', 'user-dup', 'user-dup', '["user-dup","ast-user-dup"]', false, ${OLDER}, ${OLDER}),
+				('thr-dup-newer', 'user', 'user-dup', 'user-dup', '["user-dup","ast-user-dup"]', false, ${NEWER}, ${NEWER})
+		`);
+
 		const folderAfter = makeTempMigrationsFolder(MIGRATION_IDX);
 		tempDirs.push(folderAfter);
 		await migrate(db, { migrationsFolder: folderAfter });
@@ -299,5 +340,67 @@ describe("migration 0085: thread as a module — brownfield", () => {
 			userId: "human-older",
 			agentId: "owner-agent-1",
 		});
+	});
+
+	it("re-hosts a user-hosted assistant thread onto its own agent, keyed for send_message's dedup, same row and messages", async () => {
+		const db = await seedAndMigrate();
+
+		const [thread] = (
+			await db.execute(
+				sql`SELECT host_kind, host_id, direct_key FROM threads WHERE id = 'thr-ast-user-solo'`,
+			)
+		).rows as Array<{ host_kind: string; host_id: string; direct_key: string | null }>;
+		if (!thread) throw new Error("thr-ast-user-solo not found after migration");
+		expect(thread.host_kind).toBe("agent");
+		expect(thread.host_id).toBe("ast-user-solo");
+		// Literal copy of thread-actions.ts:558's directKey construction for the
+		// single-recipient path: `${[actor, recipient].sort().join(":")}:${hostKind}`
+		// — no helper is exported from @hyperidle/thread to import here.
+		const expectedKey = `${["user-solo", "ast-user-solo"].sort().join(":")}:agent`;
+		expect(thread.direct_key).toBe(expectedKey);
+
+		const messages = (
+			await db.execute(
+				sql`SELECT id FROM messages WHERE thread_id = 'thr-ast-user-solo' ORDER BY id`,
+			)
+		).rows as Array<{ id: string }>;
+		expect(messages.map((m) => m.id)).toEqual(["msg-ast-1", "msg-ast-2"]);
+	});
+
+	it("leaves a user-hosted thread between two humans untouched", async () => {
+		const db = await seedAndMigrate();
+
+		const [thread] = (
+			await db.execute(
+				sql`SELECT host_kind, host_id, direct_key FROM threads WHERE id = 'thr-two-humans'`,
+			)
+		).rows as Array<{ host_kind: string; host_id: string; direct_key: string | null }>;
+		if (!thread) throw new Error("thr-two-humans not found after migration");
+		expect(thread.host_kind).toBe("user");
+		expect(thread.host_id).toBe("human-older");
+		expect(thread.direct_key).toBeNull();
+	});
+
+	it("when two pre-BC3 threads exist for the same (user, agent) pair, keys only the most recently active one and leaves the other without a key", async () => {
+		const db = await seedAndMigrate();
+
+		const rows = (
+			await db.execute(sql`
+				SELECT id, host_kind, host_id, direct_key FROM threads
+				WHERE id IN ('thr-dup-older', 'thr-dup-newer') ORDER BY id
+			`)
+		).rows as Array<{ id: string; host_kind: string; host_id: string; direct_key: string | null }>;
+		const byId = new Map(rows.map((r) => [r.id, r]));
+		const expectedKey = `${["user-dup", "ast-user-dup"].sort().join(":")}:agent`;
+
+		// both re-host onto the agent — no merge, no delete.
+		expect(byId.get("thr-dup-older")?.host_kind).toBe("agent");
+		expect(byId.get("thr-dup-older")?.host_id).toBe("ast-user-dup");
+		expect(byId.get("thr-dup-newer")?.host_kind).toBe("agent");
+		expect(byId.get("thr-dup-newer")?.host_id).toBe("ast-user-dup");
+
+		// only the more recently active one (thr-dup-newer, NEWER) is keyed.
+		expect(byId.get("thr-dup-newer")?.direct_key).toBe(expectedKey);
+		expect(byId.get("thr-dup-older")?.direct_key).toBeNull();
 	});
 });

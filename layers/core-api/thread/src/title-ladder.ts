@@ -8,9 +8,8 @@
  *
  * Ladder, first match wins:
  *   0. stored `threads.title`
- *   1. assistant thread (legacy `hostKind:"user"` or current two-party
- *      `hostKind:"agent"`, both by `users.ownerUserId`, never id shape) →
- *      "Assistant"
+ *   1. assistant thread (two-party `hostKind:"agent"`, by
+ *      `users.ownerUserId`, never id shape) → "Assistant"
  *   2. DM (2-participant, user/agent host) → other participant's name
  *   3. host-scoped (`knowledge_item`) → entity title
  *   4. group/feed → deterministic participant-name join
@@ -91,26 +90,12 @@ export async function resolveThreadTitles(
 		const parts = parseParticipants(row.participants);
 
 		// Rung 1: assistant thread — ownership (`users.ownerUserId`), never
-		// id shape, decides. Two shapes both fire it:
-		//
-		// - legacy (`hostKind:"user"`, hostId the viewer): the pre-BC3
-		//   `createAssistantThreadRoute` shape. Migration 0085 re-hosts every
-		//   `task`-hosted thread but never touches this one, so a thread in
-		//   this shape can still exist in a migrated database — keep the rung.
-		// - current (`hostKind:"agent"`, two-party direct thread): what
-		//   `send_message`'s single-agent-recipient branch creates today
-		//   (thread-actions.ts) — the thread is hosted by the AGENT party,
-		//   not the human. Without this form the rung never fires in
-		//   production and every assistant thread titles with the agent's own
-		//   name instead of "Assistant".
-		if (
-			row.hostKind === "user" &&
-			row.hostId === requestingUserId &&
-			parts.some((p) => identityOwnerUserId(userNameMap.get(p)) === requestingUserId)
-		) {
-			titleMap.set(row.id, "Assistant");
-			continue;
-		}
+		// id shape, decides. `hostKind:"agent"`, two-party direct thread: what
+		// `send_message`'s single-agent-recipient branch creates
+		// (thread-actions.ts) — the thread is hosted by the AGENT party, not
+		// the human. Migration 0085 step 10 re-hosts every pre-BC3
+		// user-hosted assistant thread onto its agent too, so this is the
+		// only shape a migrated database ever has.
 		if (
 			row.hostKind === "agent" &&
 			parts.length === 2 &&

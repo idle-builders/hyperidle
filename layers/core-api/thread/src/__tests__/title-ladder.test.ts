@@ -37,38 +37,6 @@ function depsFor(identities: Record<string, ParticipantIdentity>): TitleLadderDe
 }
 
 describe("resolveThreadTitles — assistant rung is ownership, not id shape", () => {
-	test("a counterpart owned by the viewer (ownerUserId === requestingUserId) titles 'Assistant', whatever its id looks like", async () => {
-		const row = threadRow({
-			id: "t1",
-			hostKind: "user",
-			hostId: "u1",
-			participants: JSON.stringify(["u1", "agent-nova"]),
-		});
-		const titles = await resolveThreadTitles(
-			fakeDb,
-			[row],
-			"u1",
-			depsFor({ "agent-nova": { name: "Nova", ownerUserId: "u1" } }),
-		);
-		expect(titles.get("t1")).toBe("Assistant");
-	});
-
-	test("a counterpart shaped like an assistant id but NOT owned by the viewer (ownerUserId: null) titles by its ordinary name, never 'Assistant'", async () => {
-		const row = threadRow({
-			id: "t2",
-			hostKind: "user",
-			hostId: "u1",
-			participants: JSON.stringify(["u1", "ast-ops"]),
-		});
-		const titles = await resolveThreadTitles(
-			fakeDb,
-			[row],
-			"u1",
-			depsFor({ "ast-ops": { name: "Ops Agent", ownerUserId: null } }),
-		);
-		expect(titles.get("t2")).toBe("Ops Agent");
-	});
-
 	test("rung 2 fallback (no resolved name): ownerUserId match still titles 'Assistant'", async () => {
 		const row = threadRow({
 			id: "t3",

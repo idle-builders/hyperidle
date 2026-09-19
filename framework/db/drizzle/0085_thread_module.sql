@@ -156,3 +156,55 @@ SET "baked_request_json" = jsonb_set(
        )
 )::text
 WHERE "baked_request_json"::jsonb -> 'sourceCorrelation' ? 'assistantAgentId';
+--> statement-breakpoint
+
+-- 10. a direct thread between a user and their own assistant agent used to
+--     be hosted by the USER (pre-BC3 `createAssistantThreadRoute` shape:
+--     `thr-ast-<userId>`, host_kind='user'). `send_message`'s single-
+--     recipient path (thread-actions.ts ~546-558) now hosts that pair by the
+--     AGENT and dedupes on `direct_key = ${[a,b].sort().join(":")}:agent`.
+--     Re-host every such thread so the assistant overlay's
+--     `search_threads({host:{kind:"agent", id: myAgentId}})` finds the old
+--     conversation instead of a second one being created on first send.
+--
+--     Selected by OWNERSHIP (`users.owner_user_id`), never an id prefix —
+--     migration data need not be shaped `thr-ast-<userId>`/`ast-<userId>`.
+--     A candidate is a `host_kind='user'` thread whose participants are
+--     EXACTLY the host user and one agent it owns (`?&` + length check).
+--
+--     Idempotent: only `host_kind='user'` rows are candidates, and this step
+--     flips them to 'agent' — a re-run selects nothing.
+--
+--     Two threads can exist for the same pair (nothing forbade it pre-BC3).
+--     The partial unique index on `direct_key` allows only one keyed row per
+--     pair, so the most-recently-active thread keeps the key; the other is
+--     still re-hosted onto the agent but left with `direct_key IS NULL` — no
+--     merge, no delete, both rows survive.
+--
+--     Same trigger-suspend window as step 7 (`threads_host_immutable_trg`,
+--     migration 0007) — this changes `host_kind`/`host_id` too.
+ALTER TABLE "threads" DISABLE TRIGGER "threads_host_immutable_trg";
+--> statement-breakpoint
+WITH pair AS (
+  SELECT
+    th."id" AS thread_id,
+    ag."id" AS agent_id,
+    concat(LEAST(th."host_id", ag."id"), ':', GREATEST(th."host_id", ag."id"), ':agent') AS computed_key,
+    row_number() OVER (
+      PARTITION BY LEAST(th."host_id", ag."id"), GREATEST(th."host_id", ag."id")
+      ORDER BY th."last_active_at" DESC, th."id" ASC
+    ) AS rn
+  FROM "threads" th
+  JOIN "users" ag ON ag."owner_user_id" = th."host_id" AND ag."kind" = 'ai'
+  WHERE th."host_kind" = 'user'
+    AND th."participants"::jsonb ?& array[th."host_id", ag."id"]
+    AND jsonb_array_length(th."participants"::jsonb) = 2
+)
+UPDATE "threads" th SET
+  "host_kind" = 'agent',
+  "host_id" = p.agent_id,
+  "direct_key" = CASE WHEN p.rn = 1 THEN p.computed_key ELSE NULL END
+FROM pair p
+WHERE th."id" = p.thread_id;
+--> statement-breakpoint
+ALTER TABLE "threads" ENABLE TRIGGER "threads_host_immutable_trg";
