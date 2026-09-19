@@ -18,16 +18,16 @@ import { ThreadSections } from "../../components/ThreadSections";
 import { Composer, ThreadRow } from "../../ds";
 import { Conversations } from "../../pages/Conversations";
 
-// BC3: Conversations no longer calls a thread-list/thread-detail hook itself —
+// Conversations does not call a thread-list/thread-detail hook itself —
 // the flat list is sourced from AppShell's OutletContext (absent in these
 // tests, so the page falls back to its own empty defaults) and the detail
 // surface (`useThread`) only mounts once a `:threadId` route param is
 // present, which none of these AC-5/6/7/8/12 tests exercise. No hook mock
 // is needed.
 
-// BC3: a task's own thread is `team`-hosted now (architecture.md §3.9) —
-// `"task"` left the thread `HostKind` vocabulary. `ThreadItem.hostKind` still
-// carries a real `HostKind`, so the fixture default moves to `"team"`.
+// A task's own thread is `team`-hosted —
+// `"task"` is not in the thread `HostKind` vocabulary. `ThreadItem.hostKind`
+// still carries a real `HostKind`, so the fixture default is `"team"`.
 function makeThread(overrides: Partial<ThreadItem> = {}): ThreadItem {
 	return {
 		id: "t1",

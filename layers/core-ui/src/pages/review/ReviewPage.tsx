@@ -102,10 +102,9 @@ function findVerdictForReview(
 }
 
 /**
- * BC3 default loader: `GET /api/reviews/:id` is gone (B1/B10). The review
- * message and everything the review page composes from real rows, the way
- * `routes/reviews.ts` did (architecture.md §5 B9) — but the thread fetch
- * itself is `useThread`'s job, not this loader's. `ReviewPage` passes the
+ * @lore `defaultLoader` composes the review subject from real rows the way
+ * the old `/api/reviews/:id` route did — but the thread fetch itself is
+ * `useThread`'s job, not this loader's. `ReviewPage` passes the
  * already-fetched `ThreadView` in; a second `open_thread` call here would
  * duplicate the one the hook already made (and the websocket nudge already
  * keeps live).
@@ -225,7 +224,7 @@ export function ReviewPage({
 	// first thread for that host — the WRONG thread whenever a host has more
 	// than one). This is also the ONE fetch of thread data on the page —
 	// `defaultLoader` below composes the review subject from `threadDetail.data`
-	// rather than fetching it again itself (AL4/BC3 review-fix C).
+	// rather than fetching it again itself.
 	const threadDetail = useThread(threadId);
 
 	// `subject` holds the mostly-static composition (title, task naming,
@@ -233,8 +232,8 @@ export function ReviewPage({
 	// are recomputed here on every `threadDetail.data` change instead of via a
 	// second loader call — this is what "derive from useThread's data" means:
 	// a post or a verdict submit below only calls `threadDetail.refresh()`
-	// (ONE refetch), and this overlay reacts to the result, matching AL4/BC3
-	// review-fix C ("one source").
+	// (ONE refetch), and this overlay reacts to the result — one source of
+	// truth for thread data.
 	const reviewSubject = useMemo<ComposedReviewSubject | null>(() => {
 		if (!subject) return null;
 		const threadMessages = threadDetail.data?.messages;
@@ -264,7 +263,7 @@ export function ReviewPage({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
 	useEffect(() => {
 		// No thread id at all is a bad link, not a loading state — handled by
-		// the dedicated render branch below (AL4/BC3 review-fix A). Never wait
+		// the dedicated render branch below. Never wait
 		// on `useThread("")` here.
 		if (!threadId) return;
 		if (threadDetail.status === "error" || threadDetail.status === "not-found") {
@@ -333,7 +332,7 @@ export function ReviewPage({
 			// sender lacking authority — comes back as `{ok:false, problems}`.
 			// That is a control-level rejection, not a page load failure: it goes
 			// in `verdictError` next to the verdict control, and the review stays
-			// visible (AL4/BC3 review-fix B). `error` stays reserved for the page
+			// visible. `error` stays reserved for the page
 			// failing to load at all.
 			setVerdictError(res.ok ? null : (res.problems[0]?.message ?? "Failed to submit verdict"));
 			// Either way we refresh so the surface shows the authoritative
@@ -391,7 +390,7 @@ export function ReviewPage({
 		// only needs a bounded flex column to size against, the managed body's job.
 		<PageScaffold body="managed">
 			{verdictError ? (
-				// AL4/BC3 review-fix B: a refused verdict is a control-level rejection,
+				// A refused verdict is a control-level rejection,
 				// not a page load failure — it renders here, right above the verdict
 				// control ReviewComposition's FrameHeader owns, using the same inline
 				// alert styling `ds/Composer.tsx` uses for its own send failures. The

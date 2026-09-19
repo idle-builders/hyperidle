@@ -96,7 +96,7 @@ const retrySpy = vi.fn();
 
 // ReviewPage fetches the thread the route NAMES directly (`useThread`), instead
 // of guessing it from a by-host lookup. `useThreadMock` is a controllable spy
-// (not a fixed factory) so the "task naming"/review-fix-C tests below can hand
+// (not a fixed factory) so the "task naming" tests below can hand
 // it a different `ThreadView` per test — this is the ONE fetch of thread data
 // the page makes; `defaultLoader` must never call `open_thread` itself.
 const { useThreadMock } = vi.hoisted(() => ({ useThreadMock: vi.fn() }));
@@ -207,8 +207,8 @@ describe("ReviewPage route", () => {
 		expect(input.verdict.resolvesMessageId).toBe("rev-1");
 
 		// Exactly ONE refetch — `threadDetail.refresh()` — and no second fetch
-		// through the loader or a direct `open_thread` call (review-fix C: the
-		// subject is derived from `useThread`'s own data, not refetched twice).
+		// through the loader or a direct `open_thread` call — the
+		// subject is derived from `useThread`'s own data, not refetched twice.
 		await waitFor(() => {
 			expect(retrySpy).toHaveBeenCalledTimes(1);
 		});
@@ -257,7 +257,7 @@ describe("ReviewPage route", () => {
 	it("renders an error state instead of a permanent spinner when the route has no threadId", () => {
 		// Simulates the landed `useThread` contract's terminal "idle" status for
 		// a falsy id — but the page must not even wait on that: a missing
-		// threadId is a bad link, not a loading state (review-fix A).
+		// threadId is a bad link, not a loading state.
 		useThreadMock.mockReturnValue({ status: "idle", data: null, error: null, refresh: retrySpy });
 		const router = createMemoryRouter([{ path: "/reviews/:reviewId", element: <ReviewPage /> }], {
 			initialEntries: ["/reviews/rev-1"],
@@ -273,7 +273,7 @@ describe("ReviewPage route", () => {
 // `taskId` (server-stamped, commit ee37000af). These exercise
 // `defaultLoader` itself, unlike the suite above which always injects a
 // stub `loader` and never reaches it. `useThreadMock` supplies the
-// `ThreadView` directly here (review-fix C) — `defaultLoader` must never
+// `ThreadView` directly here — `defaultLoader` must never
 // call `open_thread` itself to get it.
 describe("ReviewPage default loader — task naming", () => {
 	function reviewMessageWithTaskId(taskId?: string): Message {
@@ -393,7 +393,7 @@ describe("ReviewPage default loader — task naming", () => {
 		const link = await screen.findByRole("link", { name: "Fix the webhook" });
 		expect(link).toHaveAttribute("href", "/work/task/task-1");
 		// The thread itself is fetched exactly once, by `useThread` — the loader
-		// must never issue a second `open_thread` call (review-fix C).
+		// must never issue a second `open_thread` call.
 		expect(postMessageSpy).not.toHaveBeenCalledWith("open_thread", expect.anything());
 	});
 
