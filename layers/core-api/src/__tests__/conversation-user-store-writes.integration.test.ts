@@ -4,14 +4,14 @@
  * Proves the two owning modules (conversation-store, user-store) write the
  * expected rows, that get-or-create is idempotent, that direct-thread and
  * pinned-patch writes ride the `send_message`/`adjust_thread` actions (the
- * store's `findOrCreateDirectThread`/`updateThread` have no production
- * caller), and that a write function passed a live `tx` participates in —
- * and rolls back with — the caller's transaction. The verdict-race
- * first-wins behavior lives in thread-actions.integration.test.ts.
+ * store's `findOrCreateDirectThread`/`updateThread`/`insertThread`/
+ * `insertMessage` have no production caller outside `@hyperidle/thread`
+ * itself — all four unexported), and that a write function passed a live
+ * `tx` participates in — and rolls back with — the caller's transaction. The
+ * verdict-race first-wins behavior lives in thread-actions.integration.test.ts.
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import { insertMessage, insertThread } from "@hyperidle/thread";
 import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -31,7 +31,10 @@ async function sendMessageAs(
 		headers: { "Content-Type": "application/json", "x-hyperidle-actor-id": actorId },
 		body: JSON.stringify(body),
 	});
-	return { status: res.status, body: (await res.json()) as ActionEnvelope<{ thread: { id: string } }> };
+	return {
+		status: res.status,
+		body: (await res.json()) as ActionEnvelope<{ thread: { id: string } }>,
+	};
 }
 
 async function adjustThreadAs(
@@ -88,7 +91,7 @@ function messageValues(id: string, threadId: string, senderId: string) {
 describe("conversation-store row writes", () => {
 	test("insertThread writes the row", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
-		await insertThread(db, threadValues("t1", "u1"));
+		await db.insert(threads).values(threadValues("t1", "u1"));
 		const rows = await db.select().from(threads).where(eq(threads.id, "t1"));
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.initiatorId).toBe("u1");
@@ -96,8 +99,8 @@ describe("conversation-store row writes", () => {
 
 	test("insertMessage writes the row", async ({ db }) => {
 		await insertUser(db, userValues("u2"));
-		await insertThread(db, threadValues("t2", "u2"));
-		await insertMessage(db, messageValues("m2", "t2", "u2"));
+		await db.insert(threads).values(threadValues("t2", "u2"));
+		await db.insert(messages).values(messageValues("m2", "t2", "u2"));
 		const rows = await db.select().from(messages).where(eq(messages.id, "m2"));
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.threadId).toBe("t2");
@@ -105,7 +108,7 @@ describe("conversation-store row writes", () => {
 
 	test("adjust_thread applies a typed pinned patch (was updateThread)", async ({ db, app }) => {
 		await insertUser(db, userValues("u3"));
-		await insertThread(db, threadValues("t3", "u3"));
+		await db.insert(threads).values(threadValues("t3", "u3"));
 		const res = await adjustThreadAs(app, "u3", { id: "t3", pinned: true });
 		expect(res.status).toBe(200);
 		const [row] = await db.select().from(threads).where(eq(threads.id, "t3"));

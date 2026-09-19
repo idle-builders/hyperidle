@@ -7,13 +7,15 @@
  * authorizer, the routine scheduler binding) get their reads from here.
  *
  * @lore BC3 review fix: `updateThread`, `updateMessage`,
- * `resolveMessageIfUnresolved`, `searchThreadsByTitle` and `findMessage` are
- * unexported — no production code outside this module imported them (only
- * tests did; house rule: test-only reachable = dead). They still have
- * production callers INSIDE the module (`thread-actions.ts`, via the `store`
- * namespace import of `thread-service.js`, not through this barrel).
- * `findOrCreateDirectThread` had no caller anywhere, in or out of the
- * module, and its fixed `recipientId`-hosts shape didn't match
+ * `resolveMessageIfUnresolved`, `searchThreadsByTitle`, `findMessage`,
+ * `insertThread` and `insertMessage` are unexported — no production code
+ * outside this module imported them (only tests did; house rule: test-only
+ * reachable = dead — the two re-pointed tests are plain fixture inserts now,
+ * `conversation-user-store-{reads,writes}.integration.test.ts`). They still
+ * have production callers INSIDE the module (`thread-actions.ts`, via the
+ * `store` namespace import of `thread-service.js`, not through this
+ * barrel). `findOrCreateDirectThread` had no caller anywhere, in or out of
+ * the module, and its fixed `recipientId`-hosts shape didn't match
  * `send_message`'s actual rule (whichever party is the agent hosts —
  * `thread-actions.ts`'s single-recipient branch) — deleted rather than
  * exported. `findThreadForUpdate` (the row-locked read the join-on-post race
@@ -22,13 +24,6 @@
 
 export { createThreadActions, type ThreadActionsDeps } from "./thread-actions.js";
 export type { MessageFilter, ThreadFilter, ThreadSearchRow } from "./thread-service.js";
-export {
-	findThread,
-	insertMessage,
-	insertThread,
-	listMessages,
-	listThreads,
-	searchConversations,
-} from "./thread-service.js";
+export { findThread, listMessages, listThreads, searchConversations } from "./thread-service.js";
 export type { BakedThreadTurnRequest, ThreadTurnResolverDeps } from "./thread-turn-resolver.js";
 export { resolveThreadTurnRequest } from "./thread-turn-resolver.js";
