@@ -8,9 +8,9 @@
   },
   "gates": {
     "check": "pass",
-    "lint": "pass (only finding is the uncommitted temporary .claude/launch.json)",
-    "unit": "5049 pass",
-    "service_integration": "1849 pass / 5 skipped",
+    "lint": "pass",
+    "unit": "5046 pass",
+    "service_integration": "1857 pass / 5 skipped",
     "knip": "pass",
     "deps": "pass",
     "e2e_full": "193 pass / 41 fail, all 41 in main baseline (main 43)",
@@ -19,8 +19,8 @@
   "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
   "branch": "feature/thread-module",
   "base": "origin/main",
-  "phase": "founder-gate",
-  "next_action": "founder gate in the running app (dev server on 5173, dev DB migrated in place to 0085); then revert .claude/launch.json, retro, ship (PR against main, never auto-merge)",
+  "phase": "founder-gate-2",
+  "next_action": "founder confirms; then retro, consolidate the item folder, open PR against main, wait for CI; never auto-merge",
   "since": "c90326dd1",
   "artifacts": {
     "architecture": ".pipeline/work/BC3/architecture.md",
@@ -34,5 +34,14 @@
     "a failed thread turn tells the person nothing in a thread (overlay shows Retry after timeout) - same on main",
     "unreachable SessionView chain on the conversations page - task chip spawned",
     "local harness lane: claude/cursor adapter probes fail on unchanged code - environment"
+  ],
+  "desktop_smoke": "packaged app, fresh onboarding on a throwaway DB (real DB moved aside and restored untouched): welcome message lands in the overlay thread; overlay send -> real Claude Code session -> reply via send_message in ~15s; @My Team Agent (multi-word) highlighted, agent joins, replies, creates a task in the same thread then says so; members survive; thread lists both tasks; after the socket fix replies and the thread list update live without reopening; zero errors in the desktop log",
+  "gate_findings_fixed": [
+    "thread page title read a deleted route field",
+    "mention pool ignored host team and own agents",
+    "multi-word names unmentionable",
+    "failed wake silent in a thread",
+    "ws subscribe stricter than canReadThread",
+    "production bundle dialled ws://localhost:3001 because a local core-ui .env forced NODE_ENV=development (main had it too)"
   ]
 }
