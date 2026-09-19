@@ -69,7 +69,7 @@ const MOCK_AGENTS = [
 		id: "agent-nova",
 		name: "Nova",
 		role: "assistant",
-		// BC3: the assistant is a person-owned agent — `ownerUserId` set, not a
+		// The assistant is a person-owned agent — `ownerUserId` set, not a
 		// structural id prefix.
 		ownerUserId: "user1",
 		identityKnowledgeId: "ki_af_demo",

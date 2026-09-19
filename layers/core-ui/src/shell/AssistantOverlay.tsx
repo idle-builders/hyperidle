@@ -264,14 +264,14 @@ function AssistantOverlayInner({
 }): JSX.Element {
 	// artifacts-become-knowledge: scopeKind for knowledge items created from pending_block refs.
 	const { user, status: userStatus } = useCurrentUser();
-	// BC3 B6: "the assistant is your agent" — an ordinary agent with
+	// "The assistant is your agent" — an ordinary agent with
 	// `ownerUserId === me`. `GET /api/agents` carries `ownerUserId` directly, so
 	// the overlay finds it straight off the one agents fetch every agent picker
 	// already shares — no second fetch.
 	const { agents, loading: agentsLoading, refetch: refetchAgents } = useAgents();
 	const myAgentId = agents.find((a) => a.ownerUserId === user?.id)?.id ?? null;
 
-	// BC3: no more `GET /api/threads/assistant` create-on-read. Resolve the
+	// There is no `GET /api/threads/assistant` create-on-read. Resolve the
 	// existing direct thread with my agent, if any; the overlay's first send
 	// creates one via `send_message({ recipients: [myAgentId] })`.
 	const agentHostFilter = myAgentId
@@ -375,7 +375,7 @@ function AssistantOverlayInner({
 		[sendToThread, threadSearch],
 	);
 
-	// BC3 review fix: `/api/auth/me` is still in flight until `userStatus`
+	// `/api/auth/me` is still in flight until `userStatus`
 	// leaves "loading" — without this, `myAgentId` reads as null while the
 	// user is unresolved and the overlay flashes the no-agent message.
 	if (
@@ -391,7 +391,7 @@ function AssistantOverlayInner({
 	}
 
 	if (!myAgentId || threadSearch.status === "error") {
-		// BC3 review fix: with no agent, `threadSearch`'s filter is undefined
+		// With no agent, `threadSearch`'s filter is undefined
 		// and `threadSearch.retry()` is a no-op — re-fetching agents is the
 		// only thing that can resolve this state. Once an agent exists,
 		// `threadSearch.status === "error"` means the search itself failed,
@@ -409,7 +409,7 @@ function AssistantOverlayInner({
 		);
 	}
 
-	// B6: no thread yet — an empty compose-only state. The first send creates
+	// No thread yet — an empty compose-only state. The first send creates
 	// the thread (`recipients: [myAgentId]`); no create-on-read, no flag.
 	if (!existingThreadId) {
 		return (

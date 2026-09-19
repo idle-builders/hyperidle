@@ -82,7 +82,7 @@ export interface AgentEditorProps {
 	agentId: string;
 	/**
 	 * The human this agent belongs to, or null for a team-owned agent. Decides
-	 * whether the role field is locked — see the BC3 @lore above.
+	 * whether the role field is locked — see the @lore above.
 	 */
 	ownerUserId: string | null;
 	/** Controlled draft state. */
