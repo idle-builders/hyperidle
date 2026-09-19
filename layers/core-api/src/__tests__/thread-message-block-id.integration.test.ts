@@ -1,9 +1,9 @@
 /**
- * T5 — Block Discussion Completion: server-side blockId tests, re-pointed
- * onto the thread action surface after `routes/threads.ts` was deleted
- * (BC3). Was `routes/__tests__/threads.blockId.integration.test.ts`, driving
- * the deleted `POST /api/threads` / `GET /api/threads/:id?block_id=X`; now
- * drives `POST /api/actions/send_message` / `POST /api/actions/open_thread`.
+ * @lore T5 — Block Discussion Completion: server-side blockId tests,
+ * re-pointed onto the thread action surface after `routes/threads.ts` was
+ * deleted. Was `routes/__tests__/threads.blockId.integration.test.ts`,
+ * driving the deleted `POST /api/threads` / `GET /api/threads/:id?block_id=X`;
+ * now drives `POST /api/actions/send_message` / `POST /api/actions/open_thread`.
  *
  * AC coverage (unchanged from the original):
  *  - AC-1: blockId persisted in a structured, queryable column (not only in

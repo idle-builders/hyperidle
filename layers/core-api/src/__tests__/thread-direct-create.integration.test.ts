@@ -1,7 +1,7 @@
 /**
- * BC3 review-fix: `send_message`'s single-recipient find-or-create used to
- * catch `threads_direct_key_uq`'s unique violation by string-matching the
- * error message (`isDirectKeyConflict`) and retry the whole send in a second
+ * @lore `send_message`'s single-recipient find-or-create used to catch
+ * `threads_direct_key_uq`'s unique violation by string-matching the error
+ * message (`isDirectKeyConflict`) and retry the whole send in a second
  * transaction. Replaced with `INSERT … ON CONFLICT (direct_key) DO NOTHING
  * RETURNING *` inside the ONE transaction, falling back to a locked read of
  * the winner's row when nothing comes back
@@ -47,7 +47,7 @@ async function seedHuman(db: HyperIdleDb, id: string, name: string): Promise<voi
 	});
 }
 
-describe("send_message — concurrent direct-thread create (BC3 review-fix)", () => {
+describe("send_message — concurrent direct-thread create", () => {
 	test("five concurrent first sends to the same pair land in exactly one thread with five messages", async ({
 		db,
 		app,

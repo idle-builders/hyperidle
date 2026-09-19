@@ -1,6 +1,5 @@
 /**
- * The server half of the websocket nudge — architecture.md §3.12 (locked as
- * the nudge reading) / §5 B8.
+ * The server half of the websocket nudge.
  *
  * After commit, `send_message`/`adjust_thread` push the `changes` row
  * itself, once per row, on both `thread:<threadId>` and `conversations`,
@@ -227,7 +226,7 @@ describe("send_message — the websocket nudge", () => {
 		await seedTeam(db, "nudge-team-3");
 		await seedHuman(db, "nudge-human-3", "nudge-team-3");
 
-		// no `wsPush` in the bindings — the dep is optional (architecture.md §3.12).
+		// no `wsPush` in the bindings — the dep is optional.
 		const actions = buildCoreActions({
 			agentOrchestration,
 			agentWorkIntentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),

@@ -1,5 +1,5 @@
 /**
- * AU21 Increment 3, thread_turn wave — architecture.md §3.10's wake rule
+ * AU21 Increment 3, thread_turn wave — the wake rule
  * (`@hyperidle/thread`'s `send_message` action, `thread-actions.ts`'s
  * "wake" block) must resolve + validate the woken agent AT EMIT TIME and
  * bake the full request onto the `agent_work_intents` row, instead of

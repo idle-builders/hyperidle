@@ -1,5 +1,5 @@
 /**
- * AU21 §9 Increment 11 (H2 re-derived) — architecture.md §6 Decision H's H2
+ * @lore AU21 §9 Increment 11 (H2 re-derived) — Decision H's H2
  * subsection: the wake rule's bake (`@hyperidle/thread`'s
  * `resolveThreadTurnRequest`, generalised from the deleted
  * `resolveAssistantTurnRequest`) must carry the FULL current transcript

@@ -1,15 +1,16 @@
 /**
- * The live-harness proof for BC3's thread turn: a human `send_message` into a
- * two-member direct thread with an agent wakes that agent for real, and the
- * agent's own real `send_message` tool call is the only way its turn ends.
+ * @lore The live-harness proof for the thread turn: a human `send_message`
+ * into a two-member direct thread with an agent wakes that agent for real,
+ * and the agent's own real `send_message` tool call is the only way its
+ * turn ends.
  *
  * Restores the AU27 Increment 8 proof that a prior commit (576d3f28d) deleted
  * without a replacement — `assistant-reply-live-harness.integration.test.ts`,
  * whose subject (the assistant's reply reaching its calling thread through
- * its own `reply` tool call) survives under BC3's shape: there is no
- * assistant thread, no `reply` tool — a human's `send_message` with
+ * its own `reply` tool call) survives under the thread module's shape: there
+ * is no assistant thread, no `reply` tool — a human's `send_message` with
  * `recipients:[agentId]` opens a direct thread and enqueues a `thread_turn`
- * work intent (`thread-actions.ts` §wake, architecture.md §3.10); the real
+ * work intent (`thread-actions.ts`'s wake block); the real
  * harness runs; the agent answers by calling `send_message` itself (the only
  * return action a task-free, thread-calling session may satisfy —
  * `provisioner.ts`'s `requiredReturnActions`, `framework/harness-protocol/
