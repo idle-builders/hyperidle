@@ -19,7 +19,9 @@
  *   task_run          -> work marks the taskDispatchAttempts row failed
  *   session_start     -> work marks the explicitSessionStarts row failed (no retry)
  *   knowledge_action  -> a review-flagged item is created (no run-record mutation)
- *   thread_turn        -> informational only, no mutation
+ *   thread_turn       -> the never-silent net's sibling case: one plain notice
+ *                        posted into the thread the turn came from, sent as
+ *                        the agent that could not be started (never wakes it)
  *
  * All seven are currently RED: the event isn't even emitted yet (see the
  * sibling `agent-run-admission-failed-emission.integration.test.ts`), so none
@@ -40,6 +42,8 @@
  */
 
 import {
+	agentWorkIntents,
+	changes,
 	explicitSessionStarts,
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -53,10 +57,37 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ThreadView } from "@hyperidle/domain-model";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+
+interface ActionEnvelope<T> {
+	readonly ok: boolean;
+	readonly data?: T;
+}
+
+async function openThread(
+	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
+	id: string,
+): Promise<{ readonly status: number; readonly body: ActionEnvelope<ThreadView> }> {
+	const res = await app.request("/api/actions/open_thread", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ id }),
+	});
+	return { status: res.status, body: (await res.json()) as ActionEnvelope<ThreadView> };
+}
+
+/**
+ * `reactToAdmissionFailure` runs fire-and-forget internally — flush the
+ * microtask queue so its `await`s have settled (same pattern as
+ * `session-not-returned-notice.integration.test.ts`'s `flush`).
+ */
+async function flush(): Promise<void> {
+	await new Promise<void>((resolve) => setImmediate(resolve));
+}
 
 /**
  * @lore AU44: The original vehicle for terminal failures (unbaked intent →
@@ -442,89 +473,186 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		expect(reloadedItem?.status).toBe("archived");
 	});
 
-	test("thread_turn: informational only — no mutation of the source message", async ({
+	test("thread_turn: failed admission posts one plain notice into the thread the turn came from", async ({
 		db,
 		eventBus,
+		app,
 	}) => {
-		const now = NOW;
-		await db.insert(users).values([
-			{
-				id: "w0-sub-assistant-human",
-				kind: "human",
-				name: "Human",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			},
-			{
-				id: "ast-w0-sub-assistant-human",
-				kind: "ai",
-				name: "Assistant",
-				role: "assistant",
-				status: "active",
-				createdAt: now,
-			},
-		]);
+		const { teamId } = await seedTeam(db, "w0-sub-turn");
+		await seedAgent(db, "w0-sub-turn-agent", { teamId });
+		await db.insert(users).values({
+			id: "w0-sub-turn-human",
+			kind: "human",
+			name: "Human",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
 		await db.insert(threads).values({
-			id: "w0-sub-assistant-thread",
-			hostKind: "user",
-			hostId: "w0-sub-assistant-human",
-			initiatorId: "w0-sub-assistant-human",
-			participants: JSON.stringify(["w0-sub-assistant-human", "ast-w0-sub-assistant-human"]),
-			lastActiveAt: now,
-			createdAt: now,
+			id: "w0-sub-turn-thread",
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: "w0-sub-turn-human",
+			participants: JSON.stringify(["w0-sub-turn-human", "w0-sub-turn-agent"]),
+			lastActiveAt: NOW,
+			createdAt: NOW,
 		});
 		await db.insert(messages).values({
-			id: "w0-sub-assistant-message",
-			senderId: "w0-sub-assistant-human",
-			threadId: "w0-sub-assistant-thread",
+			id: "w0-sub-turn-message",
+			senderId: "w0-sub-turn-human",
+			threadId: "w0-sub-turn-thread",
 			type: "plain",
-			payload: JSON.stringify({ text: "hello" }),
-			clientKey: "w0-sub-assistant-message",
-			// deletedAt set — forces "Assistant source message is unavailable".
-			deletedAt: now,
-			createdAt: now,
+			payload: JSON.stringify({ text: "@agent are you there?" }),
+			clientKey: "w0-sub-turn-message",
+			createdAt: NOW,
 		});
 
 		const deps = { ...queueDeps(db), eventBus };
-		const emitted: Array<{ readonly kind?: string; readonly terminal?: boolean }> = [];
-		eventBus.on("agent_run_admission_failed", (event) => {
-			emitted.push(event as { readonly kind?: string; readonly terminal?: boolean });
-		});
 		// AU44: baked intent + trigger forces terminal failure.
 		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "thread_turn",
 			sourceKind: "thread_message",
-			sourceId: "w0-sub-assistant-message",
-			idempotencyKey: "w0-sub-assistant-intent",
+			sourceId: "w0-sub-turn-message:w0-sub-turn-agent",
+			idempotencyKey: "w0-sub-turn-intent",
 			bakedRequest: {
-				defaultAgentId: "ast-w0-sub-assistant-human",
+				defaultAgentId: "w0-sub-turn-agent",
 				sourceKind: "assistant",
-				sourceId: "w0-sub-assistant-message",
-				streamId: "assistant:w0-sub-assistant-message",
-				userId: "w0-sub-assistant-human",
+				sourceId: "w0-sub-turn-message",
+				streamId: "assistant:w0-sub-turn-message",
+				userId: "w0-sub-turn-human",
 				sourceCorrelation: {
-					threadId: "w0-sub-assistant-thread",
-					messageId: "w0-sub-assistant-message",
-					userId: "w0-sub-assistant-human",
-					agentId: "ast-w0-sub-assistant-human",
+					threadId: "w0-sub-turn-thread",
+					messageId: "w0-sub-turn-message",
+					userId: "w0-sub-turn-human",
+					agentId: "w0-sub-turn-agent",
 				},
 			},
 		});
-		await expect(drainIntents(deps, { maxAttempts: 1 })).resolves.not.toThrow();
+		await drainIntents(deps, { maxAttempts: 1 });
 
-		// The reaction itself is a no-op (lowest-stakes family, informational
-		// only per §10's table) — what's provably NEW is that the event still
-		// fires for this kind, same as every other kind.
-		expect(emitted).toHaveLength(1);
-		expect(emitted[0]).toMatchObject({ kind: "thread_turn", terminal: true });
+		await vi.waitFor(async () => {
+			const opened = await openThread(app, "w0-sub-turn-thread");
+			expect(opened.status).toBe(200);
+			expect(opened.body.data?.messages).toHaveLength(2);
+		});
+		const opened = await openThread(app, "w0-sub-turn-thread");
+		const notice = opened.body.data?.messages.find((m) => m.senderId === "w0-sub-turn-agent");
+		expect(notice).toBeDefined();
+		const payload = notice?.payload as { text?: string };
+		expect(payload.text).toBe(
+			"Agent could not be started: it could not be started after repeated attempts.",
+		);
 
-		const [message] = await db
+		const changeRows = await db
 			.select()
-			.from(messages)
-			.where(eq(messages.id, "w0-sub-assistant-message"));
-		expect(message?.deletedAt).toBe(now);
-		expect(message?.redactedAt).toBeNull();
+			.from(changes)
+			.where(
+				and(
+					eq(changes.object, "thread"),
+					eq(changes.objectId, "w0-sub-turn-thread"),
+					eq(changes.kind, "message"),
+				),
+			);
+		expect(changeRows).toHaveLength(1);
+
+		// No new wake: the thread's `thread_turn` population is still exactly
+		// the one intent whose admission failed — the notice never enqueued a
+		// second one.
+		const turnIntents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "thread_turn"));
+		expect(turnIntents).toHaveLength(1);
+	});
+
+	test("thread_turn: a second failure for the same intent does not post a second notice", async ({
+		db,
+		eventBus,
+		app,
+	}) => {
+		const { teamId } = await seedTeam(db, "w0-sub-turn2");
+		await seedAgent(db, "w0-sub-turn2-agent", { teamId });
+		await db.insert(users).values({
+			id: "w0-sub-turn2-human",
+			kind: "human",
+			name: "Human",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
+		await db.insert(threads).values({
+			id: "w0-sub-turn2-thread",
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: "w0-sub-turn2-human",
+			participants: JSON.stringify(["w0-sub-turn2-human", "w0-sub-turn2-agent"]),
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
+		await db.insert(messages).values({
+			id: "w0-sub-turn2-message",
+			senderId: "w0-sub-turn2-human",
+			threadId: "w0-sub-turn2-thread",
+			type: "plain",
+			payload: JSON.stringify({ text: "hello" }),
+			clientKey: "w0-sub-turn2-message",
+			createdAt: NOW,
+		});
+
+		const event = {
+			type: "agent_run_admission_failed" as const,
+			streamId: "thread_turn:w0-sub-turn2-message:w0-sub-turn2-agent",
+			intentId: "w0-sub-turn2-intent",
+			kind: "thread_turn" as const,
+			sourceKind: "thread_message" as const,
+			sourceId: "w0-sub-turn2-message:w0-sub-turn2-agent",
+			failureCode: "PROVISIONING_FAILED" as const,
+			terminal: true,
+			timestamp: Date.now(),
+		};
+		eventBus.emit(event);
+		await vi.waitFor(async () => {
+			const opened = await openThread(app, "w0-sub-turn2-thread");
+			expect(opened.body.data?.messages).toHaveLength(2);
+		});
+
+		// The retry orchestration would report the SAME intent failing again —
+		// the reaction's own `clientKey` (derived from `intentId`) must make a
+		// second post a no-op, not a duplicate.
+		eventBus.emit(event);
+		await vi.waitFor(async () => {
+			const opened = await openThread(app, "w0-sub-turn2-thread");
+			expect(opened.body.data?.messages).toHaveLength(2);
+		});
+	});
+
+	test("thread_turn: source message is gone — nothing is posted, nothing throws, one log line", async ({
+		db,
+		eventBus,
+	}) => {
+		const { teamId } = await seedTeam(db, "w0-sub-turn3");
+		await seedAgent(db, "w0-sub-turn3-agent", { teamId });
+
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+		const event = {
+			type: "agent_run_admission_failed" as const,
+			streamId: "thread_turn:w0-sub-turn3-missing:w0-sub-turn3-agent",
+			intentId: "w0-sub-turn3-intent",
+			kind: "thread_turn" as const,
+			sourceKind: "thread_message" as const,
+			sourceId: "w0-sub-turn3-missing:w0-sub-turn3-agent",
+			failureCode: "PROVISIONING_FAILED" as const,
+			terminal: true,
+			timestamp: Date.now(),
+		};
+
+		expect(() => eventBus.emit(event)).not.toThrow();
+		await flush();
+
+		const posted = await db.select().from(messages);
+		expect(posted).toHaveLength(0);
+		expect(errorSpy).toHaveBeenCalledTimes(1);
+		errorSpy.mockRestore();
 	});
 });

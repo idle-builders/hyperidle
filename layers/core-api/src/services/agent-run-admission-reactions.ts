@@ -12,10 +12,11 @@
  *                         trigger later)
  *   knowledge_action  -> a review-flagged item is created; no run-record
  *                         mutation exists for a knowledge action
- *   assistant_turn    -> informational only, no mutation (lowest-stakes
- *                         family; a user-visible surfacing is a reasonable
- *                         product follow-up but not required to close AU15's
- *                         guarantee)
+ *   thread_turn       -> the never-silent net's sibling case: the session
+ *                         couldn't even be admitted, so one plain notice is
+ *                         posted into the thread the turn came from (see
+ *                         `notifyThreadTurnAdmissionFailure` below) — the
+ *                         person waiting on it is never left in silence.
  *
  * Only `terminal===true` triggers a reaction — `terminal===false` is
  * informational (orchestration is still retrying on its own backoff).
@@ -32,10 +33,15 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/event-bus";
+import type {
+	AgentRunAdmissionFailedEvent,
+	AgentRunAdmissionFailureCode,
+	EventBus,
+} from "@hyperidle/event-bus";
 import * as routineService from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
-import { findThread } from "@hyperidle/thread";
+import { findThread, listMessages } from "@hyperidle/thread";
+import { findUser } from "@hyperidle/users";
 import type { ActionContext, AdjustThreadRunFn, SendMessageRunFn } from "../actions/action.js";
 
 export type { AdjustThreadRunFn, SendMessageRunFn };
@@ -46,6 +52,77 @@ const registeredBuses = new WeakSet<EventBus>();
 /** Extract the bare knowledge item id from an intent's `knowledge:<id>` source id. */
 function knowledgeItemIdFromSourceId(sourceId: string): string {
 	return sourceId.replace(/^knowledge:/, "");
+}
+
+/**
+ * Parse a `thread_turn` intent's `sourceId`, built by `thread-actions.ts`'s
+ * wake loop as `` `${messageId}:${agentId}` `` (see `resolveThreadTurnRequest`'s
+ * caller in `thread-actions.ts`). `messageId` is always a `randomUUID()` — it
+ * never contains `:` — so splitting on the FIRST `:` is safe even though an
+ * agent id theoretically could.
+ */
+function parseThreadTurnSourceId(
+	sourceId: string,
+): { readonly messageId: string; readonly agentId: string } | undefined {
+	const i = sourceId.indexOf(":");
+	if (i < 0) return undefined;
+	return { messageId: sourceId.slice(0, i), agentId: sourceId.slice(i + 1) };
+}
+
+/** One short, plain-English reason per failure code — no invented detail. */
+const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> = {
+	INVALID_WORK_SOURCE: "the message it was answering is no longer available",
+	MAX_ATTEMPTS_EXCEEDED: "it could not be started after repeated attempts",
+	TARGET_AGENT_NOT_RUNNABLE: "the agent is not available to run right now",
+	PROVISIONING_FAILED: "no harness is available on this machine",
+};
+
+/**
+ * The never-silent net's sibling case (`session-not-returned-notice.ts`
+ * covers "ended without answering"; this covers "could not even start"):
+ * post ONE plain notice into the thread the turn came from. Same actor rule
+ * as the not-returned notice — sent AS the agent that could not be started,
+ * which is also what keeps it silent: `agentsToWake` always excludes the
+ * sender (`woken.delete(input.senderId)`, `@hyperidle/domain-model`'s
+ * `actions/thread.ts`), so a notice sent by that same agent can never wake
+ * it back up, in a 2-member direct thread or otherwise.
+ */
+async function notifyThreadTurnAdmissionFailure(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	event: AgentRunAdmissionFailedEvent,
+	sendMessage: SendMessageRunFn,
+): Promise<void> {
+	const parsed = parseThreadTurnSourceId(event.sourceId);
+	if (!parsed) {
+		logger.error("thread_turn admission failure: sourceId is not <messageId>:<agentId>", {
+			intentId: event.intentId,
+			sourceId: event.sourceId,
+		});
+		return;
+	}
+	const { messageId, agentId } = parsed;
+	const [sourceMessage] = await listMessages(db, { id: messageId });
+	if (!sourceMessage) {
+		// The message the turn came from is gone — nowhere left to post the
+		// notice. Logged, never thrown: this is a reaction, not a request.
+		logger.error("thread_turn admission failure: source message is gone, notice dropped", {
+			intentId: event.intentId,
+			messageId,
+			agentId,
+		});
+		return;
+	}
+	const agent = await findUser(db, { id: agentId });
+	const displayName = agent?.name ?? agentId;
+	await sendMessage(
+		{ actor: agentId, db, eventBus, now: new Date(event.timestamp).toISOString() },
+		{
+			threadId: sourceMessage.threadId,
+			clientKey: `thread-turn-admission-failed:${event.intentId}`,
+			text: `${displayName} could not be started: ${THREAD_TURN_FAILURE_REASON[event.failureCode]}.`,
+		},
+	);
 }
 
 /**
@@ -130,9 +207,7 @@ async function reactToAdmissionFailure(
 			await flagStalledKnowledgeAction(db, eventBus, event, threadDeps);
 			return;
 		case "thread_turn":
-			// Informational only — no durable "run" record exists for a thread
-			// message; a user-visible surfacing is a reasonable product
-			// follow-up but not required to close AU15's guarantee.
+			await notifyThreadTurnAdmissionFailure(db, eventBus, event, threadDeps.sendMessage);
 			return;
 	}
 }
