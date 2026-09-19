@@ -28,9 +28,9 @@ describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {
 	});
 
 	it("contains exactly the two members: edit_task, send_message", () => {
-		// B11: `submit_review` and `reply` are deleted tools — `edit_task`
-		// (argument-gated on `ownerAgentId`, the architecture doc §8 B4) and
-		// `send_message` (action-projected) are the only survivors.
+		// `submit_review` and `reply` are deleted tools — `edit_task`
+		// (argument-gated on `ownerAgentId`) and `send_message`
+		// (action-projected) are the only survivors.
 		const names = [...RETURN_ACTION_NAMES].sort();
 		expect(names).toEqual(["edit_task", "send_message"]);
 	});

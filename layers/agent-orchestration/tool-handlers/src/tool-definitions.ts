@@ -35,14 +35,12 @@ import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
 import { type ToolDefinition, toRegistered } from "./tool-types.js";
 
-// `send_message` and `reply` (AU27 Increment 2) are DELETED — both call
-// through the `conversation` seam, which no longer exists (the five thread
-// routes are gone). `send_message` reappears as an action registered on the
-// composed action list (`@hyperidle/domain-model`'s `THREAD_ACTIONS`), never
-// a hand-written `ToolDefinition` literal; `reply`'s no-thread fallback (the
-// team-then-any-human ladder) is now `send_message`'s own server invariant
-// (`no_reply_recipient`, `ThreadActionsDeps.users.soleHumanForAgent`).
-// architecture.md §5 B4.
+// @lore BC3: `send_message` and `reply` are not hand-written `ToolDefinition`
+// literals here — `send_message` is an action registered on the composed
+// action list (`@hyperidle/domain-model`'s `THREAD_ACTIONS`); `reply`'s
+// no-thread fallback (the team-then-any-human ladder) is `send_message`'s
+// own server invariant (`no_reply_recipient`,
+// `ThreadActionsDeps.users.soleHumanForAgent`).
 
 // ─────────────────────────────────────────────────────────────────────────────
 // write_memory

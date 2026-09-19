@@ -179,11 +179,11 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<
 		ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: string | null }>
 	>;
-	// `findSoleHumanUser`/`getThreadById`/`insertThread`/`updateThread`/
-	// `insertMessage`/`findOrCreateDirectThread`/`getFirstThreadByHost`
-	// DELETED — `reply`/`send_message`/`create_item`/`submit_review` are gone;
-	// the thread module's `send_message`/`adjust_thread` actions replace every
-	// one of these capabilities. architecture.md §5 B4.
+	// There is no `findSoleHumanUser`/`getThreadById`/`insertThread`/
+	// `updateThread`/`insertMessage`/`findOrCreateDirectThread`/
+	// `getFirstThreadByHost` — `reply`/`create_item`/`submit_review` are gone;
+	// the thread module's `send_message`/`adjust_thread` actions cover every
+	// one of those capabilities.
 	/**
 	 * @lore AU21 §9 Increment 2 (org/routine/handoff wave): every former
 	 * `ToolHandlersOrgAccessor`/`ToolHandlersRoutineAccessor`/
@@ -210,8 +210,8 @@ interface ToolHandlersCoreApiAccessor {
 		patch: { phase?: string; leadAgentId?: string },
 		actorId: string,
 	): Promise<void>;
-	// `resolveReviewRecipientsForItem` DELETED with `create_item`/`submit_review`
-	// — architecture.md §5 B4.
+	// There is no `resolveReviewRecipientsForItem` — `create_item`/
+	// `submit_review` are gone.
 	/**
 	 * @lore AU44 AU20-fd: replaces `persistScaffoldedAgents` — seam now accepts the scaffold
 	 * request; core-api resolves via `resolveAgentScaffoldSpecs` then persists.
@@ -309,11 +309,11 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
-// `ToolHandlersReviewAccessor`/`gate.linkReviewToSession` DELETED with
-// `submit_review` — `ThreadActionsDeps.linkReviewToSession` (bound to
+// There is no `ToolHandlersReviewAccessor`/`gate.linkReviewToSession` —
+// `ThreadActionsDeps.linkReviewToSession` (bound to
 // `AgentOrchestrationPort.gate.linkReview`) is the seam's own successor;
 // core calls it directly rather than a tool dialling back into
-// agent-orchestration. architecture.md §5 B4.
+// agent-orchestration.
 
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts {

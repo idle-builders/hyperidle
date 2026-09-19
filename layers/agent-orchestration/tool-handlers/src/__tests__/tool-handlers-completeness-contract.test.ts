@@ -42,8 +42,8 @@ import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
  *
  * No roles (unrestricted, 2 tools):
  *   write_memory, create_artifact
- *   (`send_message`/`reply`/`create_item`/`submit_review` DELETED —
- *   architecture.md §5 B4)
+ *   (`send_message`/`reply`/`create_item`/`submit_review` are not in this
+ *   catalog)
  *
  * roles: ["assistant"] only (4 tools):
  *   create_team, add_agent, create_routine, update_routine

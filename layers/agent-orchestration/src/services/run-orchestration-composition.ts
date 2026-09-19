@@ -337,12 +337,11 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 	};
 }
 
-// `buildGateAccessor`/`unusableGateAccessor` DELETED with `submit_review` —
-// `ThreadActionsDeps.linkReviewToSession` (bound to
+// There is no `buildGateAccessor`/`unusableGateAccessor` — a review links to
+// its session through `ThreadActionsDeps.linkReviewToSession` (bound to
 // `AgentOrchestrationPort.gate.linkReview`, which itself calls
-// `recordReviewSession` from the intake route) is the successor; core calls
-// it directly rather than a tool dialling back into agent-orchestration.
-// architecture.md §5 B4.
+// `recordReviewSession` from the intake route); core calls it directly
+// rather than a tool dialling back into agent-orchestration.
 
 /**
  * For call sites that only enumerate tool names. Any handler that reaches it

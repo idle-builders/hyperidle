@@ -54,7 +54,7 @@ import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions as buildToolDefinitionsFromPorts } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, withActorTransport } from "./core-api-port-composition.js";
 
-// `widenCreateItemInput` DELETED with `create_item` — architecture.md §5 B4.
+// There is no `widenCreateItemInput` — `create_item` is gone.
 
 /**
  * Same audited-widen idiom — `ports.ts`'s
@@ -103,18 +103,17 @@ export function buildToolHandlersPorts(
 	// use createTask with parentTaskId=null for root tasks.
 
 	return {
-		// `gate` DELETED with `submit_review` — architecture.md §5 B4.
+		// There is no `gate` — `submit_review` is gone.
 		// AU21 §6 Decision L3: `work.routeItem` (the last standalone same-process
 		// `work` DI capability) is DELETED outright as vestigial — every `work`
 		// read/write now crosses the `coreApi` seam below.
 		// @lore BB1: createBet, getBetById, updateBetById removed — bet is now a root task.
 		coreApi: {
 			openTask,
-			// `getItemById`/`updateItemById`/`createItem`/`findSoleHumanUser`/
-			// `getThreadById`/`insertThread`/`updateThread`/`insertMessage`/
-			// `findOrCreateDirectThread`/`getFirstThreadByHost` DELETED —
+			// There is no `getItemById`/`updateItemById`/`createItem`/
+			// `findSoleHumanUser`/`getThreadById`/`insertThread`/`updateThread`/
+			// `insertMessage`/`findOrCreateDirectThread`/`getFirstThreadByHost` —
 			// `create_item`/`reply`/`send_message`/`submit_review` are gone.
-			// architecture.md §5 B4.
 			getUserById: (id, actorId) => seamPortForActor(actorId).users.getUserById(id),
 			listUsersByTeam: (teamMembersId, actorId) =>
 				seamPortForActor(actorId).users.listUsersByTeam(teamMembersId),
@@ -128,8 +127,8 @@ export function buildToolHandlersPorts(
 			createTeam: (input, actorId) => seamPortForActor(actorId).org.createTeam(input),
 			updateTeam: (teamId, patch, actorId) =>
 				seamPortForActor(actorId).org.updateTeam(teamId, patch),
-			// `resolveReviewRecipientsForItem` DELETED with `create_item`/
-			// `submit_review` — architecture.md §5 B4.
+			// There is no `resolveReviewRecipientsForItem` — `create_item`/
+			// `submit_review` are gone.
 			scaffoldFromRequest: (
 				teamMembersId,
 				trigger,

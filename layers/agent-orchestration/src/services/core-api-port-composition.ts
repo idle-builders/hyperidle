@@ -293,15 +293,15 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 	const client = buildCoreApiHcClient(fetchAdapter);
 
 	return {
-		// `work` (getItemById/updateItemById/createItem) and `conversation`
-		// (getThreadById/insertThread/updateThread/insertMessage/
-		// findOrCreateDirectThread/getFirstThreadByHost) DELETED — the routes
-		// they mirrored are gone; `send_message`/`adjust_thread` replace every
-		// one of these capabilities as an action, never a second HTTP hop
-		// through this seam (architecture.md §5 B4). `getTaskById`/`createTask`/
-		// `updateTaskById`/`appendTaskNote`/`handoffTask` DELETED earlier — the
-		// three surviving readers bind `openTask` directly to the `open_task`
-		// action, in-process (the architecture doc §8 B1).
+		// This port carries no `work` (getItemById/updateItemById/createItem)
+		// or `conversation` (getThreadById/insertThread/updateThread/
+		// insertMessage/findOrCreateDirectThread/getFirstThreadByHost)
+		// capability — `send_message`/`adjust_thread` cover every one of those
+		// as an action, never a second HTTP hop through this seam. Task
+		// reads/writes (`getTaskById`/`createTask`/`updateTaskById`/
+		// `appendTaskNote`/`handoffTask`) are gone too — the three surviving
+		// readers bind `openTask` directly to the `open_task` action,
+		// in-process.
 		users: {
 			async getUserById(id: string): Promise<UserView | undefined> {
 				const res = await client.users[":id"].$get({ param: { id } });
@@ -313,7 +313,8 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("users.listUsersByTeam", res);
 				return (await res.json()) as ReadonlyArray<UserView>;
 			},
-			// `findSoleHumanUser` DELETED with `reply` — architecture.md §5 B4.
+			// No `findSoleHumanUser` — that lookup lives team-scoped, in-process,
+			// inside the thread module now.
 		},
 		org: {
 			async getTeamById(teamId: string): Promise<OrgTeamView | undefined> {
@@ -336,9 +337,8 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("org.updateTeam", res);
 			},
 
-			// `resolveReviewRecipientsForItem` DELETED with `GET /org/review-recipients`
-			// — its only callers (`create_item`, `submit_review`) are gone.
-			// architecture.md §5 B4.
+			// No `resolveReviewRecipientsForItem` / `GET /org/review-recipients`
+			// — their only callers (`create_item`, `submit_review`) are gone.
 
 			async scaffoldFromRequest(
 				input: ScaffoldFromRequestInput,
