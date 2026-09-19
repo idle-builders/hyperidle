@@ -14,8 +14,8 @@ import type { EventBus } from "@hyperidle/event-bus";
  * `compose-api-application.ts`. Lives here, not in `framework/domain-model`,
  * because it carries `db` (the architecture doc §5).
  *
- * BC2's `ActionContext` carried no session id. BC3 architecture.md §3.2 adds
- * exactly one optional field, `caller` — filled ONLY by the MCP loop
+ * @lore BC3 architecture.md §3.2: `ActionContext` gained exactly one
+ * optional field, `caller` — filled ONLY by the MCP loop
  * (`actions-as-tools.ts`) from `ToolContext`, never from a request body,
  * never from a header. Absent for every HTTP call. No action reads `caller`
  * for authorization; only for the thread module's no-target reply fallback,

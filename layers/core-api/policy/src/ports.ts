@@ -32,8 +32,8 @@ export type PolicyEditTask = (
  * directly (Mechanism C). Lifecycle propagation posts the ship-confirmation
  * review through this instead of a raw `conversation.insertMessage`: going
  * through the action is what gets the `changes` row, the websocket nudge and
- * the `lastActiveAt` bump every other poster gets (the module-link rule,
- * architecture.md §3.9 — through the action, never the table).
+ * the `lastActiveAt` bump every other poster gets (the module-link rule:
+ * through the action, never the table).
  */
 export type PolicySendMessage = (
 	ctx: {

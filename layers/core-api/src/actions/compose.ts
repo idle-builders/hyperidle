@@ -2,8 +2,7 @@
  * The layer's own composition for the action mechanism: wires
  * `@hyperidle/task`'s `createTaskActions` and `@hyperidle/thread`'s
  * `createThreadActions` deps to the real Services, and returns the ONE
- * composed list every projection (HTTP, MCP, UI) reads. the
- * architecture doc §5, §7 (BC2); BC3 architecture.md §3.9, §3.11.
+ * composed list every projection (HTTP, MCP, UI) reads.
  */
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { appendChange } from "@hyperidle/changes";
@@ -30,10 +29,9 @@ import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 import type { Action, ActionContext } from "./action.js";
 
 /**
- * The team-then-any-human ladder `send_message`'s no-target fallback needs
- * (architecture.md §3.3) — first by `(createdAt, id)` so a team with two
- * humans still resolves to exactly one. Replaces `reply`'s
- * `findSoleHumanUser` (no team scope at all).
+ * The team-then-any-human ladder `send_message`'s no-target fallback needs —
+ * first by `(createdAt, id)` so a team with two humans still resolves to
+ * exactly one.
  */
 async function soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<User | undefined> {
 	const byCreated = (a: User, b: User): number =>
@@ -138,9 +136,9 @@ function runnerFor<I>(
  * router, MCP tool adapter, the UI's `call()`, the governance rule) reads.
  *
  * Thread actions are built FIRST — the task bag needs `adjust_thread`'s
- * runner (architecture.md §3.9) and the thread bag needs nothing from task
- * (`ThreadActionsDeps` names no task). The dependency is one-way, so build
- * order alone settles it; the returned array's own order is irrelevant.
+ * runner and the thread bag needs nothing from task (`ThreadActionsDeps`
+ * names no task). The dependency is one-way, so build order alone settles
+ * it; the returned array's own order is irrelevant.
  */
 export function buildCoreActions(bindings: {
 	readonly agentOrchestration: AgentOrchestrationPort;

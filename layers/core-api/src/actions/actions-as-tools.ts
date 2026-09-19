@@ -21,8 +21,8 @@ export function actionsAsTools(actions: readonly Action[]): readonly RegisteredT
 					db: ctx.db,
 					eventBus: ctx.eventBus,
 					now: new Date().toISOString(),
-					// BC3 architecture.md §3.2: filled ONLY here, from the session's own
-					// `ToolContext` — never from a request body, never from a header.
+					// filled ONLY here, from the session's own `ToolContext` — never
+					// from a request body, never from a header.
 					caller: {
 						sessionId: ctx.sessionId,
 						taskId: ctx.taskId || null,
