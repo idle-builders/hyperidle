@@ -1,7 +1,7 @@
 /**
- * BC3 architecture.md §5 B5 — `POST /api/teams`'s welcome-message seed no
- * longer raw-inserts a thread under the literal id `thr-ast-${userId}`. It
- * posts through `send_message`, so the welcome message lands in the same
+ * `POST /api/teams`'s welcome-message seed never raw-inserts a thread under
+ * the literal id `thr-ast-${userId}`. It posts through `send_message`, so
+ * the welcome message lands in the same
  * direct thread the assistant overlay finds by
  * `search_threads({host:{kind:"agent", id: myAgentId}})`
  * (`AssistantOverlay.tsx:277-278`).
@@ -41,7 +41,7 @@ async function seedHumanUser(db: HyperIdleDb, id: string, name: string): Promise
 	});
 }
 
-describe("POST /api/teams welcome message (BC3 architecture.md §5 B5)", () => {
+describe("POST /api/teams welcome message", () => {
 	test("lands in the thread search_threads finds by the assistant's host, sent by the assistant, and never under thr-ast-<userId>", async ({
 		db,
 		app,

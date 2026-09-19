@@ -87,7 +87,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 
-	// BC3: a person-owned agent — `ownerUserId` set, no `teamId` (the belonging
+	// A person-owned agent — `ownerUserId` set, no `teamId` (the belonging
 	// check requires exactly one of the two).
 	await db.insert(users).values({
 		id: "x3-agent-owned",
@@ -151,7 +151,7 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("status");
 	});
 
-	// BC3: the UI tells "my agent" from "a team's agent" via this column.
+	// The UI tells "my agent" from "a team's agent" via this column.
 	test("carries ownerUserId — null for a team agent, the owner's id for a person-owned one", async ({
 		db,
 		app,
@@ -442,7 +442,7 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(res.status).toBe(404);
 	});
 
-	// BC3: the single-agent response carries the same fact as the list.
+	// The single-agent response carries the same fact as the list.
 	test("carries ownerUserId on the updated agent", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/x3-agent-owned", {

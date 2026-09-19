@@ -46,7 +46,7 @@ describe("AF16 T7 — Search determinism (Z8-033)", () => {
 	}) => {
 		await seedBase(db);
 		const tiedTs = "2024-01-15T10:00:00.000Z";
-		// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+		// Every task has a real thread now (`tasks.thread_id` is NOT NULL).
 		await db.insert(threads).values([
 			{
 				id: "thr-srch-bet-b",
@@ -130,7 +130,7 @@ describe("AF16 T8 — Search relevance ordering (Z8-033)", () => {
 		const olderTs = "2023-06-01T00:00:00.000Z";
 		const newerTs = "2024-06-01T00:00:00.000Z";
 
-		// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+		// Every task has a real thread now (`tasks.thread_id` is NOT NULL).
 		await db.insert(threads).values([
 			{
 				id: "thr-srch-exact",
