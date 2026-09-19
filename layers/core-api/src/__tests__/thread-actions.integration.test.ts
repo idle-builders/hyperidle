@@ -2,7 +2,7 @@
  * The thread module's seam test — proven end to end against the real
  * `{ db, app, eventBus }` fixture, plus direct `action.run()` calls for the
  * `ctx.caller`-dependent cases the HTTP door cannot drive (`caller` is filled
- * only by the MCP loop — architecture.md §3.2). See architecture.md §9.
+ * only by the MCP loop).
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
@@ -412,7 +412,7 @@ describe("send_message — membership, read/write/join", () => {
 		expect(membersAfter.filter((m) => m === "sm-newcomer")).toHaveLength(1);
 	});
 
-	test("two different non-members posting into the same team thread at once both end up members (BC3 review-fix)", async ({
+	test("two different non-members posting into the same team thread at once both end up members", async ({
 		db,
 		app,
 	}) => {
@@ -866,7 +866,7 @@ describe("send_message — the wake rule", () => {
 		expect(new Set(requests.map((r) => r.agentId))).toEqual(new Set(["wk-agent-a", "wk-agent-b"]));
 	});
 
-	test("a mention of an agent already a member records one thread_turn intent and appends no changed row (B2)", async ({
+	test("a mention of an agent already a member records one thread_turn intent and appends no changed row", async ({
 		db,
 		app,
 	}) => {
@@ -1054,10 +1054,10 @@ describe("send_message — the agent fallback via ctx.caller", () => {
 });
 
 // ============================================================================
-// direct thread find-or-create (B3)
+// direct thread find-or-create
 // ============================================================================
 
-describe("send_message — direct thread find-or-create (B3)", () => {
+describe("send_message — direct thread find-or-create", () => {
 	test("two sends from the same sender to the same single recipient return the same thread.id and the thread holds both messages", async ({
 		db,
 		app,
@@ -1083,7 +1083,7 @@ describe("send_message — direct thread find-or-create (B3)", () => {
 		expect(rows).toHaveLength(2);
 	});
 
-	test("two simultaneous first sends to the same recipient land in one thread, not an error (BC3 review-fix)", async ({
+	test("two simultaneous first sends to the same recipient land in one thread, not an error", async ({
 		db,
 		app,
 	}) => {
@@ -1272,7 +1272,7 @@ describe("send_message — direct thread find-or-create (B3)", () => {
 });
 
 // ============================================================================
-// title-ladder wiring (BC3 review-fix): the "Assistant" rung reads
+// title-ladder wiring: the "Assistant" rung reads
 // `users.ownerUserId` off `deps.users.listByIds`'s rows, not a bare name.
 // ============================================================================
 
@@ -1442,7 +1442,7 @@ describe("send_message — review link and verdict resume", () => {
 	});
 });
 
-describe("send_message — review taskId stamping (Confusion 9)", () => {
+describe("send_message — review taskId stamping", () => {
 	test("a review sent with caller.taskId set stores that taskId, and open_thread returns it", async ({
 		db,
 		app,
@@ -1621,7 +1621,7 @@ describe("send_message — produced-item ownership", () => {
 // the four paths kept alive
 // ============================================================================
 
-describe("send_message — the four dead-end paths §3.4's table keeps alive", () => {
+describe("send_message — the four dead-end paths it keeps alive", () => {
 	test("a handed-off agent that was never seeded posts in its task's thread and is a member afterwards", async ({
 		db,
 		app,
