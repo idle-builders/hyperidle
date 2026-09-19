@@ -78,6 +78,25 @@ perl -0pi -e "s/^appVersion:.*\$/appVersion: \"$VERSION\"/m" "$REPO_ROOT/deploy/
 # 2. Build web SPA + bundle desktop + build/sign/notarize the DMG.
 echo "==> Building web SPA"
 npm run -w @hyperidle/core-ui build
+
+# @lore proven-bug guard: see build-local.sh's matching check — a machine-local
+# `.env` NODE_ENV=development line can force import.meta.env.DEV/.PROD true for
+# the whole build, silently shipping the dev-only ws://localhost:3001 address
+# into a released app. Hard-fail rather than ship a build that never receives a
+# live update.
+echo "==> Verifying the web bundle never hardcodes the dev websocket address"
+WEB_BUNDLE_DIR="$REPO_ROOT/layers/core-ui/dist/assets"
+WEB_BUNDLE_JS=("$WEB_BUNDLE_DIR"/index-*.js)
+if [ ! -e "${WEB_BUNDLE_JS[0]}" ]; then
+  echo "Error: no built bundle found at $WEB_BUNDLE_DIR/index-*.js — cannot verify the ws address."
+  exit 1
+fi
+if grep -l "ws://localhost" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
+  echo "Error: the built web bundle hardcodes ws://localhost — a released app would never receive live updates."
+  echo "See layers/core-ui/src/services/ws-client.ts and its MODE-based dev/prod branch."
+  exit 1
+fi
+
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
 npx tsx applications/desktop/__scripts__/bundle.ts
 echo "==> Building, signing, and notarizing DMG (this takes several minutes)"

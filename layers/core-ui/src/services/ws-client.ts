@@ -124,9 +124,21 @@ class WsClient {
 		// Without this, the WS client connects to localhost:3001 which doesn't exist in
 		// the AH6 test environment — turns complete server-side but events never reach
 		// the frontend, so the "thinking..." row never resolves.
-		const isDevProxy = typeof import.meta !== "undefined" && import.meta.env?.DEV === true;
+		//
+		// @lore proven-bug fix: branch on `import.meta.env.MODE`, never `.DEV`/`.PROD`.
+		// Vite forces `process.env.NODE_ENV` from a `NODE_ENV=development` line in ANY
+		// loaded `.env` file whenever the launching shell itself didn't already set
+		// NODE_ENV (see vite's resolveConfig: `isNodeEnvSet` is snapshotted before the
+		// config/env files load, so a stray `NODE_ENV=development` in a machine-local
+		// `.env` silently wins even under `vite build`) — that flips `.DEV`/`.PROD` for
+		// the whole production build, so a packaged desktop app can ship with the dev
+		// websocket address baked in and never receive a live update (confirmed by
+		// grepping the built bundle). `MODE` is fixed once from the CLI command itself
+		// (`build` → "production", `serve` → "development") before any env file is
+		// read, so it cannot be poisoned this way.
+		const isDevProxy = typeof import.meta !== "undefined" && import.meta.env.MODE !== "production";
 		const devWsPort =
-			typeof import.meta !== "undefined" && import.meta.env?.VITE_API_PORT
+			typeof import.meta !== "undefined" && import.meta.env.VITE_API_PORT
 				? String(import.meta.env.VITE_API_PORT)
 				: "3001";
 		const wsBase = isDevProxy

@@ -149,3 +149,47 @@ describe("ws-client — push envelope topic matching", () => {
 		});
 	});
 });
+
+// @lore proven-bug regression: a packaged desktop build (MODE === "production")
+// must never dial the hardcoded dev address, even when a machine-local `.env`
+// file sets NODE_ENV=development and corrupts `import.meta.env.DEV`/`.PROD` —
+// see the `@lore proven-bug fix` comment on ws-client.ts's `connect()`. MODE is
+// the one signal Vite cannot mis-set from a `.env` file, so it is the only thing
+// this branch may read.
+describe("ws-client — production build never dials the dev address", () => {
+	beforeEach(() => {
+		vi.resetModules();
+		MockWebSocket.instances = [];
+		apiFetchMock.mockReset();
+		apiFetchMock.mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve({ token: "tok-1" }),
+		});
+		vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.unstubAllEnvs();
+	});
+
+	it("connects to the page's own host, not ws://localhost:3001, when MODE is production", async () => {
+		vi.stubEnv("MODE", "production");
+		const { getWsClient } = await import("../ws-client.js");
+		getWsClient().subscribe("conversations", vi.fn());
+
+		const socket = await connectAndOpen();
+
+		expect(socket.url.startsWith("ws://localhost:3001")).toBe(false);
+		expect(socket.url.startsWith("ws://localhost:5173/api/ws?token=")).toBe(true);
+	});
+
+	it("still connects to ws://localhost:3001 in dev/test MODE", async () => {
+		const { getWsClient } = await import("../ws-client.js");
+		getWsClient().subscribe("conversations", vi.fn());
+
+		const socket = await connectAndOpen();
+
+		expect(socket.url.startsWith("ws://localhost:3001/api/ws?token=")).toBe(true);
+	});
+});
