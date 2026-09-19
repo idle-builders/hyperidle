@@ -197,7 +197,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			</div>
 		);
 	}
-	// message.payload is `unknown` on the wire (BC3 architecture.md §3.1) —
+	// message.payload is `unknown` on the wire —
 	// each case parses it into the shape `type` implies via the shared,
 	// audited-cast helpers rather than narrowing the bare field.
 	switch (message.type) {

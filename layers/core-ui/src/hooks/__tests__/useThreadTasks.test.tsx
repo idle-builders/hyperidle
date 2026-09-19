@@ -1,5 +1,5 @@
 /**
- * useThreadTasks — BC3 Confusion 9. `call("search_tasks", { threadId })`,
+ * useThreadTasks. `call("search_tasks", { threadId })`,
  * kept live by the `thread:<id>` websocket nudge. Mirrors
  * `useThread.test.tsx`'s mocking approach: `call` is mocked directly, and the
  * global no-op `ws-client` mock (test-setup.ts) is overridden with a

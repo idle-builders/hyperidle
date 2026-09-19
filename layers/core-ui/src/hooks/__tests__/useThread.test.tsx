@@ -1,6 +1,6 @@
 /**
- * useThread — BC3. One door: `call("open_thread", { id })`, kept live by the
- * `thread:<id>` websocket nudge (architecture.md §3.12). Mirrors the mocking
+ * useThread. One door: `call("open_thread", { id })`, kept live by the
+ * `thread:<id>` websocket nudge. Mirrors the mocking
  * approach in `useAssistantThread.ws.test.tsx` (deleted): `call` is mocked
  * directly, and the global no-op `ws-client` mock (test-setup.ts) is
  * overridden with a captureable spy so a simulated WS frame can be fired at

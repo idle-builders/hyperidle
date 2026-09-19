@@ -43,8 +43,8 @@ function LocationProbe(): null {
 	return null;
 }
 
-// A team-hosted thread — host kind "task" no longer exists (architecture.md
-// §3.9); a task's own thread is team-hosted.
+// A team-hosted thread — there is no "task" host kind; a task's own
+// thread is team-hosted.
 const HOST_ID = "team-am1";
 
 function makeThread(id: string, hostId: string): ThreadView["thread"] {

@@ -1,6 +1,6 @@
 /**
- * useThreads — BC3. One door: `call("search_threads", filter)`, kept live
- * by the global `conversations` websocket nudge (architecture.md §3.12).
+ * useThreads. One door: `call("search_threads", filter)`, kept live
+ * by the global `conversations` websocket nudge.
  * Mirrors the mocking approach in `useConversationsThreads.ws.test.tsx`
  * (deleted): `call` is mocked directly, and the global no-op `ws-client`
  * mock (test-setup.ts) is overridden with a captureable spy.
