@@ -87,9 +87,9 @@ interface AppOptions {
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").TaskView>
 		>;
 		/**
-		 * BC3 architecture.md §5 B2: `send_message`'s own bound `run`, so the
-		 * relocated never-silent-net reaction (`session-not-returned-notice.ts`)
-		 * posts through the action instead of a raw `insertMessage`.
+		 * `send_message`'s own bound `run`, so the relocated never-silent-net
+		 * reaction (`session-not-returned-notice.ts`) posts through the action
+		 * instead of a raw `insertMessage`.
 		 */
 		sendMessage: (
 			ctx: import("./actions/action.js").ActionContext,
@@ -100,9 +100,8 @@ interface AppOptions {
 			>
 		>;
 		/**
-		 * BC3 architecture.md §5 B7b: `adjust_thread`'s own bound `run`, so the
-		 * stalled-knowledge-action reaction can resolve-or-create the knowledge
-		 * item's thread.
+		 * `adjust_thread`'s own bound `run`, so the stalled-knowledge-action
+		 * reaction can resolve-or-create the knowledge item's thread.
 		 */
 		adjustThread: (
 			ctx: import("./actions/action.js").ActionContext,
@@ -142,11 +141,11 @@ interface AppOptions {
 	onHarnessRedetect?: () => Promise<void>;
 	/**
 	 * AU21 §6 Decision L4 / §9 Increment 14d: the WS connection hub's
-	 * broadcast-only surface. BC3: `send_message`/`adjust_thread` push the
-	 * `changes` row itself, once per row, on both topics (architecture.md
-	 * §3.12) — `wsPush` on `buildCoreActions`'s bindings wraps this same
-	 * hub. Optional so integration tests that don't need WS pushes can omit
-	 * it (actions still emit their EventBus events unchanged either way).
+	 * broadcast-only surface. `send_message`/`adjust_thread` push the
+	 * `changes` row itself, once per row, on both topics — `wsPush` on
+	 * `buildCoreActions`'s bindings wraps this same hub. Optional so
+	 * integration tests that don't need WS pushes can omit it (actions still
+	 * emit their EventBus events unchanged either way).
 	 */
 	wsHub?: WsPushTarget;
 	/**
@@ -448,10 +447,10 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
 		>;
-		// BC3 architecture.md §5 B5: `/teams` mounts after the action list is
-		// built and `sendMessage` extracted — its POST handler's welcome-message
-		// seed posts through the composed action instead of a raw
-		// `insertThread`/`insertMessage` into the literal id `thr-ast-${userId}`.
+		// @lore `/teams` mounts after the action list is built and `sendMessage`
+		// extracted — its POST handler's welcome-message seed posts through the
+		// composed action instead of a raw `insertThread`/`insertMessage` into
+		// the literal id `thr-ast-${userId}`.
 		api.route(
 			"/teams",
 			createTeamRoutes(options.db, eventBus, agentOrchestration, sendMessage, options.adapterPool),

@@ -202,9 +202,9 @@ export function createAgentRoutes(
 				name: agent.name,
 				role: agent.role,
 				agentCategory: agent.agentCategory ?? null,
-				// BC3: "every user's agent is an ordinary agent that the user owns" needs
-				// this fact on the wire — the UI can otherwise only get it via a second
-				// `GET /api/users?kind=ai` fetch (`useAgentOwnership`).
+				// Every user's agent is an ordinary agent that the user owns; this
+				// fact needs to be on the wire — the UI can otherwise only get it via
+				// a second `GET /api/users?kind=ai` fetch (`useAgentOwnership`).
 				ownerUserId: agent.ownerUserId ?? null,
 				identityKnowledgeId: identityIds.get(agent.id) ?? null,
 				harnessType: runConfig.harnessType,

@@ -112,11 +112,11 @@ export function createTeamRoutes(
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
 	/**
-	 * BC3 architecture.md §5 B5: the composed `send_message` action's own bound
-	 * `run`, so the welcome message is posted through the thread module
-	 * instead of a raw `insertThread`/`insertMessage` into the literal id
-	 * `thr-ast-${userId}` — `app.ts` extracts it from the action list exactly
-	 * as it does for `editTask`/`adjustThread`.
+	 * The composed `send_message` action's own bound `run`, so the welcome
+	 * message is posted through the thread module instead of a raw
+	 * `insertThread`/`insertMessage` into the literal id `thr-ast-${userId}`
+	 * — `app.ts` extracts it from the action list exactly as it does for
+	 * `editTask`/`adjustThread`.
 	 */
 	sendMessage: SendMessageRunFn,
 	/** AB2: adapter pool for resolving harness availability per agent. */
@@ -401,10 +401,10 @@ export function createTeamRoutes(
 				const welcomeText =
 					"Welcome! Your team starts with one agent and nothing decided about it. Tell it what you need, or install a plugin to bring in more.";
 
-				// BC3 architecture.md §5 B5: the assistant's direct thread with the
-				// user is found and posted into through `send_message`, never a raw
-				// insert under the literal id `thr-ast-${userId}` — the overlay looks
-				// for it as `search_threads({host:{kind:"agent", id: myAgentId}})`
+				// @lore The assistant's direct thread with the user is found and
+				// posted into through `send_message`, never a raw insert under the
+				// literal id `thr-ast-${userId}` — the overlay looks for it as
+				// `search_threads({host:{kind:"agent", id: myAgentId}})`
 				// (`AssistantOverlay.tsx:277-278`), and `send_message`'s own
 				// find-or-create-by-recipients (`thread-actions.ts`) is what a real
 				// user reply into the same pair resolves to as well. `clientKey` is
