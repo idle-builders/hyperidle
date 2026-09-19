@@ -47,7 +47,7 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 				status: "active",
 				createdAt: NOW,
 			});
-			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(schema.threads).values([
 				{
 					id: "thr-root-1",

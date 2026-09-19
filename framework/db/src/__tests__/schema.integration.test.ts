@@ -118,7 +118,7 @@ describe("A2: Database Schema", () => {
 		test("inserts and reads root tasks (formerly bets)", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-root-1",
 				hostKind: "team",
@@ -156,7 +156,7 @@ describe("A2: Database Schema", () => {
 		test("inserts and reads tasks", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values([
 				{
 					id: "thr-root-1",
@@ -213,7 +213,7 @@ describe("A2: Database Schema", () => {
 		test("updates tasks correctly", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",
 				hostKind: "team",
@@ -256,7 +256,7 @@ describe("A2: Database Schema", () => {
 				status: "active",
 				createdAt: now,
 			});
-			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",
 				hostKind: "team",
@@ -378,9 +378,9 @@ describe("A2: Database Schema", () => {
 
 		test("inserts and reads verdict messages", async ({ db }) => {
 			// L1a: legacy `responses` table was dropped; verdict messages
-			// (type='verdict') replace it (plan §5.2). BC3 migration 0085 step 6:
-			// `items` and `messages.legacyItemId` are gone — a review is a
-			// message already, resolved by a verdict message in the same thread.
+			// (type='verdict') replace it. There is no `items` table and no
+			// `messages.legacyItemId` — a review is a message already, resolved
+			// by a verdict message in the same thread.
 			const now = new Date().toISOString();
 			await db.insert(users).values([
 				{
@@ -583,7 +583,7 @@ describe("A2: Database Schema", () => {
 		test("rejects task with invalid parent_task_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
-			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",
 				hostKind: "team",
@@ -613,7 +613,7 @@ describe("A2: Database Schema", () => {
 		test("rejects session with invalid agent_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
-			// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+			// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 			await db.insert(threads).values({
 				id: "thr-task-1",
 				hostKind: "team",

@@ -398,7 +398,7 @@ describe("agent session request repository", () => {
 				createdAt: now,
 			},
 		]);
-		// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+		// Every task has a real thread (`tasks.thread_id` is NOT NULL).
 		await db.insert(threads).values([
 			{
 				id: "thr-explicit-bet",
