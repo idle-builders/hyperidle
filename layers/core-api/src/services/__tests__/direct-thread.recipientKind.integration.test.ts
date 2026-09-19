@@ -69,7 +69,7 @@ async function seedHumanRecipient(db: HyperIdleDb, id: string): Promise<void> {
 	});
 }
 
-describe("send_message — single-recipient direct thread hostKind (Q1 §3.1)", () => {
+describe("send_message — single-recipient direct thread hostKind", () => {
 	test("an ai recipient creates a thread with hostKind='agent'", async ({ db, app }) => {
 		await seedSender(db, "sender-1");
 		await seedAgentRecipient(db, "agent-recipient-1");
