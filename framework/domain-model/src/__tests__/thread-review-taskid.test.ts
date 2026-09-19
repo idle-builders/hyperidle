@@ -1,5 +1,5 @@
 /**
- * BC3 Confusion 9 — a review message records the task its session ran on,
+ * @lore BC3: a review message records the task its session ran on,
  * stamped by the server. `reviewPayloadSchema` (the stored/read shape)
  * carries `taskId`; `SendMessageInputSchema.review` must not accept it from
  * the caller.

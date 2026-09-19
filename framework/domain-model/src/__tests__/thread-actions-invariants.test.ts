@@ -1,7 +1,7 @@
 /**
  * Pure invariant unit tests for the thread module's declarations —
  * `sendMessageInvariants`, `adjustThreadInvariants`, `canReadThread`/
- * `canWriteThread`, and `agentsToWake`. architecture.md §3.4/§3.10, §9.
+ * `canWriteThread`, and `agentsToWake`.
  */
 
 import { describe, expect, it } from "vitest";

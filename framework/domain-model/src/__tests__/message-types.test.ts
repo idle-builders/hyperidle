@@ -14,8 +14,8 @@
  * itself — property narrowing still makes an added, unhandled type a
  * compile error, which is the property this test protects.
  *
- * AC-4 (plan §3): MESSAGE_TYPES.length === 4, HOST_KINDS.length === 5 (BB1: "bet"
- * removed; BC3: "task" removed — a task's thread is `team`-hosted now).
+ * AC-4: MESSAGE_TYPES.length === 4, HOST_KINDS.length === 5 (bet and task
+ * are no longer host kinds — a task's thread is `team`-hosted now).
  */
 
 import { describe, expect, it } from "vitest";
@@ -49,7 +49,7 @@ describe("AC-4 / AC-11 — message-type discriminant exhaustiveness", () => {
 		);
 	});
 
-	it("HOST_KINDS is exactly the closed 5-set (BB1: 'bet' removed, artifacts-become-knowledge: 'artifact' removed, BC3: 'task' removed — a task's thread is team-hosted)", () => {
+	it("HOST_KINDS is exactly the closed 5-set (bet, artifact, and task are no longer host kinds — a task's thread is team-hosted)", () => {
 		expect(HOST_KINDS.length).toBe(5);
 		expect([...HOST_KINDS].sort()).toEqual(
 			["agent", "factory", "knowledge_item", "team", "user"].sort(),
