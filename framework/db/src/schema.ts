@@ -178,9 +178,9 @@ export const tasks = pgTable(
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
 		/**
-		 * BC3: every task has a real thread, written at creation
+		 * @lore BC3: every task has a real thread, written at creation
 		 * (migration 0085 step 5 makes this `NOT NULL`; `edit_task` creates the
-		 * thread before opening its own transaction — architecture.md §3.9).
+		 * thread before opening its own transaction).
 		 */
 		threadId: text("thread_id")
 			.notNull()
@@ -589,9 +589,9 @@ export const changes = pgTable(
 		index("changes_object_idx").on(table.object, table.objectId, table.at),
 		index("changes_at_idx").on(table.at),
 		check("changes_object_ck", sql`${table.object} in ('task','thread','document','user')`),
-		// BC3 migration 0085 step 2: `message` is its own kind of change — a
+		// @lore BC3 migration 0085 step 2: `message` is its own kind of change — a
 		// post is not a rename, and `objectId` stays the THREAD id either way
-		// (never a message id), so BC5 can read a thread's history with one
+		// (never a message id), so a thread's history reads with one
 		// `listChanges({object:'thread', objectId})`.
 		check("changes_kind_ck", sql`${table.kind} in ('created','changed','message')`),
 	],
@@ -768,11 +768,10 @@ export const threads = pgTable(
 		 */
 		directKey: text("direct_key"),
 		/**
-		 * BC3 migration 0085 step 1: the stored title; `null` means "use the
-		 * computed ladder's answer" (architecture.md §3.1's `ThreadSchema`).
+		 * The stored title; `null` means "use the computed ladder's answer".
 		 */
 		title: text("title"),
-		/** BC3 migration 0085 step 1: soft delete. Hidden from search/open; never `DELETE`d. */
+		/** Soft delete. Hidden from search/open; never `DELETE`d. */
 		deletedAt: text("deleted_at"),
 	},
 	(table) => [
