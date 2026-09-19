@@ -59,7 +59,7 @@ export interface HostThreadSectionProps {
 	/** Called when the user dismisses the prefill chip. */
 	onClearPrefill?: () => void;
 	/**
-	 * BC3 review: reports the thread this section resolved and loaded, on
+	 * Reports the thread this section resolved and loaded, on
 	 * every load and reload (including the one that follows a first post
 	 * creating the thread). This is the single fetch — a host page that also
 	 * needs the thread's data (e.g. for its own block-anchored rendering)
@@ -135,7 +135,7 @@ export function HostThreadSection({
 	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
 	const [showAll, setShowAll] = useState(false);
 
-	// BC3 review: report every load — including the reload that follows a
+	// Report every load — including the reload that follows a
 	// first post creating the thread — so a host page that needs the same
 	// data (e.g. block-anchored rendering) never resolves it a second time.
 	useEffect(() => {

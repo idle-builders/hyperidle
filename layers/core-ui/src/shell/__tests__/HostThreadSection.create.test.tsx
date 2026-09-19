@@ -1,5 +1,5 @@
 /**
- * HostThreadSection — BC3 review fix: create-on-first-post.
+ * HostThreadSection — create-on-first-post.
  *
  * @lore BC3 review: the other `HostThreadSection*.test.tsx` files mock
  * `useThread`/`useThreads` directly, which can never reach the
@@ -55,7 +55,7 @@ function makeMessageRow(threadId: string, clientKey: string) {
 	};
 }
 
-describe("HostThreadSection — create-on-first-post (BC3 review)", () => {
+describe("HostThreadSection — create-on-first-post", () => {
 	beforeEach(() => {
 		callMock.mockReset();
 	});
