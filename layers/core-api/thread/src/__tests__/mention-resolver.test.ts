@@ -1,5 +1,5 @@
 /**
- * Unit coverage for `resolveMentionsForMessage`'s two output sets — B2:
+ * Unit coverage for `resolveMentionsForMessage`'s two output sets:
  * `mentionedIds` (every resolved mention minus the sender, used for wake)
  * must include an agent already a member, while `newParticipantIds` (used
  * only to grow membership) must not.
@@ -51,7 +51,7 @@ describe("resolveMentionsForMessage", () => {
 		expect(result.mentionedIds).toEqual(["agent-1"]);
 	});
 
-	test("a mention of an agent ALREADY a member appears in mentionedIds but NOT newParticipantIds (B2)", async () => {
+	test("a mention of an agent ALREADY a member appears in mentionedIds but NOT newParticipantIds", async () => {
 		const result = await resolveMentionsForMessage(
 			fakeDb,
 			"hey @agent-1 already here",
