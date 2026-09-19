@@ -22,30 +22,64 @@ export interface MentionResolverDeps {
 	) => Promise<
 		ReadonlyArray<{ readonly id: string; readonly name: string; readonly teamId: string | null }>
 	>;
+	/**
+	 * Agents owned by the given user (`users.ownerUserId`) — a human's own
+	 * agent is addressable by @mention even though it belongs to no team.
+	 */
+	readonly listOwnedBy: (
+		db: HyperIdleDb,
+		ownerId: string,
+	) => Promise<
+		ReadonlyArray<{ readonly id: string; readonly name: string; readonly teamId: string | null }>
+	>;
 }
 
 /**
- * Case-insensitive name→identity map for mention resolution. Team-scoped:
- * a message's participants can @mention any agent in the SAME team, not
- * only who is already in the thread (AE5).
+ * Case-insensitive name→identity map for mention resolution. The pool is who
+ * a person reasonably addresses in this thread: the current participants,
+ * the teams those participants belong to (AE5), the thread's own HOST team
+ * when it is team-hosted, and the sender's own agents. A name collision
+ * keeps the old deterministic rule — sorted by id, first wins — except a
+ * current participant always wins over a non-participant sharing the name.
  */
 async function buildMentionLookup(
 	db: HyperIdleDb,
 	participantIds: readonly string[],
+	senderId: string,
+	hostTeamId: string | null,
 	deps: MentionResolverDeps,
 ): Promise<ReadonlyMap<string, { identityId: string; displayName: string }>> {
 	if (participantIds.length === 0) return new Map();
 
 	const participantRows = await deps.listByIds(db, participantIds);
 	const teamIds = [
-		...new Set(participantRows.map((r) => r.teamId).filter((id): id is string => id !== null)),
+		...new Set([
+			...participantRows.map((r) => r.teamId).filter((id): id is string => id !== null),
+			...(hostTeamId !== null ? [hostTeamId] : []),
+		]),
 	];
 
-	const pool = teamIds.length > 0 ? await deps.listByTeamIds(db, teamIds) : participantRows;
+	const [teamRows, ownedRows] = await Promise.all([
+		teamIds.length > 0 ? deps.listByTeamIds(db, teamIds) : Promise.resolve([]),
+		deps.listOwnedBy(db, senderId),
+	]);
+
+	const poolById = new Map<
+		string,
+		{ readonly id: string; readonly name: string; readonly teamId: string | null }
+	>();
+	for (const row of [...teamRows, ...ownedRows, ...participantRows]) poolById.set(row.id, row);
+
+	const participantIdSet = new Set(participantIds);
+	const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id);
+	const pool = [...poolById.values()];
+	const orderedPool = [
+		...pool.filter((r) => participantIdSet.has(r.id)).sort(byId),
+		...pool.filter((r) => !participantIdSet.has(r.id)).sort(byId),
+	];
 
 	const map = new Map<string, { identityId: string; displayName: string }>();
-	const sorted = [...pool].sort((a, b) => a.id.localeCompare(b.id));
-	for (const row of sorted) {
+	for (const row of orderedPool) {
 		const key = row.name.toLowerCase();
 		if (!map.has(key)) map.set(key, { identityId: row.id, displayName: row.name });
 	}
@@ -69,6 +103,7 @@ export async function resolveMentionsForMessage(
 	existingRefs: readonly InlineRef[],
 	participantIds: readonly string[],
 	senderId: string,
+	hostTeamId: string | null,
 	deps: MentionResolverDeps,
 ): Promise<{ refs: InlineRef[]; newParticipantIds: string[]; mentionedIds: string[] }> {
 	const candidates = extractMentionCandidates(text);
@@ -76,7 +111,7 @@ export async function resolveMentionsForMessage(
 		return { refs: [...existingRefs], newParticipantIds: [], mentionedIds: [] };
 	}
 
-	const nameMap = await buildMentionLookup(db, participantIds, deps);
+	const nameMap = await buildMentionLookup(db, participantIds, senderId, hostTeamId, deps);
 	const resolved = resolveMentions(candidates, nameMap, senderId);
 	if (resolved.length === 0) {
 		return { refs: [...existingRefs], newParticipantIds: [], mentionedIds: [] };

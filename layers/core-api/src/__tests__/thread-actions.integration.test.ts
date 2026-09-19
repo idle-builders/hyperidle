@@ -756,6 +756,165 @@ describe("send_message — @mentions", () => {
 });
 
 // ============================================================================
+// the mention pool covers the thread's HOST team and the sender's own agents,
+// not only the current participants' teams (bug: a team-hosted thread whose
+// sole member has no team of its own resolved no one at all).
+// ============================================================================
+
+describe("send_message — @mention pool includes the host team and the sender's own agents", () => {
+	test("a team-hosted thread's sole member (a human with no team) can @mention an agent of the HOST team", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "mn-host-1");
+		await seedHuman(db, "mn-human-1"); // no teamId
+		await seedAgent(db, "mn-builder-1", "mn-host-1");
+		await seedThreadRow(db, "mn-thread-1", {
+			hostKind: "team",
+			hostId: "mn-host-1",
+			initiatorId: "mn-human-1",
+			members: ["mn-human-1"],
+		});
+
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId: "mn-thread-1", text: "@mn-builder-1 hi" },
+			agentHeaders("mn-human-1"),
+		);
+		expect(res.status).toBe(200);
+
+		const members = await readThreadMembers(db, "mn-thread-1");
+		expect(members).toContain("mn-builder-1");
+
+		const rows = await readChanges(db, "mn-thread-1");
+		expect(rows.filter((r) => r.kind === "changed")).toHaveLength(0);
+		const messageRow = rows.find((r) => r.kind === "message");
+		const after = JSON.parse(messageRow?.after as string) as {
+			members?: string[];
+			payload?: { refs?: Array<{ kind: string; identityId: string }> };
+		};
+		expect(after.members).toEqual(expect.arrayContaining(["mn-builder-1"]));
+		expect(after.payload?.refs).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ kind: "mention", identityId: "mn-builder-1" }),
+			]),
+		);
+
+		const intents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "thread_turn"));
+		expect(intents.filter((i) => i.sourceId.endsWith(":mn-builder-1"))).toHaveLength(1);
+	});
+
+	test("the same sole member can @mention their OWN agent (owned, no team of its own) the same way", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "mn-host-2");
+		await seedHuman(db, "mn-human-2"); // no teamId
+		const now = new Date().toISOString();
+		// BA1 D6 `users_belonging_ck`: ownerUserId set ⇒ teamId must be null.
+		await db.insert(users).values({
+			id: "mn-nova-2",
+			kind: "ai",
+			name: "mn-nova-2",
+			role: "builder",
+			status: "active",
+			ownerUserId: "mn-human-2",
+			createdAt: now,
+		});
+		await seedThreadRow(db, "mn-thread-2", {
+			hostKind: "team",
+			hostId: "mn-host-2",
+			initiatorId: "mn-human-2",
+			members: ["mn-human-2"],
+		});
+
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId: "mn-thread-2", text: "@mn-nova-2 hi" },
+			agentHeaders("mn-human-2"),
+		);
+		expect(res.status).toBe(200);
+
+		const members = await readThreadMembers(db, "mn-thread-2");
+		expect(members).toContain("mn-nova-2");
+
+		const rows = await readChanges(db, "mn-thread-2");
+		expect(rows.filter((r) => r.kind === "changed")).toHaveLength(0);
+		const messageRow = rows.find((r) => r.kind === "message");
+		const after = JSON.parse(messageRow?.after as string) as {
+			members?: string[];
+			payload?: { refs?: Array<{ kind: string; identityId: string }> };
+		};
+		expect(after.members).toEqual(expect.arrayContaining(["mn-nova-2"]));
+		expect(after.payload?.refs).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ kind: "mention", identityId: "mn-nova-2" }),
+			]),
+		);
+
+		const intents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "thread_turn"));
+		expect(intents.filter((i) => i.sourceId.endsWith(":mn-nova-2"))).toHaveLength(1);
+	});
+
+	test("a stranger's owned agent (no team of its own, not owned by this sender) is NOT mentionable", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "mn-host-3");
+		await seedHuman(db, "mn-human-3"); // no teamId
+		await seedHuman(db, "mn-stranger-3"); // no teamId
+		const now = new Date().toISOString();
+		await db.insert(users).values({
+			id: "mn-strangers-agent-3",
+			kind: "ai",
+			name: "mn-strangers-agent-3",
+			role: "builder",
+			status: "active",
+			ownerUserId: "mn-stranger-3",
+			createdAt: now,
+		});
+		await seedThreadRow(db, "mn-thread-3", {
+			hostKind: "team",
+			hostId: "mn-host-3",
+			initiatorId: "mn-human-3",
+			members: ["mn-human-3"],
+		});
+
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId: "mn-thread-3", text: "@mn-strangers-agent-3 hi" },
+			agentHeaders("mn-human-3"),
+		);
+		expect(res.status).toBe(200);
+
+		const members = await readThreadMembers(db, "mn-thread-3");
+		expect(members).not.toContain("mn-strangers-agent-3");
+
+		const rows = await readChanges(db, "mn-thread-3");
+		const messageRow = rows.find((r) => r.kind === "message");
+		const after = JSON.parse(messageRow?.after as string) as {
+			payload?: { refs?: Array<{ kind: string; identityId: string }> };
+		};
+		expect(after.payload?.refs ?? []).toHaveLength(0);
+
+		const intents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "thread_turn"));
+		expect(intents.filter((i) => i.sourceId.endsWith(":mn-strangers-agent-3"))).toHaveLength(0);
+	});
+});
+
+// ============================================================================
 // the wake rule
 // ============================================================================
 

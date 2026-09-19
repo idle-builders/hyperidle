@@ -57,6 +57,7 @@ function buildThreadActionsDeps(bindings: {
 			getUserById: (exec, id) => findUser(exec, { id }),
 			listByIds: (exec, ids) => listUsers(exec, { ids: [...ids] }),
 			listByTeamIds: (exec, teamIds) => listUsers(exec, { teamIds: [...teamIds] }),
+			listOwnedBy: (exec, ownerId) => listUsers(exec, { ownerUserId: ownerId }),
 			soleHumanForAgent,
 		},
 		knowledge: {

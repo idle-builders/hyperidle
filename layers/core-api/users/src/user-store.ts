@@ -56,6 +56,7 @@ type UserPatch = Partial<{ [K in keyof NewUser]: NewUser[K] | SQL }>;
  * - `status` — exact match on `users.status`
  * - `nameContains` — case-insensitive substring match on `users.name`
  * - `excludeId` — `users.id != excludeId`
+ * - `ownerUserId` — exact match on `users.ownerUserId`
  * - `orderById` — ORDER BY users.id ASC (`listUsers` only)
  */
 export interface UserFilter {
@@ -67,6 +68,7 @@ export interface UserFilter {
 	readonly status?: string;
 	readonly nameContains?: string;
 	readonly excludeId?: string;
+	readonly ownerUserId?: string;
 	readonly orderById?: boolean;
 }
 
@@ -79,6 +81,7 @@ function buildWhere(filter: UserFilter): SQL | undefined {
 		preds.push(inArray(users.teamId, filter.teamIds));
 	if (filter.role !== undefined) preds.push(eq(users.role, filter.role));
 	if (filter.status !== undefined) preds.push(eq(users.status, filter.status));
+	if (filter.ownerUserId !== undefined) preds.push(eq(users.ownerUserId, filter.ownerUserId));
 	if (filter.nameContains !== undefined) {
 		const pattern = `%${filter.nameContains.toLowerCase().replace(/[\\%_]/g, "\\$&")}%`;
 		preds.push(sql`LOWER(${users.name}) LIKE ${pattern} ESCAPE '\\'`);

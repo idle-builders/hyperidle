@@ -69,6 +69,12 @@ export interface ThreadActionsDeps {
 		 * A nested Service may not import `@hyperidle/users` directly.
 		 */
 		listByTeamIds(exec: WriteExecutor, teamIds: readonly string[]): Promise<readonly User[]>;
+		/**
+		 * @lore Agents owned by a user (`users.ownerUserId`) —
+		 * `resolveMentionsForMessage` needs it so a human's own agent stays
+		 * addressable by @mention even with no team of its own.
+		 */
+		listOwnedBy(exec: WriteExecutor, ownerId: string): Promise<readonly User[]>;
 	};
 	readonly knowledge: {
 		getItemById(
@@ -917,6 +923,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 				// join the sender on a host-scoped thread it is not yet a member of.
 				const hostKind = (creatingThread?.hostKind ?? threadRow?.hostKind) as HostKind;
+				const hostId = (creatingThread?.hostId ?? threadRow?.hostId) as string;
 				if (
 					!finalMembers.includes(ctx.actor) &&
 					canWriteThread(ctx.actor, { hostKind, members: finalMembers })
@@ -937,9 +944,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						(body.payload as { refs?: never[] }).refs ?? [],
 						finalMembers,
 						ctx.actor,
+						hostKind === "team" ? hostId : null,
 						{
 							listByIds: (d, ids) => deps.users.listByIds(d, ids),
 							listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
+							listOwnedBy: (d, ownerId) => deps.users.listOwnedBy(d, ownerId),
 						},
 					);
 					// @lore Wake reads every resolved mention (including an agent
