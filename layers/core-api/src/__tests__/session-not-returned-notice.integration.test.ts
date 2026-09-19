@@ -1,9 +1,9 @@
 /**
- * The never-silent net (AU27 Increment 5, Decision 5), re-pointed at today's
- * door. Recreates `conversation/src/__tests__/session-not-returned-notice.integration.test.ts`
- * (deleted with the `@hyperidle/conversation` package — BC3 architecture.md
- * §5 B2), asserting the same behaviour through `send_message`/`open_thread`
- * instead of a raw `insertMessage`/direct `messages` read.
+ * @lore The never-silent net (AU27 Increment 5, Decision 5), re-pointed at
+ * today's door. Recreates `conversation/src/__tests__/session-not-returned-notice.integration.test.ts`
+ * (deleted with the `@hyperidle/conversation` package), asserting the same
+ * behaviour through `send_message`/`open_thread` instead of a raw
+ * `insertMessage`/direct `messages` read.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
@@ -83,8 +83,8 @@ async function seedAgent(db: HyperIdleDb, agentId: string, teamId: string): Prom
 }
 
 /**
- * The session's calling thread — team-hosted (BC3: host kind `task` is
- * gone, a task's thread is team-hosted), with the not-returning agent as
+ * The session's calling thread — team-hosted (a task's thread is always
+ * team-hosted), with the not-returning agent as
  * its only member, so a plain notice with no `@mention` wakes nobody
  * (`agentsToWake` only fires on a mention or a 2-member DM with the OTHER
  * member an agent — neither applies here).

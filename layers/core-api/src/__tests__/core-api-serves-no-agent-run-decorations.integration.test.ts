@@ -12,8 +12,7 @@
  *                              typed `{id,name,role,teamId}`)
  *   3. `POST /api/actions/open_thread` — `members[].operationalStatus` (zero
  *                              production readers; also an N+1, one query per
- *                              AI participant). `GET /api/threads/:id` is
- *                              deleted (BC3) — `open_thread`'s `IdentitySchema`
+ *                              AI participant). `open_thread`'s `IdentitySchema`
  *                              is `{id,name,role,isAgent}`, statically shaped
  *                              with no `operationalStatus` field at all.
  *   4. `GET /api/teams`      — `activeAgentCount` + `agentHealthWarning` (read

@@ -121,7 +121,7 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 }
 
 /**
- * BC3: every task needs a real thread now (`tasks.thread_id` is NOT NULL).
+ * Every task needs a real thread (`tasks.thread_id` is NOT NULL).
  * Returns the thread id, deterministic from `taskId` so a caller can pass
  * it straight into the matching `tasks.threadId` field.
  */
@@ -374,7 +374,7 @@ describe("search_tasks — threadId filter", () => {
 	});
 });
 
-describe("edit_task — thread membership on create-with-threadId (Confusion 5)", () => {
+describe("edit_task — thread membership on create-with-threadId", () => {
 	/**
 	 * Code-review blocker: `edit_task` given an existing `threadId` used to
 	 * call `adjustThread({ id, members: [owner] })` — `adjust_thread.members`
