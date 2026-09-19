@@ -408,8 +408,14 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		onInspectPath: (path) => setInspection({ kind: "path", path }),
 		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
 	});
-	const threadTitle: string =
-		data.hostTitle ?? identities[data.thread.hostId]?.name ?? data.thread.hostId;
+	// The thread's OWN title (page heading + breadcrumb leaf): the stored
+	// override, else the server's viewer-relative ladder answer
+	// (`computedTitle`, never empty). `hostTitle` below is a different thing —
+	// the linked HOST object's own title (e.g. a knowledge item's), not the
+	// thread's — and must not stand in here: it is `null` for every host kind
+	// the server doesn't special-case (team included), which is what fell
+	// through to the raw host id.
+	const threadTitle: string = data.thread.title ?? data.thread.computedTitle;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
 	const hostTitle = data.hostTitle ?? identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const header = {

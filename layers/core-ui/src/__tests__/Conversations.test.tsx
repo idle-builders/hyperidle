@@ -21,7 +21,7 @@
  */
 
 import type { ThreadView } from "@hyperidle/domain-model";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Conversations } from "../pages/Conversations";
@@ -44,7 +44,9 @@ vi.mock("../hooks/useCurrentUser.js", () => ({
 
 const THREAD_ID = "t-l9-test";
 
-function makeThread(): ThreadView["thread"] {
+function makeThread(
+	overrides: Partial<Pick<ThreadView["thread"], "title" | "computedTitle">> = {},
+): ThreadView["thread"] {
 	return {
 		id: THREAD_ID,
 		hostKind: "team",
@@ -58,6 +60,7 @@ function makeThread(): ThreadView["thread"] {
 		deletedAt: null,
 		lastActiveAt: "2026-04-19T12:00:00.000Z",
 		createdAt: "2026-04-19T12:00:00.000Z",
+		...overrides,
 	};
 }
 
@@ -98,11 +101,14 @@ const FAKE_PLAIN_MESSAGE: ThreadView["messages"][number] = {
 	payload: { text: "Hello from plain message" },
 };
 
-function makeOpenThreadResult(messages: ThreadView["messages"]) {
+function makeOpenThreadResult(
+	messages: ThreadView["messages"],
+	thread: ThreadView["thread"] = makeThread(),
+) {
 	return {
 		ok: true as const,
 		data: {
-			thread: makeThread(),
+			thread,
 			members: FAKE_MEMBERS,
 			messages,
 			headMessageId: messages[0]?.id ?? null,
@@ -212,6 +218,50 @@ describe("Conversations page (L9)", () => {
 		});
 		// Plain message text is rendered in the Part column (no per-shape branch).
 		expect(screen.getByText("Hello from plain message")).toBeInTheDocument();
+	});
+
+	// -----------------------------------------------------------------------
+	// State D — page heading/breadcrumb title derivation (bug: raw host id)
+	// -----------------------------------------------------------------------
+	it("State D: a team-hosted thread with no stored title shows computedTitle as heading and breadcrumb leaf, never the raw host id", async () => {
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") {
+				// hostKind "team" has no identity row and no server hostTitle —
+				// title must never fall through to the raw hostId ("team-1").
+				return makeOpenThreadResult(
+					[FAKE_PLAIN_MESSAGE],
+					makeThread({ title: null, computedTitle: "Founder" }),
+				);
+			}
+			return { ok: true, data: [] };
+		});
+
+		renderWithThreadId(THREAD_ID);
+		await waitFor(() => {
+			expect(screen.getByRole("heading", { name: "Founder" })).toBeInTheDocument();
+		});
+		expect(screen.queryByText("team-1")).toBeNull();
+		const breadcrumb = screen.getByRole("navigation", { name: /breadcrumb/i });
+		expect(within(breadcrumb).getByText("Founder")).toBeInTheDocument();
+	});
+
+	it("State D: a stored thread title wins over computedTitle as heading and breadcrumb leaf", async () => {
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") {
+				return makeOpenThreadResult(
+					[FAKE_PLAIN_MESSAGE],
+					makeThread({ title: "Launch plan", computedTitle: "Founder" }),
+				);
+			}
+			return { ok: true, data: [] };
+		});
+
+		renderWithThreadId(THREAD_ID);
+		await waitFor(() => {
+			expect(screen.getByRole("heading", { name: "Launch plan" })).toBeInTheDocument();
+		});
+		const breadcrumb = screen.getByRole("navigation", { name: /breadcrumb/i });
+		expect(within(breadcrumb).getByText("Launch plan")).toBeInTheDocument();
 	});
 
 	// -----------------------------------------------------------------------
