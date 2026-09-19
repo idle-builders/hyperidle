@@ -185,15 +185,15 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly editTask: PolicyDeps["editTask"];
 	/**
-	 * BC3 architecture.md §5 B2: `send_message`'s own bound `run`, threaded
-	 * from `app.ts`'s composed actions list — the relocated never-silent-net
-	 * reaction posts through it instead of a raw `insertMessage`.
+	 * `send_message`'s own bound `run`, threaded from `app.ts`'s composed
+	 * actions list — the never-silent-net reaction posts through it instead
+	 * of a raw `insertMessage`.
 	 */
 	readonly sendMessage: import("./services/session-not-returned-notice.js").SendMessageRunFn;
 	/**
-	 * BC3 architecture.md §5 B7b: `adjust_thread`'s own bound `run`, threaded
-	 * the same way — the stalled-knowledge-action reaction resolves-or-
-	 * creates the knowledge item's thread through it.
+	 * `adjust_thread`'s own bound `run`, threaded the same way — the
+	 * stalled-knowledge-action reaction resolves-or-creates the knowledge
+	 * item's thread through it.
 	 */
 	readonly adjustThread: import("./services/agent-run-admission-reactions.js").AdjustThreadRunFn;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
@@ -286,9 +286,8 @@ export function registerCoreDomainServices(ctx: {
 	// AU27 Increment 5 (Decision 5): the never-silent net — a reaction to the
 	// existing `session_not_returned` event (today only observed by the
 	// observability dispatcher), posting one plain notice into the session's
-	// calling thread when the force budget is spent without a return. BC3:
-	// relocated here from `@hyperidle/conversation` (deleted), posting
-	// through the composed `send_message` action.
+	// calling thread when the force budget is spent without a return,
+	// posting through the composed `send_message` action.
 	disposers.push(
 		identifyBootstrapOwner(
 			registerSessionNotReturnedNotice(db, eventBus, sendMessage),

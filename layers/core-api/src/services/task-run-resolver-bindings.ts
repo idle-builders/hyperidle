@@ -31,7 +31,6 @@ export const taskRunResolverDeps: TaskRunResolverDeps = {
 	assembleSessionKnowledge: (...args: Parameters<typeof assembleSessionKnowledge>) =>
 		assembleSessionKnowledge(...args),
 	readServerConfig: (...args: Parameters<typeof readServerConfig>) => readServerConfig(...args),
-	// BC3 architecture.md §5 B3: `resolveOrCreateCallingThread`/
-	// `calling-thread-bindings.ts` DELETED — `task-run-resolver.ts` bakes
-	// `callingThreadId` straight from `task.threadId`, now a real column.
+	// `task-run-resolver.ts` bakes `callingThreadId` straight from
+	// `task.threadId`, a real column.
 };
