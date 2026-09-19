@@ -1,5 +1,5 @@
 /**
- * useThread — BC3. Replaces `useThreadDetail`/`useAssistantThread`/
+ * useThread. Replaces `useThreadDetail`/`useAssistantThread`/
  * `useHostThread`'s detail half. One door: `call("open_thread", { id })`,
  * kept live by the `thread:<id>` websocket nudge.
  *
@@ -87,7 +87,7 @@ export function useThread(threadId: string | undefined | null): UseThreadResult 
 
 	// Nudge subscription — a frame on `thread:<id>` means "something in this
 	// thread changed"; the hook re-runs its own `open_thread` rather than
-	// applying the change row itself (architecture.md §3.12).
+	// applying the change row itself.
 	useEffect(() => {
 		if (!threadId) return;
 		cancelledRef.current = false;

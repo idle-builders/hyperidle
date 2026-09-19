@@ -1,13 +1,12 @@
 /**
- * useThreadTasks — BC3 Confusion 9. A thread's own tasks, for the "the thread
- * view lists them where the old task link sat" replacement (a thread's
- * `hostKind` can no longer be `task` — architecture.md §3.9 — so there is no
- * longer a single host-context link to a task; there can be several).
+ * useThreadTasks. A thread's own tasks, listed where the old task link sat
+ * — a thread's `hostKind` is never `task`, so there is no single
+ * host-context link to a task; there can be several.
  *
  * One door: `call("search_tasks", { threadId })`. Kept live by the same
  * `thread:<id>` websocket nudge `useThread` already subscribes to — copied
- * verbatim (architecture.md §3.12: on any frame for this thread's topic the
- * hook re-runs its own fetch, no payload merging).
+ * verbatim: on any frame for this thread's topic the hook re-runs its own
+ * fetch, no payload merging.
  */
 
 import type { Problem, TaskListItem } from "@hyperidle/domain-model";

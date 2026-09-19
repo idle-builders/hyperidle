@@ -107,7 +107,7 @@ function identitiesToParticipants(
 // ---------------------------------------------------------------------------
 
 /**
- * BC3 review fix: resolve the `PartAuthor` for the agent that ran a session
+ * @lore resolve the `PartAuthor` for the agent that ran a session
  * from the session's OWN data only — never from the hosting thread's
  * `hostId`. A thread's host can be a team, a knowledge item, a user or an
  * agent; only in the agent case would `hostId` even happen to name an agent,
@@ -234,7 +234,7 @@ function InspectDestination({ path }: { path: string }): JSX.Element {
 	}
 	const review = pathname?.match(/^\/reviews\/([^/]+)$/);
 	if (review?.[1]) {
-		// BC3: the review's threadId rides the query string (part.ts's
+		// The review's threadId rides the query string (part.ts's
 		// `ReviewTarget`/open-handler.ts) — `open_thread` needs it directly.
 		const threadId = new URLSearchParams(query).get("threadId") ?? undefined;
 		return (
@@ -245,12 +245,12 @@ function InspectDestination({ path }: { path: string }): JSX.Element {
 }
 
 /**
- * BC3 Confusion 9: a thread's own tasks, rendered where the old single
- * host-context link to a task used to sit — a thread's `hostKind` can no
- * longer be `task` (architecture.md §3.9), so there is no longer one link,
- * there can be several. Same element (`Link` + `resolveHostRoute`) and same
- * classes as the surviving host-context link (`ConversationSurface.tsx`'s
- * `ConversationHeader`), repeated once per task. Zero tasks renders nothing.
+ * A thread's own tasks, rendered where the old single host-context link
+ * to a task used to sit — a thread's `hostKind` is never `task`, so there
+ * is no single link, there can be several. Same element (`Link` +
+ * `resolveHostRoute`) and same classes as the surviving host-context link
+ * (`ConversationSurface.tsx`'s `ConversationHeader`), repeated once per
+ * task. Zero tasks renders nothing.
  */
 function ThreadTaskLinks({ tasks }: { tasks: readonly TaskListItem[] }): JSX.Element | null {
 	if (tasks.length === 0) return null;
@@ -296,7 +296,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// AM1: the conversation send path. Sends a `plain` message via
 	// `send_message`, then refreshes. The conversation no longer emits a
 	// verdict — no verdict send is reachable from here (the decision UI
-	// relocated to ReviewPage, design §5), so the old verdict /
+	// lives on ReviewPage), so the old verdict /
 	// head-resolving branch is gone; a plain reply always async-acks.
 	const onSend = useCallback(
 		async (text: string): Promise<void> => {

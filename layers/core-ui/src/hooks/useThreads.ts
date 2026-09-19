@@ -1,7 +1,7 @@
 /**
- * useThreads — BC3. Replaces `useConversationsThreads`. One door:
+ * useThreads. Replaces `useConversationsThreads`. One door:
  * `call("search_threads", filter)`, kept live by the global `conversations`
- * websocket nudge (architecture.md §3.12).
+ * websocket nudge.
  *
  * The filter is a stable value the caller controls — pass a `useMemo`'d
  * object (or a primitive-only shape) so the effect doesn't refire every
@@ -73,7 +73,7 @@ export function useThreads(filter: SearchThreadsInput | undefined): UseThreadsRe
 
 	// Nudge subscription — the global `conversations` topic. Any frame means
 	// "some thread this viewer might see changed"; re-run search_threads
-	// rather than reconciling the row locally (architecture.md §3.12).
+	// rather than reconciling the row locally.
 	const cancelledRef = useRef(false);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `filterKey` stands in for `filter` (referential stability) — subscribing/unsubscribing on every render would thrash the socket.
 	useEffect(() => {
