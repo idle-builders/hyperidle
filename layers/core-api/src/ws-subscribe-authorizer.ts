@@ -25,6 +25,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { canReadThread, type HostKind } from "@hyperidle/domain-model";
 import type { SubscribeAuthorizer } from "./ws-connection-hub.js";
 
 // ---------------------------------------------------------------------------
@@ -34,8 +35,24 @@ import type { SubscribeAuthorizer } from "./ws-connection-hub.js";
 // surface to file-internal per the 12→5 barrel collapse.
 // ---------------------------------------------------------------------------
 
-/** Structural mirror of `@hyperidle/conversation`'s `Thread` row, narrowed to `participants`. */
+/**
+ * Structural mirror of `@hyperidle/thread`'s `Thread` row, narrowed to what
+ * `canReadThread` needs.
+ *
+ * @lore BC3 bug fix: this used to be narrowed to `participants` alone, so
+ * `senderInThread` below applied a plain membership check with no host-scoped
+ * bypass — every `thread:<id>` subscribe on a `team`/`knowledge_item`/
+ * `factory`-hosted thread (any signed-in user can READ these per
+ * `canReadThread`, e.g. every task thread — BC3 re-hosted `task` onto
+ * `team`) was silently refused for a signed-in non-participant, even though
+ * `open_thread` itself would have let them read it. The client has no retry
+ * or error surface for a `forbidden` subscribe ack (`ws-client.ts`), so the
+ * symptom was total silence: the socket looked connected, no frame ever
+ * arrived. Now mirrors `canReadThread`'s own rule exactly instead of
+ * re-deriving a narrower one.
+ */
 interface RealtimeThreadRow {
+	readonly hostKind: string;
 	readonly participants: string;
 }
 
@@ -63,7 +80,10 @@ export interface SubscribeAuthorizerDeps {
  * Build an authorizer that allows:
  *  - any authenticated identity to subscribe to global topics
  *    (`conversations`)
- *  - only thread participants to subscribe to `thread:<id>` topics
+ *  - subscribe to `thread:<id>` topics exactly who `canReadThread` would let
+ *    read that thread — a host-scoped thread (`team`/`knowledge_item`/
+ *    `factory`) admits any signed-in identity; a `user`/`agent`-hosted
+ *    (direct) thread admits only its members.
  *
  * Everything else — including `session:<id>`, which this socket no longer
  * carries — is denied.
@@ -85,7 +105,8 @@ export function createDbSubscribeAuthorizer(
 		if (!row) return false;
 		try {
 			const parts = JSON.parse(row.participants);
-			return Array.isArray(parts) && parts.includes(senderId);
+			if (!Array.isArray(parts)) return false;
+			return canReadThread(senderId, { hostKind: row.hostKind as HostKind, members: parts });
 		} catch {
 			return false;
 		}
