@@ -120,7 +120,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	// submit_review deleted too — 14 → 10; send_message reappears as an
 	// action, projected the same way edit_task is, not through this
 	// direct-definitions fixture.
-	test("B3: assistant registry includes all 10 tools", ({ db, app }) => {
+	test("assistant registry includes all 10 tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),

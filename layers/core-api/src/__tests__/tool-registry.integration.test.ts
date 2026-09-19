@@ -106,8 +106,7 @@ describe("buildToolRegistry", () => {
 		// score_attention and run_knowledge_sweep deleted with the attention engine = 18
 		// handoff_to, create_task, edit_task (old body) and log_task deleted with
 		// the task action list = 14
-		// BC3 architecture.md §5 B4: create_item/send_message/reply/submit_review
-		// deleted = 10
+		// create_item/send_message/reply/submit_review deleted = 10
 		expect(registry.definitions).toHaveLength(10);
 	});
 
