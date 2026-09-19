@@ -110,4 +110,27 @@ describe("resolveMentionsForMessage", () => {
 		);
 		expect(result.mentionedIds).toEqual(["z-participant-nova"]);
 	});
+
+	test("a multi-word name resolves and the mention ref carries the full sourceText", async () => {
+		const result = await resolveMentionsForMessage(
+			fakeDb,
+			"cc @My Team Agent please look",
+			[],
+			["human-1"],
+			"human-1",
+			null,
+			depsFor([
+				{ id: "human-1", name: "human-1", teamId: null },
+				{ id: "agent-team", name: "My Team Agent", teamId: null },
+			]),
+		);
+		expect(result.newParticipantIds).toEqual(["agent-team"]);
+		expect(result.mentionedIds).toEqual(["agent-team"]);
+		expect(result.refs).toHaveLength(1);
+		expect(result.refs[0]).toMatchObject({
+			kind: "mention",
+			identityId: "agent-team",
+			sourceText: "@My Team Agent",
+		});
+	});
 });

@@ -184,11 +184,10 @@ export {
 	KNOWLEDGE_STATUSES,
 } from "./knowledge.js";
 // MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
-export type { MentionCandidate, ResolvedMention } from "./mention.js";
+export type { ResolvedMention } from "./mention.js";
 export {
-	extractMentionCandidates,
 	MAX_MENTIONS_PER_MESSAGE,
-	resolveMentions,
+	resolveMentionsInText,
 	// segmentMentions MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 } from "./mention.js";
 // @lore `model-gateway.js` exported a resolution layer — ModelGatewayConfig,

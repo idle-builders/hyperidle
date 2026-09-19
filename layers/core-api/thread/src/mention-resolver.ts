@@ -6,7 +6,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { extractMentionCandidates, type InlineRef, resolveMentions } from "@hyperidle/domain-model";
+import { type InlineRef, resolveMentionsInText } from "@hyperidle/domain-model";
 
 export interface MentionResolverDeps {
 	/** Users belonging to the given teams, for team-wide mention resolution (AE5). */
@@ -106,13 +106,12 @@ export async function resolveMentionsForMessage(
 	hostTeamId: string | null,
 	deps: MentionResolverDeps,
 ): Promise<{ refs: InlineRef[]; newParticipantIds: string[]; mentionedIds: string[] }> {
-	const candidates = extractMentionCandidates(text);
-	if (candidates.length === 0) {
+	if (!text.includes("@")) {
 		return { refs: [...existingRefs], newParticipantIds: [], mentionedIds: [] };
 	}
 
 	const nameMap = await buildMentionLookup(db, participantIds, senderId, hostTeamId, deps);
-	const resolved = resolveMentions(candidates, nameMap, senderId);
+	const resolved = resolveMentionsInText(text, nameMap);
 	if (resolved.length === 0) {
 		return { refs: [...existingRefs], newParticipantIds: [], mentionedIds: [] };
 	}

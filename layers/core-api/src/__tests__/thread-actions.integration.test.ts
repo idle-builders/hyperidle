@@ -753,6 +753,60 @@ describe("send_message — @mentions", () => {
 		const after = JSON.parse(messageRow?.after as string) as { members?: string[] };
 		expect(after.members).toEqual(expect.arrayContaining(["sm-mentioned-1"]));
 	});
+
+	test("a multi-word agent name (`My Team Agent`) is @mentionable by typing it plainly", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "sm-mn-2");
+		await seedHuman(db, "sm-sender-2", "sm-mn-2");
+		const now = new Date().toISOString();
+		await db.insert(users).values({
+			id: "sm-mn2-team-agent",
+			kind: "ai",
+			name: "My Team Agent",
+			role: "builder",
+			status: "active",
+			teamId: "sm-mn-2",
+			createdAt: now,
+		});
+		const threadId = await seedTaskWithThread(db, "sm-mn2-task", "sm-mn-2");
+
+		const res = await call(
+			app,
+			"send_message",
+			{ threadId, text: "@My Team Agent please look" },
+			agentHeaders("sm-sender-2"),
+		);
+		expect(res.status).toBe(200);
+
+		const members = await readThreadMembers(db, threadId);
+		expect(members).toContain("sm-mn2-team-agent");
+
+		const rows = await readChanges(db, threadId);
+		expect(rows.filter((r) => r.kind === "changed")).toHaveLength(0);
+		const messageRow = rows.find((r) => r.kind === "message");
+		const after = JSON.parse(messageRow?.after as string) as {
+			members?: string[];
+			payload?: { refs?: Array<{ kind: string; identityId: string; sourceText: string }> };
+		};
+		expect(after.members).toEqual(expect.arrayContaining(["sm-mn2-team-agent"]));
+		expect(after.payload?.refs).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					kind: "mention",
+					identityId: "sm-mn2-team-agent",
+					sourceText: "@My Team Agent",
+				}),
+			]),
+		);
+
+		const intents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.kind, "thread_turn"));
+		expect(intents.filter((i) => i.sourceId.endsWith(":sm-mn2-team-agent"))).toHaveLength(1);
+	});
 });
 
 // ============================================================================
