@@ -105,40 +105,26 @@ export function resolveMessageIfUnresolved(
 }
 
 // =============================================================================
-// DM thread find-or-create
-// =============================================================================
-
-export async function findOrCreateDirectThread(
-	exec: HyperIdleDb,
-	senderId: string,
-	recipientId: string,
-	now: string,
-	recipientKind: "agent" | "user" = "agent",
-): Promise<string> {
-	const directKey = `${[senderId, recipientId].sort().join(":")}:${recipientKind}`;
-	const [existing] = await exec
-		.select({ id: threads.id })
-		.from(threads)
-		.where(eq(threads.directKey, directKey))
-		.limit(1);
-	if (existing) return existing.id;
-	const threadId = crypto.randomUUID();
-	await insertThread(exec, {
-		id: threadId,
-		directKey,
-		hostKind: recipientKind,
-		hostId: recipientId,
-		initiatorId: senderId,
-		participants: JSON.stringify([senderId, recipientId]),
-		lastActiveAt: now,
-		createdAt: now,
-	});
-	return threadId;
-}
-
-// =============================================================================
 // Thread reads
 // =============================================================================
+
+/**
+ * The thread row, locked (`SELECT … FOR UPDATE`) — read this, never the
+ * pre-transaction snapshot, immediately before computing a membership change
+ * inside a write transaction. BC3 review-fix: two different non-members
+ * posting into the same shared thread at once must not both compute "add
+ * myself" from the same stale read and overwrite each other's join; the lock
+ * serialises the second transaction behind the first's commit so it sees the
+ * already-joined list. Same pattern as `server-config.ts`'s config-row lock
+ * — the only other `.for("update")` in the codebase.
+ */
+export async function findThreadForUpdate(
+	exec: HyperIdleDb,
+	id: string,
+): Promise<Thread | undefined> {
+	const [row] = await exec.select().from(threads).where(eq(threads.id, id)).for("update").limit(1);
+	return row;
+}
 
 function buildThreadConds(f: ThreadFilter): SQL[] {
 	const conds: SQL[] = [];

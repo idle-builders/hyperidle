@@ -412,6 +412,39 @@ describe("send_message — membership, read/write/join", () => {
 		expect(membersAfter.filter((m) => m === "sm-newcomer")).toHaveLength(1);
 	});
 
+	test("two different non-members posting into the same team thread at once both end up members (BC3 review-fix)", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "sm-team-race");
+		await seedHuman(db, "sm-racer-a", "sm-team-race");
+		await seedHuman(db, "sm-racer-b", "sm-team-race");
+		await seedThreadRow(db, "sm-team-thread-race", {
+			hostKind: "team",
+			hostId: "sm-team-race",
+			initiatorId: "system:propagation",
+			members: [],
+		});
+
+		await Promise.all([
+			call(
+				app,
+				"send_message",
+				{ threadId: "sm-team-thread-race", text: "hi from a" },
+				agentHeaders("sm-racer-a"),
+			),
+			call(
+				app,
+				"send_message",
+				{ threadId: "sm-team-thread-race", text: "hi from b" },
+				agentHeaders("sm-racer-b"),
+			),
+		]);
+
+		const members = await readThreadMembers(db, "sm-team-thread-race");
+		expect(members).toEqual(expect.arrayContaining(["sm-racer-a", "sm-racer-b"]));
+	});
+
 	test("a non-member open_thread on a user-hosted DM returns not_found, byte-identical to a deleted thread and a nonexistent id", async ({
 		db,
 		app,
@@ -1048,6 +1081,42 @@ describe("send_message — direct thread find-or-create (B3)", () => {
 
 		const rows = await db.select().from(messages).where(eq(messages.threadId, threadId));
 		expect(rows).toHaveLength(2);
+	});
+
+	test("two simultaneous first sends to the same recipient land in one thread, not an error (BC3 review-fix)", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "b3-race-1");
+		await seedHuman(db, "b3-race-recipient-1", "b3-race-1");
+
+		const [first, second] = await Promise.all([
+			call<{ thread: { id: string } }>(app, "send_message", {
+				recipients: ["b3-race-recipient-1"],
+				text: "racer one",
+			}),
+			call<{ thread: { id: string } }>(app, "send_message", {
+				recipients: ["b3-race-recipient-1"],
+				text: "racer two",
+			}),
+		]);
+
+		expect(first.status).toBe(200);
+		expect(second.status).toBe(200);
+		const threadId = first.body.data?.thread.id;
+		expect(threadId).toBeTruthy();
+		expect(second.body.data?.thread.id).toBe(threadId);
+
+		const rows = await db
+			.select()
+			.from(threads)
+			.where(eq(threads.directKey, `${["b3-race-recipient-1", FOUNDER_ID].sort().join(":")}:user`));
+		expect(rows).toHaveLength(1);
+		const messageRows = await db
+			.select()
+			.from(messages)
+			.where(eq(messages.threadId, threadId as string));
+		expect(messageRows).toHaveLength(2);
 	});
 
 	test("the agent no-calling-thread fallback sent twice lands in one thread", async ({

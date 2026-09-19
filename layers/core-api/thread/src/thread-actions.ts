@@ -309,6 +309,28 @@ const logger = createLogger({ pkg: "thread.thread-actions" });
 
 class VerdictRaceConflict extends Error {}
 
+/**
+ * BC3 review-fix: `send_message` by `recipients` does find-then-insert on
+ * `directKey` — two simultaneous first sends to the same pair can both miss
+ * the find, and the loser's `insertThread` hits `threads_direct_key_uq`.
+ * Detected by constraint name, never a bare "unique"/"duplicate" substring,
+ * so an unrelated violation (a message `clientKey` collision, say) is never
+ * mistaken for this one and silently swallowed.
+ *
+ * @lore drizzle-orm wraps the driver error — the real Postgres error (code
+ * 23505, message naming the constraint) is on `err.cause`, the same shape
+ * `agent-orchestration/src/routes/connections.ts`'s `isUniqueViolation`
+ * already walks for its own constraint.
+ */
+export function isDirectKeyConflict(err: unknown): boolean {
+	const check = (e: unknown): boolean => {
+		if (!(e instanceof Error)) return false;
+		if (e.message.toLowerCase().includes("threads_direct_key_uq")) return true;
+		return check(e.cause);
+	};
+	return check(err);
+}
+
 export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] {
 	/**
 	 * Assembles the `ThreadView` for an already-loaded, already-permission-
@@ -626,156 +648,13 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			}
 		}
 
-		const newThreadId = creatingThread ? randomUUID() : undefined;
-		const effectiveThreadId = threadId ?? newThreadId;
-		if (effectiveThreadId === undefined) {
+		if (threadId === undefined && creatingThread === undefined) {
 			return {
 				ok: false,
 				problems: [{ code: "no_reply_recipient", message: "No thread, no recipients." }],
 			};
 		}
 
-		// -- 3. idempotency (create only) ------------------------------------
-		if (input.messageId === undefined && input.clientKey !== undefined && threadId !== undefined) {
-			const existing = await store.findMessage(ctx.db, {
-				threadId,
-				senderId: ctx.actor,
-				clientKey: input.clientKey,
-			});
-			if (existing) {
-				const candidatePayload = messageBodyOf(input);
-				// The stored payload for a `review` carries the server-stamped
-				// `taskId` (Confusion 9, below) — the candidate must be stamped
-				// the same way before comparing, or a retry from a session (same
-				// review, same clientKey) mismatches its own prior write and
-				// answers `idempotency_conflict` instead of the original.
-				if (candidatePayload.type === "review" && ctx.caller?.taskId) {
-					candidatePayload.payload = {
-						...candidatePayload.payload,
-						taskId: ctx.caller.taskId,
-					};
-				}
-				const sameType = existing.type === candidatePayload.type;
-				const samePayload = existing.payload === JSON.stringify(candidatePayload.payload);
-				if (sameType && samePayload) {
-					const threadRow = await store.findThread(ctx.db, { id: threadId });
-					if (!threadRow)
-						return { ok: false, problems: [{ code: "not_found", message: "Thread not found" }] };
-					const computedTitle = await computeComputedTitle(ctx.db, threadRow, ctx.actor, deps);
-					return {
-						ok: true,
-						data: {
-							message: rowToMessage(existing),
-							thread: rowToThread(threadRow, computedTitle),
-						},
-					};
-				}
-				return {
-					ok: false,
-					problems: [
-						{
-							code: "idempotency_conflict",
-							message: "clientKey already used with a different payload",
-						},
-					],
-				};
-			}
-		}
-
-		// -- 4. server invariants ---------------------------------------------
-		let threadRow: Awaited<ReturnType<typeof store.findThread>> | undefined;
-		let currentMembers: string[] = creatingThread?.members ?? [];
-		let existingMessageRow: Awaited<ReturnType<typeof store.findMessage>> | undefined;
-
-		if (threadId !== undefined) {
-			threadRow = await store.findThread(ctx.db, { id: threadId });
-			if (!threadRow)
-				return {
-					ok: false,
-					problems: [{ code: "not_found", message: `Thread ${threadId} not found` }],
-				};
-			if (threadRow.deletedAt !== null) {
-				return {
-					ok: false,
-					problems: [{ code: "thread_deleted", message: "This thread was deleted." }],
-				};
-			}
-			currentMembers = parseParticipants(threadRow.participants);
-			if (
-				!canWriteThread(ctx.actor, {
-					hostKind: threadRow.hostKind as HostKind,
-					members: currentMembers,
-				})
-			) {
-				return {
-					ok: false,
-					problems: [{ code: "not_a_member", message: "You are not a member of this thread." }],
-				};
-			}
-		}
-
-		if (input.messageId !== undefined) {
-			existingMessageRow = await store.findMessage(ctx.db, { id: input.messageId });
-			if (!existingMessageRow || existingMessageRow.threadId !== threadId) {
-				return {
-					ok: false,
-					problems: [
-						{ code: "not_found", message: `Message ${input.messageId} not found in this thread` },
-					],
-				};
-			}
-		}
-
-		if (input.review?.producedItemId !== undefined && ctx.caller?.taskId) {
-			const parent = await deps.knowledge.findParent(ctx.db, input.review.producedItemId);
-			if (!parent || parent.parentKind !== "task" || parent.parentId !== ctx.caller.taskId) {
-				return {
-					ok: false,
-					problems: [
-						{
-							code: "produced_item_not_owned",
-							message: "The produced item is not parented to this task.",
-						},
-					],
-				};
-			}
-		}
-
-		let resolvesMessageRow: Awaited<ReturnType<typeof store.findMessage>> | undefined;
-		if (input.verdict !== undefined) {
-			resolvesMessageRow = await store.findMessage(ctx.db, { id: input.verdict.resolvesMessageId });
-			if (!resolvesMessageRow) {
-				return {
-					ok: false,
-					problems: [
-						{ code: "not_found", message: "The message this verdict resolves was not found." },
-					],
-				};
-			}
-			const sender = await deps.users.getUserById(ctx.db, ctx.actor);
-			if (!sender || sender.kind !== "human") {
-				return {
-					ok: false,
-					problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }],
-				};
-			}
-			if (resolvesMessageRow.senderId === ctx.actor) {
-				return {
-					ok: false,
-					problems: [{ code: "verdict_self", message: "You cannot verdict your own review." }],
-				};
-			}
-			if (resolvesMessageRow.threadId !== effectiveThreadId) {
-				return {
-					ok: false,
-					problems: [
-						{ code: "verdict_foreign_review", message: "That review lives in a different thread." },
-					],
-				};
-			}
-		}
-
-		// -- 5. inside one transaction -----------------------------------------
 		const now = ctx.now;
 		const messageId = input.messageId ?? randomUUID();
 		const clientKey = input.clientKey ?? randomUUID();
@@ -786,238 +665,457 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		if (body.type === "review" && ctx.caller?.taskId) {
 			body.payload = { ...body.payload, taskId: ctx.caller.taskId };
 		}
-		const mentionedIds: string[] = [];
-		let finalMembers = currentMembers;
+
+		let threadRow: Awaited<ReturnType<typeof store.findThread>> | undefined;
+		let currentMembers: string[] = creatingThread?.members ?? [];
+		let existingMessageRow: Awaited<ReturnType<typeof store.findMessage>> | undefined;
+		let resolvesMessageRow: Awaited<ReturnType<typeof store.findMessage>> | undefined;
+		let mentionedIds: string[] = [];
+		let finalMembers: string[] = [];
 		let membersChanged = false;
-		const resolvedAtBefore: string | null = threadRow?.resolvedAt ?? null;
-		let resolvedAtAfter: string | null = resolvedAtBefore;
+		let resolvedAtBefore: string | null = null;
+		let resolvedAtAfter: string | null = null;
 		let willReopen = false;
-		const pushRows: PushableChange[] = [];
+		let pushRows: PushableChange[] = [];
+		// Plain `string` (never a union with `undefined`) so it stays narrowed
+		// inside the transaction closure below and after the loop in step 6 —
+		// set from a per-attempt guarded value every iteration, never read
+		// before that first assignment.
+		let effectiveThreadId = "";
 
-		try {
-			await ctx.db.transaction(async (tx) => {
-				if (creatingThread) {
-					const values: NewThread = {
-						id: newThreadId as string,
-						hostKind: creatingThread.hostKind,
-						hostId: creatingThread.hostId,
-						initiatorId: ctx.actor,
-						participants: JSON.stringify(creatingThread.members),
-						// B3: a two-party create carries the SAME directKey the lookup
-						// above computed, so `threads_direct_key_uq` actually dedupes;
-						// the >1-recipient group-thread path leaves this undefined.
-						directKey: creatingThread.directKey,
-						pinned: false,
-						lastActiveAt: now,
-						createdAt: now,
-					};
-					await store.insertThread(tx as HyperIdleDb, values);
-					const createdChangeId = randomUUID();
-					const createdAfter = {
-						id: values.id,
-						hostKind: values.hostKind,
-						hostId: values.hostId,
-						initiatorId: values.initiatorId,
-						members: creatingThread.members,
-						title: null,
-						pinned: false,
-						createdAt: now,
-					};
-					await deps.changes.appendChange(tx, {
-						id: createdChangeId,
-						object: "thread",
-						objectId: values.id,
-						kind: "created",
-						actor: ctx.actor,
-						before: null,
-						after: JSON.stringify(createdAfter),
-						at: now,
-					});
-					pushRows.push({
-						id: createdChangeId,
-						objectId: values.id,
-						kind: "created",
-						actor: ctx.actor,
-						before: null,
-						after: createdAfter,
-						at: now,
-					});
-					finalMembers = creatingThread.members;
-				}
-
-				// join the sender on a host-scoped thread it is not yet a member of.
-				const hostKind = (creatingThread?.hostKind ?? threadRow?.hostKind) as HostKind;
-				if (
-					!finalMembers.includes(ctx.actor) &&
-					canWriteThread(ctx.actor, { hostKind, members: finalMembers })
-				) {
-					finalMembers = [...finalMembers, ctx.actor];
-					membersChanged = true;
-				}
-
-				if (body.type === "plain") {
-					const text = (body.payload as { text: string }).text;
-					const {
-						refs,
-						newParticipantIds,
-						mentionedIds: resolvedMentionedIds,
-					} = await resolveMentionsForMessage(
-						tx as HyperIdleDb,
-						text,
-						(body.payload as { refs?: never[] }).refs ?? [],
-						finalMembers,
-						ctx.actor,
-						{
-							listByIds: (d, ids) => deps.users.listByIds(d, ids),
-							listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
-						},
-					);
-					// B2: wake reads every resolved mention (including an agent
-					// already a member) — membership only grows for the NEW ones.
-					mentionedIds.push(...resolvedMentionedIds);
-					if (newParticipantIds.length > 0) {
-						finalMembers = [...new Set([...finalMembers, ...newParticipantIds])];
-						membersChanged = true;
-					}
-					if (refs.length > 0)
-						body.payload = { ...(body.payload as Record<string, unknown>), refs };
-				}
-
-				if (membersChanged) {
-					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
-						participants: JSON.stringify(finalMembers),
-					});
-				}
-
-				let messageBefore: Record<string, unknown> | null = null;
-				if (existingMessageRow) {
-					messageBefore = {
-						messageId: existingMessageRow.id,
-						type: existingMessageRow.type,
-						payload: JSON.parse(existingMessageRow.payload),
-					};
-					await store.updateMessage(tx as HyperIdleDb, messageId, {
-						type: body.type,
-						payload: JSON.stringify(body.payload),
-						blockId: body.blockId ?? null,
-					});
-				} else {
-					const values: NewMessage = {
-						id: messageId,
-						senderId: ctx.actor,
-						threadId: effectiveThreadId,
-						type: body.type,
-						payload: JSON.stringify(body.payload),
-						clientKey,
-						blockId: body.blockId ?? null,
-						createdAt: now,
-					};
-					await store.insertMessage(tx as HyperIdleDb, values);
-				}
-
-				if (input.verdict !== undefined && resolvesMessageRow) {
-					const updated = await store.resolveMessageIfUnresolved(
-						tx as HyperIdleDb,
-						resolvesMessageRow.id,
-						now,
-					);
-					if (updated.length === 0) throw new VerdictRaceConflict();
-					resolvedAtAfter = now;
-					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
-						resolvedAt: now,
-						lastActiveAt: now,
-					});
-				} else if (
-					(body.type === "review" || body.type === "questionnaire") &&
-					threadRow?.resolvedAt !== null &&
-					threadRow !== undefined
-				) {
-					willReopen = true;
-					resolvedAtAfter = null;
-					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
-						resolvedAt: null,
-						lastActiveAt: now,
-					});
-				} else {
-					await store.updateThread(tx as HyperIdleDb, effectiveThreadId, { lastActiveAt: now });
-				}
-
-				// An overwrite's `after.clientKey` is the message's OWN stored key
-				// (`updateMessage` never touches that column) — never a fresh one
-				// minted just to fill this field.
-				const messageAfter: Record<string, unknown> = {
-					messageId,
-					type: body.type,
-					payload: body.payload,
-					clientKey: existingMessageRow?.clientKey ?? clientKey,
-					blockId: body.blockId ?? null,
-					createdAt: now,
-				};
-				if (membersChanged) messageAfter.members = finalMembers;
-				const messageChangeId = randomUUID();
-				await deps.changes.appendChange(tx, {
-					id: messageChangeId,
-					object: "thread",
-					objectId: effectiveThreadId,
-					kind: "message",
-					actor: ctx.actor,
-					before: messageBefore ? JSON.stringify(messageBefore) : null,
-					after: JSON.stringify(messageAfter),
-					at: now,
-				});
-				pushRows.push({
-					id: messageChangeId,
-					objectId: effectiveThreadId,
-					kind: "message",
-					actor: ctx.actor,
-					before: messageBefore,
-					after: messageAfter,
-					at: now,
-				});
-
-				// A resolve/reopen is the thread's OWN state moving — a `changed`
-				// row for it, never naming members (architecture.md §3.5: "adjust_thread
-				// remains the ONLY writer of a thread.changed row whose diff names
-				// members"). The routine lastActiveAt bump that rides every send is
-				// NOT independently reported here — §9's own assertion requires a
-				// plain member-adding send to append no `changed` row at all.
-				if (resolvedAtAfter !== resolvedAtBefore) {
-					const { before, after } = diffFields(
-						effectiveThreadId,
-						{ resolvedAt: resolvedAtBefore },
-						{ resolvedAt: resolvedAtAfter },
-					);
-					const resolveAfter = { ...after, lastActiveAt: now };
-					const resolveChangeId = randomUUID();
-					await deps.changes.appendChange(tx, {
-						id: resolveChangeId,
-						object: "thread",
-						objectId: effectiveThreadId,
-						kind: "changed",
-						actor: ctx.actor,
-						before: JSON.stringify(before),
-						after: JSON.stringify(resolveAfter),
-						at: now,
-					});
-					pushRows.push({
-						id: resolveChangeId,
-						objectId: effectiveThreadId,
-						kind: "changed",
-						actor: ctx.actor,
-						before,
-						after: resolveAfter,
-						at: now,
-					});
-				}
-			});
-		} catch (e) {
-			if (e instanceof VerdictRaceConflict) {
+		// -- 3-5, retried once on a direct-thread create race --------------------
+		// BC3 review-fix: `send_message` by `recipients` does find-then-insert
+		// keyed on `directKey`; two simultaneous first sends to the same pair
+		// can both miss the find, and the loser's `insertThread` hits
+		// `threads_direct_key_uq` inside its transaction. Postgres (and PGlite,
+		// the same engine) refuse further statements once a transaction has
+		// errored, so the retry cannot catch-and-continue inside the failed
+		// transaction — it opens a fresh one. On that conflict, re-read the
+		// thread the winner created and continue the send into it: one thread,
+		// two messages, no error to either caller.
+		for (;;) {
+			// Recomputed every attempt: after a direct-key conflict retry,
+			// `threadId` is the winner's thread and `creatingThread` is cleared,
+			// so this resolves to the found thread instead of a new one.
+			const newThreadId = creatingThread ? randomUUID() : undefined;
+			const resolvedThreadId = threadId ?? newThreadId;
+			if (resolvedThreadId === undefined) {
 				return {
 					ok: false,
-					problems: [{ code: "verdict_race", message: "This review was already resolved." }],
+					problems: [{ code: "no_reply_recipient", message: "No thread, no recipients." }],
 				};
 			}
-			throw e;
+			effectiveThreadId = resolvedThreadId;
+
+			// -- 3. idempotency (create only) ------------------------------------
+			if (
+				input.messageId === undefined &&
+				input.clientKey !== undefined &&
+				threadId !== undefined
+			) {
+				const existing = await store.findMessage(ctx.db, {
+					threadId,
+					senderId: ctx.actor,
+					clientKey: input.clientKey,
+				});
+				if (existing) {
+					const candidatePayload = messageBodyOf(input);
+					// The stored payload for a `review` carries the server-stamped
+					// `taskId` (Confusion 9, below) — the candidate must be stamped
+					// the same way before comparing, or a retry from a session (same
+					// review, same clientKey) mismatches its own prior write and
+					// answers `idempotency_conflict` instead of the original.
+					if (candidatePayload.type === "review" && ctx.caller?.taskId) {
+						candidatePayload.payload = {
+							...candidatePayload.payload,
+							taskId: ctx.caller.taskId,
+						};
+					}
+					const sameType = existing.type === candidatePayload.type;
+					const samePayload = existing.payload === JSON.stringify(candidatePayload.payload);
+					if (sameType && samePayload) {
+						const idempotentThreadRow = await store.findThread(ctx.db, { id: threadId });
+						if (!idempotentThreadRow)
+							return { ok: false, problems: [{ code: "not_found", message: "Thread not found" }] };
+						const computedTitle = await computeComputedTitle(
+							ctx.db,
+							idempotentThreadRow,
+							ctx.actor,
+							deps,
+						);
+						return {
+							ok: true,
+							data: {
+								message: rowToMessage(existing),
+								thread: rowToThread(idempotentThreadRow, computedTitle),
+							},
+						};
+					}
+					return {
+						ok: false,
+						problems: [
+							{
+								code: "idempotency_conflict",
+								message: "clientKey already used with a different payload",
+							},
+						],
+					};
+				}
+			}
+
+			// -- 4. server invariants ---------------------------------------------
+			threadRow = undefined;
+			currentMembers = creatingThread?.members ?? [];
+			existingMessageRow = undefined;
+
+			if (threadId !== undefined) {
+				threadRow = await store.findThread(ctx.db, { id: threadId });
+				if (!threadRow)
+					return {
+						ok: false,
+						problems: [{ code: "not_found", message: `Thread ${threadId} not found` }],
+					};
+				if (threadRow.deletedAt !== null) {
+					return {
+						ok: false,
+						problems: [{ code: "thread_deleted", message: "This thread was deleted." }],
+					};
+				}
+				currentMembers = parseParticipants(threadRow.participants);
+				if (
+					!canWriteThread(ctx.actor, {
+						hostKind: threadRow.hostKind as HostKind,
+						members: currentMembers,
+					})
+				) {
+					return {
+						ok: false,
+						problems: [{ code: "not_a_member", message: "You are not a member of this thread." }],
+					};
+				}
+			}
+
+			if (input.messageId !== undefined) {
+				existingMessageRow = await store.findMessage(ctx.db, { id: input.messageId });
+				if (!existingMessageRow || existingMessageRow.threadId !== threadId) {
+					return {
+						ok: false,
+						problems: [
+							{ code: "not_found", message: `Message ${input.messageId} not found in this thread` },
+						],
+					};
+				}
+			}
+
+			if (input.review?.producedItemId !== undefined && ctx.caller?.taskId) {
+				const parent = await deps.knowledge.findParent(ctx.db, input.review.producedItemId);
+				if (!parent || parent.parentKind !== "task" || parent.parentId !== ctx.caller.taskId) {
+					return {
+						ok: false,
+						problems: [
+							{
+								code: "produced_item_not_owned",
+								message: "The produced item is not parented to this task.",
+							},
+						],
+					};
+				}
+			}
+
+			resolvesMessageRow = undefined;
+			if (input.verdict !== undefined) {
+				resolvesMessageRow = await store.findMessage(ctx.db, {
+					id: input.verdict.resolvesMessageId,
+				});
+				if (!resolvesMessageRow) {
+					return {
+						ok: false,
+						problems: [
+							{ code: "not_found", message: "The message this verdict resolves was not found." },
+						],
+					};
+				}
+				const sender = await deps.users.getUserById(ctx.db, ctx.actor);
+				if (!sender || sender.kind !== "human") {
+					return {
+						ok: false,
+						problems: [{ code: "verdict_not_human", message: "Only a human may give a verdict." }],
+					};
+				}
+				if (resolvesMessageRow.senderId === ctx.actor) {
+					return {
+						ok: false,
+						problems: [{ code: "verdict_self", message: "You cannot verdict your own review." }],
+					};
+				}
+				if (resolvesMessageRow.threadId !== effectiveThreadId) {
+					return {
+						ok: false,
+						problems: [
+							{
+								code: "verdict_foreign_review",
+								message: "That review lives in a different thread.",
+							},
+						],
+					};
+				}
+			}
+
+			// -- 5. inside one transaction -----------------------------------------
+			mentionedIds = [];
+			finalMembers = currentMembers;
+			membersChanged = false;
+			resolvedAtBefore = threadRow?.resolvedAt ?? null;
+			resolvedAtAfter = resolvedAtBefore;
+			willReopen = false;
+			pushRows = [];
+
+			try {
+				await ctx.db.transaction(async (tx) => {
+					if (creatingThread) {
+						const values: NewThread = {
+							id: newThreadId as string,
+							hostKind: creatingThread.hostKind,
+							hostId: creatingThread.hostId,
+							initiatorId: ctx.actor,
+							participants: JSON.stringify(creatingThread.members),
+							// B3: a two-party create carries the SAME directKey the lookup
+							// above computed, so `threads_direct_key_uq` actually dedupes;
+							// the >1-recipient group-thread path leaves this undefined.
+							directKey: creatingThread.directKey,
+							pinned: false,
+							lastActiveAt: now,
+							createdAt: now,
+						};
+						await store.insertThread(tx as HyperIdleDb, values);
+						const createdChangeId = randomUUID();
+						const createdAfter = {
+							id: values.id,
+							hostKind: values.hostKind,
+							hostId: values.hostId,
+							initiatorId: values.initiatorId,
+							members: creatingThread.members,
+							title: null,
+							pinned: false,
+							createdAt: now,
+						};
+						await deps.changes.appendChange(tx, {
+							id: createdChangeId,
+							object: "thread",
+							objectId: values.id,
+							kind: "created",
+							actor: ctx.actor,
+							before: null,
+							after: JSON.stringify(createdAfter),
+							at: now,
+						});
+						pushRows.push({
+							id: createdChangeId,
+							objectId: values.id,
+							kind: "created",
+							actor: ctx.actor,
+							before: null,
+							after: createdAfter,
+							at: now,
+						});
+						finalMembers = creatingThread.members;
+					} else if (threadRow) {
+						// BC3 review-fix (join-on-post race): re-read + lock the thread
+						// row inside the transaction, immediately before computing
+						// membership, instead of trusting `currentMembers`'s
+						// pre-transaction snapshot. Two different non-members posting
+						// into the same shared thread at once must not both compute
+						// "add myself" from that same stale snapshot and overwrite each
+						// other's join — the lock serialises the second transaction
+						// behind the first's commit, so it sees the already-joined list.
+						const lockedRow = await store.findThreadForUpdate(tx as HyperIdleDb, effectiveThreadId);
+						if (lockedRow) finalMembers = parseParticipants(lockedRow.participants);
+					}
+
+					// join the sender on a host-scoped thread it is not yet a member of.
+					const hostKind = (creatingThread?.hostKind ?? threadRow?.hostKind) as HostKind;
+					if (
+						!finalMembers.includes(ctx.actor) &&
+						canWriteThread(ctx.actor, { hostKind, members: finalMembers })
+					) {
+						finalMembers = [...finalMembers, ctx.actor];
+						membersChanged = true;
+					}
+
+					if (body.type === "plain") {
+						const text = (body.payload as { text: string }).text;
+						const {
+							refs,
+							newParticipantIds,
+							mentionedIds: resolvedMentionedIds,
+						} = await resolveMentionsForMessage(
+							tx as HyperIdleDb,
+							text,
+							(body.payload as { refs?: never[] }).refs ?? [],
+							finalMembers,
+							ctx.actor,
+							{
+								listByIds: (d, ids) => deps.users.listByIds(d, ids),
+								listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
+							},
+						);
+						// B2: wake reads every resolved mention (including an agent
+						// already a member) — membership only grows for the NEW ones.
+						mentionedIds.push(...resolvedMentionedIds);
+						if (newParticipantIds.length > 0) {
+							finalMembers = [...new Set([...finalMembers, ...newParticipantIds])];
+							membersChanged = true;
+						}
+						if (refs.length > 0)
+							body.payload = { ...(body.payload as Record<string, unknown>), refs };
+					}
+
+					if (membersChanged) {
+						await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
+							participants: JSON.stringify(finalMembers),
+						});
+					}
+
+					let messageBefore: Record<string, unknown> | null = null;
+					if (existingMessageRow) {
+						messageBefore = {
+							messageId: existingMessageRow.id,
+							type: existingMessageRow.type,
+							payload: JSON.parse(existingMessageRow.payload),
+						};
+						await store.updateMessage(tx as HyperIdleDb, messageId, {
+							type: body.type,
+							payload: JSON.stringify(body.payload),
+							blockId: body.blockId ?? null,
+						});
+					} else {
+						const values: NewMessage = {
+							id: messageId,
+							senderId: ctx.actor,
+							threadId: effectiveThreadId,
+							type: body.type,
+							payload: JSON.stringify(body.payload),
+							clientKey,
+							blockId: body.blockId ?? null,
+							createdAt: now,
+						};
+						await store.insertMessage(tx as HyperIdleDb, values);
+					}
+
+					if (input.verdict !== undefined && resolvesMessageRow) {
+						const updated = await store.resolveMessageIfUnresolved(
+							tx as HyperIdleDb,
+							resolvesMessageRow.id,
+							now,
+						);
+						if (updated.length === 0) throw new VerdictRaceConflict();
+						resolvedAtAfter = now;
+						await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
+							resolvedAt: now,
+							lastActiveAt: now,
+						});
+					} else if (
+						(body.type === "review" || body.type === "questionnaire") &&
+						threadRow?.resolvedAt !== null &&
+						threadRow !== undefined
+					) {
+						willReopen = true;
+						resolvedAtAfter = null;
+						await store.updateThread(tx as HyperIdleDb, effectiveThreadId, {
+							resolvedAt: null,
+							lastActiveAt: now,
+						});
+					} else {
+						await store.updateThread(tx as HyperIdleDb, effectiveThreadId, { lastActiveAt: now });
+					}
+
+					// An overwrite's `after.clientKey` is the message's OWN stored key
+					// (`updateMessage` never touches that column) — never a fresh one
+					// minted just to fill this field.
+					const messageAfter: Record<string, unknown> = {
+						messageId,
+						type: body.type,
+						payload: body.payload,
+						clientKey: existingMessageRow?.clientKey ?? clientKey,
+						blockId: body.blockId ?? null,
+						createdAt: now,
+					};
+					if (membersChanged) messageAfter.members = finalMembers;
+					const messageChangeId = randomUUID();
+					await deps.changes.appendChange(tx, {
+						id: messageChangeId,
+						object: "thread",
+						objectId: effectiveThreadId,
+						kind: "message",
+						actor: ctx.actor,
+						before: messageBefore ? JSON.stringify(messageBefore) : null,
+						after: JSON.stringify(messageAfter),
+						at: now,
+					});
+					pushRows.push({
+						id: messageChangeId,
+						objectId: effectiveThreadId,
+						kind: "message",
+						actor: ctx.actor,
+						before: messageBefore,
+						after: messageAfter,
+						at: now,
+					});
+
+					// A resolve/reopen is the thread's OWN state moving — a `changed`
+					// row for it, never naming members (architecture.md §3.5: "adjust_thread
+					// remains the ONLY writer of a thread.changed row whose diff names
+					// members"). The routine lastActiveAt bump that rides every send is
+					// NOT independently reported here — §9's own assertion requires a
+					// plain member-adding send to append no `changed` row at all.
+					if (resolvedAtAfter !== resolvedAtBefore) {
+						const { before, after } = diffFields(
+							effectiveThreadId,
+							{ resolvedAt: resolvedAtBefore },
+							{ resolvedAt: resolvedAtAfter },
+						);
+						const resolveAfter = { ...after, lastActiveAt: now };
+						const resolveChangeId = randomUUID();
+						await deps.changes.appendChange(tx, {
+							id: resolveChangeId,
+							object: "thread",
+							objectId: effectiveThreadId,
+							kind: "changed",
+							actor: ctx.actor,
+							before: JSON.stringify(before),
+							after: JSON.stringify(resolveAfter),
+							at: now,
+						});
+						pushRows.push({
+							id: resolveChangeId,
+							objectId: effectiveThreadId,
+							kind: "changed",
+							actor: ctx.actor,
+							before,
+							after: resolveAfter,
+							at: now,
+						});
+					}
+				});
+			} catch (e) {
+				if (e instanceof VerdictRaceConflict) {
+					return {
+						ok: false,
+						problems: [{ code: "verdict_race", message: "This review was already resolved." }],
+					};
+				}
+				if (creatingThread?.directKey !== undefined && isDirectKeyConflict(e)) {
+					const winner = await store.findThread(ctx.db, { directKey: creatingThread.directKey });
+					if (winner) {
+						threadId = winner.id;
+						creatingThread = undefined;
+						continue;
+					}
+				}
+				throw e;
+			}
+
+			break;
 		}
 
 		// -- 6. after commit -----------------------------------------------------
