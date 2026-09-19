@@ -411,24 +411,6 @@ export function createTeamRoutes(
 				// keyed by `userId`, not `teamId`, so a second team created for the
 				// same user reuses the create-only dedupe instead of posting a
 				// second welcome into the same thread.
-				//
-				// @lore BC3 review B5 (known gap, verified 2026-09-18): sending as
-				// `actor: assistantId` with `recipients: [userId]` is the correct
-				// call — `assistantId` must be the SENDER, per the old code this
-				// replaces — but `thread-actions.ts`'s single-recipient path
-				// (`hostKind: recipient.kind === "ai" ? "agent" : "user"`) keys the
-				// resulting thread's host off whichever party is named in
-				// `recipients`, not off whichever party is the agent. Here the
-				// recipient is the human `userId`, so the created thread gets
-				// `hostKind:"user"`/`hostId:userId` instead of the `hostKind:"agent"`/
-				// `hostId:assistantId` the overlay's own `search_threads` call looks
-				// for — proven with a DB dump, not assumed. This is a pre-existing
-				// asymmetry in `thread-actions.ts` (out of this file's owned paths),
-				// not something this call can route around without lying about the
-				// sender. `teams-routes-welcome.integration.test.ts` stays red on
-				// this until `thread-actions.ts`'s hostKind assignment keys off
-				// "whichever party in the pair is the agent" instead of "whichever
-				// party is named `recipients`".
 				const sendResult = await sendMessage(
 					{ actor: assistantId, db, eventBus, now },
 					{ recipients: [userId], text: welcomeText, clientKey: `welcome-${userId}` },

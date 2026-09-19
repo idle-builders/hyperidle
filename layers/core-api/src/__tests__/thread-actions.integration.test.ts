@@ -1296,23 +1296,37 @@ describe("open_thread — computedTitle reads real ownership", () => {
 			ownerUserId: "tw-owner-1",
 			createdAt: now,
 		});
-		await seedThreadRow(db, "tw-assistant-thread-1", {
-			hostKind: "user",
-			hostId: "tw-owner-1",
-			initiatorId: "tw-owner-1",
-			members: ["tw-owner-1", "tw-agent-1"],
-		});
-		await seedThreadRow(db, "tw-other-thread-1", {
-			hostKind: "agent",
-			hostId: "tw-agent-1",
-			initiatorId: "tw-other-1",
-			members: ["tw-other-1", "tw-agent-1"],
-		});
+
+		// Production shape: a direct thread between a human and their own agent
+		// is hosted by the AGENT party (thread-actions.ts's single-agent
+		// branch), never `hostKind:"user"` — go through the real `send_message`
+		// action rather than hand-inserting a shape production no longer makes.
+		const ownerSend = await call<{ thread: { id: string; hostKind: string } }>(
+			app,
+			"send_message",
+			{ recipients: ["tw-agent-1"], text: "hi" },
+			agentHeaders("tw-owner-1"),
+		);
+		expect(ownerSend.status).toBe(200);
+		expect(ownerSend.body.data?.thread.hostKind).toBe("agent");
+		const ownerThreadId = ownerSend.body.data?.thread.id;
+		if (ownerThreadId === undefined) throw new Error("send_message did not return a thread id");
+
+		const otherSend = await call<{ thread: { id: string; hostKind: string } }>(
+			app,
+			"send_message",
+			{ recipients: ["tw-agent-1"], text: "hi from someone else" },
+			agentHeaders("tw-other-1"),
+		);
+		expect(otherSend.status).toBe(200);
+		expect(otherSend.body.data?.thread.hostKind).toBe("agent");
+		const otherThreadId = otherSend.body.data?.thread.id;
+		if (otherThreadId === undefined) throw new Error("send_message did not return a thread id");
 
 		const asOwner = await call<ThreadView>(
 			app,
 			"open_thread",
-			{ id: "tw-assistant-thread-1" },
+			{ id: ownerThreadId },
 			agentHeaders("tw-owner-1"),
 		);
 		expect(asOwner.status).toBe(200);
@@ -1321,7 +1335,7 @@ describe("open_thread — computedTitle reads real ownership", () => {
 		const asOther = await call<ThreadView>(
 			app,
 			"open_thread",
-			{ id: "tw-other-thread-1" },
+			{ id: otherThreadId },
 			agentHeaders("tw-other-1"),
 		);
 		expect(asOther.status).toBe(200);

@@ -100,4 +100,36 @@ describe("resolveThreadTitles — assistant rung is ownership, not id shape", ()
 		);
 		expect(titles.get("t4")).toBe("Unknown participant");
 	});
+
+	test("agent-hosted two-party thread (current production shape) titles 'Assistant' for the owner, even when the agent has a real name — the rung must fire before rung 2's name lookup", async () => {
+		const row = threadRow({
+			id: "t5",
+			hostKind: "agent",
+			hostId: "agent-nova",
+			participants: JSON.stringify(["u1", "agent-nova"]),
+		});
+		const titles = await resolveThreadTitles(
+			fakeDb,
+			[row],
+			"u1",
+			depsFor({ "agent-nova": { name: "Nova", ownerUserId: "u1" } }),
+		);
+		expect(titles.get("t5")).toBe("Assistant");
+	});
+
+	test("agent-hosted two-party thread titles the agent's own name for a DIFFERENT user it also DMs — rung 1 requires ownership by the requesting user, not just any owner", async () => {
+		const row = threadRow({
+			id: "t6",
+			hostKind: "agent",
+			hostId: "agent-nova",
+			participants: JSON.stringify(["u2", "agent-nova"]),
+		});
+		const titles = await resolveThreadTitles(
+			fakeDb,
+			[row],
+			"u2",
+			depsFor({ "agent-nova": { name: "Nova", ownerUserId: "u1" } }),
+		);
+		expect(titles.get("t6")).toBe("Nova");
+	});
 });
