@@ -117,10 +117,8 @@ export interface BakedTaskRunRequest {
 	 */
 	readonly harnessDisabled?: readonly string[];
 	/**
-	 * BC3 architecture.md §5 B3: the task's own thread — a real, `NOT NULL`
-	 * column (architecture.md §3.9), so this is one read, never a resolve-
-	 * or-create. Always present; the `calling-thread-bindings.ts` lookup this
-	 * used to be baked through is deleted with it.
+	 * @lore The task's own thread — a real, `NOT NULL` column, so this is
+	 * one read, never a resolve-or-create. Always present.
 	 */
 	readonly callingThreadId: string;
 }

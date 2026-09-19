@@ -283,7 +283,7 @@ export interface WorkFilter {
 	teamId?: string;
 	text?: string;
 	state?: string;
-	/** BC3: the task's own `thread_id` column — every branch honours it. */
+	/** The task's own `thread_id` column — every branch honours it. */
 	threadId?: string;
 	/** BB1: direct children of this task. `null` selects ROOT tasks (no parent). */
 	parentTaskId?: string | null;
@@ -362,7 +362,7 @@ export async function list(
 		if (f.ids !== undefined) {
 			if (f.ids.length === 0) return [];
 			const idConds: SQL[] = [inArray(tasks.id, [...f.ids])];
-			// BC3: threadId narrows here too — every branch honours it.
+			// threadId narrows here too — every branch honours it.
 			if (f.threadId !== undefined) idConds.push(eq(tasks.threadId, f.threadId));
 			return exec
 				.select()
@@ -404,7 +404,7 @@ export async function list(
 			// via `excludeKilled` (see the doc on `WorkFilter`); global search
 			// never sets this flag.
 			if (f.excludeKilled) textConds.push(ne(tasks.state, "killed"));
-			// BC3: threadId narrows here too — every branch honours it.
+			// threadId narrows here too — every branch honours it.
 			if (f.threadId !== undefined) textConds.push(eq(tasks.threadId, f.threadId));
 			return exec
 				.select()

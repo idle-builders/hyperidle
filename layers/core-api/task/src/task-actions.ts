@@ -67,18 +67,18 @@ export interface TaskActionsDeps {
 	 */
 	readonly taskRunResolver: TaskRunResolverDeps;
 	/**
-	 * BC3 architecture.md §3.9: the ONE crossing from `task` to `thread` — a
-	 * function value, never an import ("a service never names a sibling, it
-	 * receives one through a port"). Every task now owns a real thread,
-	 * written at creation by calling the thread action in-process as the
-	 * same actor, never by touching the `threads` table.
+	 * @lore The ONE crossing from `task` to `thread` — a function value,
+	 * never an import ("a service never names a sibling, it receives one
+	 * through a port"). Every task now owns a real thread, written at
+	 * creation by calling the thread action in-process as the same actor,
+	 * never by touching the `threads` table.
 	 */
 	readonly adjustThread: (
 		ctx: ActionContext,
 		input: AdjustThreadInput,
 	) => Promise<ActionResult<ThreadView>>;
 	/**
-	 * Same injection shape as `adjustThread` (§3.9), for the read `adjustThread`
+	 * Same injection shape as `adjustThread`, for the read `adjustThread`
 	 * needs before it can decide whether a write is even necessary —
 	 * `adjust_thread.members` is a full replacement (locked), never a union, so
 	 * adding a member means reading the thread's current ones first.
@@ -147,7 +147,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		doneCondition: null,
 		state: "proposed",
 		dependencies: null,
-		// BC3: never inspected by `taskInvariants` — a placeholder for the
+		// @lore Never inspected by `taskInvariants` — a placeholder for the
 		// invariant-checking candidate, which is never written. The real
 		// value is resolved via `deps.adjustThread` before the transaction
 		// and set directly on the INSERT values, not through this candidate.
@@ -581,8 +581,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			return { ok: false, problems };
 		}
 
-		// -- 3b. resolve the task's thread (BC3 architecture.md §3.9) -------------
-		// Every task has a real thread. Created BEFORE this task's own
+		// -- 3b. resolve the task's thread -------------------------------------
+		// @lore Every task has a real thread. Created BEFORE this task's own
 		// transaction opens, by calling the thread action in-process as the
 		// same actor (the module-link rule: through the action, never the
 		// table) — `tasks.threadId` is NOT NULL, so the thread must already
@@ -591,8 +591,8 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		if (!prev) {
 			if (input.threadId) {
 				resolvedThreadId = input.threadId;
-				// Confusion 5: a task created inside a thread makes its owner a
-				// member of that thread if not already. `adjust_thread.members`
+				// @lore A task created inside a thread makes its owner a member of
+				// that thread if not already. `adjust_thread.members`
 				// is a full replacement (locked), never a union with the
 				// thread's current members — so the owner must be appended to
 				// the list this actor can already see, not passed alone, or
