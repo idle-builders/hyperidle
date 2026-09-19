@@ -44,8 +44,8 @@ vi.mock("../hooks/useCurrentUser.js", () => ({
 
 const THREAD_ID = "t-new28";
 
-// A team-hosted thread — host kind "task" no longer exists (architecture.md
-// §3.9); a task's own thread is team-hosted.
+// A team-hosted thread — there is no "task" host kind; a task's own
+// thread is team-hosted.
 const FAKE_THREAD: ThreadView["thread"] = {
 	id: THREAD_ID,
 	hostKind: "team",

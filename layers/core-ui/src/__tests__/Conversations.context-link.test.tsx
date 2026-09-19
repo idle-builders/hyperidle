@@ -350,9 +350,9 @@ describe("AE5 — Conversations header context link", () => {
 	});
 });
 
-// ── BC3 Confusion 9: thread's own tasks replace the old task link ───────────
+// ── A thread's own tasks replace the old task link ───────────
 
-describe("BC3 — Conversations thread task links", () => {
+describe("Conversations thread task links", () => {
 	it("shows one link per task, with the right hrefs, for a thread with two tasks", async () => {
 		callMock.mockImplementation(async (action: string, input?: unknown) => {
 			if (action === "open_thread") return makeOpenThreadResult();

@@ -45,8 +45,8 @@ function LocationProbe(): null {
 
 const THREAD_ID = "t-am1-migration";
 
-// A team-hosted thread — host kind "task" no longer exists (architecture.md
-// §3.9); a task's own thread is team-hosted.
+// A team-hosted thread — there is no "task" host kind; a task's own
+// thread is team-hosted.
 const HOST_ID = "team-am1-migration";
 
 function makeThread(): ThreadView["thread"] {
@@ -227,7 +227,7 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 
 		// "Open review" fires the OpenTarget→navigate seam to the flattened
 		// `/reviews/:reviewId` route, carrying the thread id on the query string
-		// (`open_thread` needs it directly — architecture.md's review target).
+		// (`open_thread` needs it directly).
 		await waitFor(() => expect(lastPath).toBe(`/reviews/${REVIEW_MSG.id}`));
 		expect(lastPath).not.toContain("//");
 		expect(lastPath).not.toContain("/conversations");

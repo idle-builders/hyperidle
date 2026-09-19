@@ -37,10 +37,9 @@ vi.mock("../hooks/useCurrentUser.js", () => ({
 
 const THREAD_ID = "demo-thread-1";
 
-// A team-hosted thread — host kind "task" no longer exists (architecture.md
-// §3.9). "Open review" renders regardless of host kind (the route needs no
-// bet id), but a team host is the simplest happy path for the
-// reasoning-relocation AC this file covers.
+// A team-hosted thread — there is no "task" host kind. "Open review" renders
+// regardless of host kind (the route needs no bet id), but a team host is
+// the simplest happy path for the reasoning-relocation case this file covers.
 const FAKE_THREAD: ThreadView["thread"] = {
 	id: THREAD_ID,
 	hostKind: "team",

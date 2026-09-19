@@ -62,7 +62,7 @@ const NOW_ISO = "2026-05-06T10:00:00.000Z";
 const MY_USER_ID = "u-founder";
 const MY_AGENT_ID = "agent-coc";
 
-// BC3 AC-8: the real hostKind a direct thread with a single AI recipient
+// The real hostKind a direct thread with a single AI recipient
 // gets, per `thread-actions.ts`'s host-resolution rule.
 const BASE_THREAD = {
 	id: "thr-coach-u-founder",
