@@ -378,7 +378,11 @@ function AssistantOverlayInner({
 	// BC3 review fix: `/api/auth/me` is still in flight until `userStatus`
 	// leaves "loading" — without this, `myAgentId` reads as null while the
 	// user is unresolved and the overlay flashes the no-agent message.
-	if (userStatus === "loading" || agentsLoading || (myAgentId && threadSearch.status === "loading")) {
+	if (
+		userStatus === "loading" ||
+		agentsLoading ||
+		(myAgentId && threadSearch.status === "loading")
+	) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-4">
 				<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />

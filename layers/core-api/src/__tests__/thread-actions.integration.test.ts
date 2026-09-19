@@ -1240,10 +1240,10 @@ describe("send_message — direct thread find-or-create (B3)", () => {
 		await seedAgent(db, "b3-agent-6", "b3-6");
 		await seedHuman(db, "b3-human-6", "b3-6");
 		const actions = buildRealActions(agentOrchestration);
-		const run = runnerFor<SendMessageInput, { thread: { id: string; hostKind: string; hostId: string } }>(
-			actions,
-			"send_message",
-		);
+		const run = runnerFor<
+			SendMessageInput,
+			{ thread: { id: string; hostKind: string; hostId: string } }
+		>(actions, "send_message");
 
 		const fallback = await run(
 			{
@@ -1835,7 +1835,10 @@ describe("adjust_thread", () => {
 			members: [FOUNDER_ID],
 		});
 
-		const pinned = await call<ThreadView>(app, "adjust_thread", { id: "at-thread-5", pinned: true });
+		const pinned = await call<ThreadView>(app, "adjust_thread", {
+			id: "at-thread-5",
+			pinned: true,
+		});
 		expect(pinned.status).toBe(200);
 		expect(pinned.body.data?.thread.pinned).toBe(true);
 
@@ -1847,7 +1850,9 @@ describe("adjust_thread", () => {
 		expect(unpinned.body.data?.thread.pinned).toBe(false);
 
 		const rows = await readChanges(db, "at-thread-5");
-		expect(rows.filter((r) => r.kind === "changed" && r.after.includes('"pinned"'))).toHaveLength(2);
+		expect(rows.filter((r) => r.kind === "changed" && r.after.includes('"pinned"'))).toHaveLength(
+			2,
+		);
 	});
 
 	test("resolved:true resolves the thread; resolved:false reopens it", async ({ db, app }) => {

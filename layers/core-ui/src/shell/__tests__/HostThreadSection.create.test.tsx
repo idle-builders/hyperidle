@@ -124,7 +124,9 @@ describe("HostThreadSection — create-on-first-post (BC3 review)", () => {
 
 		render(<HostThreadSection host={HOST} title="Discussion" />);
 
-		await waitFor(() => expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument());
+		await waitFor(() =>
+			expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument(),
+		);
 
 		await user.type(screen.getByTestId("composer-textarea"), "Hello there");
 		await user.click(screen.getByRole("button", { name: "Send" }));
@@ -154,7 +156,9 @@ describe("HostThreadSection — create-on-first-post (BC3 review)", () => {
 
 		render(<HostThreadSection host={HOST} title="Discussion" />);
 
-		await waitFor(() => expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument());
+		await waitFor(() =>
+			expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument(),
+		);
 
 		await user.type(screen.getByTestId("composer-textarea"), "Hello there");
 		await user.click(screen.getByRole("button", { name: "Send" }));

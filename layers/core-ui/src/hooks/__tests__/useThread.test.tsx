@@ -78,10 +78,9 @@ describe("useThread", () => {
 	it("loads once an id appears after starting idle", async () => {
 		callMock.mockResolvedValue({ ok: true, data: makeThreadView() });
 
-		const { result, rerender } = renderHook(
-			({ id }: { id: string | undefined }) => useThread(id),
-			{ initialProps: { id: undefined as string | undefined } },
-		);
+		const { result, rerender } = renderHook(({ id }: { id: string | undefined }) => useThread(id), {
+			initialProps: { id: undefined as string | undefined },
+		});
 
 		expect(result.current.status).toBe("idle");
 		expect(callMock).not.toHaveBeenCalled();
