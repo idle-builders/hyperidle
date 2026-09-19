@@ -10,7 +10,7 @@ import {
 import type { ActionDeclaration, Problem } from "./action.js";
 
 /**
- * The thread action list: search, open, send, adjust. architecture.md §3.
+ * @lore BC3: the thread action list — search, open, send, adjust.
  * This is what replaces `routes/threads.ts`/`threads-schema.ts`, the
  * `conversation` package's public row shapes, the four deleted tools and the
  * `access-boundary.ts` read/write predicate.
@@ -123,8 +123,8 @@ export const reviewPayloadSchema = z.object({
 	producedItemId: z.string().optional(),
 	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
 	/**
-	 * The task the sending session ran on, stamped by the server from
-	 * `ctx.caller.taskId` (Confusion 9) — never accepted from the caller, so
+	 * @lore BC3: the task the sending session ran on, stamped by the server
+	 * from `ctx.caller.taskId` — never accepted from the caller, so
 	 * `SendMessageInputSchema.review` omits it (see below).
 	 */
 	taskId: z.string().optional(),
@@ -150,12 +150,11 @@ export const verdictPayloadSchema = z.object({
 export type VerdictPayload = z.infer<typeof verdictPayloadSchema>;
 
 /**
- * Parses a message row's `payload` against the schema its `type` implies —
- * the discriminated union `messageRowSchema` used to be, as a function
- * rather than an output-schema arm (§3.1 — a four-arm discriminated union in
- * an OUTPUT schema buys nothing and makes `z.toJSONSchema` noisy). Used by
- * the UI to narrow `MessageSchema`'s `payload: unknown` at render time; never
- * used to validate a write.
+ * @lore BC3: parses a message row's `payload` against the schema its `type`
+ * implies, as a function rather than a discriminated-union output-schema arm
+ * (a four-arm discriminated union in an OUTPUT schema buys nothing and makes
+ * `z.toJSONSchema` noisy). Used by the UI to narrow `MessageSchema`'s
+ * `payload: unknown` at render time; never used to validate a write.
  */
 export function parseMessagePayload(
 	type: (typeof MESSAGE_TYPES)[number],
@@ -299,7 +298,7 @@ export const SendMessageInputSchema = z
 		spotLabel: z.string().max(128).optional(), // plain only
 		// `taskId` is server-stamped from `ctx.caller.taskId`, never caller
 		// input — omitted here so a smuggled `taskId` in the request body is
-		// stripped by validation rather than stored (Confusion 9).
+		// stripped by validation rather than stored.
 		review: reviewPayloadSchema.omit({ taskId: true }).optional(),
 		questionnaire: questionnairePayloadSchema.optional(),
 		verdict: verdictPayloadSchema.optional(),
@@ -358,7 +357,7 @@ export const THREAD_ACTIONS = {
 
 // ---------------------------------------------------------------------------
 // Pure invariants — run in the browser to grey a control, and again on the
-// server as the first pass over the input. No database. architecture.md §3.4.
+// server as the first pass over the input. No database.
 // ---------------------------------------------------------------------------
 
 export function sendMessageInvariants(
@@ -479,9 +478,9 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 }
 
 // ---------------------------------------------------------------------------
-// Who may read, who may post, and how anyone ever joins — architecture.md
-// §3.4. `canWriteThread` delegates to `canReadThread`, exactly as
-// `access-boundary.ts`'s deleted `canWrite` delegated to `canRead`.
+// @lore BC3: who may read, who may post, and how anyone ever joins.
+// `canWriteThread` delegates to `canReadThread`, exactly as the deleted
+// `access-boundary.ts`'s `canWrite` delegated to `canRead`.
 // ---------------------------------------------------------------------------
 
 const HOST_SCOPED: ReadonlySet<HostKind> = new Set(["team", "knowledge_item", "factory"]);
@@ -497,9 +496,8 @@ export function canReadThread(
 export const canWriteThread = canReadThread;
 
 // ---------------------------------------------------------------------------
-// The wake rule — architecture.md §3.10, plan.md:57-60. Pure. Runs
-// post-commit over the thread's FINAL member list, after the mention-adds
-// and after the sender's own join.
+// @lore BC3: the wake rule. Pure. Runs post-commit over the thread's FINAL
+// member list, after the mention-adds and after the sender's own join.
 // ---------------------------------------------------------------------------
 
 export function agentsToWake(input: {

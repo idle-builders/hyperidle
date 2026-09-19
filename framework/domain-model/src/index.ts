@@ -23,10 +23,10 @@ export {
 	TaskViewSchema,
 	taskInvariants,
 } from "./actions/task.js";
-// BC3 architecture.md §3.1: `Thread`, `Message` and the four payload
-// interfaces moved out of `thread.ts` into `actions/thread.ts` as zod
-// schemas — re-exported here under the SAME names so every existing
-// importer keeps compiling against the name it already uses.
+// @lore BC3: `Thread`, `Message` and the four payload interfaces moved out
+// of `thread.ts` into `actions/thread.ts` as zod schemas — re-exported here
+// under the SAME names so every existing importer keeps compiling against
+// the name it already uses.
 export type {
 	AdjustThreadInput,
 	Identity,

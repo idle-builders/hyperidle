@@ -220,10 +220,10 @@ export const EditTaskInputSchema = z
 		/** Optimistic-locking token, compared against `prev.updatedAt`. */
 		version: z.string().optional(),
 		/**
-		 * BC3 architecture.md §3.9 Confusion 5: a task created inside a thread
-		 * uses that thread as its own — the caller (`open_thread`'s reader
-		 * screen) already knows which one. Absent on create ⇒ `edit_task`
-		 * creates one via `adjustThread`, hosted on the task's own team.
+		 * @lore BC3: a task created inside a thread uses that thread as its
+		 * own — the caller (`open_thread`'s reader screen) already knows which
+		 * one. Absent on create ⇒ `edit_task` creates one via `adjustThread`,
+		 * hosted on the task's own team.
 		 */
 		threadId: z.string().optional(),
 	})
