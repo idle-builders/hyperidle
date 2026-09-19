@@ -1,7 +1,7 @@
 /**
- * Brownfield migration test for 0085 (BC3's thread module).
+ * Brownfield migration test for 0085 (the thread module).
  *
- * architecture.md §4/§9: every task must end up with a real thread hosted by
+ * Every task must end up with a real thread hosted by
  * its team, a double-hosted task takes the oldest of its threads, a fresh
  * seed's membership carries BOTH the owner agent and the first human when
  * both exist, no thread stays hosted by a task, `items` and
@@ -150,7 +150,7 @@ describe("migration 0085: thread as a module — brownfield", () => {
 		`);
 
 		// step 10 fixture: a user U and their own assistant agent `ast-U`
-		// (owner_user_id = U), in the pre-BC3 user-hosted shape
+		// (owner_user_id = U), in the pre-migration user-hosted shape
 		// (`thr-ast-<userId>`, host_kind='user') with two messages.
 		await db.execute(sql`
 			INSERT INTO users (id, name, kind, role, status, team_id, owner_user_id, created_at) VALUES
@@ -175,7 +175,7 @@ describe("migration 0085: thread as a module — brownfield", () => {
 			VALUES ('thr-two-humans', 'user', 'human-older', 'human-older', '["human-older","human-newer"]', false, ${NOW}, ${NOW})
 		`);
 
-		// duplicate-pair fixture: two pre-BC3 user-hosted threads for the SAME
+		// duplicate-pair fixture: two pre-migration user-hosted threads for the SAME
 		// (user, agent) pair, at different last_active_at — the partial unique
 		// index on direct_key can only keep one keyed row per pair.
 		await db.execute(sql`
@@ -381,7 +381,7 @@ describe("migration 0085: thread as a module — brownfield", () => {
 		expect(thread.direct_key).toBeNull();
 	});
 
-	it("when two pre-BC3 threads exist for the same (user, agent) pair, keys only the most recently active one and leaves the other without a key", async () => {
+	it("when two pre-migration threads exist for the same (user, agent) pair, keys only the most recently active one and leaves the other without a key", async () => {
 		const db = await seedAndMigrate();
 
 		const rows = (
