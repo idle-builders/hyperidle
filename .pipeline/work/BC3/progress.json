@@ -6,47 +6,33 @@
     "ambiguity": "established context",
     "exposure": "public contract"
   },
-  "gates": [
-    {
-      "name": "program-design",
-      "description": "founder confirms how threads, tasks and agents relate",
-      "passed": true,
-      "passed_at": "2026-09-17"
-    },
-    {
-      "name": "how-we-work",
-      "description": "one PR, one gate before ship, order and verification",
-      "passed": true,
-      "passed_at": "2026-09-17"
-    },
-    {
-      "name": "architecture",
-      "description": "architecture.md + critique PASS before build",
-      "passed": true,
-      "passed_at": "2026-09-17",
-      "note": "three critique rounds: 10 \u2192 1 \u2192 1 blockers, last one a stale line fixed by the orchestrator"
-    },
-    {
-      "name": "ship-gate",
-      "description": "founder sees threads, task thread, overlay and a mention-made task through the list",
-      "passed": false
-    },
-    {
-      "name": "ship",
-      "description": "CI-green open PR; human merges",
-      "passed": false
-    }
-  ],
+  "gates": {
+    "check": "pass",
+    "lint": "pass (only finding is the uncommitted temporary .claude/launch.json)",
+    "unit": "5049 pass",
+    "service_integration": "1849 pass / 5 skipped",
+    "knip": "pass",
+    "deps": "pass",
+    "e2e_full": "193 pass / 41 fail, all 41 in main baseline (main 43)",
+    "harness": "70 pass / 17 fail; thread-turn live test green on claude, opencode, cursor-agent, codex crashes; other failures in files and code unchanged by this branch"
+  },
   "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
   "branch": "feature/thread-module",
   "base": "origin/main",
-  "phase": "review",
-  "next_action": "two read-only reviewers running (server; UI+e2e+docs); fix findings as atomic chunks; then full e2e vs main, harness lane vs main, founder gate in the running app",
+  "phase": "founder-gate",
+  "next_action": "founder gate in the running app (dev server on 5173, dev DB migrated in place to 0085); then revert .claude/launch.json, retro, ship (PR against main, never auto-merge)",
   "since": "c90326dd1",
   "artifacts": {
     "architecture": ".pipeline/work/BC3/architecture.md",
     "critique": ".pipeline/work/BC3/critique.md (round 1 FAIL 10 blockers, round 2 PASS WITH BLOCKERS 1)",
     "facts": ".pipeline/work/BC3/facts.md"
   },
-  "build_notes": "built as ~45 atomic chunks with disjoint paths after the first builder ran out; gates green: typecheck, unit 5020, service integration 1818, knip, deps, eslint, governance x3; design census baseline update in flight; live harness thread-turn test restored: claude/opencode/cursor pass, codex crashes (compare with main)"
+  "build_notes": "built as ~45 atomic chunks with disjoint paths after the first builder ran out; gates green: typecheck, unit 5020, service integration 1818, knip, deps, eslint, governance x3; design census baseline update in flight; live harness thread-turn test restored: claude/opencode/cursor pass, codex crashes (compare with main)",
+  "review": "two code reviews FAIL (UI 1 blocker, server 3 blockers) -> all fixed; re-review FAIL on 1 new blocker (block filter fetched server-side) -> fixed; gate walk found 2 more bugs (thread page title from deleted route field; mention pool ignored host team and own agents) -> fixed",
+  "follow_ups": [
+    "multi-word agent names cannot be mentioned by typing (matcher takes one token, no picker) - same on main",
+    "a failed thread turn tells the person nothing in a thread (overlay shows Retry after timeout) - same on main",
+    "unreachable SessionView chain on the conversations page - task chip spawned",
+    "local harness lane: claude/cursor adapter probes fail on unchanged code - environment"
+  ]
 }
