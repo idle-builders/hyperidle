@@ -1,10 +1,9 @@
 /**
  * Batched thread title resolver — moved from `routes/threads.ts`'s
  * `resolveThreadTitles` (AF14 AC1), one query per host-kind bucket, never
- * N+1. BC3 architecture.md §3.1/§3.8: gains rung 0 (the stored
- * `threads.title`), loses the host-`task` rung (a task's thread is
- * `team`-hosted now, and nothing computes a team-conversation title from a
- * task any more).
+ * N+1. Rung 0 is the stored `threads.title`; there is no host-`task` rung —
+ * a task's thread is `team`-hosted now, and nothing computes a
+ * team-conversation title from a task.
  *
  * Ladder, first match wins:
  *   0. stored `threads.title`
@@ -93,9 +92,10 @@ export async function resolveThreadTitles(
 		// id shape, decides. `hostKind:"agent"`, two-party direct thread: what
 		// `send_message`'s single-agent-recipient branch creates
 		// (thread-actions.ts) — the thread is hosted by the AGENT party, not
-		// the human. Migration 0085 step 10 re-hosts every pre-BC3
-		// user-hosted assistant thread onto its agent too, so this is the
-		// only shape a migrated database ever has.
+		// the human.
+		// @lore Migration 0085 step 10 re-hosts every user-hosted assistant
+		// thread onto its agent too, so this is the only shape a migrated
+		// database ever has.
 		if (
 			row.hostKind === "agent" &&
 			parts.length === 2 &&
@@ -124,7 +124,7 @@ export async function resolveThreadTitles(
 		}
 
 		// Rung 3: host-scoped (knowledge_item). Task's own rung is gone — a
-		// task's thread is team-hosted (architecture.md §3.7/§3.9).
+		// task's thread is team-hosted.
 		if (row.hostKind === "knowledge_item") {
 			const title = kiMap.get(row.hostId);
 			titleMap.set(row.id, title ?? "Deleted knowledge item");

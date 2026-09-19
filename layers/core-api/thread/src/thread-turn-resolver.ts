@@ -1,6 +1,6 @@
 /**
  * The wake bake: given a triggering message and the agent to wake (the
- * caller — the wake rule, architecture.md §3.10 — already knows which agent
+ * caller — the wake rule already knows which agent
  * that is, so the target is an explicit `agentId` parameter, never derived
  * from the message itself), assembles the thread's full transcript, the
  * agent's runnable config, and the harness-disabled list into one

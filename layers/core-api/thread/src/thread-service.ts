@@ -1,16 +1,14 @@
 /**
  * The thread module's private row store — `threads` + `messages` writes and
  * reads. Moved from `@hyperidle/conversation`'s `conversation-store.ts`
- * (behavior-preserving move, AU20 Am5's shape), extended for BC3: `threads`
- * gains `title`/`deletedAt` (migration 0085 step 1); `messages` loses
- * `legacyItemId` (step 6) — the two filter fields that read it
- * (`legacyItemIds`/`noLegacyItem`) are deleted, not ported.
+ * (behavior-preserving move, AU20 Am5's shape). `threads` has `title`/
+ * `deletedAt`; `messages` has no `legacyItemId` — the two filter fields
+ * that would read it (`legacyItemIds`/`noLegacyItem`) don't exist.
  *
  * Private to this package. `search.ts`, the ws authorizer and the routine
  * scheduler binding — the three surviving outside readers of the deleted
  * `conversation` package — get typed read functions from THIS module's own
- * barrel (architecture.md §5 B2), exactly as they got them from
- * `conversation`'s barrel before.
+ * barrel, exactly as they got them from `conversation`'s barrel before.
  */
 
 import {
@@ -69,11 +67,10 @@ export async function insertThread(exec: HyperIdleDb, values: NewThread): Promis
 }
 
 /**
- * Direct-thread create: `INSERT … ON CONFLICT (direct_key) DO NOTHING
+ * @lore Direct-thread create: `INSERT … ON CONFLICT (direct_key) DO NOTHING
  * RETURNING *`, targeting `threads_direct_key_uq` (the partial unique index,
- * `WHERE direct_key IS NOT NULL` — `schema.ts`). BC3 review-fix: replaces the
- * old find-then-insert + catch-and-retry on the constraint violation. Under
- * READ COMMITTED, a concurrent insert of the same `directKey` makes this
+ * `WHERE direct_key IS NOT NULL` — `schema.ts`). Under READ COMMITTED, a
+ * concurrent insert of the same `directKey` makes this
  * statement wait for the other transaction to finish before deciding there's
  * a conflict, so a `undefined` return means the winner's row is already
  * committed — the caller re-reads it with `findThreadForUpdate`.
@@ -165,12 +162,12 @@ export async function findThread(exec: HyperIdleDb, q: ThreadFilter): Promise<Th
 }
 
 /**
- * The thread row, locked (`SELECT … FOR UPDATE`) — read this, never the
- * pre-transaction snapshot, immediately before computing a membership change
- * inside a write transaction. BC3 review-fix: two different non-members
- * posting into the same shared thread at once must not both compute "add
- * myself" from the same stale read and overwrite each other's join; the lock
- * serialises the second transaction behind the first's commit so it sees the
+ * @lore The thread row, locked (`SELECT … FOR UPDATE`) — read this, never
+ * the pre-transaction snapshot, immediately before computing a membership
+ * change inside a write transaction. Two different non-members posting into
+ * the same shared thread at once must not both compute "add myself" from
+ * the same stale read and overwrite each other's join; the lock serialises
+ * the second transaction behind the first's commit so it sees the
  * already-joined list. Same pattern as `server-config.ts`'s config-row lock
  * — the only other `.for("update")` in the codebase. Takes an `id` (the
  * join-on-post path) or a `directKey` (the direct-thread create-conflict
@@ -291,8 +288,7 @@ export interface ThreadSearchRow {
  * Text search: threads whose `participants` match `participantPattern` OR
  * whose stored `title` matches `titlePattern`, AND that have a non-deleted
  * message matching `messagePattern` OR a stored title match — over-fetched
- * newest-active first, up to `limit`. Extended for BC3 with the new rung-0
- * stored title (architecture.md §3.8).
+ * newest-active first, up to `limit`. Includes the stored rung-0 title.
  */
 export function searchConversations(
 	exec: HyperIdleDb,

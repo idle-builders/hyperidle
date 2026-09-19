@@ -57,8 +57,9 @@ async function buildMentionLookup(
  * enriched refs array, the set of newly-mentioned participant ids
  * (excluding the sender and anyone already a member — used to grow
  * thread membership), and `mentionedIds` — every resolved mention id
- * excluding the sender, whether or not it was already a member. B2:
- * a mention of an agent already in the thread must still wake it, so
+ * excluding the sender, whether or not it was already a member.
+ *
+ * @lore A mention of an agent already in the thread must still wake it, so
  * the wake decision (`agentsToWake`) reads `mentionedIds`, not
  * `newParticipantIds`.
  */

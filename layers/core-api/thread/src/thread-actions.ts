@@ -48,7 +48,7 @@ import { resolveThreadTitles } from "./title-ladder.js";
 
 /**
  * The thread module's outward-facing deps — every one a sibling Service, the
- * seam, or the websocket hub. architecture.md §3.3.
+ * seam, or the websocket hub.
  */
 export interface ThreadActionsDeps {
 	readonly changes: {
@@ -64,10 +64,9 @@ export interface ThreadActionsDeps {
 		 */
 		soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<User | undefined>;
 		/**
-		 * Builder addition (architecture.md §3.3 leaves "query shapes" to the
-		 * builder): the team-scoped read `resolveMentionsForMessage` needs —
-		 * AE5's "mention any agent in the team, not only who is in the thread"
-		 * rule. A nested Service may not import `@hyperidle/users` directly.
+		 * @lore The team-scoped read `resolveMentionsForMessage` needs — AE5's
+		 * "mention any agent in the team, not only who is in the thread" rule.
+		 * A nested Service may not import `@hyperidle/users` directly.
 		 */
 		listByTeamIds(exec: WriteExecutor, teamIds: readonly string[]): Promise<readonly User[]>;
 	};
@@ -215,9 +214,9 @@ function diffFields(
 
 /**
  * A `changes` row `send_message`/`adjust_thread` wrote inside its own
- * transaction, captured for the post-commit push — architecture.md §3.12.
- * `kind` here is the DB vocabulary (`changes_kind_ck`); the wire `kind` is
- * derived from it, never the other way around.
+ * transaction, captured for the post-commit push. `kind` here is the DB
+ * vocabulary (`changes_kind_ck`); the wire `kind` is derived from it, never
+ * the other way around.
  */
 interface PushableChange {
 	readonly id: string;
@@ -237,8 +236,8 @@ function wireKindFor(
 
 /**
  * `conversations` is a global topic any authenticated identity may subscribe
- * to — the message body may never ride it (architecture.md §3.12). Strip
- * the payload, keep the thread id, message id, sender and members. Applied
+ * to — the message body may never ride it. Strip the payload, keep the
+ * thread id, message id, sender and members. Applied
  * to BOTH `after` and (when present) `before` — an overwrite's `before`
  * carries the old payload just as `after` carries the new one, and it must
  * never ride this topic either.
@@ -255,9 +254,9 @@ function redactMessageSideForConversations(
 
 /**
  * Post-commit push, once per `changes` row, on both `thread:<threadId>` and
- * `conversations` — the unchanged envelope `{type, topic, kind, data}`
- * (architecture.md §3.12). A no-op when `deps.wsPush` is absent (tests that
- * don't need WS pushes, per `app.ts`'s `WsPushTarget` doc comment).
+ * `conversations` — the unchanged envelope `{type, topic, kind, data}`.
+ * A no-op when `deps.wsPush` is absent (tests that don't need WS pushes,
+ * per `app.ts`'s `WsPushTarget` doc comment).
  */
 function pushChanges(deps: ThreadActionsDeps, rows: readonly PushableChange[]): void {
 	if (!deps.wsPush) return;
@@ -311,15 +310,16 @@ class VerdictRaceConflict extends Error {}
 
 export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] {
 	/**
-	 * Assembles the `ThreadView` for an already-loaded, already-permission-
-	 * checked row — no `not_found`/`canReadThread` guard here. `openThreadRun`
-	 * applies that guard itself, before calling this; `adjustThreadRun`'s
-	 * with-id branch calls this directly on the row IT just wrote, because
-	 * `adjustThreadRun({id, deleted:true})` must still return the ThreadView
-	 * it just produced — routing that through `openThreadRun`'s own guard
-	 * would make a successful delete answer its own caller with `not_found`
-	 * (§3.7 "Returns open_thread.run(ctx,{id})" is bounded to the READ door;
-	 * it is not asking adjust to refuse its own write's result).
+	 * @lore Assembles the `ThreadView` for an already-loaded, already-
+	 * permission-checked row — no `not_found`/`canReadThread` guard here.
+	 * `openThreadRun` applies that guard itself, before calling this;
+	 * `adjustThreadRun`'s with-id branch calls this directly on the row IT
+	 * just wrote, because `adjustThreadRun({id, deleted:true})` must still
+	 * return the ThreadView it just produced — routing that through
+	 * `openThreadRun`'s own guard would make a successful delete answer its
+	 * own caller with `not_found`. `open_thread.run(ctx,{id})` is bounded to
+	 * the READ door; it is not a hook adjust can call to refuse its own
+	 * write's result.
 	 */
 	async function assembleThreadView(
 		ctx: ActionContext,
@@ -500,11 +500,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		input: SendMessageInput,
 	): Promise<{ ok: true; data: SendMessageOutput } | { ok: false; problems: readonly Problem[] }> {
 		// -- 1. pure invariants ---------------------------------------------
-		// Builder decision (see this item's report): `hasCallingThread` here
-		// means "a session is calling" (any fallback MIGHT exist), not
-		// literally `caller.threadId != null` — an agent with a caller but no
-		// calling thread must still reach the server-side sole-human fallback
-		// (§9's own test requires this), not be pre-empted here.
+		// @lore `hasCallingThread` here means "a session is calling" (any
+		// fallback MIGHT exist), not literally `caller.threadId != null` — an
+		// agent with a caller but no calling thread must still reach the
+		// server-side sole-human fallback, not be pre-empted here.
 		const pureProblems = sendMessageInvariants(input, {
 			hasCallingThread: ctx.caller !== undefined,
 		});
@@ -638,8 +637,8 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		const clientKey = input.clientKey ?? randomUUID();
 		const body = messageBodyOf(input);
 		// The review's task is stamped by the server from the calling session,
-		// never accepted from the caller's input (Confusion 9) — the input
-		// schema already omits `taskId` from `review`.
+		// never accepted from the caller's input — the input schema already
+		// omits `taskId` from `review`.
 		if (body.type === "review" && ctx.caller?.taskId) {
 			body.payload = { ...body.payload, taskId: ctx.caller.taskId };
 		}
@@ -681,7 +680,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			if (existing) {
 				const candidatePayload = messageBodyOf(input);
 				// The stored payload for a `review` carries the server-stamped
-				// `taskId` (Confusion 9, below) — the candidate must be stamped
+				// `taskId` — the candidate must be stamped
 				// the same way before comparing, or a retry from a session (same
 				// review, same clientKey) mismatches its own prior write and
 				// answers `idempotency_conflict` instead of the original.
@@ -831,7 +830,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						hostId: creatingThread.hostId,
 						initiatorId: ctx.actor,
 						participants: JSON.stringify(creatingThread.members),
-						// B3: a two-party create carries the SAME directKey the lookup
+						// @lore A two-party create carries the SAME directKey the lookup
 						// above computed; the >1-recipient group-thread path leaves
 						// this undefined (never deduped).
 						directKey: creatingThread.directKey,
@@ -839,16 +838,14 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						lastActiveAt: now,
 						createdAt: now,
 					};
-					// BC3 review-fix: a direct create is `INSERT … ON CONFLICT
-					// (direct_key) DO NOTHING RETURNING *` — replaces the old
-					// find-then-insert + catch-and-retry. Under READ COMMITTED, if
-					// another transaction is concurrently inserting the same
-					// `directKey`, this statement waits for it to finish before
-					// deciding there's a conflict, so by the time it returns no
-					// row the winner's row is already committed and visible to the
-					// locked re-read below. One transaction, no retry. A
-					// group-thread create (no `directKey`) is never deduped, so it
-					// always "creates".
+					// @lore A direct create is `INSERT … ON CONFLICT (direct_key) DO
+					// NOTHING RETURNING *`. Under READ COMMITTED, if another
+					// transaction is concurrently inserting the same `directKey`,
+					// this statement waits for it to finish before deciding there's
+					// a conflict, so by the time it returns no row the winner's row
+					// is already committed and visible to the locked re-read below.
+					// One transaction, no retry. A group-thread create (no
+					// `directKey`) is never deduped, so it always "creates".
 					const created =
 						values.directKey !== undefined
 							? (await store.insertDirectThread(
@@ -904,14 +901,14 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 						creatingThread = undefined;
 					}
 				} else if (threadRow) {
-					// BC3 review-fix (join-on-post race): re-read + lock the thread
-					// row inside the transaction, immediately before computing
-					// membership, instead of trusting `currentMembers`'s
-					// pre-transaction snapshot. Two different non-members posting
-					// into the same shared thread at once must not both compute
-					// "add myself" from that same stale snapshot and overwrite each
-					// other's join — the lock serialises the second transaction
-					// behind the first's commit, so it sees the already-joined list.
+					// @lore Join-on-post race: re-read + lock the thread row inside
+					// the transaction, immediately before computing membership,
+					// instead of trusting `currentMembers`'s pre-transaction
+					// snapshot. Two different non-members posting into the same
+					// shared thread at once must not both compute "add myself" from
+					// that same stale snapshot and overwrite each other's join —
+					// the lock serialises the second transaction behind the first's
+					// commit, so it sees the already-joined list.
 					const lockedRow = await store.findThreadForUpdate(tx as HyperIdleDb, {
 						id: effectiveThreadId,
 					});
@@ -945,7 +942,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 							listByTeamIds: (d, ids) => deps.users.listByTeamIds(d, ids),
 						},
 					);
-					// B2: wake reads every resolved mention (including an agent
+					// @lore Wake reads every resolved mention (including an agent
 					// already a member) — membership only grows for the NEW ones.
 					mentionedIds.push(...resolvedMentionedIds);
 					if (newParticipantIds.length > 0) {
@@ -1048,12 +1045,12 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					at: now,
 				});
 
-				// A resolve/reopen is the thread's OWN state moving — a `changed`
-				// row for it, never naming members (architecture.md §3.5: "adjust_thread
-				// remains the ONLY writer of a thread.changed row whose diff names
-				// members"). The routine lastActiveAt bump that rides every send is
-				// NOT independently reported here — §9's own assertion requires a
-				// plain member-adding send to append no `changed` row at all.
+				// @lore A resolve/reopen is the thread's OWN state moving — a
+				// `changed` row for it, never naming members: `adjust_thread`
+				// remains the ONLY writer of a `thread.changed` row whose diff
+				// names members. The routine `lastActiveAt` bump that rides every
+				// send is NOT independently reported here — a plain member-adding
+				// send appends no `changed` row at all.
 				if (resolvedAtAfter !== resolvedAtBefore) {
 					const { before, after } = diffFields(
 						effectiveThreadId,
@@ -1175,7 +1172,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 			}
 		}
 
-		// wake — architecture.md §3.10.
+		// wake
 		if (finalMembers.length > 0) {
 			const identityRows = await deps.users.listByIds(ctx.db, finalMembers);
 			const isAgent = (id: string) => identityRows.some((u) => u.id === id && u.kind === "ai");
@@ -1203,8 +1200,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				} catch (error) {
 					// a bake failure (e.g. a deactivated agent) drops that one wake —
 					// the message stays committed and the other wakes are unaffected —
-					// but architecture.md §3.10 requires the drop to be LOGGED, never
-					// silent.
+					// but the drop must be LOGGED, never silent.
 					logger.error("thread turn wake failed", {
 						messageId,
 						agentId,
