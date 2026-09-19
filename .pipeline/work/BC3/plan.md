@@ -136,6 +136,12 @@ the end because sessions post through the composed tool list.
    own column), and the thread view lists them where the old task link sat. A review message
    records the task its session ran on, stamped by the server from the session, so the review page
    can name its task.
+10. Found at the gate, founder said fix here: a name with a space or an apostrophe could not be
+    mentioned by typing, and a wake that fails before the agent starts left the thread silent.
+    Mentions now match the longest known name after the @; a failed wake posts one plain notice
+    into the thread, the same way a session that ends without answering does. The conversation
+    page's dial-in button is gone and its session viewer has no way in: both accepted, the viewer
+    is a separate item.
 
 ## Proposed items
 
