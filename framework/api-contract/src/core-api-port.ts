@@ -54,17 +54,12 @@ export interface UserView {
 export interface CoreApiUsersPort {
 	getUserById(id: string): Promise<UserView | undefined>;
 	listUsersByTeam(teamMembersId: string): Promise<ReadonlyArray<UserView>>;
-	// `findSoleHumanUser` DELETED with `reply` — the thread module's own
-	// `soleHumanForAgent` (team-scoped, read in-process) replaces it.
-	// architecture.md §5 B4.
+	// This port has no sole-human-user lookup; `soleHumanForAgent` resolves
+	// it team-scoped, in-process, inside the thread module.
 }
 
-// `ConversationThreadView`/`InsertThreadRequest`/`InsertThreadResponse`/
-// `UpdateThreadRequest`/`ConversationMessageType`/`InsertMessageRequest`/
-// `InsertMessageResponse`/`DirectThreadResponse`/`CoreApiConversationPort`
-// DELETED — the five thread routes they mirrored are gone; `send_message`/
-// `adjust_thread` replace every one of these capabilities as an action.
-// architecture.md §5 B1/B2/B4.
+// This port carries no thread routes; `send_message`/`adjust_thread` cover
+// every one of those capabilities as an action.
 
 /** Mirrors `GET /org/teams/:teamId`'s response — only the fields a `CoreApiPort` consumer relies on. */
 export interface OrgTeamView {

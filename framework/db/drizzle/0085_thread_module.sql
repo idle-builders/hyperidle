@@ -1,4 +1,4 @@
--- BC3: thread as a module. architecture.md §4. Steps are ordered; a later
+-- @lore BC3: thread as a module. Steps are ordered; a later
 -- one depends on an earlier one.
 
 -- 1. a thread gets its own title and a soft delete.
@@ -7,7 +7,7 @@ ALTER TABLE "threads" ADD COLUMN "title" text;
 ALTER TABLE "threads" ADD COLUMN "deleted_at" text;
 --> statement-breakpoint
 
--- 2. a post is its own kind of change (plan.md Confusion 1).
+-- 2. a post is its own kind of change.
 ALTER TABLE "changes" DROP CONSTRAINT "changes_kind_ck";
 --> statement-breakpoint
 ALTER TABLE "changes" ADD CONSTRAINT "changes_kind_ck"
@@ -28,13 +28,13 @@ WHERE t."thread_id" IS NULL
 -- 4. every remaining task gets one. Deterministic id so a re-run is a no-op.
 --    Host is the task's TEAM: a task conversation belongs to the team that owns
 --    the task, `host_kind` stays NOT NULL with no new vocabulary, and it matches
---    what `edit_task` passes for a task created after this migration (§3.9).
+--    what `edit_task` passes for a task created after this migration.
 --
 --    INTENDED MEMBERSHIP, stated so it can be re-derived rather than copied:
 --    the task's owner agent when it has one, plus the first human by
 --    (created_at, id) when one exists. Both, not one. Zero members is legal and
 --    produces '[]': the thread is host-scoped ('team'), so anyone signed in can
---    still read it and the first person to post joins it (§3.4). A task nobody
+--    still read it and the first person to post joins it. A task nobody
 --    owns in a database with no humans is not a dead thread, just an empty one.
 WITH seed AS (
   SELECT t."id" AS task_id, t."team_id", t."created_at", t."updated_at",
@@ -128,7 +128,7 @@ ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_source_
 --> statement-breakpoint
 
 -- 9. `sourceCorrelation.assistantAgentId` is renamed to `agentId`
---    (framework/domain-model/src/session-request.ts §B5). Both columns are
+--    (framework/domain-model/src/session-request.ts). Both columns are
 --    `text` holding JSON, not `jsonb` — cast in, rename the key, cast back
 --    out. Idempotent: the WHERE guard only matches rows that still carry
 --    the old key, so a re-run touches nothing.
@@ -158,7 +158,7 @@ SET "baked_request_json" = jsonb_set(
 WHERE "baked_request_json"::jsonb -> 'sourceCorrelation' ? 'assistantAgentId';
 --> statement-breakpoint
 
--- 10. a direct thread between a user and their own assistant agent used to
+-- @lore BC3 step 10: a direct thread between a user and their own assistant agent used to
 --     be hosted by the USER (pre-BC3 `createAssistantThreadRoute` shape:
 --     `thr-ast-<userId>`, host_kind='user'). `send_message`'s single-
 --     recipient path (thread-actions.ts ~546-558) now hosts that pair by the
