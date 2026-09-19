@@ -66,9 +66,7 @@ describe("L1a migration — schema shape", () => {
 		expect(cols).toContain("resolved_at");
 	});
 
-	test("messages no longer has legacy_item_id column", async ({
-		db,
-	}) => {
+	test("messages no longer has legacy_item_id column", async ({ db }) => {
 		const cols = await columnsOf(db, "messages");
 		expect(cols).not.toContain("legacy_item_id");
 	});
