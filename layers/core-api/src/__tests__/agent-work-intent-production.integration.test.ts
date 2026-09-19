@@ -281,13 +281,13 @@ describe("atomic production handoffs", () => {
 		expect(attempts[0]?.occasion).toBe("retry");
 	});
 
-	// AU31 §3.1 site 5 — INVERTED, then BC3-repointed. The message insert is
-	// no longer inside the same transaction as the intent submit
-	// (relinquished, founder ruling architecture.md §3.1/§13 item 9): a seam
-	// call from inside this route's own open `db.transaction()` reproduced a
-	// real deadlock (§3.2), so the two writes can no longer share one
-	// transaction. `POST /api/threads/:id/messages` is deleted (BC3); the
-	// door is now `POST /api/actions/send_message`, whose wake loop
+	// @lore AU31 §3.1 site 5 — INVERTED, then repointed onto the thread
+	// module. The message insert is no longer inside the same transaction as
+	// the intent submit (relinquished, founder ruling architecture.md
+	// §3.1/§13 item 9): a seam call from inside this route's own open
+	// `db.transaction()` reproduced a real deadlock (§3.2), so the two writes
+	// can no longer share one transaction. The door is now
+	// `POST /api/actions/send_message`, whose wake loop
 	// (`thread-actions.ts`) wraps each agent's intent-record call in its own
 	// try/catch and drops that one wake on failure rather than letting it
 	// escape — so the action itself reports success (200, ok:true) instead

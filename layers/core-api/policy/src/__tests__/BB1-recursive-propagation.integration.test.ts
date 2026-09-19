@@ -95,8 +95,8 @@ const conversationStub: PolicyDeps["conversation"] = {
 /**
  * Minimal `send_message` stand-in — `policy` cannot import `@hyperidle/thread`
  * (Mechanism C). Lifecycle propagation posts the ship-confirmation review
- * through this when a root task completes (BC3 architecture.md §3.9 —
- * through the action, never the table); a no-op success is sufficient here
+ * through this when a root task completes (through the action, never the
+ * table); a no-op success is sufficient here
  * since these tests assert task-state transitions, not the posted message.
  */
 const sendMessageStub: PolicySendMessage = async (): Promise<ActionResult<SendMessageOutput>> => ({
@@ -193,7 +193,7 @@ async function seedTask(
 		needsReview?: boolean;
 	},
 ): Promise<void> {
-	// BC3: every task has a real thread now (`tasks.thread_id` is NOT NULL).
+	// Every task has a real thread now (`tasks.thread_id` is NOT NULL).
 	await db.insert(threads).values({
 		id: `thr-${id}`,
 		hostKind: "team",

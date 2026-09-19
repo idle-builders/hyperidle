@@ -855,16 +855,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 	});
 
 	// ---------------------------------------------------------------------------
-	// 11. Route purity — no inline routing calls
-	// ---------------------------------------------------------------------------
-
-	// Describe 11 removed: `/api/conversations/items` and its `item_created`
-	// event are gone with the `items` table (BC3 architecture.md §5).
-
-	// POST /api/sessions (door #114) and PATCH /api/sessions/:id (door #144) deleted.
-	// Describe 12 removed with the routes.
-
-	// ---------------------------------------------------------------------------
 	// 13. Knowledge list uses LEFT JOIN for pre-computed scores
 	// ---------------------------------------------------------------------------
 

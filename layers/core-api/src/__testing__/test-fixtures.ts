@@ -153,8 +153,8 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		const agentOrchestration: AgentOrchestrationPort = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
-		// BC3 architecture.md §5 B7b: the stalled-knowledge-action reaction now
-		// posts through send_message/adjust_thread — this fixture's own throwaway
+		// The stalled-knowledge-action reaction posts through
+		// send_message/adjust_thread — this fixture's own throwaway
 		// action bag, same shape `O3-service-move-bootstrap.integration.test.ts` builds.
 		const fixtureActions = buildCoreActions({
 			agentOrchestration,

@@ -16,8 +16,7 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
  * returned; only the grouping is new.
  *
  * `editTask`/`sendMessage` are derived from the SAME composed action list
- * `app.ts` builds, off the ctx's own `agentOrchestration` (BC3
- * architecture.md §5 B2: `sendMessage` added alongside `editTask`).
+ * `app.ts` builds, off the ctx's own `agentOrchestration`.
  */
 function fullServiceBootstrap(
 	ctx: Omit<

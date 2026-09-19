@@ -174,8 +174,8 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 
 		// Auth: X-API-Key resolves the sole seeded human (founderId) as the
 		// principal in local mode (`resolveApiKeyActorUserId`) — no override
-		// header needed for a human sender. `POST /api/threads/:id/messages`
-		// is deleted (BC3); the door is `POST /api/actions/send_message`.
+		// header needed for a human sender. The door is
+		// `POST /api/actions/send_message`.
 		const res = await app.request("/api/actions/send_message", {
 			method: "POST",
 			headers: {
@@ -194,7 +194,7 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 		const body = (await res.json()) as { ok: boolean };
 		expect(body.ok).toBe(true);
 
-		// AU27 Increment 6, BC3-renamed: the load-bearing property is the
+		// AU27 Increment 6: the load-bearing property is the
 		// recorded intent, not a reply (this fixture never drains it —
 		// `test-fixtures.ts` builds `app` with no `startRuntime` poller
 		// wired). The intent kind is `thread_turn` now (the wake rule,
@@ -254,8 +254,7 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 		// (`seamPortForActor(ctx.agentId)`). `X-Identity` does not control
 		// senderId at all (AF11-IDOR) — only this header, consulted after
 		// X-API-Key auth already succeeded, can attribute a write to a
-		// non-human actor. `POST /api/threads/:id/messages` is deleted
-		// (BC3); the door is `POST /api/actions/send_message`.
+		// non-human actor. The door is `POST /api/actions/send_message`.
 		const res = await app.request("/api/actions/send_message", {
 			method: "POST",
 			headers: {
@@ -279,7 +278,7 @@ describe("AH6 §7 — the assistant-turn trigger (service-integration)", () => {
 		);
 		expect(assistantOwnMessage).toBeDefined();
 
-		// BC3: the self-retrigger guard is now structural — `agentsToWake`
+		// The self-retrigger guard is structural — `agentsToWake`
 		// only ever wakes an AGENT member, and in this 2-member thread the
 		// other member (the founder) is human, so no wake is attempted at
 		// all. The intent kind is `thread_turn` now, sourceId
