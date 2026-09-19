@@ -137,6 +137,33 @@ function mockReadyThread(): void {
 	});
 }
 
+// ── re-review: filterBlockId is a client-side slice, never forwarded to useThread ──
+
+describe("re-review — filterBlockId never reaches useThread/open_thread", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("calls useThread with only the threadId while filterBlockId is active", () => {
+		mockNoHostSearch();
+		mockReadyThread();
+
+		render(
+			<HostThreadSection
+				threadId="t-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-A"
+			/>,
+		);
+
+		// The block filter is HostThreadSection's own concern — forwarding it
+		// into useThread would ask the server to filter `open_thread` itself,
+		// which would starve every other consumer of this same fetch (e.g.
+		// KnowledgeDetail's inline anchored comments) of the blocks it filtered out.
+		expect(useThread).toHaveBeenCalledWith("t-filter-001");
+	});
+});
+
 // ── AC-5: filterBlockId prop filters displayed messages ──
 
 describe("AC-5 — filterBlockId prop shows only matching messages", () => {

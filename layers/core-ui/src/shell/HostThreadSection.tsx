@@ -123,7 +123,14 @@ export function HostThreadSection({
 	const resolvedThreadId = resolved.threads[0]?.id;
 	const activeThreadId = knownThreadId ?? resolvedThreadId;
 
-	const { status, data, error, refresh } = useThread(activeThreadId, filterBlockId);
+	// @lore re-review: never `useThread(activeThreadId, filterBlockId)` — that
+	// asked the server for only that block's messages, so `onThreadView`
+	// below reported a block-scoped `data` to whatever else on the page
+	// reads it (e.g. KnowledgeDetail's inline anchored comments), making
+	// every other block's comments vanish the moment one block's discussion
+	// was opened. `filterBlockId` stays a purely client-side slice over the
+	// one full `ThreadView` this hook loads — see `messages` below.
+	const { status, data, error, refresh } = useThread(activeThreadId);
 	const composerWrapperRef = useRef<HTMLDivElement>(null);
 	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
 	const [showAll, setShowAll] = useState(false);

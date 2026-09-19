@@ -8,6 +8,14 @@
  * topic the hook re-runs `open_thread` itself — no payload merging, no
  * client-side reducer over `kind`. That is what "hooks are replaced by
  * `call()` + the same subscription" means literally.
+ *
+ * @lore re-review: this hook never takes a `blockId`. `open_thread`'s
+ * server-side `blockId` filter exists for agents (a narrower fetch than the
+ * UI needs), not for a page that renders a block-scoped view of a thread it
+ * already has in full — `HostThreadSection`'s own block filter is a
+ * client-side slice over the one `ThreadView` this hook loads, so every
+ * block's messages stay available to whatever else on the page reads the
+ * same data (e.g. `KnowledgeDetail`'s inline anchored comments).
  */
 
 import type { ThreadView } from "@hyperidle/domain-model";
@@ -24,7 +32,7 @@ export interface UseThreadResult {
 	refresh: () => void;
 }
 
-export function useThread(threadId: string | undefined | null, blockId?: string): UseThreadResult {
+export function useThread(threadId: string | undefined | null): UseThreadResult {
 	const [status, setStatus] = useState<UseThreadStatus>(threadId ? "loading" : "idle");
 	const [data, setData] = useState<ThreadView | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -48,7 +56,7 @@ export function useThread(threadId: string | undefined | null, blockId?: string)
 		setStatus("loading");
 		setError(null);
 
-		call("open_thread", blockId !== undefined ? { id: threadId, blockId } : { id: threadId })
+		call("open_thread", { id: threadId })
 			.then((result) => {
 				if (cancelled) return;
 				if (!result.ok) {
@@ -71,7 +79,7 @@ export function useThread(threadId: string | undefined | null, blockId?: string)
 		return () => {
 			cancelled = true;
 		};
-	}, [threadId, blockId, tick]);
+	}, [threadId, tick]);
 
 	const refresh = useCallback((): void => {
 		setTick((n) => n + 1);

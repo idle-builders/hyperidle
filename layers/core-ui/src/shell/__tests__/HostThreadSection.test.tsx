@@ -169,7 +169,7 @@ describe("HostThreadSection (L18)", () => {
 
 		render(<HostThreadSection threadId="task-abc-thread" title="Discussion" />);
 
-		expect(useThread).toHaveBeenCalledWith("task-abc-thread", undefined);
+		expect(useThread).toHaveBeenCalledWith("task-abc-thread");
 	});
 
 	it("resolves via useThreads({host}) when only a host is given (knowledge page)", () => {
@@ -198,6 +198,6 @@ describe("HostThreadSection (L18)", () => {
 		expect(useThreads).toHaveBeenCalledWith({
 			host: { kind: "knowledge_item", id: "k-123" },
 		});
-		expect(useThread).toHaveBeenCalledWith("t-resolved", undefined);
+		expect(useThread).toHaveBeenCalledWith("t-resolved");
 	});
 });
