@@ -49,8 +49,7 @@ async function computedZIndex(
 
 async function setupAppShellMocks(page: import("@playwright/test").Page): Promise<void> {
 	// search_threads — AssistantOverlay's useThreads(agentHostFilter) resolves
-	// the assistant's existing direct thread this way now (BC3: no more
-	// `GET /api/threads/assistant` create-on-read), and it's also the broad
+	// the assistant's existing direct thread this way, and it's also the broad
 	// fallback for the Conversations submenu list.
 	await mockSearchThreads(page, { rows: [] });
 	// notifications inbox — guard against fetch errors

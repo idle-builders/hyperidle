@@ -135,7 +135,7 @@ export const test = base.extend<CoreApiFixtures>({
 			});
 
 			// POST /api/actions/search_threads — thread list for the conversations
-			// page and every host-thread resolution (BC3: replaces GET /api/threads).
+			// page and every host-thread resolution.
 			await page.route("**/api/actions/search_threads", async (route) => {
 				if (route.request().method() !== "POST") {
 					await route.continue();
@@ -458,7 +458,7 @@ export async function mockTeamDetail(
 }
 
 // ---------------------------------------------------------------------------
-// BC3 thread fixtures
+// Thread fixtures
 //
 // @lore BC3: the only thread surface is `POST /api/actions/{search_threads,
 // open_thread, send_message, adjust_thread}` — `{ok:true,data}` or
@@ -607,7 +607,7 @@ export async function mockThread(
 /**
  * A complete `GET /api/agents` row. Pass only the fields the assertion
  * depends on — `ownerUserId` is the one the assistant overlay reads to find
- * "the viewer's own agent" (BC3 B6).
+ * "the viewer's own agent".
  */
 export function makeAgentConfig(id: string, overrides: Partial<AgentConfig> = {}): AgentConfig {
 	return {
@@ -633,7 +633,7 @@ export interface MockAgentsOptions {
 /**
  * Mock `GET /api/agents` — every agent picker's data source, and the
  * assistant overlay's `myAgentId = agents.find(a => a.ownerUserId ===
- * user?.id)` lookup (BC3 B6). Registered per-test; wins over the network via
+ * user?.id)` lookup. Registered per-test; wins over the network via
  * LIFO (there is no auto-use fallback for this route).
  */
 export async function mockAgents(

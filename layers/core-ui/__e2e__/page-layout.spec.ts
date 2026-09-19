@@ -40,8 +40,8 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 			],
 		}),
 	);
-	// BC3: the thread door is `POST /api/actions/{search_threads, open_thread}`
-	// — never `GET /api/threads*`. There is no `task` host kind any more (a
+	// The thread door is `POST /api/actions/{search_threads, open_thread}`
+	// — never `GET /api/threads*`. There is no `task` host kind (a
 	// task's own thread is `team`-hosted).
 	const layoutThread = makeThread("layout-thread", {
 		hostKind: "team",
@@ -201,7 +201,7 @@ test("team split uses local pane headers and compact destination-only behavior",
 
 test("review with an artifact open uses two local panes", async ({ page }) => {
 	await mkdir(EVIDENCE, { recursive: true });
-	// BC3: `GET /api/reviews/:id` is gone — ReviewPage's default loader reads
+	// ReviewPage's default loader reads
 	// the review message straight off `open_thread`. `artifacts` passes
 	// through the loader unchanged, so reusing the composed fixture's
 	// artifacts here (summary/badge included) reproduces the same render.

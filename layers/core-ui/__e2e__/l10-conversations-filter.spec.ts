@@ -6,7 +6,7 @@
  *   - clear → list restores;
  *   - filter-empty state surfaces a Clear filter affordance.
  *
- * Plan §6: web-only fixture. We inject the fixture via
+ * Web-only fixture. We inject the fixture via
  * `mockSearchThreads(page, {...})`.
  *
  * @lore BC3: repointed at `POST /api/actions/search_threads` — never `GET

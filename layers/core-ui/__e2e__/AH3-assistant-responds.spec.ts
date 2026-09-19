@@ -120,7 +120,7 @@ test.describe("AH3: no-key path → missing_key notice in overlay", () => {
 		});
 
 		// GET /api/agents — myAgentId resolution (AssistantOverlay finds its own
-		// agent by ownerUserId, BC3 B6).
+		// agent by ownerUserId).
 		await page.route("**/api/agents", async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
