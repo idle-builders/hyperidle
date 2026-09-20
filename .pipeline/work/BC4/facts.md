@@ -65,3 +65,8 @@ Working file for refinement and architecture. Deleted at ship.
 - Legacy neighbour reached through a narrow injected read (`TaskActionsDeps.knowledge`), sibling
   action reached through an injected runner (`TaskActionsDeps.openThread`). `OBJECT_EVENTS` in the
   governance rule already reserves `document.created` / `document.changed`.
+
+## Founder rulings from the interview (2026-09-20)
+1. **No conflicts.** Documents sync on their own; two writers at the same moment is rare. Last write
+   wins. The conflicts table, the conflict tool, the promotion block on open conflicts and the
+   writeback's conflict path all go. No review thread for a conflict.
