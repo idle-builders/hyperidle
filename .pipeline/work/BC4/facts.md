@@ -83,3 +83,7 @@ Working file for refinement and architecture. Deleted at ship.
   declared in `routine/src/ports.ts:76,85`, but nothing in production calls them. Unreachable →
   `promotion-pipeline.ts` is deleted with its port entries. After that nothing sets `stale` except
   an edit; the librarian plugin's skills are rewritten to use search and edit.
+
+## Founder rulings, continued
+3. **Rename everything to document** — tables, code, thread host kind and parent kind, URLs, every
+   user-visible label — except the sidebar section, which stays "Knowledge" as the name of the place.
