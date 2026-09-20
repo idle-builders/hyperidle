@@ -181,6 +181,21 @@ WHERE "baked_request_json"::jsonb -> 'sourceCorrelation' ? 'assistantAgentId';
 --     still re-hosted onto the agent but left with `direct_key IS NULL` — no
 --     merge, no delete, both rows survive.
 --
+--     A second writer already existed before this migration: the pre-BC3
+--     `findOrCreateDirectThread` path wrote agent-hosted direct threads with
+--     this exact `direct_key` shape for a pair reached through the old
+--     reply/send tools. Such a row is not a candidate here (its `host_kind`
+--     is already 'agent'), so the window above never sees it — but the key
+--     it holds is still live. The most-recently-active candidate only takes
+--     the computed key when no other row already holds it; otherwise it is
+--     re-hosted and left unkeyed, same as a losing duplicate above. A row
+--     that already had a key keeps whatever key it had — this step only ever
+--     writes a key it computed, never blanks one it didn't.
+--
+--     `LEAST`/`GREATEST` are pinned to the C collation so the pair ordering
+--     matches the app's plain JS `.sort()` regardless of the database's
+--     default collation.
+--
 --     Same trigger-suspend window as step 7 (`threads_host_immutable_trg`,
 --     migration 0007) — this changes `host_kind`/`host_id` too.
 ALTER TABLE "threads" DISABLE TRIGGER "threads_host_immutable_trg";
@@ -189,9 +204,14 @@ WITH pair AS (
   SELECT
     th."id" AS thread_id,
     ag."id" AS agent_id,
-    concat(LEAST(th."host_id", ag."id"), ':', GREATEST(th."host_id", ag."id"), ':agent') AS computed_key,
+    concat(
+      LEAST(th."host_id" COLLATE "C", ag."id" COLLATE "C"), ':',
+      GREATEST(th."host_id" COLLATE "C", ag."id" COLLATE "C"), ':agent'
+    ) AS computed_key,
     row_number() OVER (
-      PARTITION BY LEAST(th."host_id", ag."id"), GREATEST(th."host_id", ag."id")
+      PARTITION BY
+        LEAST(th."host_id" COLLATE "C", ag."id" COLLATE "C"),
+        GREATEST(th."host_id" COLLATE "C", ag."id" COLLATE "C")
       ORDER BY th."last_active_at" DESC, th."id" ASC
     ) AS rn
   FROM "threads" th
@@ -203,7 +223,15 @@ WITH pair AS (
 UPDATE "threads" th SET
   "host_kind" = 'agent',
   "host_id" = p.agent_id,
-  "direct_key" = CASE WHEN p.rn = 1 THEN p.computed_key ELSE NULL END
+  "direct_key" = CASE
+    WHEN p.rn = 1
+      AND NOT EXISTS (
+        SELECT 1 FROM "threads" k
+        WHERE k."direct_key" = p.computed_key AND k."id" <> th."id"
+      )
+    THEN p.computed_key
+    ELSE th."direct_key"
+  END
 FROM pair p
 WHERE th."id" = p.thread_id;
 --> statement-breakpoint

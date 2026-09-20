@@ -190,6 +190,28 @@ describe("migration 0085: thread as a module — brownfield", () => {
 				('thr-dup-newer', 'user', 'user-dup', 'user-dup', '["user-dup","ast-user-dup"]', false, ${NEWER}, ${NEWER})
 		`);
 
+		// conflict fixture: a pre-migration user-hosted candidate for (user, agent)
+		// sits alongside an UNRELATED row already hosted by that same agent and
+		// already carrying the exact key the candidate would compute — the old
+		// `findOrCreateDirectThread` wrote agent-hosted direct threads this way
+		// before this migration existed. The non-candidate row is never touched
+		// by the WHERE clause (host_kind is already 'agent'), so step 10 must not
+		// try to hand the candidate a key that row already holds.
+		await db.execute(sql`
+			INSERT INTO users (id, name, kind, role, status, team_id, owner_user_id, created_at) VALUES
+				('user-conflict', 'Conflict User', 'human', 'member', 'active', 'team-1', NULL, ${NOW}),
+				('ast-user-conflict', 'Conflict Assistant', 'ai', 'assistant', 'active', NULL, 'user-conflict', ${NOW})
+		`);
+		const conflictKey = `${["user-conflict", "ast-user-conflict"].sort().join(":")}:agent`;
+		await db.execute(sql`
+			INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at, direct_key)
+			VALUES ('thr-conflict-existing', 'agent', 'ast-user-conflict', 'user-conflict', '["user-conflict","ast-user-conflict"]', false, ${NOW}, ${NOW}, ${conflictKey})
+		`);
+		await db.execute(sql`
+			INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, pinned, last_active_at, created_at)
+			VALUES ('thr-conflict-candidate', 'user', 'user-conflict', 'user-conflict', '["user-conflict","ast-user-conflict"]', false, ${NOW}, ${NOW})
+		`);
+
 		const folderAfter = makeTempMigrationsFolder(MIGRATION_IDX);
 		tempDirs.push(folderAfter);
 		await migrate(db, { migrationsFolder: folderAfter });
@@ -402,5 +424,37 @@ describe("migration 0085: thread as a module — brownfield", () => {
 		// only the more recently active one (thr-dup-newer, NEWER) is keyed.
 		expect(byId.get("thr-dup-newer")?.direct_key).toBe(expectedKey);
 		expect(byId.get("thr-dup-older")?.direct_key).toBeNull();
+	});
+
+	it("re-hosts a candidate whose computed key is already held by an unrelated agent-hosted row, without touching that row's key", async () => {
+		const db = await seedAndMigrate();
+
+		const rows = (
+			await db.execute(sql`
+				SELECT id, host_kind, host_id, direct_key FROM threads
+				WHERE id IN ('thr-conflict-existing', 'thr-conflict-candidate') ORDER BY id
+			`)
+		).rows as Array<{ id: string; host_kind: string; host_id: string; direct_key: string | null }>;
+		const byId = new Map(rows.map((r) => [r.id, r]));
+		const expectedKey = `${["user-conflict", "ast-user-conflict"].sort().join(":")}:agent`;
+
+		// the migration completes at all — no unique-constraint rollback.
+		expect(byId.size).toBe(2);
+
+		// both end up agent-hosted.
+		expect(byId.get("thr-conflict-existing")).toMatchObject({
+			host_kind: "agent",
+			host_id: "ast-user-conflict",
+		});
+		expect(byId.get("thr-conflict-candidate")).toMatchObject({
+			host_kind: "agent",
+			host_id: "ast-user-conflict",
+		});
+
+		// the pre-existing row keeps the key it already had.
+		expect(byId.get("thr-conflict-existing")?.direct_key).toBe(expectedKey);
+		// the re-hosted candidate loses the race and is left unkeyed, not blanked
+		// onto the other row's key.
+		expect(byId.get("thr-conflict-candidate")?.direct_key).toBeNull();
 	});
 });
