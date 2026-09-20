@@ -67,6 +67,11 @@ Working file for refinement and architecture. Deleted at ship.
   governance rule already reserves `document.created` / `document.changed`.
 
 ## Founder rulings from the interview (2026-09-20)
-1. **No conflicts.** Documents sync on their own; two writers at the same moment is rare. Last write
-   wins. The conflicts table, the conflict tool, the promotion block on open conflicts and the
-   writeback's conflict path all go. No review thread for a conflict.
+1. **No conflicts as a thing.** Documents sync on their own; two writers at the same moment is
+   rare. Founder: last write wins, or first write wins and the second gets a fail message and
+   retries — "whatever is easy and works for both sides". Chosen: the rule `edit_task` already has.
+   An edit may carry the version it read; if that version is stale the edit is refused with one
+   problem ("changed since you read it — open it again and retry"); with no version, last write
+   wins. The UI autosave and the sandbox writeback already know their version. The conflicts table,
+   the conflict tool, the promotion block on open conflicts and the writeback's conflict rows all
+   go. No review thread for a conflict.
