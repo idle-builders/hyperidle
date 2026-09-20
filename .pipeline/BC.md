@@ -47,8 +47,8 @@ Each item here only re-points existing screens at `call` and `invariants`.
 |---|---|---|---|---|---|
 | BC1 | Delete: 14 routes, 7 events, the attention engine, the stale events fork, dead controls | backend + frontend | feature | — | shipped — PR #552 merged (`286628f7b`). Scope cut from 22 routes and 8 events by founder ruling: delete means unused or unreachable, so seven still-called routes stay, and `notification` stays for the item that replaces its queue. |
 | BC2 | The action list, proven end to end on task (shape, `changes` table, three loops, lint rule) | backend + frontend | suite | BC1 | done — PR #553 merged 2026-09-16 as `f49720426` |
-| BC3 | Thread as a module: search · open · send a message · adjust; `items` becomes a message kind | backend + frontend | suite | BC2 | shipped to PR — branch `feature/thread-module`, CI pending; items and the policy engine deleted outright (not kept as a message kind) |
-| BC4 | Document as a module: search · open · edit; knowledge item renamed; tree, status, merge, split as edit | backend + frontend | suite | BC3 | planned |
+| BC3 | Thread as a module: search · open · send a message · adjust; `items` becomes a message kind | backend + frontend | suite | BC2 | done — PR #555 merged 2026-09-20 as `2b1ef9b18`; items and the policy engine deleted outright (not kept as a message kind) |
+| BC4 | Document as a module: search · open · edit; knowledge item renamed; tree, status, merge, split as edit | backend + frontend | suite | BC3 | refining — branch `feature/document-module` |
 | BC5 | User as a module with subscriptions: routines and notifications become one mechanism; team an attribute; setup dissolves | backend + frontend | suite | BC6 | planned |
 | BC6 | Session and platform as modules: see what's running · watch · stop; manage plugins | backend + frontend | feature | BC4 | planned |
 | BC7 | Opinions out: role catalog, prompt templates, team scaffolding move to a plugin; fresh install is empty | backend + plugin | feature | BC5 | planned |
