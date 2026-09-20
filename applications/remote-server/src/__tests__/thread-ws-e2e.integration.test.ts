@@ -1,6 +1,6 @@
 /**
- * Real end-to-end proof of architecture.md §3.12's websocket nudge (BC3 bug
- * fix). Boots the REAL server (`createServer` — the exact composition
+ * Real end-to-end proof that the websocket nudge reaches a connected client.
+ * Boots the REAL server (`createServer` — the exact composition
  * `desktop`/`remote-server` run in production: real `bootCoreApi`, real
  * `WsConnectionHub`, real `@hono/node-server` + `ws` upgrade wiring), connects
  * a REAL `ws`-protocol client authenticated as a human over a REAL TCP
@@ -186,7 +186,7 @@ async function seedThread(
 	});
 }
 
-describe("thread websocket nudge — real server, real socket, both doors (BC3)", () => {
+describe("thread websocket nudge — real server, real socket, both doors", () => {
 	afterEach(() => {
 		vi.unstubAllEnvs();
 	});
