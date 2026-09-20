@@ -91,59 +91,43 @@ was asked). A thread-hosted-by-task lookup next to the task's thread column.
 message versions. Message kinds stay a field with today's four values. One thread row per task,
 including agent-made subtasks. Who may post is membership, nothing more.
 
-## How we work on this
+## What was decided along the way
 
-**Confirmed 2026-09-17.** Items dropped outright; policy engine deleted; membership is the only
-posting rule; stored title with computed fallback; soft delete by timestamp; every task gets a
-thread at creation and the task's thread column becomes real; mentions wake agents and agents make
-tasks; the assistant is an ordinary owned agent, overlay kept. One PR. Net red expected; the size
-of the add is not a gate.
+- A message is its own kind of change row (`message`), so later readers can tell a post from a
+  rename without parsing the row.
+- Only `send_message` and `edit_task` end an agent session. `edit_task` from a thread turn (no
+  task on the session) does not end it; a test pins that.
+- Reads follow the posting rule. Direct threads are members-only. Team-, knowledge- and
+  factory-hosted threads are readable and postable by anyone signed in, and the first post joins.
+  The websocket subscribe check uses the same rule.
+- A task's thread is hosted by the task's team. A task created inside a thread adds its owner to
+  that thread's members; a later handoff does not touch the thread.
+- In a two-party thread with exactly one agent, the agent is the host whoever speaks first, and
+  one stored pair key finds the thread again. The migration re-hosts old assistant threads by
+  ownership and keys them only when the key is free.
+- The websocket push is a nudge: it carries the change row and the page re-runs its own open or
+  search. A message body never rides the shared `conversations` topic.
+- A thread lists its tasks (task search filters by thread). A review message records the task its
+  session ran on, stamped by the server.
+- Who can be mentioned in a thread: its members, their teams, the host team, and the sender's own
+  agents. Matching takes the longest known name after the `@`.
+- A wake that fails before the agent starts posts one plain notice into the thread, only when a
+  person is in it. A wake whose intent cannot be recorded after commit is logged and dropped; the
+  message stays.
+- Production web builds ignore a local `NODE_ENV`; the desktop build fails if the bundle carries
+  the dev socket address or the dev API key.
 
-**Order.** Architecture, one critique, one builder (red tests, then code), one fresh reviewer in two
-passes (module first, projections and screens second). Only blocking findings go back.
+## Accepted limits and what is left
 
-**Gates.** One, before ship: the founder sees the conversations page, a task's thread and the
-overlay running through the list; a bad send returning problems; a mention waking an agent that
-makes a task in the thread; items and the policy engine gone; the governance rule green with the
-legacy lists shrunk. Then retro and ship to a CI-green open PR. Nobody merges.
-
-**Verification.** `npm run verify`, `npm run test`, `npm run test:integration:service`; a
-thread-actions integration test; full e2e compared against main; the harness lane locally once at
-the end because sessions post through the composed tool list.
-
-## Confusions
-
-1. `changes.kind` gains `message` — revises the earlier call to reuse `changed`; BC5 needs to tell
-   a post from a rename without parsing `after`. Migration widens the check.
-2. Return gate: `send_message` is terminal for a session as all three posting tools are today;
-   `edit_task` from a thread turn (no task on the session) is not terminal — the gate already
-   returns false without a session task; pin it with a test, do not weaken it.
-6. Reads follow membership too: open and search show a thread only to its members, except
-   team-, knowledge- and factory-hosted threads, which any signed-in principal may read and post
-   to (today's rule: whoever can read can write), and the first post makes them a member. That is
-   how a new owner after a handoff, a reviewer giving a verdict, and a visitor on a knowledge page
-   get in. Direct threads stay members-only.
-7. A task's thread is hosted by the task's team, whether migrated or created.
-8. Founder 2026-09-17: the websocket push is a nudge. It carries the change row; the page re-runs
-   its own open or search. This reverses the earlier "no refetch, core submits the changed version"
-   rule for thread surfaces; one push path for every write, no viewer-relative title composed for a
-   broadcast.
-3. Questionnaire stays a message kind; nothing in this item touches it.
-4. Recipients list (`GET /recipients`) is a users read and stays a legacy route until the user
-   module.
-5. A task created inside a thread makes the task's owner a member of that thread if not already.
-9. A thread shows its tasks: search-a-task gains a by-thread filter (the task module reading its
-   own column), and the thread view lists them where the old task link sat. A review message
-   records the task its session ran on, stamped by the server from the session, so the review page
-   can name its task.
-10. Found at the gate, founder said fix here: a name with a space or an apostrophe could not be
-    mentioned by typing, and a wake that fails before the agent starts left the thread silent.
-    Mentions now match the longest known name after the @; a failed wake posts one plain notice
-    into the thread, the same way a session that ends without answering does. The conversation
-    page's dial-in button is gone and its session viewer has no way in: both accepted, the viewer
-    is a separate item.
-
-## Proposed items
-
-- BC6: a message to an agent and a task for an agent are one thing once sessions are actions;
-  decide whether a turn and a task run are the same session shape.
+- The conversation page's dial-in button is gone; a task's sessions are on the task page. The
+  session viewer on that page has no way in (it had none before this item either) — separate item.
+- Recipients (`GET /recipients`) stays a legacy route until the user module. Questionnaires are
+  untouched.
+- A soft-deleted direct thread keeps its pair key, so a new message to that person is refused until
+  the thread is restored.
+- A hung agent start blocks other agents' turns because starts are admitted one after another; seen
+  with cursor-agent in the packaged app. Not part of the thread module — separate item.
+- Local harness lane: the thread turn test passes on claude, opencode and cursor-agent; codex
+  crashes on every prompt on this machine.
+- Open question carried to the session item: a message to an agent and a task for an agent may be
+  one session shape once sessions are actions.
