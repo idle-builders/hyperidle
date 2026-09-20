@@ -41,7 +41,7 @@ import type {
 import * as routineService from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
 import { findThread, listMessages } from "@hyperidle/thread";
-import { findUser } from "@hyperidle/users";
+import { findUser, listUsers } from "@hyperidle/users";
 import type { ActionContext, AdjustThreadRunFn, SendMessageRunFn } from "../actions/action.js";
 
 export type { AdjustThreadRunFn, SendMessageRunFn };
@@ -80,12 +80,18 @@ const THREAD_TURN_FAILURE_REASON: Record<AgentRunAdmissionFailureCode, string> =
 /**
  * The never-silent net's sibling case (`session-not-returned-notice.ts`
  * covers "ended without answering"; this covers "could not even start"):
- * post ONE plain notice into the thread the turn came from. Same actor rule
- * as the not-returned notice — sent AS the agent that could not be started,
- * which is also what keeps it silent: `agentsToWake` always excludes the
- * sender (`woken.delete(input.senderId)`, `@hyperidle/domain-model`'s
- * `actions/thread.ts`), so a notice sent by that same agent can never wake
- * it back up, in a 2-member direct thread or otherwise.
+ * post ONE plain notice into the thread the turn came from, sent AS the
+ * agent that could not be started — but ONLY when the thread has at least
+ * one HUMAN member. The notice exists to tell a person; with no person in
+ * the thread there is nobody to tell, and skipping it also closes a
+ * ping-pong: `agentsToWake` (`@hyperidle/domain-model`'s `actions/thread.ts`)
+ * excludes the sender but, in a 2-member thread, wakes the OTHER member when
+ * that member is an agent. In an agent↔agent direct thread with no harness
+ * available, A's failed turn would post a notice as A, which wakes B; B's
+ * turn then fails too, posts as B (a new intent id, so a new `clientKey`),
+ * which wakes A — unbounded, with no agent ever actually running in
+ * between. Requiring a human member breaks that loop at its source: an
+ * all-agent thread never posts here at all.
  */
 async function notifyThreadTurnAdmissionFailure(
 	db: HyperIdleDb,
@@ -113,9 +119,17 @@ async function notifyThreadTurnAdmissionFailure(
 		});
 		return;
 	}
+	const thread = await findThread(db, { id: sourceMessage.threadId });
+	const members = thread ? (JSON.parse(thread.participants) as string[]) : [];
+	const humanMembers =
+		members.length > 0 ? await listUsers(db, { ids: members, kind: "human" }) : [];
+	if (humanMembers.length === 0) {
+		// Nobody to tell — see the ping-pong note above.
+		return;
+	}
 	const agent = await findUser(db, { id: agentId });
 	const displayName = agent?.name ?? agentId;
-	await sendMessage(
+	const result = await sendMessage(
 		{ actor: agentId, db, eventBus, now: new Date(event.timestamp).toISOString() },
 		{
 			threadId: sourceMessage.threadId,
@@ -123,17 +137,24 @@ async function notifyThreadTurnAdmissionFailure(
 			text: `${displayName} could not be started: ${THREAD_TURN_FAILURE_REASON[event.failureCode]}.`,
 		},
 	);
+	if (!result.ok) {
+		logger.error("thread turn admission notice refused", {
+			intentId: event.intentId,
+			threadId: sourceMessage.threadId,
+			problems: result.problems,
+		});
+	}
 }
 
 /**
- * BC3 architecture.md §5 B7b — the second `items` writer, kept alive as a
- * `send_message` instead: "a knowledge action that could not be admitted
- * gets flagged for a human" is the SAME behaviour, at the SAME moment, into
- * the SAME thread (the knowledge item's, `knowledge_item`-hosted, resolved
- * not recreated on every failure). `system:propagation` posts into it —
- * host-scoped, so it may post, and its first post joins it (architecture.md
- * §3.4) — never the synthetic `"attention_engine"` sender `changes.actor`'s
- * FK would reject.
+ * @lore BC3 architecture.md §5 B7b — the second `items` writer, kept alive
+ * as a `send_message` instead: "a knowledge action that could not be
+ * admitted gets flagged for a human" is the SAME behaviour, at the SAME
+ * moment, into the SAME thread (the knowledge item's, `knowledge_item`-
+ * hosted, resolved not recreated on every failure). `system:propagation`
+ * posts into it — host-scoped, so it may post, and its first post joins it
+ * (architecture.md §3.4) — never the synthetic `"attention_engine"` sender
+ * `changes.actor`'s FK would reject.
  */
 async function flagStalledKnowledgeAction(
 	db: HyperIdleDb,
@@ -162,7 +183,7 @@ async function flagStalledKnowledgeAction(
 		threadId = created.data.thread.id;
 	}
 
-	await deps.sendMessage(ctx, {
+	const sent = await deps.sendMessage(ctx, {
 		threadId,
 		clientKey: `knowledge-stall:${event.intentId}`,
 		review: {
@@ -172,6 +193,13 @@ async function flagStalledKnowledgeAction(
 			],
 		},
 	});
+	if (!sent.ok) {
+		logger.error("knowledge action stall notice refused", {
+			intentId: event.intentId,
+			threadId,
+			problems: sent.problems,
+		});
+	}
 }
 
 async function reactToAdmissionFailure(
