@@ -8,30 +8,26 @@
  *
  * @lore AU44 batch 4: dispatcher, drain, digest, flood cap, alert preferences,
  * ntfy/console adapters, and the adapter abstraction all removed.
- * Only the notification listener (inbox enqueue) and SMTP test-send survive.
- * installNotifications now registers a single event listener. deliver() only
- * handles the "test" kind. Config/prefs CRUD is SMTP-only.
+ * Only SMTP test-send survives. Config/prefs CRUD is SMTP-only.
  *
- * Census surface after those removals (4m / 2t):
- *   4 methods: installNotifications, deliver, readPreferences, updatePreferences
+ * @lore BC3 architecture.md §5 B7: the notification listener
+ * (`classifyListenerItem`/`buildSourceLink`/`registerNotificationListener`/
+ * `installNotifications`) is deleted — its only production caller was the
+ * policy engine's `items`-classifying "attention" event, deleted with the
+ * `items` table (R2). `dependency-watcher.ts`'s `auto_unblock` notification
+ * emits stay; nothing subscribes to the `notification` event anymore.
+ *
+ * Census surface after those removals (3m / 2t):
+ *   3 methods: deliver, readPreferences, updatePreferences
  *   2 types:   DeliverySpec, DeliveryResult
  */
 
-import * as crypto from "node:crypto";
-import type { HyperIdleDb, NewNotificationQueueRow } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { ERROR_TOKEN_PATTERNS, REDACTED_TAG } from "@hyperidle/diagnostics";
 import type { NotificationTypeKey } from "@hyperidle/domain-model";
-import type { NotificationEvent } from "@hyperidle/event-bus";
-
-// @lore AU44-b8: NotificationUrgency SIMPLIFY'd from domain-model public API (element type
-// of NotificationType.defaultUrgency; no external consumer names it directly). Inlined here.
-type NotificationUrgency = "immediate" | "ambient";
-
-import type { EventBus } from "@hyperidle/event-bus";
 import type { Transporter } from "nodemailer";
 import nodemailer from "nodemailer";
 
-import { enqueue } from "./notification-queue.js";
 import type { NotificationsDeps } from "./ports.js";
 
 // ---------------------------------------------------------------------------
@@ -61,8 +57,6 @@ interface NotificationConfig {
 		readonly from: string | null;
 	};
 }
-
-type NotificationSeverity = "blocking" | "digest";
 
 // ---------------------------------------------------------------------------
 // Public exported types (4 types counted by census)
@@ -215,15 +209,6 @@ async function getMutedTypeKeys(db: HyperIdleDb, deps: MuteDeps): Promise<Notifi
 	return notifications.mutedTypes as NotificationTypeKey[];
 }
 
-async function isTypeMuted(
-	db: HyperIdleDb,
-	deps: MuteDeps,
-	typeKey: NotificationTypeKey,
-): Promise<boolean> {
-	const { notifications } = await deps.serverConfig.read(db);
-	return notifications.mutedTypes.includes(typeKey);
-}
-
 async function setMuted(
 	db: HyperIdleDb,
 	deps: MuteDeps,
@@ -238,127 +223,8 @@ async function setMuted(
 }
 
 // ---------------------------------------------------------------------------
-// Private: notification inbox enqueue helper
+// Public exported functions (5 methods counted by census)
 // ---------------------------------------------------------------------------
-
-function classifyListenerItem(item: {
-	blocking: boolean | null;
-	riskTier: string | null;
-	kind: string | null;
-}): { typeKey: NotificationTypeKey; urgency: NotificationUrgency } {
-	if (item.blocking) return { typeKey: "blocker_alert", urgency: "immediate" };
-	const risk = item.riskTier ?? "low";
-	if (risk === "high" || risk === "blocking" || risk === "medium")
-		return { typeKey: "review_request", urgency: "immediate" };
-	return { typeKey: "review_request", urgency: "ambient" };
-}
-
-function buildSourceLink(item: { threadId: string | null }): string {
-	if (item.threadId) return `/conversations/${item.threadId}`;
-	return "/conversations";
-}
-
-// ---------------------------------------------------------------------------
-// Private: notification listener (the single remaining event subscriber)
-// ---------------------------------------------------------------------------
-
-interface NotificationsWorkReader {
-	getItemById(
-		db: HyperIdleDb,
-		id: string,
-	): Promise<
-		| {
-				blocking: boolean | null;
-				riskTier: string | null;
-				kind: string | null;
-				threadId: string | null;
-				title: string;
-				body: string | null;
-		  }
-		| undefined
-	>;
-}
-
-function registerNotificationListener(
-	db: HyperIdleDb,
-	bus: EventBus,
-	deps: {
-		mute: MuteDeps;
-		now?: () => Date;
-		work: NotificationsWorkReader;
-	},
-): () => void {
-	const nowFn = deps.now ?? ((): Date => new Date());
-	let disposed = false;
-
-	const unsub = bus.on("notification", (event: NotificationEvent): void => {
-		if (disposed) return;
-		if (event.kind === "auto_unblock") return;
-		void (async () => {
-			if (disposed) return;
-			const now = nowFn();
-			const targetId = event.targetId;
-			const item = await deps.work.getItemById(db, targetId);
-			if (!item) return;
-			const { typeKey, urgency } = classifyListenerItem(item);
-			const sourceLink = buildSourceLink(item);
-			if (await isTypeMuted(db, deps.mute, typeKey)) return;
-			const severity: NotificationSeverity = urgency === "immediate" ? "blocking" : "digest";
-			const row: NewNotificationQueueRow = {
-				id: crypto.randomUUID(),
-				eventType: event.type,
-				subjectId: targetId,
-				severity,
-				title: item.title.slice(0, 140),
-				body: item.body?.slice(0, 10_000) ?? "",
-				// @lore AU43: was "silence" (misleading — listener path never silences); now "notification_event".
-				reason: "notification_event",
-				channel: null,
-				status: "pending",
-				attempts: 0,
-				createdAt: now.toISOString(),
-				typeKey,
-				urgency,
-				sourceLink,
-				lastError: null,
-			};
-			await enqueue(db, row);
-		})();
-	});
-
-	return (): void => {
-		disposed = true;
-		unsub();
-	};
-}
-
-// ---------------------------------------------------------------------------
-// Public exported functions (6 methods counted by census)
-// ---------------------------------------------------------------------------
-
-/**
- * Install the notification inbox listener.
- *
- * @lore AU44 batch 4: dispatcher, drain, and the adapter abstraction removed.
- * A single `notification` event listener writes to the inbox queue. No background
- * drain timer, no flood cap, no alert preferences gate, no ntfy/console channel.
- *
- * Returns a disposer that unsubscribes the listener.
- */
-export function installNotifications(
-	db: HyperIdleDb,
-	bus: EventBus,
-	deps: NotificationsDeps,
-	opts?: {
-		now?: () => Date;
-	},
-): () => void {
-	return registerNotificationListener(db, bus, {
-		mute: toMuteDeps(deps),
-		work: deps.work,
-		now: opts?.now,
-	});
-}
 
 /**
  * Fire-and-verify SMTP test send. Does NOT touch the queue.

@@ -32,7 +32,7 @@ const COMPATIBLE_SOURCE_KIND: Record<
 	AgentWorkIntentKind,
 	typeof agentWorkIntents.$inferInsert.sourceKind
 > = {
-	assistant_turn: "thread_message",
+	thread_turn: "thread_message",
 	session_start: "explicit_session_start",
 	knowledge_action: "knowledge_action",
 	routine_run: "routine_run",
@@ -45,7 +45,7 @@ function baseIntent(
 	const ts = new Date().toISOString();
 	return {
 		id: "parity-default",
-		kind: "assistant_turn",
+		kind: "thread_turn",
 		sourceKind: "thread_message",
 		sourceId: "parity-source-default",
 		idempotencyKey: "parity-key-default",
@@ -101,7 +101,7 @@ describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_IN
 	// from seven kinds to six. Deleting the capture machinery removes
 	// `reengagement` too, so the union is now five kinds.
 	const FIVE_LIVE_KINDS = [
-		"assistant_turn",
+		"thread_turn",
 		"session_start",
 		"knowledge_action",
 		"routine_run",

@@ -23,7 +23,6 @@
  * with `topic`.
  */
 
-import { findThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
@@ -60,6 +59,7 @@ import {
 import { getTeam } from "@hyperidle/org";
 import { markDetached } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

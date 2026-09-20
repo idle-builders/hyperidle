@@ -47,30 +47,17 @@
 import type {
 	CoreApiPort,
 	CoreApiTransport,
-	CreateItemRequest,
 	InsertRoutineRequest,
 	UpdateRoutineRequest,
 } from "@hyperidle/api-contract";
-import type { ToolHandlersPorts, ToolHandlersReviewAccessor } from "@hyperidle/tool-handlers";
+import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions as buildToolDefinitionsFromPorts } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, withActorTransport } from "./core-api-port-composition.js";
 
-/**
- * The ONE audited cast recovering `CreateItemRequest` from `create_item`'s
- * Mechanism-C-narrowed `Record<string, unknown>` input — the SAME real
- * object `tool-definitions.ts` built, only its TYPE was narrowed crossing
- * the `ToolHandlersCoreApiAccessor` boundary. `input`'s parameter type is
- * `unknown` (not a cast expression) so this is a single, contained
- * assertion — `design/no-unknown-cast` bans the `X as unknown as T`
- * double-assertion shape, not an audited single cast inside a named helper
- * (same idiom as `run-orchestration-composition.ts`'s `widenWorkerRegistration`).
- */
-function widenCreateItemInput(input: unknown): CreateItemRequest {
-	return input as CreateItemRequest;
-}
+// There is no `widenCreateItemInput` — `create_item` is gone.
 
 /**
- * Same audited-widen idiom as {@link widenCreateItemInput} — `ports.ts`'s
+ * Same audited-widen idiom — `ports.ts`'s
  * `ToolHandlersCoreApiAccessor.insertRoutine`/`updateRoutineById` keep the
  * opaque `Record<string, unknown>` shape (Mechanism C: `tool-handlers` never
  * imports `@hyperidle/api-contract`'s concrete request types), widened here
@@ -106,7 +93,6 @@ export type ToolHandlersOpenTask = (
  */
 export function buildToolHandlersPorts(
 	transport: CoreApiTransport,
-	gate: ToolHandlersReviewAccessor,
 	openTask: ToolHandlersOpenTask,
 ): ToolHandlersPorts {
 	function seamPortForActor(actorId: string): CoreApiPort {
@@ -117,41 +103,20 @@ export function buildToolHandlersPorts(
 	// use createTask with parentTaskId=null for root tasks.
 
 	return {
-		gate,
+		// There is no `gate` — `submit_review` is gone.
 		// AU21 §6 Decision L3: `work.routeItem` (the last standalone same-process
 		// `work` DI capability) is DELETED outright as vestigial — every `work`
 		// read/write now crosses the `coreApi` seam below.
 		// @lore BB1: createBet, getBetById, updateBetById removed — bet is now a root task.
 		coreApi: {
 			openTask,
-			getItemById: (id, actorId) => seamPortForActor(actorId).work.getItemById(id),
-			updateItemById: (id, updates, actorId) =>
-				seamPortForActor(actorId).work.updateItemById(id, updates),
-			// @lore AU20 Ag5c precedent (now seam-crossed): tool-handlers port uses
-			// Record<string,unknown> for createItem — widen to the seam's
-			// CreateItemRequest at the composition boundary via `widenCreateItemInput`
-			// (Mechanism C: tool-handlers never imports @hyperidle/api-contract's
-			// concrete request type; single audited cast inside a named helper,
-			// not an `X as unknown as T` double-assertion — `design/no-unknown-cast`).
-			createItem: (input: Record<string, unknown>, actorId: string) =>
-				seamPortForActor(actorId).work.createItem(widenCreateItemInput(input)),
+			// There is no `getItemById`/`updateItemById`/`createItem`/
+			// `findSoleHumanUser`/`getThreadById`/`insertThread`/`updateThread`/
+			// `insertMessage`/`findOrCreateDirectThread`/`getFirstThreadByHost` —
+			// `create_item`/`reply`/`send_message`/`submit_review` are gone.
 			getUserById: (id, actorId) => seamPortForActor(actorId).users.getUserById(id),
 			listUsersByTeam: (teamMembersId, actorId) =>
 				seamPortForActor(actorId).users.listUsersByTeam(teamMembersId),
-			findSoleHumanUser: (actorId) => seamPortForActor(actorId).users.findSoleHumanUser(),
-			// AU21 §9 Increment 2 (conversation wave): every former
-			// `ToolHandlersConversationAccessor` capability moved onto this seam —
-			// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.
-			getThreadById: (id, actorId) => seamPortForActor(actorId).conversation.getThreadById(id),
-			insertThread: (input, actorId) => seamPortForActor(actorId).conversation.insertThread(input),
-			updateThread: (id, updates, actorId) =>
-				seamPortForActor(actorId).conversation.updateThread(id, updates),
-			insertMessage: (input, actorId) =>
-				seamPortForActor(actorId).conversation.insertMessage(input),
-			findOrCreateDirectThread: (recipientId, actorId) =>
-				seamPortForActor(actorId).conversation.findOrCreateDirectThread(recipientId),
-			getFirstThreadByHost: (hostKind, hostId, actorId) =>
-				seamPortForActor(actorId).conversation.getFirstThreadByHost(hostKind, hostId),
 			// AU21 §9 Increment 2 (org/routine/handoff wave): every former
 			// `ToolHandlersOrgAccessor`/`ToolHandlersRoutineAccessor`/
 			// `ToolHandlersPolicyAccessor.handoff` capability moved onto this seam —
@@ -162,8 +127,8 @@ export function buildToolHandlersPorts(
 			createTeam: (input, actorId) => seamPortForActor(actorId).org.createTeam(input),
 			updateTeam: (teamId, patch, actorId) =>
 				seamPortForActor(actorId).org.updateTeam(teamId, patch),
-			resolveReviewRecipientsForItem: (ctx, actorId) =>
-				seamPortForActor(actorId).org.resolveReviewRecipientsForItem(ctx),
+			// There is no `resolveReviewRecipientsForItem` — `create_item`/
+			// `submit_review` are gone.
 			scaffoldFromRequest: (
 				teamMembersId,
 				trigger,
@@ -199,8 +164,6 @@ export function buildToolHandlersPorts(
 				seamPortForActor(actorId).knowledge.findKnowledgeItemVersionById(id),
 			findKnowledgeItemStatusById: (id, actorId) =>
 				seamPortForActor(actorId).knowledge.findKnowledgeItemStatusById(id),
-			findKnowledgeItemParentById: (id, actorId) =>
-				seamPortForActor(actorId).knowledge.findKnowledgeItemParentById(id),
 			findOpenConflictByItemAndProposer: (itemId, proposedBy, actorId) =>
 				seamPortForActor(actorId).knowledge.findOpenConflictByItemAndProposer(itemId, proposedBy),
 			createKnowledgeConflict: (input, actorId) =>
@@ -218,8 +181,7 @@ export function buildToolHandlersPorts(
 /** Production-wired tool definitions, fresh per `CoreApiTransport` value — every real call site builds through this. */
 export function buildToolDefinitions(
 	transport: CoreApiTransport,
-	gate: ToolHandlersReviewAccessor,
 	openTask: ToolHandlersOpenTask,
 ): ReturnType<typeof buildToolDefinitionsFromPorts> {
-	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport, gate, openTask));
+	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport, openTask));
 }

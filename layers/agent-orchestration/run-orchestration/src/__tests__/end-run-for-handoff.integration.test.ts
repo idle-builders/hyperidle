@@ -20,7 +20,7 @@
  *     handoff via `review/session-review-creator.ts`).
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { endRunForHandoff } from "../end-run-for-handoff.js";
@@ -37,8 +37,18 @@ async function seedRun(db: HyperIdleDb, state: string): Promise<void> {
 		status: "active",
 		createdAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: "thr-bet-1",
+		hostKind: "team",
+		hostId: "team-1",
+		initiatorId: "agent-1",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
 		id: "bet-1",
+		threadId: "thr-bet-1",
 		parentTaskId: null,
 		teamId: "team-1",
 		title: "d",
@@ -47,8 +57,18 @@ async function seedRun(db: HyperIdleDb, state: string): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: "thr-task-1",
+		hostKind: "team",
+		hostId: "team-1",
+		initiatorId: "agent-1",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
 		id: "task-1",
+		threadId: "thr-task-1",
 		parentTaskId: "bet-1",
 		teamId: "team-1",
 		title: "T1",

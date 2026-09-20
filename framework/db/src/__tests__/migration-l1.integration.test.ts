@@ -54,7 +54,7 @@ describe("L1a migration — schema shape", () => {
 		expect(cols).not.toContain("kind");
 	});
 
-	test("messages has type, payload, client_key, deleted_at, redacted_at, resolved_at, legacy_item_id", async ({
+	test("messages has type, payload, client_key, deleted_at, redacted_at, resolved_at", async ({
 		db,
 	}) => {
 		const cols = await columnsOf(db, "messages");
@@ -64,7 +64,11 @@ describe("L1a migration — schema shape", () => {
 		expect(cols).toContain("deleted_at");
 		expect(cols).toContain("redacted_at");
 		expect(cols).toContain("resolved_at");
-		expect(cols).toContain("legacy_item_id");
+	});
+
+	test("messages no longer has legacy_item_id column", async ({ db }) => {
+		const cols = await columnsOf(db, "messages");
+		expect(cols).not.toContain("legacy_item_id");
 	});
 
 	test("messages drops recipient_id, subject, body, file_leases (§5.2)", async ({ db }) => {
@@ -96,16 +100,6 @@ describe("L1a migration — schema shape", () => {
 		await checkNotNull("threads", "host_id");
 		await checkNotNull("threads", "initiator_id");
 		await checkNotNull("threads", "last_active_at");
-	});
-
-	test("legacy_item_id stays nullable (post-migration rows have NULL)", async ({ db }) => {
-		const result = await db.execute(
-			`SELECT is_nullable FROM information_schema.columns WHERE table_name = 'messages' AND column_name = 'legacy_item_id' AND table_schema = 'public'` as Parameters<
-				typeof db.execute
-			>[0],
-		);
-		const rows = (result as { rows: Array<{ is_nullable: string }> }).rows;
-		expect(rows[0]?.is_nullable).toBe("YES");
 	});
 
 	test("threads_host_idx covers (host_kind, host_id, last_active_at)", async ({ db }) => {
@@ -171,13 +165,11 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 		);
 
 		const result = await db.execute(
-			`SELECT id, type, payload, legacy_item_id FROM messages WHERE id='m1'` as Parameters<
-				typeof db.execute
-			>[0],
+			`SELECT id, type, payload FROM messages WHERE id='m1'` as Parameters<typeof db.execute>[0],
 		);
 		const rows = (
 			result as {
-				rows: Array<{ id: string; type: string; payload: string; legacy_item_id: string | null }>;
+				rows: Array<{ id: string; type: string; payload: string }>;
 			}
 		).rows;
 		expect(rows).toHaveLength(1);

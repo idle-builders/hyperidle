@@ -38,7 +38,7 @@ Platform constraints and standing decisions — what the system must run on and 
 
 ## S-5: Identity and Routing
 
-**S-5.1** One unified `users` table with `kind: 'human' | 'ai'` is the identity model (`framework/db/src/schema.ts`). Review routing flows through polymorphic `org_edges` (`schema.ts`). Item routing rules: [../human-interface-layer/items-and-routing.md](../human-interface-layer/items-and-routing.md).
+**S-5.1** One unified `users` table with `kind: 'human' | 'ai'` is the identity model (`framework/db/src/schema.ts`). Review routing flows through polymorphic `org_edges` (`schema.ts`).
 
 ## S-6: Scheduling
 

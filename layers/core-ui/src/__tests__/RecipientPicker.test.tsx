@@ -7,12 +7,22 @@
  * @lore AU26 J4: `useRecipients` now makes TWO calls — core-api's recipient list
  * and `agent-orchestration`'s active-run counts, which it combines into the live
  * busy dot. The `stubFetch` helper routes by URL for that reason.
+ *
+ * @lore BC3: sending the first message no longer POSTs `/api/threads` — the
+ * picker's `handleSend` starts the thread via
+ * `call("send_message", {recipients, text, clientKey})`
+ * (`components/RecipientPicker.tsx`). `call` is mocked module-wide, same
+ * pattern as `Conversations.context-link.test.tsx`; `useRecipients`'s own
+ * fetch calls (recipient list + active-run counts) are untouched.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RecipientPicker } from "../components/RecipientPicker.js";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
 
 interface MockRecipient {
 	id: string;
@@ -183,49 +193,28 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 		});
 	});
 
-	// AC3: submitting creates a DM thread (POST /api/threads called)
-	it("submitting a message POSTs to /api/threads to create a DM thread", async () => {
+	// AC3: submitting starts a DM thread via send_message(recipients)
+	it("submitting a message calls send_message with recipients to create a DM thread", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 		const onSelect = vi.fn();
-		const posts: Array<{ url: string; body: unknown }> = [];
 
-		global.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-			const url = typeof input === "string" ? input : input.toString();
-			const method = (init?.method ?? "GET").toUpperCase();
-			if (method === "POST" && url.includes("/api/threads")) {
-				const body = init?.body ? JSON.parse(init.body as string) : null;
-				posts.push({ url, body });
-				return new Response(
-					JSON.stringify({
-						thread: {
-							id: "new-thread-id",
-							hostKind: "agent",
-							hostId: "agent-builder",
-							initiatorId: "u-founder",
-							participants: ["u-founder", "agent-builder"],
-							pinned: false,
-							resolvedAt: null,
-							lastActiveAt: new Date().toISOString(),
-							createdAt: new Date().toISOString(),
-						},
-						messages: [],
-					}),
-					{ status: 201, headers: { "Content-Type": "application/json" } },
-				);
-			}
-			// GET /api/agent-orchestration/runs/active-counts
-			if (url.includes("/agent-orchestration/")) {
-				return new Response(JSON.stringify({ counts: MOCK_ACTIVE_COUNTS }), {
-					status: 200,
-					headers: { "Content-Type": "application/json" },
-				});
-			}
-			// GET /api/recipients
-			return new Response(JSON.stringify({ recipients: MOCK_RECIPIENTS }), {
-				status: 200,
-				headers: { "Content-Type": "application/json" },
-			});
-		}) as unknown as typeof fetch;
+		stubFetch();
+		callMock.mockResolvedValue({
+			ok: true,
+			data: {
+				thread: {
+					id: "new-thread-id",
+					hostKind: "agent",
+					hostId: "agent-builder",
+					initiatorId: "u-founder",
+					members: ["u-founder", "agent-builder"],
+					pinned: false,
+					resolvedAt: null,
+					lastActiveAt: new Date().toISOString(),
+					createdAt: new Date().toISOString(),
+				},
+			},
+		});
 
 		renderPicker({ onSelect });
 
@@ -250,13 +239,18 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 		// Submit
 		const sendBtn = screen.queryByRole("button", { name: /send/i });
-		if (sendBtn) {
-			await user.click(sendBtn);
-			await waitFor(() => {
-				expect(posts.length).toBeGreaterThan(0);
-			});
-			const body = posts[0]!.body as Record<string, unknown>;
-			expect(body.hostKind).toBeDefined();
-		}
+		expect(sendBtn).not.toBeNull();
+		await user.click(sendBtn!);
+		await waitFor(() => {
+			expect(callMock).toHaveBeenCalledWith(
+				"send_message",
+				expect.objectContaining({ recipients: ["agent-builder"], text: "Hello agent" }),
+			);
+		});
+		expect(onSelect).toHaveBeenCalledWith({
+			id: "new-thread-id",
+			kind: "agent",
+			name: "Builder Bot",
+		});
 	});
 });

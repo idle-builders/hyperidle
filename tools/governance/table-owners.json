@@ -2,8 +2,8 @@
 	"tableOwners": true,
 	"note": "Every table names the ONE service that may read and write it. A table absent from this file is a build error, never a silently skipped row \u2014 completeness is the point. Owners are package names, never paths (Ruling 5).",
 	"totals": {
-		"tables": 34,
-		"owned": 34,
+		"tables": 33,
+		"owned": 33,
 		"unowned": 0
 	},
 	"owners": {
@@ -14,14 +14,13 @@
 		"knowledgeAppProjection": "knowledge",
 		"changes": "changes",
 		"tasks": "task",
-		"items": "task",
 		"orgEdges": "org",
 		"teams": "org",
 		"users": "users",
 		"loginSessions": "users",
 		"inviteCodes": "users",
-		"threads": "conversation",
-		"messages": "conversation",
+		"threads": "thread",
+		"messages": "thread",
 		"serverConfig": "settings",
 		"plugins": "settings",
 		"pluginConfigurationDefaults": "settings",

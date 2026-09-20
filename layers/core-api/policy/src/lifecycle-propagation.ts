@@ -1,7 +1,7 @@
 /** Reactive lifecycle propagation. */
 
-import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
 import type { TaskState } from "@hyperidle/domain-model";
 import type {
 	EventBus,
@@ -13,7 +13,9 @@ import type {
 import { TaskInvalidTransitionError } from "./errors.js";
 import type { PolicyDeps } from "./ports.js";
 
-type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "conversation" | "users" | "editTask">;
+const logger = createLogger({ pkg: "policy.lifecycle-propagation" });
+
+type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "editTask" | "sendMessage">;
 
 /**
  * §6 rows 4/5: writes through `edit_task` instead of the deleted private
@@ -242,7 +244,14 @@ async function propagateTaskToParent(
 			// auto-driven state (either `review` or `done`).
 			// @lore BB1: anchored on parentTaskId === null, NOT on depth or a flag.
 			if (ancestor.parentTaskId === null) {
-				await createShipConfirmationThread(db, eventBus, ancestorId, children, deps);
+				await createShipConfirmationThread(
+					db,
+					eventBus,
+					ancestorId,
+					ancestor.threadId,
+					children,
+					deps,
+				);
 
 				// Team status is derived on read — no write needed. Emit for observability.
 				const teamEvent: PropagationAppliedEvent = {
@@ -295,65 +304,61 @@ async function propagateTaskToParent(
 // ─── Ship-confirmation review thread ─────────────────────────────────────────
 
 /**
- * Create a ship-confirmation thread on a ROOT task that just completed.
+ * Post a ship-confirmation review into a ROOT task that just completed.
  *
+ * @lore BC3 architecture.md §3.9: every task already owns a real thread
+ * (`team`-hosted, written at creation) — this no longer creates a SECOND,
+ * task-hosted thread (`hostKind: "task"` left `HOST_KINDS` with BC3; a
+ * task's thread is `team`-hosted now). The review posts into the task's
+ * own thread instead, the same "resolve, don't recreate" shape B7b's
+ * stalled-knowledge-action review uses.
  * @lore BB1: previously anchored on a `bet` row. A root task (`parentTaskId ===
- * null`) is the new bet equivalent — `hostKind: "task"` replaces `hostKind: "bet"`.
+ * null`) is the new bet equivalent.
+ * @lore code-review finding, BC3: posts through `sendMessage` (the injected
+ * `send_message.run`) instead of a raw `conversation.insertMessage` — the
+ * module-link rule (architecture.md §3.9: through the action, never the
+ * table). Going through the action is what appends the `changes` row, fires
+ * the websocket nudge and bumps `lastActiveAt`; the manual
+ * `thread_message_appended` emit above is gone because `send_message.run`
+ * already emits it on commit. The `clientKey` is stable (no `Date.now()`
+ * suffix) so a duplicate call for the same root task — e.g. a retriggered
+ * event — replays the same message instead of posting a second one, the
+ * same idempotency shape B7b's stalled-knowledge-action review uses.
  */
 async function createShipConfirmationThread(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	rootTaskId: string,
+	rootThreadId: string,
 	allChildren: Array<{ state: string }>,
 	deps: LifecyclePropagationDeps,
 ): Promise<void> {
 	const now = new Date().toISOString();
-	const threadId = randomUUID();
-
-	// P2: Read founder from users table (kind = 'human') instead of factorySettings.
-	// @lore P2: fallback to "u-founder" for unseeded DBs — same sentinel as auth middleware.
-	const humanUser = await deps.users.getFirstUserByKind(db, "human");
-	const founderId = humanUser?.id ?? "u-founder";
 
 	const doneCount = allChildren.filter((t) => t.state === "done").length;
 	const killedCount = allChildren.filter((t) => t.state === "killed").length;
 	const totalCount = allChildren.length;
 
-	await deps.conversation.insertThread(db, {
-		id: threadId,
-		hostKind: "task",
-		hostId: rootTaskId,
-		initiatorId: SYSTEM_PROPAGATION_AGENT_ID,
-		participants: JSON.stringify([SYSTEM_PROPAGATION_AGENT_ID, founderId]),
-		lastActiveAt: now,
-		createdAt: now,
-	});
-
-	const messageId = randomUUID();
-	await deps.conversation.insertMessage(db, {
-		id: messageId,
-		senderId: SYSTEM_PROPAGATION_AGENT_ID,
-		threadId,
-		type: "review",
-		payload: JSON.stringify({
-			kind: "ship_confirmation",
-			taskId: rootTaskId,
-			taskSummary: { done: doneCount, killed: killedCount, total: totalCount },
-			message: "All subtasks on this task are complete. Confirm shipping?",
-		}),
-		clientKey: `propagation-ship-${rootTaskId}-${Date.now()}`,
-		createdAt: now,
-	});
-
-	eventBus.emit({
-		type: "thread_created",
-		streamId: threadId,
-		threadId,
-		hostKind: "task",
-		hostId: rootTaskId,
-		initiatorId: SYSTEM_PROPAGATION_AGENT_ID,
-		timestamp: Date.now(),
-	});
+	const result = await deps.sendMessage(
+		{ actor: SYSTEM_PROPAGATION_AGENT_ID, db, eventBus, now },
+		{
+			threadId: rootThreadId,
+			clientKey: `propagation-ship-${rootTaskId}`,
+			review: {
+				title: "Confirm shipping?",
+				reasoning: [
+					`All subtasks on this task are complete: ${doneCount} done, ${killedCount} killed, ${totalCount} total.`,
+				],
+			},
+		},
+	);
+	if (!result.ok) {
+		logger.warn("createShipConfirmationThread: send_message refused", {
+			rootTaskId,
+			rootThreadId,
+			problems: result.problems,
+		});
+	}
 }
 
 // ─── Public registration function ─────────────────────────────────────────────
@@ -374,7 +379,7 @@ async function createShipConfirmationThread(
  * bus (the extension surface for plugins) and stops; manual repair is one legal
  * click.
  */
-function registerLifecyclePropagation(
+export function registerLifecyclePropagation(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	deps: LifecyclePropagationDeps,
@@ -416,5 +421,3 @@ function registerLifecyclePropagation(
 		unsubTaskChanged();
 	};
 }
-
-export { registerLifecyclePropagation };

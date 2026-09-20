@@ -15,7 +15,7 @@ applications/     deployment units — wiring and bootstrap only, never business
 layers/           the four Layers; each decomposes into Service packages
   core-ui           React app: Conversations, Work, Knowledge
   core-api          HTTP surface + core domains
-                    conversation · work · knowledge · users · settings · routine ·
+                    thread · work · knowledge · users · settings · routine ·
                     notifications · policy · review · org · credentials ·
                     connections · filesystems · git-export · observability · realtime
   agent-orchestration   decides that and when an agent run happens, and prepares
@@ -114,14 +114,14 @@ User opens Factory app
   → BrowserWindow loads http://127.0.0.1:{port}
   → POST /api/auth/ws-token mints a one-shot upgrade token
   → WebSocket connects via /api/ws?token=… (ambient updates for threads and sessions)
-  → GET /api/conversations (initial thread list)
+  → POST /api/actions/search_threads (initial thread list)
 
 User submits a verdict
-  → POST /api/threads/:id/messages (verdict-type message)
+  → POST /api/actions/send_message (verdict-type message)
   → API writes Message to Primitive Store
   → Event emitted via EventBus
   → App subscribers react: harness adapter unblocks agent, attention scores update
-  → Thread list refreshes via WebSocket push
+  → WebSocket pushes the changed row as a nudge; the page re-runs search_threads/open_thread
 
 User creates a task
   → POST /api/actions/edit_task (no `id`; markdown body + done condition)

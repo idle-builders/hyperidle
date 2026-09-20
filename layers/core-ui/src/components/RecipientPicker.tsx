@@ -9,7 +9,7 @@
  * States:
  * - browsing: Combobox (closed trigger + popover search) visible
  * - selected: recipient chosen, message textarea visible
- * - sending: POST /api/threads in flight, inputs disabled
+ * - sending: send_message({recipients}) in flight, inputs disabled
  *
  * @lore Q1: This is a page-level composition, not a design-system primitive.
  * It lives in layers/core-ui/src/components/ alongside GlobalSearchPanel.
@@ -25,7 +25,7 @@ import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState 
 import { Avatar, Button, Combobox, Input, LiveDot } from "../ds";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { deriveInitials } from "../utils/initials.js";
 
 export interface RecipientPickerProps {
@@ -82,29 +82,17 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 		setSendError(null);
 
 		try {
-			const res = await apiFetch("/api/threads", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					hostKind: selected.kind,
-					hostId: selected.id,
-					participants: [selected.id],
-					initialMessage: {
-						type: "plain",
-						payload: { text: message.trim() },
-						clientKey: crypto.randomUUID(),
-					},
-				}),
+			const res = await call("send_message", {
+				recipients: [selected.id],
+				text: message.trim(),
+				clientKey: crypto.randomUUID(),
 			});
 			if (!res.ok) {
-				setSendError(`Failed to create thread (HTTP ${res.status})`);
+				setSendError(res.problems[0]?.message ?? "Failed to start thread");
 				setPickerState("selected");
 				return;
 			}
-			const body = (await res.json()) as { thread?: { id: string } };
-			if (body.thread?.id) {
-				onSelect({ id: body.thread.id, kind: selected.kind, name: selected.name });
-			}
+			onSelect({ id: res.data.thread.id, kind: selected.kind, name: selected.name });
 		} catch {
 			setSendError("Network error");
 			setPickerState("selected");

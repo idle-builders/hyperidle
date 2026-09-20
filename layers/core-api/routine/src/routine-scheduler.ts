@@ -476,51 +476,32 @@ async function assembleTriggerEvent(
 		return withTransition({ ...base, subject: genericSubject("thread", rec.threadId) });
 	}
 
-	// Knowledge/item events: distinguish by event type.
-	// item_created → items table (kind:"item"); all others → knowledge_items (kind:"knowledge-item").
+	// Knowledge events: all events carrying itemId now resolve to a
+	// knowledge_items row.
+	// @lore BC3 architecture.md §5: the item_created / items-table fork
+	// DELETED — its only backing store is gone and nothing emits
+	// "item_created" anymore.
 	if (typeof rec.itemId === "string") {
-		if (event.type === "item_created") {
-			const item = await ports.work.getItemById(db, rec.itemId);
-			if (item) {
-				return withTransition({
-					...base,
-					subject: {
-						kind: "item",
-						item: {
-							id: item.id,
-							title: item.title,
-							kind: item.kind,
-							body: item.body,
-						},
-						...(actorId !== undefined ? { actorId } : {}),
+		const ki = await ports.knowledge.getItemById(db, rec.itemId);
+		if (ki) {
+			return withTransition({
+				...base,
+				subject: {
+					kind: "knowledge-item",
+					item: {
+						id: ki.id,
+						title: ki.title,
+						body: ki.body,
+						format: ki.format,
+						version: ki.version,
 					},
-				});
-			}
-		} else {
-			const ki = await ports.knowledge.getItemById(db, rec.itemId);
-			if (ki) {
-				return withTransition({
-					...base,
-					subject: {
-						kind: "knowledge-item",
-						item: {
-							id: ki.id,
-							title: ki.title,
-							body: ki.body,
-							format: ki.format,
-							version: ki.version,
-						},
-						...(actorId !== undefined ? { actorId } : {}),
-					},
-				});
-			}
+					...(actorId !== undefined ? { actorId } : {}),
+				},
+			});
 		}
 		return withTransition({
 			...base,
-			subject: genericSubject(
-				event.type === "item_created" ? "item" : "knowledge-item",
-				rec.itemId,
-			),
+			subject: genericSubject("knowledge-item", rec.itemId),
 		});
 	}
 

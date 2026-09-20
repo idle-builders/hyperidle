@@ -104,7 +104,7 @@ Twelve files call `requireHarness`. What each covers:
 
 | File | Harnesses |
 |---|---|
-| `layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` | all four |
+| `layers/core-api/src/__tests__/thread-turn-live-harness.integration.test.ts` | all four |
 | `layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` | all four |
 | `layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts` | all four |
 | `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts` | all four |
@@ -143,7 +143,7 @@ describe("[harness:claude]", () => {
 
 Spelling the lanes out is deliberate: the tag makes per-harness breadth legible in a run's output, and `requireHarness` sits at describe scope so a collection-phase throw means that lane cannot run. Each lane needs a generous timeout — a real binary plus a real model round trip runs 30–90s.
 
-`layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` is the reference implementation.
+`layers/core-api/src/__tests__/thread-turn-live-harness.integration.test.ts` is the reference implementation.
 
 ---
 
@@ -195,6 +195,6 @@ Init/system lifecycle events produce empty completions, intermediate blocks carr
 |---|---|
 | `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` | `SUPPORTED_HARNESSES` (source of truth) + the hard-fail-on-absent gate |
 | `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` | `requireHarness` hard-fail helper; mirrors `SUPPORTED_HARNESSES`; `HARNESS_TEST_MODELS` + `harnessTestResolvedModel` |
-| `layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` | Reference five-harness matrix test; the only file the predicate matches |
+| `layers/core-api/src/__tests__/thread-turn-live-harness.integration.test.ts` | Reference five-harness matrix test; the only file the predicate matches |
 | `layers/agent-execution/harness-registry/src/cli-harness-adapter.ts` | `CLI_TOOL_CONFIGS`, per-family metric extraction |
 | `framework/harness-protocol/src/harness/harness-event-normalization.ts` | Per-family event pre-maps: `tool_use` → `tool_call`, `part.text` extraction |

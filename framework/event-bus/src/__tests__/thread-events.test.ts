@@ -28,8 +28,8 @@ describe("L1a — Thread primitive events on EventBus", () => {
 			type: "thread_created",
 			streamId: "thr-1",
 			threadId: "thr-1",
-			hostKind: "task",
-			hostId: "task-1",
+			hostKind: "team",
+			hostId: "team-1",
 			initiatorId: "u-founder",
 			timestamp: 1,
 		};
@@ -37,7 +37,7 @@ describe("L1a — Thread primitive events on EventBus", () => {
 
 		expect(received).not.toBeNull();
 		expect(received!.threadId).toBe("thr-1");
-		expect(received!.hostKind).toBe("task");
+		expect(received!.hostKind).toBe("team");
 	});
 
 	it("thread_message_appended carries messageType discriminant", () => {
@@ -108,7 +108,7 @@ describe("L1a — Thread primitive events on EventBus", () => {
 				type: "thread_created",
 				streamId: "s",
 				threadId: "t",
-				hostKind: "task",
+				hostKind: "team",
 				hostId: "h",
 				initiatorId: "i",
 				timestamp: 1,

@@ -20,10 +20,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
-} from "@hyperidle/agent-orchestration/testing";
+import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -46,11 +43,7 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 describe("create_artifact availability across agent roles", () => {
 	test("create_artifact is available to builder role", async ({ db, app }) => {
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);
@@ -61,11 +54,7 @@ describe("create_artifact availability across agent roles", () => {
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	test("create_artifact is available to facilitator role", async ({ db, app }) => {
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "facilitator" },
 		);
@@ -75,11 +64,7 @@ describe("create_artifact availability across agent roles", () => {
 
 	test("create_artifact is available to assistant role", async ({ db, app }) => {
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "assistant" },
 		);
@@ -89,11 +74,7 @@ describe("create_artifact availability across agent roles", () => {
 
 	test("create_artifact is available to growth role", async ({ db, app }) => {
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "growth" },
 		);
@@ -106,11 +87,7 @@ describe("create_artifact availability across agent roles", () => {
 		app,
 	}) => {
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);
@@ -135,11 +112,7 @@ describe("create_artifact availability across agent roles", () => {
 		// A FORBIDDEN result would mean it's in ALL_TOOL_DEFINITIONS with role restriction.
 		// We just verify the registry can find it (no FORBIDDEN or NOT_FOUND).
 		const registry = buildToolRegistryFromDefinitions(
-			buildToolDefinitions(
-				createInProcessCoreApiTransport(app),
-				THROWING_REVIEW_ACCESSOR,
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK),
 			makeContext(db),
 			{ role: "builder" },
 		);

@@ -10,75 +10,69 @@
  * @lore L20: messages.senderId references agents.id (FK). Any test that
  * exercises review-thread creation must seed a "system:propagation" agent row,
  * or the insert will fail with a FK constraint violation (F6 from arch review).
+ *
+ * @lore code-review finding, BC3: the ship-confirmation review used to post
+ * through a raw `conversation.insertMessage` — no `changes` row, no websocket
+ * nudge, no `lastActiveAt` bump. It now posts through the composed
+ * `send_message.run`, injected the same way `editTask` already is, below.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	insertMessage,
-	insertThread,
-	listMessages,
-	resolveMessageIfUnresolved,
-	updateThread,
-} from "@hyperidle/conversation";
-import type { WriteExecutor } from "@hyperidle/db";
-import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+	changes,
+	type HyperIdleDb,
+	sessions,
+	tasks,
+	teams,
+	threads,
+	users,
+	type WriteExecutor,
+} from "@hyperidle/db";
+import type { ActionResult, ThreadView } from "@hyperidle/domain-model";
 import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
-import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import { type PolicyDeps, registerLifecyclePropagation } from "@hyperidle/policy";
 import * as work from "@hyperidle/task";
-import { findUser } from "@hyperidle/users";
+import { listMessages } from "@hyperidle/thread";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { buildCoreActions } from "../actions/compose.js";
 
 /**
- * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes injected
- * `work`/`conversation`/`users` ports (Mechanism C — `policy` never imports
- * another Service). This test builds the exact same production wiring
- * `server-factory.ts` uses — no behavior change.
- *
- * @lore AU20 Am1: `LifecyclePropagationDeps` removed from barrel; replaced
- * with `PolicyDeps`.
+ * @lore BC3 architecture.md §5: `registerLifecyclePropagation`'s
+ * `LifecyclePropagationDeps` is now `Pick<PolicyDeps, "work"|"editTask"|
+ * "sendMessage">` — the item-table reads (`getItemById`/`updateItemById`/
+ * `listItemIdsBySourceAgent`) and the `users` founder lookup are gone with
+ * `policy-engine.ts` (R2) and the ship-confirmation thread's own founder
+ * participant computation (it now posts into the task's existing thread —
+ * see `lifecycle-propagation.ts`'s `createShipConfirmationThread`).
  */
-function buildPolicyDeps(agentOrchestration: Parameters<typeof buildCoreActions>[0]): PolicyDeps {
-	const editTaskAction = buildCoreActions(agentOrchestration).find(
-		(a) => a.declaration.name === "edit_task",
-	);
+function buildPolicyDeps(agentOrchestration: AgentOrchestrationPort): PolicyDeps {
+	const actions = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+	const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
+	const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
+	if (!sendMessageAction) throw new Error("send_message action not found");
 	return {
 		work: {
 			getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 			listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
 				work.list(exec, "task", { parentTaskId }),
 			listAncestorIds: (exec: WriteExecutor, taskId: string) => work.listAncestorIds(exec, taskId),
-			getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
-			updateItemById: (exec: WriteExecutor, id: string, patch) =>
-				work.update(exec, "item", id, patch),
-			listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
-				work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
 		},
 		conversation: {
-			insertMessage,
-			insertThread,
-			listMessagesByThread: (db, threadId, opts) =>
-				listMessages(db, {
-					threadId,
-					types: opts?.type ? [opts.type] : undefined,
-					order: opts?.order,
-					dir: opts?.dir,
-					limit: opts?.limit,
-				}),
-			resolveMessageIfUnresolved,
-			updateThread,
 			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 				listMessages(db, {
 					threadInitiatorId: initiatorId,
 					types: ["verdict"],
 					since: windowStart,
 				}),
-			listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
-				listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 		},
-		users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 		editTask: editTaskAction.run as PolicyDeps["editTask"],
+		sendMessage: sendMessageAction.run as PolicyDeps["sendMessage"],
 	};
 }
 
@@ -93,7 +87,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
 	// BB1: bets replaced by root tasks (parentTaskId: null)
+	await db.insert(threads).values({
+		id: `thr-${"bet-1"}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"bet-1"}`,
 		id: "bet-1",
 		parentTaskId: null,
 		teamId: "prod-1",
@@ -128,7 +132,17 @@ async function seedTask(
 	parentTaskId = "bet-1",
 ): Promise<void> {
 	const now = new Date().toISOString();
+	await db.insert(threads).values({
+		id: `thr-${id}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${id}`,
 		id,
 		parentTaskId,
 		teamId: "prod-1",
@@ -176,7 +190,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 				getTaskById: () => Promise.reject(new Error("read unavailable")),
 			},
 		};
-		unsubscribe = registerPolicy(db, eventBus, failingDeps);
+		unsubscribe = registerLifecyclePropagation(db, eventBus, failingDeps);
 		eventBus.on("propagation_failed", (e) => failedEvents.push(e));
 		eventBus.emit({
 			type: "session_ended",
@@ -208,7 +222,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act: emit session_ended with outcome=completed
 		eventBus.emit({
@@ -243,7 +257,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedSession(db, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act
 		eventBus.emit({
@@ -282,7 +296,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedSession(db, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act
 		eventBus.emit({
@@ -313,7 +327,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedSession(db, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act
 		eventBus.emit({
@@ -355,7 +369,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
 		await seedSession(db, "session-2", "task-1", "active");
-		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act: session-1 ends completed while session-2 is still active
 		eventBus.emit({
@@ -386,7 +400,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		await seedSession(db, "session-1", "task-1", "active");
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Act
 		eventBus.emit({
@@ -423,7 +437,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		const failedEvents: PropagationFailedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
 		eventBus.on("propagation_failed", (e) => failedEvents.push(e));
-		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Manually transition task to 'done' to simulate race
 		await db
@@ -469,7 +483,7 @@ describe("registerLifecyclePropagation — propagation events", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		unsubscribe = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		const appliedEvents: PropagationAppliedEvent[] = [];
 		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
@@ -507,7 +521,7 @@ describe("registerLifecyclePropagation — propagation events", () => {
 		// Arrange
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
-		const unsub = registerPolicy(db, eventBus, buildPolicyDeps(agentOrchestration));
+		const unsub = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
 
 		// Unsubscribe
 		unsub();
@@ -526,5 +540,67 @@ describe("registerLifecyclePropagation — propagation events", () => {
 		// Assert: no propagation happened (task stays in_progress)
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("in_progress");
+	});
+});
+
+describe("registerLifecyclePropagation — ship-confirmation review (code-review finding)", () => {
+	let unsubscribe: (() => void) | undefined;
+
+	afterEach(() => {
+		unsubscribe?.();
+		vi.restoreAllMocks();
+	});
+
+	test("posts the ship-confirmation review through send_message: a changes row on the root's thread, and open_thread returns it", async ({
+		db,
+		app,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedBase(db);
+		await seedTask(db, "task-1", "in_progress");
+		await seedSession(db, "session-1", "task-1", "active");
+		unsubscribe = registerLifecyclePropagation(db, eventBus, buildPolicyDeps(agentOrchestration));
+
+		eventBus.emit({
+			type: "session_ended",
+			streamId: "session-1",
+			sessionId: "session-1",
+			agentId: "agent-1",
+			taskId: "task-1",
+			timestamp: Date.now(),
+			outcome: "completed",
+		});
+
+		// "bet-1" (the root) has exactly one child, task-1 — finishing it closes
+		// the root too, which is what triggers the ship-confirmation post.
+		await vi.waitFor(async () => {
+			const [root] = await db.select().from(tasks).where(eq(tasks.id, "bet-1"));
+			expect(root?.state).toBe("done");
+		});
+
+		// A `changes` row of object `thread`, kind `message`, actor
+		// `system:propagation` on the root's own thread — the module-link rule
+		// (through the action, never the table). Before this fix a raw
+		// `insertMessage` wrote no `changes` row at all.
+		const rows = await db.select().from(changes).where(eq(changes.objectId, "thr-bet-1"));
+		const messageChange = rows.find((r) => r.kind === "message");
+		expect(messageChange).toBeDefined();
+		expect(messageChange?.object).toBe("thread");
+		expect(messageChange?.actor).toBe("system:propagation");
+
+		// `open_thread` — the door every screen reads a thread through — sees
+		// the review.
+		const res = await app.request("/api/actions/open_thread", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ id: "thr-bet-1" }),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as ActionResult<ThreadView> & { ok: true };
+		expect(body.ok).toBe(true);
+		const review = body.data.messages.find((m) => m.type === "review");
+		expect(review).toBeDefined();
+		expect(review?.senderId).toBe(SYSTEM_PROPAGATION_ID);
 	});
 });

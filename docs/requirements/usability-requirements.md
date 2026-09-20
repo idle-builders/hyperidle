@@ -26,7 +26,7 @@ Behavioral UX requirements for the human interface. Shell structure and page lay
 
 Primitive semantics: [notification-primitive](../human-interface-layer/notification-primitive.md).
 
-**UX-3.1** Push notifications fire for high-risk items (`riskTier === "high"`) or any `skill_change` item regardless of risk tier (`layers/core-api/policy/src/policy-engine.ts`). Everything else is silent.
+**UX-3.1** Push notifications fire immediately for a blocked task (`blocker_alert`, from the dependency watcher). Everything else is silent or digest.
 
 **UX-3.2** Non-urgent items batch into a daily digest (`layers/core-api/notifications/src/daily-digest.ts`).
 
@@ -58,7 +58,7 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 **UX-6.1** Reasoning is visible by default on every surfaced item (UX-2.4).
 
-**UX-6.2** Trust is earned, not assigned: routing uses approval-rate from verdict history × riskTier (AD4, `layers/core-api/policy/src/policy-engine.ts`). Surface: [review-primitive](../human-interface-layer/review-primitive.md).
+**UX-6.2** Trust is earned, not assigned, and shown rather than enforced: approval rate from verdict history (AD4, `layers/core-api/policy/src/approval-rate.ts`) renders on the agent's profile; every review still waits for a human's own verdict. Surface: [review-primitive](../human-interface-layer/review-primitive.md).
 
 **UX-6.3** Usage transparency: per-session token chips and team burn (in-progress tasks vs. capacity) keep work visible at every level.
 

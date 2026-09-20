@@ -39,13 +39,8 @@
  * content matches editContent to prevent spurious saves on BodyEditor mount
  * (TipTap fires onChange with initial content on mount).
  */
-import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/domain-model";
-import {
-	isRedactedPayload,
-	KNOWLEDGE_STATUSES,
-	type KnowledgeStatus,
-	SCOPE_KINDS,
-} from "@hyperidle/domain-model";
+import type { Message, ScopeKind, ThreadView } from "@hyperidle/domain-model";
+import { KNOWLEDGE_STATUSES, type KnowledgeStatus, SCOPE_KINDS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";
@@ -68,7 +63,6 @@ import {
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
 import { useAutoSave } from "../hooks/useAutoSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
-import { useHostThread } from "../hooks/useHostThread.js";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
@@ -695,8 +689,12 @@ function KnowledgeDetailView({
 		{ blockId: string; blockExcerpt: string } | undefined
 	>(undefined);
 
-	// L18: Fetch the host thread for inline anchored messages
-	const { data: threadData } = useHostThread("knowledge_item", item.id);
+	// L18: The host thread, for inline anchored messages.
+	// `HostThreadSection` below is the only thing that resolves this
+	// knowledge_item's thread (`search_threads({host})` then `open_thread`) —
+	// it reports what it loaded here via `onThreadView` rather than this page
+	// resolving the same thread a second time.
+	const [threadView, setThreadView] = useState<ThreadView | null>(null);
 
 	/**
 	 * @lore nested-knowledge-items tree-ui: fetch the direct parent's title so
@@ -755,17 +753,17 @@ function KnowledgeDetailView({
 
 	const messagesByBlockId = useMemo((): ReadonlyMap<string, ReadonlyArray<Message>> => {
 		const map = new Map<string, Message[]>();
-		if (!threadData?.messages) return map;
-		for (const msg of threadData.messages) {
-			if (msg.type !== "plain") continue;
-			if (isRedactedPayload(msg.payload)) continue;
-			const blockId = (msg.payload as PlainPayloadWithBlockId).blockId;
-			if (!blockId) continue;
-			const existing = map.get(blockId) ?? [];
-			map.set(blockId, [...existing, msg]);
+		if (!threadView?.messages) return map;
+		for (const msg of threadView.messages) {
+			// `blockId` is a real top-level Message column
+			// (`messages_block_id_idx`), not a field
+			// buried inside the plain payload.
+			if (msg.type !== "plain" || msg.blockId === null) continue;
+			const existing = map.get(msg.blockId) ?? [];
+			map.set(msg.blockId, [...existing, msg]);
 		}
 		return map;
-	}, [threadData?.messages]);
+	}, [threadView?.messages]);
 
 	const related = useMemo(() => findRelated(item), [item]);
 
@@ -1149,12 +1147,12 @@ function KnowledgeDetailView({
 					)}
 					{/* L18: Replace ObservationLog with HostThreadSection */}
 					<HostThreadSection
-						hostKind="knowledge_item"
-						hostId={item.id}
+						host={{ kind: "knowledge_item", id: item.id }}
 						title="Discussion"
 						prefill={threadPrefill}
 						onClearPrefill={() => setThreadPrefill(undefined)}
 						filterBlockId={threadPrefill?.blockId}
+						onThreadView={setThreadView}
 					/>
 				</div>
 

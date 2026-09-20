@@ -15,6 +15,7 @@ import {
 	sessions,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
@@ -88,7 +89,17 @@ describe("agent-layer boot recovery", () => {
 				createdAt: nowIso,
 			},
 		]);
+		await db.insert(threads).values({
+			id: `thr-${"boot-bet"}`,
+			hostKind: "team",
+			hostId: "boot-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: nowIso,
+			createdAt: nowIso,
+		});
 		await db.insert(tasks).values({
+			threadId: `thr-${"boot-bet"}`,
 			id: "boot-bet",
 			parentTaskId: null,
 			teamId: "boot-team",
@@ -98,7 +109,17 @@ describe("agent-layer boot recovery", () => {
 			createdAt: nowIso,
 			updatedAt: nowIso,
 		});
+		await db.insert(threads).values({
+			id: `thr-${"boot-task"}`,
+			hostKind: "team",
+			hostId: "boot-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: nowIso,
+			createdAt: nowIso,
+		});
 		await db.insert(tasks).values({
+			threadId: `thr-${"boot-task"}`,
 			id: "boot-task",
 			parentTaskId: "boot-bet",
 			teamId: "boot-team",
@@ -254,7 +275,7 @@ describe("agent-layer boot recovery", () => {
 		// 5. A 31-day-old terminal intent — proves the retention sweep runs at boot.
 		await db.insert(agentWorkIntents).values({
 			id: "boot-old-terminal-intent",
-			kind: "assistant_turn",
+			kind: "thread_turn",
 			sourceKind: "thread_message",
 			sourceId: "boot-old-terminal-source",
 			idempotencyKey: "boot-old-terminal",

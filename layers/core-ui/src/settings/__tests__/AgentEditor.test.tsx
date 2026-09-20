@@ -263,6 +263,7 @@ describe("AgentEditor save routing", () => {
 		render(
 			<AgentEditor
 				agentId="ast-user1"
+				ownerUserId={null}
 				draft={ASSISTANT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -284,6 +285,7 @@ describe("AgentEditor save routing", () => {
 		render(
 			<AgentEditor
 				agentId="agent-abc"
+				ownerUserId={null}
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -315,6 +317,7 @@ describe("Model dropdown uses discovered descriptor.models", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
+				ownerUserId={null}
 				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "opencode" }}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -342,6 +345,7 @@ describe("Model dropdown uses discovered descriptor.models", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
+				ownerUserId={null}
 				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "codex", modelId: "", modelProvider: null }}
 				onDraftChange={vi.fn()}
 				harnesses={[CODEX_DESCRIPTOR]}
@@ -403,6 +407,7 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
+				ownerUserId={null}
 				draft={{
 					...NORMAL_AGENT_DRAFT,
 					harnessType: "codex",
@@ -432,6 +437,7 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 		render(
 			<AgentEditor
 				agentId="agent-1"
+				ownerUserId={null}
 				draft={{
 					...NORMAL_AGENT_DRAFT,
 					harnessType: "opencode",
@@ -461,6 +467,55 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Role lock is decided by ownerUserId, never an id prefix
+// ---------------------------------------------------------------------------
+
+describe("Role field lock is decided by ownerUserId, not an id prefix", () => {
+	beforeEach(() => {
+		mockApiFetch();
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("an owned agent (ownerUserId set) with no ast- id gets a locked role field", () => {
+		render(
+			<AgentEditor
+				agentId="agent-x"
+				ownerUserId="u1"
+				draft={NORMAL_AGENT_DRAFT}
+				onDraftChange={vi.fn()}
+				harnesses={[OPENCODE_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+			/>,
+		);
+
+		expect(screen.getByRole("combobox", { name: "Role" })).toBeDisabled();
+	});
+
+	it("a team agent (ownerUserId null) named ast-ops gets an editable role field", () => {
+		render(
+			<AgentEditor
+				agentId="ast-ops"
+				ownerUserId={null}
+				draft={NORMAL_AGENT_DRAFT}
+				onDraftChange={vi.fn()}
+				harnesses={[OPENCODE_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+			/>,
+		);
+
+		expect(screen.getByRole("combobox", { name: "Role" })).not.toBeDisabled();
+	});
+});
+
+// ---------------------------------------------------------------------------
 // UI-103 — form field labels are sentence-case in rendered output
 // ---------------------------------------------------------------------------
 
@@ -476,6 +531,7 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 		render(
 			<AgentEditor
 				agentId="agent-1"
+				ownerUserId={null}
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -498,6 +554,7 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 		render(
 			<AgentEditor
 				agentId="agent-1"
+				ownerUserId={null}
 				draft={NORMAL_AGENT_DRAFT}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -515,6 +572,7 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 		render(
 			<AgentEditor
 				agentId="agent-1"
+				ownerUserId={null}
 				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "codex", modelId: "", modelProvider: null }}
 				onDraftChange={vi.fn()}
 				harnesses={[CODEX_DESCRIPTOR]}
@@ -535,6 +593,7 @@ describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded A
 		render(
 			<AgentEditor
 				agentId="agent-1"
+				ownerUserId={null}
 				draft={{ ...NORMAL_AGENT_DRAFT, filesystemIds: ["fs-1"] }}
 				onDraftChange={vi.fn()}
 				harnesses={[OPENCODE_DESCRIPTOR]}
@@ -582,6 +641,7 @@ describe("AgentEditor — model options", () => {
 		render(
 			<AgentEditor
 				agentId="a1"
+				ownerUserId={null}
 				draft={draft}
 				onDraftChange={onDraftChange}
 				harnesses={[DECLARING_DESCRIPTOR]}

@@ -17,7 +17,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import type { CreateKnowledgeItemRequest } from "@hyperidle/api-contract";
-import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -65,8 +65,18 @@ async function seed(db: HyperIdleDb): Promise<{ taskId: string }> {
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
+	await db.insert(threads).values({
+		id: "thr-task-1",
+		hostKind: "team",
+		hostId: "team-1",
+		initiatorId: "agent-1",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
 		id: "task-1",
+		threadId: "thr-task-1",
 		parentTaskId: null,
 		teamId: "team-1",
 		title: "Test task",

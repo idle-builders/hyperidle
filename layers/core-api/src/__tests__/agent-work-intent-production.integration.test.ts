@@ -56,7 +56,17 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			createdAt: now,
 		},
 	]);
+	await db.insert(threads).values({
+		id: `thr-${"au9-production-bet"}`,
+		hostKind: "team",
+		hostId: "au9-production-team",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"au9-production-bet"}`,
 		id: "au9-production-bet",
 		parentTaskId: null,
 		teamId: "au9-production-team",
@@ -66,7 +76,17 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 		createdAt: now,
 		updatedAt: now,
 	});
+	await db.insert(threads).values({
+		id: `thr-${"au9-production-task"}`,
+		hostKind: "team",
+		hostId: "au9-production-team",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"au9-production-task"}`,
 		id: "au9-production-task",
 		parentTaskId: "au9-production-bet",
 		teamId: "au9-production-team",
@@ -203,7 +223,17 @@ describe("atomic production handoffs", () => {
 	}) => {
 		await seedExplicitSessionAuthority(db);
 		const now = new Date().toISOString();
+		await db.insert(threads).values({
+			id: `thr-${"au9-production-dependent"}`,
+			hostKind: "team",
+			hostId: "au9-production-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
+			threadId: `thr-${"au9-production-dependent"}`,
 			id: "au9-production-dependent",
 			parentTaskId: "au9-production-bet",
 			teamId: "au9-production-team",
@@ -219,9 +249,11 @@ describe("atomic production handoffs", () => {
 		// §6 row 2: `checkAndUnblockDependents` writes through the real
 		// composed `edit_task` action now — this proves the whole chain against
 		// the real seam, not a hand-rolled `workIntents` closure.
-		const editTaskAction = buildCoreActions(agentOrchestration).find(
-			(a) => a.declaration.name === "edit_task",
-		);
+		const editTaskAction = buildCoreActions({
+			agentOrchestration,
+			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+		}).find((a) => a.declaration.name === "edit_task");
 		if (!editTaskAction) throw new Error("edit_task action not found");
 		await checkAndUnblockDependents(
 			{ actor: "system:propagation", db, eventBus, now: new Date().toISOString() },
@@ -249,14 +281,20 @@ describe("atomic production handoffs", () => {
 		expect(attempts[0]?.occasion).toBe("retry");
 	});
 
-	// AU31 §3.1 site 5 — INVERTED. The message insert is no longer inside the
-	// same transaction as the intent submit (relinquished, founder ruling
-	// architecture.md §3.1/§13 item 9): a seam call from inside this route's
-	// own open `db.transaction()` reproduced a real deadlock (§3.2), so the
-	// two writes can no longer share one transaction. This test used to prove
-	// they rolled back together; it now proves the named window — a committed
-	// message with no queued turn intent, repaired by a re-send (the
-	// coherence trigger re-bakes on the next thread append anyway).
+	// @lore AU31 §3.1 site 5 — INVERTED, then repointed onto the thread
+	// module. The message insert is no longer inside the same transaction as
+	// the intent submit (relinquished, founder ruling architecture.md
+	// §3.1/§13 item 9): a seam call from inside this route's own open
+	// `db.transaction()` reproduced a real deadlock (§3.2), so the two writes
+	// can no longer share one transaction. The door is now
+	// `POST /api/actions/send_message`, whose wake loop
+	// (`thread-actions.ts`) wraps each agent's intent-record call in its own
+	// try/catch and drops that one wake on failure rather than letting it
+	// escape — so the action itself reports success (200, ok:true) instead
+	// of the old route's uncaught 500. This test now proves that same named
+	// window through the real contract: a committed message with no queued
+	// turn intent, repaired by a re-send (the coherence trigger re-bakes on
+	// the next thread append anyway).
 	test("real assistant message command: the message survives even when the intent write fails (AU31 §3.1 site 5)", async ({
 		db,
 		app,
@@ -264,19 +302,23 @@ describe("atomic production handoffs", () => {
 		await seedAssistantThread(db);
 		await rejectIntentWrites(db);
 
-		const response = await app.request("/api/threads/au9-assistant-thread/messages", {
+		const response = await app.request("/api/actions/send_message", {
 			method: "POST",
-			headers: { ...authHeaders, "X-Identity": "au9-assistant-human" },
+			headers: authHeaders,
 			body: JSON.stringify({
-				type: "plain",
-				payload: { text: "Run the production assistant command" },
+				threadId: "au9-assistant-thread",
+				text: "Run the production assistant command",
 				clientKey: "au9-assistant-command",
 			}),
 		});
 
-		// The seam's intent submit fails (uncaught) — the route still 500s —
-		// but the message insert already committed before that call ran.
-		expect(response.status).toBe(500);
+		// The wake loop's intent-record call fails against the rejecting
+		// trigger, but that failure is caught per-agent and dropped — the
+		// action still reports ok:true; the message insert already
+		// committed inside its own transaction before the wake loop ran.
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as { ok: boolean };
+		expect(body.ok).toBe(true);
 		expect(await db.select().from(messages)).toHaveLength(1);
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});

@@ -1,3 +1,4 @@
+import type { ThreadListRow } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
@@ -5,23 +6,35 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 import { Conversations } from "../pages/Conversations";
 
+// @lore BC3: the thread list now comes from `useThreads({mine:true})` →
+// `call("search_threads", ...)`, not `GET /api/threads`.
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
 // AF14 AC4: filter chips (Blocking, Unread) removed from Conversations.
 // One thread is still needed so the list renders.
-const ONE_THREAD = {
+const ONE_THREAD: ThreadListRow = {
 	id: "t-filter-test",
-	hostKind: "task",
+	hostKind: "team",
 	hostId: "h-1",
 	initiatorId: "u-test",
-	participants: ["u-test", "agent-1"],
+	members: ["u-test", "agent-1"],
+	title: null,
+	computedTitle: "Thread",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: "2026-04-30T12:00:00.000Z",
 	createdAt: "2026-04-30T12:00:00.000Z",
 	hasUnresolvedReview: false,
+	lastMessagePreview: null,
 };
 
 beforeEach(() => {
-	// L8: AppShell fetches /api/threads on mount — stub it for this suite.
+	callMock.mockImplementation(async (action: string) => {
+		if (action === "search_threads") return { ok: true, data: [ONE_THREAD] };
+		return { ok: true, data: [] };
+	});
 	global.fetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = typeof input === "string" ? input : input.toString();
 		if (url.includes("/api/auth/me")) {
@@ -30,10 +43,7 @@ beforeEach(() => {
 				json: async () => ({ id: "u-test", name: "Tester", email: "", avatarUrl: null }),
 			} as Response;
 		}
-		return {
-			ok: true,
-			json: async () => ({ threads: [ONE_THREAD], nextCursor: null }),
-		} as Response;
+		return { ok: true, json: async () => ({}) } as Response;
 	}) as unknown as typeof fetch;
 });
 

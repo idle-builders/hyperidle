@@ -5,7 +5,7 @@
  * for the recipient picker. Supports ?q=<search> and ?kind=agent|user filters.
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -23,7 +23,17 @@ async function seedRecipients(db: HyperIdleDb): Promise<void> {
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
+	await db.insert(threads).values({
+		id: `thr-${"bet-1"}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"bet-1"}`,
 		id: "bet-1",
 		parentTaskId: null,
 		teamId: "prod-1",
@@ -34,7 +44,17 @@ async function seedRecipients(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 
+	await db.insert(threads).values({
+		id: `thr-${"task-1"}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"task-1"}`,
 		id: "task-1",
 		parentTaskId: "bet-1",
 		teamId: "prod-1",

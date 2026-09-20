@@ -1,5 +1,12 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ActionDeclaration, ActionResult } from "@hyperidle/domain-model";
+import type {
+	ActionDeclaration,
+	ActionResult,
+	AdjustThreadInput,
+	SendMessageInput,
+	SendMessageOutput,
+	ThreadView,
+} from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
 /**
@@ -7,15 +14,24 @@ import type { EventBus } from "@hyperidle/event-bus";
  * `compose-api-application.ts`. Lives here, not in `framework/domain-model`,
  * because it carries `db` (the architecture doc §5).
  *
- * `ActionContext` carries no session id and gains none — everything a
- * dispatch branch needs about a running session it reads from the
- * task-owned `task_dispatch_attempts` table.
+ * @lore BC3 architecture.md §3.2: `ActionContext` gained exactly one
+ * optional field, `caller` — filled ONLY by the MCP loop
+ * (`actions-as-tools.ts`) from `ToolContext`, never from a request body,
+ * never from a header. Absent for every HTTP call. No action reads `caller`
+ * for authorization; only for the thread module's no-target reply fallback,
+ * the review→session link and the produced-item-parented-to-the-calling-task
+ * check.
  */
 export interface ActionContext {
 	readonly actor: string;
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly now: string;
+	readonly caller?: {
+		readonly sessionId: string;
+		readonly taskId: string | null;
+		readonly threadId: string | null;
+	};
 }
 
 /**
@@ -30,3 +46,20 @@ export interface Action<I = unknown, O = unknown> {
 	readonly declaration: ActionDeclaration<I, O>;
 	readonly run: (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
 }
+
+/**
+ * `send_message`/`adjust_thread`'s own bound `run`, as the composed action
+ * list's `sendMessageAction.run`/`adjustThreadAction.run` are cast to —
+ * ONE canonical shape so every consumer that threads them through
+ * (`session-not-returned-notice.ts`, `agent-run-admission-reactions.ts`,
+ * `service-bootstrap.ts`, `app.ts`) agrees on the same type rather than
+ * each declaring its own narrower mirror.
+ */
+export type SendMessageRunFn = (
+	ctx: ActionContext,
+	input: SendMessageInput,
+) => Promise<ActionResult<SendMessageOutput>>;
+export type AdjustThreadRunFn = (
+	ctx: ActionContext,
+	input: AdjustThreadInput,
+) => Promise<ActionResult<ThreadView>>;

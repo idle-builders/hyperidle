@@ -52,10 +52,10 @@ describe("ReturnGate — AC3: detection (not_returned when no return seen)", () 
 		expect(verdict).toBe("not_returned");
 	});
 
-	it("verdicts 'returned' when submit_review is observed before exhaustion", () => {
+	it("verdicts 'returned' when send_message is observed before exhaustion", () => {
 		const gate = createReturnGate();
 		gate.observe(toolCallEvent("read_inbox"));
-		gate.observe(toolCallEvent("submit_review", { message: "LGTM", verdict: "approved" }));
+		gate.observe(toolCallEvent("send_message", { to: "human-1", body: "Done." }));
 		gate.observe(completionEvent());
 
 		expect(evaluateReturn(gate, "completed")).toBe("returned");
@@ -107,7 +107,7 @@ describe("ReturnGate — AC3: detection (not_returned when no return seen)", () 
 	it("returned flag becomes true immediately after a return tool_call", () => {
 		const gate = createReturnGate();
 		expect(gate.returned).toBe(false);
-		gate.observe(toolCallEvent("submit_review", {}));
+		gate.observe(toolCallEvent("send_message", {}));
 		expect(gate.returned).toBe(true);
 	});
 });
@@ -133,7 +133,7 @@ describe("ReturnGate — AC3: exemptions (non-completion end-reasons never flagg
 // ── AC5: mid-turn non-terminal tool use is unaffected ───────────────────────
 
 describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate", () => {
-	it("ten non-return tool_calls followed by submit_review → 'returned'", () => {
+	it("ten non-return tool_calls followed by send_message → 'returned'", () => {
 		const gate = createReturnGate();
 		const midTurnTools = [
 			"read_inbox",
@@ -150,7 +150,7 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 		}
 		expect(gate.returned).toBe(false);
 
-		gate.observe(toolCallEvent("submit_review", { message: "Done" }));
+		gate.observe(toolCallEvent("send_message", { message: "Done" }));
 		expect(gate.returned).toBe(true);
 		expect(evaluateReturn(gate, "completed")).toBe("returned");
 	});
@@ -199,14 +199,14 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 describe("ReturnGate — AC5: gate is observation-only", () => {
 	it("observe() on a return tool_call does not throw or intercept", () => {
 		const gate = createReturnGate();
-		expect(() => gate.observe(toolCallEvent("submit_review", {}))).not.toThrow();
+		expect(() => gate.observe(toolCallEvent("send_message", {}))).not.toThrow();
 	});
 
 	it("multiple gates are independent (no shared state)", () => {
 		const gateA = createReturnGate();
 		const gateB = createReturnGate();
 
-		gateA.observe(toolCallEvent("submit_review", {}));
+		gateA.observe(toolCallEvent("send_message", {}));
 
 		expect(gateA.returned).toBe(true);
 		expect(gateB.returned).toBe(false);
@@ -216,10 +216,9 @@ describe("ReturnGate — AC5: gate is observation-only", () => {
 // ── Shared constants ───────────────────────────────────────────────────────
 
 describe("shared forcing constants", () => {
-	it("FORCE_RETURN_MESSAGE is a non-empty string naming the three return tools", () => {
+	it("FORCE_RETURN_MESSAGE is a non-empty string naming both return tools", () => {
 		expect(typeof FORCE_RETURN_MESSAGE).toBe("string");
 		expect(FORCE_RETURN_MESSAGE.length).toBeGreaterThan(0);
-		expect(FORCE_RETURN_MESSAGE).toContain("submit_review");
 		expect(FORCE_RETURN_MESSAGE).toContain("edit_task");
 		expect(FORCE_RETURN_MESSAGE).toContain("send_message");
 	});
@@ -236,7 +235,7 @@ describe("shared forcing constants", () => {
 describe("shouldForceReturn helper", () => {
 	it("returns null when return was already seen (gate.returned === true)", () => {
 		const gate = createReturnGate();
-		gate.observe(toolCallEvent("submit_review", {}));
+		gate.observe(toolCallEvent("send_message", {}));
 		expect(shouldForceReturn(gate, 0)).toBeNull();
 		expect(shouldForceReturn(gate, 1)).toBeNull();
 		expect(shouldForceReturn(gate, 99)).toBeNull();

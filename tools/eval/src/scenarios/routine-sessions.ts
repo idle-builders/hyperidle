@@ -11,7 +11,7 @@
 
 import { randomUUID } from "node:crypto";
 import { fireRoutine } from "@hyperidle/core-api";
-import { items, routines, sessions } from "@hyperidle/db";
+import { messages, routines, sessions } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
@@ -295,17 +295,19 @@ const rsHumanReviewFlag: EvalScenario = {
 				id: "review_item_created",
 				label: "Review Item Created for humanReview Routine",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					// @lore BC3 architecture.md §5: a surfaced review is a `review`-type
+					// `messages` row now, sent by the routine owner, not an `items` row.
 					const [item] = await ctx.db
-						.select({ id: items.id, sourceAgentId: items.sourceAgentId })
-						.from(items)
+						.select({ id: messages.id })
+						.from(messages)
 						.where(
-							and(eq(items.kind, "review"), eq(items.sourceAgentId, humanReviewRoutineOwnerId)),
+							and(eq(messages.type, "review"), eq(messages.senderId, humanReviewRoutineOwnerId)),
 						)
 						.limit(1);
 					const created = item !== undefined;
 					return {
 						score: created ? 1.0 : 0.0,
-						note: created ? undefined : "No review item from humanReview routine owner",
+						note: created ? undefined : "No review message from humanReview routine owner",
 					};
 				},
 			},
@@ -386,16 +388,16 @@ const rsSilentNoReviewItem: EvalScenario = {
 				id: "no_review_item",
 				label: "No Review Item for Silent Routine",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const reviewItems = await ctx.db
-						.select({ id: items.id })
-						.from(items)
-						.where(and(eq(items.kind, "review"), eq(items.sourceAgentId, silentRoutineOwnerId)));
-					const noReview = reviewItems.length === 0;
+					const reviewMessages = await ctx.db
+						.select({ id: messages.id })
+						.from(messages)
+						.where(and(eq(messages.type, "review"), eq(messages.senderId, silentRoutineOwnerId)));
+					const noReview = reviewMessages.length === 0;
 					return {
 						score: noReview ? 1.0 : 0.0,
 						note: noReview
-							? "No review item (correct — the routine is silent)"
-							: `${reviewItems.length} review item(s) created despite silent mode`,
+							? "No review message (correct — the routine is silent)"
+							: `${reviewMessages.length} review message(s) created despite silent mode`,
 					};
 				},
 			},

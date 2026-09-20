@@ -8,11 +8,8 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
-} from "@hyperidle/agent-orchestration/testing";
-import { knowledgeItems, routines, tasks, teams, users } from "@hyperidle/db";
+import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
+import { knowledgeItems, routines, tasks, teams, threads, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -20,11 +17,9 @@ import { test } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW } from "./_helpers.js";
 
 function buildUpdateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(
-		createInProcessCoreApiTransport(app),
-		THROWING_REVIEW_ACCESSOR,
-		THROWING_OPEN_TASK,
-	).find((t) => t.name === "update_routine")!;
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), THROWING_OPEN_TASK).find(
+		(t) => t.name === "update_routine",
+	)!;
 }
 
 async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
@@ -48,7 +43,17 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 		teamId: teamId,
 		createdAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: `thr-${rootTaskId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${rootTaskId}`,
 		id: rootTaskId,
 		parentTaskId: null,
 		teamId: teamId,
@@ -58,7 +63,17 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: `thr-${stubTaskId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${stubTaskId}`,
 		id: stubTaskId,
 		parentTaskId: rootTaskId,
 		teamId,

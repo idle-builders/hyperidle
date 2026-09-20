@@ -8,9 +8,11 @@
  * Dimensions: 360px wide, max-height 70vh. z-index 30 (above Main, below Settings).
  *
  * @lore AD8b: Renamed from CocOverlay → AssistantOverlay.
- * Hook: useCocThread → useAssistantThread (fetches /api/threads/assistant).
  * Context: CocContext → AssistantContext.
  * data-testid for context chips: "coc-context-chips" → "assistant-context-chips".
+ *
+ * @lore BC3 B6: resolves the viewer's own agent via useAgents()/useCurrentUser(),
+ * then reads that agent's direct thread via useThreads()/useThread().
  *
  * @lore L21 (design): overlay does NOT close on clicking outside. The user
  * must be able to interact with Main content (to select context items via the
@@ -21,14 +23,18 @@
  * not a design-system custom component. It lives in layers/core-ui/src/shell/.
  */
 
-import type { AssistantNotice, Message, PlainPayload } from "@hyperidle/domain-model";
-import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
+import type { AssistantNotice, InlineRef, Message } from "@hyperidle/domain-model";
+import { ASSISTANT_TURN_TIMEOUT_MS, isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, type RefObject, useCallback, useEffect } from "react";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
-import { Button, ThreadShell, useDialogBehavior } from "../ds";
-import { useAssistantThread } from "../hooks/useAssistantThread";
+import { Button, Composer, ThreadShell, useDialogBehavior } from "../ds";
+import { plainReadPayloadOf } from "../ds/message-payload.js";
+import { useAgents } from "../hooks/useAgents.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useThread } from "../hooks/useThread.js";
+import { useThreads } from "../hooks/useThreads.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 
 export interface AssistantOverlayProps {
 	open: boolean;
@@ -256,45 +262,69 @@ function AssistantOverlayInner({
 	contextRefs: ReadonlyArray<AssistantContextRef>;
 	onRemoveContextRef: (index: number) => void;
 }): JSX.Element {
-	// AF14 AC2: destructure `refresh` so sent messages stay visible immediately.
-	const { status, data, error, retry, refresh } = useAssistantThread();
 	// artifacts-become-knowledge: scopeKind for knowledge items created from pending_block refs.
-	const { user } = useCurrentUser();
+	const { user, status: userStatus } = useCurrentUser();
+	// "The assistant is your agent" — an ordinary agent with
+	// `ownerUserId === me`. `GET /api/agents` carries `ownerUserId` directly, so
+	// the overlay finds it straight off the one agents fetch every agent picker
+	// already shares — no second fetch.
+	const { agents, loading: agentsLoading, refetch: refetchAgents } = useAgents();
+	const myAgentId = agents.find((a) => a.ownerUserId === user?.id)?.id ?? null;
 
-	const handleAppendMessage = useCallback(
-		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
-			if (!data?.thread) return;
+	// There is no `GET /api/threads/assistant` create-on-read. Resolve the
+	// existing direct thread with my agent, if any; the overlay's first send
+	// creates one via `send_message({ recipients: [myAgentId] })`.
+	const agentHostFilter = myAgentId
+		? { host: { kind: "agent" as const, id: myAgentId } }
+		: undefined;
+	const threadSearch = useThreads(agentHostFilter);
+	const existingThreadId = threadSearch.threads[0]?.id;
+	const { status: threadStatus, data, error, refresh } = useThread(existingThreadId);
 
-			// Separate pending_block refs from entity refs.
+	/** Shared by the populated ThreadShell composer and the empty first-send composer. */
+	const sendToThread = useCallback(
+		async (
+			targetThreadId: string | undefined,
+			input: { type: string; payload: unknown; clientKey: string },
+		): Promise<string> => {
+			if (!myAgentId) throw new Error("No assistant agent to message");
+
 			// pending_block refs become real knowledge items on send — never wire refs.
 			const pendingBlocks = contextRefs.filter(
 				(ref): ref is AssistantContextRef & { kind: "pending_block" } =>
 					ref.kind === "pending_block",
 			);
-			const entityRefs = contextRefs.filter((ref) => ref.kind !== "pending_block");
-			const refsToSend = entityRefs.map((ref) => ({ kind: ref.kind, id: ref.id }));
+			const entityRefs = contextRefs.filter(
+				(ref): ref is AssistantContextRef & { kind: "knowledge_item" | "task" | "message" } =>
+					ref.kind !== "pending_block",
+			);
+			const refsToSend: InlineRef[] = entityRefs.map((ref) => ({ kind: ref.kind, id: ref.id }));
 
-			const payload =
-				input.type === "plain" && typeof input.payload === "object" && input.payload !== null
-					? {
-							...(input.payload as Record<string, unknown>),
-							refs: refsToSend.length > 0 ? refsToSend : undefined,
-						}
-					: input.payload;
-
-			const res = await apiFetch(`/api/threads/${data.thread.id}/messages`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ ...input, payload }),
-			});
+			const target = targetThreadId ? { threadId: targetThreadId } : { recipients: [myAgentId] };
+			const res = await (input.type === "verdict"
+				? call("send_message", {
+						...target,
+						clientKey: input.clientKey,
+						verdict: input.payload as {
+							decision: "approve" | "approve-with-comments" | "request-changes" | "edit" | "reject";
+							resolvesMessageId: string;
+							note?: string;
+						},
+					})
+				: call("send_message", {
+						...target,
+						clientKey: input.clientKey,
+						text: (input.payload as { text: string }).text,
+						refs: refsToSend.length > 0 ? refsToSend : undefined,
+					}));
 			if (!res.ok) {
-				const text = await res.text().catch(() => res.statusText);
-				throw new Error(`Failed to send message: ${res.status} ${text}`);
+				throw new Error(res.problems[0]?.message ?? "Failed to send message");
 			}
 
 			// @lore artifacts-become-knowledge: For each pending_block, create a knowledge
 			// item parented to this thread. The content was captured at click time — a real
-			// document row, not a pointer that rots when the source is edited.
+			// document row, not a pointer that rots when the source is edited. `/api/knowledge`
+			// is untouched by this item — no `call()` door exists for it yet.
 			const teamId = user?.teamId ?? null;
 			await Promise.all(
 				pendingBlocks.map((ref) =>
@@ -303,7 +333,7 @@ function AssistantOverlayInner({
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
 							parentKind: "thread",
-							parentId: data.thread.id,
+							parentId: res.data.thread.id,
 							body: ref.content,
 							format: "markdown",
 							scopeKind: teamId ? "product" : "factory",
@@ -314,15 +344,45 @@ function AssistantOverlayInner({
 				),
 			);
 
-			// AF14 AC2: re-fetch thread so the sent message appears without
-			// closing and reopening the overlay. The WS update will arrive
-			// shortly after, but refresh() ensures immediate visibility.
-			refresh();
+			return res.data.thread.id;
 		},
-		[data?.thread, contextRefs, refresh, user],
+		[contextRefs, myAgentId, user],
 	);
 
-	if (status === "loading" || (!data && status !== "error")) {
+	const handleAppendMessage = useCallback(
+		async (input: { type: string; payload: unknown; clientKey: string }): Promise<void> => {
+			if (!existingThreadId) return;
+			await sendToThread(existingThreadId, input);
+			// re-fetch thread so the sent message appears without closing and
+			// reopening the overlay. The WS nudge will arrive shortly after, but
+			// refresh() ensures immediate visibility.
+			refresh();
+		},
+		[existingThreadId, sendToThread, refresh],
+	);
+
+	const handleFirstSend = useCallback(
+		async (input: { text: string; clientKey: string }): Promise<void> => {
+			await sendToThread(undefined, {
+				type: "plain",
+				payload: { text: input.text },
+				clientKey: input.clientKey,
+			});
+			// The new thread now exists on this host — re-run the search that
+			// resolves `existingThreadId`.
+			threadSearch.retry();
+		},
+		[sendToThread, threadSearch],
+	);
+
+	// `/api/auth/me` is still in flight until `userStatus`
+	// leaves "loading" — without this, `myAgentId` reads as null while the
+	// user is unresolved and the overlay flashes the no-agent message.
+	if (
+		userStatus === "loading" ||
+		agentsLoading ||
+		(myAgentId && threadSearch.status === "loading")
+	) {
 		return (
 			<div className="flex flex-1 items-center justify-center p-4">
 				<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
@@ -330,20 +390,66 @@ function AssistantOverlayInner({
 		);
 	}
 
-	if (status === "error" || !data) {
+	if (!myAgentId || threadSearch.status === "error") {
+		// With no agent, `threadSearch`'s filter is undefined
+		// and `threadSearch.retry()` is a no-op — re-fetching agents is the
+		// only thing that can resolve this state. Once an agent exists,
+		// `threadSearch.status === "error"` means the search itself failed,
+		// so its own retry is the right one.
+		const onRetry = myAgentId ? threadSearch.retry : refetchAgents;
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-[9px] p-4">
 				<p className="type-small  text-[var(--text-secondary)]">
-					{error ?? "Failed to load assistant thread"}
+					{threadSearch.error ?? "Couldn't find your assistant agent."}
 				</p>
-				<Button variant="ghost" size="sm" onClick={retry}>
+				<Button variant="ghost" size="sm" onClick={onRetry}>
 					Retry
 				</Button>
 			</div>
 		);
 	}
 
-	const { thread, messages, identities } = data;
+	// No thread yet — an empty compose-only state. The first send creates
+	// the thread (`recipients: [myAgentId]`); no create-on-read, no flag.
+	if (!existingThreadId) {
+		return (
+			<div className="flex-1 min-h-0 flex flex-col justify-end overflow-hidden">
+				<div className="flex flex-1 items-center justify-center p-4">
+					<p className="type-small text-[var(--text-tertiary)]">Say something to start.</p>
+				</div>
+				<div className="max-w-[720px] mx-auto w-full px-[12px] pb-[12px]">
+					<Composer threadId="assistant:new" onSubmit={handleFirstSend} />
+				</div>
+			</div>
+		);
+	}
+
+	if (threadStatus === "loading" || !data) {
+		return (
+			<div className="flex flex-1 items-center justify-center p-4">
+				<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
+			</div>
+		);
+	}
+
+	if (threadStatus === "error" || threadStatus === "not-found") {
+		return (
+			<div className="flex flex-1 flex-col items-center justify-center gap-[9px] p-4">
+				<p className="type-small  text-[var(--text-secondary)]">
+					{error ?? "Failed to load assistant thread"}
+				</p>
+				<Button variant="ghost" size="sm" onClick={refresh}>
+					Retry
+				</Button>
+			</div>
+		);
+	}
+
+	const { thread, messages } = data;
+	const identities: Record<string, { name: string; role?: string; isAgent?: boolean }> =
+		Object.fromEntries(
+			data.members.map((m) => [m.id, { name: m.name, role: m.role, isAgent: m.isAgent }]),
+		);
 	const msgsAsc: ReadonlyArray<Message> = [...messages].sort((a, b) =>
 		a.createdAt.localeCompare(b.createdAt),
 	);
@@ -351,8 +457,13 @@ function AssistantOverlayInner({
 	// AH3 §1.7b: Compute thinking/stale state from thread state (client-derived).
 	// Show "thinking…" only when: last message is human AND within ASSISTANT_TURN_TIMEOUT_MS.
 	// Show Retry card when: last message is human AND PAST the timeout (crash recovery).
+	// @lore BC3 B5/B6: the overlay knows its own counterpart — it opened a
+	// direct thread with exactly one agent — so "the last message is human"
+	// is an identity comparison against that agent id, not a structural id
+	// prefix check (which no longer means anything once every agent
+	// is an ordinary owned agent).
 	const lastMessage = msgsAsc[msgsAsc.length - 1];
-	const lastMessageIsHuman = lastMessage !== undefined && !lastMessage.senderId.startsWith("ast-");
+	const lastMessageIsHuman = lastMessage !== undefined && lastMessage.senderId !== myAgentId;
 	const lastMessageIsWithinTimeout =
 		lastMessageIsHuman &&
 		lastMessage !== undefined &&
@@ -367,13 +478,19 @@ function AssistantOverlayInner({
 	// text — so both the bubble text and a card title would have matched
 	// /no api key/i. Instead, we filter notice messages out of the messages
 	// array and render them separately, unrelated to that prop.
-	const noticeMessages = msgsAsc.filter(
-		(m): m is Message & { type: "plain" } =>
-			m.type === "plain" && !!(m.payload as PlainPayload).notice,
+	const plainPayloadCache = new Map(
+		msgsAsc.filter((m) => m.type === "plain").map((m) => [m.id, plainReadPayloadOf(m)] as const),
 	);
-	const threadMessages = msgsAsc.filter(
-		(m) => m.type !== "plain" || !(m.payload as PlainPayload).notice,
-	);
+	const noticeMessages = msgsAsc.filter((m) => {
+		if (m.type !== "plain") return false;
+		const p = plainPayloadCache.get(m.id);
+		return p !== undefined && !isRedactedPayload(p) && p.notice !== undefined;
+	});
+	const threadMessages = msgsAsc.filter((m) => {
+		if (m.type !== "plain") return true;
+		const p = plainPayloadCache.get(m.id);
+		return p === undefined || isRedactedPayload(p) || p.notice === undefined;
+	});
 
 	// @lore UI-138/139/140: The fragment return caused ThreadShell to receive no
 	// definite height from the overlay's flex container, so the message list
@@ -408,11 +525,11 @@ function AssistantOverlayInner({
 			    text collision with the scroll area) and ABOVE the ThreadShell wrapper
 			    so the composer stays pinned to the overlay bottom (NEW-13). */}
 			{noticeMessages.map((m) => {
-				const noticePayload = m.payload as PlainPayload;
-				if (!noticePayload.notice) return null;
+				const p = plainPayloadCache.get(m.id);
+				if (p === undefined || isRedactedPayload(p) || p.notice === undefined) return null;
 				return (
 					<div key={m.id} className="shrink-0 px-[12px] pt-[9px]">
-						<AssistantNoticeCard notice={noticePayload.notice} onRetry={refresh} />
+						<AssistantNoticeCard notice={p.notice} onRetry={refresh} />
 					</div>
 				);
 			})}

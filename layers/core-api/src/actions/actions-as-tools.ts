@@ -16,7 +16,19 @@ export function actionsAsTools(actions: readonly Action[]): readonly RegisteredT
 		inputSchema: action.declaration.input,
 		handler: async (args, ctx): Promise<ToolResult> => {
 			const result = await action.run(
-				{ actor: ctx.agentId, db: ctx.db, eventBus: ctx.eventBus, now: new Date().toISOString() },
+				{
+					actor: ctx.agentId,
+					db: ctx.db,
+					eventBus: ctx.eventBus,
+					now: new Date().toISOString(),
+					// filled ONLY here, from the session's own `ToolContext` — never
+					// from a request body, never from a header.
+					caller: {
+						sessionId: ctx.sessionId,
+						taskId: ctx.taskId || null,
+						threadId: ctx.threadId ?? null,
+					},
+				},
 				args,
 			);
 			return result.ok

@@ -4,7 +4,7 @@ A Thread is a *container* — an append-only, chronologically ordered sequence o
 
 ```
 Thread {
-  id, host_kind, host_id, initiator_id, participants[],
+  id, host_kind, host_id, initiator_id, members[],
   pinned, resolved_at, last_active_at, created_at, direct_key
 }
 
@@ -18,7 +18,7 @@ Thread columns: `framework/db/src/schema.ts`. Message columns: `schema.ts`. `blo
 
 ## Host kinds (closed)
 
-`HOST_KINDS` (`framework/domain-model/src/thread.ts`): `task | knowledge_item | artifact | agent | user | team | factory`. There is no `bet` host kind — migration `0068` flipped every thread whose host was a bet to `task` (the host id did not change, since each bet kept its id as a root task).
+`HOST_KINDS` (`framework/domain-model/src/thread.ts`): `knowledge_item | agent | user | team | factory`. There is no `bet` host kind, no `task` host kind and no `artifact` host kind: a task's own thread is hosted by the task's team, and `tasks.threadId` is a real column set when the task is created — a thread can hold many tasks, and a task has exactly one thread.
 
 - Host = the entity the thread is *about* — not the creator (that is `initiator_id`); no thread has an owner.
 - No orphan threads. An assistant-style thread with no domain object attaches to the user themselves.
@@ -49,7 +49,7 @@ A configuration is a recognisable pattern of host + participants + pinning — d
 - **assistant** — host = user, pinned. (Starts unpinned → classifies as `dm` until the assistant's first response.)
 - **feed** — host = team or factory; broadcast.
 - **dm** — host = agent or user, exactly two participants.
-- **attached** — everything else (thread on a task, knowledge item, artifact).
+- **attached** — everything else (thread on a knowledge item or artifact).
 
 Post-spec extension: `direct_key` (AF14, `schema.ts`) dedupes direct two-participant threads only, via a partial unique index; null for group/feed/host-scoped threads, and the assistant thread is exempt.
 
@@ -77,8 +77,8 @@ An unanswered review whose agent finished and walked away is *not* blocking. Blo
 
 ## Authority
 
-- Server is the source of truth; every write emits an event (`layers/core-api/src/routes/threads.ts`; delivery guarantees documented in the `framework/event-bus/src/event-bus.ts` docblock).
-- Agents and humans are equal participants: either can initiate a thread to the other, and any participant can post.
+- Server is the source of truth; every write emits an event (`framework/domain-model/src/actions/thread.ts`, the `send_message` and `adjust_thread` actions; delivery guarantees documented in the `framework/event-bus/src/event-bus.ts` docblock).
+- Agents and humans are equal participants: either can initiate a thread to the other. Who may post is exactly who may read: a direct thread is members-only, a team/knowledge-item/factory thread is open to any signed-in principal, and posting to one you can read but are not yet a member of joins you to it in the same transaction.
 - Views never own threads. Conversations is one renderer of threads; task detail, knowledge-item detail, artifact detail, and the assistant overlay are others. Threads exist whether or not any view is open.
 
 ## Closure discipline
@@ -87,5 +87,5 @@ Adding a new message type, a new host kind, or a new verdict decision requires u
 
 ## Relationships
 
-- **Items.** The legacy `responses` table is gone — verdicts project as `verdict`-typed messages (`schema.ts`). `items` is the Router's derived working set, never the conversation source of truth; the Conversations queue reads `threads`. Item shape and routing rules: [Items and routing](./items-and-routing.md).
+- **Items.** There is no `items` table. The legacy `responses` table is gone too — verdicts project as `verdict`-typed messages (`schema.ts`). A review, a question, an escalation are messages on a thread; the Conversations queue reads `threads` directly.
 - **Rendering.** A *Conversation* is the deliberate-messaging reading of a Thread, rendered through the Part model — see [Part model](./part-model.md). It adds no data shape. The conversation rendering unit is a **Part**, never a "Block" — that word is reserved for the content primitive ([Blocks](../blocks/definition.md)).

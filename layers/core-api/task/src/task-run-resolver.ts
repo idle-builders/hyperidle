@@ -80,15 +80,6 @@ export interface TaskRunResolverDeps {
 	 * nothing disabled" degrade), never a live read reintroduced downstream.
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
-	/**
-	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
-	 * `hostKind:"task"` calling thread (`@hyperidle/conversation`'s
-	 * `findThread`/`insertThread`, injected — Mechanism C, `@hyperidle/work`
-	 * cannot import `@hyperidle/conversation` directly). Absent at a call site
-	 * not yet wired — the resolver bakes no `callingThreadId`, matching every
-	 * other optional-dep degrade in this file.
-	 */
-	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
 /** The baked `task_run` request shape, matching `resolveIntentInputInternal`'s current return. */
@@ -126,11 +117,10 @@ export interface BakedTaskRunRequest {
 	 */
 	readonly harnessDisabled?: readonly string[];
 	/**
-	 * AU27 Increment 1 (Decision 1) — the task's calling thread id, baked via
-	 * Decision 0's resolve-or-create. Present only when
-	 * `deps.resolveOrCreateCallingThread` was supplied.
+	 * @lore The task's own thread — a real, `NOT NULL` column, so this is
+	 * one read, never a resolve-or-create. Always present.
 	 */
-	readonly callingThreadId?: string;
+	readonly callingThreadId: string;
 }
 
 /**
@@ -231,12 +221,9 @@ export async function resolveTaskRunRequest(
 		if (!task) {
 			throw new Error("Explicit session task is unavailable");
 		}
-		const { readServerConfig, resolveOrCreateCallingThread } = deps;
+		const { readServerConfig } = deps;
 		const harnessDisabled = readServerConfig
 			? (await readServerConfig(db)).harnessDisabled
-			: undefined;
-		const callingThreadId = resolveOrCreateCallingThread
-			? await resolveOrCreateCallingThread(db, task.id, input.requestedAgentId)
 			: undefined;
 		return {
 			defaultAgentId: input.requestedAgentId,
@@ -247,8 +234,8 @@ export async function resolveTaskRunRequest(
 			teamId: task.teamId,
 			sourceCorrelation: { taskId: task.id, teamId: task.teamId },
 			agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
+			callingThreadId: task.threadId,
 			...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
-			...(callingThreadId !== undefined ? { callingThreadId } : {}),
 		};
 	}
 
@@ -298,9 +285,6 @@ export async function resolveTaskRunRequest(
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled
 		: undefined;
-	const callingThreadId = deps.resolveOrCreateCallingThread
-		? await deps.resolveOrCreateCallingThread(db, task.id, attempt.agentId)
-		: undefined;
 
 	return {
 		defaultAgentId: attempt.agentId,
@@ -311,8 +295,8 @@ export async function resolveTaskRunRequest(
 		teamId: task.teamId,
 		sourceCorrelation: { taskId: task.id, teamId: task.teamId },
 		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
+		callingThreadId: task.threadId,
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(contextBundle ? { contextBundle } : {}),
-		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }

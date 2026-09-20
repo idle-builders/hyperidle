@@ -2,7 +2,15 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Locator, Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
-import { expect, test } from "./fixtures";
+import {
+	expect,
+	makeIdentity,
+	makeMessage,
+	makeThread,
+	mockSearchThreads,
+	mockThread,
+	test,
+} from "./fixtures";
 
 const EVIDENCE = resolve(process.cwd(), "test-results/page-layout");
 const NOW = "2026-08-14T08:00:00.000Z";
@@ -32,40 +40,35 @@ async function mockPrimarySurfaces(page: Page): Promise<void> {
 			],
 		}),
 	);
-	await page.route("**/api/threads/layout-thread", (route) =>
-		json(route, {
-			thread: {
-				id: "layout-thread",
-				hostKind: "task",
-				hostId: "layout-task",
-				initiatorId: "agent-layout",
-				participants: ["agent-layout", "test-founder"],
-				pinned: false,
-				resolvedAt: null,
-				lastActiveAt: NOW,
+	// The thread door is `POST /api/actions/{search_threads, open_thread}`
+	// — never `GET /api/threads*`. There is no `task` host kind (a
+	// task's own thread is `team`-hosted).
+	const layoutThread = makeThread("layout-thread", {
+		hostKind: "team",
+		hostId: "team-layout",
+		initiatorId: "agent-layout",
+		members: ["agent-layout", "test-founder"],
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+	await mockThread(page, {
+		thread: layoutThread,
+		members: [
+			makeIdentity("agent-layout", { name: "Atlas", role: "agent", isAgent: true }),
+			makeIdentity("test-founder", { name: "Test Founder", role: "founder" }),
+		],
+		messages: [
+			makeMessage("layout-message", "layout-thread", {
+				senderId: "agent-layout",
+				payload: { text: "A real populated message for the readable lane.", refs: [] },
+				clientKey: "layout-message-key",
 				createdAt: NOW,
-			},
-			messages: [
-				{
-					id: "layout-message",
-					threadId: "layout-thread",
-					senderId: "agent-layout",
-					type: "plain",
-					payload: { text: "A real populated message for the readable lane.", refs: [] },
-					clientKey: "layout-message-key",
-					createdAt: NOW,
-				},
-			],
-			headMessageId: null,
-			identities: {
-				"agent-layout": { name: "Atlas", role: "agent", isAgent: true },
-				"test-founder": { name: "Test Founder", role: "founder" },
-			},
-			hostTitle: "Layout task",
-		}),
-	);
+			}),
+		],
+		hostTitle: "Layout task",
+	});
 	await page.route("**/api/sessions?**", (route) => json(route, []));
-	await page.route("**/api/threads?**", (route) => json(route, { threads: [], nextCursor: null }));
+	await mockSearchThreads(page, { rows: [] });
 }
 
 for (const viewport of [
@@ -198,11 +201,40 @@ test("team split uses local pane headers and compact destination-only behavior",
 
 test("review with an artifact open uses two local panes", async ({ page }) => {
 	await mkdir(EVIDENCE, { recursive: true });
-	await page.route("**/api/reviews/review-layout", (route) =>
-		json(route, REVIEW_COMPOSITION_SUBJECT),
-	);
+	// ReviewPage's default loader reads
+	// the review message straight off `open_thread`. `artifacts` passes
+	// through the loader unchanged, so reusing the composed fixture's
+	// artifacts here (summary/badge included) reproduces the same render.
+	const reviewThreadId = "thread-review-layout";
+	const reviewThread = makeThread(reviewThreadId, {
+		hostKind: "team",
+		hostId: "team-layout",
+		initiatorId: "test-founder",
+		members: ["test-founder", "agent-layout"],
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
+	await mockThread(page, {
+		thread: reviewThread,
+		members: [
+			makeIdentity("test-founder", { name: "Test Founder", role: "founder" }),
+			makeIdentity("agent-layout", { name: "Atlas", role: "agent", isAgent: true }),
+		],
+		messages: [
+			makeMessage("review-layout", reviewThreadId, {
+				senderId: "agent-layout",
+				type: "review",
+				payload: {
+					title: REVIEW_COMPOSITION_SUBJECT.title,
+					reasoning: [REVIEW_COMPOSITION_SUBJECT.prompt],
+					artifacts: REVIEW_COMPOSITION_SUBJECT.artifacts,
+				},
+				createdAt: NOW,
+			}),
+		],
+	});
 	await page.setViewportSize({ width: 1024, height: 768 });
-	await page.goto("/reviews/review-layout");
+	await page.goto(`/reviews/review-layout?threadId=${reviewThreadId}`);
 	await page
 		.getByText(REVIEW_COMPOSITION_SUBJECT.artifacts[0]?.title ?? "", { exact: true })
 		.click();

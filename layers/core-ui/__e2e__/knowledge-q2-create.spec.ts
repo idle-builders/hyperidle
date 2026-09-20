@@ -237,19 +237,14 @@ test.describe("Q2 AC-5: Add knowledge from bet detail", () => {
 			}
 		});
 
-		// Mock bet artifacts/threads
+		// Mock bet artifacts. Threads need no mock here — WorkTaskPage resolves its
+		// own thread via open_task(id).threadId (the fixtures' open_task fallback
+		// returns threadId: null), never a host-based search_threads lookup.
 		await page.route("**/api/artifacts**", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({ items: [], nextCursor: null }),
-			});
-		});
-		await page.route("**/api/threads/**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ thread: null }),
 			});
 		});
 	});
@@ -319,19 +314,12 @@ test.describe("Q2 AC-11: Create knowledge from bet detail, visible in list", () 
 			}
 		});
 
-		// Mock artifacts/threads on bet page
+		// Mock artifacts on bet page. Threads need no mock — see the @lore above.
 		await page.route("**/api/artifacts**", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({ items: [], nextCursor: null }),
-			});
-		});
-		await page.route("**/api/threads/**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ thread: null }),
 			});
 		});
 

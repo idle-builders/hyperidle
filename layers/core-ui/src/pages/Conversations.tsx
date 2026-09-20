@@ -24,12 +24,15 @@
  * @lore L9: there are exactly five states (A–E). State E ("Thread not found")
  * does NOT mount ConversationSurface — no message list, no composer.
  *
- * @lore Q1: Dial-in support retained. A task-hosted thread with an active session
- * shows a "Dial In" button; clicking it opens the companion split: the
- * ConversationSurface on the left, SessionActivityPanel on the right.
+ * @lore BC3: Dial-in (the "Dial In" button opening a session-activity split)
+ * is gone. It was reachable only for task-hosted threads, and that host kind
+ * no longer exists (a task's own thread is `team`-hosted — architecture.md
+ * §3.9). The task page shows a task's own active sessions directly; nothing
+ * replaces this affordance here.
  */
 
-import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { TASK_STATE_LABEL, type TaskListItem, type ThreadView } from "@hyperidle/domain-model";
+import { type JSX, useCallback, useContext, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { ArtifactSection } from "../components/ArtifactSection";
 import ConversationSurface, {
@@ -37,7 +40,6 @@ import ConversationSurface, {
 } from "../components/ConversationSurface";
 import type { PartAuthor } from "../components/parts";
 import { derivePartsFromMessages } from "../components/parts";
-import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import { SessionView } from "../components/SessionView";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
@@ -52,13 +54,13 @@ import {
 	SplitView,
 } from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { useSessionActivity } from "../hooks/useSessionActivity";
-import type { ThreadDetail } from "../hooks/useThreadDetail";
-import { useThreadDetail } from "../hooks/useThreadDetail";
+import { type SessionSummary, useSessionActivity } from "../hooks/useSessionActivity";
+import { useThread } from "../hooks/useThread.js";
+import { useThreadTasks } from "../hooks/useThreadTasks.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import type { AppShellOutletContext } from "../layouts/AppShell";
-import { apiFetch } from "../services/api-fetch.js";
+import { call } from "../services/call.js";
 import { resolveHostRoute } from "../services/host-route.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { ToastContext } from "../shell/ToastRegion";
@@ -70,115 +72,70 @@ import { ReviewPage } from "./review/ReviewPage.js";
 // matched real state. The blocking/unread fields remain on ThreadItem for AF7 forward-compat.
 
 /**
- * AM1: map the thread-detail identities into the source-agnostic `PartAuthor[]`
- * the `derivePartsFromMessages` adapter consumes. `isMe` marks the viewer's own
- * messages (the "You" label + own-message styling). No new fetch — the same
- * `data.identities` from `useThreadDetail`.
+ * AM1: map `open_thread`'s `members` (an Identity[]) into the source-agnostic
+ * `PartAuthor[]` the `derivePartsFromMessages` adapter consumes. `isMe` marks
+ * the viewer's own messages (the "You" label + own-message styling).
  */
 function identitiesToAuthors(
-	identities: ThreadDetail["identities"],
+	members: ThreadView["members"],
 	viewerId: string,
 ): ReadonlyArray<PartAuthor> {
-	return Object.entries(identities).map(([id, identity]) => ({
-		id,
+	return members.map((identity) => ({
+		id: identity.id,
 		name: identity.name,
 		isAgent: identity.isAgent === true || identity.role === "agent",
-		isMe: id === viewerId,
+		isMe: identity.id === viewerId,
 	}));
 }
 
 /** AM1: header participant chips for the ConversationSurface AvatarGroup. */
 function identitiesToParticipants(
-	identities: ThreadDetail["identities"],
+	members: ThreadView["members"],
 ): ReadonlyArray<ConversationSurfaceParticipant> {
-	return Object.entries(identities).map(([id, identity]) => ({
-		id,
+	return members.map((identity) => ({
+		id: identity.id,
 		name: identity.name,
 		isAgent: identity.isAgent === true || identity.role === "agent",
 	}));
 }
 
 // ---------------------------------------------------------------------------
-// useActiveSessionForTask — Q1 §4.6
-// Fetches GET /api/sessions?task_id=<taskId>&state=active.
-// Returns the first active session for the task, or null.
-// ---------------------------------------------------------------------------
-
-interface ActiveSession {
-	id: string;
-	agentId: string;
-	taskId: string;
-	state: string;
-	startedAt: string;
-	modelTier: string;
-}
-
-interface UseActiveSessionResult {
-	activeSession: ActiveSession | null;
-	loading: boolean;
-}
-
-async function fetchActiveSession(
-	taskId: string,
-	signal: AbortSignal,
-): Promise<ActiveSession | null> {
-	const url = `/api/sessions?task_id=${encodeURIComponent(taskId)}&state=active`;
-	const res = await apiFetch(url, { signal });
-	if (signal.aborted || !res.ok) return null;
-	const body = (await res.json()) as unknown;
-	if (signal.aborted) return null;
-	const sessions = Array.isArray(body) ? (body as ActiveSession[]) : [];
-	return sessions.length > 0 ? (sessions[0] ?? null) : null;
-}
-
-function useActiveSessionForTask(taskId: string | null): UseActiveSessionResult {
-	const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
-	const [loading, setLoading] = useState(false);
-	const abortRef = useRef<AbortController | null>(null);
-
-	useEffect(() => {
-		if (!taskId) {
-			setActiveSession(null);
-			return;
-		}
-
-		const ac = new AbortController();
-		abortRef.current?.abort();
-		abortRef.current = ac;
-		setLoading(true);
-
-		fetchActiveSession(taskId, ac.signal)
-			.then((session) => {
-				if (ac.signal.aborted) return;
-				setActiveSession(session);
-				setLoading(false);
-			})
-			.catch((cause) => {
-				if (ac.signal.aborted) return;
-				if (cause instanceof Error && cause.name === "AbortError") return;
-				setActiveSession(null);
-				setLoading(false);
-			});
-
-		return () => {
-			ac.abort();
-		};
-	}, [taskId]);
-
-	return { activeSession, loading };
-}
-
-// ---------------------------------------------------------------------------
 // AM3: SessionViewPanel — wraps useSessionActivity + SessionView.
 // Opened by the `session` OpenTarget (session-reference Embed or sub-agent row).
-// Placement: right-panel split (same pattern as dial-in). The page owns the
-// placement; the session view has no route of its own (architecture §entry).
+// Placement: right-panel split. The page owns the placement; the session view
+// has no route of its own (architecture §entry).
 // ---------------------------------------------------------------------------
+
+/**
+ * @lore resolve the `PartAuthor` for the agent that ran a session
+ * from the session's OWN data only — never from the hosting thread's
+ * `hostId`. A thread's host can be a team, a knowledge item, a user or an
+ * agent; only in the agent case would `hostId` even happen to name an agent,
+ * and it is not necessarily the agent that ran THIS session (e.g. a
+ * team-hosted task thread, or sub-agent recursion). `useSessionActivity`'s
+ * `summary.agentId` is the one place the session's own agent id surfaces —
+ * but by the hook's own contract it stays `null` while the session is still
+ * streaming, so there genuinely is no id to show yet. A generic, role-only
+ * placeholder is used rather than inventing or reusing an unrelated id.
+ */
+export function resolveSessionAgentAuthor(
+	summary: Pick<SessionSummary, "agentId"> | null,
+	identities: Record<string, ThreadView["members"][number]>,
+): PartAuthor {
+	if (!summary?.agentId) {
+		return { id: "", name: "Agent", isAgent: true, isMe: false };
+	}
+	return {
+		id: summary.agentId,
+		name: identities[summary.agentId]?.name ?? summary.agentId,
+		isAgent: true,
+		isMe: false,
+	};
+}
 
 interface SessionViewPanelProps {
 	sessionId: string;
-	agentName: string;
-	agentId: string;
+	identities: Record<string, ThreadView["members"][number]>;
 	threadTitle: string;
 	hostTitle: string;
 	viewerId: string;
@@ -189,8 +146,7 @@ interface SessionViewPanelProps {
 
 function SessionViewPanel({
 	sessionId,
-	agentName,
-	agentId,
+	identities,
 	threadTitle,
 	hostTitle,
 	viewerId,
@@ -198,15 +154,10 @@ function SessionViewPanel({
 	onClose,
 	onOpen,
 }: SessionViewPanelProps): JSX.Element {
-	const { entries, status } = useSessionActivity(sessionId);
+	const { entries, status, summary } = useSessionActivity(sessionId);
 
-	const agent: import("../components/parts").PartAuthor = {
-		id: agentId,
-		name: agentName,
-		isAgent: true,
-		isMe: false,
-	};
-	const viewer: import("../components/parts").PartAuthor = {
+	const agent: PartAuthor = resolveSessionAgentAuthor(summary, identities);
+	const viewer: PartAuthor = {
 		id: viewerId,
 		name: viewerName,
 		isAgent: false,
@@ -268,15 +219,9 @@ function SessionViewPanel({
 // non-resolving commits. See @lore on onAppend below.
 const ASYNC_ACK_COPY = "Response recorded — agent will pick it up on next session.";
 
-function classifyHttpError(status: number): string {
-	if (status >= 500) {
-		return "Server couldn't record this response. Try again?";
-	}
-	return `Couldn't record response (HTTP ${status}).`;
-}
-
 function InspectDestination({ path }: { path: string }): JSX.Element {
-	const [pathname, hash = ""] = path.split("#");
+	const [beforeHash, hash = ""] = path.split("#");
+	const [pathname, query = ""] = (beforeHash ?? "").split("?");
 	const knowledge = pathname?.match(/^\/knowledge\/([^/]+)$/);
 	if (knowledge?.[1]) {
 		return (
@@ -288,12 +233,49 @@ function InspectDestination({ path }: { path: string }): JSX.Element {
 		);
 	}
 	const review = pathname?.match(/^\/reviews\/([^/]+)$/);
-	if (review?.[1]) return <ReviewPage overrideReviewId={review[1]} presentation="pane" />;
+	if (review?.[1]) {
+		// The review's threadId rides the query string (part.ts's
+		// `ReviewTarget`/open-handler.ts) — `open_thread` needs it directly.
+		const threadId = new URLSearchParams(query).get("threadId") ?? undefined;
+		return (
+			<ReviewPage overrideReviewId={review[1]} overrideThreadId={threadId} presentation="pane" />
+		);
+	}
 	return <EmptyState title="Unavailable" description="This reference cannot be inspected here." />;
 }
 
+/**
+ * A thread's own tasks, rendered where the old single host-context link
+ * to a task used to sit — a thread's `hostKind` is never `task`, so there
+ * is no single link, there can be several. Same element (`Link` +
+ * `resolveHostRoute`) and same classes as the surviving host-context link
+ * (`ConversationSurface.tsx`'s `ConversationHeader`), repeated once per
+ * task. Zero tasks renders nothing.
+ */
+function ThreadTaskLinks({ tasks }: { tasks: readonly TaskListItem[] }): JSX.Element | null {
+	if (tasks.length === 0) return null;
+	return (
+		<div className="flex flex-wrap items-center gap-[9px] mt-[3px]">
+			{tasks.map((task) => {
+				const route = resolveHostRoute("task", task.id);
+				if (!route) return null;
+				return (
+					<Link
+						key={task.id}
+						to={route}
+						className="type-control truncate text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
+					>
+						{task.title} · {TASK_STATE_LABEL[task.state]}
+					</Link>
+				);
+			})}
+		</div>
+	);
+}
+
 function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
-	const { status, data, error, retry } = useThreadDetail(threadId);
+	const { status, data, error, refresh: retry } = useThread(threadId);
+	const { tasks: threadTasks } = useThreadTasks(threadId);
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 	// AM1: viewer identity for own-message ("You") styling in the Part column.
@@ -308,57 +290,24 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// AM5 T6: SplitView ratio persistence per surface (hooks must be unconditional)
 	const [inspectRatio, setInspectRatio] = useUiPreference("conversation.inspect", 0.6);
 	const [inspection, setInspection] = useState<
-		{ kind: "dial" | "session"; sessionId: string } | { kind: "path"; path: string } | null
+		{ kind: "session"; sessionId: string } | { kind: "path"; path: string } | null
 	>(null);
 
-	// Q1 §4.6: check for active session when viewing a task-hosted thread
-	const taskId = data?.thread.hostKind === "task" ? (data.thread.hostId ?? null) : null;
-	const { activeSession } = useActiveSessionForTask(taskId);
-
-	// Q1 Task 15 / review issue #7: keyboard shortcut D toggles dial-in
-	// when the active session badge is visible. Must not fire in text inputs.
-	useEffect(() => {
-		if (!activeSession) return;
-		const handler = (e: KeyboardEvent): void => {
-			const target = e.target as HTMLElement | null;
-			if (target) {
-				const tag = target.tagName.toLowerCase();
-				if (tag === "input" || tag === "textarea" || target.isContentEditable) {
-					return;
-				}
-			}
-			if (e.key === "d" || e.key === "D") {
-				e.preventDefault();
-				setInspection((current) =>
-					current?.kind === "dial" ? null : { kind: "dial", sessionId: activeSession.id },
-				);
-			}
-		};
-		document.addEventListener("keydown", handler);
-		return () => {
-			document.removeEventListener("keydown", handler);
-		};
-	}, [activeSession]);
-
-	// AM1: the conversation send path. POSTs a `plain` message via the existing
-	// `/api/threads/:id/messages` endpoint (unchanged), then refreshes. The
-	// conversation no longer emits a verdict — no verdict POST is reachable from
-	// here (the decision UI relocated to ReviewPage, design §5), so the old
-	// verdict / head-resolving branch is gone; a plain reply always async-acks.
+	// AM1: the conversation send path. Sends a `plain` message via
+	// `send_message`, then refreshes. The conversation no longer emits a
+	// verdict — no verdict send is reachable from here (the decision UI
+	// lives on ReviewPage), so the old verdict /
+	// head-resolving branch is gone; a plain reply always async-acks.
 	const onSend = useCallback(
 		async (text: string): Promise<void> => {
 			if (!data) return;
-			const res = await apiFetch(`/api/threads/${data.thread.id}/messages`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					type: "plain",
-					payload: { text, refs: [] },
-					clientKey: crypto.randomUUID(),
-				}),
+			const res = await call("send_message", {
+				threadId: data.thread.id,
+				text,
+				clientKey: crypto.randomUUID(),
 			});
 			if (!res.ok) {
-				throw new Error(classifyHttpError(res.status));
+				throw new Error(res.problems[0]?.message ?? "Failed to send message");
 			}
 			retry();
 			// A plain reply is never a head-resolving event — async-ack the response.
@@ -429,32 +378,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		);
 	}
 
-	// Q1 §4.6: "Dial in" button — secondary style with pulsing live dot.
-	// Only shown for task threads with an active session.
-	// hearth-internal-padding
-	const dialInButton =
-		activeSession && inspection?.kind !== "dial" ? (
-			/* AI5: shared Button primitive (secondary). The live-pulse dot is one of
-			   the 3 AC3-allowlisted animate-pulse survivors and is preserved. */
-			<Button
-				variant="secondary"
-				size="sm"
-				onClick={() => setInspection({ kind: "dial", sessionId: activeSession.id })}
-				data-testid="dial-in-btn"
-			>
-				<span
-					aria-hidden="true"
-					className="motion-activity w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]  shrink-0"
-				/>
-				<span
-					className="sr-only"
-					role="status"
-					aria-label="Live session"
-					data-testid="live-session-badge"
-				/>
-				Dial in
-			</Button>
-		) : null;
+	// `open_thread`'s `members` replaces the old `identities` map — build the
+	// same lookup shape once so the rest of this component reads unchanged.
+	const identities: Record<string, ThreadView["members"][number]> = Object.fromEntries(
+		data.members.map((m) => [m.id, m]),
+	);
 
 	// AM1: derive the render units + header/participants ONCE for both layouts.
 	// The conversation column comes from the Part adapter (the only Message-aware
@@ -465,9 +393,9 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const parts = derivePartsFromMessages(
 		[...data.messages].reverse(),
 		viewerId,
-		identitiesToAuthors(data.identities, viewerId),
+		identitiesToAuthors(data.members, viewerId),
 	);
-	const participants = identitiesToParticipants(data.identities);
+	const participants = identitiesToParticipants(data.members);
 	// AM1: the OpenTarget routing seam. Reference/host navigation flows through the
 	// one `OpenHandler` — the same descriptor-driven seam the PartList renderer uses.
 	// host targets resolve through resolveHostRoute (total over BlockHostKind);
@@ -480,11 +408,16 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		onInspectPath: (path) => setInspection({ kind: "path", path }),
 		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
 	});
-	const threadTitle: string =
-		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
+	// The thread's OWN title (page heading + breadcrumb leaf): the stored
+	// override, else the server's viewer-relative ladder answer
+	// (`computedTitle`, never empty). `hostTitle` below is a different thing —
+	// the linked HOST object's own title (e.g. a knowledge item's), not the
+	// thread's — and must not stand in here: it is `null` for every host kind
+	// the server doesn't special-case (team included), which is what fell
+	// through to the raw host id.
+	const threadTitle: string = data.thread.title ?? data.thread.computedTitle;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
-	const hostTitle =
-		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
+	const hostTitle = data.hostTitle ?? identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const header = {
 		title: threadTitle,
 		hostKind: data.thread.hostKind,
@@ -492,24 +425,13 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		hostRoute,
 	};
 
-	const agentId = activeSession?.agentId ?? data.thread.hostId;
-	const agentIdentity = data.identities[agentId];
-	const agentName = agentIdentity?.name ?? agentId;
-	const viewerName = data.identities[viewerId]?.name ?? viewerId;
+	const viewerName = identities[viewerId]?.name ?? viewerId;
 	const inspectionDestination =
-		inspection?.kind === "dial" ? (
-			<SessionActivityPanel
-				sessionId={inspection.sessionId}
-				agentName={agentName}
-				taskTitle={data.thread.hostId}
-				onClose={() => setInspection(null)}
-			/>
-		) : inspection?.kind === "session" ? (
+		inspection?.kind === "session" ? (
 			<div data-testid="session-view-panel">
 				<SessionViewPanel
 					sessionId={inspection.sessionId}
-					agentId={agentId}
-					agentName={agentName}
+					identities={identities}
 					threadTitle={header.title}
 					hostTitle={header.hostTitle}
 					viewerId={viewerId}
@@ -531,13 +453,12 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 				// @lore NEW-28: on mobile (sidebarMobile) the breadcrumb is suppressed
 				// and the title is hidden md:block, so the <header> would be a 37px
 				// empty container if rendered with no visible content. Skip it entirely
-				// on mobile unless dialInButton is present (the only mobile-visible
-				// content). Desktop always renders the full header.
-				inspection ? undefined : !sidebarMobile || dialInButton ? (
+				// on mobile. Desktop always renders the full header.
+				inspection || sidebarMobile ? undefined : (
 					<PageHeader
 						title={threadTitle}
 						leading={
-							sidebarMobile ? undefined : (
+							<>
 								<Breadcrumb
 									segments={[
 										{ label: "Conversations", to: "/conversations" },
@@ -545,11 +466,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 									]}
 									LinkComponent={Link}
 								/>
-							)
+								<ThreadTaskLinks tasks={threadTasks} />
+							</>
 						}
-						actions={dialInButton}
 					/>
-				) : undefined
+				)
 			}
 			body="managed"
 		>
@@ -624,11 +545,10 @@ export function Conversations(): JSX.Element {
 	const onNewThread = ctx?.onNewThread;
 
 	// @lore U6 review V1: Thread data is sourced from AppShell's OutletContext
-	// (single useConversationsThreads call in AppShell). Conversations.tsx no
-	// longer calls useConversationsThreads independently, avoiding the duplicate
-	// API fetch that previously occurred on every Conversations page mount.
-	// Fallback values handle the case where Conversations is rendered outside
-	// AppShell (tests that provide a partial context or no context at all).
+	// (AppShell's single `useThreads` call) — Conversations.tsx never fetches
+	// its own copy. Fallback values handle the case where Conversations is
+	// rendered outside AppShell (tests that provide a partial context or no
+	// context at all).
 	const conversationsThreads = {
 		threads: ctx?.threads ?? [],
 		status: ctx?.threadsStatus ?? ("loading" as const),

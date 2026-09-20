@@ -26,7 +26,15 @@
  * nothing, ever.
  */
 
-import { agentRunConfig, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import {
+	agentRunConfig,
+	type HyperIdleDb,
+	sessions,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { listNotifications } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -94,7 +102,17 @@ describe("AB2 AC-2: GET /teams/:id roster shape", () => {
 
 	test("carries harnessAvailable and no run-derived fields", async ({ db, app }) => {
 		await seedBase(db);
+		await db.insert(threads).values({
+			id: `thr-${"ab2-bet-1"}`,
+			hostKind: "team",
+			hostId: "ab2-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+			threadId: `thr-${"ab2-bet-1"}`,
 			id: "ab2-bet-1",
 			parentTaskId: null,
 			teamId: "ab2-team",
@@ -104,7 +122,17 @@ describe("AB2 AC-2: GET /teams/:id roster shape", () => {
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
+		await db.insert(threads).values({
+			id: `thr-${"ab2-task-1"}`,
+			hostKind: "team",
+			hostId: "ab2-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+			threadId: `thr-${"ab2-task-1"}`,
 			id: "ab2-task-1",
 			parentTaskId: "ab2-bet-1",
 			teamId: "ab2-team",
@@ -165,7 +193,17 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 	}) => {
 		await seedBase(db);
 		// Seed enough crashes to trigger critical
+		await db.insert(threads).values({
+			id: `thr-${"ab2-bet-notif"}`,
+			hostKind: "team",
+			hostId: "ab2-team",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+			threadId: `thr-${"ab2-bet-notif"}`,
 			id: "ab2-bet-notif",
 			parentTaskId: null,
 			teamId: "ab2-team",
@@ -177,7 +215,17 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 		});
 		for (let i = 1; i <= 4; i++) {
 			const paddedId = i.toString().padStart(2, "0");
+			await db.insert(threads).values({
+				id: `thr-${`ab2-task-notif-${paddedId}`}`,
+				hostKind: "team",
+				hostId: "ab2-team",
+				initiatorId: "system:propagation",
+				participants: "[]",
+				lastActiveAt: NOW,
+				createdAt: NOW,
+			});
 			await db.insert(tasks).values({
+				threadId: `thr-${`ab2-task-notif-${paddedId}`}`,
 				id: `ab2-task-notif-${paddedId}`,
 				parentTaskId: "ab2-bet-notif",
 				teamId: "ab2-team",

@@ -23,6 +23,58 @@ export {
 	TaskViewSchema,
 	taskInvariants,
 } from "./actions/task.js";
+// @lore BC3: `Thread`, `Message` and the four payload interfaces moved out
+// of `thread.ts` into `actions/thread.ts` as zod schemas — re-exported here
+// under the SAME names so every existing importer keeps compiling against
+// the name it already uses.
+export type {
+	AdjustThreadInput,
+	Identity,
+	Message,
+	OpenThreadInput,
+	PlainPayload,
+	PlainReadPayload,
+	QuestionnairePayload,
+	ReviewPayload,
+	SearchThreadsInput,
+	SendMessageInput,
+	SendMessageOutput,
+	Thread,
+	ThreadListRow,
+	ThreadView,
+	VerdictPayload,
+} from "./actions/thread.js";
+export {
+	AdjustThreadInputSchema,
+	adjustThread,
+	adjustThreadInvariants,
+	agentsToWake,
+	canReadThread,
+	canWriteThread,
+	entityRefSchema,
+	IdentitySchema,
+	inlineRefSchema,
+	MessageSchema,
+	mentionRefSchema,
+	OpenThreadInputSchema,
+	openThread,
+	parseMessagePayload,
+	plainPayloadSchema,
+	questionnairePayloadSchema,
+	reviewPayloadSchema,
+	SearchThreadsInputSchema,
+	SendMessageInputSchema,
+	SendMessageOutputSchema,
+	searchThreads,
+	sendMessage,
+	sendMessageInvariants,
+	THREAD_ACTIONS,
+	ThreadListRowSchema,
+	ThreadSchema,
+	ThreadViewSchema,
+	threadParticipantsSchema,
+	verdictPayloadSchema,
+} from "./actions/thread.js";
 export type {
 	AgentBehaviorConfigKind,
 	AgentBehaviorConfigLink,
@@ -132,11 +184,10 @@ export {
 	KNOWLEDGE_STATUSES,
 } from "./knowledge.js";
 // MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
-export type { MentionCandidate, ResolvedMention } from "./mention.js";
+export type { ResolvedMention } from "./mention.js";
 export {
-	extractMentionCandidates,
 	MAX_MENTIONS_PER_MESSAGE,
-	resolveMentions,
+	resolveMentionsInText,
 	// segmentMentions MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 } from "./mention.js";
 // @lore `model-gateway.js` exported a resolution layer — ModelGatewayConfig,
@@ -216,21 +267,14 @@ export type {
 	InlineRef,
 	InlineRefKind,
 	MentionRef,
-	Message,
 	MessageId,
 	MessageType,
-	PlainPayload,
 	PlainPayloadWithBlockId,
-	QuestionnairePayload,
 	RedactedPayload,
 	ReviewCanvasArtifact,
 	ReviewCanvasKind,
-	ReviewPayload,
-	Thread,
 	ThreadId,
-	ToolCallSummary,
 	VerdictDecision,
-	VerdictPayload,
 } from "./thread.js";
 export {
 	HOST_KINDS,

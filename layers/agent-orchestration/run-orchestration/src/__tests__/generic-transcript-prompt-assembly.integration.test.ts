@@ -5,8 +5,8 @@
  *   1. the `## Conversation` prompt section (every harness reads it from
  *      AGENTS.md/CLAUDE.md), replacing the raw machine-id Correlation line;
  *   2. `SessionConfig.requiredReturnActions` — Decision 3's structural rule
- *      (`callingThreadId != null && taskId == null` ⇒ `["reply"]`), plus the
- *      one-line reply orientation in the prompt.
+ *      (`callingThreadId != null && taskId == null` ⇒ `["send_message"]`), plus the
+ *      one-line send_message orientation in the prompt.
  *
  * Uses `deps.onBeforeHarnessStart`'s abort return to observe the fully
  * assembled `SessionConfig` without spawning a real harness process.
@@ -14,7 +14,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
@@ -151,8 +151,18 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const teamId = `${taskId}-team`;
 		const rootTaskId = `${taskId}-bet`;
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
+		await db.insert(threads).values({
+			id: `thr-${rootTaskId}`,
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
 			id: rootTaskId,
+			threadId: `thr-${rootTaskId}`,
 			parentTaskId: null,
 			teamId: teamId,
 			title: "Generic transcript test bet",
@@ -161,8 +171,18 @@ describe("generic transcript delivery (Increment 4)", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
+		await db.insert(threads).values({
+			id: `thr-${taskId}`,
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
 			id: taskId,
+			threadId: `thr-${taskId}`,
 			parentTaskId: rootTaskId,
 			teamId,
 			title: "Generic transcript test task",
@@ -230,7 +250,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 	// planning loop. A CLI harness only ever saw the prompt section. With that
 	// adapter gone the second delivery had no reader, so the prompt section is the
 	// single delivery and this test asserts it alone.
-	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['reply']", async ({
+	test("a session with a baked transcript + calling thread + no task gets ## Conversation and requiredReturnActions:['send_message']", async ({
 		db,
 	}) => {
 		await seedAgent(db, "agent-transcript-1");
@@ -259,13 +279,13 @@ describe("generic transcript delivery (Increment 4)", () => {
 		expect(prompt).toContain("## Conversation");
 		expect(prompt).toContain("What's the status of the launch?");
 		expect(prompt).toContain("On track for Friday.");
-		expect(prompt).toContain("call `reply`");
+		expect(prompt).toContain("call `send_message`");
 		expect(prompt).not.toContain("Correlation:");
 
-		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["reply"]);
+		expect(captured.sessionConfig?.requiredReturnActions).toEqual(["send_message"]);
 	});
 
-	test("a task_run session (has a taskId) with a transcript does NOT get requiredReturnActions:['reply'] — the trio still satisfies", async ({
+	test("a task_run session (has a taskId) with a transcript does NOT get requiredReturnActions:['send_message'] — the full set still satisfies", async ({
 		db,
 	}) => {
 		await seedAgent(db, "agent-transcript-2");
@@ -346,7 +366,9 @@ describe("generic transcript delivery (Increment 4)", () => {
 
 		const prompt = captured.sessionConfig?.assembledPrompt ?? "";
 		expect(prompt).toContain("## When work needs a person");
-		expect(prompt, "the agent must be told HOW to ask").toContain("submit_review");
+		expect(prompt, "the agent must be told HOW to ask").toContain(
+			'`send_message` with type "review"',
+		);
 		// Nothing intercepts, so the agent has to know the judgement is its own.
 		// Text written for a gate would have it waiting for a refusal that never
 		// comes.

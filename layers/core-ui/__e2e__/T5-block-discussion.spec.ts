@@ -21,9 +21,21 @@
  * to include a message whose blockId does NOT match any block in the rendered body.
  * KnowledgeBody renders these as orphans with `anchorLost` — the [data-testid="anchor-lost-indicator"]
  * must be visible.
+ *
+ * @lore BC3: repointed at `POST /api/actions/{search_threads,open_thread,
+ * send_message}` — never `GET/POST /api/threads*`. The knowledge page's
+ * thread already exists in every test here, so `adjust_thread` (the
+ * create-on-first-post door) is never exercised and needs no mock.
  */
 
-import { expect, test } from "./fixtures";
+import {
+	expect,
+	makeMessage,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	test,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Shared constants
@@ -41,48 +53,49 @@ const LATER = "2026-05-31T10:05:00.000Z";
  * capture the real id, not a hard-coded constant. */
 const ORPHAN_BLOCK_ID = "orphan-block-that-no-longer-exists";
 
-// ---------------------------------------------------------------------------
-// Mock helpers
-// ---------------------------------------------------------------------------
+const THREAD = makeThread(THREAD_ID, {
+	hostKind: "knowledge_item",
+	hostId: KNOWLEDGE_ID,
+	initiatorId: FOUNDER_ID,
+	members: [FOUNDER_ID],
+	lastActiveAt: NOW,
+	createdAt: NOW,
+});
 
-function makeThreadListResponse() {
-	return {
-		threads: [
-			{
-				id: THREAD_ID,
-				hostKind: "knowledge_item",
-				hostId: KNOWLEDGE_ID,
-				initiatorId: FOUNDER_ID,
-				participants: [FOUNDER_ID],
-				pinned: false,
-				resolvedAt: null,
-				lastActiveAt: NOW,
-				createdAt: NOW,
-				hasUnresolvedReview: false,
-			},
-		],
-		nextCursor: null,
-	};
+async function mockThreadList(page: import("@playwright/test").Page): Promise<void> {
+	await mockSearchThreads(page, {
+		rows: [makeThreadListRow(THREAD_ID, { ...THREAD, hasUnresolvedReview: false })],
+	});
 }
 
-function makeThreadDetailResponse(msgs: Array<Record<string, unknown>>) {
-	return {
-		thread: {
-			id: THREAD_ID,
-			hostKind: "knowledge_item",
-			hostId: KNOWLEDGE_ID,
-			initiatorId: FOUNDER_ID,
-			participants: [FOUNDER_ID],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: msgs.length > 0 ? LATER : NOW,
-			createdAt: NOW,
-		},
-		messages: msgs,
-		headMessageId: null,
-		nextMessagesCursor: null,
-		identities: {},
-	};
+async function mockKnowledgeItem(
+	page: import("@playwright/test").Page,
+	body: string,
+): Promise<void> {
+	await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, async (route) => {
+		if (route.request().method() === "GET") {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					id: KNOWLEDGE_ID,
+					title: "Architecture Decision: Auth Strategy",
+					body,
+					format: "markdown",
+					status: "active",
+					version: 1,
+					updatedBy: FOUNDER_ID,
+					scopeKind: "practice",
+					scopeId: null,
+					createdAt: NOW,
+					updatedAt: NOW,
+					signals: null,
+				}),
+			});
+		} else {
+			await route.continue();
+		}
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -94,99 +107,53 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 	test.beforeEach(async ({ page }) => {
 		const postedMessages: Array<Record<string, unknown>> = [];
 
-		// Thread list — always returns a known thread for k1
-		await page.route(`**/api/threads?**host_kind=knowledge_item**`, async (route) => {
+		await mockThreadList(page);
+
+		// Thread detail GET — returns messages accumulated so far
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(makeThreadListResponse()),
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						thread: { ...THREAD, lastActiveAt: postedMessages.length > 0 ? LATER : NOW },
+						members: [],
+						messages: postedMessages,
+						headMessageId: null,
+						hostTitle: null,
+					},
+				}),
 			});
 		});
 
-		// Thread detail GET — returns messages accumulated so far
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse(postedMessages)),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
 		// POST message — capture and accumulate
-		await page.route(`**/api/threads/${THREAD_ID}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				const requestBody = (await route.request().postDataJSON()) as Record<string, unknown>;
-				const msg: Record<string, unknown> = {
-					id: `msg-${Date.now()}`,
-					threadId: THREAD_ID,
-					senderId: FOUNDER_ID,
-					type: "plain",
-					payload: requestBody.payload,
-					clientKey: requestBody.clientKey,
-					deletedAt: null,
-					redactedAt: null,
-					resolvedAt: null,
-					createdAt: LATER,
-				};
-				postedMessages.push(msg);
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: msg,
-						thread: makeThreadDetailResponse(postedMessages).thread,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// POST create thread (resolveOrCreateHostThread)
-		await page.route("**/api/threads", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						thread: makeThreadDetailResponse([]).thread,
-						messages: [],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+		await page.route("**/api/actions/send_message", async (route) => {
+			const input = JSON.parse(route.request().postData() ?? "{}") as {
+				text?: string;
+				blockId?: string;
+				clientKey?: string;
+			};
+			const msg = makeMessage(`msg-${Date.now()}`, THREAD_ID, {
+				senderId: FOUNDER_ID,
+				payload: { text: input.text, blockId: input.blockId },
+				clientKey: input.clientKey ?? "ck-default",
+				blockId: input.blockId ?? null,
+				createdAt: LATER,
+			});
+			postedMessages.push(msg);
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: { message: msg, thread: THREAD } }),
+			});
 		});
 
 		// Knowledge item API (for useKnowledgeItem hook)
-		await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: KNOWLEDGE_ID,
-						title: "Architecture Decision: Auth Strategy",
-						body: "JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes.",
-						format: "markdown",
-						status: "active",
-						version: 1,
-						updatedBy: FOUNDER_ID,
-						scopeKind: "practice",
-						scopeId: null,
-						createdAt: NOW,
-						updatedAt: NOW,
-						signals: null,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockKnowledgeItem(
+			page,
+			"JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes.",
+		);
 	});
 
 	test("knowledge detail page renders with body blocks and thread section", async ({ page }) => {
@@ -276,66 +243,34 @@ test.describe("T5 AC-2 — anchor-lost indicator for orphan messages", () => {
 		// Mock a thread with one message whose blockId does NOT match any block
 		// in the rendered knowledge body. KnowledgeBody's orphan catch-all will
 		// render it with anchorLost=true.
-		const orphanMsg = {
-			id: "msg-orphan-001",
-			threadId: THREAD_ID,
+		const orphanMsg = makeMessage("msg-orphan-001", THREAD_ID, {
 			senderId: FOUNDER_ID,
-			type: "plain",
-			payload: {
-				text: "Comment on the old block",
-				blockId: ORPHAN_BLOCK_ID,
-			},
+			payload: { text: "Comment on the old block", blockId: ORPHAN_BLOCK_ID },
 			clientKey: "ck-orphan-001",
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
+			blockId: ORPHAN_BLOCK_ID,
 			createdAt: NOW,
-		};
+		});
 
-		await page.route(`**/api/threads?**host_kind=knowledge_item**`, async (route) => {
+		await mockThreadList(page);
+
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(makeThreadListResponse()),
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						thread: THREAD,
+						members: [],
+						messages: [orphanMsg],
+						headMessageId: null,
+						hostTitle: null,
+					},
+				}),
 			});
 		});
 
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse([orphanMsg])),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: KNOWLEDGE_ID,
-						title: "Architecture Decision: Auth Strategy",
-						body: "JWT-based authentication with refresh tokens.",
-						format: "markdown",
-						status: "active",
-						version: 1,
-						updatedBy: FOUNDER_ID,
-						scopeKind: "practice",
-						scopeId: null,
-						createdAt: NOW,
-						updatedAt: NOW,
-						signals: null,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockKnowledgeItem(page, "JWT-based authentication with refresh tokens.");
 
 		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
 		await page.waitForSelector("[data-testid='knowledge-detail-page']");
@@ -363,91 +298,41 @@ test.describe("T5 AC-5 — HostThreadSection block-scoped filter", () => {
 		// Since no message has that block's id yet, empty state is shown.
 		// Then "Show all messages" restores the full list.
 
-		const unanchoredMsg = {
-			id: "msg-unanchored-001",
-			threadId: THREAD_ID,
+		const unanchoredMsg = makeMessage("msg-unanchored-001", THREAD_ID, {
 			senderId: FOUNDER_ID,
-			type: "plain",
 			payload: { text: "General discussion message" },
 			clientKey: "ck-un-001",
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
 			createdAt: NOW,
-		};
+		});
 
-		const anchoredToOrphanMsg = {
-			id: "msg-anchored-orphan-001",
-			threadId: THREAD_ID,
+		const anchoredToOrphanMsg = makeMessage("msg-anchored-orphan-001", THREAD_ID, {
 			senderId: FOUNDER_ID,
-			type: "plain",
 			payload: { text: "Old anchored message", blockId: ORPHAN_BLOCK_ID },
 			clientKey: "ck-anch-001",
-			deletedAt: null,
-			redactedAt: null,
-			resolvedAt: null,
+			blockId: ORPHAN_BLOCK_ID,
 			createdAt: NOW,
-		};
+		});
 
-		await page.route(`**/api/threads?**host_kind=knowledge_item**`, async (route) => {
+		await mockThreadList(page);
+
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(makeThreadListResponse()),
+				body: JSON.stringify({
+					ok: true,
+					data: {
+						thread: THREAD,
+						members: [],
+						messages: [unanchoredMsg, anchoredToOrphanMsg],
+						headMessageId: null,
+						hostTitle: null,
+					},
+				}),
 			});
 		});
 
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(makeThreadDetailResponse([unanchoredMsg, anchoredToOrphanMsg])),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.route("**/api/threads", async (route) => {
-			if (route.request().method() === "POST") {
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						thread: makeThreadDetailResponse([]).thread,
-						messages: [],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: KNOWLEDGE_ID,
-						title: "Architecture Decision: Auth Strategy",
-						body: "JWT-based authentication with refresh tokens.",
-						format: "markdown",
-						status: "active",
-						version: 1,
-						updatedBy: FOUNDER_ID,
-						scopeKind: "practice",
-						scopeId: null,
-						createdAt: NOW,
-						updatedAt: NOW,
-						signals: null,
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockKnowledgeItem(page, "JWT-based authentication with refresh tokens.");
 
 		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
 		await page.waitForSelector("[data-testid='knowledge-detail-page']");

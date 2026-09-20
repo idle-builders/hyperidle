@@ -12,7 +12,7 @@
  * @lore AD8a: The RAIL_API_RESPONSE constant and "M3 — Rail" describe block no longer apply.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 // Minimal settings response — what GET /api/settings returns after M3 (no appearance field).
 const SETTINGS_API_RESPONSE = {
@@ -68,13 +68,7 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 	});
 
 	// Mock threads (needed by conversations view)
-	await page.route("**/api/threads**", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [] }),
-		});
-	});
+	await mockSearchThreads(page, { rows: [] });
 }
 
 test.describe("M3 — Auth: page loads with real user data", () => {

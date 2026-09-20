@@ -35,7 +35,6 @@ describe("A2: Migration", () => {
 				// @lore AU18: `factory_settings` retired — `server_config` is its
 				// typed singleton-row successor.
 				"server_config",
-				"items",
 				"knowledge_edit_log",
 				"knowledge_items",
 				"messages",
@@ -66,7 +65,10 @@ describe("A2: Migration", () => {
 		// @lore BB1: `bets` table dropped — tasks carry parentTaskId self-FK now.
 		// Exact-absence proves the DROP TABLE in the BB1 migration ran.
 		expect(tableNames).not.toContain("bets");
-		expect(tableNames.length).toBeGreaterThanOrEqual(13);
+		// @lore BC3 migration 0085 step 6: `items` dropped, destructive, no
+		// compat column. Exact-absence proves the DROP TABLE ran.
+		expect(tableNames).not.toContain("items");
+		expect(tableNames.length).toBeGreaterThanOrEqual(12);
 	});
 
 	test("migrated database supports CRUD with Drizzle ORM", async ({ db }) => {

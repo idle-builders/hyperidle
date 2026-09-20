@@ -57,7 +57,7 @@ Decisions from the June audits that already shipped; do not re-open them as gaps
 | Global search | Built (AD7): `layers/core-api/src/routes/search.ts`, GET `/api/search` |
 | Knowledge Flag / Archive dead buttons | Flag removed (agent operation, not user-facing); Archive wired (AD6) |
 | Task dependency auto-unblock | Wired: `checkAndUnblockDependents` in `layers/core-api/work/src/dependency-watcher.ts`, subscribed in `layers/core-api/src/app.ts:493` |
-| Assistant responder | Wired: `layers/core-api/conversation/src/assistant-turn-resolver.ts`, running through the durable request poller |
+| Assistant responder | Wired: `layers/core-api/thread/src/thread-turn-resolver.ts`, running through the durable request poller |
 | Routine scheduler (cron, silent runs, delegation) | Started at boot: `startRoutineScheduler` in `layers/core-api/src/service-bootstrap.ts:600` |
 | Portfolio page | Removed (AD9); `WorkOverview` is the Work landing |
 | Per-skill autonomy product | Removed (see §1) |

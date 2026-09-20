@@ -35,6 +35,7 @@ import {
 } from "@hyperidle/domain-model";
 import { type JSX, type ReactNode, useId, useState } from "react";
 import { dsProps } from "./ds-attrs.js";
+import { questionnairePayloadOf, reviewPayloadOf } from "./message-payload.js";
 import { StatusChip } from "./StatusChip.js";
 
 export interface RichMessageCardSender {
@@ -122,7 +123,7 @@ interface DerivedRedactedView {
 
 function deriveReview(message: Message): DerivedReviewView | DerivedRedactedView | null {
 	if (message.type !== "review") return null;
-	const { payload } = message;
+	const payload = reviewPayloadOf(message);
 	if (isRedactedPayload(payload)) return { redacted: true, payload };
 	return {
 		redacted: false,
@@ -135,7 +136,7 @@ function deriveQuestionnaire(
 	message: Message,
 ): DerivedQuestionnaireView | DerivedRedactedView | null {
 	if (message.type !== "questionnaire") return null;
-	const { payload } = message;
+	const payload = questionnairePayloadOf(message);
 	if (isRedactedPayload(payload)) return { redacted: true, payload };
 	return {
 		redacted: false,

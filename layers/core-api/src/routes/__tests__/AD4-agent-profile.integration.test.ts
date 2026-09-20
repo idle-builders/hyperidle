@@ -15,15 +15,7 @@
  *   and replaces skills field with reviewTrackRecord in AgentProfileResponse
  */
 
-import {
-	agentRunConfig,
-	type HyperIdleDb,
-	items,
-	messages,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, messages, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -86,7 +78,12 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: insert a verdict message attributed to ad4-profile-agent via Path 1
+// Helper: insert a verdict message attributed to ad4-profile-agent.
+//
+// @lore BC3 architecture.md §5 R4: Path 1 (legacyItemId -> items.sourceAgentId)
+// is deleted with the `items` table. Attribution is Path 2 only now — the
+// thread's own `initiatorId` (already "ad4-profile-agent" below) is what
+// `computeApprovalRate` reads.
 // ---------------------------------------------------------------------------
 async function seedVerdict(
 	db: HyperIdleDb,
@@ -94,25 +91,14 @@ async function seedVerdict(
 	createdAt: string = FIVE_DAYS_AGO,
 ): Promise<void> {
 	const threadId = crypto.randomUUID();
-	const itemId = crypto.randomUUID();
 
 	await db.insert(threads).values({
 		id: threadId,
-		hostKind: "task",
-		hostId: "task-ad4",
+		hostKind: "team",
+		hostId: "ad4-profile-team",
 		initiatorId: "ad4-profile-agent",
 		participants: JSON.stringify(["ad4-profile-agent"]),
 		lastActiveAt: createdAt,
-		createdAt,
-	});
-
-	await db.insert(items).values({
-		id: itemId,
-		sourceAgentId: "ad4-profile-agent",
-		kind: "approval",
-		title: "AD4 test item",
-		riskTier: "low",
-		threadId,
 		createdAt,
 	});
 
@@ -123,7 +109,6 @@ async function seedVerdict(
 		type: "verdict",
 		payload: JSON.stringify({ decision }),
 		clientKey: `ad4-verdict-${crypto.randomUUID()}`,
-		legacyItemId: itemId,
 		createdAt,
 	});
 }

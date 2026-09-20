@@ -27,26 +27,26 @@ describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {
 		expect(RETURN_ACTION_NAMES.length).toBeGreaterThan(0);
 	});
 
-	it("contains exactly the four members: submit_review, edit_task, send_message, reply", () => {
-		// AU27 Increment 3 (Decision 3): `reply` (Increment 2's generic
-		// session-scoped reply tool) joins the trio.
-		// the architecture doc §8 B4: `handoff_to` is deleted — `edit_task`
-		// (argument-gated on `ownerAgentId`) replaces it.
+	it("contains exactly the two members: edit_task, send_message", () => {
+		// `submit_review` and `reply` are deleted tools — `edit_task`
+		// (argument-gated on `ownerAgentId`) and `send_message`
+		// (action-projected) are the only survivors.
 		const names = [...RETURN_ACTION_NAMES].sort();
-		expect(names).toEqual(["edit_task", "reply", "send_message", "submit_review"]);
+		expect(names).toEqual(["edit_task", "send_message"]);
 	});
 
-	it("every member except edit_task maps to a real registered tool in ALL_TOOL_DEFINITIONS (closure)", () => {
+	it("every member is action-projected, so none appear in ALL_TOOL_DEFINITIONS (closure)", () => {
 		// @lore This test is the runtime enforcement of the closure guarantee.
 		// If a tool in RETURN_ACTION_NAMES is renamed in tool-registry.ts without
 		// updating return-actions.ts, this test catches the drift at CI time.
-		// `edit_task` is the one exception: it is projected from the action list
-		// (`layers/core-api/src/actions/actions-as-tools.ts`), composed in only
-		// at `buildToolRegistry`'s real call site — `ALL_TOOL_DEFINITIONS` here
-		// is built from `buildToolDefinitions` directly, which never includes it.
+		// Both current members — `edit_task` and `send_message` — are projected
+		// from the action list (`layers/core-api/src/actions/actions-as-tools.ts`),
+		// composed in only at `buildToolRegistry`'s real call site —
+		// `ALL_TOOL_DEFINITIONS` here is built from `buildToolDefinitions`
+		// directly, which never includes either.
 		const registeredNames = new Set(ALL_TOOL_DEFINITIONS.map((d) => d.name));
 		for (const name of RETURN_ACTION_NAMES) {
-			if (name === "edit_task") continue;
+			if (name === "edit_task" || name === "send_message") continue;
 			expect(
 				registeredNames.has(name),
 				`RETURN_ACTION_NAMES includes '${name}' but it is not in ALL_TOOL_DEFINITIONS. ` +
@@ -72,11 +72,6 @@ describe("isReturnAction — AC2: per-tool return predicate", () => {
 		}
 	});
 
-	it("returns true for submit_review unconditionally", () => {
-		expect(isReturnAction("submit_review", {})).toBe(true);
-		expect(isReturnAction("submit_review", { verdict: "approved" })).toBe(true);
-	});
-
 	it("returns true for edit_task only on the session's own task, moving it away from the agent (B4)", () => {
 		expect(isReturnAction("edit_task", { id: "task-1", ownerAgentId: "agent-7" }, "task-1")).toBe(
 			true,
@@ -99,11 +94,6 @@ describe("isReturnAction — AC2: per-tool return predicate", () => {
 	it("returns true for send_message unconditionally", () => {
 		expect(isReturnAction("send_message", {})).toBe(true);
 		expect(isReturnAction("send_message", { to: "human-1", body: "done" })).toBe(true);
-	});
-
-	it("returns true for reply unconditionally", () => {
-		expect(isReturnAction("reply", {})).toBe(true);
-		expect(isReturnAction("reply", { text: "done" })).toBe(true);
 	});
 
 	it("returns false for non-member tools (mid-turn tools are not returns)", () => {
@@ -148,10 +138,6 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 		expect(isReturnAction("mcp__hyperidle__send_message")).toBe(true);
 	});
 
-	it("namespaced submit_review is recognised as a return action", () => {
-		expect(isReturnAction("mcp__hyperidle__submit_review")).toBe(true);
-	});
-
 	it("namespaced edit_task, own task with ownerAgentId, is recognised as a return action", () => {
 		expect(
 			isReturnAction(
@@ -176,21 +162,15 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 		// Regex was /^mcp__[^_][^_]*__/ — rejected server names like `my_server`.
 		// Fixed to /^mcp__.+?__/ — non-greedy, matches any server name.
 		expect(isReturnAction("mcp__my_server__send_message")).toBe(true);
-		expect(isReturnAction("mcp__hyper_idle__submit_review")).toBe(true);
+		expect(isReturnAction("mcp__hyper_idle__send_message")).toBe(true);
 		expect(isReturnAction("mcp__hyper_idle__read_inbox")).toBe(false);
 	});
 
 	it("opencode hyperidle_ tool names are recognised as return actions", () => {
 		expect(isReturnAction("hyperidle_send_message")).toBe(true);
-		expect(isReturnAction("hyperidle_submit_review")).toBe(true);
 		expect(
 			isReturnAction("hyperidle_edit_task", { id: "task-1", ownerAgentId: "agent-7" }, "task-1"),
 		).toBe(true);
-		expect(isReturnAction("hyperidle_reply")).toBe(true);
 		expect(isReturnAction("hyperidle_commit_file")).toBe(false);
-	});
-
-	it("namespaced reply is recognised as a return action", () => {
-		expect(isReturnAction("mcp__hyperidle__reply")).toBe(true);
 	});
 });

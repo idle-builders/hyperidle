@@ -10,38 +10,21 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import {
-	insertMessage,
-	insertThread,
-	listMessages,
-	registerSessionNotReturnedNotice,
-	resolveMessageIfUnresolved,
-	updateThread,
-} from "@hyperidle/conversation";
-import {
-	decryptCredentialValue,
-	deleteCredential,
-	encryptCredentialValue,
-	readCredentials,
-	writeCredential,
-} from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
-import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/notifications";
+import { reap } from "@hyperidle/notifications";
 import type { PolicyDeps } from "@hyperidle/policy";
-import { registerPolicy } from "@hyperidle/policy";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import { registerLifecyclePropagation } from "@hyperidle/policy";
 import * as taskDb from "@hyperidle/task";
-import { findUser } from "@hyperidle/users";
+import { listMessages } from "@hyperidle/thread";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
-import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
-import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
 import { startRoutineScheduler } from "./services/routine-scheduler-bindings.js";
+import { registerSessionNotReturnedNotice } from "./services/session-not-returned-notice.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
 
@@ -119,40 +102,6 @@ export async function reapTerminalTaskDispatchAttempts(
 }
 
 /**
- * @lore AU19 Increment 1g/1h: `notifications`' DI ports (Mechanism C), wired
- * here at the `packages/server` composition point — all five targets
- * (`settings`, `users`, `org`, `work`, `connections`) are now real,
- * already-migrated packages. `connections` closed in Increment 1h:
- * `notificationsCredentialCipher`/`notificationsCredentialStore` wire
- * directly to `@hyperidle/connections`' real exports (no more interim
- * raw-table indirection).
- */
-const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
-
-/**
- * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
- * `NotificationsDeps` bag. `installNotifications` internally extracts
- * the sub-deps it needs; the composition root sees a single wiring point.
- */
-const notificationsDeps: NotificationsDeps = {
-	serverConfig: notificationsServerConfigPort,
-	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
-	credentialStore: {
-		findByName: async (db, name) => (await readCredentials(db, { name }))[0],
-		upsert: async (db, values) =>
-			writeCredential(db, values.name, {
-				encryptedValue: values.encryptedValue,
-				validationState: values.validationState,
-				lastValidatedAt: values.lastValidatedAt,
-			}),
-		deleteByName: (db, name) => deleteCredential(db, name),
-	},
-	work: {
-		getItemById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "item", id),
-	},
-};
-
-/**
  * @lore AU19 Increment 2a: `@hyperidle/policy`'s DI ports (Mechanism C),
  * wired here at the `packages/server` composition point — `work`/
  * `conversation`/`users`/`org` are all real, already-migrated packages.
@@ -170,17 +119,18 @@ const notificationsDeps: NotificationsDeps = {
  * `policy` may not import `@hyperidle/task` directly). `policyDeps` is
  * therefore built per-call, closing over the composed `edit_task.run` that
  * only exists once the actions list is built (`app.ts`).
+ *
+ * @lore code-review finding, BC3: `sendMessage` (`send_message.run`, same
+ * composed-actions closure as `editTask`) replaces the raw
+ * `conversation.insertMessage` binding — `lifecycle-propagation.ts`'s
+ * ship-confirmation review now posts through the action, never the table.
  */
-function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
+function buildPolicyDeps(
+	editTask: PolicyDeps["editTask"],
+	sendMessage: PolicyDeps["sendMessage"],
+): PolicyDeps {
 	return {
 		work: {
-			getItemById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "item", id),
-			updateItemById: (exec: WriteExecutor, id: string, patch) =>
-				taskDb.update(exec, "item", id, patch),
-			listItemIdsBySourceAgent: async (exec: WriteExecutor, agentId: string) => {
-				const rows = await taskDb.list(exec, "item", { sourceAgentId: agentId });
-				return rows.map((r) => r.id);
-			},
 			getTaskById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "task", id),
 			listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
 				taskDb.list(exec, "task", { parentTaskId }),
@@ -188,30 +138,15 @@ function buildPolicyDeps(editTask: PolicyDeps["editTask"]): PolicyDeps {
 				taskDb.listAncestorIds(exec, taskId),
 		},
 		conversation: {
-			insertMessage,
-			listMessagesByThread: (db, threadId, opts) =>
-				listMessages(db, {
-					threadId,
-					types: opts?.type ? [opts.type] : undefined,
-					order: opts?.order,
-					dir: opts?.dir,
-					limit: opts?.limit,
-				}),
-			resolveMessageIfUnresolved,
-			updateThread,
-			insertThread,
 			listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 				listMessages(db, {
 					threadInitiatorId: initiatorId,
 					types: ["verdict"],
 					since: windowStart,
-					noLegacyItem: true,
 				}),
-			listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
-				listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 		},
-		users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
 		editTask,
+		sendMessage,
 	};
 }
 
@@ -249,6 +184,18 @@ export function registerCoreDomainServices(ctx: {
 	 * `registerWorkSessionStartedReactions`.
 	 */
 	readonly editTask: PolicyDeps["editTask"];
+	/**
+	 * `send_message`'s own bound `run`, threaded from `app.ts`'s composed
+	 * actions list — the never-silent-net reaction posts through it instead
+	 * of a raw `insertMessage`.
+	 */
+	readonly sendMessage: import("./services/session-not-returned-notice.js").SendMessageRunFn;
+	/**
+	 * `adjust_thread`'s own bound `run`, threaded the same way — the
+	 * stalled-knowledge-action reaction resolves-or-creates the knowledge
+	 * item's thread through it.
+	 */
+	readonly adjustThread: import("./services/agent-run-admission-reactions.js").AdjustThreadRunFn;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -264,12 +211,15 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
-	const { db, eventBus, agentOrchestration, editTask } = ctx;
+	const { db, eventBus, agentOrchestration, editTask, sendMessage, adjustThread } = ctx;
 	const disposers: Array<() => void> = [];
 
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration),
+			registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration, {
+				sendMessage,
+				adjustThread,
+			}),
 			"agent-run-admission reactions",
 			"unsubscribe",
 			["agent_run_admission_failed subscription"],
@@ -326,39 +276,21 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// AU21 §9 Increment 11 (Decision H2/F4): "pin the assistant thread after
-	// its first AI reply" — Layer-owned since it directly imports both
-	// @hyperidle/conversation and @hyperidle/users (no DI port needed).
-	disposers.push(
-		identifyBootstrapOwner(
-			registerAssistantThreadPinReaction(db, eventBus),
-			"assistant thread pin reaction",
-			"unsubscribe",
-			["thread_message_appended subscription"],
-		),
-	);
+	// @lore BC3 architecture.md §5 B5: the assistant-thread pin reaction and
+	// the B‴ coherence re-bake trigger are DELETED — no coherence re-bake
+	// (architecture.md §7): a thread turn may answer a transcript one message
+	// behind; accepted, because the agent reads the thread with `open_thread`
+	// anyway. The wake rule (`@hyperidle/thread`'s `agentsToWake`) replaces
+	// the structural `ast-` recognition both reactions depended on.
 
-	// AU21 §9 Increment 11 (Decision H2 "Coherence — reconciled via Decision
-	// B‴"): the new supersede-trigger wiring — a thread reply landing while a
-	// same-thread `assistant_turn` intent is still pending re-bakes it with
-	// the now-current transcript, reusing the Increment 3 supersede machinery.
+	// AU27 Increment 5 (Decision 5): the never-silent net — a reaction to the
+	// existing `session_not_returned` event (today only observed by the
+	// observability dispatcher), posting one plain notice into the session's
+	// calling thread when the force budget is spent without a return,
+	// posting through the composed `send_message` action.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAssistantTurnCoherenceTrigger(db, eventBus, agentOrchestration),
-			"assistant-turn B‴ coherence trigger",
-			"unsubscribe",
-			["thread_message_appended subscription"],
-		),
-	);
-
-	// AU27 Increment 5 (Decision 5): the never-silent net — a
-	// `@hyperidle/conversation`-owned reaction to the existing
-	// `session_not_returned` event (today only observed by the observability
-	// dispatcher), posting one plain notice into the session's calling
-	// thread when the force budget is spent without a return.
-	disposers.push(
-		identifyBootstrapOwner(
-			registerSessionNotReturnedNotice(db, eventBus),
+			registerSessionNotReturnedNotice(db, eventBus, sendMessage),
 			"session-not-returned notice",
 			"unsubscribe",
 			["session_not_returned subscription"],
@@ -369,29 +301,23 @@ export function registerCoreDomainServices(ctx: {
 	// OWN `session_ended` reaction, Increment 6's per-session cost door) is
 	// deleted along with the rest of the cost feature — no replacement.
 
+	// @lore BC3 architecture.md §5 R2: the policy engine is deleted — one
+	// registration (lifecycle propagation) is no longer worth collapsing.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerPolicy(db, eventBus, buildPolicyDeps(editTask)),
-			"policy registration",
+			registerLifecyclePropagation(db, eventBus, buildPolicyDeps(editTask, sendMessage)),
+			"lifecycle propagation registration",
 			"unsubscribe",
 			// @lore AU44 batch6: "retry interval" removed — the 30s heartbeat
 			// (retryFailedPropagations) is deleted with propagation_log (AU20 Ruling 2).
-			["policy engine", "lifecycle propagation"],
+			["lifecycle propagation"],
 		),
 	);
-	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener
-	// + drain) collapsed into one `installNotifications` call. The delivery chain
-	// is fully internal to @hyperidle/notifications; server-factory sees one boot
-	// entry and one disposer.
-	disposers.push(
-		identifyBootstrapOwner(
-			installNotifications(db, eventBus, notificationsDeps),
-			"notifications installation",
-			"dispatcher/listener/drain all stop",
-			["dispatcher", "listener", "drain"],
-		),
-	);
-
+	// @lore BC3 architecture.md §5 B7: the notifications inbox listener
+	// (`installNotifications`) is deleted — its only trigger was the policy
+	// engine's "attention" event, deleted with `items` (R2). Nothing left to
+	// register; `reap` below is the notifications package's only remaining
+	// composition-root touchpoint.
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
 	// live here at the composition root; per-table deletes delegate to their

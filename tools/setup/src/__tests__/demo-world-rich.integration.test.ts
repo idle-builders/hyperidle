@@ -143,10 +143,12 @@ describe("AX1: lived-in demo world", () => {
 		}
 
 		// The pinned assistant thread for the founder.
+		// @lore BC3: the assistant thread is host-kind "agent" like any other
+		// direct thread now — the ast-<userId> structural convention is gone.
 		const assistantThreads = await rows<{ id: string; participants: string; pinned: boolean }>(
 			db,
 			`SELECT id, participants, pinned FROM threads
-			  WHERE host_kind = 'user' AND host_id = 'demo-founder'`,
+			  WHERE host_kind = 'agent' AND host_id = 'ast-demo-founder'`,
 		);
 		expect(assistantThreads.length).toBe(1);
 		expect(assistantThreads[0]?.pinned).toBe(true);
@@ -166,12 +168,14 @@ describe("AX1: lived-in demo world", () => {
 		expect(await count(db, "messages", "WHERE type = 'questionnaire'")).toBeGreaterThanOrEqual(1);
 
 		// Every thread host resolves; every message sender resolves.
-		// @lore BB1: 'bet' host_kind removed — those threads now use host_kind = 'task'.
+		// @lore BB1: 'bet' host_kind removed — those threads used host_kind = 'task'.
+		// @lore BC3: no thread is task-hosted any more — a task's conversation is
+		// team-hosted (architecture.md §3.9, §4 step 7), so 'task' is gone from
+		// this check.
 		const badHosts = await rows<{ id: string }>(
 			db,
 			`SELECT th.id FROM threads th
-			  WHERE (th.host_kind = 'task' AND NOT EXISTS (SELECT 1 FROM tasks t WHERE t.id = th.host_id))
-			     OR (th.host_kind = 'knowledge_item' AND NOT EXISTS (SELECT 1 FROM knowledge_items k WHERE k.id = th.host_id))
+			  WHERE (th.host_kind = 'knowledge_item' AND NOT EXISTS (SELECT 1 FROM knowledge_items k WHERE k.id = th.host_id))
 			     OR (th.host_kind = 'agent' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = th.host_id))
 			     OR (th.host_kind = 'user' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = th.host_id))
 			     OR (th.host_kind = 'team' AND NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = th.host_id))`,

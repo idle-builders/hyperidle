@@ -26,8 +26,8 @@ export interface UseCurrentUserResult {
 	status: UseCurrentUserStatus;
 	error: string | null;
 	/** @lore NEW-24: re-issues the /api/auth/me request. Call alongside any
-	 * surface-level Retry so a full-outage recovery unblocks the N5 short-circuit
-	 * in useConversationsThreads (which skips fetching when participantId is undefined). */
+	 * surface-level Retry so a full-outage recovery unblocks callers like
+	 * `useThreads`, which skip fetching entirely while no viewer id is resolved. */
 	retry: () => void;
 }
 

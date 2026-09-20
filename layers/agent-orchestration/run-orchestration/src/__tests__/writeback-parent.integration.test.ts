@@ -14,7 +14,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { sessions, tasks, teams, users } from "@hyperidle/db";
+import { sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect } from "vitest";
@@ -102,8 +102,18 @@ describe("a written-back item hangs off what the session is working on", () => {
 			status: "active",
 			createdAt: NOW,
 		});
+		await db.insert(threads).values({
+			id: "thr-wp-task",
+			hostKind: "team",
+			hostId: "wp-team",
+			initiatorId: "wp-agent",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
 			id: "wp-task",
+			threadId: "thr-wp-task",
 			parentTaskId: null,
 			teamId: "wp-team",
 			title: "T",

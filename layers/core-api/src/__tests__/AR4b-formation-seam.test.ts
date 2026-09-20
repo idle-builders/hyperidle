@@ -12,11 +12,20 @@
  * consumes a baked bundle and reads zero core-api state).
  *
  * What the test proves has NOT moved: AC3 — changing the identity changes what
- * the assistant's next turn runs with. It still drives the same route-level
- * flow (post a message -> an `assistant_turn` intent is emitted; edit the
- * identity; post again) and reads the persona back off the bake the drain will
- * actually use. It also pins that the run config no longer carries a persona:
- * one home for the identity, not two.
+ * the assistant's next turn runs with. It still drives the same flow (send a
+ * message through `send_message` -> a `thread_turn` intent is emitted for the
+ * woken agent; edit the identity; send again) and reads the persona back off
+ * the bake the drain will actually use. It also pins that the run config no
+ * longer carries a persona: one home for the identity, not two.
+ *
+ * @lore this file drove the deleted `POST /api/threads/:id/messages` route and
+ * the `assistant_turn` intent kind keyed by bare `messageId`. The thread
+ * module (architecture.md §3.10/§7) replaced both: the door is
+ * `POST /api/actions/send_message`, the intent kind is `thread_turn`, and its
+ * `sourceId` is `${messageId}:${agentId}` because one message can wake more
+ * than one agent. The target agent is no longer derived from an
+ * `ast-<userId>` convention — it comes out of `agentsToWake` (the two-member
+ * thread here has exactly one other member, so it wakes with no @mention).
  */
 
 import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
@@ -87,37 +96,40 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 }
 
 /**
- * Posts a message on the assistant thread, proves the `assistant_turn` intent
- * was emitted for it, and returns the persona the drain will run that turn
- * with — read through the production `readAgentRunConfig`.
+ * Sends a message on the assistant thread through `send_message`, proves the
+ * `thread_turn` intent was emitted for the woken assistant, and returns the
+ * persona the drain will run that turn with — read through the production
+ * `readAgentRunConfig`.
  */
 async function postAndResolveTurnPersona(
 	app: Hono,
 	db: HyperIdleDb,
 	clientKey: string,
 ): Promise<string | null> {
-	const res = await app.request(`/api/threads/${THREAD_ID}/messages`, {
+	const res = await app.request("/api/actions/send_message", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
 			"X-API-Key": GATE_API_KEY,
-			"X-Identity": FOUNDER_ID,
 		},
 		body: JSON.stringify({
-			type: "plain",
-			payload: { text: `AR4b formation seam test (${clientKey})` },
+			threadId: THREAD_ID,
+			text: `AR4b formation seam test (${clientKey})`,
 			clientKey,
 		}),
 	});
-	expect([200, 201]).toContain(res.status);
-	const body = (await res.json()) as { message: { id: string } };
-	const messageId = body.message.id;
+	expect(res.status).toBe(200);
+	const body = (await res.json()) as { data: { message: { id: string } } };
+	const messageId = body.data.message.id;
 
 	const [intent] = await db
 		.select()
 		.from(agentWorkIntents)
 		.where(
-			and(eq(agentWorkIntents.kind, "assistant_turn"), eq(agentWorkIntents.sourceId, messageId)),
+			and(
+				eq(agentWorkIntents.kind, "thread_turn"),
+				eq(agentWorkIntents.sourceId, `${messageId}:${ASSISTANT_ID}`),
+			),
 		);
 	expect(intent).toBeDefined();
 	const baked = JSON.parse(intent?.bakedRequestJson ?? "{}") as {
@@ -165,7 +177,6 @@ describe("AR4b: formation seam — editing the assistant's identity document cha
 			headers: {
 				"Content-Type": "application/json",
 				"X-API-Key": GATE_API_KEY,
-				"X-Identity": FOUNDER_ID,
 			},
 			body: JSON.stringify({ version: 1, updatedBy: FOUNDER_ID, body: ALPHA_PERSONA }),
 		});

@@ -15,7 +15,7 @@
  * they were core tables this Layer must never touch.
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
 import {
@@ -51,6 +51,27 @@ async function seedRunHosts(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 	]);
+	// Every task has a real thread (`tasks.thread_id` is NOT NULL).
+	await db.insert(threads).values([
+		{
+			id: "thr-bet-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "agent-1",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		},
+		{
+			id: "thr-task-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "agent-1",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		},
+	]);
 	await db.insert(tasks).values({
 		id: "bet-1",
 		parentTaskId: null,
@@ -58,6 +79,7 @@ async function seedRunHosts(db: HyperIdleDb): Promise<void> {
 		title: "Test",
 		description: "Test",
 		state: "in_progress",
+		threadId: "thr-bet-1",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
@@ -67,6 +89,7 @@ async function seedRunHosts(db: HyperIdleDb): Promise<void> {
 		teamId: "team-1",
 		title: "Task",
 		state: "in_progress",
+		threadId: "thr-task-1",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});

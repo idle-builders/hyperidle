@@ -36,6 +36,7 @@ import {
 	taskDispatchAttempts,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -58,6 +59,16 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, phase: "build", createdAt: now });
+	// Every task has a real thread now (`tasks.thread_id` is NOT NULL).
+	await db.insert(threads).values({
+		id: `thr-${ROOT_TASK_ID}`,
+		hostKind: "team",
+		hostId: TEAM_ID,
+		initiatorId: AGENT_ID,
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
 		id: ROOT_TASK_ID,
 		parentTaskId: null,
@@ -65,6 +76,7 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		title: "Dispatch-attempt ordinal bet",
 		description: "Dispatch-attempt ordinal bet",
 		state: "in_progress",
+		threadId: `thr-${ROOT_TASK_ID}`,
 		createdAt: now,
 		updatedAt: now,
 	});
@@ -81,6 +93,16 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 
 async function seedTask(db: HyperIdleDb, taskId: string): Promise<void> {
 	const now = new Date().toISOString();
+	// Every task has a real thread now (`tasks.thread_id` is NOT NULL).
+	await db.insert(threads).values({
+		id: `thr-${taskId}`,
+		hostKind: "team",
+		hostId: TEAM_ID,
+		initiatorId: AGENT_ID,
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
 		id: taskId,
 		parentTaskId: ROOT_TASK_ID,
@@ -88,6 +110,7 @@ async function seedTask(db: HyperIdleDb, taskId: string): Promise<void> {
 		ownerAgentId: AGENT_ID,
 		title: taskId,
 		state: "accepted",
+		threadId: `thr-${taskId}`,
 		createdAt: now,
 		updatedAt: now,
 	});

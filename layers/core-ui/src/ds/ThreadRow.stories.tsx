@@ -98,7 +98,7 @@ export const Selected = (): React.JSX.Element => (
 		snippet="Conversion up 8% on the $29 tier"
 		timestamp="1h"
 		selected={true}
-		hostTag="task"
+		hostTag="team"
 		avatars={[{ initials: "TG" }]}
 		messageCount={4}
 	/>
@@ -121,7 +121,7 @@ export const WithHostTag = (): React.JSX.Element => (
 		title="Migration script review"
 		snippet="Two paths considered — picking one"
 		timestamp="3h"
-		hostTag="task"
+		hostTag="team"
 		avatars={[{ initials: "TG" }, { initials: "AT", agent: true }]}
 		messageCount={6}
 	/>
@@ -134,7 +134,7 @@ export const BlockingSelected = (): React.JSX.Element => (
 		timestamp="8m"
 		blocking={true}
 		selected={true}
-		hostTag="task"
+		hostTag="team"
 		avatars={[{ initials: "AT", agent: true }]}
 		messageCount={3}
 	/>

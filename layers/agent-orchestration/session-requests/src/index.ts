@@ -8,7 +8,6 @@ export {
 	enqueueWorkIntent,
 	type FindQuery,
 	findSessionRequest,
-	listPendingIntentsByKind,
 	listSessionRequests,
 	reapExpired,
 	releaseClaim,

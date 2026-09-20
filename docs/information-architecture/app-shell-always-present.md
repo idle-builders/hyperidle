@@ -92,7 +92,7 @@ Section-by-section reference: [guides/user/settings](../guides/user/settings.md)
 
 ## 6. Assistant overlay
 
-The Assistant button in the search row opens **AssistantOverlay** (`layers/core-ui/src/shell/AssistantOverlay.tsx`): a fixed popover at bottom-right (360px wide, max-height 70vh), backed by `/api/threads/assistant`. It deliberately does **not** close on outside clicks — the user keeps interacting with Main to attach context items while it stays open (L21); only Escape or clicking the trigger again closes it.
+The Assistant button in the search row opens **AssistantOverlay** (`layers/core-ui/src/shell/AssistantOverlay.tsx`): a fixed popover at bottom-right (360px wide, max-height 70vh), backed by the same thread actions as any direct thread — `send_message` with `recipients: [myAgentId]` on the first message, `open_thread` after. It deliberately does **not** close on outside clicks — the user keeps interacting with Main to attach context items while it stays open (L21); only Escape or clicking the trigger again closes it.
 
 ## 7. New conversation (N flow)
 

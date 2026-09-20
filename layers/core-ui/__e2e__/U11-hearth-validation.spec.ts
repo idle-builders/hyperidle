@@ -21,9 +21,21 @@
  * @lore U11 AC3: Screenshots are taken after waitForLoadState("networkidle") to
  * ensure API mocks have settled and the UI is fully rendered. We do not assert
  * on pixel content — the test proves each route renders without crashing.
+ *
+ * @lore BC3: the thread door is `POST /api/actions/{search_threads,
+ * open_thread}` — never `GET /api/threads*`.
  */
 
-import { expect, test } from "./fixtures";
+import {
+	expect,
+	makeIdentity,
+	makeMessage,
+	makeThread,
+	makeThreadListRow,
+	mockSearchThreads,
+	mockThread,
+	test,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Shared fixture data
@@ -54,66 +66,50 @@ const TEAMS_FIXTURE = {
 	],
 };
 
-const THREADS_FIXTURE = {
-	threads: [
-		{
-			id: "thread-u11-1",
-			title: "Auth strategy discussion",
-			kind: "chat",
-			status: "open",
-			participantIds: ["test-founder", "agent-lead"],
-			lastMessageAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-			unread: 2,
-			betId: null,
-			taskId: null,
-		},
-		{
-			id: "thread-u11-2",
-			title: "Hearth design review",
-			kind: "review",
-			status: "open",
-			participantIds: ["test-founder"],
-			lastMessageAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-			unread: 0,
-			betId: "bet-u11-draft",
-			taskId: null,
-		},
-	],
-	nextCursor: null,
-};
-
-const THREAD_DETAIL_FIXTURE = {
-	id: "thread-u11-1",
+const THREAD_U11_1 = makeThread("thread-u11-1", {
+	hostKind: "team",
+	hostId: "team-u11-1",
+	initiatorId: "test-founder",
+	members: ["test-founder", "agent-lead"],
 	title: "Auth strategy discussion",
-	kind: "chat",
-	status: "open",
-	participantIds: ["test-founder", "agent-lead"],
+	computedTitle: "Auth strategy discussion",
+	lastActiveAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
 	createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-	betId: null,
-	taskId: null,
-};
+});
 
-const MESSAGES_FIXTURE = {
-	messages: [
-		{
-			id: "msg-u11-1",
-			threadId: "thread-u11-1",
-			authorId: "test-founder",
-			content: "Should we use JWT or session tokens for auth?",
-			createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-			blocks: [],
-		},
-		{
-			id: "msg-u11-2",
-			threadId: "thread-u11-1",
-			authorId: "agent-lead",
-			content: "JWT with short-lived tokens + refresh rotation. Here is the rationale.",
-			createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-			blocks: [],
-		},
-	],
-	nextCursor: null,
-};
+const THREAD_U11_2 = makeThread("thread-u11-2", {
+	hostKind: "team",
+	hostId: "team-u11-1",
+	initiatorId: "test-founder",
+	members: ["test-founder"],
+	title: "Hearth design review",
+	computedTitle: "Hearth design review",
+	lastActiveAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+	createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+});
+
+const THREADS_FIXTURE = [
+	makeThreadListRow(THREAD_U11_1.id, { ...THREAD_U11_1, hasUnresolvedReview: false }),
+	makeThreadListRow(THREAD_U11_2.id, { ...THREAD_U11_2, hasUnresolvedReview: false }),
+];
+
+const THREAD_U11_MEMBERS = [
+	makeIdentity("test-founder", { name: "Test Founder", role: "founder" }),
+	makeIdentity("agent-lead", { name: "Lead Agent", role: "lead", isAgent: true }),
+];
+
+const MESSAGES_FIXTURE = [
+	makeMessage("msg-u11-1", THREAD_U11_1.id, {
+		senderId: "test-founder",
+		payload: { text: "Should we use JWT or session tokens for auth?" },
+		createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+	}),
+	makeMessage("msg-u11-2", THREAD_U11_1.id, {
+		senderId: "agent-lead",
+		payload: { text: "JWT with short-lived tokens + refresh rotation. Here is the rationale." },
+		createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+	}),
+];
 
 const TEAM_DETAIL_FIXTURE = {
 	product: {
@@ -196,13 +192,7 @@ const KNOWLEDGE_DETAIL_FIXTURE = {
 // ---------------------------------------------------------------------------
 
 test("U11 screenshot: conversations list (empty)", async ({ page }) => {
-	await page.route("**/api/threads*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [], nextCursor: null }),
-		});
-	});
+	await mockSearchThreads(page, { rows: [] });
 
 	await page.goto("/conversations");
 	await page.waitForSelector("[data-testid='conversations-page']");
@@ -217,13 +207,7 @@ test("U11 screenshot: conversations list (empty)", async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test("U11 screenshot: conversations list (with threads)", async ({ page }) => {
-	await page.route("**/api/threads*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(THREADS_FIXTURE),
-		});
-	});
+	await mockSearchThreads(page, { rows: THREADS_FIXTURE });
 
 	await page.goto("/conversations");
 	await page.waitForSelector("[data-testid='conversations-page']");
@@ -238,29 +222,12 @@ test("U11 screenshot: conversations list (with threads)", async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test("U11 screenshot: thread detail", async ({ page }) => {
-	await page.route("**/api/threads/thread-u11-1", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(THREAD_DETAIL_FIXTURE),
-		});
+	await mockThread(page, {
+		thread: THREAD_U11_1,
+		members: THREAD_U11_MEMBERS,
+		messages: MESSAGES_FIXTURE,
 	});
-
-	await page.route("**/api/threads/thread-u11-1/messages*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(MESSAGES_FIXTURE),
-		});
-	});
-
-	await page.route("**/api/threads*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(THREADS_FIXTURE),
-		});
-	});
+	await mockSearchThreads(page, { rows: THREADS_FIXTURE });
 
 	await page.goto("/conversations/thread-u11-1");
 	// The conversations page may render multiple elements with this testid depending on
@@ -298,13 +265,7 @@ test("U11 screenshot: work portfolio bet grid", async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test("U11 screenshot: bet detail", async ({ page }) => {
-	await page.route("**/api/threads*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [], nextCursor: null }),
-		});
-	});
+	await mockSearchThreads(page, { rows: [] });
 
 	await page.route("**/api/artifacts*", async (route) => {
 		await route.fulfill({
@@ -427,13 +388,7 @@ test("U11 screenshot: knowledge detail", async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 test("U11 screenshot: settings overlay open", async ({ page }) => {
-	await page.route("**/api/threads*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [], nextCursor: null }),
-		});
-	});
+	await mockSearchThreads(page, { rows: [] });
 
 	await page.route("**/api/settings", async (route) => {
 		if (route.request().method() === "GET" || route.request().method() === "PATCH") {

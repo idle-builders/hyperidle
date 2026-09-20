@@ -21,7 +21,6 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -62,11 +61,9 @@ function createArtifactTool(
 	app: Hono,
 	db: HyperIdleDb,
 ): ReturnType<typeof buildToolDefinitions>[number] {
-	const tool = buildToolDefinitions(
-		createInProcessCoreApiTransport(app),
-		THROWING_REVIEW_ACCESSOR,
-		realOpenTask(db),
-	).find((t) => t.name === "create_artifact");
+	const tool = buildToolDefinitions(createInProcessCoreApiTransport(app), realOpenTask(db)).find(
+		(t) => t.name === "create_artifact",
+	);
 	if (!tool) throw new Error("create_artifact tool not found in the built definitions");
 	return tool;
 }
@@ -81,7 +78,17 @@ async function seed(db: HyperIdleDb): Promise<{ taskId: string; threadId: string
 		status: "active",
 		createdAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: `thr-${"ca-task"}`,
+		hostKind: "team",
+		hostId: "ca-team",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"ca-task"}`,
 		id: "ca-task",
 		parentTaskId: null,
 		teamId: "ca-team",

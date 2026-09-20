@@ -8,7 +8,7 @@
  * AC-4: Conversations sub-nav shows recent threads.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
 
 const TEAMS_FIXTURE = {
 	teams: [
@@ -17,25 +17,20 @@ const TEAMS_FIXTURE = {
 	],
 };
 
-const THREADS_FIXTURE = {
-	threads: [
-		{
-			id: "th1",
-			title: "Auth implementation review",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "u-founder",
-			participants: ["u-founder"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: new Date().toISOString(),
-			createdAt: new Date().toISOString(),
-			hasUnresolvedReview: false,
-			blocking: false,
-		},
-	],
-	nextCursor: null,
-};
+// @lore BC3: no `task` host kind — a task's own thread is `team`-hosted.
+const THREADS_FIXTURE = [
+	makeThreadListRow("th1", {
+		title: "Auth implementation review",
+		computedTitle: "Auth implementation review",
+		hostKind: "team",
+		hostId: "task-1",
+		initiatorId: "u-founder",
+		members: ["u-founder"],
+		lastActiveAt: new Date().toISOString(),
+		createdAt: new Date().toISOString(),
+		hasUnresolvedReview: false,
+	}),
+];
 
 test.describe("W3 AC-1 — Sidebar bottom strip", () => {
 	test.beforeEach(async ({ page }) => {
@@ -46,13 +41,7 @@ test.describe("W3 AC-1 — Sidebar bottom strip", () => {
 				body: JSON.stringify(TEAMS_FIXTURE),
 			});
 		});
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(THREADS_FIXTURE),
-			});
-		});
+		await mockSearchThreads(page, { rows: THREADS_FIXTURE });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-ds-shell='Sidebar']");
 	});
@@ -132,13 +121,7 @@ test.describe("W3 AC-2 — Work section shows teams from API", () => {
 
 test.describe("W3 AC-4 — Conversations sub-nav shows recent threads", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(THREADS_FIXTURE),
-			});
-		});
+		await mockSearchThreads(page, { rows: THREADS_FIXTURE });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,

@@ -40,6 +40,7 @@ import {
 	taskDispatchAttempts,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
@@ -74,7 +75,17 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: `thr-${ROOT_TASK_ID}`,
+		hostKind: "team",
+		hostId: TEAM_ID,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${ROOT_TASK_ID}`,
 		id: ROOT_TASK_ID,
 		parentTaskId: null,
 		teamId: TEAM_ID,
@@ -85,7 +96,17 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: `thr-${TASK_ID}`,
+		hostKind: "team",
+		hostId: TEAM_ID,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${TASK_ID}`,
 		id: TASK_ID,
 		parentTaskId: ROOT_TASK_ID,
 		teamId: TEAM_ID,

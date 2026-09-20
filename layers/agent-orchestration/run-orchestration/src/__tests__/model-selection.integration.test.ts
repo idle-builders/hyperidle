@@ -21,7 +21,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
@@ -130,8 +130,18 @@ describe("the model an agent is configured with reaches its session", () => {
 		const teamId = `${taskId}-team`;
 		const rootTaskId = `${taskId}-root`;
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
+		await db.insert(threads).values({
+			id: `thr-${rootTaskId}`,
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
 			id: rootTaskId,
+			threadId: `thr-${rootTaskId}`,
 			parentTaskId: null,
 			teamId,
 			title: "Model selection test root task",
@@ -140,8 +150,18 @@ describe("the model an agent is configured with reaches its session", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
+		await db.insert(threads).values({
+			id: `thr-${taskId}`,
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
 			id: taskId,
+			threadId: `thr-${taskId}`,
 			parentTaskId: rootTaskId,
 			teamId,
 			title: "Model selection test task",

@@ -10,8 +10,8 @@
  * Route map (the §6 routing contract):
  *   host    → resolveHostRoute(hostKind, hostId)   (total over HostKind; null = no-op, e.g. user)
  *   review  → /reviews/:reviewId
- *   session → AM3 dial-in — NO destination yet; documented no-op (R3). AM1 must
- *             not invent a fabricated path.
+ *   session → fires the page-supplied `onOpenSession` callback (AM3); no route,
+ *             the page owns where the session view mounts
  *
  * @lore AM1 C1: a block/entity routes to its HOST surface via `resolveHostRoute`
  * — the existing resolver, total over `HostKind`. No new route table, no
@@ -26,9 +26,8 @@
  * to document here.
  */
 
-import type { HostKind } from "@hyperidle/domain-model";
 import type { OpenHandler, OpenTarget } from "../components/parts";
-import { resolveHostRoute } from "./host-route.js";
+import { type RouteHostKind, resolveHostRoute } from "./host-route.js";
 import { type ProductObjectKind, presentationFor } from "./object-presentation.js";
 
 export type NavigateFn = (path: string) => void;
@@ -47,7 +46,7 @@ export interface OpenHandlerContext {
 	readonly onInspectPath?: (path: string) => void;
 }
 
-function objectKindForHost(hostKind: HostKind): ProductObjectKind | null {
+function objectKindForHost(hostKind: RouteHostKind): ProductObjectKind | null {
 	switch (hostKind) {
 		case "task":
 		case "knowledge_item":
@@ -89,7 +88,10 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				return;
 			}
 			case "review": {
-				const path = `/reviews/${target.reviewId}`;
+				// @lore BC3: `threadId` rides the query string — `open_thread` needs
+				// it and no action resolves it from a bare message id (part.ts's
+				// `ReviewTarget`).
+				const path = `/reviews/${target.reviewId}?threadId=${encodeURIComponent(target.threadId)}`;
 				if (target.intent === "inspect") openInspect("review", path, navigate, ctx);
 				else navigate(path);
 				return;

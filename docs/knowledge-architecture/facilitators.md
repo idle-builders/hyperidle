@@ -97,7 +97,7 @@ factory/
 
 ## The learning loop
 
-Agents produce information → the attention engine scores it (`layers/core-api/knowledge/src/attention-scoring.ts`, `ATTENTION_THRESHOLD` 0.7 in `scoring-config.ts`) → high-signal items become review items (`createReviewItem`, `layers/core-api/knowledge/src/review-item-factory.ts`) → surfaced to the matching human view (view routing rules in [items-and-routing](../human-interface-layer/items-and-routing.md)) → humans validate → writeback updates status + confidence/attention → validated knowledge is assembled into future sessions.
+Agents produce information → the attention engine scores it (`layers/core-api/knowledge/src/attention-scoring.ts`, `ATTENTION_THRESHOLD` 0.7 in `scoring-config.ts`) → high-signal items become a review message posted into the knowledge item's own thread → humans validate → writeback updates status + confidence/attention → validated knowledge is assembled into future sessions.
 
 ## Why facilitators exist
 

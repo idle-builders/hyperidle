@@ -9,26 +9,32 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { expect, test } from "./fixtures";
+import type { ThreadListRow } from "@hyperidle/domain-model";
+import { expect, makeThreadListRow, mockSearchThreads, test } from "./fixtures";
 
 const SCREENSHOTS_DIR = path.resolve(import.meta.dirname, "../../../test-results");
 
-/** Thread row shape per layers/core-ui/src/hooks/useConversationsThreads.ts */
-function makeThreadRow(id: string, title: string, blocking = false): Record<string, unknown> {
-	return {
-		id,
-		hostKind: "task",
+/**
+ * @lore BC3: `search_threads` (`POST /api/actions/search_threads`) replaced
+ * `GET /api/threads*`. There is no `task` host kind (a task's own thread is
+ * `team`-hosted) and no client-side `blocking` flag on the wire shape — the
+ * closest surviving property that still affects list rendering/ordering is
+ * `hasUnresolvedReview`, so the `blocking` param below drives that field.
+ */
+function makeThreadRow(id: string, title: string, blocking = false): ThreadListRow {
+	return makeThreadListRow(id, {
+		hostKind: "team",
 		hostId: `host-${id}`,
 		initiatorId: "test-founder",
-		participants: ["test-founder"],
+		members: ["test-founder"],
+		title: null,
+		computedTitle: title,
 		pinned: false,
 		resolvedAt: null,
 		lastActiveAt: new Date(Date.now() - 3600000).toISOString(),
 		createdAt: new Date(Date.now() - 86400000).toISOString(),
-		hasUnresolvedReview: false,
-		blocking,
-		title,
-	};
+		hasUnresolvedReview: blocking,
+	});
 }
 
 test.beforeAll(() => {
@@ -45,23 +51,12 @@ test.slow();
 test("AI1 AC2/AC5 — conversations: blocking section uses --status-error border", async ({
 	page,
 }) => {
-	// Must register BEFORE the auto-fixture's threads mock to override it (LIFO).
-	// Both patterns match — last-registered wins.
-	await page.route("**/api/threads**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					threads: [
-						makeThreadRow("t-blocking", "Blocker: Auth service down", true),
-						makeThreadRow("t-active", "Sprint planning notes", false),
-					],
-				}),
-			});
-		} else {
-			await route.continue();
-		}
+	// Overrides the auto-fixture's empty search_threads fallback (LIFO).
+	await mockSearchThreads(page, {
+		rows: [
+			makeThreadRow("t-blocking", "Blocker: Auth service down", true),
+			makeThreadRow("t-active", "Sprint planning notes", false),
+		],
 	});
 
 	await page.goto("/conversations", { waitUntil: "domcontentloaded" });
@@ -116,18 +111,8 @@ test("AI1 AC4 — settings assistant: --surface-container + status token colors"
 
 test("AI1 AC2 — conversations desktop: blocking section border-left visible", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	await page.route("**/api/threads**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					threads: [makeThreadRow("t-block-1", "Blocker: Payment processing stuck", true)],
-				}),
-			});
-		} else {
-			await route.continue();
-		}
+	await mockSearchThreads(page, {
+		rows: [makeThreadRow("t-block-1", "Blocker: Payment processing stuck", true)],
 	});
 
 	await page.goto("/conversations", { waitUntil: "domcontentloaded" });

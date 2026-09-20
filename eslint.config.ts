@@ -453,10 +453,14 @@ export default [
 		},
 	},
 
-	// AF11 — Authorization boundary enforcement (Hard Rules 2 + 6).
+	// AF11 — Authorization boundary enforcement (Hard Rule 6).
 	// Scoped to route files only. Tests and utility files excluded.
-	//   authz/no-header-identity-in-authz        — Hard Rule 2: no header in authz sink
 	//   authz/no-raw-db-in-route-bypassing-policy — Hard Rule 6: enforced routes need authorizeRead/Write
+	// @lore BC3 architecture.md §5 B13: `authz/no-header-identity-in-authz`
+	// (Hard Rule 2) is DELETED — its sink (`canRead`/`canWrite`/
+	// `authorizeRead`/`authorizeWrite`) is gone with `routes/threads.ts`, its
+	// only production caller. The property is structural now: the actions
+	// router reads `c.get("userId")` and nothing else.
 	// @lore AU26 A1: the glob covers BOTH applications' route directories. AF11 is a
 	// property of a route, not of a package — once requireBoundary lived in
 	// `@hyperidle/http-middleware` an `agent-orchestration` route could declare a boundary.
@@ -480,7 +484,6 @@ export default [
 		},
 		plugins: { authz },
 		rules: {
-			"authz/no-header-identity-in-authz": "error",
 			"authz/no-raw-db-in-route-bypassing-policy": "error",
 		},
 	},

@@ -376,7 +376,9 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 	// ~30 routes/tools/services now import `@hyperidle/users`.
 	//
 	// @lore AU19 Increment 1e: `core-api/conversation` added — same TS6305
-	// cascade; ~27 routes/tools/services now import `@hyperidle/conversation`.
+	// cascade; ~27 routes/tools/services imported `@hyperidle/conversation`.
+	// The package is since deleted (BC3, `@hyperidle/thread` replaces it) —
+	// kept here only as the historical reason the leaf pre-build grew.
 	//
 	// @lore AU19 Increment 1f: `core-api/settings` added — same TS6305 cascade;
 	// ~25 routes/notifications/services/config files now import

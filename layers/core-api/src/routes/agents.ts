@@ -202,6 +202,10 @@ export function createAgentRoutes(
 				name: agent.name,
 				role: agent.role,
 				agentCategory: agent.agentCategory ?? null,
+				// Every user's agent is an ordinary agent that the user owns; this
+				// fact needs to be on the wire — the UI can otherwise only get it via
+				// a second `GET /api/users?kind=ai` fetch (`useAgentOwnership`).
+				ownerUserId: agent.ownerUserId ?? null,
 				identityKnowledgeId: identityIds.get(agent.id) ?? null,
 				harnessType: runConfig.harnessType,
 				modelId: runConfig.modelId,
@@ -309,6 +313,9 @@ export function createAgentRoutes(
 				name: data.name,
 				role: data.role,
 				agentCategory,
+				// This route never sets `ownerUserId` (BA1's scaffold path does) —
+				// null here matches the row `insertUser` just wrote.
+				ownerUserId: null,
 				identityKnowledgeId,
 				harnessType: effectiveHarnessType,
 				modelId: effectiveModelId,
@@ -393,6 +400,7 @@ export function createAgentRoutes(
 			name: updated.name,
 			role: updated.role,
 			agentCategory: updated.agentCategory ?? null,
+			ownerUserId: updated.ownerUserId ?? null,
 			identityKnowledgeId: (await getAgentIdentityIds(db, [id])).get(id) ?? null,
 			harnessType: updatedRunConfig.harnessType,
 			modelId: updatedRunConfig.modelId,

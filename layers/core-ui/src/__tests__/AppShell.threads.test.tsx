@@ -9,6 +9,7 @@
  *   §7.5 U6: sidebar shows max 5 threads when more are available
  */
 
+import type { ThreadListRow } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSX } from "react";
@@ -16,38 +17,36 @@ import { createMemoryRouter, RouterProvider, useOutletContext } from "react-rout
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 
+// @lore BC3: the sidebar thread list now comes from `useThreads({mine:true})`
+// → `call("search_threads", ...)`, not `GET /api/threads`. `call` is mocked;
+// `fetch` stays mocked for the surviving routes (`/api/auth/me`, `/api/teams`,
+// `/api/knowledge`) AppShell still hits directly.
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
 const NOW_ISO = "2026-04-30T12:00:00.000Z";
 const WITHIN_24H = "2026-04-30T10:00:00.000Z";
 
-interface MockListRow {
-	id: string;
-	hostKind: string;
-	hostId: string;
-	initiatorId: string;
-	participants: string[];
-	pinned: boolean;
-	resolvedAt: string | null;
-	lastActiveAt: string;
-	createdAt: string;
-	hasUnresolvedReview: boolean;
-}
-
-function row(overrides: Partial<MockListRow>): MockListRow {
+function row(overrides: Partial<ThreadListRow>): ThreadListRow {
 	return {
 		id: overrides.id ?? "t1",
-		hostKind: overrides.hostKind ?? "task",
+		hostKind: overrides.hostKind ?? "team",
 		hostId: overrides.hostId ?? "h-1",
 		initiatorId: overrides.initiatorId ?? "u-founder",
-		participants: overrides.participants ?? ["u-founder", "agent-1"],
+		members: overrides.members ?? ["u-founder", "agent-1"],
+		title: overrides.title ?? null,
+		computedTitle: overrides.computedTitle ?? "Thread",
 		pinned: overrides.pinned ?? false,
 		resolvedAt: overrides.resolvedAt ?? null,
+		deletedAt: overrides.deletedAt ?? null,
 		lastActiveAt: overrides.lastActiveAt ?? NOW_ISO,
 		createdAt: overrides.createdAt ?? NOW_ISO,
 		hasUnresolvedReview: overrides.hasUnresolvedReview ?? false,
+		lastMessagePreview: overrides.lastMessagePreview ?? null,
 	};
 }
 
-const SEVEN_THREADS: MockListRow[] = [
+const SEVEN_THREADS: ThreadListRow[] = [
 	row({ id: "coach", hostKind: "user", pinned: true }),
 	row({ id: "a1", hasUnresolvedReview: true }),
 	row({ id: "a2", hasUnresolvedReview: true }),
@@ -57,34 +56,26 @@ const SEVEN_THREADS: MockListRow[] = [
 	row({ id: "r2", resolvedAt: WITHIN_24H }),
 ];
 
-function setFetchMock(threads: MockListRow[]): ReturnType<typeof vi.fn> {
+function setFetchMock(threads: ThreadListRow[]): ReturnType<typeof vi.fn> {
+	callMock.mockImplementation(async (action: string) => {
+		if (action === "search_threads") {
+			return { ok: true, data: threads };
+		}
+		return { ok: true, data: [] };
+	});
 	const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
 		const url = typeof input === "string" ? input : input.toString();
-		if (url.includes("/api/threads") && !url.match(/\/api\/threads\/[^?]/)) {
-			return {
-				ok: true,
-				json: async () => ({ threads, nextCursor: null }),
-			} as Response;
-		}
 		// /api/auth/me — return a valid user so useCurrentUser resolves with a truthy
-		// id, which allows useConversationsThreads to fire its fetch rather than
-		// short-circuiting to the empty ready state (N5 fix).
+		// id, which allows useThreads to fire its call rather than short-circuiting
+		// to the empty ready state (N5 fix).
 		if (url.includes("/api/auth/me")) {
 			return {
 				ok: true,
 				json: async () => ({ id: "u-founder-test", name: "Founder", email: "", avatarUrl: null }),
 			} as Response;
 		}
-		// Detail endpoint: return minimal valid body.
-		return {
-			ok: true,
-			json: async () => ({
-				thread: { id: "stub", participants: [] },
-				messages: [],
-				headMessageId: null,
-				identities: {},
-			}),
-		} as Response;
+		// /api/teams, /api/knowledge and anything else AppShell fetches directly.
+		return { ok: true, json: async () => ({}) } as Response;
 	});
 	global.fetch = fetchMock as unknown as typeof fetch;
 	return fetchMock;

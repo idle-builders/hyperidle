@@ -19,7 +19,6 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	CreateTeamRequest,
@@ -48,6 +47,7 @@ import { humanizeSchedule } from "@hyperidle/routine";
 import * as work from "@hyperidle/task";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
+import type { SendMessageRunFn } from "../actions/action.js";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { resolveHarnessAvailable } from "./agent-profile.js";
@@ -111,6 +111,14 @@ export function createTeamRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
+	/**
+	 * The composed `send_message` action's own bound `run`, so the welcome
+	 * message is posted through the thread module instead of a raw
+	 * `insertThread`/`insertMessage` into the literal id `thr-ast-${userId}`
+	 * — `app.ts` extracts it from the action list exactly as it does for
+	 * `editTask`/`adjustThread`.
+	 */
+	sendMessage: SendMessageRunFn,
 	/** AB2: adapter pool for resolving harness availability per agent. */
 	adapterPool?: HarnessCapabilityReader,
 ): Hono<HyperIdleEnv> {
@@ -330,9 +338,7 @@ export function createTeamRoutes(
 		// Best-effort: failure does not roll back team creation.
 		if (typeof userId === "string" && userId.length > 0) {
 			try {
-				const threadId = `thr-ast-${userId}`;
 				const assistantId = `ast-${userId}`;
-				const participantsList = [userId, assistantId].sort();
 
 				// Ensure the assistant agent exists (may not yet exist for new users).
 				// @lore AE2: The assistant agent is normally created at user registration.
@@ -388,22 +394,6 @@ export function createTeamRoutes(
 					});
 				}
 
-				// Create the thread if it doesn't exist.
-				const existingThread = await findThread(db, { id: threadId });
-
-				if (!existingThread) {
-					await insertThread(db, {
-						id: threadId,
-						hostKind: "user",
-						hostId: userId,
-						initiatorId: userId,
-						participants: JSON.stringify(participantsList),
-						pinned: true,
-						lastActiveAt: now,
-						createdAt: now,
-					});
-				}
-
 				// @lore BA9g: this used to read the persisted roster back and list it —
 				// "your team is ready with 3 agents: Builder, Product Manager, QA
 				// Engineer". There is no roster to list: a team is one agent, and what
@@ -411,15 +401,25 @@ export function createTeamRoutes(
 				const welcomeText =
 					"Welcome! Your team starts with one agent and nothing decided about it. Tell it what you need, or install a plugin to bring in more.";
 
-				await insertMessage(db, {
-					id: `msg-welcome-${crypto.randomUUID()}`,
-					senderId: assistantId,
-					threadId,
-					type: "plain",
-					payload: JSON.stringify({ text: welcomeText }),
-					clientKey: `welcome-${teamId}`,
-					createdAt: now,
-				});
+				// @lore The assistant's direct thread with the user is found and
+				// posted into through `send_message`, never a raw insert under the
+				// literal id `thr-ast-${userId}` — the overlay looks for it as
+				// `search_threads({host:{kind:"agent", id: myAgentId}})`
+				// (`AssistantOverlay.tsx:277-278`), and `send_message`'s own
+				// find-or-create-by-recipients (`thread-actions.ts`) is what a real
+				// user reply into the same pair resolves to as well. `clientKey` is
+				// keyed by `userId`, not `teamId`, so a second team created for the
+				// same user reuses the create-only dedupe instead of posting a
+				// second welcome into the same thread.
+				const sendResult = await sendMessage(
+					{ actor: assistantId, db, eventBus, now },
+					{ recipients: [userId], text: welcomeText, clientKey: `welcome-${userId}` },
+				);
+				if (!sendResult.ok) {
+					throw new Error(
+						`welcome message failed: ${sendResult.problems.map((p) => p.code).join(", ")}`,
+					);
+				}
 			} catch {
 				// Best-effort: ignore welcome message failures.
 			}

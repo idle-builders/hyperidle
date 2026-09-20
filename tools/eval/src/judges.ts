@@ -13,7 +13,6 @@
  */
 
 import {
-	items,
 	knowledgeEditLog,
 	knowledgeItems,
 	messages,
@@ -170,26 +169,9 @@ export function judgeCreateTaskCalled(): RubricDimension {
 	};
 }
 
-/** Judge: create_item was called — items row with sourceAgentId = agentId. */
-export function judgeCreateItemCalled(): RubricDimension {
-	return {
-		id: "item_created",
-		label: "Item Created (create_item called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [item] = await ctx.db
-				.select({ id: items.id })
-				.from(items)
-				.where(eq(items.sourceAgentId, ctx.seedResult.agentId))
-				.limit(1);
-
-			const created = item !== undefined;
-			return {
-				score: created ? 1.0 : 0.0,
-				note: created ? undefined : "No item created by agent (create_item not called)",
-			};
-		},
-	};
-}
+// @lore BC3 architecture.md §5 B4/B12: judgeCreateItemCalled DELETED — its
+// only caller (create-item.ts's scenario) tested the create_item tool,
+// which is deleted along with the `items` table it wrote.
 
 /** Judge: log_task was called — tasks.notes contains "[timestamp agentId]" pattern. */
 export function judgeLogTaskCalled(): RubricDimension {
@@ -240,11 +222,11 @@ export function judgeSendMessageCalled(): RubricDimension {
 	};
 }
 
-/** Judge: submit_review was called — messages row with senderId = agentId. */
+/** Judge: send_message with type "review" was called — messages row with senderId = agentId. */
 export function judgeSubmitReviewCalled(): RubricDimension {
 	return {
 		id: "review_submitted",
-		label: "Review Submitted (submit_review called)",
+		label: "Review Submitted (send_message with type review)",
 		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 			const [msg] = await ctx.db
 				.select({ id: messages.id, type: messages.type })
@@ -255,34 +237,9 @@ export function judgeSubmitReviewCalled(): RubricDimension {
 			const submitted = msg !== undefined;
 			return {
 				score: submitted ? 1.0 : 0.0,
-				note: submitted ? undefined : "No review message sent by agent (submit_review not called)",
-			};
-		},
-	};
-}
-
-/** Judge: handoff_to was called — sessions.state = "done" AND sessions.endedAt set. */
-export function judgeHandoffCalled(): RubricDimension {
-	return {
-		id: "handoff_called",
-		label: "Handoff Performed (handoff_to called)",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
-				.select({ state: sessions.state, endedAt: sessions.endedAt })
-				.from(sessions)
-				.where(eq(sessions.id, ctx.triggerResult.sessionId))
-				.limit(1);
-
-			if (!session) {
-				return { score: 0.0, note: "Session row not found" };
-			}
-			// handoff_to calls endSession which sets state="done" and endedAt
-			const handoffed = session.state === "done" && session.endedAt !== null;
-			return {
-				score: handoffed ? 1.0 : 0.0,
-				note: handoffed
+				note: submitted
 					? undefined
-					: `Session state=${session.state}, endedAt=${session.endedAt ?? "null"}`,
+					: "No review message sent by agent (send_message with type review not called)",
 			};
 		},
 	};
@@ -501,26 +458,9 @@ export function judgeRoutineRan(routineId: string): RubricDimension {
 	};
 }
 
-/** Judge: review item was created (kind="review") by the routine owner. */
-export function judgeReviewItemCreated(): RubricDimension {
-	return {
-		id: "review_item_created",
-		label: "Review Item Created",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [item] = await ctx.db
-				.select({ id: items.id })
-				.from(items)
-				.where(eq(items.kind, "review"))
-				.limit(1);
-
-			const created = item !== undefined;
-			return {
-				score: created ? 1.0 : 0.0,
-				note: created ? undefined : "No review item found in items table",
-			};
-		},
-	};
-}
+// @lore BC3 architecture.md §5 B4/B12: judgeReviewItemCreated DELETED — its
+// only caller (create-item.ts's scenario) is gone; a surfaced review is a
+// `messages` row (type "review") in a thread now, not an `items` row.
 
 /** Judge: knowledgeItems.status = expectedStatus for a specific item. */
 export function judgeKnowledgeStatusChanged(

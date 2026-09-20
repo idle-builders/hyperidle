@@ -5,10 +5,7 @@ import {
 	createInProcessCoreApiTransport,
 	unconfiguredCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	THROWING_OPEN_TASK,
-	THROWING_REVIEW_ACCESSOR,
-} from "@hyperidle/agent-orchestration/testing";
+import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -22,13 +19,11 @@ import { test } from "../__testing__/test-fixtures.js";
 // projected instead from the action list (`search_tasks`/`open_task`/
 // `edit_task`), composed in only at `buildToolRegistry`'s real call site,
 // not this direct-definitions fixture.
+// @lore BC3 architecture.md §5 B4: create_item/send_message/reply/
+// submit_review deleted too — send_message reappears as an action, projected
+// the same way edit_task is; the other three have no successor tool.
 const EXPECTED_TOOL_NAMES = [
-	"create_item",
-	"send_message",
-	// AU27 Increment 2: the generic reply tool.
-	"reply",
 	"write_memory",
-	"submit_review",
 	// G1 facilitator tools (score_attention deleted)
 	"promote_knowledge",
 	"create_conflict_review",
@@ -61,7 +56,6 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	test("registry produces one spec per expected tool name", ({ db, app }) => {
 		const definitions = buildToolDefinitions(
 			createInProcessCoreApiTransport(app),
-			THROWING_REVIEW_ACCESSOR,
 			THROWING_OPEN_TASK,
 		);
 		const specs = buildToolRegistry(definitions, makeContext(db), {
@@ -84,11 +78,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		// introspection only) — the unconfigured transport (throws only if
 		// actually dialled) is honest here.
 		const registry = buildToolRegistry(
-			buildToolDefinitions(
-				unconfiguredCoreApiTransport(),
-				THROWING_REVIEW_ACCESSOR,
-				THROWING_OPEN_TASK,
-			),
+			buildToolDefinitions(unconfiguredCoreApiTransport(), THROWING_OPEN_TASK),
 			{
 				db: null as unknown as HyperIdleDb,
 				eventBus: new EventBus(),
@@ -121,7 +111,6 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	test("each spec is JSON-serializable (no circular references)", ({ db, app }) => {
 		const definitions = buildToolDefinitions(
 			createInProcessCoreApiTransport(app),
-			THROWING_REVIEW_ACCESSOR,
 			THROWING_OPEN_TASK,
 		);
 		const specs = buildToolRegistry(definitions, makeContext(db), {

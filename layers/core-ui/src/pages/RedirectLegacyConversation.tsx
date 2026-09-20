@@ -13,8 +13,8 @@
  * @lore L9 CRITICAL (arch-critique): empty-string and whitespace-only ids
  * are treated as "no id" — both redirect to the queue (/conversations).
  * Without the `.trim() || null` guard, `?id=%20%20` would produce a navigate
- * to /conversations/%20%20%20 which then 404s inside useThreadDetail and
- * lands on the not-found EmptyState instead of the queue. The spec says
+ * to /conversations/%20%20%20, which `useThread` resolves to `"not-found"`,
+ * landing on the not-found EmptyState instead of the queue. The spec says
  * "legacy URLs redirect, never 404."
  *
  * @lore L9: `replace: true` on <Navigate> is the spec's "preserving history"

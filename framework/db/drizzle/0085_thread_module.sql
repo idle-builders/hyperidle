@@ -1,0 +1,238 @@
+-- @lore BC3: thread as a module. Steps are ordered; a later
+-- one depends on an earlier one.
+
+-- 1. a thread gets its own title and a soft delete.
+ALTER TABLE "threads" ADD COLUMN "title" text;
+--> statement-breakpoint
+ALTER TABLE "threads" ADD COLUMN "deleted_at" text;
+--> statement-breakpoint
+
+-- 2. a post is its own kind of change.
+ALTER TABLE "changes" DROP CONSTRAINT "changes_kind_ck";
+--> statement-breakpoint
+ALTER TABLE "changes" ADD CONSTRAINT "changes_kind_ck"
+  CHECK ("kind" in ('created','changed','message'));
+--> statement-breakpoint
+
+-- 3. a task that already has a task-hosted thread keeps it. Oldest wins when
+--    several exist — nothing forbade a second one, so pick deterministically.
+UPDATE "tasks" t SET "thread_id" = (
+  SELECT th."id" FROM "threads" th
+  WHERE th."host_kind" = 'task' AND th."host_id" = t."id"
+  ORDER BY th."created_at" ASC, th."id" ASC LIMIT 1)
+WHERE t."thread_id" IS NULL
+  AND EXISTS (SELECT 1 FROM "threads" th2
+              WHERE th2."host_kind" = 'task' AND th2."host_id" = t."id");
+--> statement-breakpoint
+
+-- 4. every remaining task gets one. Deterministic id so a re-run is a no-op.
+--    Host is the task's TEAM: a task conversation belongs to the team that owns
+--    the task, `host_kind` stays NOT NULL with no new vocabulary, and it matches
+--    what `edit_task` passes for a task created after this migration.
+--
+--    INTENDED MEMBERSHIP, stated so it can be re-derived rather than copied:
+--    the task's owner agent when it has one, plus the first human by
+--    (created_at, id) when one exists. Both, not one. Zero members is legal and
+--    produces '[]': the thread is host-scoped ('team'), so anyone signed in can
+--    still read it and the first person to post joins it. A task nobody
+--    owns in a database with no humans is not a dead thread, just an empty one.
+WITH seed AS (
+  SELECT t."id" AS task_id, t."team_id", t."created_at", t."updated_at",
+         t."owner_agent_id",
+         (SELECT u."id" FROM "users" u WHERE u."kind" = 'human'
+          ORDER BY u."created_at" ASC, u."id" ASC LIMIT 1) AS human_id
+  FROM "tasks" t WHERE t."thread_id" IS NULL
+)
+INSERT INTO "threads"
+  ("id","host_kind","host_id","initiator_id","participants","pinned","last_active_at","created_at")
+SELECT 'thr-' || s.task_id, 'team', s."team_id",
+       COALESCE(s."owner_agent_id", s.human_id, 'system:propagation'),
+       COALESCE(
+         (SELECT json_agg(m)::text FROM (
+            SELECT s."owner_agent_id" AS m WHERE s."owner_agent_id" IS NOT NULL
+            UNION
+            SELECT s.human_id AS m WHERE s.human_id IS NOT NULL) u),
+         '[]'),
+       false, s."updated_at", s."created_at"
+FROM seed s;
+--> statement-breakpoint
+
+UPDATE "tasks" SET "thread_id" = 'thr-' || "id" WHERE "thread_id" IS NULL;
+--> statement-breakpoint
+
+-- 5. the column becomes real. Guard first — a silent NULL here is a broken app.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM "tasks" WHERE "thread_id" IS NULL) THEN
+    RAISE EXCEPTION '0085: % tasks still have no thread',
+      (SELECT count(*) FROM "tasks" WHERE "thread_id" IS NULL);
+  END IF;
+END $$;
+--> statement-breakpoint
+ALTER TABLE "tasks" ALTER COLUMN "thread_id" SET NOT NULL;
+--> statement-breakpoint
+
+-- 6. items die, and the pointer at them with it. Destructive, no compat column.
+ALTER TABLE "messages" DROP COLUMN "legacy_item_id";
+--> statement-breakpoint
+DROP TABLE "items";
+--> statement-breakpoint
+
+-- 7. no thread is hosted by a task any more. A thread a task now claims is
+--    re-hosted onto that task's team; an orphan (no task claims it) onto its
+--    initiator, which is always a real identity.
+--
+--    A thread's host is immutable at the database level
+--    (`threads_host_immutable_trg`, migration 0007). That invariant is not
+--    being broken here — 0007's own note calls a migration the sanctioned
+--    way through: the host "cannot drift ... without a deliberate
+--    migration". Suspend the trigger for these two statements and restore
+--    it immediately, so every other path stays guarded (0076 set this
+--    precedent for the same trigger).
+ALTER TABLE "threads" DISABLE TRIGGER "threads_host_immutable_trg";
+--> statement-breakpoint
+UPDATE "threads" th SET "host_kind" = 'team', "host_id" = t."team_id"
+FROM "tasks" t WHERE th."host_kind" = 'task' AND t."thread_id" = th."id";
+--> statement-breakpoint
+UPDATE "threads" SET "host_kind" = 'user', "host_id" = "initiator_id"
+WHERE "host_kind" = 'task';
+--> statement-breakpoint
+ALTER TABLE "threads" ENABLE TRIGGER "threads_host_immutable_trg";
+--> statement-breakpoint
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM "threads" WHERE "host_kind" = 'task') THEN
+    RAISE EXCEPTION '0085: threads still hosted by a task';
+  END IF;
+END $$;
+--> statement-breakpoint
+
+-- 8. the intent kind says what it is. Same three constraints 0078 wrote.
+--    The constraints must drop BEFORE the data moves — the OLD check (no
+--    'thread_turn' member) still guards every row up to that point, so
+--    updating first would violate the very constraint it is about to widen.
+ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_kind_ck";
+--> statement-breakpoint
+ALTER TABLE "agent_work_intents" DROP CONSTRAINT "agent_work_intents_kind_source_compat_ck";
+--> statement-breakpoint
+UPDATE "agent_work_intents" SET "kind" = 'thread_turn' WHERE "kind" = 'assistant_turn';
+--> statement-breakpoint
+ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_ck"
+  CHECK ("kind" in ('thread_turn','session_start','knowledge_action','routine_run','task_run','session_resume'));
+--> statement-breakpoint
+ALTER TABLE "agent_work_intents" ADD CONSTRAINT "agent_work_intents_kind_source_compat_ck" CHECK (
+     ("kind" = 'thread_turn'      and "source_kind" = 'thread_message')
+  or ("kind" = 'session_start'    and "source_kind" = 'explicit_session_start')
+  or ("kind" = 'knowledge_action' and "source_kind" = 'knowledge_action')
+  or ("kind" = 'routine_run'      and "source_kind" = 'routine_run')
+  or ("kind" = 'task_run'         and "source_kind" = 'task_dispatch_attempt')
+  or ("kind" = 'session_resume'   and "source_kind" = 'review_verdict'));
+--> statement-breakpoint
+
+-- 9. `sourceCorrelation.assistantAgentId` is renamed to `agentId`
+--    (framework/domain-model/src/session-request.ts). Both columns are
+--    `text` holding JSON, not `jsonb` — cast in, rename the key, cast back
+--    out. Idempotent: the WHERE guard only matches rows that still carry
+--    the old key, so a re-run touches nothing.
+--
+--    `agent_session_requests.source_correlation_json` IS the correlation
+--    object itself (the old key sits at its top level).
+UPDATE "agent_session_requests"
+SET "source_correlation_json" = (
+  ("source_correlation_json"::jsonb - 'assistantAgentId')
+    || jsonb_build_object('agentId', "source_correlation_json"::jsonb -> 'assistantAgentId')
+)::text
+WHERE "source_correlation_json"::jsonb ? 'assistantAgentId';
+--> statement-breakpoint
+
+--    `agent_work_intents.baked_request_json` is the whole baked request;
+--    the correlation object sits nested under its `sourceCorrelation` key.
+UPDATE "agent_work_intents"
+SET "baked_request_json" = jsonb_set(
+  "baked_request_json"::jsonb,
+  '{sourceCorrelation}',
+  (("baked_request_json"::jsonb -> 'sourceCorrelation') - 'assistantAgentId')
+    || jsonb_build_object(
+         'agentId',
+         "baked_request_json"::jsonb -> 'sourceCorrelation' -> 'assistantAgentId'
+       )
+)::text
+WHERE "baked_request_json"::jsonb -> 'sourceCorrelation' ? 'assistantAgentId';
+--> statement-breakpoint
+
+-- @lore BC3 step 10: a direct thread between a user and their own assistant agent used to
+--     be hosted by the USER (pre-BC3 `createAssistantThreadRoute` shape:
+--     `thr-ast-<userId>`, host_kind='user'). `send_message`'s single-
+--     recipient path (thread-actions.ts ~546-558) now hosts that pair by the
+--     AGENT and dedupes on `direct_key = ${[a,b].sort().join(":")}:agent`.
+--     Re-host every such thread so the assistant overlay's
+--     `search_threads({host:{kind:"agent", id: myAgentId}})` finds the old
+--     conversation instead of a second one being created on first send.
+--
+--     Selected by OWNERSHIP (`users.owner_user_id`), never an id prefix —
+--     migration data need not be shaped `thr-ast-<userId>`/`ast-<userId>`.
+--     A candidate is a `host_kind='user'` thread whose participants are
+--     EXACTLY the host user and one agent it owns (`?&` + length check).
+--
+--     Idempotent: only `host_kind='user'` rows are candidates, and this step
+--     flips them to 'agent' — a re-run selects nothing.
+--
+--     Two threads can exist for the same pair (nothing forbade it pre-BC3).
+--     The partial unique index on `direct_key` allows only one keyed row per
+--     pair, so the most-recently-active thread keeps the key; the other is
+--     still re-hosted onto the agent but left with `direct_key IS NULL` — no
+--     merge, no delete, both rows survive.
+--
+--     A second writer already existed before this migration: the pre-BC3
+--     `findOrCreateDirectThread` path wrote agent-hosted direct threads with
+--     this exact `direct_key` shape for a pair reached through the old
+--     reply/send tools. Such a row is not a candidate here (its `host_kind`
+--     is already 'agent'), so the window above never sees it — but the key
+--     it holds is still live. The most-recently-active candidate only takes
+--     the computed key when no other row already holds it; otherwise it is
+--     re-hosted and left unkeyed, same as a losing duplicate above. A row
+--     that already had a key keeps whatever key it had — this step only ever
+--     writes a key it computed, never blanks one it didn't.
+--
+--     `LEAST`/`GREATEST` are pinned to the C collation so the pair ordering
+--     matches the app's plain JS `.sort()` regardless of the database's
+--     default collation.
+--
+--     Same trigger-suspend window as step 7 (`threads_host_immutable_trg`,
+--     migration 0007) — this changes `host_kind`/`host_id` too.
+ALTER TABLE "threads" DISABLE TRIGGER "threads_host_immutable_trg";
+--> statement-breakpoint
+WITH pair AS (
+  SELECT
+    th."id" AS thread_id,
+    ag."id" AS agent_id,
+    concat(
+      LEAST(th."host_id" COLLATE "C", ag."id" COLLATE "C"), ':',
+      GREATEST(th."host_id" COLLATE "C", ag."id" COLLATE "C"), ':agent'
+    ) AS computed_key,
+    row_number() OVER (
+      PARTITION BY
+        LEAST(th."host_id" COLLATE "C", ag."id" COLLATE "C"),
+        GREATEST(th."host_id" COLLATE "C", ag."id" COLLATE "C")
+      ORDER BY th."last_active_at" DESC, th."id" ASC
+    ) AS rn
+  FROM "threads" th
+  JOIN "users" ag ON ag."owner_user_id" = th."host_id" AND ag."kind" = 'ai'
+  WHERE th."host_kind" = 'user'
+    AND th."participants"::jsonb ?& array[th."host_id", ag."id"]
+    AND jsonb_array_length(th."participants"::jsonb) = 2
+)
+UPDATE "threads" th SET
+  "host_kind" = 'agent',
+  "host_id" = p.agent_id,
+  "direct_key" = CASE
+    WHEN p.rn = 1
+      AND NOT EXISTS (
+        SELECT 1 FROM "threads" k
+        WHERE k."direct_key" = p.computed_key AND k."id" <> th."id"
+      )
+    THEN p.computed_key
+    ELSE th."direct_key"
+  END
+FROM pair p
+WHERE th."id" = p.thread_id;
+--> statement-breakpoint
+ALTER TABLE "threads" ENABLE TRIGGER "threads_host_immutable_trg";

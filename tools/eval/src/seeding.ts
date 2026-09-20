@@ -142,12 +142,26 @@ export async function seedRootTask(
 		doneCondition?: string;
 		state?: TaskState;
 	},
-): Promise<{ rootTaskId: string }> {
+): Promise<{ rootTaskId: string; threadId: string }> {
 	const rootTaskId = opts.rootTaskId ?? randomUUID();
 	const now = new Date().toISOString();
+	// @lore BC3 architecture.md §5: every task owns a real thread now
+	// (tasks.threadId is NOT NULL) — written before the task itself.
+	const threadId = `thr-${rootTaskId}`;
+
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "team",
+		hostId: opts.teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 
 	await db.insert(tasks).values({
 		id: rootTaskId,
+		threadId,
 		parentTaskId: null,
 		teamId: opts.teamId,
 		title:
@@ -159,7 +173,7 @@ export async function seedRootTask(
 		updatedAt: now,
 	});
 
-	return { rootTaskId };
+	return { rootTaskId, threadId };
 }
 
 /** Create a task assigned to an agent. */
@@ -176,12 +190,26 @@ export async function seedTask(
 		doneCondition?: string;
 		state?: TaskState;
 	},
-): Promise<{ taskId: string }> {
+): Promise<{ taskId: string; threadId: string }> {
 	const taskId = opts.taskId ?? randomUUID();
 	const now = new Date().toISOString();
+	// @lore BC3 architecture.md §5: every task owns a real thread now
+	// (tasks.threadId is NOT NULL) — written before the task itself.
+	const threadId = `thr-${taskId}`;
+
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "team",
+		hostId: opts.teamId,
+		initiatorId: opts.ownerAgentId,
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 
 	await db.insert(tasks).values({
 		id: taskId,
+		threadId,
 		parentTaskId: opts.parentTaskId,
 		teamId: opts.teamId,
 		ownerAgentId: opts.ownerAgentId,
@@ -193,7 +221,7 @@ export async function seedTask(
 		updatedAt: now,
 	});
 
-	return { taskId };
+	return { taskId, threadId };
 }
 
 /**
@@ -334,7 +362,7 @@ export async function seedMinimalWorld(
 // X8 seeding additions
 // ---------------------------------------------------------------------------
 
-/** Create a thread (conversation anchor). Used by send_message, read_inbox, submit_review, create_item scenarios. */
+/** Create a thread (conversation anchor). Used by send_message, read_inbox, submit-review scenarios. */
 export async function seedThread(
 	db: HyperIdleDb,
 	opts: {
@@ -487,7 +515,7 @@ export async function seedActiveSession(
 /**
  * Composite: seed a complete world with two agents on the same team.
  * Extends seedMinimalWorld with a second agent.
- * Used by: send_message, handoff_to, read_inbox, delegation scenarios.
+ * Used by: send_message, read_inbox, delegation, and handoff (edit_task) scenarios.
  */
 export async function seedMultiAgentWorld(
 	db: HyperIdleDb,

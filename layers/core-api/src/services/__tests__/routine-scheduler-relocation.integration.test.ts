@@ -37,7 +37,6 @@
  * it; the post-bet-retro coverage above is unaffected.
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import {
 	getAgentIdentity,
@@ -50,6 +49,7 @@ import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
@@ -79,17 +79,11 @@ function makePorts(): RoutineSchedulerPorts {
 					parentTaskId: row.parentTaskId,
 				};
 			},
-			getItemById: (db, id) => work.get(db, "item", id),
-			createItem: (exec, values) => work.create(exec, "item", values),
-			findRetroItemByThreadIds: async (db, threadIds, marker) => {
-				const rows = await work.list(db, "item", { threadIds, bodyMarker: marker });
-				return rows[0] ? { id: rows[0].id } : undefined;
-			},
+			// @lore BC3 architecture.md §5: getItemById/createItem/
+			// findRetroItemByThreadIds DELETED — all three read/wrote the
+			// `items` table, which no longer exists.
 		},
 		conversation: {
-			getThreadIdsByHost: (db, hostKind, hostId) =>
-				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
-			insertThread,
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
 		knowledge: {

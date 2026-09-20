@@ -14,7 +14,6 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",
-		"@hyperidle/event-bus": "*",
 		"drizzle-orm": "^0.45.2",
 		"nodemailer": "^9.0.1"
 	},

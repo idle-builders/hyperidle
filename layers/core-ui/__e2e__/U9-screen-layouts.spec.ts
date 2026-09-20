@@ -12,7 +12,7 @@
  * The fixtures fixture auto-mocks the core APIs. We layer additional mocks
  * for /api/bets and /api/teams.
  */
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 const TEAMS_FIXTURE = {
 	teams: [
@@ -61,13 +61,7 @@ const KNOWLEDGE_ITEMS_FIXTURE = {
 
 test.describe("U9 AC-1: Conversations page — New Thread button + filter pills", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/threads*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 		await page.goto("/conversations");
 		await page.waitForSelector("[data-testid='conversations-page']");
 	});

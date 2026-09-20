@@ -17,7 +17,7 @@ export default {
 };
 
 const baseProps = {
-	hostKind: "task" as const,
+	hostKind: "team" as const,
 	hostTitle: "Pricing overhaul",
 	hostHref: "/work/bet/bet-1",
 	blocking: false,

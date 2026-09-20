@@ -68,7 +68,7 @@ Shipped shape:
 - `title`, `description`, `doneCondition` — the goal is `doneCondition`; every task has one
 - `state` — **`proposed | accepted | hold | in_progress | blocked | review | done | killed`** (`TASK_STATES`, `framework/domain-model/src/types.ts`). One vocabulary at every depth: a root task is `in_progress`, not "active".
 - `dependencies` — Task IDs that must reach `done` first; sequences emerge from these, not from a graph
-- `threadId` — **nullable**; `notes`
+- `threadId` — **not null**, written at creation; `notes`
 - `outcomeVerdict` — `met | met_with_rework | partially_met | not_met`, null until evaluated; `outcomeSummary` alongside it
 - `tokensActualJson` — this task's OWN accumulated TokenUsage. A subtree total is summed at read time; no ancestor carries a rollup column, so there is none to drift.
 - `needsReview` — does finishing this task need a human verdict? Default `false`: work closes straight to `done`. See [tasks-and-sessions §1.1](tasks-and-sessions.md).
@@ -95,10 +95,11 @@ gate is earned from a real learning, never built preemptively.
 Strategy signals (`riskTier`) live in `task_planning_signals`, not on the kernel task — the O2
 kernel/strategy split.
 
-The thread on a task is optional. Most tasks don't need one; threads exist *when there's something to
-discuss* — a question, a handoff, a review. The thread is attached to the task, not the same as it: the
-conversation about the work is separate from the state of the work. Deep mechanics:
-[tasks-and-sessions.md](tasks-and-sessions.md) and
+Every task has a thread, created with the task: a thread with the creator and the owner as members,
+unless the task was created inside an existing thread, in which case that thread is the task's thread.
+A thread can hold many tasks; a task has exactly one. Sessions talk in the task's thread, and it is
+attached to the task, not the same as it: the conversation about the work is separate from the state
+of the work. Deep mechanics: [tasks-and-sessions.md](tasks-and-sessions.md) and
 [handoff-and-lifecycle-propagation.md](handoff-and-lifecycle-propagation.md).
 
 ### 3.2 Session

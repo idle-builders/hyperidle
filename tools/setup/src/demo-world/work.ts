@@ -14,7 +14,7 @@
  * — with one task in review and one blocked on the founder.
  */
 
-import { type HyperIdleDb, tasks } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, threads } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
 	BUILDER_ID,
@@ -218,9 +218,22 @@ Research first, prototype only if the numbers say yes.`,
 
 	for (const rt of rootTaskSpecs) {
 		await db
+			.insert(threads)
+			.values({
+				id: `thr-${rt.id}`,
+				hostKind: "team",
+				hostId: TEAM_ID,
+				initiatorId: PM_ID,
+				participants: "[]",
+				lastActiveAt: rt.createdAt,
+				createdAt: rt.createdAt,
+			})
+			.onConflictDoNothing();
+		await db
 			.insert(tasks)
 			.values({
 				id: rt.id,
+				threadId: `thr-${rt.id}`,
 				parentTaskId: null,
 				teamId: TEAM_ID,
 				title: rt.title,
@@ -610,9 +623,22 @@ Research first, prototype only if the numbers say yes.`,
 
 	for (const task of taskSpecs) {
 		await db
+			.insert(threads)
+			.values({
+				id: `thr-${task.id}`,
+				hostKind: "team",
+				hostId: TEAM_ID,
+				initiatorId: task.ownerId,
+				participants: "[]",
+				lastActiveAt: task.createdAt,
+				createdAt: task.createdAt,
+			})
+			.onConflictDoNothing();
+		await db
 			.insert(tasks)
 			.values({
 				id: task.id,
+				threadId: `thr-${task.id}`,
 				parentTaskId: task.parentTaskId,
 				teamId: TEAM_ID,
 				ownerAgentId: task.ownerId,

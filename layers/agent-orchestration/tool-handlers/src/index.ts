@@ -21,7 +21,7 @@
  * `@hyperidle/tool-provider`'s `buildToolRegistry`.
  */
 
-export type { ToolHandlersPorts, ToolHandlersReviewAccessor } from "./ports.js";
+export type { ToolHandlersPorts } from "./ports.js";
 export { buildToolDefinitions } from "./tool-definitions.js";
 /**
  * @lore AU31 §2.5: `buildToolRegistry` relocated from `@hyperidle/harness-

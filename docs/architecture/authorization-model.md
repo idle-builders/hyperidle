@@ -2,7 +2,7 @@
 
 The single boundary deciding **who may read/write what**, and how secrets are protected. Backend-authoritative; applies uniformly across threads, sessions, artifacts, the assistant, and workers.
 
-**This doc is load-bearing.** `layers/core-api/src/auth/access-boundary.ts` cites it as its sync contract — adding a host kind requires updating `HOST_SCOPE` *and* the scope table below.
+**This doc is load-bearing.** `framework/domain-model/src/actions/thread.ts` cites this table as its sync contract — adding a host kind requires updating `HOST_SCOPED` *and* the scope table below.
 
 ## Principal
 
@@ -14,18 +14,18 @@ The **Principal** is the *authenticated* acting identity bound to a request — 
 
 ## Access boundary
 
-`canRead/canWrite(principal, resource) → bool` — a single pure predicate in `layers/core-api/src/auth/access-boundary.ts` (`HOST_SCOPE` :32, `canRead` :60, `canWrite` :78), evaluated server-side per request, no DB round-trip. **One rule:** *a resource's visibility inherits from its host.* Two scopes:
+`canReadThread`/`canWriteThread(actor, thread) → bool` — a pair of pure predicates in `framework/domain-model/src/actions/thread.ts` (`canReadThread`, `canWriteThread`), evaluated inside `send_message.run`/`adjust_thread.run` and by `open_thread`/`search_threads`, no DB round-trip beyond the thread row already read. **One rule:** *a thread's visibility inherits from its host.* Two scopes:
 
 | Scope | Host kinds | Visible iff |
 |---|---|---|
-| **participant-scope** | `user`, `agent` (DM / assistant / pinned configs) | `principal ∈ host.participants[]` |
-| **host-scope** | `task`, `knowledge_item`, `artifact`, `team`, `factory` | principal can see the host entity (today: any authenticated principal; later: host membership) |
+| **participant-scope** | `user`, `agent` (DM / assistant) | `actor ∈ thread.members[]` |
+| **host-scope** | `team`, `knowledge_item`, `factory` | any signed-in principal |
 
-Host kinds are closed (`task|knowledge_item|artifact|agent|user|team|factory`). There is no `bet` host kind — a bet is a task with no parent. Each maps to exactly one scope; adding a kind requires updating this table first.
+Host kinds are closed (`knowledge_item|agent|user|team|factory`). There is no `bet` host kind and no `task` host kind — a task's own thread is `team`-hosted (see [thread-primitive.md](../human-interface-layer/thread-primitive.md)). Each maps to exactly one scope; adding a kind requires updating this table first.
 
-The boundary is **derived, never a user-edited ACL**. There is one decision function; every read endpoint and every WS subscribe routes through it. Host-scoped resources **must stay broadly readable** — over-restricting a task/knowledge discussion is as much a defect as leaking a participant-scoped one.
+The boundary is **derived, never a user-edited ACL**. There is one pair of decision functions; every read and write action routes through them. Host-scoped resources **must stay broadly readable** — over-restricting a task/knowledge discussion is as much a defect as leaking a participant-scoped one.
 
-`canWrite` mirrors `canRead` today; it is kept separate so future write-only tightening (e.g. only task members can transition state) has a seam.
+`canWriteThread` delegates to `canReadThread` today, so posting to a host-scoped thread the actor can already read — but is not yet a member of — joins the actor to it, in the same transaction as the post. That is the only way to join a thread. A `user`/`agent`-hosted thread refuses a non-member outright: there is no join path onto a DM.
 
 **Not** the same as knowledge `scope_kind` — that classifies content *placement*, not request *authorization*.
 
@@ -61,7 +61,7 @@ Hiding a field from GET responses is **not** protection. Every credential lives 
 
 - **Authentication is default-on** — `createAuthMiddleware` is mounted globally (`layers/core-api/src/api-middleware-stack.ts:75`); no `/api/*` route is reachable without a verified credential.
 - **Authorization is default-deny.** Least privilege: a route exposes or mutates per-principal/per-host data only by **explicitly declaring** its access boundary (`__boundary`); absence of a declaration **fails closed** via `failClosedAssertion()` (`layers/core-api/src/api-middleware-stack.ts`), never open. This is Saltzer–Schroeder *fail-safe defaults* / OWASP *deny-by-default* — a named standard, not a bespoke scheme, and the structural fix for the guard-added-to-one-endpoint-missed-on-its-neighbour recurrence.
-- **Static guardrails (lint).** "Every route declares a boundary" and "authorization never reads a client header" are *static* properties, enforced by three custom ESLint rules in `tools/eslint-plugin-authz/src/rules/`: `require-boundary-declaration`, `no-header-identity-in-authz`, `no-raw-db-in-route-bypassing-policy`.
+- **Static guardrails (lint).** Custom ESLint rules live in `tools/eslint-plugin-authz/src/rules/`: `no-raw-db-in-route-bypassing-policy`. `no-header-identity-in-authz` is deleted — its sink was the header-reading code in `routes/threads.ts`, and that route is gone (the actions router reads only `c.get("userId")`), so the property it enforced is structural now, not lint-checked.
 
 **RLS — deferred, not rejected.** Postgres RLS would add defense-in-depth (the DB refuses cross-tenant rows even if a route forgets its guard). Deferred because the dominant deployment is local-trust single-founder (nothing to isolate), and the boundary logic is relational/JSON-array-shaped — awkward to mirror in SQL `USING` clauses, duplicating server logic. **Revisit when** a managed multi-tenant cloud deployment is on the table; that is the trigger to add RLS as a second layer beneath the server-layer chokepoint.
 
@@ -71,14 +71,14 @@ Every WebSocket subscribe routes through `canSubscribe` (DB-backed authorizer `c
 
 - **Global topics** (`conversations`, `work`) — any authenticated identity.
 - **`session:<id>`** — the session must exist and its task host must resolve; valid sessions are host-scope (any authenticated principal), non-existent or unresolvable sessions deny fail-closed.
-- **`thread:<id>`** — the subscriber must be in the thread's `participants` (participant-scope, per `canRead`).
+- **`thread:<id>`** — the subscriber must be in the thread's `participants` column (participant-scope — the same case `canReadThread` covers for `user`/`agent` hosts).
 - **Anything else** — denied.
 
 This is the authoritative statement of WS subscribe authorization; the WS push contract in [as-implemented-domain-architecture.md](as-implemented-domain-architecture.md) cites it.
 
 ## Hard rules
 
-1. **Read parity** — detail reads require the same authorization as the list. `GET /api/threads/:id`, the `session:<id>` WS topic, and artifact detail/preview enforce their list endpoint's boundary. No read path is looser than its list path.
+1. **Read parity** — detail reads require the same authorization as the list. `open_thread`, the `session:<id>` WS topic, and artifact detail/preview enforce their list endpoint's boundary. No read path is looser than its list path.
 2. **Principal-only authorization** — a client-supplied identity header never grants access to another principal's data, in any trust mode.
 3. **Worker confinement** — a worker token cannot read credentials beyond its assigned session, nor act as a different worker.
 4. **No plaintext secret** — no managed secret is ever persisted or logged in plaintext (incl. any on-disk file other than the OS-protected root secret). See [credential-model.md](credential-model.md).

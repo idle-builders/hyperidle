@@ -19,7 +19,15 @@
  * empty — do not remove it when trimming the route list.
  */
 
-import { expect, type Page, type Route, test } from "./fixtures";
+import {
+	expect,
+	makeThread,
+	mockSearchThreads,
+	mockThread,
+	type Page,
+	type Route,
+	test,
+} from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // The viewport set — named once, here, so it stops being folklore (round.md §1).
@@ -273,25 +281,12 @@ function makeOverflowingArtifact() {
 }
 
 async function mockArtifactAppShell(page: Page): Promise<void> {
-	await page.route("**/api/threads?**participant_id=**", async (route: Route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [], nextCursor: null }),
-		});
-	});
+	await mockSearchThreads(page, { rows: [] });
 	await page.route("**/api/teams**", async (route: Route) => {
 		await route.fulfill({
 			status: 200,
 			contentType: "application/json",
 			body: JSON.stringify({ teams: [] }),
-		});
-	});
-	await page.route("**/api/threads?**host_kind=artifact**", async (route: Route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [], nextCursor: null }),
 		});
 	});
 }
@@ -365,13 +360,7 @@ const THREAD_ID = "thread-az2";
 const ROUTINE_ID = "routine-az2";
 
 async function mockDefaultThreads(page: Page): Promise<void> {
-	await page.route("**/api/threads?**", async (route: Route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [], nextCursor: null }),
-		});
-	});
+	await mockSearchThreads(page, { rows: [] });
 }
 
 const ROUTES: readonly RouteCase[] = [
@@ -554,17 +543,10 @@ const ROUTES: readonly RouteCase[] = [
 		url: `/conversations/${THREAD_ID}`,
 		readySelector: "[data-testid='conversations-page']",
 		setup: async (page) => {
-			await page.route(`**/api/threads/${THREAD_ID}`, async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						thread: { id: THREAD_ID, hostKind: "bet", hostId: ROOT_TASK_ID },
-						messages: [],
-						headMessageId: null,
-						identities: {},
-					}),
-				});
+			// @lore BC3: no `bet` host kind — a task's own thread is `team`-hosted.
+			await mockThread(page, {
+				thread: makeThread(THREAD_ID, { hostKind: "team", hostId: ROOT_TASK_ID }),
+				messages: [],
 			});
 		},
 	},

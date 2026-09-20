@@ -25,7 +25,6 @@
  *      today).
  */
 
-import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -39,7 +38,7 @@ import {
 } from "@hyperidle/db";
 import type {
 	AgentRunLifecycleChangedEvent,
-	ItemCreatedEvent,
+	KnowledgeCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/event-bus";
 import {
@@ -53,6 +52,7 @@ import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";
+import { findThread } from "@hyperidle/thread";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq, sql } from "drizzle-orm";
 import { vi } from "vitest";
@@ -133,17 +133,11 @@ function makePorts(): RoutineSchedulerPorts & {
 				};
 			},
 			// BA9c: new port methods for rich subject shapes
-			getItemById: (db, id) => work.get(db, "item", id),
-			createItem: (exec, values) => work.create(exec, "item", values),
-			findRetroItemByThreadIds: async (db, threadIds, marker) => {
-				const rows = await work.list(db, "item", { threadIds, bodyMarker: marker });
-				return rows[0] ? { id: rows[0].id } : undefined;
-			},
+			// @lore BC3 architecture.md §5: getItemById/createItem/
+			// findRetroItemByThreadIds DELETED — all three read/wrote the
+			// `items` table, which no longer exists.
 		},
 		conversation: {
-			getThreadIdsByHost: (db, hostKind, hostId) =>
-				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
-			insertThread,
 			// BA9c: findThreadById for thread rich subject
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
@@ -851,8 +845,12 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 	 * cannot be resolved (`originRoutineId` returns `null`) must suppress
 	 * NOTHING. This is the direction that would quietly break the whole
 	 * feature if `originRoutineId` had a bug that returned a wrong id — a
-	 * routine authored on a plain `item_created` (no `sourceKind`/
+	 * routine authored on a plain `knowledge_created` (no `sourceKind`/
 	 * `sourceCorrelation` at all) must still fire.
+	 *
+	 * @lore BC3 architecture.md §5: the vehicle event was `item_created` —
+	 * deleted with the `items` table. `knowledge_created` is the same shape
+	 * (no source correlation) and is still live.
 	 */
 	test("an event whose origin cannot be resolved still fires the routines that match it", async ({
 		db,
@@ -867,7 +865,7 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			state: "active",
 			ownerAgentId,
 			triggerType: "event",
-			eventType: "item_created",
+			eventType: "knowledge_created",
 			active: true,
 		});
 
@@ -876,12 +874,10 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			canProvision: true,
 		});
 		try {
-			const evt: ItemCreatedEvent = {
-				type: "item_created",
+			const evt: KnowledgeCreatedEvent = {
+				type: "knowledge_created",
 				streamId: "ba1-cut3-unknown-origin-item",
 				itemId: "ba1-cut3-unknown-origin-item",
-				conversationId: "ba1-cut3-unknown-origin-thread",
-				kind: "review",
 				timestamp: Date.now(),
 			};
 			eventBus.emit(evt);

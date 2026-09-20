@@ -1,7 +1,7 @@
 /**
  * X8: Submit review scenarios (interaction 10).
  *
- * Tests the submit_review tool: structured review with producedItemId, plain fallback,
+ * Tests send_message with type "review": structured review with producedItemId, plain fallback,
  * quality-focused, and bet-thread targeting.
  */
 
@@ -28,13 +28,13 @@ const srWithProducedItemBuilderDevops: EvalScenario = {
 	id: "sr-with-produced-item-builder-devops",
 	description:
 		"Builder submits structured review with producedItemId linking to a task-parented knowledge item",
-	feature: "submit_review",
+	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent implementing DevOps infrastructure.
-When you complete work and have produced a knowledge item, submit a review using submit_review.
+When you complete work and have produced a knowledge item, submit a review using send_message with type "review".
 Include a producedItemId pointing to the knowledge item you produced.
 Your review reasoning should explain what was implemented and what to verify.`,
 			taskTitle: "Refactor monitoring configuration",
@@ -42,7 +42,7 @@ Your review reasoning should explain what was implemented and what to verify.`,
 
 You have already produced a knowledge item for this task that captures the implementation details.
 
-Submit a review using submit_review with:
+Submit a review using send_message with type "review" and:
 - title: "Monitoring configuration refactor ready for review"
 - reasoning: at least 2 points about what was changed and what to verify
 - producedItemId: "<the knowledge item ID>"
@@ -166,14 +166,14 @@ Your reasoning should mention: what was changed and what the reviewer should che
 const srPlainFallbackBuilderMarketing: EvalScenario = {
 	id: "sr-plain-fallback-builder-marketing",
 	description: "Builder submits review without artifactRef, falls back to plain message type",
-	feature: "submit_review",
+	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on marketing automation.
 When you complete analysis work (not implementation), submit a review without an artifact.
-Use submit_review WITHOUT an artifactRef when your output is a written analysis rather than a code artifact.
+Use send_message with type "review" WITHOUT an artifactRef when your output is a written analysis rather than a code artifact.
 Include clear reasoning about what you analyzed and your recommendations.`,
 			taskTitle: "Analyze email open rate decline and recommend fixes",
 			taskDescription: `Analyze the email campaign open rate decline and submit your findings for review.
@@ -183,7 +183,7 @@ Your analysis reveals:
 2. Send time shifted to Tuesday 10am improves open rates by 15%
 3. Personalization tokens in subject increase CTR by 8%
 
-Submit a review using submit_review WITHOUT an artifactRef:
+Submit a review using send_message with type "review" WITHOUT an artifactRef:
 - title: "Email campaign analysis — recommendations ready for review"
 - reasoning: include your 3 findings as separate reasoning points
 - DO NOT include an artifactRef (this is an analysis, not a code artifact)
@@ -258,14 +258,14 @@ The review will be posted as a plain message (the fallback path).`,
 const srReviewQualityPmHealthcare: EvalScenario = {
 	id: "sr-review-quality-pm-healthcare",
 	description: "PM submits multi-point healthcare compliance review with thorough reasoning",
-	feature: "submit_review",
+	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager reviewing healthcare compliance work.
 Healthcare reviews require thorough, multi-point reasoning covering: regulatory compliance, patient safety, data privacy.
-Use submit_review with at least 4 reasoning points for any healthcare compliance review.
+Use send_message with type "review" and at least 4 reasoning points for any healthcare compliance review.
 Each reasoning point should be specific and reference a regulatory requirement or patient safety consideration.`,
 			taskTitle: "Review HIPAA-compliant patient portal implementation",
 			taskDescription: `Review the patient portal implementation for HIPAA compliance.
@@ -276,7 +276,7 @@ Your review must cover:
 3. Audit logging (who accessed what, when)
 4. Data encryption (at rest and in transit)
 
-Use submit_review with:
+Use send_message with type "review" and:
 - title: "Patient portal HIPAA compliance review"
 - reasoning: 4+ specific compliance points, each referencing a HIPAA requirement
 - No artifactRef needed (this is a process review)`,
@@ -361,19 +361,19 @@ Use submit_review with:
 const srBetThreadTargetingBuilderFrontend: EvalScenario = {
 	id: "sr-bet-thread-targeting-builder-frontend",
 	description: "Builder review lands in bet's host thread (hostKind=bet, hostId=rootTaskId)",
-	feature: "submit_review",
+	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent working on frontend component development.
-When you complete a component and want it reviewed, use submit_review.
+When you complete a component and want it reviewed, use send_message with type "review".
 The review will be posted in the bet's discussion thread automatically.
 Include clear reasoning about what was implemented and what aspects to review.`,
 			taskTitle: "Implement responsive navigation component",
 			taskDescription: `Submit a review for the responsive navigation component you've implemented.
 
-Use submit_review with:
+Use send_message with type "review" and:
 - title: "Responsive navigation component ready for review"
 - reasoning: describe what was implemented and what the reviewer should check
   - Mobile breakpoints and hamburger menu behavior
@@ -472,13 +472,13 @@ const srQaGatekeeperQaDevops: EvalScenario = {
 	id: "sr-qa-gatekeeper-qa-devops",
 	description:
 		"QA engineer submits quality gatekeeper review on infrastructure migration code artifact",
-	feature: "submit_review",
+	feature: "send_message",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "qa_engineer",
 			agentSystemPrompt: `You are a QA engineer on a DevOps team responsible for quality gatekeeper reviews.
-When reviewing another agent's work, submit a thorough quality assessment using submit_review.
+When reviewing another agent's work, submit a thorough quality assessment using send_message with type "review".
 Your reviews must cover: test coverage analysis, regression risk, and acceptance criteria verification.
 Include at least 3 specific reasoning points — QA reviews must be comprehensive, not superficial.
 You do NOT write production code. Your sign-off is required before deployment.`,
@@ -498,7 +498,7 @@ Quality assessment criteria you must cover in your review:
 2. Regression risk: Could the CIDR expansion break existing routing or security group rules?
 3. Acceptance criteria: Does the change meet the original infrastructure bet's requirements?
 
-Use submit_review with:
+Use send_message with type "review" and:
 - title: "QA review: infrastructure migration code artifact"
 - reasoning: at least 3 points covering test coverage, regression risk, and acceptance criteria
 - No artifactRef needed (review the changes described in your task, not an artifact reference)`,

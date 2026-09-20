@@ -31,7 +31,7 @@ describe("agent session request contract", () => {
 					threadId: "thread-1",
 					messageId: "msg-1",
 					userId: "user-1",
-					assistantAgentId: "assistant-1",
+					agentId: "assistant-1",
 				},
 			},
 			{
@@ -87,7 +87,7 @@ describe("agent session request contract", () => {
 				threadId: "thread-1",
 				messageId: "msg-1",
 				userId: "user-1",
-				assistantAgentId: "assistant-1",
+				agentId: "assistant-1",
 			},
 		};
 		const started = {

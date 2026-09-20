@@ -12,35 +12,22 @@
 
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ThreadItem } from "../../components/ThreadSections";
 import { ThreadSections } from "../../components/ThreadSections";
 import { Composer, ThreadRow } from "../../ds";
 import { Conversations } from "../../pages/Conversations";
 
-// Mock API hooks used by Conversations page
-vi.mock("../../hooks/useThreadList", () => ({
-	useThreadList: () => ({
-		data: null,
-		loading: false,
-		error: null,
-		refresh: vi.fn(),
-	}),
-}));
+// Conversations does not call a thread-list/thread-detail hook itself —
+// the flat list is sourced from AppShell's OutletContext (absent in these
+// tests, so the page falls back to its own empty defaults) and the detail
+// surface (`useThread`) only mounts once a `:threadId` route param is
+// present, which none of these AC-5/6/7/8/12 tests exercise. No hook mock
+// is needed.
 
-vi.mock("../../hooks/useThreadDetail", () => ({
-	useThreadDetail: () => ({
-		data: null,
-		loading: false,
-		error: null,
-		refresh: vi.fn(),
-	}),
-}));
-
-vi.mock("../../shell/HostThreadSection", () => ({
-	HostThreadSection: () => <div data-testid="host-thread-section-mock" />,
-}));
-
+// A task's own thread is `team`-hosted —
+// `"task"` is not in the thread `HostKind` vocabulary. `ThreadItem.hostKind`
+// still carries a real `HostKind`, so the fixture default is `"team"`.
 function makeThread(overrides: Partial<ThreadItem> = {}): ThreadItem {
 	return {
 		id: "t1",
@@ -48,7 +35,7 @@ function makeThread(overrides: Partial<ThreadItem> = {}): ThreadItem {
 		snippet: "Some content",
 		timestamp: "2026-01-01T10:00:00.000Z",
 		avatarUrl: null,
-		hostKind: "task",
+		hostKind: "team",
 		hasUnresolvedReview: false,
 		blocking: false,
 		pinned: false,

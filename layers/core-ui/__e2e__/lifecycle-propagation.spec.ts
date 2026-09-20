@@ -19,7 +19,7 @@
  * and returns 502, causing timeout on hydration. Pattern from L19.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 const PRODUCT_ID = "prod-l20";
 const BET_ID = "bet-l20";
@@ -89,10 +89,6 @@ function makeProductResponse(betStatus: string) {
 	};
 }
 
-function makeEmptyThreadResponse() {
-	return { threads: [], nextCursor: null };
-}
-
 function makeEmptyMessagesResponse() {
 	return { messages: [] };
 }
@@ -125,13 +121,7 @@ async function setupCommonRoutes(
 	// Bet detail route
 
 	// Threads list
-	await page.route("**/api/threads?**", (route) => {
-		return route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(makeEmptyThreadResponse()),
-		});
-	});
+	await mockSearchThreads(page, { rows: [] });
 
 	// Messages list
 	await page.route("**/api/messages?**", (route) => {

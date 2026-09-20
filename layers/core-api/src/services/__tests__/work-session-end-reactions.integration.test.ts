@@ -59,6 +59,7 @@
  * `session_ended` at all for this purpose.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	agentSessionRequests,
 	type HyperIdleDb,
@@ -66,6 +67,7 @@ import {
 	taskDispatchAttempts,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import type {
@@ -82,11 +84,13 @@ import { registerWorkSessionStartedReactions } from "../work-session-started-rea
 
 /** B3/B7 fix: both reactions take `edit_task`'s bound `run`, not a bare `update()`. */
 function editTaskFrom(
-	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+	agentOrchestration: AgentOrchestrationPort,
 ): Parameters<typeof registerWorkSessionEndReactions>[2] {
-	const editTaskAction = buildCoreActions(agentOrchestration).find(
-		(a) => a.declaration.name === "edit_task",
-	);
+	const editTaskAction = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	}).find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return editTaskAction.run as Parameters<typeof registerWorkSessionEndReactions>[2];
 }
@@ -112,7 +116,17 @@ async function seedTaskAndAgent(
 		createdAt: NOW,
 	});
 	// BB1: root task replaces bet
+	await db.insert(threads).values({
+		id: `thr-${rootId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${rootId}`,
 		id: rootId,
 		parentTaskId: null,
 		teamId,
@@ -121,7 +135,17 @@ async function seedTaskAndAgent(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: `thr-${taskId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${taskId}`,
 		id: taskId,
 		parentTaskId: rootId,
 		teamId,

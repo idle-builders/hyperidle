@@ -17,7 +17,6 @@ export { assembledKnowledgeScenarios } from "./assembled-knowledge.js";
 export { composedPromptScenarios } from "./composed-prompt.js";
 export { createArtifactScenarios } from "./create-artifact.js";
 export { createConflictReviewScenarios } from "./create-conflict-review.js";
-export { createItemScenarios } from "./create-item.js";
 export { createTaskScenarios } from "./create-task.js";
 export { delegationScenarios } from "./delegation.js";
 // Live eval scaffold for force-return enforcement

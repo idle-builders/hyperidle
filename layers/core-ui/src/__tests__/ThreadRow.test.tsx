@@ -171,9 +171,10 @@ describe("ThreadRow", () => {
 	});
 
 	it("renders the host tag pill when hostTag is provided", () => {
-		// @lore BB1: hostTag="task" renders "task", not "bet"
-		render(<ThreadRow {...defaultProps} hostTag="task" />);
-		expect(screen.getByText("task")).toBeInTheDocument();
+		// @lore BB1: hostTag="team" renders "team", not "bet" (BC3: "task" host
+		// kind is gone — a task's thread is team-hosted).
+		render(<ThreadRow {...defaultProps} hostTag="team" />);
+		expect(screen.getByText("team")).toBeInTheDocument();
 	});
 
 	it("selected state stacks with blocking — accent-primary border-left wins", () => {

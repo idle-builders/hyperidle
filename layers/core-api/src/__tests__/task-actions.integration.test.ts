@@ -4,6 +4,7 @@
  * architecture doc §11.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -13,6 +14,7 @@ import {
 	taskDispatchAttempts,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
@@ -28,11 +30,13 @@ import { registerWorkSessionStartedReactions } from "../services/work-session-st
  * `taskDispatchAttempts.sessionId`.
  */
 function editTaskFrom(
-	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+	agentOrchestration: AgentOrchestrationPort,
 ): Parameters<typeof registerWorkSessionStartedReactions>[2] {
-	const editTaskAction = buildCoreActions(agentOrchestration).find(
-		(a) => a.declaration.name === "edit_task",
-	);
+	const editTaskAction = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	}).find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return editTaskAction.run as Parameters<typeof registerWorkSessionStartedReactions>[2];
 }
@@ -116,6 +120,26 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 		.onConflictDoNothing();
 }
 
+/**
+ * Every task needs a real thread (`tasks.thread_id` is NOT NULL).
+ * Returns the thread id, deterministic from `taskId` so a caller can pass
+ * it straight into the matching `tasks.threadId` field.
+ */
+async function seedThread(db: HyperIdleDb, taskId: string, teamId: string): Promise<string> {
+	const now = new Date().toISOString();
+	const threadId = `thr-${taskId}`;
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
+	return threadId;
+}
+
 async function seedAgent(db: HyperIdleDb, agentId: string, teamId?: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users).values({
@@ -171,12 +195,14 @@ describe("edit_task — refused transition", () => {
 	test("an illegal state transition returns 422 with a Problem", async ({ db, app }) => {
 		await seedTeam(db, "ta-team-2");
 		const now = new Date().toISOString();
+		const threadId = await seedThread(db, "ta-done-task", "ta-team-2");
 		await db.insert(tasks).values({
 			id: "ta-done-task",
 			parentTaskId: null,
 			teamId: "ta-team-2",
 			title: "Done task",
 			state: "done",
+			threadId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -199,6 +225,9 @@ describe("open_task", () => {
 	}) => {
 		await seedTeam(db, "ta-team-3");
 		const now = new Date().toISOString();
+		const rootThreadId = await seedThread(db, "ta-root", "ta-team-3");
+		const midThreadId = await seedThread(db, "ta-mid", "ta-team-3");
+		const leafThreadId = await seedThread(db, "ta-leaf", "ta-team-3");
 		await db.insert(tasks).values([
 			{
 				id: "ta-root",
@@ -206,6 +235,7 @@ describe("open_task", () => {
 				teamId: "ta-team-3",
 				title: "Root",
 				state: "in_progress",
+				threadId: rootThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -215,6 +245,7 @@ describe("open_task", () => {
 				teamId: "ta-team-3",
 				title: "Mid",
 				state: "in_progress",
+				threadId: midThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -225,6 +256,7 @@ describe("open_task", () => {
 				title: "Leaf",
 				state: "in_progress",
 				tokensActualJson: JSON.stringify({ byTier: { fast: { prompt: 10, completion: 5 } } }),
+				threadId: leafThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -248,6 +280,9 @@ describe("search_tasks", () => {
 	test("filters, including ids and excludeIds", async ({ db, app }) => {
 		await seedTeam(db, "ta-team-4");
 		const now = new Date().toISOString();
+		const s1ThreadId = await seedThread(db, "ta-s1", "ta-team-4");
+		const s2ThreadId = await seedThread(db, "ta-s2", "ta-team-4");
+		const s3ThreadId = await seedThread(db, "ta-s3", "ta-team-4");
 		await db.insert(tasks).values([
 			{
 				id: "ta-s1",
@@ -255,6 +290,7 @@ describe("search_tasks", () => {
 				teamId: "ta-team-4",
 				title: "Search one",
 				state: "proposed",
+				threadId: s1ThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -264,6 +300,7 @@ describe("search_tasks", () => {
 				teamId: "ta-team-4",
 				title: "Search two",
 				state: "proposed",
+				threadId: s2ThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -273,6 +310,7 @@ describe("search_tasks", () => {
 				teamId: "ta-team-4",
 				title: "Search three",
 				state: "proposed",
+				threadId: s3ThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -289,6 +327,142 @@ describe("search_tasks", () => {
 
 		const byTeam = await call<TaskRow[]>(app, "search_tasks", { teamId: "ta-team-4" });
 		expect(byTeam.body.data).toHaveLength(3);
+	});
+});
+
+describe("search_tasks — threadId filter", () => {
+	test("returns exactly the tasks in that thread, and narrows (not replaces) an existing filter", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "ta-team-12");
+		const sharedThreadId = await seedThread(db, "ta-thread-shared", "ta-team-12");
+
+		const t1 = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-team-12",
+			title: "In shared thread, one",
+			threadId: sharedThreadId,
+		});
+		const t2 = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-team-12",
+			title: "In shared thread, two",
+			threadId: sharedThreadId,
+		});
+		const t3 = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-team-12",
+			title: "Elsewhere",
+		});
+		expect(t1.body.ok).toBe(true);
+		expect(t2.body.ok).toBe(true);
+		expect(t3.body.ok).toBe(true);
+		const t1Id = t1.body.data?.task.id ?? "";
+		const t2Id = t2.body.data?.task.id ?? "";
+		expect(t3.body.data?.threadId).not.toBe(sharedThreadId);
+
+		const byThread = await call<TaskRow[]>(app, "search_tasks", { threadId: sharedThreadId });
+		expect(byThread.body.data?.map((t) => t.id).sort()).toEqual([t1Id, t2Id].sort());
+
+		// Move t2 out of "proposed" — threadId + state must narrow, not replace:
+		// only t1 is still both in the shared thread AND proposed.
+		await call<TaskViewBody>(app, "edit_task", { id: t2Id, state: "review" });
+
+		const narrowed = await call<TaskRow[]>(app, "search_tasks", {
+			threadId: sharedThreadId,
+			state: "proposed",
+		});
+		expect(narrowed.body.data?.map((t) => t.id)).toEqual([t1Id]);
+	});
+});
+
+describe("edit_task — thread membership on create-with-threadId", () => {
+	/**
+	 * Code-review blocker: `edit_task` given an existing `threadId` used to
+	 * call `adjustThread({ id, members: [owner] })` — `adjust_thread.members`
+	 * is a full replacement, so that call KICKED every other member out. Proven
+	 * here against a real direct thread (a human + an agent), the shape that
+	 * exposed it — the human asking in their own thread, the woken agent
+	 * calling `edit_task({ threadId, ownerAgentId: itself })`.
+	 */
+	test("adding an owner to an existing thread unions with, never replaces, the thread's current members", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "ta-thr-1");
+		await seedAgent(db, "ta-thr1-agentA", "ta-thr-1");
+		await seedAgent(db, "ta-thr1-agentB", "ta-thr-1");
+
+		const dm = await call<{ thread: { id: string } }>(
+			app,
+			"send_message",
+			{ recipients: [FOUNDER_ID], text: "hi" },
+			agentHeaders("ta-thr1-agentA"),
+		);
+		expect(dm.body.ok).toBe(true);
+		const threadId = dm.body.data?.thread.id ?? "";
+
+		const created = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-thr-1",
+			title: "Linked to a direct thread",
+			threadId,
+			ownerAgentId: "ta-thr1-agentB",
+		});
+		expect(created.status).toBe(200);
+		expect(created.body.ok).toBe(true);
+		expect(created.body.data?.threadId).toBe(threadId);
+
+		const opened = await call<{ members: readonly { id: string }[] }>(app, "open_thread", {
+			id: threadId,
+		});
+		expect(opened.status).toBe(200);
+		expect(opened.body.data?.members.map((m) => m.id).sort()).toEqual(
+			[FOUNDER_ID, "ta-thr1-agentA", "ta-thr1-agentB"].sort(),
+		);
+
+		// The human — never removed — can still open their own conversation.
+		const stillReadable = await call<{ thread: { id: string } }>(app, "open_thread", {
+			id: threadId,
+		});
+		expect(stillReadable.body.ok).toBe(true);
+	});
+
+	test("an owner already a member: no adjust_thread write, no thread.changed row", async ({
+		db,
+		app,
+	}) => {
+		await seedTeam(db, "ta-thr-2");
+		await seedAgent(db, "ta-thr2-agentA", "ta-thr-2");
+
+		const dm = await call<{ thread: { id: string } }>(
+			app,
+			"send_message",
+			{ recipients: [FOUNDER_ID], text: "hi" },
+			agentHeaders("ta-thr2-agentA"),
+		);
+		const threadId = dm.body.data?.thread.id ?? "";
+		const beforeKinds = (await db.select().from(changes).where(eq(changes.objectId, threadId)))
+			.map((r) => r.kind)
+			.sort();
+
+		const created = await call<TaskViewBody>(app, "edit_task", {
+			teamId: "ta-thr-2",
+			title: "Owner already present",
+			threadId,
+			ownerAgentId: "ta-thr2-agentA",
+		});
+		expect(created.body.ok).toBe(true);
+
+		const afterKinds = (await db.select().from(changes).where(eq(changes.objectId, threadId)))
+			.map((r) => r.kind)
+			.sort();
+		expect(afterKinds).toEqual(beforeKinds);
+		expect(afterKinds).not.toContain("changed");
+
+		const opened = await call<{ members: readonly { id: string }[] }>(app, "open_thread", {
+			id: threadId,
+		});
+		expect(opened.body.data?.members.map((m) => m.id).sort()).toEqual(
+			[FOUNDER_ID, "ta-thr2-agentA"].sort(),
+		);
 	});
 });
 
@@ -322,6 +496,9 @@ describe("the changes table", () => {
 	}) => {
 		await seedTeam(db, "ta-team-6");
 		const now = new Date().toISOString();
+		const killRootThreadId = await seedThread(db, "ta-kill-root", "ta-team-6");
+		const killChildThreadId = await seedThread(db, "ta-kill-child", "ta-team-6");
+		const killDependentThreadId = await seedThread(db, "ta-kill-dependent", "ta-team-6");
 		await db.insert(tasks).values([
 			{
 				id: "ta-kill-root",
@@ -329,6 +506,7 @@ describe("the changes table", () => {
 				teamId: "ta-team-6",
 				title: "Kill root",
 				state: "in_progress",
+				threadId: killRootThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -338,6 +516,7 @@ describe("the changes table", () => {
 				teamId: "ta-team-6",
 				title: "Kill child",
 				state: "in_progress",
+				threadId: killChildThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -348,6 +527,7 @@ describe("the changes table", () => {
 				title: "Dependent on the killed child",
 				state: "hold",
 				dependencies: JSON.stringify(["ta-kill-child"]),
+				threadId: killDependentThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -410,12 +590,14 @@ describe("task_state_changed", () => {
 	test("emits on state change", async ({ db, app, eventBus }) => {
 		await seedTeam(db, "ta-team-8");
 		const now = new Date().toISOString();
+		const threadId = await seedThread(db, "ta-emit-task", "ta-team-8");
 		await db.insert(tasks).values({
 			id: "ta-emit-task",
 			parentTaskId: null,
 			teamId: "ta-team-8",
 			title: "Emits on change",
 			state: "proposed",
+			threadId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -441,6 +623,7 @@ describe("dispatch", () => {
 		await seedTeam(db, "ta-team-9");
 		await seedAgent(db, "ta-agent-9", "ta-team-9");
 		const now = new Date().toISOString();
+		const threadId = await seedThread(db, "ta-accept-task", "ta-team-9");
 		await db.insert(tasks).values({
 			id: "ta-accept-task",
 			parentTaskId: null,
@@ -448,6 +631,7 @@ describe("dispatch", () => {
 			ownerAgentId: "ta-agent-9",
 			title: "Accept me",
 			state: "proposed",
+			threadId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -482,6 +666,7 @@ describe("dispatch", () => {
 		await seedAgent(db, "ta-agent-10a", "ta-team-10");
 		await seedAgent(db, "ta-agent-10b", "ta-team-10");
 		const now = new Date().toISOString();
+		const threadId = await seedThread(db, "ta-handoff-task", "ta-team-10");
 		await db.insert(tasks).values({
 			id: "ta-handoff-task",
 			parentTaskId: null,
@@ -489,6 +674,7 @@ describe("dispatch", () => {
 			ownerAgentId: "ta-agent-10a",
 			title: "Hand me off",
 			state: "in_progress",
+			threadId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -584,6 +770,8 @@ describe("dispatch", () => {
 		await seedTeam(db, "ta-team-11");
 		await seedAgent(db, "ta-agent-11", "ta-team-11");
 		const now = new Date().toISOString();
+		const killDoneRootThreadId = await seedThread(db, "ta-kill-done-root", "ta-team-11");
+		const killLiveChildThreadId = await seedThread(db, "ta-kill-live-child", "ta-team-11");
 		await db.insert(tasks).values([
 			{
 				id: "ta-kill-done-root",
@@ -591,6 +779,7 @@ describe("dispatch", () => {
 				teamId: "ta-team-11",
 				title: "Done root",
 				state: "done",
+				threadId: killDoneRootThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},
@@ -600,6 +789,7 @@ describe("dispatch", () => {
 				teamId: "ta-team-11",
 				title: "Live child",
 				state: "in_progress",
+				threadId: killLiveChildThreadId,
 				createdAt: now,
 				updatedAt: now,
 			},

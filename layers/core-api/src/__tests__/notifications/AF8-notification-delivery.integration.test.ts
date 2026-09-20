@@ -5,180 +5,28 @@
  * along with the dispatcher, drain, and lease machinery. FakeAdapter removed
  * (adapter abstraction deleted). AC2, AC3, AC9, AC10 updated.
  *
+ * @lore BC3 architecture.md §5 B7: AC2 ("notification event → queued row"),
+ * AC3 ("auto_unblock does NOT create a notification"), and AC9 ("muting
+ * suppresses enqueue") are DELETED along with the notification listener
+ * (`installNotifications`/`registerNotificationListener`) they exercised —
+ * its only production trigger was the policy engine's "attention" event,
+ * deleted with the `items` table (R2). AC10 survives unchanged: the popover
+ * API reads/writes `notification_queue` directly via `enqueue`, never
+ * through the listener.
+ *
  * Covers:
- *   AC2  — notification event → queued row with typeKey, urgency, thread-keyed sourceLink
- *   AC3  — dep-watcher auto_unblock event does NOT create a notification row
- *   AC9  — muting a type suppresses enqueue
  *   AC10 — popover API: GET /notifications/inbox, POST /seen, POST /:id/read
  */
 
-import { type HyperIdleDb, items as itemsTable, notificationQueue, threads } from "@hyperidle/db";
-import type { NotificationEvent } from "@hyperidle/event-bus";
-import { enqueue, installNotifications, updatePreferences } from "@hyperidle/notifications";
+import { type HyperIdleDb, notificationQueue } from "@hyperidle/db";
+import { enqueue } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../../__testing__/test-fixtures.js";
-import { notificationsDeps } from "../notifications-test-deps.js";
 
 // Helper: all rows for test assertions (bypasses the reduced public filter set)
 async function allRows(db: HyperIdleDb) {
 	return db.select().from(notificationQueue);
 }
-
-// --- AC2: notification event → queued row with typeKey, urgency, thread-keyed sourceLink ---
-
-describe("AF8 AC2 — notification event produces typed, source-linked row", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-AF8");
-	});
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("policy-engine push notification → row with typeKey=review_request and thread-keyed sourceLink", async ({
-		db,
-		eventBus,
-	}) => {
-		const threadId = "thread-af8-ac2";
-		const itemId = "item-af8-ac2";
-
-		// Seed thread and item
-		await db.insert(threads).values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-af8",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: "2026-06-11T00:00:00.000Z",
-			createdAt: "2026-06-11T00:00:00.000Z",
-		});
-		await db.insert(itemsTable).values({
-			id: itemId,
-			kind: "review",
-			title: "Needs review",
-			body: "Please review",
-			blocking: false,
-			riskTier: "high",
-			threadId,
-			createdAt: "2026-06-11T00:00:00.000Z",
-		});
-
-		const dispose = installNotifications(db, eventBus, notificationsDeps);
-
-		const event: NotificationEvent = {
-			type: "notification",
-			streamId: "s1",
-			targetId: itemId,
-			kind: "attention",
-			message: `Item ${itemId} requires attention`,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		await vi.waitFor(async () => {
-			const rows = await allRows(db);
-			expect(rows.length).toBeGreaterThan(0);
-		});
-
-		dispose();
-
-		const rows = await allRows(db);
-		expect(rows.length).toBeGreaterThan(0);
-		const row = rows[0]!;
-
-		// AC2: typeKey must be review_request
-		expect(row.typeKey).toBe("review_request");
-		// AC2: sourceLink must be /conversations/<threadId>
-		expect(row.sourceLink).toBe(`/conversations/${threadId}`);
-		// urgency must be set
-		expect(["immediate", "ambient"]).toContain(row.urgency);
-	});
-});
-
-// --- AC3: auto_unblock does NOT create a notification ---
-
-describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notification)", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-AF8");
-	});
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("notification event with kind=auto_unblock produces NO notification_queue row", async ({
-		db,
-		eventBus,
-	}) => {
-		const dispose = installNotifications(db, eventBus, notificationsDeps);
-
-		const event: NotificationEvent = {
-			type: "notification",
-			streamId: "s2",
-			targetId: "task-123",
-			kind: "auto_unblock",
-			message: "Task auto-transitioned to accepted: all dependencies are done",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		await new Promise<void>((resolve) => setTimeout(resolve, 100));
-		dispose();
-
-		const rows = await allRows(db);
-		expect(rows).toHaveLength(0);
-	});
-});
-
-// --- AC9: muting a type suppresses enqueue ---
-
-describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
-	test("review_request notifications are not enqueued when type is muted", async ({
-		db,
-		eventBus,
-	}) => {
-		const threadId = "thread-af8-ac9";
-		const itemId = "item-af8-ac9";
-
-		await db.insert(threads).values({
-			id: threadId,
-			hostKind: "task",
-			hostId: "task-af8-mute",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
-			lastActiveAt: "2026-06-11T00:00:00.000Z",
-			createdAt: "2026-06-11T00:00:00.000Z",
-		});
-		await db.insert(itemsTable).values({
-			id: itemId,
-			kind: "review",
-			title: "Muted review",
-			body: "Should not be enqueued",
-			blocking: false,
-			riskTier: "high",
-			threadId,
-			createdAt: "2026-06-11T00:00:00.000Z",
-		});
-
-		await updatePreferences(db, "review_request", true, notificationsDeps);
-
-		const dispose = installNotifications(db, eventBus, notificationsDeps);
-
-		const event: NotificationEvent = {
-			type: "notification",
-			streamId: "s9",
-			targetId: itemId,
-			kind: "attention",
-			message: `Item ${itemId} requires attention`,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		await new Promise<void>((resolve) => setTimeout(resolve, 100));
-		dispose();
-
-		const rows = await allRows(db);
-		expect(rows).toHaveLength(0);
-	});
-});
 
 // --- AC10: Popover API ---
 
@@ -288,14 +136,5 @@ describe("AF8 AC10 — popover API routes", () => {
 			body: JSON.stringify({ muted: true }),
 		});
 		expect(res.status).toBe(400);
-	});
-
-	test("installNotifications returns a disposer that stops the listener", async ({
-		db,
-		eventBus,
-	}) => {
-		const dispose = installNotifications(db, eventBus, notificationsDeps);
-		expect(typeof dispose).toBe("function");
-		dispose(); // should not throw
 	});
 });

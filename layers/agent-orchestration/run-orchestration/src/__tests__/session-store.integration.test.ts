@@ -24,7 +24,7 @@
  * arrangement this replaced.
  */
 
-import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
@@ -47,8 +47,18 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, phase: "build", createdAt: now });
+	await db.insert(threads).values({
+		id: `thr-${ROOT_TASK_ID}`,
+		hostKind: "team",
+		hostId: TEAM_ID,
+		initiatorId: AGENT_ID,
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
 		id: ROOT_TASK_ID,
+		threadId: `thr-${ROOT_TASK_ID}`,
 		parentTaskId: null,
 		teamId: TEAM_ID,
 		title: "Session-store bet",
@@ -57,8 +67,18 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
+	await db.insert(threads).values({
+		id: `thr-${TASK_ID}`,
+		hostKind: "team",
+		hostId: TEAM_ID,
+		initiatorId: AGENT_ID,
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
 		id: TASK_ID,
+		threadId: `thr-${TASK_ID}`,
 		parentTaskId: ROOT_TASK_ID,
 		teamId: TEAM_ID,
 		ownerAgentId: AGENT_ID,

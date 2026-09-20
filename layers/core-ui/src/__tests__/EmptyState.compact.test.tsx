@@ -2,7 +2,7 @@
  * AI5 E2 — `EmptyState` compact variant (RED phase).
  *
  * Adds a `compact?: boolean` prop (default false). Compact embodies the
- * hand-rolled panel one-liners (ArtifactThreadsSummary, SessionActivityPanel):
+ * hand-rolled panel one-liners (e.g. ArtifactThreadsSummary):
  * 18px padding, no max-width, no 48px icon block, 15px/600 title, 13px desc.
  *
  * NOTE: the full-variant contract is frozen by EmptyState.test.tsx and must

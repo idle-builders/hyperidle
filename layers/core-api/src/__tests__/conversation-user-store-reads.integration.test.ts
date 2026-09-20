@@ -12,16 +12,8 @@
  * the bets.ts decomposition.
  */
 
-import {
-	findMessage,
-	findThread,
-	insertMessage,
-	insertThread,
-	listMessages,
-	listThreads,
-	searchConversations,
-} from "@hyperidle/conversation";
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages as messagesTable, teams, threads, users } from "@hyperidle/db";
+import { findThread, listMessages, listThreads, searchConversations } from "@hyperidle/thread";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -189,21 +181,27 @@ describe("user-store reads", () => {
 });
 
 describe("conversation-store reads", () => {
-	test("findThread + findMessage return the row or undefined", async ({ db }) => {
+	test("findThread returns the row or undefined; insertMessage's row reads back by id", async ({
+		db,
+	}) => {
 		await insertUser(db, userValues("u1"));
-		await insertThread(db, threadValues("t1"));
-		await insertMessage(db, messageValues("m1", "t1", NOW));
+		await db.insert(threads).values(threadValues("t1"));
+		await db.insert(messagesTable).values(messageValues("m1", "t1", NOW));
 		expect((await findThread(db, { id: "t1" }))?.id).toBe("t1");
-		expect((await findMessage(db, { id: "m1" }))?.id).toBe("m1");
+		// @lore BC3: `findMessage` (the store's single-row-by-id read) has no
+		// production caller outside `@hyperidle/thread` itself — unexported.
+		// This is a plain fixture readback, not a call through the barrel.
+		const [messageRow] = await db.select().from(messagesTable).where(eq(messagesTable.id, "m1"));
+		expect(messageRow?.id).toBe("m1");
 		expect(await findThread(db, { id: "nope" })).toBeUndefined();
 	});
 
 	test("listMessages preserves createdAt order", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
-		await insertThread(db, threadValues("t1"));
-		await insertMessage(db, messageValues("m3", "t1", "2026-01-03T00:00:00.000Z"));
-		await insertMessage(db, messageValues("m1", "t1", "2026-01-01T00:00:00.000Z"));
-		await insertMessage(db, messageValues("m2", "t1", "2026-01-02T00:00:00.000Z"));
+		await db.insert(threads).values(threadValues("t1"));
+		await db.insert(messagesTable).values(messageValues("m3", "t1", "2026-01-03T00:00:00.000Z"));
+		await db.insert(messagesTable).values(messageValues("m1", "t1", "2026-01-01T00:00:00.000Z"));
+		await db.insert(messagesTable).values(messageValues("m2", "t1", "2026-01-02T00:00:00.000Z"));
 		const asc = await listMessages(db, { threadId: "t1", order: "createdAt", dir: "asc" });
 		expect(asc.map((m) => m.id)).toEqual(["m1", "m2", "m3"]);
 		const desc = await listMessages(db, { threadId: "t1", order: "createdAt", dir: "desc" });
@@ -212,24 +210,21 @@ describe("conversation-store reads", () => {
 
 	test("listThreads orders by lastActiveAt desc, id desc, and limits", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
-		await insertThread(
-			db,
+		await db.insert(threads).values(
 			threadValues("ta", {
 				hostKind: "bet",
 				hostId: "b1",
 				lastActiveAt: "2026-01-01T00:00:00.000Z",
 			}),
 		);
-		await insertThread(
-			db,
+		await db.insert(threads).values(
 			threadValues("tb", {
 				hostKind: "bet",
 				hostId: "b1",
 				lastActiveAt: "2026-01-03T00:00:00.000Z",
 			}),
 		);
-		await insertThread(
-			db,
+		await db.insert(threads).values(
 			threadValues("tc", {
 				hostKind: "bet",
 				hostId: "b1",
@@ -246,7 +241,7 @@ describe("conversation-store reads", () => {
 
 	test("findThread + listThreads scope by host pair", async ({ db }) => {
 		await insertUser(db, userValues("u1"));
-		await insertThread(db, threadValues("t1", { hostKind: "bet", hostId: "b9" }));
+		await db.insert(threads).values(threadValues("t1", { hostKind: "bet", hostId: "b9" }));
 		expect((await findThread(db, { host: { kind: "bet", id: "b9" } }))?.id).toBe("t1");
 		const ids = await listThreads(db, { host: { kind: "bet", id: "b9" } }).then((ts) =>
 			ts.map((t) => t.id),
@@ -259,28 +254,24 @@ describe("conversation-store reads", () => {
 		db,
 	}) => {
 		await insertUser(db, userValues("u1"));
-		await insertThread(
-			db,
+		await db.insert(threads).values(
 			threadValues("t1", {
 				participants: JSON.stringify(["alice"]),
 				lastActiveAt: "2026-01-01T00:00:00.000Z",
 			}),
 		);
-		await insertThread(
-			db,
+		await db.insert(threads).values(
 			threadValues("t2", {
 				participants: JSON.stringify(["alice"]),
 				lastActiveAt: "2026-01-02T00:00:00.000Z",
 			}),
 		);
-		await insertMessage(
-			db,
-			messageValues("m1", "t1", NOW, { payload: JSON.stringify({ text: "hello world" }) }),
-		);
-		await insertMessage(
-			db,
-			messageValues("m2", "t2", NOW, { payload: JSON.stringify({ text: "hello world" }) }),
-		);
+		await db
+			.insert(messagesTable)
+			.values(messageValues("m1", "t1", NOW, { payload: JSON.stringify({ text: "hello world" }) }));
+		await db
+			.insert(messagesTable)
+			.values(messageValues("m2", "t2", NOW, { payload: JSON.stringify({ text: "hello world" }) }));
 		const rows = await searchConversations(db, '%"alice"%', "%hello%", 10);
 		expect(rows.map((r) => r.id)).toEqual(["t2", "t1"]);
 		// projected shape only
@@ -289,6 +280,7 @@ describe("conversation-store reads", () => {
 			"id",
 			"lastActiveAt",
 			"participants",
+			"title",
 		]);
 	});
 });

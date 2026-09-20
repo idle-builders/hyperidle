@@ -6,17 +6,21 @@
  * `exhaustiveAssert` boundary — the switch covers all four discriminants
  * and the default branch never executes.
  *
- * AC-4 (plan §3): MESSAGE_TYPES.length === 4, HOST_KINDS.length === 7 (BB1: "bet" removed).
+ * @lore BC3 §3.1: `Message.payload` moved to `z.unknown()` on the action's
+ * output schema (a four-arm discriminated union in an output buys nothing
+ * and makes `z.toJSONSchema` noisy). `Message` is therefore a flat object
+ * now, not a discriminated union of four variants, so the exhaustiveness
+ * check below narrows on `m.type` (the discriminant) rather than on `m`
+ * itself — property narrowing still makes an added, unhandled type a
+ * compile error, which is the property this test protects.
+ *
+ * AC-4: MESSAGE_TYPES.length === 4, HOST_KINDS.length === 5 (bet and task
+ * are no longer host kinds — a task's thread is `team`-hosted now).
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	HOST_KINDS,
-	MESSAGE_TYPES,
-	type Message,
-	type MessageType,
-	VERDICT_DECISIONS,
-} from "../thread.js";
+import type { Message } from "../actions/thread.js";
+import { HOST_KINDS, MESSAGE_TYPES, type MessageType, VERDICT_DECISIONS } from "../thread.js";
 
 function exhaustiveAssert(value: never): never {
 	throw new Error(`Unhandled message type: ${String(value)}`);
@@ -33,7 +37,7 @@ function describeMessage(m: Message): string {
 		case "verdict":
 			return "verdict";
 		default:
-			return exhaustiveAssert(m);
+			return exhaustiveAssert(m.type);
 	}
 }
 
@@ -45,10 +49,10 @@ describe("AC-4 / AC-11 — message-type discriminant exhaustiveness", () => {
 		);
 	});
 
-	it("HOST_KINDS is exactly the closed 6-set (BB1: 'bet' removed, artifacts-become-knowledge: 'artifact' removed)", () => {
-		expect(HOST_KINDS.length).toBe(6);
+	it("HOST_KINDS is exactly the closed 5-set (bet, artifact, and task are no longer host kinds — a task's thread is team-hosted)", () => {
+		expect(HOST_KINDS.length).toBe(5);
 		expect([...HOST_KINDS].sort()).toEqual(
-			["agent", "factory", "knowledge_item", "task", "team", "user"].sort(),
+			["agent", "factory", "knowledge_item", "team", "user"].sort(),
 		);
 	});
 
@@ -73,6 +77,7 @@ describe("AC-4 / AC-11 — message-type discriminant exhaustiveness", () => {
 			threadId: "t1",
 			senderId: "u1",
 			clientKey: "k",
+			blockId: null,
 			deletedAt: null,
 			redactedAt: null,
 			resolvedAt: null,

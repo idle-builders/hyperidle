@@ -94,9 +94,11 @@ vi.mock("../../hooks/useKnowledgeItem", () => ({
 	}),
 }));
 
+// @lore BC3: HostThreadSection takes `host: {kind, id}`, not `hostKind`/`hostId` —
+// the mock's prop shape follows the real component's props.
 vi.mock("../../shell/HostThreadSection", () => ({
-	HostThreadSection: ({ hostKind, hostId }: { hostKind: string; hostId: string }) => (
-		<div data-testid="host-thread-section" data-host-kind={hostKind} data-host-id={hostId} />
+	HostThreadSection: ({ host }: { host: { kind: string; id: string } }) => (
+		<div data-testid="host-thread-section" data-host-kind={host.kind} data-host-id={host.id} />
 	),
 }));
 

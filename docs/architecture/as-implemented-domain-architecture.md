@@ -49,9 +49,9 @@ flowchart TB
 
   subgraph Conversation["Conversation Domain"]
     Thread["Threads and messages"]
-    Review["Review items"]
+    Review["Review messages"]
     Artifact["Artifacts"]
-    ConversationAPI["Interface\nthreads, conversations, reviews,\nartifacts APIs\nmessage/item events"]
+    ConversationAPI["Interface\nsearch_threads/open_thread/send_message/adjust_thread\nartifacts API\nthread events"]
   end
 
   subgraph Knowledge["Knowledge Domain"]
@@ -162,24 +162,18 @@ Task actions, `POST /api/actions/<name>`: `search_tasks`, `open_task` (returns t
 ```mermaid
 flowchart TB
   Thread["Thread\nconversation host"]
-  Message["Message"]
-  Item["Item\nreview/notification surface"]
-  Review["Review"]
+  Message["Message\nplain | review | questionnaire | verdict"]
   Artifact["Artifact"]
 
   Thread --> Message
-  Thread --> Item
-  Item --> Review
   Artifact --> Thread
 
-  AssistantTurn["Assistant turn"] --> Thread
-  AssistantTurn --> SessionRequest["Conversational session request"]
+  ThreadTurn["Thread turn"] --> Thread
+  ThreadTurn --> SessionRequest["Conversational session request"]
   SessionResult["Session completion"] --> Message
   ToolRegistry["Tool registry"] --> Artifact
-  ToolRegistry --> Item
 
-  Thread -- "thread_* events" --> Events["EventBus"]
-  Item -- "item_created" --> Events
+  Thread -- "changes row (thread.created / thread.message / thread.changed)" --> Events["EventBus"]
 ```
 
 Thread/Message primitive (HOST_KINDS, MESSAGE_TYPES, verdict grammar, idempotency) is owned by the [Thread primitive](../human-interface-layer/thread-primitive.md). Artifact contract and embed shapes: [Artifact primitive](../process-layer/artifact-primitive.md).
@@ -204,7 +198,7 @@ flowchart TB
   Search["Search"] --> Repository
   Relevance["Relevance service"] --> KnowledgeProjection
   Attention["Attention service"] --> KnowledgeProjection
-  Attention --> ReviewItem["Review item"]
+  Attention --> ReviewItem["Review message"]
   Writeback["Sandbox writeback"] --> Repository
   Promotion["Promotion pipeline"] --> Repository
 
@@ -331,7 +325,7 @@ flowchart TB
 
   CoordinationEvents["Coordination events\ntask_state_changed\nroutine_fired"] --> EventBus
   SessionEvents["Session events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"] --> EventBus
-  ConversationEvents["Conversation events\nthread_created\nthread_message_appended\nitem_created"] --> EventBus
+  ConversationEvents["Conversation events\nthread_created\nthread_message_appended\nthread_resolved\nthread_reopened"] --> EventBus
   KnowledgeEvents["Knowledge events\nknowledge_accessed\nknowledge_updated\nknowledge_created\nknowledge_archived"] --> EventBus
   NotificationEvents["Notification events\nnotification"] --> EventBus
 
@@ -366,7 +360,7 @@ flowchart TB
   HarnessAdapter --> Remote["Remote harness"]
 ```
 
-All agent-run entry families persist a durable work intent. `core-api` bakes everything the run needs onto the emitted request; `agent-orchestration` claims it, formats it and dispatches. Assistant preparation lives in `layers/core-api/conversation/src/assistant-turn-resolver.ts`.
+All agent-run entry families persist a durable work intent. `core-api` bakes everything the run needs onto the emitted request; `agent-orchestration` claims it, formats it and dispatches. Thread-turn preparation (a mention or a direct-thread reply waking an agent) lives in `layers/core-api/thread/src/thread-turn-resolver.ts`.
 
 ## Component Inventory
 
@@ -374,16 +368,17 @@ Verified against code 2026-08-06. Component-level facts only; primitive semantic
 
 ### Primitive store
 
-Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, routines, routine_runs, threads, messages, items, org_edges, knowledge_items (:883) + knowledge_app_projection (:1004) + knowledge_edit_log (:912) + knowledge_access_log + knowledge_conflicts, propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), credential/config/login/invite/proposed-call tables.
+Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, routines, routine_runs, threads, messages, org_edges, knowledge_items (:883) + knowledge_app_projection (:1004) + knowledge_edit_log (:912) + knowledge_access_log + knowledge_conflicts, propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), credential/config/login/invite/proposed-call tables.
 
 - The `responses` table is dropped — verdicts are `verdict`-typed messages ([Thread primitive](../human-interface-layer/thread-primitive.md)).
+- There is no `items` table. A review, a question, an escalation are messages on a thread.
 - Message idempotency: UNIQUE(threadId, senderId, clientKey).
 - Sessions carry no cost columns. The cost feature was deleted with no replacement; the spend ceiling lives at the upstream LLM provider account ([WIP limits](../process-layer/wip-and-cost-limits.md)).
 - `org_edges` records org relationships per (fromUserId, mechanism, target); `propagation_log` records lifecycle-propagation applications by source level/id and status; `knowledge_access_log` records per-item knowledge reads.
 
 ### Item routing
 
-`routeItem` and `routeToFounder` are deleted. An item carries no computed target view; review recipients are resolved by `resolveReviewRecipients` (`layers/core-api/org/src/org-routing.ts`), and notification policy lives in the notification Service (`layers/core-api/notifications/src/silence-policy.ts`, `install.ts`). Item shape is owned by [items and routing](../human-interface-layer/items-and-routing.md).
+There is no `items` table and no item router. Review recipients are resolved by `resolveReviewRecipients` (`layers/core-api/org/src/org-routing.ts`), and notification policy lives in the notification Service (`layers/core-api/notifications/src/silence-policy.ts`, `install.ts`).
 
 ### Schedulers
 
@@ -397,7 +392,7 @@ See the L2 Knowledge Domain paragraph above; full design in [knowledge-architect
 
 ### API layer
 
-Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `PATCH /:id`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
+Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `PATCH /:id`), sessions, actions (`search_tasks`/`open_task`/`edit_task`/`search_threads`/`open_thread`/`send_message`/`adjust_thread`, one router over the composed action list), artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
 
 Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 
@@ -419,9 +414,9 @@ Channels `"console"` | `"noop"` (`framework/diagnostics/src/observability/types.
 
 ## MCP Tool Surface
 
-Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). Most are declared in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: send_message, reply, write_memory, create_item, submit_review, run_knowledge_sweep, score_attention, promote_knowledge, create_conflict_review, merge_knowledge, split_knowledge, create_team, add_agent, create_routine, update_routine, create_artifact. The rest are projected straight from the action list (`layers/core-api/src/actions/actions-as-tools.ts`) — today `search_tasks`, `open_task`, `edit_task` (ungated — same door for humans and agents; setting `ownerAgentId` is a handoff).
+Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). Most are declared in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: write_memory, run_knowledge_sweep, score_attention, promote_knowledge, create_conflict_review, merge_knowledge, split_knowledge, create_team, add_agent, create_routine, update_routine, create_artifact. The rest are projected straight from the action list (`layers/core-api/src/actions/actions-as-tools.ts`) — today `search_tasks`, `open_task`, `edit_task` (ungated — same door for humans and agents; setting `ownerAgentId` is a handoff), and `search_threads`, `open_thread`, `send_message`, `adjust_thread`.
 
-The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/actions/<name>` for tasks, `/api/knowledge` (`/search`, `/`, `/triage-count`, `/:id`).
+The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/actions/<name>` for tasks and threads, `/api/knowledge` (`/search`, `/`, `/triage-count`, `/:id`).
 
 ## Session Flow
 
@@ -433,10 +428,6 @@ Triggers: routine fired, dependency cleared, or an inbox/assistant message. Then
 4. Harness spawned; agent works via MCP tools.
 5. Session notes written before context compaction (the `write_session_notes` tool; fallback notes file `work/task-notes.md`).
 6. Stop → `SessionResult` persisted, writeback + capture, `session_ended` emitted.
-
-## Item Pipeline
-
-`create_item` tool → `items` row → `item_created` event → notification dispatcher fires if push-worthy (ntfy) → WebSocket push → UI renders it.
 
 ## WebSocket Push Contract
 

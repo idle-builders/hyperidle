@@ -58,13 +58,8 @@ function inertPorts(): RoutineSchedulerPorts {
 		work: {
 			// @lore BB1: getBetById deleted — bet is now a root task.
 			getTaskById: unreachable("work.getTaskById"),
-			getItemById: unreachable("work.getItemById"),
-			createItem: unreachable("work.createItem"),
-			findRetroItemByThreadIds: unreachable("work.findRetroItemByThreadIds"),
 		},
 		conversation: {
-			getThreadIdsByHost: unreachable("conversation.getThreadIdsByHost"),
-			insertThread: unreachable("conversation.insertThread"),
 			findThreadById: unreachable("conversation.findThreadById"),
 		},
 		knowledge: {

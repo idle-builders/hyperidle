@@ -1245,14 +1245,16 @@ export const ATTACKS: readonly Attack[] = [
 			"mutating an already-legacy door's handler body, without adding a registration, is clean",
 		rules: ["actions-projected"],
 		isolate: true,
+		// @lore BC3 architecture.md §4: threads.ts (the prior mutate target) is deleted by this item;
+		// re-pointed at knowledge.ts, whose `GET /` is also a LEGACY_ROUTES entry and survives.
 		mutate: {
-			"layers/core-api/src/routes/threads.ts": (existing) =>
+			"layers/core-api/src/routes/knowledge.ts": (existing) =>
 				existing.replace(
 					'router.get("/", async (c) => {',
 					'router.get("/", async (c) => {\n\t\t// attack-actions-projected-control: no new registration here.',
 				),
 		},
-		expect: { sort: "clean", file: "layers/core-api/src/routes/threads.ts" },
+		expect: { sort: "clean", file: "layers/core-api/src/routes/knowledge.ts" },
 	},
 ];
 

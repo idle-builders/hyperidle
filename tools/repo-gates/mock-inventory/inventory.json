@@ -1,23 +1,5 @@
 [
   {
-    "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
-    "line": 314,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
-    "line": 316,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
     "path": "layers/core-api/src/middleware/auth.ts",
     "line": 149,
     "symbol": "u-founder",
@@ -55,7 +37,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 68,
+    "line": 63,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
     "shape": "import",
@@ -64,7 +46,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 148,
+    "line": 142,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
@@ -73,7 +55,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 214,
+    "line": 208,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -82,7 +64,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 220,
+    "line": 214,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",

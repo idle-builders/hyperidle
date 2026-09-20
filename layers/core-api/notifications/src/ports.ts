@@ -23,7 +23,7 @@
  * getDailyDigest, now deleted).
  */
 
-import type { HyperIdleDb, Item, ServerCredential, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, ServerCredential } from "@hyperidle/db";
 
 // ---------------------------------------------------------------------------
 // Private port interfaces (referenced by NotificationsDeps fields)
@@ -57,10 +57,6 @@ interface NotificationsConfigPatch {
 interface NotificationsServerConfigPort {
 	read(db: HyperIdleDb): Promise<{ notifications: NotificationsConfigSection }>;
 	update(db: HyperIdleDb, patch: { notifications: NotificationsConfigPatch }): Promise<unknown>;
-}
-
-interface NotificationsWorkReader {
-	getItemById(exec: WriteExecutor, id: string): Promise<Item | undefined>;
 }
 
 interface NotificationsCredentialCipher {
@@ -98,5 +94,4 @@ export interface NotificationsDeps {
 	serverConfig: NotificationsServerConfigPort;
 	credentialCipher: NotificationsCredentialCipher;
 	credentialStore: NotificationsCredentialStore;
-	work: NotificationsWorkReader;
 }

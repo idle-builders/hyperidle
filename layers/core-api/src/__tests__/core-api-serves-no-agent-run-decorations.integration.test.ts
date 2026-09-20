@@ -10,8 +10,11 @@
  *   1. `GET /api/status`     — `activeSessions` (the root route has zero consumers)
  *   2. `GET /api/users`      — per-user `activeSessions` (the only consumer is
  *                              typed `{id,name,role,teamId}`)
- *   3. `GET /api/threads/:id`— `identities[].operationalStatus` (zero production
- *                              readers; also an N+1, one query per AI participant)
+ *   3. `POST /api/actions/open_thread` — `members[].operationalStatus` (zero
+ *                              production readers; also an N+1, one query per
+ *                              AI participant). `open_thread`'s `IdentitySchema`
+ *                              is `{id,name,role,isAgent}`, statically shaped
+ *                              with no `operationalStatus` field at all.
  *   4. `GET /api/teams`      — `activeAgentCount` + `agentHealthWarning` (read
  *                              only by stories/tests)
  *
@@ -59,7 +62,17 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
+	await db.insert(threads).values({
+		id: `thr-${"bet-1"}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"bet-1"}`,
 		id: "bet-1",
 		parentTaskId: null,
 		teamId: "prod-1",
@@ -69,7 +82,17 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
+	await db.insert(threads).values({
+		id: `thr-${"task-1"}`,
+		hostKind: "team",
+		hostId: "prod-1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"task-1"}`,
 		id: "task-1",
 		parentTaskId: "bet-1",
 		teamId: "prod-1",
@@ -147,15 +170,21 @@ describe("core-api serves no agent-run decorations", () => {
 		expect(agent?.role).toBe("builder");
 	});
 
-	test("GET /api/threads/:id identities carry no operationalStatus", async ({ db, app }) => {
+	test("open_thread members carry no operationalStatus", async ({ db, app }) => {
 		await seed(db);
 		await seedThreadWithAgentSender(db);
-		const res = await app.request("/api/threads/thr-1", { headers: authHeaders() });
+		const res = await app.request("/api/actions/open_thread", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ id: "thr-1" }),
+		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			identities: Record<string, Record<string, unknown>>;
+			ok: boolean;
+			data: { members: Array<Record<string, unknown>> };
 		};
-		const agentIdentity = body.identities["agent-1"];
+		expect(body.ok).toBe(true);
+		const agentIdentity = body.data.members.find((m) => m.id === "agent-1");
 		expect(agentIdentity).toBeTruthy();
 		expect(agentIdentity).not.toHaveProperty("operationalStatus");
 		// What the renderers actually read survives.

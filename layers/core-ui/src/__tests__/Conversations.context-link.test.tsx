@@ -7,8 +7,21 @@
 
 import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { resolveSessionAgentAuthor } from "../pages/Conversations.js";
 import { resolveHostRoute } from "../services/host-route.js";
+
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: () => ({
+		user: { id: "u-founder", name: "Alice Founder", email: "alice@example.com", avatarUrl: null },
+		status: "ready",
+		error: null,
+		retry: vi.fn(),
+	}),
+}));
 
 // ── resolveHostRoute unit tests (AC-3 route resolution) ──────────────────────
 
@@ -62,7 +75,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -90,7 +103,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -117,7 +130,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -143,7 +156,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -170,7 +183,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 		render(
 			<ThreadHostBanner
-				hostKind="task"
+				hostKind="team"
 				hostTitle="Test Task"
 				blocking={false}
 				resolved={false}
@@ -253,109 +266,72 @@ describe("AE5 — ThreadRow presence dots", () => {
 
 // ── Conversations context link rendering (AC-3) ──────────────────────────────
 
-describe("AE5 — Conversations header context link", () => {
-	const mockThreadDetail = {
-		thread: {
-			id: "t-1",
-			hostKind: "task" as const,
-			hostId: "task-123",
-			initiatorId: "u-founder",
-			participants: ["u-founder"],
-			pinned: false,
-			resolvedAt: null,
-			lastActiveAt: "2026-06-08T12:00:00.000Z",
-			createdAt: "2026-06-08T11:00:00.000Z",
-		},
-		messages: [],
-		headMessageId: null,
-		identities: {
-			"u-founder": { name: "Alice Founder", role: "founder" },
-		},
-		hostTitle: "My Test Task",
-	};
+// @lore BC3: the "renders host context title as link for task" case is
+// DELETED, not repointed — thread `hostKind` can no longer be "task" (a
+// task's own thread is `team`-hosted, architecture.md §3.9). There is no
+// task-hosted thread left to link to.
 
-	beforeEach(() => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(async (input: RequestInfo | URL) => {
-				const url =
-					typeof input === "string"
-						? input
-						: input instanceof URL
-							? input.href
-							: (input as Request).url;
-				if (url.includes("/api/threads/t-1")) {
-					return {
-						ok: true,
-						status: 200,
-						json: async () => mockThreadDetail,
-					} as unknown as Response;
-				}
-				return {
-					ok: true,
-					status: 200,
-					json: async () => ({ threads: [], nextCursor: null }),
-				} as unknown as Response;
-			}),
-		);
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	// @lore BB1: task now navigates to /work/task/:id — was a no-op (AM5 H5/BLOCKER-1)
-	it("renders host context title as link for task (BB1: was text-only no-op)", async () => {
-		const { Conversations } = await import("../pages/Conversations.js");
-
-		const router = createMemoryRouter(
-			[
-				{
-					path: "/conversations/:threadId",
-					element: <Conversations />,
-				},
-			],
-			{
-				initialEntries: ["/conversations/t-1"],
-			},
-		);
-
-		render(<RouterProvider router={router} />);
-
-		// BB1: task resolveHostRoute → /work/task/task-123 (was null no-op).
-		// Wait for the thread to load.
-		const heading = await screen.findByRole("heading", { name: /My Test Task/i }).catch(() => null);
-		const hostText = await screen.findByText(/My Test Task/i).catch(() => null);
-		expect(heading ?? hostText).not.toBeNull();
-		const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-		// UI-030: threadTitle now prefers data.hostTitle ("My Test Task") over raw hostId ("task-123").
-		expect(breadcrumb).toHaveTextContent("My Test Task");
-		expect(breadcrumb).not.toHaveTextContent("task-123");
-	});
-
-	it("does not render context link when resolveHostRoute returns null (user thread)", async () => {
-		const { Conversations } = await import("../pages/Conversations.js");
-
-		const userThreadDetail = {
-			...mockThreadDetail,
+function makeOpenThreadResult() {
+	return {
+		ok: true,
+		data: {
 			thread: {
-				...mockThreadDetail.thread,
+				id: "t-1",
 				hostKind: "user" as const,
 				hostId: "u-founder",
+				initiatorId: "u-founder",
+				members: ["u-founder"],
+				title: null,
+				computedTitle: "My Test Task",
+				pinned: false,
+				resolvedAt: null,
+				deletedAt: null,
+				lastActiveAt: "2026-06-08T12:00:00.000Z",
+				createdAt: "2026-06-08T11:00:00.000Z",
 			},
-		};
+			members: [{ id: "u-founder", name: "Alice Founder", role: "founder", isAgent: false }],
+			messages: [],
+			headMessageId: null,
+			hostTitle: "My Test Task",
+		},
+	};
+}
 
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(
-				async () =>
-					({
-						ok: true,
-						status: 200,
-						json: async () => userThreadDetail,
-					}) as unknown as Response,
-			),
-		);
+function makeTask(id: string, title: string, state: string) {
+	return {
+		id,
+		parentTaskId: null,
+		teamId: "team-1",
+		ownerAgentId: null,
+		title,
+		description: null,
+		doneCondition: null,
+		state,
+		dependencies: null,
+		threadId: "t-1",
+		notes: null,
+		createdAt: "2026-06-08T11:00:00.000Z",
+		updatedAt: "2026-06-08T11:00:00.000Z",
+		outcomeVerdict: null,
+		outcomeSummary: null,
+		outcomeRecordedAt: null,
+		outcomeRecordedBy: null,
+		tokensActualJson: null,
+		sourceKnowledgeItemId: null,
+		completedAt: null,
+		position: 0,
+		needsReview: false,
+	};
+}
+
+describe("AE5 — Conversations header context link", () => {
+	it("does not render context link when resolveHostRoute returns null (user thread)", async () => {
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") return makeOpenThreadResult();
+			return { ok: true, data: [] };
+		});
+
+		const { Conversations } = await import("../pages/Conversations.js");
 
 		const router = createMemoryRouter(
 			[{ path: "/conversations/:threadId", element: <Conversations /> }],
@@ -371,5 +347,107 @@ describe("AE5 — Conversations header context link", () => {
 		// No context link for user-hosted thread
 		const links = screen.queryAllByRole("link", { name: /My Test Task/i });
 		expect(links).toHaveLength(0);
+	});
+});
+
+// ── A thread's own tasks replace the old task link ───────────
+
+describe("Conversations thread task links", () => {
+	it("shows one link per task, with the right hrefs, for a thread with two tasks", async () => {
+		callMock.mockImplementation(async (action: string, input?: unknown) => {
+			if (action === "open_thread") return makeOpenThreadResult();
+			if (action === "search_tasks") {
+				expect(input).toEqual({ threadId: "t-1" });
+				return {
+					ok: true,
+					data: [
+						makeTask("task-1", "Write the doc", "in_progress"),
+						makeTask("task-2", "Ship the PR", "review"),
+					],
+				};
+			}
+			return { ok: true, data: [] };
+		});
+
+		const { Conversations } = await import("../pages/Conversations.js");
+
+		const router = createMemoryRouter(
+			[{ path: "/conversations/:threadId", element: <Conversations /> }],
+			{ initialEntries: ["/conversations/t-1"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		await screen.findAllByTestId("conversations-page");
+
+		const firstLink = await screen.findByRole("link", { name: /Write the doc/i });
+		expect(firstLink).toHaveAttribute("href", "/work/task/task-1");
+		const secondLink = screen.getByRole("link", { name: /Ship the PR/i });
+		expect(secondLink).toHaveAttribute("href", "/work/task/task-2");
+	});
+
+	it("shows no task link for a thread with no tasks", async () => {
+		callMock.mockImplementation(async (action: string) => {
+			if (action === "open_thread") return makeOpenThreadResult();
+			if (action === "search_tasks") return { ok: true, data: [] };
+			return { ok: true, data: [] };
+		});
+
+		const { Conversations } = await import("../pages/Conversations.js");
+
+		const router = createMemoryRouter(
+			[{ path: "/conversations/:threadId", element: <Conversations /> }],
+			{ initialEntries: ["/conversations/t-1"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		await screen.findAllByTestId("conversations-page");
+
+		expect(screen.queryAllByRole("link", { name: /task/i })).toHaveLength(0);
+	});
+});
+
+// ── Code-review fix: session panel agent identity ────────────────────────────
+//
+// A thread's host is a team, a knowledge item, a user or an agent — only in
+// the last case is it an agent. `resolveSessionAgentAuthor` (Conversations.tsx)
+// resolves the agent shown in a session's inspect panel; it must come from the
+// session's OWN data (`useSessionActivity`'s `summary`), never from the
+// hosting thread's id — a team-hosted (task) thread's session must never be
+// labeled with the team's id.
+
+describe("Conversations — session panel agent identity (code-review fix)", () => {
+	it("gives the session's own agent id, never the (team) thread host id", () => {
+		// A team-hosted thread whose session belongs to agent-7. The team's own
+		// id/name must play no part in the resolution.
+		const teamIdentities = {
+			"team-42": { id: "team-42", name: "Team Rocket", role: "member", isAgent: false },
+		};
+		const author = resolveSessionAgentAuthor({ agentId: "agent-7" }, teamIdentities);
+		expect(author.id).toBe("agent-7");
+		expect(author.id).not.toBe("team-42");
+		expect(author.name).not.toBe("Team Rocket");
+	});
+
+	it("resolves the agent's display name from identities when known", () => {
+		const identities = {
+			"agent-7": { id: "agent-7", name: "Atlas", role: "agent", isAgent: true },
+		};
+		const author = resolveSessionAgentAuthor({ agentId: "agent-7" }, identities);
+		expect(author.name).toBe("Atlas");
+		expect(author.isAgent).toBe(true);
+	});
+
+	it("does not invent a lookup when the session carries no agent id yet (streaming)", () => {
+		// useSessionActivity's `summary` is null while streaming (AC10) — there is
+		// no session-sourced agent id available. A generic placeholder is used;
+		// the (unrelated) thread host id must never fill the gap.
+		const teamIdentities = {
+			"team-42": { id: "team-42", name: "Team Rocket", role: "member", isAgent: false },
+		};
+		const author = resolveSessionAgentAuthor(null, teamIdentities);
+		expect(author.id).not.toBe("team-42");
+		expect(author.name).not.toBe("Team Rocket");
 	});
 });

@@ -15,6 +15,37 @@ DESKTOP_DIR="$REPO_ROOT/applications/desktop"
 echo "==> Building web SPA"
 npm run -w @hyperidle/core-ui build
 
+# @lore proven-bug guard: a `.env` NODE_ENV=development line anywhere Vite loads
+# it (even a machine-local, gitignored one) forces import.meta.env.DEV/.PROD true
+# for the whole build, which silently ships the dev-only ws://localhost:3001
+# address into a packaged app — no live update ever reaches the window again.
+# ws-client.ts now reads MODE (immune to that) instead, but this hard-fails the
+# build if the regression ever comes back, in this file or the pattern it uses.
+echo "==> Verifying the web bundle never hardcodes the dev websocket address"
+WEB_BUNDLE_DIR="$REPO_ROOT/layers/core-ui/dist/assets"
+WEB_BUNDLE_JS=("$WEB_BUNDLE_DIR"/index-*.js)
+if [ ! -e "${WEB_BUNDLE_JS[0]}" ]; then
+  echo "Error: no built bundle found at $WEB_BUNDLE_DIR/index-*.js — cannot verify the ws address."
+  exit 1
+fi
+if grep -l "ws://localhost" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
+  echo "Error: the built web bundle hardcodes ws://localhost — a packaged app would never receive live updates."
+  echo "See layers/core-ui/src/services/ws-client.ts and its MODE-based dev/prod branch."
+  exit 1
+fi
+
+# @lore proven-bug guard, wider class: `ws://localhost` is only one symptom of a
+# build that ran in dev mode. `hyperidle-dev-local` (the dev-only API key
+# fallback in layers/core-ui/src/services/api-fetch.ts) only appears on the
+# `import.meta.env.DEV` branch, so it is a second independent tripwire for the
+# same root cause — catches it even if a future Vite change makes MODE itself
+# unreliable.
+if grep -l "hyperidle-dev-local" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
+  echo "Error: the built web bundle hardcodes the dev API key fallback (hyperidle-dev-local) — this build ran in dev mode."
+  echo "See layers/core-ui/src/services/api-fetch.ts."
+  exit 1
+fi
+
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
 npx tsx "$DESKTOP_DIR/__scripts__/bundle.ts"
 

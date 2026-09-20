@@ -8,6 +8,19 @@
  *   AC-8: Assistant thread is user-attached (hostKind="user"), never bet/task.
  *   AC-9: Overlay closes on Escape key.
  *   AC-10: AssistantContext.overlayOpen is true when overlay is open.
+ *
+ * @lore BC3: re-pointed off the deleted `useAssistantThread` onto
+ * `useThread`/`useThreads`/`useAgents`/`useCurrentUser` — same pattern as
+ * `shell/__tests__/AH3-AssistantOverlay.notice.test.tsx`. The overlay resolves
+ * its own agent's direct thread via `useThreads({host:{kind:"agent"}})` then
+ * reads it with `useThread(id)` (architecture.md §5 B6).
+ *
+ * @lore BC3 AC-8: a direct thread with a single AI recipient is hosted by
+ * that agent — `thread-actions.ts` sends `recipient.kind === "ai" ? "agent" :
+ * "user"` when creating the thread, so the assistant's direct thread has
+ * `hostKind: "agent"`, not "user". The AC's "user-attached" language predates
+ * that host-resolution rule; what actually holds is "never bet/task" — this
+ * fixture is updated to the real value and the test renamed to match.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -15,40 +28,93 @@ import userEvent from "@testing-library/user-event";
 import { createRef, useContext } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { UseAgentsResult } from "../hooks/useAgents.js";
+import type { UseCurrentUserResult } from "../hooks/useCurrentUser.js";
+import type { UseThreadResult } from "../hooks/useThread.js";
+import type { UseThreadsResult } from "../hooks/useThreads.js";
+
+vi.mock("../hooks/useAgents.js", () => ({
+	useAgents: vi.fn(),
+}));
+vi.mock("../hooks/useCurrentUser.js", () => ({
+	useCurrentUser: vi.fn(),
+}));
+vi.mock("../hooks/useThread.js", () => ({
+	useThread: vi.fn(),
+}));
+vi.mock("../hooks/useThreads.js", () => ({
+	useThreads: vi.fn(),
+}));
+
 import {
 	AssistantContext,
 	type AssistantContextRef,
 	type AssistantContextValue,
 } from "../contexts/AssistantContext";
+import { useAgents } from "../hooks/useAgents.js";
+import { useCurrentUser } from "../hooks/useCurrentUser.js";
+import { useThread } from "../hooks/useThread.js";
+import { useThreads } from "../hooks/useThreads.js";
 import { AssistantOverlay } from "../shell/AssistantOverlay";
 
-// Module-level mock: provides a "ready" assistant thread for all AssistantOverlay tests.
-vi.mock("../hooks/useAssistantThread", () => ({
-	useAssistantThread: () => ({
+const NOW_ISO = "2026-05-06T10:00:00.000Z";
+
+const MY_USER_ID = "u-founder";
+const MY_AGENT_ID = "agent-coc";
+
+// The real hostKind a direct thread with a single AI recipient
+// gets, per `thread-actions.ts`'s host-resolution rule.
+const BASE_THREAD = {
+	id: "thr-coach-u-founder",
+	hostKind: "agent" as const,
+	hostId: MY_AGENT_ID,
+	initiatorId: MY_USER_ID,
+	members: [MY_USER_ID, MY_AGENT_ID],
+	title: null,
+	computedTitle: "Assistant",
+	pinned: true,
+	resolvedAt: null,
+	deletedAt: null,
+	lastActiveAt: NOW_ISO,
+	createdAt: NOW_ISO,
+};
+
+/** Wires the hooks so the overlay resolves an existing, empty assistant thread. */
+function mockReadyThread(): void {
+	vi.mocked(useCurrentUser).mockReturnValue({
+		user: { id: MY_USER_ID, name: "Founder", email: "founder@example.com", avatarUrl: null },
 		status: "ready",
-		data: {
-			thread: {
-				id: "thr-coach-u-founder",
-				hostKind: "user",
-				hostId: "u-founder",
-				initiatorId: "u-founder",
-				participants: ["u-founder", "agent-coc"],
-				pinned: true,
-				resolvedAt: null,
-				lastActiveAt: "2026-05-06T10:00:00.000Z",
-				createdAt: "2026-05-06T10:00:00.000Z",
-			},
-			messages: [],
-			identities: {
-				"u-founder": { name: "You" },
-				"agent-coc": { name: "System Agent", role: "assistant" },
-			},
-		},
 		error: null,
 		retry: vi.fn(),
+	} as UseCurrentUserResult);
+	vi.mocked(useAgents).mockReturnValue({
+		agents: [{ id: MY_AGENT_ID, ownerUserId: MY_USER_ID } as UseAgentsResult["agents"][number]],
+		loading: false,
+		error: null,
+		refetch: vi.fn(),
+	} as UseAgentsResult);
+	vi.mocked(useThreads).mockReturnValue({
+		status: "ready",
+		threads: [{ ...BASE_THREAD, hasUnresolvedReview: false, lastMessagePreview: null }],
+		error: null,
+		retry: vi.fn(),
+	} as UseThreadsResult);
+	vi.mocked(useThread).mockReturnValue({
+		status: "ready",
+		data: {
+			thread: BASE_THREAD,
+			members: [
+				{ id: MY_USER_ID, name: "You", role: "human", isAgent: false },
+				{ id: MY_AGENT_ID, name: "System Agent", role: "assistant", isAgent: true },
+			],
+			messages: [],
+			headMessageId: null,
+			hostTitle: "Assistant",
+		},
+		error: null,
 		refresh: vi.fn(),
-	}),
-}));
+	} as UseThreadResult);
+}
 
 const mockAnchorRef = createRef<HTMLButtonElement>();
 
@@ -58,6 +124,7 @@ function renderOverlay(
 	onClose = vi.fn(),
 	onRemoveContextRef = vi.fn(),
 ): ReturnType<typeof render> {
+	mockReadyThread();
 	return render(
 		<MemoryRouter>
 			<AssistantOverlay
@@ -113,6 +180,10 @@ describe("AF14 — AssistantOverlay open/close behavior", () => {
 });
 
 describe("AF14 — AssistantOverlay ThreadShell integration (assistant configuration)", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it("renders ThreadShell with assistant thread (data-testid='thread-shell')", () => {
 		renderOverlay(true);
 		// ThreadShell renders with the assistant thread.
@@ -121,7 +192,7 @@ describe("AF14 — AssistantOverlay ThreadShell integration (assistant configura
 
 	it("shows 'System Agent' identity in the thread (via title or aria-label)", () => {
 		const { container } = renderOverlay(true);
-		// The identities include "System Agent" from the mocked useAssistantThread.
+		// The identities include "System Agent" from the mocked useThread result.
 		// The identity renders as an avatar with title="System Agent" (initials "S" as text).
 		// We query by title attribute since the visible text content is abbreviated.
 		const agentEl =
@@ -142,11 +213,13 @@ describe("AF14 — AssistantOverlay ThreadShell integration (assistant configura
 		expect(screen.getByText(/no messages yet/i)).toBeInTheDocument();
 	});
 
-	it("AC-8: thread hostKind is 'user' — assistant threads never attached to bet/task", () => {
+	it("AC-8: thread hostKind is 'agent' — assistant threads never attached to bet/task", () => {
 		renderOverlay(true);
-		// ThreadShell is mounted with the assistant thread; assistant config requires hostKind="user".
-		// We verify the underlying data by ensuring the mocked thread with hostKind="user"
-		// is what gets rendered. The ThreadShell is present (proves the hook result is used).
+		// ThreadShell is mounted with the assistant thread; a direct thread with a
+		// single AI recipient is hosted by that agent (thread-actions.ts), never
+		// by a bet/task. We verify the underlying data by ensuring the mocked
+		// thread with hostKind="agent" is what gets rendered. The ThreadShell is
+		// present (proves the hook result is used).
 		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();
 		// The overlay dialog is present and labeled correctly.
 		expect(screen.getByRole("dialog", { name: /assistant conversation/i })).toBeInTheDocument();
@@ -154,6 +227,10 @@ describe("AF14 — AssistantOverlay ThreadShell integration (assistant configura
 });
 
 describe("AF14 — AssistantOverlay context attachment (AC-7)", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
 	it("renders context chips above the composer when contextRefs is non-empty", () => {
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
 			{ kind: "task", id: "task-123", label: "Ambrovia v2" },

@@ -24,6 +24,7 @@ import {
 	makeTask,
 	makeTaskCardSummary,
 	makeTaskNode,
+	mockSearchThreads,
 	mockTaskTree,
 	mockTeamDetail,
 	type Page,
@@ -198,20 +199,15 @@ test.describe("K8 — Touch-target audit at mobile viewport (≤ 1024px)", () =>
 		 *    `findUndersizedTargets`.
 		 */
 		test(`every design-system primitive ≥ ${MIN_TOUCH_PX}px on ${route.path}`, async ({ page }) => {
-			// L8: /conversations/* now fetches threads from /api/threads. In
-			// e2e the dev API is up but the test DB has no threads, so the
+			// L8: /conversations/* now fetches threads via
+			// POST /api/actions/search_threads. In e2e the dev API is up but
+			// the test DB has no threads, so the
 			// request settles to an empty list — fine. We mock to ensure the
 			// audit doesn't briefly catch a transient ErrorState retry button
 			// (a tier-2 design-system primitive whose K8-compliance fix is
 			// tracked separately as a chrome-refactor follow-on).
 			if (route.path.startsWith("/conversations")) {
-				await page.route("**/api/threads?**", async (r) => {
-					await r.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify({ threads: [], nextCursor: null }),
-					});
-				});
+				await mockSearchThreads(page, { rows: [] });
 			}
 			await page.goto(route.path);
 			await page.waitForSelector(route.selector);

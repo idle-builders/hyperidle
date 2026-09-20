@@ -6,9 +6,10 @@
  *
  * @lore L18: Stories use a wrapper that injects fixture data directly into
  * HostThreadSection via prop-level state injection. Since HostThreadSection
- * calls useHostThread internally and stories can't easily mock hooks, we render
- * the content DIV directly for visual stories instead of the full component.
- * The real component is tested via unit tests; stories prove the visual shape.
+ * calls useThread/useThreads internally and stories can't easily mock hooks,
+ * we render the content DIV directly for visual stories instead of the full
+ * component. The real component is tested via unit tests; stories prove the
+ * visual shape.
  *
  * @lore visual-parity-audit: WithMessages story updated to use CommentRow
  * directly so stories reflect the actual rendered output (avatar, name, timestamp)
@@ -63,6 +64,7 @@ const STORY_MESSAGES_HUMAN = [
 		type: "plain" as const,
 		payload: { text: "The auth cache TTL is too long — should be 5 min not 15." },
 		clientKey: "ck-s1",
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
@@ -77,6 +79,7 @@ const STORY_MESSAGES_HUMAN = [
 			text: "Agreed. I'll open a PR to fix it. Will also add integration tests for the TTL boundary cases.",
 		},
 		clientKey: "ck-s2",
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
@@ -89,6 +92,7 @@ const STORY_MESSAGES_HUMAN = [
 		type: "plain" as const,
 		payload: { text: "Thanks. Also check the refresh token TTL while you're in there." },
 		clientKey: "ck-s3",
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,

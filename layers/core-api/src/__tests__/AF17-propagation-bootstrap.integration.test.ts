@@ -57,7 +57,17 @@ async function seedMinimalWorld(
 		createdAt: NOW,
 	});
 
+	await db.insert(threads).values({
+		id: `thr-${rootTaskId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${rootTaskId}`,
 		id: rootTaskId,
 		parentTaskId: null,
 		teamId: teamId,

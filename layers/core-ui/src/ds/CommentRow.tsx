@@ -13,6 +13,7 @@ import { derivePayloads } from "../block";
 import type { BlockPayload } from "../block/types.js";
 import type { MentionSegment } from "./mention-segments.js";
 import { segmentMentions } from "./mention-segments.js";
+import { plainPayloadOf, reviewPayloadOf, verdictPayloadOf } from "./message-payload.js";
 import { verdictDecisionToStatus } from "./status-mapping.js";
 
 function exhaustiveAssert(value: never): never {
@@ -173,14 +174,20 @@ function MessagePayloads({
 
 /**
  * Render the per-message body. Type narrowing flows through a `switch` on
- * `message.type` so that adding a 5th `MessageType` to the discriminated
- * union triggers a TS narrowing failure at the `default` arm via
- * `exhaustiveAssert(message)` (plan §4 + AC-11).
+ * `message.type` so that adding a 5th `MessageType` to the vocabulary
+ * triggers a TS narrowing failure at the `default` arm via
+ * `exhaustiveAssert(message.type)` (AC-11).
  *
  * @lore L1 step9 (Arch-#2): the previous if/else chain fell through to
  * `null` for unhandled types, so a 5th union variant would compile clean
  * and silently render nothing. The switch + `exhaustiveAssert` pattern
  * surfaces the omission at the type system level.
+ *
+ * @lore BC3: `Message` is now a flat zod-inferred row shape (`payload:
+ * unknown`, `type: MessageType`), not a discriminated union of per-type
+ * interfaces — `switch(message.type)` narrows the `type` FIELD in each
+ * case, but never narrows `message` itself to `never`, so the exhaustion
+ * check moves onto `message.type` directly.
  */
 function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): ReactNode {
 	if (isRedactedPayload(message.payload)) {
@@ -190,10 +197,14 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			</div>
 		);
 	}
-	// Access message.payload inside each case so TypeScript narrows correctly.
+	// message.payload is `unknown` on the wire —
+	// each case parses it into the shape `type` implies via the shared,
+	// audited-cast helpers rather than narrowing the bare field.
 	switch (message.type) {
 		case "verdict": {
-			const p = message.payload;
+			const payload = verdictPayloadOf(message);
+			if (isRedactedPayload(payload)) return null;
+			const p = payload;
 			return (
 				<div className="type-small flex items-center gap-[9px] ">
 					<StatusChip status={verdictDecisionToStatus(p.decision)} />
@@ -203,14 +214,18 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			);
 		}
 		case "plain": {
-			const p = message.payload;
+			const payload = plainPayloadOf(message);
+			if (isRedactedPayload(payload)) return null;
+			const p = payload;
 			return <MessagePayloads text={p.text} refs={p.refs} sanitizeHtml={sanitizeHtml} />;
 		}
 		case "review": {
 			// Rich slots carry the review's substance on ThreadShell, but
 			// HostThreadSection supplies none (WorkTask.tsx, HostThreadSection.tsx) —
 			// without a fallback a review is a blank row there. Text only, no navigation.
-			const p = message.payload;
+			const payload = reviewPayloadOf(message);
+			if (isRedactedPayload(payload)) return null;
+			const p = payload;
 			return (
 				<p className="type-copy  text-[var(--text-secondary)]  whitespace-pre-wrap break-words">
 					{p.title}
@@ -221,7 +236,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			// questionnaire substance lives in the rich slots; standard body is null.
 			return null;
 		default:
-			return exhaustiveAssert(message);
+			return exhaustiveAssert(message.type);
 	}
 }
 

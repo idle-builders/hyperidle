@@ -1,29 +1,55 @@
 /**
- * Q1 — AC3: findOrCreateDirectThread with recipientKind parameter.
+ * Q1 — AC3: a single-recipient `send_message` derives the direct thread's
+ * `hostKind` from the recipient's own `kind` (ai → "agent", human → "user"),
+ * and reuses the same thread on a second send to the same recipient.
  *
- * The architecture plan §3.1 extends findOrCreateDirectThread to accept
- * a recipientKind: "agent" | "user" parameter that determines the hostKind
- * on the created thread. Default to "agent" for backward compatibility.
+ * @lore BC3: `findOrCreateDirectThread` (the store helper this test used to
+ * call directly) has no production caller — `send_message`'s single-recipient
+ * branch (`thread-actions.ts`) inlines the same find-or-create logic itself
+ * rather than calling it. Re-pointed onto the `send_message` action so the
+ * behavior is proven through the real door instead of a dead internal.
  */
 
-import { findOrCreateDirectThread } from "@hyperidle/conversation";
-import { type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { SendMessageOutput } from "@hyperidle/domain-model";
 import { describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const NOW = new Date().toISOString();
 
-async function seedUsers(db: HyperIdleDb): Promise<void> {
+interface ActionEnvelope<T> {
+	readonly ok: boolean;
+	readonly data?: T;
+}
+
+/** Overrides ctx.actor so a run with several human users stays unambiguous. */
+async function sendMessageAs(
+	app: { request: (path: string, init: RequestInit) => Response | Promise<Response> },
+	actorId: string,
+	body: Record<string, unknown>,
+): Promise<{ readonly status: number; readonly body: ActionEnvelope<SendMessageOutput> }> {
+	const res = await app.request("/api/actions/send_message", {
+		method: "POST",
+		headers: { "Content-Type": "application/json", "x-hyperidle-actor-id": actorId },
+		body: JSON.stringify(body),
+	});
+	return { status: res.status, body: (await res.json()) as ActionEnvelope<SendMessageOutput> };
+}
+
+async function seedSender(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({
-		id: "sender-1",
-		name: "Sender Agent",
+		id,
+		name: "Sender",
 		role: "founder",
 		status: "active",
 		kind: "human",
 		createdAt: NOW,
 	});
+}
+
+async function seedAgentRecipient(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({
-		id: "agent-recipient",
+		id,
 		name: "Agent Recipient",
 		role: "builder",
 		status: "active",
@@ -32,85 +58,57 @@ async function seedUsers(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("findOrCreateDirectThread — recipientKind (Q1 §3.1)", () => {
-	test("creates a thread with hostKind='agent' when recipientKind='agent'", async ({ db }) => {
-		await seedUsers(db);
-		const threadId = await findOrCreateDirectThread(
-			db,
-			"sender-1",
-			"agent-recipient",
-			NOW,
-			"agent",
-		);
+async function seedHumanRecipient(db: HyperIdleDb, id: string): Promise<void> {
+	await db.insert(users).values({
+		id,
+		name: "Human Recipient",
+		role: "member",
+		status: "active",
+		kind: "human",
+		createdAt: NOW,
+	});
+}
 
-		const rows = await db.select().from(threads);
-		const row = rows.find((t) => t.id === threadId);
-		expect(row).toBeDefined();
-		expect(row?.hostKind).toBe("agent");
-		expect(row?.hostId).toBe("agent-recipient");
-		const parts = JSON.parse(row?.participants ?? "[]") as string[];
-		expect(parts).toContain("sender-1");
-		expect(parts).toContain("agent-recipient");
+describe("send_message — single-recipient direct thread hostKind", () => {
+	test("an ai recipient creates a thread with hostKind='agent'", async ({ db, app }) => {
+		await seedSender(db, "sender-1");
+		await seedAgentRecipient(db, "agent-recipient-1");
+
+		const res = await sendMessageAs(app, "sender-1", {
+			recipients: ["agent-recipient-1"],
+			text: "hi",
+		});
+		expect(res.status).toBe(200);
+		expect(res.body.data?.thread.hostKind).toBe("agent");
+		expect(res.body.data?.thread.hostId).toBe("agent-recipient-1");
+		expect(res.body.data?.thread.initiatorId).toBe("sender-1");
 	});
 
-	test("creates a thread with hostKind='user' when recipientKind='user'", async ({ db }) => {
-		await seedUsers(db);
-		const threadId = await findOrCreateDirectThread(db, "sender-1", "agent-recipient", NOW, "user");
+	test("a human recipient creates a thread with hostKind='user'", async ({ db, app }) => {
+		await seedSender(db, "sender-2");
+		await seedHumanRecipient(db, "human-recipient-1");
 
-		const rows = await db.select().from(threads);
-		const row = rows.find((t) => t.id === threadId);
-		expect(row).toBeDefined();
-		expect(row?.hostKind).toBe("user");
-		expect(row?.hostId).toBe("agent-recipient");
+		const res = await sendMessageAs(app, "sender-2", {
+			recipients: ["human-recipient-1"],
+			text: "hi",
+		});
+		expect(res.status).toBe(200);
+		expect(res.body.data?.thread.hostKind).toBe("user");
+		expect(res.body.data?.thread.hostId).toBe("human-recipient-1");
 	});
 
-	test("defaults to hostKind='agent' when recipientKind is omitted", async ({ db }) => {
-		await seedUsers(db);
-		const threadId = await findOrCreateDirectThread(db, "sender-1", "agent-recipient", NOW);
+	test("a second send to the same recipient reuses the same thread", async ({ db, app }) => {
+		await seedSender(db, "sender-3");
+		await seedAgentRecipient(db, "agent-recipient-2");
 
-		const rows = await db.select().from(threads);
-		const row = rows.find((t) => t.id === threadId);
-		expect(row).toBeDefined();
-		expect(row?.hostKind).toBe("agent");
-	});
-
-	test("returns existing thread id on second call with the same params", async ({ db }) => {
-		await seedUsers(db);
-		const id1 = await findOrCreateDirectThread(db, "sender-1", "agent-recipient", NOW, "agent");
-		const id2 = await findOrCreateDirectThread(db, "sender-1", "agent-recipient", NOW, "agent");
-		expect(id1).toBe(id2);
-	});
-
-	test("creates separate threads for agent vs user recipient kinds", async ({ db }) => {
-		await seedUsers(db);
-		const agentThreadId = await findOrCreateDirectThread(
-			db,
-			"sender-1",
-			"agent-recipient",
-			NOW,
-			"agent",
-		);
-		const userThreadId = await findOrCreateDirectThread(
-			db,
-			"sender-1",
-			"agent-recipient",
-			NOW,
-			"user",
-		);
-		expect(agentThreadId).not.toBe(userThreadId);
-	});
-
-	test("stores initiatorId = senderId on newly created threads", async ({ db }) => {
-		await seedUsers(db);
-		const threadId = await findOrCreateDirectThread(
-			db,
-			"sender-1",
-			"agent-recipient",
-			NOW,
-			"agent",
-		);
-		const rows = await db.select().from(threads);
-		const row = rows.find((t) => t.id === threadId);
-		expect(row?.initiatorId).toBe("sender-1");
+		const first = await sendMessageAs(app, "sender-3", {
+			recipients: ["agent-recipient-2"],
+			text: "one",
+		});
+		const second = await sendMessageAs(app, "sender-3", {
+			recipients: ["agent-recipient-2"],
+			text: "two",
+		});
+		expect(first.body.data?.thread.id).toBe(second.body.data?.thread.id);
 	});
 });

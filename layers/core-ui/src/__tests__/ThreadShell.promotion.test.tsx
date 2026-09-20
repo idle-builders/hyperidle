@@ -23,12 +23,15 @@ import { ThreadShell } from "../ds";
 
 const baseThread: Thread = {
 	id: "t-1",
-	hostKind: "task",
+	hostKind: "team",
 	hostId: "task-1",
 	initiatorId: "u-founder",
-	participants: ["u-founder", "agent-1"],
+	members: ["u-founder", "agent-1"],
+	title: null,
+	computedTitle: "task-1",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: "2026-04-19T12:00:00.000Z",
 	createdAt: "2026-04-19T12:00:00.000Z",
 };
@@ -44,6 +47,7 @@ function review(id: string, createdAt: string, resolvedAt: string | null = null)
 		threadId: "t-1",
 		senderId: "agent-1",
 		clientKey: id,
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt,
@@ -137,6 +141,7 @@ describe("ThreadShell promotion (L11 — approved.md §3, plan §5.5)", () => {
 			threadId: "t-1",
 			senderId: "u-founder",
 			clientKey: "p1",
+			blockId: null,
 			deletedAt: null,
 			redactedAt: null,
 			resolvedAt: null,

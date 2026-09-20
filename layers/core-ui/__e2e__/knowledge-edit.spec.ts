@@ -25,7 +25,7 @@
  * registered per-test.
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Shared mock payloads
@@ -86,13 +86,7 @@ test.describe("T2 AC-1: Edit flow — Edit panel shows, auto-save wired, Done ex
 		});
 
 		// Host thread (HostThreadSection)
-		await page.route("**/api/threads/**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ thread: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 	});
 
 	test("Edit button is visible for a non-factory item", async ({ page }) => {
@@ -227,13 +221,7 @@ test.describe("T2 AC-3: Factory-scoped item is read-only", () => {
 			}
 		});
 
-		await page.route("**/api/threads/**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ thread: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 	});
 
 	test("no Edit button on a factory-scoped item", async ({ page }) => {
@@ -289,13 +277,7 @@ test.describe("T2 AC-4: Conflict banner on 409 auto-save response", () => {
 			}
 		});
 
-		await page.route("**/api/threads/**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ thread: null }),
-			});
-		});
+		await mockSearchThreads(page, { rows: [] });
 
 		// Navigate to the mock item (practice-scope, not factory)
 		await page.goto(`/knowledge/${MOCK_ITEM.id}`);

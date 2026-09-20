@@ -34,9 +34,7 @@ The matrix is explicit: each agent reports vertically to their Product Manager a
 
 ## Trust is earned from verdicts
 
-Trust is not configured — it is computed. Every verdict a human renders on an agent's work feeds that agent's approval rate. The policy engine combines the approval rate with the risk tier of the work to decide how each agent-produced item routes: **push** to a human now, **queue** for later attention, or **auto-resolve** (`layers/core-api/policy/src/policy-engine.ts`).
-
-An agent with a strong verdict history on low-risk work flows without interruption. A new agent, or high-risk work, reaches human eyes. Nothing is gated by default — review attaches where a human chose it or a learning earned it, never preemptively.
+Trust is not configured — it is computed. Every verdict a human renders on an agent's work feeds that agent's approval rate (`layers/core-api/policy/src/approval-rate.ts`), shown on the agent's profile as a track record. It is not used to route, queue, or auto-resolve anything: every review a human is asked for still waits for that human's own verdict. Nothing is gated by default — review attaches where a human chose it or a learning earned it, never preemptively.
 
 This is how HyperIdle transitions from "founder in every loop" on day one to "founder only in loops that matter" by month six — without reaching "founder in no loops."
 

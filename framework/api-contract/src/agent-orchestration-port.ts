@@ -84,7 +84,8 @@ export interface AgentOrchestrationSessionsPort {
 
 /** Mirrors `AgentWorkIntentRecorderInput`'s discriminant (`@hyperidle/shared`). */
 export type AgentOrchestrationWorkIntentKind =
-	| "assistant_turn"
+	// @lore BC3 architecture.md §5 B5: renamed from "assistant_turn".
+	| "thread_turn"
 	| "session_start"
 	| "knowledge_action"
 	| "routine_run"
@@ -161,14 +162,8 @@ export interface AgentOrchestrationIntentsPort {
 
 /** The requests family — outstanding-work readers and session-start lifecycle writers. */
 export interface AgentOrchestrationRequestsPort {
-	/** `listPendingIntentsByKind` — the B‴ coherence trigger's outstanding-work reader. */
-	listPendingIntentsByKind(kind: AgentOrchestrationWorkIntentKind): Promise<
-		ReadonlyArray<{
-			readonly id: string;
-			readonly sourceId: string;
-			readonly requestedBy: string | null;
-		}>
-	>;
+	// @lore BC3 architecture.md §3.10/§5 B5: `listPendingIntentsByKind` DELETED
+	// with its only caller, the deleted coherence trigger.
 	/**
 	 * Mark an explicit session-start row as failed.
 	 * Called by core-api's `session_start` admission-failure reaction.
@@ -263,6 +258,20 @@ export interface AgentOrchestrationPort {
 	readonly runs: AgentOrchestrationRunsPort;
 	readonly runConfig: AgentOrchestrationRunConfigPort;
 	readonly filesystems: AgentOrchestrationFilesystemsPort;
+	readonly gate: AgentOrchestrationGatePort;
+}
+
+/**
+ * @lore BC3 architecture.md §3.3/§5 B4: `submit_review`'s way of recording
+ * which session filed a review moves from a tool-side accessor
+ * (`ports.gate.linkReviewToSession`, called in-process because the tool ran
+ * inside agent-orchestration) to a genuine core→orchestration port
+ * operation — `send_message` runs in core-api and may not touch
+ * `review_sessions` directly. Binds to the SAME write
+ * (`recordReviewSession`) `buildGateAccessor` reaches today.
+ */
+export interface AgentOrchestrationGatePort {
+	linkReview(sessionId: string, reviewMessageId: string): Promise<void>;
 }
 
 /**

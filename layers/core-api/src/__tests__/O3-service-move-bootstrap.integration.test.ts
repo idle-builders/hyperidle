@@ -15,19 +15,35 @@ import { registerAgentLayerServices, registerCoreDomainServices } from "../servi
  * Composing them replicates the exact same disposer set bootstrapAppRuntime
  * returned; only the grouping is new.
  *
- * `editTask` is derived from the SAME composed action list `app.ts`
- * builds, off the ctx's own `agentOrchestration`.
+ * `editTask`/`sendMessage` are derived from the SAME composed action list
+ * `app.ts` builds, off the ctx's own `agentOrchestration`.
  */
 function fullServiceBootstrap(
-	ctx: Omit<Parameters<typeof registerCoreDomainServices>[0], "editTask">,
+	ctx: Omit<
+		Parameters<typeof registerCoreDomainServices>[0],
+		"editTask" | "sendMessage" | "adjustThread"
+	>,
 ): Array<() => void> {
-	const editTaskAction = buildCoreActions(ctx.agentOrchestration).find(
-		(a) => a.declaration.name === "edit_task",
-	);
+	const actions = buildCoreActions({
+		agentOrchestration: ctx.agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	});
+	const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
+	const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
+	if (!sendMessageAction) throw new Error("send_message action not found");
+	const adjustThreadAction = actions.find((a) => a.declaration.name === "adjust_thread");
+	if (!adjustThreadAction) throw new Error("adjust_thread action not found");
 	const fullCtx = {
 		...ctx,
 		editTask: editTaskAction.run as Parameters<typeof registerCoreDomainServices>[0]["editTask"],
+		sendMessage: sendMessageAction.run as Parameters<
+			typeof registerCoreDomainServices
+		>[0]["sendMessage"],
+		adjustThread: adjustThreadAction.run as Parameters<
+			typeof registerCoreDomainServices
+		>[0]["adjustThread"],
 	};
 	return [...registerCoreDomainServices(fullCtx), ...registerAgentLayerServices(fullCtx)];
 }
@@ -114,24 +130,12 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_started subscription"],
 			},
-			// @lore AU21 §9 Increment 11 (Decision H2/F4, Wave B): the pin decision
-			// moved ENTIRELY core-side from `dispatch`'s deleted
-			// `registerAssistantTriggerInternal` into this `@hyperidle/conversation`-
-			// owned reaction.
-			{
-				owner: "assistant thread pin reaction",
-				cleanupEffect: "unsubscribe",
-				constituents: ["thread_message_appended subscription"],
-			},
-			// @lore AU21 §9 Increment 11 (Decision H2 "Coherence — reconciled via
-			// Decision B‴"): the NEW B‴ supersede trigger — a DIFFERENT
-			// mechanism/owner from the pin reaction above (both react to
-			// `thread_message_appended`, for unrelated reasons).
-			{
-				owner: "assistant-turn B‴ coherence trigger",
-				cleanupEffect: "unsubscribe",
-				constituents: ["thread_message_appended subscription"],
-			},
+			// @lore Thread module step 4 (8ca3e03f6): "assistant thread pin
+			// reaction" and "assistant-turn B‴ coherence trigger" are
+			// HARD-DELETED with `assistant-thread-pin-reaction.ts`/
+			// `assistant-turn-coherence-trigger.ts` — the wake rule
+			// (`agentsToWake`) replaces the structural `ast-` recognition both
+			// depended on; no coherence re-bake replaces them.
 			// @lore AU27 Increment 5 (Decision 5): the never-silent net — a
 			// `@hyperidle/conversation`-owned reaction to the EXISTING
 			// `session_not_returned` event (previously observed only by the
@@ -151,17 +155,22 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// whole relevance engine goes. The knowledge_accessed event itself
 			// was later retired outright — the knowledge read route no longer
 			// emits it.
+			// @lore BC3 architecture.md §5 R2: `register-policy.ts`/`registerPolicy`
+			// (which collapsed `registerPolicyEngine` + `registerLifecyclePropagation`
+			// into one "policy registration" owner) is DELETED with the policy
+			// engine — one registration is no longer worth collapsing, so the owner
+			// is renamed to what it now is, `registerLifecyclePropagation` alone.
 			{
-				owner: "policy registration",
+				owner: "lifecycle propagation registration",
 				cleanupEffect: "unsubscribe",
 				// @lore AU44 batch6: "retry interval" removed — 30s heartbeat deleted with propagation_log.
-				constituents: ["policy engine", "lifecycle propagation"],
+				constituents: ["lifecycle propagation"],
 			},
-			{
-				owner: "notifications installation",
-				cleanupEffect: "dispatcher/listener/drain all stop",
-				constituents: ["dispatcher", "listener", "drain"],
-			},
+			// @lore BC3 architecture.md §5 B7: the "notifications installation"
+			// owner (`installNotifications`'s inbox-enqueue listener) is
+			// HARD-DELETED — its only production trigger was the policy engine's
+			// "attention" event, deleted with the `items` table (R2). No
+			// replacement registration.
 			{
 				owner: "retention reaper",
 				cleanupEffect: "interval cleared",
@@ -268,14 +277,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					unsubscribedEvents: ["session_started"],
 					clearedIntervals: 0,
 				},
-				// @lore AU21 §9 Increment 11 (Wave B): `registerAssistantThreadPinReaction`
-				// and `registerAssistantTurnCoherenceTrigger` are BOTH idempotent PER
-				// eventBus instance (same shape as `registerAgentRunAdmissionReactions`
-				// above) — the `eventBus` test fixture already registered both before
-				// this test's own `fullServiceBootstrap` call reaches them here, so
-				// both registrations are no-op disposers (no `off()` call, no interval).
-				{ unsubscribedEvents: [], clearedIntervals: 0 },
-				{ unsubscribedEvents: [], clearedIntervals: 0 },
+				// @lore Thread module step 4 (8ca3e03f6): the two no-op disposer
+				// entries for `registerAssistantThreadPinReaction`/
+				// `registerAssistantTurnCoherenceTrigger` are removed — both
+				// registrations are HARD-DELETED, no replacement.
 				// @lore AU27 Increment 5: `registerSessionNotReturnedNotice`'s first,
 				// real registration on this eventBus instance — its one
 				// `session_not_returned` subscription unsubscribes for real.
@@ -291,7 +296,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					// @lore AU44 batch6: clearedIntervals 1→0 — the 30s retry
 					// heartbeat (retryFailedPropagations) is deleted with propagation_log.
 					// @lore BB1: bet_state_changed subscription removed with the bet entity.
-					unsubscribedEvents: ["item_created", "session_ended", "task_state_changed"],
+					// @lore BC3 architecture.md §5: "item_created" removed —
+					// lifecycle-propagation never subscribed to it; the event type
+					// itself is deleted with the `items` table.
+					unsubscribedEvents: ["session_ended", "task_state_changed"],
 					clearedIntervals: 0,
 				},
 				// @lore AU26 C1: the "git-export handler" owner (its one
@@ -304,12 +312,9 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// @lore AU44 batch 4: notifications simplified — dispatcher, drain,
 				// alert-routing (item_created), daily-digest worker (routine_fired),
 				// and adapter abstraction all removed per FULL-AUDIT.md rows 5452-5453.
-				// installNotifications now registers only the inbox-enqueue listener
-				// (one "notification" subscription, no background interval).
-				{
-					unsubscribedEvents: ["notification"],
-					clearedIntervals: 0,
-				},
+				// @lore BC3 architecture.md §5 B7: the "notification" subscription
+				// entry (installNotifications' inbox-enqueue listener) is removed —
+				// the listener itself is HARD-DELETED, no replacement registration.
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
 				// @lore BA9d wave 3: "builtin routine reactions" bet_state_changed
 				// subscription deleted in commit aa260893c — no entry here.

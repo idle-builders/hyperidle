@@ -1,5 +1,5 @@
 /**
- * T5 — Block Discussion Completion: block-scoped thread filter tests (red phase).
+ * T5 — Block Discussion Completion: block-scoped thread filter tests.
  *
  * AC coverage:
  *  - AC-5: Thread rendering can filter to show only messages for a specific block.
@@ -9,8 +9,9 @@
  *  - A "Show all messages" toggle is present when filtering is active.
  *  - Clicking "Show all" shows all messages regardless of blockId.
  *
- * These tests FAIL until the implementation adds the `filterBlockId` prop to
- * `HostThreadSection` in shell/HostThreadSection.tsx.
+ * @lore BC3: re-pointed off the deleted `useHostThread` onto `useThread` —
+ * `HostThreadSection` now takes `threadId`/`host`, and `Message.blockId` is a
+ * real top-level column (architecture.md §3.1), not a field inside `payload`.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -18,21 +19,36 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HostThreadSection } from "../../shell/HostThreadSection";
 
-// Mock useHostThread to control state in tests
-vi.mock("../../hooks/useHostThread", () => ({
-	useHostThread: vi.fn(),
+vi.mock("../../hooks/useThread.js", () => ({
+	useThread: vi.fn(),
+}));
+vi.mock("../../hooks/useThreads.js", () => ({
+	useThreads: vi.fn(),
 }));
 
-import { useHostThread } from "../../hooks/useHostThread";
+import { useThread } from "../../hooks/useThread.js";
+import { useThreads } from "../../hooks/useThreads.js";
+
+function mockNoHostSearch(): void {
+	vi.mocked(useThreads).mockReturnValue({
+		status: "ready",
+		threads: [],
+		error: null,
+		retry: vi.fn(),
+	});
+}
 
 const THREAD_FIXTURE = {
 	id: "t-filter-001",
 	hostKind: "knowledge_item" as const,
 	hostId: "k-filter-001",
 	initiatorId: "u-founder",
-	participants: ["u-founder", "agent-unassigned"],
+	members: ["u-founder", "agent-unassigned"],
+	title: null,
+	computedTitle: "Discussion",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: "2026-05-31T10:00:00Z",
 	createdAt: "2026-05-31T09:00:00Z",
 };
@@ -44,8 +60,9 @@ const MESSAGES_FIXTURE = [
 		threadId: "t-filter-001",
 		senderId: "u-founder",
 		type: "plain" as const,
-		payload: { text: "Block A message 1", blockId: "block-filter-A" },
+		payload: { text: "Block A message 1" },
 		clientKey: "ck-A1",
+		blockId: "block-filter-A",
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
@@ -56,8 +73,9 @@ const MESSAGES_FIXTURE = [
 		threadId: "t-filter-001",
 		senderId: "u-founder",
 		type: "plain" as const,
-		payload: { text: "Block A message 2", blockId: "block-filter-A" },
+		payload: { text: "Block A message 2" },
 		clientKey: "ck-A2",
+		blockId: "block-filter-A",
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
@@ -68,8 +86,9 @@ const MESSAGES_FIXTURE = [
 		threadId: "t-filter-001",
 		senderId: "u-founder",
 		type: "plain" as const,
-		payload: { text: "Block B message 1", blockId: "block-filter-B" },
+		payload: { text: "Block B message 1" },
 		clientKey: "ck-B1",
+		blockId: "block-filter-B",
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
@@ -82,6 +101,7 @@ const MESSAGES_FIXTURE = [
 		type: "plain" as const,
 		payload: { text: "Unanchored message 1" },
 		clientKey: "ck-U1",
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
@@ -94,12 +114,55 @@ const MESSAGES_FIXTURE = [
 		type: "plain" as const,
 		payload: { text: "Unanchored message 2" },
 		clientKey: "ck-U2",
+		blockId: null,
 		deletedAt: null,
 		redactedAt: null,
 		resolvedAt: null,
 		createdAt: "2026-05-31T09:05:00Z",
 	},
 ];
+
+function mockReadyThread(): void {
+	vi.mocked(useThread).mockReturnValue({
+		status: "ready",
+		data: {
+			thread: THREAD_FIXTURE,
+			members: [],
+			messages: MESSAGES_FIXTURE,
+			headMessageId: null,
+			hostTitle: null,
+		},
+		error: null,
+		refresh: vi.fn(),
+	});
+}
+
+// ── re-review: filterBlockId is a client-side slice, never forwarded to useThread ──
+
+describe("re-review — filterBlockId never reaches useThread/open_thread", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("calls useThread with only the threadId while filterBlockId is active", () => {
+		mockNoHostSearch();
+		mockReadyThread();
+
+		render(
+			<HostThreadSection
+				threadId="t-filter-001"
+				title="Discussion"
+				filterBlockId="block-filter-A"
+			/>,
+		);
+
+		// The block filter is HostThreadSection's own concern — forwarding it
+		// into useThread would ask the server to filter `open_thread` itself,
+		// which would starve every other consumer of this same fetch (e.g.
+		// KnowledgeDetail's inline anchored comments) of the blocks it filtered out.
+		expect(useThread).toHaveBeenCalledWith("t-filter-001");
+	});
+});
 
 // ── AC-5: filterBlockId prop filters displayed messages ──
 
@@ -109,17 +172,12 @@ describe("AC-5 — filterBlockId prop shows only matching messages", () => {
 	});
 
 	it("shows only block-A messages when filterBlockId='block-filter-A'", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockNoHostSearch();
+		mockReadyThread();
 
 		render(
 			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
+				threadId="t-filter-001"
 				title="Discussion"
 				filterBlockId="block-filter-A"
 			/>,
@@ -136,17 +194,12 @@ describe("AC-5 — filterBlockId prop shows only matching messages", () => {
 	});
 
 	it("shows only block-B message when filterBlockId='block-filter-B'", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockNoHostSearch();
+		mockReadyThread();
 
 		render(
 			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
+				threadId="t-filter-001"
 				title="Discussion"
 				filterBlockId="block-filter-B"
 			/>,
@@ -159,16 +212,10 @@ describe("AC-5 — filterBlockId prop shows only matching messages", () => {
 	});
 
 	it("shows all 5 messages when filterBlockId is not set", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockNoHostSearch();
+		mockReadyThread();
 
-		render(
-			<HostThreadSection hostKind="knowledge_item" hostId="k-filter-001" title="Discussion" />,
-		);
+		render(<HostThreadSection threadId="t-filter-001" title="Discussion" />);
 
 		expect(screen.getByText("Block A message 1")).toBeInTheDocument();
 		expect(screen.getByText("Block A message 2")).toBeInTheDocument();
@@ -186,17 +233,12 @@ describe("AC-5 — 'Show all messages' toggle when filter is active", () => {
 	});
 
 	it("renders a 'Show all messages' toggle when filterBlockId is set", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockNoHostSearch();
+		mockReadyThread();
 
 		render(
 			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
+				threadId="t-filter-001"
 				title="Discussion"
 				filterBlockId="block-filter-A"
 			/>,
@@ -207,16 +249,10 @@ describe("AC-5 — 'Show all messages' toggle when filter is active", () => {
 	});
 
 	it("does NOT render a 'Show all messages' toggle when filterBlockId is not set", () => {
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockNoHostSearch();
+		mockReadyThread();
 
-		render(
-			<HostThreadSection hostKind="knowledge_item" hostId="k-filter-001" title="Discussion" />,
-		);
+		render(<HostThreadSection threadId="t-filter-001" title="Discussion" />);
 
 		expect(screen.queryByRole("button", { name: /show all messages/i })).not.toBeInTheDocument();
 	});
@@ -231,17 +267,12 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 
 	it("clicking 'Show all messages' shows all 5 messages", async () => {
 		const user = userEvent.setup();
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockNoHostSearch();
+		mockReadyThread();
 
 		render(
 			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
+				threadId="t-filter-001"
 				title="Discussion"
 				filterBlockId="block-filter-A"
 			/>,
@@ -265,17 +296,12 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 
 	it("after clicking 'Show all', the toggle is no longer visible", async () => {
 		const user = userEvent.setup();
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockNoHostSearch();
+		mockReadyThread();
 
 		render(
 			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
+				threadId="t-filter-001"
 				title="Discussion"
 				filterBlockId="block-filter-A"
 			/>,
@@ -292,17 +318,12 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 		// When user clicks Discuss on block-A, showAll resets so the filter
 		// immediately applies to block-A's messages instead of remaining expanded.
 		const user = userEvent.setup();
-		vi.mocked(useHostThread).mockReturnValue({
-			data: { thread: THREAD_FIXTURE, messages: MESSAGES_FIXTURE, identities: {} },
-			error: null,
-			isLoading: false,
-			refresh: vi.fn(),
-		});
+		mockNoHostSearch();
+		mockReadyThread();
 
 		const { rerender } = render(
 			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
+				threadId="t-filter-001"
 				title="Discussion"
 				filterBlockId="block-filter-A"
 			/>,
@@ -319,8 +340,7 @@ describe("AC-5 — clicking 'Show all messages' reveals all messages", () => {
 		// Switch to block-B's filter — showAll must reset
 		rerender(
 			<HostThreadSection
-				hostKind="knowledge_item"
-				hostId="k-filter-001"
+				threadId="t-filter-001"
 				title="Discussion"
 				filterBlockId="block-filter-B"
 			/>,

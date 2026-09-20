@@ -89,7 +89,17 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		harnessType: "recording",
 		modelProvider: "test",
 	});
+	await db.insert(threads).values({
+		id: `thr-${"bet-au3-agent"}`,
+		hostKind: "team",
+		hostId: "team-au3-agent",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"bet-au3-agent"}`,
 		id: "bet-au3-agent",
 		parentTaskId: null,
 		teamId: "team-au3-agent",
@@ -100,7 +110,17 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
+	await db.insert(threads).values({
+		id: `thr-${"task-au3-agent"}`,
+		hostKind: "team",
+		hostId: "team-au3-agent",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"task-au3-agent"}`,
 		id: "task-au3-agent",
 		parentTaskId: "bet-au3-agent",
 		teamId: "team-au3-agent",
@@ -259,7 +279,7 @@ describe("agent session request sources", () => {
 					threadId: "thread-au3-agent",
 					messageId: "msg-au3-agent",
 					userId: "u-au3-agent",
-					assistantAgentId: "ast-u-au3-agent",
+					agentId: "ast-u-au3-agent",
 				},
 				payloadJson: bakedAgentConfigPayload,
 			},

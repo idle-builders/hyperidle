@@ -27,10 +27,8 @@ import {
 	readCredentials,
 	writeCredential,
 } from "@hyperidle/credentials";
-import type { WriteExecutor } from "@hyperidle/db";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import * as work from "@hyperidle/task";
 
 export const notificationsDeps: NotificationsDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
@@ -52,8 +50,5 @@ export const notificationsDeps: NotificationsDeps = {
 				lastValidatedAt: values.lastValidatedAt,
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
-	},
-	work: {
-		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 	},
 };

@@ -24,7 +24,7 @@
  * (Work-view experience workpackage).
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Parse a CSS z-index value into a number.
@@ -48,24 +48,10 @@ async function computedZIndex(
 // ---------------------------------------------------------------------------
 
 async function setupAppShellMocks(page: import("@playwright/test").Page): Promise<void> {
-	// threads/assistant — useAssistantThread hook (loads when AssistantOverlay mounts)
-	await page.route("**/api/threads/assistant", (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({
-				thread: { id: "t-assistant", title: "Assistant", messages: [] },
-			}),
-		}),
-	);
-	// threads (list with cursor) — broad fallback for useConversationsThreads
-	await page.route("**/api/threads**", (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [], nextCursor: null }),
-		}),
-	);
+	// search_threads — AssistantOverlay's useThreads(agentHostFilter) resolves
+	// the assistant's existing direct thread this way, and it's also the broad
+	// fallback for the Conversations submenu list.
+	await mockSearchThreads(page, { rows: [] });
 	// notifications inbox — guard against fetch errors
 	await page.route("**/api/notifications**", (route) =>
 		route.fulfill({

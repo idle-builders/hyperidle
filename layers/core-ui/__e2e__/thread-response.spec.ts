@@ -10,6 +10,11 @@
  * The agent-event side of the contract is asserted in the unit tests
  * (`AgentResponseRouter.test.ts` + `await-thread-response.test.ts`); the
  * Playwright spec only proves the user-facing loop end-to-end.
+ *
+ * @lore BC3: repointed at `POST /api/actions/{open_thread,send_message}` —
+ * never `GET/POST /api/threads*`. Both tests here are already on
+ * `known-pre-existing-failures.ts` (AM1 removed RichMessageCard/inline-verdict
+ * from the conversation surface) — this is a mechanical mock migration only.
  */
 
 import { expect, test } from "./fixtures";
@@ -18,12 +23,15 @@ const THREAD_ID = "demo-thread-1";
 
 const THREAD = {
 	id: THREAD_ID,
-	hostKind: "task",
+	hostKind: "team",
 	hostId: "task-1",
 	initiatorId: "agent-1",
-	participants: ["u-founder", "agent-1"],
+	members: ["u-founder", "agent-1"],
+	title: null,
+	computedTitle: "Pricing overhaul",
 	pinned: false,
 	resolvedAt: null,
+	deletedAt: null,
 	lastActiveAt: "2026-04-29T12:00:00.000Z",
 	createdAt: "2026-04-29T12:00:00.000Z",
 };
@@ -41,7 +49,6 @@ const REVIEW_MESSAGE = {
 	payload: {
 		title: "Pricing overhaul",
 		reasoning: ["Reduces churn"],
-		artifactRef: { id: "art-1", kind: "text_diff" },
 	},
 };
 
@@ -50,36 +57,39 @@ test.describe("L7 — thread response loop (error → retry → success)", () =>
 		page,
 	}) => {
 		let postAttempt = 0;
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() !== "GET") {
-				await route.fallback();
-				return;
-			}
+		await page.route("**/api/actions/open_thread", async (route) => {
 			const resolvedAt = postAttempt >= 2 ? "2026-04-29T12:01:00.000Z" : null;
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					thread: { ...THREAD, resolvedAt },
-					messages: [resolvedAt ? { ...REVIEW_MESSAGE, resolvedAt } : REVIEW_MESSAGE],
-					headMessageId: resolvedAt ? null : REVIEW_MESSAGE.id,
-					nextMessagesCursor: null,
+					ok: true,
+					data: {
+						thread: { ...THREAD, resolvedAt },
+						members: [],
+						messages: [resolvedAt ? { ...REVIEW_MESSAGE, resolvedAt } : REVIEW_MESSAGE],
+						headMessageId: resolvedAt ? null : REVIEW_MESSAGE.id,
+						hostTitle: null,
+					},
 				}),
 			});
 		});
 
-		await page.route(`**/api/threads/${THREAD_ID}/messages`, async (route) => {
+		await page.route("**/api/actions/send_message", async (route) => {
 			postAttempt += 1;
 			if (postAttempt === 1) {
 				await route.fulfill({ status: 500, body: "boom" });
 				return;
 			}
 			await route.fulfill({
-				status: 201,
+				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					message: { ...REVIEW_MESSAGE, id: "m-verdict", type: "verdict" },
-					thread: { ...THREAD, resolvedAt: "2026-04-29T12:01:00.000Z" },
+					ok: true,
+					data: {
+						message: { ...REVIEW_MESSAGE, id: "m-verdict", type: "verdict" },
+						thread: { ...THREAD, resolvedAt: "2026-04-29T12:01:00.000Z" },
+					},
 				}),
 			});
 		});
@@ -100,30 +110,33 @@ test.describe("L7 — thread response loop (error → retry → success)", () =>
 	});
 
 	test("async ack toast appears on a non-resolving commit", async ({ page }) => {
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() !== "GET") {
-				await route.fallback();
-				return;
-			}
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					thread: THREAD,
-					messages: [REVIEW_MESSAGE],
-					headMessageId: REVIEW_MESSAGE.id,
-					nextMessagesCursor: null,
+					ok: true,
+					data: {
+						thread: THREAD,
+						members: [],
+						messages: [REVIEW_MESSAGE],
+						headMessageId: REVIEW_MESSAGE.id,
+						hostTitle: null,
+					},
 				}),
 			});
 		});
 
-		await page.route(`**/api/threads/${THREAD_ID}/messages`, async (route) => {
+		await page.route("**/api/actions/send_message", async (route) => {
 			await route.fulfill({
-				status: 201,
+				status: 200,
 				contentType: "application/json",
 				body: JSON.stringify({
-					message: { id: "m-plain", type: "plain" },
-					thread: { ...THREAD, resolvedAt: null },
+					ok: true,
+					data: {
+						message: { id: "m-plain", type: "plain" },
+						thread: { ...THREAD, resolvedAt: null },
+					},
 				}),
 			});
 		});

@@ -237,7 +237,7 @@ export function SettingsAgents(): JSX.Element {
 	}, []);
 
 	// ---------------------------------------------------------------------------
-	// Save routing: ast-* → assistant route; others → /api/agents/:id
+	// Save: PATCH /api/agents/:id, for every agent including the assistant
 	// ---------------------------------------------------------------------------
 
 	const handleEditSave = useCallback(async (): Promise<void> => {
@@ -246,7 +246,7 @@ export function SettingsAgents(): JSX.Element {
 		setEditError(null);
 
 		try {
-			// One route for every agent. The `ast-` split existed because the
+			// One route for every agent. The id-prefix split existed because the
 			// persona was a column with an assistant-shaped guard on it; both the
 			// guard and the second route are gone.
 			const res = await apiFetch(`/api/agents/${encodeURIComponent(selectedId)}`, {
@@ -435,8 +435,9 @@ export function SettingsAgents(): JSX.Element {
 							selected={isSelected}
 							// @lore FR-10: destructive delete moved behind Menu, via the shared
 							// RowDeleteAction (kebab → Menu → inline confirm/cancel). The
-							// assistant row (ast-*) gets no onDelete — RowDeleteAction then
-							// renders the same kebab+Menu chrome with only "Edit", no
+							// person-owned agent (the assistant) gets no onDelete — BC3: identity
+							// is `ownerUserId`, not a structural id prefix. RowDeleteAction
+							// then renders the same kebab+Menu chrome with only "Edit", no
 							// destructive item and no confirm step.
 							actions={
 								<RowDeleteAction
@@ -446,7 +447,9 @@ export function SettingsAgents(): JSX.Element {
 										{ id: "edit", label: "Edit", onSelect: () => void handleAgentClick(agent) },
 									]}
 									onDelete={
-										agent.id.startsWith("ast-") ? undefined : () => handleDeleteConfirm(agent.id)
+										(agent.ownerUserId ?? null) !== null
+											? undefined
+											: () => handleDeleteConfirm(agent.id)
 									}
 								/>
 							}
@@ -463,6 +466,7 @@ export function SettingsAgents(): JSX.Element {
 				<div className="flex flex-col gap-[9px]">
 					<AgentEditor
 						agentId="new-agent"
+						ownerUserId={null}
 						draft={addDraft}
 						onDraftChange={(fn) => setAddDraft((prev) => fn(prev))}
 						harnesses={harnesses}
@@ -491,6 +495,7 @@ export function SettingsAgents(): JSX.Element {
 		selectedId && draft ? (
 			<AgentEditor
 				agentId={selectedId}
+				ownerUserId={selectedAgent?.ownerUserId ?? null}
 				draft={draft}
 				onDraftChange={(fn) => setDraft((prev) => (prev ? fn(prev) : prev))}
 				harnesses={harnesses}

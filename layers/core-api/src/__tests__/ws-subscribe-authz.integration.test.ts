@@ -15,8 +15,8 @@
  * of emitting on an EventBus the hub no longer subscribes to.
  */
 
-import { findThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, threads as threadsTable } from "@hyperidle/db";
+import { findThread } from "@hyperidle/thread";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";
@@ -99,6 +99,36 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 		);
 
 		expect(client.messages).toEqual([]);
+	});
+
+	/**
+	 * @lore BC3 bug fix: `canReadThread`'s host-scoped bypass (`team`/
+	 * `knowledge_item`/`factory` hosts admit any signed-in identity, not just
+	 * listed `participants`) must be mirrored by the WS authorizer — this is
+	 * what a task's (team-hosted, BC3) thread relies on for every team member
+	 * who never explicitly posted to it.
+	 */
+	test("non-participant subscribe to a team-hosted thread:<id> → ok (host-scoped bypass)", async ({
+		db,
+	}) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		const now = new Date().toISOString();
+		await db.insert(threadsTable).values({
+			id: "thr-team-1",
+			hostKind: "team",
+			hostId: "team-1",
+			initiatorId: "u-founder",
+			participants: JSON.stringify(["u-founder"]),
+			pinned: false,
+			lastActiveAt: now,
+			createdAt: now,
+		});
+
+		const client = createMockClient();
+		hub.addClient(client, "not-a-participant");
+
+		const result = await hub.subscribe(client, "thread:thr-team-1");
+		expect(result).toBe("ok");
 	});
 
 	test("subscribe with no bound identity → forbidden for thread topics", async ({ db }) => {

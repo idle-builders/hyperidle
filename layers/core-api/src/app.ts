@@ -7,13 +7,12 @@ import {
 	readCredentials,
 	writeCredential,
 } from "@hyperidle/credentials";
-import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RegisteredTool } from "@hyperidle/harness-protocol";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import * as taskDb from "@hyperidle/task";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
 import { Hono } from "hono";
@@ -23,7 +22,6 @@ import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions } from "./actions/compose.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
@@ -33,12 +31,10 @@ import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createPluginRoutes } from "./routes/plugins.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
-import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
 import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
-import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import {
 	buildSeamBackedReviewVerdictRecorder,
@@ -90,6 +86,29 @@ interface AppOptions {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").TaskView>
 		>;
+		/**
+		 * `send_message`'s own bound `run`, so the relocated never-silent-net
+		 * reaction (`session-not-returned-notice.ts`) posts through the action
+		 * instead of a raw `insertMessage`.
+		 */
+		sendMessage: (
+			ctx: import("./actions/action.js").ActionContext,
+			input: import("@hyperidle/domain-model").SendMessageInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<
+				import("@hyperidle/domain-model").SendMessageOutput
+			>
+		>;
+		/**
+		 * `adjust_thread`'s own bound `run`, so the stalled-knowledge-action
+		 * reaction can resolve-or-create the knowledge item's thread.
+		 */
+		adjustThread: (
+			ctx: import("./actions/action.js").ActionContext,
+			input: import("@hyperidle/domain-model").AdjustThreadInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
+		>;
 	}) => Array<() => void>;
 	/**
 	/**
@@ -122,13 +141,11 @@ interface AppOptions {
 	onHarnessRedetect?: () => Promise<void>;
 	/**
 	 * AU21 §6 Decision L4 / §9 Increment 14d: the WS connection hub's
-	 * broadcast-only surface. When provided, route factories that push
-	 * changed data directly (`createThreadRoutes`'s per-thread +
-	 * conversations-list pushes) call `wsHub.broadcast(topic, data)` at the
-	 * same write that has the full record in hand — no generic event→topic
-	 * forwarder, no follow-up client read. Optional so integration tests that
-	 * don't need WS pushes can omit it (routes still emit their EventBus
-	 * events unchanged either way).
+	 * broadcast-only surface. `send_message`/`adjust_thread` push the
+	 * `changes` row itself, once per row, on both topics — `wsPush` on
+	 * `buildCoreActions`'s bindings wraps this same hub. Optional so
+	 * integration tests that don't need WS pushes can omit it (actions still
+	 * emit their EventBus events unchanged either way).
 	 */
 	wsHub?: WsPushTarget;
 	/**
@@ -247,9 +264,6 @@ const notificationsDeps: NotificationsDeps = {
 				lastValidatedAt: values.lastValidatedAt,
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
-	},
-	work: {
-		getItemById: (exec: WriteExecutor, id: string) => taskDb.get(exec, "item", id),
 	},
 };
 
@@ -378,18 +392,27 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		}
 		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
 		const defaultGateVerdictRecorder = buildSeamBackedReviewVerdictRecorder(agentOrchestration);
+		const agentWorkIntentRecorder =
+			options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder;
+		const reviewVerdictRecorder = options.reviewVerdictRecorder ?? defaultGateVerdictRecorder;
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db, agentOrchestration, options.adapterPool));
-		api.route(
-			"/teams",
-			createTeamRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
-		);
 		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
 		// `POST /api/actions/<name>` — one loop over the composed list, never a
 		// per-object route factory. the architecture doc §7.
-		const actions: readonly Action[] = buildCoreActions(agentOrchestration);
+		const actions: readonly Action[] = buildCoreActions({
+			agentOrchestration,
+			agentWorkIntentRecorder,
+			reviewVerdictRecorder,
+			...(options.wsHub
+				? {
+						wsPush: (topic: string, envelope: unknown) =>
+							options.wsHub?.broadcast(topic, JSON.stringify(envelope)),
+					}
+				: {}),
+		});
 		api.route("/actions", createActionsRouter(actions, { db: options.db, eventBus }));
 		APP_ACTION_TOOLS.set(api, actionsAsTools(actions));
 		const editTaskAction = actions.find((a) => a.declaration.name === "edit_task");
@@ -402,7 +425,40 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").TaskView>
 		>;
-		api.route("/reviews", createReviewRoutes(options.db));
+		const sendMessageAction = actions.find((a) => a.declaration.name === "send_message");
+		if (!sendMessageAction) {
+			throw new Error("buildCoreActions did not produce a send_message action");
+		}
+		const sendMessage = sendMessageAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").SendMessageInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<
+				import("@hyperidle/domain-model").SendMessageOutput
+			>
+		>;
+		const adjustThreadAction = actions.find((a) => a.declaration.name === "adjust_thread");
+		if (!adjustThreadAction) {
+			throw new Error("buildCoreActions did not produce an adjust_thread action");
+		}
+		const adjustThreadRun = adjustThreadAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").AdjustThreadInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
+		>;
+		// @lore `/teams` mounts after the action list is built and `sendMessage`
+		// extracted — its POST handler's welcome-message seed posts through the
+		// composed action instead of a raw `insertThread`/`insertMessage` into
+		// the literal id `thr-ast-${userId}`.
+		api.route(
+			"/teams",
+			createTeamRoutes(options.db, eventBus, agentOrchestration, sendMessage, options.adapterPool),
+		);
+		// @lore BC3 architecture.md §5 B1: `/reviews`, `/conversations`, `/threads`
+		// and their route files are DELETED — search_threads/open_thread/
+		// send_message/adjust_thread are the door now, mounted generically by
+		// createActionsRouter above. `/recipients` stays (plan.md Confusion 4).
 		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
 		// `POST /:id/injections`, whose team-consistency gate reads `users` +
 		// `team_members`. Every other registration (and the reachability probe's
@@ -411,17 +467,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
-		api.route("/conversations", createConversationRoutes(options.db, eventBus));
-		api.route(
-			"/threads",
-			createThreadRoutes(
-				options.db,
-				eventBus,
-				options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder,
-				options.reviewVerdictRecorder ?? defaultGateVerdictRecorder,
-				options.wsHub,
-			),
-		);
 		api.route("/users", createUserRoutes(options.db));
 		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
@@ -450,7 +495,14 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		const disposers: Array<() => void> = [];
 
 		const serviceDisposers =
-			options.serviceBootstrap?.({ db, eventBus, agentOrchestration, editTask }) ?? [];
+			options.serviceBootstrap?.({
+				db,
+				eventBus,
+				agentOrchestration,
+				editTask,
+				sendMessage,
+				adjustThread: adjustThreadRun,
+			}) ?? [];
 		disposers.push(...serviceDisposers);
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".

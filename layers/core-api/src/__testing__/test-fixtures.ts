@@ -13,11 +13,14 @@ import {
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
 import type { Hono } from "hono";
+import { buildCoreActions } from "../actions/compose.js";
 import { disposeApp } from "../app.js";
 import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
+import type {
+	AdjustThreadRunFn,
+	SendMessageRunFn,
+} from "../services/agent-run-admission-reactions.js";
 import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
-import { registerAssistantThreadPinReaction } from "../services/assistant-thread-pin-reaction.js";
-import { registerAssistantTurnCoherenceTrigger } from "../services/assistant-turn-coherence-trigger.js";
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
 
@@ -123,11 +126,9 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// a future change makes `createServer`'s boot path reachable from a test
 	// sharing the same eventBus instance.
 	//
-	// @lore AU21 §9 Increment 11 (Decision H2/F4, Wave B): the assistant-thread
-	// pin reaction (`@hyperidle/conversation`'s `registerAssistantThreadPinReaction`)
-	// and the B‴ coherence re-bake trigger (`assistant-turn-coherence-trigger.ts`)
-	// are wired here for the SAME reason — production wires the SAME two
-	// registrations inside `registerCoreDomainServices` (`server-factory.ts`).
+	// @lore BC3 architecture.md §5 B5: the assistant-thread pin reaction and
+	// the B‴ coherence re-bake trigger are DELETED — the wake rule
+	// (`@hyperidle/thread`'s `agentsToWake`) replaces both.
 	//
 	// @lore AU31 §3.2 clause 6: this fixture builds its OWN `AgentOrchestrationPort`
 	// over a throwaway `bootAgentOrchestration({db, eventBus})` — the seam's
@@ -152,16 +153,24 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		const agentOrchestration: AgentOrchestrationPort = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
-		const unregister = registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration);
-		const unregisterPin = registerAssistantThreadPinReaction(db, eventBus);
-		const unregisterCoherence = registerAssistantTurnCoherenceTrigger(
-			db,
-			eventBus,
+		// The stalled-knowledge-action reaction posts through
+		// send_message/adjust_thread — this fixture's own throwaway
+		// action bag, same shape `O3-service-move-bootstrap.integration.test.ts` builds.
+		const fixtureActions = buildCoreActions({
 			agentOrchestration,
-		);
+			agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+			reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+		});
+		const sendMessageAction = fixtureActions.find((a) => a.declaration.name === "send_message");
+		const adjustThreadAction = fixtureActions.find((a) => a.declaration.name === "adjust_thread");
+		if (!(sendMessageAction && adjustThreadAction)) {
+			throw new Error("buildCoreActions did not produce send_message/adjust_thread");
+		}
+		const unregister = registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration, {
+			sendMessage: sendMessageAction.run as SendMessageRunFn,
+			adjustThread: adjustThreadAction.run as AdjustThreadRunFn,
+		});
 		await use(eventBus);
-		unregisterCoherence();
-		unregisterPin();
 		unregister();
 		orchestrationBoot.dispose();
 	},

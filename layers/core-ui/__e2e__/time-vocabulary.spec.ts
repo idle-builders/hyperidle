@@ -8,7 +8,7 @@
  *   AC-1: Same age → same label across ≥ 4 surfaces within each register
  *   AC-3: Invalid/unparseable timestamp → TIME_PLACEHOLDER "—" on all surfaces
  *         EXCEPT CommentRow sender-header chip (carve-out: hides chip, no "—")
- *   AC-4: absoluteDate renders MMM D, YYYY; SessionActivityPanel uses 24h HH:mm:ss
+ *   AC-4: absoluteDate renders MMM D, YYYY
  *
  * Strategy: page.route() overrides (LIFO) inject seeded timestamps into the
  * core API mocks. Import from ./fixtures for the base M3 mocks.
@@ -33,7 +33,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "./fixtures";
+import { expect, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
 
 // ── Shared seed timestamps ──────────────────────────────────────────────────
 
@@ -62,38 +62,33 @@ const FUTURE_CREATED_AT = "2030-03-15T09:00:00.000Z";
  * hostId, initiatorId, participants (string[]), pinned, lastActiveAt, createdAt,
  * hasUnresolvedReview. Optional: blocking, title.
  */
+// @lore BC3: no `task` host kind — a task's own thread is `team`-hosted.
 function makeSeedThread() {
-	return {
-		id: "ai3-seed-thread",
+	return makeThreadListRow("ai3-seed-thread", {
 		title: "AI3 seed thread",
-		hostKind: "task",
+		computedTitle: "AI3 seed thread",
+		hostKind: "team",
 		hostId: "ai3-seed-task",
 		initiatorId: "test-founder",
-		participants: ["test-founder"],
-		pinned: false,
-		resolvedAt: null,
+		members: ["test-founder"],
 		lastActiveAt: SEED_CREATED_AT,
 		createdAt: SEED_CREATED_AT,
 		hasUnresolvedReview: false,
-		blocking: false,
-	};
+	});
 }
 
 function makeBadThread() {
-	return {
-		id: "ai3-bad-thread",
+	return makeThreadListRow("ai3-bad-thread", {
 		title: "AI3 bad-timestamp thread",
-		hostKind: "task",
+		computedTitle: "AI3 bad-timestamp thread",
+		hostKind: "team",
 		hostId: "ai3-bad-task",
 		initiatorId: "test-founder",
-		participants: ["test-founder"],
-		pinned: false,
-		resolvedAt: null,
+		members: ["test-founder"],
 		lastActiveAt: BAD_TIMESTAMP,
 		createdAt: BAD_TIMESTAMP,
 		hasUnresolvedReview: false,
-		blocking: false,
-	};
+	});
 }
 
 function makeSeedKnowledgeItem() {
@@ -183,21 +178,9 @@ const PROOF_DIR = path.resolve(SpecDir, "../../../test-results");
 
 test.describe("AC-1: one-clock label agreement across surfaces", () => {
 	test.beforeEach(async ({ page }) => {
-		// Override threads with seed data. Using the same pattern as the fixture
-		// so LIFO ensures this handler wins over the fixture's empty-array response.
-		await page.route("**/api/threads**", async (route) => {
-			const url = route.request().url();
-			// Only intercept the list endpoint, not thread detail (/api/threads/:id)
-			if (route.request().method() === "GET" && !url.match(/\/api\/threads\/[^?/]+/)) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ threads: [makeSeedThread()] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// Override threads with seed data. LIFO ensures this handler wins over
+		// the fixture's empty-array response.
+		await mockSearchThreads(page, { rows: [makeSeedThread()] });
 
 		// Override notifications inbox — useNotifications fetches /api/notifications/inbox
 		await page.route("**/api/notifications/inbox**", async (route) => {
@@ -375,18 +358,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", () => {
 	test("thread list with bad timestamp shows '—' placeholder", async ({ page }) => {
-		await page.route("**/api/threads**", async (route) => {
-			const url = route.request().url();
-			if (route.request().method() === "GET" && !url.match(/\/api\/threads\/[^?/]+/)) {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ threads: [makeBadThread()] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockSearchThreads(page, { rows: [makeBadThread()] });
 
 		await page.goto("/conversations");
 		const threadRow = page.locator("[data-ds-component='ThreadRow']").first();
@@ -444,54 +416,39 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 		// Seed a thread detail with a message carrying a bad timestamp.
 		const THREAD_ID = "ai3-bad-comment-thread";
 
-		// useThreadDetail fetches GET /api/threads/:id and expects a combined
-		// { thread, messages, headMessageId, identities } response (not separate endpoints).
-		await page.route(`**/api/threads/${THREAD_ID}*`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						thread: {
-							id: THREAD_ID,
-							title: "Bad comment thread",
-							kind: "dm",
-							status: "open",
-							hostKind: "user",
-							hostId: "test-founder",
-							createdAt: SEED_CREATED_AT,
-							updatedAt: SEED_CREATED_AT,
-							lastActiveAt: SEED_CREATED_AT,
-							teamId: "test-team-1",
-							participants: ["test-founder"],
-						},
-						messages: [
-							{
-								id: "msg-bad-ts",
-								threadId: THREAD_ID,
-								type: "plain",
-								senderId: "test-founder",
-								clientKey: "ck-bad-ts",
-								deletedAt: null,
-								redactedAt: null,
-								resolvedAt: null,
-								createdAt: BAD_TIMESTAMP, // ← unparseable
-								payload: { text: "Hello bad timestamp" },
-							},
-						],
-						headMessageId: null,
-						identities: {
-							"test-founder": {
-								name: "Test Founder",
-								role: "founder",
-								isAgent: false,
-							},
-						},
-					}),
-				});
-			} else {
-				await route.continue();
-			}
+		// useThread calls POST /api/actions/open_thread and expects a combined
+		// { thread, members, messages, headMessageId, hostTitle } response.
+		await mockThread(page, {
+			thread: {
+				id: THREAD_ID,
+				hostKind: "user",
+				hostId: "test-founder",
+				initiatorId: "test-founder",
+				members: ["test-founder"],
+				title: "Bad comment thread",
+				computedTitle: "Bad comment thread",
+				pinned: false,
+				resolvedAt: null,
+				deletedAt: null,
+				createdAt: SEED_CREATED_AT,
+				lastActiveAt: SEED_CREATED_AT,
+			},
+			members: [{ id: "test-founder", name: "Test Founder", role: "founder", isAgent: false }],
+			messages: [
+				{
+					id: "msg-bad-ts",
+					threadId: THREAD_ID,
+					type: "plain",
+					senderId: "test-founder",
+					clientKey: "ck-bad-ts",
+					blockId: null,
+					deletedAt: null,
+					redactedAt: null,
+					resolvedAt: null,
+					createdAt: BAD_TIMESTAMP, // ← unparseable
+					payload: { text: "Hello bad timestamp" },
+				},
+			],
 		});
 
 		await page.goto(`/conversations/${THREAD_ID}`);
@@ -511,9 +468,9 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 	});
 });
 
-// ── AC-4: Absolute format + SessionActivityPanel 24h ──────────────────────
+// ── AC-4: Absolute format ────────────────────────────────────────────────
 
-test.describe("AC-4: absolute format and SessionActivityPanel 24h", () => {
+test.describe("AC-4: absolute format", () => {
 	test("WorkRoutine 'Created' field renders MMM D, YYYY format", async ({ page }) => {
 		const ROUTINE_ID = "ai3-seed-routine";
 
@@ -563,126 +520,5 @@ test.describe("AC-4: absolute format and SessionActivityPanel 24h", () => {
 		const text = (await createdField.textContent()) ?? "";
 		// Must match "MMM D, YYYY" — e.g. "Mar 15, 2030"
 		expect(text).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/);
-	});
-
-	test("SessionActivityPanel entries render 24h HH:mm:ss time", async ({ page }) => {
-		const THREAD_ID = "ai3-session-thread";
-		const TASK_ID = "ai3-seed-task";
-		const SESSION_ID = "ai3-seed-session";
-
-		// Mock the thread detail — useThreadDetail fetches GET /api/threads/:id
-		// and expects { thread, messages, headMessageId, identities }.
-		// hostKind="task" + hostId=TASK_ID enables dial-in button.
-		await page.route(`**/api/threads/${THREAD_ID}*`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						thread: {
-							id: THREAD_ID,
-							title: "AI3 Session Thread",
-							kind: "task",
-							status: "open",
-							hostKind: "task",
-							hostId: TASK_ID,
-							createdAt: SEED_CREATED_AT,
-							updatedAt: SEED_CREATED_AT,
-							lastActiveAt: SEED_CREATED_AT,
-							teamId: "test-team-1",
-							participants: ["test-founder"],
-						},
-						messages: [],
-						headMessageId: null,
-						identities: {
-							"test-founder": {
-								name: "Test Founder",
-								role: "founder",
-								isAgent: false,
-							},
-						},
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Mock active session for the task — useActiveSessionForTask fetches
-		// GET /api/sessions?task_id=<taskId>&state=active and expects an array.
-		await page.route(`**/api/sessions?**`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify([
-						{
-							id: SESSION_ID,
-							agentId: "test-agent",
-							taskId: TASK_ID,
-							state: "active",
-							startedAt: SEED_CREATED_AT,
-							modelTier: "standard",
-						},
-					]),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Mock activity entries.
-		// useSessionActivity expects { session: {...}, activity: [...] }
-		// where each entry is { type, timestamp: number (epoch ms), data: {...} }.
-		// For tool_call: data = { toolName: string, argsSummary: string }.
-		await page.route(`**/api/sessions/${SESSION_ID}/activity**`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						session: {
-							id: SESSION_ID,
-							agentId: "test-agent",
-							taskId: TASK_ID,
-							state: "active",
-							startedAt: SEED_CREATED_AT,
-							modelTier: "standard",
-						},
-						activity: [
-							{
-								type: "tool_call",
-								timestamp: new Date("2026-06-12T14:32:07.000Z").getTime(),
-								data: {
-									toolName: "read_file",
-									argsSummary: "path=/example.ts",
-								},
-							},
-						],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		// Navigate to the conversation thread
-		await page.goto(`/conversations/${THREAD_ID}`);
-
-		// Click "Dial In" to open the SessionActivityPanel
-		const dialInBtn = page.locator("[data-testid='dial-in-btn']");
-		await expect(dialInBtn).toBeVisible();
-		await dialInBtn.click();
-
-		const activityPanel = page.locator("[data-testid='session-activity-panel']").first();
-		await expect(activityPanel).toBeVisible();
-
-		// Each activity entry time must be in 24h HH:mm:ss format (no AM/PM)
-		const timeEl = activityPanel.locator("[data-testid='activity-time']").first();
-		await expect(timeEl).toBeVisible();
-		const text = (await timeEl.textContent()) ?? "";
-		// Must match /^\d{2}:\d{2}:\d{2}$/ — 24h, no am/pm
-		expect(text).toMatch(/^\d{2}:\d{2}:\d{2}$/);
-		expect(text).not.toMatch(/AM|PM/i);
 	});
 });

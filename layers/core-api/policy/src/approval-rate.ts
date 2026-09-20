@@ -1,12 +1,13 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { PolicyDeps } from "./ports.js";
 
+/**
+ * @lore BC3 architecture.md §5 R4: `work` (Path 1, `legacyItemId` →
+ * `items.sourceAgentId`) is DELETED with the `items` column/table. Path 2
+ * (`threads.initiatorId`) becomes the only attribution.
+ */
 type ApprovalRateDeps = {
-	work: Pick<PolicyDeps["work"], "listItemIdsBySourceAgent">;
-	conversation: Pick<
-		PolicyDeps["conversation"],
-		"listInitiatedVerdictMessages" | "listVerdictMessagesByItemIds"
-	>;
+	conversation: Pick<PolicyDeps["conversation"], "listInitiatedVerdictMessages">;
 };
 
 export interface ApprovalRateResult {
@@ -22,9 +23,8 @@ export interface ApprovalRateResult {
 /**
  * Compute the approval rate for an agent within a sliding window.
  *
- * Attribution logic:
- * 1. Path 1: verdict messages with legacyItemId → items.sourceAgentId = agentId
- * 2. Path 2: verdict messages with no legacyItemId on threads where initiatorId = agentId
+ * Attribution: a verdict message counts toward the agent when it landed on a
+ * thread that agent initiated (`threads.initiatorId = agentId`).
  *
  * Approval = decision is "approve" or "approve-with-comments".
  * Rate = approvals / total (0 when total = 0).
@@ -32,7 +32,7 @@ export interface ApprovalRateResult {
  * @param db - The database connection.
  * @param agentId - The agent to compute the rate for.
  * @param windowDays - Number of days to look back (sliding window).
- * @param deps - Injected `work`/`conversation` ports (Mechanism C).
+ * @param deps - Injected `conversation` port (Mechanism C).
  * @param recentLimit - Max number of recent verdicts to return (default 10).
  */
 export async function computeApprovalRate(
@@ -44,30 +44,7 @@ export async function computeApprovalRate(
 ): Promise<ApprovalRateResult> {
 	const windowStart = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
-	// Path 1: verdict messages attributed via legacyItemId -> items.sourceAgentId.
-	// Decomposed (AU12 + founder ruling 2026-07-12): the Work-owned `items` read
-	// routes through work-service (Work owns `items`), then conversation-store
-	// reads the matching verdict messages (Conversation owns `messages`) — no
-	// cross-owner table read, no join.
-	const agentItemIds = await deps.work.listItemIdsBySourceAgent(db, agentId);
-	const path1Rows =
-		agentItemIds.length > 0
-			? await deps.conversation.listVerdictMessagesByItemIds(db, agentItemIds, windowStart)
-			: [];
-
-	// Path 2: verdict messages attributed via threads.initiatorId (no legacyItemId to avoid double-count)
-	const path2Rows = await deps.conversation.listInitiatedVerdictMessages(db, agentId, windowStart);
-
-	// Deduplicate by message id (union of both paths)
-	const seenIds = new Set<string>();
-	const allRows: Array<{ id: string; payload: string; threadId: string; createdAt: string }> = [];
-
-	for (const row of [...path1Rows, ...path2Rows]) {
-		if (!seenIds.has(row.id)) {
-			seenIds.add(row.id);
-			allRows.push(row);
-		}
-	}
+	const allRows = await deps.conversation.listInitiatedVerdictMessages(db, agentId, windowStart);
 
 	const totalVerdicts = allRows.length;
 

@@ -8,47 +8,44 @@
  * Tests now verify absence of chip elements and that threads render without filtering.
  */
 
+import type { ThreadListRow } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
 import { Conversations } from "../pages/Conversations";
 
+// @lore BC3: the thread list now comes from `useThreads({mine:true})` →
+// `call("search_threads", ...)`, not `GET /api/threads`.
+const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
+vi.mock("../services/call.js", () => ({ call: callMock }));
+
 const STUB_USER = { id: "u-test", name: "Tester", email: "", avatarUrl: null };
 
-interface MockThread {
-	id: string;
-	hostKind: string;
-	hostId: string;
-	initiatorId: string;
-	participants: string[];
-	pinned: boolean;
-	resolvedAt: string | null;
-	lastActiveAt: string;
-	createdAt: string;
-	hasUnresolvedReview: boolean;
-	blocking?: boolean;
-}
+type MockThread = ThreadListRow;
 
 const NOW_ISO = "2026-05-31T12:00:00.000Z";
 
-function mkThread(id: string, blocking = false): MockThread {
+function mkThread(id: string, hasUnresolvedReview = false): MockThread {
 	return {
 		id,
-		hostKind: "task",
+		hostKind: "team",
 		hostId: `host-${id}`,
 		initiatorId: "u-test",
-		participants: ["u-test"],
+		members: ["u-test"],
+		title: null,
+		computedTitle: "Thread",
 		pinned: false,
 		resolvedAt: null,
+		deletedAt: null,
 		lastActiveAt: NOW_ISO,
 		createdAt: NOW_ISO,
-		hasUnresolvedReview: false,
-		blocking,
+		hasUnresolvedReview,
+		lastMessagePreview: null,
 	};
 }
 
-// Mixed fixture: 2 blocking + 3 async
+// Mixed fixture: 2 with unresolved review + 3 without.
 const MIXED_THREADS: MockThread[] = [
 	mkThread("b1", true),
 	mkThread("b2", true),
@@ -58,18 +55,16 @@ const MIXED_THREADS: MockThread[] = [
 ];
 
 function stubFetch(threads: MockThread[]): void {
+	callMock.mockImplementation(async (action: string) => {
+		if (action === "search_threads") return { ok: true, data: threads };
+		return { ok: true, data: [] };
+	});
 	vi.stubGlobal(
 		"fetch",
 		vi.fn(async (input: RequestInfo | URL) => {
 			const url = typeof input === "string" ? input : input.toString();
 			if (url.includes("/api/auth/me")) {
 				return { ok: true, json: async () => STUB_USER } as Response;
-			}
-			if (url.includes("/api/threads") && !url.match(/\/api\/threads\/[^?]/)) {
-				return {
-					ok: true,
-					json: async () => ({ threads, nextCursor: null }),
-				} as Response;
 			}
 			if (url.includes("/api/teams")) {
 				return { ok: true, json: async () => ({ teams: [] }) } as Response;

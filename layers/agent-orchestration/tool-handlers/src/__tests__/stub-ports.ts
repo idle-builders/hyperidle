@@ -3,6 +3,12 @@
  * NAME/shape catalogue (`buildAllToolDefinitions(ports).map((d) => d.name)`)
  * and never actually invoke a port method. Every method throws if called —
  * a real behavior test must inject real (or per-test fake) ports instead.
+ *
+ * @lore BC3 architecture.md §5 B4: `gate`/`getItemById`/`updateItemById`/
+ * `createItem`/`findSoleHumanUser`/`getThreadById`/`insertThread`/
+ * `updateThread`/`insertMessage`/`findOrCreateDirectThread`/
+ * `getFirstThreadByHost`/`resolveReviewRecipientsForItem` DELETED with
+ * `send_message`/`reply`/`create_item`/`submit_review`.
  */
 import type { ToolHandlersPorts } from "../ports.js";
 
@@ -11,26 +17,14 @@ function notImplemented(): never {
 }
 
 export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
-	gate: { linkReviewToSession: notImplemented },
 	coreApi: {
 		openTask: notImplemented,
-		getItemById: notImplemented,
-		updateItemById: notImplemented,
-		createItem: notImplemented,
 		getUserById: notImplemented,
 		listUsersByTeam: notImplemented,
-		findSoleHumanUser: notImplemented,
-		getThreadById: notImplemented,
-		insertThread: notImplemented,
-		updateThread: notImplemented,
-		insertMessage: notImplemented,
-		findOrCreateDirectThread: notImplemented,
-		getFirstThreadByHost: notImplemented,
 		getTeamById: notImplemented,
 		getTeamMembersByTeamId: notImplemented,
 		createTeam: notImplemented,
 		updateTeam: notImplemented,
-		resolveReviewRecipientsForItem: notImplemented,
 		scaffoldFromRequest: notImplemented,
 		insertRoutine: notImplemented,
 		getRoutineById: notImplemented,
@@ -38,7 +32,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		create: notImplemented,
 		findKnowledgeItemVersionById: notImplemented,
 		findKnowledgeItemStatusById: notImplemented,
-		findKnowledgeItemParentById: notImplemented,
 		findOpenConflictByItemAndProposer: notImplemented,
 		createKnowledgeConflict: notImplemented,
 		promoteKnowledgeItem: notImplemented,

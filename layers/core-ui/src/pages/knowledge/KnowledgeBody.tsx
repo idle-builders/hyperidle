@@ -29,6 +29,7 @@ import { type JSX, useMemo } from "react";
 import { deriveBlocks } from "../../block/index.js";
 import { AssistantAttachButton } from "../../components/AssistantAttachButton.js";
 import { ArtifactFrame, Block } from "../../ds";
+import { plainPayloadOf } from "../../ds/message-payload.js";
 import { blockExcerptFromPayload, blockTextFromPayload } from "../../utils/block-excerpt.js";
 import { sanitizeHtml } from "../../utils/sanitize-html.js";
 
@@ -76,7 +77,8 @@ function AnchoredMessages({
 			)}
 			{messages.map((msg) => {
 				if (msg.type !== "plain") return null;
-				const text = isRedactedPayload(msg.payload) ? "[redacted]" : msg.payload.text;
+				const payload = plainPayloadOf(msg);
+				const text = isRedactedPayload(payload) ? "[redacted]" : payload.text;
 				return (
 					<div
 						key={msg.id}

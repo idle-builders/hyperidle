@@ -16,13 +16,13 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_REVIEW_ACCESSOR } from "@hyperidle/agent-orchestration/testing";
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
 	tasks,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import type { BakedContextBundle } from "@hyperidle/domain-model";
@@ -65,21 +65,17 @@ function buildPromoteKnowledgeTool(
 	app: Hono,
 	db: HyperIdleDb,
 ): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(
-		createInProcessCoreApiTransport(app),
-		THROWING_REVIEW_ACCESSOR,
-		realOpenTask(db),
-	).find((t) => t.name === "promote_knowledge")!;
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), realOpenTask(db)).find(
+		(t) => t.name === "promote_knowledge",
+	)!;
 }
 function buildWriteMemoryTool(
 	app: Hono,
 	db: HyperIdleDb,
 ): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(
-		createInProcessCoreApiTransport(app),
-		THROWING_REVIEW_ACCESSOR,
-		realOpenTask(db),
-	).find((t) => t.name === "write_memory")!;
+	return buildToolDefinitions(createInProcessCoreApiTransport(app), realOpenTask(db)).find(
+		(t) => t.name === "write_memory",
+	)!;
 }
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -98,7 +94,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 	// BB1: root task replaces bet
+	await db.insert(threads).values({
+		id: `thr-${"bet-r7"}`,
+		hostKind: "team",
+		hostId: TEAM_ID,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"bet-r7"}`,
 		id: "bet-r7",
 		parentTaskId: null,
 		teamId: TEAM_ID,
@@ -107,7 +113,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(threads).values({
+		id: `thr-${"task-r7"}`,
+		hostKind: "team",
+		hostId: TEAM_ID,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"task-r7"}`,
 		id: "task-r7",
 		parentTaskId: "bet-r7",
 		teamId: TEAM_ID,

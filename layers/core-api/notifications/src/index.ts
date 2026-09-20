@@ -6,9 +6,9 @@
  *   enqueue, listNotifications, markNotifications, reap
  *   + NotificationFilter, NotificationSelector, NotificationPatch
  *
- * Delivery engine (2m/4t):
- *   installNotifications, deliver
- *   + DeliverySpec, DeliveryResult, NotificationConfigPatch, SafeNotificationConfig
+ * Delivery engine (1m/2t):
+ *   deliver
+ *   + DeliverySpec, DeliveryResult
  *
  * Config + prefs (4m):
  *   readConfig, updateConfig, readPreferences, updatePreferences
@@ -19,11 +19,15 @@
  * @lore AU43: getDailyDigest (demo-only trigger), isSilenced (constant-false,
  * no writer), Notification / NotificationAdapter / NotificationChannel (adapter
  * abstraction over one channel) removed from the public surface.
+ *
+ * @lore BC3 architecture.md §5 B7: `installNotifications` (the inbox-enqueue
+ * listener) removed — its only production trigger was the policy engine's
+ * "attention" event, deleted with `items` (R2).
  */
 
 export type { DeliveryResult, DeliverySpec } from "./install.js";
 
-export { deliver, installNotifications, readPreferences, updatePreferences } from "./install.js";
+export { deliver, readPreferences, updatePreferences } from "./install.js";
 export type {
 	NotificationFilter,
 	NotificationPatch,

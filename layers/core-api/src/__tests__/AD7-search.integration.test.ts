@@ -122,7 +122,17 @@ async function seedRootTask(
 	title: string,
 	_state = "in_progress",
 ): Promise<void> {
+	await db.insert(threads).values({
+		id: `thr-${taskId}`,
+		hostKind: "team",
+		hostId: teamId,
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: NOW,
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${taskId}`,
 		id: taskId,
 		parentTaskId: null,
 		teamId,
@@ -334,7 +344,17 @@ describe("GET /api/search — AD7 search backend", () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await seedTeam(db, "team-killed", "Killed Team");
+		await db.insert(threads).values({
+			id: `thr-${"task-search-killed"}`,
+			hostKind: "team",
+			hostId: "team-killed",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: NOW,
+			createdAt: NOW,
+		});
 		await db.insert(tasks).values({
+			threadId: `thr-${"task-search-killed"}`,
 			id: "task-search-killed",
 			parentTaskId: null,
 			teamId: "team-killed",

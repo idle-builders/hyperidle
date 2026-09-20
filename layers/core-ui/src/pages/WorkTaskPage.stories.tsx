@@ -6,6 +6,14 @@
  *
  * Per visual-regression.md: stories render POPULATED real state only.
  * No skeleton or error states in an initial design.
+ *
+ * @lore BC3: the page's Discussion section (`HostThreadSection`) no longer
+ * resolves a thread via a `hostKind: "task"` lookup — that host kind is
+ * gone. It reads `task.threadId` (set by `open_task`) directly and, when
+ * present, loads it with `POST /api/actions/open_thread`
+ * (`ThreadViewSchema`). The mock below gives each story task a real
+ * `threadId` and answers `open_thread` for it, instead of the deleted
+ * threads REST route.
  */
 
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -29,6 +37,7 @@ function makeTask(
 		ownerAgentId: string;
 		teamId: string;
 		position: number;
+		threadId: string;
 	}> = {},
 ): object {
 	return {
@@ -42,7 +51,9 @@ function makeTask(
 		state: overrides.state ?? "proposed",
 		position: overrides.position ?? 0,
 		dependencies: null,
-		threadId: null,
+		// @lore BC3: `Task.threadId` is `NOT NULL` — every task gets its own
+		// thread at creation (architecture.md §3.9). Never `null` here.
+		threadId: overrides.threadId ?? `${overrides.id ?? "task-1"}-thread`,
 		notes: null,
 		outcomeVerdict: null,
 		outcomeSummary: null,
@@ -57,7 +68,75 @@ function makeTask(
 	};
 }
 
-function setupFetchMock(taskView: object, sessions: object[] = []): void {
+/** A thread member — what `open_thread`'s `members` array holds. */
+function makeIdentity(id: string, name: string, role: string, isAgent: boolean): object {
+	return { id, name, role, isAgent };
+}
+
+/** One message row — `MessageSchema`'s shape. `payload` defaults to an empty plain body. */
+function makeMessage(
+	id: string,
+	threadId: string,
+	overrides: Partial<{
+		senderId: string;
+		text: string;
+		blockId: string | null;
+		createdAt: string;
+	}> = {},
+): object {
+	return {
+		id,
+		threadId,
+		senderId: overrides.senderId ?? "auth-agent",
+		type: "plain",
+		payload: { text: overrides.text ?? "" },
+		clientKey: `ck-${id}`,
+		blockId: overrides.blockId ?? null,
+		resolvedAt: null,
+		deletedAt: null,
+		redactedAt: null,
+		createdAt: overrides.createdAt ?? "2026-08-30T10:00:00.000Z",
+	};
+}
+
+/**
+ * A team-hosted `ThreadView` (`open_thread`'s output) for a task's own
+ * discussion. A task's thread has no `"task"` host kind — it is hosted
+ * on the task's team.
+ */
+function makeThreadView(
+	threadId: string,
+	teamId: string,
+	members: object[],
+	messages: object[],
+): object {
+	return {
+		thread: {
+			id: threadId,
+			hostKind: "team",
+			hostId: teamId,
+			initiatorId: (members[0] as { id: string } | undefined)?.id ?? "agent-1",
+			members: members.map((m) => (m as { id: string }).id),
+			title: null,
+			computedTitle: "Discussion",
+			pinned: false,
+			resolvedAt: null,
+			deletedAt: null,
+			lastActiveAt: "2026-08-30T10:00:00.000Z",
+			createdAt: "2026-08-30T10:00:00.000Z",
+		},
+		members,
+		messages,
+		headMessageId: null,
+		hostTitle: null,
+	};
+}
+
+function setupFetchMock(
+	taskView: object,
+	sessions: object[] = [],
+	threadView: object | null = null,
+): void {
 	if (typeof window === "undefined") return;
 
 	window.fetch = async (url: RequestInfo | URL): Promise<Response> => {
@@ -93,14 +172,19 @@ function setupFetchMock(taskView: object, sessions: object[] = []): void {
 			} as Response;
 		}
 
-		if (urlStr.includes("/api/threads")) {
+		if (urlStr.includes("/api/actions/open_thread")) {
+			if (threadView === null) {
+				return {
+					ok: true,
+					json: async () => ({
+						ok: false,
+						problems: [{ code: "not_found", message: "Thread not found" }],
+					}),
+				} as Response;
+			}
 			return {
 				ok: true,
-				json: async () => ({
-					thread: { id: "th-1", hostKind: "task", hostId: ROOT_TASK_ID, resolvedAt: null },
-					messages: [],
-					identities: {},
-				}),
+				json: async () => ({ ok: true, data: threadView }),
 			} as Response;
 		}
 
@@ -118,6 +202,8 @@ function PageWrapper({ taskId }: { taskId: string }): React.JSX.Element {
 	);
 }
 
+const ROOT_TASK_THREAD_ID = "th-story-root-1";
+
 /** Root task with two subtasks, one of which has a grandchild. */
 export const RootTaskWithSubtasks = (): React.JSX.Element => {
 	const rootTask = makeTask({
@@ -127,6 +213,7 @@ export const RootTaskWithSubtasks = (): React.JSX.Element => {
 		doneCondition: "All endpoints secured, existing sessions migrated.",
 		state: "in_progress",
 		ownerAgentId: "auth-agent",
+		threadId: ROOT_TASK_THREAD_ID,
 	});
 
 	const childTask1 = makeTask({
@@ -153,20 +240,46 @@ export const RootTaskWithSubtasks = (): React.JSX.Element => {
 		ownerAgentId: "auth-agent",
 	});
 
-	setupFetchMock({
-		task: rootTask,
-		ancestors: [],
-		children: [
-			{ ...childTask1, children: [{ ...grandchildTask, children: [] }] },
-			{ ...childTask2, children: [] },
+	const founder = makeIdentity("user-founder", "Founder", "founder", false);
+	const authAgent = makeIdentity("auth-agent", "auth-agent", "builder", true);
+	const threadView = makeThreadView(
+		ROOT_TASK_THREAD_ID,
+		"team-1",
+		[founder, authAgent],
+		[
+			makeMessage("msg-2", ROOT_TASK_THREAD_ID, {
+				senderId: "auth-agent",
+				text: "Login endpoint is done, refresh rotation is next.",
+				createdAt: "2026-08-30T11:05:00.000Z",
+			}),
+			makeMessage("msg-1", ROOT_TASK_THREAD_ID, {
+				senderId: "user-founder",
+				text: "How's the JWT migration going?",
+				createdAt: "2026-08-30T11:00:00.000Z",
+			}),
 		],
-		tokensActualRollup: 42000,
-		threadId: null,
-		attachments: [],
-	});
+	);
+
+	setupFetchMock(
+		{
+			task: rootTask,
+			ancestors: [],
+			children: [
+				{ ...childTask1, children: [{ ...grandchildTask, children: [] }] },
+				{ ...childTask2, children: [] },
+			],
+			tokensActualRollup: 42000,
+			threadId: ROOT_TASK_THREAD_ID,
+			attachments: [],
+		},
+		[],
+		threadView,
+	);
 
 	return <PageWrapper taskId={ROOT_TASK_ID} />;
 };
+
+const GRANDCHILD_TASK_THREAD_ID = "th-story-grandchild-1";
 
 /** A nested subtask — ancestors array gives the breadcrumb its full depth. */
 export const NestedSubtask = (): React.JSX.Element => {
@@ -177,6 +290,7 @@ export const NestedSubtask = (): React.JSX.Element => {
 		description: "Unit + integration tests for the /auth/login route.",
 		state: "review",
 		ownerAgentId: "test-agent",
+		threadId: GRANDCHILD_TASK_THREAD_ID,
 	});
 
 	const root = makeTask({
@@ -192,17 +306,37 @@ export const NestedSubtask = (): React.JSX.Element => {
 		state: "done",
 	});
 
-	setupFetchMock({
-		task: grandchild,
-		ancestors: [root, child],
-		children: [],
-		tokensActualRollup: 5000,
-		threadId: null,
-		attachments: [],
-	});
+	const testAgent = makeIdentity("test-agent", "test-agent", "builder", true);
+	const threadView = makeThreadView(
+		GRANDCHILD_TASK_THREAD_ID,
+		"team-1",
+		[testAgent],
+		[
+			makeMessage("msg-1", GRANDCHILD_TASK_THREAD_ID, {
+				senderId: "test-agent",
+				text: "Covering the happy path and the expired-token case.",
+				createdAt: "2026-08-30T12:00:00.000Z",
+			}),
+		],
+	);
+
+	setupFetchMock(
+		{
+			task: grandchild,
+			ancestors: [root, child],
+			children: [],
+			tokensActualRollup: 5000,
+			threadId: GRANDCHILD_TASK_THREAD_ID,
+			attachments: [],
+		},
+		[],
+		threadView,
+	);
 
 	return <PageWrapper taskId={GRANDCHILD_TASK_ID} />;
 };
+
+const WITH_SESSIONS_THREAD_ID = "th-story-dashboard-1";
 
 /** Root task with active sessions. */
 export const WithSessions = (): React.JSX.Element => {
@@ -211,7 +345,22 @@ export const WithSessions = (): React.JSX.Element => {
 		title: "Dashboard performance audit",
 		state: "in_progress",
 		ownerAgentId: "perf-agent",
+		threadId: WITH_SESSIONS_THREAD_ID,
 	});
+
+	const perfAgent = makeIdentity("perf-agent", "perf-agent", "builder", true);
+	const threadView = makeThreadView(
+		WITH_SESSIONS_THREAD_ID,
+		"team-1",
+		[perfAgent],
+		[
+			makeMessage("msg-1", WITH_SESSIONS_THREAD_ID, {
+				senderId: "perf-agent",
+				text: "Baseline captured, profiling the dashboard queries now.",
+				createdAt: "2026-08-30T13:00:00.000Z",
+			}),
+		],
+	);
 
 	setupFetchMock(
 		{
@@ -219,7 +368,7 @@ export const WithSessions = (): React.JSX.Element => {
 			ancestors: [],
 			children: [],
 			tokensActualRollup: 18000,
-			threadId: null,
+			threadId: WITH_SESSIONS_THREAD_ID,
 			attachments: [],
 		},
 		[
@@ -240,6 +389,7 @@ export const WithSessions = (): React.JSX.Element => {
 				effectivenessScore: 0.82,
 			},
 		],
+		threadView,
 	);
 
 	return <PageWrapper taskId={ROOT_TASK_ID} />;

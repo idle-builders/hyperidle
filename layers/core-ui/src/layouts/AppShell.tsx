@@ -15,16 +15,16 @@ import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from "re
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { RecipientPicker } from "../components/RecipientPicker";
-import type { ConversationsFilter } from "../components/ThreadSections";
+import type { ConversationsFilter, ThreadItem } from "../components/ThreadSections";
 import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
 import { ensureOverlayRoot, useDialogBehavior } from "../ds";
 import { useCommandK } from "../hooks/useCommandK";
-import { useConversationsThreads } from "../hooks/useConversationsThreads";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
 import { useHistoryAvailability } from "../hooks/useHistoryAvailability.js";
 import { useNavShortcuts } from "../hooks/useNavShortcuts.js";
 import { useTeams } from "../hooks/useTeams";
+import { useThreads } from "../hooks/useThreads.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { parentPathFor } from "../navigation/parentPathFor.js";
 import { AssistantOverlay } from "../shell/AssistantOverlay";
@@ -33,6 +33,7 @@ import { NotificationPopover } from "../shell/NotificationPopover";
 import { Sidebar } from "../shell/Sidebar";
 import type { ViewId } from "../shell/shell-types";
 import { ToastRegion } from "../shell/ToastRegion";
+import { relativeShort } from "../utils/time.js";
 
 /**
  * Outlet context surfaced by AppShell to its children. Read by
@@ -44,9 +45,8 @@ import { ToastRegion } from "../shell/ToastRegion";
  * drive filter state that lives in AppShell (session-transient, not URL).
  *
  * @lore U6 review V1: threads/threadsStatus/threadsError/onRetryThreads are
- * passed via context so Conversations.tsx can consume the single hook call
- * already made in AppShell. This avoids the double fetch that previously
- * occurred when Conversations.tsx also called useConversationsThreads().
+ * passed via context so Conversations.tsx reads AppShell's single `useThreads`
+ * call instead of fetching its own copy.
  */
 export interface AppShellOutletContext {
 	selectedThreadId: string | null;
@@ -58,12 +58,41 @@ export interface AppShellOutletContext {
 	threadsStatus: "loading" | "ready" | "error";
 	threadsError: string | null;
 	onRetryThreads: () => void;
+
 	/** U9 AC-1: Opens the RecipientPicker for creating a new thread. */
 	onNewThread: () => void;
 	/** @lore NEW-24: retries AppShell-owned fetches (user + sidebar knowledge list) so a
 	 * full-outage recovery clears ALL sidebar error states, not just the main-pane error.
 	 * Child pages call this alongside their own domain retry. */
 	onRetryShell: () => void;
+}
+
+/**
+ * @lore BC3: replaces `useConversationsThreads.ts`'s `rowToItem` — the
+ * hand-pushed `ThreadListRow` is now `search_threads`'s own output shape
+ * (`title`/`computedTitle`/`lastMessagePreview`/`members`, no `participants`,
+ * no client-side `blocking` guess). AppShell is the sole caller of the row
+ * shape, so the mapping lives here rather than in a hook module of its own.
+ */
+function rowToItem(row: import("@hyperidle/domain-model").ThreadListRow): ThreadItem {
+	// `computedTitle` is required and never empty (ThreadListRowSchema), so
+	// this always resolves without a synthesized fallback.
+	const title = row.title ?? row.computedTitle;
+	return {
+		id: row.id,
+		title,
+		snippet: row.lastMessagePreview ?? "",
+		timestamp: relativeShort(row.lastActiveAt),
+		lastActiveAt: row.lastActiveAt,
+		avatarUrl: null,
+		avatars: undefined,
+		hostKind: row.hostKind,
+		hasUnresolvedReview: row.hasUnresolvedReview,
+		blocking: false,
+		status: row.hasUnresolvedReview ? "behind" : undefined,
+		pinned: row.pinned,
+		resolvedAt: row.resolvedAt ?? undefined,
+	};
 }
 
 function deriveViewFromPath(pathname: string): ViewId {
@@ -489,11 +518,20 @@ export function AppShell(): JSX.Element {
 	);
 
 	// @lore M3 A11: participant id comes from useCurrentUser() — no more hardcoded demo-founder-id.
-	// @lore N5: pass user?.id directly (string | undefined). Hook short-circuits when falsy.
-	const conversationsThreads = useConversationsThreads(user?.id);
+	// @lore BC3: `useConversationsThreads` → `useThreads({mine:true})`; `undefined` when
+	// there is no viewer yet short-circuits the call entirely (N5's "no 400 on a fresh
+	// install" guard, now inside `useThreads` itself).
+	const threadsResult = useThreads(user?.id ? { mine: true } : undefined);
+	const threadItems = useMemo(() => threadsResult.threads.map(rowToItem), [threadsResult.threads]);
+	const conversationsThreads = {
+		status: threadsResult.status,
+		error: threadsResult.error,
+		threads: threadItems,
+		retry: threadsResult.retry,
+	};
 
 	// @lore UI-011/012/013 + NEW-23: when the user fetch fails, user?.id is undefined so
-	// useConversationsThreads short-circuits to status:"ready" (N5 guard — avoids a 400
+	// useThreads short-circuits to status:"ready" (N5 guard — avoids a 400
 	// "Missing scope" error on a fresh install with no users). The threads hook never fires
 	// and never errors. Propagate the user-fetch failure so the sidebar and Conversations
 	// page show "Couldn't load" instead of a false "No threads yet" empty claim.

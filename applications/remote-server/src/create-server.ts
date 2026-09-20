@@ -130,11 +130,19 @@ export interface CreateServerDeps {
  * @lore AU44-b2: `credentialResolver` type derived from `CoreApiBoot` so this
  * application does not import @hyperidle/credentials (a Service) at the
  * application layer — the layer barrel is the only boundary a composition root crosses.
+ *
+ * @lore BC3 thread-ws-e2e: `actionTools` is exposed for the same reason as
+ * `credentialResolver` — an integration test needs to invoke the real
+ * `send_message` MCP tool door (`actionsAsTools`'s handler, the exact
+ * registry `bootAgentOrchestration`'s runtime threads a live session's tool
+ * calls through) against THIS composition's own db/wsHub, not a second
+ * throwaway boot whose hub would have zero connected clients.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
 	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
+	readonly actionTools: CoreApiBoot["actionTools"];
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -550,6 +558,11 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return disposePromise;
 	};
 
-	// biome-ignore lint/style/noNonNullAssertion: `db` is always set above (either the injected fixture or a freshly opened handle)
-	return { httpServer, dispose, credentialResolver: coreApi.credentialResolver! };
+	return {
+		httpServer,
+		dispose,
+		// biome-ignore lint/style/noNonNullAssertion: `db` is always set above (either the injected fixture or a freshly opened handle)
+		credentialResolver: coreApi.credentialResolver!,
+		actionTools: coreApi.actionTools,
+	};
 }

@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb, NewChange, NewTask, Team, User, WriteExecutor } from "@hyperidle/db";
 import {
+	type ActionResult,
+	type AdjustThreadInput,
 	type AgentWorkIntentRecorderInput,
 	canTransitionTaskState,
 	type Task as DomainTask,
 	type EditTaskInput,
 	editTask as editTaskDeclaration,
+	type OpenThreadInput,
 	openTask as openTaskDeclaration,
 	type Problem,
 	type SearchTasksInput,
@@ -13,6 +16,7 @@ import {
 	type TaskListItem,
 	type TaskNode,
 	type TaskView,
+	type ThreadView,
 	taskInvariants,
 } from "@hyperidle/domain-model";
 import type { Action, ActionContext } from "./action-types.js";
@@ -62,6 +66,27 @@ export interface TaskActionsDeps {
 	 * into this bag rather than a second constructor argument.
 	 */
 	readonly taskRunResolver: TaskRunResolverDeps;
+	/**
+	 * @lore The ONE crossing from `task` to `thread` — a function value,
+	 * never an import ("a service never names a sibling, it receives one
+	 * through a port"). Every task now owns a real thread, written at
+	 * creation by calling the thread action in-process as the same actor,
+	 * never by touching the `threads` table.
+	 */
+	readonly adjustThread: (
+		ctx: ActionContext,
+		input: AdjustThreadInput,
+	) => Promise<ActionResult<ThreadView>>;
+	/**
+	 * Same injection shape as `adjustThread`, for the read `adjustThread`
+	 * needs before it can decide whether a write is even necessary —
+	 * `adjust_thread.members` is a full replacement (locked), never a union, so
+	 * adding a member means reading the thread's current ones first.
+	 */
+	readonly openThread: (
+		ctx: ActionContext,
+		input: OpenThreadInput,
+	) => Promise<ActionResult<ThreadView>>;
 }
 
 /** Tasks a kill cascade never touches when it meets them BENEATH the root. */
@@ -122,7 +147,11 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		doneCondition: null,
 		state: "proposed",
 		dependencies: null,
-		threadId: null,
+		// @lore Never inspected by `taskInvariants` — a placeholder for the
+		// invariant-checking candidate, which is never written. The real
+		// value is resolved via `deps.adjustThread` before the transaction
+		// and set directly on the INSERT values, not through this candidate.
+		threadId: "",
 		notes: null,
 		createdAt: "",
 		updatedAt: "",
@@ -261,7 +290,10 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 		input: SearchTasksInput,
 	): Promise<{ ok: true; data: TaskListItem[] } | { ok: false; problems: readonly Problem[] }> {
 		if (input.ids !== undefined) {
-			const rows = await taskDb.list(ctx.db, "task", { ids: input.ids });
+			const rows = await taskDb.list(ctx.db, "task", {
+				ids: input.ids,
+				...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
+			});
 			const excluded = new Set(input.excludeIds ?? []);
 			return { ok: true, data: rows.filter((r) => !excluded.has(r.id)) as unknown as DomainTask[] };
 		}
@@ -269,6 +301,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			const rows = await taskDb.list(ctx.db, "task", {
 				text: input.text,
 				...(input.excludeKilled ? { excludeKilled: true as const } : {}),
+				...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
 				...(input.limit !== undefined ? { limit: input.limit } : {}),
 			});
 			const excluded = new Set(input.excludeIds ?? []);
@@ -279,6 +312,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			...(input.ownerAgentId !== undefined ? { ownerAgentId: input.ownerAgentId } : {}),
 			...(input.state !== undefined ? { state: input.state } : {}),
 			...(input.teamId !== undefined ? { teamId: input.teamId } : {}),
+			...(input.threadId !== undefined ? { threadId: input.threadId } : {}),
 			...(input.limit !== undefined ? { limit: input.limit } : {}),
 		});
 		const excluded = new Set(input.excludeIds ?? []);
@@ -547,6 +581,54 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			return { ok: false, problems };
 		}
 
+		// -- 3b. resolve the task's thread -------------------------------------
+		// @lore Every task has a real thread. Created BEFORE this task's own
+		// transaction opens, by calling the thread action in-process as the
+		// same actor (the module-link rule: through the action, never the
+		// table) — `tasks.threadId` is NOT NULL, so the thread must already
+		// exist by the time the INSERT below runs.
+		let resolvedThreadId = prev?.threadId;
+		if (!prev) {
+			if (input.threadId) {
+				resolvedThreadId = input.threadId;
+				// @lore A task created inside a thread makes its owner a member of
+				// that thread if not already. `adjust_thread.members`
+				// is a full replacement (locked), never a union with the
+				// thread's current members — so the owner must be appended to
+				// the list this actor can already see, not passed alone, or
+				// every other member of the thread is removed. Read first via
+				// `openThread` (same actor, same in-process crossing rule as
+				// `adjustThread`); skip the write entirely when the owner is
+				// already a member.
+				if (next.ownerAgentId) {
+					const opened = await deps.openThread(ctx, { id: input.threadId });
+					if (!opened.ok) {
+						return { ok: false, problems: opened.problems };
+					}
+					const currentMemberIds = opened.data.members.map((m) => m.id);
+					if (!currentMemberIds.includes(next.ownerAgentId)) {
+						const addOwner = await deps.adjustThread(ctx, {
+							id: input.threadId,
+							members: [...currentMemberIds, next.ownerAgentId],
+						});
+						if (!addOwner.ok) {
+							return { ok: false, problems: addOwner.problems };
+						}
+					}
+				}
+			} else {
+				const created = await deps.adjustThread(ctx, {
+					host: { kind: "team", id: next.teamId },
+					members: [ctx.actor, ...(next.ownerAgentId ? [next.ownerAgentId] : [])],
+				});
+				if (!created.ok) {
+					return { ok: false, problems: created.problems };
+				}
+				resolvedThreadId = created.data.thread.id;
+			}
+		}
+		const threadId = resolvedThreadId ?? "";
+
 		// -- 4. inside one transaction --------------------------------------------
 		const now = ctx.now;
 		let killedTasks: readonly { readonly id: string; readonly fromState: string }[] = [];
@@ -604,6 +686,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 					doneCondition: next.doneCondition,
 					state: resolvedState,
 					dependencies: next.dependencies,
+					threadId,
 					position:
 						next.position ||
 						(await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,

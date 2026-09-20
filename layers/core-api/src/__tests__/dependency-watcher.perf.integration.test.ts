@@ -1,4 +1,5 @@
-import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import type { ActionResult, EditTaskInput, TaskState, TaskView } from "@hyperidle/domain-model";
 import { checkAndUnblockDependents } from "@hyperidle/task";
 import { eq } from "drizzle-orm";
@@ -9,11 +10,13 @@ import { buildCoreActions } from "../actions/compose.js";
 // §6 row 2: `checkAndUnblockDependents` writes through `edit_task` now —
 // see dependency-watcher.integration.test.ts for the same helper shape.
 function makeEditTask(
-	agentOrchestration: Parameters<typeof buildCoreActions>[0],
+	agentOrchestration: AgentOrchestrationPort,
 ): (ctx: ActionContext, input: EditTaskInput) => Promise<ActionResult<TaskView>> {
-	const editTaskAction = buildCoreActions(agentOrchestration).find(
-		(a) => a.declaration.name === "edit_task",
-	);
+	const editTaskAction = buildCoreActions({
+		agentOrchestration,
+		agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+		reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+	}).find((a) => a.declaration.name === "edit_task");
 	if (!editTaskAction) throw new Error("edit_task action not found");
 	return editTaskAction.run as (
 		ctx: ActionContext,
@@ -57,7 +60,17 @@ async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 		})
 		.onConflictDoNothing();
 
+	await db.insert(threads).values({
+		id: `thr-${"b1"}`,
+		hostKind: "team",
+		hostId: "p1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${"b1"}`,
 		id: "b1",
 		parentTaskId: null,
 		teamId: "p1",
@@ -76,7 +89,17 @@ async function insertTask(
 	dependencies?: string[],
 ): Promise<void> {
 	const now = new Date().toISOString();
+	await db.insert(threads).values({
+		id: `thr-${id}`,
+		hostKind: "team",
+		hostId: "p1",
+		initiatorId: "system:propagation",
+		participants: "[]",
+		lastActiveAt: now,
+		createdAt: now,
+	});
 	await db.insert(tasks).values({
+		threadId: `thr-${id}`,
 		id,
 		parentTaskId: "b1",
 		teamId: "p1",
@@ -153,7 +176,17 @@ describe("I3: dependency-watcher SQL filter benchmark", () => {
 		// A naive load-all-rows implementation calls JSON.parse on every row
 		// and throws on this one.
 		const now = new Date().toISOString();
+		await db.insert(threads).values({
+			id: `thr-${"malformed"}`,
+			hostKind: "team",
+			hostId: "p1",
+			initiatorId: "system:propagation",
+			participants: "[]",
+			lastActiveAt: now,
+			createdAt: now,
+		});
 		await db.insert(tasks).values({
+			threadId: `thr-${"malformed"}`,
 			id: "malformed",
 			parentTaskId: "b1",
 			teamId: "p1",

@@ -20,7 +20,7 @@
  * Added page.screenshot() captures on open dropdowns for ≥3 surfaces (visual AC #6).
  */
 
-import { expect, test } from "./fixtures";
+import { expect, mockSearchThreads, test } from "./fixtures";
 
 const _BET_ID = "bet-ag5-test";
 const TEAM_ID = "test-team-1";
@@ -215,13 +215,7 @@ test("AG5-S5: KnowledgeDetail overflow Menu — open and close", async ({ page }
 			body: JSON.stringify({ blocks: [] }),
 		}),
 	);
-	await page.route(`**/api/threads?**`, (route) =>
-		route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ threads: [], nextCursor: null }),
-		}),
-	);
+	await mockSearchThreads(page, { rows: [] });
 
 	await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
 	await page.waitForSelector("[data-testid='main-content']");

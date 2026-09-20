@@ -363,6 +363,6 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 		// BA2: no identity document means no persona — but the review instruction is
 		// unconditional, so what remains is that and nothing else.
 		expect(admitted.systemPromptText).not.toContain("You are");
-		expect(admitted.systemPromptText).toContain("submit_review");
+		expect(admitted.systemPromptText).toContain("send_message");
 	});
 });

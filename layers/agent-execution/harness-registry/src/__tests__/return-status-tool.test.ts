@@ -181,7 +181,7 @@ describe("return_status tool", () => {
 
 	// ── forceMessage content ──────────────────────────────────────────────
 
-	it("forceMessage names all three return tools", async () => {
+	it("forceMessage names both return tools", async () => {
 		const registry = createEnforcementRegistry();
 		const gate = { returned: false };
 		const sessionId = "test-session-msg-1";
@@ -195,7 +195,6 @@ describe("return_status tool", () => {
 			const msg = data.forceMessage as string | null;
 			expect(msg).not.toBeNull();
 			if (msg) {
-				expect(msg).toContain("submit_review");
 				expect(msg).toContain("edit_task");
 				expect(msg).toContain("send_message");
 			}

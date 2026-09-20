@@ -33,7 +33,7 @@ function baseIntent(
 	const ts = new Date().toISOString();
 	return {
 		id: "intent-default",
-		kind: "assistant_turn",
+		kind: "thread_turn",
 		sourceKind: "thread_message",
 		sourceId: "source-default",
 		idempotencyKey: "key-default",
@@ -115,7 +115,7 @@ describe("agent_work_intents durable-rows checks", () => {
 	test("accepts every closed kind/source pairing", async ({ db }) => {
 		const pairs: ReadonlyArray<readonly [AgentWorkIntent["kind"], AgentWorkIntent["sourceKind"]]> =
 			[
-				["assistant_turn", "thread_message"],
+				["thread_turn", "thread_message"],
 				["session_start", "explicit_session_start"],
 				["knowledge_action", "knowledge_action"],
 				["routine_run", "routine_run"],

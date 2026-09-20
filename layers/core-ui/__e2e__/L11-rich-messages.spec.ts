@@ -5,8 +5,8 @@
  * Approved.md §10 acceptance map. Plan §3 + §11 T13.
  *
  * Hermetic page.route() mocks (mirrors threads.spec.ts pattern). The page
- * issues GET /api/threads/:id and POST /api/threads/:id/messages — the
- * canonical surface chosen by plan CONFUSION resolution A.
+ * issues POST /api/actions/open_thread and POST /api/actions/send_message —
+ * the canonical surface chosen by plan CONFUSION resolution A.
  *
  * Coverage:
  *   - Open a review thread → RichMessageCard mounts inline → ArtifactView
@@ -20,6 +20,12 @@
  *
  * @lore L11 step5: red-phase. The card / data-testid='rich-message-card'
  * does not exist yet, so all three tests fail before plan T4 lands.
+ *
+ * @lore BC3: repointed at `POST /api/actions/{open_thread,send_message}` —
+ * the deleted `GET/POST /api/threads*` routes are gone. All three tests here
+ * are already on `known-pre-existing-failures.ts` (AM1 removed
+ * ThreadShell/RichMessageCard from the conversation surface) — this is a
+ * mechanical mock migration only, not an attempt to make them pass.
  */
 
 import { expect, test } from "./fixtures";
@@ -53,34 +59,34 @@ function reviewFixture(resolvedAt: string | null = null) {
 	return {
 		thread: {
 			id: THREAD_ID,
-			hostKind: "task",
-			hostId: "task-l11",
+			hostKind: "team",
+			hostId: "team-l11",
 			initiatorId: AGENT_ID,
-			participants: [AGENT_ID, FOUNDER_ID].sort(),
+			members: [AGENT_ID, FOUNDER_ID].sort(),
+			title: null,
+			computedTitle: "L11 review",
 			pinned: false,
 			resolvedAt: resolvedAt ? LATER : null,
+			deletedAt: null,
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		},
+		members: [],
 		messages: [reviewMessage],
 		headMessageId: resolvedAt ? null : REVIEW_ID,
-		nextMessagesCursor: null,
+		hostTitle: null,
 	};
 }
 
 test.describe("L11 — rich messages render inline", () => {
 	test("RichMessageCard mounts inline with ArtifactView + 5 verdict buttons", async ({ page }) => {
 		const fixture = reviewFixture();
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(fixture),
-				});
-				return;
-			}
-			await route.continue();
+		await page.route("**/api/actions/open_thread", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: fixture }),
+			});
 		});
 
 		await page.goto(`/conversations/${THREAD_ID}`);
@@ -132,36 +138,28 @@ test.describe("L11 — rich messages render inline", () => {
 		let postObserved = false;
 		const captured: Array<{ url: string; body: unknown }> = [];
 
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(postObserved ? afterWithVerdict : before),
-				});
-				return;
-			}
-			await route.continue();
+		await page.route("**/api/actions/open_thread", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: true, data: postObserved ? afterWithVerdict : before }),
+			});
 		});
 
-		await page.route(`**/api/threads/${THREAD_ID}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				postObserved = true;
-				captured.push({
-					url: route.request().url(),
-					body: route.request().postDataJSON(),
-				});
-				await route.fulfill({
-					status: 201,
-					contentType: "application/json",
-					body: JSON.stringify({
-						message: verdictMessage,
-						thread: { ...before.thread, resolvedAt: LATER },
-					}),
-				});
-				return;
-			}
-			await route.continue();
+		await page.route("**/api/actions/send_message", async (route) => {
+			postObserved = true;
+			captured.push({
+				url: route.request().url(),
+				body: route.request().postDataJSON(),
+			});
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: true,
+					data: { message: verdictMessage, thread: { ...before.thread, resolvedAt: LATER } },
+				}),
+			});
 		});
 
 		await page.goto(`/conversations/${THREAD_ID}`);
@@ -198,25 +196,19 @@ test.describe("L11 — rich messages render inline", () => {
 		const fixture = reviewFixture();
 		let postCount = 0;
 
-		await page.route(`**/api/threads/${THREAD_ID}`, async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(fixture),
-				});
-				return;
-			}
-			await route.continue();
-		});
-		await page.route(`**/api/threads/${THREAD_ID}/messages`, async (route) => {
-			if (route.request().method() === "POST") {
-				postCount += 1;
-			}
+		await page.route("**/api/actions/open_thread", async (route) => {
 			await route.fulfill({
-				status: 201,
+				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({}),
+				body: JSON.stringify({ ok: true, data: fixture }),
+			});
+		});
+		await page.route("**/api/actions/send_message", async (route) => {
+			postCount += 1;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ ok: false, problems: [] }),
 			});
 		});
 

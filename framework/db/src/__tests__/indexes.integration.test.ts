@@ -49,10 +49,8 @@ describe("I3: secondary index coverage", () => {
 		expect(indexes.some((i) => i.includes("state"))).toBe(true);
 	});
 
-	test("items has an index for thread_id", async ({ db }) => {
-		const indexes = await indexesFor(db, "items");
-		expect(indexes.some((i) => i.includes("thread_id"))).toBe(true);
-	});
+	// @lore BC3 migration 0085 step 6: `items` dropped, destructive, no
+	// compat column. Its thread_id index went with the table.
 
 	test("messages has an index for thread_id", async ({ db }) => {
 		const indexes = await indexesFor(db, "messages");

@@ -7,8 +7,8 @@
  * handlers.
  *
  * @lore Q1: The web package had no WebSocket client until Q1. Hooks that need
- * real-time updates (useConversationsThreads, useSessionActivity) subscribe via
- * a singleton. Each singleton reconnects automatically on unexpected close.
+ * real-time updates (useThreads, useSessionActivity) subscribe via a
+ * singleton. Each singleton reconnects automatically on unexpected close.
  *
  * @lore AU26 J3: there are now TWO sockets, not one, because there are two
  * Layers and each serves its own topics. `getWsClient()` talks to core-api's
@@ -124,9 +124,24 @@ class WsClient {
 		// Without this, the WS client connects to localhost:3001 which doesn't exist in
 		// the AH6 test environment — turns complete server-side but events never reach
 		// the frontend, so the "thinking..." row never resolves.
-		const isDevProxy = typeof import.meta !== "undefined" && import.meta.env?.DEV === true;
+		//
+		// @lore proven-bug fix: branch on `import.meta.env.MODE`, never `.DEV`/`.PROD`.
+		// Vite forces `process.env.NODE_ENV` from a `NODE_ENV=development` line in ANY
+		// loaded `.env` file whenever the launching shell itself didn't already set
+		// NODE_ENV (see vite's resolveConfig: `isNodeEnvSet` is snapshotted before the
+		// config/env files load, so a stray `NODE_ENV=development` in a machine-local
+		// `.env` silently wins even under `vite build`) — that flips `.DEV`/`.PROD` for
+		// the whole production build, so a packaged desktop app can ship with the dev
+		// websocket address baked in and never receive a live update (confirmed by
+		// grepping the built bundle). `MODE` is fixed once from the CLI command itself
+		// (`build` → "production", `serve` → "development") before any env file is
+		// read, so it cannot be poisoned this way. Note this branch treats any mode
+		// other than exactly "production" as dev — today the only mode `vite build`
+		// ever produces is "production", but a future `--mode staging` or similar
+		// would also dial the dev address here.
+		const isDevProxy = typeof import.meta !== "undefined" && import.meta.env.MODE !== "production";
 		const devWsPort =
-			typeof import.meta !== "undefined" && import.meta.env?.VITE_API_PORT
+			typeof import.meta !== "undefined" && import.meta.env.VITE_API_PORT
 				? String(import.meta.env.VITE_API_PORT)
 				: "3001";
 		const wsBase = isDevProxy
