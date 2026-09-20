@@ -135,7 +135,10 @@ class WsClient {
 		// websocket address baked in and never receive a live update (confirmed by
 		// grepping the built bundle). `MODE` is fixed once from the CLI command itself
 		// (`build` → "production", `serve` → "development") before any env file is
-		// read, so it cannot be poisoned this way.
+		// read, so it cannot be poisoned this way. Note this branch treats any mode
+		// other than exactly "production" as dev — today the only mode `vite build`
+		// ever produces is "production", but a future `--mode staging` or similar
+		// would also dial the dev address here.
 		const isDevProxy = typeof import.meta !== "undefined" && import.meta.env.MODE !== "production";
 		const devWsPort =
 			typeof import.meta !== "undefined" && import.meta.env.VITE_API_PORT

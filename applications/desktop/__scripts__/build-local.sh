@@ -34,6 +34,18 @@ if grep -l "ws://localhost" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
   exit 1
 fi
 
+# @lore proven-bug guard, wider class: `ws://localhost` is only one symptom of a
+# build that ran in dev mode. `hyperidle-dev-local` (the dev-only API key
+# fallback in layers/core-ui/src/services/api-fetch.ts) only appears on the
+# `import.meta.env.DEV` branch, so it is a second independent tripwire for the
+# same root cause — catches it even if a future Vite change makes MODE itself
+# unreliable.
+if grep -l "hyperidle-dev-local" "${WEB_BUNDLE_JS[@]}" >/dev/null 2>&1; then
+  echo "Error: the built web bundle hardcodes the dev API key fallback (hyperidle-dev-local) — this build ran in dev mode."
+  echo "See layers/core-ui/src/services/api-fetch.ts."
+  exit 1
+fi
+
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
 npx tsx "$DESKTOP_DIR/__scripts__/bundle.ts"
 
