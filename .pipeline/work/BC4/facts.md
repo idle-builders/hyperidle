@@ -75,3 +75,5 @@ Working file for refinement and architecture. Deleted at ship.
    wins. The UI autosave and the sandbox writeback already know their version. The conflicts table,
    the conflict tool, the promotion block on open conflicts and the writeback's conflict rows all
    go. No review thread for a conflict.
+2. **Merge and split are removed.** They are an edit plus an archive, done in two steps by a person
+   or an agent. No special fields on edit; the two tools, two routes and the repository branches go.
