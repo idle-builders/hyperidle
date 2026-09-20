@@ -77,3 +77,9 @@ Working file for refinement and architecture. Deleted at ship.
    go. No review thread for a conflict.
 2. **Merge and split are removed.** They are an edit plus an archive, done in two steps by a person
    or an agent. No special fields on edit; the two tools, two routes and the repository branches go.
+
+## Found during the interview
+- The two sweeps (auto-promote, mark stale) are bound in `routine-scheduler-bindings.ts:78-80` and
+  declared in `routine/src/ports.ts:76,85`, but nothing in production calls them. Unreachable →
+  `promotion-pipeline.ts` is deleted with its port entries. After that nothing sets `stale` except
+  an edit; the librarian plugin's skills are rewritten to use search and edit.
