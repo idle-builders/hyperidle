@@ -110,7 +110,7 @@ async function setContributionsLive(
 	const [agentIds, routineIds, knowledgeIds] = await Promise.all([
 		contributedEntityIds(exec, pluginId, "agent"),
 		contributedEntityIds(exec, pluginId, "routine"),
-		contributedEntityIds(exec, pluginId, "knowledge"),
+		contributedEntityIds(exec, pluginId, "document"),
 	]);
 	await setAgentsStatus(exec, agentIds, live ? "active" : "inactive");
 	await setRoutinesLive(exec, routineIds, live);
@@ -132,7 +132,7 @@ async function labelContributions(
 
 	const agentIds = idsOf("agent");
 	const routineIds = idsOf("routine");
-	const knowledgeIds = idsOf("knowledge");
+	const knowledgeIds = idsOf("document");
 
 	const [agents, routines, documents] = await Promise.all([
 		agentIds.length > 0 ? listUsers(db, { ids: agentIds }) : Promise.resolve([]),
@@ -482,7 +482,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 			for (const [kind, ids] of [
 				["agent", agentIds],
 				["routine", routineIds],
-				["knowledge", knowledgeIds],
+				["document", knowledgeIds],
 			] as const) {
 				for (const entityId of ids) {
 					await recordContribution(tx, { pluginId: plugin.id, kind, entityId, ts: installTs });
@@ -492,7 +492,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 					kind,
 					keepEntityIds: ids,
 				});
-				if (kind === "knowledge") await setKnowledgeStatus(tx, stale, "archived");
+				if (kind === "document") await setKnowledgeStatus(tx, stale, "archived");
 				if (kind === "routine") await softDeleteRoutines(tx, stale);
 				if (kind === "agent") await setAgentsStatus(tx, stale, "inactive");
 			}
@@ -631,7 +631,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 					404,
 				);
 			}
-			if (contribution.kind !== "knowledge") {
+			if (contribution.kind !== "document") {
 				// An agent or a routine has no shipped body to re-import — what a
 				// person edits on those is their own configuration. Handing it back
 				// means clearing the claim, nothing more.
@@ -660,7 +660,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 			}
 			await db.transaction(async (tx) => {
 				await restorePluginDocumentBody(tx, entityId, sourceBody, `plugin:${pluginId}`);
-				await clearDetached(tx, { kind: "knowledge", entityId });
+				await clearDetached(tx, { kind: "document", entityId });
 			});
 			return c.json({ ok: true, entityId });
 		}

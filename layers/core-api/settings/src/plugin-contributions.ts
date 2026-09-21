@@ -8,7 +8,7 @@
  *
  * The plugin service says WHICH rows a plugin owns; the service that owns each
  * table does the write. That is why nothing here writes `users`, `routines` or
- * `knowledge_items` — it hands their ids to the owner instead. It replaces a
+ * `documents` — it hands their ids to the owner instead. It replaces a
  * `plugin_id` column on `users` and on `routines`, which was the plugin
  * service's provenance sitting in tables it does not own.
  */
@@ -94,7 +94,7 @@ export async function contributedEntityIds(
 /**
  * Mark a contribution as the person's now, so a reinstall leaves it alone.
  *
- * This replaces `knowledge_items.updated_by = 'plugin:<id>'`, a sentinel that
+ * This replaces `documents.updated_by = 'plugin:<id>'`, a sentinel that
  * was written and reset but never read — and which rendered in the knowledge
  * view as a raw `plugin:<id>` author string.
  */

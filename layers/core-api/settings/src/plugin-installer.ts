@@ -103,7 +103,7 @@ export type InstallPluginResult =
 			/**
 			 * Parsed skills from the manifest, needed by the core-api layer to sync
 			 * skill knowledge items through the knowledge service after install.
-			 * @lore BA9b: settings cannot write knowledgeItems (owned by knowledge).
+			 * @lore BA9b: settings cannot write documents (owned by knowledge).
 			 * The layer's route handler picks these up and calls knowledge.upsertPluginSkill.
 			 */
 			skills: readonly ParsedSkill[];
@@ -512,7 +512,7 @@ export async function installPlugin(
 
 		// Skill knowledge items are synced by the core-api layer's route handler
 		// after installPlugin returns, using the knowledge service (governance boundary:
-		// settings cannot write to knowledgeItems — owned by knowledge).
+		// settings cannot write to documents — owned by knowledge).
 
 		const rows = await db.select().from(plugins).where(eq(plugins.id, pluginId)).limit(1);
 		const row = rows[0];
@@ -577,7 +577,7 @@ export async function getInstalledPlugin(
  * @lore BA9d: This function only flips plugins.state. The real disable work —
  * deactivating materialised routines, agents, and skills that the plugin
  * created — lives in the route handler (layers/core-api/src/routes/plugins.ts).
- * Settings cannot write to routines, users, or knowledge_items (governance
+ * Settings cannot write to routines, users, or documents (governance
  * boundary). Both must succeed or the plugin is in a split state; the route
  * runs this call first and the row-cleanup second, inside a try/catch.
  */

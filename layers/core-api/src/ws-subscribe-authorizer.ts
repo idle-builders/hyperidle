@@ -41,7 +41,7 @@ import type { SubscribeAuthorizer } from "./ws-connection-hub.js";
  *
  * @lore BC3 bug fix: this used to be narrowed to `participants` alone, so
  * `senderInThread` below applied a plain membership check with no host-scoped
- * bypass — every `thread:<id>` subscribe on a `team`/`knowledge_item`/
+ * bypass — every `thread:<id>` subscribe on a `team`/`document`/
  * `factory`-hosted thread (any signed-in user can READ these per
  * `canReadThread`, e.g. every task thread — BC3 re-hosted `task` onto
  * `team`) was silently refused for a signed-in non-participant, even though
@@ -81,7 +81,7 @@ export interface SubscribeAuthorizerDeps {
  *  - any authenticated identity to subscribe to global topics
  *    (`conversations`)
  *  - subscribe to `thread:<id>` topics exactly who `canReadThread` would let
- *    read that thread — a host-scoped thread (`team`/`knowledge_item`/
+ *    read that thread — a host-scoped thread (`team`/`document`/
  *    `factory`) admits any signed-in identity; a `user`/`agent`-hosted
  *    (direct) thread admits only its members.
  *

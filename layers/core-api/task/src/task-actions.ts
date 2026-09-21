@@ -664,7 +664,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				dependencies: next.dependencies,
 				position: next.position,
 				needsReview: next.needsReview,
-				sourceKnowledgeItemId: next.sourceKnowledgeItemId,
+				sourceDocumentId: next.sourceKnowledgeItemId,
 				tokensActualJson: next.tokensActualJson,
 				updatedAt: now,
 			};
@@ -691,7 +691,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 						next.position ||
 						(await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,
 					needsReview: next.needsReview,
-					sourceKnowledgeItemId: next.sourceKnowledgeItemId,
+					sourceDocumentId: next.sourceKnowledgeItemId,
 					createdAt: now,
 					updatedAt: now,
 				};

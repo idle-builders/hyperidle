@@ -10,7 +10,7 @@
  *   1. assistant thread (two-party `hostKind:"agent"`, by
  *      `users.ownerUserId`, never id shape) → "Assistant"
  *   2. DM (2-participant, user/agent host) → other participant's name
- *   3. host-scoped (`knowledge_item`) → entity title
+ *   3. host-scoped (`document`) → entity title
  *   4. group/feed → deterministic participant-name join
  *   5. last resort → "Untitled conversation"
  *
@@ -68,7 +68,7 @@ export async function resolveThreadTitles(
 	const allParticipantIds = new Set<string>();
 	for (const row of rows) {
 		for (const p of parseParticipants(row.participants)) allParticipantIds.add(p);
-		if (row.hostKind === "knowledge_item") kiIds.push(row.hostId);
+		if (row.hostKind === "document") kiIds.push(row.hostId);
 	}
 
 	const [kiTitles, userNameMap] = await Promise.all([
@@ -123,11 +123,11 @@ export async function resolveThreadTitles(
 			}
 		}
 
-		// Rung 3: host-scoped (knowledge_item). Task's own rung is gone — a
+		// Rung 3: host-scoped (document). Task's own rung is gone — a
 		// task's thread is team-hosted.
-		if (row.hostKind === "knowledge_item") {
+		if (row.hostKind === "document") {
 			const title = kiMap.get(row.hostId);
-			titleMap.set(row.id, title ?? "Deleted knowledge item");
+			titleMap.set(row.id, title ?? "Deleted document");
 			continue;
 		}
 

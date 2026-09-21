@@ -356,7 +356,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		});
 
 		let hostTitle: string | null = null;
-		if (row.hostKind === "knowledge_item") {
+		if (row.hostKind === "document") {
 			const item = await deps.knowledge.getItemById(ctx.db, row.hostId);
 			hostTitle = item?.title ?? null;
 		}

@@ -39,7 +39,7 @@ const MAX_PER_CATEGORY = 5;
 
 /**
  * Map DB hostKind to frontend conversation kind.
- * task/knowledge_item → "review"
+ * task/document → "review"
  * agent/user/team/factory → "chat"
  *
  * @lore BB1: "bet" removed — the bets table is deleted; every bet became a root task.
@@ -49,7 +49,7 @@ const MAX_PER_CATEGORY = 5;
 function hostKindToConversationKind(hostKind: string): "review" | "chat" {
 	switch (hostKind) {
 		case "task":
-		case "knowledge_item":
+		case "document":
 			return "review";
 		default:
 			return "chat";
