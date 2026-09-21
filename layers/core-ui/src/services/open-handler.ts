@@ -49,7 +49,7 @@ export interface OpenHandlerContext {
 function objectKindForHost(hostKind: RouteHostKind): ProductObjectKind | null {
 	switch (hostKind) {
 		case "task":
-		case "knowledge_item":
+		case "document":
 		case "agent":
 		case "team":
 			return hostKind;

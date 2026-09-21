@@ -4,7 +4,7 @@
  * Maps the closed `Embed` set onto the design-system render vocabulary:
  *   artifact/diff       → <ReferenceChip kind="artifact">  → onOpen(target)
  *   block               → <ReferenceChip kind="block">     → onOpen(target) (title only)
- *   entity-ref (knowledge_item) → <ReferenceChip kind="knowledge"> → onOpen(target)
+ *   entity-ref (document)       → <ReferenceChip kind="knowledge"> → onOpen(target)
  *   entity-ref (other)  → <ReferenceChip kind="block">     → onOpen(target)
  *   session-reference   → <Fold cta="Show session">        → onOpen({route:"session"})
  *   mention             → inline accent token (no chip)
@@ -38,7 +38,7 @@ export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX
 			return (
 				<ReferenceChip
 					key={key}
-					kind={embed.entityKind === "knowledge_item" ? "knowledge" : "block"}
+					kind={embed.entityKind === "document" ? "knowledge" : "block"}
 					label={embed.label}
 					mode="posted"
 					onOpen={() => onOpen(embed.target)}

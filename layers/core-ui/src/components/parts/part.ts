@@ -20,7 +20,7 @@
  *
  * @lore AM1 W5: `EntityRef.kind === "message"` has no permalink route → it
  * collapses to the `unknown` Embed (label-only, no target). EntityRef.kind is
- * now 3 members (knowledge_item, task, message); CanvasArtifactRef carries
+ * now 3 members (document, task, message); CanvasArtifactRef carries
  * kind:"artifact" as a separate union member and also renders as unknown Embed.
  * The adapter dispatches over the full InlineRef union via exhaustiveAssert.
  */
@@ -314,7 +314,7 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 	}
 	// EntityRef — exhaustive over all 3 EntityRef.kind members (W5).
 	switch (ref.kind) {
-		case "knowledge_item":
+		case "document":
 		case "task": {
 			const hostKind: RouteHostKind = ref.kind;
 			return {

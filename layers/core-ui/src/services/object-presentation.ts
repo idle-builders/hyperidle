@@ -7,11 +7,12 @@ export type ProductObjectKind =
 	| "routine"
 	| "agent"
 	| "thread"
-	| "knowledge_item"
+	| "document"
 	| "review"
 	| "session";
-export const PRODUCT_OBJECT_KINDS =
-	"team task routine agent thread knowledge_item review session".split(" ") as ProductObjectKind[];
+export const PRODUCT_OBJECT_KINDS = "team task routine agent thread document review session".split(
+	" ",
+) as ProductObjectKind[];
 export type OpenIntent = "navigate" | "inspect" | "act";
 export type ObjectPresentation = "page" | "pane" | "overlay";
 

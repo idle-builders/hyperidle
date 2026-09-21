@@ -79,10 +79,10 @@ const PARTS: Part[] = [
 			},
 			{
 				kind: "entity-ref",
-				entityKind: "knowledge_item",
+				entityKind: "document",
 				id: "k-webauthn",
 				label: "WebAuthn L3 spec",
-				target: { route: "host", hostKind: "knowledge_item", hostId: "k-webauthn" },
+				target: { route: "host", hostKind: "document", hostId: "k-webauthn" },
 			},
 		],
 		text: "Added WebAuthn registration and the dual-auth window. Existing password sessions stay valid through phase 2, @Mara — fallback preserved.",
