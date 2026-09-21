@@ -12,7 +12,9 @@ import {
 	changes,
 	documents,
 	type HyperIdleDb,
+	tasks,
 	teams,
+	threads,
 	type User,
 	users,
 	type WriteExecutor,
@@ -72,6 +74,57 @@ async function seedTeam(db: HyperIdleDb, id: string, name = id): Promise<void> {
 		phase: "build",
 		createdAt: "2026-01-01T00:00:00.000Z",
 	});
+}
+
+async function seedThread(
+	db: HyperIdleDb,
+	id: string,
+	overrides: Partial<typeof threads.$inferInsert> & { hostId: string; initiatorId: string },
+): Promise<void> {
+	const ts = "2026-01-01T00:00:00.000Z";
+	await db.insert(threads).values({
+		id,
+		hostKind: "team",
+		participants: "[]",
+		lastActiveAt: ts,
+		createdAt: ts,
+		...overrides,
+	});
+}
+
+async function seedTask(
+	db: HyperIdleDb,
+	id: string,
+	overrides: Partial<typeof tasks.$inferInsert> & { teamId: string; threadId: string },
+): Promise<void> {
+	const ts = "2026-01-01T00:00:00.000Z";
+	await db.insert(tasks).values({
+		id,
+		title: id,
+		state: "proposed",
+		createdAt: ts,
+		updatedAt: ts,
+		...overrides,
+	});
+}
+
+/**
+ * A genuinely DB-querying `openParent` — real `SELECT`s against the real
+ * `tasks`/`threads` tables through the `ctx.db` handle the action is given,
+ * the same shape `compose.ts`'s `buildOpenParent` wires in production. Unlike
+ * the canned stubs the other cases use, this reproduces the outer-`ctx.db`
+ * hang if `edit_document` ever calls it from inside its own open transaction
+ * again — the bug this suite guards against.
+ */
+function realOpenParent(): DocumentActionsDeps["openParent"] {
+	return async (ctx, kind, id) => {
+		if (kind === "task") {
+			const [row] = await ctx.db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
+			return row ? { exists: true, teamId: row.teamId } : { exists: false };
+		}
+		const [row] = await ctx.db.select().from(threads).where(eq(threads.id, id)).limit(1);
+		return row ? { exists: true } : { exists: false };
+	};
 }
 
 function ctxFor(
@@ -217,7 +270,13 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		db,
 	}) => {
 		await seedUser(db, "writer-d2-task-1", { kind: "ai" });
-		const deps = writeDeps({ openParent: async () => ({ exists: false }) });
+		// `realOpenParent` really queries `tasks` via `ctx.db` — no row for
+		// "nope", so a real empty-result SELECT decides `exists: false`, not a
+		// canned stub. If `edit_document` ever again calls this from inside its
+		// own open transaction, this query hangs on the same PGlite connection
+		// instead of returning — the short timeout below is what turns that
+		// hang into a failing test instead of a stuck run.
+		const deps = writeDeps({ openParent: realOpenParent() });
 		const result = await editAction(deps).run(ctxFor(db, "writer-d2-task-1"), {
 			as: "artifact",
 			title: "Output",
@@ -227,7 +286,7 @@ describe("edit_document — D-invariants (architecture.md §4.2)", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok) throw new Error("expected a refusal");
 		expect(result.problems[0]?.code).toBe("parent_not_found");
-	});
+	}, 5000);
 
 	test("a `routine`/`agent` parent has no existence port — no check runs (today's behaviour, kept)", async ({
 		db,
@@ -584,14 +643,19 @@ describe("edit_document — `as` forcing, architecture.md §3.6", () => {
 
 	test("as:'artifact' from an agent in a task session gets the task stamped", async ({ db }) => {
 		await seedUser(db, "artifact-agent-1", { kind: "ai" });
-		const deps = writeDeps({
-			openParent: async (_ctx, kind, id) => {
-				if (kind === "task" && id === "task-artifact-1") {
-					return { exists: true, teamId: "team-artifact-1" };
-				}
-				throw new Error(`unexpected openParent(${kind}, ${id})`);
-			},
+		await seedTeam(db, "team-artifact-1");
+		await seedThread(db, "thread-artifact-1", {
+			hostId: "team-artifact-1",
+			initiatorId: "artifact-agent-1",
 		});
+		await seedTask(db, "task-artifact-1", {
+			teamId: "team-artifact-1",
+			threadId: "thread-artifact-1",
+		});
+		// `realOpenParent` really queries `tasks` via `ctx.db` for the stamped
+		// parent's existence and team — see its own doc comment for why a
+		// canned stub here would miss the hang this suite guards against.
+		const deps = writeDeps({ openParent: realOpenParent() });
 		const ctx = ctxFor(db, "artifact-agent-1", {
 			caller: { sessionId: "s1", taskId: "task-artifact-1", threadId: null },
 		});
@@ -609,7 +673,7 @@ describe("edit_document — `as` forcing, architecture.md §3.6", () => {
 		// has no team of its own here.
 		expect(result.data.document.scopeKind).toBe("team");
 		expect(result.data.document.scopeId).toBe("team-artifact-1");
-	});
+	}, 5000);
 
 	test("as:'document' with no scope — the actor's own team wins, the task fallback is never consulted", async ({
 		db,

@@ -537,13 +537,43 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		const id = prev?.id ?? input.id ?? randomUUID();
 		const now = ctx.now;
 
+		// -- D2's task/thread arm — resolved BEFORE the transaction opens.
+		// `deps.openParent` crosses to the task/thread module's own action
+		// runner, which reads through ITS OWN `ctx.db` — calling it from inside
+		// this transaction would issue a second query on the same single
+		// PGlite connection while a transaction is already open on it, which
+		// never returns (a module reaches another only through the neighbour's
+		// actions, never inside a shared transaction — `task-actions.ts`'s
+		// `adjustThread`/`openThread` calls are made the same way, before its
+		// own transaction opens). The `document`-kind parent stays checked
+		// live inside the transaction below (D3/D4/D6/D8 need it there).
+		if (
+			parentActivelySet &&
+			effectiveParent !== null &&
+			(effectiveParent.kind === "task" || effectiveParent.kind === "thread")
+		) {
+			const parent = await deps.openParent(ctx, effectiveParent.kind, effectiveParent.id);
+			if (!parent.exists) {
+				return {
+					ok: false,
+					problems: [
+						{
+							code: "parent_not_found",
+							message: `No ${effectiveParent.kind} with id '${effectiveParent.id}'.`,
+							path: "parent",
+						},
+					],
+				};
+			}
+		}
+
 		let writtenRow: DbDocumentRow | null = null;
 		let pushRow: PushableChange | null = null;
 		const cascadeRows: PushableChange[] = [];
 
 		try {
 			await ctx.db.transaction(async (tx) => {
-				// -- D2/D8/D3/D4/D6 — re-checked against LIVE state inside the
+				// -- D8/D3/D4/D6 — re-checked against LIVE state inside the
 				// transaction (the same reasoning `reparent`'s own doc comment
 				// gives: two moves that each look legal outside a transaction can
 				// together produce a cycle no single read would catch). ----------
@@ -582,22 +612,12 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 							}
 							throw error;
 						}
-					} else if (effectiveParent.kind === "task" || effectiveParent.kind === "thread") {
-						const parent = await deps.openParent(ctx, effectiveParent.kind, effectiveParent.id);
-						if (!parent.exists) {
-							throw new EditRefused([
-								{
-									code: "parent_not_found",
-									message: `No ${effectiveParent.kind} with id '${effectiveParent.id}'.`,
-									path: "parent",
-								},
-							]);
-						}
 					}
-					// A `routine`/`agent` parent has no existence port
-					// (architecture.md §8.1's `openParent` covers only
-					// task/thread) and legacy `applyParentMove` never checked
-					// these kinds either — kept as today's behaviour, not invented.
+					// A `task`/`thread` parent's existence was already checked above,
+					// before the transaction opened. A `routine`/`agent` parent has no
+					// existence port (architecture.md §8.1's `openParent` covers only
+					// task/thread) and legacy `applyParentMove` never checked these
+					// kinds either — kept as today's behaviour, not invented.
 				}
 
 				// -- D5 — reachable only at create (a move is refused first by
