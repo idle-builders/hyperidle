@@ -32,7 +32,7 @@ const demoItems = [
 		createdAt: "2026-01-02T00:00:00.000Z",
 		updatedAt: "2026-01-02T00:00:00.000Z",
 		parentId: "product",
-		parentKind: "knowledge_item",
+		parentKind: "document",
 	},
 	{
 		id: "objections",
@@ -46,7 +46,7 @@ const demoItems = [
 		createdAt: "2026-01-03T00:00:00.000Z",
 		updatedAt: "2026-01-03T00:00:00.000Z",
 		parentId: "pricing",
-		parentKind: "knowledge_item",
+		parentKind: "document",
 	},
 	{
 		id: "practices",

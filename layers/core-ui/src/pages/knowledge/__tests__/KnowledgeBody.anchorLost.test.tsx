@@ -25,7 +25,7 @@ Second paragraph block.`;
 
 // Derive block IDs so we can reference real IDs in message fixtures.
 const { blocks: DERIVED_BLOCKS } = deriveBlocks(BODY_WITH_TWO_BLOCKS, {
-	kind: "knowledge_item",
+	kind: "document",
 	id: "k-anchor-test",
 });
 

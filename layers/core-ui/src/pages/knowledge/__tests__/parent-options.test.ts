@@ -12,11 +12,8 @@ function item(
 }
 
 describe("buildParentOptions", () => {
-	it("offers every knowledge_item-parented row plus roots when there is nothing to exclude", () => {
-		const items = [
-			item("a", "Alpha", "factory"),
-			item("b", "Bravo", "factory", "a", "knowledge_item"),
-		];
+	it("offers every document-parented row plus roots when there is nothing to exclude", () => {
+		const items = [item("a", "Alpha", "factory"), item("b", "Bravo", "factory", "a", "document")];
 		const options = buildParentOptions(items, { childScopeKind: "factory" });
 		expect(options.map((o) => o.value).sort()).toEqual(["a", "b"]);
 	});
@@ -34,9 +31,9 @@ describe("buildParentOptions", () => {
 	it("excludes the item itself and every descendant — the cycle rule", () => {
 		const items = [
 			item("root", "Root", "factory"),
-			item("child", "Child", "factory", "root", "knowledge_item"),
-			item("grandchild", "Grandchild", "factory", "child", "knowledge_item"),
-			item("sibling", "Sibling", "factory", "root", "knowledge_item"),
+			item("child", "Child", "factory", "root", "document"),
+			item("grandchild", "Grandchild", "factory", "child", "document"),
+			item("sibling", "Sibling", "factory", "root", "document"),
 		];
 		const options = buildParentOptions(items, { excludeId: "child", childScopeKind: "factory" });
 		expect(options.map((o) => o.value).sort()).toEqual(["root", "sibling"]);
@@ -54,11 +51,11 @@ describe("buildParentOptions", () => {
 	});
 
 	it("excludes a candidate whose own ancestor chain already reaches the depth cap", () => {
-		// Build a chain of 32 knowledge_item ancestors under "root" — the 32nd
+		// Build a chain of 32 document ancestors under "root" — the 32nd
 		// item's own chain length is 32, which the server rejects as a parent.
 		const items: ParentCandidate[] = [item("n0", "n0", "factory")];
 		for (let i = 1; i < 32; i++) {
-			items.push(item(`n${i}`, `n${i}`, "factory", `n${i - 1}`, "knowledge_item"));
+			items.push(item(`n${i}`, `n${i}`, "factory", `n${i - 1}`, "document"));
 		}
 		const options = buildParentOptions(items, { childScopeKind: "factory" });
 		const values = new Set(options.map((o) => o.value));

@@ -28,7 +28,7 @@ export interface MoveDialogProps {
 	currentVersion: number;
 	/** The item's current parent, or null when it is already a root. */
 	currentParentId: string | null;
-	/** The item's current parent kind — only a `knowledge_item` parent is a pre-selectable choice. */
+	/** The item's current parent kind — only a `document` parent is a pre-selectable choice. */
 	currentParentKind: string | null;
 	/** The item's own scope — governs which parents ParentPicker offers (the narrowing rule). */
 	scopeKind: string;
@@ -46,7 +46,7 @@ export function MoveDialog({
 }: MoveDialogProps): JSX.Element {
 	const { user } = useCurrentUser();
 
-	const initialParentId = currentParentKind === "knowledge_item" ? (currentParentId ?? "") : "";
+	const initialParentId = currentParentKind === "document" ? (currentParentId ?? "") : "";
 	const [selectedParentId, setSelectedParentId] = useState(initialParentId);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export function MoveDialog({
 		const payload = {
 			version: currentVersion,
 			updatedBy: user?.id ?? "human",
-			parentKind: toRoot ? null : "knowledge_item",
+			parentKind: toRoot ? null : "document",
 			parentId: toRoot ? null : selectedParentId,
 		};
 

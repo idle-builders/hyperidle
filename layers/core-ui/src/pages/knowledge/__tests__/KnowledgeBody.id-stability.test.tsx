@@ -48,7 +48,7 @@ Content of section B, unchanged.
 
 Content of section C, unchanged.`;
 
-const HOST = { kind: "knowledge_item" as const, id: "k-stability" };
+const HOST = { kind: "document" as const, id: "k-stability" };
 
 describe("KnowledgeBody — T6 block-id stability", () => {
 	it("blocks with unchanged content have the same id after editing another section", () => {
@@ -171,7 +171,7 @@ const x = 1;
 describe("KnowledgeBody — T7 round-trip lossless", () => {
 	it("derives blocks for all supported kinds from the fixture body", () => {
 		const { blocks } = deriveBlocks(ALL_KINDS_BODY, {
-			kind: "knowledge_item",
+			kind: "document",
 			id: "k-all-kinds",
 		});
 
@@ -190,7 +190,7 @@ describe("KnowledgeBody — T7 round-trip lossless", () => {
 
 	it("block count for all-kinds body matches expected structure", () => {
 		const { blocks } = deriveBlocks(ALL_KINDS_BODY, {
-			kind: "knowledge_item",
+			kind: "document",
 			id: "k-all-kinds",
 		});
 		// We have at minimum 9 blocks (one per kind category)
@@ -199,7 +199,7 @@ describe("KnowledgeBody — T7 round-trip lossless", () => {
 
 	it("no block ids are empty strings", () => {
 		const { blocks } = deriveBlocks(ALL_KINDS_BODY, {
-			kind: "knowledge_item",
+			kind: "document",
 			id: "k-all-kinds",
 		});
 		for (const b of blocks) {

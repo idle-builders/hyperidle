@@ -105,7 +105,7 @@ export function KnowledgeBody({
 	messagesByBlockId,
 }: KnowledgeBodyProps): JSX.Element {
 	const { blocks } = useMemo(
-		() => deriveBlocks(body, { kind: "knowledge_item", id: hostId }),
+		() => deriveBlocks(body, { kind: "document", id: hostId }),
 		[body, hostId],
 	);
 

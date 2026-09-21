@@ -41,12 +41,12 @@ export interface BuildParentOptionsInput {
 }
 
 /**
- * Only `knowledge_item`-parented rows (or roots) are browsable tree nodes —
+ * Only `document`-parented rows (or roots) are browsable tree nodes —
  * task/thread/routine/agent-parented rows are off-tree by design
- * (architecture.md §3, "walks stop at the first non-knowledge_item parent").
+ * (architecture.md §3, "walks stop at the first non-document parent").
  */
 function isTreeNode(item: ParentCandidate): boolean {
-	return item.parentKind === null || item.parentKind === "knowledge_item";
+	return item.parentKind === null || item.parentKind === "document";
 }
 
 /** Every id that is `excludeId` itself or a descendant of it, within `treeItems`. */
@@ -77,7 +77,7 @@ function descendantsOf(
 }
 
 /**
- * The number of `knowledge_item` ancestors `id` has, counting itself — the
+ * The number of `document` ancestors `id` has, counting itself — the
  * same quantity `walkKnowledgeItemAncestorChain` computes server-side. A
  * child parented under `id` would resend at this length; the server rejects
  * a parent whose own chain already reaches `MAX_TREE_DEPTH`.

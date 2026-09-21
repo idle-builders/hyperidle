@@ -27,7 +27,7 @@ vi.mock("../../../hooks/useFetch.js", () => ({
 					title: "Child of A",
 					scopeKind: "factory",
 					parentId: "root-a",
-					parentKind: "knowledge_item",
+					parentKind: "document",
 				},
 			],
 		},
@@ -46,7 +46,7 @@ const BASE_PROPS = {
 	knowledgeId: "child-of-a",
 	currentVersion: 3,
 	currentParentId: "root-a",
-	currentParentKind: "knowledge_item" as const,
+	currentParentKind: "document" as const,
 	scopeKind: "factory",
 };
 
@@ -88,7 +88,7 @@ describe("MoveDialog", () => {
 		expect(body).toMatchObject({
 			version: 3,
 			updatedBy: "user-1",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: "root-b",
 		});
 	});
