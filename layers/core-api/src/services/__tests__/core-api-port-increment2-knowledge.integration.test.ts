@@ -37,7 +37,7 @@ import {
 	createInProcessCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
@@ -104,21 +104,10 @@ describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", ()
 
 		expect(created.version).toBe(1);
 
-		const [row] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, created.id))
-			.limit(1);
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id)).limit(1);
 		expect(row?.title).toBe("A written memory");
-
-		// @lore nested-knowledge-items: layer/kind are deleted vocabulary — a
-		// created item still gets a projection row (kernel + projection always
-		// write together), just without those two retired columns.
-		const [projection] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id))
-			.limit(1);
-		expect(projection).toBeDefined();
+		// @lore BC4: the "still gets a projection row" assertion is deleted —
+		// migration 0086 folded knowledge_app_projection into the kernel row
+		// (architecture.md §6.2/§6.4), so there is no separate row to assert.
 	});
 });

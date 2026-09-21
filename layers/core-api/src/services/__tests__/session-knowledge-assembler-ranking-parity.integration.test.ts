@@ -15,15 +15,7 @@
  * instead of the deleted layer/practice vocabulary.
  */
 
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
@@ -92,7 +84,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 
 	// factory — always included regardless of team/agent.
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12-factory",
 		scopeKind: "factory",
 		scopeId: null,
@@ -105,14 +97,9 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-factory",
-		knowledgeItemId: "item-i12-factory",
-		scopeId: null,
-	});
 
 	// team — scoped to TEAM_ID (must be included).
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12-team-in",
 		scopeKind: "team",
 		scopeId: TEAM_ID,
@@ -125,14 +112,9 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-team-in",
-		knowledgeItemId: "item-i12-team-in",
-		scopeId: TEAM_ID,
-	});
 
 	// team — scoped to OTHER_TEAM_ID (must be EXCLUDED from a TEAM_ID assembly).
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12-team-out",
 		scopeKind: "team",
 		scopeId: OTHER_TEAM_ID,
@@ -145,14 +127,9 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-team-out",
-		knowledgeItemId: "item-i12-team-out",
-		scopeId: OTHER_TEAM_ID,
-	});
 
 	// user — bound to AGENT_ID (must be included: "its own").
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12-own-in",
 		scopeKind: "user",
 		scopeId: AGENT_ID,
@@ -165,14 +142,9 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-own-in",
-		knowledgeItemId: "item-i12-own-in",
-		scopeId: AGENT_ID,
-	});
 
 	// user — bound to a DIFFERENT agent, must be EXCLUDED.
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12-own-out",
 		scopeKind: "user",
 		scopeId: OTHER_AGENT_ID,
@@ -184,11 +156,6 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedBy: OTHER_AGENT_ID,
 		createdAt: NOW,
 		updatedAt: NOW,
-	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12-own-out",
-		knowledgeItemId: "item-i12-own-out",
-		scopeId: OTHER_AGENT_ID,
 	});
 }
 
@@ -247,9 +214,9 @@ describe("assembleSessionKnowledge — scope-only selection (architecture.md D1)
 		// (a fixture sanity guard — the exclusion below would be vacuous if
 		// these rows didn't exist).
 		const [row] = await db
-			.select({ id: knowledgeItems.id })
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "item-i12-team-out"));
+			.select({ id: documents.id })
+			.from(documents)
+			.where(eq(documents.id, "item-i12-team-out"));
 		expect(row).toBeDefined();
 
 		const budgeted = await assembleSessionKnowledge(db, {

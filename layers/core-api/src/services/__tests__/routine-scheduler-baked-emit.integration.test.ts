@@ -28,9 +28,8 @@
 import {
 	agentSessionRequests,
 	agentWorkIntents,
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	routineRuns,
 	routines,
 	teams,
@@ -336,7 +335,7 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 				active: true,
 			});
 			// The instruction is a knowledge document parented to the routine.
-			await db.insert(knowledgeItems).values({
+			await db.insert(documents).values({
 				id: "ki-ba1-e2e-prompt",
 				scopeKind: "factory",
 				scopeId: null,
@@ -345,19 +344,12 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 				format: "markdown",
 				status: "active",
 				version: 1,
-				role: "prompt",
+				slot: "prompt",
 				parentKind: "routine",
 				parentId: routineId,
 				updatedBy: "test",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
-			});
-			// Knowledge always writes the kernel row and its projection together —
-			// a document without one is a state production cannot produce.
-			await db.insert(knowledgeAppProjection).values({
-				id: "kp-ba1-e2e-prompt",
-				knowledgeItemId: "ki-ba1-e2e-prompt",
-				scopeId: null,
 			});
 
 			const evt: TaskStateChangedEvent = {
