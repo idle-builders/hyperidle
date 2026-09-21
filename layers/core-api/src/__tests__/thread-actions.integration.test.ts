@@ -10,9 +10,8 @@ import {
 	agentSessionRequests,
 	agentWorkIntents,
 	changes,
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	messages,
 	reviewSessions,
 	tasks,
@@ -186,7 +185,7 @@ async function seedKnowledgeItem(
 	opts?: { parentKind?: string; parentId?: string },
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		scopeKind: "factory",
 		title: id,
@@ -198,13 +197,6 @@ async function seedKnowledgeItem(
 		...(opts?.parentId ? { parentId: opts.parentId } : {}),
 		createdAt: now,
 		updatedAt: now,
-	});
-	// @lore Ruling 13 companion rule: the owner (@hyperidle/knowledge's `create`) always writes
-	// knowledgeItems and knowledgeAppProjection together — a fixture that writes only the first
-	// builds a state production cannot produce.
-	await db.insert(knowledgeAppProjection).values({
-		id: `${id}-projection`,
-		knowledgeItemId: id,
 	});
 }
 
@@ -493,10 +485,7 @@ describe("send_message — membership, read/write/join", () => {
 		}
 	});
 
-	test("a non-member CAN open a team-hosted and a knowledge_item-hosted thread", async ({
-		db,
-		app,
-	}) => {
+	test("a non-member CAN open a team-hosted and a document-hosted thread", async ({ db, app }) => {
 		await seedTeam(db, "sm-team-7");
 		await seedHuman(db, "sm-visitor-7", "sm-team-7");
 		await seedKnowledgeItem(db, "sm-ki-7");
@@ -507,7 +496,7 @@ describe("send_message — membership, read/write/join", () => {
 			members: [],
 		});
 		await seedThreadRow(db, "sm-ki-thread-7", {
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: "sm-ki-7",
 			initiatorId: "system:propagation",
 			members: [],
@@ -1888,12 +1877,12 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 		expect(members).toContain("hp-reviewer-2");
 	});
 
-	test("a visitor posts into a knowledge_item thread they did not create", async ({ db, app }) => {
+	test("a visitor posts into a document thread they did not create", async ({ db, app }) => {
 		await seedTeam(db, "hp-3");
 		await seedHuman(db, "hp-visitor-3", "hp-3");
 		await seedKnowledgeItem(db, "hp-ki-3");
 		await seedThreadRow(db, "hp-ki-thread-3", {
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: "hp-ki-3",
 			initiatorId: "system:propagation",
 			members: [],
@@ -2288,7 +2277,7 @@ describe("open_thread", () => {
 		await seedTeam(db, "ot-1");
 		await seedKnowledgeItem(db, "ot-ki-1");
 		await seedThreadRow(db, "ot-thread-1", {
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: "ot-ki-1",
 			initiatorId: FOUNDER_ID,
 			members: [FOUNDER_ID],

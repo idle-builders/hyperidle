@@ -5,13 +5,18 @@
  * the O2 implementation is complete. That is the point — red phase.
  *
  * Acceptance Criteria covered:
- * 1. Extension tables (knowledge_app_projection, task_planning_signals) created
- * 2. Kernel table columns stripped (knowledgeItems, tasks, sessions, items, artifacts)
+ * 2. Kernel table columns stripped (knowledgeItems — now `documents`, tasks, sessions, items, artifacts)
  * 3. Knowledge route URL shape changed (/:layer/... → /:id or /)
  * 4. Route purity: no routeToFounder/routeItem/createRelevanceService inline calls
  * 5. Knowledge events emitted correctly (knowledge_created, knowledge_updated, etc.)
- * 6. FK cascade delete on extension tables
  * 7. Status simplified to draft | active | archived
+ *
+ * @lore document-module 0086: section 1 ("Extension tables ... created") and
+ * section 10 ("FK cascade delete on extension tables") are DELETED — both
+ * were entirely about `knowledge_app_projection`, a table migration 0086
+ * dropped (its two live columns, `confidence`/`meta`, folded onto `documents`
+ * itself; architecture.md §6.2). Nothing replaces the cascade-delete claim:
+ * a document has no extension table left to cascade into.
  */
 
 import type { DomainEvent } from "@hyperidle/event-bus";
@@ -30,46 +35,6 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
-	// 1. Extension tables — schema structure
-	// ---------------------------------------------------------------------------
-
-	describe("1. Extension tables exist with correct structure", () => {
-		test("knowledge_app_projection table exists in the database", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			// If the table doesn't exist this will throw
-			await expect(
-				db.execute(sql.raw("SELECT id FROM knowledge_app_projection LIMIT 1")),
-			).resolves.toBeDefined();
-			vi.unstubAllEnvs();
-		});
-
-		test("knowledge_app_projection has FK to knowledge_items with cascade delete", async ({
-			db,
-		}) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_app_projection"}`,
-			);
-			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).toContain("id");
-			expect(colNames).toContain("knowledge_item_id");
-			vi.unstubAllEnvs();
-		});
-
-		test("knowledge_app_projection does NOT have a strategy discriminator column", async ({
-			db,
-		}) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_app_projection"}`,
-			);
-			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).not.toContain("strategy");
-			vi.unstubAllEnvs();
-		});
-	});
-
-	// ---------------------------------------------------------------------------
 	// 2. Kernel table stripping — knowledgeItems
 	// ---------------------------------------------------------------------------
 
@@ -77,7 +42,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		test("knowledgeItems no longer has 'layer' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("layer");
@@ -94,7 +59,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			// superseded by Q2. This test now asserts that scope_kind IS present
 			// (replacing the column that O2 removed with a new kernel-level one).
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			// Q2: scope_kind is a kernel column — should exist.
@@ -108,7 +73,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		test("knowledgeItems no longer has 'kind' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("kind");
@@ -120,7 +85,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("attention_score");
@@ -132,7 +97,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("relevance_score");
@@ -144,7 +109,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("citation_count");
@@ -154,32 +119,18 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		test("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("last_cited_at");
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems no longer has 'confidence' column", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
-			);
-			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).not.toContain("confidence");
-			vi.unstubAllEnvs();
-		});
-
-		test("knowledgeItems no longer has 'meta' column", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
-			);
-			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).not.toContain("meta");
-			vi.unstubAllEnvs();
-		});
+		// @lore document-module 0086: the "no longer has 'confidence'/'meta'" pair
+		// is DELETED, not repointed — migration 0086 folds both columns back onto
+		// this table (architecture.md §6.2, `knowledge_app_projection`'s only two
+		// live columns), so the O2-era absence claim is now the opposite of
+		// reality by design.
 
 		// @lore nested-knowledge-items: migration 0078 drops `topic` — a knowledge
 		// item's place in the tree says what it is about now, not a free-text
@@ -189,7 +140,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		test("knowledgeItems no longer has a 'topic' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_items"}`,
+				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("topic");
@@ -803,53 +754,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(patchRes.status).toBe(200);
 			const body = (await patchRes.json()) as Record<string, unknown>;
 			expect(body.status).toBe("active");
-			vi.unstubAllEnvs();
-		});
-	});
-
-	// ---------------------------------------------------------------------------
-	// 10. FK cascade delete — extension tables
-	// ---------------------------------------------------------------------------
-
-	describe("10. Extension table FK cascade delete", () => {
-		test("deleting a knowledge item cascades to knowledge_app_projection rows", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const itemId = crypto.randomUUID();
-			const now = new Date().toISOString();
-
-			// After O2: knowledge_items has no layer/kind columns.
-			// `topic` is dropped too (architecture.md §2); status collapses
-			// to the 4-value ladder (proposed | active | stale | archived).
-			// Insert using the stripped schema columns only.
-			await db.execute(
-				sql.raw(`INSERT INTO knowledge_items (id, title, body, format, status, version, updated_by, created_at, updated_at)
-				 VALUES ('${itemId}', 'Test', 'Body', 'markdown', 'proposed', 1, 'human', '${now}', '${now}')`),
-			);
-
-			// Insert a strategy extension row — table must exist with FK cascade
-			const extId = crypto.randomUUID();
-			await db.execute(
-				sql.raw(
-					`INSERT INTO knowledge_app_projection (id, knowledge_item_id) VALUES ('${extId}', '${itemId}')`,
-				),
-			);
-
-			// Verify extension row exists
-			const beforeResult = await db.execute(
-				sql.raw(`SELECT id FROM knowledge_app_projection WHERE knowledge_item_id = '${itemId}'`),
-			);
-			const before = (beforeResult as { rows: Array<{ id: string }> }).rows;
-			expect(before).toHaveLength(1);
-
-			// Delete the knowledge item — cascade should remove extension rows
-			await db.execute(sql.raw(`DELETE FROM knowledge_items WHERE id = '${itemId}'`));
-
-			// Extension row should be gone (CASCADE DELETE)
-			const afterResult = await db.execute(
-				sql.raw(`SELECT id FROM knowledge_app_projection WHERE knowledge_item_id = '${itemId}'`),
-			);
-			const after = (afterResult as { rows: Array<{ id: string }> }).rows;
-			expect(after).toHaveLength(0);
 			vi.unstubAllEnvs();
 		});
 	});

@@ -53,7 +53,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { knowledgeItems } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -92,7 +92,7 @@ function realKnowledgeWriter() {
 		async reparentKnowledgeItem(
 			db2: Parameters<typeof reparent>[0],
 			id: string,
-			input: { parentKind: "knowledge_item" | null; parentId: string | null; updatedBy: string },
+			input: { parentKind: "document" | null; parentId: string | null; updatedBy: string },
 		) {
 			await reparent(db2, id, input);
 		},
@@ -402,7 +402,7 @@ for (const harness of HARNESSES) {
 					updatedBy: "seed",
 					scopeKind: "user",
 					scopeId: AGENT_ID,
-					parentKind: "knowledge_item",
+					parentKind: "document",
 					parentId: ancestor.id,
 				});
 				await create(db, {
@@ -448,7 +448,7 @@ for (const harness of HARNESSES) {
 					updatedBy: "seed",
 					scopeKind: "team",
 					scopeId: TEAM_ID,
-					parentKind: "knowledge_item",
+					parentKind: "document",
 					parentId: selectedParent.id,
 				});
 
@@ -596,10 +596,7 @@ for (const harness of HARNESSES) {
 					created,
 				);
 
-				const roadmapRows = await db
-					.select()
-					.from(knowledgeItems)
-					.where(eq(knowledgeItems.title, "roadmap"));
+				const roadmapRows = await db.select().from(documents).where(eq(documents.title, "roadmap"));
 				expect(roadmapRows).toHaveLength(1);
 				// @lore nested-knowledge-real-trailing-newline: a real agent's file-write
 				// tool commonly appends a trailing newline (the POSIX "file ends with a
@@ -610,12 +607,9 @@ for (const harness of HARNESSES) {
 				// assertion exists to catch.
 				expect(roadmapRows[0]?.body.trimEnd()).toBe(content);
 				expect(roadmapRows[0]?.body).toContain(marker);
-				expect(roadmapRows[0]?.parentKind).toBe("knowledge_item");
+				expect(roadmapRows[0]?.parentKind).toBe("document");
 
-				const folderRows = await db
-					.select()
-					.from(knowledgeItems)
-					.where(eq(knowledgeItems.title, "newideas"));
+				const folderRows = await db.select().from(documents).where(eq(documents.title, "newideas"));
 				expect(folderRows).toHaveLength(1);
 				expect(folderRows[0]?.parentId).toBeNull();
 				// D4: a new directory at the knowledge/ root inherits the implicit
@@ -661,7 +655,7 @@ for (const harness of HARNESSES) {
 					updatedBy: "seed",
 					scopeKind: "user",
 					scopeId: AGENT_ID,
-					parentKind: "knowledge_item",
+					parentKind: "document",
 					parentId: folder.id,
 				});
 
@@ -698,22 +692,22 @@ for (const harness of HARNESSES) {
 					changes,
 				);
 
-				const rows = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, doc.id));
+				const rows = await db.select().from(documents).where(eq(documents.id, doc.id));
 				expect(rows).toHaveLength(1);
 				expect(rows[0]?.body).toBe(originalBody);
 
 				const reviewedRows = await db
 					.select()
-					.from(knowledgeItems)
-					.where(eq(knowledgeItems.title, "Reviewed"));
+					.from(documents)
+					.where(eq(documents.title, "Reviewed"));
 				expect(reviewedRows).toHaveLength(1);
 				expect(rows[0]?.parentId).toBe(reviewedRows[0]?.id);
 				expect(rows[0]?.parentId).not.toBe(folder.id);
 
 				const allRoadmapDocs = await db
 					.select()
-					.from(knowledgeItems)
-					.where(eq(knowledgeItems.title, "Roadmap Doc"));
+					.from(documents)
+					.where(eq(documents.title, "Roadmap Doc"));
 				expect(allRoadmapDocs).toHaveLength(1);
 
 				fs.rmSync(sandboxPath, { recursive: true, force: true });

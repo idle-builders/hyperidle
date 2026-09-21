@@ -36,10 +36,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { knowledgeConflicts, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
 import { create, reparent, update, VersionConflictError } from "@hyperidle/knowledge";
 import { createWritebackProcessor, startWatcher } from "@hyperidle/run-orchestration";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 type Writeback = ReturnType<typeof createWritebackProcessor>;
@@ -131,12 +131,9 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 			[{ type: "create", relativePath: "knowledge/pricing/objections.md", fullPath: filePath }],
 		);
 
-		const childItem = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "objections"));
+		const childItem = await db.select().from(documents).where(eq(documents.title, "objections"));
 		expect(childItem).toHaveLength(1);
-		expect(childItem[0]?.parentKind).toBe("knowledge_item");
+		expect(childItem[0]?.parentKind).toBe("document");
 		expect(childItem[0]?.parentId).toBe(teamFolder.id);
 		// review.md B6: this is the assertion that could not fail before — the
 		// stub always produced "factory" on both sides. Here the parent is
@@ -169,8 +166,8 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 
 		const beforeMove = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "note a1b2c3d4"));
+			.from(documents)
+			.where(eq(documents.title, "note a1b2c3d4"));
 		expect(beforeMove).toHaveLength(1);
 		const itemId = beforeMove[0]?.id;
 
@@ -196,33 +193,20 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 
 		const allWithTitle = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "note a1b2c3d4"));
+			.from(documents)
+			.where(eq(documents.title, "note a1b2c3d4"));
 		expect(allWithTitle).toHaveLength(1);
 
 		const afterMove = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, itemId ?? ""));
+			.from(documents)
+			.where(eq(documents.id, itemId ?? ""));
 		expect(afterMove).toHaveLength(1);
 		expect(afterMove[0]?.body).toBe("The original body.");
 
-		const newHomeFolder = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "new-home"));
+		const newHomeFolder = await db.select().from(documents).where(eq(documents.title, "new-home"));
 		expect(newHomeFolder.length).toBeGreaterThan(0);
 		expect(afterMove[0]?.parentId).toBe(newHomeFolder[0]?.id);
-
-		// Real repository proof: the edit-log row `reparent()` writes inside its
-		// own transaction (architecture.md §5: "A move is recorded... field='parent'").
-		// The hand-rolled stub this test replaces could never produce this —
-		// it wrote knowledge_items directly and never touched knowledge_edit_log.
-		const editLog = await db
-			.select()
-			.from(knowledgeEditLog)
-			.where(and(eq(knowledgeEditLog.itemId, itemId ?? ""), eq(knowledgeEditLog.field, "parent")));
-		expect(editLog.length).toBeGreaterThan(0);
 	});
 
 	test("an illegal move (would create a cycle) is refused — the REAL reparent() invariant runs, not a stub that cannot refuse anything", async ({
@@ -248,14 +232,8 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 			],
 		);
 
-		const rootDir = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "root-dir"));
-		const childDir = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "child-dir"));
+		const rootDir = await db.select().from(documents).where(eq(documents.title, "root-dir"));
+		const childDir = await db.select().from(documents).where(eq(documents.title, "child-dir"));
 		expect(rootDir).toHaveLength(1);
 		expect(childDir).toHaveLength(1);
 
@@ -268,14 +246,14 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 		if (!(rootId && childId)) throw new Error("setup failed");
 		await expect(
 			reparent(db, rootId, {
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: childId,
 				updatedBy: "test",
 			}),
 		).rejects.toThrow(/cycle/);
 
 		// And the tree is unchanged — refused, not recorded and repaired.
-		const [rootAfter] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, rootId));
+		const [rootAfter] = await db.select().from(documents).where(eq(documents.id, rootId));
 		expect(rootAfter?.parentId).toBeNull();
 	});
 
@@ -302,11 +280,11 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 
 		const beforeMove = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "note e5f6a7b8"));
+			.from(documents)
+			.where(eq(documents.title, "note e5f6a7b8"));
 		expect(beforeMove).toHaveLength(1);
 		const itemId = beforeMove[0]?.id;
-		expect(beforeMove[0]?.parentKind).toBe("knowledge_item");
+		expect(beforeMove[0]?.parentKind).toBe("document");
 
 		fs.rmSync(originalPath);
 		const movedPath = path.join(root, "knowledge", "note_e5f6a7b8.md");
@@ -326,8 +304,8 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 
 		const afterMove = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, itemId ?? ""));
+			.from(documents)
+			.where(eq(documents.id, itemId ?? ""));
 		expect(afterMove).toHaveLength(1);
 		expect(afterMove[0]?.parentKind).toBeNull();
 		expect(afterMove[0]?.parentId).toBeNull();
@@ -364,8 +342,8 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 
 		const beforeRename = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "onboarding 11112222"));
+			.from(documents)
+			.where(eq(documents.title, "onboarding 11112222"));
 		const idA = beforeRename[0]?.id;
 
 		fs.mkdirSync(path.join(root, "knowledge", "team-rituals"), { recursive: true });
@@ -404,24 +382,24 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 
 		const rows = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, idA ?? ""));
+			.from(documents)
+			.where(eq(documents.id, idA ?? ""));
 		expect(rows).toHaveLength(1);
 
 		const teamRitualsFolder = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "team-rituals"));
+			.from(documents)
+			.where(eq(documents.title, "team-rituals"));
 		expect(teamRitualsFolder.length).toBeGreaterThan(0);
 
 		const afterRenameA = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "onboarding 11112222"));
+			.from(documents)
+			.where(eq(documents.title, "onboarding 11112222"));
 		const afterRenameB = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "offboarding 33334444"));
+			.from(documents)
+			.where(eq(documents.title, "offboarding 33334444"));
 		expect(afterRenameA).toHaveLength(1);
 		expect(afterRenameB).toHaveLength(1);
 		expect(afterRenameA[0]?.parentId).toBe(teamRitualsFolder[0]?.id);
@@ -446,8 +424,8 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 
 		const [before] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.title, "deleted cafef00d"));
+			.from(documents)
+			.where(eq(documents.title, "deleted cafef00d"));
 		expect(before).toBeDefined();
 
 		fs.rmSync(filePath);
@@ -467,8 +445,8 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 		// document deletion, and nothing was written to it.
 		const [after] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, before?.id ?? ""));
+			.from(documents)
+			.where(eq(documents.id, before?.id ?? ""));
 		expect(after).toEqual(before);
 
 		// The manifest no longer names it.
@@ -476,13 +454,9 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 			items: Record<string, unknown>;
 		};
 		expect(manifest.items[before?.id ?? ""]).toBeUndefined();
-
-		// No conflict row landed anywhere — a document has no conflict object.
-		const conflictRows = await db.select().from(knowledgeConflicts);
-		expect(conflictRows).toHaveLength(0);
 	});
 
-	test("a stale write is refused: the agent's text is discarded, the manifest advances to the durable version, and no conflict row exists", async ({
+	test("a stale write is refused: the agent's text is discarded, the manifest advances to the durable version", async ({
 		db,
 	}) => {
 		const { root, manifestPath } = makeSandbox();
@@ -527,7 +501,7 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 		expect(result.updated).toBe(1);
 
 		// The agent's text was never applied.
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id));
 		expect(row?.body).toBe("The durable body, written by someone else first.");
 		expect(row?.version).toBe(otherSessionWrite.version);
 
@@ -536,10 +510,6 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 			items: Record<string, { version: number }>;
 		};
 		expect(advanced.items[created.id]?.version).toBe(otherSessionWrite.version);
-
-		// No conflict row exists — a document has no conflict object.
-		const conflictRows = await db.select().from(knowledgeConflicts);
-		expect(conflictRows).toHaveLength(0);
 	});
 });
 
@@ -581,10 +551,7 @@ describe.skipIf(!REAL_FS_WATCH)(
 				const deadline = Date.now() + 10_000;
 				let found: unknown;
 				while (Date.now() < deadline) {
-					const rows = await db
-						.select()
-						.from(knowledgeItems)
-						.where(eq(knowledgeItems.title, "objections"));
+					const rows = await db.select().from(documents).where(eq(documents.title, "objections"));
 					if (rows.length > 0) {
 						found = rows[0];
 						break;

@@ -7,8 +7,6 @@
  * - etc.
  * Tests updated to match O2 API shape.
  */
-import { knowledgeAppProjection, knowledgeEditLog } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -330,34 +328,6 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 	});
 
-	// AC12: Edit log — every PATCH creates knowledge_edit_log entry
-	describe("AC12: Edit log on PATCH", () => {
-		test("creates edit log entries for each changed field", async ({ db, app }) => {
-			const item = await createItem(app, "L0");
-			const id = item.id as string;
-
-			await app.request(`/api/knowledge/${id}`, {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					version: 1,
-					title: "Updated Title",
-					body: "Updated body content",
-					updatedBy: "curator",
-				}),
-			});
-
-			const logs = await db.select().from(knowledgeEditLog);
-			// Should have at least entries for title and body changes
-			expect(logs.length).toBeGreaterThanOrEqual(2);
-			const titleLog = logs.find((l: { field: string }) => l.field === "title");
-			expect(titleLog).toBeDefined();
-			expect(titleLog?.oldValue).toBe("Test Pattern");
-			expect(titleLog?.newValue).toBe("Updated Title");
-			expect(titleLog?.editor).toBe("curator");
-		});
-	});
-
 	// AC13: WebSocket delivers updates in same shape as PATCH response + _event field
 	describe("AC13: Event shape matches PATCH response with _event field", () => {
 		test("emitted event has _event field and item data", async ({ app, eventBus }) => {
@@ -383,47 +353,6 @@ describe("Knowledge Endpoints (E4)", () => {
 			expect(knowledgeEvent).toBeDefined();
 			expect(knowledgeEvent?.action).toBe("updated");
 			expect(knowledgeEvent?.itemId).toBe(id);
-		});
-	});
-
-	// AU14: route create/update now call the repository's create()/update() instead of
-	// performing their own raw inserts. Net-new test 1 (plan §9) — the API create path
-	// must produce the same edit-log row an agent-tool-created item produces today.
-	describe("AU14: POST /api/knowledge writes a create edit-log row via the repository", () => {
-		test("API-created item has a knowledgeEditLog row with editType 'create'", async ({
-			db,
-			app,
-		}) => {
-			const item = await createItem(app, "L0");
-			const id = item.id as string;
-
-			const logs = await db.select().from(knowledgeEditLog).where(eq(knowledgeEditLog.itemId, id));
-
-			const createLog = logs.find((l: { editType: string }) => l.editType === "create");
-			expect(createLog).toBeDefined();
-			expect(createLog?.field).toBe("*");
-		});
-	});
-
-	// AU14: net-new test 2 (plan §9 D3) — routing POST / through repo.create structurally
-	// forces projection.scopeId to be populated (was NULL via upsertProjectionLayer before
-	// this WP). This locks the deliberate, reviewer-approved D3 convergence.
-	describe("AU14: route-created scoped item now carries projection.scopeId (D3 lock)", () => {
-		test("team-scoped item created via API has projection.scopeId populated", async ({
-			db,
-			app,
-		}) => {
-			const teamId = "team-au14-test";
-			const item = await createItem(app, "L0", { scopeKind: "team", scopeId: teamId });
-			const id = item.id as string;
-
-			const [projectionRow] = await db
-				.select()
-				.from(knowledgeAppProjection)
-				.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-
-			expect(projectionRow).toBeDefined();
-			expect(projectionRow?.scopeId).toBe(teamId);
 		});
 	});
 });

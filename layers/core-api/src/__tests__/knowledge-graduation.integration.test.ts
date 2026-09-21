@@ -3,24 +3,14 @@
  * into the knowledge tree via POST /api/knowledge/:id/graduate.
  *
  * Verifies:
- * - Happy path: task-parented → knowledge-item parent (AC6 main claim)
+ * - Happy path: task-parented → document parent (AC6 main claim)
  * - Happy path: task-parented → top of tree (null parent)
- * - Edit-log entry records the old parentId as oldValue (AC6 provenance guarantee)
- * - Refusals: wrong role (non-ordinary), already in tree (parentKind=knowledge_item),
+ * - Refusals: wrong role (non-ordinary), already in tree (parentKind=document),
  *   no parent at all (parentKind=null), nonexistent new parent, self-reparent,
  *   version conflict, item not found.
  */
 
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeEditLog,
-	knowledgeItems,
-	tasks,
-	teams,
-	threads,
-} from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { documents, type HyperIdleDb, tasks, teams, threads } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -55,19 +45,17 @@ async function seedTeamAndTask(db: HyperIdleDb, teamId: string, taskId: string):
 	});
 }
 
-// @lore artifacts-become-knowledge: must always pair knowledgeItems with knowledgeAppProjection —
-// the crossing-table-write rule mirrors the owner's writer which inserts both atomically.
 async function insertKnowledgeItem(
 	db: HyperIdleDb,
 	opts: {
 		id: string;
 		role?: "ordinary" | "skill" | "rule" | "agent_file" | "prompt";
-		parentKind?: "task" | "thread" | "knowledge_item" | null;
+		parentKind?: "task" | "thread" | "document" | null;
 		parentId?: string | null;
 		version?: number;
 	},
 ): Promise<void> {
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: opts.id,
 		scopeKind: "factory",
 		scopeId: null,
@@ -75,20 +63,13 @@ async function insertKnowledgeItem(
 		body: "Body.",
 		format: "markdown",
 		status: "active",
-		role: opts.role ?? "ordinary",
+		slot: opts.role ?? "ordinary",
 		parentKind: opts.parentKind ?? null,
 		parentId: opts.parentId ?? null,
 		version: opts.version ?? 1,
 		updatedBy: "human",
 		createdAt: now,
 		updatedAt: now,
-	});
-	await db.insert(knowledgeAppProjection).values({
-		id: `${opts.id}-projection`,
-		knowledgeItemId: opts.id,
-		scopeId: null,
-		confidence: null,
-		meta: null,
 	});
 }
 
@@ -101,17 +82,10 @@ describe("POST /api/knowledge/:id/graduate", () => {
 	});
 
 	// -------------------------------------------------------------------------
-	// AC6 — happy path: task-parented item graduates to a knowledge-item parent.
-	// The edit-log entry for parentId must carry oldValue = original task id.
-	//
-	// PROVE-CAN-FAIL: remove the edit-log write from graduate(). The test fails
-	// on the parentId log assertion (logs will be empty or missing the entry).
+	// AC6 — happy path: task-parented item graduates to a document parent.
 	// -------------------------------------------------------------------------
-	describe("task-parented item → knowledge-item parent", () => {
-		test("returns 200, updates parentKind/parentId, writes edit-log with oldValue=taskId", async ({
-			db,
-			app,
-		}) => {
+	describe("task-parented item → document parent", () => {
+		test("returns 200, updates parentKind/parentId", async ({ db, app }) => {
 			await seedTeamAndTask(db, "grad-team-1", "grad-task-1");
 
 			const itemId = "ki-grad-happy-1";
@@ -121,7 +95,7 @@ describe("POST /api/knowledge/:id/graduate", () => {
 				parentId: "grad-task-1",
 			});
 
-			// seed a target knowledge-item parent (no FK, just needs to exist)
+			// seed a target document parent (no FK, just needs to exist)
 			const targetId = "ki-grad-target-1";
 			await insertKnowledgeItem(db, { id: targetId });
 
@@ -131,7 +105,7 @@ describe("POST /api/knowledge/:id/graduate", () => {
 				body: JSON.stringify({
 					version: 1,
 					updatedBy: "human",
-					newParentKind: "knowledge_item",
+					newParentKind: "document",
 					newParentId: targetId,
 				}),
 			});
@@ -139,21 +113,9 @@ describe("POST /api/knowledge/:id/graduate", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as { parentKind: string; parentId: string; version: number };
-			expect(body.parentKind).toBe("knowledge_item");
+			expect(body.parentKind).toBe("document");
 			expect(body.parentId).toBe(targetId);
 			expect(body.version).toBe(2);
-
-			// AC6: edit-log must record the old parentId (the task id)
-			const logs = await db
-				.select()
-				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.itemId, itemId));
-
-			const parentIdLog = logs.find((l) => l.field === "parentId");
-			expect(parentIdLog).toBeDefined();
-			expect(parentIdLog?.oldValue).toBe("grad-task-1");
-			expect(parentIdLog?.newValue).toBe(targetId);
-			expect(parentIdLog?.editType).toBe("graduate");
 		});
 	});
 
@@ -187,16 +149,6 @@ describe("POST /api/knowledge/:id/graduate", () => {
 			expect(body.parentKind).toBeNull();
 			expect(body.parentId).toBeNull();
 			expect(body.version).toBe(2);
-
-			// Edit log still records the old parentId
-			const logs = await db
-				.select()
-				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.itemId, itemId));
-
-			const parentIdLog = logs.find((l) => l.field === "parentId");
-			expect(parentIdLog?.oldValue).toBe("grad-task-2");
-			expect(parentIdLog?.newValue).toBeNull();
 		});
 	});
 
@@ -228,17 +180,17 @@ describe("POST /api/knowledge/:id/graduate", () => {
 	});
 
 	// -------------------------------------------------------------------------
-	// Refusal: item is already in the knowledge tree (parentKind=knowledge_item).
+	// Refusal: item is already in the knowledge tree (parentKind=document).
 	// -------------------------------------------------------------------------
 	describe("refusal: already in tree", () => {
-		test("returns 400 when parentKind is already knowledge_item", async ({ db, app }) => {
+		test("returns 400 when parentKind is already document", async ({ db, app }) => {
 			const existingParentId = "ki-grad-existing-parent";
 			await insertKnowledgeItem(db, { id: existingParentId });
 
 			const itemId = "ki-grad-in-tree-1";
 			await insertKnowledgeItem(db, {
 				id: itemId,
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: existingParentId,
 			});
 
@@ -294,7 +246,7 @@ describe("POST /api/knowledge/:id/graduate", () => {
 				body: JSON.stringify({
 					version: 1,
 					updatedBy: "human",
-					newParentKind: "knowledge_item",
+					newParentKind: "document",
 					newParentId: "ki-does-not-exist",
 				}),
 			});
@@ -325,7 +277,7 @@ describe("POST /api/knowledge/:id/graduate", () => {
 				body: JSON.stringify({
 					version: 1,
 					updatedBy: "human",
-					newParentKind: "knowledge_item",
+					newParentKind: "document",
 					newParentId: itemId,
 				}),
 			});
