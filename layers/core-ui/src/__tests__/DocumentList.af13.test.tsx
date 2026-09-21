@@ -1,74 +1,98 @@
 /**
- * AF13 — KnowledgeList component tests.
+ * AF13 — DocumentList component tests.
  *
  * Covers:
  * - §3: recency sort pill reorders (both tabs)
  *   @lore AU44 batch 4: frequency pill removed (FULL-AUDIT.md row 13 — signals gone).
  * - §6 / Task 6: triage validate → item leaves triage AND enters curated
  *   (optimistic status override, not removal — "verdict moves the item")
+ *
+ * @lore BC4: validate/reject calls `edit_document` through `call`, not a raw
+ * PATCH `fetch`. `useDocuments` replaces `useFetch("/api/knowledge")`.
  */
 
+import type { DocumentRow, DocumentStatus } from "@hyperidle/domain-model";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { KnowledgeList } from "../pages/KnowledgeList.js";
+import { DocumentList } from "../pages/DocumentList.js";
 
 // ---------------------------------------------------------------------------
-// Mock useFetch — each test configures return value
+// Mock useDocuments — each test configures return value
 // ---------------------------------------------------------------------------
 
-const mockUseFetch = vi.fn();
-vi.mock("../hooks/useFetch", () => ({
-	useFetch: (...args: unknown[]) => mockUseFetch(...args),
+const mockUseDocuments = vi.fn();
+vi.mock("../hooks/useDocuments.js", () => ({
+	useDocuments: (...args: unknown[]) => mockUseDocuments(...args),
 }));
 
-// Mock fetch for PATCH calls
-const mockFetch = vi.fn();
-
-// Mock useCurrentUser
-vi.mock("../hooks/useCurrentUser.js", () => ({
-	useCurrentUser: () => ({
-		user: { id: "u-test", name: "Test User", email: "t@example.com", avatarUrl: null },
-		status: "ready",
-		error: null,
-	}),
+// Mock call — for edit_document (triage actions)
+const mockCall = vi.fn();
+vi.mock("../services/call.js", () => ({
+	call: (...args: unknown[]) => mockCall(...args),
 }));
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderAt(path = "/knowledge"): ReturnType<typeof render> {
+function renderAt(path = "/documents"): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[path]}>
-			<KnowledgeList />
+			<DocumentList />
 		</MemoryRouter>,
 	);
 }
 
 function makeItem(
 	id: string,
-	status: string,
+	status: DocumentStatus,
 	opts: {
 		updatedAt?: string;
 		title?: string;
-		topic?: string;
 	} = {},
-): Record<string, unknown> {
+): DocumentRow {
 	return {
 		id,
-		topic: opts.topic ?? "Architecture",
 		title: opts.title ?? `Item ${id}`,
 		body: "body",
 		format: "markdown",
 		status,
+		slot: "ordinary",
+		scopeKind: "factory",
+		scopeId: null,
+		parentKind: null,
+		parentId: null,
+		position: 0,
 		version: 1,
 		updatedBy: "u-test",
-		scopeKind: "factory",
 		createdAt: "2024-01-01T00:00:00Z",
 		updatedAt: opts.updatedAt ?? "2024-01-02T00:00:00Z",
-		attentionScore: null,
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
+		as: "document",
+	};
+}
+
+function mockDocuments(documents: DocumentRow[]): void {
+	mockUseDocuments.mockReturnValue({
+		documents,
+		status: "ready",
+		error: null,
+		retry: vi.fn(),
+	});
+}
+
+function editDocumentResult(row: DocumentRow): {
+	ok: true;
+	data: { document: DocumentRow; ancestors: []; children: []; siblings: []; scopeName: string };
+} {
+	return {
+		ok: true,
+		data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" },
 	};
 }
 
@@ -78,44 +102,24 @@ function makeItem(
 
 describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 	beforeEach(() => {
-		vi.stubGlobal("fetch", mockFetch);
-		mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+		mockCall.mockReset();
 	});
 
 	afterEach(() => {
-		vi.unstubAllGlobals();
 		vi.clearAllMocks();
 	});
 
 	it("Recency pill reorders curated items by updatedAt desc", async () => {
 		// Three active items with distinct updatedAt values
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					makeItem("old", "active", {
-						updatedAt: "2024-01-01T00:00:00Z",
-						title: "Oldest Item",
-						topic: "Topic",
-					}),
-					makeItem("new", "active", {
-						updatedAt: "2024-06-01T00:00:00Z",
-						title: "Newest Item",
-						topic: "Topic",
-					}),
-					makeItem("mid", "active", {
-						updatedAt: "2024-03-01T00:00:00Z",
-						title: "Middle Item",
-						topic: "Topic",
-					}),
-				],
-			},
-			error: null,
-			isLoading: false,
-		});
+		mockDocuments([
+			makeItem("old", "active", { updatedAt: "2024-01-01T00:00:00Z", title: "Oldest Item" }),
+			makeItem("new", "active", { updatedAt: "2024-06-01T00:00:00Z", title: "Newest Item" }),
+			makeItem("mid", "active", { updatedAt: "2024-03-01T00:00:00Z", title: "Middle Item" }),
+		]);
 
 		const user = userEvent.setup();
 		// Render on Curated tab (no triage items)
-		renderAt("/knowledge");
+		renderAt();
 
 		// Switch to Curated tab
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
@@ -126,7 +130,6 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 		await user.click(recencyPill);
 
 		// After sort: Newest first, then Middle, then Oldest
-		// This fails until sortItems is applied to curated groups
 		await waitFor(() => {
 			const curatedView = screen.getByTestId("knowledge-curated-view");
 			// @lore nested-knowledge-items tree-ui: curated rows are <li role="treeitem">
@@ -149,35 +152,21 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 
 describe("AF13 §3 — Sort pills reorder the triage tab", () => {
 	beforeEach(() => {
-		vi.stubGlobal("fetch", mockFetch);
-		mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+		mockCall.mockReset();
 	});
 
 	afterEach(() => {
-		vi.unstubAllGlobals();
 		vi.clearAllMocks();
 	});
 
 	it("Recency pill reorders triage items by updatedAt desc", async () => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					makeItem("draft-old", "proposed", {
-						updatedAt: "2024-01-01T00:00:00Z",
-						title: "Old Draft",
-					}),
-					makeItem("draft-new", "proposed", {
-						updatedAt: "2024-06-01T00:00:00Z",
-						title: "New Draft",
-					}),
-				],
-			},
-			error: null,
-			isLoading: false,
-		});
+		mockDocuments([
+			makeItem("draft-old", "proposed", { updatedAt: "2024-01-01T00:00:00Z", title: "Old Draft" }),
+			makeItem("draft-new", "proposed", { updatedAt: "2024-06-01T00:00:00Z", title: "New Draft" }),
+		]);
 
 		const user = userEvent.setup();
-		renderAt("/knowledge");
+		renderAt();
 
 		// Click Recency on triage tab — scoped to sort bar to avoid matching item titles
 		const sortBar = screen.getByTestId("knowledge-sort-bar");
@@ -205,35 +194,24 @@ describe("AF13 §3 — Sort pills reorder the triage tab", () => {
 
 describe("AF13 §6 — Triage validate: item leaves triage AND appears in curated (same render)", () => {
 	beforeEach(() => {
-		vi.stubGlobal("fetch", mockFetch);
-		// PATCH succeeds
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ id: "k-draft", status: "active", version: 2 }),
-		});
+		mockCall.mockReset();
+		mockCall.mockResolvedValue(editDocumentResult(makeItem("k-draft", "active")));
 	});
 
 	afterEach(() => {
-		vi.unstubAllGlobals();
 		vi.clearAllMocks();
 	});
 
 	it("validated item disappears from Triage tab", async () => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					makeItem("k-draft", "proposed", { title: "Draft to validate", topic: "Science" }),
-					makeItem("k-active", "active", { title: "Already active", topic: "Science" }),
-				],
-			},
-			error: null,
-			isLoading: false,
-		});
+		mockDocuments([
+			makeItem("k-draft", "proposed", { title: "Draft to validate" }),
+			makeItem("k-active", "active", { title: "Already active" }),
+		]);
 
 		const user = userEvent.setup();
 		renderAt();
 
-		// Should auto-default to triage because there's a draft item
+		// Should auto-default to triage because there's a proposed item
 		await waitFor(() => {
 			expect(screen.getByRole("tab", { name: /triage/i })).toHaveAttribute("aria-selected", "true");
 		});
@@ -252,13 +230,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 	});
 
 	it("validated item appears in the Curated tab in the same render", async () => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [makeItem("k-draft", "proposed", { title: "Newly validated", topic: "Science" })],
-			},
-			error: null,
-			isLoading: false,
-		});
+		mockDocuments([makeItem("k-draft", "proposed", { title: "Newly validated" })]);
 
 		const user = userEvent.setup();
 		renderAt();
@@ -274,28 +246,16 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 		// Switch to Curated tab
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
 
-		// Item should appear in curated (status override from draft → active)
-		// This test fails until optimisticRemovals is replaced with optimisticStatus override map
+		// Item should appear in curated (status override from proposed → active)
 		const curatedView = await screen.findByTestId("knowledge-curated-view");
 		expect(within(curatedView).getByText("Newly validated")).toBeInTheDocument();
 	});
 
 	it("rejected item leaves triage and does NOT appear in curated", async () => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					makeItem("k-draft-reject", "proposed", { title: "Item to reject", topic: "Science" }),
-				],
-			},
-			error: null,
-			isLoading: false,
-		});
+		mockDocuments([makeItem("k-draft-reject", "proposed", { title: "Item to reject" })]);
 
-		// PATCH returns archived status for reject
-		mockFetch.mockResolvedValue({
-			ok: true,
-			json: async () => ({ id: "k-draft-reject", status: "archived", version: 2 }),
-		});
+		// edit_document returns archived status for reject
+		mockCall.mockResolvedValue(editDocumentResult(makeItem("k-draft-reject", "archived")));
 
 		const user = userEvent.setup();
 		renderAt();
@@ -324,19 +284,13 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 		});
 	});
 
-	it("reverts to triage when PATCH fails (failure-revert semantics preserved)", async () => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [makeItem("k-fail", "proposed", { title: "Failing item", topic: "Science" })],
-			},
-			error: null,
-			isLoading: false,
-		});
+	it("reverts to triage when edit_document is refused (failure-revert semantics preserved)", async () => {
+		mockDocuments([makeItem("k-fail", "proposed", { title: "Failing item" })]);
 
-		// PATCH fails
-		mockFetch.mockResolvedValue({
+		// edit_document refuses
+		mockCall.mockResolvedValue({
 			ok: false,
-			json: async () => ({ error: "Server error" }),
+			problems: [{ code: "stale", message: "Server error" }],
 		});
 
 		const user = userEvent.setup();
@@ -352,7 +306,7 @@ describe("AF13 §6 — Triage validate: item leaves triage AND appears in curate
 		await user.keyboard("v");
 
 		// After optimistic removal…
-		// On failure, item should revert back to triage
+		// On refusal, item should revert back to triage
 		await waitFor(() => {
 			expect(within(triageView).getByText("Failing item")).toBeInTheDocument();
 		});

@@ -1,44 +1,44 @@
 /**
- * J8 — loading, error, and empty state paths on the Knowledge list page.
+ * J8 — loading, error, and empty state paths on the Document list page.
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { KnowledgeList } from "../pages/KnowledgeList";
+import { DocumentList } from "../pages/DocumentList";
 
 function renderPage(
-	props: Parameters<typeof KnowledgeList>[0] = {},
-	initialPath = "/knowledge",
+	props: Parameters<typeof DocumentList>[0] = {},
+	initialPath = "/documents",
 ): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[initialPath]}>
-			<KnowledgeList {...props} />
+			<DocumentList {...props} />
 		</MemoryRouter>,
 	);
 }
 
-describe("KnowledgeList — J8 loading state", () => {
+describe("DocumentList — J8 loading state", () => {
 	it("renders the skeleton list when `loading` is true", () => {
 		renderPage({ loading: true });
-		expect(screen.getByRole("status", { name: /loading knowledge/i })).toBeInTheDocument();
-		expect(screen.queryByText("Knowledge Base")).not.toBeInTheDocument();
+		expect(screen.getByRole("status", { name: /loading documents/i })).toBeInTheDocument();
+		expect(screen.queryByText("Document Library")).not.toBeInTheDocument();
 	});
 });
 
-describe("KnowledgeList — J8 error state", () => {
+describe("DocumentList — J8 error state", () => {
 	it("renders the error state with a retry button when `error` is set", async () => {
 		const onRetry = vi.fn();
 		renderPage({ error: { message: "Network offline", onRetry } });
 		expect(screen.getByRole("alert")).toBeInTheDocument();
-		expect(screen.getByText(/couldn't load knowledge/i)).toBeInTheDocument();
+		expect(screen.getByText(/couldn't load documents/i)).toBeInTheDocument();
 		expect(screen.getByText(/network offline/i)).toBeInTheDocument();
 		await userEvent.click(screen.getByRole("button", { name: /retry/i }));
 		expect(onRetry).toHaveBeenCalledTimes(1);
 	});
 });
 
-describe("KnowledgeList — J8 empty state", () => {
+describe("DocumentList — J8 empty state", () => {
 	it("renders a meaningful triage empty message when no items match the scope", () => {
 		// The synthesis scope `factory` has curated items but no needs_human
 		// triage entries with an attentionScore > 0, so switching to Triage
