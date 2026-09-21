@@ -864,7 +864,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			const target = await getKnowledgeItem(db, body.newParentId);
 			if (!target) {
 				const response: ApiErrorResponse = {
-					error: `no document with id `,
+					error: `no document with id '${body.newParentId}'`,
 					code: API_ERROR_CODES.VALIDATION_ERROR,
 				};
 				return c.json(response, 400);
