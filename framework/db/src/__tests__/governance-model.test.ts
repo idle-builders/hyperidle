@@ -645,7 +645,9 @@ describe("AU28 — the registries are honest", () => {
 	it("claims every table the schema declares, and no phantom ones", () => {
 		// A collapse guard, not a census: the next two assertions are what prove the
 		// registry honest. The pass that dropped five unused tables took this from 44 to 39.
-		expect(liveTables.size).toBeGreaterThan(30);
+		// The document module fold (five knowledge tables into one `documents` table) took this
+		// from 33 to 29.
+		expect(liveTables.size).toBeGreaterThan(25);
 		expect(() => validateTableOwners(tableOwners, liveTables, packageNames)).not.toThrow();
 		expect(tableOwners.totals.tables).toBe(liveTables.size);
 	});
