@@ -20,6 +20,7 @@ import type { Action, ActionContext } from "./actions/action.js";
 import { actionsAsTools } from "./actions/actions-as-tools.js";
 import { createActionsRouter } from "./actions/actions-router.js";
 import { buildCoreActions } from "./actions/compose.js";
+import { createAgentIdentityPort } from "./routes/agent-identity.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
@@ -447,6 +448,34 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").ThreadView>
 		>;
+		// @lore `/search`'s scope=document branch and its own document category
+		// (architecture.md §8.3) go through the composed `search_documents`
+		// action, extracted the same way `sendMessage`/`adjustThreadRun` are —
+		// never `open_document` (a search result is not a read).
+		const searchDocumentsAction = actions.find((a) => a.declaration.name === "search_documents");
+		if (!searchDocumentsAction) {
+			throw new Error("buildCoreActions did not produce a search_documents action");
+		}
+		const searchDocumentsRun = searchDocumentsAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").SearchDocumentsInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentRow[]>
+		>;
+		// @lore document-module B10: `/plugins`' install/enable/disable/restore
+		// lifecycle writes documents through the composed `edit_document` action
+		// (architecture.md §8.3) — extracted the same way, never
+		// `@hyperidle/document`'s repository functions directly.
+		const editDocumentAction = actions.find((a) => a.declaration.name === "edit_document");
+		if (!editDocumentAction) {
+			throw new Error("buildCoreActions did not produce an edit_document action");
+		}
+		const editDocumentRun = editDocumentAction.run as (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").EditDocumentInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
+		>;
 		// @lore `/teams` mounts after the action list is built and `sendMessage`
 		// extracted — its POST handler's welcome-message seed posts through the
 		// composed action instead of a raw `insertThread`/`insertMessage` into
@@ -486,9 +515,18 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
 		// app now (its whole table set is `service_connections`, which that Layer
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
-		api.route("/search", createSearchRoutes(options.db, eventBus));
+		api.route("/search", createSearchRoutes(options.db, eventBus, searchDocumentsRun));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
-		api.route("/plugins", createPluginRoutes(options.db, options.pluginsBaseDir));
+		api.route(
+			"/plugins",
+			createPluginRoutes(
+				options.db,
+				eventBus,
+				editDocumentRun,
+				searchDocumentsRun,
+				options.pluginsBaseDir,
+			),
+		);
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 
 		const db = options.db;
