@@ -12,8 +12,8 @@ than trusting the number, because the tree moves under this item.
 
 ## 0. Plan amendments proposed
 
-Four. Each is a decision the plan does not settle and that I could not take without the founder. Each
-names the alternative in enough detail that either answer needs no redesign.
+Six. Each is a decision the plan does not settle and that I could not take without the founder. A1 and
+O1 name their alternatives in enough detail that either answer needs no redesign.
 
 **A1 — the three legacy bus events: delete, or keep the names.**
 `knowledge_created · knowledge_updated · knowledge_archived` are **authorable but unused**. A person
@@ -69,7 +69,25 @@ Today's rule is `ctx.teamId ?? (the calling task's team)`
   **including the task-team fallback**: the actor's own `users.teamId`, else — when `ctx.caller.taskId`
   is set — the calling task's `teamId` read through the injected `openParent` runner (§8.1), else
   `factory`. Written down here so nobody "simplifies" the fallback away.
-- Memories written before this item keep whatever scope they had; nothing rewrites them.
+- Memories written before this item keep whatever scope they had except where the backfill in §6.4
+  step 4 must repair an unowned one; that step is behaviour-preserving (see there).
+
+**A5 — `knowledge_app_projection` is dropped, not renamed.** The plan does not mention the table. Two
+of its six columns have a live production reader and **fold onto `documents`** as plain columns —
+`confidence` (a real term in the session ranking, `session-knowledge-assembler.ts:117-131`) and `meta`
+(`extractItemTags`, `:50-71`). `scope_id` is a denormalised duplicate that *wins* on read
+(`knowledge-repository.ts:376`) and is reconciled once, then dropped. `relevance_score`,
+`citation_count` and `last_cited_at` have **no** production reader and are dropped outright. Full
+derivation in §6.2. Consequence: the companion-write rule in `governance-attacks.ts:635-666` loses its
+only pair and must be re-pointed (§8.5).
+
+**A6 — the column `role` is renamed to `slot`.** The plan says "rename everything to document"; it does
+not name this column. `role` collides with two live and different axes — `users.role` (what an agent
+does) and `agent-roles.ts`'s `roleLabel` — and its values (`ordinary · skill · rule · agent_file ·
+prompt`) say *where the document lands*, which the database already calls a slot
+(`ki_parent_slot_uq`, `framework/db/src/schema.ts:934`). The **values are unchanged**; only the column,
+the constant and the type are renamed. Cost: it widens the migration by one `RENAME COLUMN` and puts
+`slot` into every baked context bundle, which is why migration step 12 fails stale intents.
 
 ---
 
@@ -80,10 +98,10 @@ The plan states no numbered ACs; its gate list is the acceptance surface.
 | Gate line (plan "Gate, before ship") | Blocks |
 |---|---|
 | Knowledge section lists, opens, creates, edits, moves, archives, triages through the list | B16–B19 |
-| A second window updates live | B9, B16, B18 |
+| A second window updates live | B1, B9, B18 |
 | A stale edit is refused with its reason | B7, B19 |
 | An agent writes a memory and an artifact and reads a document through the three tools | B6, B7, B15, B36 |
-| The governance rule is green with the document entries gone from the legacy lists | B2a, B23 |
+| The governance rule is green with the document entries gone from the legacy lists | B0b, B0c, B2a, B20, B22, B23 |
 | Line count clearly negative | §14 |
 | Verification: seam test, real-socket test, migration test, harness lane, full e2e | B7, B9, B2a, B36, B37 |
 
@@ -654,24 +672,63 @@ UPDATE "documents" d SET "scope_id" = p."scope_id"
   FROM "knowledge_app_projection" p
   WHERE p."knowledge_item_id" = d."id" AND p."scope_id" IS NOT NULL;
 
--- 5. the four tables that go
+-- 5. BACKFILL THE OWNER. §5.1 moves the "whose private note is this" key from
+--    `updated_by` to `scope_id`, and existing rows can be `scope_kind='user'`
+--    with a NULL or stale `scope_id`: `cascadeScopeNarrowing` set scope_kind
+--    alone (knowledge-repository.ts:167-201, note 192-193), `requiresScopeId`
+--    excludes `user` (types.ts:184) so PATCH never demanded one
+--    (routes/knowledge.ts:560,629-630), and only POST autofilled it (:475).
+--    Without this step those rows would match no subject and vanish for
+--    everyone. `updated_by` has SIX observed shapes, so the derivation is a
+--    ladder, not one prefix strip:
+--      a bare user id (the UI), `user:<id>` (tools/eval/src/seeding.ts:348),
+--      `agent:<id>` (write_memory), `session:<id>` (the sandbox writeback),
+--      `plugin` (the installer), `demo-seed` (tools/setup/src/demo-world).
+--    "Stale" means: names no row in `users`.
+UPDATE "documents" SET "scope_id" = substring("updated_by" from 7)
+WHERE "scope_kind" = 'user' AND "updated_by" LIKE 'agent:%'
+  AND ("scope_id" IS NULL OR "scope_id" NOT IN (SELECT "id" FROM "users"));
+--> statement-breakpoint
+UPDATE "documents" SET "scope_id" = substring("updated_by" from 6)
+WHERE "scope_kind" = 'user' AND "updated_by" LIKE 'user:%'
+  AND ("scope_id" IS NULL OR "scope_id" NOT IN (SELECT "id" FROM "users"));
+--> statement-breakpoint
+UPDATE "documents" d SET "scope_id" = s."agent_id"
+FROM "sessions" s
+WHERE s."id" = substring(d."updated_by" from 9)
+  AND d."scope_kind" = 'user' AND d."updated_by" LIKE 'session:%'
+  AND (d."scope_id" IS NULL OR d."scope_id" NOT IN (SELECT "id" FROM "users"));
+--> statement-breakpoint
+UPDATE "documents" SET "scope_id" = "updated_by"
+WHERE "scope_kind" = 'user' AND "updated_by" IN (SELECT "id" FROM "users")
+  AND ("scope_id" IS NULL OR "scope_id" NOT IN (SELECT "id" FROM "users"));
+--    A row still unresolved after the ladder (`updated_by` = 'plugin' or
+--    'demo-seed', a deleted user, an unresolvable session) is LEFT EXACTLY AS
+--    IT IS, deliberately. Under today's rule such a row is already invisible to
+--    every human — `updated_by` equals no viewer id — so leaving it alone is
+--    behaviour-preserving. Widening it to `factory` would REVEAL content that
+--    is hidden today, which is a visibility increase nobody asked for; there is
+--    no RAISE guard for the same reason. The brownfield test asserts the count
+--    of survivors rather than demanding zero.
+
+-- 6. the four tables that go
 DROP TABLE "knowledge_app_projection";
 DROP TABLE "knowledge_conflicts";
 DROP TABLE "knowledge_access_log";
 DROP TABLE "knowledge_edit_log";
 
--- 6. the task provenance FK
+-- 7. the task provenance FK
 ALTER TABLE "tasks" RENAME COLUMN "source_knowledge_item_id" TO "source_document_id";
 ALTER TABLE "tasks" RENAME CONSTRAINT
   "tasks_source_knowledge_item_id_knowledge_items_id_fk" TO "tasks_source_document_id_documents_id_fk";
 
--- 7. the thread host kind. Same trigger-suspend window migration 0085 steps 7/8 used
+-- 8. the thread host kind. Same trigger-suspend window migration 0085 steps 7/8 used
 --    (`threads_host_immutable_trg`, migration 0007) — this writes host_kind.
 ALTER TABLE "threads" DISABLE TRIGGER "threads_host_immutable_trg";
 UPDATE "threads" SET "host_kind" = 'document' WHERE "host_kind" = 'knowledge_item';
 ALTER TABLE "threads" ENABLE TRIGGER "threads_host_immutable_trg";
 
--- 8. inline refs stored inside message payloads: {"kind":"knowledge_item","id":…}
+-- 9. inline refs stored inside message payloads: {"kind":"knowledge_item","id":…}
 UPDATE "messages" SET "payload" = jsonb_set(
     "payload"::jsonb, '{refs}',
     (SELECT COALESCE(jsonb_agg(
@@ -681,7 +738,7 @@ UPDATE "messages" SET "payload" = jsonb_set(
 WHERE "payload"::jsonb ? 'refs'
   AND ("payload"::jsonb)->'refs' @> '[{"kind":"knowledge_item"}]';
 
--- 9. the plugin contribution kind. Constraint name confirmed at
+-- 10. the plugin contribution kind. Constraint name confirmed at
 --    framework/db/src/schema.ts:1341-1344; the producing constant is
 --    framework/domain-model/src/configuration.ts:23-29 (see §8.6).
 ALTER TABLE "plugin_contributions" DROP CONSTRAINT "plugin_contributions_kind_ck";
@@ -689,13 +746,13 @@ UPDATE "plugin_contributions" SET "kind" = 'document' WHERE "kind" = 'knowledge'
 ALTER TABLE "plugin_contributions" ADD CONSTRAINT "plugin_contributions_kind_ck"
   CHECK ("kind" IN ('agent','routine','document','configuration_default'));
 
--- 10. historical change rows name the renamed task column in their JSON diffs
+-- 11. historical change rows name the renamed task column in their JSON diffs
 UPDATE "changes" SET
   "before" = replace("before", '"sourceKnowledgeItemId"', '"sourceDocumentId"'),
   "after"  = replace("after",  '"sourceKnowledgeItemId"', '"sourceDocumentId"')
 WHERE "before" LIKE '%sourceKnowledgeItemId%' OR "after" LIKE '%sourceKnowledgeItemId%';
 
--- 11. a baked bundle written before this migration carries `contextBundle.knowledge`
+-- 12. a baked bundle written before this migration carries `contextBundle.knowledge`
 --     with `role` on each entry; the drain iterates the new shape. Same treatment
 --     migration 0080 step 11 gave the same table — fail the row, never rewrite a body.
 UPDATE "agent_work_intents" SET "status" = 'failed',
@@ -726,6 +783,11 @@ still names the old symbols.
 
 Seeded pre-state, one row each: `knowledge_items` (a root, a `knowledge_item`-parented child, a
 `role='prompt'` routine slot, a `role='agent_file'` identity, a `scope_kind='user'` memory);
+**the five owner-backfill cases** — `scope_kind='user'` rows with (i) `scope_id` NULL and
+`updated_by='<a real user id>'`, (ii) `scope_id` NULL and `updated_by='agent:<agent id>'`,
+(iii) a **stale** `scope_id` naming a team and `updated_by='user:<a real user id>'`,
+(iv) `scope_id` NULL and `updated_by='session:<a seeded session id>'` whose session names an agent,
+(v) `scope_id` NULL and `updated_by='plugin'` — the residue case;
 `knowledge_app_projection` (one with `confidence`+`meta`+a non-null `scope_id` where the kernel's is
 null, one with all nulls); `knowledge_edit_log`, `knowledge_access_log`, `knowledge_conflicts` (one row
 each, to prove the DROPs are not blocked by their `ON DELETE RESTRICT` FKs); a task with
@@ -740,6 +802,13 @@ match; the reconciled `scope_id` is the projection's; the four tables no longer 
 `'document'`; the message's ref kinds are `["document","task"]` (the task ref untouched); the
 contribution kind is `'document'`; the change row's `after` names `sourceDocumentId`; the intent's
 status is `'failed'`.
+
+And for the backfill, five exact assertions: case (i) `scope_id` equals the user id; (ii) equals the
+agent id with no `agent:` prefix; (iii) equals the user id, **replacing** the stale team id; (iv)
+equals the session's `agent_id`; (v) is **still NULL** and the row is **still** `scope_kind='user'` —
+the residue is left alone on purpose, and a test that asserted zero survivors would push a later
+worker into widening them. Plus one negative: a `scope_kind='team'` row's `scope_id` is untouched by
+every ladder step.
 
 ---
 
@@ -859,21 +928,21 @@ for direct table imports, not from the census.
 
 | Neighbour | today | after | block |
 |---|---|---|---|
-| `routes/plugins.ts:113,135,485,495,634,663` | contribution kind literal `"knowledge"`, `setKnowledgeStatus`, `restorePluginDocumentBody`, `upsertKnowledgeDocument` | kind literal `"document"` (§8.6); read-then-edit upsert; an archive **loop** of `edit_document({id,status})`, N edits, N change rows, each with the acting person as actor; restore is `edit_document({id, body})` + the existing `clearDetached` | B10 |
-| `framework/domain-model/src/configuration.ts:23-29` | `PLUGIN_CONTRIBUTION_KINDS` member `"knowledge"` | `"document"` — **the producing constant**; renaming it is what makes `check` name every reader | B10 |
-| `layers/core-api/settings/src/plugin-contributions.ts:11,97` | prose naming `knowledge_items`; types through `PluginContributionKind` | prose only; the type change flows from the constant | B10 |
-| `layers/core-ui/src/settings/SettingsPlugins.tsx:223,229` | label map + `REGISTRY_KINDS` hold `"knowledge"` | `"document"` — the browser half of the same enum | B10 |
+| `routes/plugins.ts:113,135,485,495,634,663` | contribution kind literal `"knowledge"`, `setKnowledgeStatus`, `restorePluginDocumentBody`, `upsertKnowledgeDocument` | the **kind literal** flips in **B2d** with the migration (§8.7c); the **behaviour** — read-then-edit upsert, an archive **loop** of `edit_document({id,status})` (N edits, N change rows, each with the acting person as actor), restore as `edit_document({id, body})` + the existing `clearDetached` — is **B10** | B2d, then B10 |
+| `framework/domain-model/src/configuration.ts:23-29` | `PLUGIN_CONTRIBUTION_KINDS` member `"knowledge"` | `"document"` — **the producing constant**; a stored value, so it flips with the migration and is what makes `check` name every reader | **B2b** |
+| `layers/core-api/settings/src/plugin-contributions.ts:11,97` | prose naming `knowledge_items`; types through `PluginContributionKind` | prose only; the type change flows from the constant | **B2d** |
+| `layers/core-ui/src/settings/SettingsPlugins.tsx:223,229` | label map + `REGISTRY_KINDS` hold `"knowledge"` | `"document"` — the browser half of the same enum | **B2h** |
 | `layers/core-api/settings/src/plugin-installer.ts` | names `knowledgeItems` in prose/types | re-pointed | B2d |
 | `routes/plugins.ts` — detach on human edit | `markDetached(db,{kind:"knowledge",entityId})` at `routes/knowledge.ts:672-674` | **§13 O1 — two variants, both specified.** B10 implements whichever the founder picks. | B10 |
 | `routes/agents.ts:31-34` | `getAgentIdentityIds`, `listItemIdsByParent`, `setKnowledgeStatus`, `upsertAgentIdentity` | `search_documents({parent:{kind:"agent",ids},slot:"agent_file",status:"active"})`; `search_documents({parent:{kind:"agent",id}})`; an archive loop; the shared identity seed helper | B11 |
 | `routes/org.ts:23`, `routes/users.ts:12`, `routes/teams-routes.ts:35` | `upsertAgentIdentity` | one shared local helper `layers/core-api/src/routes/agent-identity.ts` (new, ~30 lines) doing read-then-`edit_document({id:`doc_af_${agentId}`,…})`, replacing four call sites and the 41-line repository function | B11 |
 | `routes/agent-profile.ts:46` | `getAgentIdentityIds` | `search_documents({parent:{kind:"agent",ids},slot:"agent_file",status:"active"})` | B11 |
 | `actions/compose.ts:18-22,79` | binds `getAgentIdentity` from `@hyperidle/knowledge` **into the thread bag** (`agents.getAgentIdentity`, consumed by `thread-turn-resolver`) | the same field, bound to `searchDocuments({parent:{kind:"agent",id},slot:"agent_file",status:"active"})[0]?.body ?? null` | B13 |
-| `thread/src/title-ladder.ts:39,71-75,128` + `thread-actions.ts:195,474` | `TitleLadderDeps.getKnowledgeItemTitle(db, id)` — the ladder already batches the ids into `kiIds` (`:69-75`) and then makes **one call per id** | `TitleLadderDeps.getDocumentTitles(db, ids): Promise<ReadonlyMap<string,string>>`, bound to `searchDocuments({ ids })`. **One action call per list render, never N.** The `"Deleted knowledge item"` fallback string at `:128` becomes `"Deleted document"`. | B13 |
+| `thread/src/title-ladder.ts:39,71-75,128` + `thread-actions.ts:195,474` | `TitleLadderDeps.getKnowledgeItemTitle(db, id)` — the ladder already batches the ids into `kiIds` (`:69-75`) and then makes **one call per id** | two separate changes, two phases: **B2d** flips the `hostKind === "knowledge_item"` comparisons and the `"Deleted knowledge item"` string (a stored-value flip, §8.7a); **B13** replaces the dep with `getDocumentTitles(db, ids): Promise<ReadonlyMap<string,string>>` bound to `searchDocuments({ ids })` — **one action call per list render, never N** | B2d, then B13 |
 | `routes/routines-routes.ts:13-21` | `create`, `getParentedItem`, `getRoutinePrompt`, `getRoutinePromptBodies`, `listItemIdsByParent`, `setKnowledgeStatus`, `update` | `search_documents({parent:{kind:"routine",id|ids},slot:"prompt"})` for all three reads — **no `status` filter**, today's behaviour (`knowledge-repository.ts:2045-2048`), pinned by a test; `edit_document({parent:{kind:"routine",id},slot:"prompt",…})` for create/update; an archive loop for delete | B12 |
 | `services/routine-scheduler-bindings.ts:28-34` | `assembleSessionKnowledge`, `getAgentIdentity`, `get`, `getRoutinePrompt`, `sweep` | `assembleSessionDocuments`; the other three become injected `openDocument`/`searchDocuments`. **`sweep` deleted** (unreachable — `routine/src/ports.ts:76-95`). `ports.knowledge.getItemById` deleted with A1. | B0a, B8, B12 |
 | `services/task-run-resolver-bindings.ts:15` | `assembleSessionKnowledge`, `getAgentIdentity` | `assembleSessionDocuments`; identity via injected `searchDocuments` | B8, B11 |
-| `services/agent-run-admission-reactions.ts:169,173,234` | **three** live `knowledge_item` literals — `findThread({host:{kind:"knowledge_item",…}})` at `:169`, the `adjustThread` host at `:173`, and the `case "knowledge_action"` at `:234` | all three re-pointed to `host:{kind:"document",…}`; the `knowledge_action` case name is **excluded from the rename** (§11.1, O2) and stays | B13 |
+| `services/agent-run-admission-reactions.ts:169,173,234` | **three** live literals — `findThread({host:{kind:"knowledge_item",…}})` at `:169`, the `adjustThread` host at `:173`, and `case "knowledge_action"` at `:234` | the **two host literals** are a stored-value flip and move with `threads.host_kind` (§8.7a); the `knowledge_action` case name is **excluded** (§11.1, O2) and stays | **B2d** |
 | `actions/compose.ts:63-74` (thread's narrow read) | `getKnowledgeItem`, `findParent` | `searchDocuments({ids})` for the batched ladder; `openDocument` for the single-thread `hostTitle` | B13 |
 | `actions/compose.ts:106-112` (task's narrow read) | `listItemIdsByParent`, `getItemById` | `searchDocuments({parent:{kind:"task",id}})` → ids; `searchDocuments({ids:[id]})` for the `sourceDocumentId` existence check | B13 |
 | `routes/search.ts:29,105,112,292` | `search(db, query, …)`; the scope query-param literal `"knowledge"` at `:105` | injected `searchDocuments({text, limit})`; the scope value becomes `"document"` on both ends (`GlobalSearchPanel.tsx:18,85,288` is the other end) | B13, B19 |
@@ -891,11 +960,31 @@ merge_knowledge · split_knowledge`, their schemas and helpers. What is left is 
 `ports.ts`'s `ToolHandlersKnowledgeAccessor` goes with them, and `tool-handlers-bindings.ts` loses its
 knowledge block.
 
-**Deleted from `framework/api-contract/src/core-api-port.ts`:** the whole `CoreApiKnowledgePort`
-(`:351-383`) — all ten methods — plus its request/response types (`:213-345` region) and the
-`knowledge` field on the composed port.
-`layers/agent-orchestration/src/services/core-api-port-composition.ts` loses its knowledge
-implementation block (~90 lines).
+**`CoreApiKnowledgePort` dies in two halves, because the writeback still uses four of its ten
+methods.** Deleting the whole port in B0b would leave
+`layers/agent-orchestration/src/services/run-orchestration-composition.ts:296,312,319,331` calling
+methods that no longer exist, and `npm run check` red from B0b all the way to B15. The split is derived
+from the callers, not guessed:
+
+| method | only caller | dies in |
+|---|---|---|
+| `promoteKnowledgeItem` | `tool-handlers-bindings.ts:172` → `promote_knowledge` | **B0b** |
+| `mergeKnowledgeItem` | `:174` → `merge_knowledge` | **B0b** |
+| `splitKnowledgeItem` | `:176` → `split_knowledge` | **B0b** |
+| `findKnowledgeItemStatusById` | `:166` → `tool-definitions.ts:161` (promote) | **B0b** |
+| `findKnowledgeItemVersionById` | `:164` → `tool-definitions.ts:218` (conflict) | **B0b** |
+| `findOpenConflictByItemAndProposer` | `:168` → `tool-definitions.ts:232` (conflict) | **B0b** |
+| `createKnowledgeConflict` | `run-orchestration-composition.ts:319` (writeback) | **B0c** |
+| `create` | `:296` (writeback) | **B15** |
+| `updateKnowledgeItemContent` | `:312` (writeback) | **B15** |
+| `reparentKnowledgeItem` | `:331` (writeback) | **B15** |
+
+So B0b deletes six methods, their `core-api-port-composition.ts` implementations, their
+`tool-handlers-bindings.ts` bindings and the whole `ToolHandlersKnowledgeAccessor`
+(`tool-handlers/src/ports.ts:253-310`). B0c deletes the seventh. **B15 deletes the interface itself,
+the remaining three methods, the request/response types (`:213-345` region) and the `knowledge` field
+on the composed port** — ~90 lines out of `core-api-port-composition.ts` at that point.
+`core-api-port.ts` therefore has exactly one owner per phase, and B0b → B0c → B15 is a strict order.
 
 **The three tools appear with no new code:** `actionsAsTools` loops the composed list
 (`layers/core-api/src/actions/actions-as-tools.ts:12`), so `search_documents`/`open_document`/
@@ -930,9 +1019,12 @@ Writeback behaviour after the conflicts table is gone:
 - **move** (`handleCreate`'s suffix branch) → `edit_document({ id, parent })`.
 - **modify** → `edit_document({ id, body, version: manifestEntry.version })`.
 - **stale refused** (`problems[0].code === "stale"`) → the agent's text is **discarded**, not stored.
-  The processor calls `openDocument({id})`, writes the server's `version` into the manifest entry, and
-  logs one structured line through the observability adapter. The next save from the same session then
-  wins. Today it wrote a `knowledge_conflicts` row that nothing ever read or resolved (facts.md:
+  From **B15** the processor calls `openDocument({id})`, writes the server's `version` into the manifest
+  entry, and logs one structured line through the observability adapter; the next save from the same
+  session then wins. **B0c gets there first, without `open_document`:** the old seam's
+  `updateKnowledgeItemContent` already returns `{ok:false, currentVersion}` on a clash
+  (`run-orchestration-composition.ts:312`), so B0c writes `updateResult.currentVersion` into the
+  manifest and drops the conflict row — same observable behaviour, no forward dependency. Today it wrote a `knowledge_conflicts` row that nothing ever read or resolved (facts.md:
   *"nothing ever resolves one — `status` never leaves `open`"*), so this is strictly less hidden state,
   not less capability.
 - **deleted file** (`handleDelete`) → the manifest entry is dropped and **nothing is written**. A file
@@ -942,7 +1034,34 @@ Writeback behaviour after the conflicts table is gone:
 `create_artifact`'s server-side task stamp moves into `edit_document` (§3.6); the writeback does not
 need it (it passes an explicit parent or none).
 
-### 8.5 Governance registries — exactly which
+### 8.5 Governance registries — exactly which, and who owns each row
+
+**The rule, stated once and applied everywhere below: the block that deletes the subject owns the
+registry row.** `actions-projected.ts` treats a shrink-list entry whose subject is gone as a finding in
+its own right (`:16`, `:420-425`, `:445-450`), so a deletion that leaves its row behind turns the next
+block's `npm run lint` red. The same applies to every shrink-only or completeness registry a deletion
+touches.
+
+| registry | rows | owned by |
+|---|---|---|
+| `actions-projected.ts` `LEGACY_TOOLS` | the six tool names (`:227-235`) | **B0b**, with the tools |
+| `actions-projected.ts` `LEGACY_ROUTES` | `knowledge.ts\|GET /:id/conflicts`, `\|POST /:id/conflicts` | **B0c**, with those two routes |
+| `actions-projected.ts` `LEGACY_ROUTES` | the remaining nine `knowledge.ts` rows | **B20**, with the file |
+| `actions-projected.ts` `LEGACY_EVENTS` | the three `knowledge_*` rows | **B22** (A1 default) / not at all (A1 alternative) |
+| `actions-projected.ts` `PLUMBING_ROUTES` | one new row, only under O1 variant (a) | **B10** |
+| `table-owners.json` | five `knowledge*` rows out, `documents` in; totals 33 → 29 | **B2a**, with `schema.ts` |
+| `governance-attacks.ts:635-666` | the Ruling-13 companion pair | **B2a**, with the dropped projection |
+| `governance-attacks.ts:781-803` | names `@hyperidle/knowledge` | **B3**, with the package rename |
+| `governance-attacks.ts:1249-1257` | names `routes/knowledge.ts` | **B20**, with the file |
+| `crossing-detectors.ts:381-401` | comment naming the three dropped tables | **B2a** |
+| `misplaced-files.json` | the `fixtures/knowledge-data.ts` row | **B22**, with the file |
+| `mock-inventory/inventory.{json,md}` | three `KnowledgeDetail.tsx` rows | **B18**, regenerated there |
+| `mock-inventory/inventory.{json,md}` | two `fixtures/knowledge-data.ts` rows | **B22**, regenerated there |
+| `retired-surfaces-absent.ts` | nothing — it requires ABSENCE, so deleting more only helps | — |
+| `knip.json` | nothing — no knowledge entry (checked) | — |
+| `architecture.json` | nothing — zero occurrences of "knowledge" (checked) | — |
+
+Detail per registry:
 
 - **`tools/governance/table-owners.json`** — delete the five `knowledge*` rows; add
   `"documents": "document"`. `totals.tables` 33 → 29, `owned` 33 → 29. Owned by **B2a**, so
@@ -952,12 +1071,11 @@ need it (it passes an explicit parent or none).
   matches `layers/*/*` exactly as `layers/core-api/knowledge` did.
 - **root `package.json` `workspaces`** — no edit, same glob.
 - **`tools/governance/src/rules/actions-projected.ts`** —
-  - `LEGACY_ROUTES`: delete the eleven `layers/core-api/src/routes/knowledge.ts|…` rows (`:165-175`).
-    `routes/search.ts|GET /` stays.
-  - `LEGACY_TOOLS`: delete `create_artifact`, `create_conflict_review`, `merge_knowledge`,
-    `promote_knowledge`, `split_knowledge`, `write_memory` (`:227-235`). Five entries remain.
-  - `LEGACY_EVENTS`: delete `knowledge_created`, `knowledge_updated`, `knowledge_archived`
-    (`:257-259`) — **only under A1's default**; the alternative keeps all three rows.
+  - `LEGACY_ROUTES`: the eleven `layers/core-api/src/routes/knowledge.ts|…` rows (`:165-175`) leave in
+    two goes — two in B0c, nine in B20, each with its route. `routes/search.ts|GET /` stays.
+  - `LEGACY_TOOLS`: the six names (`:227-235`) leave in **B0b**, with the tools. Five entries remain.
+  - `LEGACY_EVENTS`: the three `knowledge_*` rows (`:257-259`) leave in **B22** — **only under A1's
+    default**; the alternative keeps all three rows and B22 touches none of them.
   - `OBJECT_EVENTS` already holds `document.created`/`document.changed` (`:102-103`) — no edit.
   - Clause 1 will then demand a `call("search_documents"…)`, `call("open_document"…)` and
     `call("edit_document"…)` site under `layers/core-ui/src/` — satisfied by the hooks (§9).
@@ -966,21 +1084,24 @@ need it (it passes an explicit parent or none).
   `countKnowledgeItems`. All four still hold and none of their tokens is in the rename map — **no edit**.
 - **`tools/governance/src/rules/artifact-is-not-a-storage-concept.ts`** — its six `why` strings say
   "knowledge item"; prose only, its `token` regexes name `artifacts`.
-- **`tools/governance/src/lib/governance-attacks.ts`** — the Ruling-13 companion fixture
-  (`:635-666`) exists *because* `knowledgeItems`+`knowledgeAppProjection` were a companion pair. With
-  the projection gone the pair is gone: that attack case must be **re-pointed at a surviving companion
-  pair** (derive one by scanning the owners' own writers, as the rule's own note says) or deleted if
-  none exists. `:781-803` and `:1249-1257` name `@hyperidle/knowledge` /
-  `layers/core-api/src/routes/knowledge.ts` and must be re-pointed at a surviving package and a
-  surviving `LEGACY_ROUTES` file. Owned by **B2a** so lint never goes red mid-wave; `npm run lint` is
-  that block's verify.
+- **`tools/governance/src/lib/governance-attacks.ts`** — three independent cases, three owners
+  (table above). `:635-666` is the Ruling-13 companion fixture, which exists *because*
+  `knowledgeItems`+`knowledgeAppProjection` were a companion pair; with the projection gone the pair is
+  gone, so **B2a** re-points it at a surviving pair (derive one by scanning the owners' own writers, as
+  the rule's own note says) or deletes the case if none exists. `:781-803` names `@hyperidle/knowledge`
+  and is re-pointed by **B3**; `:1249-1257` names `layers/core-api/src/routes/knowledge.ts` and is
+  re-pointed by **B20**. Each of those three blocks runs `npm run lint` as part of its verify.
 - **`tools/governance/src/lib/crossing-detectors.ts:381-401`** — the companion-group comment names the
   three deleted tables. Comment only; the groups are derived. **B2a**.
-- **`tools/governance/misplaced-files.json`** — delete the single
-  `layers/core-ui/src/fixtures/knowledge-data.ts` row, in the block that deletes the file (**B22**).
-- **`tools/repo-gates/mock-inventory/inventory.json` + `.md`** — five rows for
-  `fixtures/knowledge-data.ts` and `KnowledgeDetail.tsx` (`LEGACY_DETAILS`, `LEGACY_SOURCES`,
-  `FALLBACK_DETAIL`). Regenerate with `npm run mock-inventory:check` rather than hand-editing (**B23**).
+- **`tools/governance/misplaced-files.json`** — the single
+  `layers/core-ui/src/fixtures/knowledge-data.ts` row leaves in the block that deletes the file
+  (**B22**).
+- **`tools/repo-gates/mock-inventory/inventory.json` + `.md`** — five rows. Three name
+  `KnowledgeDetail.tsx`'s `LEGACY_DETAILS`/`LEGACY_SOURCES`/`FALLBACK_DETAIL` and are regenerated by
+  **B18** when those blocks are deleted; two name `fixtures/knowledge-data.ts` and are regenerated by
+  **B22**. Regenerate with `npm run mock-inventory:check`, never hand-edit. (It is checked by
+  `npm run verify`, not by `npm run lint`, so nothing between B18 and B37 would have caught a stale
+  ledger — which is exactly why each block regenerates its own.)
 - **`knip.json`** — contains no knowledge entry (checked). The four-export barrel may surface new
   unused-export findings; the fix is to delete the export, never to add an ignore.
 
@@ -990,18 +1111,28 @@ need it (it passes an explicit parent or none).
 `@hyperidle/knowledge` (handled by R1) and `framework/db/drizzle/*.sql` (never edited). No token-map
 rule rewrites a bare `"knowledge"`, so each one is listed and owned.
 
+**The stored-value rule.** For every string the migration rewrites in the database, the **code that
+produces or reads that string flips in the same window** — i.e. in a B2 sub-block, after the migration
+has landed (B2a) and before the tree turns green again (B2i). Code and data must agree at every block
+boundary, so a stored-value flip may never sit in a later phase. Three strings are in this class and
+all three are therefore owned by B2 sub-blocks, not by Phase C:
+`plugin_contributions.kind`, `documents.parent_kind` and `threads.host_kind` (§8.7).
+
 **Rewritten to `"document"` — a stored value or an enum member naming the object:**
 
 | site | what it is | block |
 |---|---|---|
-| `framework/domain-model/src/configuration.ts:26` | `PLUGIN_CONTRIBUTION_KINDS` member — **the producing constant** | B10 |
-| `framework/db/src/schema.ts:1343` | `plugin_contributions_kind_ck` | B2a + migration step 9 |
-| `layers/core-api/src/routes/plugins.ts:113,135,485,495,634,663` | six uses of the contribution kind | B10 |
-| `layers/core-ui/src/settings/SettingsPlugins.tsx:223,229` | label map key, `REGISTRY_KINDS` | B10 |
+| `framework/domain-model/src/configuration.ts:23-29` | `PLUGIN_CONTRIBUTION_KINDS` member — **the producing constant**; a stored value, so it flips with the migration | **B2b** |
+| `framework/db/src/schema.ts:1343` | `plugin_contributions_kind_ck` | B2a + migration step 10 |
+| `layers/core-api/src/routes/plugins.ts:113,135,485,495,634,663` | six uses of the contribution kind | **B2d** |
+| `layers/core-api/src/routes/knowledge.ts:673` | `markDetached({kind:"knowledge"})` — typed by `PluginContributionKind`, so it flips with the constant; the file itself is deleted later | flips **B2d**, deleted **B20** |
+| `layers/core-api/settings/src/plugin-contributions.ts` | types through `PluginContributionKind`; prose names `knowledge_items` | **B2d** |
+| `layers/core-ui/src/settings/SettingsPlugins.tsx:223,229` | label map key, `REGISTRY_KINDS` | **B2h** |
 | `layers/core-api/src/routes/search.ts:105` | the `?scope=knowledge` wire value | B13 |
 | `layers/core-ui/src/components/GlobalSearchPanel.tsx:18,85` | `ResultType` member and the result push — the other end of that wire | B19 |
 | `layers/core-ui/src/ds/ReferenceChip.tsx:30` (+ `.stories.tsx:11`, `UnifiedSplitView.stories.tsx:278`) | `ReferenceChipKind` member | B19 |
 | `layers/core-ui/src/components/parts/embeds.tsx:41` | the chip kind it passes | B19 |
+| `layers/core-ui/src/router.tsx:96` | the route **path** `"knowledge"` → `"documents"` (the sibling `:97,:98` paths go with it) | B19 |
 | `layers/core-api/knowledge/vitest.config.ts:5` | the vitest project name | B3 |
 | `layers/core-api/tsconfig.json:57` | the project reference path | B3 |
 | `tools/governance/table-owners.json:10-14` | the five owner rows | B2a |
@@ -1014,6 +1145,45 @@ rule rewrites a bare `"knowledge"`, so each one is listed and owned.
 | `framework/domain-model/src/session-request.ts:13,26,104,105`; `layers/agent-orchestration/session-requests/src/service.ts:1071`; `framework/domain-model/src/work-intent.ts:540`; `layers/agent-orchestration/run-orchestration/src/context.ts:1045` | the `knowledge_action` family's bare spelling — a kind of **run**, constrained by CHECKs on `sessions` and `agent_session_requests`. Excluded with it (§11.1, O2). |
 | `layers/agent-orchestration/run-orchestration/src/scaffolding-paths.ts:3`, `file-watcher.ts:49`, `context.ts:780,814,994`, `writeback-processor.ts:249` (`isKnowledgePath`) | the **sandbox directory** `knowledge/`. See §13 O4. |
 | `framework/event-bus/src/events.ts:43` | prose in a doc comment |
+
+### 8.7 The closed unions that carry a stored value — one flip block each
+
+A union member and the rows that hold it must change together. Each of the three below therefore flips
+inside the B2 window, and each is added to the rename wave's EXCLUDE (§11.1) so it is never renamed a
+second time.
+
+**(a) `threads.host_kind` — `HOST_KINDS` / `BlockHostKind`.**
+Declared `framework/domain-model/src/thread.ts:27` (`BlockHostKind`) and `:35` (`HOST_KINDS`), plus
+`framework/domain-model/src/actions/thread.ts:35` (`entityRefSchema.kind`) and `:486` (`HOST_SCOPED`).
+Data flips in migration step 8. **Code flips in B2b (the declarations) and B2d + B2h (the readers).**
+Every reader, derived with `rg -a -l 'HOST_KINDS|HostKind|BlockHostKind'`:
+
+| package | files | block |
+|---|---|---|
+| `framework/domain-model` | `thread.ts`, `actions/thread.ts`, `index.ts`, 3 `__tests__` | B2b |
+| `framework/event-bus` | `events.ts` | B2d |
+| `layers/core-api` | `policy/src/lifecycle-propagation.ts`, `src/ws-subscribe-authorizer.ts`, `thread/src/thread-actions.ts`, `thread/src/title-ladder.ts:73,128` (the `"Deleted knowledge item"` string too), `src/services/agent-run-admission-reactions.ts:169,173` | B2d |
+| `layers/core-ui` | `block/{types,derive-blocks,index}.ts`, `components/{ThreadSections.tsx,parts/part.ts}`, `ds/{ThreadHostBanner,ThreadRow}.tsx`, `pages/Conversations.tsx`, `services/{host-route,open-handler}.ts`, `shell/HostThreadSection.tsx`, 4 tests, `__e2e__/knowledge-thread.spec.ts` | B2h |
+
+`agent-run-admission-reactions.ts`'s `case "knowledge_action"` at `:234` is **not** in this set — it is
+a session kind, excluded (O2) — but the two `host:{kind:"knowledge_item"}` literals at `:169,173`
+around it are, so B2d touches the file and B13 does not.
+
+**(b) `documents.parent_kind` — `KNOWLEDGE_PARENT_KINDS`.**
+Declared `framework/domain-model/src/knowledge.ts:60-67`; the new `DOCUMENT_PARENT_KINDS` is created by
+B1 in the declaration file, but the **old constant keeps its name and gains the new member value** in
+**B2b** so that stored rows and code agree from B2a onward; `knowledge.ts` itself is deleted in B22.
+Every site that holds the literal, derived with `rg -a -n '"knowledge_item"'`:
+`routes/knowledge.ts:67,145,164,456,868,904` (B2d), `knowledge-repository.ts` (B2c),
+`writeback-processor.ts:52,104,271,396,424` (B2g),
+`run-orchestration-composition.ts:246,287` (B2g — this file is the writeback seam, so B2g owns it for
+the value flip and B15 owns it for the re-point; the two are phases apart),
+`core-ui` `pages/document/{parent-options.ts:49, MoveDialog.tsx:49,65, KnowledgeBody.tsx:108,
+KnowledgeTreeList.stories.tsx:35,49}` (B2h).
+
+**(c) `plugin_contributions.kind` — `PLUGIN_CONTRIBUTION_KINDS`.** §8.6's first three rows; constant in
+B2b, readers in B2d and B2h. **B10 therefore owns only the plugin *behaviour* re-point** (read-then-edit
+upsert, the archive loop, restore, O1) — never the kind literal.
 
 ---
 
@@ -1126,6 +1296,9 @@ Never rewritten:
   members of `AGENT_SESSION_SOURCE_KINDS` / `AGENT_SESSION_PROMPT_MODES` / the work-intent bundle
   variant (§8.6, O2). Both are constrained by CHECKs on `sessions` and `agent_session_requests`.
 - The **sandbox directory** `knowledge/` and `isKnowledgePath` (§13 O4).
+- **Every closed union that carries a stored value** — `HOST_KINDS`, `BlockHostKind`,
+  `KNOWLEDGE_PARENT_KINDS`, `PLUGIN_CONTRIBUTION_KINDS` and their readers. They are already flipped in
+  the B2 window (§8.7); a second pass here would rename a value the database now holds.
 - The English word *knowledge* where it means the place or the idea — "the team's knowledge",
   `docs/knowledge-architecture/` as a folder name. Rewrite the sentence only when it names the
   **object** ("a knowledge item").
@@ -1380,6 +1553,33 @@ commit messages or PR text. They belong under `.pipeline/` and inside `@lore` bl
 an explicit pathspec and check `git show --stat` before moving on — BC3 lost commit messages to a
 shared index.
 
+### 16.1 The boundary check — two questions per block
+
+Before a block is handed out, and again before the next one starts, ask exactly two things:
+
+1. **Does its verify pass with only the blocks before it applied?** No verify command may depend on a
+   later block. Where a whole-tree gate cannot pass yet, the block uses a per-package one and the
+   architecture says where the whole-tree gate turns green again (B2i for `check`).
+2. **Does it delete anything a later-owned file still imports?** If yes, either the deletion moves
+   later or the importer moves into this block.
+
+I walked the sequence once against those two questions. Seven boundary breaks were found and are
+already fixed above; they are listed so a reviewer can re-check the fixes rather than re-find them.
+
+| # | break | fix |
+|---|---|---|
+| 1 | B0a deleted `promotion-pipeline.ts` while `knowledge/src/index.ts:85` still re-exported `sweep` | B0a owns that barrel line |
+| 2 | `core-api-port-increment2-knowledge.integration.test.ts` asserts all ten port methods, which die in three different blocks | it is **edited** in B0b (six gone), **edited** in B0c (a seventh), **deleted** in B15 — three owners, three phases, never concurrent |
+| 3 | B0c deleted `knowledge-conflicts.ts` while `knowledge-repository.ts:1586`'s promote gate and `index.ts:47-51` still used it | B0c owns the gate and the barrel lines |
+| 4 | B1 and B2b both edit `framework/domain-model/src/index.ts` | B1 is `∥` with **B2a only** and must finish before B2b |
+| 5 | **the worst one.** `actions-projected.ts` clause 1 demands a `call("<name>")` site in core-ui for every declared action, so B1's new declaration turned `npm run lint` red from B1 all the way to Phase E — poisoning the verify of B2a, B2i, B3, B7 and every Phase-0 block ordered after it | the two hooks (`useDocument`, `useDocuments`, `call.ts`) move **into B1**; they depend only on the declaration. Old B16 keeps `useAutoSave` and the two hook deletions and moves to **after** B17–B19 |
+| 6 | B2i deleted two eval judges while `scenarios/promote-knowledge.ts` and `create-conflict-review.ts` still imported them — and those scenarios were scheduled for B35, eight phases later | B2i deletes both scenarios too; B35 only rewrites survivors |
+| 7 | B8's `session-documents.ts` inherited the assembler's imports from `knowledge-repository.ts` (`session-knowledge-assembler.ts:26-30`), which B21 deletes | B8 takes `resolveParentChain` and the row type from `document-store.ts` (B4) instead |
+
+Two more things the walk confirmed rather than changed: `compose.ts`'s three owners are strictly
+ordered (B7 → B9 → B13) and never concurrent; and `routes/knowledge.ts` is touched by B0c (two routes),
+B2d (stored-value flips) and B20 (deleted) — three phases apart, so the file has one owner at a time.
+
 **Derivation commands used below**
 
 ```bash
@@ -1397,48 +1597,82 @@ or rewrite most of those files before the rename wave runs.
 
 ### Phase 0 — delete what is dead or replaced-by-nothing, first
 
-These shrink Phase A's mechanical surface and depend on nothing. All `∥`.
+These shrink Phase A's mechanical surface and depend on nothing outside themselves. **B0a is `∥`;
+B0b → B0c is a strict order** — both touch `framework/api-contract/src/core-api-port.ts`,
+`core-api-port-composition.ts` and `writeback-processor.ts`, so they never run at the same time.
 
 **B0a — the two sweeps.** Owns `layers/core-api/knowledge/src/promotion-pipeline.ts` (426),
 `layers/core-api/routine/src/ports.ts:76-95`,
-`layers/core-api/src/services/routine-scheduler-bindings.ts:78,80`, and the sweep tests
+`layers/core-api/knowledge/src/index.ts:85` (the `export { sweep }` line),
+`layers/core-api/src/services/routine-scheduler-bindings.ts:33,78,80`, and the sweep tests
 (`af9-promotion-routine.integration.test.ts`, the sweep arms of the routine scheduler tests). **4–6
 files.** Unreachable in production (facts.md; `routine/src/ports.ts:76-95` is bound and never called).
+No registry row leaves with it: `run_knowledge_sweep` is already gone from `LEGACY_TOOLS`, and
+`retired-surfaces-absent.ts:70-73` demands *absence*, which deleting more only helps.
 Red first: none — a deletion. Its proof is that `check`, `lint` and the service lane stay green.
 Verify: `npm run check && npm run lint && npm run test:integration:service`.
 
-**B0b — the six agent tools and the seam.** Owns
+**B0b — the six agent tools, and only the six port methods they back.** Owns
 `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`, `…/ports.ts`,
+`…/src/__tests__/stub-ports.ts`,
 `layers/agent-orchestration/src/services/tool-handlers-bindings.ts`,
-`layers/agent-orchestration/src/services/core-api-port-composition.ts`,
-`framework/api-contract/src/core-api-port.ts`,
-`layers/agent-orchestration/src/__testing__/throwing-open-task.ts`, and the tests that drive the six
-tools (`tool-handlers/src/__tests__/create-artifact.integration.test.ts`,
-`merge-split-knowledge.test.ts`, `promote-knowledge-status-collapse.test.ts`,
-`return-actions.closure.test.ts`, `tool-handlers-completeness-contract.test.ts` — the last is
-re-pointed, the rest deleted with their subjects; plus the core-api tool tests
-`create-artifact-*.integration.test.ts`, `write-memory.integration.test.ts`,
-`promote-knowledge.integration.test.ts`, `create-conflict-review.integration.test.ts`). **~14 files.**
+`layers/agent-orchestration/src/services/core-api-port-composition.ts` (the six implementations only),
+`framework/api-contract/src/core-api-port.ts` (the six method signatures only),
+`layers/agent-orchestration/src/__testing__/throwing-open-task.ts`, **and the six `LEGACY_TOOLS` rows
+in `tools/governance/src/rules/actions-projected.ts:227-235`** — the rule reports an entry whose
+subject is gone (`:445-450`), so the rows leave with the tools. Tests: delete
+`tool-handlers/src/__tests__/{create-artifact.integration.test.ts, merge-split-knowledge.test.ts,
+promote-knowledge-status-collapse.test.ts}` and the core-api tool tests
+(`create-artifact-*.integration.test.ts`, `write-memory.integration.test.ts`,
+`promote-knowledge.integration.test.ts`, `create-conflict-review.integration.test.ts`,
+`core-api-port-increment2-knowledge.integration.test.ts` — the last loses the six methods it asserts);
+re-point `return-actions.closure.test.ts` and `tool-handlers-completeness-contract.test.ts`.
+**~18 files.**
+**Does NOT touch** `create`, `updateKnowledgeItemContent`, `reparentKnowledgeItem` or
+`createKnowledgeConflict` — the writeback still calls all four (§8.4's table).
 The set-equality assertion on the registered tool names waits for B14.
 Verify: `npm run check && npm run lint && npm run test:integration:service`.
 
-**B0c — the conflicts surface.** Owns `layers/core-api/knowledge/src/knowledge-conflicts.ts`,
-its two routes in `routes/knowledge.ts` (`:802-833`), the promotion block they gated,
-`layers/agent-orchestration/run-orchestration/src/writeback-processor.ts`'s `recordConflict` branches
-(`:477-492`, `:496-522`) and `WritebackResult.conflicts`, and the conflict tests. **~8 files.**
-Red first: the writeback's delete path drops the manifest entry and writes nothing — assert the
-document row is byte-identical after a sandbox delete.
+**B0c — the conflicts surface, end to end.** Depends on B0b (same three files). Owns
+`layers/core-api/knowledge/src/knowledge-conflicts.ts`, its barrel exports
+(`knowledge/src/index.ts:47-51`), the open-conflict gate inside
+`knowledge-repository.ts:1586` (`code:"CONFLICT_OPEN"`) and the `PromoteTransitionResult` arm that
+carries it, the two routes in `routes/knowledge.ts` (`:802-833`) **and their two `LEGACY_ROUTES` rows**
+(`actions-projected.ts:172-173`), the promotion block they gated,
+`framework/api-contract/src/core-api-port.ts`'s `createKnowledgeConflict` + `KnowledgeConflictView` /
+`CreateKnowledgeConflictRequest`, its `core-api-port-composition.ts:458-472` implementation,
+`run-orchestration-composition.ts:283-292,319-328`'s `recordConflict`, and
+`writeback-processor.ts`'s two `recordConflict` branches (`:477-492`, `:496-522`),
+`WritebackResult.conflicts` and the conflict tests. **~12 files.**
+The replacement behaviour needs **no** forward dependency: the stale path writes
+`updateResult.currentVersion` (already returned by the surviving `updateKnowledgeItemContent`) into the
+manifest; the delete path drops the manifest entry and writes nothing. B15 later swaps the version
+source to `open_document`.
+Red first: after a sandbox delete, the document row is byte-identical and the manifest no longer names
+it — assert both, and assert `knowledge_conflicts` gained no row.
 Verify: `npm run check && npm run lint && npm run test:integration:service`.
 
 ### Phase A — the vocabulary and the schema
 
-**B1 — the declaration.** ∥ B2a
+**B1 — the declaration, and the two hooks that make it reachable.** ∥ B2a; must finish before B2b.
 Owns `framework/domain-model/src/actions/document.ts` (new), `framework/domain-model/src/index.ts`
-(exports only), `framework/domain-model/src/__tests__/document-invariants.test.ts` (new). **3 files.**
+(exports only), `framework/domain-model/src/__tests__/document-invariants.test.ts` (new),
+**`layers/core-ui/src/hooks/useDocument.ts` (new), `…/useDocuments.ts` (new),
+`layers/core-ui/src/services/call.ts` (the `Actions` union gains `DOCUMENT_ACTIONS`)** and their tests.
+**~8 files.**
 Implements §3 and §4.1 plus `canReadDocument`/`documentAs`/`searchDocumentsInvariants`.
 `knowledge.ts` is **not** deleted yet.
-Red first: `document-invariants.test.ts` asserting every §4.1 code by exact equality.
-Verify: `npx tsc --noEmit -p framework/domain-model && npx vitest run framework/domain-model`.
+
+**Why the hooks are here and not in Phase E.** `actions-projected.ts` clause 1 scans
+`framework/domain-model/src/actions/` for `name:` properties and demands a `call("<name>", …)` site
+under `layers/core-ui/src/` for each (`:35-36`, `:379-404`). The moment this file exists, `npm run
+lint` goes red until such a site does — which would poison the verify of every block from here to
+Phase E. Shipping `useDocument`/`useDocuments` in the same block closes the window at zero cost: both
+depend only on the declaration and on `call`, never on the server, and their unit tests mock `call`.
+Red first: `document-invariants.test.ts` asserting every §4.1 code by exact equality, **and**
+`useDocuments` re-running its `call` when a `documents` frame arrives.
+Verify: `npx tsc --noEmit -p framework/domain-model && npx vitest run framework/domain-model` then
+`npx tsc --noEmit -p layers/core-ui && npm run lint`.
 
 **B2 — the schema rename.** A sequence, one commit per package. `npm run check` is **RED** from B2a to
 B2h and **turns GREEN at B2i**; no block in the sequence uses `npm run check` as its verify. `npm run
@@ -1447,21 +1681,27 @@ lint` stays green throughout because B2a carries the governance registries with 
 | block | owns | files | verify |
 |---|---|---|---|
 | **B2a** | `framework/db/src/schema.ts`, `framework/db/src/index.ts`, `framework/db/drizzle/0086_document_module.sql` (new), `framework/db/drizzle/meta/_journal.json`, `framework/db/src/__tests__/migration-0086-brownfield.integration.test.ts` (new), `…/schema.integration.test.ts`, `…/governance-crossings.test.ts`; **plus** `tools/governance/table-owners.json`, `…/src/lib/governance-attacks.ts`, `…/src/lib/crossing-detectors.ts` | **10** | `npx vitest run --project service framework/db/src/__tests__/migration-0086-brownfield.integration.test.ts && npm run lint` |
-| **B2b** | `framework/domain-model/src/types.ts`, `…/work-intent.ts` | **2** | `npx tsc --noEmit -p framework/domain-model` |
+| **B2b** | `framework/domain-model/src/{types.ts, work-intent.ts}`; **plus every closed union that carries a stored value** (§8.7) — `thread.ts:27,35`, `actions/thread.ts:35,486`, `knowledge.ts:60-67` (`KNOWLEDGE_PARENT_KINDS` gains the new member value, keeps its name until B22), `configuration.ts:23-29` (`PLUGIN_CONTRIBUTION_KINDS`), `index.ts`, and the 3 `__tests__` that pin those unions | **9** | `npx tsc --noEmit -p framework/domain-model && npx vitest run framework/domain-model` |
 | **B2c** | `layers/core-api/knowledge/src/{knowledge-repository,session-knowledge-assembler,index}.ts` + its 5 surviving `__tests__` files. Deletes `getProjectionRow`, `mergeWithProjection`, the projection insert in `create`, the projection branch in `update`, the joins in `listBase`/`list`/`search`; reads `confidence`/`meta` off the row | **8** | `npx tsc --noEmit -p layers/core-api/knowledge` |
-| **B2d** | `layers/core-api/src/routes/knowledge.ts`, `…/routes/search.ts`, `layers/core-api/settings/src/plugin-installer.ts` | **3** | `npx tsc --noEmit -p layers/core-api/settings` |
+| **B2d** | `layers/core-api/src/routes/{knowledge.ts, search.ts, plugins.ts}`, `layers/core-api/settings/src/{plugin-installer.ts, plugin-contributions.ts}`, `layers/core-api/policy/src/lifecycle-propagation.ts`, `layers/core-api/src/ws-subscribe-authorizer.ts`, `layers/core-api/thread/src/{thread-actions.ts, title-ladder.ts}`, `layers/core-api/src/services/agent-run-admission-reactions.ts`, `framework/event-bus/src/events.ts` — i.e. **every reader of the three stored-value unions** (§8.7) plus the two files already named | **11** | `npx tsc --noEmit -p layers/core-api/settings layers/core-api/policy layers/core-api/thread && npx tsc --noEmit -p framework/event-bus` |
 | **B2e** | `layers/core-api/src/__tests__/` (19 files, minus those B0b/B0c deleted) | **~13** | `npx vitest run --project service layers/core-api/src/__tests__` |
 | **B2f** | `layers/core-api/src/routes/__tests__/` (17) + `src/services/__tests__/` (5) + `task/` (1) + `routine/` (1) | **~22** | `npx vitest run --project service layers/core-api/src/routes/__tests__ layers/core-api/src/services/__tests__` then `npx tsc --noEmit -p layers/core-api` |
-| **B2g** | `layers/agent-orchestration/run-orchestration/src/{writeback-processor,manifest-types}.ts` | **2** | `npx tsc --noEmit -p layers/agent-orchestration/run-orchestration` |
-| **B2h** | `layers/core-ui/src/{fixtures/knowledge-data.ts,pages/KnowledgeDetail.tsx,layouts/AppShell.tsx,shell/Sidebar.tsx}`, `src/__tests__/Sidebar.test.tsx`, `__e2e__/R9-action-prominence.spec.ts` | **6** | `npx tsc --noEmit -p layers/core-ui` |
-| **B2i** | `tools/setup/src/{demo-world/knowledge.ts,demo-fixture.ts}`, `tools/eval/src/{seeding.ts,judges.ts,scenarios/*}` (9). Deletes `judgePromoteKnowledgeCalled` + `judgeCreateConflictReviewCalled` and their rubric rows | **11** | **`npm run check && npm run lint`** — this is where the tree turns green again |
+| **B2g** | `layers/agent-orchestration/run-orchestration/src/{writeback-processor.ts:52,104,271,396,424, manifest-types.ts}` and `layers/agent-orchestration/src/services/run-orchestration-composition.ts:246,287` — the `parent_kind` value flip only; the seam re-point is B15 | **3** | `npx tsc --noEmit -p layers/agent-orchestration/run-orchestration && npx tsc --noEmit -p layers/agent-orchestration` |
+| **B2h** | the six table-symbol files — `src/{fixtures/knowledge-data.ts, pages/KnowledgeDetail.tsx, layouts/AppShell.tsx, shell/Sidebar.tsx, __tests__/Sidebar.test.tsx}`, `__e2e__/R9-action-prominence.spec.ts` — **plus** every core-ui reader of the three stored-value unions (§8.7): `block/{types,derive-blocks,index}.ts`, `components/{ThreadSections.tsx, parts/part.ts}`, `ds/{ThreadHostBanner,ThreadRow}.tsx`, `pages/Conversations.tsx`, `services/{host-route,open-handler}.ts`, `shell/HostThreadSection.tsx`, `settings/SettingsPlugins.tsx:223,229`, `pages/knowledge/{parent-options.ts:49, MoveDialog.tsx:49,65, KnowledgeBody.tsx:108, KnowledgeTreeList.stories.tsx}`, and 5 tests + `__e2e__/knowledge-thread.spec.ts` | **~27** | `npx tsc --noEmit -p layers/core-ui && npx vitest run layers/core-ui` |
+| **B2i** | `tools/setup/src/{demo-world/knowledge.ts,demo-fixture.ts}`, `tools/eval/src/{seeding.ts,judges.ts,scenarios/*}` (9). Deletes `judgePromoteKnowledgeCalled` + `judgeCreateConflictReviewCalled` (they read the dropped `knowledge_edit_log` / `knowledge_conflicts`, `judges.ts:16,248-283`) **and, in the same block, the two scenarios that consume them — `scenarios/promote-knowledge.ts` and `scenarios/create-conflict-review.ts`** plus their `scenarios/index.ts` rows. Their tools went in B0b, so the scenarios are already dead; leaving them here would break `check` at this exact boundary. B35 therefore only *rewrites* the survivors | **13** | **`npm run check && npm run lint`** — this is where the tree turns green again |
 
 ### Phase B — the module
 
 **B3 — move the package.** Owns `git mv layers/core-api/knowledge layers/core-api/document`, its
 `package.json` (name `@hyperidle/document`), `tsconfig.json`, `vitest.config.ts` (project name),
-`layers/core-api/tsconfig.json:57`, and the `@hyperidle/knowledge` → `@hyperidle/document` specifier in
-every `package.json` and import (R1). **~20 files** (`rg -l '@hyperidle/knowledge'`).
+`layers/core-api/tsconfig.json:57`, the `@hyperidle/knowledge` → `@hyperidle/document` specifier in
+every `package.json` and import, and `governance-attacks.ts:781-803` (which names the old package).
+`rg -a -l '@hyperidle/knowledge'` returns **54 files** today — **47 `.ts`, 6 `.json` (five
+`package.json` plus `package-lock.json`), 1 `.md`**. This block owns the **import specifiers, the
+package manifests and the tsconfig references only**; the one `.md`
+(`docs/knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md`) is **prose and belongs to
+the rename wave** (§12, B36). Re-derive the list before starting; the deletions in Phase 0 have already
+removed some of the 47.
 Verify: `npm run check && npm run lint && npm run test:full`. Depends on: B2i.
 
 **B4 — the store.** Owns `layers/core-api/document/src/document-store.ts` (new),
@@ -1477,6 +1717,9 @@ Verify: `npx vitest run --project service layers/core-api/document`. Depends on:
 
 **B5 — search and open.** Owns the read half of `layers/core-api/document/src/document-actions.ts`
 (new) and `…/src/action-types.ts` (new). **2 files.** Implements §3.3, §3.4, §5.1's subject resolution.
+Also owns the `scopeName` derivation lifted from `routes/knowledge.ts:84-108` and its replacement
+test (the original, `layers/core-api/src/__tests__/resolve-scope-name.test.ts`, dies with the route in
+B20).
 Red first: `open_document` on another person's memory returns exactly `[{code:"not_found"}]`.
 Verify: `npx vitest run --project service layers/core-api/document`. Depends on: B4.
 
@@ -1495,9 +1738,16 @@ Red first: the whole §15.2 table — it is this block's definition of done.
 Verify: `npx vitest run --project service layers/core-api/src/__tests__/document-actions.integration.test.ts`
 then `npm run check && npm run lint`. Depends on: B6.
 
+**`compose.ts` has three owners; they are strictly ordered, never concurrent: B7 → B9 → B13.**
+B7 builds the bags and generalises `runnerFor`; B9 binds `wsPush`; B13 swaps task's and thread's narrow
+document reads. B8, B10, B11 and B12 do not touch the file.
+
 **B8 — the session read model.** ∥ B9
 Owns `layers/core-api/document/src/session-documents.ts` (new; folds and deletes
-`session-knowledge-assembler.ts`, `token-budget.ts`, `scoring-config.ts`),
+`session-knowledge-assembler.ts`, `token-budget.ts`, `scoring-config.ts`). **It must import
+`resolveParentChain` and the row type from `document-store.ts`, never from
+`knowledge-repository.ts`** — today's assembler imports both from the repository
+(`session-knowledge-assembler.ts:26-30`), and B21 deletes that file. Also owns
 `layers/core-api/src/services/task-run-resolver-bindings.ts`,
 `layers/core-api/src/services/routine-scheduler-bindings.ts` (the one `assembleSessionDocuments` line),
 and `session-knowledge-assembler-ranking-parity.integration.test.ts`. **7 files.**
@@ -1510,14 +1760,16 @@ Owns `layers/core-api/src/ws-subscribe-authorizer.ts`, the `wsPush` binding in `
 Red first: §15.3 (c), shown red by deleting the authorizer branch.
 Verify: `npx vitest run --project service applications/remote-server`. Depends on: B7.
 
-### Phase C — neighbours (B10 ∥ B11 ∥ B12 ∥ B13, all after B7)
+### Phase C — neighbours (B10 ∥ B11 ∥ B12 ∥ B13, all after B9)
 
-**B10 — plugins and the contribution kind.** Owns `layers/core-api/src/routes/plugins.ts`,
-**`framework/domain-model/src/configuration.ts`**, **`layers/core-api/settings/src/plugin-contributions.ts`**,
-`layers/core-ui/src/settings/SettingsPlugins.tsx`, and the plugin route tests
-(`plugin-skill-reinstall.integration.test.ts`, `BA9g-plugin-agent-identity.integration.test.ts`,
-the plugins route tests). **~9 files.** Implements the §8.3 plugin rows, the §8.6 contribution-kind
-step, and O1's chosen variant.
+They are concurrent with each other because their path sets are disjoint. B13 is the only one that
+touches `compose.ts`, which is why Phase C waits for B9 rather than B7.
+
+**B10 — plugin behaviour.** Owns `layers/core-api/src/routes/plugins.ts` and the plugin route tests
+(`plugin-skill-reinstall.integration.test.ts`, `BA9g-plugin-agent-identity.integration.test.ts`, the
+plugins route tests); under O1 variant (a) also the new plumbing route and its `PLUMBING_ROUTES` row.
+**~5 files.** Implements the §8.3 plugin behaviour rows and O1's chosen variant. The **contribution
+kind literal is not here** — it is a stored value and flipped in B2b/B2d/B2h (§8.7c).
 Red first: **"install a plugin skill against a migrated database"** — seed a `plugin_contributions` row
 with `kind='document'`, run install, and assert (i) the contributed document exists with
 `slot:"skill"`, (ii) a reinstall over a person-edited body leaves the body alone, asserted by exact
@@ -1540,11 +1792,13 @@ Red first: a routine's prompt read returns an **archived** prompt (no status fil
 behaviour, pinned).
 Verify: `npx vitest run --project service layers/core-api/routine layers/core-api/src/services/__tests__`.
 
-**B13 — task, thread, title ladder, search, admission reactions.** Owns the `document` deps in
-`compose.ts`'s task/thread bags, `layers/core-api/task/src/task-actions.ts`,
-`layers/core-api/thread/src/thread-actions.ts`, **`layers/core-api/thread/src/title-ladder.ts`**,
-`layers/core-api/src/routes/search.ts`,
-**`layers/core-api/src/services/agent-run-admission-reactions.ts`**, and their tests. **~10 files.**
+**B13 — task, thread, the batched title ladder, search.** Owns the `document` deps in `compose.ts`'s
+task/thread bags, `layers/core-api/task/src/task-actions.ts`,
+`layers/core-api/thread/src/thread-actions.ts`, `layers/core-api/thread/src/title-ladder.ts` (the
+**dep shape only** — its host-kind literals were already flipped in B2d),
+`layers/core-api/src/routes/search.ts` (the `?scope=` value and the injected search), and their tests.
+**~9 files.** `agent-run-admission-reactions.ts` is **not** here — its two host literals are a
+stored-value flip owned by B2d (§8.7a).
 Red first: **the title ladder makes exactly one document call for a list of N threads** — a counting
 spy on the injected `searchDocuments`, asserting `calls.length === 1` for three
 `document`-hosted threads. That is the N+1 guard, and it must be shown red by reverting to a per-id
@@ -1561,24 +1815,29 @@ equality, not `toContain`.
 Verify: `npx vitest run --project service layers/core-api/src/__tests__/tool-registry.integration.test.ts`.
 Depends on: B0b, B7.
 
-**B15 — the writeback.** Owns `layers/core-api/src/boot.ts` (the two new `CoreApiBoot` fields),
+**B15 — the writeback, and the rest of `CoreApiKnowledgePort`.** Owns
+`layers/core-api/src/boot.ts` (the two new `CoreApiBoot` fields),
 `applications/remote-server/src/create-server.ts`,
 `layers/agent-orchestration/src/services/run-orchestration-composition.ts`,
+`layers/agent-orchestration/src/services/core-api-port-composition.ts` (the last three
+implementations), **`framework/api-contract/src/core-api-port.ts` (the interface itself, the last three
+methods, the request/response types at `:213-345` and the `knowledge` field on the composed port)**,
 `layers/agent-orchestration/run-orchestration/src/writeback-processor.ts`,
 `layers/core-api/src/__tests__/document-writeback-e2e.integration.test.ts` (re-pointed from
-`knowledge-writeback-e2e.integration.test.ts`). **5 files.**
+`knowledge-writeback-e2e.integration.test.ts`). **7 files.**
 Red first: a stale writeback — the server's body is unchanged and the manifest holds the server's
 version.
 Verify: `npx vitest run --project service layers/core-api/src/__tests__/document-writeback-e2e.integration.test.ts`.
 Depends on: B7, B0b, B0c.
 
-### Phase E — the browser (B16 ∥ B17 ∥ B18 ∥ B19, all after B7)
+### Phase E — the browser (B17 ∥ B18 ∥ B19 after B9; then B16)
 
-**B16 — hooks and shared types.** Owns `layers/core-ui/src/hooks/useDocument.ts` (new),
-`…/useDocuments.ts` (new), `…/useAutoSave.ts`, `…/services/call.ts`; deletes `useKnowledgeItem.ts` and
-`useParentedKnowledgeItems.ts`; plus their tests. **~8 files.**
-Red first: `useDocuments` re-runs its `call` when a `documents` frame arrives.
-Verify: `npx vitest run layers/core-ui/src/hooks`.
+**B16 — the hooks the pages replace.** `useDocument`/`useDocuments`/`call.ts` already landed in B1.
+This block owns `layers/core-ui/src/hooks/useAutoSave.ts` (takes a `save` function instead of a URL)
+and **deletes** `useKnowledgeItem.ts` and `useParentedKnowledgeItems.ts` once B17–B19 have moved their
+consumers — so it runs **after** B17/B18/B19, not beside them. **~5 files.**
+Red first: `useAutoSave` reports `problems[0].code === "stale"` to its caller rather than swallowing it.
+Verify: `npx vitest run layers/core-ui/src/hooks && npx tsc --noEmit -p layers/core-ui`.
 
 **B17 — the list page and the shell.** Owns `pages/DocumentList.tsx` (moved), its stories and tests,
 `layouts/AppShell.tsx`, `shell/Sidebar.tsx`, `hooks/useNavShortcuts.ts`. **~9 files.**
@@ -1587,7 +1846,9 @@ pinned by exact equality; plus the triage filter shows exactly the `proposed` ro
 Verify: `npx vitest run layers/core-ui/src/pages layers/core-ui/src/__tests__`.
 
 **B18 — the detail page and its dialogs.** Owns `pages/DocumentDetail.tsx` (moved),
-`pages/document/*` (moved), their stories and tests. **~20 files.**
+`pages/document/*` (moved), their stories and tests, **and the three
+`tools/repo-gates/mock-inventory/inventory.{json,md}` rows for `LEGACY_DETAILS`/`LEGACY_SOURCES`/
+`FALLBACK_DETAIL`**, regenerated here because this block deletes those blocks. **~22 files.**
 Red first: with the API returning nothing, the page renders an honest empty state and **no fixture
 title** — assert the old fixture strings are absent by exact equality on the rendered text.
 Verify: `npx vitest run layers/core-ui/src/pages`.
@@ -1609,7 +1870,11 @@ Verify: `npx vitest run layers/core-ui && npx playwright test --grep document`.
 `/knowledge` mount in `app.ts`, and every remaining test that drives those routes
 (`knowledge.integration.test.ts`, `knowledge.*.integration.test.ts`, `R7-knowledge-e2e`,
 `knowledge-graduation`, `knowledge-signals`, `knowledge-scope-name`, `knowledge-tree-real`,
-`AD7-search`; `human-agent-parity` is re-pointed). **~18 files.**
+`AD7-search`, `resolve-scope-name.test.ts` — which imports `resolveScopeName` from the deleted file;
+its subject moved into `open_document`'s `scopeName`, and B5 owns the replacement test inside the
+document package — `human-agent-parity` is re-pointed), **the nine remaining `LEGACY_ROUTES` rows**
+(`actions-projected.ts:165-175` minus the two B0c took) and
+**`governance-attacks.ts:1249-1257`**, which names this file. **~20 files.**
 Verify: `npm run check && npm run lint && npm run test:integration:service`.
 Depends on: B10–B13, B16–B19.
 
@@ -1619,16 +1884,19 @@ Depends on: B10–B13, B16–B19.
 Verify: `npm run check && npm run lint && npm run knip`. Depends on: B20.
 
 **B22 — delete the fixtures and (A1 default) the events.** Owns
-`layers/core-ui/src/fixtures/knowledge-data.ts`, `tools/governance/misplaced-files.json`,
-`framework/domain-model/src/knowledge.ts`, `framework/event-bus/src/events.ts` (the three interfaces
-and their `EVENT_TYPES` rows), `framework/domain-model/src/work-intent.ts` (the
-`kind:"knowledge-item"` subject arm), `layers/agent-orchestration/run-orchestration/src/context.ts:520`.
-**6 files.**
-Verify: `npm run check && npm run lint`. Depends on: B12, B18, B21.
+`layers/core-ui/src/fixtures/knowledge-data.ts` **with its `tools/governance/misplaced-files.json` row
+and its two `mock-inventory` rows** (regenerated here), `framework/domain-model/src/knowledge.ts`,
+`framework/event-bus/src/events.ts` (the three interfaces and their `EVENT_TYPES` rows) **with the
+three `LEGACY_EVENTS` rows in `actions-projected.ts:257-259`**,
+`framework/domain-model/src/work-intent.ts` (the `kind:"knowledge-item"` subject arm),
+`layers/agent-orchestration/run-orchestration/src/context.ts:520`. **8 files.** Under A1's
+alternative this block keeps the three events and touches neither `events.ts` nor `LEGACY_EVENTS`.
+Verify: `npm run check && npm run lint && npm run mock-inventory:check`. Depends on: B12, B18, B21.
 
-**B23 — registries.** Owns `tools/governance/src/rules/actions-projected.ts`,
-`tools/repo-gates/mock-inventory/inventory.json` + `.md`. **3 files.** Implements §8.5's remaining rows.
-Red first: the governance attack suite — the re-pointed cases must still go red when their subject is
+**B23 — the registry sweep.** Owns nothing by default: every shrink-only row left with its subject
+(§8.5's table). This block is the **proof** that none was missed — it runs the full governance suite
+and the mock-inventory check and fixes whatever is still stale. **0–2 files.**
+Red first: the governance attack suite — each re-pointed case must still go red when its subject is
 removed.
 Verify: `npm run lint && npx vitest run tools/governance && npm run mock-inventory:check`.
 Depends on: B20, B21, B22.
@@ -1667,7 +1935,8 @@ Verify: `npm run lint && npx vitest run --project service layers/core-api/src/ro
 Owns `tools/eval/src/scenarios/`, `tools/eval/src/provision-harness.ts`. **~10 files.**
 - **Rewritten against the three actions:** `write-memory.ts`, `create-artifact.ts`,
   `knowledge-writeback.ts`, `assembled-knowledge.ts`, `poc-session-notes.ts`, `tool-authorization.ts`.
-- **Deleted with their subjects:** `promote-knowledge.ts`, `create-conflict-review.ts`.
+- **Already deleted, in B2i:** `promote-knowledge.ts`, `create-conflict-review.ts` — they consume the
+  two judges that read dropped tables, so they could not survive the schema block.
 - **New:** one scenario where an agent *reads* a document through `open_document` — the capability that
   did not exist before.
 Verify: `npm run check && npm run lint` (evals are not a gate lane).
@@ -1685,18 +1954,24 @@ the desktop build and the §15.5 gate walk. Depends on: everything.
 ### Dependency summary
 
 ```
-B0a ∥ B0b ∥ B0c ─┐
-B1 ∥ B2a ────────┴→ B2b → B2c → B2d → B2e → B2f → B2g → B2h → B2i   (check RED B2a..B2h, GREEN at B2i)
+B0a ∥ (B0b → B0c)
+        ↓
+B1  ∥  B2a                       B1 finishes before B2b; B2a is the migration
+        ↓
+B2b → B2c → B2d → B2e → B2f → B2g → B2h → B2i      `npm run check` RED B2a..B2h, GREEN at B2i
+                                            ↓
+                          B3 → B4 → B5 → B6 → B7 → B9
+                                                    ├→ B8
+                                                    ├→ B10 ∥ B11 ∥ B12 ∥ B13
+                                                    ├→ B14 → B15
+                                                    └→ B17 ∥ B18 ∥ B19 → B16
                                                                   ↓
-                                                    B3 → B4 → B5 → B6 → B7
-                                                                          ├→ B8 ∥ B9
-                                                                          ├→ B10 ∥ B11 ∥ B12 ∥ B13
-                                                                          ├→ B14 → B15
-                                                                          └→ B16 ∥ B17 ∥ B18 ∥ B19
-                                                                                  ↓
-                                                                  B20 → B21 → B22 → B23
-                                                                                  ↓
-                                        B24 → B25 → B26 → B27 → B28 → B29 → B30 → B31 → B32 → B33
-                                                                                  ↓
-                                                                    B34 ∥ B35 → B36 → B37
+                                          B20 → B21 → B22 → B23
+                                                                  ↓
+                        B24 → B25 → B26 → B27 → B28 → B29 → B30 → B31 → B32 → B33
+                                                                  ↓
+                                                    B34 ∥ B35 → B36 → B37
 ```
+
+`B7 → B9` is an edge, not a fork: both own `compose.ts`. Everything in Phase C/D/E hangs off B9 for
+the same reason.
