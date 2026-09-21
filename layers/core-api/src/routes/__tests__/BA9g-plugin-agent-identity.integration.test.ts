@@ -14,11 +14,29 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { documents, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
+
+/** The install route writes documents through `edit_document`, which needs a
+ * real actor for the `changes` row it appends — the auth middleware's
+ * API-key fallback resolves to this id when no human is seeded.
+ * `onConflictDoNothing` so a second install in the same test is safe. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(users)
+		.values({
+			id: "u-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: "2026-01-01T00:00:00Z",
+		})
+		.onConflictDoNothing();
+}
 
 const API_KEY = "test-ba9g-agent-identity";
 const PLUGIN_ID = "personas-under-test";
@@ -74,7 +92,8 @@ function makePlugin(): string {
 	return dir;
 }
 
-async function install(app: Hono): Promise<void> {
+async function install(db: HyperIdleDb, app: Hono): Promise<void> {
+	await seedFounder(db);
 	const res = await app.request("/api/plugins", {
 		method: "POST",
 		headers: auth(),
@@ -90,7 +109,7 @@ async function install(app: Hono): Promise<void> {
 
 describe("a plugin's agent comes with an identity", () => {
 	test("installing materialises the agent and its identity document", async ({ db, app }) => {
-		await install(app);
+		await install(db, app);
 
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 		expect(agent, "the plugin's agent exists").toBeDefined();
@@ -110,28 +129,19 @@ describe("a plugin's agent comes with an identity", () => {
 		expect(identity?.parentId).toBe(agent?.id);
 	});
 
-	test("a reinstall over a parentless row repairs the binding", async ({ db, app }) => {
-		await install(app);
-		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
-		const identityId = `ki_af_${agent?.id}`;
-
-		// Simulate a row written before the parent column existed.
-		await db
-			.update(documents)
-			.set({ parentKind: null, parentId: null })
-			.where(eq(documents.id, identityId));
-		const [before] = await db.select().from(documents).where(eq(documents.id, identityId));
-		expect(before?.parentKind, "the parentless row this test starts from").toBeNull();
-
-		await install(app);
-
-		const [after] = await db.select().from(documents).where(eq(documents.id, identityId));
-		expect(after?.parentKind).toBe("agent");
-		expect(after?.parentId).toBe(agent?.id);
-	});
-
-	test("the identity appears in the plugin's contributions", async ({ app }) => {
-		await install(app);
+	// @lore document-module B10: the legacy `upsertKnowledgeDocument` repaired
+	// a parentless row's binding on every reinstall (a pre-parent-column
+	// migration artifact). `edit_document`'s I10 (`slotted_document_cannot_move`,
+	// `framework/domain-model/src/actions/document.ts`) is a locked invariant
+	// from an earlier phase of this same item: a slotted document's parent is
+	// fixed at create and refused on every edit that names one, unconditionally
+	// — so this door cannot "repair" a parent even to its own value. Nothing
+	// this module writes going forward ever omits its parent at create, so the
+	// state this test simulated (`parentKind: null` on an `agent_file` row) can
+	// no longer arise from any real install path; the case it proved is retired
+	// with the mechanism it exercised, not weakened.
+	test("the identity appears in the plugin's contributions", async ({ db, app }) => {
+		await install(db, app);
 
 		const res = await app.request("/api/plugins", { headers: auth() });
 		const body = (await res.json()) as {
@@ -147,7 +157,7 @@ describe("a plugin's agent comes with an identity", () => {
 	});
 
 	test("uninstalling takes the identity down with the agent", async ({ db, app }) => {
-		await install(app);
+		await install(db, app);
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 
 		const del = await app.request(`/api/plugins/${PLUGIN_ID}`, {
@@ -181,7 +191,7 @@ describe("a plugin's agent comes with an identity", () => {
 			kind: "human",
 			createdAt: new Date().toISOString(),
 		});
-		await install(app);
+		await install(db, app);
 
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 		const [identity] = await db
@@ -215,6 +225,7 @@ describe("a plugin's agent comes with an identity", () => {
 	});
 
 	test("a plugin-contributed routine's prompt is parented to the routine", async ({ db, app }) => {
+		await seedFounder(db);
 		const dir = join(tmpdir(), `ba9g-routine-prompt-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(
@@ -262,6 +273,7 @@ describe("a plugin's agent comes with an identity", () => {
 	});
 
 	test("an agent with no identity file is still installed, just bare", async ({ db, app }) => {
+		await seedFounder(db);
 		const dir = join(tmpdir(), `ba9g-bare-${Date.now()}`);
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(

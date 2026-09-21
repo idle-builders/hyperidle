@@ -15,7 +15,7 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { routines, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
 import { agentItemId, routineItemId } from "@hyperidle/settings";
 import { eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -49,7 +49,26 @@ function copyPluginToTemp(): string {
 	return dir;
 }
 
-async function installKmPlugin(app: Hono): Promise<Response> {
+/** The install route writes documents through `edit_document`, which needs a
+ * real actor for the `changes` row it appends — the auth middleware's
+ * API-key fallback resolves to this id when no human is seeded.
+ * `onConflictDoNothing` so a second install in the same test is safe. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(users)
+		.values({
+			id: "u-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: "2026-01-01T00:00:00Z",
+		})
+		.onConflictDoNothing();
+}
+
+async function installKmPlugin(db: HyperIdleDb, app: Hono): Promise<Response> {
+	await seedFounder(db);
 	const pluginDir = copyPluginToTemp();
 	return app.request("/api/plugins", {
 		method: "POST",
@@ -61,7 +80,12 @@ async function installKmPlugin(app: Hono): Promise<Response> {
 	});
 }
 
-async function installKmPluginForTeam(app: Hono, teamId: string): Promise<Response> {
+async function installKmPluginForTeam(
+	db: HyperIdleDb,
+	app: Hono,
+	teamId: string,
+): Promise<Response> {
+	await seedFounder(db);
 	const pluginDir = copyPluginToTemp();
 	return app.request("/api/plugins", {
 		method: "POST",
@@ -74,8 +98,8 @@ async function installKmPluginForTeam(app: Hono, teamId: string): Promise<Respon
 }
 
 describe("knowledge-management plugin install — AC4: global agent + routines", () => {
-	test("install returns 201 with plugin name knowledge-management", async ({ app }) => {
-		const res = await installKmPlugin(app);
+	test("install returns 201 with plugin name knowledge-management", async ({ db, app }) => {
+		const res = await installKmPlugin(db, app);
 		expect(res.status).toBe(201);
 		const body = await res.json();
 		expect(body.plugin.id).toBe(PLUGIN_ID);
@@ -85,7 +109,7 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 		db,
 		app,
 	}) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 
 		const agentDbId = agentItemId(PLUGIN_ID, "librarian", "factory", null);
 		const rows = await db.select().from(users).where(eq(users.id, agentDbId));
@@ -101,7 +125,7 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 		db,
 		app,
 	}) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 
 		const decayId = routineItemId(PLUGIN_ID, "knowledge-decay", "factory", null);
 		const promotionId = routineItemId(PLUGIN_ID, "knowledge-promotion", "factory", null);
@@ -117,7 +141,7 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 	});
 
 	test("decay and promotion routines are calendar-triggered", async ({ db, app }) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 
 		const decayId = routineItemId(PLUGIN_ID, "knowledge-decay", "factory", null);
 		const promotionId = routineItemId(PLUGIN_ID, "knowledge-promotion", "factory", null);
@@ -136,7 +160,7 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 		db,
 		app,
 	}) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 
 		const retroId = routineItemId(PLUGIN_ID, "post-task-retro", "factory", null);
 		const [retro] = await db.select().from(routines).where(eq(routines.id, retroId));
@@ -151,7 +175,7 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 		db,
 		app,
 	}) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 
 		const routineIds = [
 			routineItemId(PLUGIN_ID, "knowledge-decay", "factory", null),
@@ -169,7 +193,7 @@ describe("knowledge-management plugin install — AC4: global agent + routines",
 		const routinesBefore = await countRoutines();
 
 		// Second install (reinstall) — onConflictDoNothing fires
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 
 		expect(await countAgents()).toBe(agentsBefore);
 		expect(await countRoutines()).toBe(routinesBefore);
@@ -193,8 +217,8 @@ describe("knowledge-management plugin — team-scope isolation", () => {
 			},
 		]);
 
-		const resA = await installKmPluginForTeam(app, "team-alpha");
-		const resB = await installKmPluginForTeam(app, "team-beta");
+		const resA = await installKmPluginForTeam(db, app, "team-alpha");
+		const resB = await installKmPluginForTeam(db, app, "team-beta");
 		expect(resA.status).toBe(201);
 		expect(resB.status).toBe(201);
 
@@ -232,8 +256,8 @@ describe("knowledge-management plugin — team-scope isolation", () => {
 			},
 		]);
 
-		await installKmPluginForTeam(app, "team-gamma");
-		await installKmPluginForTeam(app, "team-delta");
+		await installKmPluginForTeam(db, app, "team-gamma");
+		await installKmPluginForTeam(db, app, "team-delta");
 
 		const gammaDecayId = routineItemId(PLUGIN_ID, "knowledge-decay", "team", "team-gamma");
 		const deltaDecayId = routineItemId(PLUGIN_ID, "knowledge-decay", "team", "team-delta");

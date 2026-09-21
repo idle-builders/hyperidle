@@ -44,7 +44,26 @@ afterEach(() => {
 	tempDirs.length = 0;
 });
 
-async function install(app: Hono): Promise<void> {
+/** The install route writes documents through `edit_document`, which needs a
+ * real actor for the `changes` row it appends — the auth middleware's
+ * API-key fallback resolves to this id when no human is seeded.
+ * `onConflictDoNothing` so a second install in the same test is safe. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db
+		.insert(users)
+		.values({
+			id: "u-founder",
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: "2026-01-01T00:00:00Z",
+		})
+		.onConflictDoNothing();
+}
+
+async function install(db: HyperIdleDb, app: Hono): Promise<void> {
+	await seedFounder(db);
 	const dir = join(tmpdir(), `ba9g-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
@@ -79,7 +98,7 @@ async function contributed(
 
 describe("installing a plugin revives everything it contributed", () => {
 	test("install over a DISABLED plugin brings its agent and routines back", async ({ db, app }) => {
-		await install(app);
+		await install(db, app);
 		expect(await post(app, `/api/plugins/${PLUGIN_ID}/disable`)).toBe(200);
 
 		// Precondition: disable really did take everything down.
@@ -89,7 +108,7 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		expect(agentAfterDisable?.status).toBe("inactive");
 
-		await install(app);
+		await install(db, app);
 
 		const agents = await db
 			.select()
@@ -123,7 +142,7 @@ describe("installing a plugin revives everything it contributed", () => {
 	});
 
 	test("install over a REMOVED plugin brings its agent and routines back", async ({ db, app }) => {
-		await install(app);
+		await install(db, app);
 		const del = await app.request(`/api/plugins/${PLUGIN_ID}`, {
 			method: "DELETE",
 			headers: auth(),
@@ -137,7 +156,7 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
 		expect(afterRemove.some((r) => r.deletedAt !== null)).toBe(true);
 
-		await install(app);
+		await install(db, app);
 
 		const agents = await db
 			.select()
@@ -161,9 +180,9 @@ describe("installing a plugin revives everything it contributed", () => {
 		db,
 		app,
 	}) => {
-		await install(app);
+		await install(db, app);
 		expect(await post(app, `/api/plugins/${PLUGIN_ID}/disable`)).toBe(200);
-		await install(app);
+		await install(db, app);
 
 		const rows = await db
 			.select()

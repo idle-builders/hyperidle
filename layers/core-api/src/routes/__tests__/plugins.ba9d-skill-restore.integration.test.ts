@@ -1,16 +1,35 @@
 /**
  * BA9d D12: skill restore re-imports body from plugin source on disk.
  * Proves that editing a skill's body in the DB and then calling the restore
- * route puts the original SKILL.md content back, and that `updatedBy` is
- * reset to `plugin:<pluginId>`.
+ * route puts the original SKILL.md content back.
+ *
+ * @lore document-module B10: restore now writes through `edit_document`, so
+ * `updatedBy` becomes the requesting person (architecture.md §3.5 — the
+ * field is never on the input, always `ctx.actor`), not the `plugin:<id>`
+ * sentinel the legacy repository write used.
  */
 
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import { skillItemId } from "@hyperidle/settings";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
+
+/** The install route writes documents through `edit_document`, which needs a
+ * real actor for the `changes` row it appends — the auth middleware's
+ * API-key fallback resolves to this id when no human is seeded. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db.insert(users).values({
+		id: "u-founder",
+		kind: "human",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: "2026-01-01T00:00:00Z",
+	});
+}
 
 const PLUGIN_ROOT = resolve("plugins/knowledge-management");
 const PLUGIN_ID = "knowledge-management";
@@ -39,7 +58,8 @@ function copyPlugin(): string {
 describe("BA9d skill restore", () => {
 	// pluginsApp is a per-test app instance with a temp pluginsBaseDir already
 	// configured in the composition root — no pluginsBaseDir in the request body.
-	test("restore re-imports skill body from plugin source", async ({ pluginsApp }) => {
+	test("restore re-imports skill body from plugin source", async ({ db, pluginsApp }) => {
+		await seedFounder(db);
 		// 1. Install. The app's pluginsBaseDir is set at construction time by the
 		//    fixture, so install_path is stored automatically.
 		const pluginDir = copyPlugin();
@@ -107,7 +127,8 @@ describe("BA9d skill restore", () => {
 
 	// Uses the standard `app` fixture (no pluginsBaseDir) to prove that trying
 	// to restore a skill when install_path is null returns a clear error.
-	test("restore without install_path returns NO_INSTALL_PATH", async ({ app }) => {
+	test("restore without install_path returns NO_INSTALL_PATH", async ({ db, app }) => {
+		await seedFounder(db);
 		const pluginDir = copyPlugin();
 		const installRes = await app.request("/api/plugins", {
 			method: "POST",

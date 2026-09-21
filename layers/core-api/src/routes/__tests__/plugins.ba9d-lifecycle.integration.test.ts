@@ -38,7 +38,22 @@ function copyPlugin(): string {
 	return dir;
 }
 
-async function installKmPlugin(app: Hono): Promise<void> {
+/** The install route writes documents through `edit_document`, which needs a
+ * real actor for the `changes` row it appends — the auth middleware's
+ * API-key fallback resolves to this id when no human is seeded. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db.insert(users).values({
+		id: "u-founder",
+		kind: "human",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: "2026-01-01T00:00:00Z",
+	});
+}
+
+async function installKmPlugin(db: HyperIdleDb, app: Hono): Promise<void> {
+	await seedFounder(db);
 	const dir = copyPlugin();
 	const res = await app.request("/api/plugins", {
 		method: "POST",
@@ -68,7 +83,7 @@ describe("BA9d lifecycle: install materialises pluginId on rows", () => {
 		db,
 		app,
 	}) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 		const routineRows = await db
 			.select()
 			.from(routines)
@@ -87,7 +102,7 @@ describe("BA9d lifecycle: install materialises pluginId on rows", () => {
 
 describe("BA9d lifecycle: disable deactivates materialised rows", () => {
 	test("after disable: routines inactive, agent inactive", async ({ db, app }) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}/disable`, {
 			method: "POST",
 			headers: auth(),
@@ -108,7 +123,7 @@ describe("BA9d lifecycle: disable deactivates materialised rows", () => {
 	});
 
 	test("after disable: skills archived", async ({ db, app }) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 		const contributedIds = [...(await contributed(db, "document"))];
 		const before = await db
 			.select()
@@ -125,7 +140,7 @@ describe("BA9d lifecycle: disable deactivates materialised rows", () => {
 
 describe("BA9d lifecycle: enable reactivates materialised rows", () => {
 	test("after enable: routines active, agent active", async ({ db, app }) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 		await app.request(`/api/plugins/${PLUGIN_ID}/disable`, { method: "POST", headers: auth() });
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}/enable`, {
 			method: "POST",
@@ -149,7 +164,7 @@ describe("BA9d lifecycle: enable reactivates materialised rows", () => {
 
 describe("BA9d lifecycle: remove soft-deletes materialised rows", () => {
 	test("after remove: routines soft-deleted, agent inactive", async ({ db, app }) => {
-		await installKmPlugin(app);
+		await installKmPlugin(db, app);
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}`, {
 			method: "DELETE",
 			headers: auth(),

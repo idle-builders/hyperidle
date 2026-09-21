@@ -14,6 +14,7 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -37,7 +38,22 @@ afterEach(() => {
 	tempDirs.length = 0;
 });
 
-async function install(app: Hono): Promise<void> {
+/** The install route writes documents through `edit_document`, which needs a
+ * real actor for the `changes` row it appends — the auth middleware's
+ * API-key fallback resolves to this id when no human is seeded. */
+async function seedFounder(db: HyperIdleDb): Promise<void> {
+	await db.insert(users).values({
+		id: "u-founder",
+		kind: "human",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: "2026-01-01T00:00:00Z",
+	});
+}
+
+async function install(db: HyperIdleDb, app: Hono): Promise<void> {
+	await seedFounder(db);
 	const dir = join(tmpdir(), `ba9g-cv-${Date.now()}-${Math.round(performance.now())}`);
 	mkdirSync(dir, { recursive: true });
 	cpSync(PLUGIN_ROOT, dir, { recursive: true });
@@ -72,8 +88,8 @@ async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
 }
 
 describe("a plugin's contributions view lists what it contributed", () => {
-	test("the shipped plugin's agent, routines and skills all appear", async ({ app }) => {
-		await install(app);
+	test("the shipped plugin's agent, routines and skills all appear", async ({ db, app }) => {
+		await install(db, app);
 
 		const contributions = await contributionsOf(app);
 		const byKind = new Map<string, number>();
@@ -86,8 +102,8 @@ describe("a plugin's contributions view lists what it contributed", () => {
 		expect(byKind.get("document") ?? 0, "its skills must appear").toBeGreaterThanOrEqual(3);
 	});
 
-	test("each contribution names the row it points at", async ({ app }) => {
-		await install(app);
+	test("each contribution names the row it points at", async ({ db, app }) => {
+		await install(db, app);
 
 		const contributions = await contributionsOf(app);
 		for (const c of contributions) {
@@ -95,8 +111,8 @@ describe("a plugin's contributions view lists what it contributed", () => {
 		}
 	});
 
-	test("each contribution carries a label a person can read", async ({ app }) => {
-		await install(app);
+	test("each contribution carries a label a person can read", async ({ db, app }) => {
+		await install(db, app);
 
 		const contributions = await contributionsOf(app);
 		// An id is not a name. The view is a list of what a plugin brought, so
@@ -108,8 +124,8 @@ describe("a plugin's contributions view lists what it contributed", () => {
 		expect(labels).toContain("Knowledge Librarian");
 	});
 
-	test("nothing is detached until a person edits it", async ({ app }) => {
-		await install(app);
+	test("nothing is detached until a person edits it", async ({ db, app }) => {
+		await install(db, app);
 
 		const contributions = await contributionsOf(app);
 		expect(contributions.length).toBeGreaterThan(0);
