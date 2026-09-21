@@ -295,7 +295,7 @@ function AssistantOverlayInner({
 					ref.kind === "pending_block",
 			);
 			const entityRefs = contextRefs.filter(
-				(ref): ref is AssistantContextRef & { kind: "knowledge_item" | "task" | "message" } =>
+				(ref): ref is AssistantContextRef & { kind: "document" | "task" | "message" } =>
 					ref.kind !== "pending_block",
 			);
 			const refsToSend: InlineRef[] = entityRefs.map((ref) => ({ kind: ref.kind, id: ref.id }));

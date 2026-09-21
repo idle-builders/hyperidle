@@ -40,7 +40,7 @@ function mockNoHostSearch(): void {
 
 const THREAD_FIXTURE = {
 	id: "t-filter-001",
-	hostKind: "knowledge_item" as const,
+	hostKind: "document" as const,
 	hostId: "k-filter-001",
 	initiatorId: "u-founder",
 	members: ["u-founder", "agent-unassigned"],

@@ -193,10 +193,10 @@ describe("HostThreadSection (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(<HostThreadSection host={{ kind: "knowledge_item", id: "k-123" }} title="Discussion" />);
+		render(<HostThreadSection host={{ kind: "document", id: "k-123" }} title="Discussion" />);
 
 		expect(useThreads).toHaveBeenCalledWith({
-			host: { kind: "knowledge_item", id: "k-123" },
+			host: { kind: "document", id: "k-123" },
 		});
 		expect(useThread).toHaveBeenCalledWith("t-resolved");
 	});

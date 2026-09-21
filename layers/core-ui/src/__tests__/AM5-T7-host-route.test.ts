@@ -25,8 +25,8 @@ describe("resolveHostRoute", () => {
 		expect(resolveHostRoute("task", "task-5")).toBe("/work/task/task-5");
 	});
 
-	it("knowledge_item → /knowledge/:id", () => {
-		expect(resolveHostRoute("knowledge_item", "ki-1")).toBe("/knowledge/ki-1");
+	it("document → /knowledge/:id", () => {
+		expect(resolveHostRoute("document", "ki-1")).toBe("/knowledge/ki-1");
 	});
 
 	it("agent → /agents/:id", () => {

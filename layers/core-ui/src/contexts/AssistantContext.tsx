@@ -24,7 +24,7 @@ import { createContext } from "react";
  */
 export type AssistantContextRef =
 	| {
-			kind: "knowledge_item" | "task" | "message";
+			kind: "document" | "task" | "message";
 			id: string;
 			/** Display label for the chip in the overlay composer area. */
 			label: string;

@@ -6,14 +6,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { createOpenHandler } from "../services/open-handler.js";
 
-// ── 1. open-handler: host(knowledge_item, id, blockId) → /knowledge/:id#block-:blockId ───
+// ── 1. open-handler: host(document, id, blockId) → /knowledge/:id#block-:blockId ───
 describe("AC2: open-handler block anchor", () => {
 	it("host with blockId → path#block-<encodeURIComponent(blockId)>", () => {
 		const nav = vi.fn();
 		const handler = createOpenHandler(nav, {});
 		handler({
 			route: "host",
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: "ki-1",
 			blockId: "block-abc",
 		});
@@ -23,7 +23,7 @@ describe("AC2: open-handler block anchor", () => {
 	it("host without blockId → bare path (no fragment)", () => {
 		const nav = vi.fn();
 		const handler = createOpenHandler(nav, {});
-		handler({ route: "host", hostKind: "knowledge_item", hostId: "ki-1" });
+		handler({ route: "host", hostKind: "document", hostId: "ki-1" });
 		expect(nav).toHaveBeenCalledWith("/knowledge/ki-1");
 	});
 
@@ -32,7 +32,7 @@ describe("AC2: open-handler block anchor", () => {
 		const handler = createOpenHandler(nav, {});
 		handler({
 			route: "host",
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: "ki-2",
 			blockId: "block with spaces",
 		});
@@ -51,7 +51,7 @@ describe("AC6: block-anchored target → same path from any context", () => {
 		const nav2 = vi.fn();
 		const target = {
 			route: "host" as const,
-			hostKind: "knowledge_item" as const,
+			hostKind: "document" as const,
 			hostId: "ki-5",
 			blockId: "block-123",
 		};
