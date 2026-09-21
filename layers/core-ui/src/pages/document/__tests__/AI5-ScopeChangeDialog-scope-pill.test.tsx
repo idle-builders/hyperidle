@@ -17,10 +17,20 @@ vi.mock("../../../services/call.js", () => ({
 }));
 
 vi.mock("../../../hooks/useCurrentUser.js", () => ({
-	useCurrentUser: () => ({ user: { id: "user-1" } }),
+	useCurrentUser: vi.fn(),
 }));
 
+import { useCurrentUser } from "../../../hooks/useCurrentUser.js";
 import { ScopeChangeDialog } from "../ScopeChangeDialog";
+
+function mockUser(overrides: { teamId?: string } = {}): void {
+	vi.mocked(useCurrentUser).mockReturnValue({
+		user: { id: "user-1", name: "User", email: "u@x.com", avatarUrl: null, ...overrides },
+		status: "ready",
+		error: null,
+		retry: vi.fn(),
+	});
+}
 
 const BASE_PROPS = {
 	open: true,
@@ -34,6 +44,7 @@ const BASE_PROPS = {
 describe("AI5: ScopeChangeDialog — scope-pill-change picker", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockUser();
 	});
 
 	it("renders scope pills with the scope-pill-change prefix", () => {
@@ -62,5 +73,16 @@ describe("AI5: ScopeChangeDialog — scope-pill-change picker", () => {
 	it("disables the Team pill when the user has no teamId", () => {
 		render(<ScopeChangeDialog {...BASE_PROPS} />);
 		expect(screen.getByTestId("scope-pill-change-team")).toBeDisabled();
+	});
+
+	it("enables the Team pill when the user has a teamId", () => {
+		mockUser({ teamId: "t1" });
+		render(<ScopeChangeDialog {...BASE_PROPS} />);
+		expect(screen.getByTestId("scope-pill-change-team")).not.toBeDisabled();
+	});
+
+	it("marks the Team pill active when currentScopeKind is team", () => {
+		render(<ScopeChangeDialog {...BASE_PROPS} currentScopeKind="team" />);
+		expect(screen.getByTestId("scope-pill-change-team")).toHaveAttribute("data-active", "true");
 	});
 });

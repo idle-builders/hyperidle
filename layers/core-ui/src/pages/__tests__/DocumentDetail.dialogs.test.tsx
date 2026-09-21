@@ -231,4 +231,23 @@ describe("DocumentDetail — a pure-invariant refusal greys the control", () => 
 
 		expect(screen.getByRole("menuitem", { name: /^move$/i })).not.toBeDisabled();
 	});
+
+	it("hides Move and Change scope entirely for a read-only factory document", async () => {
+		const row = makeDocumentRow({
+			id: "doc-1",
+			title: "Policy",
+			scopeKind: "factory",
+			updatedBy: "some-agent",
+		});
+		callMock.mockImplementation(
+			makeCallRouter({ open_document: async () => ({ ok: true, data: makeDocumentView(row) }) }),
+		);
+
+		const user = userEvent.setup();
+		renderPage("doc-1");
+		await openOverflow(user);
+
+		expect(screen.queryByRole("menuitem", { name: /^move$/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("menuitem", { name: /^change scope$/i })).not.toBeInTheDocument();
+	});
 });
