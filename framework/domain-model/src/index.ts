@@ -1,7 +1,45 @@
 // the action list. `ActionDeclaration`/`Action*` are the generic shape;
-// `TASK_ACTIONS` and friends are task's own declarations — the first of the
-// per-object action lists, in `./actions/`.
+// `TASK_ACTIONS`/`THREAD_ACTIONS`/`DOCUMENT_ACTIONS` are each object's own
+// declarations, in `./actions/`.
 export type { ActionDeclaration, ActionResult, Problem } from "./actions/action.js";
+// @lore BC4: `Document` is a DOM global in core-ui, so the row type is never
+// called `Document` — see architecture.md §2. `document.ts` also carries the
+// vocabulary that used to live in `./knowledge.js` (`knowledge.ts` is not
+// deleted yet — its own exports below are unchanged until a later block).
+export type {
+	DocumentAs,
+	DocumentListRow,
+	DocumentParentKind,
+	DocumentRow,
+	DocumentSlot,
+	DocumentStatus,
+	DocumentView,
+	EditDocumentInput,
+	OpenDocumentInput,
+	SearchDocumentsInput,
+} from "./actions/document.js";
+export {
+	canReadDocument,
+	DOCUMENT_ACTIONS,
+	DOCUMENT_AS,
+	DOCUMENT_PARENT_KINDS,
+	DOCUMENT_SLOT_LABEL,
+	DOCUMENT_SLOTS,
+	DOCUMENT_STATUS_LABEL,
+	DOCUMENT_STATUSES,
+	DocumentListRowSchema,
+	DocumentRowSchema,
+	DocumentViewSchema,
+	documentAs,
+	EditDocumentInputSchema,
+	editDocument,
+	editDocumentInvariants,
+	OpenDocumentInputSchema,
+	openDocument,
+	SearchDocumentsInputSchema,
+	searchDocuments,
+	searchDocumentsInvariants,
+} from "./actions/document.js";
 export type {
 	EditTaskInput,
 	SearchTasksInput,
