@@ -18,7 +18,7 @@
  * themselves retired.
  */
 
-import { type HyperIdleDb, documents, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";

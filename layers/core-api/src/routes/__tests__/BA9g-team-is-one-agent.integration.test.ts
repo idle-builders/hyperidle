@@ -14,7 +14,7 @@
  * to get more.
  */
 
-import { type HyperIdleDb, documents, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";

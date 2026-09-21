@@ -10,7 +10,7 @@
  * FKs on `knowledge_items.id`, and the audit trail outlives its subject.
  */
 
-import { type HyperIdleDb, documents, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";

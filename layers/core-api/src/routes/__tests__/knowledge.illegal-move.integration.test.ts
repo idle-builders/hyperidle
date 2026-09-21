@@ -4,7 +4,7 @@
  * rule, and never partially commits: a title change bundled with an illegal
  * move must not land while the move is refused.
  */
-import { type HyperIdleDb, documents, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";

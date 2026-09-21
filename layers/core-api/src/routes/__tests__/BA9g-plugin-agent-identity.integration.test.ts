@@ -120,10 +120,7 @@ describe("a plugin's agent comes with an identity", () => {
 			.update(documents)
 			.set({ parentKind: null, parentId: null })
 			.where(eq(documents.id, identityId));
-		const [before] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, identityId));
+		const [before] = await db.select().from(documents).where(eq(documents.id, identityId));
 		expect(before?.parentKind, "the parentless row this test starts from").toBeNull();
 
 		await install(app);

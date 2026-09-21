@@ -13,7 +13,7 @@
  * missing piece review.md named directly — a production caller wiring that
  * read into the route a real request hits.
  */
-import { type HyperIdleDb, documents, teams, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";

@@ -12,7 +12,7 @@
  * Red phase: all assertions fail against the current implementation.
  */
 
-import { type HyperIdleDb, documents } from "@hyperidle/db";
+import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

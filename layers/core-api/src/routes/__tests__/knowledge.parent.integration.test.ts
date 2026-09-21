@@ -29,14 +29,7 @@
  */
 
 import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
-import {
-	type HyperIdleDb,
-	documents,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -159,11 +152,7 @@ describe("a knowledge item is created with a parent", () => {
 		expect(res.status).toBe(201);
 		const created = (await res.json()) as { id: string };
 
-		const [row] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, created.id))
-			.limit(1);
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id)).limit(1);
 
 		expect(row?.parentKind).toBe("task");
 		expect(row?.parentId).toBe(taskId);
@@ -181,11 +170,7 @@ describe("a knowledge item is created with a parent", () => {
 		expect(res.status).toBe(201);
 		const created = (await res.json()) as { id: string };
 
-		const [row] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, created.id))
-			.limit(1);
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id)).limit(1);
 
 		expect(row?.parentKind).toBe("thread");
 		expect(row?.parentId).toBe(threadId);
@@ -288,11 +273,7 @@ describe("a knowledge item is created with a parent", () => {
 		expect(res.status).toBe(201);
 		const created = (await res.json()) as { id: string; parentKind?: string; parentId?: string };
 
-		const [row] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, created.id))
-			.limit(1);
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id)).limit(1);
 
 		expect(row?.parentKind).toBe("document");
 		expect(row?.parentId).toBe("kp-ki-parent");
@@ -366,11 +347,7 @@ describe("a knowledge item is created with a parent", () => {
 		expect(res.status).toBe(201);
 		const created = (await res.json()) as { id: string };
 
-		const [row] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, created.id))
-			.limit(1);
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id)).limit(1);
 
 		expect(row?.parentKind).toBeNull();
 		expect(row?.parentId).toBeNull();

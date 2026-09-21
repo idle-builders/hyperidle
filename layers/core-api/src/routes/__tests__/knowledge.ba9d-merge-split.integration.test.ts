@@ -100,10 +100,7 @@ describe("POST /api/knowledge/:id/merge", () => {
 		});
 
 		// Verify source is archived via DB query
-		const [source] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, "source-3"));
+		const [source] = await db.select().from(documents).where(eq(documents.id, "source-3"));
 		expect(source!.status).toBe("archived");
 	});
 });
@@ -171,10 +168,7 @@ describe("POST /api/knowledge/:id/split", () => {
 		});
 
 		// Verify original is archived via DB query
-		const [original] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, "original-2"));
+		const [original] = await db.select().from(documents).where(eq(documents.id, "original-2"));
 		expect(original!.status).toBe("archived");
 	});
 });

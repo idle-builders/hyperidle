@@ -13,7 +13,7 @@
  * scopes to that team, an agent on no team stays factory-wide.
  */
 
-import { type HyperIdleDb, documents, teams, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -142,10 +142,7 @@ describe("a routine's prompt takes its owner's scope", () => {
 		expect(patched.status).toBe(200);
 		const promptKnowledgeId = await findPromptDocId(db, id);
 
-		const [doc] = await db
-			.select()
-			.from(documents)
-			.where(eq(documents.id, promptKnowledgeId));
+		const [doc] = await db.select().from(documents).where(eq(documents.id, promptKnowledgeId));
 		expect(doc?.scopeKind, "the PATCH path must not re-hardcode it").toBe("team");
 		expect(doc?.scopeId).toBe("team-scope");
 	});
