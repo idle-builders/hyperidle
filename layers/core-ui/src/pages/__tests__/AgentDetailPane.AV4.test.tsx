@@ -128,7 +128,7 @@ describe("AgentDetailPane renders as a detail pane without dialog chrome", () =>
 
 		await waitFor(() => {
 			const link = screen.getByTestId("agent-detail-identity-link");
-			expect(link.getAttribute("href")).toBe("/knowledge/ki_af_demo");
+			expect(link.getAttribute("href")).toBe("/documents/ki_af_demo");
 		});
 		expect(screen.queryByRole("textbox", { name: /system prompt/i })).toBeNull();
 	});

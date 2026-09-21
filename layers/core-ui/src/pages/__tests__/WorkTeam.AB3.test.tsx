@@ -321,7 +321,7 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 
 		await waitFor(() => {
 			const link = screen.getByTestId("agent-detail-identity-link");
-			expect(link.getAttribute("href")).toBe("/knowledge/ki_af_demo");
+			expect(link.getAttribute("href")).toBe("/documents/ki_af_demo");
 		});
 	});
 

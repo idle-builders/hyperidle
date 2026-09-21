@@ -434,7 +434,7 @@ function AgentProfileLoaded({
 					    one place to edit it. */}
 					{data.identityKnowledgeId && (
 						<RRLink
-							to={`/knowledge/${data.identityKnowledgeId}`}
+							to={`/documents/${data.identityKnowledgeId}`}
 							data-testid="agent-identity-link"
 							className="type-metadata mt-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
 						>
