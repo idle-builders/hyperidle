@@ -83,7 +83,7 @@ describe("a plugin's contributions view lists what it contributed", () => {
 		// the three skills plus each routine's prompt document.
 		expect(byKind.get("agent"), "its agent must appear").toBe(1);
 		expect(byKind.get("routine"), "its three routines must appear").toBe(3);
-		expect(byKind.get("knowledge") ?? 0, "its skills must appear").toBeGreaterThanOrEqual(3);
+		expect(byKind.get("document") ?? 0, "its skills must appear").toBeGreaterThanOrEqual(3);
 	});
 
 	test("each contribution names the row it points at", async ({ app }) => {

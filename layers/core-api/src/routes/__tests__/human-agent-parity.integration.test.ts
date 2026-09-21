@@ -69,7 +69,7 @@ interface CreatedItem {
 	readonly parentKind: string | null;
 	readonly parentId: string | null;
 	readonly status: string;
-	readonly role: string;
+	readonly slot: string;
 	readonly format: string;
 	readonly body: string;
 }
@@ -132,11 +132,11 @@ describe("a human and an agent put an item into a conversation the same way", ()
 		expect(humanItem.parentId).toBe(threadId);
 
 		// Same standing. Neither is more or less vouched for than the other,
-		// and neither carries a role that would change where it lands in a
+		// and neither carries a slot that would change where it lands in a
 		// session's context.
 		expect(agentItem.status).toBe(humanItem.status);
-		expect(agentItem.role).toBe(humanItem.role);
-		expect(agentItem.role).toBe("ordinary");
+		expect(agentItem.slot).toBe(humanItem.slot);
+		expect(agentItem.slot).toBe("ordinary");
 
 		// Same content, rendered by the same path.
 		expect(agentItem.format).toBe(humanItem.format);
