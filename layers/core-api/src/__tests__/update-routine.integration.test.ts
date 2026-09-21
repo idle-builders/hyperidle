@@ -42,6 +42,17 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 		teamId: teamId,
 		createdAt: NOW,
 	});
+	// `makeContext`'s default `agentId` ("agent-fac") becomes the actor override
+	// the in-process transport carries to `edit_document`'s `changes.actor` FK
+	// (the routine-prompt write path) — seed the real row, as `_helpers.ts`'s
+	// own `seedBase` does for its callers.
+	await db.insert(users).values({
+		id: "agent-fac",
+		name: "Facilitator",
+		role: "facilitator",
+		status: "active",
+		createdAt: NOW,
+	});
 	await db.insert(threads).values({
 		id: `thr-${rootTaskId}`,
 		hostKind: "team",

@@ -42,7 +42,12 @@ vi.mock("../../../hooks/useDocuments.js", () => ({
 		documents: [
 			makeRow({ id: "root-a", title: "Root A" }),
 			makeRow({ id: "root-b", title: "Root B" }),
-			makeRow({ id: "child-of-a", title: "Child of A", parentId: "root-a", parentKind: "document" }),
+			makeRow({
+				id: "child-of-a",
+				title: "Child of A",
+				parentId: "root-a",
+				parentKind: "document",
+			}),
 		],
 		error: null,
 		retry: vi.fn(),
@@ -66,7 +71,9 @@ const BASE_PROPS = {
 function mockOk(): void {
 	vi.mocked(call).mockResolvedValue({
 		ok: true,
-		data: { document: makeRow({ id: "child-of-a", title: "Child of A" }) } as unknown as DocumentView,
+		data: {
+			document: makeRow({ id: "child-of-a", title: "Child of A" }),
+		} as unknown as DocumentView,
 	} satisfies ActionResult<DocumentView>);
 }
 

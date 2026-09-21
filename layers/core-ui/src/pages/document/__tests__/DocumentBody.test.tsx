@@ -178,9 +178,7 @@ describe("DocumentBody — T4 html block sanitizer pass-through", () => {
 
 describe("DocumentBody — T5 memo re-render on prop change", () => {
 	it("re-renders with new content when body prop changes", () => {
-		const { rerender } = render(
-			<DocumentBody body="Initial paragraph content." hostId="k-memo" />,
-		);
+		const { rerender } = render(<DocumentBody body="Initial paragraph content." hostId="k-memo" />);
 		expect(screen.getByText("Initial paragraph content.")).toBeInTheDocument();
 
 		rerender(<DocumentBody body="Updated paragraph content." hostId="k-memo" />);

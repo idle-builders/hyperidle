@@ -46,6 +46,28 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		teamId: "team-aa1",
 		createdAt: now,
 	});
+
+	// The API-key auth path resolves the route actor to the first human
+	// user, falling back to "u-founder" for an unseeded DB. `edit_document`
+	// (used by the routine-prompt write path) writes that actor into
+	// `changes.actor`, an FK to `users.id` — a real human row keeps it
+	// satisfied, as sibling tests already seed it (e.g.
+	// `plugins.ba9d-skill-restore.integration.test.ts`'s `seedFounder`).
+	// `team-aa1` on the founder too: this suite is single-team, and a
+	// team-scoped prompt document (BA9g — the routine's owning agent is on
+	// `team-aa1`) is only visible to a viewer on that same team
+	// (`canReadDocument`, `framework/domain-model/src/actions/document.ts`)
+	// — a founder outside every team could write a team's routine prompt
+	// through this fallback but never read it back.
+	await db.insert(users).values({
+		id: "u-founder",
+		kind: "human",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		teamId: "team-aa1",
+		createdAt: now,
+	});
 }
 
 describe("AA1: Routine Visibility API", () => {
