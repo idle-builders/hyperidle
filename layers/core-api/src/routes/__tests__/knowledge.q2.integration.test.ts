@@ -18,13 +18,7 @@
  * themselves retired.
  */
 
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeEditLog,
-	knowledgeItems,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, documents, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -54,19 +48,17 @@ async function seedFounder(db: HyperIdleDb, userId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// AC-1: scope_kind + scope_id columns exist on knowledgeItems table
+// AC-1: scope_kind + scope_id columns exist on the documents table
 // ---------------------------------------------------------------------------
-describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
-	test("knowledgeItems table has a scope_kind column (NOT NULL, default factory)", async ({
-		db,
-	}) => {
+describe("Q2 AC-1: scope_kind + scope_id columns on documents", () => {
+	test("documents table has a scope_kind column (NOT NULL, default factory)", async ({ db }) => {
 		// PGlite uses real PostgreSQL — query information_schema instead of SQLite PRAGMA.
 		// Row keys use snake_case from Postgres — access via bracket notation to avoid
 		// biome useNamingConvention on local type definitions.
 		const result = await db.execute(
 			`SELECT column_name, is_nullable, column_default
 			 FROM information_schema.columns
-			 WHERE table_name = 'knowledge_items'` as Parameters<typeof db.execute>[0],
+			 WHERE table_name = 'documents'` as Parameters<typeof db.execute>[0],
 		);
 		const columns = (result as { rows: Array<Record<string, unknown>> }).rows;
 
@@ -76,11 +68,11 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 		expect(scopeKindCol?.column_default).toBe("'factory'::text");
 	});
 
-	test("knowledgeItems table has a scope_id column (nullable)", async ({ db }) => {
+	test("documents table has a scope_id column (nullable)", async ({ db }) => {
 		const result = await db.execute(
 			`SELECT column_name, is_nullable
 			 FROM information_schema.columns
-			 WHERE table_name = 'knowledge_items'` as Parameters<typeof db.execute>[0],
+			 WHERE table_name = 'documents'` as Parameters<typeof db.execute>[0],
 		);
 		const columns = (result as { rows: Array<Record<string, unknown>> }).rows;
 
@@ -89,20 +81,20 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 		expect(scopeIdCol?.is_nullable).toBe("YES");
 	});
 
-	test("ki_scope_idx index exists on (scope_kind, scope_id)", async ({ db }) => {
+	test("doc_scope_idx index exists on (scope_kind, scope_id)", async ({ db }) => {
 		const result = await db.execute(
-			`SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_items'` as Parameters<
+			`SELECT indexname FROM pg_indexes WHERE tablename = 'documents'` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		const indexes = (result as { rows: Array<{ indexname: string }> }).rows.map((r) => r.indexname);
 
-		expect(indexes).toContain("ki_scope_idx");
+		expect(indexes).toContain("doc_scope_idx");
 	});
 
 	test("can insert a knowledge item with scopeKind=factory and retrieve it", async ({ db }) => {
 		const now = new Date().toISOString();
-		await db.insert(knowledgeItems).values({
+		await db.insert(documents).values({
 			id: "ki-scope-1",
 			scopeKind: "factory",
 			scopeId: null,
@@ -115,15 +107,8 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
-		// The owner writes the projection row alongside the item.
-		await db
-			.insert(knowledgeAppProjection)
-			.values({ id: "ki-scope-1-projection", knowledgeItemId: "ki-scope-1" });
 
-		const [result] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "ki-scope-1"));
+		const [result] = await db.select().from(documents).where(eq(documents.id, "ki-scope-1"));
 
 		expect(result?.scopeKind).toBe("factory");
 		expect(result?.scopeId).toBeNull();
@@ -462,32 +447,9 @@ describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 		expect(updated.version).toBe(originalVersion + 1);
 	});
 
-	test("a scope change is written to knowledgeEditLog", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
-
-		await app.request(`/api/knowledge/${item.id}`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				scopeKind: "team",
-				scopeId: "team-xyz",
-				updatedBy: "u-founder",
-				version: item.version,
-			}),
-		});
-
-		const logs = await db
-			.select()
-			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.itemId, item.id));
-
-		const scopeKindLog = logs.find((l) => l.field === "scopeKind");
-		expect(scopeKindLog).toBeDefined();
-		expect(scopeKindLog?.oldValue).toBe("user");
-		expect(scopeKindLog?.newValue).toContain("team");
-	});
-
+	// @lore BC4: "a scope change is written to knowledgeEditLog" deleted —
+	// migration 0086 dropped knowledge_edit_log with nothing replacing it
+	// (architecture.md §6.2); the whole test's subject was that table.
 	test("PATCH /:id/scope with wrong version returns 409", async ({ db, app }) => {
 		await seedFounder(db, "u-founder");
 		const item = await createUserItem(app);

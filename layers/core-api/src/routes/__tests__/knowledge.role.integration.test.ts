@@ -11,7 +11,7 @@
  * later edit can change it.
  */
 
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, documents, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -63,8 +63,8 @@ describe("a knowledge document's role is set at creation", () => {
 
 		expect(res.status).toBe(201);
 		const created = (await res.json()) as { id: string };
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
-		expect(row?.role).toBe("skill");
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id));
+		expect(row?.slot).toBe("skill");
 	});
 
 	test("defaults to ordinary when none is given", async ({ db, app }) => {
@@ -77,8 +77,8 @@ describe("a knowledge document's role is set at creation", () => {
 		});
 
 		const created = (await res.json()) as { id: string };
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
-		expect(row?.role).toBe("ordinary");
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id));
+		expect(row?.slot).toBe("ordinary");
 	});
 
 	test("rejects a role outside the vocabulary", async ({ db, app }) => {
@@ -119,8 +119,8 @@ describe("a knowledge document's role is set at creation", () => {
 		});
 
 		expect(patchRes.status).toBe(200);
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
-		expect(row?.role, "the PATCH's role is ignored, not applied").toBe("skill");
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id));
+		expect(row?.slot, "the PATCH's role is ignored, not applied").toBe("skill");
 	});
 
 	/**
@@ -149,7 +149,7 @@ describe("a knowledge document's role is set at creation", () => {
 		});
 
 		expect(res.status).toBe(200);
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id));
 		expect(row?.scopeKind).toBe("team");
 		expect(row?.scopeId).toBe("team-alpha");
 	});
@@ -179,39 +179,14 @@ describe("a knowledge document's role is set at creation", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
-		expect(row?.role, "role is not among the applied changes").toBe("skill");
+		const [row] = await db.select().from(documents).where(eq(documents.id, created.id));
+		expect(row?.slot, "role is not among the applied changes").toBe("skill");
 		expect(row?.scopeKind).toBe("team");
 		expect(row?.version).toBe(created.version + 1);
 	});
 
-	test("the kernel and the projection agree on scope after an edit", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const createRes = await app.request("/api/knowledge", {
-			method: "POST",
-			headers: authHeaders(),
-			body: createBody(),
-		});
-		const created = (await createRes.json()) as { id: string; version: number };
-
-		await app.request(`/api/knowledge/${created.id}`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				version: created.version,
-				updatedBy: "u-founder",
-				scopeKind: "team",
-				scopeId: "team-alpha",
-			}),
-		});
-
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
-		const [proj] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id));
-		// The list query ORs these two columns, so a disagreement silently changes
-		// who can find the document.
-		expect(proj?.scopeId).toBe(row?.scopeId);
-	});
+	// @lore BC4: "the kernel and the projection agree on scope after an edit"
+	// deleted — migration 0086 folded knowledge_app_projection into the kernel
+	// row (architecture.md §6.2/§6.4); there is only one scope_id now, so the
+	// agreement this test proved no longer has two sides to compare.
 });
