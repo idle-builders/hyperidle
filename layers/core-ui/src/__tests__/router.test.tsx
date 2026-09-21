@@ -54,8 +54,8 @@ vi.mock("../hooks/useTeams", () => ({
 import { Navigate } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Conversations } from "../pages/Conversations";
-import { KnowledgeDetail } from "../pages/KnowledgeDetail";
-import { KnowledgeList } from "../pages/KnowledgeList";
+import { DocumentDetail } from "../pages/DocumentDetail";
+import { DocumentList } from "../pages/DocumentList";
 import { NotFound } from "../pages/NotFound";
 // AD9: WorkPortfolio retired; WorkOverview is the new /work route
 import { WorkOverview } from "../pages/WorkOverview";
@@ -92,8 +92,8 @@ function renderRoute(initialPath: string): ReturnType<typeof render> {
 						element: <Navigate to="/work" replace />,
 					},
 					{ path: "work/task/:taskId", element: <WorkTaskPage /> },
-					{ path: "knowledge", element: <KnowledgeList /> },
-					{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
+					{ path: "documents", element: <DocumentList /> },
+					{ path: "documents/:documentId", element: <DocumentDetail /> },
 					{ path: "*", element: <NotFound /> },
 				],
 			},
@@ -162,17 +162,17 @@ describe("Router (L9)", () => {
 		});
 	});
 
-	it("renders KnowledgeList page at /knowledge", async () => {
-		renderRoute("/knowledge");
+	it("renders DocumentList page at /documents", async () => {
+		renderRoute("/documents");
 		await waitFor(() => {
 			expect(screen.getByTestId("knowledge-list-page")).toBeInTheDocument();
 		});
 	});
 
-	it("renders KnowledgeDetail page at /knowledge/:knowledgeId", async () => {
-		renderRoute("/knowledge/k1");
+	it("renders DocumentDetail page at /documents/:documentId", async () => {
+		renderRoute("/documents/k1");
 		await waitFor(() => {
-			expect(screen.getByTestId("knowledge-detail-page")).toBeInTheDocument();
+			expect(screen.getByTestId("document-detail-page")).toBeInTheDocument();
 		});
 	});
 

@@ -34,7 +34,7 @@ export function resolveHostRoute(hostKind: RouteHostKind, hostId: string): strin
 			// one task route at any depth — so the documented no-op is fixed.
 			return `/work/task/${hostId}`;
 		case "document":
-			return `/knowledge/${hostId}`;
+			return `/documents/${hostId}`;
 		case "agent":
 			return `/agents/${hostId}`;
 		case "team":

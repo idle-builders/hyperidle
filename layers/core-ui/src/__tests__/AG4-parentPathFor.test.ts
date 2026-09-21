@@ -52,22 +52,22 @@ describe("AG4 — parentPathFor", () => {
 		});
 	});
 
-	describe("knowledge routes", () => {
-		it("knowledge detail → /knowledge", () => {
-			expect(parentPathFor("/knowledge/item-123")).toBe("/knowledge");
+	describe("document routes", () => {
+		it("document detail → /documents", () => {
+			expect(parentPathFor("/documents/item-123")).toBe("/documents");
 		});
 
-		it("knowledge detail with id → /knowledge", () => {
-			expect(parentPathFor("/knowledge/some-article")).toBe("/knowledge");
+		it("document detail with id → /documents", () => {
+			expect(parentPathFor("/documents/some-article")).toBe("/documents");
 		});
 
-		it("knowledge list → null (already root)", () => {
-			expect(parentPathFor("/knowledge")).toBeNull();
+		it("document list → null (already root)", () => {
+			expect(parentPathFor("/documents")).toBeNull();
 		});
 
-		it("/knowledge/new is NOT a detail route → null", () => {
-			// @lore AE4: /knowledge/new is a create page excluded from isDetailRoute
-			expect(parentPathFor("/knowledge/new")).toBeNull();
+		it("/documents/new is NOT a detail route → null", () => {
+			// @lore AE4: /documents/new is a create page excluded from isDetailRoute
+			expect(parentPathFor("/documents/new")).toBeNull();
 		});
 	});
 

@@ -35,8 +35,8 @@ describe("AE5 — resolveHostRoute", () => {
 		expect(resolveHostRoute("task", "task-456")).toBe("/work/task/task-456");
 	});
 
-	it("resolves document to /knowledge/:id", () => {
-		expect(resolveHostRoute("document", "ki-789")).toBe("/knowledge/ki-789");
+	it("resolves document to /documents/:id", () => {
+		expect(resolveHostRoute("document", "ki-789")).toBe("/documents/ki-789");
 	});
 
 	// @lore artifacts-become-knowledge: artifact test removed — "artifact" is no longer a valid HostKind

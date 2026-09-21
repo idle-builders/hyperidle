@@ -26,7 +26,7 @@
  *   /work/task/:id              → /work  (BB1: tasks at any depth, breadcrumb handles deep nav)
  *   /work/routine/:id           → /work  (AD9: was /work/portfolio)
  *   /work/team/:id              → /work  (AD9: was /work/portfolio)
- *   /knowledge/:id              → /knowledge  (excludes /knowledge/new)
+ *   /documents/:id              → /documents  (excludes /documents/new)
  *   /agents/:id                 → /conversations
  *   /conversations/:id          → /conversations
  *
@@ -49,10 +49,10 @@ export function parentPathFor(pathname: string): string | null {
 		return "/work";
 	}
 
-	// Knowledge detail: /knowledge/:id → /knowledge
-	// @lore AE4: /knowledge/new is a create page — excluded from detail routes.
-	if (/^\/knowledge\/(?!new$)[^/]+/.test(pathname)) {
-		return "/knowledge";
+	// Document detail: /documents/:id → /documents
+	// @lore AE4: /documents/new is a create page — excluded from detail routes.
+	if (/^\/documents\/(?!new$)[^/]+/.test(pathname)) {
+		return "/documents";
 	}
 
 	// Agent detail: /agents/:id → /conversations
