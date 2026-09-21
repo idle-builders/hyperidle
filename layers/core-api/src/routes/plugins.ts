@@ -172,15 +172,36 @@ async function setNonDocumentContributionsLive(
  * The document half of "make it live, or not" — an archive loop of
  * `edit_document({id, status})`, one edit and one `changes` row per document,
  * each attributed to the requesting person (architecture.md §8.3).
+ *
+ * @lore document-module B10 follow-up: `plugin_contributions` has no scope
+ * column, so its registry cannot tell "no longer declared by a reinstall of
+ * THIS scope" apart from "belongs to a DIFFERENT team's independent install
+ * of the same plugin id" — the `plugins` row is a singleton, but two teams
+ * can each hold their own scope-derived materialized rows (agentItemId /
+ * routineItemId / skillItemId all fold scope into the hash). A document id
+ * that turns out to belong to another scope fails `edit_document`'s
+ * visibility check (architecture.md §5.1) — filtered out here BEFORE the
+ * write, so one team's install can never crash trying to archive a row it
+ * cannot see, and never touches it either. This is a narrow, local guard,
+ * not a fix for the registry's missing scope column — a plugin_contributions
+ * row for another team's document can still be dropped from THIS plugin's
+ * registry by `forgetContributionsExcept` (settings/src/plugin-contributions.ts)
+ * even though the underlying document is left alone; that only matters if a
+ * later enable/disable/remove needs to find it again through the registry,
+ * which is the residual gap this guard does not close.
  */
 async function setContributedDocumentsLive(
 	ctx: ActionContext,
-	editDocument: EditDocumentRun,
+	deps: { readonly searchDocuments: SearchDocumentsRun; readonly editDocument: EditDocumentRun },
 	documentIds: readonly string[],
 	live: boolean,
 ): Promise<void> {
+	if (documentIds.length === 0) return;
+	const found = await deps.searchDocuments(ctx, { ids: [...documentIds] });
+	const visibleIds = new Set((found.ok ? found.data : []).map((d) => d.id));
 	for (const id of documentIds) {
-		const result = await editDocument(ctx, { id, status: live ? "active" : "archived" });
+		if (!visibleIds.has(id)) continue;
+		const result = await deps.editDocument(ctx, { id, status: live ? "active" : "archived" });
 		if (!result.ok) {
 			throw new Error(
 				`plugin document ${live ? "activate" : "archive"} failed for "${id}": ` +
@@ -324,11 +345,14 @@ async function labelContributions(
 /**
  * The plugin's own version of a contributed document, read off disk.
  *
- * A skill document's id is `skillItemId(pluginId, dirName)` — a one-way hash —
- * so there is no way back from the id to the directory. Enumerating the
- * plugin's skill directories and hashing each one inverts it, and keeps the id
- * derivation as the single source of truth rather than storing the mapping
- * twice.
+ * A skill document's id is `skillItemId(pluginId, dirName, scopeKind,
+ * scopeId)` — a one-way hash — so there is no way back from the id to the
+ * directory. Enumerating the plugin's skill directories and hashing each one
+ * inverts it, and keeps the id derivation as the single source of truth
+ * rather than storing the mapping twice. `scopeKind`/`scopeId` are the
+ * plugin's OWN install scope (`existing.scope`, the caller's) — every id this
+ * function re-derives must use the same scope the install did, or the hashes
+ * never line up for a team-scoped install.
  *
  * Returns null when nothing on disk produces this id: a corrupt install, or a
  * document whose source is the manifest rather than a file.
@@ -337,27 +361,28 @@ function readPluginDocumentSource(
 	installPath: string,
 	pluginId: string,
 	documentId: string,
+	scopeKind: string,
+	scopeId: string | null,
 ): string | null {
 	const parsed = parsePluginManifest(installPath);
 	if (parsed.ok) {
 		for (const skill of parsed.manifest.skills) {
-			if (skillItemId(pluginId, skill.dirName) === documentId) return skill.body;
+			if (skillItemId(pluginId, skill.dirName, scopeKind, scopeId) === documentId)
+				return skill.body;
 		}
 		// An agent's identity is a document too, and its source is the file the
 		// manifest's `identity` names. Without this branch, restoring a persona —
 		// the whole point of the `role-personas` plugin — answered 422.
 		for (const agent of parsed.manifest.agents) {
 			if (agent.identity === null) continue;
-			const agentDbId = agentItemId(pluginId, agent.id, "factory", null);
+			const agentDbId = agentItemId(pluginId, agent.id, scopeKind, scopeId);
 			if (`ki_af_${agentDbId}` === documentId) return agent.identity;
 		}
 
 		// A routine's prompt is a document too, and its source is the manifest
-		// rather than a file. Only the factory shape is derivable here — a
-		// team-scoped install's ids carry the team, which this function is not
-		// told; those fall through to null and the caller answers 422.
+		// rather than a file.
 		for (const routine of parsed.manifest.routines) {
-			const routineDbId = routineItemId(pluginId, routine.id, "factory", null);
+			const routineDbId = routineItemId(pluginId, routine.id, scopeKind, scopeId);
 			if (`ki_rp_${routineDbId}` === documentId) return routine.prompt ?? null;
 		}
 	}
@@ -548,7 +573,7 @@ export function createPluginRoutes(
 
 		for (const skill of skills) {
 			documentSpecs.push({
-				id: skillItemId(plugin.id, skill.dirName),
+				id: skillItemId(plugin.id, skill.dirName, scopeKind, scopeId),
 				title: skill.dirName,
 				body: skill.body,
 				slot: "skill",
@@ -687,7 +712,12 @@ export function createPluginRoutes(
 		// Phase 4 — the document half of "forget what's stale": an archive loop,
 		// same reasoning as Phase 2 for why it is outside the Phase 3 transaction.
 		if (staleDocumentIds.length > 0) {
-			await setContributedDocumentsLive(ctx, editDocument, staleDocumentIds, false);
+			await setContributedDocumentsLive(
+				ctx,
+				{ searchDocuments, editDocument },
+				staleDocumentIds,
+				false,
+			);
 		}
 
 		return c.json({ plugin }, 201);
@@ -725,7 +755,12 @@ export function createPluginRoutes(
 			return c.json({ code: "ENABLE_CLEANUP_FAILED", error: msg }, 500);
 		}
 		try {
-			await setContributedDocumentsLive(ctxFor(c, db, eventBus), editDocument, documentIds, true);
+			await setContributedDocumentsLive(
+				ctxFor(c, db, eventBus),
+				{ searchDocuments, editDocument },
+				documentIds,
+				true,
+			);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "ENABLE_CLEANUP_FAILED", error: msg }, 500);
@@ -764,7 +799,12 @@ export function createPluginRoutes(
 			return c.json({ code: "DISABLE_CLEANUP_FAILED", error: msg }, 500);
 		}
 		try {
-			await setContributedDocumentsLive(ctxFor(c, db, eventBus), editDocument, documentIds, false);
+			await setContributedDocumentsLive(
+				ctxFor(c, db, eventBus),
+				{ searchDocuments, editDocument },
+				documentIds,
+				false,
+			);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "DISABLE_CLEANUP_FAILED", error: msg }, 500);
@@ -807,7 +847,12 @@ export function createPluginRoutes(
 			return c.json({ code: "REMOVE_CLEANUP_FAILED", error: msg }, 500);
 		}
 		try {
-			await setContributedDocumentsLive(ctxFor(c, db, eventBus), editDocument, documentIds, false);
+			await setContributedDocumentsLive(
+				ctxFor(c, db, eventBus),
+				{ searchDocuments, editDocument },
+				documentIds,
+				false,
+			);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "REMOVE_CLEANUP_FAILED", error: msg }, 500);
@@ -867,7 +912,13 @@ export function createPluginRoutes(
 					422,
 				);
 			}
-			const sourceBody = readPluginDocumentSource(existing.installPath, pluginId, entityId);
+			const sourceBody = readPluginDocumentSource(
+				existing.installPath,
+				pluginId,
+				entityId,
+				existing.scope.kind,
+				existing.scope.teamId,
+			);
 			if (sourceBody === null) {
 				return c.json(
 					{

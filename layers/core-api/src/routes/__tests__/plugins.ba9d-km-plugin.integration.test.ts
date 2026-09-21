@@ -9,14 +9,23 @@
  * their own independent agent and routine rows (different ids from different
  * scopeId in the hash). The sanity-break for each is confirmed inline.
  *
+ * @lore document-module B10 follow-up: also proves scope isolation for the
+ * SKILL documents a team-scoped install contributes (`skillItemId` now folds
+ * `scopeKind`/`scopeId` into its hash, same as `agentItemId`/`routineItemId`
+ * already did) — before this, two teams installing at team scope resolved
+ * the SAME skill document id, and the second team's install failed
+ * `not_found` under the visibility rule (architecture.md §5.1) rather than
+ * silently overwriting the first team's row.
+ *
  * Uses the real DB + app fixture. Each test is self-contained.
  */
 
-import { cpSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
-import { agentItemId, routineItemId } from "@hyperidle/settings";
+import { documents, type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
+import type { DocumentRow } from "@hyperidle/domain-model";
+import { agentItemId, routineItemId, skillItemId } from "@hyperidle/settings";
 import { eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
@@ -25,6 +34,18 @@ import { test } from "../../__testing__/test-fixtures.js";
 const API_KEY = "test-ba9d-km-plugin";
 const PLUGIN_ROOT = resolve("plugins/knowledge-management");
 const PLUGIN_ID = "knowledge-management";
+const SKILL_DIR = "post-task-retro";
+
+interface ActionEnvelope<T> {
+	readonly ok: boolean;
+	readonly data?: T;
+	readonly problems?: ReadonlyArray<{ readonly code: string; readonly message: string }>;
+}
+
+/** The agent actor-override header the document seam test already uses. */
+function actorHeaders(actorId: string): Record<string, string> {
+	return { ...auth(), "Content-Type": "application/json", "x-hyperidle-actor-id": actorId };
+}
 
 function auth(): Record<string, string> {
 	return { "X-API-Key": API_KEY };
@@ -271,5 +292,100 @@ describe("knowledge-management plugin — team-scope isolation", () => {
 		// Each team has its own routine row — not the same row shared via onConflictDoNothing
 		expect(gammaRows).toHaveLength(1);
 		expect(deltaRows).toHaveLength(1);
+	});
+
+	test("two teams installing at team scope get independent SKILL documents", async ({
+		db,
+		app,
+	}) => {
+		await db.insert(teams).values([
+			{
+				id: "team-echo",
+				name: "Echo",
+				phase: "active",
+				createdAt: "2026-01-01T00:00:00.000Z",
+			},
+			{
+				id: "team-foxtrot",
+				name: "Foxtrot",
+				phase: "active",
+				createdAt: "2026-01-01T00:00:00.000Z",
+			},
+		]);
+		// A real team member per team — the visibility rule (architecture.md
+		// §5.1) reads the actor's own `teamId` off their `users` row, not off
+		// any header.
+		await db.insert(users).values([
+			{
+				id: "u-echo-member",
+				kind: "human",
+				name: "Echo Member",
+				role: "member",
+				status: "active",
+				teamId: "team-echo",
+				createdAt: "2026-01-01T00:00:00Z",
+			},
+			{
+				id: "u-foxtrot-member",
+				kind: "human",
+				name: "Foxtrot Member",
+				role: "member",
+				status: "active",
+				teamId: "team-foxtrot",
+				createdAt: "2026-01-01T00:00:00Z",
+			},
+		]);
+
+		const resEcho = await installKmPluginForTeam(db, app, "team-echo");
+		expect(resEcho.status).toBe(201);
+
+		const skillIdEcho = skillItemId(PLUGIN_ID, SKILL_DIR, "team", "team-echo");
+
+		// Team echo edits its own copy's body.
+		const editRes = await app.request("/api/actions/edit_document", {
+			method: "POST",
+			headers: actorHeaders("u-echo-member"),
+			body: JSON.stringify({ id: skillIdEcho, body: "TEAM ECHO EDITED CONTENT" }),
+		});
+		expect(editRes.status).toBe(200);
+
+		// Team foxtrot installs the SAME plugin at its own team scope.
+		const resFoxtrot = await installKmPluginForTeam(db, app, "team-foxtrot");
+		expect(resFoxtrot.status).toBe(201);
+
+		const skillIdFoxtrot = skillItemId(PLUGIN_ID, SKILL_DIR, "team", "team-foxtrot");
+
+		// Ids must differ — no collision, no shared row.
+		expect(skillIdEcho).not.toBe(skillIdFoxtrot);
+
+		// Team echo's text is unchanged, exact string.
+		const echoRows = await db.select().from(documents).where(eq(documents.id, skillIdEcho));
+		expect(echoRows).toHaveLength(1);
+		expect(echoRows[0]!.body).toBe("TEAM ECHO EDITED CONTENT");
+
+		// Team foxtrot has its own document, with the shipped text.
+		const shippedBody = readFileSync(join(PLUGIN_ROOT, "skills", SKILL_DIR, "SKILL.md"), "utf-8");
+		const foxtrotRows = await db.select().from(documents).where(eq(documents.id, skillIdFoxtrot));
+		expect(foxtrotRows).toHaveLength(1);
+		expect(foxtrotRows[0]!.body).toBe(shippedBody);
+
+		// Each team's session sees only its own copy.
+		const searchAsEcho = await app.request("/api/actions/search_documents", {
+			method: "POST",
+			headers: actorHeaders("u-echo-member"),
+			body: JSON.stringify({ ids: [skillIdEcho, skillIdFoxtrot] }),
+		});
+		expect(searchAsEcho.status).toBe(200);
+		const echoBody = (await searchAsEcho.json()) as ActionEnvelope<readonly DocumentRow[]>;
+		expect((echoBody.data ?? []).map((d) => d.id)).toEqual([skillIdEcho]);
+
+		const searchAsFoxtrot = await app.request("/api/actions/search_documents", {
+			method: "POST",
+			headers: actorHeaders("u-foxtrot-member"),
+			body: JSON.stringify({ ids: [skillIdEcho, skillIdFoxtrot] }),
+		});
+		expect(searchAsFoxtrot.status).toBe(200);
+		const foxtrotBody = (await searchAsFoxtrot.json()) as ActionEnvelope<readonly DocumentRow[]>;
+		expect((foxtrotBody.data ?? []).map((d) => d.id)).toEqual([skillIdFoxtrot]);
 	});
 });

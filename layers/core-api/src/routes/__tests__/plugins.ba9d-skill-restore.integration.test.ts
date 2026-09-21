@@ -74,7 +74,7 @@ describe("BA9d skill restore", () => {
 		expect(installRes.status).toBe(201);
 
 		// 2. Fetch the skill from the knowledge route to get its current state.
-		const skillId = skillItemId(PLUGIN_ID, SKILL_DIR);
+		const skillId = skillItemId(PLUGIN_ID, SKILL_DIR, "factory", null);
 		const getRes = await pluginsApp.request(`/api/knowledge/${skillId}`);
 		expect(getRes.status).toBe(200);
 		const skillItem = (await getRes.json()) as {
@@ -143,7 +143,10 @@ describe("BA9d skill restore", () => {
 		const restoreRes = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ kind: "knowledge", entityId: skillItemId(PLUGIN_ID, SKILL_DIR) }),
+			body: JSON.stringify({
+				kind: "knowledge",
+				entityId: skillItemId(PLUGIN_ID, SKILL_DIR, "factory", null),
+			}),
 		});
 		expect(restoreRes.status).toBe(422);
 		const body = (await restoreRes.json()) as { code: string };

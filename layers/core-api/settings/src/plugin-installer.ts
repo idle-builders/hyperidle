@@ -261,9 +261,26 @@ async function removeStaleDefaults(
  * Scoped to pluginId + skill title so reinstalls update the same row.
  * Exported so the core-api layer's route handlers can compute the same IDs
  * when syncing skills through the knowledge service (governance boundary).
+ *
+ * @lore document-module B10 follow-up: `scopeKind`/`scopeId` join the hash the
+ * same way `agentItemId`/`routineItemId` already fold them in — a factory
+ * install's suffix is empty, so its id is byte-identical to before this
+ * change (there is no pre-existing factory-scoped id to migrate); a
+ * team-scoped install's id now carries the team, so two teams installing the
+ * same plugin never share one skill document. Before this, both teams
+ * resolved the SAME id — the visibility rule (architecture.md §5.1) then
+ * correctly refused the second team's install with `not_found`, because it
+ * cannot see a row scoped to a team it is not, which is how the collision
+ * surfaced rather than a silent overwrite.
  */
-export function skillItemId(pluginId: string, dirName: string): string {
-	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}`).slice(0, 24)}`;
+export function skillItemId(
+	pluginId: string,
+	dirName: string,
+	scopeKind: string,
+	scopeId: string | null,
+): string {
+	const suffix = scopeKind === "team" ? `\0${scopeKind}\0${scopeId ?? ""}` : "";
+	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}${suffix}`).slice(0, 24)}`;
 }
 
 /**
