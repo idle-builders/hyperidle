@@ -87,3 +87,9 @@ Working file for refinement and architecture. Deleted at ship.
 ## Founder rulings, continued
 3. **Rename everything to document** — tables, code, thread host kind and parent kind, URLs, every
    user-visible label — except the sidebar section, which stays "Knowledge" as the name of the place.
+4. **Memory and artifact stay as words agents read.** Both are established terms in AI models: an
+   artifact is output shared with others, a memory is for oneself. One write stays (edit a document)
+   with a field `as: memory | artifact | document`. Memory = private to the writer, returns in the
+   writer's next sessions. Artifact = attached to the task or thread being worked in, server fills
+   the task from the session. Document = in the knowledge tree. Search and open take the same word.
+   The tools `write_memory` and `create_artifact` go. The task and thread pages keep "Artifacts".
