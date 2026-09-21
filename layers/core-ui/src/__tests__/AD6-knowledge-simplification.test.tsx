@@ -10,20 +10,20 @@
  *    scope values — Shared is factory alone now)
  * 3. "Private" filter shows only user-scoped items
  * 4. Kind badge NOT rendered in list rows
- * 5. Archive button calls POST /api/knowledge/:id/archive
- * 6. Archive success navigates to /knowledge
- * 7. Archive failure shows error message
  * 8. Create page has 3-pill scope picker (not 7-item dropdown)
  * 9. Create page has no kind selector
  * 10. Team pill is disabled when no team context
+ *
+ * Items 5-7 (Archive) and 11 (Flag removed) tested `KnowledgeDetail`
+ * directly — moved to `pages/__tests__/DocumentDetail.dialogs.test.tsx`
+ * (BC4) when that page was rewritten against `call("edit_document", …)`.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KnowledgeCreate } from "../pages/KnowledgeCreate";
-import { KnowledgeDetail } from "../pages/KnowledgeDetail";
 import { KnowledgeList } from "../pages/KnowledgeList";
 
 // ---------------------------------------------------------------------------
@@ -56,34 +56,9 @@ vi.mock("../ds", async (importOriginal) => {
 	};
 });
 
-// Mock HostThreadSection so KnowledgeDetail renders without fetch complexity
-vi.mock("../shell/HostThreadSection", () => ({
-	HostThreadSection: () => <div data-testid="host-thread-section" />,
-}));
-
-// Mock useHostThread — called directly in KnowledgeDetail (not only inside HostThreadSection)
-vi.mock("../hooks/useHostThread.js", () => ({
-	useHostThread: () => ({ data: null, isLoading: false, error: null }),
-}));
-
-// Mock useKnowledgeItem — KnowledgeDetail uses this to fetch live data
-vi.mock("../hooks/useKnowledgeItem.js", () => ({
-	useKnowledgeItem: () => ({ data: null, isLoading: false, error: null }),
-}));
-
-// Mock useAutoSave — KnowledgeDetail uses this for auto-save on edit
-vi.mock("../hooks/useAutoSave.js", () => ({
-	useAutoSave: () => ({ status: "idle", save: vi.fn() }),
-}));
-
 // Mock useCurrentUser
 vi.mock("../hooks/useCurrentUser.js", () => ({
 	useCurrentUser: () => ({ user: { id: "user-1", name: "Test User" } }),
-}));
-
-// Mock apiFetch
-vi.mock("../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
 }));
 
 // Mock useFetch for KnowledgeList
@@ -129,17 +104,6 @@ function renderList(path = "/knowledge"): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[path]}>
 			<KnowledgeList />
-		</MemoryRouter>,
-	);
-}
-
-function renderDetail(knowledgeId: string): ReturnType<typeof render> {
-	return render(
-		<MemoryRouter initialEntries={[`/knowledge/${knowledgeId}`]}>
-			<Routes>
-				<Route path="/knowledge/:knowledgeId" element={<KnowledgeDetail />} />
-				<Route path="/knowledge" element={<div data-testid="knowledge-list-page" />} />
-			</Routes>
 		</MemoryRouter>,
 	);
 }
@@ -343,146 +307,10 @@ describe("AD6 — KnowledgeList kind badge removed from rows", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// 5. Archive button calls POST /api/knowledge/:id/archive
-// ---------------------------------------------------------------------------
-
-describe("AD6 — KnowledgeDetail archive action", () => {
-	let apiFetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
-		const { apiFetch } = await import("../services/api-fetch.js");
-		apiFetchSpy = vi.mocked(apiFetch);
-		apiFetchSpy.mockReset();
-		// Default: GET returns 404 (falls back to fixture data)
-		apiFetchSpy.mockResolvedValue(new Response("Not Found", { status: 404 }));
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it("Archive option appears in the overflow menu", async () => {
-		const user = userEvent.setup();
-		renderDetail("k1");
-
-		// Open overflow menu
-		await user.click(screen.getByRole("button", { name: /more options/i }));
-
-		expect(screen.getByRole("menuitem", { name: /archive/i })).toBeInTheDocument();
-	});
-
-	it("Archive calls POST /api/knowledge/:id/archive", async () => {
-		apiFetchSpy.mockImplementation((url: string) => {
-			if (url.includes("/archive")) {
-				return Promise.resolve(new Response("{}", { status: 200 }));
-			}
-			return Promise.resolve(new Response("Not Found", { status: 404 }));
-		});
-
-		const user = userEvent.setup();
-		renderDetail("k1");
-
-		await user.click(screen.getByRole("button", { name: /more options/i }));
-		await user.click(screen.getByRole("menuitem", { name: /archive/i }));
-
-		await waitFor(() => {
-			expect(apiFetchSpy).toHaveBeenCalledWith(
-				expect.stringContaining("/archive"),
-				expect.objectContaining({ method: "POST" }),
-			);
-		});
-	});
-});
-
-// ---------------------------------------------------------------------------
-// 6. Archive success navigates to /knowledge
-// ---------------------------------------------------------------------------
-
-describe("AD6 — KnowledgeDetail archive navigation on success", () => {
-	let apiFetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
-		const { apiFetch } = await import("../services/api-fetch.js");
-		apiFetchSpy = vi.mocked(apiFetch);
-		apiFetchSpy.mockReset();
-		apiFetchSpy.mockImplementation((url: string) => {
-			if (url.includes("/archive")) {
-				return Promise.resolve(new Response("{}", { status: 200 }));
-			}
-			return Promise.resolve(new Response("Not Found", { status: 404 }));
-		});
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it("navigates to /knowledge after successful archive", async () => {
-		const user = userEvent.setup();
-		renderDetail("k1");
-
-		await user.click(screen.getByRole("button", { name: /more options/i }));
-		await user.click(screen.getByRole("menuitem", { name: /archive/i }));
-
-		// After successful archive, should navigate to /knowledge list page
-		await waitFor(() => {
-			expect(screen.getByTestId("knowledge-list-page")).toBeInTheDocument();
-		});
-	});
-});
-
-// ---------------------------------------------------------------------------
-// 7. Archive failure shows error message
-// ---------------------------------------------------------------------------
-
-describe("AD6 — KnowledgeDetail archive failure shows error", () => {
-	let apiFetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
-		const { apiFetch } = await import("../services/api-fetch.js");
-		apiFetchSpy = vi.mocked(apiFetch);
-		apiFetchSpy.mockReset();
-		apiFetchSpy.mockImplementation((url: string) => {
-			if (url.includes("/archive")) {
-				return Promise.resolve(
-					new Response(JSON.stringify({ error: "Archive failed" }), { status: 500 }),
-				);
-			}
-			return Promise.resolve(new Response("Not Found", { status: 404 }));
-		});
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it("shows an error message when archive request fails", async () => {
-		const user = userEvent.setup();
-		renderDetail("k1");
-
-		await user.click(screen.getByRole("button", { name: /more options/i }));
-		await user.click(screen.getByRole("menuitem", { name: /archive/i }));
-
-		await waitFor(() => {
-			expect(screen.getByTestId("archive-error")).toBeInTheDocument();
-		});
-	});
-
-	it("stays on the detail page when archive fails (no navigation)", async () => {
-		const user = userEvent.setup();
-		renderDetail("k1");
-
-		await user.click(screen.getByRole("button", { name: /more options/i }));
-		await user.click(screen.getByRole("menuitem", { name: /archive/i }));
-
-		await waitFor(() => {
-			expect(screen.getByTestId("archive-error")).toBeInTheDocument();
-		});
-		// Detail page is still present
-		expect(screen.getByTestId("knowledge-detail-page")).toBeInTheDocument();
-	});
-});
+// AD6's items 5, 6, 7 (Archive button/navigation/failure) and 11 (Flag
+// removed) tested `KnowledgeDetail` directly — moved to
+// `pages/__tests__/DocumentDetail.dialogs.test.tsx` (BC4), which now
+// exercises the same archive behavior through `call("edit_document", …)`.
 
 // ---------------------------------------------------------------------------
 // 8. Create page has 3-pill scope picker (not a dropdown)
@@ -585,33 +413,9 @@ describe("AD6 — KnowledgeCreate Team pill disabled without team", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// 11. Flag NOT in overflow menu (removed)
-// ---------------------------------------------------------------------------
-
-describe("AD6 — KnowledgeDetail Flag removed from overflow menu", () => {
-	let apiFetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
-		const { apiFetch } = await import("../services/api-fetch.js");
-		apiFetchSpy = vi.mocked(apiFetch);
-		apiFetchSpy.mockReset();
-		apiFetchSpy.mockResolvedValue(new Response("Not Found", { status: 404 }));
-	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it("Flag is NOT present in the overflow menu", async () => {
-		const user = userEvent.setup();
-		renderDetail("k1");
-
-		await user.click(screen.getByRole("button", { name: /more options/i }));
-
-		expect(screen.queryByRole("menuitem", { name: /flag/i })).not.toBeInTheDocument();
-	});
-});
+// AD6 item 11 (Flag removed from overflow menu) tested `KnowledgeDetail`
+// directly — the overflow menu no longer has a Flag item at all
+// (architecture.md); nothing left to pin here.
 
 // ---------------------------------------------------------------------------
 // 12. scope-labels utility exports correct constants
