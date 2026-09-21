@@ -11,9 +11,6 @@ vi.mock("../services/call.js", () => ({
 vi.mock("../hooks/useTeams", () => ({
 	useTeams: () => ({ data: null, loading: true, error: null, refetch: vi.fn() }),
 }));
-vi.mock("../hooks/useFetch.js", () => ({
-	useFetch: () => ({ data: null, isLoading: true, error: null }),
-}));
 vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: () => new Promise<Response>(() => undefined),
 }));
