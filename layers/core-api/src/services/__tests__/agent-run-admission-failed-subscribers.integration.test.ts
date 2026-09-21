@@ -44,10 +44,9 @@
 import {
 	agentWorkIntents,
 	changes,
+	documents,
 	explicitSessionStarts,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	messages,
 	routineRuns,
 	routines,
@@ -419,7 +418,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			createdAt: NOW,
 		});
 		const [item] = await db
-			.insert(knowledgeItems)
+			.insert(documents)
 			.values({
 				id: "w0-sub-knowledge-item",
 				scopeKind: "factory",
@@ -433,11 +432,6 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 				updatedAt: NOW,
 			})
 			.returning();
-		// The owner writes the projection row alongside the item.
-		await db.insert(knowledgeAppProjection).values({
-			id: "w0-sub-knowledge-item-projection",
-			knowledgeItemId: "w0-sub-knowledge-item",
-		});
 
 		const deps = { ...queueDeps(db), eventBus };
 		// AU44: baked intent + trigger forces terminal failure.
@@ -472,8 +466,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		// assert about the knowledge item itself changing state.
 		const [reloadedItem] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, item?.id ?? ""));
+			.from(documents)
+			.where(eq(documents.id, item?.id ?? ""));
 		expect(reloadedItem?.status).toBe("archived");
 	});
 

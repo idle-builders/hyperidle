@@ -34,9 +34,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -128,7 +127,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12c-l4",
 		scopeKind: "factory",
 		scopeId: null,
@@ -141,13 +140,8 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l4",
-		knowledgeItemId: "item-i12c-l4",
-		scopeId: null,
-	});
 
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12c-l2",
 		scopeKind: "team",
 		scopeId: TEAM_ID,
@@ -160,13 +154,8 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l2",
-		knowledgeItemId: "item-i12c-l2",
-		scopeId: TEAM_ID,
-	});
 
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: "item-i12c-l3",
 		scopeKind: "user",
 		scopeId: AGENT_ID,
@@ -178,11 +167,6 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedBy: AGENT_ID,
 		createdAt: NOW,
 		updatedAt: NOW,
-	});
-	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l3",
-		knowledgeItemId: "item-i12c-l3",
-		scopeId: AGENT_ID,
 	});
 }
 
