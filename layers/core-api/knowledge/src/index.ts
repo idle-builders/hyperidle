@@ -1,11 +1,14 @@
 /**
  * Barrel for @hyperidle/knowledge (core-api Layer, SQL-owning Service).
  *
- * Typed functions only. This barrel MUST NOT re-export the raw `knowledgeItems`
- * (or `knowledgeEditLog`/`knowledgeAccessLog`/`knowledgeConflicts`/
- * `knowledgeAppProjection`) pgTable object — that would let a consumer obtain
- * a table transitively and defeat Table ACL (Mechanism A). Consumers get
- * typed functions; the tables stay private to this Service.
+ * Typed functions only. This barrel MUST NOT re-export the raw `documents`
+ * pgTable object — that would let a consumer obtain a table transitively and
+ * defeat Table ACL (Mechanism A). Consumers get typed functions; the table
+ * stays private to this Service.
+ *
+ * @lore BC4: the extension table (`knowledge_app_projection`) and the edit
+ * log (`knowledge_edit_log`) are dropped with migration 0086 — `documents`
+ * is the only table this Service owns now.
  *
  * @lore AU19 Increment 1a: this is the real cut-over — the full 15-file
  * knowledge module (attention scoring, FTS, promotion pipeline, relevance

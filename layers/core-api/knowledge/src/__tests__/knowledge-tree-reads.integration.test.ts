@@ -1,10 +1,10 @@
 /**
  * Knowledge tree reads (architecture.md §4).
  *
- * The tree read excludes any row whose `parent_kind` is not `knowledge_item`
+ * The tree read excludes any row whose `parent_kind` is not `document`
  * — today's live population of such rows is agent identities
- * (`parent_kind='agent'`, `role='agent_file'`) and routine prompts
- * (`parent_kind='routine'`, `role='prompt'`), both shipped by PR #545 (0077)
+ * (`parent_kind='agent'`, `slot='agent_file'`) and routine prompts
+ * (`parent_kind='routine'`, `slot='prompt'`), both shipped by PR #545 (0077)
  * and both rendering in `KnowledgeList` today via the (soon deleted)
  * `role !== 'skill' && role !== 'rule'` filter.
  *
@@ -15,12 +15,12 @@
  * `GET /knowledge/:id`'s children read both call this same `{tree}` /
  * `{childrenOf}` variant (review.md B2/B3) — this is not a dead read.
  */
-import { knowledgeItems } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { create, list } from "../knowledge-repository.js";
 
 describe("knowledge tree reads (architecture.md §4)", () => {
-	test("excludes items whose parent_kind is not 'knowledge_item' — agent identities and routine prompts never appear", async ({
+	test("excludes items whose parent_kind is not 'document' — agent identities and routine prompts never appear", async ({
 		db,
 	}) => {
 		const ordinary = await create(db, {
@@ -31,7 +31,7 @@ describe("knowledge tree reads (architecture.md §4)", () => {
 			updatedBy: "u-1",
 		});
 
-		await db.insert(knowledgeItems).values({
+		await db.insert(documents).values({
 			id: "ki_af_agent-1",
 			scopeKind: "user",
 			scopeId: "agent-1",
@@ -40,14 +40,14 @@ describe("knowledge tree reads (architecture.md §4)", () => {
 			format: "markdown",
 			status: "active",
 			version: 1,
-			role: "agent_file",
+			slot: "agent_file",
 			parentKind: "agent",
 			parentId: "agent-1",
 			updatedBy: "u-1",
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		});
-		await db.insert(knowledgeItems).values({
+		await db.insert(documents).values({
 			id: "ki_rp_routine-1",
 			scopeKind: "factory",
 			scopeId: null,
@@ -56,7 +56,7 @@ describe("knowledge tree reads (architecture.md §4)", () => {
 			format: "markdown",
 			status: "active",
 			version: 1,
-			role: "prompt",
+			slot: "prompt",
 			parentKind: "routine",
 			parentId: "routine-1",
 			updatedBy: "u-1",
@@ -92,7 +92,7 @@ describe("knowledge tree reads (architecture.md §4)", () => {
 			updatedBy: "u-1",
 			scopeKind: "team",
 			scopeId: "team-1",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: teamRoot.id,
 		});
 

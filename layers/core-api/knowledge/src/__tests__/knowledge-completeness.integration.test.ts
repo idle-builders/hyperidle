@@ -31,12 +31,7 @@
  * `createKnowledgeConflict` and the promote route's `CONFLICT_OPEN` gate are
  * DELETED — a document has no conflict object (founder ruling).
  */
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeEditLog,
-	knowledgeItems,
-} from "@hyperidle/db";
+import { type DocumentRow, documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
@@ -48,7 +43,7 @@ import type { KnowledgeStatus } from "../types.js";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Seed a knowledge item + projection row via the real create() function. */
+/** Seed a document via the real create() function. */
 async function seedItem(
 	db: HyperIdleDb,
 	overrides: {
@@ -57,10 +52,10 @@ async function seedItem(
 		status?: KnowledgeStatus | KernelKnowledgeStatus;
 		scopeKind?: string;
 		scopeId?: string | null;
-		parentKind?: "knowledge_item";
+		parentKind?: "document";
 		parentId?: string | null;
 	} = {},
-): Promise<typeof knowledgeItems.$inferSelect> {
+): Promise<DocumentRow> {
 	const created = await create(db, {
 		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
@@ -73,12 +68,8 @@ async function seedItem(
 			: {}),
 		updatedBy: "u-seed",
 	});
-	// Return the kernel row.
-	const [row] = await db
-		.select()
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.id, created.id))
-		.limit(1);
+	// Return the row.
+	const [row] = await db.select().from(documents).where(eq(documents.id, created.id)).limit(1);
 	if (!row) throw new Error("seedItem: failed to read back created item");
 	return row;
 }
@@ -87,10 +78,8 @@ async function seedItem(
 // A. create — tool-handlers.create
 // ===========================================================================
 
-describe("create: writes kernel row + projection row + edit-log in one operation", () => {
-	test("create() inserts kernel row, projection row, and a 'create' edit-log entry atomically", async ({
-		db,
-	}) => {
+describe("create: writes the document row", () => {
+	test("create() inserts the row with the given fields", async ({ db }) => {
 		const item = await create(db, {
 			scopeKind: "team",
 			scopeId: "t-1",
@@ -101,26 +90,10 @@ describe("create: writes kernel row + projection row + edit-log in one operation
 			updatedBy: "u-author",
 		});
 
-		// Kernel row was created.
 		expect(item.id).toBeTruthy();
 		expect(item.title).toBe("How we ship");
 		expect(item.version).toBe(1);
 		expect(item.scopeKind).toBe("team");
-
-		// Projection row was created.
-		const [proj] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
-		expect(proj).toBeDefined();
-
-		// Edit-log row with editType 'create'.
-		const logs = await db
-			.select()
-			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.itemId, item.id));
-		expect(logs).toHaveLength(1);
-		expect(logs[0]?.editType).toBe("create");
 	});
 });
 
@@ -151,15 +124,15 @@ describe("get: summary view returns kernel row or null", () => {
 // D. get (full view) — items detail read
 // ===========================================================================
 
-describe("get(id, {view:'full'}): returns kernel item merged with projection fields", () => {
+describe("get(id, {view:'full'}): returns the row with its parent fields", () => {
 	test("returns item with its parent chain fields present", async ({ db }) => {
 		const parent = await seedItem(db, { title: "Parent" });
-		const seeded = await seedItem(db, { parentKind: "knowledge_item", parentId: parent.id });
+		const seeded = await seedItem(db, { parentKind: "document", parentId: parent.id });
 
 		const full = await get(db, seeded.id, { view: "full" });
 		expect(full).not.toBeNull();
 		expect(full?.id).toBe(seeded.id);
-		expect(full?.parentKind).toBe("knowledge_item");
+		expect(full?.parentKind).toBe("document");
 		expect(full?.parentId).toBe(parent.id);
 	});
 });
@@ -168,23 +141,14 @@ describe("get(id, {view:'full'}): returns kernel item merged with projection fie
 // E. update — version-checked write + VersionConflictError
 // ===========================================================================
 
-describe("update: version-checked update writes edit-log and bumps version", () => {
-	test("update() bumps version and writes edit-log on success", async ({ db }) => {
+describe("update: version-checked update bumps version", () => {
+	test("update() bumps version and writes the new field value", async ({ db }) => {
 		const item = await seedItem(db, { title: "Before update" });
 
 		const updated = await update(db, item.id, { title: "After update", updatedBy: "u-edit" }, 1);
 
 		expect(updated.title).toBe("After update");
 		expect(updated.version).toBe(2);
-
-		const logs = await db
-			.select()
-			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.itemId, item.id));
-		const updateLog = logs.find((l) => l.editType === "update" && l.field === "title");
-		expect(updateLog).toBeDefined();
-		expect(updateLog?.oldValue).toBe("Before update");
-		expect(updateLog?.newValue).toBe("After update");
 	});
 
 	test("update() throws VersionConflictError when expectedVersion is stale", async ({ db }) => {
@@ -287,18 +251,8 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 			expect(result.fromStatus).toBe("proposed");
 		}
 
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, item.id));
+		const [row] = await db.select().from(documents).where(eq(documents.id, item.id));
 		expect(row?.status).toBe("active");
-
-		// Edit-log row written for the transition.
-		const logs = await db
-			.select()
-			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.itemId, item.id));
-		const promotionLog = logs.find((l) => l.field === "status");
-		expect(promotionLog).toBeDefined();
-		expect(promotionLog?.oldValue).toBe("proposed");
-		expect(promotionLog?.newValue).toContain("active");
 	});
 
 	test("returns CONCURRENT_MODIFICATION when status no longer matches fromStatus", async ({

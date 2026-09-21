@@ -5,7 +5,7 @@
  * same transaction as the write (architecture §3):
  *   1. No cycle — self-parent and reparenting under a descendant are rejected.
  *   2. Scope no wider than the parent's (factory > team > user), only when
- *      parent_kind = 'knowledge_item'.
+ *      parent_kind = 'document'.
  *   3. Depth <= 32.
  * Plus: scope narrowing on a parent cascades to its subtree (D5), and
  * `position` defaults to creation order within a parent.
@@ -18,7 +18,7 @@
  * case in this file fails on a real assertion against the current `create()`/
  * `update()` behaviour (which does not validate parent invariants at all).
  */
-import { knowledgeItems } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq, sql } from "drizzle-orm";
 // @lore RED phase: this export did not exist yet at red-phase authoring time
@@ -39,7 +39,7 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 
 			await expect(
 				reparent(db, item.id, {
-					parentKind: "knowledge_item",
+					parentKind: "document",
 					parentId: item.id,
 					updatedBy: "u-1",
 				}),
@@ -60,7 +60,7 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 				format: "markdown",
 				status: "active",
 				updatedBy: "u-1",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: grandparent.id,
 			});
 			const child = await create(db, {
@@ -69,14 +69,14 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 				format: "markdown",
 				status: "active",
 				updatedBy: "u-1",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: parent.id,
 			});
 
 			// Reparenting the grandparent under its own grandchild is a cycle.
 			await expect(
 				reparent(db, grandparent.id, {
-					parentKind: "knowledge_item",
+					parentKind: "document",
 					parentId: child.id,
 					updatedBy: "u-1",
 				}),
@@ -106,8 +106,8 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 			// that runs inside the same transaction as the write (re-reading
 			// live state) can stop the pair from together producing a 2-cycle.
 			const results = await Promise.allSettled([
-				reparent(db, x.id, { parentKind: "knowledge_item", parentId: y.id, updatedBy: "u-1" }),
-				reparent(db, y.id, { parentKind: "knowledge_item", parentId: x.id, updatedBy: "u-1" }),
+				reparent(db, x.id, { parentKind: "document", parentId: y.id, updatedBy: "u-1" }),
+				reparent(db, y.id, { parentKind: "document", parentId: x.id, updatedBy: "u-1" }),
 			]);
 
 			const succeeded = results.filter((r) => r.status === "fulfilled").length;
@@ -137,13 +137,13 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 					status: "active",
 					updatedBy: "u-1",
 					scopeKind: "factory",
-					parentKind: "knowledge_item",
+					parentKind: "document",
 					parentId: parent.id,
 				}),
 			).rejects.toThrow();
 		});
 
-		test("only enforced when parent_kind = 'knowledge_item' — a task-parented child may carry any scope", async ({
+		test("only enforced when parent_kind = 'document' — a task-parented child may carry any scope", async ({
 			db,
 		}) => {
 			// Task-parented items never appear in the tree and inherit nothing
@@ -173,7 +173,7 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 					format: "markdown",
 					status: "active",
 					updatedBy: "u-1",
-					parentKind: parentId ? "knowledge_item" : null,
+					parentKind: parentId ? "document" : null,
 					parentId,
 				});
 				parentId = created.id;
@@ -190,7 +190,7 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 					format: "markdown",
 					status: "active",
 					updatedBy: "u-1",
-					parentKind: "knowledge_item",
+					parentKind: "document",
 					parentId: parentId as string,
 				}),
 			).rejects.toThrow();
@@ -214,7 +214,7 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 				status: "active",
 				updatedBy: "u-1",
 				scopeKind: "factory",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: parent.id,
 			});
 
@@ -222,8 +222,8 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 
 			const [refetchedChild] = await db
 				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, child.id))
+				.from(documents)
+				.where(eq(documents.id, child.id))
 				.limit(1);
 
 			expect(refetchedChild?.scopeKind).toBe("team");
@@ -247,7 +247,7 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 				format: "markdown",
 				status: "active",
 				updatedBy: "u-1",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: parent.id,
 			});
 			const second = await create(db, {
@@ -256,14 +256,14 @@ describe("knowledge tree invariants (architecture.md §3, §7 D5)", () => {
 				format: "markdown",
 				status: "active",
 				updatedBy: "u-1",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: parent.id,
 			});
 
 			// `position` does not exist on the schema yet — this is a raw read of
 			// the column the migration is meant to add.
 			const result = await db.execute(
-				sql`SELECT id, position FROM knowledge_items WHERE id IN (${first.id}, ${second.id}) ORDER BY position`,
+				sql`SELECT id, position FROM documents WHERE id IN (${first.id}, ${second.id}) ORDER BY position`,
 			);
 			const positions = (result as unknown as { rows: Array<{ id: string; position: number }> })
 				.rows;

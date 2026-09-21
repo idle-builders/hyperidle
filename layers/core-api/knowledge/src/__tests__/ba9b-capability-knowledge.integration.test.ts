@@ -7,7 +7,7 @@
  * - Team-scoped capability items only reach the matching team's sessions (AC7)
  * - agent_file items have agentBindingId derived from scopeId
  */
-import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { assembleSessionKnowledge } from "../session-knowledge-assembler.js";
 
@@ -31,7 +31,7 @@ async function insertKnowledgeItem(
 ) {
 	const id = opts.id ?? generateId();
 	const now = new Date().toISOString();
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		scopeKind: opts.scopeKind ?? "factory",
 		scopeId: opts.scopeId ?? null,
@@ -39,7 +39,7 @@ async function insertKnowledgeItem(
 		body: opts.body,
 		format: "markdown",
 		status: "active",
-		role: opts.role,
+		slot: opts.role,
 		version: 1,
 		updatedBy: "test-user",
 		createdAt: now,
@@ -67,7 +67,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			agentId: generateId(),
 		});
 
-		const skill = items.find((i) => i.title === "write-tests" && i.role === "skill");
+		const skill = items.find((i) => i.title === "write-tests" && i.slot === "skill");
 		expect(skill).toBeDefined();
 		expect(skill?.body).toBe("Write tests first.");
 	});
@@ -154,7 +154,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			agentId: generateId(),
 		});
 
-		const rule = items.find((i) => i.title === "no-console-rule" && i.role === "rule");
+		const rule = items.find((i) => i.title === "no-console-rule" && i.slot === "rule");
 		expect(rule).toBeDefined();
 	});
 

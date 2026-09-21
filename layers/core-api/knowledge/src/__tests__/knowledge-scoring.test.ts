@@ -14,18 +14,15 @@
  * @lore nested-knowledge-items D1: `layer==='L4'` is replaced by
  * `scopeKind==='factory'` as the "always included" rule — see `token-budget.ts`.
  */
+import type { DocumentRow } from "@hyperidle/db";
 import { describe, expect, test } from "vitest";
-import type { KnowledgeItemWithProjection } from "../knowledge-repository.js";
 import { countTokens, enforceBudget } from "../token-budget.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeItem(
-	id: string,
-	overrides: Partial<KnowledgeItemWithProjection> = {},
-): KnowledgeItemWithProjection {
+function makeItem(id: string, overrides: Partial<DocumentRow> = {}): DocumentRow {
 	const now = new Date().toISOString();
 	return {
 		id,
@@ -41,10 +38,14 @@ function makeItem(
 		updatedAt: now,
 		confidence: null,
 		meta: null,
-		role: "ordinary",
+		slot: "ordinary",
 		parentKind: null,
 		parentId: null,
 		position: 0,
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
 		...overrides,
 	};
 }

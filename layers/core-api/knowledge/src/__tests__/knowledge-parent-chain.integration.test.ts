@@ -7,7 +7,7 @@
  * defaulted to `[]` — every ordinary item materialised flat into `knowledge/`
  * regardless of its real tree position.
  */
-import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { resolveParentChain } from "../knowledge-repository.js";
 import { assembleSessionKnowledge } from "../session-knowledge-assembler.js";
@@ -23,18 +23,18 @@ async function insertKnowledgeItem(
 	},
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: opts.id,
 		title: opts.title,
 		body: "body",
 		format: "markdown",
 		status: "active",
-		role: "ordinary",
+		slot: "ordinary",
 		version: 1,
 		updatedBy: "test-user",
 		scopeKind: opts.scopeKind ?? "factory",
 		scopeId: opts.scopeId ?? null,
-		parentKind: opts.parentId ? "knowledge_item" : null,
+		parentKind: opts.parentId ? "document" : null,
 		parentId: opts.parentId ?? null,
 		createdAt: now,
 		updatedAt: now,
@@ -65,17 +65,15 @@ describe("resolveParentChain", () => {
 		expect(chain).toEqual([]);
 	});
 
-	test("stops at a non-knowledge_item parent — a task-parented item has no ancestors", async ({
-		db,
-	}) => {
+	test("stops at a non-document parent — a task-parented item has no ancestors", async ({ db }) => {
 		const now = new Date().toISOString();
-		await db.insert(knowledgeItems).values({
+		await db.insert(documents).values({
 			id: "ki-task-child",
 			title: "Task note",
 			body: "body",
 			format: "markdown",
 			status: "active",
-			role: "ordinary",
+			slot: "ordinary",
 			version: 1,
 			updatedBy: "test-user",
 			scopeKind: "factory",

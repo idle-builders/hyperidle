@@ -9,7 +9,7 @@
  *   the test that proves the reverse lookup is actually gone, not just unused.
  * - upsertAgentIdentity writes the parent alongside the scope it always wrote.
  */
-import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KnowledgeParentKind, KnowledgeRole } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
@@ -41,7 +41,7 @@ async function insertKnowledgeItem(
 ): Promise<string> {
 	const id = opts.id ?? generateId();
 	const now = new Date().toISOString();
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		scopeKind: opts.scopeKind ?? "factory",
 		scopeId: opts.scopeId ?? null,
@@ -49,7 +49,7 @@ async function insertKnowledgeItem(
 		body: opts.body,
 		format: "markdown",
 		status: opts.status ?? "active",
-		role: opts.role,
+		slot: opts.role,
 		parentKind: opts.parentKind ?? null,
 		parentId: opts.parentId ?? null,
 		version: 1,
@@ -234,7 +234,7 @@ describe("upsertAgentIdentity writes the parent", () => {
 			updatedBy: "test-user",
 		});
 
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id));
+		const [row] = await db.select().from(documents).where(eq(documents.id, id));
 		expect(row).toMatchObject({
 			parentKind: "agent",
 			parentId: "agent-upsert-1",

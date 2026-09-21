@@ -19,7 +19,7 @@
  * `enabled`. Skills were the only thing a reinstall revived. It is true now:
  * one lifecycle brings everything the plugin contributed back.
  */
-import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { upsertKnowledgeDocument } from "../knowledge-repository.js";
@@ -52,13 +52,13 @@ describe("reinstalling a plugin revives its skills", () => {
 
 		// A person edits it, then the plugin is uninstalled (which archives).
 		await db
-			.update(knowledgeItems)
+			.update(documents)
 			.set({ body: "# Edited by a person", status: "archived" })
-			.where(eq(knowledgeItems.id, SKILL_ID));
+			.where(eq(documents.id, SKILL_ID));
 
 		await upsertKnowledgeDocument(db, installInput("# Original body"));
 
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, SKILL_ID));
+		const [row] = await db.select().from(documents).where(eq(documents.id, SKILL_ID));
 		expect(row?.status).toBe("active");
 		// D5 still holds: the reinstall must not clobber the edit.
 		expect(row?.body).toBe("# Edited by a person");
@@ -66,10 +66,7 @@ describe("reinstalling a plugin revives its skills", () => {
 
 	test("a revived skill actually reaches a session again", async ({ db }: { db: HyperIdleDb }) => {
 		await upsertKnowledgeDocument(db, installInput("# Sweep stale knowledge"));
-		await db
-			.update(knowledgeItems)
-			.set({ status: "archived" })
-			.where(eq(knowledgeItems.id, SKILL_ID));
+		await db.update(documents).set({ status: "archived" }).where(eq(documents.id, SKILL_ID));
 
 		const whileArchived = await assembleSessionKnowledge(db, {
 			teamId: "team-alpha",

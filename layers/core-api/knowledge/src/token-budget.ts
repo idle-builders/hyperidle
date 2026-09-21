@@ -1,5 +1,4 @@
-import type { KnowledgeItem } from "@hyperidle/db";
-import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
+import type { DocumentRow } from "@hyperidle/db";
 
 /** Approximate token count via whitespace split. */
 function countTokens(text: string): number {
@@ -10,12 +9,12 @@ function countTokens(text: string): number {
 }
 
 /** Count tokens for a knowledge item (title + body). */
-function countItemTokens(item: KnowledgeItem): number {
+function countItemTokens(item: DocumentRow): number {
 	return countTokens(item.title) + countTokens(item.body);
 }
 
 interface ScoredItem {
-	item: KnowledgeItemWithProjection;
+	item: DocumentRow;
 	score: number;
 }
 
@@ -28,10 +27,7 @@ interface ScoredItem {
  * layer) is replaced by `scopeKind==='factory'` — the same "everyone always
  * gets this" rule, now stated directly on the field that carries it.
  */
-function enforceBudget(
-	scoredItems: ScoredItem[],
-	maxTokens: number,
-): KnowledgeItemWithProjection[] {
+function enforceBudget(scoredItems: ScoredItem[], maxTokens: number): DocumentRow[] {
 	// Separate factory-scoped items (non-negotiable) from the rest
 	const factoryItems: ScoredItem[] = [];
 	const otherItems: ScoredItem[] = [];
@@ -48,7 +44,7 @@ function enforceBudget(
 	factoryItems.sort((a, b) => b.score - a.score);
 	otherItems.sort((a, b) => b.score - a.score);
 
-	const result: KnowledgeItemWithProjection[] = [];
+	const result: DocumentRow[] = [];
 	let usedTokens = 0;
 
 	// Include all factory-scoped items first (non-negotiable)

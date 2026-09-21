@@ -20,13 +20,9 @@
  * consumer; making it private removes the exported symbol.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
-import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { type DocumentRow, documents, type HyperIdleDb } from "@hyperidle/db";
 import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
-import type {
-	KnowledgeItemWithProjection,
-	KnowledgeParentChainAncestor,
-} from "./knowledge-repository.js";
+import type { KnowledgeParentChainAncestor } from "./knowledge-repository.js";
 import { resolveParentChain } from "./knowledge-repository.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
 import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
@@ -47,7 +43,7 @@ const RECENCY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
  * belonged to — the title is the closest surviving honest signal (same
  * substitution `attention-classifier.ts` makes for its own topic gate).
  */
-function extractItemTags(item: KnowledgeItemWithProjection): string[] {
+function extractItemTags(item: DocumentRow): string[] {
 	const tags: string[] = [item.title.toLowerCase()];
 	const meta = item.meta ?? null;
 	if (meta) {
@@ -74,7 +70,7 @@ function extractItemTags(item: KnowledgeItemWithProjection): string[] {
  * Compute tag match factor (0-1).
  * Compares taskTags against item topic and meta.tags.
  */
-function computeTagMatch(item: KnowledgeItemWithProjection, taskTags: string[]): number {
+function computeTagMatch(item: DocumentRow, taskTags: string[]): number {
 	if (taskTags.length === 0) {
 		return 0;
 	}
@@ -99,7 +95,7 @@ function computeTagMatch(item: KnowledgeItemWithProjection, taskTags: string[]):
 }
 
 /** Compute recency factor (0-1). Items updated within last 30 days score higher. */
-function computeRecency(item: KnowledgeItemWithProjection, now: number): number {
+function computeRecency(item: DocumentRow, now: number): number {
 	const updatedAt = new Date(item.updatedAt).getTime();
 	const age = now - updatedAt;
 
@@ -113,9 +109,8 @@ function computeRecency(item: KnowledgeItemWithProjection, now: number): number 
 	return 1 - age / RECENCY_WINDOW_MS;
 }
 
-/** Compute confidence factor (0-1). Confidence stored as string in projection table. */
-function computeConfidence(item: KnowledgeItemWithProjection): number {
-	// @lore O2: confidence moved to knowledgeAppProjection as text column.
+/** Compute confidence factor (0-1). Confidence stored as a text column on the row. */
+function computeConfidence(item: DocumentRow): number {
 	// Parse to float; clamp to [0,1].
 	if (item.confidence == null) {
 		return 0.5; // neutral default
@@ -132,7 +127,7 @@ function computeConfidence(item: KnowledgeItemWithProjection): number {
 
 /** Score a single knowledge item against the given context. Returns 0-100. */
 function scoreItem(
-	item: KnowledgeItemWithProjection,
+	item: DocumentRow,
 	context: ScoringContext,
 	weights: ScoringWeights,
 	now?: number,
@@ -162,25 +157,25 @@ function scoreItem(
  * Returns the top-scoring items that fit within the budget.
  */
 function rankAndBudget(
-	items: KnowledgeItemWithProjection[],
+	items: DocumentRow[],
 	context: ScoringContext,
 	weights: ScoringWeights,
 	budgetTokens: number,
 	now?: number,
-): KnowledgeItemWithProjection[] {
+): DocumentRow[] {
 	const scored: ScoredItem[] = items.map((item) => ({
 		item,
 		score: scoreItem(item, context, weights, now),
 	}));
 
-	return enforceBudget(scored, budgetTokens) as KnowledgeItemWithProjection[];
+	return enforceBudget(scored, budgetTokens) as DocumentRow[];
 }
 
 async function rank(
 	db: HyperIdleDb,
-	items: KnowledgeItemWithProjection[],
+	items: DocumentRow[],
 	context: ScoringContext & { readonly tokenLimit?: number },
-): Promise<KnowledgeItemWithProjection[]> {
+): Promise<DocumentRow[]> {
 	const weights = await loadScoringWeights(db);
 	return rankAndBudget(items, context, weights, context.tokenLimit ?? DEFAULT_KNOWLEDGE_BUDGET);
 }
@@ -221,35 +216,27 @@ export interface SessionKnowledgeInput {
  * selection. Replaces the layer-keyed `fetchAllForLayer` (L4/L2/L3), which
  * had nothing to key on once `layer` was deleted.
  */
-async function fetchOrdinaryItemsByScope(
+function fetchOrdinaryItemsByScope(
 	db: HyperIdleDb,
 	scopeKind: "factory" | "team" | "user",
 	scopeId: string | null,
-): Promise<KnowledgeItemWithProjection[]> {
-	const rows = await db
-		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
-		.from(knowledgeItems)
-		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
+): Promise<DocumentRow[]> {
+	return db
+		.select()
+		.from(documents)
 		.where(
 			and(
-				eq(knowledgeItems.role, "ordinary"),
-				eq(knowledgeItems.scopeKind, scopeKind),
-				scopeId === null ? isNull(knowledgeItems.scopeId) : eq(knowledgeItems.scopeId, scopeId),
+				eq(documents.slot, "ordinary"),
+				eq(documents.scopeKind, scopeKind),
+				scopeId === null ? isNull(documents.scopeId) : eq(documents.scopeId, scopeId),
 				// @lore BA9g: a session must never be handed archived knowledge. The
 				// rule is NOT "only active": `write_memory` writes `proposed` items
 				// and R7 AC-5 requires those to reach the next session. Archived is
 				// the one status that means "this reaches nobody".
-				ne(knowledgeItems.status, "archived"),
+				ne(documents.status, "archived"),
 			),
 		)
-		.orderBy(knowledgeItems.id);
-
-	return rows.map(({ item, projection }) => ({
-		...item,
-		confidence: projection?.confidence ?? null,
-		meta: projection?.meta ?? null,
-		scopeId: projection?.scopeId ?? item.scopeId,
-	}));
+		.orderBy(documents.id);
 }
 
 /**
@@ -274,63 +261,48 @@ async function fetchOrdinaryItemsByScope(
  * do NOT route capability items through the layer system. We query them
  * directly by scope and role, and writeBundleKnowledge routes by role, not layer.
  *
- * @lore BA9b-listBase: This function does NOT use listBase(). listBase() filters
- * by `knowledgeAppProjection.layer` (a projection table field). Capability items
- * (skill/rule/agent_file) use scopeKind/scopeId from the kernel table — not layer.
- * Going through listBase would force a layer predicate onto items that have no
- * meaningful layer, silently dropping everything. The direct query is the correct
- * path; there is no drift risk because the same LEFT JOIN to knowledgeAppProjection
- * is reproduced here with the same merge logic as listBase's mergeItemWithProjection.
+ * @lore BA9b-listBase: This function does NOT use listBase(). Capability items
+ * (skill/rule/agent_file) use scopeKind/scopeId from the row directly — not
+ * layer. Going through listBase would force a layer predicate onto items that
+ * have no meaningful layer, silently dropping everything.
  */
-async function fetchCapabilityItems(
+function fetchCapabilityItems(
 	db: HyperIdleDb,
 	teamId: string | undefined,
 	agentId: string | undefined,
-): Promise<KnowledgeItemWithProjection[]> {
+): Promise<DocumentRow[]> {
 	// A clause per scope that is actually in play. `teamId` is absent for a
 	// team-less agent; emitting a `scopeId = undefined` comparison there would
 	// silently match nothing AND drag the whole OR down with it in some
 	// drivers, so the clause is omitted rather than fed a missing value.
 	const scopeClauses = [
-		eq(knowledgeItems.scopeKind, "factory"),
-		...(teamId
-			? [and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId))]
-			: []),
-		...(agentId
-			? [and(eq(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.scopeId, agentId))]
-			: []),
+		eq(documents.scopeKind, "factory"),
+		...(teamId ? [and(eq(documents.scopeKind, "team"), eq(documents.scopeId, teamId))] : []),
+		...(agentId ? [and(eq(documents.scopeKind, "user"), eq(documents.scopeId, agentId))] : []),
 	];
 	const scopeFilter = or(...scopeClauses);
 
-	const rows = await db
-		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
-		.from(knowledgeItems)
-		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
+	return db
+		.select()
+		.from(documents)
 		.where(
 			and(
-				inArray(knowledgeItems.role, ["skill", "rule", "agent_file"]),
-				eq(knowledgeItems.status, "active"),
+				inArray(documents.slot, ["skill", "rule", "agent_file"]),
+				eq(documents.status, "active"),
 				scopeFilter,
 			),
 		)
-		.orderBy(knowledgeItems.id);
-
-	return rows.map(({ item, projection }) => ({
-		...item,
-		confidence: projection?.confidence ?? null,
-		meta: projection?.meta ?? null,
-		scopeId: projection?.scopeId ?? item.scopeId,
-	}));
+		.orderBy(documents.id);
 }
 
 /**
- * `assembleSessionKnowledge`'s output — `KnowledgeItemWithProjection` plus
+ * `assembleSessionKnowledge`'s output — `DocumentRow` plus
  * the ancestor chain `BakedContextKnowledgeItem.parentChain` needs (review.md
  * B4). Populated for ordinary items only; a capability item (skill/rule/
  * agent_file) is placed by role, never by tree position, so it carries an
  * empty chain.
  */
-export interface SessionKnowledgeItem extends KnowledgeItemWithProjection {
+export interface SessionKnowledgeItem extends DocumentRow {
 	readonly parentChain: readonly KnowledgeParentChainAncestor[];
 }
 
