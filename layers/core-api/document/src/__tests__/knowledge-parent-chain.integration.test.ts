@@ -1,7 +1,7 @@
 /**
  * @lore nested-knowledge-items architecture.md §5 / review.md B4 — the ancestor
  * chain a bake needs is resolved once, at bake time, by
- * `resolveParentChain`, and `assembleSessionKnowledge` attaches it to every
+ * `resolveParentChain`, and `assembleSessionDocuments` attaches it to every
  * ordinary item it ranks. Before this fix, `BakedContextKnowledgeItem.parentChain`
  * had exactly one production writer (`toBakedContextKnowledgeItems`) and it
  * defaulted to `[]` — every ordinary item materialised flat into `knowledge/`
@@ -10,7 +10,7 @@
 import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { resolveParentChain } from "../knowledge-repository.js";
-import { assembleSessionKnowledge } from "../session-knowledge-assembler.js";
+import { assembleSessionDocuments } from "../session-documents.js";
 
 async function insertKnowledgeItem(
 	db: HyperIdleDb,
@@ -89,7 +89,7 @@ describe("resolveParentChain", () => {
 	});
 });
 
-describe("assembleSessionKnowledge: parentChain (review.md B4)", () => {
+describe("assembleSessionDocuments: parentChain (review.md B4)", () => {
 	test("an ordinary item's baked parentChain matches its real ancestors — not the [] default", async ({
 		db,
 	}) => {
@@ -100,7 +100,7 @@ describe("assembleSessionKnowledge: parentChain (review.md B4)", () => {
 			parentId: "ki-root-2",
 		});
 
-		const items = await assembleSessionKnowledge(db, {
+		const items = await assembleSessionDocuments(db, {
 			agentId: "agent-parent-chain",
 			agentRole: "builder",
 			taskDescription: "",

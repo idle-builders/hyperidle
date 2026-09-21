@@ -42,7 +42,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/document";
+import { assembleSessionDocuments, getAgentIdentity } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
@@ -404,7 +404,7 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 				requireRunnableAgent,
 				getAgentIdentity,
 				getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
-				assembleSessionKnowledge,
+				assembleSessionKnowledge: assembleSessionDocuments,
 			},
 		);
 

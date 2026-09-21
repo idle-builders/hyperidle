@@ -25,7 +25,7 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import {
-	assembleSessionKnowledge,
+	assembleSessionDocuments,
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getRoutinePrompt,
@@ -113,7 +113,7 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		// trigger event tells routines "a person joined", not "a bot was added to a team".
 		getUserById: (db: HyperIdleDb, id: string) =>
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
-		assembleSessionKnowledge,
+		assembleSessionKnowledge: assembleSessionDocuments,
 		getAgentIdentity,
 		// @lore knowledge-attachment-slot: was its own inline getParentedItem call
 		// (a spelling-twin of routines-routes.ts's own copy); both now share

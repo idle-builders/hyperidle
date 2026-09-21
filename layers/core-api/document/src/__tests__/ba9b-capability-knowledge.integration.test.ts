@@ -2,14 +2,14 @@
  * BA9b — Service integration tests for capability knowledge items.
  *
  * Proves:
- * - assembleSessionKnowledge returns skill/rule items alongside ordinary ones
+ * - assembleSessionDocuments returns skill/rule items alongside ordinary ones
  * - Factory-scoped capability items reach all sessions (AC7)
  * - Team-scoped capability items only reach the matching team's sessions (AC7)
  * - agent_file items have agentBindingId derived from scopeId
  */
 import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { assembleSessionKnowledge } from "../session-knowledge-assembler.js";
+import { assembleSessionDocuments } from "../session-documents.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,7 +51,7 @@ async function insertKnowledgeItem(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-describe("BA9b: assembleSessionKnowledge includes capability items", () => {
+describe("BA9b: assembleSessionDocuments includes capability items", () => {
 	test("factory-scoped skill is returned for any team session", async ({ db }) => {
 		await insertKnowledgeItem(db, {
 			title: "write-tests",
@@ -60,7 +60,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			scopeKind: "factory",
 		});
 
-		const items = await assembleSessionKnowledge(db, {
+		const items = await assembleSessionDocuments(db, {
 			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Ship feature X",
@@ -84,14 +84,14 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			scopeId: teamA,
 		});
 
-		const itemsForTeamA = await assembleSessionKnowledge(db, {
+		const itemsForTeamA = await assembleSessionDocuments(db, {
 			teamId: teamA,
 			agentRole: "builder",
 			taskDescription: "Work item",
 			agentId: generateId(),
 		});
 
-		const itemsForTeamB = await assembleSessionKnowledge(db, {
+		const itemsForTeamB = await assembleSessionDocuments(db, {
 			teamId: teamB,
 			agentRole: "builder",
 			taskDescription: "Work item",
@@ -118,14 +118,14 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			scopeId: agentId,
 		});
 
-		const itemsForAgent = await assembleSessionKnowledge(db, {
+		const itemsForAgent = await assembleSessionDocuments(db, {
 			teamId,
 			agentRole: "builder",
 			taskDescription: "Task",
 			agentId,
 		});
 
-		const itemsForOther = await assembleSessionKnowledge(db, {
+		const itemsForOther = await assembleSessionDocuments(db, {
 			teamId,
 			agentRole: "builder",
 			taskDescription: "Task",
@@ -147,7 +147,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			scopeKind: "factory",
 		});
 
-		const items = await assembleSessionKnowledge(db, {
+		const items = await assembleSessionDocuments(db, {
 			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Work",
@@ -168,7 +168,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			scopeKind: "factory",
 		});
 
-		const items = await assembleSessionKnowledge(db, {
+		const items = await assembleSessionDocuments(db, {
 			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Work",
@@ -215,7 +215,7 @@ describe("a routine prompt in reach appears in neither fetch", () => {
 			scopeId: agentId,
 		});
 
-		const items = await assembleSessionKnowledge(db, {
+		const items = await assembleSessionDocuments(db, {
 			teamId,
 			agentRole: "builder",
 			taskDescription: "Work",
@@ -249,7 +249,7 @@ describe("capability items for a team-less agent", () => {
 			scopeKind: "factory",
 		});
 
-		const assembled = await assembleSessionKnowledge(db, {
+		const assembled = await assembleSessionDocuments(db, {
 			agentRole: "assistant",
 			taskDescription: "Run the knowledge decay sweep",
 			agentId: "agent-teamless",
@@ -274,7 +274,7 @@ describe("capability items for a team-less agent", () => {
 			scopeId: "agent-other",
 		});
 
-		const assembled = await assembleSessionKnowledge(db, {
+		const assembled = await assembleSessionDocuments(db, {
 			agentRole: "assistant",
 			taskDescription: "Run the knowledge decay sweep",
 			agentId: "agent-teamless",
@@ -300,13 +300,13 @@ describe("who a capability item reaches", () => {
 			scopeKind: "factory",
 		});
 
-		const forTeamAgent = await assembleSessionKnowledge(db, {
+		const forTeamAgent = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
 			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-in-team",
 		});
-		const forTeamlessAgent = await assembleSessionKnowledge(db, {
+		const forTeamlessAgent = await assembleSessionDocuments(db, {
 			agentRole: "assistant",
 			taskDescription: "anything",
 			agentId: "agent-no-team",
@@ -325,19 +325,19 @@ describe("who a capability item reaches", () => {
 			scopeId: "team-alpha",
 		});
 
-		const inTeam = await assembleSessionKnowledge(db, {
+		const inTeam = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
 			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-in-team",
 		});
-		const otherTeam = await assembleSessionKnowledge(db, {
+		const otherTeam = await assembleSessionDocuments(db, {
 			teamId: "team-beta",
 			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-elsewhere",
 		});
-		const teamless = await assembleSessionKnowledge(db, {
+		const teamless = await assembleSessionDocuments(db, {
 			agentRole: "assistant",
 			taskDescription: "anything",
 			agentId: "agent-no-team",
@@ -357,13 +357,13 @@ describe("who a capability item reaches", () => {
 			scopeId: "agent-in-team",
 		});
 
-		const itsOwner = await assembleSessionKnowledge(db, {
+		const itsOwner = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
 			agentRole: "builder",
 			taskDescription: "anything",
 			agentId: "agent-in-team",
 		});
-		const teammate = await assembleSessionKnowledge(db, {
+		const teammate = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
 			agentRole: "builder",
 			taskDescription: "anything",
@@ -392,7 +392,7 @@ describe("a team-less agent receives no team-scoped ordinary knowledge", () => {
 			scopeId: "team-somebody-else",
 		});
 
-		const assembled = await assembleSessionKnowledge(db, {
+		const assembled = await assembleSessionDocuments(db, {
 			agentRole: "assistant",
 			taskDescription: "anything",
 			agentId: "agent-with-no-team",

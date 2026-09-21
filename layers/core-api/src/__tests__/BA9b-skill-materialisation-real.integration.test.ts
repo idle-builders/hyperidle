@@ -8,7 +8,7 @@
  * Proof method (each binary harness):
  *   1. Insert a skill knowledge item into the real PGlite DB (slot='skill',
  *      scopeKind='factory', status='active').
- *   2. Call the production assembleSessionKnowledge path to fetch the item.
+ *   2. Call the production assembleSessionDocuments path to fetch the item.
  *   3. Build a BakedContextBundle and call buildTestRunOrchestrationComposition()
  *      .runSession(mode:'assemble') — the SAME path admitSession calls. This calls
  *      writeSkillItem internally, which writes SKILL.md to HARNESS_SKILL_DIRS.
@@ -97,7 +97,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { documents } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
-import { assembleSessionKnowledge } from "@hyperidle/document";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
@@ -190,7 +190,7 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		updatedAt: now,
 	});
 
-	const knowledge = await assembleSessionKnowledge(db, {
+	const knowledge = await assembleSessionDocuments(db, {
 		teamId: TEAM_ID,
 		agentRole: "builder",
 		taskDescription: "Probe task",

@@ -127,7 +127,7 @@ vi.mock("@hyperidle/org", () => ({
 	getTeam: vi.fn(async () => ({ id: "team", name: "Team" })),
 }));
 vi.mock("@hyperidle/document", () => ({
-	assembleSessionKnowledge: vi.fn(async () => []),
+	assembleSessionDocuments: vi.fn(async () => []),
 }));
 vi.mock("@hyperidle/settings", () => ({
 	readServerConfig: vi.fn(async () => ({ harnessDisabled: [] })),

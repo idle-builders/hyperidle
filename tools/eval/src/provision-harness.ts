@@ -37,7 +37,7 @@ import {
 } from "@hyperidle/core-api";
 import { bootCoreApi } from "@hyperidle/core-api/boot";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { assembleSessionKnowledge } from "@hyperidle/document";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { bakeAgentRunnableConfig } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
@@ -293,7 +293,7 @@ export async function runEvalSession(
 			[],
 			agent,
 			(db: HyperIdleDb, id: string) => getTeam(db, { id }),
-			assembleSessionKnowledge,
+			assembleSessionDocuments,
 		);
 		const { harnessDisabled } = await readServerConfig(deps.db);
 

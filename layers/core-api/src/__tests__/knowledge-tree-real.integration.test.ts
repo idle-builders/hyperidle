@@ -55,7 +55,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { documents } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
-import { assembleSessionKnowledge, create, reparent, update } from "@hyperidle/document";
+import { assembleSessionDocuments, create, reparent, update } from "@hyperidle/document";
 import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
@@ -298,7 +298,7 @@ function diffKnowledgeFiles(root: string, before: Set<string>, after: Set<string
 
 // ---------------------------------------------------------------------------
 // Production-path assembly helper — the exact wire admitSession uses:
-// assembleSessionKnowledge -> toBakedContextKnowledgeItems -> runSession(assemble).
+// assembleSessionDocuments -> toBakedContextKnowledgeItems -> runSession(assemble).
 // ---------------------------------------------------------------------------
 
 async function assembleIntoSandbox(
@@ -306,7 +306,7 @@ async function assembleIntoSandbox(
 	sandboxPath: string,
 	sessionId: string,
 ): Promise<void> {
-	const knowledge = await assembleSessionKnowledge(db, {
+	const knowledge = await assembleSessionDocuments(db, {
 		teamId: TEAM_ID,
 		agentRole: "builder",
 		taskDescription: "Nested knowledge tree materialisation probe",

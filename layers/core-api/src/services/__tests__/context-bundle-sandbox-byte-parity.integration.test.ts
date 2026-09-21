@@ -5,7 +5,7 @@
  *
  * Exercises the REAL end-to-end bake→consume path against a real seeded DB
  * corpus (task, bet, agent, team, one L4/L2/L3 knowledge item each — the same
- * corpus shape `session-knowledge-assembler-ranking-parity.integration.test.ts`
+ * corpus shape `session-documents-ranking-parity.integration.test.ts`
  * (Wave A) pins for the ranking/budget SET): `@hyperidle/work`'s real,
  * already-GREEN (Wave B) `resolveTaskRunRequest` bakes a genuine
  * `contextBundle` from the seeded rows; that bundle is handed to the
@@ -42,7 +42,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/document";
+import { assembleSessionDocuments, getAgentIdentity } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { createContextAssembler } from "@hyperidle/run-orchestration/scaffolding";
 import { resolveTaskRunRequest } from "@hyperidle/task";
@@ -215,7 +215,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 					requireRunnableAgent,
 					getAgentIdentity,
 					getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
-					assembleSessionKnowledge,
+					assembleSessionKnowledge: assembleSessionDocuments,
 				},
 			);
 			expect(baked.contextBundle).toBeDefined();

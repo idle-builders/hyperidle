@@ -12,7 +12,7 @@
  * real `task_run` emit site from ONE place, instead of five independently
  * drifting copies.
  */
-import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/document";
+import { assembleSessionDocuments, getAgentIdentity } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import type { TaskRunResolverDeps } from "@hyperidle/task";
@@ -28,8 +28,8 @@ export const taskRunResolverDeps: TaskRunResolverDeps = {
 	// optional, so every real `task_run` baked an empty identity.
 	getAgentIdentity: (db, agentId) => getAgentIdentity(db, agentId),
 	getTeamById: (db, id) => getTeam(db, { id }),
-	assembleSessionKnowledge: (...args: Parameters<typeof assembleSessionKnowledge>) =>
-		assembleSessionKnowledge(...args),
+	assembleSessionKnowledge: (...args: Parameters<typeof assembleSessionDocuments>) =>
+		assembleSessionDocuments(...args),
 	readServerConfig: (...args: Parameters<typeof readServerConfig>) => readServerConfig(...args),
 	// `task-run-resolver.ts` bakes `callingThreadId` straight from
 	// `task.threadId`, a real column.

@@ -1,43 +1,174 @@
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave A — the shared core-side knowledge
- * assembler that `context.ts`'s per-kind resolvers will call intra-layer once
- * they're wired in Wave B, following the exact `requireRunnableAgent`
- * precedent (`layers/core-api/users/src/runnable-agent.ts`): one shared
- * function, imported via ordinary same-layer core-api DI — not a cross-layer
- * edge, not a composition-bundle read.
+ * The session read model — architecture.md §5.3. Folds `session-knowledge-
+ * assembler.ts` + `token-budget.ts` + `scoring-config.ts` into one file
+ * (behavior-preserving move, §2's vocabulary): `assembleSessionDocuments`
+ * fetches factory-wide + team-scoped + the agent's own ordinary documents,
+ * ranks + budgets them against the task's scoring context, and appends the
+ * agent's active capability documents (skill/rule/agent_file) unranked —
+ * exactly what `context.ts`'s `assembleContext` used to do at launch time
+ * (`context.ts:834-858`), relocated core-side so a per-kind resolver can call
+ * it and bake the result at emit time instead of `run-orchestration` reading
+ * it back at launch.
  *
- * Relocates `run-orchestration/src/context.ts`'s `fetchAllForLayer` +
- * `assembleContext`'s L4/L2/L3 fetch + `ports.knowledge.rankAndBudget` call
- * (`context.ts:787-858`, unmodified this wave) fully core-side: the heaviest,
- * cross-domain piece of context assembly (`rank()` reads scoring weights from
- * the DB). `context.ts` itself is NOT touched this wave — it still does its
- * own DB reads via `ContextAssemblyPorts`; Wave B rewires it to consume this
- * function's (baked) output instead. See architecture.md §6 Decision H3 +
- * §9 Increment 12.
+ * It is **not** reachable through `search_documents`: it ranks and budgets,
+ * it ignores viewer visibility (it is the agent's own bundle), and it returns
+ * `parentChain` per item.
  *
- * @lore AU44: relevance-scoring.ts deleted; rank() and all private helpers
- * moved here as private functions (Row 37/38). rank() was the only external
- * consumer; making it private removes the exported symbol.
+ * @lore architecture.md §6.7: NOT a pure read. Its last step is one batched
+ * `bumpSessionUse(db, ids, now)` over exactly the documents it is about to
+ * return — the assembler is the only place that knows the final list, so
+ * putting the bump in the two run resolvers that call it
+ * (`task-run-resolver-bindings.ts`, `routine-scheduler-bindings.ts`) would be
+ * the same write duplicated in two files. When the bake runs inside
+ * `edit_task`'s own transaction (`task-actions.ts:759-763` passes
+ * `tx as HyperIdleDb`), this call joins that transaction and rolls back with
+ * it — a dispatch that never committed handed no documents to anybody. The
+ * function's name and signature are unchanged; only this last step is new.
+ *
+ * @lore architecture.md §16.1 break #7: imports `resolveParentChain` and the
+ * row type from `document-store.ts`, never from `knowledge-repository.ts` —
+ * the pre-rename store dies in a later block.
  */
 
 import { type DocumentRow, documents, type HyperIdleDb } from "@hyperidle/db";
 import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
-import type { KnowledgeParentChainAncestor } from "./knowledge-repository.js";
-import { resolveParentChain } from "./knowledge-repository.js";
-import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
-import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
-import type { ScoredItem } from "./token-budget.js";
-import { enforceBudget } from "./token-budget.js";
+import {
+	bumpSessionUse,
+	type DocumentParentChainAncestor,
+	resolveParentChain,
+} from "./document-store.js";
 
 // ---------------------------------------------------------------------------
-// Private relevance-scoring helpers (inlined from relevance-scoring.ts)
+// Scoring config — moved from scoring-config.ts.
+// ---------------------------------------------------------------------------
+
+/**
+ * @lore nested-knowledge-items D1: `roleMatch` and `layerProximity` are
+ * DELETED. `roleMatch` scored against a role→community map that never
+ * matched seeded data (the census found the fuzzy substring fallback did all
+ * the work); `layerProximity` scored the now-deleted layer ladder. What an
+ * agent receives is answered entirely by scope (factory + its team + its
+ * own) — no subtree selection, no replacement weight.
+ */
+interface ScoringWeights {
+	tagMatch: number;
+	recency: number;
+	confidence: number;
+}
+
+interface ScoringContext {
+	taskDescription: string;
+	taskTags: string[];
+	agentRole: string;
+	/** Optional: absent for a team-less agent. No scorer reads it today. */
+	productId?: string;
+}
+
+const DEFAULT_WEIGHTS: ScoringWeights = {
+	tagMatch: 0.55,
+	recency: 0.2,
+	confidence: 0.15,
+};
+
+/** Total context window tokens and knowledge allocation ratio. */
+const CONTEXT_WINDOW_TOKENS = 200_000;
+const KNOWLEDGE_ALLOCATION_RATIO = 0.2;
+const DEFAULT_KNOWLEDGE_BUDGET = CONTEXT_WINDOW_TOKENS * KNOWLEDGE_ALLOCATION_RATIO; // 40_000
+
+/**
+ * Scoring weights. Always the hardcoded defaults.
+ *
+ * @lore AU18: previously read `factory_settings.scoring.weight.*` overrides.
+ * No production or eval writer ever existed for this namespace — the only
+ * write path was the generic PATCH /api/status/settings catch-all, itself
+ * retired this WP. Dropping the DB read is behavior-identical in practice
+ * (prod always resolved to these defaults) and removes a dead config surface.
+ * `db` is kept as a parameter for call-site compatibility even though it is
+ * now unused — every caller passes a live db handle already.
+ */
+async function loadScoringWeights(_db: HyperIdleDb): Promise<ScoringWeights> {
+	return { ...DEFAULT_WEIGHTS };
+}
+
+// ---------------------------------------------------------------------------
+// Token budget — moved from token-budget.ts.
+// ---------------------------------------------------------------------------
+
+/** Approximate token count via whitespace split. */
+function countTokens(text: string): number {
+	if (!text || text.trim().length === 0) {
+		return 0;
+	}
+	return text.split(/\s+/).length;
+}
+
+/** Count tokens for a document (title + body). */
+function countItemTokens(item: DocumentRow): number {
+	return countTokens(item.title) + countTokens(item.body);
+}
+
+interface ScoredItem {
+	item: DocumentRow;
+	score: number;
+}
+
+/**
+ * Enforce a token budget on scored items using greedy fill.
+ * Factory-scoped items are always included first as non-negotiable context.
+ * Returns items sorted by score descending, within budget.
+ *
+ * @lore nested-knowledge-items D1: `layer==='L4'` (factory-wide, the widest
+ * layer) is replaced by `scopeKind==='factory'` — the same "everyone always
+ * gets this" rule, now stated directly on the field that carries it.
+ */
+function enforceBudget(scoredItems: ScoredItem[], maxTokens: number): DocumentRow[] {
+	// Separate factory-scoped items (non-negotiable) from the rest
+	const factoryItems: ScoredItem[] = [];
+	const otherItems: ScoredItem[] = [];
+
+	for (const si of scoredItems) {
+		if (si.item.scopeKind === "factory") {
+			factoryItems.push(si);
+		} else {
+			otherItems.push(si);
+		}
+	}
+
+	// Sort both groups by score descending
+	factoryItems.sort((a, b) => b.score - a.score);
+	otherItems.sort((a, b) => b.score - a.score);
+
+	const result: DocumentRow[] = [];
+	let usedTokens = 0;
+
+	// Include all factory-scoped items first (non-negotiable)
+	for (const si of factoryItems) {
+		const tokens = countItemTokens(si.item);
+		usedTokens += tokens;
+		result.push(si.item);
+	}
+
+	// Greedily fill remaining budget with highest-scored items
+	for (const si of otherItems) {
+		const tokens = countItemTokens(si.item);
+		if (usedTokens + tokens <= maxTokens) {
+			usedTokens += tokens;
+			result.push(si.item);
+		}
+	}
+
+	return result;
+}
+
+// ---------------------------------------------------------------------------
+// Private relevance-scoring helpers — moved from session-knowledge-assembler.ts.
 // ---------------------------------------------------------------------------
 
 /** Recency decay window in milliseconds (30 days). */
 const RECENCY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * Extract tags from a knowledge item's title and JSON meta.tags fields.
+ * Extract tags from a document's title and JSON meta.tags fields.
  *
  * @lore nested-knowledge-items: `topic` is gone with the flat vocabulary it
  * belonged to — the title is the closest surviving honest signal (same
@@ -68,7 +199,7 @@ function extractItemTags(item: DocumentRow): string[] {
 
 /**
  * Compute tag match factor (0-1).
- * Compares taskTags against item topic and meta.tags.
+ * Compares taskTags against item title and meta.tags.
  */
 function computeTagMatch(item: DocumentRow, taskTags: string[]): number {
 	if (taskTags.length === 0) {
@@ -125,7 +256,7 @@ function computeConfidence(item: DocumentRow): number {
 	return Math.max(0, Math.min(1, val));
 }
 
-/** Score a single knowledge item against the given context. Returns 0-100. */
+/** Score a single document against the given context. Returns 0-100. */
 function scoreItem(
 	item: DocumentRow,
 	context: ScoringContext,
@@ -168,7 +299,7 @@ function rankAndBudget(
 		score: scoreItem(item, context, weights, now),
 	}));
 
-	return enforceBudget(scored, budgetTokens) as DocumentRow[];
+	return enforceBudget(scored, budgetTokens);
 }
 
 async function rank(
@@ -184,8 +315,8 @@ async function rank(
 // Public assembler
 // ---------------------------------------------------------------------------
 
-/** Input to assembleSessionKnowledge — the emit-time context an agent's session needs. */
-export interface SessionKnowledgeInput {
+/** Input to assembleSessionDocuments — the emit-time context an agent's session needs. */
+export interface SessionDocumentsInput {
 	/**
 	 * @lore The agent's team, when it has one. Optional because a plugin's own
 	 * agent is created `agentCategory: "individual"` and belongs to no team —
@@ -208,8 +339,8 @@ export interface SessionKnowledgeInput {
 }
 
 /**
- * Fetch ordinary knowledge items at one scope — factory (scopeId `null`),
- * team, or the agent's own.
+ * Fetch ordinary documents at one scope — factory (scopeId `null`), team, or
+ * the agent's own.
  *
  * @lore nested-knowledge-items D1: "what an agent receives" is answered
  * entirely by scope now — factory + its team + its own, no subtree
@@ -240,10 +371,10 @@ function fetchOrdinaryItemsByScope(
 }
 
 /**
- * @lore BA9b: Fetch active capability items (skill/rule/agent_file) scoped to
- * this session. Capability items bypass ranking — plugin installation is a
- * deliberate act, so skills/rules/agent_files are always present (AC8 stated
- * decision).
+ * @lore BA9b: Fetch active capability documents (skill/rule/agent_file)
+ * scoped to this session. Capability documents bypass ranking — plugin
+ * installation is a deliberate act, so skills/rules/agent_files are always
+ * present (AC8 stated decision).
  *
  * @lore knowledge-attachment-slot §5 Guard 1: the predicate used to be
  * `ne(role, 'ordinary')`, which also matched `prompt` — a routine prompt is
@@ -259,7 +390,7 @@ function fetchOrdinaryItemsByScope(
  *
  * @lore BA9b: The 'team → null' SCOPE_TO_LAYER mapping is resolved here: we
  * do NOT route capability items through the layer system. We query them
- * directly by scope and role, and writeBundleKnowledge routes by role, not layer.
+ * directly by scope and slot, and writeBundleKnowledge routes by slot, not layer.
  *
  * @lore BA9b-listBase: This function does NOT use listBase(). Capability items
  * (skill/rule/agent_file) use scopeKind/scopeId from the row directly — not
@@ -296,24 +427,20 @@ function fetchCapabilityItems(
 }
 
 /**
- * `assembleSessionKnowledge`'s output — `DocumentRow` plus
- * the ancestor chain `BakedContextKnowledgeItem.parentChain` needs (review.md
- * B4). Populated for ordinary items only; a capability item (skill/rule/
- * agent_file) is placed by role, never by tree position, so it carries an
- * empty chain.
+ * `assembleSessionDocuments`'s output — `DocumentRow` plus the ancestor chain
+ * `BakedContextKnowledgeItem.parentChain` needs (review.md B4). Populated for
+ * ordinary items only; a capability item (skill/rule/agent_file) is placed by
+ * slot, never by tree position, so it carries an empty chain.
  */
-export interface SessionKnowledgeItem extends DocumentRow {
-	readonly parentChain: readonly KnowledgeParentChainAncestor[];
+export interface SessionDocument extends DocumentRow {
+	readonly parentChain: readonly DocumentParentChainAncestor[];
 }
 
 /**
- * Assemble the ranked + budgeted knowledge bundle a session needs at launch:
- * fetch factory-wide + team-scoped + the agent's own ordinary items, then
- * rank + budget them against the task's scoring context — exactly what
- * `context.ts`'s `assembleContext` currently does at launch time
- * (`context.ts:834-858`), relocated core-side so a per-kind resolver can call
- * it and bake the result at emit time instead of `run-orchestration` reading
- * it back at launch.
+ * Assemble the ranked + budgeted document bundle a session needs at launch:
+ * fetch factory-wide + team-scoped + the agent's own ordinary documents, then
+ * rank + budget them against the task's scoring context, then append the
+ * agent's active capability documents unranked.
  *
  * @lore nested-knowledge-items D1: replaces the L4/L2/L3 layer fetch — scope
  * (factory + team + own) is now the entire selection rule, no subtree
@@ -322,14 +449,17 @@ export interface SessionKnowledgeItem extends DocumentRow {
  * `rank()` reads scoring weights from the DB and trims to
  * `DEFAULT_KNOWLEDGE_BUDGET` tokens — this function delegates to it.
  *
- * @lore BA9b: capability items (role != 'ordinary') are appended AFTER the
+ * @lore BA9b: capability items (slot != 'ordinary') are appended AFTER the
  * ranked ordinary items. They are not ranked/budgeted — plugin installation
  * is a deliberate act (AC8 stated decision).
+ *
+ * @lore architecture.md §6.7: the last step below — `bumpSessionUse` — is
+ * what makes this NOT a pure read; see the file header `@lore`.
  */
-export async function assembleSessionKnowledge(
+export async function assembleSessionDocuments(
 	db: HyperIdleDb,
-	input: SessionKnowledgeInput,
-): Promise<readonly SessionKnowledgeItem[]> {
+	input: SessionDocumentsInput,
+): Promise<readonly SessionDocument[]> {
 	// A team-less agent gets no team-scoped items — never every team's.
 	const [factoryItems, teamItems, ownItems, capabilityItems] = await Promise.all([
 		fetchOrdinaryItemsByScope(db, "factory", null),
@@ -349,23 +479,38 @@ export async function assembleSessionKnowledge(
 
 	// architecture.md §5: an ordinary item's ancestor chain can only be
 	// resolved here, at bake time — `writeContextBundle` does zero DB reads
-	// (review.md B4). A capability item is placed by role, not tree
+	// (review.md B4). A capability item is placed by slot, not tree
 	// position, so it never needs one.
-	const rankedWithChain: SessionKnowledgeItem[] = await Promise.all(
+	const rankedWithChain: SessionDocument[] = await Promise.all(
 		rankedItems.map(async (item) => ({
 			...item,
 			parentChain: await resolveParentChain(db, item.id),
 		})),
 	);
-	const capabilityWithChain: SessionKnowledgeItem[] = capabilityItems.map((item) => ({
+	const capabilityWithChain: SessionDocument[] = capabilityItems.map((item) => ({
 		...item,
 		parentChain: [],
 	}));
 
 	// Capability items are appended after ranked ordinary items. No dedupe
-	// needed: the scope fetches above are role:"ordinary" only and
+	// needed: the scope fetches above are slot:"ordinary" only and
 	// `fetchCapabilityItems` fetches skill/rule/agent_file only — the two
-	// lists are disjoint by role, so a factory-scoped skill can no longer
+	// lists are disjoint by slot, so a factory-scoped skill can no longer
 	// arrive through both paths.
-	return [...rankedWithChain, ...capabilityWithChain];
+	const result = [...rankedWithChain, ...capabilityWithChain];
+
+	// architecture.md §6.7: one batched UPDATE over exactly the documents
+	// this call is about to return, raised here because this is the one place
+	// that knows the final list. Joins the caller's transaction when this
+	// bake runs inside one (`task-actions.ts:759-763` passes `tx as
+	// HyperIdleDb`) — the counter rolls back with it.
+	await bumpSessionUse(
+		db,
+		result.map((item) => item.id),
+		new Date().toISOString(),
+	);
+
+	return result;
 }
+
+export { countTokens, enforceBudget };

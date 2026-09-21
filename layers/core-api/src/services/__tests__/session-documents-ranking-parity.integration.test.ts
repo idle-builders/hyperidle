@@ -3,7 +3,7 @@
  * Increment 12 test (b) requires: "baked ranking output matches the
  * pre-migration ranking for a fixed corpus."
  *
- * Exercises `@hyperidle/knowledge`'s `assembleSessionKnowledge` against a
+ * Exercises `@hyperidle/document`'s `assembleSessionDocuments` against a
  * fixed corpus (two teams, one agent-bound item, one factory-wide item) so a
  * genuine relocation bug (wrong scope, wrong budget cutoff) shows up as a set
  * mismatch against the hardcoded expected membership below.
@@ -16,7 +16,7 @@
  */
 
 import { documents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { assembleSessionKnowledge } from "@hyperidle/document";
+import { assembleSessionDocuments } from "@hyperidle/document";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
@@ -159,13 +159,13 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-describe("assembleSessionKnowledge — scope-only selection (architecture.md D1)", () => {
+describe("assembleSessionDocuments — scope-only selection (architecture.md D1)", () => {
 	test("returns exactly the expected item-id set for the fixed corpus (budget/scope filter)", async ({
 		db,
 	}) => {
 		await seedFixedCorpus(db);
 
-		const budgeted = await assembleSessionKnowledge(db, {
+		const budgeted = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
 			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
@@ -186,7 +186,7 @@ describe("assembleSessionKnowledge — scope-only selection (architecture.md D1)
 	test("each returned item carries the scope that put it in reach", async ({ db }) => {
 		await seedFixedCorpus(db);
 
-		const budgeted = await assembleSessionKnowledge(db, {
+		const budgeted = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
 			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
@@ -205,7 +205,7 @@ describe("assembleSessionKnowledge — scope-only selection (architecture.md D1)
 		}
 	});
 
-	test("sanity check: assembleSessionKnowledge genuinely excludes out-of-scope items (not a vacuous corpus)", async ({
+	test("sanity check: assembleSessionDocuments genuinely excludes out-of-scope items (not a vacuous corpus)", async ({
 		db,
 	}) => {
 		await seedFixedCorpus(db);
@@ -219,7 +219,7 @@ describe("assembleSessionKnowledge — scope-only selection (architecture.md D1)
 			.where(eq(documents.id, "item-i12-team-out"));
 		expect(row).toBeDefined();
 
-		const budgeted = await assembleSessionKnowledge(db, {
+		const budgeted = await assembleSessionDocuments(db, {
 			teamId: TEAM_ID,
 			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,

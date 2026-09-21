@@ -23,7 +23,7 @@ import { documents, type HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { upsertKnowledgeDocument } from "../knowledge-repository.js";
-import { assembleSessionKnowledge } from "../session-knowledge-assembler.js";
+import { assembleSessionDocuments } from "../session-documents.js";
 
 const TS = "2026-01-01T00:00:00.000Z";
 const SKILL_ID = "ki_reinstall_probe";
@@ -68,7 +68,7 @@ describe("reinstalling a plugin revives its skills", () => {
 		await upsertKnowledgeDocument(db, installInput("# Sweep stale knowledge"));
 		await db.update(documents).set({ status: "archived" }).where(eq(documents.id, SKILL_ID));
 
-		const whileArchived = await assembleSessionKnowledge(db, {
+		const whileArchived = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
 			agentRole: "builder",
 			taskDescription: "anything",
@@ -78,7 +78,7 @@ describe("reinstalling a plugin revives its skills", () => {
 
 		await upsertKnowledgeDocument(db, installInput("# Sweep stale knowledge"));
 
-		const afterReinstall = await assembleSessionKnowledge(db, {
+		const afterReinstall = await assembleSessionDocuments(db, {
 			teamId: "team-alpha",
 			agentRole: "builder",
 			taskDescription: "anything",

@@ -12,11 +12,11 @@
  * they survive barrel reorganization during Stage 2.
  *
  * @lore nested-knowledge-items D1: `layer==='L4'` is replaced by
- * `scopeKind==='factory'` as the "always included" rule — see `token-budget.ts`.
+ * `scopeKind==='factory'` as the "always included" rule — see `session-documents.ts`.
  */
 import type { DocumentRow } from "@hyperidle/db";
 import { describe, expect, test } from "vitest";
-import { countTokens, enforceBudget } from "../token-budget.js";
+import { countTokens, enforceBudget } from "../session-documents.js";
 
 // ---------------------------------------------------------------------------
 // Helpers

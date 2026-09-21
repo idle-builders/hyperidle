@@ -27,7 +27,7 @@
 
 import { documents, type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/document";
+import { assembleSessionDocuments, getAgentIdentity } from "@hyperidle/document";
 import type { BakedContextBundle } from "@hyperidle/domain-model";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -305,7 +305,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			getAgentIdentity,
 			getRoutinePrompt: readRoutinePrompt,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
-			assembleSessionKnowledge,
+			assembleSessionKnowledge: assembleSessionDocuments,
 		});
 
 		const team = await getTeam(db, { id: "team-rrun-ctx-1" });
@@ -419,7 +419,7 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 		const baked = await resolveRoutineRunRequest(db, "run-ba9c-trig-1", {
 			...buildDeps(),
 			getTeamById: (d, id) => getTeam(d, { id }),
-			assembleSessionKnowledge,
+			assembleSessionKnowledge: assembleSessionDocuments,
 			triggerEvent,
 		});
 
@@ -486,7 +486,7 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 		const baked = await resolveRoutineRunRequest(db, "run-ba9c-noteam", {
 			...buildDeps(),
 			getTeamById: (d, id) => getTeam(d, { id }),
-			assembleSessionKnowledge,
+			assembleSessionKnowledge: assembleSessionDocuments,
 			triggerEvent,
 		});
 
