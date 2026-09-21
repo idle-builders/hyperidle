@@ -237,6 +237,35 @@ const APP_DISPOSERS = new WeakMap<Hono, Array<() => void>>();
  * SAME composed list (architecture.md §7's "one composed list, built once").
  */
 const APP_ACTION_TOOLS = new WeakMap<Hono, ReadonlyArray<RegisteredTool<HyperIdleDb>>>();
+/**
+ * @lore document-module B15: `boot.ts` needs the RAW `edit_document`/
+ * `search_documents` runners (not `actionsAsTools`' MCP-wrapped projection)
+ * to build `CoreApiBoot.editDocument`/`searchDocuments` — the two values
+ * architecture.md §8.4 threads into the writeback processor exactly like
+ * `actionTools`. Same take-once-by-app-instance idiom as `APP_ACTION_TOOLS`,
+ * kept as a second WeakMap rather than widening that one's value shape,
+ * since a tool registration and a raw action runner are different things
+ * with different consumers.
+ */
+const APP_DOCUMENT_RUNNERS = new WeakMap<
+	Hono,
+	{
+		readonly editDocument: (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").EditDocumentInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
+		>;
+		readonly searchDocuments: (
+			ctx: ActionContext,
+			input: import("@hyperidle/domain-model").SearchDocumentsInput,
+		) => Promise<
+			import("@hyperidle/domain-model").ActionResult<
+				import("@hyperidle/domain-model").DocumentRow[]
+			>
+		>;
+	}
+>();
 const appLogger = createLogger({ pkg: "server.app" });
 
 /**
@@ -475,6 +504,14 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
 		>;
+		// @lore document-module B15: the SAME two runners, captured raw (not
+		// MCP-tool-wrapped) for `boot.ts` to build `CoreApiBoot.editDocument`/
+		// `searchDocuments` off — the writeback processor's document port
+		// (architecture.md §8.4).
+		APP_DOCUMENT_RUNNERS.set(api, {
+			editDocument: editDocumentRun,
+			searchDocuments: searchDocumentsRun,
+		});
 		// @lore document-module B11: an agent's identity document (§8.3) — the
 		// one shared helper every agent-creating route (`/agents`, `/org`'s
 		// scaffold-request, `/teams`'s create) reduces to, built from the same
@@ -660,6 +697,18 @@ export function takeAppActionTools(
 	const tools = APP_ACTION_TOOLS.get(hono);
 	APP_ACTION_TOOLS.delete(hono);
 	return tools;
+}
+
+/**
+ * §8.4 — detach and return the composed `edit_document`/`search_documents`
+ * runners. `undefined` when `db` was never supplied (no actions were built).
+ * Read exactly once, by `bootCoreApi`, the same idiom `takeAppActionTools`
+ * already gives.
+ */
+export function takeAppDocumentRunners(hono: Hono): ReturnType<typeof APP_DOCUMENT_RUNNERS.get> {
+	const runners = APP_DOCUMENT_RUNNERS.get(hono);
+	APP_DOCUMENT_RUNNERS.delete(hono);
+	return runners;
 }
 
 /**

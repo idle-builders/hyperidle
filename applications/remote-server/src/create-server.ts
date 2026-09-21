@@ -401,6 +401,11 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			// §7 — one composed list, built once: core-api's actions, projected
 			// onto this Layer's own MCP tool seam.
 			actionTools: coreApi.actionTools,
+			// §8.4 — the writeback processor's document port, bound straight to
+			// core's composed `edit_document`/`search_documents` values, threaded
+			// through exactly like `actionTools` above.
+			editDocument: coreApi.editDocument,
+			searchDocuments: coreApi.searchDocuments,
 			session: runtimeSessionDeps,
 			sandboxBasePath,
 			worker: {

@@ -4,7 +4,7 @@ import {
 	type RunOrchestrationHarnessRuntimeAdapter,
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { create, reparent, update, VersionConflictError } from "@hyperidle/document";
+import type { ActionResult, DocumentRow, DocumentView } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import {
@@ -17,6 +17,59 @@ import {
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
+import { buildStandaloneDocumentRunners } from "../actions/compose.js";
+
+/**
+ * A real document writeback port, bound to the REAL `edit_document`/
+ * `search_documents` actions (`buildStandaloneDocumentRunners`,
+ * architecture.md §8.4) — never a hand-rolled Drizzle stub, and never the
+ * legacy repository functions the pre-document-module version of this file
+ * called directly. `openParent` is unreachable through this standalone
+ * bag (compose.ts's own documented invariant): every writeback call this
+ * test harness's callers make either sits under a real directory ancestor or
+ * has no task/thread parent at all, so a document is never parented to a
+ * task/thread through this port. `db`/`eventBus` are bound once, matching the
+ * real `CoreApiBoot.editDocument`/`searchDocuments` shape (fixed at boot,
+ * `caller`/`input` only per call).
+ */
+export function realDocumentWritebackPort(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+): {
+	readonly editDocument: (
+		caller: {
+			readonly actor: string;
+			readonly sessionId: string;
+			readonly taskId: string | null;
+			readonly threadId: string | null;
+		},
+		input: Parameters<ReturnType<typeof buildStandaloneDocumentRunners>["editDocument"]>[1],
+	) => Promise<ActionResult<DocumentView>>;
+	readonly searchDocuments: (
+		caller: { readonly actor: string },
+		input: Parameters<ReturnType<typeof buildStandaloneDocumentRunners>["searchDocuments"]>[1],
+	) => Promise<ActionResult<readonly DocumentRow[]>>;
+} {
+	const runners = buildStandaloneDocumentRunners();
+	return {
+		editDocument: (caller, input) =>
+			runners.editDocument(
+				{
+					actor: caller.actor,
+					db,
+					eventBus,
+					now: new Date().toISOString(),
+					caller: { sessionId: caller.sessionId, taskId: caller.taskId, threadId: caller.threadId },
+				},
+				input,
+			),
+		searchDocuments: (caller, input) =>
+			runners.searchDocuments(
+				{ actor: caller.actor, db, eventBus, now: new Date().toISOString() },
+				input,
+			) as Promise<ActionResult<readonly DocumentRow[]>>,
+	};
+}
 
 /**
  * @lore AU31 §2.1(b)/§5: `runtimeDeps`/`startRuntime` are no longer module-
@@ -84,28 +137,7 @@ export function startTestRuntime(
 				...base.composition,
 				writeback: {
 					db,
-					knowledge: {
-						create,
-						// @lore document-module B0c: a stale write is refused, not
-						// recorded as a conflict — a document has no conflict object
-						// (founder ruling). Mirrors the real seam's
-						// `updateKnowledgeItemContent` (catches the repository's
-						// `VersionConflictError` and returns `{ok:false,
-						// currentVersion}` instead of letting it throw).
-						async update(db2, id, patch, expectedVersion) {
-							try {
-								return { ok: true, item: await update(db2, id, patch, expectedVersion) };
-							} catch (err) {
-								if (err instanceof VersionConflictError) {
-									return { ok: false, currentVersion: err.currentVersion };
-								}
-								throw err;
-							}
-						},
-						async reparentKnowledgeItem(db2, id, input) {
-							await reparent(db2, id, input);
-						},
-					},
+					document: realDocumentWritebackPort(db, eventBus),
 				},
 				worker: {
 					pool: workerPool,

@@ -55,14 +55,17 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { documents } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
-import { assembleSessionDocuments, create, reparent, update } from "@hyperidle/document";
+import { assembleSessionDocuments, create } from "@hyperidle/document";
 import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { createWritebackProcessor } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
-import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-runtime.js";
+import {
+	buildTestRunOrchestrationComposition,
+	realDocumentWritebackPort,
+} from "./run-orchestration-test-runtime.js";
 
 // ---------------------------------------------------------------------------
 // Shared identities
@@ -74,30 +77,12 @@ const AGENT_ID = "agent-nkt";
 const OTHER_USER_ID = "user-nkt-other";
 
 // ---------------------------------------------------------------------------
-// The real repository, shaped to the writeback processor's port — same idiom
-// as knowledge-writeback-e2e.integration.test.ts's realKnowledgeWriter().
+// The real `edit_document`/`search_documents` actions, shaped to the
+// writeback processor's port — same idiom as
+// document-writeback-e2e.integration.test.ts's real document port, and the
+// same helper (`realDocumentWritebackPort`) `run-orchestration-test-runtime.ts`
+// already builds for `startTestRuntime`.
 // ---------------------------------------------------------------------------
-
-function realKnowledgeWriter() {
-	return {
-		create,
-		async update(
-			db2: Parameters<typeof update>[0],
-			id: string,
-			patch: { body: string; updatedBy: string },
-			expectedVersion: number,
-		) {
-			return { ok: true as const, item: await update(db2, id, patch, expectedVersion) };
-		},
-		async reparentKnowledgeItem(
-			db2: Parameters<typeof reparent>[0],
-			id: string,
-			input: { parentKind: "document" | null; parentId: string | null; updatedBy: string },
-		) {
-			await reparent(db2, id, input);
-		},
-	};
-}
 
 // ---------------------------------------------------------------------------
 // Spawn helper — identical shape to BA9b's, kept file-local per the
@@ -555,7 +540,7 @@ for (const harness of HARNESSES) {
 			async ({ db }) => {
 				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-create-`));
 				const writeback = createWritebackProcessor();
-				const knowledgeWriter = realKnowledgeWriter();
+				const documentPort = realDocumentWritebackPort(db, new EventBus());
 
 				// A trivial factory item so the sandbox is a real, non-empty
 				// materialised tree — not the substitute of a hand-built manifest.
@@ -591,7 +576,8 @@ for (const harness of HARNESSES) {
 						sandboxPath,
 						sessionId: `sess-${harness}-create`,
 						manifestPath: manifestPathFor(sandboxPath),
-						knowledge: knowledgeWriter,
+						document: documentPort,
+						actor: AGENT_ID,
 					},
 					created,
 				);
@@ -632,7 +618,7 @@ for (const harness of HARNESSES) {
 			async ({ db }) => {
 				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-move-`));
 				const writeback = createWritebackProcessor();
-				const knowledgeWriter = realKnowledgeWriter();
+				const documentPort = realDocumentWritebackPort(db, new EventBus());
 
 				// Same "different owner" trick as the read test, so the folder
 				// with a child does not also get independently selected (see the
@@ -687,7 +673,8 @@ for (const harness of HARNESSES) {
 						sandboxPath,
 						sessionId: `sess-${harness}-move`,
 						manifestPath: manifestPathFor(sandboxPath),
-						knowledge: knowledgeWriter,
+						document: documentPort,
+						actor: AGENT_ID,
 					},
 					changes,
 				);

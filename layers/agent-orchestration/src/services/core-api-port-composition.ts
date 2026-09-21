@@ -40,21 +40,14 @@ import {
 	CORE_API_ACTOR_OVERRIDE_HEADER,
 	type CoreApiPort,
 	type CoreApiTransport,
-	type CreateKnowledgeItemRequest,
-	type CreateKnowledgeItemResponse,
 	type CreateOrgTeamRequest,
 	type InsertRoutineRequest,
-	type KnowledgeItemVersionView,
 	type OrgTeamMembershipView,
 	type OrgTeamView,
 	type PersistScaffoldedAgentsResponse,
-	type ReparentKnowledgeItemRequest,
 	type RoutineView,
 	type ScaffoldFromRequestInput,
 	// @lore BB1: UpdateBetRequest deleted — bet is now a root task.
-	type UpdateKnowledgeItemContentRequest,
-	type UpdateKnowledgeItemContentResponse,
-	type UpdateKnowledgeItemContentResult,
 	type UpdateOrgTeamRequest,
 	type UpdateRoutineRequest,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
@@ -64,6 +57,10 @@ import {
 	// InsertMessageResponse/InsertThreadRequest/InsertThreadResponse/ItemView/
 	// UpdateItemRequest/UpdateThreadRequest deleted with the five thread routes and
 	// create_item/submit_review/reply.
+	// @lore document-module B15: CreateKnowledgeItemRequest/CreateKnowledgeItemResponse/
+	// KnowledgeItemVersionView/ReparentKnowledgeItemRequest/UpdateKnowledgeItemContentRequest/
+	// UpdateKnowledgeItemContentResponse/UpdateKnowledgeItemContentResult deleted with
+	// `CoreApiPort.knowledge` — the writeback dials `edit_document`/`search_documents` now.
 	type UserView,
 } from "@hyperidle/api-contract";
 import { SeamRequestError } from "@hyperidle/domain-model";
@@ -133,59 +130,6 @@ interface CoreApiHcClient {
 				readonly limit?: string;
 			};
 		}): Promise<Response>;
-	};
-	readonly knowledge: {
-		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
-		readonly ":id": {
-			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
-			/**
-			 * AU31 §2.7 — the writeback processor's optimistic-lock update; same
-			 * route `PATCH /knowledge/:id` the human-facing UI patches through.
-			 * @lore nested-knowledge-items: `parentKind`/`parentId` widen this for
-			 * `reparentKnowledgeItem` — same route, its own existing move fields.
-			 * @lore nested-knowledge-items defect 2: both nullable, together —
-			 * `null, null` is a move to the top level (detach to root).
-			 */
-			$patch(args: {
-				readonly param: { readonly id: string };
-				readonly json: {
-					readonly version: number;
-					readonly updatedBy: string;
-					readonly body?: string;
-					readonly parentKind?: string | null;
-					readonly parentId?: string | null;
-				};
-			}): Promise<Response>;
-			readonly promote: {
-				$post(args: {
-					readonly param: { readonly id: string };
-					readonly json: {
-						readonly fromStatus: string;
-						readonly toStatus: string;
-						readonly reason?: string;
-						readonly editor: string;
-					};
-				}): Promise<Response>;
-			};
-			readonly merge: {
-				$post(args: {
-					readonly param: { readonly id: string };
-					readonly json: { readonly sourceId: string; readonly updatedBy: string };
-				}): Promise<Response>;
-			};
-			readonly split: {
-				$post(args: {
-					readonly param: { readonly id: string };
-					readonly json: {
-						readonly newItems: ReadonlyArray<{
-							readonly title: string;
-							readonly body: string;
-						}>;
-						readonly updatedBy: string;
-					};
-				}): Promise<Response>;
-			};
-		};
 	};
 }
 
@@ -352,62 +296,10 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("routine.updateRoutineById", res);
 			},
 		},
-		knowledge: {
-			// @lore nested-knowledge-items: `search` is DELETED — its only
-			// consumer, `query_practice`, is gone (its one filter was
-			// `layer === 'L3'`).
-			async create(input: CreateKnowledgeItemRequest): Promise<CreateKnowledgeItemResponse> {
-				const res = await client.knowledge.$post({ json: input });
-				if (!res.ok) return throwSeamError("knowledge.create", res);
-				return (await res.json()) as CreateKnowledgeItemResponse;
-			},
-
-			async updateKnowledgeItemContent(
-				id: string,
-				input: UpdateKnowledgeItemContentRequest,
-			): Promise<UpdateKnowledgeItemContentResult> {
-				const res = await client.knowledge[":id"].$patch({
-					param: { id },
-					json: { version: input.expectedVersion, updatedBy: input.updatedBy, body: input.body },
-				});
-				if (res.status === 409) {
-					const body = (await res.json()) as {
-						readonly details?: { readonly currentVersion?: number };
-					};
-					return {
-						ok: false,
-						currentVersion: body.details?.currentVersion ?? input.expectedVersion,
-					};
-				}
-				if (!res.ok) return throwSeamError("knowledge.updateKnowledgeItemContent", res);
-				const item = (await res.json()) as UpdateKnowledgeItemContentResponse;
-				return { ok: true, item };
-			},
-
-			/**
-			 * @lore nested-knowledge-items: fetches the current version internally
-			 * (reusing `GET /knowledge/:id`) so the writeback processor's move
-			 * handling never has to track a version per item itself — it only ever
-			 * cared about parentage, never content version.
-			 */
-			async reparentKnowledgeItem(id: string, input: ReparentKnowledgeItemRequest): Promise<void> {
-				const current = await getOrUndefined<KnowledgeItemVersionView>(
-					"knowledge.reparentKnowledgeItem(lookup)",
-					await client.knowledge[":id"].$get({ param: { id } }),
-				);
-				if (!current) throw new Error(`reparentKnowledgeItem: knowledge item ${id} not found`);
-				const res = await client.knowledge[":id"].$patch({
-					param: { id },
-					json: {
-						version: current.version,
-						updatedBy: input.updatedBy,
-						parentKind: input.parentKind,
-						parentId: input.parentId,
-					},
-				});
-				if (!res.ok) return throwSeamError("knowledge.reparentKnowledgeItem", res);
-			},
-		},
+		// @lore document-module B15: `knowledge` (create/updateKnowledgeItemContent/
+		// reparentKnowledgeItem) is DELETED — the writeback processor dials the
+		// composed `edit_document`/`search_documents` actions directly now
+		// (architecture.md §8.4), never a second HTTP hop through this seam.
 	};
 }
 
