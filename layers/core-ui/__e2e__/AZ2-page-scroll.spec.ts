@@ -21,7 +21,10 @@
 
 import {
 	expect,
+	makeDocumentRow,
 	makeThread,
+	mockDocument,
+	mockSearchDocuments,
 	mockSearchThreads,
 	mockThread,
 	type Page,
@@ -472,49 +475,33 @@ const ROUTES: readonly RouteCase[] = [
 	},
 	{
 		name: "knowledge-list",
-		url: "/knowledge",
+		url: "/documents",
 		readySelector: "[data-testid='knowledge-list-page']",
 		setup: async (page) => {
-			await page.route("**/api/knowledge", async (route: Route) => {
-				if (route.request().method() !== "GET") return route.continue();
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ items: [] }),
-				});
-			});
+			await mockSearchDocuments(page, { rows: [] });
 		},
 	},
 	{
 		name: "knowledge-detail",
-		url: `/knowledge/${KNOWLEDGE_ID}`,
-		readySelector: "[data-testid='knowledge-detail-page']",
+		url: `/documents/${KNOWLEDGE_ID}`,
+		readySelector: "[data-testid='document-detail-page']",
 		setup: async (page) => {
 			await mockDefaultThreads(page);
-			await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						id: KNOWLEDGE_ID,
-						title: "AZ2 fixture knowledge item",
-						status: "active",
-						confidence: 0.8,
-						originAgent: "Agent 0",
-						timestamp: "2026-01-01T00:00:00.000Z",
-						body: "Fixture content.",
-						scopeName: null,
-						topic: null,
-					}),
-				});
+			await mockDocument(page, {
+				row: makeDocumentRow(KNOWLEDGE_ID, {
+					title: "AZ2 fixture knowledge item",
+					body: "Fixture content.",
+				}),
 			});
 		},
 	},
 	{
 		name: "knowledge-create",
-		url: "/knowledge/new",
+		url: "/documents/new",
 		readySelector: "[data-testid='knowledge-create-page']",
-		setup: async () => undefined,
+		setup: async (page) => {
+			await mockSearchDocuments(page, { rows: [] });
+		},
 	},
 	{
 		name: "work-task-create",

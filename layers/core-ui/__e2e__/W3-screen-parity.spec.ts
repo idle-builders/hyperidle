@@ -15,12 +15,11 @@
  * - Settings body: 680px
  */
 
-import { expect, mockSearchThreads, test } from "./fixtures";
+import { expect, mockSearchDocuments, mockSearchThreads, test } from "./fixtures";
 
 const TEAMS_FIXTURE = {
 	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
 };
-const KNOWLEDGE_FIXTURE = { items: [] };
 
 test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 	test("conversations thread list: content area ≤ 800px", async ({ page }) => {
@@ -65,13 +64,7 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 	});
 
 	test("knowledge list: content area ≤ 800px", async ({ page }) => {
-		await page.route("**/api/knowledge*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(KNOWLEDGE_FIXTURE),
-			});
-		});
+		await mockSearchDocuments(page, { rows: [] });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -80,7 +73,7 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 			});
 		});
 
-		await page.goto("/knowledge");
+		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
 		// Knowledge list body container
@@ -171,13 +164,7 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 	});
 
 	test("knowledge empty state visible when no items", async ({ page }) => {
-		await page.route("**/api/knowledge*", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ items: [] }),
-			});
-		});
+		await mockSearchDocuments(page, { rows: [] });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -186,7 +173,7 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 			});
 		});
 
-		await page.goto("/knowledge");
+		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 		// Empty state should render
 		const emptyState = page.getByTestId("knowledge-empty-state");

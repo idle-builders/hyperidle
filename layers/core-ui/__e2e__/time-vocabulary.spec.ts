@@ -33,7 +33,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, makeThreadListRow, mockSearchThreads, mockThread, test } from "./fixtures";
+import {
+	expect,
+	makeDocumentRow,
+	makeThreadListRow,
+	mockSearchDocuments,
+	mockSearchThreads,
+	mockThread,
+	test,
+} from "./fixtures";
 
 // ── Shared seed timestamps ──────────────────────────────────────────────────
 
@@ -92,33 +100,13 @@ function makeBadThread() {
 }
 
 function makeSeedKnowledgeItem() {
-	return {
-		id: "ai3-seed-item",
-		layer: "L3",
-		scopeId: null,
-		kind: "pattern",
-		topic: "testing",
+	return makeDocumentRow("ai3-seed-item", {
 		title: "AI3 Seed Item",
 		body: "Seeded for one-clock AC tests",
-		format: "markdown",
-		status: "active",
-		attentionScore: null,
-		relevanceScore: 0.9,
-		confidence: null,
-		version: 1,
 		updatedBy: "human",
 		createdAt: SEED_CREATED_AT,
 		updatedAt: SEED_CREATED_AT,
-		meta: null,
-		citationCount: null,
-		lastCitedAt: null,
-		signals: {
-			lastActivityAt: SEED_CREATED_AT,
-			accessCount30d: 1,
-			citationCount: null,
-			relevanceScore: 0.9,
-		},
-	};
+	});
 }
 
 function makeBadKnowledgeItem() {
@@ -128,12 +116,6 @@ function makeBadKnowledgeItem() {
 		title: "AI3 Bad Timestamp Item",
 		createdAt: BAD_TIMESTAMP,
 		updatedAt: BAD_TIMESTAMP,
-		signals: {
-			lastActivityAt: BAD_TIMESTAMP,
-			accessCount30d: null,
-			citationCount: null,
-			relevanceScore: null,
-		},
 	};
 }
 
@@ -195,21 +177,8 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			}
 		});
 
-		// Override knowledge list
-		await page.route("**/api/knowledge**", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						items: [makeSeedKnowledgeItem()],
-						groups: {},
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// Override document list
+		await mockSearchDocuments(page, { rows: [makeSeedKnowledgeItem()] });
 	});
 
 	test("thread list renders relative label with shared register", async ({ page }) => {
@@ -225,7 +194,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 	});
 
 	test("knowledge list renders relative label with shared register", async ({ page }) => {
-		await page.goto("/knowledge");
+		await page.goto("/documents");
 		// KnowledgeListRow uses data-testid="knowledge-row" and data-testid="knowledge-time"
 		const row = page.locator("[data-testid='knowledge-row']").first();
 		await expect(row).toBeVisible();
@@ -295,7 +264,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		});
 
 		// ── Surface 2: knowledge list ───────────────────────────────────────────
-		await page.goto("/knowledge");
+		await page.goto("/documents");
 		const knowledgeRow = page.locator("[data-testid='knowledge-row']").first();
 		await expect(knowledgeRow).toBeVisible();
 		const knowledgeTimeEl = knowledgeRow.locator("[data-testid='knowledge-time']").first();
@@ -368,22 +337,9 @@ test.describe("AC-3: invalid timestamps → TIME_PLACEHOLDER or hidden chip", ()
 	});
 
 	test("knowledge list with bad timestamp shows '—' placeholder", async ({ page }) => {
-		await page.route("**/api/knowledge**", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						items: [makeBadKnowledgeItem()],
-						groups: {},
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		await mockSearchDocuments(page, { rows: [makeBadKnowledgeItem()] });
 
-		await page.goto("/knowledge");
+		await page.goto("/documents");
 		const row = page.locator("[data-testid='knowledge-row']").first();
 		await expect(row).toBeVisible();
 		await expect(row).toContainText("—");

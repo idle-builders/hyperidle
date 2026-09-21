@@ -24,7 +24,7 @@
  * (Work-view experience workpackage).
  */
 
-import { expect, mockSearchThreads, test } from "./fixtures";
+import { expect, makeDocumentRow, mockDocument, mockSearchThreads, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Parse a CSS z-index value into a number.
@@ -202,28 +202,13 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 		// knowledge detail instead. The assertion is about the z-index SCALE, not
 		// about which dialog opened, so any real modal proves the same contract.
 		const KNOWLEDGE_ID = "k-dialog-layer-test";
-		await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, (route) =>
-			route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: KNOWLEDGE_ID,
-					title: "Layering knowledge item",
-					body: "# Test\n\nContent.",
-					format: "markdown",
-					status: "active",
-					version: 1,
-					updatedBy: "tester",
-					scopeKind: "team",
-					scopeId: null,
-					topic: null,
-					createdAt: new Date().toISOString(),
-					updatedAt: new Date().toISOString(),
-					kind: "note",
-					layer: "team",
-				}),
+		await mockDocument(page, {
+			row: makeDocumentRow(KNOWLEDGE_ID, {
+				title: "Layering knowledge item",
+				body: "# Test\n\nContent.",
+				scopeKind: "team",
 			}),
-		);
+		});
 		await page.route("**/api/artifacts**", (route) =>
 			route.fulfill({
 				status: 200,
@@ -232,11 +217,11 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 			}),
 		);
 
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
-		await expect(page.locator("[data-testid='knowledge-detail-page']")).toBeVisible();
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await expect(page.locator("[data-testid='document-detail-page']")).toBeVisible();
 
 		await page.getByRole("button", { name: /more options/i }).click();
-		const changeScope = page.locator("[data-testid='knowledge-change-scope']");
+		const changeScope = page.locator("[data-testid='document-change-scope']");
 		await expect(changeScope, "Change scope item must appear in the overflow menu").toBeVisible();
 		await changeScope.click();
 

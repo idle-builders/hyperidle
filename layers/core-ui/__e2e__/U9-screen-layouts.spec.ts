@@ -12,7 +12,7 @@
  * The fixtures fixture auto-mocks the core APIs. We layer additional mocks
  * for /api/bets and /api/teams.
  */
-import { expect, mockSearchThreads, test } from "./fixtures";
+import { expect, makeDocumentRow, mockSearchThreads, test } from "./fixtures";
 
 const TEAMS_FIXTURE = {
 	teams: [
@@ -37,23 +37,13 @@ const TEAMS_FIXTURE = {
 	],
 };
 
-const KNOWLEDGE_ITEMS_FIXTURE = {
-	items: [
-		{
-			id: "k1",
-			topic: "Architecture",
-			title: "Auth Strategy Decision",
-			body: "body content",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "agent",
-			createdAt: "2024-01-01T00:00:00Z",
-			updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-			signals: null,
-		},
-	],
-};
+const DOCUMENT_ROWS = [
+	makeDocumentRow("k1", {
+		title: "Auth Strategy Decision",
+		body: "body content",
+		updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+	}),
+];
 
 // ---------------------------------------------------------------------------
 // AC-1: Conversations page Hearth styling
@@ -177,15 +167,19 @@ test.describe("U9 AC-2 + AC-3: Work Portfolio — bet grid + team pills", () => 
 
 test.describe("U9 AC-6: Knowledge scope pills", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/knowledge**", async (route) => {
+		await page.route("**/api/actions/search_documents", async (route) => {
+			if (route.request().method() !== "POST") {
+				await route.continue();
+				return;
+			}
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify(KNOWLEDGE_ITEMS_FIXTURE),
+				body: JSON.stringify({ ok: true, data: DOCUMENT_ROWS }),
 			});
 		});
 
-		await page.goto("/knowledge");
+		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 	});
 

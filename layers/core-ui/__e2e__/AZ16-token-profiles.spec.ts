@@ -4,6 +4,7 @@ import type { Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
 import {
 	expect,
+	makeDocumentRow,
 	makeIdentity,
 	makeMessage,
 	makeTask,
@@ -86,22 +87,13 @@ const TEAM = {
 	],
 };
 
-const KNOWLEDGE = {
-	id: "k-az16",
-	topic: "Design system",
+const KNOWLEDGE = makeDocumentRow("k-az16", {
 	title: "Semantic profile contract",
 	body: "# Semantic profile contract\n\n## Typography\n\n### Complete definitions\n\n#### Labels\n\n##### Motion\n\n###### Borders\n\nUse `TYPE_STYLE` for generated content.",
-	format: "markdown",
-	status: "active",
-	version: 1,
 	updatedBy: "agent-az16",
-	originAgent: "Atlas",
-	confidence: 0.98,
-	scope: "practices",
 	createdAt: "2026-08-14T08:00:00.000Z",
 	updatedAt: "2026-08-14T09:00:00.000Z",
-	signals: null,
-};
+});
 
 async function json(route: Route, body: unknown): Promise<void> {
 	await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
@@ -160,8 +152,21 @@ async function installAz16Mocks(page: Page): Promise<void> {
 			return json(route, { teams: [{ id: "team-az16", name: "Hearth", phase: "build" }] });
 		}
 		if (pathname === "/api/actions/open_task") return json(route, { ok: true, data: TASK_VIEW });
-		if (pathname === "/api/knowledge/k-az16") return json(route, KNOWLEDGE);
-		if (pathname === "/api/knowledge") return json(route, { items: [KNOWLEDGE], nextCursor: null });
+		if (pathname === "/api/actions/open_document") {
+			return json(route, {
+				ok: true,
+				data: {
+					document: KNOWLEDGE,
+					ancestors: [],
+					children: [],
+					siblings: [],
+					scopeName: "Factory",
+				},
+			});
+		}
+		if (pathname === "/api/actions/search_documents") {
+			return json(route, { ok: true, data: [KNOWLEDGE] });
+		}
 		if (pathname === "/api/org") {
 			return json(route, {
 				edges: [],
@@ -356,7 +361,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 		["conversations", "/conversations/t-az16", "conversations-page"],
 		["team", "/work/team/team-az16", "work-team-page"],
 		["task", "/work/task/task-az16", "task-detail-page"],
-		["knowledge", "/knowledge/k-az16", "knowledge-detail-page"],
+		["knowledge", "/documents/k-az16", "document-detail-page"],
 		["settings", "/conversations?settings=open", "settings-page"],
 		["review", `/reviews/review-az16?threadId=${THREAD.id}`, null],
 	] as const;

@@ -22,7 +22,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "./fixtures";
+import { expect, makeDocumentRow, mockSearchDocuments, test } from "./fixtures";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -30,7 +30,7 @@ import { expect, test } from "./fixtures";
 
 const TEAM_ID = "ag6-team";
 const TEAM_URL = `/work/team/${TEAM_ID}`;
-const KNOWLEDGE_URL = "/knowledge";
+const KNOWLEDGE_URL = "/documents";
 
 const SpecDir = path.dirname(fileURLToPath(import.meta.url));
 const PROOF_DIR = path.resolve(SpecDir, "../../../test-results");
@@ -110,69 +110,25 @@ function makeTeamFixture() {
 	};
 }
 
-function makeKnowledgeFixture() {
-	return {
-		items: [
-			{
-				id: "ki-ag6-1",
-				layer: "L3",
-				scopeId: null,
-				scopeKind: "pattern",
-				kind: "pattern",
-				topic: "architecture",
-				title: "Row primitive consolidation",
-				body: "All list rows go through the shared Row/ItemList primitive.",
-				format: "markdown",
-				status: "draft",
-				attentionScore: 0.9,
-				relevanceScore: 0.9,
-				confidence: null,
-				version: 1,
-				updatedBy: "agent",
-				createdAt: "2026-06-12T00:00:00.000Z",
-				updatedAt: "2026-06-12T00:00:00.000Z",
-				meta: null,
-				citationCount: null,
-				lastCitedAt: null,
-				signals: {
-					lastActivityAt: "2026-06-12T00:00:00.000Z",
-					accessCount30d: 3,
-					citationCount: null,
-					relevanceScore: 0.9,
-				},
-			},
-			{
-				id: "ki-ag6-2",
-				layer: "L3",
-				scopeId: null,
-				scopeKind: "decision",
-				kind: "decision",
-				topic: "architecture",
-				title: "Hover/focus via clickableProps",
-				body: "clickableProps is the single source of hover+focus+motion for all rows.",
-				format: "markdown",
-				status: "draft",
-				attentionScore: 0.7,
-				relevanceScore: 0.7,
-				confidence: null,
-				version: 1,
-				updatedBy: "agent",
-				createdAt: "2026-06-11T00:00:00.000Z",
-				updatedAt: "2026-06-11T00:00:00.000Z",
-				meta: null,
-				citationCount: null,
-				lastCitedAt: null,
-				signals: {
-					lastActivityAt: "2026-06-11T00:00:00.000Z",
-					accessCount30d: 1,
-					citationCount: null,
-					relevanceScore: 0.7,
-				},
-			},
-		],
-		groups: {},
-	};
-}
+// @lore BC4: the document rows below carry `status:"proposed"` — the
+// DocumentList triage tab filters on exactly that value (was "draft", never
+// a valid status even under the pre-BC4 vocabulary).
+const KNOWLEDGE_DOCUMENTS = [
+	makeDocumentRow("ki-ag6-1", {
+		title: "Row primitive consolidation",
+		body: "All list rows go through the shared Row/ItemList primitive.",
+		status: "proposed",
+		createdAt: "2026-06-12T00:00:00.000Z",
+		updatedAt: "2026-06-12T00:00:00.000Z",
+	}),
+	makeDocumentRow("ki-ag6-2", {
+		title: "Hover/focus via clickableProps",
+		body: "clickableProps is the single source of hover+focus+motion for all rows.",
+		status: "proposed",
+		createdAt: "2026-06-11T00:00:00.000Z",
+		updatedAt: "2026-06-11T00:00:00.000Z",
+	}),
+];
 
 // ---------------------------------------------------------------------------
 // Shared route helpers (mirrors AG1 pattern)
@@ -213,17 +169,7 @@ async function mockTeamRoutes(page: import("@playwright/test").Page): Promise<vo
 }
 
 async function mockKnowledgeRoutes(page: import("@playwright/test").Page): Promise<void> {
-	await page.route("**/api/knowledge**", async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(makeKnowledgeFixture()),
-			});
-		} else {
-			await route.continue();
-		}
-	});
+	await mockSearchDocuments(page, { rows: KNOWLEDGE_DOCUMENTS });
 }
 
 // ---------------------------------------------------------------------------
