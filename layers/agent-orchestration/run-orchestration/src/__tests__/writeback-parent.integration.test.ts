@@ -38,9 +38,6 @@ function mkKnowledgeWriter(): KnowledgeWriter & { readonly createCalls: unknown[
 		async update() {
 			throw new Error("update should not be called in this test");
 		},
-		async recordConflict() {
-			throw new Error("recordConflict should not be called in this test");
-		},
 		async reparentKnowledgeItem() {
 			throw new Error("reparentKnowledgeItem should not be called in this test");
 		},

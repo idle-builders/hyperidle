@@ -29,7 +29,8 @@ export type {
 	CoreApiTransport,
 	CoreApiUsersPort,
 	// @lore BB1: CreateBetRequest, CreateBetResponse deleted — bet is now a root task.
-	CreateKnowledgeConflictRequest,
+	// @lore document-module B0c: CreateKnowledgeConflictRequest deleted — a
+	// document has no conflict object (founder ruling).
 	CreateKnowledgeItemRequest,
 	CreateKnowledgeItemResponse,
 	CreateOrgTeamRequest,

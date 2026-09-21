@@ -1,8 +1,8 @@
 /**
  * @lore nested-knowledge-items architecture.md §10 / review.md B7 — the
  * writeback processor exercised against the REAL knowledge repository
- * (`@hyperidle/knowledge`'s `create`/`update`/`recordConflict`/`reparent`),
- * not a hand-rolled Drizzle stub. The old version of this test
+ * (`@hyperidle/knowledge`'s `create`/`update`/`reparent`), not a hand-rolled
+ * Drizzle stub. The old version of this test
  * (`run-orchestration/src/__tests__/nested-knowledge-writeback.integration.test.ts`)
  * bypassed the repository entirely — no `assertParentInvariants`, no
  * `nextPositionForParent`, no edit-log row, no `reparent()` transaction —
@@ -36,8 +36,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
-import { create, recordConflict, reparent, update } from "@hyperidle/knowledge";
+import { knowledgeConflicts, knowledgeEditLog, knowledgeItems } from "@hyperidle/db";
+import { create, reparent, update, VersionConflictError } from "@hyperidle/knowledge";
 import { createWritebackProcessor, startWatcher } from "@hyperidle/run-orchestration";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -49,14 +49,28 @@ type KnowledgeWriter = Parameters<Writeback["subscribe"]>[0]["knowledge"];
  * The real repository, shaped to the writeback processor's port — same
  * fields `run-orchestration-test-runtime.ts`'s `startTestRuntime` already
  * wires for production-shaped tests.
+ *
+ * @lore document-module B0c: `update`'s repository call throws
+ * `VersionConflictError` on a stale version — caught here and turned into
+ * `{ok:false, currentVersion}`, the exact shape the real network seam
+ * (`core-api-port-composition.ts`'s `updateKnowledgeItemContent`) already
+ * returns on its own 409. A document has no conflict object (founder
+ * ruling): the writeback processor discards the agent's text and advances
+ * the manifest instead of recording anything.
  */
 function realKnowledgeWriter(): KnowledgeWriter {
 	return {
 		create,
 		async update(db2, id, patch, expectedVersion) {
-			return { ok: true, item: await update(db2, id, patch, expectedVersion) };
+			try {
+				return { ok: true, item: await update(db2, id, patch, expectedVersion) };
+			} catch (err) {
+				if (err instanceof VersionConflictError) {
+					return { ok: false, currentVersion: err.currentVersion };
+				}
+				throw err;
+			}
 		},
-		recordConflict,
 		async reparentKnowledgeItem(db2, id, input) {
 			await reparent(db2, id, input);
 		},
@@ -414,6 +428,118 @@ describe("knowledge writeback end-to-end: real files, real sandbox, real databas
 		expect(afterRenameB[0]?.parentId).toBe(teamRitualsFolder[0]?.id);
 		expect(afterRenameA[0]?.body).toBe("Onboarding body.");
 		expect(afterRenameB[0]?.body).toBe("Offboarding body.");
+	});
+
+	test("a deleted sandbox file drops the manifest entry and leaves the document untouched — a document has no conflict object (founder ruling)", async ({
+		db,
+	}) => {
+		const { root, manifestPath } = makeSandbox();
+		const knowledge = realKnowledgeWriter();
+
+		const filePath = path.join(root, "knowledge", "deleted_cafef00d.md");
+		fs.writeFileSync(filePath, "Body before the sandbox file is removed.");
+
+		await writeback.process(
+			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, knowledge },
+			[{ type: "create", relativePath: "knowledge/deleted_cafef00d.md", fullPath: filePath }],
+		);
+
+		const [before] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.title, "deleted cafef00d"));
+		expect(before).toBeDefined();
+
+		fs.rmSync(filePath);
+		const result = await writeback.process(
+			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, knowledge },
+			[
+				{
+					type: "delete",
+					relativePath: "knowledge/deleted_cafef00d.md",
+					fullPath: filePath,
+				},
+			],
+		);
+		expect(result.deleted).toBe(1);
+
+		// The document row is byte-identical — a deleted sandbox file is not a
+		// document deletion, and nothing was written to it.
+		const [after] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, before?.id ?? ""));
+		expect(after).toEqual(before);
+
+		// The manifest no longer names it.
+		const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as {
+			items: Record<string, unknown>;
+		};
+		expect(manifest.items[before?.id ?? ""]).toBeUndefined();
+
+		// No conflict row landed anywhere — a document has no conflict object.
+		const conflictRows = await db.select().from(knowledgeConflicts);
+		expect(conflictRows).toHaveLength(0);
+	});
+
+	test("a stale write is refused: the agent's text is discarded, the manifest advances to the durable version, and no conflict row exists", async ({
+		db,
+	}) => {
+		const { root, manifestPath } = makeSandbox();
+		const knowledge = realKnowledgeWriter();
+
+		const created = await create(db, {
+			title: "racing note",
+			body: "Original body.",
+			format: "markdown",
+			status: "proposed",
+			updatedBy: "test-seed",
+			scopeKind: "factory",
+		});
+
+		const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+			items: Record<string, unknown>;
+		};
+		manifest.items[created.id] = {
+			version: created.version,
+			source_path: "knowledge/racing-note.md",
+			format: "markdown",
+			scopeKind: "factory",
+		};
+		fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+
+		// A different session's earlier write already landed, real CAS and all —
+		// this session's manifest (version 1) is now stale.
+		const otherSessionWrite = await update(
+			db,
+			created.id,
+			{ body: "The durable body, written by someone else first.", updatedBy: "other-session" },
+			created.version,
+		);
+
+		const filePath = path.join(root, "knowledge", "racing-note.md");
+		fs.writeFileSync(filePath, "This agent's competing edit.");
+
+		const result = await writeback.process(
+			{ db, sandboxPath: root, sessionId: "sess-e2e", manifestPath, knowledge },
+			[{ type: "modify", relativePath: "knowledge/racing-note.md", fullPath: filePath }],
+		);
+		expect(result.updated).toBe(1);
+
+		// The agent's text was never applied.
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
+		expect(row?.body).toBe("The durable body, written by someone else first.");
+		expect(row?.version).toBe(otherSessionWrite.version);
+
+		// The manifest carries the new (durable) version.
+		const advanced = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as {
+			items: Record<string, { version: number }>;
+		};
+		expect(advanced.items[created.id]?.version).toBe(otherSessionWrite.version);
+
+		// No conflict row exists — a document has no conflict object.
+		const conflictRows = await db.select().from(knowledgeConflicts);
+		expect(conflictRows).toHaveLength(0);
 	});
 });
 

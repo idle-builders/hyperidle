@@ -64,15 +64,16 @@ type CaptureWritebackUpdateResult =
 	| { readonly ok: true; readonly item: CaptureWritebackKnowledgeItem }
 	| { readonly ok: false; readonly currentVersion: number };
 
-interface CaptureWritebackRecordConflictInput {
-	readonly itemId: string;
-	readonly versionBase: number;
-	readonly versionCurrent: number;
-	readonly proposedBody: string;
-	readonly proposedBy: string;
-}
-
-/** Port for `knowledge`'s create/update/conflict-record surface `writeback.ts` calls directly today. */
+/**
+ * Port for `knowledge`'s create/update surface `writeback.ts` calls directly
+ * today.
+ *
+ * @lore document-module B0c: `recordConflict` and
+ * `CaptureWritebackRecordConflictInput` are DELETED — a document has no
+ * conflict object (founder ruling). A stale write is refused
+ * (`update`'s `{ok:false, currentVersion}`) and discarded; see
+ * `handleModify`.
+ */
 interface CaptureWritebackKnowledgeWriter {
 	create(
 		db: HyperIdleDb,
@@ -84,7 +85,6 @@ interface CaptureWritebackKnowledgeWriter {
 		patch: { readonly body: string; readonly updatedBy: string },
 		expectedVersion: number,
 	): Promise<CaptureWritebackUpdateResult>;
-	recordConflict(db: HyperIdleDb, input: CaptureWritebackRecordConflictInput): Promise<void>;
 	/**
 	 * @lore nested-knowledge-items: replaces this file's own former
 	 * `getItemLink`/`setItemLink` direct-`knowledgeItems`/`knowledgeEditLog`
@@ -148,7 +148,6 @@ interface WritebackResult {
 	created: number;
 	updated: number;
 	deleted: number;
-	conflicts: number;
 }
 
 /** Read the manifest from disk. */
@@ -290,7 +289,6 @@ async function processWriteback(
 		created: 0,
 		updated: 0,
 		deleted: 0,
-		conflicts: 0,
 	};
 
 	const manifest = readManifest(config.manifestPath);
@@ -337,12 +335,12 @@ async function processWriteback(
 			case "modify":
 				{
 					const modifyResult = await handleModify(config, change, manifest);
-					if (modifyResult === "conflict") {
-						result.conflicts++;
-						result.updated++;
-					} else if (modifyResult === "created") {
+					if (modifyResult === "created") {
 						result.created++;
 					} else {
+						// "updated" and "stale" both leave the manifest carrying a real
+						// version — the agent's own edit for "updated", the durable
+						// version for "stale" (its text was discarded, not stored).
 						result.updated++;
 					}
 				}
@@ -437,12 +435,21 @@ async function handleCreate(
 	return "created";
 }
 
-/** Handle a modified file in knowledge/. Returns outcome type. */
+/**
+ * Handle a modified file in knowledge/. Returns outcome type.
+ *
+ * @lore document-module B0c: a stale write (the manifest's version no longer
+ * matches the document's) is refused, not recorded as a conflict — a
+ * document has no conflict object (founder ruling). The agent's text is
+ * discarded, and the manifest advances to the server's `currentVersion` (the
+ * value `update()` already returns on a clash) so the next save from this
+ * session carries the fresh version instead of clashing again.
+ */
 async function handleModify(
 	config: WritebackConfig,
 	change: WritebackChange,
 	manifest: Manifest,
-): Promise<"updated" | "created" | "conflict"> {
+): Promise<"updated" | "created" | "stale"> {
 	const existing = findItemByPath(manifest, change.relativePath);
 
 	if (!existing) {
@@ -474,27 +481,23 @@ async function handleModify(
 		return "updated";
 	}
 
-	// Version conflict — create a conflict record instead of overwriting.
-	await config.knowledge.recordConflict(config.db, {
-		itemId: existing.itemId,
-		versionBase: existing.entry.version,
-		versionCurrent: updateResult.currentVersion,
-		proposedBody: body,
-		proposedBy: `session:${config.sessionId}`,
-	});
-
-	// Update manifest to current version so subsequent writes don't keep conflicting
-	const conflictEntry = manifest.items[existing.itemId];
-	if (conflictEntry !== undefined) {
-		conflictEntry.version = updateResult.currentVersion;
+	// Stale version — discard the agent's edit (never applied) and advance the
+	// manifest to the durable version so the next save from this session wins.
+	const staleEntry = manifest.items[existing.itemId];
+	if (staleEntry !== undefined) {
+		staleEntry.version = updateResult.currentVersion;
 	}
 
-	return "conflict";
+	return "stale";
 }
 
-/** Handle a deleted file — flag for facilitator review, don't auto-delete. Returns true if flagged. */
+/**
+ * Handle a deleted file. A file removed from a sandbox is not a document
+ * deletion — the manifest simply stops tracking it, and nothing is written
+ * to the document itself. Returns true if a tracked entry was dropped.
+ */
 async function handleDelete(
-	config: WritebackConfig,
+	_config: WritebackConfig,
 	change: WritebackChange,
 	manifest: Manifest,
 ): Promise<boolean> {
@@ -506,16 +509,7 @@ async function handleDelete(
 		return false;
 	}
 
-	// Create a review item flagging the deletion for facilitator
-	await config.knowledge.recordConflict(config.db, {
-		itemId: existing.itemId,
-		versionBase: existing.entry.version,
-		versionCurrent: existing.entry.version,
-		proposedBody: "[DELETED]",
-		proposedBy: `session:${config.sessionId}`,
-	});
-
-	// Remove from manifest (file is gone)
+	// Remove from manifest (file is gone); the document row is untouched.
 	delete manifest.items[existing.itemId];
 
 	return true;

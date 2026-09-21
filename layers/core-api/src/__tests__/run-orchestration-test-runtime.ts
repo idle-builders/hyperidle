@@ -15,7 +15,7 @@ import {
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
-import { create, recordConflict, reparent, update } from "@hyperidle/knowledge";
+import { create, reparent, update, VersionConflictError } from "@hyperidle/knowledge";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 
 /**
@@ -86,10 +86,22 @@ export function startTestRuntime(
 					db,
 					knowledge: {
 						create,
+						// @lore document-module B0c: a stale write is refused, not
+						// recorded as a conflict — a document has no conflict object
+						// (founder ruling). Mirrors the real seam's
+						// `updateKnowledgeItemContent` (catches the repository's
+						// `VersionConflictError` and returns `{ok:false,
+						// currentVersion}` instead of letting it throw).
 						async update(db2, id, patch, expectedVersion) {
-							return { ok: true, item: await update(db2, id, patch, expectedVersion) };
+							try {
+								return { ok: true, item: await update(db2, id, patch, expectedVersion) };
+							} catch (err) {
+								if (err instanceof VersionConflictError) {
+									return { ok: false, currentVersion: err.currentVersion };
+								}
+								throw err;
+							}
 						},
-						recordConflict,
 						async reparentKnowledgeItem(db2, id, input) {
 							await reparent(db2, id, input);
 						},

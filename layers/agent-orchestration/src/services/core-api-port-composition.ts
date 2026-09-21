@@ -40,7 +40,6 @@ import {
 	CORE_API_ACTOR_OVERRIDE_HEADER,
 	type CoreApiPort,
 	type CoreApiTransport,
-	type CreateKnowledgeConflictRequest,
 	type CreateKnowledgeItemRequest,
 	type CreateKnowledgeItemResponse,
 	type CreateOrgTeamRequest,
@@ -157,16 +156,6 @@ interface CoreApiHcClient {
 					readonly parentId?: string | null;
 				};
 			}): Promise<Response>;
-			readonly conflicts: {
-				$get(args: {
-					readonly param: { readonly id: string };
-					readonly query: { readonly proposedBy: string };
-				}): Promise<Response>;
-				$post(args: {
-					readonly param: { readonly id: string };
-					readonly json: Omit<CreateKnowledgeConflictRequest, "itemId">;
-				}): Promise<Response>;
-			};
 			readonly promote: {
 				$post(args: {
 					readonly param: { readonly id: string };
@@ -417,22 +406,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 					},
 				});
 				if (!res.ok) return throwSeamError("knowledge.reparentKnowledgeItem", res);
-			},
-
-			async createKnowledgeConflict(input: CreateKnowledgeConflictRequest): Promise<void> {
-				const res = await client.knowledge[":id"].conflicts.$post({
-					param: { id: input.itemId },
-					json: {
-						id: input.id,
-						versionBase: input.versionBase,
-						versionCurrent: input.versionCurrent,
-						proposedBody: input.proposedBody,
-						proposedMeta: input.proposedMeta,
-						proposedBy: input.proposedBy,
-						createdAt: input.createdAt,
-					},
-				});
-				if (!res.ok) return throwSeamError("knowledge.createKnowledgeConflict", res);
 			},
 		},
 	};

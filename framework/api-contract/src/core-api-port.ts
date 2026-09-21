@@ -299,22 +299,16 @@ export interface ReparentKnowledgeItemRequest {
 	readonly updatedBy: string;
 }
 
-/** Mirrors the new `POST /knowledge/:id/conflicts`'s validated request body. */
-export interface CreateKnowledgeConflictRequest {
-	readonly id: string;
-	readonly itemId: string;
-	readonly versionBase: number;
-	readonly versionCurrent: number;
-	readonly proposedBody: string;
-	readonly proposedMeta: string | null;
-	readonly proposedBy: string;
-	readonly createdAt: string;
-}
-
 /**
  * The agent's tool-facing `knowledge` capability family (Decision C,
  * Increment 2's knowledge wave) — `edge-disposition.md`'s
  * `knowledge.{get, create, transition, findOpenConflict, recordConflict}` row.
+ *
+ * @lore document-module B0c: `createKnowledgeConflict` and
+ * `CreateKnowledgeConflictRequest` are DELETED — a document has no conflict
+ * object (founder ruling). An edit carrying a stale version is refused
+ * (`updateKnowledgeItemContent`'s `{ok:false, currentVersion}`) and the
+ * writer retries; nothing records a conflict row.
  */
 export interface CoreApiKnowledgePort {
 	// @lore nested-knowledge-items: `search` is DELETED — its only consumer,
@@ -327,7 +321,6 @@ export interface CoreApiKnowledgePort {
 	): Promise<UpdateKnowledgeItemContentResult>;
 	/** See {@link ReparentKnowledgeItemRequest}. */
 	reparentKnowledgeItem(id: string, input: ReparentKnowledgeItemRequest): Promise<void>;
-	createKnowledgeConflict(input: CreateKnowledgeConflictRequest): Promise<void>;
 }
 
 /**

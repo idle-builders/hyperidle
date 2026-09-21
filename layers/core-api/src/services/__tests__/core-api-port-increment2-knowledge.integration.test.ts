@@ -22,10 +22,14 @@
  * `split_knowledge`) and the `search`/`findKnowledgeItemVersionById`/
  * `findKnowledgeItemStatusById`/`findOpenConflictByItemAndProposer`/
  * `promoteKnowledgeItem`/`mergeKnowledgeItem`/`splitKnowledgeItem` seam
- * methods they backed are DELETED — only `knowledge.create` and
- * `knowledge.createKnowledgeConflict` (the writeback's own remaining
- * callers) still exist on this seam. Kept as historical design record for
- * the survivors, not corrected line-by-line.
+ * methods they backed are DELETED — only `knowledge.create` (the writeback's
+ * own remaining caller) still exists on this seam. Kept as historical design
+ * record for the survivor, not corrected line-by-line.
+ *
+ * @lore document-module B0c: `knowledge.createKnowledgeConflict` and the
+ * `POST /:id/conflicts` route it dialled are DELETED — a document has no
+ * conflict object (founder ruling); an edit carrying a stale version is
+ * refused and the writer retries, nothing records a conflict row.
  */
 
 import {
@@ -33,23 +37,10 @@ import {
 	createInProcessCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeConflicts,
-	knowledgeItems,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import {
-	afterEach,
-	describe,
-	expect,
-	test,
-	vi,
-	withoutServiceTestAuth,
-} from "../../__testing__/test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -73,16 +64,6 @@ interface SeamKnowledgeCreateResponse {
 interface SeamCoreApiPortIncrement2Knowledge {
 	readonly knowledge: {
 		create(input: SeamKnowledgeCreateInput): Promise<SeamKnowledgeCreateResponse>;
-		createKnowledgeConflict(input: {
-			readonly id: string;
-			readonly itemId: string;
-			readonly versionBase: number;
-			readonly versionCurrent: number;
-			readonly proposedBody: string;
-			readonly proposedMeta: string | null;
-			readonly proposedBy: string;
-			readonly createdAt: string;
-		}): Promise<void>;
 	};
 }
 
@@ -100,34 +81,6 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 		status: "active",
 		createdAt: NOW,
 	});
-}
-
-async function seedKnowledgeItem(
-	db: HyperIdleDb,
-	opts: {
-		readonly id: string;
-		readonly status?: string;
-		readonly version?: number;
-		readonly title?: string;
-		readonly body?: string;
-		readonly updatedBy?: string;
-	},
-): Promise<void> {
-	await db.insert(knowledgeItems).values({
-		id: opts.id,
-		title: opts.title ?? "Seeded knowledge item",
-		body: opts.body ?? "Seeded body content",
-		format: "markdown",
-		status: opts.status ?? "proposed",
-		version: opts.version ?? 1,
-		updatedBy: opts.updatedBy ?? "human:founder",
-		createdAt: NOW,
-		updatedAt: NOW,
-	});
-	// The owner writes the projection row alongside the item.
-	await db
-		.insert(knowledgeAppProjection)
-		.values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
 }
 
 describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", () => {
@@ -167,62 +120,5 @@ describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", ()
 			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id))
 			.limit(1);
 		expect(projection).toBeDefined();
-	});
-});
-
-describe("CoreApiPort.knowledge.createKnowledgeConflict — Increment 2 knowledge wave (RED)", () => {
-	test("createKnowledgeConflict reaches the real conflict-create route (a real row lands in the DB)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-createconflict");
-		await seedAgent(db, "agent-know-conflict3");
-		await seedKnowledgeItem(db, { id: "ki-conflict-3", version: 2 });
-
-		const port = buildSeamPort("agent-know-conflict3", app);
-		await port.knowledge.createKnowledgeConflict({
-			id: "conflict-created-1",
-			itemId: "ki-conflict-3",
-			versionBase: 2,
-			versionCurrent: 2,
-			proposedBody: "a proposed edit",
-			proposedMeta: null,
-			proposedBy: "agent:agent-know-conflict3",
-			createdAt: NOW,
-		});
-
-		const [row] = await db
-			.select()
-			.from(knowledgeConflicts)
-			.where(eq(knowledgeConflicts.id, "conflict-created-1"))
-			.limit(1);
-		expect(row?.itemId).toBe("ki-conflict-3");
-		expect(row?.status).toBe("open");
-		expect(row?.proposedBy).toBe("agent:agent-know-conflict3");
-	});
-
-	test("a conflict write with no credentials is rejected, not silently bypassed (auth/boundary middleware ran)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-noauth");
-		await seedKnowledgeItem(db, { id: "ki-conflict-noauth" });
-
-		const port = buildCoreApiPort(
-			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
-		) as unknown as SeamCoreApiPortIncrement2Knowledge;
-
-		await expect(
-			port.knowledge.createKnowledgeConflict({
-				id: "conflict-noauth-1",
-				itemId: "ki-conflict-noauth",
-				versionBase: 1,
-				versionCurrent: 1,
-				proposedBody: "should never land",
-				proposedMeta: null,
-				proposedBy: "agent:nobody",
-				createdAt: NOW,
-			}),
-		).rejects.toThrow();
 	});
 });

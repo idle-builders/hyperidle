@@ -58,13 +58,7 @@ import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
-import {
-	assembleSessionKnowledge,
-	create,
-	recordConflict,
-	reparent,
-	update,
-} from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, create, reparent, update } from "@hyperidle/knowledge";
 import { createWritebackProcessor } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -95,7 +89,6 @@ function realKnowledgeWriter() {
 		) {
 			return { ok: true as const, item: await update(db2, id, patch, expectedVersion) };
 		},
-		recordConflict,
 		async reparentKnowledgeItem(
 			db2: Parameters<typeof reparent>[0],
 			id: string,

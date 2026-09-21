@@ -22,7 +22,6 @@
  * execution adapters bundle as `harnessRuntime`.
  */
 
-import { randomUUID } from "node:crypto";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
@@ -259,16 +258,6 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 		  }
 		| { readonly ok: false; readonly currentVersion: number }
 	>;
-	recordConflict(
-		_db: HyperIdleDb,
-		input: {
-			readonly itemId: string;
-			readonly versionBase: number;
-			readonly versionCurrent: number;
-			readonly proposedBody: string;
-			readonly proposedBy: string;
-		},
-	): Promise<void>;
 	/**
 	 * @lore nested-knowledge-items: replaces the writeback processor's own
 	 * direct `knowledge_items`/`knowledge_edit_log` reads/writes for the
@@ -313,18 +302,6 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 				body: patch.body,
 				updatedBy: patch.updatedBy,
 				expectedVersion,
-			});
-		},
-		async recordConflict(_db, input) {
-			await port.knowledge.createKnowledgeConflict({
-				id: randomUUID(),
-				itemId: input.itemId,
-				versionBase: input.versionBase,
-				versionCurrent: input.versionCurrent,
-				proposedBody: input.proposedBody,
-				proposedMeta: null,
-				proposedBy: input.proposedBy,
-				createdAt: new Date().toISOString(),
 			});
 		},
 		async reparentKnowledgeItem(_db, id, input) {
