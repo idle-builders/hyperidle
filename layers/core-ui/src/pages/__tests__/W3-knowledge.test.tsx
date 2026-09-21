@@ -1,9 +1,9 @@
 /**
- * W3 — Knowledge Pages AC-33 through AC-38: Red phase tests.
+ * W3 — Document Pages AC-33 through AC-38: Red phase tests.
  *
  * AC-33: Scope filter pills from data (not fixed Practices/Products/Factory).
  * AC-34: Sort controls visible in both Curated and Triage views.
- * AC-35: Knowledge rows show preview text; no status dots.
+ * AC-35: Document rows show preview text; no status dots.
  * AC-36: "+ New" button in header.
  * AC-37: Curated/Triage tab switching.
  * AC-38: Content max-width 800px, centered.
@@ -11,62 +11,77 @@
  * AC-39 through AC-46 tested `KnowledgeDetail` directly — moved to
  * `pages/__tests__/DocumentDetail.*.test.tsx` (BC4) when that page was
  * rewritten against `call("open_document"/"edit_document", …)`.
+ *
+ * @lore BC4: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`
+ * and its `useFetch("/api/knowledge")` read are gone.
  */
 
+import type { DocumentRow } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { DocRow } from "../../ds";
-import { KnowledgeList } from "../../pages/KnowledgeList";
+import { DocumentList } from "../../pages/DocumentList";
 
-// Mock API for KnowledgeList
-vi.mock("../../hooks/useFetch", () => ({
-	useFetch: (url: string | null) => {
-		if (url && url.includes("/api/knowledge")) {
-			return {
-				data: {
-					items: [
-						{
-							id: "k1",
-							title: "Auth Strategy Decision",
-							body: "We decided to use JWT.",
-							topic: "Auth",
-							status: "active",
-							scopeKind: "Auth",
-							updatedAt: "2026-01-01T10:00:00.000Z",
-							updatedBy: "u-founder",
-							version: 1,
-							format: "markdown",
-						},
-						{
-							id: "k2",
-							title: "Infrastructure Guidelines",
-							body: "Use Docker for all services.",
-							topic: "Infrastructure",
-							status: "draft",
-							scopeKind: "Infrastructure",
-							updatedAt: "2026-01-01T11:00:00.000Z",
-							updatedBy: "u-founder",
-							version: 1,
-							format: "markdown",
-						},
-					],
-				},
-				loading: false,
-				error: null,
-				refresh: vi.fn(),
-			};
-		}
-		return { data: null, loading: false, error: null, refresh: vi.fn() };
-	},
+function makeDoc(overrides: Partial<DocumentRow> = {}): DocumentRow {
+	return {
+		id: "k1",
+		title: "Untitled",
+		body: "",
+		format: "markdown",
+		status: "active",
+		slot: "ordinary",
+		scopeKind: "factory",
+		scopeId: null,
+		parentKind: null,
+		parentId: null,
+		position: 0,
+		version: 1,
+		updatedBy: "u-founder",
+		createdAt: "2026-01-01T10:00:00.000Z",
+		updatedAt: "2026-01-01T10:00:00.000Z",
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
+		as: "document",
+		...overrides,
+	};
+}
+
+const mockUseDocuments = vi.fn();
+vi.mock("../../hooks/useDocuments.js", () => ({
+	useDocuments: (...args: unknown[]) => mockUseDocuments(...args),
 }));
+
+mockUseDocuments.mockReturnValue({
+	documents: [
+		makeDoc({
+			id: "k1",
+			title: "Auth Strategy Decision",
+			body: "We decided to use JWT.",
+			scopeKind: "factory",
+			updatedAt: "2026-01-01T10:00:00.000Z",
+		}),
+		makeDoc({
+			id: "k2",
+			title: "Infrastructure Guidelines",
+			body: "Use Docker for all services.",
+			scopeKind: "factory",
+			updatedAt: "2026-01-01T11:00:00.000Z",
+		}),
+	],
+	status: "ready",
+	error: null,
+	retry: vi.fn(),
+});
 
 function renderKnowledgeList(): ReturnType<typeof render> {
 	return render(
-		<MemoryRouter initialEntries={["/knowledge"]}>
+		<MemoryRouter initialEntries={["/documents"]}>
 			<Routes>
-				<Route path="/knowledge" element={<KnowledgeList />} />
+				<Route path="/documents" element={<DocumentList />} />
 			</Routes>
 		</MemoryRouter>,
 	);
@@ -136,7 +151,7 @@ describe("W3 AC-34 — Sort controls always visible", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-35: Knowledge rows show preview; no status dots
+// AC-35: Document rows show preview; no status dots
 // ---------------------------------------------------------------------------
 describe("W3 AC-35 — DocRow preview and no status dots", () => {
 	it("DocRow renders preview text when preview prop provided", () => {

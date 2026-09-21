@@ -5,7 +5,7 @@
  * and pass once the implementation is complete.
  *
  * AC coverage:
- * 1. Static scope pills (All/Shared/Team/Private) always render in KnowledgeList
+ * 1. Static scope pills (All/Shared/Team/Private) always render in DocumentList
  * 2. "Shared" filter shows factory items (product/practice retired as
  *    scope values — Shared is factory alone now)
  * 3. "Private" filter shows only user-scoped items
@@ -17,14 +17,18 @@
  * Items 5-7 (Archive) and 11 (Flag removed) tested `KnowledgeDetail`
  * directly — moved to `pages/__tests__/DocumentDetail.dialogs.test.tsx`
  * (BC4) when that page was rewritten against `call("edit_document", …)`.
+ *
+ * @lore BC4: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`
+ * and its `useFetch("/api/knowledge")` read are gone.
  */
 
+import type { DocumentRow } from "@hyperidle/domain-model";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentCreate } from "../pages/DocumentCreate";
-import { KnowledgeList } from "../pages/KnowledgeList";
+import { DocumentList } from "../pages/DocumentList";
 
 // ---------------------------------------------------------------------------
 // Shared mocks
@@ -61,10 +65,10 @@ vi.mock("../hooks/useCurrentUser.js", () => ({
 	useCurrentUser: () => ({ user: { id: "user-1", name: "Test User" } }),
 }));
 
-// Mock useFetch for KnowledgeList
-const mockUseFetch = vi.fn();
-vi.mock("../hooks/useFetch", () => ({
-	useFetch: (...args: unknown[]) => mockUseFetch(...args),
+// Mock useDocuments for DocumentList
+const mockUseDocuments = vi.fn();
+vi.mock("../hooks/useDocuments.js", () => ({
+	useDocuments: (...args: unknown[]) => mockUseDocuments(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -73,37 +77,38 @@ vi.mock("../hooks/useFetch", () => ({
 
 function makeItem(
 	id: string,
-	status: string,
-	scopeKind: string,
+	status: DocumentRow["status"],
+	scopeKind: DocumentRow["scopeKind"],
 	title?: string,
-): Record<string, unknown> {
+): DocumentRow {
 	return {
 		id,
-		topic: "Architecture",
 		title: title ?? `Item ${id}`,
 		body: `body of ${id}`,
 		format: "markdown",
 		status,
+		slot: "ordinary",
+		scopeKind,
+		scopeId: null,
+		parentKind: null,
+		parentId: null,
+		position: 0,
 		version: 1,
 		updatedBy: "agent",
-		scopeKind,
 		createdAt: "2024-01-01T00:00:00Z",
 		updatedAt: "2024-01-02T00:00:00Z",
-		kind: "decision",
-		signals: {
-			lastActivityAt: null,
-			accessCount30d: null,
-			citationCount: null,
-			relevanceScore: null,
-			attentionScore: null,
-		},
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
+		as: "document",
 	};
 }
 
-function renderList(path = "/knowledge"): ReturnType<typeof render> {
+function renderList(path = "/documents"): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter initialEntries={[path]}>
-			<KnowledgeList />
+			<DocumentList />
 		</MemoryRouter>,
 	);
 }
@@ -124,19 +129,18 @@ function renderCreate(): ReturnType<typeof render> {
 // 1. Static scope pills (All/Shared/Team/Private) always render
 // ---------------------------------------------------------------------------
 
-describe("AD6 — KnowledgeList static scope pills", () => {
+describe("AD6 — DocumentList static scope pills", () => {
 	beforeEach(() => {
 		// Items with various scopeKinds
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					makeItem("k1", "active", "factory", "Factory item"),
-					makeItem("k2", "active", "user", "Private item"),
-					makeItem("k3", "active", "team", "Team item"),
-				],
-			},
+		mockUseDocuments.mockReturnValue({
+			documents: [
+				makeItem("k1", "active", "factory", "Factory item"),
+				makeItem("k2", "active", "user", "Private item"),
+				makeItem("k3", "active", "team", "Team item"),
+			],
+			status: "ready",
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
 	});
 
@@ -156,10 +160,11 @@ describe("AD6 — KnowledgeList static scope pills", () => {
 
 	it("scope pills are static — render regardless of which scopeKinds appear in items", () => {
 		// Even with an empty dataset, all 4 pills render
-		mockUseFetch.mockReturnValue({
-			data: { items: [makeItem("k1", "active", "factory")] },
+		mockUseDocuments.mockReturnValue({
+			documents: [makeItem("k1", "active", "factory")],
+			status: "ready",
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
 		renderList();
 		const pills = screen.getByTestId("knowledge-scope-pills");
@@ -187,7 +192,7 @@ describe("AD6 — KnowledgeList static scope pills", () => {
 // SCOPE_PILL_OPTIONS collapsed from {factory,practice}/{team,product} to a
 // direct 1:1 with the 3 real scope kinds. This test now locks that: Shared
 // shows factory only.
-describe("AD6 — KnowledgeList Shared scope filter", () => {
+describe("AD6 — DocumentList Shared scope filter", () => {
 	const MIXED_ITEMS = [
 		makeItem("k-factory", "active", "factory", "Factory knowledge"),
 		makeItem("k-team", "active", "team", "Team knowledge"),
@@ -195,10 +200,11 @@ describe("AD6 — KnowledgeList Shared scope filter", () => {
 	];
 
 	beforeEach(() => {
-		mockUseFetch.mockReturnValue({
-			data: { items: MIXED_ITEMS },
+		mockUseDocuments.mockReturnValue({
+			documents: MIXED_ITEMS,
+			status: "ready",
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
 	});
 
@@ -227,17 +233,18 @@ describe("AD6 — KnowledgeList Shared scope filter", () => {
 // 3. "Private" filter shows only user-scoped items
 // ---------------------------------------------------------------------------
 
-describe("AD6 — KnowledgeList Private scope filter", () => {
+describe("AD6 — DocumentList Private scope filter", () => {
 	const MIXED_ITEMS = [
 		makeItem("k-factory", "active", "factory", "Factory knowledge"),
 		makeItem("k-user", "active", "user", "My private note"),
 	];
 
 	beforeEach(() => {
-		mockUseFetch.mockReturnValue({
-			data: { items: MIXED_ITEMS },
+		mockUseDocuments.mockReturnValue({
+			documents: MIXED_ITEMS,
+			status: "ready",
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
 	});
 
@@ -262,23 +269,16 @@ describe("AD6 — KnowledgeList Private scope filter", () => {
 // 4. Kind badge NOT rendered in list rows
 // ---------------------------------------------------------------------------
 
-describe("AD6 — KnowledgeList kind badge removed from rows", () => {
+describe("AD6 — DocumentList kind badge removed from rows", () => {
 	beforeEach(() => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					{
-						...makeItem("k1", "active", "factory", "A decision item"),
-						kind: "decision",
-					},
-					{
-						...makeItem("k2", "draft", "factory", "A pattern item"),
-						kind: "pattern",
-					},
-				],
-			},
+		mockUseDocuments.mockReturnValue({
+			documents: [
+				makeItem("k1", "active", "factory", "A decision item"),
+				makeItem("k2", "proposed", "factory", "A pattern item"),
+			],
+			status: "ready",
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
 	});
 
@@ -316,7 +316,7 @@ describe("AD6 — KnowledgeList kind badge removed from rows", () => {
 // 8. Create page has 3-pill scope picker (not a dropdown)
 // ---------------------------------------------------------------------------
 
-describe("AD6 — KnowledgeCreate 3-pill scope picker", () => {
+describe("AD6 — DocumentCreate 3-pill scope picker", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -360,7 +360,7 @@ describe("AD6 — KnowledgeCreate 3-pill scope picker", () => {
 // 9. Create page has no kind selector
 // ---------------------------------------------------------------------------
 
-describe("AD6 — KnowledgeCreate no kind selector", () => {
+describe("AD6 — DocumentCreate no kind selector", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -385,7 +385,7 @@ describe("AD6 — KnowledgeCreate no kind selector", () => {
 // 10. Team pill is disabled when no team context
 // ---------------------------------------------------------------------------
 
-describe("AD6 — KnowledgeCreate Team pill disabled without team", () => {
+describe("AD6 — DocumentCreate Team pill disabled without team", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
