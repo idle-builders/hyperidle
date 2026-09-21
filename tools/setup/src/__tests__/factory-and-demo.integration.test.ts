@@ -61,16 +61,16 @@ describe("A2: Seed script", () => {
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
 		// @lore AF17: seed() now calls runFactoryBootstrap + seedDemoWorld.
-		// factory_bootstrap inserts users/knowledge_items/knowledge_app_projection;
-		// demo_fixture inserts teams/team_members.
+		// factory_bootstrap inserts users/documents; demo_fixture inserts teams/team_members.
 		// @lore AU18: `factory_settings` dropped from this list — factory-bootstrap no
 		// longer writes to it (cost_cap/cost_cycle/system_template rows retired).
+		// @lore BC4: `knowledge_app_projection` dropped from this list — the table is
+		// dropped; `documents` is the row itself now (architecture.md §6.2, §6.4).
 		const majorTables = [
 			"users",
 			"teams",
 			// @lore AU44 B1: team_members folded into teams — no longer a separate table
-			"knowledge_items",
-			"knowledge_app_projection",
+			"documents",
 		];
 
 		for (const table of majorTables) {
@@ -110,23 +110,15 @@ describe("A2: Seed script", () => {
 		expect(teamMembers[0]?.id).toBeTruthy();
 		expect(teamMembers[0]?.capacity).toBeGreaterThan(0);
 
+		// @lore BC4: `knowledge_app_projection` is dropped (architecture.md §6.2,
+		// §6.4) — the row it used to project (`confidence`) is a plain column on
+		// `documents` now, so there is no separate projection row left to assert.
 		const kiRows = await queryRows<{ id: string; version: number }>(
 			db,
-			"SELECT id, version FROM knowledge_items LIMIT 1",
+			"SELECT id, version FROM documents LIMIT 1",
 		);
 		expect(kiRows[0]?.id).toBeTruthy();
 		expect(kiRows[0]?.version).toBeGreaterThanOrEqual(1);
-
-		// @lore nested-knowledge-items: `layer` is DELETED from
-		// knowledge_app_projection — a knowledge item's place in the tree says
-		// what it is about now, not a flat layer vocabulary. Verify the
-		// projection row itself still exists (kernel + projection always
-		// write together) instead of a column that no longer exists.
-		const ksfRows = await queryRows<{ id: string }>(
-			db,
-			`SELECT id FROM knowledge_app_projection WHERE knowledge_item_id = '${kiRows[0]?.id}'`,
-		);
-		expect(ksfRows[0]?.id).toBeTruthy();
 	});
 
 	test("is idempotent (running twice does not error)", async ({ db }) => {
@@ -204,10 +196,10 @@ describe("A2: Seed script", () => {
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
 		const rows = await queryRows<{ id: string; role: string; body: string | null }>(
 			db,
-			`SELECT u.id, u.role, k.body FROM users u
-			   JOIN knowledge_items k
-			     ON k.parent_kind = 'agent' AND k.parent_id = u.id
-			    AND k.role = 'agent_file' AND k.status = 'active'
+			`SELECT u.id, u.role, d.body FROM users u
+			   JOIN documents d
+			     ON d.parent_kind = 'agent' AND d.parent_id = u.id
+			    AND d.slot = 'agent_file' AND d.status = 'active'
 			  WHERE u.role IN (${rolesList})`,
 		);
 		// Only product_manager agents exist (facilitators are plugin-provided, not seeded here).
