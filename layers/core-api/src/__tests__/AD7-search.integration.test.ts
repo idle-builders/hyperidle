@@ -22,16 +22,7 @@
  * TC-12: Rejects overly long query (>200 chars)
  */
 
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -155,7 +146,7 @@ async function seedKnowledgeItem(
 		status?: string;
 	},
 ): Promise<void> {
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: opts.id,
 		title: opts.title,
 		body: opts.body,
@@ -167,10 +158,6 @@ async function seedKnowledgeItem(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
-	// The owner writes the projection row alongside the item.
-	await db
-		.insert(knowledgeAppProjection)
-		.values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
 }
 
 // ─── TC-1: Missing `q` parameter returns 400 ────────────────────────────────

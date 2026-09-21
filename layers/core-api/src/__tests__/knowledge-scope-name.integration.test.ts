@@ -19,14 +19,7 @@
  *
  * Uses real DB + real Hono app fixtures.
  */
-import {
-	filesystems,
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { documents, filesystems, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-av3";
@@ -46,7 +39,7 @@ async function createKnowledgeItem(
 ): Promise<string> {
 	const id = crypto.randomUUID();
 	const now = new Date().toISOString();
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		title: overrides.title ?? "Test item",
 		body: "Body text.",
@@ -58,11 +51,6 @@ async function createKnowledgeItem(
 		updatedAt: now,
 		scopeKind: overrides.scopeKind ?? "factory",
 		scopeId: overrides.scopeId ?? null,
-	});
-	// Insert a minimal fabric row to satisfy joins in GET /:id
-	await db.insert(knowledgeAppProjection).values({
-		id: crypto.randomUUID(),
-		knowledgeItemId: id,
 	});
 	return id;
 }

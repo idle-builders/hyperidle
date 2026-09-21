@@ -103,7 +103,7 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 
 	/**
 	 * @lore BC3 bug fix: `canReadThread`'s host-scoped bypass (`team`/
-	 * `knowledge_item`/`factory` hosts admit any signed-in identity, not just
+	 * `document`/`factory` hosts admit any signed-in identity, not just
 	 * listed `participants`) must be mirrored by the WS authorizer — this is
 	 * what a task's (team-hosted, BC3) thread relies on for every team member
 	 * who never explicitly posted to it.

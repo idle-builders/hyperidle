@@ -1,11 +1,5 @@
-import {
-	agentSessionRequests,
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	users,
-} from "@hyperidle/db";
+import { agentSessionRequests, type HyperIdleDb, users } from "@hyperidle/db";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
-import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../__testing__/test-fixtures.js";
 
@@ -40,14 +34,10 @@ describe("app runtime domain observability", () => {
 		async ({ app, db }) => {
 			await seedFounder(db);
 
-			// @lore the raw projection UPDATE this test used to run is gone: the owner's `create`
-			// (invoked by POST /api/knowledge) already inserts the projection row, so a second write
-			// completing it is a rewrite, not a fix.
 			// @lore nested-knowledge-items: `layer`/`kind` are DELETED — a knowledge
 			// item's place in the tree says what it is about now, not a flat
 			// layer/kind vocabulary. The assertion narrows to what still exists:
-			// the projection row is created alongside the kernel row, and the
-			// detail route returns the item back.
+			// the detail route returns the created item back.
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -61,15 +51,6 @@ describe("app runtime domain observability", () => {
 			});
 			expect(createRes.status).toBe(201);
 			const created = (await createRes.json()) as { id: string };
-
-			const [projection] = await db
-				.select()
-				.from(knowledgeAppProjection)
-				.where(eq(knowledgeAppProjection.knowledgeItemId, created.id))
-				.limit(1);
-			expect(projection).toMatchObject({
-				knowledgeItemId: created.id,
-			});
 
 			const detailRes = await app.request(`/api/knowledge/${created.id}`, {
 				method: "GET",

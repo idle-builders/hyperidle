@@ -8,7 +8,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { knowledgeItems, routines, tasks, teams, threads, users } from "@hyperidle/db";
+import { documents, routines, tasks, teams, threads, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -182,12 +182,12 @@ describe("update_routine tool", () => {
 		// the tool writes through to it.
 		const [promptDoc] = await db
 			.select()
-			.from(knowledgeItems)
+			.from(documents)
 			.where(
 				and(
-					eq(knowledgeItems.parentKind, "routine"),
-					eq(knowledgeItems.parentId, routineId),
-					eq(knowledgeItems.role, "prompt"),
+					eq(documents.parentKind, "routine"),
+					eq(documents.parentId, routineId),
+					eq(documents.slot, "prompt"),
 				),
 			)
 			.limit(1);
