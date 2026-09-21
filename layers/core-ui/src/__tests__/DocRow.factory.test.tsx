@@ -22,9 +22,7 @@ describe("DocRow — J7 factory mode", () => {
 		expect(plainRow.className).not.toContain("py-[8px]");
 		expect(plainRow.className).not.toContain("var(--density");
 
-		const { container: factory } = render(
-			<DocRow {...defaultProps} factoryMode version="v2.1" />,
-		);
+		const { container: factory } = render(<DocRow {...defaultProps} factoryMode version="v2.1" />);
 		const factoryRow = factory.firstElementChild as HTMLElement;
 		expect(factoryRow.className).toContain("py-[12px]");
 		expect(factoryRow.className).not.toContain("py-[16px]");

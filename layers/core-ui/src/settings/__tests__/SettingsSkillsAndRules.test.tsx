@@ -40,7 +40,7 @@ function documentsResult(
 ): UseDocumentsResult {
 	return {
 		status: "ready",
-		documents: documents as UseDocumentsResult["documents"],
+		documents: documents as unknown as UseDocumentsResult["documents"],
 		error: null,
 		retry: vi.fn(),
 		...overrides,
@@ -134,7 +134,7 @@ describe("SettingsSkillsAndRules", () => {
 				siblings: [],
 				scopeName: "Factory",
 			},
-		} as Awaited<ReturnType<typeof call>>);
+		} as unknown as Awaited<ReturnType<typeof call>>);
 
 		const user = userEvent.setup();
 		renderSurface();
@@ -176,7 +176,7 @@ describe("SettingsSkillsAndRules", () => {
 	 * immediately on click, before the archive request resolves.
 	 */
 	it("deletes: one click calls edit_document({status:'archived'}) and removes the row immediately", async () => {
-		vi.mocked(call).mockResolvedValue({ ok: true } as Awaited<ReturnType<typeof call>>);
+		vi.mocked(call).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof call>>);
 
 		const user = userEvent.setup();
 		renderSurface();
@@ -207,7 +207,7 @@ describe("SettingsSkillsAndRules", () => {
 		vi.mocked(call).mockResolvedValue({
 			ok: false,
 			problems: [{ code: "boom", message: "Could not delete it: boom" }],
-		} as Awaited<ReturnType<typeof call>>);
+		} as unknown as Awaited<ReturnType<typeof call>>);
 
 		const user = userEvent.setup();
 		renderSurface();

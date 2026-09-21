@@ -17,7 +17,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { KnowledgeRow } from "../../ds";
+import { DocRow } from "../../ds";
 import { KnowledgeList } from "../../pages/KnowledgeList";
 
 // Mock API for KnowledgeList
@@ -138,10 +138,10 @@ describe("W3 AC-34 — Sort controls always visible", () => {
 // ---------------------------------------------------------------------------
 // AC-35: Knowledge rows show preview; no status dots
 // ---------------------------------------------------------------------------
-describe("W3 AC-35 — KnowledgeRow preview and no status dots", () => {
-	it("KnowledgeRow renders preview text when preview prop provided", () => {
+describe("W3 AC-35 — DocRow preview and no status dots", () => {
+	it("DocRow renders preview text when preview prop provided", () => {
 		render(
-			<KnowledgeRow
+			<DocRow
 				id="k1"
 				title="Auth Strategy Decision"
 				status="active"
@@ -152,14 +152,9 @@ describe("W3 AC-35 — KnowledgeRow preview and no status dots", () => {
 		expect(screen.getByText("We decided to use JWT.")).toBeInTheDocument();
 	});
 
-	it("KnowledgeRow does NOT render a status dot element", () => {
+	it("DocRow does NOT render a status dot element", () => {
 		const { container } = render(
-			<KnowledgeRow
-				id="k1"
-				title="Auth Strategy Decision"
-				status="active"
-				timestamp="2026-01-01"
-			/>,
+			<DocRow id="k1" title="Auth Strategy Decision" status="active" timestamp="2026-01-01" />,
 		);
 		const dot = container.querySelector("[class*='status-dot'], [data-status-dot], .dot");
 		expect(dot).toBeNull();

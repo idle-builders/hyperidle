@@ -101,17 +101,15 @@ describe("Router (BC4) — /documents replaces /knowledge", () => {
 		});
 	}
 
-	it(
-		"router.tsx has exactly the three /documents routes and no /knowledge route",
-		{ timeout: 60_000 },
-		async () => {
-			const { router } = await import("../router");
-			const allPaths = flattenRoutes(router.routes);
+	it("router.tsx has exactly the three /documents routes and no /knowledge route", {
+		timeout: 60_000,
+	}, async () => {
+		const { router } = await import("../router");
+		const allPaths = flattenRoutes(router.routes);
 
-			expect(allPaths).toContain("documents");
-			expect(allPaths).toContain("documents/new");
-			expect(allPaths).toContain("documents/:documentId");
-			expect(allPaths.some((p) => p.includes("knowledge"))).toBe(false);
-		},
-	);
+		expect(allPaths).toContain("documents");
+		expect(allPaths).toContain("documents/new");
+		expect(allPaths).toContain("documents/:documentId");
+		expect(allPaths.some((p) => p.includes("knowledge"))).toBe(false);
+	});
 });

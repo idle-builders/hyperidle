@@ -23,7 +23,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { KnowledgeCreate } from "../pages/KnowledgeCreate";
+import { DocumentCreate } from "../pages/DocumentCreate";
 import { KnowledgeList } from "../pages/KnowledgeList";
 
 // ---------------------------------------------------------------------------
@@ -110,11 +110,11 @@ function renderList(path = "/knowledge"): ReturnType<typeof render> {
 
 function renderCreate(): ReturnType<typeof render> {
 	return render(
-		<MemoryRouter initialEntries={["/knowledge/new"]}>
+		<MemoryRouter initialEntries={["/documents/new"]}>
 			<Routes>
-				<Route path="/knowledge/new" element={<KnowledgeCreate />} />
-				<Route path="/knowledge" element={<div data-testid="knowledge-list-page" />} />
-				<Route path="/knowledge/:id" element={<div data-testid="knowledge-detail-page" />} />
+				<Route path="/documents/new" element={<DocumentCreate />} />
+				<Route path="/documents" element={<div data-testid="knowledge-list-page" />} />
+				<Route path="/documents/:id" element={<div data-testid="document-detail-page" />} />
 			</Routes>
 		</MemoryRouter>,
 	);

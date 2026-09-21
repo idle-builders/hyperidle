@@ -16,6 +16,7 @@
  * `useDocuments`/`useDocument` (architecture.md §9.2, §5.2).
  */
 
+import type { DocumentRow } from "@hyperidle/domain-model";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,7 +38,7 @@ import { useDocument } from "../../hooks/useDocument.js";
 import { useDocuments } from "../../hooks/useDocuments.js";
 import { ArtifactSection } from "../ArtifactSection";
 
-const ITEM_A = {
+const ITEM_A: DocumentRow = {
 	id: "ki-test-a",
 	title: "Agent output alpha",
 	body: "# Output alpha",

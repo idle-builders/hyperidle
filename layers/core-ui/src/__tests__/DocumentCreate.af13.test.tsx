@@ -89,7 +89,7 @@ describe("AF13 §1 — DocumentCreate sends status:active in create payload", ()
 				siblings: [],
 				scopeName: "Factory",
 			},
-		} as Awaited<ReturnType<typeof call>>);
+		} as unknown as Awaited<ReturnType<typeof call>>);
 
 		const { DocumentCreate } = await import("../pages/DocumentCreate.js");
 		const user = userEvent.setup();
@@ -164,7 +164,7 @@ describe("DocumentCreate nests in one write", () => {
 					parentId: null,
 					parentKind: null,
 				},
-			] as UseDocumentsResult["documents"],
+			] as unknown as UseDocumentsResult["documents"],
 			error: null,
 			retry: vi.fn(),
 		});
@@ -180,7 +180,7 @@ describe("DocumentCreate nests in one write", () => {
 				siblings: [],
 				scopeName: "Factory",
 			},
-		} as Awaited<ReturnType<typeof call>>);
+		} as unknown as Awaited<ReturnType<typeof call>>);
 
 		const { DocumentCreate } = await import("../pages/DocumentCreate.js");
 		const user = userEvent.setup();

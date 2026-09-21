@@ -71,7 +71,7 @@ function documentView(id: string): Awaited<ReturnType<typeof call>> {
 	return {
 		ok: true,
 		data: { document: { id }, ancestors: [], children: [], siblings: [], scopeName: "Factory" },
-	} as Awaited<ReturnType<typeof call>>;
+	} as unknown as Awaited<ReturnType<typeof call>>;
 }
 
 async function fillAndSubmit(): Promise<ReturnType<typeof userEvent.setup>> {
@@ -156,7 +156,7 @@ describe("DocumentCreate — parent picker", () => {
 					path: "parent",
 				},
 			],
-		} as Awaited<ReturnType<typeof call>>);
+		} as unknown as Awaited<ReturnType<typeof call>>);
 
 		const user = await fillAndSubmit();
 		await pickParent(user, "Root A");

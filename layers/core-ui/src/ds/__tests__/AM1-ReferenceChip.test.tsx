@@ -2,7 +2,7 @@
  * AM1 — ReferenceChip (promoted to the design system). RED phase.
  *
  * AC6: ReferenceChip is the SINGLE shared attachment/reference primitive.
- *  - kinds {artifact, image, knowledge, block} × modes {draft, posted}.
+ *  - kinds {artifact, image, document, block} × modes {draft, posted}.
  *  - draft mode = TWO distinct hit targets: open body + remove ✕.
  *  - posted mode = whole chip opens; NO remove ✕.
  *  - label/meta render as text content (React-escaped) — never HTML (§8).
@@ -32,7 +32,7 @@ describe("AM1 ReferenceChip — single shared reference primitive (AC6)", () => 
 	});
 
 	it("renders each of the four kinds", () => {
-		for (const kind of ["artifact", "image", "knowledge", "block"] as const) {
+		for (const kind of ["artifact", "image", "document", "block"] as const) {
 			const { unmount } = render(<ReferenceChip kind={kind} label={`l-${kind}`} mode="posted" />);
 			expect(document.querySelector(`[data-ds-kind="${kind}"]`)).not.toBeNull();
 			unmount();
