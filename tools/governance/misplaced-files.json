@@ -1,8 +1,0 @@
-{
-	"misplacedFiles": true,
-	"note": "Files the classification rule calls PRODUCTION that are really development, and cannot move yet. Every entry names the reason it is stuck, never the work that will clear it: an enforced artifact records debt, not a plan, so it cannot go stale when planning changes. `resolvedFiles` is the number of entries that resolve to a tracked file, and the lint fails when the live count is ABOVE it (new debt parked here) or BELOW it (a file was fixed and the shrink was not committed). Growing this list is a two-line diff \u2014 the entry and the count \u2014 and review is expected to challenge it. There is no generator: nothing derives this file, because whether a production-path file is really development is a human judgement.",
-	"resolvedFiles": 1,
-	"files": {
-		"layers/core-ui/src/fixtures/knowledge-data.ts": "Mock knowledge items in a production path, imported by the shipping `KnowledgeDetail` page as the fallback when the API returns nothing. Moving the file into a `__` folder would turn a production page into an importer of a development file, which the crossing rule forbids outright \u2014 so the fixture cannot move until the page stops needing it. The fix is the API, not a relocation."
-	}
-}

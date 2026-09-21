@@ -19,7 +19,6 @@ import {
 	buildFixtureCensus,
 	FIXTURE_CASES,
 } from "../../../../tools/governance/src/lib/governance-fixtures.js";
-import type { MisplacedFiles } from "../../../../tools/governance/src/lib/governance-registry.js";
 import {
 	DeadRuleError,
 	type Rule,
@@ -35,7 +34,6 @@ import {
 	TEST_RUNNER_CONFIG_BASENAMES,
 } from "../../../../tools/governance/src/lib/repo-census.js";
 import { classificationTotal } from "../../../../tools/governance/src/rules/classification-total.js";
-import { misplacementLedger } from "../../../../tools/governance/src/rules/misplacement-ledger.js";
 import { noProductionImportsDevelopment } from "../../../../tools/governance/src/rules/no-production-imports-development.js";
 
 const emptyCensus = () => buildCensus({ files: [], readFile: () => "" });
@@ -445,75 +443,10 @@ describe("AU28 classification-total", () => {
 	});
 });
 
-describe("AU28 misplacement-ledger — shrink-only, in both directions", () => {
-	const REASON = "a preview surface pinned to a production path until the real route lands";
-	const TREE = [
-		"layers/a/src/one.ts",
-		"layers/a/src/two.ts",
-		"layers/a/src/three.ts",
-		"layers/a/src/four.test.ts",
-	];
-	const census = () => buildCensus({ files: TREE, readFile: () => "" });
-	const ledger = (resolvedFiles: number, files: Record<string, string>): MisplacedFiles => ({
-		misplacedFiles: true,
-		note: "",
-		resolvedFiles,
-		files,
-	});
-	const both = { "layers/a/src/one.ts": REASON, "layers/a/src/two.ts": REASON };
-	const errors = (l: MisplacedFiles): string[] =>
-		misplacementLedger(l)
-			.evaluate(census())
-			.filter((f) => f.severity === "error")
-			.map((f) => f.message);
-
-	it("reports every entry as a warning on every run", () => {
-		const findings = misplacementLedger(ledger(2, both)).evaluate(census());
-		expect(findings.filter((f) => f.severity === "warn").map((f) => f.path)).toEqual([
-			"layers/a/src/one.ts",
-			"layers/a/src/two.ts",
-		]);
-	});
-
-	it("is clean when the live count matches the committed one", () => {
-		expect(errors(ledger(2, both))).toHaveLength(0);
-	});
-
-	it("fails when the ledger GROWS past its committed count", () => {
-		const grown = errors(ledger(2, { ...both, "layers/a/src/three.ts": REASON }));
-		expect(grown.join("\n")).toContain("may only shrink");
-	});
-
-	it("fails when a misplacement is cleared and the shrink is not committed", () => {
-		const shrunk = errors(ledger(2, { "layers/a/src/one.ts": REASON }));
-		expect(shrunk.join("\n")).toContain("without committing the shrink");
-	});
-
-	it("fails when an entry no longer resolves to a tracked file", () => {
-		const gone = errors(ledger(2, { ...both, "layers/a/src/renamed.ts": REASON }));
-		expect(gone.join("\n")).toContain("is not a tracked file");
-	});
-
-	it("fails when the classifier already calls a ledgered file development", () => {
-		const moved = errors(
-			ledger(2, { "layers/a/src/one.ts": REASON, "layers/a/src/four.test.ts": REASON }),
-		);
-		expect(moved.join("\n")).toContain("calls it development");
-	});
-
-	it("fails when an entry carries no real reason", () => {
-		expect(
-			errors(ledger(2, { "layers/a/src/one.ts": REASON, "layers/a/src/two.ts": "later" })).join(
-				"\n",
-			),
-		).toContain("no real reason");
-	});
-
-	it("is dead when nothing resolves — an emptied ledger is deleted, not left registered", () => {
-		const rule = misplacementLedger(ledger(0, {}));
-		expect(() => runRules([rule], census())).toThrow(DeadRuleError);
-	});
-});
+// AU28's misplacement-ledger rule and its own registry (tools/governance/misplaced-files.json)
+// were deleted together once the ledger's last entry (fixtures/knowledge-data.ts, cleared by BC4)
+// emptied it — "a ledger that has emptied is not a rule with nothing to say, it is a rule with
+// nothing left to be about." This describe block tested that rule directly; nothing survives it.
 
 describe("AU28 --fixtures self-test — the detector proves itself on a synthetic tree", () => {
 	// The only technique that would have caught au6/au9 going no-op, because it

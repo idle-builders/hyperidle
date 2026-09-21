@@ -21,25 +21,6 @@ export interface TableOwners {
 	readonly unowned: { readonly note: string; readonly tables: Readonly<Record<string, string>> };
 }
 
-/**
- * The misplacement ledger: production-path files that are really development and cannot move yet.
- *
- * @lore AU28: this records MISPLACED FILES, keyed by path — not a crossing violation and not
- * expressible as one, which is why it is its own record rather than a row somewhere else.
- *
- * @lore AU28: an entry names its REASON, never a successor work package. The other two registries in
- * this file once carried a work-package number in an entry and it had already gone stale by the time
- * anyone read it again. The reason survives a replan; the number does not.
- */
-export interface MisplacedFiles {
-	readonly misplacedFiles: true;
-	readonly note: string;
-	/** The committed count of entries that resolve to a tracked file. Above OR below it fails. */
-	readonly resolvedFiles: number;
-	/** Repo-relative path → why it is stuck in a production path. */
-	readonly files: Readonly<Record<string, string>>;
-}
-
 export class RegistryError extends Error {
 	constructor(message: string) {
 		super(`governance registry: ${message}`);

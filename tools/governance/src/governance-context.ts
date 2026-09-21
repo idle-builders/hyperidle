@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import { type CrossingsResult, type DetectorKind, detectCrossings } from "./lib/crossings.js";
 import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./lib/db-surfaces.js";
 import type { Architecture } from "./lib/governance-model.js";
-import type { MisplacedFiles, TableOwners } from "./lib/governance-registry.js";
+import type { TableOwners } from "./lib/governance-registry.js";
 import { buildCensus, type Census, type WorkspaceRoleRule } from "./lib/repo-census.js";
 
 export const REPO_ROOT = path.resolve(
@@ -172,8 +172,6 @@ export const loadArchitecture = (): LoadedArchitecture =>
 	readJson<LoadedArchitecture>("tools/governance/architecture.json");
 export const loadTableOwners = (): TableOwners =>
 	readJson<TableOwners>("tools/governance/table-owners.json");
-export const loadMisplacedFiles = (): MisplacedFiles =>
-	readJson<MisplacedFiles>("tools/governance/misplaced-files.json");
 
 export function buildLiveCensus(
 	architecture: LoadedArchitecture,

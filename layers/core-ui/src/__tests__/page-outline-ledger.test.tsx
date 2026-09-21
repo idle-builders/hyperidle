@@ -26,7 +26,7 @@ vi.mock("../ds", async (importOriginal) => ({
 import { AgentProfile } from "../pages/AgentProfile.js";
 import { Conversations } from "../pages/Conversations.js";
 import { DocumentCreate } from "../pages/DocumentCreate.js";
-import { KnowledgeDetail } from "../pages/KnowledgeDetail.js";
+import { DocumentDetail } from "../pages/DocumentDetail.js";
 import { KnowledgeList } from "../pages/KnowledgeList.js";
 import { NotFound } from "../pages/NotFound.js";
 import { ReviewPage } from "../pages/review/ReviewPage.js";
@@ -86,7 +86,7 @@ describe("real route outline ledger", () => {
 		["Agent", "/agents/a", "Agent", <AgentProfile overrideLoading />],
 		["Knowledge list", "/knowledge", "Knowledge", <KnowledgeList loading />],
 		["New Document", "/documents/new", undefined, <DocumentCreate />],
-		["Knowledge detail", "/knowledge/k1", undefined, <KnowledgeDetail overrideKnowledgeId="k1" />],
+		["Document detail", "/documents/k1", undefined, <DocumentDetail overrideDocumentId="k1" />],
 		[
 			"Settings",
 			"/settings",

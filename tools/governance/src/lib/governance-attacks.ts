@@ -36,13 +36,12 @@
 
 import { classificationTotal } from "../rules/classification-total.js";
 import { frameworkSurfacesDeclared } from "../rules/framework-surfaces-declared.js";
-import { misplacementLedger } from "../rules/misplacement-ledger.js";
 import { noPerFileAllowances } from "../rules/no-per-file-allowances.js";
 import { noStaleBuildArtifacts } from "../rules/no-stale-build-artifacts.js";
 import { type CrossingsResult, type DetectorKind, detectCrossings } from "./crossings.js";
 import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./db-surfaces.js";
 import { type Architecture, decide, type World } from "./governance-model.js";
-import type { MisplacedFiles, TableOwners } from "./governance-registry.js";
+import type { TableOwners } from "./governance-registry.js";
 import type { Finding, Rule } from "./governance-rules.js";
 import { buildCensus, type Census, type WorkspaceRoleRule } from "./repo-census.js";
 
@@ -1717,74 +1716,6 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		},
 	},
 	{
-		id: "misplacement-ledger-count",
-		detail:
-			"the misplacement ledger grown by one entry, and shrunk by one fix that was never committed — both fail, and the exact match does not",
-		rules: ["misplacement-ledger"],
-		positive: true,
-		run: () => {
-			// A ledger has no live source to derive from, so it is driven directly: the tree is two
-			// production files, the ledger records both, and the committed count says two.
-			const reason = "a preview surface pinned to a production path until the real route lands";
-			const census = buildCensus({
-				files: [
-					"layers/a/src/one.ts",
-					"layers/a/src/two.ts",
-					"layers/a/src/three.ts",
-					"layers/a/src/four.test.ts",
-				],
-				readFile: () => "",
-			});
-			const ledger = (resolvedFiles: number, files: Record<string, string>): MisplacedFiles => ({
-				misplacedFiles: true,
-				note: "",
-				resolvedFiles,
-				files,
-			});
-			const errorsOf = (l: MisplacedFiles): string[] =>
-				misplacementLedger(l)
-					.evaluate(census)
-					.filter((f) => f.severity === "error")
-					.map((f) => f.message);
-
-			const two = { "layers/a/src/one.ts": reason, "layers/a/src/two.ts": reason };
-
-			const exact = misplacementLedger(ledger(2, two)).evaluate(census);
-			if (exact.some((f) => f.severity === "error"))
-				return `a ledger that matches its committed count was reported: ${exact[0]?.message}`;
-			// Property: every entry is reported on every run, or the ledger is invisible.
-			if (exact.filter((f) => f.severity === "warn").length !== 2)
-				return "the ledger's entries were not reported as warnings";
-
-			const grown = errorsOf(ledger(2, { ...two, "layers/a/src/three.ts": reason }));
-			if (!grown.some((m) => m.includes("may only shrink")))
-				return `a ledger grown past its committed count was not refused: ${grown.join(" | ")}`;
-
-			const shrunk = errorsOf(ledger(2, { "layers/a/src/one.ts": reason }));
-			if (!shrunk.some((m) => m.includes("without committing the shrink"))) {
-				return `a cleared misplacement with a stale count was not reported: ${shrunk.join(" | ")}`;
-			}
-
-			// Integrity: an entry must resolve to a tracked file, and must still be classified production.
-			const gone = errorsOf(ledger(2, { ...two, "layers/a/src/renamed-away.ts": reason }));
-			if (!gone.some((m) => m.includes("is not a tracked file")))
-				return `an entry naming a path that does not exist was accepted: ${gone.join(" | ")}`;
-
-			const moved = errorsOf(
-				ledger(2, { "layers/a/src/one.ts": reason, "layers/a/src/four.test.ts": reason }),
-			);
-			if (!moved.some((m) => m.includes("calls it development")))
-				return `an entry whose file is now development was accepted: ${moved.join(" | ")}`;
-
-			const thin = errorsOf(
-				ledger(2, { "layers/a/src/one.ts": reason, "layers/a/src/two.ts": "later" }),
-			);
-			return thin.some((m) => m.includes("no real reason"))
-				? null
-				: `an entry with no reason was accepted: ${thin.join(" | ")}`;
-		},
-	},
-	{
 		id: "stale-build-artifact",
 		detail:
 			"a compiled `.js` beside its `.ts` source in the guard tree is reported, and the `.ts` alone is not",
@@ -1813,7 +1744,6 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 				"tools/governance/architecture.json",
 				"tools/governance/decided-rules.json",
 				"tools/governance/table-owners.json",
-				"tools/governance/misplaced-files.json",
 				"tools/governance/src/governance-lint.ts",
 				"tools/governance/src/governance-new-cells.ts",
 			];
