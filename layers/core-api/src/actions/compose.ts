@@ -8,6 +8,8 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { appendChange } from "@hyperidle/changes";
 import type { User, WriteExecutor } from "@hyperidle/db";
 import {
+	createDocumentActions,
+	type DocumentActionsDeps,
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	listItemIdsByParent,
@@ -18,10 +20,11 @@ import type {
 	AgentWorkIntentRecorderFn,
 	OpenThreadInput,
 	ReviewVerdictRecorderFn,
+	TaskView,
 	ThreadView,
 } from "@hyperidle/domain-model";
 import { getTeam } from "@hyperidle/org";
-import { readServerConfig } from "@hyperidle/settings";
+import { markDetached, readServerConfig } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
@@ -118,18 +121,67 @@ function buildTaskActionsDeps(
 
 /**
  * Runner lookup by declaration name, structurally typed — same shape both
- * `createActionsRouter`/`actionsAsTools` already loop over. Generic over the
- * input type so both `adjust_thread` (`AdjustThreadInput`) and `open_thread`
- * (`OpenThreadInput`) can be looked up here — both share the `ThreadView`
- * output.
+ * `createActionsRouter`/`actionsAsTools` already loop over. Generic over both
+ * the input and output type so every call site (`adjust_thread`/`open_thread`
+ * sharing `ThreadView`, `open_task` returning `TaskView`) can be looked up
+ * here through the one function.
  */
-function runnerFor<I>(
+function runnerFor<I, O>(
 	actions: readonly Action[],
 	name: string,
-): (ctx: ActionContext, input: I) => Promise<ActionResult<ThreadView>> {
+): (ctx: ActionContext, input: I) => Promise<ActionResult<O>> {
 	const found = actions.find((a) => a.declaration.name === name);
-	if (!found) throw new Error(`buildCoreActions: no "${name}" action in the thread bag`);
-	return found.run as (ctx: ActionContext, input: I) => Promise<ActionResult<ThreadView>>;
+	if (!found) throw new Error(`buildCoreActions: no "${name}" action in the composed list`);
+	return found.run as (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
+}
+
+/**
+ * `document`'s `openParent` port (architecture.md §8.1) — existence of a
+ * `task`/`thread` parent, plus that parent's team, asked of the module that
+ * owns it via its own `open_task`/`open_thread` runner rather than a second
+ * import. Only `task` carries a team on its own row (§0 A4); a `thread`
+ * parent's existence is enough, so its arm never reads `teamId`.
+ */
+function buildOpenParent(
+	taskActions: readonly Action[],
+	threadActions: readonly Action[],
+): DocumentActionsDeps["openParent"] {
+	const openTask = runnerFor<{ readonly id: string }, TaskView>(taskActions, "open_task");
+	const openThread = runnerFor<OpenThreadInput, ThreadView>(threadActions, "open_thread");
+	return async (ctx, kind, id) => {
+		if (kind === "task") {
+			const result = await openTask(ctx, { id });
+			return result.ok ? { exists: true, teamId: result.data.task.teamId } : { exists: false };
+		}
+		const result = await openThread(ctx, { id });
+		return result.ok ? { exists: true } : { exists: false };
+	};
+}
+
+/**
+ * `document`'s deps (architecture.md §8.1). `wsPush` is deliberately absent
+ * here — `compose.ts` has three strictly-ordered owners (§16: B7 → B9 →
+ * B13); B9 binds it once the websocket nudge lands, and `createDocumentActions`
+ * already no-ops `pushChanges` when it is undefined.
+ */
+function buildDocumentActionsDeps(
+	taskActions: readonly Action[],
+	threadActions: readonly Action[],
+): DocumentActionsDeps {
+	return {
+		changes: { appendChange },
+		users: {
+			getUserById: (exec, id) => findUser(exec, { id }),
+			listOwnedBy: (exec, ownerId) => listUsers(exec, { ownerUserId: ownerId }),
+		},
+		org: { getTeam: (exec, q) => getTeam(exec, q) },
+		openParent: buildOpenParent(taskActions, threadActions),
+		// O1(b): bound to the settings package's contribution tracker — a
+		// document's `body` changing detaches it from the plugin that seeded
+		// it, the same event `routes/knowledge.ts:666` (pre-item) raised.
+		onBodyChanged: (exec, documentId) =>
+			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+	};
 }
 
 /**
@@ -138,8 +190,9 @@ function runnerFor<I>(
  *
  * Thread actions are built FIRST — the task bag needs `adjust_thread`'s
  * runner and the thread bag needs nothing from task (`ThreadActionsDeps`
- * names no task). The dependency is one-way, so build order alone settles
- * it; the returned array's own order is irrelevant.
+ * names no task). `document` is built LAST — it needs `open_task`/
+ * `open_thread`, both already real arrays by then (architecture.md §8.2).
+ * The returned array's own order is irrelevant.
  */
 export function buildCoreActions(bindings: {
 	readonly agentOrchestration: AgentOrchestrationPort;
@@ -148,10 +201,13 @@ export function buildCoreActions(bindings: {
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }): readonly Action[] {
 	const threadActions = createThreadActions(buildThreadActionsDeps(bindings)) as readonly Action[];
-	const adjustThread = runnerFor<AdjustThreadInput>(threadActions, "adjust_thread");
-	const openThread = runnerFor<OpenThreadInput>(threadActions, "open_thread");
+	const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(threadActions, "adjust_thread");
+	const openThread = runnerFor<OpenThreadInput, ThreadView>(threadActions, "open_thread");
 	const taskActions = createTaskActions(
 		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread),
 	) as readonly Action[];
-	return [...taskActions, ...threadActions];
+	const documentActions = createDocumentActions(
+		buildDocumentActionsDeps(taskActions, threadActions),
+	) as readonly Action[];
+	return [...taskActions, ...threadActions, ...documentActions];
 }
