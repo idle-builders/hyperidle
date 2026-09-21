@@ -9,6 +9,10 @@
  * `updateThread`/`insertMessage`/`findOrCreateDirectThread`/
  * `getFirstThreadByHost`/`resolveReviewRecipientsForItem` DELETED with
  * `send_message`/`reply`/`create_item`/`submit_review`.
+ *
+ * @lore `openTask`/`create`/`createKnowledgeConflict` DELETED with
+ * `write_memory`/`submit_review`/`create_artifact`/`create_conflict_review` —
+ * the last callers of each on `ToolHandlersCoreApiAccessor`.
  */
 import type { ToolHandlersPorts } from "../ports.js";
 
@@ -18,7 +22,6 @@ function notImplemented(): never {
 
 export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 	coreApi: {
-		openTask: notImplemented,
 		getUserById: notImplemented,
 		listUsersByTeam: notImplemented,
 		getTeamById: notImplemented,
@@ -29,7 +32,5 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		insertRoutine: notImplemented,
 		getRoutineById: notImplemented,
 		updateRoutineById: notImplemented,
-		create: notImplemented,
-		createKnowledgeConflict: notImplemented,
 	},
 };

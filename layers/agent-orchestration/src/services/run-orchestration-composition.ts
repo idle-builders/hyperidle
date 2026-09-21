@@ -53,7 +53,7 @@ import {
 } from "@hyperidle/session-requests";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
-import { buildToolDefinitions, type ToolHandlersOpenTask } from "./tool-handlers-bindings.js";
+import { buildToolDefinitions } from "./tool-handlers-bindings.js";
 
 // AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
 // root's own `seamPortForActor` helper (a fresh in-process `CoreApiPort` per
@@ -343,36 +343,12 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 // `recordReviewSession` from the intake route); core calls it directly
 // rather than a tool dialling back into agent-orchestration.
 
-/**
- * For call sites that only enumerate tool names. Any handler that reaches it
- * is a wiring mistake, and it says so rather than silently doing nothing.
- */
-function unusableOpenTask(): ToolHandlersOpenTask {
-	return () => {
-		throw new Error(
-			"tool-handlers openTask accessor: reached from a name-only tool listing; build the registry through buildToolRegistry instead",
-		);
-	};
-}
-
-/**
- * §8 B1 — `open_task`, bound directly to the composed action's own
- * `run`, called in-process as `actorId` (never a second HTTP hop). `db`/
- * `eventBus` come from the real per-session `ToolContext` a registry build
- * always has in hand.
- */
-function buildOpenTaskBinding(
-	actionTools: readonly RegisteredTool<HyperIdleDb>[],
-	toolCtx: ToolContext<HyperIdleDb>,
-): ToolHandlersOpenTask {
-	const openTaskTool = actionTools.find((t) => t.name === "open_task");
-	return async (id, actorId) => {
-		if (!openTaskTool) return undefined;
-		const result = await openTaskTool.handler({ id }, { ...toolCtx, agentId: actorId });
-		if (!result.success) return undefined;
-		return result.data as { task: { parentTaskId: string | null; teamId: string } };
-	};
-}
+// There is no `unusableOpenTask`/`buildOpenTaskBinding` — §8 B1's `open_task`
+// binding existed only for `ToolHandlersCoreApiAccessor.openTask`, bound to
+// the composed `open_task` action's own `run` for `write_memory`/
+// `submit_review`/`create_artifact`'s task read. All three are deleted with
+// the document tools, so `buildToolDefinitions` no longer takes an
+// `openTask` argument at all.
 
 function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
@@ -382,10 +358,7 @@ function buildToolProvider(
 	return {
 		buildToolRegistry(ctx, options) {
 			const toolCtx = widenToToolContext(ctx);
-			const definitions = buildToolDefinitions(
-				coreApiTransport,
-				buildOpenTaskBinding(actionTools, toolCtx),
-			);
+			const definitions = buildToolDefinitions(coreApiTransport);
 			return buildToolRegistryFromDefinitions([...actionTools, ...definitions], toolCtx, {
 				role: options.role,
 				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
@@ -393,9 +366,8 @@ function buildToolProvider(
 			});
 		},
 		toolsForRole(role) {
-			// Names and roles only — no handler runs, so the openTask accessor
-			// here is one that refuses rather than quietly does nothing.
-			return [...actionTools, ...buildToolDefinitions(coreApiTransport, unusableOpenTask())].filter(
+			// Names and roles only — no handler runs.
+			return [...actionTools, ...buildToolDefinitions(coreApiTransport)].filter(
 				(d) => d.roles === undefined || d.roles.includes(role),
 			);
 		},

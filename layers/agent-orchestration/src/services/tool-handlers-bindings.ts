@@ -72,29 +72,19 @@ function widenUpdateRoutineInput(input: unknown): UpdateRoutineRequest {
 }
 
 /**
- * §8 B1 — the three surviving tools (`write_memory`, `submit_review`,
- * `create_artifact`) read a task through `open_task`, bound directly to the
- * action's own `run` — in-process, never a second HTTP hop. Structural
- * mirror of `ToolHandlersCoreApiAccessor.openTask`'s return shape.
- */
-export type ToolHandlersOpenTask = (
-	id: string,
-	actorId: string,
-) => Promise<
-	{ readonly task: { readonly parentTaskId: string | null; readonly teamId: string } } | undefined
->;
-
-/**
  * Builds a fresh `ToolHandlersPorts`, every `coreApi` field closing over the
  * ONE `CoreApiTransport` value passed in — never an ambient lookup. Per-call
  * actor attribution (§12) still happens per call: `seamPortForActor` wraps
  * THIS transport with the calling agent's identity fresh on every
  * invocation, since a different tool call may come from a different agent.
+ *
+ * @lore §8 B1: there is no `openTask` field here any more — it was bound
+ * directly to the `open_task` action's `run`, in-process, for
+ * `write_memory`/`submit_review`/`create_artifact`'s task read. All three
+ * are deleted with the document tools, so `ToolHandlersCoreApiAccessor` has
+ * no task-reading capability left to bind.
  */
-export function buildToolHandlersPorts(
-	transport: CoreApiTransport,
-	openTask: ToolHandlersOpenTask,
-): ToolHandlersPorts {
+export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandlersPorts {
 	function seamPortForActor(actorId: string): CoreApiPort {
 		return buildCoreApiPort(withActorTransport(transport, { userId: actorId }));
 	}
@@ -109,7 +99,6 @@ export function buildToolHandlersPorts(
 		// read/write now crosses the `coreApi` seam below.
 		// @lore BB1: createBet, getBetById, updateBetById removed — bet is now a root task.
 		coreApi: {
-			openTask,
 			// There is no `getItemById`/`updateItemById`/`createItem`/
 			// `findSoleHumanUser`/`getThreadById`/`insertThread`/`updateThread`/
 			// `insertMessage`/`findOrCreateDirectThread`/`getFirstThreadByHost` —
@@ -155,13 +144,11 @@ export function buildToolHandlersPorts(
 			getRoutineById: (id, actorId) => seamPortForActor(actorId).routine.getRoutineById(id),
 			updateRoutineById: (id: string, updates: Record<string, unknown>, actorId: string) =>
 				seamPortForActor(actorId).routine.updateRoutineById(id, widenUpdateRoutineInput(updates)),
-			// AU21 §9 Increment 2 (knowledge wave): every former
-			// `ToolHandlersKnowledgeAccessor` capability moved onto this seam —
-			// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.
-			// @lore nested-knowledge-items: `search` is DELETED with `query_practice`.
-			create: (input, actorId) => seamPortForActor(actorId).knowledge.create(input),
-			createKnowledgeConflict: (input, actorId) =>
-				seamPortForActor(actorId).knowledge.createKnowledgeConflict(input),
+			// There is no `create`/`createKnowledgeConflict` — the AU21 §9
+			// Increment 2 knowledge wave moved every `ToolHandlersKnowledgeAccessor`
+			// capability onto this seam for `write_memory`/`create_conflict_review`;
+			// both tools are deleted with the document tools. `search` was already
+			// gone with `query_practice` (its one filter was `layer === 'L3'`).
 		},
 	};
 }
@@ -169,7 +156,6 @@ export function buildToolHandlersPorts(
 /** Production-wired tool definitions, fresh per `CoreApiTransport` value — every real call site builds through this. */
 export function buildToolDefinitions(
 	transport: CoreApiTransport,
-	openTask: ToolHandlersOpenTask,
 ): ReturnType<typeof buildToolDefinitionsFromPorts> {
-	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport, openTask));
+	return buildToolDefinitionsFromPorts(buildToolHandlersPorts(transport));
 }
