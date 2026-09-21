@@ -12,14 +12,11 @@
 	},
 	"dependencies": {
 		"@hyperidle/db": "*",
-		"@hyperidle/domain-model": "*",
 		"@hyperidle/harness-protocol": "*",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@hyperidle/api-contract": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/task": "*",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"
 	}
