@@ -67,7 +67,7 @@ function renderShell(
 					{ path: "work", element: <div>Work Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
-					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					{ path: "documents", element: <div>Documents Page</div> },
 					// @lore FR-18: /settings is now a real route — stub avoids 404 error.
 					{ path: "settings", element: <div>Settings Page</div> },
 				],
@@ -180,9 +180,9 @@ describe("AppShell", () => {
 								path: "work/task/:taskId",
 								element: <div data-testid="work-task-target">Work Task Target</div>,
 							},
-							{ path: "knowledge", element: <div>Knowledge Page</div> },
+							{ path: "documents", element: <div>Documents Page</div> },
 							{
-								path: "knowledge/:knowledgeId",
+								path: "documents/:documentId",
 								element: <div data-testid="knowledge-target">Knowledge Target</div>,
 							},
 						],
@@ -240,7 +240,7 @@ describe("AppShell", () => {
 			});
 		});
 
-		it("navigates knowledge result to /knowledge/{id}", async () => {
+		it("navigates a knowledge search result to /documents/{id} (BC4: the route moved)", async () => {
 			const { user, router } = renderShellWithProbes();
 			await user.keyboard("{Meta>}k{/Meta}");
 			const input = await screen.findByPlaceholderText(/search conversations/i);
@@ -248,7 +248,7 @@ describe("AppShell", () => {
 			await waitFor(() => expect(screen.getByText("Arch doc")).toBeInTheDocument());
 			await user.click(screen.getByText("Arch doc"));
 			await waitFor(() => {
-				expect(router.state.location.pathname).toBe("/knowledge/k7");
+				expect(router.state.location.pathname).toBe("/documents/k7");
 			});
 		});
 
@@ -272,7 +272,7 @@ describe("AppShell", () => {
 						knowledge: [],
 					}),
 			});
-			const { user, router } = renderShellWithProbes("/knowledge");
+			const { user, router } = renderShellWithProbes("/documents");
 			await user.keyboard("{Meta>}k{/Meta}");
 			const input = await screen.findByPlaceholderText(/search conversations/i);
 			await user.type(input, "Review");
