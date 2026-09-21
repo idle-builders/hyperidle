@@ -1,5 +1,7 @@
 /**
- * KnowledgeTreeList — nested knowledge browse tree for the Curated tab.
+ * DocumentTreeList — nested document browse tree for the Curated tab.
+ *
+ * @lore BC4: renamed from `KnowledgeTreeList` (architecture.md §9.2).
  *
  * Inspired by Notion / Linear / filesystem sidebars: collapse chevron, indent
  * guide lines, hover add-child — not a dented flat list with └ markers.
@@ -14,9 +16,9 @@ import { type JSX, useCallback, useMemo, useState } from "react";
 import { clipExcerpt } from "../../utils/clip-excerpt.js";
 import { stripMarkdown } from "../../utils/strip-markdown.js";
 import { relativeShort } from "../../utils/time.js";
-import { type KnowledgeTreeRow, visibleKnowledgeTreeRows } from "./build-knowledge-tree.js";
+import { type KnowledgeTreeRow, visibleKnowledgeTreeRows } from "./build-document-tree.js";
 
-export interface KnowledgeTreeListProps {
+export interface DocumentTreeListProps {
 	rows: KnowledgeTreeRow[];
 	onNavigate: (id: string) => void;
 	onNewChild: (parentId: string) => void;
@@ -25,11 +27,11 @@ export interface KnowledgeTreeListProps {
 const CHEVRON_PATH = "M5 7L1 3h8L5 7z";
 const PLUS_PATH = "M6 1v10M1 6h10";
 
-export function KnowledgeTreeList({
+export function DocumentTreeList({
 	rows,
 	onNavigate,
 	onNewChild,
-}: KnowledgeTreeListProps): JSX.Element {
+}: DocumentTreeListProps): JSX.Element {
 	const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
 
 	const toggleCollapsed = useCallback((id: string): void => {
@@ -50,7 +52,7 @@ export function KnowledgeTreeList({
 		<ul
 			role="tree"
 			aria-label="Knowledge tree"
-			data-ds-component="KnowledgeTreeList"
+			data-ds-component="DocumentTreeList"
 			data-testid="knowledge-tree-list"
 			className="flex flex-col"
 		>

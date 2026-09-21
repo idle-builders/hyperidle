@@ -1,9 +1,9 @@
 /**
- * KnowledgeTreeList stories — nested browse tree for the Curated tab.
+ * DocumentTreeList stories — nested browse tree for the Curated tab.
  */
 import type { JSX } from "react";
-import { buildKnowledgeTree } from "./build-knowledge-tree.js";
-import { KnowledgeTreeList } from "./KnowledgeTreeList.js";
+import { buildKnowledgeTree } from "./build-document-tree.js";
+import { DocumentTreeList } from "./DocumentTreeList.js";
 
 const demoItems = [
 	{
@@ -64,12 +64,12 @@ const demoItems = [
 	},
 ];
 
-export default { title: "KnowledgeTreeList", group: "Knowledge" };
+export default { title: "DocumentTreeList", group: "Document" };
 
 export function NestedTree(): JSX.Element {
 	return (
 		<div className="max-w-[480px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] overflow-hidden">
-			<KnowledgeTreeList
+			<DocumentTreeList
 				rows={buildKnowledgeTree(demoItems)}
 				onNavigate={() => undefined}
 				onNewChild={() => undefined}

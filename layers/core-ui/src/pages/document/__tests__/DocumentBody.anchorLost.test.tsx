@@ -8,14 +8,14 @@
  *           "edited". Both produce the same "anchor lost" signal.
  *
  * These tests FAIL until the implementation adds the `anchorLost` prop to
- * `AnchoredMessages` inside KnowledgeBody.tsx.
+ * `AnchoredMessages` inside DocumentBody.tsx.
  */
 
 import type { Message, PlainPayload } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { deriveBlocks } from "../../../block/index.js";
-import { KnowledgeBody } from "../KnowledgeBody";
+import { DocumentBody } from "../DocumentBody";
 
 // ── Fixtures ──
 
@@ -65,7 +65,7 @@ describe("AC-2 — anchor-lost indicator appears for orphan messages", () => {
 
 		// Act
 		render(
-			<KnowledgeBody
+			<DocumentBody
 				body={BODY_WITH_TWO_BLOCKS}
 				hostId="k-anchor-test"
 				messagesByBlockId={messagesByBlockId}
@@ -82,7 +82,7 @@ describe("AC-2 — anchor-lost indicator appears for orphan messages", () => {
 		const messagesByBlockId = new Map([[ORPHAN_BLOCK_ID, [orphanMessage]]]);
 
 		render(
-			<KnowledgeBody
+			<DocumentBody
 				body={BODY_WITH_TWO_BLOCKS}
 				hostId="k-anchor-test"
 				messagesByBlockId={messagesByBlockId}
@@ -100,7 +100,7 @@ describe("AC-2 — anchor-lost indicator appears for orphan messages", () => {
 		const messagesByBlockId = new Map([[ORPHAN_BLOCK_ID, [orphan1, orphan2]]]);
 
 		render(
-			<KnowledgeBody
+			<DocumentBody
 				body={BODY_WITH_TWO_BLOCKS}
 				hostId="k-anchor-test"
 				messagesByBlockId={messagesByBlockId}
@@ -122,7 +122,7 @@ describe("AC-2 — no anchor-lost indicator for messages anchored to existing bl
 		const messagesByBlockId = new Map([[LIVE_BLOCK_ID, [liveMessage]]]);
 
 		render(
-			<KnowledgeBody
+			<DocumentBody
 				body={BODY_WITH_TWO_BLOCKS}
 				hostId="k-anchor-test"
 				messagesByBlockId={messagesByBlockId}
@@ -144,7 +144,7 @@ describe("AC-3 — anchor lost indicator does not distinguish deleted vs edited"
 		const messagesByBlockId = new Map([[deletedBlockId, [msg]]]);
 
 		render(
-			<KnowledgeBody
+			<DocumentBody
 				body={BODY_WITH_TWO_BLOCKS}
 				hostId="k-anchor-test"
 				messagesByBlockId={messagesByBlockId}
@@ -163,7 +163,7 @@ describe("AC-3 — anchor lost indicator does not distinguish deleted vs edited"
 		const messagesByBlockId = new Map([[editedOutBlockId, [msg]]]);
 
 		render(
-			<KnowledgeBody
+			<DocumentBody
 				body={BODY_WITH_TWO_BLOCKS}
 				hostId="k-anchor-test"
 				messagesByBlockId={messagesByBlockId}
@@ -184,7 +184,7 @@ describe("AC-3 — anchor lost indicator does not distinguish deleted vs edited"
 		]);
 
 		render(
-			<KnowledgeBody
+			<DocumentBody
 				body={BODY_WITH_TWO_BLOCKS}
 				hostId="k-anchor-test"
 				messagesByBlockId={messagesByBlockId}
@@ -207,7 +207,7 @@ describe("Mixed live + orphan messages", () => {
 		]);
 
 		render(
-			<KnowledgeBody
+			<DocumentBody
 				body={BODY_WITH_TWO_BLOCKS}
 				hostId="k-anchor-test"
 				messagesByBlockId={messagesByBlockId}

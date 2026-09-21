@@ -6,7 +6,7 @@ import {
 	buildKnowledgeTree,
 	type KnowledgeTreeItem,
 	visibleKnowledgeTreeRows,
-} from "../build-knowledge-tree.js";
+} from "../build-document-tree.js";
 
 function item(
 	partial: Partial<KnowledgeTreeItem> & Pick<KnowledgeTreeItem, "id" | "title">,

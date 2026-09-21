@@ -1,7 +1,8 @@
 /**
- * KnowledgeBody — renders a Knowledge item body as structured Block primitives.
+ * DocumentBody — renders a document's body as structured Block primitives.
  *
- * Replaces the `<pre>` shell at KnowledgeDetail.tsx:301-307 (L23).
+ * @lore BC4: renamed from `KnowledgeBody` (architecture.md §9.2). Behavior is
+ * unchanged — it already passed `kind: "document"` to `deriveBlocks`.
  *
  * @lore L23: Client-side render-time derivation. `deriveBlocks` is pure, has no
  * I/O, and costs <1 ms on bodies within the 256 KB cap. No server-side
@@ -33,10 +34,10 @@ import { plainPayloadOf } from "../../ds/message-payload.js";
 import { blockExcerptFromPayload, blockTextFromPayload } from "../../utils/block-excerpt.js";
 import { sanitizeHtml } from "../../utils/sanitize-html.js";
 
-export interface KnowledgeBodyProps {
+export interface DocumentBodyProps {
 	/** Raw markdown body text. May be empty. */
 	body: string;
-	/** Knowledge item id — passed as host.id to deriveBlocks. */
+	/** Document id — passed as host.id to deriveBlocks. */
 	hostId: string;
 	/** Route document title; enables page-safe authored heading levels. */
 	documentTitle?: string;
@@ -93,17 +94,17 @@ function AnchoredMessages({
 }
 
 /**
- * KnowledgeBody renders a markdown body as a sequence of Block primitives.
+ * DocumentBody renders a markdown body as a sequence of Block primitives.
  * Pure render: no state, no effects.
  */
-export function KnowledgeBody({
+export function DocumentBody({
 	body,
 	hostId,
 	documentTitle,
 	testId = "knowledge-body",
 	onOpenBlockActions,
 	messagesByBlockId,
-}: KnowledgeBodyProps): JSX.Element {
+}: DocumentBodyProps): JSX.Element {
 	const { blocks } = useMemo(
 		() => deriveBlocks(body, { kind: "document", id: hostId }),
 		[body, hostId],

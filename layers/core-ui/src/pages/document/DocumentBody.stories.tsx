@@ -1,5 +1,5 @@
 /**
- * KnowledgeBody stories — renders key states for visual verification.
+ * DocumentBody stories — renders key states for visual verification.
  *
  * States covered:
  *  - Empty body (no content yet)
@@ -9,14 +9,14 @@
  *  - Hostile HTML (XSS attempt — DOMPurify strips)
  */
 
-import { KnowledgeBody } from "./KnowledgeBody";
+import { DocumentBody } from "./DocumentBody";
 
-export default { title: "Page: Knowledge/Body" };
+export default { title: "Page: Document/Body" };
 
-export const Empty = (): React.JSX.Element => <KnowledgeBody body="" hostId="story-empty" />;
+export const Empty = (): React.JSX.Element => <DocumentBody body="" hostId="story-empty" />;
 
 export const ThreeSentenceBelief = (): React.JSX.Element => (
-	<KnowledgeBody
+	<DocumentBody
 		hostId="story-belief"
 		body={[
 			"JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes.",
@@ -29,7 +29,7 @@ export const ThreeSentenceBelief = (): React.JSX.Element => (
 );
 
 export const FiveSectionPlaybook = (): React.JSX.Element => (
-	<KnowledgeBody
+	<DocumentBody
 		hostId="story-playbook"
 		body={[
 			"# Onboarding playbook",
@@ -60,7 +60,7 @@ export const FiveSectionPlaybook = (): React.JSX.Element => (
 );
 
 export const MixedWithHtml = (): React.JSX.Element => (
-	<KnowledgeBody
+	<DocumentBody
 		hostId="story-mixed"
 		body={[
 			"# Mixed content",
@@ -78,7 +78,7 @@ export const MixedWithHtml = (): React.JSX.Element => (
 );
 
 export const HostileHtml = (): React.JSX.Element => (
-	<KnowledgeBody
+	<DocumentBody
 		hostId="story-hostile"
 		body={[
 			"# XSS attempt (DOMPurify neutralised)",

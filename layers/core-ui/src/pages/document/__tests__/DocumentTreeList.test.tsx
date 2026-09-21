@@ -4,8 +4,8 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { buildKnowledgeTree } from "../build-knowledge-tree.js";
-import { KnowledgeTreeList } from "../KnowledgeTreeList.js";
+import { buildKnowledgeTree } from "../build-document-tree.js";
+import { DocumentTreeList } from "../DocumentTreeList.js";
 
 const items = [
 	{
@@ -38,12 +38,12 @@ const items = [
 	},
 ];
 
-describe("KnowledgeTreeList", () => {
+describe("DocumentTreeList", () => {
 	it("renders parent then child with a collapse control — no └ dent marker", () => {
 		const onNavigate = vi.fn();
 		const onNewChild = vi.fn();
 		render(
-			<KnowledgeTreeList
+			<DocumentTreeList
 				rows={buildKnowledgeTree(items)}
 				onNavigate={onNavigate}
 				onNewChild={onNewChild}
@@ -61,7 +61,7 @@ describe("KnowledgeTreeList", () => {
 	it("collapses and expands children when the chevron is clicked", async () => {
 		const user = userEvent.setup();
 		render(
-			<KnowledgeTreeList
+			<DocumentTreeList
 				rows={buildKnowledgeTree(items)}
 				onNavigate={vi.fn()}
 				onNewChild={vi.fn()}
@@ -79,7 +79,7 @@ describe("KnowledgeTreeList", () => {
 		const user = userEvent.setup();
 		const onNewChild = vi.fn();
 		render(
-			<KnowledgeTreeList
+			<DocumentTreeList
 				rows={buildKnowledgeTree(items)}
 				onNavigate={vi.fn()}
 				onNewChild={onNewChild}

@@ -1,18 +1,18 @@
 /**
- * L23 — KnowledgeBody block-id stability tests (red phase).
+ * L23 — DocumentBody block-id stability tests (red phase).
  *
  * T6: Editing one section does not change other sections' block ids.
  * T7: Round-trip — deriveBlocks on a fixture body covers all supported kinds.
  *
  * These are pure exercises of deriveBlocks (no React rendering required for T6/T7).
- * T6 also tests that KnowledgeBody passes block.id as the React key (tested
+ * T6 also tests that DocumentBody passes block.id as the React key (tested
  * via data-block-id attributes emitted by Block.tsx:108).
  */
 
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { deriveBlocks } from "../../../block/index.js";
-import { KnowledgeBody } from "../KnowledgeBody";
+import { DocumentBody } from "../DocumentBody";
 
 // ── T6 — Block-id stability: editing one section does not shift other ids ──
 
@@ -50,7 +50,7 @@ Content of section C, unchanged.`;
 
 const HOST = { kind: "document" as const, id: "k-stability" };
 
-describe("KnowledgeBody — T6 block-id stability", () => {
+describe("DocumentBody — T6 block-id stability", () => {
 	it("blocks with unchanged content have the same id after editing another section", () => {
 		const v1 = deriveBlocks(BODY_V1, HOST);
 		const v2 = deriveBlocks(BODY_V2, HOST);
@@ -95,9 +95,9 @@ describe("KnowledgeBody — T6 block-id stability", () => {
 		expect(changedV1.id).not.toBe(changedV2.id);
 	});
 
-	it("KnowledgeBody renders data-block-id on Block shells matching deriveBlocks ids", () => {
+	it("DocumentBody renders data-block-id on Block shells matching deriveBlocks ids", () => {
 		const { blocks } = deriveBlocks(BODY_V1, HOST);
-		const { container } = render(<KnowledgeBody body={BODY_V1} hostId={HOST.id} />);
+		const { container } = render(<DocumentBody body={BODY_V1} hostId={HOST.id} />);
 
 		const shells = container.querySelectorAll<HTMLElement>("[data-block-id]");
 		const renderedIds = Array.from(shells).map((el) => el.getAttribute("data-block-id"));
@@ -109,12 +109,12 @@ describe("KnowledgeBody — T6 block-id stability", () => {
 
 	it("re-rendering with edited body keeps unchanged block data-block-id values", () => {
 		const { blocks: blocksV1 } = deriveBlocks(BODY_V1, HOST);
-		const { rerender, container } = render(<KnowledgeBody body={BODY_V1} hostId={HOST.id} />);
+		const { rerender, container } = render(<DocumentBody body={BODY_V1} hostId={HOST.id} />);
 
 		// Capture ids of unchanged blocks before the re-render.
 		const unchangedHeadings = blocksV1.filter((b) => b.payload.kind === "heading").map((b) => b.id);
 
-		rerender(<KnowledgeBody body={BODY_V2} hostId={HOST.id} />);
+		rerender(<DocumentBody body={BODY_V2} hostId={HOST.id} />);
 
 		const renderedIds = Array.from(container.querySelectorAll<HTMLElement>("[data-block-id]")).map(
 			(el) => el.getAttribute("data-block-id"),
@@ -168,7 +168,7 @@ const x = 1;
 <div class="raw">raw html block</div>
 `;
 
-describe("KnowledgeBody — T7 round-trip lossless", () => {
+describe("DocumentBody — T7 round-trip lossless", () => {
 	it("derives blocks for all supported kinds from the fixture body", () => {
 		const { blocks } = deriveBlocks(ALL_KINDS_BODY, {
 			kind: "document",
