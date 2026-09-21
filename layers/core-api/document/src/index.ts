@@ -44,6 +44,18 @@
  * (functions + the two types needed for inline-typed call sites).
  */
 
+// -- the action mechanism (architecture.md §3, §8.1) --
+// @lore BC4: architecture.md §8.1 locks this barrel's target shape to four
+// exports (`createDocumentActions`, `DocumentActionsDeps`,
+// `assembleSessionDocuments`, `SessionDocument`) once every current consumer
+// of the legacy CRUD repository above has moved onto the action mechanism
+// (`routes/*.ts`, `actions/compose.ts`, `services/*-bindings.ts` — all owned
+// by later blocks, B7/B10-B22). Trimming the barrel now would break `check`
+// on files this block does not own (confirmed: `actions/compose.ts` still
+// imports `getAgentIdentity`/`get`/`listItemIdsByParent` from here). This
+// export is additive until that migration lands; `./document-store.js` stays
+// unexported either way — no hidden extra door onto the raw table.
+export { createDocumentActions, type DocumentActionsDeps } from "./document-actions.js";
 // -- errors --
 export { InvalidReparentError, ItemDeletedError, VersionConflictError } from "./errors.js";
 // @lore document-module B0c: `knowledge-conflicts.ts`'s `recordConflict`/
