@@ -31,8 +31,7 @@
 import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import {
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
+	documents,
 	tasks,
 	teams,
 	threads,
@@ -114,7 +113,7 @@ async function seedKnowledgeItem(
 	opts: { scopeKind: string; scopeId?: string | null; updatedBy: string },
 ): Promise<void> {
 	const now = "2026-09-09T00:00:00.000Z";
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		title: `Item ${id}`,
 		body: "body",
@@ -127,7 +126,6 @@ async function seedKnowledgeItem(
 		createdAt: now,
 		updatedAt: now,
 	});
-	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 function createBody(extra: Record<string, unknown>): string {
@@ -163,8 +161,8 @@ describe("a knowledge item is created with a parent", () => {
 
 		const [row] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, created.id))
+			.from(documents)
+			.where(eq(documents.id, created.id))
 			.limit(1);
 
 		expect(row?.parentKind).toBe("task");
@@ -185,8 +183,8 @@ describe("a knowledge item is created with a parent", () => {
 
 		const [row] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, created.id))
+			.from(documents)
+			.where(eq(documents.id, created.id))
 			.limit(1);
 
 		expect(row?.parentKind).toBe("thread");
@@ -284,7 +282,7 @@ describe("a knowledge item is created with a parent", () => {
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
-			body: createBody({ parentKind: "knowledge_item", parentId: "kp-ki-parent" }),
+			body: createBody({ parentKind: "document", parentId: "kp-ki-parent" }),
 		});
 
 		expect(res.status).toBe(201);
@@ -292,11 +290,11 @@ describe("a knowledge item is created with a parent", () => {
 
 		const [row] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, created.id))
+			.from(documents)
+			.where(eq(documents.id, created.id))
 			.limit(1);
 
-		expect(row?.parentKind).toBe("knowledge_item");
+		expect(row?.parentKind).toBe("document");
 		expect(row?.parentId).toBe("kp-ki-parent");
 	});
 
@@ -306,7 +304,7 @@ describe("a knowledge item is created with a parent", () => {
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
-			body: createBody({ parentKind: "knowledge_item", parentId: "ki-not-there" }),
+			body: createBody({ parentKind: "document", parentId: "ki-not-there" }),
 		});
 
 		expect(res.status).toBe(400);
@@ -348,7 +346,7 @@ describe("a knowledge item is created with a parent", () => {
 				format: "markdown",
 				updatedBy: "kp-outsider",
 				scopeKind: "user",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: "kp-private-parent",
 			}),
 		});
@@ -370,8 +368,8 @@ describe("a knowledge item is created with a parent", () => {
 
 		const [row] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, created.id))
+			.from(documents)
+			.where(eq(documents.id, created.id))
 			.limit(1);
 
 		expect(row?.parentKind).toBeNull();

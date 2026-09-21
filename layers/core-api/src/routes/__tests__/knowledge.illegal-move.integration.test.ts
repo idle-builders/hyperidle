@@ -4,7 +4,7 @@
  * rule, and never partially commits: a title change bundled with an illegal
  * move must not land while the move is refused.
  */
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, documents, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -32,7 +32,7 @@ async function seedItem(
 	opts: { title: string; parentId?: string | null; scopeKind?: string },
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		title: opts.title,
 		body: "body",
@@ -41,14 +41,11 @@ async function seedItem(
 		version: 1,
 		updatedBy: "u-founder",
 		scopeKind: opts.scopeKind ?? "factory",
-		parentKind: opts.parentId ? "knowledge_item" : null,
+		parentKind: opts.parentId ? "document" : null,
 		parentId: opts.parentId ?? null,
 		createdAt: now,
 		updatedAt: now,
 	});
-	// governance: knowledge always writes knowledgeItems + knowledgeAppProjection
-	// together — a row without its projection is a state production never produces.
-	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 describe("PATCH /api/knowledge/:id — illegal move (review.md B12/B13)", () => {
@@ -77,7 +74,7 @@ describe("PATCH /api/knowledge/:id — illegal move (review.md B12/B13)", () => 
 				version: 1,
 				updatedBy: "u-founder",
 				title: "Root — renamed during an illegal move",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: "ki-child",
 			}),
 		});
@@ -114,7 +111,7 @@ describe("PATCH /api/knowledge/:id — illegal move (review.md B12/B13)", () => 
 			body: JSON.stringify({
 				version: 1,
 				updatedBy: "u-founder",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: "ki-does-not-exist",
 			}),
 		});
@@ -171,7 +168,7 @@ describe("PATCH /api/knowledge/:id — illegal move (review.md B12/B13)", () => 
 				version: 1,
 				updatedBy: "u-founder",
 				title: "Leaf 2 — renamed",
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: "ki-root-2",
 			}),
 		});
