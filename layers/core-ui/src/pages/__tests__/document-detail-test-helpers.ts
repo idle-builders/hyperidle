@@ -90,14 +90,19 @@ export function makeThreadView(overrides: Partial<ThreadView> = {}): ThreadView 
 	};
 }
 
-/** A `call()` mock body — never resolves `search_threads`/`open_thread` by default (no discussion). */
+/**
+ * A `call()` mock body — never resolves `search_threads`/`open_thread` by
+ * default (no discussion). Always returns a real Promise: the real hooks
+ * this exercises (`useThreads`, `useThread`, …) call `call(...).then(...)`
+ * directly, not only `await call(...)`.
+ */
 export function makeCallRouter(
 	handlers: Record<string, (input: unknown) => unknown>,
-): (name: string, input: unknown) => unknown {
+): (name: string, input: unknown) => Promise<unknown> {
 	return (name: string, input: unknown) => {
 		const handler = handlers[name];
-		if (handler) return handler(input);
-		if (name === "search_threads") return { ok: true, data: [] };
-		throw new Error(`unmocked call: ${name}`);
+		if (handler) return Promise.resolve(handler(input));
+		if (name === "search_threads") return Promise.resolve({ ok: true, data: [] });
+		return Promise.reject(new Error(`unmocked call: ${name}`));
 	};
 }
