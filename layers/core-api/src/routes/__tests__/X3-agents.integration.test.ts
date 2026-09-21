@@ -15,7 +15,7 @@
  *  - framework/db/src/seed.ts inserts system_template:* factorySettings rows
  */
 
-import { agentRunConfig, type HyperIdleDb, knowledgeItems, teams, users } from "@hyperidle/db";
+import { agentRunConfig, documents, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -332,10 +332,10 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		// Bound to the agent, and an agent file — the binding session assembly reads.
 		const [doc] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, body.identityKnowledgeId));
+			.from(documents)
+			.where(eq(documents.id, body.identityKnowledgeId));
 		expect(doc?.body).toBe("You are Identity Bot.");
-		expect(doc?.role).toBe("agent_file");
+		expect(doc?.slot).toBe("agent_file");
 		expect(doc?.scopeKind).toBe("user");
 		expect(doc?.scopeId).toBe(body.id);
 	});
@@ -563,7 +563,7 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 		});
 		expect(res.status).toBe(200);
 
-		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, identityId));
+		const [doc] = await db.select().from(documents).where(eq(documents.id, identityId));
 		expect(doc, "the row survives — audit tables hold RESTRICT FKs on it").toBeDefined();
 		expect(doc?.status, "and it is archived, not live").toBe("archived");
 	});

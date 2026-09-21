@@ -5,13 +5,7 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import {
-	type HyperIdleDb,
-	knowledgeItems,
-	pluginContributions,
-	routines,
-	users,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb, pluginContributions, routines, users } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
@@ -60,7 +54,7 @@ async function installKmPlugin(app: Hono): Promise<void> {
 /** What the plugin contributed — the registry is the only answer now. */
 async function contributed(
 	db: HyperIdleDb,
-	kind: "agent" | "routine" | "knowledge",
+	kind: "agent" | "routine" | "document",
 ): Promise<readonly string[]> {
 	const rows = await db
 		.select({ entityId: pluginContributions.entityId })
@@ -115,18 +109,16 @@ describe("BA9d lifecycle: disable deactivates materialised rows", () => {
 
 	test("after disable: skills archived", async ({ db, app }) => {
 		await installKmPlugin(app);
-		const contributedIds = [...(await contributed(db, "knowledge"))];
+		const contributedIds = [...(await contributed(db, "document"))];
 		const before = await db
 			.select()
-			.from(knowledgeItems)
-			.where(and(inArray(knowledgeItems.id, contributedIds), eq(knowledgeItems.status, "active")));
+			.from(documents)
+			.where(and(inArray(documents.id, contributedIds), eq(documents.status, "active")));
 		await app.request(`/api/plugins/${PLUGIN_ID}/disable`, { method: "POST", headers: auth() });
 		const after = await db
 			.select()
-			.from(knowledgeItems)
-			.where(
-				and(inArray(knowledgeItems.id, contributedIds), eq(knowledgeItems.status, "archived")),
-			);
+			.from(documents)
+			.where(and(inArray(documents.id, contributedIds), eq(documents.status, "archived")));
 		expect(after.length).toBe(before.length);
 	});
 });

@@ -11,7 +11,7 @@
  * editing that document in Knowledge changes what the routine fires with.
  */
 
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { documents, type HyperIdleDb, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -20,15 +20,15 @@ import { test } from "../../__testing__/test-fixtures.js";
 async function findPromptDoc(
 	db: HyperIdleDb,
 	routineId: string,
-): Promise<typeof knowledgeItems.$inferSelect | undefined> {
+): Promise<typeof documents.$inferSelect | undefined> {
 	const [row] = await db
 		.select()
-		.from(knowledgeItems)
+		.from(documents)
 		.where(
 			and(
-				eq(knowledgeItems.parentKind, "routine"),
-				eq(knowledgeItems.parentId, routineId),
-				eq(knowledgeItems.role, "prompt"),
+				eq(documents.parentKind, "routine"),
+				eq(documents.parentId, routineId),
+				eq(documents.slot, "prompt"),
 			),
 		);
 	return row;
