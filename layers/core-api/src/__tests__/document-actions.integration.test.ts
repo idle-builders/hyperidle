@@ -1610,6 +1610,91 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 });
 
 // ---------------------------------------------------------------------------
+// @lore document-module B20: carried over from the deleted
+// `knowledge-graduation.integration.test.ts` — the dedicated
+// `POST /:id/graduate` route is gone with no successor route; graduating a
+// task/thread-parented artifact into the document tree is now an ordinary
+// `edit_document` parent change (§3.4/§3.5). `as` is derived, never stored,
+// so moving `parent` from `{kind:"task",…}` to a `document` parent (or to
+// the top of the tree, `parent: null`) is all "graduation" is.
+// ---------------------------------------------------------------------------
+
+describe("graduation — a task-parented artifact moves into the document tree via a plain parent change", () => {
+	test("moving parent from the calling task to a document root turns the artifact into a tree document", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "cgrad-1");
+		await seedTaskWithThread(db, "cgrad-1-task", "cgrad-1");
+		await seedAgent(db, "cgrad-1-agent");
+		const actions = buildRealActions(agentOrchestration);
+
+		const artifact = requireDoc(
+			await callAgent<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{ title: "produced findings", as: "artifact" },
+				{ agentId: "cgrad-1-agent", sessionId: "cgrad-1-sess", taskId: "cgrad-1-task" },
+			),
+		).document;
+		expect(artifact.parentKind).toBe("task");
+
+		const root = requireDoc(
+			await callHuman<DocumentView>(app, "edit_document", { title: "Findings Archive" }),
+		).document;
+
+		const graduated = requireDoc(
+			await callHuman<DocumentView>(app, "edit_document", {
+				id: artifact.id,
+				version: artifact.version,
+				parent: { kind: "document", id: root.id },
+			}),
+		).document;
+
+		expect(graduated.parentKind).toBe("document");
+		expect(graduated.parentId).toBe(root.id);
+	});
+
+	test("moving parent to null graduates a task-parented artifact to the top of the tree", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "cgrad-2");
+		await seedTaskWithThread(db, "cgrad-2-task", "cgrad-2");
+		await seedAgent(db, "cgrad-2-agent");
+		const actions = buildRealActions(agentOrchestration);
+
+		const artifact = requireDoc(
+			await callAgent<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{ title: "produced notes", as: "artifact" },
+				{ agentId: "cgrad-2-agent", sessionId: "cgrad-2-sess", taskId: "cgrad-2-task" },
+			),
+		).document;
+
+		const graduated = requireDoc(
+			await callHuman<DocumentView>(app, "edit_document", {
+				id: artifact.id,
+				version: artifact.version,
+				parent: null,
+			}),
+		).document;
+
+		expect(graduated.parentKind).toBeNull();
+		expect(graduated.parentId).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Case 11 — every successful edit appends exactly one `changes` row.
 // ---------------------------------------------------------------------------
 

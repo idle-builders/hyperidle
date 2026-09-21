@@ -1,5 +1,5 @@
 /**
- * An agent's identity document is reachable through the knowledge API.
+ * An agent's identity document is reachable through the document actions.
  *
  * `scope_kind='user'` says a document belongs to the subject in `scope_id`, and
  * that means two different things. An `ordinary` user-scoped document is a
@@ -9,6 +9,13 @@
  * Spelled as "user scope is private, full stop", every agent identity was 404
  * to everyone, through the one endpoint that is now the only place to edit one.
  * Found by driving the live API against a seeded database, not by a test.
+ *
+ * @lore document-module B20: the first describe block below drove the deleted
+ * `GET`/`PATCH /api/knowledge/:id` and `GET /api/knowledge`; re-pointed onto
+ * `open_document`/`edit_document`/`search_documents`. A refused read now
+ * answers `{ ok: false, problems: [{ code: "not_found" }] }` at HTTP 422 —
+ * the same "existence must not leak" contract, carried by the envelope
+ * instead of the status code (architecture.md §4.2, D1).
  */
 
 import { documents, type HyperIdleDb, users } from "@hyperidle/db";
@@ -97,12 +104,18 @@ describe("an agent's identity document is knowledge, not a private note", () => 
 	test("a person who did not author it can still read it", async ({ db, app }) => {
 		await seed(db);
 
-		const res = await app.request("/api/knowledge/ki_af_agent-ba9f", {
+		const res = await app.request("/api/actions/open_document", {
+			method: "POST",
 			headers: authHeaders(FOUNDER),
+			body: JSON.stringify({ id: "ki_af_agent-ba9f" }),
 		});
 
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { body: string; slot: string; scopeId: string };
+		const body = (
+			(await res.json()) as {
+				data: { document: { body: string; slot: string; scopeId: string } };
+			}
+		).data.document;
 		expect(body.body).toBe("You are Atlas.");
 		expect(body.slot).toBe("agent_file");
 		expect(body.scopeId).toBe(AGENT);
@@ -114,40 +127,55 @@ describe("an agent's identity document is knowledge, not a private note", () => 
 	}) => {
 		await seed(db);
 
-		const res = await app.request("/api/knowledge/ki_af_agent-ba9f", {
-			method: "PATCH",
+		const res = await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: authHeaders(FOUNDER),
-			body: JSON.stringify({ version: 1, updatedBy: FOUNDER, body: "You are Atlas, rewritten." }),
+			body: JSON.stringify({
+				id: "ki_af_agent-ba9f",
+				version: 1,
+				body: "You are Atlas, rewritten.",
+			}),
 		});
 		expect(res.status).toBe(200);
 
-		const after = await app.request("/api/knowledge/ki_af_agent-ba9f", {
+		const after = await app.request("/api/actions/open_document", {
+			method: "POST",
 			headers: authHeaders(FOUNDER),
+			body: JSON.stringify({ id: "ki_af_agent-ba9f" }),
 		});
-		expect(((await after.json()) as { body: string }).body).toBe("You are Atlas, rewritten.");
+		expect(
+			((await after.json()) as { data: { document: { body: string } } }).data.document.body,
+		).toBe("You are Atlas, rewritten.");
 	});
 
 	test("another person's private note is still private", async ({ db, app }) => {
 		await seed(db);
 
-		const res = await app.request("/api/knowledge/ki_note_other", {
+		const res = await app.request("/api/actions/open_document", {
+			method: "POST",
 			headers: authHeaders(FOUNDER),
+			body: JSON.stringify({ id: "ki_note_other" }),
 		});
 
-		// 404, not 403 — its existence must not leak.
-		expect(res.status).toBe(404);
+		// 422 with a `not_found` problem, not a leak of a 200/403 distinction —
+		// its existence must not leak.
+		expect(res.status).toBe(422);
+		const body = (await res.json()) as { ok: boolean; problems: Array<{ code: string }> };
+		expect(body.ok).toBe(false);
+		expect(body.problems[0]?.code).toBe("not_found");
 	});
 
-	test("the identity appears in the knowledge list, the private note does not", async ({
-		db,
-		app,
-	}) => {
+	test("the identity appears in a search, the private note does not", async ({ db, app }) => {
 		await seed(db);
 
-		const res = await app.request("/api/knowledge", { headers: authHeaders(FOUNDER) });
+		const res = await app.request("/api/actions/search_documents", {
+			method: "POST",
+			headers: authHeaders(FOUNDER),
+			body: JSON.stringify({}),
+		});
 		expect(res.status).toBe(200);
-		const payload = (await res.json()) as { items?: Array<{ id: string }> };
-		const ids = (payload.items ?? []).map((i) => i.id);
+		const payload = (await res.json()) as { data?: Array<{ id: string }> };
+		const ids = (payload.data ?? []).map((i) => i.id);
 
 		expect(ids).toContain("ki_af_agent-ba9f");
 		expect(ids).not.toContain("ki_note_other");

@@ -38,7 +38,6 @@ describe("app runtime route boot", () => {
 			try {
 				const routeChecks = [
 					["/api/health", false],
-					["/api/knowledge", true],
 					["/api/routines", true],
 					// GET /api/notifications root (door #129) deleted
 					["/api/notifications/inbox", true],

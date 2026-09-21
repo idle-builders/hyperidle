@@ -61,58 +61,62 @@ describe("a block attached into a conversation does not rot", () => {
 		const ORIGINAL = "## Auth migration\n\nThe original wording of the block.";
 
 		// The source document someone is reading.
-		const sourceRes = await app.request("/api/knowledge", {
+		const sourceRes = await app.request("/api/actions/edit_document", {
 			method: "POST",
 			headers: headers(),
 			body: JSON.stringify({
 				title: "Source document",
 				body: ORIGINAL,
 				format: "markdown",
-				updatedBy: "nr-user",
 				scopeKind: "factory",
 			}),
 		});
-		expect(sourceRes.status).toBe(201);
-		const source = (await sourceRes.json()) as { id: string; version: number };
+		expect(sourceRes.status).toBe(200);
+		const source = (
+			(await sourceRes.json()) as { data: { document: { id: string; version: number } } }
+		).data.document;
 
 		// "+" on a block, then send: the block's content becomes its own document,
 		// parented to the conversation.
-		const attachedRes = await app.request("/api/knowledge", {
+		const attachedRes = await app.request("/api/actions/edit_document", {
 			method: "POST",
 			headers: headers(),
 			body: JSON.stringify({
 				title: "Attached block",
 				body: ORIGINAL,
 				format: "markdown",
-				updatedBy: "nr-user",
 				scopeKind: "factory",
-				parentKind: "thread",
-				parentId: threadId,
+				parent: { kind: "thread", id: threadId },
 			}),
 		});
-		expect(attachedRes.status).toBe(201);
-		const attached = (await attachedRes.json()) as { id: string };
+		expect(attachedRes.status).toBe(200);
+		const attached = ((await attachedRes.json()) as { data: { document: { id: string } } }).data
+			.document;
 
 		// Now the source is edited — the thing that used to break the reference.
-		const editRes = await app.request(`/api/knowledge/${source.id}`, {
-			method: "PATCH",
+		const editRes = await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: headers(),
 			body: JSON.stringify({
+				id: source.id,
 				body: "## Auth migration\n\nCompletely rewritten, and longer than before.",
-				updatedBy: "nr-user",
 				version: source.version,
 			}),
 		});
 		expect(editRes.status).toBe(200);
 
 		// What is in the conversation has not moved.
-		const afterRes = await app.request(`/api/knowledge/${attached.id}`, { headers: headers() });
+		const afterRes = await app.request("/api/actions/open_document", {
+			method: "POST",
+			headers: headers(),
+			body: JSON.stringify({ id: attached.id }),
+		});
 		expect(afterRes.status).toBe(200);
-		const after = (await afterRes.json()) as {
-			body: string;
-			parentKind: string;
-			parentId: string;
-		};
+		const after = (
+			(await afterRes.json()) as {
+				data: { document: { body: string; parentKind: string; parentId: string } };
+			}
+		).data.document;
 
 		expect(after.body).toBe(ORIGINAL);
 		expect(after.parentKind).toBe("thread");

@@ -103,6 +103,33 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 		expect(rows.map((r) => r.id).sort()).toEqual([bodyHit.id, titleHit.id].sort());
 	});
 
+	// @lore document-module B20: carried over from the deleted
+	// `knowledge.validation.integration.test.ts` — `%`/`_` are ILIKE
+	// wildcards; `text` must match them literally, not as a wildcard, or a
+	// one-character query would return every row.
+	test("text escapes ILIKE wildcards — % and _ match literally, not as wildcards", async ({
+		db,
+	}) => {
+		await insertDocument(
+			db,
+			docValues({ id: "wc-plain", title: "Unrelated title", body: "nothing special" }),
+		);
+		const percentHit = await insertDocument(
+			db,
+			docValues({ id: "wc-percent", title: "Discount: 10% off", body: "irrelevant" }),
+		);
+		const underscoreHit = await insertDocument(
+			db,
+			docValues({ id: "wc-underscore", title: "snake_case_name", body: "irrelevant" }),
+		);
+
+		const percentRows = await searchDocumentRows(db, { text: "%" }, ANY_VIEWER);
+		expect(percentRows.map((r) => r.id)).toEqual([percentHit.id]);
+
+		const underscoreRows = await searchDocumentRows(db, { text: "_" }, ANY_VIEWER);
+		expect(underscoreRows.map((r) => r.id)).toEqual([underscoreHit.id]);
+	});
+
 	test("slot filters to exactly the named slot", async ({ db }) => {
 		const skill = await insertDocument(
 			db,
@@ -427,6 +454,35 @@ describe("search_documents — the one query (architecture.md §5.1)", () => {
 			);
 
 			expect(rows.map((r) => r.id)).not.toContain(memory.id);
+		});
+
+		// @lore document-module B20: carried over from the deleted
+		// `knowledge.team-visibility.integration.test.ts` — the same predicate
+		// backs `search_documents` and `open_document`'s `children`/`siblings`
+		// (`document-actions.ts`'s `assembleDocumentView`), so one test at this
+		// level covers all three surfaces the deleted route test drove
+		// separately.
+		test("a team-scoped document is excluded for a viewer outside that team, included for a member", async ({
+			db,
+		}) => {
+			const teamDoc = await insertDocument(
+				db,
+				docValues({ id: "vis-team-doc", scopeKind: "team", scopeId: "team-1" }),
+			);
+
+			const outsiderRows = await searchDocumentRows(
+				db,
+				{},
+				{ subjects: ["u-outsider"], viewerTeamId: "team-2" },
+			);
+			expect(outsiderRows.map((r) => r.id)).not.toContain(teamDoc.id);
+
+			const memberRows = await searchDocumentRows(
+				db,
+				{},
+				{ subjects: ["u-member"], viewerTeamId: "team-1" },
+			);
+			expect(memberRows.map((r) => r.id)).toContain(teamDoc.id);
 		});
 
 		test("an artifact is never private — visible to a viewer on a different team with no matching subject", async ({

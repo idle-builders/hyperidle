@@ -133,13 +133,13 @@ describe("a routine's prompt is a knowledge document", () => {
 		const doc = await findPromptDoc(db, created.id);
 		const docId = String(doc?.id);
 
-		// Edited as ordinary knowledge — the whole point of it being a document.
-		await app.request(`/api/knowledge/${docId}`, {
-			method: "PATCH",
+		// Edited as an ordinary document — the whole point of it being one.
+		await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
+				id: docId,
 				version: doc?.version,
-				updatedBy: "u-founder",
 				body: "Sweep only items older than 90 days.",
 			}),
 		});

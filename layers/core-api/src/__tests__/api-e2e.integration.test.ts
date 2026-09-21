@@ -321,70 +321,20 @@ describe("E2E API Integration (I5)", () => {
 	// `send_message`/`adjust_thread`).
 
 	// -------------------------------------------------------
-	// 6. Knowledge
+	// 6. Document search
 	// -------------------------------------------------------
-	// @lore O2: Knowledge routes rewritten. Layer-based URL prefix removed.
-	// New URL shape: POST /api/knowledge (create), GET /api/knowledge (list),
-	// GET /api/knowledge/:id (get). Search: GET /api/search?scope=document&q=... (AU44 fold, BC4 rename).
-	describe("Knowledge", () => {
-		test("GET /api/knowledge returns items list", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/knowledge", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { items: unknown[] };
-			expect(Array.isArray(body.items)).toBe(true);
-		});
-
-		test("POST /api/knowledge creates a knowledge item (O2: no layer prefix)", async ({
-			db,
-			app,
-		}) => {
-			await seedBase(db);
-			const res = await app.request("/api/knowledge", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					title: "Test decision",
-					body: "We decided X",
-					format: "markdown",
-					scopeKind: "factory",
-					updatedBy: "agent-1",
-				}),
-			});
-			expect(res.status).toBe(201);
-			const body = (await res.json()) as { id: string; version: number };
-			expect(body.id).toBeDefined();
-			expect(body.version).toBe(1);
-		});
-
-		test("GET /api/knowledge/:id returns item by id (O2: no layer prefix)", async ({ db, app }) => {
-			await seedBase(db);
-			// Create an item first
-			const createRes = await app.request("/api/knowledge", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					title: "Get-by-id test",
-					body: "Content",
-					format: "markdown",
-					scopeKind: "factory",
-					updatedBy: "agent-1",
-				}),
-			});
-			const created = (await createRes.json()) as { id: string };
-			const res = await app.request(`/api/knowledge/${created.id}`, { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { id: string; title: string };
-			expect(body.id).toBe(created.id);
-			expect(body.title).toBe("Get-by-id test");
-		});
-
-		// @lore AU44 batch 4: GET /api/knowledge/search folded into GET /api/search?scope=document
-		// (BC4: the wire value was scope=knowledge, now scope=document — architecture.md §8.6)
+	// @lore document-module B20: the CRUD checks that used to live here
+	// (create/list/get-by-id over the now-deleted `POST /api/knowledge`) are
+	// the seam contract — `document-actions.integration.test.ts` proves them
+	// against `POST /api/actions/edit_document` for both the human and agent
+	// door. What is left here is what was never about the route: the global
+	// search endpoint, seeded through the surviving action door.
+	// Search: GET /api/search?scope=document&q=... (AU44 fold, BC4 rename).
+	describe("Document search", () => {
 		test("GET /api/search?scope=document&q=test returns search results", async ({ db, app }) => {
 			await seedBase(db);
-			// First create a knowledge item so search has something to find
-			await app.request("/api/knowledge", {
+			// First create a document so search has something to find
+			await app.request("/api/actions/edit_document", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
@@ -392,7 +342,6 @@ describe("E2E API Integration (I5)", () => {
 					body: "This is a test item for search",
 					format: "markdown",
 					scopeKind: "factory",
-					updatedBy: "agent-1",
 				}),
 			});
 

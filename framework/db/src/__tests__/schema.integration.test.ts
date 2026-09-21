@@ -522,6 +522,28 @@ describe("A2: Database Schema", () => {
 			// The decay search: `unusedSince` + `sort:"least_used"` both lead with this.
 			expect(indexes).toContain("doc_last_used_idx");
 		});
+
+		// @lore document-module B20: carried over from the deleted
+		// `knowledge.q2.integration.test.ts` — the column shape `scope_needs_id`
+		// (framework/domain-model) and the document actions' scope defaulting
+		// both assume.
+		test("scope_kind is NOT NULL with a 'factory' default; scope_id is nullable", async ({
+			db,
+		}) => {
+			const result = await db.execute(
+				`SELECT column_name, is_nullable, column_default
+				 FROM information_schema.columns
+				 WHERE table_name = 'documents'` as Parameters<typeof db.execute>[0],
+			);
+			const columns = (result as { rows: Array<Record<string, unknown>> }).rows;
+
+			const scopeKindCol = columns.find((c) => c.column_name === "scope_kind");
+			expect(scopeKindCol?.is_nullable).toBe("NO");
+			expect(scopeKindCol?.column_default).toBe("'factory'::text");
+
+			const scopeIdCol = columns.find((c) => c.column_name === "scope_id");
+			expect(scopeIdCol?.is_nullable).toBe("YES");
+		});
 	});
 
 	// --- AC6: Foreign key constraints enforced ---

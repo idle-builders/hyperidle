@@ -200,12 +200,12 @@ describe("a plugin's agent comes with an identity", () => {
 			.where(eq(documents.scopeId, String(agent?.id)));
 		expect(identity?.body).toBe(PERSONA);
 
-		await app.request(`/api/knowledge/${identity?.id}`, {
-			method: "PATCH",
+		await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: { ...auth(), "X-Identity": "u-founder-identity" },
 			body: JSON.stringify({
+				id: identity?.id,
 				version: identity?.version,
-				updatedBy: "u-founder-identity",
 				body: "My own idea of a builder.",
 			}),
 		});

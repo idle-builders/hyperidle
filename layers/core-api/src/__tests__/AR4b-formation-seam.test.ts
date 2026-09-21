@@ -168,17 +168,17 @@ describe("AR4b: formation seam — editing the assistant's identity document cha
 		const before = await postAndResolveTurnPersona(app, db, "msg-ar4b-before-patch");
 		expect(before).toBe("Original row persona — the app default.");
 
-		// The one knowledge edit endpoint — the same one every other document is
+		// The one document edit door — the same one every other document is
 		// edited through. There is no assistant-shaped side door any more.
 		const identityId = (await getAgentIdentityIds(db, [ASSISTANT_ID])).get(ASSISTANT_ID);
 		expect(identityId).toBeTruthy();
-		const patchRes = await app.request(`/api/knowledge/${identityId}`, {
-			method: "PATCH",
+		const patchRes = await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				"X-API-Key": GATE_API_KEY,
 			},
-			body: JSON.stringify({ version: 1, updatedBy: FOUNDER_ID, body: ALPHA_PERSONA }),
+			body: JSON.stringify({ id: identityId, version: 1, body: ALPHA_PERSONA }),
 		});
 		expect(patchRes.status).toBe(200);
 

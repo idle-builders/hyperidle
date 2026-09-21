@@ -103,12 +103,12 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 
 		const [before] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
 
-		const res = await app.request(`/api/knowledge/${skill.entityId}`, {
-			method: "PATCH",
+		const res = await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: auth(),
 			body: JSON.stringify({
+				id: skill.entityId,
 				version: before?.version,
-				updatedBy: FOUNDER,
 				body: "My own version of this skill.",
 			}),
 		});
@@ -124,12 +124,12 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const skill = await aContributedSkill(app);
 
 		const [before] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
-		await app.request(`/api/knowledge/${skill.entityId}`, {
-			method: "PATCH",
+		await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: auth(),
 			body: JSON.stringify({
+				id: skill.entityId,
 				version: before?.version,
-				updatedBy: FOUNDER,
 				body: "My own version of this skill.",
 			}),
 		});
@@ -152,12 +152,12 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const skill = await aContributedSkill(app);
 
 		const [original] = await db.select().from(documents).where(eq(documents.id, skill.entityId));
-		await app.request(`/api/knowledge/${skill.entityId}`, {
-			method: "PATCH",
+		await app.request("/api/actions/edit_document", {
+			method: "POST",
 			headers: auth(),
 			body: JSON.stringify({
+				id: skill.entityId,
 				version: original?.version,
-				updatedBy: FOUNDER,
 				body: "My own version of this skill.",
 			}),
 		});
