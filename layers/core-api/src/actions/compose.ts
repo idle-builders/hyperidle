@@ -13,6 +13,8 @@ import type {
 	AdjustThreadInput,
 	AgentWorkIntentRecorderFn,
 	DocumentRow,
+	DocumentView,
+	EditDocumentInput,
 	OpenThreadInput,
 	ReviewVerdictRecorderFn,
 	SearchDocumentsInput,
@@ -24,19 +26,11 @@ import { markDetached, readServerConfig } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";
 import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
-import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
-import type { Action, ActionContext } from "./action.js";
-
-/**
- * `search_documents`'s own runner shape, threaded into the task and thread
- * bags (architecture.md §6.7, §8.3) — the ONLY door either gets onto
- * `document`. Never `open_document`: a plumbing read must never count as a
- * real open.
- */
-type SearchDocumentsRunFn = (
-	ctx: ActionContext,
-	input: SearchDocumentsInput,
-) => Promise<ActionResult<DocumentRow[]>>;
+import {
+	buildTaskRunResolverDeps,
+	resolveAgentIdentityBody,
+} from "../services/task-run-resolver-bindings.js";
+import type { Action, ActionContext, SearchDocumentsRunFn } from "./action.js";
 
 /**
  * The team-then-any-human ladder `send_message`'s no-target fallback needs —
@@ -81,14 +75,7 @@ function buildThreadActionsDeps(
 			// §8.3: bound to searchDocuments now, never a direct table read — the
 			// same runner, ctx and all, `ctx.agents.getAgentIdentity` used to reach
 			// past a document-owned function for.
-			getAgentIdentity: async (ctx, agentId) => {
-				const result = await searchDocuments(ctx, {
-					parent: { kind: "agent", id: agentId },
-					slot: "agent_file",
-					status: "active",
-				});
-				return result.ok ? (result.data[0]?.body ?? null) : null;
-			},
+			getAgentIdentity: (ctx, agentId) => resolveAgentIdentityBody(ctx, agentId, searchDocuments),
 		},
 		agentWorkIntentRecorder: bindings.agentWorkIntentRecorder,
 		reviewVerdictRecorder: bindings.reviewVerdictRecorder,
@@ -117,7 +104,7 @@ function buildTaskActionsDeps(
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		users: { getUserById: (exec, id) => findUser(exec, { id }) },
 		searchDocuments,
-		taskRunResolver: taskRunResolverDeps,
+		taskRunResolver: buildTaskRunResolverDeps(searchDocuments),
 		adjustThread,
 		openThread,
 	};
@@ -130,7 +117,7 @@ function buildTaskActionsDeps(
  * sharing `ThreadView`, `open_task` returning `TaskView`) can be looked up
  * here through the one function.
  */
-function runnerFor<I, O>(
+export function runnerFor<I, O>(
 	actions: readonly Action[],
 	name: string,
 ): (ctx: ActionContext, input: I) => Promise<ActionResult<O>> {
@@ -237,4 +224,71 @@ export function buildCoreActions(bindings: {
 		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),
 	) as readonly Action[];
 	return [...taskActions, ...threadActions, ...documentActions];
+}
+
+/**
+ * A minimal, standalone document action list — never `buildCoreActions`'s
+ * composed HTTP/MCP list — for the composition roots that need
+ * `search_documents`/`edit_document` before or outside that list exists:
+ * the pre-auth first-run setup route (`routes/users.ts`, called before any
+ * request has reached `createCoreApiApp`) and the routine scheduler
+ * (`service-bootstrap.ts`'s `registerAgentLayerServices`, wired from
+ * `db`/`eventBus` alone — no task/thread action bags in scope at its own
+ * composition root, so it cannot receive the real composed list's runner
+ * the way `taskRunResolver`/`routine-scheduler-bindings.ts`'s OTHER two
+ * ports do). `openParent` is honestly unreachable here: it fires only from
+ * `edit_document` when the caller's `parent.kind` is `"task"`/`"thread"`,
+ * and neither caller ever parents a document that way (an agent identity
+ * document is agent-parented; the scheduler only ever searches, never
+ * edits). Throws rather than fabricating a result if that invariant is
+ * ever broken.
+ */
+function buildStandaloneDocumentActions(): readonly Action[] {
+	return createDocumentActions({
+		changes: { appendChange },
+		users: {
+			getUserById: (exec, id) => findUser(exec, { id }),
+			listOwnedBy: (exec, ownerId) => listUsers(exec, { ownerUserId: ownerId }),
+		},
+		org: { getTeam: (exec, q) => getTeam(exec, q) },
+		openParent: () => {
+			throw new Error(
+				"buildStandaloneDocumentActions: openParent is unreachable — this composition never parents a document to a task or thread",
+			);
+		},
+		onBodyChanged: (exec, documentId) =>
+			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+	}) as readonly Action[];
+}
+
+/**
+ * `search_documents` and `edit_document`, standalone (see
+ * `buildStandaloneDocumentActions` above) — `routes/users.ts`'s pre-auth
+ * setup route feeds both into `createAgentIdentityPort`.
+ */
+export function buildStandaloneDocumentRunners(): {
+	readonly searchDocuments: SearchDocumentsRunFn;
+	readonly editDocument: (
+		ctx: ActionContext,
+		input: EditDocumentInput,
+	) => Promise<ActionResult<DocumentView>>;
+} {
+	const documentActions = buildStandaloneDocumentActions();
+	return {
+		searchDocuments: runnerFor<SearchDocumentsInput, DocumentRow[]>(
+			documentActions,
+			"search_documents",
+		),
+		editDocument: runnerFor<EditDocumentInput, DocumentView>(documentActions, "edit_document"),
+	};
+}
+
+/**
+ * `search_documents` alone, standalone — `service-bootstrap.ts`'s routine
+ * scheduler wiring and its `tools/eval`/`dispatch-test-helpers.ts` direct
+ * `fireRoutine` callers (architecture.md §8.3: neither ever edits a
+ * document) only ever need this one runner.
+ */
+export function createStandaloneSearchDocuments(): SearchDocumentsRunFn {
+	return buildStandaloneDocumentRunners().searchDocuments;
 }

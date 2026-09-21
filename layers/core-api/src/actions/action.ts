@@ -3,6 +3,8 @@ import type {
 	ActionDeclaration,
 	ActionResult,
 	AdjustThreadInput,
+	DocumentRow,
+	SearchDocumentsInput,
 	SendMessageInput,
 	SendMessageOutput,
 	ThreadView,
@@ -63,3 +65,14 @@ export type AdjustThreadRunFn = (
 	ctx: ActionContext,
 	input: AdjustThreadInput,
 ) => Promise<ActionResult<ThreadView>>;
+/**
+ * `search_documents`'s own bound `run` — the ONLY door a document-reading
+ * neighbour ever gets onto `@hyperidle/document` (architecture.md §6.7,
+ * §8.1). One canonical shape here rather than a private mirror in every
+ * composition root that needs it (`compose.ts`, `task-run-resolver-bindings.ts`,
+ * `routine-scheduler-bindings.ts`).
+ */
+export type SearchDocumentsRunFn = (
+	ctx: ActionContext,
+	input: SearchDocumentsInput,
+) => Promise<ActionResult<DocumentRow[]>>;
