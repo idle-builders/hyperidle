@@ -4,8 +4,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
-import type { HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
@@ -19,11 +18,13 @@ import { test as baseTest } from "../__testing__/test-fixtures.js";
  * `buildToolRegistry` fixture that builds the dispatch fresh off THIS test's
  * own `app`, bound with the OLD two-arg shape (`(ctx, options) => registry`)
  * so every call site below is unchanged.
- * @lore AU20 repair: read_inbox, write_session_notes, commit_file were deleted
- * by the AU20 destroyer pass. Tests that used them as dispatch vehicles are
- * ported to surviving tools (write_memory for handler routing and for
- * INVALID_INPUT — query_practice was itself deleted, its
- * only filter was `layer === 'L3'`).
+ * @lore the six document tools (`write_memory`/`create_artifact`/
+ * `promote_knowledge`/`create_conflict_review`/`merge_knowledge`/
+ * `split_knowledge`) are DELETED — `create_routine` is the new dispatch
+ * vehicle for handler-routing/INVALID_INPUT proof below (`create_team`'s
+ * seam route requires a `functions` field its tool input never sends and
+ * always 400s — a pre-existing gap out of scope here, so it stays off the
+ * dispatch-vehicle path).
  */
 const test = baseTest.extend<{
 	buildToolRegistry: (
@@ -32,10 +33,7 @@ const test = baseTest.extend<{
 	) => ToolRegistry<HyperIdleDb>;
 }>({
 	buildToolRegistry: async ({ app }, use) => {
-		const definitions = buildToolDefinitions(
-			createInProcessCoreApiTransport(app),
-			THROWING_OPEN_TASK,
-		);
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
 		await use((ctx, options) =>
 			buildToolRegistryFromDefinitions<HyperIdleDb>(definitions, ctx, options),
 		);
@@ -49,65 +47,40 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdle
 		agentId: "agent-x",
 		sessionId: "session-x",
 		taskId: "task-x",
-		// @lore write_memory falls back to `openTask` only when `teamId` is
-		// absent from the context — setting it here keeps this test's dispatch
-		// vehicle off the THROWING_OPEN_TASK stub, which is deliberately wired
-		// below so a test that DOES reach `openTask` fails loudly instead of
-		// silently exercising a stub.
 		teamId: "team-x",
 		sandboxPath: path.join(os.tmpdir(), `hyperidle-d4-registry-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
 }
 
+const NOW = "2026-09-21T00:00:00.000Z";
+
+/** Seeds a team + agent for `create_routine`'s `ownerAgentId` foreign key. */
+async function seedAgent(db: HyperIdleDb): Promise<string> {
+	const teamId = `team-${Date.now()}`;
+	const agentId = `agent-${Date.now()}`;
+	await db
+		.insert(teams)
+		.values({ id: teamId, name: "Registry Team", phase: "build", createdAt: NOW });
+	await db.insert(users).values({
+		id: agentId,
+		name: "Registry Agent",
+		role: "builder",
+		status: "active",
+		teamId,
+		createdAt: NOW,
+	});
+	return agentId;
+}
+
 describe("buildToolRegistry", () => {
-	test("returns the canonical set of skill tools", ({ db, eventBus, buildToolRegistry }) => {
+	// @lore the six document tools are gone — the catalog is now exactly the
+	// four AE3 management tools.
+	test("returns the canonical set of management tools", ({ db, eventBus, buildToolRegistry }) => {
 		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" }); // @lore AD8a: role string renamed to "assistant" in AD8b
 		const names = registry.definitions.map((d) => d.name).sort();
-		expect(names).toEqual(
-			[
-				// @lore BC3 architecture.md §5 B4: create_item/send_message/reply/
-				// submit_review deleted — send_message reappears as an action,
-				// projected the same way edit_task is; the other three have no
-				// successor tool.
-				"write_memory",
-				// G1 facilitator tools (`route_item` deleted outright as vestigial —
-				// AU21 §6 Decision L3, not merely re-narrowed)
-				// score_attention + run_knowledge_sweep deleted
-				"promote_knowledge",
-				"create_conflict_review",
-				// R6 artifact tools
-				"create_artifact",
-				// AE3 management tools
-				"create_team",
-				"add_agent",
-				"create_routine",
-				"update_routine",
-				// BA9d wave 2: knowledge merge and split
-				"merge_knowledge",
-				"split_knowledge",
-				// @lore AU20 repair: read_inbox, write_session_notes, commit_file removed
-				// run_knowledge_sweep and score_attention were deleted with the
-				// attention engine.
-				// the architecture doc §7/§8 B1: handoff_to, create_task, edit_task
-				// (the old tool body) and log_task are deleted from THIS registry —
-				// they are projected instead from the action list
-				// (`search_tasks`/`open_task`/`edit_task`), composed in at
-				// `buildToolRegistry`'s call site, not `buildToolDefinitions` — this
-				// fixture builds definitions directly, so the action-projected trio
-				// never appears here.
-			].sort(),
-		);
-		// 9 base tools + create_task (R5) + submit_review (R5) + create_artifact (R6) = 12
-		// + 4 AE3 management tools: create_team, add_agent, create_routine, update_routine = 16
-		// BB1: create_bet + edit_bet deleted; edit_task added = 17
-		// + 1 AU27: reply = 18
-		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
-		// score_attention and run_knowledge_sweep deleted with the attention engine = 18
-		// handoff_to, create_task, edit_task (old body) and log_task deleted with
-		// the task action list = 14
-		// create_item/send_message/reply/submit_review deleted = 10
-		expect(registry.definitions).toHaveLength(10);
+		expect(names).toEqual(["add_agent", "create_routine", "create_team", "update_routine"]);
+		expect(registry.definitions).toHaveLength(4);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({
@@ -143,12 +116,14 @@ describe("buildToolRegistry", () => {
 
 		test("routes to the matching handler by name", async ({ db, eventBus, buildToolRegistry }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
-			// @lore AU20 repair: was read_inbox (deleted) — ported to query_practice, which
-			// was then deleted too (its only filter was `layer === 'L3'`).
-			// write_memory is the new dispatch vehicle.
-			const result = await registry.invoke("write_memory", {
-				title: "Routing check",
-				body: "Proves dispatch reaches the handler.",
+			const agentId = await seedAgent(db);
+			// @lore the six document tools (write_memory among them) are deleted —
+			// create_routine is the new dispatch vehicle.
+			const result = await registry.invoke("create_routine", {
+				name: "Routing check routine",
+				ownerAgentId: agentId,
+				triggerType: "calendar",
+				triggerConfig: JSON.stringify({ cron: "0 9 * * 1-5" }),
 			});
 			expect(result.success).toBe(true);
 		});
@@ -159,11 +134,8 @@ describe("buildToolRegistry", () => {
 			buildToolRegistry,
 		}) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
-			// @lore AU20 repair: was read_inbox { limit: "not-a-number" } (deleted) — ported to
-			// query_practice, which was then deleted too. `title` is required.
-			const result = await registry.invoke("write_memory", {
-				body: "No title.",
-			});
+			// @lore create_routine's `name`/`ownerAgentId`/`triggerType` are required.
+			const result = await registry.invoke("create_routine", {});
 			expect(result.success).toBe(false);
 			if (!result.success) {
 				expect(result.code).toBe("INVALID_INPUT");

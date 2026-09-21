@@ -5,7 +5,6 @@ import {
 	createInProcessCoreApiTransport,
 	unconfiguredCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
@@ -13,32 +12,11 @@ import { buildToolRegistry, toClaudeToolSpec } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
-// @lore AU20 repair: read_inbox, write_session_notes, commit_file deleted by the destroyer pass.
-// the architecture doc §7/§8 B1: handoff_to, create_task, edit_task (the old
-// tool body) and log_task are deleted from `buildToolDefinitions` — they are
-// projected instead from the action list (`search_tasks`/`open_task`/
-// `edit_task`), composed in only at `buildToolRegistry`'s real call site,
-// not this direct-definitions fixture.
-// @lore BC3 architecture.md §5 B4: create_item/send_message/reply/
-// submit_review deleted too — send_message reappears as an action, projected
-// the same way edit_task is; the other three have no successor tool.
-const EXPECTED_TOOL_NAMES = [
-	"write_memory",
-	// G1 facilitator tools (score_attention deleted)
-	"promote_knowledge",
-	"create_conflict_review",
-	// R6 artifact tools
-	"create_artifact",
-	// AE3 management tools (chief_of_staff / assistant)
-	"create_team",
-	"add_agent",
-	"create_routine",
-	"update_routine",
-	// BA9d wave 2: knowledge merge and split tools
-	"merge_knowledge",
-	"split_knowledge",
-	// run_knowledge_sweep deleted
-];
+// @lore the six document tools (`write_memory`/`create_artifact`/
+// `promote_knowledge`/`create_conflict_review`/`merge_knowledge`/
+// `split_knowledge`) are DELETED — the hand-written catalog is now exactly
+// the four AE3 management tools (chief_of_staff / assistant).
+const EXPECTED_TOOL_NAMES = ["create_team", "add_agent", "create_routine", "update_routine"];
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 	return {
@@ -54,10 +32,7 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 
 describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	test("registry produces one spec per expected tool name", ({ db, app }) => {
-		const definitions = buildToolDefinitions(
-			createInProcessCoreApiTransport(app),
-			THROWING_OPEN_TASK,
-		);
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
 		const specs = buildToolRegistry(definitions, makeContext(db), {
 			role: "assistant",
 		}).toClaudeToolSpecs();
@@ -78,7 +53,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		// introspection only) — the unconfigured transport (throws only if
 		// actually dialled) is honest here.
 		const registry = buildToolRegistry(
-			buildToolDefinitions(unconfiguredCoreApiTransport(), THROWING_OPEN_TASK),
+			buildToolDefinitions(unconfiguredCoreApiTransport()),
 			{
 				db: null as unknown as HyperIdleDb,
 				eventBus: new EventBus(),
@@ -109,10 +84,7 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 	});
 
 	test("each spec is JSON-serializable (no circular references)", ({ db, app }) => {
-		const definitions = buildToolDefinitions(
-			createInProcessCoreApiTransport(app),
-			THROWING_OPEN_TASK,
-		);
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
 		const specs = buildToolRegistry(definitions, makeContext(db), {
 			role: "assistant",
 		}).toClaudeToolSpecs();

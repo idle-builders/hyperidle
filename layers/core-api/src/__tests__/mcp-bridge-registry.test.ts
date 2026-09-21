@@ -2,7 +2,6 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { THROWING_OPEN_TASK } from "@hyperidle/agent-orchestration/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
@@ -24,10 +23,7 @@ describe("X2 MCP session custody", () => {
 		// @lore AU31 §3.2/§5: the tool definitions are built fresh off THIS
 		// test's own `app` — no ambient global to register (the cross-test
 		// bleed architecture.md §3.2 names as the reason it's deleted).
-		const definitions = buildToolDefinitions(
-			createInProcessCoreApiTransport(app),
-			THROWING_OPEN_TASK,
-		);
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
 		const context: ToolContext<typeof db> = {
 			db,
 			eventBus: new EventBus(),

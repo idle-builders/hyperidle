@@ -3,21 +3,24 @@
  *
  * This is the goal the change is measured against, not a nice-to-have. Before
  * it, an agent had no path at all: the writeback that turns its files into
- * knowledge items is session-scoped, and a `create_artifact` needed a task. A
- * person could attach something to a conversation and an agent could not.
+ * knowledge items is session-scoped, and the (now-deleted) `create_artifact`
+ * tool needed a task. A person could attach something to a conversation and
+ * an agent could not.
  *
  * Both paths now go through one door — `POST /api/knowledge` with
  * `parentKind:"thread"`. That single door is what makes them indistinguishable,
  * and this test pins the properties that must not drift: same parent, same
  * status, same role, same shape on the way back out.
  *
- * **What this does not prove.** The two payloads below are the shapes the two
- * real call sites send (`create_artifact` in `tool-handlers/src/tool-definitions.ts`
- * for the agent; `AssistantOverlay`'s send path for the human), but this test
- * transcribes them rather than driving those call sites — one lives behind the
- * agent harness and the other in the browser. Each side asserts its own payload
- * in its own package. Closing the gap end to end is a harness-lane job, and the
- * harness lane has no CI runner by design.
+ * **What this does not prove.** The agent payload below is the shape
+ * `create_artifact` used to send (the tool is deleted with the rest of the
+ * document-tool sextet; a document-module successor is the agent's new real
+ * call site, tracked separately) — but this test transcribes the payload
+ * rather than driving a real call site: one lives behind the agent harness
+ * and the other (`AssistantOverlay`'s send path, for the human) in the
+ * browser. Each side asserts its own payload in its own package. Closing the
+ * gap end to end is a harness-lane job, and the harness lane has no CI
+ * runner by design.
  */
 
 import { type HyperIdleDb, teams, threads, users } from "@hyperidle/db";
@@ -83,8 +86,9 @@ describe("a human and an agent put an item into a conversation the same way", ()
 		const threadId = await seedThread(db);
 		const BODY = "## What was produced\n\nThe same content either way.";
 
-		// The agent's path: `create_artifact` takes the parent from its own
-		// context — the thread it is answering in — and never as an input.
+		// The agent's path: the deleted `create_artifact` took the parent from
+		// its own context — the thread it was answering in — and never as an
+		// input. Its successor (tracked separately) is expected to keep that.
 		const byAgent = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: headers(),
