@@ -20,7 +20,7 @@ import { AssistantContext, type AssistantContextRef } from "../contexts/Assistan
 import { ensureOverlayRoot, useDialogBehavior } from "../ds";
 import { useCommandK } from "../hooks/useCommandK";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
-import { useFetch } from "../hooks/useFetch";
+import { useDocuments } from "../hooks/useDocuments.js";
 import { useHistoryAvailability } from "../hooks/useHistoryAvailability.js";
 import { useNavShortcuts } from "../hooks/useNavShortcuts.js";
 import { useTeams } from "../hooks/useTeams";
@@ -95,9 +95,16 @@ function rowToItem(row: import("@hyperidle/domain-model").ThreadListRow): Thread
 	};
 }
 
-function deriveViewFromPath(pathname: string): ViewId {
+/**
+ * @lore BC4 §8.6: the Knowledge section's view id stays `"knowledge"` even
+ * though its route moved to `/documents` — the sidebar label and the view id
+ * are the one exception the rename never touches (founder ruling 3). This
+ * function is the one place that bridges the two: it reads the new path and
+ * returns the unchanged id.
+ */
+export function pathToView(pathname: string): ViewId {
 	if (pathname.startsWith("/work")) return "work";
-	if (pathname.startsWith("/knowledge")) return "knowledge";
+	if (pathname.startsWith("/documents")) return "knowledge";
 	return "conversations";
 }
 
@@ -158,7 +165,7 @@ export function AppShell(): JSX.Element {
 	const { user, status: userStatus, retry: retryUser } = useCurrentUser();
 	// @lore U6: useRail removed (Rail component deleted).
 
-	const activeView = useMemo(() => deriveViewFromPath(location.pathname), [location.pathname]);
+	const activeView = useMemo(() => pathToView(location.pathname), [location.pathname]);
 
 	// AE4: viewport breakpoint for mobile drawer
 	const { sidebarMobile } = useViewportBreakpoint();
@@ -259,10 +266,10 @@ export function AppShell(): JSX.Element {
 	 *   /work/task/:id              (task detail — any depth, replaces /work/bet/:id)
 	 *   /work/routine/:id           (routine detail)
 	 *   /work/team/:id              (team page — shows back arrow)
-	 *   /knowledge/:id              (knowledge detail, but NOT /knowledge/new)
+	 *   /documents/:id              (document detail, but NOT /documents/new)
 	 *   /agents/:id                 (agent detail)
 	 *
-	 * @lore AE4: /knowledge/new is a create page, not a detail view. The regex
+	 * @lore AE4: /documents/new is a create page, not a detail view. The regex
 	 * excludes "new" to prevent incorrectly showing a back arrow on the create page.
 	 */
 	const isDetailRoute = useMemo((): boolean => {
@@ -275,8 +282,8 @@ export function AppShell(): JSX.Element {
 		if (/^\/work\/routine\/[^/]+/.test(p)) return true;
 		// work/team/:id
 		if (/^\/work\/team\/[^/]+/.test(p)) return true;
-		// knowledge/:id — exclude "new"
-		if (/^\/knowledge\/(?!new$)[^/]+/.test(p)) return true;
+		// documents/:id — exclude "new"
+		if (/^\/documents\/(?!new$)[^/]+/.test(p)) return true;
 		// agents/:id
 		if (/^\/agents\/[^/]+/.test(p)) return true;
 		return false;
@@ -422,7 +429,7 @@ export function AppShell(): JSX.Element {
 				return;
 			}
 			if (view === "knowledge") {
-				navigate("/knowledge");
+				navigate("/documents");
 			}
 		},
 		[navigate, sidebarTeams],
@@ -499,9 +506,13 @@ export function AppShell(): JSX.Element {
 					navigate(safeId !== null ? `/work/task/${safeId}` : "/work");
 					break;
 				}
-				case "knowledge": {
+				// @lore BC4: the result "type" wire value is GlobalSearchPanel's
+				// ResultType (owned by a sibling block, architecture.md §8.6),
+				// which now emits "document" — this case and the destination
+				// path both moved to the new shape (§9): `/documents/:id`.
+				case "document": {
 					const safeId = sanitizeRouteId(id);
-					navigate(safeId !== null ? `/knowledge/${safeId}` : "/knowledge");
+					navigate(safeId !== null ? `/documents/${safeId}` : "/documents");
 					break;
 				}
 				case "conversation": {
@@ -611,33 +622,33 @@ export function AppShell(): JSX.Element {
 		return match ? (match[1] ?? null) : null;
 	}, [location.pathname]);
 
-	// AD9: fetch knowledge items for the Knowledge fast-nav list in the sidebar.
-	// Only the head of the list (first 5) is shown; the full list is on /knowledge.
-	// @lore NEW-24: refetch exposed so KnowledgeList's Retry can also clear the sidebar error.
+	// @lore BC4 §5.2/§9: fetch documents for the Knowledge fast-nav list in the
+	// sidebar through `useDocuments({inTree:true, limit:50})` —
+	// `call("search_documents", …)`, not a raw `/api/knowledge` fetch. Only
+	// the head of the list (first 5) is shown; the full list is on /documents.
+	// The nudge-driven refetch (§7) replaces the old manual `refetchSidebarKnowledge`.
 	const {
-		data: knowledgeListData,
-		isLoading: knowledgeLoading,
-		error: knowledgeError,
-		refetch: refetchSidebarKnowledge,
-	} = useFetch<{
-		items: ReadonlyArray<{ id: string; title: string; parentKind?: string | null }>;
-	}>("/api/knowledge");
-	// @lore nested-knowledge-items §4: the same parent rule KnowledgeList
+		documents: sidebarDocuments,
+		status: sidebarDocumentsStatus,
+		error: sidebarDocumentsError,
+		retry: retrySidebarDocuments,
+	} = useDocuments({ inTree: true, limit: 50 });
+	const knowledgeLoading = sidebarDocumentsStatus === "loading";
+	const knowledgeError = sidebarDocumentsStatus === "error" ? sidebarDocumentsError : null;
+	// @lore nested-knowledge-items §4: the same parent rule DocumentList
 	// applies — a role-carrying binding (skill/rule/agent identity/routine
-	// prompt) has a non-`knowledge_item` parent and is reached from its own
-	// surface, not the fast-nav.
+	// prompt) has a non-`document` parent and is reached from its own
+	// surface, not the fast-nav. `inTree` already excludes these server-side
+	// (architecture.md §5.1); the client keeps its own check too.
 	const sidebarKnowledgeItems = useMemo(
 		() =>
-			(knowledgeListData?.items ?? [])
+			sidebarDocuments
 				.filter(
-					(k) =>
-						k.parentKind === null ||
-						k.parentKind === undefined ||
-						k.parentKind === "knowledge_item",
+					(d) => d.parentKind === null || d.parentKind === undefined || d.parentKind === "document",
 				)
 				.slice(0, 5)
-				.map((k) => ({ id: k.id, title: k.title })),
-		[knowledgeListData],
+				.map((d) => ({ id: d.id, title: d.title })),
+		[sidebarDocuments],
 	);
 
 	// AE4: Derive blocking count from thread list (threads with unresolved reviews).
@@ -669,7 +680,7 @@ export function AppShell(): JSX.Element {
 		if (p.startsWith("/work/task/")) return "Work";
 		if (p.startsWith("/work/routine/")) return "Work";
 		if (p.startsWith("/work")) return "Work";
-		if (p.startsWith("/knowledge")) return "Knowledge";
+		if (p.startsWith("/documents")) return "Knowledge";
 		if (p.startsWith("/agents")) return "Agents";
 		return "HyperIdle";
 	}, [location.pathname, settingsOpen, selectedThreadId, conversationsThreads.threads]);
@@ -699,7 +710,7 @@ export function AppShell(): JSX.Element {
 		activeTeamId,
 		onSelectTeam: (id: string) => navigate(`/work/team/${encodeURIComponent(id)}`),
 		knowledgeItems: sidebarKnowledgeItems,
-		onSelectKnowledgeItem: (id: string) => navigate(`/knowledge/${encodeURIComponent(id)}`),
+		onSelectKnowledgeItem: (id: string) => navigate(`/documents/${encodeURIComponent(id)}`),
 		onAssistantClick: handleAssistantClick,
 		assistantOverlayOpen,
 		onSettingsClick: handleAvatarClick,
@@ -782,16 +793,16 @@ export function AppShell(): JSX.Element {
 									threads: conversationsThreads.threads,
 									threadsStatus: isThreadsError ? "error" : conversationsThreads.status,
 									threadsError: threadsErrorMessage,
-									// @lore NEW-24: also retries user+sidebar-knowledge fetches so the N5
+									// @lore NEW-24: also retries user+sidebar-document fetches so the N5
 									// short-circuit unblocks and the sidebar fully clears after an outage.
 									onRetryThreads: () => {
 										conversationsThreads.retry();
 										retryUser();
-										refetchSidebarKnowledge();
+										retrySidebarDocuments();
 									},
 									onRetryShell: () => {
 										retryUser();
-										refetchSidebarKnowledge();
+										retrySidebarDocuments();
 									},
 								} satisfies AppShellOutletContext
 							}

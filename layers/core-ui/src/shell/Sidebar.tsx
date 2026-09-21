@@ -50,7 +50,7 @@ import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 const VIEW_HREFS: Record<ViewId, string> = {
 	conversations: "/conversations",
 	work: "/work",
-	knowledge: "/knowledge",
+	knowledge: "/documents",
 };
 
 export interface SidebarThread {
@@ -89,7 +89,7 @@ export interface SidebarProps {
 	/** Handler for team sub-item click */
 	onSelectTeam: (id: string) => void;
 
-	/** Knowledge items for the fast-nav list (head of /knowledge list) */
+	/** Document items for the fast-nav list (head of /documents list) */
 	knowledgeItems?: ReadonlyArray<SidebarKnowledgeItem>;
 	/** Handler for knowledge item click */
 	onSelectKnowledgeItem?: (id: string) => void;
@@ -164,7 +164,7 @@ export interface SidebarProps {
 
 // ---------------------------------------------------------------------------
 // W3 AC-3: Knowledge scope sub-items removed.
-// Scopes are now handled as inline pills on the KnowledgeList page.
+// Scopes are now handled as inline pills on the DocumentList page.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -618,7 +618,7 @@ export function Sidebar({
 	const fastNavEmpty: Record<ViewId, string> = {
 		conversations: "No threads yet",
 		work: "No teams yet",
-		knowledge: "No knowledge yet",
+		knowledge: "No documents yet",
 	};
 
 	// Shared empty state empty message for non-active sections (shouldn't appear)
@@ -707,11 +707,11 @@ export function Sidebar({
 			if (visibleKnowledge.length === 0) {
 				// UI-013: suppress empty message while initial fetch is in flight
 				if (knowledgeLoading) return null;
-				// UI-013: honest error state — don't claim "No knowledge yet" when the API failed
+				// UI-013: honest error state — don't claim "No documents yet" when the API failed
 				if (knowledgeError) {
 					return (
 						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
-							Couldn't load knowledge
+							Couldn't load documents
 						</p>
 					);
 				}
@@ -728,7 +728,7 @@ export function Sidebar({
 							key={k.id}
 							label={k.title}
 							selected={false}
-							href={`/knowledge/${encodeURIComponent(k.id)}`}
+							href={`/documents/${encodeURIComponent(k.id)}`}
 							onClick={() => onSelectKnowledgeItem?.(k.id)}
 							data-knowledge-id={k.id}
 							data-testid={`fastnav-${k.id}`}
