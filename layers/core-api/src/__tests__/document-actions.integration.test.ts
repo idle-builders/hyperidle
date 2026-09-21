@@ -7,28 +7,6 @@
  * `thread-actions.integration.test.ts`/`task-actions.integration.test.ts`
  * exercise, generalised here to run every case through both rather than
  * defaulting to the HTTP door and spot-checking the MCP one.
- *
- * @lore KNOWN BLOCKER, not owned by this block. `document-actions.ts:586`
- * calls `deps.openParent(ctx, effectiveParent.kind, effectiveParent.id)`
- * with the OUTER `ctx` (so the OUTER `ctx.db`) from INSIDE
- * `ctx.db.transaction(async (tx) => {...})`. `task`/`thread` avoid this
- * exact trap — `task-actions.ts` calls `deps.openThread`/`deps.adjustThread`
- * strictly BEFORE its own transaction opens. PGlite is one embedded engine
- * (`framework/db/src/connection.ts`, `new PGlite(dataDir)`), not a
- * multi-connection pool: a query issued on the outer `db` while
- * `db.transaction()` is in flight on that SAME `db` deadlocks — confirmed
- * with an isolated repro (`db.transaction(async () => { await db.select()… })`
- * hangs past its own timeout, unconditionally, regardless of what it
- * queries). Every case below that actively sets a `task`/`thread` parent
- * (an explicit `parent`, or the `as:"artifact"` stamp — `parentActivelySet`
- * is `true` on every create) hits this and hangs for the full test timeout;
- * `deriveDefaultScope`'s OWN `openParent` call (`document-actions.ts:348`)
- * is safe because it runs before the transaction opens. Compose.ts cannot
- * route around this — `deps.openParent`'s only DB handle is the `ctx` it is
- * called with, and B7 owns no path to the transaction's `tx`. Not this
- * block's file to fix (`document-actions.ts` is B6a's); each affected case
- * below is given a short timeout so it fails fast and stays visibly red
- * instead of eating the suite's default 120s.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
@@ -496,11 +474,38 @@ describe("case 3 — an agent's memory is visible to its owner, not to a third p
 // Case 4 — as:"artifact" with no parent.
 // ---------------------------------------------------------------------------
 
-// Case 4 (create as:"artifact" with no explicit parent) is proven in the
-// "known blocker" describe at the end of this file — the agent arm's
-// stamped `task` parent hits the deadlock documented in the file header and
-// would otherwise corrupt the shared PGlite instance for every test that
-// runs after it in this file.
+describe('case 4 — create as:"artifact" with no explicit parent', () => {
+	test("agent arm stamps the calling task; human arm (no calling task) is refused artifact_no_parent", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c4");
+		await seedTaskWithThread(db, "c4-task-1", "c4");
+		await seedAgent(db, "c4-agent");
+		const actions = buildRealActions(agentOrchestration);
+
+		const agentResult = await callAgent<DocumentView>(
+			actions,
+			db,
+			eventBus,
+			"edit_document",
+			{ title: "agent artifact", as: "artifact" },
+			{ agentId: "c4-agent", sessionId: "c4-sess", taskId: "c4-task-1" },
+		);
+		const agentDoc = requireDoc(agentResult).document;
+		expect(agentDoc.parentKind).toBe("task");
+		expect(agentDoc.parentId).toBe("c4-task-1");
+
+		const humanResult = await callHuman<DocumentView>(app, "edit_document", {
+			title: "human artifact",
+			as: "artifact",
+		});
+		expect(humanResult.ok).toBe(false);
+		expect(humanResult.problemCode).toBe("artifact_no_parent");
+	});
+});
 
 // ---------------------------------------------------------------------------
 // Case 5 — a three-level tree: ancestors root-first, ordered children,
@@ -576,11 +581,46 @@ describe("case 5 — a tree: ancestors root-first, ordered children, siblings ex
 // documents.
 // ---------------------------------------------------------------------------
 
-// Case 6 (search_documents({inTree:true}) excludes artifacts and slotted
-// documents) is proven in the "known blocker" describe at the end of this
-// file — the artifact seed's agent-door create hits the deadlock documented
-// in the file header and would otherwise corrupt the shared PGlite instance
-// for every test that runs after it in this file.
+describe("case 6 — search_documents({inTree:true}) excludes artifacts and slotted documents", () => {
+	test("both doors", async ({ app, db, eventBus, agentOrchestration }) => {
+		await seedTeam(db, "c6");
+		await seedTaskWithThread(db, "c6-task-1", "c6");
+		await seedAgent(db, "c6-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c6-agent",
+			sessionId: "c6-sess",
+		});
+
+		const plain = requireDoc((await doors.edit({ title: "c6-plain" })).human).document.id;
+		const artifact = requireDoc(
+			(
+				await doors.edit({ title: "c6-artifact", as: "artifact" }, undefined, {
+					taskId: "c6-task-1",
+				})
+			).agent,
+		).document.id;
+		const prompt = requireDoc(
+			(
+				await doors.edit({
+					title: "c6-prompt",
+					slot: "prompt",
+					parent: { kind: "routine", id: "c6-routine-1" },
+				})
+			).human,
+		).document.id;
+
+		const { human, agent } = await doors.search({ inTree: true });
+		const humanIds = (human.data ?? []).map((d) => d.id);
+		const agentIds = (agent.data ?? []).map((d) => d.id);
+		expect(humanIds).toContain(plain);
+		expect(humanIds).not.toContain(artifact);
+		expect(humanIds).not.toContain(prompt);
+		expect(agentIds).toContain(plain);
+		expect(agentIds).not.toContain(artifact);
+		expect(agentIds).not.toContain(prompt);
+	});
+});
 
 // ---------------------------------------------------------------------------
 // Case 7 — search_documents({as:"memory"}) returns only the caller's own.
@@ -1083,10 +1123,26 @@ describe("case 9 — every §4.1/§4.2 invariant, exact code, both doors", () =>
 		expect(agent.problemCode).toBe("not_found");
 	});
 
-	// D2 parent_not_found is proven in the "known blocker" describe at the
-	// end of this file — it hits the deadlock documented in the file header
-	// and would otherwise corrupt the shared PGlite instance for every test
-	// that runs after it in this file.
+	test('D2 parent_not_found: parent:{kind:"task", id:"nope"}', async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c9d2");
+		await seedAgent(db, "c9d2-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c9d2-agent",
+			sessionId: "c9d2-sess",
+		});
+		const { human, agent } = await doors.edit({
+			title: "x",
+			parent: { kind: "task", id: "nope" },
+		});
+		expect(human.problemCode).toBe("parent_not_found");
+		expect(agent.problemCode).toBe("parent_not_found");
+	});
 
 	test("D3 cycle: move a root under its own grandchild", async ({
 		app,
@@ -1348,10 +1404,28 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		expect(human.problemCode).toBe("slotted_document_cannot_move");
 	});
 
-	// §4.3 case 3 (as:"artifact" + an explicit thread parent) is proven in the
-	// "known blocker" describe at the end of this file — it hits the same
-	// deadlock as D2 and would otherwise corrupt the shared PGlite instance
-	// for every test that runs after it in this file.
+	test('§4.3 case 3 — as:"artifact" + an explicit thread parent wins over the calling task\'s stamp', async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c10c3");
+		await seedTaskWithThread(db, "c10c3-task", "c10c3");
+		await seedThreadRow(db, "c10c3-thread", "c10c3");
+		await seedAgent(db, "c10c3-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const result = await callAgent<DocumentView>(
+			actions,
+			db,
+			eventBus,
+			"edit_document",
+			{ title: "artifact", as: "artifact", parent: { kind: "thread", id: "c10c3-thread" } },
+			{ agentId: "c10c3-agent", sessionId: "c10c3-sess", taskId: "c10c3-task" },
+		);
+		const doc = requireDoc(result).document;
+		expect(doc.parentKind).toBe("thread");
+		expect(doc.parentId).toBe("c10c3-thread");
+	});
 
 	test("§4.3 case 4 — a stale edit writes nothing, and cascades nothing", async ({ app, db }) => {
 		await seedTeam(db, "c10c4");
@@ -1481,12 +1555,39 @@ describe("case 10 — the combined cases of §4.3 (2, 3, 4, 5, 6, 7, 8)", () => 
 		expect(reread.document.title).toBe("A's title");
 	});
 
-	// §4.3 case 8's successful "shared artifact" create (stamped to a real
-	// task) is proven in the "known blocker" describe at the end of this
-	// file — it hits the same deadlock as D2 and would otherwise corrupt the
-	// shared PGlite instance for every test that runs after it in this file.
+	test("§4.3 case 8 (successful half) — a shared task's artifact is readable across teams", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c10c8-a");
+		await seedTeam(db, "c10c8-b");
+		await seedTaskWithThread(db, "c10c8-task", "c10c8-a");
+		await seedHuman(db, "c10c8-teammate-b", "c10c8-b");
+		await seedAgent(db, "c10c8-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const artifact = requireDoc(
+			await callAgent<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{ title: "shared artifact", as: "artifact" },
+				{ agentId: "c10c8-agent", sessionId: "c10c8-sess", taskId: "c10c8-task" },
+			),
+		).document.id;
+		const readByOtherTeam = await callHuman<DocumentView>(
+			app,
+			"open_document",
+			{ id: artifact },
+			actorHeaders("c10c8-teammate-b"),
+		);
+		expect(readByOtherTeam.ok).toBe(true);
+	});
+
 	// The refused (private-scope) half is pure-invariant-rejected before any
-	// DB write and stays here, unaffected.
+	// DB write.
 	test("§4.3 case 8 (refused half) — as:artifact + a private scope is refused", async ({
 		db,
 		eventBus,
@@ -1857,12 +1958,27 @@ describe("case 14 — the scope cascade family", () => {
 		expect(childRow.scopeKind).toBe("team");
 	});
 
-	// 1f (a memory can never be in the tree — refused by I4) is left out of
-	// this commit: it intermittently failed with `expected ok:true, got {}`
-	// on the create step, alongside an "Unhandled error: Failed query:
-	// insert into changes" the server logged for that same call — a real
-	// symptom, but not one this pass diagnosed to a root cause. See the
-	// report for the exact repro.
+	test("1f a memory can never be in the tree — refused by I4, so no cascade can ever touch it", async ({
+		app,
+		db,
+	}) => {
+		await seedTeam(db, "c14f");
+		const parent = requireDoc(
+			await callHuman<DocumentView>(app, "edit_document", {
+				title: "parent",
+				scopeKind: "factory",
+			}),
+		).document.id;
+		const refused = await callHuman<DocumentView>(app, "edit_document", {
+			title: "sneaky memory",
+			as: "memory",
+			parent: { kind: "document", id: parent },
+		});
+		expect(refused.ok).toBe(false);
+		expect(refused.problemCode).toBe("memory_has_parent");
+		const rows = await db.select().from(documents).where(eq(documents.title, "sneaky memory"));
+		expect(rows).toHaveLength(0);
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -1982,23 +2098,127 @@ describe("case 16 — search_documents raises nothing; edit_document is never a 
 });
 
 // ---------------------------------------------------------------------------
-// Case 17 — unusedSince and sort:"least_used" — left out of this commit.
-// It intermittently failed with `expected ok:true, got {}` on the
-// "c17-recent" create, alongside an "Unhandled error: Failed query: insert
-// into changes" the server logged for that same call — the same
-// unexplained symptom as 1f above. See the report for the exact repro.
+// Case 17 — unusedSince and sort:"least_used".
 // ---------------------------------------------------------------------------
+
+async function seedDocumentRow(
+	db: HyperIdleDb,
+	overrides: Partial<typeof documents.$inferInsert> & { id: string },
+): Promise<void> {
+	const ts = "2020-01-01T00:00:00.000Z";
+	await db.insert(documents).values({
+		title: overrides.id,
+		body: "x",
+		format: "markdown",
+		status: "active",
+		scopeKind: "factory",
+		updatedBy: FOUNDER_ID,
+		createdAt: ts,
+		updatedAt: ts,
+		...overrides,
+	});
+}
+
+describe('case 17 — unusedSince and sort:"least_used"', () => {
+	test("both doors: unusedSince excludes a document created yesterday, includes one older than the cutoff; least_used puts the never-used first", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c17");
+		await seedAgent(db, "c17-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c17-agent",
+			sessionId: "c17-sess",
+		});
+
+		const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+		await seedDocumentRow(db, { id: "c17-recent", createdAt: yesterday, updatedAt: yesterday });
+		await seedDocumentRow(db, { id: "c17-old" });
+
+		const cutoff = "2024-01-01T00:00:00.000Z";
+		const { human, agent } = await doors.search({ unusedSince: cutoff });
+		const humanIds = (human.data ?? []).map((d) => d.id);
+		const agentIds = (agent.data ?? []).map((d) => d.id);
+		expect(humanIds).toContain("c17-old");
+		expect(humanIds).not.toContain("c17-recent");
+		expect(agentIds).toContain("c17-old");
+		expect(agentIds).not.toContain("c17-recent");
+
+		await seedDocumentRow(db, { id: "c17-used", lastUsedAt: "2026-05-01T00:00:00.000Z" });
+		const sorted = await doors.search({ ids: ["c17-old", "c17-used"], sort: "least_used" });
+		expect((sorted.human.data ?? []).map((d) => d.id)).toEqual(["c17-old", "c17-used"]);
+		expect((sorted.agent.data ?? []).map((d) => d.id)).toEqual(["c17-old", "c17-used"]);
+	});
+});
 
 // ---------------------------------------------------------------------------
 // Cross-door proof — the same input through both doors yields deep-equal
-// `data`, modulo ids and timestamps — left out of this commit. It
-// intermittently failed on a `readCount` mismatch (the human door's own
-// `open_document` call left `readCount` at 0 instead of 1, which only
-// happens when `bumpRead` throws and its catch — a deliberate
-// fire-and-forget per architecture.md §6.7 — swallows it): the same
-// unexplained symptom as 1f/case 17 above, manifesting silently here
-// instead of as a thrown error. See the report for the exact repro.
+// `data`, modulo ids and timestamps.
 // ---------------------------------------------------------------------------
+
+describe("cross-door proof — identical input yields deep-equal data, modulo ids and timestamps", () => {
+	test("both doors: the same edit_document input produces the same document shape", async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "cdp1");
+		await seedAgent(db, "cdp1-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "cdp1-agent",
+			sessionId: "cdp1-sess",
+		});
+
+		const { human, agent } = await doors.edit({
+			title: "Cross-door parity",
+			body: "same content",
+			format: "markdown",
+			status: "active",
+		});
+		const humanDoc = requireDoc(human).document;
+		const agentDoc = requireDoc(agent).document;
+
+		// `id`/`updatedBy`/`scopeId`/timestamps are the point of difference (two
+		// distinct actors, two distinct rows); `position` is a shared root-level
+		// sequence, not a per-actor counter (case 1's own comment) — the human
+		// door runs first in `buildDoors`'s `both()`, so it always claims the
+		// lower slot. Every other field must agree exactly.
+		const strip = (d: DocumentRow) => {
+			const {
+				id: _id,
+				updatedBy: _updatedBy,
+				scopeId: _scopeId,
+				position: _position,
+				createdAt: _createdAt,
+				updatedAt: _updatedAt,
+				...rest
+			} = d;
+			return rest;
+		};
+		expect(strip(humanDoc)).toEqual(strip(agentDoc));
+
+		const humanOpen = requireDoc(
+			await callHuman<DocumentView>(app, "open_document", { id: humanDoc.id }),
+		).document;
+		const agentOpen = requireDoc(
+			await callAgent<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"open_document",
+				{ id: agentDoc.id },
+				{ agentId: "cdp1-agent", sessionId: "cdp1-sess" },
+			),
+		).document;
+		expect(humanOpen.readCount).toBe(1);
+		expect(agentOpen.readCount).toBe(1);
+	});
+});
 
 // ---------------------------------------------------------------------------
 // Cross-door proof — `onBodyChanged` really marks a plugin-contributed
@@ -2078,176 +2298,21 @@ describe("HTTP door — 422 problem lists", () => {
 		expect(body.problems?.length ?? 0).toBeGreaterThan(0);
 	});
 
-	// "a successful edit returns 200" is left out of this commit: it
-	// intermittently returned a 500 instead of 200, alongside an "Unhandled
-	// error: Failed query: insert into changes" the server logged for that
-	// same call — the same unexplained symptom as 1f/case 17 above. Case 1
-	// and case 11 already prove a successful edit's 200 shape end to end
-	// (data.document, changes-row count) through this exact door, so the
-	// wire contract itself is not unproven — only this one repeat of it is
-	// missing. See the report for the exact repro.
-});
-
-// ---------------------------------------------------------------------------
-// Known blocker — every case that hits the deadlock documented in the file
-// header (a `task`/`thread` parent, active on create or an explicit move,
-// checked inside `edit_document`'s own transaction via the outer `ctx.db`).
-// Deliberately LAST in the file: each one's abandoned `ctx.db.transaction()`
-// promise keeps running after vitest gives up on it, permanently occupying
-// PGlite's single execution queue for the rest of the run — proven by moving
-// case 5 (which touches none of this) directly after case 4 and watching it
-// inherit a 120s hang it does not have in isolation. Placing every such case
-// after everything else confines the damage to nothing.
-// ---------------------------------------------------------------------------
-
-describe("known blocker — task/thread parent inside edit_document's transaction deadlocks on PGlite", () => {
-	test('D2 parent_not_found: parent:{kind:"task", id:"nope"}', async ({
-		app,
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedTeam(db, "c9d2");
-		await seedAgent(db, "c9d2-agent");
-		const actions = buildRealActions(agentOrchestration);
-		const doors = buildDoors(app, actions, db, eventBus, {
-			agentId: "c9d2-agent",
-			sessionId: "c9d2-sess",
+	test("a successful edit returns 200", async ({ app, db }) => {
+		// `changes.actor` FKs to `users.id` — the auth middleware resolves an
+		// unseeded DB's actor to the literal string "u-founder" regardless
+		// (`resolveApiKeyActorUserId`'s documented fallback), so the write
+		// needs a real founder row to satisfy the FK, exactly like every other
+		// case in this file seeds one via `seedTeam`.
+		await seedTeam(db, "c422-200");
+		const res = await app.request("/api/actions/edit_document", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ title: "HTTP 200 proof", body: "x" }),
 		});
-		const { human, agent } = await doors.edit({
-			title: "x",
-			parent: { kind: "task", id: "nope" },
-		});
-		expect(human.problemCode).toBe("parent_not_found");
-		expect(agent.problemCode).toBe("parent_not_found");
-	}, 8_000);
-
-	test('case 4 — create as:"artifact" with no explicit parent: the agent arm stamps the calling task', async ({
-		app,
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedTeam(db, "c4");
-		await seedTaskWithThread(db, "c4-task-1", "c4");
-		await seedAgent(db, "c4-agent");
-		const actions = buildRealActions(agentOrchestration);
-
-		const agentResult = await callAgent<DocumentView>(
-			actions,
-			db,
-			eventBus,
-			"edit_document",
-			{ title: "agent artifact", as: "artifact" },
-			{ agentId: "c4-agent", sessionId: "c4-sess", taskId: "c4-task-1" },
-		);
-		const agentDoc = requireDoc(agentResult).document;
-		expect(agentDoc.parentKind).toBe("task");
-		expect(agentDoc.parentId).toBe("c4-task-1");
-
-		const humanResult = await callHuman<DocumentView>(app, "edit_document", {
-			title: "human artifact",
-			as: "artifact",
-		});
-		expect(humanResult.ok).toBe(false);
-		expect(humanResult.problemCode).toBe("artifact_no_parent");
-	}, 8_000);
-
-	test("case 6 — search_documents({inTree:true}) excludes artifacts and slotted documents", async ({
-		app,
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedTeam(db, "c6");
-		await seedTaskWithThread(db, "c6-task-1", "c6");
-		await seedAgent(db, "c6-agent");
-		const actions = buildRealActions(agentOrchestration);
-		const doors = buildDoors(app, actions, db, eventBus, {
-			agentId: "c6-agent",
-			sessionId: "c6-sess",
-		});
-
-		const plain = requireDoc((await doors.edit({ title: "c6-plain" })).human).document.id;
-		const artifact = requireDoc(
-			(
-				await doors.edit({ title: "c6-artifact", as: "artifact" }, undefined, {
-					taskId: "c6-task-1",
-				})
-			).agent,
-		).document.id;
-		const prompt = requireDoc(
-			(
-				await doors.edit({
-					title: "c6-prompt",
-					slot: "prompt",
-					parent: { kind: "routine", id: "c6-routine-1" },
-				})
-			).human,
-		).document.id;
-
-		const { human, agent } = await doors.search({ inTree: true });
-		const humanIds = (human.data ?? []).map((d) => d.id);
-		const agentIds = (agent.data ?? []).map((d) => d.id);
-		expect(humanIds).toContain(plain);
-		expect(humanIds).not.toContain(artifact);
-		expect(humanIds).not.toContain(prompt);
-		expect(agentIds).toContain(plain);
-		expect(agentIds).not.toContain(artifact);
-		expect(agentIds).not.toContain(prompt);
-	}, 8_000);
-
-	test('§4.3 case 3 — as:"artifact" + an explicit thread parent wins over the calling task\'s stamp', async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedTeam(db, "c10c3");
-		await seedTaskWithThread(db, "c10c3-task", "c10c3");
-		await seedThreadRow(db, "c10c3-thread", "c10c3");
-		await seedAgent(db, "c10c3-agent");
-		const actions = buildRealActions(agentOrchestration);
-		const result = await callAgent<DocumentView>(
-			actions,
-			db,
-			eventBus,
-			"edit_document",
-			{ title: "artifact", as: "artifact", parent: { kind: "thread", id: "c10c3-thread" } },
-			{ agentId: "c10c3-agent", sessionId: "c10c3-sess", taskId: "c10c3-task" },
-		);
-		const doc = requireDoc(result).document;
-		expect(doc.parentKind).toBe("thread");
-		expect(doc.parentId).toBe("c10c3-thread");
-	}, 8_000);
-
-	test("§4.3 case 8 (successful half) — a shared task's artifact is readable across teams", async ({
-		app,
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedTeam(db, "c10c8-a");
-		await seedTeam(db, "c10c8-b");
-		await seedTaskWithThread(db, "c10c8-task", "c10c8-a");
-		await seedHuman(db, "c10c8-teammate-b", "c10c8-b");
-		await seedAgent(db, "c10c8-agent");
-		const actions = buildRealActions(agentOrchestration);
-		const artifact = requireDoc(
-			await callAgent<DocumentView>(
-				actions,
-				db,
-				eventBus,
-				"edit_document",
-				{ title: "shared artifact", as: "artifact" },
-				{ agentId: "c10c8-agent", sessionId: "c10c8-sess", taskId: "c10c8-task" },
-			),
-		).document.id;
-		const readByOtherTeam = await callHuman<DocumentView>(
-			app,
-			"open_document",
-			{ id: artifact },
-			actorHeaders("c10c8-teammate-b"),
-		);
-		expect(readByOtherTeam.ok).toBe(true);
-	}, 8_000);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as ActionEnvelope<DocumentView>;
+		expect(body.ok).toBe(true);
+		expect(body.data?.document.title).toBe("HTTP 200 proof");
+	});
 });
