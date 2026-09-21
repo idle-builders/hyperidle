@@ -63,8 +63,6 @@ function inertPorts(): RoutineSchedulerPorts {
 			findThreadById: unreachable("conversation.findThreadById"),
 		},
 		knowledge: {
-			runAutoPromotionSweep: unreachable("knowledge.runAutoPromotionSweep"),
-			runStaleSweep: unreachable("knowledge.runStaleSweep"),
 			getItemById: unreachable("knowledge.getItemById"),
 		},
 		settings: { readServerConfig: unreachable("settings.readServerConfig") },

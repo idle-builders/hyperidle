@@ -1,7 +1,6 @@
 // @lore BB1: Bet import removed — bet is now a root task; getBetById deleted.
 import type { HyperIdleDb, Team, User, WriteExecutor } from "@hyperidle/db";
 import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
 
 /**
  * AU21 §9 Increment 4 — the routine scheduler (relocated from
@@ -73,22 +72,6 @@ export interface RoutineSchedulerPorts {
 		>;
 	};
 	readonly knowledge: {
-		runAutoPromotionSweep(
-			db: HyperIdleDb,
-			eventBus: EventBus,
-		): Promise<{
-			readonly promotedIds: readonly string[];
-			readonly flaggedForReviewIds: readonly string[];
-			readonly skippedIds: readonly string[];
-			readonly scanned: number;
-		}>;
-		runStaleSweep(
-			db: HyperIdleDb,
-			eventBus: EventBus,
-			nowMs: number,
-			thresholdMs: number | undefined,
-			options: { readonly silent: boolean },
-		): Promise<{ readonly markedIds: readonly string[] }>;
 		/**
 		 * BA9c: Load a knowledge item row for trigger event subject assembly.
 		 * Called for knowledge_created/updated/archived events.

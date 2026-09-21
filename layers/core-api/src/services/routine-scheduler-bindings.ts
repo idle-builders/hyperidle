@@ -30,7 +30,6 @@ import {
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getRoutinePrompt,
-	sweep,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import {
@@ -75,9 +74,6 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
 		knowledge: {
-			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
-			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
-				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
 			// BA9c: getItemById — knowledge item for knowledge_* events.
 			getItemById: async (db, id) => {
 				const item = await getKnowledgeItem(db, id);

@@ -39,7 +39,6 @@ import {
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getParentedItem,
-	sweep,
 } from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
@@ -82,9 +81,6 @@ function makePorts(): RoutineSchedulerPorts {
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
 		knowledge: {
-			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
-			runStaleSweep: (db, eventBus, nowMs, thresholdMs, options) =>
-				sweep(db, eventBus, "stale", { nowMs, thresholdMs, ...options }),
 			getItemById: async (db, id) => {
 				const item = await getKnowledgeItem(db, id);
 				return item ?? undefined;

@@ -82,7 +82,6 @@ export {
 	upsertAgentIdentity,
 	upsertKnowledgeDocument,
 } from "./knowledge-repository.js";
-export { sweep } from "./promotion-pipeline.js";
 // @lore BC3 architecture.md §5 B7b: `review-item-factory.ts` DELETED —
 // `createReviewItem`/`attentionReviewReasoningMarker`/`CreateReviewItemInput`/
 // `CreateReviewItemResult` go with the `items` table. The stalled-knowledge-

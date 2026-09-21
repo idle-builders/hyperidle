@@ -9,8 +9,7 @@
  *
  * Consumer demand:
  *   export surface:    listExportableItems, getProjectionByItemId
- *   dispatch:          runAutoPromotionSweep, runStaleSweep,
- *                      recomputeAttentionForCandidates
+ *   dispatch:          recomputeAttentionForCandidates
  *   session-requests:  findById
  *   tool-handlers:     search, create, findKnowledgeItemVersionById,
  *                      findKnowledgeItemStatusById, findOpenConflictByItemAndProposer,
@@ -21,16 +20,13 @@
  * Atomic/concurrency guarantees pinned:
  *   - promoteKnowledgeItem: CAS conditional-UPDATE, CONFLICT_OPEN gate,
  *     CONCURRENT_MODIFICATION when status already changed
- *   - runStaleSweep / markStale: CAS conditional-UPDATE (active only)
  *   - update(): VersionConflictError on stale version, ItemDeletedError on missing row
  *   - upsertKnowledgeAppProjectionAttentionScore: upsert (update-or-insert)
  *
  * @lore nested-knowledge-items: `layer`/`kind`/`topic` are gone with the
  * vocabularies they carried (plan.md "the two jobs, separated"). Cases G
  * (`list({recentByLayers})`) and the layer/kind half of case D are DELETED —
- * that vocabulary no longer exists to round-trip. Case K's cross-scope
- * repetition signature moves from `(layer, topic, kind)` to the sibling set
- * (`parentKind`/`parentId`) — see `promotion-pipeline.ts`.
+ * that vocabulary no longer exists to round-trip.
  */
 import {
 	type HyperIdleDb,
@@ -40,26 +36,15 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/domain-model";
-import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { VersionConflictError } from "../errors.js";
 import { findOpenConflict, recordConflict } from "../knowledge-conflicts.js";
 import { count, create, get, list, search, transition, update } from "../knowledge-repository.js";
-import { sweep } from "../promotion-pipeline.js";
 import type { KnowledgeStatus } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Real EventBus instance used as test double — promotion-pipeline only calls
- * emit(); no handlers registered so events fire into the void.
- * @lore AU20 K2-writes: replaced `{ emit: () => void }` object literal which
- * was not assignable to `EventBus` (class with private fields).
- */
-const mockEventBus = new EventBus();
-const STALE_THRESHOLD_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Seed a knowledge item + projection row via the real create() function. */
 async function seedItem(
@@ -373,133 +358,6 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 		if (!result.ok) {
 			expect(result.code).toBe("CONCURRENT_MODIFICATION");
 		}
-	});
-});
-
-// ===========================================================================
-// K. runAutoPromotionSweep — dispatch.runAutoPromotionSweep
-// @lore nested-knowledge-items §4: the cross-scope repetition key is now the
-// sibling set (same parentKind/parentId), replacing (layer, topic, kind).
-// ===========================================================================
-
-describe("runAutoPromotionSweep: promotes proposed items at 5+ cross-scope repetitions", () => {
-	test("promotes items that meet the cross-scope repetition threshold (5+)", async ({ db }) => {
-		const parent = await seedItem(db, { title: "Shared pattern parent" });
-		const promotable: string[] = [];
-		for (let i = 1; i <= 5; i++) {
-			const item = await seedItem(db, {
-				status: "proposed",
-				scopeKind: "team",
-				scopeId: `team-${i}`,
-				parentKind: "knowledge_item",
-				parentId: parent.id,
-			});
-			promotable.push(item.id);
-		}
-
-		const result = await sweep(db, mockEventBus, "autoPromotion");
-
-		// All 5 items should be promoted (no open conflicts).
-		expect(result.promotedIds.length).toBeGreaterThanOrEqual(5);
-		for (const id of promotable) {
-			expect(result.promotedIds).toContain(id);
-		}
-		expect(result.flaggedForReviewIds).toHaveLength(0);
-
-		// DB rows updated.
-		for (const id of promotable) {
-			const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id));
-			expect(row?.status).toBe("active");
-		}
-	});
-
-	test("skips items with fewer than 5 distinct scopes", async ({ db }) => {
-		const parent = await seedItem(db, { title: "Small pattern parent" });
-		// Only 3 items — not enough for auto-promotion.
-		for (let i = 1; i <= 3; i++) {
-			await seedItem(db, {
-				status: "proposed",
-				scopeKind: "team",
-				scopeId: `scope-${i}`,
-				parentKind: "knowledge_item",
-				parentId: parent.id,
-			});
-		}
-
-		const result = await sweep(db, mockEventBus, "autoPromotion");
-
-		expect(result.promotedIds).toHaveLength(0);
-		expect(result.skippedIds.length).toBeGreaterThanOrEqual(3);
-	});
-});
-
-// ===========================================================================
-// L. runStaleSweep — dispatch.runStaleSweep
-// ===========================================================================
-
-describe("runStaleSweep: marks active items older than threshold as stale (CAS)", () => {
-	test("marks active items whose updatedAt is before the stale cutoff", async ({ db }) => {
-		const item = await seedItem(db, { status: "active" });
-
-		// Backdate updatedAt beyond the stale threshold (90+ days).
-		const oldTimestamp = new Date(Date.now() - STALE_THRESHOLD_MS - 1000).toISOString();
-		await db
-			.update(knowledgeItems)
-			.set({ updatedAt: oldTimestamp })
-			.where(eq(knowledgeItems.id, item.id));
-
-		const nowMs = Date.now();
-		const result = await sweep(db, mockEventBus, "stale", {
-			nowMs,
-			thresholdMs: STALE_THRESHOLD_MS,
-			silent: true,
-		});
-
-		expect(result.markedIds).toContain(item.id);
-
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, item.id));
-		expect(row?.status).toBe("stale");
-	});
-
-	test("does not mark items updated recently", async ({ db }) => {
-		const item = await seedItem(db, { status: "active" });
-
-		const nowMs = Date.now();
-		const result = await sweep(db, mockEventBus, "stale", {
-			nowMs,
-			thresholdMs: STALE_THRESHOLD_MS,
-			silent: true,
-		});
-
-		expect(result.markedIds).not.toContain(item.id);
-
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, item.id));
-		expect(row?.status).toBe("active");
-	});
-
-	test("CAS: does not mark an item twice (idempotent via conditional UPDATE on status=active)", async ({
-		db,
-	}) => {
-		const item = await seedItem(db, { status: "active" });
-		const oldTs = new Date(Date.now() - STALE_THRESHOLD_MS - 1000).toISOString();
-		await db.update(knowledgeItems).set({ updatedAt: oldTs }).where(eq(knowledgeItems.id, item.id));
-
-		const nowMs = Date.now();
-		// First sweep marks it stale.
-		const r1 = await sweep(db, mockEventBus, "stale", {
-			nowMs,
-			thresholdMs: STALE_THRESHOLD_MS,
-			silent: true,
-		});
-		expect(r1.markedIds).toContain(item.id);
-
-		// Second sweep — item is already stale, must not appear again.
-		const r2 = await sweep(db, mockEventBus, "stale", {
-			nowMs,
-			thresholdMs: STALE_THRESHOLD_MS,
-			silent: true,
-		});
-		expect(r2.markedIds).not.toContain(item.id);
 	});
 });
 
