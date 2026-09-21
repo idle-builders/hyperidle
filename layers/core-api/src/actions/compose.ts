@@ -159,14 +159,15 @@ function buildOpenParent(
 }
 
 /**
- * `document`'s deps (architecture.md §8.1). `wsPush` is deliberately absent
- * here — `compose.ts` has three strictly-ordered owners (§16: B7 → B9 →
- * B13); B9 binds it once the websocket nudge lands, and `createDocumentActions`
- * already no-ops `pushChanges` when it is undefined.
+ * `document`'s deps (architecture.md §8.1, §7). `wsPush` binds here — the
+ * websocket nudge — the same optional pass-through `buildThreadActionsDeps`
+ * already does; `createDocumentActions`'s own `pushChanges` no-ops when it is
+ * absent (test compositions that don't need WS pushes).
  */
 function buildDocumentActionsDeps(
 	taskActions: readonly Action[],
 	threadActions: readonly Action[],
+	wsPush?: (topic: string, envelope: unknown) => void,
 ): DocumentActionsDeps {
 	return {
 		changes: { appendChange },
@@ -181,6 +182,7 @@ function buildDocumentActionsDeps(
 		// it, the same event `routes/knowledge.ts:666` (pre-item) raised.
 		onBodyChanged: (exec, documentId) =>
 			markDetached(exec, { kind: "document", entityId: documentId, ts: new Date().toISOString() }),
+		...(wsPush ? { wsPush } : {}),
 	};
 }
 
@@ -207,7 +209,7 @@ export function buildCoreActions(bindings: {
 		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread),
 	) as readonly Action[];
 	const documentActions = createDocumentActions(
-		buildDocumentActionsDeps(taskActions, threadActions),
+		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),
 	) as readonly Action[];
 	return [...taskActions, ...threadActions, ...documentActions];
 }

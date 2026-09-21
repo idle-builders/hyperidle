@@ -56,6 +56,11 @@
 // export is additive until that migration lands; `./document-store.js` stays
 // unexported either way — no hidden extra door onto the raw table.
 export { createDocumentActions, type DocumentActionsDeps } from "./document-actions.js";
+// @lore BC4 B9 (architecture.md §7): the WS authorizer's own read of a
+// `documents` row for the `document:<id>` subscribe-authz check — the same
+// shape `@hyperidle/thread`'s `findThread` export serves
+// `ws-subscribe-authorizer.ts`'s `conversation` port.
+export { getDocument } from "./document-store.js";
 // -- errors --
 export { InvalidReparentError, ItemDeletedError, VersionConflictError } from "./errors.js";
 // @lore document-module B0c: `knowledge-conflicts.ts`'s `recordConflict`/

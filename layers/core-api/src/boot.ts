@@ -52,9 +52,15 @@ import {
 	resolveCredential,
 } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { getDocument } from "@hyperidle/document";
 import { getPluginMcpContributions } from "@hyperidle/settings";
 import { findThread } from "@hyperidle/thread";
-import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
+import {
+	createUpgradeTokenStore,
+	findUser,
+	listUsers,
+	type UpgradeTokenStore,
+} from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { type ApiMiddlewareStack, createApiMiddlewareStack } from "./api-middleware-stack.js";
@@ -233,6 +239,16 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 				? new WsConnectionHub(
 						createDbSubscribeAuthorizer(db, {
 							conversation: { getThreadById: (execDb, id) => findThread(execDb, { id }) },
+							// architecture.md §7: the `document:<id>` subscribe-authz edge —
+							// `document`'s own row read, plus the same `users` subject
+							// resolution `document-actions.ts`'s `resolveViewer` does.
+							document: {
+								getForSubscribe: async (execDb, id) => (await getDocument(execDb, id)) ?? undefined,
+							},
+							users: {
+								getUserById: (execDb, id) => findUser(execDb, { id }),
+								listOwnedBy: (execDb, ownerId) => listUsers(execDb, { ownerUserId: ownerId }),
+							},
 						}),
 					)
 				: new WsConnectionHub();
