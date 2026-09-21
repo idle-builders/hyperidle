@@ -1,25 +1,20 @@
 /**
- * AF13 §3 — sortItems unit tests (red phase).
+ * AF13 §3 — sortItems unit tests.
  *
- * sortItems is a pure helper to be added at module scope in KnowledgeList.tsx.
- * These tests define the exact ordering contract:
+ * sortItems is a pure helper at module scope in DocumentList.tsx (formerly
+ * KnowledgeList.tsx — BC4). These tests define the exact ordering contract:
  *   - recency: updatedAt desc, tie-break title asc
- *   - frequency: accessCount30d desc null-last, tie-break updatedAt desc
- *   - relevance: relevanceScore desc null-last, tie-break updatedAt desc
- *
- * Tests will FAIL until sortItems is exported from KnowledgeList.tsx (or a
- * dedicated utility module). The test import path matches where the plan
- * places it; adjust if the builder locates it differently.
+ * (frequency/relevance sorting was removed in an earlier batch — FULL-AUDIT.md
+ * row 13 — leaving recency as the only surviving mode this file tests.)
  *
  * SUGGESTION from architecture-critique: add a tie-break test with equal updatedAt
  * to lock the title tie-break — included here.
  */
 
 import { describe, expect, it } from "vitest";
-// @lore AF13: sortItems is defined at module scope in KnowledgeList.tsx and
-// exported for testability. Import from the page file directly.
-// If the builder locates it in a utility file, update this path.
-import { sortItems } from "../pages/KnowledgeList.js";
+// @lore AF13/BC4: sortItems is defined at module scope in DocumentList.tsx
+// and exported for testability.
+import { sortItems } from "../pages/DocumentList.js";
 
 interface TestItem {
 	id: string;

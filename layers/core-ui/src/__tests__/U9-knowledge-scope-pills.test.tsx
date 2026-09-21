@@ -1,5 +1,5 @@
 /**
- * U9 AC-6: KnowledgeList scope pills + Hearth styling.
+ * U9 AC-6: DocumentList scope pills + Hearth styling.
  *
  * AD6: Scope pills are now static (All/Shared/Team/Private), NOT data-driven.
  * The "All" pill is always first; the others are always present regardless of
@@ -13,75 +13,76 @@
  * - Triage/Curated tabs use aria-selected for active state
  * - "+ New" button is present
  * - Sort controls use aria-checked for active state
+ *
+ * @lore BC4: re-pointed onto DocumentList/useDocuments — the behaviour these
+ * assertions cover (static scope pills, tab selection, sort state) survives
+ * the rename unchanged.
  */
+import type { DocumentRow } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { KnowledgeList } from "../pages/KnowledgeList";
+import { DocumentList } from "../pages/DocumentList";
 
-vi.mock("../hooks/useFetch", () => ({
-	useFetch: vi.fn().mockReturnValue({
-		data: {
-			items: [
-				{
-					id: "k1",
-					topic: "Architecture",
-					title: "Auth Strategy Decision",
-					body: "body",
-					format: "markdown",
-					status: "active",
-					scopeKind: "factory",
-					version: 1,
-					updatedBy: "agent",
-					createdAt: "2024-01-01T00:00:00Z",
-					updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-					signals: null,
-				},
-				{
-					id: "k2",
-					topic: "Product",
-					title: "User Onboarding Flow",
-					body: "body",
-					format: "markdown",
-					status: "active",
-					scopeKind: "user",
-					version: 1,
-					updatedBy: "agent",
-					createdAt: "2024-01-02T00:00:00Z",
-					updatedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-					signals: null,
-				},
-				{
-					id: "k3",
-					topic: "Factory",
-					title: "Agent Autonomy Policy",
-					body: "body",
-					format: "markdown",
-					status: "active",
-					scopeKind: "team",
-					version: 1,
-					updatedBy: "agent",
-					createdAt: "2024-01-03T00:00:00Z",
-					updatedAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-					signals: null,
-				},
-			],
-		},
-		isLoading: false,
+function makeDoc(overrides: Partial<DocumentRow> = {}): DocumentRow {
+	return {
+		id: "k1",
+		title: "Untitled",
+		body: "body",
+		format: "markdown",
+		status: "active",
+		slot: "ordinary",
+		scopeKind: "factory",
+		scopeId: null,
+		parentKind: null,
+		parentId: null,
+		position: 0,
+		version: 1,
+		updatedBy: "agent",
+		createdAt: "2024-01-01T00:00:00Z",
+		updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
+		as: "document",
+		...overrides,
+	};
+}
+
+vi.mock("../hooks/useDocuments.js", () => ({
+	useDocuments: vi.fn().mockReturnValue({
+		documents: [
+			makeDoc({ id: "k1", title: "Auth Strategy Decision", scopeKind: "factory" }),
+			makeDoc({
+				id: "k2",
+				title: "User Onboarding Flow",
+				scopeKind: "user",
+				updatedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+			}),
+			makeDoc({
+				id: "k3",
+				title: "Agent Autonomy Policy",
+				scopeKind: "team",
+				updatedAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+			}),
+		],
+		status: "ready",
 		error: null,
+		retry: vi.fn(),
 	}),
 }));
 
 function renderPage(): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
-			<KnowledgeList />
+			<DocumentList />
 		</MemoryRouter>,
 	);
 }
 
-describe("U9 AC-6: KnowledgeList scope pills", () => {
+describe("U9 AC-6: DocumentList scope pills", () => {
 	it("renders scope pill filter bar", () => {
 		renderPage();
 		expect(screen.getByTestId("knowledge-scope-pills")).toBeInTheDocument();
