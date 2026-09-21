@@ -93,7 +93,7 @@ const BUNDLE: BakedContextBundle = {
 			version: 1,
 			parentChain: [],
 			scopeKind: "factory",
-			role: "ordinary",
+			slot: "ordinary",
 			agentBindingId: null,
 		},
 		{
@@ -104,7 +104,7 @@ const BUNDLE: BakedContextBundle = {
 			version: 1,
 			parentChain: [],
 			scopeKind: "factory",
-			role: "ordinary",
+			slot: "ordinary",
 			agentBindingId: null,
 		},
 		{
@@ -115,7 +115,7 @@ const BUNDLE: BakedContextBundle = {
 			version: 1,
 			parentChain: [],
 			scopeKind: "factory",
-			role: "ordinary",
+			slot: "ordinary",
 			agentBindingId: null,
 		},
 	],

@@ -22,7 +22,7 @@ function makeBundle(
 		body: string;
 		format?: string;
 		version?: number;
-		role?: string;
+		slot?: string;
 		agentBindingId?: string | null;
 	}>,
 ) {
@@ -40,7 +40,7 @@ function makeBundle(
 			version: k.version ?? 1,
 			parentChain: [],
 			scopeKind: "factory",
-			role: k.role ?? "ordinary",
+			slot: k.slot ?? "ordinary",
 			agentBindingId: k.agentBindingId ?? null,
 		})),
 	};
@@ -59,7 +59,7 @@ afterEach(() => {
 describe("BA9b: skill items materialise to harness skill dirs", () => {
 	it("writes SKILL.md to .claude/skills/<dirName>/SKILL.md", async () => {
 		const bundle = makeBundle("agent-1", [
-			{ id: "skill-1", title: "write-tests", body: "# Write Tests\nDo TDD.", role: "skill" },
+			{ id: "skill-1", title: "write-tests", body: "# Write Tests\nDo TDD.", slot: "skill" },
 		]);
 
 		await assembler.assembleAgentContext({
@@ -86,7 +86,7 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 		// .opencode/skills is omitted — opencode also reads .claude/skills.
 		// .codex-home/skills is dead — nothing reads it (see BA9b plan.md, "As built").
 		const bundle = makeBundle("agent-1", [
-			{ id: "skill-2", title: "my-skill", body: "Body.", role: "skill" },
+			{ id: "skill-2", title: "my-skill", body: "Body.", slot: "skill" },
 		]);
 
 		await assembler.assembleAgentContext({
@@ -113,7 +113,7 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 
 	it("skills do NOT appear in knowledge/ or context/", async () => {
 		const bundle = makeBundle("agent-1", [
-			{ id: "skill-3", title: "plan", body: "Planning skill.", role: "skill" },
+			{ id: "skill-3", title: "plan", body: "Planning skill.", slot: "skill" },
 		]);
 
 		await assembler.assembleAgentContext({
@@ -140,7 +140,7 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 describe("BA9b: rule items materialise to knowledge/rules/", () => {
 	it("writes rule body as a markdown file under knowledge/rules/", async () => {
 		const bundle = makeBundle("agent-1", [
-			{ id: "rule-1", title: "no-console", body: "Never use console.log.", role: "rule" },
+			{ id: "rule-1", title: "no-console", body: "Never use console.log.", slot: "rule" },
 		]);
 
 		await assembler.assembleAgentContext({
@@ -180,7 +180,7 @@ describe("BA9b: agent_file items are bound to a specific agent", () => {
 				id: "af-1",
 				title: "agent-alpha-instructions",
 				body: "Special instructions for alpha.",
-				role: "agent_file",
+				slot: "agent_file",
 				agentBindingId: "agent-alpha",
 			},
 		]);
@@ -210,7 +210,7 @@ describe("BA9b: agent_file items are bound to a specific agent", () => {
 				id: "af-1",
 				title: "agent-alpha-instructions",
 				body: "Special instructions for alpha.",
-				role: "agent_file",
+				slot: "agent_file",
 				agentBindingId: "agent-alpha",
 			},
 		]);
@@ -241,7 +241,7 @@ describe("BA9b: agent_file items are bound to a specific agent", () => {
 				id: "af-2",
 				title: "universal-guide",
 				body: "Applies to all agents.",
-				role: "agent_file",
+				slot: "agent_file",
 				agentBindingId: null,
 			},
 		]);
@@ -272,13 +272,13 @@ describe("a prompt item never reaches the sandbox", () => {
 	// prompt item straight to the writer — no assembler involved — so it goes
 	// red on its own if the guard is removed, and cannot be hidden by guard 1
 	// (the assembler-side filters) working correctly.
-	it("writes no file and no manifest entry for a role:'prompt' item", async () => {
+	it("writes no file and no manifest entry for a slot:'prompt' item", async () => {
 		const bundle = makeBundle("agent-1", [
 			{
 				id: "prompt-1",
 				title: "Routine — prompt",
 				body: "Sweep the stale items.",
-				role: "prompt",
+				slot: "prompt",
 			},
 		]);
 
@@ -332,7 +332,7 @@ describe("BA9b: ordinary items are unaffected", () => {
 				id: "ord-1",
 				title: "Factory Guideline",
 				body: "A factory-wide rule.",
-				role: "ordinary",
+				slot: "ordinary",
 			},
 		]);
 

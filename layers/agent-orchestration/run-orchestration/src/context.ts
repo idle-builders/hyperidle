@@ -905,7 +905,7 @@ function writeBundleKnowledge(
 	const manifestItems: Record<string, ManifestEntry> = {};
 	const ordinaryItems: BakedContextKnowledgeItem[] = [];
 	for (const item of knowledge) {
-		const role = item.role;
+		const role = item.slot;
 
 		// @lore knowledge-attachment-slot Guard 2: `prompt` lands as the run's
 		// instruction, never a sandbox file. This is NOT redundant with the

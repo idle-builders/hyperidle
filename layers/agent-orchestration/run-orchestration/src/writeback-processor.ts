@@ -44,12 +44,12 @@ interface CaptureWritebackCreateKnowledgeItemInput {
 	 * @lore rebase-onto-#547: a parallel strand's `resolveSessionParent`
 	 * fallback — the session's task, or the conversation it is answering in —
 	 * for a leaf created directly at the `knowledge/` root, with no wrapping
-	 * directory to derive a `knowledge_item` parent from. Directory placement
+	 * directory to derive a `document` parent from. Directory placement
 	 * always wins when both are available (see `handleCreate`); the two never
 	 * both apply to the same create.
 	 */
 	readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
-	readonly parentKind?: "knowledge_item";
+	readonly parentKind?: "document";
 	readonly parentId?: string;
 }
 
@@ -101,7 +101,7 @@ interface CaptureWritebackKnowledgeWriter {
 		db: HyperIdleDb,
 		id: string,
 		input: {
-			readonly parentKind: "knowledge_item" | null;
+			readonly parentKind: "document" | null;
 			readonly parentId: string | null;
 			readonly updatedBy: string;
 		},
@@ -267,7 +267,7 @@ async function ensureDirectoryChainItem(
 		status: "proposed",
 		updatedBy: `session:${config.sessionId}`,
 		scopeKind: parentScopeKind,
-		...(parent ? { parentKind: "knowledge_item" as const, parentId: parent.id } : {}),
+		...(parent ? { parentKind: "document" as const, parentId: parent.id } : {}),
 	});
 
 	manifest.items[created.id] = {
@@ -391,7 +391,7 @@ async function handleCreate(
 		// `null, null` — a detach to the top level — instead of the move
 		// silently not happening.
 		await config.knowledge.reparentKnowledgeItem(config.db, suffixMatch.itemId, {
-			parentKind: parent ? "knowledge_item" : null,
+			parentKind: parent ? "document" : null,
 			parentId: parent ? parent.id : null,
 			updatedBy: `session:${config.sessionId}`,
 		});
@@ -419,7 +419,7 @@ async function handleCreate(
 		// `config.parent` (session task/thread) is the fallback for a leaf
 		// sitting directly at the `knowledge/` root — the two never both apply.
 		...(parent
-			? { scopeKind, parentKind: "knowledge_item" as const, parentId: parent.id }
+			? { scopeKind, parentKind: "document" as const, parentId: parent.id }
 			: config.parent
 				? { parent: config.parent }
 				: {}),

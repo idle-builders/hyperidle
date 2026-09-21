@@ -242,7 +242,7 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 			readonly scopeKind?: string;
 			/** Where the produced item hangs — the session's task, or the conversation it is answering in — when no wrapping directory places it instead. */
 			readonly parent?: { readonly kind: "task" | "thread"; readonly id: string };
-			readonly parentKind?: "knowledge_item";
+			readonly parentKind?: "document";
 			readonly parentId?: string;
 		},
 	): Promise<{ readonly id: string; readonly version: number; readonly format: string }>;
@@ -273,7 +273,7 @@ function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
 		_db: HyperIdleDb,
 		id: string,
 		input: {
-			readonly parentKind: "knowledge_item" | null;
+			readonly parentKind: "document" | null;
 			readonly parentId: string | null;
 			readonly updatedBy: string;
 		},
