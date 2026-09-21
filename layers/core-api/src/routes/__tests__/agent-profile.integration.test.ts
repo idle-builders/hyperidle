@@ -34,8 +34,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { upsertAgentIdentity } from "@hyperidle/document";
 import { AdapterPool } from "@hyperidle/harness-registry";
-import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";

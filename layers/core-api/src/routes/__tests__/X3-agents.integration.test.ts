@@ -16,7 +16,7 @@
  */
 
 import { agentRunConfig, documents, type HyperIdleDb, teams, users } from "@hyperidle/db";
-import { upsertAgentIdentity } from "@hyperidle/knowledge";
+import { upsertAgentIdentity } from "@hyperidle/document";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

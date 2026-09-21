@@ -7,6 +7,11 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { appendChange } from "@hyperidle/changes";
 import type { User, WriteExecutor } from "@hyperidle/db";
+import {
+	getAgentIdentity,
+	get as getKnowledgeItem,
+	listItemIdsByParent,
+} from "@hyperidle/document";
 import type {
 	ActionResult,
 	AdjustThreadInput,
@@ -15,11 +20,6 @@ import type {
 	ReviewVerdictRecorderFn,
 	ThreadView,
 } from "@hyperidle/domain-model";
-import {
-	getAgentIdentity,
-	get as getKnowledgeItem,
-	listItemIdsByParent,
-} from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import { createTaskActions, type TaskActionsDeps } from "@hyperidle/task";

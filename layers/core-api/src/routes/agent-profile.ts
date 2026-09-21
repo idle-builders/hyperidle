@@ -36,6 +36,7 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
+import { getAgentIdentityIds } from "@hyperidle/document";
 import type {
 	AgentHarnessCapabilities,
 	AgentProfileResponse,
@@ -43,7 +44,6 @@ import type {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
-import { getAgentIdentityIds } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 import type { Context } from "hono";

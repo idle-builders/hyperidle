@@ -38,7 +38,7 @@
  */
 
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
-import { getAgentIdentity, get as getKnowledgeItem, getParentedItem } from "@hyperidle/knowledge";
+import { getAgentIdentity, get as getKnowledgeItem, getParentedItem } from "@hyperidle/document";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";

@@ -35,7 +35,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { upsertAgentIdentity } from "@hyperidle/knowledge";
+import { upsertAgentIdentity } from "@hyperidle/document";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

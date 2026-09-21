@@ -42,7 +42,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { createContextAssembler } from "@hyperidle/run-orchestration/scaffolding";
 import { resolveTaskRunRequest } from "@hyperidle/task";

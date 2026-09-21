@@ -24,6 +24,20 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import {
+	remove as archiveKnowledgeItem,
+	create as createKnowledgeItem,
+	GraduationNotAllowedError,
+	get as getKnowledgeItem,
+	graduate as graduateKnowledgeItem,
+	InvalidReparentError,
+	ItemDeletedError,
+	transition as knowledgeTransition,
+	list as listKnowledgeItems,
+	reparent as reparentKnowledgeItem,
+	update as updateKnowledgeItem,
+	VersionConflictError,
+} from "@hyperidle/document";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
@@ -40,20 +54,6 @@ import type {
 	KnowledgeCreatedEvent,
 	KnowledgeUpdatedEvent,
 } from "@hyperidle/event-bus";
-import {
-	remove as archiveKnowledgeItem,
-	create as createKnowledgeItem,
-	GraduationNotAllowedError,
-	get as getKnowledgeItem,
-	graduate as graduateKnowledgeItem,
-	InvalidReparentError,
-	ItemDeletedError,
-	transition as knowledgeTransition,
-	list as listKnowledgeItems,
-	reparent as reparentKnowledgeItem,
-	update as updateKnowledgeItem,
-	VersionConflictError,
-} from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { markDetached } from "@hyperidle/settings";
 import * as work from "@hyperidle/task";

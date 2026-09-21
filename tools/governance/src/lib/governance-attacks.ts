@@ -752,8 +752,7 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["service-values-do-not-escape-the-face"],
 		overlay: {
 			[`${a.layerDir}/attack-r2-escape.ts`]:
-				`import { list } from "@hyperidle/knowledge";\n` +
-				`export { list as attackEscapedList };\n`,
+				`import { list } from "@hyperidle/document";\n` + `export { list as attackEscapedList };\n`,
 		},
 		mutate: {
 			// Reachable from the `.` entry via an own-module re-export — R2 does not flag THIS line
@@ -764,7 +763,7 @@ export const ATTACKS: readonly Attack[] = [
 			sort: "finding",
 			file: `${a.layerDir}/attack-r2-escape.ts`,
 			ruleId: "service-values-do-not-escape-the-face",
-			messageContains: "@hyperidle/knowledge",
+			messageContains: "@hyperidle/document",
 		},
 	},
 	{
@@ -774,7 +773,7 @@ export const ATTACKS: readonly Attack[] = [
 		rules: ["service-values-do-not-escape-the-face"],
 		overlay: {
 			[`${a.layerDir}/attack-r2-control.ts`]:
-				`import { list } from "@hyperidle/knowledge";\n` +
+				`import { list } from "@hyperidle/document";\n` +
 				`export const attackR2ControlResult = list();\n`,
 		},
 		mutate: {

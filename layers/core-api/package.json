@@ -23,7 +23,7 @@
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-capability": "*",
 		"@hyperidle/harness-protocol": "*",
-		"@hyperidle/knowledge": "*",
+		"@hyperidle/document": "*",
 		"@hyperidle/notifications": "*",
 		"@hyperidle/org": "*",
 		"@hyperidle/policy": "*",

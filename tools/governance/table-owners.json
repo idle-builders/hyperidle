@@ -7,7 +7,7 @@
 		"unowned": 0
 	},
 	"owners": {
-		"documents": "knowledge",
+		"documents": "document",
 		"changes": "changes",
 		"tasks": "task",
 		"orgEdges": "org",

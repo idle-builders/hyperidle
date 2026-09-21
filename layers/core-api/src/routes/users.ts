@@ -3,13 +3,14 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
+
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
 // persistScaffoldedAgents seeds the agent's identity document from the app
 // AgentScaffoldSpec; after that the document is edited like any other.
 
+import { upsertAgentIdentity } from "@hyperidle/document";
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

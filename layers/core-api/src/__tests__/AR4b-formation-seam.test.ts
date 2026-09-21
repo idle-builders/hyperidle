@@ -29,8 +29,8 @@
  */
 
 import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/document";
 import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
-import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/knowledge";
 import { readAgentRunConfig } from "@hyperidle/run-orchestration";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";

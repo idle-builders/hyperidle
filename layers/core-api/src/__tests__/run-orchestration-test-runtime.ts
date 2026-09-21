@@ -4,6 +4,7 @@ import {
 	type RunOrchestrationHarnessRuntimeAdapter,
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { create, reparent, update, VersionConflictError } from "@hyperidle/document";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import {
@@ -15,7 +16,6 @@ import {
 	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
-import { create, reparent, update, VersionConflictError } from "@hyperidle/knowledge";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 
 /**

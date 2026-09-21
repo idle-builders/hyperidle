@@ -16,7 +16,7 @@
  */
 
 import { documents, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge } from "@hyperidle/document";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 

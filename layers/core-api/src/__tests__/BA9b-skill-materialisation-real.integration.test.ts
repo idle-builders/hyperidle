@@ -97,10 +97,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { documents } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
+import { assembleSessionKnowledge } from "@hyperidle/document";
 import { type BakedContextBundle, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { HARNESS_TEST_MODELS, requireHarness } from "@hyperidle/harness-registry/test-utils";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-runtime.js";
 

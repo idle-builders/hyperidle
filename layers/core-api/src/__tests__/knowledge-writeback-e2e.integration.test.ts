@@ -37,7 +37,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { documents } from "@hyperidle/db";
-import { create, reparent, update, VersionConflictError } from "@hyperidle/knowledge";
+import { create, reparent, update, VersionConflictError } from "@hyperidle/document";
 import { createWritebackProcessor, startWatcher } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";

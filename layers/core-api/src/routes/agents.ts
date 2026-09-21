@@ -25,14 +25,14 @@ import type {
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { AGENT_CATEGORIES } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import {
 	getAgentIdentityIds,
 	listItemIdsByParent,
 	setKnowledgeStatus,
 	upsertAgentIdentity,
-} from "@hyperidle/knowledge";
+} from "@hyperidle/document";
+import { AGENT_CATEGORIES } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { getTeam } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";

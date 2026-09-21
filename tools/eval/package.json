@@ -20,7 +20,7 @@
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/knowledge": "*",
+		"@hyperidle/document": "*",
 		"@hyperidle/org": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/users": "*",

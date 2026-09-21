@@ -522,7 +522,7 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/harness-protocol",
 		"framework/db",
 		"layers/core-api",
-		"layers/core-api/knowledge",
+		"layers/core-api/document",
 		"layers/core-api/work",
 		"layers/core-api/org",
 		"layers/core-api/users",

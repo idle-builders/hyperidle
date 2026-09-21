@@ -8,15 +8,15 @@
  */
 
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import type { ConfigurationKind, PluginContributionKind } from "@hyperidle/domain-model";
-import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
 	get as getKnowledgeItem,
 	restorePluginDocumentBody,
 	setKnowledgeStatus,
 	type UpsertKnowledgeDocumentInput,
 	upsertKnowledgeDocument,
-} from "@hyperidle/knowledge";
+} from "@hyperidle/document";
+import type { ConfigurationKind, PluginContributionKind } from "@hyperidle/domain-model";
+import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import { getRoutine, insertRoutine, setRoutinesLive, softDeleteRoutines } from "@hyperidle/routine";
 import {
 	agentItemId,

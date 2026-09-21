@@ -42,7 +42,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";

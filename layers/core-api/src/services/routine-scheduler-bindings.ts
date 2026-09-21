@@ -24,13 +24,13 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/event-bus";
 import {
 	assembleSessionKnowledge,
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getRoutinePrompt,
-} from "@hyperidle/knowledge";
+} from "@hyperidle/document";
+import type { EventBus } from "@hyperidle/event-bus";
 import { getTeam } from "@hyperidle/org";
 import {
 	type FireResult,

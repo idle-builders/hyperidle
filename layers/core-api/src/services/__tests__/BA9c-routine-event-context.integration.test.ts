@@ -32,14 +32,14 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-// BB1: BetStateChangedEvent deleted — bet is now a root task.
-import type { TaskStateChangedEvent } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	getParentedItem,
-} from "@hyperidle/knowledge";
+} from "@hyperidle/document";
+// BB1: BetStateChangedEvent deleted — bet is now a root task.
+import type { TaskStateChangedEvent } from "@hyperidle/event-bus";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";

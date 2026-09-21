@@ -12,7 +12,7 @@
  * real `task_run` emit site from ONE place, instead of five independently
  * drifting copies.
  */
-import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/document";
 import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import type { TaskRunResolverDeps } from "@hyperidle/task";

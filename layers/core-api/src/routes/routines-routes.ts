@@ -1,6 +1,15 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
+	create as createKnowledgeItem,
+	getParentedItem,
+	getRoutinePrompt,
+	getRoutinePromptBodies,
+	listItemIdsByParent,
+	setKnowledgeStatus,
+	update as updateKnowledgeItem,
+} from "@hyperidle/document";
+import {
 	API_ERROR_CODES,
 	ROUTINE_STATES,
 	type RoutineDetail,
@@ -10,15 +19,6 @@ import {
 } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
-import {
-	create as createKnowledgeItem,
-	getParentedItem,
-	getRoutinePrompt,
-	getRoutinePromptBodies,
-	listItemIdsByParent,
-	setKnowledgeStatus,
-	update as updateKnowledgeItem,
-} from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule, parseTransitionTo } from "@hyperidle/routine";

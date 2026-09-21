@@ -20,6 +20,7 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { upsertAgentIdentity } from "@hyperidle/document";
 import type {
 	CreateTeamRequest,
 	CreateTeamResponse,
@@ -32,7 +33,6 @@ import type {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import {
 	createTeam,
 	getTeam,

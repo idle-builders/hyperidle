@@ -23,8 +23,8 @@
  */
 import { routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
+import { getAgentIdentity } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
-import { getAgentIdentity } from "@hyperidle/knowledge";
 import { describe, vi } from "vitest";
 import type { RoutineSchedulerPorts } from "../ports.js";
 import { startRoutineScheduler } from "../routine-scheduler.js";
