@@ -10,84 +10,55 @@ than trusting the number, because the tree moves under this item.
 
 ---
 
-## 0. Plan amendments proposed
+## 0. Decisions taken
 
-Six. Each is a decision the plan does not settle and that I could not take without the founder. A1 and
-O1 name their alternatives in enough detail that either answer needs no redesign.
+The founder answered every amendment on 2026-09-21; `plan.md` and `facts.md` carry the plain-words
+version. This section is the technical outcome. Nothing here is open.
 
-**A1 — the three legacy bus events: delete, or keep the names.**
-`knowledge_created · knowledge_updated · knowledge_archived` are **authorable but unused**. A person
-can create a routine that triggers on one — the route accepts it and a test pins the behaviour
-(`layers/core-api/src/routes/__tests__/routines.routes.integration.test.ts:341` asserts a 400 only for
-the *transition constraint* on `knowledge_updated`, which means the plain event type is legal). Their
-only subscriber is the generic routine event matcher
-(`layers/core-api/routine/src/routine-scheduler.ts:484-506`); the generic websocket forwarder was
-already dropped (`layers/core-api/src/ws-connection-hub.ts:43` records it: *"had zero real frontend
-consumers (verified) and are dropped entirely"*). No routine in any seed, plugin or demo world names
-them (searched `tools/setup`, `plugins/`, `tools/eval` — zero hits), and there are no deployments.
+**A1 — the three legacy document events are DELETED.** `knowledge_created · knowledge_updated ·
+knowledge_archived` leave `EVENT_TYPES` with the routine matcher's `itemId` branch
+(`layers/core-api/routine/src/routine-scheduler.ts:484-506`), `ports.knowledge.getItemById`, the
+`kind:"knowledge-item"` work-intent subject and `context.ts:520`'s branch. They were authorable but
+unused — a person could create a routine on one, no seed or plugin did, and the websocket forwarder
+for them was already gone (`ws-connection-hub.ts:43`). Consequence, accepted: **no routine can react
+to a document change until BC5's subscriptions read `changes` rows.** Blocks B12 and B22.
 
-- **Proposed (default):** delete all three from `EVENT_TYPES`, delete the matcher's `itemId` branch,
-  `ports.knowledge.getItemById`, the `kind:"knowledge-item"` work-intent subject and
-  `context.ts:520`'s branch. A routine can no longer trigger on a document change until BC5's
-  subscriptions read `changes` rows. **B12** and **B22** implement this.
-- **Alternative, fully specified:** keep the three names and emit them from `edit_document`
-  post-commit, one per `changes` row (`created` → `knowledge_created`, `changed` with
-  `status:"archived"` → `knowledge_archived`, otherwise `knowledge_updated`). `ports.knowledge` stays
-  as `ports.document.getById` bound to the `open_document` runner; the matcher branch keeps its shape
-  with `kind:"document"` as the subject. ~40 lines kept across
-  `document-actions.ts`, `routine-scheduler.ts`, `routine/src/ports.ts`,
-  `routine-scheduler-bindings.ts` and `work-intent.ts`. Nothing else in this file changes.
+**A2 — narrowing a scope CASCADES.** Founder reversed my reading: a narrower parent narrows every
+wider descendant with it. Built honestly, which today's version is not — §6.6 is the whole rule. There
+is **no** `scope_narrows_past_children` problem; D7 is gone from §4.2.
 
-**A2 — narrowing a document's scope is REFUSED when a child is wider, not cascaded.**
-Today `cascadeScopeNarrowing` (`layers/core-api/knowledge/src/knowledge-repository.ts:167-203`)
-silently rewrites every wider descendant. The plan's own words for the invariant are *"does a narrower
-scope fit the children"* — a check, not a cascade — and a cascade writes N rows with no `changes` row
-and no actor, which contradicts "one edit, one transaction, one change row". I read the plan as the
-check and delete the cascade. Visible behaviour change: an edit that used to succeed now returns
-problem `scope_narrows_past_children`.
+**A3 — `edit_document` is an upsert on `id`.** Absent id ⇒ new uuid; present id ⇒ edit, or create with
+that id. The existence probe is by raw id and unfiltered, with the bound written out in §4.3 case 7.
 
-**A3 — `edit_document` is an upsert on `id`.**
-`edit_task` refuses a missing id with `not_found` because task ids are server-minted. Three live
-document writers mint their own ids — the plugin installer (`<pluginId>/<dir>`), agent identity
-(`ki_af_<agentId>`), routine prompts — and without a caller-chosen id on create they cannot go through
-`edit_document` at all, which would force a fourth public action. So: `id` absent ⇒ new uuid; `id`
-present and the row exists ⇒ edit; `id` present and the row does not exist ⇒ create with that id.
-Two costs, both stated and tested (§4.3 cases 6 and 7): a typo'd id silently creates a document, and
-the existence probe is by raw id and therefore **unfiltered** — see §4.3 case 7 for exactly what that
-means and how it is bounded.
+**A4 — memory is private, a document is team-based.** `as:"memory"` forces `scopeKind:'user'`,
+`scopeId = ctx.actor`, readable by the writer and by the owner of the writing agent. `as:"document"`
+written by an agent with no scope keeps today's derivation **including the task-team fallback**
+(`tool-definitions.ts:88-97`, where `ctx.teamId` is the agent's baked team,
+`provisioner.ts:1088`). An artifact is never private.
 
-**A4 — `write_memory`'s default scope changes from team to private; the *document* default keeps
-today's derivation.**
-Today's rule is `ctx.teamId ?? (the calling task's team)`
-(`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts:88-97`), where `ctx.teamId` is the
-**agent's** baked team (`layers/agent-orchestration/run-orchestration/src/provisioner.ts:1088`,
-`agentConfig.teamId`). So an agent "memory" is team-wide today.
+**A5 — the side table is dropped AND usage counting becomes real.** `knowledge_app_projection` goes;
+`confidence` and `meta` fold onto `documents` (§6.2). `relevance_score`, `citation_count` and
+`last_cited_at` are dropped with **nothing carried over** — their only writer is the demo seed, so
+there is no honest source. In their place four real columns — `read_count`, `last_read_at`,
+`session_use_count`, `last_used_at` — raised by `open_document` and by the session read model, filtered
+and sorted by `search_documents`, and shown in the detail page's existing metadata aside. §6.7 is the
+whole rule. **No citation count**: nothing cites yet.
 
-- `as:"memory"` forces `scopeKind:'user'`, `scopeId = ctx.actor`; an explicit scope beside it is a
-  problem. That is founder ruling 4/5, and it is a behaviour change.
-- `as:"document"` and `as:"artifact"` written with **no scope given** keep today's derivation
-  **including the task-team fallback**: the actor's own `users.teamId`, else — when `ctx.caller.taskId`
-  is set — the calling task's `teamId` read through the injected `openParent` runner (§8.1), else
-  `factory`. Written down here so nobody "simplifies" the fallback away.
-- Memories written before this item keep whatever scope they had except where the backfill in §6.4
-  step 4 must repair an unowned one; that step is behaviour-preserving (see there).
+**A6 — the column `role` becomes `slot`**, values unchanged (§2).
 
-**A5 — `knowledge_app_projection` is dropped, not renamed.** The plan does not mention the table. Two
-of its six columns have a live production reader and **fold onto `documents`** as plain columns —
-`confidence` (a real term in the session ranking, `session-knowledge-assembler.ts:117-131`) and `meta`
-(`extractItemTags`, `:50-71`). `scope_id` is a denormalised duplicate that *wins* on read
-(`knowledge-repository.ts:376`) and is reconciled once, then dropped. `relevance_score`,
-`citation_count` and `last_cited_at` have **no** production reader and are dropped outright. Full
-derivation in §6.2. Consequence: the companion-write rule in `governance-attacks.ts:635-666` loses its
-only pair and must be re-pointed (§8.5).
+**O1 — the injected `onBodyChanged` hook.** `DocumentActionsDeps.onBodyChanged`, bound in `compose.ts`
+to `markDetached`, called inside the edit's transaction when `body` changed. ~10 lines; BC5 deletes it
+when subscriptions land. The browser-side route and the accept-the-loss variants are dropped.
 
-**A6 — the column `role` is renamed to `slot`.** The plan says "rename everything to document"; it does
-not name this column. `role` collides with two live and different axes — `users.role` (what an agent
-does) and `agent-roles.ts`'s `roleLabel` — and its values (`ordinary · skill · rule · agent_file ·
-prompt`) say *where the document lands*, which the database already calls a slot
-(`ki_parent_slot_uq`, `framework/db/src/schema.ts:934`). The **values are unchanged**; only the column,
-the constant and the type are renamed. Cost: it widens the migration by one `RENAME COLUMN` and puts
-`slot` into every baked context bundle, which is why migration step 12 fails stale intents.
+**O2 — `knowledge_action` stays**, excluded from the rename in both spellings; all three
+`knowledge_item` literals in `agent-run-admission-reactions.ts` are re-pointed and nothing is deleted.
+
+**O3 — the document body rides the `changes` row.** Accepted with its cost: the table grows by roughly
+twice the size of every body edit, and that is what makes "the change rows hold the history" true.
+
+**O4 — the agent's sandbox directory stays `knowledge/`.** It is the name of the place, exactly like
+the sidebar label — and renaming it would invalidate every stored manifest `source_path`. It is in the
+rename wave's EXCLUDE (§11.1).
 
 ---
 
@@ -102,6 +73,9 @@ The plan states no numbered ACs; its gate list is the acceptance surface.
 | A stale edit is refused with its reason | B7, B19 |
 | An agent writes a memory and an artifact and reads a document through the three tools | B6, B7, B15, B36 |
 | The governance rule is green with the document entries gone from the legacy lists | B0b, B0c, B2a, B20, B22, B23 |
+| Narrowing a scope narrows the children with it, live in a second window | B6b, B9 |
+| The detail aside shows a real read count that rises on reopening | B5, B18, B2i |
+| The librarian archives documents nobody has used for 90 days | B34 |
 | Line count clearly negative | §14 |
 | Verification: seam test, real-socket test, migration test, harness lane, full e2e | B7, B9, B2a, B36, B37 |
 
@@ -198,6 +172,12 @@ export const DocumentRowSchema = z.object({
   updatedBy: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  // Usage — §6.7. On the wire because a person reads them in the detail aside
+  // and an agent filters on them; never writable through `edit_document`.
+  readCount: z.number().int(),
+  lastReadAt: z.string().nullable(),
+  sessionUseCount: z.number().int(),
+  lastUsedAt: z.string().nullable(),
   /** Derived, never stored — see §3.6. */
   as: z.enum(DOCUMENT_AS),
 });
@@ -206,7 +186,8 @@ export type DocumentRow = z.infer<typeof DocumentRowSchema>;
 
 `confidence` and `meta` are columns (§6.2) but are **not** on `DocumentRowSchema`: their only reader is
 the session read model, which reads the table directly. Keeping them off the wire keeps the row the UI
-sees exactly the row a person edits.
+sees exactly the row a person edits. The four usage values are the opposite case — they exist to be
+read by people and agents, so they ride.
 
 ### 3.3 `search_documents`
 
@@ -225,6 +206,14 @@ export const SearchDocumentsInputSchema = z.object({
     status:    z.enum(DOCUMENT_STATUSES).optional(),
     scopeKind: z.enum(SCOPE_KINDS).optional(),
     as:        z.enum(DOCUMENT_AS).optional(),
+    /**
+     * Neither read nor handed to a session since this ISO instant, counting a
+     * document's creation as its last activity when it has never been either.
+     * §6.7 — this is what the librarian's decay routine searches on.
+     */
+    unusedSince: z.string().min(1).optional(),
+    /** Plain words, so neither end can get the direction wrong. §6.7. */
+    sort: z.enum(["least_used", "most_read"]).optional(),
     limit:  z.number().int().min(1).max(500).optional(),   // default 200
     offset: z.number().int().min(0).optional(),
   }).strict();
@@ -234,7 +223,8 @@ export const searchDocuments: ActionDeclaration<SearchDocumentsInput, DocumentRo
   name: "search_documents",
   sentence:
     "Search documents. No parameter lists the ones you can see; filter by text, parent, status, " +
-    "scope, slot, or by what it is — a memory of yours, an artifact, or a document in the tree.",
+    "scope, slot, or by what it is — a memory of yours, an artifact, or a document in the tree. " +
+    "Use `unusedSince` to find what nobody has opened or been given for a while.",
   input: SearchDocumentsInputSchema,
   output: z.array(DocumentRowSchema),
 };
@@ -321,8 +311,8 @@ export const DOCUMENT_ACTIONS = {
 } as const;
 ```
 
-Deliberately **not** on the input: `updatedBy` (it is `ctx.actor`), `merge`, `split`, `promote`,
-`graduate`, `reason`, `conflict`. Archive is `status: "archived"`. Restore is `status: "active"`.
+Deliberately **not** on the input: `updatedBy` (it is `ctx.actor`), the four usage values (§6.7 —
+nothing may set them by hand), `merge`, `split`, `promote`, `graduate`, `reason`, `conflict`. Archive is `status: "archived"`. Restore is `status: "active"`.
 Graduate is `parent`. Validate/reject are `status`.
 
 ### 3.6 `as` — how it maps to columns, and how it is derived back
@@ -417,9 +407,12 @@ loaded row. I14 belongs to `searchDocumentsInvariants(input)`, a second pure fun
 | D4 | `depth_exceeded` | Documents nest 32 deep at most. | a 32-deep chain, then one more |
 | D5 | `slot_taken` | That `<slot>` place on this `<kind>` is already taken. | a second `prompt` on one routine |
 | D6 | `scope_too_wide` | This document reaches further than the one it would sit under. | factory child under a team parent |
-| D7 | `scope_narrows_past_children` | Something inside this reaches further than that; move or rescope it first. | narrow a parent to `user` with a `team` child (A2) |
-| D8 | `stale` | The document changed since you read it — open it again and retry. | two edits, second carries version 1 |
-| D9 | `forbidden_parent` | You cannot see the document you named as a parent. | parent is another person's memory |
+| D7 | `stale` | The document changed since you read it — open it again and retry. | two edits, second carries version 1 |
+| D8 | `forbidden_parent` | You cannot see the document you named as a parent. | parent is another person's memory |
+
+There is **no** problem for narrowing a scope past a child. Founder ruling A2: it cascades (§6.6).
+D6's mirror image — a child that is too wide for a new parent — stays, because a *move* cannot rewrite
+the document it is moving.
 
 `not_found` covers invisibility too: a memory that is not yours answers `not_found`, never
 `forbidden`, so its existence does not leak — today's rule
@@ -430,10 +423,25 @@ loaded row. I14 belongs to `searchDocumentsInvariants(input)`, a second pure fun
 The BC3 retro's second lesson: two rules that each look right and together do the wrong thing. Each of
 these gets its own test with its own exact-code assertion.
 
-1. **scope change + children (A2/D7).** Narrowing `factory → team` on a parent with a `factory` child
-   is refused; the parent is not written and the child is not touched. Assert both:
-   `problems[0].code === "scope_narrows_past_children"` **and** a re-read of the parent shows the old
-   `scopeKind` and the old `version`.
+1. **scope change + children — the cascade family (A2, §6.6).** Six cases, one test file, every
+   assertion exact:
+   1a **narrowing cascades.** `factory → team` on a parent with a `factory` child and a `team`
+   grandchild: assert the child's `scopeKind`/`scopeId` are now the parent's, the grandchild is
+   untouched (already narrow enough), and `listChanges({object:"document"})` holds **exactly two**
+   rows — the parent's and the child's — with the same `actor` and the child's
+   `before`/`after` naming only `{id, scopeKind, scopeId}`.
+   1b **widening never cascades.** `team → factory`: exactly **one** change row, children untouched.
+   1c **a named-slot child is narrowed too.** A `slot:"skill"` child under the parent: assert its
+   `scopeKind` changed and its `slot` did not. Scope says who sees it, slot says where it lands; they
+   are orthogonal, and `slotted_document_cannot_move` (I10) is about the parent, not the scope.
+   1d **a child the actor cannot see is narrowed too.** A `team`-scoped child belonging to another
+   team: assert it narrowed. The walk runs over the true tree, not the actor's visible set — a cascade
+   only ever *reduces* reach, and its change row names the actor who caused it. Bounded by 1f.
+   1e **an archived child is narrowed too.** Assert `status` still `archived` and `scopeKind` changed —
+   archived means "reaches nobody", not "is immutable".
+   1f **a memory can never be in the tree.** `edit_document({as:"memory", parent:{…}})` is refused by
+   I4, so no cascade can ever touch another person's private note. Assert `problems[0].code ===
+   "memory_has_parent"`; this case is what makes 1d safe.
 2. **move + slot uniqueness (I10/D5).** A move of a `prompt` document is refused by I10 before D5 is
    ever consulted — so the `slot_taken` path can only be reached at create. Assert the code is
    `slotted_document_cannot_move`, not `slot_taken`.
@@ -441,12 +449,15 @@ these gets its own test with its own exact-code assertion.
    stamp; an explicit `document` parent is refused. Assert that with a calling task in `ctx.caller`
    **and** an explicit thread parent, the stored `parentId` is the explicit thread, not the session's
    task.
-4. **stale version + a partial edit (D8).** A stale edit writes nothing at all — not the fields that
-   would not have conflicted. Assert the code **and** that `title` still holds the first writer's value.
+4. **stale version + a partial edit (D7).** A stale edit writes nothing at all — not the fields that
+   would not have conflicted, **and no child is cascaded**. The version check is on the edited document
+   only; children are never version-checked (§6.6). Assert the code, that `title` still holds the first
+   writer's value, that the child's `scopeKind` is unchanged, and that **zero** change rows were
+   appended.
 5. **memory + `slot` (I3/I9).** `as:"memory", slot:"skill"` on create: the slot is forced to
    `ordinary`; assert the stored row's `slot === "ordinary"` and that no problem is raised (the forcing
    is silent, the scope forcing is not — scope is a thing a caller can mean, a slot on a memory is not).
-6. **upsert-with-id + `version` (A3/D8).** `{ id: "brand-new", version: 3 }` — the row does not exist,
+6. **upsert-with-id + `version` (A3/D7).** `{ id: "brand-new", version: 3 }` — the row does not exist,
    so `version` has nothing to compare against. Locked: a `version` on a create is **ignored**, not an
    error. Assert the row is created.
 7. **upsert-with-id + visibility (A3/D1).** The existence probe for the upsert is **by raw id and
@@ -516,6 +527,17 @@ nobody at all, because `updated_by` is `agent:<id>` and no viewer id equals it. 
 
 `inTree` and `parent` together is a `two_shapes` pure problem.
 
+**`<fields>` — the two usage predicates** (§6.7). Neither uses `GREATEST`, so there is no dependency on
+Postgres's NULL-handling in that function:
+
+| input | predicate / order |
+|---|---|
+| `unusedSince: T` | `COALESCE(last_used_at, created_at) < T AND COALESCE(last_read_at, created_at) < T` |
+| `sort: "least_used"` | `ORDER BY COALESCE(last_used_at, created_at) ASC, id` |
+| `sort: "most_read"` | `ORDER BY read_count DESC, id` |
+
+`sort` overrides the default order above; `unusedSince` is an ordinary `AND` clause.
+
 ### 5.2 Who calls search, with what
 
 | Surface | file | call |
@@ -534,6 +556,15 @@ nobody at all, because `updated_by` is `agent:<id>` and no viewer id equals it. 
 | Routine prompt list | `routes/routines-routes.ts` | `search_documents({ parent: { kind:"routine", ids }, slot:"prompt" })` |
 | Plugin contributions | `routes/plugins.ts` | `search_documents({ ids })` |
 | Task/thread attachments | `actions/compose.ts` | `search_documents({ parent: { kind:"task", id } })` |
+| Thread host title (a `document`-hosted thread) | `actions/compose.ts` | `search_documents({ ids: [hostId] })` → `[0].title` |
+| Writeback, re-reading a version after a stale refusal | `writeback-processor.ts` | `search_documents({ ids: [id] })` → `[0].version` |
+| Librarian decay routine | `plugins/document-management` | `search_documents({ status:"active", slot:"ordinary", inTree:true, unusedSince, sort:"least_used", limit:50 })` |
+
+**Every one of these is a `search`, and that is load-bearing.** §6.7 makes `open_document` the only
+thing that raises a read count, so a plumbing read must never be an open. The enforcement is not a
+flag: **`compose.ts` never injects an `open_document` runner into any neighbour's deps bag, and
+`CoreApiBoot` exposes `searchDocuments`, not `openDocument`.** A neighbour that cannot reach the
+runner cannot miscount.
 
 ### 5.3 The session read model
 
@@ -574,6 +605,11 @@ export const documents = pgTable("documents", {
   confidence: text("confidence"),
   /** `{tags:[…]}` — read only by `session-documents.ts`'s tag match. */
   meta: text("meta"),
+  // Usage — §6.7. Never written by `edit_document`, never in a `changes` row.
+  readCount: integer("read_count").notNull().default(0),
+  lastReadAt: text("last_read_at"),
+  sessionUseCount: integer("session_use_count").notNull().default(0),
+  lastUsedAt: text("last_used_at"),
   updatedBy: text("updated_by").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -584,6 +620,8 @@ export const documents = pgTable("documents", {
   index("doc_slot_idx").on(t.slot),
   index("doc_parent_idx").on(t.parentKind, t.parentId),
   index("doc_parent_position_idx").on(t.parentKind, t.parentId, t.position),
+  // The decay search: `unusedSince` + `sort:"least_used"` both lead with this.
+  index("doc_last_used_idx").on(t.lastUsedAt),
   uniqueIndex("doc_parent_slot_uq").on(t.parentKind, t.parentId, t.slot).where(sql`${t.slot} <> 'ordinary'`),
   check("doc_slot_ck", sql`${t.slot} IN ('ordinary','skill','rule','agent_file','prompt')`),
   check("doc_parent_kind_ck", sql`${t.parentKind} IS NULL OR ${t.parentKind} IN ('document','task','thread','routine','agent')`),
@@ -601,9 +639,15 @@ Derived by reading every production reader of `knowledge_app_projection`:
 | `scope_id` | `mergeWithProjection` (`knowledge-repository.ts:376`) — `projection.scopeId ?? item.scopeId` | duplicate of the kernel column. **Dropped**, after a one-time reconcile in the migration. |
 | `confidence` | `computeConfidence` (`session-knowledge-assembler.ts:117-131`), a real term in the weighted score | **folded onto `documents`** |
 | `meta` | `extractItemTags` (`session-knowledge-assembler.ts:50-71`) | **folded onto `documents`** — see note |
-| `relevance_score` | none | **dropped** |
-| `citation_count` | none (only the demo seed writes it) | **dropped** |
-| `last_cited_at` | none | **dropped** |
+| `relevance_score` | none | **dropped**, nothing carried over |
+| `citation_count` | none (only the demo seed writes it) | **dropped**, nothing carried over |
+| `last_cited_at` | none | **dropped**, nothing carried over |
+
+Founder ruling A5: the three dropped signals are replaced by **four real ones** (§6.7), and none of the
+old values is migrated into them — the demo seed is their only writer, so carrying them would be
+fabricating a history. The new columns start at `0`/`NULL` for every existing row. There is **no**
+citation count: nothing in the product cites a document yet, and a column nothing writes is the thing
+that produced `citation_count` in the first place.
 
 Note on `meta`: today's only caller passes `taskTags: []`
 (`session-knowledge-assembler.ts:373`), and `computeTagMatch` returns 0 before ever reading tags
@@ -664,8 +708,16 @@ ALTER TABLE "documents" ADD CONSTRAINT "doc_parent_pair_ck"
 
 -- 4. fold the projection's two live columns; the projection's scope_id WON on read,
 --    so it wins here too (mergeWithProjection: `projection.scopeId ?? item.scopeId`).
+--    The four usage columns are added in the same step and start EMPTY — nothing
+--    is carried over from relevance_score/citation_count/last_cited_at, whose
+--    only writer is the demo seed (§6.2, founder ruling A5).
 ALTER TABLE "documents" ADD COLUMN "confidence" text;
 ALTER TABLE "documents" ADD COLUMN "meta" text;
+ALTER TABLE "documents" ADD COLUMN "read_count" integer NOT NULL DEFAULT 0;
+ALTER TABLE "documents" ADD COLUMN "last_read_at" text;
+ALTER TABLE "documents" ADD COLUMN "session_use_count" integer NOT NULL DEFAULT 0;
+ALTER TABLE "documents" ADD COLUMN "last_used_at" text;
+CREATE INDEX "doc_last_used_idx" ON "documents" ("last_used_at");
 UPDATE "documents" d SET "confidence" = p."confidence", "meta" = p."meta"
   FROM "knowledge_app_projection" p WHERE p."knowledge_item_id" = d."id";
 UPDATE "documents" d SET "scope_id" = p."scope_id"
@@ -783,7 +835,8 @@ still names the old symbols.
 
 Seeded pre-state, one row each: `knowledge_items` (a root, a `knowledge_item`-parented child, a
 `role='prompt'` routine slot, a `role='agent_file'` identity, a `scope_kind='user'` memory);
-**the five owner-backfill cases** — `scope_kind='user'` rows with (i) `scope_id` NULL and
+a `knowledge_app_projection` row carrying `citation_count: 9` and `relevance_score` (to prove nothing
+is carried over); **the five owner-backfill cases** — `scope_kind='user'` rows with (i) `scope_id` NULL and
 `updated_by='<a real user id>'`, (ii) `scope_id` NULL and `updated_by='agent:<agent id>'`,
 (iii) a **stale** `scope_id` naming a team and `updated_by='user:<a real user id>'`,
 (iv) `scope_id` NULL and `updated_by='session:<a seeded session id>'` whose session names an agent,
@@ -803,12 +856,130 @@ match; the reconciled `scope_id` is the projection's; the four tables no longer 
 contribution kind is `'document'`; the change row's `after` names `sourceDocumentId`; the intent's
 status is `'failed'`.
 
+For the usage columns, four exact assertions: every migrated row has `read_count = 0` and
+`session_use_count = 0`; `last_read_at` and `last_used_at` are `NULL`; the row whose projection held
+`citation_count: 9` has `read_count = 0` (nothing carried over); and `doc_last_used_idx` exists
+(`SELECT to_regclass('doc_last_used_idx') IS NOT NULL`).
+
 And for the backfill, five exact assertions: case (i) `scope_id` equals the user id; (ii) equals the
 agent id with no `agent:` prefix; (iii) equals the user id, **replacing** the stale team id; (iv)
 equals the session's `agent_id`; (v) is **still NULL** and the row is **still** `scope_kind='user'` —
 the residue is left alone on purpose, and a test that asserted zero survivors would push a later
 worker into widening them. Plus one negative: a `scope_kind='team'` row's `scope_id` is untouched by
 every ladder step.
+
+### 6.6 The scope cascade (A2)
+
+Founder ruling: narrowing a document's audience narrows every wider descendant with it. Today's
+version (`knowledge-repository.ts:167-203`) does the walk but is not honest — it writes rows with no
+actor, no history and no notification, and it sets `scope_kind` alone, which is how a `user`-scoped
+row ends up with somebody else's `scope_id` (the very state §6.4 step 5 has to repair). The rule,
+locked:
+
+1. **Only narrowing cascades.** `scopeRank = {factory:0, team:1, user:2}`. A descendant whose rank is
+   **lower** than the parent's new rank is clamped to it. Widening touches nothing — a descendant
+   somebody deliberately narrowed is never re-opened.
+2. **Both scope columns move together.** The child gets the parent's `scopeKind` *and* `scopeId`. This
+   is a fix over today's behaviour, and it is what keeps `scope_id` usable as the ownership key (§5.1).
+3. **One transaction.** The walk runs inside `edit_document`'s own transaction, over the same
+   breadth-first `parent_kind='document'` walk the store already needs for the cycle check — one
+   implementation, not two.
+4. **One `changes` row per narrowed child**, `kind:'changed'`, the **same actor** and the same `at` as
+   the parent's row, `before`/`after` naming only `{id, scopeKind, scopeId}`. A child whose rank was
+   already narrow enough is not touched and gets no row.
+5. **One websocket frame per narrowed child**, after commit, on `document:<childId>` and on
+   `documents` — the same `pushChanges` loop the parent's row goes through (§7), fed the whole list.
+6. **No version check on a child.** `version` guards the document being edited. A child is collateral,
+   exactly as a killed task's descendants are (`task-actions.ts:337-387`, the same shape).
+   The child's own `version` **is** bumped, because its row changed and a later stale-edit check must
+   see that.
+7. **No visibility filter on the walk.** It runs over the true tree. A cascade only ever reduces reach,
+   and §4.3 case 1f proves no private memory can be in the tree to begin with.
+8. **Archived children are narrowed too.** `archived` means "reaches nobody", not "is frozen".
+9. **Slotted children are narrowed too.** Scope and slot are orthogonal axes.
+10. **The depth backstop is the same 32** the tree already enforces, with the same loud failure on an
+    existing cycle.
+
+`killSubtreeInTx` is the working precedent for all of this — same transaction, same actor, a change row
+per collateral row, events after commit. Build the cascade to that shape.
+
+### 6.7 Usage counting (A5)
+
+Four columns, two writers, one read model, one surface.
+
+| column | meaning | raised by |
+|---|---|---|
+| `read_count` | how many times somebody opened it | `open_document`, +1 per call |
+| `last_read_at` | when that last happened | `open_document`, `ctx.now` |
+| `session_use_count` | how many sessions were handed it at start | `assembleSessionDocuments`, +1 per session |
+| `last_used_at` | when that last happened | `assembleSessionDocuments` |
+
+**`open_document` raises the read count with one `UPDATE`** — and that is all it is:
+
+- **not** a `changes` row, **not** an event, **not** a websocket frame. A read is not a change. Adding
+  it to `changes` would put a row in the history every time a page loaded and would wake every
+  subscriber.
+- **not** a `version` bump and **not** an `updated_at` bump. Somebody reading a document must not make
+  everyone else's open editor go stale.
+- it runs **after** the visibility check, so a refused open counts nothing.
+- it is fire-and-forget relative to the response: the `UPDATE` is awaited, but a failure is logged and
+  the view is still returned. A counter is not worth failing a read over.
+
+**`search_documents` raises nothing.** A list of fifty documents is not fifty reads.
+
+**`edit_document` raises nothing either, and this is a trap.** `edit_task` ends with
+`return openTaskRun(ctx, {id})` (`task-actions.ts:850`), and copying that shape here would count every
+edit as a read. The module therefore splits the view assembly from the door, exactly as thread already
+does (`assembleThreadView` vs `openThreadRun`, `thread-actions.ts:318-373`):
+`assembleDocumentView(ctx, row)` builds the payload and counts nothing; `open_document.run` is the
+visibility check **plus** the assembler **plus** `bumpRead`; `edit_document.run` calls the assembler
+directly. A seam-test case asserts an edit leaves `readCount` at 0.
+
+**Known limit, accepted rather than engineered around.** `useDocument` refetches on a websocket nudge
+(§7), so a window left open on a document other people keep editing will accumulate reads. Closing that
+would need either a flag on the public input (which the founder ruled out) or a second read door. It is
+left alone because the use case that matters is robust to it: the decay routine keys on
+`last_used_at`/`last_read_at`, not on the counts, and "recently touched" is exactly what an inflated
+count also means. The counts are a soft signal; the timestamps are the load-bearing half.
+
+**Telling a real open from an internal read — the locked mechanism.** Not a flag on the input, not a
+field on `ActionContext`, not a second runner. The mechanism is that **every plumbing read is already a
+`search`, and no neighbour is ever given an `open_document` runner at all**:
+
+- `compose.ts` injects `searchDocuments` into the task and thread bags, and nothing else;
+- `CoreApiBoot` exposes `searchDocuments` (and `editDocument`) to the writeback — not `openDocument`;
+- the two internal reads that were specified as opens are re-specified as searches: the thread host
+  title (`search_documents({ids:[hostId]})[0].title`) and the writeback's post-stale version re-read
+  (`search_documents({ids:[id]})[0].version`).
+
+So the only callers of `open_document` are the two that should count: the detail page, and an agent's
+MCP tool call. Miscounting is not prevented by a check — it is **unreachable**, because the runner is
+not in anyone's hands. A reviewer verifies it with one command:
+`rg -n 'open_document' layers/core-api/src/actions/compose.ts layers/core-api/src/boot.ts` must return
+nothing.
+
+**`session_use_count` is raised inside `assembleSessionDocuments`**, not in the two run resolvers. One
+batched `UPDATE ... WHERE id = ANY(:ids)` over exactly the documents it is about to return, at the end
+of the call. Why there and not at bake time: the assembler is the one place that knows the final list,
+and putting it in the resolvers would be the same write in two files. The honest consequence, stated:
+**the assembler stops being a pure read.** Its name stays, and its doc comment says so.
+
+Second consequence, stated because it is easy to miss: the assembler runs inside
+`resolveTaskRunRequest`, which runs **inside `edit_task`'s own transaction**
+(`task-actions.ts:759-763` passes `tx as HyperIdleDb`). The counter therefore joins that transaction
+and rolls back with it. That is right — a dispatch that never committed handed no documents to anybody.
+
+**Search** gains `unusedSince` and `sort` (§3.3, §5.1). `unusedSince` treats a document's creation as
+its last activity when it has never been read or used, so a brand-new document is never "unused for 90
+days" on the day it is written.
+
+**The surface.** The four values appear in `DocumentDetail`'s **existing metadata aside** and nowhere
+else — no new page, no badge on the list, no chart. The list already sorts by them through `sort`.
+
+**The demo seed** gives the corpus plausible values — most documents read a handful of times and used
+in a few sessions in the last weeks, and **at least four documents last used more than 90 days ago** so
+the librarian's decay routine has something to find and the founder can see it work in the desktop
+walk (`tools/setup/src/demo-world/knowledge.ts`, B2i).
 
 ---
 
@@ -843,6 +1014,14 @@ than `conversations` (which carries `after` for thread rows) and deliberately so
   declaration — `canReadDocument(subjects, viewerTeamId, row)` — imported by both
   `document-actions.ts` and the authorizer, so the socket and the read can never diverge. BC3's own bug
   report on this file (`ws-subscribe-authorizer.ts:42-52`) is exactly the divergence this avoids.
+
+**The cascade pushes too.** §6.6 appends one `changes` row per narrowed child inside the same
+transaction; `pushChanges` is handed the whole list after commit, so each child gets a frame on its own
+`document:<childId>` topic and on `documents`. A second window showing a narrowed child refreshes for
+the same reason the edited parent's window does.
+
+**A read pushes nothing.** `open_document`'s counter `UPDATE` (§6.7) writes no `changes` row, so no
+frame exists to send — which is the point: a page load must not wake every other browser.
 
 **Hooks.** `useDocument(id)` subscribes `document:<id>`; `useDocuments(filter)` subscribes `documents`.
 Both `setTick(n => n+1)` on any matching frame and re-run their `call()` — verbatim `useThread.ts` /
@@ -882,8 +1061,11 @@ export interface DocumentActionsDeps {
   readonly openParent: (
     ctx: ActionContext, kind: "task" | "thread", id: string,
   ) => Promise<{ readonly exists: boolean; readonly teamId?: string }>;
-  /** A1 alternative only: bound to `markDetached`; see §13 O1. */
-  readonly onBodyChanged?: (exec: WriteExecutor, documentId: string) => Promise<void>;
+  /**
+   * Decided (O1): bound in `compose.ts` to `markDetached`, called inside the
+   * edit's transaction when `body` changed. BC5's subscriptions delete it.
+   */
+  readonly onBodyChanged: (exec: WriteExecutor, documentId: string) => Promise<void>;
   readonly wsPush?: (topic: string, envelope: unknown) => void;
 }
 ```
@@ -940,13 +1122,13 @@ for direct table imports, not from the census.
 | `actions/compose.ts:18-22,79` | binds `getAgentIdentity` from `@hyperidle/knowledge` **into the thread bag** (`agents.getAgentIdentity`, consumed by `thread-turn-resolver`) | the same field, bound to `searchDocuments({parent:{kind:"agent",id},slot:"agent_file",status:"active"})[0]?.body ?? null` | B13 |
 | `thread/src/title-ladder.ts:39,71-75,128` + `thread-actions.ts:195,474` | `TitleLadderDeps.getKnowledgeItemTitle(db, id)` — the ladder already batches the ids into `kiIds` (`:69-75`) and then makes **one call per id** | two separate changes, two phases: **B2d** flips the `hostKind === "knowledge_item"` comparisons and the `"Deleted knowledge item"` string (a stored-value flip, §8.7a); **B13** replaces the dep with `getDocumentTitles(db, ids): Promise<ReadonlyMap<string,string>>` bound to `searchDocuments({ ids })` — **one action call per list render, never N** | B2d, then B13 |
 | `routes/routines-routes.ts:13-21` | `create`, `getParentedItem`, `getRoutinePrompt`, `getRoutinePromptBodies`, `listItemIdsByParent`, `setKnowledgeStatus`, `update` | `search_documents({parent:{kind:"routine",id|ids},slot:"prompt"})` for all three reads — **no `status` filter**, today's behaviour (`knowledge-repository.ts:2045-2048`), pinned by a test; `edit_document({parent:{kind:"routine",id},slot:"prompt",…})` for create/update; an archive loop for delete | B12 |
-| `services/routine-scheduler-bindings.ts:28-34` | `assembleSessionKnowledge`, `getAgentIdentity`, `get`, `getRoutinePrompt`, `sweep` | `assembleSessionDocuments`; the other three become injected `openDocument`/`searchDocuments`. **`sweep` deleted** (unreachable — `routine/src/ports.ts:76-95`). `ports.knowledge.getItemById` deleted with A1. | B0a, B8, B12 |
+| `services/routine-scheduler-bindings.ts:28-34` | `assembleSessionKnowledge`, `getAgentIdentity`, `get`, `getRoutinePrompt`, `sweep` | `assembleSessionDocuments`; the other three become **one injected `searchDocuments`** (never an open, §6.7). `sweep` is already deleted (B0a). `ports.knowledge.getItemById` deleted with A1. | B8, B12 |
 | `services/task-run-resolver-bindings.ts:15` | `assembleSessionKnowledge`, `getAgentIdentity` | `assembleSessionDocuments`; identity via injected `searchDocuments` | B8, B11 |
 | `services/agent-run-admission-reactions.ts:169,173,234` | **three** live literals — `findThread({host:{kind:"knowledge_item",…}})` at `:169`, the `adjustThread` host at `:173`, and `case "knowledge_action"` at `:234` | the **two host literals** are a stored-value flip and move with `threads.host_kind` (§8.7a); the `knowledge_action` case name is **excluded** (§11.1, O2) and stays | **B2d** |
-| `actions/compose.ts:63-74` (thread's narrow read) | `getKnowledgeItem`, `findParent` | `searchDocuments({ids})` for the batched ladder; `openDocument` for the single-thread `hostTitle` | B13 |
+| `actions/compose.ts:63-74` (thread's narrow read) | `getKnowledgeItem`, `findParent` | `searchDocuments({ids})` for the batched ladder **and** for the single-thread `hostTitle` — never `openDocument`, §6.7 | B13 |
 | `actions/compose.ts:106-112` (task's narrow read) | `listItemIdsByParent`, `getItemById` | `searchDocuments({parent:{kind:"task",id}})` → ids; `searchDocuments({ids:[id]})` for the `sourceDocumentId` existence check | B13 |
 | `routes/search.ts:29,105,112,292` | `search(db, query, …)`; the scope query-param literal `"knowledge"` at `:105` | injected `searchDocuments({text, limit})`; the scope value becomes `"document"` on both ends (`GlobalSearchPanel.tsx:18,85,288` is the other end) | B13, B19 |
-| `run-orchestration/src/writeback-processor.ts`, `manifest-types.ts` | `CaptureWritebackKnowledgeWriter` over the HTTP seam | `{ editDocument, openDocument }` bound from core's composed list (§8.4) | B15 |
+| `run-orchestration/src/writeback-processor.ts`, `manifest-types.ts` | `CaptureWritebackKnowledgeWriter` over the HTTP seam | `{ editDocument, searchDocuments }` bound from core's composed list (§8.4) — no open, so a writeback never counts as a read | B15 |
 | `routes/knowledge.ts` (948) | eleven routes | **deleted** | B20 |
 | `tools/eval/src/judges.ts:16,248-283` | reads `knowledgeEditLog` and `knowledgeConflicts` — **both dropped tables** | `judgePromoteKnowledgeCalled` and `judgeCreateConflictReviewCalled` are **deleted with their subjects**, and the rubrics that name them | B2i |
 | `tools/setup/src/demo-world/knowledge.ts`, `demo-fixture.ts`, `tools/eval/src/seeding.ts` | write projection rows | stop writing them; write `confidence`/`meta` on the row | B2i |
@@ -1003,11 +1185,14 @@ readonly editDocument: (
   caller: { actor: string; sessionId: string; taskId: string | null; threadId: string | null },
   input: EditDocumentInput,
 ) => Promise<ActionResult<DocumentView>>;
-readonly openDocument: (
+readonly searchDocuments: (
   caller: { actor: string },
-  input: { id: string },
-) => Promise<ActionResult<DocumentView>>;
+  input: SearchDocumentsInput,
+) => Promise<ActionResult<readonly DocumentRow[]>>;
 ```
+
+**`openDocument` is deliberately absent.** §6.7: an open raises a read count, and a writeback re-read
+is not a person reading a document. The writeback gets `searchDocuments`, which counts nothing.
 
 built from the composed list with `runnerFor`, typed only through `@hyperidle/domain-model` (which
 every role may name). `run-orchestration-composition.ts:571-576`'s
@@ -1019,8 +1204,8 @@ Writeback behaviour after the conflicts table is gone:
 - **move** (`handleCreate`'s suffix branch) → `edit_document({ id, parent })`.
 - **modify** → `edit_document({ id, body, version: manifestEntry.version })`.
 - **stale refused** (`problems[0].code === "stale"`) → the agent's text is **discarded**, not stored.
-  From **B15** the processor calls `openDocument({id})`, writes the server's `version` into the manifest
-  entry, and logs one structured line through the observability adapter; the next save from the same
+  From **B15** the processor calls `searchDocuments({ids:[id]})` and writes `[0].version` into the
+  manifest entry, and logs one structured line through the observability adapter; the next save from the same
   session then wins. **B0c gets there first, without `open_document`:** the old seam's
   `updateKnowledgeItemContent` already returns `{ok:false, currentVersion}` on a clash
   (`run-orchestration-composition.ts:312`), so B0c writes `updateResult.currentVersion` into the
@@ -1047,8 +1232,7 @@ touches.
 | `actions-projected.ts` `LEGACY_TOOLS` | the six tool names (`:227-235`) | **B0b**, with the tools |
 | `actions-projected.ts` `LEGACY_ROUTES` | `knowledge.ts\|GET /:id/conflicts`, `\|POST /:id/conflicts` | **B0c**, with those two routes |
 | `actions-projected.ts` `LEGACY_ROUTES` | the remaining nine `knowledge.ts` rows | **B20**, with the file |
-| `actions-projected.ts` `LEGACY_EVENTS` | the three `knowledge_*` rows | **B22** (A1 default) / not at all (A1 alternative) |
-| `actions-projected.ts` `PLUMBING_ROUTES` | one new row, only under O1 variant (a) | **B10** |
+| `actions-projected.ts` `LEGACY_EVENTS` | the three `knowledge_*` rows | **B22** (A1) |
 | `table-owners.json` | five `knowledge*` rows out, `documents` in; totals 33 → 29 | **B2a**, with `schema.ts` |
 | `governance-attacks.ts:635-666` | the Ruling-13 companion pair | **B2a**, with the dropped projection |
 | `governance-attacks.ts:781-803` | names `@hyperidle/knowledge` | **B3**, with the package rename |
@@ -1074,8 +1258,7 @@ Detail per registry:
   - `LEGACY_ROUTES`: the eleven `layers/core-api/src/routes/knowledge.ts|…` rows (`:165-175`) leave in
     two goes — two in B0c, nine in B20, each with its route. `routes/search.ts|GET /` stays.
   - `LEGACY_TOOLS`: the six names (`:227-235`) leave in **B0b**, with the tools. Five entries remain.
-  - `LEGACY_EVENTS`: the three `knowledge_*` rows (`:257-259`) leave in **B22** — **only under A1's
-    default**; the alternative keeps all three rows and B22 touches none of them.
+  - `LEGACY_EVENTS`: the three `knowledge_*` rows (`:257-259`) leave in **B22**, with the event types.
   - `OBJECT_EVENTS` already holds `document.created`/`document.changed` (`:102-103`) — no edit.
   - Clause 1 will then demand a `call("search_documents"…)`, `call("open_document"…)` and
     `call("edit_document"…)` site under `layers/core-ui/src/` — satisfied by the hooks (§9).
@@ -1203,7 +1386,7 @@ Deleted: `pages/KnowledgeList.tsx:110` `ApiKnowledgeItem`, `:135` `ApiKnowledgeL
 | file | what happens |
 |---|---|
 | `pages/KnowledgeList.tsx` (879) | `git mv` → `pages/DocumentList.tsx`; `useFetch("/api/knowledge")` → `useDocuments({inTree:true})`; the archive `apiFetch` at `:737` → `call("edit_document",{id,status:"archived",version})` |
-| `pages/KnowledgeDetail.tsx` (1,271) | `git mv` → `pages/DocumentDetail.tsx`; **the fixture import at `:63` and `LEGACY_DETAILS`/`LEGACY_SOURCES`/`FALLBACK_DETAIL` are deleted** — an honest empty state replaces them; `useAutoSave({endpoint:"/api/knowledge/:id"})` → `call("edit_document", …)`; archive → the same; version-clash banner driven by `problems[0].code === "stale"` |
+| `pages/KnowledgeDetail.tsx` (1,271) | `git mv` → `pages/DocumentDetail.tsx`; **the fixture import at `:63` and `LEGACY_DETAILS`/`LEGACY_SOURCES`/`FALLBACK_DETAIL` are deleted** — an honest empty state replaces them; `useAutoSave({endpoint:"/api/knowledge/:id"})` → `call("edit_document", …)`; archive → the same; version-clash banner driven by `problems[0].code === "stale"`; **the existing metadata aside gains the four usage values** (§6.7) — read count and last read, sessions and last used, as plain rows beside scope and author; no new component, no badge, no chart |
 | `pages/KnowledgeCreate.tsx` (295) | `git mv` → `pages/DocumentCreate.tsx`; POST → `call("edit_document", {…})` |
 | `pages/knowledge/*` (7 files + 7 stories) | `git mv` the directory → `pages/document/`; `KnowledgeBody`→`DocumentBody`, `KnowledgeTreeList`→`DocumentTreeList`, `build-knowledge-tree.ts`→`build-document-tree.ts`; `MoveDialog`/`ScopeChangeDialog`'s PATCH → `call("edit_document", …)`; `ParentPicker`'s `useFetch` → `useDocuments({inTree:true})` |
 | `settings/KnowledgeRoleList.tsx` (265) | `git mv` → `settings/DocumentSlotList.tsx`; three `apiFetch` sites → `useDocuments({slot})` + `call("edit_document", …)` |
@@ -1295,7 +1478,9 @@ Never rewritten:
 - The `knowledge_action` family in **both spellings** — `knowledge_action` and the bare `"knowledge"`
   members of `AGENT_SESSION_SOURCE_KINDS` / `AGENT_SESSION_PROMPT_MODES` / the work-intent bundle
   variant (§8.6, O2). Both are constrained by CHECKs on `sessions` and `agent_session_requests`.
-- The **sandbox directory** `knowledge/` and `isKnowledgePath` (§13 O4).
+- The **sandbox directory** `knowledge/` and `isKnowledgePath` — founder ruling O4: it is the name of
+  the place an agent's files live, exactly like the sidebar label, and renaming it would invalidate
+  every stored manifest `source_path`.
 - **Every closed union that carries a stored value** — `HOST_KINDS`, `BlockHostKind`,
   `KNOWLEDGE_PARENT_KINDS`, `PLUGIN_CONTRIBUTION_KINDS` and their readers. They are already flipped in
   the B2 window (§8.7); a second pass here would rename a value the database now holds.
@@ -1363,41 +1548,18 @@ runs at the end of each *phase* (B33), not inside each block.
 
 ---
 
-## 13. Open decisions I could not settle
+## 13. Open decisions — none
 
-- **O1 — plugin detach on a human edit.** Today `routes/knowledge.ts:672-674` calls
-  `markDetached(db, {kind:"knowledge", entityId:id})` whenever a PATCH carries a `body`, and the route
-  comment says plainly *"The route is the legal bridge — knowledge does not know about plugins"*. With
-  the route gone there is no bridge. **Both variants are fully specified so either answer needs no
-  redesign:**
-  - **(a) browser-side, a new plumbing route.** `POST /api/plugins/contributions/:entityId/detach`
-    (~25 lines, added to `PLUMBING_ROUTES` in `actions-projected.ts`), called by `DocumentDetail`'s
-    save path after a successful edit. Behaviour change: **an agent's edit never detaches**, so a
-    reinstall can overwrite an agent-edited skill.
-  - **(b) an injected hook (my recommendation).** `DocumentActionsDeps.onBodyChanged?` (already in
-    §8.1), bound in `compose.ts` to `markDetached`, called inside the edit's transaction when `body`
-    changed. ~10 lines, behaviour identical for humans and agents, deleted by BC5 when subscriptions
-    land. Cost: a plugin concern named in the document module's deps.
-  - **(c) accept the loss until BC5.** A reinstall then silently overwrites a person's edit — the exact
-    bug `@lore BA9g` records as already fixed once. Not recommended.
-- **O2 — `knowledge_action`.** Excluded from the rename in both spellings (§11.1, §8.6). It is also
-  **unreachable** — nothing in production emits a `knowledge_action` work intent. This item re-points
-  **all three** `knowledge_item` literals in
-  `layers/core-api/src/services/agent-run-admission-reactions.ts` (`:169`, `:173`, `:234`) and deletes
-  nothing. If the founder wants the whole `knowledge_action` family gone, that is a separate deletion
-  touching two orchestration CHECK constraints.
-- **O3 — `changes` growth.** Accepted above (§6.3) on the plan's own words. If the founder would rather
-  the body not ride, the change is one line in the diff builder and the plan's "the change rows hold
-  it" stops being true.
-- **O4 — the sandbox directory `knowledge/`.** Every agent sees a `knowledge/` folder in its sandbox
-  and every manifest entry's `source_path` starts with it
-  (`scaffolding-paths.ts:3`, `context.ts:780,814,994`, `file-watcher.ts:49`,
-  `writeback-processor.ts:249`'s `isKnowledgePath`). Founder ruling 3 says every user-visible label
-  becomes "document", and a directory an agent reads is user-visible to an agent. **Excluded by
-  default** because it is a filesystem path, renaming it invalidates every live manifest's
-  `source_path`, and it reaches skills, personas and prompts that tell agents to write to `knowledge/`.
-  If the founder wants it renamed, it is roughly six production files plus a manifest-path rewrite, and
-  it belongs in its own block after B15.
+Every one of A1–A6 and O1–O4 is answered (§0). Two `UNVERIFIED` marks remain in this file and neither
+is a decision: the two drizzle default-generated constraint names in §6.4, which B2a's worker reads off
+a migrated PGlite with `\d documents` / `\d tasks` rather than guessing.
+
+Three things are deliberately *deferred*, stated so nobody reopens them as gaps:
+
+- **A routine cannot react to a document change** until BC5's subscriptions read `changes` rows (A1).
+- **`onBodyChanged` is a plugin word inside the document module's deps** until BC5 deletes it (O1).
+- **No citation count**, because nothing cites (A5). When something does, it is a fifth column and a
+  fifth writer, not a redesign.
 
 ---
 
@@ -1429,17 +1591,20 @@ Production lines only (no tests, no `.pipeline/`, no prose docs), from `wc -l` o
 | `KnowledgeDetail.tsx` fixture fallback + `LEGACY_*` blocks | ~150 |
 | `hooks/useKnowledgeItem.ts` + `useParentedKnowledgeItems.ts` | 90 |
 | 17 raw fetch blocks across the UI (net of their replacements) | ~200 |
-| routine `sweep` ports + scheduler `itemId` branch + three event types (A1 default) | ~120 |
-| two dead eval judges (`judges.ts`) | ~45 |
-| **total deleted** | **≈ 6,222** |
+| routine `sweep` ports + scheduler `itemId` branch + three event types (A1) | ~120 |
+| two dead eval judges + the two scenarios that consume them | ~120 |
+| **total deleted** | **≈ 6,297** |
+
+Phase 0 has already landed `−4,990 / +468` of this (`git diff --stat 28a4cc0e0..1b5a89876`), so the
+remaining deletion is roughly 1,800 lines.
 
 **Added**
 
 | what | lines |
 |---|---|
-| `framework/domain-model/src/actions/document.ts` (declaration, pure invariants, `canReadDocument`) | ~450 |
-| `layers/core-api/document/src/document-store.ts` | ~520 |
-| `…/document-actions.ts` | ~570 |
+| `framework/domain-model/src/actions/document.ts` (declaration, pure invariants, `canReadDocument`) | ~460 |
+| `layers/core-api/document/src/document-store.ts` (incl. `unusedSince`/`sort`, the two usage updates, `listWiderDescendants`) | ~580 |
+| `…/document-actions.ts` (incl. the cascade branch and the `assembleDocumentView` split) | ~640 |
 | `…/session-documents.ts` (folds three files) | ~380 |
 | `…/action-types.ts` + `index.ts` | ~55 |
 | `compose.ts` wiring, the generalised `runnerFor`, the lazies | ~80 |
@@ -1449,12 +1614,16 @@ Production lines only (no tests, no `.pipeline/`, no prose docs), from `wc -l` o
 | neighbour re-points (plugins, agents, org, users, teams, agent-profile, routines, search, compose, title ladder) | ~380 |
 | `routes/agent-identity.ts` (shared identity seed helper) | ~30 |
 | writeback re-point | ~60 |
-| migration `0086_document_module.sql` | ~115 |
+| migration `0086_document_module.sql` (twelve steps, incl. the owner backfill and the usage columns) | ~150 |
 | governance registry edits | ~10 |
-| O1(b) detach hook | ~10 |
-| **total added** | **≈ 2,940** |
+| O1 detach hook | ~10 |
+| usage on the wire, in the store's row mapper and in the detail aside (A5) | ~90 |
+| demo-seed usage values (data, not logic) | ~40 |
+| **total added** | **≈ 3,160** |
 
-**Net ≈ −3,280 production lines.** The rename wave adds and removes the same line, so it is net zero;
+**Net ≈ −3,140 production lines.** The founder's answers moved it by about +140: the cascade is built
+rather than deleted (A2), usage counting is new work (A5), and the detach hook stays (O1) — against
+which the two dead eval scenarios now go too. The rename wave adds and removes the same line, so it is net zero;
 test and doc churn is excluded from the number the gate shows, per the plan. Added lines exceed 1,000,
 which the founder accepted up front (plan, "Size, confirmed 2026-09-21").
 
@@ -1475,6 +1644,7 @@ real-end test for every wire.
 | old database → migration → new schema | `migration-0086-brownfield.integration.test.ts` | `framework/db/src/__tests__/` |
 | sandbox file → writeback → `edit_document` | `document-writeback-e2e.integration.test.ts` | `layers/core-api/src/__tests__/` |
 | real agent → real harness → the three tools | `document-tools-live-harness.integration.test.ts` | `layers/core-api/src/__tests__/` |
+| session bake → `assembleSessionDocuments` → `session_use_count` | `session-documents-usage.integration.test.ts` | `layers/core-api/document/src/__tests__/` |
 
 ### 15.2 The seam test (B7) — the parity contract
 
@@ -1511,7 +1681,18 @@ Cases, each asserting `result.ok` or `problems[0].code` with **exact equality**:
 12. version bumps by exactly 1 on **every** successful edit including an archive (today's archive does
     not bump — `knowledge-repository.ts:1766-1769`; this is the fix);
 13. the A4 derivation: an agent with a team gets `team`/`teamId`; an agent with **no** team, called
-    from a task session, gets the **task's** team; with neither, `factory`.
+    from a task session, gets the **task's** team; with neither, `factory`;
+14. **the cascade family** — §4.3 case 1's six sub-cases, with the change-row count asserted exactly
+    (two for a narrowing with one wider child, one for a widening, zero for a refused edit);
+15. **`open_document` raises the read count and nothing else**: call it twice, assert `readCount === 2`
+    and `lastReadAt` moved, **and** assert `version`, `updatedAt` are unchanged and
+    `listChanges({object:"document", objectId})` returned no new row. A refused open (another person's
+    memory) leaves `readCount` at 0;
+16. **`search_documents` raises nothing**: search fifty documents, assert every `readCount` unchanged;
+    **and `edit_document` raises nothing**: edit a document, assert `readCount` is still 0 — the case
+    that pins the `assembleDocumentView` split (§6.7);
+17. **`unusedSince`** returns a document never read or used whose `createdAt` is older than the cutoff,
+    and does **not** return one created yesterday; `sort:"least_used"` puts the never-used first.
 
 ### 15.3 The real-socket test (B9)
 
@@ -1533,7 +1714,9 @@ of each phase; `npm run test:full` and `npm run test:integration:service` at the
 
 From the plan, in the packaged desktop app on demo data: list · open · create · edit · move · archive ·
 triage through the Knowledge section; a second window updating live; a stale edit refused with its
-reason; an agent writing a memory and an artifact and reading a document through the three tools;
+reason; **narrowing a folder's scope and watching its children narrow with it in the second window**;
+**the detail aside showing a real read count that goes up when the page is opened again**; an agent
+writing a memory and an artifact and reading a document through the three tools;
 `npm run lint` green with the document rows gone from the legacy lists; the line count.
 
 ---
@@ -1576,7 +1759,20 @@ already fixed above; they are listed so a reviewer can re-check the fixes rather
 | 6 | B2i deleted two eval judges while `scenarios/promote-knowledge.ts` and `create-conflict-review.ts` still imported them — and those scenarios were scheduled for B35, eight phases later | B2i deletes both scenarios too; B35 only rewrites survivors |
 | 7 | B8's `session-documents.ts` inherited the assembler's imports from `knowledge-repository.ts` (`session-knowledge-assembler.ts:26-30`), which B21 deletes | B8 takes `resolveParentChain` and the row type from `document-store.ts` (B4) instead |
 
-Two more things the walk confirmed rather than changed: `compose.ts`'s three owners are strictly
+**Second walk, after the founder's answers** (A2's cascade, A5's counting, O1's hook). Two more breaks,
+both fixed above:
+
+| # | break | fix |
+|---|---|---|
+| 8 | `edit_document` was specified to return through `open_document`, copying `edit_task:850`. With A5 that counts **every edit as a read** | B5 owns an `assembleDocumentView(ctx,row)` / `open_document.run` split — the thread module's own shape (`thread-actions.ts:318-373`); seam-test case 16 pins it |
+| 9 | B6 was one block carrying the edit path *and* the cascade — one non-trivial logic file plus a second, over the ceiling | split into **B6a** (edit) → **B6b** (cascade); B7 now depends on B6b |
+
+And two the walk confirmed rather than changed: `assembleSessionDocuments` stops being a pure read but
+its **signature** does not change, so B8 still owns only its two binding files; and the cascade's change
+rows use the parent edit's actor, which is always a real `users.id`, so `changes.actor`'s
+`onDelete: restrict` FK is satisfied.
+
+Two more things the first walk confirmed rather than changed: `compose.ts`'s three owners are strictly
 ordered (B7 → B9 → B13) and never concurrent; and `routes/knowledge.ts` is touched by B0c (two routes),
 B2d (stored-value flips) and B20 (deleted) — three phases apart, so the file has one owner at a time.
 
@@ -1595,62 +1791,26 @@ the migration folder — **88** of them code (55 tests, 33 non-test) and 3 docs.
 a *pre-item* number and is not any one block's surface, because the owning blocks (B0*, B10–B22) delete
 or rewrite most of those files before the rename wave runs.
 
-### Phase 0 — delete what is dead or replaced-by-nothing, first
+### Phase 0 — DONE
 
-These shrink Phase A's mechanical surface and depend on nothing outside themselves. **B0a is `∥`;
-B0b → B0c is a strict order** — both touch `framework/api-contract/src/core-api-port.ts`,
-`core-api-port-composition.ts` and `writeback-processor.ts`, so they never run at the same time.
+Shipped 2026-09-21 in `7fb478156 · 5877fa585 · 03c096aed · a977a2cac · 7ca0b6b68 · 9242de99e ·
+90830989e · 1b5a89876` — 55 files, +468 / −4,990. Kept here as the record of what the later blocks may
+assume, **not** as work to redo.
 
-**B0a — the two sweeps.** Owns `layers/core-api/knowledge/src/promotion-pipeline.ts` (426),
-`layers/core-api/routine/src/ports.ts:76-95`,
-`layers/core-api/knowledge/src/index.ts:85` (the `export { sweep }` line),
-`layers/core-api/src/services/routine-scheduler-bindings.ts:33,78,80`, and the sweep tests
-(`af9-promotion-routine.integration.test.ts`, the sweep arms of the routine scheduler tests). **4–6
-files.** Unreachable in production (facts.md; `routine/src/ports.ts:76-95` is bound and never called).
-No registry row leaves with it: `run_knowledge_sweep` is already gone from `LEGACY_TOOLS`, and
-`retired-surfaces-absent.ts:70-73` demands *absence*, which deleting more only helps.
-Red first: none — a deletion. Its proof is that `check`, `lint` and the service lane stay green.
-Verify: `npm run check && npm run lint && npm run test:integration:service`.
+- **B0a — the two unreachable sweeps. DONE.** `promotion-pipeline.ts`, the two `routine/src/ports.ts`
+  entries, the barrel export and the scheduler bindings are gone.
+- **B0b — the six agent tools and only the six port methods they backed. DONE.** Verified in the tree:
+  `framework/api-contract/src/core-api-port.ts:313-324` now declares exactly `create`,
+  `updateKnowledgeItemContent` and `reparentKnowledgeItem` — the three the writeback still needs, which
+  B15 removes with the interface. The six `LEGACY_TOOLS` rows went with the tools.
+- **B0c — the conflicts surface. DONE.** `knowledge-conflicts.ts`, the two routes, their two
+  `LEGACY_ROUTES` rows (nine remain, `actions-projected.ts`), the promote gate, the port method and the
+  writeback's two conflict branches are gone; the writeback retries on a stale version instead
+  (`9242de99e`).
 
-**B0b — the six agent tools, and only the six port methods they back.** Owns
-`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`, `…/ports.ts`,
-`…/src/__tests__/stub-ports.ts`,
-`layers/agent-orchestration/src/services/tool-handlers-bindings.ts`,
-`layers/agent-orchestration/src/services/core-api-port-composition.ts` (the six implementations only),
-`framework/api-contract/src/core-api-port.ts` (the six method signatures only),
-`layers/agent-orchestration/src/__testing__/throwing-open-task.ts`, **and the six `LEGACY_TOOLS` rows
-in `tools/governance/src/rules/actions-projected.ts:227-235`** — the rule reports an entry whose
-subject is gone (`:445-450`), so the rows leave with the tools. Tests: delete
-`tool-handlers/src/__tests__/{create-artifact.integration.test.ts, merge-split-knowledge.test.ts,
-promote-knowledge-status-collapse.test.ts}` and the core-api tool tests
-(`create-artifact-*.integration.test.ts`, `write-memory.integration.test.ts`,
-`promote-knowledge.integration.test.ts`, `create-conflict-review.integration.test.ts`,
-`core-api-port-increment2-knowledge.integration.test.ts` — the last loses the six methods it asserts);
-re-point `return-actions.closure.test.ts` and `tool-handlers-completeness-contract.test.ts`.
-**~18 files.**
-**Does NOT touch** `create`, `updateKnowledgeItemContent`, `reparentKnowledgeItem` or
-`createKnowledgeConflict` — the writeback still calls all four (§8.4's table).
-The set-equality assertion on the registered tool names waits for B14.
-Verify: `npm run check && npm run lint && npm run test:integration:service`.
-
-**B0c — the conflicts surface, end to end.** Depends on B0b (same three files). Owns
-`layers/core-api/knowledge/src/knowledge-conflicts.ts`, its barrel exports
-(`knowledge/src/index.ts:47-51`), the open-conflict gate inside
-`knowledge-repository.ts:1586` (`code:"CONFLICT_OPEN"`) and the `PromoteTransitionResult` arm that
-carries it, the two routes in `routes/knowledge.ts` (`:802-833`) **and their two `LEGACY_ROUTES` rows**
-(`actions-projected.ts:172-173`), the promotion block they gated,
-`framework/api-contract/src/core-api-port.ts`'s `createKnowledgeConflict` + `KnowledgeConflictView` /
-`CreateKnowledgeConflictRequest`, its `core-api-port-composition.ts:458-472` implementation,
-`run-orchestration-composition.ts:283-292,319-328`'s `recordConflict`, and
-`writeback-processor.ts`'s two `recordConflict` branches (`:477-492`, `:496-522`),
-`WritebackResult.conflicts` and the conflict tests. **~12 files.**
-The replacement behaviour needs **no** forward dependency: the stale path writes
-`updateResult.currentVersion` (already returned by the surviving `updateKnowledgeItemContent`) into the
-manifest; the delete path drops the manifest entry and writes nothing. B15 later swaps the version
-source to `open_document`.
-Red first: after a sandbox delete, the document row is byte-identical and the manifest no longer names
-it — assert both, and assert `knowledge_conflicts` gained no row.
-Verify: `npm run check && npm run lint && npm run test:integration:service`.
+`layers/core-api/knowledge/src/` now holds `errors.ts · index.ts · knowledge-repository.ts ·
+scoring-config.ts · session-knowledge-assembler.ts · token-budget.ts · types.ts` plus `__tests__`.
+Every count below is re-derived against that tree.
 
 ### Phase A — the vocabulary and the schema
 
@@ -1660,7 +1820,9 @@ Owns `framework/domain-model/src/actions/document.ts` (new), `framework/domain-m
 **`layers/core-ui/src/hooks/useDocument.ts` (new), `…/useDocuments.ts` (new),
 `layers/core-ui/src/services/call.ts` (the `Actions` union gains `DOCUMENT_ACTIONS`)** and their tests.
 **~8 files.**
-Implements §3 and §4.1 plus `canReadDocument`/`documentAs`/`searchDocumentsInvariants`.
+Implements §3 and §4.1 plus `canReadDocument`/`documentAs`/`searchDocumentsInvariants` — including the
+four usage fields on `DocumentRowSchema` and `unusedSince`/`sort` on the search input (§6.7). There is
+**no** `scope_narrows_past_children` code (A2).
 `knowledge.ts` is **not** deleted yet.
 
 **Why the hooks are here and not in Phase E.** `actions-projected.ts` clause 1 scans
@@ -1680,7 +1842,7 @@ lint` stays green throughout because B2a carries the governance registries with 
 
 | block | owns | files | verify |
 |---|---|---|---|
-| **B2a** | `framework/db/src/schema.ts`, `framework/db/src/index.ts`, `framework/db/drizzle/0086_document_module.sql` (new), `framework/db/drizzle/meta/_journal.json`, `framework/db/src/__tests__/migration-0086-brownfield.integration.test.ts` (new), `…/schema.integration.test.ts`, `…/governance-crossings.test.ts`; **plus** `tools/governance/table-owners.json`, `…/src/lib/governance-attacks.ts`, `…/src/lib/crossing-detectors.ts` | **10** | `npx vitest run --project service framework/db/src/__tests__/migration-0086-brownfield.integration.test.ts && npm run lint` |
+| **B2a** | `framework/db/src/schema.ts` (incl. the **four usage columns** and `doc_last_used_idx`, §6.1), `framework/db/src/index.ts`, `framework/db/drizzle/0086_document_module.sql` (new — twelve steps incl. the owner backfill and the usage columns), `framework/db/drizzle/meta/_journal.json`, `framework/db/src/__tests__/migration-0086-brownfield.integration.test.ts` (new — incl. the four usage assertions and the "nothing carried over from `citation_count`" case), `…/schema.integration.test.ts`, `…/governance-crossings.test.ts`; **plus** `tools/governance/table-owners.json`, `…/src/lib/governance-attacks.ts`, `…/src/lib/crossing-detectors.ts` | **10** | `npx vitest run --project service framework/db/src/__tests__/migration-0086-brownfield.integration.test.ts && npm run lint` |
 | **B2b** | `framework/domain-model/src/{types.ts, work-intent.ts}`; **plus every closed union that carries a stored value** (§8.7) — `thread.ts:27,35`, `actions/thread.ts:35,486`, `knowledge.ts:60-67` (`KNOWLEDGE_PARENT_KINDS` gains the new member value, keeps its name until B22), `configuration.ts:23-29` (`PLUGIN_CONTRIBUTION_KINDS`), `index.ts`, and the 3 `__tests__` that pin those unions | **9** | `npx tsc --noEmit -p framework/domain-model && npx vitest run framework/domain-model` |
 | **B2c** | `layers/core-api/knowledge/src/{knowledge-repository,session-knowledge-assembler,index}.ts` + its 5 surviving `__tests__` files. Deletes `getProjectionRow`, `mergeWithProjection`, the projection insert in `create`, the projection branch in `update`, the joins in `listBase`/`list`/`search`; reads `confidence`/`meta` off the row | **8** | `npx tsc --noEmit -p layers/core-api/knowledge` |
 | **B2d** | `layers/core-api/src/routes/{knowledge.ts, search.ts, plugins.ts}`, `layers/core-api/settings/src/{plugin-installer.ts, plugin-contributions.ts}`, `layers/core-api/policy/src/lifecycle-propagation.ts`, `layers/core-api/src/ws-subscribe-authorizer.ts`, `layers/core-api/thread/src/{thread-actions.ts, title-ladder.ts}`, `layers/core-api/src/services/agent-run-admission-reactions.ts`, `framework/event-bus/src/events.ts` — i.e. **every reader of the three stored-value unions** (§8.7) plus the two files already named | **11** | `npx tsc --noEmit -p layers/core-api/settings layers/core-api/policy layers/core-api/thread && npx tsc --noEmit -p framework/event-bus` |
@@ -1688,7 +1850,7 @@ lint` stays green throughout because B2a carries the governance registries with 
 | **B2f** | `layers/core-api/src/routes/__tests__/` (17) + `src/services/__tests__/` (5) + `task/` (1) + `routine/` (1) | **~22** | `npx vitest run --project service layers/core-api/src/routes/__tests__ layers/core-api/src/services/__tests__` then `npx tsc --noEmit -p layers/core-api` |
 | **B2g** | `layers/agent-orchestration/run-orchestration/src/{writeback-processor.ts:52,104,271,396,424, manifest-types.ts}` and `layers/agent-orchestration/src/services/run-orchestration-composition.ts:246,287` — the `parent_kind` value flip only; the seam re-point is B15 | **3** | `npx tsc --noEmit -p layers/agent-orchestration/run-orchestration && npx tsc --noEmit -p layers/agent-orchestration` |
 | **B2h** | the six table-symbol files — `src/{fixtures/knowledge-data.ts, pages/KnowledgeDetail.tsx, layouts/AppShell.tsx, shell/Sidebar.tsx, __tests__/Sidebar.test.tsx}`, `__e2e__/R9-action-prominence.spec.ts` — **plus** every core-ui reader of the three stored-value unions (§8.7): `block/{types,derive-blocks,index}.ts`, `components/{ThreadSections.tsx, parts/part.ts}`, `ds/{ThreadHostBanner,ThreadRow}.tsx`, `pages/Conversations.tsx`, `services/{host-route,open-handler}.ts`, `shell/HostThreadSection.tsx`, `settings/SettingsPlugins.tsx:223,229`, `pages/knowledge/{parent-options.ts:49, MoveDialog.tsx:49,65, KnowledgeBody.tsx:108, KnowledgeTreeList.stories.tsx}`, and 5 tests + `__e2e__/knowledge-thread.spec.ts` | **~27** | `npx tsc --noEmit -p layers/core-ui && npx vitest run layers/core-ui` |
-| **B2i** | `tools/setup/src/{demo-world/knowledge.ts,demo-fixture.ts}`, `tools/eval/src/{seeding.ts,judges.ts,scenarios/*}` (9). Deletes `judgePromoteKnowledgeCalled` + `judgeCreateConflictReviewCalled` (they read the dropped `knowledge_edit_log` / `knowledge_conflicts`, `judges.ts:16,248-283`) **and, in the same block, the two scenarios that consume them — `scenarios/promote-knowledge.ts` and `scenarios/create-conflict-review.ts`** plus their `scenarios/index.ts` rows. Their tools went in B0b, so the scenarios are already dead; leaving them here would break `check` at this exact boundary. B35 therefore only *rewrites* the survivors | **13** | **`npm run check && npm run lint`** — this is where the tree turns green again |
+| **B2i** | `tools/setup/src/{demo-world/knowledge.ts,demo-fixture.ts}` — which also **give the demo corpus plausible usage values, including at least four documents last used more than 90 days ago** so the decay routine has something to find in the desktop walk (§6.7) — and `tools/eval/src/{seeding.ts,judges.ts,scenarios/*}` (9). Deletes `judgePromoteKnowledgeCalled` + `judgeCreateConflictReviewCalled` (they read the dropped `knowledge_edit_log` / `knowledge_conflicts`, `judges.ts:16,248-283`) **and, in the same block, the two scenarios that consume them — `scenarios/promote-knowledge.ts` and `scenarios/create-conflict-review.ts`** plus their `scenarios/index.ts` rows. Their tools went in B0b, so the scenarios are already dead; leaving them here would break `check` at this exact boundary. B35 therefore only *rewrites* the survivors | **13** | **`npm run check && npm run lint`** — this is where the tree turns green again |
 
 ### Phase B — the module
 
@@ -1706,11 +1868,15 @@ Verify: `npm run check && npm run lint && npm run test:full`. Depends on: B2i.
 
 **B4 — the store.** Owns `layers/core-api/document/src/document-store.ts` (new),
 `…/src/__tests__/document-store.integration.test.ts` (new). **2 files.**
-Implements §5.1's query builder, the get, the ancestor walk, `resolveParentChain`, the
-slot/scope/cycle/depth checks, and the transactional write. Moved, not reinvented:
+Implements §5.1's query builder (**including the `unusedSince` predicate and the two `sort` orders**),
+the get, the ancestor walk, `resolveParentChain`, the slot/scope/cycle/depth checks, the transactional
+write, and the **two usage `UPDATE`s** as plain store functions — `bumpRead(exec, id, now)` and
+`bumpSessionUse(exec, ids, now)` — which B5 and B8 call. Moved, not reinvented:
 `walkKnowledgeItemAncestorChain`, `assertParentInvariants`, `nextPositionForParent`,
-`resolveParentChain` come across from `knowledge-repository.ts:61-158,1153-1183` with §2's names.
-`cascadeScopeNarrowing` is **not** moved (A2); its replacement is an "is any descendant wider" read.
+`resolveParentChain` come across from `knowledge-repository.ts:61-158,1153-1183` with §2's names, and
+the **descendant walk `cascadeScopeNarrowing` already needs (`:167-203`) comes across as a pure read**,
+`listWiderDescendants(exec, rootId, newScopeKind)` — the same breadth-first walk the cycle check uses.
+B6b turns its result into writes.
 Red first: `search` with `{inTree:true}` excludes a `task`-parented row and another person's
 `user`-scoped ordinary row — exact ids, exact length.
 Verify: `npx vitest run --project service layers/core-api/document`. Depends on: B1, B3.
@@ -1719,24 +1885,42 @@ Verify: `npx vitest run --project service layers/core-api/document`. Depends on:
 (new) and `…/src/action-types.ts` (new). **2 files.** Implements §3.3, §3.4, §5.1's subject resolution.
 Also owns the `scopeName` derivation lifted from `routes/knowledge.ts:84-108` and its replacement
 test (the original, `layers/core-api/src/__tests__/resolve-scope-name.test.ts`, dies with the route in
-B20).
-Red first: `open_document` on another person's memory returns exactly `[{code:"not_found"}]`.
+B20), **and `open_document`'s read-count bump** (§6.7): after the visibility check, one
+`bumpRead(ctx.db, id, ctx.now)`, no `changes` row, no `version`/`updatedAt` change, a logged-and-swallowed
+failure. It also owns the **`assembleDocumentView(ctx, row)` / `open_document.run` split** — the
+assembler counts nothing and is what `edit_document` returns through, so an edit is never a read
+(§6.7). Copying `edit_task`'s `return openTaskRun(...)` here would be the bug.
+Red first: `open_document` on another person's memory returns exactly `[{code:"not_found"}]`
+**and leaves `readCount` at 0** — the second half is what proves the bump sits after the check.
 Verify: `npx vitest run --project service layers/core-api/document`. Depends on: B4.
 
-**B6 — edit.** Owns the write half of `document-actions.ts` and `…/src/index.ts`. **2 files.**
-Implements §3.5, §3.6, §4.2, §6.3's change row, and the post-commit push call shape.
+**B6a — edit, without the cascade.** Owns the write half of `document-actions.ts` and
+`…/src/index.ts`. **2 files.** Implements §3.5, §3.6, §4.1's forcings, §4.2, §6.3's change row, the
+`onBodyChanged` hook call (O1) and the post-commit push call shape. A scope narrowing is accepted and
+writes only the edited document — the children follow in B6b, and that intermediate state is why the
+two are separate blocks rather than one.
 Red first: §4.3 case 4 — two edits, the second carrying version 1, asserting
 `problems[0].code === "stale"` **and** that `title` still holds the first writer's value.
 Verify: `npx vitest run --project service layers/core-api/document`. Depends on: B5.
 
+**B6b — the cascade.** Owns the narrowing branch inside `document-actions.ts`'s write path and
+`…/src/__tests__/document-cascade.integration.test.ts` (new). **2 files, one of them real logic.**
+Implements §6.6 end to end: `listWiderDescendants` (B4) → clamp both scope columns → one `changes` row
+per narrowed child with the parent's actor and `at` → the child's own `version` bump → the whole row
+list handed to `pushChanges`.
+Red first: §4.3 case 1a — assert the child's `scopeKind` **and** `scopeId`, that the already-narrow
+grandchild is untouched, and that `listChanges({object:"document"})` holds **exactly two** rows. Show
+it red by clamping `scopeKind` alone, which is today's behaviour and the bug §6.4 step 5 has to repair.
+Verify: `npx vitest run --project service layers/core-api/document`. Depends on: B6a.
+
 **B7 — compose, generalise `runnerFor`, and the seam test.** ⟵ the spine
 Owns `layers/core-api/src/actions/compose.ts` (including the `runnerFor<I,O>` generalisation and its
-three call sites, §8.2), `layers/core-api/src/app.ts` (the `buildCoreActions` call only — the
+three call sites, §8.2, **and the `onBodyChanged` → `markDetached` binding**, O1), `layers/core-api/src/app.ts` (the `buildCoreActions` call only — the
 `/knowledge` mount removal is B20), `layers/core-api/src/__tests__/document-actions.integration.test.ts`
 (new). **3 files, one of them the whole seam test.**
 Red first: the whole §15.2 table — it is this block's definition of done.
 Verify: `npx vitest run --project service layers/core-api/src/__tests__/document-actions.integration.test.ts`
-then `npm run check && npm run lint`. Depends on: B6.
+then `npm run check && npm run lint`. Depends on: B6b.
 
 **`compose.ts` has three owners; they are strictly ordered, never concurrent: B7 → B9 → B13.**
 B7 builds the bags and generalises `runnerFor`; B9 binds `wsPush`; B13 swaps task's and thread's narrow
@@ -1751,7 +1935,13 @@ Owns `layers/core-api/document/src/session-documents.ts` (new; folds and deletes
 `layers/core-api/src/services/task-run-resolver-bindings.ts`,
 `layers/core-api/src/services/routine-scheduler-bindings.ts` (the one `assembleSessionDocuments` line),
 and `session-knowledge-assembler-ranking-parity.integration.test.ts`. **7 files.**
-Red first: the parity test asserts the **same ranked order** as before the fold.
+**and the `session_use_count` bump** (§6.7): one batched `bumpSessionUse(db, ids, now)` at the end of
+`assembleSessionDocuments`, over exactly the documents it returns. The function's doc comment must say
+it is no longer a pure read, and that it joins `edit_task`'s transaction when the bake runs inside one
+(`task-actions.ts:759-763`).
+Red first: the parity test asserts the **same ranked order** as before the fold, **plus** a new
+`session-documents-usage.integration.test.ts` asserting `sessionUseCount` went from 0 to 1 for every
+returned id and stayed 0 for a document the assembler did not pick.
 Verify: `npx vitest run --project service layers/core-api/src/services/__tests__`. Depends on: B3, B4.
 
 **B9 — the websocket nudge.** ∥ B8
@@ -1767,8 +1957,8 @@ touches `compose.ts`, which is why Phase C waits for B9 rather than B7.
 
 **B10 — plugin behaviour.** Owns `layers/core-api/src/routes/plugins.ts` and the plugin route tests
 (`plugin-skill-reinstall.integration.test.ts`, `BA9g-plugin-agent-identity.integration.test.ts`, the
-plugins route tests); under O1 variant (a) also the new plumbing route and its `PLUMBING_ROUTES` row.
-**~5 files.** Implements the §8.3 plugin behaviour rows and O1's chosen variant. The **contribution
+plugins route tests). **~4 files.** Implements the §8.3 plugin behaviour rows. The detach hook itself
+(O1) is a `compose.ts` binding owned by B7, not a route. The **contribution
 kind literal is not here** — it is a stored value and flipped in B2b/B2d/B2h (§8.7c).
 Red first: **"install a plugin skill against a migrated database"** — seed a `plugin_contributions` row
 with `kind='document'`, run install, and assert (i) the contributed document exists with
@@ -1786,7 +1976,7 @@ Verify: `npx vitest run --project service layers/core-api/src/routes/__tests__`.
 **B12 — routines.** Owns `layers/core-api/src/routes/routines-routes.ts`,
 `layers/core-api/routine/src/ports.ts`, `layers/core-api/routine/src/routine-scheduler.ts`,
 `layers/core-api/src/services/routine-scheduler-bindings.ts`, and the routine tests. **~8 files.**
-Implements the prompt-slot reads/writes and — **under A1's default** — deletes the scheduler's `itemId`
+Implements the prompt-slot reads/writes and — per A1 — deletes the scheduler's `itemId`
 subject branch and `ports.knowledge.getItemById`.
 Red first: a routine's prompt read returns an **archived** prompt (no status filter — today's
 behaviour, pinned).
@@ -1842,15 +2032,19 @@ Verify: `npx vitest run layers/core-ui/src/hooks && npx tsc --noEmit -p layers/c
 **B17 — the list page and the shell.** Owns `pages/DocumentList.tsx` (moved), its stories and tests,
 `layouts/AppShell.tsx`, `shell/Sidebar.tsx`, `hooks/useNavShortcuts.ts`. **~9 files.**
 Red first: `pathToView("/documents/abc")` returns the view id `"knowledge"` — the §8.6 exception,
-pinned by exact equality; plus the triage filter shows exactly the `proposed` rows.
+pinned by exact equality; plus the triage filter shows exactly the `proposed` rows. The list gets no
+usage surface of its own (§6.7); it can pass `sort` through the existing control, nothing more.
 Verify: `npx vitest run layers/core-ui/src/pages layers/core-ui/src/__tests__`.
 
 **B18 — the detail page and its dialogs.** Owns `pages/DocumentDetail.tsx` (moved),
 `pages/document/*` (moved), their stories and tests, **and the three
 `tools/repo-gates/mock-inventory/inventory.{json,md}` rows for `LEGACY_DETAILS`/`LEGACY_SOURCES`/
 `FALLBACK_DETAIL`**, regenerated here because this block deletes those blocks. **~22 files.**
+Also renders **the four usage values in the existing metadata aside** (§6.7) — read count and last
+read, sessions and last used — and nothing else new.
 Red first: with the API returning nothing, the page renders an honest empty state and **no fixture
-title** — assert the old fixture strings are absent by exact equality on the rendered text.
+title** — assert the old fixture strings are absent by exact equality on the rendered text; and with a
+row carrying `readCount: 7`, the aside shows it.
 Verify: `npx vitest run layers/core-ui/src/pages`.
 
 **B19 — create, settings, artifacts, overlay, search, router, DS.** Owns `pages/DocumentCreate.tsx`
@@ -1883,14 +2077,13 @@ Depends on: B10–B13, B16–B19.
 **~10 files.**
 Verify: `npm run check && npm run lint && npm run knip`. Depends on: B20.
 
-**B22 — delete the fixtures and (A1 default) the events.** Owns
+**B22 — delete the fixtures and the three events (A1).** Owns
 `layers/core-ui/src/fixtures/knowledge-data.ts` **with its `tools/governance/misplaced-files.json` row
 and its two `mock-inventory` rows** (regenerated here), `framework/domain-model/src/knowledge.ts`,
 `framework/event-bus/src/events.ts` (the three interfaces and their `EVENT_TYPES` rows) **with the
 three `LEGACY_EVENTS` rows in `actions-projected.ts:257-259`**,
 `framework/domain-model/src/work-intent.ts` (the `kind:"knowledge-item"` subject arm),
-`layers/agent-orchestration/run-orchestration/src/context.ts:520`. **8 files.** Under A1's
-alternative this block keeps the three events and touches neither `events.ts` nor `LEGACY_EVENTS`.
+`layers/agent-orchestration/run-orchestration/src/context.ts:520`. **8 files.**
 Verify: `npm run check && npm run lint && npm run mock-inventory:check`. Depends on: B12, B18, B21.
 
 **B23 — the registry sweep.** Owns nothing by default: every shrink-only row left with its subject
@@ -1922,13 +2115,36 @@ if it exceeds 40.
 
 ### Phase H — the edges
 
-**B34 — plugin and personas.** ∥ B35
-Owns `plugins/knowledge-management/` (rename the directory and `name` to `document-management`;
-**delete the two `run_knowledge_sweep` instructions at `plugin.json:24,32`** — the tool has not existed
-for some time — and rewrite those two routine prompts against `search_documents` + `edit_document`;
-rewrite `skills/knowledge-promotion/SKILL.md` and `skills/knowledge-decay/SKILL.md`;
-`skills/post-task-retro/SKILL.md` needs only the noun),
-`plugins/role-personas/personas/{facilitator,product-manager,qa-engineer}.md`. **~8 files.**
+**B34 — the librarian plugin and the personas.** ∥ B35
+Owns `plugins/knowledge-management/` — rename the directory and `name` to `document-management` — and
+`plugins/role-personas/personas/{facilitator,product-manager,qa-engineer}.md` (drop
+`create_conflict_review`, `write_memory`, `create_artifact`; name `edit_document`). **~8 files.**
+Both of the plugin's weekly routines still instruct the librarian to call `run_knowledge_sweep`
+(`plugin.json:24,32`), a tool that has not existed since the attention engine was deleted — so both are
+rewritten, not merely re-worded.
+
+**The decay routine gets a real job (A5).** Prompt and `skills/knowledge-decay/SKILL.md` become: search
+
+```
+search_documents({ status: "active", slot: "ordinary", inTree: true,
+                   unusedSince: <90 days ago, ISO>, sort: "least_used", limit: 50 })
+```
+
+then, for each result, `edit_document({ id, status: "archived", version })`.
+The filter is the whole safety rule, spelled out: `slot:"ordinary"` leaves skills, rules, agent
+identities and routine prompts alone, and because **every plugin contribution is written with a
+non-ordinary slot** (`upsertKnowledgeDocument` defaults `role:"skill"` and routine prompts pass
+`prompt` explicitly), it also leaves plugin-contributed documents alone without the librarian needing
+to see `plugin_contributions` — a table it cannot read. `inTree:true` keeps artifacts and memories out.
+Caveat to state in the skill: if a plugin ever contributes an ordinary tree document, this filter stops
+being sufficient and the rule needs a real provenance check.
+
+**The promotion routine is KEPT, rewritten** — decided from the skill text, which describes two jobs:
+running the deleted sweep, and recomputing attention (also deleted). Underneath both is an honest job a
+librarian can still do by hand: triage. It becomes `search_documents({ status: "proposed", inTree:
+true })`, `open_document` on each, then `edit_document({ id, status: "active" | "archived", version })`
+with a one-line reason in the run's summary. `skills/knowledge-promotion/SKILL.md` is rewritten to that
+and renamed `document-triage`; `skills/post-task-retro/SKILL.md` needs only the noun.
 Verify: `npm run lint && npx vitest run --project service layers/core-api/src/routes/__tests__`.
 
 **B35 — evals.** ∥ B34
@@ -1954,13 +2170,13 @@ the desktop build and the §15.5 gate walk. Depends on: everything.
 ### Dependency summary
 
 ```
-B0a ∥ (B0b → B0c)
+[B0a ∥ (B0b → B0c)]  ── DONE, 2026-09-21
         ↓
 B1  ∥  B2a                       B1 finishes before B2b; B2a is the migration
         ↓
 B2b → B2c → B2d → B2e → B2f → B2g → B2h → B2i      `npm run check` RED B2a..B2h, GREEN at B2i
                                             ↓
-                          B3 → B4 → B5 → B6 → B7 → B9
+                    B3 → B4 → B5 → B6a → B6b → B7 → B9
                                                     ├→ B8
                                                     ├→ B10 ∥ B11 ∥ B12 ∥ B13
                                                     ├→ B14 → B15
