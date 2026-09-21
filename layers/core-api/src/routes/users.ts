@@ -9,12 +9,13 @@ import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/o
 // persistScaffoldedAgents seeds the agent's identity document from the app
 // AgentScaffoldSpec; after that the document is edited like any other.
 
-import { upsertAgentIdentity } from "@hyperidle/document";
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
+import { buildStandaloneDocumentRunners } from "../actions/compose.js";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
+import { createAgentIdentityPort } from "./agent-identity.js";
 
 /**
  * @lore P4: PATCH /api/users/:id — only name and email are writable by the
@@ -64,11 +65,22 @@ export function createUserSetupRoute(
 	// AU26 G1 (§D-L) / AU31 §2.2: `persistScaffoldedAgents` also stamps the run
 	// config, reached through the seam (`buildSeamBackedAgentRunConfigWriter`)
 	// instead of a direct `@hyperidle/run-orchestration` import.
+	//
+	// @lore BC4 follow-up (architecture.md §8.3): `upsertAgentIdentity` used to
+	// be `@hyperidle/document`'s repository function directly. This route runs
+	// pre-auth, before any request has reached `createCoreApiApp` (so the real
+	// composed action list — `actions/compose.ts`'s `buildCoreActions` — does
+	// not exist yet); `buildStandaloneDocumentRunners()` is the same standalone
+	// composition `service-bootstrap.ts`'s routine scheduler wiring uses for
+	// the identical reason. Built once per route registration, not per
+	// request — a `search_documents`/`edit_document` runner pair carries no
+	// per-request state.
+	const { searchDocuments, editDocument } = buildStandaloneDocumentRunners();
+	const agentIdentity = createAgentIdentityPort({ searchDocuments, editDocument, eventBus });
 	const orgUsers = {
 		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
 		insertUser,
 		...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
-		upsertAgentIdentity,
 	};
 
 	router.post("/", async (c) => {
@@ -142,7 +154,22 @@ export function createUserSetupRoute(
 			ownerUserName: name,
 		});
 
-		const { agentIds } = await persistScaffoldedAgents(db, orgUsers, null, specs);
+		// The founder row just committed above, outside any open transaction —
+		// safe to run the identity write (its own `edit_document` transaction)
+		// right after. `persistScaffoldedAgents` always passes the literal
+		// `"scaffold"` as `updatedBy` (it has no request actor of its own); this
+		// route DOES have one — the just-created founder — so it overrides that
+		// sentinel rather than falling back to a system actor.
+		const { agentIds } = await persistScaffoldedAgents(
+			db,
+			{
+				...orgUsers,
+				upsertAgentIdentity: (db2, input) =>
+					agentIdentity.upsertAgentIdentity(db2, { ...input, updatedBy: id }),
+			},
+			null,
+			specs,
+		);
 		const assistantAgentId = agentIds[0] ?? `ast-${id}`;
 
 		// AK6 T8: emit user_created event AFTER human user + assistant are both persisted.
