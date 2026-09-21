@@ -1,59 +1,35 @@
 /**
- * W3 — Knowledge Edit Mode E2E tests: AC-44 through AC-46.
+ * W3 — Document Edit Mode E2E tests: AC-44 through AC-46.
  *
  * AC-44: Clicking "Edit" transitions to edit mode — "Done" replaces "Edit",
- *        formatting toolbar appears, body gets editor border, save indicator.
+ *        body gets the BodyEditor panel, save indicator appears.
  * AC-45: Clicking "Done" returns to read mode.
  * AC-46: Metadata aside stays read-only during editing.
+ *
+ * @lore BC4: repointed at `POST /api/actions/{open_document,edit_document}`
+ * via `mockDocument` — never `GET/PATCH /api/knowledge/:id`.
+ *
+ * @lore T2: the always-visible formatting toolbar and the bordered
+ * "knowledge-editor-area" wrapper this spec used to assert on are gone —
+ * T2 replaced them with TipTap's BubbleMenu (a floating toolbar that only
+ * renders on text selection) with no bordered wrapper element. Those two
+ * cases are deleted; their subject no longer exists.
  */
 
-import { expect, mockSearchThreads, test } from "./fixtures";
+import { expect, makeDocumentRow, mockDocument, mockSearchThreads, test } from "./fixtures";
 
-const KNOWLEDGE_ITEM_FIXTURE = {
-	id: "k-e2e-1",
+const MOCK_ITEM = makeDocumentRow("k-e2e-1", {
 	title: "Auth Strategy Decision",
 	body: "We decided to use JWT with refresh rotation.",
-	topic: "Auth",
-	status: "active",
-	kind: "decision",
-	layer: "L2",
-	version: 1,
-	scopeKind: "practice",
-	format: "markdown",
-	updatedBy: "Test Founder",
-	updatedAt: "2026-01-01T10:00:00.000Z",
-	createdAt: "2026-01-01T10:00:00.000Z",
-	signals: null,
-};
+	scopeKind: "team",
+});
 
-const KNOWLEDGE_LIST_FIXTURE = {
-	items: [KNOWLEDGE_ITEM_FIXTURE],
-};
-
-test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
+test.describe("W3 AC-44 — Document edit mode transition", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/knowledge/k-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(KNOWLEDGE_ITEM_FIXTURE),
-			});
-		});
-		await page.route("**/api/knowledge*", async (route) => {
-			const url = route.request().url();
-			if (url.includes("/k-e2e-1")) {
-				await route.continue();
-			} else {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(KNOWLEDGE_LIST_FIXTURE),
-				});
-			}
-		});
+		await mockDocument(page, { row: MOCK_ITEM });
 		await mockSearchThreads(page, { rows: [] });
-		await page.goto("/knowledge/k-e2e-1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 	});
 
 	test("initially shows 'Edit' button (not 'Done')", async ({ page }) => {
@@ -68,30 +44,18 @@ test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
 		await expect(page.getByRole("button", { name: /^edit$/i })).not.toBeVisible();
 	});
 
-	test("edit mode shows a formatting toolbar", async ({ page }) => {
+	test("edit mode shows the BodyEditor panel", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
-		// Toolbar should appear with Bold, Italic etc.
-		const toolbar = page.locator(
-			"[data-testid='formatting-toolbar'], .formatting-toolbar, [role='toolbar']",
-		);
-		await expect(toolbar).toBeVisible();
-	});
-
-	test("edit mode wraps editor in a bordered area", async ({ page }) => {
-		await page.getByRole("button", { name: /^edit$/i }).click();
-
-		const editorArea = page.locator(
-			"[data-testid='knowledge-editor-area'], [class*='editor-area']",
-		);
-		await expect(editorArea).toBeVisible();
+		const editPanel = page.getByTestId("knowledge-edit-panel");
+		await expect(editPanel).toBeVisible();
+		await expect(editPanel.locator(".ProseMirror")).toBeVisible();
 	});
 
 	test("edit mode shows save indicator in header", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
 
-		const saveIndicator = page.locator("[data-testid='save-indicator'], [data-save-status]");
-		await expect(saveIndicator).toBeVisible();
+		await expect(page.getByTestId("save-indicator")).toBeAttached();
 	});
 
 	for (const viewport of [
@@ -99,12 +63,12 @@ test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
 		{ name: "1024x768", width: 1024, height: 768 },
 		{ name: "375x812", width: 375, height: 812 },
 	]) {
-		test(`${viewport.name}: knowledge prose rests rendered`, async ({ page }) => {
+		test(`${viewport.name}: document prose rests rendered`, async ({ page }) => {
 			await page.setViewportSize(viewport);
 			await expect(page.getByRole("button", { name: /^edit$/i })).toBeVisible();
 			await expect(page.getByTestId("knowledge-edit-panel")).toHaveCount(0);
 			await page.screenshot({
-				path: `test-results/knowledge-read-${viewport.name}.png`,
+				path: `test-results/document-read-${viewport.name}.png`,
 				fullPage: true,
 			});
 		});
@@ -113,27 +77,10 @@ test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
 
 test.describe("W3 AC-45 — Done returns to read mode", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/knowledge/k-e2e-1", async (route) => {
-			if (route.request().method() === "PATCH") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ ...KNOWLEDGE_ITEM_FIXTURE, version: 2 }),
-				});
-			} else {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(KNOWLEDGE_ITEM_FIXTURE),
-				});
-			}
-		});
-		await page.route("**/api/knowledge*", async (route) => {
-			await route.continue();
-		});
+		await mockDocument(page, { row: MOCK_ITEM });
 		await mockSearchThreads(page, { rows: [] });
-		await page.goto("/knowledge/k-e2e-1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 	});
 
 	test("clicking Done returns to read mode with Edit button", async ({ page }) => {
@@ -149,14 +96,13 @@ test.describe("W3 AC-45 — Done returns to read mode", () => {
 		await expect(page.getByRole("button", { name: /^done$/i })).not.toBeVisible();
 	});
 
-	test("editor border disappears after clicking Done", async ({ page }) => {
+	test("edit panel disappears after clicking Done", async ({ page }) => {
 		await page.getByRole("button", { name: /^edit$/i }).click();
+		await expect(page.getByTestId("knowledge-edit-panel")).toBeVisible();
+
 		await page.getByRole("button", { name: /^done$/i }).click();
 
-		const editorArea = page.locator(
-			"[data-testid='knowledge-editor-area'], [class*='editor-area']",
-		);
-		await expect(editorArea).not.toBeVisible();
+		await expect(page.getByTestId("knowledge-edit-panel")).not.toBeVisible();
 	});
 
 	test("Done remains a save barrier until the latest body change is acknowledged", async ({
@@ -176,19 +122,10 @@ test.describe("W3 AC-45 — Done returns to read mode", () => {
 
 test.describe("W3 AC-46 — Metadata aside read-only in edit mode", () => {
 	test.beforeEach(async ({ page }) => {
-		await page.route("**/api/knowledge/k-e2e-1", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(KNOWLEDGE_ITEM_FIXTURE),
-			});
-		});
-		await page.route("**/api/knowledge*", async (route) => {
-			await route.continue();
-		});
+		await mockDocument(page, { row: MOCK_ITEM });
 		await mockSearchThreads(page, { rows: [] });
-		await page.goto("/knowledge/k-e2e-1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 	});
 
 	test("metadata aside remains visible during editing", async ({ page }) => {

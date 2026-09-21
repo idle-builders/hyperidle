@@ -23,16 +23,21 @@
  * must be visible.
  *
  * @lore BC3: repointed at `POST /api/actions/{search_threads,open_thread,
- * send_message}` — never `GET/POST /api/threads*`. The knowledge page's
+ * send_message}` — never `GET/POST /api/threads*`. The document page's
  * thread already exists in every test here, so `adjust_thread` (the
  * create-on-first-post door) is never exercised and needs no mock.
+ *
+ * @lore BC4: repointed at `POST /api/actions/{open_document,edit_document}`
+ * via `mockDocument` — never `GET/PATCH /api/knowledge/:id`.
  */
 
 import {
 	expect,
+	makeDocumentRow,
 	makeMessage,
 	makeThread,
 	makeThreadListRow,
+	mockDocument,
 	mockSearchThreads,
 	test,
 } from "./fixtures";
@@ -72,29 +77,15 @@ async function mockKnowledgeItem(
 	page: import("@playwright/test").Page,
 	body: string,
 ): Promise<void> {
-	await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, async (route) => {
-		if (route.request().method() === "GET") {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({
-					id: KNOWLEDGE_ID,
-					title: "Architecture Decision: Auth Strategy",
-					body,
-					format: "markdown",
-					status: "active",
-					version: 1,
-					updatedBy: FOUNDER_ID,
-					scopeKind: "practice",
-					scopeId: null,
-					createdAt: NOW,
-					updatedAt: NOW,
-					signals: null,
-				}),
-			});
-		} else {
-			await route.continue();
-		}
+	await mockDocument(page, {
+		row: makeDocumentRow(KNOWLEDGE_ID, {
+			title: "Architecture Decision: Auth Strategy",
+			body,
+			scopeKind: "team",
+			updatedBy: FOUNDER_ID,
+			createdAt: NOW,
+			updatedAt: NOW,
+		}),
 	});
 }
 
@@ -149,7 +140,7 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 			});
 		});
 
-		// Knowledge item API (for useKnowledgeItem hook)
+		// Document API (for useDocument hook)
 		await mockKnowledgeItem(
 			page,
 			"JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes.",
@@ -157,8 +148,8 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 	});
 
 	test("knowledge detail page renders with body blocks and thread section", async ({ page }) => {
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// Thread section renders
 		await expect(page.getByTestId("host-thread-section")).toBeVisible();
@@ -169,8 +160,8 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 	});
 
 	test("Space on a block opens the BlockActionsPopover with a Discuss option", async ({ page }) => {
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// Focus the first block and press Space to open block actions
 		const firstBlock = page
@@ -188,8 +179,8 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 	test("clicking Discuss from popover pre-fills the composer and shows filter banner", async ({
 		page,
 	}) => {
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// Open block actions via keyboard
 		const firstBlock = page
@@ -210,8 +201,8 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 	});
 
 	test("posting a message after Discuss appears in the thread section", async ({ page }) => {
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// Open block actions and click Discuss
 		const firstBlock = page
@@ -227,8 +218,12 @@ test.describe("T5 AC-1/AC-5 — Block discussion: Discuss button popover and thr
 		await composer.fill(messageText);
 		await page.getByRole("button", { name: /^send$/i }).click();
 
-		// Message should appear in the thread section
-		await expect(page.getByText(messageText)).toBeVisible();
+		// Message should appear in the thread section. Scoped to
+		// host-thread-section: DocumentBody also renders a small inline preview
+		// of block-anchored messages next to the block itself
+		// (data-testid="anchored-messages"), so an unscoped getByText resolves
+		// to both and is ambiguous.
+		await expect(page.getByTestId("host-thread-section").getByText(messageText)).toBeVisible();
 	});
 });
 
@@ -272,8 +267,8 @@ test.describe("T5 AC-2 — anchor-lost indicator for orphan messages", () => {
 
 		await mockKnowledgeItem(page, "JWT-based authentication with refresh tokens.");
 
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// The knowledge body should render the orphan message with anchor-lost indicator
 		await expect(page.getByTestId("anchor-lost-indicator")).toBeVisible();
@@ -334,8 +329,8 @@ test.describe("T5 AC-5 — HostThreadSection block-scoped filter", () => {
 
 		await mockKnowledgeItem(page, "JWT-based authentication with refresh tokens.");
 
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// Initially both messages are visible (no filter active yet)
 		await expect(page.getByTestId("host-thread-section")).toBeVisible();

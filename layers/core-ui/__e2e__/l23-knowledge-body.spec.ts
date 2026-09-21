@@ -1,12 +1,9 @@
 /**
- * L23 — Playwright E2E: Knowledge body rendered as Blocks (not <pre>).
+ * L23 — Playwright E2E: Document body rendered as Blocks (not <pre>).
  *
  * E1: Multi-section playbook has h1/h2/h3 semantics and no <pre>.
- * E2: 3-sentence belief renders 3 paragraph Block shells with no card chrome.
+ * E2: A paragraph renders a Block shell with no card chrome.
  * E3: Edit mode shows the BodyEditor panel (WYSIWYG — no separate preview pane).
- *
- * All three rely on the KnowledgeBody component from L23 being wired into
- * KnowledgeDetail. They will fail until Phase B lands.
  *
  * @lore T2: textarea+preview+Save/Cancel replaced by BodyEditor + Done button.
  * - knowledge-edit-textarea → BodyEditor inside knowledge-edit-panel
@@ -14,30 +11,46 @@
  * - Save button → auto-save (no explicit save action needed)
  * - Cancel button → Done button (exits edit mode)
  *
- * @lore T2 L23 E2E: For E1 and E2 tests that previously typed into a textarea
- * and clicked Save, the approach is now to intercept the PATCH /api/knowledge/:id
- * endpoint so auto-save fires on typing. However, because TipTap's ProseMirror
- * contenteditable does not accept `.fill()` (it's not a form element), and
- * because the fixture-loaded items (k1) fall back to local fixture data
- * (no API involved for the read path), we navigate to k1, enter edit mode,
- * assert the panel is visible, then exit. The block rendering assertions for
- * saved content operate on the read-view body (populated from the k1 fixture).
+ * @lore BC4: repointed at `POST /api/actions/{open_document,edit_document}` via
+ * `mockDocument` — never `GET/PATCH /api/knowledge/:id`, and never a
+ * fixture-fallback id (`LEGACY_DETAILS`/`FALLBACK_DETAIL` are deleted —
+ * DocumentDetail shows an honest not-found state with nothing mocked).
  */
 
-import { expect, test } from "./fixtures";
+import { expect, makeDocumentRow, mockDocument, mockSearchThreads, test } from "./fixtures";
+
+const MULTI_SECTION_BODY = [
+	"# Authentication Playbook",
+	"",
+	"## Overview",
+	"",
+	"We use JWT-based authentication with refresh tokens for all internal services.",
+	"",
+	"## Rotation",
+	"",
+	"### Access tokens",
+	"",
+	"Access tokens expire in 15 minutes.",
+	"",
+].join("\n");
+
+const MOCK_ITEM = makeDocumentRow("k-l23-1", {
+	title: "Authentication Playbook",
+	body: MULTI_SECTION_BODY,
+	scopeKind: "team",
+});
+
+test.beforeEach(async ({ page }) => {
+	await mockDocument(page, { row: MOCK_ITEM });
+	await mockSearchThreads(page, { rows: [] });
+});
 
 // ── E1 — Multi-section playbook has heading semantics and no <pre> ──
 
-test.describe("E1 — Knowledge body: multi-section playbook", () => {
+test.describe("E1 — Document body: multi-section playbook", () => {
 	test("body container exists and is not a <pre>", async ({ page }) => {
-		// k-playbook does not exist in the fixture; use k1 which has content.
-		// For E1 we need a multi-section body. The fixture k1 is a single-paragraph
-		// body. We navigate to k1 and use the Edit flow to set a multi-section body
-		// during the test — OR we rely on the existing fixture bodies.
-		// @lore L23 E1: The fixture doesn't include a multi-section playbook by default.
-		// We use the Edit flow to inject one before asserting.
-		await page.goto("/knowledge/k1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		const body = page.getByTestId("knowledge-body");
 		await expect(body).toBeVisible();
@@ -48,7 +61,7 @@ test.describe("E1 — Knowledge body: multi-section playbook", () => {
 	});
 
 	test("body container has data-knowledge-body attribute", async ({ page }) => {
-		await page.goto("/knowledge/k1");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
 		await page.waitForSelector("[data-testid='knowledge-body']");
 
 		const body = page.getByTestId("knowledge-body");
@@ -58,15 +71,11 @@ test.describe("E1 — Knowledge body: multi-section playbook", () => {
 	});
 
 	test("edit mode shows BodyEditor panel with WYSIWYG editor", async ({ page }) => {
-		// @lore T2 L23 E1: The old test typed a multi-section body into a textarea
-		// then clicked Save to assert heading rendering. T2 replaced the textarea
-		// with BodyEditor (TipTap). Since TipTap's ProseMirror contenteditable
-		// doesn't accept .fill() and auto-save requires a running backend, we
-		// assert the structural behaviour: Edit opens the panel, Done closes it.
-		// The heading-semantics assertions are preserved in the KnowledgeBody unit
-		// tests (KnowledgeBody.test.tsx) which render the component with known content.
-		await page.goto("/knowledge/k1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		// @lore T2 L23 E1: The heading-semantics assertions are preserved in the
+		// DocumentBody unit tests, which render the component with known content.
+		// Here we assert the structural behaviour: Edit opens the panel, Done closes it.
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		await page.getByRole("button", { name: /edit/i }).click();
 
@@ -90,27 +99,22 @@ test.describe("E1 — Knowledge body: multi-section playbook", () => {
 	});
 });
 
-// ── E2 — 3-sentence belief: 3 paragraph Blocks, no card chrome ──
+// ── E2 — a paragraph renders a Block shell, no card chrome ──
 
-test.describe("E2 — Knowledge body: 3-sentence belief, no chrome", () => {
-	test("k1 fixture body renders paragraph blocks in read view", async ({ page }) => {
-		// @lore T2 L23 E2: The old test typed 3 paragraphs into a textarea and
-		// clicked Save. T2 replaced textarea+Save with BodyEditor+auto-save.
-		// We assert the read-view block rendering directly on the k1 fixture body
-		// (which contains a multi-sentence paragraph about JWT auth).
-		await page.goto("/knowledge/k1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+test.describe("E2 — Document body: paragraph block, no chrome", () => {
+	test("body renders paragraph blocks in read view", async ({ page }) => {
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
-		// The k1 body renders as a KnowledgeBody — should have paragraph block shells
+		// The body renders via DocumentBody — should have paragraph block shells
 		const paragraphBlocks = page.locator(
 			"[data-testid='knowledge-body'] [data-ds-component='block'][data-ds-kind='paragraph']",
 		);
-		// k1 has at least 1 paragraph block
 		await expect(paragraphBlocks.first()).toBeVisible();
 	});
 
 	test("body container has no card/border/shadow chrome", async ({ page }) => {
-		await page.goto("/knowledge/k1");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
 		await page.waitForSelector("[data-testid='knowledge-body']");
 
 		const body = page.getByTestId("knowledge-body");
@@ -124,10 +128,10 @@ test.describe("E2 — Knowledge body: 3-sentence belief, no chrome", () => {
 
 // ── E3 — Edit-mode shows BodyEditor panel (WYSIWYG — no separate preview pane) ──
 
-test.describe("E3 — Knowledge body: edit-mode panel is not a <pre>", () => {
+test.describe("E3 — Document body: edit-mode panel is not a <pre>", () => {
 	test("clicking Edit shows the BodyEditor panel (not a <pre>)", async ({ page }) => {
-		await page.goto("/knowledge/k1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		await page.getByRole("button", { name: /edit/i }).click();
 
@@ -142,8 +146,8 @@ test.describe("E3 — Knowledge body: edit-mode panel is not a <pre>", () => {
 	});
 
 	test("BodyEditor panel contains a contenteditable element", async ({ page }) => {
-		await page.goto("/knowledge/k1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		await page.getByRole("button", { name: /edit/i }).click();
 
@@ -154,15 +158,15 @@ test.describe("E3 — Knowledge body: edit-mode panel is not a <pre>", () => {
 	});
 
 	test("BodyEditor panel shows initial content from saved body", async ({ page }) => {
-		await page.goto("/knowledge/k1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto(`/documents/${MOCK_ITEM.id}`);
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		await page.getByRole("button", { name: /edit/i }).click();
 
 		const editPanel = page.getByTestId("knowledge-edit-panel");
 		await expect(editPanel).toBeVisible();
 
-		// The editor should contain the k1 fixture content ("JWT-based authentication")
+		// The editor should contain the mocked body content
 		await expect(editPanel).toContainText("JWT-based authentication");
 	});
 });

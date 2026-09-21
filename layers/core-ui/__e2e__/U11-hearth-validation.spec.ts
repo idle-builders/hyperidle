@@ -13,9 +13,9 @@
  *   4. Bet grid / Work Portfolio
  *   5. Bet detail (/work/task/:betId)
  *   6. Team view (/work/team/:teamId)
- *   7. Knowledge list (empty state)
- *   8. Knowledge list (with items)
- *   9. Knowledge detail (/knowledge/:knowledgeId)
+ *   7. Document list (empty state)
+ *   8. Document list (with items)
+ *   9. Document detail (/documents/:documentId)
  *  10. Settings overlay (open)
  *
  * @lore U11 AC3: Screenshots are taken after waitForLoadState("networkidle") to
@@ -24,14 +24,21 @@
  *
  * @lore BC3: the thread door is `POST /api/actions/{search_threads,
  * open_thread}` — never `GET /api/threads*`.
+ *
+ * @lore BC4: the document door is `POST /api/actions/{search_documents,
+ * open_document}` via `mockSearchDocuments`/`mockDocument` — never
+ * `GET /api/knowledge*`.
  */
 
 import {
 	expect,
+	makeDocumentRow,
 	makeIdentity,
 	makeMessage,
 	makeThread,
 	makeThreadListRow,
+	mockDocument,
+	mockSearchDocuments,
 	mockSearchThreads,
 	mockThread,
 	test,
@@ -138,54 +145,36 @@ const TEAM_DETAIL_FIXTURE = {
 	],
 };
 
-const KNOWLEDGE_ITEMS_FIXTURE = {
-	items: [
-		{
-			id: "k-u11-1",
-			topic: "Architecture",
-			title: "Auth Strategy Decision",
-			body: "Use JWT with short-lived access tokens and refresh rotation.",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "agent-lead",
-			createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-			updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-			signals: null,
-			scope: "practices",
-		},
-		{
-			id: "k-u11-2",
-			topic: "Design",
-			title: "Hearth Token Reference",
-			body: "All Hearth spacing, color and typography tokens are warm-tinted.",
-			format: "markdown",
-			status: "active",
-			version: 2,
-			updatedBy: "agent-lead",
-			createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-			updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-			signals: null,
-			scope: "factory",
-		},
-	],
-};
+const DOCUMENT_ITEMS_FIXTURE = [
+	makeDocumentRow("k-u11-1", {
+		title: "Auth Strategy Decision",
+		body: "Use JWT with short-lived access tokens and refresh rotation.",
+		version: 1,
+		updatedBy: "agent-lead",
+		scopeKind: "team",
+		createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+		updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+	}),
+	makeDocumentRow("k-u11-2", {
+		title: "Hearth Token Reference",
+		body: "All Hearth spacing, color and typography tokens are warm-tinted.",
+		version: 2,
+		updatedBy: "agent-lead",
+		scopeKind: "factory",
+		createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+		updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+	}),
+];
 
-const KNOWLEDGE_DETAIL_FIXTURE = {
-	id: "k-u11-1",
-	topic: "Architecture",
+const DOCUMENT_DETAIL_FIXTURE = makeDocumentRow("k-u11-1", {
 	title: "Auth Strategy Decision",
 	body: "Use **JWT** with short-lived access tokens and refresh rotation.",
-	format: "markdown",
-	status: "active",
 	version: 1,
 	updatedBy: "agent-lead",
-	scope: "practices",
-	layer: "decision",
+	scopeKind: "team",
 	createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
 	updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-	signals: null,
-};
+});
 
 // ---------------------------------------------------------------------------
 // Screen 1: Conversations list — empty state
@@ -313,19 +302,13 @@ test("U11 screenshot: team view", async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Screen 7: Knowledge list — empty state
+// Screen 7: Document list — empty state
 // ---------------------------------------------------------------------------
 
-test("U11 screenshot: knowledge list (empty)", async ({ page }) => {
-	await page.route("**/api/knowledge*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify({ items: [], nextCursor: null }),
-		});
-	});
+test("U11 screenshot: document list (empty)", async ({ page }) => {
+	await mockSearchDocuments(page, { rows: [] });
 
-	await page.goto("/knowledge");
+	await page.goto("/documents");
 	await page.waitForSelector("[data-testid='knowledge-list-page']");
 	await page.waitForLoadState("networkidle");
 
@@ -334,19 +317,13 @@ test("U11 screenshot: knowledge list (empty)", async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Screen 8: Knowledge list — with items
+// Screen 8: Document list — with items
 // ---------------------------------------------------------------------------
 
-test("U11 screenshot: knowledge list (with items)", async ({ page }) => {
-	await page.route("**/api/knowledge*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(KNOWLEDGE_ITEMS_FIXTURE),
-		});
-	});
+test("U11 screenshot: document list (with items)", async ({ page }) => {
+	await mockSearchDocuments(page, { rows: DOCUMENT_ITEMS_FIXTURE });
 
-	await page.goto("/knowledge");
+	await page.goto("/documents");
 	await page.waitForSelector("[data-testid='knowledge-list-page']");
 	await page.waitForLoadState("networkidle");
 
@@ -355,31 +332,18 @@ test("U11 screenshot: knowledge list (with items)", async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Screen 9: Knowledge detail
+// Screen 9: Document detail
 // ---------------------------------------------------------------------------
 
-test("U11 screenshot: knowledge detail", async ({ page }) => {
-	await page.route("**/api/knowledge/k-u11-1", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(KNOWLEDGE_DETAIL_FIXTURE),
-		});
-	});
+test("U11 screenshot: document detail", async ({ page }) => {
+	await mockDocument(page, { row: DOCUMENT_DETAIL_FIXTURE });
+	await mockSearchThreads(page, { rows: [] });
 
-	await page.route("**/api/knowledge*", async (route) => {
-		await route.fulfill({
-			status: 200,
-			contentType: "application/json",
-			body: JSON.stringify(KNOWLEDGE_ITEMS_FIXTURE),
-		});
-	});
-
-	await page.goto("/knowledge/k-u11-1");
-	await page.waitForSelector("[data-testid='knowledge-detail-page']");
+	await page.goto(`/documents/${DOCUMENT_DETAIL_FIXTURE.id}`);
+	await page.waitForSelector("[data-testid='document-detail-page']");
 	await page.waitForLoadState("networkidle");
 
-	await expect(page.getByTestId("knowledge-detail-page")).toBeVisible();
+	await expect(page.getByTestId("document-detail-page")).toBeVisible();
 	await page.screenshot({ path: "test-results/U11-09-knowledge-detail.png", fullPage: false });
 });
 
