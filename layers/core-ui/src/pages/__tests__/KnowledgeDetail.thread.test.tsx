@@ -41,7 +41,7 @@ describe("KnowledgeDetail thread (L18)", () => {
 
 		const threadSection = screen.getByTestId("host-thread-section");
 		expect(threadSection).toBeInTheDocument();
-		expect(threadSection).toHaveAttribute("data-host-kind", "knowledge_item");
+		expect(threadSection).toHaveAttribute("data-host-kind", "document");
 		expect(threadSection).toHaveAttribute("data-host-id", "k1");
 	});
 

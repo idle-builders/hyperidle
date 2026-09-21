@@ -5,7 +5,7 @@
  *  - open a knowledge entry → thread renders (replacing observation log) → post → reload → persists
  *
  * @lore BC3: repointed at the thread action door — never `GET/POST
- * /api/threads*`. `knowledge_item` is still a valid `HostKind`; the
+ * /api/threads*`. `document` is still a valid `HostKind`; the
  * knowledge page resolves its thread lazily via `search_threads` (the
  * `host` prop path), unlike a task page's known `threadId`.
  */
@@ -29,7 +29,7 @@ test.describe("L18 — Knowledge entry thread surface", () => {
 		const composedText = "Insight from reviewing this knowledge entry.";
 
 		const thread = makeThread(THREAD_ID, {
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: KNOWLEDGE_ID,
 			initiatorId: FOUNDER_ID,
 			members: [FOUNDER_ID],

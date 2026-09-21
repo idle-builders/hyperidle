@@ -220,13 +220,13 @@ function InstallForm({ onInstalled }: InstallFormProps): JSX.Element {
 const KIND_LABEL: Record<string, string> = {
 	agent: "agent",
 	routine: "routine",
-	knowledge: "knowledge",
+	document: "knowledge",
 	mcp_server: "MCP server",
 	harness_descriptor: "harness",
 };
 
 /** Kinds the registry names by row id rather than by manifest key. */
-const REGISTRY_KINDS = new Set(["agent", "routine", "knowledge"]);
+const REGISTRY_KINDS = new Set(["agent", "routine", "document"]);
 
 interface ContributionListProps {
 	pluginId: string;

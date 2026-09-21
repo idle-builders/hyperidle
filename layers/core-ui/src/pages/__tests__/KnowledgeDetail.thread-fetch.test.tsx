@@ -41,7 +41,7 @@ vi.mock("../../ds", async (importOriginal) => {
 
 const THREAD_ROW: ThreadListRow = {
 	id: "t-k1-thread",
-	hostKind: "knowledge_item",
+	hostKind: "document",
 	hostId: "k1",
 	initiatorId: "u-founder",
 	members: ["u-founder"],
@@ -60,7 +60,7 @@ function makeThreadView(): ThreadView {
 	return {
 		thread: {
 			id: "t-k1-thread",
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: "k1",
 			initiatorId: "u-founder",
 			members: ["u-founder"],

@@ -1147,7 +1147,7 @@ function KnowledgeDetailView({
 					)}
 					{/* L18: Replace ObservationLog with HostThreadSection */}
 					<HostThreadSection
-						host={{ kind: "knowledge_item", id: item.id }}
+						host={{ kind: "document", id: item.id }}
 						title="Discussion"
 						prefill={threadPrefill}
 						onClearPrefill={() => setThreadPrefill(undefined)}

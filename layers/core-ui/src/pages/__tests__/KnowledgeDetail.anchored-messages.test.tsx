@@ -88,7 +88,7 @@ function makeThreadView(): ThreadView {
 	return {
 		thread: {
 			id: "t-knowledge-anch",
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: "k1",
 			initiatorId: "u-founder",
 			members: ["u-founder"],
@@ -160,11 +160,11 @@ describe("KnowledgeDetail anchored messages (L18)", () => {
 const K1_BODY =
 	"JWT-based authentication with refresh tokens. Access tokens expire in 15 minutes. " +
 	"Refresh tokens in 7 days. All tokens stored in httpOnly cookies, never localStorage.";
-const K1_BLOCK_ID = deriveBlocks(K1_BODY, { kind: "knowledge_item", id: "k1" }).blocks[0]?.id;
+const K1_BLOCK_ID = deriveBlocks(K1_BODY, { kind: "document", id: "k1" }).blocks[0]?.id;
 
 const THREAD_ROW: ThreadListRow = {
 	id: "t-k1-anch-filter",
-	hostKind: "knowledge_item",
+	hostKind: "document",
 	hostId: "k1",
 	initiatorId: "u-founder",
 	members: ["u-founder"],
@@ -184,7 +184,7 @@ function threadViewWithMessages(): ThreadView {
 	return {
 		thread: {
 			id: THREAD_ROW.id,
-			hostKind: "knowledge_item",
+			hostKind: "document",
 			hostId: "k1",
 			initiatorId: "u-founder",
 			members: ["u-founder"],

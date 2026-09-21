@@ -396,8 +396,8 @@ describe("W3 AC-42 — Discussion section below body", () => {
 		renderKnowledgeDetail();
 		const threadSection = screen.getByTestId("host-thread-section");
 		expect(threadSection).toBeInTheDocument();
-		// knowledge detail uses hostKind="knowledge_item" (the canonical HostKind value)
-		expect(threadSection).toHaveAttribute("data-host-kind", "knowledge_item");
+		// knowledge detail uses hostKind="document" (the canonical HostKind value)
+		expect(threadSection).toHaveAttribute("data-host-kind", "document");
 	});
 });
 

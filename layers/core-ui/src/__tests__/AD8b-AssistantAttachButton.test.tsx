@@ -79,9 +79,9 @@ describe("AD8b — AssistantAttachButton", () => {
 		).toBeInTheDocument();
 	});
 
-	it("works with knowledge_item refs", () => {
+	it("works with document refs", () => {
 		const knowledgeRef: AssistantContextRef = {
-			kind: "knowledge_item",
+			kind: "document",
 			id: "ki-1",
 			label: "API Guide",
 		};
