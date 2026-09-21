@@ -43,7 +43,6 @@ import type {
 import {
 	remove as archiveKnowledgeItem,
 	create as createKnowledgeItem,
-	findOpenConflict as findOpenKnowledgeConflict,
 	GraduationNotAllowedError,
 	get as getKnowledgeItem,
 	graduate as graduateKnowledgeItem,
@@ -51,7 +50,6 @@ import {
 	ItemDeletedError,
 	transition as knowledgeTransition,
 	list as listKnowledgeItems,
-	recordConflict as recordKnowledgeConflict,
 	reparent as reparentKnowledgeItem,
 	update as updateKnowledgeItem,
 	VersionConflictError,
@@ -291,20 +289,14 @@ const splitSchema = z.object({
 });
 
 /**
- * AU21 §9 Increment 2 (knowledge wave) — schemas for the four new narrow
- * routes backing `ToolHandlersKnowledgeAccessor`'s conflict/promote/attention
- * methods (no existing UI route wraps any of these transition targets today).
+ * AU21 §9 Increment 2 (knowledge wave) — schema for the narrow route backing
+ * `ToolHandlersKnowledgeAccessor`'s promote method (no existing UI route
+ * wrapped this transition target before).
+ *
+ * @lore document-module B0c: the sibling `createConflictSchema` and the two
+ * `/:id/conflicts` routes it backed are DELETED — a document has no conflict
+ * object (founder ruling).
  */
-const createConflictSchema = z.object({
-	id: z.string().min(1),
-	versionBase: z.number().int().nonnegative(),
-	versionCurrent: z.number().int().nonnegative(),
-	proposedBody: z.string().min(1),
-	proposedMeta: z.string().nullable().optional(),
-	proposedBy: z.string().min(1),
-	createdAt: z.string().min(1),
-});
-
 const promoteSchema = z.object({
 	fromStatus: z.string().min(1),
 	toStatus: z.string().min(1),
@@ -794,43 +786,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json(updated);
 	});
 
-	// AU21 §9 Increment 2 (knowledge wave): the four routes below back
-	// `ToolHandlersKnowledgeAccessor`'s conflict/promote/attention methods —
-	// no existing UI route wraps any of these, so each is new and narrow.
-
-	// GET /:id/conflicts?proposedBy= — find an open conflict on :id filed by proposedBy.
-	router.get("/:id/conflicts", async (c) => {
-		const id = c.req.param("id");
-		const proposedBy = c.req.query("proposedBy");
-		if (!proposedBy) {
-			const response: ApiErrorResponse = {
-				error: "Query parameter 'proposedBy' is required",
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const conflict = await findOpenKnowledgeConflict(db, id, proposedBy);
-		return c.json({ conflict });
-	});
-
-	// POST /:id/conflicts — record an open knowledge_conflicts row on :id.
-	router.post("/:id/conflicts", validateBody(createConflictSchema), async (c) => {
-		const itemId = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof createConflictSchema>;
-
-		await recordKnowledgeConflict(db, {
-			id: body.id,
-			itemId,
-			versionBase: body.versionBase,
-			versionCurrent: body.versionCurrent,
-			proposedBody: body.proposedBody,
-			proposedMeta: body.proposedMeta ?? null,
-			proposedBy: body.proposedBy,
-			createdAt: body.createdAt,
-		});
-
-		return c.json({ id: body.id, itemId, status: "open" as const }, 201);
-	});
+	// AU21 §9 Increment 2 (knowledge wave): the route below backs
+	// `ToolHandlersKnowledgeAccessor`'s promote method — no existing UI route
+	// wraps this transition target, so it is new and narrow.
 
 	// POST /:id/promote — wraps transition({target:"promote",...}); no route wrapped this before.
 	router.post("/:id/promote", validateBody(promoteSchema), async (c) => {

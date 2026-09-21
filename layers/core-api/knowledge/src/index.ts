@@ -43,12 +43,10 @@
 
 // -- errors --
 export { InvalidReparentError, ItemDeletedError, VersionConflictError } from "./errors.js";
-// -- conflicts (knowledgeConflicts accessors) --
-export {
-	findOpenConflict,
-	type RecordConflictInput,
-	recordConflict,
-} from "./knowledge-conflicts.js";
+// @lore document-module B0c: `knowledge-conflicts.ts`'s `recordConflict`/
+// `findOpenConflict` accessors are DELETED — a document has no conflict
+// object (founder ruling); an edit carrying a stale version is refused and
+// the writer retries, nothing records a conflict row.
 // -- the CRUD repository --
 // @lore AU20 K1-reads: countAccessesSince/countTriageVisible/searchByText/
 // searchVisibleByText deleted from source; replaced by count()/search({mode:'text',...}).

@@ -12,14 +12,13 @@
  *   dispatch:          recomputeAttentionForCandidates
  *   session-requests:  findById
  *   tool-handlers:     search, create, findKnowledgeItemVersionById,
- *                      findKnowledgeItemStatusById, findOpenConflictByItemAndProposer,
- *                      createKnowledgeConflict, promoteKnowledgeItem,
+ *                      findKnowledgeItemStatusById, promoteKnowledgeItem,
  *                      upsertKnowledgeAppProjectionAttentionScore,
  *                      recomputeAttentionScoreForItem
  *
  * Atomic/concurrency guarantees pinned:
- *   - promoteKnowledgeItem: CAS conditional-UPDATE, CONFLICT_OPEN gate,
- *     CONCURRENT_MODIFICATION when status already changed
+ *   - promoteKnowledgeItem: CAS conditional-UPDATE, CONCURRENT_MODIFICATION
+ *     when status already changed
  *   - update(): VersionConflictError on stale version, ItemDeletedError on missing row
  *   - upsertKnowledgeAppProjectionAttentionScore: upsert (update-or-insert)
  *
@@ -27,6 +26,10 @@
  * vocabularies they carried (plan.md "the two jobs, separated"). Cases G
  * (`list({recentByLayers})`) and the layer/kind half of case D are DELETED —
  * that vocabulary no longer exists to round-trip.
+ *
+ * @lore document-module B0c: `findOpenConflictByItemAndProposer`/
+ * `createKnowledgeConflict` and the promote route's `CONFLICT_OPEN` gate are
+ * DELETED — a document has no conflict object (founder ruling).
  */
 import {
 	type HyperIdleDb,
@@ -38,7 +41,6 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { VersionConflictError } from "../errors.js";
-import { findOpenConflict, recordConflict } from "../knowledge-conflicts.js";
 import { count, create, get, list, search, transition, update } from "../knowledge-repository.js";
 import type { KnowledgeStatus } from "../types.js";
 
@@ -299,38 +301,6 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 		expect(promotionLog?.newValue).toContain("active");
 	});
 
-	test("returns CONFLICT_OPEN when an open conflict blocks promotion to active", async ({ db }) => {
-		const item = await seedItem(db, { status: "proposed" });
-
-		// Insert an open conflict on this item.
-		await recordConflict(db, {
-			id: crypto.randomUUID(),
-			itemId: item.id,
-			versionBase: 1,
-			versionCurrent: 1,
-			proposedBody: "conflicting body",
-			proposedMeta: null,
-			proposedBy: "u-agent",
-			createdAt: new Date().toISOString(),
-		});
-
-		const result = await transition(db, item.id, {
-			target: "promote",
-			fromStatus: "proposed",
-			toStatus: "active",
-			reason: undefined,
-			editor: "u-facilitator",
-		});
-
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.code).toBe("CONFLICT_OPEN");
-		}
-		// Status unchanged.
-		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, item.id));
-		expect(row?.status).toBe("proposed");
-	});
-
 	test("returns CONCURRENT_MODIFICATION when status no longer matches fromStatus", async ({
 		db,
 	}) => {
@@ -358,64 +328,6 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 		if (!result.ok) {
 			expect(result.code).toBe("CONCURRENT_MODIFICATION");
 		}
-	});
-});
-
-// ===========================================================================
-// N. Conflicts — tool-handlers.findOpenConflict / recordConflict
-// @lore AU20 K2-writes: createKnowledgeConflict → recordConflict (unified);
-// findOpenConflictByItemAndProposer → findOpenConflict (returns null not undefined).
-// ===========================================================================
-
-describe("conflicts: recordConflict and findOpenConflict", () => {
-	test("recordConflict inserts an open conflict row", async ({ db }) => {
-		const item = await seedItem(db);
-		const conflictId = crypto.randomUUID();
-
-		await recordConflict(db, {
-			id: conflictId,
-			itemId: item.id,
-			versionBase: 1,
-			versionCurrent: 2,
-			proposedBody: "proposed edit",
-			proposedMeta: null,
-			proposedBy: "u-agent",
-			createdAt: new Date().toISOString(),
-		});
-
-		const found = await findOpenConflict(db, item.id, "u-agent");
-		expect(found).not.toBeNull();
-		expect(found?.id).toBe(conflictId);
-	});
-
-	test("findOpenConflict returns null when no open conflict exists", async ({ db }) => {
-		const item = await seedItem(db);
-		const result = await findOpenConflict(db, item.id, "u-nobody");
-		expect(result).toBeNull();
-	});
-
-	test("findOpenConflict does not return conflicts filed by a different proposer", async ({
-		db,
-	}) => {
-		const item = await seedItem(db);
-		await recordConflict(db, {
-			id: crypto.randomUUID(),
-			itemId: item.id,
-			versionBase: 1,
-			versionCurrent: 2,
-			proposedBody: "edit by agent-A",
-			proposedMeta: null,
-			proposedBy: "agent-A",
-			createdAt: new Date().toISOString(),
-		});
-
-		// Looking up for agent-B should return nothing.
-		const forB = await findOpenConflict(db, item.id, "agent-B");
-		expect(forB).toBeNull();
-
-		// But agent-A's conflict is still there.
-		const forA = await findOpenConflict(db, item.id, "agent-A");
-		expect(forA).not.toBeNull();
 	});
 });
 

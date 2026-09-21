@@ -169,8 +169,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/core-api/src/routes/knowledge.ts|POST /:id/merge",
 	"layers/core-api/src/routes/knowledge.ts|POST /:id/split",
 	"layers/core-api/src/routes/knowledge.ts|POST /:id/archive",
-	"layers/core-api/src/routes/knowledge.ts|GET /:id/conflicts",
-	"layers/core-api/src/routes/knowledge.ts|POST /:id/conflicts",
 	"layers/core-api/src/routes/knowledge.ts|POST /:id/promote",
 	"layers/core-api/src/routes/knowledge.ts|POST /:id/graduate",
 	"layers/core-api/src/routes/notifications-routes.ts|GET /inbox",

@@ -20,7 +20,6 @@ import {
 	type HyperIdleDb,
 	type KnowledgeItem,
 	knowledgeAppProjection,
-	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
 	type WriteExecutor,
@@ -1506,12 +1505,16 @@ export async function search(
 /**
  * Result of a transition('promote') call. Structurally equivalent to the
  * former `PromoteKnowledgeItemResult` (promotion-pipeline.ts, now deleted).
+ *
+ * @lore document-module B0c: the `CONFLICT_OPEN` code and its gate are
+ * DELETED — a document has no conflict object (founder ruling). Promotion
+ * to active is blocked only by a concurrent status change now.
  */
 export type PromoteTransitionResult =
 	| { readonly ok: true; readonly fromStatus: string }
 	| {
 			readonly ok: false;
-			readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
+			readonly code: "CONCURRENT_MODIFICATION";
 			readonly message: string;
 	  };
 
@@ -1572,23 +1575,6 @@ export async function transition(
 			const isoNow = new Date().toISOString();
 
 			return db.transaction(async (tx): Promise<PromoteTransitionResult> => {
-				// @lore nested-knowledge-items: "validated" collapsed into "active" —
-				// the open-conflict gate now fires on promotion to active.
-				if (toStatus === "active") {
-					const [openConflict] = await tx
-						.select()
-						.from(knowledgeConflicts)
-						.where(and(eq(knowledgeConflicts.itemId, id), eq(knowledgeConflicts.status, "open")))
-						.limit(1);
-					if (openConflict) {
-						return {
-							ok: false,
-							code: "CONFLICT_OPEN",
-							message: "open conflict blocks promotion to validated",
-						};
-					}
-				}
-
 				const updated = await tx
 					.update(knowledgeItems)
 					.set({ status: toStatus, updatedAt: isoNow, updatedBy: editor })
