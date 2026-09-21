@@ -1,22 +1,22 @@
-import { KnowledgeRow } from "./KnowledgeRow";
+import { DocRow } from "./DocRow";
 
 export default {
-	title: "KnowledgeRow",
+	title: "DocRow",
 	tier: "2" as const,
 	uses: ["StatusChip"],
 	order: ["Active", "Stale", "FactoryMode", "AllStatuses", "WithSignals", "NullSignals"],
 };
 
 export const Active = (): React.JSX.Element => (
-	<KnowledgeRow title="API Rate Limiting Pattern" status="active" timestamp="3 hours ago" />
+	<DocRow title="API Rate Limiting Pattern" status="active" timestamp="3 hours ago" />
 );
 
 export const Stale = (): React.JSX.Element => (
-	<KnowledgeRow title="Old Deployment Strategy" status="stale" timestamp="2 days ago" />
+	<DocRow title="Old Deployment Strategy" status="stale" timestamp="2 days ago" />
 );
 
 export const FactoryMode = (): React.JSX.Element => (
-	<KnowledgeRow
+	<DocRow
 		title="Agent Autonomy Policy"
 		status="active"
 		timestamp="1w ago"
@@ -27,13 +27,13 @@ export const FactoryMode = (): React.JSX.Element => (
 
 export const WithSignals = (): React.JSX.Element => (
 	<div className="flex flex-col gap-1">
-		<KnowledgeRow
+		<DocRow
 			title="Auth Rate Limiting Pattern"
 			status="active"
 			timestamp="2d ago"
 			signals={{ recency: "2d", frequency: 7, citation: null }}
 		/>
-		<KnowledgeRow
+		<DocRow
 			title="Agent Autonomy Policy"
 			status="active"
 			timestamp="1w ago"
@@ -43,7 +43,7 @@ export const WithSignals = (): React.JSX.Element => (
 );
 
 export const NullSignals = (): React.JSX.Element => (
-	<KnowledgeRow
+	<DocRow
 		title="Old Deployment Strategy"
 		status="stale"
 		timestamp="30d ago"
@@ -54,9 +54,9 @@ export const NullSignals = (): React.JSX.Element => (
 /** @lore nested-knowledge-items: exhaustive over the 4-value status ladder. */
 export const AllStatuses = (): React.JSX.Element => (
 	<div className="flex flex-col gap-1">
-		<KnowledgeRow title="Proposed item" status="proposed" timestamp="now" />
-		<KnowledgeRow title="Active item" status="active" timestamp="1h ago" />
-		<KnowledgeRow title="Stale item" status="stale" timestamp="90d ago" />
-		<KnowledgeRow title="Archived item" status="archived" timestamp="1y ago" />
+		<DocRow title="Proposed item" status="proposed" timestamp="now" />
+		<DocRow title="Active item" status="active" timestamp="1h ago" />
+		<DocRow title="Stale item" status="stale" timestamp="90d ago" />
+		<DocRow title="Archived item" status="archived" timestamp="1y ago" />
 	</div>
 );
