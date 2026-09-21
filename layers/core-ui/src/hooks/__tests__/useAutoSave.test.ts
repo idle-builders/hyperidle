@@ -1,42 +1,25 @@
 /**
- * useAutoSave hook — unit tests (T2 red phase).
+ * useAutoSave hook — unit tests.
  *
  * Covers:
- *   - Debounces multiple rapid save calls into one PATCH
- *   - Sends correct payload { body, version, updatedBy }
+ *   - Debounces multiple rapid save calls into one `save()` call
+ *   - Calls the caller-supplied `save(content)` door with the raw content
  *   - Status transitions: idle -> saving -> saved -> idle (after 3s)
- *   - Calls onSaved with new version from response
- *   - Handles 409 conflict: status=conflict, calls onConflict
- *   - Handles network error: status=error
+ *   - Calls onSaved with the action's output
+ *   - A `stale` problem: status=conflict, calls onConflict with the problems
+ *   - Any other refusal or a thrown error: status=error
  *   - Cleans up timer on unmount (no state updates after unmount)
  *   - Resets status via reset()
  */
 
+import type { ActionResult } from "@hyperidle/domain-model";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
-}));
-
-import type { UseAutoSaveOptions } from "../useAutoSave";
 import { useAutoSave } from "../useAutoSave";
 
-const ENDPOINT = "/api/knowledge/k1";
-const DEFAULT_OPTS: UseAutoSaveOptions = {
-	endpoint: ENDPOINT,
-	version: 1,
-	updatedBy: "user-1",
-};
-
 describe("useAutoSave", () => {
-	let fetchSpy: ReturnType<typeof vi.fn>;
-
-	beforeEach(async () => {
+	beforeEach(() => {
 		vi.useFakeTimers();
-		const { apiFetch } = await import("../../services/api-fetch.js");
-		fetchSpy = vi.mocked(apiFetch);
-		fetchSpy.mockReset();
 	});
 
 	afterEach(() => {
@@ -45,41 +28,39 @@ describe("useAutoSave", () => {
 	});
 
 	it("starts in idle status", () => {
-		const { result } = renderHook(() => useAutoSave(DEFAULT_OPTS));
+		const saveFn = vi.fn();
+		const { result } = renderHook(() => useAutoSave({ save: saveFn }));
 		expect(result.current.status).toBe("idle");
 	});
 
-	it("debounces multiple rapid save calls into one PATCH", async () => {
-		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
+	it("debounces multiple rapid save calls into one call to save()", async () => {
+		const saveFn = vi.fn<(content: string) => Promise<ActionResult<{ version: number }>>>(() =>
+			Promise.resolve({ ok: true, data: { version: 2 } }),
+		);
+		const { result } = renderHook(() => useAutoSave({ save: saveFn, debounceMs: 1500 }));
 
-		const { result } = renderHook(() => useAutoSave({ ...DEFAULT_OPTS, debounceMs: 1500 }));
-
-		// Fire three rapid saves
 		act(() => {
 			result.current.save("draft 1");
 			result.current.save("draft 2");
 			result.current.save("draft 3");
 		});
 
-		// Before debounce elapses, no fetch
-		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(saveFn).not.toHaveBeenCalled();
 
-		// Advance past debounce
 		await act(async () => {
 			vi.advanceTimersByTime(1500);
 		});
 
 		await waitFor(() => {
-			expect(fetchSpy).toHaveBeenCalledTimes(1);
+			expect(saveFn).toHaveBeenCalledTimes(1);
 		});
 	});
 
-	it("sends correct payload: { body, version, updatedBy }", async () => {
-		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
-
-		const { result } = renderHook(() =>
-			useAutoSave({ ...DEFAULT_OPTS, version: 5, updatedBy: "alice" }),
+	it("calls save() with the raw content string", async () => {
+		const saveFn = vi.fn<(content: string) => Promise<ActionResult<{ version: number }>>>(() =>
+			Promise.resolve({ ok: true, data: { version: 2 } }),
 		);
+		const { result } = renderHook(() => useAutoSave({ save: saveFn }));
 
 		act(() => {
 			result.current.save("my content");
@@ -90,22 +71,18 @@ describe("useAutoSave", () => {
 		});
 
 		await waitFor(() => {
-			expect(fetchSpy).toHaveBeenCalledWith(ENDPOINT, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ body: "my content", version: 5, updatedBy: "alice" }),
-			});
+			expect(saveFn).toHaveBeenCalledWith("my content");
 		});
 	});
 
 	it("transitions status: idle -> saving -> saved", async () => {
-		let resolveResponse!: (r: Response) => void;
-		const pendingResponse = new Promise<Response>((res) => {
-			resolveResponse = res;
+		let resolveSave!: (r: ActionResult<{ version: number }>) => void;
+		const pending = new Promise<ActionResult<{ version: number }>>((res) => {
+			resolveSave = res;
 		});
-		fetchSpy.mockReturnValueOnce(pendingResponse);
+		const saveFn = vi.fn().mockReturnValueOnce(pending);
 
-		const { result } = renderHook(() => useAutoSave(DEFAULT_OPTS));
+		const { result } = renderHook(() => useAutoSave({ save: saveFn }));
 
 		act(() => {
 			result.current.save("content");
@@ -113,7 +90,6 @@ describe("useAutoSave", () => {
 
 		expect(result.current.status).toBe("saving");
 
-		// After debounce, status becomes saving
 		act(() => {
 			vi.advanceTimersByTime(1500);
 		});
@@ -122,9 +98,8 @@ describe("useAutoSave", () => {
 			expect(result.current.status).toBe("saving");
 		});
 
-		// Resolve the fetch
 		await act(async () => {
-			resolveResponse(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
+			resolveSave({ ok: true, data: { version: 2 } });
 		});
 
 		await waitFor(() => {
@@ -133,9 +108,8 @@ describe("useAutoSave", () => {
 	});
 
 	it("transitions from saved -> idle after 3 seconds", async () => {
-		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ version: 2 }), { status: 200 }));
-
-		const { result } = renderHook(() => useAutoSave(DEFAULT_OPTS));
+		const saveFn = vi.fn().mockResolvedValueOnce({ ok: true, data: { version: 2 } });
+		const { result } = renderHook(() => useAutoSave({ save: saveFn }));
 
 		act(() => {
 			result.current.save("content");
@@ -149,7 +123,6 @@ describe("useAutoSave", () => {
 			expect(result.current.status).toBe("saved");
 		});
 
-		// Advance 3 seconds for the saved -> idle transition
 		act(() => {
 			vi.advanceTimersByTime(3000);
 		});
@@ -159,11 +132,10 @@ describe("useAutoSave", () => {
 		});
 	});
 
-	it("calls onSaved with new version number from response", async () => {
-		fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ version: 7 }), { status: 200 }));
-
+	it("calls onSaved with the action's output", async () => {
+		const saveFn = vi.fn().mockResolvedValueOnce({ ok: true, data: { version: 7 } });
 		const onSaved = vi.fn();
-		const { result } = renderHook(() => useAutoSave({ ...DEFAULT_OPTS, onSaved }));
+		const { result } = renderHook(() => useAutoSave({ save: saveFn, onSaved }));
 
 		act(() => {
 			result.current.save("content");
@@ -174,20 +146,21 @@ describe("useAutoSave", () => {
 		});
 
 		await waitFor(() => {
-			expect(onSaved).toHaveBeenCalledWith(7);
+			expect(onSaved).toHaveBeenCalledWith({ version: 7 });
 		});
 	});
 
-	it("sets status to conflict on 409 response and calls onConflict", async () => {
-		const conflictBody = JSON.stringify({
-			error: "Version conflict",
-			code: "CONFLICT",
-			details: { currentVersion: 5 },
-		});
-		fetchSpy.mockResolvedValueOnce(new Response(conflictBody, { status: 409 }));
+	it("sets status to conflict on a `stale` problem and calls onConflict with the problems", async () => {
+		const staleProblems = [
+			{
+				code: "stale",
+				message: "The document changed since you read it — open it again and retry.",
+			},
+		];
+		const saveFn = vi.fn().mockResolvedValueOnce({ ok: false, problems: staleProblems });
 
 		const onConflict = vi.fn();
-		const { result } = renderHook(() => useAutoSave({ ...DEFAULT_OPTS, onConflict }));
+		const { result } = renderHook(() => useAutoSave({ save: saveFn, onConflict }));
 
 		act(() => {
 			result.current.save("content");
@@ -199,14 +172,17 @@ describe("useAutoSave", () => {
 
 		await waitFor(() => {
 			expect(result.current.status).toBe("conflict");
-			expect(onConflict).toHaveBeenCalledWith({ currentVersion: 5 });
+			expect(onConflict).toHaveBeenCalledWith(staleProblems);
 		});
 	});
 
-	it("sets status to error on network failure", async () => {
-		fetchSpy.mockRejectedValueOnce(new Error("Network error"));
+	it("sets status to error on a non-stale refusal", async () => {
+		const saveFn = vi.fn().mockResolvedValueOnce({
+			ok: false,
+			problems: [{ code: "title_required", message: "A document needs a title." }],
+		});
 
-		const { result } = renderHook(() => useAutoSave(DEFAULT_OPTS));
+		const { result } = renderHook(() => useAutoSave({ save: saveFn }));
 
 		act(() => {
 			result.current.save("content");
@@ -221,10 +197,10 @@ describe("useAutoSave", () => {
 		});
 	});
 
-	it("sets status to error on non-200, non-409 response", async () => {
-		fetchSpy.mockResolvedValueOnce(new Response("Server Error", { status: 500 }));
+	it("sets status to error when save() rejects", async () => {
+		const saveFn = vi.fn().mockRejectedValueOnce(new Error("Network error"));
 
-		const { result } = renderHook(() => useAutoSave(DEFAULT_OPTS));
+		const { result } = renderHook(() => useAutoSave({ save: saveFn }));
 
 		act(() => {
 			result.current.save("content");
@@ -240,10 +216,8 @@ describe("useAutoSave", () => {
 	});
 
 	it("cleans up debounce timer on unmount — no state update after unmount", async () => {
-		// Never resolves — in-flight fetch
-		fetchSpy.mockImplementation(() => new Promise(() => {}));
-
-		const { result, unmount } = renderHook(() => useAutoSave(DEFAULT_OPTS));
+		const saveFn = vi.fn(() => new Promise<ActionResult<{ version: number }>>(() => {}));
+		const { result, unmount } = renderHook(() => useAutoSave({ save: saveFn }));
 
 		act(() => {
 			result.current.save("content");
@@ -252,20 +226,19 @@ describe("useAutoSave", () => {
 		// Unmount BEFORE the debounce fires
 		unmount();
 
-		// Timer advances after unmount — should not cause state update errors
 		await act(async () => {
 			vi.advanceTimersByTime(2000);
 		});
 
 		// No assertion on state (component is unmounted); the test passes if no
 		// "Can't perform a React state update on an unmounted component" error
-		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(saveFn).not.toHaveBeenCalled();
 	});
 
 	it("resets status to idle via reset()", async () => {
-		fetchSpy.mockRejectedValueOnce(new Error("fail"));
+		const saveFn = vi.fn().mockRejectedValueOnce(new Error("fail"));
 
-		const { result } = renderHook(() => useAutoSave(DEFAULT_OPTS));
+		const { result } = renderHook(() => useAutoSave({ save: saveFn }));
 
 		act(() => {
 			result.current.save("content");
