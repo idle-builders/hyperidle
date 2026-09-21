@@ -11,6 +11,8 @@ import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
+import { actionsAsTools } from "../actions/actions-as-tools.js";
+import { buildCoreActions } from "../actions/compose.js";
 
 /**
  * @lore AU31 §3.2/§5: the `coreApiSeamRegistration` auto-fixture used to
@@ -25,6 +27,13 @@ import { test as baseTest } from "../__testing__/test-fixtures.js";
  * seam route requires a `functions` field its tool input never sends and
  * always 400s — a pre-existing gap out of scope here, so it stays off the
  * dispatch-vehicle path).
+ * @lore document-module: the registry a real agent gets is the FOUR
+ * hand-written management tools (from `buildToolDefinitions`) PLUS the
+ * composed core actions' own tool projection (`actionsAsTools(buildCoreActions(...))`)
+ * — exactly what `run-orchestration-composition.ts`'s `buildToolProvider`
+ * assembles (`[...actionTools, ...definitions]`). This fixture reproduces
+ * that same union rather than the four-tool subset alone, so "the registered
+ * tool names an agent gets" is what is actually asserted below.
  */
 const test = baseTest.extend<{
 	buildToolRegistry: (
@@ -32,10 +41,17 @@ const test = baseTest.extend<{
 		options: BuildToolRegistryOptions<HyperIdleDb>,
 	) => ToolRegistry<HyperIdleDb>;
 }>({
-	buildToolRegistry: async ({ app }, use) => {
+	buildToolRegistry: async ({ app, agentOrchestration }, use) => {
 		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
+		const actionTools = actionsAsTools(
+			buildCoreActions({
+				agentOrchestration,
+				agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+				reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+			}),
+		);
 		await use((ctx, options) =>
-			buildToolRegistryFromDefinitions<HyperIdleDb>(definitions, ctx, options),
+			buildToolRegistryFromDefinitions<HyperIdleDb>([...actionTools, ...definitions], ctx, options),
 		);
 	},
 });
@@ -74,13 +90,48 @@ async function seedAgent(db: HyperIdleDb): Promise<string> {
 }
 
 describe("buildToolRegistry", () => {
-	// @lore the six document tools are gone — the catalog is now exactly the
-	// four AE3 management tools.
-	test("returns the canonical set of management tools", ({ db, eventBus, buildToolRegistry }) => {
+	// @lore the six document tools (write_memory/create_artifact/
+	// promote_knowledge/create_conflict_review/merge_knowledge/split_knowledge)
+	// are gone. What an agent gets today is the four hand-written AE3
+	// management tools PLUS whatever the composed core action list projects
+	// as tools — never asserted with `toContain`, always exact set equality,
+	// because a `toContain` here would silently tolerate an extra tool
+	// leaking in. The composed side is derived, not hardcoded: task's own
+	// three actions, thread's own four, document's own three (search/open/
+	// edit) — ten today, re-derived every run so a future action addition or
+	// removal is caught here rather than assumed.
+	test("returns exactly the four management tools plus the composed action tools", ({
+		db,
+		eventBus,
+		agentOrchestration,
+		buildToolRegistry,
+	}) => {
 		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" }); // @lore AD8a: role string renamed to "assistant" in AD8b
-		const names = registry.definitions.map((d) => d.name).sort();
-		expect(names).toEqual(["add_agent", "create_routine", "create_team", "update_routine"]);
-		expect(registry.definitions).toHaveLength(4);
+		const names = new Set(registry.definitions.map((d) => d.name));
+
+		const composedActionNames = new Set(
+			buildCoreActions({
+				agentOrchestration,
+				agentWorkIntentRecorder: async () => ({ id: "noop", idempotencyKey: "noop" }),
+				reviewVerdictRecorder: async () => ({ status: "not_a_review_session" }),
+			}).map((a) => a.declaration.name),
+		);
+		// Set equality, never toContain: proves the registered set is EXACTLY
+		// this union, with nothing extra and nothing missing.
+		const expected = new Set([
+			"create_team",
+			"add_agent",
+			"create_routine",
+			"update_routine",
+			...composedActionNames,
+		]);
+		expect(names).toEqual(expected);
+		// task ×3 (search_tasks/open_task/edit_task), thread ×4
+		// (search_threads/open_thread/adjust_thread/send_message), document ×3
+		// (search_documents/open_document/edit_document) — ten, not the plan's
+		// stale "six" (written before the thread module was counted).
+		expect(composedActionNames.size).toBe(10);
+		expect(registry.definitions).toHaveLength(4 + composedActionNames.size);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({
