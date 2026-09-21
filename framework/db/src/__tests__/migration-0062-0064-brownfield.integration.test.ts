@@ -127,21 +127,21 @@ describe("migrations 0062-0064: brownfield upgrade with populated tables", () =>
 			"pre-existing row gets NULL model_options_json",
 		).toBeNull();
 
-		// Assert 0063: knowledge_items.role is 'ordinary' for pre-existing row (DEFAULT applied)
+		// Assert 0063 (post-0086 rename): documents.slot is 'ordinary' for pre-existing row (DEFAULT applied)
 		const kiResult = await db.execute(sql`
-				SELECT role FROM knowledge_items WHERE id = 'ki-1'
+				SELECT slot FROM documents WHERE id = 'ki-1'
 			`);
 		const kiRow = (kiResult as unknown as { rows: Array<Record<string, unknown>> }).rows[0];
-		expect(kiRow, "knowledge_items row must survive migration").toBeDefined();
-		expect(kiRow?.["role"], "pre-existing knowledge_items row gets DEFAULT role 'ordinary'").toBe(
+		expect(kiRow, "documents row must survive migration").toBeDefined();
+		expect(kiRow?.["slot"], "pre-existing documents row gets DEFAULT slot 'ordinary'").toBe(
 			"ordinary",
 		);
 
-		// Assert 0063: the CHECK constraint is live — inserting an invalid role must fail
+		// Assert 0063 (post-0086 rename): the CHECK constraint is live — inserting an invalid slot must fail
 		let checkViolation: unknown;
 		try {
 			await db.execute(sql`
-					INSERT INTO knowledge_items (id, layer, kind, title, body, format, status, updated_by, created_at, updated_at, role)
+					INSERT INTO documents (id, layer, kind, title, body, format, status, updated_by, created_at, updated_at, slot)
 					VALUES ('ki-bad', 'team', 'document', 'Bad', 'Body', 'markdown', 'active', 'user-arc', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z', 'bogus')
 				`);
 		} catch (e) {
@@ -149,7 +149,7 @@ describe("migrations 0062-0064: brownfield upgrade with populated tables", () =>
 		}
 		expect(
 			checkViolation,
-			"CHECK constraint ki_role_ck must reject invalid role values",
+			"CHECK constraint doc_slot_ck must reject invalid slot values",
 		).toBeDefined();
 
 		// Assert 0064: plugins.install_path is NULL for pre-existing row
@@ -193,32 +193,25 @@ describe("migrations 0062-0064: brownfield upgrade with populated tables", () =>
 				VALUES ('user-fresh', '{"temperature":0.7}')
 			`);
 
-		// knowledge_items: role column exists, defaults to 'ordinary', accepts valid values.
-		// Companion knowledge_app_projection rows required per Ruling 13's companion clause.
+		// documents (renamed from knowledge_items in 0086): slot column exists, defaults to
+		// 'ordinary', accepts valid values. The projection table is gone — confidence/meta
+		// now live on the row itself, so no companion insert is needed.
 		await db.execute(sql`
-				INSERT INTO knowledge_items (id, title, body, format, status, updated_by, created_at, updated_at)
+				INSERT INTO documents (id, title, body, format, status, updated_by, created_at, updated_at)
 				VALUES ('ki-fresh', 'Fresh', 'Body', 'markdown', 'active', 'user-fresh', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z')
 			`);
 		await db.execute(sql`
-				INSERT INTO knowledge_app_projection (id, knowledge_item_id)
-				VALUES ('kap-fresh', 'ki-fresh')
-			`);
-		await db.execute(sql`
-				INSERT INTO knowledge_items (id, title, body, format, status, updated_by, created_at, updated_at, role)
+				INSERT INTO documents (id, title, body, format, status, updated_by, created_at, updated_at, slot)
 				VALUES ('ki-skill', 'Skill', 'Body', 'markdown', 'active', 'user-fresh', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z', 'skill')
-			`);
-		await db.execute(sql`
-				INSERT INTO knowledge_app_projection (id, knowledge_item_id)
-				VALUES ('kap-skill', 'ki-skill')
 			`);
 
 		const freshKiRows = await db.execute(sql`
-				SELECT id, role FROM knowledge_items WHERE id IN ('ki-fresh', 'ki-skill') ORDER BY id
+				SELECT id, slot FROM documents WHERE id IN ('ki-fresh', 'ki-skill') ORDER BY id
 			`);
 		const freshRows = (freshKiRows as unknown as { rows: Array<Record<string, unknown>> }).rows;
 		expect(freshRows).toHaveLength(2);
-		expect(freshRows.find((r) => r["id"] === "ki-fresh")?.["role"]).toBe("ordinary");
-		expect(freshRows.find((r) => r["id"] === "ki-skill")?.["role"]).toBe("skill");
+		expect(freshRows.find((r) => r["id"] === "ki-fresh")?.["slot"]).toBe("ordinary");
+		expect(freshRows.find((r) => r["id"] === "ki-skill")?.["slot"]).toBe("skill");
 
 		// plugins: install_path column exists and accepts text
 		await db.execute(sql`
