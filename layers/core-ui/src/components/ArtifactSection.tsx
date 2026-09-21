@@ -34,7 +34,7 @@ import {
 import { useDocument } from "../hooks/useDocument.js";
 import { useDocuments } from "../hooks/useDocuments.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
-import { KnowledgeBody } from "../pages/knowledge/KnowledgeBody.js";
+import { DocumentBody } from "../pages/document/DocumentBody.js";
 
 export interface ArtifactSectionProps {
 	parentKind: "task" | "thread";
@@ -54,8 +54,8 @@ export interface ArtifactSectionProps {
 
 /**
  * Detail pane rendered inside the SplitView destination when an item is
- * selected. Fetches the full body and renders it through `KnowledgeBody` — the
- * same path a knowledge item's own page takes.
+ * selected. Fetches the full body and renders it through `DocumentBody` — the
+ * same path a document's own page takes.
  *
  * That shared path is the point, not a convenience. It is what makes a produced
  * item that IS an interactive document — a body whose only block is a fenced
@@ -86,7 +86,7 @@ function ArtifactDetailPane({ itemId }: { itemId: string }): JSX.Element {
 	return (
 		<div data-testid="artifact-section-detail" className="flex flex-col gap-[12px] p-[24px]">
 			<h2 className="type-title">{document.title}</h2>
-			<KnowledgeBody body={document.body} hostId={document.id} documentTitle={document.title} />
+			<DocumentBody body={document.body} hostId={document.id} documentTitle={document.title} />
 		</div>
 	);
 }

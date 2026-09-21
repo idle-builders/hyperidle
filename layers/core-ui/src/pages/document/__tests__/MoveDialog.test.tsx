@@ -66,7 +66,7 @@ const BASE_PROPS = {
 function mockOk(): void {
 	vi.mocked(call).mockResolvedValue({
 		ok: true,
-		data: { document: makeRow({ id: "child-of-a" }) } as unknown as DocumentView,
+		data: { document: makeRow({ id: "child-of-a", title: "Child of A" }) } as unknown as DocumentView,
 	} satisfies ActionResult<DocumentView>);
 }
 

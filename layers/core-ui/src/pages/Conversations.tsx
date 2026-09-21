@@ -64,7 +64,7 @@ import { call } from "../services/call.js";
 import { resolveHostRoute } from "../services/host-route.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { ToastContext } from "../shell/ToastRegion";
-import { KnowledgeDetail } from "./KnowledgeDetail.js";
+import { DocumentDetail } from "./DocumentDetail.js";
 import { ReviewPage } from "./review/ReviewPage.js";
 
 // ---------------------------------------------------------------------------
@@ -222,11 +222,11 @@ const ASYNC_ACK_COPY = "Response recorded — agent will pick it up on next sess
 function InspectDestination({ path }: { path: string }): JSX.Element {
 	const [beforeHash, hash = ""] = path.split("#");
 	const [pathname, query = ""] = (beforeHash ?? "").split("?");
-	const knowledge = pathname?.match(/^\/knowledge\/([^/]+)$/);
-	if (knowledge?.[1]) {
+	const documentMatch = pathname?.match(/^\/documents\/([^/]+)$/);
+	if (documentMatch?.[1]) {
 		return (
-			<KnowledgeDetail
-				overrideKnowledgeId={knowledge[1]}
+			<DocumentDetail
+				overrideDocumentId={documentMatch[1]}
 				overrideHash={hash ? `#${hash}` : ""}
 				presentation="pane"
 			/>
@@ -511,7 +511,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 								parentId={threadId}
 								heading="Artifacts"
 								emptyDescription="Artifacts produced in this conversation appear here."
-								onOpen={(itemId) => setInspection({ kind: "path", path: `/knowledge/${itemId}` })}
+								onOpen={(itemId) => setInspection({ kind: "path", path: `/documents/${itemId}` })}
 							/>
 						}
 					/>
