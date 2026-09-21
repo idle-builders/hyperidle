@@ -58,7 +58,7 @@ const FUTURE_CREATED_AT = "2030-03-15T09:00:00.000Z";
 
 /**
  * ThreadListRow shape expected by useConversationsThreads.isThreadListRow validator.
- * Must have: id, hostKind (one of: bet/task/knowledge_item/artifact/agent/user/team/factory),
+ * Must have: id, hostKind (one of: bet/task/document/artifact/agent/user/team/factory),
  * hostId, initiatorId, participants (string[]), pinned, lastActiveAt, createdAt,
  * hasUnresolvedReview. Optional: blocking, title.
  */

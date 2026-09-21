@@ -54,7 +54,7 @@ const LATER = "2026-05-31T10:05:00.000Z";
 const ORPHAN_BLOCK_ID = "orphan-block-that-no-longer-exists";
 
 const THREAD = makeThread(THREAD_ID, {
-	hostKind: "knowledge_item",
+	hostKind: "document",
 	hostId: KNOWLEDGE_ID,
 	initiatorId: FOUNDER_ID,
 	members: [FOUNDER_ID],
