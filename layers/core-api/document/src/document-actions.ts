@@ -487,7 +487,15 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 			effectiveScopeId = ctx.actor;
 		} else if (input.scopeKind !== undefined) {
 			effectiveScopeKind = input.scopeKind;
-			effectiveScopeId = input.scopeId ?? null;
+			// A `user`-scoped write with no `scopeId` defaults to the actor — the
+			// same auto-fill the legacy route gave POST (`routes/knowledge.ts:467-
+			// 468`, "user scope auto-fills scopeId from userId"). Without this a
+			// `user`-scoped, non-memory row stores `scopeId: null`, which no
+			// subject — not even its own writer — ever matches (architecture.md
+			// §5.1's visibility predicate). `team` gets no such default: I7
+			// (`scope_needs_id`) already refuses a team scope with no id before
+			// this line is ever reached.
+			effectiveScopeId = input.scopeId ?? (input.scopeKind === "user" ? ctx.actor : null);
 		} else if (prev) {
 			effectiveScopeKind = prev.scopeKind;
 			effectiveScopeId = prev.scopeId;
