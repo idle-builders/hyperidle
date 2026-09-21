@@ -10,7 +10,7 @@
  * `search_threads`/`open_thread` wire is actually exercised.
  */
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -167,7 +167,9 @@ describe("DocumentDetail — block-anchored scroll", () => {
 				value: vi.fn(() => scrolled.push(el.getAttribute("data-block-id") ?? "")),
 			});
 		}
-		await new Promise((resolve) => requestAnimationFrame(resolve));
+		await act(async () => {
+			// flush any pending effects — the scroll effect schedules via requestAnimationFrame
+		});
 		expect(scrolled).toHaveLength(0);
 	});
 
