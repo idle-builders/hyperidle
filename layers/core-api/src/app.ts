@@ -27,7 +27,6 @@ import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
-import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createPluginRoutes } from "./routes/plugins.js";
@@ -557,7 +556,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// on agent-orchestration's app at byte-identical paths. See
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
-		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/users", createUserRoutes(options.db));
 		api.route("/org", createOrgRoutes(options.db, agentOrchestration, agentIdentity));
 		// @lore document-module B12: a routine's prompt document reads/writes
