@@ -16,6 +16,7 @@ import {
 	insertDocument,
 	listAncestors,
 	listWiderDescendants,
+	narrowDescendantScope,
 	nextPositionForParent,
 	resolveParentChain,
 	searchDocumentRows,
@@ -655,6 +656,59 @@ describe("listWiderDescendants (architecture.md §6.6)", () => {
 			[widerChild.id, grandchildUnderNarrow.id, archivedChild.id, slottedChild.id].sort(),
 		);
 		expect(ids).not.toContain(narrowChild.id);
+	});
+});
+
+describe("narrowDescendantScope (architecture.md §6.6 rules 2 and 6)", () => {
+	test("clamps both scope columns and bumps version, leaving an untouched id's row alone", async ({
+		db,
+	}) => {
+		const clamped = await insertDocument(
+			db,
+			docValues({ id: "narrow-clamped", scopeKind: "factory", scopeId: null }),
+		);
+		const untouched = await insertDocument(
+			db,
+			docValues({ id: "narrow-untouched", scopeKind: "factory", scopeId: null }),
+		);
+
+		await narrowDescendantScope(
+			db,
+			[clamped.id],
+			"team",
+			"team-narrow-1",
+			"2026-07-07T00:00:00.000Z",
+		);
+
+		const clampedRow = await getDocument(db, clamped.id);
+		expect(clampedRow?.scopeKind).toBe("team");
+		expect(clampedRow?.scopeId).toBe("team-narrow-1");
+		expect(clampedRow?.version).toBe(clamped.version + 1);
+		expect(clampedRow?.updatedAt).toBe("2026-07-07T00:00:00.000Z");
+
+		const untouchedRow = await getDocument(db, untouched.id);
+		expect(untouchedRow?.scopeKind).toBe("factory");
+		expect(untouchedRow?.version).toBe(untouched.version);
+	});
+
+	test("batches every id named in one call", async ({ db }) => {
+		const a = await insertDocument(db, docValues({ id: "narrow-batch-a", scopeKind: "factory" }));
+		const b = await insertDocument(db, docValues({ id: "narrow-batch-b", scopeKind: "factory" }));
+
+		await narrowDescendantScope(db, [a.id, b.id], "user", "user-1", "2026-07-08T00:00:00.000Z");
+
+		const rowA = await getDocument(db, a.id);
+		const rowB = await getDocument(db, b.id);
+		expect(rowA?.scopeKind).toBe("user");
+		expect(rowA?.scopeId).toBe("user-1");
+		expect(rowB?.scopeKind).toBe("user");
+		expect(rowB?.scopeId).toBe("user-1");
+	});
+
+	test("an empty id list is a no-op", async ({ db }) => {
+		await expect(
+			narrowDescendantScope(db, [], "team", "team-x", "2026-07-09T00:00:00.000Z"),
+		).resolves.toBeUndefined();
 	});
 });
 

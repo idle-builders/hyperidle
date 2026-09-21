@@ -37,6 +37,8 @@ import {
 	getDocument,
 	insertDocument,
 	listAncestors,
+	listWiderDescendants,
+	narrowDescendantScope,
 	nextPositionForParent,
 	searchDocumentRows,
 	updateDocument,
@@ -529,6 +531,7 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 
 		let writtenRow: DbDocumentRow | null = null;
 		let pushRow: PushableChange | null = null;
+		const cascadeRows: PushableChange[] = [];
 
 		try {
 			await ctx.db.transaction(async (tx) => {
@@ -695,6 +698,62 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 						after,
 						at: now,
 					};
+
+					// -- the scope cascade (architecture.md §6.6, A2) --------------------
+					// Only an edit can cascade — a create has no descendants yet. Only a
+					// scope change (kind or id) is even worth walking for; widening never
+					// touches a descendant (`listWiderDescendants` already filters on
+					// rank, so a widen or a lateral same-rank move simply returns none —
+					// rule 1). No version check on a child (rule 6); no visibility filter
+					// on the walk (rule 7) — the true tree, not the actor's visible set.
+					const scopeChanged =
+						effectiveScopeKind !== prev.scopeKind || effectiveScopeId !== prev.scopeId;
+					if (scopeChanged) {
+						const wider = await listWiderDescendants(tx, id, effectiveScopeKind);
+						if (wider.length > 0) {
+							await narrowDescendantScope(
+								tx,
+								wider.map((child) => child.id),
+								effectiveScopeKind,
+								effectiveScopeId,
+								now,
+							);
+							for (const child of wider) {
+								const childBefore = {
+									id: child.id,
+									scopeKind: child.scopeKind,
+									scopeId: child.scopeId,
+								};
+								const childAfter = {
+									id: child.id,
+									scopeKind: effectiveScopeKind,
+									scopeId: effectiveScopeId,
+								};
+								const childChangeId = randomUUID();
+								// Same actor, same `at` as the parent's own row (rule 4) —
+								// this is the parent edit's collateral, not a separate act.
+								await deps.changes.appendChange(tx, {
+									id: childChangeId,
+									object: "document",
+									objectId: child.id,
+									kind: "changed",
+									actor: ctx.actor,
+									before: JSON.stringify(childBefore),
+									after: JSON.stringify(childAfter),
+									at: now,
+								});
+								cascadeRows.push({
+									id: childChangeId,
+									objectId: child.id,
+									kind: "changed",
+									actor: ctx.actor,
+									before: childBefore,
+									after: childAfter,
+									at: now,
+								});
+							}
+						}
+					}
 				}
 
 				// O1 — inside the same transaction, only when body changed.
@@ -712,7 +771,9 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 		if (!writtenRow) {
 			throw new Error("edit_document: transaction committed without writing a row");
 		}
-		if (pushRow) pushChanges(deps, [pushRow]);
+		// Post-commit, once per `changes` row — the parent's and every narrowed
+		// child's (architecture.md §6.6 rule 5, §7).
+		if (pushRow) pushChanges(deps, [pushRow, ...cascadeRows]);
 
 		// Never through `open_document.run` — that would count this write as a
 		// read (architecture.md §6.7's trap).

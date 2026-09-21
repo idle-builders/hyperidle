@@ -226,6 +226,29 @@ export async function listWiderDescendants(
 	return wider;
 }
 
+/**
+ * The cascade's write — architecture.md §6.6 rules 2 and 6. Batched over
+ * every id `listWiderDescendants` returned: both scope columns clamped to
+ * the parent's new scope, `version` bumped by one (collateral, never version-
+ * checked — a child is not the document being edited), `updatedAt` moved to
+ * `now` because the row did change. No `changes` row here — the caller
+ * appends one per id, carrying the parent edit's own actor and `at`
+ * (architecture.md §6.6 rule 4); this function only ever writes `documents`.
+ */
+export async function narrowDescendantScope(
+	exec: WriteExecutor,
+	ids: readonly string[],
+	scopeKind: string,
+	scopeId: string | null,
+	now: string,
+): Promise<void> {
+	if (ids.length === 0) return;
+	await exec
+		.update(documents)
+		.set({ scopeKind, scopeId, version: sql`${documents.version} + 1`, updatedAt: now })
+		.where(inArray(documents.id, [...ids]));
+}
+
 // ---------------------------------------------------------------------------
 // Reads — get, the ancestor walk, `resolveParentChain`.
 // ---------------------------------------------------------------------------
