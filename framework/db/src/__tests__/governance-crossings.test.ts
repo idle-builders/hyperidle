@@ -797,10 +797,11 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 	});
 
 	it("negative control — an append-only log is history, not part of the row set", () => {
-		// `knowledgeEditLog` is written alongside every knowledge item and NEVER updated. Nothing
-		// reads it to decide what the item is, and its foreign key points AT the item. A test that
-		// omits it produces the same mutable state production would — so requiring a fabricated audit
-		// row in 51 places would have been the same ceremony Ruling 13 removed, one scale smaller.
+		// An append-only log written alongside its subject and never updated is history, not
+		// state. Nothing reads it to decide what the subject is, and its foreign key points AT the
+		// subject. A test that omits it produces the same mutable state production would — so
+		// requiring a fabricated audit row everywhere would be the same ceremony Ruling 13 removed,
+		// one scale smaller.
 		const groups = companions({
 			"layers/core-api/org/src/audit.ts": `
 				import { teams, teamMembers } from "@hyperidle/db";
@@ -966,15 +967,15 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 				source: { sort: "package", name: "other", role: "service" },
 				target: {
 					sort: "table",
-					table: "knowledgeItems",
-					owner: "knowledge",
-					missingCompanions: ["knowledgeAppProjection"],
+					table: "widgets",
+					owner: "widget",
+					missingCompanions: ["widgetDetails"],
 				},
 			},
 			file: "layers/core-api/other/src/__tests__/x.integration.test.ts",
 			line: 12,
 			world: "development",
-			detail: "writes knowledgeItems without knowledgeAppProjection",
+			detail: "writes widgets without widgetDetails",
 		};
 
 		const kinds = [{ kind: "table:write" as Kind }];

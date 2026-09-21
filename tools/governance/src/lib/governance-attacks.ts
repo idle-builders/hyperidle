@@ -631,42 +631,16 @@ export const ATTACKS: readonly Attack[] = [
 			groupKey: KEY.serviceForeignWrite,
 		},
 	},
-	// --- Ruling 13 companion rule — surviving pair after AU44 B1 removed teamMembers --------
-	// knowledgeItems and knowledgeAppProjection are both owned by @hyperidle/knowledge and
-	// are unconditionally inserted together in its exported `create` function — the
-	// companion group that replaced the old teams/teamMembers pair.
-	{
-		id: "missing-companion",
-		detail:
-			"a test inserting knowledgeItems without its companion knowledgeAppProjection — Ruling 13's companion rule",
-		rules: ["crossing-table-write"],
-		overlay: {
-			[`${a.developmentDir}/attack-missing-companion.test.ts`]:
-				`import { knowledgeItems } from "@hyperidle/db";\n` +
-				`export const seed = (db: { insert: (x: unknown) => { values: (v: unknown) => unknown } }) =>\n` +
-				`\tdb.insert(knowledgeItems).values({});\n`,
-		},
-		expect: {
-			sort: "violation",
-			file: `${a.developmentDir}/attack-missing-companion.test.ts`,
-			groupKey: "layer → db:table (other) [table:write] development",
-		},
-	},
-	{
-		id: "missing-companion-control",
-		detail:
-			"the same fixture writing BOTH knowledgeItems AND knowledgeAppProjection (under an alias) is credited and clean",
-		rules: ["crossing-table-write"],
-		overlay: {
-			[`${a.developmentDir}/attack-companion-supplied.test.ts`]:
-				`import { knowledgeItems, knowledgeAppProjection as proj } from "@hyperidle/db";\n` +
-				`export const seed = (db: { insert: (x: unknown) => { values: (v: unknown) => unknown } }) => {\n` +
-				`\tdb.insert(knowledgeItems).values({});\n` +
-				`\treturn db.insert(proj).values({});\n` +
-				`};\n`,
-		},
-		expect: { sort: "clean", file: `${a.developmentDir}/attack-companion-supplied.test.ts` },
-	},
+	// @lore BC4: the Ruling-13 companion-rule fixture that lived here (`missing-companion` /
+	// `missing-companion-control`) exploited `knowledgeItems`+`knowledgeAppProjection` — both owned
+	// by `@hyperidle/knowledge` and unconditionally inserted together in its exported `create`
+	// function. BC4 folds the projection's two live columns onto `documents` directly (§6.2) and
+	// drops the rest with nothing carried over, so that companion pair no longer exists. Re-derived
+	// against the live tree with `buildCompanionGroups` (the rule's own mechanism, never a guess):
+	// zero companion groups exist anywhere in the codebase today. Per the rule's own fallback —
+	// re-point at a surviving pair, or delete the case if none exists — there is no surviving pair to
+	// re-point at, so the case is deleted rather than fabricated. `crossing-table-write`'s own
+	// liveness floor (`minScope: 1`) still holds on `foreign-table-write` below.
 
 	{
 		id: "cross-layer-di",

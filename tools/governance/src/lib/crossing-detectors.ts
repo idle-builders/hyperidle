@@ -378,8 +378,8 @@ export function buildConstantExports(
  * literally `exec.insert(X).values(values)` — byte-identical SQL, one more indirection to read
  * through. What it was actually protecting was narrower: an owner that writes two rows in one call
  * has a cross-row invariant, and a test writing only one of them builds a state production cannot
- * produce. Fixtures that create a team with no membership row, or a knowledge item with no
- * projection, are the bugs — and this is how they are found.
+ * produce. A fixture that creates a team with no membership row is the bug — and this is how it is
+ * found.
  *
  * Derived, never listed: a group is any exported function in the OWNING package that inserts two or
  * more tables unconditionally. A `switch` that dispatches to one insert per branch is not a group —
@@ -397,10 +397,8 @@ export function buildCompanionGroups(
 	 * @lore AU28 Ruling 13a: a companion the owner only ever appends to and never revises is a LOG,
 	 * not part of the entity's state. Nothing reads it to decide what the entity is, and its foreign
 	 * key points AT the entity rather than the other way round — so a test that omits it produces the
-	 * same mutable state production would. `knowledgeEditLog` and `knowledgeAccessLog` have zero
-	 * updates between them; `knowledgeAppProjection` is updated by its owner and
-	 * is genuinely part of the row set. Requiring a fabricated audit row in 51 test sites would have
-	 * been exactly the ceremony Ruling 13 removed, one scale smaller.
+	 * same mutable state production would. Requiring a fabricated audit row in every site that writes
+	 * the entity would have been exactly the ceremony Ruling 13 removed, one scale smaller.
 	 */
 	const revised = new Set<string>();
 	for (const record of input.census.files) {
