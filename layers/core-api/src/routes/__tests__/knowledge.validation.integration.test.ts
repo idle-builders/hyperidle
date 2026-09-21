@@ -12,7 +12,7 @@
  * Red phase: all assertions fail against the current implementation.
  */
 
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, documents } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -25,7 +25,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 async function seedKi(db: HyperIdleDb, id: string, title: string, body = "body"): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		title,
 		body,
@@ -36,8 +36,6 @@ async function seedKi(db: HyperIdleDb, id: string, title: string, body = "body")
 		createdAt: now,
 		updatedAt: now,
 	});
-	// The owner writes the projection row alongside the item.
-	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 // @lore O2: V3 layer validation tests removed — /:layer URL pattern no longer exists.

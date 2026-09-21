@@ -13,13 +13,7 @@
  * missing piece review.md named directly — a production caller wiring that
  * read into the route a real request hits.
  */
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, documents, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -68,7 +62,7 @@ async function seedKnowledgeItem(
 	},
 ): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id,
 		title: `Item ${id}`,
 		body: "body",
@@ -83,9 +77,6 @@ async function seedKnowledgeItem(
 		createdAt: now,
 		updatedAt: now,
 	});
-	// governance: knowledge always writes knowledgeItems + knowledgeAppProjection
-	// together — a row without its projection is a state production never produces.
-	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 describe("knowledge team-scope visibility at the real route", () => {
@@ -134,7 +125,7 @@ describe("knowledge team-scope visibility at the real route", () => {
 			scopeKind: "team",
 			scopeId: "team-1",
 			updatedBy: "u-member",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: "ki-parent",
 		});
 
@@ -170,7 +161,7 @@ describe("knowledge team-scope visibility at the real route", () => {
 			scopeKind: "team",
 			scopeId: "team-1",
 			updatedBy: "u-member",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: "ki-parent",
 		});
 
