@@ -671,7 +671,7 @@ export function createRoutineRoutes(
 			);
 		}
 
-		const result = await fireRoutine(db, eventBus, agentOrchestration, routine, {
+		const result = await fireRoutine(db, eventBus, agentOrchestration, searchDocuments, routine, {
 			recordSkippedRun: true,
 		});
 		const reason = result.reason === "previous run still in progress" ? "coalesced" : result.reason;

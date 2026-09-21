@@ -18,6 +18,7 @@ import type { PolicyDeps } from "@hyperidle/policy";
 import { registerLifecyclePropagation } from "@hyperidle/policy";
 import * as taskDb from "@hyperidle/task";
 import { listMessages } from "@hyperidle/thread";
+import { createStandaloneSearchDocuments } from "./actions/compose.js";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
@@ -385,11 +386,23 @@ export function registerAgentLayerServices(ctx: {
 	// lifecycle (`routine-scheduler-bindings.ts`).
 	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
 
-	const schedulerPromise = startRoutineScheduler(db, eventBus, agentOrchestration, {
-		pollIntervalMs,
-		canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
-		reaperCadenceMs: ctx.reaperCadenceMs,
-	});
+	// architecture.md §8.3: the scheduler's own `search_documents` runner —
+	// standalone, never the composed HTTP/MCP list (`registerAgentLayerServices`
+	// is wired from `db`/`eventBus` alone, with no task/thread action bags in
+	// scope at this composition root; see `compose.ts`'s own doc-comment on
+	// `buildStandaloneDocumentActions`).
+	const schedulerSearchDocuments = createStandaloneSearchDocuments();
+	const schedulerPromise = startRoutineScheduler(
+		db,
+		eventBus,
+		agentOrchestration,
+		schedulerSearchDocuments,
+		{
+			pollIntervalMs,
+			canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
+			reaperCadenceMs: ctx.reaperCadenceMs,
+		},
+	);
 	schedulerPromise.catch((err) => {
 		serviceBootstrapLog.error("routine scheduler start failed", { err });
 	});

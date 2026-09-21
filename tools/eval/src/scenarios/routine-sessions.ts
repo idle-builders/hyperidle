@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { fireRoutine } from "@hyperidle/core-api";
+import { createStandaloneSearchDocuments, fireRoutine } from "@hyperidle/core-api";
 import { messages, routines, sessions } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
@@ -29,6 +29,11 @@ import type {
 // ---------------------------------------------------------------------------
 // Shared trigger helper
 // ---------------------------------------------------------------------------
+
+// architecture.md §8.3: `fireRoutine`'s own `search_documents` runner —
+// standalone, built once for this module (no composed HTTP/MCP list exists
+// outside a real server boot).
+const searchDocuments = createStandaloneSearchDocuments();
 
 function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	return {
@@ -79,7 +84,13 @@ const rsHeartbeatFire: EvalScenario = {
 
 		if (!routine) return makeSyntheticResult(startMs, false);
 		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
+		const result = await fireRoutine(
+			ctx.db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			routine,
+		);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -188,7 +199,13 @@ const rsCalendarFire: EvalScenario = {
 
 		if (!routine) return makeSyntheticResult(startMs, false);
 		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
+		const result = await fireRoutine(
+			ctx.db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			routine,
+		);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -270,7 +287,13 @@ const rsHumanReviewFlag: EvalScenario = {
 
 		if (!routine) return makeSyntheticResult(startMs, false);
 		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
+		const result = await fireRoutine(
+			ctx.db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			routine,
+		);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -363,7 +386,13 @@ const rsSilentNoReviewItem: EvalScenario = {
 
 		if (!routine) return makeSyntheticResult(startMs, false);
 		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
+		const result = await fireRoutine(
+			ctx.db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			routine,
+		);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {

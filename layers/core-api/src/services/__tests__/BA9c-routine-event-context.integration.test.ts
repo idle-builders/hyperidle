@@ -45,9 +45,11 @@ import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 import { startRoutineScheduler } from "../routine-scheduler-bindings.js";
 
 const NOW = new Date().toISOString();
+const searchDocuments = createStandaloneSearchDocuments();
 
 /**
  * Real ports including BA9c's new DB-lookup ports for rich subject shapes.
@@ -219,10 +221,16 @@ describe("BA9c — task_state_changed event fires routine with task+bet subject 
 		});
 		await seedEventRoutine(db, routineId, ownerAgentId, "task_state_changed");
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const evt: TaskStateChangedEvent = {
 				type: "task_state_changed",
@@ -300,10 +308,16 @@ describe("BA9c — task_state_changed event fires routine with root-task subject
 		// BB1: routine fires on task_state_changed (the surviving work-state event).
 		await seedEventRoutine(db, routineId, ownerAgentId, "task_state_changed");
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			// BB1: emit task_state_changed for the root task instead of bet_state_changed.
 			const evt: TaskStateChangedEvent = {
@@ -378,10 +392,16 @@ describe("BA9c — thread_message_appended produces kind:thread rich subject", (
 
 		await seedEventRoutine(db, routineId, ownerAgentId, "thread_message_appended");
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			eventBus.emit({
 				type: "thread_message_appended",
@@ -465,10 +485,16 @@ describe("BA9c — user_created produces kind:user rich subject (not generic)", 
 
 		await seedEventRoutine(db, routineId, ownerAgentId, "user_created");
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			eventBus.emit({
 				type: "user_created",
@@ -536,10 +562,16 @@ describe("BA9c — session_ended with taskId produces kind:session (not kind:tas
 
 		await seedEventRoutine(db, routineId, ownerAgentId, "session_ended");
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			eventBus.emit({
 				type: "session_ended",
@@ -605,10 +637,16 @@ describe("BA9c — agent_added produces kind:agent rich subject", () => {
 
 		await seedEventRoutine(db, routineId, ownerAgentId, "agent_added");
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			eventBus.emit({
 				type: "agent_added",
@@ -664,10 +702,16 @@ describe("BA9c — team_created produces kind:team rich subject", () => {
 
 		await seedEventRoutine(db, routineId, ownerAgentId, "team_created");
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			eventBus.emit({
 				type: "team_created",
@@ -766,10 +810,16 @@ describe("BA9c — team-less agent owner still receives triggerEvent in contextB
 			active: true,
 		});
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			// BB1: emit task_state_changed for the root task.
 			const evt: TaskStateChangedEvent = {

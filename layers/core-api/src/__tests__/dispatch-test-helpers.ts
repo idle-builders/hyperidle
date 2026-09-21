@@ -2,6 +2,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { getRoutine } from "@hyperidle/routine";
+import { createStandaloneSearchDocuments } from "../actions/compose.js";
 import { fireRoutine } from "../services/routine-scheduler-bindings.js";
 
 export async function fireStoredRoutine(
@@ -12,7 +13,14 @@ export async function fireStoredRoutine(
 ) {
 	const routine = await getRoutine(db, routineId);
 	if (!routine) return { fired: false as const, reason: "routine not found" };
-	return fireRoutine(db, eventBus, agentOrchestration, routine, {});
+	return fireRoutine(
+		db,
+		eventBus,
+		agentOrchestration,
+		createStandaloneSearchDocuments(),
+		routine,
+		{},
+	);
 }
 
 export function fireGenericRoutine(
@@ -30,5 +38,12 @@ export function fireGenericRoutine(
 	 */
 	_runtimeDeps?: unknown,
 ) {
-	return fireRoutine(db, eventBus, agentOrchestration, routine, {});
+	return fireRoutine(
+		db,
+		eventBus,
+		agentOrchestration,
+		createStandaloneSearchDocuments(),
+		routine,
+		{},
+	);
 }

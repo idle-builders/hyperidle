@@ -32,7 +32,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { fireRoutine } from "@hyperidle/core-api";
+import { createStandaloneSearchDocuments, fireRoutine } from "@hyperidle/core-api";
 import { agentWorkIntents, routineRuns, routines } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
@@ -53,6 +53,11 @@ import type {
 	TriggerContext,
 	TriggerResult,
 } from "../types.js";
+
+// architecture.md §8.3: `fireRoutine`'s own `search_documents` runner —
+// standalone, built once for this module (no composed HTTP/MCP list exists
+// outside a real server boot).
+const searchDocuments = createStandaloneSearchDocuments();
 
 function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	return {
@@ -150,7 +155,13 @@ const delSuccessfulDelegation: EvalScenario = {
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
 		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
+		const result = await fireRoutine(
+			ctx.db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			routine,
+		);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -258,7 +269,13 @@ const delNoDelegateAvailable: EvalScenario = {
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
 		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
+		const result = await fireRoutine(
+			ctx.db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			routine,
+		);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {

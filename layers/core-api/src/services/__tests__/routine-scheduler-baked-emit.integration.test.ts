@@ -52,7 +52,10 @@ import { eq, sql } from "drizzle-orm";
 import { vi } from "vitest";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { createStandaloneSearchDocuments } from "../../actions/compose.js";
 import { startRoutineScheduler } from "../routine-scheduler-bindings.js";
+
+const searchDocuments = createStandaloneSearchDocuments();
 
 const NOW = new Date().toISOString();
 
@@ -312,10 +315,16 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-e2e");
 			const configuredPrompt = "Say hello to the team, BA1 style.";
@@ -381,6 +390,94 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 			scheduler.stop();
 		}
 	});
+
+	/**
+	 * @lore BC4 follow-up (architecture.md §8.3): `getRoutinePrompt`'s
+	 * pre-item behavior (`knowledge-repository.ts`'s `getParentedItem`) never
+	 * filtered by `status` — a manually archived prompt kept being read.
+	 * Migrated onto `search_documents` now (never `@hyperidle/document`
+	 * directly); the search input carries no `status`, on purpose, so this
+	 * pins the SAME behavior through the real scheduler wiring rather than a
+	 * hand-built test double.
+	 */
+	test("an archived prompt document still bakes into the routine's contextBundle", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
+		try {
+			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-archived-prompt");
+			const archivedPrompt = "Archived instruction — still authoritative until replaced.";
+			const routineId = "ba1-archived-prompt-routine";
+			await db.insert(routines).values({
+				id: routineId,
+				name: "BA1 archived-prompt routine",
+				state: "active",
+				ownerAgentId,
+				triggerType: "event",
+				eventType: "task_state_changed",
+				active: true,
+			});
+			await db.insert(documents).values({
+				id: "ki-ba1-archived-prompt",
+				scopeKind: "factory",
+				scopeId: null,
+				title: "BA1 archived-prompt routine — prompt",
+				body: archivedPrompt,
+				format: "markdown",
+				status: "archived",
+				version: 1,
+				slot: "prompt",
+				parentKind: "routine",
+				parentId: routineId,
+				updatedBy: "test",
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			});
+
+			const evt: TaskStateChangedEvent = {
+				type: "task_state_changed",
+				streamId: "ba1-archived-prompt-task",
+				taskId: "ba1-archived-prompt-task",
+				fromState: "in_progress",
+				toState: "done",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(evt);
+
+			await vi.waitFor(
+				async () => {
+					const runs = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, routineId));
+					expect(runs).toHaveLength(1);
+				},
+				{ timeout: 1000 },
+			);
+
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
+			const [intent] = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
+			expect(intent).toBeDefined();
+			const baked = intent?.bakedRequestJson ? JSON.parse(intent.bakedRequestJson) : undefined;
+			expect(baked?.contextBundle?.routine?.prompt).toBe(archivedPrompt);
+		} finally {
+			scheduler.stop();
+		}
+	});
 });
 
 /**
@@ -396,10 +493,16 @@ describe("BA1 — immediate stop takes effect on the very next event, with no re
 		agentOrchestration,
 		app,
 	}) => {
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-stop-pause");
 			const routineId = "ba1-stop-pause-routine";
@@ -465,10 +568,16 @@ describe("BA1 — immediate stop takes effect on the very next event, with no re
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-stop-delete");
 			const routineId = "ba1-stop-delete-routine";
@@ -537,10 +646,16 @@ describe("BA1 D9 — a routine that cannot run says so, and a paused one is not 
 		eventBus,
 		agentOrchestration,
 	}) => {
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-d9-unrunnable", {
 				ownerStatus: "retired",
@@ -685,10 +800,16 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			active: true,
 		});
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 			const first = await fireGenericRoutine(db, eventBus, routine!, makePorts());
@@ -774,10 +895,16 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			active: true,
 		});
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 			const first = await fireGenericRoutine(db, eventBus, routine!, makePorts());
@@ -848,10 +975,16 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			active: true,
 		});
 
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
+		const scheduler = await startRoutineScheduler(
+			db,
+			eventBus,
+			agentOrchestration,
+			searchDocuments,
+			{
+				pollIntervalMs: 999_999,
+				canProvision: true,
+			},
+		);
 		try {
 			const evt: KnowledgeCreatedEvent = {
 				type: "knowledge_created",
