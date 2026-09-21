@@ -12,8 +12,8 @@ import { expect, test } from "./fixtures";
 
 test.describe("Knowledge Detail (J7)", () => {
 	test("non-factory item supports edit round-trip without URL change", async ({ page }) => {
-		await page.goto("/knowledge/k1");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto("/documents/k1");
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// Edit button visible for non-factory scope.
 		const editButton = page.getByRole("button", { name: /edit/i });
@@ -36,8 +36,8 @@ test.describe("Knowledge Detail (J7)", () => {
 
 	test("factory-scope item renders no Edit button", async ({ page }) => {
 		// k11 is a factory-scope item (Agent Autonomy Policy).
-		await page.goto("/knowledge/k11");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto("/documents/k11");
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// No edit button on a factory item.
 		await expect(page.getByRole("button", { name: /edit/i })).toHaveCount(0);
@@ -52,8 +52,8 @@ test.describe("Knowledge Detail (J7)", () => {
 		page,
 	}) => {
 		// k12 is factory-scope with status=needs_human.
-		await page.goto("/knowledge/k12");
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await page.goto("/documents/k12");
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		const banner = page.getByTestId("factory-amendable-banner");
 		await expect(banner).toBeVisible();

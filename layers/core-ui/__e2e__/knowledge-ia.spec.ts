@@ -15,7 +15,7 @@ import { expect, test } from "./fixtures";
 test.describe
 	.skip("Knowledge IA (J6)", () => {
 		test("scope switching re-scopes the list and topic nav", async ({ page }) => {
-			await page.goto("/knowledge");
+			await page.goto("/documents");
 			await page.waitForSelector("[data-testid='knowledge-list-page']");
 
 			// Practice is the default scope — indicator shows "practice".
@@ -46,7 +46,7 @@ test.describe
 		test("Triage tab is default when items have needs_human and shows reason lines", async ({
 			page,
 		}) => {
-			await page.goto("/knowledge");
+			await page.goto("/documents");
 			await page.waitForSelector("[data-testid='knowledge-list-page']");
 
 			// Triage is the default because practice has a needs_human item.

@@ -9,7 +9,7 @@ import { expect, test } from "./fixtures";
 test.describe
 	.skip("Knowledge", () => {
 		test.beforeEach(async ({ page }) => {
-			await page.goto("/knowledge");
+			await page.goto("/documents");
 			await page.waitForSelector("[data-testid='knowledge-list-page']");
 		});
 

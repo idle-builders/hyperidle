@@ -42,10 +42,10 @@ test.describe("L18 — Knowledge entry thread surface", () => {
 		});
 		await mockThread(page, { thread, messages: [] });
 
-		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
+		await page.goto(`/documents/${KNOWLEDGE_ID}`);
 
 		// Knowledge page should be visible
-		await expect(page.getByTestId("knowledge-detail-page")).toBeVisible();
+		await expect(page.getByTestId("document-detail-page")).toBeVisible();
 
 		// Thread section replaces observation log
 		await expect(page.getByTestId("host-thread-section")).toBeVisible();

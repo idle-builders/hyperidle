@@ -29,6 +29,8 @@
  */
 
 import type {
+	DocumentRow,
+	DocumentView,
 	Identity,
 	Message,
 	Task,
@@ -667,6 +669,163 @@ export async function mockSearchThreads(
 	opts: MockSearchThreadsOptions,
 ): Promise<void> {
 	await page.route("**/api/actions/search_threads", async (route) => {
+		if (route.request().method() !== "POST") {
+			await route.continue();
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: opts.rows }),
+		});
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Document fixtures
+//
+// @lore BC4: the only document surface is `POST /api/actions/{search_documents,
+// open_document, edit_document}` — `{ok:true,data}` or `{ok:false,problems}`.
+// `GET/POST/PATCH /api/knowledge*` is deleted. These helpers build the row
+// shapes (`DocumentRow`, `DocumentView`) and register per-test mocks, the
+// same pattern as the thread fixtures above.
+// ---------------------------------------------------------------------------
+
+/** A complete document row. Pass only the fields the assertion depends on. */
+export function makeDocumentRow(id: string, overrides: Partial<DocumentRow> = {}): DocumentRow {
+	return {
+		id,
+		title: `Document ${id}`,
+		body: "",
+		format: "markdown",
+		status: "active",
+		slot: "ordinary",
+		scopeKind: "factory",
+		scopeId: null,
+		parentKind: null,
+		parentId: null,
+		position: 0,
+		version: 1,
+		updatedBy: "u-founder",
+		createdAt: "2026-01-01T00:00:00.000Z",
+		updatedAt: "2026-01-01T00:00:00.000Z",
+		readCount: 0,
+		lastReadAt: null,
+		sessionUseCount: 0,
+		lastUsedAt: null,
+		as: "document",
+		...overrides,
+	};
+}
+
+/** `open_document`'s full payload for one row — ancestors/children/siblings default empty. */
+export function makeDocumentView(
+	row: DocumentRow,
+	overrides: Partial<DocumentView> = {},
+): DocumentView {
+	return {
+		document: row,
+		ancestors: [],
+		children: [],
+		siblings: [],
+		scopeName: "Factory",
+		...overrides,
+	};
+}
+
+export interface MockDocumentOptions {
+	/** The document the page opens — from `useDocument(id)`. */
+	readonly row: DocumentRow;
+	readonly ancestors?: readonly DocumentRow[];
+	readonly children?: readonly DocumentRow[];
+	readonly siblings?: readonly DocumentRow[];
+	readonly scopeName?: string;
+	/** When set, `edit_document` replies with this HTTP status instead of 200. */
+	readonly patchStatus?: number;
+}
+
+/**
+ * Mock `open_document` (what `useDocument` loads) and `edit_document` (what
+ * the detail/create pages write) for one document id — both
+ * `POST /api/actions/<name>`. `edit_document` echoes the merged row back as
+ * an `ActionResult<DocumentView>`.
+ *
+ * Registered per-test. `open_document` has no fallback default to win over
+ * (unlike `open_task`/`search_threads`), so this is the ONLY handler most
+ * specs need for a document detail surface.
+ */
+export async function mockDocument(
+	page: import("@playwright/test").Page,
+	opts: MockDocumentOptions,
+): Promise<void> {
+	let row = opts.row;
+	const view = (): DocumentView => ({
+		document: row,
+		ancestors: [...(opts.ancestors ?? [])],
+		children: [...(opts.children ?? [])],
+		siblings: [...(opts.siblings ?? [])],
+		scopeName: opts.scopeName ?? "Factory",
+	});
+
+	await page.route("**/api/actions/open_document", async (route) => {
+		const input = JSON.parse(route.request().postData() ?? "{}") as { id?: string };
+		if (input.id !== row.id) {
+			// @lore see mockTaskTree's open_task handler above — fallback(), not
+			// continue(), so a spec mocking more than one document id still works.
+			await route.fallback();
+			return;
+		}
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: view() }),
+		});
+	});
+
+	await page.route("**/api/actions/edit_document", async (route) => {
+		const patch = JSON.parse(route.request().postData() ?? "{}") as Partial<DocumentRow> & {
+			id?: string;
+		};
+		if (patch.id !== row.id) {
+			await route.fallback();
+			return;
+		}
+		const status = opts.patchStatus ?? 200;
+		if (status !== 200) {
+			await route.fulfill({
+				status,
+				contentType: "application/json",
+				body: JSON.stringify({
+					ok: false,
+					problems: [{ code: "validation_error", message: "Edit rejected" }],
+				}),
+			});
+			return;
+		}
+		row = { ...row, ...patch, version: row.version + 1 };
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ ok: true, data: view() }),
+		});
+	});
+}
+
+export interface MockSearchDocumentsOptions {
+	readonly rows: readonly DocumentRow[];
+}
+
+/**
+ * Mock `search_documents` — the document list, parent picker, artifacts
+ * section, and settings skill/rule list. Registered per-test; there is no
+ * auto-use fallback for this route (unlike `search_threads`), so a spec that
+ * mounts a document-reading surface without calling this hangs on loading.
+ */
+export async function mockSearchDocuments(
+	page: import("@playwright/test").Page,
+	opts: MockSearchDocumentsOptions,
+): Promise<void> {
+	await page.route("**/api/actions/search_documents", async (route) => {
 		if (route.request().method() !== "POST") {
 			await route.continue();
 			return;

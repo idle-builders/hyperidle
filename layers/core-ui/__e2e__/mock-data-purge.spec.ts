@@ -29,7 +29,7 @@ import { expect, test } from "./fixtures";
 const FORBIDDEN_LITERALS = ["u-founder", "agent-unassigned", "founder@hyperidle.com"];
 
 // Production paths to sweep per AC-3a
-const PRODUCTION_PATHS = ["/", "/work", "/work/portfolio", "/conversations", "/knowledge"];
+const PRODUCTION_PATHS = ["/", "/work", "/work/portfolio", "/conversations", "/documents"];
 
 // Override settings with a custom profile to prove the panel reads from API
 const OVERRIDE_SETTINGS = {

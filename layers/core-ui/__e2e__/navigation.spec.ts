@@ -11,8 +11,11 @@
  */
 import {
 	expect,
+	makeDocumentRow,
 	makeTask,
 	makeTaskCardSummary,
+	mockDocument,
+	mockSearchDocuments,
 	mockTaskTree,
 	mockTeamDetail,
 	test,
@@ -180,25 +183,15 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	test("AC-5: ⌘3 switches to Knowledge view", async ({ page }) => {
-		// Mock knowledge list
-		await page.route("**/api/knowledge", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ items: [] }),
-				});
-			} else {
-				await route.continue();
-			}
-		});
+		// Mock document list
+		await mockSearchDocuments(page, { rows: [] });
 
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
 
-		// ⌘3 → Knowledge
+		// ⌘3 → Documents
 		await page.keyboard.press("Meta+3");
-		await expect(page).toHaveURL(/\/knowledge/, { timeout: 3000 });
+		await expect(page).toHaveURL(/\/documents/, { timeout: 3000 });
 	});
 
 	test("AC-5: ⌘1 switches back to Conversations view", async ({ page }) => {
@@ -223,17 +216,17 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 	});
 
 	// AC-5: shortcut guard — does NOT fire while typing in an input
-	// W2: deterministic — Knowledge create page at /knowledge/new has a real <input>
-	// for the title. We navigate there, focus the title input (which is always present
-	// and clickable), then press ⌘2 and assert it does NOT navigate.
+	// W2: deterministic — the document create page at /documents/new has a real
+	// <input> for the title. We navigate there, focus the title input (which is
+	// always present and clickable), then press ⌘2 and assert it does NOT navigate.
 	//
 	// Note: the global-search dialog's SearchField auto-focus is unreliable in the
 	// headless Playwright runner (the focusRef fires but Playwright shows the element
-	// as "inactive"). Using the KnowledgeCreate title input is deterministic because
+	// as "inactive"). Using the DocumentCreate title input is deterministic because
 	// it's a plain <input type="text"> we can directly focus via click().
 	test("AC-5: ⌘2 does not switch views while typing in input", async ({ page }) => {
-		// Navigate to a page with a real text input (knowledge create).
-		await page.goto("/knowledge/new");
+		// Navigate to a page with a real text input (document create).
+		await page.goto("/documents/new");
 		await page.waitForSelector("[data-testid='knowledge-create-page']");
 
 		// The title input is a plain <input type="text"> with placeholder "Untitled".
@@ -246,8 +239,8 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		// ⌘2 must NOT navigate away — useNavShortcuts guard checks e.target.tagName === "input".
 		await page.keyboard.press("Meta+2");
 
-		// URL must still be /knowledge/new (no navigation happened while typing in input).
-		await expect(page).toHaveURL(/\/knowledge\/new/, { timeout: 1000 });
+		// URL must still be /documents/new (no navigation happened while typing in input).
+		await expect(page).toHaveURL(/\/documents\/new/, { timeout: 1000 });
 
 		// The input must still be focused (not blurred by ⌘2).
 		await expect(titleInput).toBeFocused();
@@ -343,6 +336,9 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 		const KNOWLEDGE_ID = "k1";
 
 		await mockTaskAndTeam(page);
+		await mockDocument(page, {
+			row: makeDocumentRow(KNOWLEDGE_ID, { title: "AG4 fixture document" }),
+		});
 
 		// 1. Navigate to bet detail (establishes history base).
 		await page.goto(`/work/task/${ROOT_TASK_ID}`);
@@ -358,11 +354,11 @@ test.describe("AG4 — Back, Up, and Shortcuts", () => {
 			const currentIdx = (window.history.state?.idx ?? 0) as number;
 			window.history.pushState({ idx: currentIdx + 1 }, "", url);
 			window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-		}, `/knowledge/${KNOWLEDGE_ID}`);
+		}, `/documents/${KNOWLEDGE_ID}`);
 
 		// 3. Should be on the knowledge detail page now.
-		await expect(page).toHaveURL(new RegExp(`/knowledge/${KNOWLEDGE_ID}`), { timeout: 5000 });
-		await page.waitForSelector("[data-testid='knowledge-detail-page']");
+		await expect(page).toHaveURL(new RegExp(`/documents/${KNOWLEDGE_ID}`), { timeout: 5000 });
+		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// 4. The Breadcrumb on the knowledge detail page confirms we're at the right screen.
 		await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible({
