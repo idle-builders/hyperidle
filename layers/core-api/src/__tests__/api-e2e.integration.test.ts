@@ -325,7 +325,7 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	// @lore O2: Knowledge routes rewritten. Layer-based URL prefix removed.
 	// New URL shape: POST /api/knowledge (create), GET /api/knowledge (list),
-	// GET /api/knowledge/:id (get). Search: GET /api/search?scope=knowledge&q=... (AU44 fold).
+	// GET /api/knowledge/:id (get). Search: GET /api/search?scope=document&q=... (AU44 fold, BC4 rename).
 	describe("Knowledge", () => {
 		test("GET /api/knowledge returns items list", async ({ db, app }) => {
 			await seedBase(db);
@@ -379,8 +379,9 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.title).toBe("Get-by-id test");
 		});
 
-		// @lore AU44 batch 4: GET /api/knowledge/search folded into GET /api/search?scope=knowledge
-		test("GET /api/search?scope=knowledge&q=test returns search results", async ({ db, app }) => {
+		// @lore AU44 batch 4: GET /api/knowledge/search folded into GET /api/search?scope=document
+		// (BC4: the wire value was scope=knowledge, now scope=document — architecture.md §8.6)
+		test("GET /api/search?scope=document&q=test returns search results", async ({ db, app }) => {
 			await seedBase(db);
 			// First create a knowledge item so search has something to find
 			await app.request("/api/knowledge", {
@@ -395,7 +396,7 @@ describe("E2E API Integration (I5)", () => {
 				}),
 			});
 
-			const res = await app.request("/api/search?q=Searchable&scope=knowledge", {
+			const res = await app.request("/api/search?q=Searchable&scope=document", {
 				headers: auth(),
 			});
 			expect(res.status).toBe(200);
@@ -405,9 +406,9 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.results.some((r) => r.title === "Searchable decision")).toBe(true);
 		});
 
-		test("GET /api/search?scope=knowledge requires query param q", async ({ db, app }) => {
+		test("GET /api/search?scope=document requires query param q", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/search?scope=knowledge", { headers: auth() });
+			const res = await app.request("/api/search?scope=document", { headers: auth() });
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("VALIDATION_ERROR");

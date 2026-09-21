@@ -65,9 +65,9 @@ describe("I2 V3 — O2: /:layer URL returns 404 (layer routing removed)", () => 
 	});
 });
 
-// @lore AU44 batch 4: GET /api/knowledge/search deleted; folded into GET /api/search?scope=knowledge
+// @lore AU44 batch 4: GET /api/knowledge/search deleted; folded into GET /api/search?scope=document
 // Max query length is now 200 chars (was 500 on the old route — behaviour change).
-describe("I2 V4 — GET /api/search?scope=knowledge escapes LIKE wildcards", () => {
+describe("I2 V4 — GET /api/search?scope=document escapes LIKE wildcards", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -85,7 +85,7 @@ describe("I2 V4 — GET /api/search?scope=knowledge escapes LIKE wildcards", () 
 		await seedKi(db, "ki-aub", "A_B");
 		await seedKi(db, "ki-pct", "100% off");
 
-		const res = await app.request("/api/search?q=A_B&scope=knowledge", { headers: authHeaders() });
+		const res = await app.request("/api/search?q=A_B&scope=document", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { results: Array<{ id: string; title: string }> };
 		const ids = body.results.map((r) => r.id).sort();
@@ -98,7 +98,7 @@ describe("I2 V4 — GET /api/search?scope=knowledge escapes LIKE wildcards", () 
 		await seedKi(db, "ki-aub", "A_B");
 		await seedKi(db, "ki-pct", "100% off");
 
-		const res = await app.request("/api/search?q=_&scope=knowledge", { headers: authHeaders() });
+		const res = await app.request("/api/search?q=_&scope=document", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { results: Array<{ id: string }> };
 		// Only ki-aub literally contains an underscore in its title.
@@ -112,7 +112,7 @@ describe("I2 V4 — GET /api/search?scope=knowledge escapes LIKE wildcards", () 
 		await seedKi(db, "ki-aub", "A_B");
 		await seedKi(db, "ki-pct", "100% off");
 
-		const res = await app.request("/api/search?q=%25&scope=knowledge", { headers: authHeaders() });
+		const res = await app.request("/api/search?q=%25&scope=document", { headers: authHeaders() });
 		// %25 decodes to '%'. Only the "100% off" row contains a literal %.
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { results: Array<{ id: string }> };
@@ -124,7 +124,7 @@ describe("I2 V4 — GET /api/search?scope=knowledge escapes LIKE wildcards", () 
 		// A query containing the LIKE escape char `\` must be handled
 		// safely — no SQLite parse error, no 500.
 		const res = await app.request(
-			`/api/search?q=${encodeURIComponent('"unbalanced')}&scope=knowledge`,
+			`/api/search?q=${encodeURIComponent('"unbalanced')}&scope=document`,
 			{
 				headers: authHeaders(),
 			},
@@ -133,7 +133,7 @@ describe("I2 V4 — GET /api/search?scope=knowledge escapes LIKE wildcards", () 
 	});
 
 	test("?q=\\ (a backslash) does not 500", async ({ app }) => {
-		const res = await app.request(`/api/search?q=${encodeURIComponent("\\")}&scope=knowledge`, {
+		const res = await app.request(`/api/search?q=${encodeURIComponent("\\")}&scope=document`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
@@ -142,7 +142,7 @@ describe("I2 V4 — GET /api/search?scope=knowledge escapes LIKE wildcards", () 
 	// @lore AU44 batch 4: max query length changed from 500 → 200 chars after fold into /api/search
 	test("review HIGH-5 / M-4: rejects queries longer than 200 chars with 400", async ({ app }) => {
 		const huge = "x".repeat(201);
-		const res = await app.request(`/api/search?q=${encodeURIComponent(huge)}&scope=knowledge`, {
+		const res = await app.request(`/api/search?q=${encodeURIComponent(huge)}&scope=document`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(400);
@@ -152,7 +152,7 @@ describe("I2 V4 — GET /api/search?scope=knowledge escapes LIKE wildcards", () 
 
 	test("review HIGH-5 / M-4: a query at the 200-char boundary is accepted", async ({ app }) => {
 		const right = "x".repeat(200);
-		const res = await app.request(`/api/search?q=${encodeURIComponent(right)}&scope=knowledge`, {
+		const res = await app.request(`/api/search?q=${encodeURIComponent(right)}&scope=document`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);

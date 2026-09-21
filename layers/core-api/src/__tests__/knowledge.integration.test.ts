@@ -245,9 +245,10 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC9 (flag) coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
-	// AC10: GET /api/search?scope=knowledge&q=... — FTS5 search (folded from /api/knowledge/search)
-	// @lore AU44 batch 4: GET /api/knowledge/search deleted; folded into GET /api/search?scope=knowledge
-	describe("AC10: GET /api/search?scope=knowledge&q=... — FTS5 search", () => {
+	// AC10: GET /api/search?scope=document&q=... — FTS5 search (folded from /api/knowledge/search)
+	// @lore AU44 batch 4: GET /api/knowledge/search deleted; folded into GET /api/search?scope=document
+	// (BC4: the wire value was scope=knowledge, now scope=document — architecture.md §8.6)
+	describe("AC10: GET /api/search?scope=document&q=... — FTS5 search", () => {
 		test("returns items matching the search query", async ({ app }) => {
 			await createItem(app, "L0", {
 				title: "React Patterns",
@@ -262,7 +263,7 @@ describe("Knowledge Endpoints (E4)", () => {
 				body: "Testing React components with vitest.",
 			});
 
-			const res = await app.request("/api/search?q=React&scope=knowledge", {
+			const res = await app.request("/api/search?q=React&scope=document", {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
@@ -274,7 +275,7 @@ describe("Knowledge Endpoints (E4)", () => {
 		test("returns empty results for non-matching query", async ({ app }) => {
 			await createItem(app, "L0", { title: "React Patterns", body: "Hooks" });
 
-			const res = await app.request("/api/search?q=python&scope=knowledge", {
+			const res = await app.request("/api/search?q=python&scope=document", {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
@@ -284,7 +285,7 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 
 		test("returns 400 when query is missing", async ({ app }) => {
-			const res = await app.request("/api/search?scope=knowledge", { headers: authHeaders() });
+			const res = await app.request("/api/search?scope=document", { headers: authHeaders() });
 			expect(res.status).toBe(400);
 		});
 	});
