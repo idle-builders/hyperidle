@@ -420,7 +420,9 @@ async function assembleTriggerEvent(
 	// Session events are already dispatched above.
 	// Safe to check taskId now — no session event reaches here.
 	// @lore BB1: betId removed from priority chain — bet is now a root task.
-	// Priority: taskId → threadId → itemId → sessionId → agentId → teamId → userId
+	// @lore BC4 A1: itemId removed from priority chain — see the `@lore` where
+	// the itemId branch used to be, below.
+	// Priority: taskId → threadId → sessionId → agentId → teamId → userId
 
 	// Task subject: task_state_changed
 	const taskId = typeof rec.taskId === "string" ? rec.taskId : null;
@@ -476,34 +478,16 @@ async function assembleTriggerEvent(
 		return withTransition({ ...base, subject: genericSubject("thread", rec.threadId) });
 	}
 
-	// Knowledge events: all events carrying itemId now resolve to a
-	// knowledge_items row.
-	// @lore BC3 architecture.md §5: the item_created / items-table fork
-	// DELETED — its only backing store is gone and nothing emits
-	// "item_created" anymore.
-	if (typeof rec.itemId === "string") {
-		const ki = await ports.knowledge.getItemById(db, rec.itemId);
-		if (ki) {
-			return withTransition({
-				...base,
-				subject: {
-					kind: "knowledge-item",
-					item: {
-						id: ki.id,
-						title: ki.title,
-						body: ki.body,
-						format: ki.format,
-						version: ki.version,
-					},
-					...(actorId !== undefined ? { actorId } : {}),
-				},
-			});
-		}
-		return withTransition({
-			...base,
-			subject: genericSubject("knowledge-item", rec.itemId),
-		});
-	}
+	// @lore BC4 architecture.md §0 A1: the itemId → knowledge-item subject
+	// branch is DELETED — `knowledge_created`/`knowledge_updated`/
+	// `knowledge_archived` (the only events that ever carried `itemId`) were
+	// authorable but unused (no seed or plugin ever created a routine on one).
+	// `ports.knowledge` is gone with it. An event carrying `itemId` now falls
+	// through to the session/agent/team/user checks below, same as any other
+	// event with no recognized entity. The `kind:"knowledge-item"` subject arm
+	// itself (`@hyperidle/domain-model`'s `work-intent.ts`) and
+	// `run-orchestration/src/context.ts:520`'s consuming branch are a later
+	// item's deletion (architecture.md B22, which depends on this block).
 
 	// Session fallback: sessionId-carrying non-session events (tool_call_recorded,
 	// sandbox_writeback_changes_detected). The session-event types were handled in

@@ -24,12 +24,7 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
-import {
-	assembleSessionDocuments,
-	getAgentIdentity,
-	get as getKnowledgeItem,
-	getRoutinePrompt,
-} from "@hyperidle/document";
+import { assembleSessionDocuments, getAgentIdentity, getRoutinePrompt } from "@hyperidle/document";
 import type { EventBus } from "@hyperidle/event-bus";
 import { getTeam } from "@hyperidle/org";
 import {
@@ -73,13 +68,9 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			// BA9c: findThreadById — thread row for thread_* events.
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
-		knowledge: {
-			// BA9c: getItemById — knowledge item for knowledge_* events.
-			getItemById: async (db, id) => {
-				const item = await getKnowledgeItem(db, id);
-				return item ?? undefined;
-			},
-		},
+		// @lore BC4 architecture.md §0 A1: the `knowledge` port (getItemById,
+		// backing the three unused knowledge_* trigger events) is deleted — see
+		// `ports.ts`'s own `@lore` on the interface.
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
@@ -114,10 +105,21 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		getUserById: (db: HyperIdleDb, id: string) =>
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		assembleSessionKnowledge: assembleSessionDocuments,
+		// @lore BC4 architecture.md §8.3: NOT migrated onto the injected
+		// `search_documents` runner, unlike `routes/routines-routes.ts`'s own
+		// prompt reads/writes. Doing that here needs a bound `search_documents`
+		// run function threaded into this composition root — the one composed
+		// list lives in `actions/compose.ts`, built once in `app.ts`, and this
+		// module's own two callers (`startRoutineScheduler`,
+		// `service-bootstrap.ts:388`'s `registerAgentLayerServices`, and
+		// `fireRoutine` from four `tools/eval` scenarios plus
+		// `dispatch-test-helpers.ts`) sit outside this item's owned paths — no
+		// block in architecture.md threads a runner through
+		// `service-bootstrap.ts`. Left on the pre-item repository call
+		// (`@hyperidle/document`'s barrel) rather than either breaking those
+		// unowned callers or silently degrading a scheduler-fired routine's
+		// baked identity/prompt to `null`. Flagged, not fixed here.
 		getAgentIdentity,
-		// @lore knowledge-attachment-slot: was its own inline getParentedItem call
-		// (a spelling-twin of routines-routes.ts's own copy); both now share
-		// `getRoutinePrompt` from @hyperidle/knowledge, `getAgentIdentity`'s twin.
 		getRoutinePrompt,
 	};
 }

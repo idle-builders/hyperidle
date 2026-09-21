@@ -1,21 +1,17 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	create as createKnowledgeItem,
-	getParentedItem,
-	getRoutinePrompt,
-	getRoutinePromptBodies,
-	listItemIdsByParent,
-	setKnowledgeStatus,
-	update as updateKnowledgeItem,
-} from "@hyperidle/document";
-import {
+	type ActionResult,
 	API_ERROR_CODES,
+	type DocumentRow,
+	type DocumentView,
+	type EditDocumentInput,
 	ROUTINE_STATES,
 	type RoutineDetail,
 	type RoutineInfo,
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
+	type SearchDocumentsInput,
 } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
@@ -25,7 +21,25 @@ import { humanizeSchedule, parseTransitionTo } from "@hyperidle/routine";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
+import type { ActionContext } from "../actions/action.js";
 import { fireRoutine } from "../services/routine-scheduler-bindings.js";
+
+/**
+ * `search_documents`/`edit_document`'s own bound `run` — the injected
+ * runners this route reaches the document module through (architecture.md
+ * §8.2, §8.3). No local `SearchDocumentsRunFn`/`EditDocumentRunFn` type
+ * exists yet on `../actions/action.js` (only `SendMessageRunFn`/
+ * `AdjustThreadRunFn` do) — defined here rather than adding to that shared
+ * file, which this block does not own.
+ */
+type SearchDocumentsRunFn = (
+	ctx: ActionContext,
+	input: SearchDocumentsInput,
+) => Promise<ActionResult<DocumentRow[]>>;
+type EditDocumentRunFn = (
+	ctx: ActionContext,
+	input: EditDocumentInput,
+) => Promise<ActionResult<DocumentView>>;
 
 /** Inlined from @hyperidle/presentation-format (server copy removed, row 18). */
 function deriveInitials(name: string): string {
@@ -134,14 +148,64 @@ function stateToActive(state: string): boolean {
  */
 
 /**
- * A routine's instruction lives in a knowledge document parented to it, so it
- * can be read and edited like any other knowledge. `prompt` stays the field
- * a caller writes; the read/write of the document itself is
- * `getRoutinePrompt`/`getRoutinePromptBodies` (`@hyperidle/knowledge`,
- * `getAgentIdentity`'s exact twin) — `knowledge_items` belongs to the
- * knowledge service, so this route reaches through its functions rather than
- * touching the table itself.
+ * A routine's instruction lives in a document parented to it, in the
+ * `prompt` slot, so it can be read and edited like any other document.
+ * `prompt` stays the field a caller writes; the read/write of the document
+ * itself goes through the three document actions (architecture.md §8.3) —
+ * `search_documents`/`edit_document`'s own bound `run`, injected the same
+ * way `sendMessage`/`adjustThread` are (§8.2) — never a direct import of the
+ * document module's repository.
  */
+
+/** The document parented to `routineId` in the `prompt` slot, if any.
+ * No `status` filter — an archived prompt still comes back (today's
+ * behaviour, pinned by a test): a routine that has been paused or whose
+ * prompt was archived by hand must keep firing with the instruction it had,
+ * not silently go blank. */
+async function findRoutinePromptDoc(
+	ctx: ActionContext,
+	searchDocuments: SearchDocumentsRunFn,
+	routineId: string,
+): Promise<DocumentRow | null> {
+	const result = await searchDocuments(ctx, {
+		parent: { kind: "routine", id: routineId },
+		slot: "prompt",
+	});
+	return result.ok ? (result.data[0] ?? null) : null;
+}
+
+/** `findRoutinePromptDoc`'s body, or `null` if the routine has no prompt document. */
+async function readRoutinePrompt(
+	ctx: ActionContext,
+	searchDocuments: SearchDocumentsRunFn,
+	routineId: string,
+): Promise<string | null> {
+	const doc = await findRoutinePromptDoc(ctx, searchDocuments, routineId);
+	return doc?.body ?? null;
+}
+
+/** `readRoutinePrompt` for a whole page of routines, in one batched call —
+ * mirrors the title ladder's own batching (architecture.md §8.3): a list
+ * endpoint must agree with its own detail endpoint on shape without one
+ * document call per row. No `status` filter, same as the single read. */
+async function readRoutinePromptBodies(
+	ctx: ActionContext,
+	searchDocuments: SearchDocumentsRunFn,
+	routineIds: readonly string[],
+): Promise<Map<string, string>> {
+	const map = new Map<string, string>();
+	if (routineIds.length === 0) return map;
+	const result = await searchDocuments(ctx, {
+		parent: { kind: "routine", ids: [...routineIds] },
+		slot: "prompt",
+	});
+	if (result.ok) {
+		for (const doc of result.data) {
+			if (doc.parentId) map.set(doc.parentId, doc.body);
+		}
+	}
+	return map;
+}
 
 /**
  * Create the document a new routine's prompt lives in, parented to that
@@ -153,37 +217,69 @@ function stateToActive(state: string): boolean {
  * a team scopes to that team; a factory-wide agent stays factory.
  */
 async function createRoutinePromptDocument(
-	db: HyperIdleDb,
+	ctx: ActionContext,
+	editDocument: EditDocumentRunFn,
 	input: {
 		readonly routineId: string;
 		readonly routineName: string;
 		readonly prompt: string;
-		readonly updatedBy: string;
 		readonly ownerTeamId: string | null;
 	},
 ): Promise<string> {
-	const created = await createKnowledgeItem(db, {
-		scopeKind: input.ownerTeamId ? "team" : "factory",
-		scopeId: input.ownerTeamId,
+	const result = await editDocument(ctx, {
 		title: `${input.routineName || "Routine"} — prompt`,
 		body: input.prompt,
 		format: "markdown",
 		status: "active",
-		role: "prompt",
-		parentKind: "routine",
-		parentId: input.routineId,
-		updatedBy: input.updatedBy,
+		as: "document",
+		slot: "prompt",
+		scopeKind: input.ownerTeamId ? "team" : "factory",
+		scopeId: input.ownerTeamId,
+		parent: { kind: "routine", id: input.routineId },
 	});
-	return created.id;
+	if (!result.ok) {
+		throw new Error(
+			`routine prompt document create failed: ${result.problems.map((p) => p.code).join(", ")}`,
+		);
+	}
+	return result.data.document.id;
+}
+
+/** Archive every document parented to `routineId`, as `actor` — the routine
+ * is gone, and there is no view left for an orphaned document to appear in.
+ * Not just the `prompt` slot: any document a plugin or a person attached to
+ * this routine goes with it (architecture.md §8.3). N edits, N change rows,
+ * each with the acting person as the actor. */
+async function archiveRoutineDocuments(
+	ctx: ActionContext,
+	searchDocuments: SearchDocumentsRunFn,
+	editDocument: EditDocumentRunFn,
+	routineId: string,
+): Promise<void> {
+	const result = await searchDocuments(ctx, { parent: { kind: "routine", id: routineId } });
+	if (!result.ok) return;
+	for (const doc of result.data) {
+		const archived = await editDocument(ctx, { id: doc.id, status: "archived" });
+		if (!archived.ok) {
+			throw new Error(
+				`routine document archive failed: ${archived.problems.map((p) => p.code).join(", ")}`,
+			);
+		}
+	}
 }
 
 export function createRoutineRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
+	/** `search_documents`'s own bound `run`, threaded from `app.ts`'s composed
+	 * actions list (architecture.md §8.2) — never a direct document import. */
+	searchDocuments: SearchDocumentsRunFn,
+	/** `edit_document`'s own bound `run`, same threading. */
+	editDocument: EditDocumentRunFn,
 ): Hono<HyperIdleEnv> {
 	// Typed with the app env so handlers can read the actor the auth middleware
-	// resolved — a prompt document records who wrote it, like any knowledge edit.
+	// resolved — a prompt document records who wrote it, like any document edit.
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET /event-types — BA1 D8: the one list `RoutineCreateDialog` fills its
@@ -301,12 +397,12 @@ export function createRoutineRoutes(
 			);
 		}
 
+		const ctx: ActionContext = { actor: c.get("userId"), db, eventBus, now };
 		if (body.prompt) {
-			await createRoutinePromptDocument(db, {
+			await createRoutinePromptDocument(ctx, editDocument, {
 				routineId,
 				routineName: body.name,
 				prompt: body.prompt,
-				updatedBy: c.get("userId"),
 				ownerTeamId: (await findUser(db, { id: body.ownerAgentId }))?.teamId ?? null,
 			});
 		}
@@ -315,7 +411,9 @@ export function createRoutineRoutes(
 		// The row no longer carries the prompt text — resolve it from the document,
 		// same as GET and PATCH, so all three responses agree on shape.
 		return c.json(
-			created ? { ...created, prompt: await getRoutinePrompt(db, routineId) } : created,
+			created
+				? { ...created, prompt: await readRoutinePrompt(ctx, searchDocuments, routineId) }
+				: created,
 			201,
 		);
 	});
@@ -326,8 +424,15 @@ export function createRoutineRoutes(
 		// The row no longer carries the prompt text — resolve it from each
 		// routine's document, same as GET/POST/PATCH, so all four responses
 		// agree on shape. One batched read, not one per routine.
-		const prompts = await getRoutinePromptBodies(
+		const ctx: ActionContext = {
+			actor: c.get("userId"),
 			db,
+			eventBus,
+			now: new Date().toISOString(),
+		};
+		const prompts = await readRoutinePromptBodies(
+			ctx,
+			searchDocuments,
 			allRoutines.map((routine) => routine.id),
 		);
 		return c.json(
@@ -352,22 +457,18 @@ export function createRoutineRoutes(
 		});
 
 		// @lore BA9g/knowledge-attachment-slot: the routine's instruction is a
-		// knowledge document parented to it, and deleting the routine used to
-		// leave it behind — an orphan in the knowledge view titled "<name> —
-		// prompt", belonging to a routine that no longer exists and that
-		// nothing could reach again. Archiving every item parented to this
-		// routine (not just the prompt slot) is what the plan calls "deleting
-		// a parent deletes its knowledge" — there is no UI for an orphan, so
-		// archiving is the only safe default.
+		// document parented to it, and deleting the routine used to leave it
+		// behind — an orphan in the document view titled "<name> — prompt",
+		// belonging to a routine that no longer exists and that nothing could
+		// reach again. Archiving every document parented to this routine (not
+		// just the prompt slot) is what the plan calls "deleting a parent
+		// deletes its knowledge" — there is no UI for an orphan, so archiving is
+		// the only safe default.
 		//
-		// Archived, not hard-deleted: `knowledge_edit_log` and friends hold
-		// RESTRICT FKs on `knowledge_items.id`, and the audit trail outlives its
-		// subject.
-		await setKnowledgeStatus(
-			db,
-			await listItemIdsByParent(db, { parentKind: "routine", parentId: routineId }),
-			"archived",
-		);
+		// Archived, not hard-deleted: `changes` holds a RESTRICT FK on
+		// `documents.id`, and the audit trail outlives its subject.
+		const ctx: ActionContext = { actor: c.get("userId"), db, eventBus, now };
+		await archiveRoutineDocuments(ctx, searchDocuments, editDocument, routineId);
 
 		return c.json({ deleted: true, deletedAt: now });
 	});
@@ -418,10 +519,16 @@ export function createRoutineRoutes(
 			};
 		});
 
+		const ctx: ActionContext = {
+			actor: c.get("userId"),
+			db,
+			eventBus,
+			now: new Date().toISOString(),
+		};
 		const routineInfo: RoutineInfo = {
 			id: routine.id,
 			name: routine.name,
-			prompt: await getRoutinePrompt(db, routine.id),
+			prompt: await readRoutinePrompt(ctx, searchDocuments, routine.id),
 			state: (routine.state ?? "active") as RoutineInfo["state"],
 			triggerType: routine.triggerType,
 			triggerConfig: routine.triggerConfig ?? null,
@@ -490,27 +597,32 @@ export function createRoutineRoutes(
 		if (body.silent !== undefined) updates.silent = body.silent;
 		// AA1: extended fields
 		if (body.name !== undefined) updates.name = body.name;
+		const ctx: ActionContext = {
+			actor: c.get("userId"),
+			db,
+			eventBus,
+			now: new Date().toISOString(),
+		};
 		if (body.prompt !== undefined) {
 			// Write through to the document. A routine that never had a prompt gets
 			// one now; one that did keeps its document so edit history survives.
-			const existingDoc = await getParentedItem(db, {
-				parentKind: "routine",
-				parentId: routineId,
-				role: "prompt",
-			});
+			const existingDoc = await findRoutinePromptDoc(ctx, searchDocuments, routineId);
 			if (existingDoc) {
-				await updateKnowledgeItem(
-					db,
-					existingDoc.id,
-					{ body: body.prompt ?? "", updatedBy: c.get("userId") },
-					existingDoc.version,
-				);
+				const edited = await editDocument(ctx, {
+					id: existingDoc.id,
+					body: body.prompt ?? "",
+					version: existingDoc.version,
+				});
+				if (!edited.ok) {
+					throw new Error(
+						`routine prompt document edit failed: ${edited.problems.map((p) => p.code).join(", ")}`,
+					);
+				}
 			} else if (body.prompt) {
-				await createRoutinePromptDocument(db, {
+				await createRoutinePromptDocument(ctx, editDocument, {
 					routineId,
 					routineName: body.name ?? existing.name,
 					prompt: body.prompt,
-					updatedBy: c.get("userId"),
 					ownerTeamId: (await findUser(db, { id: existing.ownerAgentId }))?.teamId ?? null,
 				});
 			}
@@ -536,7 +648,9 @@ export function createRoutineRoutes(
 		// The row no longer carries the prompt text — resolve it from the document
 		// so the response still describes the routine as a caller expects.
 		return c.json(
-			updated ? { ...updated, prompt: await getRoutinePrompt(db, updated.id) } : updated,
+			updated
+				? { ...updated, prompt: await readRoutinePrompt(ctx, searchDocuments, updated.id) }
+				: updated,
 		);
 	});
 

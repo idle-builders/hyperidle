@@ -217,4 +217,38 @@ describe("a routine's prompt is a knowledge document", () => {
 		expect(withPrompt?.prompt).toBe("Sweep the knowledge base for stale items.");
 		expect(withoutPrompt?.prompt).toBe(null);
 	});
+
+	// architecture.md §8.3 B12: the read is `search_documents({parent, slot})`
+	// with no `status` filter — today's behaviour (the pre-item
+	// `knowledge-repository.ts:2045-2048` read never filtered on status
+	// either), pinned here. A routine paused or whose prompt someone archived
+	// by hand must keep firing with the instruction it had, not go blank.
+	test("a routine's prompt read returns an archived prompt too", async ({ db, app }) => {
+		await seedAgent(db, "agent-owner");
+		const created = (await (
+			await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: routineBody(),
+			})
+		).json()) as { id: string };
+
+		const doc = await findPromptDoc(db, created.id);
+		await db
+			.update(documents)
+			.set({ status: "archived" })
+			.where(eq(documents.id, String(doc?.id)));
+
+		const single = (await (
+			await app.request(`/api/routines/${created.id}`, { headers: authHeaders() })
+		).json()) as { routine?: { prompt?: string | null } };
+		expect(single.routine?.prompt).toBe("Sweep the knowledge base for stale items.");
+
+		const list = (await (
+			await app.request("/api/routines", { headers: authHeaders() })
+		).json()) as Array<{ id: string; prompt?: string | null }>;
+		expect(list.find((r) => r.id === created.id)?.prompt).toBe(
+			"Sweep the knowledge base for stale items.",
+		);
+	});
 });

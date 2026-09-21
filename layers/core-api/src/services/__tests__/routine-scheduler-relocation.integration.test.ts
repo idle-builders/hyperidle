@@ -38,7 +38,7 @@
  */
 
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
-import { getAgentIdentity, get as getKnowledgeItem, getParentedItem } from "@hyperidle/document";
+import { getAgentIdentity, getParentedItem } from "@hyperidle/document";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -81,12 +81,8 @@ function makePorts(): RoutineSchedulerPorts {
 		conversation: {
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
-		knowledge: {
-			getItemById: async (db, id) => {
-				const item = await getKnowledgeItem(db, id);
-				return item ?? undefined;
-			},
-		},
+		// @lore BC4 architecture.md §0 A1: `knowledge.getItemById` deleted with
+		// the itemId → knowledge-item subject branch — see `ports.ts`.
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);

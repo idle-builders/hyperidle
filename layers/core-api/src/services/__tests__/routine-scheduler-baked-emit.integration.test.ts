@@ -35,7 +35,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { getAgentIdentity, get as getKnowledgeItem, getParentedItem } from "@hyperidle/document";
+import { getAgentIdentity, getParentedItem } from "@hyperidle/document";
 import type {
 	AgentRunLifecycleChangedEvent,
 	KnowledgeCreatedEvent,
@@ -135,13 +135,8 @@ function makePorts(): RoutineSchedulerPorts & {
 			// BA9c: findThreadById for thread rich subject
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
-		knowledge: {
-			// BA9c: getItemById for knowledge item rich subject
-			getItemById: async (db, id) => {
-				const item = await getKnowledgeItem(db, id);
-				return item ?? undefined;
-			},
-		},
+		// @lore BC4 architecture.md §0 A1: `knowledge.getItemById` deleted with
+		// the itemId → knowledge-item subject branch — see `ports.ts`.
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);

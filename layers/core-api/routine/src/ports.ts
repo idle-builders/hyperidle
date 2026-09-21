@@ -71,25 +71,12 @@ export interface RoutineSchedulerPorts {
 			| undefined
 		>;
 	};
-	readonly knowledge: {
-		/**
-		 * BA9c: Load a knowledge item row for trigger event subject assembly.
-		 * Called for knowledge_created/updated/archived events.
-		 */
-		getItemById(
-			db: HyperIdleDb,
-			id: string,
-		): Promise<
-			| {
-					readonly id: string;
-					readonly title: string;
-					readonly body: string;
-					readonly format: string;
-					readonly version: number;
-			  }
-			| undefined
-		>;
-	};
+	// @lore BC4 architecture.md §0 A1: the `knowledge` port (`getItemById`, for
+	// the three `knowledge_created`/`knowledge_updated`/`knowledge_archived`
+	// trigger-subject events) is DELETED. Those event types were authorable but
+	// unused — no seed or plugin ever created a routine on one — so this port
+	// had no live caller either way. The scheduler's own `itemId` subject
+	// branch that called it is deleted with it (`routine-scheduler.ts`).
 	readonly settings: {
 		readServerConfig(db: HyperIdleDb): Promise<{
 			/**

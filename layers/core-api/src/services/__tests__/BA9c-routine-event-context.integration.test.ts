@@ -32,12 +32,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import {
-	create as createKnowledgeItem,
-	getAgentIdentity,
-	get as getKnowledgeItem,
-	getParentedItem,
-} from "@hyperidle/document";
+import { getAgentIdentity, getParentedItem } from "@hyperidle/document";
 // BB1: BetStateChangedEvent deleted — bet is now a root task.
 import type { TaskStateChangedEvent } from "@hyperidle/event-bus";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
@@ -80,12 +75,8 @@ function makePorts(): RoutineSchedulerPorts {
 		conversation: {
 			findThreadById: (db, id) => findThread(db, { id }),
 		},
-		knowledge: {
-			getItemById: async (db, id) => {
-				const item = await getKnowledgeItem(db, id);
-				return item ?? undefined;
-			},
-		},
+		// @lore BC4 architecture.md §0 A1: `knowledge.getItemById` deleted with
+		// the itemId → knowledge-item subject branch — see `ports.ts`.
 		settings: {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
@@ -439,70 +430,17 @@ describe("BA9c — thread_message_appended produces kind:thread rich subject", (
 
 // @lore BC3 architecture.md §5: describe("BA9c — item_created produces
 // kind:item rich subject") DELETED — "item_created" and the kind:"item"
-// subject variant are both gone with the `items` table; the sibling
-// "knowledge_created produces kind:knowledge-item rich subject" describe
-// below covers the same subject-assembly shape for the surviving event.
-
-describe("BA9c — knowledge_created produces kind:knowledge-item rich subject", () => {
-	test("knowledge_created: bundle has triggerEvent with knowledge-item subject loaded from DB", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		const { ownerAgentId } = await seedTeamAndOwner(db, "ba9c-ki-1");
-		const routineId = "ba9c-ki-1-routine";
-
-		// Seed a knowledge item via the service (writes kernel + projection together).
-		const ki = await createKnowledgeItem(db, {
-			title: "BA9c-KI-TITLE-PROBE",
-			body: "Knowledge body content",
-			format: "markdown",
-			status: "active",
-			updatedBy: ownerAgentId,
-		});
-		const kiId = ki.id;
-
-		await seedEventRoutine(db, routineId, ownerAgentId, "knowledge_created");
-
-		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
-			pollIntervalMs: 999_999,
-			canProvision: true,
-		});
-		try {
-			eventBus.emit({
-				type: "knowledge_created",
-				streamId: kiId,
-				itemId: kiId,
-				timestamp: Date.now(),
-			});
-
-			await vi.waitFor(
-				async () => {
-					const runs = await db
-						.select()
-						.from(routineRuns)
-						.where(eq(routineRuns.routineId, routineId));
-					expect(runs).toHaveLength(1);
-				},
-				{ timeout: 2000 },
-			);
-
-			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
-			const [intent] = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
-			const baked = JSON.parse(intent!.bakedRequestJson!);
-
-			expect(baked.contextBundle.triggerEvent.type).toBe("knowledge_created");
-			// BA9c: knowledge_created → rich kind:"knowledge-item" subject
-			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("knowledge-item");
-			expect(baked.contextBundle.triggerEvent.subject.item.title).toBe("BA9c-KI-TITLE-PROBE");
-		} finally {
-			scheduler.stop();
-		}
-	});
-});
+// subject variant are both gone with the `items` table.
+//
+// @lore BC4 architecture.md §0 A1: describe("BA9c — knowledge_created
+// produces kind:knowledge-item rich subject") DELETED with it — the
+// scheduler's itemId → knowledge-item subject branch and `ports.knowledge`
+// are gone (the three knowledge_* trigger events were authorable but never
+// fired by any seed or plugin). `knowledge_created` now falls through this
+// scheduler's field-priority scan to whichever later branch matches (or to
+// no rich subject at all), the same as any other event with no recognized
+// entity — covered by the existing "no recognizable entity" fallback
+// coverage in this file, not by a dedicated case for a deleted capability.
 
 describe("BA9c — user_created produces kind:user rich subject (not generic)", () => {
 	test("user_created: bundle has triggerEvent with user subject loaded from DB", async ({

@@ -23,7 +23,6 @@
  */
 import { routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { getAgentIdentity } from "@hyperidle/document";
 import { EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";
 import type { RoutineSchedulerPorts } from "../ports.js";
@@ -48,7 +47,7 @@ function makePorts(
 	requireRunnableAgent: RoutineSchedulerPorts["requireRunnableAgent"],
 ): RoutineSchedulerPorts {
 	return {
-		getAgentIdentity,
+		getAgentIdentity: unreachable("getAgentIdentity"),
 		getRoutinePrompt: unreachable("getRoutinePrompt"),
 		work: {
 			// @lore BB1: getBetById deleted — bet is now a root task.
@@ -58,9 +57,6 @@ function makePorts(
 		},
 		conversation: {
 			findThreadById: unreachable("conversation.findThreadById"),
-		},
-		knowledge: {
-			getItemById: unreachable("knowledge.getItemById"),
 		},
 		settings: { readServerConfig: unreachable("settings.readServerConfig") },
 		workIntents: { enqueueWorkIntent: unreachable("workIntents.enqueueWorkIntent") },
