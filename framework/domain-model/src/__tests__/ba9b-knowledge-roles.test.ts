@@ -1,12 +1,15 @@
 /**
- * BA9b: Unit tests for knowledge role mapping in toBakedContextKnowledgeItems.
+ * BA9b: Unit tests for knowledge slot mapping in toBakedContextKnowledgeItems.
  * Proves agentBindingId derivation for agent_file items.
  *
  * @lore knowledge-attachment-slot: agentBindingId now derives from
  * `parentKind`/`parentId`, not `scopeId` — the binding moved from a reverse
- * scope lookup to the parent slot. `role`, `parentKind` and `parentId` are
+ * scope lookup to the parent slot. `slot`, `parentKind` and `parentId` are
  * required on SessionKnowledgeItemLike (no compat shim); agentBindingId is
  * always derived, never set explicitly.
+ *
+ * @lore BC4: field renamed `role` -> `slot`, matching migration 0086 step 1's
+ * DB column rename (architecture.md §2, §6.4). Values unchanged.
  */
 import { describe, expect, it } from "vitest";
 import { toBakedContextKnowledgeItems } from "../work-intent.js";
@@ -18,7 +21,7 @@ function makeItem(overrides: {
 	format?: string;
 	version?: number;
 	layer?: string | null;
-	role: string;
+	slot: string;
 	parentKind: string | null;
 	parentId: string | null;
 }) {
@@ -33,48 +36,48 @@ function makeItem(overrides: {
 		// toBakedContextKnowledgeItems — every caller supplies its own.
 		parentChain: [],
 		scopeKind: "factory",
-		role: overrides.role,
+		slot: overrides.slot,
 		parentKind: overrides.parentKind,
 		parentId: overrides.parentId,
 	};
 }
 
-describe("BA9b: toBakedContextKnowledgeItems — role and agentBindingId", () => {
-	it("ordinary items have role='ordinary' and agentBindingId=null", () => {
+describe("BA9b: toBakedContextKnowledgeItems — slot and agentBindingId", () => {
+	it("ordinary items have slot='ordinary' and agentBindingId=null", () => {
 		const [result] = toBakedContextKnowledgeItems([
-			makeItem({ role: "ordinary", parentKind: null, parentId: null }),
+			makeItem({ slot: "ordinary", parentKind: null, parentId: null }),
 		]);
-		expect(result?.role).toBe("ordinary");
+		expect(result?.slot).toBe("ordinary");
 		expect(result?.agentBindingId).toBeNull();
 	});
 
-	it("skill items have role='skill' and agentBindingId=null", () => {
+	it("skill items have slot='skill' and agentBindingId=null", () => {
 		const [result] = toBakedContextKnowledgeItems([
-			makeItem({ role: "skill", parentKind: null, parentId: null }),
+			makeItem({ slot: "skill", parentKind: null, parentId: null }),
 		]);
-		expect(result?.role).toBe("skill");
+		expect(result?.slot).toBe("skill");
 		expect(result?.agentBindingId).toBeNull();
 	});
 
-	it("rule items have role='rule' and agentBindingId=null", () => {
+	it("rule items have slot='rule' and agentBindingId=null", () => {
 		const [result] = toBakedContextKnowledgeItems([
-			makeItem({ role: "rule", parentKind: null, parentId: null }),
+			makeItem({ slot: "rule", parentKind: null, parentId: null }),
 		]);
-		expect(result?.role).toBe("rule");
+		expect(result?.slot).toBe("rule");
 		expect(result?.agentBindingId).toBeNull();
 	});
 
 	it("agent_file items derive agentBindingId from parentKind='agent' + parentId", () => {
 		const [result] = toBakedContextKnowledgeItems([
-			makeItem({ role: "agent_file", parentKind: "agent", parentId: "agent-xyz" }),
+			makeItem({ slot: "agent_file", parentKind: "agent", parentId: "agent-xyz" }),
 		]);
-		expect(result?.role).toBe("agent_file");
+		expect(result?.slot).toBe("agent_file");
 		expect(result?.agentBindingId).toBe("agent-xyz");
 	});
 
 	it("agent_file with no parent has null agentBindingId (unbound)", () => {
 		const [result] = toBakedContextKnowledgeItems([
-			makeItem({ role: "agent_file", parentKind: null, parentId: null }),
+			makeItem({ slot: "agent_file", parentKind: null, parentId: null }),
 		]);
 		expect(result?.agentBindingId).toBeNull();
 	});
@@ -85,16 +88,16 @@ describe("BA9b: toBakedContextKnowledgeItems — role and agentBindingId", () =>
 	// derivation, and null means UNBOUND — delivered to every session in reach.
 	it("an agent_file whose parent is not 'agent' has null agentBindingId, even with a parentId present", () => {
 		const [result] = toBakedContextKnowledgeItems([
-			makeItem({ role: "agent_file", parentKind: "routine", parentId: "routine-1" }),
+			makeItem({ slot: "agent_file", parentKind: "routine", parentId: "routine-1" }),
 		]);
 		expect(result?.agentBindingId).toBeNull();
 	});
 
-	it("a prompt item has role='prompt' and agentBindingId=null", () => {
+	it("a prompt item has slot='prompt' and agentBindingId=null", () => {
 		const [result] = toBakedContextKnowledgeItems([
-			makeItem({ role: "prompt", parentKind: "routine", parentId: "routine-1" }),
+			makeItem({ slot: "prompt", parentKind: "routine", parentId: "routine-1" }),
 		]);
-		expect(result?.role).toBe("prompt");
+		expect(result?.slot).toBe("prompt");
 		expect(result?.agentBindingId).toBeNull();
 	});
 });

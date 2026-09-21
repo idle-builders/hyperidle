@@ -109,8 +109,8 @@ describe("adjustThreadInvariants", () => {
 });
 
 describe("canReadThread / canWriteThread — the read/write/join predicate", () => {
-	it("team/knowledge_item/factory hosts are readable and writable by anyone", () => {
-		for (const hostKind of ["team", "knowledge_item", "factory"] as const) {
+	it("team/document/factory hosts are readable and writable by anyone", () => {
+		for (const hostKind of ["team", "document", "factory"] as const) {
 			expect(canReadThread("a-stranger", { hostKind, members: [] })).toBe(true);
 			expect(canWriteThread("a-stranger", { hostKind, members: [] })).toBe(true);
 		}

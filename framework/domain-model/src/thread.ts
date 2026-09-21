@@ -24,7 +24,7 @@ export type BlockId = string & { readonly __brand: "BlockId" };
 // @lore BB1: `"bet"` removed — a bet is a task with no parent, and migration
 // 0068 flipped every thread whose host_kind was "bet" to "task" (the host_id was
 // already correct, since each bet kept its id as a root task).
-export type BlockHostKind = "task" | "knowledge_item" | "agent" | "user";
+export type BlockHostKind = "task" | "document" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ export type BlockHostKind = "task" | "knowledge_item" | "agent" | "user";
 // §3.7, §3.9); there is no thread hosted by a task any more. `BlockHostKind`
 // above keeps `"task"` — a block anchor's host is not a thread's host; do not
 // conflate the two vocabularies.
-export const HOST_KINDS = ["knowledge_item", "agent", "user", "team", "factory"] as const;
+export const HOST_KINDS = ["document", "agent", "user", "team", "factory"] as const;
 export type HostKind = (typeof HOST_KINDS)[number];
 
 export const MESSAGE_TYPES = ["plain", "review", "questionnaire", "verdict"] as const;
@@ -138,7 +138,7 @@ export interface AnchorRef {
 export type InlineRefKind = InlineRef["kind"];
 
 export interface EntityRef {
-	readonly kind: "knowledge_item" | "task" | "message";
+	readonly kind: "document" | "task" | "message";
 	readonly id: string;
 }
 

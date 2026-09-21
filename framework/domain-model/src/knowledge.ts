@@ -57,13 +57,11 @@ export type KnowledgeRole = (typeof KNOWLEDGE_ROLES)[number];
  * tree. Walks stop at the first non-`knowledge_item` parent (plan.md "The
  * tree").
  */
-export const KNOWLEDGE_PARENT_KINDS = [
-	"knowledge_item",
-	"task",
-	"thread",
-	"routine",
-	"agent",
-] as const;
+// @lore BC4: value flipped `knowledge_item` -> `document` with migration 0086
+// step 3 (architecture.md §6.4, §8.7b). The constant keeps its name until
+// B22 deletes this file — `DOCUMENT_PARENT_KINDS` (actions/document.ts) is
+// the name going forward.
+export const KNOWLEDGE_PARENT_KINDS = ["document", "task", "thread", "routine", "agent"] as const;
 export type KnowledgeParentKind = (typeof KNOWLEDGE_PARENT_KINDS)[number];
 
 /**

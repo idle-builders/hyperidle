@@ -136,7 +136,7 @@ export interface BakedAgentRunnableConfig {
 	 * session reads.
 	 *
 	 * Baked here rather than read at provisioning time because it lives in
-	 * `knowledge_items`, which belongs to the knowledge service; the provisioner
+	 * `documents`, which belongs to the knowledge service; the provisioner
 	 * reads `agent_run_config`, which is orchestration's own. Every path bakes
 	 * this config, including the assistant turn, which bakes no context bundle —
 	 * so this is the one carrier that reaches all of them.
@@ -202,17 +202,20 @@ export interface BakedContextKnowledgeItem {
 	/** @lore nested-knowledge-items §5/D4: this item's own scope — every manifest entry needs one (review.md B6). */
 	readonly scopeKind: string;
 	/**
-	 * @lore BA9b: Role determines how context assembly materialises this item.
-	 * Defaults to 'ordinary' for all items that pre-date the role column.
+	 * @lore BA9b: Slot determines how context assembly materialises this item.
+	 * Defaults to 'ordinary' for all items that pre-date the slot column.
+	 * @lore BC4: field renamed `role` -> `slot` with migration 0086 step 1,
+	 * which renamed the DB column itself (architecture.md §2, §6.4). Values
+	 * unchanged.
 	 * - ordinary: knowledge/... files
 	 * - skill: .claude/skills/<title>/SKILL.md
 	 * - rule: knowledge/rules/<title>
 	 * - agent_file: AGENTS.md/CLAUDE.md, bound to the agent named by the parent slot
 	 * - prompt: the run's instruction — never materialised as a sandbox file
 	 */
-	readonly role: string;
+	readonly slot: string;
 	/**
-	 * @lore BA9b: For role='agent_file', this is the agentId the file is
+	 * @lore BA9b: For slot='agent_file', this is the agentId the file is
 	 * bound to. Only the agent whose session matches this id receives the
 	 * file.
 	 *
@@ -231,8 +234,8 @@ export interface BakedContextKnowledgeItem {
  * dependency (Mechanism C: none of those packages may import
  * `@hyperidle/knowledge` directly) without needing that Service's own type.
  * `layer` stays optional (matching `KnowledgeItemWithProjection`'s own
- * `role`, `parentKind` and `parentId` are required: all three come from the
- * kernel `knowledgeItems` table, which is always present in a DB row. role is
+ * `slot`, `parentKind` and `parentId` are required: all three come from the
+ * kernel `documents` table, which is always present in a DB row. slot is
  * NOT NULL DEFAULT 'ordinary'; `parentKind`/`parentId` are nullable but always
  * present — the same rule this doc comment already stated for `scopeId`,
  * which this interface no longer needs (its only reader was the
@@ -258,9 +261,11 @@ export interface SessionKnowledgeItemLike {
 	readonly scopeKind: string;
 	/**
 	 * @lore BA9b: Kernel table column, NOT NULL DEFAULT 'ordinary'. Required.
-	 * Every DB row carries a non-null role after migration 0062.
+	 * Every DB row carries a non-null slot after migration 0062.
+	 * @lore BC4: field renamed `role` -> `slot`, matching the DB column
+	 * migration 0086 step 1 renamed.
 	 */
-	readonly role: string;
+	readonly slot: string;
 	/**
 	 * @lore knowledge-attachment-slot: kernel table columns, required,
 	 * nullable — the parent slot this item hangs off, if any.
@@ -290,7 +295,7 @@ export function toBakedContextKnowledgeItems(
 		version: item.version,
 		parentChain: item.parentChain,
 		scopeKind: item.scopeKind,
-		role: item.role,
+		slot: item.slot,
 		// @lore knowledge-attachment-slot: the binding is the parent, not the
 		// scope — always derived, never set explicitly (no shim path). One
 		// semantic flip is deliberate: a team-scoped agent_file (unreachable in

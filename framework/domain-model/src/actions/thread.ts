@@ -32,7 +32,7 @@ import type { ActionDeclaration, Problem } from "./action.js";
 // ---------------------------------------------------------------------------
 
 export const entityRefSchema = z.object({
-	kind: z.enum(["knowledge_item", "task", "message"]),
+	kind: z.enum(["document", "task", "message"]),
 	id: z.string(),
 });
 
@@ -483,7 +483,7 @@ export function adjustThreadInvariants(input: AdjustThreadInput): Problem[] {
 // `access-boundary.ts`'s `canWrite` delegated to `canRead`.
 // ---------------------------------------------------------------------------
 
-const HOST_SCOPED: ReadonlySet<HostKind> = new Set(["team", "knowledge_item", "factory"]);
+const HOST_SCOPED: ReadonlySet<HostKind> = new Set(["team", "document", "factory"]);
 
 export function canReadThread(
 	actor: string,
