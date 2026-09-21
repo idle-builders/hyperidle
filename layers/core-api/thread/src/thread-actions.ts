@@ -10,6 +10,7 @@ import type {
 } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import {
+	type ActionResult,
 	type AdjustThreadInput,
 	type AgentWorkIntentRecorderFn,
 	type AgentWorkIntentRecorderInput,
@@ -19,6 +20,7 @@ import {
 	bakeAgentRunnableConfig,
 	canReadThread,
 	canWriteThread,
+	type DocumentRow,
 	type HostKind,
 	type Identity,
 	IdentitySchema,
@@ -29,6 +31,7 @@ import {
 	type Problem,
 	type ReviewVerdictOutcome,
 	type ReviewVerdictRecorderFn,
+	type SearchDocumentsInput,
 	type SearchThreadsInput,
 	type SendMessageInput,
 	type SendMessageOutput,
@@ -76,23 +79,27 @@ export interface ThreadActionsDeps {
 		 */
 		listOwnedBy(exec: WriteExecutor, ownerId: string): Promise<readonly User[]>;
 	};
-	readonly knowledge: {
-		getItemById(
-			exec: WriteExecutor,
-			id: string,
-		): Promise<{ readonly id: string; readonly title: string } | null>;
-		findParent(
-			exec: WriteExecutor,
-			id: string,
-		): Promise<{ readonly parentKind: string; readonly parentId: string } | undefined>;
-	};
+	/**
+	 * The ONE door onto `document` (architecture.md §6.7, §8.3) — thread never
+	 * imports `@hyperidle/document`, never opens a document (a read here must
+	 * never count as one), and never calls this inside its own open
+	 * transaction (a runner call inside `ctx.db.transaction` hangs PGlite).
+	 * Every read below — the title ladder's batched host title, the
+	 * single-thread `hostTitle`, the produced-item parent check — goes
+	 * through it.
+	 */
+	readonly searchDocuments: (
+		ctx: ActionContext,
+		input: SearchDocumentsInput,
+	) => Promise<ActionResult<DocumentRow[]>>;
 	readonly org: { getTeam(exec: WriteExecutor, q: { id: string }): Promise<Team | undefined> };
 	readonly settings: {
 		readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 	};
 	readonly agents: {
 		requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
-		getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
+		/** Via `searchDocuments` now — needs the full ctx, not just `db` (§8.3). */
+		getAgentIdentity(ctx: ActionContext, agentId: string): Promise<string | null>;
 	};
 	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
 	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
@@ -181,21 +188,35 @@ function toIdentity(user: User): Identity {
 	});
 }
 
+/**
+ * The ladder's batched title lookup, bound to ONE `search_documents({ids})`
+ * call however many document-hosted rows are in play (architecture.md §8.3)
+ * — never a per-id loop. A missing/invisible document simply has no entry in
+ * the returned map, and the ladder's own fallback ("Deleted document") takes
+ * over.
+ */
+function documentTitleLookup(
+	ctx: ActionContext,
+	deps: ThreadActionsDeps,
+): (db: HyperIdleDb, ids: readonly string[]) => Promise<ReadonlyMap<string, string>> {
+	return async (_db, ids) => {
+		if (ids.length === 0) return new Map();
+		const result = await deps.searchDocuments(ctx, { ids: [...ids] });
+		return result.ok ? new Map(result.data.map((doc) => [doc.id, doc.title])) : new Map();
+	};
+}
+
 async function computeComputedTitle(
-	db: HyperIdleDb,
+	ctx: ActionContext,
 	row: Parameters<typeof rowToThread>[0],
-	actor: string,
 	deps: ThreadActionsDeps,
 ): Promise<string> {
-	const titles = await resolveThreadTitles(db, [row as never], actor, {
+	const titles = await resolveThreadTitles(ctx.db, [row as never], ctx.actor, {
 		listUserNames: async (d, ids) => {
 			const rows = await deps.users.listByIds(d, ids);
 			return new Map(rows.map((r) => [r.id, { name: r.name, ownerUserId: r.ownerUserId }]));
 		},
-		getKnowledgeItemTitle: async (d, id) => {
-			const item = await deps.knowledge.getItemById(d, id);
-			return item?.title ?? null;
-		},
+		getDocumentTitles: documentTitleLookup(ctx, deps),
 	});
 	return titles.get(row.id) ?? "Untitled conversation";
 }
@@ -357,11 +378,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 
 		let hostTitle: string | null = null;
 		if (row.hostKind === "document") {
-			const item = await deps.knowledge.getItemById(ctx.db, row.hostId);
-			hostTitle = item?.title ?? null;
+			const hostResult = await deps.searchDocuments(ctx, { ids: [row.hostId] });
+			hostTitle = hostResult.ok ? (hostResult.data[0]?.title ?? null) : null;
 		}
 
-		const computedTitle = await computeComputedTitle(ctx.db, row, ctx.actor, deps);
+		const computedTitle = await computeComputedTitle(ctx, row, deps);
 
 		return {
 			thread: rowToThread(row, computedTitle),
@@ -471,10 +492,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				const users2 = await deps.users.listByIds(d, ids);
 				return new Map(users2.map((u) => [u.id, { name: u.name, ownerUserId: u.ownerUserId }]));
 			},
-			getKnowledgeItemTitle: async (d, id) => {
-				const item = await deps.knowledge.getItemById(d, id);
-				return item?.title ?? null;
-			},
+			getDocumentTitles: documentTitleLookup(ctx, deps),
 		});
 
 		const data: ThreadListRow[] = readable.map((row) => {
@@ -702,12 +720,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 					const idempotentThreadRow = await store.findThread(ctx.db, { id: threadId });
 					if (!idempotentThreadRow)
 						return { ok: false, problems: [{ code: "not_found", message: "Thread not found" }] };
-					const computedTitle = await computeComputedTitle(
-						ctx.db,
-						idempotentThreadRow,
-						ctx.actor,
-						deps,
-					);
+					const computedTitle = await computeComputedTitle(ctx, idempotentThreadRow, deps);
 					return {
 						ok: true,
 						data: {
@@ -769,8 +782,11 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 		}
 
 		if (input.review?.producedItemId !== undefined && ctx.caller?.taskId) {
-			const parent = await deps.knowledge.findParent(ctx.db, input.review.producedItemId);
-			if (!parent || parent.parentKind !== "task" || parent.parentId !== ctx.caller.taskId) {
+			const producedResult = await deps.searchDocuments(ctx, {
+				ids: [input.review.producedItemId],
+			});
+			const produced = producedResult.ok ? producedResult.data[0] : undefined;
+			if (!produced || produced.parentKind !== "task" || produced.parentId !== ctx.caller.taskId) {
 				return {
 					ok: false,
 					problems: [
@@ -1151,7 +1167,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				// admission treats a missing bake as a deactivated agent.
 				const askingAgent = await deps.users.getUserById(ctx.db, resolvesMessageRow.senderId);
 				const persona = askingAgent
-					? await deps.agents.getAgentIdentity(ctx.db, askingAgent.id)
+					? await deps.agents.getAgentIdentity(ctx, askingAgent.id)
 					: null;
 				verdictOutcome = await deps.reviewVerdictRecorder({
 					reviewMessageId: resolvesMessageRow.id,
@@ -1195,7 +1211,10 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				try {
 					const bakedRequest = await resolveThreadTurnRequest(ctx.db, messageId, agentId, {
 						requireRunnableAgent: deps.agents.requireRunnableAgent,
-						getAgentIdentity: deps.agents.getAgentIdentity,
+						// `resolveThreadTurnRequest`'s own dep shape only threads `db`,
+						// not the full ctx `getAgentIdentity` now needs (§8.3) — close
+						// over `ctx` here rather than widen that module's interface.
+						getAgentIdentity: (_db, id) => deps.agents.getAgentIdentity(ctx, id),
 						readServerConfig: deps.settings.readServerConfig,
 					});
 					await deps.agentWorkIntentRecorder({
@@ -1233,7 +1252,7 @@ export function createThreadActions(deps: ThreadActionsDeps): readonly Action[] 
 				ok: false,
 				problems: [{ code: "not_found", message: "Message missing after write" }],
 			};
-		const computedTitle = await computeComputedTitle(ctx.db, finalThreadRow, ctx.actor, deps);
+		const computedTitle = await computeComputedTitle(ctx, finalThreadRow, deps);
 		return {
 			ok: true,
 			data: {

@@ -7,19 +7,15 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { appendChange } from "@hyperidle/changes";
 import type { User, WriteExecutor } from "@hyperidle/db";
-import {
-	createDocumentActions,
-	type DocumentActionsDeps,
-	getAgentIdentity,
-	get as getKnowledgeItem,
-	listItemIdsByParent,
-} from "@hyperidle/document";
+import { createDocumentActions, type DocumentActionsDeps } from "@hyperidle/document";
 import type {
 	ActionResult,
 	AdjustThreadInput,
 	AgentWorkIntentRecorderFn,
+	DocumentRow,
 	OpenThreadInput,
 	ReviewVerdictRecorderFn,
+	SearchDocumentsInput,
 	TaskView,
 	ThreadView,
 } from "@hyperidle/domain-model";
@@ -30,6 +26,17 @@ import { createThreadActions, type ThreadActionsDeps } from "@hyperidle/thread";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 import type { Action, ActionContext } from "./action.js";
+
+/**
+ * `search_documents`'s own runner shape, threaded into the task and thread
+ * bags (architecture.md §6.7, §8.3) — the ONLY door either gets onto
+ * `document`. Never `open_document`: a plumbing read must never count as a
+ * real open.
+ */
+type SearchDocumentsRunFn = (
+	ctx: ActionContext,
+	input: SearchDocumentsInput,
+) => Promise<ActionResult<DocumentRow[]>>;
 
 /**
  * The team-then-any-human ladder `send_message`'s no-target fallback needs —
@@ -48,12 +55,15 @@ async function soleHumanForAgent(exec: WriteExecutor, agentId: string): Promise<
 	return [...anyHumans].sort(byCreated)[0];
 }
 
-function buildThreadActionsDeps(bindings: {
-	readonly agentOrchestration: AgentOrchestrationPort;
-	readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
-	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
-	readonly wsPush?: (topic: string, envelope: unknown) => void;
-}): ThreadActionsDeps {
+function buildThreadActionsDeps(
+	bindings: {
+		readonly agentOrchestration: AgentOrchestrationPort;
+		readonly agentWorkIntentRecorder: AgentWorkIntentRecorderFn;
+		readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
+		readonly wsPush?: (topic: string, envelope: unknown) => void;
+	},
+	searchDocuments: SearchDocumentsRunFn,
+): ThreadActionsDeps {
 	return {
 		changes: { appendChange },
 		users: {
@@ -63,23 +73,22 @@ function buildThreadActionsDeps(bindings: {
 			listOwnedBy: (exec, ownerId) => listUsers(exec, { ownerUserId: ownerId }),
 			soleHumanForAgent,
 		},
-		knowledge: {
-			getItemById: async (exec, id) => {
-				const item = await getKnowledgeItem(exec, id);
-				return item ? { id: item.id, title: item.title } : null;
-			},
-			findParent: async (exec, id) => {
-				const item = await getKnowledgeItem(exec, id);
-				return item?.parentKind && item.parentId
-					? { parentKind: item.parentKind, parentId: item.parentId }
-					: undefined;
-			},
-		},
+		searchDocuments,
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		settings: { readServerConfig: (db) => readServerConfig(db) },
 		agents: {
 			requireRunnableAgent: (db, agentId) => requireRunnableAgent(db, agentId),
-			getAgentIdentity: (db, agentId) => getAgentIdentity(db, agentId),
+			// §8.3: bound to searchDocuments now, never a direct table read — the
+			// same runner, ctx and all, `ctx.agents.getAgentIdentity` used to reach
+			// past a document-owned function for.
+			getAgentIdentity: async (ctx, agentId) => {
+				const result = await searchDocuments(ctx, {
+					parent: { kind: "agent", id: agentId },
+					slot: "agent_file",
+					status: "active",
+				});
+				return result.ok ? (result.data[0]?.body ?? null) : null;
+			},
 		},
 		agentWorkIntentRecorder: bindings.agentWorkIntentRecorder,
 		reviewVerdictRecorder: bindings.reviewVerdictRecorder,
@@ -93,6 +102,7 @@ function buildTaskActionsDeps(
 	agentOrchestration: AgentOrchestrationPort,
 	adjustThread: (ctx: ActionContext, input: AdjustThreadInput) => Promise<ActionResult<ThreadView>>,
 	openThread: (ctx: ActionContext, input: OpenThreadInput) => Promise<ActionResult<ThreadView>>,
+	searchDocuments: SearchDocumentsRunFn,
 ): TaskActionsDeps {
 	return {
 		changes: { appendChange },
@@ -106,13 +116,7 @@ function buildTaskActionsDeps(
 		},
 		org: { getTeam: (exec, q) => getTeam(exec, q) },
 		users: { getUserById: (exec, id) => findUser(exec, { id }) },
-		knowledge: {
-			listItemIdsByParent: (db, q) => listItemIdsByParent(db, q),
-			getItemById: async (exec, id) => {
-				const item = await getKnowledgeItem(exec, id);
-				return item ? { id: item.id } : null;
-			},
-		},
+		searchDocuments,
 		taskRunResolver: taskRunResolverDeps,
 		adjustThread,
 		openThread,
@@ -133,6 +137,23 @@ function runnerFor<I, O>(
 	const found = actions.find((a) => a.declaration.name === name);
 	if (!found) throw new Error(`buildCoreActions: no "${name}" action in the composed list`);
 	return found.run as (ctx: ActionContext, input: I) => Promise<ActionResult<O>>;
+}
+
+/**
+ * §8.2's build-order break: `task`/`thread` need `search_documents` and
+ * `document` needs `open_task`/`open_thread` — a real cycle if every bag were
+ * built from concrete arrays. It isn't one, because this closes over a `let`
+ * assigned once `document` is actually built (`buildCoreActions` below) and
+ * only ever gets CALLED after `buildCoreActions` has returned — by then the
+ * `let` is populated. @lore Do not "fix" this into eagerly resolving the
+ * runner at build time; that reintroduces the cycle it exists to avoid.
+ */
+function lazySearchDocuments(getDocumentActions: () => readonly Action[]): SearchDocumentsRunFn {
+	return (ctx, input) =>
+		runnerFor<SearchDocumentsInput, DocumentRow[]>(getDocumentActions(), "search_documents")(
+			ctx,
+			input,
+		);
 }
 
 /**
@@ -202,13 +223,17 @@ export function buildCoreActions(bindings: {
 	readonly reviewVerdictRecorder: ReviewVerdictRecorderFn;
 	readonly wsPush?: (topic: string, envelope: unknown) => void;
 }): readonly Action[] {
-	const threadActions = createThreadActions(buildThreadActionsDeps(bindings)) as readonly Action[];
+	let documentActions: readonly Action[] = [];
+	const searchDocuments = lazySearchDocuments(() => documentActions);
+	const threadActions = createThreadActions(
+		buildThreadActionsDeps(bindings, searchDocuments),
+	) as readonly Action[];
 	const adjustThread = runnerFor<AdjustThreadInput, ThreadView>(threadActions, "adjust_thread");
 	const openThread = runnerFor<OpenThreadInput, ThreadView>(threadActions, "open_thread");
 	const taskActions = createTaskActions(
-		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread),
+		buildTaskActionsDeps(bindings.agentOrchestration, adjustThread, openThread, searchDocuments),
 	) as readonly Action[];
-	const documentActions = createDocumentActions(
+	documentActions = createDocumentActions(
 		buildDocumentActionsDeps(taskActions, threadActions, bindings.wsPush),
 	) as readonly Action[];
 	return [...taskActions, ...threadActions, ...documentActions];
