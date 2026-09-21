@@ -400,7 +400,7 @@ export function AgentEditor({
 				<div className="flex flex-col gap-[6px]">
 					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Identity</span>
 					<RRLink
-						to={`/knowledge/${identityKnowledgeId}`}
+						to={`/documents/${identityKnowledgeId}`}
 						data-testid={`edit-identity-link-${agentId}`}
 						className="type-metadata  text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 					>

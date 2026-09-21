@@ -272,8 +272,8 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 				onOpen={vi.fn()}
 			/>,
 		);
-		// No knowledge/artifact/review viewer surfaces mount in the conversation.
-		expect(document.querySelector('[data-ds-component="KnowledgeDetail"]')).toBeNull();
+		// No document/artifact/review viewer surfaces mount in the conversation.
+		expect(document.querySelector('[data-ds-component="DocumentDetail"]')).toBeNull();
 		expect(document.querySelector('[data-ds-component="ArtifactView"]')).toBeNull();
 		expect(document.querySelector('[data-ds-component="ReviewComposition"]')).toBeNull();
 	});

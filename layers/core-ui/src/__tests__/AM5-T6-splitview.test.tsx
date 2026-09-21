@@ -185,7 +185,7 @@ describe("AC3: review open-handler route (regression guard)", () => {
 		handler({ route: "host", hostKind: "document", hostId: "knowledge-1", blockId: "b 1" });
 		handler({ route: "review", reviewId: "rev-1", threadId: "th-1", intent: "inspect" });
 		expect(inspect.mock.calls.map(([path]) => path)).toEqual([
-			"/knowledge/knowledge-1#block-b%201",
+			"/documents/knowledge-1#block-b%201",
 			"/reviews/rev-1?threadId=th-1",
 		]);
 		expect(nav).not.toHaveBeenCalled();

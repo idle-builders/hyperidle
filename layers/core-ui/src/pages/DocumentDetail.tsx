@@ -34,6 +34,7 @@ import {
 	BodyEditor,
 	Breadcrumb,
 	Button,
+	documentStatusToStatus,
 	EmptyState,
 	ErrorState,
 	Menu,
@@ -43,12 +44,6 @@ import {
 	SkeletonCard,
 	StatusChip,
 } from "../ds";
-// @lore BC4: imported directly rather than through `../ds` — the barrel
-// (`ds/index.ts`) still re-exports the pre-rename `knowledgeStatusToStatus`
-// name as of this write, a sibling block's in-flight rename. The submodule
-// itself already carries the new name; this import is correct regardless of
-// when the barrel catches up.
-import { documentStatusToStatus } from "../ds/status-mapping.js";
 import { useAutoSave } from "../hooks/useAutoSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useDocument } from "../hooks/useDocument.js";
