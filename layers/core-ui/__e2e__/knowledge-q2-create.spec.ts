@@ -56,6 +56,24 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 	test("changing scope from user to team removes the Private tag", async ({ page }) => {
 		let currentRow = MOCK_USER_ITEM;
 
+		// ScopeChangeDialog gates the "Team" pill on the current user having a
+		// team (`hasTeam = user?.teamId !== undefined`) — the fixture default
+		// `/api/auth/me` has no team, which leaves it permanently disabled.
+		await page.route("**/api/auth/me", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					id: "test-founder",
+					name: "Test Founder",
+					email: "test@hyperidle.dev",
+					role: "founder",
+					avatarUrl: null,
+					teamId: "team-alpha",
+				}),
+			});
+		});
+
 		await page.route("**/api/actions/search_documents", async (route) => {
 			await route.fulfill({
 				status: 200,
@@ -111,12 +129,16 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
-		// User-scoped item should show Private tag (exact: true to avoid case-insensitive
-		// substring match with item title "My private note" which contains "private")
-		await expect(page.getByText("Private", { exact: true })).toBeVisible();
+		// User-scoped item should show the row's Private tag. DocumentList also
+		// renders a "Private" scope-filter pill in its own toolbar (unrelated,
+		// always present) — `getByText("Private")` matches both, so target the
+		// row tag's own testid (`pages/DocumentList.tsx`'s `private-badge`).
+		await expect(page.getByTestId("private-badge")).toBeVisible();
 
-		// Click on the item to go to detail page
-		await page.getByText("My private note").click();
+		// Click on the item to go to detail page. Scope to the list row — the
+		// sidebar's fast-nav (search_documents-backed) also renders an item with
+		// this same title, so a bare text locator is ambiguous.
+		await page.getByTestId("knowledge-row").filter({ hasText: "My private note" }).click();
 		await page.waitForSelector("[data-testid='document-detail-page']", { timeout: 5000 });
 
 		// Open the overflow menu, click "Change scope"
@@ -142,8 +164,9 @@ test.describe("Q2 AC-12: Change scope from user to team", () => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='knowledge-list-page']");
 
-		// Private tag should no longer appear
-		await expect(page.getByText("Private", { exact: true })).not.toBeVisible();
+		// Private tag should no longer appear on the row (the toolbar's scope
+		// filter pill stays — see comment above).
+		await expect(page.getByTestId("private-badge")).not.toBeVisible();
 	});
 });
 
