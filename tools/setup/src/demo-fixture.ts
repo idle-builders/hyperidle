@@ -37,9 +37,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
 	agentRunConfig,
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	routines,
 	tasks,
 	teams,
@@ -101,21 +100,27 @@ async function upsertDemoRunConfig(
 			.onConflictDoNothing();
 	}
 
-	// The agent's identity is an `agent_file` knowledge document parented to
-	// it — parent_kind='agent', parent_id=the agent — the binding context
-	// assembly reads through `getParentedItem`. scope_kind='user'/scope_id are
-	// still written too: scope answers a different question (how far the item
-	// reaches) and is never derived from the parent. Kernel row and projection
-	// are written together, as knowledge always writes them.
+	// The agent's identity is an `agent_file` document parented to it —
+	// parent_kind='agent', parent_id=the agent — the binding context assembly
+	// reads through `getParentedItem`. scope_kind='user'/scope_id are still
+	// written too: scope answers a different question (how far the item
+	// reaches) and is never derived from the parent.
 	//
 	// Runs AFTER migrations (this fixture is app-level seed data, not a
 	// migration), so a bootstrap run always writes the current parent shape —
 	// there is no pre-parent state for it to repair.
 	if (systemPrompt) {
-		const ts = new Date().toISOString();
+		const now = new Date();
+		const ts = now.toISOString();
 		const identityId = `ki_af_${agentUserId}`;
+		// @lore BC4 §6.7: plausible usage — an identity file is bound into
+		// every session the agent runs (high, recent sessionUseCount) but is
+		// rarely opened directly from the detail page (small readCount, a few
+		// days stale). Spread by a cheap hash of the agent id so multiple demo
+		// agents don't all show identical counters.
+		const seed = agentUserId.length + agentUserId.charCodeAt(0);
 		await db
-			.insert(knowledgeItems)
+			.insert(documents)
 			.values({
 				id: identityId,
 				scopeKind: "user",
@@ -127,25 +132,21 @@ async function upsertDemoRunConfig(
 				format: "markdown",
 				status: "active",
 				version: 1,
-				role: "agent_file",
+				slot: "agent_file",
 				parentKind: "agent",
 				parentId: agentUserId,
 				updatedBy: "demo-seed",
 				createdAt: ts,
 				updatedAt: ts,
+				readCount: 1 + (seed % 4),
+				lastReadAt: new Date(now.getTime() - (2 + (seed % 5)) * 86_400_000).toISOString(),
+				sessionUseCount: 8 + (seed % 20),
+				lastUsedAt: new Date(now.getTime() - (seed % 6) * 3_600_000).toISOString(),
 			})
 			.onConflictDoUpdate({
-				target: knowledgeItems.id,
+				target: documents.id,
 				set: { body: systemPrompt, parentKind: "agent", parentId: agentUserId },
 			});
-		await db
-			.insert(knowledgeAppProjection)
-			.values({
-				id: `kp_af_${agentUserId}`,
-				knowledgeItemId: identityId,
-				scopeId: agentUserId,
-			})
-			.onConflictDoNothing();
 	}
 }
 

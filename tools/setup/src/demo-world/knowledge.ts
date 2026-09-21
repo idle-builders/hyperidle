@@ -1,18 +1,11 @@
 /**
  * AX1 — demo world knowledge: a six-week corpus across scopes, kinds and
  * lifecycles — curated patterns, a triage queue, stale and archived items,
- * one open conflict, edit/access history, and the provenance loop
+ * plausible read/session-use counters (BC4 §6.7), and the provenance loop
  * (completed bet → retro item → promoted draft bet).
  */
 
-import {
-	type HyperIdleDb,
-	knowledgeAccessLog,
-	knowledgeAppProjection,
-	knowledgeConflicts,
-	knowledgeEditLog,
-	knowledgeItems,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb } from "@hyperidle/db";
 import {
 	ART_PRICING_PAGE,
 	ART_SEARCH_RANKING,
@@ -61,7 +54,7 @@ interface KnowledgeSpec {
 	readonly id: string;
 	readonly scopeKind: "factory" | "team" | "user";
 	readonly scopeId: string | null;
-	readonly parentKind: "knowledge_item" | "task";
+	readonly parentKind: "document" | "task";
 	readonly parentId: string;
 	readonly title: string;
 	readonly body: string;
@@ -70,7 +63,69 @@ interface KnowledgeSpec {
 	readonly createdAt: string;
 	readonly updatedAt: string;
 	readonly version?: number;
-	readonly citationCount?: number;
+}
+
+/**
+ * @lore BC4 §6.7: four documents whose usage predates the seed by more than
+ * 90 days, active and ordinary-slotted, so the librarian's decay routine
+ * (`unusedSince` + `sort:"least_used"`) has something to find in the desktop
+ * walk. Picked from the "practice" corpus rather than anything `ids.ts`
+ * exports — nothing else keys off these ids by identity.
+ */
+const LONG_UNUSED_IDS: ReadonlySet<string> = new Set([
+	"demo-ki-rounding",
+	"demo-ki-small-prs",
+	"demo-ki-email-deliverability",
+	"demo-ki-uptime-runbook",
+]);
+
+/** Deterministic [0, 2^31) hash of an id — same corpus on every seed run. */
+function usageHash(id: string): number {
+	let h = 0;
+	for (let i = 0; i < id.length; i++) {
+		h = (h * 31 + id.charCodeAt(i)) | 0;
+	}
+	return Math.abs(h);
+}
+
+interface UsageValues {
+	readonly readCount: number;
+	readonly lastReadAt: string | null;
+	readonly sessionUseCount: number;
+	readonly lastUsedAt: string | null;
+}
+
+/**
+ * @lore BC4 §6.7: plausible `read_count`/`last_read_at`/`session_use_count`/
+ * `last_used_at` for the demo corpus. Archived items were never re-opened
+ * (all-zero, all-null — the schema default). `LONG_UNUSED_IDS` gets pushed
+ * past the 90-day decay threshold; everything else reads as "used recently,
+ * with varied counts" — an id-keyed hash, not a fixed table, so the spread
+ * stays believable across ~35 items without hand-tuning each one.
+ */
+function usageFor(spec: KnowledgeSpec, clock: DemoClock): UsageValues {
+	if (LONG_UNUSED_IDS.has(spec.id)) {
+		const h = usageHash(spec.id);
+		const lastReadDays = 95 + (h % 40); // 95-134 days ago
+		const lastUsedDays = lastReadDays + 3 + (h % 10);
+		return {
+			readCount: 1 + (h % 4),
+			lastReadAt: clock.daysAgo(lastReadDays),
+			sessionUseCount: 1 + (h % 2),
+			lastUsedAt: clock.daysAgo(lastUsedDays),
+		};
+	}
+	if (spec.status === "archived") {
+		return { readCount: 0, lastReadAt: null, sessionUseCount: 0, lastUsedAt: null };
+	}
+	const h = usageHash(spec.id);
+	const sessionUseCount = h % 8;
+	return {
+		readCount: 1 + (h % 20),
+		lastReadAt: clock.daysAgo(h % 21),
+		sessionUseCount,
+		lastUsedAt: sessionUseCount > 0 ? clock.daysAgo((h >> 3) % 25) : null,
+	};
 }
 
 /** One knowledge-item folder under Practices per practice, keyed by the old practice scopeId. */
@@ -95,7 +150,7 @@ function practiceFolderId(practiceId: string): string {
 export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<void> {
 	for (const [practiceId, folderId] of Object.entries(PRACTICE_FOLDER_ID)) {
 		await db
-			.insert(knowledgeItems)
+			.insert(documents)
 			.values({
 				id: folderId,
 				scopeKind: "factory",
@@ -105,16 +160,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 				format: "markdown",
 				status: "active",
 				version: 1,
-				parentKind: "knowledge_item",
+				parentKind: "document",
 				parentId: PRACTICES_ROOT_ID,
 				updatedBy: "demo-seed",
 				createdAt: clock.daysAgo(44),
 				updatedAt: clock.daysAgo(44),
 			})
-			.onConflictDoNothing();
-		await db
-			.insert(knowledgeAppProjection)
-			.values({ id: `demo-kp-${folderId}`, knowledgeItemId: folderId, scopeId: null })
 			.onConflictDoNothing();
 	}
 
@@ -124,7 +175,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-pulse-brief",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Pulse — product brief",
 			body: '# Pulse\n\nCustomer-feedback analytics for small product teams. Connect a source, get dashboards that answer "what are users telling us", and share the answer without a meeting.\n\n**One-liner:** feedback in, decisions out.\n\n**Not for:** enterprise SSO buyers, teams over 50 seats, anyone needing on-prem.',
@@ -133,13 +184,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			createdAt: clock.daysAgo(43),
 			updatedAt: clock.daysAgo(12),
 			version: 3,
-			citationCount: 9,
 		},
 		{
 			id: "demo-ki-render-boundary",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Decision: client-side rendering boundary",
 			body: "Dashboards render client-side; exports render server-side. The boundary exists because export templates are shared with the email pipeline and must never ship to browsers.\n\n**Consequence:** no export logic in the web bundle, ever.",
@@ -147,13 +197,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(38),
 			updatedAt: clock.daysAgo(38),
-			citationCount: 3,
 		},
 		{
 			id: "demo-ki-brand-voice",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Brand voice: plain, warm, precise",
 			body: 'Pulse sounds like a smart teammate, not a product tour.\n\n- Plain words over jargon ("answers", not "insights").\n- Warm but never cute.\n- Every claim carries a number or is cut.\n\nApplies to the site, the emails, and the empty states.',
@@ -161,13 +210,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(36),
 			updatedAt: clock.daysAgo(9),
-			citationCount: 6,
 		},
 		{
 			id: KI_PRICING_TIERS,
 			scopeKind: "team",
 			scopeId: TEAM_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Decision: two-tier pricing structure",
 			body: "Starter and Team, nothing between.\n\n- **Starter** — 5 dashboards, 3 seats, weekly exports.\n- **Team** — unlimited dashboards and seats, continuous exports, priority support.\n\nThe comparison table answers the four questions support actually gets. Anything else stays out of the page.",
@@ -176,13 +224,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			createdAt: clock.daysAgo(13),
 			updatedAt: clock.daysAgo(11),
 			version: 3,
-			citationCount: 4,
 		},
 		{
 			id: "demo-ki-annual-discount",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Annual discount policy — needs founder sign-off",
 			body: "Annual billing needs a discount percentage. Margin analysis says 10%, trial-bet conversion data says users respond to visible savings (15-20%).\n\n**Open question posted to the founder** — this item updates with the decision.",
@@ -195,7 +242,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-rounding",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Decision: trial-day rounding rule",
 			body: "Trial extensions round UP to whole days in UTC. A trial that expires mid-day never expires mid-day after extension — users experience days, not timestamps.",
@@ -203,14 +250,13 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(29),
 			updatedAt: clock.daysAgo(29),
-			citationCount: 2,
 		},
 		// ── Practice scope (L3): patterns the team lives by ─────────────────
 		{
 			id: "demo-ki-review-before-deploy",
 			scopeKind: "factory",
 			scopeId: "builder",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Every deploy goes through a review thread",
 			body: "No production deploy without a review thread and a verdict. The two times we skipped this (search hotfix, June; email template, July) both needed a follow-up fix within 24 hours.",
@@ -218,13 +264,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(34),
 			updatedAt: clock.daysAgo(34),
-			citationCount: 5,
 		},
 		{
 			id: "demo-ki-small-prs",
 			scopeKind: "factory",
 			scopeId: "builder",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Small changes, reviewed same day",
 			body: "Changes under ~200 lines get reviewed the same day. Larger changes get split. Review latency is the biggest hidden tax on a small team — the diff itself is rarely the problem.",
@@ -232,13 +277,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(31),
 			updatedAt: clock.daysAgo(31),
-			citationCount: 3,
 		},
 		{
 			id: "demo-ki-metric-before-build",
 			scopeKind: "factory",
 			scopeId: "product_manager",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Instrument the metric before building the feature",
 			body: "The trial bet worked because the funnel was measured BEFORE the flow shipped — the done-condition was provable on day one. Search almost failed this; the eval loop got built mid-bet and cost a week.",
@@ -246,13 +290,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(14),
 			updatedAt: clock.daysAgo(13),
-			citationCount: 2,
 		},
 		{
 			id: "demo-ki-empty-state-first",
 			scopeKind: "factory",
 			scopeId: "designer",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("designer"),
 			title: "Design the empty state first",
 			body: "Every new screen gets its empty state designed before its full state. Users meet the product empty — the full-state mockup is the exception, not the default.",
@@ -260,13 +303,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: DESIGNER_ID,
 			createdAt: clock.daysAgo(27),
 			updatedAt: clock.daysAgo(27),
-			citationCount: 4,
 		},
 		{
 			id: "demo-ki-feature-flag-rollout",
 			scopeKind: "factory",
 			scopeId: "builder",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Flag-gated rollouts for anything user-visible",
 			body: "User-visible changes ship behind a flag, enabled per-account first. Draft: needs the flag-cleanup rule written before this is treated as settled practice.",
@@ -279,7 +321,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-email-deliverability",
 			scopeKind: "factory",
 			scopeId: "growth",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Deliverability checklist before any new email",
 			body: "1. DKIM/SPF verified on the sending domain.\n2. Plain-text part present.\n3. One link max per email.\n4. Suppression list checked against the send list.\n\nSkipped step 3 once — the welcome email landed in promotions for a week.",
@@ -287,13 +329,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: GROWTH_ID,
 			createdAt: clock.daysAgo(24),
 			updatedAt: clock.daysAgo(24),
-			citationCount: 2,
 		},
 		{
 			id: "demo-ki-subject-line-ab",
 			scopeKind: "factory",
 			scopeId: "growth",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Subject lines: behavior-referencing beats clever",
 			body: "Early A/B results: subject lines that reference what the user did ('your data connected') out-open generic ones ('welcome to Pulse') by ~2x. Sample is still small — keep provisional.",
@@ -306,7 +347,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: KI_CHURN_SIGNALS,
 			scopeKind: "factory",
 			scopeId: "product_manager",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Churn early signals: the three that repeat",
 			body: "Churned accounts show the same three signals in their final two weeks:\n\n1. Dashboard usage drops below half its norm.\n2. Exports stop entirely.\n3. The admin stops inviting teammates.\n\nAll three live in the event stream. Validated against last quarter's churns — 9 of 11 showed at least two signals.",
@@ -314,13 +355,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: MAYA_ID,
 			createdAt: clock.daysAgo(10),
 			updatedAt: clock.daysAgo(6),
-			citationCount: 3,
 		},
 		{
 			id: "demo-ki-search-eval-loop",
 			scopeKind: "factory",
 			scopeId: "qa_engineer",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("qa_engineer"),
 			title: "The 50-query search eval loop",
 			body: "Real queries, expected results, top-3 hit rate — runnable before every search change. Baseline 54%, post-re-rank 71%. The loop outlived the bet that built it; every future ranking change gets measured here first.",
@@ -328,13 +368,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: QA_ID,
 			createdAt: clock.daysAgo(21),
 			updatedAt: clock.daysAgo(20),
-			citationCount: 2,
 		},
 		{
 			id: "demo-ki-staging-data",
 			scopeKind: "factory",
 			scopeId: "qa_engineer",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("qa_engineer"),
 			title: "Anti-pattern: seeding staging with production exports",
 			body: "We tried seeding staging from a production export once. PII in test accounts, skewed metrics, and a support ticket from a customer who recognized their own data. Synthetic cohorts only.",
@@ -342,7 +381,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: QA_ID,
 			createdAt: clock.daysAgo(26),
 			updatedAt: clock.daysAgo(26),
-			citationCount: 1,
 		},
 		{
 			id: KI_MOBILE_POSTMORTEM,
@@ -356,13 +394,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(8),
 			updatedAt: clock.daysAgo(8),
-			citationCount: 1,
 		},
 		{
 			id: "demo-ki-discount-panic",
 			scopeKind: "factory",
 			scopeId: "growth",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Anti-pattern: discounting in response to a single loud request",
 			body: "A loud enterprise prospect asked for 40% off; we almost said yes before the pricing bet ran. The research showed our real problem was clarity, not price. Provisional until the annual-discount decision lands.",
@@ -375,7 +412,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-onboarding-dropoff",
 			scopeKind: "factory",
 			scopeId: "growth",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "The onboarding cliff is source-connection, not signup",
 			body: "Funnel audit: signup→login keeps 91%, but login→connect-a-source keeps 58%. The connect screen assumes a data source exists. The value moment is the first saved dashboard — everything before it is friction budget.",
@@ -383,13 +420,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(6),
 			updatedAt: clock.daysAgo(6),
-			citationCount: 2,
 		},
 		{
 			id: "demo-ki-session-notes",
 			scopeKind: "factory",
 			scopeId: "builder",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Session notes are the handoff contract",
 			body: "Every agent session that touches a task writes notes before it ends — what was done, what remains, what surprised. The two tasks that stalled this month both followed sessions with empty notes.",
@@ -397,13 +433,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(22),
 			updatedAt: clock.daysAgo(22),
-			citationCount: 3,
 		},
 		{
 			id: "demo-ki-retro-format",
 			scopeKind: "factory",
 			scopeId: "product_manager",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Retro format: hypothesis vs reality, one keeper, one drop",
 			body: "Every bet retro answers three questions: what did the hypothesis say, what did reality deliver, and what is the one thing we keep plus the one thing we drop. Two paragraphs max — longer retros never get read.",
@@ -411,13 +446,12 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(13),
 			updatedAt: clock.daysAgo(13),
-			citationCount: 2,
 		},
 		{
 			id: "demo-ki-support-triage",
 			scopeKind: "factory",
 			scopeId: "support",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("support"),
 			title: "Support tickets that repeat three times become knowledge",
 			body: "Rule of three: when the same question arrives three times, it becomes a knowledge item and (if it is a product problem) a candidate bet. Pricing confusion hit the rule — the pricing bet exists because of it.",
@@ -430,7 +464,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-copy-review-checklist",
 			scopeKind: "factory",
 			scopeId: "growth",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Copy review checklist",
 			body: "Before any user-visible copy ships: plain words check, one number per claim, brand-voice pass, and a read-aloud test. The read-aloud test catches 80% of the problems.",
@@ -443,7 +477,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-search-weights",
 			scopeKind: "factory",
 			scopeId: "builder",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Decision: search weights live in config",
 			body: "Ranking weights (recency 0.45, title 0.35, body 0.2) live in config, not code — founder verdict on the ranking review. We tune weekly; a code change for a weight tweak is a smell.",
@@ -451,7 +485,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: BUILDER_ID,
 			createdAt: clock.daysAgo(23),
 			updatedAt: clock.daysAgo(23),
-			citationCount: 1,
 		},
 		// ── Bet scope: retros attached to their bets ────────────────────────
 		{
@@ -466,7 +499,6 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			updatedBy: PM_ID,
 			createdAt: clock.daysAgo(13),
 			updatedAt: clock.daysAgo(13),
-			citationCount: 2,
 		},
 		{
 			id: "demo-ki-retro-search",
@@ -500,7 +532,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-founder-focus",
 			scopeKind: "user",
 			scopeId: FOUNDER_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: GENERAL_ROOT_ID,
 			title: "This quarter's focus",
 			body: "Activation first; pricing only where acquisition spend is leaking.\n\nThe pricing bet is the exception that proves the rule — it plugs a leak, it does not chase expansion.",
@@ -513,7 +545,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-founder-notes",
 			scopeKind: "user",
 			scopeId: FOUNDER_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: GENERAL_ROOT_ID,
 			title: "Hiring notes — when does ops get an agent?",
 			body: "Maya reviews every ops item by hand. If support volume keeps falling (onboarding bet) there is room; if it does not, the roster needs an ops agent by next quarter. Decide at the portfolio retro.",
@@ -527,7 +559,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-old-pricing",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Three-tier pricing structure (superseded)",
 			body: "Launch-era three-tier structure: Free, Pro, Scale. Superseded by the two-tier decision — kept for the record of why the middle tier confused everyone.",
@@ -540,7 +572,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-old-onboarding",
 			scopeKind: "factory",
 			scopeId: "growth",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Fixed-day onboarding emails (superseded)",
 			body: "The original plan sent emails on fixed days after signup. The funnel audit killed it — behavior triggers reach users where they actually are. Superseded by the onboarding-emails bet.",
@@ -553,7 +585,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-legacy-slack",
 			scopeKind: "factory",
 			scopeId: "builder",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("builder"),
 			title: "Archived: the Slack-webhook experiment",
 			body: "Early experiment piping bet events to Slack. Retired when threads became the conversation surface — notifications now live in-app.",
@@ -566,7 +598,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-legacy-roadmap",
 			scopeKind: "team",
 			scopeId: TEAM_ID,
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: PRODUCT_ROOT_ID,
 			title: "Archived: launch-quarter roadmap",
 			body: "The launch-quarter roadmap, archived when bets replaced roadmaps. Interesting mostly as archaeology.",
@@ -580,7 +612,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-regression-suite",
 			scopeKind: "factory",
 			scopeId: "qa_engineer",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("qa_engineer"),
 			title: "The regression suite runs on every review verdict",
 			body: "Approve a review and the regression suite runs against the change before merge. It caught the timezone bug the trial flow originally had — the suite is cheaper than a postmortem.",
@@ -593,7 +625,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-design-tokens",
 			scopeKind: "factory",
 			scopeId: "designer",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("designer"),
 			title: "New screens compose from tokens, never raw values",
 			body: "Every screen the pricing bet shipped composed from design tokens; the one dialog that used raw hex values got caught in review. Tokens are the contract between design and build.",
@@ -606,7 +638,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-weekly-planning",
 			scopeKind: "factory",
 			scopeId: "product_manager",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("product_manager"),
 			title: "Weekly planning: activate what is ready, kill what is stale",
 			body: "Fifteen minutes, once a week: look at drafts, activate the ones with a clear shape, kill or reshape the stale ones. Drafts should not age past two weeks without a decision.",
@@ -619,7 +651,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-knowledge-hygiene",
 			scopeKind: "factory",
 			scopeId: "facilitator",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("facilitator"),
 			title: "Knowledge hygiene: triage weekly, archive without guilt",
 			body: "The triage queue should stay under five items; archived is a respectable destination. A knowledge base that only grows is a landfill — the decay sweep exists for a reason.",
@@ -632,7 +664,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-competitor-watch",
 			scopeKind: "factory",
 			scopeId: "growth",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("growth"),
 			title: "Competitor teardowns: one page, kept current",
 			body: "One living page per competitor, updated when we notice something, not on a schedule. The mobile-spike teardown proved its worth — the kill decision took an afternoon because the research existed.",
@@ -645,7 +677,7 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 			id: "demo-ki-uptime-runbook",
 			scopeKind: "factory",
 			scopeId: "ops",
-			parentKind: "knowledge_item",
+			parentKind: "document",
 			parentId: practiceFolderId("ops"),
 			title: "Incident runbook: the four first checks",
 			body: "When an alert fires: 1) is it the database or the app, 2) when did it start, 3) what changed last, 4) who is affected. Answer those four before touching anything.",
@@ -722,8 +754,9 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 	];
 
 	for (const spec of specs) {
+		const usage = usageFor(spec, clock);
 		await db
-			.insert(knowledgeItems)
+			.insert(documents)
 			.values({
 				id: spec.id,
 				scopeKind: spec.scopeKind,
@@ -735,159 +768,15 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 				version: spec.version ?? 1,
 				parentKind: spec.parentKind ?? null,
 				parentId: spec.parentId ?? null,
+				confidence: spec.status === "active" ? "0.9" : "0.6",
 				updatedBy: spec.updatedBy,
 				createdAt: spec.createdAt,
 				updatedAt: spec.updatedAt,
-			})
-			.onConflictDoNothing();
-
-		await db
-			.insert(knowledgeAppProjection)
-			.values({
-				id: `demo-kp-${spec.id.slice("demo-ki-".length)}`,
-				knowledgeItemId: spec.id,
-				scopeId: spec.scopeId,
-				relevanceScore: "0.7",
-				confidence: spec.status === "active" ? "0.9" : "0.6",
-				citationCount: spec.citationCount ?? 0,
-				lastCitedAt: spec.citationCount ? spec.updatedAt : null,
+				readCount: usage.readCount,
+				lastReadAt: usage.lastReadAt,
+				sessionUseCount: usage.sessionUseCount,
+				lastUsedAt: usage.lastUsedAt,
 			})
 			.onConflictDoNothing();
 	}
-
-	// Edit history on the items that evolved.
-	const edits: readonly {
-		itemId: string;
-		editor: string;
-		field: string;
-		oldValue: string;
-		newValue: string;
-		at: string;
-	}[] = [
-		{
-			itemId: "demo-ki-pulse-brief",
-			editor: FOUNDER_ID,
-			field: "body",
-			oldValue: "Customer-feedback analytics for teams of any size.",
-			newValue: "Customer-feedback analytics for small product teams.",
-			at: clock.daysAgo(30),
-		},
-		{
-			itemId: "demo-ki-pulse-brief",
-			editor: PM_ID,
-			field: "body",
-			oldValue: "(no not-for section)",
-			newValue: "Not for: enterprise SSO buyers, teams over 50 seats.",
-			at: clock.daysAgo(12),
-		},
-		{
-			itemId: KI_PRICING_TIERS,
-			editor: PM_ID,
-			field: "status",
-			oldValue: "provisional",
-			newValue: "active",
-			at: clock.daysAgo(11),
-		},
-		{
-			itemId: "demo-ki-old-pricing",
-			editor: FACILITATOR_ID,
-			field: "status",
-			oldValue: "active",
-			newValue: "stale",
-			at: clock.daysAgo(13),
-		},
-	];
-	let editIndex = 0;
-	for (const edit of edits) {
-		await db
-			.insert(knowledgeEditLog)
-			.values({
-				id: `demo-kel-${++editIndex}`,
-				itemId: edit.itemId,
-				editor: edit.editor,
-				field: edit.field,
-				oldValue: edit.oldValue,
-				newValue: edit.newValue,
-				editType: "update",
-				createdAt: edit.at,
-			})
-			.onConflictDoNothing();
-	}
-
-	// Access history — the items people actually read.
-	const accesses: readonly {
-		itemId: string;
-		accessorKind: "human" | "agent";
-		accessorId: string;
-		at: string;
-	}[] = [
-		{
-			itemId: KI_PRICING_TIERS,
-			accessorKind: "human",
-			accessorId: FOUNDER_ID,
-			at: clock.daysAgo(2),
-		},
-		{
-			itemId: KI_PRICING_TIERS,
-			accessorKind: "agent",
-			accessorId: DESIGNER_ID,
-			at: clock.daysAgo(3),
-		},
-		{ itemId: KI_CHURN_SIGNALS, accessorKind: "human", accessorId: MAYA_ID, at: clock.daysAgo(6) },
-		{ itemId: KI_CHURN_SIGNALS, accessorKind: "agent", accessorId: PM_ID, at: clock.daysAgo(5) },
-		{
-			itemId: KI_TRIAL_RETRO,
-			accessorKind: "human",
-			accessorId: FOUNDER_ID,
-			at: clock.daysAgo(12),
-		},
-		{
-			itemId: "demo-ki-pulse-brief",
-			accessorKind: "agent",
-			accessorId: GROWTH_ID,
-			at: clock.daysAgo(9),
-		},
-		{
-			itemId: "demo-ki-brand-voice",
-			accessorKind: "agent",
-			accessorId: GROWTH_ID,
-			at: clock.hoursAgo(6),
-		},
-		{
-			itemId: "demo-ki-onboarding-dropoff",
-			accessorKind: "agent",
-			accessorId: GROWTH_ID,
-			at: clock.daysAgo(1),
-		},
-	];
-	let accessIndex = 0;
-	for (const access of accesses) {
-		await db
-			.insert(knowledgeAccessLog)
-			.values({
-				id: `demo-kal-${++accessIndex}`,
-				itemId: access.itemId,
-				accessorKind: access.accessorKind,
-				accessorId: access.accessorId,
-				accessedAt: access.at,
-			})
-			.onConflictDoNothing();
-	}
-
-	// One open conflict: the pricing-tiers item, mid-edit when the bet moved.
-	await db
-		.insert(knowledgeConflicts)
-		.values({
-			id: "demo-kc-pricing-tiers",
-			itemId: KI_PRICING_TIERS,
-			versionBase: 2,
-			versionCurrent: 3,
-			proposedBody:
-				"Starter and Team, nothing between.\n\n- **Starter** — 5 dashboards, 3 seats, weekly exports.\n- **Team** — unlimited dashboards and seats, continuous exports, priority support.\n- **Add-on** — extra seats purchasable on Starter (proposed mid-edit, unresolved).",
-			proposedMeta: null,
-			proposedBy: DESIGNER_ID,
-			status: "open",
-			createdAt: clock.hoursAgo(30),
-		})
-		.onConflictDoNothing();
 }

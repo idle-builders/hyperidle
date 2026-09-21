@@ -79,7 +79,7 @@ interface RootTaskSpec {
 	readonly completedAt?: string;
 	readonly outcomeVerdict?: "validated" | "refuted" | "partial" | "inconclusive";
 	readonly outcomeSummary?: string;
-	readonly sourceKnowledgeItemId?: string;
+	readonly sourceDocumentId?: string;
 }
 
 interface TaskSpec {
@@ -150,7 +150,7 @@ lists the ten most at-risk accounts weekly.`,
 			doneCondition: "Dashboard live; at-risk list reviewed for three consecutive weeks.",
 			state: "proposed",
 			createdAt: clock.daysAgo(6),
-			sourceKnowledgeItemId: KI_CHURN_SIGNALS,
+			sourceDocumentId: KI_CHURN_SIGNALS,
 		},
 		{
 			id: ROOT_TASK_DOWNGRADE,
@@ -246,7 +246,7 @@ Research first, prototype only if the numbers say yes.`,
 				outcomeSummary: rt.outcomeSummary ?? null,
 				outcomeRecordedAt: rt.completedAt ?? null,
 				outcomeRecordedBy: rt.completedAt ? PM_ID : null,
-				sourceKnowledgeItemId: rt.sourceKnowledgeItemId ?? null,
+				sourceDocumentId: rt.sourceDocumentId ?? null,
 				updatedAt: rt.completedAt ?? rt.createdAt,
 			})
 			.onConflictDoNothing();
