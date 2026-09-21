@@ -160,20 +160,8 @@ export function buildToolHandlersPorts(
 			// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.
 			// @lore nested-knowledge-items: `search` is DELETED with `query_practice`.
 			create: (input, actorId) => seamPortForActor(actorId).knowledge.create(input),
-			findKnowledgeItemVersionById: (id, actorId) =>
-				seamPortForActor(actorId).knowledge.findKnowledgeItemVersionById(id),
-			findKnowledgeItemStatusById: (id, actorId) =>
-				seamPortForActor(actorId).knowledge.findKnowledgeItemStatusById(id),
-			findOpenConflictByItemAndProposer: (itemId, proposedBy, actorId) =>
-				seamPortForActor(actorId).knowledge.findOpenConflictByItemAndProposer(itemId, proposedBy),
 			createKnowledgeConflict: (input, actorId) =>
 				seamPortForActor(actorId).knowledge.createKnowledgeConflict(input),
-			promoteKnowledgeItem: (input, actorId) =>
-				seamPortForActor(actorId).knowledge.promoteKnowledgeItem(input),
-			mergeKnowledgeItem: (targetId, sourceId, updatedBy, actorId) =>
-				seamPortForActor(actorId).knowledge.mergeKnowledgeItem(targetId, sourceId, updatedBy),
-			splitKnowledgeItem: (itemId, newItems, updatedBy, actorId) =>
-				seamPortForActor(actorId).knowledge.splitKnowledgeItem(itemId, newItems, updatedBy),
 		},
 	};
 }

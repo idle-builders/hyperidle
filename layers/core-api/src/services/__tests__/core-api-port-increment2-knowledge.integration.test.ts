@@ -17,79 +17,15 @@
  * `create_conflict_review` (findKnowledgeItemVersionById +
  * findOpenConflictByItemAndProposer + createKnowledgeConflict).
  *
- * Every method below does not exist yet on `CoreApiPort`/`buildCoreApiPort` —
- * `buildCoreApiPort`'s real returned object carries no `knowledge` property at
- * all today (only `work`/`users`/`conversation`/`org`/`routine`), so each test
- * fails at RUNTIME (`TypeError: Cannot read properties of undefined (reading
- * '<method>')`), not at import-resolution time — the composition function +
- * transport already exist from Increment 1/earlier Increment 2 waves. RED for
- * the right reason: missing implementation, not a typo.
- *
- * Backing-route plan (documented here for the GREEN-phase builder — verified
- * against real route source, `layers/core-api/src/routes/knowledge.ts`):
- *  - `knowledge.search` → REUSE existing `GET /knowledge/search?q=`, EXTENDED
- *    to accept an optional `limit` query param (today hardcoded to
- *    `search(db, query, {mode:"text"})`, silently ignoring any caller limit —
- *    `query_practice` needs `limit*5` so it can filter by layer client-side).
- *  - `knowledge.create` → REUSE existing `POST /knowledge`
- *    (`createKnowledgeSchema`), EXTENDED to accept an optional `kind` field
- *    and an optional explicit `layer` override. Today the route always
- *    computes `layer` via `scopeToLayer(scopeKind)` and never accepts `kind`
- *    at all (`createKnowledgeSchema` has no `kind` field) — `write_memory`'s
- *    real call passes BOTH an explicit `layer` (its own `KNOWLEDGE_LAYERS`
- *    enum, independent of `scopeToLayer`) and a `kind`
- *    (pattern/anti_pattern/decision/etc.) that the current schema silently
- *    drops. `CreateKnowledgeItemInput.kind` (`knowledge-repository.ts:56-60`)
- *    is documented as already supporting exactly this — "made optional so
- *    callers with no `kind` concept (the HTTP route) can omit it"; the seam
- *    caller (an agent tool) DOES have a `kind` concept, so the route must
- *    stop omitting it for this caller. Minimal schema widening, same idiom as
- *    `UpdateOrgTeamRequest` gaining `leadAgentId` / `HandoffTaskRequest`
- *    gaining `contextId`/`status`/`error` in earlier waves — not a new route.
- *  - `knowledge.findKnowledgeItemVersionById` → REUSE existing
- *    `GET /knowledge/:id` (`{view:"detail"}` response already spreads the raw
- *    item, which carries `version`); extract `{id, version}`. Same
- *    shape-tolerance precedent as `work.getBetById` reusing `GET /bets/:id`.
- *  - `knowledge.findKnowledgeItemStatusById` → REUSE the SAME
- *    `GET /knowledge/:id` route; extract `{status}`.
- *  - `knowledge.findOpenConflictByItemAndProposer` → NEW
- *    `GET /knowledge/:id/conflicts?proposedBy=` (no existing route resolves
- *    an open conflict by item+proposer — `findOpenConflict`,
- *    `knowledge-conflicts.ts:66`, has no HTTP door today).
- *  - `knowledge.createKnowledgeConflict` → NEW `POST /knowledge/:id/conflicts`
- *    (`recordConflict`, `knowledge-conflicts.ts:48`, has no HTTP door today —
- *    `create_conflict_review` calls the raw DI function directly).
- *  - `knowledge.promoteKnowledgeItem` → NEW `POST /knowledge/:id/promote`
- *    (`transition(db,id,{target:"promote",...})`,
- *    `knowledge-repository.ts:1240` — no HTTP route wraps the `"promote"`
- *    transition target today; the existing `/scope`/`/merge`/`/split`/
- *    `/archive`/`/flag` routes each wrap a DIFFERENT transition target).
- *    Response carries the full `PromoteTransitionResult` discriminated union
- *    (`{ok:true,fromStatus}` | `{ok:false,code,message}`) at HTTP 200 either
- *    way — the seam forwards the domain result as-is, same as
- *    `work.updateBetById`'s per-field PATCH forwards a domain error via
- *    `throwSeamError` only for a genuine transport/validation failure, not a
- *    domain-level "blocked" outcome.
- *  - `knowledge.upsertKnowledgeAppProjectionAttentionScore` → NEW
- *    `PATCH /knowledge/:id/attention-score`
- *    (`transition(db,id,{target:"recomputeAttention",attentionScore})`,
- *    `knowledge-repository.ts:1223` — no HTTP route wraps this transition
- *    target today either).
- *  - `knowledge.recomputeAttentionScoreForItem` → NEW
- *    `POST /knowledge/:id/recompute-attention`. Collapses
- *    `buildCreateReviewItemForKnowledge({conversation,work})` +
- *    `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` —
- *    see `tool-handlers/src/ports.ts`'s top `@lore` — the route lives in
- *    core-api, so it wires `@hyperidle/review`/`@hyperidle/work` directly
- *    (ordinary same-layer DI), same composition
- *    `tool-handlers-bindings.ts`'s own `recomputeAttentionScoreForItem`
- *    helper performs today, just moved behind a real HTTP door instead of a
- *    raw same-process DI call. The route's own `eventBus` is already wired
- *    (`createKnowledgeRoutes(db, eventBus)`) — the seam method takes no
- *    `eventBus` argument (dropped from the port signature vs. today's raw
- *    `ToolHandlersKnowledgeAccessor.recomputeAttentionScoreForItem(db,
- *    eventBus, knowledgeItemId)`; the seam never threads a same-process
- *    `EventBus` handle over an HTTP boundary).
+ * @lore the six document tools (`write_memory`/`create_artifact`/
+ * `promote_knowledge`/`create_conflict_review`/`merge_knowledge`/
+ * `split_knowledge`) and the `search`/`findKnowledgeItemVersionById`/
+ * `findKnowledgeItemStatusById`/`findOpenConflictByItemAndProposer`/
+ * `promoteKnowledgeItem`/`mergeKnowledgeItem`/`splitKnowledgeItem` seam
+ * methods they backed are DELETED — only `knowledge.create` and
+ * `knowledge.createKnowledgeConflict` (the writeback's own remaining
+ * callers) still exist on this seam. Kept as historical design record for
+ * the survivors, not corrected line-by-line.
  */
 
 import {
@@ -134,33 +70,9 @@ interface SeamKnowledgeCreateResponse {
 	readonly version: number;
 }
 
-interface SeamPromoteResult {
-	readonly ok: true;
-	readonly fromStatus: string;
-}
-
-interface SeamPromoteConflictResult {
-	readonly ok: false;
-	readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
-	readonly message: string;
-}
-
-// @lore nested-knowledge-items: `search` deleted from this seam interface —
-// `CoreApiKnowledgePort.search` is gone (its only consumer, `query_practice`,
-// is gone too). The header comment above still narrates the original
-// Increment 2 plan, which included `search`/`layer`/`kind`; kept as historical
-// design record, not corrected line-by-line.
 interface SeamCoreApiPortIncrement2Knowledge {
 	readonly knowledge: {
 		create(input: SeamKnowledgeCreateInput): Promise<SeamKnowledgeCreateResponse>;
-		findKnowledgeItemVersionById(
-			id: string,
-		): Promise<{ readonly id: string; readonly version: number } | undefined>;
-		findKnowledgeItemStatusById(id: string): Promise<{ readonly status: string } | undefined>;
-		findOpenConflictByItemAndProposer(
-			itemId: string,
-			proposedBy: string,
-		): Promise<{ readonly id: string } | undefined>;
 		createKnowledgeConflict(input: {
 			readonly id: string;
 			readonly itemId: string;
@@ -171,13 +83,6 @@ interface SeamCoreApiPortIncrement2Knowledge {
 			readonly proposedBy: string;
 			readonly createdAt: string;
 		}): Promise<void>;
-		promoteKnowledgeItem(input: {
-			readonly knowledgeItemId: string;
-			readonly fromStatus: string;
-			readonly toStatus: string;
-			readonly reason: string | undefined;
-			readonly editor: string;
-		}): Promise<SeamPromoteResult | SeamPromoteConflictResult>;
 	};
 }
 
@@ -225,10 +130,6 @@ async function seedKnowledgeItem(
 		.values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
 }
 
-// @lore nested-knowledge-items: the `search` describe block is DELETED —
-// `CoreApiKnowledgePort.search` is gone (its only consumer, `query_practice`,
-// is gone too; its one filter was `layer === 'L3'`).
-
 describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", () => {
 	test("create reaches the real POST /knowledge route with write_memory's full field fidelity (kind + explicit layer land)", async ({
 		db,
@@ -269,85 +170,7 @@ describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", ()
 	});
 });
 
-describe("CoreApiPort.knowledge item-read methods — Increment 2 knowledge wave (RED)", () => {
-	test("findKnowledgeItemVersionById reaches the real item-detail route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-version");
-		await seedAgent(db, "agent-know-version1");
-		await seedKnowledgeItem(db, { id: "ki-version-1", version: 3 });
-
-		const port = buildSeamPort("agent-know-version1", app);
-		const found = await port.knowledge.findKnowledgeItemVersionById("ki-version-1");
-
-		expect(found?.id).toBe("ki-version-1");
-		expect(found?.version).toBe(3);
-	});
-
-	test("findKnowledgeItemVersionById against a nonexistent item resolves undefined (no throw)", async ({
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-version-404");
-		const port = buildSeamPort("agent-know-version-missing", app);
-		const found = await port.knowledge.findKnowledgeItemVersionById("no-such-item");
-		expect(found).toBeUndefined();
-	});
-
-	test("findKnowledgeItemStatusById reaches the real item-detail route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-status");
-		await seedAgent(db, "agent-know-status1");
-		await seedKnowledgeItem(db, { id: "ki-status-1", status: "provisional" });
-
-		const port = buildSeamPort("agent-know-status1", app);
-		const found = await port.knowledge.findKnowledgeItemStatusById("ki-status-1");
-
-		expect(found?.status).toBe("provisional");
-	});
-});
-
-describe("CoreApiPort.knowledge conflict methods — Increment 2 knowledge wave (RED)", () => {
-	test("findOpenConflictByItemAndProposer reaches the real conflict-lookup route", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-findconflict");
-		await seedAgent(db, "agent-know-conflict1");
-		await seedKnowledgeItem(db, { id: "ki-conflict-1" });
-		await db.insert(knowledgeConflicts).values({
-			id: "conflict-existing-1",
-			itemId: "ki-conflict-1",
-			versionBase: 1,
-			versionCurrent: 1,
-			proposedBody: "proposed replacement text",
-			proposedBy: "agent:agent-know-conflict1",
-			status: "open",
-			createdAt: NOW,
-		});
-
-		const port = buildSeamPort("agent-know-conflict1", app);
-		const found = await port.knowledge.findOpenConflictByItemAndProposer(
-			"ki-conflict-1",
-			"agent:agent-know-conflict1",
-		);
-
-		expect(found?.id).toBe("conflict-existing-1");
-	});
-
-	test("findOpenConflictByItemAndProposer resolves undefined when no open conflict exists for that proposer", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-findconflict-none");
-		await seedAgent(db, "agent-know-conflict2");
-		await seedKnowledgeItem(db, { id: "ki-conflict-2" });
-
-		const port = buildSeamPort("agent-know-conflict2", app);
-		const found = await port.knowledge.findOpenConflictByItemAndProposer(
-			"ki-conflict-2",
-			"agent:agent-know-conflict2",
-		);
-
-		expect(found).toBeUndefined();
-	});
-
+describe("CoreApiPort.knowledge.createKnowledgeConflict — Increment 2 knowledge wave (RED)", () => {
 	test("createKnowledgeConflict reaches the real conflict-create route (a real row lands in the DB)", async ({
 		db,
 		app,
@@ -401,77 +224,5 @@ describe("CoreApiPort.knowledge conflict methods — Increment 2 knowledge wave 
 				createdAt: NOW,
 			}),
 		).rejects.toThrow();
-	});
-});
-
-describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge wave (RED)", () => {
-	test("promoteKnowledgeItem reaches the real promote route (status transitions in the DB)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-promote");
-		await seedAgent(db, "agent-know-promote1");
-		await seedKnowledgeItem(db, { id: "ki-promote-1", status: "proposed" });
-
-		const port = buildSeamPort("agent-know-promote1", app);
-		const result = await port.knowledge.promoteKnowledgeItem({
-			knowledgeItemId: "ki-promote-1",
-			fromStatus: "proposed",
-			toStatus: "active",
-			reason: "reviewed and confirmed",
-			editor: "agent:agent-know-promote1",
-		});
-
-		expect(result.ok).toBe(true);
-		if (result.ok) {
-			expect(result.fromStatus).toBe("proposed");
-		}
-
-		const [row] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "ki-promote-1"))
-			.limit(1);
-		expect(row?.status).toBe("active");
-	});
-
-	test("promoteKnowledgeItem to 'validated' with an open conflict returns the domain CONFLICT_OPEN result (no throw, no state change)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-promote-conflict");
-		await seedAgent(db, "agent-know-promote2");
-		await seedKnowledgeItem(db, { id: "ki-promote-2", status: "proposed" });
-		await db.insert(knowledgeConflicts).values({
-			id: "conflict-blocking-1",
-			itemId: "ki-promote-2",
-			versionBase: 1,
-			versionCurrent: 1,
-			proposedBody: "blocking edit",
-			proposedBy: "agent:some-other-agent",
-			status: "open",
-			createdAt: NOW,
-		});
-
-		const port = buildSeamPort("agent-know-promote2", app);
-		const result = await port.knowledge.promoteKnowledgeItem({
-			knowledgeItemId: "ki-promote-2",
-			fromStatus: "proposed",
-			toStatus: "active",
-			reason: undefined,
-			editor: "agent:agent-know-promote2",
-		});
-
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.code).toBe("CONFLICT_OPEN");
-		}
-
-		const [row] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "ki-promote-2"))
-			.limit(1);
-		expect(row?.status).toBe("proposed");
 	});
 });

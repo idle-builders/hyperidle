@@ -30,12 +30,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		getRoutineById: notImplemented,
 		updateRoutineById: notImplemented,
 		create: notImplemented,
-		findKnowledgeItemVersionById: notImplemented,
-		findKnowledgeItemStatusById: notImplemented,
-		findOpenConflictByItemAndProposer: notImplemented,
 		createKnowledgeConflict: notImplemented,
-		promoteKnowledgeItem: notImplemented,
-		mergeKnowledgeItem: notImplemented,
-		splitKnowledgeItem: notImplemented,
 	},
 };

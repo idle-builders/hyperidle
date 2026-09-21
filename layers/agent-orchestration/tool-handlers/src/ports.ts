@@ -250,63 +250,10 @@ interface ToolHandlersCoreApiAccessor {
 		input: ToolHandlersCreateKnowledgeItemInput,
 		actorId: string,
 	): Promise<{ readonly id: string; readonly version: number }>;
-	findKnowledgeItemVersionById(
-		id: string,
-		actorId: string,
-	): Promise<{ readonly id: string; readonly version: number } | undefined>;
-	findKnowledgeItemStatusById(
-		id: string,
-		actorId: string,
-	): Promise<{ readonly status: string } | undefined>;
-	findOpenConflictByItemAndProposer(
-		itemId: string,
-		proposedBy: string,
-		actorId: string,
-	): Promise<{ readonly id: string } | undefined>;
 	createKnowledgeConflict(
 		input: ToolHandlersCreateKnowledgeConflictInput,
 		actorId: string,
 	): Promise<void>;
-	promoteKnowledgeItem(
-		input: {
-			readonly knowledgeItemId: string;
-			readonly fromStatus: string;
-			readonly toStatus: string;
-			readonly reason: string | undefined;
-			readonly editor: string;
-		},
-		actorId: string,
-	): Promise<
-		| { readonly ok: true; readonly fromStatus: string }
-		| {
-				readonly ok: false;
-				readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
-				readonly message: string;
-		  }
-	>;
-	/**
-	 * Merge sourceId into targetId: appends source body to target, archives source.
-	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
-	 */
-	mergeKnowledgeItem(
-		targetId: string,
-		sourceId: string,
-		updatedBy: string,
-		actorId: string,
-	): Promise<{ readonly id: string }>;
-	/**
-	 * Split itemId into two or more new items, archiving the original.
-	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
-	 */
-	splitKnowledgeItem(
-		itemId: string,
-		newItems: ReadonlyArray<{
-			readonly title: string;
-			readonly body: string;
-		}>,
-		updatedBy: string,
-		actorId: string,
-	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
 // There is no `ToolHandlersReviewAccessor`/`gate.linkReviewToSession` —

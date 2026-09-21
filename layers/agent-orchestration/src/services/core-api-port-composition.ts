@@ -45,14 +45,10 @@ import {
 	type CreateKnowledgeItemResponse,
 	type CreateOrgTeamRequest,
 	type InsertRoutineRequest,
-	type KnowledgeConflictView,
-	type KnowledgeItemStatusView,
 	type KnowledgeItemVersionView,
 	type OrgTeamMembershipView,
 	type OrgTeamView,
 	type PersistScaffoldedAgentsResponse,
-	type PromoteKnowledgeItemRequest,
-	type PromoteKnowledgeItemResult,
 	type ReparentKnowledgeItemRequest,
 	type RoutineView,
 	type ScaffoldFromRequestInput,
@@ -399,22 +395,11 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return { ok: true, item };
 			},
 
-			async findKnowledgeItemVersionById(
-				id: string,
-			): Promise<KnowledgeItemVersionView | undefined> {
-				const res = await client.knowledge[":id"].$get({ param: { id } });
-				return getOrUndefined<KnowledgeItemVersionView>(
-					"knowledge.findKnowledgeItemVersionById",
-					res,
-				);
-			},
-
 			/**
 			 * @lore nested-knowledge-items: fetches the current version internally
-			 * (reusing `GET /knowledge/:id`, the same idiom
-			 * `findKnowledgeItemVersionById` already rides) so the writeback
-			 * processor's move handling never has to track a version per item
-			 * itself — it only ever cared about parentage, never content version.
+			 * (reusing `GET /knowledge/:id`) so the writeback processor's move
+			 * handling never has to track a version per item itself — it only ever
+			 * cared about parentage, never content version.
 			 */
 			async reparentKnowledgeItem(id: string, input: ReparentKnowledgeItemRequest): Promise<void> {
 				const current = await getOrUndefined<KnowledgeItemVersionView>(
@@ -434,27 +419,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("knowledge.reparentKnowledgeItem", res);
 			},
 
-			async findKnowledgeItemStatusById(id: string): Promise<KnowledgeItemStatusView | undefined> {
-				const res = await client.knowledge[":id"].$get({ param: { id } });
-				return getOrUndefined<KnowledgeItemStatusView>(
-					"knowledge.findKnowledgeItemStatusById",
-					res,
-				);
-			},
-
-			async findOpenConflictByItemAndProposer(
-				itemId: string,
-				proposedBy: string,
-			): Promise<KnowledgeConflictView | undefined> {
-				const res = await client.knowledge[":id"].conflicts.$get({
-					param: { id: itemId },
-					query: { proposedBy },
-				});
-				if (!res.ok) return throwSeamError("knowledge.findOpenConflictByItemAndProposer", res);
-				const body = (await res.json()) as { readonly conflict: KnowledgeConflictView | null };
-				return body.conflict ?? undefined;
-			},
-
 			async createKnowledgeConflict(input: CreateKnowledgeConflictRequest): Promise<void> {
 				const res = await client.knowledge[":id"].conflicts.$post({
 					param: { id: input.itemId },
@@ -469,52 +433,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 					},
 				});
 				if (!res.ok) return throwSeamError("knowledge.createKnowledgeConflict", res);
-			},
-
-			async promoteKnowledgeItem(
-				input: PromoteKnowledgeItemRequest,
-			): Promise<PromoteKnowledgeItemResult> {
-				const res = await client.knowledge[":id"].promote.$post({
-					param: { id: input.knowledgeItemId },
-					json: {
-						fromStatus: input.fromStatus,
-						toStatus: input.toStatus,
-						...(input.reason !== undefined ? { reason: input.reason } : {}),
-						editor: input.editor,
-					},
-				});
-				if (!res.ok) return throwSeamError("knowledge.promoteKnowledgeItem", res);
-				return (await res.json()) as PromoteKnowledgeItemResult;
-			},
-
-			async mergeKnowledgeItem(
-				targetId: string,
-				sourceId: string,
-				updatedBy: string,
-			): Promise<{ readonly id: string }> {
-				const res = await client.knowledge[":id"].merge.$post({
-					param: { id: targetId },
-					json: { sourceId, updatedBy },
-				});
-				if (!res.ok) return throwSeamError("knowledge.mergeKnowledgeItem", res);
-				return (await res.json()) as { readonly id: string };
-			},
-
-			async splitKnowledgeItem(
-				itemId: string,
-				newItems: ReadonlyArray<{
-					readonly title: string;
-					readonly body: string;
-				}>,
-				updatedBy: string,
-			): Promise<ReadonlyArray<{ readonly id: string }>> {
-				const res = await client.knowledge[":id"].split.$post({
-					param: { id: itemId },
-					json: { newItems, updatedBy },
-				});
-				if (!res.ok) return throwSeamError("knowledge.splitKnowledgeItem", res);
-				const body = (await res.json()) as { readonly items: Array<{ readonly id: string }> };
-				return body.items;
 			},
 		},
 	};

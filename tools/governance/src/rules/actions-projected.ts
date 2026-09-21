@@ -224,15 +224,9 @@ const LEGACY_ROUTES: readonly string[] = [
  */
 const LEGACY_TOOLS: readonly string[] = [
 	"add_agent",
-	"create_artifact",
-	"create_conflict_review",
 	"create_routine",
 	"create_team",
-	"merge_knowledge",
-	"promote_knowledge",
-	"split_knowledge",
 	"update_routine",
-	"write_memory",
 	"return_status",
 ];
 

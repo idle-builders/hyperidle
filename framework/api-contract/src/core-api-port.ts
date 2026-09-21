@@ -271,7 +271,7 @@ export type UpdateKnowledgeItemContentResult =
 	| { readonly ok: true; readonly item: UpdateKnowledgeItemContentResponse }
 	| { readonly ok: false; readonly currentVersion: number };
 
-/** Mirrors `GET /knowledge/:id`'s response — only `id`/`version` (used by the version-lookup reuse of this route). */
+/** Mirrors `GET /knowledge/:id`'s response — only `id`/`version` (used by `reparentKnowledgeItem`'s internal version lookup). */
 export interface KnowledgeItemVersionView {
 	readonly id: string;
 	readonly version: number;
@@ -285,8 +285,8 @@ export interface KnowledgeItemVersionView {
  * moves that write onto the seam, backed by `PATCH /knowledge/:id`'s existing
  * `parentKind`/`parentId` fields (already routed through `reparent()`, which
  * writes its own `field='parent'` edit-log entry — the caller supplies no
- * version; the seam implementation fetches the current one internally, the
- * same "reuse GET /:id" idiom `findKnowledgeItemVersionById` already uses.
+ * version; the seam implementation fetches the current one internally via a
+ * `GET /:id` lookup.
  *
  * @lore nested-knowledge-items defect 2: `parentKind`/`parentId` are both
  * nullable, together — `reparent()`'s repository-level "detach to root" gap
@@ -297,16 +297,6 @@ export interface ReparentKnowledgeItemRequest {
 	readonly parentKind: string | null;
 	readonly parentId: string | null;
 	readonly updatedBy: string;
-}
-
-/** Mirrors `GET /knowledge/:id`'s response — only `status` (used by the status-lookup reuse of this route). */
-export interface KnowledgeItemStatusView {
-	readonly status: string;
-}
-
-/** Mirrors the new `GET /knowledge/:id/conflicts?proposedBy=`'s response — only `id` is relied on. */
-export interface KnowledgeConflictView {
-	readonly id: string;
 }
 
 /** Mirrors the new `POST /knowledge/:id/conflicts`'s validated request body. */
@@ -320,28 +310,6 @@ export interface CreateKnowledgeConflictRequest {
 	readonly proposedBy: string;
 	readonly createdAt: string;
 }
-
-/** Mirrors the new `POST /knowledge/:id/promote`'s validated request body. */
-export interface PromoteKnowledgeItemRequest {
-	readonly knowledgeItemId: string;
-	readonly fromStatus: string;
-	readonly toStatus: string;
-	readonly reason: string | undefined;
-	readonly editor: string;
-}
-
-/**
- * Mirrors the new `POST /knowledge/:id/promote`'s response body — the real
- * `PromoteTransitionResult` discriminated union, forwarded as-is at HTTP 200
- * either way (a domain-level "blocked" outcome is not a transport failure).
- */
-export type PromoteKnowledgeItemResult =
-	| { readonly ok: true; readonly fromStatus: string }
-	| {
-			readonly ok: false;
-			readonly code: "CONFLICT_OPEN" | "CONCURRENT_MODIFICATION";
-			readonly message: string;
-	  };
 
 /**
  * The agent's tool-facing `knowledge` capability family (Decision C,
@@ -357,29 +325,9 @@ export interface CoreApiKnowledgePort {
 		id: string,
 		input: UpdateKnowledgeItemContentRequest,
 	): Promise<UpdateKnowledgeItemContentResult>;
-	findKnowledgeItemVersionById(id: string): Promise<KnowledgeItemVersionView | undefined>;
-	findKnowledgeItemStatusById(id: string): Promise<KnowledgeItemStatusView | undefined>;
 	/** See {@link ReparentKnowledgeItemRequest}. */
 	reparentKnowledgeItem(id: string, input: ReparentKnowledgeItemRequest): Promise<void>;
-	findOpenConflictByItemAndProposer(
-		itemId: string,
-		proposedBy: string,
-	): Promise<KnowledgeConflictView | undefined>;
 	createKnowledgeConflict(input: CreateKnowledgeConflictRequest): Promise<void>;
-	promoteKnowledgeItem(input: PromoteKnowledgeItemRequest): Promise<PromoteKnowledgeItemResult>;
-	mergeKnowledgeItem(
-		targetId: string,
-		sourceId: string,
-		updatedBy: string,
-	): Promise<{ readonly id: string }>;
-	splitKnowledgeItem(
-		itemId: string,
-		newItems: ReadonlyArray<{
-			readonly title: string;
-			readonly body: string;
-		}>,
-		updatedBy: string,
-	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
 /**
