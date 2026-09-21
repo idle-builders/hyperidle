@@ -152,8 +152,8 @@ export { StatusChip } from "./StatusChip.js";
 export {
 	AGENT_OPERATIONAL_STATUS_MAP,
 	agentOperationalStatusToStatus,
-	KNOWLEDGE_STATUS_MAP,
-	knowledgeStatusToStatus,
+	DOCUMENT_STATUS_MAP,
+	documentStatusToStatus,
 	ROUTINE_STATE_MAP,
 	routineStateToStatus,
 	SESSION_OUTCOME_MAP,
