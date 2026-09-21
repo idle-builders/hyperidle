@@ -11,7 +11,7 @@
  * Found by driving the live API against a seeded database, not by a test.
  */
 
-import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, documents, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -53,7 +53,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 
 	// The agent's identity — authored by somebody else entirely, so the only
 	// thing that can make it visible is that it is a binding, not a note.
-	await db.insert(knowledgeItems).values([
+	await db.insert(documents).values([
 		{
 			id: "ki_af_agent-ba9f",
 			scopeKind: "user",
@@ -63,7 +63,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			format: "markdown",
 			status: "active",
 			version: 1,
-			role: "agent_file",
+			slot: "agent_file",
 			updatedBy: OTHER_HUMAN,
 			createdAt: now,
 			updatedAt: now,
@@ -77,16 +77,11 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			format: "markdown",
 			status: "active",
 			version: 1,
-			role: "ordinary",
+			slot: "ordinary",
 			updatedBy: OTHER_HUMAN,
 			createdAt: now,
 			updatedAt: now,
 		},
-	]);
-	// Kernel row and projection travel together, as knowledge always writes them.
-	await db.insert(knowledgeAppProjection).values([
-		{ id: "kp_af_agent-ba9f", knowledgeItemId: "ki_af_agent-ba9f", scopeId: AGENT },
-		{ id: "kp_note_other", knowledgeItemId: "ki_note_other", scopeId: OTHER_HUMAN },
 	]);
 }
 
@@ -106,9 +101,9 @@ describe("an agent's identity document is knowledge, not a private note", () => 
 		});
 
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { body: string; role: string; scopeId: string };
+		const body = (await res.json()) as { body: string; slot: string; scopeId: string };
 		expect(body.body).toBe("You are Atlas.");
-		expect(body.role).toBe("agent_file");
+		expect(body.slot).toBe("agent_file");
 		expect(body.scopeId).toBe(AGENT);
 	});
 

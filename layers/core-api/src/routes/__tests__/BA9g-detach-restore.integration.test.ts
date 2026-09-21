@@ -15,7 +15,7 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, documents, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -90,7 +90,7 @@ async function contributionsOf(app: Hono): Promise<readonly ContributionRow[]> {
 
 /** One skill the plugin contributed. */
 async function aContributedSkill(app: Hono): Promise<ContributionRow> {
-	const row = (await contributionsOf(app)).find((c) => c.kind === "knowledge");
+	const row = (await contributionsOf(app)).find((c) => c.kind === "document");
 	expect(row, "the plugin must contribute knowledge").toBeDefined();
 	return row as ContributionRow;
 }
@@ -103,8 +103,8 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 
 		const [before] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
+			.from(documents)
+			.where(eq(documents.id, skill.entityId));
 
 		const res = await app.request(`/api/knowledge/${skill.entityId}`, {
 			method: "PATCH",
@@ -128,8 +128,8 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 
 		const [before] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
+			.from(documents)
+			.where(eq(documents.id, skill.entityId));
 		await app.request(`/api/knowledge/${skill.entityId}`, {
 			method: "PATCH",
 			headers: auth(),
@@ -144,8 +144,8 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 
 		const [after] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
+			.from(documents)
+			.where(eq(documents.id, skill.entityId));
 		expect(after?.body, "your edit wins over a reinstall").toBe("My own version of this skill.");
 		const view = (await contributionsOf(app)).find((c) => c.entityId === skill.entityId);
 		expect(view?.detached, "and it is still yours afterwards").toBe(true);
@@ -162,8 +162,8 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 
 		const [original] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
+			.from(documents)
+			.where(eq(documents.id, skill.entityId));
 		await app.request(`/api/knowledge/${skill.entityId}`, {
 			method: "PATCH",
 			headers: auth(),
@@ -177,14 +177,14 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: auth(),
-			body: JSON.stringify({ kind: "knowledge", entityId: skill.entityId }),
+			body: JSON.stringify({ kind: "document", entityId: skill.entityId }),
 		});
 		expect(res.status).toBe(200);
 
 		const [restored] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, skill.entityId));
+			.from(documents)
+			.where(eq(documents.id, skill.entityId));
 		expect(restored?.body, "the plugin's version comes back").toBe(original?.body);
 
 		const view = (await contributionsOf(app)).find((c) => c.entityId === skill.entityId);
@@ -198,7 +198,7 @@ describe("editing a plugin's contribution detaches it; restore hands it back", (
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: auth(),
-			body: JSON.stringify({ kind: "knowledge", entityId: "ki-not-from-this-plugin" }),
+			body: JSON.stringify({ kind: "document", entityId: "ki-not-from-this-plugin" }),
 		});
 		expect(res.status).toBe(404);
 	});

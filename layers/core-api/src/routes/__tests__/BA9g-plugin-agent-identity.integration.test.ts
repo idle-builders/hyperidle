@@ -14,7 +14,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
+import { documents, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -97,13 +97,13 @@ describe("a plugin's agent comes with an identity", () => {
 
 		const [identity] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.scopeId, String(agent?.id)));
+			.from(documents)
+			.where(eq(documents.scopeId, String(agent?.id)));
 
 		expect(identity?.body, "and it says who the agent is").toBe(PERSONA);
 		// The binding session assembly reads, and the role that makes it an
 		// agent file rather than ordinary knowledge.
-		expect(identity?.role).toBe("agent_file");
+		expect(identity?.slot).toBe("agent_file");
 		expect(identity?.scopeKind).toBe("user");
 		// The parent slot — the binding `getAgentIdentity` actually reads.
 		expect(identity?.parentKind).toBe("agent");
@@ -115,27 +115,20 @@ describe("a plugin's agent comes with an identity", () => {
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 		const identityId = `ki_af_${agent?.id}`;
 
-		// Simulate a row written before the parent column existed. Kernel row
-		// and projection are touched together, as knowledge always writes
-		// them — the projection value is unchanged, this just keeps the pair
-		// in the same statement group.
+		// Simulate a row written before the parent column existed.
 		await db
-			.update(knowledgeItems)
+			.update(documents)
 			.set({ parentKind: null, parentId: null })
-			.where(eq(knowledgeItems.id, identityId));
-		await db
-			.update(knowledgeAppProjection)
-			.set({ scopeId: agent?.id ?? null })
-			.where(eq(knowledgeAppProjection.knowledgeItemId, identityId));
+			.where(eq(documents.id, identityId));
 		const [before] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, identityId));
+			.from(documents)
+			.where(eq(documents.id, identityId));
 		expect(before?.parentKind, "the parentless row this test starts from").toBeNull();
 
 		await install(app);
 
-		const [after] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, identityId));
+		const [after] = await db.select().from(documents).where(eq(documents.id, identityId));
 		expect(after?.parentKind).toBe("agent");
 		expect(after?.parentId).toBe(agent?.id);
 	});
@@ -151,7 +144,7 @@ describe("a plugin's agent comes with an identity", () => {
 
 		expect(contributions.some((c) => c.kind === "agent" && c.label === "Builder")).toBe(true);
 		expect(
-			contributions.some((c) => c.kind === "knowledge" && c.label.includes("Builder")),
+			contributions.some((c) => c.kind === "document" && c.label.includes("Builder")),
 			"its identity is a contribution too, so uninstall takes it",
 		).toBe(true);
 	});
@@ -168,8 +161,8 @@ describe("a plugin's agent comes with an identity", () => {
 
 		const [identity] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.scopeId, String(agent?.id)));
+			.from(documents)
+			.where(eq(documents.scopeId, String(agent?.id)));
 		expect(identity?.status, "a removed plugin's persona reaches no session").toBe("archived");
 	});
 
@@ -196,8 +189,8 @@ describe("a plugin's agent comes with an identity", () => {
 		const [agent] = await db.select().from(users).where(eq(users.role, "builder"));
 		const [identity] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.scopeId, String(agent?.id)));
+			.from(documents)
+			.where(eq(documents.scopeId, String(agent?.id)));
 		expect(identity?.body).toBe(PERSONA);
 
 		await app.request(`/api/knowledge/${identity?.id}`, {
@@ -213,14 +206,14 @@ describe("a plugin's agent comes with an identity", () => {
 		const res = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: auth(),
-			body: JSON.stringify({ kind: "knowledge", entityId: identity?.id }),
+			body: JSON.stringify({ kind: "document", entityId: identity?.id }),
 		});
 		expect(res.status, "restore must reach the plugin's own file").toBe(200);
 
 		const [restored] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, String(identity?.id)));
+			.from(documents)
+			.where(eq(documents.id, String(identity?.id)));
 		expect(restored?.body, "the plugin's persona comes back").toBe(PERSONA);
 	});
 
@@ -263,10 +256,10 @@ describe("a plugin's agent comes with an identity", () => {
 
 		const [promptDoc] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.body, "Sweep the stale items."));
+			.from(documents)
+			.where(eq(documents.body, "Sweep the stale items."));
 		expect(promptDoc, "the routine's prompt document exists").toBeDefined();
-		expect(promptDoc?.role).toBe("prompt");
+		expect(promptDoc?.slot).toBe("prompt");
 		expect(promptDoc?.parentKind).toBe("routine");
 		expect(promptDoc?.parentId).toBeTruthy();
 	});

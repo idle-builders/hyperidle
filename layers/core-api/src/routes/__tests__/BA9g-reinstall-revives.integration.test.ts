@@ -21,7 +21,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
 	type HyperIdleDb,
-	knowledgeItems,
+	documents,
 	pluginContributions,
 	routines,
 	users,
@@ -74,7 +74,7 @@ async function post(app: Hono, path: string): Promise<number> {
 /** What the plugin contributed — the registry is the only answer now. */
 async function contributed(
 	db: HyperIdleDb,
-	kind: "agent" | "routine" | "knowledge",
+	kind: "agent" | "routine" | "document",
 ): Promise<readonly string[]> {
 	const rows = await db
 		.select({ entityId: pluginContributions.entityId })
@@ -107,8 +107,8 @@ describe("installing a plugin revives everything it contributed", () => {
 			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
 		const skills = await db
 			.select()
-			.from(knowledgeItems)
-			.where(inArray(knowledgeItems.id, [...(await contributed(db, "knowledge"))]));
+			.from(documents)
+			.where(inArray(documents.id, [...(await contributed(db, "document"))]));
 
 		expect(agents.length).toBeGreaterThan(0);
 		expect(rows.length).toBeGreaterThan(0);
