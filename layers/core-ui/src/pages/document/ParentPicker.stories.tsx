@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ParentPicker } from "./ParentPicker";
 
-export default { title: "Page: Knowledge/ParentPicker" };
+export default { title: "Page: Document/ParentPicker" };
 
 export const Default = (): React.JSX.Element => {
 	const [value, setValue] = useState("");

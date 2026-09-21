@@ -1,16 +1,14 @@
 /**
- * ScopeChangeDialog — Q2 scope mutation flow.
+ * ScopeChangeDialog — moves a document to a different scope.
  *
- * Allows the founder to move a knowledge item to a different scope.
  * Requires: new scope kind, and a scope id for scopes that name an entity.
- * Uses optimistic version tracking — the current version is sent with the PATCH
- * so the server can reject stale mutations.
+ * Uses optimistic version tracking — the current version is sent so the
+ * server can refuse a stale mutation.
  *
- * @lore Q2: Same Dialog primitive pattern as KnowledgeCreateDialog.
- * Scope is an ordinary field on the document, so this saves through
- * PATCH /api/knowledge/:id with { scopeKind, scopeId?, updatedBy, version } —
- * the same endpoint the body and the role use. The separate /scope endpoint and
- * the reason it demanded are deleted; nothing ever read that reason.
+ * @lore BC4: PATCH `/api/knowledge/:id` replaced by
+ * `call("edit_document", { id, scopeKind, scopeId?, version })`
+ * (architecture.md §9.2). Scope is an ordinary field on the document, saved
+ * through the same action the body and the slot use.
  *
  * @lore Q2 reviewer warning: scope_id dropdown loading state. For v1 the
  * scopeId is a free-text input (no dropdown). A dropdown requires fetching the
@@ -25,7 +23,7 @@ import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { Button, Dialog, Input, ScopePicker } from "../../ds";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
-import { apiFetch } from "../../services/api-fetch.js";
+import { call } from "../../services/call.js";
 import {
 	SCOPE_CREATE_OPTIONS,
 	type ScopeCreateOption,
@@ -36,8 +34,8 @@ export interface ScopeChangeDialogProps {
 	open: boolean;
 	onClose: () => void;
 	onSaved: () => void;
-	/** The knowledge item id being mutated. */
-	knowledgeId: string;
+	/** The document id being mutated. */
+	documentId: string;
 	/** Current version for optimistic concurrency. */
 	currentVersion: number;
 	/** Current scope kind to pre-fill the select. */
@@ -49,18 +47,11 @@ export interface ScopeChangeDialogProps {
  * "factory" → "Shared", "team" → "Team", "user" → "Private" — a direct 1:1
  * match, since ScopeKind and SCOPE_CREATE_OPTIONS are both exactly these
  * three values.
- *
- * @lore nested-knowledge-items: retired product/practice/task.
- * @lore AV3 A2: the label-based fallback below predates that collapse, back
- * when a scopeKind could lack an exact SCOPE_CREATE_OPTIONS entry. It is
- * unreachable now but kept as a defensive default rather than deleted —
- * `scopeKind` is a closed union today, but this function's whole job is to
- * degrade gracefully if that ever changes again.
  */
 function resolveDefaultOption(scopeKind: ScopeKind): ScopeCreateOption {
 	const exact = SCOPE_CREATE_OPTIONS.find((o) => o.scopeKind === scopeKind);
 	if (exact) return exact;
-	const label = scopeKindToLabel(scopeKind); // "Shared" | "Team" | "Private"
+	const label = scopeKindToLabel(scopeKind);
 	return (
 		SCOPE_CREATE_OPTIONS.find((o) => o.label === label) ??
 		// Safe fallback: SCOPE_CREATE_OPTIONS always has 3 entries; index 0 is Shared.
@@ -72,16 +63,14 @@ export function ScopeChangeDialog({
 	open,
 	onClose,
 	onSaved,
-	knowledgeId,
+	documentId,
 	currentVersion,
 	currentScopeKind,
 }: ScopeChangeDialogProps): JSX.Element | null {
+	// AF13 §4A: Gate Team option by hasTeam, matching DocumentCreate's logic.
 	const { user } = useCurrentUser();
-
-	// AF13 §4A: Gate Team option by hasTeam, matching KnowledgeCreate's logic.
 	const hasTeam: boolean = user?.teamId !== undefined;
 
-	// AF13 §4A: Replace raw 7-enum select with 3 labeled SCOPE_CREATE_OPTIONS.
 	const [selectedOption, setSelectedOption] = useState<ScopeCreateOption>(
 		resolveDefaultOption(currentScopeKind),
 	);
@@ -102,25 +91,15 @@ export function ScopeChangeDialog({
 		setSubmitting(true);
 		setError(null);
 
-		const payload: Record<string, unknown> = {
-			scopeKind,
+		const result = await call("edit_document", {
+			id: documentId,
 			version: currentVersion,
-			updatedBy: user?.id ?? "human",
-		};
-
-		if (needsScopeId && scopeId.trim()) {
-			payload.scopeId = scopeId.trim();
-		}
-
-		const res = await apiFetch(`/api/knowledge/${encodeURIComponent(knowledgeId)}`, {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
+			scopeKind,
+			...(needsScopeId && scopeId.trim() ? { scopeId: scopeId.trim() } : {}),
 		});
 
-		if (!res.ok) {
-			const data = (await res.json().catch(() => ({}))) as { error?: string };
-			setError(data.error ?? `Failed to change scope: ${res.status}`);
+		if (!result.ok) {
+			setError(result.problems[0]?.message ?? "Failed to change scope");
 			setSubmitting(false);
 			return;
 		}
@@ -149,12 +128,6 @@ export function ScopeChangeDialog({
 			}
 		>
 			<div className="flex flex-col gap-3">
-				{/* Scope kind — labeled options. Previously rendered raw enum values. */}
-				{/* AF13 plan §6: Team option disabled when user has no teamId,         */}
-				{/* matching the same hasTeam gate in KnowledgeCreate.                  */}
-				{/* AI5: migrated from <Select> to the canonical ScopePicker pill group
-				    (scope-picker is AI5-owned; the pill group is the one anatomy
-				    rendered at all 4 scope sites). New testid prefix scope-pill-change. */}
 				<div className="flex flex-col gap-[6px]">
 					<span className="type-metadata  text-[var(--text-tertiary)]">New scope</span>
 					<ScopePicker
@@ -173,11 +146,10 @@ export function ScopeChangeDialog({
 						}}
 						ariaLabel="Scope kind"
 						testIdPrefix="scope-pill-change"
-						disabledTitle="Join a team to use team-scoped knowledge"
+						disabledTitle="Join a team to use team-scoped documents"
 					/>
 				</div>
 
-				{/* Scope ID — free text for scopes that need an external id. */}
 				{needsScopeId && (
 					<Input
 						label="Scope ID"

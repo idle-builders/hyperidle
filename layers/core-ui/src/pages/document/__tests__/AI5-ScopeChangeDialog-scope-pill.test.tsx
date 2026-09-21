@@ -12,8 +12,8 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../services/api-fetch.js", () => ({
-	apiFetch: vi.fn(),
+vi.mock("../../../services/call.js", () => ({
+	call: vi.fn(),
 }));
 
 vi.mock("../../../hooks/useCurrentUser.js", () => ({
@@ -26,7 +26,7 @@ const BASE_PROPS = {
 	open: true,
 	onClose: vi.fn(),
 	onSaved: vi.fn(),
-	knowledgeId: "k-1",
+	documentId: "doc-1",
 	currentVersion: 1,
 	currentScopeKind: "factory" as const,
 };

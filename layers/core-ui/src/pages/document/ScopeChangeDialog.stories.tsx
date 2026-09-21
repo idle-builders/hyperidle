@@ -1,33 +1,29 @@
 import { useState } from "react";
-import { MoveDialog } from "./MoveDialog";
+import { ScopeChangeDialog } from "./ScopeChangeDialog";
 
-export default { title: "Page: Knowledge/MoveDialog" };
+export default { title: "Page: Document/ScopeChangeDialog" };
 
 export const Default = (): React.JSX.Element => {
 	const [open, setOpen] = useState(true);
 	return (
-		<MoveDialog
+		<ScopeChangeDialog
 			open={open}
 			onClose={() => setOpen(false)}
 			onSaved={() => setOpen(false)}
-			knowledgeId="ki-test-1"
+			documentId="doc-test-1"
 			currentVersion={1}
-			currentParentId={null}
-			currentParentKind={null}
-			scopeKind="factory"
+			currentScopeKind="user"
 		/>
 	);
 };
 
 export const Closed = (): React.JSX.Element => (
-	<MoveDialog
+	<ScopeChangeDialog
 		open={false}
 		onClose={() => {}}
 		onSaved={() => {}}
-		knowledgeId="ki-test-1"
+		documentId="doc-test-1"
 		currentVersion={1}
-		currentParentId={null}
-		currentParentKind={null}
-		scopeKind="factory"
+		currentScopeKind="factory"
 	/>
 );

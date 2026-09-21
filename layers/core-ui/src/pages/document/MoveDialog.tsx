@@ -1,36 +1,34 @@
 /**
- * MoveDialog — moves an existing knowledge item to a new parent, including
- * back to the top level. plan.md AC2: "a person can nest and move knowledge
- * items, and the tree keeps up."
+ * MoveDialog — moves an existing document to a new parent, including back to
+ * the top level. plan.md AC2: "a person can nest and move knowledge items,
+ * and the tree keeps up."
  *
- * @lore nested-knowledge-items: same Dialog primitive pattern as
- * ScopeChangeDialog — one field, saved through the same PATCH endpoint
- * `reparent()` already routes a parentKind+parentId body through
- * (routes/knowledge.ts). ParentPicker only ever offers a choice
- * `buildParentOptions` computed as legal; a concurrent edit between render
- * and submit can still make it illegal, so a refusal shows the 400's named
- * reason (`error`) rather than a generic failure.
+ * @lore BC4: PATCH `/api/knowledge/:id` replaced by
+ * `call("edit_document", { id, parent, version })` (architecture.md §9.2).
+ * `ParentPicker` only ever offers a choice `buildParentOptions` computed as
+ * legal; a concurrent edit between render and submit can still make it
+ * illegal, so a refusal shows the action's own named problem rather than a
+ * generic failure.
  */
 
 import { type JSX, useState } from "react";
 import { Button, Dialog } from "../../ds";
-import { useCurrentUser } from "../../hooks/useCurrentUser.js";
-import { apiFetch } from "../../services/api-fetch.js";
+import { call } from "../../services/call.js";
 import { ParentPicker } from "./ParentPicker.js";
 
 export interface MoveDialogProps {
 	open: boolean;
 	onClose: () => void;
 	onSaved: () => void;
-	/** The knowledge item id being moved. */
-	knowledgeId: string;
+	/** The document id being moved. */
+	documentId: string;
 	/** Current version for optimistic concurrency. */
 	currentVersion: number;
-	/** The item's current parent, or null when it is already a root. */
+	/** The document's current parent, or null when it is already a root. */
 	currentParentId: string | null;
-	/** The item's current parent kind — only a `document` parent is a pre-selectable choice. */
+	/** The document's current parent kind — only a `document` parent is a pre-selectable choice. */
 	currentParentKind: string | null;
-	/** The item's own scope — governs which parents ParentPicker offers (the narrowing rule). */
+	/** The document's own scope — governs which parents ParentPicker offers (the narrowing rule). */
 	scopeKind: string;
 }
 
@@ -38,14 +36,12 @@ export function MoveDialog({
 	open,
 	onClose,
 	onSaved,
-	knowledgeId,
+	documentId,
 	currentVersion,
 	currentParentId,
 	currentParentKind,
 	scopeKind,
 }: MoveDialogProps): JSX.Element {
-	const { user } = useCurrentUser();
-
 	const initialParentId = currentParentKind === "document" ? (currentParentId ?? "") : "";
 	const [selectedParentId, setSelectedParentId] = useState(initialParentId);
 	const [submitting, setSubmitting] = useState(false);
@@ -59,22 +55,14 @@ export function MoveDialog({
 		setError(null);
 
 		const toRoot = selectedParentId === "";
-		const payload = {
+		const result = await call("edit_document", {
+			id: documentId,
 			version: currentVersion,
-			updatedBy: user?.id ?? "human",
-			parentKind: toRoot ? null : "document",
-			parentId: toRoot ? null : selectedParentId,
-		};
-
-		const res = await apiFetch(`/api/knowledge/${encodeURIComponent(knowledgeId)}`, {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
+			parent: toRoot ? null : { kind: "document", id: selectedParentId },
 		});
 
-		if (!res.ok) {
-			const data = (await res.json().catch(() => ({}))) as { error?: string };
-			setError(data.error ?? `Failed to move: ${res.status}`);
+		if (!result.ok) {
+			setError(result.problems[0]?.message ?? "Failed to move");
 			setSubmitting(false);
 			return;
 		}
@@ -106,7 +94,7 @@ export function MoveDialog({
 				<ParentPicker
 					value={selectedParentId}
 					onChange={setSelectedParentId}
-					excludeId={knowledgeId}
+					excludeId={documentId}
 					childScopeKind={scopeKind}
 					disabled={submitting}
 				/>
