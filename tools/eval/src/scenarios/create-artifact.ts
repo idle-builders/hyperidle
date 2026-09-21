@@ -26,7 +26,7 @@
  * right thing, and whether the content is any good.
  */
 
-import { knowledgeItems } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeCreateArtifactCalled, judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -43,9 +43,9 @@ import type {
 /** The body of whatever the agent produced for the scenario's task, or "". */
 async function producedBody(ctx: JudgeContext): Promise<string> {
 	const [item] = await ctx.db
-		.select({ body: knowledgeItems.body })
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.parentId, ctx.seedResult.taskId))
+		.select({ body: documents.body })
+		.from(documents)
+		.where(eq(documents.parentId, ctx.seedResult.taskId))
 		.limit(1);
 	return item?.body ?? "";
 }

@@ -15,7 +15,7 @@
  * write_memory still produces a real, well-formed knowledge item.
  */
 
-import { knowledgeItems } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeLlmQuality, judgeSessionCompleted, judgeWriteMemoryCalled } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
@@ -82,9 +82,9 @@ the root cause, and the fix.`,
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
 					const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
 					const [item] = await ctx.db
-						.select({ body: knowledgeItems.body, title: knowledgeItems.title })
-						.from(knowledgeItems)
-						.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
+						.select({ body: documents.body, title: documents.title })
+						.from(documents)
+						.where(eq(documents.updatedBy, agentUpdatedBy))
 						.limit(1);
 					return item ? `Title: ${item.title}\n\nBody: ${item.body}` : "";
 				},
@@ -144,9 +144,9 @@ This reflection will help the team maintain brand consistency going forward.`,
 				extractContent: async (ctx: JudgeContext): Promise<string> => {
 					const agentUpdatedBy = `agent:${ctx.seedResult.agentId}`;
 					const [item] = await ctx.db
-						.select({ body: knowledgeItems.body, title: knowledgeItems.title })
-						.from(knowledgeItems)
-						.where(eq(knowledgeItems.updatedBy, agentUpdatedBy))
+						.select({ body: documents.body, title: documents.title })
+						.from(documents)
+						.where(eq(documents.updatedBy, agentUpdatedBy))
 						.limit(1);
 					return item ? `Title: ${item.title}\nBody: ${item.body}` : "";
 				},

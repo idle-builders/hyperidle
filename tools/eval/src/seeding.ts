@@ -16,10 +16,8 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import {
 	agentRunConfig,
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeConflicts,
-	knowledgeItems,
 	messages,
 	routines,
 	sessions,
@@ -225,12 +223,12 @@ export async function seedTask(
 }
 
 /**
- * Seed a knowledge item with its strategy fabric row.
+ * Seed a document.
  *
- * @lore X7: Two inserts are required: knowledgeItems (kernel) +
- * knowledgeAppProjection (strategy extension). The fabric row is needed
- * for knowledge context assembly to work correctly during provisioning.
- * See arch critique WARNING #3 and schema.ts lines 478-501.
+ * @lore BC4 §6.1/§6.2: the kernel row and the strategy extension row (the
+ * former `knowledgeAppProjection`) are one row now — `confidence`/`meta`
+ * live directly on `documents`. Callers that need context assembly to find
+ * the seeded row no longer need a second insert.
  */
 export async function seedKnowledge(
 	db: HyperIdleDb,
@@ -252,7 +250,7 @@ export async function seedKnowledge(
 	const itemId = opts.itemId ?? randomUUID();
 	const now = new Date().toISOString();
 
-	await db.insert(knowledgeItems).values({
+	await db.insert(documents).values({
 		id: itemId,
 		scopeKind: opts.scopeKind,
 		scopeId: opts.scopeId ?? null,
@@ -266,13 +264,6 @@ export async function seedKnowledge(
 		parentId: opts.parentId ?? null,
 		createdAt: now,
 		updatedAt: now,
-	});
-
-	// Always insert the strategy fabric row so assembleContext() can find it.
-	await db.insert(knowledgeAppProjection).values({
-		id: randomUUID(),
-		knowledgeItemId: itemId,
-		scopeId: opts.scopeId ?? null,
 	});
 
 	return { knowledgeItemId: itemId };
@@ -416,35 +407,9 @@ export async function seedMessage(
 	return { messageId };
 }
 
-/** Create a knowledge conflict. Used by promote_knowledge scenarios (conflict gate blocks validated promotion). */
-export async function seedConflict(
-	db: HyperIdleDb,
-	opts: {
-		conflictId?: string;
-		itemId: string;
-		proposedBy: string;
-		proposedBody: string;
-		versionBase: number;
-		versionCurrent: number;
-		status?: string;
-	},
-): Promise<{ conflictId: string }> {
-	const conflictId = opts.conflictId ?? randomUUID();
-	const now = new Date().toISOString();
-
-	await db.insert(knowledgeConflicts).values({
-		id: conflictId,
-		itemId: opts.itemId,
-		proposedBy: opts.proposedBy,
-		proposedBody: opts.proposedBody,
-		versionBase: opts.versionBase,
-		versionCurrent: opts.versionCurrent,
-		status: opts.status ?? "open",
-		createdAt: now,
-	});
-
-	return { conflictId };
-}
+// @lore BC4 §6.4: `seedConflict` deleted — `knowledge_conflicts` is a dropped
+// table (migration 0086). Its only callers, the `promote_knowledge` and
+// `create_conflict_review` scenarios, are deleted in the same change.
 
 /**
  * Create a routine row.

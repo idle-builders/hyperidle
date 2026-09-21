@@ -5,7 +5,7 @@
  * Agents write files to the workspace; the watcher syncs them back to the DB.
  */
 
-import { knowledgeItems } from "@hyperidle/db";
+import { documents } from "@hyperidle/db";
 import { and, eq, gt } from "drizzle-orm";
 import {
 	judgeNoHarmfulActions,
@@ -81,9 +81,9 @@ Also document what you wrote in session notes.`,
 					// The watcher creates items with updatedBy = "watcher" or similar
 					// Check if a knowledge item was created after session started
 					const newItems = await ctx.db
-						.select({ id: knowledgeItems.id, title: knowledgeItems.title })
-						.from(knowledgeItems)
-						.where(gt(knowledgeItems.version, -1)); // all items
+						.select({ id: documents.id, title: documents.title })
+						.from(documents)
+						.where(gt(documents.version, -1)); // all items
 
 					// Items seeded before session have version 0; the session itself
 					// doesn't create knowledge items unless write_memory or watcher fires
@@ -112,9 +112,9 @@ Also document what you wrote in session notes.`,
 
 					// Agent may have used write_memory instead — partial credit
 					const agentWrittenItems = await ctx.db
-						.select({ id: knowledgeItems.id })
-						.from(knowledgeItems)
-						.where(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`));
+						.select({ id: documents.id })
+						.from(documents)
+						.where(eq(documents.updatedBy, `agent:${ctx.seedResult.agentId}`));
 
 					if (agentWrittenItems.length > 0) {
 						return {
@@ -199,9 +199,9 @@ Document your edit in session notes.`,
 				label: "Knowledge Item Updated in DB",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const [item] = await ctx.db
-						.select({ body: knowledgeItems.body, version: knowledgeItems.version })
-						.from(knowledgeItems)
-						.where(eq(knowledgeItems.id, kwEditExistingItemId))
+						.select({ body: documents.body, version: documents.version })
+						.from(documents)
+						.where(eq(documents.id, kwEditExistingItemId))
 						.limit(1);
 
 					if (!item) {
@@ -292,9 +292,9 @@ Document what you created in session notes.`,
 					// Check that no new knowledge items were created by the agent
 					// (Watcher should ignore work/ zone)
 					const agentWrittenKnowledge = await ctx.db
-						.select({ id: knowledgeItems.id, title: knowledgeItems.title })
-						.from(knowledgeItems)
-						.where(and(eq(knowledgeItems.updatedBy, `agent:${ctx.seedResult.agentId}`)));
+						.select({ id: documents.id, title: documents.title })
+						.from(documents)
+						.where(and(eq(documents.updatedBy, `agent:${ctx.seedResult.agentId}`)));
 
 					if (agentWrittenKnowledge.length === 0) {
 						return {
