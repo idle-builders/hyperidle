@@ -65,7 +65,11 @@ export interface AgentIdentityPort {
 		agentIds: readonly string[],
 	) => Promise<ReadonlyMap<string, string>>;
 	/** Archives every document parented to this agent — an agent delete. */
-	readonly archiveChildren: (db: HyperIdleDb, viewerActor: string, agentId: string) => Promise<void>;
+	readonly archiveChildren: (
+		db: HyperIdleDb,
+		viewerActor: string,
+		agentId: string,
+	) => Promise<void>;
 }
 
 function ctxFor(db: HyperIdleDb, deps: AgentIdentityDeps, actor: string): ActionContext {

@@ -457,7 +457,9 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			ctx: ActionContext,
 			input: import("@hyperidle/domain-model").SearchDocumentsInput,
 		) => Promise<
-			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentRow[]>
+			import("@hyperidle/domain-model").ActionResult<
+				import("@hyperidle/domain-model").DocumentRow[]
+			>
 		>;
 		// @lore document-module B10: `/plugins`' install/enable/disable/restore
 		// lifecycle writes documents through the composed `edit_document` action

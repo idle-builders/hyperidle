@@ -398,7 +398,8 @@ export function createAgentRoutes(
 			role: updated.role,
 			agentCategory: updated.agentCategory ?? null,
 			ownerUserId: updated.ownerUserId ?? null,
-			identityKnowledgeId: (await identity.identityIdsFor(db, c.get("userId"), [id])).get(id) ?? null,
+			identityKnowledgeId:
+				(await identity.identityIdsFor(db, c.get("userId"), [id])).get(id) ?? null,
 			harnessType: updatedRunConfig.harnessType,
 			modelId: updatedRunConfig.modelId,
 			modelProvider: updatedRunConfig.modelProvider,

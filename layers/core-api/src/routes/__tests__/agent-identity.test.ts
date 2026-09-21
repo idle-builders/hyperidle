@@ -106,7 +106,10 @@ describe("createAgentIdentityPort", () => {
 			editDocument: async (ctx): Promise<ActionResult<DocumentView>> => {
 				seenActor = ctx.actor;
 				const row = makeRow();
-				return { ok: true, data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" } };
+				return {
+					ok: true,
+					data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" },
+				};
 			},
 		});
 
@@ -121,7 +124,10 @@ describe("createAgentIdentityPort", () => {
 	});
 
 	it("archives every document found under the agent's parent, and nothing else", async () => {
-		const children = [makeRow({ id: "doc_af_agent-1" }), makeRow({ id: "doc_note_agent-1", slot: "ordinary" })];
+		const children = [
+			makeRow({ id: "doc_af_agent-1" }),
+			makeRow({ id: "doc_note_agent-1", slot: "ordinary" }),
+		];
 		const archived: string[] = [];
 		const port = createAgentIdentityPort({
 			eventBus: new EventBus(),
@@ -133,7 +139,10 @@ describe("createAgentIdentityPort", () => {
 				const id = input.id ?? "";
 				archived.push(id);
 				const row = makeRow({ id, status: "archived" });
-				return { ok: true, data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" } };
+				return {
+					ok: true,
+					data: { document: row, ancestors: [], children: [], siblings: [], scopeName: "" },
+				};
 			},
 		});
 

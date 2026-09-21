@@ -174,8 +174,22 @@ describe("agent identity through the document action mechanism", () => {
 	async function seedTwoHumans(db: HyperIdleDb): Promise<void> {
 		const now = new Date().toISOString();
 		await db.insert(users).values([
-			{ id: CREATOR, name: "Creator", role: "founder", status: "active", kind: "human", createdAt: now },
-			{ id: READER, name: "Reader", role: "founder", status: "active", kind: "human", createdAt: now },
+			{
+				id: CREATOR,
+				name: "Creator",
+				role: "founder",
+				status: "active",
+				kind: "human",
+				createdAt: now,
+			},
+			{
+				id: READER,
+				name: "Reader",
+				role: "founder",
+				status: "active",
+				kind: "human",
+				createdAt: now,
+			},
 		]);
 	}
 
