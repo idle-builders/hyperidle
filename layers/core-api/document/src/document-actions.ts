@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
 	DocumentRow as DbDocumentRow,
 	NewChange,
@@ -10,9 +11,13 @@ import {
 	canReadDocument,
 	type DocumentAs,
 	type DocumentParentKind,
+	type DocumentSlot,
 	type DocumentView,
 	type DocumentRow as DomainDocumentRow,
 	documentAs,
+	type EditDocumentInput,
+	editDocument as editDocumentDeclaration,
+	editDocumentInvariants,
 	type OpenDocumentInput,
 	openDocument as openDocumentDeclaration,
 	type Problem,
@@ -23,20 +28,24 @@ import {
 } from "@hyperidle/domain-model";
 import type { Action, ActionContext } from "./action-types.js";
 import {
+	assertParentInvariants,
+	assertSlotFree,
 	bumpRead,
+	DocumentInvariantError,
 	type DocumentSearchFilter,
 	type DocumentSearchViewer,
 	getDocument,
+	insertDocument,
 	listAncestors,
+	nextPositionForParent,
 	searchDocumentRows,
+	updateDocument,
 } from "./document-store.js";
 
 /**
- * The document module's outward-facing deps — architecture.md §8.1. Declared
- * in full here (the read half's own deps plus the write half's, which B6a
- * adds the implementation for): `changes`, `openParent` and `onBodyChanged`
- * are unused by `search_documents`/`open_document` and sit ready for
- * `edit_document`.
+ * The document module's outward-facing deps — architecture.md §8.1. `changes`
+ * and `onBodyChanged` are written to only by `edit_document`; `openParent` is
+ * read by `edit_document` for a `task`/`thread` parent's existence and team.
  */
 export interface DocumentActionsDeps {
 	readonly changes: {
@@ -213,6 +222,147 @@ export async function assembleDocumentView(
 	};
 }
 
+/**
+ * Thrown inside `edit_document`'s transaction to abort the write and surface
+ * a `Problem` list — the same shape `thread-actions.ts`'s `VerdictRaceConflict`
+ * uses. Throwing (rather than returning) inside `db.transaction` rolls the
+ * write back, so "a refused edit writes nothing" holds even for the checks
+ * that must run against live state inside the transaction (architecture.md
+ * §4.2's tree invariants — `reparent`'s own doc comment on why they can't run
+ * before the transaction opens).
+ */
+class EditRefused extends Error {
+	readonly problems: readonly Problem[];
+	constructor(problems: readonly Problem[]) {
+		super("edit refused");
+		this.problems = problems;
+	}
+}
+
+/**
+ * A `changes` row `edit_document` wrote inside its own transaction, captured
+ * for the post-commit push — architecture.md §6.3, §7. `kind` here is the DB
+ * vocabulary (`changes_kind_ck`); the wire `kind` is derived from it, never
+ * the other way around (mirrors `thread-actions.ts`'s `PushableChange`).
+ */
+interface PushableChange {
+	readonly id: string;
+	readonly objectId: string;
+	readonly kind: "created" | "changed";
+	readonly actor: string;
+	readonly before: Record<string, unknown> | null;
+	readonly after: Record<string, unknown>;
+	readonly at: string;
+}
+
+function wireKindFor(kind: PushableChange["kind"]): "document.created" | "document.changed" {
+	return `document.${kind}` as "document.created" | "document.changed";
+}
+
+/**
+ * Post-commit push, once per `changes` row, on both `document:<id>` and the
+ * global `documents` topic (architecture.md §7). `documents` carries no
+ * field values at all — a memory's title is as private as its body, and
+ * `documents` is a topic any signed-in identity may subscribe to; the hooks
+ * re-run their own `call()` on any matching frame, so nothing needs the
+ * values. A no-op when `deps.wsPush` is absent (its binding is B9).
+ */
+function pushChanges(deps: DocumentActionsDeps, rows: readonly PushableChange[]): void {
+	if (!deps.wsPush) return;
+	for (const row of rows) {
+		const kind = wireKindFor(row.kind);
+		const docTopic = `document:${row.objectId}`;
+		deps.wsPush(docTopic, {
+			type: "update",
+			topic: docTopic,
+			kind,
+			data: {
+				id: row.id,
+				object: "document",
+				objectId: row.objectId,
+				kind,
+				actor: row.actor,
+				before: row.before,
+				after: row.after,
+				at: row.at,
+			},
+		});
+		deps.wsPush("documents", {
+			type: "update",
+			topic: "documents",
+			kind,
+			data: {
+				id: row.id,
+				object: "document",
+				objectId: row.objectId,
+				kind,
+				actor: row.actor,
+				before: null,
+				after: null,
+				at: row.at,
+			},
+		});
+	}
+}
+
+/** Only the fields that differ (plus `id`) — the `changes` row's diff shape.
+ * Reused verbatim from `task-actions.ts:190-208` (architecture.md §6.3). */
+function diffFields(
+	id: string,
+	prev: DbDocumentRow | null,
+	patch: Readonly<Record<string, unknown>>,
+): { before: Record<string, unknown> | null; after: Record<string, unknown> } {
+	if (prev === null) {
+		return { before: null, after: { id, ...patch } };
+	}
+	const before: Record<string, unknown> = {};
+	const after: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(patch)) {
+		const prevValue = (prev as unknown as Record<string, unknown>)[key];
+		if (prevValue !== value) {
+			before[key] = prevValue;
+			after[key] = value;
+		}
+	}
+	return { before: { id, ...before }, after: { id, ...after } };
+}
+
+/**
+ * A4's default-scope derivation — architecture.md §0 A4, §3.6: "actor's team
+ * → calling task's team → factory". `viewer.viewerTeamId` is already "the
+ * actor's own team, read off their own row" (§8.1's `resolveViewer`), the
+ * same value the deleted `write_memory` tool read as `ctx.teamId`
+ * (`tool-definitions.ts:88-97` at the tree this architecture was read
+ * against — the agent's baked team, `provisioner.ts:1088`). Only when that is
+ * absent does the calling task's own team (via `deps.openParent`) apply.
+ */
+async function deriveDefaultScope(
+	ctx: ActionContext,
+	deps: DocumentActionsDeps,
+	viewer: DocumentSearchViewer,
+): Promise<{ readonly scopeKind: string; readonly scopeId: string | null }> {
+	let teamId = viewer.viewerTeamId;
+	if (!teamId && ctx.caller?.taskId) {
+		const parent = await deps.openParent(ctx, "task", ctx.caller.taskId);
+		teamId = parent.teamId ?? null;
+	}
+	return teamId ? { scopeKind: "team", scopeId: teamId } : { scopeKind: "factory", scopeId: null };
+}
+
+/**
+ * The artifact stamp — architecture.md §3.6: "the same server-side stamp
+ * `send_message` uses for `review.taskId`". `null` only when the caller has
+ * neither, which `artifact_no_parent` (I6) already refuses before this is
+ * ever called with no explicit parent.
+ */
+function stampedArtifactParent(
+	ctx: ActionContext,
+): { readonly kind: "task" | "thread"; readonly id: string } | null {
+	if (ctx.caller?.taskId) return { kind: "task", id: ctx.caller.taskId };
+	if (ctx.caller?.threadId) return { kind: "thread", id: ctx.caller.threadId };
+	return null;
+}
+
 export function createDocumentActions(deps: DocumentActionsDeps): readonly Action[] {
 	// -----------------------------------------------------------------------
 	// search_documents
@@ -268,11 +418,310 @@ export function createDocumentActions(deps: DocumentActionsDeps): readonly Actio
 	}
 
 	// -----------------------------------------------------------------------
-	// edit_document — B6a (the write half) adds it here.
+	// edit_document — architecture.md §3.5, §3.6, §4.1's forcings, §4.2, §6.3.
+	// An upsert on `id` (A3): absent ⇒ create with a new uuid; present ⇒ edit,
+	// or create with that id. A scope narrowing is accepted here and writes
+	// only the edited document — the cascade over its descendants is B6b.
 	// -----------------------------------------------------------------------
+	async function editDocumentRun(
+		ctx: ActionContext,
+		input: EditDocumentInput,
+	): Promise<{ ok: true; data: DocumentView } | { ok: false; problems: readonly Problem[] }> {
+		// -- 1. the raw, unfiltered upsert probe (architecture.md §4.3 case 7) --
+		const rawPrev = input.id ? await getDocument(ctx.db, input.id) : null;
+		const viewer = await resolveViewer(ctx, deps);
+
+		let prev: DbDocumentRow | null = null;
+		if (input.id && rawPrev) {
+			if (!canReadDocument(viewer.subjects, viewer.viewerTeamId, rawPrev)) {
+				// D1 — an existing-but-invisible id answers exactly `not_found`
+				// and creates nothing (never a second row, never a leak).
+				return {
+					ok: false,
+					problems: [{ code: "not_found", message: `Document ${input.id} not found` }],
+				};
+			}
+			prev = rawPrev;
+		}
+
+		// -- 2. pure invariants (architecture.md §4.1) --------------------------
+		const domainPrev = prev ? toDocumentRow(prev) : null;
+		const caller = {
+			hasCallingTask: Boolean(ctx.caller?.taskId),
+			hasCallingThread: Boolean(ctx.caller?.threadId),
+		};
+		const pureProblems = editDocumentInvariants(input, domainPrev, caller);
+		if (pureProblems.length > 0) return { ok: false, problems: pureProblems };
+
+		// -- 3. D7 stale — the edited document only; a version on a create is
+		// ignored, not an error (architecture.md §4.3 case 6). -----------------
+		if (prev !== null && input.version !== undefined && input.version !== prev.version) {
+			return {
+				ok: false,
+				problems: [
+					{
+						code: "stale",
+						message: "The document changed since you read it — open it again and retry.",
+					},
+				],
+			};
+		}
+
+		// -- 4. §3.6's forcings — derive the written value for every field ------
+		const isCreate = prev === null;
+		const effectiveAs: DocumentAs = input.as ?? (prev ? documentAs(prev) : "document");
+
+		const effectiveSlot: DocumentSlot =
+			effectiveAs === "memory"
+				? "ordinary"
+				: prev
+					? (prev.slot as DocumentSlot)
+					: (input.slot ?? "ordinary");
+
+		let effectiveScopeKind: string;
+		let effectiveScopeId: string | null;
+		if (effectiveAs === "memory") {
+			effectiveScopeKind = "user";
+			effectiveScopeId = ctx.actor;
+		} else if (input.scopeKind !== undefined) {
+			effectiveScopeKind = input.scopeKind;
+			effectiveScopeId = input.scopeId ?? null;
+		} else if (prev) {
+			effectiveScopeKind = prev.scopeKind;
+			effectiveScopeId = prev.scopeId;
+		} else {
+			const derived = await deriveDefaultScope(ctx, deps, viewer);
+			effectiveScopeKind = derived.scopeKind;
+			effectiveScopeId = derived.scopeId;
+		}
+
+		let effectiveParent: { readonly kind: DocumentParentKind; readonly id: string } | null;
+		if (effectiveAs === "memory") {
+			effectiveParent = null;
+		} else if (input.parent !== undefined) {
+			effectiveParent =
+				input.parent === null
+					? effectiveAs === "artifact"
+						? stampedArtifactParent(ctx)
+						: null
+					: input.parent;
+		} else if (prev) {
+			effectiveParent =
+				prev.parentKind !== null && prev.parentId !== null
+					? { kind: prev.parentKind as DocumentParentKind, id: prev.parentId }
+					: null;
+		} else {
+			effectiveParent = effectiveAs === "artifact" ? stampedArtifactParent(ctx) : null;
+		}
+
+		const effectiveTitle = input.title ?? prev?.title ?? "";
+		const effectiveBody = input.body ?? prev?.body ?? "";
+		const effectiveFormat = input.format ?? prev?.format ?? "markdown";
+		const effectiveStatus = input.status ?? prev?.status ?? "proposed";
+		const bodyChanged = isCreate || (input.body !== undefined && input.body !== prev?.body);
+		// A parent is only actively (re-)established at create, or when the
+		// caller names one — an edit that omits `parent` never moves the
+		// document (architecture.md §3.5: "Absent ⇒ no move").
+		const parentActivelySet = isCreate || input.parent !== undefined;
+
+		const id = prev?.id ?? input.id ?? randomUUID();
+		const now = ctx.now;
+
+		let writtenRow: DbDocumentRow | null = null;
+		let pushRow: PushableChange | null = null;
+
+		try {
+			await ctx.db.transaction(async (tx) => {
+				// -- D2/D8/D3/D4/D6 — re-checked against LIVE state inside the
+				// transaction (the same reasoning `reparent`'s own doc comment
+				// gives: two moves that each look legal outside a transaction can
+				// together produce a cycle no single read would catch). ----------
+				if (parentActivelySet && effectiveParent !== null) {
+					if (effectiveParent.kind === "document") {
+						const parentRow = await getDocument(tx, effectiveParent.id);
+						if (!parentRow) {
+							throw new EditRefused([
+								{
+									code: "parent_not_found",
+									message: `No document with id '${effectiveParent.id}'.`,
+									path: "parent",
+								},
+							]);
+						}
+						if (!canReadDocument(viewer.subjects, viewer.viewerTeamId, parentRow)) {
+							throw new EditRefused([
+								{
+									code: "forbidden_parent",
+									message: "You cannot see the document you named as a parent.",
+									path: "parent",
+								},
+							]);
+						}
+						try {
+							await assertParentInvariants(tx, {
+								documentId: prev?.id,
+								newParentId: effectiveParent.id,
+								childScopeKind: effectiveScopeKind,
+							});
+						} catch (error) {
+							if (error instanceof DocumentInvariantError) {
+								throw new EditRefused([
+									{ code: error.code, message: error.message, path: "parent" },
+								]);
+							}
+							throw error;
+						}
+					} else if (effectiveParent.kind === "task" || effectiveParent.kind === "thread") {
+						const parent = await deps.openParent(ctx, effectiveParent.kind, effectiveParent.id);
+						if (!parent.exists) {
+							throw new EditRefused([
+								{
+									code: "parent_not_found",
+									message: `No ${effectiveParent.kind} with id '${effectiveParent.id}'.`,
+									path: "parent",
+								},
+							]);
+						}
+					}
+					// A `routine`/`agent` parent has no existence port
+					// (architecture.md §8.1's `openParent` covers only
+					// task/thread) and legacy `applyParentMove` never checked
+					// these kinds either — kept as today's behaviour, not invented.
+				}
+
+				// -- D5 — reachable only at create (a move is refused first by
+				// I10, architecture.md §4.3 case 2). ------------------------------
+				if (isCreate && effectiveSlot !== "ordinary" && effectiveParent !== null) {
+					try {
+						await assertSlotFree(tx, effectiveParent.kind, effectiveParent.id, effectiveSlot);
+					} catch (error) {
+						if (error instanceof DocumentInvariantError) {
+							throw new EditRefused([{ code: error.code, message: error.message, path: "slot" }]);
+						}
+						throw error;
+					}
+				}
+
+				const parentChanged =
+					isCreate ||
+					(effectiveParent?.kind ?? null) !== (prev?.parentKind ?? null) ||
+					(effectiveParent?.id ?? null) !== (prev?.parentId ?? null);
+				const position =
+					input.position !== undefined
+						? input.position
+						: parentChanged
+							? await nextPositionForParent(
+									tx,
+									effectiveParent?.kind ?? null,
+									effectiveParent?.id ?? null,
+								)
+							: (prev?.position ?? 0);
+
+				const patch = {
+					title: effectiveTitle,
+					body: effectiveBody,
+					format: effectiveFormat,
+					status: effectiveStatus,
+					slot: effectiveSlot,
+					scopeKind: effectiveScopeKind,
+					scopeId: effectiveScopeId,
+					parentKind: effectiveParent?.kind ?? null,
+					parentId: effectiveParent?.id ?? null,
+					position,
+					updatedBy: ctx.actor,
+				};
+
+				if (prev === null) {
+					writtenRow = await insertDocument(tx, {
+						id,
+						...patch,
+						version: 1,
+						createdAt: now,
+						updatedAt: now,
+					});
+					const { after } = diffFields(id, null, patch);
+					const changeId = randomUUID();
+					await deps.changes.appendChange(tx, {
+						id: changeId,
+						object: "document",
+						objectId: id,
+						kind: "created",
+						actor: ctx.actor,
+						before: null,
+						after: JSON.stringify(after),
+						at: now,
+					});
+					pushRow = {
+						id: changeId,
+						objectId: id,
+						kind: "created",
+						actor: ctx.actor,
+						before: null,
+						after,
+						at: now,
+					};
+				} else {
+					const updated = await updateDocument(tx, id, prev.version, patch, now);
+					if (!updated) {
+						// A true concurrent race between our pre-transaction read and
+						// this write — the same fact D7 reports, caught here as a
+						// belt-and-suspenders backstop over the CAS `WHERE` clause.
+						throw new EditRefused([
+							{
+								code: "stale",
+								message: "The document changed since you read it — open it again and retry.",
+							},
+						]);
+					}
+					writtenRow = updated;
+					const { before, after } = diffFields(id, prev, patch);
+					const changeId = randomUUID();
+					await deps.changes.appendChange(tx, {
+						id: changeId,
+						object: "document",
+						objectId: id,
+						kind: "changed",
+						actor: ctx.actor,
+						before: JSON.stringify(before),
+						after: JSON.stringify(after),
+						at: now,
+					});
+					pushRow = {
+						id: changeId,
+						objectId: id,
+						kind: "changed",
+						actor: ctx.actor,
+						before,
+						after,
+						at: now,
+					};
+				}
+
+				// O1 — inside the same transaction, only when body changed.
+				if (bodyChanged) {
+					await deps.onBodyChanged(tx, id);
+				}
+			});
+		} catch (error) {
+			if (error instanceof EditRefused) {
+				return { ok: false, problems: error.problems };
+			}
+			throw error;
+		}
+
+		if (!writtenRow) {
+			throw new Error("edit_document: transaction committed without writing a row");
+		}
+		if (pushRow) pushChanges(deps, [pushRow]);
+
+		// Never through `open_document.run` — that would count this write as a
+		// read (architecture.md §6.7's trap).
+		return { ok: true, data: await assembleDocumentView(ctx, deps, writtenRow) };
+	}
 
 	return [
 		{ declaration: searchDocumentsDeclaration, run: searchDocumentsRun } as Action,
 		{ declaration: openDocumentDeclaration, run: openDocumentRun } as Action,
+		{ declaration: editDocumentDeclaration, run: editDocumentRun } as Action,
 	];
 }
