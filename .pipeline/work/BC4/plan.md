@@ -89,6 +89,10 @@ search documents.
 object; merge and split removed; rename everything except the sidebar word; memory and artifact as
 words on edit; a memory is for its writer and the agent's owner.
 
+**Size, confirmed 2026-09-21.** Added lines will pass 1,000 (the rename, re-pointed tests); the
+founder accepts that up front because the goal is a strong net reduction. The line count shown at
+the gate is net code, and it must be clearly negative.
+
 **Dials.** complexity: suite · ambiguity: established context · exposure: public contract.
 
 **Order.** Architecture written against `facts.md`, then one critique — it paid on both earlier
