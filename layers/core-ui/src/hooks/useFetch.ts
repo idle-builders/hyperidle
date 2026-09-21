@@ -14,7 +14,7 @@ export interface FetchState<T> {
  * UI-010/UI-015: FetchResult extends FetchState with a refetch callback so
  * callers can offer a retry that re-issues the request without a navigation.
  * FetchState is kept unchanged so hooks that use it as an internal state type
- * (useTaskSessions, useKnowledgeItem) are unaffected.
+ * (useTaskSessions) are unaffected.
  */
 export interface FetchResult<T> extends FetchState<T> {
 	refetch: () => void;
