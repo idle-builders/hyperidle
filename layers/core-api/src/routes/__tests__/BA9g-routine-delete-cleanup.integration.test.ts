@@ -10,7 +10,7 @@
  * FKs on `knowledge_items.id`, and the audit trail outlives its subject.
  */
 
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, documents, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -55,15 +55,15 @@ async function seedAgent(db: HyperIdleDb): Promise<void> {
 async function findPromptDoc(
 	db: HyperIdleDb,
 	routineId: string,
-): Promise<typeof knowledgeItems.$inferSelect | undefined> {
+): Promise<typeof documents.$inferSelect | undefined> {
 	const [row] = await db
 		.select()
-		.from(knowledgeItems)
+		.from(documents)
 		.where(
 			and(
-				eq(knowledgeItems.parentKind, "routine"),
-				eq(knowledgeItems.parentId, routineId),
-				eq(knowledgeItems.role, "prompt"),
+				eq(documents.parentKind, "routine"),
+				eq(documents.parentId, routineId),
+				eq(documents.slot, "prompt"),
 			),
 		);
 	return row;
@@ -100,7 +100,7 @@ describe("deleting a routine takes its prompt document with it", () => {
 		});
 		expect(del.status).toBe(200);
 
-		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, docId));
+		const [doc] = await db.select().from(documents).where(eq(documents.id, docId));
 		// Still there for the audit trail's sake, but out of every live view.
 		expect(doc, "the row survives — audit tables hold RESTRICT FKs on it").toBeDefined();
 		expect(doc?.status, "and it is archived, not live").toBe("archived");
@@ -138,7 +138,7 @@ describe("deleting a routine takes its prompt document with it", () => {
 
 		await app.request(`/api/routines/${doomed}`, { method: "DELETE", headers: auth() });
 
-		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, sparedDocId));
+		const [doc] = await db.select().from(documents).where(eq(documents.id, sparedDocId));
 		expect(doc?.status, "the surviving routine still has its instruction").toBe("active");
 	});
 });

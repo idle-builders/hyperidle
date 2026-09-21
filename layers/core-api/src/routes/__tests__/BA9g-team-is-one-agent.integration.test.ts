@@ -14,7 +14,7 @@
  * to get more.
  */
 
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, documents, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -74,8 +74,8 @@ describe("a new team is one empty agent", () => {
 		const [agent] = await db.select().from(users).where(eq(users.teamId, body.team.id));
 		const identities = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.scopeId, String(agent?.id)));
+			.from(documents)
+			.where(eq(documents.scopeId, String(agent?.id)));
 
 		expect(identities, "a bare AGENTS.md").toHaveLength(0);
 	});

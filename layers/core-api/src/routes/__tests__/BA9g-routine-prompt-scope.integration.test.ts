@@ -13,7 +13,7 @@
  * scopes to that team, an agent on no team stays factory-wide.
  */
 
-import { type HyperIdleDb, knowledgeItems, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, documents, teams, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -22,13 +22,13 @@ import { test } from "../../__testing__/test-fixtures.js";
 /** The knowledge document parented to this routine's prompt slot. */
 async function findPromptDocId(db: HyperIdleDb, routineId: string): Promise<string> {
 	const [row] = await db
-		.select({ id: knowledgeItems.id })
-		.from(knowledgeItems)
+		.select({ id: documents.id })
+		.from(documents)
 		.where(
 			and(
-				eq(knowledgeItems.parentKind, "routine"),
-				eq(knowledgeItems.parentId, routineId),
-				eq(knowledgeItems.role, "prompt"),
+				eq(documents.parentKind, "routine"),
+				eq(documents.parentId, routineId),
+				eq(documents.slot, "prompt"),
 			),
 		);
 	return String(row?.id);
@@ -103,7 +103,7 @@ describe("a routine's prompt takes its owner's scope", () => {
 		await seedWorld(db);
 		const docId = await createRoutine(app, db, "agent-on-team");
 
-		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, docId));
+		const [doc] = await db.select().from(documents).where(eq(documents.id, docId));
 		expect(doc?.scopeKind, "not the whole organisation's").toBe("team");
 		expect(doc?.scopeId).toBe("team-scope");
 	});
@@ -112,7 +112,7 @@ describe("a routine's prompt takes its owner's scope", () => {
 		await seedWorld(db);
 		const docId = await createRoutine(app, db, "agent-no-team");
 
-		const [doc] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, docId));
+		const [doc] = await db.select().from(documents).where(eq(documents.id, docId));
 		expect(doc?.scopeKind).toBe("factory");
 		expect(doc?.scopeId).toBeNull();
 	});
@@ -144,8 +144,8 @@ describe("a routine's prompt takes its owner's scope", () => {
 
 		const [doc] = await db
 			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, promptKnowledgeId));
+			.from(documents)
+			.where(eq(documents.id, promptKnowledgeId));
 		expect(doc?.scopeKind, "the PATCH path must not re-hardcode it").toBe("team");
 		expect(doc?.scopeId).toBe("team-scope");
 	});
