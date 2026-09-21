@@ -25,15 +25,7 @@
  * team, not the routine's.
  */
 
-import {
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	routineRuns,
-	routines,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { documents, type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { BakedContextBundle } from "@hyperidle/domain-model";
 import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
@@ -86,7 +78,7 @@ async function seedRoutine(
 	if (options.prompt) {
 		const promptKnowledgeId = `ki-${options.routineId}-prompt`;
 		const ts = new Date().toISOString();
-		await db.insert(knowledgeItems).values({
+		await db.insert(documents).values({
 			id: promptKnowledgeId,
 			scopeKind: "factory",
 			scopeId: null,
@@ -95,18 +87,12 @@ async function seedRoutine(
 			format: "markdown",
 			status: "active",
 			version: 1,
-			role: "prompt",
+			slot: "prompt",
 			parentKind: "routine",
 			parentId: options.routineId,
 			updatedBy: "test",
 			createdAt: ts,
 			updatedAt: ts,
-		});
-		// Kernel row and projection travel together, as knowledge always writes them.
-		await db.insert(knowledgeAppProjection).values({
-			id: `kp-${options.routineId}-prompt`,
-			knowledgeItemId: promptKnowledgeId,
-			scopeId: null,
 		});
 	}
 }
@@ -115,12 +101,12 @@ async function seedRoutine(
 async function readRoutinePrompt(db: HyperIdleDb, routineId: string): Promise<string | null> {
 	const [row] = await db
 		.select()
-		.from(knowledgeItems)
+		.from(documents)
 		.where(
 			and(
-				eq(knowledgeItems.parentKind, "routine"),
-				eq(knowledgeItems.parentId, routineId),
-				eq(knowledgeItems.role, "prompt"),
+				eq(documents.parentKind, "routine"),
+				eq(documents.parentId, routineId),
+				eq(documents.slot, "prompt"),
 			),
 		)
 		.limit(1);
@@ -300,7 +286,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		await seedRun(db, { runId: "run-rrun-ctx-1", routineId: "routine-rrun-ctx-1" });
 
 		const now = new Date().toISOString();
-		await db.insert(knowledgeItems).values({
+		await db.insert(documents).values({
 			id: "item-rrun-ctx-l4",
 			scopeKind: "factory",
 			scopeId: null,
@@ -312,11 +298,6 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			updatedBy: "owner-rrun-ctx-1",
 			createdAt: now,
 			updatedAt: now,
-		});
-		await db.insert(knowledgeAppProjection).values({
-			id: "proj-rrun-ctx-l4",
-			knowledgeItemId: "item-rrun-ctx-l4",
-			scopeId: null,
 		});
 
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
@@ -381,7 +362,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 						id: "skill-rrun-ctx-noteam",
 						title: "knowledge-decay",
 						body: "# Knowledge decay sweep",
-						role: "skill",
+						slot: "skill",
 					} as never,
 				];
 			},
@@ -396,7 +377,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			routine: { id: "routine-rrun-ctx-noteam", prompt: "Summarize the week." },
 			team: null,
 			knowledge: expect.arrayContaining([
-				expect.objectContaining({ id: "skill-rrun-ctx-noteam", role: "skill" }),
+				expect.objectContaining({ id: "skill-rrun-ctx-noteam", slot: "skill" }),
 			]),
 		});
 	});

@@ -33,9 +33,8 @@
  */
 
 import {
+	documents,
 	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
 	taskDispatchAttempts,
 	tasks,
 	teams,
@@ -378,7 +377,7 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 
 		// L4 (factory-wide) knowledge item — always in scope regardless of team.
 		const now = new Date().toISOString();
-		await db.insert(knowledgeItems).values({
+		await db.insert(documents).values({
 			id: "item-trun-ctx-l4",
 			scopeKind: "factory",
 			scopeId: null,
@@ -390,11 +389,6 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 			updatedBy: "agent-trun-ctx-1",
 			createdAt: now,
 			updatedAt: now,
-		});
-		await db.insert(knowledgeAppProjection).values({
-			id: "proj-trun-ctx-l4",
-			knowledgeItemId: "item-trun-ctx-l4",
-			scopeId: null,
 		});
 
 		// RED (npm run check): `TaskRunResolverDeps` does not declare `getTeamById`/
