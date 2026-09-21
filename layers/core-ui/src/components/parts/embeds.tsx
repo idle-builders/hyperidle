@@ -4,7 +4,7 @@
  * Maps the closed `Embed` set onto the design-system render vocabulary:
  *   artifact/diff       → <ReferenceChip kind="artifact">  → onOpen(target)
  *   block               → <ReferenceChip kind="block">     → onOpen(target) (title only)
- *   entity-ref (document)       → <ReferenceChip kind="knowledge"> → onOpen(target)
+ *   entity-ref (document)       → <ReferenceChip kind="document"> → onOpen(target)
  *   entity-ref (other)  → <ReferenceChip kind="block">     → onOpen(target)
  *   session-reference   → <Fold cta="Show session">        → onOpen({route:"session"})
  *   mention             → inline accent token (no chip)
@@ -38,7 +38,7 @@ export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX
 			return (
 				<ReferenceChip
 					key={key}
-					kind={embed.entityKind === "document" ? "knowledge" : "block"}
+					kind={embed.entityKind === "document" ? "document" : "block"}
 					label={embed.label}
 					mode="posted"
 					onOpen={() => onOpen(embed.target)}
@@ -69,7 +69,7 @@ export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX
 /**
  * Render the non-mention embeds of a Part. A session reference is NOT an
  * attachment — it links to the agent's work session — so it renders on its own
- * level, separate from the attachment chips (artifact/diff/block/knowledge),
+ * level, separate from the attachment chips (artifact/diff/block/document),
  * rather than mixed into one wrapping row.
  */
 export function EmbedRow({

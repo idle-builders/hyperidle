@@ -275,7 +275,7 @@ function ConversationOrigin(): JSX.Element {
 					</p>
 					<div className="mt-[3px] flex flex-wrap gap-[6px]">
 						<ReferenceChip kind="artifact" label="auth/passkey.ts" meta="+2 −1" mode="posted" />
-						<ReferenceChip kind="knowledge" label="WebAuthn L3 spec" mode="posted" />
+						<ReferenceChip kind="document" label="WebAuthn L3 spec" mode="posted" />
 					</div>
 				</MessageRow>
 				<MessageRow initials="AT" agent name="Atlas" time="9:12">

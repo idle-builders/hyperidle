@@ -63,6 +63,9 @@ export { clickableProps } from "./clickable.js";
 // @lore AU43 bundle-03: DialogPortalRoot deleted — zero mounts; AppShell calls ensureOverlayRoot directly.
 export type { DialogLayer, DialogProps, DialogSize } from "./Dialog.js";
 export { Dialog } from "./Dialog.js";
+// @lore BC4: renamed from KnowledgeRow — DocumentRow is taken by the wire type (architecture.md §2).
+export type { DocRowProps, DocRowSignals } from "./DocRow.js";
+export { DocRow } from "./DocRow.js";
 // ── AM5: DS diff core — (code,diff) structural renderer (K2b) ──
 // @lore AU43 bundle-03: getDiffRenderer/DiffRendererComponent/DiffRendererProps deleted —
 // ReviewCodeDiff imports CodeDeltaRenderer directly; the registry had one entry and zero callers.
@@ -88,8 +91,6 @@ export type { ItemListEmpty, ItemListError, ItemListProps } from "./ItemList.js"
 export { ItemList } from "./ItemList.js";
 export type { KeyValueProps } from "./KeyValue.js";
 export { KeyValue } from "./KeyValue.js";
-export type { KnowledgeRowProps } from "./KnowledgeRow.js";
-export { KnowledgeRow } from "./KnowledgeRow.js";
 // ── AM5: KpiStat + Sparkline — extracted base primitives from data-renderer ──
 export type { KpiStatMetric, KpiStatProps } from "./KpiStat.js";
 export { KpiStat } from "./KpiStat.js";

@@ -27,7 +27,7 @@
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 
-export type ReferenceChipKind = "artifact" | "image" | "knowledge" | "block" | "task";
+export type ReferenceChipKind = "artifact" | "image" | "document" | "block" | "task";
 export type ReferenceChipMode = "draft" | "posted";
 
 export interface ReferenceChipProps {
@@ -47,11 +47,11 @@ const ICON: Record<ReferenceChipKind, string> = {
 		"M5.2 3.4L1 8l4.2 4.6 1.1-1L3.2 8l3.1-3.6-1.1-1zm5.6 0l-1.1 1L13.8 8l-3.1 3.6 1.1 1L16 8l-4.2-4.6z",
 	image:
 		"M2.5 2.5h11a1 1 0 011 1v9a1 1 0 01-1 1h-11a1 1 0 01-1-1v-9a1 1 0 011-1zm0 1.5v6.1l3-3 2.2 2.2L11 5.3l3 3V4H2.5zM5.3 5a1.1 1.1 0 110 2.2 1.1 1.1 0 010-2.2z",
-	knowledge:
+	document:
 		"M3 1.5h7l3 3v9.5a.5.5 0 01-.5.5H3a.5.5 0 01-.5-.5v-12a.5.5 0 01.5-.5zm6.5 1.2V4.5h1.8L9.5 2.7zM4.5 6.3h7v1.2h-7V6.3zm0 2.6h7v1.2h-7V8.9zm0 2.6h4.6v1.2H4.5v-1.2z",
 	block: "M2.5 2.5h11v2.2h-11V2.5zm0 3.6h11v2.2h-11V6.1zm0 3.6h7v2.2h-7V9.7z",
 	// Checkbox-with-check — a dependency chip references another TASK,
-	// distinct from the file/knowledge/block shapes above.
+	// distinct from the file/document/block shapes above.
 	task: "M2.5 2.5h11v11h-11v-11zm1.5 1.5v8h8v-8h-8zm1.6 4.3l1.6 1.6 3-3 1.1 1.1-4.1 4.1-2.7-2.7z",
 };
 const ICON_ARROW = "M3 8h8.2L8 4.8 9.2 3.6 14.4 8l-5.2 4.4L8 11.2 11.2 8H3V8z";

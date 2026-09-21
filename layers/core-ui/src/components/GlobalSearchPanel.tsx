@@ -2,10 +2,10 @@ import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
+	DocRow,
 	EmptyState,
 	ErrorState,
 	ensureOverlayRoot,
-	KnowledgeRow,
 	SearchField,
 	TaskCard,
 	ThreadRow,
@@ -15,7 +15,7 @@ import { useGlobalSearch } from "../hooks/useGlobalSearch";
 import { useKeyboardNavigation } from "../hooks/useKeyboardNavigation";
 import { relativeShort } from "../utils/time.js";
 
-type ResultType = "conversation" | "work" | "knowledge";
+type ResultType = "conversation" | "work" | "document";
 
 export interface GlobalSearchPanelProps {
 	open: boolean;
@@ -30,7 +30,7 @@ interface FlatItem {
 
 /**
  * @lore GlobalSearchPanel is a composition panel that assembles Tier 1/2 components
- * (SearchField, ThreadRow, TaskCard, KnowledgeRow) and DaisyUI primitives. It is NOT
+ * (SearchField, ThreadRow, TaskCard, DocRow) and DaisyUI primitives. It is NOT
  * one of the 19 custom components in the component budget — it is a page-level
  * composition, similar to how a page assembles components without being a component itself.
  */
@@ -82,7 +82,7 @@ export function GlobalSearchPanel({
 			items.push({ type: "work", id: w.id });
 		}
 		for (const k of search.results.knowledge) {
-			items.push({ type: "knowledge", id: k.id });
+			items.push({ type: "document", id: k.id });
 		}
 		return items;
 	}, [search.results.conversations, search.results.work, search.results.knowledge]);
@@ -190,7 +190,7 @@ export function GlobalSearchPanel({
 					className="max-w-[640px] w-full p-3 flex flex-col gap-[9px] max-h-[80vh] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)]"
 				>
 					<SearchField
-						placeholder="Search conversations, work, knowledge..."
+						placeholder="Search conversations, work, documents..."
 						value={search.query}
 						onChange={search.setQuery}
 						loading={search.loading}
@@ -269,7 +269,7 @@ export function GlobalSearchPanel({
 
 						{search.results.knowledge.length > 0 && (
 							<div>
-								<h3 className="type-label   text-[var(--text-tertiary)] px-2 py-1">Knowledge</h3>
+								<h3 className="type-label   text-[var(--text-tertiary)] px-2 py-1">Documents</h3>
 								{search.results.knowledge.map((k) => {
 									const idx = itemIndex++;
 									return (
@@ -281,11 +281,11 @@ export function GlobalSearchPanel({
 													: ""
 											}
 										>
-											<KnowledgeRow
+											<DocRow
 												title={k.title}
 												status={k.status}
 												timestamp={relativeShort(k.timestamp)}
-												onClick={() => onNavigate("knowledge", k.id)}
+												onClick={() => onNavigate("document", k.id)}
 											/>
 										</div>
 									);
@@ -296,7 +296,7 @@ export function GlobalSearchPanel({
 						{showEmptyState && (
 							<EmptyState
 								title="No matches"
-								description="Try a different query to find conversations, work items, or knowledge."
+								description="Try a different query to find conversations, work items, or documents."
 								dataTestId="search-empty"
 							/>
 						)}
