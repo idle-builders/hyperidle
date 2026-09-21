@@ -93,3 +93,5 @@ Working file for refinement and architecture. Deleted at ship.
    writer's next sessions. Artifact = attached to the task or thread being worked in, server fills
    the task from the session. Document = in the knowledge tree. Search and open take the same word.
    The tools `write_memory` and `create_artifact` go. The task and thread pages keep "Artifacts".
+5. **A memory is read and edited by its writer and, for an agent, by the person who owns that
+   agent.** Nobody else. Start there; opening it to the team is a later call.
