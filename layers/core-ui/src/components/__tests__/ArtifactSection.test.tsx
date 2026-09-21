@@ -12,19 +12,20 @@
  *  - heading rendered when provided
  *  - AC10: clicking a row enters split mode, renders detail pane
  *
- * Migrated from the old filter/layout/useArtifacts API to parentKind/parentId/useParentedKnowledgeItems.
+ * @lore BC4: repointed off `useParentedKnowledgeItems`/`useKnowledgeItem` onto
+ * `useDocuments`/`useDocument` (architecture.md §9.2, §5.2).
  */
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../hooks/useParentedKnowledgeItems", () => ({
-	useParentedKnowledgeItems: vi.fn(),
+vi.mock("../../hooks/useDocuments.js", () => ({
+	useDocuments: vi.fn(),
 }));
 
-vi.mock("../../hooks/useKnowledgeItem", () => ({
-	useKnowledgeItem: vi.fn(),
+vi.mock("../../hooks/useDocument.js", () => ({
+	useDocument: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -32,8 +33,8 @@ vi.mock("react-router-dom", async (importOriginal) => {
 	return { ...actual, useNavigate: () => vi.fn() };
 });
 
-import { useKnowledgeItem } from "../../hooks/useKnowledgeItem";
-import { useParentedKnowledgeItems } from "../../hooks/useParentedKnowledgeItems";
+import { useDocument } from "../../hooks/useDocument.js";
+import { useDocuments } from "../../hooks/useDocuments.js";
 import { ArtifactSection } from "../ArtifactSection";
 
 const ITEM_A = {
@@ -41,18 +42,36 @@ const ITEM_A = {
 	title: "Agent output alpha",
 	body: "# Output alpha",
 	format: "markdown",
-	status: "captured",
-	version: 1,
-	updatedBy: "agent:sess-1",
+	status: "active",
+	slot: "ordinary",
 	scopeKind: "factory",
 	scopeId: null,
-	topic: null,
+	parentKind: "task",
+	parentId: "task-test",
+	position: 0,
+	version: 1,
+	updatedBy: "agent:sess-1",
 	createdAt: "2026-09-01T00:00:00.000Z",
 	updatedAt: "2026-09-01T00:00:00.000Z",
+	readCount: 0,
+	lastReadAt: null,
+	sessionUseCount: 0,
+	lastUsedAt: null,
+	as: "artifact" as const,
 };
 
 const ITEM_B = { ...ITEM_A, id: "ki-test-b", title: "Agent output beta", body: "# Output beta" };
 const ITEM_C = { ...ITEM_A, id: "ki-test-c", title: "Agent output gamma", body: "# Output gamma" };
+
+function documentView(row: typeof ITEM_A): {
+	document: typeof ITEM_A;
+	ancestors: [];
+	children: [];
+	siblings: [];
+	scopeName: string;
+} {
+	return { document: row, ancestors: [], children: [], siblings: [], scopeName: "Factory" };
+}
 
 function renderSection(
 	overrides: Partial<React.ComponentProps<typeof ArtifactSection>> = {},
@@ -72,12 +91,18 @@ describe("ArtifactSection", () => {
 	// ── Loading ───────────────────────────────────────────────────────────────
 
 	it("renders SkeletonList while loading", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "loading",
+			documents: [],
+			error: null,
+			retry: vi.fn(),
+		});
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
 			data: null,
 			error: null,
-			isLoading: true,
+			refresh: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
 		renderSection();
 
@@ -87,12 +112,18 @@ describe("ArtifactSection", () => {
 	// ── Error ─────────────────────────────────────────────────────────────────
 
 	it("renders ErrorState when fetch fails and heading is provided", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: null,
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "error",
+			documents: [],
 			error: "HTTP 500",
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderSection({ heading: "Artifacts" });
 
@@ -100,28 +131,39 @@ describe("ArtifactSection", () => {
 	});
 
 	it("renders null when fetch fails and no heading is provided", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: null,
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "error",
+			documents: [],
 			error: "HTTP 500",
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderSection({ heading: undefined });
 
-		// MemoryRouter is the firstChild; its content should be empty
 		expect(screen.queryByTestId("artifact-section-container")).toBeNull();
 	});
 
 	// ── Empty ─────────────────────────────────────────────────────────────────
 
 	it("renders EmptyState when data is empty and heading is provided", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: { items: [] },
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "ready",
+			documents: [],
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderSection({ heading: "Artifacts" });
 
@@ -129,12 +171,18 @@ describe("ArtifactSection", () => {
 	});
 
 	it("uses emptyDescription prop when provided", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: { items: [] },
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "ready",
+			documents: [],
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderSection({
 			heading: "Artifacts",
@@ -145,12 +193,18 @@ describe("ArtifactSection", () => {
 	});
 
 	it("uses the generic fallback description when emptyDescription is not provided", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: { items: [] },
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "ready",
+			documents: [],
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderSection({ heading: "Artifacts" });
 
@@ -160,12 +214,18 @@ describe("ArtifactSection", () => {
 	});
 
 	it("renders null when data is empty and no heading is provided", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: { items: [] },
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "ready",
+			documents: [],
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderSection({ heading: undefined });
 
@@ -175,12 +235,18 @@ describe("ArtifactSection", () => {
 	// ── Populated ─────────────────────────────────────────────────────────────
 
 	it("renders one row per item when populated", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: { items: [ITEM_A, ITEM_B, ITEM_C] },
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "ready",
+			documents: [ITEM_A, ITEM_B, ITEM_C],
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderSection({ heading: "Artifacts" });
 
@@ -190,43 +256,60 @@ describe("ArtifactSection", () => {
 	});
 
 	it("renders heading when provided and items exist", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: { items: [ITEM_A] },
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "ready",
+			documents: [ITEM_A],
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
+			data: null,
+			error: null,
+			refresh: vi.fn(),
+		});
 
 		renderSection({ heading: "My Artifacts" });
 
 		expect(screen.getByText("My Artifacts")).toBeInTheDocument();
 	});
 
-	it("calls useParentedKnowledgeItems with the provided parentKind and parentId", () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
+	it("calls useDocuments with the parent+as:artifact filter for the provided parentKind/parentId", () => {
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "loading",
+			documents: [],
+			error: null,
+			retry: vi.fn(),
+		});
+		vi.mocked(useDocument).mockReturnValue({
+			status: "idle",
 			data: null,
 			error: null,
-			isLoading: true,
+			refresh: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({ data: null, error: null, isLoading: false });
 
 		renderSection({ parentKind: "thread", parentId: "thr-99" });
 
-		expect(useParentedKnowledgeItems).toHaveBeenCalledWith("thread", "thr-99");
+		expect(useDocuments).toHaveBeenCalledWith({
+			parent: { kind: "thread", id: "thr-99" },
+			as: "artifact",
+		});
 	});
 
 	// ── AC10: click → split detail ────────────────────────────────────────────
 
 	it("AC10: clicking an item row renders the split detail pane", async () => {
-		vi.mocked(useParentedKnowledgeItems).mockReturnValue({
-			data: { items: [ITEM_A] },
+		vi.mocked(useDocuments).mockReturnValue({
+			status: "ready",
+			documents: [ITEM_A],
 			error: null,
-			isLoading: false,
+			retry: vi.fn(),
 		});
-		vi.mocked(useKnowledgeItem).mockReturnValue({
-			data: ITEM_A,
+		vi.mocked(useDocument).mockReturnValue({
+			status: "ready",
+			data: documentView(ITEM_A),
 			error: null,
-			isLoading: false,
+			refresh: vi.fn(),
 		});
 
 		renderSection();
