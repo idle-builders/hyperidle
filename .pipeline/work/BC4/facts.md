@@ -95,3 +95,14 @@ Working file for refinement and architecture. Deleted at ship.
    The tools `write_memory` and `create_artifact` go. The task and thread pages keep "Artifacts".
 5. **A memory is read and edited by its writer and, for an agent, by the person who owns that
    agent.** Nobody else. Start there; opening it to the team is a later call.
+
+## Founder answers to the architecture's amendments (2026-09-21)
+- A1 document events for routines: **dropped now.**
+- A2 narrowing scope: **keep the cascade** (children are narrowed with the parent), not a refusal.
+  Built honestly: same transaction, one change row per narrowed child, same actor.
+- A4 memory default: founder chose "alternative" (team-wide) — contradicts ruling 5; being clarified.
+- O1 plugin detach: **(b)** the injected hook.
+- A5 side table: **dropped, but usage counts are kept and made real** — how much a document is read
+  or used helps knowledge-management plugins. The knowledge-management plugin gets a routine that
+  archives documents not used for a while.
+- A6 `role` → `slot`: **yes.**
