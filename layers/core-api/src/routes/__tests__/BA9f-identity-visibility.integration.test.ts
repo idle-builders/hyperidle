@@ -12,6 +12,7 @@
  */
 
 import { documents, type HyperIdleDb, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -150,5 +151,84 @@ describe("an agent's identity document is knowledge, not a private note", () => 
 
 		expect(ids).toContain("ki_af_agent-ba9f");
 		expect(ids).not.toContain("ki_note_other");
+	});
+});
+
+/**
+ * The new document action mechanism (architecture.md §8.3, B11): a created
+ * agent's identity is seeded through the shared `routes/agent-identity.ts`
+ * helper — `edit_document` with the caller-chosen id `doc_af_<agentId>` — and
+ * read through `search_documents`/`open_document`, never `/api/knowledge`.
+ */
+describe("agent identity through the document action mechanism", () => {
+	const CREATOR = "u-founder-ba9f-actions";
+	const READER = "u-other-ba9f-actions";
+
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+	});
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	async function seedTwoHumans(db: HyperIdleDb): Promise<void> {
+		const now = new Date().toISOString();
+		await db.insert(users).values([
+			{ id: CREATOR, name: "Creator", role: "founder", status: "active", kind: "human", createdAt: now },
+			{ id: READER, name: "Reader", role: "founder", status: "active", kind: "human", createdAt: now },
+		]);
+	}
+
+	test("a created agent's identity document gets the exact doc_af_<agentId> id, and a non-owner can open it", async ({
+		db,
+		app,
+	}) => {
+		await seedTwoHumans(db);
+
+		const createRes = await app.request("/api/agents", {
+			method: "POST",
+			headers: authHeaders(CREATOR),
+			body: JSON.stringify({ name: "Atlas", role: "builder", systemPrompt: "You are Atlas." }),
+		});
+		expect(createRes.status).toBe(201);
+		const created = (await createRes.json()) as { id: string; identityKnowledgeId: string };
+		expect(created.identityKnowledgeId).toBe(`doc_af_${created.id}`);
+
+		const openRes = await app.request("/api/actions/open_document", {
+			method: "POST",
+			headers: authHeaders(READER),
+			body: JSON.stringify({ id: created.identityKnowledgeId }),
+		});
+		expect(openRes.status).toBe(200);
+		const opened = (await openRes.json()) as {
+			ok: true;
+			data: { document: { id: string; body: string; slot: string } };
+		};
+		expect(opened.data.document.id).toBe(created.identityKnowledgeId);
+		expect(opened.data.document.body).toBe("You are Atlas.");
+		expect(opened.data.document.slot).toBe("agent_file");
+	});
+
+	test("listing and reading an identity through search never bumps its read count", async ({
+		db,
+		app,
+	}) => {
+		await seedTwoHumans(db);
+
+		const createRes = await app.request("/api/agents", {
+			method: "POST",
+			headers: authHeaders(CREATOR),
+			body: JSON.stringify({ name: "Ranger", role: "builder", systemPrompt: "You are Ranger." }),
+		});
+		const created = (await createRes.json()) as { id: string; identityKnowledgeId: string };
+
+		await app.request("/api/agents", { headers: authHeaders(READER) });
+		await app.request(`/api/agents/${created.id}/profile`, { headers: authHeaders(READER) });
+
+		const [doc] = await db
+			.select()
+			.from(documents)
+			.where(eq(documents.id, created.identityKnowledgeId));
+		expect(doc?.readCount).toBe(0);
 	});
 });

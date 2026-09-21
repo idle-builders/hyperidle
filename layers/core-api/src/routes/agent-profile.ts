@@ -36,7 +36,6 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { getAgentIdentityIds } from "@hyperidle/document";
 import type {
 	AgentHarnessCapabilities,
 	AgentProfileResponse,
@@ -52,6 +51,7 @@ import {
 	harnessCapabilitiesForType,
 } from "../services/harness-capability-reader.js";
 import { computeApprovalRate } from "../services/policy-bindings.js";
+import type { AgentIdentityPort } from "./agent-identity.js";
 
 // @lore AU26 J4: `computeHealthSignals`, `deriveHealthLevel` and
 // `deriveHealthDetail` moved to `@hyperidle/domain-model` (`agent-run-view.ts`),
@@ -73,6 +73,7 @@ export async function handleAgentProfile(
 	db: import("@hyperidle/db").HyperIdleDb,
 	adapterPool: HarnessCapabilityReader | undefined,
 	agentOrchestration: AgentOrchestrationPort,
+	identity: AgentIdentityPort,
 ): Promise<Response> {
 	const agentId = c.req.param("id");
 	if (!agentId) {
@@ -145,7 +146,8 @@ export async function handleAgentProfile(
 		teamName,
 		teamId: resolvedTeamId,
 		createdAt: agent.createdAt,
-		identityKnowledgeId: (await getAgentIdentityIds(db, [agentId])).get(agentId) ?? null,
+		identityKnowledgeId:
+			(await identity.identityIdsFor(db, c.get("userId"), [agentId])).get(agentId) ?? null,
 		harnessType: runConfig.harnessType,
 		maxConcurrentSessions: runConfig.maxConcurrentSessions,
 		mcpSetup: null,

@@ -397,9 +397,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder;
 		const reviewVerdictRecorder = options.reviewVerdictRecorder ?? defaultGateVerdictRecorder;
 
-		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
-		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
-		api.route("/agents", createAgentRoutes(options.db, agentOrchestration, options.adapterPool));
 		// the action list. `search_tasks`/`open_task`/`edit_task` mount at
 		// `POST /api/actions/<name>` — one loop over the composed list, never a
 		// per-object route factory. the architecture doc §7.
@@ -476,13 +473,39 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		) => Promise<
 			import("@hyperidle/domain-model").ActionResult<import("@hyperidle/domain-model").DocumentView>
 		>;
+		// @lore document-module B11: an agent's identity document (§8.3) — the
+		// one shared helper every agent-creating route (`/agents`, `/org`'s
+		// scaffold-request, `/teams`'s create) reduces to, built from the same
+		// composed `search_documents`/`edit_document` runners rather than
+		// `@hyperidle/document`'s repository functions.
+		const agentIdentity = createAgentIdentityPort({
+			searchDocuments: searchDocumentsRun,
+			editDocument: editDocumentRun,
+			eventBus,
+		});
+		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
+		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
+		// Mounted here (after the action list and `agentIdentity` both exist)
+		// rather than at its old pre-actions spot — the profile/list/create/
+		// delete handlers all reach an agent's identity document through it now.
+		api.route(
+			"/agents",
+			createAgentRoutes(options.db, agentOrchestration, options.adapterPool, agentIdentity),
+		);
 		// @lore `/teams` mounts after the action list is built and `sendMessage`
 		// extracted — its POST handler's welcome-message seed posts through the
 		// composed action instead of a raw `insertThread`/`insertMessage` into
 		// the literal id `thr-ast-${userId}`.
 		api.route(
 			"/teams",
-			createTeamRoutes(options.db, eventBus, agentOrchestration, sendMessage, options.adapterPool),
+			createTeamRoutes(
+				options.db,
+				eventBus,
+				agentOrchestration,
+				sendMessage,
+				agentIdentity,
+				options.adapterPool,
+			),
 		);
 		// @lore BC3 architecture.md §5 B1: `/reviews`, `/conversations`, `/threads`
 		// and their route files are DELETED — search_threads/open_thread/
@@ -497,8 +520,21 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/users", createUserRoutes(options.db));
-		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
-		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
+		api.route("/org", createOrgRoutes(options.db, agentOrchestration, agentIdentity));
+		// @lore document-module B12: a routine's prompt document reads/writes
+		// through the same composed `search_documents`/`edit_document` runners,
+		// extracted above (architecture.md §8.2, §8.3) — never
+		// `@hyperidle/document`'s repository functions directly.
+		api.route(
+			"/routines",
+			createRoutineRoutes(
+				options.db,
+				eventBus,
+				agentOrchestration,
+				searchDocumentsRun,
+				editDocumentRun,
+			),
+		);
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
 		// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.

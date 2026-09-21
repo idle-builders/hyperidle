@@ -20,7 +20,6 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { upsertAgentIdentity } from "@hyperidle/document";
 import type {
 	CreateTeamRequest,
 	CreateTeamResponse,
@@ -50,6 +49,7 @@ import { Hono } from "hono";
 import type { SendMessageRunFn } from "../actions/action.js";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
+import type { AgentIdentityPort } from "./agent-identity.js";
 import { resolveHarnessAvailable } from "./agent-profile.js";
 
 /** Inlined from @hyperidle/presentation-format (server copy removed, row 18). */
@@ -119,6 +119,10 @@ export function createTeamRoutes(
 	 * `editTask`/`adjustThread`.
 	 */
 	sendMessage: SendMessageRunFn,
+	/** The shared agent-identity helper (architecture.md §8.3) — every route
+	 * that scaffolds an agent reduces to it instead of the retired
+	 * `@hyperidle/document` repository functions. */
+	identity: AgentIdentityPort,
 	/** AB2: adapter pool for resolving harness availability per agent. */
 	adapterPool?: HarnessCapabilityReader,
 ): Hono<HyperIdleEnv> {
@@ -133,7 +137,7 @@ export function createTeamRoutes(
 		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
 		insertUser,
 		...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
-		upsertAgentIdentity,
+		upsertAgentIdentity: identity.upsertAgentIdentity,
 	};
 
 	// GET / — list all teams with portfolio counters

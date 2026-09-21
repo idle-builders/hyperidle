@@ -25,12 +25,6 @@ import type {
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	getAgentIdentityIds,
-	listItemIdsByParent,
-	setKnowledgeStatus,
-	upsertAgentIdentity,
-} from "@hyperidle/document";
 import { AGENT_CATEGORIES } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { getTeam } from "@hyperidle/org";
@@ -38,6 +32,7 @@ import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
+import type { AgentIdentityPort } from "./agent-identity.js";
 import { handleAgentProfile } from "./agent-profile.js";
 import { validateAgentConfig } from "./validate-agent-config.js";
 
@@ -149,7 +144,8 @@ function buildRunConfigPatch(data: PatchAgentData): AgentOrchestrationRunConfigP
 export function createAgentRoutes(
 	db: HyperIdleDb,
 	agentOrchestration: AgentOrchestrationPort,
-	adapterPool?: HarnessCapabilityReader,
+	adapterPool: HarnessCapabilityReader | undefined,
+	identity: AgentIdentityPort,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -158,7 +154,7 @@ export function createAgentRoutes(
 	// as the id param when the URL is /api/agents/someId/profile.
 	// Hono matches routes by registration order within the same method.
 	router.get("/:id/profile", async (c) => {
-		return handleAgentProfile(c, db, adapterPool, agentOrchestration);
+		return handleAgentProfile(c, db, adapterPool, agentOrchestration, identity);
 	});
 
 	// @lore BA9g: `GET /templates/:role` is DELETED. It served
@@ -190,8 +186,9 @@ export function createAgentRoutes(
 		const runConfigs = await agentOrchestration.runConfig.readBatch(agentRows.map((a) => a.id));
 		// The identity document each agent is bound to — the list links to it, it
 		// does not carry its text.
-		const identityIds = await getAgentIdentityIds(
+		const identityIds = await identity.identityIdsFor(
 			db,
+			c.get("userId"),
 			agentRows.map((a) => a.id),
 		);
 
@@ -293,7 +290,7 @@ export function createAgentRoutes(
 			teamId: data.teamId ?? null,
 			createdAt: now,
 		});
-		const identityKnowledgeId = await upsertAgentIdentity(db, {
+		const identityKnowledgeId = await identity.upsertAgentIdentity(db, {
 			agentId: id,
 			agentName: data.name,
 			body: data.systemPrompt ?? "",
@@ -401,7 +398,7 @@ export function createAgentRoutes(
 			role: updated.role,
 			agentCategory: updated.agentCategory ?? null,
 			ownerUserId: updated.ownerUserId ?? null,
-			identityKnowledgeId: (await getAgentIdentityIds(db, [id])).get(id) ?? null,
+			identityKnowledgeId: (await identity.identityIdsFor(db, c.get("userId"), [id])).get(id) ?? null,
 			harnessType: updatedRunConfig.harnessType,
 			modelId: updatedRunConfig.modelId,
 			modelProvider: updatedRunConfig.modelProvider,
@@ -434,13 +431,9 @@ export function createAgentRoutes(
 		// Deleting a parent archives its
 		// knowledge — an agent's identity document (and anything else
 		// parented to it) has no UI for an orphan, so archiving is the only
-		// safe default. Archived, not hard-deleted: the audit tables hold
-		// RESTRICT FKs on knowledge_items.id.
-		await setKnowledgeStatus(
-			db,
-			await listItemIdsByParent(db, { parentKind: "agent", parentId: id }),
-			"archived",
-		);
+		// safe default. Archived, not hard-deleted: `changes.actor` holds a
+		// RESTRICT FK on `users.id`, and the row's own history never disappears.
+		await identity.archiveChildren(db, c.get("userId"), id);
 
 		return c.json({ id, status: "retired" });
 	});

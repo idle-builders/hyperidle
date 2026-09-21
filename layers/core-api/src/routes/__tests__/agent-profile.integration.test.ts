@@ -27,6 +27,7 @@
 
 import {
 	agentRunConfig,
+	documents,
 	type HyperIdleDb,
 	messages,
 	tasks,
@@ -34,7 +35,6 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { upsertAgentIdentity } from "@hyperidle/document";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -90,11 +90,21 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	});
 	// Who the agent is — an `agent_file` document bound to it. The profile links
 	// to the document; it does not carry its text.
-	await upsertAgentIdentity(db, {
-		agentId: "ab1-agent-builder",
-		agentName: "AB1 Builder Bot",
+	await db.insert(documents).values({
+		id: "ab1-agent-builder-identity",
+		scopeKind: "user",
+		scopeId: "ab1-agent-builder",
+		title: "AB1 Builder Bot — identity",
 		body: "You are a builder agent.",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		slot: "agent_file",
+		parentKind: "agent",
+		parentId: "ab1-agent-builder",
 		updatedBy: "ab1-agent-builder",
+		createdAt: NOW,
+		updatedAt: NOW,
 	});
 
 	// Seed a human user (to test 404 path)

@@ -16,7 +16,6 @@
  */
 
 import { agentRunConfig, documents, type HyperIdleDb, teams, users } from "@hyperidle/db";
-import { upsertAgentIdentity } from "@hyperidle/document";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -550,11 +549,22 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 	// there is no UI for an orphan, so archiving is the only safe default.
 	test("archives the agent's identity document, parented to the agent", async ({ db, app }) => {
 		await seedPrereqs(db);
-		const identityId = await upsertAgentIdentity(db, {
-			agentId: "x3-agent-builder",
-			agentName: "X3 Builder Bot",
+		const identityId = "x3-identity-doc";
+		await db.insert(documents).values({
+			id: identityId,
+			scopeKind: "user",
+			scopeId: "x3-agent-builder",
+			title: "X3 Builder Bot — identity",
 			body: "I am the builder.",
+			format: "markdown",
+			status: "active",
+			version: 1,
+			slot: "agent_file",
+			parentKind: "agent",
+			parentId: "x3-agent-builder",
 			updatedBy: "u-founder-x3",
+			createdAt: NOW,
+			updatedAt: NOW,
 		});
 
 		const res = await app.request("/api/agents/x3-agent-builder", {
