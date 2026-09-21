@@ -100,9 +100,13 @@ Working file for refinement and architecture. Deleted at ship.
 - A1 document events for routines: **dropped now.**
 - A2 narrowing scope: **keep the cascade** (children are narrowed with the parent), not a refusal.
   Built honestly: same transaction, one change row per narrowed child, same actor.
-- A4 memory default: founder chose "alternative" (team-wide) — contradicts ruling 5; being clarified.
+- A4 memory default: clarified — **a memory is private; a document is team based.**
 - O1 plugin detach: **(b)** the injected hook.
 - A5 side table: **dropped, but usage counts are kept and made real** — how much a document is read
   or used helps knowledge-management plugins. The knowledge-management plugin gets a routine that
   archives documents not used for a while.
 - A6 `role` → `slot`: **yes.**
+- Usage counts, confirmed: read count + last read (raised on open), used-in-sessions + last used
+  (raised when handed to an agent at session start); search filters and sorts by them; no citation
+  count until something cites; the plugin's decay routine searches unused documents and archives
+  them with a plain edit.

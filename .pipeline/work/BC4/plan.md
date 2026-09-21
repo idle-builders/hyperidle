@@ -50,6 +50,16 @@ rules, the artifacts section and triage all use it. Open returns the document wi
 children and its siblings. For the first time agents get both as tools — today they can only read
 what was written into their sandbox at session start.
 
+**Usage is counted for real.** A document carries how often and when it was last opened, and how
+often and when it was last handed to an agent at session start. Search can filter and sort by them
+("not used for 90 days"). The side table with ranking numbers goes; its two live values (confidence,
+tags) move onto the document. The knowledge-management plugin's decay routine has its librarian
+search for documents unused for a while and archive them with a plain edit. Citations are not
+counted until something cites.
+
+**Narrowing the audience cascades.** Making a document narrower narrows its wider children with it,
+in the same transaction, one change row per child, same actor.
+
 **Context for a session stays.** Picking and ranking the documents an agent starts with is a
 deliberate construct and is kept: it becomes a read model inside the document module that the two
 run resolvers call. Files written into the sandbox, and edits to those files flowing back, stay as
@@ -84,6 +94,14 @@ edit. The cross-object search box keeps its route until the user module; its doc
 search documents.
 
 ## How we work on this
+
+**Confirmed 2026-09-21, after the architecture and its two critiques.** The three old document
+events for routines are dropped now (no routine can react to a document change until
+subscriptions). Narrowing cascades, recorded per child. A memory is private; a document written by
+an agent goes to its team. Editing a plugin's skill or rule still marks it detached, through one
+small hook the platform item removes. Usage counts are kept and made real; the plugin archives
+unused documents. The internal field `role` becomes `slot`. The agent's sandbox folder stays
+`knowledge/` — the name of the place, like the sidebar.
 
 **Confirmed in interview 2026-09-20/21** — five rulings, recorded in `facts.md`: no conflict
 object; merge and split removed; rename everything except the sidebar word; memory and artifact as
