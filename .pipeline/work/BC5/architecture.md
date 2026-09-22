@@ -17,8 +17,12 @@ block only):
   note on the agent (`users.health`, added by 0088) that lands as `user.changed`, so whoever
   subscribes to `user.changed` in reach (the owner, the team) sees it. The note text carries the
   crash count of the last 7 days, counted from the agent's own `user` change rows; every crash is a
-  change (the old "silent below 3" threshold cannot be kept without a second store). If the founder
-  says drop: T7b deletes the file and 0088 adds no column.
+  change (the old "silent below 3" threshold cannot be kept without a second store). Two facts for
+  the founder: under this default a crash notice reaches only people subscribed to `user.changed`
+  in reach — today every notice at or above the threshold lands in everyone's inbox — and every
+  crash writes one `user` change row. The reaction gets an `editUser` runner through
+  `service-bootstrap.ts` beside `editTask`/`sendMessage` (`app.ts:602-610`). If the founder says
+  drop: T7b deletes the file and 0088 adds no column.
 - **F2 — factory agents and the retro.** (a) System users (`bootstrap/factory-state.ts`) and
   factory-scope plugin agents — the librarian, owner of all three shipped subscriptions — have
   neither team nor owner, and tasks are never global (`tasks.team_id` NOT NULL, `schema.ts:171`).
@@ -37,8 +41,10 @@ block only):
    one-line persona (`routes/users.ts:145-173`, `org/src/resolve-scaffold-specs.ts:27-28,:72-81`) and
    `POST /teams` scaffolds `<Team> Agent`, `agentCategory:"team"`, with the picked harness
    (`resolve-scaffold-specs.ts:50-60`, `teams-routes.ts:273-301`), then stamps that harness on the
-   assistant (`:348-385`). §7: three `edit_user` calls reproduce these rows. The welcome message,
-   `team_created` and the founder→team org edge are not written — membership is `users.team_id`.
+   assistant (`:348-385`). §7: three `edit_user` calls reproduce these rows. The welcome message and
+   `team_created` are not written. Setup no longer writes the founder→team org edge
+   (`teams-routes.ts:312-320`); membership is `users.team_id` and the org chart shows it through the
+   row's `team` field, so nothing visible is lost.
 3. **Folder detail after the pick stays.** `POST /filesystems/inspect-path` (`SetupFlow.tsx:218,:325`)
    is a plumbing lookup: its row moves from `LEGACY_ROUTES` (`actions-projected.ts:153`) to
    `PLUMBING_ROUTES` in T11, where the rest of `agent-orchestration/src/routes/filesystems.ts` is
@@ -99,7 +105,8 @@ a `sentence`, pure invariants returning `Problem[]`, a `USER_ACTIONS` map; expor
 `USER_STATUSES` derived from the writers (seen: `active`, `idle`, `inactive`, `retired` —
 `routes/agents.ts:430`, `users/src/runnable-agent.ts`, `platform-actions.ts:146`).
 `AGENT_CATEGORIES` reused. `ASSISTANT_IDENTITY` — the persona text moved verbatim from
-`resolve-scaffold-specs.ts:27-28` (the welcome screen passes it). `ChangeRowSchema` `{ id, object,
+`resolve-scaffold-specs.ts:27-28`; from T1 the scaffold imports this constant (one copy until T11
+deletes the scaffold), and the welcome screen passes it. `ChangeRowSchema` `{ id, object,
 objectId, kind: created|changed|message, actor, before: record|null, after: record, at }`.
 
 **`UserRowSchema`** `{ id, kind, name, role, status, email|null, avatarUrl|null, createdAt,
@@ -150,7 +157,12 @@ schemas here; the TS interfaces go. Problem: `not_found`.
 
 `identity` is written after commit, internally, as the agent's `agent_file` document through the
 existing helper (`routes/agent-identity.ts`, 155 lines — moved verbatim into `@hyperidle/user`, its
-`ActionContext` import swapped for the package's mirror) — written when given, as the scaffold did
+`ActionContext` import swapped for the package's mirror) — written whenever `identity` is not
+`undefined` (an empty string writes an empty document). The Settings add always passes
+`identity: prompt ?? ""`, so every agent added in Settings has its identity document, as
+`routes/agents.ts:293-297` does today — the document is the only later way to edit it
+(`AgentEditor.tsx:399-409`). The welcome screen's assistant passes `ASSISTANT_IDENTITY`; its team
+agent omits `identity` and gets no document, as the scaffold does today
 (`org/src/scaffold-agents.ts:191-195`). `status:"retired"` archives the agent's child documents after
 commit through the same helper's `archiveChildren`, as `routes/agents.ts:432-437` does. `event` is
 `z.enum(OBJECT_EVENTS)`: an unknown event is refused by the parse.
@@ -224,7 +236,8 @@ like any other (paused, since it is `active:false`). (2) Prompt documents of mig
 routine_runs, routines, notification_queue`. (5) documents parent-kind check loses `routine`.
 
 **0090_team_is_a_name.sql (T11).** (1) Every human with no team gets the target of its oldest
-`mechanism='team'` edge, else the oldest team; edges are untouched. (2) `ALTER TABLE teams DROP`
+`mechanism='team'` edge whose target is an existing `teams.id` (older targets are team-member ids,
+`SettingsOrgChart.tsx:16`), else the oldest team; edges are untouched. (2) `ALTER TABLE teams DROP`
 `phase`, `brief_path`, `architecture_path`, `brand_path`, `principles_path`, `factory_db_path`,
 `lead_agent_id`, `capacity`, `formed_at`. (3) `DELETE FROM agent_work_intents WHERE kind =
 'routine_run'` (their stored request is routine-shaped and no code runs it); `sessions.source_kind`
@@ -284,7 +297,10 @@ Per event, after the emitter's commit (a `void` async handler — PGlite's one c
 userId? (owner), taskId:null, sourceCorrelation:{ subscriptionId, changeId?, teamId? },
 contextBundle:{ kind:"subscription", subscription:{ id, event, schedule }, prompt: string|null,
 change: ChangeRow|null, agent, team|null, documents }, agentConfig, harnessDisabled? }`. `prompt` is
-the subscription's `prompt` document body.
+the subscription's `prompt` document body. `edit_user` writes that document with the subscriber's
+effective team as its scope (`scopeKind:"team"`, `scopeId` = own or owner's team) or `factory` for
+a factory-wide agent — the scopes the routine used (`routines-routes.ts`, `ownerTeamId ? "team" :
+"factory"`) — so `search_documents` as the woken agent finds it when the wake is baked.
 
 **Clock** (`subscription-clock.ts`): `cron.ts` moved verbatim; `setInterval` (default 30 s,
 `AppOptions.subscriptionClockMs` replaces `routinePollIntervalMs`), a running guard; each due row
@@ -364,8 +380,11 @@ production callers) is deleted. `agent-behavior-config-impl.ts` moves into `@hyp
   archive, behaviour writes, redetect → emit. No port or document call sits inside the transaction.
 - **Change rows** (`object:'user'`): one per edit changing identity fields, `health`, team, run
   config, edges or subscriptions. Inbox marks, folders, connections, behaviour, redetect append none.
-- `DOCUMENT_PARENT_KINDS` (`actions/document.ts:36`) and `edit_document`'s system-only parent set:
-  `routine` → `subscription`; `compose.ts:189-192` `systemParentExists` asks the user module.
+- `subscription` as a document parent: T5 adds it beside `routine` in `DOCUMENT_PARENT_KINDS`
+  (`actions/document.ts:36`, parsed at `:89`, `:173`), in `edit_document`'s system-only parent check
+  (`:481-498` — system-only from the moment it exists) and in `systemParentExists`
+  (`compose.ts:189-192`, asking the user module), matching 0088's database check. T7b removes
+  `routine` from all three.
 - Platform: `PlatformActionsDeps.routines` (`platform-actions.ts:154-163`) → `subscriptions { insert,
   setLive (paused = !live), remove, get }`; manifest `routines[]` → `subscriptions[] { id, agentId,
   event? | schedule?, prompt? }` (`plugin-manifest.ts:121-156`); `routineItemId` →
@@ -383,7 +402,8 @@ production callers) is deleted. `agent-behavior-config-impl.ts` moves into `@hyp
 2. `edit_user({ kind:"ai", name:"<name>'s Assistant", role:"assistant", agentCategory:"individual",
    ownerUserId: <person>, identity: ASSISTANT_IDENTITY, runConfig: <picked harness> })`
 3. `edit_user({ kind:"ai", name:"<Team> Agent", role:"agent", agentCategory:"team", team:{ name },
-   runConfig: <picked harness> })`
+   runConfig: <picked harness> })` — no `identity`, so no identity document, as the scaffold does
+   today (`scaffold-agents.ts:191-195`)
 
 then navigate to `/work?onboarding=true` as today (`SetupFlow.tsx:240`). Ids are generated; nothing
 reads the `ast-` prefix any more (`service-bootstrap.ts:285`).
@@ -401,7 +421,8 @@ middleware instead of in front — strictly tighter. `createUserSetupRoute` and 
 |---|---|---|
 | `SettingsProfile.tsx:67` | `PATCH /users/:id` | `edit_user({ id: me, name, email })` |
 | `SettingsOrgChart.tsx:111,:129,:153` | `/org` ×3 | `search_users()` (rows carry `team`, `edges`); `edit_user({ id: from, edges })` — all three kinds as today |
-| `SettingsAgents.tsx`, `AgentEditor.tsx`, `AgentAddDialog.tsx:97`, `work/AgentDetailPane.tsx:83` | `/agents` CRUD, `/harnesses`, `/org`, `/filesystems`, injections | `search_users({ kind:"ai" })`; `open_user({ id })`; `edit_user` create (`identity` = the prompt it collects; `team` defaults to the caller's team when the form leaves it empty — today it is optional, `agents.ts:57`) / patch / `status:"retired"` / `folders.give|take` |
+| `SettingsAgents.tsx`, `AgentEditor.tsx`, `AgentAddDialog.tsx:97`, `work/AgentDetailPane.tsx:83` | `/agents` CRUD, `/harnesses`, `/org`, `/filesystems`, injections | `search_users({ kind:"ai" })`; `open_user({ id })`; `edit_user` create (`identity: prompt ?? ""` — always, so the identity document exists as today,
+`agents.ts:293-297`; `team` defaults to the caller's team when the form leaves it empty — today it is optional, `agents.ts:57`) / patch / `status:"retired"` / `folders.give|take` |
 | `SettingsFilesystems.tsx:77,:94` | `/org`, `/filesystems?teamId` | `open_user({})`.folders |
 | `SettingsHarnesses.tsx:177,:196` | `/harnesses`, redetect | `open_user({})`.runsOn; `edit_user({ id: me, redetectHarnesses: true })` |
 | `SettingsConnections.tsx:106,:370,:392` | `/connections` | `open_user({})`.connections; `edit_user({ id: me, connections })` |
@@ -486,7 +507,8 @@ ordered by `needs`; blocks without an order between them have disjoint scopes.
 
 **T1 — declarations.** §1. Scope `framework/domain-model/src/actions/user.ts`,
 `framework/domain-model/src/index.ts`, `framework/domain-model/src/__tests__/`,
-`layers/core-ui/src/services/call.ts`, `tools/governance/src/rules/actions-projected.ts` (prose).
+`layers/core-ui/src/services/call.ts`, `tools/governance/src/rules/actions-projected.ts` (prose),
+`layers/core-api/org/src/resolve-scaffold-specs.ts` (imports `ASSISTANT_IDENTITY`; its own copy goes).
 Needs —. Red: each pure code once. ~+450.
 
 **T2 — the package and 0088.** §6 moves (users, team-lookup, org-edges, cron; org-routing deleted),
@@ -513,9 +535,12 @@ remove a folder and a connection. ~+260, ~300 moved.
 
 **T5 — the user module.** §1 runs, §6. Scope `layers/core-api/user/src/{user-actions,agent-identity,
 validate-agent-config}.ts` + tests, `layers/core-api/src/routes/{agent-identity,validate-agent-config,
-agent-behavior-config-impl}.ts` (moved out; importers repointed),
-`layers/core-api/settings/src/`, `layers/core-api/changes/src/` (`listChanges` ids),
-`layers/core-api/src/actions/compose.ts`, `layers/core-api/src/app.ts` (deps),
+agent-behavior-config-impl}.ts` (moved out), their repointed importers
+`layers/core-api/src/routes/{agents,teams-routes,org,agent-profile,users,harnesses,
+settings-agent-behavior}.ts`, `layers/core-api/settings/src/`, `layers/core-api/changes/src/`
+(`listChanges` ids), `framework/domain-model/src/actions/document.ts` (`subscription` parent kind),
+`layers/core-api/src/actions/compose.ts` (user group, `systemParentExists`),
+`layers/core-api/src/app.ts` (deps, importer),
 `layers/core-api/src/__testing__/document-read-test-ports.ts`. Needs T4 (and T3 for `app.ts`). Red:
 every DB code; the two kept guards; person + team by name; owned agent's effective team; agent
 created with run config + identity + subscriptions in one call; retire archives the identity;
@@ -538,9 +563,11 @@ due schedule wakes once and advances `next_run_at`. ~+450.
 
 **T7b — cut-over and 0089.** §2 0089, §9 T7b list, F1 rewrite, §10 T7b rows. Scope everything in the
 §9 T7b bullet plus `layers/core-api/src/{service-bootstrap,boot,index}.ts`,
-`agent-run-admission-reactions.ts`, `compose.ts` (platform deps, `systemParentExists`),
+`agent-run-admission-reactions.ts`, `compose.ts` (platform deps; `systemParentExists` loses
+`routine`),
 `layers/core-api/settings/src/{platform-actions,plugin-manifest,plugin-installer,plugin-configuration}
-.ts`, `framework/domain-model/src/{configuration,agent-behavior-config}.ts`, `actions/document.ts`,
+.ts`, `framework/domain-model/src/{configuration,agent-behavior-config}.ts`, `actions/document.ts`
+(`routine` parent kind out), `service-bootstrap.ts` (F1 reaction takes `editUser`),
 `framework/event-bus/src/events.ts` (six types), `tool-definitions.ts` (two tools),
 `tool-handlers/src/ports.ts`, `tool-handlers-bindings.ts`, `core-api-port.ts` (routine seams),
 `framework/db/{schema.ts,drizzle/0089_*}`, `table-owners.json`, `actions-projected.ts`. Needs T7a.
@@ -557,7 +584,8 @@ subscription session's `session_ended` carries no routine outcome. ~−600.
 
 **T9 — UI: people, agents, profile; routine pages out.** §8 rows Profile … AssistantOverlay + routine
 rows. Scope those files, hooks, stories, `__tests__`, `router.tsx`. Needs T7b. Disjoint from T8 and
-T10. Red: component tests per screen (`call` mocked at the door); `SubscriptionsSection` story. Clause
+T10. Red: component tests per screen (`call` mocked at the door); adding an agent in Settings with
+a blank prompt sends `identity: ""`; `SubscriptionsSection` story. Clause
 1 clears. ~+500/−2,000.
 
 **T10 — UI: settings attributes, inbox, welcome screen.** §8 remaining rows, §7. Scope
