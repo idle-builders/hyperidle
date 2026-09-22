@@ -268,9 +268,19 @@ describe("AX1: lived-in demo world", () => {
 
 		// @lore BA9d wave 3: three ritual routines removed from demo world
 		// (document-decay, document-triage, post-task-retro) — their associated
-		// sessions are gone. Actual count is 34 (26 task + 2 live + 6 assistant turns).
+		// sessions are gone. Actual count is 34 (26 task + 2 live-or-just-ended +
+		// 6 assistant turns).
+		//
+		// Review-found defect: the assistant's placeholder session
+		// (SESSION_ACTIVE_ASSISTANT) used to be seeded "active" alongside a
+		// concurrency-slot bump on the assistant's run config — a placeholder
+		// permanently occupying a slot, requiring an extra slot just to make
+		// room for it, rather than a session that actually finished. It is now
+		// seeded terminal (state:"done", ended an hour ago) so the demo shows
+		// honest concurrency: only the task session (SESSION_ACTIVE_COPY) is
+		// still live.
 		expect(await count(db, "sessions")).toBeGreaterThanOrEqual(30);
-		expect(await count(db, "sessions", "WHERE state = 'active'")).toBeGreaterThanOrEqual(2);
+		expect(await count(db, "sessions", "WHERE state = 'active'")).toBeGreaterThanOrEqual(1);
 		expect(await count(db, "sessions", "WHERE state IN ('done','crashed')")).toBeGreaterThanOrEqual(
 			30,
 		);

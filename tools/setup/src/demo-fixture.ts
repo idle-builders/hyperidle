@@ -227,10 +227,13 @@ export async function seedDemoWorld(
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
-	// The demo world seeds one placeholder "live" session for this assistant
-	// (`SESSION_ACTIVE_ASSISTANT`); with a single slot that placeholder blocks
-	// every real turn, so the assistant never answers in demo mode.
-	await upsertDemoRunConfig(db, `ast-${founderId}`, { maxConcurrentSessions: 2 });
+	// Review-found defect: this used to be bumped to 2 because the demo world
+	// seeded a placeholder "live" session for this assistant
+	// (`SESSION_ACTIVE_ASSISTANT`) that would otherwise permanently occupy the
+	// one slot — a fake concurrency ceiling to make room for a fake session.
+	// That placeholder is now seeded terminal (`activity.ts`), so a single
+	// slot is the honest number: one assistant, one turn at a time.
+	await upsertDemoRunConfig(db, `ast-${founderId}`, { maxConcurrentSessions: 1 });
 
 	// Demo builder agent
 	await db
