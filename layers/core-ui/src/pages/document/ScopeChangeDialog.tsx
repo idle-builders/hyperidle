@@ -108,14 +108,17 @@ export function ScopeChangeDialog({
 	const [error, setError] = useState<string | null>(null);
 
 	const needsScopeId = SCOPES_REQUIRING_ID.has(scopeKind);
-	const isDirty = selectedOption.scopeKind !== currentScopeKind || scopeId.trim().length > 0;
-	// A scope that names an entity gates Save on the id being non-empty alone
-	// — not on whether it differs from what is already stored (review-found
-	// defect: the prefill above makes the id non-empty from the very first
-	// render, so the old `isDirty` check would leave Save disabled on open
-	// even though the field shows a complete, savable value). A scope with no
-	// id still gates on `isDirty` — there is no id to judge completeness by.
-	const canSave = !submitting && (needsScopeId ? scopeId.trim().length > 0 : isDirty);
+	// Dirty means "differs from the current scope" — not "the id field is
+	// non-empty". Review-found defect: the prefill above (line ~104) makes
+	// `scopeId` non-empty from the very first render on a team document, so
+	// a length check alone read every fresh open as dirty — Esc raised the
+	// discard-confirm guard on a dialog nobody had touched. Comparing against
+	// `currentScopeId` (not just non-empty) is what tells "still what's
+	// stored" apart from "person actually changed it".
+	const isDirty =
+		selectedOption.scopeKind !== currentScopeKind ||
+		(needsScopeId && scopeId.trim() !== (currentScopeId ?? ""));
+	const canSave = !submitting && isDirty && (needsScopeId ? scopeId.trim().length > 0 : true);
 
 	// The picker's `disabledTitle` is one shared tooltip for every disabled
 	// pill (`ScopePicker`'s own contract) — composed from whichever reasons

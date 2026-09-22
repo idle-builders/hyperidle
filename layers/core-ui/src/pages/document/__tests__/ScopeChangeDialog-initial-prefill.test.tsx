@@ -7,8 +7,10 @@
  * a team scopeId, and offered no way to tell Save was safe to press. On
  * mount with `currentScopeKind:"team"`, the field now prefills from the
  * document's own `currentScopeId` (falling back to the user's own team when
- * that is absent), and Save is gated only on the id being non-empty — not
- * on whether it differs from the id already stored.
+ * that is absent). Save is gated on the id being non-empty AND differing from
+ * the id already stored — a later fix (ScopeChangeDialog-dirty-tracking.test.tsx)
+ * found that "non-empty alone" left the dialog reading as dirty (and Save
+ * enabled) on the very first render, before anyone touched anything.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -63,9 +65,20 @@ describe("ScopeChangeDialog — Scope ID prefill on initial render", () => {
 		expect(screen.getByLabelText("Scope ID")).toHaveValue("my-team");
 	});
 
-	it("Save starts enabled — the prefilled id is already non-empty, and Save is gated only on emptiness", () => {
+	it("Save starts disabled — the prefilled id matches the document's current scope, so nothing to save yet", () => {
 		mockUser({ teamId: "some-other-team" });
 		render(<ScopeChangeDialog {...BASE_PROPS} currentScopeId="team-doc-owns" />);
+
+		expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+	});
+
+	it("Save enables once the id is edited to differ from the current scope", async () => {
+		mockUser({ teamId: "some-other-team" });
+		const { default: userEvent } = await import("@testing-library/user-event");
+		const user = userEvent.setup();
+		render(<ScopeChangeDialog {...BASE_PROPS} currentScopeId="team-doc-owns" />);
+
+		await user.type(screen.getByLabelText("Scope ID"), "-changed");
 
 		expect(screen.getByRole("button", { name: /^save$/i })).not.toBeDisabled();
 	});
