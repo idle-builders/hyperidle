@@ -4,7 +4,7 @@
  * own reason before the round trip (architecture.md §4.1).
  *
  * @lore BC4: replaces `KnowledgeDetail.move.test.tsx` and the archive cases
- * from `AD6-knowledge-simplification.test.tsx`.
+ * from `AD6-document-simplification.test.tsx`.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
