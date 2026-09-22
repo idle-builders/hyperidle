@@ -329,7 +329,7 @@ describe("E2E API Integration (I5)", () => {
 	// against `POST /api/actions/edit_document` for both the human and agent
 	// door. What is left here is what was never about the route: the global
 	// search endpoint, seeded through the surviving action door.
-	// Search: GET /api/search?scope=document&q=... (AU44 fold, BC4 rename).
+	// Search: GET /api/search?scope=document&q=... (AU44 fold; scope was renamed since).
 	describe("Document search", () => {
 		test("GET /api/search?scope=document&q=test returns search results", async ({ db, app }) => {
 			await seedBase(db);

@@ -1,7 +1,7 @@
 /**
  * AX1 — demo world documents: a six-week corpus across scopes, kinds and
  * lifecycles — curated patterns, a triage queue, stale and archived items,
- * plausible read/session-use counters (BC4 §6.7), and the provenance loop
+ * plausible read/session-use counters, and the provenance loop
  * (completed bet → retro item → promoted draft bet).
  */
 

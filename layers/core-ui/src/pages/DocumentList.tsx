@@ -173,7 +173,7 @@ interface DocumentListContentProps {
 	onNewItem: () => void;
 	/** Navigate to create a child under the given parent item. */
 	onNewChild: (parentId: string) => void;
-	/** BC4 §9: whether the "Memories" filter chip is active. */
+	/** Whether the "Memories" filter chip is active. */
 	showMemories: boolean;
 	onToggleMemories: () => void;
 }
@@ -363,7 +363,7 @@ function DocumentListContent({
 					dataTestId="document-scope-pills"
 				/>
 				{/*
-				 * BC4 §9: "Memories" — a filter chip, not a page. Toggling swaps the
+				 * "Memories" — a filter chip, not a page. Toggling swaps the
 				 * `search_documents` filter between `{inTree:true}` and `{as:"memory"}`
 				 * one level up; the Triage/Curated split renders whichever set loaded.
 				 */}
@@ -608,7 +608,7 @@ export function DocumentList({
 	 */
 	const [selectedScopePill, setSelectedScopePill] = useState<ScopePillOption | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
-	// BC4 §9: "Memories" filter chip — swaps the search_documents filter.
+	// "Memories" filter chip — swaps the search_documents filter.
 	const [showMemories, setShowMemories] = useState(false);
 	// AF13 §6: Replace optimisticRemovals (Set<id>) with optimisticStatuses (Map<id, status>).
 	// A validated item gets status "active" so it moves to Curated in the same render.
@@ -621,7 +621,7 @@ export function DocumentList({
 		new Map(),
 	);
 
-	// BC4 §5.2: the list's one search — inTree by default, `as:"memory"` when
+	// The list's one search — inTree by default, `as:"memory"` when
 	// the chip is active. `useDocuments` refetches on the global `documents`
 	// websocket nudge — no manual live-refresh wiring here.
 	const documentsFilter: SearchDocumentsInput = showMemories ? { as: "memory" } : { inTree: true };

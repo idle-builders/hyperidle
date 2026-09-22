@@ -16,7 +16,7 @@
  *
  * @lore BC4: re-pointed onto DocumentList/useDocuments — mocks the hook
  * directly instead of a raw `/api/knowledge` fetch. The write_memory tool is
- * gone (BC4 — `edit_document({as:"memory"})` replaces it); the "agent-created
+ * gone (`edit_document({as:"memory"})` replaces it); the "agent-created
  * item lands in triage" behaviour this file locks is unchanged.
  */
 

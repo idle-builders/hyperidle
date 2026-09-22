@@ -633,7 +633,7 @@ export const ATTACKS: readonly Attack[] = [
 	// @lore BC4: the Ruling-13 companion-rule fixture that lived here (`missing-companion` /
 	// `missing-companion-control`) exploited `knowledgeItems`+`knowledgeAppProjection` — both owned
 	// by `@hyperidle/knowledge` and unconditionally inserted together in its exported `create`
-	// function. BC4 folds the projection's two live columns onto `documents` directly (§6.2) and
+	// function. This folds the projection's two live columns onto `documents` directly (§6.2) and
 	// drops the rest with nothing carried over, so that companion pair no longer exists. Re-derived
 	// against the live tree with `buildCompanionGroups` (the rule's own mechanism, never a guess):
 	// zero companion groups exist anywhere in the codebase today. Per the rule's own fallback —

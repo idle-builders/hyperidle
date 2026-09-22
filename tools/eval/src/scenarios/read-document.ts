@@ -2,7 +2,7 @@
  * X8: Read document scenarios (interaction 21 — B35 new).
  *
  * Tests `search_documents`/`open_document`: the read side of the document
- * module, which did not exist before BC4 (an agent could only write —
+ * module, which did not exist before (an agent could only write —
  * `write_memory`/`create_artifact` — never search or open a document it did
  * not already know the id of).
  *

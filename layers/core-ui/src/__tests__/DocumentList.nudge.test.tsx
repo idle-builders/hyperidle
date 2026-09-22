@@ -1,5 +1,5 @@
 /**
- * BC4 architecture.md §7/§9: DocumentList refreshes on a websocket nudge from
+ * architecture.md §7/§9: DocumentList refreshes on a websocket nudge from
  * the `documents` topic — through `useDocuments`, not a page-local
  * subscription. This proves the wiring end to end at the page, not just
  * inside the hook (`useDocuments.test.tsx` already proves the hook alone).

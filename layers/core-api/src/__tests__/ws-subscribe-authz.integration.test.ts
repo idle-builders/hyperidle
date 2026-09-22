@@ -49,7 +49,7 @@ function createMockClient(): WsClient & { messages: string[] } {
  *
  * @lore AU26 J3: was four ports. `users`/`org`/`work` existed only to serve the
  * `session:<id>` branch, which moved wholesale to `agent-orchestration`'s own
- * socket. `document`/`users` (architecture.md §7, BC4 B9) are new — `users`
+ * socket. `document`/`users` (architecture.md §7) are new — `users`
  * back for `document:<id>`'s subject resolution, not the session-team check
  * AU26 removed.
  */
@@ -217,7 +217,7 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 /**
  * architecture.md §7: `document:<id>` and `documents` — the subscribe rule is
  * exactly `canReadDocument`, the same pure predicate `open_document` reads
- * through. BC3's own bug report on this file (host-scoped bypass silently
+ * through. An earlier bug report on this file (host-scoped bypass silently
  * refused) is exactly the divergence this shared predicate avoids.
  */
 describe("WsConnectionHub — document subscribe authorization (architecture.md §7)", () => {

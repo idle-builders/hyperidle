@@ -1,5 +1,5 @@
 /**
- * BC4 architecture.md §9: "Memories" is a filter chip on DocumentList
+ * architecture.md §9: "Memories" is a filter chip on DocumentList
  * (`as: "memory"`), not a page. Toggling it swaps the `search_documents`
  * filter `useDocuments` is called with.
  */

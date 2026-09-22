@@ -15,7 +15,7 @@
  * owns, never re-exported by name.
  */
 
-// BC4 follow-up (architecture.md §8.3): `fireRoutine` now takes a
+// architecture.md §8.3: `fireRoutine` now takes a
 // `search_documents` runner (never `@hyperidle/document` itself) — this is
 // the same standalone composition `service-bootstrap.ts`'s own scheduler
 // wiring uses, exposed so `tools/eval`'s scenarios (the direct `fireRoutine`

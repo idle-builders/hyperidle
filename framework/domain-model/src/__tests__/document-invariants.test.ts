@@ -2,7 +2,7 @@
  * Pure invariant unit tests for the document module's declarations —
  * `editDocumentInvariants`, `searchDocumentsInvariants`, `documentAs` and
  * `canReadDocument`. Exact equality on `problems[0].code`, never
- * `toContain` — BC3 retro: "tests asserted too loosely to fail".
+ * `toContain` — a past retro found tests asserted too loosely to fail.
  */
 
 import { describe, expect, it } from "vitest";

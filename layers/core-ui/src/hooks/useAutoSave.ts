@@ -15,7 +15,7 @@
  * — the caller closes over whatever `call("edit_document", …)` needs (id,
  * version, …), so this hook never has to know the action's own input shape.
  * Kept ahead of its own owning block (old B16) because `DocumentDetail`
- * cannot wire `edit_document` through `call()` without it — see the BC4
+ * cannot wire `edit_document` through `call()` without it — see the
  * architecture doc §16.1 boundary note on this file.
  *
  * @lore T2 F3: dirty-check in the save function — callers should skip

@@ -16,7 +16,7 @@
  *
  * Items 5-7 (Archive) and 11 (Flag removed) tested `KnowledgeDetail`
  * directly — moved to `pages/__tests__/DocumentDetail.dialogs.test.tsx`
- * (BC4) when that page was rewritten against `call("edit_document", …)`.
+ * when that page was rewritten against `call("edit_document", …)`.
  *
  * @lore BC4: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`
  * and its `useFetch("/api/knowledge")` read are gone.
@@ -309,7 +309,7 @@ describe("AD6 — DocumentList kind badge removed from rows", () => {
 
 // AD6's items 5, 6, 7 (Archive button/navigation/failure) and 11 (Flag
 // removed) tested `KnowledgeDetail` directly — moved to
-// `pages/__tests__/DocumentDetail.dialogs.test.tsx` (BC4), which now
+// `pages/__tests__/DocumentDetail.dialogs.test.tsx`, which now
 // exercises the same archive behavior through `call("edit_document", …)`.
 
 // ---------------------------------------------------------------------------

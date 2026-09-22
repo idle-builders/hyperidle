@@ -28,7 +28,7 @@
  * `conversations`) added. The subscribe rule is exactly `open_document`'s own
  * visibility predicate — `canReadDocument`, a pure function shared with
  * `document-actions.ts` (`@hyperidle/domain-model`) so the socket and the
- * read can never diverge, the same divergence BC3's bug fix above (thread
+ * read can never diverge, the same divergence the bug fix above (thread
  * host-scoped bypass) already names as the failure mode to avoid.
  */
 

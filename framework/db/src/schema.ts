@@ -211,7 +211,7 @@ export const tasks = pgTable(
 		/**
 		 * BB1: provenance — the document this task was promoted from (moved
 		 * from `bets`, AK5). RESTRICT so provenance outlives a convenience
-		 * delete. Renamed `sourceKnowledgeItemId`→`sourceDocumentId` by BC4.
+		 * delete. Renamed `sourceKnowledgeItemId`→`sourceDocumentId`.
 		 */
 		sourceDocumentId: text("source_document_id").references(() => documents.id, {
 			onDelete: "restrict",
@@ -914,7 +914,7 @@ export const documents = pgTable(
 		confidence: text("confidence"),
 		/** `{tags:[…]}` — read only by `session-documents.ts`'s tag match. */
 		meta: text("meta"),
-		// Usage — BC4 §6.7. Never written by `edit_document`, never in a `changes` row.
+		// Usage counters. Never written by `edit_document`, never in a `changes` row.
 		readCount: integer("read_count").notNull().default(0),
 		lastReadAt: text("last_read_at"),
 		sessionUseCount: integer("session_use_count").notNull().default(0),

@@ -240,7 +240,7 @@ describe("AppShell", () => {
 			});
 		});
 
-		it("navigates a document search result to /documents/{id} (BC4: the route moved)", async () => {
+		it("navigates a document search result to /documents/{id}", async () => {
 			const { user, router } = renderShellWithProbes();
 			await user.keyboard("{Meta>}k{/Meta}");
 			const input = await screen.findByPlaceholderText(/search conversations/i);

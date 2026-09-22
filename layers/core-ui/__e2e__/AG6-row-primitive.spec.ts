@@ -112,7 +112,7 @@ function makeTeamFixture() {
 
 // @lore BC4: the document rows below carry `status:"proposed"` — the
 // DocumentList triage tab filters on exactly that value (was "draft", never
-// a valid status even under the pre-BC4 vocabulary).
+// a valid status even under the earlier vocabulary).
 const DOCUMENT_ROWS = [
 	makeDocumentRow("ki-ag6-1", {
 		title: "Row primitive consolidation",

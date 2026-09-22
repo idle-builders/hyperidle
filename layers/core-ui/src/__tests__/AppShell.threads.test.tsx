@@ -20,7 +20,7 @@ import { AppShell } from "../layouts/AppShell";
 // @lore BC3: the sidebar thread list now comes from `useThreads({mine:true})`
 // → `call("search_threads", ...)`, not `GET /api/threads`. `call` is mocked
 // (its fallback branch — `{ok:true, data:[]}` — also covers the sidebar's own
-// `call("search_documents", ...)`, BC4); `fetch` stays mocked for the
+// `call("search_documents", ...)`); `fetch` stays mocked for the
 // surviving routes (`/api/auth/me`, `/api/teams`) AppShell still hits directly.
 const { callMock } = vi.hoisted(() => ({ callMock: vi.fn() }));
 vi.mock("../services/call.js", () => ({ call: callMock }));

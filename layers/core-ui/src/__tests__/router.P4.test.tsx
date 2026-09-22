@@ -89,7 +89,7 @@ describe("Router (P4) — /setup route", () => {
  * the old path shape (CLAUDE.md's absolute rule 2). The three /documents
  * routes replace it one-for-one (list, create, detail).
  */
-describe("Router (BC4) — /documents replaces /knowledge", () => {
+describe("Router — /documents replaces /knowledge", () => {
 	function flattenRoutes(rs: readonly { path?: string; children?: unknown }[]): string[] {
 		return rs.flatMap((r) => {
 			const paths: string[] = [];

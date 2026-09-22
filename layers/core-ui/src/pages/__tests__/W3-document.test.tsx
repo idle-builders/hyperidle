@@ -9,7 +9,7 @@
  * AC-38: Content max-width 800px, centered.
  *
  * AC-39 through AC-46 tested `KnowledgeDetail` directly — moved to
- * `pages/__tests__/DocumentDetail.*.test.tsx` (BC4) when that page was
+ * `pages/__tests__/DocumentDetail.*.test.tsx` when that page was
  * rewritten against `call("open_document"/"edit_document", …)`.
  *
  * @lore BC4: re-pointed onto `DocumentList`/`useDocuments` — `KnowledgeList`

@@ -1,5 +1,5 @@
 /**
- * BC4 architecture.md §8.6: the Knowledge section's route moved to
+ * architecture.md §8.6: the Knowledge section's route moved to
  * `/documents`, but its view id stays `"knowledge"` — founder ruling 3. This
  * pins the one line in AppShell.tsx that bridges the two, by exact equality.
  */

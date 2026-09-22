@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentList } from "../pages/DocumentList";
 
 /**
- * BC4: DocumentList now reads through `useDocuments`
+ * DocumentList now reads through `useDocuments`
  * (`call("search_documents", filter)`). In unit tests there is no API
  * server, so we stub `call` to return real `DocumentRow`-shaped items so
  * tests are independent of the API server.

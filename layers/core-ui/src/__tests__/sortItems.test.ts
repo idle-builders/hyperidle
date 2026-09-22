@@ -2,7 +2,7 @@
  * AF13 §3 — sortItems unit tests.
  *
  * sortItems is a pure helper at module scope in DocumentList.tsx (formerly
- * KnowledgeList.tsx — BC4). These tests define the exact ordering contract:
+ * KnowledgeList.tsx). These tests define the exact ordering contract:
  *   - recency: updatedAt desc, tie-break title asc
  * (frequency/relevance sorting was removed in an earlier batch — FULL-AUDIT.md
  * row 13 — leaving recency as the only surviving mode this file tests.)

@@ -17,7 +17,7 @@
  *   AC-1: "New bet" button is btn-sm (not btn-xs) — portfolio-create-bet asserts visibility
  *   AC-2: Empty state CTA visible in EmptyState action slot — portfolio-create-bet w/ seedEmpty
  *   AC-3: "+ New" document button — visibility covered by document-q2-create.spec.ts;
- *         its dialog-fill scenario is deleted here (BC4: create is a full page, not a
+ *         its dialog-fill scenario is deleted here (create is a full page, not a
  *         dialog, and the button is no longer DaisyUI btn-sm — see the scope-pill and
  *         open-item tests below for the surviving list-page coverage)
  *   AC-6: Density toggle absent from Settings Appearance — settings-theme asserts no density-select
