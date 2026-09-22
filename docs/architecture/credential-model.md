@@ -4,11 +4,9 @@ The one credential HyperIdle still holds, and where it lives.
 
 ## The noun
 
-A **Credential** is a named secret value with a non-secret validation state. There is exactly one:
-**`shared_backend_key`** — what a remote worker presents to reach a shared-mode server
-(`framework/domain-model/src/credential.ts`).
-
-- **Validation state** — `absent | present_untested | valid | invalid` (`CREDENTIAL_STATES`).
+A **Credential** is a named secret value. There is exactly one: **`shared_backend_key`** — what a
+remote worker presents to reach a shared-mode server. It has no separate validation state and no
+catalog of names — the UI shows only whether the key is set, never a tested/valid/invalid status.
 
 > **HyperIdle holds no model credential.** The catalog once carried three more —
 > `anthropic_api_key`, `openrouter_api_key`, `openai_compatible_api_key` — so the built-in harness

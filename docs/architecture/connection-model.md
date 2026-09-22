@@ -96,7 +96,7 @@ Column details belong to the schema file, not this doc.
 2. **HyperIdle runs no 3-legged OAuth and registers no per-service OAuth app.** Held auth is only a simple secret or an MCP pointer. OAuth services arrive inherited.
 3. **Per-user isolation.** One user's connection (held or inherited) is never resolvable, listable, or usable from another user's session. Cross-user reads return 404/null — never 403, never leaking existence.
 4. **Inherited connections store no auth material.** A token or keychain value copied into a HyperIdle record is a defect.
-5. **The closed credential catalog stays closed.** Connections never add a name to it. `CREDENTIAL_NAMES` (`framework/domain-model/src/credential.ts`) is unchanged by this feature.
+5. **Connections and the one credential (`shared_backend_key`, see [credential-model.md](credential-model.md)) are unrelated.** There is no catalog of credential names for a connection to add to — a connection's auth lives in `service_connections`, entirely separate from the desktop keychain entry the worker key uses.
 
 ---
 
