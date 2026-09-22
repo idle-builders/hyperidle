@@ -85,4 +85,32 @@ describe("SessionView header Stop control", () => {
 
 		expect(screen.queryByTestId("session-header-stop")).not.toBeInTheDocument();
 	});
+
+	it("places the Stop control inside the header row, ahead of the identity chip — not under the split pane's floating controls", () => {
+		render(
+			<SessionView
+				sessionId="sess-1"
+				entries={[]}
+				identity={IDENTITY}
+				status="streaming"
+				onOpen={() => {}}
+				onSend={() => {}}
+			/>,
+		);
+
+		const stop = screen.getByTestId("session-header-stop");
+		const identityChip = screen.getByTestId("session-identity-chip");
+
+		// The Stop control lives in the header's own row (same flow container as
+		// the identity chip), not in a separately-positioned overlay.
+		expect(stop.parentElement).toBe(identityChip.parentElement);
+
+		// It sits BEFORE the identity chip in DOM order — away from the header's
+		// trailing edge, which is exactly where the SplitView's floating
+		// expand/close controls are absolutely positioned over the destination
+		// pane's top-right corner.
+		expect(stop.compareDocumentPosition(identityChip) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+			Node.DOCUMENT_POSITION_FOLLOWING,
+		);
+	});
 });

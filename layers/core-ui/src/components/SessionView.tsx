@@ -122,7 +122,7 @@ function SessionAvatar({
 
 function ParticipantGroup({ people }: { people: readonly PartAuthor[] }): JSX.Element {
 	return (
-		<div className="flex items-center pl-[3px]">
+		<div data-testid="session-identity-chip" className="flex items-center pl-[3px]">
 			{people.map((p, i) => (
 				<div
 					key={p.id}
@@ -721,8 +721,6 @@ export function SessionView({
 							{identity.title}
 						</h2>
 					</div>
-					<span className="h-[20px] w-px bg-[var(--border-subtle)]" />
-					<ParticipantGroup people={[identity.agent, identity.viewer]} />
 					{sessionId && (
 						<Button
 							variant="destructive"
@@ -734,6 +732,8 @@ export function SessionView({
 							Stop
 						</Button>
 					)}
+					<span className="h-[20px] w-px bg-[var(--border-subtle)]" />
+					<ParticipantGroup people={[identity.agent, identity.viewer]} />
 				</div>
 			</header>
 
