@@ -195,11 +195,9 @@ export type {
 export { roleLabel } from "./agent-roles.js";
 // HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
-export type {
-	AgentRunActiveCountsResponse,
-	AgentRunSummary,
-	AgentRunsResponse,
-} from "./agent-run-view.js";
+// AgentRunSummary, AgentRunsResponse, AgentRunActiveCountsResponse (agent-run-view.ts)
+// deleted with the run-read routes (BC6): the session action list's `SessionRow`
+// (./actions/session.js) is the browser's health-derivation input now.
 // isAgentWorkIntentKind, isAgentWorkIntentSourceKind moved to agent-orchestration (AU44-b8)
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";

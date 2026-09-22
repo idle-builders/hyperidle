@@ -1,25 +1,24 @@
 /**
- * useTaskSessions — a task's agent runs, read from the Layer that owns them.
+ * useTaskSessions — a task's sessions, read through the session action list.
+ *
+ * @lore BC6: `GET /api/tasks/:id/sessions` (later `GET
+ * /api/agent-orchestration/runs?task_id=…`) is deleted along with the rest of
+ * the run-read routes (architecture.md §1). The hook now calls
+ * `search_sessions({ taskId })` — `POST /api/actions/search_sessions`, the
+ * same door a person's client and an agent's MCP tool use — and does the same
+ * projection the old route used to do: the `Session N` numbering, which needs
+ * OLDEST-first order (the search read serves newest-first, so the list is
+ * reversed). `WorkTask.tsx` and `TaskSheet.tsx` render exactly what they did.
  *
  * @lore W3: Created for the task detail page (AC-29).
- *
- * @lore AU26 J4: this used to fetch `GET /api/tasks/:id/sessions` — a core-api
- * route whose entire payload was agent-run data. That route is deleted. Founder
- * ruling: *"orchestration now has an api so that the ui can get the agent run
- * state from the orchestration directly and combine this information in the ui
- * instead of in the core api service."* The hook now calls
- * `GET /api/agent-orchestration/runs?task_id=…` and does the same mapping the
- * route used to do — including the `Session N` numbering, which needs
- * OLDEST-first order (the run read serves newest-first, so the list is
- * reversed). `WorkTask.tsx` and `TaskSheet.tsx` render exactly what they did.
  *
  * @lore AU21 Increment 14a: `cost` field deleted along with the rest of the cost
  * feature. `harnessUrl`/`tokens` remain genuinely unserved (no source anywhere).
  */
 
-import type { AgentRunSummary } from "@hyperidle/domain-model";
+import type { SessionRow } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
-import { fetchRunsByTaskId } from "../services/agent-runs.js";
+import { call } from "../services/call.js";
 import { absoluteDate } from "../utils/time.js";
 import type { FetchState } from "./useFetch.js";
 
@@ -38,14 +37,21 @@ export interface TaskSessionsData {
 	sessions: TaskSession[];
 }
 
+/**
+ * `search_sessions` defaults to 100 with no `limit` set; the old route had no
+ * cap at all. 500 (the action's max) is the closest a task's sessions read
+ * can get to "every one" under the new contract.
+ */
+const MAX_SESSIONS = 500;
+
 /** The exact projection `GET /api/tasks/:id/sessions` used to return. */
-function toTaskSessions(runs: ReadonlyArray<AgentRunSummary>): TaskSession[] {
-	// The run read is newest-first; the list is rendered and numbered oldest-first.
-	const oldestFirst = [...runs].reverse();
-	return oldestFirst.map((run) => ({
-		id: run.id,
+function toTaskSessions(rows: ReadonlyArray<SessionRow>): TaskSession[] {
+	// search_sessions serves newest-first; the list is rendered and numbered oldest-first.
+	const oldestFirst = [...rows].reverse();
+	return oldestFirst.map((row) => ({
+		id: row.id,
 		// UI-036: date-based title instead of "Session N" ordinal
-		title: absoluteDate(run.startedAt),
+		title: absoluteDate(row.startedAt),
 		// UI-035: agentId is an internal id — show generic label until agent
 		// names are available from a parallel fetch (no /api/agents call here yet)
 		agent: "Agent",
@@ -53,11 +59,11 @@ function toTaskSessions(runs: ReadonlyArray<AgentRunSummary>): TaskSession[] {
 		// @lore AF12: state-based contract — the frontend keys the live dot off
 		// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped
 		// session renders 'stopped' via the raw-status fallback, never blank.
-		status: run.state ?? "",
+		status: row.state ?? "",
 		harnessUrl: null,
 		effectivenessScore:
-			run.effectivenessScore != null && !Number.isNaN(Number.parseFloat(run.effectivenessScore))
-				? Number.parseFloat(run.effectivenessScore)
+			row.effectivenessScore != null && !Number.isNaN(Number.parseFloat(row.effectivenessScore))
+				? Number.parseFloat(row.effectivenessScore)
 				: null,
 	}));
 }
@@ -76,11 +82,22 @@ export function useTaskSessions(taskId: string | undefined): FetchState<TaskSess
 		}
 		let cancelled = false;
 		setState({ data: null, error: null, isLoading: true });
-		fetchRunsByTaskId(taskId)
-			.then((runs) => {
-				if (!cancelled) {
-					setState({ data: { sessions: toTaskSessions(runs) }, error: null, isLoading: false });
+		call("search_sessions", { taskId, limit: MAX_SESSIONS })
+			.then((result) => {
+				if (cancelled) return;
+				if (!result.ok) {
+					setState({
+						data: null,
+						error: result.problems[0]?.message ?? "search_sessions failed",
+						isLoading: false,
+					});
+					return;
 				}
+				setState({
+					data: { sessions: toTaskSessions(result.data) },
+					error: null,
+					isLoading: false,
+				});
 			})
 			.catch((cause: unknown) => {
 				if (!cancelled) {
