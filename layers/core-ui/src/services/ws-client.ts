@@ -10,15 +10,11 @@
  * real-time updates (useThreads, useSessionActivity) subscribe via a
  * singleton. Each singleton reconnects automatically on unexpected close.
  *
- * @lore AU26 J3: there are now TWO sockets, not one, because there are two
- * Layers and each serves its own topics. `getWsClient()` talks to core-api's
- * `/api/ws` (`thread:<id>`, `conversations`); `getSessionStreamClient()`
- * talks to `agent-orchestration`'s `/api/agent-orchestration/ws`
- * (`session:<id>`). Founder ruling: *"session dial in is 1000% orchestration and
- * has nothing to do with core."* A second browser socket is the accepted price
- * of the split. Both mint their token from the same core-api endpoint — the
- * Application hands both server-side sockets the same one-shot store — and a
- * token is single-use, so each connect mints its own.
+ * @lore AU26 J3, superseded: there used to be TWO sockets, one per Layer.
+ * The browser now holds ONE — `getWsClient()`, talking to core-api's
+ * `/api/ws` — carrying every topic including `session:<id>`, which
+ * `agent-orchestration` reaches by pushing a content-free nudge through
+ * core's own hub (`agent-orchestration/src/services/session-activity-gateway.ts`).
  *
  * @lore Q1: WS transport is NOT available in JSDOM tests. Callers that need
  * WS functionality (e.g. useSessionActivity) must stub the ws-client module
@@ -220,26 +216,19 @@ class WsClient {
 	 * or are global names (`conversations`).
 	 *
 	 * @lore AU21 §6 Decision L4 / §9 Increment 14d: `conversations`/
-	 * `thread:<id>` now carry a PUSH envelope with the actual changed data
+	 * `thread:<id>` carry a PUSH envelope with the actual changed data
 	 * (`{ type: "update", topic, kind, data }`, see `ws-connection-hub.ts` +
 	 * `routes/threads.ts`) — matched directly
 	 * on the envelope's own `topic` field, same matching shape as the prior
 	 * `{ type: "invalidate", … }` ping this supersedes (founder: "there is no
-	 * refetch … core submits the changed version"). `session:<id>` is
-	 * untouched — Decision E's (c) concern is a real content stream
-	 * (`useSessionActivity.ts` consumes `toolName`/`argsSummary`/… payload
-	 * fields), still forwarded as the full event and matched by `sessionId`
-	 * as before.
+	 * refetch … core submits the changed version"). `session:<id>` (AU26 J3,
+	 * superseded) now carries the SAME shape — a content-free nudge, never the
+	 * raw event — so it needs no branch of its own any more.
 	 */
 	private messageMatchesTopic(msg: Record<string, unknown>, topic: string): boolean {
 		// Push envelope: match directly on its own `topic` field.
 		if (msg.type === "update") {
 			return msg.topic === topic;
-		}
-		// Per-session topic `session:<id>`: match messages with matching sessionId
-		if (topic.startsWith("session:")) {
-			const sessionId = topic.slice("session:".length);
-			return msg.sessionId === sessionId;
 		}
 		return false;
 	}
@@ -267,30 +256,16 @@ class WsClient {
 	}
 }
 
-/** core-api's socket: `thread:<id>`, `conversations`. */
+/** core-api's one socket: every topic, `session:<id>` included. */
 const CORE_WS_PATH = "/api/ws";
-/** agent-orchestration's socket: `session:<id>` only. */
-const SESSION_STREAM_WS_PATH = "/api/agent-orchestration/ws";
 
-// One singleton per Layer socket — one connection each per browser session.
+// One singleton — one connection per browser session.
 let wsClientInstance: WsClient | null = null;
-let sessionStreamClientInstance: WsClient | null = null;
 
-/** The core-api socket. Thread and conversation topics. */
+/** The one websocket. Every topic — thread, conversation, document, session. */
 export function getWsClient(): WsClient {
 	if (!wsClientInstance) {
 		wsClientInstance = new WsClient(CORE_WS_PATH);
 	}
 	return wsClientInstance;
-}
-
-/**
- * The agent-orchestration socket. `session:<id>` topics only — the live agent
- * run stream, served by the Layer that owns the run (AU26 J3).
- */
-export function getSessionStreamClient(): WsClient {
-	if (!sessionStreamClientInstance) {
-		sessionStreamClientInstance = new WsClient(SESSION_STREAM_WS_PATH);
-	}
-	return sessionStreamClientInstance;
 }

@@ -259,20 +259,18 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		workspace: agentExecution.adapters.sandbox,
 	} satisfies ApplicationProvisionSessionDeps;
 
-	if (!coreApi.upgradeTokenStore) {
-		// `upgradeWebSocket` is always supplied above, so `bootCoreApi` always
-		// builds a token store — this can only fire if that wiring regresses.
-		throw new Error(
-			"bootCoreApi did not build an upgradeTokenStore despite upgradeWebSocket being supplied.",
-		);
-	}
 	// §5: the join — see `remote-server/src/create-server.ts`'s
 	// twin comment for why the thunk and the reassignment are both needed.
 	let actionTools = coreApi.actionTools;
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		sessionStream: { upgradeWebSocket, upgradeTokens: coreApi.upgradeTokenStore },
+		// AU26 J3, superseded: `upgradeWebSocket` here is ONLY for worker
+		// WebSocket registration now — the live-run stream itself reaches the
+		// browser through `wsPush` below, on core's own socket.
+		upgradeWebSocket,
+		// Byte-identical to core's own action-layer binding (`core-api/src/app.ts`).
+		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
 		// AU36 D4: desktop is always topology "local" (boot-server.ts) — boot
 		// awaits the initial reach probe, so facts are cached by serve time.
 		probeInheritedReach: deps.topology === "local",

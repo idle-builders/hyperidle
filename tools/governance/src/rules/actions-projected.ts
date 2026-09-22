@@ -134,9 +134,11 @@ const PLATFORM_EVENTS: readonly string[] = [
  * this rule started with, `coach.ts`/`hints.ts` wholesale among them, so
  * those rows shrank ahead of this item. Only shrinks: an entry whose route is gone is a
  * finding, so the deletion and the row land in the same PR. Includes the
- * four socket/protocol transports (mcp-route, worker-ingress, ws,
- * session-stream-ws) — see the architecture doc §7 for why each stays a
- * shrink-list entry rather than becoming plumbing or an action today.
+ * three remaining socket/protocol transports (mcp-route, worker-ingress,
+ * ws) — see the architecture doc §7 for why each stays a shrink-list entry
+ * rather than becoming plumbing or an action today. `session-stream-ws`'s
+ * own row left with the file: the second websocket is deleted, and
+ * `session:<id>` now rides the `ws` row already on this list.
  */
 const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-execution/harness-registry/src/mcp/mcp-route.ts|ALL /mcp/:token",
@@ -151,7 +153,6 @@ const LEGACY_ROUTES: readonly string[] = [
 	"layers/agent-orchestration/src/routes/filesystems.ts|GET /:id",
 	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id",
 	"layers/agent-orchestration/src/routes/filesystems.ts|DELETE /:id/injections/:agentUserId",
-	"layers/agent-orchestration/src/routes/session-stream-ws.ts|GET /agent-orchestration/ws",
 	"layers/core-api/src/routes/agents.ts|GET /:id/profile",
 	"layers/core-api/src/routes/agents.ts|GET /",
 	"layers/core-api/src/routes/agents.ts|POST /",

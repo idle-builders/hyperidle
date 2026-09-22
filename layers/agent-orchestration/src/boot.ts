@@ -17,15 +17,15 @@
  *     reader and its one gateway reader are both on this side now, so
  *     core-api has no reason to instantiate it;
  *   - the session-activity gateway, which tees `session_started` /
- *     `session_ended` / `tool_call_recorded` onto the `session:<id>` WS topic;
- *   - **AU26 J3: the socket that topic is served on.** The `session:<id>` stream
- *     is wholly this Layer's now — its own `SessionStreamHub`, its own
- *     authorizer (an authenticated user + the run exists, read from this Layer's
- *     own `sessions` table), and its own route on the `/api` router. The
- *     Application no longer passes core-api's `WsConnectionHub` in as a
- *     broadcast sink; it passes only the runtime `upgradeWebSocket` adapter and
- *     the shared one-shot upgrade-token store, neither of which is a domain
- *     dependency. Core's socket keeps only core's own topics.
+ *     `session_ended` / `tool_call_recorded` onto the `session:<id>` topic as
+ *     a content-free nudge;
+ *   - **AU26 J3, superseded: the browser holds ONE socket, core-api's.** This
+ *     Layer never sees `WsConnectionHub` or any other core-api transport —
+ *     the Application binds `options.wsPush` to
+ *     `coreApi.wsHub.broadcast(topic, JSON.stringify(envelope))`, byte-
+ *     identical to core's own action-layer binding (`core-api/src/app.ts`),
+ *     and hands this boot only that one narrow function. Session content
+ *     stays this Layer's own — `wsPush` carries a nudge, never the event.
  *   - **AU31 §5.1: the run runtime itself.** `startRuntime` (poller/drain/
  *     watcher) used to be called by the Application directly
  *     (`applications/remote-server/src/create-server.ts`), importing the
@@ -78,21 +78,16 @@ import type { UpgradeWebSocket } from "hono/ws";
 import { createAgentOrchestrationApp } from "./app.js";
 import { createGitRunner } from "./git-runner.js";
 import {
-	registerSessionStreamRoute,
-	type SessionStreamTokenStore,
-} from "./routes/session-stream-ws.js";
-import {
 	buildRunOrchestrationComposition,
 	buildSessionActionsDeps,
 	type ProvisionSessionDeps,
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "./services/run-orchestration-composition.js";
-import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 import {
-	createRunStreamSubscribeAuthorizer,
-	SessionStreamHub,
-} from "./services/session-stream-hub.js";
+	registerSessionActivityGateway,
+	type SessionActivityPush,
+} from "./services/session-activity-gateway.js";
 import { SessionActivityBuffer } from "./session-activity-buffer.js";
 
 /**
@@ -189,17 +184,22 @@ export interface AgentOrchestrationBootOptions {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	/**
-	 * AU26 J3: what an Application must supply for the live-run socket to be
-	 * reachable over HTTP — the runtime's WS upgrade adapter and the one-shot
-	 * upgrade-token store (the SAME store core's socket consumes, so
-	 * `POST /api/auth/ws-token` mints for both). Absent — a kernel-only or
-	 * in-process test app — and no route is registered; the hub and the gateway
-	 * still exist, so a test can drive `hub.subscribe`/`broadcast` directly.
+	 * The runtime's WS upgrade adapter — needed ONLY for worker WebSocket
+	 * registration (`registerWorkerWebSocket`) now that the live-run stream
+	 * itself rides core-api's socket (`wsPush` below). Absent — a kernel-only
+	 * or in-process test app, or a `remote-server`-shaped boot with no local
+	 * worker pool — and no worker route is registered.
 	 */
-	readonly sessionStream?: {
-		readonly upgradeWebSocket: UpgradeWebSocket;
-		readonly upgradeTokens: SessionStreamTokenStore;
-	};
+	readonly upgradeWebSocket?: UpgradeWebSocket;
+	/**
+	 * AU26 J3, superseded: the one narrow function this Layer's live-run
+	 * stream reaches the browser through — bound by the Application to
+	 * `coreApi.wsHub.broadcast(topic, JSON.stringify(envelope))`, the exact
+	 * binding core's own actions use (`core-api/src/app.ts`). Absent means no
+	 * push happens — the gateway still subscribes and the buffer still fills,
+	 * so a bare test fixture with no socket at all keeps working.
+	 */
+	readonly wsPush?: SessionActivityPush;
 	/**
 	 * AU36 D4: await the initial inherited-reach probe before returning, so
 	 * facts are cached by serve time (exactly as when `createLocalAdapterPool`
@@ -242,12 +242,6 @@ export interface AgentOrchestrationBoot {
 	readonly inheritedReach: InheritedReach;
 	/** Registered by the Application on its `/api` router, BEFORE the auth middleware. */
 	readonly registerPreAuthRoutes: (apiRouter: Hono) => void;
-	/**
-	 * AU26 J3: this Layer's live-run topic space. Exposed so an in-process test
-	 * can subscribe/broadcast without a socket; production reaches it only
-	 * through the registered route and the activity gateway.
-	 */
-	readonly sessionStreamHub: SessionStreamHub;
 	/** AU31 §5.1 — the one-shot session runner, bound to this boot's execution adapters and seam transport. Absent when `options.runtime` was not supplied. */
 	readonly runSession?: (deps: ProvisionSessionDeps, spec: RunOptions) => Promise<RunResult>;
 	/**
@@ -394,7 +388,7 @@ function buildProvisioningReads(
 export async function bootAgentOrchestration(
 	options: AgentOrchestrationBootOptions,
 ): Promise<AgentOrchestrationBoot> {
-	const { db, eventBus, sessionStream, probeInheritedReach, runtime, cipher } = options;
+	const { db, eventBus, upgradeWebSocket, wsPush, probeInheritedReach, runtime, cipher } = options;
 	const decrypt = cipher?.decrypt ?? (() => null);
 
 	// AU36 D4: the reach cache is ALWAYS built; `probeInheritedReach` only
@@ -408,14 +402,15 @@ export async function bootAgentOrchestration(
 	const activityBuffer = new SessionActivityBuffer(eventBus);
 	activityBuffer.start();
 
-	const sessionStreamHub = new SessionStreamHub(createRunStreamSubscribeAuthorizer(db));
-	const disposeGateway = registerSessionActivityGateway(eventBus, sessionStreamHub);
-	let disposeSocket: () => void = () => {};
+	// AU26 J3, superseded: the gateway pushes straight through the
+	// Application-bound `wsPush` — absent means no push happens (a bare test
+	// fixture), never a hub this Layer would have to own.
+	const disposeGateway = registerSessionActivityGateway(eventBus, wsPush ?? (() => {}));
 
 	// AU31 §5.1: the run runtime — poller, drain, watcher — starts HERE now,
 	// not in the Application. `options.runtime` absent (every existing
-	// bare-app test fixture) means no poller: the route surface and the
-	// session-stream socket work exactly as before.
+	// bare-app test fixture) means no poller: the route surface works exactly
+	// as before.
 	let runRuntime: RuntimeHandle | undefined;
 	let runSession:
 		| ((deps: ProvisionSessionDeps, spec: RunOptions) => Promise<RunResult>)
@@ -466,24 +461,14 @@ export async function bootAgentOrchestration(
 		app,
 		actionTools,
 		inheritedReach,
-		sessionStreamHub,
 		...(runSession ? { runSession } : {}),
 		...(runRuntime ? { disposeRuntime: () => runRuntime.dispose() } : {}),
 		registerPreAuthRoutes: (apiRouter) => {
-			if (runRuntime && sessionStream) {
-				runRuntime.registerWorkerWebSocket(apiRouter, sessionStream.upgradeWebSocket);
-			}
-			if (sessionStream) {
-				disposeSocket = registerSessionStreamRoute(
-					apiRouter,
-					sessionStream.upgradeTokens,
-					sessionStream.upgradeWebSocket,
-					sessionStreamHub,
-				);
+			if (runRuntime && upgradeWebSocket) {
+				runRuntime.registerWorkerWebSocket(apiRouter, upgradeWebSocket);
 			}
 		},
 		dispose: () => {
-			disposeSocket();
 			disposeGateway();
 			activityBuffer.stop();
 		},

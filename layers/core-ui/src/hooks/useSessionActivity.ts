@@ -22,7 +22,7 @@
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
-import { getSessionStreamClient } from "../services/ws-client.js";
+import { getWsClient } from "../services/ws-client.js";
 
 // AM3: ActivityEntry is now the canonical type from @hyperidle/domain-model.
 // Re-export for existing callers.
@@ -220,10 +220,11 @@ export function useSessionActivity(sessionId: string): UseSessionActivityResult 
 				setStatus("streaming");
 
 				// Q1 §4.7 / review issue #5: subscribe to WebSocket topic for live updates.
-				// @lore AU26 J3: `session:<id>` is served by agent-orchestration's own
-				// socket now, not core-api's — the Layer that owns the run owns its live
-				// stream. Founder: *"session dial in is 1000% orchestration."*
-				const wsClient = getSessionStreamClient();
+				// @lore AU26 J3, superseded: `session:<id>` rides core-api's one socket
+				// now — agent-orchestration still owns the run and its live content, it
+				// just reaches the browser through core's hub instead of a socket of its
+				// own.
+				const wsClient = getWsClient();
 				const handler = makeWsMessageHandler({
 					setEntries,
 					setSummary,

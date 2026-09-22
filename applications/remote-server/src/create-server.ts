@@ -325,12 +325,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return realInheritedReachRefresh();
 	};
 
-	// AU26 J3: the one-shot WS upgrade-token store is the Application's,
-	// because TWO sockets consume it — core-api's `/api/ws` and
-	// `agent-orchestration`'s `/api/agent-orchestration/ws`. `bootCoreApi`
-	// mints it (this Layer already builds the equivalent for its own route);
-	// the Application threads the SAME store into `bootAgentOrchestration`'s
-	// `sessionStream` option below.
 	const coreApi = await bootCoreApi({
 		db,
 		eventBus,
@@ -380,13 +374,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// builds the provisioning reads (`connections`/`filesystems`/
 	// `filesystem-mounting`) or the knowledge-writeback port — all three are
 	// in-layer for `bootAgentOrchestration` now (§5.1/§2.7).
-	if (!coreApi.upgradeTokenStore) {
-		// `upgradeWebSocket` is always supplied above, so `bootCoreApi` always
-		// builds a token store — this can only fire if that wiring regresses.
-		throw new Error(
-			"bootCoreApi did not build an upgradeTokenStore despite upgradeWebSocket being supplied.",
-		);
-	}
 	// §5: the join. `actionTools` starts as core's own list; the
 	// thunk below lets `bootAgentOrchestration` build every session's tool
 	// registry lazily, per session, off whatever this binding currently holds
@@ -397,7 +384,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		sessionStream: { upgradeWebSocket, upgradeTokens: coreApi.upgradeTokenStore },
+		// AU26 J3, superseded: `upgradeWebSocket` here is ONLY for worker
+		// WebSocket registration now — the live-run stream itself reaches the
+		// browser through `wsPush` below, on core's own socket.
+		upgradeWebSocket,
+		// Byte-identical to core's own action-layer binding (`core-api/src/app.ts`).
+		wsPush: (topic, envelope) => coreApi.wsHub.broadcast(topic, JSON.stringify(envelope)),
 		// AU36 D4: a `local`-topology deployment probes at boot; a `disabled`
 		// one keeps today's behavior — no boot probe, redetect populates (D5).
 		probeInheritedReach: deps.topology === "local",
