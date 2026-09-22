@@ -1,12 +1,14 @@
 # Relevance, Attention, and Assembly Scoring
 
+> **ARCHIVED.** `relevance-engine.ts`, `attention-scoring.ts`, `promotion-pipeline.ts` and the `knowledge_app_projection` columns this doc describes are all deleted — there is no facilitator review queue and no attention/relevance scoring any more (BC4). What replaced the facilitator's job — the document-management plugin's `document-triage`/`document-decay` routines — and the assembly scoring that survived (tag match, recency, confidence, the 40K token budget) are described in [the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md). Kept for history only.
+
 Three scoring engines exist. They answer different questions, consume disjoint inputs, and never collapse into one number:
 
 | Engine | Question | Consumer | Code |
 |---|---|---|---|
 | **`relevanceScore`** (L22) | "Of the items a user could read right now, which are most worth their attention?" | Knowledge view ranking (`layers/core-ui/src/pages/KnowledgeList.tsx`) | `layers/core-api/knowledge/src/relevance-engine.ts` + `relevance-service.ts` |
 | **`attentionScore`** | "Which items need human judgement applied?" | facilitator review-item queue | `layers/core-api/knowledge/src/attention-scoring.ts` |
-| **Assembly scoring** | "Which items get loaded into an agent session under the token budget?" | [Knowledge Fabric context assembly](./the-knowledge-fabric-how-knowledge-moves.md) | `layers/core-api/knowledge/src/session-knowledge-assembler.ts` + `token-budget.ts` |
+| **Assembly scoring** | "Which items get loaded into an agent session under the token budget?" | [Knowledge Fabric context assembly](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md) | `layers/core-api/knowledge/src/session-knowledge-assembler.ts` + `token-budget.ts` |
 
 `relevanceScore` and `attentionScore` are separate columns on the `knowledge_app_projection` extension table (`framework/db/src/schema.ts:1004-1021` — O2 moved all strategy signals off `knowledge_items`). A high `relevanceScore` does not imply a high `attentionScore` — the most-accessed item in the system may be perfectly settled and need no human input.
 
@@ -104,7 +106,7 @@ This last column is the real point. Most agent systems either dump everything on
 
 ## Assembly scoring and the context budget
 
-Not all knowledge loads into every session. The [Knowledge Fabric](./the-knowledge-fabric-how-knowledge-moves.md) scores candidate items per session and enforces a token budget.
+Not all knowledge loads into every session. The [Knowledge Fabric](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md) scores candidate items per session and enforces a token budget.
 
 ### Scoring factors
 
@@ -119,7 +121,7 @@ Weights (`DEFAULT_WEIGHTS`, `scoring-config.ts:26-31`) are fixed constants, not 
 
 Score is normalised to 0–100 (`scoreItem`, `session-knowledge-assembler.ts`). Note the factor set is distinct from the L22 relevanceScore signals — usage frequency is NOT an assembly factor.
 
-**Role match and layer proximity are deleted, not replaced.** `roleMatch` scored against a role→community map that never actually matched seeded data in practice — the fuzzy substring fallback did all the work — and `layerProximity` scored the now-deleted layer ladder. What an agent receives is answered entirely by scope (factory + its team + its own — see [the-canonical-store.md](./the-canonical-store.md#scope-kernel)); there is no subtree-proximity weight standing in for it.
+**Role match and layer proximity are deleted, not replaced.** `roleMatch` scored against a role→community map that never actually matched seeded data in practice — the fuzzy substring fallback did all the work — and `layerProximity` scored the now-deleted layer ladder. What an agent receives is answered entirely by scope (factory + its team + its own — see [the-canonical-store.md](../knowledge-architecture/the-canonical-store.md#scope)); there is no subtree-proximity weight standing in for it.
 
 ### Budget enforcement
 

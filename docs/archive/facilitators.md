@@ -1,5 +1,7 @@
 # Facilitators
 
+> **ARCHIVED.** The fixed role catalog this doc describes (System Agent / Facilitator / Product Manager, a hardcoded community structure) no longer exists — agent roles are open-vocabulary strings now, with no catalog and no role hierarchy (`framework/domain-model/src/agent-roles.ts`). The knowledge-scoring machinery this doc leans on (`promotion-pipeline.ts`, `attention-scoring.ts`, the facilitator review queue) is deleted too (BC4) — see [the-knowledge-fabric-how-knowledge-moves.md](../knowledge-architecture/the-knowledge-fabric-how-knowledge-moves.md) for what replaced it (the document-management plugin's `librarian` agent and its `document-triage`/`document-decay` routines). Kept for history only.
+
 Most agent systems have workers (agents that do things) and maybe an orchestrator (routes work). They're missing the role that actually makes knowledge compound: **the facilitator** — a dedicated agent whose entire job is to organize knowledge, score what needs human attention, and collect exactly the feedback that converts information into knowledge. The role a great librarian, community manager, or editor plays in a human org. Without them, information accumulates but knowledge doesn't.
 
 > **Load-bearing doc.** `layers/core-api/knowledge/src/promotion-pipeline.ts` quotes the auto-promotion sentence in §Auto-promotion verbatim (code comment still references `KNOWLEDGE_ARCHITECTURE.md §6.5` — the old monolith path; update that comment when renaming). Change that section and the code comment together.
@@ -28,7 +30,7 @@ The fifth practice — for **facilitation itself** — means the facilitators fo
 
 ## What facilitators do
 
-1. **Continuously organize.** Merge duplicates, resolve conflicts (`knowledgeConflicts`, `framework/db/src/schema.ts:962`; see [sync-and-conflict-resolution](./sync-and-conflict-resolution.md)), archive stale items (stale sweep, `layers/core-api/knowledge/src/promotion-pipeline.ts`), nest and reorder for retrievability.
+1. **Continuously organize.** Merge duplicates, resolve conflicts (`knowledgeConflicts`, `framework/db/src/schema.ts:962`; see [sync-and-conflict-resolution](../knowledge-architecture/sync-and-conflict-resolution.md)), archive stale items (stale sweep, `layers/core-api/knowledge/src/promotion-pipeline.ts`), nest and reorder for retrievability.
 2. **Score every item for human attention.** Weighted 8-signal attention score, threshold 0.7 → review item. Signal and question tables live in [relevance-and-attention](./relevance-and-attention.md).
 3. **Shape the human's queue for their scope.** The facilitator curates the Knowledge view triage queue; the Product Manager shapes the coming cycle's tasks.
 4. **Ask for the right kind of feedback.** A contradicting pair needs *resolution*; a novel pattern needs *validation*; a stable-but-stale practice needs *retirement or extension*. The facilitator picks the question — the question-kind routing table is in [relevance-and-attention](./relevance-and-attention.md). (Design intent; the question strings aren't in code yet.)
