@@ -194,7 +194,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body).toHaveProperty("teamName");
 		expect(body).toHaveProperty("createdAt");
 		// Config fields
-		expect(body).toHaveProperty("identityKnowledgeId");
+		expect(body).toHaveProperty("identityDocumentId");
 		expect(body).toHaveProperty("harnessType");
 		expect(body).toHaveProperty("maxConcurrentSessions");
 		// @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
@@ -227,7 +227,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.name).toBe("AB1 Builder Bot");
 		expect(body.role).toBe("builder");
 		expect(body.harnessType).toBe("claude-code");
-		expect(body.identityKnowledgeId).toBeTruthy();
+		expect(body.identityDocumentId).toBeTruthy();
 		expect(body.maxConcurrentSessions).toBe(2);
 	});
 

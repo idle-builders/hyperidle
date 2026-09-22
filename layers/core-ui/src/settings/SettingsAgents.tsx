@@ -504,7 +504,7 @@ export function SettingsAgents(): JSX.Element {
 				saving={saving}
 				error={editError}
 				filesystems={filesystems}
-				identityKnowledgeId={selectedAgent?.identityKnowledgeId ?? null}
+				identityDocumentId={selectedAgent?.identityDocumentId ?? null}
 				rolesInUse={agents.map((a) => a.role)}
 			/>
 		) : (

@@ -172,9 +172,9 @@ export function AgentDetailPane({
 						context, and knowledge.
 					</p>
 
-					{agent.identityKnowledgeId ? (
+					{agent.identityDocumentId ? (
 						<RRLink
-							to={`/documents/${agent.identityKnowledgeId}`}
+							to={`/documents/${agent.identityDocumentId}`}
 							data-testid="agent-detail-identity-link"
 							className="type-metadata  text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 						>

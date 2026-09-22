@@ -432,9 +432,9 @@ function AgentProfileLoaded({
 					{/* Who the agent is. It is a document, so the profile
 					    links to it rather than reprinting it — one place to read it,
 					    one place to edit it. */}
-					{data.identityKnowledgeId && (
+					{data.identityDocumentId && (
 						<RRLink
-							to={`/documents/${data.identityKnowledgeId}`}
+							to={`/documents/${data.identityDocumentId}`}
 							data-testid="agent-identity-link"
 							className="type-metadata mt-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
 						>

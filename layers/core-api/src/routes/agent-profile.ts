@@ -146,7 +146,7 @@ export async function handleAgentProfile(
 		teamName,
 		teamId: resolvedTeamId,
 		createdAt: agent.createdAt,
-		identityKnowledgeId:
+		identityDocumentId:
 			(await identity.identityIdsFor(db, c.get("userId"), [agentId])).get(agentId) ?? null,
 		harnessType: runConfig.harnessType,
 		maxConcurrentSessions: runConfig.maxConcurrentSessions,

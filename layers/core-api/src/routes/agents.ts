@@ -203,7 +203,7 @@ export function createAgentRoutes(
 				// fact needs to be on the wire — the UI can otherwise only get it via
 				// a second `GET /api/users?kind=ai` fetch (`useAgentOwnership`).
 				ownerUserId: agent.ownerUserId ?? null,
-				identityKnowledgeId: identityIds.get(agent.id) ?? null,
+				identityDocumentId: identityIds.get(agent.id) ?? null,
 				harnessType: runConfig.harnessType,
 				modelId: runConfig.modelId,
 				modelProvider: runConfig.modelProvider,
@@ -290,7 +290,7 @@ export function createAgentRoutes(
 			teamId: data.teamId ?? null,
 			createdAt: now,
 		});
-		const identityKnowledgeId = await identity.upsertAgentIdentity(db, {
+		const identityDocumentId = await identity.upsertAgentIdentity(db, {
 			agentId: id,
 			agentName: data.name,
 			body: data.systemPrompt ?? "",
@@ -313,7 +313,7 @@ export function createAgentRoutes(
 				// This route never sets `ownerUserId` (BA1's scaffold path does) —
 				// null here matches the row `insertUser` just wrote.
 				ownerUserId: null,
-				identityKnowledgeId,
+				identityDocumentId,
 				harnessType: effectiveHarnessType,
 				modelId: effectiveModelId,
 				modelProvider: effectiveProvider,
@@ -398,7 +398,7 @@ export function createAgentRoutes(
 			role: updated.role,
 			agentCategory: updated.agentCategory ?? null,
 			ownerUserId: updated.ownerUserId ?? null,
-			identityKnowledgeId:
+			identityDocumentId:
 				(await identity.identityIdsFor(db, c.get("userId"), [id])).get(id) ?? null,
 			harnessType: updatedRunConfig.harnessType,
 			modelId: updatedRunConfig.modelId,

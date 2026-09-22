@@ -87,7 +87,7 @@ export interface AgentProfileResponse {
 	 * if it has none. The profile links to it; the text lives in the document,
 	 * which is read and edited like any other document.
 	 */
-	readonly identityKnowledgeId: string | null;
+	readonly identityDocumentId: string | null;
 	readonly harnessType: string | null;
 	readonly maxConcurrentSessions: number;
 	/** MCP connection info (if configured). null in most cases. */

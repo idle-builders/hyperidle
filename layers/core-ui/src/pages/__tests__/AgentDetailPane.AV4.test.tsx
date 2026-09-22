@@ -51,7 +51,7 @@ const AGENT_CONFIG: AgentConfig = {
 	id: "a1",
 	name: "Atlas Builder",
 	role: "builder",
-	identityKnowledgeId: "ki_af_demo",
+	identityDocumentId: "ki_af_demo",
 	harnessType: "claude-code",
 	modelId: null,
 	modelProvider: null,

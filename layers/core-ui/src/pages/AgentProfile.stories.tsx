@@ -30,7 +30,7 @@ const BASE_PROFILE: AgentProfileResponse = {
 	teamName: "HyperIdle Core",
 	teamId: "team-1",
 	createdAt: "2024-01-15T08:00:00.000Z",
-	identityKnowledgeId: "ki_af_agent-1",
+	identityDocumentId: "ki_af_agent-1",
 	harnessType: "claude-code",
 	maxConcurrentSessions: 2,
 	mcpSetup: null,

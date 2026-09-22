@@ -233,20 +233,20 @@ describe("agent identity through the document action mechanism", () => {
 			body: JSON.stringify({ name: "Atlas", role: "builder", systemPrompt: "You are Atlas." }),
 		});
 		expect(createRes.status).toBe(201);
-		const created = (await createRes.json()) as { id: string; identityKnowledgeId: string };
-		expect(created.identityKnowledgeId).toBe(`doc_af_${created.id}`);
+		const created = (await createRes.json()) as { id: string; identityDocumentId: string };
+		expect(created.identityDocumentId).toBe(`doc_af_${created.id}`);
 
 		const openRes = await app.request("/api/actions/open_document", {
 			method: "POST",
 			headers: authHeaders(READER),
-			body: JSON.stringify({ id: created.identityKnowledgeId }),
+			body: JSON.stringify({ id: created.identityDocumentId }),
 		});
 		expect(openRes.status).toBe(200);
 		const opened = (await openRes.json()) as {
 			ok: true;
 			data: { document: { id: string; body: string; slot: string } };
 		};
-		expect(opened.data.document.id).toBe(created.identityKnowledgeId);
+		expect(opened.data.document.id).toBe(created.identityDocumentId);
 		expect(opened.data.document.body).toBe("You are Atlas.");
 		expect(opened.data.document.slot).toBe("agent_file");
 	});
@@ -262,7 +262,7 @@ describe("agent identity through the document action mechanism", () => {
 			headers: authHeaders(CREATOR),
 			body: JSON.stringify({ name: "Ranger", role: "builder", systemPrompt: "You are Ranger." }),
 		});
-		const created = (await createRes.json()) as { id: string; identityKnowledgeId: string };
+		const created = (await createRes.json()) as { id: string; identityDocumentId: string };
 
 		await app.request("/api/agents", { headers: authHeaders(READER) });
 		await app.request(`/api/agents/${created.id}/profile`, { headers: authHeaders(READER) });
@@ -270,7 +270,7 @@ describe("agent identity through the document action mechanism", () => {
 		const [doc] = await db
 			.select()
 			.from(documents)
-			.where(eq(documents.id, created.identityKnowledgeId));
+			.where(eq(documents.id, created.identityDocumentId));
 		expect(doc?.readCount).toBe(0);
 	});
 });

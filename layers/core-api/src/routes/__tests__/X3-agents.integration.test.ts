@@ -144,7 +144,7 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("id");
 		expect(agent).toHaveProperty("name");
 		expect(agent).toHaveProperty("role");
-		expect(agent).toHaveProperty("identityKnowledgeId");
+		expect(agent).toHaveProperty("identityDocumentId");
 		expect(agent).toHaveProperty("harnessType");
 		expect(agent).toHaveProperty("maxConcurrentSessions");
 		expect(agent).toHaveProperty("status");
@@ -325,14 +325,14 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 			}),
 		});
 		expect(res.status).toBe(201);
-		const body = (await res.json()) as { id: string; identityKnowledgeId: string };
-		expect(body.identityKnowledgeId).toBeTruthy();
+		const body = (await res.json()) as { id: string; identityDocumentId: string };
+		expect(body.identityDocumentId).toBeTruthy();
 
 		// Bound to the agent, and an agent file — the binding session assembly reads.
 		const [doc] = await db
 			.select()
 			.from(documents)
-			.where(eq(documents.id, body.identityKnowledgeId));
+			.where(eq(documents.id, body.identityDocumentId));
 		expect(doc?.body).toBe("You are Identity Bot.");
 		expect(doc?.slot).toBe("agent_file");
 		expect(doc?.scopeKind).toBe("user");
