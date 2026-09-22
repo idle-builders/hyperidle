@@ -79,6 +79,13 @@ function openTaskBody(
 	};
 }
 
+// The two save assertions follow a real async round trip (click → edit_task →
+// state → render). Under the full 500-file suite the CI runner starves the
+// event loop enough that testing-library's 1 s default has timed out here
+// while the same test passes alone and locally under load. The assertion is
+// unchanged; only the wait is long enough for a slow runner.
+const SAVE_ROUND_TRIP_TIMEOUT_MS = 5000;
+
 // ── Render helper ───────────────────────────────────────────────────────────
 
 function renderPage(taskId: string): ReturnType<typeof render> {
@@ -461,9 +468,12 @@ describe("BB1 AC10 — edit submit issues edit_task", () => {
 		});
 		fireEvent.click(screen.getByTestId("task-save-btn"));
 
-		await waitFor(() => {
-			expect(screen.getByTestId("task-save-confirmation")).toBeInTheDocument();
-		});
+		await waitFor(
+			() => {
+				expect(screen.getByTestId("task-save-confirmation")).toBeInTheDocument();
+			},
+			{ timeout: SAVE_ROUND_TRIP_TIMEOUT_MS },
+		);
 	});
 
 	it("shows error message when edit_task fails", async () => {
@@ -484,9 +494,12 @@ describe("BB1 AC10 — edit submit issues edit_task", () => {
 		});
 		fireEvent.click(screen.getByTestId("task-save-btn"));
 
-		await waitFor(() => {
-			expect(screen.getByTestId("task-save-error")).toBeInTheDocument();
-		});
+		await waitFor(
+			() => {
+				expect(screen.getByTestId("task-save-error")).toBeInTheDocument();
+			},
+			{ timeout: SAVE_ROUND_TRIP_TIMEOUT_MS },
+		);
 	});
 });
 
