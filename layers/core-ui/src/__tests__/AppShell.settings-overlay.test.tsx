@@ -44,7 +44,7 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 				Promise.resolve({
 					conversations: [],
 					work: [],
-					knowledge: [],
+					documents: [],
 					threads: [],
 					nextCursor: null,
 					id: "u-test",

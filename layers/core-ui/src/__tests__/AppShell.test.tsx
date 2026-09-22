@@ -209,7 +209,7 @@ describe("AppShell", () => {
 								state: "in_progress",
 							},
 						],
-						knowledge: [
+						documents: [
 							{
 								id: "k7",
 								title: "Arch doc",
@@ -269,7 +269,7 @@ describe("AppShell", () => {
 							},
 						],
 						work: [],
-						knowledge: [],
+						documents: [],
 					}),
 			});
 			const { user, router } = renderShellWithProbes("/documents");

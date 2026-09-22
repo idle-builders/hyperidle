@@ -53,7 +53,7 @@ const SECTION_ITEMS: Record<ViewId, NavItem[]> = {
 		{ id: "team-2", title: "Product Alpha" },
 		{ id: "team-3", title: "Factory Operations" },
 	],
-	knowledge: [
+	documents: [
 		{ id: "k1", title: "Engineering handbook" },
 		{ id: "k2", title: "Q3 OKRs" },
 		{ id: "k3", title: "Incident runbook" },
@@ -64,7 +64,7 @@ const SECTION_ITEMS: Record<ViewId, NavItem[]> = {
 const FASTNAV_EMPTY: Record<ViewId, string> = {
 	conversations: "No conversations yet",
 	work: "No teams yet",
-	knowledge: "No documents yet",
+	documents: "No documents yet",
 };
 
 // ---------------------------------------------------------------------------

@@ -92,7 +92,7 @@ describe("AppShell — P4 Settings overlay", () => {
 					Promise.resolve({
 						conversations: [],
 						work: [],
-						knowledge: [],
+						documents: [],
 						threads: [],
 						nextCursor: null,
 						// auth/me response
