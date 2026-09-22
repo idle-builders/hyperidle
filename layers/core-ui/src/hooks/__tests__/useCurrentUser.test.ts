@@ -125,6 +125,44 @@ describe("useCurrentUser (M3 A10)", () => {
 		expect(result.current.error).toBeNull();
 	});
 
+	it("BC4: normalizes a null teamId to undefined (no team)", async () => {
+		const user = {
+			id: "test-user-1",
+			name: "Test User",
+			email: "test@hyperidle.dev",
+			avatarUrl: null,
+			teamId: null,
+		};
+		fetchSpy.mockResolvedValueOnce(makeOkResponse(user as unknown as AuthMeResponse));
+
+		const { result } = renderHook(() => useCurrentUser());
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("ready");
+		});
+
+		expect(result.current.user?.teamId).toBeUndefined();
+	});
+
+	it("BC4: carries a real teamId through unchanged", async () => {
+		const user = {
+			id: "test-user-1",
+			name: "Test User",
+			email: "test@hyperidle.dev",
+			avatarUrl: null,
+			teamId: "t1",
+		};
+		fetchSpy.mockResolvedValueOnce(makeOkResponse(user as unknown as AuthMeResponse));
+
+		const { result } = renderHook(() => useCurrentUser());
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("ready");
+		});
+
+		expect(result.current.user?.teamId).toBe("t1");
+	});
+
 	it("returned user id is NOT the hardcoded 'u-founder' string", async () => {
 		const user: AuthMeResponse = {
 			id: "real-user-from-api",

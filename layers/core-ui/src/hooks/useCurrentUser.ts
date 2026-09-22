@@ -57,7 +57,7 @@ export function useCurrentUser(): UseCurrentUserResult {
 					name: string;
 					email: string;
 					avatarUrl: string | null;
-					teamId?: string;
+					teamId?: string | null;
 				};
 				if (cancelled) return;
 				setUser({
@@ -65,7 +65,10 @@ export function useCurrentUser(): UseCurrentUserResult {
 					name: data.name,
 					email: data.email,
 					avatarUrl: data.avatarUrl,
-					teamId: data.teamId,
+					// The wire carries `null` for "no team" (BC4); CurrentUser.teamId
+					// stays an optional string so every `!== undefined` gate downstream
+					// (DocumentCreate, ScopeChangeDialog) reads "no team" correctly.
+					teamId: data.teamId ?? undefined,
 				});
 				setStatus("ready");
 			} catch (cause) {

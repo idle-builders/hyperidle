@@ -1,7 +1,9 @@
 /**
  * Authentication helper routes.
  *
- * `GET /api/auth/me` returns the authenticated user's identity from the users table.
+ * `GET /api/auth/me` returns the authenticated user's identity from the users table,
+ * including `teamId` (`null` when the user has no team) so the UI can gate
+ * team-scoped affordances on real membership.
  * Always mounted (regardless of WebSocket support).
  *
  * `POST /api/auth/ws-token` mints a one-shot upgrade token that the client
@@ -62,6 +64,7 @@ export function createAuthRoutes(
 				name: "Founder",
 				email: "",
 				avatarUrl: null,
+				teamId: null,
 			});
 		}
 
@@ -72,6 +75,8 @@ export function createAuthRoutes(
 			name: userRow?.name ?? "Founder",
 			email: userRow?.email ?? "",
 			avatarUrl: userRow?.avatarUrl ?? null,
+			// AF13 §6: team membership so the UI can gate "Team" scope on it.
+			teamId: userRow?.teamId ?? null,
 		});
 	});
 
