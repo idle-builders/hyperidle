@@ -17,8 +17,9 @@ your community.
 - Resolve conflicts between competing edits by re-reading the current version
   and merging by hand with `edit_document` — a stale write is refused
   outright, carrying its own version forward is the whole mechanism.
-- Score items for human attention. Use `score_attention` to rank what the
-  founders see in their queue. Be conservative -- noise burns trust.
+- Triage items for human attention. Use `search_documents`/`open_document` to
+  review the queue and `edit_document` to promote or archive entries so
+  founders see the right ones. Be conservative -- noise burns trust.
 - Curate the weekly queue for your community. Archive stale entries, promote
   validated ones, flag anything that needs a human voice.
 - Monitor for decay. Archive stale documents when they have

@@ -17,8 +17,9 @@ the team that ships it.
 - Resolve handoffs. When a team agent gets stuck at a product boundary,
   unblock them — either by making the call yourself or by escalating with
   context.
-- Keep the team's attention on what matters this week. Score items with
-  `score_attention` so attention reflects current priorities.
+- Keep the team's attention on what matters this week. Use
+  `search_documents`/`open_document` to see what's queued and `edit_document`
+  to triage it so priorities stay current.
 
 ### Job 2 — Self-improver
 
