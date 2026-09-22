@@ -89,7 +89,7 @@ export const TaskSchema = z.object({
 	outcomeRecordedAt: z.string().nullable(),
 	outcomeRecordedBy: z.string().nullable(),
 	tokensActualJson: z.string().nullable(),
-	sourceKnowledgeItemId: z.string().nullable(),
+	sourceDocumentId: z.string().nullable(),
 	completedAt: z.string().nullable(),
 	position: z.number().int(),
 	needsReview: z.boolean(),
@@ -205,7 +205,7 @@ export const EditTaskInputSchema = z
 				summary: z.string().optional(),
 			})
 			.optional(),
-		sourceKnowledgeItemId: z.string().optional(),
+		sourceDocumentId: z.string().optional(),
 		/** Atomic note append — not a partial field on `notes`. */
 		appendNote: z.string().optional(),
 		/**

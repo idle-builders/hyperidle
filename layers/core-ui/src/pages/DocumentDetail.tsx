@@ -517,11 +517,6 @@ function DocumentDetailView({
 		}
 	}
 
-	/**
-	 * @lore BB1: `edit_task` with `sourceKnowledgeItemId` — that field name is
-	 * the rename wave's job (§11.2 R5), not this block's; it is unchanged in
-	 * `EditTaskInput` today.
-	 */
 	async function handlePromoteToTask(): Promise<void> {
 		closeOverflow();
 		const teams = teamsData?.teams ?? [];
@@ -541,7 +536,7 @@ function DocumentDetailView({
 				teamId,
 				title: document.title,
 				description: savedContent || document.body,
-				sourceKnowledgeItemId: document.id,
+				sourceDocumentId: document.id,
 			});
 			if (result.ok) {
 				navigate(`/work/task/${result.data.task.id}`);

@@ -73,7 +73,7 @@ Shipped shape:
 - `tokensActualJson` — this task's OWN accumulated TokenUsage. A subtree total is summed at read time; no ancestor carries a rollup column, so there is none to drift.
 - `needsReview` — does finishing this task need a human verdict? Default `false`: work closes straight to `done`. See [tasks-and-sessions §1.1](tasks-and-sessions.md).
 - `position` — display order among siblings, assigned on create (append) and on reparent, settable by a person or an agent. Deliberately NOT derived from `dependencies`: that says what must FINISH first, this says what to SHOW first, and two siblings with no dependency between them still need an order.
-- `sourceKnowledgeItemId` (AK5 promote-from-knowledge), `createdAt`, `updatedAt`, `completedAt` — timestamps are informational; duration is never a budget
+- `sourceDocumentId` (promote-from-document), `createdAt`, `updatedAt`, `completedAt` — timestamps are informational; duration is never a budget
 
 **Cycles are rejected at write time** (`assertNoCycle`), not merely constrained by the database: a
 recursive read that meets a cycle does not error, it spins. The recursive reads additionally carry a

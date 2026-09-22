@@ -57,7 +57,7 @@ export interface TaskActionsDeps {
 	 * never count as one), and never calls this inside its own open
 	 * transaction (a runner call inside `ctx.db.transaction` hangs PGlite).
 	 * Two call sites: the artifacts list (`parent:{kind:"task",id}`) and the
-	 * `sourceKnowledgeItemId` existence check (`ids:[id]`).
+	 * `sourceDocumentId` existence check (`ids:[id]`).
 	 */
 	readonly searchDocuments: (
 		ctx: ActionContext,
@@ -165,7 +165,7 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		outcomeRecordedAt: null,
 		outcomeRecordedBy: null,
 		tokensActualJson: null,
-		sourceKnowledgeItemId: null,
+		sourceDocumentId: null,
 		completedAt: null,
 		position: 0,
 		needsReview: false,
@@ -183,8 +183,8 @@ function candidateTask(prev: Task | null, input: EditTaskInput, resolvedState: s
 		...(input.dependencies !== undefined
 			? { dependencies: input.dependencies ? JSON.stringify(input.dependencies) : null }
 			: {}),
-		...(input.sourceKnowledgeItemId !== undefined
-			? { sourceKnowledgeItemId: input.sourceKnowledgeItemId }
+		...(input.sourceDocumentId !== undefined
+			? { sourceDocumentId: input.sourceDocumentId }
 			: {}),
 		...(input.tokensActualJson !== undefined ? { tokensActualJson: input.tokensActualJson } : {}),
 		state: resolvedState as DomainTask["state"],
@@ -420,17 +420,17 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 			}
 			teamId ??= parent.teamId;
 		}
-		if (input.sourceKnowledgeItemId !== undefined) {
-			const srcResult = await deps.searchDocuments(ctx, { ids: [input.sourceKnowledgeItemId] });
+		if (input.sourceDocumentId !== undefined) {
+			const srcResult = await deps.searchDocuments(ctx, { ids: [input.sourceDocumentId] });
 			const srcItem = srcResult.ok ? srcResult.data[0] : undefined;
 			if (!srcItem) {
 				return {
 					ok: false,
 					problems: [
 						{
-							code: "source_knowledge_item_not_found",
-							message: `Knowledge item '${input.sourceKnowledgeItemId}' not found`,
-							path: "sourceKnowledgeItemId",
+							code: "source_document_not_found",
+							message: `Document '${input.sourceDocumentId}' not found`,
+							path: "sourceDocumentId",
 						},
 					],
 				};
@@ -673,7 +673,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 				dependencies: next.dependencies,
 				position: next.position,
 				needsReview: next.needsReview,
-				sourceDocumentId: next.sourceKnowledgeItemId,
+				sourceDocumentId: next.sourceDocumentId,
 				tokensActualJson: next.tokensActualJson,
 				updatedAt: now,
 			};
@@ -700,7 +700,7 @@ export function createTaskActions(deps: TaskActionsDeps): readonly Action[] {
 						next.position ||
 						(await taskDb.maxSiblingPosition(tx, next.parentTaskId, next.teamId)) + 1,
 					needsReview: next.needsReview,
-					sourceDocumentId: next.sourceKnowledgeItemId,
+					sourceDocumentId: next.sourceDocumentId,
 					createdAt: now,
 					updatedAt: now,
 				};

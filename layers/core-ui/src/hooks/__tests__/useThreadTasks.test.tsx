@@ -49,7 +49,7 @@ function makeTask(id: string, overrides: Partial<Record<string, unknown>> = {}) 
 		outcomeRecordedAt: null,
 		outcomeRecordedBy: null,
 		tokensActualJson: null,
-		sourceKnowledgeItemId: null,
+		sourceDocumentId: null,
 		completedAt: null,
 		position: 0,
 		needsReview: false,

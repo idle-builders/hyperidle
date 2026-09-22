@@ -138,7 +138,7 @@ describe("DocumentDetail — date formatting", () => {
 });
 
 describe("DocumentDetail — Promote to task", () => {
-	it("still calls edit_task with sourceKnowledgeItemId", async () => {
+	it("still calls edit_task with sourceDocumentId", async () => {
 		const row = makeDocumentRow({ id: "doc-4", title: "Idea worth building", body: "Details." });
 		callMock.mockImplementation(
 			makeCallRouter({
@@ -159,7 +159,7 @@ describe("DocumentDetail — Promote to task", () => {
 			expect(promoteCalls[0]?.[1]).toMatchObject({
 				teamId: "team-1",
 				title: "Idea worth building",
-				sourceKnowledgeItemId: "doc-4",
+				sourceDocumentId: "doc-4",
 			});
 		});
 	});

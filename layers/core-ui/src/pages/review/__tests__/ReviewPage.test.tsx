@@ -344,7 +344,7 @@ describe("ReviewPage default loader — task naming", () => {
 				outcomeRecordedAt: null,
 				outcomeRecordedBy: null,
 				tokensActualJson: null,
-				sourceKnowledgeItemId: null,
+				sourceDocumentId: null,
 				completedAt: null,
 				position: 0,
 				needsReview: false,

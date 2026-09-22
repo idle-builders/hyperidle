@@ -317,7 +317,7 @@ function makeTask(id: string, title: string, state: string) {
 		outcomeRecordedAt: null,
 		outcomeRecordedBy: null,
 		tokensActualJson: null,
-		sourceKnowledgeItemId: null,
+		sourceDocumentId: null,
 		completedAt: null,
 		position: 0,
 		needsReview: false,

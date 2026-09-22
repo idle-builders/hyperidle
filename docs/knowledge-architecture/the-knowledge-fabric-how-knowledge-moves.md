@@ -23,7 +23,7 @@ There is no `bet` scope kind and no `product`/`practice` scope kind — migratio
 
 ### Knowledge → task
 
-Promoting a knowledge item into a task (AK5) creates a new task with `sourceKnowledgeItemId` set to the item's id. The task header links back to the source item. This edge is owned by the task create flow; the provenance column is `tasks.source_knowledge_item_id` (`framework/db/src/schema.ts`). This is the opposite direction from **graduating** a task's own knowledge into the tree (a reparent, owned by [the-canonical-store.md](the-canonical-store.md#the-tree)) — one turns a note into a task, the other turns a task's note into a tree item.
+Promoting a document into a task creates a new task with `sourceDocumentId` set to the document's id. The task header links back to the source document. This edge is owned by the task create flow; the provenance column is `tasks.source_document_id` (`framework/db/src/schema.ts`). This is the opposite direction from **graduating** a task's own knowledge into the tree (a reparent, owned by [the-canonical-store.md](the-canonical-store.md#the-tree)) — one turns a note into a task, the other turns a task's note into a tree item.
 
 ## 2. Projection for humans (Web UI)
 
