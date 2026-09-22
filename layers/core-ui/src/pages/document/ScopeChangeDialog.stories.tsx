@@ -13,6 +13,7 @@ export const Default = (): React.JSX.Element => {
 			documentId="doc-test-1"
 			currentVersion={1}
 			currentScopeKind="user"
+			currentScopeId={null}
 			hasParent={true}
 		/>
 	);
@@ -26,6 +27,7 @@ export const Closed = (): React.JSX.Element => (
 		documentId="doc-test-1"
 		currentVersion={1}
 		currentScopeKind="factory"
+		currentScopeId={null}
 		hasParent={true}
 	/>
 );

@@ -39,6 +39,9 @@ const BASE_PROPS = {
 	documentId: "doc-1",
 	currentVersion: 1,
 	currentScopeKind: "factory" as const,
+	// factory has no id to prefill; the initial-render prefill is covered in
+	// ScopeChangeDialog-initial-prefill.test.tsx.
+	currentScopeId: null,
 	// This suite is about the Shared/Team pill mechanics; hasParent:true
 	// keeps Private enabled so those cases are unaffected. Private's own
 	// disabled-for-a-root-document behavior is covered in

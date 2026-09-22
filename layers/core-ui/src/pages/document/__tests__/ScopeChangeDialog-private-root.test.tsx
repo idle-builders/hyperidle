@@ -41,6 +41,7 @@ const BASE_PROPS = {
 	documentId: "doc-1",
 	currentVersion: 1,
 	currentScopeKind: "factory" as const,
+	currentScopeId: null,
 };
 
 describe("ScopeChangeDialog — Private disabled for a parentless document", () => {

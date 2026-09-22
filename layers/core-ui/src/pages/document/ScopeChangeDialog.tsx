@@ -41,6 +41,14 @@ export interface ScopeChangeDialogProps {
 	/** Current scope kind to pre-fill the select. */
 	currentScopeKind: ScopeKind;
 	/**
+	 * Current scope id, when the current scope names one (a team). Review-found
+	 * defect: opening with Team already the current scope showed an empty
+	 * Scope ID field even though the document already had one — this is what
+	 * lets the initial render prefill it instead of only prefilling on a
+	 * fresh Team click.
+	 */
+	currentScopeId: string | null;
+	/**
 	 * Whether the document has a parent — review-found defect: a parentless
 	 * (root) document scoped `"user"` reads back as a memory (`documentAs`),
 	 * and widening it away from Private is then refused. Private is disabled
@@ -75,6 +83,7 @@ export function ScopeChangeDialog({
 	documentId,
 	currentVersion,
 	currentScopeKind,
+	currentScopeId,
 	hasParent,
 }: ScopeChangeDialogProps): JSX.Element | null {
 	// Gate the Team option by hasTeam, matching DocumentCreate's logic.
@@ -85,19 +94,28 @@ export function ScopeChangeDialog({
 		resolveDefaultOption(currentScopeKind),
 	);
 	const scopeKind: ScopeKind = selectedOption.scopeKind;
-	const [scopeId, setScopeId] = useState<string>("");
+	// Prefilled on initial render when the dialog opens with Team already the
+	// current scope — from the document's own scopeId, falling back to the
+	// user's own team when that is absent (review-found defect: this used to
+	// stay empty until a person freshly clicked the Team pill, `onChange`
+	// below). Still a one-shot default, not a standing effect: watching
+	// `scopeId` and refilling on every empty value would fight a person
+	// clearing the field to type a different id. The field stays editable.
+	const [scopeId, setScopeId] = useState<string>(
+		currentScopeKind === "team" ? (currentScopeId ?? user?.teamId ?? "") : "",
+	);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Prefill the Scope ID once, the moment Team is freshly picked — they
-	// carry their own team from `/auth/me` (`useCurrentUser`), and that is
-	// the only team they can legally widen to. A one-shot default set from
-	// the `onChange` below, not a standing effect: watching `scopeId` and
-	// refilling on every empty value would fight a person clearing the field
-	// to type a different id. The field stays editable after this.
 	const needsScopeId = SCOPES_REQUIRING_ID.has(scopeKind);
 	const isDirty = selectedOption.scopeKind !== currentScopeKind || scopeId.trim().length > 0;
-	const canSave = isDirty && !submitting;
+	// A scope that names an entity gates Save on the id being non-empty alone
+	// — not on whether it differs from what is already stored (review-found
+	// defect: the prefill above makes the id non-empty from the very first
+	// render, so the old `isDirty` check would leave Save disabled on open
+	// even though the field shows a complete, savable value). A scope with no
+	// id still gates on `isDirty` — there is no id to judge completeness by.
+	const canSave = !submitting && (needsScopeId ? scopeId.trim().length > 0 : isDirty);
 
 	// The picker's `disabledTitle` is one shared tooltip for every disabled
 	// pill (`ScopePicker`'s own contract) — composed from whichever reasons

@@ -38,6 +38,11 @@ const BASE_PROPS = {
 	documentId: "doc-1",
 	currentVersion: 1,
 	currentScopeKind: "user" as const,
+	// The current scope is "user", not "team" — no initial-render prefill
+	// applies here; this suite is about the onChange-triggered prefill on a
+	// fresh Team click, covered by ScopeChangeDialog-initial-prefill.test.tsx
+	// for the initial-render case.
+	currentScopeId: null,
 	// This suite is about the Team pill's prefill, not Private; hasParent:true
 	// keeps Private enabled so it is not what makes the Team clicks under test.
 	hasParent: true,

@@ -791,6 +791,7 @@ function DocumentDetailView({
 						documentId={document.id}
 						currentVersion={document.version}
 						currentScopeKind={document.scopeKind}
+						currentScopeId={document.scopeId}
 						hasParent={document.parentKind !== null}
 					/>
 
