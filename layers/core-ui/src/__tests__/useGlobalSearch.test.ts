@@ -36,14 +36,14 @@ const mockDocuments = [
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,
-	knowledge: mockDocuments,
+	documents: mockDocuments,
 };
 
 // The raw `/api/search` fetch payload — kept on the `knowledge` wire key (§ above).
 const emptyResults = {
 	conversations: [],
 	work: [],
-	knowledge: [],
+	documents: [],
 };
 
 // The hook's own parsed shape — asserted against `result.current.results`.
@@ -423,7 +423,7 @@ describe("useGlobalSearch", () => {
 				Promise.resolve({
 					conversations: [{ foo: "no-id-here" }, { bar: "also-bad" }],
 					work: [{ unrelated: true }],
-					knowledge: [],
+					documents: [],
 				}),
 		});
 

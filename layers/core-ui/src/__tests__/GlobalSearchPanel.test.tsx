@@ -44,13 +44,13 @@ const mockDocuments = [
 const mockSearchResults = {
 	conversations: mockConversations,
 	work: mockWork,
-	knowledge: mockDocuments,
+	documents: mockDocuments,
 };
 
 const emptyResults = {
 	conversations: [],
 	work: [],
-	knowledge: [],
+	documents: [],
 };
 
 describe("GlobalSearchPanel", () => {
@@ -145,7 +145,7 @@ describe("GlobalSearchPanel", () => {
 				Promise.resolve({
 					conversations: mockConversations,
 					work: [],
-					knowledge: [],
+					documents: [],
 				}),
 		});
 

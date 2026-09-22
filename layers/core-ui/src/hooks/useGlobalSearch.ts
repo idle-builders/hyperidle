@@ -177,9 +177,7 @@ function parseSearchResponse(raw: unknown): ParsedResponse {
 	if (!isRecord(raw)) return { results: EMPTY_RESULTS, allMalformed: false };
 	const c = parseBucket(raw.conversations, parseConversation);
 	const w = parseBucket(raw.work, parseWork);
-	// @lore BC4: the wire bucket is still `knowledge` (layers/core-api/src/routes/search.ts) — that
-	// key is core-api's, not renamed here. The local shape reads it into `documents`.
-	const k = parseBucket(raw.knowledge, parseDocument);
+	const k = parseBucket(raw.documents, parseDocument);
 	const rawCount = c.rawCount + w.rawCount + k.rawCount;
 	const parsedCount = c.parsed.length + w.parsed.length + k.parsed.length;
 	const allMalformed = rawCount > 0 && parsedCount === 0;

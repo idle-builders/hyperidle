@@ -24,7 +24,7 @@ describe("GlobalSearchPanel Command-K visual (J3)", () => {
 		vi.useFakeTimers({ shouldAdvanceTime: true });
 		global.fetch = vi.fn().mockResolvedValue({
 			ok: true,
-			json: () => Promise.resolve({ conversations: [], work: [], knowledge: [] }),
+			json: () => Promise.resolve({ conversations: [], work: [], documents: [] }),
 		});
 	});
 

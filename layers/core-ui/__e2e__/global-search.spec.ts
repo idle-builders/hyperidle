@@ -31,7 +31,7 @@ test.describe("Global Search", () => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
-				body: JSON.stringify({ conversations: [], work: [], knowledge: [] }),
+				body: JSON.stringify({ conversations: [], work: [], documents: [] }),
 			});
 		});
 		await page.keyboard.press("Meta+k");
@@ -63,7 +63,7 @@ test.describe("Global Search", () => {
 							state: "in_progress",
 						},
 					],
-					knowledge: [],
+					documents: [],
 				}),
 			});
 		});
@@ -102,7 +102,7 @@ test.describe("Global Search", () => {
 							appetite: "1 week",
 						},
 					],
-					knowledge: [],
+					documents: [],
 				}),
 			});
 		});

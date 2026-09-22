@@ -105,7 +105,7 @@ export const WithResults = {
 			mockPayload={{
 				conversations: mockConversations,
 				work: mockWork,
-				knowledge: mockDocuments,
+				documents: mockDocuments,
 			}}
 		/>
 	),
@@ -118,7 +118,7 @@ export const EmptyResults = {
 			mockPayload={{
 				conversations: [],
 				work: [],
-				knowledge: [],
+				documents: [],
 			}}
 		/>
 	),

@@ -303,7 +303,7 @@ export function createSearchRoutes(
 		const documentResult = await searchDocuments(ctx, { text: query, limit: MAX_PER_CATEGORY });
 		const documentRows = documentResult.ok ? documentResult.data : [];
 
-		const knowledgeResults = documentRows.map((row) => ({
+		const documentResults = documentRows.map((row) => ({
 			id: row.id,
 			title: row.title,
 			status: row.status,
@@ -313,7 +313,7 @@ export function createSearchRoutes(
 		return c.json({
 			conversations: conversationResults,
 			work: workResults,
-			knowledge: knowledgeResults,
+			documents: documentResults,
 		});
 	});
 
