@@ -65,7 +65,7 @@ function renderShellAt(initialPath: string): ReturnType<typeof render> {
 					{ path: "conversations/:threadId", element: <Conversations /> },
 					{ path: "work", element: <div>Work Page</div> },
 					{ path: "work/portfolio", element: <div>Work Page</div> },
-					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					{ path: "documents", element: <div>Document Page</div> },
 				],
 			},
 		],

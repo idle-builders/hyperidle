@@ -74,7 +74,7 @@ function renderShellAt(initialPath: string): void {
 					{ path: "conversations", element: <Conversations /> },
 					{ path: "conversations/:threadId", element: <Conversations /> },
 					{ path: "work/portfolio", element: <div>Work Page</div> },
-					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					{ path: "documents", element: <div>Document Page</div> },
 				],
 			},
 		],

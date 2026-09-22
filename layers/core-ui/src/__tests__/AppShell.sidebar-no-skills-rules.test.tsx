@@ -73,7 +73,7 @@ function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRoute
 				path: "/",
 				element: <AppShell />,
 				children: [
-					{ path: "documents", element: <div data-testid="knowledge-page">Documents Page</div> },
+					{ path: "documents", element: <div data-testid="document-page">Documents Page</div> },
 					{ path: "documents/:documentId", element: <div>Detail</div> },
 				],
 			},

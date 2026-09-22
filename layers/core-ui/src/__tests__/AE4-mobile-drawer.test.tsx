@@ -63,7 +63,7 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 						element: <div data-testid="thread-detail-page">Thread Detail</div>,
 					},
 					{ path: "work/portfolio", element: <div>Portfolio</div> },
-					{ path: "knowledge", element: <div>Knowledge</div> },
+					{ path: "documents", element: <div>Documents</div> },
 				],
 			},
 		],

@@ -86,12 +86,12 @@ describe("AD8b — AssistantContext", () => {
 		// @lore BB1: betRef now uses kind:"task" (root tasks replace bets)
 		const betRef: AssistantContextRef = { kind: "task", id: "b1", label: "Bet" };
 		const taskRef: AssistantContextRef = { kind: "task", id: "t1", label: "Task" };
-		const knowledgeRef: AssistantContextRef = { kind: "document", id: "ki1", label: "KB" };
+		const documentRef: AssistantContextRef = { kind: "document", id: "ki1", label: "KB" };
 		const messageRef: AssistantContextRef = { kind: "message", id: "msg1", label: "Message" };
 
 		expect(betRef.kind).toBe("task");
 		expect(taskRef.kind).toBe("task");
-		expect(knowledgeRef.kind).toBe("document");
+		expect(documentRef.kind).toBe("document");
 		expect(messageRef.kind).toBe("message");
 	});
 

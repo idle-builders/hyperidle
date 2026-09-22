@@ -47,10 +47,10 @@ function item(
 }
 
 // Typed helper: run sortItems and return a TestItem[] for assertions.
-// The `as any` cast is required because sortItems accepts the full ApiKnowledgeItem
+// The `as any` cast is required because sortItems accepts the full DocumentRow
 // shape; TestItem is a structural subset used only for these tests.
 function sort(items: TestItem[]): TestItem[] {
-	// biome-ignore lint/suspicious/noExplicitAny: TestItem is a structural subset of ApiKnowledgeItem
+	// biome-ignore lint/suspicious/noExplicitAny: TestItem is a structural subset of DocumentRow
 	return sortItems(items as any) as TestItem[];
 }
 

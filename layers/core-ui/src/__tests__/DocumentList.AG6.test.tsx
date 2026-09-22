@@ -89,8 +89,8 @@ describe("AG6 AC-2 — DocumentList rows via Row primitive (T8)", () => {
 		renderPage();
 		const treeEl = await screen.findByTestId("document-tree-list");
 		expect(treeEl).not.toBeNull();
-		const knowledgeRows = screen.getAllByTestId("document-row");
-		expect(knowledgeRows.length).toBeGreaterThan(0);
+		const documentRows = screen.getAllByTestId("document-row");
+		expect(documentRows.length).toBeGreaterThan(0);
 	});
 
 	// Protected testids (time-vocabulary.spec / L13 spec) must survive T8

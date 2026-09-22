@@ -4,15 +4,15 @@ import { SkeletonCard, SkeletonList } from "../ds";
 
 describe("SkeletonList", () => {
 	it("renders the requested number of rows with the loading motion profile", () => {
-		render(<SkeletonList rows={4} ariaLabel="Loading knowledge" />);
+		render(<SkeletonList rows={4} ariaLabel="Loading documents" />);
 		const rows = screen.getAllByTestId("skeleton-row");
 		expect(rows).toHaveLength(4);
 		expect(rows[0]!.className).toContain("motion-loading");
 	});
 
 	it("exposes an aria-live status so loading is announced", () => {
-		render(<SkeletonList rows={2} ariaLabel="Loading knowledge" />);
-		const region = screen.getByRole("status", { name: /loading knowledge/i });
+		render(<SkeletonList rows={2} ariaLabel="Loading documents" />);
+		const region = screen.getByRole("status", { name: /loading documents/i });
 		expect(region).toBeInTheDocument();
 	});
 

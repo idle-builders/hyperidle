@@ -183,7 +183,7 @@ describe("AppShell", () => {
 							{ path: "documents", element: <div>Documents Page</div> },
 							{
 								path: "documents/:documentId",
-								element: <div data-testid="knowledge-target">Knowledge Target</div>,
+								element: <div data-testid="document-target">Document Target</div>,
 							},
 						],
 					},
@@ -240,7 +240,7 @@ describe("AppShell", () => {
 			});
 		});
 
-		it("navigates a knowledge search result to /documents/{id} (BC4: the route moved)", async () => {
+		it("navigates a document search result to /documents/{id} (BC4: the route moved)", async () => {
 			const { user, router } = renderShellWithProbes();
 			await user.keyboard("{Meta>}k{/Meta}");
 			const input = await screen.findByPlaceholderText(/search conversations/i);

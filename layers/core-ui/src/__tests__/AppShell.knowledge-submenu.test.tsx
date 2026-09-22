@@ -75,7 +75,7 @@ function renderShellAt(initialPath: string): ReturnType<typeof createMemoryRoute
 				element: <AppShell />,
 				children: [
 					{ path: "conversations", element: <div>Conversations Page</div> },
-					{ path: "documents", element: <div data-testid="knowledge-page">Documents Page</div> },
+					{ path: "documents", element: <div data-testid="document-page">Documents Page</div> },
 					{ path: "documents/:documentId", element: <div>Detail</div> },
 				],
 			},
@@ -103,7 +103,7 @@ describe("AppShell — Knowledge sidebar section (W3 AC-3)", () => {
 		renderShellAt("/documents");
 
 		await waitFor(() => {
-			expect(screen.getByTestId("knowledge-page")).toBeInTheDocument();
+			expect(screen.getByTestId("document-page")).toBeInTheDocument();
 		});
 
 		// Knowledge section header should be active (now a <Link>, not button — UI-080)
