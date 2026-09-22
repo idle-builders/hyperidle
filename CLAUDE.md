@@ -79,7 +79,7 @@ A file is **development** if its name declares it (`.test.ts(x)`, `.spec.ts(x)`,
 
 **A production file may never import a development file.** One direction, no exceptions — no allowlist, no suppression comment. So a fixture a shipping page reads cannot just move into `__fixtures__/`; the page has to stop needing it first.
 
-A few production-path files are really development and cannot move yet. Each is recorded with its reason in `tools/governance/misplaced-files.json`, warns on every lint run, and the count only shrinks — adding an entry is a diff review will challenge.
+No production-path file is misplaced into the development world today — the shrink-only ledger that used to track exceptions here was deleted along with its lint rule once its last entry was fixed, rather than kept around empty.
 
 **Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; there are four, and `builtin` was retired) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness`. **The harness lane has no CI job at all** — it needs four real CLI binaries and real LLM credentials, so it stays a local command in the `verify:release` checklist. Nothing mechanically blocks a release whose harness lane never ran; that is a deliberate trade, not an oversight. Per-merge CI runs the service integration project only.
 
