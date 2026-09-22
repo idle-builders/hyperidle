@@ -210,7 +210,13 @@ export function documentAs(row: {
 	readonly slot: string;
 }): DocumentAs {
 	if (row.parentKind === "task" || row.parentKind === "thread") return "artifact";
-	if (row.scopeKind === "user" && row.slot === "ordinary") return "memory";
+	// A memory is a user-scoped row with no parent — not in the tree (founder
+	// decision, gate-walk finding). A user-scoped row WITH a parent is a
+	// private document: `as:"document"`, widenable to team/factory and back,
+	// like any tree document. `slot` plays no part in this — a memory's slot
+	// is always forced to `ordinary` at write time (I3/I9), so checking it
+	// here would only ever re-derive what `parentKind` already answers.
+	if (row.scopeKind === "user" && row.parentKind === null) return "memory";
 	return "document";
 }
 
@@ -287,9 +293,19 @@ function touchesAnyOf(
 	return fields.some((f) => input[f] !== undefined);
 }
 
-/** I3/I4 — a memory is private and parent-less; both forced, never negotiated. */
-function memoryInvariants(input: EditDocumentInput): Problem[] {
-	if (input.as !== "memory") return [];
+/**
+ * I3/I4 — a memory is private and parent-less; both forced, never negotiated.
+ * Keys on `effectiveAs` (input.as, or the row's own derived `as` when the
+ * edit omits it) — not `input.as` alone. An edit of an existing memory that
+ * only sends `scopeKind` (no `as`) must still be refused here: the run
+ * function forces the scope back to `user` regardless, and a forced write
+ * with no problem attached is a silent no-op (gate-walk finding).
+ */
+function memoryInvariants(
+	effectiveAs: DocumentAs | undefined,
+	input: EditDocumentInput,
+): Problem[] {
+	if (effectiveAs !== "memory") return [];
 	const problems: Problem[] = [];
 	if (input.scopeKind !== undefined || input.scopeId !== undefined) {
 		problems.push({
@@ -438,7 +454,15 @@ export function editDocumentInvariants(
 		problems.push({ code: "empty_edit", message: "An edit must change something.", path: "id" });
 	}
 
-	problems.push(...memoryInvariants(input));
+	// What the row will BE once this edit lands: the caller's explicit `as`,
+	// or — on an edit that omits it — the row's own derived `as`. The run
+	// function forces scope/parent for a memory using this same fallback
+	// (`edit_document.run`'s `effectiveAs`), so the pure check must key on the
+	// same value or a forced overwrite could land with no problem attached.
+	const effectiveAs: DocumentAs | undefined =
+		input.as ?? (prev !== null ? documentAs(prev) : undefined);
+
+	problems.push(...memoryInvariants(effectiveAs, input));
 	problems.push(...artifactInvariants(input, caller));
 	problems.push(...systemParentInvariants(input, caller));
 
@@ -446,7 +470,7 @@ export function editDocumentInvariants(
 	// (memory_scope_fixed already reports that); checking scope_needs_id on
 	// top of it would fire a second, misleading problem for the same input.
 	if (
-		input.as !== "memory" &&
+		effectiveAs !== "memory" &&
 		input.scopeKind !== undefined &&
 		SCOPES_REQUIRING_ID.has(input.scopeKind) &&
 		(input.scopeId === undefined || input.scopeId === null)

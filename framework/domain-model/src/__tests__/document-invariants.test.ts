@@ -72,6 +72,34 @@ describe("editDocumentInvariants", () => {
 		expect(problems[0]?.code).toBe("memory_has_parent");
 	});
 
+	it("I3 memory_scope_fixed: editing an existing memory's scope WITHOUT repeating `as` still refuses — the run function's forcing must never land silently", () => {
+		const prev = makeRow({ scopeKind: "user", scopeId: "u1", parentKind: null, slot: "ordinary" });
+		expect(documentAs(prev)).toBe("memory");
+		const problems = editDocumentInvariants(
+			{ id: prev.id, scopeKind: "team", scopeId: "team-1" },
+			prev,
+			noCaller,
+		);
+		expect(problems[0]?.code).toBe("memory_scope_fixed");
+	});
+
+	it("a private tree document's scope CAN change without `as` — it is not a memory, so no forcing applies", () => {
+		const prev = makeRow({
+			scopeKind: "user",
+			scopeId: "u1",
+			parentKind: "document",
+			parentId: "folder-1",
+			slot: "ordinary",
+		});
+		expect(documentAs(prev)).toBe("document");
+		const problems = editDocumentInvariants(
+			{ id: prev.id, scopeKind: "team", scopeId: "team-1" },
+			prev,
+			noCaller,
+		);
+		expect(problems).toEqual([]);
+	});
+
 	it("I5 artifact_parent_kind: as artifact with a document parent", () => {
 		const problems = editDocumentInvariants(
 			{ as: "artifact", parent: { kind: "document", id: "p1" }, title: "Out" },
@@ -288,8 +316,14 @@ describe("documentAs — the read-side derivation", () => {
 		expect(documentAs({ parentKind: null, scopeKind: "user", slot: "ordinary" })).toBe("memory");
 	});
 
-	it("a user-scoped row with a named slot is a document, not a memory", () => {
-		expect(documentAs({ parentKind: null, scopeKind: "user", slot: "skill" })).toBe("document");
+	it("a user-scoped row with no parent is a memory regardless of slot — a memory's slot is always forced to ordinary at write time, so this only matters for a row written before that forcing existed", () => {
+		expect(documentAs({ parentKind: null, scopeKind: "user", slot: "skill" })).toBe("memory");
+	});
+
+	it("a user-scoped row WITH a parent is a private document, not a memory — founder decision, gate-walk finding: a note in the tree is not the same thing as a memory", () => {
+		expect(documentAs({ parentKind: "document", scopeKind: "user", slot: "ordinary" })).toBe(
+			"document",
+		);
 	});
 
 	it("a team-scoped row is a document", () => {
@@ -318,6 +352,28 @@ describe("canReadDocument — the shared visibility predicate", () => {
 				slot: "ordinary",
 			}),
 		).toBe(true);
+	});
+
+	it("a private tree document (user scope, in tree) owned by one of the viewer's subjects is readable — same subjects rule as a memory", () => {
+		expect(
+			canReadDocument(["u1"], null, {
+				parentKind: "document",
+				scopeKind: "user",
+				scopeId: "u1",
+				slot: "ordinary",
+			}),
+		).toBe(true);
+	});
+
+	it("a private tree document (user scope, in tree) not owned by any of the viewer's subjects is not readable", () => {
+		expect(
+			canReadDocument(["u1"], null, {
+				parentKind: "document",
+				scopeKind: "user",
+				scopeId: "u2",
+				slot: "ordinary",
+			}),
+		).toBe(false);
 	});
 
 	it("a memory not owned by any of the viewer's subjects is not readable", () => {
