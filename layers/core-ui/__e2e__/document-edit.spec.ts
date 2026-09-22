@@ -8,7 +8,7 @@
  *
  * Scenario 2 (Create dialog) is deleted — `KnowledgeCreateDialog` no longer
  * exists; create is a full page now (`DocumentCreate`, at `/documents/new`),
- * not a dialog, and `knowledge-edit-q2-create.spec.ts` covers that flow.
+ * not a dialog, and `document-q2-create.spec.ts` covers that flow.
  *
  * @lore T2 E2E: BodyEditor (TipTap) requires a real browser DOM, so the real
  * component runs in Playwright. .fill() silently no-ops on ProseMirror (not a

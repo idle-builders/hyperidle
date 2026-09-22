@@ -2,13 +2,13 @@
  * R9 — Action Prominence Audit + E2E Coverage
  *
  * 27 Playwright E2E tests covering top-3 actions across 8 pages.
- * 4 journey-stage seed fixtures (empty, first-bet, active-work, knowledge-active).
+ * 4 journey-stage seed fixtures (empty, first-bet, active-work, documents-active).
  *
  * Strategy: hermetic page.route() mocks — consistent with all existing E2E tests.
  * No real DB seeding. Each describe block registers additional route overrides;
  * Playwright's LIFO matching means test-specific routes win over fixture defaults.
  *
- * @lore R9: seedEmpty/seedFirstBet/seedActiveWork/seedKnowledgeActive are
+ * @lore R9: seedEmpty/seedFirstBet/seedActiveWork/seedDocumentsActive are
  * route-override helpers, NOT database seed scripts. The E2E infrastructure
  * uses page.route() mocking — there is no test-server with a real SQLite DB.
  * "Fixtures" in this file == API mock registrations.
@@ -16,7 +16,7 @@
  * Tracks covered:
  *   AC-1: "New bet" button is btn-sm (not btn-xs) — portfolio-create-bet asserts visibility
  *   AC-2: Empty state CTA visible in EmptyState action slot — portfolio-create-bet w/ seedEmpty
- *   AC-3: "+ New" document button — visibility covered by knowledge-q2-create.spec.ts;
+ *   AC-3: "+ New" document button — visibility covered by document-q2-create.spec.ts;
  *         its dialog-fill scenario is deleted here (BC4: create is a full page, not a
  *         dialog, and the button is no longer DaisyUI btn-sm — see the scope-pill and
  *         open-item tests below for the surviving list-page coverage)
@@ -172,7 +172,7 @@ const PLAIN_MESSAGE_1 = {
 	payload: { text: "This is the first message." },
 };
 
-const KNOWLEDGE_ITEM_1 = makeDocumentRow("ki-r9-1", {
+const DOCUMENT_1 = makeDocumentRow("ki-r9-1", {
 	title: "JWT Best Practices",
 	body: "# JWT\n\nUse short-lived tokens.\n",
 	status: "active",
@@ -182,7 +182,7 @@ const KNOWLEDGE_ITEM_1 = makeDocumentRow("ki-r9-1", {
 	updatedAt: NOW,
 });
 
-const KNOWLEDGE_ITEM_2 = makeDocumentRow("ki-r9-2", {
+const DOCUMENT_2 = makeDocumentRow("ki-r9-2", {
 	title: "Rate Limiting Strategy",
 	body: "# Rate Limiting\n\nUse token buckets.\n",
 	status: "proposed",
@@ -192,7 +192,7 @@ const KNOWLEDGE_ITEM_2 = makeDocumentRow("ki-r9-2", {
 	updatedAt: NOW,
 });
 
-const KNOWLEDGE_ITEM_3 = makeDocumentRow("ki-r9-3", {
+const DOCUMENT_3 = makeDocumentRow("ki-r9-3", {
 	title: "Testing Philosophy",
 	body: "# Testing\n\nWrite tests first.\n",
 	status: "proposed",
@@ -208,7 +208,7 @@ const KNOWLEDGE_ITEM_3 = makeDocumentRow("ki-r9-3", {
 // ---------------------------------------------------------------------------
 
 /**
- * seedEmpty: No bets, no threads, no knowledge items.
+ * seedEmpty: No bets, no threads, no documents.
  * Used for testing empty-state CTAs.
  */
 async function seedEmpty(page: Page): Promise<void> {
@@ -287,33 +287,33 @@ async function seedActiveWork(page: Page): Promise<void> {
 }
 
 /**
- * seedKnowledgeActive: extends seedActiveWork + 5 knowledge items (3 draft, 2 active).
- * Used for testing knowledge list, create, detail, and comment flows.
+ * seedDocumentsActive: extends seedActiveWork + 5 documents (3 draft, 2 active).
+ * Used for testing document list, create, detail, and comment flows.
  */
-async function seedKnowledgeActive(page: Page): Promise<void> {
+async function seedDocumentsActive(page: Page): Promise<void> {
 	// Inherit active work seed first
 	await seedActiveWork(page);
 
-	const knowledgeItems = [
-		KNOWLEDGE_ITEM_1,
-		KNOWLEDGE_ITEM_2,
-		KNOWLEDGE_ITEM_3,
+	const documentItems = [
+		DOCUMENT_1,
+		DOCUMENT_2,
+		DOCUMENT_3,
 		makeDocumentRow("ki-r9-4", {
-			...KNOWLEDGE_ITEM_1,
+			...DOCUMENT_1,
 			id: "ki-r9-4",
 			title: "Error Handling Patterns",
 			status: "proposed",
 		}),
 		makeDocumentRow("ki-r9-5", {
-			...KNOWLEDGE_ITEM_1,
+			...DOCUMENT_1,
 			id: "ki-r9-5",
 			title: "Observability Setup",
 			status: "active",
 		}),
 	];
 
-	await mockSearchDocuments(page, { rows: knowledgeItems });
-	await mockDocument(page, { row: KNOWLEDGE_ITEM_1 });
+	await mockSearchDocuments(page, { rows: documentItems });
+	await mockDocument(page, { row: DOCUMENT_1 });
 }
 
 // ---------------------------------------------------------------------------
@@ -832,28 +832,26 @@ test.describe("R9 — Conversations thread page", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Document List (2 tests) — seedKnowledgeActive — AC-3
+// Document List (2 tests) — seedDocumentsActive — AC-3
 //
 // @lore BC4: `knowledge-create`'s dialog-fill scenario is deleted — its
 // subject (`KnowledgeCreateDialog`) no longer exists; "+ New" now navigates
 // to the full-page `/documents/new` (`DocumentCreate`), which
-// `knowledge-q2-create.spec.ts`'s AC-3 already covers. The scope-pill
+// `document-q2-create.spec.ts`'s AC-3 already covers. The scope-pill
 // filter's surviving behaviour is re-pointed against the real `ScopePicker`
 // (`role="radio"` + `data-active`, not a DaisyUI `.btn-primary` toggle).
 // ---------------------------------------------------------------------------
 
 test.describe("R9 — Document list page", () => {
 	test.beforeEach(async ({ page }) => {
-		await seedKnowledgeActive(page);
+		await seedDocumentsActive(page);
 	});
 
-	// knowledge-open-item: Click a document row → URL matches /documents/:id
+	// document-open-item: Click a document row → URL matches /documents/:id
 	// @lore R9: The document list defaults to the "Triage" tab when proposed items exist.
-	// KNOWLEDGE_ITEM_1 has status "active" so it appears in the Curated tab.
+	// DOCUMENT_1 has status "active" so it appears in the Curated tab.
 	// Switch to the Curated tab first before looking for the item.
-	test("knowledge-open-item: clicking a document row navigates to detail page", async ({
-		page,
-	}) => {
+	test("document-open-item: clicking a document row navigates to detail page", async ({ page }) => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 
@@ -868,13 +866,13 @@ test.describe("R9 — Document list page", () => {
 		// getByText resolves to both and is ambiguous.
 		await page.getByTestId("document-tree-list").getByText("JWT Best Practices").click();
 
-		await expect(page).toHaveURL(new RegExp(`/documents/${KNOWLEDGE_ITEM_1.id}`), {
+		await expect(page).toHaveURL(new RegExp(`/documents/${DOCUMENT_1.id}`), {
 			timeout: 5_000,
 		});
 	});
 
-	// knowledge-filter-scope: Click scope pill → filter applied
-	test("knowledge-filter-scope: clicking scope pill activates the filter", async ({ page }) => {
+	// document-filter-scope: Click scope pill → filter applied
+	test("document-filter-scope: clicking scope pill activates the filter", async ({ page }) => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 
@@ -890,38 +888,38 @@ test.describe("R9 — Document list page", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Document Detail (2 tests) — seedKnowledgeActive
+// Document Detail (2 tests) — seedDocumentsActive
 //
 // @lore BC4: `knowledge-scope`'s free `<select>` + PATCH-to-`/scope` scenario
 // is rewritten (not just re-pointed) against the real `ScopeChangeDialog` — a
 // `ScopePicker` pill control plus a labeled "Scope ID" input, saved through
-// `call("edit_document", …)` — mirroring `knowledge-q2-create.spec.ts`'s
+// `call("edit_document", …)` — mirroring `document-q2-create.spec.ts`'s
 // AC-12. `knowledge-edit`'s PATCH interception moves to `edit_document` via
 // `mockDocument`.
 // ---------------------------------------------------------------------------
 
 test.describe("R9 — Document detail page", () => {
 	test.beforeEach(async ({ page }) => {
-		await seedKnowledgeActive(page);
+		await seedDocumentsActive(page);
 	});
 
-	// knowledge-edit: Click Edit → type in BodyEditor → edit_document intercepted
+	// document-edit: Click Edit → type in BodyEditor → edit_document intercepted
 	//
 	// @lore R9: Same React 18 StrictMode fix applies here: useAutoSave now resets
 	// unmountedRef.current=false in setup, and useBodyEditor uses onChangeRef to
 	// avoid stale closures. Both fixes allow the debounced save to fire.
-	test("knowledge-edit: editing a document fires edit_document", async ({ page }) => {
+	test("document-edit: editing a document fires edit_document", async ({ page }) => {
 		// @lore R9: DocumentDetail hides the Edit button for factory-scoped items
 		// (isFactory = true → button not rendered). Use a team-scoped item so the
 		// Edit button is visible. edit_document is intercepted at the network level.
-		const editableItem = makeDocumentRow(KNOWLEDGE_ITEM_1.id, {
-			...KNOWLEDGE_ITEM_1,
+		const editableItem = makeDocumentRow(DOCUMENT_1.id, {
+			...DOCUMENT_1,
 			scopeKind: "team",
 		});
 
 		// @lore R9: Intercept the thread action doors to prevent 500 errors —
 		// this test doesn't exercise HostThreadSection, so an empty host-thread
-		// search and a not-found open are enough (overrides seedKnowledgeActive
+		// search and a not-found open are enough (overrides seedDocumentsActive
 		// via LIFO).
 		await page.route("**/api/actions/search_threads", async (route) => {
 			await route.fulfill({
@@ -976,8 +974,8 @@ test.describe("R9 — Document detail page", () => {
 		await expect(editPanel).not.toBeVisible({ timeout: 3_000 });
 	});
 
-	// knowledge-scope: overflow menu → Change scope → pick a pill → Save → edit_document intercepted
-	test("knowledge-scope: changing scope fires edit_document", async ({ page }) => {
+	// document-scope: overflow menu → Change scope → pick a pill → Save → edit_document intercepted
+	test("document-scope: changing scope fires edit_document", async ({ page }) => {
 		// ScopeChangeDialog disables the "Team" pill unless the current user has
 		// a teamId (`hasTeam = user?.teamId !== undefined`) — override auth/me so
 		// this test can exercise the Team pill + Scope ID input.
@@ -1002,7 +1000,7 @@ test.describe("R9 — Document detail page", () => {
 				id?: string;
 				scopeKind?: string;
 			};
-			if (input.id !== KNOWLEDGE_ITEM_1.id || input.scopeKind === undefined) {
+			if (input.id !== DOCUMENT_1.id || input.scopeKind === undefined) {
 				await route.fallback();
 				return;
 			}
@@ -1014,10 +1012,10 @@ test.describe("R9 — Document detail page", () => {
 					ok: true,
 					data: {
 						document: {
-							...KNOWLEDGE_ITEM_1,
+							...DOCUMENT_1,
 							scopeKind: "team",
 							scopeId: "team-alpha",
-							version: KNOWLEDGE_ITEM_1.version + 1,
+							version: DOCUMENT_1.version + 1,
 						},
 						ancestors: [],
 						children: [],
@@ -1028,7 +1026,7 @@ test.describe("R9 — Document detail page", () => {
 			});
 		});
 
-		await page.goto(`/documents/${KNOWLEDGE_ITEM_1.id}`);
+		await page.goto(`/documents/${DOCUMENT_1.id}`);
 		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// Overflow menu → "Change scope"
@@ -1042,7 +1040,7 @@ test.describe("R9 — Document detail page", () => {
 		await expect(dialog).toBeVisible();
 
 		// "Team" is the only scope kind requiring a Scope ID
-		// (SCOPES_REQUIRING_ID = {"team"}) — matches knowledge-q2-create.spec.ts's
+		// (SCOPES_REQUIRING_ID = {"team"}) — matches document-q2-create.spec.ts's
 		// AC-12 pattern.
 		await dialog.getByTestId("scope-pill-change-team").click();
 		await dialog.getByLabel("Scope ID").fill("team-alpha");
@@ -1052,8 +1050,8 @@ test.describe("R9 — Document detail page", () => {
 		await expect.poll(() => scopeChangeCalled, { timeout: 5_000 }).toBe(true);
 	});
 
-	// knowledge-comment-block: composer is visible; POST message works
-	test("knowledge-comment-block: host thread composer is visible and POST works", async ({
+	// document-comment-block: composer is visible; POST message works
+	test("document-comment-block: host thread composer is visible and POST works", async ({
 		page,
 	}) => {
 		let postCalled = false;
@@ -1081,10 +1079,10 @@ test.describe("R9 — Document detail page", () => {
 				body: JSON.stringify({
 					ok: true,
 					data: {
-						message: makeMessage("msg-r9-knowledge", THREAD_1.id, {
+						message: makeMessage("msg-r9-document", THREAD_1.id, {
 							senderId: "test-founder",
-							clientKey: "ck-r9-knowledge",
-							payload: { text: "Knowledge comment" },
+							clientKey: "ck-r9-document",
+							payload: { text: "Document comment" },
 							createdAt: LATER,
 						}),
 						thread: THREAD_1,
@@ -1093,7 +1091,7 @@ test.describe("R9 — Document detail page", () => {
 			});
 		});
 
-		await page.goto(`/documents/${KNOWLEDGE_ITEM_1.id}`);
+		await page.goto(`/documents/${DOCUMENT_1.id}`);
 		await page.waitForSelector("[data-testid='document-detail-page']");
 
 		// @lore R9: Composer's real default placeholder is "Reply to thread…"
@@ -1103,7 +1101,7 @@ test.describe("R9 — Document detail page", () => {
 		const composer = page.getByPlaceholder(/reply to thread|write a message/i).first();
 		await expect(composer).toBeVisible({ timeout: 5_000 });
 
-		await composer.fill("Knowledge comment");
+		await composer.fill("Document comment");
 		await page.getByRole("button", { name: /^send$/i }).click();
 
 		await expect.poll(() => postCalled, { timeout: 5_000 }).toBe(true);

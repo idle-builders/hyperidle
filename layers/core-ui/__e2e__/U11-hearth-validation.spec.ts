@@ -313,7 +313,7 @@ test("U11 screenshot: document list (empty)", async ({ page }) => {
 	await page.waitForLoadState("networkidle");
 
 	await expect(page.getByTestId("document-list-page")).toBeVisible();
-	await page.screenshot({ path: "test-results/U11-07-knowledge-empty.png", fullPage: false });
+	await page.screenshot({ path: "test-results/U11-07-document-empty.png", fullPage: false });
 });
 
 // ---------------------------------------------------------------------------
@@ -328,7 +328,7 @@ test("U11 screenshot: document list (with items)", async ({ page }) => {
 	await page.waitForLoadState("networkidle");
 
 	await expect(page.getByTestId("document-list-page")).toBeVisible();
-	await page.screenshot({ path: "test-results/U11-08-knowledge-items.png", fullPage: false });
+	await page.screenshot({ path: "test-results/U11-08-document-items.png", fullPage: false });
 });
 
 // ---------------------------------------------------------------------------
@@ -344,7 +344,7 @@ test("U11 screenshot: document detail", async ({ page }) => {
 	await page.waitForLoadState("networkidle");
 
 	await expect(page.getByTestId("document-detail-page")).toBeVisible();
-	await page.screenshot({ path: "test-results/U11-09-knowledge-detail.png", fullPage: false });
+	await page.screenshot({ path: "test-results/U11-09-document-detail.png", fullPage: false });
 });
 
 // ---------------------------------------------------------------------------

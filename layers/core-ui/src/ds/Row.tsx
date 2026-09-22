@@ -376,7 +376,7 @@ export function Row({
 		// controls reached the row's onClick even though the control's own
 		// handler called stopPropagation() — reproduced with real mouse clicks
 		// in Chromium (jsdom's synthetic click() dispatch did not reproduce
-		// it), see knowledge-role-delete.spec.ts. Splitting the DOM — clickable
+		// it), see document-slot-delete.spec.ts. Splitting the DOM — clickable
 		// div holds only lead/title/cells, actions is an outside sibling —
 		// removes the nesting outright rather than trying to out-handler it.
 		const divInnerLayoutWithActions = `flex-1 min-w-0 flex items-center gap-[12px] ${px} min-h-[44px]`;

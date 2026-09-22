@@ -361,7 +361,7 @@ test("AZ16 representative route matrix paints loaded application states", async 
 		["conversations", "/conversations/t-az16", "conversations-page"],
 		["team", "/work/team/team-az16", "work-team-page"],
 		["task", "/work/task/task-az16", "task-detail-page"],
-		["knowledge", "/documents/k-az16", "document-detail-page"],
+		["document", "/documents/k-az16", "document-detail-page"],
 		["settings", "/conversations?settings=open", "settings-page"],
 		["review", `/reviews/review-az16?threadId=${THREAD.id}`, null],
 	] as const;

@@ -4,7 +4,7 @@
  * Drives the app and captures screenshots of two list surfaces rendered through
  * the shared Row primitive:
  *   1. WorkTeam agents + routines list (Row via ItemList)
- *   2. KnowledgeList triage view (Row as="li" via ItemList)
+ *   2. DocumentList triage view (Row as="li" via ItemList)
  *
  * Assertions: rows carry data-ds-component="Row", min-height 44px (AC-3 touch
  * target), and screenshots are captured for the visual record.
@@ -30,7 +30,7 @@ import { expect, makeDocumentRow, mockSearchDocuments, test } from "./fixtures";
 
 const TEAM_ID = "ag6-team";
 const TEAM_URL = `/work/team/${TEAM_ID}`;
-const KNOWLEDGE_URL = "/documents";
+const DOCUMENT_URL = "/documents";
 
 const SpecDir = path.dirname(fileURLToPath(import.meta.url));
 const PROOF_DIR = path.resolve(SpecDir, "../../../test-results");
@@ -113,7 +113,7 @@ function makeTeamFixture() {
 // @lore BC4: the document rows below carry `status:"proposed"` — the
 // DocumentList triage tab filters on exactly that value (was "draft", never
 // a valid status even under the pre-BC4 vocabulary).
-const KNOWLEDGE_DOCUMENTS = [
+const DOCUMENT_ROWS = [
 	makeDocumentRow("ki-ag6-1", {
 		title: "Row primitive consolidation",
 		body: "All list rows go through the shared Row/ItemList primitive.",
@@ -168,8 +168,8 @@ async function mockTeamRoutes(page: import("@playwright/test").Page): Promise<vo
 	});
 }
 
-async function mockKnowledgeRoutes(page: import("@playwright/test").Page): Promise<void> {
-	await mockSearchDocuments(page, { rows: KNOWLEDGE_DOCUMENTS });
+async function mockDocumentRoutes(page: import("@playwright/test").Page): Promise<void> {
+	await mockSearchDocuments(page, { rows: DOCUMENT_ROWS });
 }
 
 // ---------------------------------------------------------------------------
@@ -228,17 +228,17 @@ test.describe("AG6 AC-6 — Surface 1: WorkTeam agents + routines via Row primit
 });
 
 // ---------------------------------------------------------------------------
-// AC-6 Surface 2: Knowledge triage list (Row as="li" via ItemList flush/ul)
+// AC-6 Surface 2: Document triage list (Row as="li" via ItemList flush/ul)
 // ---------------------------------------------------------------------------
 
-test.describe("AG6 AC-6 — Surface 2: Knowledge triage rows via Row primitive", () => {
-	test("knowledge triage rows carry data-ds-component=Row and meet 44px min-height", async ({
+test.describe("AG6 AC-6 — Surface 2: Document triage rows via Row primitive", () => {
+	test("document triage rows carry data-ds-component=Row and meet 44px min-height", async ({
 		page,
 	}) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
-		await mockKnowledgeRoutes(page);
+		await mockDocumentRoutes(page);
 
-		await page.goto(KNOWLEDGE_URL);
+		await page.goto(DOCUMENT_URL);
 		await page.waitForSelector("[data-testid='document-list-page']");
 		await page.waitForLoadState("networkidle");
 
@@ -247,15 +247,15 @@ test.describe("AG6 AC-6 — Surface 2: Knowledge triage rows via Row primitive",
 		await expect(triageView).toBeVisible();
 
 		// document-row testids must be present; as="li" path → <li data-ds-component="Row" data-testid="document-row">
-		const knowledgeRows = page.locator("li[data-ds-component='Row'][data-testid='document-row']");
-		await expect(knowledgeRows.first()).toBeVisible();
+		const documentRows = page.locator("li[data-ds-component='Row'][data-testid='document-row']");
+		await expect(documentRows.first()).toBeVisible();
 
-		const count = await knowledgeRows.count();
+		const count = await documentRows.count();
 		expect(count).toBeGreaterThan(0);
 
 		// Touch target: each li[data-ds-component=Row] >= 44px (AC-3)
 		for (let i = 0; i < count; i++) {
-			const box = await knowledgeRows.nth(i).boundingBox();
+			const box = await documentRows.nth(i).boundingBox();
 			if (box) {
 				expect(box.height).toBeGreaterThanOrEqual(44);
 			}
@@ -264,7 +264,7 @@ test.describe("AG6 AC-6 — Surface 2: Knowledge triage rows via Row primitive",
 		// Capture proof screenshot
 		fs.mkdirSync(PROOF_DIR, { recursive: true });
 		await page.screenshot({
-			path: path.join(PROOF_DIR, "AG6-surface2-knowledge-triage.png"),
+			path: path.join(PROOF_DIR, "AG6-surface2-document-triage.png"),
 			fullPage: false,
 		});
 	});

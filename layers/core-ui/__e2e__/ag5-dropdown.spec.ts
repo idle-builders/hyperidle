@@ -5,7 +5,7 @@
  *   S1. Settings page — Models section Select open/close (resting + open screenshot)
  *   S2. BetCreateDialog — team Select renders full-width control (D4/C3)
  *   S3. RoutineCreateDialog — team/appetite Select renders
- *   S5. KnowledgeDetail overflow Menu — open and close
+ *   S5. DocumentDetail overflow Menu — open and close
  *   T1. Select sm size meets 44px touch target at ≤1024px viewport (AQ-015)
  *
  * Strategy: hermetic page.route() mocks. No DB seeding.
@@ -186,7 +186,7 @@ test("AG5-S3: RoutineCreateDialog — canonical Select primitives render", async
 
 // ─── Surface 4b: WorkBet overflow Menu — bet action data attrs preserved ─────
 
-// ─── Surface 5: KnowledgeDetail overflow Menu ────────────────────────────────
+// ─── Surface 5: DocumentDetail overflow Menu ────────────────────────────────
 
 test("AG5-S5: DocumentDetail overflow Menu — open and close", async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
@@ -195,7 +195,7 @@ test("AG5-S5: DocumentDetail overflow Menu — open and close", async ({ page })
 	const KNOWLEDGE_ID = "kn-ag5-test";
 	await mockDocument(page, {
 		row: makeDocumentRow(KNOWLEDGE_ID, {
-			title: "AG5 Test Knowledge",
+			title: "AG5 Test Document",
 			body: "# Test\n\nContent here.",
 			scopeKind: "team",
 		}),
@@ -219,9 +219,9 @@ test("AG5-S5: DocumentDetail overflow Menu — open and close", async ({ page })
 	const archiveItem = page.locator("[data-testid='document-archive']");
 	await expect(archiveItem).toBeVisible();
 
-	// Screenshot: KnowledgeDetail with overflow menu open (surface 5)
+	// Screenshot: DocumentDetail with overflow menu open (surface 5)
 	await page.screenshot({
-		path: "test-results/ag5-s5-knowledge-menu-open.png",
+		path: "test-results/ag5-s5-document-menu-open.png",
 		fullPage: false,
 	});
 

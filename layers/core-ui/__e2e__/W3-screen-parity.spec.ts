@@ -10,8 +10,8 @@
  * - Bet overview grid: 960px
  * - Bet detail body: 800px
  * - Task detail body: 800px
- * - Knowledge list: 800px
- * - Knowledge detail body: 960px
+ * - Document list: 800px
+ * - Document detail body: 960px
  * - Settings body: 680px
  */
 
@@ -63,7 +63,7 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 		}
 	});
 
-	test("knowledge list: content area ≤ 800px", async ({ page }) => {
+	test("document list: content area ≤ 800px", async ({ page }) => {
 		await mockSearchDocuments(page, { rows: [] });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
@@ -76,7 +76,7 @@ test.describe("W3 AC-57 — Max-width centering across all screens", () => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 
-		// Knowledge list body container
+		// Document list body container
 		const listBody = page.locator("[data-testid='document-list-page'] > :first-child");
 		const box = await listBody.boundingBox();
 		if (box) {
@@ -163,7 +163,7 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 		await expect(emptyState).toBeVisible();
 	});
 
-	test("knowledge empty state visible when no items", async ({ page }) => {
+	test("document empty state visible when no items", async ({ page }) => {
 		await mockSearchDocuments(page, { rows: [] });
 		await page.route("**/api/teams", async (route) => {
 			await route.fulfill({
@@ -176,7 +176,7 @@ test.describe("W3 — Empty states match mockups (critique CRITICAL-2)", () => {
 		await page.goto("/documents");
 		await page.waitForSelector("[data-testid='document-list-page']");
 		// Empty state should render
-		const emptyState = page.getByTestId("knowledge-empty-state");
+		const emptyState = page.getByTestId("document-empty-state");
 		await expect(emptyState).toBeVisible();
 	});
 });

@@ -1,5 +1,5 @@
 /**
- * E2E tests for the Knowledge Detail page (J7): factory-scope treatment and
+ * E2E tests for the Document Detail page (J7): factory-scope treatment and
  * the non-factory edit-mode round trip.
  *
  * @lore T2: textarea+preview+Save/Cancel replaced by BodyEditor + Done button.
@@ -10,7 +10,7 @@
  */
 import { expect, test } from "./fixtures";
 
-test.describe("Knowledge Detail (J7)", () => {
+test.describe("Document Detail (J7)", () => {
 	test("non-factory item supports edit round-trip without URL change", async ({ page }) => {
 		await page.goto("/documents/k1");
 		await page.waitForSelector("[data-testid='document-detail-page']");
@@ -43,7 +43,7 @@ test.describe("Knowledge Detail (J7)", () => {
 		await expect(page.getByRole("button", { name: /edit/i })).toHaveCount(0);
 
 		// Factory metadata bar still renders the layer/kind/status chips.
-		const bar = page.getByTestId("knowledge-metadata-bar");
+		const bar = page.getByTestId("document-metadata-bar");
 		await expect(bar.getByText("decision")).toBeVisible();
 		await expect(bar.getByText("HEALTHY")).toBeVisible();
 	});

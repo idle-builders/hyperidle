@@ -199,12 +199,12 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 		// @lore BB1: this opened the kill-bet ConsequencePreviewDialog through the
 		// WorkBet overflow menu. Both are deleted — no production component emits
 		// data-bet-action any more — so the modal comes from ScopeChangeDialog on
-		// knowledge detail instead. The assertion is about the z-index SCALE, not
+		// document detail instead. The assertion is about the z-index SCALE, not
 		// about which dialog opened, so any real modal proves the same contract.
 		const KNOWLEDGE_ID = "k-dialog-layer-test";
 		await mockDocument(page, {
 			row: makeDocumentRow(KNOWLEDGE_ID, {
-				title: "Layering knowledge item",
+				title: "Layering document",
 				body: "# Test\n\nContent.",
 				scopeKind: "team",
 			}),

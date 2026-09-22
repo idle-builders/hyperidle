@@ -358,7 +358,7 @@ interface RouteCase {
 
 const ROOT_TASK_ID = "task-az2";
 const AGENT_ID = "agent-az2";
-const KNOWLEDGE_ID = "knowledge-az2";
+const DOCUMENT_ID = "document-az2";
 const THREAD_ID = "thread-az2";
 const ROUTINE_ID = "routine-az2";
 
@@ -474,7 +474,7 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		name: "knowledge-list",
+		name: "document-list",
 		url: "/documents",
 		readySelector: "[data-testid='document-list-page']",
 		setup: async (page) => {
@@ -482,21 +482,21 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		name: "knowledge-detail",
-		url: `/documents/${KNOWLEDGE_ID}`,
+		name: "document-detail",
+		url: `/documents/${DOCUMENT_ID}`,
 		readySelector: "[data-testid='document-detail-page']",
 		setup: async (page) => {
 			await mockDefaultThreads(page);
 			await mockDocument(page, {
-				row: makeDocumentRow(KNOWLEDGE_ID, {
-					title: "AZ2 fixture knowledge item",
+				row: makeDocumentRow(DOCUMENT_ID, {
+					title: "AZ2 fixture document",
 					body: "Fixture content.",
 				}),
 			});
 		},
 	},
 	{
-		name: "knowledge-create",
+		name: "document-create",
 		url: "/documents/new",
 		readySelector: "[data-testid='document-create-page']",
 		setup: async (page) => {

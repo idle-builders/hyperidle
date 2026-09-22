@@ -170,7 +170,7 @@ describe("SettingsSkillsAndRules", () => {
 	 * @lore knowledge-attachment-slot: this replaces the old kebab/confirm
 	 * test, which stayed green through four broken fix attempts because
 	 * jsdom's `userEvent.click()` never reproduces real anchor navigation —
-	 * see `knowledge-role-delete.spec.ts` for the real-Chromium coverage of
+	 * see `document-slot-delete.spec.ts` for the real-Chromium coverage of
 	 * that failure mode. The removal here is optimistic (see
 	 * DocumentSlotList.tsx's `removedIds`), so the row is gone from the DOM
 	 * immediately on click, before the archive request resolves.

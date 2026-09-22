@@ -1,12 +1,12 @@
 /**
- * L18 — Knowledge entry thread Playwright e2e tests.
+ * L18 — Document thread Playwright e2e tests.
  *
  * AC coverage:
- *  - open a knowledge entry → thread renders (replacing observation log) → post → reload → persists
+ *  - open a document → thread renders (replacing observation log) → post → reload → persists
  *
  * @lore BC3: repointed at the thread action door — never `GET/POST
  * /api/threads*`. `document` is still a valid `HostKind`; the
- * knowledge page resolves its thread lazily via `search_threads` (the
+ * document page resolves its thread lazily via `search_threads` (the
  * `host` prop path), unlike a task page's known `threadId`.
  */
 
@@ -22,15 +22,15 @@ import {
 const NOW = "2026-05-05T09:00:00.000Z";
 const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-knowledge-001";
-const KNOWLEDGE_ID = "k3"; // known fixture id with content
+const DOCUMENT_ID = "k3"; // known fixture id with content
 
-test.describe("L18 — Knowledge entry thread surface", () => {
+test.describe("L18 — Document thread surface", () => {
 	test("thread renders (replacing observation log); post; reload; persists", async ({ page }) => {
-		const composedText = "Insight from reviewing this knowledge entry.";
+		const composedText = "Insight from reviewing this document.";
 
 		const thread = makeThread(THREAD_ID, {
 			hostKind: "document",
-			hostId: KNOWLEDGE_ID,
+			hostId: DOCUMENT_ID,
 			initiatorId: FOUNDER_ID,
 			members: [FOUNDER_ID],
 			lastActiveAt: NOW,
@@ -42,9 +42,9 @@ test.describe("L18 — Knowledge entry thread surface", () => {
 		});
 		await mockThread(page, { thread, messages: [] });
 
-		await page.goto(`/documents/${KNOWLEDGE_ID}`);
+		await page.goto(`/documents/${DOCUMENT_ID}`);
 
-		// Knowledge page should be visible
+		// Document page should be visible
 		await expect(page.getByTestId("document-detail-page")).toBeVisible();
 
 		// Thread section replaces observation log

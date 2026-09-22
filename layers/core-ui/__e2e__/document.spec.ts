@@ -13,11 +13,11 @@ test.describe
 			await page.waitForSelector("[data-testid='document-list-page']");
 		});
 
-		test("Knowledge list page loads with heading", async ({ page }) => {
-			await expect(page.getByText("Knowledge Base")).toBeVisible();
+		test("Document list page loads with heading", async ({ page }) => {
+			await expect(page.getByText("Documents")).toBeVisible();
 		});
 
-		test("knowledge items are visible", async ({ page }) => {
+		test("document items are visible", async ({ page }) => {
 			await expect(page.getByText("Architecture Decision: Auth Strategy")).toBeVisible();
 			await expect(page.getByText("API Rate Limiting Best Practices")).toBeVisible();
 		});

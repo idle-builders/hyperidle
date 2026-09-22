@@ -105,7 +105,7 @@ for (const viewport of [
 		const workbench = page.getByTestId("document-metadata-aside").locator("xpath=..");
 		await expectSameX(page.getByRole("heading", { level: 1 }), workbench);
 		if (viewport.width === 1440)
-			await page.screenshot({ path: resolve(EVIDENCE, "workbench-knowledge.png") });
+			await page.screenshot({ path: resolve(EVIDENCE, "workbench-document.png") });
 
 		await page.goto("/settings");
 		const focus = page.getByTestId("settings-section-profile");

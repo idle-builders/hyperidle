@@ -44,7 +44,7 @@ test.describe("J8 synthesis — 10 critical flows", () => {
 	// replaced the plain textarea with BodyEditor (TipTap) — there is no
 	// `knowledge-edit-textarea` element to find. The surviving edit-panel
 	// behavior (Edit shows the panel, Done exits) is covered by
-	// `knowledge-edit.spec.ts`'s T2 AC-1 suite.
+	// `document-edit.spec.ts`'s T2 AC-1 suite.
 
 	test("7. Bet detail page loads with breadcrumb and tasks table", async ({ page }) => {
 		// @lore L16: WorkBet now calls useBet (real API fetch). Mock the endpoint

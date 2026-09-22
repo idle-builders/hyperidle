@@ -78,7 +78,7 @@ test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 	}) => {
 		await mockDocument(page, {
 			row: makeDocumentRow(KNOWLEDGE_ID, {
-				title: "Mobile knowledge item",
+				title: "Mobile document",
 				body: "# Test\n\nContent.",
 				scopeKind: "team",
 			}),
@@ -93,7 +93,7 @@ test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 		const overflowBtn = page.getByRole("button", { name: /more options/i });
 		await expect(
 			overflowBtn,
-			"overflow menu button must be visible on knowledge detail",
+			"overflow menu button must be visible on document detail",
 		).toBeVisible();
 		await overflowBtn.click();
 
