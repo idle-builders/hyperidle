@@ -15,7 +15,7 @@
  * already has in full — `HostThreadSection`'s own block filter is a
  * client-side slice over the one `ThreadView` this hook loads, so every
  * block's messages stay available to whatever else on the page reads the
- * same data (e.g. `KnowledgeDetail`'s inline anchored comments).
+ * same data (e.g. `DocumentDetail`'s inline anchored comments).
  */
 
 import type { ThreadView } from "@hyperidle/domain-model";

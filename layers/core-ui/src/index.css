@@ -111,7 +111,7 @@
  * AgentEditDialog — fixed by adding w-full at the call sites.
  */
 
-/* L23 — KnowledgeBody scoped heading hierarchy.
+/* L23 — DocumentBody scoped heading hierarchy.
  *
  * @lore L23 R6: line-height is intentionally omitted. HeadingPayload ships
  * leading-[1.2] as a Tailwind utility, which cascades after @layer components
