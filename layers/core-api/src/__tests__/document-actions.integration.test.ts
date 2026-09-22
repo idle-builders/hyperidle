@@ -466,6 +466,174 @@ describe('case 2 — create as:"memory"', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Case 2b — a `user`-scoped document WITH a parent is a private document, not
+// a memory (gate-walk finding, founder decision): it may be widened to team
+// and narrowed back like any tree document, and a genuine memory's scope
+// stays refused, explicit `as:"memory"` or not.
+// ---------------------------------------------------------------------------
+
+describe("case 2b — a user-scoped document IN the tree is a private document, not a memory", () => {
+	test('widening it to team is a real scope change — as:"document", not forced back, no forcing no-op', async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c2b");
+		await seedAgent(db, "c2b-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const agentIdentity: AgentIdentity = { agentId: "c2b-agent", sessionId: "c2b-sess" };
+
+		const folder = requireDoc(
+			await callHuman<DocumentView>(app, "edit_document", {
+				title: "Folder",
+				scopeKind: "factory",
+			}),
+		).document;
+
+		const humanNote = requireDoc(
+			await callHuman<DocumentView>(app, "edit_document", {
+				title: "This quarter's focus",
+				scopeKind: "user",
+				parent: { kind: "document", id: folder.id },
+			}),
+		).document;
+		expect(humanNote.as).toBe("document");
+
+		const agentNote = requireDoc(
+			await callAgent<DocumentView>(
+				actions,
+				db,
+				eventBus,
+				"edit_document",
+				{
+					title: "Agent's own private note in the tree",
+					scopeKind: "user",
+					parent: { kind: "document", id: folder.id },
+				},
+				agentIdentity,
+			),
+		).document;
+		expect(agentNote.as).toBe("document");
+
+		// Each door widens the note it can actually see — the human owns
+		// `humanNote` (scopeId FOUNDER_ID), the agent owns `agentNote`
+		// (scopeId "c2b-agent").
+		const humanWidened = await callHuman<DocumentView>(app, "edit_document", {
+			id: humanNote.id,
+			version: humanNote.version,
+			scopeKind: "team",
+			scopeId: "c2b",
+		});
+		expect(humanWidened.ok).toBe(true);
+		const humanWidenedDoc = requireDoc(humanWidened).document;
+		expect(humanWidenedDoc.scopeKind).toBe("team");
+		expect(humanWidenedDoc.scopeId).toBe("c2b");
+		expect(humanWidenedDoc.as).toBe("document");
+		// A real change — never a forced no-op: version actually advanced by
+		// exactly one, and the stored row agrees.
+		expect(humanWidenedDoc.version).toBe(humanNote.version + 1);
+		const humanRow = await readDocumentRow(db, humanNote.id);
+		expect(humanRow.scopeKind).toBe("team");
+		expect(humanRow.scopeId).toBe("c2b");
+
+		const agentWidened = await callAgent<DocumentView>(
+			actions,
+			db,
+			eventBus,
+			"edit_document",
+			{ id: agentNote.id, version: agentNote.version, scopeKind: "team", scopeId: "c2b" },
+			agentIdentity,
+		);
+		expect(agentWidened.ok).toBe(true);
+		const agentWidenedDoc = requireDoc(agentWidened).document;
+		expect(agentWidenedDoc.scopeKind).toBe("team");
+		expect(agentWidenedDoc.scopeId).toBe("c2b");
+		expect(agentWidenedDoc.as).toBe("document");
+		expect(agentWidenedDoc.version).toBe(agentNote.version + 1);
+		const agentRow = await readDocumentRow(db, agentNote.id);
+		expect(agentRow.scopeKind).toBe("team");
+		expect(agentRow.scopeId).toBe("c2b");
+	});
+
+	test('search_documents({as:"memory"}) excludes it; search_documents({as:"document"}) includes it; open_document derives as:"document"', async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c2bs");
+		await seedAgent(db, "c2bs-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c2bs-agent",
+			sessionId: "c2bs-sess",
+		});
+
+		const folder = requireDoc(
+			(await doors.edit({ title: "Folder", scopeKind: "factory" })).human,
+		).document;
+		const note = requireDoc(
+			(
+				await doors.edit({
+					title: "Private in the tree",
+					scopeKind: "user",
+					parent: { kind: "document", id: folder.id },
+				})
+			).human,
+		).document;
+
+		const memorySearch = await callHuman<DocumentRow[]>(app, "search_documents", { as: "memory" });
+		expect(memorySearch.ok).toBe(true);
+		expect((memorySearch.data ?? []).map((r) => r.id)).not.toContain(note.id);
+
+		const documentSearch = await callHuman<DocumentRow[]>(app, "search_documents", {
+			as: "document",
+			parent: { kind: "document", id: folder.id },
+		});
+		expect(documentSearch.ok).toBe(true);
+		expect((documentSearch.data ?? []).map((r) => r.id)).toContain(note.id);
+
+		const opened = await callHuman<DocumentView>(app, "open_document", { id: note.id });
+		expect(opened.ok).toBe(true);
+		expect(requireDoc(opened).document.as).toBe("document");
+	});
+
+	test('a genuine memory\'s scope stays refused with memory_scope_fixed even without repeating as:"memory" on the edit — the forcing never lands as a silent no-op', async ({
+		app,
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedTeam(db, "c2bm");
+		await seedAgent(db, "c2bm-agent");
+		const actions = buildRealActions(agentOrchestration);
+		const doors = buildDoors(app, actions, db, eventBus, {
+			agentId: "c2bm-agent",
+			sessionId: "c2bm-sess",
+		});
+
+		const memory = requireDoc(
+			(await doors.edit({ title: "My note", as: "memory" })).human,
+		).document;
+
+		const attempted = await callHuman<DocumentView>(app, "edit_document", {
+			id: memory.id,
+			version: memory.version,
+			scopeKind: "team",
+			scopeId: "c2bm",
+		});
+		expect(attempted.ok).toBe(false);
+		expect(attempted.problemCode).toBe("memory_scope_fixed");
+
+		const row = await readDocumentRow(db, memory.id);
+		expect(row.scopeKind).toBe("user");
+		expect(row.version).toBe(memory.version);
+		expect(await listChanges(db, { object: "document", objectId: memory.id })).toHaveLength(1);
+	});
+});
+
+// ---------------------------------------------------------------------------
 // Case 3 — an agent's owner sees its memory; a third person gets not_found.
 // ---------------------------------------------------------------------------
 
