@@ -19,7 +19,7 @@
   },
   {
     "path": "layers/core-api/src/routes/auth.ts",
-    "line": 56,
+    "line": 58,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
