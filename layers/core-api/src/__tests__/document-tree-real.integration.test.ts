@@ -12,14 +12,14 @@
  *      unselected ancestor still gets its index (title-only, no fabricated
  *      body), and the real binary reads a file nested two levels down.
  *   1b. A selected parent WITH a body AND selected children — the ordinary
- *      shape of a real knowledge tree — gets its real body in its own
+ *      shape of a real document tree — gets its real body in its own
  *      `index.md`, with no stray sibling leaf file next to its directory.
  *   2. Scope — the agent's slice is factory + its own team + its own; a
  *      branch scoped to another team is entirely absent from the sandbox,
  *      proven both by our own file walk and by asking the real agent.
  *   3. Round trip — a real agent creates a new nested folder+file; the real
  *      writeback processor turns the resulting file-system diff into a real
- *      knowledge item with the right parent, and the new folder becomes its
+ *      document with the right parent, and the new folder becomes its
  *      own item inheriting the (root) parent's scope.
  *   4. Move — a real agent moves an EXISTING materialised file (one that
  *      therefore already carries the `_<id8>` filename suffix, architecture.md
@@ -267,7 +267,7 @@ interface DiskChange {
 	fullPath: string;
 }
 
-function diffKnowledgeFiles(root: string, before: Set<string>, after: Set<string>): DiskChange[] {
+function diffDocumentFiles(root: string, before: Set<string>, after: Set<string>): DiskChange[] {
 	const changes: DiskChange[] = [];
 	for (const p of after) {
 		if (!before.has(p) && p.startsWith("knowledge/")) {
@@ -340,7 +340,7 @@ function manifestPathFor(sandboxPath: string): string {
 const HARNESSES = ["claude", "codex", "opencode", "cursor-agent"] as const;
 
 for (const harness of HARNESSES) {
-	describe(`${harness} — nested knowledge tree, real binary`, () => {
+	describe(`${harness} — nested document tree, real binary`, () => {
 		requireHarness(harness);
 
 		// -------------------------------------------------------------------
@@ -411,7 +411,7 @@ for (const harness of HARNESSES) {
 				});
 
 				// @lore nested-knowledge-real: a selected parent WITH a body AND
-				// selected children — the ordinary shape of a real knowledge tree.
+				// selected children — the ordinary shape of a real document tree.
 				// Both "Roadmap" and its child are independently selected (own team
 				// scope, fetched directly by fetchOrdinaryItemsByScope), so Roadmap
 				// is ALSO reached as an ancestor through the child's parentChain.
@@ -536,7 +536,7 @@ for (const harness of HARNESSES) {
 		// 3: round trip — a real agent creates a nested folder + file.
 		// -------------------------------------------------------------------
 		dbTest(
-			"a real agent creating a nested folder with a file in it produces a real knowledge item with the right parent, and the new folder becomes its own scope-inheriting item",
+			"a real agent creating a nested folder with a file in it produces a real document with the right parent, and the new folder becomes its own scope-inheriting item",
 			{ retry: 0 },
 			async ({ db }) => {
 				const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), `nkt-${harness}-create-`));
@@ -567,7 +567,7 @@ for (const harness of HARNESSES) {
 				await runHarness(harness, prompt, sandboxPath, TIMEOUT_MS[harness]);
 
 				const after = listFilesUnder(sandboxPath);
-				const changes = diffKnowledgeFiles(sandboxPath, before, after);
+				const changes = diffDocumentFiles(sandboxPath, before, after);
 				const created = changes.filter((c) => c.type === "create");
 				expect(created.length).toBeGreaterThan(0);
 
@@ -664,7 +664,7 @@ for (const harness of HARNESSES) {
 				await runHarness(harness, prompt, sandboxPath, TIMEOUT_MS[harness]);
 
 				const after = listFilesUnder(sandboxPath);
-				const changes = diffKnowledgeFiles(sandboxPath, before, after);
+				const changes = diffDocumentFiles(sandboxPath, before, after);
 				expect(changes.some((c) => c.type === "delete")).toBe(true);
 				expect(changes.some((c) => c.type === "create")).toBe(true);
 

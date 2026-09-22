@@ -35,11 +35,11 @@ const TEST_API_KEY = "test-key-O2-migration";
 
 describe("O2 — Schema Migration & Route Rewrite", () => {
 	// ---------------------------------------------------------------------------
-	// 2. Kernel table stripping — knowledgeItems
+	// 2. Kernel table stripping — documents
 	// ---------------------------------------------------------------------------
 
-	describe("2. knowledgeItems kernel table columns stripped", () => {
-		test("knowledgeItems no longer has 'layer' column", async ({ db }) => {
+	describe("2. documents kernel table columns stripped", () => {
+		test("documents no longer has 'layer' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
@@ -49,7 +49,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems no longer has 'scopeId' / 'scope_id' column from the old strategy layer", async ({
+		test("documents no longer has 'scopeId' / 'scope_id' column from the old strategy layer", async ({
 			db,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -70,7 +70,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems no longer has 'kind' column", async ({ db }) => {
+		test("documents no longer has 'kind' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
@@ -80,9 +80,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems no longer has 'attentionScore' / 'attention_score' column", async ({
-			db,
-		}) => {
+		test("documents no longer has 'attentionScore' / 'attention_score' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
@@ -92,9 +90,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems no longer has 'relevanceScore' / 'relevance_score' column", async ({
-			db,
-		}) => {
+		test("documents no longer has 'relevanceScore' / 'relevance_score' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
@@ -104,9 +100,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems no longer has 'citationCount' / 'citation_count' column", async ({
-			db,
-		}) => {
+		test("documents no longer has 'citationCount' / 'citation_count' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
@@ -116,7 +110,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("knowledgeItems no longer has 'lastCitedAt' / 'last_cited_at' column", async ({ db }) => {
+		test("documents no longer has 'lastCitedAt' / 'last_cited_at' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,
@@ -132,12 +126,12 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		// live columns), so the O2-era absence claim is now the opposite of
 		// reality by design.
 
-		// @lore nested-knowledge-items: migration 0078 drops `topic` — a knowledge
-		// item's place in the tree says what it is about now, not a free-text
+		// @lore nested-knowledge-items: migration 0078 drops `topic` — a document's
+		// place in the tree says what it is about now, not a free-text
 		// field. Was "knowledgeItems still has 'topic' column"; inverted rather
 		// than deleted, since the column's absence is exactly as worth locking
 		// down as its O2-era presence was.
-		test("knowledgeItems no longer has a 'topic' column", async ({ db }) => {
+		test("documents no longer has a 'topic' column", async ({ db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"documents"}`,

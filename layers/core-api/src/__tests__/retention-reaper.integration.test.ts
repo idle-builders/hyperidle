@@ -1,6 +1,6 @@
 /**
  * AU20 C1 — retention package dissolved. Each TTL sweep is now exercised
- * through its owning service directly (users / notifications / knowledge).
+ * through its owning service directly (users / notifications / document).
  *
  * Exact-behavior lock against the former `reapRetentionOnce` integration
  * test (AU19 Increment 2g): same predicates, same cutoffs, same per-table

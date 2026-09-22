@@ -119,7 +119,7 @@ export async function seedTeam(
 	return { id, teamMembersId: id };
 }
 
-export interface SeedKnowledgeItemOptions {
+export interface SeedDocumentOptions {
 	readonly id?: string;
 	readonly scopeKind?: string;
 	readonly scopeId?: string | null;
@@ -141,9 +141,9 @@ export interface SeedKnowledgeItemOptions {
  * on `documents` itself (migration 0086 folded the projection in); everything else the owner would
  * compute from a full write (change log, event emission) is out of scope for a fixture.
  */
-export async function seedKnowledgeItem(
+export async function seedDocument(
 	db: HyperIdleDb,
-	options: SeedKnowledgeItemOptions = {},
+	options: SeedDocumentOptions = {},
 ): Promise<{ id: string }> {
 	const id = options.id ?? "ki-1";
 	const createdAt = options.createdAt ?? NOW;

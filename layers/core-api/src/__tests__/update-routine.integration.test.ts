@@ -189,7 +189,7 @@ describe("update_routine tool", () => {
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		expect(row!.name).toBe("Updated Name");
 		expect(row!.state).toBe("paused");
-		// The prompt lives in a knowledge document parented to the routine now;
+		// The prompt lives in a document parented to the routine now;
 		// the tool writes through to it.
 		const [promptDoc] = await db
 			.select()

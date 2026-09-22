@@ -6,7 +6,7 @@
  *      the run, not inferred from a row."
  *
  * Proof method (each binary harness):
- *   1. Insert a skill knowledge item into the real PGlite DB (slot='skill',
+ *   1. Insert a skill document into the real PGlite DB (slot='skill',
  *      scopeKind='factory', status='active').
  *   2. Call the production assembleSessionDocuments path to fetch the item.
  *   3. Build a BakedContextBundle and call buildTestRunOrchestrationComposition()

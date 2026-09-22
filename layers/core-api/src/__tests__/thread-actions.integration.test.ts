@@ -179,7 +179,7 @@ async function seedTaskWithThread(
 	return threadId;
 }
 
-async function seedKnowledgeItem(
+async function seedDocument(
 	db: HyperIdleDb,
 	id: string,
 	opts?: { parentKind?: string; parentId?: string },
@@ -488,7 +488,7 @@ describe("send_message — membership, read/write/join", () => {
 	test("a non-member CAN open a team-hosted and a document-hosted thread", async ({ db, app }) => {
 		await seedTeam(db, "sm-team-7");
 		await seedHuman(db, "sm-visitor-7", "sm-team-7");
-		await seedKnowledgeItem(db, "sm-ki-7");
+		await seedDocument(db, "sm-ki-7");
 		await seedThreadRow(db, "sm-team-thread-7", {
 			hostKind: "team",
 			hostId: "sm-team-7",
@@ -1777,7 +1777,7 @@ describe("send_message — produced-item ownership", () => {
 		const threadId = await seedTaskWithThread(db, "pi1-task", "pi-1", {
 			ownerAgentId: "pi-agent-1",
 		});
-		await seedKnowledgeItem(db, "pi-item-1", { parentKind: "task", parentId: "some-other-task" });
+		await seedDocument(db, "pi-item-1", { parentKind: "task", parentId: "some-other-task" });
 		await db
 			.update(threads)
 			.set({ participants: JSON.stringify(["pi-agent-1"]) })
@@ -1805,7 +1805,7 @@ describe("send_message — produced-item ownership", () => {
 	}) => {
 		await seedTeam(db, "pi-2");
 		const threadId = await seedTaskWithThread(db, "pi2-task", "pi-2");
-		await seedKnowledgeItem(db, "pi-item-2", { parentKind: "task", parentId: "unrelated" });
+		await seedDocument(db, "pi-item-2", { parentKind: "task", parentId: "unrelated" });
 		await db
 			.update(threads)
 			.set({ participants: JSON.stringify([FOUNDER_ID]) })
@@ -1880,7 +1880,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 	test("a visitor posts into a document thread they did not create", async ({ db, app }) => {
 		await seedTeam(db, "hp-3");
 		await seedHuman(db, "hp-visitor-3", "hp-3");
-		await seedKnowledgeItem(db, "hp-ki-3");
+		await seedDocument(db, "hp-ki-3");
 		await seedThreadRow(db, "hp-ki-thread-3", {
 			hostKind: "document",
 			hostId: "hp-ki-3",
@@ -1903,7 +1903,7 @@ describe("send_message — the four dead-end paths it keeps alive", () => {
 		app,
 	}) => {
 		await seedTeam(db, "hp-4");
-		await seedKnowledgeItem(db, "hp-ki-4");
+		await seedDocument(db, "hp-ki-4");
 		const firstRes = await call<{ thread: { id: string } }>(
 			app,
 			"send_message",
@@ -2275,7 +2275,7 @@ describe("open_thread", () => {
 		app,
 	}) => {
 		await seedTeam(db, "ot-1");
-		await seedKnowledgeItem(db, "ot-ki-1");
+		await seedDocument(db, "ot-ki-1");
 		await seedThreadRow(db, "ot-thread-1", {
 			hostKind: "document",
 			hostId: "ot-ki-1",

@@ -6,7 +6,7 @@
  * twice, because the persona has. AU27 proved it at the bake boundary (a
  * `users` column core baked at emit); AU26 moved it to `agent_run_config`,
  * which orchestration owns, so it was read live at drain instead. BA9f made it
- * an `agent_file` knowledge document bound to the agent — which is what an
+ * an `agent_file` document bound to the agent — which is what an
  * agent file has always meant — so it is core-owned state again and rides the
  * bake, exactly like the context bundle beside it (AU21 §H3: the provisioner
  * consumes a baked bundle and reads zero core-api state).

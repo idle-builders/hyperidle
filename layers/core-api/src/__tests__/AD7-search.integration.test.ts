@@ -1,7 +1,7 @@
 /**
  * AD7 RED — Search backend integration tests.
  *
- * AC-1: Cmd+K search returns grouped results from conversations, bets, and knowledge items.
+ * AC-1: Cmd+K search returns grouped results from conversations, bets, and documents.
  * AC-2: Results are clickable and navigate to the correct detail page (correct IDs returned).
  * AC-3: Search within 300ms for interactive use.
  * AC-4: Empty queries return no results (not all items).
@@ -14,8 +14,8 @@
  * TC-4:  Returns matching conversations (thread + message match)
  * TC-5:  Excludes conversations where user is not a participant (AUTH BOUNDARY)
  * TC-6:  Returns matching work items (bets with team name)
- * TC-7:  Returns matching knowledge items
- * TC-8:  Excludes user-scoped knowledge from other users (AUTH BOUNDARY)
+ * TC-7:  Returns matching documents
+ * TC-8:  Excludes user-scoped documents from other users (AUTH BOUNDARY)
  * TC-9:  Returns results across all three categories
  * TC-10: Limits results to 5 per category
  * TC-11: Escapes LIKE wildcards in query (security)
@@ -134,8 +134,8 @@ async function seedRootTask(
 	});
 }
 
-/** Seed a knowledge item with optional fabric row */
-async function seedKnowledgeItem(
+/** Seed a document with optional fabric row */
+async function seedDocument(
 	db: HyperIdleDb,
 	opts: {
 		id: string;
@@ -365,9 +365,9 @@ describe("GET /api/search — AD7 search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-7: Matching knowledge items ──────────────
+	// ─── TC-7: Matching documents ──────────────
 
-	test("TC-7: returns matching knowledge items with id, title, status, timestamp", async ({
+	test("TC-7: returns matching documents with id, title, status, timestamp", async ({
 		app,
 		db,
 	}) => {
@@ -375,7 +375,7 @@ describe("GET /api/search — AD7 search backend", () => {
 
 		const userId = "api-key-user";
 		await seedUser(db, userId);
-		await seedKnowledgeItem(db, {
+		await seedDocument(db, {
 			id: "ki-search-1",
 			title: "Onboarding checklist for new engineers",
 			body: "Step 1: Read the docs",
@@ -406,12 +406,9 @@ describe("GET /api/search — AD7 search backend", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// ─── TC-8: Auth boundary — excludes user-scoped knowledge from other users
+	// ─── TC-8: Auth boundary — excludes user-scoped documents from other users
 
-	test("TC-8: excludes user-scoped knowledge items belonging to another user", async ({
-		app,
-		db,
-	}) => {
+	test("TC-8: excludes user-scoped documents belonging to another user", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const userId = "api-key-user";
@@ -419,8 +416,8 @@ describe("GET /api/search — AD7 search backend", () => {
 		await seedUser(db, userId);
 		await seedUser(db, otherUserId);
 
-		// Private knowledge item owned by another user
-		await seedKnowledgeItem(db, {
+		// Private document owned by another user
+		await seedDocument(db, {
 			id: "ki-private-1",
 			title: "Private note about secret strategy",
 			body: "Do not share",
@@ -463,8 +460,8 @@ describe("GET /api/search — AD7 search backend", () => {
 		await seedTeam(db, "team-b", "Beta Team");
 		await seedRootTask(db, "task-release-1", "team-b", "Release the v2 feature");
 
-		// Knowledge matching "release"
-		await seedKnowledgeItem(db, {
+		// Documents matching "release"
+		await seedDocument(db, {
 			id: "ki-release-1",
 			title: "Release process guide",
 			body: "How to do releases",
